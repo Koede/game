@@ -2799,3 +2799,38 @@ body {
   max-height: 4.2em;
   overflow: hidden;
 }
+.hw-creative__make > :not(.hw-creative__scroll) {
+  flex: 0 0 auto;
+}
+/* Phone portrait: the item list first with a fixed-height list, the pack and options below; the screen scrolls. */
+@media (max-width: 719.98px) and (min-height: 520px) {
+  .hw-creative {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    gap: 12px;
+  }
+  .hw-creative .hw-craft__make {
+    order: -1;
+    flex: 0 0 auto;
+  }
+  .hw-creative .hw-craft__bag {
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+  .hw-creative__scroll {
+    flex: 0 0 auto;
+    height: min(46vh, 400px);
+  }
+}
+/* Phone landscape: the right column scrolls as a whole so search and tabs always show. */
+@media (max-height: 519.98px) {
+  .hw-creative .hw-craft__make {
+    overflow-y: auto;
+  }
+  .hw-creative__scroll {
+    flex: 0 0 auto;
+    height: clamp(110px, 40vh, 190px);
+  }
+}

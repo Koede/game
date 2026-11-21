@@ -30,9 +30,9 @@ export function createCreativeScreen(ctx: ScreenContext): GameScreen | null {
   const disposers: (() => void)[] = [];
 
   // ---- options row ----
-  const fullStacks = new Toggle({ label: 'Full stacks', value: false });
-  const freePlace = new Toggle({ label: 'Free placing', value: player.devFreePlace, onChange: (v) => (player.devFreePlace = v) });
-  const flight = new Toggle({ label: 'Flight', value: player.flying, onChange: (v) => (player.flying = v) });
+  const fullStacks = new Toggle({ label: 'Full stacks', value: false, onText: 'Full stacks: on', offText: 'Full stacks: off' });
+  const freePlace = new Toggle({ label: 'Free placing', value: player.devFreePlace, onText: 'Free placing: on', offText: 'Free placing: off', onChange: (v) => (player.devFreePlace = v) });
+  const flight = new Toggle({ label: 'Flight', value: player.flying, onText: 'Flight: on', offText: 'Flight: off', onChange: (v) => (player.flying = v) });
   const trash = new Button({ label: 'Trash', kind: 'quiet', size: 'sm', icon: 'close', onClick: () => trashPicked() });
   const clearAll = new Button({ label: 'Clear pack', kind: 'danger', size: 'sm', holdMs: 900, hint: 'Hold', onClick: () => clearPack() });
   const options = h('div', { class: 'hw-creative__options' }, fullStacks.el, freePlace.el, flight.el, trash.el, clearAll.el);

@@ -15,7 +15,7 @@ the animation-frame loop.
 
 - No WebGL2 (`hasWebGL2()` at boot, or the Renderer throwing later): a full-screen notice
   (`.hw-notice`, "This device cannot draw the world"), nothing else is shown.
-- Title (`TitleScreen` from the kit): New World (optional seed field; hold-to-confirm when a save exists),
+- Title (`TitleScreen` from the kit): New World (optional seed field, a Survival | Dev mode choice - see `docs/api/dev-mode.md` -; hold-to-confirm when a save exists),
   Continue (only with a save), Settings, How to Play.
 - Loading (`LoadingScreen`, `.hw-loading`): progress = meshed chunks / chunks within 2 of the player; play
   starts when `world.isReadyAround(player, 2)`. Two animation frames pass before the heavy synchronous work

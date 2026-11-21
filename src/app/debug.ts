@@ -15,6 +15,8 @@ export interface DebugSummary {
   phase: string;
   ready: boolean;
   hasSave: boolean;
+  /** 'dev' or 'survival' while a world runs, else null. */
+  gameMode: string | null;
   persistent: boolean;
   lastSave: App['lastSave'];
   frames: number;
@@ -115,6 +117,7 @@ export function createDebugHandle(app: App): DebugHandle {
         phase: app.phase,
         ready: g?.ready ?? false,
         hasSave: app.hasSave,
+        gameMode: s?.mode ?? null,
         persistent: app.slot.persistent,
         lastSave: app.lastSave,
         frames: g?.frames ?? 0,
