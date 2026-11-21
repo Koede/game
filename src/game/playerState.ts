@@ -12,6 +12,7 @@ import { clamp, type Vec3 } from '../core/math';
 import { blockOf, itemOrNull } from '../core/registry';
 import type { BlockDef, Slot } from '../core/types';
 import type { ColdCause } from './cold';
+import { Buffs, type BuffsSnapshot } from './buffs';
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
 import { wear } from './mining';
@@ -22,18 +23,16 @@ export interface BlockPos {
   z: number;
 }
 
-export interface PlayerBuffs {
-  /** Seconds of Well-Warmed left (0 = not active). */
-  wellWarmedS: number;
-  /** Seconds of Well-Fed left (0 = not active; spec 12.1). */
-  wellFedS: number;
-}
+/** The player's timed buffs (see ./buffs). */
+export type PlayerBuffs = Buffs;
 
 /** Lifetime counters by item / block key, recorded from the first moment of the game. */
 export interface PlayerStats {
   made: Record<string, number>;
   placed: Record<string, number>;
   broken: Record<string, number>;
+  /** Cups drunk by drink item key (missing in saves made before brewing). */
+  drunk?: Record<string, number>;
   deaths: number;
 }
 
@@ -54,8 +53,8 @@ export interface PlayerSnapshot {
   selectedSlot: number;
   home: BlockPos | null;
   spawn: Vec3;
-  /** `wellFedS` is missing in saves made before hunger existed. */
-  buffs: { wellWarmedS: number; wellFedS?: number };
+  /** `wellFedS` is missing in saves made before hunger existed, `drinks` in saves made before brewing. */
+  buffs: BuffsSnapshot;
   stats: PlayerStats;
   dead: boolean;
   deathCause: DamageCause | null;
@@ -100,6 +99,8 @@ export class PlayerState {
   sprinting = false;
   /** Seconds until the next bite is allowed (not saved; counted down by the hunger rules every tick). */
   eatCooldownS = 0;
+  /** Seconds until the next sip is allowed (not saved; counted down by Survival every tick). */
+  drinkCooldownS = 0;
   /** Slots 0..HOTBAR_SIZE-1 are the hotbar. */
   readonly inventory = new Inventory(INVENTORY_SIZE);
   selectedSlot = 0;
@@ -107,8 +108,8 @@ export class PlayerState {
   home: BlockPos | null = null;
   /** World spawn (feet position): where the player starts and respawns without a home. */
   readonly spawn: Vec3;
-  readonly buffs: PlayerBuffs = { wellWarmedS: 0, wellFedS: 0 };
-  readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, deaths: 0 };
+  readonly buffs: PlayerBuffs = new Buffs();
+  readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, drunk: {}, deaths: 0 };
   dead = false;
   deathCause: DamageCause | null = null;
   /**
@@ -308,10 +309,10 @@ export class PlayerState {
     this.health = homeIsHot ? MAX_HEALTH : MAX_HEALTH / 2;
     this.warmth = homeIsHot ? MAX_WARMTH : MAX_WARMTH / 2;
     this.air = MAX_AIR_S;
-    this.buffs.wellWarmedS = 0;
-    this.buffs.wellFedS = 0;
+    this.buffs.clear();
     this.food = Math.max(this.food, RESPAWN_MIN_FOOD);
     this.eatCooldownS = 0;
+    this.drinkCooldownS = 0;
     this.sprinting = false;
     this.sinceDamageS = SINCE_DAMAGE_CAP_S;
     this.extraRadiation = 0;
@@ -346,11 +347,12 @@ export class PlayerState {
       selectedSlot: this.selectedSlot,
       home: this.home ? { ...this.home } : null,
       spawn: { ...this.spawn },
-      buffs: { ...this.buffs },
+      buffs: this.buffs.toJSON(),
       stats: {
         made: { ...this.stats.made },
         placed: { ...this.stats.placed },
         broken: { ...this.stats.broken },
+        drunk: { ...this.stats.drunk },
         deaths: this.stats.deaths,
       },
       dead: this.dead,
@@ -376,16 +378,16 @@ export class PlayerState {
     this.air = clamp(s.air, 0, MAX_AIR_S);
     this.food = typeof s.food === 'number' && Number.isFinite(s.food) ? clamp(s.food, 0, MAX_FOOD) : MAX_FOOD;
     this.eatCooldownS = 0;
+    this.drinkCooldownS = 0;
     this.sprinting = false;
     this.inventory.load(s.inventory);
     this.selectedSlot = clamp(Math.floor(s.selectedSlot), 0, HOTBAR_SIZE - 1);
     this.home = s.home ? { ...s.home } : null;
-    this.buffs.wellWarmedS = Math.max(0, s.buffs.wellWarmedS);
-    const fed = s.buffs.wellFedS;
-    this.buffs.wellFedS = typeof fed === 'number' && Number.isFinite(fed) ? Math.max(0, fed) : 0;
+    this.buffs.load(s.buffs);
     this.stats.made = { ...s.stats.made };
     this.stats.placed = { ...s.stats.placed };
     this.stats.broken = { ...s.stats.broken };
+    this.stats.drunk = { ...s.stats.drunk };
     this.stats.deaths = s.stats.deaths;
     this.dead = s.dead;
     this.deathCause = s.deathCause;

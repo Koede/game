@@ -169,6 +169,14 @@ describe('Ambience', () => {
     expect(ctx.nodes.length).toBe(all);
   });
 
+  it('builds the boil layer only once water boils nearby', () => {
+    const { ctx, ambience } = rig();
+    ambience.update({ ...createAmbienceState(), boil: 0 }, 1);
+    expect(ctx.sources.length).toBe(0);
+    ambience.update({ ...createAmbienceState(), boil: 0.6 }, 2);
+    expect(ctx.sources.length).toBeGreaterThan(0);
+  });
+
   it('survives 10,000 updates without creating nodes or piling up automation', () => {
     const { ctx, ambience } = rig();
     const state = { ...everything };

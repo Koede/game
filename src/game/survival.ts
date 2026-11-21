@@ -34,6 +34,7 @@ import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from
 import { isWet } from '../core/weather';
 import type { GameClock } from './clock';
 import { ColdWatch, FIRST_DAY_WARMTH_FLOOR, type ColdCause } from './cold';
+import { coolCarried } from './drink';
 import { Hunger } from './hunger';
 import type { BlockPos, PlayerState } from './playerState';
 import { openSkyAbove } from './weather';
@@ -87,8 +88,11 @@ interface RadiationSource {
   strength: number;
 }
 
-/** Damage of landing after falling `distance` blocks: 1 per whole block beyond SAFE_FALL. */
-export const fallDamage = (distance: number): number => Math.max(0, Math.floor(distance - SAFE_FALL));
+/**
+ * Damage of landing after falling `distance` blocks: 1 per whole block beyond SAFE_FALL. `allowance` is extra safe
+ * height (the Spring drink's boosted jumps, see `springFallAllowance`).
+ */
+export const fallDamage = (distance: number, allowance = 0): number => Math.max(0, Math.floor(distance - SAFE_FALL - allowance));
 
 const passable = (world: IWorld, x: number, y: number, z: number): boolean => {
   const def = world.getBlock(x, y, z);
@@ -209,6 +213,7 @@ export class Survival {
     }
     player.addQuietTime(dt);
     this.hunger.tick(dt);
+    coolCarried(this.player, dt);
     player.combat.tick(dt);
     if (player.dead) return;
 
@@ -365,6 +370,7 @@ export class Survival {
       }
       drain *= this.coatMult;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
+      drain *= player.buffs.warmthDrainMult;
       rate = drain > 0 ? -drain : WARMTH_GAIN_DAY;
     }
     this.cause = cause;

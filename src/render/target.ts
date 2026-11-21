@@ -4,6 +4,7 @@
  * the block.
  */
 import * as THREE from 'three';
+import { CUP_BLOCK } from '../core/brewing';
 import { PIPE_CORE_MAX, PIPE_CORE_MIN } from '../core/constants';
 import { mulberry32 } from '../core/math';
 import { blockOf } from '../core/registry';
@@ -125,8 +126,19 @@ export function edgeGeometry(thickness: number): THREE.BufferGeometry {
   return merged;
 }
 
-/** The part of the cell a shape fills: [minX, minY, minZ, maxX, maxY, maxZ] in 0..1. */
-export function shapeBounds(shape: BlockShape): readonly [number, number, number, number, number, number] {
+/** No outline side of a small block is shorter than this (8/16): the outline is the tap target on a phone. */
+export const MIN_TARGET = 8 / 16;
+const CUP_BARE: Bounds = [4 / 16, 0, 4 / 16, 12 / 16, MIN_TARGET, 12 / 16];
+const CUP_CONE: Bounds = [4 / 16, 0, 4 / 16, 12 / 16, 10 / 16, 12 / 16];
+const BUCKET: Bounds = [3 / 16, 0, 3 / 16, 13 / 16, MIN_TARGET, 13 / 16];
+
+type Bounds = readonly [number, number, number, number, number, number];
+
+/**
+ * The part of the cell a shape fills: [minX, minY, minZ, maxX, maxY, maxZ] in 0..1. Brewing's cups and buckets are
+ * real small boxes padded to MIN_TARGET so they stay tappable; a bare cup (`key` clay_cup) is the only low one.
+ */
+export function shapeBounds(shape: BlockShape, key = ''): readonly [number, number, number, number, number, number] {
   switch (shape) {
     case 'slab':
       return [0, 0, 0, 1, 0.5, 1];
@@ -136,6 +148,10 @@ export function shapeBounds(shape: BlockShape): readonly [number, number, number
       return [0.12, 0, 0.12, 0.88, 0.85, 0.88];
     case 'pipe':
       return [PIPE_CORE_MIN, PIPE_CORE_MIN, PIPE_CORE_MIN, PIPE_CORE_MAX, PIPE_CORE_MAX, PIPE_CORE_MAX];
+    case 'cup':
+      return key === CUP_BLOCK.cup ? CUP_BARE : CUP_CONE;
+    case 'bucket':
+      return BUCKET;
     default:
       return [0, 0, 0, 1, 1, 1];
   }
@@ -185,7 +201,8 @@ export class TargetBox {
     this.group.visible = true;
     if (voxel !== this.voxel) {
       this.voxel = voxel;
-      const b = shapeBounds(blockOf(voxel).shape);
+      const def = blockOf(voxel);
+      const b = shapeBounds(def.shape, def.key);
       this.outline.position.set(b[0], b[1], b[2]);
       this.outline.scale.set(b[3] - b[0], b[4] - b[1], b[5] - b[2]);
       this.cracks.position.copy(this.outline.position);

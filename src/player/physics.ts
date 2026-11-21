@@ -8,7 +8,7 @@
 import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
 import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
-import { fallDamage, type PlayerState } from '../game';
+import { fallDamage, springFallAllowance, type PlayerState } from '../game';
 import { currentAt } from '../world/water';
 import { EPS, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
 
@@ -72,6 +72,8 @@ export class PlayerPhysics {
   private fallTop: number;
   /** Set by moveAxis: the last sweep was cut short. */
   private blocked = false;
+  /** Extra safe fall height earned in this fall from a boosted (Spring) jump; spent on landing. */
+  private fallAllowance = 0;
   /** The current where the body is this step (m/s; y -1 = under a waterfall). */
   readonly current = { x: 0, y: 0, z: 0 };
 
@@ -85,6 +87,7 @@ export class PlayerPhysics {
   /** Forget the fall in progress (after a teleport or respawn). */
   reset(): void {
     this.fallTop = this.player.position.y;
+    this.fallAllowance = 0;
     this.player.velocity.x = this.player.velocity.y = this.player.velocity.z = 0;
   }
 
@@ -131,7 +134,7 @@ export class PlayerPhysics {
     // A Hungry player cannot sprint (spec 12.1).
     r.sprinting = input.sprint && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
     p.sprinting = r.sprinting;
-    const speed = this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED;
+    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED) * p.buffs.speedMult;
     const response = this.inLiquid ? LIQUID_RESPONSE : p.onGround ? GROUND_RESPONSE : AIR_RESPONSE;
     const blend = 1 - Math.exp(-response * dt);
     // Flowing water at the feet or the waist carries the body along (what it would do with no input).
@@ -146,7 +149,7 @@ export class PlayerPhysics {
       if (c.y < 0) v.y -= FALLING_WATER_PUSH * dt;
     } else {
       if (input.jump && p.onGround) {
-        v.y = JUMP_VELOCITY;
+        v.y = JUMP_VELOCITY * p.buffs.jumpMult;
         r.jumped = true;
       }
       v.y = Math.max(v.y - GRAVITY * dt, -MAX_FALL_SPEED);
@@ -157,15 +160,21 @@ export class PlayerPhysics {
     this.sampleLiquids();
 
     // Fall tracking: the highest point since last standing; water breaks every fall.
-    if (this.inLiquid) this.fallTop = pos.y;
-    else if (!p.onGround) this.fallTop = Math.max(this.fallTop, pos.y);
-    else {
+    if (this.inLiquid) {
+      this.fallTop = pos.y;
+      this.fallAllowance = 0;
+    } else if (!p.onGround) {
+      this.fallTop = Math.max(this.fallTop, pos.y);
+      // The allowance is kept even if the drink runs out mid-air, so the jump it boosted stays safe.
+      this.fallAllowance = Math.max(this.fallAllowance, springFallAllowance(p.buffs.jumpMult));
+    } else {
       if (!wasOnGround) {
         r.landedFrom = Math.max(0, this.fallTop - pos.y);
-        const damage = fallDamage(r.landedFrom);
+        const damage = fallDamage(r.landedFrom, this.fallAllowance);
         if (damage > 0) p.damage(damage, 'fall');
       }
       this.fallTop = pos.y;
+      this.fallAllowance = 0;
     }
     return r;
   }

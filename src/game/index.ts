@@ -9,6 +9,8 @@ export * from './survival';
 export * from './combat';
 export * from './objectives';
 export * from './hunger';
+export * from './buffs';
+export * from './drink';
 export * from './farming';
 export * from './weather';
 export * from './weatherSchedule';

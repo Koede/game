@@ -7,6 +7,7 @@
  */
 import type { RecipeSpec } from '../core/types';
 import { amount, amounts } from './amounts';
+import { BREW_RECIPES } from './recipesBrew';
 import { MACHINE_SPECS } from './tech';
 
 const hand = (id: string, output: string, inputs: string): RecipeSpec => ({
@@ -219,4 +220,4 @@ const MACHINE: RecipeSpec[] = [
   ...machineRecipes('electrolyzer', 45, [['deuterium_cell', 'empty_cell', 3]]),
 ];
 
-export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE];
+export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES];

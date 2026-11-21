@@ -41,8 +41,9 @@ export type EatResult =
 /** The food an item is, or null. */
 export const foodOf = (itemKey: string): FoodSpec | null => itemOrNull(itemKey)?.food ?? null;
 
-/** Factor on every food cost: Well-Fed halves them. */
-export const drainFactor = (player: PlayerState): number => (player.wellFed ? WELL_FED_DRAIN_MULT : 1);
+/** Factor on every food cost: Well-Fed halves them, and so does the Lasting drink (they multiply). */
+export const drainFactor = (player: PlayerState): number =>
+  (player.wellFed ? WELL_FED_DRAIN_MULT : 1) * player.buffs.foodDrainMult;
 
 /** Food lost per second right now from time alone (sprinting and Well-Fed included). */
 export const foodDrainPerS = (player: PlayerState): number =>
@@ -139,8 +140,9 @@ export class Hunger {
     if (player.dead || !(dt > 0)) return;
     player.eatCooldownS = Math.max(0, player.eatCooldownS - dt);
     const drain = foodDrainPerS(player);
-    // The buff runs out after this tick's drain was priced, so its last tick still counts at half.
-    if (player.buffs.wellFedS > 0) player.buffs.wellFedS = Math.max(0, player.buffs.wellFedS - dt);
+    player.drinkCooldownS = Math.max(0, player.drinkCooldownS - dt);
+    // The buffs run out after this tick's drain was priced, so their last tick still counts.
+    player.buffs.tick(dt);
     this.rate = player.food > 0 ? -drain : 0;
     player.spendFood(drain * dt);
     if (player.food > 0) {
@@ -160,9 +162,9 @@ export class Hunger {
     return this.player.food >= REGEN_MIN_FOOD;
   }
 
-  /** Seconds per regenerated health point, given the base interval (Well-Fed heals twice as fast). */
+  /** Seconds per regenerated health point, given the base interval (Well-Fed and Mending each heal twice as fast). */
   regenInterval(baseS: number): number {
-    return this.player.wellFed ? baseS / WELL_FED_REGEN_MULT : baseS;
+    return (this.player.wellFed ? baseS / WELL_FED_REGEN_MULT : baseS) / this.player.buffs.regenMult;
   }
 
   /** Charges the food one regenerated health point costs. */

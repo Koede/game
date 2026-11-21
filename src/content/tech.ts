@@ -7,6 +7,7 @@ import type { AgeSpec, FurnaceTierSpec, HearthStructureSpec, MachineSpec } from 
 import { amounts } from './amounts';
 import { ITEM_SPECS } from './items';
 import { EMBER_MACHINES } from './emberbound';
+import { BREW_MACHINES } from './machinesBrew';
 import { TECH_MACHINES } from './techMachines';
 
 /** Hearth wall blocks by tier (spec 17.1). A tier accepts its own wall and every higher tier's. */
@@ -307,4 +308,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
 
   // ---- the Emberbound (spec 19) ----
   ...EMBER_MACHINES,
+
+  // ---- brewing ----
+  ...BREW_MACHINES,
 ];

@@ -88,7 +88,7 @@ export type Slot = ItemStack | null;
  * and the maul (spec 19.4): a weapon made for breaking metal. No block names 'hoe' or 'maul' as its tool, so both
  * count as bare hands for mining and never wear while mining; a maul's combat numbers are its ItemSpec.weapon.
  */
-export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul';
+export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul' | 'hammer';
 
 export interface ToolSpec {
   kind: ToolKind;
@@ -347,6 +347,8 @@ export interface BlockSpec {
   harvestLeaves?: string;
   /** Item or fluid transport (spec 16): set on every block of shape 'pipe' and on nothing else. */
   pipe?: PipeSpec;
+  /** Ember handwork: the block is worked by the player's strokes (its machine has role 'hand'). */
+  handStation?: HandStationSpec;
 }
 
 /**
@@ -404,6 +406,7 @@ export interface BlockDef {
   harvestLeaves: string | null;
   /** Transport numbers of a pipe block (spec 16), or null for anything that is not a pipe. */
   pipe: PipeSpec | null;
+  handStation: HandStationSpec | null;
   /** Key of the item that places this block, or null. */
   itemKey: string | null;
   /**
@@ -450,6 +453,15 @@ export interface RecipeSpec {
   minTier?: number;
   /** Machine recipes: electrical energy consumed per run, in joules. */
   energyJ?: number;
+  /**
+   * Hand stations (Ember handwork): strokes of progress the job needs (whole number). Timed hand stations (drying
+   * rack, tanning trough, alloy pot) leave it out and use `timeS` instead.
+   */
+  strokes?: number;
+  /** Hand stations: the output instead of `output` when the finishing stroke was struck with the station's tool. */
+  toolOutput?: ItemAmount;
+  /** Hand stations: an extra output rolled once per finished job. */
+  bonus?: ItemAmount & { chance: number };
   /** Technology age (index into AGES) the recipe belongs to. */
   age: number;
 }
@@ -964,3 +976,35 @@ export interface ChunkMeshData {
 export const LIGHT_FLAG_EMISSIVE = 1;
 export const LIGHT_FLAG_SWAY = 2;
 export const LIGHT_FLAG_LIQUID = 4;
+
+// ---------------------------------------------------------------------------------------------
+// Ember handwork: strokes and casting (docs/api/handwork-content.md)
+// ---------------------------------------------------------------------------------------------
+
+/** A block worked stroke by stroke: holding Use repeats `strokesPerS` times a second; `tool` in hand doubles strokes. */
+export interface HandStationSpec {
+  strokesPerS: number;
+  tool?: ToolKind;
+  /** The `SfxName` played on a stroke (one per station kind). */
+  strokeSound?: string;
+  /** Strokes count double for 20 s after taking molten metal from a crucible (the Stone Anvil). */
+  hot?: boolean;
+  /** Timed station: runs only under open sky by day, and rain resets it (the Drying Rack). */
+  sky?: boolean;
+}
+
+/** A metal that can be poured: its ingot item and the bloom a take without a mould (or after the window) cools it into. */
+export interface CastMetalSpec {
+  key: string;
+  ingot: string;
+  bloom: string;
+}
+
+/** A fired mould: `unfired` is the clay piece it is fired from; one pour uses `units` ingots of a metal in `casts`. */
+export interface MouldSpec {
+  item: string;
+  unfired: string;
+  units: number;
+  /** Metal key (CastMetalSpec.key) -> the item one pour makes. */
+  casts: Record<string, string>;
+}

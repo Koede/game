@@ -112,7 +112,20 @@ export type SfxName =
   /** One drop falling from the cone into the cup. */
   | 'drip'
   /** Drinking a cup: a quiet sip and swallow. */
-  | 'sip';
+  | 'sip'
+  // ---- Ember handwork (docs/api/handwork-content.md): one stroke sound per station kind, and the metal pour ----
+  /** An axe bites wood: the Chopping Block stroke. */
+  | 'chop'
+  /** Stone on stone: the Hand Quern and (lower) the Mortar. */
+  | 'grind'
+  /** A hammer on the Stone Anvil: a bright metallic tap. */
+  | 'hammer'
+  /** A wooden shuttle thrown through the Loom. */
+  | 'loom'
+  /** Wet clay worked by the palm: the Clay Table. */
+  | 'scrape'
+  /** Molten metal poured into a mould: a gurgle and a hiss (not the water 'pour' of brewing). */
+  | 'cast_pour';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | DrinkBuff;
@@ -276,4 +289,14 @@ export interface GameEvents {
   'water:boiling': { x: number; y: number; z: number };
   /** The player drank one `item` (a drink item key). */
   'player:drank': { item: string };
+
+  // ---- Ember handwork (docs/api/handwork-content.md, docs/api/handwork.md) ----
+  /** One counted stroke at a hand station (x,y,z = the block); `double`: the tool or the hot window doubled it. */
+  'hand:stroke': { x: number; y: number; z: number; station: string; progress: number; needed: number; double: boolean };
+  /** A hand station finished a job: `output` x `count` now waits in it (timed stations too). */
+  'hand:done': { x: number; y: number; z: number; station: string; output: string; count: number };
+  /** The player took a finished output from a hand station. */
+  'hand:taken': { x: number; y: number; z: number; station: string; item: string; count: number };
+  /** Molten metal was poured into a mould (`at`: where it came from; x,y,z = that furnace, alloy pot or bench). */
+  'cast:poured': { x: number; y: number; z: number; mould: string; metal: string; item: string; count: number; at: 'furnace' | 'alloy_pot' | 'bench' };
 }

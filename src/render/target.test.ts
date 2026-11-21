@@ -42,4 +42,13 @@ describe('outline bounds', () => {
     expect(t[3] - t[0]).toBeLessThan(0.3);
     expect(t[4]).toBeLessThan(0.75);
   });
+
+  it('pads brewing blocks to at least 8/16 on every side so a phone tap lands', () => {
+    for (const b of [shapeBounds('cup', 'clay_cup'), shapeBounds('cup', 'cup_cone'), shapeBounds('bucket', 'furnace_bucket')]) {
+      for (let a = 0; a < 3; a++) expect(b[a + 3] - b[a]).toBeGreaterThanOrEqual(0.5);
+      for (let a = 0; a < 6; a++) expect(b[a]).toBeGreaterThanOrEqual(0);
+      for (let a = 0; a < 6; a++) expect(b[a]).toBeLessThanOrEqual(1);
+    }
+    expect(shapeBounds('cup', 'cup_cone')[4]).toBeGreaterThan(shapeBounds('cup', 'clay_cup')[4]);
+  });
 });

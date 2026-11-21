@@ -8,6 +8,7 @@ import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
 import type { IWorld } from '../core/types';
 import { exertJump, type PlayerState } from '../game';
+import type { BrewHands } from './brewTools';
 import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
@@ -39,6 +40,8 @@ export interface PlayerControllerOptions {
   animals?: AnimalTargets;
   /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
   transport?: TransportHands;
+  /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
+  brew?: BrewHands;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -102,7 +105,7 @@ export class PlayerController {
     this.settings = options.settings;
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
-    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null);
+    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {

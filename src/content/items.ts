@@ -9,6 +9,7 @@ import { WELL_FED_DURATION_S } from '../core/constants';
 import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
 import { EMBER_ITEMS } from './emberbound';
+import { BREW_ITEMS } from './itemsBrew';
 
 const fuel = (energyKJ: number, burnS: number, flameTempC: number): FuelSpec => ({ energyJ: energyKJ * 1000, burnS, flameTempC });
 
@@ -153,8 +154,8 @@ const GEAR: ItemSpec[] = [
     category: 'misc', age: 0, stack: 1,
   },
   {
-    key: 'water_pail', name: 'Water Bucket', desc: 'Pour it out as a new source: the water runs downhill and spreads seven blocks. Dough and stew each take one and give the bucket back.',
-    category: 'misc', age: 0, stack: 1,
+    key: 'water_pail', name: 'Water Bucket', desc: 'Pour it out as a new source: the water runs downhill and spreads seven blocks. Dough and stew each take one and give the bucket back. Set on a hot furnace top, it boils.',
+    category: 'misc', age: 0, stack: 1, container: { holds: 'water', boilsTo: 'boiling_pail', emptyTo: 'pail' },
   },
   {
     key: 'bronze_bucket', name: 'Bronze Bucket', desc: 'A bucket that will not burn. Use it on lava to scoop it up; lava pools are not endless.',
@@ -227,4 +228,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS];

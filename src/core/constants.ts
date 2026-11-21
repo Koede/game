@@ -343,3 +343,20 @@ export const TEA_REGROW_S = 360;
 export const FLAG_BOILED_WATER = 'boiled_water';
 export const FLAG_BREWED = 'brewed';
 export const FLAG_SIX_CUPS = 'six_cups';
+
+// ---- Ember handwork (docs/api/handwork-content.md) ----
+/** Seconds a crucible (or alloy pot) output stays molten after a cast-metal smelt completes: pour it into a mould in time. */
+export const MOLTEN_WINDOW_S = 20;
+/** Pours a fired mould lasts. */
+export const MOULD_POURS = 40;
+/** Food a single stroke at a hand station costs. */
+export const HAND_STROKE_FOOD = 0.01;
+/** Seconds the Stone Anvil counts an item taken molten from a crucible as hot (a hot stroke counts double). */
+export const HOT_WORK_WINDOW_S = MOLTEN_WINDOW_S;
+/** Progress per stroke with the station's tool in hand, and for a hot item (the two do not stack). */
+export const STROKE_TOOL_MULT = 2;
+export const STROKE_HOT_MULT = 2;
+/** A Casting Bench pours for a furnace within this many blocks. */
+export const CASTING_BENCH_RANGE = 4;
+/** The flag the first pour emits (objective `first_pour`). */
+export const FLAG_FIRST_POUR = 'first_pour';

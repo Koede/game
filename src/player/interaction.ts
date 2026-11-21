@@ -30,6 +30,7 @@ import {
 } from '../game';
 import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import { Buckets } from './buckets';
+import { BrewTools, type BrewHands } from './brewTools';
 import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
 
@@ -58,7 +59,7 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'picked' | 'wrenched' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'picked' | 'wrenched' | 'brewed' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -77,6 +78,7 @@ export class Interaction {
   private readonly advice = new Map<string, number>();
   private readonly buckets: Buckets;
   private readonly pipes: PipeTools;
+  private readonly brewing: BrewTools;
 
   constructor(
     private readonly world: IWorld,
@@ -86,6 +88,7 @@ export class Interaction {
     private readonly swing: SwingTarget,
     private readonly rng: () => number = Math.random,
     transport: TransportHands | null = null,
+    brew: BrewHands | null = null,
   ) {
     const self = this;
     this.buckets = new Buckets({
@@ -106,6 +109,17 @@ export class Interaction {
       swing: () => swing.triggerSwing(),
       stopMining: () => this.stopMining(),
     }, transport);
+    this.brewing = new BrewTools({
+      player,
+      get placeCooldown() {
+        return self.placeCooldown;
+      },
+      placed: () => (this.placeCooldown = PLACE_COOLDOWN_S),
+      advise: (key, text) => this.advise(key, text),
+      edited: () => this.edits++,
+      swing: () => swing.triggerSwing(),
+      stopMining: () => this.stopMining(),
+    }, brew);
   }
 
   get mining(): boolean {
@@ -162,6 +176,8 @@ export class Interaction {
    * `forcePlace` asks for it (Shift, the touch Place toggle) or when it is a building block aimed at a screen block
    * anywhere but its front (an engine on a furnace, a tank on a tank, bricks around a hearth). Then pipes and fluid
    * blocks (pipeTools.ts): the wrench, a bucket on a tank or fluid endpoint, the pipe screen. Then screens.
+   * Brewing comes before all of that (brewTools.ts): a cup or a heated bucket takes the held item as the next step,
+   * and a water container aimed at a furnace top is set there; a held drink is drunk after the screens.
    */
   use(hit: RayHit | null, forcePlace = false): UseOutcome {
     if (this.player.dead) return 'none';
@@ -178,6 +194,8 @@ export class Interaction {
       }
     }
     if (hit) {
+      const brewed = this.brewing.use(hit) ?? this.brewing.placeContainer(hit);
+      if (brewed !== null) return brewed;
       const piped = this.pipes.use(hit, this.player.heldStack()?.item ?? null);
       if (piped !== null) return piped;
     }
@@ -192,6 +210,7 @@ export class Interaction {
     if (hit && hit.block.harvestLeaves !== null && hit.block.liquid === null) return this.pick(hit);
     const held = this.player.heldStack();
     if (!held) return 'none';
+    if (itemOrNull(held.item)?.drink) return this.drinkHeld();
     // Food is eaten wherever the crosshair is (the sky included), unless this Use would plant it.
     const food = itemOrNull(held.item)?.food;
     if (food && !(hit && plantCell(this.world, held.item, hit))) return this.eatHeld();
@@ -306,6 +325,16 @@ export class Interaction {
       return 'ate';
     }
     if (result.message) this.advise(`eat:${result.reason}`, result.message);
+    return 'refused';
+  }
+
+  private drinkHeld(): UseOutcome {
+    const result = drink(this.player);
+    if (result.ok) {
+      this.swing.triggerSwing();
+      return 'drank';
+    }
+    if (result.message) this.advise(`drink:${result.reason}`, result.message);
     return 'refused';
   }
 
