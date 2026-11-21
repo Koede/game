@@ -64,7 +64,13 @@ export function weatherIcon(g: WeatherGlyph, size: number): SVGSVGElement {
 /** A small moon in its phase: a dark disc with the lit part on top. */
 export function moonArt(phase: number, size: number): SVGSVGElement {
   const el = svg('svg', { viewBox: '0 0 12 12', width: size, height: size, 'aria-hidden': 'true', class: 'hw-dial__moon-icon' });
-  el.append(svg('circle', { cx: 6, cy: 6, r: 5, class: 'hw-dial__moon-dark' }), svg('path', { d: moonPath(phase, 6, 6, 5), class: 'hw-dial__moon-lit' }));
+  el.append(
+    svg('circle', { cx: 6, cy: 6, r: 5, class: 'hw-dial__moon-dark' }),
+    svg('path', { d: moonPath(phase, 6, 6, 5), class: 'hw-dial__moon-lit' }),
+    // Two craters: they show on the lit part and vanish into the dark side, so even a full moon reads as a moon.
+    svg('circle', { cx: 4.4, cy: 4.6, r: 1.2, class: 'hw-dial__crater' }),
+    svg('circle', { cx: 7.4, cy: 7.6, r: 0.9, class: 'hw-dial__crater' }),
+  );
   return el;
 }
 

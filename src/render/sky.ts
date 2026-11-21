@@ -113,7 +113,8 @@ void main() {
   float illum = (1.0 - cos(6.2831853 * uMoonPhase / 8.0)) * 0.5;
   if (moon < 0.05 && clear > 0.0) {
     // A pixel disc, 12 cells across, in the moon's own square frame.
-    vec3 side = normalize(cross(moonDir, vec3(0.0, 0.0, 1.0)));
+    // Framed against the horizon, so the terminator stands upright and a waxing moon is lit on the right.
+    vec3 side = normalize(cross(moonDir, abs(moonDir.y) > 0.98 ? vec3(0.0, 0.0, -1.0) : vec3(0.0, 1.0, 0.0)));
     vec3 up = cross(side, moonDir);
     float facing = dot(dir, moonDir);
     vec2 q = vec2(dot(dir, side), dot(dir, up)) / facing / 0.05;
@@ -130,9 +131,16 @@ void main() {
   col += vec3(0.5, 0.55, 0.7) * 0.07 * illum * exp(-moon * 12.0) * (1.0 - uDay) * clear;
 
   if (uStars > 0.0 && h > -0.02) {
-    vec3 cell = floor(rotateAbout(dir, uStarAxis, -uStarAngle) * 150.0);
+    // Each star is a round dot in its cell of the turning sky, so it keeps its shape whatever the rotation.
+    vec3 r = rotateAbout(dir, uStarAxis, -uStarAngle) * 150.0;
+    vec3 cell = floor(r);
     float s = hash3(cell);
-    if (s > 0.9935) {
+    vec3 centre = cell + 0.5 + (vec3(hash3(cell + 7.0), hash3(cell + 13.0), hash3(cell + 29.0)) - 0.5) * 0.4;
+    vec3 off = r - centre;
+    // Only the offset across the line of sight counts (the radial part is the dome's depth).
+    vec3 radial = r / 150.0;
+    float across = length(off - radial * dot(off, radial));
+    if (s > 0.9935 && across < 0.22 + 0.12 * (s - 0.9935) / 0.0065) {
       float twinkle = 0.65 + 0.35 * sin(uTime * (1.5 + s * 40.0) + s * 300.0);
       float bright = (s - 0.9935) / 0.0065;
       col += vec3(0.75, 0.8, 1.0) * uStars * twinkle * (0.35 + 0.65 * bright) * smoothstep(-0.02, 0.18, h);
@@ -140,9 +148,12 @@ void main() {
   }
   if (uFlash > 0.0) {
     float toward = max(dot(dir, uFlashDir), 0.0);
-    col += vec3(0.75, 0.8, 1.0) * uFlash * (0.15 + 0.85 * toward * toward * toward) * (0.6 + 0.4 * (1.0 - up));
+    col += vec3(0.7, 0.74, 0.95) * uFlash * (0.1 + 0.45 * toward * toward * toward) * (0.6 + 0.4 * (1.0 - up));
   }
-  col += vec3(0.85, 0.9, 1.0) * bolt(dir);
+  // The bolt outshines even the flash it makes: a white core over a violet glow.
+  float b = bolt(dir);
+  col = mix(col, vec3(1.0, 1.0, 1.0), clamp(b, 0.0, 1.0));
+  col += vec3(0.55, 0.5, 0.9) * max(b - 1.0, 0.0);
   // Under water or lava the whole sky is replaced by the fog colour.
   fragColor = vec4(mix(col, uVeil.rgb, uVeil.a), 1.0);
 }
@@ -169,12 +180,16 @@ uniform float uCover;
 in vec3 vWorld;
 out vec4 fragColor;
 void main() {
-  vec2 cell = (vWorld.xz + uOffset) / 12.0;
-  float c = texture(uMap, cell / 48.0).r;
+  // Sampled on a 4-block grid: cloud edges step like the terrain below them.
+  vec2 cell = floor((vWorld.xz + uOffset) / 4.0) * (4.0 / 12.0);
+  // Two scales of the same field: the broad shapes and, rotated and finer, the lumps that break their edges.
+  float c = texture(uMap, cell / 48.0).r * 0.72 + texture(uMap, mat2(0.8, -0.6, 0.6, 0.8) * cell / 17.0 + 0.37).r * 0.28;
   // Soft-edged puffs: density above the threshold fades in over a short band. More cover lowers the threshold
   // until the puffs merge into one grey deck.
-  float thr = mix(0.6, -0.08, uCover);
-  float body = smoothstep(thr, thr + 0.16, c);
+  float thr = mix(0.6, 0.2, uCover);
+  float body = smoothstep(thr, thr + 0.07, c);
+  // A heavy sky closes into one grey deck behind the puffs.
+  body = max(body, smoothstep(0.72, 1.0, uCover) * (0.55 + 0.45 * c));
   if (body <= 0.0) discard;
   float dist = length(vWorld.xz - cameraPosition.xz);
   float fade = 1.0 - smoothstep(uFar * 0.6, uFar, dist);

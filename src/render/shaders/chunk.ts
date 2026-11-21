@@ -109,7 +109,8 @@ export const CHUNK_FRAGMENT = /* glsl */ `
 precision mediump float;
 ${ATLAS_GLSL}
 uniform float uOpacity;
-uniform float uWet;
+// highp: the vertex shader declares it too, and both stages must agree on a shared uniform's precision.
+uniform highp float uWet;
 in vec2 vUv;
 flat in float vLayer;
 in vec3 vColor;

@@ -12,7 +12,7 @@ const finish = (tile: string, r: number, g: number, b: number): Finish => ({ til
 // 'concrete' is a quiet light-grey tile: tinted, it gives painted metal with a little pixel grain.
 const STEEL = finish('concrete', 0.68, 0.72, 0.78);
 const DARK = finish('concrete', 0.34, 0.35, 0.39);
-const WHITE = finish('concrete', 1.32, 1.32, 1.28);
+const WHITE = finish('concrete', 1.45, 1.45, 1.4);
 const RED = finish('concrete', 1.3, 0.42, 0.32);
 const BRASS = finish('concrete', 1.3, 1.02, 0.52);
 const COPPER = finish('concrete', 1.22, 0.66, 0.4);
@@ -69,25 +69,35 @@ function windTurbine(): PartModel {
     .box([0, 0, -0.04], [0.22, 0.22, 0.16], WHITE)
     .box([0, 0, -0.16], [0.12, 0.12, 0.1], RED);
   const pitch = rotY(0.32);
-  b.ring(3, [0, 0.36, 0], [0.16, 0.46, 0.05], WHITE, pitch)
-    .ring(3, [0, 0.88, 0], [0.12, 0.6, 0.04], WHITE, pitch)
-    .ring(3, [0, 1.29, 0], [0.1, 0.22, 0.04], RED, pitch);
+  b.ring(3, [0, 0.36, 0], [0.2, 0.46, 0.05], WHITE, pitch)
+    .ring(3, [0, 0.88, 0], [0.15, 0.6, 0.04], WHITE, pitch)
+    .ring(3, [0, 1.29, 0], [0.12, 0.22, 0.04], RED, pitch);
   return b.build();
 }
 
 /**
- * The wheel stands in the block with its axle across it, so its paddles reach 0.4 out of the top, bottom and two
- * opposite sides (into the water around it). Built with the axle along X; the instance turns it to the water.
+ * The wheel stands on its housing with the axle across the block's top edge: its upper half turns in the open and
+ * the paddles of its lower half dip into the water on two opposite sides. Built with the axle along X; the
+ * instance turns it so the wheel runs through the water.
  */
+const WHEEL_AXLE_Y = 0.94;
 function waterWheel(): PartModel {
   const b = new ModelBuilder();
-  b.assembly([0, 0.5, 0], rotY(HALF_PI), Motion.Spin)
-    .box([0, 0, 0], [0.16, 0.16, 1.22], DARK)
-    .box([0, 0, 0.58], [0.32, 0.32, 0.07], STEEL)
-    .box([0, 0, -0.58], [0.32, 0.32, 0.07], STEEL)
-    .ring(12, [0, 0.8, 0], [0.43, 0.08, 0.56], DARK_WOOD)
-    .ring(8, [0, 0.42, 0], [0.07, 0.76, 0.1], DARK_WOOD, IDENTITY, Math.PI / 8)
-    .ring(8, [0, 0.72, 0], [0.06, 0.36, 0.62], WOOD);
+  b.assembly([0, 0, 0], IDENTITY, Motion.Static)
+    .box([0.56, WHEEL_AXLE_Y - 0.2, 0], [0.1, 0.4, 0.2], DARK_WOOD)
+    .box([-0.56, WHEEL_AXLE_Y - 0.2, 0], [0.1, 0.4, 0.2], DARK_WOOD);
+  b.assembly([0, WHEEL_AXLE_Y, 0], rotY(HALF_PI), Motion.Spin)
+    .box([0, 0, 0], [0.14, 0.14, 1.34], DARK)
+    .box([0, 0, 0.64], [0.26, 0.26, 0.06], STEEL)
+    .box([0, 0, -0.64], [0.26, 0.26, 0.06], STEEL)
+    .box([0, 0, 0.25], [0.3, 0.3, 0.08], DARK)
+    .box([0, 0, -0.25], [0.3, 0.3, 0.08], DARK)
+    // Two rims with spokes, joined by the paddles.
+    .ring(12, [0, 0.8, 0.25], [0.43, 0.08, 0.07], DARK_WOOD)
+    .ring(12, [0, 0.8, -0.25], [0.43, 0.08, 0.07], DARK_WOOD)
+    .ring(8, [0, 0.42, 0.25], [0.07, 0.76, 0.06], DARK_WOOD, IDENTITY, Math.PI / 8)
+    .ring(8, [0, 0.42, -0.25], [0.07, 0.76, 0.06], DARK_WOOD, IDENTITY, Math.PI / 8)
+    .ring(8, [0, 0.72, 0], [0.06, 0.36, 0.6], WOOD);
   return b.build();
 }
 
@@ -174,7 +184,7 @@ export const MACHINE_ANIMS: readonly MachineAnim[] = [
     speed: (e, active) => 3.4 * outputShare(e, active, 1.5),
   },
   {
-    kind: 'water_wheel', build: waterWheel, centerY: 0.5, radius: 1.1, probeY: 1.2, byWater: true,
+    kind: 'water_wheel', build: waterWheel, centerY: 0.94, radius: 1.05, probeY: 1.4, byWater: true,
     speed: (e, active) => 1.5 * outputShare(e, active),
   },
   {

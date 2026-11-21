@@ -448,6 +448,10 @@
 .hw-dial__moon-lit {
   fill: #e9eef9;
 }
+.hw-dial__crater {
+  fill: #9aa6c2;
+  opacity: 0.55;
+}
 .hw-dial__moon-icon {
   display: block;
   overflow: visible;

@@ -10,8 +10,8 @@ import type { Precipitation } from '../core/types';
 import { MASK_SIZE, type RainMask } from './rainMask';
 
 /** Particles in the pool (desktop / touch devices). `amount` 0..1 draws that share of them. */
-export const PRECIP_MAX_DESKTOP = 3600;
-export const PRECIP_MAX_TOUCH = 1800;
+export const PRECIP_MAX_DESKTOP = 5000;
+export const PRECIP_MAX_TOUCH = 2600;
 
 interface Look {
   /** Half extents of the box of particles around the camera. */
@@ -29,9 +29,9 @@ interface Look {
 }
 
 const LOOKS: Record<Exclude<Precipitation, 'none'>, Look> = {
-  rain: { half: [18, 14, 18], fall: 15, wind: 1.2, windStorm: 4.5, size: 0.022, length: 0.75, color: [0.72, 0.78, 0.88], alpha: 0.5, kind: 0 },
-  snow: { half: [15, 10, 15], fall: 1.5, wind: 0.5, windStorm: 3.5, size: 0.075, length: 0, color: [0.97, 0.98, 1.0], alpha: 0.9, kind: 1 },
-  dust: { half: [16, 7, 16], fall: 0.25, wind: 7, windStorm: 12, size: 0.22, length: 0, color: [0.8, 0.66, 0.45], alpha: 0.32, kind: 2 },
+  rain: { half: [16, 13, 16], fall: 15, wind: 1.2, windStorm: 4.5, size: 0.024, length: 0.8, color: [0.78, 0.84, 0.94], alpha: 0.62, kind: 0 },
+  snow: { half: [12, 8, 12], fall: 1.5, wind: 0.5, windStorm: 3.5, size: 0.075, length: 0, color: [0.97, 0.98, 1.0], alpha: 0.9, kind: 1 },
+  dust: { half: [14, 6, 14], fall: 0.4, wind: 8, windStorm: 13, size: 0.05, length: 1.3, color: [0.86, 0.72, 0.5], alpha: 0.5, kind: 2 },
 };
 
 const VERTEX = /* glsl */ `
@@ -52,7 +52,8 @@ void main() {
   vec3 size = uHalf * 2.0;
   float speed = 0.85 + 0.3 * aSeed.w;
   vec3 p = aSeed.xyz * size + uVel * (uTime * speed);
-  if (uKind > 0.5 && uKind < 1.5) {
+  bool snow = uKind > 0.5 && uKind < 1.5;
+  if (snow) {
     p.x += sin(uTime * 1.3 + aSeed.w * 40.0) * 0.5;
     p.z += cos(uTime * 1.1 + aSeed.w * 23.0) * 0.5;
   } else if (uKind > 1.5) {
@@ -66,7 +67,7 @@ void main() {
   float dist = length(toP);
   float alpha = (1.0 - smoothstep(uHalf.x * 0.55, uHalf.x, length(p.xz - uOrigin.xz))) * (0.7 + 0.3 * aSeed.w);
   // No streak right in the eye.
-  alpha *= smoothstep(0.35, 1.4, dist);
+  alpha *= smoothstep(0.6, 2.6, dist);
   float top = texelFetch(uMask, ivec2(mod(floor(p.xz), ${MASK_SIZE}.0)), 0).r * 255.0;
   if (p.y < top || alpha < 0.003) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -76,14 +77,14 @@ void main() {
   }
   vec3 right;
   vec3 up;
-  if (uKind < 0.5) {
+  if (!snow) {
+    // Rain and blown dust are streaks along their motion (dust nearly flat, rain nearly upright).
     up = normalize(uVel) * uLength * (0.8 + 0.4 * aSeed.w);
     right = normalize(cross(up, toP)) * uSize * (1.0 + dist * 0.035);
   } else {
     float s = uSize * (0.6 + 0.8 * aSeed.w);
     right = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]) * s;
     up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]) * s;
-    if (uKind > 1.5) right *= 2.2;
   }
   vec3 world = p + right * position.x + up * position.y;
   vUv = position.xy * 2.0;
@@ -96,7 +97,8 @@ const FRAGMENT = /* glsl */ `
 precision mediump float;
 uniform vec3 uColor;
 uniform float uAlpha;
-uniform float uKind;
+// highp: shared with the vertex stage, whose precision it must match.
+uniform highp float uKind;
 in vec2 vUv;
 in float vAlpha;
 out vec4 fragColor;
@@ -105,10 +107,13 @@ void main() {
   if (uKind < 0.5) {
     // A streak: solid down the middle, softer at the edges, brightest at the leading (lower) end.
     a = (1.0 - abs(vUv.x)) * (0.35 + 0.65 * (vUv.y * 0.5 + 0.5));
+  } else if (uKind > 1.5) {
+    // A wisp of sand: soft across and fading out at both ends.
+    a = (1.0 - abs(vUv.x)) * (1.0 - vUv.y * vUv.y);
   } else {
     float r = dot(vUv, vUv);
     if (r > 1.0) discard;
-    a = uKind < 1.5 ? 1.0 - r * r : (1.0 - r) * (1.0 - r);
+    a = 1.0 - r * r;
   }
   a *= vAlpha * uAlpha;
   if (a < 0.004) discard;

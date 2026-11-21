@@ -231,8 +231,8 @@ export function applyWeather(out: SkyState, w: SkyWeather): SkyState {
 
   const flash = clamp(w.flash, 0, 1);
   if (flash > 0) {
-    add3(out.zenith, FLASH, flash * 0.5);
-    add3(out.horizon, FLASH, flash * 0.6);
+    add3(out.zenith, FLASH, flash * 0.3);
+    add3(out.horizon, FLASH, flash * 0.35);
     add3(out.skyLight, FLASH, flash * 0.9);
     add3(out.cloud, FLASH, flash * 0.8);
   }
