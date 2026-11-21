@@ -17,6 +17,9 @@ import { fuelText, headline, machineTone, subline, type MachineLayout } from './
 
 const nameOf = (key: string): string => itemOrNull(key)?.name ?? key;
 
+/** Phone-sized viewport (the kit's breakpoint): long reference lists start folded. */
+const phone = (): boolean => typeof matchMedia === 'function' && matchMedia('(max-width: 719.98px), (max-height: 519.98px)').matches;
+
 /** The block item a machine kind is placed with (for its icon). */
 export const machineItem = (kind: string): string => block(machine(kind).blocks[0]).itemKey ?? kind;
 
@@ -135,8 +138,11 @@ export class MachinePanel {
         this.extra.append(
           h('div', { class: 'hw-mach__row' }, input.el, h('div', { class: 'hw-mach__grow' }, this.recipeLine, this.meter.el), output.el),
           this.second.el,
-          h('h3', { class: 'hw-heading', text: 'Recipes' }),
           h(
+            'details',
+            { class: 'hw-mach__more', attrs: { open: !phone() } },
+            h('summary', { class: 'hw-heading', text: `Recipes (${recipesAt(view.kind).length})` }),
+            h(
             'ul',
             { class: 'hw-mach__recipes' },
             recipesAt(view.kind).map((r) =>
@@ -147,6 +153,7 @@ export class MachinePanel {
                 h('span', { class: 'hw-mach__recname', text: `${r.inputs[0].count > 1 ? `${r.inputs[0].count} ` : ''}${nameOf(r.inputs[0].item)} → ${r.output.count > 1 ? `${r.output.count} ` : ''}${nameOf(r.output.item)}` }),
                 h('span', { class: 'hw-num hw-mach__rectime', text: formatDuration(r.timeS) }),
               ),
+            ),
             ),
           ),
         );

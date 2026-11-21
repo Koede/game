@@ -1,0 +1,136 @@
+# src/ui/screens/furnace and src/ui/screens/machines (7.4b) - public API
+
+The furnace screen (the game's main screen), every machine screen and the crate. Built on the UI kit, GameUI's
+`registerScreen` contract and its slot controller (docs/api/hud.md). Reads the simulation through `ScreenSim`
+(types only; `Simulation` satisfies it as is). CSS ships with the module (`furnace.css`, `furnaceTabs.css`,
+`machines.css`, injected once as `<style id="hw-station-css">`) and uses only the kit's `--hw-*` tokens.
+
+Tests: `npx vitest run src/ui/screens/furnace src/ui/screens/machines` (18 tests, DOM-free logic against real
+simulation views from `src/sim/testKit`).
+
+## Wiring (integration, 7.5) - one line in main.ts
+
+```ts
+import { registerStationScreens } from './ui/screens/furnace';
+registerStationScreens(gameUI, sim);   // after both exist; sim = the Simulation
+```
+
+GameUI then opens the screens on `'ui:open'` `{ type: 'furnace' | 'machine' | 'crate', x, y, z }`. A `'machine'`
+request on a furnace block opens the furnace screen, and on a crate the crate screen, so the player module may
+send `'machine'` for every machine block. Opening the furnace screen emits `'ui:opened'` (GameUI), which makes it
+home (src/sim). GameUI was not edited.
+
+## Exports
+
+`src/ui/screens/furnace/index.ts`
+- `registerStationScreens(ui: Pick<GameUI, 'registerScreen'>, sim: ScreenSim): void` - registers 'furnace',
+  'machine' and 'crate'.
+- `createFurnaceScreen(request: { x, y, z }, ctx: ScreenContext, sim: ScreenSim): GameScreen | null` - null when no
+  furnace stands there (GameUI then opens nothing).
+- `interface ScreenSim` (simApi.ts) - `furnaceView`, `furnaceSlots`, `light`, `douse`, `pump`, `setElectric`,
+  `forge`, `upgrade`, `startIgnition`, `rest`, `networkAt`, `machineView`, `machineSlots`, `setMachineOn`,
+  `stationSources`, with the exact signatures of `Simulation`. `pretty(text)` turns the simulation's "700 C" into
+  "700 °C".
+
+`src/ui/screens/machines/index.ts`
+- `createMachineScreen(request, ctx, sim): GameScreen | null`, `createCrateScreen(request, ctx, sim): GameScreen | null`
+- `machineLayout(kind, role): MachineLayout` - `'generator' | 'burner' | 'processor' | 'consumer' | 'storage' |
+  'bore' | 'fission' | 'crate'`.
+- `class NetworkPanel({ compact?, emptyText? })` - `update(net: NetworkStats | null, alone?)`, `setEmptyText`,
+  `dispose`. Generation / demand / stored, 60 s sparkline (G and used), supplied and cable-load meters, alert line,
+  member list (not when compact).
+
+DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s)`, `forgeAvailable`,
+`forgeReady`, `forgeShortfall`, `smeltRowView(s)`, `FORGE_CATEGORIES`), `furnaceText.ts` (`thermoNotches`,
+`statusTone`, `flameLook`, `burnText`, `burnFraction`, `upgradeProgress`, `sourceText`, `bestFuelSlot`, `slotOf`,
+`clockText`, `shortName`, `IGNITION_TEMP_C`), `machineText.ts` (`alertText`, `cableText`, `memberWatts`,
+`lonelyFurnaceText`, `headline`, `subline`, `fuelText`, `machineTone`).
+
+## The furnace screen
+
+- Header: tier name, "Age - tier n of 5 - home", accent strip in the colour of the fire. **Upgrade** button with
+  "have/need materials", glowing (brightness pulse) when affordable; it opens the upgrade sheet: what the next tier
+  brings (table now/next), every material as a have/need chip, where each missing one comes from ("forge it here at
+  800 °C", "make it at the workbench", "made by the Crusher"), the temperature check, and a hold-to-upgrade
+  (700 ms) button that says what is missing. Escape closes the sheet first. "Final tier" at the Starhearth.
+- FIREBOX panel, always visible: kit Thermometer on the heat ramp (0..tier max) with notches for loaded crucibles,
+  the recipe last touched in FORGE, the upgrade temperature, "Ignite" (3000) at tier 5 and the flame (or electric)
+  ceiling as a dashed limit; trend caption ("Rising 3.2 °C/s"). Live pixel flame (canvas, 36x22 cells, ~16 steps/s):
+  height follows draft, colours follow the flame temperature; embers when hot and unlit, glowing elements on
+  electric heat, a white star once ignited; pumping throws sparks. Fuel slots (bound as group `fuel`), "Add fuel"
+  (loads the best fuel from the pack: coal / charcoal / coke before wood), burn bar with the burning item and its
+  time left. Light / Douse (one button). PUMP (large; sparks, a kick animation, a short vibration on phones, the
+  flame notch and draft readout jump; the simulation plays the bellows sound; P on a keyboard). Electric heating
+  switch with delivered watts and satisfaction (tier 3+). A readings list (flame, heading for, tier maximum, heat
+  to machines) where there is room. The one-line status (the simulation's, toned: warn / bad / heat / power /
+  good). "Rest until dawn" at night, disabled with the simulation's reason when not allowed.
+- Tabs (no window panels; the screen swaps its own panes so the firebox stays):
+  - SMELT: one row per crucible (input slot, recipe, required-temperature badge, progress meter with time left,
+    output slot; groups `cru-in`, `cru-out`), then "What the crucibles take": every smelt recipe as a kit
+    RecipeRow with heat and time badges, have/need and a **Load** button (moves a stack from the pack or a nearby
+    crate into the crucibles and scrolls back to them). Routes to the same product show only the ones the player
+    holds input for. Badge: "n done".
+  - FORGE: kit RecipeList of every forge recipe in tech-tree order, category chips Tools / Parts / Machines /
+    Power / Building with ready counts, heat badge, locked rows with the furnace that unlocks them, have/need
+    chips, Forge and ×N (N = min(5, ingredients, heat allows)). Refusals and short batches are toasted. Badge:
+    recipes forgeable now.
+  - GRID: the furnace's network (NetworkPanel), or an explanation of how to get power at this tier; at tier 5
+    the ignition panel above it (conditions, hold-to-ignite 900 ms, progress with seconds left, failure text).
+    Badge "!" on brown-out or overload.
+  - LOG: the Hearth Log view of 7.4a.
+- Backpack: side column at >= 1100 x 600; elsewhere a drawer with a handle ("Backpack 13/36", B on a keyboard)
+  over the tab column (portrait: from the bottom edge). The drawer state is remembered for the session. Quick
+  move from the pack goes to the firebox first, or the crucibles first on the SMELT tab; from the furnace's slots
+  to the pack (hotbar first). The slot controller's carry bar sits on the drawer (below the bag, or on top of the
+  bottom-anchored phone drawer) so it never moves a slot from under the finger between two taps.
+- Refresh: GameUI's ~8 Hz `refresh()` builds one `furnaceView` (plus `networkAt` for the GRID badge and pane);
+  only the visible tab pane is updated, everything writes the DOM only on change. A furnace upgrade rebinds the
+  fuel and crucible slots in place. The screen closes itself when the furnace disappears.
+
+## Machine screens
+
+Header: machine name, role, an on/off switch (`setMachineOn`), accent cyan while running. Body: the machine panel,
+the backpack, then the compact network panel (on phones in that order: machine, backpack, network). Every panel has
+the icon, a headline figure (Output / Stored / Drawing), the status line toned by meaning, the placement problem in
+red and the placement hint. By layout: burner - fuel slot, fuel energy and time at this load, what it burns;
+processor - in slot, recipe and progress, out slot, power supplied, the machine's recipe list (folded on phones);
+consumer - power supplied and description; storage - charge meter; bore rig - depth, current block progress, the
+9-slot buffer; fission pile - core thermometer (Running 600 / Danger 900 / Meltdown 1200), cooling state, rod slot,
+rod energy left; generator - output and description. Crate: 27 slots and the backpack, quick move across. Desktop
+machine windows are anchored at the top (not centred) so a growing carry bar cannot shift the slots.
+
+## Verification
+
+Harness and drivers in the scratch directory (`scratchpad/furnace/`): real `Simulation`, `PlayerState`,
+`ObjectiveTracker`, `Survival`, `GameClock` on the FakeWorld, the real GameUI with these screens registered and the
+renderer's real item icons. Screenshots at 390x844, 844x390 and 1280x800 of: cold furnace, roaring mid-smelt
+(smelt, forge, drawer open, upgrade sheet), Arc Furnace on electricity with a network (smelt, grid, forge), a
+brown-out, Starhearth ready to ignite, igniting, ignited (win screen), night with Rest, log, and every machine
+layout (burner, thermopile, steam engine, battery, lithium bank, combustion engine, crusher, still, crate, fission,
+bore rig, wind turbine, lamp, water wheel). An automated layout check reports text overflow and anything
+off-screen: none. Click-through flows with taps (touch emulation) at both phone sizes and clicks at desktop, all
+passing: load coal by tapping it in the bag then the fuel slot, light, pump three times (draft 0.92), Load copper
+ore, smelt, collect by double-tap / shift-click, forge bronze ingots and a bronze pickaxe, the Upgrade button glows,
+hold to upgrade to the Blast Furnace (title, two fuel slots, two crucibles follow), P pumps, Escape / close;
+machines: swap coal into a burner's fuel slot, switch it off, double-tap ore into a crusher, double-tap a crate
+stack into the pack. No page errors.
+
+## Deviations and decisions
+- Requirement of "notches for the selected recipe": the selected recipe is the FORGE row the player last touched
+  (pointer or focus); the notch shows while the FORGE tab is open.
+- The furnace window is wider than the kit's `lg` (up to 1220 px) on desktop so firebox, tab and backpack fit side
+  by side; on phones it is the kit's full-screen sheet.
+- In landscape the status line sits above the thermometer and the firebox column scrolls when a tier needs more
+  height (tier 3+ with the electric switch); everything else of the firebox stays in view.
+- "Add fuel" and "Load" are additions: one-tap ways to fill the firebox and crucibles on a phone (the slot
+  interaction works as everywhere else too).
+- The PUMP button is disabled with "Not lit" while the furnace is cold and unlit (the simulation would accept it,
+  but it does nothing useful then).
+
+## Known gaps
+- `furnace.css` is 495 lines (layout, firebox, drawer and the three breakpoints); split from `furnaceTabs.css`.
+- The flame and sparks are drawn on a canvas in heat-ramp colours from `kit/format.heatRgb` (the kit's source of
+  truth for the ramp), not CSS tokens.
+- Verified against the FakeWorld only (no real World or renderer in the harness); the integration must still call
+  `registerStationScreens`.
+- Machine screens show the network compactly (no member list); the furnace's GRID tab has the full list.

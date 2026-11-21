@@ -119,6 +119,27 @@
   font-size: 13px;
   color: var(--hw-power-hi);
 }
+.hw-mach__more {
+  display: grid;
+  gap: 8px;
+}
+.hw-mach__more > summary {
+  min-height: 32px;
+  cursor: pointer;
+  list-style: none;
+}
+.hw-mach__more > summary::-webkit-details-marker {
+  display: none;
+}
+.hw-mach__more > summary::after {
+  content: '+';
+  margin-left: 4px;
+  font-family: var(--hw-font-mono);
+  color: var(--hw-ash-2);
+}
+.hw-mach__more[open] > summary::after {
+  content: '-';
+}
 .hw-mach__recipes {
   display: grid;
   gap: 4px;
