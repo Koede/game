@@ -2,6 +2,8 @@
 export { Simulation } from './simulation';
 export type { ActionResult, FurnaceEntity, IgnitionState, MachineEntity, SimEntity } from './entities';
 export { isFurnace } from './entities';
+export type { CropEntity, CropView } from './cropRules';
+export { isCrop } from './cropRules';
 export type { ForgeResult } from './furnaceActions';
 export { REST_FUEL_S } from './furnaceActions';
 export type { FurnaceSlots } from './slots';

@@ -7,11 +7,13 @@ import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
-import { voxelActive, withActive, type IWorld } from '../core/types';
+import { voxelActive, withActive, type BlockDef, type IWorld } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
 import { cratesNear, pushToCrates } from './crates';
+import { isCrop, type CropView } from './cropRules';
+import { CropField } from './crops';
 import {
   OK, createFurnace, createMachine, isFurnace, posKey, refuse, resizeFurnace,
   type ActionResult, type FurnaceEntity, type MachineEntity, type SimEntity, type SimNode,
@@ -38,6 +40,7 @@ export class Simulation implements ActionHost {
   readonly random: () => number;
 
   private readonly nodes: NodeSet;
+  private readonly crops: CropField;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
   private destroying = false;
   private tickCount = 0;
@@ -58,10 +61,15 @@ export class Simulation implements ActionHost {
   ) {
     this.random = mulberry32(world.seed ^ 0x5eed);
     this.nodes = new NodeSet(world);
+    this.crops = new CropField(world, bus);
+    const chunkChanged = ({ cx, cz }: { cx: number; cz: number }): void => {
+      this.nodes.chunkChanged(cx, cz);
+      this.crops.chunkChanged(cx, cz);
+    };
     this.offs.push(
       bus.on('block:changed', (ev) => this.onBlockChanged(ev)),
-      bus.on('chunk:loaded', ({ cx, cz }) => this.nodes.chunkChanged(cx, cz)),
-      bus.on('chunk:unloaded', ({ cx, cz }) => this.nodes.chunkChanged(cx, cz)),
+      bus.on('chunk:loaded', chunkChanged),
+      bus.on('chunk:unloaded', chunkChanged),
       bus.on('ui:opened', ({ screen }) => {
         if (screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z)) player.setHome(screen.x, screen.y, screen.z);
       }),
@@ -77,7 +85,11 @@ export class Simulation implements ActionHost {
   /** Rebuilds the runtime from the world's entities. Call after a save was loaded into the world. */
   resync(): void {
     this.nodes.clear();
-    for (const e of this.world.entities()) this.nodes.track(e as SimEntity);
+    this.crops.clear();
+    for (const e of this.world.entities()) {
+      if (isCrop(e)) this.crops.track(e);
+      else this.lampSeen(this.nodes.track(e as SimEntity), true);
+    }
   }
 
   // ---- ticking ------------------------------------------------------------------------------------------------
@@ -118,6 +130,7 @@ export class Simulation implements ActionHost {
     }
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt);
+    this.crops.tick(dt, this.sunlight);
 
     if (this.meltdowns.length > 0) {
       for (const n of this.meltdowns.splice(0)) if (nodes.byKey.get(n.key) === n) this.destroy(() => meltDown(this, n));
@@ -146,9 +159,16 @@ export class Simulation implements ActionHost {
     if (from.id === to.id) return;
     const { x, y, z } = ev;
     const key = posKey(x, y, z);
-    this.nodes.blockChanged(x, y, z, from.power !== null || to.power !== null, from.machine === 'water_wheel' || to.machine === 'water_wheel');
-    const node = this.nodes.byKey.get(key);
-    if (node && node.e.kind !== to.machine) this.removeMachine(node);
+    this.crops.blockChanged(x, y, z, from, to);
+    const fromCrop = from.machine === 'crop';
+    if (to.machine === 'crop') {
+      // A crop growing a stage, or planted: nothing a machine looks at changes when one crop replaces another.
+      if (!fromCrop) this.machineBlockChanged(x, y, z, from, to);
+      this.crops.place(x, y, z, to);
+      return;
+    }
+    if (fromCrop) this.crops.remove(x, y, z);
+    this.machineBlockChanged(x, y, z, from, to);
     if (to.machine === null) return;
     const kept = this.nodes.byKey.get(key);
     if (kept) {
@@ -164,13 +184,26 @@ export class Simulation implements ActionHost {
       e = to.machine === 'furnace' ? createFurnace(x, y, z, furnaceTierOfBlock(to.key)?.tier ?? 1) : createMachine(to.machine, x, y, z);
       this.world.setEntity(e);
     }
-    this.nodes.track(e);
+    this.lampSeen(this.nodes.track(e), true);
     if (ev.source !== 'load') this.bus.emit('machine:placed', { entity: e });
     if (ev.source === 'player' && isFurnace(e)) this.player.setHome(x, y, z);
   }
 
+  /** Refreshes the machines a block change concerns, and removes the machine that stood there if it is gone. */
+  private machineBlockChanged(x: number, y: number, z: number, from: BlockDef, to: BlockDef): void {
+    this.nodes.blockChanged(x, y, z, from.power !== null || to.power !== null, from.machine === 'water_wheel' || to.machine === 'water_wheel');
+    const node = this.nodes.byKey.get(posKey(x, y, z));
+    if (node && node.e.kind !== to.machine) this.removeMachine(node);
+  }
+
+  /** Tells the crops about a lamp that is lit (`present`) or gone. */
+  private lampSeen(node: SimNode, present: boolean): void {
+    if (node.e.kind === 'lamp') this.crops.lampChanged(node.e.x, node.e.y, node.e.z, present && node.active);
+  }
+
   private removeMachine(node: SimNode): void {
     const e = node.e;
+    this.lampSeen(node, false);
     this.nodes.untrack(node);
     this.world.removeEntity(e.x, e.y, e.z);
     if (!this.destroying) {
@@ -185,6 +218,7 @@ export class Simulation implements ActionHost {
   setActive(node: SimNode, active: boolean): void {
     if (node.active === active) return;
     node.active = active;
+    this.lampSeen(node, true);
     const { x, y, z } = node.e;
     const v = this.world.getVoxel(x, y, z);
     if (voxelActive(v) !== active) this.world.setVoxel(x, y, z, withActive(v, active), 'sim');
@@ -372,7 +406,22 @@ export class Simulation implements ActionHost {
     return j;
   }
 
+  /** What the crop at a position is doing (stage, light, water, status), or null. Crops have no machine view. */
+  cropView(x: number, y: number, z: number): CropView | null {
+    return this.crops.view(x, y, z, this.clock.sunlight());
+  }
+
+  /** Furnaces, machines and crates (crops are counted by `cropCount`). */
   get entityCount(): number {
     return this.nodes.all.length;
+  }
+
+  get cropCount(): number {
+    return this.crops.count;
+  }
+
+  /** Crops visited on a tick (the others sleep until something relevant changes): a diagnostic. */
+  get cropsAwake(): number {
+    return this.crops.awakeCount;
   }
 }

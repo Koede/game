@@ -1,0 +1,133 @@
+/**
+ * The rules of crop growth (spec 12.4): the numbers of the 'crop' MachineSpec, the stage blocks, the saved crop
+ * entity, and the functions that decide whether a crop is lit, watered and how fast it grows. CropField (crops.ts)
+ * keeps the cached facts these read up to date.
+ */
+import { blockId, machine } from '../core/registry';
+import type { BlockDef, BlockEntity } from '../core/types';
+
+const SPEC = machine('crop');
+
+function param(name: string): number {
+  const v = SPEC.params?.[name];
+  if (v === undefined) throw new Error(`MachineSpec 'crop' lacks params.${name}`);
+  return v;
+}
+
+/** Seconds of growing time per stage at full rate (hydrated). */
+export const STAGE_S = param('stageS');
+/** Growth rate without water in reach. */
+export const DRY_RATE = param('dryRate');
+export const HYDRATION_R = param('hydrationRadius');
+export const LAMP_R = param('lampRadius');
+export const MIN_SUNLIGHT = param('minSunlight');
+
+/** One stage block of a crop. */
+export interface StageInfo {
+  /** Crop key: the stage block keys are `<crop>_<stage>` ('wheat', 'potato', 'carrot'). */
+  crop: string;
+  /** 0-based; `stages - 1` is ripe. */
+  stage: number;
+  stages: number;
+  /** Block id of the next stage, -1 when ripe. */
+  next: number;
+}
+
+/** Stage of every crop block, by block id. */
+export const STAGE_OF: Array<StageInfo | undefined> = [];
+{
+  const families = new Map<string, Array<{ stage: number; id: number }>>();
+  for (const key of SPEC.blocks) {
+    const m = /^(.+)_(\d+)$/.exec(key);
+    if (!m) throw new Error(`Crop block '${key}' is not named <crop>_<stage>`);
+    const list = families.get(m[1]) ?? [];
+    list.push({ stage: Number(m[2]), id: blockId(key) });
+    families.set(m[1], list);
+  }
+  for (const [crop, list] of families) {
+    list.sort((a, b) => a.stage - b.stage);
+    list.forEach(({ id }, i) => {
+      STAGE_OF[id] = { crop, stage: i, stages: list.length, next: i + 1 < list.length ? list[i + 1].id : -1 };
+    });
+  }
+}
+
+/** Stage of a crop block, or null for any other block. */
+export const cropStage = (def: BlockDef): StageInfo | null => STAGE_OF[def.id] ?? null;
+
+/** The saved state of a crop: only its growing time into the current stage (the stage is the block itself). */
+export interface CropEntity extends BlockEntity {
+  kind: 'crop';
+  /** Seconds of full-rate growing time into the current stage (0..stageS). */
+  growS: number;
+}
+
+export const isCrop = (e: BlockEntity | undefined): e is CropEntity => e !== undefined && e.kind === 'crop';
+
+/** Runtime companion of a crop entity (never saved). */
+export interface CropNode {
+  readonly e: CropEntity;
+  readonly key: string;
+  /** Stage of the block at its position; null until its chunk was seen loaded. */
+  info: StageInfo | null;
+  soil: boolean;
+  sky: boolean;
+  water: boolean;
+  lamp: boolean;
+  /** Bits of the cached facts to recompute before the crop is next looked at (see CropField). */
+  dirty: number;
+  /** Index in the awake list, -1 while asleep. */
+  slot: number;
+  /** Seconds it waited, awake, for its refresh (the per-tick budget ran out): grown once it is refreshed. */
+  waitS: number;
+}
+
+/** What growth reads from the world besides the crop's own cache, set once per tick. */
+export interface CropContext {
+  /** Clock sunlight >= minSunlight. */
+  sunUp: boolean;
+}
+
+/** Daylight under open sky, or a powered lamp in reach (any hour, underground too). */
+export const isLit = (c: CropNode, ctx: CropContext): boolean => (ctx.sunUp && c.sky) || c.lamp;
+
+/**
+ * Whether the crop counts as watered. The single place hydration is decided: weather extends it here (rain counts
+ * as water in reach for crops under open sky, spec 15) by adding a field to CropContext.
+ */
+export function isHydrated(c: CropNode, ctx: CropContext): boolean {
+  void ctx;
+  return c.water;
+}
+
+/** Growth per second of game time: 1 hydrated, dryRate dry, 0 when ripe, unlit or off farmland. */
+export function growthRate(c: CropNode, ctx: CropContext): number {
+  if (c.info === null || c.info.next < 0 || !c.soil || !isLit(c, ctx)) return 0;
+  return isHydrated(c, ctx) ? 1 : DRY_RATE;
+}
+
+/** What a crop is doing, for whoever wants to show it (crops have no screen; spec 12.4). */
+export interface CropView {
+  x: number;
+  y: number;
+  z: number;
+  crop: string;
+  /** Block name, e.g. "Wheat (ripe)". */
+  name: string;
+  stage: number;
+  stages: number;
+  ripe: boolean;
+  soil: boolean;
+  lit: boolean;
+  hydrated: boolean;
+  /** Current growth rate: 1, dryRate or 0. */
+  rate: number;
+  /** 0..1 through the current stage (1 when ripe). */
+  progress: number;
+  /** Seconds to the next stage at the current rate (0 when ripe, Infinity while not growing). */
+  nextStageS: number;
+  /** Seconds to ripe at the current rate (0 when ripe, Infinity while not growing). */
+  ripeInS: number;
+  /** "Ripe" / "Needs farmland" / "Needs light" / "Growing - stage 2 of 4". */
+  status: string;
+}
