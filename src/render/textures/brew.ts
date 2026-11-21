@@ -97,7 +97,7 @@ const CUP_LEGEND = { a: CLAY_CUP[0], b: CLAY_CUP[1], c: CLAY_CUP[2], d: CLAY_CUP
 
 /** The clay cup: body x 5..10, y 11..15, a small ear on its right. `rim` paints the top row: the empty mouth or the drink. */
 function cupBody(c: Canvas, rim: 'empty' | 'full' | 'wet'): void {
-  c.sprite(['eddddc', 'edddcc', 'dccccb', 'dcccbb', '.bbbb.'], CUP_LEGEND, 5, 11);
+  c.sprite(['eddddc', 'edddcc', 'dccccb', 'dcccbb', 'bbbbbb'], CUP_LEGEND, 5, 11);
   c.set(11, 12, CLAY_CUP[2]);
   c.set(11, 13, CLAY_CUP[1]);
   c.set(10, 14, CLAY_CUP[0]);
