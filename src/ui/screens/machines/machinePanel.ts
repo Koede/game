@@ -23,7 +23,8 @@ export const machineItem = (kind: string): string => block(machine(kind).blocks[
 export class MachinePanel {
   readonly el: HTMLElement;
   private readonly layout: MachineLayout;
-  private readonly figure = new StatFigure({ caption: 'Output', size: 'lg' });
+  private readonly figure: StatFigure;
+  private fuel: HTMLParagraphElement | null = null;
   private readonly status: HTMLParagraphElement;
   private readonly problem: HTMLParagraphElement;
   private readonly hint: HTMLParagraphElement;
@@ -38,6 +39,7 @@ export class MachinePanel {
 
   constructor(view: MachineView, layout: MachineLayout, slots: SlotController, inventory: Inventory | null, toBag: readonly QuickTarget[]) {
     this.layout = layout;
+    this.figure = new StatFigure({ caption: headline(view, layout).caption, size: 'lg' });
     const icon = new ItemIcon(machineItem(view.kind));
     icon.el.classList.add('hw-mach__icon');
     this.status = h('p', { class: 'hw-mach__status', attrs: { role: 'status' } });
@@ -69,12 +71,12 @@ export class MachinePanel {
     setText(this.hint, view.hint ? `Placement: ${view.hint}` : '');
     switch (this.layout) {
       case 'burner':
-        this.meter?.set(view.fuelJ, Math.max(view.fuelJ, 1), fuelText(view));
+        if (this.fuel) setText(this.fuel, fuelText(view));
         break;
       case 'processor':
         if (this.recipeLine) setText(this.recipeLine, view.recipe ? `Making ${nameOf(view.recipe.output.item)}` : 'Idle');
         this.meter?.set(view.progress, 1, view.recipe ? `${Math.round(view.progress * 100)}%` : '');
-        this.second?.set(view.satisfaction, 1, view.demandW > 0 ? `${formatWatts(view.demandW * view.satisfaction)} of ${formatWatts(view.demandW)}` : 'Idle');
+        this.second?.set(view.demandW > 0 ? view.satisfaction : 0, 1, view.demandW > 0 ? `${formatWatts(view.demandW * view.satisfaction)} of ${formatWatts(view.demandW)}` : 'Idle');
         break;
       case 'consumer':
         this.meter?.set(view.demandW > 0 ? view.satisfaction : 0, 1, view.demandW > 0 ? `${Math.round(view.satisfaction * 100)}%` : 'Idle');
@@ -89,7 +91,7 @@ export class MachinePanel {
       case 'fission':
         this.thermo?.set(view.coreC);
         this.thermo?.setCaption(view.cooled ? 'Cooled by water' : 'NOT COOLED - needs water on 2 sides');
-        this.meter?.set(view.fuelJ, Math.max(view.fuelJ, 1), fuelText(view));
+        if (this.fuel) setText(this.fuel, fuelText(view));
         break;
       default:
         break;
@@ -115,10 +117,12 @@ export class MachinePanel {
     switch (this.layout) {
       case 'burner': {
         const fuel = this.slot('Fuel', `${label} fuel`);
-        this.meter = new Meter({ label: 'Fuel left', tone: 'power' });
+        this.fuel = h('p', { class: 'hw-mach__fuel hw-num' });
         const fuels = (spec.fuels ?? []).map(nameOf);
         const accepts = fuels.length > 4 ? 'Burns logs, planks, sticks, charcoal, coal or coke' : `Burns ${fuels.join(', ')}`;
-        this.extra.append(h('div', { class: 'hw-mach__row' }, fuel.el, h('div', { class: 'hw-mach__grow' }, this.meter.el, h('p', { class: 'hw-mach__note', text: accepts }))));
+        this.extra.append(
+          h('div', { class: 'hw-mach__row' }, fuel.el, h('div', { class: 'hw-mach__grow' }, h('span', { class: 'hw-heading', text: 'Fuel left' }), this.fuel, h('p', { class: 'hw-mach__note', text: accepts }))),
+        );
         if (inv) this.bindings.push(slots.bind({ id: 'machine', label, inventory: inv, views: [fuel], quickTo: toBag }));
         break;
       }
@@ -181,9 +185,14 @@ export class MachinePanel {
           ],
         });
         const rod = this.slot('Rod', 'Fuel rod');
-        this.meter = new Meter({ label: 'Rod energy left', tone: 'power' });
+        this.fuel = h('p', { class: 'hw-mach__fuel hw-num' });
         this.extra.append(
-          h('div', { class: 'hw-mach__fission' }, h('div', { class: 'hw-mach__core' }, this.thermo.el), h('div', { class: 'hw-mach__grow' }, rod.el, this.meter.el)),
+          h(
+            'div',
+            { class: 'hw-mach__fission' },
+            h('div', { class: 'hw-mach__core' }, this.thermo.el),
+            h('div', { class: 'hw-mach__grow' }, rod.el, h('span', { class: 'hw-heading', text: 'Rod energy left' }), this.fuel),
+          ),
         );
         if (inv) this.bindings.push(slots.bind({ id: 'machine', label: 'Fuel rod', inventory: inv, views: [rod], quickTo: toBag }));
         break;

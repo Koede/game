@@ -13,7 +13,7 @@ import { formatCount, formatWatts, heatColor } from '../../kit/format';
 import { Badge } from '../../kit/gauges';
 import { ItemIcon } from '../../kit/icons';
 import { nameOf } from './forgeRows';
-import { upgradeProgress } from './furnaceText';
+import { sourceText, upgradeProgress } from './furnaceText';
 import { pretty, type ScreenSim } from './simApi';
 
 interface Chip {
@@ -42,6 +42,8 @@ export class UpgradeControl {
   private readonly blurb: HTMLParagraphElement;
   private readonly table: HTMLTableSectionElement;
   private readonly chipHost: HTMLDivElement;
+  private readonly where: HTMLUListElement;
+  private whereKey = '';
   private readonly temp = new Badge({ text: '', tone: 'heat' });
   private readonly reason: HTMLParagraphElement;
   private readonly go: Button;
@@ -59,6 +61,7 @@ export class UpgradeControl {
     this.blurb = h('p', { class: 'hw-upg__blurb' });
     this.table = h('tbody');
     this.chipHost = h('div', { class: 'hw-upg__chips' });
+    this.where = h('ul', { class: 'hw-upg__where' });
     this.reason = h('p', { class: 'hw-upg__reason' });
     this.go = new Button({
       label: 'Upgrade',
@@ -87,6 +90,7 @@ export class UpgradeControl {
         h('table', { class: 'hw-upg__table' }, h('thead', null, h('tr', null, h('th'), h('th', { text: 'Now' }), h('th', { text: 'Next' }))), this.table),
         h('h4', { class: 'hw-heading', text: 'Materials' }),
         this.chipHost,
+        this.where,
         h('h4', { class: 'hw-heading', text: 'Heat' }),
         h('div', { class: 'hw-upg__temp' }, this.temp.el),
       ),
@@ -137,6 +141,14 @@ export class UpgradeControl {
       );
     }
     this.updateChips(up.ingredients);
+    const missing = up.ingredients.filter((s) => !s.ok);
+    const whereKey = missing.map((s) => s.item).join(',');
+    if (whereKey !== this.whereKey) {
+      this.whereKey = whereKey;
+      this.where.replaceChildren(
+        ...missing.map((s) => h('li', null, h('strong', { text: nameOf(s.item) }), `: ${sourceText(s.item)}`)),
+      );
+    }
     this.temp.update({
       text: `Upgrade at ${up.requiredC} °C - now ${Math.floor(view.tempC)} °C`,
       tone: 'heat',

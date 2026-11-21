@@ -9,8 +9,8 @@ import { h, prefersReducedMotion } from '../../kit/dom';
 import { heatRgb } from '../../kit/format';
 import type { FlameLook } from './furnaceText';
 
-const COLS = 24;
-const ROWS = 30;
+const COLS = 36;
+const ROWS = 22;
 const MAX_HEAT = 32;
 const STEP_MS = 60;
 const SETTLE_STEPS = 40;
@@ -130,22 +130,47 @@ export class Flame {
     const rnd = this.random;
     this.boost = Math.max(0, this.boost - 0.06);
     const reach = Math.min(1, height + this.boost * 0.35);
+    if (mode === 'electric') {
+      this.coils();
+      return;
+    }
     const cooling = mode === 'none' ? MAX_HEAT : MAX_HEAT / Math.max(2.5, ROWS * (0.15 + 0.85 * reach));
     for (let x = 0; x < COLS; x++) {
       this.bed[x] = Math.min(1, Math.max(0.35, this.bed[x] + (rnd() - 0.5) * 0.25));
       let bed = 0;
       if (mode === 'fire' || mode === 'star') bed = this.bed[x] * (mode === 'star' ? 1 : 0.75 + 0.25 * reach);
       else if (mode === 'embers') bed = rnd() < 0.35 ? this.bed[x] * 0.5 : 0.1;
-      else if (mode === 'electric') bed = x % 6 < 4 ? 0.55 : 0.2;
       // A fire is narrower at the edges of the firebox.
       const edge = Math.min(x + 1, COLS - x) / 4;
       heat[(ROWS - 1) * COLS + x] = Math.round(MAX_HEAT * bed * Math.min(1, edge));
     }
-    for (let y = 0; y < ROWS - 1; y++) {
+    // Each cell hands its heat to the row above, one step left, straight or right; half the time it cools by
+    // twice the mean. Whole runs of cells keep their heat together, which draws tongues instead of speckle.
+    const double = cooling * 2;
+    const whole = Math.floor(double);
+    const part = double - whole;
+    for (let y = 1; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
-        const below = (y + 1) * COLS + Math.min(COLS - 1, Math.max(0, x + Math.round((rnd() - 0.5) * 2)));
-        const loss = cooling * (0.5 + rnd());
-        heat[y * COLS + x] = Math.max(0, Math.round(heat[below] - loss));
+        const r = Math.floor(rnd() * 3);
+        const to = (y - 1) * COLS + Math.min(COLS - 1, Math.max(0, x + r - 1));
+        const loss = rnd() < 0.5 ? 0 : whole + (rnd() < part ? 1 : 0);
+        heat[to] = Math.max(0, heat[y * COLS + x] - loss);
+      }
+    }
+  }
+
+  /** Electric heat: three glowing heating elements across the bottom, a warm haze above them, a slow shimmer. */
+  private coils(): void {
+    const heat = this.heat;
+    const shimmer = 0.9 + 0.1 * Math.sin(this.random() * Math.PI * 2);
+    for (let y = 0; y < ROWS; y++) {
+      const fromBottom = ROWS - 1 - y;
+      const coil = fromBottom === 1 || fromBottom === 4 || fromBottom === 7;
+      const haze = Math.max(0, 1 - fromBottom / (ROWS * 0.8));
+      for (let x = 0; x < COLS; x++) {
+        const inset = x >= 2 && x < COLS - 2;
+        const level = coil && inset ? 0.95 * shimmer : haze * 0.42;
+        heat[y * COLS + x] = Math.round(MAX_HEAT * level);
       }
     }
   }

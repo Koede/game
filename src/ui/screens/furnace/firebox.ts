@@ -11,7 +11,7 @@ import { quickMove } from '../../../game/transfer';
 import type { FurnaceSlots, FurnaceView } from '../../../sim';
 import { Button, Toggle } from '../../kit/controls';
 import { h, setAttr, setText } from '../../kit/dom';
-import { formatPercent, formatWatts } from '../../kit/format';
+import { formatPercent, formatTemp, formatWatts } from '../../kit/format';
 import { Meter, Thermometer } from '../../kit/gauges';
 import { SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
@@ -31,6 +31,9 @@ export interface FireboxDeps {
   /** After any action: refresh the screen on the next frame. */
   changed: () => void;
 }
+
+/** Readings listed under the controls where there is room (desktop). */
+const FACTS = ['Flame', 'Heading for', 'Tier maximum', 'Heat to machines'];
 
 const trendText = (view: FurnaceView): string => {
   if (view.ignited) return 'Held by the star';
@@ -52,8 +55,9 @@ export class FireboxPanel {
   private readonly addFuel: Button;
   private readonly elecRow: HTMLDivElement;
   private readonly elecToggle: Toggle;
-  private readonly elecText: HTMLSpanElement;
   private readonly elecMeter: Meter;
+  private readonly facts: HTMLDListElement;
+  private readonly factValues: HTMLElement[] = [];
   private readonly statusEl: HTMLParagraphElement;
   private readonly restBtn: Button;
   private fuelGrid: SlotGrid | null = null;
@@ -71,7 +75,7 @@ export class FireboxPanel {
     this.draftEl = h('span', { class: 'hw-fbx__draft hw-num' });
     this.fuelHost = h('div', { class: 'hw-fbx__fuelslots' });
     this.burn = new Meter({ label: 'Firebox', tone: 'heat', value: 0, max: 1, text: '' });
-    this.addFuel = new Button({ label: '+ Fuel', kind: 'quiet', size: 'sm', onClick: () => this.loadFuel() });
+    this.addFuel = new Button({ label: 'Add fuel', kind: 'quiet', size: 'sm', onClick: () => this.loadFuel() });
     this.lightBtn = new Button({ label: 'Light', kind: 'primary', onClick: () => this.lightOrDouse() });
     this.pumpBtn = new Button({ label: 'Pump', kind: 'primary', size: 'lg', hint: 'Bellows', onClick: () => this.pump() });
     this.pumpBtn.el.classList.add('hw-fbx__pump');
@@ -80,14 +84,21 @@ export class FireboxPanel {
       tone: 'power',
       onChange: (on) => this.report(sim.setElectric(pos.x, pos.y, pos.z, on)),
     });
-    this.elecText = h('span', { class: 'hw-fbx__electext hw-num' });
-    this.elecMeter = new Meter({ label: 'Power delivered', tone: 'power', value: 0, max: 1 });
+    this.elecMeter = new Meter({ label: '', tone: 'power', value: 0, max: 1 });
     this.elecRow = h(
       'div',
       { class: 'hw-fbx__elec' },
-      h('div', { class: 'hw-fbx__elechead' }, h('span', { class: 'hw-fbx__eleclabel', text: 'Electric heat' }), this.elecToggle.el),
-      this.elecText,
+      h('div', { class: 'hw-fbx__elechead' }, h('span', { class: 'hw-fbx__eleclabel', text: 'Electric' }), this.elecToggle.el),
       this.elecMeter.el,
+    );
+    this.facts = h(
+      'dl',
+      { class: 'hw-fbx__facts' },
+      FACTS.map((label) => {
+        const value = h('dd', { class: 'hw-num' });
+        this.factValues.push(value);
+        return h('div', null, h('dt', { text: label }), value);
+      }),
     );
     this.statusEl = h('p', { class: 'hw-fbx__status', attrs: { role: 'status' } });
     this.restBtn = new Button({ label: 'Rest until dawn', kind: 'quiet', size: 'sm', block: true, onClick: () => this.rest() });
@@ -103,6 +114,7 @@ export class FireboxPanel {
         this.burn.el,
         h('div', { class: 'hw-fbx__btns' }, this.lightBtn.el, this.pumpBtn.el),
         this.elecRow,
+        this.facts,
       ),
       this.statusEl,
       this.restBtn.el,
@@ -141,8 +153,9 @@ export class FireboxPanel {
     setText(this.draftEl, view.ignited ? '' : `Draft ${formatPercent(view.draft)}`);
     setAttr(this.draftEl, 'data-strong', view.draft > 0.5 ? 'true' : null);
 
-    this.burn.setLabel(view.burning ? 'Burning' : 'Firebox');
-    this.burn.set(burnFraction(view), 1, burnText(view));
+    const [burnLabel, burnReading] = burnText(view);
+    this.burn.setLabel(burnLabel);
+    this.burn.set(burnFraction(view), 1, burnReading);
     this.ignited = view.ignited;
     this.lit = view.lit;
     this.lightBtn.el.hidden = view.ignited;
@@ -163,13 +176,18 @@ export class FireboxPanel {
     if (view.electric.available) {
       const e = view.electric;
       this.elecToggle.set(e.on);
-      setText(
-        this.elecText,
-        !e.on ? 'Switched off' : !e.networked ? 'Not on a power network' : `${formatWatts(e.deliveredW)} of ${formatWatts(e.demandW)} asked`,
-      );
+      this.elecMeter.setLabel(!e.on ? 'Switched off' : !e.networked ? 'No network' : `${formatWatts(e.deliveredW)} of ${formatWatts(e.demandW)}`);
       this.elecMeter.set(e.on && e.networked ? e.satisfaction : 0, 1);
       this.elecMeter.setTone(e.on && e.demandW > 0 && e.satisfaction < 0.999 ? 'warn' : 'power');
     }
+
+    const facts = [
+      view.flameC !== null ? formatTemp(view.flameC) : 'No fire',
+      view.ignited ? 'Held' : formatTemp(view.targetC),
+      formatTemp(view.maxTempC),
+      view.extractW > 0 ? formatWatts(view.extractW) : 'None',
+    ];
+    facts.forEach((text, i) => setText(this.factValues[i], text));
 
     setText(this.statusEl, pretty(view.status));
     setAttr(this.statusEl, 'data-tone', statusTone(view));

@@ -1,5 +1,5 @@
 /** DOM-free helpers of the furnace screen: thermometer notches, tones, readout texts, which slot a button loads. */
-import { fuelOf, itemOrNull, machine } from '../../../core/registry';
+import { fuelOf, furnaceTier, itemOrNull, machine, recipesFor } from '../../../core/registry';
 import type { RecipeDef, Slot } from '../../../core/types';
 import type { FurnaceView, UpgradeView } from '../../../sim';
 import type { Tone } from '../../kit/gauges';
@@ -68,12 +68,12 @@ export function flameLook(view: FurnaceView): FlameLook {
   return { mode: 'none', height: 0, tempC: view.tempC };
 }
 
-/** "Coal - 0:42" while something burns, else how long the loaded fuel would last. */
-export function burnText(view: FurnaceView): string {
-  if (view.ignited) return 'Needs no fuel';
-  if (view.burning && view.burnItem) return `${nameOf(view.burnItem)} - ${clockText(view.burnItemLeftS)}`;
-  if (view.fuelItems > 0) return `${view.fuelItems} to burn - ${clockText(view.burnTimeLeftS)}`;
-  return 'Firebox empty';
+/** The burn bar's label and reading: the item burning and its time left, else what the firebox holds. */
+export function burnText(view: FurnaceView): [label: string, reading: string] {
+  if (view.ignited) return ['Fuel', 'Needs none'];
+  if (view.burning && view.burnItem) return [nameOf(view.burnItem), clockText(view.burnItemLeftS)];
+  if (view.fuelItems > 0) return [`${view.fuelItems} loaded`, clockText(view.burnTimeLeftS)];
+  return ['Firebox', 'Empty'];
 }
 
 /** Fraction of the burning item that is left (the burn bar). */
@@ -118,3 +118,16 @@ export function bestFuelSlot(slots: readonly Slot[]): number {
 
 /** The first bag slot holding this item, or -1. */
 export const slotOf = (slots: readonly Slot[], item: string): number => slots.findIndex((s) => s !== null && s.item === item);
+
+/** Where an item comes from, for "what is missing" hints: the station and, at the furnace, the heat it needs. */
+export function sourceText(item: string): string {
+  const r = recipesFor(item)[0];
+  if (!r) return 'gather or mine it';
+  if (r.station === 'hand') return 'craft it by hand';
+  if (r.station === 'workbench') return 'make it at the workbench';
+  if (r.station === 'furnace') {
+    const tier = r.minTier > 1 ? ` (${furnaceTier(r.minTier).name})` : '';
+    return `${r.kind === 'smelt' ? 'smelt' : 'forge'} it here at ${r.minTempC} °C${tier}`;
+  }
+  return `made by the ${machine(r.station).name}`;
+}

@@ -1,0 +1,179 @@
+import { describe, expect, it } from 'vitest';
+import { recipe } from '../../../core/registry';
+import type { RecipeDef } from '../../../core/types';
+import type { ForgeRow, FurnaceView, SmeltRow } from '../../../sim';
+import { fire, makeKit } from '../../../sim/testKit';
+import { forgeAvailable, forgeCategory, forgeReady, forgeRowView, forgeShortfall, smeltRowViews } from './forgeRows';
+import {
+  bestFuelSlot, burnFraction, burnText, clockText, flameLook, shortName, slotOf, sourceText, statusTone, thermoNotches,
+  upgradeProgress,
+} from './furnaceText';
+import { pretty } from './simApi';
+
+const r = (id: string): RecipeDef => {
+  const found = recipe(id);
+  if (!found) throw new Error(id);
+  return found;
+};
+
+/** A real furnace view from the simulation (clay furnace at the origin). */
+function liveView(setup?: (kit: ReturnType<typeof makeKit>) => void): FurnaceView {
+  const kit = makeKit();
+  kit.furnace(0, 1, 0);
+  setup?.(kit);
+  const view = kit.sim.furnaceView(0, 1, 0);
+  if (!view) throw new Error('no furnace');
+  return view;
+}
+
+describe('forge rows', () => {
+  it('sorts every forge recipe into one of the five chips', () => {
+    expect(forgeCategory(r('bronze_pickaxe'))).toBe('tools');
+    expect(forgeCategory(r('shield_suit'))).toBe('tools');
+    expect(forgeCategory(r('power_drill'))).toBe('tools');
+    expect(forgeCategory(r('bronze_ingot'))).toBe('parts');
+    expect(forgeCategory(r('circuit'))).toBe('parts');
+    expect(forgeCategory(r('crusher'))).toBe('machines');
+    expect(forgeCategory(r('lamp'))).toBe('machines');
+    expect(forgeCategory(r('thermopile'))).toBe('power');
+    expect(forgeCategory(r('copper_cable'))).toBe('power');
+    expect(forgeCategory(r('battery'))).toBe('power');
+    expect(forgeCategory(r('brick'))).toBe('building');
+    expect(forgeCategory(r('concrete'))).toBe('building');
+  });
+
+  it('turns live rows into kit rows: heat badge, locked tier badge, have/need chips, reason', () => {
+    const view = liveView((kit) => {
+      kit.player.give('copper_ingot', 3);
+      kit.player.give('tin_ingot', 1);
+      const e = kit.sim.furnaceAt(0, 1, 0);
+      if (e) e.tempC = 820;
+    });
+    const bronze = view.forge.find((f) => f.recipe.id === 'bronze_ingot') as ForgeRow;
+    const row = forgeRowView(bronze);
+    expect(row.available).toBe(1);
+    expect(row.action).toBe('Forge');
+    expect(row.requirements?.[0]).toMatchObject({ kind: 'heat', met: true, tempC: 800 });
+    expect(row.ingredients.map((i) => [i.item, i.have, i.need])).toEqual([['copper_ingot', 3, 3], ['tin_ingot', 1, 1]]);
+
+    const steel = forgeRowView(view.forge.find((f) => f.recipe.id === 'steel_ingot') as ForgeRow);
+    expect(steel.locked).toBe(true);
+    expect(steel.available).toBe(0);
+    expect(steel.requirements?.[0]).toMatchObject({ kind: 'tier', text: 'Blast Furnace', met: false });
+    expect(steel.reason).toBe('Needs the Blast Furnace');
+
+    const pick = forgeRowView(view.forge.find((f) => f.recipe.id === 'bronze_pickaxe') as ForgeRow);
+    expect(pick.reason).toMatch(/^Missing 3 Bronze Ingot/);
+    expect(forgeReady(view.forge)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('limits the batch by heat, ingredients and 99', () => {
+    const base = { canMake: true, max: 7, heatAllows: 3 } as ForgeRow;
+    expect(forgeAvailable(base)).toBe(3);
+    expect(forgeAvailable({ ...base, heatAllows: Infinity })).toBe(7);
+    expect(forgeAvailable({ ...base, max: 500, heatAllows: Infinity })).toBe(99);
+    expect(forgeAvailable({ ...base, canMake: false })).toBe(0);
+  });
+
+  it('explains a short batch only when something was made', () => {
+    expect(forgeShortfall(5, 5, 'bronze_ingot')).toBeNull();
+    expect(forgeShortfall(0, 5, 'bronze_ingot')).toBeNull();
+    expect(forgeShortfall(2, 5, 'bronze_ingot')).toMatch(/^Forged 2 of 5 Bronze Ingot/);
+  });
+});
+
+describe('smelt reference rows', () => {
+  const row = (id: string, have: number, locked = false): SmeltRow => ({ recipe: r(id), locked, tempOk: true, have, reason: locked ? 'Needs the Blast Furnace' : null });
+
+  it('shows one route per product unless the player holds input for several', () => {
+    const ids = (rows: SmeltRow[]): string[] => smeltRowViews(rows).map((v) => v.id);
+    expect(ids([row('charcoal', 0), row('charcoal_pine', 0)])).toEqual(['charcoal']);
+    expect(ids([row('charcoal', 0), row('charcoal_pine', 4)])).toEqual(['charcoal_pine']);
+    expect(ids([row('copper_ingot', 2), row('copper_ingot_crushed', 6)])).toEqual(['copper_ingot', 'copper_ingot_crushed']);
+  });
+
+  it('offers Load while cold, refuses locked rows and asks for missing input', () => {
+    const [views] = [smeltRowViews([{ ...row('copper_ingot', 3), tempOk: false }])];
+    expect(views[0]).toMatchObject({ action: 'Load', available: 3 });
+    expect(views[0].requirements?.find((q) => q.kind === 'heat')?.met).toBe(false);
+    const locked = smeltRowViews([row('iron_ingot', 4, true)])[0];
+    expect(locked.locked).toBe(true);
+    expect(locked.available).toBe(0);
+    expect(smeltRowViews([row('aluminum_ingot', 1)])[0]).toMatchObject({ available: 0, reason: 'Bring 2 Alumina' });
+  });
+});
+
+describe('furnace texts', () => {
+  it('formats clocks and names', () => {
+    expect(clockText(42.2)).toBe('0:43');
+    expect(clockText(725)).toBe('12:05');
+    expect(clockText(Infinity)).toBe('--:--');
+    expect(shortName('copper_ingot')).toBe('Copper');
+    expect(shortName('glass')).toBe('Glass');
+    expect(pretty('Needs 700 C - now 512 C')).toBe('Needs 700 °C - now 512 °C');
+    expect(pretty('Missing 2 Coke')).toBe('Missing 2 Coke');
+  });
+
+  it('marks crucible, selected recipe, upgrade and flame temperatures on the thermometer', () => {
+    const view = liveView((kit) => {
+      const e = kit.sim.furnaceAt(0, 1, 0);
+      if (!e) return;
+      e.crucibleIn[0] = { item: 'copper_ore', count: 2 };
+      fire(kit, e, 'coal', 5);
+      kit.run(2);
+    });
+    const notches = thermoNotches(view, r('bronze_ingot'));
+    expect(notches).toContainEqual({ tempC: 700, label: 'Copper', kind: 'threshold' });
+    expect(notches).toContainEqual({ tempC: 800, label: 'Bronze', kind: 'threshold' });
+    expect(notches).toContainEqual({ tempC: 700, label: 'Upgrade', kind: 'threshold' });
+    expect(notches.find((n) => n.label === 'Flame')).toMatchObject({ tempC: 1250, kind: 'limit' });
+    // The same recipe twice collapses.
+    expect(thermoNotches(view, r('copper_ingot')).filter((n) => n.label === 'Copper')).toHaveLength(1);
+  });
+
+  it('tones the status line by what it asks of the player', () => {
+    const cold = liveView();
+    expect(cold.status).toBe('No fuel');
+    expect(statusTone(cold)).toBe('warn');
+    const burning = liveView((kit) => {
+      const e = kit.sim.furnaceAt(0, 1, 0);
+      if (e) fire(kit, e, 'charcoal', 3);
+      kit.run(1);
+    });
+    expect(statusTone(burning)).toBe('heat');
+    expect(flameLook(burning)).toMatchObject({ mode: 'fire' });
+    expect(burnText(burning)[0]).toBe('Charcoal');
+    expect(burnFraction(burning)).toBeGreaterThan(0.9);
+    expect(flameLook(cold)).toMatchObject({ mode: 'none', height: 0 });
+    expect(burnText(cold)).toEqual(['Firebox', 'Empty']);
+  });
+
+  it('counts upgrade materials per item up to the need', () => {
+    expect(
+      upgradeProgress({
+        next: {} as never, requiredC: 700, tempOk: true, ok: false, reason: null,
+        ingredients: [
+          { item: 'firebrick', need: 12, have: 20, ok: true },
+          { item: 'bronze_ingot', need: 8, have: 5, ok: false },
+          { item: 'bellows', need: 1, have: 0, ok: false },
+        ],
+      }),
+    ).toEqual({ have: 17, need: 21 });
+  });
+
+  it('says where a missing item comes from', () => {
+    expect(sourceText('bellows')).toBe('make it at the workbench');
+    expect(sourceText('bronze_ingot')).toBe('forge it here at 800 °C');
+    expect(sourceText('iron_ingot')).toBe('smelt it here at 1150 °C (Blast Furnace)');
+    expect(sourceText('tungsten_powder')).toBe('made by the Crusher');
+    expect(sourceText('cord')).toBe('craft it by hand');
+    expect(sourceText('clay')).toBe('gather or mine it');
+  });
+
+  it('picks real fuel before wood for Add fuel, and never a tool', () => {
+    expect(bestFuelSlot([{ item: 'oak_log', count: 3 }, { item: 'coal', count: 1 }, { item: 'plank', count: 9 }])).toBe(1);
+    expect(bestFuelSlot([{ item: 'stick', count: 3 }, { item: 'oak_log', count: 1 }])).toBe(1);
+    expect(bestFuelSlot([{ item: 'copper_ore', count: 3 }, null, { item: 'flint_pickaxe', count: 1, durability: 10 }])).toBe(-1);
+    expect(slotOf([null, { item: 'sand', count: 2 }], 'sand')).toBe(1);
+  });
+});

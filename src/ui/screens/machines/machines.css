@@ -1,0 +1,238 @@
+/* ==========================================================================================
+   MACHINE AND CRATE SCREENS, NETWORK PANEL (src/ui/screens/machines). Only the kit's --hw-* tokens.
+   ========================================================================================== */
+
+.hw-mscreen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+.hw-mscreen__machine,
+.hw-mscreen__bag {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+.hw-mscreen__note {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-1);
+}
+@media (max-width: 719.98px) and (min-height: 520px) {
+  .hw-mscreen {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+}
+@media (max-height: 519.98px) {
+  .hw-mscreen {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 14px;
+  }
+}
+
+/* ---- one machine ------------------------------------------------------------------------- */
+.hw-mach {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-1);
+  border-radius: var(--hw-radius);
+}
+.hw-mach__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hw-mach__icon {
+  --hw-icon: 56px;
+  padding: 4px;
+  background: var(--hw-soot-0);
+  border: 1px solid var(--hw-iron-2);
+}
+.hw-mach__status {
+  padding: 6px 10px;
+  font: 600 13px / 1.3 var(--hw-font-mono);
+  color: var(--hw-tone, var(--hw-ash-2));
+  background: var(--hw-tone-wash, var(--hw-soot-3));
+  border-left: 3px solid var(--hw-tone, var(--hw-iron-3));
+}
+.hw-mach__problem {
+  padding: 6px 10px;
+  font-size: var(--hw-fs-sm);
+  font-weight: 600;
+  color: var(--hw-bad-hi);
+  background: var(--hw-bad-wash);
+  border: 1px dashed var(--hw-bad);
+}
+.hw-mach__hint,
+.hw-mach__note {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-1);
+}
+.hw-mach__extra {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.hw-mach__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hw-mach__grow {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+.hw-mach__recipe {
+  font: 600 var(--hw-fs-md) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.03em;
+}
+.hw-mach__fuel {
+  font-size: 13px;
+  color: var(--hw-power-hi);
+}
+.hw-mach__recipes {
+  display: grid;
+  gap: 4px;
+}
+.hw-mach__rec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 2px 8px 2px 2px;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+  background: var(--hw-soot-1);
+  border: 1px solid var(--hw-iron-1);
+}
+.hw-mach__rec > .hw-icon {
+  --hw-icon: 24px;
+}
+.hw-mach__recname {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hw-mach__rectime {
+  font-size: 12px;
+  color: var(--hw-ash-1);
+}
+.hw-mach__fission {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+.hw-mach__core {
+  height: 220px;
+}
+
+/* ---- network panel ----------------------------------------------------------------------- */
+.hw-net {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.hw-net__body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.hw-net__empty {
+  padding: 18px 14px;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+  border: 1px dashed var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-net__alert {
+  padding: 8px 10px;
+  font-size: var(--hw-fs-sm);
+  font-weight: 600;
+  color: var(--hw-tone);
+  background: var(--hw-tone-wash);
+  border-left: 3px solid var(--hw-tone);
+}
+.hw-net__figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.hw-net__chart .hw-spark__canvas {
+  height: 96px;
+}
+.hw-net__meters {
+  display: grid;
+  gap: 10px;
+}
+.hw-net__members {
+  display: grid;
+  gap: 4px;
+}
+.hw-net__member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-1);
+  border-left: 3px solid var(--hw-iron-2);
+}
+.hw-net__member[data-flow='out'] {
+  border-left-color: var(--hw-power);
+}
+.hw-net__member[data-flow='in'] {
+  border-left-color: var(--hw-heat-lo);
+}
+.hw-net__member > .hw-icon {
+  --hw-icon: 28px;
+}
+.hw-net__mtext {
+  display: grid;
+  min-width: 0;
+}
+.hw-net__mname {
+  overflow: hidden;
+  font: 600 var(--hw-fs-sm) / 1.25 var(--hw-font-display);
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hw-net__mstatus {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--hw-ash-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hw-net__mwatts {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hw-ash-2);
+}
+.hw-net__member[data-flow='out'] .hw-net__mwatts {
+  color: var(--hw-power-hi);
+}
+.hw-net--compact .hw-net__chart .hw-spark__canvas {
+  height: 60px;
+}
+.hw-net--compact .hw-stat__value {
+  font-size: 20px;
+}
+@media (max-width: 559.98px) {
+  .hw-net__figures {
+    gap: 6px;
+  }
+  .hw-net__figures .hw-stat__value {
+    font-size: 20px;
+  }
+}

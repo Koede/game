@@ -6,14 +6,14 @@ import type { GameBus } from '../../../core/context';
 import { recipe as recipeById } from '../../../core/registry';
 import type { Inventory } from '../../../game/inventory';
 import { quickMove } from '../../../game/transfer';
-import type { CrucibleView, FurnaceSlots, FurnaceView, SmeltRow } from '../../../sim';
+import type { CrucibleView, FurnaceSlots, FurnaceView } from '../../../sim';
 import { h, setAttr, setText } from '../../kit/dom';
 import { heatColor } from '../../kit/format';
 import { Badge, Meter } from '../../kit/gauges';
-import { RecipeList, type RecipeRowView } from '../../kit/recipe';
+import { RecipeList } from '../../kit/recipe';
 import { ItemSlot } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
-import { nameOf } from './forgeRows';
+import { nameOf, smeltRowViews } from './forgeRows';
 import { clockText, slotOf } from './furnaceText';
 import { pretty } from './simApi';
 
@@ -24,28 +24,6 @@ interface CrucibleRow {
   name: HTMLSpanElement;
   badge: Badge;
   meter: Meter;
-}
-
-/** One reference row per smelt recipe: Load moves a stack of its input into a free crucible. */
-export function smeltRowView(row: SmeltRow): RecipeRowView {
-  const r = row.recipe;
-  const input = r.inputs[0];
-  return {
-    id: r.id,
-    item: r.output.item,
-    name: nameOf(r.output.item),
-    count: r.output.count,
-    requirements: [
-      ...(row.locked ? [{ text: pretty(row.reason ?? ''), kind: 'tier' as const, met: false }] : []),
-      { text: `${r.minTempC} °C`, kind: 'heat', met: row.tempOk, tempC: r.minTempC },
-      { text: `${r.timeS} s`, kind: 'time' },
-    ],
-    ingredients: [{ item: input.item, name: nameOf(input.item), have: row.have, need: input.count }],
-    available: row.locked ? 0 : Math.floor(row.have / input.count),
-    reason: row.locked ? undefined : `Bring ${input.count > 1 ? `${input.count} ` : ''}${nameOf(input.item)}`,
-    locked: row.locked,
-    action: 'Load',
-  };
 }
 
 const crucibleState = (c: CrucibleView): string =>
@@ -120,7 +98,7 @@ export class SmeltTab {
       row.meter.setTone(c.active ? 'heat' : crucibleState(c) === 'cold' ? 'warn' : crucibleState(c) === 'done' ? 'good' : 'neutral');
       row.meter.set(c.progress, 1, c.active ? clockText(c.secondsLeft) : '');
     });
-    this.list.setRows(view.smelt.map(smeltRowView));
+    this.list.setRows(smeltRowViews(view.smelt));
   }
 
   dispose(): void {

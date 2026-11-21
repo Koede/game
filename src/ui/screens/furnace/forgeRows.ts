@@ -1,10 +1,11 @@
 /**
- * The FORGE tab's list: the simulation's ForgeRows (every forge recipe of the game in tech-tree order) turned
- * into kit RecipeRowViews with category, requirement badges and have/need chips. DOM-free.
+ * The furnace's recipe lists as kit RecipeRowViews, DOM-free: the FORGE tab (the simulation's ForgeRows, every
+ * forge recipe in tech-tree order, with category, requirement badges and have/need chips) and the SMELT tab's
+ * reference list (every smelt recipe with a Load button).
  */
 import { blockOfItem, furnaceTier, itemOrNull, machineOfBlock } from '../../../core/registry';
 import type { RecipeDef } from '../../../core/types';
-import type { ForgeRow } from '../../../sim';
+import type { ForgeRow, SmeltRow } from '../../../sim';
 import type { RecipeCategory, RecipeRequirement, RecipeRowView } from '../../kit/recipe';
 import { pretty } from './simApi';
 
@@ -74,4 +75,44 @@ export const forgeReady = (rows: readonly ForgeRow[]): number => rows.reduce((n,
 export function forgeShortfall(made: number, asked: number, item: string): string | null {
   if (made >= asked || made <= 0) return null;
   return `Forged ${made} of ${asked} ${nameOf(item)} - it ran too cold or short of ingredients`;
+}
+
+/** One reference row per smelt recipe: Load moves a stack of its input into a free crucible. */
+export function smeltRowView(row: SmeltRow): RecipeRowView {
+  const r = row.recipe;
+  const input = r.inputs[0];
+  return {
+    id: r.id,
+    item: r.output.item,
+    name: nameOf(r.output.item),
+    count: r.output.count,
+    requirements: [
+      ...(row.locked ? [{ text: pretty(row.reason ?? ''), kind: 'tier' as const, met: false }] : []),
+      { text: `${r.minTempC} °C`, kind: 'heat', met: row.tempOk, tempC: r.minTempC },
+      { text: `${r.timeS} s`, kind: 'time' },
+    ],
+    ingredients: [{ item: input.item, name: nameOf(input.item), have: row.have, need: input.count }],
+    available: row.locked ? 0 : Math.floor(row.have / input.count),
+    reason: row.locked ? undefined : `Bring ${input.count > 1 ? `${input.count} ` : ''}${nameOf(input.item)}`,
+    locked: row.locked,
+    action: 'Load',
+  };
+}
+
+/**
+ * The smelt reference list in authored order. Routes to the same product (charcoal from oak or pine, copper from
+ * ore or crushed copper) show only the ones the player holds input for, or the plain route when none.
+ */
+export function smeltRowViews(rows: readonly SmeltRow[]): RecipeRowView[] {
+  const held = new Set(rows.filter((r) => r.have > 0).map((r) => r.recipe.output.item));
+  const shown = new Set<string>();
+  const out: RecipeRowView[] = [];
+  for (const row of rows) {
+    const product = row.recipe.output.item;
+    const keep = held.has(product) ? row.have > 0 : !shown.has(product);
+    if (!keep) continue;
+    shown.add(product);
+    out.push(smeltRowView(row));
+  }
+  return out;
 }
