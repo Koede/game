@@ -44,7 +44,7 @@ export const DEFAULT_TOUCH_CONTROLS: readonly ControlLine[] = [
 
 /** The loop. Steps 1-3 are about heat, 4-5 about power: the numerals are coloured to match. */
 const LOOP: readonly { tone: string; text: string }[] = [
-  { tone: 'var(--hw-temp-800)', text: 'Gather wood, flint, rubble and clay. A workbench builds your first furnace - and little else.' },
+  { tone: 'var(--hw-temp-800)', text: 'Gather wood, flint, rubble and clay. A workbench builds your first furnace and anything you can make by hand - and little else.' },
   { tone: 'var(--hw-temp-1100)', text: 'The furnace is the heart. Feed the fire, pump the bellows: hotter fire, better recipes.' },
   { tone: 'var(--hw-temp-1500)', text: 'Its recipe list is your tech tree. A locked row tells you the heat or the tier it wants.' },
   { tone: 'var(--hw-power)', text: 'Heat first, then watts. Turn the fire into electricity, then build wind, sun, oil, lava and uranium.' },

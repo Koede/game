@@ -39,6 +39,8 @@ export type CraftResult =
 
 export const HAND_RECIPES: readonly RecipeDef[] = recipesAt('hand');
 export const WORKBENCH_RECIPES: readonly RecipeDef[] = recipesAt('workbench');
+/** Everything the workbench screen offers: its own recipes first, then every hand recipe too. */
+export const BENCH_RECIPES: readonly RecipeDef[] = [...WORKBENCH_RECIPES, ...HAND_RECIPES];
 
 const nameOf = (item: string): string => itemOrNull(item)?.name ?? item;
 const isTally = (sources: readonly Inventory[] | ItemTally): sources is ItemTally => sources instanceof Map;

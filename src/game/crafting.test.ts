@@ -3,6 +3,7 @@ import { createBus } from '../core/context';
 import { recipe } from '../core/registry';
 import type { RecipeDef } from '../core/types';
 import {
+  BENCH_RECIPES,
   HAND_RECIPES,
   WORKBENCH_RECIPES,
   availability,
@@ -162,5 +163,14 @@ describe('crafting', () => {
     expect(sounds).toEqual(['craft']);
     expect(craftByPlayer(player, need('workbench')).ok).toBe(false);
     expect(player.stats.made.workbench).toBe(1);
+  });
+});
+
+describe('workbench offers hand recipes too', () => {
+  it('lists every workbench recipe first, then every hand recipe', () => {
+    expect(BENCH_RECIPES.slice(0, WORKBENCH_RECIPES.length)).toEqual([...WORKBENCH_RECIPES]);
+    for (const r of HAND_RECIPES) expect(BENCH_RECIPES).toContain(r);
+    expect(BENCH_RECIPES.length).toBe(WORKBENCH_RECIPES.length + HAND_RECIPES.length);
+    expect(new Set(BENCH_RECIPES.map((r) => r.id)).size).toBe(BENCH_RECIPES.length);
   });
 });

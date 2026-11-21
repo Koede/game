@@ -48,8 +48,8 @@ Switching away from the page pauses the game.
 
 ## How the game works
 
-**The furnace is your crafting table.** A workbench exists, and it builds your first furnace and a few
-wooden things, but nearly every recipe is forged at the furnace. Recipes are a list: pick one, see what you
+**The furnace is your crafting table.** A workbench exists: it builds your first furnace and a few
+wooden things, and everything you can make by hand can be made there too. Nearly every other recipe is forged at the furnace. Recipes are a list: pick one, see what you
 have and what you need, make it. Rows you cannot make yet tell you why: the fire is not hot enough, or the
 furnace needs its next upgrade.
 
