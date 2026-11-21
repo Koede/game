@@ -80,3 +80,6 @@ ores (wolframite, spodumene, pitchblende) share a darker layered host rock of th
 - `item_shield_suit` reads more like a robot than a suit; `workbench_side` reads as a shelf.
 - Only judged in my own harnesses (contact sheets, 4x4 tilings, the UI kit's real slots at 390x844, and a three.js
   scene with simple Lambert lighting by day and night) - not yet in the real renderer with its light ramp and fog.
+
+## Later additions
+Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, sounds, ambience fields and textures here: see `docs/api/world-content.md`.

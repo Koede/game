@@ -66,7 +66,7 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(0, 'bronze_pickaxe', 'Forge a bronze pickaxe', make('bronze_pickaxe'),
     'A bronze pickaxe opens iron ore, sulfur and oil shale, and lasts three times as long as flint.'),
   objective(0, 'bake_bread', 'Bake bread', make('bread'),
-    'Grind ripe wheat into flour at the workbench, mix two flour with a pail of water into dough, and bake it in a crucible at 220 C.'),
+    'Grind ripe wheat into flour at the workbench, mix two flour with a bucket of water into dough, and bake it in a crucible at 220 C.'),
   objective(0, 'first_power', 'Make electricity', generate(100),
     'Forge a Thermopile and set it against the furnace. It makes a quarter of a watt for every degree above 100 C, so a fire near 500 C gives 100 W.',
     '6 copper_cable'),

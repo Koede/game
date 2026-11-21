@@ -175,8 +175,8 @@ Consumers
 crate: 27 slots. Every machine with an output buffer pushes finished items into a crate that touches it, if any.
 
 ### 2.6 Ore veins (OreVeinSpec; y band, veins per chunk x size, biome multipliers)
-coal_ore 20-70, 5 x 8 | copper_ore 16-60, 4 x 6 (dunes x2) | tin_ore 30-66, 2.5 x 5 | limestone 22-52, 1.5 x 14 |
-iron_ore 6-46, 4 x 6 | sulfur_ore 4-34, 1 x 5 (scar x3) | oil_shale 10-40, 1 x 8 (dunes x2, scar x2) |
+coal_ore 20-70, 5 x 8 (marsh x1.5) | copper_ore 16-60, 4 x 6 (dunes x2) | tin_ore 30-66, 2.5 x 5 | limestone 22-52, 1.5 x 14 |
+iron_ore 6-46, 4 x 6 (marsh x1.5) | sulfur_ore 4-34, 1 x 5 (scar x3) | oil_shale 10-40, 1 x 8 (dunes x2, scar x2) |
 quartz_ore 6-38, 1.5 x 5 | bauxite 18-46, 1.5 x 6 (dunes x2) | wolframite 3-20, 0.7 x 5 (frostfell x2) |
 spodumene 3-22, 0.6 x 5 (dunes x2) | pitchblende 2-14, 0.5 x 4 (scar x3).
 Nothing is biome-exclusive: every ore exists everywhere, some biomes are richer.
@@ -831,9 +831,9 @@ Hide: WORKBENCH bellows_hide variant: bellows <- 4 plank, 2 hide; padded_coat_hi
 CreatureSpec (src/content/creatures.ts, registry CREATURES): key, name, biomes, health, speed, size {w, h},
 drops (Drop[]), likes (item keys that lure and breed it), group [min, max], model (parts as boxes with colours).
 | key | name | biomes | hp | speed m/s | size w x h | drops | likes |
-| hen | Hen | woodland, dunes | 4 | 2.2 | 0.45 x 0.7 | raw_fowl 1 | wheat_seeds |
+| hen | Hen | woodland, dunes, marsh | 4 | 2.2 | 0.45 x 0.7 | raw_fowl 1 | wheat_seeds |
 | goat | Goat | frostfell, woodland | 8 | 2.6 | 0.8 x 1.2 | raw_mutton 1-2, hide 0-1 | wheat |
-| boar | Boar | woodland, scar | 10 | 2.8 | 0.9 x 0.9 | raw_chop 1-3, hide 1 | potato, carrot |
+| boar | Boar | woodland, scar, marsh | 10 | 2.8 | 0.9 x 0.9 | raw_chop 1-3, hide 1 | potato, carrot |
 - Behaviour (fixed-step AI at 20 Hz): idle / wander (pick a reachable point within 8 blocks; never step into
   liquid or a drop deeper than 2 blocks) / graze (stand, head down) / flee (when hurt: run directly away from the
   player at 1.6x speed for 5 s) / follow (player within 10 blocks holding a liked item: walk to 2 blocks from the
@@ -941,6 +941,18 @@ The clock, sun, moon, stars, clouds and sunlight-driven lighting exist. Add:
     to rain from above loses heat faster (+50% loss) - build it a roof.
 - HUD: the day/night dial shows the weather glyph and the moon phase; the forecast line in the Hearth Log says
   "Rain within the hour" when the next state is rain or storm (the hearth keeper reads the sky).
+
+### 13-15 data (laid down by the world-content pass; full tables in docs/api/world-content.md)
+- Keys: blocks ember_poppy, skybell, frost_lily, fern, reeds, berry_bush, berry_bush_bare, glowcap, cactus,
+  packed_ice + ice_spike (spires), basalt_column, steam_vent, peat, cracked_stone_brick, mossy_stone_brick,
+  collapsed_furnace, rusted_shell, crystal_cluster (drops 1-2 silica, iron pickaxe), oil (liquid 'oil'); items
+  bronze_bucket, lava_bucket (FuelSpec.fuelReturns 'bronze_bucket'), wildberries. Machine `berry_bush` (role 'bush',
+  params regrowS 300); a picked bush is `BlockSpec.harvestLeaves`. The bronze bucket scoops lava only.
+- Marsh: BiomeKey 'marsh'; coal and iron x1.5; hens and boars live there. Ruins: RUIN_* constants and loot tables
+  'near' / 'deep' (src/content/loot.ts, `rollLoot` in the registry).
+- Weather: WeatherState in src/core/types.ts, WEATHER_* / moon / lightning constants in src/core/constants.ts,
+  lookups in src/core/weather.ts, events 'weather:changed' / 'weather:lightning', sfx thunder, steam_hiss, scoop_lava,
+  AmbienceState rain / storm / sheltered. The first night has a full moon; solar panels need sunlight > 0.15.
 
 ---------------------------------------------------------------------------------------------------------
 

@@ -83,3 +83,6 @@ Not exported from the index: `src/audio/fakeAudio.ts` (`FakeAudioContext`, the r
 - The 'phone speaker' rebalance is based on a crude 350 Hz-6 kHz energy measure, not on a real device. step (0.003), ui_click (0.005) and error (0.005) are deliberately quiet and may be faint on a phone at low volume.
 - src/audio/engine.test.ts is 399 lines, over the 350-line aim (test file only).
 - The engine does not suspend the AudioContext when volume is 0 or the tab is hidden; at volume 0 it creates no sources if the ambience was never built, but an already-built ambience keeps running silently.
+
+## Later additions
+Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, sounds, ambience fields and textures here: see `docs/api/world-content.md`.

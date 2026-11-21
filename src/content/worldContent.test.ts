@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE, NIGHT_LIGHT_FULL_MOON, NIGHT_LIGHT_NEW_MOON } from '../core/constants';
 import { mulberry32 } from '../core/math';
 import {
-  BLOCKS, CREATURES, ITEMS, LOOT_TABLES, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, block, fuelOf, item, lootTable, machine,
+  BLOCKS, CREATURES, ITEMS, LOOT_TABLES, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, block, fuelOf, item, lootTable, machine,
   recipesFor, rollLoot,
 } from '../core/registry';
 import { ALL_BIOMES, type LootTableSpec } from '../core/types';
@@ -18,6 +18,7 @@ describe('13. buckets', () => {
   it('calls the pail a bucket everywhere a player can read it, keeping the keys', () => {
     for (const [key, name] of Object.entries(WORLD_SPEC.names)) expect(item(key).name, key).toBe(name);
     for (const thing of [...ITEMS, ...BLOCKS]) expect(`${thing.name} ${thing.desc}`, thing.key).not.toMatch(/\bpails?\b/i);
+    for (const o of OBJECTIVES) expect(`${o.title} ${o.text}`, o.id).not.toMatch(/\bpails?\b/i);
     expect(item('pail').desc).toMatch(/endless spring/);
     expect(item('water_pail').desc).toMatch(/bucket back/);
   });

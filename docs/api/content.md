@@ -85,3 +85,6 @@ All keys are exactly those of spec section 2. Things worth knowing:
 - The solver proves obtainability and ordering, not pacing: fuel consumption, mining time, ore rarity and inventory space are not modelled. The printed raw budget covers upgrade costs only, not the machines and fuel needed along the way.
 - Reward '2 water_pail' takes two inventory slots (stack 1); what does not fit is lost under the spec's inventory rule.
 - No core bug found. Two observations, not edited: BlockTextures lacks a bottomActive face; validateContent only checks unreachable minTempC for top-tier recipes (my structural test checks every furnace recipe and every upgrade temperature against its tier).
+
+## Later additions
+Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, sounds, ambience fields and textures here: see `docs/api/world-content.md`.

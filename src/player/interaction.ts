@@ -279,7 +279,7 @@ export class Interaction {
       return 'pail';
     }
     if (hit.block.liquid !== null) {
-      this.advise('pail:hot', 'That would burn straight through a wooden pail');
+      this.advise('pail:hot', 'That would burn straight through a wooden bucket');
       return 'refused';
     }
     return 'none';
