@@ -1,7 +1,8 @@
 /** Test fixture: the Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) typed in a second time; appended after magic. */
 export const WORKSHOP_SPEC = {
   blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
-    'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor'],
+    'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
+    'mech_hammer', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill'],
   items: ['engineer_goggles', 'bronze_cog'],
   recipes: {
     workbench: [
@@ -15,22 +16,34 @@ export const WORKSHOP_SPEC = {
     furnace: [
       'mech_saw: 1 mech_saw <- 2 bronze_plate, 2 plank, 1 drive_shaft @600 T1',
       'mech_mortar: 1 mech_mortar <- 2 bronze_ingot, 2 stone_brick, 1 drive_shaft @600 T1',
+      'bronze_cog: 2 bronze_cog <- 1 bronze_ingot @600 T1',
       'reverse_box: 1 reverse_box <- 2 bronze_cog, 1 drive_shaft, 1 plank @600 T1',
       'ratio_dial: 1 ratio_dial <- 2 bronze_cog, 1 bronze_plate, 1 stick @600 T1',
       'clutch: 1 clutch <- 1 bronze_cog, 1 drive_shaft, 1 stick, 1 leather @600 T1',
       'split_box: 1 split_box <- 3 bronze_cog, 1 plank @600 T1',
-      'belt_pulley: 2 belt_pulley <- 2 plank, 1 leather, 1 drive_shaft @600 T1',
-      'bronze_cog: 2 bronze_cog <- 1 bronze_ingot @600 T1',
       'clockwork_motor: 1 clockwork_motor <- 3 bronze_ingot, 2 bronze_cog, 1 bronze_plate @600 T1',
       'sequence_gearshift: 1 sequence_gearshift <- 3 bronze_cog, 1 bronze_plate, 1 clockwork_motor @700 T1',
       'governor: 1 governor <- 2 bronze_ingot, 1 bronze_cog, 1 drive_shaft @600 T1',
       'worm_gear: 1 worm_gear <- 1 bronze_ingot, 1 bronze_cog, 1 drive_shaft @600 T1',
       'chain_sprocket: 2 chain_sprocket <- 2 bronze_ingot, 1 bronze_cog @600 T1',
+      'belt_pulley: 2 belt_pulley <- 2 plank, 1 leather, 1 drive_shaft @600 T1',
+      'funnel: 2 funnel <- 2 bronze_ingot @600 T1',
+      'chute: 2 chute <- 1 bronze_ingot, 1 plank @600 T1',
+      'depot: 1 depot <- 2 stone_brick, 1 bronze_ingot @600 T1',
+      'basin: 1 basin <- 3 stone_brick, 1 bronze_ingot @600 T1',
+      'spout: 1 spout <- 1 bronze_ingot, 1 stick @600 T1',
+      'item_drain: 1 item_drain <- 2 bronze_ingot, 1 stone_brick @600 T1',
+      'mixer: 1 mixer <- 2 bronze_ingot, 1 bronze_cog, 1 drive_shaft @600 T1',
+      'mech_press: 1 mech_press <- 2 bronze_plate, 2 stone_brick, 1 drive_shaft @600 T1',
+      'deployer: 1 deployer <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 leather @600 T1',
+      'mech_arm: 1 mech_arm <- 2 bronze_plate, 2 bronze_cog, 1 drive_shaft @600 T1',
+      'mech_drill: 1 mech_drill <- 2 bronze_ingot, 2 bronze_plate, 1 bronze_cog, 1 drive_shaft @600 T1',
+      'mech_hammer: 1 mech_hammer <- 3 bronze_ingot, 2 stone_brick, 1 drive_shaft @600 T1',
       'engineer_goggles: 1 engineer_goggles <- 2 copper_ingot, 1 glass, 1 leather @650 T1',
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then 20 fronts of the modular parts (two for each running one) and one icon. */
-  textures: 41,
+  textures: 59,
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

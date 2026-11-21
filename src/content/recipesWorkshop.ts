@@ -28,5 +28,18 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('worm_gear', '1 bronze_ingot, 1 bronze_cog, 1 drive_shaft', 600),
   forge('2 chain_sprocket', '2 bronze_ingot, 1 bronze_cog', 600),
   forge('2 belt_pulley', '2 plank, 1 leather, 1 drive_shaft', 600),
+  // Logistics and processing (docs/OVERHAUL_PLAN.md A.5-A.7).
+  forge('2 funnel', '2 bronze_ingot', 600),
+  forge('2 chute', '1 bronze_ingot, 1 plank', 600),
+  forge('depot', '2 stone_brick, 1 bronze_ingot', 600),
+  forge('basin', '3 stone_brick, 1 bronze_ingot', 600),
+  forge('spout', '1 bronze_ingot, 1 stick', 600),
+  forge('item_drain', '2 bronze_ingot, 1 stone_brick', 600),
+  forge('mixer', '2 bronze_ingot, 1 bronze_cog, 1 drive_shaft', 600),
+  forge('mech_press', '2 bronze_plate, 2 stone_brick, 1 drive_shaft', 600),
+  forge('deployer', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 leather', 600),
+  forge('mech_arm', '2 bronze_plate, 2 bronze_cog, 1 drive_shaft', 600),
+  forge('mech_drill', '2 bronze_ingot, 2 bronze_plate, 1 bronze_cog, 1 drive_shaft', 600),
+  forge('mech_hammer', '3 bronze_ingot, 2 stone_brick, 1 drive_shaft', 600),
   forge('engineer_goggles', '2 copper_ingot, 1 glass, 1 leather', 650),
 ];

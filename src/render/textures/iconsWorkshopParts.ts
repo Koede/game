@@ -6,6 +6,7 @@ import { icon } from './shapes';
 const WOOD = [P.rgb(0x4e3418), P.rgb(0x6a4824), P.rgb(0x86602f), P.rgb(0xa07a40), P.rgb(0xb8925a)];
 const BRONZE = [P.rgb(0x5a3a14), P.rgb(0x8a5c22), P.rgb(0xb07a34), P.rgb(0xd09a4c), P.rgb(0xeec27a)];
 const IRON = [P.rgb(0x3c4046), P.rgb(0x5e646c), P.rgb(0x8a929c), P.rgb(0xc4ccd4)];
+const STONE_ = [P.rgb(0x55534e), P.rgb(0x6e6b65), P.rgb(0x87847d), P.rgb(0xa19e96)];
 const GLOW = P.rgb(0xffc864);
 
 const hash = (x: number, y: number, s: number): number => {
@@ -68,15 +69,28 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   chain_sprocket: { tint: 0x9090a0, draw: (c, on) => { cogAt(c, 8, 10, 4.6, on ? 0.2 : 0, 10); for (let i = 0; i < 4; i++) c.rect(1 + i * 4 + (on ? 1 : 0), 4, 2, 1, IRON[3]); } },
   belt_pulley: { tint: 0x8a5a30, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 10); return d < 4.6 ? (d < 1.5 ? IRON[0] : d < 3.4 ? WOOD[4] : P.rgb(0x7a4a24)) : null; }); c.rect(0, 5 + (on ? 1 : 0), 16, 1, P.rgb(0x5a3519)); c.rect(0, 15, 16, 1, BRONZE[0]); } },
   clockwork_motor: { tint: 0xe0e0e0, draw: (c, on) => { c.rect(3, 5, 10, 9, IRON[1]); cogAt(c, 8, 9.5, 3, on ? 0.4 : 0, 6); c.rect(6, 3, 4, 2, BRONZE[3]); c.rect(12, 7 + (on ? 2 : 0), 3, 1, BRONZE[4]); } },
+  funnel: { tint: 0x60b0d0, draw: (c) => { for (let i = 0; i < 6; i++) c.rect(2 + i, 5 + i, 12 - 2 * i, 1, i < 5 ? IRON[2] : IRON[0]); c.rect(7, 11, 2, 3, IRON[3]); } },
+  chute: { tint: 0x70a8d8, draw: (c) => { c.rect(5, 4, 6, 10, IRON[1]); c.rect(7, 4, 2, 10, IRON[0]); c.rect(5, 4, 1, 10, IRON[3]); c.rect(7, 12, 2, 2, GLOW); } },
+  depot: { tint: 0xc0a060, draw: (c) => { c.rect(2, 10, 12, 3, STONE_[2]); c.rect(2, 10, 12, 1, STONE_[3]); c.rect(5, 7, 6, 3, WOOD[4]); } },
+  basin: { tint: 0x5090c0, draw: (c) => { c.rect(2, 6, 12, 8, STONE_[1]); c.rect(3, 6, 10, 5, P.rgb(0x3a86b4)); c.rect(3, 6, 10, 1, P.rgb(0x8cc8ee)); c.rect(2, 6, 1, 8, STONE_[3]); } },
+  spout: { tint: 0x40a0a0, draw: (c) => { c.rect(5, 4, 6, 3, IRON[2]); c.rect(7, 7, 2, 4, IRON[1]); for (const y of [12, 14]) c.rect(7, y, 2, 1, P.rgb(0x6cb4e0)); } },
+  item_drain: { tint: 0x8080c0, draw: (c) => { c.rect(3, 4, 10, 4, IRON[1]); c.rect(4, 8, 8, 1, IRON[0]); c.rect(6, 9, 4, 5, IRON[2]); c.rect(7, 13, 2, 1, P.rgb(0x6cb4e0)); } },
+  mixer: { tint: 0xe08060, draw: (c, on) => { c.rect(2, 11, 12, 3, IRON[1]); c.rect(7, 3, 2, 8, IRON[2]); const o = on ? 4 : 2; c.rect(8 - o, 9, o * 2, 1, BRONZE[4]); c.rect(8 - o, 7, 1, 3, BRONZE[3]); c.rect(7 + o, 7, 1, 3, BRONZE[3]); } },
+  mech_press: { tint: 0xa0a0a8, draw: (c, on) => { c.rect(3, 3, 10, 2, IRON[1]); c.rect(6, 5, 4, on ? 7 : 4, IRON[2]); c.rect(3, on ? 12 : 9, 10, 2, IRON[3]); c.rect(2, 14, 12, 1, STONE_[2]); } },
+  deployer: { tint: 0x50c080, draw: (c, on) => { c.rect(3, 6, 6, 4, IRON[2]); c.rect(on ? 9 : 8, 7, 4, 2, BRONZE[3]); c.rect(on ? 12 : 11, 5, 2, 6, BRONZE[4]); c.rect(3, 11, 10, 2, WOOD[1]); } },
+  mech_arm: { tint: 0xd0c040, draw: (c, on) => { c.rect(6, 11, 4, 3, IRON[1]); const x = on ? 10 : 3; c.rect(Math.min(8, x), 7, Math.abs(x - 8) + 1, 1, BRONZE[3]); c.rect(7, 7, 2, 5, IRON[2]); c.rect(x - 1, 5, 3, 3, BRONZE[4]); } },
+  mech_drill: { tint: 0xb0b0b8, draw: (c, on) => { for (let i = 0; i < 5; i++) c.rect(3 + i * 2 + (on && i % 2 ? 1 : 0), 4 + i, 8 - i * 2 > 0 ? 8 - i * 2 : 1, 1, i % 2 ? IRON[3] : IRON[1]); c.rect(7, 10, 2, 4, IRON[0]); } },
+  hammer: { tint: 0x8a6a40, draw: (c, on) => { c.rect(2, 12, 12, 3, IRON[1]); c.rect(2, 12, 12, 1, IRON[3]); c.rect(7, on ? 6 : 2, 2, 5, WOOD[3]); c.rect(4, on ? 4 : 1, 8, 3, IRON[2]); c.rect(4, on ? 4 : 1, 8, 1, IRON[3]); } },
 };
 
 export const registerGlyph = (key: string, tint: number, draw: Glyph): void => { GLYPHS[key] = { tint, draw }; };
 
+const STATIC = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain']);
 const set: Record<string, PainterSet[string]> = {};
 for (const [key, g] of Object.entries(GLYPHS)) {
   const seed = [...key].reduce((s, ch) => s + ch.charCodeAt(0), 0);
   set[`ws_${key}_front`] = (c) => { base(c, seed, P.rgb(g.tint)); g.draw(c, false); };
-  set[`ws_${key}_front_on`] = (c) => { base(c, seed, P.rgb(g.tint)); g.draw(c, true); };
+  if (!STATIC.has(key)) set[`ws_${key}_front_on`] = (c) => { base(c, seed, P.rgb(g.tint)); g.draw(c, true); };
 }
 
 function cogIcon(c: Canvas): void { cogAt(c, 8, 8, 6, 0, 10); }

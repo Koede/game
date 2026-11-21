@@ -44,7 +44,23 @@ All calls are on `Game.workshop` (the `Workshop` instance); coordinates are bloc
 - `take(x, y, z, filter?: string | null, max = 64): { item, count } | null` - pull a stack out of a depot, a machine's output buffer or a crate.
 - `crank(x, y, z, seconds = CRANK_S): boolean` - turn a `hand_crank` as if a player held Use. A construct that cranks is a source of 8 su.
 - `signal(x, y, z, on: boolean)` - set a lever/plate cell, read by deployers and gearshifts (1-bit).
-- `act: ((a: MachineActAction) => boolean) | null` hook, set by Game: a deployer or arm asks the world to Use `item` on the block at
-  `target` from `face` (`{ item, target: [x,y,z], face, mode: 'use' | 'strike' | 'place' | 'mine' }`); the answer says it worked. A golem
-  that wants to "do what a player does at that block" calls `workshop.act(...)` too.
+- `act(a: MachineActAction): false | 'used' | 'consumed'`: use `item` on the block at `target` from `face`
+  (`{ item, target: [x,y,z], face, mode: 'auto' | 'use' | 'strike' | 'place' | 'mine' }`) the way a deployer does: the Game's `actHook`
+  first (hand stations take the stroke through `sim.stroke`), else placing a held block into free air ('consumed') or breaking a solid
+  block ('mine', or 'auto' with a non-block item) with its drops left as ground items. A golem that does "what a player does at that
+  block" calls `workshop.act(...)` too.
+- `workshop.logi.peek/accept/take` are the container primitives (depot, basin, funnel, chute, deployer hand, crates by block entity).
 - Events (bus `sfx`/`toast` only, nothing new in core): machines emit `item:made` like the hand stations.
+
+## Logistics and processing (src/workshop/logistics.ts, `Workshop.logi`; basin recipes in src/content/basinWorkshop.ts)
+- `depot` holds one stack of one kind; `basin` two kinds (16 each) and 1000 L; `funnel` passes items from the block behind / on top to the
+  block in front (or the ground), Use with an item sets a filter, empty hand clears; `chute` does the same downward from the block above;
+  `item_drain` empties a full bucket (any fluid with a bucket) into the basin below and passes the empty bucket on; `spout` under a
+  basin fills an empty bucket on the depot / belt beneath it. Belts hand items to any of these (and crates) at their end; machines put
+  their output into the container in front instead of dropping it when there is one.
+- `mech_arm` (6 su, 16 rpm: 1.5 s a cycle): wrench on it, then on a source, then up to 4 targets within 3 blocks, then on it again.
+  `deployer` (8 su, 2 s): holds a stack and acts on the block in front. `mech_drill` (8 su): breaks the block in front, time =
+  hardness x 1.2 s at 16 rpm, tier 1 at most, drops land where the block was. `mixer` (6 su, needs 32 rpm: use a ratio dial) and
+  `mech_press` (8 su, 16 rpm) work the basin below them: `BASIN_RECIPES` (dough, cold bronze alloy, bronze and iron plate).
+- `mech_hammer` (Trip Hammer) is the twin of the stone anvil's stroke recipes.
+- Not built yet (listed in OVERHAUL_PLAN status): fluid pipes into spouts/drains, vacuum collector, contraptions, rail skiff, signals.

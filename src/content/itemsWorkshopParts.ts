@@ -22,6 +22,17 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'chain_sprocket', name: 'Chain Sprocket', anim: true, desc: 'Face two sprockets along a straight line, up to 16 blocks apart, and a chain joins their shafts without slipping.' },
   { key: 'belt_pulley', name: 'Belt Pulley', anim: true, desc: 'Pulleys up to 9 blocks apart in a line are joined by a leather belt. Use it to pick the size: the big one turns slower.' },
   { key: 'clockwork_motor', name: 'Clockwork Motor', anim: true, desc: 'Use it to wind it (30 s a wind). While wound it turns at 24 rpm and carries 48 stress units.' },
+  { key: 'funnel', name: 'Funnel', anim: false, desc: 'Takes items lying in it, or from a depot, basin or crate behind it, and passes them out of its front. Use with an item to filter; empty-handed to clear.' },
+  { key: 'chute', name: 'Chute', anim: false, desc: 'A vertical drop: takes what lies in it or comes from the block above and lets it fall below. Use with an item to filter.' },
+  { key: 'depot', name: 'Depot', anim: false, desc: 'A plate that holds one stack where machines and arms can reach it. Drop items on it or Use it with an item; Use it empty to take the stack.' },
+  { key: 'basin', name: 'Basin', anim: false, desc: 'Holds two kinds of item and up to 1000 L of water. A mixer or press above it works what is inside. Use a water bucket to fill it.' },
+  { key: 'spout', name: 'Spout', anim: false, desc: 'Under a basin: fills an empty bucket on the depot or belt beneath it from the basin, 1000 L at a time.' },
+  { key: 'item_drain', name: 'Item Drain', anim: false, desc: 'Empties full buckets dropped on it into the basin below, and passes the empty ones out of its front.' },
+  { key: 'mixer', name: 'Mixer', anim: true, desc: 'Stirs the basin below it at 32 rpm or more: dough, alloys. Needs a ratio dial or a second source to reach that speed from one crank.' },
+  { key: 'mech_press', name: 'Mechanical Press', anim: true, desc: 'A turning ram over a basin: presses the items in it into plates.' },
+  { key: 'deployer', name: 'Deployer', anim: true, desc: 'A mechanical hand holding a stack. Every two seconds it uses it on the block in front: places, breaks with a tool, tills, strikes a hand station.' },
+  { key: 'mech_arm', name: 'Mechanical Arm', anim: true, desc: 'Use a wrench on it, then on a source and up to four targets within 3 blocks, then on it again. It carries items from the source to the targets in turn.' },
+  { key: 'mech_drill', name: 'Mechanical Drill', anim: true, desc: 'A turning bit that breaks the block in front of it, one after another; the drops fall where the block was.' },
 ];
 
 export const PART_ITEMS: ItemSpec[] = [
