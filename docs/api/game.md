@@ -131,3 +131,6 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 - Heat and radiation sources are rescanned every 0.5 s around the player (11x11x11 cells): a torch placed right now warms up to half a second later. Radiating blocks more than 5 cells from where the last scan was centred are not seen until the next scan.
 - `gather_logs` is any-of(4 oak, 4 pine) in content, so 2 oak + 2 pine does not complete it (a content decision; the tracker shows the better of the two counts).
 - Not exercised against the real `World` or the real simulation yet - only against `FakeWorld` and scripted events.
+
+## Weather (spec 15)
+The weather feature changed this module: see `docs/api/weather.md` for what was added and why.

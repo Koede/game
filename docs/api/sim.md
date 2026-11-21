@@ -261,3 +261,6 @@ the bore rig). Nothing is emitted per tick.
 - `allNetworks()` returns the same array within one tick, so an action in that tick is only visible from the
   next one (or through `networkAt`, which is always fresh).
 - `src/sim/simulation.ts` is 378 lines (aim 350); `machines.test.ts` 389, `playthrough.test.ts` ~370.
+
+## Weather (spec 15)
+The weather feature changed this module: see `docs/api/weather.md` for what was added and why.

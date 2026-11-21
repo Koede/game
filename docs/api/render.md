@@ -152,3 +152,6 @@ outline with cracks, effects (bellows sparks, debris, steam, exhaust, explosion)
   `atlasDefines`, uniforms `uAtlas2` / `uAtlasSplit`); `new HeldItem(uniforms)` now takes the atlas uniforms.
 - Cool block light (cyan glowcaps, violet crystals) through the chunk flags byte: `blockTint`, `lightColorTinted`.
 - `shapeBounds('pipe')` is the pipe core.
+
+## Weather (spec 15)
+The weather feature changed this module: see `docs/api/weather.md` for what was added and why.

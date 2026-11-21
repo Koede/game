@@ -260,3 +260,6 @@ Near loot is all Ember Age; deep loot reaches the Forge Age at most (iron ingots
   16-17 will need more; the renderer may have to split the array or drop to fewer unique names.
 - Sounds are unit-tested and patch-checked, never listened to.
 - The loot tables and ruin constants are untuned design numbers; play will tell.
+
+## Weather (spec 15)
+The weather feature changed this module: see `docs/api/weather.md` for what was added and why.
