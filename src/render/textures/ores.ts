@@ -51,33 +51,33 @@ function coal(c: Canvas): void {
   }
 }
 
-/** Copper: orange streaks with verdigris crusting their edges. */
+/** Copper: orange streaks crusted with green verdigris along their upper edge. */
 function copper(c: Canvas): void {
   const k = P.COPPER;
+  const green = P.VERDIGRIS;
   for (const [x, y] of c.scatter(4, 6)) {
     const len = 3 + c.int(2);
     for (let i = 0; i < len; i++) {
-      c.wset(x + i, y + (i >> 1), i % 2 === 0 ? k[3] : k[2]);
-      c.wset(x + i, y + (i >> 1) + 1, k[1]);
+      c.wset(x + i, y + (i >> 1), i % 2 === 0 ? k[4] : k[3]);
+      c.wset(x + i, y + (i >> 1) - 1, i % 2 === 0 ? green : shade(green, 0.25));
     }
-    c.wset(x - 1, y, P.VERDIGRIS);
-    c.wset(x + len, y + (len >> 1) + 1, P.VERDIGRIS);
-    c.wset(x + 1, y - 1, shade(P.VERDIGRIS, 0.2));
+    c.wset(x - 1, y, green);
+    c.wset(x + len, y + (len >> 1), shade(green, -0.2));
   }
 }
 
-/** Tin: pale silvery cubes, lit on top-left. */
+/** Tin: small silvery cubes with a clear lit face and a dark side. */
 function tin(c: Canvas): void {
   const k = P.TIN;
   for (const [i, [x, y]] of c.scatter(5, 5).entries()) {
     const s = i % 2 === 0 ? 2 : 3;
     for (let dy = 0; dy < s; dy++) for (let dx = 0; dx < s; dx++) c.wset(x + dx, y + dy, k[2]);
-    for (let d = 0; d < s; d++) {
-      c.wset(x + d, y, k[4]);
-      c.wset(x + s - 1, y + d, k[1]);
-    }
+    for (let d = 0; d < s; d++) c.wset(x + d, y, k[4]);
     c.wset(x, y, k[4]);
-    c.wset(x + s - 1, y + s - 1, k[0]);
+    for (let d = 0; d <= s; d++) {
+      c.wset(x + s, y + d, k[0]);
+      c.wset(x + d, y + s, k[0]);
+    }
   }
 }
 
@@ -92,8 +92,8 @@ function iron(c: Canvas): void {
       if (g < 0.3) continue;
       const y = base + Math.round((wob(x, base) - 0.5) * 4);
       const thick = g > 0.6 ? 3 : g > 0.42 ? 2 : 1;
-      for (let t = 0; t < thick; t++) c.wset(x, y + t, t === 0 ? k[3] : t === thick - 1 ? k[1] : k[2]);
-      if (thick === 3 && c.hash(x, base, 3) < 0.4) c.wset(x, y, k[4]);
+      for (let t = 0; t < thick; t++) c.wset(x, y + t, t === 0 ? k[2] : t === thick - 1 ? k[0] : k[1]);
+      if (thick === 3 && c.hash(x, base, 3) < 0.4) c.wset(x, y, k[3]);
     }
   }
 }
@@ -110,15 +110,15 @@ function sulfur(c: Canvas): void {
   }
 }
 
-/** Quartz: white-pink shards, long and pointed. */
+/** Quartz: rose-white shards, long and pointed. */
 function quartz(c: Canvas): void {
   const k = P.QUARTZ;
   for (const [i, [x, y]] of c.scatter(4, 6).entries()) {
     const dir = i % 2 === 0 ? 1 : -1;
     for (let d = 0; d < 4; d++) {
-      c.wset(x + d * dir, y - d, d === 3 ? k[4] : k[3]);
-      if (d < 3) c.wset(x + d * dir + dir, y - d, k[2]);
-      if (d < 2) c.wset(x + d * dir, y - d + 1, k[1]);
+      c.wset(x + d * dir, y - d, d === 3 ? k[2] : k[1]);
+      if (d < 3) c.wset(x + d * dir + dir, y - d, k[0]);
+      if (d < 2) c.wset(x + d * dir, y - d + 1, shade(k[0], -0.2));
     }
   }
 }

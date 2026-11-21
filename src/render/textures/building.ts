@@ -57,6 +57,8 @@ function glass(c: Canvas): void {
   c.frame(0, 0, 16, 16, g[1]);
   c.rect(1, 1, 14, 1, g[3], 255);
   c.rect(1, 1, 1, 14, g[3], 255);
+  c.rect(1, 14, 14, 1, g[0], 255);
+  c.rect(14, 1, 1, 14, g[0], 255);
   for (const [x0, y0, len] of [[3, 7, 4], [4, 9, 2], [9, 13, 3]]) {
     for (let i = 0; i < len; i++) c.set(x0 + i, y0 - i, g[4], 190);
   }

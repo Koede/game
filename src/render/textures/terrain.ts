@@ -77,7 +77,8 @@ function sand(c: Canvas): void {
   const ripple = c.noise(16, 4, 2);
   const s = P.SAND;
   c.each((x, y) => {
-    const w = Math.sin(((y + ripple(x, y) * 5 + x * 0.25) / 16) * Math.PI * 2 * 3);
+    // x / 3 shifts the ripples by exactly one period across the tile, so they slant yet still wrap.
+    const w = Math.sin(((y + ripple(x, y) * 5 + x / 3) / 16) * Math.PI * 2 * 3);
     return tone([s[1], s[2], s[3]], 0.5 + (f(x, y) - 0.5) * 1.4 + w * 0.22);
   });
   for (const [x, y] of c.scatter(6, 4)) c.wset(x, y, c.hash(x, y) < 0.5 ? s[4] : s[0]);
@@ -125,6 +126,11 @@ function ice(c: Canvas): void {
   const f = field(c, 16, 8, 0, 0.4);
   const i = P.ICE;
   c.each((x, y) => tone([i[1], i[2], i[3]], 0.45 + (f(x, y) - 0.5) * 1.8 + (((x + y) & 15) < 3 ? 0.25 : 0)));
+  // Trapped bubbles, then a couple of white fracture lines.
+  for (const [x, y] of c.scatter(4, 6)) {
+    c.wset(x, y, i[0]);
+    c.wset(x + 1, y - 1, i[4]);
+  }
   crack(c, c.int(16), c.int(16), 7, 1, 1, i[4]);
   crack(c, c.int(16), c.int(16), 5, 1, -1, i[4]);
   for (const [x, y] of c.scatter(3, 6)) c.wset(x, y, P.SNOW[4]);
@@ -150,6 +156,8 @@ function basalt(c: Canvas): void {
     for (let y = 0; y < 16; y++) c.set(e, y, b[0]);
     for (let y = 0; y < 16; y++) if (c.hash(e, y, 9) < 0.6) c.set((e + 1) % 16, y, b[3]);
   }
+  // Glassy vesicles catching the light.
+  for (const [x, y] of c.scatter(4, 6)) if (!edges.includes(x)) c.wset(x, y, b[4]);
   for (let i = 0; i < 3; i++) {
     const k = c.int(edges.length);
     const y = c.int(16);

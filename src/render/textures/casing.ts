@@ -63,7 +63,9 @@ function machineTop(c: Canvas): void {
     return null;
   });
   for (const [x, y] of [[7, 2], [7, 13], [2, 7], [13, 7]]) c.set(x, y, I[4]);
-  c.rect(6, 7, 4, 2, I[1]);
+  // Its lifting handle.
+  c.rect(6, 7, 4, 1, P.IRON_METAL[2]);
+  c.rect(6, 8, 4, 1, I[0]);
 }
 
 export const CASING: PainterSet = {
