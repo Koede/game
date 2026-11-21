@@ -34,6 +34,8 @@ for (const device of devices) {
 console.log(report.failures ? `\n${report.failures} step(s) failed` : '\nall steps passed');
 process.exit(report.failures ? 1 : 0);
 
+const z0Back = (p) => p.z0 + 2.5;
+
 async function runDevice(device) {
   const session = await openGame({ dir: dist, device });
   const { page, errors } = session;
@@ -283,6 +285,54 @@ async function runDevice(device) {
       assert(cards >= 4, `basin cards: ${cards}`);
       await d.shot('8-guide-basins');
       await page.keyboard.press('Escape');
+    });
+
+    await step('a piston pushes a framed depot, a bearing turns an arm, a skiff shuttles its load along rails', async () => {
+      await d.hw((p) => {
+        const hw = window.__hw;
+        const w = hw.app.game.workshop;
+        const y = p.gy;
+        const z = p.z0 + 7;
+        // Piston line: crank, piston facing west, frame, depot with flint.
+        hw.setVoxel(p.x0 + 4, y, z, 'hand_crank');
+        hw.setVoxel(p.x0 + 3, y, z, 'piston', 3);
+        hw.setVoxel(p.x0 + 2, y, z, 'contraption_frame');
+        hw.setVoxel(p.x0 + 1, y, z, 'depot');
+        w.offer(p.x0 + 1, y, z, 'flint', 4);
+        // Bearing platform: crank under, bearing, frame and an arm on it.
+        hw.setVoxel(p.x0 - 3, y, z - 1, 'hand_crank');
+        hw.setVoxel(p.x0 - 3, y, z, 'bearing');
+        hw.setVoxel(p.x0 - 3, y + 1, z, 'contraption_frame');
+        hw.setVoxel(p.x0 - 3, y + 2, z, 'contraption_frame');
+        hw.setVoxel(p.x0 - 3, y + 2, z - 1, 'mech_arm', 0);
+        // Skiff on rails at the back.
+        for (let x = p.x0 - 2; x <= p.x0 + 2; x++) hw.setVoxel(x, y - 1, z - 1, 'rail');
+        hw.setVoxel(p.x0 - 2, y, z - 1, 'skiff', 1);
+        w.offer(p.x0 - 2, y, z - 1, 'flint', 3);
+        hw.teleport(p.x0 + 3.5, y + 2, p.z0 + 2.5);
+        hw.lookAt(p.x0 - 1, y + 1, p.z0 + 7);
+      }, P);
+      for (let i = 0; i < 6; i++) {
+        await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 + 7); w.crank(p.x0 - 3, p.gy, p.z0 + 6); }, P);
+        await d.hw(() => window.__hw.tick(20));
+        if (i === 2) await d.shot('9-contraptions');
+      }
+      const r = await d.hw((p) => {
+        const hw = window.__hw;
+        const w = hw.app.game.workshop;
+        const y = p.gy;
+        const z = p.z0 + 7;
+        let depot = null;
+        for (let x = p.x0 - 3; x <= p.x0 + 3; x++) if (hw.getBlock(x, y, z).block === 'depot') depot = x;
+        let skiff = null;
+        for (let x = p.x0 - 2; x <= p.x0 + 2; x++) if (hw.getBlock(x, y, z - 1).block === 'skiff') skiff = x;
+        return { depot, skiff, arm: hw.getBlock(p.x0 - 3, y + 2, z - 1).block, load: skiff === null ? [] : w.logi.peek(skiff, y, z - 1), flint: depot === null ? [] : w.logi.peek(depot, y, z) };
+      }, P);
+      await d.shot('10-contraptions-after');
+      assert(r.depot !== null && r.depot < P.x0 + 1, `the piston pushed the depot west: ${r.depot}`);
+      assert(r.flint.some((e) => e.item === 'flint' && e.count === 4), `the depot kept its stack: ${JSON.stringify(r.flint)}`);
+      assert(r.arm !== 'mech_arm', `the bearing turned the arm away: ${r.arm}`);
+      assert(r.skiff !== null && r.load.some((e) => e.item === 'flint' && e.count === 3), `the skiff rolls with its load: ${JSON.stringify(r)}`);
     });
 
     await step('no page errors', async () => {

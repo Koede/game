@@ -16,13 +16,13 @@ import type { GroundItems } from '../game/groundItems';
 import { stackLimit } from '../game/inventory';
 
 /** Block kinds this module owns state for. */
-export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault', 'tally_board'] as const;
+export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault', 'tally_board', 'skiff'] as const;
 const LOGI = new Set<string>(LOGI_KINDS);
 export const isLogistic = (kind: string): boolean => LOGI.has(kind);
 /** Logistic kinds that need shaft power (they are also kinetic parts). */
 export const POWERED = new Set(['mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector']);
 /** Cells ground items resting on top are taken into. */
-const TAKES_GROUND = new Set(['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'tally_board']);
+const TAKES_GROUND = new Set(['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'tally_board', 'skiff']);
 
 export const BASIN_LITRES = 1000;
 export const BASIN_ITEM_KINDS = 2;
@@ -130,6 +130,7 @@ export class Logistics {
     if (crate) return this.acceptCrate(crate, item, n, commit);
     if (!c) return this.host.twinAccept(x, y, z, item, n, commit);
     switch (c.kind) {
+      case 'skiff':
       case 'depot': {
         const kinds = Object.keys(c.items);
         if (kinds.length && kinds[0] !== item) return 0;
@@ -224,7 +225,7 @@ export class Logistics {
     }
     const c = this.cells.get(k3(x, y, z));
     if (!c) return [];
-    if (!['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'vacuum_collector'].includes(c.kind)) return [];
+    if (!['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'vacuum_collector', 'skiff'].includes(c.kind)) return [];
     return Object.entries(c.items).filter(([, n]) => n > 0).map(([item, count]) => ({ item, count }));
   }
 
@@ -288,6 +289,7 @@ export class Logistics {
         return this.putOrTake(c, x, y, z, held, takeHeld);
       }
       case 'depot':
+      case 'skiff':
       case 'deployer':
         return this.putOrTake(c, x, y, z, held, takeHeld);
       case 'item_vault': {
@@ -686,6 +688,29 @@ export class Logistics {
     }
     const items = this.host.ground.items;
     for (let i = items.length - 1; i >= 0; i--) if (items[i].count <= 0) items.splice(i, 1);
+  }
+
+  /** The cells moved (contraptions): their state goes to the new place and arm references follow. */
+  relocate(map: ReadonlyMap<string, [number, number, number]>): void {
+    const moved: [string, Cell][] = [];
+    for (const [from, to] of map) {
+      const c = this.cells.get(from);
+      if (!c) continue;
+      this.cells.delete(from);
+      [c.x, c.y, c.z] = to;
+      moved.push([k3(...to), c]);
+    }
+    for (const [k, c] of moved) this.cells.set(k, c);
+    const fix = (k: string | null): string | null => {
+      if (!k) return k;
+      const to = map.get(k);
+      return to ? k3(...to) : k;
+    };
+    for (const c of this.cells.values()) {
+      c.src = fix(c.src);
+      c.targets = c.targets.map((t) => fix(t) as string);
+    }
+    if (this.configuring) this.configuring = fix(this.configuring);
   }
 
   // ---- Views and saves --------------------------------------------------------------------------------

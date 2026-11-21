@@ -255,3 +255,7 @@ Built and checked (unit tests, `e2e-magic` desktop + phone with screenshots look
 - Six new synthesised sounds; Codex Essentia tab; progression solver covers desk and altar rows; content tests green.
 Left (small): spark/soul/void only via late blocks; tubes are not fluid pipes; desk loses the rest of a partly used vial; foci
 have no hand animation; magic goals live in the notebook, not on the main objective track (the tracker is strictly sequential).
+
+Update (same session, third slice): see docs/api/workshop.md "Third slice". New files: `workshop/{signals,contraption}.ts`, `ui/screens/workshop/`,
+`workshop/{parts,signals,contraption}.test.ts`. `parts.test.ts` exports the `setup()` fixture the other workshop tests reuse. Game hooks set in
+`app/game.ts`: generatorWatts, actHook, standingOn, tractors, fluidBlock, clockText; goggles on empty air open the guide.

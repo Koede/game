@@ -47,6 +47,18 @@ export class Signals {
     } else this.cells.delete(key);
   }
 
+  relocate(map: ReadonlyMap<string, [number, number, number]>): void {
+    const moved: [string, Cell][] = [];
+    for (const [from, to] of map) {
+      const c = this.cells.get(from);
+      if (!c) continue;
+      this.cells.delete(from);
+      [c.x, c.y, c.z] = to;
+      moved.push([k3(...to), c]);
+    }
+    for (const [k, c] of moved) this.cells.set(k, c);
+  }
+
   /** Use on a lever flips it. Null = not ours. */
   use(x: number, y: number, z: number): 'worked' | null {
     const c = this.cells.get(k3(x, y, z));

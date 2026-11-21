@@ -17,8 +17,9 @@ import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, t
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
 import type { GroundItems } from '../game/groundItems';
+import { Contraptions, CONTRAPTION_KINDS } from './contraption';
 import { SIGNAL_KINDS, Signals } from './signals';
-import { Logistics, POWERED, type ActResult, type MachineActAction } from './logistics';
+import { isLogistic, Logistics, POWERED, type ActResult, type MachineActAction } from './logistics';
 import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, solveNetwork, type KPart, type Source } from './kinetics';
 
 export const CRANK_RPM = 16;
@@ -69,6 +70,7 @@ export interface WorkshopSnapshot {
   wound?: Record<string, number>;
   logi?: unknown;
   sig?: unknown;
+  pist?: unknown;
   lube?: Record<string, number>;
   machines: [number, number, number, Record<string, number>, number, string | null][];
 }
@@ -121,6 +123,8 @@ export class Workshop {
   actHook: ((a: MachineActAction) => ActResult | null | undefined) | null = null;
   readonly logi: Logistics;
   readonly signals: Signals;
+  readonly contra: Contraptions;
+  private holding = false;
   /** Time of day text for the clockface; set by Game. */
   clockText: (() => string) | null = null;
 
@@ -134,6 +138,21 @@ export class Workshop {
       act: () => this.actHook,
       fluidBlock: () => this.fluidBlock,
     });
+    this.contra = new Contraptions({
+      world, ground, bus,
+      signedRpm: (x, y, z) => this.speed.get(k3(x, y, z)) ?? 0,
+      gate: (x, y, z) => this.signals.gate(x, y, z),
+      movable: (x, y, z) => this.isMovable(world.getBlock(x, y, z).key),
+      relocate: (map) => this.relocate(map),
+      hold: (fn) => {
+        this.holding = true;
+        try {
+          fn();
+        } finally {
+          this.holding = false;
+        }
+      },
+    });
     this.off = bus.on('block:changed', (e) => this.noteBlock(e.x, e.y, e.z));
   }
 
@@ -141,10 +160,43 @@ export class Workshop {
     this.off();
   }
 
+  /** Blocks a piston or bearing may carry: frames and every workshop part, never generators (sim machines) or the actuators. */
+  private isMovable(kind: string): boolean {
+    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind in GENERATOR_SHAFT) return false;
+    return kind === 'contraption_frame' || KINETIC.has(kind) || isLogistic(kind) || SIGNAL_KINDS.has(kind);
+  }
+
+  /** Re-keys every per-block state of the moved blocks (contraptions): from -> to. */
+  relocate(map: ReadonlyMap<string, [number, number, number]>): void {
+    const re = <T>(m: Map<string, T>, fix?: (v: T, to: [number, number, number]) => void): void => {
+      const moved: [string, T][] = [];
+      for (const [from, to] of map) {
+        const v = m.get(from);
+        if (v === undefined) continue;
+        m.delete(from);
+        fix?.(v, to);
+        moved.push([k3(...to), v]);
+      }
+      for (const [k, v] of moved) m.set(k, v);
+    };
+    re(this.parts, (p, t) => { [p.x, p.y, p.z] = t; });
+    re(this.machines);
+    re(this.cranks);
+    re(this.wound);
+    re(this.lube);
+    re(this.lubeFactor);
+    re(this.coast);
+    this.logi.relocate(map);
+    this.signals.relocate(map);
+    this.contra.relocate(map);
+  }
+
   private noteBlock(x: number, y: number, z: number): void {
+    if (this.holding) return;
     const key = k3(x, y, z);
     const kind = this.world.getBlock(x, y, z).key;
     this.logi.noteBlock(x, y, z, kind);
+    this.contra.noteBlock(x, y, z, kind);
     this.signals.noteBlock(x, y, z, kind);
     if (KINETIC.has(kind)) {
       const was = this.parts.get(key);
@@ -242,6 +294,7 @@ export class Workshop {
     this.moveBelts(dt);
     this.work(dt);
     this.logi.tick(dt);
+    this.contra.tick(dt);
   }
 
   /** Keys of the part and everything it touches or is linked to (clutches and all). */
@@ -636,6 +689,8 @@ export class Workshop {
     const extra = this.logi.describe(x, y, z);
     if (!p) {
       if (extra) return extra;
+      const mv = this.contra.describe(x, y, z);
+      if (mv) return mv;
       if (this.world.getBlock(x, y, z).key === 'clockface') return `Clockface - ${this.clockText?.() ?? 'no sun to read'}`;
       return this.signals.describe(x, y, z);
     }
@@ -651,6 +706,8 @@ export class Workshop {
     if (net?.jammed) parts[0] = 'jammed: the gears fight each other';
     const set = this.setting(p);
     if (set) parts.push(set);
+    const mv = p.kind === 'piston' ? this.contra.describe(x, y, z) : null;
+    if (mv) parts.push(`extended ${mv.split('extended ')[1]}`);
     if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
     const m = this.machines.get(key);
     if (m) {
@@ -679,6 +736,7 @@ export class Workshop {
     if (this.wound.size) out.wound = Object.fromEntries(this.wound);
     out.logi = this.logi.toJSON();
     out.sig = this.signals.toJSON();
+    out.pist = this.contra.toJSON();
     return out;
   }
 
@@ -709,6 +767,10 @@ export class Workshop {
       m.progress = typeof progress === 'number' && progress > 0 ? progress : 0;
       m.recipe = typeof recipe === 'string' ? recipe : null;
     }
+    // Actuators are found again from the blocks they stand on.
+    for (const p of this.parts.values()) if (CONTRAPTION_KINDS.includes(p.kind as 'piston')) this.contra.noteBlock(p.x, p.y, p.z, p.kind);
+    for (const c of this.logi.cells.values()) if (CONTRAPTION_KINDS.includes(c.kind as 'piston')) this.contra.noteBlock(c.x, c.y, c.z, c.kind);
+    this.contra.load((raw as { pist?: unknown }).pist);
   }
 
   /** Re-checks every saved part against the world once chunks are in (a part whose block is gone is dropped). */

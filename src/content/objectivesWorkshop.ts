@@ -25,4 +25,6 @@ export const WORKSHOP_OBJECTIVES: ObjectiveSpec[] = [
     'A Crank Lever sends a signal along Signal Wire. A drill, arm or deployer touching a signal cell works only while it is on; a clutch flips.'),
   goal('place_bell', 'Hang a bell', { type: 'place', block: 'bell', count: 1 },
     'A Bell rings when a machine within 12 blocks seizes or jams. Use the goggles on empty air for the Workshop Guide.'),
+  goal('place_piston', 'Raise a contraption', { type: 'place', block: 'piston', count: 1 },
+    'A turning Piston pushes everything framed to it out a block at a time; stopped, it pulls it back. A Bearing turns a platform; a Skiff rides rails.'),
 ];

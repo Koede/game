@@ -64,3 +64,28 @@ All calls are on `Game.workshop` (the `Workshop` instance); coordinates are bloc
   `mech_press` (8 su, 16 rpm) work the basin below them: `BASIN_RECIPES` (dough, cold bronze alloy, bronze and iron plate).
 - `mech_hammer` (Trip Hammer) is the twin of the stone anvil's stroke recipes.
 - Not built yet (listed in OVERHAUL_PLAN status): fluid pipes into spouts/drains, vacuum collector, contraptions, rail skiff, signals.
+
+## Third slice: more sources and safety, tie-ins, signals, the guide, contraptions
+- **Differential** (`differential`): two inputs meet at their mean speed (opposed is fine) and the mean flows on to the other sides. **Flywheel**: charged
+  while its line turns, then a source of 12 su (fading) for `FLYWHEEL_COAST_S` 4 s. **Shear pin**: when the load tops the capacity the pin
+  snaps (block gone, a scrap_metal drops, one toast) instead of the line seizing. **Treadwheel**: 12 rpm / 24 su while `standingOn(x, y+1, z)`
+  (Game: the player stands on it; tame animals are not read yet).
+- **Tractor power take-off**: `Workshop.tractors()` (Game: the vehicle manager); a driven, fuelled tractor within 2.6 blocks turns the nearest drive shaft at
+  24 rpm / 30 su.
+- **Saw arm** (5 su): fells the whole trunk in front every 3 s (`trunkAbove` of the chainsaw rules, no fuel), logs drop as items. **Vacuum collector**
+  (3 su): pulls loose items within 4 blocks in, passes them out of its front. **Item vault**: 108 stacks, empty-hand Use gives the biggest stack.
+- **Fluids**: `Workshop.fluidBlock` (Game: `isFluidEndpoint` + `sim.bucketUse`). An `item_drain` over a tank (not a basin) pours a full bucket or canister
+  into it (every distillery canister is a fluid bucket), a `spout` under a tank fills the empty one waiting on the depot / belt below it.
+- **Signals** (`signals.ts`, `Workshop.signals`, `signal(x,y,z,on)`): lever (Use), pressure plate (an item on it, or you), metronome (1 s in 4), signal wire
+  (15 steps, -1 per wire), lamp, bell (also rings within 12 blocks when a machine seizes or jams). Every powered logistic machine that touches a
+  signal cell works only while it is lit; touching none it just works; a clutch touching a lit cell flips. `tally_board` counts what it passes;
+  `clockface` reads `Workshop.clockText`.
+- **Workshop Guide**: Use Engineer's Goggles on empty air (`ScreenRequest { type: 'workshop' }`, `src/ui/screens/workshop/workshopScreen.ts`): Parts,
+  Basins (recipe cards: inputs > machine rpm, s > output) and Rules.
+- **Contraptions** (`contraption.ts`): a *structure* is the face-connected set of movable blocks (`contraption_frame`, every workshop part, belts,
+  depots, levers...; never terrain, crates, generators or other pistons/bearings, at most 48). `piston` (6 su, 0.8 s a step, up to 4): while turning it
+  pushes the structure in front of it one block, leaving a frame rod; stopped, it pulls it back; a lever makes it a lift. `bearing` (6 su): turns the
+  structure on top a quarter turn every 1.5 s, right or left with the sign of the speed, facings turned with it. All per-block state (machine
+  buffers, depot stacks, arm settings, cranks, signals) and loose items on moved blocks move with them (`Workshop.relocate`); a belt keeps carrying.
+  Blocked steps refuse with a toast. `skiff` on `rail` (rails under it): rolls 5 blocks/s, waits 2 s at the end of the rail, turns round; it holds one
+  stack that arms and funnels load and unload; a signal cell touching it brakes it while off. Steps are discrete (no tween yet).

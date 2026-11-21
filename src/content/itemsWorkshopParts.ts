@@ -48,10 +48,15 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'bell', name: 'Bell', anim: false, desc: 'Rings when a signal reaches it, and whenever a machine within 12 blocks seizes, jams or is overloaded.' },
   { key: 'tally_board', name: 'Tally Board', anim: false, desc: 'Passes items on out of its front like a funnel and counts them. Use it to reset the count.' },
   { key: 'clockface', name: 'Clockface', anim: false, desc: 'A dial that shows the time of day under the goggles.' },
+  { key: 'contraption_frame', name: 'Contraption Frame', anim: false, desc: 'A timber frame that holds a moving structure together. Pistons and bearings carry every frame and workshop part connected to them.' },
+  { key: 'piston', name: 'Piston', anim: true, desc: 'While turning it pushes the structure in front of it out one block at a time (up to 4), leaving a rod; stopped, it pulls it back. A lever makes it a lift.' },
+  { key: 'bearing', name: 'Bearing', anim: true, desc: 'Turns the structure on top of it a quarter turn every 1.5 s, with the shaft: left or right. Machines on it stay powered through the bearing.' },
+  { key: 'rail', name: 'Rail', anim: false, flat: true, desc: 'A track of slats. A skiff above a line of rails rolls along it, waits at the end and turns round.' },
+  { key: 'skiff', name: 'Skiff', anim: false, desc: 'A little ore cart on rails (rails under it). It holds a stack that arms and funnels load and unload. A signal cell it touches brakes it while off.' },
 ];
 
 /** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
-export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface']);
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },

@@ -378,3 +378,11 @@ cards (they show under the goggles on mixers and presses).
 Done: B.1-B.11 as built in `docs/api/magic.md`: aspects and fingerprints, aura (block-summed) and wellsprings, vials, jars, void
 jars, tubes (own network), three rod tiers, research tree of 24 entries, rune desk, infusion altar, four foci, clay servants on the
 workshop crank interface, hearth siphon, Clarity in the still, Codex tab, sounds, save. Magic objectives are notebook Goals.
+
+### Status update 2, workshop session (2026-11-21)
+Also built now: differential, flywheel, shear pin, treadwheel, saw arm, vacuum collector, item vault, tractor power take-off, spouts/drains on tanks of the
+pipe network (buckets and distillery canisters), signals (lever, plate, metronome, wire, lamp, bell), tally board, clockface, the Workshop Guide screen
+(goggles on empty air) with basin cards, contraption frames, piston, bearing, rail and skiff (discrete steps), 13 workshop goals. Still open: tween
+animation of moving structures, riding a skiff, tame animals on the treadwheel, a vacuum pump, continuous spouts from pipes (today by bucket), punched
+gearshift cards, item vault multiblock growth, wind vane / weather cock / spyglass / horn / padlock chest / lantern chain trinkets, belts that cross
+structure borders automatically.
