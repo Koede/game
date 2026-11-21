@@ -16,6 +16,7 @@ precision highp float;
 in vec3 aColor;
 in vec3 aPivot;
 in float aPart;
+in vec4 aFeature; // xyz centre of the part's box, w 1 for horns / tusks
 in vec4 aAnim;   // x leg swing (rad), y head pitch (rad), z head scale, w hurt flash 0..1
 in vec4 aLight;  // x sky 0..1, y block 0..1, z fade 0..1, w eager 0..1
 uniform float uTime;
@@ -35,6 +36,8 @@ vec3 rotX(vec3 p, float a) {
 void main() {
   vec3 p = position;
   vec3 n = normal;
+  // Young animals (head scale above 1) have only nubs where their parents have horns and tusks.
+  if (aFeature.w > 0.5 && aAnim.z > 1.0) p = mix(aFeature.xyz, p, 0.4);
   if (aPart > 0.5) {
     float a = aPart < 1.5 ? aAnim.y : (aPart < 2.5 ? aAnim.x : -aAnim.x);
     vec3 local = p - aPivot;
@@ -54,7 +57,7 @@ void main() {
   float dist = length(toVertex);
   vFog = vec4(fogColorFor(toVertex / max(dist, 0.0001)), fogFactor(dist));
   vUv = uv;
-  vFlash = aAnim.w * max(0.35, max(light.r, light.g));
+  vFlash = clamp(aAnim.w, 0.0, 1.0);
   vFade = aLight.z;
   gl_Position = projectionMatrix * viewMatrix * world;
 }
@@ -80,8 +83,9 @@ float bayer4(vec2 p) {
 void main() {
   if (vFade > 0.0 && bayer4(gl_FragCoord.xy) < vFade) discard;
   float n = texture(uNoise, vUv / ${NOISE_SIZE.toFixed(1)}).r;
-  vec3 c = vColor * (0.9 + 0.2 * n);
-  c = mix(c, vec3(0.95, 0.12, 0.08) * (0.4 + vFlash), clamp(vFlash, 0.0, 1.0) * 0.7);
+  vec3 c = vColor * (0.86 + 0.28 * n);
+  // Hurt: a red tint that keeps the shading (multiplied), plus a little red glow so it reads in the dark too.
+  c = mix(c, c * vec3(1.7, 0.42, 0.36) + vec3(0.16, 0.0, 0.0), vFlash);
   fragColor = vec4(mix(c, vFog.rgb, vFog.a), 1.0);
 }
 `;
@@ -94,7 +98,7 @@ out vec2 vLocal;
 out float vAlpha;
 void main() {
   vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
-  vLocal = position.xz * 2.0;
+  vLocal = uv * 2.0 - 1.0;
   float dist = length(world.xyz - cameraPosition);
   vAlpha = aShadow * (1.0 - smoothstep(uFog.x, uFog.y, dist));
   gl_Position = projectionMatrix * viewMatrix * world;
@@ -109,7 +113,8 @@ out vec4 fragColor;
 void main() {
   float r = dot(vLocal, vLocal);
   if (r >= 1.0) discard;
-  fragColor = vec4(0.0, 0.0, 0.0, vAlpha * (1.0 - r) * (1.0 - r));
+  // Flat in the middle (mostly under the body anyway), soft towards the rim.
+  fragColor = vec4(0.0, 0.0, 0.0, vAlpha * (1.0 - smoothstep(0.45, 1.0, r)));
 }
 `;
 

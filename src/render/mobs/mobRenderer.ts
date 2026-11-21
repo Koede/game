@@ -260,8 +260,8 @@ export class MobRenderer {
   }
 
   private writeShadow(i: number, v: MobRenderView): void {
-    const w = v.spec.size.w * v.scale * 1.25;
-    const len = w * 1.35;
+    const w = v.spec.size.w * v.scale * 1.45;
+    const len = w * 1.3;
     const cy = Math.cos(v.yaw);
     const sy = Math.sin(v.yaw);
     const e = this.shadows.instanceMatrix.array as Float32Array;
@@ -283,7 +283,7 @@ export class MobRenderer {
     e[o + 13] = v.y + 0.02;
     e[o + 14] = v.z;
     e[o + 15] = 1;
-    (this.shadowAlpha.array as Float32Array)[i] = (v.onGround ? 0.42 : 0.2) * (1 - v.fade);
+    (this.shadowAlpha.array as Float32Array)[i] = (v.onGround ? 0.52 : 0.25) * (1 - v.fade);
   }
 
   /** Drops light caches of animals not seen for a while (they died or left the loaded world). */

@@ -5,6 +5,8 @@
  *   aPart   0 rigid, 1 head, 2 legs swinging forward with the stride phase, 3 legs swinging backward
  *   normal  face normal (model space)              uv      position on the face in model pixels (1/16 block),
  *                                                          offset per box so neighbouring boxes do not share noise
+ *   aFeature  centre of the part's box and 1 for grown-up features (horns, tusks) that young animals only
+ *             have as small nubs, else 0
  * The geometry is the adult at the origin of its feet, facing north (-Z); the instance matrix places it.
  */
 import * as THREE from 'three';
@@ -14,6 +16,9 @@ import type { CreatureAnim, CreaturePart, CreatureSpec } from '../../core/types'
 export const PART_GROUP: Record<CreatureAnim, number> = { none: 0, head: 1, legFL: 2, legBR: 2, legFR: 3, legBL: 3 };
 
 const PX = 1 / 16;
+
+/** Parts young animals have only as nubs: horns and tusks (by part name). */
+export const isAdultFeature = (p: CreaturePart): boolean => /^(horn|tusk)/i.test(p.name);
 
 export interface SpeciesGeometry {
   geometry: THREE.BufferGeometry;
@@ -44,6 +49,7 @@ export function buildSpeciesGeometry(spec: CreatureSpec): SpeciesGeometry {
   const col = new Float32Array(n * 3);
   const piv = new Float32Array(n * 3);
   const grp = new Float32Array(n);
+  const feat = new Float32Array(n * 4);
   const idx: number[] = [];
   let v = 0;
   let legHeight = 0;
@@ -58,6 +64,8 @@ export function buildSpeciesGeometry(spec: CreatureSpec): SpeciesGeometry {
     const g = ((p.color >> 8) & 255) / 255;
     const b = (p.color & 255) / 255;
     // Per-box noise offset (whole pixels), so the pattern does not continue across a seam.
+    const adult = isAdultFeature(p) ? 1 : 0;
+    const centre = [((p.from[0] + p.to[0]) / 2) * PX, ((p.from[1] + p.to[1]) / 2) * PX, ((p.from[2] + p.to[2]) / 2) * PX, adult];
     const ou = (pi * 7) % 32;
     const ov = (pi * 13) % 32;
     for (const f of FACES) {
@@ -73,6 +81,7 @@ export function buildSpeciesGeometry(spec: CreatureSpec): SpeciesGeometry {
         col.set([r, g, b], v * 3);
         piv.set([pivot[0] * PX, pivot[1] * PX, pivot[2] * PX], v * 3);
         grp[v] = group;
+        feat.set(centre, v * 4);
         v++;
       }
       idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
@@ -85,6 +94,7 @@ export function buildSpeciesGeometry(spec: CreatureSpec): SpeciesGeometry {
   geometry.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
   geometry.setAttribute('aPivot', new THREE.BufferAttribute(piv, 3));
   geometry.setAttribute('aPart', new THREE.BufferAttribute(grp, 1));
+  geometry.setAttribute('aFeature', new THREE.BufferAttribute(feat, 4));
   geometry.setIndex(idx);
   return { geometry, legHeight: Math.max(legHeight, 2 * PX), height: top, radius: reach + 0.25 };
 }
