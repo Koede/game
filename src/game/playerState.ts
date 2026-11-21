@@ -68,7 +68,7 @@ export class PlayerState {
   yaw = 0;
   pitch = 0;
   onGround = false;
-  /** Feet or body are in a water block (written by `updateImmersion`). */
+  /** Feet or body are in a water block (written by the player physics). */
   inWater = false;
   /** The eye is in a water block. */
   headInWater = false;
@@ -210,7 +210,7 @@ export class PlayerState {
 
   /**
    * Brings the player back with the whole inventory: full health and warmth when the home furnace is hot,
-   * half otherwise. `at` is the feet position to appear at (see `findRespawnPoint`); default is the world spawn.
+   * half otherwise. `at` is the feet position to appear at (Survival.respawn picks one); default is the world spawn.
    */
   respawn(homeIsHot: boolean, at: Vec3 = this.spawn): void {
     this.dead = false;
