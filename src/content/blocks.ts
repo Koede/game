@@ -231,11 +231,11 @@ export const BLOCK_SPECS: BlockSpec[] = [
     'Wheat in ear, not yet golden.',
     'Ripe golden wheat. Harvest it for grain and more seed.',
   ], 'wheat_seeds', [{ item: 'wheat', count: [1, 2] }, { item: 'wheat_seeds', count: [1, 3] }]),
-  ...crop('potato', 'Potatoes', ['sprouting', 'growing', 'flowering', 'ripe'], [
+  ...crop('potato', 'Potatoes', ['sprouting', 'growing', 'budding', 'ripe'], [
     'A seed potato in the furrow. It needs daylight or a lamp, and grows twice as fast with water close by.',
     'Potato leaves pushing up out of the soil.',
-    'Potatoes in flower, still swelling underground.',
-    'The leaves have yellowed: the potatoes are ready to dig.',
+    'A leafy potato plant in bud, its tubers still swelling underground.',
+    'In full flower, tubers showing at the soil: the potatoes are ready to dig.',
   ], 'potato', [{ item: 'potato', count: [2, 4] }]),
   ...crop('carrot', 'Carrots', ['sprouting', 'growing', 'thickening', 'ripe'], [
     'A carrot just planted. It needs daylight or a lamp, and grows twice as fast with water close by.',

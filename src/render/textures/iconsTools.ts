@@ -1,5 +1,5 @@
 /**
- * Tool icons: one handle, three head shapes, four head materials. Flint heads are chipped and lashed on with
+ * Tool icons: one handle, four head shapes (pickaxe, axe, shovel, hoe), four head materials. Flint heads are chipped and lashed on with
  * cord; metal heads are cast and wedged. The power drill is its own machine-like silhouette.
  */
 import type { Canvas, Painter, PainterSet } from './canvas';
@@ -7,7 +7,7 @@ import * as P from './palette';
 import { type Ramp, shade } from './palette';
 import { icon } from './shapes';
 
-type Kind = 'pickaxe' | 'axe' | 'shovel';
+type Kind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
 
 const FLINT: Ramp = [P.rgb(0x2b2c37), P.rgb(0x40424f), P.rgb(0x5a5d70), P.rgb(0x7c8198), P.rgb(0xa9afc6)];
 const HEADS: Record<string, Ramp> = { flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
@@ -59,6 +59,16 @@ function headShape(kind: Kind, x: number, y: number): number {
     const d = AXE[y]?.[x];
     return d === undefined || d === '.' ? -1 : (Number(d) - 1) / 4;
   }
+  if (kind === 'hoe') {
+    // A thin flat blade set square to the handle at its top end, its sharpened edge at the far (lower right) end.
+    const dx = x + 0.5 - 11;
+    const dy = y + 0.5 - 4;
+    const along = (dx + dy) / Math.SQRT2;
+    const across = (dx - dy) / Math.SQRT2;
+    if (along < -0.8 || along > 5.6 || Math.abs(across) > (along > 3.8 ? 1.2 : 0.8)) return -1;
+    if (along > 4.3) return 0.98;
+    return across < 0 ? 0.7 : 0.35;
+  }
   // Shovel: a long spade blade below the handle, with a raised centre ridge and a rounded point.
   const dx = x + 0.5 - 4.5;
   const dy = y + 0.5 - 11.5;
@@ -74,6 +84,7 @@ function headShape(kind: Kind, x: number, y: number): number {
 function tool(c: Canvas, kind: Kind, material: string): void {
   const r = HEADS[material];
   if (kind === 'shovel') handle(c, 6, 8, 13, 1);
+  else if (kind === 'hoe') handle(c, 1, 14, 10, 5);
   else if (kind === 'axe') handle(c, 2, 14, 13, 3);
   else handle(c, 1, 14, 10, 5);
   if (kind === 'shovel') {
@@ -89,7 +100,7 @@ function tool(c: Canvas, kind: Kind, material: string): void {
     return r[Math.max(0, Math.min(4, Math.floor(v * 4.99)))];
   });
   // Binding at the joint: cord lashing for flint, a bright wedge for cast metal.
-  const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [9, 7] : [6, 8];
+  const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [9, 7] : kind === 'hoe' ? [10, 4] : [6, 8];
   if (material === 'flint') {
     c.set(jx, jy, P.CLOTH[3]);
     c.set(jx + 1, jy + 1, P.CLOTH[1]);
@@ -120,5 +131,7 @@ const tools: Record<string, Painter> = {};
 for (const material of Object.keys(HEADS)) {
   for (const kind of ['pickaxe', 'axe', 'shovel'] as const) tools[`item_${material}_${kind}`] = icon((c) => tool(c, kind, material));
 }
+// Hoes (spec 12.4) come in flint, bronze and iron only.
+for (const material of ['flint', 'bronze', 'iron']) tools[`item_${material}_hoe`] = icon((c) => tool(c, 'hoe', material));
 
 export const TOOL_ICONS: PainterSet = { ...tools, item_power_drill: icon(powerDrill) };
