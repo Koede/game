@@ -3,7 +3,7 @@
 // settings; the death screen is read as the player sees it. window.__hw only sets things up (time of day, a level
 // strip of ground, items, the automaton placed near the player, aiming, fast-forwarding the furnace) and reads state.
 import { waitFor } from './browser.mjs';
-import { openTab, sendFromBag } from './e2eFurnace.mjs';
+import { sendFromBag } from './e2eFurnace.mjs';
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 /** Clay furnace warm zone radius (spec 19.2: its warmth radius), blocks from the furnace block's centre. */
@@ -208,7 +208,7 @@ export async function emberSteps({ d, step, assert, page }) {
     assert(st.time.phase === 'night', `phase ${st.time.phase}`);
   });
 
-  await step('a bronze maul is forged at the furnace screen', async () => {
+  await step('the furnace is lit at its screen and a bronze maul is in the pack', async () => {
     await d.useBlock(ctx.furnace);
     await d.waitScreen('furnace');
     await sendFromBag(d, 'charcoal', 'Firebox');
@@ -217,11 +217,11 @@ export async function emberSteps({ d, step, assert, page }) {
     for (let i = 0; i < 40 && (await d.state()).furnaces[0].tempC < 720; i++) await d.hw(() => window.__hw.tick(100));
     const temp = (await d.state()).furnaces[0].tempC;
     assert(temp >= 700, `the furnace only reached ${temp} C`);
-    await openTab(d, 'forge');
-    await d.make('bronze_maul');
+    // The maul is no longer a furnace recipe (it is hand-cast from a head, see e2e-handwork): the pack gets one by set-up.
+    await d.hw(() => window.__hw.give('bronze_maul', 1));
     const inv = await d.inventory();
     assert(inv.bronze_maul === 1, `pack: ${JSON.stringify(inv)}`);
-    await d.shot('01-maul-forged');
+    await d.shot('01-furnace-lit');
     await d.closeScreen();
     const zone = await d.hw((c) => window.__hw.isSafe(c.x + 0.5, c.y, c.z + 2.5), ctx.furnace);
     assert(zone, 'the hot furnace makes no safe zone');
@@ -259,7 +259,7 @@ export async function emberSteps({ d, step, assert, page }) {
     console.log(`       wind-up ${bite.t - windup.t} ticks before the bite; health ${health0} -> ${st.player.health}`);
   });
 
-  await step('the forged maul breaks mites apart and salvages scrap', async () => {
+  await step('the bronze maul breaks mites apart and salvages scrap', async () => {
     const s = ctx.s;
     await d.selectItem('bronze_maul');
     let kills = 0;
