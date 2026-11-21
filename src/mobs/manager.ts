@@ -8,13 +8,11 @@
 import {
   DT,
   MOB_BREED_COOLDOWN_S,
-  MOB_BREED_RADIUS,
   MOB_CALL_MAX_S,
   MOB_CALL_MIN_S,
   MOB_DEATH_S,
   MOB_EAGER_S,
   MOB_FLEE_S,
-  MOB_GROW_UP_S,
   MOB_HIT_COOLDOWN_S,
   MOB_DESPAWN_TARGET,
   MOB_LOADED_CAP,
@@ -24,7 +22,7 @@ import {
 import type { GameBus } from '../core/context';
 import type { SfxName } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
-import { CHUNK_SIZE, type CreatureSpec, type IWorld } from '../core/types';
+import type { CreatureSpec, IWorld } from '../core/types';
 import { bodyHeight, halfWidth, think, type BrainContext } from './brain';
 import {
   CALL_RANGE,
@@ -32,7 +30,6 @@ import {
   DESPAWN_CHECK_S,
   FLASH_S,
   HEAL_DELAY_S,
-  HEAL_EVERY_S,
   KNOCK_H,
   KNOCK_V,
   RETIRE_MIN_DISTANCE,
@@ -41,8 +38,9 @@ import {
 import { separate } from './crowd';
 import { createMob, feedRefusal, rollDrops } from './mob';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
-import { farFrozen, farthestWild } from './population';
-import { columnKey, Spawner, type SpawnHost } from './spawner';
+import { advanceTimers, growUp } from './life';
+import { eagerPartnerNear, farthestWild, retireFar } from './population';
+import { Spawner, type SpawnHost } from './spawner';
 import type { SpawnSpot } from './spawning';
 import { restoreMobs, saveMobs } from './persistence';
 import { MobTargets } from './targets';
@@ -194,20 +192,11 @@ export class MobManager {
     m.eagerS = MOB_EAGER_S;
     m.tame = true;
     this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
-    if (!this.eagerPartnerNear(m)) {
+    if (!eagerPartnerNear(this.mobs, m)) {
       const name = m.spec.name.toLowerCase();
       this.bus.emit('toast', { text: `This ${name} is eager: feed another ${name} nearby`, kind: 'info' });
     }
     return { ok: true };
-  }
-
-  private eagerPartnerNear(m: Mob): boolean {
-    const r2 = MOB_BREED_RADIUS * MOB_BREED_RADIUS;
-    for (const o of this.mobs) {
-      if (o === m || o.spec !== m.spec || o.baby || o.state === 'dying' || o.eagerS <= 0 || o.cooldownS > 0) continue;
-      if ((o.x - m.x) ** 2 + (o.z - m.z) ** 2 <= r2) return true;
-    }
-    return false;
   }
 
   /** Called with every finished death (after the tip-over); returns an unsubscribe function. */
@@ -249,42 +238,8 @@ export class MobManager {
 
   /** Timers and behaviour of one simulated animal (sets its velocity). */
   private mind(m: Mob, dt: number): void {
-    m.px = m.x;
-    m.py = m.y;
-    m.pz = m.z;
-    m.pyaw = m.yaw;
-    m.pwalk = m.walk;
-    m.phead = m.head;
-    if (m.hurtS > 0) m.hurtS = Math.max(0, m.hurtS - dt);
-    if (m.hitCooldownS > 0) m.hitCooldownS -= dt;
-
-    if (m.state === 'dying') {
-      m.deadS += dt;
-      m.vx *= 0.8;
-      m.vz *= 0.8;
-      return;
-    }
-
-    m.ageS += dt;
-    if (m.baby && m.ageS >= MOB_GROW_UP_S) this.growUp(m);
-    if (m.eagerS > 0) m.eagerS = Math.max(0, m.eagerS - dt);
-    if (m.cooldownS > 0) m.cooldownS = Math.max(0, m.cooldownS - dt);
-    // Slow natural healing, so the odd scrape (a cactus, a bump into lava) does not add up to a death.
-    if (m.health < m.spec.health) {
-      m.healS += dt;
-      if (m.healS >= HEAL_EVERY_S) {
-        m.health = Math.min(m.spec.health, m.health + 1);
-        m.healS = 0;
-      }
-    } else m.healS = 0;
-    if (m.fleeS > 0) {
-      m.fleeS = Math.max(0, m.fleeS - dt);
-      // Hurt by the player: keep running directly away from where the player is now.
-      if (m.fleeFromPlayer) {
-        m.fleeX = this.brain.player.x;
-        m.fleeZ = this.brain.player.z;
-      }
-    }
+    if (!advanceTimers(m, dt, this.brain.player)) return;
+    growUp(this.world, m);
     think(this.brain, m, dt);
   }
 
@@ -354,14 +309,6 @@ export class MobManager {
     for (const fn of this.deathListeners) fn(death);
   }
 
-  private growUp(m: Mob): void {
-    m.baby = false;
-    // A grown body is twice the size: lift it out of anything it now overlaps.
-    const hw = halfWidth(m);
-    const h = bodyHeight(m);
-    for (let i = 0; i < 4 && embedded(this.world, m, hw, h); i++) m.y += 0.5;
-  }
-
   /**
    * A pair finished breeding. Player-driven births do not count against MOB_LOADED_CAP: over it, the farthest
    * wild adult out of the player's way is retired instead. Only a full save (MOB_STORED_CAP, after retiring
@@ -406,23 +353,10 @@ export class MobManager {
     return this.mobs.length < MOB_STORED_CAP;
   }
 
-  /**
-   * Retires frozen wild adults far from the player, farthest first, down to `keep` stored animals (fewer go when
-   * not enough qualify: see farFrozen). A column left with none of its animals may roll a group again when it
-   * next loads, so the world does not empty behind an explorer.
-   */
+  /** Retires far-off frozen wild adults down to `keep` stored animals (see retireFar in population.ts). */
   private retireFar(keep: number): void {
     const p = this.brain.player;
-    const gone = farFrozen(this.mobs, this.world, p.x, p.z, keep);
-    if (gone.length === 0) return;
-    const col = (m: Mob): number => columnKey(Math.floor(m.x / CHUNK_SIZE), Math.floor(m.z / CHUNK_SIZE));
-    const emptied = new Set<number>();
-    for (const m of gone) {
-      emptied.add(col(m));
-      this.removeMob(m);
-    }
-    for (const m of this.mobs) emptied.delete(col(m));
-    for (const k of emptied) this.spawner.rolled.delete(k);
+    retireFar(this.mobs, this.world, p.x, p.z, keep, this.spawner.rolled, (m) => this.removeMob(m));
   }
 
   /** Adds an animal (emits 'mob:spawned'). Used by spawning, breeding and tests. */

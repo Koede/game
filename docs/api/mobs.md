@@ -48,9 +48,11 @@ const onMob = mob !== null && (blockHit === null || mob.distance < blockHit.dist
   (PlayerState only has `wearHeld(block)`: the player/game engineer needs a "wear by 1" helper). Damage rule
   (`hitDamage`): hand or non-tool 1, axe tier + 2, pickaxe / shovel tier + 1, hoe 1.
 - Use on an animal: `const f = mobs.feed(mob.id, heldItem)`. `f.ok` -> `player.consumeHeld(1)`, swing (the
-  manager plays sfx `eat`). Not ok -> toast `f.reason` ("Goats eat wheat", "This hen is too young", "This boar is
-  not ready yet (212 s)", "This goat is already keen") when the held item is something some animal likes;
-  otherwise fall through to the normal Use (eat the food, place the block) as if no animal were there.
+  manager plays sfx `eat`, and toasts "This hen is eager: feed another hen nearby" when no eager partner is
+  waiting). Not ok -> toast `f.reason` ("Goats eat wheat", "This hen is too young", "This boar is not ready yet
+  (212 s)", "This goat is already keen", `NO_ROOM` "Too many animals to raise another one") when the held item is
+  something some animal likes; otherwise fall through to the normal Use (eat the food, place the block) as if no
+  animal were there. A refusal never uses up the item.
 - Drops arrive through `onDeath` (step 1) MOB_DEATH_S after the killing blow; nothing to do in the player module.
 
 ### 4. HUD (src/ui)
@@ -64,8 +66,9 @@ hit, the call at a low pitch when one dies, the call at a high pitch on a birth,
 
 ### Events emitted
 `mob:spawned {id, species}` (chunk roll, spawn guarantee, keep-alive, birth - not on load), `mob:hurt {id, species,
-health}` (player hits and hazards), `mob:died {id, species}` (MOB_DEATH_S after the killing blow), `toast` (warn)
-"Too many animals here for another one" when a birth hits the cap, `sfx` as above.
+health}` (player hits and hazards), `mob:died {id, species}` (MOB_DEATH_S after the killing blow; also for a corpse
+restored from a save), `toast` (info) "This hen is eager: feed another hen nearby" on a feed with no partner
+waiting, `toast` (warn) `NO_ROOM` when a birth finds the save full (rare: feed refuses first), `sfx` as above.
 
 ## src/mobs - public API (`import ... from '../mobs'`)
 
@@ -76,12 +79,13 @@ class MobManager {
   tick(dt: number, player: MobPlayer): void          // one 20 Hz step: spawning, AI, physics, hazards, calls, deaths
   raycast(ox, oy, oz, dx, dy, dz, maxDist): MobRayHit | null   // nearest living animal box (dir need not be unit)
   hit(id: number, damage: number, fromX: number, fromZ: number): HitResult
-  feed(id: number, itemKey: string): FeedResult      // ok -> eager MOB_EAGER_S; the caller consumes the item
+  feed(id: number, itemKey: string): FeedResult      // ok -> eager MOB_EAGER_S + tame; the caller consumes the item
   describe(id: number): string                       // HUD name + health, '' for unknown / dying
   onDeath(fn: (d: MobDeath) => void): () => void     // after the tip-over; drops only for player kills of adults
   views(alpha: number): readonly MobView[]           // interpolated render views of the loaded animals (reused)
   get all(): readonly Mob[]; get loaded(): readonly Mob[]; get(id): Mob | undefined
   room(count: number): boolean                       // `count` more fit under MOB_LOADED_CAP and MOB_STORED_CAP
+                                                     // (natural spawning only; births: see "Population" below)
   add(spec: CreatureSpec, spot: { x, y, z, yaw }, baby?: boolean): Mob   // spawn directly (debug, tests); no cap check
   toJSON(): MobsSnapshot; load(s: MobsSnapshot): void   // load throws on malformed / newer snapshots, changes nothing
   get spawning(): Spawner                            // rolled set, guaranteed flag, keep-alive timer (tests, debug)
@@ -102,12 +106,17 @@ interface MobRayHit { id: number; distance: number }
 interface MobDeath { id; species; x; y; z; cause: 'player' | 'world'; drops: ItemAmount[] }
 interface MobView { id; spec; x; y; z; yaw; scale; walk; stride; head; flash; tip; fade; onGround; eager }
 interface MobsSnapshot { version: 1; nextId; rolled: number[] /* flat cx,cz pairs */; guaranteed; keepAliveS; mobs: SavedMob[] }
-interface SavedMob { id; species; x; y; z; yaw; health; baby; ageS; eagerS; cooldownS }
+interface SavedMob { id; species; x; y; z; yaw; health; baby; ageS; eagerS; cooldownS; tame?;
+                    deadS?; drops?: ItemAmount[]; cause? }   // the last three only for a corpse still owing drops
+const NO_ROOM: string                                 // feed / birth refusal text when the save is full
 ```
 `Mob` (read only) carries the live state: position, velocity, yaw, health, baby, ageS, `state` (`'idle' | 'wander' |
-'graze' | 'flee' | 'follow' | 'breed' | 'swim' | 'dying'`), eagerS, cooldownS, fleeS, hurtS, onGround, inLiquid...
+'graze' | 'flee' | 'follow' | 'breed' | 'swim' | 'dying'`), eagerS, cooldownS, `tame` (fed, or born to fed parents: never retired), `healS`, fleeS, hurtS, onGround, inLiquid...
 Constants (src/mobs/constants.ts): `CORPSE_FADE_S 0.5`, `FLASH_S 0.3`, `CALL_RANGE 32`, `VOID_Y -8`, `KNOCK_H 5`,
-`KNOCK_V 4.5`; `TARGET_MARGIN 0.08` (targets.ts). Every spec number is a `MOB_*` constant in src/core/constants.ts.
+`KNOCK_V 4.5`, `HEAL_DELAY_S 10`, `HEAL_EVERY_S 30`, `CROWD_GAP 1.1`, `CROWD_PUSH 1.5`, `RETIRE_MIN_DISTANCE 40`,
+`DESPAWN_CHECK_S 5`; `TARGET_MARGIN 0.08` (targets.ts), `SPAWN_HAZARD_MARGIN 2` (terrain.ts). Every spec number is
+a `MOB_*` constant in src/core/constants.ts, plus three added by the review fixes: `MOB_STORED_SOFT_CAP 250`,
+`MOB_DESPAWN_TARGET 220`, `MOB_DESPAWN_DISTANCE 128`.
 
 ### Behaviour (brain.ts), in priority order each tick
 1. **flee** - hurt: runs directly away from the player (from a hazard: away from that cell) at 1.6x speed for
@@ -115,16 +124,26 @@ Constants (src/mobs/constants.ts): `CORPSE_FADE_S 0.5`, `FLASH_S 0.3`, `CALL_RAN
 2. **swim** - in a liquid: floats (buoyancy keeps the waist at the surface), swims to the nearest dry bank within
    10 blocks and climbs out.
 3. **breed** - eager adult off cooldown: pairs with the nearest eager adult of its species within MOB_BREED_RADIUS,
-   both walk together, and after MOB_BREED_S side by side a baby appears between them; both lose eagerness and
-   rest MOB_BREED_COOLDOWN_S. Babies grow up after MOB_GROW_UP_S.
+   both walk together until face to face (centres max(w + 0.35, both models' forward reach + 0.1) apart, so heads
+   and beaks touch but never sink into each other), and after MOB_BREED_S a baby appears between them; both lose
+   eagerness and rest MOB_BREED_COOLDOWN_S. Babies grow up after MOB_GROW_UP_S.
 4. **follow** - the player within MOB_FOLLOW_RANGE (and 6 blocks of height) holds a liked item: walks up to
-   MOB_FOLLOW_DISTANCE and faces the player.
+   MOB_FOLLOW_DISTANCE body to body (centre distance MOB_FOLLOW_DISTANCE + its half width + the player's half
+   width) and faces the player; squeezed in more than 0.35 closer by the flock, it sidles back out.
 5. a **baby** more than 5 blocks from the nearest adult of its kind trots back to it.
 6. the calm cycle: **idle** (slow look-arounds) / **graze** (head down, nibbling) / **wander** (a target within
    MOB_WANDER_RADIUS whose straight path `walkable()` accepts), with random durations.
 Every stride on land is edge-guarded (`standCell`): never into liquid, never down more than MOB_MAX_DROP, never
-into an unloaded column, also mid-hop; a one-block step is hopped. Lava (any `contactDamage` block touching the
-body) hurts per second like the player, with no drops. Animals below y -8 are removed.
+into an unloaded column, never onto or beside a hazard (a `contactDamage` block - lava, cactus - underfoot, in the
+column up to head height, or in one of the 4 side columns from feet to head: a one-block margin), also mid-hop;
+a one-block step is hopped. Walking slows on the last stretch to a target (speed <= 4 x distance left), so animals
+stop where they meant to. Lava or a cactus touching the body (overlap or within 0.01 of the box: an animal centred
+in the next cell is safe) hurts per second like the player, with no drops. Hurt animals heal 1 health every
+HEAL_EVERY_S once HEAL_DELAY_S have passed since the last hurt. Animals below y -8 are removed.
+
+**Crowding (crowd.ts)** - after every brain ran and before physics, overlapping animals push apart sideways
+(personal space `crowdRadius`: between the half width and the model's forward reach, x CROWD_GAP), at up to
+CROWD_PUSH m/s, never over an edge the edge guard refuses. O(n^2) over the simulated animals.
 
 ### Physics (physics.ts)
 AABB (w x w, h; babies x MOB_BABY_SCALE) swept per axis in sub-steps <= 0.45 blocks (no tunnelling), gravity
@@ -134,14 +153,29 @@ an animal lets it walk out; it is also lifted while embedded), low air control s
 ### Spawning (spawning.ts, spawner.ts)
 - First load of a chunk column (event or sweep): `hashFloat(seed, cx, cz) < MOB_CHUNK_SPAWN_CHANCE` -> one group of
   a species whose biomes include the chunk's biome, anchored inside the chunk on open natural ground (grass, dirt,
-  snow, sand, gravel, basalt, peat with only plants above), members within 3 blocks and inside the same chunk.
-  Pure function of seed and terrain: the same animals whatever order chunks load in (tested on real terrain).
+  snow, sand, gravel, basalt, peat with only plants above, no lava or cactus within 2 blocks), members within 3
+  blocks and inside the same chunk. Pure function of seed and terrain: the same animals whatever order chunks load
+  in (tested on real terrain). A column whose group does not fit under the caps right now stays unrolled and is
+  retried by the once-a-second sweep (and on its next load), so it never stays empty for good.
 - Spawn guarantee: once every column within MOB_SPAWN_GUARANTEE_RADIUS of world spawn is loaded, adds a hen group
   and/or another species' group there if the rolls left none (tested on 3 seeds with real worldgen).
 - Keep-alive: during daytime (sunlight >= 0.5), fewer than MOB_KEEPALIVE_MIN_ADULTS adults within
   MOB_KEEPALIVE_RADIUS for MOB_KEEPALIVE_AFTER_S seconds -> one group 24-56 blocks away, outside a 120-degree cone
   around the view direction. Night time neither counts nor resets.
-- Caps: no roll, keep-alive group or birth beyond MOB_LOADED_CAP animals in loaded columns or MOB_STORED_CAP in all.
+- Caps: no roll or keep-alive group beyond MOB_LOADED_CAP animals in loaded columns or MOB_STORED_CAP in all.
+
+### Population (population.ts; review fixes)
+- **Retiring far-off wild animals**: every DESPAWN_CHECK_S, above MOB_STORED_SOFT_CAP stored animals, frozen
+  (column unloaded) wild adults at least MOB_DESPAWN_DISTANCE from the player are removed, farthest first, down to
+  MOB_DESPAWN_TARGET. Tame animals (fed, or born to fed parents), babies and corpses are never retired. A column
+  left with none of its animals is unrolled, so it rolls its group again when the player comes back. Walking 4000
+  blocks: animals keep appearing all the way and the save stays under the cap (tested).
+- **Births** do not count against MOB_LOADED_CAP: a birth over it retires the farthest simulated wild adult at
+  least RETIRE_MIN_DISTANCE from the player instead (the herd near the player stays at the cap). Only a full save
+  (MOB_STORED_CAP after retiring what can be retired) refuses: `feed` refuses with `NO_ROOM` before the item is
+  used, and a birth that still finds no room toasts `NO_ROOM` and leaves both parents without a cooldown.
+- **Saves**: an animal killed less than MOB_DEATH_S before a save is saved as a corpse with its owed drops and
+  restored dying, so the drops arrive once the game runs again (a save then closing the tab no longer loses them).
 
 ### Measured
 40 animals on real terrain (node, one goat-luring player nearby): **0.15-0.18 ms per tick**. Headless Chromium
@@ -199,16 +233,20 @@ PART_GROUP; MOB_DRAW_CAPACITY = 64; PROBES_PER_FRAME = 2; FRESH_PROBES = 6
 - Wandering uses 55% of the species speed; following and breeding the full speed; swimming 60%.
 - A dying animal is a non-targetable corpse for MOB_DEATH_S (tip-over) plus 0.5 s (fade) before it is removed;
   'mob:died' and the drops come at MOB_DEATH_S as specified.
-- Hazard (lava) deaths and babies give no drops. Animals take no fall damage.
+- Hazard (lava) deaths and babies give no drops. Animals take no fall damage. Animals heal slowly (not in the spec).
+- Births from feeding are exempt from MOB_LOADED_CAP (a far wild animal is retired instead), and far-off frozen
+  wild animals are retired above MOB_STORED_SOFT_CAP (the spec's 300 stored cap had no despawn rule, so the
+  world emptied after ~2 km of exploring).
 - `hit` takes the damage from the caller; `hitDamage(item)` implements the spec's table.
 - Babies have the adult's health.
 
 ## Known gaps
 - (Resolved) Wired into the game by the integration pass exactly as in Wiring - see docs/api/integration.md
   "Integration and polish pass 2" (PlayerState.wearHeldTool(1) wears tools; GameUI.setTargetName names the animal).
-- A chunk rolled while the stored cap (300) is full never gets its group later; keep-alive spawns still top up the
-  area around the player.
 - Animal behaviour state (current target, timers) is not saved, only what the spec lists; after loading each
   animal starts idle.
 - Wander paths are straight lines (no path finding); an animal behind a wall simply picks another target.
-- `manager.ts` is ~385 lines, a little over the 350-line aim.
+- `manager.ts` is ~440 lines, over the 350-line aim (timers moved to life.ts, population rules to population.ts,
+  crowding to crowd.ts).
+- Rare scrapes remain: 12 hens in a real dunes area (10 cactus columns within 48x48 blocks, seed 42) took 2 hurts
+  in 30 minutes, 0 deaths (healing covers them); before the fixes 24 hurts and 3 deaths in 60 minutes.

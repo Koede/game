@@ -74,7 +74,9 @@ Streaming and extras:
   neighbours (a mesh needs the 3x3 neighbourhood), and unloaded only past r + 3 (Chebyshev, `UNLOAD_MARGIN`).
 - Chunks pinned by block entities (the entity's chunk and its 8 neighbours, spec section 5) are never
   unloaded, and are generated after the chunks in view even when far away (e.g. after loading a save).
-  They are not meshed unless in view.
+  They are not meshed unless in view. Two kinds of entity pin nothing (`EntityStore` in entities.ts): crates,
+  and wild bushes (machine role `'bush'`, the entity a picked berry bush gets), which only regrow and are woken
+  by src/sim on `chunk:loaded`. Planted crops and every machine still pin.
 - Edits are applied over freshly generated voxels before `chunk:loaded` is emitted.
 
 ### Events (GameBus)
@@ -140,6 +142,12 @@ load; crates no longer pin chunks) are described in `docs/api/world-features.md`
 
 Also exported: `Chunk`, `chunkCoord`, `localCoord`, `chunkKey`, `keyChunkX`, `keyChunkZ`, `ChunkNeighborhood`,
 `EditLog`, `EditsSnapshot`.
+
+`chunkKey(cx, cz)` is one number per chunk column, decoded by `keyChunkX` / `keyChunkZ`. Within |cx|, |cz| < 8192
+(131072 blocks each way) keys are below 2^28, V8 small integers, so the Map lookups behind every `getVoxel` and
+`isLoaded` allocate nothing (the old 2^31-sized keys boxed a heap number per lookup: ~2.7 MB per 336k lookups
+measured, now ~0). Columns farther out, up to |cx|, |cz| < 32768, get distinct larger keys (correct, only slower).
+Keys live only in memory: saves name chunks `"cx,cz"`.
 
 ## Measured
 - node (warm): generateChunk ~1-2 ms, light + mesh ~2.7 ms per chunk.

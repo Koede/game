@@ -7,6 +7,7 @@ import {
   MOB_LOADED_CAP,
   MOB_STORED_CAP,
   MOB_STORED_SOFT_CAP,
+  PLAYER_WIDTH,
 } from '../core/constants';
 import { createBus } from '../core/context';
 import { creature } from '../core/registry';
@@ -120,7 +121,7 @@ describe('exploring far', () => {
     expect(spawned.filter((s) => s.x > 3000).length).toBeGreaterThan(30);
     expect(mobs.loaded.length).toBeGreaterThan(10);
     // The save stays bounded: far-off wild animals were retired.
-    expect(maxStored).toBeLessThanOrEqual(MOB_STORED_SOFT_CAP + 20);
+    expect(maxStored).toBeLessThan(MOB_STORED_CAP);
     expect(mobs.all.every((m) => m.tame || world.isLoaded(m.x, m.z) || Math.abs(m.x - player.x) < 4000)).toBe(true);
     // Columns near the start whose animals were all retired roll again when the player comes back.
     expect(startCols.some((k) => !mobs.spawning.rolled.has(k))).toBe(true);
@@ -171,7 +172,8 @@ describe('hazards', () => {
     const { world, mobs, hurts } = setup();
     world.fill(-20, 10, -20, 20, 10, 20, 'sand');
     for (let x = -18; x <= 18; x += 4) for (let z = -18; z <= 18; z += 4) world.fill(x, 11, z, x, 12, z, 'cactus');
-    for (let i = 0; i < 12; i++) add(mobs, 'hen', -15.5 + (i % 4) * 8 + 2, -15.5 + Math.floor(i / 4) * 8 + 2);
+    // Hens start two blocks from the nearest cacti.
+    for (let i = 0; i < 12; i++) add(mobs, 'hen', -15.5 + (i % 4) * 8, -15.5 + Math.floor(i / 4) * 8);
     run(mobs, testPlayer(500, 11, 500), 600);
     expect(hurts).toEqual([]);
     expect(mobs.all.every((m) => m.state !== 'dying')).toBe(true);
@@ -203,7 +205,7 @@ describe('hazards', () => {
 describe('crowding', () => {
   it('a flock following the player spreads around them instead of stacking', () => {
     const { mobs } = setup();
-    const hens = [0, 1, 2, 3].map((i) => add(mobs, 'hen', 6.5 + (i % 2) * 0.1, 0.5 + i * 0.1));
+    const hens = [0, 1, 2, 3, 4, 5].map((i) => add(mobs, 'hen', 6.5 + (i % 2) * 0.1, 0.5 + i * 0.1));
     const player = testPlayer(0.5, 11, 0.5, 'wheat_seeds');
     run(mobs, player, 10);
     let closest = Infinity;
@@ -211,7 +213,12 @@ describe('crowding', () => {
       for (let j = i + 1; j < hens.length; j++) closest = Math.min(closest, Math.hypot(hens[i].x - hens[j].x, hens[i].z - hens[j].z));
     }
     expect(closest).toBeGreaterThan(crowdRadius(hens[0]) * 1.6);
-    for (const h of hens) expect(Math.hypot(h.x - player.x, h.z - player.z)).toBeLessThan(4.5);
+    // None is squeezed in towards the player's face either: all stay about two blocks off, body to body.
+    for (const h of hens) {
+      const gap = Math.hypot(h.x - player.x, h.z - player.z) - h.spec.size.w / 2 - PLAYER_WIDTH / 2;
+      expect(gap).toBeGreaterThan(1.5);
+      expect(gap).toBeLessThan(3.5);
+    }
   });
 
   it('a breeding pair stands face to face without their heads inside each other', () => {

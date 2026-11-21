@@ -26,9 +26,13 @@ export const SWIM_SPEED = 0.6;
 export const STUCK_S = 2;
 /** A baby farther than this from the nearest adult of its kind trots back to it. */
 export const BABY_LEASH = 5;
+/** A follower pushed this much closer than its stop distance backs off again (blocks). */
+const BACK_OFF = 0.35;
 /** Turn rate towards the walking direction, radians per second. */
 const TURN_RATE = 7;
 const ACCEL = 10;
+/** Arrival easing: the walking speed is at most this many times the distance left to the stop (1/s). */
+const ARRIVE_GAIN = 4;
 const AIR_ACCEL = 1.5;
 
 /** What the brain may ask of the manager. */
@@ -127,6 +131,8 @@ function steer(ctx: BrainContext, m: Mob, tx: number, tz: number, speed: number,
   }
   const dirX = dx / dist;
   const dirZ = dz / dist;
+  // Ease off on the last stretch so it stops where it meant to (two animals meeting do not bump heads).
+  speed = Math.min(speed, (dist - stop) * ARRIVE_GAIN);
   turn(m, yawTowards(dirX, dirZ), dt);
   if (!probeAhead(ctx.world, m, dirX, dirZ, ahead)) {
     // A full stop, not a gentle brake: the next stride would be into liquid or off a cliff.
@@ -297,7 +303,14 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
     if (dx * dx + dz * dz <= MOB_FOLLOW_RANGE * MOB_FOLLOW_RANGE && Math.abs(ctx.player.y - m.y) < 6) {
       if (m.state !== 'follow') setState(m, 'follow', 0);
       const stop = MOB_FOLLOW_DISTANCE + halfWidth(m) + PLAYER_WIDTH / 2;
-      if (steer(ctx, m, ctx.player.x, ctx.player.z, speed, stop, dt) !== 'moving') {
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (d > 1e-3 && d < stop - BACK_OFF) {
+        // Crowded in by the rest of the flock: sidle back out to the polite distance, still facing the player.
+        const k = probeAhead(ctx.world, m, -dx / d, -dz / d, ahead) ? grip(m, dt) : 0;
+        m.vx += ((-dx / d) * speed * WANDER_SPEED - m.vx) * k;
+        m.vz += ((-dz / d) * speed * WANDER_SPEED - m.vz) * k;
+        turn(m, yawTowards(dx, dz), dt);
+      } else if (steer(ctx, m, ctx.player.x, ctx.player.z, speed, stop, dt) !== 'moving') {
         turn(m, yawTowards(dx, dz), dt);
       }
       return;
