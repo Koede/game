@@ -4,6 +4,7 @@ import { DT } from '../core/constants';
 import { Face } from '../core/types';
 import { createBus } from '../core/context';
 import { stackLimit } from '../game/inventory';
+import { MAX_GROUND_ITEMS } from '../game/groundItems';
 import { createFurnace, createNode, type SimContext } from './entities';
 import { applyFurnace } from './furnace';
 import { furnaceStats } from './hearthStats';
@@ -114,52 +115,42 @@ describe('brown-out alerts (sim-9)', () => {
   });
 });
 
-describe('breaking a machine never deletes what the pack cannot hold (sim-1)', () => {
-  const ironIn = (kit: ReturnType<typeof makeKit>): number => {
-    let n = kit.player.inventory.count('iron_ore');
-    for (let x = -3; x <= 3; x++) {
-      for (let y = 0; y <= 8; y++) for (let z = -3; z <= 3; z++) for (const s of kit.sim.machineAt(x, y, z)?.slots ?? []) if (s?.item === 'iron_ore') n += s.count;
-    }
-    return n;
-  };
-
-  it('a full crate broken with a nearly full pack leaves the rest in a crate where it stood', () => {
+describe('breaking a machine never deletes what it held (sim-1, ground items)', () => {
+  it('a full crate broken drops everything as ground items and leaves the pack alone', () => {
     const kit = makeKit();
-    const toasts = kit.record('toast');
     const crate = kit.machine('crate', 0, 5, 0);
     for (let i = 0; i < crate.slots.length; i++) crate.slots[i] = { item: 'iron_ore', count: 64 };
     for (let i = 0; i < 30; i++) kit.player.inventory.set(i, { item: 'flint_pickaxe', count: 1, durability: 64 });
-    expect(ironIn(kit)).toBe(27 * 64);
     kit.world.setVoxel(0, 5, 0, 0, 'player');
     kit.run(DT);
-    expect(kit.player.inventory.count('iron_ore')).toBe(6 * stackLimit('iron_ore'));
-    expect(kit.sim.machineAt(0, 5, 0)).toMatchObject({ kind: 'crate' });
-    expect(ironIn(kit)).toBe(27 * 64);
-    expect(toasts.map((t) => t.text)).toContain('Your pack is full - the rest is left in a crate');
-    // A saved and reloaded world keeps the spill crate.
-    expect(kit.world.getEntity(0, 5, 0)).toBe(kit.sim.machineAt(0, 5, 0));
+    expect(kit.player.ground.count('iron_ore')).toBe(27 * 64);
+    expect(kit.player.inventory.count('iron_ore')).toBe(0);
+    expect(kit.sim.machineAt(0, 5, 0)).toBeNull();
   });
 
-  it('a furnace keeps its fuel and crucibles the same way', () => {
+  it('a furnace drops its fuel and crucibles the same way', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0);
     e.fuel[0] = { item: 'coal', count: 40 };
     e.crucibleIn[0] = { item: 'copper_ore', count: 20 };
-    for (let i = 0; i < 36; i++) kit.player.inventory.set(i, { item: 'flint_pickaxe', count: 1, durability: 64 });
     kit.world.setVoxel(0, 1, 0, 0, 'player');
     kit.run(DT);
-    const spill = kit.sim.machineAt(0, 1, 0)!;
-    expect(spill.kind).toBe('crate');
-    expect(spill.slots.filter((s) => s)).toEqual([{ item: 'coal', count: 40 }, { item: 'copper_ore', count: 20 }]);
+    expect(kit.player.ground.count('coal')).toBe(40);
+    expect(kit.player.ground.count('copper_ore')).toBe(20);
   });
 
-  it('everything that fits goes to the pack and no crate appears', () => {
+  it('only what the capped ground list has no room for goes into a crate where the machine stood', () => {
     const kit = makeKit();
-    kit.machine('crate', 0, 5, 0).slots[0] = { item: 'iron_ore', count: 10 };
+    const toasts = kit.record('toast');
+    for (let i = 0; i < MAX_GROUND_ITEMS; i++) kit.player.ground.spawn('stick', 1, 30 + (i % 20), 5, 30 + Math.floor(i / 20), { scatter: false });
+    const crate = kit.machine('crate', 0, 5, 0);
+    for (let i = 0; i < 6; i++) crate.slots[i] = { item: 'iron_ore', count: 64 };
     kit.world.setVoxel(0, 5, 0, 0, 'player');
     kit.run(DT);
-    expect(kit.player.inventory.count('iron_ore')).toBe(10);
-    expect(kit.sim.machineAt(0, 5, 0)).toBeNull();
+    expect(kit.player.ground.count('iron_ore')).toBe(0);
+    expect(kit.sim.machineAt(0, 5, 0)).toMatchObject({ kind: 'crate' });
+    expect(kit.sim.machineAt(0, 5, 0)!.slots.filter((s) => s).length).toBe(6);
+    expect(toasts.map((t) => t.text)).toContain('Pack and ground are full - the rest is left in a crate');
   });
 });
 

@@ -72,8 +72,10 @@ describe('processors', () => {
     expect(crate.slots[0]!.count + (crate.slots[1]?.count ?? 0)).toBe(100);
     expect(kit.sim.machineSlots(0, 6, 0)!.accepts('plank', 3)).toBe(true);
     kit.world.setVoxel(0, 5, 0, 0, 'player');
+    kit.player.ground.drain(kit.player);
     expect(kit.player.inventory.count('tin_ore')).toBe(9);
     kit.world.setVoxel(0, 6, 0, 0, 'player');
+    kit.player.ground.drain(kit.player);
     expect(kit.player.inventory.count('crushed_tin')).toBe(100);
     expect(kit.sim.machineAt(0, 6, 0)).toBeNull();
   });

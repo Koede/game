@@ -13,6 +13,8 @@ import { blockOf, itemOrNull } from '../core/registry';
 import type { BlockDef, Slot } from '../core/types';
 import type { ColdCause } from './cold';
 import { Buffs, type BuffsSnapshot } from './buffs';
+import { Collectors } from './collectors';
+import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundItems';
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
 import { wear } from './mining';
@@ -65,6 +67,8 @@ export interface PlayerSnapshot {
   combat?: CombatSnapshot;
   /** Species of the automaton that killed the player (death screen). Missing in older saves. */
   killedBy?: string | null;
+  /** Items lying in the world (docs/api/ground-items.md). Missing in saves made before ground items: none. */
+  ground?: GroundItemSnapshot[];
 }
 
 /** Upper bound of the "seconds since the last damage" counter, so it stays a small finite number in saves. */
@@ -131,12 +135,18 @@ export class PlayerState {
   killedBy: string | null = null;
   /** The fight with the Emberbound: damagePlayer, burning, difficulty, the swing cooldown (spec 19.4). */
   readonly combat: PlayerCombat;
+  /** Items lying in the world: everything that gives items spawns them here (see `drop`, `dropHeld`). */
+  readonly ground: GroundItems;
+  /** Handheld collectors (vacuum pump, later the electromagnet). */
+  readonly collectors: Collectors;
   private readonly unsubscribe: Array<() => void>;
 
   constructor(readonly bus: GameBus, spawn: Vec3 = { x: 0.5, y: 64, z: 0.5 }) {
     this.spawn = { ...spawn };
     this.position = { ...spawn };
     this.combat = new PlayerCombat(this);
+    this.ground = new GroundItems(bus);
+    this.collectors = new Collectors(this, bus);
     this.unsubscribe = [
       () => this.combat.dispose(),
       this.inventory.onChange(() => bus.emit('inventory:changed', {})),
@@ -255,6 +265,49 @@ export class PlayerState {
     return left;
   }
 
+  /**
+   * Puts items into the world as ground items: at (x, y, z), or at the player's feet when no position is given.
+   * THE call for "something gave items": broken blocks, animals, spills. Returns nothing; they are picked up again
+   * by walking close (a collector pulls from further).
+   */
+  drop(item: string, count = 1, durability?: number, at?: { x: number; y: number; z: number }): void {
+    const p = at ?? { x: this.position.x, y: this.position.y + 0.5, z: this.position.z };
+    this.ground.spawn(item, count, p.x, p.y, p.z, { durability });
+  }
+
+  /** Drops several stacks at one point (a spill, an animal's drops). */
+  dropAll(stacks: ReadonlyArray<{ item: string; count: number; durability?: number } | null>, at?: { x: number; y: number; z: number }): void {
+    for (const s of stacks) if (s) this.drop(s.item, s.count, s.durability, at);
+  }
+
+  /** Throws `count` out of `slot` in front of the player (the drop key). Returns how many left the pack. */
+  dropSlot(slot: number, count = 1): number {
+    const s = this.inventory.get(slot);
+    if (!s || this.dead) return 0;
+    const taken = this.inventory.removeAt(slot, Math.min(Math.max(1, Math.floor(count)), s.count));
+    if (!taken) return 0;
+    const dir = this.viewDir({ x: 0, y: 0, z: 0 });
+    // Out of the hand: a little in front of the eye, thrown forward and slightly up.
+    const hx = this.position.x + dir.x * 0.5;
+    const hz = this.position.z + dir.z * 0.5;
+    this.ground.spawn(taken.item, taken.count, hx, this.eyeY - 0.35, hz, {
+      durability: taken.durability,
+      scatter: false,
+      vx: dir.x * 4.2,
+      vy: 2 + dir.y * 3,
+      vz: dir.z * 4.2,
+      delayS: THROWN_DELAY_S,
+    });
+    this.bus.emit('sfx', { name: 'place', x: hx, y: this.eyeY - 0.35, z: hz, volume: 0.4, pitch: 1.5 });
+    return taken.count;
+  }
+
+  /** The drop key: one of the held item, or all of the stack. Returns how many were dropped. */
+  dropHeld(all = false): number {
+    const s = this.heldStack();
+    return s ? this.dropSlot(this.selectedSlot, all ? s.count : 1) : 0;
+  }
+
   setHome(x: number, y: number, z: number): void {
     this.home = { x, y, z };
   }
@@ -361,6 +414,7 @@ export class PlayerState {
       sinceDamageS: this.sinceDamageS,
       combat: this.combat.toJSON(),
       killedBy: this.killedBy,
+      ground: this.ground.toJSON(),
     };
   }
 
@@ -396,5 +450,7 @@ export class PlayerState {
     this.extraRadiation = 0;
     this.combat.load(s.combat);
     this.killedBy = this.dead && typeof s.killedBy === 'string' ? s.killedBy : null;
+    this.collectors.stop();
+    this.ground.load(s.ground);
   }
 }

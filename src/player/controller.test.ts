@@ -113,6 +113,7 @@ describe('PlayerController', () => {
     expect(view.mining).toBeLessThan(0.7);
     run(0.6);
     expect(world.getBlock(0, 10, -1).key).toBe('air');
+    player.ground.drain(player);
     expect(player.inventory.count('dirt')).toBe(1);
     expect(view.swings).toBeGreaterThan(1);
     expect(view.target).toEqual({ x: 0, y: 9, z: -2 }); // the floor behind is targeted at once

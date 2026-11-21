@@ -283,7 +283,7 @@ export class Interaction {
     const left = leftBehind(def, voxel);
     if (!this.world.setVoxel(x, y, z, left, 'player')) return;
     this.edits++;
-    for (const d of drops) this.player.give(d.item, d.count);
+    this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.player.wearHeld(def);
     exertMining(this.player);
     if (left !== AIR) {
@@ -301,7 +301,7 @@ export class Interaction {
     const { x, y, z, voxel, block: def } = hit;
     if (!this.world.setVoxel(x, y, z, leftBehind(def, voxel), 'player')) return 'refused';
     this.edits++;
-    for (const d of rollDrops(def, this.rng)) this.player.give(d.item, d.count);
+    this.player.dropAll(rollDrops(def, this.rng), { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.placeCooldown = PLACE_COOLDOWN_S;
     this.bus.emit('sfx', { name: 'harvest', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.swing.triggerSwing();
@@ -314,7 +314,7 @@ export class Interaction {
     const voxel = this.world.getVoxel(x, y, z);
     const def = blockOf(voxel);
     if (!this.world.setVoxel(x, y, z, AIR, 'player')) return;
-    for (const d of rollDrops(def, this.rng)) this.player.give(d.item, d.count);
+    this.player.dropAll(rollDrops(def, this.rng), { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.bus.emit('block:broken', { x, y, z, voxel });
     this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
   }

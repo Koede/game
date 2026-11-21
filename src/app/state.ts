@@ -35,7 +35,7 @@ export class GameState {
   readonly objectives: ObjectiveTracker;
   /** The sky (spec 15): its `state` is read by the simulation, survival, renderer, audio and HUD. */
   readonly weather: Weather;
-  /** The animals (spec 12.5), ticked after the simulation; their drops go straight into the player's pack. */
+  /** The animals (spec 12.5), ticked after the simulation; their drops fall as ground items. */
   readonly mobs: MobManager;
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
@@ -85,7 +85,7 @@ export class GameState {
     });
     this.mobPlayer = mobPlayerOf(this.player);
     this.mobs.onDeath((d) => {
-      for (const s of d.drops) this.player.give(s.item, s.count);
+      this.player.dropAll(d.drops, { x: d.x, y: d.y + 0.4, z: d.z });
     });
     if (save?.mobs) {
       try {

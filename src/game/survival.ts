@@ -205,6 +205,7 @@ export class Survival {
 
   tick(dt: number): void {
     const player = this.player;
+    if (dt > 0) player.ground.tick(dt, this.world, player, player.collectors.tick(dt));
     if (player.dead || dt <= 0) return;
     this.scanIn -= dt;
     if (this.scanIn <= 0) {

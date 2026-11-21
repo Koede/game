@@ -142,6 +142,7 @@ describe('berry bushes (spec 14)', () => {
     const log = record(bus, 'ui:open', 'sfx');
     expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('picked');
     expect(world.getBlock(0, 10, -2).key).toBe('berry_bush_bare');
+    player.ground.drain(player);
     expect(player.inventory.count('wildberries')).toBeGreaterThanOrEqual(1);
     expect(player.inventory.count('dirt')).toBe(3);
     expect(log.some((l) => l.type === 'ui:open')).toBe(false);
@@ -156,9 +157,11 @@ describe('berry bushes (spec 14)', () => {
     const target = (): RayHit | null => aim(0.5, 10.5, -1.5);
     for (let t = 0; t < 3 && world.getBlock(0, 10, -2).key === 'berry_bush'; t += 1 / 60) interaction.updateMining(1 / 60, true, target());
     expect(world.getBlock(0, 10, -2).key).toBe('berry_bush_bare');
+    player.ground.drain(player);
     expect(player.inventory.count('wildberries')).toBeGreaterThanOrEqual(1);
     for (let t = 0; t < 3 && world.getBlock(0, 10, -2).key !== 'air'; t += 1 / 60) interaction.updateMining(1 / 60, true, target());
     expect(world.getBlock(0, 10, -2).key).toBe('air');
+    player.ground.drain(player);
     expect(player.inventory.count('berry_bush_bare')).toBe(1);
   });
 });

@@ -44,7 +44,7 @@ import type { Network } from './power';
 import { SafeZones, guardsZone, type SafeZone, type SafeZoneQuery } from './safeZones';
 import { repairToast, sanitizeEntity } from './sanitize';
 import { SlotAccess, type FurnaceSlots } from './slots';
-import { Spills, handOver } from './spills';
+import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
@@ -107,8 +107,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       world, bus, player, rules: contentRules, random: this.random, flag: (f) => this.flagOnce(f),
       release: (x, y, z, held) => {
         if (this.destroying) return;
-        const left = handOver(this.player, held);
-        if (left.length > 0) this.spills.add(x, y, z, left);
+        this.spills.release(x, y, z, held);
       },
     });
     this.brewing = new Brewing(world, bus, {
@@ -361,8 +360,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.world.removeEntity(e.x, e.y, e.z);
     if (!this.destroying) {
       const held = isFurnace(e) ? [...e.fuel, ...e.crucibleIn, ...e.crucibleOut] : (e as MachineEntity).slots;
-      const left = handOver(this.player, held);
-      if (left.length > 0) this.spills.add(e.x, e.y, e.z, left);
+      this.spills.release(e.x, e.y, e.z, held);
     }
     this.bus.emit('machine:removed', { entity: e });
   }

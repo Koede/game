@@ -154,13 +154,20 @@ describe('GameState', () => {
     for (const s of [state, copy, fresh, broken]) s.dispose();
   });
 
-  it('puts the drops of an animal the player kills into the pack', () => {
+  it('drops what an animal the player kills carries as items that fly to the player', () => {
     const state = GameState.create(7, null);
     const p = state.player.position;
     const hen = state.mobs.add(creature('hen'), { x: p.x + 2, y: p.y, z: p.z, yaw: 0 });
     const before = state.player.inventory.count('raw_fowl');
     const r = state.mobs.hit(hen.id, 99, p.x, p.z);
     expect(r).toEqual({ ok: true, health: 0, killed: true });
+    for (let i = 0; i < 40; i++) state.tick(); // the animal tips over and its drop falls
+    const [lying] = state.player.ground.items;
+    expect(lying?.item).toBe('raw_fowl');
+    expect(state.player.inventory.count('raw_fowl')).toBe(before); // it lies there until the player walks up
+    p.x = lying.x;
+    p.z = lying.z;
+    p.y = lying.y;
     for (let i = 0; i < 20; i++) state.tick();
     expect(state.player.inventory.count('raw_fowl')).toBe(before + 1);
     state.dispose();

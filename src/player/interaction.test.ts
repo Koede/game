@@ -52,6 +52,7 @@ describe('mining', () => {
     expect(t).toBeGreaterThan(0.78);
     expect(t).toBeLessThan(0.85);
     expect(world.getVoxel(0, 10, -2)).toBe(AIR);
+    player.ground.drain(player);
     expect(player.inventory.count('dirt')).toBe(1);
     const mining = events.filter((x) => x.type === 'block:mining');
     expect(mining[0].e).toMatchObject({ x: 0, y: 10, z: -2, progress: 0 });
@@ -82,6 +83,7 @@ describe('mining', () => {
     hold({ item: 'flint_pickaxe', count: 1, durability: full });
     const t = mineFor(interaction, () => aim(0.5, 10.5, -1.5), 10);
     expect(t).toBeCloseTo(2, 1);
+    player.ground.drain(player);
     expect(player.inventory.count('rubble')).toBe(1);
     expect(player.heldStack()?.durability).toBe(full - 1);
   });

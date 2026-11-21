@@ -6,6 +6,8 @@
 import type { GameBus } from '../core/context';
 import { blockId, blockOf, machine } from '../core/registry';
 import { WORLD_HEIGHT, makeVoxel, voxelId, type IWorld, type Slot } from '../core/types';
+import { MAX_GROUND_ITEMS } from '../game/groundItems';
+import { stackLimit } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
 import { createMachine } from './entities';
 
@@ -50,9 +52,36 @@ export class Spills {
     private readonly player: PlayerState,
   ) {}
 
-  /** Keeps stacks the pack had no room for, to be put into crates around (x, y, z) on the next `place()`. */
+  /**
+   * Stacks the pack had no room for: they drop out of the broken block as ground items. Only what the ground list has
+   * no room for (it is capped) is kept to be put into crates around (x, y, z) on the next `place()`.
+   */
   add(x: number, y: number, z: number, stacks: Slot[]): void {
-    this.pending.push({ x, y, z, stacks });
+    const rest = this.toGround(x, y, z, stacks);
+    if (rest.length > 0) this.pending.push({ x, y, z, stacks: rest });
+  }
+
+  /** Everything a broken machine held drops as ground items (the pack is not touched). */
+  release(x: number, y: number, z: number, held: readonly Slot[]): void {
+    this.add(x, y, z, held.filter((s): s is NonNullable<Slot> => s !== null && s.count > 0));
+  }
+
+  /** Spawns what the ground list has room for; returns the rest. */
+  private toGround(x: number, y: number, z: number, stacks: Slot[]): Slot[] {
+    const ground = this.player.ground;
+    let room = MAX_GROUND_ITEMS - ground.size;
+    const rest: Slot[] = [];
+    for (const s of stacks) {
+      if (!s || s.count <= 0) continue;
+      const need = Math.ceil(s.count / Math.max(1, stackLimit(s.item)));
+      if (need > room) {
+        rest.push(s);
+        continue;
+      }
+      room -= need;
+      ground.spawn(s.item, s.count, x + 0.5, y + 0.5, z + 0.5, { durability: s.durability });
+    }
+    return rest;
   }
 
   /** Puts every pending spill into crates (called at the start of a tick). */
@@ -80,7 +109,7 @@ export class Spills {
       }
       if (crates > 0) {
         this.bus.emit('toast', {
-          text: crates === 1 ? 'Your pack is full - the rest is left in a crate' : `Your pack is full - the rest is left in ${crates} crates`,
+          text: crates === 1 ? 'Pack and ground are full - the rest is left in a crate' : `Pack and ground are full - the rest is left in ${crates} crates`,
           kind: 'warn', item: 'crate',
         });
       }

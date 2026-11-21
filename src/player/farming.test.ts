@@ -197,6 +197,7 @@ describe('crops are machine blocks without a screen', () => {
     r.world.put(0, 9, -2, 'farmland');
     r.world.put(0, 10, -2, 'wheat_3');
     expect(mine(r.interaction, hitAt(r.world, 0, 10, -2))).toBe(true);
+    r.player.ground.drain(r.player);
     expect(r.player.inventory.count('wheat')).toBeGreaterThanOrEqual(1);
     expect(r.player.inventory.count('wheat_seeds')).toBeGreaterThanOrEqual(1);
     expect(r.sounds()).toContain('harvest');
@@ -206,6 +207,7 @@ describe('crops are machine blocks without a screen', () => {
     r.world.put(0, 10, -2, 'carrot_1');
     const before = r.sounds().length;
     expect(mine(r.interaction, hitAt(r.world, 0, 10, -2))).toBe(true);
+    r.player.ground.drain(r.player);
     expect(r.player.inventory.count('carrot')).toBe(1);
     expect(r.sounds().slice(before)).toEqual(['dig_sand', 'break']);
   });
@@ -217,6 +219,7 @@ describe('crops are machine blocks without a screen', () => {
     expect(mine(r.interaction, hitAt(r.world, 0, 9, -2, Face.PZ))).toBe(true);
     expect(r.world.getVoxel(0, 9, -2)).toBe(AIR);
     expect(r.world.getVoxel(0, 10, -2)).toBe(AIR);
+    r.player.ground.drain(r.player);
     expect(r.player.inventory.count('dirt')).toBe(1);
     expect(r.player.inventory.count('potato')).toBeGreaterThanOrEqual(2);
     const broken = r.of('block:broken') as Array<{ y: number; voxel: number }>;
