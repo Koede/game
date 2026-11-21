@@ -941,3 +941,140 @@ The clock, sun, moon, stars, clouds and sunlight-driven lighting exist. Add:
     to rain from above loses heat faster (+50% loss) - build it a roof.
 - HUD: the day/night dial shows the weather glyph and the moon phase; the forecast line in the Hearth Log says
   "Rain within the hour" when the next state is rain or storm (the hearth keeper reads the sky).
+
+---------------------------------------------------------------------------------------------------------
+
+## 16. Item and fluid transport (player request: "pipes and item/fluid transport a la FTB mods")
+
+Researched mechanics (BuildCraft, Thermal Dynamics, EnderIO, Mekanism, Pipez), our own design and names. Core
+rules: the destination is chosen when an item leaves; travel is a timer; rendering only interpolates; items never
+spill or clog; every port always shows why it is idle.
+
+### 16.1 Blocks and items
+| key | name | made | rate |
+| item_pipe | Bronze Chute | forge T1 800 C: 2 bronze_ingot, 1 glass -> 8 | 1 transfer of up to 4 items every 2 s, 4 blocks/s |
+| fast_item_pipe | Steel Conveyor Pipe | forge T2 1300 C: 2 steel_plate, 1 glass -> 8 | up to 16 items every 0.5 s, 10 blocks/s |
+| fluid_pipe | Iron Fluid Pipe | forge T2 1000 C: 2 iron_plate, 1 glass -> 8 | 200 L/s per port, cold fluids only (water, crude oil, fuel) |
+| hot_fluid_pipe | Steel Hot Pipe | forge T2 1400 C: 2 steel_plate, 1 ceramic_insulator -> 8 | 1000 L/s per port, any fluid incl. lava and steam |
+| pump | Pump | forge T2 1000 C: 1 chassis, 1 copper_coil, 2 fluid_pipe | consumer 50 W; must touch a liquid block; water bodies of >= 2 blocks are endless; lava and oil blocks are removed as they are pumped (one block per 1000 L, nearest connected first, BFS <= 32) |
+| tank | Tank | forge T2 1000 C: 4 iron_plate, 4 glass | 16 000 L; vertically stacked tanks share one fluid and one level |
+| wrench | Wrench | forge T1 600 C: 3 bronze_ingot | configures pipe ends (16.3) |
+Units: litres; a bucket is 1000 L. Pipes are shape 'pipe' (like 'cable': a core plus arms to every connectable
+neighbour) - item pipes connect to item pipes and item endpoints, fluid pipes to fluid pipes and fluid endpoints;
+the two families never join. Active voxel bit = carrying something (for a subtle tint).
+
+### 16.2 Endpoints
+Every inventory or tank-bearing block entity is an endpoint: crates (all slots), every machine (its input slots
+accept, its output slots give), and the FURNACE with smart sides: inserted fuel goes to the firebox, smeltable items
+to a free crucible input (or one with the same input), forge ingredients are not accepted, extraction only takes
+finished crucible outputs. A formed hearth (section 17) exposes the same through its hatches. Fluid endpoints:
+tank, pump (gives), steam_engine (takes water - piped water replaces the adjacent-water rule), electrolyzer and
+fission pile (take water as coolant; piped water >= 100 L/s counts as cooled), combustion_engine (takes fuel:
+1000 L of fuel = one fuel_canister of energy), still (takes crude_oil 500 L -> gives fuel 400 L, or 2 oil_shale ->
+fuel_canister as before), geothermal_tap (takes lava: 1000 L runs it 600 s at full output; adjacent lava blocks
+still work), furnace fluid hatch (takes lava as fuel: 1000 L = one lava bucket of fuel).
+Buckets: using a bucket on a tank or a fluid endpoint fills or empties 1000 L (water, lava with the bronze bucket).
+
+### 16.3 Pipe ends (ports) and the wrench
+A pipe end touching an endpoint is a PORT with config { mode: 'push' (default: the pipe delivers into the block)
+| 'pull' (the pipe extracts from the block) | 'off'; distribution: 'nearest' | 'round'; filter: up to 5 item or
+fluid keys + allow/deny; priority -2..+2 }. Using the WRENCH on a pipe arm that touches a block cycles
+push -> pull -> off (toast "Pulling from Blast Furnace"); using it on the centre of a pipe toggles that pipe's
+connection to the targeted neighbouring pipe. Using a pipe with an empty hand (or long-press on touch) opens the
+PIPE SCREEN: one row per port of that pipe's network segment near you, with the endpoint's icon, a segmented
+control Push / Pull / Off, the status line ("Moving 4 every 2 s", "No destination", "Destination full", "Too hot
+for this pipe"), and an expandable section with distribution, filter slots and priority.
+
+### 16.4 Network simulation (20 Hz, phone-safe)
+- Rebuild (flood fill) a family's networks only when a pipe or endpoint is placed/removed; caps: 1024 pipes and 64
+  ports per network (beyond: "Network too long" warning, extra pipes inert).
+- Items: each 'pull' port has a cooldown; when it fires it takes the first extractable stack that passes its
+  filter, picks a destination among 'push' ports whose filter accepts the item (never its own block; priority
+  first, then nearest by path length or round-robin), reserves space there, removes the items and creates a packet
+  {item, count, from, to, path length, elapsed}. Arrival inserts; if the destination no longer accepts, re-route to
+  the next candidate; if none, return to the source; if that fails too, the packet waits at its end and the port
+  shows "Blocked". Max 48 packets per network; pulling pauses at the cap. No destination -> nothing is extracted.
+- Fluids: a network holds ONE fluid and an amount, capacity 250 L per pipe. 'pull' ports drain up to the rate from
+  their endpoint into the network; the network fills 'push' ports by priority, equal split inside a priority.
+  Connecting two networks holding different fluids is refused (the joint stays unconnected and shows a mismatch).
+  An empty network forgets its fluid. Cold pipes refuse lava and steam ("Too hot for this pipe").
+- Packets and fluid amounts are saved (packets in flight are delivered to their destination on load).
+
+### 16.5 Fluids
+| key | name | colour | where it comes from |
+| water | Water | blue | pump on water (endless), water bucket |
+| lava | Lava | orange, glowing | pump on lava (finite), lava bucket |
+| steam | Steam | white | BOILER: a new block `boiler` (forge T2 1100 C: 4 iron_plate, 2 copper_coil, 1 tank) placed directly on a furnace or hearth top: takes water, turns furnace heat into steam (needs >= 200 C; 1 L water -> 10 L steam; draws heat like a heat engine) |
+| crude_oil | Crude Oil | black | pump on oil pools (new world liquid `oil`, static pools in dunes and the scar) |
+| fuel | Refined Fuel | amber | still (crude_oil -> fuel) |
+Steam use: a new generator `steam_turbine` (forge T3 1600 C: 1 chassis, 4 steel_plate, 4 copper_coil; 8000 W at
+800 L/s steam; takes steam through a hot pipe) - the furnace-as-power-plant fantasy at scale.
+
+## 17. Multiblock hearths (player request: "multi block furnaces ... like FTB mods")
+
+Researched mechanics (Tinkers' smeltery cuboid scan, Mekanism free-port cuboids, Immersive Engineering formation
+feedback), our own design. The furnace block becomes the HEARTH CONTROLLER. Tier 1 (Clay) stays a single block. To
+run at tier 2-5 the controller must sit in the wall of a FORMED structure of that tier. Formation is automatic (no
+hammer step - one less fiddly tap on a phone).
+
+### 17.1 Structure rules
+A hollow cuboid; the controller sits in a wall (a face cell, not an edge), its front facing outward; the cell
+behind it is interior.
+| tier | wall block (frame + faces; floor; ceiling) | interior (x*z*y) | ceiling | required parts | crucibles |
+| 2 Blast | brick | 1x1x1 .. 3x3x3 | optional (an open top shows the fire) | - | min(4, x*z) + 1 |
+| 3 Arc | refractory_brick | 1x1x1 .. 4x4x3 | required | >= 1 electrode in the ceiling | min(6, x*z + 1) |
+| 4 Plasma | plasma_casing | 2x2x2 .. 5x5x4 | required | >= 2 power_port | min(8, x*z + 2) |
+| 5 Starhearth | star_casing | 3x3x3 .. 5x5x5 | required | >= 4 power_port | 9 |
+- Faces (not edges) may also be: glass (window; loses heat x2 for that cell), item_hatch, fluid_hatch,
+  power_port, blower (counts as a tuyere: +25% smelting speed each, max 4; it still needs its 150 W).
+  Ceilings may hold electrodes (T3+). Interior: air only.
+- Structural tier = the lowest tier whose wall rules are fully met; walls of a higher tier's block also satisfy
+  lower tiers (a plasma_casing wall works for a Blast hearth).
+- The controller's effective tier = min(its own upgraded tier, structural tier). The controller is still upgraded
+  in place with its upgradeCost (existing flow, objectives unchanged), but the Upgrade button additionally needs
+  the structure for the next tier to be formed ("Build a Blast hearth: brick walls around the furnace").
+- Interior size grants: crucibles (table), heat capacity x (interior volume)^0.5 and heat loss x (shell area / 26)
+  (bigger hearths take longer to heat and cost more to keep hot; windows count double), smelting speed x
+  (1 + 0.1 * (interior volume - 1)) capped at x2.
+- Power: tier 3+ electric heating draws through power_port blocks (or a cable touching the controller); the hearth
+  is one consumer.
+- Hatches proxy to the controller: item_hatch = smart sides of 16.2; fluid_hatch takes lava (fuel) and gives
+  nothing else for now; power_port joins cable networks.
+
+### 17.2 New blocks (recipes)
+| key | name | recipe |
+| refractory_brick | Refractory Brick | forge T2 1300 C: 4 brick, 1 coke -> 4 |
+| plasma_casing | Plasma Casing | forge T3 1900 C: 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod -> 2 |
+| star_casing | Star Casing | forge T4 2800 C: 2 superalloy, 1 fused_quartz, 1 magnet_ring -> 2 |
+| electrode | Arc Electrode | forge T2 1200 C: 3 graphite_electrode, 1 copper_coil |
+| item_hatch | Item Hatch | forge T2 1000 C: 1 crate, 2 iron_plate |
+| fluid_hatch | Fluid Hatch | forge T2 1000 C: 1 tank, 2 iron_plate |
+| power_port | Power Port | forge T3 1200 C: 2 copper_coil, 2 ceramic_insulator, 1 iron_plate |
+Furnace upgrade costs shrink accordingly (the structure is now most of the cost): T2 4 bronze_ingot, 1 bellows;
+T3 2 copper_coil, 2 steel_plate; T4 2 circuit, 2 tungsten_rod; T5 1 star_core, 8 deuterium_cell (unchanged).
+
+### 17.3 Validation
+- Algorithm (cuboid scan, ~1100 voxel reads worst case): from the cell behind the controller walk interior air in
+  the 4 horizontal directions to find the walls (max inner size of the tier + 1), check the controller's layer,
+  scan down to the floor, scan up to the ceiling or until a layer stops being a wall ring; classify each cell as
+  frame (edge), face, floor, ceiling or interior and check its rules; another controller in the shell fails.
+  Collect up to 8 problems { code, position, text } ("Interior must be empty", "Glass cannot sit on an edge",
+  "Needs 1 more Power Port", "Wall is not Refractory Brick").
+- When: on any block change within the shell's bounding box + 1 (scan next tick); while unformed, every 1 s only
+  if the player is within 16 blocks or the furnace screen is open; while formed, verify one shell cell every 4
+  ticks (safety net).
+- Unforming never destroys anything: crucibles above the new count lock (contents can still be taken out), the
+  effective tier drops, the player gets a toast.
+
+### 17.4 Feedback and rendering
+- Furnace screen gains a STRUCTURE tab: status chip ("Formed - Blast hearth 3x3x2", or "Not formed"), a checklist
+  (Floor, Walls, Ceiling, Electrodes 1/1, Power ports 0/2) with ticks, the problems in plain words - tapping one
+  highlights that block in the world (pulsing red outline for 10 s, plus an edge-of-screen arrow when off-screen) -
+  and a target-tier picker that shows the blocks needed (a materials list with have/need) and a GHOST PREVIEW: for
+  the chosen tier and interior size, translucent blue cubes in the world where blocks are missing and red where
+  a block is wrong. The ghost stays visible after closing the screen until the structure forms or is dismissed.
+- Formed: every shell block's voxel active bit is set (glowing-seam texture variants that brighten with
+  temperature); the interior shows a molten glow (a light-emitting pool at the floor whose colour follows the
+  temperature heat ramp) and the hearth lights its surroundings by temperature; open tops emit heat shimmer and
+  smoke; windows show the inner glow. Formation moment: a light sweep across the shell, a deep "whoomph" (new
+  SfxName 'hearth_formed'), toast "Blast hearth formed".
