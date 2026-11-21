@@ -54,10 +54,9 @@ type StrokeResult =
 `sim.handReturn(x, y, z): StrokeResult` - empty hand puts the loaded input back into the pack (a mistake, or to
 take the wheat out of the quern); refuses when the output is waiting or nothing is loaded.
 
-Hot work (stone anvil): `sim.openHotWindow(x, y, z)` opens a 20 s window (`HOT_WORK_S`) on every hot-capable
-station (`handStation.hot`) within 6 blocks of x,y,z. The sim opens it itself when the player takes a crucible's
-output through the furnace actions (`furnace:output` hook, wired by whoever owns the furnace screen if the sim
-cannot see it); inside the window strokes count double and the station's label says "(hot)".
+Hot work (stone anvil): every `cast:poured` (metal poured at a furnace; casting engineer's event) opens a 20 s window
+(`HOT_WORK_WINDOW_S`) on every hot-capable station (`handStation.hot`) within 6 blocks of the furnace; inside it strokes
+count double (not on top of the tool) and the label ends "(hot)". `sim.openHotWindow(x, y, z)` does the same by hand.
 
 ## Views (HUD target name, work bar)
 

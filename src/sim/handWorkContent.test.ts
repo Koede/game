@@ -86,3 +86,14 @@ describe('hand stations on the real content', () => {
     expect(k.sim.handView(3, 5, 3)?.output).toEqual({ item: 'leather', count: 2 });
   });
 });
+
+describe('hot work from a pour', () => {
+  it('a cast:poured near the anvil opens its hot window', () => {
+    const k = makeKit();
+    k.world.put(3, 5, 3, 'stone_anvil');
+    k.world.put(30, 5, 3, 'stone_anvil');
+    k.bus.emit('cast:poured', { x: 0, y: 5, z: 0, mould: 'ingot_mould', metal: 'copper', item: 'copper_ingot', count: 1, at: 'furnace' });
+    expect(k.sim.handView(3, 5, 3)?.hot).toBe(true);
+    expect(k.sim.handView(30, 5, 3)?.hot).toBe(false);
+  });
+});

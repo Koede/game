@@ -155,6 +155,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
         this.hearths.screenAt = furnace ? posKey(screen.x, screen.y, screen.z) : null;
         if (furnace) player.setHome(screen.x, screen.y, screen.z);
       }),
+      // Metal poured at a furnace is fresh from the fire: a stone anvil nearby works it with half the strokes for 20 s.
+      bus.on('cast:poured', ({ x, y, z }) => this.hand.openHotWindow(x, y, z)),
       bus.on('ui:closed', () => {
         this.hearths.screenAt = null;
       }),
