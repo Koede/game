@@ -19,7 +19,7 @@ import type { FurnaceView } from './views';
 /** Facing of everything the player places: the front looks south, towards where the player stands. */
 const SOUTH = 2;
 
-interface Pos {
+export interface Pos {
   x: number;
   y: number;
   z: number;

@@ -12,7 +12,7 @@ import { Face, voxelActive } from '../core/types';
 import { eat, plant, till, type UseTarget } from '../game';
 import { swapSlots } from '../game/transfer';
 import type { FakeWorld } from '../game/fakeWorld';
-import { Play } from './playKit';
+import { Play, type Pos } from './playKit';
 
 /**
  * The home furnace faces south (the way the player looks at it), so its hearth lies north of it: the hearths grow
@@ -21,6 +21,11 @@ import { Play } from './playKit';
  */
 const F = { x: 0, y: 1, z: 0 };
 const BENCH = { x: -2, y: 1, z: 5 };
+/** The Ember Age's hand stations, in a row beside the bench (docs/api/handwork.md). */
+const CHOP = { x: -4, y: 1, z: 5 };
+const QUERN = { x: -5, y: 1, z: 5 };
+const ANVIL = { x: -6, y: 1, z: 5 };
+const MORTAR = { x: -7, y: 1, z: 5 };
 /** Twelve crates south-west of the furnace, within its reach (and the bench's). */
 const CRATES = [2, 3, 4].flatMap((z) => [-1, -2, -3, -4].map((x) => ({ x, y: 1, z })));
 /** At the furnace's mouth: it touches the furnace and carries the grid to it. */
@@ -111,6 +116,37 @@ class FedPlay extends Play {
     }
   }
 
+  /**
+   * Works at a hand station (docs/api/handwork.md) the way a player does: loads `input` (one Use per item where several
+   * recipes share it), strikes with `tool` in hand (or bare hands) until the work bar fills, takes each output. Returns
+   * once `count` input items are used up.
+   */
+  work(p: Pos, input: string, count: number, tool: string | null = null): void {
+    const { x, y, z } = p;
+    const loaded = (): number => this.sim.handView(x, y, z)?.input?.count ?? 0;
+    let left = count;
+    while (left > 0) {
+      if (loaded() === 0) {
+        const have = this.have(input);
+        if (have === 0) throw new Error(`work: no ${input} left`);
+        for (let guard = 0; guard < 99 && loaded() < Math.min(left, have, 16); guard++) {
+          this.hold(input);
+          this.must(this.sim.stroke(x, y, z, input), `load ${input}`);
+        }
+      }
+      if (tool) this.hold(tool);
+      for (let guard = 0; guard < 400 && !this.sim.handView(x, y, z)?.output; guard++) {
+        const before = loaded();
+        this.must(this.sim.stroke(x, y, z, tool), `strike ${input}`);
+        left -= before - loaded();
+        this.eatIfPeckish();
+      }
+      this.must(this.sim.stroke(x, y, z, null), `take at ${input}`);
+    }
+    if (loaded() > 0) this.must(this.sim.handReturn(x, y, z), `take back ${input}`);
+    this.step(0.5);
+  }
+
   private eatIfPeckish(): void {
     if (this.player.food > REGEN_MIN_FOOD) return;
     const meal = MEALS.find((m) => this.have(m) > 0);
@@ -140,7 +176,9 @@ describe('scripted playthrough', () => {
     // ---- Ember Age: wood, flint, a clay furnace ------------------------------------------------------------------
     play.gather('oak_log', 44, '44 oak_log');
     done('gather_logs');
-    play.craft('plank', 30);
+    play.craft('chopping_block');
+    play.place('chopping_block', CHOP);
+    play.work(CHOP, 'oak_log', 30);
     done('make_planks');
     play.craft('workbench');
     play.place('workbench', BENCH);
@@ -149,7 +187,7 @@ describe('scripted playthrough', () => {
     done('find_flint');
     play.gather('tall_grass', 24, '24 fiber');
     play.craft('cord', 8);
-    play.craft('stick', 4);
+    play.work(CHOP, 'plank', 4);
     play.craft('flint_pickaxe');
     done('make_pickaxe');
     play.gather('stone', 12, '12 rubble');
