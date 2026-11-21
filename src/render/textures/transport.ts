@@ -34,6 +34,8 @@ interface PipeLook {
    * draws them in the blended batch). Kept >= 128 so the held item's pixel extrusion still shows the glass.
    */
   see?: (k: number, t: number) => number;
+  /** The texels of band row `k` at `t` that are a window onto the inside (what the renderer fills, see pipeWindow). */
+  window?: (k: number, t: number) => boolean;
 }
 
 function pipe(c: Canvas, look: PipeLook): void {
@@ -86,6 +88,7 @@ const ITEM_PIPE: PipeLook = {
     c.set(9, 9, P.BRONZE[1]);
   },
   see: (k, t) => (k <= 1 || k >= 6 || t % 4 === 1 ? 255 : k === 2 ? 175 : k === 5 ? 155 : 132),
+  window: (k, t) => k >= 2 && k <= 5 && t % 4 !== 1,
 };
 
 // Steel conveyor: blue-white steel with a long dark slot showing the rollers inside.
@@ -103,15 +106,18 @@ const FAST_PIPE: PipeLook = {
   },
   // The roller slot: rollers solid, the gaps between them open onto the inside of the conveyor.
   see: (k, t) => ((k === 3 || k === 4) && t % 2 === 1 ? 140 : 255),
+  window: (k, t) => (k === 3 || k === 4) && t % 2 === 1,
 };
 
-// Iron fluid pipe: dark iron with a short glass window in every other segment.
+// Iron fluid pipe: dark iron with a sight glass on every arm (the 3 pixels next to each cell edge, 4 rows tall), so a
+// run shows a 6-pixel window across every joint. The renderer draws the fluid inside these windows (pipeWindow).
+const FLUID_WINDOW = (k: number, t: number): boolean => k >= 2 && k <= 5 && (t <= 2 || t >= 13);
 const FLUID_PIPE: PipeLook = {
   band: tube(M, (k, t) => {
-    const window = t % 8 >= 1 && t % 8 <= 4;
-    if (!window || k === 2 || k === 5) return k === 2 ? M[2] : M[1];
-    return k === 3 ? P.GLASS[3] : P.GLASS[1];
+    if (!FLUID_WINDOW(k, t)) return k === 2 ? M[2] : M[1];
+    return k === 2 ? P.GLASS[3] : k === 5 ? mix(P.GLASS[0], P.SOOT, 0.5) : mix(P.GLASS[1], P.SOOT, k === 3 ? 0.25 : 0.4);
   }),
+  window: FLUID_WINDOW,
   collar: [M[4], M[2], M[0]],
   hub: (c) => {
     // A flow-direction wheel: the valve handle of the junction.
@@ -122,15 +128,18 @@ const FLUID_PIPE: PipeLook = {
   },
 };
 
-// Steel hot pipe: cream ceramic insulation wrapped round steel, steel straps every 4 pixels, a small window.
+// Steel hot pipe: cream ceramic insulation wrapped round steel, steel straps every 4 pixels, and a small sight port
+// (2x2) on every arm where the renderer shows the glow of what flows inside.
+const HOT_WINDOW = (k: number, t: number): boolean => (k === 3 || k === 4) && (t === 1 || t === 2 || t === 13 || t === 14);
 const HOT_PIPE: PipeLook = {
   band: (k, t) => {
     const k2 = P.CERAMIC;
     if (k === 0 || k === 7) return P.STEEL[0];
     if (t % 4 === 0) return k === 1 ? P.STEEL[4] : k === 6 ? P.STEEL[0] : P.STEEL[2];
-    if (t % 8 === 2 && (k === 3 || k === 4)) return k === 3 ? P.GLASS[3] : P.GLASS[1];
+    if (HOT_WINDOW(k, t)) return k === 3 ? mix(P.GLASS[1], P.SOOT, 0.3) : mix(P.GLASS[0], P.SOOT, 0.5);
     return k === 1 ? k2[4] : k === 2 ? k2[3] : k === 6 ? k2[0] : k2[2];
   },
+  window: HOT_WINDOW,
   collar: [P.STEEL[4], P.STEEL[2], P.STEEL[0]],
   hub: (c) => {
     c.rect(6, 6, 4, 4, P.CERAMIC[1]);
@@ -260,6 +269,22 @@ function wrench(c: Canvas): void {
     return x + y < 15 ? b[4] : x + y < 17 ? b[2] : b[1];
   });
   for (const [x, y] of [[2, 13], [3, 13], [2, 12]] as const) c.set(x, y, b[0], 0);
+}
+
+const LOOKS: Record<string, PipeLook> = { pipe_item: ITEM_PIPE, pipe_item_fast: FAST_PIPE, pipe_fluid: FLUID_PIPE, pipe_fluid_hot: HOT_PIPE };
+
+/**
+ * Whether texel (x, y) (top row first) of a pipe tile is a window onto the inside of the tube: the glass of the item
+ * pipes, the roller gaps of the conveyor, the sight glasses of the fluid pipes. Only arm bands count (the centre
+ * square is the junction collar, the corners are clear). False for any other tile.
+ */
+export function pipeWindow(tile: string, x: number, y: number): boolean {
+  const look = LOOKS[tile];
+  if (!look?.window) return false;
+  const h = inBand(y);
+  const v = inBand(x);
+  if (h === v) return false;
+  return h ? look.window(y - LO, x) : look.window(x - LO, y);
 }
 
 export const TRANSPORT: PainterSet = {

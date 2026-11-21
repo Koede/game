@@ -258,9 +258,9 @@ export class PortRow {
         const name = keyName(family, k);
         const b = h(
           'button',
-          { class: ['hw-pipe__choice', family === 'fluid' && 'hw-pipe__choice--named'], attrs: { type: 'button', title: name, 'aria-label': name } },
+          { class: 'hw-pipe__choice', attrs: { type: 'button', title: name } },
           tile.el,
-          family === 'fluid' ? h('span', { text: name }) : null,
+          h('span', { class: 'hw-pipe__cname', text: name }),
         );
         b.addEventListener('click', () => this.pick(k));
         return b;

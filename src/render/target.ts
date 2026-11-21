@@ -89,7 +89,7 @@ void main() {
 `;
 
 /** One box per edge of the unit cube, merged: 12 boxes, 144 triangles, one draw call. */
-function edgeGeometry(thickness: number): THREE.BufferGeometry {
+export function edgeGeometry(thickness: number): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
   const t = thickness;
   for (const axis of [0, 1, 2]) {

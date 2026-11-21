@@ -51,10 +51,11 @@ export class UpgradeControl {
   /** "Plan the hearth": shown while the next tier's hearth is not formed; opens the STRUCTURE tab. */
   private readonly structure: Button;
   private readonly chips: Chip[] = [];
+  private nextTier = 2;
   private tableKey = '';
   private last = false;
 
-  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void; onStructure: () => void }) {
+  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void; onStructure: (tier: number) => void }) {
     const { sim, pos, bus } = opts;
     this.button = new Button({ label: 'Upgrade', size: 'sm', onClick: () => this.setOpen(true) });
     this.button.el.classList.add('hw-upg-btn');
@@ -80,7 +81,7 @@ export class UpgradeControl {
       },
     });
     this.back = new Button({ label: 'Back', kind: 'quiet', onClick: () => this.setOpen(false) });
-    this.structure = new Button({ label: 'Plan the hearth', kind: 'power', size: 'sm', hint: 'Structure tab', onClick: opts.onStructure });
+    this.structure = new Button({ label: 'Plan the hearth', size: 'sm', hint: 'Structure tab', onClick: () => opts.onStructure(this.nextTier) });
     this.structure.el.classList.add('hw-upg__plan');
     this.structure.el.hidden = true;
     this.sheet = h(
@@ -162,6 +163,7 @@ export class UpgradeControl {
     });
     setText(this.reason, up.reason ? pretty(up.reason) : `Everything is ready. Hold to rebuild it as the ${up.next.name}.`);
     this.structure.el.hidden = up.structureOk !== false;
+    this.nextTier = up.next.tier;
     setAttr(this.reason, 'data-tone', up.ok ? 'good' : 'warn');
     this.go.setLabel(`Upgrade to the ${up.next.name}`);
     this.go.setDisabled(!up.ok, up.ok ? '' : up.tempOk ? 'Materials missing' : 'Too cold');

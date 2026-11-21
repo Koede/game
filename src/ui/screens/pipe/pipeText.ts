@@ -81,6 +81,7 @@ export function lineSummary(net: Pick<PipeNetView, 'family' | 'pipes' | 'ports' 
 export function contentText(net: Pick<PipeNetView, 'family' | 'fluidName' | 'litres' | 'capacityL' | 'packets' | 'items'>): string {
   if (net.family === 'fluid') {
     if (!net.fluidName) return `Empty - holds up to ${litres(net.capacityL)}`;
+    if (net.litres < 1) return `${net.fluidName} flowing through - none held (room for ${litres(net.capacityL)})`;
     return `${net.fluidName} - ${Math.round(net.litres).toLocaleString('en-US')} of ${litres(net.capacityL)}`;
   }
   if (net.packets === 0) return 'Nothing moving';

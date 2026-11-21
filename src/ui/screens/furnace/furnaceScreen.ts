@@ -51,8 +51,10 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
 
   // Quick move out of the bag goes to the firebox or the crucibles; which first depends on the tab.
   const bagQuick: QuickTarget[] = ['fuel', 'cru-in'];
-  const upgrade = new UpgradeControl({ sim, pos, bus, changed, onStructure: () => {
+  const ghost = ghostFor(bus, sim);
+  const upgrade = new UpgradeControl({ sim, pos, bus, changed, onStructure: (tier) => {
     upgrade.setOpen(false);
+    ghost.choose(pos.x, pos.y, pos.z, { tier });
     window.selectTab('structure');
     showTab('structure');
   } });
@@ -60,7 +62,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
   const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed });
   const forge = new ForgeTab({ sim, pos, bus, changed });
   const grid = new GridTab({ sim, pos, bus, changed });
-  const structure = new StructureTab({ sim, pos, bus, ghost: ghostFor(bus, sim), changed });
+  const structure = new StructureTab({ sim, pos, bus, ghost, changed });
   const log = new HearthLogView(ctx.objectives, () => ctx.weather);
   const bag = new BagDrawer(ctx.slots, player.inventory, bagQuick, ctx.slots.actionBar);
   fire.bindSlots(furnaceSlots);

@@ -74,6 +74,7 @@ describe('pipe screen text', () => {
     expect(priorityNote(1)).toMatch(/before/);
     expect(contentText({ family: 'fluid', fluidName: 'Water', litres: 1210.4, capacityL: 3000, packets: 0, items: 0 })).toBe('Water - 1,210 of 3,000 L');
     expect(contentText({ family: 'fluid', fluidName: null, litres: 0, capacityL: 500, packets: 0, items: 0 })).toBe('Empty - holds up to 500 L');
+    expect(contentText({ family: 'fluid', fluidName: 'Water', litres: 0, capacityL: 500, packets: 0, items: 0 })).toBe('Water flowing through - none held (room for 500 L)');
     expect(contentText({ family: 'item', fluidName: null, litres: 0, capacityL: 0, packets: 0, items: 0 })).toBe('Nothing moving');
     expect(lineSummary({ family: 'fluid', pipes: 1, ports: 1, hot: true })).toBe('Hot fluid line - 1 pipe, 1 end');
     const ports = Array.from({ length: 11 }, (_, i) => ({ distance: i }) as PortView);

@@ -21,6 +21,7 @@ import { RainMask } from './rainMask';
 import { Sky, type SkyExtras } from './sky';
 import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
 import { TargetBox } from './target';
+import { TechLayer, type TechStats, type TransportSource } from './tech';
 import { SteamVents } from './vents';
 import { WeatherFx } from './weatherFx';
 
@@ -51,6 +52,9 @@ export interface RenderStats {
   machines: number;
   machinesMs: number;
   weatherMs: number;
+  /** Pipe packets, pipe overlay pieces, glowing hearths and ghost cells drawn (spec 16, 17.4), and their CPU time. */
+  tech: TechStats;
+  techMs: number;
 }
 
 /** Colour of full block light: firelight, warm. */
@@ -75,6 +79,7 @@ export class Renderer implements IView {
   readonly camera: THREE.PerspectiveCamera;
   readonly stats: RenderStats = {
     drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1, precipitation: 0, weatherMs: 0, machines: 0, machinesMs: 0,
+    tech: { packets: 0, pipePieces: 0, hearths: 0, ghosts: 0 }, techMs: 0,
   };
   /** True while the WebGL context is lost (render() does nothing until it is restored). */
   contextLost = false;
@@ -94,6 +99,7 @@ export class Renderer implements IView {
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
   private readonly machines: MachineParts;
+  private readonly tech: TechLayer;
   private readonly vents: SteamVents;
   private readonly held: HeldItem;
   private readonly probe: LightProbe;
@@ -156,10 +162,12 @@ export class Renderer implements IView {
     this.vents = new SteamVents(bus, world, this.particles);
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
+    this.tech = new TechLayer(world, bus, this.uniforms, this.particles, this.canvas);
+    this.stats.tech = this.tech.stats;
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.tech.group);
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
@@ -231,6 +239,15 @@ export class Renderer implements IView {
     this.weather = weather;
   }
 
+  /**
+   * Where items in pipes and pipe contents come from (spec 16), asked once per frame - `simTransportFeed(sim)` from
+   * src/render; null draws none. Formed hearths, ghosts and highlights need nothing: they come from the world and
+   * the bus.
+   */
+  setTransport(source: TransportSource | null): void {
+    this.tech.setTransport(source);
+  }
+
   // ---------------------------------------------------------------------------------------------- frame
 
   /** Draws one frame. `dt` in seconds drives animation (water, plants, particles, the hand). */
@@ -293,6 +310,9 @@ export class Renderer implements IView {
     const machinesStarted = performance.now();
     this.machines.update(dt, cam);
     const machinesMs = performance.now() - machinesStarted;
+    const techStarted = performance.now();
+    this.tech.update(dt, this.time, cam, sky.day, this.probe.sky, this.probe.block);
+    const techMs = performance.now() - techStarted;
     const windPhase = this.time * 0.05;
     this.particles.update(dt, 0.7 + Math.sin(windPhase) * 0.4, 0.25 + Math.cos(windPhase * 0.7) * 0.3);
     this.held.update(dt);
@@ -315,6 +335,7 @@ export class Renderer implements IView {
     s.machines = this.machines.drawn;
     s.machinesMs = machinesMs;
     s.weatherMs = weatherMs;
+    s.techMs = techMs;
     s.cpuMs = performance.now() - started;
   }
 
@@ -349,6 +370,7 @@ export class Renderer implements IView {
     this.sky.dispose();
     this.precipitation.dispose();
     this.machines.dispose();
+    this.tech.dispose();
     this.held.dispose();
     this.materials.dispose();
     this.atlas.texture.dispose();
@@ -416,5 +438,6 @@ export class Renderer implements IView {
     const scale = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
     this.particles.setScale(scale);
     this.glows.setScale(scale);
+    this.tech.setScale(scale);
   }
 }

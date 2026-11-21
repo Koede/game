@@ -3,6 +3,7 @@
  * it is on (compact), and the player's backpack beside it (stacked under it on phones). Crates get 27 slots.
  */
 import { STATION_CRATE_RADIUS } from '../../../core/constants';
+import { block, machine } from '../../../core/registry';
 import type { MachineRole } from '../../../core/types';
 import type { GameScreen, ScreenContext } from '../../gameUI';
 import { Toggle } from '../../kit/controls';
@@ -24,11 +25,11 @@ const ROLE_TEXT: Record<MachineRole, string> = {
   consumer: 'Machine',
   storage: 'Storage',
   crate: 'Storage',
-  boiler: 'Generator',
+  boiler: 'Steam',
   crop: 'Crop',
   bush: 'Plant',
-  tank: 'Storage',
-  hearth_part: 'Hearth',
+  tank: 'Fluid storage',
+  hearth_part: 'Hearth part',
 };
 
 type At = { x: number; y: number; z: number };
@@ -53,21 +54,26 @@ export function createMachineScreen(request: At, ctx: ScreenContext, sim: Screen
       ctx.invalidate();
     },
   });
-  const bag = new InventoryPanel(ctx.slots, ctx.player.inventory);
+  // The pack only beside machines that hold items; the network only for machines on cables; the switch only where
+  // switching does something (not a tank or a hearth part).
+  const hasSlots = inventory !== null && inventory.size > 0;
+  const bag = hasSlots ? new InventoryPanel(ctx.slots, ctx.player.inventory) : null;
+  const powered = block(machine(first.kind).blocks[0]).power === 'device';
+  const switchable = first.role !== 'tank' && first.role !== 'hearth_part';
   const body = h(
     'div',
-    { class: 'hw-mscreen' },
+    { class: ['hw-mscreen', !bag && 'hw-mscreen--solo'] },
     h('div', { class: 'hw-mscreen__machine' }, panel.el),
-    h('div', { class: 'hw-mscreen__bag' }, bag.el, ctx.slots.actionBar),
-    h('div', { class: 'hw-mscreen__net' }, h('h3', { class: 'hw-heading', text: 'Power network' }), net.el),
+    bag ? h('div', { class: 'hw-mscreen__bag' }, bag.el, ctx.slots.actionBar) : null,
+    powered ? h('div', { class: 'hw-mscreen__net' }, h('h3', { class: 'hw-heading', text: 'Power network' }), net.el) : null,
   );
   const window = new Window({
     title: first.name,
     subtitle: ROLE_TEXT[first.role],
-    headerRight: toggle.el,
-    size: 'lg',
+    headerRight: switchable ? toggle.el : undefined,
+    size: bag ? 'lg' : 'md',
     body,
-    footer: inventory && inventory.size > 0 ? slotHint() : undefined,
+    footer: hasSlots ? slotHint() : undefined,
   });
   window.frame.classList.add('hw-mach-window');
   window.setAccent('var(--hw-power)');
@@ -82,15 +88,17 @@ export function createMachineScreen(request: At, ctx: ScreenContext, sim: Screen
       }
       toggle.set(view.on);
       panel.update(view);
-      const stats = sim.networkAt(x, y, z);
-      net.update(stats, stats !== null && stats.members.length <= 1);
+      if (powered) {
+        const stats = sim.networkAt(x, y, z);
+        net.update(stats, stats !== null && stats.members.length <= 1);
+      }
       window.setAccent(view.running ? 'var(--hw-power)' : null);
       ctx.slots.refresh();
     },
     dispose: () => {
       panel.dispose();
       net.dispose();
-      bag.dispose();
+      bag?.dispose();
     },
   };
 }

@@ -7,6 +7,7 @@ import { Canvas, TEXTURE_SIZE, type Painter } from './canvas';
 import { PAINTERS } from './painters';
 
 export { TEXTURE_SIZE } from './canvas';
+export { pipeWindow } from './transport';
 
 const BYTES = TEXTURE_SIZE * TEXTURE_SIZE * 4;
 const cache = new Map<string, Uint8ClampedArray>();

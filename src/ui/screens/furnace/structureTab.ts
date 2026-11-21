@@ -109,10 +109,10 @@ export class StructureTab {
         this.tierHost,
         h('div', { class: 'hw-st__size' }, ...this.steppers.map((s) => s.el)),
         this.rules,
-        h('h4', { class: 'hw-heading', text: 'Materials' }),
-        this.materials,
         h('div', { class: 'hw-st__show' }, h('span', { class: 'hw-st__showlabel', text: 'Show in world' }), this.show.el),
         this.showNote,
+        h('h4', { class: 'hw-heading', text: 'Materials' }),
+        this.materials,
       ),
     );
   }

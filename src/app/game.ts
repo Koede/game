@@ -10,7 +10,7 @@ import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
 import { InputManager, PlayerController } from '../player';
-import { createIconProvider, Renderer } from '../render';
+import { createIconProvider, Renderer, simTransportFeed } from '../render';
 import { MobRenderer } from '../render/mobs';
 import type { WorldSave } from '../save/document';
 import { GameUI } from '../ui/gameUI';
@@ -79,6 +79,8 @@ export class Game {
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
     this.renderer.setWeather(state.weather.state);
+    // Items and fluids in pipes (spec 16): the renderer reads the simulation's transport snapshot every frame.
+    this.renderer.setTransport(simTransportFeed(sim));
     this.mobRenderer = new MobRenderer(this.renderer, world);
     try {
       this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });

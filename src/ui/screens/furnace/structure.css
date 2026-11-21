@@ -132,7 +132,19 @@
 .hw-st__size {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 8px 6px;
+}
+.hw-st__size .hw-step__btn {
+  width: 36px;
+}
+.hw-st__size .hw-step__value {
+  min-width: 28px;
+}
+/* Five tabs on a phone: tighter tabs so LOG stays in view. */
+@media (max-width: 719.98px) and (min-height: 520px) {
+  .hw-fx-window .hw-tab {
+    padding: 0 9px;
+  }
 }
 .hw-st__rules {
   font-size: var(--hw-fs-sm);
@@ -190,7 +202,7 @@
   justify-content: space-between;
   gap: 12px;
   min-height: var(--hw-tap);
-  padding-top: 6px;
+  padding: 6px 0 0;
   border-top: 1px solid var(--hw-iron-1);
 }
 .hw-st__showlabel {

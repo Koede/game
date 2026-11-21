@@ -11,6 +11,7 @@ import { Face, FACE_DIRS, FACING_TO_FACE, voxelActive, voxelFacing, type BlockDe
 import type { Glows } from './glows';
 import { ParticleLook, type ParticleSpec, type Particles } from './particles';
 import { shapePuff, shapeSpark, type PuffKind } from './puffs';
+import { hearthOpenTop } from './tech/hearthInfo';
 import { tileColor } from './tiles';
 
 /** Colour of the light at a point, 0..1 per channel, written into `out` (supplied by the renderer). */
@@ -154,6 +155,8 @@ export class Emitters {
           kind = 'smoke';
           const draft = typeof e.draft === 'number' ? e.draft : 0;
           rate = e.lit === true ? 5 + tier * 0.5 + draft * 4 : 0;
+          // An open-topped hearth's smoke rises from its opening instead (src/render/tech/hearths.ts).
+          if (hearthOpenTop(e)) rate = 0;
         }
       } else if (d2 <= STEAM_RANGE * STEAM_RANGE && voxelActive(this.world.getVoxel(e.x, e.y, e.z))) {
         if (STEAM_MACHINES.has(e.kind)) {

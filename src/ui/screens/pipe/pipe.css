@@ -45,6 +45,7 @@
 /* ---- one end ---------------------------------------------------------------------------- */
 .hw-pipe__port {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
   padding: 8px 10px 10px;
@@ -67,6 +68,7 @@
 }
 .hw-pipe__head {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
   min-width: 0;
 }
@@ -115,6 +117,7 @@
 }
 .hw-pipe__ctl {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
@@ -166,6 +169,7 @@
 /* ---- settings fold ---------------------------------------------------------------------- */
 .hw-pipe__fold {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding-top: 8px;
   border-top: 1px solid var(--hw-iron-1);
@@ -247,24 +251,28 @@
   font-weight: 600;
 }
 .hw-pipe__pgrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
   gap: 4px;
 }
 .hw-pipe__choice {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  min-width: var(--hw-tap);
-  height: var(--hw-tap);
+  min-width: 0;
+  min-height: var(--hw-tap);
+  padding: 2px 8px 2px 4px;
+  text-align: left;
   background: var(--hw-soot-2);
   border: 1px solid var(--hw-iron-1);
   border-radius: var(--hw-radius);
 }
-.hw-pipe__choice--named {
-  padding: 0 10px 0 8px;
-  font-size: var(--hw-fs-sm);
+.hw-pipe__cname {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
 }
 @media (hover: hover) {
   .hw-pipe__choice:hover,
@@ -323,4 +331,10 @@
   grid-column: 2;
   font-size: 12px;
   color: var(--hw-ash-1);
+}
+
+/* ---- machine screens without a backpack (tanks, pumps, boilers, turbines, hearth parts) ---------- */
+.hw-mscreen.hw-mscreen--solo {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'machine' 'net';
 }
