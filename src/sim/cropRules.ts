@@ -72,6 +72,8 @@ export interface CropNode {
   info: StageInfo | null;
   soil: boolean;
   sky: boolean;
+  /** Nothing solid or liquid above: rain reaches it (a glass roof lets the sky's light in but keeps the rain off). */
+  rain: boolean;
   water: boolean;
   lamp: boolean;
   /** Bits of the cached facts to recompute before the crop is next looked at (see CropField). */
@@ -86,18 +88,16 @@ export interface CropNode {
 export interface CropContext {
   /** Clock sunlight >= minSunlight. */
   sunUp: boolean;
+  /** Rain or snow soaks an exposed crop at this position this tick (spec 15); null when nothing soaks anywhere. */
+  wetAt: ((x: number, y: number, z: number) => boolean) | null;
 }
 
 /** Daylight under open sky, or a powered lamp in reach (any hour, underground too). */
 export const isLit = (c: CropNode, ctx: CropContext): boolean => (ctx.sunUp && c.sky) || c.lamp;
 
-/**
- * Whether the crop counts as watered. The single place hydration is decided: weather extends it here (rain counts
- * as water in reach for crops under open sky, spec 15) by adding a field to CropContext.
- */
+/** Whether the crop counts as watered: water in reach, or rain (or snow) falling on it under open sky (spec 15). */
 export function isHydrated(c: CropNode, ctx: CropContext): boolean {
-  void ctx;
-  return c.water;
+  return c.water || (c.rain && ctx.wetAt !== null && ctx.wetAt(c.e.x, c.e.y, c.e.z));
 }
 
 /** Growth per second of game time: 1 hydrated, dryRate dry, 0 when ripe, unlit or off farmland. */

@@ -111,6 +111,8 @@ export interface FurnaceView {
   };
   /** Heat taken out by thermopiles and steam engines, in watts. */
   extractW: number;
+  /** Rain or snow falls on it from open sky: it loses heat FURNACE_WET_LOSS_MULT times faster (spec 15). */
+  rainChilled: boolean;
   ignited: boolean;
   ignition: { state: IgnitionState; progress: number; powerW: number; seconds: number; canStart: ActionResult };
   /** The next tier, or null at the last one. */
@@ -165,14 +167,15 @@ function upgradeView(e: FurnaceEntity, sources: readonly Inventory[]): UpgradeVi
 }
 
 /** Where the temperature settles with the present heat sources: fire (capped at its flame) and electric heat. */
-function targetTemp(e: FurnaceEntity, tier: FurnaceTierSpec, flame: number | null, satisfaction: number): number {
+function targetTemp(e: FurnaceEntity, tier: FurnaceTierSpec, flame: number | null, satisfaction: number, lossMult: number): number {
   let target = AMBIENT_TEMP_C;
+  const lossWPerC = tier.lossWPerC * lossMult;
   const fuel = e.burnItem ? fuelOf(e.burnItem) : null;
   if (flame !== null && fuel) {
     const q = (fuel.energyJ / fuel.burnS) * (1 + e.draft);
-    target = Math.min(flame, AMBIENT_TEMP_C + (q - e.extractW) / tier.lossWPerC);
+    target = Math.min(flame, AMBIENT_TEMP_C + (q - e.extractW) / lossWPerC);
   }
-  if (e.heatDemandW > 0) target = Math.max(target, AMBIENT_TEMP_C + (tier.electricHeatW * satisfaction - e.extractW) / tier.lossWPerC);
+  if (e.heatDemandW > 0) target = Math.max(target, AMBIENT_TEMP_C + (tier.electricHeatW * satisfaction - e.extractW) / lossWPerC);
   return Math.min(Math.max(target, AMBIENT_TEMP_C), tier.maxTempC);
 }
 
@@ -190,11 +193,13 @@ function furnaceStatus(e: FurnaceEntity, v: FurnaceView): string {
   }
   if (cold && cold.recipe) return `${itemName(cold.recipe.output.item)} needs ${cold.requiredC} C - now ${Math.floor(e.tempC)} C`;
   if (v.electric.on && v.electric.demandW > 0 && v.electric.satisfaction < BROWNOUT_STALL) return 'Electric heating is starved of power';
-  if (e.lit && !heated) return `Burns out in ${clock(v.burnTimeLeftS)}`;
-  return v.trend === 'steady' ? `Holding ${Math.floor(e.tempC)} C` : `Heading for ${Math.floor(v.targetC)} C`;
+  const rain = v.rainChilled ? ' - rain chills it, build a roof' : '';
+  if (e.lit && !heated) return `Burns out in ${clock(v.burnTimeLeftS)}${rain}`;
+  return (v.trend === 'steady' ? `Holding ${Math.floor(e.tempC)} C` : `Heading for ${Math.floor(v.targetC)} C`) + rain;
 }
 
-export function furnaceView(host: ActionHost, node: SimNode): FurnaceView {
+/** `lossMult`: this tick's heat-loss multiplier from the weather (1 when dry or roofed). */
+export function furnaceView(host: ActionHost, node: SimNode, lossMult = 1): FurnaceView {
   const e = node.e as FurnaceEntity;
   const tier = furnaceTier(e.tier);
   const burning = isBurning(e);
@@ -210,14 +215,14 @@ export function furnaceView(host: ActionHost, node: SimNode): FurnaceView {
     tempC: e.tempC, maxTempC: furnaceMaxTempC(e),
     trend: e.rateCPerS > STEADY_C_PER_S ? 'rising' : e.rateCPerS < -STEADY_C_PER_S ? 'falling' : 'steady',
     rateCPerS: e.rateCPerS, lit: e.lit, burning, hot: e.tempC >= FURNACE_HOT_C, draft: e.draft, flameC: flame,
-    targetC: e.ignited ? e.tempC : targetTemp(e, tier, flame, satisfaction), burnItem: e.burnItem,
+    targetC: e.ignited ? e.tempC : targetTemp(e, tier, flame, satisfaction, lossMult), burnItem: e.burnItem,
     burnItemLeftS: e.burnItem ? Math.max(0, e.burnLeftS) / rate : 0, burnTimeLeftS: burnSecondsLeft(e) / rate, fuelItems: fuelCount(e),
     crucibles: e.crucibleIn.map((_s, i) => crucibleView(e, i, tier.speed)),
     electric: {
       available: tier.electricHeatW > 0, on: e.electric, networked: net !== null && net.nodes.length > 1, demandW: e.heatDemandW,
       deliveredW: e.heatDemandW * satisfaction, maxW: tier.electricHeatW, satisfaction,
     },
-    extractW: e.extractW, ignited: e.ignited,
+    extractW: e.extractW, rainChilled: !e.ignited && lossMult > 1, ignited: e.ignited,
     ignition: {
       state: e.ignition, progress: Math.min(1, e.ignitionProgressS / IGNITION_TIME_S), powerW: IGNITION_POWER,
       seconds: IGNITION_TIME_S, canStart: ignitionCheck(e, node),

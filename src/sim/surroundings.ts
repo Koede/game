@@ -9,8 +9,8 @@ import { isFurnace, posKey, type MachineEntity, type SimNode } from './entities'
 const WHEEL_RADIUS = machine('water_wheel').params?.shareRadius ?? 0;
 /** Machines whose `furnaces` list is every furnace touching them. */
 const TOUCHES_FURNACE = new Set(['thermopile', 'blower']);
-/** Machines that need open sky: a change anywhere in the column above them concerns them. */
-const SKY = new Set(['wind_turbine', 'solar_panel']);
+/** Machines that need open sky (or, for the furnace, feel the rain): a change anywhere in the column above them concerns them. */
+const SKY = new Set(['wind_turbine', 'solar_panel', 'furnace']);
 
 const chebyshev = (n: SimNode, x: number, y: number, z: number): number =>
   Math.max(Math.abs(n.e.x - x), Math.abs(n.e.y - y), Math.abs(n.e.z - z));

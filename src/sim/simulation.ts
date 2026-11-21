@@ -7,7 +7,7 @@ import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
-import { voxelActive, withActive, type BlockDef, type IWorld } from '../core/types';
+import { voxelActive, withActive, type BlockDef, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
@@ -28,6 +28,7 @@ import { NodeSet } from './nodes';
 import type { Network } from './power';
 import { SlotAccess, type FurnaceSlots } from './slots';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
+import { SimWeather, type SimBiomeLookup } from './weather';
 
 const WIND = machine('wind_turbine').params ?? {};
 
@@ -35,6 +36,11 @@ export class Simulation implements ActionHost {
   /** Sunlight factor and wind factor of the current tick (read by solar panels and wind turbines). */
   sunlight = 1;
   wind = 1;
+  /** Solar multiplier of the weather this tick (1 without weather). */
+  solar = 1;
+  /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
+  readonly weather = new SimWeather();
+  private readonly rainAt = (x: number, y: number, z: number): boolean => this.weather.wetAt(x, y, z);
   /** True on one tick per second. */
   everySecond = false;
   readonly random: () => number;
@@ -77,9 +83,22 @@ export class Simulation implements ActionHost {
     this.resync();
   }
 
+  /**
+   * Follows the world's weather (read every tick; pass the Weather's live `state`) with a biome lookup for where
+   * rain turns to snow or dust. Null = always fair.
+   */
+  useWeather(weather: WeatherState | null, biomeAt: SimBiomeLookup | null): void {
+    this.weather.use(weather, biomeAt);
+  }
+
   dispose(): void {
     for (const off of this.offs) off();
     this.offs.length = 0;
+  }
+
+  /** Where rain soaks exposed crops this tick, or null when nothing soaks anywhere (the crops skip the check). */
+  private get wetAt(): ((x: number, y: number, z: number) => boolean) | null {
+    return this.weather.soaks ? this.rainAt : null;
   }
 
   /** Rebuilds the runtime from the world's entities. Call after a save was loaded into the world. */
@@ -99,8 +118,11 @@ export class Simulation implements ActionHost {
     this.everySecond = this.tickCount % TICK_RATE === 0;
     const { world, nodes } = this;
     nodes.fresh();
+    const weather = this.weather;
+    weather.update();
     this.sunlight = this.clock.sunlight();
-    this.wind = windAt(this.clock.worldTimeS, WIND.windMin, WIND.windMax);
+    this.wind = windAt(this.clock.worldTimeS, WIND.windMin, WIND.windMax) * weather.wind;
+    this.solar = weather.solar;
 
     for (const n of nodes.furnaces) {
       n.loaded = world.isLoaded(n.e.x, n.e.z);
@@ -129,8 +151,8 @@ export class Simulation implements ActionHost {
       if (this.everySecond) net.sample();
     }
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
-    for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt);
-    this.crops.tick(dt, this.sunlight);
+    for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
+    this.crops.tick(dt, this.sunlight, this.wetAt);
 
     if (this.meltdowns.length > 0) {
       for (const n of this.meltdowns.splice(0)) if (nodes.byKey.get(n.key) === n) this.destroy(() => meltDown(this, n));
@@ -334,7 +356,9 @@ export class Simulation implements ActionHost {
   furnaceView(x: number, y: number, z: number): FurnaceView | null {
     this.nodes.fresh();
     const node = this.nodes.byKey.get(posKey(x, y, z));
-    return node && isFurnace(node.e) ? furnaceView(this, node) : null;
+    if (!node || !isFurnace(node.e)) return null;
+    this.weather.update();
+    return furnaceView(this, node, this.weather.furnaceLoss(node));
   }
 
   /** The forge recipe list of a furnace with per-row availability (also part of furnaceView). */
@@ -408,7 +432,8 @@ export class Simulation implements ActionHost {
 
   /** What the crop at a position is doing (stage, light, water, status), or null. Crops have no machine view. */
   cropView(x: number, y: number, z: number): CropView | null {
-    return this.crops.view(x, y, z, this.clock.sunlight());
+    this.weather.update();
+    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt);
   }
 
   /** Furnaces, machines and crates (crops are counted by `cropCount`). */

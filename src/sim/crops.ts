@@ -26,6 +26,8 @@ const WATER_READS = 2 * (2 * HYDRATION_R + 1) ** 2;
 const FARMLAND = blockId('farmland');
 const IS_WATER: boolean[] = BLOCKS.map((b) => b.liquid === 'water');
 const IS_OPAQUE: boolean[] = BLOCKS.map((b) => b.opaque);
+/** Blocks that keep the rain off whatever is under them (the same rule as openSkyAbove in src/game/weather). */
+const STOPS_RAIN: boolean[] = BLOCKS.map((b) => b.solid || b.liquid !== null);
 
 const DIRTY_SOIL = 1;
 const DIRTY_SKY = 2;
@@ -42,7 +44,7 @@ export class CropField {
   private readonly awake: CropNode[] = [];
   /** Positions of every lamp that is lit (powered and running). */
   private readonly lamps = new Map<string, readonly [number, number, number]>();
-  private readonly ctx: CropContext = { sunUp: false };
+  private readonly ctx: CropContext = { sunUp: false, wetAt: null };
   private sunWasUp: boolean | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus) {}
@@ -69,7 +71,7 @@ export class CropField {
   track(stored: BlockEntity): CropNode {
     const e = stored as CropEntity;
     if (typeof e.growS !== 'number' || !Number.isFinite(e.growS)) e.growS = 0;
-    const node: CropNode = { e, key: posKey(e.x, e.y, e.z), info: null, soil: false, sky: false, water: false, lamp: false, dirty: DIRTY_ALL, slot: -1, waitS: 0 };
+    const node: CropNode = { e, key: posKey(e.x, e.y, e.z), info: null, soil: false, sky: false, rain: false, water: false, lamp: false, dirty: DIRTY_ALL, slot: -1, waitS: 0 };
     this.byKey.set(node.key, node);
     const ck = colKey(e.x, e.z);
     const col = this.columns.get(ck);
@@ -116,7 +118,7 @@ export class CropField {
     if (this.byKey.size === 0) return;
     const col = this.columns.get(colKey(x, z));
     if (col) {
-      const opacity = from.opaque !== to.opaque;
+      const opacity = from.opaque !== to.opaque || STOPS_RAIN[from.id] !== STOPS_RAIN[to.id];
       for (const c of col) {
         if (c.e.y === y + 1) this.touch(c, DIRTY_SOIL);
         else if (opacity && c.e.y < y) this.touch(c, DIRTY_SKY);
@@ -153,8 +155,11 @@ export class CropField {
     });
   }
 
-  /** Advances every crop that can grow. `sunlight` is the clock's sunlight factor of this tick. */
-  tick(dt: number, sunlight: number): void {
+  /**
+   * Advances every crop that can grow. `sunlight` is the clock's sunlight factor of this tick; `wetAt` says where
+   * rain soaks exposed crops this tick (null: nowhere).
+   */
+  tick(dt: number, sunlight: number, wetAt: CropContext['wetAt'] = null): void {
     const up = sunlight >= MIN_SUNLIGHT;
     if (up && this.sunWasUp === false) {
       // Sunrise: crops that slept through the dark under open sky look again.
@@ -162,6 +167,7 @@ export class CropField {
     }
     this.sunWasUp = up;
     this.ctx.sunUp = up;
+    this.ctx.wetAt = wetAt;
     const { awake, ctx } = this;
     let budget = REFRESH_READS_PER_TICK;
     // Backwards: a crop going to sleep swaps the last (already visited) crop into its place.
@@ -187,13 +193,13 @@ export class CropField {
   }
 
   /** What the crop at x,y,z is doing, or null when there is none (or its chunk has not been seen yet). */
-  view(x: number, y: number, z: number, sunlight: number): CropView | null {
+  view(x: number, y: number, z: number, sunlight: number, wetAt: CropContext['wetAt'] = null): CropView | null {
     const c = this.byKey.get(posKey(x, y, z));
     if (!c) return null;
     if (c.dirty !== 0 && this.world.isLoaded(x, z)) this.refresh(c);
     const info = c.info;
     if (info === null) return null;
-    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT };
+    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt };
     const ripe = info.next < 0;
     const lit = isLit(c, ctx);
     const hydrated = isHydrated(c, ctx);
@@ -235,12 +241,12 @@ export class CropField {
     if (d & DIRTY_SOIL) c.soil = voxelId(world.getVoxel(x, y - 1, z)) === FARMLAND;
     if (d & DIRTY_SKY) {
       c.sky = true;
-      for (let yy = y + 1; yy < WORLD_HEIGHT; yy++) {
+      c.rain = true;
+      for (let yy = y + 1; yy < WORLD_HEIGHT && (c.sky || c.rain); yy++) {
         reads++;
-        if (IS_OPAQUE[voxelId(world.getVoxel(x, yy, z))]) {
-          c.sky = false;
-          break;
-        }
+        const id = voxelId(world.getVoxel(x, yy, z));
+        if (IS_OPAQUE[id]) c.sky = false;
+        if (STOPS_RAIN[id]) c.rain = false;
       }
     }
     if (d & DIRTY_WATER) {

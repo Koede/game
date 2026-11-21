@@ -93,7 +93,7 @@ const windTurbine = ambient((n, ctx, s) => {
   if (!n.openSky) return 0;
   return (s.outputW ?? 0) * ctx.wind * clamp((n.e.y - p.altitudeBaseY) / p.altitudeSpanY, p.altitudeMin, p.altitudeMax);
 });
-const solarPanel = ambient((n, ctx, s) => (n.openSky && ctx.sunlight > (s.params?.minSunlight ?? 0) ? (s.outputW ?? 0) * ctx.sunlight : 0));
+const solarPanel = ambient((n, ctx, s) => (n.openSky && ctx.sunlight > (s.params?.minSunlight ?? 0) ? (s.outputW ?? 0) * ctx.sunlight * ctx.solar : 0));
 const geothermalTap = ambient((n, _c, s) => Math.min(s.params?.capW ?? 0, (s.params?.wattsPerLava ?? 0) * n.lava));
 
 /** Wind factor at a world time: a slow, deterministic wander between `min` and `max`. */

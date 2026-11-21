@@ -90,8 +90,11 @@ export function prepareFurnace(node: SimNode): void {
   e.availW = 0;
 }
 
-/** After the networks are solved: fire, temperature, crucibles, ignition. */
-export function applyFurnace(node: SimNode, ctx: SimContext, dt: number): void {
+/**
+ * After the networks are solved: fire, temperature, crucibles, ignition. `lossMult` scales the heat loss (rain or
+ * snow falling on a furnace with open sky above, spec 15).
+ */
+export function applyFurnace(node: SimNode, ctx: SimContext, dt: number, lossMult = 1): void {
   const e = node.e as FurnaceEntity;
   const tier = furnaceTier(e.tier);
   if (e.ignited) {
@@ -133,7 +136,7 @@ export function applyFurnace(node: SimNode, ctx: SimContext, dt: number): void {
   e.draft = Math.max(0, draft - DRAFT_DECAY_PER_S * dt);
 
   const before = e.tempC;
-  const loss = tier.lossWPerC * (before - AMBIENT_TEMP_C);
+  const loss = tier.lossWPerC * lossMult * (before - AMBIENT_TEMP_C);
   const base = before + ((f * e.heatDemandW - loss - e.extractW) * dt) / tier.heatCapacityJ;
   let t = base + (qFuel * dt) / tier.heatCapacityJ;
   // A fire never heats past its own flame: a steady fire sits exactly at its flame temperature.

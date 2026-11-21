@@ -13,3 +13,4 @@ export type { NetworkState } from './power';
 export { HISTORY_SECONDS } from './power';
 export { smeltRecipeFor } from './furnace';
 export { machineRecipeFor, windAt } from './machines';
+export { SimWeather, type SimBiomeLookup } from './weather';

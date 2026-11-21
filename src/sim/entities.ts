@@ -198,9 +198,11 @@ export interface SimContext {
   readonly world: IWorld;
   readonly bus: GameBus;
   readonly player: PlayerState;
-  /** Sunlight factor 0..1 and wind factor for this tick. */
+  /** Sunlight factor 0..1 and wind factor for this tick (wind already includes the weather's). */
   sunlight: number;
   wind: number;
+  /** Solar output multiplier of this tick's weather (WEATHER_SOLAR, eased; spec 15). */
+  solar: number;
   /** True on one tick per second: slow housekeeping (crate push) runs then. */
   everySecond: boolean;
   /** Sets the voxel's active flag when it differs from the node's. */
