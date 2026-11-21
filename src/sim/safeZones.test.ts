@@ -31,7 +31,7 @@ describe('ward beacon', () => {
     expect(voxelActive(kit.world.getVoxel(0, 1, 0))).toBe(true);
     const view = kit.sim.machineView(0, 1, 0)!;
     expect(view.running).toBe(true);
-    expect(view.status).toBe(`Warding ${WARD_BEACON_RADIUS} blocks all round - no automaton comes near`);
+    expect(view.status).toBe(`Warding ${WARD_BEACON_RADIUS} blocks all round - automatons keep away`);
     expect(kit.sim.isSafe(0.5, 1.5, 0.5)).toBe(true);
 
     kit.sim.setMachineOn(0, 1, 0, false);

@@ -120,7 +120,7 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
   }
   if (e.kind === 'ward_beacon') {
     if (v.satisfaction < BROWNOUT_STALL) return `${v.satisfaction > 0 ? 'Not enough power' : 'No power'} - automatons can come near`;
-    return `Warding ${spec.params?.radius ?? 0} blocks all round - no automaton comes near`;
+    return `Warding ${spec.params?.radius ?? 0} blocks all round - automatons keep away`;
   }
   if (e.demandW > 0 && v.satisfaction < BROWNOUT_STALL) return v.satisfaction > 0 ? 'Not enough power' : 'No power';
   if (e.kind === 'bore_rig') return `Boring at depth ${e.depthY}`;
