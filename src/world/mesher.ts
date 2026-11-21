@@ -149,7 +149,9 @@ function pushQuad(b: Builder, layer: number, reversed = false): void {
 function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: number, liquid: boolean): void {
   const b = builders[BATCH[id]];
   const slot = faceSlot(v);
-  const height = liquid && (vol[p + SY] & VOXEL_ID_MASK) !== id ? LIQUID_SURFACE : 1;
+  const above = vol[p + SY] & VOXEL_ID_MASK;
+  // Under ice (or anything opaque) the surface stays full height, so no gap opens below the cover.
+  const height = liquid && above !== id && OPAQUE[above] === 0 ? LIQUID_SURFACE : 1;
   const merges = MERGES[id] === 1;
   for (let f = 0; f < 6; f++) {
     const pf = p + D_FRONT[f];
@@ -182,8 +184,8 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
       QZ[k] = z + VZ[c];
       QU[k] = CORNER_A[k];
       QV[k] = f === Face.PY || f === Face.NY ? CORNER_B[k] : CORNER_B[k] * height;
-      QSky[k] = (skySum * 17) / cells;
-      QBlock[k] = (blockSum * 17) / cells;
+      QSky[k] = (skySum * 17) / cells + 0.5;
+      QBlock[k] = (blockSum * 17) / cells + 0.5;
       QShade[k] = FACE_SHADE[f] * AO_CURVE[ao] * 255;
       QFlags[k] = flags;
     }
@@ -193,14 +195,16 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
 
 /**
  * An axis-aligned box inside a cell, lit flatly with the cell's own light. `skip` is a bit mask of faces
- * to leave out; `topFlags` is set on the vertices of the box's upper edge.
+ * to leave out; `flags` go on every vertex. Faces showing the block's glowing active texture are
+ * emissive, as on full cubes.
  */
-function box(b: Builder, slot: number, p: number, x: number, y: number, z: number, lo: readonly number[], hi: readonly number[], skip: number, topFlags: number): void {
+function box(b: Builder, slot: number, p: number, x: number, y: number, z: number, lo: readonly number[], hi: readonly number[], skip: number, flags: number): void {
   const cell = light[p];
   for (let f = 0; f < 6; f++) {
     if ((skip >> f) & 1) continue;
     const u = U_AXIS[f];
     const v = V_AXIS[f];
+    const glow = FACE_GLOW[slot + f] === 1 ? LIGHT_FLAG_EMISSIVE : 0;
     for (let k = 0; k < 4; k++) {
       const c = f * 4 + k;
       const px = VX[c] ? hi[0] : lo[0];
@@ -214,7 +218,7 @@ function box(b: Builder, slot: number, p: number, x: number, y: number, z: numbe
       QSky[k] = (cell >> 4) * 17;
       QBlock[k] = (cell & 15) * 17;
       QShade[k] = FACE_SHADE[f] * 255;
-      QFlags[k] = VY[c] ? topFlags : 0;
+      QFlags[k] = glow | flags;
     }
     pushQuad(b, FACE_LAYER[slot + f]);
   }
@@ -243,14 +247,28 @@ function cross(b: Builder, slot: number, p: number, x: number, y: number, z: num
   }
 }
 
-const TORCH_LO = [7 / 16, 0, 7 / 16];
-const TORCH_HI = [9 / 16, 10 / 16, 9 / 16];
+// A torch is a post with a separate glowing tip, so the flame is crisply emissive and the stick is not.
+const TORCH_TIP = 8 / 16;
+const POST_LO = [7 / 16, 0, 7 / 16];
+const POST_HI = [9 / 16, TORCH_TIP, 9 / 16];
+const TIP_LO = [7 / 16, TORCH_TIP, 7 / 16];
+const TIP_HI = [9 / 16, 10 / 16, 9 / 16];
+const SKIP_TOP = 1 << Face.PY;
+const SKIP_BOTTOM = 1 << Face.NY;
+function torch(b: Builder, slot: number, p: number, x: number, y: number, z: number): void {
+  box(b, slot, p, x, y, z, POST_LO, POST_HI, SKIP_TOP, 0);
+  box(b, slot, p, x, y, z, TIP_LO, TIP_HI, SKIP_BOTTOM, LIGHT_FLAG_EMISSIVE);
+}
+
 const CORE_LO = 5 / 16;
 const CORE_HI = 11 / 16;
 const lo = [0, 0, 0];
 const hi = [0, 0, 0];
 
-/** A cable is a small core with an arm towards every neighbouring cable or device. */
+/**
+ * A cable is a small core with an arm towards every neighbouring cable or device. An arm's inner end is
+ * hidden in the core; its outer end is capped unless it meets another cable's arm or an opaque block.
+ */
 function cable(b: Builder, slot: number, p: number, x: number, y: number, z: number): void {
   let arms = 0;
   for (let f = 0; f < 6; f++) if (POWERED[vol[p + D_FRONT[f]] & VOXEL_ID_MASK] === 1) arms |= 1 << f;
@@ -263,8 +281,9 @@ function cable(b: Builder, slot: number, p: number, x: number, y: number, z: num
     lo[0] = lo[1] = lo[2] = CORE_LO;
     hi[0] = hi[1] = hi[2] = CORE_HI;
     if ((f & 1) === 0) { lo[axis] = CORE_HI; hi[axis] = 1; } else { lo[axis] = 0; hi[axis] = CORE_LO; }
-    // Both ends of an arm are hidden: one inside the core, one against the neighbour.
-    box(b, slot, p, x, y, z, lo, hi, 3 << (axis * 2), 0);
+    const nid = vol[p + D_FRONT[f]] & VOXEL_ID_MASK;
+    const closed = OPAQUE[nid] === 1 || SHAPE[nid] === SHAPE_CABLE;
+    box(b, slot, p, x, y, z, lo, hi, closed ? 3 << (axis * 2) : 1 << (f ^ 1), 0);
   }
 }
 
@@ -314,7 +333,7 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
           case SHAPE_CUBE: cubeFaces(v, id, p, x, y, z, false); break;
           case SHAPE_LIQUID: cubeFaces(v, id, p, x, y, z, true); break;
           case SHAPE_CROSS: cross(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
-          case SHAPE_TORCH: box(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z, TORCH_LO, TORCH_HI, 0, LIGHT_FLAG_EMISSIVE); break;
+          case SHAPE_TORCH: torch(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z); break;
           case SHAPE_CABLE: cable(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
           case SHAPE_SLAB: slab(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
           default: break;

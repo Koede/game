@@ -139,3 +139,28 @@ export function computeLight(chunks: ChunkNeighborhood): Uint8Array {
   }
   return out;
 }
+
+/**
+ * A hash of the light on each side of a chunk, in the order +X, -X, +Z, -Z (SIDE_DX / SIDE_DZ of chunk.ts):
+ * the last column of cells inside the chunk and the first one outside it, full height, walked in world
+ * order. So a chunk's +X hash and its east neighbour's -X hash cover the same cells the same way and are
+ * equal exactly when both meshes were built with the same light along that border (light within one cell
+ * of a chunk is exact, see computeLight).
+ */
+export function borderHashes(light: Uint8Array): Uint32Array {
+  const out = new Uint32Array(4);
+  for (let side = 0; side < 4; side++) {
+    const alongX = side >= 2;
+    const first = side === 0 || side === 2 ? CHUNK_SIZE - 1 : -1;
+    let h = 0x811c9dc5;
+    for (let y = -1; y <= WORLD_HEIGHT; y++) {
+      for (let a = -1; a <= CHUNK_SIZE; a++) {
+        for (let b = first; b <= first + 1; b++) {
+          h = Math.imul(h ^ light[alongX ? lightIndex(a, y, b) : lightIndex(b, y, a)], 0x01000193);
+        }
+      }
+    }
+    out[side] = h >>> 0;
+  }
+  return out;
+}

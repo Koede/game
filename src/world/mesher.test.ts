@@ -35,8 +35,9 @@ describe('meshChunk', () => {
     // In the open every corner is fully lit and unshaded apart from the face's own shading.
     const shades = new Set(m.opaque.light.filter((_, i) => i % 4 === 2));
     expect([...shades].sort((a, b) => a - b)).toEqual([127, 165, 204, 255]);
-    // Full daylight everywhere except underneath, where the block itself shades the cells below it.
-    for (let v = 0; v < 24; v++) expect(m.opaque.light[v * 4]).toBe(v >= 12 && v < 16 ? 14 * 17 : 255);
+    // Full daylight everywhere except underneath. The cell below the block has sky light 14 (lit sideways);
+    // smooth lighting averages it with the three fully lit cells around each bottom corner: 14.75 x 17.
+    for (let v = 0; v < 24; v++) expect(m.opaque.light[v * 4]).toBe(v >= 12 && v < 16 ? Math.round(14.75 * 17) : 255);
     expect(meshBuffers(m).length).toBe(15);
   });
 
@@ -113,16 +114,23 @@ describe('meshChunk', () => {
     }
   });
 
-  it('draws a torch as a thin post with a glowing top', () => {
+  it('draws a torch as a thin post with a separate glowing tip', () => {
     const chunks = emptyNeighborhood();
     put(chunks, 5, 40, 5, blockId('torch'));
     const m = mesh(chunks);
-    expect(quads(m.cutout)).toBe(6);
+    // Post: 4 sides and a bottom; tip: 4 sides and a top.
+    expect(quads(m.cutout)).toBe(10);
+    expect(m.opaque.indices.length).toBe(0);
     const xs = [...m.cutout.positions.filter((_, i) => i % 3 === 0)];
     expect(Math.min(...xs)).toBeCloseTo(5 + 7 / 16);
     expect(Math.max(...xs)).toBeCloseTo(5 + 9 / 16);
-    for (let v = 0; v < 24; v++) {
-      expect((m.cutout.light[v * 4 + 3] & LIGHT_FLAG_EMISSIVE) !== 0).toBe(m.cutout.positions[v * 3 + 1] > 40.5);
+    const ys = [...m.cutout.positions.filter((_, i) => i % 3 === 1)];
+    expect(Math.max(...ys)).toBeCloseTo(40 + 10 / 16);
+    for (let v = 0; v < 40; v++) {
+      const tip = v >= 20;
+      expect((m.cutout.light[v * 4 + 3] & LIGHT_FLAG_EMISSIVE) !== 0).toBe(tip);
+      if (tip) expect(m.cutout.positions[v * 3 + 1]).toBeGreaterThanOrEqual(40.5);
+      else expect(m.cutout.positions[v * 3 + 1]).toBeLessThanOrEqual(40.5);
       expect(m.cutout.light[v * 4 + 1]).toBe(13 * 17);
     }
   });
@@ -140,6 +148,47 @@ describe('meshChunk', () => {
     put(linked, 5, 41, 5, blockId('lamp'));
     // Cable A: core 4 faces + 2 arms x 4. Cable B: core 5 + 1 arm x 4. Lamp: 6.
     expect(quads(mesh(linked).opaque)).toBe(12 + 9 + 6);
+    // An arm reaching a device that does not fill its cell (a solar panel slab) gets an end cap.
+    const capped = emptyNeighborhood();
+    put(capped, 5, 40, 5, cable);
+    put(capped, 6, 40, 5, blockId('solar_panel'));
+    const m = mesh(capped).opaque;
+    // Core 5 + arm 5 + slab 6 (the slab's side faces the cable, which is not opaque).
+    expect(quads(m)).toBe(16);
+    const xs = [...m.positions.filter((_, i) => i % 3 === 0)];
+    expect(xs.filter((x) => x === 6).length).toBeGreaterThanOrEqual(4 + 4);
+  });
+
+  it('keeps the water surface full height under ice', () => {
+    const chunks = emptyNeighborhood();
+    fill(chunks, 4, 39, 4, 6, 39, 6, STONE);
+    put(chunks, 5, 40, 5, blockId('water'));
+    put(chunks, 5, 41, 5, blockId('ice'));
+    const ys = [...mesh(chunks).translucent.positions.filter((_, i) => i % 3 === 1)];
+    expect(Math.max(...ys)).toBe(41);
+  });
+
+  it('splits a quad along the diagonal that keeps a single dark corner in one triangle', () => {
+    for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const chunks = emptyNeighborhood();
+      fill(chunks, 0, 39, 0, 15, 39, 15, STONE);
+      put(chunks, 5 + dx, 40, 5 + dz, STONE);
+      const m = mesh(chunks).opaque;
+      // The top face of the floor cell (5, 39, 5): the quad whose four vertices lie at y = 40 inside x, z 5..6.
+      const inCell = (v: number): boolean => {
+        const [x, y, z] = [m.positions[v * 3], m.positions[v * 3 + 1], m.positions[v * 3 + 2]];
+        return y === 40 && x >= 5 && x <= 6 && z >= 5 && z <= 6;
+      };
+      let first = -1;
+      for (let v = 0; v < m.layers.length && first < 0; v += 4) if ([0, 1, 2, 3].every((k) => inCell(v + k))) first = v;
+      expect(first).toBeGreaterThanOrEqual(0);
+      const corners = [first, first + 1, first + 2, first + 3];
+      const dark = corners.reduce((a, b) => (m.light[b * 4 + 2] < m.light[a * 4 + 2] ? b : a));
+      expect(corners.filter((c) => m.light[c * 4 + 2] === m.light[dark * 4 + 2]).length).toBe(1);
+      const q = corners[0] / 4;
+      const tris = [[...m.indices.slice(q * 6, q * 6 + 3)], [...m.indices.slice(q * 6 + 3, q * 6 + 6)]];
+      expect(tris.filter((t) => t.includes(dark)).length).toBe(1);
+    }
   });
 
   it('draws a slab half as high as its cell', () => {

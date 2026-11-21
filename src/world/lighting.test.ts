@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { seedFromString } from '../core/math';
 import { blockId } from '../core/registry';
 import { AIR, makeVoxel } from '../core/types';
-import { LIGHT_VOLUME, blockLightOf, computeLight, lightIndex, skyLightOf } from './lighting';
+import { LIGHT_VOLUME, blockLightOf, borderHashes, computeLight, lightIndex, skyLightOf } from './lighting';
 import { emptyNeighborhood, fill, put } from './testUtil';
+import { generateChunk } from './worldgen';
 
 const STONE = blockId('stone');
 const TORCH = blockId('torch');
@@ -83,5 +85,41 @@ describe('computeLight', () => {
     const light = computeLight(chunks);
     expect(skyLightOf(light[lightIndex(16, 5, 8)])).toBe(15);
     expect(skyLightOf(light[lightIndex(8, 5, 8)])).toBe(0);
+  });
+});
+
+describe('borderHashes', () => {
+  it('changes only on the sides whose border light changed', () => {
+    const chunks = emptyNeighborhood();
+    fill(chunks, -16, 0, -16, 31, 40, 31, STONE);
+    fill(chunks, 1, 20, 1, 14, 22, 14, AIR);
+    const before = borderHashes(computeLight(chunks));
+    // A torch near the east edge of a sealed room: its light reaches the east border cells only.
+    put(chunks, 14, 21, 8, TORCH);
+    fill(chunks, 15, 21, 8, 20, 21, 8, AIR);
+    const after = borderHashes(computeLight(chunks));
+    expect(after[0]).not.toBe(before[0]);
+    expect([after[1], after[2], after[3]]).toEqual([before[1], before[2], before[3]]);
+    // Recomputing the same voxels gives the same hashes.
+    expect([...borderHashes(computeLight(chunks))]).toEqual([...after]);
+  });
+
+  it('agrees with the neighbour on each shared border', () => {
+    const seed = seedFromString('borders');
+    const grid = new Map<string, Uint16Array>();
+    for (let cz = -2; cz <= 2; cz++) for (let cx = -2; cx <= 2; cx++) grid.set(`${cx},${cz}`, generateChunk(seed, cx, cz));
+    const around = (cx: number, cz: number): Uint16Array[] => {
+      const out: Uint16Array[] = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) out.push(grid.get(`${cx + dx},${cz + dz}`) as Uint16Array);
+      return out;
+    };
+    // Put a torch in a cave-like pocket on the border so block light crosses it too.
+    put(around(0, 0), 15, 20, 7, TORCH);
+    const centre = borderHashes(computeLight(around(0, 0)));
+    expect(borderHashes(computeLight(around(1, 0)))[1]).toBe(centre[0]);
+    expect(borderHashes(computeLight(around(-1, 0)))[0]).toBe(centre[1]);
+    expect(borderHashes(computeLight(around(0, 1)))[3]).toBe(centre[2]);
+    expect(borderHashes(computeLight(around(0, -1)))[2]).toBe(centre[3]);
+    expect(new Set(centre).size).toBe(4);
   });
 });

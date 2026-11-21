@@ -68,6 +68,11 @@ export interface GameEvents {
   'chunk:unloaded': { cx: number; cz: number };
   /** Fresh mesh data for a chunk; the renderer takes ownership of the buffers. */
   'chunk:meshed': { mesh: ChunkMeshData };
+  /**
+   * The renderer should drop this chunk's mesh: it left the view distance (its voxel data may stay loaded,
+   * see 'chunk:unloaded'). A later 'chunk:meshed' for the same chunk brings it back.
+   */
+  'chunk:hidden': { cx: number; cz: number };
 
   // ---- player actions ----
   /** Mining progress 0..1 on a block. progress = -1 means mining stopped without breaking it. */

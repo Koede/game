@@ -31,19 +31,13 @@ export class Chunk {
   // ---- mesh bookkeeping, owned by the World's streaming code ----
   /** A mesh for this chunk has been handed to the renderer. */
   meshed = false;
-  /** Voxels or lighting changed since the last mesh was started. */
+  /** Voxels or lighting changed since the last mesh was started (or the mesh was hidden). */
   dirty = true;
-  /** Re-mesh ahead of ordinary streaming work. */
-  urgent = false;
-  /** Re-mesh on the main thread during the next update (player edits). */
-  sync = false;
   /** An asynchronous mesh job is in flight. */
   meshing = false;
   /** Bumped whenever a mesh is started; a result from an older epoch is stale and dropped. */
   epoch = 0;
-  /** How many more neighbour hops a lighting change may travel from this chunk's next mesh. */
-  ripple = 0;
-  /** Light hashes of the four borders from the last mesh (see lighting.borderHashes). */
+  /** Light hashes of the four sides from the last mesh (see lighting.borderHashes). */
   borders: Uint32Array | null = null;
 
   constructor(
