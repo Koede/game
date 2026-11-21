@@ -235,6 +235,56 @@ async function runDevice(device) {
       assert(r.vault.some((e) => e.item === 'oak_log' && e.count >= 3), `vault holds ${JSON.stringify(r.vault)}`);
     });
 
+    await step('a lever gates a drill through wire; the goggles open the Workshop Guide with basin cards', async () => {
+      await d.hw((p) => {
+        const hw = window.__hw;
+        const w = hw.app.game.workshop;
+        const y = p.gy;
+        const x = p.x0 + 4;
+        const z = p.z0 - 2;
+        hw.setVoxel(x, y, z, 'hand_crank');
+        hw.setVoxel(x, y, z + 1, 'hand_crank');
+        hw.setVoxel(x - 1, y, z, 'mech_drill', 3);
+        hw.setVoxel(x - 2, y, z, 'dirt');
+        hw.setVoxel(x - 1, y, z - 1, 'signal_wire');
+        hw.setVoxel(x - 1, y + 1, z - 1, 'crank_lever');
+        hw.setVoxel(x - 2, y + 1, z - 1, 'signal_lamp');
+        hw.setVoxel(x - 2, y + 1, z - 2, 'bell');
+        hw.teleport(x - 3.5, y, z + 2.5);
+        hw.lookAt(x - 1.5, y + 0.8, z - 0.5);
+        window.__lever = [x - 1, y + 1, z - 1];
+        window.__dirt = [x - 2, y, z];
+      }, P);
+      for (let i = 0; i < 4; i++) {
+        await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 - 2); w.crank(p.x0 + 4, p.gy, p.z0 - 1); }, P);
+        await d.hw(() => window.__hw.tick(20));
+      }
+      const before = await d.hw(() => window.__hw.getBlock(...window.__dirt).block);
+      assert(before === 'dirt', `the lever is off so the drill waits: ${before}`);
+      await d.hw(() => window.__hw.app.game.workshop.use(...window.__lever, null, () => undefined));
+      for (let i = 0; i < 6; i++) {
+        await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 - 2); w.crank(p.x0 + 4, p.gy, p.z0 - 1); }, P);
+        await d.hw(() => window.__hw.tick(20));
+      }
+      await d.shot('7-lever');
+      const after = await d.hw(() => window.__hw.getBlock(...window.__dirt).block);
+      assert(after === 'air', `the lever is on so the drill breaks the dirt: ${after}`);
+      const lamp = await d.hw((p) => window.__hw.app.game.workshop.describe(p.x0 + 2, p.gy + 1, p.z0 - 3), P);
+      assert(/on/.test(lamp ?? ''), `lamp: ${lamp}`);
+      // Goggles on empty air open the guide.
+      await d.selectItem('engineer_goggles');
+      await d.hw(() => window.__hw.lookAt(window.__hw.state().player.x, window.__hw.state().player.y + 30, window.__hw.state().player.z + 0.01));
+      await d.use();
+      await d.settle(500);
+      await page.waitForSelector('.hw-ws', { timeout: 5000 });
+      await page.locator('button', { hasText: 'Basins' }).first().click();
+      await d.settle(300);
+      const cards = await page.locator('.hw-ws__card').count();
+      assert(cards >= 4, `basin cards: ${cards}`);
+      await d.shot('8-guide-basins');
+      await page.keyboard.press('Escape');
+    });
+
     await step('no page errors', async () => {
       assert(errors.length === 0, `errors: ${errors.slice(0, 3).join(' | ')}`);
     });

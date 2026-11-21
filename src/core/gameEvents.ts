@@ -30,6 +30,8 @@ export type ScreenRequest =
   | { type: 'pipe'; x: number; y: number; z: number }
   /** The field notebook: scanned things, aspects, research boards (docs/api/magic.md). */
   | { type: 'notebook' }
+  /** The Workshop Guide: parts, basin recipe cards, rules (docs/api/workshop.md). */
+  | { type: 'workshop' }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
   | { type: 'rune_desk'; x: number; y: number; z: number };
 

@@ -21,4 +21,8 @@ export const WORKSHOP_OBJECTIVES: ObjectiveSpec[] = [
     'A Saw Arm facing a trunk fells the whole tree every three seconds. A Vacuum Collector beside it sucks the logs up and passes them on.'),
   goal('place_item_vault', 'Build an item vault', { type: 'place', block: 'item_vault', count: 1 },
     'A Vault holds 108 stacks. Fill it with a funnel or an arm and take the biggest stack with an empty hand.'),
+  goal('place_crank_lever', 'Throw a lever', { type: 'place', block: 'crank_lever', count: 1 },
+    'A Crank Lever sends a signal along Signal Wire. A drill, arm or deployer touching a signal cell works only while it is on; a clutch flips.'),
+  goal('place_bell', 'Hang a bell', { type: 'place', block: 'bell', count: 1 },
+    'A Bell rings when a machine within 12 blocks seizes or jams. Use the goggles on empty air for the Workshop Guide.'),
 ];

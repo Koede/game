@@ -15,8 +15,9 @@ import type { GameBus } from '../core/context';
 import { blockOrNull, itemOrNull, recipesAt } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
 import { MECH_TWINS } from '../content/itemsWorkshop';
-import { PART_DEFS } from '../content/itemsWorkshopParts';
+import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
 import type { GroundItems } from '../game/groundItems';
+import { SIGNAL_KINDS, Signals } from './signals';
 import { Logistics, POWERED, type ActResult, type MachineActAction } from './logistics';
 import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, solveNetwork, type KPart, type Source } from './kinetics';
 
@@ -48,7 +49,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel']);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -67,6 +68,7 @@ export interface WorkshopSnapshot {
   /** Clockwork wind left (s) and lubricant left (s) per part key. */
   wound?: Record<string, number>;
   logi?: unknown;
+  sig?: unknown;
   lube?: Record<string, number>;
   machines: [number, number, number, Record<string, number>, number, string | null][];
 }
@@ -118,10 +120,15 @@ export class Workshop {
   private dt = 0.05;
   actHook: ((a: MachineActAction) => ActResult | null | undefined) | null = null;
   readonly logi: Logistics;
+  readonly signals: Signals;
+  /** Time of day text for the clockface; set by Game. */
+  clockText: (() => string) | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus, private readonly ground: GroundItems, private readonly rng: () => number = Math.random) {
+    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn });
     this.logi = new Logistics({
       world, ground, bus, rng,
+      gate: (x, y, z) => this.signals.gate(x, y, z),
       rpmAt: (x, y, z) => Math.abs(this.speed.get(k3(x, y, z)) ?? 0),
       twinAccept: (x, y, z, item, n, commit) => this.twinAccept(x, y, z, item, n, commit),
       act: () => this.actHook,
@@ -138,6 +145,7 @@ export class Workshop {
     const key = k3(x, y, z);
     const kind = this.world.getBlock(x, y, z).key;
     this.logi.noteBlock(x, y, z, kind);
+    this.signals.noteBlock(x, y, z, kind);
     if (KINETIC.has(kind)) {
       const was = this.parts.get(key);
       if (!was || was.kind !== kind) {
@@ -166,6 +174,7 @@ export class Workshop {
     if (!this.logi.cells.has(key) && this.world.getBlock(x, y, z).key !== 'air') this.noteBlock(x, y, z);
     const shopped = this.logi.use(x, y, z, held, takeHeld);
     if (shopped !== null) return shopped;
+    if (!(held && blockOrNull(held.item)) && this.signals.use(x, y, z)) return 'worked';
     const part = this.parts.get(key) ?? (KINETIC.has(this.world.getBlock(x, y, z).key) ? (this.noteBlock(x, y, z), this.parts.get(key)) : undefined);
     if (!part) return null;
     if (part.kind === 'hand_crank') {
@@ -217,6 +226,7 @@ export class Workshop {
     this.clock += dt;
     this.dt = dt;
     this.findPto();
+    this.signals.tick(this.clock);
     for (const [k, s] of this.lube) {
       if (s - dt <= 0) {
         this.lube.delete(k);
@@ -327,7 +337,10 @@ export class Workshop {
       }
       const run = (): ReturnType<typeof solveNetwork> => solveNetwork({
         members, sources, t: this.clock, capacityFactor: lube,
-        part: (k): KPart => this.parts.get(k) as Part,
+        part: (k): KPart => {
+          const p = this.parts.get(k) as Part;
+          return p.kind === 'clutch' && this.signals.flips(p.x, p.y, p.z) ? { kind: p.kind, s: p.s ? 0 : 1 } : p;
+        },
         neighbours: (k) => this.neighbours(k),
       });
       let solved = run();
@@ -370,6 +383,7 @@ export class Workshop {
         this.seizedWarned.add(start);
         this.bus.emit('toast', { text: solved.jam ? 'The gears fight each other: two sources or routes turn one part differently' : `Too much load: ${fmt(solved.stress)} on ${fmt(solved.capacity)} stress units. Add a source or take a machine off`, kind: 'warn' });
         this.bus.emit('sfx', { name: 'error', x: part.x + 0.5, y: part.y + 0.5, z: part.z + 0.5 });
+        this.signals.ringNear(part.x, part.y, part.z);
       } else if (!overstressed && !solved.jam) this.seizedWarned.delete(start);
     }
   }
@@ -388,6 +402,10 @@ export class Workshop {
 
   /** Mirrors "turning" in each part's ACTIVE bit (only on change: the mesher redraws a chunk per change). */
   private showActive(): void {
+    for (const s of this.signals.states()) {
+      const v = this.world.getVoxel(s.x, s.y, s.z);
+      if (voxelActive(v) !== s.on) this.world.setVoxel(s.x, s.y, s.z, withActive(v, s.on), 'sim');
+    }
     for (const [key, p] of this.parts) {
       const v = this.world.getVoxel(p.x, p.y, p.z);
       const on = this.speed.has(key);
@@ -479,6 +497,11 @@ export class Workshop {
     if (!p || p.kind !== 'hand_crank') return false;
     this.cranks.set(key, Math.max(this.cranks.get(key) ?? 0, seconds));
     return true;
+  }
+
+  /** Sets a signal cell on or off from outside (a construct pulling a lever). */
+  signal(x: number, y: number, z: number, on: boolean): void {
+    this.signals.setExternal(x, y, z, on);
   }
 
   /** Uses an item on a block the way a deployer does (place, break, hoe, strike a station). */
@@ -611,7 +634,11 @@ export class Workshop {
     const key = k3(x, y, z);
     const p = this.parts.get(key);
     const extra = this.logi.describe(x, y, z);
-    if (!p) return extra;
+    if (!p) {
+      if (extra) return extra;
+      if (this.world.getBlock(x, y, z).key === 'clockface') return `Clockface - ${this.clockText?.() ?? 'no sun to read'}`;
+      return this.signals.describe(x, y, z);
+    }
     const name = blockOrNull(p.kind)?.name ?? p.kind;
     const net = this.netOf.get(key);
     const parts: string[] = [];
@@ -651,6 +678,7 @@ export class Workshop {
     const out: WorkshopSnapshot = { v: 1, parts, machines };
     if (this.wound.size) out.wound = Object.fromEntries(this.wound);
     out.logi = this.logi.toJSON();
+    out.sig = this.signals.toJSON();
     return out;
   }
 
@@ -660,6 +688,7 @@ export class Workshop {
     this.machines.clear();
     this.wound.clear();
     this.logi.load((raw as { logi?: unknown } | null)?.logi);
+    this.signals.load((raw as { sig?: unknown } | null)?.sig);
     if (!raw || typeof raw !== 'object') return;
     const s = raw as Partial<WorkshopSnapshot>;
     for (const row of Array.isArray(s.parts) ? s.parts : []) {
@@ -685,6 +714,7 @@ export class Workshop {
   /** Re-checks every saved part against the world once chunks are in (a part whose block is gone is dropped). */
   verify(): void {
     this.logi.verify();
+    this.signals.verify();
     for (const [key, p] of [...this.parts]) {
       if (!this.world.isLoaded(p.x, p.z)) continue;
       if (this.world.getBlock(p.x, p.y, p.z).key !== p.kind) {

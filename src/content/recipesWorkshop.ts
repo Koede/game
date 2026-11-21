@@ -49,5 +49,13 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('saw_arm', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw', 600),
   forge('item_vault', '4 crate, 2 bronze_plate', 600),
   forge('vacuum_collector', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 leather', 600),
+  forge('8 signal_wire', '1 copper_ingot', 600),
+  forge('crank_lever', '1 bronze_ingot, 1 stick', 600),
+  forge('2 pressure_plate', '1 bronze_plate', 600),
+  forge('metronome', '1 clockwork_motor, 1 bronze_cog', 600),
+  forge('signal_lamp', '1 glass, 1 copper_ingot', 600),
+  forge('bell', '2 bronze_ingot, 1 stick', 600),
+  forge('tally_board', '1 bronze_plate, 2 plank, 1 stick', 600),
+  forge('clockface', '1 glass, 1 bronze_cog, 1 plank', 600),
   forge('engineer_goggles', '2 copper_ingot, 1 glass, 1 leather', 650),
 ];

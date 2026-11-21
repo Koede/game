@@ -16,13 +16,13 @@ import type { GroundItems } from '../game/groundItems';
 import { stackLimit } from '../game/inventory';
 
 /** Block kinds this module owns state for. */
-export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault'] as const;
+export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault', 'tally_board'] as const;
 const LOGI = new Set<string>(LOGI_KINDS);
 export const isLogistic = (kind: string): boolean => LOGI.has(kind);
 /** Logistic kinds that need shaft power (they are also kinetic parts). */
 export const POWERED = new Set(['mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector']);
 /** Cells ground items resting on top are taken into. */
-const TAKES_GROUND = new Set(['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault']);
+const TAKES_GROUND = new Set(['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'tally_board']);
 
 export const BASIN_LITRES = 1000;
 export const BASIN_ITEM_KINDS = 2;
@@ -49,6 +49,8 @@ export interface LogiHost {
   readonly ground: GroundItems;
   readonly bus: GameBus;
   rng(): number;
+  /** True when the signal layer lets a machine at the cell work. */
+  gate(x: number, y: number, z: number): boolean;
   /** Absolute rpm of the kinetic part at the cell (0 = still or not a part). */
   rpmAt(x: number, y: number, z: number): number;
   twinAccept(x: number, y: number, z: number, item: string, n: number, commit: boolean): number;
@@ -143,6 +145,7 @@ export class Logistics {
       }
       case 'funnel':
       case 'chute':
+      case 'tally_board':
       case 'vacuum_collector': {
         if (c.filter && c.filter !== item) return 0;
         const take = Math.min(n, CELL_CAP - total(c.items));
@@ -261,6 +264,10 @@ export class Logistics {
     if (held?.item === 'wrench' && (c.kind === 'mech_arm' || this.configuring)) return this.wrench(c, x, y, z);
     if (placing) return null;
     switch (c.kind) {
+      case 'tally_board':
+        c.rr = 0;
+        this.host.bus.emit('toast', { text: 'Count reset', kind: 'info' });
+        return 'worked';
       case 'funnel':
       case 'chute':
         c.filter = held ? held.item : null;
@@ -347,9 +354,14 @@ export class Logistics {
   tick(dt: number): void {
     this.intakeGround();
     for (const c of this.cells.values()) {
+      if (POWERED.has(c.kind) && !this.host.gate(c.x, c.y, c.z)) {
+        c.phase = Math.max(0, c.phase - dt);
+        continue;
+      }
       switch (c.kind) {
         case 'funnel':
         case 'chute':
+        case 'tally_board':
         case 'item_drain':
           this.mover(c, dt);
           break;
@@ -421,6 +433,7 @@ export class Logistics {
         moved = n;
       }
       if (moved > 0) {
+        if (c.kind === 'tally_board') c.rr += moved;
         c.items[item] -= moved;
         if (c.items[item] <= 0) delete c.items[item];
         break;
@@ -685,6 +698,7 @@ export class Logistics {
     const held = Object.entries(c.items).filter(([, n]) => n > 0).map(([i, n]) => `${n} ${itemOrNull(i)?.name ?? i}`);
     if (held.length) bits.push(held.join(', '));
     if (c.fluid) bits.push(`${c.fluid.litres} L ${fluidOrNull(c.fluid.key)?.name ?? c.fluid.key}`);
+    if (c.kind === 'tally_board') bits.push(`${c.rr} passed`);
     if (c.filter) bits.push(`filter ${itemOrNull(c.filter)?.name ?? c.filter}`);
     if (c.kind === 'mech_arm') bits.push(c.src ? `${c.targets.length} target${c.targets.length === 1 ? '' : 's'}` : 'not set: use a wrench');
     if (POWERED.has(c.kind) && this.host.rpmAt(x, y, z) <= 0) bits.push('still');
@@ -698,7 +712,7 @@ export class Logistics {
 
   toJSON(): LogiSnapshot {
     const cells: LogiSnapshot['cells'] = [];
-    for (const c of this.cells.values()) cells.push([c.x, c.y, c.z, c.kind, { ...c.items }, c.fluid, c.filter, c.src, [...c.targets]]);
+    for (const c of this.cells.values()) cells.push([c.x, c.y, c.z, c.kind, { ...c.items }, c.fluid, c.filter, c.src, c.kind === 'tally_board' ? [String(c.rr)] : [...c.targets]]);
     return { cells };
   }
 
@@ -717,6 +731,10 @@ export class Logistics {
       c.filter = typeof filter === 'string' && itemOrNull(filter) ? filter : null;
       c.src = typeof src === 'string' ? src : null;
       c.targets = Array.isArray(targets) ? targets.filter((t) => typeof t === 'string').slice(0, ARM_TARGETS) : [];
+      if (kind === 'tally_board') {
+        c.rr = Number(c.targets[0]) || 0;
+        c.targets = [];
+      }
     }
   }
 

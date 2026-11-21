@@ -9,7 +9,7 @@ import { ageIndexOf } from '../magic/ageMap';
 
 const BRONZE = ageIndexOf('bronze');
 
-export interface PartDef { key: string; name: string; desc: string; /** has a running front */ anim: boolean }
+export interface PartDef { key: string; name: string; desc: string; /** has a running front */ anim: boolean; /** a flat slab: the face is its top */ flat?: boolean }
 
 export const PART_DEFS: readonly PartDef[] = [
   { key: 'reverse_box', name: 'Reverse Box', anim: true, desc: 'Two meshed cogs: what leaves it turns the other way. Use it to read its direction under goggles.' },
@@ -40,7 +40,18 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'saw_arm', name: 'Saw Arm', anim: true, desc: 'A deployer with a blade. Every three seconds it fells the whole tree in front of it, log by log, and the logs fall as items. It needs no fuel.' },
   { key: 'item_vault', name: 'Item Vault', anim: false, desc: 'Holds 108 stacks of anything. Funnels, arms and belts fill and empty it. Use it with an item to store, empty-handed to take the biggest stack.' },
   { key: 'vacuum_collector', name: 'Vacuum Collector', anim: true, desc: 'A turning fan that sucks loose items from four blocks around and sends them out of its front into whatever is there.' },
+  { key: 'signal_wire', name: 'Signal Wire', anim: true, flat: true, desc: 'Carries a signal 15 blocks from a lever, plate or metronome. It loses one step per wire and lights while it carries one.' },
+  { key: 'crank_lever', name: 'Crank Lever', anim: true, desc: 'Use it to throw it on or off. Touching machines (arms, deployers, drills, clutches) read the signal.' },
+  { key: 'pressure_plate', name: 'Pressure Plate', anim: true, flat: true, desc: 'Signals while an item lies on it or you stand on it.' },
+  { key: 'metronome', name: 'Metronome', anim: true, desc: 'Signals for one second in every four. Set an arm or a clutch beside it to pace a line.' },
+  { key: 'signal_lamp', name: 'Signal Lamp', anim: true, desc: 'Lights while a powered signal cell touches it.' },
+  { key: 'bell', name: 'Bell', anim: false, desc: 'Rings when a signal reaches it, and whenever a machine within 12 blocks seizes, jams or is overloaded.' },
+  { key: 'tally_board', name: 'Tally Board', anim: false, desc: 'Passes items on out of its front like a funnel and counts them. Use it to reset the count.' },
+  { key: 'clockface', name: 'Clockface', anim: false, desc: 'A dial that shows the time of day under the goggles.' },
 ];
+
+/** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface']);
 
 export const PART_ITEMS: ItemSpec[] = [
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },
@@ -50,5 +61,8 @@ const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: '
 
 export const PART_BLOCKS: BlockSpec[] = PART_DEFS.map((d): BlockSpec => ({
   key: d.key, name: d.name, desc: d.desc, category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
-  oriented: true, textures: front(d.key, d.anim),
+  oriented: !d.flat, textures: d.flat
+    ? { top: `ws_${d.key}_front`, ...(d.anim ? { topActive: `ws_${d.key}_front_on` } : {}), side: 'ws_belt_side', bottom: 'ws_machine_side' }
+    : front(d.key, d.anim),
+  ...(d.flat ? { shape: 'slab' as const, opaque: false } : {}),
 }));

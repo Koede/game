@@ -3,9 +3,10 @@ export const WORKSHOP_SPEC = {
   blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
     'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill',
-    'shear_pin', 'flywheel', 'differential', 'treadwheel', 'saw_arm', 'item_vault', 'vacuum_collector'],
+    'shear_pin', 'flywheel', 'differential', 'treadwheel', 'saw_arm', 'item_vault', 'vacuum_collector',
+    'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface'],
   items: ['engineer_goggles', 'bronze_cog'],
-  objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1', 'place saw_arm 1', 'place item_vault 1'],
+  objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1', 'place saw_arm 1', 'place item_vault 1', 'place crank_lever 1', 'place bell 1'],
   recipes: {
     workbench: [
       'hand_crank: 1 hand_crank <- 3 plank, 2 stick, 1 cord',
@@ -49,11 +50,19 @@ export const WORKSHOP_SPEC = {
       'saw_arm: 1 saw_arm <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw @600 T1',
       'item_vault: 1 item_vault <- 4 crate, 2 bronze_plate @600 T1',
       'vacuum_collector: 1 vacuum_collector <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 leather @600 T1',
+      'signal_wire: 8 signal_wire <- 1 copper_ingot @600 T1',
+      'crank_lever: 1 crank_lever <- 1 bronze_ingot, 1 stick @600 T1',
+      'pressure_plate: 2 pressure_plate <- 1 bronze_plate @600 T1',
+      'metronome: 1 metronome <- 1 clockwork_motor, 1 bronze_cog @600 T1',
+      'signal_lamp: 1 signal_lamp <- 1 glass, 1 copper_ingot @600 T1',
+      'bell: 1 bell <- 2 bronze_ingot, 1 stick @600 T1',
+      'tally_board: 1 tally_board <- 1 bronze_plate, 2 plank, 1 stick @600 T1',
+      'clockface: 1 clockface <- 1 glass, 1 bronze_cog, 1 plank @600 T1',
       'engineer_goggles: 1 engineer_goggles <- 2 copper_ingot, 1 glass, 1 leather @650 T1',
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then 20 fronts of the modular parts (two for each running one) and one icon. */
-  textures: 73,
+  textures: 86,
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

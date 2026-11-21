@@ -325,7 +325,7 @@ describe('scripted playthrough', () => {
     play.step(0.5);
     done('salvage_automaton');
     // The Bronze workshop goals (docs/OVERHAUL_PLAN.md A): the first of each piece, set down in a spare corner.
-    play.find('1 bronze_ingot, 1 hand_crank, 1 mech_millstone, 1 ratio_dial, 1 mixer, 1 mech_arm, 1 saw_arm, 1 item_vault');
+    play.find('1 bronze_ingot, 1 hand_crank, 1 mech_millstone, 1 ratio_dial, 1 mixer, 1 mech_arm, 1 saw_arm, 1 item_vault, 1 crank_lever, 1 bell');
     play.forge('bronze_cog');
     play.place('hand_crank', { x: 8, y: 1, z: 8 });
     play.place('mech_millstone', { x: 9, y: 1, z: 8 });
@@ -334,8 +334,10 @@ describe('scripted playthrough', () => {
     play.place('mech_arm', { x: 12, y: 1, z: 8 });
     play.place('saw_arm', { x: 13, y: 1, z: 8 });
     play.place('item_vault', { x: 14, y: 1, z: 8 });
+    play.place('crank_lever', { x: 15, y: 1, z: 8 });
+    play.place('bell', { x: 16, y: 1, z: 8 });
     play.step(0.5);
-    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault']) done(id);
+    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell']) done(id);
     play.smelt('clay', 8);
     play.smelt('sand', 2);
     play.forge('thermopile');

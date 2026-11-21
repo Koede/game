@@ -13,6 +13,7 @@ import { Magic } from '../magic/magic';
 import { MagicRenderer } from '../render/magic/magicRenderer';
 import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
 import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
+import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
@@ -172,6 +173,10 @@ export class Game {
         return r.ok ? r.held : null;
       },
     };
+    this.workshop.clockText = () => {
+      const h = (6 + clock.timeOfDay * 24) % 24;
+      return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
+    };
     // Deployers use their stack on hand stations the way a player's stroke does; anything else falls back to placing and breaking.
     this.workshop.actHook = (a) => {
       const r = this.state.sim.stroke(a.target[0], a.target[1], a.target[2], a.item);
@@ -212,6 +217,7 @@ export class Game {
       });
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
+      this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
       this.ui.registerScreen('notebook', (_request, ctx) => createNotebookScreen(ctx, this.magic.notebook()));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z)));
       const renderer = this.renderer;
@@ -234,6 +240,10 @@ export class Game {
           const held = player.heldStack();
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
           if (shop !== null) return shop;
+        }
+        if (!hit && player.heldStack()?.item === GOGGLES) {
+          bus.emit('ui:open', { screen: { type: 'workshop' } });
+          return 'screen';
         }
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
