@@ -136,7 +136,7 @@ function frostfellHeight(t: Terrain, x: number, z: number, detail: number): numb
 /** Flat wetland at sea level: dry tussocks at y 31-32 between shallow pools one or two blocks deep. */
 function marshHeight(t: Terrain, x: number, z: number, detail: number): number {
   const pools = t.marshPool.fbm2(x / 19, z / 19, 2) + 0.3 * t.marshPool.noise2(x / 6 + 40, z / 6 - 40);
-  return 32.5 + 0.3 * detail - 3 * smoothstep(-0.04, 0.2, pools);
+  return 32.5 + 0.3 * detail - 3 * smoothstep(0.03, 0.26, pools);
 }
 
 function scarHeight(t: Terrain, x: number, z: number): number {
