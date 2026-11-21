@@ -109,7 +109,7 @@ for (const def of BLOCKS) {
     PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
   }
   GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;
-  if (def.shape === 'cube' && isStationShape(def.key)) {
+  if ((def.shape === 'cube' || def.shape === 'slab') && isStationShape(def.key)) {
     // Not a full cell: it hides no neighbour's face, casts no shadow and does not merge with its own kind.
     STATION[id] = stationIndex(def.key);
     OPAQUE[id] = 0;

@@ -251,7 +251,10 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
           case SHAPE_CROSS: cross(builders[BATCH[id]], faceSlot(v), p, x, y, z, id); break;
           case SHAPE_TORCH: torch(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z); break;
           case SHAPE_CABLE: cable(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
-          case SHAPE_SLAB: slab(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
+          case SHAPE_SLAB:
+            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
+            else slab(builders[BATCH[id]], faceSlot(v), p, x, y, z);
+            break;
           case SHAPE_PIPE: pipe(builders[BATCH[id]], faceSlot(v), id, p, x, y, z); break;
           case SHAPE_CUP: cup(builders[BATCH_CUTOUT], faceSlot(v), id, p, x, y, z); break;
           case SHAPE_BUCKET: bucket(builders[BATCH_CUTOUT], faceSlot(v), id, v, p, x, y, z); break;

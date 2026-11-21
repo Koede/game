@@ -140,6 +140,9 @@ type Bounds = readonly [number, number, number, number, number, number];
  * real small boxes padded to MIN_TARGET so they stay tappable; a bare cup (`key` clay_cup) is the only low one.
  */
 export function shapeBounds(shape: BlockShape, key = ''): readonly [number, number, number, number, number, number] {
+  // Hand stations (EMBER_PLAN 2) are cubes or slabs in the content and small boxes in the mesh: the outline hugs the box.
+  const station = shape === 'cube' || shape === 'slab' ? stationBounds(key) : null;
+  if (station) return station;
   switch (shape) {
     case 'slab':
       return [0, 0, 0, 1, 0.5, 1];
@@ -154,8 +157,7 @@ export function shapeBounds(shape: BlockShape, key = ''): readonly [number, numb
     case 'bucket':
       return BUCKET;
     default:
-      // Hand stations (EMBER_PLAN 2) are cubes in the content and small boxes in the mesh: the outline hugs the box.
-      return stationBounds(key) ?? [0, 0, 0, 1, 1, 1];
+      return [0, 0, 0, 1, 1, 1];
   }
 }
 
