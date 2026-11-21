@@ -247,10 +247,10 @@ describe('forging and upgrading', () => {
     e.fuel[0] = { item: 'charcoal', count: 9 };
     e.crucibleIn[0] = { item: 'copper_ore', count: 2 };
     const missing = kit.sim.upgrade(0, 1, 0);
-    expect(missing.ok ? '' : missing.reason).toBe('Missing 12 Firebrick, 8 Bronze Ingot, 1 Bellows');
-    expect(kit.sim.furnaceView(0, 1, 0)!.upgrade!.reason).toBe('Missing 12 Firebrick, 8 Bronze Ingot, 1 Bellows');
-    kit.player.give('firebrick', 12);
-    kit.player.give('bronze_ingot', 8);
+    // The upgrade costs of spec 17.2 (the hearth structure carries most of the cost).
+    expect(missing.ok ? '' : missing.reason).toBe('Missing 4 Bronze Ingot, 1 Bellows');
+    expect(kit.sim.furnaceView(0, 1, 0)!.upgrade!.reason).toBe('Missing 4 Bronze Ingot, 1 Bellows');
+    kit.player.give('bronze_ingot', 4);
     kit.player.give('bellows', 1);
     expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: 'Needs 700 C - the furnace is at 20 C' });
     expect(kit.sim.furnaceView(0, 1, 0)!.upgrade).toMatchObject({ ok: false, tempOk: false, reason: 'Needs 700 C - now 20 C' });
@@ -264,7 +264,7 @@ describe('forging and upgrading', () => {
     expect(e.tier).toBe(2);
     expect(e.fuel).toEqual([{ item: 'charcoal', count: 9 }, null]);
     expect(e.crucibleIn).toEqual([{ item: 'copper_ore', count: 2 }, null]);
-    expect(kit.player.inventory.count('firebrick')).toBe(0);
+    expect(kit.player.inventory.count('bronze_ingot')).toBe(0);
     expect(upgraded).toEqual([{ x: 0, y: 1, z: 0, tier: 2 }]);
     expect(placed).toHaveLength(1);
     expect(kit.sim.maxFurnaceTier()).toBe(2);

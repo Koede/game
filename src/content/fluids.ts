@@ -14,5 +14,5 @@ export const FLUID_SPECS: FluidSpec[] = [
   // Crude oil: pumped from the oil pools of the dunes and the scar (no bucket can hold it).
   { key: 'crude_oil', name: 'Crude Oil', colour: 0x1d1814, hot: false, glow: false, liquid: 'oil' },
   // Refined fuel: what the still makes of crude oil; the combustion engine burns it.
-  { key: 'fuel', name: 'Refined Fuel', colour: 0xd99a2b, hot: false, glow: false },
+  { key: 'fuel', name: 'Refined Fuel', colour: 0xe2bc3a, hot: false, glow: false },
 ];

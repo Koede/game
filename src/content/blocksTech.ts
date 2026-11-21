@@ -8,9 +8,12 @@
  */
 import type { BlockSpec, PipeSpec } from '../core/types';
 
-/** A pipe: shape 'pipe' (walk-through like a cable), mined fast with a pickaxe, its one plus-shaped tile. */
-function pipe(key: string, name: string, desc: string, age: number, spec: PipeSpec): BlockSpec {
-  return { key, name, desc, age, shape: 'pipe', pipe: spec, hardness: 0.4, tool: 'pickaxe', category: 'machine', textures: { all: key } };
+/**
+ * A pipe: shape 'pipe' (walk-through like a cable), mined fast with a pickaxe, one plus-shaped tile. Tiles are named
+ * `pipe_*` because `item_*` names are reserved for item icons.
+ */
+function pipe(key: string, tile: string, name: string, desc: string, age: number, spec: PipeSpec): BlockSpec {
+  return { key, name, desc, age, shape: 'pipe', pipe: spec, hardness: 0.4, tool: 'pickaxe', category: 'machine', textures: { all: tile } };
 }
 
 /** A machine in the shared casing with its own front, idle and working. */
@@ -23,24 +26,24 @@ function casedMachine(key: string, name: string, desc: string, age: number, extr
 }
 
 /** A block of a hearth's shell: the same tile on every face, and its glowing-seam twin while the hearth is formed. */
-function shell(key: string, name: string, desc: string, age: number, hardness: number, extra: Partial<BlockSpec> = {}): BlockSpec {
-  const on = `${key}_on`;
+function shell(key: string, name: string, desc: string, age: number, hardness: number, extra: Partial<BlockSpec> = {}, tile = key): BlockSpec {
+  const on = `${tile}_on`;
   return {
     key, name, desc, age, hardness, tool: 'pickaxe',
-    textures: { all: key, sideActive: on, topActive: on, bottomActive: on },
+    textures: { all: tile, sideActive: on, topActive: on, bottomActive: on },
     ...extra,
   };
 }
 
 export const TECH_BLOCKS: BlockSpec[] = [
   // ---- pipes (spec 16.1) ----
-  pipe('item_pipe', 'Bronze Chute', 'A bronze tube for items. Every 2 seconds a pulling end sends up to 4 items on their way at 4 blocks a second.', 0,
+  pipe('item_pipe', 'pipe_item', 'Bronze Chute', 'A bronze tube for items. Every 2 seconds a pulling end sends up to 4 items on their way at 4 blocks a second.', 0,
     { family: 'item', ratePerS: 0.5, batch: 4, speedBlocksPerS: 4 }),
-  pipe('fast_item_pipe', 'Steel Conveyor Pipe', 'A steel conveyor that moves up to 16 items every half second at 10 blocks a second.', 1,
+  pipe('fast_item_pipe', 'pipe_item_fast', 'Steel Conveyor Pipe', 'A steel conveyor that moves up to 16 items every half second at 10 blocks a second.', 1,
     { family: 'item', ratePerS: 2, batch: 16, speedBlocksPerS: 10 }),
-  pipe('fluid_pipe', 'Iron Fluid Pipe', 'Carries water, crude oil and fuel, 200 litres a second through each end. Lava and steam are too hot for it.', 1,
+  pipe('fluid_pipe', 'pipe_fluid', 'Iron Fluid Pipe', 'Carries water, crude oil and fuel, 200 litres a second through each end. Lava and steam are too hot for it.', 1,
     { family: 'fluid', ratePerS: 200, capacityL: 250 }),
-  pipe('hot_fluid_pipe', 'Steel Hot Pipe', 'An insulated steel pipe for any fluid, lava and steam included, 1000 litres a second through each end.', 1,
+  pipe('hot_fluid_pipe', 'pipe_fluid_hot', 'Steel Hot Pipe', 'An insulated steel pipe for any fluid, lava and steam included, 1000 litres a second through each end.', 1,
     { family: 'fluid', ratePerS: 1000, capacityL: 250, hot: true }),
 
   // ---- fluid machines (spec 16.1, 16.5) ----
@@ -60,9 +63,9 @@ export const TECH_BLOCKS: BlockSpec[] = [
   // ---- hearth parts ----
   shell('electrode', 'Arc Electrode', 'A graphite arc set in the ceiling of a hearth. An Arc hearth needs at least one.', 1, 3),
   shell('item_hatch', 'Item Hatch', 'A door in a hearth wall for pipes: fuel goes to the firebox, ores to the crucibles, and finished metal comes out.', 1, 2,
-    { machine: 'item_hatch', stack: 16 }),
+    { machine: 'item_hatch', stack: 16 }, 'hatch_item'),
   shell('fluid_hatch', 'Fluid Hatch', 'A port in a hearth wall that takes piped lava as fuel: 1000 litres burn like a lava bucket.', 1, 2,
-    { machine: 'fluid_hatch', stack: 16 }),
+    { machine: 'fluid_hatch', stack: 16 }, 'hatch_fluid'),
   shell('power_port', 'Power Port', 'Brings cable power through a hearth wall to the furnace. Plasma and Star hearths need them.', 2, 2,
     { machine: 'power_port', power: 'device', stack: 16 }),
 ];

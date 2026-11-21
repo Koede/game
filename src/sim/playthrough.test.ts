@@ -37,6 +37,9 @@ const CENTRIFUGE = { x: -1, y: 1, z: -1 };
 const PILE = { x: -1, y: 2, z: -3 };
 const BANKS = [{ x: 3, y: 1, z: -3 }, { x: 4, y: 1, z: -3 }];
 const ELECTROLYZER = { x: 1, y: 1, z: -1 };
+/** Spec 16: the first item pipe and the first pump (their objectives only ask for the placement). */
+const PIPE = { x: 3, y: 1, z: 1 };
+const PUMP = { x: 3, y: 1, z: 2 };
 
 /** The player's crosshair on the top face of a block (what a hoe tills and seeds are sown on). */
 function aimDown(world: FakeWorld, p: { x: number; y: number; z: number }): UseTarget {
@@ -202,6 +205,8 @@ describe('scripted playthrough', () => {
     play.craft('bellows', 1, BENCH);
     const upgrade1 = play.view().upgrade!;
     expect(upgrade1).toMatchObject({ ok: true, reason: null, requiredC: 700 });
+    // Spec 17: once the simulation makes upgrades need a formed hearth, the script must build a Blast hearth (16 brick
+    // around the furnace) before this point - the simulation engineer adds that together with hearth formation.
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to blast furnace');
     done('blast_furnace');
     expect(blockOf(kit.world.getVoxel(F.x, F.y, F.z)).key).toBe('furnace_blast');
@@ -212,12 +217,16 @@ describe('scripted playthrough', () => {
     play.find('130 iron_ore, 150 coal, 16 limestone, 32 copper_ore, 4 tin_ore, 12 clay, 4 sand, 3 sulfur');
     play.heat(1150);
     play.smelt('iron_ore', 110);
-    done('smelt_iron');
     play.smelt('coal', 40);
     play.smelt('copper_ore', 32);
     play.smelt('tin_ore', 4);
     play.smelt('clay', 12);
     play.smelt('sand', 4);
+    // Objective 'pipe_ore' comes first in the Forge Age; the iron smelted above completes 'smelt_iron' right after it.
+    play.forge('item_pipe');
+    play.place('item_pipe', PIPE);
+    done('pipe_ore');
+    done('smelt_iron');
     // Steel needs 1400 C: a coke fire (1550 C) instead of coal (1250 C).
     play.collect(play.furnaceSlots().fuel);
     play.fuel = 'coke';
@@ -277,6 +286,17 @@ describe('scripted playthrough', () => {
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to arc furnace');
     done('arc_furnace');
     mark('Arc Furnace');
+    // Objective 'pump_water' (spec 16): a pump forged from a chassis, a coil and two fluid pipes, and set down.
+    play.forge('iron_plate', 6);
+    play.forge('chassis');
+    play.forge('copper_wire', 2);
+    play.forge('copper_coil');
+    play.find('1 sand');
+    play.smelt('sand', 1);
+    play.forge('fluid_pipe');
+    play.forge('pump');
+    play.place('pump', PUMP);
+    done('pump_water');
 
     // ---- Current Age: electric heat --------------------------------------------------------------------------------
     play.find('140 coal, 40 iron_ore, 20 limestone, 30 copper_ore, 3 tin_ore, 16 quartz_ore, 30 bauxite, 24 wolframite, 40 oil_shale, 12 clay, 12 sand');
@@ -394,7 +414,8 @@ describe('scripted playthrough', () => {
     expect(sim.machineView(ELECTROLYZER.x, ELECTROLYZER.y, ELECTROLYZER.z)!.problem).toBe('Must touch water');
     play.pour({ x: 2, y: 1, z: -1 });
     play.process(ELECTROLYZER, 'empty_cell', 8);
-    done('make_deuterium');
+    // The tracker checks on an interval: give it a moment to see the last cell.
+    play.until('deuterium objective', () => tracker.isComplete('make_deuterium'), 5);
     play.forge('star_core');
     done('make_star_core');
     play.heat(3000);
