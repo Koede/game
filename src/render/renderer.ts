@@ -10,6 +10,7 @@ import { CHUNK_SIZE, type IWorld, type WeatherState } from '../core/types';
 import { createAtlas, type Atlas } from './atlas';
 import { ChunkMeshes } from './chunkMeshes';
 import { Emitters } from './emitters';
+import { MachineParts } from './machines';
 import { Glows } from './glows';
 import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
@@ -45,6 +46,9 @@ export interface RenderStats {
   pixelRatio: number;
   /** Rain / snow / dust particles drawn, and CPU milliseconds the weather took in the last frame (roof mask included). */
   precipitation: number;
+  /** Animated machines (rotors, wheels, drills...) drawn, and CPU milliseconds their update took. */
+  machines: number;
+  machinesMs: number;
   weatherMs: number;
 }
 
@@ -69,7 +73,7 @@ export class Renderer implements IView {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   readonly stats: RenderStats = {
-    drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1, precipitation: 0, weatherMs: 0,
+    drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1, precipitation: 0, weatherMs: 0, machines: 0, machinesMs: 0,
   };
   /** True while the WebGL context is lost (render() does nothing until it is restored). */
   contextLost = false;
@@ -88,6 +92,7 @@ export class Renderer implements IView {
   private readonly particles: Particles;
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
+  private readonly machines: MachineParts;
   private readonly held: HeldItem;
   private readonly probe: LightProbe;
   private readonly fx = new WeatherFx();
@@ -145,10 +150,11 @@ export class Renderer implements IView {
     this.probe = new LightProbe(world);
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z) => this.brightnessAt(x, y, z));
     this.held = new HeldItem(this.uniforms);
+    this.machines = new MachineParts(world, this.uniforms);
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group);
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
@@ -276,6 +282,9 @@ export class Renderer implements IView {
 
     this.emitters.day = sky.day;
     this.emitters.update(dt, cam.position.x, cam.position.y, cam.position.z, this.glows, this.time);
+    const machinesStarted = performance.now();
+    this.machines.update(dt, cam);
+    const machinesMs = performance.now() - machinesStarted;
     const windPhase = this.time * 0.05;
     this.particles.update(dt, 0.7 + Math.sin(windPhase) * 0.4, 0.25 + Math.cos(windPhase * 0.7) * 0.3);
     this.held.update(dt);
@@ -295,6 +304,8 @@ export class Renderer implements IView {
     s.particles = this.particles.count;
     s.effectSources = this.emitters.activeSources;
     s.precipitation = this.precipitation.count;
+    s.machines = this.machines.drawn;
+    s.machinesMs = machinesMs;
     s.weatherMs = weatherMs;
     s.cpuMs = performance.now() - started;
   }
@@ -328,6 +339,7 @@ export class Renderer implements IView {
     this.target.dispose();
     this.sky.dispose();
     this.precipitation.dispose();
+    this.machines.dispose();
     this.held.dispose();
     this.materials.dispose();
     this.atlas.texture.dispose();
