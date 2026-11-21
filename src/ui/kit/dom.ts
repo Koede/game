@@ -86,7 +86,7 @@ export function listen<K extends keyof DocumentEventMap>(
   options?: AddEventListenerOptions | boolean,
 ): Dispose;
 export function listen<K extends keyof WindowEventMap>(
-  target: typeof globalThis,
+  target: Window,
   type: K,
   fn: (ev: WindowEventMap[K]) => void,
   options?: AddEventListenerOptions | boolean,
