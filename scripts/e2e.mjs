@@ -2,32 +2,38 @@
 //
 //   node scripts/e2e.mjs                       build, then run every device
 //   node scripts/e2e.mjs --no-build            use the existing dist/
-//   node scripts/e2e.mjs --device=phonePortrait [--device=...]
+//   node scripts/e2e.mjs --device=phonePortrait [--device=...]   (desktop, phonePortrait, phoneLandscape, sandbox)
 //   node scripts/e2e.mjs --shots=<dir>         screenshots (default test-results/e2e)
 //
 // Every step drives the game through real input (keys, mouse, touch, the real UI). window.__hw is only used to
 // set up states quickly (give items, teleport, aim, run ticks) and to read state back - never to perform the
 // thing a step is testing. Exit code 1 when any step fails.
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from './build.mjs';
 import { createReporter, openGame, waitFor, VIEWPORTS } from './lib/browser.mjs';
 import { Driver } from './lib/e2eDriver.mjs';
 import { furnaceSteps } from './lib/e2eFurnace.mjs';
+import { sandboxChecks } from './lib/e2eSandbox.mjs';
 
 const root = resolve(fileURLToPath(import.meta.url), '../..');
 const argv = process.argv.slice(2);
 const flag = (name) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3));
-const devices = flag('device').length ? flag('device') : Object.keys(VIEWPORTS);
+const devices = flag('device').length ? flag('device') : [...Object.keys(VIEWPORTS), 'sandbox'];
 const shots = resolve(flag('shots')[0] ?? join(root, 'test-results/e2e'));
 const SEED = 'hearth-e2e';
 
 mkdirSync(shots, { recursive: true });
+for (const file of readdirSync(shots)) if (file.endsWith('.png')) rmSync(join(shots, file));
 if (!argv.includes('--no-build')) await build({ quiet: true });
 
 const report = createReporter();
 for (const device of devices) {
+  if (device === 'sandbox') {
+    await sandboxChecks({ report, dir: join(root, 'dist'), shotDir: shots });
+    continue;
+  }
   console.log(`\n${device}`);
   await runDevice(device);
 }

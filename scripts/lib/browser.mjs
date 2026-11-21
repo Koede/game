@@ -21,15 +21,18 @@ export const VIEWPORTS = {
 
 /**
  * Serves a built directory (default dist/) and opens it in headless Chromium.
+ * `init` (a function) runs in the page before the game's scripts.
  * Returns { page, browser, server, url, errors, close }. `errors` collects page errors and console.error output.
  */
-export async function openGame({ dir, device = 'desktop', query = '', log = false } = {}) {
+export async function openGame({ dir, device = 'desktop', query = '', log = false, init = null } = {}) {
   const { chromium } = loadPlaywright();
   const server = await serve(0, dir);
   const url = `http://localhost:${server.address().port}/${query}`;
   const browser = await chromium.launch();
   const context = await browser.newContext(VIEWPORTS[device] ?? VIEWPORTS.desktop);
   const page = await context.newPage();
+  // `init` runs in the page before any of its scripts (e.g. to make storage throw, like a sandboxed frame).
+  if (init) await page.addInitScript(init);
   const errors = [];
   page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
   page.on('console', (msg) => {
