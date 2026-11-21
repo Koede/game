@@ -6,6 +6,12 @@ that exists. Numbers for planned parts are starting values to be tuned in playte
 `docs/SPEC.md` (section numbers given); the Codex page shows the same progression as a tree and every item by
 complexity.
 
+> **UPDATE - six ages.** The owner added a separate BRONZE AGE between Ember and Forge (SPEC 21): pressure,
+> sealed boilers, piston steam engines, pneumatics and thermocouples that carry heat. Order is now
+> Ember - Bronze - Forge - Current - Atomic - Star, with a new tier-2 Bronze Furnace (1100 C). Read section 3a
+> below together with SPEC 21; where the older text of this file says "Forge" for kettles/engines, the pressure
+> side now belongs to Bronze and Forge is heavy industry plus the dynamo.
+
 ## 1. The spine: one furnace, five energy forms
 
 Every age adds one way of moving energy, and each new form is made from the one before it. The furnace is the
@@ -72,7 +78,23 @@ order, and the gate to the next age.
 - **Gate:** build a Blast hearth: brick walls around the furnace (16 bricks minimum), then the upgrade
   (4 bronze, 1 bellows) at 700 C. **[built]**
 
-### Age 1 - Forge (Blast hearth, to 1500 C) - about 55 minutes
+### Age 0.5 (new age 1) - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [planned]
+
+- **Arrive with:** bronze, a kettle and rotor line, a mill.
+- **Furnace:** in-place upgrade (8 bronze, 4 firebrick, bellows). Still one block.
+- **Heat moves:** thermocouples carry furnace heat a few blocks (2% lost per block, 6 kW per line, they glow
+  and burn to the touch) to boilers, hot plates and heat vents. The furnace stays the only origin of heat.
+- **Pressure:** sealed boilers push steam into bronze steam pipes; pressure in bar; piston steam engines give
+  more speed and stress capacity the higher the pressure; gauges and safety valves; above 8 bar without a valve
+  something bursts.
+- **Pneumatics:** a compressor fills air tubes and tanks; pneumatic tubes shoot items across the base; a
+  pneumatic press makes plates and wire; a pneumatic drill; the air hammer hand tool; the blast nozzle.
+- **Threats:** scalding and bursts are the new danger; Bellows Hounds at night.
+- **Goals:** Bronze Furnace - move heat - seal a boiler - read the pressure - fit a valve - piston power -
+  compress air - pneumatic post - press plates - make a blast nozzle.
+- **Gate:** brick shell around the furnace with a blast nozzle fed by air: the Blast hearth (Forge Age).
+
+### Age 1 (now age 2) - Forge (Blast hearth, to 1500 C) - about 55 minutes
 
 - **Find:** coal, iron, limestone, sulfur, oil shale (bronze pickaxe); lava (bronze bucket). **[built]**
 - **Tools:** iron, then steel. Plated coat, steel cuirass, iron and steel mauls. **[built]**

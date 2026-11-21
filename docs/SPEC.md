@@ -1332,3 +1332,85 @@ Two quantities on every shaft network:
   2 flint, 1 large_cog), draft_fan (workbench: 4 plank, 1 small_cog), others as 20.2.
 - Ember objectives: boil_water - first_motion - grind - gear_up ("Gear it up": a network above 32 rpm) -
   saw_planks - auto_bellows ("Let the shaft breathe for you": shaft bellows running).
+
+---------------------------------------------------------------------------------------------------------
+
+## 21. The Bronze Age - pressure, pneumatics and moving heat (player request; inserts a new age)
+
+Player: "we should have a fully separate bronze age with pneumatics and pressure mechanics and steam boilers and
+steam engines etc. forge era will be more advanced smelting, heavy factory stuff/machines still. there should be
+thermocouple blocks in the bronze era that can move heat when connected to a heated source".
+
+SIX ages now: 0 Ember - 1 Bronze - 2 Forge - 3 Current - 4 Atomic - 5 Star. SIX furnace tiers:
+1 Clay Furnace (800 C) - 2 Bronze Furnace (1100 C, NEW) - 3 Blast (1500) - 4 Arc (2100) - 5 Plasma (3200) -
+6 Starhearth. Every existing `minTier >= 2`, tier objective, hearth structure rule and age index shifts up by one.
+
+### 21.1 What each early age is about
+- EMBER (clay furnace): fire, copper, tin, food, and SIMPLE turning: kettle + steam rotor (open, unpressurised
+  steam), water wheel, windmill, wooden axles and cogs, millstone, saw bench, shaft bellows. Speed and stress.
+  Ends by smelting bronze.
+- BRONZE (bronze furnace): PRESSURE. Sealed boilers, steam under pressure in pipes, piston steam engines,
+  compressed air and pneumatic machines, and THERMOCOUPLES that carry heat away from the furnace to where it
+  is needed. No electricity.
+- FORGE (blast hearth): iron and steel, the multiblock hearth, heavy factory machines (rolling mill, drop forge,
+  big trip hammers, crusher), and at its end the dynamo: first electricity.
+
+### 21.2 Bronze Furnace (tier 2)
+Upgrade in place from the Clay Furnace: 8 bronze_ingot, 4 firebrick, 1 bellows at 700 C. Single block (no
+structure yet - the Blast hearth is the first multiblock). 1100 C, 2 crucibles, 2 fuel slots, heat capacity 220,
+loss 2.2. Recipes that move here from the old tier 1/2: bronze tools stay Ember; everything in 21.3-21.5 is made
+here. Iron still needs the Blast hearth (1150 C).
+
+### 21.3 Heat network - thermocouples
+- `thermocouple` (bronze rod block, shape like a pipe: core + arms): joins a HEAT network with touching
+  thermocouples, heat sources and heat users.
+- Sources: a furnace or formed hearth at >= 200 C (offers heat at its temperature), lava (1300 C, 2 kW per face),
+  later a fission pile jacket. Users: kettle, boiler, `hot_plate` (cooks food and dries without a furnace:
+  crucible-less cooking recipes at up to the delivered temperature, 1 slot), `heat_vent` (warmth radius 6:
+  heated rooms far from the furnace), `drying_rack`-free v1.
+- Rule per network per tick: each user asks for watts; total drawn from the hottest source first; every
+  thermocouple block in the path loses 2% (the network's delivered temperature = source temperature x
+  0.98^(blocks on the shortest path), delivered watts likewise); a network carries at most 6 kW (bronze),
+  later `iron_thermocouple` 20 kW. Heat drawn is added to the source furnace's heat extraction, like the kettle.
+  So: the furnace is still the only origin of heat, but boilers and kitchens can stand a few blocks away.
+- Touching a thermocouple carrying more than 300 C burns (1 damage/s, cause 'burn'). They glow by temperature
+  (the heat ramp) - you can see heat travel.
+
+### 21.4 Steam under pressure
+- `boiler` (existing block, re-timed to Bronze): sealed vessel, heated by standing on a furnace OR by a heat
+  network. Water in (bucket, pipe, mech pump). Makes steam into its STEAM NETWORK.
+- Steam network = boiler(s) + `steam_pipe` (bronze; the existing hot fluid pipe becomes the steel upgrade) +
+  users. State: PRESSURE in bar (0-12). Volume = 100 L per pipe + 2000 L per boiler + `steam_tank` 8000 L.
+  Each tick: pressure rises with steam made / volume and falls with steam used; boilers boil faster when hot
+  (rate = heatW / 2260 kJ per kg, scaled to game units: 1 kW -> 6 L/s of steam at 1 bar).
+- Users need a minimum pressure and use more steam at higher pressure, giving more output:
+  `steam_engine` (piston engine; mech source: rpm = 16 x bar up to 96, capacity = 128 x bar; min 2 bar),
+  `steam_hammer` (direct steam trip hammer, min 4 bar), `steam_whistle` (decor/alarm), `air_compressor` (below).
+- Safety: bronze boilers and pipes are rated 8 bar. `safety_valve` (set 2-8 bar with Use) vents above its
+  setting with a shriek and a plume. No valve and pressure above 8 bar for 5 s -> the weakest part BURSTS
+  (explosion radius 2, scalding 6 damage, the block is destroyed, a warning hiss and a shaking gauge start at
+  7 bar). `pressure_gauge` block shows bar with a needle. This is the Bronze Age's signature danger.
+
+### 21.5 Pneumatics
+- `air_compressor` (mech consumer min 32 rpm, stress 8, or steam-driven): fills an AIR network (bronze
+  `air_tube` + `air_tank` 4000 L) to up to 6 bar.
+- Air users: `pneumatic_tube` item transport - items shoot through air tubes fast (replaces the Bronze Chute as
+  the Bronze-age item pipe: 16 items per 0.5 s while the network holds >= 2 bar, each transfer uses air);
+  `pneumatic_press` (plates and wire from ingots, 2 s, min 3 bar), `pneumatic_drill` (mines the column below
+  2x faster than the mech drill, min 3 bar), `air_hammer` hand tool (a bronze-age power tool: mines like an iron
+  pickaxe, holds 60 charges, refilled by Use on an air tank), `blast_nozzle` (hearth wall part: forced air,
+  counts as two tuyeres - the reason the Blast hearth reaches 1500 C: REQUIRED for the tier 3 structure).
+- Leaks: an open-ended air tube vents (hiss, pressure falls) - cap ends or close the loop.
+
+### 21.6 Forge Age re-centred on heavy industry
+Blast hearth (brick shell + at least one blast_nozzle fed with air). Iron, steel, coke. `rolling_mill`
+(plates x2 yield, mech 64 rpm, stress 32, iron axles), `drop_forge` (tools and machine parts from plates
+without the forge chill, steam 6 bar), crusher (shaft or steam driven), `iron_thermocouple`, steel steam pipes
+(16 bar), steel axles. The age ends with the DYNAMO and copper cable: first watts, lamps, the acid battery.
+The thermopile stays a Forge item.
+
+### 21.7 Objectives (Bronze Age chain)
+bronze_furnace (tier 2) - move_heat (place a thermocouple network that feeds a user) - seal_boiler (a boiler
+making steam) - read_pressure (place a pressure gauge) - fit_valve (place a safety valve) - piston_power
+(a steam engine turning) - compress_air (an air network at 2 bar) - pneumatic_post (an item arrives by
+pneumatic tube) - press_plates (pneumatic press job) - blast_nozzle (make one) -> Forge: blast_furnace.

@@ -405,3 +405,78 @@ plus ONE of these. The chain workflow used all session takes `{ model, effort, t
   section 10 lists the sentences the player must see. Scope: src/ui."
 - `steam:wiring` - "INTEGRATION: docs/STEAM_PLAN.md section 5 (player, app, audio) and W3. Run the FULL npm run
   e2e at the end."
+
+---------------------------------------------------------------------------------------------------------
+
+## 13. ADDENDUM - the Bronze Age (owner's later decision; SPEC 21 is the design)
+
+Owner: "a fully separate bronze age with pneumatics and pressure mechanics and steam boilers and steam engines
+etc. forge era will be more advanced smelting, heavy factory stuff/machines still. there should be thermocouple
+blocks in the bronze era that can move heat when connected to a heated source".
+
+What changes in THIS plan:
+- Sections 2-3 above: kettle, rotor, wheel, windmill, wooden axles/cogs, millstone, saw, shaft bellows, clutch,
+  flywheel, gauges stay EMBER. Move to BRONZE: steam_engine (now pressure-driven piston engine), boiler,
+  trip hammer's steam variant, mech pump/drill get pneumatic big brothers. Move to FORGE: dynamo (end of age),
+  iron axle, crusher, thermopile. Bronze gearbox stays Ember (bronze exists at the end of Ember).
+- Build order becomes: W0 the SIX-TIER REFACTOR (below), then the Ember mechanics waves W1-W4 as written,
+  then Bronze waves B1-B4.
+
+**W0 - six tiers and six ages (do this first, alone, before any new feature):**
+1. `src/content/tech.ts`: insert AgeSpec 'bronze' at index 1 and FurnaceTierSpec tier 2 `furnace_bronze`
+   (block, textures side/top/front/front_on, numbers in SPEC 21.2); renumber the rest. Hearth `structure` rules
+   move with their tiers (Blast = tier 3 ...).
+2. Every `minTier`, `age`, objective `furnaceTier`, loot age test, `specRoster*`, `progression.ts`,
+   `src/core/hearth.ts` tables, UI texts ("tier N of 5"), e2e scripts (`upgrade to Blast` now needs the Bronze
+   Furnace first) and the playthrough. Search: `rg -n "tier\b|minTier|furnaceTier|MAX_FURNACE_TIER|age:" src scripts`.
+3. Saves: bump the save document version in `src/save/document.ts` with a migration: furnace entity
+   `tier >= 2` -> `tier + 1`; voxel block ids are remapped by key already (check `docs/api/world.md` "palette") -
+   if ids are stored raw, add the palette first. Objectives completed list is by id (safe).
+4. AC: all tests, full e2e, an old save (commit one from the current build under `tests/fixtures/`) loads and
+   its Blast hearth is still formed.
+
+**B1 - contracts + content (Bronze):** new networks need contracts in src/core/types.ts:
+`heat?: { role: 'conductor'|'source'|'user'; capW?: number; lossPerBlock?: number; demandW?: number }`,
+`steam?: { role: 'pipe'|'boiler'|'user'|'tank'|'valve'|'gauge'; volumeL?: number; ratedBar?: number; minBar?: number }`,
+`air?: { ... same shape ... }` on BlockSpec; constants (STEAM_L_PER_KJ, BURST_SECONDS 5, BURST_WARN_BAR 7,
+THERMO_LOSS 0.02, THERMO_BURN_C 300); events `steam:burst`, `steam:vent`, `air:leak`; SfxNames valve_shriek,
+boiler_burst, air_hiss, piston, pneumatic_thump, tube_whoosh; all blocks/items/recipes/objectives of SPEC 21
+with numbers; textures (bronze pipework with rivets, glass gauges, a boiler with bands and a firebox door);
+solver: Bronze Age needs no electricity; Blast hearth requires blast_nozzle + air.
+**B2 - simulation, three small solvers that all reuse the pipe-graph pattern (`src/sim/pipeGraph.ts`):**
+- `heatNet.ts`: flood networks; per tick per user: path length by BFS from the hottest source (cache per
+  rebuild); delivered = min(demand, cap) x 0.98^n; add to source furnace `extractW` (follow how thermopile heat
+  draw is applied in `machines.ts`/`furnace.ts`); expose temperature per conductor block for rendering and burn.
+- `steamNet.ts`: per network: volumeL, steamL (so bar = steamL / volumeL x k, clamp 0..12); boilers add
+  `heatW x STEAM_L_PER_KJ x dt` while they hold water (1 L water -> 10 L steam as today); users take
+  `rate x bar` and report drive = clamp((bar - minBar) / (rated - minBar), 0, 1); valves vent down to their
+  setting; burst logic with the 5 s timer on the lowest-rated member; saved fields: steamL per network anchor
+  entity (same trick as fluid networks: one pipe entity per network holds the amount - see `fluidNet.ts`).
+- `airNet.ts`: same file shape with compressor in, tube users out, leak = any tube arm ending in air
+  (mesher already knows open arms: reuse `meshPipe` join tables in sim via registry helper).
+- Pneumatic tubes as item transport: reuse `itemNet.ts` packets with speed x3 and a per-packet air cost; refuse
+  to pull when bar < 2 (status "No air pressure").
+- Steam engine as mech source with drive from bar; steam hammer; pneumatic press/drill; air hammer tool
+  (item with `charges`; `PlayerState` durability field can carry charges; refill via a sim action like
+  `bucketUse`).
+- Tests: conservation (steam made = used + vented + stored), burst timing and that a valve prevents it, heat
+  loss per block and the 6 kW cap, furnace cools by exactly the heat exported, pneumatic packets stop at low
+  pressure, save/load of pressures, perf.
+**B3 - render/UI/audio/player:** glowing thermocouples by temperature (vertex colour from the sim snapshot, or
+active-bit textures in 3 heat steps if cheaper), gauge needles (parts layer, angle = value), valve plume and
+shriek, piston engine with a moving beam and flywheel, burst debris; pressure and heat panels on machine
+screens ("5.2 bar - rated 8"), HUD warning at 7 bar near the player ("Boiler pressure high"), goal texts;
+Use on a valve cycles its setting (2/4/6/8) with a toast; scald damage cause 'burn' already exists.
+**B4 - wiring, `scripts/e2e-bronze.mjs`, review, release:** e2e: thermocouples from a furnace to a boiler
+3 blocks away; pressure climbs on the gauge; engine turns a millstone; remove the valve and let it burst
+(player at a distance survives; screenshot); compressor + tube delivers an item.
+
+Risks to design around (decide in B1, write them down):
+- Three more network types on top of power, shafts, items and fluids: keep ONE shared graph builder
+  (generalise `pipeGraph.ts` with a predicate) or the sim becomes unmaintainable; `simulation.ts` is already
+  too long - new systems register through a small `Subsystem { blockChanged, chunkChanged, tick, clear, save }`
+  interface instead of more fields on Simulation.
+- Phone readability: gauges must be readable as HUD target text when aimed at.
+- Bursts must be fair: warnings start at 7 bar (sound, shaking needle, HUD line) at least 5 s before.
+- The Bronze Chute (current Ember item pipe) vs pneumatic tubes: keep the chute as the slow Ember gravity-free
+  pipe, tubes are the fast Bronze upgrade (do not delete the chute; saves use it).
