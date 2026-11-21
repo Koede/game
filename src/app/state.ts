@@ -64,7 +64,10 @@ export class GameState {
   static create(seed: number, seedText: string | null, options: StateOptions = {}): GameState {
     const bus = options.bus ?? createBus();
     const world = new World(seed >>> 0, bus, { pool: options.pool });
-    return new GameState(world, bus, seedText, null);
+    const state = new GameState(world, bus, seedText, null);
+    state.prepareAroundPlayer(1);
+    state.faceOpenView();
+    return state;
   }
 
   /** Continues a saved world exactly. Throws (changing nothing outside) when the world snapshot is unusable. */
@@ -78,6 +81,29 @@ export class GameState {
   prepareAroundPlayer(radiusChunks = 1): void {
     const p = this.player.position;
     this.world.ensureLoadedAround(Math.floor(p.x), Math.floor(p.z), radiusChunks);
+  }
+
+  /** Turns the player towards the most open horizon around them, so a new world does not open on a hillside. */
+  faceOpenView(): void {
+    const p = this.player.position;
+    let bestYaw = 0;
+    let bestScore = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const yaw = (i * Math.PI) / 4;
+      const dx = -Math.sin(yaw);
+      const dz = -Math.cos(yaw);
+      let score = 0;
+      for (let d = 2; d <= 16; d += 2) {
+        const top = this.world.surfaceY(Math.floor(p.x + dx * d), Math.floor(p.z + dz * d));
+        if (top >= 0) score -= Math.max(0, top - p.y) * (1.2 - d / 20);
+      }
+      if (score > bestScore + 1e-6) {
+        bestScore = score;
+        bestYaw = yaw;
+      }
+    }
+    this.player.yaw = bestYaw > Math.PI ? bestYaw - Math.PI * 2 : bestYaw;
+    this.player.pitch = -0.08;
   }
 
   /** One fixed simulation step (spec section 4: clock, simulation, survival, objectives). */

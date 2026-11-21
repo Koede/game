@@ -30,7 +30,7 @@ export interface DebugSummary {
   furnaces: { x: number; y: number; z: number; tier: number; tempC: number; lit: boolean; draft: number; ignited: boolean;
     fuel: unknown[]; crucibleIn: unknown[]; crucibleOut: unknown[] }[];
   ui: { open: string | null; uiOpen: boolean; paused: boolean; touch: boolean; pointerLocked: boolean } | null;
-  target: { x: number; y: number; z: number; block: string } | null;
+  target: { x: number; y: number; z: number; block: string; mining: number } | null;
   render: { drawCalls: number; triangles: number; chunks: number } | null;
   world: { loaded: number; meshed: number; mode: string } | null;
 }
@@ -45,7 +45,9 @@ export interface DebugHandle {
   lookAt(x: number, y: number, z: number): void;
   setTime(timeOfDay: number): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
-  getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean };
+  getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
+  /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
+  sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
   /** Nearest loaded blocks of a kind around the player (Chebyshev radius), nearest first. */
   findBlocks(block: string, radius?: number, limit?: number): { x: number; y: number; z: number; d: number }[];
   surfaceY(x: number, z: number): number;
@@ -102,7 +104,9 @@ export function createDebugHandle(app: App): DebugHandle {
             }))
           : [],
         ui: g ? { open: g.ui.current?.type ?? (g.ui.isOpen ? 'modal' : null), uiOpen: g.input.uiOpen, paused: g.input.paused, touch: g.input.touch, pointerLocked: g.input.pointerLocked } : null,
-        target: g?.controller.target ? { x: g.controller.target.x, y: g.controller.target.y, z: g.controller.target.z, block: g.controller.target.block.key } : null,
+        target: g?.controller.target
+          ? { x: g.controller.target.x, y: g.controller.target.y, z: g.controller.target.z, block: g.controller.target.block.key, mining: round(g.controller.miningProgress) }
+          : null,
         render: g ? { drawCalls: g.renderer.stats.drawCalls, triangles: g.renderer.stats.triangles, chunks: g.renderer.stats.chunks } : null,
         world: s ? (({ loaded, meshed, mode }) => ({ loaded, meshed, mode }))(s.world.stats()) : null,
       };
@@ -135,7 +139,26 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     getBlock(x, y, z) {
       const v = game().state.world.getVoxel(x, y, z);
-      return { block: blockOf(v).key, facing: voxelFacing(v), active: voxelActive(v) };
+      const def = blockOf(v);
+      return { block: def.key, facing: voxelFacing(v), active: voxelActive(v), solid: def.solid, replaceable: def.replaceable };
+    },
+    sampleFrame() {
+      const g = game();
+      g.renderer.render(0);
+      const gl = g.renderer.gl.getContext();
+      const width = gl.drawingBufferWidth;
+      const height = gl.drawingBufferHeight;
+      const px = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const colors = new Set<number>();
+      let sum = 0;
+      let n = 0;
+      for (let i = 0; i < px.length; i += 4 * 37) {
+        colors.add(((px[i] >> 3) << 10) | ((px[i + 1] >> 3) << 5) | (px[i + 2] >> 3));
+        sum += (px[i] + px[i + 1] + px[i + 2]) / 3;
+        n++;
+      }
+      return { width, height, distinctColors: colors.size, brightness: Math.round(sum / Math.max(1, n)) };
     },
     findBlocks(block, radius = 24, limit = 16) {
       const { world, player } = game().state;
