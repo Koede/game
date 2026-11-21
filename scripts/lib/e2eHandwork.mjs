@@ -120,7 +120,7 @@ export async function handworkSteps({ d, step, assert, page }) {
   });
 
   await step('the anvil takes two ingots to a plate with a hammer; its line says the work', async () => {
-    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('copper_ingot', 2); window.__hw.give('flint_hammer', 1); });
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('copper_ingot', 2); window.__hw.give('flint_hammer', 1); window.__hw.selectSlot(0); });
     await stand(cell(2));
     // Two Uses with the ingots load one each (two recipes share the ingot), then the hammer strikes double.
     assert((await tapStep(d)).startsWith('Stone Anvil - copper ingot'), 'the first ingot was not loaded');
@@ -150,7 +150,7 @@ export async function handworkSteps({ d, step, assert, page }) {
       return true;
     }, c);
     assert(setup, 'no furnace entity');
-    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('pickaxe_mould', 1); });
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('pickaxe_mould', 1); window.__hw.selectSlot(0); });
     await stand(c);
     await tapUntil(d, async () => (await d.inventory()).bronze_pickaxe_head === 1);
     const state = await d.state();

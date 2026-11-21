@@ -3,12 +3,12 @@
 #   bash scripts/make-handoff-bundle.sh [out.md]      (default: docs/HEARTHWATT_COMPLETE_HANDOFF.md)
 cd "$(dirname "$0")/.."
 out="${1:-docs/HEARTHWATT_COMPLETE_HANDOFF.md}"
-files=(docs/LOCAL_HANDOFF.md HANDOFF.md docs/PROGRESSION.md docs/EMBER_PLAN.md docs/BREWING_PLAN.md docs/STEAM_PLAN.md docs/BRONZE_PLAN.md docs/SPEC.md README.md)
+files=(docs/SESSION_CONTEXT.md docs/LOCAL_HANDOFF.md HANDOFF.md docs/PROGRESSION.md docs/EMBER_PLAN.md docs/BREWING_PLAN.md docs/STEAM_PLAN.md docs/BRONZE_PLAN.md docs/SPEC.md README.md)
 {
   echo "# Hearthwatt - complete handoff bundle"
   echo
   echo "One file with everything needed to continue the game in a fresh session. Generated $(date -u +%Y-%m-%dT%H:%MZ) from commit $(git rev-parse --short HEAD) on branch $(git rev-parse --abbrev-ref HEAD) of https://github.com/Koede/game."
-  echo "Order: 1 how to start locally (setup, phases, first message) - 2 current status - 3 whole-game progression - 4 Ember plan - 5 Brewing plan - 6 Steam plan - 7 Bronze plan - 8 full design spec and build rules - 9 README."
+  echo "Order: 0 session context (state, open decisions, follow-ups) - 1 how to start locally (setup, phases, first message) - 2 current status - 3 whole-game progression - 4 Ember plan - 5 Brewing plan - 6 Steam plan - 7 Bronze plan - 8 full design spec and build rules - 9 README."
   echo "Per-module API notes live in the repository under docs/api/*.md and are NOT included here (read them as you reach each module)."
   echo
   echo "## Contents"
