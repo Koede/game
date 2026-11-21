@@ -334,7 +334,9 @@ World height 96 (y 0..95), sea level 32, chunks are 16x16 columns addressed (cx,
   `npx tsc --noEmit -p . 2>&1 | grep -E "^src/<yourdir>/"` and `npx vitest run src/<yourdir>`.
 - Git: never checkout, stash, reset or rebase. When your module is finished (and at sensible checkpoints), commit
   ONLY your own paths and push: `git add <your paths> && git commit -m "<what and why>" && git push origin HEAD`
-  (retry a few times if the index is locked or the push races another engineer). Do not install packages.
+  (retry a few times if the index is locked or the push races another engineer; if the push is rejected, run
+  `git pull --no-rebase --no-edit origin HEAD` and push again). End every commit message with the line
+  `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Do not install packages.
   Do not leave servers or watchers running.
 - TypeScript strict. No `any` unless unavoidable (and then narrow it immediately). Keep files focused (aim
   for < 350 lines; split by responsibility). Comments only where the WHY is not obvious. No TODO stubs:
