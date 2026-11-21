@@ -85,12 +85,12 @@ const REFUSAL_TEXT: Record<EatRefusal, string | null> = {
  */
 export function eat(player: PlayerState, slot = player.selectedSlot): EatResult {
   const stack = player.inventory.get(slot);
-  const reason = stack ? eatRefusal(player, stack.item) : player.dead ? 'dead' : 'not_food';
-  if (reason !== null || !stack) {
+  const food = stack ? foodOf(stack.item) : null;
+  const reason = player.dead ? 'dead' : stack && food ? eatRefusal(player, stack.item) : 'not_food';
+  if (reason !== null || !stack || !food) {
     const why = reason ?? 'not_food';
     return { ok: false, reason: why, message: REFUSAL_TEXT[why] };
   }
-  const food = foodOf(stack.item)!;
   const item = stack.item;
   player.inventory.removeAt(slot, 1);
   player.feed(food.hunger);

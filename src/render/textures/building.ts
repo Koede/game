@@ -5,7 +5,7 @@ import * as P from './palette';
 import { type RGB, mix, shade } from './palette';
 
 /** Courses of bricks: `rows` courses, bricks `w` wide, every other course shifted by half a brick. */
-function masonry(c: Canvas, rows: number, w: number, face: (id: number, x: number, y: number) => RGB, mortar: RGB, chip: RGB): void {
+export function masonry(c: Canvas, rows: number, w: number, face: (id: number, x: number, y: number) => RGB, mortar: RGB, chip: RGB): void {
   const h = 16 / rows;
   c.each((x, y) => {
     const row = Math.floor(y / h);
@@ -29,7 +29,7 @@ function brick(c: Canvas): void {
   masonry(c, 4, 8, (id, x, y) => tone([b[1], b[2], b[3]], (c.hash(id, 0, 1) * 0.6 + f(x, y) * 0.4) * 1.1), P.MORTAR, b[0]);
 }
 
-function stoneBrick(c: Canvas): void {
+export function stoneBrick(c: Canvas): void {
   const s = P.STONE;
   const f = c.noise(4, 4, 1);
   masonry(c, 2, 8, (id, x, y) => tone([s[1], s[2], s[3]], 0.25 + c.hash(id, 0, 2) * 0.3 + f(x, y) * 0.45), shade(s[0], -0.25), s[0]);
