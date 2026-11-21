@@ -16,6 +16,8 @@ export const SHAPE_CABLE = 5;
 export const SHAPE_SLAB = 6;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
+  // Stand-in until the mesher draws pipes (spec 16): a cable-like core with arms towards power devices.
+  pipe: SHAPE_CABLE,
 };
 
 export const BATCH_OPAQUE = 0;

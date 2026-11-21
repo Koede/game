@@ -5,6 +5,7 @@
  */
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { FOOD_SPEC } from './specRosterFood';
+import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
 
 type Numbers = Record<string, number>;
@@ -33,6 +34,7 @@ export const SPEC = {
     'corium',
     ...FOOD_SPEC.blocks,
     ...WORLD_SPEC.blocks,
+    ...TECH_SPEC.blocks,
   ],
 
   items: [
@@ -48,6 +50,7 @@ export const SPEC = {
     'pail', 'water_pail', 'padded_coat', 'shield_suit',
     ...FOOD_SPEC.items,
     ...WORLD_SPEC.items,
+    ...TECH_SPEC.items,
   ],
 
   /** material -> [tier, speed, durability] for its pickaxe, axe and shovel. */
@@ -126,6 +129,8 @@ export const SPEC = {
       'hearth_stew_mutton: 1 hearth_stew <- 1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_fowl: 1 hearth_stew <- 1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'bronze_bucket: 1 bronze_bucket <- 3 bronze_ingot @700 T1',
+      'item_pipe: 8 item_pipe <- 2 bronze_ingot, 1 glass @800 T1',
+      'wrench: 1 wrench <- 3 bronze_ingot @600 T1',
 
       'iron_pickaxe: 1 iron_pickaxe <- 3 iron_ingot, 2 stick @1000 T2',
       'iron_axe: 1 iron_axe <- 3 iron_ingot, 2 stick @1000 T2',
@@ -148,6 +153,16 @@ export const SPEC = {
       'steel_shovel: 1 steel_shovel <- 1 steel_ingot, 2 stick @1300 T2',
       'graphite_electrode: 1 graphite_electrode <- 3 coke @1200 T2',
       'concrete: 8 concrete <- 4 gravel, 2 sand, 2 limestone @600 T2',
+      'refractory_brick: 4 refractory_brick <- 4 brick, 1 coke @1300 T2',
+      'electrode: 1 electrode <- 3 graphite_electrode, 1 copper_coil @1200 T2',
+      'item_hatch: 1 item_hatch <- 1 crate, 2 iron_plate @1000 T2',
+      'fluid_hatch: 1 fluid_hatch <- 1 tank, 2 iron_plate @1000 T2',
+      'fast_item_pipe: 8 fast_item_pipe <- 2 steel_plate, 1 glass @1300 T2',
+      'fluid_pipe: 8 fluid_pipe <- 2 iron_plate, 1 glass @1000 T2',
+      'hot_fluid_pipe: 8 hot_fluid_pipe <- 2 steel_plate, 1 ceramic_insulator @1400 T2',
+      'tank: 1 tank <- 4 iron_plate, 4 glass @1000 T2',
+      'pump: 1 pump <- 1 chassis, 1 copper_coil, 2 fluid_pipe @1000 T2',
+      'boiler: 1 boiler <- 4 iron_plate, 2 copper_coil, 1 tank @1100 T2',
 
       'silicon_wafer: 1 silicon_wafer <- 2 silica, 1 coke @1700 T3',
       'circuit: 1 circuit <- 1 silicon_wafer, 3 copper_wire, 1 ceramic_insulator @900 T3',
@@ -159,6 +174,9 @@ export const SPEC = {
       'combustion_engine: 1 combustion_engine <- 1 chassis, 4 steel_plate, 3 copper_coil, 1 circuit @1400 T3',
       'geothermal_tap: 1 geothermal_tap <- 1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit @1400 T3',
       'bore_rig: 1 bore_rig <- 1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit @1600 T3',
+      'plasma_casing: 2 plasma_casing <- 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod @1900 T3',
+      'power_port: 1 power_port <- 2 copper_coil, 2 ceramic_insulator, 1 iron_plate @1200 T3',
+      'steam_turbine: 1 steam_turbine <- 1 chassis, 4 steel_plate, 4 copper_coil @1600 T3',
 
       'superalloy: 2 superalloy <- 2 steel_ingot, 1 tungsten_rod, 1 aluminum_ingot @2600 T4',
       'power_drill: 1 power_drill <- 2 superalloy, 2 tungsten_rod, 1 copper_coil, 1 battery @2600 T4',
@@ -171,6 +189,7 @@ export const SPEC = {
       'magnet_ring: 1 magnet_ring <- 4 copper_coil, 2 superalloy, 2 lithium_salt @2800 T4',
       'super_cable: 6 super_cable <- 1 magnet_ring, 2 aluminum_ingot, 2 ceramic_insulator @2600 T4',
       'star_core: 1 star_core <- 6 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit @3000 T4',
+      'star_casing: 2 star_casing <- 2 superalloy, 1 fused_quartz, 1 magnet_ring @2800 T4',
     ],
     crusher: [
       'crushed_copper: 2 crushed_copper <- 1 copper_ore 4s 4000J',
@@ -193,9 +212,10 @@ export const SPEC = {
   /** tier, block, name, maxTempC, heatCapacityJ, lossWPerC, crucibles, fuelSlots, speed, electricHeatW, warmth, upgradeTempC, upgradeCost. */
   furnaceTiers: [
     [1, 'furnace_clay', 'Clay Furnace', 800, 150, 2, 1, 1, 1, 0, 6, 0, ''],
-    [2, 'furnace_blast', 'Blast Furnace', 1500, 300, 2.5, 2, 2, 1.25, 0, 8, 700, '12 firebrick, 8 bronze_ingot, 1 bellows'],
-    [3, 'furnace_arc', 'Arc Furnace', 2100, 400, 3, 3, 2, 1.5, 8000, 10, 1200, '3 graphite_electrode, 4 copper_coil, 8 steel_plate, 8 firebrick'],
-    [4, 'furnace_plasma', 'Plasma Furnace', 3200, 800, 8, 4, 2, 2, 40000, 12, 1900, '4 tungsten_rod, 8 steel_plate, 6 copper_coil, 3 circuit, 4 aluminum_ingot'],
+    // Upgrade costs of spec 17.2: the hearth structure is now most of the cost.
+    [2, 'furnace_blast', 'Blast Furnace', 1500, 300, 2.5, 2, 2, 1.25, 0, 8, 700, '4 bronze_ingot, 1 bellows'],
+    [3, 'furnace_arc', 'Arc Furnace', 2100, 400, 3, 3, 2, 1.5, 8000, 10, 1200, '2 copper_coil, 2 steel_plate'],
+    [4, 'furnace_plasma', 'Plasma Furnace', 3200, 800, 8, 4, 2, 2, 40000, 12, 1900, '2 circuit, 2 tungsten_rod'],
     [5, 'furnace_star', 'Starhearth', 3200, 800, 8, 4, 2, 3, 40000, 24, 3000, '1 star_core, 8 deuterium_cell'],
   ] as Array<Array<string | number>>,
 
@@ -207,16 +227,16 @@ export const SPEC = {
     }],
     crate: ['crate', { slots: 27 }],
     thermopile: ['generator', { outputW: 300, wattsPerC: 0.25, minTempC: 100, capW: 300, heatPerWatt: 4 }],
-    steam_engine: ['generator', { outputW: 2000, wattsPerC: 4, minTempC: 250, capW: 2000, heatPerWatt: 3, minWater: 1 }],
+    steam_engine: ['generator', { outputW: 2000, wattsPerC: 4, minTempC: 250, capW: 2000, heatPerWatt: 3, minWater: 1, pipedWaterLPerS: 10 }],
     burner_generator: ['generator', { outputW: 3000, efficiency: 0.3, slots: 1 }],
     water_wheel: ['generator', { outputW: 400, minWater: 2, shareRadius: 3 }],
     wind_turbine: ['generator', { outputW: 1500, windMin: 0.25, windMax: 1, altitudeBaseY: 40, altitudeSpanY: 40, altitudeMin: 0.25, altitudeMax: 1 }],
     solar_panel: ['generator', { outputW: 300, minSunlight: 0.15 }],
-    combustion_engine: ['generator', { outputW: 12_000, efficiency: 0.4, fuelEnergyJ: 6_000_000, slots: 1 }],
-    geothermal_tap: ['generator', { outputW: 6000, wattsPerLava: 2000, capW: 6000 }],
+    combustion_engine: ['generator', { outputW: 12_000, efficiency: 0.4, fuelEnergyJ: 6_000_000, slots: 1, fuelLPerCanister: 1000 }],
+    geothermal_tap: ['generator', { outputW: 6000, wattsPerLava: 2000, capW: 6000, lavaLPerRun: 1000, lavaRunS: 600 }],
     fission_pile: ['generator', {
       outputW: 60_000, efficiency: 1, slots: 1, rodEnergyJ: 72_000_000, minWater: 2, runTempC: 600, warnTempC: 900, meltdownTempC: 1200,
-      meltdownSeconds: 10, heatRateC: 8, coolRateC: 20, blastRadius: 3, warnRadiation: 4, warnRadius: 6, alarmIntervalS: 2,
+      meltdownSeconds: 10, heatRateC: 8, coolRateC: 20, blastRadius: 3, warnRadiation: 4, warnRadius: 6, alarmIntervalS: 2, pipedWaterLPerS: 100,
     }],
     battery: ['storage', { capacityJ: 2_000_000, rateW: 3000, chargeEfficiency: 0.9 }],
     lithium_bank: ['storage', { capacityJ: 40_000_000, rateW: 150_000, chargeEfficiency: 0.9 }],
@@ -224,12 +244,13 @@ export const SPEC = {
     blower: ['consumer', { drawW: 150, draftFloor: 0.8 }],
     space_heater: ['consumer', { drawW: 300, warmRadius: 6 }],
     crusher: ['consumer', { drawW: 1000, slots: 2 }],
-    still: ['consumer', { drawW: 2000, slots: 2 }],
+    still: ['consumer', { drawW: 2000, slots: 2, oilPerRunL: 500, fuelPerRunL: 400, oilRunS: 20 }],
     bore_rig: ['consumer', { drawW: 4000, slots: 9, secondsPerBlock: 2, toolTier: 4 }],
     centrifuge: ['consumer', { drawW: 8000, slots: 2 }],
-    electrolyzer: ['consumer', { drawW: 20_000, slots: 2, minWater: 1 }],
+    electrolyzer: ['consumer', { drawW: 20_000, slots: 2, minWater: 1, pipedWaterLPerS: 100 }],
     crop: ['crop', { stageS: 100, dryRate: 0.5, hydrationRadius: 4, lampRadius: 5, minSunlight: 0.3 }],
     berry_bush: ['bush', { regrowS: 300 }],
+    ...TECH_SPEC.machines,
   } as Record<string, [MachineRole, Numbers]>,
 
   /** block, minY, maxY, veinsPerChunk, veinSize, biome multipliers. */
@@ -254,8 +275,8 @@ export const SPEC = {
     'have rubble 12', 'have clay 6', 'place furnace_clay 1', 'flag furnace_lit', 'make charcoal 4', 'flag well_warmed',
     'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
     'make copper_ingot 2', 'flag tilled', 'place wheat_0 1', 'temp 800', 'make bronze_ingot 4', 'make bronze_pickaxe 1',
-    'make bread 1', 'generate 100', 'place lamp 1', 'tier 2',
-    'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3',
+    'make bread 1', 'generate 100', 'place lamp 1', 'tier 2', 'place item_pipe 1',
+    'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3', 'place pump 1',
     'temp 1900', 'make circuit 2', 'generate 10000', 'make tungsten_rod 4', 'tier 4',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 5',
     'flag ignited',
@@ -294,6 +315,7 @@ export const SPEC = {
     corium: { ...pick(5), radiation: 8, light: 9, drops: [], itemKey: null },
     ...FOOD_SPEC.blockProps,
     ...WORLD_SPEC.blockProps,
+    ...TECH_SPEC.blockProps,
   } as Record<string, Partial<BlockDef>>,
 
   /** Block items that exist for the codex but can never be picked up: these blocks drop something else. */
@@ -304,7 +326,8 @@ export const SPEC = {
 
   /**
    * Ceiling on distinct texture names (block faces + item icons + 'missing'). One texture array holds them all,
-   * and WebGL2 only guarantees 256 layers: 224 are in use after sections 13-15, so spend the rest with care.
+   * and WebGL2 only guarantees 256 layers: 252 are in use after sections 16-17. Anything more needs the renderer to
+   * split the array (or a check of MAX_ARRAY_TEXTURE_LAYERS) first.
    */
-  maxTextures: 232,
+  maxTextures: 256,
 };

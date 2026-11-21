@@ -16,8 +16,13 @@
  * count too), and a bucket fills from a liquid of the world (wooden bucket from water, bronze bucket from lava).
  * The Old Works' salvage blocks and crate loot are finite bonus finds, so they are not part of the assumed world:
  * content tests hold them to the ages they may hand out instead.
+ *
+ * Hearths (spec 17): an upgrade to tier 2-5 also needs the materials of that tier's smallest legal shell (its wall
+ * blocks, electrodes and power ports), obtainable with the furnace the player already has. Transport (spec 16): a
+ * steam turbine is heat-driven like the steam engine - it runs on a boiler over the one furnace, with water to hand.
  */
 import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FURNACE_BUFF_C } from '../core/constants';
+import { smallestShell } from '../core/hearth';
 import {
   BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
   block, furnaceTier, item, machine, recipe, recipesFor,
@@ -62,6 +67,24 @@ export const TILLABLE_BLOCKS: readonly string[] = ['grass', 'dirt'];
 /** The item that places a block: its own block item, or another item that plants it (seeds, potato, carrot). */
 export function itemPlacing(blockKey: string): string | null {
   return block(blockKey).itemKey ?? ITEMS.find((it) => it.block === blockKey)?.key ?? null;
+}
+
+/** The block items a hearth's electrodes and power ports are. */
+export const ELECTRODE_ITEM = 'electrode';
+export const POWER_PORT_ITEM = 'power_port';
+
+/**
+ * What the smallest legal hearth of a tier is built from (spec 17.1): its own wall block for every shell cell but the
+ * controller and the parts, plus the electrodes and power ports it requires. Empty for tier 1.
+ */
+export function hearthMaterials(tier: number): ItemAmount[] {
+  const s = furnaceTier(tier).structure;
+  if (!s) return [];
+  const shell = smallestShell(s);
+  const out: ItemAmount[] = [{ item: s.wall[0], count: shell.wall }];
+  if (shell.electrodes > 0) out.push({ item: ELECTRODE_ITEM, count: shell.electrodes });
+  if (shell.powerPorts > 0) out.push({ item: POWER_PORT_ITEM, count: shell.powerPorts });
+  return out;
 }
 
 /** How many units of one generator or battery kind a "reasonable grid" is assumed to have. */
@@ -117,8 +140,12 @@ const crops = [...MACHINES.values()].filter((m) => m.role === 'crop').flatMap((m
 });
 /** Recipes run by a processing machine (the furnace is a machine kind too, but it is the player who works it). */
 export const isMachineRecipe = (r: RecipeDef): boolean => r.station !== 'hand' && r.station !== 'workbench' && r.station !== 'furnace';
-/** Generators that live off a furnace's heat cannot be what heats that furnace electrically. */
-const heatDriven = (m: MachineSpec): boolean => m.params?.heatPerWatt !== undefined;
+/** Generators that run on the steam of a boiler (spec 16.5). */
+const steamFed = (m: MachineSpec): boolean => m.fluids?.accepts?.includes('steam') ?? false;
+const boilers = [...MACHINES.values()].filter((m) => m.role === 'boiler');
+const pumps = [...MACHINES.values()].filter((m) => m.kind === 'pump');
+/** Generators that live off a furnace's heat (directly or through a boiler) cannot be what heats that furnace electrically. */
+const heatDriven = (m: MachineSpec): boolean => m.params?.heatPerWatt !== undefined || steamFed(m);
 
 /**
  * Everything obtainable and doable with a furnace of at most `maxTier` (0 = before the first furnace).
@@ -175,11 +202,19 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
     return Math.min(best, spec.maxTempC);
   };
   const temps = (): number[] => [AMBIENT_TEMP_C, ...FURNACE_TIERS.slice(0, tier).map(holdTemp)];
+  /** Watts a heat-driven generator makes over a furnace at `hottest`: directly, or from a boiler's steam. */
+  const heatW = (m: MachineSpec, hottest: number): number => {
+    const p = m.params ?? {};
+    if (!steamFed(m)) return Math.min(p.capW ?? 0, (p.wattsPerC ?? 0) * (hottest - (p.minTempC ?? 0)));
+    const boiler = boilers.find(owns);
+    if (!boiler || !(hasWater() || pumps.some(owns))) return 0;
+    const b = boiler.params ?? {};
+    const steam = Math.min(b.capLPerS, Math.max(0, b.steamLPerC * (hottest - b.minTempC)));
+    return (m.outputW ?? 0) * Math.min(1, steam / p.steamLPerS);
+  };
   const generationW = (): number => {
     const hottest = Math.max(...temps());
-    const heat = generators
-      .filter((m) => heatDriven(m) && tier >= 1 && runs(m))
-      .map((m) => Math.min(m.params?.capW ?? 0, (m.params?.wattsPerC ?? 0) * (hottest - (m.params?.minTempC ?? 0))));
+    const heat = generators.filter((m) => heatDriven(m) && tier >= 1 && runs(m)).map((m) => heatW(m, hottest));
     return Math.max(gridW(), ...heat);
   };
   const usable = (r: RecipeDef): boolean => {
@@ -218,7 +253,7 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
     }
     while (tier >= 1 && tier < Math.min(maxTier, MAX_FURNACE_TIER)) {
       const next = furnaceTier(tier + 1);
-      const affordable = next.upgradeCost.every((c) => items.has(c.item));
+      const affordable = [...next.upgradeCost, ...hearthMaterials(next.tier)].every((c) => items.has(c.item));
       if (!affordable || holdTemp(furnaceTier(tier)) < next.upgradeTempC) break;
       tier++;
       gain(next.block, 'upgrade');

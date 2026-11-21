@@ -19,7 +19,7 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
-    expect(SFX_NAMES.length).toBe(48);
+    expect(SFX_NAMES.length).toBe(50);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);
   });
@@ -84,10 +84,14 @@ describe('sound definitions', () => {
     under(['eat', 'till', 'plant', 'harvest', 'mob_hurt'], 0.35);
     under(['hen', 'goat', 'boar', 'scoop_lava'], 0.7);
     under(['steam_hiss'], 1.6);
+    under(['pipe_clunk'], 0.2);
+    under(['hearth_formed'], 2.5);
     under(SFX_NAMES, 4.5);
     expect(patchDuration(SFX.explosion)).toBeGreaterThan(2);
     // Thunder rolls on long after the flash.
     expect(patchDuration(SFX.thunder)).toBeGreaterThan(3);
+    // A hearth forming is an event: the shimmer outlasts the whoomph.
+    expect(patchDuration(SFX.hearth_formed)).toBeGreaterThan(1);
   });
 
   it('marks exactly the interface sounds as UI', () => {
@@ -96,7 +100,7 @@ describe('sound definitions', () => {
   });
 
   it('gives repeated physical sounds a random pitch spread', () => {
-    for (const name of ['step', 'dig_stone', 'dig_dirt', 'dig_wood', 'dig_sand', 'dig_metal', 'eat', 'till', 'plant', 'harvest', 'hen', 'goat', 'boar', 'mob_hurt', 'thunder', 'steam_hiss', 'scoop_lava'] as const) {
+    for (const name of ['step', 'dig_stone', 'dig_dirt', 'dig_wood', 'dig_sand', 'dig_metal', 'eat', 'till', 'plant', 'harvest', 'hen', 'goat', 'boar', 'mob_hurt', 'thunder', 'steam_hiss', 'scoop_lava', 'pipe_clunk'] as const) {
       expect(SFX[name].jitter ?? 0, name).toBeGreaterThan(0);
     }
   });

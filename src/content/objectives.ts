@@ -73,10 +73,12 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(0, 'place_lamp', 'Light a lamp', place('lamp'),
     'Forge copper wire and a Lamp. Stand the lamp against the thermopile, or run cable between them, and it shines while the furnace is hot.'),
   objective(0, 'blast_furnace', 'Build the Blast Furnace', furnaceTier(2),
-    'Open the upgrade panel of your furnace. It asks for firebrick, bronze and a bellows from the workbench, and a fire of at least 700 C. The furnace is rebuilt where it stands.',
+    'Build a Blast hearth: brick walls around the furnace, with a floor and one empty cell behind its mouth (the STRUCTURE tab shows where each brick goes). Then open the upgrade panel: it asks for bronze, a bellows and a fire of at least 700 C.',
     '8 coal'),
 
   // ---- Forge Age -----------------------------------------------------------------------------
+  objective(1, 'pipe_ore', 'Pipe it in', place('item_pipe'),
+    'Forge Bronze Chutes and a Wrench. Lay the chutes from a crate to the furnace and wrench the crate end so it pulls: ore and fuel flow in on their own.'),
   objective(1, 'smelt_iron', 'Smelt iron', make('iron_ingot', 8),
     'Iron ore needs 1150 C. Coal burns hot enough on its own, and charcoal does with a strong draft.'),
   objective(1, 'make_steel', 'Forge steel', make('steel_ingot', 6),
@@ -91,10 +93,12 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(1, 'store_energy', 'Store 1 MJ', { type: 'stored', joules: 1_000_000 },
     'Forge an Acid Battery from iron, copper and sulfur, connect it, and let your generators fill it to 1 MJ. Stored power carries you through the gaps.'),
   objective(1, 'arc_furnace', 'Build the Arc Furnace', furnaceTier(3),
-    'The next upgrade asks for graphite electrodes, copper coils, steel plate and firebrick, with the fire at 1200 C. After it, the furnace can heat itself with electricity.',
+    'Rebuild the hearth in refractory brick with a full ceiling and an Arc Electrode in it. The upgrade then asks for copper coils and steel plate, with the fire at 1200 C. After it, the furnace heats itself with electricity.',
     '12 copper_cable'),
 
   // ---- Current Age ---------------------------------------------------------------------------
+  objective(2, 'pump_water', 'Pump water', place('pump'),
+    'Forge a Pump and set it against a pond. Wire it to power, lay Iron Fluid Pipe to a Tank or a machine, and wrench the pump end so it pulls.'),
   objective(2, 'reach_1900', 'Reach 1900 C', furnaceTemp(1900),
     'No fuel burns this hot. Cable the Arc Furnace to your network, switch on its electric heating and supply about 6 kW.'),
   objective(2, 'make_circuits', 'Make circuits', make('circuit', 2),
@@ -104,7 +108,7 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(2, 'make_tungsten', 'Sinter tungsten', make('tungsten_rod', 4),
     'Wolframite lies deep and yields only to steel. Crush it and smelt the powder at 2000 C into four tungsten rods.'),
   objective(2, 'plasma_furnace', 'Build the Plasma Furnace', furnaceTier(4),
-    'The upgrade asks for tungsten, steel plate, copper coils, circuits and aluminum, with the furnace at 1900 C. The Plasma Furnace draws up to 40 kW, more than copper cable can carry.',
+    'Build a Plasma hearth: plasma casing around at least two by two by two empty cells, with two Power Ports in its walls. The upgrade asks for circuits and tungsten at 1900 C. It draws up to 40 kW, more than copper cable can carry.',
     '12 heavy_cable'),
 
   // ---- Atomic Age ----------------------------------------------------------------------------
@@ -120,7 +124,7 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(3, 'make_star_core', 'Forge the star core', make('star_core'),
     'Six magnet rings, superalloy, fused quartz and circuits, brought together at 3000 C. This is the hardest thing you will ever forge.'),
   objective(3, 'starhearth', 'Build the Starhearth', furnaceTier(5),
-    'Hold the Plasma Furnace at 3000 C and give it the star core and eight deuterium cells.'),
+    'Build a Star hearth of star casing around three by three by three empty cells, with four Power Ports. Hold it at 3000 C and give it the star core and eight deuterium cells.'),
 
   // ---- Star Age ------------------------------------------------------------------------------
   objective(4, 'ignite', 'Ignite the Starhearth', flag('ignited'),

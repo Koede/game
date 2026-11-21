@@ -27,6 +27,8 @@ const ROLE_TEXT: Record<MachineRole, string> = {
   boiler: 'Generator',
   crop: 'Crop',
   bush: 'Plant',
+  tank: 'Storage',
+  hearth_part: 'Hearth',
 };
 
 type At = { x: number; y: number; z: number };

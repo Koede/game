@@ -4,7 +4,7 @@ import {
   block, furnaceTier, item, machine, recipesAt, validateContent,
 } from '../core/registry';
 import type { ObjectiveCondition, RecipeDef, ToolKind } from '../core/types';
-import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, itemPlacing, rawCost, solve, type Progress } from './progression';
+import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, hearthMaterials, itemPlacing, rawCost, solve, type Progress } from './progression';
 import { SPEC } from './specRoster';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
@@ -57,14 +57,14 @@ describe('1. registry validation', () => {
 
 // -------------------------------------------------------------------------------------------------
 describe('2. roster of spec section 2', () => {
-  it('has exactly the 104 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14), air first', () => {
+  it('has exactly the 119 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(104);
+    expect(SPEC.blocks).toHaveLength(119);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
-  it('has exactly the 82 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14)', () => {
-    expect(SPEC.items).toHaveLength(82);
+  it('has exactly the 83 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16)', () => {
+    expect(SPEC.items).toHaveLength(83);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
     expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
@@ -83,7 +83,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(111);
+    expect(RECIPES).toHaveLength(127);
   });
 
   it('has the furnace tiers of table 2.4', () => {
@@ -208,7 +208,9 @@ describe('4. structural rules', () => {
       }
       expect(def.drops, `${def.key} must drop itself`).toEqual([{ item: def.key, count: 1 }]);
       expect(def.minTier, def.key).toBe(0);
-      expect(def.power, def.key).toBe(def.machine === 'crate' ? null : 'device');
+      // Storage of items and fluids, the boiler and the hatches of a hearth never join a power network.
+      const unpowered = ['crate', 'tank', 'boiler', 'item_hatch', 'fluid_hatch'];
+      expect(def.power, def.key).toBe(unpowered.includes(def.machine ?? '') ? null : 'device');
     }
     for (const spec of MACHINES.values()) {
       expect(spec.blocks.length, spec.kind).toBeGreaterThan(0);
@@ -275,7 +277,7 @@ describe('3. progression solver', () => {
       return c.type === 'place' ? [itemPlacing(c.block) ?? ''] : [];
     };
     const consumes = (c: ObjectiveCondition): string[] =>
-      c.type === 'furnaceTier' ? furnaceTier(c.tier).upgradeCost.map((u) => u.item) : asks(c);
+      c.type === 'furnaceTier' ? [...furnaceTier(c.tier).upgradeCost, ...hearthMaterials(c.tier)].map((u) => u.item) : asks(c);
     const asked = new Set<string>();
     const neededBy = new Map<string, string>();
     let stage = 0;
@@ -349,9 +351,10 @@ describe('5. summary', () => {
     lines.push(`textures ${TEXTURE_NAMES.length}: ${TEXTURE_NAMES.length - icons - 1} block faces + ${icons} item icons + 1 missing`);
     lines.push(`raw budget per furnace tier (grid assumed: ${GRID_UNITS} units of a kind):`);
     for (const t of FURNACE_TIERS) {
-      const cost = t.tier === 1 ? [{ item: t.block, count: 1 }] : t.upgradeCost;
+      const cost = t.tier === 1 ? [{ item: t.block, count: 1 }] : [...t.upgradeCost, ...hearthMaterials(t.tier)];
       const raw = [...rawCost(full, cost)].sort((a, b) => b[1] - a[1]).map(([key, n]) => `${Math.ceil(n - 1e-9)} ${key}`);
-      lines.push(`  ${t.tier} ${t.name} (${full.tempC[t.tier]} C reachable): ${raw.join(', ')}`);
+      const shell = hearthMaterials(t.tier).map((m) => `${m.count} ${m.item}`).join(', ');
+      lines.push(`  ${t.tier} ${t.name} (${full.tempC[t.tier]} C reachable)${shell ? ` [shell ${shell}]` : ''}: ${raw.join(', ')}`);
     }
     console.log(`\n${lines.join('\n')}\n`);
     expect(lines.length).toBe(4 + FURNACE_TIERS.length);

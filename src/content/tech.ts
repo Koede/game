@@ -3,9 +3,22 @@
  * and 3.3). Behaviour lives in src/sim; it reads its numbers from here through `machine(kind)` in the registry.
  */
 import { BATTERY_EFFICIENCY, CRATE_SIZE, IGNITION_POWER_W, IGNITION_SECONDS, STARHEARTH_OUTPUT_W } from '../core/constants';
-import type { AgeSpec, FurnaceTierSpec, MachineSpec } from '../core/types';
+import type { AgeSpec, FurnaceTierSpec, HearthStructureSpec, MachineSpec } from '../core/types';
 import { amounts } from './amounts';
 import { ITEM_SPECS } from './items';
+import { TECH_MACHINES } from './techMachines';
+
+/** Hearth wall blocks by tier (spec 17.1). A tier accepts its own wall and every higher tier's. */
+const WALLS = ['brick', 'refractory_brick', 'plasma_casing', 'star_casing'];
+const wallsFrom = (tier: number): string[] => WALLS.slice(tier - 2);
+
+/** The hearth each tier needs (spec 17.1). Crucibles of a formed hearth = min(maxCrucibles, x * z + crucibleBonus). */
+const HEARTHS: Record<number, HearthStructureSpec> = {
+  2: { wall: wallsFrom(2), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', maxCrucibles: 5, crucibleBonus: 1 },
+  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [4, 4, 3], ceiling: 'required', electrodes: 1, maxCrucibles: 6, crucibleBonus: 1 },
+  4: { wall: wallsFrom(4), minInner: [2, 2, 2], maxInner: [5, 5, 4], ceiling: 'required', powerPorts: 2, maxCrucibles: 8, crucibleBonus: 2 },
+  5: { wall: wallsFrom(5), minInner: [3, 3, 3], maxInner: [5, 5, 5], ceiling: 'required', powerPorts: 4, maxCrucibles: 9, crucibleBonus: 0 },
+};
 
 export const AGES: AgeSpec[] = [
   { key: 'ember', name: 'Ember Age', blurb: 'A clay furnace, a wood fire, and the first metal you ever poured.' },
@@ -25,25 +38,25 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
   {
     tier: 2, block: 'furnace_blast', name: 'Blast Furnace', age: 1,
     maxTempC: 1500, heatCapacityJ: 300, lossWPerC: 2.5, crucibles: 2, fuelSlots: 2, speed: 1.25, electricHeatW: 0, warmth: 8,
-    upgradeCost: amounts('12 firebrick, 8 bronze_ingot, 1 bellows'), upgradeTempC: 700,
-    blurb: 'Firebrick holds the heat that clay could not. Iron, steel and your first real machines come from here.',
+    upgradeCost: amounts('4 bronze_ingot, 1 bellows'), upgradeTempC: 700, structure: HEARTHS[2],
+    blurb: 'A hearth of brick holds the heat that clay could not. Iron, steel and your first real machines come from here.',
   },
   {
     tier: 3, block: 'furnace_arc', name: 'Arc Furnace', age: 2,
     maxTempC: 2100, heatCapacityJ: 400, lossWPerC: 3, crucibles: 3, fuelSlots: 2, speed: 1.5, electricHeatW: 8000, warmth: 10,
-    upgradeCost: amounts('3 graphite_electrode, 4 copper_coil, 8 steel_plate, 8 firebrick'), upgradeTempC: 1200,
-    blurb: 'Cable it to your network and it heats itself with up to 8 kW, far past anything a fuel can reach.',
+    upgradeCost: amounts('2 copper_coil, 2 steel_plate'), upgradeTempC: 1200, structure: HEARTHS[3],
+    blurb: 'Refractory walls and an arc in the ceiling. Cable it to your network and it heats itself with up to 8 kW, far past anything a fuel can reach.',
   },
   {
     tier: 4, block: 'furnace_plasma', name: 'Plasma Furnace', age: 3,
     maxTempC: 3200, heatCapacityJ: 800, lossWPerC: 8, crucibles: 4, fuelSlots: 2, speed: 2, electricHeatW: 40000, warmth: 12,
-    upgradeCost: amounts('4 tungsten_rod, 8 steel_plate, 6 copper_coil, 3 circuit, 4 aluminum_ingot'), upgradeTempC: 1900,
-    blurb: 'Plasma held by tungsten. It draws up to 40 kW, so copper cable will no longer do.',
+    upgradeCost: amounts('2 circuit, 2 tungsten_rod'), upgradeTempC: 1900, structure: HEARTHS[4],
+    blurb: 'Plasma held in a casing of tungsten and steel. It draws up to 40 kW through its power ports, so copper cable will no longer do.',
   },
   {
     tier: 5, block: 'furnace_star', name: 'Starhearth', age: 4,
     maxTempC: 3200, heatCapacityJ: 800, lossWPerC: 8, crucibles: 4, fuelSlots: 2, speed: 3, electricHeatW: 40000, warmth: 24,
-    upgradeCost: amounts('1 star_core, 8 deuterium_cell'), upgradeTempC: 3000,
+    upgradeCost: amounts('1 star_core, 8 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[5],
     blurb: 'A star core in a furnace body. Hold 3000 C, deliver 300 kW for 90 seconds, and it will burn on its own forever.',
   },
 ];
@@ -94,10 +107,13 @@ export const MACHINE_SPECS: MachineSpec[] = [
   },
   // steam_engine - same formula as the thermopile, for the furnace directly below it. params:
   //   wattsPerC, minTempC, capW, heatPerWatt   as for the thermopile
-  //   minWater     water blocks needed among its 4 horizontal neighbours
+  //   minWater         water blocks needed among its 4 horizontal neighbours
+  //   pipedWaterLPerS  piped water (spec 16.2) replaces the water blocks while its buffer can supply this many litres
+  //                    a second; that much boils away each second it runs on it
   {
     kind: 'steam_engine', name: 'Steam Engine', role: 'generator', blocks: ['steam_engine'], outputW: 2000,
-    params: { wattsPerC: 4, minTempC: 250, capW: 2000, heatPerWatt: 3, minWater: 1 },
+    params: { wattsPerC: 4, minTempC: 250, capW: 2000, heatPerWatt: 3, minWater: 1, pipedWaterLPerS: 10 },
+    fluids: { accepts: ['water'], capacityL: 1000 },
     desc: 'Makes 4 W for every degree the furnace beneath it is above 250 C, up to 2 kW. It takes three times that out of the fire as heat.',
     placementHint: 'Goes on top of a furnace, with water against one of its sides.',
   },
@@ -137,20 +153,25 @@ export const MACHINE_SPECS: MachineSpec[] = [
     placementHint: 'Needs open sky above.',
   },
   // combustion_engine - load-following. slots: 1 fuel slot. Electric joules per canister = fuelEnergyJ * efficiency
-  // (2.4 MJ, 200 s at full load). params:
-  //   fuelEnergyJ  heat in one fuel canister
+  // (2.4 MJ, 200 s at full load). It also burns piped refined fuel (spec 16.2). params:
+  //   fuelEnergyJ       heat in one fuel canister
+  //   fuelLPerCanister  litres of refined fuel worth one canister's energy
   {
     kind: 'combustion_engine', name: 'Combustion Engine', role: 'generator', blocks: ['combustion_engine'], outputW: 12000,
     fuels: ['fuel_canister'], efficiency: 0.4, slots: 1,
-    params: { fuelEnergyJ: 6_000_000 },
+    params: { fuelEnergyJ: 6_000_000, fuelLPerCanister: 1000 },
+    fluids: { accepts: ['fuel'], capacityL: 4000 },
     desc: 'Makes up to 12 kW. Each fuel canister gives 2.4 MJ of electricity, burned only as fast as the network draws.',
   },
-  // geothermal_tap - never depletes. params:
+  // geothermal_tap - never depletes on lava blocks; piped lava (spec 16.2) is used up. params:
   //   wattsPerLava  watts per lava block among its 6 neighbours
   //   capW          most it can deliver
+  //   lavaLPerRun   litres of piped lava that run it ...
+  //   lavaRunS      ... this many seconds at capW (output scales with what is used)
   {
     kind: 'geothermal_tap', name: 'Geothermal Tap', role: 'generator', blocks: ['geothermal_tap'], outputW: 6000,
-    params: { wattsPerLava: 2000, capW: 6000 },
+    params: { wattsPerLava: 2000, capW: 6000, lavaLPerRun: 1000, lavaRunS: 600 },
+    fluids: { accepts: ['lava'], capacityL: 2000 },
     desc: 'Makes 2 kW for every lava block touching it, up to 6 kW, for as long as the lava stays.',
     placementHint: 'Must touch lava.',
   },
@@ -169,13 +190,15 @@ export const MACHINE_SPECS: MachineSpec[] = [
   //   warnRadiation    radiation dose it emits while at or above warnTempC
   //   warnRadius       reach of that radiation, in blocks
   //   alarmIntervalS   seconds between alarm sounds while at or above warnTempC
+  //   pipedWaterLPerS  piped water at this many litres a second counts as cooled (spec 16.2); that much is used up
   {
     kind: 'fission_pile', name: 'Fission Pile', role: 'generator', blocks: ['fission_pile'], outputW: 60000,
     fuels: ['fuel_rod'], efficiency: 1, slots: 1,
     params: {
       rodEnergyJ: 72_000_000, minWater: 2, runTempC: 600, warnTempC: 900, meltdownTempC: 1200, meltdownSeconds: 10,
-      heatRateC: 8, coolRateC: 20, blastRadius: 3, warnRadiation: 4, warnRadius: 6, alarmIntervalS: 2,
+      heatRateC: 8, coolRateC: 20, blastRadius: 3, warnRadiation: 4, warnRadius: 6, alarmIntervalS: 2, pipedWaterLPerS: 100,
     },
+    fluids: { accepts: ['water'], capacityL: 2000 },
     desc: 'Makes 60 kW for twenty minutes per fuel rod. Without water on two sides the core overheats: at 900 C the alarm sounds, and ten seconds at 1200 C is a meltdown.',
     placementHint: 'Needs water on at least two of its six sides.',
   },
@@ -217,9 +240,14 @@ export const MACHINE_SPECS: MachineSpec[] = [
     kind: 'crusher', name: 'Crusher', role: 'consumer', blocks: ['crusher'], drawW: 1000, slots: 2,
     desc: 'Draws 1 kW. Every 4 seconds it grinds one block into two portions.',
   },
+  // still - besides its recipe it refines piped crude oil (spec 16.2), one run at a time. params:
+  //   oilPerRunL, fuelPerRunL  litres of crude oil in and refined fuel out per run
+  //   oilRunS                  seconds per run (energy = drawW * oilRunS, like its recipe)
   {
     kind: 'still', name: 'Still', role: 'consumer', blocks: ['still'], drawW: 2000, slots: 2,
-    desc: 'Draws 2 kW. Every 20 seconds it cooks two oil shale into a fuel canister.',
+    params: { oilPerRunL: 500, fuelPerRunL: 400, oilRunS: 20 },
+    fluids: { accepts: ['crude_oil'], gives: ['fuel'], capacityL: 4000 },
+    desc: 'Draws 2 kW. Every 20 seconds it cooks two oil shale into a fuel canister, or 500 litres of piped crude oil into 400 of fuel.',
   },
   // bore_rig - slots: 9, the buffer its finds go to; it pauses while that is full. params:
   //   secondsPerBlock  time to mine one block of the column below it
@@ -235,10 +263,12 @@ export const MACHINE_SPECS: MachineSpec[] = [
     desc: 'Draws 8 kW. Every 20 seconds it refines four yellowcake into one enriched pellet.',
   },
   // electrolyzer - params:
-  //   minWater  water blocks needed among its 6 neighbours for it to run at all
+  //   minWater         water blocks needed among its 6 neighbours for it to run at all
+  //   pipedWaterLPerS  piped water at this many litres a second counts as touching water; that much is used up
   {
     kind: 'electrolyzer', name: 'Electrolyzer', role: 'consumer', blocks: ['electrolyzer'], drawW: 20000, slots: 2,
-    params: { minWater: 1 },
+    params: { minWater: 1, pipedWaterLPerS: 100 },
+    fluids: { accepts: ['water'], capacityL: 1000 },
     desc: 'Draws 20 kW. Every 45 seconds it fills an empty cell with deuterium, for as long as it touches water.',
     placementHint: 'Must touch water.',
   },
@@ -270,4 +300,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
     desc: 'A wild bush that fruits again five minutes after it is picked, wherever it stands.',
     placementHint: 'Plant on grass, dirt or peat.',
   },
+
+  // ---- transport and hearths (spec 16-17) ----
+  ...TECH_MACHINES,
 ];
