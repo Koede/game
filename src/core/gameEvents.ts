@@ -149,6 +149,11 @@ export interface GameEvents {
   'block:mining': { x: number; y: number; z: number; progress: number };
   /** A block was broken by the player (after the voxel was already replaced). */
   'block:broken': { x: number; y: number; z: number; voxel: Voxel };
+  /**
+   * A leaf block fell away because no log held it any more (world/leafDecay.ts). `drops` is its rolled drop table: there
+   * are no item entities, so game/leafDrops.ts hands them to the player when one is close, else they are lost.
+   */
+  'leaves:decayed': { x: number; y: number; z: number; voxel: Voxel; drops: ItemAmount[] };
   /** A block was placed by the player. */
   'block:placed': { x: number; y: number; z: number; voxel: Voxel };
   'player:damage': { amount: number; cause: DamageCause; health: number };

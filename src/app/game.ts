@@ -8,6 +8,7 @@
  */
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
+import { collectLeafDrops } from '../game/leafDrops';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
@@ -93,6 +94,7 @@ export class Game {
     this.settings = settings;
     this.pool = opts.pool;
     const { bus, world, player, clock, sim, survival, objectives } = state;
+    this.offs.push(collectLeafDrops(bus, player));
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
@@ -227,7 +229,7 @@ export class Game {
     } else {
       this.controller.update(dt);
       const ticks = this.step.advance(dt);
-      for (let i = 0; i < ticks; i++) state.tick(DT);
+      for (let i = 0; i < ticks; i++) this.tickOnce();
     }
     const p = state.player;
     // Nothing moves while paused: chunks stream again on resume.
@@ -285,7 +287,13 @@ export class Game {
 
   /** Runs `n` fixed simulation ticks right now (debug / tests). */
   tick(n: number): void {
-    for (let i = 0; i < n; i++) this.state.tick(DT);
+    for (let i = 0; i < n; i++) this.tickOnce();
+  }
+
+  /** One fixed step: the game state, then leaf decay (world/leafDecay.ts) beside the water ticks. */
+  private tickOnce(): void {
+    this.state.tick(DT);
+    this.state.world.leaves.tick();
   }
 
   toSave(): WorldSave {

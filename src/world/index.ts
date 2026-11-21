@@ -15,3 +15,7 @@ export {
   isFlowingWater, isFallingWater, isLiquidSource, isOpenForWater, waterLevel, waterHeight, currentStrength, flowDirection, currentAt,
   refillsAsSource, type VoxelReader,
 } from './water';
+export {
+  LeafDecay, LEAF_LOG_DISTANCE, LEAF_DELAY_MIN, LEAF_DELAY_MAX, LEAF_PEEL_MIN, LEAF_PEEL_MAX, LEAF_MAX_PER_TICK, isLeafVoxel, isLogVoxel,
+  checkLeafSnapshot, type LeafHost, type LeafSnapshot, type LeafStats,
+} from './leafDecay';

@@ -14,3 +14,4 @@ export * from './drink';
 export * from './farming';
 export * from './weather';
 export * from './weatherSchedule';
+export * from './leafDrops';

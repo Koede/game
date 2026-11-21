@@ -4,6 +4,7 @@
  * of it. Voxel data lives on the main thread; generation and meshing run on the worker pool.
  */
 import type { GameBus } from '../core/context';
+import { mulberry32 } from '../core/math';
 import { BLOCKS, blockId } from '../core/registry';
 import {
   AIR, CHUNK_SIZE, WORLD_HEIGHT, makeVoxel, voxelId, voxelIndex,
@@ -13,6 +14,7 @@ import { chunkCoord, chunkKey, localCoord, type Chunk } from './chunk';
 import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
 import { WaterFlow, checkWaterSnapshot, type WaterSnapshot } from './flow';
+import { LeafDecay, checkLeafSnapshot, rollLeafDrops, type LeafSnapshot } from './leafDecay';
 import { CRATE_VOXEL, ruinCrateEntity } from './ruinCrates';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
@@ -34,6 +36,8 @@ export interface WorldSnapshot {
   entities: BlockEntity[];
   /** Water still on its way (spec 18.2); absent in saves from before flowing water (nothing pending). */
   water?: WaterSnapshot;
+  /** Leaves still waiting to decay; absent in saves from before leaf decay. */
+  leaves?: LeafSnapshot;
 }
 
 /** Numbers for a debug overlay. */
@@ -57,6 +61,8 @@ export class World implements IWorld {
   readonly pool: WorkerPool;
   /** Flowing water (spec 18.2): the game ticks it at 20 Hz with `water.tick()`; it saves with the world. */
   readonly water: WaterFlow;
+  /** Leaf decay: the game ticks it at 20 Hz with `leaves.tick()`; it saves with the world. */
+  readonly leaves: LeafDecay;
   private readonly chunks = new Map<number, Chunk>();
   private readonly edits = new EditLog();
   private readonly entityStore = new EntityStore();
@@ -68,6 +74,7 @@ export class World implements IWorld {
 
   constructor(seed: number, readonly bus: GameBus, options: WorldOptions = {}) {
     this.currentSeed = seed >>> 0;
+    const leafRng = mulberry32(this.currentSeed ^ 0x1eaf);
     this.ownsPool = !options.pool;
     this.pool = options.pool ?? new WorkerPool('');
     const world = this;
@@ -86,6 +93,12 @@ export class World implements IWorld {
       chunk: (cx, cz) => this.chunks.get(chunkKey(cx, cz))?.voxels ?? null,
       setVoxel: (x, y, z, voxel, source) => this.setVoxel(x, y, z, voxel, source),
     });
+    this.leaves = new LeafDecay({
+      getVoxel: (x, y, z) => this.getVoxel(x, y, z),
+      isLoaded: (x, z) => this.isLoaded(x, z),
+      setVoxel: (x, y, z, voxel, source) => this.setVoxel(x, y, z, voxel, source),
+      decayed: (x, y, z, voxel) => this.bus.emit('leaves:decayed', { x, y, z, voxel, drops: rollLeafDrops(voxel, leafRng) }),
+    }, leafRng);
     this.offChunkLoaded = bus.on('chunk:loaded', ({ cx, cz }) => {
       this.placeRuinCrates(cx, cz);
       this.water.chunkLoaded(cx, cz);
@@ -137,6 +150,7 @@ export class World implements IWorld {
     this.streamer.onEdit(chunk, lx, lz, from, voxel, source);
     this.bus.emit('block:changed', { x: bx, y: by, z: bz, from, to: voxel, source });
     this.water.changed(bx, by, bz, from, voxel, source);
+    this.leaves.changed(bx, by, bz, from, voxel, source);
     return true;
   }
 
@@ -232,6 +246,7 @@ export class World implements IWorld {
       edits: this.edits.toJSON(),
       entities: options?.shared === true ? live : (JSON.parse(JSON.stringify(live)) as BlockEntity[]),
       water: this.water.toJSON(),
+      leaves: this.leaves.toJSON(),
     };
   }
 
@@ -254,6 +269,13 @@ export class World implements IWorld {
       console.warn('[world] pending water could not be restored; it rests where it is', err);
       water = undefined;
     }
+    let leaves = snapshot.leaves;
+    try {
+      checkLeafSnapshot(leaves);
+    } catch (err) {
+      console.warn('[world] pending leaf decay could not be restored', err);
+      leaves = undefined;
+    }
     this.edits.load(snapshot.edits ?? {});
     this.streamer.unloadAll();
     this.streamer.dispose();
@@ -261,6 +283,7 @@ export class World implements IWorld {
     this.entityStore.clear();
     for (const e of snapshot.entities) this.entityStore.set(JSON.parse(JSON.stringify(e)) as BlockEntity);
     this.water.load(water);
+    this.leaves.load(leaves);
     this.streamer = new ChunkStreamer(this.host);
   }
 
