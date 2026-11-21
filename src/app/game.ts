@@ -113,7 +113,7 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input, animals: state.mobs });
+      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input, animals: state.mobs, transport: sim });
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {

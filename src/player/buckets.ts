@@ -105,16 +105,19 @@ export class Buckets {
     return 'pail';
   }
 
-  /** Replaces the held (single) bucket with another bucket item in the same slot. */
   private swapHeld(item: string): void {
-    if (!itemOrNull(item)) return;
-    const { player } = this.host;
-    const inv = player.inventory;
-    const slot = player.selectedSlot;
-    inv.batch(() => {
-      inv.removeAt(slot, 1);
-      if (inv.get(slot) === null) inv.set(slot, { item, count: 1 });
-      else player.give(item, 1);
-    });
+    swapHeldItem(this.host.player, item);
   }
+}
+
+/** Replaces one of the held item (a bucket) with `item` in the same slot (or the pack when the slot still holds more). */
+export function swapHeldItem(player: PlayerState, item: string): void {
+  if (!itemOrNull(item)) return;
+  const inv = player.inventory;
+  const slot = player.selectedSlot;
+  inv.batch(() => {
+    inv.removeAt(slot, 1);
+    if (inv.get(slot) === null) inv.set(slot, { item, count: 1 });
+    else player.give(item, 1);
+  });
 }

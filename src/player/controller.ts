@@ -13,6 +13,7 @@ import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
+import type { TransportHands } from './pipeTools';
 import { createRayHit, raycast, type RayHit } from './raycast';
 
 /** Where the controller gets its per-frame intent (the InputManager, or a script in tests and harnesses). */
@@ -35,6 +36,8 @@ export interface PlayerControllerOptions {
   rng?: () => number;
   /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
   animals?: AnimalTargets;
+  /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
+  transport?: TransportHands;
 }
 
 const seesLiquids = (item: string | undefined): boolean => item !== undefined && SCOOPING_BUCKETS.has(item);
@@ -95,7 +98,7 @@ export class PlayerController {
     this.settings = options.settings;
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
-    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random);
+    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {

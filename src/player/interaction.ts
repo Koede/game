@@ -30,6 +30,7 @@ import {
 } from '../game';
 import { digSound, facingTowards, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import { Buckets } from './buckets';
+import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
 
 export { digSound, facingTowards, screenFor } from './blockRules';
@@ -55,7 +56,7 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'picked' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'picked' | 'wrenched' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -73,6 +74,7 @@ export class Interaction {
   private clock = 0;
   private readonly advice = new Map<string, number>();
   private readonly buckets: Buckets;
+  private readonly pipes: PipeTools;
 
   constructor(
     private readonly world: IWorld,
@@ -81,6 +83,7 @@ export class Interaction {
     private readonly body: BodyProbe,
     private readonly swing: SwingTarget,
     private readonly rng: () => number = Math.random,
+    transport: TransportHands | null = null,
   ) {
     const self = this;
     this.buckets = new Buckets({
@@ -95,6 +98,12 @@ export class Interaction {
       edited: () => this.edits++,
       swing: () => swing.triggerSwing(),
     });
+    this.pipes = new PipeTools({
+      world, bus, player,
+      advise: (key, text) => this.advise(key, text),
+      swing: () => swing.triggerSwing(),
+      stopMining: () => this.stopMining(),
+    }, transport);
   }
 
   get mining(): boolean {
@@ -106,6 +115,7 @@ export class Interaction {
     this.clock += dt;
     this.breakCooldown = Math.max(0, this.breakCooldown - dt);
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
+    this.pipes.update(dt);
     if (!mineHeld || !hit || hit.block.liquid !== null || this.player.dead) {
       this.stopMining();
       return;
@@ -146,10 +156,15 @@ export class Interaction {
 
   /**
    * "Use" on the target, in the priority of spec 3.6. `hit` should come from a ray that includes liquids when
-   * an empty pail is held (so water can be scooped) and skips them otherwise.
+   * an empty pail is held (so water can be scooped) and skips them otherwise. Pipes and fluid blocks come first
+   * (pipeTools.ts): the wrench, a bucket on a tank or fluid endpoint, the pipe screen.
    */
   use(hit: RayHit | null): UseOutcome {
     if (this.player.dead) return 'none';
+    if (hit) {
+      const piped = this.pipes.use(hit, this.player.heldStack()?.item ?? null);
+      if (piped !== null) return piped;
+    }
     const screen = hit && hit.block.liquid === null ? screenFor(hit.block, hit.x, hit.y, hit.z) : null;
     if (screen) {
       this.stopMining();
