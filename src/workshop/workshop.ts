@@ -15,7 +15,9 @@ import type { GameBus } from '../core/context';
 import { blockOrNull, itemOrNull, recipesAt } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
 import { MECH_TWINS } from '../content/itemsWorkshop';
+import { PART_DEFS } from '../content/itemsWorkshopParts';
 import type { GroundItems } from '../game/groundItems';
+import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, solveNetwork, type KPart, type Source } from './kinetics';
 
 export const CRANK_RPM = 16;
 /** Seconds a crank keeps turning after one Use (holding Use repeats it). */
@@ -23,7 +25,19 @@ export const CRANK_S = 2.5;
 /** Stress units one turning crank carries. */
 export const CRANK_CAPACITY = 8;
 /** Stress units per part (cranks and shafts cost nothing). */
-export const STRESS: Record<string, number> = { conveyor_belt: 0.25, mech_saw: 4, mech_millstone: 4, mech_mortar: 4, mech_loom: 2 };
+export const STRESS: Record<string, number> = BASE_STRESS;
+/** Generators that also turn a shaft they touch: rpm, and stress units per watt they make. */
+export const GENERATOR_SHAFT: Record<string, { rpm: number; suPerW: number }> = {
+  water_wheel: { rpm: 12, suPerW: 1 / 50 }, wind_turbine: { rpm: 16, suPerW: 1 / 50 }, steam_engine: { rpm: 24, suPerW: 1 / 50 },
+};
+/** Clockwork motor: rpm, capacity, seconds per wind and the most it holds. */
+export const CLOCKWORK = { rpm: 24, capacity: 48, windS: 30, maxS: 120 };
+/** Stress capacity factor of an oiled network: Heavy Residue (the distillery's lube base) and pine resin. */
+export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1.1, s: 300 } } as const;
+/** Furthest a chain / belt link reaches along a line, blocks. */
+export const LINK_RANGE: Record<string, number> = { chain_sprocket: 16, belt_pulley: 9 };
+/** Settings that Use cycles: how many states each part has. */
+const CYCLES: Record<string, number> = { ratio_dial: DIAL_RATIOS.length, governor: GOVERNOR_NOTCHES.length, sequence_gearshift: GEARSHIFT_PROGRAMS.length, belt_pulley: PULLEY_SIZES.length, clutch: 2 };
 /** Seconds per recipe stroke at 16 rpm. */
 export const STROKE_S = 0.5;
 /** Blocks per second a belt moves items at 16 rpm. */
@@ -33,7 +47,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block)]);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.map((d) => d.key), ...Object.keys(GENERATOR_SHAFT)]);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -42,21 +56,33 @@ const DIRS: [number, number, number][] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 
 /** Facing -> unit vector of the side the block faces (North = -Z). */
 export const FACE_VEC: Record<number, [number, number]> = { [Facing.North]: [0, -1], [Facing.East]: [1, 0], [Facing.South]: [0, 1], [Facing.West]: [-1, 0] };
 
-interface Part { x: number; y: number; z: number; kind: string }
+interface Part { x: number; y: number; z: number; kind: string; /** setting (ratio index, clutch engaged, program, notch) */ s: number }
 interface MachineState { buffer: Record<string, number>; progress: number; recipe: string | null }
-export interface NetInfo { rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number }
+export interface NetInfo { rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number; jammed?: boolean }
 
 export interface WorkshopSnapshot {
   v: 1;
-  parts: [number, number, number, string][];
+  parts: ([number, number, number, string] | [number, number, number, string, number])[];
+  /** Clockwork wind left (s) and lubricant left (s) per part key. */
+  wound?: Record<string, number>;
+  lube?: Record<string, number>;
   machines: [number, number, number, Record<string, number>, number, string | null][];
 }
+
+/** Seconds of clockwork a tick spends. */
+const DT_WIND = 0.05;
 
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
 export class Workshop {
   private readonly parts = new Map<string, Part>();
   private readonly cranks = new Map<string, number>();
+  private readonly wound = new Map<string, number>();
+  private readonly lube = new Map<string, number>();
+  private readonly lubeFactor = new Map<string, number>();
+  private clock = 0;
+  /** Watts a generator block makes right now (the sim's machine view); null = generators do not turn shafts. */
+  generatorWatts: ((x: number, y: number, z: number) => number) | null = null;
   private readonly machines = new Map<string, MachineState>();
   /** rpm of every turning part this tick, and the network facts per part. */
   private readonly speed = new Map<string, number>();
@@ -80,7 +106,7 @@ export class Workshop {
     if (KINETIC.has(kind)) {
       const was = this.parts.get(key);
       if (!was || was.kind !== kind) {
-        this.parts.set(key, { x, y, z, kind });
+        this.parts.set(key, { x, y, z, kind, s: kind === 'clutch' ? 1 : 0 });
         if (TWIN.has(kind)) this.machines.set(key, { buffer: {}, progress: 0, recipe: null });
       }
       return;
@@ -92,6 +118,9 @@ export class Workshop {
     this.parts.delete(key);
     this.machines.delete(key);
     this.cranks.delete(key);
+    this.wound.delete(key);
+    this.lube.delete(key);
+    this.lubeFactor.delete(key);
   }
 
   // ---- Use ------------------------------------------------------------------------------------------
@@ -106,6 +135,28 @@ export class Workshop {
       const first = !this.cranks.has(key) || (this.cranks.get(key) ?? 0) <= 0;
       this.cranks.set(key, CRANK_S);
       if (first) this.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 0.6, volume: 0.5 });
+      return 'worked';
+    }
+    if (part.kind === 'clockwork_motor' && !(held && blockOrNull(held.item))) {
+      this.wound.set(key, Math.min(CLOCKWORK.maxS, (this.wound.get(key) ?? 0) + CLOCKWORK.windS));
+      this.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.4, volume: 0.5 });
+      this.bus.emit('toast', { text: `Wound: ${Math.round(this.wound.get(key) ?? 0)} s of turning`, kind: 'info' });
+      return 'worked';
+    }
+    if (held && (held.item === 'residue_canister' || held.item === 'pine_resin') && part.kind !== 'hand_crank' && !blockOrNull(held.item)) {
+      const lube = held.item === 'residue_canister' ? LUBE.residue : LUBE.pine_resin;
+      for (const k of this.netMembers(key)) {
+        this.lube.set(k, lube.s);
+        this.lubeFactor.set(k, lube.factor);
+      }
+      takeHeld(1);
+      this.bus.emit('toast', { text: `Oiled: this network carries ${Math.round((lube.factor - 1) * 100)}% more for ${Math.round(lube.s / 60)} min`, kind: 'info' });
+      return 'worked';
+    }
+    if (CYCLES[part.kind] && !(held && blockOrNull(held.item))) {
+      part.s = (part.s + 1) % CYCLES[part.kind];
+      this.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.1 + part.s * 0.1, volume: 0.4 });
+      this.bus.emit('toast', { text: this.setting(part) ?? '', kind: 'info' });
       return 'worked';
     }
     const twin = TWIN.get(part.kind);
@@ -125,6 +176,13 @@ export class Workshop {
   // ---- Simulation -------------------------------------------------------------------------------------
 
   tick(dt: number): void {
+    this.clock += dt;
+    for (const [k, s] of this.lube) {
+      if (s - dt <= 0) {
+        this.lube.delete(k);
+        this.lubeFactor.delete(k);
+      } else this.lube.set(k, s - dt);
+    }
     for (const [k, s] of this.cranks) {
       if (s - dt <= 0) this.cranks.delete(k);
       else this.cranks.set(k, s - dt);
@@ -135,55 +193,106 @@ export class Workshop {
     this.work(dt);
   }
 
+  /** Keys of the part and everything it touches or is linked to (clutches and all). */
+  private netMembers(start: string): string[] {
+    const seen = new Set([start]);
+    const queue = [start];
+    for (let i = 0; i < queue.length && queue.length < MAX_NET; i++) {
+      for (const n of this.neighbours(queue[i])) {
+        if (!seen.has(n)) {
+          seen.add(n);
+          queue.push(n);
+        }
+      }
+    }
+    return queue;
+  }
+
+  /** The six touching parts plus the chain / belt partners a sprocket or pulley reaches along a line. */
+  private neighbours(key: string): string[] {
+    const p = this.parts.get(key);
+    if (!p) return [];
+    const out: string[] = [];
+    for (const [dx, dy, dz] of DIRS) {
+      const n = k3(p.x + dx, p.y + dy, p.z + dz);
+      if (this.parts.has(n)) out.push(n);
+    }
+    const range = LINK_RANGE[p.kind];
+    if (range) {
+      for (const [dx, dy, dz] of DIRS) {
+        if (dy !== 0) continue;
+        for (let d = 2; d <= range; d++) {
+          const n = k3(p.x + dx * d, p.y, p.z + dz * d);
+          const q = this.parts.get(n);
+          if (q && q.kind === p.kind) {
+            out.push(n);
+            break;
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  private sourceFor(key: string, p: Part): Source | null {
+    if (p.kind === 'hand_crank') return this.cranks.has(key) ? { rpm: CRANK_RPM, capacity: CRANK_CAPACITY } : null;
+    if (p.kind === 'clockwork_motor') return (this.wound.get(key) ?? 0) > 0 ? { rpm: CLOCKWORK.rpm, capacity: CLOCKWORK.capacity } : null;
+    const g = GENERATOR_SHAFT[p.kind];
+    if (g) {
+      const w = this.generatorWatts?.(p.x, p.y, p.z) ?? 0;
+      return w > 0 ? { rpm: g.rpm, capacity: w * g.suPerW } : null;
+    }
+    const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
+    return extra > 0 ? { rpm: extra, capacity: CRANK_CAPACITY } : null;
+  }
+
   private solve(): void {
     this.speed.clear();
     this.netOf.clear();
     const seen = new Set<string>();
     for (const [start, part] of this.parts) {
       if (seen.has(start)) continue;
-      const members: string[] = [];
-      const queue = [start];
-      seen.add(start);
-      while (queue.length && members.length < MAX_NET) {
-        const key = queue.pop() as string;
-        members.push(key);
-        const p = this.parts.get(key) as Part;
-        for (const [dx, dy, dz] of DIRS) {
-          const n = k3(p.x + dx, p.y + dy, p.z + dz);
-          if (!seen.has(n) && this.parts.has(n)) {
-            seen.add(n);
-            queue.push(n);
-          }
-        }
-      }
-      let rpm = 0;
-      let capacity = 0;
-      let stress = 0;
+      const members = this.netMembers(start);
+      for (const m of members) seen.add(m);
+      const sources = new Map<string, Source>();
+      let lube = 1;
       for (const key of members) {
         const p = this.parts.get(key) as Part;
-        stress += STRESS[p.kind] ?? 0;
-        if (p.kind === 'hand_crank' && this.cranks.has(key)) {
-          rpm = Math.max(rpm, CRANK_RPM);
-          capacity += CRANK_CAPACITY;
-        }
-        const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
-        if (extra > 0) {
-          rpm = Math.max(rpm, extra);
-          capacity += CRANK_CAPACITY;
-        }
+        const src = this.sourceFor(key, p);
+        if (src) sources.set(key, src);
+        lube = Math.max(lube, this.lubeFactor.get(key) ?? 1);
+        if (p.kind === 'clockwork_motor' && src) this.wound.set(key, Math.max(0, (this.wound.get(key) ?? 0) - DT_WIND));
       }
-      const overstressed = rpm > 0 && stress > capacity;
-      const info: NetInfo = { rpm: overstressed ? 0 : rpm, stress, capacity, overstressed, parts: members.length };
+      const solved = solveNetwork({
+        members, sources, t: this.clock, capacityFactor: lube,
+        part: (k): KPart => this.parts.get(k) as Part,
+        neighbours: (k) => this.neighbours(k),
+      });
+      const maxRpm = [...solved.rpm.values()].reduce((m, r) => Math.max(m, Math.abs(r)), 0);
+      const overstressed = sources.size > 0 && !solved.jam && solved.stress > solved.capacity;
+      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm, stress: solved.stress, capacity: solved.capacity, overstressed, parts: members.length, jammed: solved.jam };
       for (const key of members) {
         this.netOf.set(key, info);
-        if (info.rpm > 0) this.speed.set(key, info.rpm);
+        const r = solved.rpm.get(key);
+        if (!overstressed && r !== undefined && r !== 0) this.speed.set(key, r);
       }
-      if (overstressed && !this.seizedWarned.has(start)) {
+      if ((overstressed || solved.jam) && !this.seizedWarned.has(start)) {
         this.seizedWarned.add(start);
-        const p = part;
-        this.bus.emit('toast', { text: `Too much load: ${stress} on ${capacity} stress units. Add a crank or take a machine off`, kind: 'warn' });
-        this.bus.emit('sfx', { name: 'error', x: p.x + 0.5, y: p.y + 0.5, z: p.z + 0.5 });
-      } else if (!overstressed) this.seizedWarned.delete(start);
+        this.bus.emit('toast', { text: solved.jam ? 'The gears fight each other: two sources or routes turn one part differently' : `Too much load: ${fmt(solved.stress)} on ${fmt(solved.capacity)} stress units. Add a source or take a machine off`, kind: 'warn' });
+        this.bus.emit('sfx', { name: 'error', x: part.x + 0.5, y: part.y + 0.5, z: part.z + 0.5 });
+      } else if (!overstressed && !solved.jam) this.seizedWarned.delete(start);
+    }
+  }
+
+  /** One-line reading of a part's setting, for the toast and the goggles. */
+  private setting(p: Part): string | null {
+    switch (p.kind) {
+      case 'ratio_dial': return `Ratio dial: speed x${DIAL_RATIOS[p.s]}`;
+      case 'governor': return `Governor: at most ${GOVERNOR_NOTCHES[p.s]} rpm`;
+      case 'sequence_gearshift': return `Gearshift program ${p.s + 1} of ${GEARSHIFT_PROGRAMS.length}`;
+      case 'belt_pulley': return `Pulley size ${PULLEY_SIZES[p.s]}`;
+      case 'clutch': return p.s ? 'Clutch engaged' : 'Clutch released';
+      default: return null;
     }
   }
 
@@ -207,11 +316,12 @@ export class Workshop {
       const part = this.parts.get(key);
       if (!part || part.kind !== 'conveyor_belt') continue;
       const rpm = this.speed.get(key) ?? 0;
-      if (rpm <= 0) continue;
+      if (rpm === 0) continue;
       const [fx, fz] = FACE_VEC[voxelFacing(this.world.getVoxel(bx, by, bz))];
-      const dx = -fx;
-      const dz = -fz;
-      const step = (BELT_SPEED * rpm) / 16 * dt;
+      const dir = rpm > 0 ? -1 : 1;
+      const dx = fx * dir;
+      const dz = fz * dir;
+      const step = (BELT_SPEED * Math.abs(rpm)) / 16 * dt;
       // Keep items on the middle line of the belt.
       const cx = bx + 0.5;
       const cz = bz + 0.5;
@@ -261,7 +371,7 @@ export class Workshop {
     for (const [key, m] of this.machines) {
       const p = this.parts.get(key);
       if (!p) continue;
-      const rpm = this.speed.get(key) ?? 0;
+      const rpm = Math.abs(this.speed.get(key) ?? 0);
       if (rpm <= 0) continue;
       this.takeFromTop(key, p);
       const r = m.recipe ? recipesAt(TWIN.get(p.kind)!.station).find((x) => x.id === m.recipe) ?? null : this.nextRecipe(p.kind, m);
@@ -331,7 +441,14 @@ export class Workshop {
     const parts: string[] = [];
     if (!net || (net.rpm === 0 && !net.overstressed)) parts.push('still');
     else if (net.overstressed) parts.push(`overstressed ${fmt(net.stress)}/${fmt(net.capacity)} su`);
-    else parts.push(`${net.rpm} rpm, load ${fmt(net.stress)}/${fmt(net.capacity)} su`);
+    else {
+      const r = this.speed.get(key) ?? 0;
+      parts.push(r === 0 ? 'idle' : `${r < 0 ? 'left' : 'right'} ${Math.round(Math.abs(r) * 10) / 10} rpm, load ${fmt(net.stress)}/${fmt(net.capacity)} su${(this.lubeFactor.get(key) ?? 1) > 1 ? ', oiled' : ''}`);
+    }
+    if (net?.jammed) parts[0] = 'jammed: the gears fight each other';
+    const set = this.setting(p);
+    if (set) parts.push(set);
+    if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
     const m = this.machines.get(key);
     if (m) {
       const held = Object.entries(m.buffer).map(([i, n]) => `${n} ${itemOrNull(i)?.name ?? i}`);
@@ -349,28 +466,33 @@ export class Workshop {
 
   toJSON(): WorkshopSnapshot {
     const parts: WorkshopSnapshot['parts'] = [];
-    for (const p of this.parts.values()) parts.push([p.x, p.y, p.z, p.kind]);
+    for (const p of this.parts.values()) parts.push(p.s !== (p.kind === 'clutch' ? 1 : 0) ? [p.x, p.y, p.z, p.kind, p.s] : [p.x, p.y, p.z, p.kind]);
     const machines: WorkshopSnapshot['machines'] = [];
     for (const [key, m] of this.machines) {
       const [x, y, z] = key.split(',').map(Number);
       if (Object.keys(m.buffer).length || m.progress > 0) machines.push([x, y, z, { ...m.buffer }, m.progress, m.recipe]);
     }
-    return { v: 1, parts, machines };
+    const out: WorkshopSnapshot = { v: 1, parts, machines };
+    if (this.wound.size) out.wound = Object.fromEntries(this.wound);
+    return out;
   }
 
   /** Restores parts (checked against the world) and machine buffers; damaged entries are skipped. */
   load(raw: unknown): void {
     this.parts.clear();
     this.machines.clear();
+    this.wound.clear();
     if (!raw || typeof raw !== 'object') return;
     const s = raw as Partial<WorkshopSnapshot>;
     for (const row of Array.isArray(s.parts) ? s.parts : []) {
-      if (!Array.isArray(row) || row.length !== 4) continue;
-      const [x, y, z, kind] = row;
+      if (!Array.isArray(row) || (row.length !== 4 && row.length !== 5)) continue;
+      const [x, y, z, kind, setting] = row;
       if (![x, y, z].every(Number.isInteger) || typeof kind !== 'string' || !KINETIC.has(kind)) continue;
-      this.parts.set(k3(x, y, z), { x, y, z, kind });
+      const cap = CYCLES[kind] ?? 1;
+      this.parts.set(k3(x, y, z), { x, y, z, kind, s: typeof setting === 'number' && setting >= 0 && setting < cap ? Math.floor(setting) : kind === 'clutch' ? 1 : 0 });
       if (TWIN.has(kind)) this.machines.set(k3(x, y, z), { buffer: {}, progress: 0, recipe: null });
     }
+    for (const [k, v] of Object.entries(s.wound ?? {})) if (this.parts.has(k) && typeof v === 'number' && v > 0) this.wound.set(k, Math.min(CLOCKWORK.maxS, v));
     for (const row of Array.isArray(s.machines) ? s.machines : []) {
       if (!Array.isArray(row) || row.length !== 6) continue;
       const [x, y, z, buffer, progress, recipe] = row;

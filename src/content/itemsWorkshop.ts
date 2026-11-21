@@ -8,6 +8,7 @@
  */
 import type { BlockSpec, ItemSpec } from '../core/types';
 import { ageIndexOf } from '../magic/ageMap';
+import { PART_BLOCKS, PART_ITEMS } from './itemsWorkshopParts';
 
 const BRONZE = ageIndexOf('bronze');
 
@@ -22,6 +23,7 @@ export const MECH_TWINS: readonly MechTwin[] = [
 ];
 
 export const WORKSHOP_ITEMS: ItemSpec[] = [
+  ...PART_ITEMS,
   {
     key: 'engineer_goggles', name: "Engineer's Goggles", category: 'tool', age: BRONZE, stack: 1,
     desc: 'Carry them anywhere in your pack: aiming at a machine, a shaft or a furnace names its speed, load, heat or power under the crosshair.',
@@ -52,4 +54,5 @@ export const WORKSHOP_BLOCKS: BlockSpec[] = [
     key: t.block, name: t.name, desc: t.desc, category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
     oriented: true, textures: machineFaces(t.block.slice(5)),
   })),
+  ...PART_BLOCKS,
 ];

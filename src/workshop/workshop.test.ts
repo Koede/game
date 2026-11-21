@@ -98,7 +98,7 @@ describe('workshop', () => {
     t.crank(4, 0, 0);
     t.run(0.2);
     expect(t.shop.netAt(1, 0, 0)?.rpm).toBe(16);
-    expect(t.shop.describe(0, 0, 0)).toBe('Hand Crank - 16 rpm, load 12/16 su');
+    expect(t.shop.describe(0, 0, 0)).toBe('Hand Crank - right 16 rpm, load 12/16 su');
   });
 
   it('a held block is placed against a crank, not cranked', () => {

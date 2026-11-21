@@ -1,7 +1,8 @@
 /** Test fixture: the Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) typed in a second time; appended after magic. */
 export const WORKSHOP_SPEC = {
-  blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom'],
-  items: ['engineer_goggles'],
+  blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
+    'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor'],
+  items: ['engineer_goggles', 'bronze_cog'],
   recipes: {
     workbench: [
       'hand_crank: 1 hand_crank <- 3 plank, 2 stick, 1 cord',
@@ -14,11 +15,22 @@ export const WORKSHOP_SPEC = {
     furnace: [
       'mech_saw: 1 mech_saw <- 2 bronze_plate, 2 plank, 1 drive_shaft @600 T1',
       'mech_mortar: 1 mech_mortar <- 2 bronze_ingot, 2 stone_brick, 1 drive_shaft @600 T1',
+      'reverse_box: 1 reverse_box <- 2 bronze_cog, 1 drive_shaft, 1 plank @600 T1',
+      'ratio_dial: 1 ratio_dial <- 2 bronze_cog, 1 bronze_plate, 1 stick @600 T1',
+      'clutch: 1 clutch <- 1 bronze_cog, 1 drive_shaft, 1 stick, 1 leather @600 T1',
+      'split_box: 1 split_box <- 3 bronze_cog, 1 plank @600 T1',
+      'belt_pulley: 2 belt_pulley <- 2 plank, 1 leather, 1 drive_shaft @600 T1',
+      'bronze_cog: 2 bronze_cog <- 1 bronze_ingot @600 T1',
+      'clockwork_motor: 1 clockwork_motor <- 3 bronze_ingot, 2 bronze_cog, 1 bronze_plate @600 T1',
+      'sequence_gearshift: 1 sequence_gearshift <- 3 bronze_cog, 1 bronze_plate, 1 clockwork_motor @700 T1',
+      'governor: 1 governor <- 2 bronze_ingot, 1 bronze_cog, 1 drive_shaft @600 T1',
+      'worm_gear: 1 worm_gear <- 1 bronze_ingot, 1 bronze_cog, 1 drive_shaft @600 T1',
+      'chain_sprocket: 2 chain_sprocket <- 2 bronze_ingot, 1 bronze_cog @600 T1',
       'engineer_goggles: 1 engineer_goggles <- 2 copper_ingot, 1 glass, 1 leather @650 T1',
     ],
   } as Record<string, string[]>,
-  /** 19 faces and one icon. */
-  textures: 20,
+  /** 19 faces and one icon, then 20 fronts of the modular parts (two for each running one) and one icon. */
+  textures: 41,
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

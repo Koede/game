@@ -130,6 +130,7 @@ export class Game {
     setCraftGate((id) => this.magic.craftGate(id));
     this.workshop = new Workshop(world, bus, player.ground);
     this.workshop.load(world.extra('workshop'));
+    this.workshop.generatorWatts = (x, y, z) => this.state.sim.machineView(x, y, z)?.outW ?? 0;
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
     this.offs.push(() => this.workshop.dispose());
     this.offs.push(() => {

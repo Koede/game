@@ -16,5 +16,17 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   bench('mech_millstone', 'mech_millstone', '4 stone_brick, 1 drive_shaft'),
   forge('mech_mortar', '2 bronze_ingot, 2 stone_brick, 1 drive_shaft', 600),
   bench('mech_loom', 'mech_loom', '1 loom, 2 plank, 1 drive_shaft'),
+  // Transmission parts (docs/OVERHAUL_PLAN.md A.2).
+  forge('2 bronze_cog', '1 bronze_ingot', 600),
+  forge('reverse_box', '2 bronze_cog, 1 drive_shaft, 1 plank', 600),
+  forge('ratio_dial', '2 bronze_cog, 1 bronze_plate, 1 stick', 600),
+  forge('clutch', '1 bronze_cog, 1 drive_shaft, 1 stick, 1 leather', 600),
+  forge('split_box', '3 bronze_cog, 1 plank', 600),
+  forge('clockwork_motor', '3 bronze_ingot, 2 bronze_cog, 1 bronze_plate', 600),
+  forge('sequence_gearshift', '3 bronze_cog, 1 bronze_plate, 1 clockwork_motor', 700),
+  forge('governor', '2 bronze_ingot, 1 bronze_cog, 1 drive_shaft', 600),
+  forge('worm_gear', '1 bronze_ingot, 1 bronze_cog, 1 drive_shaft', 600),
+  forge('2 chain_sprocket', '2 bronze_ingot, 1 bronze_cog', 600),
+  forge('2 belt_pulley', '2 plank, 1 leather, 1 drive_shaft', 600),
   forge('engineer_goggles', '2 copper_ingot, 1 glass, 1 leather', 650),
 ];
