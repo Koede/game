@@ -19,7 +19,9 @@ export type ScreenRequest =
   | { type: 'machine'; x: number; y: number; z: number }
   | { type: 'crate'; x: number; y: number; z: number }
   | { type: 'log' }
-  | { type: 'pause' };
+  | { type: 'pause' }
+  /** The pipe screen for the pipe (network segment) at this position. */
+  | { type: 'pipe'; x: number; y: number; z: number };
 
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
 export type SfxName =
@@ -160,6 +162,17 @@ export interface GameEvents {
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */
   'sfx': { name: SfxName; x?: number; y?: number; z?: number; volume?: number; pitch?: number };
+
+  // ---- world overlays (UI asks, renderer draws) ----
+  /**
+   * Show a ghost preview: translucent cubes where blocks are missing (`missing`) or wrong (`wrong`).
+   * `key` identifies the preview (e.g. "hearth:x,y,z"); showing the same key again replaces it.
+   */
+  'ghost:show': { key: string; cells: Array<{ x: number; y: number; z: number; block: string; state: 'missing' | 'wrong' }> };
+  /** Remove a ghost preview (omit key to clear all). */
+  'ghost:clear': { key?: string };
+  /** Pulse a red outline on one block for `seconds` (with an edge-of-screen arrow when off-screen). */
+  'highlight:block': { x: number; y: number; z: number; seconds: number };
 
   // ---- system ----
   'settings:changed': Record<string, never>;
