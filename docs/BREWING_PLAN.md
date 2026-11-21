@@ -79,7 +79,7 @@ returns clay_cup).
 - Furnace FORGE, tier 1 (clay already smelts to firebrick and smelt inputs must be unique, so these are forge
   recipes): clay_cup x2 <- 1 clay at 400 C; drip_cone <- 1 clay + 1 fiber at 400 C.
 - Furnace SMELT, tier 1: dried_tea <- tea_leaves, 150 C, 5 s; roasted_beans <- coffee_cherries, 220 C, 8 s.
-- Workbench: ground_coffee <- 2 roasted_beans. Millstone (once STEAM_PLAN is built): ground_coffee <- 1
+- Workbench: ground_coffee <- 2 roasted_beans. Millstone (Bronze Age, STEAM_PLAN): ground_coffee <- 1
   roasted_beans.
 
 **Other content work**
@@ -266,7 +266,7 @@ As written in section 3 (role bush, regrowS 360, cuttings to plant). No change.
   The sim's `brewUse` pour row accepts any held item that is the `boilsTo` of some container.
 - Furnace top: any water-holding container can be set on a hot furnace top (the block shows that container's
   model: `furnace_bucket` today; a future `furnace_bowl` plugs in through a `CONTAINER_BLOCKS` table in content).
-- Kettle (STEAM_PLAN): Use on a kettle that is boiling (furnace >= 120 C and water in it) with an EMPTY
+- Kettle Pot (EMBER_PLAN; the Ember kettle - NOT the Bronze Copper Kettle of STEAM_PLAN, which may optionally accept the same rows): Use on a kettle that is boiling (furnace >= 120 C and water in it) with an EMPTY
   container fills it with boiling water directly (takes 1000 L per bucket; "The kettle is not boiling yet"
   otherwise). Using a water container on a kettle still pours water in. Add both rows to the kettle's use table
   and a test for each.
