@@ -3,7 +3,7 @@
 import { waitFor } from './browser.mjs';
 
 /** Index of an inventory slot among the backpack panel's slot buttons (27 pack slots first, then the hotbar). */
-const bagIndex = (slot) => (slot >= 9 ? slot - 9 : 27 + slot);
+export const bagIndex = (slot) => (slot >= 9 ? slot - 9 : 27 + slot);
 
 async function furnace(d) {
   const s = await d.state();
@@ -11,7 +11,7 @@ async function furnace(d) {
 }
 
 /** Opens the backpack drawer on screens where it is a drawer (phones); a no-op beside the side column. */
-async function showBag(d, open) {
+export async function showBag(d, open) {
   const handle = d.page.locator('.hw-window .hw-drawer__handle');
   if (!(await handle.isVisible())) return;
   const isOpen = (await d.page.locator('.hw-window .hw-drawer').getAttribute('data-open')) === 'true';
@@ -20,7 +20,7 @@ async function showBag(d, open) {
 }
 
 /** Picks the stack of `item` in the backpack panel and sends it with the action bar's "To <group>" button. */
-async function sendFromBag(d, item, groupLabel) {
+export async function sendFromBag(d, item, groupLabel) {
   await showBag(d, true);
   const slot = (await d.state()).inventory.find((s) => s.item === item)?.slot;
   if (slot === undefined) throw new Error(`no ${item} in the pack`);
@@ -29,7 +29,7 @@ async function sendFromBag(d, item, groupLabel) {
   await showBag(d, false);
 }
 
-async function openTab(d, id) {
+export async function openTab(d, id) {
   await d.press(d.page.locator(`.hw-window .hw-tab[data-tab="${id}"]`));
   await d.settle(250);
 }

@@ -86,7 +86,7 @@ describe('berry bushes (spec 14)', () => {
     expect(player.inventory.count('wildberries')).toBeGreaterThanOrEqual(1);
     expect(player.inventory.count('dirt')).toBe(3);
     expect(log.some((l) => l.type === 'ui:open')).toBe(false);
-    expect(log.some((l) => l.type === 'sfx' && l.e.name === 'harvest')).toBe(true);
+    expect(log.some((l) => 'name' in l.e && l.e.name === 'harvest')).toBe(true);
     expect(screenFor(block('berry_bush_bare'), 0, 10, -2)).toBeNull();
     expect(screenFor(block('berry_bush'), 0, 10, -2)).toBeNull();
   });

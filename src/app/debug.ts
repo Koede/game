@@ -21,7 +21,7 @@ export interface DebugSummary {
   seed: number | null;
   player: {
     x: number; y: number; z: number; yaw: number; pitch: number;
-    health: number; warmth: number; dead: boolean; onGround: boolean; selectedSlot: number;
+    health: number; warmth: number; food: number; dead: boolean; onGround: boolean; selectedSlot: number;
     home: { x: number; y: number; z: number } | null;
   } | null;
   inventory: { slot: number; item: string; count: number; durability?: number }[];
@@ -35,7 +35,7 @@ export interface DebugSummary {
   targetAnimal: { id: number; name: string } | null;
   /** Living animals in loaded columns, nearest first. */
   mobs: { id: number; species: string; x: number; y: number; z: number; health: number; baby: boolean; state: string; d: number }[];
-  render: { drawCalls: number; triangles: number; chunks: number } | null;
+  render: { drawCalls: number; triangles: number; chunks: number; precipitation: number; particles: number } | null;
   world: { loaded: number; meshed: number; mode: string } | null;
   /** The sky (spec 15), with `forced` true while setWeather holds it. */
   weather: (WeatherState & { forced: boolean }) | null;
@@ -57,6 +57,10 @@ export interface DebugHandle {
    * long while; 'auto' hands the sky back to the seed's timetable.
    */
   setWeather(kind: WeatherKind | 'auto', instant?: boolean): void;
+  /** Sets the food bar (0..20), e.g. to make room for a meal. */
+  setFood(food: number): void;
+  /** Empties the pack and the hotbar (to start a check with known items). */
+  clearInventory(): void;
   /** Hurts the player (the real damage rules: events, sounds, death at 0). */
   damage(amount: number, cause?: DamageCause): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
@@ -105,7 +109,7 @@ export function createDebugHandle(app: App): DebugHandle {
         player: p
           ? {
               x: round(p.position.x), y: round(p.position.y), z: round(p.position.z), yaw: round(p.yaw), pitch: round(p.pitch),
-              health: p.health, warmth: round(p.warmth, 1), dead: p.dead, onGround: p.onGround, selectedSlot: p.selectedSlot,
+              health: p.health, warmth: round(p.warmth, 1), food: round(p.food, 2), dead: p.dead, onGround: p.onGround, selectedSlot: p.selectedSlot,
               home: p.home ? { ...p.home } : null,
             }
           : null,
@@ -133,7 +137,9 @@ export function createDebugHandle(app: App): DebugHandle {
               d: round(Math.hypot(m.x - p.position.x, m.z - p.position.z), 2),
             })).sort((a, b) => a.d - b.d)
           : [],
-        render: g ? { drawCalls: g.renderer.stats.drawCalls, triangles: g.renderer.stats.triangles, chunks: g.renderer.stats.chunks } : null,
+        render: g
+          ? { drawCalls: g.renderer.stats.drawCalls, triangles: g.renderer.stats.triangles, chunks: g.renderer.stats.chunks, precipitation: g.renderer.stats.precipitation, particles: g.renderer.stats.particles }
+          : null,
         world: s ? (({ loaded, meshed, mode }) => ({ loaded, meshed, mode }))(s.world.stats()) : null,
         weather: s ? { ...s.weather.state, blend: round(s.weather.state.blend), intensity: round(s.weather.state.intensity), cloudCover: round(s.weather.state.cloudCover), nextInS: round(s.weather.state.nextInS, 1), forced: s.weather.override !== null } : null,
       };
@@ -172,6 +178,12 @@ export function createDebugHandle(app: App): DebugHandle {
       else if (['clear', 'cloudy', 'rain', 'storm'].includes(kind)) s.weather.force(kind, s.clock.worldTimeS, instant);
       else throw new Error(`unknown weather "${kind}"`);
       s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
+    },
+    setFood(food) {
+      game().state.player.food = Math.max(0, Math.min(20, food));
+    },
+    clearInventory() {
+      game().state.player.inventory.clear();
     },
     damage(amount, cause = 'fall') {
       game().state.player.damage(amount, cause);

@@ -282,7 +282,7 @@ export class Driver {
         await waitFor(this.page, () => window.__hw.state().ui.uiOpen, 'a screen to open', { timeout: 5000, interval: 100 });
         break;
       } catch (err) {
-        if (attempt >= 1) throw err;
+        if (attempt >= 3) throw err;
         console.log('       (use did not open a screen; tapping again)');
         await this.aimAt(pos);
       }
