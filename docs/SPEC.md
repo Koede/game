@@ -752,3 +752,128 @@ Check with: npx tsc --noEmit -p . 2>&1 | grep -E "^src/player/"   and   npx vite
 - hud: touch has no item tooltip (long-press picks half); item descriptions show on desktop hover only.
 - render: create the Renderer BEFORE the first world.update() (it builds meshes only from 'chunk:meshed' events);
   call renderer.render(dt) after world.update; catch the constructor's WebGL2 error and show the friendly message.
+
+---------------------------------------------------------------------------------------------------------
+
+## 12. Food, farming and animals (added at the player's request)
+
+The player asked for: animals, a food mechanism, cooking in the furnace, farming and crops, and crafting dough
+that is baked in the furnace into bread. This section REPLACES "no creatures" in pillar 4: there are now
+passive animals (no hostile creatures, still no combat against the player). Everything stays original: plain
+real-world animals drawn as our own blocky models, our own item names and numbers.
+
+The design keeps the furnace at the centre: all cooking and baking happens in the furnace's crucibles, the best
+meal is forged at the furnace, and electric-age tech (lamps, the crusher) feeds back into farming.
+
+### 12.1 Hunger
+- PlayerState gains `food` 0..20 (starts at 20). Saved.
+- Drain per second: 1/60 (a full bar lasts ~20 min, longer than a 15-min day); x2.5 while sprinting; plus 0.03
+  per block mined and 0.03 per jump. Well-Fed halves all drain.
+- food <= 6: "Hungry" - cannot sprint, HUD warns once (toast) when crossing 6.
+- food == 0: 1 damage every 6 s, never below 1 health (hunger alone does not kill).
+- Health regeneration (spec 3.4) additionally requires food >= 12, and each health point regenerated costs 0.25 food.
+- Eating: holding a food item and pressing Use (right mouse / Use button / tap the world) eats one immediately
+  unless Use would plant it (see 12.4) or the crosshair is on a station/machine. Refused with a toast when food is
+  full, except foods that grant a buff. 0.6 s cooldown between bites. Emits 'player:ate', sfx 'eat'.
+- Well-Fed buff (from forged meals): 360 s, health regenerates twice as fast, food drain halved. HUD shows it like
+  Well-Warmed.
+
+### 12.2 Food items (ItemSpec.food = { hunger, buff?: 'well_fed', buffS? })
+| item | hunger | from |
+|---|---|---|
+| raw_fowl | 2 | hen |
+| raw_mutton | 3 | goat |
+| raw_chop | 3 | boar |
+| cooked_fowl | 6 | furnace |
+| cooked_mutton | 7 | furnace |
+| cooked_chop | 8 | furnace |
+| potato | 1 | wild potato, potato crop |
+| baked_potato | 5 | furnace |
+| carrot | 3 | wild carrot, carrot crop |
+| bread | 6 | furnace (from dough) |
+| hearth_stew | 12, buff well_fed 360 s | forged at the furnace |
+Non-food farm items: wheat_seeds, wheat, flour, dough, hide.
+
+### 12.3 Cooking and baking - all at the furnace (tier 1)
+Smelt recipes (one input, crucible, timed): cooked_fowl <- raw_fowl 180 C 6 s | cooked_mutton <- raw_mutton 200 C 8 s |
+cooked_chop <- raw_chop 200 C 8 s | baked_potato <- potato 180 C 6 s | bread <- dough 220 C 10 s.
+Forge recipes (instant at temperature, byproducts returned): hearth_stew <- 1 cooked_chop, 1 potato, 1 carrot,
+1 water_pail @300 C, byproduct 1 pail (ids hearth_stew; variants hearth_stew_mutton and hearth_stew_fowl with the
+other cooked meats).
+Flour and dough: WORKBENCH flour <- 2 wheat (hand-ground); WORKBENCH dough <- 2 flour, 1 water_pail, byproduct 1 pail.
+CRUSHER (machine) flour <- 1 wheat (twice as efficient: the electric mill).
+Hide: WORKBENCH bellows_hide variant: bellows <- 4 plank, 2 hide; padded_coat_hide: padded_coat <- 4 hide, 2 cord.
+
+### 12.4 Farming
+- Hoes (ToolKind 'hoe'): flint_hoe (hand: 1 flint, 2 stick, 1 cord; tier 1, durability 64), bronze_hoe (forge
+  600 C: 2 bronze_ingot, 2 stick; tier 2, 192), iron_hoe (forge 1000 C T2: 2 iron_ingot, 2 stick; tier 3, 384).
+  Using a hoe on the top of grass or dirt with air above turns it into `farmland` (wears the hoe by 1; flag
+  'tilled'; sfx 'till'). Hoes are not mining tools (mining with one counts as bare hands).
+- farmland: cube, textures farmland_top + dirt sides/bottom, drops dirt, shovel, hardness 0.8.
+- Crops: wheat, potato, carrot, each 4 stage blocks `<crop>_0` .. `<crop>_3` (shape cross, item false,
+  hardness 0, placeOn ['farmland'], machine 'crop', textures `<crop>_stage0..3`). Planting = placing the seed item
+  on farmland: wheat_seeds places wheat_0, potato places potato_0, carrot places carrot_0 (ItemSpec.block).
+  Drops: stages 0-2 return their seed item (1); stage 3: wheat -> 1-2 wheat + 1-3 wheat_seeds;
+  potato -> 2-4 potato; carrot -> 2-4 carrot. sfx 'harvest' on breaking a ripe crop, 'plant' on planting.
+- Growth (src/sim, crop entities, MachineSpec kind 'crop', role 'crop'): a crop advances one stage per `stageS`
+  seconds of growing time (params: stageS 100). It grows only while "lit": daytime (clock sunlight >= 0.3) with
+  open sky above (no opaque block anywhere above it), OR a powered lamp within 5 blocks (any time, underground
+  too - grow lamps). Hydrated (a water block within 4 blocks horizontally at the crop's y-1 or y) doubles speed.
+  Needs farmland directly below, otherwise it does not grow. Ripe in 300 s hydrated in daylight, 600 s dry.
+  The voxel id swaps to the next stage block (entity kept, like furnace upgrades); event 'crop:grew'.
+  The machine view (status text: "Growing - stage 2 of 4", "Needs light", "Ripe") is shown nowhere special -
+  crops have no screen; the HUD target name shows the stage ("Wheat (ripe)").
+- Wild plants (worldgen): wild_wheat (cross; drops 1-2 wheat_seeds + 50% 1 wheat), wild_potato (drops 1-2
+  potato), wild_carrot (drops 1-2 carrot); woodland and grassy frostfell edges, a few per chunk, in small
+  patches. tall_grass also drops wheat_seeds 15%. Spawn guarantee adds: wild_wheat within 48 blocks.
+
+### 12.5 Animals (src/mobs - new module, DOM-free core + render models in src/render)
+CreatureSpec (src/content/creatures.ts, registry CREATURES): key, name, biomes, health, speed, size {w, h},
+drops (Drop[]), likes (item keys that lure and breed it), group [min, max], model (parts as boxes with colours).
+| key | name | biomes | hp | speed m/s | size w x h | drops | likes |
+| hen | Hen | woodland, dunes | 4 | 2.2 | 0.45 x 0.7 | raw_fowl 1 | wheat_seeds |
+| goat | Goat | frostfell, woodland | 8 | 2.6 | 0.8 x 1.2 | raw_mutton 1-2, hide 0-1 | wheat |
+| boar | Boar | woodland, scar | 10 | 2.8 | 0.9 x 0.9 | raw_chop 1-3, hide 1 | potato, carrot |
+- Behaviour (fixed-step AI at 20 Hz): idle / wander (pick a reachable point within 8 blocks; never step into
+  liquid or a drop deeper than 2 blocks) / graze (stand, head down) / flee (when hurt: run directly away from the
+  player at 1.6x speed for 5 s) / follow (player within 10 blocks holding a liked item: walk to 2 blocks from the
+  player) / breed (feeding a liked item with Use makes it "eager" for 30 s, consumes 1 item, sfx 'eat'; two eager
+  adults of a species within 8 blocks walk together and produce a baby after 3 s; both get a 300 s cooldown).
+  Babies are half size, drop nothing, grow up after 300 s.
+- Physics: AABB vs solid voxels with gravity, step up 1 block by hopping, water: float and swim to shore,
+  lava/contact damage like the player. Unloaded chunks are walls.
+- Spawning: the first time a chunk column is loaded, a deterministic roll (seed, cx, cz): 15% chance of one group
+  of a species whose biome matches, on surface grass/snow/sand in daylight-open cells. The chunks around world spawn
+  are guaranteed at least one hen group and one other group within 40 blocks. Keep-alive: if fewer than 6 adults
+  are within 64 blocks of the player for 120 s of daytime, spawn one group out of sight (> 24 blocks, not in view
+  direction) on matching surface. Hard cap 40 animals loaded, 300 stored.
+- Persistence: every animal is saved (species, position, yaw, health, age, cooldowns). Animals in unloaded chunks
+  are frozen and resume when their chunk loads. The set of chunk columns already rolled is saved.
+- Combat: pressing Mine with the crosshair on an animal (ray hits its box before any block) hits it: damage 1 by
+  hand, axe tier+2, pickaxe/shovel tier+1, hoe 1; 0.4 s cooldown; knockback; red flash; flee; tool wear 1.
+  At 0 health it tips over for 0.6 s and its drops go straight into the player's inventory (player.give, like
+  block drops). sfx 'mob_hurt' / species call. Events 'mob:hurt', 'mob:died'.
+- Calls: each species makes its idle call (sfx 'hen' | 'goat' | 'boar') every 8-20 s at random, positioned.
+- Rendering (src/render/mobs): each species a small box model (body, head, legs, plus beak/comb, horns,
+  tusks/snout), flat-shaded with subtle per-face pixel noise in its colours; lit by the world light at its
+  position (sky x sunlight, block light) like the terrain; leg swing with speed, head bob while grazing, red
+  flash when hurt, tip-over on death, babies scaled 0.5. Frustum culled, no per-frame allocation.
+
+### 12.6 Objectives added (insert in this order)
+after get_warm: `cook_food` "Cook a meal" - any of make cooked_fowl / cooked_mutton / cooked_chop / baked_potato;
+`eat_food` "Eat" - flag 'ate'.
+after smelt_copper: `till_soil` "Till the soil" - flag 'tilled' (reward 3 wheat_seeds); `plant_seeds` "Plant
+wheat" - place wheat_0.
+after bronze_pickaxe: `bake_bread` "Bake bread" - make bread.
+Flags emitted by code: 'ate' (any food eaten), 'tilled'.
+
+### 12.7 Events and sounds
+GameEvents additions: 'player:ate' { item, hunger }, 'mob:spawned' { id, species }, 'mob:hurt' { id, species,
+health }, 'mob:died' { id, species }, 'crop:grew' { x, y, z, stage }.
+SfxName additions: eat, till, plant, harvest, hen, goat, boar, mob_hurt (src/audio must give each a patch).
+
+### 12.8 UI
+HUD: food meter beside health and warmth (drumstick-free original glyph: a small bowl), "Hungry" state, Well-Fed
+indicator. Tooltips and recipe rows show "+N food" for food items. Furnace SMELT tab: cooking recipes appear in
+the recipe list under a "Kitchen" chip (category Food). The target name for crops shows their stage; for animals,
+their name and health.
