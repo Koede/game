@@ -15,6 +15,7 @@ import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
 import { World, type WorkerPool } from '../world';
+import { diag, playerBrief } from './diag';
 
 export interface StateOptions {
   /** Chunk worker pool (the browser passes `new WorkerPool(workerSource)`); omitted = main thread. */
@@ -57,7 +58,9 @@ export class GameState {
     this.clock = new GameClock(bus);
     // Load the player before the tracker and the simulation see anything: the tracker reads player.stats.
     if (save) {
+      diag('state.player_before_load', () => ({ spawn, savedPlayer: save.player, constructed: playerBrief(this.player) }));
       this.player.load(save.player);
+      diag('state.player_after_load', () => ({ loaded: playerBrief(this.player) }));
       this.clock.load(save.clock);
       this.playTimeS = save.playTimeS;
     }
@@ -104,6 +107,15 @@ export class GameState {
     // Entities came with the world snapshot; the simulation rebuilt its runtime from them in its constructor,
     // resync again in case anything touched the world in between (the integration note asks for it after load).
     this.sim.resync();
+    diag('state.ready', () => ({
+      fromSave: save !== null,
+      seed: world.seed,
+      difficulty,
+      player: playerBrief(this.player),
+      playTimeS: this.playTimeS,
+      day: this.clock.day,
+      mobsRestored: save?.mobs ? 'attempted' : 'fresh',
+    }));
   }
 
   /** A brand-new world. `seed` is the numeric seed, `seedText` what the player typed (null = random). */
@@ -196,6 +208,7 @@ export class GameState {
   }
 
   private snapshot(shared: boolean): WorldSave {
+    diag('state.snapshot', () => ({ shared, player: playerBrief(this.player), ticks: this.ticks, playTimeS: this.playTimeS }));
     return {
       seed: this.world.seed,
       seedText: this.seedText,

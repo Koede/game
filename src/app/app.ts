@@ -11,6 +11,7 @@ import { UIRoot } from '../ui/kit/root';
 import { TitleScreen } from '../ui/menus/title';
 import { WorkerPool } from '../world';
 import { installDebugHandle } from './debug';
+import { diag, diagOn, initDiag, playerBrief } from './diag';
 import { Game } from './game';
 import { hasWebGL2, injectAppCss, LoadingScreen, NO_WEBGL_NOTICE, showNotice } from './screens';
 import { GameState, seedFrom } from './state';
@@ -43,17 +44,29 @@ export class App {
   private sinceSave = 0;
   private settingsTimer = 0;
   private warnedVolatile = false;
+  /** Frames of play since enterPlay (diagnostics only): the first ones are sampled one by one, then a heartbeat. */
+  private diagFrames = 0;
   private readonly offs: (() => void)[] = [];
   private readonly guard = new FrameGuard();
   private readonly troubles: Troubles;
 
   constructor(readonly app: HTMLElement) {
+    initDiag();
     injectAppCss();
     this.root = new UIRoot(app);
     this.slot = new SaveSlot();
     const doc = this.slot.read();
     this.settings = { ...doc.settings };
     this.worldText = doc.world ? JSON.stringify(doc.world) : null;
+    diag('app.boot', () => ({
+      persistent: this.slot.persistent,
+      slotProblem: this.slot.lastProblem ?? null,
+      slotHeld: this.slot.held,
+      hasSavedWorld: this.worldText !== null,
+      savedWorldChars: this.worldText?.length ?? 0,
+      settings: { ...this.settings },
+      webgl2: hasWebGL2(),
+    }));
     this.troubles = new Troubles(this.root.el, {
       game: () => this.game,
       playing: () => this.phase === 'playing',
@@ -95,6 +108,7 @@ export class App {
   // ---- title -------------------------------------------------------------------------------------------------
 
   showTitle(): void {
+    diag('app.phase', () => ({ from: this.phase, to: 'title', hasSave: this.hasSave, slotTaken: this.slotTaken }));
     this.phase = 'title';
     if (!this.title) {
       this.title = new TitleScreen(this.root, {
@@ -132,14 +146,17 @@ export class App {
       return;
     }
     const save = JSON.parse(this.worldText) as WorldSave;
+    diag('app.continue', () => ({ seed: save.seed, savedPlayer: save.player, playTimeS: save.playTimeS, chars: this.worldText?.length ?? 0 }));
     const seedLine = save.seedText ? `Seed "${save.seedText}"` : `Seed ${save.seed}`;
     this.start('Loading your world', seedLine, (pool) => GameState.restore(save, { pool, difficulty: this.settings.difficulty }));
   }
 
   private start(label: string, seedLine: string, makeState: (pool: WorkerPool) => GameState): void {
     this.leaveTitle();
+    diag('app.phase', () => ({ from: this.phase, to: 'loading', label, seedLine }));
     this.phase = 'loading';
     this.loading.show(this.root.layers.menu, label, seedLine);
+    const startedAt = performance.now();
     // Let the loading screen paint before the heavy, synchronous part (textures, the first chunks).
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -147,6 +164,7 @@ export class App {
         let state: GameState | null = null;
         try {
           state = makeState(pool);
+          diag('app.state_made', () => ({ ms: Math.round(performance.now() - startedAt), player: playerBrief(state!.player), ticks: state!.ticks }));
           this.game = new Game({
             app: this.app,
             root: this.root,
@@ -163,6 +181,7 @@ export class App {
           return;
         }
         this.game.bus.on('game:paused', ({ paused }) => {
+          diag('game.paused', () => ({ paused, player: playerBrief(this.game!.state.player), ticks: this.game!.state.ticks }));
           if (paused) this.save();
         });
         this.troubles.attach(this.game);
@@ -175,6 +194,7 @@ export class App {
 
   private failStart(err: unknown): void {
     console.warn('[app] the world could not start', err);
+    diag('app.start_failed', () => ({ error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), stack: err instanceof Error ? err.stack : undefined }));
     this.loading.hide();
     const message = err instanceof Error ? err.message : String(err);
     if (/webgl/i.test(message)) {
@@ -189,6 +209,8 @@ export class App {
   private enterPlay(): void {
     const game = this.game;
     if (!game) return;
+    diag('app.phase', () => ({ from: this.phase, to: 'playing', loadingFrames: game.frames, player: playerBrief(game.state.player) }));
+    this.diagFrames = 0;
     this.phase = 'playing';
     this.loading.hide();
     this.sinceSave = 0;
@@ -216,6 +238,7 @@ export class App {
           if (game.ready) this.enterPlay();
         } else if (this.phase === 'playing') {
           game.frame(dt, now);
+          if (diagOn()) this.diagSample(game, dt);
           if (!game.stopped) {
             this.sinceSave += Math.min(dt, 0.1);
             const due = this.sinceSave >= AUTOSAVE_INTERVAL_S;
@@ -225,10 +248,25 @@ export class App {
         this.guard.ok();
       } catch (err) {
         console.error('[app] frame failed', err);
+        diag('frame.failed', () => ({ phase: this.phase, error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), stack: err instanceof Error ? err.stack : undefined }));
         if (this.guard.fail(now)) this.troubles.halt(err);
       }
     };
     this.rafId = requestAnimationFrame(frame);
+  }
+
+  /** Diagnostics: every one of the first 45 frames of play (where position drift after Continue shows), then every 300th. */
+  private diagSample(game: Game, dt: number): void {
+    const n = this.diagFrames++;
+    if (n >= 45 && n % 300 !== 0) return;
+    diag('frame.sample', () => ({
+      n,
+      dtMs: Math.round(dt * 1000 * 10) / 10,
+      frames: game.frames,
+      ticks: game.state.ticks,
+      paused: game.stopped,
+      player: playerBrief(game.state.player),
+    }));
   }
 
   // ---- saving ------------------------------------------------------------------------------------------------
@@ -244,11 +282,21 @@ export class App {
         this.worldText = game.toSaveJson();
       } catch (err) {
         console.error('[app] could not snapshot the world', err);
+        diag('save.snapshot_failed', { error: String(err), phase: this.phase });
         return false;
       }
     }
     const result = this.slot.writeText({ ...this.settings }, this.worldText);
     this.lastSave = { ok: result.ok, reason: result.ok ? undefined : result.reason, at: Date.now() };
+    diag('save.write', () => ({
+      ok: result.ok,
+      reason: result.ok ? null : result.reason,
+      phase: this.phase,
+      chars: this.worldText?.length ?? 0,
+      persistent: this.slot.persistent,
+      player: game ? playerBrief(game.state.player) : null,
+      ticks: game?.state.ticks ?? null,
+    }));
     if (result.ok) {
       game?.bus.emit('game:saved', {});
       return true;
@@ -270,6 +318,7 @@ export class App {
 
   saveAndQuit(): void {
     if (!this.game) return;
+    diag('app.save_and_quit', () => ({ phase: this.phase, player: playerBrief(this.game!.state.player), ticks: this.game!.state.ticks }));
     this.save();
     this.stopGame();
     this.showTitle();
