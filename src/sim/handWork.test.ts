@@ -24,7 +24,9 @@ const recipe = (r: Partial<HandRecipe> & Pick<HandRecipe, 'id' | 'station' | 'in
   ({ toolOutput: null, bonus: null, strokes: 0, timeS: 0, ...r });
 const RECIPES: Record<string, HandRecipe[]> = {
   quern: [recipe({ id: 'flour', station: 'quern', inputs: [{ item: 'wheat', count: 1 }], output: { item: 'flour', count: 1 }, strokes: 6 })],
-  anvil: [recipe({ id: 'copper_plate', station: 'anvil', inputs: [{ item: 'copper_ingot', count: 2 }], output: { item: 'copper_plate', count: 1 }, strokes: 8 })],
+  anvil: [
+    recipe({ id: 'copper_wire', station: 'anvil', inputs: [{ item: 'copper_ingot', count: 1 }], output: { item: 'copper_wire', count: 3 }, strokes: 4 }),
+    recipe({ id: 'copper_plate', station: 'anvil', inputs: [{ item: 'copper_ingot', count: 2 }], output: { item: 'copper_plate', count: 1 }, strokes: 8 })],
   rack: [recipe({ id: 'leather', station: 'rack', inputs: [{ item: 'soaked_hide', count: 1 }], output: { item: 'leather', count: 1 }, timeS: 10 })],
   trough: [recipe({ id: 'soaked_hide', station: 'trough', inputs: [{ item: 'hide', count: 1 }], output: { item: 'soaked_hide', count: 1 }, timeS: 6 })],
 };
@@ -115,7 +117,7 @@ describe('stroke stations', () => {
     expect(t.hand.stroke(6, 5, 5, 'copper_ingot')).toEqual({ ok: true, did: 'insert' });
     expect(t.hand.stroke(6, 5, 5, null)).toEqual({ ok: false, reason: 'Needs 2 copper ingot' });
     t.hold('wheat');
-    expect(t.hand.stroke(6, 5, 5, 'wheat')).toEqual({ ok: false, reason: 'Busy with copper ingot' });
+    expect(t.hand.stroke(6, 5, 5, 'wheat')).toEqual({ ok: false, reason: 'Stone Anvil cannot work wheat' });
     expect(t.hand.stroke(1, 1, 1, null)).toMatchObject({ ok: false });
   });
 

@@ -23,11 +23,14 @@ const UNKNOWN_ITEM_STACK = 99;
 export function stackLimit(item: string): number {
   const def = itemOrNull(item);
   if (!def) return UNKNOWN_ITEM_STACK;
-  return def.tool ? 1 : def.stack;
+  return def.tool || def.mould ? 1 : def.stack;
 }
 
-/** Uses a fresh tool of this kind has, or undefined for anything that is not a tool. */
-export const fullDurability = (item: string): number | undefined => itemOrNull(item)?.tool?.durability;
+/** Uses a fresh tool of this kind has (a mould: its pours), or undefined for anything else. */
+export function fullDurability(item: string): number | undefined {
+  const def = itemOrNull(item);
+  return def?.tool?.durability ?? def?.mould?.pours;
+}
 
 export const makeStack = (item: string, count: number, durability?: number): ItemStack =>
   durability === undefined ? { item, count } : { item, count, durability };

@@ -1,6 +1,6 @@
 /**
  * How to Play: the core loop in five lines, staying alive (food, farming, animals, cold), building big (hearths,
- * pipes), the Emberbound automatons, then the controls for keyboard + mouse and for touch.
+ * pipes), tea and coffee, the Emberbound automatons, then the controls for keyboard + mouse and for touch.
  */
 import { Segmented } from '../kit/controls';
 import { h } from '../kit/dom';
@@ -84,6 +84,15 @@ const BUILDING: readonly Tip[] = [
   { icon: 'bolt', text: 'Machines need watts: join them to generators with cable, and add batteries to cover the gaps.' },
 ];
 
+/** Tea and coffee (BREWING_PLAN): the steps from bush to cup, in the order a player does them. */
+export const BREWING: readonly Tip[] = [
+  { icon: 'sun', text: 'Tea grows wild in woodland and marsh, coffee near the dunes. Pick a bush for leaves or cherries, plant its cutting, and it fruits again every six minutes.' },
+  { icon: 'flame', text: 'Dry tea leaves and roast coffee cherries in a crucible; grind roasted beans at the workbench. Hotter or blended makes another drink: black tea, berry tea, dark roast, trail blend.' },
+  { icon: 'bag', text: 'Set a water bucket on top of a hot furnace: it boils in about 12 seconds. Tap it to pick it up; boiling water cools in your pack after a minute and a half.' },
+  { icon: 'cup', text: 'Place a clay cup, tap a drip cone onto it, tap the tea or ground coffee into the cone, then tap the cup with the boiling bucket. It drips for 4 seconds.' },
+  { icon: 'heart', text: 'Tap the full cup to take it, then Use it to drink: three minutes of Spring, Hearthkept, Mending, Swift, Vigor or Lasting. One tea and one coffee at a time; the cup and cone are reusable.' },
+];
+
 /** The Emberbound (spec 19): who they are and how to live with them. */
 export const EMBERBOUND: readonly Tip[] = [
   { icon: 'automaton', text: 'Long ago this land burned bright with machines; the Old Works were their forges. Some still walk, fed by the last embers in their cores, and they wake in the dark.' },
@@ -139,6 +148,7 @@ export class HowToPlay {
       ),
       this.tips('Staying alive', 'var(--hw-food)', LIVING),
       this.tips('Building big', 'var(--hw-power)', BUILDING),
+      this.tips('Tea and coffee', '#d39a62', BREWING),
       this.tips('The Emberbound', '#ff7a2a', EMBERBOUND),
       h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch),
     );

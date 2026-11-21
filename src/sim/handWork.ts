@@ -144,14 +144,13 @@ export class HandWork {
     }
     const input = e.slots[0];
     if (held && this.accepts(def, held)) return this.insert(node, held);
-    if (held && !input) return { ok: false, reason: `${def.name} cannot work ${rules.itemName(held)}` };
-    if (!input) return { ok: false, reason: 'Nothing to work' };
-    if (held && held === input.item) return { ok: false, reason: `${def.name} is full` };
     if (held && !def.timed && !(def.tool && rules.toolKind(held) === def.tool)) {
-      return { ok: false, reason: `Busy with ${rules.itemName(input.item)}` };
+      return { ok: false, reason: `${def.name} cannot work ${rules.itemName(held)}` };
     }
+    if (held && def.timed) return { ok: false, reason: `${def.name} does not take ${rules.itemName(held)}` };
+    if (!input) return { ok: false, reason: 'Nothing to work' };
     if (def.timed) return { ok: false, reason: `${def.name} works by itself - wait` };
-    const r = this.recipeFor(def, input);
+    const r = this.recipeFor(def, input, e);
     if (!r) return { ok: false, reason: 'Nothing to work' };
     if (input.count < r.inputs[0].count) return { ok: false, reason: `Needs ${r.inputs[0].count} ${rules.itemName(r.inputs[0].item)}` };
     return this.work(node, r, held);
@@ -187,10 +186,28 @@ export class HandWork {
     return this.d.rules.recipes(def.key).some((r) => r.inputs[0].item === item);
   }
 
-  private recipeFor(def: HandStationDef, input: Slot): HandRecipe | null {
+  /**
+   * The recipe the loaded input runs. Two recipes may share an input item (the anvil makes a plate from two copper ingots
+   * and wire from one): work already begun stays on its recipe, else the first one the loaded count can pay for, else the
+   * first one that matches (so the refusal can say what it needs).
+   */
+  private recipeFor(def: HandStationDef, input: Slot, e?: HandEntity): HandRecipe | null {
     if (!input) return null;
-    for (const r of this.d.rules.recipes(def.key)) if (r.inputs[0].item === input.item) return r;
-    return null;
+    let first: HandRecipe | null = null;
+    for (const r of this.d.rules.recipes(def.key)) {
+      if (r.inputs[0].item !== input.item) continue;
+      if (e && e.progress > 0 && e.recipe === r.id) return r;
+      if (input.count >= r.inputs[0].count && (!e || e.progress === 0)) return r;
+      first ??= r;
+    }
+    return first;
+  }
+
+  /** Whether more than one recipe of the station starts from this item (then each Use loads one, so the count picks the job). */
+  private sharesInput(def: HandStationDef, item: string): boolean {
+    let n = 0;
+    for (const r of this.d.rules.recipes(def.key)) if (r.inputs[0].item === item) n++;
+    return n > 1;
   }
 
   private insert(node: HandNode, held: string): StrokeResult {
@@ -202,7 +219,7 @@ export class HandWork {
     if (room <= 0) return { ok: false, reason: `${def.name} is full` };
     const have = this.d.player.heldStack();
     if (!have || have.item !== held) return { ok: false, reason: 'You are not holding that' };
-    const took = this.d.player.consumeHeld(Math.min(room, have.count));
+    const took = this.d.player.consumeHeld(Math.min(room, have.count, !def.timed && this.sharesInput(def, held) ? 1 : room));
     if (!took) return { ok: false, reason: 'You are not holding that' };
     if (input) input.count += took.count;
     else e.slots[0] = { item: took.item, count: took.count };
@@ -291,7 +308,7 @@ export class HandWork {
 
   private runTimed(n: HandNode, dt: number): boolean {
     const e = n.e;
-    const r = this.recipeFor(n.def, e.slots[0]);
+    const r = this.recipeFor(n.def, e.slots[0], e);
     if (!r || e.slots[0]!.count < r.inputs[0].count) return false;
     e.recipe = r.id;
     const wait = this.waitReason(n);
@@ -324,7 +341,7 @@ export class HandWork {
 
   view(x: number, y: number, z: number): HandView | null {
     const n = this.byKey.get(posKey(x, y, z));
-    return n ? buildView(n, this.d.rules, this.recipeFor(n.def, n.e.slots[0]), this.waitReason(n)) : null;
+    return n ? buildView(n, this.d.rules, this.recipeFor(n.def, n.e.slots[0], n.e), this.waitReason(n)) : null;
   }
 
   // ---- internals ------------------------------------------------------------------------------------------------
