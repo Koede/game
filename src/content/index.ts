@@ -1,0 +1,10 @@
+/**
+ * The authored content of Hearthwatt. Nothing outside src/core/registry.ts should import from here: the registry
+ * resolves these specs into the lookup tables (BLOCKS, ITEMS, RECIPES, MACHINES, ...) everybody else reads.
+ */
+export { BLOCK_SPECS } from './blocks';
+export { ITEM_SPECS } from './items';
+export { RECIPE_SPECS } from './recipes';
+export { AGES, FURNACE_TIERS, MACHINE_SPECS } from './tech';
+export { OBJECTIVES } from './objectives';
+export { ORE_VEINS } from './oreVeins';
