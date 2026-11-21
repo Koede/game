@@ -37,11 +37,11 @@ git log --oneline | head -20
 | `src/save` | done, tested | `SaveStore` only (versioned storage). The save document itself is integration work. |
 | `src/ui/kit`, `src/ui/menus`, `src/ui/styles.css` | written, typechecks | Was interrupted during its visual check: never screenshotted at phone sizes. No `docs/api` notes. |
 | `src/game` | done, tested (71 tests) | inventory, transfer, crafting, mining, clock, playerState, survival, objectives, index. API and decisions in `docs/api/game.md`. Only run against a fake world and scripted events so far. |
-| `src/world` | just started | chunk, blockTables, terrain only. Missing: worldgen assembly, lighting, mesher, worker, pool, World, tests. |
+| `src/world` | about 70% | worldgen (biomes, caves, ores, trees, spawn search) done and tested; lighting and mesher written, one mesher test failing. Missing: World class, worker, worker pool, docs/api/world.md. |
 | `src/render/textures` | just started | canvas + palette only. No painters. |
 | `src/render` | early | atlas, tiles, skyModel, shaders. One failing test (`skyModel` continuity over the day wrap). |
 | `src/player/input` | about 60% | gestures, keys, mouse drag, touch overlay written. Missing: InputManager, index, tests, browser check. |
-| `src/sim` | not started | furnace, power networks, machines. |
+| `src/sim` | about 90% | furnace heat model, forging, upgrades, power networks, every generator and machine, fission, ignition: written and tested (92 tests). Missing: the scripted full-playthrough test, docs/api/sim.md, a final read of the Simulation facade's UI queries. |
 | `src/player` (physics, raycast, interaction, controller) | not started | |
 | `src/ui/hud`, `src/ui/screens` | not started | |
 | `src/main.ts`, `src/app`, save document, `scripts/e2e.mjs` | not started | |
