@@ -17,4 +17,8 @@ export const WORKSHOP_OBJECTIVES: ObjectiveSpec[] = [
     'Put a Mixer over a Basin of flour and water. Dough comes out in the basin.'),
   goal('place_mech_arm', 'Teach an arm', { type: 'place', block: 'mech_arm', count: 1 },
     'Use a wrench on a Mechanical Arm, then on a source and up to four targets, then the arm again. It carries items between depots, basins and crates.'),
+  goal('place_saw_arm', 'Fell trees by machine', { type: 'place', block: 'saw_arm', count: 1 },
+    'A Saw Arm facing a trunk fells the whole tree every three seconds. A Vacuum Collector beside it sucks the logs up and passes them on.'),
+  goal('place_item_vault', 'Build an item vault', { type: 'place', block: 'item_vault', count: 1 },
+    'A Vault holds 108 stacks. Fill it with a funnel or an arm and take the biggest stack with an empty hand.'),
 ];

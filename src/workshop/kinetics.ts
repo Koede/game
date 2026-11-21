@@ -29,7 +29,7 @@ export const BASE_STRESS: Record<string, number> = {
   conveyor_belt: 0.25, mech_saw: 4, mech_millstone: 4, mech_mortar: 4, mech_loom: 2,
   mech_hammer: 8, mech_rack: 2, mech_press: 8, mixer: 6, deployer: 6, mech_arm: 3, mech_drill: 6, mech_pump: 4,
   reverse_box: 0.5, ratio_dial: 0.5, clutch: 0.25, split_box: 0.5, sequence_gearshift: 1, governor: 0.5, worm_gear: 1,
-  chain_sprocket: 0.5, belt_pulley: 1, differential: 1,
+  chain_sprocket: 0.5, belt_pulley: 1, differential: 1, flywheel: 0.5, shear_pin: 0, saw_arm: 5, vacuum_collector: 3, treadwheel: 0, bearing: 6, piston: 6
 };
 
 /** The factor the sequenced gearshift of `program` applies at `t` seconds. */
@@ -118,19 +118,45 @@ export function solveNetwork(input: SolveInput): Solved {
     if (out === null) return null;
     return out * linkRatio(pa, input.part(b));
   };
-  for (let i = 0; i < queue.length; i++) {
-    const a = queue[i];
-    for (const b of input.neighbours(a)) {
-      if (b === from.get(a)) continue;
-      const out = link(a, b);
-      if (out === null) continue;
-      const seen = rpm.get(b);
-      if (seen === undefined) {
-        rpm.set(b, out);
-        from.set(b, a);
-        queue.push(b);
-      } else if (Math.abs(seen - out) > 0.01 && !(input.sources.has(b) && input.part(b).kind === 'hand_crank' && out === 0)) jam = true;
+  // A differential does not hand on at once: it collects what reaches it, then runs at the mean and hands that on.
+  const diffIn = new Map<string, number[]>();
+  const diffFrom = new Map<string, Set<string>>();
+  let at = 0;
+  for (let round = 0; round < 8; round++) {
+    for (; at < queue.length; at++) {
+      const a = queue[at];
+      for (const b of input.neighbours(a)) {
+        if (b === from.get(a) || diffFrom.get(a)?.has(b)) continue;
+        const out = link(a, b);
+        if (out === null) continue;
+        if (input.part(b).kind === 'differential' && !input.sources.has(b)) {
+          const ins = diffIn.get(b) ?? [];
+          ins.push(out);
+          diffIn.set(b, ins);
+          const fs = diffFrom.get(b) ?? new Set<string>();
+          fs.add(a);
+          diffFrom.set(b, fs);
+          continue;
+        }
+        const seen = rpm.get(b);
+        if (seen === undefined) {
+          rpm.set(b, out);
+          from.set(b, a);
+          queue.push(b);
+        } else if (Math.abs(seen - out) > 0.01 && !(input.sources.has(b) && input.part(b).kind === 'hand_crank' && out === 0)) jam = true;
+      }
     }
+    let grew = false;
+    for (const [d, ins] of diffIn) {
+      if (rpm.has(d) && (diffFrom.get(d)?.size ?? 0) === 0) continue;
+      const mean = ins.reduce((x, y) => x + y, 0) / ins.length;
+      if (rpm.get(d) !== undefined && Math.abs((rpm.get(d) as number) - mean) < 0.01) continue;
+      rpm.set(d, mean);
+      if (!queue.includes(d)) queue.push(d);
+      else at = Math.min(at, queue.indexOf(d));
+      grew = true;
+    }
+    if (!grew) break;
   }
   capacity *= input.capacityFactor ?? 1;
   let stress = 0;

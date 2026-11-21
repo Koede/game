@@ -48,7 +48,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED]);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel']);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -79,10 +79,13 @@ export interface SwingView { kind: string; x: number; y: number; z: number; phas
 export interface LinkView { kind: string; x1: number; y: number; z1: number; x2: number; z2: number; rpm: number }
 export interface WorkshopView { spin: SpinView[]; swings: SwingView[]; links: LinkView[] }
 /** Parts that show a turning cog on top while they run. */
-const SPIN_KINDS = new Set(['hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
+const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
 
 /** Seconds a recipe takes at 16 rpm: strokes x STROKE_S, or half the drying / soaking time of a timed recipe. */
 const needS = (r: RecipeDef): number => ((r.strokes ?? 0) > 0 ? (r.strokes as number) * STROKE_S : (r.timeS ?? 2) * 0.5);
+
+export const FLYWHEEL_COAST_S = 4;
+export const FLYWHEEL_CAPACITY = 12;
 
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
@@ -104,6 +107,15 @@ export class Workshop {
   extraRpm: ((x: number, y: number, z: number) => number) | null = null;
   private readonly off: () => void;
   /** Richer "use this item on that block" for deployers (hoes, hand stations): set by Game; null/undefined falls back to placing and breaking. */
+  /** True while a player or tame animal stands on the cell above (treadwheel); set by Game. */
+  standingOn: ((x: number, y: number, z: number) => boolean) | null = null;
+  /** Tractors the vehicle manager knows: one that is driven and has fuel turns a shaft it touches (power take-off). */
+  tractors: (() => { x: number; y: number; z: number; occupied: boolean; fuel: number }[]) | null = null;
+  /** Fluid blocks of the pipe network for spouts and drains (bucket use); set by Game. */
+  fluidBlock: { is(x: number, y: number, z: number): boolean; use(x: number, y: number, z: number, item: string): string | null } | null = null;
+  private readonly coast = new Map<string, { s: number; rpm: number }>();
+  private readonly pto = new Set<string>();
+  private dt = 0.05;
   actHook: ((a: MachineActAction) => ActResult | null | undefined) | null = null;
   readonly logi: Logistics;
 
@@ -113,6 +125,7 @@ export class Workshop {
       rpmAt: (x, y, z) => Math.abs(this.speed.get(k3(x, y, z)) ?? 0),
       twinAccept: (x, y, z, item, n, commit) => this.twinAccept(x, y, z, item, n, commit),
       act: () => this.actHook,
+      fluidBlock: () => this.fluidBlock,
     });
     this.off = bus.on('block:changed', (e) => this.noteBlock(e.x, e.y, e.z));
   }
@@ -202,6 +215,8 @@ export class Workshop {
 
   tick(dt: number): void {
     this.clock += dt;
+    this.dt = dt;
+    this.findPto();
     for (const [k, s] of this.lube) {
       if (s - dt <= 0) {
         this.lube.delete(k);
@@ -268,8 +283,29 @@ export class Workshop {
       const w = this.generatorWatts?.(p.x, p.y, p.z) ?? 0;
       return w > 0 ? { rpm: g.rpm, capacity: w * g.suPerW } : null;
     }
+    if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
+    if (this.pto.has(key)) return { rpm: 24, capacity: 30 };
     const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
     return extra > 0 ? { rpm: extra, capacity: CRANK_CAPACITY } : null;
+  }
+
+  /** Each driven, fuelled tractor turns the nearest drive shaft it touches. */
+  private findPto(): void {
+    this.pto.clear();
+    for (const t of this.tractors?.() ?? []) {
+      if (!t.occupied || t.fuel <= 0) continue;
+      let best: string | null = null;
+      let bd = 2.6;
+      for (const [key, p] of this.parts) {
+        if (p.kind !== 'drive_shaft') continue;
+        const d = Math.hypot(p.x + 0.5 - t.x, p.z + 0.5 - t.z);
+        if (d < bd && Math.abs(p.y - t.y) < 2) {
+          bd = d;
+          best = key;
+        }
+      }
+      if (best) this.pto.add(best);
+    }
   }
 
   private solve(): void {
@@ -289,11 +325,39 @@ export class Workshop {
         lube = Math.max(lube, this.lubeFactor.get(key) ?? 1);
         if (p.kind === 'clockwork_motor' && src) this.wound.set(key, Math.max(0, (this.wound.get(key) ?? 0) - DT_WIND));
       }
-      const solved = solveNetwork({
+      const run = (): ReturnType<typeof solveNetwork> => solveNetwork({
         members, sources, t: this.clock, capacityFactor: lube,
         part: (k): KPart => this.parts.get(k) as Part,
         neighbours: (k) => this.neighbours(k),
       });
+      let solved = run();
+      // Flywheels: charged while their line turns, then they carry it on for a few seconds.
+      let coasting = false;
+      for (const key of members) {
+        if ((this.parts.get(key) as Part).kind !== 'flywheel') continue;
+        const r = solved.rpm.get(key);
+        if (r !== undefined && r !== 0) this.coast.set(key, { s: FLYWHEEL_COAST_S, rpm: r });
+        else {
+          const c = this.coast.get(key);
+          if (c && c.s > 0) {
+            c.s -= this.dt;
+            sources.set(key, { rpm: c.rpm, capacity: FLYWHEEL_CAPACITY * (c.s / FLYWHEEL_COAST_S) });
+            coasting = true;
+          }
+        }
+      }
+      if (coasting) solved = run();
+      // A shear pin gives way before the line seizes.
+      if (sources.size > 0 && !solved.jam && solved.stress > solved.capacity) {
+        const pin = members.find((k) => (this.parts.get(k) as Part).kind === 'shear_pin');
+        if (pin) {
+          const pp = this.parts.get(pin) as Part;
+          this.world.setVoxel(pp.x, pp.y, pp.z, 0, 'sim');
+          this.ground.spawn('scrap_metal', 1, pp.x + 0.5, pp.y + 0.5, pp.z + 0.5);
+          this.bus.emit('sfx', { name: 'tool_break', x: pp.x + 0.5, y: pp.y + 0.5, z: pp.z + 0.5 });
+          this.bus.emit('toast', { text: 'A shear pin snapped: the load was too much', kind: 'warn' });
+        }
+      }
       const maxRpm = [...solved.rpm.values()].reduce((m, r) => Math.max(m, Math.abs(r)), 0);
       const overstressed = sources.size > 0 && !solved.jam && solved.stress > solved.capacity;
       const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm, stress: solved.stress, capacity: solved.capacity, overstressed, parts: members.length, jammed: solved.jam };

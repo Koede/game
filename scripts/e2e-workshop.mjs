@@ -206,6 +206,35 @@ async function runDevice(device) {
       assert(moved.some((e) => e.item === 'flint'), `the arm carried flint across: ${JSON.stringify(moved)}`);
     });
 
+    await step('a saw arm fells a tree, a vacuum collector gathers the logs into a vault', async () => {
+      await d.hw((p) => {
+        const hw = window.__hw;
+        const x = p.x0 + 4;
+        const y = p.gy;
+        const z = p.z0 + 2;
+        hw.setVoxel(x, y, z, 'hand_crank');
+        hw.setVoxel(x, y + 1, z, 'hand_crank');
+        hw.setVoxel(x - 1, y, z, 'saw_arm', 3);
+        hw.setVoxel(x, y, z + 1, 'vacuum_collector', 3);
+        hw.setVoxel(x - 1, y, z + 1, 'item_vault');
+        for (let i = 0; i < 4; i++) hw.setVoxel(x - 2, y + i, z, 'oak_log');
+        hw.teleport(x - 2.5, y, z + 3.5);
+        hw.lookAt(x - 1.5, y + 1.5, z + 0.5);
+      }, P);
+      for (let i = 0; i < 14; i++) {
+        await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 + 2); w.crank(p.x0 + 4, p.gy + 1, p.z0 + 2); }, P);
+        await d.hw(() => window.__hw.tick(20));
+        if (i === 1) await d.shot('5-saw-arm');
+      }
+      const r = await d.hw((p) => {
+        const hw = window.__hw;
+        return { log: hw.getBlock(p.x0 + 2, p.gy + 2, p.z0 + 2).block, vault: hw.app.game.workshop.logi.peek(p.x0 + 3, p.gy, p.z0 + 3) };
+      }, P);
+      await d.shot('6-vault');
+      assert(r.log === 'air', `the trunk is down: ${r.log}`);
+      assert(r.vault.some((e) => e.item === 'oak_log' && e.count >= 3), `vault holds ${JSON.stringify(r.vault)}`);
+    });
+
     await step('no page errors', async () => {
       assert(errors.length === 0, `errors: ${errors.slice(0, 3).join(' | ')}`);
     });

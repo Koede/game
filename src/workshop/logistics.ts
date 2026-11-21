@@ -10,16 +10,19 @@ import type { GameBus } from '../core/context';
 import { BASIN_RECIPES, basinCard } from '../content/basinWorkshop';
 import { blockId, blockOrNull, fluidInBucket, fluidOrNull, itemOrNull } from '../core/registry';
 import { Facing, makeVoxel, voxelFacing, type IWorld } from '../core/types';
+import { trunkAbove } from '../game/felling';
 import { rollDrops } from '../game/mining';
 import type { GroundItems } from '../game/groundItems';
 import { stackLimit } from '../game/inventory';
 
 /** Block kinds this module owns state for. */
-export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill'] as const;
+export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault'] as const;
 const LOGI = new Set<string>(LOGI_KINDS);
 export const isLogistic = (kind: string): boolean => LOGI.has(kind);
 /** Logistic kinds that need shaft power (they are also kinetic parts). */
-export const POWERED = new Set(['mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill']);
+export const POWERED = new Set(['mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector']);
+/** Cells ground items resting on top are taken into. */
+const TAKES_GROUND = new Set(['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault']);
 
 export const BASIN_LITRES = 1000;
 export const BASIN_ITEM_KINDS = 2;
@@ -32,6 +35,10 @@ export const DEPLOYER_CYCLE_S = 2;
 export const DRILL_MIN_S = 0.5;
 export const DRILL_HARDNESS_S = 1.2;
 export const SPOUT_S = 1;
+export const SAW_ARM_CYCLE_S = 3;
+export const SAW_ARM_MAX_LOGS = 48;
+export const VACUUM_RADIUS = 4;
+export const VAULT_STACKS = 108;
 
 /** The result of a deployer / drill action: nothing, done and the held item kept, or done and one item used up. */
 export type ActResult = false | 'used' | 'consumed';
@@ -46,6 +53,8 @@ export interface LogiHost {
   rpmAt(x: number, y: number, z: number): number;
   twinAccept(x: number, y: number, z: number, item: string, n: number, commit: boolean): number;
   act(): ((a: MachineActAction) => ActResult | null | undefined) | null;
+  /** Fluid blocks of the pipe network (tanks, machine ports) reached with a bucket: spouts and drains use them. */
+  fluidBlock(): { is(x: number, y: number, z: number): boolean; use(x: number, y: number, z: number, item: string): string | null } | null;
 }
 
 export interface Cell {
@@ -72,6 +81,7 @@ export interface LogiSnapshot { cells: [number, number, number, string, Record<s
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 const parse = (k: string): [number, number, number] => k.split(',').map(Number) as [number, number, number];
 export const FACE_DELTA: Record<number, [number, number]> = { [Facing.North]: [0, -1], [Facing.East]: [1, 0], [Facing.South]: [0, 1], [Facing.West]: [-1, 0] };
+const FLUIDS_EMPTY = new Set(['pail', 'bronze_bucket', 'empty_canister']);
 const total = (m: Record<string, number>): number => Object.values(m).reduce((s, n) => s + n, 0);
 
 interface CrateLike { kind: string; slots: ({ item: string; count: number; durability?: number } | null)[] }
@@ -132,7 +142,8 @@ export class Logistics {
         return Math.max(0, take);
       }
       case 'funnel':
-      case 'chute': {
+      case 'chute':
+      case 'vacuum_collector': {
         if (c.filter && c.filter !== item) return 0;
         const take = Math.min(n, CELL_CAP - total(c.items));
         if (take > 0 && commit) c.items[item] = (c.items[item] ?? 0) + take;
@@ -145,9 +156,28 @@ export class Logistics {
         if (take > 0 && commit) c.items[item] = (c.items[item] ?? 0) + take;
         return Math.max(0, take);
       }
+      case 'item_vault': {
+        const limit = stackLimit(item);
+        let stacks = 0;
+        for (const [it, n] of Object.entries(c.items)) stacks += Math.ceil(n / stackLimit(it));
+        const have = c.items[item] ?? 0;
+        const room = (VAULT_STACKS - stacks) * limit + (have % limit === 0 ? 0 : limit - (have % limit));
+        const take = Math.min(n, room);
+        if (take > 0 && commit) c.items[item] = have + take;
+        return Math.max(0, take);
+      }
       case 'item_drain': {
         const f = fluidInBucket(item);
         const basin = this.cells.get(k3(x, y - 1, z));
+        const fb = this.host.fluidBlock();
+        if (f?.bucket && basin?.kind !== 'basin' && fb?.is(x, y - 1, z)) {
+          if (total(c.items) >= CELL_CAP) return 0;
+          if (!commit) return 1;
+          const back = fb.use(x, y - 1, z, item);
+          if (!back) return 0;
+          c.items[back] = (c.items[back] ?? 0) + 1;
+          return 1;
+        }
         if (!f || !f.bucket || basin?.kind !== 'basin') return 0;
         if (basin.fluid && basin.fluid.key !== f.key) return 0;
         if ((basin.fluid?.litres ?? 0) + 1000 > BASIN_LITRES) return 0;
@@ -191,7 +221,7 @@ export class Logistics {
     }
     const c = this.cells.get(k3(x, y, z));
     if (!c) return [];
-    if (!['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain'].includes(c.kind)) return [];
+    if (!['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'vacuum_collector'].includes(c.kind)) return [];
     return Object.entries(c.items).filter(([, n]) => n > 0).map(([item, count]) => ({ item, count }));
   }
 
@@ -253,6 +283,16 @@ export class Logistics {
       case 'depot':
       case 'deployer':
         return this.putOrTake(c, x, y, z, held, takeHeld);
+      case 'item_vault': {
+        if (held) return this.putOrTake(c, x, y, z, held, takeHeld);
+        const [best] = Object.entries(c.items).sort((a, b) => b[1] - a[1]);
+        if (!best) return 'worked';
+        const n = Math.min(best[1], stackLimit(best[0]));
+        c.items[best[0]] -= n;
+        if (c.items[best[0]] <= 0) delete c.items[best[0]];
+        this.host.ground.spawn(best[0], n, x + 0.5, y + 1.1, z + 0.5, { scatter: false, delayS: 0.1 });
+        return 'worked';
+      }
       default: return null;
     }
   }
@@ -329,6 +369,13 @@ export class Logistics {
         case 'spout':
           this.spout(c, dt);
           break;
+        case 'saw_arm':
+          this.sawArm(c, dt);
+          break;
+        case 'vacuum_collector':
+          this.vacuum(c, dt);
+          this.mover(c, dt);
+          break;
         default:
       }
     }
@@ -343,7 +390,7 @@ export class Logistics {
       const z = Math.floor(e.z);
       const y = Math.floor(e.y - 0.08);
       const c = this.cells.get(k3(x, y, z));
-      if (!c || !['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain'].includes(c.kind) || e.delayS > 0.4) continue;
+      if (!c || !TAKES_GROUND.has(c.kind) || e.delayS > 0.4) continue;
       const n = this.accept(x, y, z, e.item, e.count);
       e.count -= n;
     }
@@ -357,7 +404,7 @@ export class Logistics {
     c.timer = 0;
     const [fx, fz] = FACE_DELTA[voxelFacing(this.host.world.getVoxel(c.x, c.y, c.z))];
     const dest: [number, number, number] = c.kind === 'chute' ? [c.x, c.y - 1, c.z] : [c.x + fx, c.y, c.z + fz];
-    if (c.kind !== 'item_drain' && total(c.items) < CELL_CAP) {
+    if (c.kind !== 'item_drain' && c.kind !== 'vacuum_collector' && total(c.items) < CELL_CAP) {
       const from: [number, number, number] = c.kind === 'chute' ? [c.x, c.y + 1, c.z] : [c.x - fx, c.y, c.z - fz];
       const got = this.take(...from, c.filter, 8);
       if (got) {
@@ -505,6 +552,11 @@ export class Logistics {
 
   private spout(c: Cell, dt: number): void {
     const basin = this.cells.get(k3(c.x, c.y + 1, c.z));
+    const fb = this.host.fluidBlock();
+    if (basin?.kind !== 'basin' && fb?.is(c.x, c.y + 1, c.z)) {
+      this.spoutFromTank(c, dt, fb);
+      return;
+    }
     if (basin?.kind !== 'basin' || !basin.fluid || basin.fluid.litres < 1000) {
       c.progress = 0;
       return;
@@ -532,6 +584,95 @@ export class Logistics {
       this.host.ground.spawn(f.bucket.full, 1, ground.x, ground.y + 0.1, ground.z, { scatter: false, delayS: 0.2 });
     }
     this.host.bus.emit('sfx', { name: 'splash', x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5, volume: 0.4 });
+  }
+
+  /** A spout under a tank of the pipe network: fills whatever empty bucket or canister waits below with what the tank holds. */
+  private spoutFromTank(c: Cell, dt: number, fb: { use(x: number, y: number, z: number, item: string): string | null }): void {
+    const below = this.cells.get(k3(c.x, c.y - 1, c.z));
+    const holders: { item: string; take: () => void; give: (item: string) => void }[] = [];
+    if (below?.kind === 'depot') {
+      for (const item of Object.keys(below.items)) holders.push({ item, take: () => { below.items[item] -= 1; if (below.items[item] <= 0) delete below.items[item]; }, give: (i) => { below.items[i] = (below.items[i] ?? 0) + 1; } });
+    }
+    for (const e of this.host.ground.items) {
+      if (e.count > 0 && Math.floor(e.x) === c.x && Math.floor(e.z) === c.z && e.y < c.y && e.y > c.y - 1.6) {
+        holders.push({ item: e.item, take: () => { e.count -= 1; }, give: (i) => { this.host.ground.spawn(i, 1, e.x, e.y + 0.1, e.z, { scatter: false, delayS: 0.2 }); } });
+      }
+    }
+    const empties = holders.filter((h) => FLUIDS_EMPTY.has(h.item));
+    if (empties.length === 0) {
+      c.progress = 0;
+      return;
+    }
+    c.progress += dt;
+    if (c.progress < SPOUT_S) return;
+    c.progress = 0;
+    for (const h of empties) {
+      const filled = fb.use(c.x, c.y + 1, c.z, h.item);
+      if (!filled) continue;
+      h.take();
+      h.give(filled);
+      this.host.bus.emit('sfx', { name: 'splash', x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5, volume: 0.4 });
+      return;
+    }
+  }
+
+  /** Saw arm: fells the whole tree in front (no fuel), its logs drop where they stood. */
+  private sawArm(c: Cell, dt: number): void {
+    const rpm = this.host.rpmAt(c.x, c.y, c.z);
+    if (rpm <= 0) return;
+    const facing = voxelFacing(this.host.world.getVoxel(c.x, c.y, c.z));
+    const [fx, fz] = FACE_DELTA[facing];
+    const tx = c.x + fx;
+    const tz = c.z + fz;
+    const cells = trunkAbove(this.host.world, tx, c.y, tz, SAW_ARM_MAX_LOGS);
+    if (cells.length === 0) {
+      c.progress = 0;
+      c.phase = Math.max(0, c.phase - dt);
+      return;
+    }
+    c.progress += (dt * rpm) / 16;
+    c.phase = (c.phase + (dt * rpm) / 6) % 1;
+    if (c.progress < SAW_ARM_CYCLE_S) return;
+    c.progress = 0;
+    for (let i = cells.length - 1; i >= 0; i--) {
+      const l = cells[i];
+      const block = this.host.world.getBlock(l.x, l.y, l.z);
+      for (const d of rollDrops(block, () => this.host.rng())) this.host.ground.spawn(d.item, d.count, l.x + 0.5, l.y + 0.5, l.z + 0.5, { scatter: false, vx: -fx, vz: -fz, vy: 1.5 });
+      this.host.world.setVoxel(l.x, l.y, l.z, 0, 'sim');
+    }
+    this.host.bus.emit('sfx', { name: 'tree_fall', x: tx + 0.5, y: c.y + 0.5, z: tz + 0.5 });
+  }
+
+  /** Vacuum collector: pulls loose items within VACUUM_RADIUS toward itself and takes them in. */
+  private vacuum(c: Cell, dt: number): void {
+    const rpm = this.host.rpmAt(c.x, c.y, c.z);
+    c.phase = rpm > 0 ? (c.phase + (dt * rpm) / 8) % 1 : c.phase;
+    if (rpm <= 0) return;
+    const cx = c.x + 0.5;
+    const cy = c.y + 0.5;
+    const cz = c.z + 0.5;
+    const speed = 3 * (rpm / 16);
+    for (const e of this.host.ground.items) {
+      if (e.count <= 0 || e.homing) continue;
+      const dx = cx - e.x;
+      const dy = cy - e.y;
+      const dz = cz - e.z;
+      const d = Math.hypot(dx, dy, dz);
+      if (d > VACUUM_RADIUS) continue;
+      if (d < 0.8) {
+        const n = this.accept(c.x, c.y, c.z, e.item, e.count);
+        e.count -= n;
+        continue;
+      }
+      const step = Math.min(d, speed * dt);
+      e.x += (dx / d) * step;
+      e.y += (dy / d) * step * 0.6;
+      e.z += (dz / d) * step;
+      e.vx = 0;
+      e.vz = 0;
+    }
+    const items = this.host.ground.items;
+    for (let i = items.length - 1; i >= 0; i--) if (items[i].count <= 0) items.splice(i, 1);
   }
 
   // ---- Views and saves --------------------------------------------------------------------------------

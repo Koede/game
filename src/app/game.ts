@@ -16,6 +16,8 @@ import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
+import { isFluidEndpoint } from '../core/registry';
+import type { Face } from '../core/types';
 import { collectLeafDrops } from '../game/leafDrops';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
@@ -157,6 +159,19 @@ export class Game {
     this.workshop = new Workshop(world, bus, player.ground);
     this.workshop.load(world.extra('workshop'));
     this.workshop.generatorWatts = (x, y, z) => this.state.sim.machineView(x, y, z)?.outW ?? 0;
+    // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
+    this.workshop.standingOn = (x, y, z) => {
+      const p = this.state.player.position;
+      return Math.abs(p.x - (x + 0.5)) < 0.7 && Math.abs(p.z - (z + 0.5)) < 0.7 && p.y > y - 0.2 && p.y < y + 0.4;
+    };
+    this.workshop.tractors = () => this.vehicles.views().map((t) => ({ x: t.x, y: t.y, z: t.z, occupied: t.occupied, fuel: t.fuel }));
+    this.workshop.fluidBlock = {
+      is: (x, y, z) => isFluidEndpoint(world.getBlock(x, y, z)),
+      use: (x, y, z, item) => {
+        const r = this.state.sim.bucketUse(x, y, z, 2 as Face, item);
+        return r.ok ? r.held : null;
+      },
+    };
     // Deployers use their stack on hand stations the way a player's stroke does; anything else falls back to placing and breaking.
     this.workshop.actHook = (a) => {
       const r = this.state.sim.stroke(a.target[0], a.target[1], a.target[2], a.item);

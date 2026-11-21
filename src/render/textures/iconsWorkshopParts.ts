@@ -81,12 +81,19 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   mech_arm: { tint: 0xd0c040, draw: (c, on) => { c.rect(6, 11, 4, 3, IRON[1]); const x = on ? 10 : 3; c.rect(Math.min(8, x), 7, Math.abs(x - 8) + 1, 1, BRONZE[3]); c.rect(7, 7, 2, 5, IRON[2]); c.rect(x - 1, 5, 3, 3, BRONZE[4]); } },
   mech_drill: { tint: 0xb0b0b8, draw: (c, on) => { for (let i = 0; i < 5; i++) c.rect(3 + i * 2 + (on && i % 2 ? 1 : 0), 4 + i, 8 - i * 2 > 0 ? 8 - i * 2 : 1, 1, i % 2 ? IRON[3] : IRON[1]); c.rect(7, 10, 2, 4, IRON[0]); } },
   rack: { tint: 0x80a860, draw: (c, on) => { for (let x = 3; x < 14; x += 3) c.rect(x, 4, 1, 9, WOOD[4]); c.rect(2, 4, 12, 1, WOOD[3]); c.rect(2, 12, 12, 1, WOOD[3]); for (let i = 0; i < 3; i++) c.rect(4 + i * 3, 6 + (on ? i % 2 : 0), 2, 4, P.rgb(0xc7b88a)); c.rect(6, 14, 4, 1, on ? GLOW : IRON[0]); } },
+  shear_pin: { tint: 0xd0d0d8, draw: (c) => { c.rect(2, 7, 12, 2, IRON[2]); c.rect(7, 4, 2, 8, BRONZE[3]); c.rect(7, 4, 2, 1, GLOW); } },
+  flywheel: { tint: 0x707880, draw: (c, on) => { cogAt(c, 8, 9, 5.5, on ? 0.15 : 0, 14); c.each((x, y) => (Math.hypot(x + 0.5 - 8, y + 0.5 - 9) < 3 ? IRON[1] : null)); c.rect(7, 8, 2, 2, IRON[0]); } },
+  differential: { tint: 0xc07090, draw: (c, on) => { cogAt(c, 5, 10, 3.2, on ? 0.3 : 0, 6); cogAt(c, 11, 10, 3.2, on ? -0.3 : 0, 6); cogAt(c, 8, 6, 2.6, on ? 0.2 : 0, 6); } },
+  treadwheel: { tint: 0xa0804a, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 6 && d > 4.3 ? WOOD[4] : null; }); for (let i = 0; i < 6; i++) { const a = i * 1.047 + (on ? 0.4 : 0); c.rect(Math.round(8 + Math.cos(a) * 3), Math.round(9 + Math.sin(a) * 3), 1, 1, WOOD[3]); } c.rect(7, 8, 2, 2, IRON[1]); } },
+  saw_arm: { tint: 0xc05040, draw: (c, on) => { cogAt(c, 8, 9, 5, on ? 0.25 : 0, 12); c.rect(2, 4, 12, 1, IRON[3]); c.rect(7, 8, 2, 2, IRON[0]); } },
+  item_vault: { tint: 0xe0c050, draw: (c) => { c.rect(2, 4, 12, 10, IRON[1]); c.rect(2, 4, 12, 1, IRON[3]); for (const y of [7, 10]) c.rect(3, y, 10, 1, IRON[0]); c.rect(6, 12, 4, 1, BRONZE[4]); } },
+  vacuum_collector: { tint: 0x80d0e0, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); if (d > 6) return null; const a = Math.atan2(y - 9, x - 8) + (on ? 0.6 : 0); return d < 1.5 ? IRON[0] : Math.sin(a * 3 + d * 0.8) > 0 ? IRON[2] : IRON[1]; }); } },
   hammer: { tint: 0x8a6a40, draw: (c, on) => { c.rect(2, 12, 12, 3, IRON[1]); c.rect(2, 12, 12, 1, IRON[3]); c.rect(7, on ? 6 : 2, 2, 5, WOOD[3]); c.rect(4, on ? 4 : 1, 8, 3, IRON[2]); c.rect(4, on ? 4 : 1, 8, 1, IRON[3]); } },
 };
 
 export const registerGlyph = (key: string, tint: number, draw: Glyph): void => { GLYPHS[key] = { tint, draw }; };
 
-const STATIC = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain']);
+const STATIC = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'shear_pin', 'item_vault']);
 const set: Record<string, PainterSet[string]> = {};
 for (const [key, g] of Object.entries(GLYPHS)) {
   const seed = [...key].reduce((s, ch) => s + ch.charCodeAt(0), 0);

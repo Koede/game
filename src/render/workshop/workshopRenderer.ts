@@ -127,6 +127,16 @@ export class WorkshopRenderer {
         this.bar(hand[0] - 0.1, hand[1], hand[2], hand[0] + 0.1, hand[1], hand[2], 0.16, DARK);
         break;
       }
+      case 'saw_arm': {
+        const a = this.time * Math.max(0, w.rpm) * 0.8;
+        this.bar(cx, w.y + 0.5, cz, cx + fx * 0.55, w.y + 0.5, cz + fz * 0.55, 0.2, IRON);
+        this.cog(cx + fx * 0.7, w.y + 0.5, cz + fz * 0.7, a, 0.9, IRON);
+        break;
+      }
+      case 'vacuum_collector': {
+        this.cog(cx, w.y + 1.07, cz, this.time * Math.max(0, w.rpm) * 0.9, 0.85, IRON);
+        break;
+      }
       default:
     }
   }

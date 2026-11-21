@@ -2,9 +2,10 @@
 export const WORKSHOP_SPEC = {
   blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
-    'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill'],
+    'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill',
+    'shear_pin', 'flywheel', 'differential', 'treadwheel', 'saw_arm', 'item_vault', 'vacuum_collector'],
   items: ['engineer_goggles', 'bronze_cog'],
-  objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1'],
+  objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1', 'place saw_arm 1', 'place item_vault 1'],
   recipes: {
     workbench: [
       'hand_crank: 1 hand_crank <- 3 plank, 2 stick, 1 cord',
@@ -41,11 +42,18 @@ export const WORKSHOP_SPEC = {
       'mech_drill: 1 mech_drill <- 2 bronze_ingot, 2 bronze_plate, 1 bronze_cog, 1 drive_shaft @600 T1',
       'mech_hammer: 1 mech_hammer <- 3 bronze_ingot, 2 stone_brick, 1 drive_shaft @600 T1',
       'mech_rack: 1 mech_rack <- 2 bronze_ingot, 3 stick, 1 drive_shaft @600 T1',
+      'shear_pin: 4 shear_pin <- 1 copper_ingot @600 T1',
+      'flywheel: 1 flywheel <- 3 bronze_ingot, 1 bronze_cog, 1 drive_shaft @600 T1',
+      'differential: 1 differential <- 3 bronze_cog, 1 bronze_ingot, 1 drive_shaft @600 T1',
+      'treadwheel: 1 treadwheel <- 4 plank, 2 bronze_ingot, 2 drive_shaft @600 T1',
+      'saw_arm: 1 saw_arm <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw @600 T1',
+      'item_vault: 1 item_vault <- 4 crate, 2 bronze_plate @600 T1',
+      'vacuum_collector: 1 vacuum_collector <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 leather @600 T1',
       'engineer_goggles: 1 engineer_goggles <- 2 copper_ingot, 1 glass, 1 leather @650 T1',
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then 20 fronts of the modular parts (two for each running one) and one icon. */
-  textures: 61,
+  textures: 73,
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

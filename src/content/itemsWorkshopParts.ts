@@ -33,6 +33,13 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'deployer', name: 'Deployer', anim: true, desc: 'A mechanical hand holding a stack. Every two seconds it uses it on the block in front: places, breaks with a tool, tills, strikes a hand station.' },
   { key: 'mech_arm', name: 'Mechanical Arm', anim: true, desc: 'Use a wrench on it, then on a source and up to four targets within 3 blocks, then on it again. It carries items from the source to the targets in turn.' },
   { key: 'mech_drill', name: 'Mechanical Drill', anim: true, desc: 'A turning bit that breaks the block in front of it, one after another; the drops fall where the block was.' },
+  { key: 'shear_pin', name: 'Shear Pin', anim: false, desc: 'A soft pin in the shaft line. When the load tops what the sources carry, the pin snaps instead of the whole line seizing, and drops a scrap of metal.' },
+  { key: 'flywheel', name: 'Flywheel', anim: true, desc: 'A heavy wheel on the shaft. It stores the turning: when the sources stop it keeps the line moving for four more seconds.' },
+  { key: 'differential', name: 'Differential', anim: true, desc: 'Two shafts meet here and it turns at their mean speed, even when they turn opposite ways. It hands that on to the sides they did not come from.' },
+  { key: 'treadwheel', name: 'Treadwheel', anim: true, desc: 'A big wheel to walk in. It turns at 12 rpm and carries 24 stress units while you or a tame animal stand on top of it.' },
+  { key: 'saw_arm', name: 'Saw Arm', anim: true, desc: 'A deployer with a blade. Every three seconds it fells the whole tree in front of it, log by log, and the logs fall as items. It needs no fuel.' },
+  { key: 'item_vault', name: 'Item Vault', anim: false, desc: 'Holds 108 stacks of anything. Funnels, arms and belts fill and empty it. Use it with an item to store, empty-handed to take the biggest stack.' },
+  { key: 'vacuum_collector', name: 'Vacuum Collector', anim: true, desc: 'A turning fan that sucks loose items from four blocks around and sends them out of its front into whatever is there.' },
 ];
 
 export const PART_ITEMS: ItemSpec[] = [
