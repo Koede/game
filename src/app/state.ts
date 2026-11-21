@@ -4,7 +4,7 @@
  * Runs in node (tests drive whole sessions through it); the browser-side Game adds rendering, input, UI and audio.
  */
 import { DT } from '../core/constants';
-import { createBus, type GameBus } from '../core/context';
+import { createBus, type Difficulty, type GameBus } from '../core/context';
 import { seedFromString } from '../core/math';
 import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
@@ -21,6 +21,8 @@ export interface StateOptions {
   pool?: WorkerPool;
   /** Shared bus; a fresh one by default. */
   bus?: GameBus;
+  /** Settings.difficulty (spec 19.3) the session starts on; 'normal' by default. Change it later with setDifficulty. */
+  difficulty?: Difficulty;
 }
 
 export class GameState {
@@ -42,8 +44,11 @@ export class GameState {
   playTimeS = 0;
   /** Number of fixed ticks run since this session started. */
   ticks = 0;
+  /** The difficulty both halves of combat run on (the automatons and the player's side): never one without the other. */
+  private difficultyNow: Difficulty;
 
-  private constructor(world: World, bus: GameBus, seedText: string | null, save: WorldSave | null) {
+  private constructor(world: World, bus: GameBus, seedText: string | null, save: WorldSave | null, difficulty: Difficulty) {
+    this.difficultyNow = difficulty;
     this.bus = bus;
     this.world = world;
     this.seedText = seedText;
@@ -65,7 +70,19 @@ export class GameState {
     this.survival = new Survival(world, this.player, this.clock, biomeAt);
     this.survival.weather = this.weather.state;
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
-    this.mobs = new MobManager(world, bus, this.clock, world.seed);
+    this.mobs = new MobManager(world, bus, this.clock, world.seed, { difficulty });
+    // The Emberbound (spec 19): ONE damage path. The automatons scale by the difficulty and emit 'player:attacked'
+    // themselves, so the player's side only takes the hit (armour, burning, death cause) - never damagePlayer, which
+    // would scale and announce it a second time.
+    const combat = this.player.combat;
+    this.mobs.useHostileHooks({
+      safeZones: this.sim,
+      damagePlayer: (amount, cause, x, z, kind) => {
+        combat.takeHit(amount, cause, x, z, kind);
+      },
+      knockPlayer: (vx, vy, vz) => combat.knock(vx, vy, vz),
+      sky: () => ({ storm: this.weather.state.kind === 'storm', moonPhase: this.clock.moonPhase }),
+    });
     this.mobPlayer = mobPlayerOf(this.player);
     this.mobs.onDeath((d) => {
       for (const s of d.drops) this.player.give(s.item, s.count);
@@ -82,6 +99,8 @@ export class GameState {
       this.survival.load(save.survival);
       this.objectives.load(save.objectives);
     }
+    // After the tracker exists: Peaceful raises its flag on the bus.
+    combat.setDifficulty(difficulty);
     // Entities came with the world snapshot; the simulation rebuilt its runtime from them in its constructor,
     // resync again in case anything touched the world in between (the integration note asks for it after load).
     this.sim.resync();
@@ -91,7 +110,7 @@ export class GameState {
   static create(seed: number, seedText: string | null, options: StateOptions = {}): GameState {
     const bus = options.bus ?? createBus();
     const world = new World(seed >>> 0, bus, { pool: options.pool });
-    const state = new GameState(world, bus, seedText, null);
+    const state = new GameState(world, bus, seedText, null, options.difficulty ?? 'normal');
     state.prepareAroundPlayer(1);
     state.faceOpenView();
     return state;
@@ -101,7 +120,23 @@ export class GameState {
   static restore(save: WorldSave, options: StateOptions = {}): GameState {
     const bus = options.bus ?? createBus();
     const world = World.fromJSON(save.world, bus, { pool: options.pool });
-    return new GameState(world, bus, save.seedText, save);
+    return new GameState(world, bus, save.seedText, save, options.difficulty ?? 'normal');
+  }
+
+  /** The difficulty the session runs on (Settings.difficulty). */
+  get difficulty(): Difficulty {
+    return this.difficultyNow;
+  }
+
+  /**
+   * Changes the difficulty of the automatons and of the player's side together (the settings panel, at any time).
+   * Peaceful removes every natural automaton and bolt at once and puts out a fire on the player.
+   */
+  setDifficulty(d: Difficulty): void {
+    if (d === this.difficultyNow) return;
+    this.difficultyNow = d;
+    this.mobs.setDifficulty(d);
+    this.player.combat.setDifficulty(d);
   }
 
   /** Makes sure the voxels under and around the player exist right now (before the first physics step). */

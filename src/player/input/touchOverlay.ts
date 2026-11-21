@@ -56,6 +56,7 @@ export class TouchOverlay {
   private holdKey = '';
   private diameter = 0;
   private placeArmed = false;
+  private large = false;
 
   constructor(layer: HTMLElement) {
     this.style = document.createElement('style');
@@ -108,6 +109,13 @@ export class TouchOverlay {
     if (!rect) return false;
     const slack = 12;
     return clientX >= rect.left - slack && clientX <= rect.right + slack && clientY >= rect.top - slack && clientY <= rect.bottom + slack;
+  }
+
+  /** Settings.uiScale 'large': bigger buttons and captions (`.hw-touch--large`). */
+  setLarge(large: boolean): void {
+    if (large === this.large) return;
+    this.large = large;
+    this.root.classList.toggle('hw-touch--large', large);
   }
 
   setVisible(visible: boolean): void {

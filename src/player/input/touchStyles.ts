@@ -168,6 +168,26 @@ export const TOUCH_CSS = `
   .hw-touch-btn--place { right: calc(94px + var(--hw-touch-r)); bottom: calc(222px + var(--hw-touch-b)); }
   .hw-touch-stick { left: calc(26px + var(--hw-touch-l)); bottom: calc(96px + var(--hw-touch-b)); }
 }
+/*
+ * UI size Large (Settings.uiScale, review ui-10): every button grows about a fifth and the captions to 13px, the
+ * cluster spreads to keep the gaps between thumbs' targets. The hotbar strip and the top-right corner stay free.
+ */
+.hw-touch--large .hw-touch-label { font-size: 13px; letter-spacing: 0.06em; }
+.hw-touch--large .hw-touch-btn--place .hw-touch-label { font-size: 10px; }
+.hw-touch--large .hw-touch-btn--jump { --hw-touch-s: 90px; right: calc(16px + var(--hw-touch-r)); bottom: calc(12px + var(--hw-touch-b)); }
+.hw-touch--large .hw-touch-btn--mine { --hw-touch-s: 86px; right: calc(124px + var(--hw-touch-r)); bottom: calc(74px + var(--hw-touch-b)); }
+.hw-touch--large .hw-touch-btn--use { --hw-touch-s: 74px; right: calc(22px + var(--hw-touch-r)); bottom: calc(120px + var(--hw-touch-b)); }
+.hw-touch--large .hw-touch-btn--place { --hw-touch-s: 54px; right: calc(112px + var(--hw-touch-r)); bottom: calc(182px + var(--hw-touch-b)); }
+.hw-touch--large .hw-touch-btn--pause,
+.hw-touch--large .hw-touch-btn--bag { --hw-touch-s: 52px; border-radius: 15px; }
+.hw-touch--large .hw-touch-btn--bag { right: calc(72px + var(--hw-touch-r)); }
+@media (orientation: portrait) {
+  .hw-touch--large .hw-touch-btn--jump { --hw-touch-s: 84px; right: calc(12px + var(--hw-touch-r)); bottom: calc(96px + var(--hw-touch-b)); }
+  .hw-touch--large .hw-touch-btn--mine { --hw-touch-s: 82px; right: calc(108px + var(--hw-touch-r)); bottom: calc(150px + var(--hw-touch-b)); }
+  .hw-touch--large .hw-touch-btn--use { --hw-touch-s: 70px; right: calc(16px + var(--hw-touch-r)); bottom: calc(196px + var(--hw-touch-b)); }
+  .hw-touch--large .hw-touch-btn--place { --hw-touch-s: 52px; right: calc(104px + var(--hw-touch-r)); bottom: calc(248px + var(--hw-touch-b)); }
+  .hw-touch--large .hw-touch-stick { bottom: calc(104px + var(--hw-touch-b)); }
+}
 @media (prefers-reduced-motion: reduce) {
   .hw-touch-btn, .hw-touch-stick { transition: none; }
 }

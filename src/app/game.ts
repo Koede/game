@@ -143,7 +143,11 @@ export class Game {
     window.addEventListener('resize', invalidate);
     this.offs.push(
       () => window.removeEventListener('resize', invalidate),
-      bus.on('settings:changed', invalidate),
+      bus.on('settings:changed', () => {
+        // Spec 19.3: the difficulty applies to the automatons and the player's side together, at once.
+        state.setDifficulty(settings.difficulty);
+        invalidate();
+      }),
       bus.on('ui:opened', () => {
         this.coverCheckedAt = -Infinity;
         invalidate();

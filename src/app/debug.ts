@@ -4,6 +4,7 @@
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
 import { DT } from '../core/constants';
+import type { Difficulty } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelActive, voxelFacing, type Facing, type WeatherKind, type WeatherState } from '../core/types';
@@ -39,6 +40,13 @@ export interface DebugSummary {
   world: { loaded: number; meshed: number; mode: string } | null;
   /** The sky (spec 15), with `forced` true while setWeather holds it. */
   weather: (WeatherState & { forced: boolean }) | null;
+  /** Automatons simulated in the last tick (spec 19), nearest first (broken ones while their debris fades included). */
+  hostiles: { id: number; species: string; x: number; y: number; z: number; health: number; mode: string; role: string;
+    dormant: boolean; dying: boolean; d: number }[];
+  /** Ember bolts in flight. */
+  projectiles: number;
+  /** The player's side of combat (spec 19.4) and the session's difficulty. */
+  combat: { difficulty: Difficulty; burning: boolean; lastAttacker: string | null; killedBy: string | null; deathCause: string | null } | null;
 }
 
 export interface DebugHandle {
@@ -66,6 +74,10 @@ export interface DebugHandle {
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
   /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
+  /** Changes Settings.difficulty the way the settings panel does (saved, applied to the running world at once). */
+  setDifficulty(d: Difficulty): void;
+  /** Whether (x, y, z) lies in a safe zone (a hot furnace's warm zone or a powered ward beacon's radius). */
+  isSafe(x: number, y: number, z: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
@@ -141,6 +153,17 @@ export function createDebugHandle(app: App): DebugHandle {
           ? { drawCalls: g.renderer.stats.drawCalls, triangles: g.renderer.stats.triangles, chunks: g.renderer.stats.chunks, precipitation: g.renderer.stats.precipitation, particles: g.renderer.stats.particles }
           : null,
         world: s ? (({ loaded, meshed, mode }) => ({ loaded, meshed, mode }))(s.world.stats()) : null,
+        hostiles: s && p
+          ? s.mobs.hostiles.active.map((m) => ({
+              id: m.id, species: m.spec.key, x: round(m.x), y: round(m.y), z: round(m.z), health: m.health,
+              mode: m.hostile?.mode ?? '', role: m.hostile?.role ?? '', dormant: m.hostile?.mode === 'dormant', dying: m.state === 'dying',
+              d: round(Math.hypot(m.x - p.position.x, m.z - p.position.z), 2),
+            })).sort((a, b) => a.d - b.d)
+          : [],
+        projectiles: s ? s.mobs.hostiles.projectiles.views(1).length : 0,
+        combat: s && p
+          ? { difficulty: s.difficulty, burning: p.combat.burning, lastAttacker: p.combat.lastAttacker, killedBy: p.killedBy, deathCause: p.deathCause }
+          : null,
         weather: s ? { ...s.weather.state, blend: round(s.weather.state.blend), intensity: round(s.weather.state.intensity), cloudCover: round(s.weather.state.cloudCover), nextInS: round(s.weather.state.nextInS, 1), forced: s.weather.override !== null } : null,
       };
     },
@@ -194,6 +217,13 @@ export function createDebugHandle(app: App): DebugHandle {
     spawnMob(species, x, y, z, baby = false) {
       const s = game().state;
       return s.mobs.add(creature(species), { x, y, z, yaw: 0 }, baby).id;
+    },
+    setDifficulty(d) {
+      if (!['peaceful', 'normal', 'hard'].includes(d)) throw new Error(`unknown difficulty "${d}"`);
+      app.changeSettings({ ...app.settings, difficulty: d }, 'difficulty');
+    },
+    isSafe(x, y, z) {
+      return game().state.sim.isSafe(x, y, z);
     },
     getBlock(x, y, z) {
       const v = game().state.world.getVoxel(x, y, z);

@@ -121,7 +121,7 @@ export class App {
   newWorld(seedText: string | null): void {
     if (this.phase !== 'title') return;
     const seed = seedFrom(seedText);
-    this.start('Generating world', seedText ? `Seed "${seedText}" (${seed})` : `Seed ${seed}`, (pool) => GameState.create(seed, seedText, { pool }));
+    this.start('Generating world', seedText ? `Seed "${seedText}" (${seed})` : `Seed ${seed}`, (pool) => GameState.create(seed, seedText, { pool, difficulty: this.settings.difficulty }));
   }
 
   continueWorld(): void {
@@ -133,7 +133,7 @@ export class App {
     }
     const save = JSON.parse(this.worldText) as WorldSave;
     const seedLine = save.seedText ? `Seed "${save.seedText}"` : `Seed ${save.seed}`;
-    this.start('Loading your world', seedLine, (pool) => GameState.restore(save, { pool }));
+    this.start('Loading your world', seedLine, (pool) => GameState.restore(save, { pool, difficulty: this.settings.difficulty }));
   }
 
   private start(label: string, seedLine: string, makeState: (pool: WorkerPool) => GameState): void {
