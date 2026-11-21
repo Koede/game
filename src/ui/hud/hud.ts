@@ -18,6 +18,8 @@ import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
 import hudCss from './hud.css';
 import { summarizeGrid } from './hudMath';
+import { CoachMarks } from './coach';
+import { cropLabel } from './cropText';
 import type { UISimQuery } from './query';
 import { DayDial, PowerStrip } from './status';
 import { Vitals } from './vitals';
@@ -64,6 +66,8 @@ export class Hud {
   private readonly feed = new FeedView();
   private readonly vignettes = new Vignettes();
   private readonly hotbar: Hotbar;
+  private readonly coach = new CoachMarks();
+  private goalDone = false;
   private readonly fpsEl: HTMLDivElement;
   private readonly offs: (() => void)[] = [];
   private readonly observer: ResizeObserver | null;
@@ -77,9 +81,14 @@ export class Hud {
   private blockName: string | null = null;
   private mining = -1;
   private nameOverride: string | null = null;
+  private readonly targetAt = { has: false, x: 0, y: 0, z: 0 };
   private screenOpen = false;
-  /** Goals completed while a screen covered the view: announced once it closes (the tracker's toast covers the moment). */
+  /**
+   * Goals completed and ages begun while a screen covered the view: announced once it closes. The matching
+   * "Done: ..." toast is dropped then, so a goal is announced once, not as a toast now and a banner later.
+   */
   private heldGoal: string | null = null;
+  private heldAge: number | null = null;
 
   constructor(root: UIRoot, deps: HudDeps) {
     injectCss();
@@ -104,6 +113,7 @@ export class Hud {
       this.top,
       this.crosshair.el,
       h('div', { class: 'hw-hud__bottom' }, this.hotbar.el),
+      this.coach.el,
     );
     root.layers.hud.appendChild(this.el);
     // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
@@ -114,6 +124,10 @@ export class Hud {
       bus.on('objective:completed', ({ id }) => this.objectiveBanner(id)),
       bus.on('age:advanced', ({ age }) => this.ageBanner(age)),
       bus.on('item:gained', ({ item, count }) => this.feed.push(item, count)),
+      bus.on('block:broken', () => this.coach.blockBroken()),
+      bus.on('ui:open', ({ screen }) => {
+        if (screen.type === 'log') this.coach.goalOpened();
+      }),
       bus.on('player:damage', ({ amount }) => this.vignettes.damage(amount)),
       bus.on('inventory:changed', () => (this.hotbarDirty = true)),
       bus.on('hotbar:selected', () => (this.hotbarDirty = true)),
@@ -132,6 +146,7 @@ export class Hud {
   frame(dt: number): void {
     const d = this.deps;
     this.compass.aim(d.player);
+    this.coach.look(d.player.yaw, d.player.pitch, d.input.touch);
     if (this.hotbarDirty) {
       this.hotbarDirty = false;
       this.hotbar.refresh();
@@ -145,16 +160,31 @@ export class Hud {
     }
   }
 
-  /** Same arguments as IView.setTarget. */
+  /** Same arguments as IView.setTarget (called every frame: the name is looked up only when the target moves). */
   setTarget(target: { x: number; y: number; z: number } | null, mining: number): void {
-    let name: string | null = null;
-    if (target) {
-      const block = this.deps.world.getBlock(target.x, target.y, target.z);
-      name = block.id === 0 ? null : block.name;
+    const t = this.targetAt;
+    const moved = target === null ? t.has : !t.has || t.x !== target.x || t.y !== target.y || t.z !== target.z;
+    if (moved) {
+      t.has = target !== null;
+      if (target) {
+        t.x = target.x;
+        t.y = target.y;
+        t.z = target.z;
+      }
+      this.blockName = this.targetLabel();
     }
-    this.blockName = name;
     this.mining = mining;
     this.showTarget();
+  }
+
+  /** The block under the crosshair in words; a crop says how it grows (refreshed on the slow tick). */
+  private targetLabel(): string | null {
+    const t = this.targetAt;
+    if (!t.has) return null;
+    const crop = this.deps.sim().cropView(t.x, t.y, t.z);
+    if (crop) return cropLabel(crop);
+    const block = this.deps.world.getBlock(t.x, t.y, t.z);
+    return block.id === 0 ? null : block.name;
   }
 
   /**
@@ -182,6 +212,11 @@ export class Hud {
     // An objective banner would sit on top of the screen's content; announcements wait for the view to return.
     setFlag(this.root.layers.toasts, 'screen', open);
     this.feed.el.hidden = open;
+    if (!open && this.heldAge !== null) {
+      const age = this.heldAge;
+      this.heldAge = null;
+      this.ageBanner(age);
+    }
     if (!open && this.heldGoal !== null) {
       const id = this.heldGoal;
       this.heldGoal = null;
@@ -217,6 +252,16 @@ export class Hud {
     }
     this.vignettes.update(d.player.warmth, d.player.wellWarmed, d.player.food);
     this.feed.tick();
+    // The goal tip waits for the first finished goal (the list is built on each read: ask only until then).
+    if (!this.goalDone && d.objectives.completed.length > 0) {
+      this.goalDone = true;
+      this.coach.objectiveCompleted();
+    }
+    this.coach.render(d.input.touch, this.screenOpen, this.goal.el);
+    if (this.targetAt.has) {
+      this.blockName = this.targetLabel();
+      this.showTarget();
+    }
   }
 
   private countFps(dt: number): void {
@@ -241,6 +286,7 @@ export class Hud {
     if (!spec) return;
     if (this.screenOpen) {
       this.heldGoal = id;
+      this.echo = { text: `Done: ${spec.title}`, until: performance.now() + ECHO_MS };
       return;
     }
     const next = this.deps.objectives.current;
@@ -258,6 +304,11 @@ export class Hud {
   private ageBanner(index: number): void {
     const age = AGES[index];
     if (!age) return;
+    if (this.screenOpen) {
+      this.heldAge = index;
+      this.echo = { text: `${age.name}:`, until: performance.now() + ECHO_MS };
+      return;
+    }
     this.root.banner.show({ kicker: 'A new age begins', title: age.name, subtitle: age.blurb, tone: index >= 2 ? 'power' : 'heat', size: 'lg' });
     this.echo = { text: `${age.name}:`, until: performance.now() + ECHO_MS };
   }

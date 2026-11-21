@@ -9,5 +9,6 @@ export * from './controls';
 export * from './window';
 export * from './slot';
 export * from './recipe';
+export * from './scrollFade';
 export * from './gauges';
 export * from './feedback';

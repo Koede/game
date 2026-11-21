@@ -4,8 +4,8 @@ import type { PortView } from '../../../sim';
 import { run } from '../../../sim/pipeKit';
 import { makeKit } from '../../../sim/testKit';
 import {
-  contentText, distanceText, filterChoices, filterSummary, lineSummary, nearPorts, portKey, portTone, priorityNote, priorityText,
-  setFilterSlot,
+  contentText, distanceText, filterChoices, filterSummary, lineSummary, nearPorts, pipeFooter, portKey, portTone, priorityNote, priorityText,
+  pullAdvice, setFilterSlot,
 } from './pipeText';
 
 /** crate (with ore) -> bronze chutes -> crate, and a third crate on a branch. */
@@ -80,5 +80,25 @@ describe('pipe screen text', () => {
     expect(nearPorts(ports, false)).toMatchObject({ more: 3 });
     expect(nearPorts(ports, false).shown).toHaveLength(8);
     expect(nearPorts(ports, true)).toMatchObject({ more: 0 });
+  });
+
+  it('says when no end pulls, and points at the likeliest source', () => {
+    const kit = itemLine();
+    const view = kit.sim.pipeView(1, 1, 0)!;
+    expect(pullAdvice(view.ports)).toBeNull();
+    kit.sim.setPort(1, 1, 0, 1 /* Face.NX */, { mode: 'push' });
+    const pushing = kit.sim.pipeView(1, 1, 0)!.ports;
+    expect(pullAdvice(pushing)).toEqual({ text: 'No end is pulling - set the end you take from to Pull', source: portKey(pushing[0]) });
+    const toFurnace = [
+      { x: 0, y: 0, z: 0, dir: 0, mode: 'push' as const, inert: false, block: 'furnace_clay' },
+      { x: 1, y: 0, z: 0, dir: 0, mode: 'push' as const, inert: false, block: 'crate' },
+    ];
+    expect(pullAdvice(toFurnace)?.source).toBe('1,0,0,0');
+    expect(pullAdvice([])).toBeNull();
+  });
+
+  it('words the footer for touch or mouse', () => {
+    expect(pipeFooter(true)).toMatch(/Tap a block's name/);
+    expect(pipeFooter(false)).toMatch(/Click a block's name/);
   });
 });

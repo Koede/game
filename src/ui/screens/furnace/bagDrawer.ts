@@ -30,7 +30,8 @@ export class BagDrawer {
     this.count = h('span', { class: 'hw-drawer__count hw-num' });
     this.handle = h(
       'button',
-      { class: 'hw-drawer__handle', attrs: { type: 'button', 'aria-expanded': 'false' } },
+      { class: 'hw-drawer__handle', attrs: { type: 'button', 'aria-expanded': 'false', 'aria-label': 'Backpack' } },
+      h('span', { class: 'hw-drawer__icon' }, glyph('bag', 18)),
       h('span', { class: 'hw-drawer__label', text: 'Backpack' }),
       this.count,
       h('span', { class: 'hw-drawer__chev' }, glyph('play', 12)),

@@ -3,7 +3,7 @@ import type { WeatherState } from '../../core/types';
 import { h, setAttr, setFlag, setText } from '../kit/dom';
 import { formatJoules, formatPercent, formatWatts } from '../kit/format';
 import { glyph } from '../kit/icons';
-import { dayInfo, formatCountdown, type GridSummary } from './hudMath';
+import { DIAL_SOON_S, dayInfo, untilLabel, type GridSummary } from './hudMath';
 import { moonName, moonPath, weatherGlyph, weatherWord, type WeatherGlyph } from './weatherText';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -82,6 +82,8 @@ export class DayDial {
   private readonly moonLit: SVGPathElement;
   private wx: SVGGElement;
   private shownGlyph: WeatherGlyph = 'clear';
+  /** Null until the first update, so a game loaded at dusk does not pulse. */
+  private shownSoon: boolean | null = null;
   private shownPhase = -1;
   private readonly dayEl: HTMLSpanElement;
   private readonly untilEl: HTMLSpanElement;
@@ -147,7 +149,17 @@ export class DayDial {
     }
     const sky = weather ? `${weatherWord(g)}. ` : '';
     setText(this.dayEl, `Day ${day}`);
-    setText(this.untilText, formatCountdown(info.untilS));
+    setText(this.untilText, untilLabel(info.isNight, info.untilS));
+    // Crossing the last two minutes: the dial pulses once so the coming night (or dawn) is noticed.
+    const soon = info.untilS < DIAL_SOON_S;
+    if (soon !== this.shownSoon) {
+      if (soon && this.shownSoon === false) {
+        this.el.removeAttribute('data-pulse');
+        void this.el.offsetWidth;
+        this.el.setAttribute('data-pulse', '');
+      }
+      this.shownSoon = soon;
+    }
     setAttr(this.el, 'aria-label', `Day ${day}, ${info.isNight ? 'night' : 'daytime'}. ${sky}${info.text}. Tonight: ${moonName(phase).toLowerCase()}.`);
     setAttr(this.el, 'title', `${sky}${info.text}. Tonight: ${moonName(phase).toLowerCase()}`);
   }

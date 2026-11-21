@@ -77,6 +77,19 @@ const REQUIREMENT_TONE: Record<NonNullable<RecipeRequirement['kind']>, Tone> = {
   note: 'neutral',
 };
 
+/**
+ * What the batch button does, said before the tap: the full sentence for its label and tooltip ("Make 4 times:
+ * 16 Plank, uses 4 Oak Log"), and a short line inside the button when the batch would use up every one of an
+ * ingredient the player holds ("all 4 Oak Log"), so a tap never silently eats what the next goal needs.
+ */
+export function batchNote(view: Pick<RecipeRowView, 'name' | 'count' | 'ingredients'>, times: number): { full: string; hint: string } {
+  const made = (view.count ?? 1) * times;
+  const uses = view.ingredients.map((i) => `${i.need * times} ${i.name}`).join(', ');
+  const full = `Make ${times} times: ${made} ${view.name}${uses ? `, uses ${uses}` : ''}`;
+  const emptied = view.ingredients.find((i) => i.have > 0 && i.need * times >= i.have);
+  return { full, hint: emptied ? `all ${emptied.need * times} ${emptied.name}` : '' };
+}
+
 export class RecipeRow {
   readonly el: HTMLElement;
   private readonly icon = new ItemIcon();
@@ -149,6 +162,12 @@ export class RecipeRow {
         this.manyBtn.setLabel(`×${this.batch}`);
         this.manyBtn.setDisabled(available < 2);
       }
+    }
+    if (this.manyBtn) {
+      const note = batchNote(view, this.batch);
+      this.manyBtn.setHint(available >= 2 ? note.hint : '');
+      setAttr(this.manyBtn.el, 'aria-label', note.full);
+      setAttr(this.manyBtn.el, 'title', note.full);
     }
   }
 

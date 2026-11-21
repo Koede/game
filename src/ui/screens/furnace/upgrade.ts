@@ -5,15 +5,15 @@
  */
 import type { GameBus } from '../../../core/context';
 import { AGES } from '../../../core/registry';
-import type { FurnaceTierSpec } from '../../../core/types';
 import type { FurnaceView } from '../../../sim';
 import { Button } from '../../kit/controls';
 import { h, setAttr, setFlag, setText } from '../../kit/dom';
-import { formatCount, formatWatts, heatColor } from '../../kit/format';
+import { formatCount, heatColor } from '../../kit/format';
 import { Badge } from '../../kit/gauges';
 import { ItemIcon } from '../../kit/icons';
 import { nameOf } from './forgeRows';
-import { sourceText, upgradeProgress } from './furnaceText';
+import { sourceText } from './furnaceText';
+import { upgradeBlock, upgradeStats, upgradeSub } from './upgradeText';
 import { pretty, type ScreenSim } from './simApi';
 
 interface Chip {
@@ -22,15 +22,6 @@ interface Chip {
   qty: HTMLSpanElement;
   name: HTMLSpanElement;
 }
-
-const stats = (t: FurnaceTierSpec): [string, string][] => [
-  ['Max temperature', `${t.maxTempC} °C`],
-  ['Crucibles', String(t.crucibles)],
-  ['Fuel slots', String(t.fuelSlots)],
-  ['Smelting speed', `×${t.speed}`],
-  ['Electric heat', t.electricHeatW > 0 ? formatWatts(t.electricHeatW) : '-'],
-  ['Warmth radius', `${t.warmth} blocks`],
-];
 
 export class UpgradeControl {
   /** The header button. */
@@ -125,24 +116,23 @@ export class UpgradeControl {
       this.sheet.hidden = true;
       return;
     }
-    const { have, need } = upgradeProgress(up);
     this.button.setLabel('Upgrade');
     this.button.setKind(up.ok ? 'primary' : 'default');
     this.button.setDisabled(false);
-    this.setSub(up.ok ? `Ready: ${up.next.name}` : `${have}/${need} materials`);
+    this.setSub(upgradeSub(up));
     setFlag(this.button.el, 'ready', up.ok);
     if (this.sheet.hidden) return;
 
     setText(this.kicker, `Next: ${AGES[up.next.age]?.name ?? ''} - tier ${up.next.tier}`);
     setText(this.title, up.next.name);
     setText(this.blurb, up.next.blurb);
-    const key = `${view.tier}`;
+    const h0 = view.hearth;
+    const key = `${view.tier}|${view.cruciblesActive}|${h0.formed ? h0.tier : 0}|${h0.inner?.join('x') ?? ''}`;
     if (key !== this.tableKey) {
       this.tableKey = key;
-      const now = stats(view.spec);
       this.table.replaceChildren(
-        ...stats(up.next).map(([label, next], i) =>
-          h('tr', { attrs: { 'data-better': next !== now[i][1] } }, h('th', { text: label }), h('td', { class: 'hw-num', text: now[i][1] }), h('td', { class: 'hw-num', text: next })),
+        ...upgradeStats(view, up.next).map((row) =>
+          h('tr', { attrs: { 'data-better': row.next !== row.now } }, h('th', { text: row.label }), h('td', { class: 'hw-num', text: row.now }), h('td', { class: 'hw-num', text: row.next })),
         ),
       );
     }
@@ -166,7 +156,7 @@ export class UpgradeControl {
     this.nextTier = up.next.tier;
     setAttr(this.reason, 'data-tone', up.ok ? 'good' : 'warn');
     this.go.setLabel(`Upgrade to the ${up.next.name}`);
-    this.go.setDisabled(!up.ok, up.ok ? '' : up.tempOk ? 'Materials missing' : 'Too cold');
+    this.go.setDisabled(!up.ok, upgradeBlock(up));
   }
 
   dispose(): void {

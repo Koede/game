@@ -14,6 +14,7 @@ import { ItemSlot, SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
 import { pretty } from '../furnace/simApi';
 import { FluidTanks } from './fluidTanks';
+import { usesWaterBeside } from './fluidText';
 import { fuelText, headline, machineTone, subline, type MachineLayout } from './machineText';
 
 const nameOf = (key: string): string => itemOrNull(key)?.name ?? key;
@@ -72,7 +73,7 @@ export class MachinePanel {
     this.figure.set(head.reading);
     this.figure.setNote(subline(view, this.layout));
     this.figure.setTone(this.layout === 'storage' || this.layout === 'generator' || this.layout === 'burner' || this.layout === 'fission' ? 'power' : 'neutral');
-    if (this.tanks && view.fluids) this.tanks.update(view.fluids);
+    if (this.tanks && view.fluids) this.tanks.update(view.fluids, usesWaterBeside(view));
     setText(this.status, pretty(view.status || (view.on ? 'Ready' : 'Switched off')));
     setAttr(this.status, 'data-tone', machineTone(view));
     this.problem.hidden = view.problem === null;

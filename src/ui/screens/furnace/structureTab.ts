@@ -2,6 +2,10 @@
  * The STRUCTURE tab (spec 17.4): the hearth's status, a checklist with ticks and counts, the problems in plain words
  * (tap one: its block pulses in the world), and the target picker - tier, inside size, the materials with have/need
  * and a "Show in world" switch for the ghost preview. At tier 1 it first explains what a hearth is.
+ *
+ * Once a hearth stands and the plan has moved on to the next tier, the tab first shows the standing hearth's own
+ * checklist (all ticked) and folds the next tier's under "Next: Arc hearth", in neutral "to build" colours: what is
+ * still missing there is work ahead, not a fault in what was just built.
  */
 import type { GameBus } from '../../../core/context';
 import { HEARTH_HIGHLIGHT_S } from '../../../core/constants';
@@ -39,6 +43,11 @@ interface MaterialEl {
 
 const HINT_MS = 1800;
 
+const checksKey = (list: readonly StructureCheck[]): string => list.map((c) => `${c.key}${c.have}/${c.need}`).join(',');
+
+const checkItem = (c: StructureCheck): HTMLLIElement =>
+  h('li', { class: 'hw-st__check', attrs: { 'data-ok': c.ok } }, glyph(c.ok ? 'check' : 'close', 12), h('span', { text: checkText(c) }));
+
 export class StructureTab {
   readonly el: HTMLElement;
   private readonly sim: StructureSource;
@@ -65,6 +74,14 @@ export class StructureTab {
   private readonly showNote: HTMLParagraphElement;
   private view: StructureView | null = null;
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly formedPart: HTMLElement;
+  private readonly formedHead: HTMLHeadingElement;
+  private readonly formedChecks: HTMLUListElement;
+  private formedKey = '';
+  private readonly nextBtn: HTMLButtonElement;
+  private readonly nextLabel: HTMLSpanElement;
+  private readonly nextPart: HTMLElement;
+  private nextOpen = false;
 
   constructor(opts: { sim: StructureSource; pos: { x: number; y: number; z: number }; bus: GameBus; ghost: HearthGhost; changed: () => void }) {
     this.sim = opts.sim;
@@ -80,9 +97,24 @@ export class StructureTab {
       ...intro.lines.map((line) => h('p', { text: line })),
     );
     this.checks = h('ul', { class: 'hw-st__checks', attrs: { 'aria-label': 'Checklist' } });
+    this.formedHead = h('h4', { class: 'hw-heading' });
+    this.formedChecks = h('ul', { class: 'hw-st__checks', attrs: { 'aria-label': 'The standing hearth' } });
+    this.formedPart = h('div', { class: 'hw-st__formed' }, this.formedHead, this.formedChecks);
+    this.nextLabel = h('span', { class: 'hw-st__nextlabel' });
+    this.nextBtn = h(
+      'button',
+      { class: 'hw-st__next', attrs: { type: 'button', 'aria-expanded': 'false' } },
+      this.nextLabel,
+      glyph('chevron', 12),
+    );
+    this.nextBtn.addEventListener('click', () => {
+      this.nextOpen = !this.nextOpen;
+      this.update();
+    });
     this.problemHead = h('h4', { class: 'hw-heading' });
     this.none = h('p', { class: 'hw-st__none' });
     this.problemList = h('div', { class: 'hw-st__problems' }, this.none);
+    this.nextPart = h('div', { class: 'hw-st__plan' }, h('h4', { class: 'hw-heading', text: 'Checklist' }), this.checks, this.problemHead, this.problemList);
     this.tierHost = h('div', { class: 'hw-st__tiers' });
     this.steppers = ([0, 1, 2] as Axis[]).map(
       (axis) => new Stepper({ label: AXIS_LABEL[axis], min: 1, max: 1, value: 1, onChange: (v) => this.resize(axis, v) }),
@@ -102,10 +134,9 @@ export class StructureTab {
       { class: 'hw-st' },
       h('div', { class: 'hw-st__status' }, this.status.el, this.effect),
       this.intro,
-      h('h4', { class: 'hw-heading', text: 'Checklist' }),
-      this.checks,
-      this.problemHead,
-      this.problemList,
+      this.formedPart,
+      this.nextBtn,
+      this.nextPart,
       h(
         'section',
         { class: 'hw-st__target hw-panel', attrs: { 'aria-label': 'Plan a hearth' } },
@@ -129,8 +160,24 @@ export class StructureTab {
     this.status.update({ text: view.status, tone: statusTone(view) });
     setText(this.effect, effectText(view));
     this.intro.hidden = view.controllerTier > 1;
+    // The plan is ahead of the standing hearth: show that hearth first, the next tier's work folded below it.
+    const ahead = view.formed && view.target.tier > view.tier;
+    const chosen = this.ghost.target(x, y, z) !== undefined;
+    const open = !ahead || this.nextOpen || chosen;
+    this.formedPart.hidden = !ahead;
+    this.nextBtn.hidden = !ahead;
+    this.nextPart.hidden = !open;
+    setAttr(this.el, 'data-ahead', ahead);
+    setAttr(this.nextBtn, 'aria-expanded', String(open));
+    if (ahead) {
+      const own = this.sim.structureView(x, y, z, { tier: view.tier, inner: view.inner ?? undefined });
+      setText(this.formedHead, `${view.name ?? 'Hearth'} - standing`);
+      this.updateFormed(own?.target.checklist ?? []);
+      const todo = view.target.checklist.filter((c) => !c.ok).length;
+      setText(this.nextLabel, `Next: ${view.target.name}${todo > 0 ? ` - ${todo} to build` : ''}`);
+    }
     this.updateChecks(view.target.checklist);
-    this.updateProblems(view.problems, view.formed && view.tier >= view.target.tier);
+    this.updateProblems(view.problems, view.formed && view.tier >= view.target.tier, ahead);
     this.updateTarget(view);
   }
 
@@ -139,19 +186,24 @@ export class StructureTab {
   }
 
   private updateChecks(list: readonly StructureCheck[]): void {
-    const key = list.map((c) => `${c.key}${c.have}/${c.need}`).join(',');
+    const key = checksKey(list);
     if (key === this.checksKey) return;
     this.checksKey = key;
-    this.checks.replaceChildren(
-      ...list.map((c) =>
-        h('li', { class: 'hw-st__check', attrs: { 'data-ok': c.ok } }, glyph(c.ok ? 'check' : 'close', 12), h('span', { text: checkText(c) })),
-      ),
-    );
+    this.checks.replaceChildren(...list.map(checkItem));
   }
 
-  private updateProblems(problems: readonly HearthProblem[], complete: boolean): void {
+  private updateFormed(list: readonly StructureCheck[]): void {
+    const key = checksKey(list);
+    if (key === this.formedKey) return;
+    this.formedKey = key;
+    this.formedChecks.replaceChildren(...list.map(checkItem));
+  }
+
+  /** `todo`: the list is the next tier's work (headed "To build", neutral colours), not faults of a standing hearth. */
+  private updateProblems(problems: readonly HearthProblem[], complete: boolean, todo: boolean): void {
     const list = groupProblems(problems);
-    setText(this.problemHead, problems.length > 0 ? `Problems (${problems.length})` : complete ? 'Complete' : 'Problems');
+    const word = todo ? 'To build' : 'Problems';
+    setText(this.problemHead, problems.length > 0 ? `${word} (${problems.length})` : complete ? 'Complete' : word);
     while (this.problemRows.length > list.length) this.problemRows.pop()?.el.remove();
     list.forEach((g, i) => {
       let row = this.problemRows[i];

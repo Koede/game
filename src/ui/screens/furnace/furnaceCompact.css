@@ -1,0 +1,192 @@
+/* ==========================================================================================
+   THE FURNACE SCREEN ON A PHONE (.hw-fx[data-compact]: a coarse pointer and under 500 px wide or 520 px high).
+   The firebox folds to a strip - temperature, a small flame, the fuel slots, Pump (Light while cold) and the
+   status - that unfolds on a tap; the backpack handle becomes a corner button. Portrait: the strip runs across
+   the top. Landscape: a narrow rail at the left, so the tab keeps the full height.
+   ========================================================================================== */
+
+/* ---- the fold chevron: only on phones ---------------------------------------------------- */
+.hw-fbx__fold {
+  display: none;
+}
+.hw-fx[data-compact] .hw-fbx__fold {
+  grid-area: fold;
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 44px;
+  color: var(--hw-ash-2);
+  background: var(--hw-soot-1);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-fx[data-compact] .hw-fbx__fold > svg {
+  transform: rotate(90deg);
+  transition: transform 160ms ease-out;
+}
+.hw-fx[data-compact] .hw-fbx[data-open] .hw-fbx__fold > svg {
+  transform: rotate(-90deg);
+}
+.hw-fbx__hint {
+  grid-area: hint;
+  padding: 4px 10px;
+  font: 600 12px / 1.3 var(--hw-font-mono);
+  color: var(--hw-warn);
+  background: var(--hw-soot-3);
+  border-left: 3px solid var(--hw-warn);
+}
+
+/* ---- unfolded on a phone: the usual panel, plus the chevron to fold it back ----------------- */
+.hw-fx[data-compact] .hw-fbx[data-open] {
+  grid-template-rows: minmax(0, 1fr) auto auto auto auto;
+  grid-template-areas:
+    'thermo controls'
+    'status status'
+    'hint hint'
+    'rest rest'
+    'fold fold';
+}
+.hw-fx[data-compact] .hw-fbx[data-open] .hw-fbx__fold {
+  min-height: 32px;
+}
+
+/* ---- the folded strip (portrait) --------------------------------------------------------- */
+.hw-fx[data-compact] .hw-fbx:not([data-open]) {
+  grid-template-columns: auto 48px auto minmax(56px, 1fr) auto;
+  grid-template-rows: auto;
+  grid-template-areas:
+    'thermo mouth fuel btns fold'
+    'status status status status status'
+    'hint hint hint hint hint';
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__controls,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__btns {
+  display: contents;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-thermo__gauge,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-thermo__caption,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__controls > .hw-meter,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuel > .hw-btn,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__elec,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__facts,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) > .hw-btn,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__draft,
+.hw-fx[data-compact] .hw-fbx[data-lit]:not([data-open]) .hw-fbx__light,
+.hw-fx[data-compact] .hw-fbx:not([data-lit]):not([data-open]) .hw-fbx__pump {
+  display: none;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__thermo {
+  min-height: 0;
+  cursor: pointer;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-thermo {
+  display: block;
+  min-width: 0;
+  height: auto;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-thermo__value {
+  font-size: 24px;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__mouth {
+  grid-area: mouth;
+  height: 44px;
+  border-top-width: 2px;
+  cursor: pointer;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuel {
+  grid-area: fuel;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuelslots .hw-slotgrid {
+  grid-template-columns: repeat(var(--hw-cols), 44px);
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__btns > .hw-btn {
+  grid-area: btns;
+  min-height: 44px;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__pump {
+  font-size: 15px;
+  letter-spacing: 0.12em;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__pump .hw-btn__sub {
+  display: none;
+}
+.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__status {
+  min-height: 0;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+/* ---- the backpack: a corner button while closed ------------------------------------------- */
+.hw-drawer__icon {
+  display: none;
+}
+.hw-fx[data-compact] .hw-fx__main {
+  padding-bottom: 0;
+}
+.hw-fx[data-compact] .hw-fx__pane {
+  padding-bottom: 60px;
+  scroll-padding-bottom: 60px;
+}
+.hw-fx[data-compact] .hw-drawer:not([data-open]) {
+  left: auto;
+  background: var(--hw-soot-3);
+  border-color: var(--hw-iron-3);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--hw-soot-0) 80%, transparent);
+}
+.hw-fx[data-compact] .hw-drawer:not([data-open]) .hw-drawer__handle {
+  gap: 6px;
+  min-width: 52px;
+  min-height: 48px;
+  padding: 0 10px;
+}
+.hw-fx[data-compact] .hw-drawer:not([data-open]) .hw-drawer__icon {
+  display: inline-grid;
+}
+.hw-fx[data-compact] .hw-drawer:not([data-open]) .hw-drawer__label,
+.hw-fx[data-compact] .hw-drawer:not([data-open]) .hw-drawer__chev {
+  display: none;
+}
+
+/* ---- landscape: the strip becomes a rail at the left -------------------------------------- */
+@media (max-height: 519.98px) {
+  .hw-fx[data-compact]:has(.hw-fbx:not([data-open])) {
+    --hw-fire-w: 118px;
+    --hw-fx-gap: 10px;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: none;
+    grid-auto-flow: row;
+    align-content: start;
+    justify-items: stretch;
+    gap: 6px;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) > *,
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__controls > *,
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__btns > .hw-btn {
+    grid-area: auto;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__thermo {
+    order: -2;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__status {
+    order: 5;
+    font-size: 11.5px;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__hint {
+    order: 6;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fold {
+    order: 7;
+    min-height: 36px;
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuelslots .hw-slotgrid {
+    grid-template-columns: repeat(min(var(--hw-cols), 2), 44px);
+  }
+  .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuel {
+    justify-content: center;
+  }
+}

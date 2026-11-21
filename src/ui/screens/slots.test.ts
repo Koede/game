@@ -51,6 +51,7 @@ describe('SlotInteraction - tap to pick, tap to drop', () => {
     ui.primary('bag', 0);
     expect(ui.canDrop('fuel', 0)).toBe(false);
     expect(ui.primary('fuel', 0)).toBe('refused');
+    expect(ui.refusal).toBe('Fuel does not take Flint');
     expect(ui.picked).not.toBeNull();
     ui.primary('bag', 0); // put back
     ui.primary('bag', 1);
@@ -107,6 +108,11 @@ describe('SlotInteraction - half, one, quick move', () => {
     expect(items(fuel)).toEqual(['coal:99', '-']);
     bag.set(1, { item: 'flint', count: 2 });
     expect(ui.quickMove('bag', 1)).toBe('refused');
+    bag.set(2, { item: 'stick', count: 5 });
+    fuel.set(1, { item: 'coal', count: 99 });
+    expect(ui.quickMove('bag', 2)).toBe('refused');
+    expect(ui.refusal).toBe('No room for Stick in the fuel - take something out first');
+    fuel.set(1, null);
     expect(ui.quickMove('fuel', 0)).toBe('moved');
     expect(items(bag)[0]).toBe('coal:99');
   });

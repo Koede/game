@@ -131,6 +131,21 @@ DOM-free helpers (all tested): `structureText.ts` - `ghostKey`, `ghostCells`, `c
 `setFilterSlot`, `filterChoices`, `priorityText`, `priorityNote`, `lineSummary`, `contentText`, `MODE_HELP`,
 `nearPorts`, `distanceText`.
 
+### Phone pass fixes
+- STRUCTURE tab: when a hearth stands and the plan is a higher tier (`view.formed && target.tier > view.tier`), the
+  tab shows "<Hearth> - standing" with that hearth's own checklist (a second `structureView` with
+  `{ tier: view.tier, inner: view.inner }`), then a "Next: Arc hearth - n to build" button. The next tier's checklist
+  and list ("To build (n)", neutral colours, `.hw-st[data-ahead]`) stay folded until the player taps it or picks a
+  tier in the Plan picker.
+- Pipe screen: `pullAdvice(ports)` - with no end pulling, the content line says "No end is pulling - set the end you
+  take from to Pull" (warn) and the likeliest source end (crate or pump, then a machine, the furnace last) gets
+  `PortRow.setAttention(true)`: its Pull option is outlined and pulses. `pipeFooter(touch)` words the footer with
+  "Tap" or "Click" (`ScreenContext.touch`).
+- Machine fluids: `tankRows(kind, view, waterBeside)` and `usesWaterBeside(view)` - a machine with a water-nearby rule
+  (params.minWater) that has no placement problem and nothing piped in shows "In: the water beside it" (full water
+  bar) instead of "In: empty - takes Water". Tank labels are normal case and wrap to two lines; figures and units
+  are joined with non-breaking spaces.
+
 ## Verification
 - Harness (scratch `ui-tech/`): real `Simulation`, `PlayerState`, `GameClock`, `Survival`, `ObjectiveTracker` on the
   FakeWorld, the real GameUI + station screens + touch overlay + item icons. Screenshots at 390x844, 844x390 and
@@ -162,6 +177,8 @@ DOM-free helpers (all tested): `structureText.ts` - `ghostKey`, `ghostCells`, `c
   parts have no on/off switch.
 
 ## Known gaps
+- The pump's "Full - connect a pipe that pulls" (src/sim/fluidMachines.ts) is still said when a pulling pipe is
+  attached but the line downstream is full; the wording belongs to the simulation.
 - A shown ghost can only be dismissed from the furnace's Structure tab (or by forming the hearth); there is no HUD
   control for it away from the furnace. Ghost state is per session (not saved).
 - Touch has no item card in the filter slots; their names are in the summary line and the picker.

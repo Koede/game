@@ -8,6 +8,7 @@ import type { RecipeDef } from '../../../core/types';
 import type { ForgeRow, SmeltRow } from '../../../sim';
 import type { RecipeCategory, RecipeRequirement, RecipeRowView } from '../../kit/recipe';
 import { isKitchenRecipe, KITCHEN, productBadges } from '../food';
+import { heatRoute } from './fuelText';
 import { pretty } from './simApi';
 
 export type ForgeCategory = 'tools' | 'parts' | 'machines' | 'power' | 'building' | 'kitchen';
@@ -63,7 +64,16 @@ export function forgeAvailable(row: ForgeRow): number {
   return Math.max(1, Math.min(row.max, row.heatAllows, 99));
 }
 
-export function forgeRowView(row: ForgeRow): RecipeRowView {
+/** The row's refusal, with how to reach the heat when the fire is too cold (the furnace's tier allows the recipe). */
+function forgeReason(row: ForgeRow, electric: boolean): string | undefined {
+  if (!row.reason) return undefined;
+  const r = row.recipe;
+  if (!row.locked && !row.tempOk) return `Needs ${r.minTempC} °C - ${heatRoute(r.minTempC, electric)}`;
+  return pretty(row.reason);
+}
+
+/** `electric`: this furnace can heat electrically (named among the ways to reach a recipe's heat). */
+export function forgeRowView(row: ForgeRow, electric = false): RecipeRowView {
   const r = row.recipe;
   const requirements: RecipeRequirement[] = [
     { text: `${r.minTempC} °C`, kind: 'heat', met: row.tempOk, tempC: r.minTempC },
@@ -79,7 +89,7 @@ export function forgeRowView(row: ForgeRow): RecipeRowView {
     requirements,
     ingredients: row.ingredients.map((s) => ({ item: s.item, name: nameOf(s.item), have: s.have, need: s.need })),
     available: forgeAvailable(row),
-    reason: row.reason ? pretty(row.reason) : undefined,
+    reason: forgeReason(row, electric),
     locked: row.locked,
     action: 'Forge',
   };
@@ -93,7 +103,7 @@ const heldShare = (row: ForgeRow): number =>
  * The FORGE list in tech-tree order. Variants that make the same item (hearth stew from chop, mutton or fowl) show
  * every one the player holds the ingredients for, or else only the one they are closest to (the first on a tie).
  */
-export function forgeRowViews(rows: readonly ForgeRow[]): RecipeRowView[] {
+export function forgeRowViews(rows: readonly ForgeRow[], electric = false): RecipeRowView[] {
   const groups = new Map<string, ForgeRow[]>();
   for (const row of rows) {
     const key = row.recipe.output.item;
@@ -105,12 +115,12 @@ export function forgeRowViews(rows: readonly ForgeRow[]): RecipeRowView[] {
   for (const group of groups.values()) {
     const ready = group.filter((r) => r.max > 0);
     if (ready.length > 0) {
-      for (const row of ready) out.push(forgeRowView(row));
+      for (const row of ready) out.push(forgeRowView(row, electric));
       continue;
     }
     let best = group[0];
     for (const row of group) if (heldShare(row) > heldShare(best)) best = row;
-    out.push(forgeRowView(best));
+    out.push(forgeRowView(best, electric));
   }
   return out;
 }

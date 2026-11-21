@@ -13,7 +13,7 @@ import { Meter } from '../../kit/gauges';
 import { Window } from '../../kit/window';
 import { injectStationCss } from '../furnace/styles';
 import { pretty, type ScreenSim } from '../furnace/simApi';
-import { contentText, lineSummary, nearPorts, portKey } from './pipeText';
+import { contentText, lineSummary, nearPorts, pipeFooter, portKey, pullAdvice } from './pipeText';
 import { PortRow } from './portRow';
 
 const REFRESH_MS = 240;
@@ -81,7 +81,7 @@ export function createPipeScreen(request: { x: number; y: number; z: number }, c
     subtitle: lineSummary(first.network),
     size: 'md',
     body,
-    footer: 'Push: the pipe delivers into the block. Pull: it takes out. Tap a block\'s name to find it.',
+    footer: pipeFooter(ctx.touch),
   });
   // Anchored at the top like the machine windows: opening a row's settings grows the window downwards only.
   window.frame.classList.add('hw-mach-window', 'hw-pipe-window');
@@ -91,7 +91,9 @@ export function createPipeScreen(request: { x: number; y: number; z: number }, c
     const net = view.network;
     window.setTitle(view.name);
     window.setSubtitle(lineSummary(net));
-    setText(content, contentText(net));
+    const advice = pullAdvice(view.ports);
+    setText(content, advice?.text ?? contentText(net));
+    setAttr(content, 'data-tone', advice ? 'warn' : null);
     if (family === 'fluid') {
       level.set(net.litres, Math.max(1, net.capacityL), `${Math.round(net.fill * 100)}%`);
       const colour = net.fluid ? colourOf(net.fluid) : 'var(--hw-iron-2)';
@@ -121,6 +123,7 @@ export function createPipeScreen(request: { x: number; y: number; z: number }, c
         row = new PortRow(port, deps, expanded.has(k), (open) => (open ? expanded.add(k) : expanded.delete(k)));
         rows.set(k, row);
       } else row.update(port);
+      row.setAttention(advice?.source === k);
       // Keep DOM order = distance order, moving only what is out of place.
       const want: Element | null = prev ? prev.nextElementSibling : list.firstElementChild;
       if (want !== row.el) list.insertBefore(row.el, want);

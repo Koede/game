@@ -21,6 +21,9 @@ export interface SettingsPanelOptions {
 
 const speed = (v: number): string => `${v.toFixed(1)}×`;
 
+/** A mouse (or trackpad) is attached: without one the mouse setting means nothing to the player. */
+const hasMouse = (): boolean => typeof matchMedia !== 'function' || matchMedia('(any-pointer: fine)').matches;
+
 export class SettingsPanel {
   readonly el: HTMLDivElement;
   private current: Settings;
@@ -42,7 +45,7 @@ export class SettingsPanel {
       ),
       this.section(
         'Controls',
-        this.slider('mouseSensitivity', 'Mouse look speed', '', L.sensitivity, speed),
+        hasMouse() ? this.slider('mouseSensitivity', 'Mouse look speed', '', L.sensitivity, speed) : null,
         this.slider('touchSensitivity', 'Touch look speed', '', L.sensitivity, speed),
         this.toggle('invertY', 'Invert vertical look', ''),
         this.touchControls(),
@@ -68,7 +71,7 @@ export class SettingsPanel {
     this.onChange({ ...this.current }, key);
   }
 
-  private section(title: string, ...rows: HTMLElement[]): HTMLElement {
+  private section(title: string, ...rows: (HTMLElement | null)[]): HTMLElement {
     return h('section', { class: 'hw-settings__section' }, h('h3', { class: 'hw-heading', text: title }), rows);
   }
 

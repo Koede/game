@@ -61,7 +61,7 @@ export class ForgeTab {
 
   update(view: FurnaceView, crates: number): void {
     this.rows = view.forge;
-    this.list.setRows(forgeRowViews(view.forge));
+    this.list.setRows(forgeRowViews(view.forge, view.electric.available));
     const text =
       crates > 0
         ? `Forging takes ingredients from your pack, then from the ${crates} crate${crates === 1 ? '' : 's'} nearby. Each forge cools the furnace by ${FORGE_CHILL_C} °C.`

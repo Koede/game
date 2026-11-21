@@ -46,6 +46,8 @@ export interface ScreenContext {
   readonly sim: UISimQuery;
   /** The world's weather now (spec 15), or null when the game has none. */
   readonly weather: WeatherState | null;
+  /** The player is on a touch screen (texts say "Tap" rather than "Click"). */
+  readonly touch: boolean;
   /** A fresh slot-interaction controller for this screen; disposed by GameUI on close. */
   readonly slots: SlotController;
   /** Refresh on the next frame. */
@@ -243,6 +245,9 @@ export class GameUI {
       },
       get weather() {
         return d.weather?.() ?? null;
+      },
+      get touch() {
+        return d.input.touch;
       },
       slots,
       invalidate: () => (this.dirty = true),

@@ -8,7 +8,7 @@ import {
   smeltRowViews,
 } from './forgeRows';
 import {
-  bestFuelSlot, burnFraction, burnText, clockText, flameLook, shortName, slotOf, sourceText, statusTone, thermoNotches,
+  bestFuelSlot, burnFraction, burnText, clockText, flameLook, fuelLoadCount, shortName, slotOf, sourceText, statusTone, thermoNotches,
   upgradeProgress,
 } from './furnaceText';
 import { pretty } from './simApi';
@@ -86,6 +86,9 @@ describe('forge rows', () => {
 
     const pick = forgeRowView(view.forge.find((f) => f.recipe.id === 'bronze_pickaxe') as ForgeRow);
     expect(pick.reason).toMatch(/^Missing 3 Bronze Ingot/);
+
+    const cold = liveView().forge.find((f) => f.recipe.id === 'bronze_ingot') as ForgeRow;
+    expect(forgeRowView(cold).reason).toBe('Needs 800 °C - charcoal, or logs with the bellows');
     expect(forgeReady(view.forge)).toBeGreaterThanOrEqual(1);
   });
 
@@ -204,10 +207,29 @@ describe('furnace texts', () => {
     expect(sourceText('clay')).toBe('gather or mine it');
   });
 
-  it('picks real fuel before wood for Add fuel, and never a tool', () => {
+  it('picks real fuel before wood for Add fuel, sticks and planks before logs, and never a tool', () => {
     expect(bestFuelSlot([{ item: 'oak_log', count: 3 }, { item: 'coal', count: 1 }, { item: 'plank', count: 9 }])).toBe(1);
-    expect(bestFuelSlot([{ item: 'stick', count: 3 }, { item: 'oak_log', count: 1 }])).toBe(1);
+    expect(bestFuelSlot([{ item: 'oak_log', count: 3 }, { item: 'coke', count: 1 }, { item: 'coal', count: 9 }])).toBe(1);
+    // A clay furnace (800 °C) burns charcoal before coke; a Blast Furnace (1500 °C) wants the coke.
+    const coke = [{ item: 'coke', count: 3 }, { item: 'charcoal', count: 14 }, { item: 'coal', count: 2 }];
+    expect(bestFuelSlot(coke, { maxTempC: 800 })).toBe(1);
+    expect(bestFuelSlot(coke, { maxTempC: 1500 })).toBe(0);
+    expect(bestFuelSlot(coke, { maxTempC: 1600 })).toBe(0);
+    expect(bestFuelSlot([{ item: 'oak_log', count: 3 }, { item: 'plank', count: 9 }, { item: 'stick', count: 3 }])).toBe(2);
+    expect(bestFuelSlot([{ item: 'oak_log', count: 3 }, { item: 'plank', count: 9 }])).toBe(1);
+    expect(bestFuelSlot([{ item: 'stick', count: 3 }, { item: 'oak_log', count: 1 }])).toBe(0);
+    // Baking charcoal: logs stay in the pack while anything else burns, and are the last resort otherwise.
+    expect(bestFuelSlot([{ item: 'pine_log', count: 4 }, { item: 'plank', count: 2 }], { spareSmeltable: true })).toBe(1);
+    expect(bestFuelSlot([null, { item: 'oak_log', count: 4 }], { spareSmeltable: true })).toBe(1);
     expect(bestFuelSlot([{ item: 'copper_ore', count: 3 }, null, { item: 'flint_pickaxe', count: 1, durability: 10 }])).toBe(-1);
     expect(slotOf([null, { item: 'sand', count: 2 }], 'sand')).toBe(1);
+  });
+
+  it('loads about two minutes of fuel per tap, at least one item', () => {
+    expect(fuelLoadCount('plank', 8)).toBe(6);
+    expect(fuelLoadCount('oak_log', 4)).toBe(3);
+    expect(fuelLoadCount('coal', 12)).toBe(2);
+    expect(fuelLoadCount('coke', 5)).toBe(1);
+    expect(fuelLoadCount('stick', 2)).toBe(2);
   });
 });

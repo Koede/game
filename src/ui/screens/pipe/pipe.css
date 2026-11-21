@@ -15,6 +15,25 @@
   font-size: var(--hw-fs-md);
   font-weight: 600;
 }
+.hw-pipe__content[data-tone='warn'] {
+  color: var(--hw-warn);
+}
+/* The end the player most likely takes from, while no end pulls: its Pull option is outlined and pulses. */
+.hw-pipe__port[data-attention] .hw-seg__opt[data-value='pull'] {
+  outline: 2px solid var(--hw-warn);
+  outline-offset: -2px;
+  animation: hw-pipe-nudge 1.4s ease-in-out infinite;
+}
+@keyframes hw-pipe-nudge {
+  50% {
+    background: var(--hw-warn-wash);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-pipe__port[data-attention] .hw-seg__opt[data-value='pull'] {
+    animation: none;
+  }
+}
 .hw-pipe__level .hw-meter__fill,
 .hw-tank__bar .hw-meter__fill {
   background: var(--hw-pipe-fluid, var(--hw-power));
@@ -325,6 +344,23 @@
 .hw-tank .hw-pipe__swatch {
   width: 22px;
   height: 22px;
+}
+/* Tank labels are sentences ("Out: empty - gives Water, Lava or Crude Oil"): normal case, up to two lines. */
+.hw-tank .hw-meter__top {
+  align-items: flex-start;
+}
+.hw-tank .hw-meter__label {
+  display: -webkit-box;
+  font: 600 12.5px / 1.25 var(--hw-font-body);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: normal;
+  color: var(--hw-ash-2);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.hw-tank .hw-meter__value {
+  flex: none;
 }
 .hw-tank__empty .hw-pipe__swatch {
   background: transparent;

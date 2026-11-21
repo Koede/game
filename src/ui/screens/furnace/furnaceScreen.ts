@@ -33,6 +33,9 @@ const TABS: readonly { id: FurnaceTab; label: string }[] = [
 
 const STRUCTURE_REFRESH_MS = 240;
 
+/** Phones (a finger, and little width or height): the firebox folds to a strip and the backpack to a corner button. */
+const COMPACT_QUERY = '(pointer: coarse) and (max-width: 499.98px), (pointer: coarse) and (max-height: 519.98px)';
+
 /** The tab the player last used (kept for the session). */
 let lastTab: FurnaceTab = 'smelt';
 
@@ -58,7 +61,10 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     window.selectTab('structure');
     showTab('structure');
   } });
-  const fire = new FireboxPanel({ sim, pos, bus, player, clock: ctx.clock, slots: ctx.slots, toBag: TO_BAG, changed });
+  const fire = new FireboxPanel({
+    sim, pos, bus, player, clock: ctx.clock, slots: ctx.slots, toBag: TO_BAG, changed,
+    spareSmeltable: () => ctx.objectives.current?.id === 'make_charcoal',
+  });
   const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed });
   const forge = new ForgeTab({ sim, pos, bus, changed });
   const grid = new GridTab({ sim, pos, bus, changed });
@@ -77,6 +83,11 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
   };
   const main = h('div', { class: 'hw-fx__main' }, ...TABS.map((t) => panes[t.id]));
   const layout = h('div', { class: 'hw-fx' }, h('div', { class: 'hw-fx__fire' }, fire.el), main, bag.el, upgrade.sheet);
+
+  const compact = typeof matchMedia === 'function' ? matchMedia(COMPACT_QUERY) : null;
+  const applyCompact = (): void => setAttr(layout, 'data-compact', compact?.matches ? 'true' : null);
+  compact?.addEventListener('change', applyCompact);
+  applyCompact();
 
   let tab = lastTab;
   // The structure view scans the shell: 4 times a second is plenty (and at once when the tab opens).
@@ -136,7 +147,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     if (tab === 'log') log.refresh();
     window.tabs?.setBadge('forge', forge.ready > 0 ? forge.ready : null);
     const done = view.crucibles.filter((c) => c.output !== null).length;
-    window.tabs?.setBadge('smelt', done > 0 ? `${done} done` : null);
+    window.tabs?.setBadge('smelt', done > 0 ? done : null, { more: ' done', tone: 'good' });
     window.tabs?.setBadge('grid', grid.alert(view) ? '!' : null);
     window.tabs?.setBadge('structure', structureBadge(view));
     ctx.slots.refresh();
@@ -166,6 +177,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     refresh,
     dispose: () => {
       document.removeEventListener('keydown', onKey, true);
+      compact?.removeEventListener('change', applyCompact);
       fire.dispose();
       smelt.dispose();
       forge.dispose();

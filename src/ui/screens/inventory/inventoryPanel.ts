@@ -14,8 +14,13 @@ export interface InventoryPanelOptions {
   quickTo?: readonly QuickTarget[];
 }
 
-/** Narrow phones need nine slots in a row: below a full touch target, still about a fingertip. */
+/**
+ * With a mouse, nine slots in a row even on a narrow window (below a full touch target, still a fingertip). With a
+ * finger the backpack keeps every slot a full touch target and drops to fewer columns (7 on a 390 px phone); the
+ * hotbar row stays nine wide so it lines up with the HUD's hotbar.
+ */
 const MIN_SLOT_PX = 32;
+const touchFirst = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 export class InventoryPanel {
   readonly el: HTMLDivElement;
@@ -26,7 +31,7 @@ export class InventoryPanel {
   constructor(slots: SlotController, inventory: Inventory, opts: InventoryPanelOptions = {}) {
     const id = opts.id ?? 'bag';
     const packCount = Math.min(INVENTORY_SIZE, inventory.size) - HOTBAR_SIZE;
-    this.pack = new SlotGrid({ count: packCount, columns: 9, label: opts.label ?? 'Backpack', minSlotPx: MIN_SLOT_PX });
+    this.pack = new SlotGrid({ count: packCount, columns: 9, label: opts.label ?? 'Backpack', minSlotPx: touchFirst() ? undefined : MIN_SLOT_PX });
     this.hotbar = new SlotGrid({ count: HOTBAR_SIZE, columns: 9, label: 'Hotbar', minSlotPx: MIN_SLOT_PX });
     this.el = h(
       'div',

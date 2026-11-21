@@ -178,6 +178,11 @@ export class PortRow {
     this.update(port);
   }
 
+  /** Points at this end's Pull (the line has no end pulling and this is the likeliest source). */
+  setAttention(on: boolean): void {
+    setFlag(this.el, 'attention', on);
+  }
+
   update(port: PortView): void {
     this.port = port;
     this.icon.set(port.icon);

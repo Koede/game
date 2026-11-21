@@ -26,6 +26,8 @@ const GLYPHS = {
   up: 'M8 3 14 11H2Z',
   down: 'M8 13 2 5h12Z',
   chevron: 'M5.6 2 4 3.6 8.4 8 4 12.4 5.6 14l6-6Z',
+  /** A backpack: the station screens' bag button. */
+  bag: 'M6 1h4v3H9V2H7v2H6ZM3 4h10v10H3ZM5 7v3h6V7Z',
   /** A steaming bowl: food (the HUD's food meter, Well-Fed). */
   bowl:
     'M5.6 1.2C4.5 2.6 4.6 3.4 5.4 4.3c.6.7.6 1.3.1 1.9l1.1.4c.7-.8.7-1.8-.1-2.7-.6-.7-.7-1.2.2-2.2ZM9.1 1.2C8 2.6 8.1 3.4 8.9 4.3c.6.7.6 1.3.1 1.9l1.1.4c.7-.8.7-1.8-.1-2.7-.6-.7-.7-1.2.2-2.2ZM1 7.6h14c0 3.6-3 5.8-7 5.8S1 11.2 1 7.6ZM5.5 13.7h5V15h-5Z',

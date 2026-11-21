@@ -104,6 +104,39 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
 }
+/* The last rows stop clear of the pinned footer, not flush against it. */
+.hw-upg__scroll {
+  padding-bottom: 28px;
+  scroll-padding-bottom: 28px;
+}
+/* Landscape phones: the body keeps the room, the footer is one row (why | Back | Upgrade). */
+@media (max-height: 519.98px) {
+  .hw-upg__scroll {
+    gap: 6px;
+    padding: 10px 14px 20px;
+  }
+  .hw-upg__title {
+    font-size: 18px;
+  }
+  .hw-upg__foot {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 6px 12px;
+  }
+  .hw-upg__reason {
+    font-size: 12px;
+  }
+  .hw-upg__btns .hw-btn {
+    min-height: 40px;
+  }
+  .hw-upg__btns .hw-btn--lg .hw-btn__label {
+    font-size: 13px;
+  }
+  .hw-upg__plan .hw-btn__sub {
+    display: none;
+  }
+}
 
 /* ---- tabs: smelt ------------------------------------------------------------------------ */
 .hw-smelt,

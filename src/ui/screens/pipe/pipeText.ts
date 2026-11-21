@@ -86,6 +86,29 @@ export function contentText(net: Pick<PipeNetView, 'family' | 'fluidName' | 'lit
   return `${net.packets} bundle${net.packets === 1 ? '' : 's'} moving (${net.items} item${net.items === 1 ? '' : 's'})`;
 }
 
+/** How likely an end is to be where the player takes from: a crate or a pump first, a machine next, the furnace last. */
+function sourceRank(block: string): number {
+  if (block === 'crate' || block === 'pump') return 3;
+  if (block.startsWith('furnace')) return 1;
+  return 2;
+}
+
+/**
+ * Nothing moves until some end pulls: every end of a working line pushing is the usual first mistake. Returns the
+ * advice line and the port key of the likeliest source (whose Pull the screen points at), or null when an end pulls.
+ */
+export function pullAdvice(ports: readonly Pick<PortView, 'x' | 'y' | 'z' | 'dir' | 'mode' | 'inert' | 'block'>[]): { text: string; source: string } | null {
+  const live = ports.filter((p) => !p.inert);
+  if (live.length === 0 || live.some((p) => p.mode === 'pull')) return null;
+  let best = live[0];
+  for (const p of live) if (sourceRank(p.block) > sourceRank(best.block)) best = p;
+  return { text: 'No end is pulling - set the end you take from to Pull', source: portKey(best) };
+}
+
+/** The window footer: what Push and Pull mean, and how to find an end ("Tap" on touch, "Click" with a mouse). */
+export const pipeFooter = (touch: boolean): string =>
+  `Push: the pipe delivers into the block. Pull: it takes out. ${touch ? 'Tap' : 'Click'} a block's name to find it.`;
+
 /** What each mode does, for the row's accessible description and the empty state. */
 export const MODE_HELP: Readonly<Record<PortView['mode'], string>> = {
   push: 'Push: the pipe delivers into this block',

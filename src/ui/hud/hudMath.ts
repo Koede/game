@@ -72,6 +72,12 @@ export function formatCountdown(seconds: number): string {
   return s >= 60 ? `${Math.ceil(s / 60)} m` : `${s} s`;
 }
 
+/** Under this many seconds the dial's countdown pulses once: night (or dawn) is close. */
+export const DIAL_SOON_S = 120;
+
+/** The dial's countdown in words, readable without a tooltip: "Night 9 m", "Dawn 45 s". */
+export const untilLabel = (isNight: boolean, untilS: number): string => `${isNight ? 'Dawn' : 'Night'} ${formatCountdown(untilS)}`;
+
 export function dayInfo(timeOfDay: number): DayInfo {
   const t = ((timeOfDay % 1) + 1) % 1;
   const isNight = t >= SUNSET_AT;

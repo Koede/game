@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DAY_LENGTH_S, SUNSET_AT } from '../../core/constants';
-import { FEED_LINGER_MS, FEED_MAX, GainFeed, dayInfo, formatCountdown, frostLevel, relativeBearing, summarizeGrid, wrapAngle } from './hudMath';
+import { FEED_LINGER_MS, FEED_MAX, GainFeed, dayInfo, formatCountdown, frostLevel, relativeBearing, summarizeGrid, untilLabel, wrapAngle } from './hudMath';
 
 const net = (o: Partial<Parameters<typeof summarizeGrid>[0][number]>) => ({
   generationW: 0, demandW: 0, deliveredW: 0, storedJ: 0, capacityJ: 0, satisfaction: 1, overloaded: false, ...o,
@@ -70,6 +70,8 @@ describe('dayInfo', () => {
     expect(formatCountdown(59.5)).toBe('1 m');
     expect(formatCountdown(45)).toBe('45 s');
     expect(formatCountdown(61)).toBe('2 m');
+    expect(untilLabel(false, 540)).toBe('Night 9 m');
+    expect(untilLabel(true, 45)).toBe('Dawn 45 s');
     expect(formatCountdown(-4)).toBe('0 s');
   });
 });

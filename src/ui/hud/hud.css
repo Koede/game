@@ -227,7 +227,7 @@
   gap: 8px;
 }
 .hw-goal__kicker {
-  font: 600 10px / 1.2 var(--hw-font-display);
+  font: 600 11px / 1.2 var(--hw-font-display);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--hw-heat-hi);
@@ -380,6 +380,20 @@
 }
 .hw-dial[data-night] .hw-dial__next {
   color: #ffd56b;
+}
+/* The last two minutes before night (or dawn) begin: one pulse so the countdown is noticed. */
+.hw-dial[data-pulse] {
+  animation: hw-dial-pulse 900ms ease-out 2;
+}
+@keyframes hw-dial-pulse {
+  40% {
+    box-shadow: 0 0 0 2px var(--hw-heat-hi);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-dial[data-pulse] {
+    animation: none;
+  }
 }
 /* Weather (spec 15): the sky half greys with the clouds; a glyph in the middle; tonight's moon in its phase. */
 .hw-dial[data-weather='cloudy'] .hw-dial__sky {
@@ -595,6 +609,18 @@
 .hw-layer[data-screen] .hw-banner[data-size='md'] {
   visibility: hidden;
 }
+/* A screen is open on a phone: toasts gather near the bottom edge (two at most), clear of the window's header,
+   tabs and the furnace's firebox, and above its corner backpack button. They never take a tap (pointer-events). */
+@media (max-width: 719.98px), (max-height: 519.98px) {
+  .hw-layer[data-layer='toasts'][data-screen] {
+    justify-content: flex-end;
+    padding-top: 0;
+    padding-bottom: calc(68px + var(--hw-safe-b));
+  }
+  .hw-layer[data-layer='toasts'][data-screen] .hw-toast:nth-last-child(n + 3) {
+    display: none;
+  }
+}
 
 /* ---- gain feed ---------------------------------------------------------------------------- */
 /* The feed lives in the toasts layer: on wide screens at the left of the toast column's top, on narrow
@@ -668,7 +694,11 @@
   top: 2px;
   left: 3px;
   font: 600 9px / 1 var(--hw-font-mono);
-  color: var(--hw-iron-3);
+  color: var(--hw-ink-muted);
+}
+/* Number keys mean nothing on a touch screen. */
+.hw-hud[data-touch] .hw-hotbar .hw-slot::after {
+  content: none;
 }
 .hw-hud[data-touch] .hw-hotbar .hw-slot::after {
   display: none;
@@ -886,5 +916,67 @@
   .hw-power__fill,
   .hw-compass__needle {
     transition: none;
+  }
+}
+
+/* ---- coach marks (first minutes on a touch screen) ------------------------------------------------- */
+.hw-coach {
+  position: absolute;
+  z-index: 2;
+  max-width: 220px;
+  padding: 8px 12px;
+  font: 600 13px / 1.3 var(--hw-font-body);
+  color: var(--hw-heat-ink);
+  background: var(--hw-heat-hi);
+  border-radius: var(--hw-radius);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  animation: hw-coach-bob 1.6s ease-in-out infinite;
+}
+.hw-coach::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+.hw-coach[data-mark='look'] {
+  top: 42%;
+  right: 12%;
+}
+.hw-coach[data-mark='look']::after {
+  bottom: -5px;
+  left: calc(50% - 5px);
+}
+.hw-coach[data-mark='mine'] {
+  right: calc(70px + var(--hw-safe-r));
+  bottom: calc(224px + var(--hw-safe-b));
+}
+.hw-coach[data-mark='mine']::after {
+  right: 36px;
+  bottom: -5px;
+}
+.hw-coach[data-mark='goal'] {
+  animation: none;
+}
+.hw-coach[data-mark='goal']::after {
+  top: -5px;
+  left: 18px;
+}
+@media (orientation: landscape) {
+  .hw-coach[data-mark='mine'] {
+    right: calc(90px + var(--hw-safe-r));
+    bottom: calc(158px + var(--hw-safe-b));
+  }
+}
+@keyframes hw-coach-bob {
+  50% {
+    translate: 0 -4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-coach {
+    animation: none;
   }
 }

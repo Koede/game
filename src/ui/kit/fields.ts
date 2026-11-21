@@ -84,7 +84,7 @@ export class Segmented<T extends string> {
     this.order = opts.options.map((o) => o.value);
     this.el = h('div', { class: 'hw-seg', attrs: { role: 'radiogroup', 'aria-label': opts.label } });
     for (const option of opts.options) {
-      const button = h('button', { class: 'hw-seg__opt', text: option.label, attrs: { type: 'button', role: 'radio' } });
+      const button = h('button', { class: 'hw-seg__opt', text: option.label, attrs: { type: 'button', role: 'radio', 'data-value': option.value } });
       button.addEventListener('click', () => this.choose(option.value, opts.onChange));
       this.buttons.set(option.value, button);
       this.el.appendChild(button);

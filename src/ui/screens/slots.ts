@@ -57,10 +57,20 @@ interface Group {
   quickTo: readonly QuickTarget[] | undefined;
 }
 
+/** Why a stack cannot go into slots [start, end) of an inventory: "Firebox does not take Copper Ore", "No room for ...". */
+export function refusalText(inventory: Inventory, item: string, start: number, end: number, label: string): string {
+  const name = itemOrNull(item)?.name ?? item;
+  let accepts = false;
+  for (let i = start; i < end && !accepts; i++) accepts = inventory.accepts(item, i);
+  return accepts ? `No room for ${name} in the ${label.toLowerCase()} - take something out first` : `${label} does not take ${name}`;
+}
+
 /** The rules, without any DOM. Indices are inventory slot indices. */
 export class SlotInteraction {
   readonly groups = new Map<string, Group>();
   picked: SlotPick | null = null;
+  /** Why the last 'refused' outcome happened, in words (null after any other outcome). */
+  refusal: string | null = null;
 
   addGroup(spec: { id: string; label: string; inventory: Inventory; start?: number; size: number; quickTo?: readonly QuickTarget[] }): void {
     this.groups.set(spec.id, { id: spec.id, label: spec.label, inventory: spec.inventory, start: spec.start ?? 0, size: spec.size, quickTo: spec.quickTo });
@@ -95,7 +105,7 @@ export class SlotInteraction {
     }
     // The target cannot take it (accept rules): treat the tap as choosing that slot instead, if it holds something.
     if (target.inventory.slots[index]) return this.pick(target, index, false);
-    return 'refused';
+    return this.refuse(source.inventory, pick.index, target, index, index + 1);
   }
 
   /** Right-click / long-press: pick half, or drop one item while keeping the pick. */
@@ -115,7 +125,7 @@ export class SlotInteraction {
     const source = this.groups.get(pick.group);
     if (!source) return 'none';
     const moved = moveOne(source.inventory, pick.index, target.inventory, index);
-    if (moved === 0) return 'refused';
+    if (moved === 0) return this.refuse(source.inventory, pick.index, target, index, index + 1);
     if (!source.inventory.slots[pick.index]) this.picked = null;
     return 'moved';
   }
@@ -125,12 +135,15 @@ export class SlotInteraction {
     const from = this.groups.get(groupId);
     if (!from || !from.inventory.slots[index]) return 'none';
     let moved = 0;
-    for (const t of this.quickTargets(from)) {
+    const targets = this.quickTargets(from);
+    for (const t of targets) {
       if (!from.inventory.slots[index]) break;
       moved += quickMove(from.inventory, index, t.inventory, t.start, t.end);
     }
     if (this.picked && this.picked.group === groupId && this.picked.index === index) this.picked = null;
-    return moved > 0 ? 'moved' : 'refused';
+    if (moved > 0) return 'moved';
+    const first = targets[0];
+    return first ? this.refuse(from.inventory, index, first.group, first.start, first.end) : 'refused';
   }
 
   /** Moves the picked stack to one destination group (the action bar's "Move to" buttons). */
@@ -141,7 +154,7 @@ export class SlotInteraction {
     if (!pick || !from || !to || !from.inventory.slots[pick.index]) return 'none';
     const moved = quickMove(from.inventory, pick.index, to.inventory, to.start, to.start + to.size);
     if (!from.inventory.slots[pick.index]) this.picked = null;
-    return moved > 0 ? 'moved' : 'refused';
+    return moved > 0 ? 'moved' : this.refuse(from.inventory, pick.index, to, to.start, to.start + to.size);
   }
 
   /** Quick-move destinations of a group, resolved to inventory ranges. */
@@ -179,6 +192,12 @@ export class SlotInteraction {
   validate(): void {
     const pick = this.picked;
     if (pick && !this.groups.get(pick.group)?.inventory.slots[pick.index]) this.picked = null;
+  }
+
+  private refuse(from: Inventory, index: number, to: Group, start: number, end: number): SlotOutcome {
+    const stack = from.slots[index];
+    this.refusal = stack ? refusalText(to.inventory, stack.item, start, end, to.label) : null;
+    return 'refused';
   }
 
   private pick(group: Group, index: number, half: boolean): SlotOutcome {
@@ -338,6 +357,9 @@ export class SlotController {
 
   private after(outcome: SlotOutcome): void {
     if (outcome === 'none') return;
+    const why = outcome === 'refused' ? this.logic.refusal : null;
+    this.logic.refusal = null;
+    if (why) this.bus.emit('toast', { text: why, kind: 'warn' });
     this.bus.emit('sfx', { name: outcome === 'refused' ? 'error' : 'ui_click', volume: outcome === 'moved' ? 1 : 0.6 });
     this.refresh();
     if (outcome === 'moved') this.onChange?.();

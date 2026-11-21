@@ -31,7 +31,7 @@ export class Button {
   private readonly labelEl: HTMLSpanElement;
   private readonly subEl: HTMLSpanElement;
   private readonly disposer = new Disposer();
-  private readonly hint: string;
+  private hint: string;
   private readonly holdMs: number;
   private holdTimer: ReturnType<typeof setTimeout> | null = null;
   private kind: ButtonKind;
@@ -75,6 +75,13 @@ export class Button {
 
   setOnClick(fn: (() => void) | undefined): void {
     this.onClick = fn;
+  }
+
+  /** Replaces the small second line (shown while the button is enabled). */
+  setHint(text: string): void {
+    if (text === this.hint) return;
+    this.hint = text;
+    if (!this.isDisabled) this.renderSub('');
   }
 
   /** Disables or enables the button. `reason` is shown inside it while disabled ("Needs 800 °C"). */

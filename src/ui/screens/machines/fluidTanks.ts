@@ -25,8 +25,9 @@ export class FluidTanks {
     this.el = h('section', { class: 'hw-mach__tanks', attrs: { 'aria-label': 'Fluids' } }, h('span', { class: 'hw-heading', text: 'Fluids' }), this.host, this.flow);
   }
 
-  update(view: MachineFluidView): void {
-    const rows = tankRows(this.kind, view);
+  /** `waterBeside`: see tankRows. */
+  update(view: MachineFluidView, waterBeside = false): void {
+    const rows = tankRows(this.kind, view, waterBeside);
     while (this.tanks.length > rows.length) this.tanks.pop()?.el.remove();
     rows.forEach((r, i) => {
       let t = this.tanks[i];

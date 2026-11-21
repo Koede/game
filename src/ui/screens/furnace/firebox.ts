@@ -2,21 +2,27 @@
  * The FIREBOX panel, visible whatever tab is open: the big thermometer, the live flame, fuel slots with the burn
  * bar, Light / Douse, the PUMP button for the bellows, the electric heating switch (tier 3+), the one-line
  * status, and "Rest until dawn" at night.
+ *
+ * On a phone (the screen sets data-compact on its layout) the panel folds to a strip - temperature, a small flame,
+ * the fuel slots, Pump (or Light) and the status - so the tabs keep the room; a tap on the strip or its chevron
+ * unfolds the whole panel. furnace.css lays both out.
  */
 import type { GameBus } from '../../../core/context';
 import type { RecipeDef } from '../../../core/types';
 import type { GameClock } from '../../../game/clock';
 import type { PlayerState } from '../../../game/playerState';
-import { quickMove } from '../../../game/transfer';
 import type { FurnaceSlots, FurnaceView } from '../../../sim';
 import { Button, Toggle } from '../../kit/controls';
-import { h, setAttr, setText } from '../../kit/dom';
+import { h, setAttr, setFlag, setText } from '../../kit/dom';
+import { glyph } from '../../kit/icons';
+import type { Inventory } from '../../../game/inventory';
 import { formatPercent, formatTemp, formatWatts } from '../../kit/format';
 import { Meter, Thermometer } from '../../kit/gauges';
 import { SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
 import { Flame } from './flame';
-import { bestFuelSlot, burnFraction, burnText, flameLook, statusTone, thermoNotches } from './furnaceText';
+import { bestFuelSlot, burnFraction, fuelLoadCount, burnText, flameLook, statusTone, thermoNotches } from './furnaceText';
+import { fuelQueueHint } from './fuelText';
 import { pretty, type ScreenSim } from './simApi';
 
 export interface FireboxDeps {
@@ -30,10 +36,15 @@ export interface FireboxDeps {
   toBag: readonly QuickTarget[];
   /** After any action: refresh the screen on the next frame. */
   changed: () => void;
+  /** "Add fuel" leaves logs alone (the goal is baking them into charcoal). */
+  spareSmeltable: () => boolean;
 }
 
 /** Readings listed under the controls where there is room (desktop). */
 const FACTS = ['Flame', 'Heading for', 'Tier maximum', 'Heat to machines'];
+
+/** Whether the phone strip is unfolded (kept for the session). */
+let rememberOpen = false;
 
 const trendText = (view: FurnaceView): string => {
   if (view.ignited) return 'Held by the star';
@@ -59,7 +70,10 @@ export class FireboxPanel {
   private readonly facts: HTMLDListElement;
   private readonly factValues: HTMLElement[] = [];
   private readonly statusEl: HTMLParagraphElement;
+  private readonly hintEl: HTMLParagraphElement;
+  private readonly foldBtn: HTMLButtonElement;
   private readonly restBtn: Button;
+  private fuelInv: Inventory | null = null;
   private fuelGrid: SlotGrid | null = null;
   private fuelBinding: SlotBinding | null = null;
   private fuelSize = -1;
@@ -79,6 +93,7 @@ export class FireboxPanel {
     this.addFuel.el.setAttribute('aria-label', 'Add fuel from your pack');
     this.addFuel.el.title = 'Add fuel from your pack';
     this.lightBtn = new Button({ label: 'Light', kind: 'primary', onClick: () => this.lightOrDouse() });
+    this.lightBtn.el.classList.add('hw-fbx__light');
     const keys = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
     this.pumpBtn = new Button({ label: 'Pump', kind: 'primary', size: 'lg', hint: keys ? 'Bellows (P)' : 'Bellows', onClick: () => this.pump() });
     this.pumpBtn.el.classList.add('hw-fbx__pump');
@@ -106,6 +121,14 @@ export class FireboxPanel {
       }),
     );
     this.statusEl = h('p', { class: 'hw-fbx__status', attrs: { role: 'status' } });
+    this.hintEl = h('p', { class: 'hw-fbx__hint' });
+    this.hintEl.hidden = true;
+    this.foldBtn = h(
+      'button',
+      { class: 'hw-fbx__fold', attrs: { type: 'button', 'aria-expanded': 'false', 'aria-label': 'Show the whole firebox' } },
+      glyph('chevron', 14),
+    );
+    this.foldBtn.addEventListener('click', () => this.setOpen(!this.open));
     this.restBtn = new Button({ label: 'Rest until dawn', kind: 'quiet', size: 'sm', block: true, onClick: () => this.rest() });
     this.el = h(
       'section',
@@ -122,8 +145,17 @@ export class FireboxPanel {
         this.facts,
       ),
       this.statusEl,
+      this.hintEl,
       this.restBtn.el,
+      this.foldBtn,
     );
+    // On the folded strip, a tap on the temperature or the flame unfolds the panel (CSS shows the strip only).
+    for (const part of [this.el.querySelector('.hw-fbx__thermo'), this.el.querySelector('.hw-fbx__mouth')]) {
+      part?.addEventListener('click', () => {
+        if (!this.open && this.el.closest('[data-compact]')) this.setOpen(true);
+      });
+    }
+    this.setOpen(rememberOpen);
     this.flame.start();
   }
 
@@ -137,6 +169,7 @@ export class FireboxPanel {
     grid.slots.forEach((s, i) => s.el.setAttribute('aria-label', `Fuel slot ${i + 1}`));
     for (const s of grid.slots) s.el.querySelector('.hw-slot__hint')?.remove();
     this.fuelGrid = grid;
+    this.fuelInv = slots.fuel;
     this.fuelHost.replaceChildren(grid.el);
     this.fuelBinding = this.deps.slots.bind({ id: 'fuel', label: 'Firebox', inventory: slots.fuel, views: grid.slots, quickTo: this.deps.toBag });
   }
@@ -196,8 +229,24 @@ export class FireboxPanel {
 
     setText(this.statusEl, pretty(view.status));
     setAttr(this.statusEl, 'data-tone', statusTone(view));
+    const hint = this.fuelInv && !view.ignited ? fuelQueueHint(view.burnItem, this.fuelInv.slots) : null;
+    setText(this.hintEl, hint ?? '');
+    this.hintEl.hidden = hint === null;
+    setFlag(this.el, 'lit', view.lit);
     this.restBtn.el.hidden = !this.deps.clock.isNight;
     this.restBtn.setDisabled(!view.canRest.ok, view.canRest.ok ? '' : pretty(view.canRest.reason));
+  }
+
+  get open(): boolean {
+    return this.el.hasAttribute('data-open');
+  }
+
+  /** Unfolds (or folds back) the phone strip. Wider layouts always show the whole panel. */
+  setOpen(open: boolean): void {
+    rememberOpen = open;
+    setFlag(this.el, 'open', open);
+    setAttr(this.foldBtn, 'aria-expanded', String(open));
+    setAttr(this.foldBtn, 'aria-label', open ? 'Fold the firebox to a strip' : 'Show the whole firebox');
   }
 
   /** The bellows (also bound to the P key by the screen). */
@@ -235,16 +284,26 @@ export class FireboxPanel {
     this.report(this.lit ? sim.douse(pos.x, pos.y, pos.z) : sim.light(pos.x, pos.y, pos.z));
   }
 
+  /** One tap: about two minutes of the cheapest sensible fuel, never the logs the charcoal goal needs (unless nothing else burns). */
   private loadFuel(): void {
     const { sim, pos, player, bus } = this.deps;
     const slots = sim.furnaceSlots(pos.x, pos.y, pos.z);
-    const from = bestFuelSlot(player.inventory.slots);
-    if (!slots || from < 0) {
+    const bag = player.inventory;
+    const from = bestFuelSlot(bag.slots, { spareSmeltable: this.deps.spareSmeltable(), maxTempC: this.maxC || undefined });
+    const stack = from >= 0 ? bag.slots[from] : null;
+    if (!slots || !stack) {
       this.report({ ok: false, reason: 'Nothing in your pack burns - logs, planks, sticks, charcoal or coal' });
       return;
     }
-    const moved = quickMove(player.inventory, from, slots.fuel);
-    if (moved === 0) this.report({ ok: false, reason: 'The firebox is full' });
+    const want = fuelLoadCount(stack.item, stack.count);
+    const moved = bag.batch(() =>
+      slots.fuel.batch(() => {
+        const n = want - slots.fuel.add(stack.item, want, stack.durability);
+        if (n > 0) bag.removeAt(from, n);
+        return n;
+      }),
+    );
+    if (moved === 0) this.report({ ok: false, reason: 'The firebox is full - it holds other fuel' });
     else {
       bus.emit('sfx', { name: 'fuel_add' });
       this.deps.changed();

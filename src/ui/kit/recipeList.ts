@@ -2,6 +2,7 @@
 import { h, setText } from './dom';
 import { Chip } from './gauges';
 import { RecipeRow, type RecipeRowView } from './recipe';
+import { edgeFade } from './scrollFade';
 
 export interface RecipeCategory {
   id: string;
@@ -60,6 +61,7 @@ export class RecipeList {
         this.chips.set(cat.id, chip);
         catBar.appendChild(chip.el);
       }
+      edgeFade(catBar);
     }
     this.el = h('div', { class: 'hw-recipes' }, catBar, this.scroller);
   }

@@ -63,7 +63,7 @@ DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s
   ceiling as a dashed limit; trend caption ("Rising 3.2 °C/s"). Live pixel flame (canvas, 36x22 cells, ~16 steps/s):
   height follows draft, colours follow the flame temperature; embers when hot and unlit, glowing elements on
   electric heat, a white star once ignited; pumping throws sparks. Fuel slots (bound as group `fuel`), "Add fuel"
-  (loads the best fuel from the pack: coal / charcoal / coke before wood), burn bar with the burning item and its
+  (about two minutes of the best fuel per tap - see "Phone pass" below), burn bar with the burning item and its
   time left. Light / Douse (one button). PUMP (large; sparks, a kick animation, a short vibration on phones, the
   flame notch and draft readout jump; the simulation plays the bellows sound; P on a keyboard). Electric heating
   switch with delivered watts and satisfaction (tier 3+). A readings list (flame, heading for, tier maximum, heat
@@ -88,7 +88,7 @@ DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s
     fail." to the intro. The button stays disabled while the cable cannot carry it (the sim refuses that start).
     Badge "!" on brown-out or overload.
   - LOG: the Hearth Log view of 7.4a.
-- Backpack: side column at >= 1100 x 600; elsewhere a drawer with a handle ("Backpack 13/36", B on a keyboard)
+- Backpack: side column at >= 1100 x 600; elsewhere a drawer with a handle (on phones a corner button, see below) ("Backpack 13/36", B on a keyboard)
   over the tab column (portrait: from the bottom edge). The drawer state is remembered for the session. Quick
   move from the pack goes to the firebox first, or the crucibles first on the SMELT tab; from the furnace's slots
   to the pack (hotbar first). The slot controller's carry bar sits on the drawer (below the bag, or on top of the
@@ -96,6 +96,27 @@ DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s
 - Refresh: GameUI's ~8 Hz `refresh()` builds one `furnaceView` (plus `networkAt` for the GRID badge and pane);
   only the visible tab pane is updated, everything writes the DOM only on change. A furnace upgrade rebinds the
   fuel and crucible slots in place. The screen closes itself when the furnace disappears.
+
+### Phone pass (review fixes)
+- **Compact layout** (`.hw-fx[data-compact]`, set from `matchMedia('(pointer: coarse) and (max-width: 499.98px),
+  (pointer: coarse) and (max-height: 519.98px)')`, CSS in `furnaceCompact.css`): on every tab the firebox folds to a
+  strip - temperature, a small flame, the fuel slots, Pump (Light while unlit), the status and the fuel hint; a tap on
+  the temperature, the flame or the chevron unfolds the whole panel (`FireboxPanel.setOpen`, remembered for the
+  session). Portrait: the strip runs across the top. Landscape: a 118 px rail at the left. The backpack handle is a
+  corner button (bag glyph and count) while closed; panes keep 60 px of bottom padding so nothing hides under it.
+  The upgrade sheet's footer is one row in landscape, and its scroll area stops 28 px clear of the footer.
+- **Add fuel** loads about two minutes of burn per tap (`fuelLoadCount`), never the whole stack. `bestFuelSlot(slots,
+  { spareSmeltable, maxTempC })`: real fuels first (the coolest that still reaches the furnace's top temperature,
+  else the hottest), then sticks, planks, and logs last; while the goal is "Bake charcoal" logs are skipped unless
+  nothing else burns.
+- **Fuel advice** (`fuelText.ts`): `fuelQueueHint(burnItem, fuelSlots)` - "Coke waits behind 6 Charcoal - take the
+  charcoal out to burn hotter" under the status; `heatRoute(needC, electric)` - forge rows too cold (tier allows them)
+  say how to get there: "Needs 1400 °C - coke, or coal with the bellows".
+- **Upgrade sheet** (`upgradeText.ts`): crucibles from the hearth rule (`crucibleText`: "2 - up to 6", or "5 (this
+  hearth)" when one of that tier stands; "Now" is the crucibles working today); the hold button says "Hearth not
+  built" first, then "Materials missing", then "Too cold" (`upgradeBlock`); the header button says "Build the hearth"
+  when only the hearth is missing (`upgradeSub`).
+- SMELT badge: the number of finished crucibles in green ("1"; "1 done" from 720 px wide).
 
 ## Machine screens
 

@@ -1,5 +1,5 @@
 /** DOM-free helpers of the furnace screen: thermometer notches, tones, readout texts, which slot a button loads. */
-import { fuelOf, furnaceTier, itemOrNull, machine, recipesFor } from '../../../core/registry';
+import { fuelOf, furnaceTier, itemOrNull, machine, RECIPES, recipesFor } from '../../../core/registry';
 import type { RecipeDef, Slot } from '../../../core/types';
 import type { FurnaceView, UpgradeView } from '../../../sim';
 import type { Tone } from '../../kit/gauges';
@@ -96,24 +96,49 @@ export function upgradeProgress(up: UpgradeView): { have: number; need: number }
 
 const isTool = (stack: Slot): boolean => stack !== null && stack.durability !== undefined;
 
+/** Items a crucible bakes into something (logs into charcoal): burning them throws away the next goal's input. */
+const SMELT_INPUTS: ReadonlySet<string> = new Set(
+  RECIPES.filter((r) => r.kind === 'smelt').flatMap((r) => r.inputs.map((i) => i.item)),
+);
+
 /**
- * The bag slot the "Add fuel" button loads from: real fuels (coal, charcoal, coke) before wood, then the
- * hottest flame. -1 when the bag holds nothing that burns.
+ * The bag slot the "Add fuel" button loads from: real fuels first (coal, charcoal, coke: the coolest one that still
+ * reaches the furnace's top temperature, else the hottest - a clay furnace never eats the coke steel needs), then the
+ * cheapest wood (sticks, then planks), then anything a crucible could still use (logs) last. With `spareSmeltable` (the
+ * goal is baking charcoal) logs are skipped unless nothing else burns. -1 when the bag holds nothing that burns.
  */
-export function bestFuelSlot(slots: readonly Slot[]): number {
+export function bestFuelSlot(slots: readonly Slot[], opts: { spareSmeltable?: boolean; maxTempC?: number } = {}): number {
+  const top = opts.maxTempC ?? Infinity;
   let best = -1;
   let bestScore = -Infinity;
+  let fallback = -1;
   slots.forEach((stack, i) => {
     if (!stack || isTool(stack)) return;
     const fuel = fuelOf(stack.item);
     if (!fuel) return;
-    const score = (itemOrNull(stack.item)?.category === 'fuel' ? 10_000 : 0) + fuel.flameTempC;
+    const smeltable = SMELT_INPUTS.has(stack.item);
+    if (smeltable && opts.spareSmeltable) {
+      if (fallback < 0) fallback = i;
+      return;
+    }
+    const flame = fuel.flameTempC;
+    const score =
+      itemOrNull(stack.item)?.category === 'fuel'
+        ? (flame >= top ? 40_000 - flame : 20_000 + flame)
+        : smeltable ? 5_000 - flame : 10_000 - flame;
     if (score > bestScore) {
       bestScore = score;
       best = i;
     }
   });
-  return best;
+  return best >= 0 ? best : fallback;
+}
+
+/** About two minutes of burn per tap of "Add fuel" (at least one item), so one tap never empties the pack. */
+export const FUEL_LOAD_S = 120;
+export function fuelLoadCount(item: string, have: number): number {
+  const burnS = fuelOf(item)?.burnS ?? FUEL_LOAD_S;
+  return Math.min(have, Math.max(1, Math.ceil(FUEL_LOAD_S / Math.max(1, burnS))));
 }
 
 /** The first bag slot holding this item, or -1. */

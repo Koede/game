@@ -1,5 +1,6 @@
 /** A tab bar (the caller, or a Window, swaps the content). */
 import { h, setAttr, setText } from './dom';
+import { edgeFade } from './scrollFade';
 
 export interface TabSpec {
   id: string;
@@ -55,6 +56,7 @@ export class Tabs {
       this.views.get(next)?.button.focus();
     });
     this.render();
+    edgeFade(this.el);
   }
 
   get active(): string {
@@ -68,12 +70,19 @@ export class Tabs {
     this.render();
   }
 
-  setBadge(id: string, badge: string | number | null): void {
+  /**
+   * A short figure after the label. `opts.more` is extra text shown after it where there is room (" done": "2 done"
+   * on a wide screen, "2" on a phone); `opts.tone` colours it ('good').
+   */
+  setBadge(id: string, badge: string | number | null, opts: { more?: string; tone?: 'good' } = {}): void {
     const view = this.views.get(id);
     if (!view) return;
     const text = badge === null ? '' : String(badge);
     setText(view.badge, text);
     view.badge.hidden = text === '';
+    setAttr(view.badge, 'data-more', text && opts.more ? opts.more : null);
+    setAttr(view.badge, 'data-tone', text && opts.tone ? opts.tone : null);
+    setAttr(view.badge, 'aria-label', text && opts.more ? `${text}${opts.more}` : null);
   }
 
   /** The tab button, to point aria-controls at a panel. */

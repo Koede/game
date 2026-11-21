@@ -137,6 +137,18 @@ win.open(root.layers.windows);
 setInterval(() => { thermo.set(view.tempC); list.setRows(rows()); }, 125);
 ```
 
+## Phone pass additions
+- `Button.setHint(text)`: replaces the small second line (shown while enabled).
+- `Tabs.setBadge(id, badge, { more?, tone? })`: `more` is extra text shown after the figure only at >= 720 px wide
+  ("1" on a phone, "1 done" on a desktop); `tone: 'good'` colours the badge. Tab padding is 10 px under 720 px.
+- `edgeFade(el)` / `fadeEdges(scrollLeft, clientWidth, scrollWidth)` (scrollFade.ts): a sideways-scrolling row gets
+  `data-fade="left|right|both"` and styles.css fades that edge. Tabs and RecipeList category chips use it.
+- `batchNote(view, times)` (recipe.ts): the batch button's label/tooltip ("Make 4 times: 16 Planks, uses 4 Oak Log")
+  and, when the batch would use up an ingredient the player holds, a line inside the button ("all 4 Oak Log").
+- `Segmented` options carry `data-value` (CSS can point at one option).
+- Glyph `bag` (the station screens' backpack button). Token `--hw-ink-muted` for small muted text.
+- `.hw-window__subtitle` wraps to two lines instead of an ellipsis.
+
 ## Known gaps
 - Fonts are linked from Google Fonts by the page; offline the fallback stacks render (checked: still readable).
 - Only one Window is open at a time by design (opening one closes the other).

@@ -61,6 +61,8 @@ interface ScreenContext {
   readonly request: ScreenRequest; readonly root: UIRoot; readonly bus: GameBus; readonly world: IWorld;
   readonly player: PlayerState; readonly clock: GameClock; readonly objectives: ObjectiveTracker; readonly survival: Survival;
   readonly sim: UISimQuery;        // getter: follows setSim
+  readonly weather: WeatherState | null;
+  readonly touch: boolean;         // getter: the input is touch ("Tap" vs "Click" in texts)
   readonly slots: SlotController;  // fresh per screen, disposed by GameUI (bindings, tooltips, ghost)
   invalidate(): void;              // refresh on the next frame
   close(): void;
@@ -79,6 +81,7 @@ interface UISimQuery {
   furnaceAt(x, y, z): UIFurnaceState | null;       // home compass
   allNetworks(): readonly UINetworkStats[];         // power strip (sampled at 2 Hz)
   stationSources(x, y, z): Inventory[];             // workbench: crates near it (player inventory filtered out)
+  cropView(x, y, z): UICropView | null;             // crosshair label of a crop (name, ripe, soil, lit, hydrated, ripeInS)
 }
 const NO_UI_SIM: UISimQuery
 ```
@@ -186,6 +189,29 @@ at the top right. Checked against the real touch overlay: no HUD element overlap
 - Death screen: hunger wording revised, plus a starving line when the bar was empty at death.
 - DOM-free helpers in `src/ui/screens/food.ts` (tested in `food.test.ts`). Full notes: `docs/api/food-ui.md`.
 
+### Review fixes (phone pass)
+- **Banners while a screen is open.** Goal banners and the "A new age begins" banner both wait until the screen
+  closes (`heldGoal`, `heldAge`); the matching "Done: ..." / "<Age>:" toast is dropped then (echo filter), so a goal
+  is announced once. On phones (< 720 px wide or < 520 px high) toasts gather at the bottom edge (two at most,
+  68 px up, clear of the furnace's corner backpack button) while a screen is open, instead of over its header.
+- **Slot refusals say why.** `SlotInteraction.refusal` holds the reason of the last `'refused'` outcome and the
+  controller toasts it (warn): "Firebox does not take Copper Ore", "No room for Coke in the firebox - take
+  something out first". `refusalText(inventory, item, start, end, label)` is exported (unit-tested).
+- **Crops under the crosshair** (`hud/cropText.ts`, `cropLabel(view)`): "Wheat - growing, ripe in 4 m", "Wheat - dry,
+  ripe in 9 m: water within 4 blocks doubles it", "Wheat - needs light: sun or a lamp", "Wheat - needs farmland",
+  "Wheat - ripe, harvest it". `Hud.setTarget` looks the label up only when the target moves, and again on the
+  slow tick (growth changes under a still crosshair).
+- **Day dial** says it in words: "Night 9 m" / "Dawn 45 s" (`untilLabel` in hudMath); one pulse when the last two
+  minutes begin (`DIAL_SOON_S`).
+- **Coach marks** (`hud/coach.ts`, touch only, one at a time, never over a screen): "Drag here to look around" until
+  the view has turned 0.4 rad, "Aim at a tree and hold MINE" until the first `'block:broken'`, "Tap the goal for
+  details" after the first finished goal until the log opens. Remembered per device in localStorage
+  (`hearthwatt.coach`, best effort). `CoachState` is the DOM-free rule set (unit-tested).
+- **Contrast and touch:** `--hw-ink-muted` (#978a7c, ~5:1 on soot) replaces `--hw-iron-3` for small text (slot hints,
+  hotbar keys, log captions); slot hints are 11 px on coarse pointers; hotbar number keys are hidden on touch;
+  the goal kicker is 11 px. The backpack grid keeps 44 px slots on coarse pointers (7 columns at 390 px; the
+  hotbar row stays 9 wide to match the HUD). Settings hide "Mouse look speed" when no fine pointer exists.
+
 ## Wiring notes for integration (7.5)
 ```ts
 const ui = new GameUI(root, { bus, input, settings, world, player, clock, objectives, survival, sim,
@@ -210,6 +236,9 @@ ui.setIconProvider(createIconProvider());
   (a real tap 0.4 s after a long-press was swallowed), objective (md) banners are a centred plate.
 
 ## Known gaps
+- Phone pass leftovers: no "UI size: Normal / Large" setting yet (it needs a field in `Settings`, src/core/context.ts,
+  and its save/load); the touch buttons' captions (Mine / Use / Jump, 10 px) live in src/player/input; nine HUD
+  hotbar slots cannot reach 44 px at 390 px wide.
 - No node test drives GameUI / the HUD DOM (vitest runs in node without a DOM); they are verified by the browser
   harness flows (touch on 390x844 and mouse on 1280x800: pick, drop, swap, half, one, merge, double-tap /
   shift-click, action bar, make, close by X / Escape / E / L / back, hotbar tap, workbench with a crate, death and
