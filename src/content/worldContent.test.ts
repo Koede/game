@@ -19,7 +19,9 @@ describe('13. buckets', () => {
     for (const [key, name] of Object.entries(WORLD_SPEC.names)) expect(item(key).name, key).toBe(name);
     for (const thing of [...ITEMS, ...BLOCKS]) expect(`${thing.name} ${thing.desc}`, thing.key).not.toMatch(/\bpails?\b/i);
     for (const o of OBJECTIVES) expect(`${o.title} ${o.text}`, o.id).not.toMatch(/\bpails?\b/i);
-    expect(item('pail').desc).toMatch(/endless spring/);
+    // Spec 18.3: a bucket takes a source block; flowing water is not a spring.
+    expect(item('pail').desc).toMatch(/source block/);
+    expect(item('pail').desc).not.toMatch(/endless spring/);
     expect(item('water_pail').desc).toMatch(/bucket back/);
   });
 

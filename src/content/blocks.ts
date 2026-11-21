@@ -98,7 +98,7 @@ export const BLOCK_SPECS: BlockSpec[] = [
     hardness: 4, tool: 'pickaxe', minTier: 1, category: 'resource', textures: { all: 'limestone' },
   },
   {
-    key: 'water', name: 'Water', desc: 'Fresh water. Machines that boil it, cool with it or split it need it close at hand.',
+    key: 'water', name: 'Water', desc: 'Fresh water. Still water is made of source blocks; what flows from them runs downhill and spreads seven blocks. Machines that use water need it close by.',
     shape: 'liquid', liquid: 'water', translucent: true, replaceable: true, hardness: -1, drops: 'none', item: false, textures: { all: 'water' },
   },
   {

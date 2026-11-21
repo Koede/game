@@ -8,19 +8,18 @@ import { LITRES_PER_BUCKET } from '../core/constants';
 import type { MachineSpec } from '../core/types';
 
 export const TECH_MACHINES: MachineSpec[] = [
-  // pump - a consumer that fills its buffer from the liquid it touches and gives it to pulling pipes. A water body of
-  // at least endlessMinBlocks connected blocks never runs dry; lava and oil blocks are removed as they are drained,
-  // nearest connected block first. params:
+  // pump - a consumer that fills its buffer from the liquid source it touches and gives it to pulling pipes. A water
+  // source with two sources beside it never runs dry (it would refill by the flow rules, spec 18.3); lone water
+  // sources, lava and oil blocks are removed as they are drained, the farthest connected source first. params:
   //   litresPerS        litres drawn per second while powered (scaled by the network's satisfaction)
-  //   litresPerBlock    litres in one lava or oil block (removed once that much is drawn)
-  //   endlessMinBlocks  a water body this large (connected water blocks) is an endless spring
-  //   searchLimit       most liquid blocks the breadth-first search for the next block to drain may visit
+  //   litresPerBlock    litres in one source block (removed once that much is drawn)
+  //   searchLimit       most source blocks the breadth-first search for the next block to drain may visit
   {
     kind: 'pump', name: 'Pump', role: 'consumer', blocks: ['pump'], drawW: 50,
-    params: { litresPerS: 200, litresPerBlock: LITRES_PER_BUCKET, endlessMinBlocks: 2, searchLimit: 32 },
+    params: { litresPerS: 200, litresPerBlock: LITRES_PER_BUCKET, searchLimit: 32 },
     fluids: { gives: ['water', 'lava', 'crude_oil'], capacityL: 1000 },
-    desc: 'Draws 50 W and pumps 200 litres a second of the liquid it touches. Water pools never run dry; every 1000 litres of lava or oil uses up a block.',
-    placementHint: 'Must touch water, lava or oil.',
+    desc: 'Draws 50 W and pumps 200 litres a second of the still liquid it touches. Water with two sources beside it never runs dry; every 1000 litres of a lone source, lava or oil uses up a block.',
+    placementHint: 'Must touch still water, lava or oil.',
   },
   // tank - one fluid at a time; vertically stacked tanks share one fluid and one level (their capacities add up).
   {

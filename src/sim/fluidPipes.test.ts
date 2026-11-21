@@ -6,6 +6,7 @@ import type { FluidNet } from './fluidNet';
 import { netOf, run } from './pipeKit';
 import { isPipeEntity } from './pipeState';
 import { makeKit, type Kit } from './testKit';
+import { flowingWater } from '../world/water';
 
 /** A charged lithium bank: power for whatever touches it. */
 function power(kit: Kit, x: number, y: number, z: number): void {
@@ -22,10 +23,14 @@ function tank(kit: Kit, x: number, y: number, z: number, fluid?: 'water' | 'lava
 const litresIn = (e: { fluidIn: { litres: number } | null }): number => e.fluidIn?.litres ?? 0;
 
 describe('pumps', () => {
-  it('pump water from a pool of two blocks forever, 200 L a second', () => {
+  it('pump water from a 2x2 pool forever, 200 L a second', () => {
     const kit = makeKit();
-    kit.world.put(0, 4, 0, 'water');
-    kit.world.put(1, 4, 0, 'water');
+    for (let x = 0; x <= 1; x++) {
+      for (let z = 0; z <= 1; z++) {
+        kit.world.put(x, 3, z, 'stone');
+        kit.world.put(x, 4, z, 'water');
+      }
+    }
     kit.machine('pump', 0, 5, 0);
     power(kit, 0, 6, 0);
     run(kit.world, 'fluid_pipe', [1, 5, 0], [3, 5, 0]);
@@ -55,7 +60,7 @@ describe('pumps', () => {
     for (let x = 0; x < 3; x++) expect(blockOf(kit.world.getVoxel(x, 4, 0)).key).toBe('air');
     expect(litresIn(t)).toBeCloseTo(3000, 0);
     expect(t.fluidIn?.fluid).toBe('lava');
-    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Must touch water, lava or oil');
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Must touch still water, lava or oil');
 
     const oil = makeKit();
     oil.world.put(0, 4, 0, 'oil');
@@ -68,10 +73,42 @@ describe('pumps', () => {
     expect(blockOf(oil.world.getVoxel(0, 4, 0)).key).toBe('air'); // a lone block is no spring
   });
 
+  it('take water sources only: a lone source is used up, flowing water is never drawn (spec 18.3)', () => {
+    const kit = makeKit();
+    kit.world.put(0, 3, 0, 'stone');
+    kit.world.put(1, 3, 0, 'stone');
+    kit.world.put(0, 4, 0, 'water');
+    kit.world.setVoxel(1, 4, 0, flowingWater(1));
+    kit.machine('pump', 0, 5, 0);
+    power(kit, 0, 6, 0);
+    kit.world.put(1, 5, 0, 'fluid_pipe');
+    const t = tank(kit, 2, 5, 0);
+    kit.run(1);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Pumping water - 200 L/s (the pool shrinks)');
+    kit.run(7);
+    expect(litresIn(t)).toBeCloseTo(1000, 0);
+    expect(blockOf(kit.world.getVoxel(0, 4, 0)).key).toBe('air');
+    expect(kit.world.getVoxel(1, 4, 0)).toBe(flowingWater(1));
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Must touch still water, lava or oil');
+    // A source between two others refills by the flow rules: endless.
+    const lake = makeKit();
+    for (let x = -1; x <= 1; x++) {
+      lake.world.put(x, 3, 0, 'stone');
+      lake.world.put(x, 4, 0, 'water');
+    }
+    lake.machine('pump', 0, 5, 0);
+    power(lake, 0, 6, 0);
+    lake.world.put(1, 5, 0, 'fluid_pipe');
+    const lt = tank(lake, 2, 5, 0);
+    lake.run(12);
+    expect(litresIn(lt)).toBeGreaterThan(2000);
+    for (let x = -1; x <= 1; x++) expect(blockOf(lake.world.getVoxel(x, 4, 0)).key).toBe('water');
+  });
+
   it('need power and room, and say so', () => {
     const kit = makeKit();
     kit.machine('pump', 0, 5, 0);
-    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Must touch water, lava or oil');
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Must touch still water, lava or oil');
     kit.world.put(0, 4, 0, 'water');
     kit.world.put(1, 4, 0, 'water');
     kit.run(1);

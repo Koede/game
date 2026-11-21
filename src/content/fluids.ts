@@ -5,7 +5,7 @@
 import type { FluidSpec } from '../core/types';
 
 export const FLUID_SPECS: FluidSpec[] = [
-  // Water: endless from any pool of two or more blocks, or poured from a wooden bucket.
+  // Water: endless from a source with two sources beside it (spec 18.3), or poured from a wooden bucket.
   { key: 'water', name: 'Water', colour: 0x3a86b4, hot: false, glow: false, liquid: 'water', bucket: { full: 'water_pail', empty: 'pail' } },
   // Lava: finite - a pump removes the lava block it drains; the bronze bucket carries it.
   { key: 'lava', name: 'Lava', colour: 0xff7a1e, hot: true, glow: true, liquid: 'lava', bucket: { full: 'lava_bucket', empty: 'bronze_bucket' } },

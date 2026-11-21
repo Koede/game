@@ -38,7 +38,7 @@ export const TECH_SPEC = {
 
   /** kind -> [role, numbers by MachineSpec field or params name] (machines new in sections 16-17). */
   machines: {
-    pump: ['consumer', { drawW: 50, litresPerS: 200, litresPerBlock: 1000, endlessMinBlocks: 2, searchLimit: 32 }],
+    pump: ['consumer', { drawW: 50, litresPerS: 200, litresPerBlock: 1000, searchLimit: 32 }],
     tank: ['tank', {}],
     boiler: ['boiler', { minTempC: 200, steamPerWater: 10, steamLPerC: 1, capLPerS: 800, heatPerSteamL: 20 }],
     steam_turbine: ['generator', { outputW: 8000, steamLPerS: 800 }],

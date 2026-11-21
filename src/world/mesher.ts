@@ -62,12 +62,18 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
   const b = builders[BATCH[id]];
   const slot = faceSlot(v);
   const merges = MERGES[id] === 1;
-  if (liquid) liquidShape(v, id, p, x, y, z);
-  const scrollsTop = liquid && (LIQ.fx !== 0 || LIQ.fz !== 0);
+  // A liquid's shape is worked out at its first visible face (most of a lake's cells show none).
+  let shaped = !liquid;
+  let scrollsTop = false;
   for (let f = 0; f < 6; f++) {
     const pf = p + D_FRONT[f];
     const nid = vol[pf] & VOXEL_ID_MASK;
     if (OPAQUE[nid] === 1 || (merges && nid === id)) continue;
+    if (!shaped) {
+      shaped = true;
+      liquidShape(v, id, p, x, y, z);
+      scrollsTop = LIQ.fx !== 0 || LIQ.fz !== 0;
+    }
     const side = f !== Face.PY && f !== Face.NY;
     let flags = 0;
     if (liquid) {

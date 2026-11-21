@@ -129,3 +129,16 @@ export function currentAt(read: VoxelReader, x: number, y: number, z: number, ou
   out.z = dir.z * speed;
   return true;
 }
+
+/**
+ * The new-source rule (spec 18.2): a cell with at least 2 horizontally adjacent water sources, standing on a source
+ * or on something water cannot enter, is (or becomes again) a source. A source that meets it is endless: take it
+ * and it fills again (spec 18.3, buckets and pumps).
+ */
+export function refillsAsSource(read: VoxelReader, x: number, y: number, z: number): boolean {
+  let sources = 0;
+  for (let d = 0; d < 4; d++) if (read.getVoxel(x + HDX[d], y, z + HDZ[d]) === WATER_SOURCE) sources++;
+  if (sources < 2) return false;
+  const below = read.getVoxel(x, y - 1, z);
+  return below === WATER_SOURCE || (!isWater(below) && !isOpenForWater(below));
+}

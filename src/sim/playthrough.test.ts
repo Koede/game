@@ -62,10 +62,11 @@ const OUT2_HATCH = { x: 1, y: 1, z: -2 };
 const OUT2_PIPES = [{ x: 2, y: 1, z: -2 }, { x: 2, y: 1, z: -3 }];
 const OUT2_CRATE = { x: 3, y: 1, z: -3 };
 /**
- * Spec 16, fluids, on the Arc hearth's roof: a pump in a pool feeds a steam engine (piped water instead of a pool
- * beside it) and a boiler; the boiler's steam runs a turbine through a hot pipe. Two cables put the engine on the grid.
+ * Spec 16, fluids, on the Arc hearth's roof: a pump in a pool feeds a steam engine and a boiler; the boiler's steam
+ * runs a turbine through a hot pipe. Two cables put the engine on the grid. The pool is 2x2, so the source the pump
+ * draws from has two sources beside it and never runs dry (spec 18.3).
  */
-const POOL = [{ x: -1, y: 3, z: -1 }, { x: -1, y: 3, z: -2 }];
+const POOL = [{ x: -1, y: 3, z: -1 }, { x: -1, y: 3, z: -2 }, { x: 0, y: 3, z: -1 }, { x: 0, y: 3, z: -2 }];
 const PUMP = { x: -1, y: 3, z: 0 };
 const ROOF_ENGINE = { x: 0, y: 3, z: 0 };
 const BOILER = { x: 1, y: 3, z: -1 };
@@ -440,7 +441,7 @@ describe('scripted playthrough', () => {
     expect(sim.machineView(ROOF_ENGINE.x, ROOF_ENGINE.y, ROOF_ENGINE.z)!.fluids!.input).toMatchObject({ fluid: 'water' });
     expect(water.ports.map((p) => [p.name, p.mode])).toEqual([['Pump', 'pull'], ['Steam Engine', 'push'], ['Boiler', 'push']]);
     expect(sim.pipeView(STEAM_PIPES[3].x, STEAM_PIPES[3].y, STEAM_PIPES[3].z)!.network.fluid).toBe('steam');
-    expect(blockOf(kit.world.getVoxel(POOL[0].x, POOL[0].y, POOL[0].z)).key).toBe('water'); // a pool is an endless spring
+    expect(blockOf(kit.world.getVoxel(POOL[0].x, POOL[0].y, POOL[0].z)).key).toBe('water'); // a 2x2 pool is endless
     mark('steam turbine on the roof');
     // Steam takes its heat from the fire: switched off again, so the furnace keeps its heat for the plasma casings.
     play.must(sim.setMachineOn(TURBINE.x, TURBINE.y, TURBINE.z, false), 'turbine off');

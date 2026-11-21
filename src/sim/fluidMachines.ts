@@ -3,10 +3,12 @@
  * crude-oil runs. The fluid ports of the older machines (piped water, fuel, lava) are in machines.ts and fission.ts
  * through src/sim/fluidUse.ts.
  *
- * - Pump: a 50 W consumer touching a liquid. It fills its buffer at litresPerS x satisfaction; pulling pipes empty it.
- *   A water body of at least endlessMinBlocks connected blocks never runs dry; any other body (lava, oil, a lone
- *   water block) loses a block for every litresPerBlock drawn - the farthest one a breadth-first search of at most
- *   searchLimit blocks finds, so the pool shrinks towards the pump and is never cut off from it.
+ * - Pump: a 50 W consumer touching a liquid SOURCE (flowing water is not drawn, spec 18.3). It fills its buffer at
+ *   litresPerS x satisfaction; pulling pipes empty it. A water source with two sources beside it (the rule that fills
+ *   a hole in a lake again, `refillsAsSource`) never runs dry; any other body (lava, oil, a lone water source or a
+ *   thin line of them) loses a source for every litresPerBlock drawn - the farthest one a breadth-first search of at
+ *   most searchLimit sources finds, so the pool shrinks towards the pump and is never cut off from it. Water around
+ *   it then reacts by the flow rules (src/world/flow.ts).
  * - Boiler: on top of a furnace (or any block of a formed hearth's shell), above minTempC it boils water into
  *   steamPerWater times as much steam, steamLPerC litres a second per degree over minTempC up to capLPerS, as far as
  *   its water and its steam room allow, and takes heatPerSteamL joules of heat from the furnace per litre - so a
@@ -17,6 +19,7 @@
 import { BROWNOUT_STALL, DT } from '../core/constants';
 import { fluid as fluidSpec, fluidOfLiquid, machine } from '../core/registry';
 import { AIR, FACE_DIRS, type FluidKey, type IWorld, type LiquidKind } from '../core/types';
+import { isLiquidSource, refillsAsSource } from '../world/water';
 import type { FurnaceEntity, MachineEntity, SimContext, SimNode } from './entities';
 import { heldL, useFluid } from './fluidUse';
 import { behaviourOf, type Behaviour } from './machines';
@@ -49,7 +52,7 @@ function outRoom(e: MachineEntity, fluid: FluidKey, cap: number): number {
 
 // ---- pump ---------------------------------------------------------------------------------------------------------
 
-/** The liquid a pump draws from: the touching block, and whether its body is an endless spring. */
+/** The liquid source a pump draws from: the touching block, and whether it refills (never runs dry). */
 export interface PumpSource {
   liquid: LiquidKind;
   fluid: FluidKey;
@@ -59,7 +62,7 @@ export interface PumpSource {
   endless: boolean;
 }
 
-/** Connected blocks of one liquid from (x, y, z), breadth first, at most `limit` of them. */
+/** Connected source blocks of one liquid from (x, y, z), breadth first, at most `limit` of them. */
 function liquidBody(world: IWorld, liquid: LiquidKind, x: number, y: number, z: number, limit: number): Array<[number, number, number]> {
   const seen = new Set<string>([`${x},${y},${z}`]);
   const out: Array<[number, number, number]> = [[x, y, z]];
@@ -70,7 +73,7 @@ function liquidBody(world: IWorld, liquid: LiquidKind, x: number, y: number, z: 
       const ny = cy + dy;
       const nz = cz + dz;
       const k = `${nx},${ny},${nz}`;
-      if (seen.has(k) || world.getBlock(nx, ny, nz).liquid !== liquid) continue;
+      if (seen.has(k) || world.getBlock(nx, ny, nz).liquid !== liquid || !isLiquidSource(world.getVoxel(nx, ny, nz))) continue;
       seen.add(k);
       out.push([nx, ny, nz]);
       if (out.length >= limit) break;
@@ -89,13 +92,11 @@ export function pumpSource(world: IWorld, e: MachineEntity): PumpSource | null {
     const z = e.z + dz;
     const liquid = world.getBlock(x, y, z).liquid;
     const fluid = liquid ? fluidOfLiquid(liquid) : null;
-    if (!liquid || !fluid) continue;
+    if (!liquid || !fluid || !isLiquidSource(world.getVoxel(x, y, z))) continue;
     const src: PumpSource = { liquid, fluid: fluid.key, x, y, z, endless: false };
     if (!found || (holding === fluid.key && found.fluid !== holding)) found = src;
   }
-  if (found && found.liquid === 'water') {
-    found.endless = liquidBody(world, 'water', found.x, found.y, found.z, PP.endlessMinBlocks).length >= PP.endlessMinBlocks;
-  }
+  if (found && found.liquid === 'water') found.endless = refillsAsSource(world, found.x, found.y, found.z);
   return found;
 }
 
@@ -264,7 +265,7 @@ export function fluidStatus(node: SimNode, world: IWorld | null): string | null 
   switch (e.kind) {
     case 'pump': {
       const src = sources.has(node) ? sources.get(node) ?? null : world ? pumpSource(world, e) : null;
-      if (!src) return 'Must touch water, lava or oil';
+      if (!src) return 'Must touch still water, lava or oil';
       if (outRoom(e, src.fluid, PUMP.fluids?.capacityL ?? 0) <= 0) return e.fluidOut && e.fluidOut.fluid !== src.fluid ? `Still holds ${fluidName(e.fluidOut.fluid)}` : 'Full - connect a pipe that pulls';
       if ((e.rateL ?? 0) > 0) return `Pumping ${fluidName(src.fluid)} - ${fmtL(e.rateL ?? 0)}/s${src.endless ? '' : ' (the pool shrinks)'}`;
       return null;

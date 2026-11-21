@@ -98,7 +98,7 @@ export const OBJECTIVES: ObjectiveSpec[] = [
 
   // ---- Current Age ---------------------------------------------------------------------------
   objective(2, 'pump_water', 'Pump water', place('pump'),
-    'Forge a Pump and set it against a pond. Wire it to power, lay Iron Fluid Pipe to a Tank or a machine, and wrench the pump end so it pulls.'),
+    'Forge a Pump and set it against still water - a pond two blocks wide never runs dry. Wire it to power, lay Iron Fluid Pipe to a Tank or a machine, and wrench the pump end so it pulls.'),
   objective(2, 'reach_1900', 'Reach 1900 C', furnaceTemp(1900),
     'No fuel burns this hot. Cable the Arc Furnace to your network, switch on its electric heating and supply about 6 kW.'),
   objective(2, 'make_circuits', 'Make circuits', make('circuit', 2),

@@ -148,11 +148,11 @@ const PARTS: ItemSpec[] = [
 const GEAR: ItemSpec[] = [
   // The keys stay 'pail' / 'water_pail' so saves and recipes keep working; the player only ever reads "Bucket".
   {
-    key: 'pail', name: 'Bucket', desc: 'A wooden bucket. Use it on water to fill it: every pool is an endless spring, so take all you need.',
+    key: 'pail', name: 'Bucket', desc: 'A wooden bucket. Use it on still water to take one source block - flowing water slips out. A lake refills the gap; a lone puddle is gone.',
     category: 'misc', age: 0, stack: 1,
   },
   {
-    key: 'water_pail', name: 'Water Bucket', desc: 'Use it on a block to pour the water out there. Dough and stew each take one and give the bucket back.',
+    key: 'water_pail', name: 'Water Bucket', desc: 'Pour it out as a new source: the water runs downhill and spreads seven blocks. Dough and stew each take one and give the bucket back.',
     category: 'misc', age: 0, stack: 1,
   },
   {

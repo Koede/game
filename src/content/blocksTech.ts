@@ -47,7 +47,7 @@ export const TECH_BLOCKS: BlockSpec[] = [
     { family: 'fluid', ratePerS: 1000, capacityL: 250, hot: true }),
 
   // ---- fluid machines (spec 16.1, 16.5) ----
-  casedMachine('pump', 'Pump', 'Draws the liquid it touches into its pipes. Pools of water never run dry; lava and oil are used up.', 1, { power: 'device' }),
+  casedMachine('pump', 'Pump', 'Draws the still liquid it touches into its pipes. Water with two sources beside it never runs dry; a lone source, lava and oil are used up.', 1, { power: 'device' }),
   {
     key: 'tank', name: 'Tank', desc: 'Holds 16 000 litres of one fluid. Tanks stacked on top of each other share one level.',
     machine: 'tank', hardness: 2, tool: 'pickaxe', stack: 16, age: 1, textures: { side: 'tank_side', top: 'tank_top' },
