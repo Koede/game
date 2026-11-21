@@ -1158,3 +1158,80 @@ T3 2 copper_coil, 2 steel_plate; T4 2 circuit, 2 tungsten_rod; T5 1 star_core, 8
   level 1, weaker at higher levels); falling water pushes down.
 - Everything that needs "water nearby" (steam engine, water wheel, crops hydration, fission cooling, electrolyzer)
   counts flowing water as water.
+
+---------------------------------------------------------------------------------------------------------
+
+## 19. The Emberbound - hostile automatons (player request: "war-forged, ember-fueled automatons of various
+## types, as if once ago in this world the late-game items and mechanisms were more prevalent than now")
+
+Replaces "no hostile creatures" in pillar 4. Lore (How to Play, Hearth Log, item texts): long ago this land burned
+bright with machines - the Old Works were their forges. The machines outlived their makers. Some still walk,
+fed by the last embers in their cores, and they wake in the dark. Everything they carry is a relic of that
+age: scrap, ember cores, and now and then a part the player will not be able to make for hours.
+
+### 19.1 The types (CreatureSpec with `hostile: {...}`; original designs, blocky like the animals, with glowing
+### ember parts: eyes, vents, cores - emissive model parts)
+| key | name | where / when | hp | speed | attack | drops |
+| cinder_mite | Cinder Mite | caves and dark places, surface at night; groups of 2-4 | 4 | 3.2 | bite 1, 0.8 s | scrap_metal 0-1 |
+| forge_warden | Forge Warden | guards ruins (placed with the ruin, persistent, active day and night within 12 blocks of its ruin); rare at night elsewhere | 16 | 2.4 | hammer 3 after a 0.5 s raise; its shield arm halves damage from the front | scrap_metal 1-3, 10% copper_coil, 4% circuit |
+| kiln_sentry | Kiln Sentry | a turret on ruin walls (persistent, never moves) | 12 | 0 | lobs an ember bolt (2 damage + burning 2 s at 1/s) every 3 s at range <= 16 with line of sight; its vent glows brighter for 0.7 s before each shot | ember_core 1, scrap_metal 1-2 |
+| bellows_hound | Bellows Hound | surface at night, scar biome any time it is dark; alone or in pairs | 10 | 4.5 | dash: crouches 0.8 s (bellows inhale, vents flare), then charges in a straight line, 4 damage + knockback | scrap_metal 1-2, 25% ember_core |
+| arc_drone | Arc Drone | hovers over high ground during storms and on moonless nights | 8 | 3 (flies) | arc zap 2 at range <= 8 after a 0.6 s crackle; double damage if the player stands in water | scrap_metal 1, 20% copper_wire 2, 8% silicon_wafer |
+| slag_colossus | Slag Colossus | rare: deep caves (y < 20) and the scar at night; at most one loaded | 60 | 1.6 | ground slam: raises both arms 1.2 s, then 6 damage within 3 blocks + knockback | superalloy 1, ember_core 3, 30% magnet_ring, scrap_metal 4-8 |
+All attacks are TELEGRAPHED (a visible and audible wind-up the player can step out of) - important on a phone.
+
+### 19.2 Behaviour (src/mobs, same manager as the animals)
+- Senses: notices the player within 16 blocks with line of sight (or 6 without), forgets after 10 s out of reach.
+- Moves by steering straight at the player with the animal physics (hop 1 block, swim, avoid lava; no long-range
+  pathfinding - they give up and wander when blocked for 4 s). Drones fly at 2-4 blocks above ground. Sentries
+  turn but never move.
+- Daylight: at dawn, automatons standing under open sky WIND DOWN: they stop, their glow dims, they go dormant (do
+  not attack, take normal damage, wake if hit) and despawn when > 48 blocks from the player. Ruin guards and
+  sentries keep watch in daylight but only inside their ruin.
+- They never enter the WARM ZONE of a furnace that is at least 200 C (its warmth radius): they halt at its edge
+  and turn away - the hearth is the safe heart of the base, at every stage of the game.
+- Projectiles: ember bolts arc (gravity), are visible (glowing, trailing sparks), hit the first solid block or
+  the player, never break blocks.
+- Damage to the player goes through PlayerState.damage with new causes 'automaton' and 'ember' (burning).
+
+### 19.3 Spawning
+- Difficulty setting (Settings + New World option): Peaceful (no hostiles; objectives that need combat
+  complete themselves), Normal (default), Hard (x1.5 caps, x1.25 damage).
+- Night/dark spawning near the player: every 2 s, if fewer than the cap (Normal 10 loaded hostiles), try one spot
+  24-40 blocks away on a solid floor with block light < 7, never in sunlight by day, not within the warm zone of a
+  hot furnace, not within 32 blocks of a powered ward_beacon, not in view of the camera; pick a type by place
+  (cave/surface/scar/storm/high ground/depth) and weights. Despawn when > 64 blocks away (except ruin guards).
+- Ruins (src/world features): each Old Works ruin gets 1-2 forge_wardens and, on half of the ruins, a kiln_sentry
+  on a wall, created once when the ruin's chunk first loads (like its loot crate), saved, never respawned.
+- Light matters: torches and lamps (block light >= 7) prevent spawns around them.
+
+### 19.4 Fighting back
+- Mine on a hostile attacks it (same as animals): hands 1, tools as for animals, and new WEAPONS - mauls, made for
+  breaking metal (they do not mine faster):
+  bronze_maul (forge T1 700 C: 4 bronze_ingot, 2 stick) 5 damage | iron_maul (forge T2 1100 C: 4 iron_ingot,
+  2 stick) 7 | steel_maul (forge T2 1400 C: 4 steel_ingot, 2 stick) 9 | arc_maul (forge T3 1800 C: 2 superalloy-free
+  recipe: 2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery) 12 and stuns automatons for 1 s.
+  Attack cooldown 0.5 s (tools 0.4 s), durability like tools. Hits knock back, flash, clang.
+- ARMOUR (worn from the inventory like the padded coat; the best one counts): plated_coat (forge T2 1100 C:
+  6 iron_plate, 1 padded_coat) -25% damage and keeps the coat's warmth; steel_cuirass (forge T2 1400 C: 6 steel_plate,
+  1 padded_coat) -40%.
+- WARD BEACON (machine consumer, 500 W; forge T3 1500 C: 2 ember_core, 1 circuit, 2 steel_plate, 1 glass): no
+  hostile spawns within 32 blocks while powered; existing hostiles avoid its radius like a warm zone.
+- New items: scrap_metal (smelts into iron_ingot at 1150 C, T2), ember_core (fuel: 3 MJ, 120 s, flame 1700 C -
+  the hottest early fuel, and a component), the mauls, the armour, ward_beacon. Relic drops (coil, circuit,
+  wafer, superalloy, magnet ring) are existing items.
+- Objectives (insert): after `make_bronze`: `forge_maul` "Forge a maul" (make bronze_maul); after the first night
+  objective (`get_warm`) is fine for flavour but the combat one is `salvage_automaton` "Salvage an automaton" (flag
+  'automaton_salvaged', or completes itself on Peaceful) placed after `bronze_pickaxe`; after the tier-3 objective:
+  `ward_base` "Ward your base" (place ward_beacon).
+- Death by automaton: the death screen names the type ("Felled by a Forge Warden").
+
+### 19.5 Presentation
+- Models from CreatureSpec boxes with emissive ember parts that flare before attacks; dormant ones are dark; a
+  small spark/smoke emitter on each active automaton; break-apart on death (debris in their colours, sparks).
+- HUD: target name + health for hostiles ("Forge Warden - 9/16"), a subtle red screen-edge pulse in the direction
+  of an attacker that hit you (directional damage indicator), a danger hint when a telegraphed attack is coming
+  from off-screen (edge arrow).
+- Sounds (new SfxName): automaton_step (heavy clank, positioned), automaton_wake (whirr up), automaton_windup
+  (rising hiss/inhale), automaton_attack (metal impact), ember_bolt (launch whoosh), arc_zap, automaton_hurt
+  (clang), automaton_break (crash and tinkle); music-free.
