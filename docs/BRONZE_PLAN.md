@@ -5,6 +5,14 @@ implementation, written so an engineer who was not in the design conversation ca
 this file is built yet. Companion files: `docs/STEAM_PLAN.md` (Ember mechanics: speed and stress, built first),
 `docs/PROGRESSION.md` (whole game), `docs/SPEC.md` 21 (short form of this design; THIS file wins on detail).
 
+> **Scope update:** the owner moved ALL steam and shaft mechanics into this age ("steam is a bronze age
+> thing"). The Bronze Age therefore has two halves: (a) open steam and turning - the kettle, steam rotor,
+> water wheel, windmill, axles, cogs, speed and stress, shaft machines - exactly as specified in
+> `docs/STEAM_PLAN.md`, re-tiered to the Bronze Furnace; then (b) everything in this file: thermocouples, the
+> boiler multiblock, pressure, piston engines, air, the vacuum chute. The machines of (a) automate the hand
+> stations of the Ember Age (`docs/EMBER_PLAN.md`): millstone = hand quern, saw bench = chopping block, trip
+> hammer = stone anvil. The furnace upgrade list is shown from the first minute of each age.
+
 ## 1. The owner's words (the test for every choice)
 
 - "we should have a fully separate bronze age with pneumatics and pressure mechanics and steam boilers and steam

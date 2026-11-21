@@ -1,5 +1,12 @@
 # Steam and mechanics - implementation plan
 
+> **MOVED TO THE BRONZE AGE (owner: "again, steam is a bronze age thing"; "ember era should feel very manual").**
+> Everything in this file - kettle-driven rotor, axles, cogs, speed and stress, shaft machines, water wheel,
+> windmill - is now the FIRST HALF OF THE BRONZE AGE, built on the Bronze Furnace (tier 2), before the boiler
+> and pressure of `docs/BRONZE_PLAN.md`. Read every "Ember" below as "early Bronze" and every "tier 1" recipe as
+> tier 2. The Ember Age itself is handwork: `docs/EMBER_PLAN.md`. The mechanics, numbers, algorithms and
+> pseudocode here are otherwise unchanged.
+
 For the engineer (or model) who builds this. Design intent: `docs/SPEC.md` 20 and 20.5 (20.5 wins where they
 differ) and `docs/PROGRESSION.md`. This file is the HOW: contracts, files, algorithms, numbers, tests, order,
 and the traps already met in this codebase. Nothing here is built yet.

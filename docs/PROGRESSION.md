@@ -27,8 +27,8 @@ Every conversion is a block in the world you can watch working.
 
 | # | Age | Furnace | Max C | What it is about | Electricity |
 |---|---|---|---|---|---|
-| 0 | Ember | Clay Furnace (1 block) | 800 | fire, copper, tin, food, brewing, simple turning: speed and stress | none |
-| 1 | Bronze | Bronze Furnace (1 block) | 1100 | moving heat, pressure, the boiler multiblock, piston engines, pneumatics | none |
+| 0 | Ember | Clay Furnace (1 block) | 800 | HANDWORK: fire, copper, tin, casting, hand stations, food, brewing - no steam, no machines | none |
+| 1 | Bronze | Bronze Furnace (1 block) | 1100 | steam begins: kettle and rotor, shafts with speed and stress, then heat rods, the boiler, pressure, pneumatics | none |
 | 2 | Forge | Blast hearth (multiblock, needs a blast nozzle) | 1500 | iron, steel, heavy factory machines; the dynamo at the end | first watts |
 | 3 | Current | Arc hearth | 2100 | electric heating, grid, electronics, turbines | kW |
 | 4 | Atomic | Plasma hearth | 3200 | superalloy, fission, heavy water | tens of kW |
@@ -52,26 +52,29 @@ Every conversion is a block in the world you can watch working.
   - six drinks, each its own 3-minute boost: Green Tea (jump), Black Tea (warmth), Berry Tea (healing), Light
   Roast (speed), Dark Roast (mining), Trail Blend (hunger). One tea and one coffee boost at a time. The kettle
   also gives boiling water; any future container works too.
-- **Steam and mechanics [planned, STEAM_PLAN]:** no electricity. A Copper Kettle on the furnace and a Steam
-  Rotor (32 rpm); Water Wheel on flowing water; Windmill. Shafts carry SPEED (rpm) and STRESS (sources add
-  capacity, machines add load, load grows with speed, too much and the line seizes). Cogs trade speed for
-  stress. Machines: Millstone, Saw Bench, Shaft Bellows, Trip Hammer (bronze plates), Mechanical Pump,
-  Mechanical Drill, Draft Fan. Control: Clutch, Flywheel, Speed and Stress Gauges.
+- **Handwork [planned, EMBER_PLAN] - the age is manual (owner: "ember era should feel very manual and like
+  you're making a bunch of different stuff"):** no steam, no shafts, no machines. Hand stations worked stroke by
+  stroke: Chopping Block, Hand Quern, Stone Anvil, Mortar, Clay Table, Casting Bench with moulds, Drying Rack,
+  Tanning Trough, Loom, the Kettle Pot (boils water only). Metal is POURED from the crucible into moulds; bronze
+  is alloyed in a pot. Leather and cloth.
 - **Logistics:** carry it; crates. **No item pipes in this age** - the Bronze Chute moved to the Bronze Age.
   **[change]**
 - **Threats:** cold nights, hunger, Cinder Mites in the dark, Forge Wardens and Kiln Sentries at ruins. A hot
   furnace's warm zone and torchlight are safe. **[rules built; visuals and wiring in progress]**
 - **Goals, in order:** gather wood - planks - workbench - flint - flint pickaxe - rubble - clay - place
-  furnace - light it - charcoal - get warm - cook a meal - eat - smelt copper - *boil water (kettle)* - *set it
-  turning* - *grind* - till soil - plant wheat - reach 800 C - bronze - bronze pickaxe - *gear it up* - *saw
-  planks* - *let the shaft work the bellows* - forge a maul - salvage an automaton - bake bread - *boil a
+  furnace - light it - charcoal - get warm - cook a meal - eat - *clay table* - *fire a mould* - smelt copper - *first pour* - *hand quern* - till soil - plant wheat - *stone
+  anvil* - reach 800 C - *alloy bronze* - *cast a bronze pickaxe head* - forge a maul - salvage an automaton - bake bread - *boil a
   bucket* - *brew a cup*. (Italics = planned goals.)
-- **Gate:** upgrade the furnace in place to the Bronze Furnace: 8 bronze ingots, 4 firebricks, 1 bellows at
-  700 C. **[planned]**
+- **Gate:** the furnace screen shows its upgrade list from the start; fill it to enter the Bronze Age: 8 bronze
+  ingots, 4 firebricks, 1 bellows, 2 bronze plates, 1 leather at 700 C. From here on every age is opened by the
+  furnace's upgrade list. **[planned]**
 
 ### Age 1 - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [planned, BRONZE_PLAN]
 
 - **Furnace:** still one block; 1100 C, two crucibles.
+- **Steam begins (first half of the age, STEAM_PLAN):** Copper Kettle + Steam Rotor, Water Wheel, Windmill,
+  wooden axles and cogs; SPEED and STRESS; Millstone, Saw Bench, Trip Hammer, Shaft Bellows, Mechanical Pump
+  and Drill automate the Ember hand stations. Clutch, Flywheel, gauges.
 - **Heat moves:** Thermocouples carry furnace (or lava) heat to Hot Plates, Heat Vents and boiler Heat Ports:
   2% lost per block, 6 kW per line; they glow by temperature and burn to the touch. The furnace stays the only
   origin of heat.
@@ -142,14 +145,16 @@ at steps 1-3 of the first two ages).
 1. Finish the Emberbound (visuals, screens, wiring, e2e) - in progress.
 2. BREWING_PLAN - independent, small; can go first.
 3. BRONZE_PLAN W0 - six tiers and ages (pure refactor, with a save migration).
-4. STEAM_PLAN waves - Ember mechanics.
+3b. EMBER_PLAN - hand stations, casting, leather and cloth; move instant recipes onto stations.
+4. STEAM_PLAN waves - open steam and shafts (now early Bronze).
 5. BRONZE_PLAN B1-B4 - heat, boiler, pressure, air, vacuum chute.
 6. Forge heavy industry and the dynamo (to be planned in the same detail once Bronze is in).
 Each step ends with the full test suite, a review pass, and a republished game and Codex.
 
 ## 6. Decisions
 
-Made by the owner: the Ember Age has no electricity and runs on steam, speed and stress; a separate Bronze Age
+Made by the owner: the Ember Age is manual handwork with no steam (steam, shafts, speed and stress begin in the
+Bronze Age); from Bronze on each age is opened by the furnace's upgrade list; a separate Bronze Age
 with pressure, pneumatics and thermocouples; the Bronze Furnace is one block and the steam boiler is the first
 multiblock; the Bronze Chute lives in the Bronze Age and needs a Vacuum Pump; brewing is Ember; hand recipes
 are also at the workbench; buckets take source blocks and water flows; enemies are the Emberbound.
