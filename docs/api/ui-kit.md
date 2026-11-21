@@ -123,7 +123,11 @@ Added: `Window.whenClosed`, `PauseMenu.window` (both for GameUI).
 - `class PauseMenu(root, { settings, onSettingsChange, onResume, onQuit, controls? })` - `open()`, `close()`, `isOpen`, `setSettings(s)`,
   `window` (built but not opened; GameUI opens it as its 'pause' screen).
 - `class SettingsPanel({ settings, onChange(settings, key) })` - `el`, `settings`, `set(s)`; `SETTINGS_LIMITS`.
-- `class HowToPlay({ keyboard?, touch?, initial? })`; `DEFAULT_KEYBOARD_CONTROLS`, `DEFAULT_TOUCH_CONTROLS`, `interface ControlLine { keys; action }`.
+- `class HowToPlay({ keyboard?, touch?, initial? })`; `DEFAULT_KEYBOARD_CONTROLS`, `DEFAULT_TOUCH_CONTROLS`, `interface ControlLine { keys; action }`
+  ('–' and '/' in `keys` are drawn as separators). Sections: The loop (5 steps; step 5 "four times, each inside a bigger hearth"),
+  Staying alive (food, cooking, farming, animals and breeding, buckets and bread, cold and rain), Building big (hearths,
+  pipes and the wrench, power), then Controls (adds P / B at the furnace, sprint at the stick's edge, double-tap / shift-click
+  quick move; review gc-3). The two new sections reuse `.hw-howto__loop` / `.hw-howto__step` with a glyph in the square.
 - `class EmberField(seed?)` (menus/fire.ts) - the title's cellular fire canvas: `start()`, `stop()`, `dispose()`.
 
 ## Usage

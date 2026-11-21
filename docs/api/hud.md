@@ -189,6 +189,15 @@ at the top right. Checked against the real touch overlay: no HUD element overlap
 - Death screen: hunger wording revised, plus a starving line when the bar was empty at death.
 - DOM-free helpers in `src/ui/screens/food.ts` (tested in `food.test.ts`). Full notes: `docs/api/food-ui.md`.
 
+### Cold and hunger in words (review gc-2) - what changed
+- Vitals: a status line `.hw-vitals__note` (role status) under the bars, styled inline in vitals.ts: the text of
+  `survivalNote(survival.coldCause, warmth, food)` from src/game/cold.ts - "Soaked: find a roof", "Cold night: find a fire",
+  "Frostfell: find a fire", "Snowed on: find a roof", "Cold water: get out", "Hungry: eat something", "Starving: eat now".
+  Pale blue while cooling, red below 20 warmth or starving, amber when hungry. Hidden when nothing needs saying. It adds one
+  14 px line to the plate (checked at 390x844 and 1280x800). The warnings themselves are toasts from Survival.
+- Death screen: a cold death names its cause from `player.coldCause` ("The rain chilled you", "The snow froze you",
+  "The frostfell froze you", "The cold water took you", night keeps "The cold took you"), each with its own remedy line.
+
 ### Review fixes (phone pass)
 - **Banners while a screen is open.** Goal banners and the "A new age begins" banner both wait until the screen
   closes (`heldGoal`, `heldAge`); the matching "Done: ..." / "<Age>:" toast is dropped then (echo filter), so a goal

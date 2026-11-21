@@ -22,7 +22,7 @@ the `PlayerController` / `Interaction` already in the game do the rest.
 - `feed(amount: number): void` - adds food, capped at 20.
 - `wearHeldTool(uses: number): boolean` - takes durability from the held tool (the hoe); `wearHeld(block)` now
   delegates to it. True when the tool broke (`tool:broke`, sfx `tool_break`, toast - as before).
-- `RESPAWN_MIN_FOOD = 10` - `respawn()` tops the bar up to at least this and ends Well-Fed.
+- `RESPAWN_MIN_FOOD = 14` (REGEN_MIN_FOOD + 2) - `respawn()` tops the bar up to at least this and ends Well-Fed; above the regeneration gate, so a respawn at half health heals once warm (review gc-9).
 
 ## src/game/hunger.ts
 - `FULL_MARGIN = 0.5`; `isFull(player): boolean` - `food >= 19.5` (a HUD showing whole points reads 19.6 as full).

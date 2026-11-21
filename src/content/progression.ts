@@ -300,7 +300,8 @@ function canIgnite(p: Progress): boolean {
 /** When each flag the game code emits can be earned. */
 const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   furnace_lit: (p) => p.tier >= 1 && hasFuel(p),
-  bellows_pumped: (p) => p.tier >= 1 && p.items.has('bellows'),
+  // The bellows are part of every fuel-fired furnace: pumping needs no bellows item.
+  bellows_pumped: (p) => p.tier >= 1,
   well_warmed: (p) => p.tier >= 1 && p.hottestC >= FURNACE_BUFF_C,
   rested: (p) => p.tier >= 1 && hasFuel(p),
   machine_job: (p) => RECIPES.some((r) => isMachineRecipe(r) && p.recipes.has(r.id)),

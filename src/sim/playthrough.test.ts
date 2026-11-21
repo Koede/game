@@ -196,7 +196,7 @@ describe('scripted playthrough', () => {
     expect(blockOf(kit.world.getVoxel(FIELD.x, FIELD.y, FIELD.z)).key).toBe('farmland');
     play.step(0.5);
     done('till_soil');
-    expect(player.inventory.count('wheat_seeds')).toBe(3); // the objective's reward
+    expect(player.inventory.count('wheat_seeds')).toBe(4); // the objective's reward
     play.hold('wheat_seeds');
     expect(plant(kit.world, player, aimDown(kit.world, FIELD))).toEqual({ ...FIELD, y: FIELD.y + 1 });
     expect(kit.world.getVoxel(FIELD.x, FIELD.y + 1, FIELD.z)).toBe(blockId('wheat_0'));
@@ -215,7 +215,6 @@ describe('scripted playthrough', () => {
     play.craft('flour', 2, BENCH);
     play.craft('dough', 1, BENCH);
     play.smelt('dough', 1);
-    done('bake_bread');
     play.smelt('clay', 8);
     play.smelt('sand', 2);
     play.forge('thermopile');
@@ -228,6 +227,7 @@ describe('scripted playthrough', () => {
     play.place('lamp', LAMP);
     play.step(1);
     done('place_lamp');
+    done('bake_bread');
     expect(voxelActive(kit.world.getVoxel(LAMP.x, LAMP.y, LAMP.z))).toBe(true);
 
     // A night by the fire.

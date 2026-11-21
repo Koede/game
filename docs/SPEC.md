@@ -864,7 +864,7 @@ after get_warm: `cook_food` "Cook a meal" - any of make cooked_fowl / cooked_mut
 `eat_food` "Eat" - flag 'ate'.
 after smelt_copper: `till_soil` "Till the soil" - flag 'tilled' (reward 3 wheat_seeds); `plant_seeds` "Plant
 wheat" - place wheat_0.
-after bronze_pickaxe: `bake_bread` "Bake bread" - make bread.
+after place_lamp (moved from after bronze_pickaxe: crops take minutes to ripen): `bake_bread` "Bake bread" - make bread.
 Flags emitted by code: 'ate' (any food eaten), 'tilled'.
 
 ### 12.7 Events and sounds

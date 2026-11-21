@@ -192,12 +192,12 @@ const FOOD: ItemSpec[] = [
   { key: 'cooked_mutton', name: 'Roast Mutton', desc: 'Mutton seared over the furnace fire. Rich and filling.', category: 'food', age: 0, food: food(7) },
   { key: 'cooked_chop', name: 'Roast Chop', desc: 'A crackling roast chop. The most filling plain meal there is.', category: 'food', age: 0, food: food(8) },
   {
-    key: 'potato', name: 'Potato', desc: 'A starchy tuber. Eat it raw, bake it, or plant it on farmland for more.',
+    key: 'potato', name: 'Potato', desc: 'A starchy tuber. Eat it raw, bake it, or plant it on farmland for more. Boars love them: hold one and they follow, feed two boars to raise a piglet.',
     category: 'food', age: 0, food: food(1), block: 'potato_0', icon: 'item_potato',
   },
   { key: 'baked_potato', name: 'Baked Potato', desc: 'Baked soft in a crucible. Plain, hot and filling.', category: 'food', age: 0, food: food(5) },
   {
-    key: 'carrot', name: 'Carrot', desc: 'Sweet and crunchy. Eat it, plant it on farmland, or put it in a stew.',
+    key: 'carrot', name: 'Carrot', desc: 'Sweet and crunchy. Eat it, plant it on farmland, or put it in a stew. Boars love them: feed two boars to raise a piglet.',
     category: 'food', age: 0, food: food(3), block: 'carrot_0', icon: 'item_carrot',
   },
   { key: 'bread', name: 'Bread', desc: 'A crusty loaf baked from dough in a crucible at 220 C.', category: 'food', age: 0, food: food(6) },
@@ -206,10 +206,10 @@ const FOOD: ItemSpec[] = [
     category: 'food', age: 0, stack: 16, food: { hunger: 12, buff: 'well_fed', buffS: WELL_FED_DURATION_S },
   },
   {
-    key: 'wheat_seeds', name: 'Wheat Seeds', desc: 'Found in tall grass and wild wheat. Plant them on farmland. Hens love them.',
+    key: 'wheat_seeds', name: 'Wheat Seeds', desc: 'Found in tall grass and wild wheat. Plant them on farmland. Hens follow them: feed two hens to raise a chick.',
     category: 'resource', age: 0, block: 'wheat_0', icon: 'item_wheat_seeds',
   },
-  { key: 'wheat', name: 'Wheat', desc: 'A sheaf of ripe grain. Grind it into flour. Goats will follow it anywhere.', category: 'resource', age: 0 },
+  { key: 'wheat', name: 'Wheat', desc: 'A sheaf of ripe grain. Two grind into one flour at the workbench. Goats follow it anywhere: feed two goats to raise a kid.', category: 'resource', age: 0 },
   { key: 'flour', name: 'Flour', desc: 'Ground wheat. Mixed with water at the workbench it becomes dough.', category: 'material', age: 0 },
   { key: 'dough', name: 'Dough', desc: 'Flour and water, ready for a crucible. At 220 C it bakes into bread.', category: 'material', age: 0 },
   { key: 'hide', name: 'Hide', desc: 'A tough animal hide. It makes bellows and a warm coat without all that cord.', category: 'resource', age: 0 },

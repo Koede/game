@@ -20,6 +20,8 @@ Tests: `npx vitest run src/game/weather.test.ts src/game/clock.test.ts src/game/
 interface WeatherSegment { index; kind: WeatherKind; startS; lengthS; blendS }
 const WEATHER_KINDS: readonly WeatherKind[]          // ['clear', 'cloudy', 'rain', 'storm'] (draw order)
 drawWeather(r: number): WeatherKind                  // r in [0,1) -> a state by WEATHER_CHANCE
+drawDryWeather(r: number): WeatherKind               // r in [0,1) -> clear or cloudy, in WEATHER_CHANCE proportion
+const DRY_UNTIL_S = DAY_LENGTH_S                     // segments starting before the first dawn are always dry
 class WeatherSchedule {
   constructor(seed: number)
   segment(index: number): WeatherSegment             // generated on demand and kept; segment 0 is always clear
@@ -28,7 +30,8 @@ class WeatherSchedule {
   nextChange(seg, kind): WeatherSegment              // first later segment whose state differs from kind
 }
 ```
-Segment i: kind `drawWeather(hashFloat(seed, i, 1))`, length `WEATHER_MIN_S + hashFloat(seed, i, 2) * (MAX - MIN)`,
+Segment i: kind `drawWeather(hashFloat(seed, i, 1))` (`drawDryWeather` of the same number when the segment starts
+before `DRY_UNTIL_S`, world time 900 s = the first dawn: night 1 never rains, review gc-1), length `WEATHER_MIN_S + hashFloat(seed, i, 2) * (MAX - MIN)`,
 blend `WEATHER_BLEND_MIN_S + hashFloat(seed, i, 3) * (MAX - MIN)` - exactly the schedule world-content suggested.
 Drawing the current state again extends it (no blend, no event).
 

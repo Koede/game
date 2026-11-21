@@ -47,7 +47,12 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 - `takeIngredients(inputs: readonly ItemAmount[], sources: readonly Inventory[], times = 1): boolean` - atomic; sources in priority order. THE function the simulation calls for forge/upgrade ingredients.
 - `craft(recipe: CraftRecipe, sources: readonly Inventory[], destination: Inventory, times = 1): CraftResult` - atomic; refuses with `reason` ("Missing ...", "No room for ...").
 - `maxCraftable(recipe, sources, destination?, limit = Infinity, counts?: ItemTally): number`
-- `craftByPlayer(player: PlayerState, recipe: RecipeDef, options?: { crates?: readonly Inventory[]; times?: number; sfx?: SfxName | null }): CraftResult` - player inventory first then crates, output to the player; emits `item:made` per output and the sound (default `craft`; the furnace passes `forge`).
+- `craftByPlayer(player: PlayerState, recipe: RecipeDef, options?: { crates?: readonly Inventory[]; times?: number; sfx?: SfxName | null }): CraftResult` - player inventory first then crates, output to the player; emits `item:made` per output and the sound (default `craft`; the furnace passes `forge`); then `bringToHotbar(player, recipe.output.item)`.
+
+## handy.ts (review gc-8: new tools land in the hand)
+- `isHandy(itemKey): boolean` - used from the hand: tools, food, category tool / machine / food, buckets and pails, torches. Worn gear (coat, suit) and plain resources are not.
+- `type HotbarOutcome = 'unchanged' | 'moved' | 'swapped' | 'pack'`
+- `bringToHotbar(player, itemKey): HotbarOutcome` - when a handy item is only in the pack: into the first empty hotbar slot (`moved`, selection unchanged); else in place of a plain hotbar stack, the selected slot first, which goes to the pack, and that slot is selected (`swapped`); else a toast "<Item> is in your pack - open it to put it on the hotbar" (`pack`). Nothing happens when one is already on the hotbar.
 
 ## mining.ts (pure, spec 3.6)
 - `UNDER_TIER_SLOWDOWN = 3`; `toolOf(held: Slot): ToolSpec | null`; `toolMatches(block: BlockDef, held: Slot): boolean`
@@ -67,7 +72,8 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 ## playerState.ts
 - `interface BlockPos { x; y; z }`, `PlayerBuffs { wellWarmedS }`, `PlayerStats { made; placed; broken: Record<string, number>; deaths }`, `PlayerSnapshot`
 - `class PlayerState` - `new PlayerState(bus: GameBus, spawn: Vec3 = { x: 0.5, y: 64, z: 0.5 })`
-  - State: `position` (centre of the FEET), `velocity`, `yaw`, `pitch`, `onGround`, `inWater`, `headInWater` (the physics writes these three), `health`, `warmth`, `air`, `inventory` (36 slots, 0-8 hotbar), `selectedSlot`, `home: BlockPos | null`, `spawn`, `buffs`, `stats`, `dead`, `deathCause`, `sinceDamageS`, `extraRadiation`, `bus`.
+  - State: `position` (centre of the FEET), `velocity`, `yaw`, `pitch`, `onGround`, `inWater`, `headInWater` (the physics writes these three), `health`, `warmth`, `air`, `inventory` (36 slots, 0-8 hotbar), `selectedSlot`, `home: BlockPos | null`, `spawn`, `buffs`, `stats`, `dead`, `deathCause`, `coldCause: ColdCause | null` (what chilled the player when the cold last hurt them; Survival writes it before cold damage; saved, optional in older saves), `sinceDamageS`, `extraRadiation`, `bus`.
+  - `RESPAWN_MIN_FOOD = REGEN_MIN_FOOD + 2` (14): a respawn tops food up to this, so half health heals once warm without eating first (review gc-9).
   - `extraRadiation`: the simulation ADDS dose to it every tick a non-block source is active (overheating fission pile); Survival consumes and zeroes it each tick.
   - `get eyeY`, `get wellWarmed`, `viewDir(out: Vec3): Vec3`, `heldStack(): Slot`, `selectSlot(slot)` (emits `hotbar:selected`), `consumeHeld(count = 1): Slot`
   - `wearHeld(block: BlockDef): boolean` - applies tool wear; true when the tool broke (emits `tool:broke`, sfx, toast).
@@ -87,9 +93,19 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
   - `applyFall(distance: number): number` - the physics calls this on landing; returns the damage dealt (0 in water).
   - `respawn(): void` - beside the home furnace if it still exists, else the world spawn; full health and warmth when it is hot, half otherwise; inventory kept.
   - `homeIsHot(): boolean`
-  - HUD: `get trend: WarmthTrend`, `get warmthRate: number` (per second), `get inHeat: boolean`, `get radiationDose: number` (after the suit), `get buffTimeLeftS: number`, `get warmUpProgress: number` (0..1 towards Well-Warmed).
+  - HUD: `get trend: WarmthTrend`, `get warmthRate: number` (per second), `get inHeat: boolean`, `get radiationDose: number` (after the suit), `get buffTimeLeftS: number`, `get warmUpProgress: number` (0..1 towards Well-Warmed), `get coldCause: ColdCause | null` (the biggest drain this tick: water > rain/snow > frostfell > night on ties; null while warmth is not drained).
+  - Cold warnings (review gc-2): a `ColdWatch` toasts (`warn`) once when warmth falls below 50 ("Getting cold. <remedy>.") and once below 20 ("Freezing! <remedy>. At 0 warmth the cold hurts."), re-armed 10 above each level and on respawn.
+  - First day (review gc-1): while `clock.day === 1` and the player is not in water, draining stops at `FIRST_DAY_WARMTH_FLOOR` (10) and the trend reads steady there; cold water still drains to 0.
   - `toJSON(): SurvivalSnapshot`, `load(s)`.
   - Emits `buff:gained`, `flag` `well_warmed` and a toast when the buff is earned.
+
+## cold.ts (review gc-2)
+- `type ColdCause = 'night' | 'rain' | 'snow' | 'frost' | 'water'`
+- `COLD_WARN_AT = [50, 20]`, `COLD_WARN_REARM = 10`, `FIRST_DAY_WARMTH_FLOOR = 10`
+- `COLD_REMEDY: Record<ColdCause, string>` (toast clause, e.g. "Rain is soaking you - get under a roof or by a fire"), `COLD_TAG: Record<ColdCause, string>` (HUD line, e.g. "Soaked: find a roof")
+- `coldWarning(level: number, cause: ColdCause): string` - the toast for level 0 (getting cold) or 1 (freezing)
+- `survivalNote(coldCause, warmth, food): { text; tone: 'cold' | 'warn' | 'bad' } | null` - the one HUD line under the bars: low warmth with its cause, then starving / hungry, then plain cooling
+- `class ColdWatch` - `new ColdWatch(bus)`; `update(warmth, cause | null)`, `reset()`. Survival owns one.
 
 ## objectives.ts (spec 2.7)
 - `interface SimQuery { maxFurnaceTempC(): number; maxFurnaceTier(): number; generationW(): number; storedJ(): number }`; `NO_SIM_QUERY` (all zero)
@@ -119,13 +135,13 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 - Well-Warmed: the 8 s must be continuous. Staying by the furnace keeps the buff topped up at 300 s without re-announcing; `buff:gained` and the flag fire only when the buff starts from zero.
 - Heat distance is Euclidean from the block centre to the centre of the player's body (feet + 0.9).
 - Breath refills in 3 s at the surface. Lava damage is dealt 1 point at a time (4 hits per second). Fall damage rounds down.
-- Objective conditions on simulation values use the highest value EVER sampled (so `reach_800` completes at once if bronze was already forged at 800 C); the HUD text shows that peak, not the live value.
+- Objective conditions on simulation values use the highest value EVER sampled (so `reach_1900` completes at once if the furnace already got that hot); the HUD text shows that peak, not the live value.
 - Rewards that do not fit are kept (saved) and handed over quietly once there is room, instead of being lost.
 - Furnace tier for the age also counts `block:placed` of a furnace block and `furnace:upgraded`, not only the query.
 - `skipToDawn` lands at 0.025 (mid-dawn), not at 0.
 
 ## Known gaps
-- `survival.ts` is 415 lines (above the 350-line aim); not split.
+- `survival.ts` is about 470 lines (above the 350-line aim); not split.
 - No rule here for placing blocks, the pail, or "blocks cannot be placed inside the player": that is `src/player` (spec 7.3).
 - Rest (`rest()` in spec 3.1) belongs to the simulation; this module only provides `clock.skipToDawn()`.
 - Heat and radiation sources are rescanned every 0.5 s around the player (11x11x11 cells): a torch placed right now warms up to half a second later. Radiating blocks more than 5 cells from where the last scan was centred are not seen until the next scan.

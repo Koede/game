@@ -7,8 +7,9 @@ where you smelt and forge, it keeps you warm through the night, it is your first
 largest machine on a power grid you build from wood, coal, wind, water, sunlight, oil, lava and uranium.
 The game ends when you turn it into a star.
 
-There are no creatures and no combat. The world itself is the danger: cold nights, long falls, deep water,
-lava, radiation and reactors you forgot to cool.
+Animals (hens, goats, boars) are passive: you hunt them for food and hide, and you can raise your own, but
+nothing hunts you and there is no combat. The world itself is the danger: cold nights and rain, hunger, long
+falls, deep water, lava, radiation and reactors you forgot to cool.
 
 ## Play
 
@@ -35,12 +36,14 @@ page is closed.
 | Jump / swim up | Space | Jump button |
 | Sprint | Shift | push the stick to its edge |
 | Mine | hold left mouse button | hold the Mine button, or press and hold on the world |
-| Use / place | right mouse button | Use button, or tap the world |
+| Use / place / eat | right mouse button | Use button, or tap the world |
 | Pick hotbar slot | 1-9 or mouse wheel | tap the slot |
 | Inventory and hand crafting | E | bag button |
 | Hearth Log (goals) | L | tap the goal tracker |
 | Pause / close a screen | Esc | pause button |
 | At the furnace: pump the bellows / show the backpack | P / B | Pump button / Backpack handle |
+| Set a pipe end to Push, Pull or Off | Use with the wrench on the pipe | the same |
+| Open the pipe screen (what flows, filters, priority) | Use on a pipe with an empty hand | the same |
 
 Screens use the same slot rules everywhere: click (tap) a stack to pick it up, click (tap) where it goes;
 right-click (long-press) takes half; shift-click (double-tap) or the "To ..." buttons move it straight across.
@@ -63,19 +66,50 @@ engine on top turns more heat into more power, and now the same fire has to choo
 Water wheels, burner generators, wind turbines, solar panels, combustion engines and geothermal taps follow.
 Cables join machines into networks; every cable type has a limit, and batteries cover the gaps.
 
-**The furnace grows with you.** It is upgraded in place, and each tier begins an age:
+**The furnace grows with you.** It is upgraded in place four times, and each tier begins an age. Every
+upgrade needs a formed hearth around the furnace first: walls of the right block with enough room inside. The
+furnace's Structure tab shows the plan, marks every missing block in the world and says what is wrong; then the
+upgrade panel asks for the parts and the heat below.
 
-| Furnace | Age | Reaches | Heated by |
-|---|---|---|---|
-| Clay Furnace | Ember | 800 C | wood, charcoal |
-| Blast Furnace | Forge | 1500 C | coal, coke, bellows |
-| Arc Furnace | Current | 2100 C | fuel, or 8 kW of electricity |
-| Plasma Furnace | Atomic | 3200 C | 40 kW of electricity |
-| Starhearth | Star | - | 300 kW held for 90 seconds to ignite |
+| Furnace | Age | Reaches | Heated by | Needs |
+|---|---|---|---|---|
+| Clay Furnace | Ember | 800 C | wood, charcoal | built at the workbench |
+| Blast Furnace | Forge | 1500 C | coal, coke, bellows | Blast hearth (brick); 4 bronze ingots, a bellows, fire at 700 C |
+| Arc Furnace | Current | 2100 C | fuel, or 8 kW of electricity | Arc hearth (refractory brick, a ceiling, an Arc Electrode); 2 copper coils, 2 steel plates, 1200 C |
+| Plasma Furnace | Atomic | 3200 C | 40 kW of electricity | Plasma hearth (plasma casing, 2x2x2 inside, 2 Power Ports); 2 circuits, 2 tungsten rods, 1900 C |
+| Starhearth | Star | - | 300 kW held for 90 seconds to ignite | Star hearth (star casing, 3x3x3 inside, 4 Power Ports); the star core, 8 deuterium cells, 3000 C |
 
-**Come home at night.** Nights are cold. A hot furnace warms everything around it, and time spent beside
-it leaves you Well-Warmed: faster at mining and slower to freeze. Your last furnace is home: the compass
-points to it, and it is where you wake up if the world gets the better of you.
+A bigger hearth also gives the furnace more crucibles.
+
+**Come home at night.** Nights are cold, and rain or snow under open sky chills you faster, day or night;
+the frostfell is cold even by day. At 0 warmth the cold hurts. Any roof overhead keeps the rain off, and a
+fire, a torch or a hot furnace warms everything around it. Time spent beside the furnace leaves you
+Well-Warmed: faster at mining and slower to freeze. The HUD warns you, with the cause, as warmth falls. Your
+last furnace is home: the compass points to it, and it is where you wake up if the world gets the better of
+you, with everything you carried.
+
+**Weather.** Each world has its own sky: clear, cloudy, rain and storms that drift in and out (the first day
+and night are always dry). In the frostfell and up high the rain falls as snow, in the dunes as dust. Rain
+cools a furnace that stands under open sky, and storms bring lightning.
+
+**Food and hunger.** The food bar runs down as you work and faster when you sprint. Hold food and press Use to
+eat it. Cooked food fills far more than raw: meat, potatoes and dough cook in the furnace's crucibles (the
+Kitchen chip on the Smelt tab), and a hearth stew forged at the furnace makes you Well-Fed. Hungry, you cannot
+sprint; below 12 food you do not heal; an empty bar slowly wears your health down.
+
+**Farming and animals.** A hoe turns grass or dirt into farmland. Wheat seeds (from tall grass), potatoes and
+carrots grow on it in daylight or lamplight, twice as fast with water within four blocks. Mine an animal to
+hunt it. Hold what it likes and it follows you: hens like wheat seeds, goats wheat, boars potatoes and carrots.
+Feed two of a kind and they raise a young one.
+
+**Buckets and bread.** A bucket (pail) fills at still water and pours out as a new source. Four wheat grind
+into two flour at the workbench, two flour and a bucket of water make dough, and dough bakes into bread at
+220 C. A bronze bucket can carry lava.
+
+**Pipes and the wrench.** Bronze chutes carry items, iron fluid pipes carry water and oil, and steel hot pipes
+carry steam and lava. Use the wrench on a pipe where it meets a crate, a furnace or a machine to cycle that end through
+Push, Pull and Off; use it between two pipes to part or join them. Use a pipe with an empty hand to open the
+pipe screen: what flows, filters and priorities.
 
 ## Development
 
@@ -98,8 +132,9 @@ teleport, setTime, tick, save...).
 | `src/core` | shared types, the content registry, the event bus, gameplay constants |
 | `src/content` | every block, item, recipe, machine, furnace tier, ore vein and objective, as data |
 | `src/world` | terrain generation, chunks, lighting, meshing, the chunk worker |
-| `src/game` | inventory, crafting, mining rules, survival, day and night, objectives |
-| `src/sim` | the furnace, power networks and machines |
+| `src/game` | inventory, crafting, mining rules, survival and hunger, day and night, weather, objectives |
+| `src/sim` | the furnace, hearths, power networks, machines, pipes, crops |
+| `src/mobs` | animals: spawning, behaviour, feeding and breeding, saving |
 | `src/render` | procedural textures, the three.js renderer, sky, particles, item icons |
 | `src/player` | keyboard, mouse and touch input, physics, block interaction |
 | `src/ui` | the HUD and every screen |

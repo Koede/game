@@ -6,6 +6,7 @@
 import type { SfxName } from '../core/gameEvents';
 import { itemOrNull, recipesAt } from '../core/registry';
 import type { ItemAmount, RecipeDef } from '../core/types';
+import { bringToHotbar } from './handy';
 import type { Inventory } from './inventory';
 import type { PlayerState } from './playerState';
 
@@ -204,7 +205,8 @@ export interface PlayerCraftOptions {
 
 /**
  * A craft by the player at a station: ingredients from the player's inventory first, then the crates; outputs
- * into the player's inventory. On success emits 'item:made' for every output (and the sound).
+ * into the player's inventory. On success emits 'item:made' for every output (and the sound), and a tool, food or
+ * machine that landed in the pack is brought onto the hotbar (see `bringToHotbar`).
  */
 export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: PlayerCraftOptions = {}): CraftResult {
   const sources = [player.inventory, ...(options.crates ?? [])];
@@ -215,5 +217,6 @@ export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: P
   }
   const sfx = options.sfx === undefined ? 'craft' : options.sfx;
   if (sfx) player.bus.emit('sfx', { name: sfx });
+  bringToHotbar(player, recipe.output.item);
   return result;
 }

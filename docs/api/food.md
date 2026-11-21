@@ -136,8 +136,9 @@ pale tusks, a pink-brown snout and dark hooves. The species call sfx name equals
 
 ### Objectives (42 now)
 Inserted: after `get_warm`: `cook_food` "Cook a meal" (any of make cooked_fowl / cooked_mutton / cooked_chop / baked_potato),
-`eat_food` "Eat" (flag ate). After `smelt_copper`: `till_soil` "Till the soil" (flag tilled, reward 3 wheat_seeds),
-`plant_seeds` "Plant wheat" (place wheat_0). After `bronze_pickaxe`: `bake_bread` "Bake bread" (make bread).
+`eat_food` "Eat" (flag ate). After `smelt_copper`: `till_soil` "Till the soil" (flag tilled, reward 4 wheat_seeds),
+`plant_seeds` "Plant wheat" (place wheat_0). After `place_lamp` (moved from after `bronze_pickaxe`, review gc-5): `bake_bread`
+"Bake bread" (make bread; the text names four ripe wheat, two flour and a bucket of water).
 `place wheat_0` is counted from the `block:placed` voxel, so planting must emit `block:placed` with the crop voxel.
 
 ### Progression solver (src/content/progression.ts)
