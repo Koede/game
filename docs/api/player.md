@@ -134,7 +134,7 @@ appears wherever the left thumb lands in the lower-left region (left half; below
   three.js IView - desktop: W walks, drag looks (lock refused), hold mines gravel and the item arrives, right
   click places, workbench opens its screen, no walking while a screen is open, with lock granted the click
   captures and holding mines; phone portrait and landscape: joystick walks while a second finger looks, Mine
-  button and press-and-hold mine, tap places, Use places, Jump jumps, nothing scrolls or zooms - 26 checks,
+  button and press-and-hold mine, tap places, Use places, Jump jumps, nothing scrolls or zooms - 27 checks,
   stable over three runs. Screenshots of the overlay over bright sky, dark cave colour and sand, and over the
   real world, were reviewed.
 
