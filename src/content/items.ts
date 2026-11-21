@@ -114,8 +114,8 @@ const METALS: ItemSpec[] = [
   { key: 'iron_ingot', name: 'Iron Ingot', desc: 'Grey, strong and plentiful. The frame of every machine.', category: 'material', age: 1 },
   { key: 'steel_ingot', name: 'Steel Ingot', desc: 'Iron refined with coke and limestone. Harder, tougher, and ready for serious heat.', category: 'material', age: 1 },
   { key: 'aluminum_ingot', name: 'Aluminum Ingot', desc: 'Light, bright metal for heavy cable, turbine blades and sealed cells.', category: 'material', age: 2 },
-  { key: 'crushed_copper', name: 'Crushed Copper', desc: 'Ground copper ore. Each ore block gives two portions, and they smelt faster than raw rock.', category: 'material', age: 1 },
-  { key: 'crushed_tin', name: 'Crushed Tin', desc: 'Ground tin ore. Each ore block gives two portions, and they smelt faster than raw rock.', category: 'material', age: 1 },
+  { key: 'crushed_copper', name: 'Crushed Copper', desc: 'Ground copper ore: pounded in the Mortar (now and then two portions from one ore), or crushed by a machine. It smelts faster than raw rock.', category: 'material', age: 0 },
+  { key: 'crushed_tin', name: 'Crushed Tin', desc: 'Ground tin ore: pounded in the Mortar (now and then two portions from one ore), or crushed by a machine. It smelts faster than raw rock.', category: 'material', age: 0 },
   { key: 'crushed_iron', name: 'Crushed Iron', desc: 'Ground iron ore. Each ore block gives two portions, and they smelt faster than raw rock.', category: 'material', age: 1 },
 ];
 

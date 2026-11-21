@@ -393,7 +393,7 @@ export function conditionMet(c: ObjectiveCondition, p: Progress): boolean {
     case 'have':
       return p.items.has(c.item);
     case 'make':
-      return recipesFor(c.item).some((r) => p.recipes.has(r.id));
+      return recipesFor(c.item).some((r) => p.recipes.has(r.id)) || (p.source.get(c.item)?.startsWith('cast:') ?? false);
     case 'place':
       return p.items.has(itemPlacing(c.block) ?? '');
     case 'break': {

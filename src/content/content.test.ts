@@ -38,7 +38,8 @@ function signature(c: ObjectiveCondition): string {
 function recipeLine(r: RecipeDef): string {
   const io = `${r.id}: ${r.output.count} ${r.output.item} <- ${r.inputs.map((i) => `${i.count} ${i.item}`).join(', ')}`;
   if (r.station === 'furnace') return `${io} @${r.minTempC}${r.kind === 'smelt' ? ` ${r.timeS}s` : ''} T${r.minTier}`;
-  return MACHINES.has(r.station) ? `${io} ${r.timeS}s ${r.energyJ}J` : io;
+  // The handwork's machine kinds are stations worked by hand (recipes there carry strokes or a plain time, no energy).
+  return MACHINES.has(r.station) && machine(r.station).role !== 'hand' ? `${io} ${r.timeS}s ${r.energyJ}J` : io;
 }
 
 /** A machine number, wherever it lives: a MachineSpec field or its params record. */
@@ -83,7 +84,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(146);
+    expect(RECIPES).toHaveLength(183);
   });
 
   it('has the furnace tiers of table 2.4', () => {
@@ -165,7 +166,8 @@ describe('4. structural rules', () => {
 
   it('makes the furnace the main crafting place and keeps the workbench minor', () => {
     expect(furnaceRecipes.length / RECIPES.length).toBeGreaterThan(0.6);
-    expect(recipesAt('workbench').length / RECIPES.length).toBeLessThan(0.1);
+    // The handwork stations and the tools bound from cast heads brought the workbench to about 13%.
+    expect(recipesAt('workbench').length / RECIPES.length).toBeLessThan(0.15);
   });
 
   it('has sane fuels, monotonic tool tiers and rated cables', () => {

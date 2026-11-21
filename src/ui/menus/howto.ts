@@ -1,6 +1,6 @@
 /**
  * How to Play: the core loop in five lines, staying alive (food, farming, animals, cold), building big (hearths,
- * pipes), tea and coffee, the Emberbound automatons, then the controls for keyboard + mouse and for touch.
+ * pipes), working by hand, tea and coffee, the Emberbound automatons, then the controls for keyboard + mouse and for touch.
  */
 import { Segmented } from '../kit/controls';
 import { h } from '../kit/dom';
@@ -26,8 +26,8 @@ export const DEFAULT_KEYBOARD_CONTROLS: readonly ControlLine[] = [
   { keys: ['Space'], action: 'Jump, swim up' },
   { keys: ['Shift'], action: 'Sprint' },
   { keys: ['Hold left click'], action: 'Mine the block you look at' },
-  { keys: ['Right click'], action: 'Open a furnace or machine; use, place or eat the held item' },
-  { keys: ['Shift', 'Right click'], action: 'Place the held block against a furnace or machine' },
+  { keys: ['Right click'], action: 'Open a furnace or machine; use, place or eat the held item; one stroke at a hand station (hold to repeat)' },
+  { keys: ['Shift', 'Right click'], action: 'Place the held block against a furnace or machine; with an empty hand at a hand station, take back what you loaded' },
   { keys: ['1', '–', '9', 'Wheel'], action: 'Pick a hotbar slot' },
   { keys: ['E'], action: 'Inventory and hand recipes' },
   { keys: ['L'], action: 'Hearth Log: goals and ages' },
@@ -42,8 +42,8 @@ export const DEFAULT_TOUCH_CONTROLS: readonly ControlLine[] = [
   { keys: ['Drag the view'], action: 'Look around' },
   { keys: ['Jump button'], action: 'Jump, swim up' },
   { keys: ['Hold on a block', 'Mine'], action: 'Mine it' },
-  { keys: ['Tap a block', 'Use'], action: 'Open a furnace or machine; use, place or eat the held item' },
-  { keys: ['Place', 'Use'], action: 'Place the held block against a furnace or machine' },
+  { keys: ['Tap a block', 'Use'], action: 'Open a furnace or machine; use, place or eat the held item; one stroke at a hand station (hold Use to repeat)' },
+  { keys: ['Place', 'Use'], action: 'Place the held block against a furnace or machine; with an empty hand at a hand station, take back what you loaded' },
   { keys: ['Tap the hotbar'], action: 'Pick a slot' },
   { keys: ['Bag button'], action: 'Inventory and hand recipes' },
   { keys: ['Tap the goal'], action: 'Hearth Log: goals and ages' },
@@ -82,6 +82,15 @@ const BUILDING: readonly Tip[] = [
   { icon: 'home', text: 'Each furnace upgrade needs a hearth around it: brick, then refractory brick, plasma casing and star casing. The Structure tab shows the plan and can mark every missing block in the world.' },
   { icon: 'gear', text: 'Chutes carry items, pipes carry water, oil and steam. Use the wrench on a pipe end to cycle Push, Pull and Off; Use a pipe with an empty hand to see what it carries.' },
   { icon: 'bolt', text: 'Machines need watts: join them to generators with cable, and add batteries to cover the gaps.' },
+];
+
+/** The Ember Age stations (EMBER_PLAN 2): every one is worked by your own hands, a stroke at a time. */
+export const HANDWORK: readonly Tip[] = [
+  { icon: 'pick', text: 'Stations are worked by hand. Aim at one and tap Use: holding the item it takes loads it, every tap after that is one stroke, and the line under the crosshair counts them: "Hand Quern - wheat 3/6 strokes". Hold Use to keep striking.' },
+  { icon: 'hourglass', text: 'When the work is done the result waits in the station: Use it with an empty hand to take it. With an empty hand, Shift + Use (or Place, then Use) takes back what you loaded.' },
+  { icon: 'maul', text: 'The right tool counts double: an axe at the chopping block (a log gives six planks, not four), a hammer at the stone anvil. Metal fresh from the crucible is soft for 20 seconds and needs half the strokes.' },
+  { icon: 'sun', text: 'The drying rack and the tanning trough work by themselves. The rack needs open sky and daylight, and rain sets it back.' },
+  { icon: 'flame', text: 'When a smelt of copper, tin or bronze finishes the metal stays molten for 20 seconds. Hold a fired mould and Use the furnace to pour a cast; wait too long and it cools into a bloom to smelt again.' },
 ];
 
 /** Tea and coffee (BREWING_PLAN): the steps from bush to cup, in the order a player does them. */
@@ -148,6 +157,7 @@ export class HowToPlay {
       ),
       this.tips('Staying alive', 'var(--hw-food)', LIVING),
       this.tips('Building big', 'var(--hw-power)', BUILDING),
+      this.tips('Working by hand', '#c98a4b', HANDWORK),
       this.tips('Tea and coffee', '#d39a62', BREWING),
       this.tips('The Emberbound', '#ff7a2a', EMBERBOUND),
       h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch),

@@ -112,6 +112,6 @@ export const HAND_SPEC = {
     drying_rack: [
       'leather: 2 leather <- 2 soaked_hide',
     ],
-    alloy_pot: ['bronze_ingot_alloy: 4 bronze_ingot <- 3 copper_ingot, 1 tin_ingot 8s 0J'],
+    alloy_pot: ['bronze_ingot_alloy: 4 bronze_ingot <- 3 copper_ingot, 1 tin_ingot'],
   } as Record<string, string[]>,
 };

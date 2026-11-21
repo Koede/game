@@ -76,6 +76,8 @@ export class Hud {
   private readonly offs: (() => void)[] = [];
   private readonly observer: ResizeObserver | null;
   private slow = SLOW_S;
+  /** Work done at the aimed hand station, 0..1, or -1 when the target is not one at work. */
+  private workFraction = -1;
   private gridTimer = GRID_S;
   private hotbarDirty = true;
   private fpsFrames = 0;
@@ -135,6 +137,9 @@ export class Hud {
       bus.on('age:advanced', ({ age }) => this.ageBanner(age)),
       bus.on('item:gained', ({ item, count }) => this.feed.push(item, count)),
       bus.on('block:broken', () => this.coach.blockBroken()),
+      bus.on('hand:stroke', (e) => this.handChanged(e.x, e.y, e.z)),
+      bus.on('hand:done', (e) => this.handChanged(e.x, e.y, e.z)),
+      bus.on('hand:taken', (e) => this.handChanged(e.x, e.y, e.z)),
       bus.on('ui:open', ({ screen }) => {
         if (screen.type === 'log') this.coach.goalOpened();
       }),
@@ -201,11 +206,15 @@ export class Hud {
   /** The block under the crosshair in words; a crop says how it grows, a cup or bucket the step it is at (refreshed on the slow tick). */
   private targetLabel(): string | null {
     const t = this.targetAt;
+    this.workFraction = -1;
     if (!t.has) return null;
     const crop = this.deps.sim().cropView(t.x, t.y, t.z);
     if (crop) return cropLabel(crop);
     const brew = this.deps.sim().brewView(t.x, t.y, t.z);
     if (brew) return brew.text;
+    const hand = this.deps.sim().handView(t.x, t.y, t.z);
+    this.workFraction = hand && hand.fraction > 0 ? hand.fraction : -1;
+    if (hand) return hand.label;
     const block = this.deps.world.getBlock(t.x, t.y, t.z);
     return block.id === 0 ? null : block.name;
   }
@@ -222,11 +231,20 @@ export class Hud {
 
   private showTarget(): void {
     const name = this.nameOverride ?? this.blockName;
-    const mining = this.nameOverride !== null ? -1 : this.mining;
+    // Mining fills the ring; so does the work bar of a hand station (Hand Quern - wheat 3/6 strokes).
+    const mining = this.nameOverride !== null ? -1 : this.mining >= 0 ? this.mining : this.workFraction;
     const key = `${name}|${mining}`;
     if (key === this.targetKey) return;
     this.targetKey = key;
     this.crosshair.set(name, mining, this.nameOverride !== null ? this.creature : null);
+  }
+
+  /** A stroke, a finished job or a take at the aimed station: the aiming line follows at once, not on the slow tick. */
+  private handChanged(x: number, y: number, z: number): void {
+    const t = this.targetAt;
+    if (!t.has || t.x !== x || t.y !== y || t.z !== z) return;
+    this.blockName = this.targetLabel();
+    this.showTarget();
   }
 
   /** A screen covers the view: the crosshair and the gain feed step back. */

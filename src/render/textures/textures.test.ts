@@ -237,7 +237,7 @@ describe('texture content', () => {
 
   it('item icons have a transparent background and a darker outline', () => {
     const icons = TEXTURE_NAMES.filter((n) => n.startsWith('item_'));
-    expect(icons.length).toBe(91);
+    expect(icons.length).toBe(140);
     for (const name of icons) {
       const px = paintTexture(name);
       let clear = 0;

@@ -48,11 +48,12 @@ describe('food items', () => {
     }
   });
 
-  it('mills flour twice as efficiently on the crusher as by hand', () => {
-    const hand = recipesFor('flour').find((r) => r.station === 'workbench');
+  it('grinds flour by hand on the quern, stroke by stroke, and on the crusher by machine', () => {
+    const hand = recipesFor('flour').find((r) => r.station === 'hand_quern');
     const mill = recipesFor('flour').find((r) => r.station === 'crusher');
     expect(recipesFor('flour')[0]).toBe(hand);
-    expect((hand?.inputs[0].count ?? 0) / (hand?.output.count ?? 1)).toBe(2 * ((mill?.inputs[0].count ?? 0) / (mill?.output.count ?? 1)));
+    expect(hand?.strokes).toBe(6);
+    expect(hand?.inputs).toEqual([{ item: 'wheat', count: 1 }]);
     expect(mill?.id).toBe('flour_milled');
   });
 });
