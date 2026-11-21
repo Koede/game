@@ -8,6 +8,7 @@ import { CUP_BLOCK } from '../core/brewing';
 import { PIPE_CORE_MAX, PIPE_CORE_MIN } from '../core/constants';
 import { mulberry32 } from '../core/math';
 import { blockOf } from '../core/registry';
+import { stationBounds } from '../world/stationShapes';
 import type { BlockShape, Voxel } from '../core/types';
 
 export const CRACK_STAGES = 8;
@@ -153,7 +154,8 @@ export function shapeBounds(shape: BlockShape, key = ''): readonly [number, numb
     case 'bucket':
       return BUCKET;
     default:
-      return [0, 0, 0, 1, 1, 1];
+      // Hand stations (EMBER_PLAN 2) are cubes in the content and small boxes in the mesh: the outline hugs the box.
+      return stationBounds(key) ?? [0, 0, 0, 1, 1, 1];
   }
 }
 

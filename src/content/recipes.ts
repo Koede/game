@@ -8,6 +8,7 @@
 import type { RecipeSpec } from '../core/types';
 import { amount, amounts } from './amounts';
 import { BREW_RECIPES } from './recipesBrew';
+import { HAND_RECIPES } from './recipesHand';
 import { MACHINE_SPECS } from './tech';
 
 const hand = (id: string, output: string, inputs: string): RecipeSpec => ({
@@ -47,9 +48,6 @@ function machineRecipes(station: string, timeS: number, rows: Array<[output: str
 }
 
 const HAND: RecipeSpec[] = [
-  hand('plank', '4 plank', 'oak_log'),
-  hand('plank_pine', '4 plank', 'pine_log'),
-  hand('stick', '4 stick', '2 plank'),
   hand('cord', 'cord', '3 fiber'),
   hand('flint_pickaxe', 'flint_pickaxe', '2 flint, 2 stick, 1 cord'),
   hand('flint_axe', 'flint_axe', '2 flint, 2 stick, 1 cord'),
@@ -69,11 +67,10 @@ const WORKBENCH: RecipeSpec[] = [
   workbench('crate', 'crate', '8 plank'),
   workbench('stone_brick', '4 stone_brick', '4 rubble'),
   workbench('pail', 'pail', '3 plank, 1 cord'),
-  workbench('padded_coat', 'padded_coat', '6 cord, 6 fiber'),
-  workbench('padded_coat_hide', 'padded_coat', '4 hide, 2 cord'),
+  workbench('padded_coat', 'padded_coat', '4 cloth, 2 cord'),
+  workbench('padded_coat_hide', 'padded_coat', '4 leather, 2 cord'),
   workbench('bellows', 'bellows', '4 plank, 4 cord'),
   workbench('bellows_hide', 'bellows', '4 plank, 2 hide'),
-  workbench('flour', 'flour', '2 wheat'),
   workbench('dough', 'dough', '2 flour, 1 water_pail', '1 pail'),
 ];
 
@@ -84,9 +81,9 @@ const SMELT: RecipeSpec[] = [
   smelt('firebrick', '2 firebrick', 'clay', 400, 6),
   smelt('copper_ingot', 'copper_ingot', 'copper_ore', 700, 10),
   smelt('glass', 'glass', 'sand', 700, 8),
-  // The crushed routes need a crusher, which is Forge Age equipment.
-  smelt('tin_ingot_crushed', 'tin_ingot', 'crushed_tin', 250, 5, 1, 1),
-  smelt('copper_ingot_crushed', 'copper_ingot', 'crushed_copper', 700, 6, 1, 1),
+  // The crushed routes: ore pounded in the Mortar by hand (Ember), or crushed by the Forge Age crusher.
+  smelt('tin_ingot_crushed', 'tin_ingot', 'crushed_tin', 250, 5, 1, 0),
+  smelt('copper_ingot_crushed', 'copper_ingot', 'crushed_copper', 700, 6, 1, 0),
   smelt('coke', 'coke', 'coal', 1000, 12, 2),
   smelt('iron_ingot', 'iron_ingot', 'iron_ore', 1150, 12, 2),
   smelt('iron_ingot_crushed', 'iron_ingot', 'crushed_iron', 1150, 8, 2),
@@ -105,17 +102,11 @@ const SMELT: RecipeSpec[] = [
 
 const FORGE: RecipeSpec[] = [
   // ---- Clay Furnace ----
-  forge(1, '4 bronze_ingot', '3 copper_ingot, 1 tin_ingot', 800),
-  forge(1, 'bronze_pickaxe', '3 bronze_ingot, 2 stick', 600),
-  forge(1, 'bronze_axe', '3 bronze_ingot, 2 stick', 600),
-  forge(1, 'bronze_shovel', '1 bronze_ingot, 2 stick', 600),
   forge(1, 'brick', '4 firebrick', 400),
   forge(1, '2 ceramic_insulator', '1 clay, 1 sand', 600),
-  forge(1, '3 copper_wire', '1 copper_ingot', 500),
   forge(1, '6 copper_cable', '3 copper_wire, 2 ceramic_insulator', 500),
   forge(1, 'thermopile', '4 copper_ingot, 2 tin_ingot, 2 firebrick', 700),
   forge(1, 'lamp', '1 glass, 2 copper_wire', 500),
-  forge(1, 'bronze_hoe', '2 bronze_ingot, 2 stick', 600),
   forge(1, 'hearth_stew', '1 cooked_chop, 1 potato, 1 carrot, 1 water_pail', 300, { byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_mutton', byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_fowl', byproducts: '1 pail' }),
@@ -125,7 +116,6 @@ const FORGE: RecipeSpec[] = [
   forge(1, '8 item_pipe', '2 bronze_ingot, 1 glass', 800),
   forge(1, 'wrench', '3 bronze_ingot', 600),
   // The Emberbound (spec 19.4): weapons for breaking metal.
-  forge(1, 'bronze_maul', '4 bronze_ingot, 2 stick', 700),
 
   // ---- Blast Furnace ----
   forge(2, 'iron_pickaxe', '3 iron_ingot, 2 stick', 1000),
@@ -220,4 +210,4 @@ const MACHINE: RecipeSpec[] = [
   ...machineRecipes('electrolyzer', 45, [['deuterium_cell', 'empty_cell', 3]]),
 ];
 
-export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES];
+export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES];

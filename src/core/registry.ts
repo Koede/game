@@ -8,12 +8,14 @@ import {
   AGES as AGE_SPECS,
   AUTOMATON_SPECS,
   BLOCK_SPECS,
+  CAST_METAL_SPECS,
   CREATURE_SPECS,
   FLUID_SPECS,
   FURNACE_TIERS as FURNACE_TIER_SPECS,
   ITEM_SPECS,
   LOOT_TABLES as LOOT_TABLE_SPECS,
   MACHINE_SPECS,
+  MOULD_SPECS,
   OBJECTIVES as OBJECTIVE_SPECS,
   ORE_VEINS as ORE_VEIN_SPECS,
   RECIPE_SPECS,
@@ -47,11 +49,14 @@ import {
   type ObjectiveSpec,
   type OreVeinSpec,
   type RecipeDef,
+  type CastMetalSpec,
+  type MouldSpec,
   type Voxel,
 } from './types';
 import { validateTech } from './techValidation';
 import { validateAutomaton, validateGear } from './hostileValidation';
 import { validateBrewing } from './brewValidation';
+import { handStationKeys, validateHand } from './handValidation';
 
 // ---------------------------------------------------------------------------------------------
 // Textures: every texture name referenced by content gets a layer in one texture array.
@@ -138,6 +143,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     placeOn: spec.placeOn ?? null,
     harvestLeaves: spec.harvestLeaves ?? null,
     pipe: spec.pipe ?? null,
+    handStation: spec.handStation ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
     layersActive,
@@ -482,7 +488,7 @@ export function validateContent(): string[] {
     for (const i of r.inputs) if (!knownItem(i.item)) problems.push(`recipe ${r.id}: input "${i.item}" is not an item`);
     for (const b of r.byproducts) if (!knownItem(b.item)) problems.push(`recipe ${r.id}: byproduct "${b.item}" is not an item`);
     if (r.inputs.length === 0) problems.push(`recipe ${r.id}: no inputs`);
-    if (r.station !== 'hand' && r.station !== 'workbench' && r.station !== 'furnace' && !MACHINES.has(r.station)) {
+    if (r.station !== 'hand' && r.station !== 'workbench' && r.station !== 'furnace' && !MACHINES.has(r.station) && !handStationBlocks.has(r.station)) {
       problems.push(`recipe ${r.id}: unknown station "${r.station}"`);
     }
     if (r.station === 'furnace' && r.minTier > MAX_FURNACE_TIER) problems.push(`recipe ${r.id}: minTier ${r.minTier} exceeds furnace tiers`);
@@ -547,6 +553,7 @@ export function validateContent(): string[] {
       if (!(lo >= 1) || hi < lo) problems.push(`loot ${t.tier}: ${e.item} count must be >= 1`);
     }
   }
+  problems.push(...validateHand({ blocks: BLOCKS, recipes: RECIPES, moulds: MOULDS, metals: CAST_METALS, item: itemOrNull, machine: (k) => MACHINES.get(k) ?? null }));
   problems.push(...validateBrewing({ items: ITEMS, knownItem, block: blockOrNull, machine: (k) => MACHINES.get(k) ?? null }));
   problems.push(...validateTech({ blocks: BLOCKS, knownBlock: (k) => blocksByKey.has(k), knownItem, fluids: FLUIDS, tiers: FURNACE_TIERS, machines: [...MACHINES.values()] }));
   return problems;
@@ -613,3 +620,28 @@ export const isBrewIngredient = (key: string): boolean => itemsByKey.get(key)?.b
 export const containerBoilingTo = (boilingKey: string): ItemDef | null => ITEMS.find((it) => it.container?.boilsTo === boilingKey) ?? null;
 /** The container that is `emptyKey` when empty (pail -> water_pail): the kettle fills an empty one with boiling water. */
 export const containerEmptiedTo = (emptyKey: string): ItemDef | null => ITEMS.find((it) => it.container?.emptyTo === emptyKey) ?? null;
+
+// ---------------------------------------------------------------------------------------------
+// Ember handwork (docs/api/handwork-content.md): hand stations, moulds and cast metals
+// ---------------------------------------------------------------------------------------------
+
+/** Metals that can be poured (copper, tin, bronze), in authored order. */
+export const CAST_METALS: readonly CastMetalSpec[] = CAST_METAL_SPECS;
+/** Every fired mould, in authored order. */
+export const MOULDS: readonly MouldSpec[] = MOULD_SPECS;
+const mouldsByItem = new Map<string, MouldSpec>(MOULDS.map((m) => [m.item, m]));
+/** The mould spec of a fired mould item, or null. */
+export const mouldOf = (itemKey: string): MouldSpec | null => mouldsByItem.get(itemKey) ?? null;
+const metalsByIngot = new Map<string, CastMetalSpec>(CAST_METALS.map((m) => [m.ingot, m]));
+/** The cast metal whose ingot this item is (copper_ingot -> copper), or null: a crucible output of one is molten for a while. */
+export const castMetalOfIngot = (itemKey: string): CastMetalSpec | null => metalsByIngot.get(itemKey) ?? null;
+/** What a pour of `ingotKey` into the mould makes: the cast item and the ingots one pour uses, or null when it does not take that metal. */
+export function castOf(mouldItem: string, ingotKey: string): { item: string; units: number } | null {
+  const mould = mouldsByItem.get(mouldItem);
+  const metal = metalsByIngot.get(ingotKey);
+  const out = mould && metal ? mould.casts[metal.key] : undefined;
+  return mould && out !== undefined ? { item: out, units: mould.units } : null;
+}
+/** Block keys that are hand stations (their key is the `station` of their recipes). */
+const handStationBlocks: ReadonlySet<string> = handStationKeys(BLOCKS, (k) => MACHINES.get(k) ?? null);
+export const isHandStation = (blockKey: string): boolean => handStationBlocks.has(blockKey);

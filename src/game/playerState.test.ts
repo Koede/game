@@ -92,7 +92,7 @@ describe('PlayerState', () => {
     bus.emit('block:placed', { ...at, voxel: makeVoxel(blockId('workbench')) });
     bus.emit('item:made', { item: 'plank', count: 4, station: 'hand', recipeId: 'plank' });
     bus.emit('item:made', { item: 'plank', count: 4, station: 'hand', recipeId: 'plank_pine' });
-    expect(player.stats).toEqual({ made: { plank: 8 }, placed: { workbench: 1 }, broken: { oak_log: 2 }, deaths: 0 });
+    expect(player.stats).toEqual({ made: { plank: 8 }, drunk: {}, placed: { workbench: 1 }, broken: { oak_log: 2 }, deaths: 0 });
     player.dispose();
     bus.emit('item:made', { item: 'plank', count: 4, station: 'hand', recipeId: 'plank' });
     expect(player.stats.made.plank).toBe(8);

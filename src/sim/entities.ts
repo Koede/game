@@ -33,6 +33,14 @@ export interface FurnaceEntity extends BlockEntity {
   crucibleOut: Slot[];
   crucibleProgress: number[];
   crucibleRecipe: (string | null)[];
+  /**
+   * Casting (src/sim/casting.ts): per crucible, metal that came out of a smelt and is still MOLTEN (item = the ingot
+   * it will make, count = units) and the seconds left to pour it; when they run out it cools into blooms in
+   * `crucibleOut`. `crucibleMix` is an alloy pot's copper and tin poured in so far.
+   */
+  crucibleMelt: Slot[];
+  crucibleMoltenS: number[];
+  crucibleMix: [number, number][];
   /** Electric heating switch (only does anything from the tier that has electricHeatW). */
   electric: boolean;
   ignition: IgnitionState;
@@ -111,6 +119,8 @@ export function createFurnace(x: number, y: number, z: number, tier: number): Fu
     crucibleIn: emptySlots(LONE), crucibleOut: emptySlots(LONE),
     crucibleProgress: new Array<number>(LONE).fill(0),
     crucibleRecipe: new Array<string | null>(LONE).fill(null),
+    crucibleMelt: emptySlots(LONE), crucibleMoltenS: new Array<number>(LONE).fill(0),
+    crucibleMix: Array.from({ length: LONE }, (): [number, number] => [0, 0]),
     electric: true, ignition: 'idle', ignitionProgressS: 0, ignitionLowS: 0, hearth: null, effTier: 1,
     flameC: AMBIENT_TEMP_C, rateCPerS: 0, extractW: 0, heatDemandW: 0, demandW: 0, deliveredW: 0, availW: 0,
   };

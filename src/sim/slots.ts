@@ -5,6 +5,7 @@
 import { fuelOf, machine } from '../core/registry';
 import { Inventory } from '../game/inventory';
 import type { FurnaceEntity, MachineEntity, SimEntity } from './entities';
+import { ALLOY_POT } from './casting';
 import { crucibleRecipe } from './furnace';
 import type { FurnaceStats } from './hearthStats';
 import { fuelEnergyJ, isProcessor, machineRecipeFor } from './machines';
@@ -34,7 +35,7 @@ export class SlotAccess {
         crucibleIn: Inventory.over(e.crucibleIn, {
           accept: (item, slot) => {
             const fs = this.stats(e);
-            return slot < fs.crucibles && crucibleRecipe(item, fs) !== null;
+            return slot < fs.crucibles && (item === ALLOY_POT || crucibleRecipe(item, fs) !== null);
           },
         }),
         crucibleOut: Inventory.over(e.crucibleOut, { takeOnly: true }),

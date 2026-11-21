@@ -33,3 +33,6 @@ export { isPipeEntity } from './pipeState';
 export type { BucketResult, WrenchResult } from './transportActions';
 export type { FluidRender, JointView, PacketRender, PipeNetView, PipeView, PortView, TransportRender } from './transportViews';
 export type { MachineFluidView } from './gridViews';
+// Brewing (docs/api/brewing.md).
+export type { BrewResult, BrewView } from './brewActions';
+export type { BoilBucket, BrewCup, BrewEntity, Kettle } from './brewing';

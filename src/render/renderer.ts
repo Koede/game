@@ -9,6 +9,8 @@ import { blockOf } from '../core/registry';
 import { CHUNK_SIZE, type IWorld, type WeatherState } from '../core/types';
 import { createAtlas, type Atlas } from './atlas';
 import { ChunkMeshes } from './chunkMeshes';
+import { BrewFx } from './brewFx';
+import { BrewLiquid } from './brewLiquid';
 import { Emitters } from './emitters';
 import { MachineParts } from './machines';
 import { Glows } from './glows';
@@ -98,6 +100,8 @@ export class Renderer implements IView {
   private readonly particles: Particles;
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
+  private readonly brewFx: BrewFx;
+  private readonly brewLiquid: BrewLiquid;
   private readonly machines: MachineParts;
   private readonly tech: TechLayer;
   private readonly vents: SteamVents;
@@ -160,6 +164,8 @@ export class Renderer implements IView {
     this.probe = new LightProbe(world);
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.vents = new SteamVents(bus, world, this.particles);
+    this.brewFx = new BrewFx(world, this.particles);
+    this.brewLiquid = new BrewLiquid(world, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
     this.tech = new TechLayer(world, bus, this.uniforms, this.particles, this.canvas);
@@ -167,7 +173,7 @@ export class Renderer implements IView {
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.tech.group);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.tech.group, this.brewLiquid.mesh);
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
@@ -307,6 +313,9 @@ export class Renderer implements IView {
     this.emitters.update(dt, cam.position.x, cam.position.y, cam.position.z, this.glows, this.time);
     this.vents.day = sky.day;
     this.vents.update(dt, cam.position.x, cam.position.y, cam.position.z);
+    this.brewFx.day = sky.day;
+    this.brewFx.update(dt, cam.position.x, cam.position.z);
+    this.brewLiquid.update(dt, cam.position.x, cam.position.z);
     const machinesStarted = performance.now();
     this.machines.update(dt, cam);
     const machinesMs = performance.now() - machinesStarted;
@@ -330,7 +339,7 @@ export class Renderer implements IView {
     s.chunks = this.chunks.count;
     s.chunkTriangles = this.chunks.triangles;
     s.particles = this.particles.count;
-    s.effectSources = this.emitters.activeSources + this.vents.count;
+    s.effectSources = this.emitters.activeSources + this.vents.count + this.brewFx.activeSources;
     s.precipitation = this.precipitation.count;
     s.machines = this.machines.drawn;
     s.machinesMs = machinesMs;
@@ -362,6 +371,7 @@ export class Renderer implements IView {
     for (const off of this.offs) off();
     this.resizeObserver?.disconnect();
     this.emitters.dispose();
+    this.brewLiquid.dispose();
     this.vents.dispose();
     this.chunks.dispose();
     this.particles.dispose();

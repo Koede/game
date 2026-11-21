@@ -10,6 +10,7 @@ import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
 import { EMBER_ITEMS } from './emberbound';
 import { BREW_ITEMS } from './itemsBrew';
+import { HAND_ITEMS } from './itemsHand';
 
 const fuel = (energyKJ: number, burnS: number, flameTempC: number): FuelSpec => ({ energyJ: energyKJ * 1000, burnS, flameTempC });
 
@@ -228,4 +229,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS];

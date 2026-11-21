@@ -94,6 +94,7 @@ export function sanitizeEntity(e: BlockEntity, blockTier: number | null = null):
     const recipes = (f.crucibleRecipe as unknown[]).map((r) => (typeof r === 'string' && recipe(r) ? r : null));
     if (JSON.stringify(progress) !== JSON.stringify(f.crucibleProgress)) set('crucibleProgress', progress);
     if (JSON.stringify(recipes) !== JSON.stringify(f.crucibleRecipe)) set('crucibleRecipe', recipes);
+    repairCasting(f, set);
     if (f.burnItem !== null && !(typeof f.burnItem === 'string' && fuelOf(f.burnItem))) set('burnItem', null);
     if (!IGNITION.has(f.ignition as string)) set('ignition', 'idle');
     const effTier = f.effTier as number;
@@ -105,6 +106,22 @@ export function sanitizeEntity(e: BlockEntity, blockTier: number | null = null):
     for (const key of ['drawnL', 'rateL']) if (key in f && !finite(f[key])) set(key, 0);
   }
   return fixed ? 'repaired' : 'ok';
+}
+
+/** Casting state (molten metal, its countdown, an alloy pot's mix) as long as the crucibles, every value valid. */
+function repairCasting(f: Fields, set: (key: string, value: unknown) => void): void {
+  const n = (f.crucibleIn as unknown[]).length;
+  const melt = (f.crucibleMelt as unknown[]).slice(0, n).map(cleanSlot);
+  const moltenS = (f.crucibleMoltenS as unknown[]).slice(0, n).map((v) => (finite(v) && v > 0 ? v : 0));
+  const mix = (f.crucibleMix as unknown[]).slice(0, n).map((v): [number, number] =>
+    Array.isArray(v) && finite(v[0]) && finite(v[1]) && v[0] >= 0 && v[1] >= 0 ? [Math.floor(v[0]), Math.floor(v[1])] : [0, 0]);
+  while (melt.length < n) melt.push(null);
+  while (moltenS.length < n) moltenS.push(0);
+  while (mix.length < n) mix.push([0, 0]);
+  for (let i = 0; i < n; i++) if (!melt[i]) moltenS[i] = 0;
+  if (JSON.stringify(melt) !== JSON.stringify(f.crucibleMelt)) set('crucibleMelt', melt);
+  if (JSON.stringify(moltenS) !== JSON.stringify(f.crucibleMoltenS)) set('crucibleMoltenS', moltenS);
+  if (JSON.stringify(mix) !== JSON.stringify(f.crucibleMix)) set('crucibleMix', mix);
 }
 
 const triple = (v: unknown): boolean => Array.isArray(v) && v.length === 3 && v.every(finite);

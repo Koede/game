@@ -8,6 +8,7 @@ import type { ActionResult, FurnaceEntity, IgnitionState, SimNode } from './enti
 import {
   IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fireboxJunk, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed, statsOf,
 } from './furnace';
+import { ALLOY_POT, moltenLeft } from './casting';
 import { ignitionCheck, restCheck, tierLock, upgradeStructure, type ActionHost } from './furnaceActions';
 import type { Hearth } from './hearth';
 import { hearthName } from './hearthScan';
@@ -38,6 +39,10 @@ export interface CrucibleView {
   active: boolean;
   /** Beyond what the hearth holds (spec 17.3): it holds still and only gives its contents back. */
   locked: boolean;
+  /** Metal poured out of a smelt and still molten (item = its ingot, count = units), the seconds left to pour it, and the alloy pot's copper and tin. */
+  melt: Slot;
+  moltenS: number;
+  mix: readonly [number, number] | null;
   status: string;
 }
 
@@ -179,12 +184,20 @@ const missingText = (ingredients: readonly IngredientStatus[]): string =>
   `Missing ${ingredients.filter((s) => !s.ok).map((s) => `${s.need - s.have} ${itemName(s.item)}`).join(', ')}`;
 
 function crucibleView(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleView {
+  const view = crucibleBase(e, i, fs);
+  // Molten metal waiting to be poured is what matters most; the smelt itself shows in the progress meter.
+  if (view.moltenS > 0 && view.melt) view.status = `Molten ${itemName(view.melt.item)} - pour it in ${Math.ceil(view.moltenS)} s`;
+  return view;
+}
+
+function crucibleBase(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleView {
   const id = e.crucibleRecipe[i];
   const locked = i >= fs.crucibles;
   const r = id && !locked ? recipe(id) : null;
   const view: CrucibleView = {
     index: i, input: e.crucibleIn[i], output: e.crucibleOut[i], recipe: r, progress: 0, requiredC: r ? r.minTempC : null,
     secondsLeft: Infinity, active: false, locked, status: 'Empty',
+    melt: e.crucibleMelt[i], moltenS: moltenLeft(e, i), mix: e.crucibleIn[i]?.item === ALLOY_POT ? e.crucibleMix[i] : null,
   };
   if (locked) {
     view.status = e.crucibleIn[i] || e.crucibleOut[i] ? 'Locked - take it out'
@@ -192,7 +205,8 @@ function crucibleView(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleVi
     return view;
   }
   if (!r) {
-    if (e.crucibleIn[i]) view.status = 'Cannot be smelted here';
+    if (e.crucibleIn[i]?.item === ALLOY_POT) view.status = view.mix && (view.mix[0] || view.mix[1]) ? `Alloy pot: ${view.mix[0]} copper, ${view.mix[1]} tin` : 'Alloy pot - pour copper and tin in';
+    else if (e.crucibleIn[i]) view.status = 'Cannot be smelted here';
     else if (e.crucibleOut[i]) view.status = 'Done - take it out';
     return view;
   }

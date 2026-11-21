@@ -30,6 +30,7 @@ describe('crafting', () => {
     expect(HAND_RECIPES.every((r) => r.station === 'hand')).toBe(true);
     expect(WORKBENCH_RECIPES.map((r) => r.id)).toEqual([
       'furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'flour', 'dough',
+      'ground_coffee', 'ground_dark_coffee', 'berry_tea_blend', 'trail_blend',
     ]);
   });
 

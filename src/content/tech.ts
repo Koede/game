@@ -6,6 +6,7 @@ import { BATTERY_EFFICIENCY, CRATE_SIZE, IGNITION_POWER_W, IGNITION_SECONDS, STA
 import type { AgeSpec, FurnaceTierSpec, HearthStructureSpec, MachineSpec } from '../core/types';
 import { amounts } from './amounts';
 import { ITEM_SPECS } from './items';
+import { HAND_MACHINES } from './blocksHand';
 import { EMBER_MACHINES } from './emberbound';
 import { BREW_MACHINES } from './machinesBrew';
 import { TECH_MACHINES } from './techMachines';
@@ -311,4 +312,5 @@ export const MACHINE_SPECS: MachineSpec[] = [
 
   // ---- brewing ----
   ...BREW_MACHINES,
+  ...HAND_MACHINES,
 ];

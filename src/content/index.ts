@@ -12,3 +12,4 @@ export { CREATURE_SPECS } from './creatures';
 export { AUTOMATON_SPECS } from './automatons';
 export { LOOT_TABLES } from './loot';
 export { FLUID_SPECS } from './fluids';
+export { MOULD_SPECS, CAST_METAL_SPECS } from './mouldsHand';

@@ -8,6 +8,8 @@
  *   SLIDE    - moves along the assembly's local Y axis by sin(angle + phase) x stroke
  *   STRETCH  - SPIN, and stretched along local Z (from the origin) by the instance's extent (a drill string)
  *   FOLLOW   - SPIN, and carried along local Z by (extent - 1): what sits at the end of a STRETCH part (the bit)
+ *   PULSE    - moves along the assembly's local Y axis by the instance's extent x stroke (hand stations: a flash, a
+ *              pestle, a split log; the extent is an impulse that decays after each stroke)
  * Vertex attributes: position, normal, uv (1 block = 1 tile, so pixels match the terrain's), aLayer (texture
  * layer), aTint (multiplies the texel), aPivot (xyz pivot, w ratio | stroke), aAxis (xyz axis, w motion code),
  * aPhase (slide phase).
@@ -25,6 +27,7 @@ export const enum Motion {
   Slide = 2,
   Stretch = 3,
   Follow = 4,
+  Pulse = 5,
 }
 
 export const IDENTITY: M3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -101,7 +104,7 @@ export class ModelBuilder {
     const a = this.asm;
     const toModel = mul(a.rot, spin);
     const layer = textureLayer(finish.tile);
-    const axisVec = apply(a.rot, a.motion === Motion.Slide ? [0, 1, 0] : [0, 0, 1]);
+    const axisVec = apply(a.rot, a.motion === Motion.Slide || a.motion === Motion.Pulse ? [0, 1, 0] : [0, 0, 1]);
     // Each box samples its own spot of the tile, so neighbouring boxes do not repeat one pattern.
     const ou = (this.boxes * 5) % 16 / 16;
     const ov = (this.boxes * 11) % 16 / 16;

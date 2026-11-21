@@ -5,6 +5,7 @@
 import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
+import { isStationShape, stationIndex } from './stationShapes';
 
 const SIZE = VOXEL_ID_MASK + 1;
 
@@ -69,6 +70,9 @@ const COOL_EMITTERS: Readonly<Record<string, number>> = { glowcap: HUE_CYAN, cry
 /** 1 for plants that glow (cross blocks emitting light): drawn full-bright. */
 export const GLOWS = new Uint8Array(SIZE);
 
+/** For hand stations (stationShapes.ts): 1 + the index of the block's key in STATION_BOXES, 0 for every other block. They are cubes in the content and boxes in the mesh. */
+export const STATION = new Uint8Array(SIZE);
+
 /** For cup blocks: 1 + the index of the stage in CUP_STAGES (0 for every other block). Chooses the parts of the cup mesh. */
 export const CUP_STAGE = new Uint8Array(SIZE);
 /** For bucket blocks: BUCKET_COLD (a bucket of water), BUCKET_BOILING (it boils: shimmering top) or BUCKET_KETTLE. */
@@ -105,6 +109,13 @@ for (const def of BLOCKS) {
     PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
   }
   GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;
+  if (def.shape === 'cube' && isStationShape(def.key)) {
+    // Not a full cell: it hides no neighbour's face, casts no shadow and does not merge with its own kind.
+    STATION[id] = stationIndex(def.key);
+    OPAQUE[id] = 0;
+    MERGES[id] = 0;
+    LIGHT_CLASS[id] = LIGHT_CLEAR;
+  }
   if (def.shape === 'cup') CUP_STAGE[id] = 1 + CUP_STAGES.indexOf(cupStageOfBlock(def.key) ?? 'cup');
   if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
   for (let state = 0; state < STATES; state++) {

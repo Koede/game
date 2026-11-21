@@ -2,6 +2,7 @@
  * Types of the hand stations (docs/api/handwork.md): the saved entity, the rules the sim reads (an adapter over the
  * content contract, handRules.ts), the stroke result and the view the HUD shows.
  */
+import type { SfxName } from '../core/gameEvents';
 import type { BlockEntity, ItemAmount, Slot, ToolKind } from '../core/types';
 
 /**
@@ -15,6 +16,8 @@ export interface HandEntity extends BlockEntity {
   recipe: string | null;
   /** Seconds left of the hot-work window (0: cold). */
   hotS: number;
+  /** Id of the recipe whose output waits in the output slot (for 'item:made' at the take); absent on older saves. */
+  made?: string | null;
 }
 
 export interface HandStationDef {
@@ -24,11 +27,13 @@ export interface HandStationDef {
   /** The tool kind that makes strokes count double. */
   tool: ToolKind | null;
   /** The sfx played on a stroke and its pitch. */
-  sound: string | null;
+  sound: SfxName | null;
   pitch: number;
   /** Strokes count double inside the hot-work window. */
   hot: boolean;
-  /** Timed stations: items taken in at once. */
+  /** No strokes: the work runs by itself (drying rack, tanning trough). */
+  timed: boolean;
+  /** Timed stations: items taken in at once (stroke stations: 0, the stack limit applies). */
   batch: number;
   /** Timed stations: runs only under open sky by day. */
   needsSky: boolean;

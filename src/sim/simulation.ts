@@ -7,13 +7,18 @@ import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
-import { voxelActive, withActive, type BlockDef, type Face, type IWorld, type WeatherState } from '../core/types';
+import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
 import { cratesNear, pushToCrates } from './crates';
-import { isPlant, isPlantBlock, type CropView } from './cropRules';
+import { MIN_SUNLIGHT, isPlant, isPlantBlock, type CropView } from './cropRules';
+import { Brewing, isBrewKind } from './brewing';
+import { brewUse, brewView, isFurnaceTop, placeContainer, type BrewResult, type BrewView } from './brewActions';
 import { CropField } from './crops';
+import { HandWork } from './handWork';
+import { contentRules } from './handRules';
+import type { HandEntity, HandView, StrokeResult } from './handTypes';
 import {
   OK, createFurnace, createMachine, isFurnace, posKey, refuse, resizeFurnace,
   type ActionResult, type FurnaceEntity, type MachineEntity, type SimEntity, type SimNode,
@@ -60,6 +65,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   private readonly nodes: NodeSet;
   private readonly crops: CropField;
+  /** Hand stations (docs/api/handwork.md): strokes and timed work; entities that are not machine nodes. */
+  private readonly hand: HandWork;
+  /** Buckets on furnace tops, cup setups and kettles (docs/api/brewing.md): entities that are not machine nodes. */
+  private readonly brewing: Brewing;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
   private destroying = false;
   private tickCount = 0;
@@ -94,6 +103,19 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.nodes = new NodeSet(world);
     this.zones = new SafeZones(() => this.nodes.all);
     this.crops = new CropField(world, bus);
+    this.hand = new HandWork({
+      world, bus, player, rules: contentRules, random: this.random, flag: (f) => this.flagOnce(f),
+      release: (x, y, z, held) => {
+        if (this.destroying) return;
+        const left = handOver(this.player, held);
+        if (left.length > 0) this.spills.add(x, y, z, left);
+      },
+    });
+    this.brewing = new Brewing(world, bus, {
+      furnaceBelow: (x, y, z) => this.furnaceUnder(x, y, z),
+      flagOnce: (flag) => this.flagOnce(flag),
+      returnItem: (x, y, z, item, durability) => this.returnItem(x, y, z, item, durability),
+    });
     const nodes = this.nodes;
     this.hearths = new HearthSet({
       world, bus, player, byKey: nodes.byKey,
@@ -164,12 +186,16 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.nodes.clear();
     this.zones.invalidate();
     this.crops.clear();
+    this.hand.clear();
+    this.brewing.clear();
     this.hearths.clear();
     // A damaged entity (an older save's shape, a bad field) is repaired, or dropped when its kind is unknown, so one
     // bad field never stops the simulation.
     let repaired = 0;
     for (const e of [...this.world.entities()]) {
       if (isPlant(e)) this.crops.track(e);
+      else if (this.trackHand(e)) continue;
+      else if (isBrewKind(e.kind)) this.brewing.track(e);
       else if (!isPipeEntity(e)) {
         const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
         if (r !== 'ok') repaired++;
@@ -180,6 +206,14 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     repaired += this.transport.resync();
     const text = repairToast(repaired);
     if (text) this.bus.emit('toast', { text, kind: 'warn' });
+  }
+
+  /** A hand station's saved entity (its block is the station of that kind): followed by HandWork, never a node. */
+  private trackHand(e: BlockEntity): boolean {
+    const def = contentRules.station(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key);
+    if (!def || def.key !== e.kind) return false;
+    this.hand.track(e as HandEntity, def);
+    return true;
   }
 
   private trackNode(e: SimEntity): SimNode {
@@ -229,9 +263,12 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       if (this.everySecond) net.sample();
     }
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
+    // Brewing draws its heat into the furnaces' extractW before they are advanced.
+    this.brewing.tick(dt);
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
     this.crops.tick(dt, this.sunlight, this.wetAt);
+    this.hand.tick(dt, this.sunlight >= MIN_SUNLIGHT, this.wetAt);
 
     if (this.meltdowns.length > 0) {
       for (const n of this.meltdowns.splice(0)) if (nodes.byKey.get(n.key) === n) this.destroy(() => meltDown(this, n));
@@ -263,6 +300,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.transport.blockChanged(x, y, z, from, to);
     this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
+    const station = this.hand.blockChanged(x, y, z, from, to);
     // Crops and wild bushes (spec 12.4, 14) are plants the crops follow, never machines.
     const fromCrop = isPlantBlock(from);
     if (isPlantBlock(to)) {
@@ -273,6 +311,13 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     }
     if (fromCrop) this.crops.remove(x, y, z);
     this.machineBlockChanged(x, y, z, from, to);
+    if (station) return;
+    // Buckets, cups and kettles (docs/api/brewing.md) keep their own entities; they are never machine nodes.
+    if (Brewing.handles(to)) {
+      this.brewing.place(x, y, z, to);
+      return;
+    }
+    if (Brewing.handles(from)) this.brewing.remove(x, y, z);
     if (to.machine === null) return;
     const kept = this.nodes.byKey.get(key);
     if (kept) {
@@ -358,6 +403,48 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     return [this.player.inventory, ...cratesNear(this.nodes.all, x, y, z).map((c) => this.slots.machine(c))];
   }
 
+  // ---- brewing (docs/api/brewing.md) ----------------------------------------------------------------------------
+
+  /** The furnace at a cell, or the furnace a formed hearth's shell block there stands for. */
+  private furnaceUnder(x: number, y: number, z: number): FurnaceEntity | null {
+    const key = posKey(x, y, z);
+    const node = this.nodes.byKey.get(key);
+    if (node && isFurnace(node.e)) return node.e;
+    return this.hearths.shellOwner(key)?.e ?? null;
+  }
+
+  /** Gives the player an item (durability for a boiling pail); what the pack cannot hold goes into a crate. */
+  private returnItem(x: number, y: number, z: number, item: string, durability?: number): void {
+    const left = this.player.give(item, 1, durability);
+    if (left > 0 && !this.destroying) this.spills.add(x, y, z, [{ item, count: left, ...(durability === undefined ? {} : { durability }) }]);
+  }
+
+  /** The brewing table: what the held item (null: an empty hand) does to the cup, bucket or kettle at x,y,z. */
+  brewUse(x: number, y: number, z: number, heldKey: string | null): BrewResult {
+    return brewUse(this.brewing, x, y, z, heldKey);
+  }
+
+  /** Sets a water container on the furnace or hearth roof below the empty cell x,y,z. */
+  placeContainer(x: number, y: number, z: number, heldKey: string | null): BrewResult {
+    this.hearths.validate();
+    return placeContainer(this.brewing, x, y, z, heldKey);
+  }
+
+  /** Whether the cell x,y,z sits on a furnace or a formed hearth's shell (a container can be set there). */
+  isFurnaceTop(x: number, y: number, z: number): boolean {
+    return isFurnaceTop(this.brewing, x, y, z);
+  }
+
+  /** What the bucket, cup or kettle at a position is doing (the target sentence), or null. */
+  brewView(x: number, y: number, z: number): BrewView | null {
+    return brewView(this.brewing, x, y, z);
+  }
+
+  /** Brewing entities (buckets, cups, kettles): a diagnostic. */
+  get brewCount(): number {
+    return this.brewing.count;
+  }
+
   // ---- lookups --------------------------------------------------------------------------------------------------
 
   furnaceAt(x: number, y: number, z: number): FurnaceEntity | null {
@@ -402,6 +489,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     return this.withFurnace(x, y, z, (e) => actions.pump(this, e));
   }
 
+  /** Pours crucible `slot`'s molten metal into the fired mould `heldKey` (a pack item) or, for 'alloy_pot', into the pot. */
+  pourCrucible(x: number, y: number, z: number, slot: number, heldKey: string | null): ActionResult {
+    return this.withFurnace(x, y, z, (e, node) => actions.pour(this, e, node, slot, heldKey));
+  }
+
   setElectric(x: number, y: number, z: number, on: boolean): ActionResult {
     return this.withFurnace(x, y, z, (e) => actions.setElectric(this, e, on));
   }
@@ -443,6 +535,33 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   toggleMachine(x: number, y: number, z: number): ActionResult {
     const e = this.machineAt(x, y, z);
     return this.setMachineOn(x, y, z, e ? !e.on : true);
+  }
+
+  // ---- hand stations (docs/api/handwork.md) -----------------------------------------------------------------------
+
+  /** One Use on a hand station with `heldKey` in hand ('' or null: empty hand): insert, take, or a stroke. */
+  stroke(x: number, y: number, z: number, heldKey: string | null): StrokeResult {
+    return this.hand.stroke(x, y, z, heldKey);
+  }
+
+  /** Empty hand: puts a station's loaded input back into the pack. */
+  handReturn(x: number, y: number, z: number): StrokeResult {
+    return this.hand.handReturn(x, y, z);
+  }
+
+  /** Opens the hot-work window (stone anvil) for every station within 6 blocks: a crucible's molten output was taken. */
+  openHotWindow(x: number, y: number, z: number): void {
+    this.hand.openHotWindow(x, y, z);
+  }
+
+  /** What the hand station at a position holds and is doing (the aiming line is `label`), or null. */
+  handView(x: number, y: number, z: number): HandView | null {
+    this.weather.update();
+    return this.hand.view(x, y, z);
+  }
+
+  get handCount(): number {
+    return this.hand.count;
   }
 
   // ---- queries --------------------------------------------------------------------------------------------------

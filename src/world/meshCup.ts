@@ -13,7 +13,6 @@ import { box, pushQuad, QBlock, QFlags, QShade, QSky, QU, QV, QX, QY, QZ, lit, c
 
 /** Stage numbers as CUP_STAGE holds them (1 + index in CUP_STAGES). */
 const STAGE_CONE = 2;
-const STAGE_DONE = 5;
 
 export const CUP_MIN = 5 / 16;
 export const CUP_MAX = 11 / 16;
@@ -42,9 +41,9 @@ export function cup(b: Builder, slot: number, id: number, p: number, x: number, 
   hi[1] = CUP_RIM_Y;
   box(b, slot, p, x, y, z, lo, hi, SKIP_BOTTOM, 0);
   if (stage < STAGE_CONE) return;
-  // The cone's spout, a wider middle and the rim, narrowing downwards. In the finished cup the spout is thinner so a
-  // ring of the drink shows round it.
-  const spout = stage === STAGE_DONE ? 3 : 2;
+  // The cone's spout, a wider middle and the rim, narrowing downwards. The spout is narrower than the cup so a ring of
+  // the drink (drawn by the renderer) shows round it.
+  const spout = 1.5;
   span(8 - spout, 5, 8 + spout, 7);
   box(b, slot, p, x, y, z, lo, hi, SKIP_TOP | SKIP_BOTTOM, 0);
   span(4.5, 7, 11.5, 9);

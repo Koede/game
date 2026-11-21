@@ -4,10 +4,9 @@
  * crops. The block id is the look; the entity holds the timers. Player actions are in brewActions.ts.
  */
 import {
-  BOIL_DRY_SECONDS, BOIL_SECONDS, BOIL_TEMP_C, BREW_SECONDS, BREW_STEAM_S, FLAG_BOILED_WATER, FLAG_BREWED, KETTLE_BOIL_C,
+  AMBIENT_TEMP_C, BOIL_DRY_SECONDS, BOIL_SECONDS, BOIL_TEMP_C, BREW_SECONDS, BREW_STEAM_S, FLAG_BOILED_WATER, FLAG_BREWED, KETTLE_BOIL_C,
 } from '../core/constants';
 import type { GameBus } from '../core/context';
-import { AMBIENT_TEMP_C } from '../core/constants';
 import {
   BOIL_BUCKET_MACHINE, BREW_CUP_MACHINE, CONTAINER_BLOCKS, CUP_BLOCK, KETTLE_MACHINE, cupStageOfBlock, type CupStage,
 } from '../core/brewing';
@@ -69,7 +68,7 @@ export class Brewing {
   /** The container being set down by placeContainer(), read when its block change arrives. */
   pendingContainer: string | null = null;
 
-  constructor(private readonly world: IWorld, private readonly bus: GameBus, private readonly host: BrewHost) {}
+  constructor(readonly world: IWorld, readonly bus: GameBus, readonly host: BrewHost) {}
 
   get count(): number {
     return this.list.length;
@@ -141,7 +140,6 @@ export class Brewing {
     } else if (e?.kind === BOIL_BUCKET_MACHINE) {
       const b = e as BoilBucket;
       const boiling = Object.values(CONTAINER_BLOCKS).some((c) => c.boiling === def.key);
-      if (boiling !== b.boiling && !boiling) b.heatS = 0;
       b.boiling = boiling;
     }
   }
@@ -273,6 +271,17 @@ export class Brewing {
     const v = this.world.getVoxel(e.x, e.y, e.z);
     this.world.setVoxel(e.x, e.y, e.z, withActive(v, boiling), 'sim');
     if (boiling) this.bus.emit('water:boiling', { x: e.x, y: e.y, z: e.z });
+  }
+
+  /** Moves a cup to another stage: the entity first, then its block. */
+  setCup(e: BrewCup, stage: CupStage): void {
+    e.stage = stage;
+    this.swap(e, CUP_BLOCK[stage]);
+  }
+
+  /** Takes the block at x,y,z away (its entity follows through the block change). */
+  removeBlock(x: number, y: number, z: number): void {
+    this.world.setVoxel(x, y, z, 0, 'player');
   }
 
   /** Whether the cell is empty air (a container can be set there). */

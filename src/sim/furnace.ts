@@ -4,7 +4,8 @@ import {
 } from '../core/constants';
 import { fuelOf, item, machine, recipe, recipesAt } from '../core/registry';
 import type { RecipeDef } from '../core/types';
-import { addToSlots, stackMax, type ExtraFuel, type FurnaceEntity, type SimContext, type SimNode } from './entities';
+import { addToSlots, type ExtraFuel, type FurnaceEntity, type SimContext, type SimNode } from './entities';
+import { castRoom, coolMolten, pourOutOfSmelt } from './casting';
 import { furnaceStats, type FurnaceStats } from './hearthStats';
 
 const FURNACE = machine('furnace');
@@ -211,8 +212,7 @@ export function lightFire(e: FurnaceEntity, ctx: SimContext, extra: ExtraFuel | 
 export function crucibleBlock(e: FurnaceEntity, i: number, r: RecipeDef): 'input' | 'output' | 'cold' | null {
   const inp = e.crucibleIn[i];
   if (!inp || inp.count < r.inputs[0].count) return 'input';
-  const out = e.crucibleOut[i];
-  if (out && (out.item !== r.output.item || out.count + r.output.count > stackMax(out.item))) return 'output';
+  if (!castRoom(e, i, r)) return 'output';
   if (!e.ignited && e.tempC < r.minTempC) return 'cold';
   return null;
 }
@@ -230,6 +230,7 @@ export function crucibleRecipe(itemKey: string, fs: FurnaceStats): RecipeDef | n
 
 /** Crucibles beyond the hearth's count are locked: they hold still, and only give their contents back. */
 function runCrucibles(e: FurnaceEntity, ctx: SimContext, dt: number, fs: FurnaceStats): void {
+  coolMolten(e, ctx, dt);
   const n = Math.min(fs.crucibles, e.crucibleIn.length);
   for (let i = 0; i < n; i++) {
     const inp = e.crucibleIn[i];
@@ -253,9 +254,11 @@ function runCrucibles(e: FurnaceEntity, ctx: SimContext, dt: number, fs: Furnace
     e.crucibleProgress[i] = 0;
     inp.count -= r.inputs[0].count;
     if (inp.count <= 0) e.crucibleIn[i] = null;
-    const out = e.crucibleOut[i];
-    if (out) out.count += r.output.count;
-    else e.crucibleOut[i] = { item: r.output.item, count: r.output.count };
+    if (!pourOutOfSmelt(e, i, r)) {
+      const out = e.crucibleOut[i];
+      if (out) out.count += r.output.count;
+      else e.crucibleOut[i] = { item: r.output.item, count: r.output.count };
+    }
     ctx.touch(e);
     ctx.bus.emit('furnace:smelted', { x: e.x, y: e.y, z: e.z, item: r.output.item, count: r.output.count });
     ctx.bus.emit('item:made', { item: r.output.item, count: r.output.count, station: 'furnace', recipeId: r.id });

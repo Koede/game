@@ -6,10 +6,10 @@
  * bottom-left corner of a face seen from outside and v points up (on top and bottom faces u points
  * east); partial shapes (slab, torch, cable, lowered liquid) sample the matching part of the texture.
  */
-import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, type ChunkMeshData } from '../core/types';
+import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelFacing, type ChunkMeshData } from '../core/types';
 import {
   BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, GLOWS, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
-  SHAPE_BUCKET, SHAPE_CUBE, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
+  SHAPE_BUCKET, SHAPE_CUBE, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
 } from './blockTables';
 import type { ChunkNeighborhood } from './chunk';
 import { ID } from './ids';
@@ -21,6 +21,7 @@ import {
 import { LIQ, liquidShape } from './meshLiquid';
 import { bucket, cup } from './meshCup';
 import { pipe } from './meshPipe';
+import { stationShape } from './meshStation';
 
 export { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from './meshQuads';
 
@@ -242,7 +243,10 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
         if (v === 0) continue;
         const id = v & VOXEL_ID_MASK;
         switch (SHAPE[id]) {
-          case SHAPE_CUBE: cubeFaces(v, id, p, x, y, z, false); break;
+          case SHAPE_CUBE:
+            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
+            else cubeFaces(v, id, p, x, y, z, false);
+            break;
           case SHAPE_LIQUID: cubeFaces(v, id, p, x, y, z, true); break;
           case SHAPE_CROSS: cross(builders[BATCH[id]], faceSlot(v), p, x, y, z, id); break;
           case SHAPE_TORCH: torch(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z); break;

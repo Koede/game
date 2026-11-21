@@ -129,3 +129,81 @@ describe('MobRenderer', () => {
     expect(scene.getObjectByName('mobs')).toBeUndefined();
   });
 });
+
+describe('MobRenderer automatons', () => {
+  const auto = (id: number, species: string, x: number, z: number, extra: Partial<MobRenderView> = {}): MobRenderView =>
+    view(id, species, x, z, { glow: 1, flare: 0, attack: null, dormant: false, ...extra });
+
+  it('draws automatons with their ember glow, flare and arm angles in the instance attributes', () => {
+    const { r, mesh } = setup();
+    r.update(0.016, [auto(1, 'forge_warden', 0, -6, { attack: 'melee', flare: 1 })]);
+    for (let f = 0; f < 30; f++) r.update(0.016, [auto(1, 'forge_warden', 0, -6, { attack: 'melee', flare: 1 })]);
+    const geo = mesh('forge_warden').geometry;
+    const ember = geo.getAttribute('aEmber');
+    expect(mesh('forge_warden').count).toBe(1);
+    expect(ember.getX(0)).toBe(1);
+    expect(ember.getY(0)).toBe(1);
+    expect(ember.getW(0)).toBeGreaterThan(2); // hammer arm overhead
+    expect(ember.getZ(0)).toBeLessThan(1);
+  });
+
+  it('draws a dormant automaton dark and an animal with no ember at all', () => {
+    const { r, mesh } = setup();
+    r.update(0.016, [auto(1, 'bellows_hound', 0, -6, { glow: 0, dormant: true }), view(2, 'hen', 1, -5)]);
+    expect(mesh('bellows_hound').geometry.getAttribute('aEmber').getX(0)).toBe(0);
+    const hen = mesh('hen').geometry.getAttribute('aEmber');
+    expect([hen.getX(0), hen.getY(0), hen.getZ(0), hen.getW(0)]).toEqual([0, 0, 0, 0]);
+  });
+
+  it('crouches a hound before its dash and turns a sentry kiln towards a changed yaw', () => {
+    const { r, mesh } = setup();
+    const m = new THREE.Matrix4();
+    for (let f = 0; f < 20; f++) r.update(0.016, [auto(1, 'bellows_hound', 0, -6, { attack: 'dash', flare: 1, stride: 0 })]);
+    mesh('bellows_hound').getMatrixAt(0, m);
+    const up = new THREE.Vector3(0, 1, 0).applyMatrix4(m).sub(new THREE.Vector3().setFromMatrixPosition(m));
+    expect(up.y).toBeLessThan(0.85);
+    r.update(0.016, [auto(2, 'kiln_sentry', 0, -6, { yaw: 0 })]);
+    r.update(0.016, [auto(2, 'kiln_sentry', 0, -6, { yaw: 1 })]);
+    expect(mesh('kiln_sentry').geometry.getAttribute('aCool').getY(0)).toBeCloseTo(1, 5);
+  });
+
+  it('breaks a dead automaton into debris instead of drawing it, once', () => {
+    const { r, mesh, scene } = setup();
+    r.update(0.016, [auto(1, 'forge_warden', 0, -6)]);
+    expect(mesh('forge_warden').count).toBe(1);
+    r.update(0.016, [auto(1, 'forge_warden', 0, -6, { tip: 1, glow: 0 })]);
+    expect(mesh('forge_warden').count).toBe(0);
+    const cubes = scene.getObjectByName('ember-cubes') as THREE.InstancedMesh;
+    expect(cubes.count).toBeGreaterThan(20);
+    const first = cubes.count;
+    r.update(0.016, [auto(1, 'forge_warden', 0, -6, { tip: 1, glow: 0 })]);
+    expect(cubes.count).toBeLessThanOrEqual(first); // no second burst
+  });
+
+  it('draws bolts as full-bright cubes with halos and a trail, capped, and frees them', () => {
+    const { r, scene } = setup();
+    const bolts = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, x: i - 6, y: 12.5, z: -8, vx: 14, vy: 0, vz: 0 }));
+    r.setBolts(bolts);
+    r.update(0.016, []);
+    for (const b of bolts) b.x += 0.3;
+    r.update(0.016, []);
+    const cubes = scene.getObjectByName('ember-cubes') as THREE.InstancedMesh;
+    expect(cubes.count).toBe(8);
+    expect(r.fxStats.halos).toBeGreaterThanOrEqual(8);
+    expect(r.fxStats.particles).toBeGreaterThan(8);
+    r.dispose();
+    expect(scene.getObjectByName('automaton-fx')).toBeUndefined();
+  });
+
+  it('adds nothing to the scene per frame once warm, with a pack of automatons and bolts', () => {
+    const { r, scene } = setup();
+    const pack = ['cinder_mite', 'forge_warden', 'kiln_sentry', 'bellows_hound', 'arc_drone', 'slag_colossus'].map((k, i) => auto(i + 1, k, i - 3, -7));
+    r.setBolts([{ id: 1, x: 0, y: 12.5, z: -9, vx: 14, vy: 0, vz: 0 }]);
+    for (let f = 0; f < 3; f++) r.update(0.016, pack);
+    const children = scene.children[0].children.length + scene.children[1].children.length;
+    for (let f = 0; f < 60; f++) r.update(0.016, pack);
+    expect(scene.children[0].children.length + scene.children[1].children.length).toBe(children);
+    expect(r.fxStats.particles).toBeLessThan(640);
+  });
+});
+

@@ -11,6 +11,7 @@ import { EMBER_BLOCKS } from './emberbound';
 import { TECH_BLOCKS } from './blocksTech';
 import { WORLD_BLOCKS } from './blocksWorld';
 import { BREW_BLOCKS } from './blocksBrew';
+import { HAND_BLOCKS } from './blocksHand';
 
 const FOLIAGE_DROPS: Drop[] = [
   { item: 'fiber', count: 1, chance: 0.3 },
@@ -260,4 +261,5 @@ export const BLOCK_SPECS: BlockSpec[] = [
   ...TECH_BLOCKS,
   ...EMBER_BLOCKS,
   ...BREW_BLOCKS,
+  ...HAND_BLOCKS,
 ];

@@ -9,6 +9,7 @@ import { craftByPlayer, ingredientStatus, takeIngredients } from '../game/crafti
 import type { Inventory } from '../game/inventory';
 import { OK, refuse, resizeFurnace, type ActionResult, type FurnaceEntity, type SimContext, type SimNode } from './entities';
 import { IGNITION_TEMP_C, burn, burnSecondsLeft, fireboxJunk, fuelCount, lightFire, statsOf } from './furnace';
+import { pourCrucible } from './casting';
 import { hearthName } from './hearthScan';
 import { buildHint } from './hearthStats';
 import { cableRefusal, ignitionPower } from './ignitionPower';
@@ -58,6 +59,11 @@ export function pump(host: ActionHost, e: FurnaceEntity): ActionResult {
   host.bus.emit('sfx', { name: 'bellows', x: e.x, y: e.y, z: e.z, pitch: 0.9 + 0.3 * e.draft });
   host.flagOnce('bellows_pumped');
   return OK;
+}
+
+/** Pours the molten metal of one crucible into the mould (or alloy pot) `heldKey` names; see src/sim/casting.ts. */
+export function pour(host: ActionHost, e: FurnaceEntity, node: SimNode, slot: number, heldKey: string | null): ActionResult {
+  return pourCrucible(host, e, slot, heldKey, statsOf(node).crucibles);
 }
 
 export function setElectric(host: ActionHost, e: FurnaceEntity, on: boolean): ActionResult {

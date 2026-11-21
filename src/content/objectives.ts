@@ -9,6 +9,7 @@
 import { FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL } from '../core/constants';
 import type { ObjectiveCondition, ObjectiveSpec } from '../core/types';
 import { amounts } from './amounts';
+import { BREW_OBJECTIVES } from './objectivesBrew';
 
 const make = (item: string, count = 1): ObjectiveCondition => ({ type: 'make', item, count });
 const have = (item: string, count = 1): ObjectiveCondition => ({ type: 'have', item, count });
@@ -79,6 +80,7 @@ export const OBJECTIVES: ObjectiveSpec[] = [
     'Forge copper wire and a Lamp. Stand the lamp against the thermopile, or run cable between them, and it shines while the furnace is hot.'),
   objective(0, 'bake_bread', 'Bake bread', make('bread'),
     'Harvest four ripe wheat and grind them into two flour at the workbench. Mix the flour with a bucket of water into dough, and bake it in a crucible at 220 C.'),
+  ...BREW_OBJECTIVES,
   objective(0, 'blast_furnace', 'Build the Blast Furnace', furnaceTier(2),
     'Build a Blast hearth: brick walls around the furnace, with a floor and one empty cell behind its mouth (the STRUCTURE tab shows where each brick goes). Then open the upgrade panel: it asks for bronze, a bellows and a fire of at least 700 C.',
     '8 coal'),

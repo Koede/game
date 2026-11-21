@@ -145,6 +145,9 @@ export class Hearth implements ExtraFuel {
       e.crucibleOut.push(null);
       e.crucibleProgress.push(0);
       e.crucibleRecipe.push(null);
+      e.crucibleMelt.push(null);
+      e.crucibleMoltenS.push(0);
+      e.crucibleMix.push([0, 0]);
     }
   }
 }

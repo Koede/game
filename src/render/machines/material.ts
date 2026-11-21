@@ -15,7 +15,7 @@ precision highp float;
 in float aLayer;
 in vec3 aTint;
 in vec4 aPivot;  // xyz pivot (model frame), w spin ratio or slide stroke
-in vec4 aAxis;   // xyz axis (model frame), w motion: 0 static, 1 spin, 2 slide, 3 stretch, 4 follow
+in vec4 aAxis;   // xyz axis (model frame), w motion: 0 static, 1 spin, 2 slide, 3 stretch, 4 follow, 5 pulse
 in float aPhase; // slide phase
 in vec4 aState;  // per instance: x angle (rad), y extent, z sky light, w block light
 in float aCool;  // per instance: share of the block light from cool glows, negative = violet (src/render/coolLight.ts)
@@ -39,6 +39,8 @@ void main() {
   vec3 axis = aAxis.xyz;
   if (motion == 2) {
     p += axis * sin(aState.x + aPhase) * aPivot.w;
+  } else if (motion == 5) {
+    p += axis * aState.y * aPivot.w;
   } else if (motion != 0) {
     if (motion == 3) p += axis * (dot(p - aPivot.xyz, axis) * (aState.y - 1.0));
     else if (motion == 4) p += axis * (aState.y - 1.0);
