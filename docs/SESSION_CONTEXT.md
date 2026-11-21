@@ -18,16 +18,17 @@ furnace, the five-tier furnace with multiblock hearths, power networks and every
 the Starhearth ignition, item and fluid pipes with a wrench, a full HUD and every screen at phone sizes,
 synthesised sound, saving, and the Emberbound hostile automatons' data, AI, combat rules and safe zones.
 
-## 3. In flight in the cloud when this was written (after 2c247eb)
-Each line: work item - state at handoff. Check `docs/api/<name>.md` and `git log --oneline -40`.
-- Emberbound visuals (`docs/api/emberbound-render.md` exists - done); Emberbound UI hooks + wiring + `scripts/e2e-ember.mjs` (agent still running).
-- Brewing (tea/coffee, `docs/BREWING_PLAN.md`): DATA done, SIM done, BUFFS done; MESHES/EFFECTS and UI/CONTROLS were still running (`docs/api/brewing-render.md` and `brewing-ui.md` exist - check whether complete).
-- Ember handwork (`docs/EMBER_PLAN.md`): DATA layer still running; hand-station SIM done (`docs/api/handwork.md`); CASTING sim and FRONT END still running.
-- Codex generator: done (`npm run codex`, `scripts/codex/`).
-- Steam plan rewrite for the Bronze Age: done.
-The full test suite was RED at handoff (about 28-66 failures) because several agents were landing at once on shared
-files: recipe/roster counts, the `hand` machine role tables, the scripted playthrough, timing tests under load.
-Expect to triage. The first job is to make `bash scripts/local-check.sh --e2e` green.
+## 3. State at handoff (all cloud agents have landed; after 2c247eb)
+Everything below is merged on the branch. Check `docs/api/<name>.md` and `git log --oneline -40`.
+- Emberbound: data, AI, visuals, UI hooks, wiring done; `scripts/e2e-ember.mjs` passes 9/9 desktop and phone.
+- Brewing (tea/coffee): data, sim, buffs, meshes/effects, UI/controls done. The boil ambience layer is silent until `src/app/ambience.ts` sets `state.boil`.
+- Ember handwork: data layer, station sim, casting sim, front end done; `scripts/e2e-handwork.mjs` 8/8. Casting deviations: alloy pot is an ITEM in a crucible slot (the alloy_pot block is unused); Casting Bench and hand-taking molten metal NOT built.
+- Codex generator: done. Steam plan rewrite for the Bronze Age: done (plans only).
+Known red at handoff: `src/sim/playthrough.test.ts` (Star Age "banks charged", engines ~24 kW vs 27 kW load; needs steps for
+mortar/clay table/loom/rack/trough); a few load-sensitive timing tests (mesher, persistence, hostileWorld, flow, perf);
+full `npm run e2e` stops at e2e.mjs "crafts planks and a workbench in the inventory screen" (plank is now a station recipe),
+so e2e-features (24/24 alone), e2e-tech (14 ok, 2 fail: clay furnace "lit through its screen" click; glowcap tint on hen)
+and e2e-ember (9/9) are not reached by the && chain. First job: make `bash scripts/local-check.sh --e2e` green.
 
 ## 4. Decisions made by the owner (do not relitigate)
 See docs/LOCAL_HANDOFF.md section 2 and the quotes in BRONZE_PLAN section 1 / STEAM_PLAN section 9. In short: six
@@ -41,7 +42,8 @@ water flows and buckets take source blocks only; workbench also offers every han
 ## 5. Open decisions (owner has not answered)
 1. Star hearth: 93 casings - keep or reduce?
 2. Brewing: `six_cups` ("Taste them all") blocks the strictly sequential goal line - make it an optional side goal (needs a tracker change). Recommended: yes.
-3. Cup and cone: brewing forges them from clay at 600 C, handwork's Clay Table shapes unfired ones. Recommended: keep the Clay Table route only (Ember is handwork) and delete the forge recipes. A UI test already assumes the cup/cone moved to the clay table.
+3. Cup and cone: RESOLVED in code - the forge recipes were deleted, the Clay Table route is the only one.
+4. Alloy pot: item-in-crucible (built) vs the alloy_pot block touching a furnace (data only). Pick one and delete the other.
 
 ## 6. Known gaps and follow-ups (collected from every engineer's report)
 - sim: berry_bush regrowth (role 'bush', regrowS 300) - fit into CropField as one-stage family; exclude from machineAt/machineView
@@ -96,3 +98,45 @@ water flows and buckets take source blocks only; workbench also offers every han
 - Usage: twelve parallel agents on four cores was fast but expensive and flaky; prefer 2-4 at a time and full gates
   between phases. Phone taps can read as holds under load - rerun a failing e2e step alone.
 - Local setup: `bash scripts/local-setup.sh`; gate: `bash scripts/local-check.sh [--e2e]`.
+
+## 7. Follow-ups from the last landings (handwork, brewing UI/render, casting, front end, Emberbound wiring)
+## Handwork data layer landed (0871973)
+- playthrough.test.ts fails in Star Age at "banks charged" (engines ~24 kW vs 27 kW load) - unproven whether handwork-related; check on unchanged tree.
+- inventory.ts fullDurability must read mould.pours.
+- item:made must be emitted when a hand-station output is taken (grind_flour etc.).
+- Brewing coffee/tea grinding still at workbench; move to quern/rack (station keys ready).
+- e2e scripts still assume hand-crafted planks and instant bronze tools - need updating.
+- Bronze head textures read as gold blobs; six new sfx unlistened.
+- Deviations documented in docs/api/handwork-content.md section 10.
+
+## Brewing UI landed
+- Full npm test: mesher perf, persistence perf (load flakes), content/food.test.ts potato crop stage ids (check).
+- Boiling pail seconds-left lost when Inventory.add / spill (inventory.ts only keeps durability for tools) - fix in inventory.
+- Target text shows "Loaded with  - ..." when cup drink unset (stand-in only, verify with real brew).
+- No next-step hint from held item; Well-Fed chip not seen in real flow.
+
+## Casting landed
+- Suite: 1694 pass / 2 fail (playthrough "banks charged"; mobs/persistence timing). npm run e2e not run: breaks early on removed plank hand recipe.
+- DEVIATION: alloy pot is an ITEM in a crucible slot (pour cold cu/tin ingots; 800C, 8s -> 4 molten bronze). alloy_pot block + bronze_ingot_alloy recipe remain in data but nothing runs them. Decide: block version or drop block.
+- NOT BUILT: Casting Bench; hand-taking molten metal for anvil hot work (openHotWindow still fires on cast:poured).
+- smelt_copper objective completes at the pour, not at smelt.
+- playthrough needs steps for mortar, clay table, loom, rack, trough (handwork's); alloy-pot row not screenshotted.
+- inventory.fullDurability now reads mould.pours (done).
+
+## Hand front end landed
+- Suite 4 fail/1692: hostileWorld, persistence, mesher (timing under load), playthrough. food.test.ts failed earlier (recheck).
+- scripts/e2e-handwork.mjs added and chained into npm run e2e (8/8 phone+desktop); full npm run e2e NOT run.
+- Gaps: casting bench/alloy pot no animation; flash is tinted plate (no glow channel); parts cull beyond 64 blocks; handwork.md says input/output but entity has slots[input,output]; anvil label doesn't name plate vs wire; first-run coach mark eats first taps in scripted portrait runs; collision/aim still whole cell.
+
+## Brewing meshes/render landed
+- src/app/ambience.ts must set state.boil ~ 1-clamp((dist-2)/14) for nearest boil_bucket boiling:true or active kettle; else 0 (layer silent until then).
+- Not seen in browser: boiling-bucket steam/shimmer (sim never boiled test bucket), drips, done-cup steam. Liquid ring ~1/16 wide, few px on phone.
+- Chromium OOM-killed under shared cgroup; e2e-tech only desktop.
+- Recheck: stationShapes.test.ts 0.9375 vs 1 bounds; textures.test.ts (chopping_block_side painter, clay_cup flatness).
+
+## Emberbound wiring landed
+- e2e-ember 9/9 desktop+phone; e2e-features 24/24. Full npm run e2e FAILS: e2e.mjs "crafts planks and a workbench in the inventory screen" (plank now a station recipe) - && chain stops so features/tech/ember not reached.
+- e2e-tech: 14 ok, 2 fail: clay furnace "lit through its screen" (bag slot click timeout), glowcap tint on hen aCool 0 (mob material changes in src/render/mobs).
+- playthrough.test.ts only unit failure (Star Age "banks charged").
+- Hearth Structure tab shift buttons / "In the way" list: no tests, not seen in browser.
+- Chromium OOM-killed at load ~20+ (environment).
