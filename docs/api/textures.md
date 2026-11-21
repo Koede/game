@@ -83,3 +83,6 @@ ores (wolframite, spodumene, pitchblende) share a darker layered host rock of th
 
 ## Later additions
 Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, sounds, ambience fields and textures here: see `docs/api/world-content.md`.
+
+## The Emberbound (spec 19)
+Twelve more tiles in `src/render/textures/ember.ts` (scrap, ember core, mauls, armours, ward beacon): see `docs/api/emberbound-content.md` section 6.

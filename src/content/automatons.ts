@@ -130,7 +130,7 @@ function houndLegs(): CreaturePart[] {
   }
   return out;
 }
-const ribs = [-6, -3.5, -1, 1.5, 4].map((z, i) => box(`rib${i}`, [-4, 7, z], [4, 12, z + 1.5], SOOT));
+const ribs = [-6, -3.5, -1, 1.5, 4].map((z, i) => box(`rib${i}`, [-4, 7, z], [4, 12, z + 1.25], SOOT));
 const BELLOWS_HOUND: CreaturePart[] = [
   glow('bellows', [-3.5, 7.5, -6], [3.5, 11.5, 5.5], EMBER),
   ...ribs,
@@ -141,8 +141,9 @@ const BELLOWS_HOUND: CreaturePart[] = [
   glow('exhaustTip', [-0.5, 10.25, 10], [0.5, 11.25, 10.25], EMBER_HOT),
   HOUND_HEAD('head', [-2.5, 8, -13], [2.5, 12, -8], IRON_LIGHT),
   HOUND_HEAD('jaw', [-2, 6.5, -13.5], [2, 8, -9], SOOT),
-  HOUND_HEAD('eyeL', [-2.7, 10, -12], [-2.5, 11, -11], EMBER_HOT, true),
-  HOUND_HEAD('eyeR', [2.5, 10, -12], [2.7, 11, -11], EMBER_HOT, true),
+  HOUND_HEAD('eyeL', [-2.25, 10, -13.25], [-1, 11, -13], EMBER_HOT, true),
+  HOUND_HEAD('eyeR', [1, 10, -13.25], [2.25, 11, -13], EMBER_HOT, true),
+  HOUND_HEAD('maw', [-1.5, 7.5, -13.75], [1.5, 8.5, -13.5], EMBER, true),
   HOUND_HEAD('ventL', [-2, 12, -10], [-1, 14, -9], RUST),
   HOUND_HEAD('ventR', [1, 12, -10], [2, 14, -9], RUST),
   ...houndLegs(),

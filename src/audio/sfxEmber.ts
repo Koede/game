@@ -11,10 +11,10 @@ export const EMBER_SFX = {
   automaton_step: {
     jitter: 2,
     layers: [
-      tone('triangle', 120, 0.34, 0.12, { freqEnd: 70 }),
-      tone('sine', 520, 0.16, 0.16, { at: 0.005, fm: { ratio: 2.76, index: 2.4 } }),
-      noise('white', bp(2400, undefined, 1.2), 0.16, 0.035),
-      tone('sine', 880, 0.07, 0.09, { at: 0.03, fm: { ratio: 3.17, index: 1.5 } }),
+      tone('triangle', 120, 0.16, 0.12, { freqEnd: 70 }),
+      tone('sine', 520, 0.075, 0.16, { at: 0.005, fm: { ratio: 2.76, index: 2.4 } }),
+      noise('white', bp(2400, undefined, 1.2), 0.075, 0.035),
+      tone('sine', 880, 0.035, 0.09, { at: 0.03, fm: { ratio: 3.17, index: 1.5 } }),
     ],
   },
   // Waking: gears whirr up through a rising filter while embers catch with a hiss, then a little ping of readiness.
@@ -55,27 +55,27 @@ export const EMBER_SFX = {
     jitter: 1.5,
     layers: [
       tone('sine', 95, 0.32, 0.13, { freqEnd: 48 }),
-      noise('pink', bp(420, 1900, 0.9), 0.5, 0.42, { a: 0.06 }),
-      noise('white', hp(3200), 0.18, 0.38, { at: 0.03, a: 0.04, trem: { rate: 37, depth: 0.85 } }),
+      noise('pink', bp(700, 2600, 0.9), 0.6, 0.42, { a: 0.06 }),
+      noise('white', hp(3200), 0.32, 0.38, { at: 0.03, a: 0.04, trem: { rate: 37, depth: 0.85 } }),
     ],
   },
   // An arc drone strikes: a sharp crack, a falling electric whine and a short angry buzz, then a second snap.
   arc_zap: {
     jitter: 1.5,
     layers: [
-      noise('white', hp(2600), 0.5, 0.03),
-      tone('square', 2600, 0.1, 0.09, { freqEnd: 900 }),
-      tone('sawtooth', 115, 0.24, 0.28, { a: 0.01, filter: lp(3400, 1200), trem: { rate: 50, depth: 0.6 } }),
-      noise('white', bp(5200, undefined, 1.5), 0.3, 0.025, { at: 0.09 }),
+      noise('white', hp(2600), 0.7, 0.03),
+      tone('square', 2600, 0.16, 0.09, { freqEnd: 900 }),
+      tone('sawtooth', 115, 0.32, 0.28, { a: 0.01, filter: lp(3400, 1200), trem: { rate: 50, depth: 0.6 } }),
+      noise('white', bp(5200, undefined, 1.5), 0.45, 0.025, { at: 0.09 }),
     ],
   },
   // The player's blow rings off automaton plate.
   automaton_hurt: {
     jitter: 1.5,
     layers: [
-      tone('sine', 680, 0.28, 0.32, { fm: { ratio: 2.76, index: 3 } }),
-      tone('triangle', 210, 0.24, 0.06, { freqEnd: 120 }),
-      noise('white', bp(4200, undefined, 1.4), 0.26, 0.03),
+      tone('sine', 680, 0.18, 0.32, { fm: { ratio: 2.76, index: 3 } }),
+      tone('triangle', 210, 0.16, 0.06, { freqEnd: 120 }),
+      noise('white', bp(4200, undefined, 1.4), 0.17, 0.03),
     ],
   },
   // An automaton breaks apart: a crash of plates, a last clang, the core going out, and scrap tinkling down.

@@ -22,9 +22,9 @@
  * steam turbine is heat-driven like the steam engine - it runs on a boiler over the one furnace, with water to hand.
  *
  * The Emberbound (spec 19): on Normal and Hard the automatons roam from the first night and can be broken by hand,
- * so their drops count from the start like an animal's (source 'automaton:<species>'; the kiln sentries of the ruins
- * are among them, so ember cores are always to hand). Relic drops - parts of a later age than the Ember Age - are
- * bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
+ * so the drops one always carries count from the start like an animal's (source 'automaton:<species>'; the kiln
+ * sentries of the ruins always carry an ember core). Chance drops and relics - parts of a later age than the Ember
+ * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
 import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL, FURNACE_BUFF_C } from '../core/constants';
@@ -263,9 +263,9 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     for (const c of CREATURES) {
       for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;
     }
-    // So do the automatons (not on Peaceful); their relic parts are left to luck.
+    // So do the automatons (not on Peaceful). Only what one always carries counts: chance drops and relics are luck.
     for (const c of hostiles ? AUTOMATONS : []) {
-      for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && !isRelic(drop) && gain(drop.item, `automaton:${c.key}`)) changed = true;
+      for (const drop of c.drops) if ((drop.chance ?? 1) >= 1 && !isRelic(drop) && gain(drop.item, `automaton:${c.key}`)) changed = true;
     }
     if (canTill(world, items)) {
       for (const crop of crops) {

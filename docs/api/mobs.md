@@ -250,3 +250,6 @@ PART_GROUP; MOB_DRAW_CAPACITY = 64; PROBES_PER_FRAME = 2; FRESH_PROBES = 6
   crowding to crowd.ts).
 - Rare scrapes remain: 12 hens in a real dunes area (10 cactus columns within 48x48 blocks, seed 42) took 2 hurts
   in 30 minutes, 0 deaths (healing covers them); before the fixes 24 hurts and 3 deaths in 60 minutes.
+
+## The Emberbound (spec 19)
+Automatons are CreatureSpecs with `hostile`, listed in the registry's `AUTOMATONS` (not `CREATURES`, so the animal spawner is unchanged). `hitDamage` now returns a held weapon's `weapon.damage` (the mauls). Everything else for the AI is in `docs/api/emberbound-content.md` section 7; `PART_GROUP` in src/render/mobs/geometry.ts maps the new anim tags (middle legs, arms - rigid for now).

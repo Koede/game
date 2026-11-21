@@ -85,7 +85,7 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 
 ## survival.ts (spec 3.4)
 - `type WarmthTrend = 'warming' | 'cooling' | 'steady'`; `type BiomeLookup = (x: number, z: number) => BiomeKey`; `interface SurvivalSnapshot`
-- Constants: `SCAN_INTERVAL_S 0.5`, `RADIATION_RANGE 4`, `RADIATION_SAFE_DOSE 1`, `RADIATION_DAMAGE_INTERVAL_S 2`, `SHIELD_SUIT_FACTOR 0.1`, `COAT_DRAIN_FACTOR 0.5`, `WELL_WARMED_DRAIN_FACTOR 0.5`, `REGEN_INTERVAL_S 4`, `REGEN_QUIET_S 8`, `REGEN_MIN_WARMTH 50`, `AIR_REFILL_PER_S 5`.
+- Constants: `SCAN_INTERVAL_S 0.5`, `RADIATION_RANGE 4`, `RADIATION_SAFE_DOSE 1`, `RADIATION_DAMAGE_INTERVAL_S 2`, `SHIELD_SUIT_FACTOR 0.1`, `WELL_WARMED_DRAIN_FACTOR 0.5`, `REGEN_INTERVAL_S 4`, `REGEN_QUIET_S 8`, `REGEN_MIN_WARMTH 50`, `AIR_REFILL_PER_S 5`.
 - `fallDamage(distance: number): number` - floor(distance - 3.5), at least 0.
 - `findStandingSpot(world: IWorld, pos: BlockPos): Vec3` - feet position beside a block (two free cells on solid ground within 2 blocks, levels 0/+1/-1), else on top of it.
 - `class Survival` - `new Survival(world: IWorld, player: PlayerState, clock: GameClock, biomeAt: BiomeLookup)`
@@ -150,3 +150,6 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 
 ## Weather (spec 15)
 The weather feature changed this module: see `docs/api/weather.md` for what was added and why.
+
+## The Emberbound (spec 19)
+The coat's warmth is now data: Survival multiplies the drain by `bestArmour(inventory).warmthDrainMult` (src/core/hostile.ts; padded coat, plated coat and steel cuirass all 0.5) and `COAT_DRAIN_FACTOR` is gone. Armour on damage, difficulty and burning are still to do: see `docs/api/emberbound-content.md` section 7.

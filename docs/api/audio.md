@@ -86,3 +86,6 @@ Not exported from the index: `src/audio/fakeAudio.ts` (`FakeAudioContext`, the r
 
 ## Later additions
 Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, sounds, ambience fields and textures here: see `docs/api/world-content.md`.
+
+## The Emberbound (spec 19)
+Eight automaton sounds (`src/audio/sfxEmber.ts`), measured against the existing ones: see `docs/api/emberbound-content.md` section 6.

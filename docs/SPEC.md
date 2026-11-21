@@ -1235,3 +1235,13 @@ All attacks are TELEGRAPHED (a visible and audible wind-up the player can step o
 - Sounds (new SfxName): automaton_step (heavy clank, positioned), automaton_wake (whirr up), automaton_windup
   (rising hiss/inhale), automaton_attack (metal impact), ember_bolt (launch whoosh), arc_zap, automaton_hurt
   (clang), automaton_break (crash and tinkle); music-free.
+
+### 19 data (laid down by the emberbound-content pass; full tables in docs/api/emberbound-content.md)
+- Contracts: `CreatureSpec.hostile` (HostileSpec + HostileHabitat with SpawnPlace weights), `CreaturePart.emissive`, anims
+  legML/legMR/armL/armR; automatons are the registry's `AUTOMATONS` (not `CREATURES`). Weapons are tool kind `'maul'` (mines
+  like a hand) plus `ItemSpec.weapon { damage, stunS? }`; armour is `ItemSpec.armour { reduction, warmthDrainMult? }` (the
+  padded coat has one too). `Settings.difficulty` and `Settings.uiScale`. Causes 'automaton' / 'ember', events
+  `hostile:*`, `player:attacked`, `projectile:*`, `automaton:salvaged`, the eight sfx; every number of 19.2-19.4 is a
+  HOSTILE_* / RUIN_* / EMBER_BOLT_* / WARD_BEACON_RADIUS / WEAPON_HIT_COOLDOWN_S constant; pure lookups in src/core/hostile.ts.
+- `ward_base` sits after `make_circuits` (the beacon needs a circuit). Flags the code emits: 'automaton_salvaged' (an
+  automaton broken apart by the player) and 'peaceful' (a session on Peaceful), which completes salvage_automaton and ward_base.
