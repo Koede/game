@@ -2,6 +2,7 @@
  * Per-block-id lookup tables for the hot loops of lighting and meshing. Every table has 1024 entries so a
  * masked voxel id can index it without a bounds check; ids without a block behave like air.
  */
+import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
 
@@ -15,9 +16,12 @@ export const SHAPE_TORCH = 4;
 export const SHAPE_CABLE = 5;
 export const SHAPE_SLAB = 6;
 export const SHAPE_PIPE = 7;
+export const SHAPE_CUP = 8;
+export const SHAPE_BUCKET = 9;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
   pipe: SHAPE_PIPE,
+  cup: SHAPE_CUP, bucket: SHAPE_BUCKET,
 };
 
 export const BATCH_OPAQUE = 0;
@@ -65,6 +69,14 @@ const COOL_EMITTERS: Readonly<Record<string, number>> = { glowcap: HUE_CYAN, cry
 /** 1 for plants that glow (cross blocks emitting light): drawn full-bright. */
 export const GLOWS = new Uint8Array(SIZE);
 
+/** For cup blocks: 1 + the index of the stage in CUP_STAGES (0 for every other block). Chooses the parts of the cup mesh. */
+export const CUP_STAGE = new Uint8Array(SIZE);
+/** For bucket blocks: BUCKET_COLD (a bucket of water), BUCKET_BOILING (it boils: shimmering top) or BUCKET_KETTLE. */
+export const BUCKET_KIND = new Uint8Array(SIZE);
+export const BUCKET_COLD = 0;
+export const BUCKET_BOILING = 1;
+export const BUCKET_KETTLE = 2;
+
 /** Bits 10-12 of a voxel (facing and active flag) select one of 8 visual states. */
 export const voxelState = (v: number): number => (v >> 10) & 7;
 const STATES = 8;
@@ -84,7 +96,7 @@ for (const def of BLOCKS) {
   EMIT_ACTIVE[id] = def.lightActive;
   // Item pipes are see-through tubes (glass panes in their tile): the blended batch draws back faces first.
   const glassPipe = def.pipe?.family === 'item';
-  BATCH[id] = def.translucent || glassPipe ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' ? BATCH_CUTOUT : BATCH_OPAQUE;
+  BATCH[id] = def.translucent || glassPipe ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' || def.shape === 'cup' || def.shape === 'bucket' ? BATCH_CUTOUT : BATCH_OPAQUE;
   POWERED[id] = def.power ? 1 : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
@@ -93,6 +105,8 @@ for (const def of BLOCKS) {
     PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
   }
   GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;
+  if (def.shape === 'cup') CUP_STAGE[id] = 1 + CUP_STAGES.indexOf(cupStageOfBlock(def.key) ?? 'cup');
+  if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
   for (let state = 0; state < STATES; state++) {
     const facing = (state & 3) as Facing;
     const active = (state & 4) !== 0;

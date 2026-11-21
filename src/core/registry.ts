@@ -51,6 +51,7 @@ import {
 } from './types';
 import { validateTech } from './techValidation';
 import { validateAutomaton, validateGear } from './hostileValidation';
+import { validateBrewing } from './brewValidation';
 
 // ---------------------------------------------------------------------------------------------
 // Textures: every texture name referenced by content gets a layer in one texture array.
@@ -546,6 +547,7 @@ export function validateContent(): string[] {
       if (!(lo >= 1) || hi < lo) problems.push(`loot ${t.tier}: ${e.item} count must be >= 1`);
     }
   }
+  problems.push(...validateBrewing({ items: ITEMS, knownItem, block: blockOrNull, machine: (k) => MACHINES.get(k) ?? null }));
   problems.push(...validateTech({ blocks: BLOCKS, knownBlock: (k) => blocksByKey.has(k), knownItem, fluids: FLUIDS, tiers: FURNACE_TIERS, machines: [...MACHINES.values()] }));
   return problems;
 }
@@ -593,3 +595,21 @@ export function validateCreature(c: CreatureSpec): string[] {
   if (top < h16 * 0.75 || top > h16 * 1.2) problems.push(`${at}: model is ${top}/16 tall but its box is ${h16.toFixed(1)}/16`);
   return problems;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Brewing (BREWING_PLAN 2, 11): drinks, ingredients and containers by item
+// ---------------------------------------------------------------------------------------------
+
+/** Every drinkable item (a cup of tea or coffee), in authored order. */
+export const DRINKS: readonly ItemDef[] = ITEMS.filter((it) => it.drink !== undefined);
+/** The drink item an ingredient brews (dried_tea -> green_tea), or null when the item is no ingredient. */
+export const drinkBrewedFrom = (ingredientKey: string): ItemDef | null => {
+  const key = itemsByKey.get(ingredientKey)?.brews;
+  return key === undefined ? null : itemsByKey.get(key) ?? null;
+};
+/** Whether the item is something a cup is loaded with. */
+export const isBrewIngredient = (key: string): boolean => itemsByKey.get(key)?.brews !== undefined;
+/** The container item that boils into `boilingKey` (boiling_pail -> water_pail), or null: the pour row's lookup. */
+export const containerBoilingTo = (boilingKey: string): ItemDef | null => ITEMS.find((it) => it.container?.boilsTo === boilingKey) ?? null;
+/** The container that is `emptyKey` when empty (pail -> water_pail): the kettle fills an empty one with boiling water. */
+export const containerEmptiedTo = (emptyKey: string): ItemDef | null => ITEMS.find((it) => it.container?.emptyTo === emptyKey) ?? null;
