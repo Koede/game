@@ -361,7 +361,10 @@ export class Simulation implements ActionHost {
   }
 
   upgrade(x: number, y: number, z: number): ActionResult {
-    return this.withFurnace(x, y, z, (e) => actions.upgrade(this, e));
+    const result = this.withFurnace(x, y, z, (e) => actions.upgrade(this, e));
+    // The new tier counts at once (crucibles, temperatures) instead of on the next tick.
+    if (result.ok) this.validateHearths();
+    return result;
   }
 
   startIgnition(x: number, y: number, z: number): ActionResult {

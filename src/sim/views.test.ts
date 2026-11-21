@@ -80,17 +80,21 @@ describe('furnace view', () => {
     const kit = makeKit();
     kit.furnace(0, 1, 0, 'furnace_arc');
     kit.run(0.05);
+    expect(view(kit).electric).toMatchObject({ available: false, maxW: 0 });
+    expect(view(kit).status).toBe('No Arc hearth formed - it runs like a Clay Furnace');
+    kit.formed(0, 1, 0);
+    kit.run(0.05);
     expect(view(kit).electric).toMatchObject({ available: true, on: true, networked: false, maxW: 8000, deliveredW: 0, satisfaction: 0 });
     expect(view(kit).status).toBe('Connect it to a power network to heat it electrically');
-    const tap = kit.machine('geothermal_tap', 1, 1, 0);
-    kit.world.put(2, 1, 0, 'lava');
+    const tap = kit.machine('geothermal_tap', 0, 1, -1); // before the furnace's mouth
+    kit.world.put(0, 1, -2, 'lava');
     kit.run(0.05);
     expect(tap.availW).toBe(2000);
     const v = view(kit);
     expect(v.electric).toMatchObject({ networked: true, demandW: 8000, deliveredW: 2000, satisfaction: 0.25 });
     expect(v.targetC).toBeCloseTo(20 + 2000 / 3, 6);
-    kit.world.put(1, 1, 1, 'lava');
-    kit.world.put(1, 2, 0, 'lava');
+    kit.world.put(1, 1, -1, 'lava');
+    kit.world.put(0, 2, -1, 'lava');
     kit.run(0.05);
     expect(view(kit).electric.deliveredW).toBe(6000);
     expect(view(kit).status).toBe('Heading for 2020 C');

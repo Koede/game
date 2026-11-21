@@ -8,7 +8,7 @@ import { fire, makeKit, type Kit } from './testKit';
 const net = (kit: Kit, x: number, y: number, z: number) => kit.sim.networkAt(x, y, z)!;
 
 describe('heat engines', () => {
-  it('a thermopile makes 0.25 W per degree above 100 C and cools the furnace by 4x that', () => {
+  it('a thermopile makes 0.25 W per degree above 100 C and cools the furnace by 4x what is used', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0);
     const pile = kit.machine('thermopile', 1, 1, 0);
@@ -18,7 +18,8 @@ describe('heat engines', () => {
     kit.run(200);
     expect(e.tempC).toBeCloseTo(450, 6);
     expect(pile.availW).toBeCloseTo(0.25 * 350, 6);
-    expect(e.extractW).toBeCloseTo(350, 6);
+    // Only the lamp's 10 W is used, so only 40 W of heat is drawn.
+    expect(e.extractW).toBeCloseTo(4 * machine('lamp').drawW!, 6);
     expect(kit.sim.generationW()).toBeCloseTo(87.5, 6);
     expect(pile.outW).toBeCloseTo(machine('lamp').drawW!, 6);
     expect(lamp.f).toBe(1);
@@ -35,15 +36,18 @@ describe('heat engines', () => {
   it('a coal fire under a steam engine settles near 820 C delivering 2 kW', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, 'furnace_blast');
-    const engine = kit.machine('steam_engine', 0, 2, 0);
+    // A closed 1x1x1 hearth (the single block's numbers); the engine sits on its ceiling, a battery takes its power.
+    kit.formed(0, 1, 0, { closed: true });
+    const engine = kit.machine('steam_engine', 0, 3, 0);
+    kit.machine('battery', 0, 4, 0);
     e.fuel[0] = { item: 'coal', count: 99 };
     e.fuel[1] = { item: 'coal', count: 99 };
     kit.sim.light(0, 1, 0);
     kit.run(120);
     expect(engine.availW).toBe(0);
-    expect(kit.sim.machineView(0, 2, 0)!.problem).toBe('Needs water on one side');
+    expect(kit.sim.machineView(0, 3, 0)!.problem).toBe('Needs water on one side');
     expect(e.tempC).toBeCloseTo(1250, 6);
-    kit.world.put(1, 2, 0, 'water');
+    kit.world.put(1, 3, 0, 'water');
     kit.run(600);
     expect(e.tempC).toBeGreaterThan(815);
     expect(e.tempC).toBeLessThan(825);
@@ -322,7 +326,8 @@ describe('electric heat', () => {
   it('an arc furnace on a grid holds its maximum temperature by thermostat', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, 'furnace_arc');
-    const engine = kit.machine('combustion_engine', 1, 1, 0);
+    kit.formed(0, 1, 0);
+    const engine = kit.machine('combustion_engine', 0, 1, -1); // before the furnace's mouth
     engine.slots[0] = { item: 'fuel_canister', count: 16 };
     const tier = furnaceTier(3);
     kit.run(1);

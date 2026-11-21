@@ -13,6 +13,7 @@ describe('furnace heat', () => {
   it.each(FUELS)('a %s fire reaches its flame temperature and sits there', (fuel, block) => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, block);
+    if (block !== 'furnace_clay') kit.formed(0, 1, 0);
     e.electric = false;
     e.fuel[0] = { item: fuel, count: 99 };
     e.fuel[e.fuel.length - 1] = { item: fuel, count: 99 };
@@ -175,12 +176,17 @@ describe('crucibles', () => {
     expect(slots.fuel.add('stick', 5)).toBe(0);
     expect(kit.sim.furnaceAt(0, 1, 0)!.fuel[0]).toEqual({ item: 'stick', count: 5 });
     kit.furnace(4, 1, 0, 'furnace_blast');
+    // Standing alone it smelts like a clay furnace; in its hearth like a Blast Furnace, in two crucibles.
+    expect(kit.sim.furnaceSlots(4, 1, 0)!.crucibleIn.accepts('iron_ore', 0)).toBe(false);
+    kit.formed(4, 1, 0);
     expect(kit.sim.furnaceSlots(4, 1, 0)!.crucibleIn.accepts('iron_ore', 1)).toBe(true);
   });
 
   it('a higher tier smelts faster and in more crucibles', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, 'furnace_blast');
+    expect(e.crucibleIn).toHaveLength(1);
+    kit.formed(0, 1, 0);
     expect(e.crucibleIn).toHaveLength(2);
     e.crucibleIn[0] = { item: 'tin_ore', count: 1 };
     e.crucibleIn[1] = { item: 'tin_ore', count: 1 };
@@ -246,6 +252,11 @@ describe('forging and upgrading', () => {
     expect(kit.player.home).toEqual({ x: 0, y: 1, z: 0 });
     e.fuel[0] = { item: 'charcoal', count: 9 };
     e.crucibleIn[0] = { item: 'copper_ore', count: 2 };
+    // Spec 17: first the next tier's hearth must stand around it (facing south, its inside lies north).
+    const hint = 'Build a Blast hearth: brick walls around the furnace';
+    expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: hint });
+    kit.formed(0, 1, 0, { tier: 2 });
+    expect(e).toMatchObject({ tier: 1, effTier: 1, hearth: { tier: 2, min: [-1, 0, -2], max: [1, 1, 0] } });
     const missing = kit.sim.upgrade(0, 1, 0);
     // The upgrade costs of spec 17.2 (the hearth structure carries most of the cost).
     expect(missing.ok ? '' : missing.reason).toBe('Missing 4 Bronze Ingot, 1 Bellows');
@@ -261,7 +272,7 @@ describe('forging and upgrading', () => {
     expect(blockOf(v).key).toBe('furnace_blast');
     expect(voxelFacing(v)).toBe(2);
     expect(kit.sim.furnaceAt(0, 1, 0)).toBe(e);
-    expect(e.tier).toBe(2);
+    expect(e).toMatchObject({ tier: 2, effTier: 2 });
     expect(e.fuel).toEqual([{ item: 'charcoal', count: 9 }, null]);
     expect(e.crucibleIn).toEqual([{ item: 'copper_ore', count: 2 }, null]);
     expect(kit.player.inventory.count('bronze_ingot')).toBe(0);

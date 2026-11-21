@@ -9,17 +9,22 @@ import { makeKit, type Kit } from './testKit';
 
 const GROUPS = 30;
 
-/** Ten entities on one cabled network, 8 blocks apart from the next group. */
+/**
+ * Ten entities on one cabled network, 8 blocks apart from the next group. The arc furnace stands in its smallest
+ * hearth (x - 1 .. x + 1, z .. z + 2); the thermopile sits at its mouth and carries the grid to it.
+ */
 function group(kit: Kit, gx: number, gz: number): void {
   const x = gx * 8;
   const z = gz * 8;
   const w = kit.world;
   const furnace = kit.furnace(x, 5, z, 'furnace_arc');
+  kit.formed(x, 5, z);
   furnace.fuel[0] = { item: 'coal', count: 99 };
   kit.sim.light(x, 5, z);
-  kit.machine('thermopile', x + 1, 5, z);
-  kit.machine('lamp', x + 2, 5, z);
-  for (let i = 3; i <= 5; i++) w.put(x + i, 5, z, 'copper_cable');
+  kit.machine('thermopile', x, 5, z - 1);
+  kit.machine('lamp', x + 1, 5, z - 1);
+  w.put(x + 2, 5, z - 1, 'copper_cable');
+  for (let i = 2; i <= 5; i++) w.put(x + i, 5, z, 'copper_cable');
   const crusher = kit.machine('crusher', x + 6, 5, z);
   crusher.slots[0] = { item: 'copper_ore', count: 99 };
   kit.machine('crate', x + 6, 5, z + 1);
@@ -61,7 +66,7 @@ describe('speed', () => {
     const tick = measure(2000, () => kit.sim.tick(DT));
     // A block placed and removed beside a machine every tick: the refresh of its surroundings is included.
     const edit = measure(400, (i) => {
-      kit.world.put(8 * (i % 6), 6, 0, i % 2 === 0 ? 'stone' : 'air');
+      kit.world.put(8 * (i % 6) + 6, 6, 0, i % 2 === 0 ? 'stone' : 'air');
       kit.sim.tick(DT);
     });
     // A cable added and removed every tick: networks are rebuilt each time (the worst case, a player-paced event).

@@ -135,6 +135,7 @@ describe('small consumers', () => {
   it('a powered blower holds the draft of the furnace it touches at 0.8', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, 'furnace_blast');
+    kit.formed(0, 1, 0); // open top: the blower stands on the furnace
     const blower = kit.machine('blower', 0, 2, 0);
     fire(kit, e, 'coal');
     kit.run(5);
@@ -270,19 +271,28 @@ describe('fission', () => {
 });
 
 describe('Starhearth ignition', () => {
+  /**
+   * A Starhearth in its smallest hearth (inside 3x3x3 behind it, towards +z; four power ports in the back wall at
+   * z = 4: -1/0/1 on y = 1 and -1 on y = 2), hot.
+   */
   const star = (kit: Kit) => {
     const e = kit.furnace(0, 1, 0, 'furnace_star');
+    kit.formed(0, 1, 0);
     e.tempC = 3100;
     return e;
   };
+  /** Banks before the furnace's mouth and behind two of its ports. */
+  const BANKS = [[0, 1, -1], [0, 1, 5], [1, 1, 5]] as const;
 
   it('refuses until it is a hot Starhearth on a network', () => {
     const kit = makeKit();
     kit.furnace(5, 1, 0, 'furnace_plasma').tempC = 3100;
     expect(kit.sim.startIgnition(5, 1, 0)).toEqual({ ok: false, reason: 'Only the Starhearth can be ignited' });
+    kit.furnace(10, 1, 0, 'furnace_star').tempC = 3100;
+    expect(kit.sim.startIgnition(10, 1, 0)).toEqual({ ok: false, reason: 'Build a Starhearth: star casing walls around the furnace, a ceiling and 4 Power Ports' });
     const e = star(kit);
     expect(kit.sim.startIgnition(0, 1, 0)).toEqual({ ok: false, reason: 'Connect it to a power network first' });
-    bank(kit, 1, 1, 0);
+    bank(kit, 0, 1, -1);
     e.tempC = 2500;
     kit.run(0.05);
     expect(kit.sim.startIgnition(0, 1, 0).ok).toBe(false);
@@ -295,8 +305,7 @@ describe('Starhearth ignition', () => {
     const won = kit.record('game:won');
     const flags = kit.record('flag');
     const e = star(kit);
-    for (const z of [1, -1]) bank(kit, 0, 1, z);
-    bank(kit, 1, 1, 0);
+    for (const [x, y, z] of BANKS) bank(kit, x, y, z);
     kit.run(0.05);
     expect(kit.sim.startIgnition(0, 1, 0)).toEqual({ ok: true });
     expect(kit.sim.startIgnition(0, 1, 0)).toEqual({ ok: false, reason: 'Ignition is under way' });
@@ -330,7 +339,7 @@ describe('Starhearth ignition', () => {
     const kit = makeKit();
     const events = kit.record('furnace:ignition');
     const e = star(kit);
-    const banks = [bank(kit, 0, 1, 1), bank(kit, 0, 1, -1), bank(kit, 1, 1, 0)];
+    const banks = BANKS.map(([x, y, z]) => bank(kit, x, y, z));
     kit.run(0.05);
     kit.sim.startIgnition(0, 1, 0);
     kit.run(30);
@@ -343,7 +352,7 @@ describe('Starhearth ignition', () => {
     expect(e.ignition).toBe('failed');
     expect(e.ignitionProgressS).toBe(0);
     expect(events[events.length - 1].state).toBe('failed');
-    expect(e.demandW).toBeLessThanOrEqual(40000);
+    expect(e.demandW).toBeLessThanOrEqual(kit.sim.furnaceView(0, 1, 0)!.electric.maxW);
     for (const b of banks) b.storedJ = machine('lithium_bank').capacityJ!;
     e.tempC = 3100;
     kit.run(0.05);

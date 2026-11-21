@@ -5,7 +5,10 @@ import type { GameEvents } from '../core/gameEvents';
 import { GameClock } from '../game/clock';
 import { FakeWorld } from '../game/fakeWorld';
 import { PlayerState } from '../game/playerState';
+import { voxelFacing } from '../core/types';
 import type { FurnaceEntity, MachineEntity } from './entities';
+import { buildHearth, type ShellOptions } from './hearthKit';
+import type { HearthBox } from './hearthScan';
 import { Simulation } from './simulation';
 
 export interface Kit {
@@ -20,6 +23,11 @@ export interface Kit {
   furnace(x: number, y: number, z: number, block?: string): FurnaceEntity;
   /** Places a machine block and returns its entity. */
   machine(block: string, x: number, y: number, z: number): MachineEntity;
+  /**
+   * Builds the smallest hearth of the furnace's own tier around the furnace at x, y, z (behind its back, the inside
+   * centred across it, the furnace at the bottom of the inside), or as `options` say, and lets it form.
+   */
+  formed(x: number, y: number, z: number, options?: Partial<ShellOptions>): HearthBox;
   /** Records every payload of an event from now on. */
   record<K extends keyof GameEvents>(type: K): Array<GameEvents[K]>;
 }
@@ -44,6 +52,13 @@ export function makeKit(makeWorld: (bus: GameBus) => FakeWorld = (bus) => new Fa
     machine(block, x, y, z) {
       world.put(x, y, z, block);
       return sim.machineAt(x, y, z) as MachineEntity;
+    },
+    formed(x, y, z, options = {}) {
+      const e = sim.furnaceAt(x, y, z);
+      if (!e) throw new Error(`no furnace at ${x},${y},${z}`);
+      const box = buildHearth(world, x, y, z, { tier: Math.max(2, e.tier), facing: voxelFacing(world.getVoxel(x, y, z)), ...options });
+      sim.validateHearths();
+      return box;
     },
     record(type) {
       const seen: Array<GameEvents[typeof type]> = [];

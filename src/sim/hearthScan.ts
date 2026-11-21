@@ -223,6 +223,9 @@ function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing,
   }
   const b: HearthBox = { cx: x, cy: y, cz: z, ...f, u0: -left, u1: right, depth: deep + 1, y0, y1: y, closed: false };
   const area = (right + left + 1) * b.depth;
+  // A layer of wall needs at least half its ring built: a block resting on the rim (a steam engine on the furnace,
+  // a torch) leaves an open top open.
+  const ringCells = 2 * (right + left + 1 + b.depth) + 4;
   for (let yy = y + 1; yy <= y0 + MAX_HIGH; yy++) {
     let lid = 0;
     let ring = 0;
@@ -237,7 +240,7 @@ function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing,
       b.closed = true;
       return b;
     }
-    if (ring === 0) return b;
+    if (ring * 2 < ringCells) return b;
     b.y1 = yy;
   }
   add(scan, 'too_tall', bx, y0 + MAX_HIGH, bz, `Too tall - the inside can be at most ${MAX_HIGH} blocks high`);
