@@ -3,7 +3,8 @@ import { MOB_HIT_COOLDOWN_S, WEAPON_HIT_COOLDOWN_S } from '../core/constants';
 import { createBus } from '../core/context';
 import { item } from '../core/registry';
 import { AnimalHands, type AnimalTargets } from './animals';
-import { makePlayer, record } from './testKit';
+import { PlayerPhysics } from './physics';
+import { flatWorld, idle, makePlayer, record } from './testKit';
 
 /** Hands on one creature (id 7) that never refuses a hit, recording every hit's damage and stun. */
 function rig() {
@@ -83,5 +84,31 @@ describe('the player swinging at automatons', () => {
     expect(hands.strike()).toBe(false);
     expect(r.player.heldStack()!.durability).toBe(before);
     expect(r.player.combat.strikeReady).toBe(true);
+  });
+});
+
+describe('knockback through the real physics', () => {
+  /** Lets a player standing on a flat floor settle, takes a blow from the north, then runs 1.5 s idle. */
+  function knocked(species: string, amount: number): number {
+    const bus = createBus();
+    const world = flatWorld(bus);
+    const player = makePlayer(bus, 0.5, 10, 0.5);
+    const physics = new PlayerPhysics(world, player);
+    for (let i = 0; i < 30; i++) physics.step(1 / 60, idle());
+    player.damagePlayer(amount, 'automaton', 0.5, -1.5, species);
+    for (let i = 0; i < 90; i++) physics.step(1 / 60, idle());
+    expect(player.onGround).toBe(true);
+    return player.position.z - 0.5;
+  }
+
+  it('throws the player away from the automaton, further for a heavy hitter, and lands them', () => {
+    const mite = knocked('cinder_mite', 1);
+    const hound = knocked('bellows_hound', 4);
+    const colossus = knocked('slag_colossus', 6);
+    expect(mite).toBeGreaterThan(0.5);
+    expect(hound).toBeGreaterThan(mite + 1);
+    expect(colossus).toBeGreaterThan(hound);
+    // Never a launch across the map from one blow.
+    expect(colossus).toBeLessThan(8);
   });
 });

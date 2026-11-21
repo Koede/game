@@ -4,6 +4,8 @@ Game rules that are not machines. DOM-free, runs in node. Import from `src/game`
 below); the test fixture `FakeWorld` is imported by path from `src/game/fakeWorld`. Never imports `src/world`
 (only `IWorld`). 71 unit tests, `npx vitest run src/game`.
 
+Fighting the Emberbound (`combat.ts`, spec 19.4) is documented in the "combat.ts" section below.
+
 Hunger (`hunger.ts`), farming rules (`farming.ts`) and the food fields of `PlayerState` are documented in `docs/api/food-rules.md`.
 
 ## inventory.ts
@@ -118,6 +120,61 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
   - `toJSON(): ObjectivesSnapshot`, `load(s)` (silent), `dispose()`.
   - On completion: rewards via `player.give`, `objective:completed`, toast "Done: <title>", sfx `objective`. On a new age: `age:advanced`, sfx `age`, toast.
 
+## combat.ts (spec 19.4 - the player's side of fighting the Emberbound)
+`PlayerState` owns one `PlayerCombat` as `player.combat`; Survival ticks it; the player controller counts the swing
+cooldown down per frame. 29 tests in `src/game/combat.test.ts` (+ 6 in `src/player/combat.test.ts`).
+
+- Constants: `KNOCKBACK_DEFAULT = 3` (blocks/s, a species without `hostile.knockback`), `KNOCKBACK_LIFT = 4.5` (upward
+  speed given to a grounded player so the push carries - the physics damps grounded sliding fast), `BURN_INTERVAL_S = 1`.
+- `difficultyDamage(amount, cause, d: Difficulty): number` - 'automaton' and 'ember' x `HOSTILE_DAMAGE_MULT[d]` (Peaceful 0,
+  Normal 1, Hard 1.25); every other cause unchanged.
+- `strikeCooldownOf(item: string | null): number` - `WEAPON_HIT_COOLDOWN_S` (0.5) for an item with `weapon` (mauls), else
+  `MOB_HIT_COOLDOWN_S` (0.4: tools, hands).
+- `stunOf(item: string | null): number` - `weapon.stunS` (arc maul 1), else 0.
+- `killerLine(cause: DamageCause | null, species: string | null): string | null` - the death screen's headline:
+  "Felled by a Forge Warden" ('automaton'), "Burned by a Kiln Sentry's ember" ('ember'), "an" before vowels
+  ("Felled by an Arc Drone"); null for other causes or no attacker. Use with `player.deathCause` and `player.killedBy`.
+- `interface CombatSnapshot { burnLeftS; burnPerS; burnAccS; lastAttacker: string | null }`
+- `class PlayerCombat` - `new PlayerCombat(player)` (PlayerState makes it)
+  - `difficulty: Difficulty` (default 'normal', not saved - it is a setting); `setDifficulty(d)` - call at session
+    start and whenever Settings.difficulty changes. Peaceful emits `flag` FLAG_PEACEFUL (completes salvage_automaton
+    and ward_base) and puts out any fire.
+  - `damagePlayer(amount, cause, sourceX, sourceZ, kind: string, sourceY?): number` - THE all-in-one entry: `amount` is
+    the RAW automaton damage, `kind` the species key. x difficulty (Peaceful: nothing at all, no event) -> emits
+    `player:attacked { species: kind, attack: spec.hostile.attack, amount (after difficulty, before armour), x, y, z }`
+    (y = `sourceY` or the player's eye) -> `takeHit` -> knockback away from (sourceX, sourceZ) at the species'
+    `knockback` or KNOCKBACK_DEFAULT (+ KNOCKBACK_LIFT when grounded; straight back from the view when the source is
+    on the player). Returns damage dealt after armour.
+  - `takeHit(amount, cause, sourceX, sourceZ, kind): number` - the second half, for an attacker that ALREADY scaled by
+    difficulty and emitted `player:attacked` (src/mobs' `DamagePlayer` hook type has exactly this signature): armour
+    (`bestArmour(inventory)` + `armouredDamage`: only ARMOUR_CAUSES = 'automaton'; padded coat 0, plated coat 25%,
+    steel cuirass 40%, best piece anywhere in the 36 slots counts), `PlayerState.damage`, `lastAttacker = kind`, and
+    burning when the species has `hostile.burn` (the kiln sentry: 2 s at 1/s). No-op on Peaceful.
+  - `knock(vx, vy, vz): void` - ADDS a velocity (src/mobs' `KnockPlayer` hook signature). Ignores NaN and the dead.
+  - `ignite(seconds, perS): void` - burning, cause 'ember', damage every BURN_INTERVAL_S (x difficulty, no armour).
+    A new burn REFRESHES the time to max(left, seconds) and keeps the stronger rate - never stacks. Refused in water
+    and on Peaceful. `extinguish(hiss: boolean)`; `get burning`, `get burnTimeLeftS` (HUD).
+  - `tick(dt)` - Survival calls it every tick: burning damage; standing in water (feet or head) puts the fire out with
+    sfx `steam_hiss`.
+  - `lastAttacker: string | null` - species of the last `player:attacked` (also recorded from events other code emits).
+  - Swing: `strikeCooldownS`, `get strikeReady`, `startStrikeCooldown(item)`, `coolStrike(dt)` (frame time; called
+    by `PlayerController.update`). The animals' own MOB_HIT_COOLDOWN_S still applies on top.
+  - `reset()` (death, respawn: fire and swing cleared), `toJSON(): CombatSnapshot`, `load(s | undefined)` (missing or
+    damaged = not burning), `dispose()`.
+
+PlayerState additions: `readonly combat`, `get difficulty`, `damagePlayer(...)` (delegates), `killedBy: string | null`
+(set on a death by 'automaton' or 'ember' from `combat.lastAttacker`, cleared on respawn), snapshot fields
+`combat?` and `killedBy?` (optional: older saves load). ObjectiveTracker additions: `automaton:salvaged` records the
+flag FLAG_AUTOMATON_SALVAGED itself (in case only the event is emitted), and every `check()` on a Peaceful session
+records FLAG_PEACEFUL (so a session started on Peaceful before the tracker existed still completes those objectives).
+Survival: `tick` also runs `player.combat.tick(dt)`.
+
+**Wiring still to do in src/app** (outside this module): `player.combat.setDifficulty(settings.difficulty)` when a
+session starts and when the setting changes; the mob manager's hooks: `damagePlayer: (a, c, x, z, k) =>
+player.combat.takeHit(a, c, x, z, k)` and `knockPlayer: (vx, vy, vz) => player.combat.knock(vx, vy, vz)` - or, if the
+automatons pass raw damage, `player.damagePlayer` instead (never both: that would scale twice). Death screen
+(src/ui): `killerLine(player.deathCause, player.killedBy)`; HUD: `player.combat.burning` for a fire indicator.
+
 ## fakeWorld.ts (test fixture, not in the index)
 - `class FakeWorld implements IWorld` - `new FakeWorld(bus?: GameBus | null)`; everything is air until set, always loaded;
   extras `put(x, y, z, blockKey, active = false)` and `fill(x0, y0, z0, x1, y1, z1, blockKey)`. `src/sim` tests can reuse it.
@@ -139,6 +196,11 @@ All honour the destination's accept rule and take-only flag and keep tool durabi
 - Rewards that do not fit are kept (saved) and handed over quietly once there is room, instead of being lost.
 - Furnace tier for the age also counts `block:placed` of a furnace block and `furnace:upgraded`, not only the query.
 - `skipToDawn` lands at 0.025 (mid-dawn), not at 0.
+
+- Combat (spec 19.4): Hard's x1.25 also scales the burning a bolt leaves (it is automaton damage too), so health can
+  hold quarter points on Hard. Knockback measured through the real physics: a mite's bite moves the player ~0.6 blocks,
+  a hound's dash ~1.6, the colossus's slam ~2.1. The weapon cooldown is the player's own swing timer (frame time); the
+  creature's per-hit cooldown (0.4 s) stays in src/mobs.
 
 ## Known gaps
 - `survival.ts` is about 470 lines (above the 350-line aim); not split.

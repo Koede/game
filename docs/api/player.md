@@ -127,6 +127,15 @@ controller.update(dt);                       // dt in seconds, clamped to 0.1 by
 - Advisory toasts (at most once per 8 s per subject): "Stone needs a flint pickaxe or better to drop anything",
   "Corestone cannot be broken", "Tall Grass can only be placed on grass, dirt", pail on lava.
 
+## Hitting creatures and automatons (animals.ts; spec 19.4)
+`AnimalHands.strike()` (Mine held on a creature) hits only when the player's own swing timer allows
+(`player.combat.strikeReady`: 0.5 s after a maul hit, 0.4 s after a tool or hand hit; counted down by
+`PlayerController.update` via `player.combat.coolStrike(dt)`), then calls
+`AnimalTargets.hit(id, hitDamage(item), x, z, stunOf(item))` - the 5th argument is the arc maul's stun (1 s; 0 for
+everything else; a manager whose `hit` takes four arguments ignores it). A landed hit starts the swing timer, swings
+the hand and wears the held tool or maul by 1. Tests: `src/player/combat.test.ts` (cooldowns, stun, maul wear to
+breaking, refused hits, knockback through the real physics). Everything else of combat is `docs/api/game.md` (combat.ts).
+
 ## Input layer (src/player/input)
 - `new InputManager({ container, touchLayer, settings, state, bus })`:
   - `frame(dtSeconds): Intent` - returns and clears accumulated deltas and edges; the returned object is reused.
