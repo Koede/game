@@ -138,7 +138,8 @@ split. Rotor angles were read back over time to confirm the animation runs.
 - Wrench-parted joints (sim state) are not visible to the mesher: a parted joint still draws its arm.
 - Translucent sorting is per chunk mesh: two glass tubes overlapping from the camera's view can blend in the wrong
   order (the same limit as glass panes).
-- The light probe for the hand and particles ignores light colour (the hand is warm-lit next to a glowcap).
+- The light probe for the hand and particles ignores light colour (the hand is warm-lit next to a glowcap). Resolved: the hand and particles
+  (integration pass 2), animals and machine parts (pass 3, `src/render/coolLight.ts`) take the cool colour.
 - Formed-hearth visuals (seam glow at night, molten pool, light sweep, ghost preview) and items/fluids moving in
   pipes are not part of this pass.
 - Timing only measured on software GL in a shared container; no real phone.

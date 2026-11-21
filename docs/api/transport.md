@@ -201,7 +201,8 @@ bucket back) - hearth.md.
 
 ## Known gaps
 - **Not drawn yet**: moving items and fluid fill (renderer: `transportView()`); the pipe screen (UI: `pipeView`,
-  `setPort`, a pipe `ScreenRequest`); wrench and bucket use from the player module (`wrench`, `bucketUse`).
+  `setPort`, a pipe `ScreenRequest`); wrench and bucket use from the player module (`wrench`, `bucketUse`). (Wrench and buckets: done in integration
+  pass 3, `docs/api/integration.md`; pipe screen: `docs/api/ui-tech.md`.)
 - Rebuild cost is linear in the dissolved networks: ~2.5 ms for 1000 pipes in node, so maybe 5-10 ms on a slow phone
   for the very largest network (player-paced: one rebuild per placed or broken pipe).
 - Reservations are per block and item: two different items reserving the last empty slot of a crate can both be sent;
