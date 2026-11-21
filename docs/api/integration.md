@@ -364,8 +364,8 @@ Connected: hooks and difficulty (state.ts), crosshair name + health for automato
 directional damage pulse on `player:attacked`, off-screen wind-up arrow on `hostile:windup`, Burning chip and edge flames
 (`combat.burning`), death screen `killerLine` + telegraph hint, Settings Difficulty and UI size (Large scales the touch
 overlay), New World Difficulty, How to Play Emberbound card, save/load (`mobs.toJSON` carries `hostiles`).
-Not connected: projectiles are not given to the renderer (no `docs/api/emberbound-render.md` yet; TODO in
-`emberbound-ai.md`).
+Projectiles: `mobRenderer.setBolts(state.mobs.projectiles(alpha))` is wired in src/app/game.ts (render engineer's hook,
+`docs/api/emberbound-render.md`). Nothing known is left unconnected.
 Hearth STRUCTURE tab now shows `target.shiftLeft/shiftRight` ("Shift left / right" buttons, "Position n of m"; the chosen
 offset is kept in `HearthGhost` and dropped when tier or size changes), the `machines` list ("In the way", "Move the X
 first", tap highlights it) and `view.note` (neutral line in the problems area).
