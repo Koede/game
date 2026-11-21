@@ -1336,7 +1336,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 148px;
+  /* Room for the scale, the tube and a label such as "1250 Flame limit" without truncating it. */
+  min-width: 176px;
   min-height: 0;
   height: 100%;
 }

@@ -55,6 +55,7 @@ export class Window {
   private readonly panels = new Map<string, HTMLElement>();
   private readonly closable: boolean;
   private readonly onClose: (() => void) | undefined;
+  private readonly closeListeners = new Set<() => void>();
   private offKeys: Dispose | null = null;
   private restoreFocus: HTMLElement | null = null;
   private opened = false;
@@ -140,6 +141,13 @@ export class Window {
     if (this.restoreFocus?.isConnected) this.restoreFocus.focus({ preventScroll: true });
     this.restoreFocus = null;
     this.onClose?.();
+    for (const fn of [...this.closeListeners]) fn();
+  }
+
+  /** Also calls `fn` whenever the window closes (after `onClose`). Returns a function that removes it. */
+  whenClosed(fn: () => void): Dispose {
+    this.closeListeners.add(fn);
+    return () => this.closeListeners.delete(fn);
   }
 
   setTitle(text: string): void {

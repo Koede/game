@@ -37,12 +37,24 @@ export class PauseMenu {
   }
 
   get isOpen(): boolean {
-    return this.win !== null;
+    return this.win?.isOpen ?? false;
+  }
+
+  /**
+   * The menu's window, built ready to open but not attached (GameUI opens it itself, as a screen).
+   * Each call after the previous window closed builds a fresh one.
+   */
+  get window(): Window {
+    return this.win ?? this.build();
   }
 
   /** Opens the menu in the root's window layer (closing any other window). */
   open(): void {
-    if (this.win) return;
+    const win = this.window;
+    if (!win.isOpen) win.open(this.root.layers.windows);
+  }
+
+  private build(): Window {
     this.quitting = false;
     const back = new Button({ label: 'Back', kind: 'quiet', size: 'sm', icon: 'back', onClick: () => this.show('menu') });
     back.el.hidden = true;
@@ -58,7 +70,7 @@ export class PauseMenu {
     this.win = win;
     this.backButton = back.el;
     this.show('menu');
-    win.open(this.root.layers.windows);
+    return win;
   }
 
   /** Closes the menu as if Resume had been pressed. */

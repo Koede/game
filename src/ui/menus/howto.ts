@@ -25,6 +25,7 @@ export const DEFAULT_KEYBOARD_CONTROLS: readonly ControlLine[] = [
   { keys: ['Right click'], action: 'Open a furnace or machine, use or place the held item' },
   { keys: ['1', '–', '9', 'Wheel'], action: 'Pick a hotbar slot' },
   { keys: ['E'], action: 'Inventory and hand recipes' },
+  { keys: ['L'], action: 'Hearth Log: goals and ages' },
   { keys: ['Esc'], action: 'Close a window, pause' },
 ];
 
@@ -32,10 +33,12 @@ export const DEFAULT_TOUCH_CONTROLS: readonly ControlLine[] = [
   { keys: ['Left stick'], action: 'Move' },
   { keys: ['Drag the view'], action: 'Look around' },
   { keys: ['Jump button'], action: 'Jump, swim up' },
-  { keys: ['Hold on a block'], action: 'Mine it' },
-  { keys: ['Tap a block'], action: 'Open a furnace or machine, use or place the held item' },
+  { keys: ['Hold on a block', 'Mine'], action: 'Mine it' },
+  { keys: ['Tap a block', 'Use'], action: 'Open a furnace or machine, use or place the held item' },
   { keys: ['Tap the hotbar'], action: 'Pick a slot' },
   { keys: ['Bag button'], action: 'Inventory and hand recipes' },
+  { keys: ['Tap the goal'], action: 'Hearth Log: goals and ages' },
+  { keys: ['Tap a slot', 'Tap another'], action: 'Move, merge or swap a stack' },
   { keys: ['Long-press a slot'], action: 'Take half a stack' },
 ];
 
