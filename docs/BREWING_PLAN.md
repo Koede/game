@@ -14,11 +14,11 @@ before use; file and module names are as they are in the repository today.
 - "after of course harvesting the grown crop of such type"
 - "the brewing can be done at ember era"
 
-Open choices (the spec uses the first option of each until the owner says otherwise):
-1. One boost per drink (coffee = speed, tea = jump) or both drinks give both?
-2. Tea and coffee as regrowing bushes (like the berry bush) or replant-each-time crops (like wheat)?
-3. Should the Ember kettle (STEAM_PLAN) also give boiling water, or only a bucket on the furnace? Spec: bucket
-   only for now; allowing the kettle later is one more row in the `brewUse` table.
+DECIDED by the owner (these override anything below that disagrees - see section 11 for the details):
+1. "different types of tea and coffee give different types" of boost: varieties, each with its own effect.
+2. Tea and coffee are regrowing bushes.
+3. The kettle also gives boiling water - "and if we ever add bowls or other containers, those too": boiling
+   water is a property of CONTAINERS, not of the bucket alone.
 
 ## 1. Player-facing rules
 
@@ -224,3 +224,50 @@ One engineer can do it all in this order, each step green: contracts + content +
 HUD chips, target names, How to Play -> worldgen bushes -> e2e step in `scripts/e2e-features.mjs`.
 It does not depend on the steam or Bronze plans; do it before or after them. If the six-tier refactor
 (BRONZE_PLAN W0) has landed, "tier 1" is still the Clay Furnace.
+
+## 11. Owner decisions in detail (override sections 1-9 where they differ)
+
+### 11.1 Varieties - each drink its own boost
+Six drinks from the two bushes. Processing decides the variety; all brew the same way (cup, cone, pour).
+Smelt inputs stay unique (each item has one crucible recipe).
+
+| Drink | Made from | How the ingredient is made | Buff (3 min) | Effect |
+|---|---|---|---|---|
+| Green Tea | dried_tea | tea_leaves in a crucible, 150 C, 5 s | Spring | jump x1.35 |
+| Black Tea | black_tea | dried_tea in a crucible, 250 C, 6 s | Hearthkept | warmth drain x0.5, +10 warmth on drinking |
+| Berry Tea | berry_tea_blend | workbench: 1 dried_tea + 2 wildberries | Mending | health regeneration x2 |
+| Light Roast | ground_coffee | coffee_cherries -> roasted_beans 220 C 8 s; ground | Swift | walk, sprint, swim x1.2 |
+| Dark Roast | ground_dark_coffee | roasted_beans -> dark_beans 400 C 8 s; ground | Vigor | mining speed x1.25 |
+| Trail Blend | trail_blend | workbench: 1 ground_coffee + 1 ground_dark_coffee -> 2 | Lasting | food drain x0.5 |
+
+- Contract change: `DrinkSpec.buff` becomes `'spring' | 'hearthkept' | 'mending' | 'swift' | 'vigor' | 'lasting'`
+  (BuffName gains the same six). Buff numbers live in constants (`SPRING_JUMP_MULT`, `HEARTHKEPT_DRAIN_MULT`,
+  `MENDING_REGEN_MULT`, `SWIFT_SPEED_MULT`, `VIGOR_MINING_MULT`, `LASTING_DRAIN_MULT`), each used at the one
+  place the base rule already lives (physics, survival warmth, survival regen, mining.ts, hunger.ts).
+- Stacking rule: at most ONE tea buff and ONE coffee buff at a time; drinking another of the same family
+  replaces it (toast "Spring replaces Mending"). Buffs from Well-Warmed and Well-Fed multiply with these.
+- Blocks: the cup states become data-driven instead of six hard-coded blocks: `cup_cone_loaded` and `cup_full`
+  with the drink key on the entity (`drink: string`), and the liquid colour taken from the drink item's
+  `drinkColour` field (the parts layer or a tinted quad draws it). Items: one per drink (`green_tea`,
+  `black_tea_cup`, `berry_tea`, `light_roast`, `dark_roast`, `trail_blend_cup`), all returning the clay cup.
+- `brewUse` table rows "cup_cone + dried_tea / ground_coffee" generalise to "cup_cone + any item with
+  `brews: <drink key>`" (new ItemSpec field on the six ingredients).
+- Goals: `first_brew` unchanged; add an optional later goal `six_cups` ("Taste them all": all six drunk,
+  tracked in PlayerState stats) with a small reward.
+- Tests: each buff's effect at its hook; family replacement; six ingredients brew six drinks; solver reaches
+  all at tier 1 (dark roast needs 400 C: charcoal or bellows).
+
+### 11.2 Regrowing bushes
+As written in section 3 (role bush, regrowS 360, cuttings to plant). No change.
+
+### 11.3 Boiling water from any container, and from the kettle
+- New ItemSpec field `container?: { holds: 'water'; boilsTo: string; emptyTo: string }` on `water_pail`
+  (boilsTo `boiling_pail`, emptyTo `pail`). Future bowls or flasks only need this field and a furnace-top block.
+  The sim's `brewUse` pour row accepts any held item that is the `boilsTo` of some container.
+- Furnace top: any water-holding container can be set on a hot furnace top (the block shows that container's
+  model: `furnace_bucket` today; a future `furnace_bowl` plugs in through a `CONTAINER_BLOCKS` table in content).
+- Kettle (STEAM_PLAN): Use on a kettle that is boiling (furnace >= 120 C and water in it) with an EMPTY
+  container fills it with boiling water directly (takes 1000 L per bucket; "The kettle is not boiling yet"
+  otherwise). Using a water container on a kettle still pours water in. Add both rows to the kettle's use table
+  and a test for each.
+- Later (Bronze): a container on a Hot Plate boils the same way (the Hot Plate reports delivered temperature).

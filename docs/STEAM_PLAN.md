@@ -492,3 +492,15 @@ per instance upload:  angle = net.angle * 2^ratioLog2 * dir + phase
 shader: rotate the part's vertices about its axis by `angle` (no time uniform), so a speed change never snaps
 seized: refRpm = 0 and a 0.3 s decaying shake offset = sin(t * 60) * 0.02 * e^(-t / 0.1)
 ```
+
+
+## 15. Owner decisions after this plan was written
+
+- **Steam turbine:** "shaft source in ember era and bronze era, a modern steam turbine can be made in a later
+  era that can convert direct to electricity". So: every steam device of the Ember and Bronze ages (steam
+  rotor, piston steam engine) is a SHAFT source. The existing `steam_turbine` block stays a Current-age DIRECT
+  generator exactly as it is built today (steam in, watts out, no shaft). Remove the `alternator` and the
+  "steam turbine as shaft source" rows from section 2 and from PROGRESSION; the dynamo (Forge) remains the only
+  shaft-to-watts bridge.
+- **Kettle gives boiling water** for brewing (BREWING_PLAN 11.3): Use with an empty container on a boiling
+  kettle fills it.

@@ -49,7 +49,9 @@ Every conversion is a block in the world you can watch working.
   **[built]**
 - **Brewing [planned, BREWING_PLAN]:** grow and harvest tea and coffee; dry or roast in a crucible; a water
   bucket set on top of the furnace boils; cup + drip cone + leaves or grounds; pour the boiling water; drink
-  for a speed boost (coffee) or a jump boost (tea).
+  - six drinks, each its own 3-minute boost: Green Tea (jump), Black Tea (warmth), Berry Tea (healing), Light
+  Roast (speed), Dark Roast (mining), Trail Blend (hunger). One tea and one coffee boost at a time. The kettle
+  also gives boiling water; any future container works too.
 - **Steam and mechanics [planned, STEAM_PLAN]:** no electricity. A Copper Kettle on the furnace and a Steam
   Rotor (32 rpm); Water Wheel on flowing water; Windmill. Shafts carry SPEED (rpm) and STRESS (sources add
   capacity, machines add load, load grows with speed, too much and the line seizes). Cogs trade speed for
@@ -110,8 +112,9 @@ Every conversion is a block in the world you can watch working.
 
 - **Find:** quartz, bauxite, wolframite, spodumene, oil pools. **[built]**
 - **Hearth:** electric heating; silicon 1700, tungsten 2000. **[built]**
-- **Power:** Steam Turbine + Alternator on steel shafts **[planned; open decision]**; wind, solar, combustion,
-  geothermal with built-in generators **[built]**. Storms boost wind and bring Arc Drones; cloud and rain cut
+- **Power:** the modern Steam Turbine turns steam straight into electricity **[built]** (decided: only the
+  Ember and Bronze steam devices drive shafts); wind, solar, combustion, geothermal with built-in generators
+  **[built]**. Storms boost wind and bring Arc Drones; cloud and rain cut
   solar. **[built]**
 - **Machines:** still, bore rig, fast item pipes, heavy cable, circuits, Ward Beacon, arc maul. **[built]**
 - **Goals:** Arc hearth - pump water - reach 1900 C - circuits - generate 10 kW - ward your base - tungsten.
@@ -151,9 +154,9 @@ with pressure, pneumatics and thermocouples; the Bronze Furnace is one block and
 multiblock; the Bronze Chute lives in the Bronze Age and needs a Vacuum Pump; brewing is Ember; hand recipes
 are also at the workbench; buckets take source blocks and water flows; enemies are the Emberbound.
 
+Also decided: every tea and coffee variety gives its own boost; tea and coffee are regrowing bushes; the
+kettle and any future container give boiling water; steam drives shafts in the Ember and Bronze ages and the
+modern Steam Turbine (Current Age) converts straight to electricity.
+
 Still open:
-1. Brewing: one boost per drink (coffee speed, tea jump) or both?
-2. Brewing: regrowing bushes or replanted crops?
-3. Brewing: may the kettle also give boiling water?
-4. Steam turbine: shaft source needing an alternator, or a direct generator?
-5. Star hearth: keep 93 casings or reduce?
+1. Star hearth: keep 93 casings or reduce?
