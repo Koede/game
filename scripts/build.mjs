@@ -5,6 +5,9 @@
 //   dist/artifact.html  the same page as a body fragment for hosts that supply their own <html> shell
 //
 // Flags: --watch (rebuild on change)  --serve (static server on http://localhost:5173)  --dev (no minify)
+//        --entry=<file.ts> --out=<dir>   bundle another entry point with the same pipeline (test harnesses)
+//
+// Also importable:  import { build, serve } from './scripts/build.mjs'
 import * as esbuild from 'esbuild';
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, watch } from 'node:fs';
@@ -12,9 +15,12 @@ import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
+const argValue = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const dev = args.has('--dev') || args.has('--watch');
-const dist = join(root, 'dist');
+const dist = resolve(argValue('out') ?? join(root, 'dist'));
+const mainEntry = resolve(argValue('entry') ?? join(root, 'src/main.ts'));
 const WORKER_ENTRY = join(root, 'src/world/worker.ts');
 
 /** Bundles the chunk worker and exposes its source as the default export of `virtual:worker`. */
@@ -46,41 +52,50 @@ function page(kind) {
   const template = readFileSync(join(root, 'src/page.html'), 'utf8');
   const cssPath = join(root, 'src/ui/styles.css');
   const css = existsSync(cssPath) ? readFileSync(cssPath, 'utf8') : '';
-  const body = template.replace('/*__GAME_CSS__*/', () => css);
-  if (kind === 'artifact') return body;
+  const [head, body] = template.replace('/*__GAME_CSS__*/', () => css).split('<!--BODY-->');
+  // Hosts that wrap the page in their own document get one fragment: head content first, then the body.
+  if (kind === 'artifact') return `${head.trim()}\n${body.trim()}\n`;
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+${head.trim()}
 </head>
 <body>
-${body}
+${body.trim()}
 </body>
 </html>
 `;
 }
 
-async function buildOnce() {
+/**
+ * Bundles `entry` into `outDir/game.js` and writes the page shell next to it.
+ * Defaults build the real game into dist/.
+ */
+export async function build({ entry = mainEntry, outDir = dist, minify = !dev, quiet = false } = {}) {
   const started = Date.now();
-  mkdirSync(dist, { recursive: true });
+  mkdirSync(outDir, { recursive: true });
   await esbuild.build({
-    entryPoints: [join(root, 'src/main.ts')],
+    entryPoints: [entry],
     bundle: true,
-    outfile: join(dist, 'game.js'),
+    outfile: join(outDir, 'game.js'),
     format: 'iife',
     target: 'es2020',
-    minify: !dev,
-    sourcemap: dev ? 'inline' : false,
+    minify,
+    sourcemap: minify ? false : 'inline',
     loader: { '.css': 'text' },
     plugins: [workerPlugin],
     logLevel: 'warning',
-    define: { __DEV__: JSON.stringify(dev) },
+    absWorkingDir: root,
+    nodePaths: [join(root, 'node_modules')],
+    define: { __DEV__: JSON.stringify(!minify) },
   });
-  writeFileSync(join(dist, 'index.html'), page('standalone'));
-  writeFileSync(join(dist, 'artifact.html'), page('artifact'));
-  console.log(`built dist/ in ${Date.now() - started} ms`);
+  writeFileSync(join(outDir, 'index.html'), page('standalone'));
+  writeFileSync(join(outDir, 'artifact.html'), page('artifact'));
+  if (!quiet) console.log(`built ${outDir} in ${Date.now() - started} ms`);
 }
+const buildOnce = () => build();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -90,12 +105,14 @@ const MIME = {
   '.png': 'image/png',
 };
 
-export function serve(port = 5173) {
+/** Serves a directory (default dist/) over http. Port 0 picks a free port: read it from server.address().port. */
+export function serve(port = 5173, dir = dist) {
+  const base = resolve(dir);
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const rel = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
-    const file = resolve(dist, rel);
-    if (!file.startsWith(dist) || !existsSync(file)) {
+    const file = resolve(base, rel);
+    if (!file.startsWith(base) || !existsSync(file)) {
       res.writeHead(404).end('not found');
       return;
     }
