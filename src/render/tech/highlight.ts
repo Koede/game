@@ -12,7 +12,7 @@ import { edgeGeometry } from '../target';
 const FADE_S = 0.6;
 const STYLE_ID = 'hw-highlight-style';
 const CSS = `
-.hw-hl-arrow { position: absolute; left: 0; top: 0; width: 36px; height: 36px; pointer-events: none; display: none;
+.hw-hl-arrow { position: absolute; left: 0; top: 0; width: 40px; height: 40px; pointer-events: none; display: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.75)); will-change: transform; }
 .hw-hl-arrow svg { width: 100%; height: 100%; display: block; animation: hw-hl-pulse 0.45s ease-in-out infinite alternate; }
 @keyframes hw-hl-pulse { from { opacity: 0.6; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
@@ -170,8 +170,8 @@ export class BlockHighlight {
     }
     const style = this.arrow.style;
     if (style.display !== 'block') style.display = 'block';
-    const px = Math.round(a.x - 18);
-    const py = Math.round(a.y - 18);
+    const px = Math.round(a.x - 20);
+    const py = Math.round(a.y - 20);
     const deg = Math.round((a.angle * 180) / Math.PI);
     if (px !== this.lastX || py !== this.lastY || deg !== this.lastA) {
       this.lastX = px;
