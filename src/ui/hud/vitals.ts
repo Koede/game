@@ -3,8 +3,13 @@ import { MAX_AIR_S, MAX_HEALTH, MAX_WARMTH, WELL_WARMED_AFTER_S } from '../../co
 import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
 import { h, setAttr, setFlag, setText } from '../kit/dom';
-import { formatDuration } from '../kit/format';
 import { glyph, type GlyphName } from '../kit/icons';
+
+/** 252 -> "4:12". */
+const clockTime = (seconds: number): string => {
+  const s = Math.ceil(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 class VitalBar {
   readonly el: HTMLDivElement;
@@ -83,7 +88,7 @@ export class Vitals {
     if (left > 0) {
       this.buff.hidden = false;
       setFlag(this.buff, 'pending', false);
-      setText(this.buffText, `Well-Warmed ${formatDuration(left)}`);
+      setText(this.buffText, `Well-Warmed ${clockTime(left)}`);
     } else if (warming > 0 && warming < 1) {
       this.buff.hidden = false;
       setFlag(this.buff, 'pending', true);

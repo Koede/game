@@ -2,7 +2,7 @@
 import { h, setAttr, setFlag, setText } from '../kit/dom';
 import { formatJoules, formatPercent, formatWatts } from '../kit/format';
 import { glyph } from '../kit/icons';
-import { dayInfo, type GridSummary } from './hudMath';
+import { dayInfo, formatCountdown, type GridSummary } from './hudMath';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const svg = <K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>): SVGElementTagNameMap[K] => {
@@ -18,7 +18,10 @@ export class DayDial {
   private readonly body: SVGCircleElement;
   private readonly dayEl: HTMLSpanElement;
   private readonly untilEl: HTMLSpanElement;
+  private readonly untilText: HTMLSpanElement;
+  private readonly nextIcon: HTMLSpanElement;
   private shownPos = '';
+  private shownNight: boolean | null = null;
 
   constructor() {
     const face = svg('svg', { viewBox: '0 0 36 36', width: 36, height: 36, 'aria-hidden': 'true', class: 'hw-dial__face' });
@@ -30,7 +33,10 @@ export class DayDial {
     this.body = svg('circle', { r: 4, cx: 5, cy: 18, class: 'hw-dial__body' });
     face.append(this.body);
     this.dayEl = h('span', { class: 'hw-dial__day' });
-    this.untilEl = h('span', { class: 'hw-dial__until hw-num' });
+    // "Night in 6 m" reads as a moon and "6 m": the dial face already says which half of the day it is.
+    this.nextIcon = h('span', { class: 'hw-dial__next' });
+    this.untilText = h('span', { class: 'hw-num' });
+    this.untilEl = h('span', { class: 'hw-dial__until' }, this.nextIcon, this.untilText);
     this.el = h('div', { class: 'hw-dial hw-hud-plate', attrs: { role: 'img' } }, face, h('span', { class: 'hw-dial__text' }, this.dayEl, this.untilEl));
   }
 
@@ -44,10 +50,15 @@ export class DayDial {
       this.body.setAttribute('cx', x.toFixed(1));
       this.body.setAttribute('cy', y.toFixed(1));
     }
-    setFlag(this.el, 'night', info.isNight);
+    if (info.isNight !== this.shownNight) {
+      this.shownNight = info.isNight;
+      setFlag(this.el, 'night', info.isNight);
+      this.nextIcon.replaceChildren(glyph(info.isNight ? 'sun' : 'moon', 11));
+    }
     setText(this.dayEl, `Day ${day}`);
-    setText(this.untilEl, info.text);
+    setText(this.untilText, formatCountdown(info.untilS));
     setAttr(this.el, 'aria-label', `Day ${day}, ${info.isNight ? 'night' : 'daytime'}. ${info.text}`);
+    setAttr(this.el, 'title', info.text);
   }
 }
 
@@ -56,14 +67,12 @@ const STATE_TEXT: Record<GridSummary['state'], string> = { idle: '', ok: '', sho
 export class PowerStrip {
   readonly el: HTMLDivElement;
   private readonly genEl: HTMLSpanElement;
-  private readonly useEl: HTMLSpanElement;
   private readonly noteEl: HTMLSpanElement;
   private readonly fill: HTMLDivElement;
   private readonly marker: HTMLDivElement;
 
   constructor() {
     this.genEl = h('span', { class: 'hw-power__gen hw-num' });
-    this.useEl = h('span', { class: 'hw-power__use hw-num' });
     this.noteEl = h('span', { class: 'hw-power__note hw-num' });
     this.fill = h('div', { class: 'hw-power__fill' });
     this.marker = h('div', { class: 'hw-power__marker' });
@@ -74,7 +83,7 @@ export class PowerStrip {
       h(
         'span',
         { class: 'hw-power__body' },
-        h('span', { class: 'hw-power__row' }, this.genEl, h('span', { class: 'hw-power__sep', text: '/' }), this.useEl),
+        h('span', { class: 'hw-power__row' }, this.genEl),
         h('div', { class: 'hw-power__track' }, this.fill, this.marker),
         this.noteEl,
       ),
@@ -86,20 +95,17 @@ export class PowerStrip {
     this.el.hidden = !grid.active;
     if (!grid.active) return;
     setText(this.genEl, formatWatts(grid.generationW));
-    setText(this.useEl, formatWatts(grid.demandW));
     // The bar is generation; the marker is demand. A marker past the end of the fill means the grid is short.
     const scale = Math.max(grid.generationW, grid.demandW, 1);
     this.fill.style.transform = `scaleX(${(grid.generationW / scale).toFixed(3)})`;
     this.marker.style.left = `${((grid.demandW / scale) * 100).toFixed(1)}%`;
     this.marker.hidden = grid.demandW <= 0;
     const stateText = STATE_TEXT[grid.state];
-    const note = stateText
-      ? `${stateText} ${formatPercent(grid.satisfaction)}`
-      : grid.capacityJ > 0
-        ? `Stored ${formatJoules(grid.storedJ)}`
-        : '';
-    setText(this.noteEl, grid.state === 'overload' ? stateText : note);
-    this.noteEl.hidden = this.noteEl.textContent === '';
+    let note = `uses ${formatWatts(grid.demandW)}`;
+    if (grid.state === 'overload') note = 'Cables overloaded';
+    else if (grid.state === 'short') note = `${stateText}: ${formatPercent(grid.satisfaction)}`;
+    else if (grid.capacityJ > 0) note += ` · ${formatJoules(grid.storedJ)} stored`;
+    setText(this.noteEl, note);
     setAttr(this.el, 'data-state', grid.state);
     setAttr(
       this.el,

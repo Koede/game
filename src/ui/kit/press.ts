@@ -10,13 +10,17 @@ export interface PressHandlers {
 
 export const LONG_PRESS_MS = 420;
 const MOVE_TOLERANCE_PX = 10;
-/** After a long-press fires, the click / contextmenu the browser may still deliver for it is ignored for this long. */
-const ECHO_MS = 700;
+/**
+ * After a long-press fires, the click / contextmenu the browser delivers for it is ignored: until the finger lifts,
+ * and for this long after (the echo arrives right at release; a real tap a moment later must still count).
+ */
+const ECHO_MS = 350;
 
 export function bindPress(el: HTMLElement, handlers: PressHandlers, longPressMs = LONG_PRESS_MS): Dispose {
   const d = new Disposer();
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let firedAt = -Infinity;
+  let holding = false;
+  let releasedAt = -Infinity;
   let startX = 0;
   let startY = 0;
 
@@ -24,7 +28,13 @@ export function bindPress(el: HTMLElement, handlers: PressHandlers, longPressMs 
     if (timer !== null) clearTimeout(timer);
     timer = null;
   };
-  const isEcho = (): boolean => performance.now() - firedAt < ECHO_MS;
+  const isEcho = (): boolean => holding || performance.now() - releasedAt < ECHO_MS;
+  const release = (): void => {
+    cancel();
+    if (!holding) return;
+    holding = false;
+    releasedAt = performance.now();
+  };
 
   d.add(
     listen(el, 'click', (ev) => {
@@ -49,7 +59,7 @@ export function bindPress(el: HTMLElement, handlers: PressHandlers, longPressMs 
         startY = ev.clientY;
         timer = setTimeout(() => {
           timer = null;
-          firedAt = performance.now();
+          holding = true;
           handlers.secondary?.(ev);
         }, longPressMs);
       }),
@@ -59,9 +69,9 @@ export function bindPress(el: HTMLElement, handlers: PressHandlers, longPressMs 
         if (timer !== null && Math.hypot(ev.clientX - startX, ev.clientY - startY) > MOVE_TOLERANCE_PX) cancel();
       }),
     );
-    d.add(listen(el, 'pointerup', cancel));
-    d.add(listen(el, 'pointercancel', cancel));
-    d.add(listen(el, 'pointerleave', cancel));
+    d.add(listen(el, 'pointerup', release));
+    d.add(listen(el, 'pointercancel', release));
+    d.add(listen(el, 'pointerleave', release));
   }
   d.add(cancel);
   return () => d.dispose();

@@ -11,7 +11,7 @@ import { itemOrNull } from '../../core/registry';
 import { canMerge, fullDurability, type Inventory } from '../../game/inventory';
 import { moveHalf, moveOne, moveStack, quickMove } from '../../game/transfer';
 import { Disposer, h, listen, setText } from '../kit/dom';
-import { Button } from '../kit/controls';
+import { Button, IconButton } from '../kit/controls';
 import { ItemIcon } from '../kit/icons';
 import type { ItemSlot, SlotView } from '../kit/slot';
 
@@ -217,7 +217,7 @@ export class SlotController {
     this.bus = bus;
     this.barText = h('span', { class: 'hw-carry__text' });
     this.barMoves = h('div', { class: 'hw-carry__moves' });
-    const cancel = new Button({ label: 'Cancel', kind: 'quiet', size: 'sm', onClick: () => this.cancel() });
+    const cancel = new IconButton({ icon: 'close', label: 'Put it back', onClick: () => this.cancel() });
     this.actionBar = h('div', { class: 'hw-carry', attrs: { role: 'status' } }, this.barIcon.el, this.barText, this.barMoves, cancel.el);
     this.actionBar.hidden = true;
     this.ghost = h('div', { class: 'hw-slot-ghost', attrs: { 'aria-hidden': 'true' } }, this.ghostIcon.el);
@@ -227,7 +227,6 @@ export class SlotController {
       this.disposer.add(listen(document, 'pointermove', (ev) => this.moveGhost(ev), { passive: true }));
     }
     this.disposer.add(() => this.ghost.remove());
-    this.disposer.add(() => cancel.dispose());
   }
 
   get picked(): Readonly<SlotPick> | null {
@@ -285,15 +284,23 @@ export class SlotController {
 
   private onPrimary(group: string, index: number, ev: Event): void {
     const now = performance.now();
-    const shift = ev instanceof MouseEvent && ev.shiftKey;
-    const repeat = this.lastTap.group === group && this.lastTap.index === index && now - this.lastTap.at < DOUBLE_TAP_MS;
-    this.lastTap = { group, index, at: repeat ? -Infinity : now };
-    if (shift || repeat) {
+    if (ev instanceof MouseEvent && ev.shiftKey) {
       this.logic.picked = null;
       this.after(this.logic.quickMove(group, index));
       return;
     }
-    this.after(this.logic.primary(group, index));
+    // A double tap is a tap that picked a slot, followed quickly by a second tap on the same slot (which would
+    // otherwise put it back): the second tap sends the stack to the other inventory instead.
+    const last = this.lastTap;
+    this.lastTap = { group: '', index: -1, at: -Infinity };
+    if (last.group === group && last.index === index && now - last.at < DOUBLE_TAP_MS) {
+      this.logic.picked = null;
+      this.after(this.logic.quickMove(group, index));
+      return;
+    }
+    const outcome = this.logic.primary(group, index);
+    if (outcome === 'picked') this.lastTap = { group, index, at: now };
+    this.after(outcome);
   }
 
   private after(outcome: SlotOutcome): void {

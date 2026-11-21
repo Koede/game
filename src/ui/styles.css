@@ -1730,10 +1730,15 @@ body {
   font-size: 14px;
   color: var(--hw-ash-2);
 }
+.hw-banner[data-size='md'] {
+  align-self: center;
+  width: min(calc(100% - 24px), 520px);
+}
 .hw-banner[data-size='md'] .hw-banner__plate {
   gap: 4px;
   padding-top: 10px;
   padding-bottom: 11px;
+  border: 1px solid var(--hw-tone);
 }
 .hw-banner[data-size='md'] .hw-banner__title {
   font-size: clamp(18px, 4.8vw, 26px);
@@ -2163,10 +2168,10 @@ body {
    the bag + recipe list layout (inventory, workbench), the Hearth Log, death and win. */
 .hw-carry {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
-  padding: 6px 6px 6px 8px;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 0 0 8px;
   background: var(--hw-soot-3);
   border: 1px solid var(--hw-iron-2);
   border-left: 3px solid var(--hw-bone);
@@ -2176,7 +2181,7 @@ body {
   --hw-icon: 26px;
 }
 .hw-carry__text {
-  flex: 1 1 120px;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   font: 600 13px / 1.25 var(--hw-font-display);
@@ -2186,8 +2191,11 @@ body {
 }
 .hw-carry__moves {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
   gap: 6px;
+}
+.hw-carry > .hw-iconbtn {
+  flex: none;
 }
 .hw-slot-ghost {
   position: absolute;
@@ -2200,7 +2208,7 @@ body {
 .hw-slot-ghost > .hw-icon {
   --hw-icon: 36px;
 }
-.hw-slot[data-selected] .hw-icon {
+.hw-window .hw-slot[data-selected] .hw-icon {
   opacity: 0.55;
 }
 
@@ -2490,8 +2498,7 @@ body {
   display: grid;
   align-content: end;
   gap: 4px;
-  min-height: 150px;
-  padding: 14px 16px;
+  padding: 84px 16px 14px;
   overflow: hidden;
   background: var(--hw-soot-0);
   border: 1px solid var(--hw-iron-1);
@@ -2515,7 +2522,7 @@ body {
   color: var(--hw-temp-1100);
 }
 .hw-win__title {
-  font: 700 clamp(22px, 5vw, 32px) / 1.1 var(--hw-font-display);
+  font: 700 clamp(20px, 5vw, 30px) / 1.1 var(--hw-font-display);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--hw-temp-1500);
@@ -2554,7 +2561,7 @@ body {
 }
 @media (max-height: 519.98px) {
   .hw-win__hero {
-    min-height: 96px;
+    padding-top: 40px;
   }
   .hw-win__stats {
     grid-template-columns: repeat(6, minmax(0, 1fr));

@@ -144,9 +144,9 @@
   gap: 5px;
   margin-top: 1px;
   padding: 2px 6px 2px 5px;
-  font: 600 10.5px / 1.2 var(--hw-font-display);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font: 600 11.5px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
   color: var(--hw-heat-ink);
   background: var(--hw-heat-hi);
   border-radius: 1px;
@@ -327,15 +327,22 @@
   color: var(--hw-ash-2);
 }
 .hw-dial__until {
-  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
 }
-.hw-dial[data-night] .hw-dial__until {
-  color: #b9c8ff;
+.hw-dial__next {
+  display: grid;
+  color: #c9d4f0;
+}
+.hw-dial[data-night] .hw-dial__next {
+  color: #ffd56b;
 }
 .hw-power {
   --hw-tone: var(--hw-power);
   gap: 6px;
-  min-width: 128px;
+  min-width: 112px;
 }
 .hw-power[data-state='short'] {
   --hw-tone: var(--hw-warn);
@@ -357,18 +364,13 @@
   display: flex;
   align-items: baseline;
   gap: 4px;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
 }
 .hw-power__gen {
   color: var(--hw-power-hi);
-}
-.hw-power__sep {
-  color: var(--hw-iron-3);
-}
-.hw-power__use {
-  color: var(--hw-ash-2);
 }
 .hw-power__track {
   position: relative;
@@ -394,8 +396,12 @@
 .hw-power__note {
   font-size: 10.5px;
   line-height: 1.1;
-  color: var(--hw-tone);
+  color: var(--hw-ash-2);
   white-space: nowrap;
+}
+.hw-power[data-state='short'] .hw-power__note,
+.hw-power[data-state='overload'] .hw-power__note {
+  color: var(--hw-tone);
 }
 
 /* ---- crosshair ---------------------------------------------------------------------------- */
@@ -469,19 +475,23 @@
   opacity: 1;
 }
 .hw-hud[data-screen] .hw-cross,
-.hw-hud[data-screen] .hw-feed {
+.hw-layer[data-screen] .hw-banner[data-size='md'] {
   visibility: hidden;
 }
 
 /* ---- gain feed ---------------------------------------------------------------------------- */
+/* The feed lives in the toasts layer: on wide screens at the left of the toast column's top, on narrow
+   portrait screens in the column itself, below the banner and the toasts. */
 .hw-feed {
   position: absolute;
-  top: calc(var(--hw-hud-top, 72px) + 10px);
-  left: calc(var(--hw-hud-pad) + var(--hw-safe-l));
+  top: calc(var(--hw-toast-top, 64px) + var(--hw-safe-t));
+  left: calc(8px + var(--hw-safe-l));
   display: grid;
   justify-items: start;
   gap: 4px;
-  max-width: 46vw;
+  max-width: min(24vw, 220px);
+  color: var(--hw-bone);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
 }
 .hw-feed__line {
   display: flex;
@@ -582,7 +592,7 @@
 .hw-vignette--frost {
   opacity: 0;
   background:
-    radial-gradient(ellipse at center, transparent 50%, rgba(170, 210, 255, 0.28) 78%, rgba(220, 238, 255, 0.72) 100%),
+    radial-gradient(ellipse at center, transparent 46%, rgba(170, 210, 255, 0.38) 74%, rgba(225, 240, 255, 0.85) 100%),
     repeating-conic-gradient(from 10deg at 50% 50%, rgba(235, 245, 255, 0.07) 0deg 3deg, transparent 3deg 11deg);
   -webkit-mask: radial-gradient(ellipse at center, transparent 48%, #000 92%);
   mask: radial-gradient(ellipse at center, transparent 48%, #000 92%);
@@ -641,11 +651,18 @@
   .hw-hud__mid {
     margin-right: var(--hw-hud-reserve);
   }
+  .hw-feed {
+    position: static;
+    order: 1;
+    align-self: flex-start;
+    max-width: 62vw;
+    margin-left: calc(8px + var(--hw-safe-l));
+  }
   .hw-goal {
     width: 100%;
   }
   .hw-vitals {
-    width: 150px;
+    width: 140px;
   }
   .hw-compass,
   .hw-dial,
@@ -664,7 +681,9 @@
   .hw-hud {
     --hw-hud-pad: 6px;
   }
+  /* One row: vitals and the goal hug the left, the status cluster takes the rest. */
   .hw-hud__top {
+    grid-template-columns: auto auto minmax(0, 1fr);
     gap: 6px;
   }
   .hw-vitals {
@@ -690,11 +709,18 @@
     gap: 5px;
     padding: 0 7px 0 5px;
   }
-  .hw-dial__day {
-    display: none;
-  }
   .hw-power {
     min-width: 0;
+  }
+  .hw-goal {
+    width: clamp(170px, 26vw, 260px);
+  }
+  /* Toasts run down the middle; the feed stays left of them and clear of the joystick. */
+  .hw-feed {
+    max-width: min(19vw, 170px);
+  }
+  .hw-feed__line:nth-last-child(n + 4) {
+    display: none;
   }
   /* The touch overlay keeps the bottom-centre 60% x 64px free for the hotbar. */
   .hw-hotbar {

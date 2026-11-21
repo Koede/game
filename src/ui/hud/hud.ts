@@ -72,6 +72,9 @@ export class Hud {
   private fpsTime = 0;
   private echo: { text: string; until: number } | null = null;
   private targetKey = '';
+  private screenOpen = false;
+  /** Goals completed while a screen covered the view: announced once it closes (the tracker's toast covers the moment). */
+  private heldGoal: string | null = null;
 
   constructor(root: UIRoot, deps: HudDeps) {
     injectCss();
@@ -94,11 +97,12 @@ export class Hud {
       { class: 'hw-hud' },
       this.vignettes.el,
       this.top,
-      this.feed.el,
       this.crosshair.el,
       h('div', { class: 'hw-hud__bottom' }, this.hotbar.el),
     );
     root.layers.hud.appendChild(this.el);
+    // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
+    root.layers.toasts.appendChild(this.feed.el);
 
     this.offs.push(
       bus.on('toast', (t) => this.toast(t.text, t.kind, t.item)),
@@ -151,7 +155,16 @@ export class Hud {
 
   /** A screen covers the view: the crosshair and the gain feed step back. */
   setScreenOpen(open: boolean): void {
+    this.screenOpen = open;
     setFlag(this.el, 'screen', open);
+    // An objective banner would sit on top of the screen's content; announcements wait for the view to return.
+    setFlag(this.root.layers.toasts, 'screen', open);
+    this.feed.el.hidden = open;
+    if (!open && this.heldGoal !== null) {
+      const id = this.heldGoal;
+      this.heldGoal = null;
+      this.objectiveBanner(id);
+    }
   }
 
   refreshIcons(): void {
@@ -164,6 +177,7 @@ export class Hud {
     this.offs.length = 0;
     this.observer?.disconnect();
     this.hotbar.dispose();
+    this.feed.el.remove();
     this.el.remove();
   }
 
@@ -203,6 +217,10 @@ export class Hud {
   private objectiveBanner(id: string): void {
     const spec = OBJECTIVES.find((o) => o.id === id);
     if (!spec) return;
+    if (this.screenOpen) {
+      this.heldGoal = id;
+      return;
+    }
     const next = this.deps.objectives.current;
     this.root.banner.show({
       kicker: 'Goal complete',
@@ -226,6 +244,5 @@ export class Hud {
     const rect = this.top.getBoundingClientRect();
     const safeTop = Math.max(0, parseFloat(getComputedStyle(this.top).paddingTop) - 8);
     this.root.layers.toasts.style.setProperty('--hw-toast-top', `${Math.round(rect.bottom - safeTop + 6)}px`);
-    this.el.style.setProperty('--hw-hud-top', `${Math.round(rect.bottom)}px`);
   }
 }

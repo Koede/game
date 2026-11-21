@@ -42,10 +42,22 @@ export function recipeRowView(recipe: RecipeDef, sources: readonly Inventory[], 
   };
 }
 
-/** Rows for a whole list, in authored order (rows never jump around under the player's finger). */
+/**
+ * Rows for a whole list, in authored order (rows never jump around under the player's finger). Variants that make
+ * the same item (planks from oak or pine logs) share one row: the variant that can be made most often, else the first.
+ */
 export function recipeRows(recipes: readonly RecipeDef[], sources: readonly Inventory[], destination: Inventory): RecipeRowView[] {
   const counts = tally(sources);
-  return recipes.map((r) => recipeRowView(r, sources, destination, counts));
+  const byOutput = new Map<string, RecipeRowView>();
+  const order: string[] = [];
+  for (const r of recipes) {
+    const view = recipeRowView(r, sources, destination, counts);
+    const key = r.output.item;
+    const best = byOutput.get(key);
+    if (!best) order.push(key);
+    if (!best || view.available > best.available) byOutput.set(key, view);
+  }
+  return order.map((key) => byOutput.get(key) as RecipeRowView);
 }
 
 /** Makes a recipe `times` times (as many as possible up to that), from the player and the given crates. */
