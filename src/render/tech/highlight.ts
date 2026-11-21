@@ -87,6 +87,7 @@ export class BlockHighlight {
   private lastX = NaN;
   private lastY = NaN;
   private lastA = NaN;
+  private lastFade = -1;
   private x = 0;
   private y = 0;
   private z = 0;
@@ -179,7 +180,12 @@ export class BlockHighlight {
       this.lastA = deg;
       style.transform = `translate(${px}px, ${py}px) rotate(${deg}deg)`;
     }
-    style.opacity = fade.toFixed(2);
+    // The fade only moves in the last FADE_S seconds: write it in steps of 1/20 so the style is not rebuilt every frame.
+    const step = Math.round(fade * 20);
+    if (step !== this.lastFade) {
+      this.lastFade = step;
+      style.opacity = String(step / 20);
+    }
   }
 
   dispose(): void {
@@ -194,5 +200,6 @@ export class BlockHighlight {
   private hideArrow(): void {
     if (this.arrow.style.display !== 'none') this.arrow.style.display = 'none';
     this.lastX = NaN;
+    this.lastFade = -1;
   }
 }

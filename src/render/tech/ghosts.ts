@@ -17,8 +17,10 @@ import { LEAVES_ONLY, sightTo } from './sightline';
 
 /** Ghost cells drawn at most (a Starhearth's largest shell is 218 cells plus 125 inside). */
 export const GHOST_CAP = 512;
-/** Sight lines re-checked per frame (round-robin), and only while the camera is within this range of the ghosts. */
-const SIGHT_CHECKS = 24;
+/** Sight lines re-checked per frame (round-robin) after the camera moved; a still camera checks nothing. */
+const SIGHT_CHECKS = 8;
+/** Camera movement (blocks, summed over the axes) that queues every sight line again. */
+const SIGHT_MOVE = 0.3;
 
 type GhostCell = GameEvents['ghost:show']['cells'][number];
 
@@ -77,7 +79,7 @@ void main() {
     if (vLayer >= 0.0) {
       // A faint image of the block that belongs here.
       vec3 t = atlasTexel(vUv, vLayer).rgb;
-      c = mix(c, c * (0.45 + 1.1 * dot(t, vec3(0.3, 0.55, 0.15))) + t * 0.18, 0.55);
+      c = mix(c, c * (0.35 + 1.3 * dot(t, vec3(0.3, 0.55, 0.15))) + t * 0.25, 0.7);
     }
     a = 0.2 + 0.06 * breathe + 0.55 * edge;
   } else {
@@ -135,6 +137,11 @@ export class GhostLayer {
   private cursor = 0;
   private dirty = false;
   private texDirty = false;
+  /** Sight lines still to check since the camera last moved. */
+  private pending = 0;
+  private camX = NaN;
+  private camY = NaN;
+  private camZ = NaN;
 
   constructor(private readonly world: IWorld, bus: GameBus, uniforms: WorldUniforms) {
     this.aCell = new THREE.InstancedBufferAttribute(new Float32Array(GHOST_CAP * 4), 4).setUsage(THREE.DynamicDrawUsage);
@@ -188,10 +195,18 @@ export class GhostLayer {
   update(camX: number, camY: number, camZ: number): void {
     if (this.dirty) this.rebuild();
     if (this.count === 0) return;
-    // Re-check a few sight lines per frame: which ghosts only leaves stand in front of.
+    // Re-check a few sight lines per frame while the view changes: which ghosts only leaves stand in front of.
+    if (Math.abs(camX - this.camX) + Math.abs(camY - this.camY) + Math.abs(camZ - this.camZ) > SIGHT_MOVE || Number.isNaN(this.camX)) {
+      this.camX = camX;
+      this.camY = camY;
+      this.camZ = camZ;
+      this.pending = this.count;
+    }
     const cell = this.aCell.array as Float32Array;
     const tex = this.aTex.array as Float32Array;
-    for (let i = 0; i < SIGHT_CHECKS && i < this.count; i++) {
+    const checks = Math.min(SIGHT_CHECKS, this.pending, this.count);
+    this.pending -= checks;
+    for (let i = 0; i < checks; i++) {
       this.cursor = (this.cursor + 1) % this.count;
       const o = this.cursor * 4;
       const through = sightTo(this.world, camX, camY, camZ, cell[o], cell[o + 1], cell[o + 2]) === LEAVES_ONLY ? 1 : 0;
@@ -237,6 +252,7 @@ export class GhostLayer {
     }
     this.count = n;
     this.cursor = 0;
+    this.pending = n;
     this.geometry.instanceCount = n;
     this.group.visible = n > 0;
     if (n === 0) return;

@@ -40,7 +40,8 @@ export class TechLayer {
   private source: TransportSource | null = null;
 
   constructor(world: IWorld, bus: GameBus, uniforms: WorldUniforms, particles: Particles, canvas: HTMLCanvasElement) {
-    this.light = new CellLight(world);
+    // Two new cells a frame (a probe reads ~3400 voxels), one known cell re-probed every frame.
+    this.light = new CellLight(world, 2, 1);
     this.packets = new PacketLayer(world, uniforms, this.light);
     this.overlay = new PipeOverlay(world, bus, uniforms, this.light);
     this.hearths = new HearthLights(world, bus, uniforms, particles);
