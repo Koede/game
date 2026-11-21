@@ -3,7 +3,10 @@
  * harnesses and tests may pass anything shaped like it. Types only: the UI never constructs simulation objects.
  */
 import type { Inventory } from '../../../game/inventory';
-import type { ActionResult, ForgeResult, FurnaceSlots, FurnaceView, MachineView, NetworkStats } from '../../../sim';
+import type { Face } from '../../../core/types';
+import type {
+  ActionResult, ForgeResult, FurnaceSlots, FurnaceView, MachineView, NetworkStats, PipeView, PortChange, StructureTarget, StructureView,
+} from '../../../sim';
 
 export interface ScreenSim {
   furnaceView(x: number, y: number, z: number): FurnaceView | null;
@@ -21,6 +24,11 @@ export interface ScreenSim {
   machineSlots(x: number, y: number, z: number): Inventory | null;
   setMachineOn(x: number, y: number, z: number, on: boolean): ActionResult;
   stationSources(x: number, y: number, z: number): Inventory[];
+  /** The STRUCTURE tab and the hearth ghost preview (spec 17.4). */
+  structureView(x: number, y: number, z: number, target?: StructureTarget): StructureView | null;
+  /** The pipe screen (spec 16.3). */
+  pipeView(x: number, y: number, z: number): PipeView | null;
+  setPort(x: number, y: number, z: number, dir: Face, change: PortChange): ActionResult;
 }
 
 /** The simulation writes temperatures as "700 C"; the UI shows "700 °C". */

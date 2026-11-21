@@ -4,7 +4,7 @@ import type { MachineRole } from '../../../core/types';
 import type { MachineView, NetworkStats } from '../../../sim';
 import { formatDuration, formatJoules, formatPercent, formatWatts } from '../../kit/format';
 
-export type MachineLayout = 'generator' | 'burner' | 'processor' | 'consumer' | 'storage' | 'bore' | 'fission' | 'crate';
+export type MachineLayout = 'generator' | 'burner' | 'processor' | 'consumer' | 'storage' | 'bore' | 'fission' | 'crate' | 'tank' | 'boiler' | 'part';
 
 /** The screen layout for a machine kind. */
 export function machineLayout(kind: string, role: MachineRole): MachineLayout {
@@ -12,6 +12,9 @@ export function machineLayout(kind: string, role: MachineRole): MachineLayout {
   if (kind === 'fission_pile') return 'fission';
   if (kind === 'bore_rig') return 'bore';
   if (role === 'storage') return 'storage';
+  if (role === 'tank') return 'tank';
+  if (role === 'boiler') return 'boiler';
+  if (role === 'hearth_part') return 'part';
   if (role === 'generator') return (machine(kind).fuels?.length ?? 0) > 0 ? 'burner' : 'generator';
   return recipesAt(kind).length > 0 ? 'processor' : 'consumer';
 }
@@ -58,10 +61,18 @@ export function headline(view: MachineView, layout: MachineLayout): { caption: s
       return { caption: 'Stored', reading: formatJoules(view.storedJ) };
     case 'crate':
       return { caption: 'Holds', reading: `${view.slots.filter((s) => s !== null).length} stacks` };
+    case 'tank':
+      return { caption: 'Holds', reading: `${litres(view.fluids?.stack?.litres ?? view.fluids?.input?.litres ?? 0)} L` };
+    case 'boiler':
+      return { caption: 'Steam', reading: `${litres(view.fluids?.rateL ?? 0)} L/s` };
+    case 'part':
+      return { caption: 'Hearth part', reading: '' };
     default:
       return { caption: 'Drawing', reading: formatWatts(view.demandW * view.satisfaction) };
   }
 }
+
+const litres = (l: number): string => Math.round(l).toLocaleString('en-US');
 
 /** Secondary line under the headline. */
 export function subline(view: MachineView, layout: MachineLayout): string {
@@ -74,6 +85,15 @@ export function subline(view: MachineView, layout: MachineLayout): string {
       return `of ${formatJoules(view.capacityJ)}${view.chargeW > 0 ? ` - charging ${formatWatts(view.chargeW)}` : view.outW > 0 ? ` - feeding ${formatWatts(view.outW)}` : ''}`;
     case 'crate':
       return `${view.slots.length} slots`;
+    case 'tank': {
+      const stack = view.fluids?.stack;
+      if (!stack) return '';
+      return `of ${litres(stack.capacityL)} L${stack.tanks > 1 ? ` (${stack.tanks} tanks)` : ''}`;
+    }
+    case 'boiler':
+      return 'from the furnace below - 1 L of water makes 10 L';
+    case 'part':
+      return '';
     default: {
       const draw = machine(view.kind).drawW ?? 0;
       if (view.demandW <= 0) return `Needs ${formatWatts(draw)} while working`;

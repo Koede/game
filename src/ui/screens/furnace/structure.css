@@ -1,0 +1,274 @@
+/* ==========================================================================================
+   THE STRUCTURE TAB (src/ui/screens/furnace/structureTab.ts, spec 17.4) and the number stepper it shares with the
+   pipe screen. Only the kit's --hw-* tokens.
+   ========================================================================================== */
+.hw-st {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.hw-st__status {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.hw-st__status .hw-badge {
+  padding: 6px 10px;
+  font: 700 13px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hw-st__effect {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+.hw-st__intro {
+  display: grid;
+  gap: 6px;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+  border-left: 3px solid var(--hw-heat);
+}
+.hw-st__introtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 14px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hw-heat-hi);
+}
+
+/* ---- checklist and problems ------------------------------------------------------------- */
+.hw-st__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hw-st__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 9px;
+  font: 600 12.5px / 1.2 var(--hw-font-mono);
+  color: var(--hw-warn);
+  background: var(--hw-warn-wash);
+  border: 1px dashed var(--hw-warn);
+  border-radius: var(--hw-radius);
+}
+.hw-st__check[data-ok='true'] {
+  color: var(--hw-good);
+  background: var(--hw-good-wash);
+  border-style: solid;
+  border-color: transparent;
+}
+.hw-st__problems {
+  display: grid;
+  gap: 4px;
+}
+.hw-st__problem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 9px;
+  width: 100%;
+  min-height: var(--hw-tap);
+  padding: 6px 10px;
+  text-align: left;
+  color: var(--hw-bone);
+  background: var(--hw-bad-wash);
+  border-left: 3px solid var(--hw-bad);
+  border-radius: var(--hw-radius);
+}
+.hw-st__problem > svg:first-child {
+  color: var(--hw-bad-hi);
+}
+.hw-st__problem > svg:last-child {
+  color: var(--hw-ash-1);
+}
+.hw-st__ptext {
+  font-size: var(--hw-fs-sm);
+  line-height: 1.3;
+}
+.hw-st__pnote {
+  grid-column: 2;
+  font: 600 var(--hw-fs-xs) / 1.3 var(--hw-font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hw-power-hi);
+}
+@media (hover: hover) {
+  .hw-st__problem:hover {
+    background: color-mix(in srgb, var(--hw-bad-wash) 70%, var(--hw-bad));
+  }
+}
+.hw-st__problem:active {
+  background: color-mix(in srgb, var(--hw-bad-wash) 60%, var(--hw-bad));
+}
+.hw-st__none {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-1);
+}
+
+/* ---- plan: tier, size, materials, ghost --------------------------------------------------- */
+.hw-st__target {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.hw-st__tiers .hw-seg {
+  display: flex;
+  width: 100%;
+}
+.hw-st__tiers .hw-seg__opt {
+  padding: 0 8px;
+}
+.hw-st__size {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.hw-st__rules {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+.hw-st__mats {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hw-st__mat {
+  display: grid;
+  grid-template-columns: var(--hw-icon) minmax(0, 1fr) auto;
+  grid-template-areas: 'icon name placed' 'icon name have';
+  align-items: center;
+  column-gap: 10px;
+  padding: 4px 8px;
+  background: var(--hw-soot-1);
+  border: 1px solid var(--hw-iron-1);
+  border-radius: var(--hw-radius);
+}
+.hw-st__mat .hw-icon {
+  grid-area: icon;
+}
+.hw-st__mname {
+  grid-area: name;
+  font-size: var(--hw-fs-sm);
+}
+.hw-st__mplaced,
+.hw-st__mhave {
+  justify-self: end;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.hw-st__mplaced {
+  grid-area: placed;
+  color: var(--hw-ash-1);
+}
+.hw-st__mhave {
+  grid-area: have;
+  font-weight: 600;
+  color: var(--hw-bone);
+}
+.hw-st__mat[data-tone='warn'] .hw-st__mhave {
+  color: var(--hw-warn);
+}
+.hw-st__mat[data-tone='good'] .hw-st__mhave {
+  color: var(--hw-good);
+}
+.hw-st__show {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--hw-tap);
+  padding-top: 6px;
+  border-top: 1px solid var(--hw-iron-1);
+}
+.hw-st__showlabel {
+  font: 700 13px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hw-st__shownote {
+  font-size: 12.5px;
+  color: var(--hw-ash-1);
+}
+
+/* ---- upgrade sheet: the way to the structure tab ------------------------------------------ */
+.hw-upg__why {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---- stepper (also the pipe screen's priority) ---------------------------------------------- */
+.hw-step {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.hw-step__label {
+  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hw-ash-1);
+}
+.hw-step__row {
+  display: inline-flex;
+  align-items: stretch;
+  background: var(--hw-soot-0);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-step__btn {
+  width: var(--hw-tap);
+  min-height: var(--hw-tap);
+  font: 700 20px / 1 var(--hw-font-display);
+  color: var(--hw-bone);
+}
+.hw-step__btn[aria-disabled='true'] {
+  color: var(--hw-iron-2);
+  cursor: default;
+}
+@media (hover: hover) {
+  .hw-step__btn:not([aria-disabled='true']):hover {
+    background: var(--hw-iron-1);
+  }
+}
+.hw-step__value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.2ch;
+  font-size: var(--hw-fs-md);
+  font-weight: 600;
+  border-inline: 1px solid var(--hw-iron-1);
+}
+.hw-step[data-fixed] .hw-step__btn {
+  display: none;
+}
+.hw-step[data-fixed] .hw-step__value {
+  min-height: var(--hw-tap);
+  padding: 0 12px;
+  border: 0;
+}
+@media (pointer: fine) {
+  .hw-step__btn {
+    width: 36px;
+    min-height: 34px;
+  }
+  .hw-step[data-fixed] .hw-step__value {
+    min-height: 34px;
+  }
+}

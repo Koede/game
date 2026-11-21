@@ -1,0 +1,326 @@
+/* ==========================================================================================
+   THE PIPE SCREEN (src/ui/screens/pipe, spec 16.3) and the fluid tanks of machine screens. Only the kit's tokens.
+   ========================================================================================== */
+.hw-pipe {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.hw-pipe__line {
+  display: grid;
+  gap: 8px;
+}
+.hw-pipe__content {
+  font-size: var(--hw-fs-md);
+  font-weight: 600;
+}
+.hw-pipe__level .hw-meter__fill,
+.hw-tank__bar .hw-meter__fill {
+  background: var(--hw-pipe-fluid, var(--hw-power));
+}
+.hw-pipe__warnings {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hw-pipe__warnings li {
+  padding: 4px 8px;
+  font: 600 12.5px / 1.3 var(--hw-font-mono);
+  color: var(--hw-warn);
+  background: var(--hw-warn-wash);
+  border-left: 3px solid var(--hw-warn);
+}
+.hw-pipe__ports {
+  display: grid;
+  gap: 8px;
+}
+.hw-pipe__empty {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-1);
+}
+
+/* ---- one end ---------------------------------------------------------------------------- */
+.hw-pipe__port {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px 10px;
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-1);
+  border-left: 3px solid var(--hw-iron-3);
+  border-radius: var(--hw-radius);
+}
+.hw-pipe__port[data-mode='push'] {
+  border-left-color: var(--hw-heat);
+}
+.hw-pipe-window .hw-pipe[data-family='fluid'] .hw-pipe__port[data-mode='push'] {
+  border-left-color: var(--hw-power);
+}
+.hw-pipe__port[data-mode='pull'] {
+  border-left-color: var(--hw-bone);
+}
+.hw-pipe__port[data-inert] {
+  opacity: 0.7;
+}
+.hw-pipe__head {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.hw-pipe__who {
+  display: grid;
+  grid-template-columns: var(--hw-icon) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  min-height: var(--hw-tap);
+  text-align: left;
+}
+.hw-pipe__names {
+  display: grid;
+  min-width: 0;
+}
+.hw-pipe__name {
+  overflow: hidden;
+  font: 700 14px / 1.25 var(--hw-font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hw-pipe__where {
+  font-size: 12px;
+  color: var(--hw-ash-1);
+}
+.hw-pipe__located {
+  font: 600 var(--hw-fs-xs) / 1.3 var(--hw-font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hw-power-hi);
+}
+.hw-pipe__status {
+  font: 600 13px / 1.3 var(--hw-font-mono);
+  color: var(--hw-ash-2);
+}
+.hw-pipe__status[data-tone='good'] {
+  color: var(--hw-good);
+}
+.hw-pipe__status[data-tone='warn'] {
+  color: var(--hw-warn);
+}
+.hw-pipe__status[data-tone='bad'] {
+  color: var(--hw-bad-hi);
+}
+.hw-pipe__ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hw-pipe__ctl .hw-seg {
+  flex: 1 1 200px;
+}
+.hw-pipe__more {
+  display: inline-flex;
+  flex: 1 1 140px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: var(--hw-tap);
+  padding: 0 10px;
+  text-align: left;
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-pipe__moretext {
+  flex: none;
+  font: 600 12px / 1 var(--hw-font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hw-pipe__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--hw-ash-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hw-pipe__more > svg {
+  flex: none;
+  transform: rotate(90deg);
+  transition: transform 120ms ease-out;
+}
+.hw-pipe__more[aria-expanded='true'] > svg {
+  transform: rotate(-90deg);
+}
+@media (pointer: fine) {
+  .hw-pipe__more {
+    min-height: 34px;
+  }
+}
+
+/* ---- settings fold ---------------------------------------------------------------------- */
+.hw-pipe__fold {
+  display: grid;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hw-iron-1);
+}
+.hw-pipe__field {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  min-width: 0;
+}
+.hw-pipe__filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hw-pipe__slots {
+  display: flex;
+  gap: 4px;
+}
+.hw-pipe__fslot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hw-tap);
+  height: var(--hw-tap);
+  background: var(--hw-soot-0);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-pipe__fslot[data-empty] {
+  border-style: dashed;
+}
+.hw-pipe__fslot[data-picking] {
+  border: 2px solid var(--hw-bone);
+}
+.hw-pipe__plus {
+  display: none;
+  font: 700 20px / 1 var(--hw-font-display);
+  color: var(--hw-ash-1);
+}
+.hw-pipe__fslot[data-empty] .hw-pipe__plus {
+  display: block;
+}
+.hw-pipe__fslot[data-empty] .hw-pipe__tile {
+  display: none;
+}
+.hw-pipe__tile {
+  display: inline-flex;
+}
+.hw-pipe__swatch {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.hw-pipe__swatch[data-glow] {
+  box-shadow: 0 0 8px currentColor, inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  color: var(--hw-heat);
+}
+.hw-pipe__ftext,
+.hw-pipe__note {
+  font-size: 12.5px;
+  color: var(--hw-ash-1);
+}
+.hw-pipe__picker {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  background: var(--hw-soot-1);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-pipe__ptitle {
+  font-size: var(--hw-fs-sm);
+  font-weight: 600;
+}
+.hw-pipe__pgrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.hw-pipe__choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: var(--hw-tap);
+  height: var(--hw-tap);
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-1);
+  border-radius: var(--hw-radius);
+}
+.hw-pipe__choice--named {
+  padding: 0 10px 0 8px;
+  font-size: var(--hw-fs-sm);
+}
+@media (hover: hover) {
+  .hw-pipe__choice:hover,
+  .hw-pipe__fslot:hover {
+    border-color: var(--hw-ash-1);
+  }
+}
+.hw-pipe__pbtns {
+  display: flex;
+  gap: 8px;
+}
+.hw-pipe__pbtn {
+  min-height: var(--hw-tap);
+  padding: 0 12px;
+  font: 600 12px / 1 var(--hw-font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+@media (pointer: fine) {
+  .hw-pipe__pbtn {
+    min-height: 34px;
+  }
+}
+.hw-pipe__prio {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  column-gap: 12px;
+}
+.hw-pipe__prio .hw-pipe__note {
+  padding-bottom: 12px;
+}
+
+/* ---- machine screens: fluid tanks --------------------------------------------------------- */
+.hw-tanks {
+  display: grid;
+  gap: 8px;
+}
+.hw-tank {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+}
+.hw-tank .hw-pipe__swatch {
+  width: 22px;
+  height: 22px;
+}
+.hw-tank__empty .hw-pipe__swatch {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--hw-iron-3);
+}
+.hw-tank__rate {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--hw-ash-1);
+}

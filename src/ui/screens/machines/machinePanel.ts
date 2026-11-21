@@ -13,6 +13,7 @@ import { ItemIcon } from '../../kit/icons';
 import { ItemSlot, SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
 import { pretty } from '../furnace/simApi';
+import { FluidTanks } from './fluidTanks';
 import { fuelText, headline, machineTone, subline, type MachineLayout } from './machineText';
 
 const nameOf = (key: string): string => itemOrNull(key)?.name ?? key;
@@ -39,6 +40,8 @@ export class MachinePanel {
   private second: Meter | null = null;
   private thermo: Thermometer | null = null;
   private recipeLine: HTMLSpanElement | null = null;
+  /** Machines with fluid ports: their buffers. */
+  private readonly tanks: FluidTanks | null;
 
   constructor(view: MachineView, layout: MachineLayout, slots: SlotController, inventory: Inventory | null, toBag: readonly QuickTarget[]) {
     this.layout = layout;
@@ -49,12 +52,15 @@ export class MachinePanel {
     this.problem = h('p', { class: 'hw-mach__problem', attrs: { 'data-tone': 'bad' } });
     this.hint = h('p', { class: 'hw-mach__hint' });
     this.extra = h('div', { class: 'hw-mach__extra' });
+    this.tanks = view.fluids ? new FluidTanks(view.kind) : null;
+    this.figure.el.hidden = layout === 'part';
     this.el = h(
       'section',
       { class: 'hw-mach', attrs: { 'data-layout': layout } },
       h('div', { class: 'hw-mach__head' }, icon.el, this.figure.el),
       this.status,
       this.problem,
+      this.tanks?.el ?? null,
       this.extra,
       this.hint,
     );
@@ -66,6 +72,7 @@ export class MachinePanel {
     this.figure.set(head.reading);
     this.figure.setNote(subline(view, this.layout));
     this.figure.setTone(this.layout === 'storage' || this.layout === 'generator' || this.layout === 'burner' || this.layout === 'fission' ? 'power' : 'neutral');
+    if (this.tanks && view.fluids) this.tanks.update(view.fluids);
     setText(this.status, pretty(view.status || (view.on ? 'Ready' : 'Switched off')));
     setAttr(this.status, 'data-tone', machineTone(view));
     this.problem.hidden = view.problem === null;

@@ -16,16 +16,22 @@ import { ForgeTab } from './forgeTab';
 import { GridTab } from './gridTab';
 import type { ScreenSim } from './simApi';
 import { SmeltTab } from './smeltTab';
+import { ghostFor } from './hearthGhost';
+import { StructureTab } from './structureTab';
+import { structureBadge } from './structureText';
 import { injectStationCss } from './styles';
 import { UpgradeControl } from './upgrade';
 
-export type FurnaceTab = 'smelt' | 'forge' | 'grid' | 'log';
+export type FurnaceTab = 'smelt' | 'forge' | 'structure' | 'grid' | 'log';
 const TABS: readonly { id: FurnaceTab; label: string }[] = [
   { id: 'smelt', label: 'Smelt' },
   { id: 'forge', label: 'Forge' },
+  { id: 'structure', label: 'Structure' },
   { id: 'grid', label: 'Grid' },
   { id: 'log', label: 'Log' },
 ];
+
+const STRUCTURE_REFRESH_MS = 240;
 
 /** The tab the player last used (kept for the session). */
 let lastTab: FurnaceTab = 'smelt';
@@ -45,11 +51,16 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
 
   // Quick move out of the bag goes to the firebox or the crucibles; which first depends on the tab.
   const bagQuick: QuickTarget[] = ['fuel', 'cru-in'];
-  const upgrade = new UpgradeControl({ sim, pos, bus, changed });
+  const upgrade = new UpgradeControl({ sim, pos, bus, changed, onStructure: () => {
+    upgrade.setOpen(false);
+    window.selectTab('structure');
+    showTab('structure');
+  } });
   const fire = new FireboxPanel({ sim, pos, bus, player, clock: ctx.clock, slots: ctx.slots, toBag: TO_BAG, changed });
   const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed });
   const forge = new ForgeTab({ sim, pos, bus, changed });
   const grid = new GridTab({ sim, pos, bus, changed });
+  const structure = new StructureTab({ sim, pos, bus, ghost: ghostFor(bus, sim), changed });
   const log = new HearthLogView(ctx.objectives, () => ctx.weather);
   const bag = new BagDrawer(ctx.slots, player.inventory, bagQuick, ctx.slots.actionBar);
   fire.bindSlots(furnaceSlots);
@@ -58,6 +69,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
   const panes: Record<FurnaceTab, HTMLElement> = {
     smelt: h('div', { class: 'hw-fx__pane', attrs: { 'data-pane': 'smelt' } }, smelt.el),
     forge: h('div', { class: 'hw-fx__pane hw-fx__pane--fill', attrs: { 'data-pane': 'forge' } }, forge.el),
+    structure: h('div', { class: 'hw-fx__pane', attrs: { 'data-pane': 'structure' } }, structure.el),
     grid: h('div', { class: 'hw-fx__pane', attrs: { 'data-pane': 'grid' } }, grid.el),
     log: h('div', { class: 'hw-fx__pane', attrs: { 'data-pane': 'log' } }, log.el),
   };
@@ -65,12 +77,15 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
   const layout = h('div', { class: 'hw-fx' }, h('div', { class: 'hw-fx__fire' }, fire.el), main, bag.el, upgrade.sheet);
 
   let tab = lastTab;
+  // The structure view scans the shell: 4 times a second is plenty (and at once when the tab opens).
+  let structureAt = -Infinity;
   const showTab = (id: FurnaceTab): void => {
     tab = id;
     lastTab = id;
     for (const t of TABS) panes[t.id].hidden = t.id !== id;
     bagQuick.splice(0, bagQuick.length, ...(id === 'smelt' ? ['cru-in', 'fuel'] : ['fuel', 'cru-in']));
     setAttr(layout, 'data-tab', id);
+    structureAt = -Infinity;
     refresh();
   };
 
@@ -111,11 +126,17 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     if (tab === 'smelt') smelt.update(view);
     forge.update(view, sources().length - 1);
     if (tab === 'grid') grid.update(view);
+    const now = performance.now();
+    if (tab === 'structure' && now - structureAt >= STRUCTURE_REFRESH_MS) {
+      structureAt = now;
+      structure.update();
+    }
     if (tab === 'log') log.refresh();
     window.tabs?.setBadge('forge', forge.ready > 0 ? forge.ready : null);
     const done = view.crucibles.filter((c) => c.output !== null).length;
     window.tabs?.setBadge('smelt', done > 0 ? `${done} done` : null);
     window.tabs?.setBadge('grid', grid.alert(view) ? '!' : null);
+    window.tabs?.setBadge('structure', structureBadge(view));
     ctx.slots.refresh();
     bag.refresh();
   }
@@ -147,6 +168,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
       smelt.dispose();
       forge.dispose();
       grid.dispose();
+      structure.dispose();
       bag.dispose();
       upgrade.dispose();
     },

@@ -48,11 +48,13 @@ export class UpgradeControl {
   private readonly reason: HTMLParagraphElement;
   private readonly go: Button;
   private readonly back: Button;
+  /** "Plan the hearth": shown while the next tier's hearth is not formed; opens the STRUCTURE tab. */
+  private readonly structure: Button;
   private readonly chips: Chip[] = [];
   private tableKey = '';
   private last = false;
 
-  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void }) {
+  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void; onStructure: () => void }) {
     const { sim, pos, bus } = opts;
     this.button = new Button({ label: 'Upgrade', size: 'sm', onClick: () => this.setOpen(true) });
     this.button.el.classList.add('hw-upg-btn');
@@ -78,6 +80,9 @@ export class UpgradeControl {
       },
     });
     this.back = new Button({ label: 'Back', kind: 'quiet', onClick: () => this.setOpen(false) });
+    this.structure = new Button({ label: 'Plan the hearth', kind: 'power', size: 'sm', hint: 'Structure tab', onClick: opts.onStructure });
+    this.structure.el.classList.add('hw-upg__plan');
+    this.structure.el.hidden = true;
     this.sheet = h(
       'section',
       { class: 'hw-upg', attrs: { 'aria-label': 'Upgrade the furnace' } },
@@ -94,7 +99,7 @@ export class UpgradeControl {
         h('h4', { class: 'hw-heading', text: 'Heat' }),
         h('div', { class: 'hw-upg__temp' }, this.temp.el),
       ),
-      h('div', { class: 'hw-upg__foot' }, this.reason, h('div', { class: 'hw-upg__btns' }, this.back.el, this.go.el)),
+      h('div', { class: 'hw-upg__foot' }, h('div', { class: 'hw-upg__why' }, this.reason, this.structure.el), h('div', { class: 'hw-upg__btns' }, this.back.el, this.go.el)),
     );
     this.sheet.hidden = true;
   }
@@ -156,6 +161,7 @@ export class UpgradeControl {
       swatch: heatColor(up.requiredC),
     });
     setText(this.reason, up.reason ? pretty(up.reason) : `Everything is ready. Hold to rebuild it as the ${up.next.name}.`);
+    this.structure.el.hidden = up.structureOk !== false;
     setAttr(this.reason, 'data-tone', up.ok ? 'good' : 'warn');
     this.go.setLabel(`Upgrade to the ${up.next.name}`);
     this.go.setDisabled(!up.ok, up.ok ? '' : up.tempOk ? 'Materials missing' : 'Too cold');
@@ -165,6 +171,7 @@ export class UpgradeControl {
     this.button.dispose();
     this.go.dispose();
     this.back.dispose();
+    this.structure.dispose();
   }
 
   private setSub(text: string): void {

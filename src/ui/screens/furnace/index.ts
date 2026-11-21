@@ -1,9 +1,10 @@
 /**
- * The furnace and machine screens (7.4b). main.ts calls registerStationScreens(gameUI, sim) once both exist;
- * GameUI then opens them on 'ui:open' { type: 'furnace' | 'machine' | 'crate' }.
+ * The furnace, machine and pipe screens (7.4b, spec 16.3). main.ts calls registerStationScreens(gameUI, sim) once
+ * both exist; GameUI then opens them on 'ui:open' { type: 'furnace' | 'machine' | 'crate' | 'pipe' }.
  */
 import type { GameUI } from '../../gameUI';
 import { createCrateScreen, createMachineScreen } from '../machines/machineScreen';
+import { createPipeScreen } from '../pipe/pipeScreen';
 import { createFurnaceScreen } from './furnaceScreen';
 import type { ScreenSim } from './simApi';
 
@@ -14,4 +15,5 @@ export function registerStationScreens(ui: Pick<GameUI, 'registerScreen'>, sim: 
   ui.registerScreen('furnace', (req, ctx) => createFurnaceScreen(req, ctx, sim));
   ui.registerScreen('machine', (req, ctx) => createMachineScreen(req, ctx, sim));
   ui.registerScreen('crate', (req, ctx) => createCrateScreen(req, ctx, sim));
+  ui.registerScreen('pipe', (req, ctx) => createPipeScreen(req, ctx, sim));
 }
