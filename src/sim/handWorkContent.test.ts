@@ -24,14 +24,49 @@ describe('hand stations on the real content', () => {
     expect(made).toContainEqual({ item: 'flour', count: 1, station: 'hand_quern', recipeId: 'flour' });
   });
 
-  it('chopping block: an axe doubles strokes and gives 6 planks', () => {
+  it('chopping block: an axe doubles strokes and the finishing stroke gives 6 planks, bare hands 4', () => {
     const k = makeKit();
     k.world.put(3, 5, 3, 'chopping_block');
-    hold(k, 'oak_log', 1);
+    hold(k, 'oak_log', 2);
     k.sim.stroke(3, 5, 3, 'oak_log');
-    const axe = ['flint_axe', 'bronze_axe', 'stone_axe'].find((i) => k.sim.handView(3, 5, 3) && i && true) as string;
-    expect(k.sim.handView(3, 5, 3)?.tool).toBe('axe');
-    expect(k.sim.stroke(3, 5, 3, axe)).toMatchObject({ ok: true });
+    expect(k.sim.handView(3, 5, 3)).toMatchObject({ tool: 'axe', needed: 3, strokesPerS: 4 });
+    expect(k.sim.stroke(3, 5, 3, 'flint_axe')).toMatchObject({ ok: true, did: 'stroke' });
+    expect(k.sim.stroke(3, 5, 3, 'flint_axe')).toMatchObject({ ok: true, done: true });
+    expect(k.sim.handView(3, 5, 3)?.output).toEqual({ item: 'plank', count: 6 });
+    k.sim.stroke(3, 5, 3, null);
+    for (let i = 0; i < 3; i++) k.sim.stroke(3, 5, 3, null);
+    expect(k.sim.handView(3, 5, 3)?.output).toEqual({ item: 'plank', count: 4 });
+  });
+
+  it('stone anvil: wire from one ingot, a hammer doubles, hot window doubles, strokes cost food', () => {
+    const k = makeKit();
+    k.world.put(3, 5, 3, 'stone_anvil');
+    hold(k, 'copper_ingot', 4);
+    k.sim.stroke(3, 5, 3, 'copper_ingot');
+    const food = k.player.food;
+    expect(k.sim.stroke(3, 5, 3, 'flint_hammer')).toMatchObject({ ok: true, did: 'stroke' });
+    expect(k.player.food).toBeCloseTo(food - 0.01, 5);
+    expect(k.sim.handView(3, 5, 3)).toMatchObject({ recipe: 'copper_wire', progress: 2, needed: 6 });
+    k.sim.openHotWindow(3, 5, 3);
+    k.sim.stroke(3, 5, 3, null);
+    expect(k.sim.handView(3, 5, 3)?.progress).toBe(4);
+    expect(k.sim.handView(3, 5, 3)?.label).toContain('(hot)');
+    k.run(21);
+    expect(k.sim.handView(3, 5, 3)?.hot).toBe(false);
+  });
+
+  it('mortar stretches ore: a crushed ore, sometimes two', () => {
+    const k = makeKit();
+    k.world.put(3, 5, 3, 'mortar');
+    const counts = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      hold(k, 'copper_ore', 1);
+      k.sim.stroke(3, 5, 3, 'copper_ore');
+      for (let s = 0; s < 8; s++) k.sim.stroke(3, 5, 3, null);
+      counts.add(k.sim.handView(3, 5, 3)?.output?.count ?? 0);
+      k.sim.stroke(3, 5, 3, null);
+    }
+    expect([...counts].sort()).toEqual([1, 2]);
   });
 
   it('a rack needs sky and daylight; rain resets it; the entity survives resync', () => {

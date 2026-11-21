@@ -7,31 +7,30 @@ brewing blocks): `Simulation.entityCount` does not count them, `machineView` ret
 
 ## Entities
 
-One saved entity per station block, `kind: 'hand'` (plain JSON, stored in the world):
+One saved entity per station block, `kind: 'hand'` (the machine kind every hand station block carries; the station is the
+block at x,y,z, whose key is also the recipes' `station`). Plain JSON, stored in the world:
 
 ```ts
 interface HandEntity extends BlockEntity {
   kind: 'hand';
-  station: string;          // block key of the station ('hand_quern', 'drying_rack', ...)
-  input: Slot;              // what is loaded (one item kind)
-  input2: Slot;             // second ingredient of two-input recipes (berry blend), else null
-  output: Slot;             // finished work waiting to be taken
+  slots: Slot[];            // [0] input, [1] output
   progress: number;         // strokes done (stroke stations) or seconds done (timed stations)
-  recipe: string | null;    // id of the recipe in progress, null when idle
-  hotS: number;             // seconds of hot-work window left (0 = cold)
-  wetS: number;             // timed stations: seconds the rack was rained on since the last reset (display only)
+  recipe: string | null;    // id of the recipe in progress
+  hotS: number;             // seconds of hot-work window left (0 = cold; stone anvil)
+  made?: string | null;     // recipe id of the output waiting (for 'item:made' at the take)
 }
 ```
-Created from `block:changed` when the block has `handStation`; removed (contents handed to the pack, overflow
-to the spill crates) when the block goes. A loaded save resumes mid-work: strokes, timers and the hot window are
-all fields of the entity.
+Created from `block:changed` when the block has `handStation` (and machine 'hand'); removed with the block (contents
+into the pack, the rest spilled; nothing when blocks are exploding). A loaded game resumes mid-work: strokes, timers and
+the hot window are all fields of the entity; damaged fields are repaired on load. `sim.entityCount` does not count them.
+Casting bench and alloy pot are NOT handled here (casting engineer).
 
 ## Action
 
 ```ts
 sim.stroke(x: number, y: number, z: number, heldKey: string | null): StrokeResult
 type StrokeResult =
-  | { ok: true;  did: 'insert' | 'stroke' | 'take' | 'done'; done?: boolean }   // done: this stroke finished the job
+  | { ok: true;  did: 'insert' | 'stroke' | 'take' | 'done' | 'return'; done?: boolean }   // done: this stroke finished the job
   | { ok: false; reason: string }
 ```
 `heldKey` is the key of the item in the player's hand ('' or null: empty hand). One call = one Use on the block
@@ -39,13 +38,15 @@ type StrokeResult =
 
 1. Output waiting and the hand is empty: the output goes into the pack (`did: 'take'`; pack full: refuse
    "Your pack is full"). Output waiting and anything else in hand: refuse "Take the <output name> first".
-2. Hand holds an item that is an ingredient of a recipe of this station and fits the loaded input: the stack
-   (up to the station's limit, 16) moves from the selected hotbar slot into `input`/`input2` (`did: 'insert'`).
-   Not an ingredient and the station is a stroke station: refuse "<Station> cannot work <item name>".
+2. Hand holds an ingredient of a recipe of this station: the stack (up to the stack limit; a timed station takes 8)
+   moves from the selected hotbar slot into slot 0 (`did: 'insert'`). When several recipes start from the same item
+   (the anvil: 1 copper ingot -> wire, 2 -> plate) each Use loads ONE, and the loaded count picks the job (the first
+   recipe it can pay for; work already begun stays on its recipe). A different item than the loaded one: refuse
+   "Busy with <name>". Not an ingredient (and not the station's tool): "<Station> cannot work <item name>".
 3. No recipe matches what is loaded: refuse "Nothing to work" (empty) or "Needs <n> <name>" (not enough).
-4. Stroke stations: `progress += 2` when the held item is the station's tool (`handStation.tool` kind, matched on
+4. Stroke stations: `progress += 2` (STROKE_TOOL_MULT / STROKE_HOT_MULT, never both) when the held item is the station's tool (`handStation.tool` kind, matched on
    the item's `tool.kind`) or the hot-work window is open, else `+1`; food -0.01 (never below 0, never refused for
-   hunger); emits `hand:stroke`; when `progress >= strokes` the inputs are consumed, the output set, `hand:done`
+   hunger; `HAND_STROKE_FOOD`); emits `hand:stroke` and the station's `strokeSound` as `sfx` (pitch jitter); when `progress >= strokes` the inputs are consumed, the output set, `hand:done`
    emitted, `did: 'done'`. Timed stations (drying rack, tanning trough) take no strokes: a Use on them only
    inserts or takes; refusing a stroke says "<Station> works by itself - wait".
 5. Empty hand and nothing to take: the same stroke as 4 (bare hands count x1).
@@ -71,7 +72,7 @@ interface HandView {
   label: string;
   state: 'empty' | 'loaded' | 'working' | 'waiting' | 'ready';  // waiting: timed station blocked (night, roof, rain)
   waitReason: string | null;           // "Needs open sky", "Needs daylight", "Rain - drying starts over"
-  input: Slot; input2: Slot; output: Slot;
+  input: Slot; output: Slot;
   recipe: string | null;
   progress: number;         // strokes or seconds done
   needed: number;           // strokes or seconds needed (0 when no recipe)
@@ -85,28 +86,29 @@ sim.handCount: number       // stations tracked (diagnostic)
 ```
 `handView` is cheap (no world scans; the rack's sky/rain facts are cached like a crop's).
 
-## Events (GameEvents, appended in src/core/gameEvents.ts)
+## Events (already in GameEvents)
 
 ```ts
 'hand:stroke': { x, y, z, station: string, progress: number, needed: number, double: boolean }
-   // every counted stroke; render: bounce the station's moving part, sfx is emitted by the sim ('sfx' event)
-'hand:done':   { x, y, z, station: string, output: string, count: number }   // output appeared
+   // every counted stroke; render: bounce the station's moving part. Sound goes out as an 'sfx' event.
+'hand:done':   { x, y, z, station: string, output: string, count: number }   // output appeared (timed stations too)
 'hand:taken':  { x, y, z, station: string, item: string, count: number }     // the player took the output
+'item:made':   { item, count, station, recipeId }                            // at the take, for objectives
 ```
-Sound: the sim emits `sfx` with the station's `strokeSound` (from the content contract) at the block, pitch
-jitter left to the audio module. Flags (via `flagOnce`): `hand_<station key>` on the first finished job of each
-station (e.g. `hand_hand_quern`), for the objectives engineer.
+Flags (via `flagOnce`): `hand_<station key>` on the first finished job of each station (`hand_hand_quern`).
 
 ## Timed stations
 
-Drying Rack and Tanning Trough have recipes without `strokes` and with `timeS`. A rack recipe runs only with
-open sky above the rack AND daylight (`sunlight >= MIN_SUNLIGHT`); a roof or night pauses it ("waiting");
-rain falling on it (`weather.wetAt` with a rain-exposed column) RESETS `progress` to 0 once per rain
-episode. The trough soaks 60 s anywhere (no sky rule) and its output (soaked hide) goes to the rack. Facts
-(sky, rain exposure) are cached per station and refreshed on `block:changed` in the column, like crops.
+Drying Rack and Tanning Trough have recipes without `strokes` (`timeS` instead). A Use only inserts (up to 8 items) or
+takes; the whole batch converts together after `timeS` (adding more mid-way shares the clock). The rack
+(`handStation.sky`) runs only with open sky above AND daylight (`sunlight >= MIN_SUNLIGHT`); night or a roof pauses it
+("Needs daylight" / "Needs open sky"); rain falling on an exposed rack (`weather.wetAt`, a column with nothing solid or
+liquid above) zeroes `progress`. A glass roof keeps the rain off but also shows "open sky" only if it is not opaque:
+glass lets the light in, so the rack still runs under glass. The trough runs anywhere. Facts (sky, rain exposure) are
+cached per station and refreshed on `block:changed` in its column, like crops. Only stations with a clock running
+(timed work with input, or a hot window) are visited per tick.
 
-## Dependencies on the content contract
+## Content dependencies
 
-Read through `src/sim/handRules.ts` (one adapter, so a contract change touches one file): `handStation` on the
-block (`strokesPerS`, `tool`, `strokeSound`, `hot`, `sky`), recipes with `station = <block key>` and `strokes`
-(or `timeS` for the timed ones). See `docs/api/handwork-content.md` when it lands.
+All content is read in `src/sim/handRules.ts` (the one adapter): blocks with `handStation` and machine `hand`,
+recipes with `station = <block key>` and `strokes` (stroke) or `timeS` (timed). Tests inject fake rules.
