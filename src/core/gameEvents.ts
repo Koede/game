@@ -29,7 +29,9 @@ export type ScreenRequest =
   /** The pipe screen for the pipe (network segment) at this position. */
   | { type: 'pipe'; x: number; y: number; z: number }
   /** The field notebook: scanned things, aspects, research boards (docs/api/magic.md). */
-  | { type: 'notebook' };
+  | { type: 'notebook' }
+  /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
+  | { type: 'rune_desk'; x: number; y: number; z: number };
 
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
 export type SfxName =
@@ -118,6 +120,13 @@ export type SfxName =
   | 'boil_bubble'
   /** Boiling water poured from a bucket over the cone: a gentle rush. */
   | 'pour'
+  // Essentia & Research (src/audio/sfxMagic.ts).
+  | 'scan_chime'
+  | 'essentia_pour'
+  | 'rod_hum'
+  | 'research_solve'
+  | 'infuse'
+  | 'cast'
   /** One drop falling from the cone into the cup. */
   | 'drip'
   /** Drinking a cup: a quiet sip and swallow. */

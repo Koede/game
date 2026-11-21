@@ -34,9 +34,18 @@ const CSS = `
 .hw-nb__aspect{display:flex;align-items:center;gap:8px;min-height:32px}
 .hw-nb__dot{width:18px;height:18px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.5)}
 .hw-nb__muted{opacity:.6}
+.hw-nb__age{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;width:100%}
+.hw-nb__recipe{display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,.05)}
+.hw-nb__recipe-body{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.hw-nb__needs{display:flex;flex-wrap:wrap;gap:4px}
+.hw-nb__need{font-size:12px;padding:2px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.25)}
+.hw-nb__need.is-ok{background:rgba(92,192,96,.22)}
+.hw-nb__need.is-short{background:rgba(232,98,42,.22)}
+.hw-nb__ok{color:#8fe08f;font-size:12px}
+.hw-nb__goal{display:flex;gap:8px;align-items:center;min-height:32px}
 `;
 
-function injectCss(): void {
+export function injectNotebookCss(): void {
   if (document.getElementById('hw-notebook-css')) return;
   const style = document.createElement('style');
   style.id = 'hw-notebook-css';
@@ -44,10 +53,10 @@ function injectCss(): void {
   document.head.appendChild(style);
 }
 
-type Tab = 'research' | 'aspects' | 'notes';
+type Tab = 'research' | 'aspects' | 'notes' | 'goals';
 
 export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi): GameScreen {
-  injectCss();
+  injectNotebookCss();
   let tab: Tab = 'research';
   let entry: string | null = null;
   let selected: number | null = null;
@@ -56,7 +65,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi): Game
   const body = h('div', { class: 'hw-nb' });
   const window = new Window({
     title: 'Field Notebook', size: 'md', fit: 'tall', body,
-    tabs: [{ id: 'research', label: 'Research' }, { id: 'aspects', label: 'Aspects' }, { id: 'notes', label: 'Notes' }],
+    tabs: [{ id: 'research', label: 'Research' }, { id: 'aspects', label: 'Aspects' }, { id: 'notes', label: 'Notes' }, { id: 'goals', label: 'Goals' }],
     activeTab: 'research',
     onTab: (id) => {
       tab = id as Tab;
@@ -80,7 +89,12 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi): Game
     const entries = api.entries();
     if (!entry || !entries.some((e) => e.key === entry)) entry = (entries.find((e) => e.status === 'open') ?? entries[0]).key;
     const list = h('div', { class: 'hw-nb__list', attrs: { role: 'group', 'aria-label': 'Research entries' } });
+    let lastAge = '';
     for (const e of entries) {
+      if (e.age !== lastAge) {
+        lastAge = e.age;
+        list.appendChild(h('p', { class: 'hw-nb__age', text: `${e.age} age` }));
+      }
       const b = button(`${e.title}${e.status === 'done' ? ' ✓' : e.status === 'locked' ? ' (locked)' : ''}`, () => {
         entry = e.key;
         selected = null;
@@ -189,14 +203,33 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi): Game
       row.appendChild(b);
     }
     if (fresh.length) out.push(row);
+    const c = api.charge();
+    if (c.capacity > 0) out.push(h('p', { class: 'hw-nb__text', text: `Rod charge: ${c.charge}/${c.capacity}` }));
+    if (api.canStudy()) {
+      const vials = [...carried].filter((k) => k.startsWith('vial_'));
+      const study = h('div', { class: 'hw-nb__row' });
+      for (const v of vials) {
+        const b = button(`Study ${itemOrNull(v)?.name ?? v}`, () => say(api.study(v)));
+        b.dataset.study = v;
+        study.appendChild(b);
+      }
+      if (vials.length) out.push(h('p', { class: 'hw-nb__muted', text: 'Studying a vial turns its essentia into lore and gives the vial back.' }), study);
+    }
     for (const k of [...r.scanned].reverse().slice(0, 60)) {
       out.push(h('div', { class: 'hw-nb__aspect' }, h('span', { text: `${itemOrNull(k)?.name ?? k}: ${aspectsText(aspectsOf(k))}` })));
     }
     return out;
   }
 
+  function renderGoals(): HTMLElement[] {
+    return [
+      h('p', { class: 'hw-nb__muted', text: 'Side goals of the craft. None of them is needed to finish the game.' }),
+      ...api.goals().map((g) => h('div', { class: ['hw-nb__goal', g.done ? '' : 'hw-nb__muted'] }, h('span', { text: g.done ? '✓' : '○' }), h('span', { text: g.title }))),
+    ];
+  }
+
   function render(): void {
-    const parts = tab === 'research' ? renderResearch() : tab === 'aspects' ? renderAspects() : renderNotes();
+    const parts = tab === 'research' ? renderResearch() : tab === 'aspects' ? renderAspects() : tab === 'goals' ? renderGoals() : renderNotes();
     if (message) parts.push(h('p', { class: 'hw-nb__text', text: message, attrs: { role: 'status' } }));
     body.replaceChildren(...parts);
     signature = JSON.stringify(api.research());

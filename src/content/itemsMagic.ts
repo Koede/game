@@ -1,42 +1,106 @@
 /**
  * Items and blocks of Essentia & Research (docs/OVERHAUL_PLAN.md B, docs/api/magic.md). The field notebook scans things;
- * glass vials hold VIAL_UNITS of one aspect (one item per aspect, generated from the aspect list); the gathering rod
- * draws essentia from the land into empty vials; the essentia jar keeps up to JAR_UNITS of one aspect in the world.
- * Recipes in recipesMagic.ts; which of them research unlocks is in src/magic/entries.ts.
+ * glass vials hold VIAL_UNITS of one aspect (one item per aspect, generated from the aspect list); gathering rods draw
+ * essentia from the land into empty vials or into their own charge; jars keep it in the world; tubes carry it to the rune
+ * desk, the infusion altar and the furnace; foci spend a rod's charge. Recipes in recipesMagic.ts; which of them research
+ * unlocks is in src/magic/entries.ts.
  */
 import type { BlockSpec, ItemSpec } from '../core/types';
 import { ASPECTS } from '../magic/aspects';
+import { ageIndexOf } from '../magic/ageMap';
 
 /** Units of essentia in one filled vial. */
 export const VIAL_UNITS = 4;
-/** Units one essentia jar holds (eight vials). */
+/** Units one essentia jar holds (eight vials), and a void jar. */
 export const JAR_UNITS = 32;
+export const VOID_JAR_UNITS = 128;
 
 export const vialKey = (aspect: string): string => `vial_${aspect}`;
 
+/** Gathering rods: units of charge they hold and units each Use draws. */
+export interface RodTier { key: string; capacity: number; draw: number }
+export const RODS: readonly RodTier[] = [
+  { key: 'vis_rod', capacity: 16, draw: 1 },
+  { key: 'bronze_rod', capacity: 32, draw: 2 },
+  { key: 'iron_rod', capacity: 64, draw: 3 },
+];
+
+/** Foci: rod charge each cast costs, and seconds before the next cast. */
+export interface FocusSpec { key: string; cost: number; cooldownS: number }
+export const FOCI: readonly FocusSpec[] = [
+  { key: 'focus_kindle', cost: 2, cooldownS: 1 },
+  { key: 'focus_light', cost: 1, cooldownS: 0.5 },
+  { key: 'focus_ward', cost: 6, cooldownS: 20 },
+  { key: 'focus_blink', cost: 4, cooldownS: 2 },
+];
+
+const BRONZE = ageIndexOf('bronze');
+const FORGE = ageIndexOf('forge');
+const tool = (key: string, name: string, age: number, desc: string): ItemSpec => ({ key, name, category: 'tool', age, stack: 1, desc });
+
 export const MAGIC_ITEMS: ItemSpec[] = [
-  {
-    key: 'field_notebook', name: 'Field Notebook', category: 'tool', age: 0, stack: 1,
-    desc: 'Aim it at anything and press Use to note its nature: you learn its aspects and gain lore. Use it at the sky to open the notes and the research boards.',
-  },
+  tool('field_notebook', 'Field Notebook', 0,
+    'Aim it at anything and press Use to note its nature: you learn its aspects and gain lore. Use it at the sky to open the notes and the research boards.'),
   {
     key: 'glass_vial', name: 'Glass Vial', category: 'material', age: 0, stack: 16,
-    desc: 'A small stoppered vial. A gathering rod fills it with one aspect of essentia.',
+    desc: 'A small stoppered vial. A gathering rod fills it with one aspect of essentia; it also serves as a beaker.',
   },
-  {
-    key: 'vis_rod', name: 'Gathering Rod', category: 'tool', age: 0, stack: 1,
-    desc: 'Hold Use to draw essentia from the land around you into an empty vial in your pack. It draws whatever the land here is richest in.',
-  },
+  tool('vis_rod', 'Gathering Rod', 0,
+    'Hold Use to draw essentia from the land: into an empty vial in your pack, or, without one, into the rod (16 charge) for a focus to spend.'),
+  tool('bronze_rod', 'Bronze Gathering Rod', BRONZE, 'Draws two units a Use and holds 32 charge for foci. Near a wellspring it draws its aspect twice as fast.'),
+  tool('iron_rod', 'Iron Gathering Rod', FORGE, 'Draws three units a Use and holds 64 charge for foci.'),
+  tool('focus_kindle', 'Kindling Focus', BRONZE, 'Carry a rod with charge and Use this: a furnace you aim at lights; anywhere else a small fire starts. 2 charge.'),
+  tool('focus_light', 'Light Focus', BRONZE, 'Use it at a block: a floating light settles on that face. 1 charge each; break the light to take it back.'),
+  tool('focus_ward', 'Warding Focus', FORGE, 'Use it: for 30 seconds every blow you take is halved. 6 charge.'),
+  tool('focus_blink', 'Blinking Focus', FORGE, 'Use it: you step up to eight blocks to where you look, if there is room to stand. 4 charge.'),
+  tool('vein_lens', 'Scrying Lens', BRONZE, 'Carried in the pack, every new thing you note teaches half again as much lore, and a held notebook shows the nature of what you aim at.'),
   ...ASPECTS.map((a): ItemSpec => ({
     key: vialKey(a.key), name: `Vial of ${a.name}`, category: 'material', age: 0, stack: 8,
     desc: `${VIAL_UNITS} units of ${a.name} essentia (${a.meaning}). Use it on an essentia jar to pour it in.`,
   })),
 ];
 
+const glassBlock = { opaque: false, translucent: true } as const;
+
 export const MAGIC_BLOCKS: BlockSpec[] = [
   {
-    key: 'essentia_jar', name: 'Essentia Jar', category: 'machine', age: 0, hardness: 0.5, tool: 'pickaxe', minTier: 0,
-    opaque: false, translucent: true, stack: 16, textures: { side: 'magic_jar_side', top: 'magic_jar_top' },
+    key: 'essentia_jar', name: 'Essentia Jar', category: 'machine', age: 0, hardness: 0.5, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    stack: 16, textures: { side: 'magic_jar_side', top: 'magic_jar_top' },
     desc: `Holds up to ${JAR_UNITS} units of one aspect. Use a filled vial on it to pour in; Use an empty vial to fill it back.`,
+  },
+  {
+    key: 'void_jar', name: 'Void Jar', category: 'machine', age: FORGE, hardness: 0.8, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    stack: 16, textures: { side: 'magic_void_jar_side', top: 'magic_void_jar_top' },
+    desc: `A jar folded inside itself: up to ${VOID_JAR_UNITS} units of one aspect. Vials and tubes use it like any jar.`,
+  },
+  {
+    key: 'essentia_tube', name: 'Essentia Tube', category: 'machine', age: BRONZE, hardness: 0.4, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    stack: 64, textures: { all: 'magic_tube' },
+    desc: 'A glass tube. Jars, the rune desk, the infusion altar and a furnace joined by tubes share every jar on the line.',
+  },
+  {
+    key: 'rune_desk', name: 'Rune Desk', category: 'machine', age: BRONZE, hardness: 1.2, tool: 'axe', minTier: 0,
+    textures: { top: 'magic_desk_top', side: 'magic_desk_side', bottom: 'magic_desk_side' },
+    desc: 'Use it to make arcane things. Each pays in essentia from the jars within three blocks (or tubed to it) and the vials you carry.',
+  },
+  {
+    key: 'infusion_altar', name: 'Infusion Altar', category: 'machine', age: BRONZE, hardness: 2, tool: 'pickaxe', minTier: 0,
+    textures: { top: 'magic_altar_top', side: 'magic_altar_side', topActive: 'magic_altar_top_on' },
+    desc: 'Put the heart item on it, the others on pedestals two blocks away, then Use it with a rod. It draws essentia from nearby or tubed jars.',
+  },
+  {
+    key: 'arcane_pedestal', name: 'Arcane Pedestal', category: 'machine', age: BRONZE, hardness: 1.5, tool: 'pickaxe', minTier: 0,
+    textures: { top: 'magic_pedestal_top', side: 'magic_pedestal_side' },
+    desc: 'Use it with an item to set the item on it; Use it empty-handed to take it back. An infusion altar reaches pedestals two blocks away.',
+  },
+  {
+    key: 'clay_servant', name: 'Clay Servant', category: 'machine', age: FORGE, hardness: 1, tool: 'pickaxe', minTier: 0, oriented: true,
+    textures: { side: 'magic_servant_side', top: 'magic_servant_top', front: 'magic_servant_front', frontActive: 'magic_servant_front_on' },
+    desc: 'A clay figure that turns a hand crank it touches, as long as a jar it touches (or tubes to) gives it a unit of Spring every half minute.',
+  },
+  {
+    key: 'magic_light', name: 'Floating Light', category: 'misc', age: BRONZE, hardness: 0, shape: 'torch', solid: false, opaque: false,
+    light: 14, item: false, drops: 'none', textures: { all: 'magic_light' },
+    desc: 'A small light set by a Light Focus. Break it and it is gone.',
   },
 ];

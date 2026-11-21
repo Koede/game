@@ -95,10 +95,16 @@ function shortestLink(spec: BoardSpec, tokens: BoardTokens, from: BoardAnchor, n
       for (const n of neighbours(s.cell)) {
         const there = at.get(n);
         if (there !== undefined) {
-          if (net.has(n) && kin(s.aspect, there)) {
+          if (!kin(s.aspect, there)) continue;
+          if (net.has(n)) {
             const out: [number, Aspect][] = [];
-            for (let p: State | null = s; p && p.prev; p = p.prev) out.push([p.cell, p.aspect]);
+            for (let p: State | null = s; p && p.prev; p = p.prev) if (cellFree(spec, p.cell)) out.push([p.cell, p.aspect]);
             return out.reverse();
+          }
+          // Another anchor (or a placed token) not yet joined: walk through it with its own aspect.
+          if (!seen.has(key(n, there))) {
+            seen.add(key(n, there));
+            next.push({ cell: n, aspect: there, prev: s });
           }
           continue;
         }

@@ -90,4 +90,170 @@ export const MAGIC_TEXTURES: PainterSet = {
   ...vials,
   magic_jar_side: jarSide,
   magic_jar_top: jarTop,
+  item_bronze_rod: icon((c) => rodOf(c, BRONZE_R, P.rgb(0xe0a060))),
+  item_iron_rod: icon((c) => rodOf(c, IRON_R, P.rgb(0x9fd6ff))),
+  item_focus_kindle: icon((c) => focus(c, P.rgb(0xe8622a), P.rgb(0xffd95a))),
+  item_focus_light: icon((c) => focus(c, P.rgb(0xffd95a), P.rgb(0xfffbe0))),
+  item_focus_ward: icon((c) => focus(c, P.rgb(0x6f8fa8), P.rgb(0xcfe6ee))),
+  item_focus_blink: icon((c) => focus(c, P.rgb(0xa77fe0), P.rgb(0xe8d8ff))),
+  item_vein_lens: icon(lens),
+  magic_void_jar_side: (c) => {
+    jarSide(c);
+    c.rect(4, 5, 8, 8, P.rgb(0x3a2a55), 200);
+    c.rect(6, 7, 4, 4, P.rgb(0x5a3a6e), 230);
+    c.set(7, 8, P.rgb(0xb8c4ff));
+  },
+  magic_void_jar_top: (c) => {
+    jarTop(c);
+    c.rect(6, 6, 4, 4, P.rgb(0x3a2a55));
+    c.set(7, 7, P.rgb(0xa77fe0));
+  },
+  magic_tube: tube,
+  magic_desk_top: deskTop,
+  magic_desk_side: deskSide,
+  magic_altar_top: (c) => altarTop(c, false),
+  magic_altar_top_on: (c) => altarTop(c, true),
+  magic_altar_side: altarSide,
+  magic_pedestal_top: pedestalTop,
+  magic_pedestal_side: pedestalSide,
+  magic_servant_side: (c) => clay(c, 41),
+  magic_servant_top: (c) => {
+    clay(c, 43);
+    c.rect(5, 5, 6, 6, CLAY[3]);
+  },
+  magic_servant_front: (c) => servantFace(c, false),
+  magic_servant_front_on: (c) => servantFace(c, true),
+  magic_light: lightMote,
 };
+
+// ---- the second slice: rods, foci, lens, tubes, desk, altar, pedestal, servant, light ------------------------------
+
+const BRONZE_R = [P.rgb(0x5a3a14), P.rgb(0x8a5c22), P.rgb(0xb07a34), P.rgb(0xd09a4c)];
+const IRON_R = [P.rgb(0x3c4046), P.rgb(0x5e646c), P.rgb(0x8a929c), P.rgb(0xc4ccd4)];
+const STONE = [P.rgb(0x4a4844), P.rgb(0x63605a), P.rgb(0x7d7a73), P.rgb(0x98958c), P.rgb(0xb5b2a8)];
+const CLAY = [P.rgb(0x7a4a32), P.rgb(0x9a6040), P.rgb(0xb87850), P.rgb(0xd49668)];
+const RUNE = P.rgb(0xa77fe0);
+
+const noise = (x: number, y: number, s: number): number => {
+  let h = (x * 374761393 + y * 668265263 + s * 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+};
+
+function rodOf(c: Canvas, ramp: readonly P.RGB[], tip: P.RGB): void {
+  for (let i = 0; i < 9; i++) {
+    c.set(3 + i, 13 - i, ramp[1]);
+    c.set(4 + i, 13 - i, ramp[2]);
+  }
+  c.set(3, 13, ramp[0]);
+  c.rect(9, 6, 2, 2, ramp[3]);
+  c.rect(11, 1, 4, 4, GLASS[2]);
+  c.rect(12, 2, 2, 2, tip);
+  c.set(12, 2, GLASS[4]);
+  c.set(6, 10, ramp[3]);
+}
+
+function focus(c: Canvas, color: P.RGB, glint: P.RGB): void {
+  c.each((x, y) => {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+    if (d < 4) return d < 2 ? glint : color;
+    if (d < 6) return x + y < 16 ? BRONZE_R[3] : BRONZE_R[1];
+    return null;
+  });
+  c.set(6, 6, P.rgb(0xffffff));
+}
+
+function lens(c: Canvas): void {
+  c.each((x, y) => {
+    const d = Math.hypot(x + 0.5 - 7, y + 0.5 - 7);
+    if (d < 3.6) return d < 1.6 ? P.rgb(0xfff2c4) : P.rgb(0xc7a24a);
+    if (d < 5) return COPPER[1];
+    return null;
+  });
+  for (let i = 0; i < 4; i++) c.set(10 + i, 10 + i, WOOD[1]);
+  c.set(5, 5, P.rgb(0xffffff));
+}
+
+function tube(c: Canvas): void {
+  c.rect(0, 0, 16, 16, GLASS[2], 70);
+  c.rect(5, 0, 6, 16, GLASS[2], 170);
+  c.rect(5, 0, 1, 16, GLASS[4], 230);
+  c.rect(10, 0, 1, 16, GLASS[0], 230);
+  c.rect(0, 5, 16, 6, GLASS[2], 170);
+  c.rect(0, 5, 16, 1, GLASS[4], 230);
+  c.rect(0, 10, 16, 1, GLASS[0], 230);
+  c.rect(6, 6, 4, 4, COPPER[1]);
+  c.set(6, 6, COPPER[2]);
+}
+
+function deskTop(c: Canvas): void {
+  c.each((x, y) => (noise(x >> 1, y, 51) < 0.25 ? WOOD[0] : y % 5 === 4 ? WOOD[0] : WOOD[1]));
+  c.rect(2, 3, 8, 10, PAGE[1]);
+  c.rect(2, 3, 8, 1, PAGE[2]);
+  for (const y of [5, 7, 9, 11]) c.rect(3, y, 6, 1, PAGE[0]);
+  c.rect(11, 4, 3, 3, GLASS[2]);
+  c.set(12, 5, RUNE);
+  c.rect(11, 9, 1, 5, WOOD[2]);
+}
+
+function deskSide(c: Canvas): void {
+  c.each((x, y) => (y < 3 ? WOOD[2] : x < 2 || x > 13 ? WOOD[0] : noise(x, y, 53) < 0.2 ? WOOD[0] : noise(x, y, 54) < 0.3 ? COPPER[0] : WOOD[1]));
+  c.rect(4, 6, 8, 1, RUNE);
+  c.set(7, 8, RUNE);
+  c.set(8, 9, RUNE);
+  c.rect(0, 2, 16, 1, WOOD[0]);
+}
+
+function altarTop(c: Canvas, on: boolean): void {
+  c.each((x, y) => STONE[noise(x >> 1, y >> 1, 61) < 0.3 ? 1 : noise(x, y, 62) < 0.5 ? 2 : 3]);
+  c.each((x, y) => {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+    if (d > 5 && d < 6.2) return on ? P.rgb(0xffd95a) : RUNE;
+    if (d < 2) return on ? P.rgb(0xfffbe0) : STONE[4];
+    return null;
+  });
+}
+
+function altarSide(c: Canvas): void {
+  c.each((x, y) => STONE[y < 2 ? 4 : y > 13 ? 0 : noise(x >> 1, y >> 1, 63) < 0.35 ? 1 : 2]);
+  for (const x of [3, 8, 12]) c.rect(x, 5, 1, 6, RUNE);
+}
+
+function pedestalTop(c: Canvas): void {
+  c.each((x, y) => STONE[noise(x >> 1, y >> 1, 71) < 0.3 ? 2 : 3]);
+  c.rect(4, 4, 8, 8, STONE[1]);
+  c.rect(5, 5, 6, 6, STONE[4]);
+  c.set(8, 8, RUNE);
+}
+
+function pedestalSide(c: Canvas): void {
+  c.each((x, y) => (x >= 4 && x <= 11 ? STONE[noise(x, y, 73) < 0.4 ? 1 : 2] : y < 3 || y > 12 ? STONE[3] : STONE[0]));
+  c.rect(4, 7, 8, 1, RUNE);
+}
+
+function clay(c: Canvas, seed: number): void {
+  c.each((x, y) => CLAY[noise(x >> 1, y >> 1, seed) < 0.2 ? 0 : noise(x, y, seed + 1) < 0.45 ? 1 : noise(x, y, seed + 2) < 0.8 ? 2 : 3]);
+  c.set(3, 12, P.rgb(0x5a3422));
+  c.set(11, 4, P.rgb(0xe8b088));
+}
+
+function servantFace(c: Canvas, on: boolean): void {
+  clay(c, 47);
+  const eye = on ? P.rgb(0xffd95a) : P.rgb(0x3a2212);
+  c.rect(4, 5, 2, 2, eye);
+  c.rect(10, 5, 2, 2, eye);
+  c.rect(6, 10, 4, 1, CLAY[0]);
+  c.rect(3, 2, 10, 1, CLAY[3]);
+}
+
+function lightMote(c: Canvas): void {
+  c.each((x, y) => {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+    if (d < 1.2) return P.rgb(0xffffff);
+    if (d < 2.4) return P.rgb(0xfffbe0);
+    if (d < 3.6) return P.rgb(0xfff2a0);
+    if (d < 4.6) return P.rgb(0xffd95a);
+    if (d < 5.5) return P.rgb(0xe0a040);
+    return null;
+  });
+}

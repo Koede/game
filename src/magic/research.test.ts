@@ -6,6 +6,7 @@ import { RESEARCH } from './entries';
 import { aspectsOf } from './fingerprint';
 import { craftGateReason, RESEARCH_GATES } from './gates';
 import { ageIndexOf } from './ageMap';
+import { arcaneRecipe, infusionRecipe } from '../content/recipesMagic';
 import { freshResearch, hintFor, isDone, placeToken, removeToken, sanitizeResearch, scanObject, unlockedRecipes } from './research';
 
 describe('board', () => {
@@ -40,7 +41,7 @@ describe('research entries', () => {
       for (const r of e.requires) expect(seen.has(r), `${e.key} needs ${r}`).toBe(true);
       seen.add(e.key);
     }
-    for (const id of RESEARCH_GATES.keys()) expect(recipe(id), id).not.toBeNull();
+    for (const id of RESEARCH_GATES.keys()) expect(recipe(id) ?? arcaneRecipe(id) ?? infusionRecipe(id), id).not.toBeNull();
   });
 });
 

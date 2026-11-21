@@ -1,16 +1,54 @@
 /**
- * Recipes of Essentia & Research (docs/OVERHAUL_PLAN.md B). The notebook is a hand recipe from minute one; the vial,
- * rod and jar are gated by research (src/magic/entries.ts `unlocks.recipes`), checked in game/crafting.ts.
+ * Recipes of Essentia & Research (docs/OVERHAUL_PLAN.md B, docs/api/magic.md).
+ *
+ * MAGIC_RECIPES are ordinary registry recipes (hand, workbench, forge). ARCANE_RECIPES are made at the Rune Desk and
+ * INFUSIONS on the Infusion Altar: both also pay an essentia `cost` and live outside the registry's RECIPES (their own
+ * screen and machine), so the progression solver reads them from here (src/content/progression.ts). Every arcane and
+ * infusion recipe is gated by research (src/magic/entries.ts); the tech spine needs none of them.
  */
-import type { RecipeSpec } from '../core/types';
+import type { ItemAmount, RecipeSpec } from '../core/types';
+import type { Aspects } from '../magic/aspects';
 import { amount, amounts } from './amounts';
+
+const forge = (id: string, output: string, inputs: string, minTempC: number): RecipeSpec => ({
+  id, station: 'furnace', kind: 'forge', inputs: amounts(inputs), output: amount(output), minTempC, minTier: 1, age: 0,
+});
 
 export const MAGIC_RECIPES: RecipeSpec[] = [
   { id: 'field_notebook', station: 'hand', inputs: amounts('1 plank, 3 fiber, 1 charcoal'), output: amount('field_notebook'), age: 0 },
   { id: 'vis_rod', station: 'workbench', inputs: amounts('2 stick, 1 glass_vial, 1 copper_ingot'), output: amount('vis_rod'), age: 0 },
   { id: 'essentia_jar', station: 'workbench', inputs: amounts('3 glass, 1 plank'), output: amount('essentia_jar'), age: 0 },
-  {
-    id: 'glass_vial', station: 'furnace', kind: 'forge', inputs: amounts('1 glass'), output: amount('2 glass_vial'),
-    minTempC: 650, minTier: 1, age: 0,
-  },
+  forge('glass_vial', '2 glass_vial', '1 glass', 650),
+  forge('rune_desk', 'rune_desk', '4 plank, 2 copper_ingot, 1 glass', 500),
+  forge('essentia_tube', '4 essentia_tube', '2 glass, 1 copper_ingot', 650),
+  forge('arcane_pedestal', 'arcane_pedestal', '3 stone_brick, 1 copper_ingot', 500),
 ];
+
+/** A recipe at the Rune Desk: ingredients from the pack, plus essentia. */
+export interface ArcaneRecipe { id: string; output: ItemAmount; inputs: ItemAmount[]; cost: Aspects }
+/** An infusion: the heart item on the altar, one item on each of up to four pedestals, essentia drawn over `seconds`. */
+export interface InfusionRecipe { id: string; output: ItemAmount; center: string; around: string[]; cost: Aspects; seconds: number }
+
+const arcane = (id: string, output: string, inputs: string, cost: Aspects): ArcaneRecipe => ({ id, output: amount(output), inputs: amounts(inputs), cost });
+const infuse = (id: string, output: string, center: string, around: string[], cost: Aspects, seconds: number): InfusionRecipe =>
+  ({ id, output: amount(output), center, around, cost, seconds });
+
+export const ARCANE_RECIPES: ArcaneRecipe[] = [
+  arcane('bronze_rod', 'bronze_rod', '1 vis_rod, 2 bronze_ingot', { gale: 4, loam: 4, rune: 2 }),
+  arcane('iron_rod', 'iron_rod', '1 bronze_rod, 2 iron_ingot, 1 glass_vial', { mind: 6, vein: 6, rune: 4 }),
+  arcane('infusion_altar', 'infusion_altar', '4 stone_brick, 2 copper_ingot, 1 glass_vial', { rune: 6, clarity: 4 }),
+  arcane('focus_kindle', 'focus_kindle', '1 glass, 1 coal', { cinder: 6, gale: 2 }),
+  arcane('focus_light', 'focus_light', '1 glass, 1 torch', { cinder: 4, gale: 4 }),
+  arcane('focus_ward', 'focus_ward', '1 glass, 2 leather, 1 iron_ingot', { loam: 6, rift: 4, rune: 4 }),
+  arcane('focus_blink', 'focus_blink', '1 glass, 1 cord, 1 iron_ingot', { gale: 8, mind: 4, rift: 4 }),
+];
+
+export const INFUSIONS: InfusionRecipe[] = [
+  infuse('vein_lens', 'vein_lens', 'glass', ['copper_ingot', 'copper_ingot'], { vein: 6, mind: 4, clarity: 4 }, 10),
+  infuse('clay_servant', 'clay_servant', 'clay', ['clay', 'clay', 'iron_ingot', 'glass_vial'], { spring: 8, mind: 8, loam: 8 }, 20),
+  infuse('void_jar', 'void_jar', 'essentia_jar', ['iron_ingot', 'iron_ingot', 'glass', 'glass'], { ward: 8, rift: 8, brook: 8 }, 20),
+  infuse('steel_infusion', 'steel_ingot', 'iron_ingot', ['coal', 'coal'], { cinder: 6, vein: 4, rune: 2 }, 15),
+];
+
+export const arcaneRecipe = (id: string): ArcaneRecipe | null => ARCANE_RECIPES.find((r) => r.id === id) ?? null;
+export const infusionRecipe = (id: string): InfusionRecipe | null => INFUSIONS.find((r) => r.id === id) ?? null;

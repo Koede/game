@@ -119,6 +119,8 @@ export class PlayerState {
    * world's mode; never saved with the player.
    */
   dev = false;
+  /** Multiplies every hit taken (the Warding focus sets 0.5 for a while; src/magic/magic.ts). */
+  damageScale = 1;
   /** Dev Mode: placing a block does not use it up. */
   devFreePlace = true;
   /** Dev Mode: flying (no gravity; Jump rises, sprint descends). */
@@ -337,6 +339,7 @@ export class PlayerState {
   /** Hurts the player. Emits 'player:damage' (and 'player:death' when health runs out) with their sounds. */
   damage(amount: number, cause: DamageCause): void {
     if (this.dead || !(amount > 0) || this.dev) return;
+    amount *= this.damageScale;
     this.health = Math.max(0, this.health - amount);
     this.sinceDamageS = 0;
     this.bus.emit('player:damage', { amount, cause, health: this.health });

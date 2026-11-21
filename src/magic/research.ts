@@ -31,7 +31,8 @@ export interface ScanResult {
   finished: string[];
 }
 
-export function scanObject(s: ResearchState, key: string, fingerprint: Aspects): ScanResult {
+/** `mult` scales the lore of a first scan (the Scrying Lens). */
+export function scanObject(s: ResearchState, key: string, fingerprint: Aspects, mult = 1): ScanResult {
   if (s.scanned.includes(key)) return { first: false, gained: {}, learned: [], finished: [] };
   s.scanned.push(key);
   const gained: Aspects = {};
@@ -39,7 +40,7 @@ export function scanObject(s: ResearchState, key: string, fingerprint: Aspects):
   for (const a of ASPECT_LIST) {
     const n = fingerprint[a] ?? 0;
     if (n <= 0) continue;
-    const g = Math.min(SCAN_LORE_CAP, n);
+    const g = Math.round(Math.min(SCAN_LORE_CAP, n) * mult);
     gained[a] = g;
     s.lore[a] = (s.lore[a] ?? 0) + g;
     if (!s.known.includes(a)) { s.known.push(a); learned.push(a); }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAGIC_SFX } from './sfxMagic';
 import type { SfxName } from '../core/gameEvents';
 import { BufferBank } from './buffers';
 import { FakeAudioContext, FakeGain, FakeOscillator } from './fakeAudio';
@@ -19,7 +20,8 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
-    expect(SFX_NAMES.length).toBe(72);
+    // 72 before Essentia & Research added six (src/audio/sfxMagic.ts).
+    expect(SFX_NAMES.length).toBe(72 + Object.keys(MAGIC_SFX).length);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);
   });

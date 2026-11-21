@@ -29,6 +29,7 @@
  */
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
+import { ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
 import {
   AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS,
   FURNACE_BUFF_C,
@@ -310,6 +311,13 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     if (items.has('glass_beaker') && items.has('pine_log') && gain('pine_sap', 'tap')) changed = true;
     // Essentia (docs/OVERHAUL_PLAN.md B): a gathering rod fills empty vials from the land (item use). Source 'gather'.
     if (items.has('vis_rod') && items.has('glass_vial')) for (const a of ASPECTS) if (gain(vialKey(a.key), 'gather')) changed = true;
+    // The Rune Desk and the Infusion Altar (recipesMagic.ts): ingredients plus essentia, which the rod always provides.
+    if (items.has('vis_rod') && items.has('rune_desk')) {
+      for (const r of ARCANE_RECIPES) if (r.inputs.every((i) => items.has(i.item)) && gain(r.output.item, `arcane:${r.id}`)) changed = true;
+    }
+    if (items.has('vis_rod') && items.has('infusion_altar') && items.has('arcane_pedestal')) {
+      for (const r of INFUSIONS) if (items.has(r.center) && r.around.every((i) => items.has(i)) && gain(r.output.item, `infusion:${r.id}`)) changed = true;
+    }
     if (canTill(world, items)) {
       for (const crop of crops) {
         if (!crop.seed || !items.has(crop.seed)) continue;
