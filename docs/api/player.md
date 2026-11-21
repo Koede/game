@@ -162,10 +162,11 @@ appears wherever the left thumb lands in the lower-left region (left half; below
   real world, were reviewed.
 
 ## Deviations and decisions
-- The empty pail does not remove the water block it scoops from (water does not flow in this game, so a
-  removed cell would leave a hole with hanging water walls); lakes are endless wells. Pouring a water pail
-  places one water block and gives the empty pail back in the same slot. Pail on lava refuses with a toast.
-- Mining a block next to water leaves air (no flowing water).
+- (Superseded by spec 18, docs/api/water.md.) The empty bucket takes a water SOURCE block - its ray looks through
+  flowing water (`raycast(..., 'sources', out)`) - and removes it; a lake refills the hole, a lone source is gone.
+  Pouring a water bucket places a source (into air, a washable plant or flowing water) and gives the empty bucket
+  back in the same slot. Pail on lava refuses with a toast.
+- Mining a block next to water opens it to the flow: the water runs in (spec 18). Currents push the player along.
 - The click that captures the pointer does not mine; hold again.
 - Thin shapes are targeted by their whole cell; the controller casts through liquids only with an empty pail.
 - `'block:mining'` is not emitted with progress 1 / -1 after a successful break: `'block:broken'` follows instead.

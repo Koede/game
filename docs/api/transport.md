@@ -145,7 +145,9 @@ hold or move fluid (1 s hold), item networks while packets travel (2 s hold). Wr
 
 **Pumps.** 50 W consumer touching water, lava or oil (the one its buffer already holds first). Fills its 1000 L buffer
 at 200 L/s x satisfaction. Water touching at least 2 connected water blocks is endless; anything else (lava, oil, a lone
-water block) loses one block per 1000 L - the farthest of at most 32 blocks a breadth-first search finds.
+water block) loses one block per 1000 L - the farthest of at most 32 blocks a breadth-first search finds. (Superseded by
+spec 18, docs/api/water.md: pumps draw SOURCE blocks only; a water source with two sources beside it over solid ground or
+a source - the flow engine's refill rule - is endless; `endlessMinBlocks` is gone.)
 
 **Tanks.** 16 000 L each; a column of touching tanks holding the same fluid (or none) is one stack: one fluid, one
 level, filled bottom up and drained top down whether a pipe or a bucket reaches it through any of its tanks.

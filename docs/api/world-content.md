@@ -127,6 +127,7 @@ It takes an iron pickaxe, the tool that mines quartz ore, so it never arrives be
 ### Items (82 non-block items; 156 items in all)
 - `pail` is now named **Bucket** ("Use it on water to fill it: every pool is an endless spring, so take all you
   need."), `water_pail` **Water Bucket** ("... Dough and stew each take one and give the bucket back."). Keys unchanged.
+  (Spec 18 replaced the endless spring: the texts now explain source blocks - see docs/api/water.md.)
 - `bronze_bucket` "Bronze Bucket" (misc, stack 1, age 0) - scoops lava.
 - `lava_bucket` "Lava Bucket" (category fuel, stack 1, age 0): `fuel { energyJ 2_000_000, burnS 100, flameTempC 1300, fuelReturns 'bronze_bucket' }`.
 - `wildberries` "Wildberries" (food, `food: { hunger: 2 }`).

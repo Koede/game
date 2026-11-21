@@ -174,3 +174,10 @@ Also exported: `Chunk`, `chunkCoord`, `localCoord`, `chunkKey`, `keyChunkX`, `ke
 - Light colour: `computeLight(chunks, hueOut?)`, `MeshInput.hue`; flags byte bit 3 = violet, bits 4-7 = cool share
   of the block light (`LIGHT_FLAG_VIOLET`, `LIGHT_COOL_SHIFT`, `LIGHT_COOL_MAX` from mesher.ts). `LIGHT_HUE[id]`.
 - The quad machinery of the mesher lives in `src/world/meshQuads.ts`.
+
+## Flowing water (spec 18, see docs/api/water.md)
+- Water flows: `World.water` (`WaterFlow`, src/world/flow.ts) is a scheduled cellular update woken by `setVoxel`
+  (never by `'load'` edits) and ticked by the game at 20 Hz; its pending queue is `WorldSnapshot.water` (optional,
+  version still 1). Water states and lookups in src/world/water.ts (level in the variant bits, falling = active bit).
+- The mesher draws liquids with per-corner heights (src/world/meshLiquid.ts; `LIQUID_SURFACE` moved there and is
+  re-exported) and marks moving water with flags bits 2 + 4, its texture coordinates turned along the flow.

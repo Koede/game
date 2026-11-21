@@ -192,7 +192,8 @@ Screenshots of every step in `test-results/e2e/`. Driver helpers: `scripts/lib/e
 - Audio: unchanged; species calls, hurt and eat sounds arrive positioned through 'sfx' from the manager.
 
 ### Buckets (spec 13) and berry bushes (spec 14) - src/player/buckets.ts (new), interaction.ts
-- `Buckets.use(item, hit)`: `pail` fills at water (endless spring, sfx splash); `bronze_bucket` scoops lava ->
+- `Buckets.use(item, hit)`: `pail` fills at water (endless spring, sfx splash - superseded by spec 18: it takes a source
+  block, see docs/api/water.md); `bronze_bucket` scoops lava ->
   `lava_bucket`, **the lava block is removed** (source 'player'), sfx `scoop_lava`; `water_pail` pours water and
   returns the pail; `lava_bucket` pours a lava block and returns the bronze bucket (sfx `scoop_lava`,
   'block:placed', never into the cell the player stands in). Refusals (toasts, throttled, `BUCKET_HINTS`): wooden
