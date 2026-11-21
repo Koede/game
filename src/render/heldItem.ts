@@ -233,8 +233,8 @@ export class HeldItem {
   setAspect(aspect: number): void {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
-    // Keep the hand inside the right edge of narrow (portrait phone) screens.
-    // Narrow screens also get a smaller hand, so it does not fill a third of a phone held upright.
+    // On narrow (portrait phone) screens the hand moves inside the right edge and gets smaller, so it does
+    // not fill a third of a phone held upright.
     const halfWidth = 0.78 * Math.tan((this.camera.fov * Math.PI) / 360) * aspect;
     this.baseX = Math.min(0.5, halfWidth * 0.72);
     this.pivot.scale.setScalar(Math.min(1, Math.max(0.6, aspect * 1.25)));

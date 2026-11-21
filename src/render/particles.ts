@@ -207,8 +207,8 @@ export class Particles {
       outColor[i4] = colors[c] + (colors[c + 3] - colors[c]) * tc;
       outColor[i4 + 1] = colors[c + 1] + (colors[c + 4] - colors[c + 1]) * tc;
       outColor[i4 + 2] = colors[c + 2] + (colors[c + 5] - colors[c + 2]) * tc;
-      // Puffs fade in quickly and out slowly; chips stay solid and fade over their last quarter.
-      const fade = puff ? Math.min(1, t * 6) * (1 - t) * (1 - t) : Math.min(1, (1 - t) * 4);
+      // Puffs fade in quickly and out linearly (a column stays visible high up); chips fade over their last quarter.
+      const fade = puff ? Math.min(1, t * 6) * (1 - t) : Math.min(1, (1 - t) * 4);
       outColor[i4 + 3] = colors[c + 6] * fade;
       outSize[i * 2] = sizes[i * 2] + (sizes[i * 2 + 1] - sizes[i * 2]) * t;
       outSize[i * 2 + 1] = (puff ? 1 : 0) + params[q + 3];
