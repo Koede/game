@@ -103,6 +103,13 @@ export const WELL_FED_DRAIN_MULT = 0.5;
 /** Hard caps: animals simulated (loaded) at once, and animals kept in the save. */
 export const MOB_LOADED_CAP = 40;
 export const MOB_STORED_CAP = 300;
+/**
+ * Above MOB_STORED_SOFT_CAP stored animals, frozen wild adults at least MOB_DESPAWN_DISTANCE blocks from the
+ * player are retired, farthest first, down to MOB_DESPAWN_TARGET (their columns may roll again later).
+ */
+export const MOB_STORED_SOFT_CAP = 250;
+export const MOB_DESPAWN_TARGET = 220;
+export const MOB_DESPAWN_DISTANCE = 128;
 /** Chance that a chunk column rolls a group the first time it loads. */
 export const MOB_CHUNK_SPAWN_CHANCE = 0.15;
 /** Wandering: farthest target in blocks, deepest drop it will step down, and the flee burst. */

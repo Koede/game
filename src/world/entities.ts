@@ -1,13 +1,20 @@
 /**
  * Block entities (machine state) keyed by position. Every entity pins its own chunk and the 8 around it:
- * the world keeps their voxels loaded however far away the player is (spec section 5). Crates are the
- * exception: they never act on their own, and every machine or furnace that reaches into a crate (touching,
- * or within 4 blocks) already pins the chunks around itself, so a crate left in a far-off ruin costs nothing.
+ * the world keeps their voxels loaded however far away the player is (spec section 5). Two exceptions:
+ * - crates never act on their own, and every machine or furnace that reaches into a crate (touching, or within
+ *   4 blocks) already pins the chunks around itself, so a crate left in a far-off ruin costs nothing;
+ * - wild bushes (machine role 'bush', e.g. a picked berry bush) only regrow: src/sim sleeps them while their
+ *   chunk is unloaded and wakes them on 'chunk:loaded', so picking berries on a journey pins nothing.
  */
+import { MACHINES } from '../core/registry';
 import type { BlockEntity } from '../core/types';
 import { chunkCoord, chunkKey } from './chunk';
 
-const pins = (e: BlockEntity): boolean => e.kind !== 'crate';
+const pins = (e: BlockEntity): boolean => {
+  if (e.kind === 'crate') return false;
+  const role = MACHINES.get(e.kind)?.role;
+  return role !== 'crate' && role !== 'bush';
+};
 
 const SPAN = 1 << 21;
 const HALF = 1 << 20;

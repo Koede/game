@@ -6,12 +6,25 @@ export const chunkCoord = (v: number): number => Math.floor(v / CHUNK_SIZE);
 /** Position inside its chunk (0..15) of an integer world block coordinate. */
 export const localCoord = (v: number): number => v & (CHUNK_SIZE - 1);
 
-const KEY_BIAS = 0x8000;
-const KEY_SPAN = 0x10000;
-/** One number per chunk column, valid for |cx|, |cz| < 32768 (more than half a million blocks each way). */
-export const chunkKey = (cx: number, cz: number): number => (cx + KEY_BIAS) * KEY_SPAN + (cz + KEY_BIAS);
-export const keyChunkX = (key: number): number => Math.floor(key / KEY_SPAN) - KEY_BIAS;
-export const keyChunkZ = (key: number): number => (key % KEY_SPAN) - KEY_BIAS;
+const KEY_BIAS = 0x2000;
+const KEY_SPAN = 0x4000;
+/** Keys of columns beyond the near range start here (above every near key, which is < 2^28). */
+const FAR_BASE = 0x10000000;
+const FAR_BIAS = 0x8000;
+const FAR_SPAN = 0x10000;
+/**
+ * One number per chunk column. Within |cx|, |cz| < 8192 (131072 blocks each way) the key stays below 2^28, a
+ * V8 small integer, so Map lookups on it (every getVoxel / isLoaded) never box a heap number. Farther columns,
+ * up to |cx|, |cz| < 32768, get distinct larger keys: still correct, only slower.
+ */
+export const chunkKey = (cx: number, cz: number): number =>
+  cx >= -KEY_BIAS && cx < KEY_BIAS && cz >= -KEY_BIAS && cz < KEY_BIAS
+    ? (cx + KEY_BIAS) * KEY_SPAN + (cz + KEY_BIAS)
+    : FAR_BASE + (cx + FAR_BIAS) * FAR_SPAN + (cz + FAR_BIAS);
+export const keyChunkX = (key: number): number =>
+  key < FAR_BASE ? Math.floor(key / KEY_SPAN) - KEY_BIAS : Math.floor((key - FAR_BASE) / FAR_SPAN) - FAR_BIAS;
+export const keyChunkZ = (key: number): number =>
+  key < FAR_BASE ? (key % KEY_SPAN) - KEY_BIAS : ((key - FAR_BASE) % FAR_SPAN) - FAR_BIAS;
 
 /**
  * Voxel arrays of a chunk and its 8 neighbours, indexed `(dz + 1) * 3 + (dx + 1)`; the centre is entry 4.

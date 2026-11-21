@@ -45,15 +45,19 @@ export interface Hazard {
   z: number;
 }
 
+/** How far beyond its box a body still counts as touching a hazard: pressed against it, not merely beside it. */
+const TOUCH = 0.01;
+
 /**
- * Largest contactDamage (per second: lava, cactus...) among the cells the body overlaps or touches sideways;
- * writes it and the centre of that cell to `out`. Returns the damage (0 = safe).
+ * Largest contactDamage (per second: lava, cactus...) among the cells the body overlaps or touches sideways
+ * (within TOUCH); writes it and the centre of that cell to `out`. Returns the damage (0 = safe). A body centred
+ * in the cell next to a hazard does not touch it.
  */
 export function contactHazard(world: IWorld, b: Body, hw: number, h: number, out: Hazard): number {
   out.damage = 0;
   for (let cy = Math.floor(b.y); cy <= Math.floor(b.y + h); cy++) {
-    for (let cz = Math.floor(b.z - hw - 0.05); cz <= Math.floor(b.z + hw + 0.05); cz++) {
-      for (let cx = Math.floor(b.x - hw - 0.05); cx <= Math.floor(b.x + hw + 0.05); cx++) {
+    for (let cz = Math.floor(b.z - hw - TOUCH); cz <= Math.floor(b.z + hw + TOUCH); cz++) {
+      for (let cx = Math.floor(b.x - hw - TOUCH); cx <= Math.floor(b.x + hw + TOUCH); cx++) {
         const dmg = blockOf(world.getVoxel(cx, cy, cz)).contactDamage;
         if (dmg > out.damage) {
           out.damage = dmg;

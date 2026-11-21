@@ -49,6 +49,26 @@ describe('standCell', () => {
     expect(standCell(w, 5, -20, 11, 1)).toBe(11);
   });
 
+  it('keeps a block between the body and lava or a cactus, and never climbs onto a cactus', () => {
+    const w = new FlatWorld();
+    w.put(5, 11, 5, 'cactus');
+    expect(standCell(w, 5, 5, 11, 1)).toBeNaN(); // the cactus itself (a one-block step otherwise)
+    expect(standCell(w, 4, 5, 11, 1)).toBeNaN(); // beside it
+    expect(standCell(w, 5, 6, 11, 1)).toBeNaN();
+    expect(standCell(w, 4, 4, 11, 1)).toBe(11); // diagonal: a body centred there does not touch it
+    expect(standCell(w, 3, 5, 11, 1)).toBe(11);
+    // Lava at foot level beside the column refuses it; a pool whose surface is below the feet does not.
+    w.put(10, 11, 0, 'lava');
+    expect(standCell(w, 9, 0, 11, 1)).toBeNaN();
+    w.put(10, 11, 0, 'air');
+    w.put(10, 10, 0, 'lava');
+    expect(standCell(w, 9, 0, 11, 1)).toBe(11);
+    // Up to head height for a tall body.
+    w.put(0, 12, 20, 'lava');
+    expect(standCell(w, 1, 20, 11, 1)).toBe(11);
+    expect(standCell(w, 1, 20, 11, 2)).toBeNaN();
+  });
+
   it('walks through plants', () => {
     const w = new FlatWorld();
     w.put(3, 11, 3, 'tall_grass');
@@ -92,6 +112,17 @@ describe('spawnCell', () => {
     expect(spawnCell(w, 5, 5, 1)).toBe(-1);
     w.put(6, 12, 6, 'plank'); // a roof right above: no headroom
     expect(spawnCell(w, 6, 6, 1)).toBe(-1);
+  });
+
+  it('keeps spawn spots two blocks from cacti and lava', () => {
+    const w = new FlatWorld();
+    w.put(20, 11, 20, 'cactus');
+    expect(spawnCell(w, 22, 20, 1)).toBe(-1);
+    expect(spawnCell(w, 22, 22, 1)).toBe(-1);
+    expect(spawnCell(w, 23, 20, 1)).toBe(11);
+    w.put(-20, 10, -20, 'lava');
+    expect(spawnCell(w, -18, -20, 1)).toBe(-1);
+    expect(spawnCell(w, -17, -20, 1)).toBe(11);
   });
 });
 

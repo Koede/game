@@ -98,15 +98,17 @@ describe('animal physics', () => {
     expect(b.y).toBeLessThan(11.2);
   });
 
-  it('finds lava touching the body, also beside it', () => {
+  it('finds lava touching the body, also beside it, but not when merely next to it', () => {
     const w = new FlatWorld();
-    const b = body(0.58, 11, 0.5);
+    const b = body(0.6, 11, 0.5);
     const hz = { damage: 0, x: 0, z: 0 };
     expect(contactHazard(w, b, HW, H, hz)).toBe(0);
     w.put(1, 11, 0, 'lava');
     expect(contactHazard(w, b, HW, H, hz)).toBe(4);
     expect(hz.x).toBe(1.5);
     expect(hz.z).toBe(0.5);
+    // Centred in the next cell (even the widest animal, a boar): safe.
+    expect(contactHazard(w, body(0.5, 11, 0.5), 0.45, H, hz)).toBe(0);
   });
 
   it('a body inside a block walks out instead of sticking', () => {

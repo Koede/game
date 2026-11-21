@@ -1,7 +1,8 @@
 /**
  * How animals read the voxels around them: what blocks a body, where a column can be stood on from a given
- * height (the rule behind "never step into liquid or a drop deeper than MOB_MAX_DROP"), and where a group may
- * spawn. Unloaded columns count as walls everywhere, so an animal never walks into missing terrain.
+ * height (the rule behind "never step into liquid, a drop deeper than MOB_MAX_DROP or beside lava or a
+ * cactus"), and where a group may spawn. Unloaded columns count as walls everywhere, so an animal never walks
+ * into missing terrain.
  */
 import { MOB_MAX_DROP } from '../core/constants';
 import { blockOf, blockOrNull } from '../core/registry';
@@ -23,6 +24,36 @@ export function liquidAt(world: IWorld, x: number, y: number, z: number): 'water
   return blockOf(world.getVoxel(x, y, z)).liquid;
 }
 
+/** A cell that hurts on contact (lava, cactus: BlockDef.contactDamage > 0). */
+export function hazardAt(world: IWorld, x: number, y: number, z: number): boolean {
+  if (y < 0 || y >= WORLD_HEIGHT) return false;
+  return blockOf(world.getVoxel(x, y, z)).contactDamage > 0;
+}
+
+/**
+ * A body standing at feet cell y in column (x, z) would be next to something that hurts: in its own column from
+ * the ground block up to its head, or in one of the four side columns from its feet up to its head. Keeping a
+ * one-block margin means a body centred in its cell never touches a hazard (see contactHazard).
+ */
+function nearHazard(world: IWorld, x: number, z: number, y: number, clearance: number): boolean {
+  for (let c = y - 1; c < y + clearance; c++) if (hazardAt(world, x, c, z)) return true;
+  for (let c = y; c < y + clearance; c++) {
+    if (hazardAt(world, x + 1, c, z) || hazardAt(world, x - 1, c, z) || hazardAt(world, x, c, z + 1) || hazardAt(world, x, c, z - 1)) return true;
+  }
+  return false;
+}
+
+/** Any hazard within `r` columns (square) of (x, z) between heights y0 and y1 inclusive. */
+function hazardWithin(world: IWorld, x: number, z: number, y0: number, y1: number, r: number): boolean {
+  for (let dz = -r; dz <= r; dz++) {
+    for (let dx = -r; dx <= r; dx++) for (let y = y0; y <= y1; y++) if (hazardAt(world, x + dx, y, z + dz)) return true;
+  }
+  return false;
+}
+
+/** Spawn spots keep this many blocks from lava and cacti. */
+export const SPAWN_HAZARD_MARGIN = 2;
+
 /** Cells (blocks) of headroom a body of height h needs. */
 export const clearanceOf = (h: number): number => Math.max(1, Math.ceil(h - 1e-6));
 
@@ -36,21 +67,22 @@ function open(world: IWorld, x: number, y: number, z: number): boolean {
 
 /**
  * The feet cell an animal walking at feet cell `fy` would stand in after entering column (x, z), or NaN when it
- * must not go there: a wall more than one block high, liquid, a drop deeper than MOB_MAX_DROP, or not loaded.
- * A result of fy + 1 means it hops up one block.
+ * must not go there: a wall more than one block high, liquid, a drop deeper than MOB_MAX_DROP, not loaded, or
+ * a hazard (lava, cactus) underfoot or beside the body (nearHazard). A result of fy + 1 means it hops up one
+ * block.
  */
 export function standCell(world: IWorld, x: number, z: number, fy: number, clearance: number): number {
   if (!world.isLoaded(x, z)) return NaN;
   if (solidHeight(world, x, fy, z) > 0) {
     // A step: everything above it up to the body's height must be free.
     for (let y = fy + 1; y <= fy + clearance; y++) if (!open(world, x, y, z)) return NaN;
-    return fy + 1;
+    return nearHazard(world, x, z, fy + 1, clearance) ? NaN : fy + 1;
   }
   for (let y = fy; y >= fy - MOB_MAX_DROP; y--) {
     if (liquidAt(world, x, y, z) !== null) return NaN;
     if (solidHeight(world, x, y - 1, z) > 0) {
       for (let c = y; c < fy + clearance; c++) if (!open(world, x, c, z)) return NaN;
-      return y;
+      return nearHazard(world, x, z, y, clearance) ? NaN : y;
     }
   }
   return NaN;
@@ -95,7 +127,8 @@ const SPAWN_GROUND: ReadonlySet<number> = new Set(
 
 /**
  * Feet cell of a spawn spot in column (x, z), or -1: the highest solid block must be natural ground, open to
- * the sky (only plants above it), with headroom for the body and no liquid on top.
+ * the sky (only plants above it), with headroom for the body, no liquid on top and no lava or cactus within
+ * SPAWN_HAZARD_MARGIN blocks.
  */
 export function spawnCell(world: IWorld, x: number, z: number, clearance: number): number {
   if (!world.isLoaded(x, z)) return -1;
@@ -110,6 +143,7 @@ export function spawnCell(world: IWorld, x: number, z: number, clearance: number
   }
   if (!SPAWN_GROUND.has(blockOf(world.getVoxel(x, y, z)).id)) return -1;
   for (let c = y + 1; c <= y + clearance; c++) if (!open(world, x, c, z)) return -1;
+  if (hazardWithin(world, x, z, y, y + clearance, SPAWN_HAZARD_MARGIN)) return -1;
   return y + 1;
 }
 

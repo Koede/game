@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DT, MOB_BREED_COOLDOWN_S, MOB_DEATH_S, MOB_EAGER_S, MOB_FLEE_S, MOB_GROW_UP_S } from '../core/constants';
+import { DT, MOB_BREED_COOLDOWN_S, MOB_DEATH_S, MOB_EAGER_S, MOB_FLEE_S, MOB_GROW_UP_S, PLAYER_WIDTH } from '../core/constants';
 import { createBus } from '../core/context';
 import { creature } from '../core/registry';
 import { MobManager } from './manager';
@@ -100,15 +100,18 @@ describe('flee', () => {
 });
 
 describe('follow', () => {
-  it('follows a player holding a liked item to about two blocks away', () => {
-    const { mobs } = setup();
-    const goat = add(mobs, 'goat', 7.5, 0.5);
-    const player = testPlayer(0.5, 11, 0.5, 'wheat');
-    run(mobs, player, 6);
-    expect(goat.state).toBe('follow');
-    const d = Math.hypot(goat.x - player.x, goat.z - player.z);
-    expect(d).toBeGreaterThan(1.6);
-    expect(d).toBeLessThan(2.6);
+  it('follows a player holding a liked item to about two blocks away, body to body', () => {
+    for (const species of ['goat', 'hen', 'boar']) {
+      const { mobs } = setup();
+      const m = add(mobs, species, 7.5, 0.5);
+      const player = testPlayer(0.5, 11, 0.5, creature(species).likes[0]);
+      run(mobs, player, 6);
+      expect(m.state).toBe('follow');
+      // Centre distance minus the animal's and the player's half widths.
+      const gap = Math.hypot(m.x - player.x, m.z - player.z) - m.spec.size.w / 2 - PLAYER_WIDTH / 2;
+      expect(gap).toBeGreaterThan(1.6);
+      expect(gap).toBeLessThan(2.2);
+    }
   });
 
   it('ignores items it does not like and players out of range', () => {

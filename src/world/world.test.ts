@@ -234,6 +234,10 @@ describe('World streaming', () => {
     world.setEntity({ kind: 'crate', x: 200, y: 40, z: 8, slots: [] });
     expect(world.stats().pinned).toBe(pinned);
     world.removeEntity(200, 40, 8);
+    // Nor do wild bushes picked on the way (they only regrow, and src/sim wakes them when their chunk loads).
+    world.setEntity({ kind: 'berry_bush', x: 300, y: 40, z: 8, growS: 0 });
+    expect(world.stats().pinned).toBe(pinned);
+    world.removeEntity(300, 40, 8);
     rec.clear();
     await settle(world, 40 * CHUNK_SIZE, 8);
     for (let cz = -1; cz <= 1; cz++) {

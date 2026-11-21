@@ -12,8 +12,9 @@ import {
   MOB_FOLLOW_DISTANCE,
   MOB_FOLLOW_RANGE,
   MOB_WANDER_RADIUS,
+  PLAYER_WIDTH,
 } from '../core/constants';
-import type { IWorld } from '../core/types';
+import type { CreatureSpec, IWorld } from '../core/types';
 import { HOP_VELOCITY, SWIM_CLIMB_VELOCITY } from './physics';
 import { clearanceOf, findShore, standCell, walkable } from './terrain';
 import type { Mob, MobPlayer } from './types';
@@ -47,6 +48,19 @@ export interface BrainContext {
 /** Half the footprint width and the height of an animal's box, in blocks (babies are MOB_BABY_SCALE). */
 export const halfWidth = (m: Mob): number => (m.spec.size.w * (m.baby ? MOB_BABY_SCALE : 1)) / 2;
 export const bodyHeight = (m: Mob): number => m.spec.size.h * (m.baby ? MOB_BABY_SCALE : 1);
+
+const reaches = new Map<CreatureSpec, number>();
+/** How far an adult's model reaches forward of its feet centre (the head, beak or snout), in blocks. */
+export function forwardReach(spec: CreatureSpec): number {
+  let r = reaches.get(spec);
+  if (r === undefined) {
+    r = spec.size.w / 2;
+    // Models face -Z in 1/16-block units.
+    for (const p of spec.model) r = Math.max(r, -p.from[2] / 16);
+    reaches.set(spec, r);
+  }
+  return r;
+}
 
 /** Smallest signed angle from a to b. */
 export function angleDiff(a: number, b: number): number {
@@ -95,6 +109,9 @@ function probeAhead(world: IWorld, m: Mob, dirX: number, dirZ: number, out: { ho
 }
 
 const ahead = { hop: false };
+
+/** Whether the edge guard lets the animal move along (dirX, dirZ) now (for pushes that are not its own walk). */
+export const canStride = (world: IWorld, m: Mob, dirX: number, dirZ: number): boolean => probeAhead(world, m, dirX, dirZ, ahead);
 
 /**
  * Walks towards (tx, tz) at `speed`, stopping within `stop` blocks. Returns 'arrived', 'moving' or 'blocked'
@@ -258,7 +275,8 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
     const p = partnerFor(ctx, m);
     if (p) {
       if (m.state !== 'breed') setState(m, 'breed', 0);
-      const touch = (m.spec.size.w + p.spec.size.w) / 2 + 0.35;
+      // Close enough to touch, face to face without their heads inside each other.
+      const touch = Math.max((m.spec.size.w + p.spec.size.w) / 2 + 0.35, forwardReach(m.spec) + forwardReach(p.spec) + 0.1);
       const r = steer(ctx, m, p.x, p.z, speed, touch, dt);
       if (r === 'arrived') {
         turn(m, yawTowards(p.x - m.x, p.z - m.z), dt);
@@ -271,13 +289,15 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
   }
   if (m.state === 'breed') setState(m, 'idle', 1);
 
-  // 4. The player holds something it likes: follow to a polite distance.
+  // 4. The player holds something it likes: follow to a polite distance, body to body (big animals stay as far
+  // off as small ones).
   if (ctx.held !== null && m.spec.likes.includes(ctx.held)) {
     const dx = ctx.player.x - m.x;
     const dz = ctx.player.z - m.z;
     if (dx * dx + dz * dz <= MOB_FOLLOW_RANGE * MOB_FOLLOW_RANGE && Math.abs(ctx.player.y - m.y) < 6) {
       if (m.state !== 'follow') setState(m, 'follow', 0);
-      if (steer(ctx, m, ctx.player.x, ctx.player.z, speed, MOB_FOLLOW_DISTANCE, dt) !== 'moving') {
+      const stop = MOB_FOLLOW_DISTANCE + halfWidth(m) + PLAYER_WIDTH / 2;
+      if (steer(ctx, m, ctx.player.x, ctx.player.z, speed, stop, dt) !== 'moving') {
         turn(m, yawTowards(dx, dz), dt);
       }
       return;

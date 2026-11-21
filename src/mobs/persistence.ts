@@ -1,6 +1,7 @@
 /** The animals' save document (spec 12.5 persistence): every animal plus the spawning state, plain JSON. */
-import { MOB_STORED_CAP } from '../core/constants';
-import { creatureOrNull } from '../core/registry';
+import { MOB_DEATH_S, MOB_STORED_CAP } from '../core/constants';
+import { creatureOrNull, itemOrNull } from '../core/registry';
+import type { ItemAmount } from '../core/types';
 import { createMob } from './mob';
 import { columnKey, type Spawner } from './spawner';
 import type { Mob, MobsSnapshot, SavedMob } from './types';
@@ -10,12 +11,15 @@ export const MOBS_SNAPSHOT_VERSION = 1;
 const OFFSET = 0x100000;
 const ROW = 0x200000;
 
-/** Snapshot of the living animals (corpses are left out: their drops were already handed out or lost). */
+/**
+ * Snapshot of the animals. A corpse whose drops were already handed out is left out; one still tipping over
+ * (drops not yet given) is saved with its drops, so a save taken right after a kill does not lose them.
+ */
 export function saveMobs(mobs: readonly Mob[], nextId: number, spawner: Spawner): MobsSnapshot {
   const saved: SavedMob[] = [];
   for (const m of mobs) {
-    if (m.state === 'dying') continue;
-    saved.push({
+    if (m.state === 'dying' && m.pendingDrops === null) continue;
+    const r: SavedMob = {
       id: m.id,
       species: m.spec.key,
       x: round(m.x),
@@ -27,11 +31,29 @@ export function saveMobs(mobs: readonly Mob[], nextId: number, spawner: Spawner)
       ageS: round(m.ageS),
       eagerS: round(m.eagerS),
       cooldownS: round(m.cooldownS),
-    });
+      tame: m.tame,
+    };
+    if (m.state === 'dying' && m.pendingDrops !== null) {
+      r.deadS = round(m.deadS);
+      r.drops = m.pendingDrops.map((d) => ({ item: d.item, count: d.count }));
+      r.cause = m.deathCause;
+    }
+    saved.push(r);
   }
   const rolled: number[] = [];
   for (const key of spawner.rolled) rolled.push(Math.floor(key / ROW) - OFFSET, (key % ROW) - OFFSET);
   return { version: MOBS_SNAPSHOT_VERSION, nextId, rolled, guaranteed: spawner.guaranteed, keepAliveS: spawner.keepAliveS, mobs: saved };
+}
+
+/** Drops of a saved corpse, keeping only known items with positive whole counts; null when not a corpse. */
+function savedDrops(v: unknown): ItemAmount[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: ItemAmount[] = [];
+  for (const d of v as Partial<ItemAmount>[]) {
+    if (typeof d?.item !== 'string' || !itemOrNull(d.item) || !Number.isInteger(d.count) || (d.count as number) <= 0) continue;
+    out.push({ item: d.item, count: d.count as number });
+  }
+  return out;
 }
 
 const round = (v: number): number => Math.round(v * 1000) / 1000;
@@ -59,6 +81,15 @@ export function restoreMobs(s: MobsSnapshot, rng: () => number): { mobs: Mob[]; 
     m.ageS = Math.max(0, r.ageS);
     m.eagerS = finite(r.eagerS) ? Math.max(0, r.eagerS) : 0;
     m.cooldownS = finite(r.cooldownS) ? Math.max(0, r.cooldownS) : 0;
+    m.tame = typeof r.tame === 'boolean' ? r.tame : m.eagerS > 0 || m.cooldownS > 0;
+    const drops = savedDrops(r.drops);
+    if (drops !== null && finite(r.deadS)) {
+      m.state = 'dying';
+      m.health = 0;
+      m.deadS = Math.min(Math.max(0, r.deadS), MOB_DEATH_S - 0.01);
+      m.pendingDrops = drops;
+      m.deathCause = r.cause === 'player' ? 'player' : 'world';
+    }
     mobs.push(m);
     maxId = Math.max(maxId, r.id);
   }

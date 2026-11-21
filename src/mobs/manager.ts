@@ -8,6 +8,7 @@
 import {
   DT,
   MOB_BREED_COOLDOWN_S,
+  MOB_BREED_RADIUS,
   MOB_CALL_MAX_S,
   MOB_CALL_MIN_S,
   MOB_DEATH_S,
@@ -15,18 +16,33 @@ import {
   MOB_FLEE_S,
   MOB_GROW_UP_S,
   MOB_HIT_COOLDOWN_S,
+  MOB_DESPAWN_TARGET,
   MOB_LOADED_CAP,
   MOB_STORED_CAP,
+  MOB_STORED_SOFT_CAP,
 } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { SfxName } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
-import type { CreatureSpec, IWorld } from '../core/types';
+import { CHUNK_SIZE, type CreatureSpec, type IWorld } from '../core/types';
 import { bodyHeight, halfWidth, think, type BrainContext } from './brain';
-import { CALL_RANGE, CORPSE_FADE_S, FLASH_S, KNOCK_H, KNOCK_V, VOID_Y } from './constants';
+import {
+  CALL_RANGE,
+  CORPSE_FADE_S,
+  DESPAWN_CHECK_S,
+  FLASH_S,
+  HEAL_DELAY_S,
+  HEAL_EVERY_S,
+  KNOCK_H,
+  KNOCK_V,
+  RETIRE_MIN_DISTANCE,
+  VOID_Y,
+} from './constants';
+import { separate } from './crowd';
 import { createMob, feedRefusal, rollDrops } from './mob';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
-import { Spawner, type SpawnHost } from './spawner';
+import { farFrozen, farthestWild } from './population';
+import { columnKey, Spawner, type SpawnHost } from './spawner';
 import type { SpawnSpot } from './spawning';
 import { restoreMobs, saveMobs } from './persistence';
 import { MobTargets } from './targets';
@@ -35,6 +51,9 @@ import { fillViews } from './views';
 
 /** A species' call: the sfx named like the creature (spec 12.7; src/audio ignores names it has no patch for). */
 const callOf = (spec: CreatureSpec): SfxName => spec.key as SfxName;
+
+/** Why a feed or a birth is refused when even retiring far-off wild animals leaves no room in the save. */
+export const NO_ROOM = 'Too many animals to raise another one';
 
 export interface MobManagerOptions {
   /** Biome of a column. Default: `world.biomeAt` when the world has one, else always woodland. */
@@ -69,6 +88,11 @@ export class MobManager {
   private readonly natural: boolean;
   private nextId = 1;
   private contactTick = 0;
+  /** Animals in loaded columns: counted each tick, plus those added since (for room()). */
+  private loadedCount = 0;
+  private despawnS = 0;
+  /** Simulated animals retired during this tick (to make room for a birth). */
+  private readonly retiring: Mob[] = [];
 
   constructor(
     readonly world: IWorld,
@@ -158,15 +182,32 @@ export class MobManager {
 
   /**
    * The player offers `itemKey` (Use with it in hand). A liked item makes a grown, rested animal eager for
-   * MOB_EAGER_S (the caller then consumes one item). Otherwise refused with a short reason for a toast.
+   * MOB_EAGER_S (the caller then consumes one item) and marks it as the player's (tame: never retired).
+   * Otherwise refused with a short reason for a toast, before anything is used up: also when no baby could be
+   * stored (NO_ROOM). With no eager partner nearby yet, a toast says to feed another one.
    */
   feed(id: number, itemKey: string): FeedResult {
     const m = this.byId.get(id);
     const refused = feedRefusal(m, itemKey);
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing to feed' };
+    if (!this.birthRoom()) return { ok: false, reason: NO_ROOM };
     m.eagerS = MOB_EAGER_S;
+    m.tame = true;
     this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
+    if (!this.eagerPartnerNear(m)) {
+      const name = m.spec.name.toLowerCase();
+      this.bus.emit('toast', { text: `This ${name} is eager: feed another ${name} nearby`, kind: 'info' });
+    }
     return { ok: true };
+  }
+
+  private eagerPartnerNear(m: Mob): boolean {
+    const r2 = MOB_BREED_RADIUS * MOB_BREED_RADIUS;
+    for (const o of this.mobs) {
+      if (o === m || o.spec !== m.spec || o.baby || o.state === 'dying' || o.eagerS <= 0 || o.cooldownS > 0) continue;
+      if ((o.x - m.x) ** 2 + (o.z - m.z) ** 2 <= r2) return true;
+    }
+    return false;
   }
 
   /** Called with every finished death (after the tip-over); returns an unsubscribe function. */
@@ -179,23 +220,35 @@ export class MobManager {
 
   /** One fixed step (dt = DT at 20 Hz). */
   tick(dt: number, player: MobPlayer): void {
-    if (this.natural) this.spawner.tick(dt, player, this.clock);
     const brain = this.brain;
     brain.player = player;
     brain.held = player.heldItem();
+    this.despawnS -= dt;
+    if (this.despawnS <= 0) {
+      this.despawnS = DESPAWN_CHECK_S;
+      if (this.mobs.length > MOB_STORED_SOFT_CAP) this.retireFar(MOB_DESPAWN_TARGET);
+    }
+    if (this.natural) this.spawner.tick(dt, player, this.clock);
     const active = this.active;
     active.length = 0;
     for (const m of this.mobs) if (this.world.isLoaded(m.x, m.z)) active.push(m);
+    this.loadedCount = active.length;
 
     this.contactTick = (this.contactTick + 1) % 5;
-    for (let i = 0; i < active.length; i++) this.step(active[i], dt, player);
+    // Every brain first, then the crowd push, then every body, so the push sees this tick's intentions.
+    for (let i = 0; i < active.length; i++) this.mind(active[i], dt);
+    separate(this.world, active, dt);
+    for (let i = 0; i < active.length; i++) this.move(active[i], dt, player);
+    for (const m of this.retiring) this.removeMob(m);
+    this.retiring.length = 0;
     for (let i = this.mobs.length - 1; i >= 0; i--) {
       const m = this.mobs[i];
       if ((m.state === 'dying' && m.deadS >= MOB_DEATH_S + CORPSE_FADE_S) || m.y < VOID_Y) this.remove(i);
     }
   }
 
-  private step(m: Mob, dt: number, player: MobPlayer): void {
+  /** Timers and behaviour of one simulated animal (sets its velocity). */
+  private mind(m: Mob, dt: number): void {
     m.px = m.x;
     m.py = m.y;
     m.pz = m.z;
@@ -206,12 +259,9 @@ export class MobManager {
     if (m.hitCooldownS > 0) m.hitCooldownS -= dt;
 
     if (m.state === 'dying') {
-      const before = m.deadS;
       m.deadS += dt;
       m.vx *= 0.8;
       m.vz *= 0.8;
-      stepBody(this.world, m, halfWidth(m), bodyHeight(m), dt, this.info);
-      if (before < MOB_DEATH_S && m.deadS >= MOB_DEATH_S) this.finishDeath(m);
       return;
     }
 
@@ -219,18 +269,34 @@ export class MobManager {
     if (m.baby && m.ageS >= MOB_GROW_UP_S) this.growUp(m);
     if (m.eagerS > 0) m.eagerS = Math.max(0, m.eagerS - dt);
     if (m.cooldownS > 0) m.cooldownS = Math.max(0, m.cooldownS - dt);
+    // Slow natural healing, so the odd scrape (a cactus, a bump into lava) does not add up to a death.
+    if (m.health < m.spec.health) {
+      m.healS += dt;
+      if (m.healS >= HEAL_EVERY_S) {
+        m.health = Math.min(m.spec.health, m.health + 1);
+        m.healS = 0;
+      }
+    } else m.healS = 0;
     if (m.fleeS > 0) {
       m.fleeS = Math.max(0, m.fleeS - dt);
       // Hurt by the player: keep running directly away from where the player is now.
       if (m.fleeFromPlayer) {
-        m.fleeX = player.x;
-        m.fleeZ = player.z;
+        m.fleeX = this.brain.player.x;
+        m.fleeZ = this.brain.player.z;
       }
     }
-
     think(this.brain, m, dt);
+  }
+
+  /** Physics, hazards and calls of one simulated animal; hands out a corpse's drops once it has tipped over. */
+  private move(m: Mob, dt: number, player: MobPlayer): void {
     const hw = halfWidth(m);
     const h = bodyHeight(m);
+    if (m.state === 'dying') {
+      stepBody(this.world, m, hw, h, dt, this.info);
+      if (m.deadS >= MOB_DEATH_S && m.pendingDrops !== null) this.finishDeath(m);
+      return;
+    }
     if (embedded(this.world, m, hw, h)) m.y = Math.min(m.y + 0.25, 95);
     const info = stepBody(this.world, m, hw, h, dt, this.info);
     m.blocked = info.blocked;
@@ -261,6 +327,7 @@ export class MobManager {
   private hurt(m: Mob, damage: number, fromX: number, fromZ: number, cause: DeathCause): void {
     m.health -= damage;
     m.hurtS = FLASH_S;
+    m.healS = -HEAL_DELAY_S;
     m.fleeS = MOB_FLEE_S;
     m.fleeX = fromX;
     m.fleeZ = fromZ;
@@ -295,31 +362,67 @@ export class MobManager {
     for (let i = 0; i < 4 && embedded(this.world, m, hw, h); i++) m.y += 0.5;
   }
 
+  /**
+   * A pair finished breeding. Player-driven births do not count against MOB_LOADED_CAP: over it, the farthest
+   * wild adult out of the player's way is retired instead. Only a full save (MOB_STORED_CAP, after retiring
+   * far-off wild animals) refuses the baby; then the pair keeps no cooldown and can try again later.
+   */
   private birth(a: Mob, b: Mob): void {
+    const room = this.birthRoom();
     for (const m of [a, b]) {
       m.eagerS = 0;
-      m.cooldownS = MOB_BREED_COOLDOWN_S;
+      if (room) m.cooldownS = MOB_BREED_COOLDOWN_S;
       m.partner = 0;
       m.breedS = 0;
       m.state = 'idle';
       m.stateS = 2;
     }
-    if (!this.room(1)) {
-      this.bus.emit('toast', { text: 'Too many animals here for another one', kind: 'warn' });
+    if (!room) {
+      this.bus.emit('toast', { text: NO_ROOM, kind: 'warn' });
       return;
     }
+    if (this.loadedCount >= MOB_LOADED_CAP) {
+      const p = this.brain.player;
+      // Removed after this tick's loops over the simulated animals.
+      const old = farthestWild(this.active, p.x, p.z, RETIRE_MIN_DISTANCE);
+      if (old && !this.retiring.includes(old)) this.retiring.push(old);
+    }
     const spot: SpawnSpot = { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y), z: (a.z + b.z) / 2, yaw: a.yaw };
-    this.add(a.spec, spot, true);
+    this.add(a.spec, spot, true).tame = true;
     this.bus.emit('sfx', { name: callOf(a.spec), x: spot.x, y: spot.y + 0.5, z: spot.z, pitch: 1.3 });
   }
 
   // ------------------------------------------------------------------------------------------ population
 
-  /** True when `count` more animals fit under both caps. */
+  /** True when `count` more animals fit under both caps (natural spawning; births only need birthRoom). */
   room(count: number): boolean {
-    let loaded = 0;
-    for (const m of this.mobs) if (this.world.isLoaded(m.x, m.z)) loaded++;
-    return loaded + count <= MOB_LOADED_CAP && this.mobs.length + count <= MOB_STORED_CAP;
+    return this.loadedCount + count <= MOB_LOADED_CAP && this.mobs.length + count <= MOB_STORED_CAP;
+  }
+
+  /** Whether a baby can be stored, retiring far-off frozen wild animals first when the save is full. */
+  private birthRoom(): boolean {
+    if (this.mobs.length < MOB_STORED_CAP) return true;
+    this.retireFar(MOB_STORED_CAP - 1);
+    return this.mobs.length < MOB_STORED_CAP;
+  }
+
+  /**
+   * Retires frozen wild adults far from the player, farthest first, down to `keep` stored animals (fewer go when
+   * not enough qualify: see farFrozen). A column left with none of its animals may roll a group again when it
+   * next loads, so the world does not empty behind an explorer.
+   */
+  private retireFar(keep: number): void {
+    const p = this.brain.player;
+    const gone = farFrozen(this.mobs, this.world, p.x, p.z, keep);
+    if (gone.length === 0) return;
+    const col = (m: Mob): number => columnKey(Math.floor(m.x / CHUNK_SIZE), Math.floor(m.z / CHUNK_SIZE));
+    const emptied = new Set<number>();
+    for (const m of gone) {
+      emptied.add(col(m));
+      this.removeMob(m);
+    }
+    for (const m of this.mobs) emptied.delete(col(m));
+    for (const k of emptied) this.spawner.rolled.delete(k);
   }
 
   /** Adds an animal (emits 'mob:spawned'). Used by spawning, breeding and tests. */
@@ -327,8 +430,14 @@ export class MobManager {
     const m = createMob(this.nextId++, spec, spot.x, spot.y, spot.z, spot.yaw, baby, this.rng);
     this.mobs.push(m);
     this.byId.set(m.id, m);
+    if (this.world.isLoaded(m.x, m.z)) this.loadedCount++;
     this.bus.emit('mob:spawned', { id: m.id, species: spec.key });
     return m;
+  }
+
+  private removeMob(m: Mob): void {
+    const i = this.mobs.indexOf(m);
+    if (i >= 0) this.remove(i);
   }
 
   private remove(index: number): void {
@@ -337,7 +446,10 @@ export class MobManager {
     this.mobs.pop();
     this.byId.delete(m.id);
     const a = this.active.indexOf(m);
-    if (a >= 0) this.active.splice(a, 1);
+    if (a >= 0) {
+      this.active.splice(a, 1);
+      this.loadedCount--;
+    }
   }
 
   // ------------------------------------------------------------------------------------------ rendering
@@ -368,6 +480,8 @@ export class MobManager {
       this.byId.set(m.id, m);
     }
     this.nextId = restored.nextId;
+    this.loadedCount = 0;
+    for (const m of this.mobs) if (this.world.isLoaded(m.x, m.z)) this.loadedCount++;
     this.spawner.rolled.clear();
     for (const k of restored.rolled) this.spawner.rolled.add(k);
     this.spawner.guaranteed = snapshot.guaranteed === true;

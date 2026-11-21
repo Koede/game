@@ -37,6 +37,10 @@ export interface Mob {
   eagerS: number;
   /** Seconds before it can breed again. */
   cooldownS: number;
+  /** Fed or born to fed parents: the player's animal, never retired to make room. */
+  tame: boolean;
+  /** Natural healing clock: negative right after a hurt, +1 health each time it reaches HEAL_EVERY_S. */
+  healS: number;
   /** Partner while breeding (0 = none), and seconds spent together. */
   partner: number;
   breedS: number;
@@ -162,6 +166,15 @@ export interface SavedMob {
   ageS: number;
   eagerS: number;
   cooldownS: number;
+  /** Absent in old saves (then guessed from eagerS / cooldownS). */
+  tame?: boolean;
+  /**
+   * Only for an animal saved during its MOB_DEATH_S tip-over: seconds since the killing blow, the drops still
+   * owed to the player and the cause. It is restored dying, so the drops arrive once the game runs again.
+   */
+  deadS?: number;
+  drops?: ItemAmount[];
+  cause?: DeathCause;
 }
 
 export interface MobsSnapshot {

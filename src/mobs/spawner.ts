@@ -14,7 +14,7 @@ import {
 import { mulberry32 } from '../core/math';
 import { CREATURES } from '../core/registry';
 import { CHUNK_SIZE, type CreatureSpec, type IWorld } from '../core/types';
-import { findAnchor, groupSize, placeGroup, rollChunk, type SpawnSpot } from './spawning';
+import { findAnchor, groupSize, placeGroup, rollChunk, rollsGroup, type SpawnSpot } from './spawning';
 import type { BiomeLookup, Mob, MobClock, MobPlayer } from './types';
 
 /** Chunk radius around the player checked for unrolled loaded columns, once per second. */
@@ -79,15 +79,25 @@ export class Spawner {
     }
   }
 
-  /** Rolls a loaded column once in its life. */
+  /**
+   * Rolls a loaded column once in its life. A column whose group does not fit under the caps right now stays
+   * unrolled, so a later sweep (or its next load) places the group once there is room.
+   */
   roll(cx: number, cz: number): void {
     const key = columnKey(cx, cz);
     if (this.rolled.has(key)) return;
     const world = this.host.world;
     if (!world.isLoaded(cx * CHUNK_SIZE, cz * CHUNK_SIZE)) return;
-    this.rolled.add(key);
+    if (!rollsGroup(this.host.seed, cx, cz)) {
+      this.rolled.add(key);
+      return;
+    }
+    // Cheap test first: sweeps retry waiting columns every second.
+    if (!this.host.room(1)) return;
     const plan = rollChunk(world, this.host.seed, cx, cz, this.host.biomeAt);
-    if (plan && this.host.room(plan.spots.length)) for (const s of plan.spots) this.host.add(plan.species, s, false);
+    if (plan && !this.host.room(plan.spots.length)) return;
+    this.rolled.add(key);
+    if (plan) for (const s of plan.spots) this.host.add(plan.species, s, false);
   }
 
   private sweep(player: MobPlayer): void {

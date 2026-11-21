@@ -75,13 +75,16 @@ function chunkRand(seed: number, cx: number, cz: number, salt: number): () => nu
   return () => hashFloat(seed ^ salt, cx, cz, i++);
 }
 
+/** Whether column (cx, cz) wins its MOB_CHUNK_SPAWN_CHANCE roll (it may still have nowhere to stand). */
+export const rollsGroup = (seed: number, cx: number, cz: number): boolean => hashFloat(seed ^ SALT_ROLL, cx, cz) < MOB_CHUNK_SPAWN_CHANCE;
+
 /**
  * The first-load roll of chunk column (cx, cz): MOB_CHUNK_SPAWN_CHANCE of one group of a species living in the
  * chunk's biome, on an open natural surface inside the chunk. Same seed and terrain -> same result, whatever
  * order chunks load in. Null when the roll fails or the chunk has nowhere to stand.
  */
 export function rollChunk(world: IWorld, seed: number, cx: number, cz: number, biomeAt: BiomeLookup): GroupPlan | null {
-  if (hashFloat(seed ^ SALT_ROLL, cx, cz) >= MOB_CHUNK_SPAWN_CHANCE) return null;
+  if (!rollsGroup(seed, cx, cz)) return null;
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
   const candidates = speciesOf(biomeAt(x0 + 8, z0 + 8));
