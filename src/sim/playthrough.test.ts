@@ -25,7 +25,6 @@ const BENCH = { x: -2, y: 1, z: 5 };
 const CHOP = { x: -4, y: 1, z: 5 };
 const QUERN = { x: -5, y: 1, z: 5 };
 const ANVIL = { x: -6, y: 1, z: 5 };
-const MORTAR = { x: -7, y: 1, z: 5 };
 /** Twelve crates south-west of the furnace, within its reach (and the bench's). */
 const CRATES = [2, 3, 4].flatMap((z) => [-1, -2, -3, -4].map((x) => ({ x, y: 1, z })));
 /** At the furnace's mouth: it touches the furnace and carries the grid to it. */
@@ -121,7 +120,7 @@ class FedPlay extends Play {
    * recipes share it), strikes with `tool` in hand (or bare hands) until the work bar fills, takes each output. Returns
    * once `count` input items are used up.
    */
-  work(p: Pos, input: string, count: number, tool: string | null = null): void {
+  work(p: Pos, input: string, count: number, tool: string | null = null, perLoad = 16): void {
     const { x, y, z } = p;
     const loaded = (): number => this.sim.handView(x, y, z)?.input?.count ?? 0;
     let left = count;
@@ -129,7 +128,7 @@ class FedPlay extends Play {
       if (loaded() === 0) {
         const have = this.have(input);
         if (have === 0) throw new Error(`work: no ${input} left`);
-        for (let guard = 0; guard < 99 && loaded() < Math.min(left, have, 16); guard++) {
+        for (let guard = 0; guard < 99 && loaded() < Math.min(left, have, perLoad); guard++) {
           this.hold(input);
           this.must(this.sim.stroke(x, y, z, input), `load ${input}`);
         }
@@ -145,6 +144,16 @@ class FedPlay extends Play {
     }
     if (loaded() > 0) this.must(this.sim.handReturn(x, y, z), `take back ${input}`);
     this.step(0.5);
+  }
+
+  /** Copper wire at the stone anvil: one ingot loaded at a time makes wire (two would make a plate). */
+  wire(n: number): void {
+    this.work(ANVIL, 'copper_ingot', Math.ceil(n / 3), null, 1);
+  }
+
+  /** STAND-IN (casting replaces): bronze ingots, which the alloy pot and the moulds will make. */
+  bronze(n: number): void {
+    this.find(`${n} bronze_ingot`);
   }
 
   private eatIfPeckish(): void {
@@ -193,6 +202,13 @@ describe('scripted playthrough', () => {
     play.gather('stone', 12, '12 rubble');
     play.gather('clay', 6, '6 clay');
     done('collect_clay');
+    // The hand stations: a quern for flour and a stone anvil for wire and plate, from stone brick.
+    play.gather('stone', 8, '8 rubble');
+    play.craft('stone_brick', 2, BENCH);
+    play.craft('hand_quern', 1, BENCH);
+    play.craft('stone_anvil', 1, BENCH);
+    play.place('hand_quern', QUERN);
+    play.place('stone_anvil', ANVIL);
     play.craft('furnace_clay', 1, BENCH);
     for (let i = 0; i < CRATES.length; i++) play.craft('crate', 1, BENCH);
     play.place('furnace_clay', F);
@@ -227,7 +243,8 @@ describe('scripted playthrough', () => {
     play.find('40 coal, 15 copper_ore, 5 tin_ore, 8 clay, 2 sand');
     play.fuel = 'coal';
     play.heat(780);
-    expect(play.view().forge.find((r) => r.recipe.id === 'bronze_ingot')).toMatchObject({ locked: false, canMake: false });
+    // Bronze is no longer forged at the furnace: it is alloyed in the pot (docs/api/casting.md).
+    expect(play.view().forge.find((r) => r.recipe.id === 'bronze_ingot')).toBeUndefined();
     play.smelt('copper_ore', 15);
     done('smelt_copper');
     play.craft('flint_hoe', 1, BENCH);
@@ -247,16 +264,17 @@ describe('scripted playthrough', () => {
     // The furnace's recipe list is the tech tree: higher tiers are listed, locked, with what they need.
     const steelRow = play.view().forge.find((r) => r.recipe.id === 'steel_ingot');
     expect(steelRow).toMatchObject({ locked: true, canMake: false, reason: 'Needs the Blast Furnace' });
-    play.forge('bronze_ingot', 3);
+    play.bronze(3);
     done('make_bronze');
     // Spec 19.4: a maul for the automatons that wake at night (four more bronze than the pickaxe alone needs).
     play.find('3 copper_ore, 1 tin_ore');
     play.smelt('copper_ore', 3);
     play.smelt('tin_ore', 1);
-    play.forge('bronze_ingot');
-    play.forge('bronze_maul');
+    play.bronze(1);
+    play.find('1 bronze_maul_head, 1 bronze_pickaxe_head'); // STAND-IN (casting replaces): poured into the maul and pickaxe moulds
+    play.craft('bronze_maul', 1, BENCH);
     done('forge_maul');
-    play.forge('bronze_pickaxe');
+    play.craft('bronze_pickaxe', 1, BENCH);
     done('bronze_pickaxe');
     // Stand-in for src/mobs until automatons fight: one is broken apart (a ruin's kiln sentry) and its salvage taken.
     play.find('3 scrap_metal, 2 ember_core');
@@ -264,7 +282,7 @@ describe('scripted playthrough', () => {
     play.step(0.5);
     done('salvage_automaton');
     play.find('4 wheat, 1 water_pail');
-    play.craft('flour', 2, BENCH);
+    play.work(QUERN, 'wheat', 4);
     play.craft('dough', 1, BENCH);
     play.smelt('dough', 1);
     play.smelt('clay', 8);
@@ -274,7 +292,7 @@ describe('scripted playthrough', () => {
     play.step(2);
     expect(sim.machineView(THERMOPILE.x, THERMOPILE.y, THERMOPILE.z)!.availW).toBeCloseTo(0.25 * (800 - 100), 0);
     done('first_power');
-    play.forge('copper_wire');
+    play.wire(1);
     play.forge('lamp');
     play.place('lamp', LAMP);
     play.step(1);
@@ -364,8 +382,8 @@ describe('scripted playthrough', () => {
     play.heat(1400);
     play.forge('steel_ingot', 4);
     done('make_steel');
-    play.forge('copper_wire', 20);
-    play.forge('bronze_ingot', 3);
+    play.wire(20);
+    play.bronze(3);
     play.forge('copper_coil', 3);
     play.forge('iron_plate', 6);
     play.forge('chassis');
@@ -416,7 +434,7 @@ describe('scripted playthrough', () => {
     play.forge('steel_ingot', 8);
     play.forge('steel_plate', 8);
     play.forge('graphite_electrode', 3);
-    play.forge('copper_wire', 2);
+    play.wire(2);
     play.forge('copper_coil', 4);
     // The Arc hearth: refractory brick walls, a ceiling with an electrode. Forged while the Blast hearth still stands
     // (refractory brick needs 1300 C); building it puts a lid on the furnace, so the steam engine comes off it.
@@ -437,7 +455,7 @@ describe('scripted playthrough', () => {
     // Objective 'pump_water' (spec 16): a pump forged from a chassis, a coil and two fluid pipes, and set down.
     play.forge('iron_plate', 6);
     play.forge('chassis');
-    play.forge('copper_wire', 2);
+    play.wire(2);
     play.forge('copper_coil');
     play.find('1 sand');
     play.smelt('sand', 1);
@@ -469,10 +487,10 @@ describe('scripted playthrough', () => {
     play.forge('steel_ingot', 6);
     play.forge('steel_plate', 6);
     play.forge('iron_plate', 12);
-    play.forge('copper_wire', 8);
+    play.wire(8);
     play.forge('copper_coil', 6);
     play.forge('ceramic_insulator');
-    play.forge('bronze_ingot');
+    play.bronze(1);
     play.forge('chassis');
     play.forge('tank');
     play.forge('boiler');
@@ -512,7 +530,7 @@ describe('scripted playthrough', () => {
     play.smelt('crushed_iron', 80);
     play.smelt('crushed_copper', 60);
     play.smelt('tin_ore', 3);
-    play.forge('copper_wire', 24);
+    play.wire(24);
     play.forge('ceramic_insulator', 6);
     play.forge('silicon_wafer', 6);
     play.forge('circuit', 6);
@@ -526,7 +544,7 @@ describe('scripted playthrough', () => {
     play.place('ward_beacon', WARD);
     play.step(1);
     done('ward_base');
-    play.forge('bronze_ingot', 3);
+    play.bronze(3);
     play.forge('iron_plate', 12);
     play.forge('chassis', 3);
     play.forge('copper_coil', 13);
@@ -559,7 +577,7 @@ describe('scripted playthrough', () => {
     play.forge('steel_plate', 54);
     play.heat(1900);
     play.forge('plasma_casing', 27);
-    play.forge('copper_wire', 8);
+    play.wire(8);
     play.forge('copper_coil', 4);
     play.forge('ceramic_insulator', 2);
     play.forge('iron_plate', 2);
@@ -623,11 +641,11 @@ describe('scripted playthrough', () => {
     play.forge('superalloy', 20);
     done('make_superalloy');
     play.smelt('silica', 24);
-    play.forge('copper_wire', 60);
+    play.wire(60);
     play.forge('ceramic_insulator', 8);
     play.forge('silicon_wafer', 14);
     play.forge('circuit', 14);
-    play.forge('bronze_ingot', 3);
+    play.bronze(3);
     play.forge('iron_plate', 12);
     play.forge('chassis', 3);
     play.forge('copper_coil', 34);
@@ -684,7 +702,7 @@ describe('scripted playthrough', () => {
     play.smelt('silica', 140);
     play.forge('steel_ingot', 120);
     play.forge('superalloy', 120);
-    play.forge('copper_wire', 330);
+    play.wire(330);
     play.forge('copper_coil', 240);
     play.forge('magnet_ring', 52);
     play.forge('star_casing', 47);
