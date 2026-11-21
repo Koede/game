@@ -22,6 +22,8 @@ export class FluidNet extends PipeNet {
   /** What it holds; the same object lives on the anchor entity. */
   store: FluidStore = { fluid: null, litres: 0 };
   capacity = 0;
+  /** The fluid it moved last (it may flow straight through and hold none at the end of a tick). */
+  lastFluid: FluidKey | null = null;
   private order: Port[] = [];
   private orderOf: string | null = null;
   private readonly limits: number[] = [];
@@ -89,6 +91,7 @@ export class FluidNet extends PipeNet {
       const got = ep.drain(offer.fluid, Math.min(port.rate * dt, room, offer.litres));
       if (got > 0) {
         store.fluid = offer.fluid;
+        this.lastFluid = offer.fluid;
         store.litres += got;
         port.litres += got;
         port.state = 'moving';

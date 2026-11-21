@@ -47,9 +47,32 @@ const CENTRIFUGE = { x: 7, y: 1, z: 2 };
 const PILE = { x: 8, y: 1, z: 2 };
 const BANKS = [{ x: 7, y: 1, z: 0 }, { x: 9, y: 1, z: 1 }];
 const ELECTROLYZER = { x: 10, y: 1, z: 1 };
-/** Spec 16: the first item pipe and the first pump (their objectives only ask for the placement). */
-const PIPE = { x: 1, y: 1, z: 4 };
-const PUMP = { x: 1, y: 1, z: 5 };
+/**
+ * Spec 16, items: ore is piped from a crate into an item hatch in the hearth's east wall, ingots out of a hatch in the
+ * north wall into a crate within the furnace's reach (so forging takes them from there). The Plasma hearth swallows
+ * the north hatch; the ingots then leave through a second hatch in the east wall.
+ */
+const IN_HATCH = { x: 1, y: 1, z: -1 };
+const IN_PIPES = [2, 3, 4].map((x) => ({ x, y: 1, z: -1 }));
+const ORE_CRATE = { x: 5, y: 1, z: -1 };
+const OUT_HATCH = { x: 0, y: 1, z: -2 };
+const OUT_PIPE = { x: 0, y: 1, z: -3 };
+const OUT_CRATE = { x: 0, y: 1, z: -4 };
+const OUT2_HATCH = { x: 1, y: 1, z: -2 };
+const OUT2_PIPES = [{ x: 2, y: 1, z: -2 }, { x: 2, y: 1, z: -3 }];
+const OUT2_CRATE = { x: 3, y: 1, z: -3 };
+/**
+ * Spec 16, fluids, on the Arc hearth's roof: a pump in a pool feeds a steam engine (piped water instead of a pool
+ * beside it) and a boiler; the boiler's steam runs a turbine through a hot pipe. Two cables put the engine on the grid.
+ */
+const POOL = [{ x: -1, y: 3, z: -1 }, { x: -1, y: 3, z: -2 }];
+const PUMP = { x: -1, y: 3, z: 0 };
+const ROOF_ENGINE = { x: 0, y: 3, z: 0 };
+const BOILER = { x: 1, y: 3, z: -1 };
+const WATER_PIPES = [{ x: -1, y: 4, z: 0 }, { x: 0, y: 4, z: 0 }, { x: 1, y: 4, z: 0 }, { x: 1, y: 4, z: -1 }];
+const STEAM_PIPES = [{ x: 2, y: 3, z: -1 }, { x: 2, y: 3, z: 0 }, { x: 2, y: 3, z: 1 }, { x: 2, y: 2, z: 1 }];
+const TURBINE = { x: 1, y: 2, z: 1 };
+const ROOF_CABLES = [{ x: 0, y: 2, z: 1 }, { x: 0, y: 3, z: 1 }];
 
 /** The player's crosshair on the top face of a block (what a hoe tills and seeds are sown on). */
 function aimDown(world: FakeWorld, p: { x: number; y: number; z: number }): UseTarget {
@@ -237,17 +260,50 @@ describe('scripted playthrough', () => {
     play.heat(1150);
     play.find('12 raw_chop'); // the hunt goes on: supper for the long middle of the game
     play.smelt('raw_chop', 12);
-    play.smelt('iron_ore', 110);
+    play.smelt('iron_ore', 20);
+    // Spec 16: two item hatches swapped into the Blast hearth's walls (each in one go, so it never comes apart), a
+    // crate of ore piped into one and the ingots piped out of the other into a crate beside the furnace.
+    play.gather('oak_log', 8, '8 oak_log');
+    play.craft('plank', 8);
+    for (let i = 0; i < 4; i++) play.craft('crate', 1, BENCH);
+    play.forge('iron_plate', 4);
+    play.forge('item_hatch', 2);
+    play.forge('wrench');
+    play.forge('item_pipe');
+    const formedBefore = hearths.length;
+    for (const p of [IN_HATCH, OUT_HATCH]) {
+      play.breakBlock(p);
+      play.place('item_hatch', p);
+    }
+    expect(hearths).toHaveLength(formedBefore);
+    expect(play.view().hearth.formed).toBe(true);
+    play.place('crate', ORE_CRATE);
+    play.place('crate', OUT_CRATE);
+    play.crates.splice(play.crates.length - 2, 2); // the player keeps these two for the pipes, not for stashing
+    for (const p of IN_PIPES) play.place('item_pipe', p);
+    done('pipe_ore');
+    play.place('item_pipe', OUT_PIPE);
+    play.must(sim.wrenchPort(4, 1, -1, Face.PX), 'the ore crate end pulls');
+    play.must(sim.wrenchPort(OUT_PIPE.x, OUT_PIPE.y, OUT_PIPE.z, Face.PZ), 'the north hatch end pulls');
+    expect(toasts.map((t) => t.text)).toEqual(expect.arrayContaining(['Pulling from Crate', 'Pulling from Item Hatch']));
+    const oreCrate = play.machineSlots(ORE_CRATE);
+    const outCrate = play.machineSlots(OUT_CRATE);
+    play.load(oreCrate, 'iron_ore', 90);
+    play.step(10);
+    expect(sim.pipeView(3, 1, -1)!.ports.map((p) => [p.name, p.status])).toEqual(expect.arrayContaining([
+      ['Item Hatch', 'Receiving Iron Ore'],
+      ['Crate', 'Moving 4 every 2 s'],
+    ]));
+    play.until('90 iron ingots piped out', () => outCrate.count('iron_ingot') >= 90, 1500);
+    expect(oreCrate.count('iron_ore')).toBe(0);
+    expect(sim.pipeView(OUT_PIPE.x, OUT_PIPE.y, OUT_PIPE.z)!.ports.find((p) => p.mode === 'pull')!.status).toMatch(/^Moving \d+ every 2 s$|^Nothing to pull$/);
+    done('smelt_iron');
+    mark('iron piped through the hearth');
     play.smelt('coal', 50);
     play.smelt('copper_ore', 36);
     play.smelt('tin_ore', 4);
     play.smelt('clay', 60);
     play.smelt('sand', 4);
-    // Objective 'pipe_ore' comes first in the Forge Age; the iron smelted above completes 'smelt_iron' right after it.
-    play.forge('item_pipe');
-    play.place('item_pipe', PIPE);
-    done('pipe_ore');
-    done('smelt_iron');
     // Steel needs 1400 C: a coke fire (1550 C) instead of coal (1250 C).
     play.collect(play.furnaceSlots().fuel);
     play.fuel = 'coke';
@@ -333,8 +389,10 @@ describe('scripted playthrough', () => {
     play.smelt('sand', 1);
     play.forge('fluid_pipe');
     play.forge('pump');
+    for (const p of POOL) play.pour(p);
     play.place('pump', PUMP);
     done('pump_water');
+    expect(sim.machineView(PUMP.x, PUMP.y, PUMP.z)!.status).toBe('No power');
 
     // ---- Current Age: electric heat --------------------------------------------------------------------------------
     play.find('140 coal, 40 iron_ore, 20 limestone, 30 copper_ore, 3 tin_ore, 16 quartz_ore, 30 bauxite, 24 wolframite, 40 oil_shale, 12 clay, 12 sand');
@@ -345,6 +403,48 @@ describe('scripted playthrough', () => {
     expect(arc.electric.deliveredW).toBeGreaterThan(5000);
     expect(arc.flameC === null || arc.flameC < 1900).toBe(true);
     mark('1900 C on electricity');
+
+    // Spec 16.5 on the roof: the steam engine back on the hearth (it runs on piped water now), a boiler beside it, and
+    // the boiler's steam piped to a turbine on the grid.
+    play.find('50 iron_ore, 20 copper_ore, 1 tin_ore, 6 sand, 2 clay, 8 limestone, 16 coal');
+    play.smelt('iron_ore', 50);
+    play.smelt('copper_ore', 20);
+    play.smelt('tin_ore', 1);
+    play.smelt('sand', 6);
+    play.smelt('coal', 16);
+    play.forge('steel_ingot', 6);
+    play.forge('steel_plate', 6);
+    play.forge('iron_plate', 12);
+    play.forge('copper_wire', 8);
+    play.forge('copper_coil', 6);
+    play.forge('ceramic_insulator');
+    play.forge('bronze_ingot');
+    play.forge('chassis');
+    play.forge('tank');
+    play.forge('boiler');
+    play.forge('hot_fluid_pipe');
+    play.forge('steam_turbine');
+    for (const p of ROOF_CABLES) play.place('copper_cable', p);
+    play.place('steam_engine', ROOF_ENGINE);
+    play.place('boiler', BOILER);
+    play.place('steam_turbine', TURBINE);
+    for (const p of WATER_PIPES) play.place('fluid_pipe', p);
+    for (const p of STEAM_PIPES) play.place('hot_fluid_pipe', p);
+    play.must(sim.wrenchPort(STEAM_PIPES[0].x, STEAM_PIPES[0].y, STEAM_PIPES[0].z, Face.NX), 'the boiler\'s steam side pulls');
+    play.until('turbine power', () => sim.machineView(TURBINE.x, TURBINE.y, TURBINE.z)!.outW > 2000, 120);
+    expect(sim.machineView(PUMP.x, PUMP.y, PUMP.z)!.running || sim.machineView(PUMP.x, PUMP.y, PUMP.z)!.status.startsWith('Full')).toBe(true);
+    expect(sim.machineView(ROOF_ENGINE.x, ROOF_ENGINE.y, ROOF_ENGINE.z)).toMatchObject({ problem: null, availW: 2000 });
+    expect(sim.machineView(BOILER.x, BOILER.y, BOILER.z)!.status).toMatch(/^Boiling \d+ L of steam a second$/);
+    const water = sim.pipeView(WATER_PIPES[0].x, WATER_PIPES[0].y, WATER_PIPES[0].z)!;
+    expect(water.network).toMatchObject({ family: 'fluid', fluid: 'water' });
+    expect(sim.machineView(ROOF_ENGINE.x, ROOF_ENGINE.y, ROOF_ENGINE.z)!.fluids!.input).toMatchObject({ fluid: 'water' });
+    expect(water.ports.map((p) => [p.name, p.mode])).toEqual([['Pump', 'pull'], ['Steam Engine', 'push'], ['Boiler', 'push']]);
+    expect(sim.pipeView(STEAM_PIPES[3].x, STEAM_PIPES[3].y, STEAM_PIPES[3].z)!.network.fluid).toBe('steam');
+    expect(blockOf(kit.world.getVoxel(POOL[0].x, POOL[0].y, POOL[0].z)).key).toBe('water'); // a pool is an endless spring
+    mark('steam turbine on the roof');
+    // Steam takes its heat from the fire: switched off again, so the furnace keeps its heat for the plasma casings.
+    play.must(sim.setMachineOn(TURBINE.x, TURBINE.y, TURBINE.z, false), 'turbine off');
+    play.must(sim.setMachineOn(ROOF_ENGINE.x, ROOF_ENGINE.y, ROOF_ENGINE.z, false), 'engine off');
     // From here electricity does the heating; the last coke burns away and the fire is not fed again.
     play.fuel = null;
 
@@ -402,7 +502,24 @@ describe('scripted playthrough', () => {
     play.forge('ceramic_insulator', 2);
     play.forge('iron_plate', 2);
     play.forge('power_port', 2);
+    // The Plasma hearth's inside takes the north hatch's place: the ingots will leave through a second east hatch.
+    play.find('4 iron_ore');
+    play.smelt('iron_ore', 4);
+    play.forge('iron_plate', 2);
+    play.gather('oak_log', 4, '4 oak_log');
+    play.craft('plank', 4);
+    play.craft('crate', 2, BENCH);
+    play.forge('item_hatch');
+    play.place('item_hatch', OUT2_HATCH);
     play.buildHearth(4);
+    play.collect(outCrate);
+    play.breakBlock(OUT_CRATE);
+    play.place('crate', OUT2_CRATE);
+    play.crates.pop();
+    for (const p of OUT2_PIPES) play.place('item_pipe', p);
+    play.must(sim.wrenchJoint(OUT2_PIPES[0].x, OUT2_PIPES[0].y, OUT2_PIPES[0].z, Face.PZ), 'part the two lines');
+    play.must(sim.wrenchPort(OUT2_PIPES[0].x, OUT2_PIPES[0].y, OUT2_PIPES[0].z, Face.NX), 'the east hatch end pulls');
+    expect(sim.transport.netAt(OUT2_PIPES[0].x, 1, OUT2_PIPES[0].z)).not.toBe(sim.transport.netAt(IN_PIPES[0].x, 1, IN_PIPES[0].z));
     expect(play.view()).toMatchObject({ tier: 3, effectiveTier: 3, hearth: { tier: 4, inner: [2, 2, 2] } });
     // The arc heater sized up to the bigger shell is more than copper cable carries.
     play.step(2);
@@ -410,7 +527,7 @@ describe('scripted playthrough', () => {
     expect(alerts.map((a) => a.kind)).toContain('overload');
     play.forge('ceramic_insulator', 2);
     play.forge('heavy_cable', 2);
-    for (const p of BUS) {
+    for (const p of [...BUS, ...ROOF_CABLES]) {
       play.breakBlock(p);
       play.place('heavy_cable', p);
     }
@@ -494,7 +611,11 @@ describe('scripted playthrough', () => {
     play.smelt('raw_chop', 12);
     play.smelt('coal', 140);
     play.smelt('iron_ore', 520);
-    play.smelt('copper_ore', 330);
+    // 330 copper ore through the pipes: a crate of ore in, ingots out beside the furnace.
+    play.load(oreCrate, 'copper_ore', 330);
+    const out2 = play.machineSlots(OUT2_CRATE);
+    play.until('330 copper ingots piped out', () => out2.count('copper_ingot') >= 330, 3000);
+    mark('copper piped through the hearth');
     for (const ore of ['bauxite', 'wolframite', 'quartz_ore', 'spodumene'] as const) play.process(CRUSHER, ore, play.have(ore));
     play.smelt('alumina', 260);
     play.smelt('tungsten_powder', 260);
@@ -507,7 +628,7 @@ describe('scripted playthrough', () => {
     play.forge('star_casing', 47);
     play.forge('ceramic_insulator', 6);
     play.forge('super_cable', 2);
-    for (const p of BUS) {
+    for (const p of [...BUS, ...ROOF_CABLES]) {
       play.breakBlock(p);
       play.place('super_cable', p);
     }

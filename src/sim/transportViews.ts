@@ -63,6 +63,7 @@ export interface PipeNetView {
   inertPorts: number;
   /** Fluid networks: every pipe is a hot pipe. */
   hot: boolean;
+  /** What it holds, or what flows through it right now (a network that passes everything on holds nothing). */
   fluid: FluidKey | null;
   fluidName: string | null;
   litres: number;
@@ -221,18 +222,19 @@ function portView(t: Transport, net: PipeNet, port: Port, inert: boolean, from: 
   };
 }
 
-export function netView(net: PipeNet): PipeNetView {
+export function netView(t: Transport, net: PipeNet): PipeNetView {
   const warnings: string[] = [];
   if (net.overflow.length > 0) warnings.push(`Network too long - ${net.size} of ${net.size + net.overflow.length} pipes work`);
   if (net.extraPorts.length > 0) warnings.push(`Too many ends - ${net.extraPorts.length} do nothing`);
   const fluid = net instanceof FluidNet ? net.store : null;
+  const flowing = net instanceof FluidNet ? fluid?.fluid ?? (t.time - net.busyAt < 1 ? net.lastFluid : null) : null;
   const items = net instanceof ItemNet ? net.packets : [];
   if (items.length >= PIPE_MAX_PACKETS) warnings.push('Pipes are full - pulling waits');
   if (fluid && net.joints.some((j) => j.reason === 'mismatch')) warnings.push('Touches pipes holding another fluid');
   const capacity = net instanceof FluidNet ? net.capacity : 0;
   return {
     id: net.id, family: net.family, pipes: net.size, inertPipes: net.overflow.length, ports: net.ports.length,
-    inertPorts: net.extraPorts.length, hot: net.hot, fluid: fluid?.fluid ?? null, fluidName: fluid?.fluid ? fluidSpec(fluid.fluid).name : null,
+    inertPorts: net.extraPorts.length, hot: net.hot, fluid: flowing, fluidName: flowing ? fluidSpec(flowing).name : null,
     litres: fluid?.litres ?? 0, capacityL: capacity, fill: capacity > 0 && fluid ? Math.min(1, fluid.litres / capacity) : 0,
     packets: items.length, items: items.reduce((n, p) => n + p.rec.count, 0), maxPackets: PIPE_MAX_PACKETS, warnings,
   };
@@ -250,7 +252,7 @@ export function pipeView(t: Transport, x: number, y: number, z: number): PipeVie
     ...net.ports.map((p) => portView(t, net, p, false, from)),
     ...net.extraPorts.map((p) => portView(t, net, p, true, from)),
   ].sort((a, b) => a.distance - b.distance);
-  return { x, y, z, block: def.key, name: def.name, family: def.pipe.family, network: netView(net), ports, joints: net.joints.map(jointView) };
+  return { x, y, z, block: def.key, name: def.name, family: def.pipe.family, network: netView(t, net), ports, joints: net.joints.map(jointView) };
 }
 
 /** Builds the render snapshot at most once per transport tick, reusing its objects. */

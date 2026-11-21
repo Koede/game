@@ -11,7 +11,7 @@ import { CHUNK_SIZE, OPPOSITE_FACE, type BlockDef, type FluidKey, type IWorld } 
 import { FluidNet } from './fluidNet';
 import { ItemNet } from './itemNet';
 import { Port, type JointReason, type PipeNet } from './pipeNet';
-import { defaultConfig, defaultMode, keyX, keyY, keyZ, portId, stepKey, type PipeEntity } from './pipeState';
+import { KEY_STEP, defaultConfig, defaultMode, keyX, keyY, keyZ, portId, stepKey, type PipeEntity } from './pipeState';
 import { chunkKey } from './power';
 
 export interface GraphHost {
@@ -140,13 +140,6 @@ export class PipeGraph {
     return store && store.litres > 0 ? store.fluid : null;
   }
 
-  private cut(a: number, dir: number, b: number): boolean {
-    const ea = this.host.entity(a);
-    if (ea?.cut && ea.cut & (1 << dir)) return true;
-    const eb = this.host.entity(b);
-    return eb?.cut !== undefined && (eb.cut & (1 << OPPOSITE_FACE[dir])) !== 0;
-  }
-
   private flood(
     seed: number, seedDef: BlockDef, visited: Map<number, PipeNet>, edgeWhy: Map<number, JointReason>,
     oldOf: Map<number, PipeNet>, dissolved: Set<PipeNet>, dissolve: (net: PipeNet) => void, result: Rebuild,
@@ -154,98 +147,124 @@ export class PipeGraph {
     const family = seedDef.pipe!.family;
     const net: PipeNet = family === 'item' ? new ItemNet() : new FluidNet();
     const world = this.host.world;
-    const queue: number[] = [seed];
+    const keys: number[] = [seed];
+    const xs: number[] = [keyX(seed)];
+    const ys: number[] = [keyY(seed)];
+    const zs: number[] = [keyZ(seed)];
     const defs: BlockDef[] = [seedDef];
+    /** Six neighbour indices (into keys) per pipe, -1 where not joined. */
+    const adj: number[] = [];
     visited.set(seed, net);
+    net.index.set(seed, 0);
     let held = family === 'fluid' ? this.heldBefore(seed, oldOf) : null;
     let cold = family === 'fluid' && seedDef.pipe!.hot !== true;
     const edgeId = (a: number, dir: number, b: number): number => (a < b ? a * 8 + dir : b * 8 + OPPOSITE_FACE[dir]);
-    const refuse = (a: number, dir: number, b: number, why: JointReason): void => {
-      edgeWhy.set(edgeId(a, dir, b), why);
-      net.joints.push({ key: a, x: keyX(a), y: keyY(a), z: keyZ(a), dir, reason: why });
+    const joint = (i: number, dir: number, reason: JointReason): void => {
+      net.joints.push({ key: keys[i], x: xs[i], y: ys[i], z: zs[i], dir, reason });
     };
     const portCells: Array<[number, number, BlockDef, BlockDef]> = [];
-    for (let i = 0; i < queue.length; i++) {
-      const a = queue[i];
+    for (let i = 0; i < keys.length; i++) {
+      const a = keys[i];
+      const ax = xs[i];
+      const ay = ys[i];
+      const az = zs[i];
       const aDef = defs[i];
-      const active = i < PIPE_MAX_PIPES;
-      if (active) net.keys.push(a);
-      else net.overflow.push(a);
       const entity = this.host.entity(a);
       let pruned = false;
       for (let dir = 0; dir < 6; dir++) {
-        const b = stepKey(a, dir);
-        if (b < 0) continue;
-        const bDef = this.block(b);
+        const by = ay + DY[dir];
+        if (by < 0 || by > 127) {
+          adj.push(-1);
+          continue;
+        }
+        const bx = ax + DX[dir];
+        const bz = az + DZ[dir];
+        const bDef = world.getBlock(bx, by, bz);
         if (bDef.id === 0) {
-          const bx = keyX(b);
-          const bz = keyZ(b);
-          if ((chunkOf(bx) !== chunkOf(keyX(a)) || chunkOf(bz) !== chunkOf(keyZ(a))) && !world.isLoaded(bx, bz)) {
+          adj.push(-1);
+          if ((dir === 0 || dir === 1 || dir === 4 || dir === 5) && (chunkOf(bx) !== chunkOf(ax) || chunkOf(bz) !== chunkOf(az)) && !world.isLoaded(bx, bz)) {
             net.frontier.add(chunkKey(chunkOf(bx), chunkOf(bz)));
           }
+          if (entity?.ports?.[dir]) {
+            entity.ports[dir] = null;
+            pruned = true;
+          }
+          if (entity?.cut && entity.cut & (1 << dir)) {
+            entity.cut &= ~(1 << dir);
+            pruned = true;
+          }
+          continue;
         }
-        const isPipe = bDef.pipe !== null && bDef.pipe.family === family;
-        if (!isPipe && entity?.cut && entity.cut & (1 << dir)) {
-          entity.cut &= ~(1 << dir);
-          pruned = true;
+        const b = a + KEY_STEP[dir];
+        if (bDef.pipe === null || bDef.pipe.family !== family) {
+          adj.push(-1);
+          if (entity?.cut && entity.cut & (1 << dir)) {
+            entity.cut &= ~(1 << dir);
+            pruned = true;
+          }
+          if (pipeJoins(aDef, bDef)) portCells.push([i, dir, aDef, bDef]);
+          else if (entity?.ports?.[dir]) {
+            entity.ports[dir] = null;
+            pruned = true;
+          }
+          continue;
         }
-        if (isPipe) {
-          if (this.cut(a, dir, b)) {
-            net.joints.push({ key: a, x: keyX(a), y: keyY(a), z: keyZ(a), dir, reason: 'cut' });
+        if (this.cut(entity, b, dir)) {
+          adj.push(-1);
+          joint(i, dir, 'cut');
+          continue;
+        }
+        const other = visited.get(b);
+        if (other) {
+          if (other === net) adj.push(net.index.get(b) as number);
+          else {
+            adj.push(-1);
+            joint(i, dir, edgeWhy.get(edgeId(a, dir, b)) ?? 'mismatch');
+          }
+          continue;
+        }
+        const live = this.cellNet.get(b);
+        if (live && !dissolved.has(live)) dissolve(live);
+        if (family === 'fluid') {
+          const theirs = this.heldBefore(b, oldOf);
+          const f = held ?? theirs;
+          const bHot = bDef.pipe.hot === true;
+          const why: JointReason | null = held && theirs && held !== theirs ? 'mismatch' : f && fluidSpec(f).hot && (!bHot || cold) ? 'hot' : null;
+          if (why) {
+            adj.push(-1);
+            edgeWhy.set(edgeId(a, dir, b), why);
+            joint(i, dir, why);
             continue;
           }
-          const other = visited.get(b);
-          if (other) {
-            if (other !== net) {
-              const why = edgeWhy.get(edgeId(a, dir, b)) ?? 'mismatch';
-              net.joints.push({ key: a, x: keyX(a), y: keyY(a), z: keyZ(a), dir, reason: why });
-            }
-            continue;
-          }
-          const live = this.cellNet.get(b);
-          if (live && !dissolved.has(live)) dissolve(live);
-          if (family === 'fluid') {
-            const theirs = this.heldBefore(b, oldOf);
-            if (held && theirs && held !== theirs) {
-              refuse(a, dir, b, 'mismatch');
-              continue;
-            }
-            const f = held ?? theirs;
-            const bHot = bDef.pipe!.hot === true;
-            if (f && fluidSpec(f).hot && (!bHot || cold)) {
-              refuse(a, dir, b, 'hot');
-              continue;
-            }
-            held = f;
-            if (!bHot) cold = true;
-          }
-          visited.set(b, net);
-          queue.push(b);
-          defs.push(bDef);
-        } else if (bDef.id !== 0 && pipeJoins(aDef, bDef)) {
-          portCells.push([i, dir, aDef, bDef]);
-        } else if (entity?.ports?.[dir]) {
-          entity.ports[dir] = null;
-          pruned = true;
+          held = f;
+          if (!bHot) cold = true;
         }
+        const j = keys.length;
+        visited.set(b, net);
+        net.index.set(b, j);
+        keys.push(b);
+        xs.push(bx);
+        ys.push(by);
+        zs.push(bz);
+        defs.push(bDef);
+        adj.push(j);
       }
       if (pruned && entity) this.host.pruned(entity);
     }
-    this.arrange(net, defs);
+    this.arrange(net, keys, xs, ys, zs, defs, adj);
     for (const [i, dir, pipeDef, endDef] of portCells) {
-      const key = queue[i];
-      const entity = this.host.entity(key);
-      const saved = entity?.ports?.[dir] ?? null;
+      const key = keys[i];
+      const saved = this.host.entity(key)?.ports?.[dir] ?? null;
       const cfg = saved ?? defaultConfig(defaultMode(family, endDef));
       const p = pipeDef.pipe!;
       const local = i < PIPE_MAX_PIPES ? i : -1;
-      const port = new Port(portId(key, dir), local, key, keyX(key), keyY(key), keyZ(key), dir, endDef, cfg, saved !== null, p.ratePerS, p.batch ?? 1);
+      const port = new Port(portId(key, dir), local, key, xs[i], ys[i], zs[i], dir, endDef, cfg, saved !== null, p.ratePerS, p.batch ?? 1);
       if (local >= 0 && net.ports.length < PIPE_MAX_PORTS) net.ports.push(port);
       else net.extraPorts.push(port);
     }
     const shares = new Map<PipeNet, number>();
     const orphans: PipeEntity[] = [];
-    for (const k of queue) {
+    for (const k of keys) {
       this.cellNet.set(k, net);
       const old = oldOf.get(k);
       if (old) shares.set(old, (shares.get(old) ?? 0) + 1);
@@ -259,37 +278,41 @@ export class PipeGraph {
     return net;
   }
 
-  /** Flat arrays of the active pipes: positions, joints, speed or capacity. */
-  private arrange(net: PipeNet, defs: BlockDef[]): void {
-    const n = net.keys.length;
-    net.xs = new Int32Array(n);
-    net.ys = new Int32Array(n);
-    net.zs = new Int32Array(n);
+  /** Whether the joint from a pipe (with entity `ea`) towards `dir` to pipe `b` was parted with the wrench. */
+  private cut(ea: PipeEntity | undefined, b: number, dir: number): boolean {
+    if (ea?.cut && ea.cut & (1 << dir)) return true;
+    const cut = this.host.entity(b)?.cut;
+    return cut !== undefined && (cut & (1 << OPPOSITE_FACE[dir])) !== 0;
+  }
+
+  /** Flat arrays of the active pipes (the first PIPE_MAX_PIPES found): positions, joints, speed or capacity. */
+  private arrange(net: PipeNet, keys: number[], xs: number[], ys: number[], zs: number[], defs: BlockDef[], adj: number[]): void {
+    const n = Math.min(keys.length, PIPE_MAX_PIPES);
+    net.keys = keys.slice(0, n);
+    net.overflow = keys.slice(n);
+    for (const k of net.overflow) net.index.delete(k);
+    net.xs = Int32Array.from(xs.slice(0, n));
+    net.ys = Int32Array.from(ys.slice(0, n));
+    net.zs = Int32Array.from(zs.slice(0, n));
     net.value = new Float32Array(n);
-    net.adj = new Int32Array(n * 6).fill(-1);
+    net.adj = new Int32Array(n * 6);
     net.hot = true;
+    let cap = 0;
     for (let i = 0; i < n; i++) {
-      const k = net.keys[i];
-      net.index.set(k, i);
-      net.xs[i] = keyX(k);
-      net.ys[i] = keyY(k);
-      net.zs[i] = keyZ(k);
       const p = defs[i].pipe!;
-      net.value[i] = net.family === 'item' ? p.speedBlocksPerS ?? 1 : p.capacityL ?? 0;
+      const v = net.family === 'item' ? p.speedBlocksPerS ?? 1 : p.capacityL ?? 0;
+      net.value[i] = v;
+      cap += v;
       if (p.hot !== true) net.hot = false;
-    }
-    for (let i = 0; i < n; i++) {
-      const a = net.keys[i];
-      for (let dir = 0; dir < 6; dir++) {
-        const b = stepKey(a, dir);
-        const j = b < 0 ? undefined : net.index.get(b);
-        if (j !== undefined && !this.cut(a, dir, b)) net.adj[i * 6 + dir] = j;
+      for (let d = 0; d < 6; d++) {
+        const j = adj[i * 6 + d];
+        net.adj[i * 6 + d] = j < n ? j : -1;
       }
     }
-    if (net instanceof FluidNet) {
-      let cap = 0;
-      for (let i = 0; i < n; i++) cap += net.value[i];
-      net.capacity = cap;
-    }
+    if (net instanceof FluidNet) net.capacity = cap;
   }
 }
+
+const DX = [1, -1, 0, 0, 0, 0];
+const DY = [0, 0, 1, -1, 0, 0];
+const DZ = [0, 0, 0, 0, 1, -1];
