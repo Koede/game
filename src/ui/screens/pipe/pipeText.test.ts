@@ -32,7 +32,8 @@ describe('pipe screen text', () => {
     expect(portTone(pull)).toBe('good');
     expect(portKey(pull)).toBe('1,1,0,1');
     expect(contentText(view.network)).toMatch(/^\d+ bundles? moving \(\d+ items?\)$/);
-    expect(distanceText(pull.distance)).toBe('here');
+    expect(distanceText(pull.distance)).toBe('At this pipe');
+    expect(distanceText(1)).toBe('1 block away');
     expect(distanceText(4.2)).toBe('4 blocks away');
   });
 

@@ -62,7 +62,7 @@
   border: 1px dashed var(--hw-warn);
   border-radius: var(--hw-radius);
 }
-.hw-st__check[data-ok='true'] {
+.hw-st__check[data-ok] {
   color: var(--hw-good);
   background: var(--hw-good-wash);
   border-style: solid;

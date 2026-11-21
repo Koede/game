@@ -70,19 +70,19 @@ describe('structure text', () => {
     const blast = kitWith('furnace_blast');
     const bare = blast.sim.structureView(0, 1, 0)!;
     expect(statusTone(bare)).toBe('warn');
-    expect(effectText(bare)).toBe('No Blast hearth yet - the Blast Furnace runs like a Clay Furnace.');
+    expect(effectText(bare)).toBe('Until its Blast hearth forms, the Blast Furnace runs like a Clay Furnace: 800 °C at most.');
     expect(structureBadge(blast.sim.furnaceView(0, 1, 0)!)).toBe('!');
     blast.formed(0, 1, 0);
     const formed = blast.sim.structureView(0, 1, 0)!;
     expect(statusTone(formed)).toBe('good');
-    expect(effectText(formed)).toBe('Runs at full strength as the Blast Furnace.');
+    expect(effectText(formed)).toBe('Runs at full strength as the Blast Furnace: up to 1500 °C.');
     expect(structureBadge(blast.sim.furnaceView(0, 1, 0)!)).toBeNull();
 
     const arc = kitWith('furnace_arc');
     arc.formed(0, 1, 0, { tier: 2 });
     const held = arc.sim.structureView(0, 1, 0)!;
     expect(statusTone(held)).toBe('warn');
-    expect(effectText(held)).toBe('The Blast hearth holds it back - the Arc Furnace runs like a Blast Furnace until its Arc hearth forms.');
+    expect(effectText(held)).toBe('The Blast hearth holds it back: the Arc Furnace runs like a Blast Furnace (1500 °C at most) until its Arc hearth forms.');
   });
 
   it('folds problems with the same words into one row with every block', () => {

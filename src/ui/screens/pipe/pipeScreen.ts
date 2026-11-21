@@ -80,11 +80,11 @@ export function createPipeScreen(request: { x: number; y: number; z: number }, c
     title: first.name,
     subtitle: lineSummary(first.network),
     size: 'md',
-    fit: 'tall',
     body,
     footer: 'Push: the pipe delivers into the block. Pull: it takes out. Tap a block\'s name to find it.',
   });
-  window.frame.classList.add('hw-pipe-window');
+  // Anchored at the top like the machine windows: opening a row's settings grows the window downwards only.
+  window.frame.classList.add('hw-mach-window', 'hw-pipe-window');
   window.setAccent(family === 'fluid' ? 'var(--hw-power)' : 'var(--hw-heat)');
 
   function render(view: PipeView): void {

@@ -88,10 +88,11 @@ export function effectText(view: Pick<StructureView, 'formed' | 'tier' | 'name' 
       ? `The ${view.name} stands: the furnace can now be upgraded (header button).`
       : 'A Clay Furnace stands alone. Build a hearth around it to upgrade it.';
   }
-  if (view.effectiveTier >= view.controllerTier) return `Runs at full strength as the ${own}.`;
+  const max = furnaceTier(Math.max(1, view.effectiveTier)).maxTempC;
+  if (view.effectiveTier >= view.controllerTier) return `Runs at full strength as the ${own}: up to ${max} °C.`;
   const hearth = needed.name.replace(/ Furnace$/, ' hearth');
-  if (!view.formed) return `No ${hearth} yet - the ${own} runs like a ${runs}.`;
-  return `The ${view.name ?? 'hearth'} holds it back - the ${own} runs like a ${runs} until its ${hearth} forms.`;
+  if (!view.formed) return `Until its ${hearth} forms, the ${own} runs like a ${runs}: ${max} °C at most.`;
+  return `The ${view.name ?? 'hearth'} holds it back: the ${own} runs like a ${runs} (${max} °C at most) until its ${hearth} forms.`;
 }
 
 /** The Structure tab badge: "!" while the furnace needs a hearth it does not have. */

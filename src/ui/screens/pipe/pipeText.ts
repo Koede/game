@@ -101,8 +101,8 @@ export function nearPorts(ports: readonly PortView[], all: boolean, limit = NEAR
   return { shown: ports.slice(0, limit), more: ports.length - limit };
 }
 
-/** "3 blocks away", "here" */
+/** "At this pipe", "1 block away", "3 blocks away" (from the pipe the screen was opened on). */
 export function distanceText(d: number): string {
   const n = Math.round(d);
-  return n <= 1 ? 'here' : `${n} blocks away`;
+  return n <= 0 ? 'At this pipe' : n === 1 ? '1 block away' : `${n} blocks away`;
 }
