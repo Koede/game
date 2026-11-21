@@ -174,6 +174,8 @@ export class Thermometer {
     this.ramp.style.background = heatGradient(this.min, this.max);
     setAttr(this.el, 'aria-valuemin', this.min);
     setAttr(this.el, 'aria-valuemax', this.max);
+    // The scale column is exactly as wide as its longest number, leaving the rest to the notch labels.
+    this.gauge.style.setProperty('--hw-scale-w', `${Math.round(String(Math.round(this.max)).length * 6.5 + 12)}px`);
     const maxTicks = Math.max(2, Math.floor((this.height || 200) / SCALE_LABEL_PX));
     const ticks = ticksBetween(this.min, this.max, niceStep(this.max - this.min, maxTicks));
     this.scale.replaceChildren(

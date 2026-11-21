@@ -49,6 +49,7 @@ export class ItemSlot {
     this.countEl = h('span', { class: 'hw-slot__count hw-num' });
     this.durFill = h('i');
     this.durEl = h('span', { class: 'hw-slot__dur' }, this.durFill);
+    this.durEl.hidden = true;
     this.el = h(
       'button',
       { class: ['hw-slot', `hw-slot--${opts.size ?? 'md'}`], attrs: { type: 'button' } },
@@ -142,6 +143,11 @@ export interface SlotGridOptions {
   /** Most columns to use. The grid drops to fewer columns before a slot gets smaller than a touch target. Default 9. */
   columns?: number;
   size?: SlotSize;
+  /**
+   * Smallest width in px a slot may shrink to before the grid drops a column. Default 44, a touch target;
+   * a hotbar that has to stay on one row on a narrow phone can go lower.
+   */
+  minSlotPx?: number;
   /** Accessible name of the group ("Inventory", "Crate"). */
   label: string;
   onPrimary?: (index: number, ev: Event) => void;
@@ -172,7 +178,10 @@ export class SlotGrid {
       {
         class: ['hw-slotgrid', `hw-slotgrid--${opts.size ?? 'md'}`],
         attrs: { role: 'group', 'aria-label': opts.label },
-        style: { '--hw-cols': String(opts.columns ?? 9) },
+        style: {
+          '--hw-cols': String(opts.columns ?? 9),
+          ...(opts.minSlotPx !== undefined ? { '--hw-slot-min': `${opts.minSlotPx}px` } : {}),
+        },
       },
       slots.map((s) => s.el),
     );

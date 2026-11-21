@@ -7,24 +7,34 @@ import { mulberry32 } from '../../core/math';
 import { prefersReducedMotion } from '../kit/dom';
 import { heatRgb } from '../kit/format';
 
-const LEVELS = 48;
+const MAX_HEAT = 36;
 const STEP_MS = 70;
 const SETTLE_STEPS = 120;
-/** How far up the canvas the tallest flames reach, as a fraction of its height. */
-const FLAME_REACH = 0.82;
-/** Coolest and hottest colour of the flames, in degrees C on the heat ramp. */
-const TEMP_LOW = 330;
-const TEMP_HIGH = 1180;
+/** Roughly how far up the canvas the highest sparks reach, as a fraction of its height. */
+const FLAME_REACH = 0.72;
+/**
+ * The fire is posterised into a few flat bands, like hand-placed pixel art, instead of a smooth glow.
+ * Each band: the heat level (1..MAX_HEAT) it starts at, its temperature on the heat ramp, its opacity.
+ */
+const BANDS: readonly (readonly [from: number, tempC: number, alpha: number])[] = [
+  [1, 330, 170],
+  [5, 430, 235],
+  [10, 520, 255],
+  [16, 640, 255],
+  [22, 770, 255],
+  [28, 900, 255],
+  [33, 1040, 255],
+];
 
+/** RGBA for every heat level 0..MAX_HEAT (level 0 is transparent). */
 function buildPalette(): Uint8ClampedArray {
-  const palette = new Uint8ClampedArray((LEVELS + 1) * 4);
-  for (let i = 1; i <= LEVELS; i++) {
-    const t = i / LEVELS;
-    const [r, g, b] = heatRgb(TEMP_LOW + t * t * (TEMP_HIGH - TEMP_LOW));
-    palette[i * 4] = r;
-    palette[i * 4 + 1] = g;
-    palette[i * 4 + 2] = b;
-    palette[i * 4 + 3] = Math.min(255, i * 26);
+  const palette = new Uint8ClampedArray((MAX_HEAT + 1) * 4);
+  let band = -1;
+  for (let level = 1; level <= MAX_HEAT; level++) {
+    while (band + 1 < BANDS.length && level >= BANDS[band + 1][0]) band++;
+    const [, tempC, alpha] = BANDS[band];
+    const [r, g, b] = heatRgb(tempC);
+    palette.set([r, g, b, alpha], level * 4);
   }
   return palette;
 }
@@ -37,10 +47,12 @@ export class EmberField {
   private readonly observer: ResizeObserver | null;
   private cols = 0;
   private rows = 0;
-  /** Heat per cell, 0..1, row-major from the top. Two extra rows below the visible ones hold the ember bed. */
-  private heat = new Float32Array(0);
+  /** Heat level per cell, row-major from the top; the bottom row is the ember bed. */
+  private heat = new Uint8Array(0);
+  /** Brightness of the bed per column, 0..1: it wanders slowly so the fire breathes instead of flickering. */
+  private bed = new Float32Array(0);
   private image: ImageData | null = null;
-  private cooling = 0.02;
+  private cooling = 1;
   private frame = 0;
   private last = 0;
   private running = false;
@@ -96,39 +108,37 @@ export class EmberField {
     this.rows = rows;
     this.el.width = cols;
     this.el.height = rows;
-    this.heat = new Float32Array(cols * (rows + 2));
+    this.heat = new Uint8Array(cols * rows);
+    this.bed = new Float32Array(cols).fill(0.9);
     this.image = this.ctx ? this.ctx.createImageData(cols, rows) : null;
-    this.cooling = 1 / Math.max(8, rows * FLAME_REACH);
+    this.cooling = MAX_HEAT / Math.max(8, rows * FLAME_REACH);
     for (let i = 0; i < SETTLE_STEPS; i++) this.step();
     this.draw();
   }
 
   /**
-   * One generation. The ember bed below the canvas flickers; every cell becomes the average of the three
-   * cells under it and the one two rows down, minus a little random cooling. Rows are processed top-down,
-   * so each row still reads the previous generation.
+   * One generation: every cell hands its heat to a cell in the row above (straight up or one to the side),
+   * cooling a little on the way. Cells that receive nothing keep their old value, which is what breaks the
+   * flames up into loose sparks towards the top.
    */
   private step(): void {
-    const { cols, rows, heat, random } = this;
+    const { cols, rows, heat, bed, random } = this;
     if (cols === 0) return;
-    const bed = rows * cols;
+    const bottom = (rows - 1) * cols;
     for (let x = 0; x < cols; x++) {
-      if (random() < 0.35) {
-        const glow = 0.35 + random() * 0.65;
-        heat[bed + x] = glow;
-        heat[bed + cols + x] = glow;
-      }
+      const drift = bed[x] + (random() - 0.5) * 0.08;
+      bed[x] = drift < 0.72 ? 0.72 : drift > 1 ? 1 : drift;
+      heat[bottom + x] = Math.round(bed[x] * MAX_HEAT);
     }
-    const cooling = this.cooling * 2;
-    for (let y = 0; y < rows; y++) {
-      const below = (y + 1) * cols;
-      const below2 = below + cols;
+    const whole = Math.floor(this.cooling);
+    const chance = this.cooling - whole;
+    for (let y = 1; y < rows; y++) {
       const row = y * cols;
       for (let x = 0; x < cols; x++) {
-        const left = heat[below + (x > 0 ? x - 1 : x)];
-        const right = heat[below + (x < cols - 1 ? x + 1 : x)];
-        const next = (left + heat[below + x] + right + heat[below2 + x]) * 0.25 - random() * cooling;
-        heat[row + x] = next > 0 ? next : 0;
+        const tx = x + Math.floor(random() * 3) - 1;
+        if (tx < 0 || tx >= cols) continue;
+        const cooled = heat[row + x] - whole - (random() < chance ? 1 : 0);
+        heat[row - cols + tx] = cooled > 0 ? cooled : 0;
       }
     }
   }
@@ -137,9 +147,8 @@ export class EmberField {
     const { ctx, image, heat, palette } = this;
     if (!ctx || !image) return;
     const data = image.data;
-    const cells = this.cols * this.rows;
-    for (let i = 0; i < cells; i++) {
-      const p = Math.round(heat[i] * LEVELS) * 4;
+    for (let i = 0; i < heat.length; i++) {
+      const p = heat[i] * 4;
       const o = i * 4;
       data[o] = palette[p];
       data[o + 1] = palette[p + 1];

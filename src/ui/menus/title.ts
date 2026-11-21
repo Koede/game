@@ -40,6 +40,8 @@ export class TitleScreen {
   private readonly opts: TitleScreenOptions;
   private readonly fire = new EmberField();
   private readonly menu: HTMLDivElement;
+  private readonly wordmark: HTMLHeadingElement;
+  private readonly fitObserver: ResizeObserver | null;
   private readonly seed: TextField;
   private settings: Settings;
   private hasSave: boolean;
@@ -61,6 +63,27 @@ export class TitleScreen {
     });
     this.menu = h('div', { class: 'hw-title__menu' });
     const ages = opts.ages ?? DEFAULT_AGES;
+    this.wordmark = h(
+      'h1',
+      { class: 'hw-title__wordmark', attrs: { 'aria-label': 'Hearthwatt' } },
+      h(
+        'span',
+        { class: 'hw-title__heat', attrs: { 'aria-hidden': 'true' } },
+        [...WORD_HEAT].map((ch, i) => h('span', { text: ch, style: { color: heatColor(LETTER_TEMPS[i]) } })),
+      ),
+      h('span', { class: 'hw-title__power', text: WORD_POWER, attrs: { 'aria-hidden': 'true' } }),
+    );
+    const brand = h(
+      'header',
+      { class: 'hw-title__brand' },
+      this.wordmark,
+      h('p', { class: 'hw-title__promise' }, PROMISE.map((line) => h('span', { text: line }))),
+      h(
+        'ol',
+        { class: 'hw-title__ages', attrs: { 'aria-label': 'The five ages' } },
+        ages.map((name, i) => h('li', { style: { '--hw-age': AGE_COLORS[i % AGE_COLORS.length] } }, h('i'), h('span', { text: name }))),
+      ),
+    );
     this.el = h(
       'main',
       { class: 'hw-title' },
@@ -68,31 +91,16 @@ export class TitleScreen {
       h(
         'div',
         { class: 'hw-title__inner' },
-        h(
-          'header',
-          { class: 'hw-title__brand' },
-          h(
-            'h1',
-            { class: 'hw-title__wordmark', attrs: { 'aria-label': 'Hearthwatt' } },
-            h(
-              'span',
-              { class: 'hw-title__heat', attrs: { 'aria-hidden': 'true' } },
-              [...WORD_HEAT].map((ch, i) => h('span', { text: ch, style: { color: heatColor(LETTER_TEMPS[i]) } })),
-            ),
-            h('span', { class: 'hw-title__power', text: WORD_POWER, attrs: { 'aria-hidden': 'true' } }),
-          ),
-          h('p', { class: 'hw-title__promise' }, PROMISE.map((line) => h('span', { text: line }))),
-          h(
-            'ol',
-            { class: 'hw-title__ages', attrs: { 'aria-label': 'The five ages' } },
-            ages.map((name, i) => h('li', { style: { '--hw-age': AGE_COLORS[i % AGE_COLORS.length] } }, h('i'), h('span', { text: name }))),
-          ),
-        ),
+        brand,
         this.menu,
       ),
       opts.version ? h('p', { class: 'hw-title__version hw-num', text: opts.version }) : null,
     );
     this.buildMenu();
+    this.fitObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.fitWordmark(brand.clientWidth)) : null;
+    this.fitObserver?.observe(brand);
+    // The stylesheet sizes the wordmark for the display face; a wider fallback font must not run off a phone screen.
+    void document.fonts?.ready.then(() => this.fitWordmark(brand.clientWidth));
   }
 
   get visible(): boolean {
@@ -124,9 +132,19 @@ export class TitleScreen {
 
   dispose(): void {
     this.hide();
+    this.fitObserver?.disconnect();
     this.fire.dispose();
     for (const button of this.buttons) button.dispose();
     this.buttons = [];
+  }
+
+  /** Shrinks the wordmark, if needed, so it fits the given width whatever font ended up rendering it. */
+  private fitWordmark(available: number): void {
+    const mark = this.wordmark;
+    mark.style.removeProperty('font-size');
+    if (available <= 0) return;
+    const natural = mark.scrollWidth;
+    if (natural > available) mark.style.fontSize = `${Math.floor((parseFloat(getComputedStyle(mark).fontSize) * available) / natural)}px`;
   }
 
   private buildMenu(): void {
