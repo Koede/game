@@ -94,25 +94,15 @@ async function runDevice(device) {
       await d.shot('03-mined');
     });
 
-    await step('crafts planks, a workbench and a flint pickaxe in the inventory screen', async () => {
-      await hw(() => {
-        window.__hw.give('flint', 3);
-        window.__hw.give('fiber', 3);
-      });
+    await step('crafts planks and a workbench in the inventory screen', async () => {
       await d.openInventory();
       await d.shot('04-inventory');
-      const logKey = (await d.inventory()).oak_log >= 2 ? 'oak_log' : 'pine_log';
       for (let i = 0; i < 2; i++) await d.make('plank');
       let inv = await d.inventory();
-      assert((inv.plank ?? 0) >= 8, `only ${inv.plank ?? 0} planks after two Make (from ${logKey})`);
+      assert((inv.plank ?? 0) >= 8, `only ${inv.plank ?? 0} planks after two Make`);
       await d.make('workbench');
       inv = await d.inventory();
       assert(inv.workbench === 1, 'no workbench in the pack');
-      await d.make('stick');
-      await d.make('cord');
-      await d.make('flint_pickaxe');
-      inv = await d.inventory();
-      assert(inv.flint_pickaxe === 1, 'no flint pickaxe in the pack');
       await d.closeScreen();
     });
 
@@ -120,6 +110,20 @@ async function runDevice(device) {
       const spot = await d.placeHeld('workbench');
       assert(spot, 'the workbench was not placed');
       d.places.workbench = spot;
+    });
+
+    await step('crafts sticks, cord and a flint pickaxe by hand', async () => {
+      await hw(() => {
+        window.__hw.give('flint', 3);
+        window.__hw.give('fiber', 3);
+      });
+      await waitFor(page, () => window.__hw.state().objective.completed.includes('find_flint'), 'the flint goal', { timeout: 10_000 });
+      await d.openInventory();
+      await d.make('stick');
+      await d.make('cord');
+      await d.make('flint_pickaxe');
+      assert((await d.inventory()).flint_pickaxe === 1, 'no flint pickaxe in the pack');
+      await d.closeScreen();
     });
 
     await step('builds a clay furnace at the workbench and places it', async () => {
@@ -179,7 +183,7 @@ async function runDevice(device) {
       const p0 = before.player;
       const p1 = now.player;
       assert(Math.hypot(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z) < 0.05, `position ${JSON.stringify(p1)} != ${JSON.stringify(p0)}`);
-      assert(Math.abs(p1.yaw - p0.yaw) < 1e-3, 'view direction not restored');
+      assert(Math.abs(p1.yaw - p0.yaw) < 1e-3 && Math.abs(p1.pitch - p0.pitch) < 1e-3, `view direction not restored: ${p1.yaw},${p1.pitch} vs ${p0.yaw},${p0.pitch}`);
       assert(JSON.stringify(now.inventory) === JSON.stringify(before.inventory), 'inventory differs after Continue');
       assert(now.furnaces.length === 1, 'furnace entity missing after Continue');
       const f0 = before.furnaces[0];

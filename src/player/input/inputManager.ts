@@ -22,6 +22,12 @@ export interface InputManagerOptions {
 
 /** Elements whose events belong to the UI, never to the game surface. */
 const UI_SELECTOR = '.hw-window, .hw-ui-blocking';
+/**
+ * Chromium reports one bogus movement (the cursor's jump to the lock point) as pointer lock starts, just before
+ * 'pointerlockchange'; movement before that event and within this many ms after it is dropped, so the view does not
+ * snap on entering the game.
+ */
+const LOCK_SETTLE_MS = 120;
 
 const isTextInput = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
@@ -46,6 +52,8 @@ export class InputManager {
   private touchSeen = false;
   private wasBlocked = false;
   private disposed = false;
+  /** When the lock was announced; Infinity while it is not (Chromium moves the cursor before announcing it). */
+  private lockedAt = Infinity;
 
   constructor(options: InputManagerOptions) {
     this.container = options.container;
@@ -218,7 +226,9 @@ export class InputManager {
 
   private onPointerMove(e: PointerEvent): void {
     if (e.pointerType === 'mouse') {
-      if (this.isLocked()) this.core.mouseMove(e.movementX, e.movementY);
+      if (this.isLocked()) {
+        if (performance.now() - this.lockedAt > LOCK_SETTLE_MS) this.core.mouseMove(e.movementX, e.movementY);
+      }
       else if (!this.blocked()) this.core.drag.move(e.clientX, e.clientY, e.timeStamp);
       return;
     }
@@ -299,7 +309,11 @@ export class InputManager {
     this.state.pointerLocked = locked;
     // Whatever the drag fallback had pressed belongs to the time before the capture.
     this.core.drag.reset();
-    if (locked) return;
+    if (locked) {
+      this.lockedAt = performance.now();
+      return;
+    }
+    this.lockedAt = Infinity;
     this.core.mouseButton('left', false);
     this.core.mouseButton('right', false);
     // The browser consumes Escape to leave pointer lock: an unlock the game did not ask for is a pause.
