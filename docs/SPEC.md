@@ -739,3 +739,10 @@ Check with: npx tsc --noEmit -p . 2>&1 | grep -E "^src/player/"   and   npx vite
 - player: scooping with the pail leaves the water block in place (water does not flow); the click that captures
   the pointer does not mine.
 - textures: machines look alike as small isometric cube icons; the icon provider may show machine fronts flat.
+- world: create the pool with `new WorkerPool(workerSource)` (default export of 'virtual:worker') and call
+  `world.update(...)` after the player controller and before rendering; otherwise edits show one frame late.
+- world: the renderer must drop meshes on 'chunk:hidden' (chunk left the view, voxels may stay loaded for machines).
+- sim: call `sim.resync()` after `world.load()`. Network history, alert state and once-per-session flags are not
+  saved; they restart after loading.
+- sim: an idle steam engine still draws furnace heat in proportion to its available output; the player can switch
+  it off. targetC in the furnace view is an estimate.
