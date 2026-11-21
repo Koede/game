@@ -252,7 +252,7 @@ function machineStatus(node: SimNode, v: MachineView): string {
   if (!e.on) return 'Switched off';
   if (e.kind === 'fission_pile') {
     if (!holdsFuel(node)) return 'No fuel rod';
-    if (!v.cooled) return `No cooling - core at ${Math.floor(e.coreC)} C and rising`;
+    if (!v.cooled) return `No cooling - core at ${Math.round(e.coreC)} C and rising`;
   }
   if (v.problem) return v.problem;
   if (spec.role === 'generator') {
