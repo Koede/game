@@ -144,7 +144,7 @@ describe('crucibles', () => {
     hot.run(7.3);
     expect(h.crucibleOut[0]).toBeNull();
     hot.run(7.9);
-    expect(h.crucibleOut[0]).toEqual({ item: 'copper_ingot', count: 2 });
+    expect(h.crucibleMelt[0]).toEqual({ item: 'copper_ingot', count: 2 });
   });
 
   it('report each finished item and stop when the output is full', () => {
@@ -194,8 +194,8 @@ describe('crucibles', () => {
     fire(kit, e, 'stick');
     // Tier speed 1.25; the fire passes 550 C within seconds so the bonus is soon the full x2.
     kit.run(8 / 1.25);
-    expect(e.crucibleOut[0]).toEqual({ item: 'tin_ingot', count: 1 });
-    expect(e.crucibleOut[1]).toEqual({ item: 'tin_ingot', count: 1 });
+    expect(e.crucibleMelt[0]).toEqual({ item: 'tin_ingot', count: 1 });
+    expect(e.crucibleMelt[1]).toEqual({ item: 'tin_ingot', count: 1 });
   });
 });
 

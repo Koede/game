@@ -67,7 +67,8 @@ describe('furnace view', () => {
     expect(v.status).toMatch(/^Burns out in 3:\d\d$/);
     c = v.crucibles[0];
     expect(c.active).toBe(true);
-    expect(c.status).toBe('Smelting Copper Ingot');
+    // The first ingot is molten metal by now; the next one is still smelting.
+    expect(c.status).toMatch(/^Molten Copper Ingot - pour it in \d+ s$/);
     // 10 s per ingot at speed 1 x (1 + min(1, (800 - 700) / 300)).
     expect(c.secondsLeft).toBeCloseTo((10 - c.progress * 10) / (1 + 100 / 300), 6);
     kit.sim.douse(0, 1, 0);
