@@ -8,6 +8,7 @@ import {
   AGES as AGE_SPECS,
   BLOCK_SPECS,
   CREATURE_SPECS,
+  FLUID_SPECS,
   FURNACE_TIERS as FURNACE_TIER_SPECS,
   ITEM_SPECS,
   LOOT_TABLES as LOOT_TABLE_SPECS,
@@ -30,12 +31,15 @@ import {
   type CreatureSpec,
   type Drop,
   type Facing,
+  type FluidKey,
+  type FluidSpec,
   type FuelSpec,
   type FurnaceTierSpec,
   type ItemDef,
   type ItemSpec,
   type ItemStack,
   type LootTableSpec,
+  type LiquidKind,
   type LootTier,
   type MachineSpec,
   type ObjectiveCondition,
@@ -44,6 +48,7 @@ import {
   type RecipeDef,
   type Voxel,
 } from './types';
+import { validateTech } from './techValidation';
 
 // ---------------------------------------------------------------------------------------------
 // Textures: every texture name referenced by content gets a layer in one texture array.
@@ -78,6 +83,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
   const front = t.front ?? side;
   const sideA = t.sideActive ?? side;
   const topA = t.topActive ?? top;
+  const bottomA = t.bottomActive ?? bottom;
   const frontA = t.frontActive ?? (t.front ? front : sideA);
 
   const layers: number[] = [];
@@ -89,7 +95,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
   put(Face.PX, side, sideA);
   put(Face.NX, side, sideA);
   put(Face.PY, top, topA);
-  put(Face.NY, bottom, bottom);
+  put(Face.NY, bottom, bottomA);
   put(Face.PZ, side, sideA);
   put(Face.NZ, front, frontA);
 
@@ -128,6 +134,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     age: spec.age ?? 0,
     placeOn: spec.placeOn ?? null,
     harvestLeaves: spec.harvestLeaves ?? null,
+    pipe: spec.pipe ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
     layersActive,
@@ -378,6 +385,63 @@ export function rollLoot(table: LootTableSpec, random: () => number): ItemStack[
 }
 
 // ---------------------------------------------------------------------------------------------
+// Fluids, pipes and hearths (spec 16-17). Pure geometry of hearths is in src/core/hearth.ts.
+// ---------------------------------------------------------------------------------------------
+
+/** Every fluid, in authored order. */
+export const FLUIDS: readonly FluidSpec[] = FLUID_SPECS;
+const fluidsByKey = new Map<string, FluidSpec>(FLUIDS.map((f) => [f.key, f]));
+/** Fluid by key. Throws on unknown keys. */
+export function fluid(key: FluidKey): FluidSpec {
+  const spec = fluidsByKey.get(key);
+  if (!spec) throw new Error(`unknown fluid "${key}"`);
+  return spec;
+}
+/** Fluid by any string (a saved network, a filter slot), or null. */
+export const fluidOrNull = (key: string): FluidSpec | null => fluidsByKey.get(key) ?? null;
+/** The fluid a pump draws from a world liquid block (water -> water, lava -> lava, oil -> crude_oil), or null. */
+export const fluidOfLiquid = (kind: LiquidKind): FluidSpec | null => FLUIDS.find((f) => f.liquid === kind) ?? null;
+/** The fluid a full bucket item holds (water_pail -> water, lava_bucket -> lava), or null for anything else. */
+export const fluidInBucket = (itemKey: string): FluidSpec | null => FLUIDS.find((f) => f.bucket?.full === itemKey) ?? null;
+/** The full bucket an empty one becomes when it takes 1000 L of `fluid` (pail + water -> water_pail), or null. */
+export const bucketFilledWith = (emptyKey: string, key: FluidKey): string | null => {
+  const b = fluidsByKey.get(key)?.bucket;
+  return b && b.empty === emptyKey ? b.full : null;
+};
+
+/** Takes or gives items through a pipe end (spec 16.2): furnaces, item hatches and every machine with slots (crates too). */
+export function isItemEndpoint(def: BlockDef): boolean {
+  const m = machineOfBlock(def);
+  return m !== null && (m.role === 'furnace' || (m.slots ?? 0) > 0 || (m.role === 'hearth_part' && m.kind === 'item_hatch'));
+}
+/** Takes or gives a fluid through a pipe end: every machine with fluid ports (MachineSpec.fluids). */
+export const isFluidEndpoint = (def: BlockDef): boolean => machineOfBlock(def)?.fluids !== undefined;
+
+/**
+ * Whether a pipe grows an arm towards a neighbour: a pipe of the same family, or an endpoint of that family. Item and
+ * fluid pipes never join each other. (A wrench may still switch a joint off; that is per-pipe state in src/sim.)
+ */
+export function pipeJoins(pipe: BlockDef, other: BlockDef): boolean {
+  const family = pipe.pipe?.family;
+  if (!family) return false;
+  if (other.pipe) return other.pipe.family === family;
+  return family === 'item' ? isItemEndpoint(other) : isFluidEndpoint(other);
+}
+/** Whether a pipe may carry a fluid: fluid pipes only, and hot fluids (lava, steam) only in hot pipes. */
+export const pipeCarries = (pipe: BlockDef, f: FluidSpec): boolean =>
+  pipe.pipe?.family === 'fluid' && (!f.hot || pipe.pipe.hot === true);
+
+/**
+ * The highest hearth tier whose walls this block may form (0 when it is no hearth wall): brick 2, refractory brick 3,
+ * plasma casing 4, star casing 5. It satisfies every lower tier too.
+ */
+export function hearthWallTier(blockKey: string): number {
+  let best = 0;
+  for (const t of FURNACE_TIERS) if (t.structure?.wall.includes(blockKey)) best = Math.max(best, t.tier);
+  return best;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Validation (used by tests; returns human-readable problems, empty when content is consistent)
 // ---------------------------------------------------------------------------------------------
 
@@ -468,6 +532,7 @@ export function validateContent(): string[] {
       if (!(lo >= 1) || hi < lo) problems.push(`loot ${t.tier}: ${e.item} count must be >= 1`);
     }
   }
+  problems.push(...validateTech({ blocks: BLOCKS, knownBlock: (k) => blocksByKey.has(k), knownItem, fluids: FLUIDS, tiers: FURNACE_TIERS, machines: [...MACHINES.values()] }));
   return problems;
 }
 

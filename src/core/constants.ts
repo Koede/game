@@ -195,3 +195,45 @@ export const RUIN_SPAWN_RADIUS = 96;
 /** A ruin farther than this from spawn, or with its crate this far below sea level or deeper, rolls the 'deep' table. */
 export const RUIN_DEEP_DISTANCE = 400;
 export const RUIN_DEEP_BELOW_SEA = 8;
+
+// --- item and fluid transport (spec 16; pipe numbers live on the pipe blocks, BlockSpec.pipe) ---
+/** Litres in one bucket: a bucket used on a tank or fluid endpoint fills or empties this much. */
+export const LITRES_PER_BUCKET = 1000;
+/** A pipe's core and arms span this part of the cell on both cross axes (the texture's rows/columns 4..11). */
+export const PIPE_CORE_MIN = 4 / 16;
+export const PIPE_CORE_MAX = 12 / 16;
+/** Caps of one pipe network: pipes beyond it are inert ("Network too long"), likewise ports. */
+export const PIPE_MAX_PIPES = 1024;
+export const PIPE_MAX_PORTS = 64;
+/** Item packets in flight per network; 'pull' ports pause while the network is at the cap. */
+export const PIPE_MAX_PACKETS = 48;
+/** A port's filter holds up to this many item or fluid keys. */
+export const PIPE_FILTER_SLOTS = 5;
+/** Port priority range: higher priorities are served first. */
+export const PIPE_PRIORITY_MIN = -2;
+export const PIPE_PRIORITY_MAX = 2;
+
+// --- multiblock hearths (spec 17; per-tier rules live on FurnaceTierSpec.structure, lookups in src/core/hearth.ts) ---
+/** Blocks that may stand in a face cell (never an edge) of a hearth's shell instead of wall. */
+export const HEARTH_FACE_PARTS: readonly string[] = ['glass', 'item_hatch', 'fluid_hatch', 'power_port', 'blower'];
+/** Blocks that may stand in a face cell of a hearth's ceiling (tiers whose structure asks for electrodes). */
+export const HEARTH_CEILING_PARTS: readonly string[] = ['electrode'];
+/** Shell cells of the smallest closed hearth (1x1x1 interior): heat loss scales with shell area / this. */
+export const HEARTH_SHELL_AREA_REF = 26;
+/** A window (glass face) or an open-top cell counts this many times in the shell area. */
+export const HEARTH_OPENING_AREA = 2;
+/** Smelting speed: x (1 + HEARTH_SPEED_PER_CELL * (interior volume - 1)), at most HEARTH_SPEED_MAX. */
+export const HEARTH_SPEED_PER_CELL = 0.1;
+export const HEARTH_SPEED_MAX = 2;
+/** Each blower in a face is a tuyere: + this much smelting speed, counting at most HEARTH_MAX_TUYERES of them. */
+export const HEARTH_TUYERE_BONUS = 0.25;
+export const HEARTH_MAX_TUYERES = 4;
+/** A validation reports at most this many problems. */
+export const HEARTH_MAX_PROBLEMS = 8;
+/** An unformed controller rescans every this many seconds, only while the player is within the range or its screen is open. */
+export const HEARTH_RESCAN_S = 1;
+export const HEARTH_RESCAN_RANGE = 16;
+/** A formed hearth re-checks one shell cell every this many ticks (the safety net behind block-change rescans). */
+export const HEARTH_VERIFY_TICKS = 4;
+/** Seconds a tapped structure problem stays highlighted in the world. */
+export const HEARTH_HIGHLIGHT_S = 10;

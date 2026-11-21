@@ -75,7 +75,12 @@ export type SfxName =
   /** A steam vent's breathy hiss, positioned at the vent. */
   | 'steam_hiss'
   /** A bronze bucket scooping (or pouring) lava: a thick glop and a sizzle. */
-  | 'scoop_lava';
+  | 'scoop_lava'
+  // ---- transport and hearths (spec 16-17) ----
+  /** A hearth formed: a deep whoomph as the fire takes the whole chamber, with a rising shimmer. Positioned at the controller. */
+  | 'hearth_formed'
+  /** A soft metallic tick: the wrench changed a pipe end or a pipe joint. */
+  | 'pipe_clunk';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed';
@@ -181,4 +186,13 @@ export interface GameEvents {
    * distance / SOUND_SPEED seconds.
    */
   'weather:lightning': { distance: number; bearing: number };
+
+  // ---- multiblock hearths (spec 17) ----
+  /**
+   * The furnace at x,y,z now sits in a formed hearth of structural `tier` (sim, on a change of formed state or
+   * tier). `min` / `max` are the inclusive world corners of the shell (render: the light sweep; UI: the STRUCTURE tab).
+   */
+  'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
+  /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
+  'hearth:unformed': { x: number; y: number; z: number };
 }

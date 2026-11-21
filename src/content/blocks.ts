@@ -7,6 +7,7 @@
  * becomes obtainable (content.test.ts proves it against the progression solver).
  */
 import type { BlockSpec, Drop } from '../core/types';
+import { TECH_BLOCKS } from './blocksTech';
 import { WORLD_BLOCKS } from './blocksWorld';
 
 const FOLIAGE_DROPS: Drop[] = [
@@ -149,7 +150,11 @@ export const BLOCK_SPECS: BlockSpec[] = [
   // ---- built ---------------------------------------------------------------------------------
   { key: 'plank', name: 'Planks', desc: 'Sawn boards. Good for building, for the workbench, and for a quick fire.', hardness: 1.5, tool: 'axe', textures: { all: 'plank' } },
   { key: 'stone_brick', name: 'Stone Brick', desc: 'Rubble squared and stacked into a tidy, lasting wall.', hardness: 4, tool: 'pickaxe', textures: { all: 'stone_brick' } },
-  { key: 'brick', name: 'Brick', desc: 'Fired clay bricks, warm in colour and tough as stone.', hardness: 3.5, tool: 'pickaxe', textures: { all: 'brick' } },
+  {
+    // The wall of a Blast hearth (spec 17): its seams glow while the hearth is formed.
+    key: 'brick', name: 'Brick', desc: 'Fired clay bricks, warm in colour and tough as stone. Walls of brick around a furnace make a Blast hearth.',
+    hardness: 3.5, tool: 'pickaxe', textures: { all: 'brick', sideActive: 'brick_on', topActive: 'brick_on', bottomActive: 'brick_on' },
+  },
   {
     key: 'glass', name: 'Glass', desc: 'Clear glass. It lets the daylight in and keeps the weather out.',
     hardness: 0.5, opaque: false, translucent: true, textures: { all: 'glass' },
@@ -250,4 +255,5 @@ export const BLOCK_SPECS: BlockSpec[] = [
   wildPlant('wild_carrot', 'Wild Carrot', 'Lacy white flowers over a thin orange root. Pull it up for a carrot or two.', [{ item: 'carrot', count: [1, 2] }]),
 
   ...WORLD_BLOCKS,
+  ...TECH_BLOCKS,
 ];

@@ -40,7 +40,7 @@ home (src/sim). GameUI was not edited.
   `dispose`. Generation / demand / stored, 60 s sparkline (G and used), supplied and cable-load meters, alert line,
   member list (not when compact).
 
-DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s)`, `forgeAvailable`,
+DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s)`, `SMELT_CATEGORIES`, `smeltCategory`, `forgeAvailable`,
 `forgeReady`, `forgeShortfall`, `smeltRowView(s)`, `FORGE_CATEGORIES`), `furnaceText.ts` (`thermoNotches`,
 `statusTone`, `flameLook`, `burnText`, `burnFraction`, `upgradeProgress`, `sourceText`, `bestFuelSlot`, `slotOf`,
 `clockText`, `shortName`, `IGNITION_TEMP_C`), `machineText.ts` (`alertText`, `cableText`, `memberWatts`,
@@ -69,9 +69,10 @@ DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s
     output slot; groups `cru-in`, `cru-out`), then "What the crucibles take": every smelt recipe as a kit
     RecipeRow with heat and time badges, have/need and a **Load** button (moves a stack from the pack or a nearby
     crate into the crucibles and scrolls back to them). Routes to the same product show only the ones the player
-    holds input for. Badge: "n done".
-  - FORGE: kit RecipeList of every forge recipe in tech-tree order, category chips Tools / Parts / Machines /
-    Power / Building with ready counts, heat badge, locked rows with the furnace that unlocks them, have/need
+    holds input for. Chips Kitchen / Materials / Fuel (food rows carry "+N food"; see `docs/api/food-ui.md`).
+    Badge: "n done".
+  - FORGE: kit RecipeList of every forge recipe in tech-tree order, category chips Kitchen / Tools / Parts /
+    Machines / Power / Building with ready counts (stew variants: only those the player can make, else the closest), heat badge, locked rows with the furnace that unlocks them, have/need
     chips, Forge and ×N (N = min(5, ingredients, heat allows)). Refusals and short batches are toasted. Badge:
     recipes forgeable now.
   - GRID: the furnace's network (NetworkPanel), or an explanation of how to get power at this tier; at tier 5

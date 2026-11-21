@@ -118,6 +118,9 @@ const FORGE: RecipeSpec[] = [
   forge(1, 'hearth_stew', '1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_fowl', byproducts: '1 pail' }),
   // Spec 13: a bucket that survives lava.
   forge(1, 'bronze_bucket', '3 bronze_ingot', 700),
+  // Transport (spec 16.1): the first pipe and the tool that sets its ends.
+  forge(1, '8 item_pipe', '2 bronze_ingot, 1 glass', 800),
+  forge(1, 'wrench', '3 bronze_ingot', 600),
 
   // ---- Blast Furnace ----
   forge(2, 'iron_pickaxe', '3 iron_ingot, 2 stick', 1000),
@@ -141,6 +144,18 @@ const FORGE: RecipeSpec[] = [
   forge(2, 'steel_shovel', '1 steel_ingot, 2 stick', 1300),
   forge(2, 'graphite_electrode', '3 coke', 1200),
   forge(2, '8 concrete', '4 gravel, 2 sand, 2 limestone', 600),
+  // Hearths (spec 17.2): the Arc hearth's walls and electrode, and the hatches pipes reach a hearth through.
+  forge(2, '4 refractory_brick', '4 brick, 1 coke', 1300),
+  forge(2, 'electrode', '3 graphite_electrode, 1 copper_coil', 1200),
+  forge(2, 'item_hatch', '1 crate, 2 iron_plate', 1000),
+  forge(2, 'fluid_hatch', '1 tank, 2 iron_plate', 1000),
+  // Transport (spec 16.1, 16.5).
+  forge(2, '8 fast_item_pipe', '2 steel_plate, 1 glass', 1300),
+  forge(2, '8 fluid_pipe', '2 iron_plate, 1 glass', 1000),
+  forge(2, '8 hot_fluid_pipe', '2 steel_plate, 1 ceramic_insulator', 1400),
+  forge(2, 'tank', '4 iron_plate, 4 glass', 1000),
+  forge(2, 'pump', '1 chassis, 1 copper_coil, 2 fluid_pipe', 1000),
+  forge(2, 'boiler', '4 iron_plate, 2 copper_coil, 1 tank', 1100),
 
   // ---- Arc Furnace ----
   forge(3, 'silicon_wafer', '2 silica, 1 coke', 1700),
@@ -153,6 +168,9 @@ const FORGE: RecipeSpec[] = [
   forge(3, 'combustion_engine', '1 chassis, 4 steel_plate, 3 copper_coil, 1 circuit', 1400),
   forge(3, 'geothermal_tap', '1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit', 1400),
   forge(3, 'bore_rig', '1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit', 1600),
+  forge(3, '2 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),
+  forge(3, 'power_port', '2 copper_coil, 2 ceramic_insulator, 1 iron_plate', 1200),
+  forge(3, 'steam_turbine', '1 chassis, 4 steel_plate, 4 copper_coil', 1600),
 
   // ---- Plasma Furnace ----
   forge(4, '2 superalloy', '2 steel_ingot, 1 tungsten_rod, 1 aluminum_ingot', 2600),
@@ -166,6 +184,7 @@ const FORGE: RecipeSpec[] = [
   forge(4, 'magnet_ring', '4 copper_coil, 2 superalloy, 2 lithium_salt', 2800),
   forge(4, '6 super_cable', '1 magnet_ring, 2 aluminum_ingot, 2 ceramic_insulator', 2600),
   forge(4, 'star_core', '6 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit', 3000),
+  forge(4, '2 star_casing', '2 superalloy, 1 fused_quartz, 1 magnet_ring', 2800),
 ];
 
 const MACHINE: RecipeSpec[] = [

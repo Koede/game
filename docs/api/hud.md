@@ -152,14 +152,16 @@ class Hud {   // created by GameUI; reach it as gameUI.hud
   frame(dt): void; setTarget(target, mining): void; setScreenOpen(open: boolean): void; refreshIcons(): void; dispose(): void
 }
 ```
-Parts: `Hotbar` (9 slots, counts, durability, selection, tap selects via `player.selectSlot`, name flash on change,
-key numbers on desktop), `Vitals` (health, warmth with trend arrow, air only under water, Well-Warmed m:ss or
-"Warming N s" while earning it), `Compass` (needle towards home relative to the view every frame, distance,
+Parts: `Hotbar` (9 slots, counts, durability, selection, tap selects via `player.selectSlot`, name flash on change
+with the food line for food - "Roast Chop · +8 food", key numbers on desktop), `Vitals` (health, warmth with trend
+arrow, FOOD with Hungry / starving states, air only under water, buff pills: Well-Warmed m:ss or "Warming N s" while
+earning it, and Well-Fed m:ss; see `docs/api/food-ui.md`), `Compass` (needle towards home relative to the view every frame, distance,
 "640°" in the heat colour / "cold" / "gone"), `GoalTracker` (goal n of 37, title, progress, tap -> `'ui:open' log`),
 `DayDial` (sun / moon on a day-night dial, day number, time to the next sunset / sunrise), `PowerStrip` (shown
 once a network generates, consumes or stores: generation, demand marker, "uses X", stored, brown-out / overload),
 `Crosshair` (mining ring 0..1 and the targeted block's name), `FeedView` (+N item lines, merged per item, 3.2 s),
-`Vignettes` (red pulse on damage, frost below 30 warmth, amber while Well-Warmed), FPS when `settings.showFps`.
+`Vignettes` (red pulse on damage, frost below 30 warmth, amber while Well-Warmed, a dull umber shadow while Hungry;
+`update(warmth, wellWarmed, food)`), FPS when `settings.showFps`.
 Toasts: every `'toast'` event, plus `'power:alert'` (except meltdown_warning, which the simulation toasts).
 Banners: `'objective:completed'` (md, "Goal complete" + next goal; held until a screen closes, and the tracker's
 matching "Done: ..." toast is dropped) and `'age:advanced'` (lg). CSS lives in `src/ui/hud/hud.css` (injected once).
@@ -171,6 +173,18 @@ compass / dial / power cluster on the second row, hotbar full width at the botto
 Landscape phone - one row along the top (vitals, goal, cluster), hotbar in the bottom-centre 60% strip.
 Desktop - vitals top left, goal top centre, cluster top right. `data-touch` (from `input.touch`) reserves 116 px
 at the top right. Checked against the real touch overlay: no HUD element overlaps a touch control at 390x844 or 844x390.
+
+### Food (spec 12.8) - what changed
+- Vitals: a third bar `data-kind="food"` (glyph `bowl`, `--hw-food`), `data-hunger="hungry|starving"` with a pulse and a
+  "!"; the buff pills live in `.hw-buffs` (`.hw-buff[data-kind="warm|fed"]`, `.hw-buff__name` + `.hw-buff__time`; the old
+  `.hw-buff__text` is gone). On phones, both buffs at once show glyph + time side by side (`.hw-buffs[data-both]`).
+  The vitals plate is at most 140 x 113 px on a portrait phone (all four bars and both buffs) and never reaches the
+  goal tracker, compass or touch buttons (checked at 390x844, 844x390, 1280x800).
+- Carry bar: `.hw-carry__text` now wraps `.hw-carry__name` and `.hw-carry__note` (the picked food's "+N food" line).
+- Item cards: "Eat" / "Buff" rows for food, "Leaves" for fuels that hand back a container.
+- Recipe rows (hand / workbench): facts badges from `productBadges` ("+N food", "Returns the bucket").
+- Death screen: hunger wording revised, plus a starving line when the bar was empty at death.
+- DOM-free helpers in `src/ui/screens/food.ts` (tested in `food.test.ts`). Full notes: `docs/api/food-ui.md`.
 
 ## Wiring notes for integration (7.5)
 ```ts

@@ -166,6 +166,12 @@ const GEAR: ItemSpec[] = [
   },
   { key: 'padded_coat', name: 'Padded Coat', desc: 'Layers of cord and fiber. While you carry it, the cold drains your warmth half as fast.', category: 'misc', age: 0, stack: 1 },
   { key: 'shield_suit', name: 'Shield Suit', desc: 'Superalloy plate and fused quartz. While you carry it, radiation does a tenth of its harm.', category: 'misc', age: 3, stack: 1 },
+  {
+    // Spec 16.3. A tool, but no ToolSpec: it never mines faster, never wears out, and Use on a pipe is its whole job.
+    key: 'wrench', name: 'Wrench',
+    desc: 'Use it on a pipe end to make it push, pull or rest; use it on the middle of a pipe to join or part it from its neighbour.',
+    category: 'tool', age: 0, stack: 1,
+  },
 ];
 
 const HOES: ItemSpec[] = [

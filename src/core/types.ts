@@ -167,8 +167,11 @@ export interface ItemDef extends ItemSpec {
  *  torch  - thin stick standing in the middle of the cell
  *  cable  - small core with arms towards every neighbouring power block
  *  slab   - bottom half of a cell (0.5 high)
+ *  pipe   - a core with arms to every neighbour it joins (spec 16): another pipe of the same family or an endpoint of
+ *           that family (see `BlockSpec.pipe`). Core and arms span PIPE_CORE_MIN..PIPE_CORE_MAX of the cell; the
+ *           texture is a plus whose centre square is the core and whose bands are the arms, like a cable's.
  */
-export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab';
+export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe';
 
 /**
  * Names of procedural 16x16 textures. Fallbacks for unlisted faces:
@@ -186,6 +189,8 @@ export interface BlockTextures {
   frontActive?: string;
   sideActive?: string;
   topActive?: string;
+  /** While active, on the bottom face (default: `bottom`). A hearth's ceiling glows on its underside too. */
+  bottomActive?: string;
 }
 
 export interface Drop {
@@ -259,6 +264,29 @@ export interface BlockSpec {
    * place instead of air, keeping the voxel's block entity: a picked berry bush stays as a bare bush (spec 14).
    */
   harvestLeaves?: string;
+  /** Item or fluid transport (spec 16): set on every block of shape 'pipe' and on nothing else. */
+  pipe?: PipeSpec;
+}
+
+/**
+ * What a pipe moves and how fast (spec 16.1). Item pipes join item pipes and item endpoints, fluid pipes join fluid
+ * pipes and fluid endpoints; the two families never join.
+ */
+export interface PipeSpec {
+  family: 'item' | 'fluid';
+  /**
+   * Per port. Item pipes: transfers per second a 'pull' port makes (0.5 = one every 2 s). Fluid pipes: litres per
+   * second a port moves.
+   */
+  ratePerS: number;
+  /** Item pipes: the most items one transfer takes (one stack's worth, never more than the stack holds). */
+  batch?: number;
+  /** Item pipes: how fast a packet travels, in blocks (pipe lengths) per second. */
+  speedBlocksPerS?: number;
+  /** Fluid pipes: litres each pipe adds to its network's capacity. */
+  capacityL?: number;
+  /** Fluid pipes: carries hot fluids (FluidSpec.hot: lava, steam) too. A cold pipe refuses them. */
+  hot?: boolean;
 }
 
 export interface BlockDef {
@@ -293,6 +321,8 @@ export interface BlockDef {
   placeOn: string[] | null;
   /** Key of the block left behind when this one is harvested (see BlockSpec.harvestLeaves), or null. */
   harvestLeaves: string | null;
+  /** Transport numbers of a pipe block (spec 16), or null for anything that is not a pipe. */
+  pipe: PipeSpec | null;
   /** Key of the item that places this block, or null. */
   itemKey: string | null;
   /**
@@ -393,6 +423,36 @@ export interface FurnaceTierSpec {
   age: number;
   /** Flavour text for the upgrade panel. */
   blurb: string;
+  /**
+   * The hearth this tier needs (spec 17.1): to run at this tier the furnace (the controller) must sit in a wall of a
+   * formed structure that meets these rules. Absent on tier 1 (the clay furnace stands alone).
+   */
+  structure?: HearthStructureSpec;
+}
+
+/**
+ * Rules of one tier's hearth: a hollow cuboid of `wall` blocks (frame, faces, floor and ceiling) around an empty
+ * interior, with the controller in a face cell of a wall. Pure lookups over it live in src/core/hearth.ts.
+ */
+export interface HearthStructureSpec {
+  /**
+   * Blocks accepted as wall, this tier's own first. A higher tier's wall block also satisfies a lower tier, so each
+   * list holds the walls of every tier from this one up.
+   */
+  wall: string[];
+  /** Smallest interior, [x, z, y] in blocks (x and z are interchangeable: a hearth may face any way). */
+  minInner: [number, number, number];
+  /** Largest interior, [x, z, y]. */
+  maxInner: [number, number, number];
+  /** 'optional': an open top is allowed (it shows the fire); 'required': the top layer must be a full ceiling. */
+  ceiling: 'optional' | 'required';
+  /** Electrode blocks needed in the ceiling (0 or absent: none). */
+  electrodes?: number;
+  /** Power port blocks needed in the faces (0 or absent: none). */
+  powerPorts?: number;
+  /** Crucibles = min(maxCrucibles, interior x * z + crucibleBonus). */
+  maxCrucibles: number;
+  crucibleBonus: number;
 }
 
 export type MachineRole =
@@ -408,7 +468,14 @@ export type MachineRole =
    * A wild plant that fruits again after being picked (the berry bush; no power, no screen): src/sim swaps its
    * picked block back to the fruiting block after params.regrowS seconds.
    */
-  | 'bush';
+  | 'bush'
+  /** A fluid store (spec 16.1): holds one fluid; vertically stacked tanks share one fluid and one level. */
+  | 'tank'
+  /**
+   * A part set into a hearth's shell (spec 17.1): item hatch, fluid hatch, power port. It proxies to the controller
+   * of the formed hearth it belongs to and does nothing on its own.
+   */
+  | 'hearth_part';
 
 /** Static numbers for one kind of machine. The behaviour itself lives in src/sim. */
 export interface MachineSpec {
@@ -438,6 +505,39 @@ export interface MachineSpec {
   desc: string;
   /** Short rule about where it must stand, shown when placing (e.g. "Needs water next to it"). */
   placementHint?: string;
+  /** Fluid ports (spec 16.2): a fluid pipe or a bucket can fill or drain it. */
+  fluids?: MachineFluids;
+}
+
+/** The fluid side of an endpoint: which fluids a pipe may push into it and pull out of it. */
+export interface MachineFluids {
+  /** Fluids it takes in (a 'push' port or a full bucket fills it). */
+  accepts?: FluidKey[];
+  /** Fluids it hands out (a 'pull' port or an empty bucket drains it). */
+  gives?: FluidKey[];
+  /** Litres each of its internal fluid buffers holds (one buffer per fluid it accepts or gives at a time). */
+  capacityL: number;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Fluids (spec 16.5; authored in src/content/fluids.ts, read through the registry's FLUIDS)
+// ---------------------------------------------------------------------------------------------
+
+export type FluidKey = 'water' | 'lava' | 'steam' | 'crude_oil' | 'fuel';
+
+export interface FluidSpec {
+  key: FluidKey;
+  name: string;
+  /** Colour in tank windows, pipe windows and the UI, 0xRRGGBB. */
+  colour: number;
+  /** Hot fluids (lava, steam) need a hot pipe; a cold pipe refuses them ("Too hot for this pipe"). */
+  hot: boolean;
+  /** Drawn full-bright (it glows) in pipe windows, tanks and the UI. */
+  glow: boolean;
+  /** The world liquid a pump draws this fluid from, if any. */
+  liquid?: LiquidKind;
+  /** The bucket that carries 1000 L of it: `full` is the filled item, `empty` the bucket handed back. */
+  bucket?: { full: string; empty: string };
 }
 
 export type ObjectiveCondition =

@@ -45,7 +45,8 @@ Added: `Window.whenClosed`, `PauseMenu.window` (both for GameUI).
 
 ## icons.ts
 - `glyph(name: GlyphName, size = 16): SVGSVGElement` - monochrome inline SVG, takes currentColor. Names:
-  close, back, check, lock, bolt, flame, gear, help, warn, info, play.
+  close, back, check, lock, bolt, flame, gear, help, warn, info, play, heart, air, home, needle, sun, moon, up, down,
+  chevron, bowl (a steaming bowl: food).
 - `type IconProvider = (itemKey: string) => HTMLCanvasElement | null`; `setIconProvider(p | null)` - global; icons
   pick it up on their next `set`. Until then a placeholder tile with the item's initials and a hue from the key.
 - `class ItemIcon { constructor(itemKey: string | null = null); el; item; set(itemKey | null) }` - copies the provider's canvas.
@@ -84,10 +85,12 @@ Added: `Window.whenClosed`, `PauseMenu.window` (both for GameUI).
 ## recipe.ts (+ recipeList.ts)
 - `interface RecipeRowView { id; item; name; count?; category?; requirements?: { text, kind?: 'heat'|'tier'|'power'|'time', met?, tempC? }[];
   ingredients: { item, name, have, need }[]; available: number; reason?; locked?; action? }`
+- Requirement kinds `'food'` ("+8 food", "Well-Fed 6 min") and `'note'` ("Returns the bucket") are FACTS about the
+  product: no met state, drawn on their own line under the name (`.hw-recipe__facts`, badge `data-kind`).
 - `class RecipeRow(view, { onMake(id, count), many? = 5 })` - `update(view)`.
 - `class RecipeList({ label, onMake(id, count), categories?: {id, label}[], many?, emptyText?, onCategory? })` -
   `setRows(views)` (rows matched by id and updated in place; scroll and focus survive), `setCategory(id|null)`, `category`, `dispose()`.
-  Chips show how many rows of each category can be made now.
+  Chips show how many rows of each category can be made now. `setCategory` scrolls the picked chip into view.
 
 ## gauges.ts (+ thermometer.ts, sparkline.ts)
 - `type Tone = 'neutral'|'heat'|'power'|'good'|'warn'|'bad'`
