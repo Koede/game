@@ -70,6 +70,11 @@ controller.update(dt);                       // dt in seconds, clamped to 0.1 by
   of the hit cell the ray entered through, `p*` the cell across it. `createRayHit(): RayHit`.
 - Thin shapes (cross, torch, cable, slab) are targeted through their WHOLE cell (easier with a thumb).
   The controller casts with liquids only while an empty pail is held.
+- `screenBehindThin(world, ox, oy, oz, dx, dy, dz, maxDist, liquids, hit, out, anyAim = false): RayHit | null` - for
+  Use only (mining keeps the whole cell): when `hit` is a cable, torch or slab without a screen and the ray passes
+  beside its real shape (cable core 5..11/16, torch post, slab half) - or `anyAim`: nothing placeable is held, so Use
+  could do nothing with it - the next block along the ray is returned if it has a screen. The controller uses it for
+  every Use, so a cable in a furnace mouth (spec 17.1 Arc power) no longer hides the furnace.
 
 ## Interaction (interaction.ts)
 - `new Interaction(world, bus, player, body: BodyProbe, swing: SwingTarget, rng = Math.random)`.
@@ -78,10 +83,20 @@ controller.update(dt);                       // dt in seconds, clamped to 0.1 by
   `'block:mining'` at start (0), every 0.1 s, and -1 when stopped without breaking; dig sfx by material every
   0.25 s (`digSound(def)`). Breaking: voxel -> air (source 'player'), drops via `player.give` (`harvest`),
   `player.wearHeld`, `'block:broken'`, sfx `break`, then a 0.12 s pause before the next block. Liquids are not mined.
-- `use(hit): UseOutcome` (`'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'picked' |
-  'wrenched' | 'refused'`) - priority: pipes and fluid blocks first (`pipeTools.ts`, below); station / machine
-  -> `'ui:open'` (`screenFor(def, x, y, z)`: workbench, furnace, crate, else machine); else pail / water pail;
-  else place the held block item.
+- `use(hit, forcePlace = false): UseOutcome` (`'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' |
+  'picked' | 'wrenched' | 'refused'`) - priority (spec 3.6 as amended):
+  1. a held block is PLACED on the face aimed at when `forcePlace` (Shift + Use, the touch Place toggle) or when it is
+     a building block (`buildsOnto(def)`: machines and generators, tanks, cables and power devices, pipes, hearth
+     walls, electrodes) aimed at a block that has a screen anywhere but its FRONT (`frontFace(def, voxel)`: the
+     facing face of an oriented block - the furnace mouth, a machine's front; non-oriented blocks such as a tank,
+     crate or workbench have no front, so any face places). The first such placement toasts "Placed against the Clay
+     Furnace. To open it, use its front or an empty hand." (at most every 3 min). Engine on a furnace, tank on a tank,
+     thermopile / bricks / cable against a furnace side all place;
+  2. pipes and fluid blocks (`pipeTools.ts`, below);
+  3. station / machine -> `'ui:open'` (`screenFor(def, x, y, z)`: workbench, furnace, crate, else machine), so
+     ordinary blocks, items and an empty hand still open a screen from any face;
+  4. pail / hoe / planting / eating, else place the held block item.
+- `blockRules.ts`: `buildsOnto(def)`, `frontFace(def, voxel): Face | null`, `screenFor`, `digSound`, `facingTowards`.
 - `new Interaction(world, bus, player, body, swing, rng = Math.random, transport: TransportHands | null = null)`.
 
 ## Pipes, the wrench and buckets on tanks (pipeTools.ts, pipeAim.ts; spec 16.2-16.3)
@@ -95,8 +110,9 @@ controller.update(dt);                       // dt in seconds, clamped to 0.1 by
   empty hotbar slot opens the screen.
 - Use with a bucket (`BUCKETS`: pail, water_pail, bronze_bucket, lava_bucket) on a block with fluid ports
   (`isFluidEndpoint`: tank, pump, boiler, fluid hatch, ...) -> `transport.bucketUse` BEFORE any machine screen; on ok
-  the held bucket becomes `held` (`swapHeldItem(player, item)`), a refusal of a fluid block is toasted and opens
-  nothing; `endpoint: false` falls through to the normal Use. Without a transport a tank just opens its screen.
+  the held bucket becomes `held` (`swapHeldItem(player, item)`); a refusal ("holds nothing to scoop", "is full", the
+  wrong fluid) is toasted AND the block's screen opens (it shows what the machine holds; only a screenless block
+  ends at the toast); `endpoint: false` falls through to the normal Use. Without a transport a tank just opens its screen.
 - `pipeSideAt(world, x, y, z, ox, oy, oz, dx, dy, dz, entered: Face): Face` - the side aimed at: an arm hit first
   gives that arm's direction; the core gives the core face turned to the player (so a parted joint can be joined
   again); a near miss (whole-cell targeting) gives the side nearest to where the ray passes. Boxes are the mesher's
@@ -123,13 +139,20 @@ controller.update(dt);                       // dt in seconds, clamped to 0.1 by
     was seen). Re-reads on `'settings:changed'`.
 - `Intent` (intent.ts): `moveX, moveZ` (vector length <= 1; z forward), `lookYaw` (> 0 = turn RIGHT; the
   controller subtracts it from the yaw), `lookPitch` (> 0 = up; sensitivity and invertY applied), `jump, sprint,
-  mine` (held), `use` (press + every `USE_REPEAT_S = 0.25` s while held), `hotbarSlot: number | null`,
+  mine` (held), `use` (press + every `USE_REPEAT_S = 0.25` s while held), `place` (with `use`: this Use places the
+  held block, skipping screens - Shift held, or the touch Place toggle armed), `hotbarSlot: number | null`,
   `hotbarStep: -1 | 0 | 1`, `inventory, log, pause` (edges). `createIntent()`, `clearIntent(i)`.
 - Pure, node-tested parts: `InputCore` (folds everything into the intent), `TouchGestures` (multi-touch state
-  machine, `GESTURE_DEFAULTS`: tap < 220 ms and 10 px, hold >= 280 ms, dead zone 0.14, sprint at 0.9 / off at
-  0.78), `MouseDrag` (drag-to-look fallback), `keys.ts` (`reduceKeys`, `keyAxisX/Z`, `keyCommand`, `physicalCode`).
-- `TouchOverlay` - joystick, hold ring and buttons (Jump, Mine, Use bottom right; bag + pause top right) in the
-  touch layer; CSS `TOUCH_CSS` injected once (class prefix `hw-touch-`, kit variables with fallbacks).
+  machine, `GESTURE_DEFAULTS`: a still touch (10 px) lifted before 280 ms is a tap, hold >= 280 ms - no dead band
+  between them; dead zone 0.14, sprint at 0.9 / off at 0.78), `MouseDrag` (drag-to-look fallback), `keys.ts` (`reduceKeys`, `keyAxisX/Z`, `keyCommand`, `physicalCode`).
+- Tap vs hold uses two clocks: taps are judged by the pointer events' own timestamps; frames promote a still finger
+  to a hold, but each frame adds at most `MAX_HOLD_STEP_MS` (150) to its hold time, so a stalled frame does not turn a
+  quick tap into mining; and if a late frame did promote it, `up()` with a lift time < holdMs undoes the hold and fires
+  the tap (Chrome runs frames before touch lifts queued during a stall - seen in headless Chromium).
+- `InputCore.togglePlace()` / `placeArmed` - the touch Place toggle: arms `intent.place` for the next Use only;
+  any blocked frame (a screen opening) disarms it.
+- `TouchOverlay` - joystick, hold ring and buttons (Jump, Mine, Use bottom right with a small Place toggle up-left of
+  Use - orange while armed; bag + pause top right) in the touch layer; CSS `TOUCH_CSS` injected once (class prefix `hw-touch-`, kit variables with fallbacks).
   `PointerLock` (pointerLock.ts, internal) handles missing / throwing / rejecting / silent lock requests.
 - Events outside the game surface are left alone: anything inside `.hw-window` / `.hw-ui-blocking`, and any
   element inside the UI root (`.hw-root`) other than the touch overlay (HUD widgets such as hotbar slots stay
@@ -169,6 +192,15 @@ appears wherever the left thumb lands in the lower-left region (left half; below
 - Mining a block next to water opens it to the flow: the water runs in (spec 18). Currents push the player along.
 - The click that captures the pointer does not mine; hold again.
 - Thin shapes are targeted by their whole cell; the controller casts through liquids only with an empty pail.
+  Use looks past a thin block without a screen to a screen block behind it (`screenBehindThin`).
+- Spec 3.6's "station/machine screen first" is amended: building blocks go on any face of a screen block but its
+  front; Shift + Use (sprint key: it only means "place" together with a Use) and the touch Place toggle always
+  place. Ctrl was not used for this: Ctrl+W closes the browser tab while walking.
+- Fix review pa-1/pa-2/pa-5 (2026-11): placing against screen blocks, the Place toggle, buckets falling through to a
+  machine screen, Use past a cable in a furnace mouth, tap vs hold across stalls. Checked in the built game in
+  headless Chromium (desktop, 390x844, 844x390): engine on a furnace top, tank on a tank, Shift / Place toggle forcing
+  a plank onto a furnace front, empty hand on the front opening it, a cable in the mouth not hiding the furnace, and
+  a CDP tap whose lift is queued behind a 450 ms main-thread stall opening the furnace (frames ran before the lift).
 - `'block:mining'` is not emitted with progress 1 / -1 after a successful break: `'block:broken'` follows instead.
 
 ## Known gaps
@@ -177,5 +209,9 @@ appears wherever the left thumb lands in the lower-left region (left half; below
 - A very slow look drag (under about 36 px/s for the first 280 ms) is read as press-and-hold and mines while it
   looks. Seen only with CDP-delivered touches on a slow software renderer; real thumbs move faster, but it is
   inherent to hold-to-mine on a still finger.
+- Use on a formed hearth's shell, hatch or power port does not open the controller's furnace screen (needs a
+  shell -> controller lookup from src/sim). The cable fix above makes the mouth usable instead.
+- A tap promoted by a late frame (see input) may have mined for a frame or two before the lift arrived; blocks that
+  break instantly (plants, torches) can be lost to it. The per-frame cap makes this rare.
 - Fall damage is applied by the physics directly (`player.damage`), not through `Survival.applyFall`; both use
   the same `fallDamage` rule and the physics already skips it in water.

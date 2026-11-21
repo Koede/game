@@ -51,6 +51,11 @@ const JUMP = 3;
 const MINE = 4;
 const USE = 5;
 const MAX_POINTERS = 10;
+/**
+ * Most a single frame adds to a still finger's hold time (ms). After a stall the next frames may run before the lift
+ * that happened during it is delivered; counting the stall in full would turn that tap into mining.
+ */
+export const MAX_HOLD_STEP_MS = 150;
 
 interface Pointer {
   id: number;
@@ -62,6 +67,8 @@ interface Pointer {
   downT: number;
   /** Farthest the pointer ever got from where it landed. */
   maxDist: number;
+  /** Hold time counted by frames (each frame adds at most MAX_HOLD_STEP_MS). */
+  frameHeld: number;
   looking: boolean;
   holding: boolean;
 }
@@ -110,7 +117,7 @@ export class TouchGestures {
   constructor(config: Partial<GestureConfig> = {}) {
     this.config = { ...GESTURE_DEFAULTS, ...config };
     for (let i = 0; i < MAX_POINTERS; i++) {
-      this.pointers.push({ id: 0, role: NONE, startX: 0, startY: 0, lastX: 0, lastY: 0, downT: 0, maxDist: 0, looking: false, holding: false });
+      this.pointers.push({ id: 0, role: NONE, startX: 0, startY: 0, lastX: 0, lastY: 0, downT: 0, maxDist: 0, frameHeld: 0, looking: false, holding: false });
     }
     this.setViewport(this.width, this.height);
   }
@@ -155,6 +162,7 @@ export class TouchGestures {
     p.startY = p.lastY = y;
     p.downT = t;
     p.maxDist = 0;
+    p.frameHeld = 0;
     p.looking = false;
     p.holding = false;
     switch (target) {
@@ -231,23 +239,29 @@ export class TouchGestures {
   }
 
   /**
-   * Advances time-based state (hold-to-mine). Call once per frame with the current time. A touch is only promoted to
-   * a hold by a frame when an earlier frame already saw it down: after a stall, events queued during it (the lift of
-   * a quick tap) are delivered before the next frame, so a tap is never turned into a hold by a late frame.
+   * Advances time-based state (hold-to-mine). Call once per frame with the current time. Frames count a still finger's
+   * hold time at most MAX_HOLD_STEP_MS each, so a stall never turns a quick tap into mining by itself; if a late frame
+   * still promotes a touch whose lift (by its own timestamp) came before holdMs, up() turns it back into a tap.
    */
   update(t: number): void {
     this.holdPhase = HOLD_NONE;
-    const seenBefore = this.lastUpdateT;
+    const prev = this.lastUpdateT;
     this.lastUpdateT = t;
     for (const p of this.pointers) {
       if (p.role !== LOOK) continue;
-      if (seenBefore > p.downT) this.promoteHold(p, t);
+      if (!p.holding && p.maxDist <= this.config.tapSlopPx) {
+        p.frameHeld += Math.min(Math.max(0, t - Math.max(p.downT, prev)), MAX_HOLD_STEP_MS);
+        if (p.frameHeld >= this.config.holdMs) {
+          p.holding = true;
+          this.mineCount++;
+        }
+      }
       const phase = p.holding ? HOLD_MINING : p.maxDist <= this.config.tapSlopPx ? HOLD_CHARGING : HOLD_NONE;
       if (phase <= this.holdPhase) continue;
       this.holdPhase = phase;
       this.holdX = p.lastX;
       this.holdY = p.lastY;
-      this.holdProgress = p.holding ? 1 : clamp((t - p.downT) / this.config.holdMs, 0, 1);
+      this.holdProgress = p.holding ? 1 : clamp(p.frameHeld / this.config.holdMs, 0, 1);
     }
   }
 

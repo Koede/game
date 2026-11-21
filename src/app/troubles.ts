@@ -209,6 +209,8 @@ export class Troubles {
     this.graphicsLost = true;
     if (this.app.playing() && !this.broken) this.app.save();
     game.held = true;
+    // A captured mouse would never reach the notice's buttons.
+    game.inputManager.releasePointerCapture();
     if (this.broken) return;
     this.waiting();
     window.clearTimeout(this.restoreTimer);

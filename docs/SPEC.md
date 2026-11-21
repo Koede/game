@@ -282,8 +282,11 @@ is universal) else 1; x1.25 while Well-Warmed. If block.minTier > the effective 
 wrong tool kind) mining takes 3x longer and drops nothing. hardness -1 cannot be mined. A matching tool loses 1
 durability per block. Drops go straight into the inventory (event item:gained); what does not fit is lost with a
 warning toast. Reach 5 blocks. Blocks cannot be placed inside the player. Oriented blocks face the player.
-Interact ("use") priority: station/machine block under the crosshair opens its screen; else item-specific use
-(pail); else place the held block item.
+Interact ("use") priority: a held block is placed when the player forces it (Shift + Use, the touch Place toggle) or
+when it is a building block (machine, generator, tank, cable, pipe, hearth wall) aimed at a block with a screen
+anywhere but its front (an engine on a furnace, a tank on a tank); else station/machine block under the crosshair
+opens its screen (from any face with an empty hand, an item or an ordinary block); else item-specific use (pail);
+else place the held block item. Use looks past a thin block without a screen (a cable in a furnace mouth).
 
 ---------------------------------------------------------------------------------------------------------
 

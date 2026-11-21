@@ -154,7 +154,7 @@ export function migrateSave(_data: unknown, _fromVersion: number): SaveDocument 
 
 const PROBLEM_TEXT: Readonly<Record<LoadProblem | 'world', string>> = {
   corrupt: 'The saved game could not be read. A copy was kept; starting a New World replaces it.',
-  newer: 'This save is from a newer version of the game and cannot be opened here. It is kept as it was.',
+  newer: 'This save is from a newer version of the game and cannot be opened here. It is kept as it was; starting a New World replaces it.',
   older: 'This save is from an old version of the game that cannot be opened. A copy was kept.',
   invalid: 'The saved game could not be read. A copy was kept; starting a New World replaces it.',
   world: 'The saved world is damaged and could not be loaded. A copy was kept; starting a New World replaces it.',

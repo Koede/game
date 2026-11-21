@@ -59,7 +59,8 @@ Streaming and extras:
 - `stats(): WorldStats` - `{ loaded, meshed, generating, meshing, urgent, queued, pinned, entities, edits,
   editedChunks, generateMs, meshMs, mode: 'workers' | 'main', workers }` for a debug overlay
   (`generateMs`/`meshMs` are running averages of job time where the jobs ran).
-- `toJSON(): WorldSnapshot` - `{ version: 1, seed, edits: Record<"cx,cz", base64>, entities: BlockEntity[] }`,
+- `toJSON(options?: { shared?: boolean }): WorldSnapshot` - (entities are deep copies; `shared: true` hands the live
+  entity objects to a caller that serialises at once - the autosave, `GameState.toSaveJson`) `{ version: 1, seed, edits: Record<"cx,cz", base64>, entities: BlockEntity[] }`,
   plain JSON (entities deep-copied). Edits are base64 of little-endian uint16 pairs (voxel index, voxel):
   about 5.3 characters per edited voxel.
 - `load(snapshot): void` - replaces everything: emits `chunk:hidden`/`chunk:unloaded` for every chunk, then

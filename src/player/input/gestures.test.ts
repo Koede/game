@@ -132,7 +132,8 @@ describe('look, tap and hold', () => {
     const g = phone();
     g.down(1, 250, 300, 0, 'world');
     g.update(10);
-    g.update(400);
+    g.update(160);
+    g.update(310); // frames ran on while the lift waited in the queue
     expect(g.mineHeld).toBe(true);
     g.up(1, 120);
     expect(g.takeUsePulses()).toBe(1);
@@ -165,6 +166,7 @@ describe('look, tap and hold', () => {
     g.update(100);
     expect(g.mineHeld).toBe(false);
     expect(g.holdPhase).toBe(HOLD_CHARGING);
+    g.update(200);
     g.update(GESTURE_DEFAULTS.holdMs + 1);
     expect(g.mineHeld).toBe(true);
     expect(g.holdPhase).toBe(HOLD_MINING);

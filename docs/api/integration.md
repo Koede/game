@@ -40,7 +40,8 @@ class GameState {
   prepareAroundPlayer(radiusChunks = 1): void                 // ensureLoadedAround the player
   faceOpenView(): void                                         // new worlds: look at the most open horizon
   tick(dt = DT): void                                          // clock -> weather -> sim -> mobs -> survival -> objectives
-  toSave(): WorldSave
+  toSave(): WorldSave                                          // independent copy (deep-copied entities)
+  toSaveJson(): string                                         // the same save serialised once from live objects (autosave)
   dispose(): void
 }
 seedFrom(text: string | null, random?): number                 // digits as is, words hashed, empty = random
@@ -52,10 +53,20 @@ class Game {
   readonly controller: PlayerController; audio: AudioEngine; ambience: AmbienceProbe
   readonly loadingProgress: number; readonly ready: boolean; frames: number
   loadingFrame(dt): void      // stream + draw only
-  frame(dt): void             // one frame of play (see order below)
-  teleport(x, y, z): void; tick(n): void; toSave(): WorldSave; dispose(): void
+  frame(dt, now?): void       // one frame of play (see order below)
+  held: boolean               // set by the app: no controls, no ticks (graphics lost, a stopped world), no pause menu
+  readonly stopped: boolean   // paused || held
+  readonly calm: boolean      // a window open, or standing still and not mining: a good moment to autosave
+  invalidateView(): void      // draw the next few frames even while still (resize, restored context)
+  teleport(x, y, z): void; tick(n): void; toSave(): WorldSave; toSaveJson(): string; dispose(): void
 }
-chunksInView(r): number; STREAM_BUDGET_MS = 4; LOADING_BUDGET_MS = 14; READY_RADIUS = 2
+chunksInView(r): number; STREAM_BUDGET_MS = 4; LOADING_BUDGET_MS = 14; READY_RADIUS = 2; STILL_REDRAW_MS = 1000
+
+// src/app/troubles.ts
+class FrameGuard { ok(); fail(nowMs): boolean /* stop the world */; reset() }   // 4 in a row, or 10 within 5 s
+class Troubles { constructor(host, app: TroubleHost); broken: boolean; attach(game); detach(); halt(err) }
+class GameNotice { update(title, body, actions?, detail?); hide(); shown }        // full-screen card over the game
+agoText(thenMs, nowMs): string; copyText(text, fallbackEl); watchContext(canvas, { lost, restored })
 
 // src/app/loop.ts
 clampFrameDt(dt): number      // 0..0.1 s, garbage -> 0
@@ -78,7 +89,12 @@ skipped while paused, but `inputManager.frame` still runs) -> up to 5 fixed 20 H
 while paused) -> `world.update(player, renderDistance, 4 ms)` -> `audio.setListener` + `audio.setAmbience(...)` ->
 the crosshair's animal name (`ui.setTargetName`, refreshed when the animal or its health changes) -> `ui.frame(dt)`
 (also while paused) -> `mobRenderer.update(dt, mobs.views(step.alpha))` (interpolated; frozen with alpha 1 while
-paused) -> `renderer.render(dt)`. Screens other than pause do not stop the world. The PlayerController gets
+paused) -> `renderer.render(dt)`. Screens other than pause do not stop the world.
+While stopped (paused or held) chunks do not stream, and the world is drawn only when the pause starts, when
+invalidated (resize, settings change, ui opened/closed, restored context) and then once a second; the same holds
+while an open window covers the whole view (five probe points all land on an opaque `.hw-window`, checked on
+opening and every 0.7 s - the phone inventory, furnace and machine screens), while ticks, UI and audio run on.
+Measured in headless Chromium: paused, 4 draws in 4 s against 226 frames; phone inventory open, 4 draws in 4 s. The PlayerController gets
 `animals: state.mobs`.
 
 Ambience: the nearest furnace that makes any sound within 24 blocks (heat from its temperature, electric
@@ -97,7 +113,18 @@ interface SaveDocument { settings: Settings; world: WorldSave | null }
 interface WorldSave { seed; seedText: string | null; world: WorldSnapshot; player: PlayerSnapshot;
   clock: ClockSnapshot; survival: SurvivalSnapshot; objectives: ObjectivesSnapshot; playTimeS;
   weather?: WeatherSnapshot; mobs?: MobsSnapshot }   // both optional: older saves load (animals start fresh)
-class SaveSlot { constructor(storage?: StorageLike | null); persistent; lastProblem: string | null; read(): SaveDocument; write(doc) }
+BACKUP_KEY = 'hearthwatt.save.bak'; SETTINGS_KEY = 'hearthwatt.settings'
+class SaveSlot {
+  constructor(storage?: StorageLike | null); persistent; lastProblem: string | null
+  readonly held: boolean        // the save key holds a world this build cannot read (kept until a world is written)
+  readonly hasBackup: boolean
+  read(): SaveDocument; write(doc): SaveResult
+  writeText(settings, worldJson: string | null): SaveResult   // world already serialised (App keeps it as text)
+}
+// src/save/storage.ts
+type SaveResult = { ok: true; bytes } | { ok: false; reason: 'quota' | 'unavailable'; keptAt: number | null }
+SaveStore: load(); inspect(): { data; problem: 'corrupt' | 'newer' | 'older' | 'invalid' | null; raw };
+  save(data); saveText(json); savedAt(); storedAt(); option onQuota(): boolean (free space, retry once)
 sanitizeSettings(raw): Settings          // complete, clamped to SETTINGS_BOUNDS (the settings panel's ranges)
 isWorldSave(w): w is WorldSave           // structural check of every snapshot load() relies on
 normalizeDocument(raw, onDropped?)       // a damaged world is dropped, the settings are kept
@@ -106,8 +133,29 @@ migrateSave(data, fromVersion)           // nothing older than version 1 exists 
 
 When it saves: on entering play, every 30 s of unpaused play, when the pause menu opens, on "Save and quit",
 on `visibilitychange` (hidden) and `pagehide`. Settings changes are written 400 ms after the last change
-(the title screen too). A refused write keeps the save in memory: quota -> red toast; storage blocked ->
-one warning toast "This page cannot keep saves: progress lasts until it is closed".
+(the title screen too). A refused write keeps the save in memory AND never touches the copy already in storage:
+quota -> red toast "Storage is full: this save failed. Your last save (3 min ago) is still kept." (SaveSlot first
+gives up the backup key, if any, and retries once); storage blocked -> one warning toast "This page cannot keep
+saves: progress lasts until it is closed". Reads take the newer of storage and the memory copy (envelope `t`).
+
+The App keeps the world as JSON TEXT (`worldText`): an autosave serialises the live world once
+(`Game.toSaveJson`, no deep copy of the entities), and a settings write reuses that text, so it never mixes live
+state into the last snapshot. Continue parses it. A due autosave waits for a calm moment (`Game.calm`) for at most
+10 s more (`AUTOSAVE_GRACE_S`).
+
+A stored save this build cannot use (not JSON, a newer or unknown version, a world that fails `isWorldSave`) is
+never thrown away: its text is copied to `hearthwatt.save.bak`, `lastProblem` says why ("This save is from a newer
+version of the game and cannot be opened here. It is kept as it was; ..."), toasted on the title, and the slot is
+`held`: settings-only writes go to `hearthwatt.settings` and the save key keeps the old text. The title treats the
+slot as taken (Continue repeats the reason; New World needs the hold-to-confirm), and only a New World, saved on
+entering play, replaces it.
+
+When the world cannot go on (`Troubles`): 4 failed frames in a row (or 10 within 5 s) stop the loop and show
+"Something went wrong in this world" with the error, "Quit to title" (no save: a snapshot taken mid-failure could
+carry the fault into the save; the last good save is kept), "Try to keep playing" and "Copy error details"; nothing of
+that world is saved again (pause, hide and pagehide included). A lost WebGL context holds the world (`Game.held`,
+saved first, pointer released) under "Graphics were reset by the browser - waiting"; restored -> the notice goes, the
+view is redrawn and the pause menu opens; not restored within 3 s -> "Save and reload".
 
 ## window.__hw (src/app/debug.ts)
 
