@@ -332,8 +332,8 @@ export function validateContent(): string[] {
       problems.push(`recipe ${r.id}: unknown station "${r.station}"`);
     }
     if (r.station === 'furnace' && r.minTier > MAX_FURNACE_TIER) problems.push(`recipe ${r.id}: minTier ${r.minTier} exceeds furnace tiers`);
-    if (r.station === 'furnace' && r.minTempC > furnaceTier(Math.max(r.minTier, 1)).maxTempC && r.minTier === MAX_FURNACE_TIER) {
-      problems.push(`recipe ${r.id}: minTempC ${r.minTempC} is unreachable`);
+    if (r.station === 'furnace' && r.minTier <= MAX_FURNACE_TIER && r.minTempC > furnaceTier(MAX_FURNACE_TIER).maxTempC) {
+      problems.push(`recipe ${r.id}: minTempC ${r.minTempC} is hotter than any furnace gets`);
     }
     if (r.age < 0 || r.age >= AGES.length) problems.push(`recipe ${r.id}: age ${r.age} out of range`);
   }
