@@ -126,6 +126,7 @@ button.link:hover b { color: var(--ember); }
       <a href="#blocks" id="tab-blocks">Blocks</a>
       <a href="#progression" id="tab-progression">Progression</a>
       <a href="#items" id="tab-items">Item map</a>
+      <a href="#essentia" id="tab-essentia">Essentia</a>
     </nav>
     <label class="search"><input id="q" type="search" placeholder="Find an item or block" aria-label="Search"></label>
   </div>
@@ -153,6 +154,11 @@ button.link:hover b { color: var(--ember); }
   <p class="lede">Every item placed by complexity: columns count the crafting steps from raw materials, rows are the furnace tier it needs in the game as built today (five tiers; the planned Bronze Age is not in this map yet). Tap an item to light up everything it requires (amber) and everything that needs it (cyan). The number is how many raw materials one of it costs in total.</p>
   <div class="chips" id="map-legend"><button id="map-clear" aria-pressed="false">Clear highlight</button></div>
   <div class="mapscroll"><div class="imap" id="imap"></div></div>
+</div>
+
+<div class="wrap" id="view-essentia" hidden style="padding-block:18px 40px">
+  <p class="lede">The optional magic: every block and item has a nature made of aspects. Note things with the Field Notebook to learn them, link aspects on research boards to unlock recipes, gather essentia with a rod, and spend it at the Rune Desk and the Infusion Altar. The tech tree never needs any of it.</p>
+  <div id="essentia"></div>
 </div>
 
 <aside class="drawer" id="drawer" hidden aria-live="polite"></aside>
@@ -280,6 +286,23 @@ button.link:hover b { color: var(--ember); }
     renderBlocks();
   });
 
+  // ---------- essentia ----------
+  const MG = data.magic || { aspects: [], research: [], arcane: [], infusions: [], fp: {} };
+  const ASP = Object.fromEntries(MG.aspects.map((a) => [a.key, a]));
+  const aspectChips = (as) => Object.entries(as).map(([a, n]) => `<span class="tag" style="border-color:${ASP[a]?.color};box-shadow:inset 4px 0 0 ${ASP[a]?.color}">${esc(ASP[a]?.name ?? a)} ${n}</span>`).join(' ');
+  const itemList = (list) => list.map((i) => `<button class="chip" data-item="${i.item ?? i}">${itemIcon(i.item ?? i)}${i.count > 1 ? i.count + ' ' : ''}${esc(itemName(i.item ?? i))}</button>`).join('');
+  if (MG.aspects.length) {
+    const tierName = ['', 'Primal', 'Compound', 'Late'];
+    let h = '<h2>Aspects</h2><div class="chips">' + MG.aspects.map((a) => `<span class="tag" style="border-color:${a.color};box-shadow:inset 4px 0 0 ${a.color}" title="${esc(a.meaning)}"><b>${esc(a.name)}</b> ${a.parts ? '= ' + esc(ASP[a.parts[0]].name) + ' + ' + esc(ASP[a.parts[1]].name) : tierName[a.tier]} - ${esc(a.meaning)}</span>`).join(' ') + '</div>';
+    h += '<h2>Research</h2>';
+    for (const age of [...new Set(MG.research.map((e) => e.age))]) {
+      h += `<h3 style="text-transform:capitalize">${esc(age)} age</h3><div class="recipes">` + MG.research.filter((e) => e.age === age).map((e) => `<div class="recipe" style="display:block;padding:8px"><b>${esc(e.title)}</b>${e.requires.length ? ` <small>after ${esc(e.requires.map((r) => MG.research.find((x) => x.key === r)?.title ?? r).join(', '))}</small>` : ''}<p class="desc" style="margin:4px 0">${esc(e.text)}</p>${(e.unlocks.recipes || []).length ? '<div class="leaf">' + itemList((e.unlocks.recipes || []).map((id) => (recipes.find((r) => r.id === id) || MG.arcane.find((r) => r.id === id) || MG.infusions.find((r) => r.id === id))?.output?.item).filter(Boolean)) + '</div>' : ''}</div>`).join('') + '</div>';
+    }
+    h += '<h2>Rune Desk</h2><div class="recipes">' + MG.arcane.map((r) => `<div class="recipe" style="display:block;padding:8px">${itemList([r.output])} <small>from</small> ${itemList(r.inputs)}<div>${aspectChips(r.cost)}</div></div>`).join('') + '</div>';
+    h += '<h2>Infusion Altar</h2><div class="recipes">' + MG.infusions.map((r) => `<div class="recipe" style="display:block;padding:8px">${itemList([r.output])} <small>heart</small> ${itemList([r.center])} <small>pedestals</small> ${itemList(r.around)}<div>${aspectChips(r.cost)} <small>${r.seconds} s</small></div></div>`).join('') + '</div>';
+    $('#essentia').innerHTML = h;
+  }
+
   // ---------- item drawer: made from / used in ----------
   const stationLabel = (r) => r.station === 'furnace' ? `${tiers[r.tier - 1]?.name ?? 'Furnace'} - ${r.kind === 'smelt' ? 'smelt' : 'forge'}` : (MACHINE_NAMES[r.station] ?? (r.station === 'hand' ? 'By hand' : 'Workbench'));
   function openItem(key) {
@@ -293,6 +316,7 @@ button.link:hover b { color: var(--ember); }
       ${it.desc ? `<p class="lede" style="margin:0">${esc(it.desc)}</p>` : ''}
       ${it.fuel ? `<p class="desc">Fuel - burns at ${it.fuel} C</p>` : ''}${it.food ? `<p class="desc">Food - +${it.food}</p>` : ''}
       ${droppedBy.length ? `<h4>Found by breaking</h4><p class="desc">${esc(droppedBy.join(', '))}</p>` : ''}
+      ${data.magic?.fp?.[key] ? `<h4>Aspects</h4><p class="desc">${aspectChips(data.magic.fp[key])}</p>` : ''}
       <h4>Made from</h4>${list(made)}<h4>Used in (${used.length})</h4>${list(used)}</div>`;
     d.hidden = false;
     $('#close').focus();
@@ -305,7 +329,7 @@ button.link:hover b { color: var(--ember); }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#drawer').hidden = true; });
 
   // ---------- routing ----------
-  const VIEWS = ['crafting', 'blocks', 'progression', 'items'];
+  const VIEWS = ['crafting', 'blocks', 'progression', 'items', 'essentia'];
   function route() {
     const h = location.hash.slice(1);
     const view = VIEWS.includes(h) ? h : 'crafting';

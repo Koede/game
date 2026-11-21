@@ -63,6 +63,10 @@ export async function extract() {
   const g = await importSource(`
     export { BLOCKS, ITEMS, RECIPES, TEXTURE_NAMES, FURNACE_TIERS, AGES } from 'src/core/registry';
     export { paintTexture } from 'src/render/textures';
+    export { ASPECTS } from 'src/magic/aspects';
+    export { RESEARCH } from 'src/magic/entries';
+    export { aspectsOf } from 'src/magic/fingerprint';
+    export { ARCANE_RECIPES, INFUSIONS } from 'src/content/recipesMagic';
   `);
   const tex = { missing: 'data:image/png;base64,' + encodePng(16, 16, missingTexture()).toString('base64') };
   const unknown = new Set();
@@ -97,5 +101,12 @@ export async function extract() {
   const tiers = g.FURNACE_TIERS.map((t) => ({ tier: t.tier, name: t.name, max: t.maxTempC, age: t.age }));
   const ages = g.AGES.map((a) => ({ key: a.key, name: a.name, blurb: a.blurb }));
   const cx = computeCx(Object.keys(items), recipes);
-  return { data: { tex, items, recipes, blocks, tiers, ages, cx }, unknownTextures: [...unknown] };
+  // Essentia & Research (docs/api/magic.md): aspects, the research tree, desk and altar recipes, every item's fingerprint.
+  const magic = {
+    aspects: g.ASPECTS.map((a) => ({ key: a.key, name: a.name, tier: a.tier, parts: a.parts, meaning: a.meaning, color: a.color })),
+    research: g.RESEARCH.map((e) => ({ key: e.key, title: e.title, age: e.age, requires: e.requires, text: e.text, unlocks: e.unlocks })),
+    arcane: g.ARCANE_RECIPES, infusions: g.INFUSIONS,
+    fp: Object.fromEntries(Object.keys(items).map((k) => [k, g.aspectsOf(k)])),
+  };
+  return { data: { tex, items, recipes, blocks, tiers, ages, cx, magic }, unknownTextures: [...unknown] };
 }

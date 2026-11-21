@@ -10,7 +10,7 @@ const dir = resolve(process.argv[3] ?? 'dist-codex');
 if (!existsSync(resolve(dir, 'index.html'))) await buildCodex(dir);
 mkdirSync(out, { recursive: true });
 
-const TABS = ['crafting', 'blocks', 'progression', 'items'];
+const TABS = ['crafting', 'blocks', 'progression', 'items', 'essentia'];
 let bad = 0;
 for (const device of ['desktop', 'phonePortrait']) {
   const g = await openGame({ dir, device });
