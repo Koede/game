@@ -18,7 +18,7 @@ function beaker(c: Canvas, fill: readonly P.RGB[] | null): void {
   c.rect(10, 3, 1, 10, GLASS[0]);
   // Base.
   c.rect(5, 13, 6, 1, GLASS[0]);
-  c.rect(6, 4, 4, 8, GLASS[2], 140);
+  c.rect(6, 4, 4, 8, GLASS[2]);
   if (fill) {
     c.rect(6, 7, 4, 6, fill[3]);
     c.rect(6, 7, 4, 1, fill[4]);

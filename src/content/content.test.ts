@@ -64,8 +64,8 @@ describe('2. roster of spec section 2', () => {
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
-  it('has exactly the 141 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19, 20 of brewing, 30 of handwork)', () => {
-    expect(SPEC.items).toHaveLength(141);
+  it('has exactly the 153 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19, 20 of brewing, 30 of handwork, 12 of ground items, vehicles and sugar)', () => {
+    expect(SPEC.items).toHaveLength(153);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
     expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
@@ -84,7 +84,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(184);
+    expect(RECIPES).toHaveLength(195);
   });
 
   it('has the furnace tiers of table 2.4', () => {

@@ -315,11 +315,11 @@ describe('ruin crates', () => {
     expect(world.getBlock(r.crateX, y, r.crateZ).key).toBe('crate');
     expect((world.getEntity(r.crateX, y, r.crateZ) as unknown as { slots: unknown[] }).slots).toEqual(stored.slots);
 
-    // Broken: the loot goes to the player and the crate never comes back.
+    // Broken: the loot drops as ground items (the pack is untouched) and the crate never comes back.
     const first = stored.slots.find((s) => s !== null) as ItemStack;
     world.setVoxel(r.crateX, y, r.crateZ, AIR, 'player');
     expect(world.getEntity(r.crateX, y, r.crateZ)).toBeUndefined();
-    expect(player.inventory.count(first.item)).toBeGreaterThanOrEqual(first.count);
+    expect(player.ground.count(first.item)).toBeGreaterThanOrEqual(first.count);
     world.load(world.toJSON());
     world.ensureLoadedAround(r.crateX, r.crateZ, 1);
     expect(world.getBlock(r.crateX, y, r.crateZ).key).toBe('air');

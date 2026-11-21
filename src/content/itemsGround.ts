@@ -15,6 +15,6 @@ export const VACUUM_WEAR_S = 480;
 export const GROUND_ITEMS: ItemSpec[] = [
   {
     key: 'hand_vacuum', name: 'Hand Vacuum Pump', category: 'tool', age: 0, stack: 1, wear: VACUUM_WEAR_S,
-    desc: 'A bronze piston pump with a leather bellows and a wide nozzle. Hold it and press Use: loose items within nine blocks stream in to you. Its leather wears with every second of suction.',
+    desc: 'A bronze pump with a leather bellows. Hold it and press Use: loose items within nine blocks stream in to you. The leather wears with every second of suction.',
   },
 ];

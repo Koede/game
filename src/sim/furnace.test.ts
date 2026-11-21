@@ -280,7 +280,7 @@ describe('forging and upgrading', () => {
     expect(kit.sim.maxFurnaceTier()).toBe(2);
   });
 
-  it('breaking a furnace hands back what it held', () => {
+  it('breaking a furnace drops what it held as ground items', () => {
     const kit = makeKit();
     const removed = kit.record('machine:removed');
     const e = kit.furnace(0, 1, 0);
@@ -290,9 +290,11 @@ describe('forging and upgrading', () => {
     kit.world.setVoxel(0, 1, 0, 0, 'player');
     expect(kit.sim.furnaceAt(0, 1, 0)).toBeNull();
     expect(kit.world.getEntity(0, 1, 0)).toBeUndefined();
-    expect(kit.player.inventory.count('coal')).toBe(7);
-    expect(kit.player.inventory.count('tin_ore')).toBe(2);
-    expect(kit.player.inventory.count('tin_ingot')).toBe(3);
+    // Ground items design: a broken machine spills onto the ground, the pack is not touched.
+    expect(kit.player.ground.count('coal')).toBe(7);
+    expect(kit.player.ground.count('tin_ore')).toBe(2);
+    expect(kit.player.ground.count('tin_ingot')).toBe(3);
+    expect(kit.player.inventory.count('coal')).toBe(0);
     expect(removed).toHaveLength(1);
   });
 });

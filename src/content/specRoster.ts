@@ -6,6 +6,7 @@
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { BREW_SPEC } from './specRosterBrew';
 import { EMBER_SPEC } from './specRosterEmber';
+import { GROUND_SPEC } from './specRosterGround';
 import { FOOD_SPEC } from './specRosterFood';
 import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
@@ -60,6 +61,7 @@ export const SPEC = {
     ...EMBER_SPEC.items,
     ...BREW_SPEC.items,
     ...HAND_SPEC.items,
+    ...GROUND_SPEC.items,
   ],
 
   /** material -> [tier, speed, durability] for its pickaxe, axe and shovel. */
@@ -289,7 +291,7 @@ export const SPEC = {
     'make bronze_maul 1', 'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1',
     'place drying_rack 1', 'make leather 1', 'make cloth 1', 'tier 2', 'place item_pipe 1',
     'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3', 'place pump 1',
-    'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', 'generate 10000', 'make tungsten_rod 4', 'tier 4',
+    'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', ...GROUND_SPEC.objectivesAfterBeacon, 'generate 10000', 'make tungsten_rod 4', 'tier 4',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 5',
     'flag ignited',
   ],
@@ -357,3 +359,12 @@ SPEC.recipes.furnace.push(...HAND_SPEC.recipes.furnace);
 for (const station of Object.keys(HAND_SPEC.recipes)) {
   if (!['hand', 'workbench', 'furnace'].includes(station)) SPEC.recipes[station] = HAND_SPEC.recipes[station];
 }
+
+// Ground items, vehicles and resin sugar sit in the middle of the furnace list, right after the recipe they follow in recipes.ts.
+const furnaceAfter = (id: string, lines: string[]): void => {
+  const at = SPEC.recipes.furnace.findIndex((l) => l.startsWith(`${id}:`));
+  if (at < 0) throw new Error(`specRoster: no furnace recipe ${id}`);
+  SPEC.recipes.furnace.splice(at + 1, 0, ...lines);
+};
+furnaceAfter('wrench', GROUND_SPEC.furnaceAfterWrench);
+furnaceAfter('combustion_engine', GROUND_SPEC.furnaceAfterCombustionEngine);

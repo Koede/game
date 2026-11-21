@@ -6,7 +6,7 @@
  * objective tracker and survival run alongside, so every objective must complete too.
  */
 import { describe, expect, it } from 'vitest';
-import { FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_FIRST_POUR, FLAG_SIX_CUPS, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
+import { FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_SIX_CUPS, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
 import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
 import { Face, voxelActive } from '../core/types';
 import { eat, plant, till, type UseTarget } from '../game';
@@ -526,7 +526,7 @@ describe('scripted playthrough', () => {
     expect(sim.machineView(PUMP.x, PUMP.y, PUMP.z)!.status).toBe('No power');
 
     // ---- Current Age: electric heat --------------------------------------------------------------------------------
-    play.find('140 coal, 40 iron_ore, 20 limestone, 30 copper_ore, 3 tin_ore, 16 quartz_ore, 30 bauxite, 24 wolframite, 40 oil_shale, 12 clay, 12 sand');
+    play.find('190 coal, 80 iron_ore, 40 limestone, 30 copper_ore, 3 tin_ore, 22 quartz_ore, 30 bauxite, 24 wolframite, 40 oil_shale, 12 clay, 12 sand');
     for (const p of BURNERS) play.load(play.machineSlots(p), 'coal', 30);
     play.until('1900 C on electric heat', () => tracker.isComplete('reach_1900'), 900);
     const arc = play.view();
@@ -582,20 +582,21 @@ describe('scripted playthrough', () => {
 
     play.smelt('coal', 40);
     play.process(CRUSHER, 'iron_ore', 40);
+    play.process(CRUSHER, 'iron_ore', 40);
     play.process(CRUSHER, 'copper_ore', 30);
-    play.process(CRUSHER, 'quartz_ore', 16);
+    play.process(CRUSHER, 'quartz_ore', 22);
     play.process(CRUSHER, 'bauxite', 30);
     play.process(CRUSHER, 'wolframite', 24);
-    play.smelt('crushed_iron', 80);
+    play.smelt('crushed_iron', 160);
     play.smelt('crushed_copper', 60);
     play.smelt('tin_ore', 3);
     play.wire(24);
     play.forge('ceramic_insulator', 6);
-    play.forge('silicon_wafer', 6);
-    play.forge('circuit', 6);
+    play.forge('silicon_wafer', 8);
+    play.forge('circuit', 8);
     done('make_circuits');
-    play.forge('steel_ingot', 18);
-    play.forge('steel_plate', 18);
+    play.forge('steel_ingot', 26);
+    play.forge('steel_plate', 26);
     // Spec 19.4: a ward beacon on the bus, built around the salvaged ember cores.
     play.find('1 sand');
     play.smelt('sand', 1);
@@ -603,11 +604,11 @@ describe('scripted playthrough', () => {
     play.place('ward_beacon', WARD);
     play.step(1);
     done('ward_base');
-    play.bronze(6);
-    play.forge('iron_plate', 12);
-    play.forge('chassis', 3);
-    play.wire(54);
-    play.forge('copper_coil', 13);
+    play.bronze(14);
+    play.forge('iron_plate', 36);
+    play.forge('chassis', 7);
+    play.wire(66);
+    play.forge('copper_coil', 17);
     play.forge('still');
     play.place('still', STILL);
     play.process(STILL, 'oil_shale', 40);
@@ -616,6 +617,16 @@ describe('scripted playthrough', () => {
       play.place('combustion_engine', p);
       play.load(play.machineSlots(p), 'fuel_canister', 10);
     }
+    // Vehicles: the chainsaw and the tractor (with its tiller) are forged at the Arc Furnace; felling and driving
+    // themselves are tested in felling.test.ts / vehicle tests, so the flags are raised here like the other world actions.
+    play.forge('chainsaw');
+    play.forge('tractor');
+    play.forge('tractor_tiller');
+    kit.bus.emit('flag', { flag: FLAG_FELLED_TREE });
+    kit.bus.emit('flag', { flag: FLAG_DROVE_TRACTOR });
+    play.step(1);
+    done('fell_tree');
+    done('drive_tractor');
     play.step(2);
     done('generate_10kw');
     mark('combustion engines');
@@ -624,20 +635,20 @@ describe('scripted playthrough', () => {
     play.smelt('alumina', 60);
 
     // The Plasma hearth: a 2x2x2 inside in plasma casing, with two power ports. 53 casings, forged at 1900 C.
-    play.find('130 iron_ore, 70 coal, 54 limestone, 28 bauxite, 28 wolframite, 20 copper_ore, 10 clay, 10 sand');
+    play.find('130 iron_ore, 70 coal, 54 limestone, 40 bauxite, 32 wolframite, 20 copper_ore, 10 clay, 10 sand');
     play.smelt('iron_ore', 130);
     play.smelt('coal', 70);
-    play.process(CRUSHER, 'bauxite', 28);
-    play.process(CRUSHER, 'wolframite', 28);
-    play.smelt('alumina', 56);
-    play.smelt('tungsten_powder', 56);
+    play.process(CRUSHER, 'bauxite', 40);
+    play.process(CRUSHER, 'wolframite', 32);
+    play.smelt('alumina', 76);
+    play.smelt('tungsten_powder', 64);
     play.smelt('copper_ore', 20);
     play.smelt('clay', 10);
     play.forge('steel_ingot', 54);
     play.forge('steel_plate', 54);
     play.heat(1900);
     play.forge('plasma_casing', 27);
-    play.wire(8);
+    play.wire(14);
     play.forge('copper_coil', 4);
     play.forge('ceramic_insulator', 2);
     play.forge('iron_plate', 2);
@@ -674,7 +685,7 @@ describe('scripted playthrough', () => {
     play.step(2);
     expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: false, ratingW: 120000 });
     play.heat(1900);
-    expect(play.view().upgrade).toMatchObject({ ok: true, requiredC: 1900 });
+    expect(play.view().upgrade, JSON.stringify(play.view().upgrade)).toMatchObject({ ok: true, requiredC: 1900 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to plasma furnace');
     done('plasma_furnace');
     mark('Plasma Furnace');
@@ -683,22 +694,22 @@ describe('scripted playthrough', () => {
     // The Plasma hearth's heater (40 kW, sized up to its 2x2x2 shell) fits heavy cable.
     play.step(2);
     expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: false, ratingW: 120000 });
-    play.find('50 iron_ore, 30 limestone, 50 copper_ore, 3 tin_ore, 20 quartz_ore, 13 spodumene, 8 pitchblende, 10 clay, 10 sand, 64 oil_shale, 150 coal');
+    play.find('50 iron_ore, 30 limestone, 50 copper_ore, 3 tin_ore, 20 quartz_ore, 13 spodumene, 48 pitchblende, 10 clay, 10 sand, 64 oil_shale, 150 coal');
     for (const p of BURNERS) play.load(play.machineSlots(p), 'coal', 30);
     play.smelt('coal', 50);
     play.process(CRUSHER, 'iron_ore', 50);
     play.process(CRUSHER, 'copper_ore', 50);
     play.process(CRUSHER, 'quartz_ore', 20);
     play.process(CRUSHER, 'spodumene', 13);
-    play.process(CRUSHER, 'pitchblende', 8);
+    play.process(CRUSHER, 'pitchblende', 48);
     play.process(STILL, 'oil_shale', 64);
     for (const p of ENGINES) play.load(play.machineSlots(p), 'fuel_canister', 10);
     play.smelt('crushed_iron', 100);
     play.smelt('crushed_copper', 100);
     play.smelt('tin_ore', 3);
-    play.forge('steel_ingot', 20);
+    play.forge('steel_ingot', 28);
     play.heat(2600, 900);
-    play.forge('superalloy', 20);
+    play.forge('superalloy', 26);
     done('make_superalloy');
     play.smelt('silica', 24);
     play.wire(60);
@@ -714,8 +725,8 @@ describe('scripted playthrough', () => {
 
     play.forge('centrifuge');
     play.place('centrifuge', CENTRIFUGE);
-    play.process(CENTRIFUGE, 'yellowcake', 16);
-    play.forge('fuel_rod');
+    play.process(CENTRIFUGE, 'yellowcake', 96);
+    play.forge('fuel_rod', 6); // spares for the long climb and the Star Age (one rod lasts twenty minutes)
     play.forge('fission_pile');
     play.place('fission_pile', PILE);
     done('place_fission_pile');
@@ -760,14 +771,28 @@ describe('scripted playthrough', () => {
     play.until('some copper blooms or ingots piped out', () => out2.count('copper_bloom') + out2.count('copper_ingot') > 0, 3000);
     play.find('330 copper_ingot');
     mark('copper piped through the hearth');
+    // More canisters for the engines' refills, distilled while the pile carries the grid.
+    play.find('64 oil_shale');
+    play.process(STILL, 'oil_shale', 64);
+    // The pile's rod lasts twenty minutes and this stretch is longer: the player swaps in the second rod once the first is spent.
+    const topUp = (): void => {
+      if (play.machineSlots(PILE).get(0) === null && play.have('fuel_rod') > 0) play.load(play.machineSlots(PILE), 'fuel_rod', 1);
+      for (const p of ENGINES) if (play.machineSlots(p).get(0) === null && play.have('fuel_canister') > 0) play.load(play.machineSlots(p), 'fuel_canister', Math.min(10, play.have('fuel_canister')));
+    };
     for (const ore of ['bauxite', 'wolframite', 'quartz_ore', 'spodumene'] as const) play.process(CRUSHER, ore, play.have(ore));
     play.smelt('alumina', 260);
+    topUp();
     play.smelt('tungsten_powder', 260);
+    topUp();
     play.smelt('silica', 140);
-    play.forge('steel_ingot', 120);
-    play.forge('superalloy', 120);
+    topUp();
+    play.forge('steel_ingot', 128);
+    topUp();
+    play.forge('superalloy', 128);
     play.wire(960);
+    topUp();
     play.forge('copper_coil', 240);
+    topUp();
     play.forge('magnet_ring', 52);
     play.forge('star_casing', 47);
     play.forge('ceramic_insulator', 6);
@@ -789,6 +814,8 @@ describe('scripted playthrough', () => {
     // ---- Star Age: 300 kW for 90 s ----------------------------------------------------------------------------------
     // Super cable carries 2 MW; the ignition needs 340 kW with the hearth's own heating.
     for (const p of ENGINES) play.load(play.machineSlots(p), 'fuel_canister', 6);
+    // One fuel rod runs the pile for twenty minutes; the long climb through the Atomic Age outlasts it, so a second goes in.
+    if (play.machineSlots(PILE).get(0) === null) play.load(play.machineSlots(PILE), 'fuel_rod', 1);
     play.until('banks charged', () => sim.grid().storedJ >= 30e6, 1200);
     play.heat(3000);
     const ready = play.view();
