@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DAY_LENGTH_S, SUNSET_AT, TWILIGHT } from '../core/constants';
+import { DAY_LENGTH_S, NIGHT_LIGHT_FULL_MOON, NIGHT_LIGHT_NEW_MOON, SUNSET_AT, TWILIGHT } from '../core/constants';
 import { createBus } from '../core/context';
-import { GameClock, NIGHT_SUNLIGHT, START_TIME_OF_DAY, WAKE_TIME_OF_DAY, phaseAt, sunlightAt } from './clock';
+import { GameClock, NIGHT_SUNLIGHT, START_TIME_OF_DAY, WAKE_TIME_OF_DAY, nightSunlight, phaseAt, sunlightAt } from './clock';
 
 describe('GameClock', () => {
   it('starts early in the morning of day 1', () => {
@@ -111,5 +111,33 @@ describe('GameClock', () => {
     expect(events).toEqual([]);
     other.tick(0.05);
     expect(events).toEqual([]);
+  });
+});
+
+describe('GameClock: the moon (spec 15)', () => {
+  it('lights each night by its moon: a full first night, a new moon four days later', () => {
+    const clock = new GameClock(null, 0.8);
+    expect(clock.moonPhase).toBe(4);
+    expect(clock.sunlight()).toBeCloseTo(NIGHT_LIGHT_FULL_MOON);
+    clock.tick(DAY_LENGTH_S * 4);
+    expect(clock.day).toBe(5);
+    expect(clock.moonPhase).toBe(0);
+    expect(clock.sunlight()).toBeCloseTo(NIGHT_LIGHT_NEW_MOON);
+    expect(nightSunlight(1)).toBeCloseTo(NIGHT_LIGHT_FULL_MOON);
+    for (let d = 1; d <= 16; d++) {
+      expect(nightSunlight(d)).toBeGreaterThanOrEqual(NIGHT_LIGHT_NEW_MOON - 1e-9);
+      expect(nightSunlight(d)).toBeLessThanOrEqual(NIGHT_LIGHT_FULL_MOON + 1e-9);
+    }
+  });
+
+  it('keeps sunlight continuous through every dawn and dusk across a moon cycle', () => {
+    const clock = new GameClock(null, 0);
+    let prev = clock.sunlight();
+    for (let i = 0; i < 8 * DAY_LENGTH_S * 20; i++) {
+      clock.tick(0.05);
+      const s = clock.sunlight();
+      expect(Math.abs(s - prev)).toBeLessThan(0.01);
+      prev = s;
+    }
   });
 });

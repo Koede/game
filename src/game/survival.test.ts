@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DT, MAX_AIR_S, MAX_HEALTH, MAX_WARMTH, WELL_WARMED_DURATION_S } from '../core/constants';
+import { DT, MAX_AIR_S, MAX_HEALTH, MAX_WARMTH, WARMTH_DRAIN_WET, WELL_WARMED_DURATION_S } from '../core/constants';
 import { createBus, type GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import type { BiomeKey } from '../core/types';
@@ -7,6 +7,7 @@ import { GameClock } from './clock';
 import { FakeWorld } from './fakeWorld';
 import { PlayerState } from './playerState';
 import { Survival, fallDamage, findStandingSpot, type SurvivalSnapshot } from './survival';
+import { createWeatherState } from './weather';
 
 const NIGHT = 0.8;
 
@@ -408,5 +409,60 @@ describe('Survival: regeneration, death and respawn', () => {
     other.survival.load(snapshot);
     other.run(1.2);
     expect(other.player.health).toBe(19);
+  });
+});
+
+describe('Survival: rain and snow (spec 15)', () => {
+  const soak = (r: Rig, precipitation: 'rain' | 'snow' | 'dust', intensity: number): void => {
+    r.survival.weather = { ...createWeatherState(), kind: 'rain', previous: 'rain', precipitation, intensity };
+  };
+
+  it('chills a player in the rain under open sky, by day and on top of the night drain', () => {
+    const day = rig();
+    day.player.warmth = 50;
+    soak(day, 'rain', 0.6);
+    day.run(10);
+    expect(day.survival.wet).toBe(true);
+    expect(day.survival.warmthRate).toBeCloseTo(-WARMTH_DRAIN_WET);
+    expect(day.player.warmth).toBeCloseTo(50 - 10 * WARMTH_DRAIN_WET, 1);
+
+    const night = rig(NIGHT);
+    soak(night, 'snow', 1);
+    night.run(10);
+    expect(night.survival.warmthRate).toBeCloseTo(-(0.3 + WARMTH_DRAIN_WET));
+  });
+
+  it('spares a player under a roof, in drizzle, in dust, and inside a heat radius', () => {
+    const roofed = rig();
+    roofed.world.fill(-2, 14, -2, 2, 14, 2, 'plank');
+    soak(roofed, 'rain', 1);
+    roofed.run(2);
+    expect(roofed.survival.wet).toBe(false);
+    expect(roofed.survival.warmthRate).toBeCloseTo(0.5);
+
+    const drizzle = rig();
+    soak(drizzle, 'rain', 0.2);
+    drizzle.run(2);
+    expect(drizzle.survival.wet).toBe(false);
+
+    const dust = rig();
+    soak(dust, 'dust', 1);
+    dust.run(2);
+    expect(dust.survival.wet).toBe(false);
+
+    const fire = rig();
+    furnace(fire.world, 2, 10, 0, 500);
+    soak(fire, 'rain', 1);
+    fire.player.warmth = 50;
+    fire.run(2);
+    expect(fire.survival.warmthRate).toBeGreaterThan(0);
+  });
+
+  it('halves the rain chill with a padded coat', () => {
+    const r = rig();
+    r.player.give('padded_coat');
+    soak(r, 'rain', 1);
+    r.run(2);
+    expect(r.survival.warmthRate).toBeCloseTo(-WARMTH_DRAIN_WET / 2);
   });
 });

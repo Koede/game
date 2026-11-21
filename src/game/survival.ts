@@ -20,6 +20,7 @@ import {
   WARMTH_DRAIN_FROST_NIGHT,
   WARMTH_DRAIN_NIGHT,
   WARMTH_DRAIN_WATER,
+  WARMTH_DRAIN_WET,
   WARMTH_GAIN_DAY,
   WARMTH_GAIN_HEAT,
   WELL_WARMED_AFTER_S,
@@ -28,10 +29,12 @@ import {
 import type { DamageCause } from '../core/gameEvents';
 import { clamp, type Vec3 } from '../core/math';
 import { blockOf, voxelWarmth } from '../core/registry';
-import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld } from '../core/types';
+import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
+import { isWet } from '../core/weather';
 import type { GameClock } from './clock';
 import { Hunger } from './hunger';
 import type { BlockPos, PlayerState } from './playerState';
+import { openSkyAbove } from './weather';
 
 export type WarmthTrend = 'warming' | 'cooling' | 'steady';
 export type BiomeLookup = (x: number, z: number) => BiomeKey;
@@ -132,6 +135,14 @@ export class Survival {
   private rate = 0;
   private heated = false;
   private dose = 0;
+  /** Open sky above the player's head, as of the last scan. */
+  private exposed = false;
+  private soaked = false;
+  /**
+   * The world's weather (src/game/weather.ts), read every tick: rain or snow on a player under open sky drains
+   * WARMTH_DRAIN_WET more warmth per second (spec 15). Null = no weather.
+   */
+  weather: WeatherState | null = null;
 
   constructor(
     private readonly world: IWorld,
@@ -161,6 +172,11 @@ export class Survival {
   /** Radiation dose at the player after the shield suit, as of the last tick. Above RADIATION_SAFE_DOSE it hurts. */
   get radiationDose(): number {
     return this.dose;
+  }
+
+  /** Rain or snow is soaking the player (wet weather and no roof overhead) as of the last tick. */
+  get wet(): boolean {
+    return this.soaked;
   }
 
   /** Seconds of Well-Warmed left (0 = not active). */
@@ -291,6 +307,7 @@ export class Survival {
       }
     }
     this.frost = this.biomeAt(cx, cz) === 'frostfell';
+    this.exposed = openSkyAbove(world, player.position.x, player.position.y + PLAYER_HEIGHT, player.position.z);
     this.coat = player.inventory.has('padded_coat');
     this.suit = player.inventory.has('shield_suit');
   }
@@ -316,6 +333,8 @@ export class Survival {
 
   private tickWarmth(dt: number, heated: boolean): void {
     const { player } = this;
+    const w = this.weather;
+    this.soaked = w !== null && this.exposed && isWet(w.precipitation, w.intensity);
     let rate: number;
     if (heated) rate = WARMTH_GAIN_HEAT;
     else {
@@ -323,6 +342,7 @@ export class Survival {
       let drain = night ? WARMTH_DRAIN_NIGHT : 0;
       if (this.frost) drain += night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY;
       if (player.inWater) drain += WARMTH_DRAIN_WATER;
+      if (this.soaked) drain += WARMTH_DRAIN_WET;
       if (this.coat) drain *= COAT_DRAIN_FACTOR;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
       rate = drain > 0 ? -drain : WARMTH_GAIN_DAY;

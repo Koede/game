@@ -9,8 +9,9 @@ import { DAY_LENGTH_S, SUNSET_AT, TWILIGHT } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { DayPhase } from '../core/gameEvents';
 import { lerp, smoothstep } from '../core/math';
+import { moonPhase, nightLight } from '../core/weather';
 
-/** Sunlight factor in the middle of the night. */
+/** Average sunlight factor in the middle of the night (the moon makes each night darker or brighter, spec 15). */
 export const NIGHT_SUNLIGHT = 0.08;
 /** timeOfDay of a brand-new world: early morning, the light is already full. */
 export const START_TIME_OF_DAY = TWILIGHT;
@@ -33,13 +34,22 @@ export function phaseAt(timeOfDay: number): DayPhase {
   return 'night';
 }
 
-/** Sunlight factor: 1 by day, NIGHT_SUNLIGHT at night, smooth ramps through dawn and dusk. */
-export function sunlightAt(timeOfDay: number): number {
-  if (timeOfDay < TWILIGHT) return lerp(NIGHT_SUNLIGHT, 1, smoothstep(0, TWILIGHT, timeOfDay));
+/**
+ * Sunlight factor: 1 by day, `night` at night, smooth ramps through dawn and dusk. `lastNight` is the level the
+ * dawn ramp starts from (the night that is ending, which may have had another moon).
+ */
+export function sunlightAt(timeOfDay: number, night = NIGHT_SUNLIGHT, lastNight = night): number {
+  if (timeOfDay < TWILIGHT) return lerp(lastNight, 1, smoothstep(0, TWILIGHT, timeOfDay));
   if (timeOfDay < DUSK_AT) return 1;
-  if (timeOfDay < SUNSET_AT) return lerp(1, NIGHT_SUNLIGHT, smoothstep(DUSK_AT, SUNSET_AT, timeOfDay));
-  return NIGHT_SUNLIGHT;
+  if (timeOfDay < SUNSET_AT) return lerp(1, night, smoothstep(DUSK_AT, SUNSET_AT, timeOfDay));
+  return night;
 }
+
+/**
+ * Darkest sunlight of the night that falls on 1-based clock day `day` (the night after its sunset), by the moon:
+ * 0.04 at new moon .. 0.12 at full moon. The first night has a full moon.
+ */
+export const nightSunlight = (day: number): number => nightLight(moonPhase(day - 1));
 
 export class GameClock {
   /** 0..1, 0 = sunrise, SUNSET_AT = sunset. */
@@ -66,8 +76,14 @@ export class GameClock {
     return (this.day - 1 + this.timeOfDay) * DAY_LENGTH_S;
   }
 
+  /** Sunlight factor now; the night level follows tonight's moon (spec 15). */
   sunlight(): number {
-    return sunlightAt(this.timeOfDay);
+    return sunlightAt(this.timeOfDay, nightSunlight(this.day), nightSunlight(this.day - 1));
+  }
+
+  /** Phase of tonight's moon, 0 (new) .. 7; 4 is full. Changes at sunrise. */
+  get moonPhase(): number {
+    return moonPhase(this.day - 1);
   }
 
   /** Angle of the sun along its arc: 0 at sunrise, PI at sunset, back to 2 PI through the night. */
