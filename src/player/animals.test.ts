@@ -68,10 +68,11 @@ describe('the player and the animals', () => {
     expect(mob.health).toBe(creature('goat').health - 3); // flint axe: tier 1 + 2
     expect(player.heldStack()!.durability).toBe(durability - 1);
     expect(Math.hypot(mob.vx, mob.vz)).toBeGreaterThan(1);
-    // Held Mine hits again only after the animal's cooldown.
+    // Held Mine hits again only after the animal's cooldown (and the player's own swing: 0.4 s with a tool).
     controller.update(DT);
     expect(mob.health).toBe(creature('goat').health - 3);
     tickMobs(MOB_HIT_COOLDOWN_S + TICK);
+    player.combat.coolStrike(MOB_HIT_COOLDOWN_S);
     mob.x = 0.5;
     mob.z = -2;
     aim();

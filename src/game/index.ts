@@ -6,6 +6,7 @@ export * from './mining';
 export * from './clock';
 export * from './playerState';
 export * from './survival';
+export * from './combat';
 export * from './objectives';
 export * from './hunger';
 export * from './farming';

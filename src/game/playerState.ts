@@ -6,12 +6,13 @@
  * north (-Z) and positive turns left - exactly a three.js camera's rotation.y. Pitch is positive looking up.
  */
 import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE, REGEN_MIN_FOOD } from '../core/constants';
-import type { GameBus } from '../core/context';
+import type { Difficulty, GameBus } from '../core/context';
 import type { DamageCause } from '../core/gameEvents';
 import { clamp, type Vec3 } from '../core/math';
 import { blockOf, itemOrNull } from '../core/registry';
 import type { BlockDef, Slot } from '../core/types';
 import type { ColdCause } from './cold';
+import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
 import { wear } from './mining';
 
@@ -61,6 +62,10 @@ export interface PlayerSnapshot {
   /** What chilled the player when the cold last hurt them. Missing in older saves. */
   coldCause?: ColdCause | null;
   sinceDamageS: number;
+  /** Burning and the last attacker (spec 19.4). Missing in saves made before the Emberbound. */
+  combat?: CombatSnapshot;
+  /** Species of the automaton that killed the player (death screen). Missing in older saves. */
+  killedBy?: string | null;
 }
 
 /** Upper bound of the "seconds since the last damage" counter, so it stays a small finite number in saves. */
@@ -118,12 +123,21 @@ export class PlayerState {
    * The simulation ADDS to it every tick the source is active; Survival consumes it and resets it to 0.
    */
   extraRadiation = 0;
+  /**
+   * Species of the automaton behind the death (a blow, or the burning its bolt left), null for any other death.
+   * The death screen names it with `killerLine(deathCause, killedBy)` ("Felled by a Forge Warden").
+   */
+  killedBy: string | null = null;
+  /** The fight with the Emberbound: damagePlayer, burning, difficulty, the swing cooldown (spec 19.4). */
+  readonly combat: PlayerCombat;
   private readonly unsubscribe: Array<() => void>;
 
   constructor(readonly bus: GameBus, spawn: Vec3 = { x: 0.5, y: 64, z: 0.5 }) {
     this.spawn = { ...spawn };
     this.position = { ...spawn };
+    this.combat = new PlayerCombat(this);
     this.unsubscribe = [
+      () => this.combat.dispose(),
       this.inventory.onChange(() => bus.emit('inventory:changed', {})),
       bus.on('item:made', (e) => bump(this.stats.made, e.item, e.count)),
       bus.on('block:placed', (e) => bump(this.stats.placed, blockOf(e.voxel).key, 1)),
@@ -244,6 +258,19 @@ export class PlayerState {
     this.home = { x, y, z };
   }
 
+  /** The session's difficulty (Settings.difficulty), set through `combat.setDifficulty`. */
+  get difficulty(): Difficulty {
+    return this.combat.difficulty;
+  }
+
+  /**
+   * An automaton hurts the player: difficulty, armour, knockback, 'player:attacked', burning (see
+   * PlayerCombat.damagePlayer). `kind` is the automaton's species key. Returns the damage dealt.
+   */
+  damagePlayer(amount: number, cause: DamageCause, sourceX: number, sourceZ: number, kind: string, sourceY?: number): number {
+    return this.combat.damagePlayer(amount, cause, sourceX, sourceZ, kind, sourceY);
+  }
+
   /** Hurts the player. Emits 'player:damage' (and 'player:death' when health runs out) with their sounds. */
   damage(amount: number, cause: DamageCause): void {
     if (this.dead || !(amount > 0)) return;
@@ -256,6 +283,8 @@ export class PlayerState {
     }
     this.dead = true;
     this.deathCause = cause;
+    this.killedBy = cause === 'automaton' || cause === 'ember' ? this.combat.lastAttacker : null;
+    this.combat.reset();
     this.stats.deaths++;
     this.velocity.x = this.velocity.y = this.velocity.z = 0;
     this.bus.emit('sfx', { name: 'death' });
@@ -274,6 +303,8 @@ export class PlayerState {
   respawn(homeIsHot: boolean, at: Vec3 = this.spawn): void {
     this.dead = false;
     this.deathCause = null;
+    this.killedBy = null;
+    this.combat.reset();
     this.health = homeIsHot ? MAX_HEALTH : MAX_HEALTH / 2;
     this.warmth = homeIsHot ? MAX_WARMTH : MAX_WARMTH / 2;
     this.air = MAX_AIR_S;
@@ -326,6 +357,8 @@ export class PlayerState {
       deathCause: this.deathCause,
       coldCause: this.coldCause,
       sinceDamageS: this.sinceDamageS,
+      combat: this.combat.toJSON(),
+      killedBy: this.killedBy,
     };
   }
 
@@ -359,5 +392,7 @@ export class PlayerState {
     this.coldCause = s.coldCause ?? null;
     this.sinceDamageS = s.sinceDamageS;
     this.extraRadiation = 0;
+    this.combat.load(s.combat);
+    this.killedBy = this.dead && typeof s.killedBy === 'string' ? s.killedBy : null;
   }
 }

@@ -6,6 +6,7 @@
  * and the simulation's numbers (furnace temperature and tier, generation, stored energy) are kept as the
  * highest value ever sampled. An objective whose condition was met early completes the moment it comes up.
  */
+import { FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { AGES, FURNACE_TIERS, MAX_FURNACE_TIER, OBJECTIVES, blockOf, furnaceTier, furnaceTierOfBlock, itemOrNull } from '../core/registry';
 import type { ItemAmount, ObjectiveCondition, ObjectiveSpec } from '../core/types';
@@ -102,6 +103,8 @@ export class ObjectiveTracker {
     };
     this.unsubscribe = [
       bus.on('flag', (e) => this.flags.add(e.flag)),
+      // Also from the salvage event itself, so the objective cannot miss it if only the event is emitted.
+      bus.on('automaton:salvaged', () => this.flags.add(FLAG_AUTOMATON_SALVAGED)),
       bus.on('furnace:upgraded', (e) => reachTier(e.tier)),
       bus.on('block:placed', (e) => reachTier(furnaceTierOfBlock(blockOf(e.voxel).key)?.tier ?? 0)),
     ];
@@ -199,6 +202,8 @@ export class ObjectiveTracker {
 
   /** Evaluates now: samples the simulation, completes the current objective and any that follow it at once. */
   check(): void {
+    // A session on Peaceful completes the objectives that need combat (spec 19.3), whoever set the difficulty.
+    if (this.player.difficulty === 'peaceful') this.flags.add(FLAG_PEACEFUL);
     this.sample();
     this.deliverPending();
     for (let spec = this.current; spec && this.progressOf(spec.condition).fraction >= 1; spec = this.current) {

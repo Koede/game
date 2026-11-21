@@ -209,6 +209,8 @@ export class Survival {
     }
     player.addQuietTime(dt);
     this.hunger.tick(dt);
+    player.combat.tick(dt);
+    if (player.dead) return;
 
     const px = player.position.x;
     const py = player.position.y + PLAYER_HEIGHT / 2;

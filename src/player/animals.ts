@@ -9,7 +9,7 @@
  */
 import { REACH } from '../core/constants';
 import { CREATURES } from '../core/registry';
-import type { PlayerState } from '../game';
+import { stunOf, type PlayerState } from '../game';
 import { hitDamage } from '../mobs';
 import type { SwingTarget } from './interaction';
 
@@ -17,8 +17,11 @@ import type { SwingTarget } from './interaction';
 export interface AnimalTargets {
   /** Nearest living animal whose box the ray hits within maxDist, or null (the result may be a reused object). */
   raycast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): { id: number; distance: number } | null;
-  /** Hits an animal for `damage` from (fromX, fromZ); refused (`ok: false`) during its hit cooldown. */
-  hit(id: number, damage: number, fromX: number, fromZ: number): { ok: boolean };
+  /**
+   * Hits a creature for `damage` from (fromX, fromZ); refused (`ok: false`) during its hit cooldown. `stunS` > 0
+   * (the arc maul) stuns an automaton for that long; animals ignore it.
+   */
+  hit(id: number, damage: number, fromX: number, fromZ: number, stunS?: number): { ok: boolean };
   /** Feeds a liked item (the caller takes the item); refused with a reason the player can read. */
   feed(id: number, itemKey: string): { ok: true } | { ok: false; reason: string };
 }
@@ -55,13 +58,18 @@ export class AnimalHands {
     return this.target;
   }
 
-  /** Mine held on the target: one hit whenever the animal's cooldown allows (every 0.4 s while held). */
+  /**
+   * Mine held on the target: one hit whenever both the player's swing (0.5 s with a maul, 0.4 s otherwise) and the
+   * creature's own cooldown allow. A weapon with `stunS` passes it along; the held tool or weapon wears by 1.
+   */
   strike(): boolean {
-    if (this.target === null || this.player.dead) return false;
-    const held = this.player.heldStack();
+    const combat = this.player.combat;
+    if (this.target === null || this.player.dead || !combat.strikeReady) return false;
+    const item = this.player.heldStack()?.item ?? null;
     const p = this.player.position;
-    const r = this.animals.hit(this.target, hitDamage(held?.item ?? null), p.x, p.z);
+    const r = this.animals.hit(this.target, hitDamage(item), p.x, p.z, stunOf(item));
     if (!r.ok) return false;
+    combat.startStrikeCooldown(item);
     this.swing.triggerSwing();
     this.player.wearHeldTool(1);
     return true;

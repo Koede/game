@@ -143,6 +143,7 @@ export class PlayerController {
     const intent = this.input.frame(dt);
     const p = this.player;
     if (this.state.pointerLocked) this.wantsLock = true;
+    p.combat.coolStrike(dt);
 
     if (!p.dead) {
       p.yaw -= intent.lookYaw;
