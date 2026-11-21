@@ -21,10 +21,6 @@ export function itemCard(stack: { item: string; count: number; durability?: numb
   return { title: def?.name ?? titleFromKey(stack.item), body: def?.desc || undefined, rows };
 }
 
-export interface SlotBinding {
-  unbind(): void;
-}
-
 /** The DOM side: drives ItemSlots from inventories and turns their taps into SlotInteraction calls. */
 
 /** How a stored stack is shown in a slot (tool wear as a 0..1 fraction). */

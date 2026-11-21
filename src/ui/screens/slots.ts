@@ -195,9 +195,15 @@ interface Binding {
   tips: Dispose[];
 }
 
+export interface SlotBinding {
+  unbind(): void;
+}
+
+/** The DOM side: drives ItemSlots from inventories and turns their taps into SlotInteraction calls. */
 export class SlotController {
   readonly logic = new SlotInteraction();
-  /** Picked item, "Move to ..." buttons and Cancel. Hidden while nothing is picked; place it in your layout. */
+  /** Picked item, "To ..." buttons and a put-back button; hidden while nothing is picked. GameUI docks it over the
+   * window footer unless the screen placed it somewhere itself. */
   readonly actionBar: HTMLDivElement;
   private readonly bus: GameBus;
   private readonly tooltip: Tooltip | null;
