@@ -78,9 +78,30 @@ controller.update(dt);                       // dt in seconds, clamped to 0.1 by
   `'block:mining'` at start (0), every 0.1 s, and -1 when stopped without breaking; dig sfx by material every
   0.25 s (`digSound(def)`). Breaking: voxel -> air (source 'player'), drops via `player.give` (`harvest`),
   `player.wearHeld`, `'block:broken'`, sfx `break`, then a 0.12 s pause before the next block. Liquids are not mined.
-- `use(hit): UseOutcome` (`'none' | 'screen' | 'pail' | 'placed' | 'refused'`) - priority: station / machine
+- `use(hit): UseOutcome` (`'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'picked' |
+  'wrenched' | 'refused'`) - priority: pipes and fluid blocks first (`pipeTools.ts`, below); station / machine
   -> `'ui:open'` (`screenFor(def, x, y, z)`: workbench, furnace, crate, else machine); else pail / water pail;
   else place the held block item.
+- `new Interaction(world, bus, player, body, swing, rng = Math.random, transport: TransportHands | null = null)`.
+
+## Pipes, the wrench and buckets on tanks (pipeTools.ts, pipeAim.ts; spec 16.2-16.3)
+- `interface TransportHands { wrench(x, y, z, dir: Face): { ok: true } | { ok: false; reason }; bucketUse(x, y, z,
+  face: Face, heldKey): { ok: true; held } | { ok: false; reason; endpoint } }` - src/sim's `Simulation` fits it;
+  pass it as `PlayerControllerOptions.transport` (the player module still never imports src/sim).
+- Use on a **pipe**: with the `wrench` -> `transport.wrench` with the side aimed at (`WRENCH_COOLDOWN_S` 0.35 s
+  between turns; the simulation toasts and plays `pipe_clunk`, refusals are toasted here); with a bucket or any
+  placeable block -> the normal Use (pipes are laid by placing against pipes); with anything else (empty hand, food,
+  a hoe...) -> `'ui:open'` `{ type: 'pipe', x, y, z }`. No long-press: on touch, press-and-hold mines; a tap with an
+  empty hotbar slot opens the screen.
+- Use with a bucket (`BUCKETS`: pail, water_pail, bronze_bucket, lava_bucket) on a block with fluid ports
+  (`isFluidEndpoint`: tank, pump, boiler, fluid hatch, ...) -> `transport.bucketUse` BEFORE any machine screen; on ok
+  the held bucket becomes `held` (`swapHeldItem(player, item)`), a refusal of a fluid block is toasted and opens
+  nothing; `endpoint: false` falls through to the normal Use. Without a transport a tank just opens its screen.
+- `pipeSideAt(world, x, y, z, ox, oy, oz, dx, dy, dz, entered: Face): Face` - the side aimed at: an arm hit first
+  gives that arm's direction; the core gives the core face turned to the player (so a parted joint can be joined
+  again); a near miss (whole-cell targeting) gives the side nearest to where the ray passes. Boxes are the mesher's
+  (core `PIPE_CORE_MIN..MAX`, arms to every neighbour `pipeJoins`), widened by `PIPE_AIM_MARGIN` (0.06).
+  `pipeArmMask(world, x, y, z)`.
 - `placeBlock(hit, def): boolean` - into the hit cell when it is replaceable (tall grass), else across the
   face; the target must be loaded, inside 0..95 and replaceable; `placeOn` checked against the block below;
   solid blocks never intersect the player (torches, plants, cables may); oriented blocks face the player

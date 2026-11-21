@@ -6,12 +6,13 @@
  * Allocation-free per frame once every path has been seen.
  */
 import * as THREE from 'three';
-import { blockOfItem, itemOrNull } from '../../core/registry';
-import { Face } from '../../core/types';
+import { blockId, blockOfItem, itemOrNull } from '../../core/registry';
+import { Face, VOXEL_ID_MASK, type IWorld } from '../../core/types';
 import { ATLAS_GLSL, atlasDefines } from '../atlas';
 import type { WorldUniforms } from '../materials';
 import { LIGHT_GLSL } from '../shaders/chunk';
 import { blockOf as blockLight, skyOf, type CellLight } from './cellLight';
+import { flush } from './boxBatch';
 import type { TransportFeed } from './feed';
 import { cumulativeLengths, packetDistance, pointAlong } from './path';
 
@@ -20,15 +21,16 @@ export const PACKET_CAP = 150;
 /** Packets farther than this from the camera are not drawn (they are specks inside pipes beyond it). */
 export const PACKET_RANGE = 64;
 /** Edge of a block item's cube and of an item icon, in blocks (the pipe's inside is 0.5 across). */
-export const PACKET_CUBE = 0.22;
-export const PACKET_ICON = 0.34;
+export const PACKET_CUBE = 0.26;
+export const PACKET_ICON = 0.36;
 
 const VERTEX = /* glsl */ `
 precision highp float;
 in float aFace;
 in vec4 aPos;   // xyz centre, w spin (cubes)
-in vec4 aTex;   // side, top, bottom layer; w 0 cube / 1 icon
+in vec4 aTex;   // side, top, bottom layer; w: 0 cube / 1 icon, +2 inside a glass chute
 in vec2 aLight; // sky, block 0..1
+uniform float uGlassPass;
 ${LIGHT_GLSL}
 out vec2 vUv;
 flat out float vLayer;
@@ -37,7 +39,9 @@ out vec4 vFog;
 
 void main() {
   bool icon = aFace > 5.5;
-  if (icon != (aTex.w > 0.5)) {
+  bool glass = aTex.w > 1.5;
+  bool iconKind = aTex.w - (glass ? 2.0 : 0.0) > 0.5;
+  if (icon != iconKind || glass != (uGlassPass > 0.5)) {
     // The other half of the shared geometry: collapse it (no area, nothing rasterised).
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     vUv = vec2(0.0); vLayer = 0.0; vColor = vec3(0.0); vFog = vec4(0.0);
@@ -76,11 +80,15 @@ in vec2 vUv;
 flat in float vLayer;
 in vec3 vColor;
 in vec4 vFog;
+uniform highp float uGlassPass;
 out vec4 fragColor;
 void main() {
   vec4 t = atlasTexel(vUv, vLayer);
   if (t.a < 0.5) discard;
-  fragColor = vec4(mix(t.rgb * vColor, vFog.rgb, vFog.a), 1.0);
+  vec3 c = t.rgb * vColor;
+  // Seen through the chute's glass (drawn after it, so the glass does not wash it out): a touch of its tint.
+  if (uGlassPass > 0.5) c = mix(c, vec3(0.78, 0.88, 0.9) * vColor, 0.12);
+  fragColor = vec4(mix(c, vFog.rgb, vFog.a), 1.0);
 }
 `;
 
@@ -141,18 +149,17 @@ export function itemLook(key: string): ItemLook {
 const attr = (n: number, size: number): THREE.InstancedBufferAttribute =>
   new THREE.InstancedBufferAttribute(new Float32Array(n * size), size).setUsage(THREE.DynamicDrawUsage);
 
-function flush(a: THREE.InstancedBufferAttribute, count: number): void {
-  a.clearUpdateRanges();
-  a.addUpdateRange(0, count * a.itemSize);
-  a.needsUpdate = true;
-}
+/** The glazed bronze chute: packets in it are drawn after the glass so they read through it. */
+const GLASS_CHUTE = blockId('item_pipe');
 
 export class PacketLayer {
-  readonly mesh: THREE.Mesh;
+  /** Two draws of the same instances: packets in opaque surroundings, then (after the blended batch) those in glass. */
+  readonly group = new THREE.Group();
   /** Packets drawn last frame. */
   drawn = 0;
   private readonly geometry: THREE.InstancedBufferGeometry;
-  private readonly material: THREE.ShaderMaterial;
+  private readonly solid: THREE.ShaderMaterial;
+  private readonly glass: THREE.ShaderMaterial;
   private readonly aPos: THREE.InstancedBufferAttribute;
   private readonly aTex: THREE.InstancedBufferAttribute;
   private readonly aLight: THREE.InstancedBufferAttribute;
@@ -164,7 +171,7 @@ export class PacketLayer {
   private since = 0;
   private time = 0;
 
-  constructor(uniforms: WorldUniforms, private readonly light: CellLight) {
+  constructor(private readonly world: IWorld, uniforms: WorldUniforms, private readonly light: CellLight) {
     this.geometry = packetGeometry();
     this.aPos = attr(PACKET_CAP, 4);
     this.aTex = attr(PACKET_CAP, 4);
@@ -173,18 +180,30 @@ export class PacketLayer {
     this.geometry.setAttribute('aTex', this.aTex);
     this.geometry.setAttribute('aLight', this.aLight);
     this.geometry.instanceCount = 0;
-    this.material = new THREE.ShaderMaterial({
-      name: 'pipe-packets',
-      glslVersion: THREE.GLSL3,
-      defines: atlasDefines({ texture2: uniforms.uAtlas2.value as THREE.DataArrayTexture | null }),
-      uniforms: { ...uniforms },
-      vertexShader: VERTEX,
-      fragmentShader: FRAGMENT,
-    });
-    this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.mesh.name = 'pipe-packets';
-    this.mesh.frustumCulled = false;
-    this.mesh.visible = false;
+    const make = (pass: number): THREE.ShaderMaterial =>
+      new THREE.ShaderMaterial({
+        name: pass ? 'pipe-packets-glass' : 'pipe-packets',
+        glslVersion: THREE.GLSL3,
+        defines: atlasDefines({ texture2: uniforms.uAtlas2.value as THREE.DataArrayTexture | null }),
+        uniforms: { ...uniforms, uGlassPass: { value: pass } },
+        vertexShader: VERTEX,
+        fragmentShader: FRAGMENT,
+        // The glass pass must sit in the blended list to be drawn after the chunks' blended batch (render order 3).
+        transparent: pass === 1,
+        blending: pass === 1 ? THREE.NoBlending : THREE.NormalBlending,
+      });
+    this.solid = make(0);
+    this.glass = make(1);
+    const solid = new THREE.Mesh(this.geometry, this.solid);
+    const glass = new THREE.Mesh(this.geometry, this.glass);
+    solid.name = 'pipe-packets';
+    glass.name = 'pipe-packets-glass';
+    // After the chunks' blended batch (2): a packet in a glass chute is not washed out by the glass in front of it.
+    glass.renderOrder = 3;
+    for (const m of [solid, glass]) m.frustumCulled = false;
+    this.group.add(solid, glass);
+    this.group.visible = false;
+    this.group.name = 'pipe-packets';
   }
 
   /**
@@ -236,7 +255,8 @@ export class PacketLayer {
         tex[o] = look.side;
         tex[o + 1] = look.top;
         tex[o + 2] = look.bottom;
-        tex[o + 3] = look.icon ? 1 : 0;
+        const inGlass = (this.world.getVoxel(Math.floor(x), Math.floor(y), Math.floor(z)) & VOXEL_ID_MASK) === GLASS_CHUTE;
+        tex[o + 3] = (look.icon ? 1 : 0) + (inGlass ? 2 : 0);
         const l = this.light.get(Math.floor(x), Math.floor(y), Math.floor(z));
         lit[n * 2] = l < 0 ? fallbackSky : skyOf(l);
         lit[n * 2 + 1] = l < 0 ? fallbackBlock : blockLight(l);
@@ -245,7 +265,7 @@ export class PacketLayer {
     }
     this.drawn = n;
     this.geometry.instanceCount = n;
-    this.mesh.visible = n > 0;
+    this.group.visible = n > 0;
     if (n === 0) return;
     flush(this.aPos, n);
     flush(this.aTex, n);
@@ -254,6 +274,7 @@ export class PacketLayer {
 
   dispose(): void {
     this.geometry.dispose();
-    this.material.dispose();
+    this.solid.dispose();
+    this.glass.dispose();
   }
 }

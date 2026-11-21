@@ -58,7 +58,7 @@ const FRAGMENT = /* glsl */ `
 precision mediump float;
 ${ATLAS_GLSL}
 uniform highp float uTime;
-uniform float uPass;
+uniform highp float uPass;
 in vec2 vUv;
 flat in float vLayer;
 flat in float vState;

@@ -96,8 +96,11 @@ export function pipePieces(id: number, x: number, y: number, z: number, tile: nu
   return count;
 }
 
+/** The level a network that streams fluid straight through (holding next to nothing between ticks) shows. */
+export const FLOWING_LEVEL = 0.6;
+
 /** Shown level of a fluid network: its fill, but a network streaming fluid straight through shows a running stream. */
-export const shownLevel = (net: Pick<PipeNetFeed, 'fill' | 'flowing'>): number => (net.flowing ? Math.max(net.fill, 0.45) : net.fill);
+export const shownLevel = (net: Pick<PipeNetFeed, 'fill' | 'flowing'>): number => (net.flowing ? Math.max(net.fill, FLOWING_LEVEL) : net.fill);
 
 const VERTEX = /* glsl */ `
 precision highp float;
@@ -203,7 +206,7 @@ void main() {
   highp float phase = along * 2.0 - (flowing ? uTime * 0.9 : 0.0);
   float streak = 0.5 + 0.5 * sin(phase * 6.2832 + vLocal.y * 9.0);
   vec3 c = col * (0.86 + 0.24 * streak);
-  if (levelled && surface - vLocal.y < 0.04) c *= 1.35;
+  if (levelled && surface - vLocal.y < 0.04) c *= 1.2;
   if (face == 2) c *= 0.85;
   c = glow ? c * (1.1 + 0.25 * streak) * flicker : c * vLight * 1.15;
   fragColor = vec4(mix(c, vFog.rgb, vFog.a), 0.94);

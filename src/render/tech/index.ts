@@ -41,12 +41,12 @@ export class TechLayer {
 
   constructor(world: IWorld, bus: GameBus, uniforms: WorldUniforms, particles: Particles, canvas: HTMLCanvasElement) {
     this.light = new CellLight(world);
-    this.packets = new PacketLayer(uniforms, this.light);
+    this.packets = new PacketLayer(world, uniforms, this.light);
     this.overlay = new PipeOverlay(world, bus, uniforms, this.light);
     this.hearths = new HearthLights(world, bus, uniforms, particles);
     this.ghosts = new GhostLayer(world, bus, uniforms);
     this.highlight = new BlockHighlight(bus, canvas);
-    this.group.add(this.packets.mesh, this.overlay.mesh, this.hearths.group, this.ghosts.group, this.highlight.group);
+    this.group.add(this.packets.group, this.overlay.mesh, this.hearths.group, this.ghosts.group, this.highlight.group);
     this.group.name = 'tech';
   }
 

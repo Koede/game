@@ -62,8 +62,14 @@ void main() {
   float crust = (1.0 - vData.w) * smoothstep(0.42, 0.6, noise(p * 0.9 + 7.0 + t * 0.03));
   float seam = 1.0 - smoothstep(0.0, 0.08, abs(noise(p * 1.7 + 3.0) - 0.5));
   float flicker = 0.9 + 0.1 * sin(t * 6.3 + vWorld.x * 3.1) * sin(t * 4.1 + vWorld.z * 2.7);
-  vec3 melt = vData.rgb * (1.05 + 0.55 * churn) * flicker;
-  vec3 c = mix(melt, vData.rgb * (0.18 + 0.9 * seam), crust);
+  // Troughs run deeper orange, crests near white; thin bright skins drift across.
+  float skin = 1.0 - smoothstep(0.0, 0.045, abs(noise(p * 1.3 + vec2(t * 0.12, t * 0.09)) - 0.5));
+  vec3 deep = vData.rgb * vec3(0.95, 0.55, 0.3);
+  vec3 hot = min(vData.rgb * 1.35 + 0.08, vec3(1.0));
+  vec3 melt = (mix(deep, hot, smoothstep(0.25, 0.8, churn)) + vData.rgb * skin * 0.3) * flicker;
+  // Crust plates: dark slag warmed from below, their seams glowing with the melt.
+  vec3 slag = vec3(0.13, 0.055, 0.035) + vData.rgb * 0.22;
+  vec3 c = mix(melt, slag + vData.rgb * 1.1 * seam, crust);
   // Edges darken where the melt meets the walls.
   vec2 e = min(vRel.xz, 1.0 - vRel.xz);
   c *= 0.7 + 0.3 * smoothstep(0.0, 0.12, min(e.x, e.y));

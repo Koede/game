@@ -29,28 +29,44 @@ export interface EdgeArrow {
   angle: number;
 }
 
+/** Keep-out bands of the screen edges for the arrow (CSS pixels): the HUD at the top, the hotbar and buttons below. */
+export interface ArrowInsets {
+  side: number;
+  top: number;
+  bottom: number;
+}
+
 /**
  * Where the edge-of-screen arrow goes. `vx, vy, vz` is the block in view space (camera looks down -z), `ndcX, ndcY`
- * its projection (used when it is in front), `w, h` the view in CSS pixels, `margin` the arrow's inset from the edge.
+ * its projection (used when it is in front), `w, h` the view in CSS pixels. The arrow sits where the line from the
+ * screen centre towards the block leaves the rectangle inside `insets`. A block behind the camera gets an arrow on
+ * the left or right edge: the way to turn.
  */
-export function edgeArrow(vx: number, vy: number, vz: number, ndcX: number, ndcY: number, w: number, h: number, margin: number, out: EdgeArrow): EdgeArrow {
+export function edgeArrow(vx: number, vy: number, vz: number, ndcX: number, ndcY: number, w: number, h: number, insets: ArrowInsets, out: EdgeArrow): EdgeArrow {
   const front = vz < 0;
   if (front && Math.abs(ndcX) <= 1 && Math.abs(ndcY) <= 1) {
     out.visible = false;
     return out;
   }
-  let dx = front ? (ndcX * w) / 2 : vx;
-  let dy = front ? (ndcY * h) / 2 : vy;
-  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) dy = -1;
-  const hw = Math.max(1, w / 2 - margin);
-  const hh = Math.max(1, h / 2 - margin);
-  const t = Math.min(dx !== 0 ? hw / Math.abs(dx) : Infinity, dy !== 0 ? hh / Math.abs(dy) : Infinity);
+  // Screen direction (x right, y down) from the centre.
+  let dx = front ? ndcX * w : vx >= 0 ? 1 : -1;
+  let dy = front ? -ndcY * h : 0;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) dx = 1;
+  const cx = w / 2;
+  const cy = h / 2;
+  const left = Math.min(insets.side, cx - 1);
+  const right = Math.max(w - insets.side, cx + 1);
+  const top = Math.min(insets.top, cy - 1);
+  const bottom = Math.max(h - insets.bottom, cy + 1);
+  const tx = dx > 0 ? (right - cx) / dx : dx < 0 ? (left - cx) / dx : Infinity;
+  const ty = dy > 0 ? (bottom - cy) / dy : dy < 0 ? (top - cy) / dy : Infinity;
+  const t = Math.min(tx, ty);
   dx *= t;
   dy *= t;
   out.visible = true;
-  out.x = w / 2 + dx;
-  out.y = h / 2 - dy;
-  out.angle = Math.atan2(-dy, dx);
+  out.x = cx + dx;
+  out.y = cy + dy;
+  out.angle = Math.atan2(dy, dx);
   return out;
 }
 
@@ -65,6 +81,7 @@ export class BlockHighlight {
   private readonly v = new THREE.Vector3();
   private readonly ndc = new THREE.Vector3();
   private readonly placed: EdgeArrow = { visible: false, x: 0, y: 0, angle: 0 };
+  private readonly insets: ArrowInsets = { side: 0, top: 0, bottom: 0 };
   private left = 0;
   private time = 0;
   private lastX = NaN;
@@ -142,8 +159,11 @@ export class BlockHighlight {
     const ndc = this.ndc.set(v.x, v.y, v.z).applyMatrix4(camera.projectionMatrix);
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
-    const margin = 26 + Math.min(w, h) * 0.06;
-    const a = edgeArrow(v.x, v.y, v.z, ndc.x, ndc.y, w, h, margin, this.placed);
+    const ins = this.insets;
+    ins.side = 30 + w * 0.04;
+    ins.top = 40 + h * 0.08;
+    ins.bottom = 70 + h * 0.14;
+    const a = edgeArrow(v.x, v.y, v.z, ndc.x, ndc.y, w, h, ins, this.placed);
     if (!a.visible || this.left <= 0) {
       this.hideArrow();
       return;

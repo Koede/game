@@ -89,7 +89,7 @@ describe('pipe overlay', () => {
   });
 
   it('shows a stream in a pipe that passes fluid straight through', () => {
-    expect(shownLevel({ fill: 0, flowing: true })).toBe(0.45);
+    expect(shownLevel({ fill: 0, flowing: true })).toBe(0.6);
     expect(shownLevel({ fill: 0.8, flowing: true })).toBe(0.8);
     expect(shownLevel({ fill: 0.3, flowing: false })).toBe(0.3);
   });
@@ -142,22 +142,26 @@ describe('ghost sight lines', () => {
 
 describe('highlight arrow', () => {
   const out: EdgeArrow = { visible: false, x: 0, y: 0, angle: 0 };
+  const ins = { side: 40, top: 60, bottom: 100 };
   it('hides while the block is on screen', () => {
-    expect(edgeArrow(0, 0, -5, 0.2, -0.4, 800, 600, 40, out).visible).toBe(false);
+    expect(edgeArrow(0, 0, -5, 0.2, -0.4, 800, 600, ins, out).visible).toBe(false);
   });
-  it('sits on the edge towards an off-screen block', () => {
-    edgeArrow(10, 0, -5, 3, 0, 800, 600, 40, out);
+  it('sits inside the keep-out bands, on the line from the centre towards the block', () => {
+    edgeArrow(10, 0, -5, 3, 0, 800, 600, ins, out);
     expect(out).toMatchObject({ visible: true, x: 760, y: 300 });
     expect(out.angle).toBeCloseTo(0);
-    edgeArrow(0, 10, -5, 0, 4, 800, 600, 40, out);
-    expect(out).toMatchObject({ x: 400, y: 40 });
+    edgeArrow(0, 10, -5, 0, 4, 800, 600, ins, out);
+    expect(out).toMatchObject({ x: 400, y: 60 });
     expect(out.angle).toBeCloseTo(-Math.PI / 2);
+    edgeArrow(0, -10, -5, 0, -4, 800, 600, ins, out);
+    expect(out).toMatchObject({ x: 400, y: 500 }); // above the hotbar band
   });
   it('points the way to turn for a block behind the camera', () => {
-    edgeArrow(-3, 0, 5, 0.9, 0, 800, 600, 40, out); // behind and to the left: the projection would lie
-    expect(out.visible).toBe(true);
-    expect(out.x).toBe(40);
+    edgeArrow(-3, -2, 5, 0.9, 0.5, 800, 600, ins, out); // behind and to the left: the projection would lie
+    expect(out).toMatchObject({ visible: true, x: 40, y: 300 });
     expect(Math.abs(out.angle)).toBeCloseTo(Math.PI);
+    edgeArrow(0.5, 0, 5, 0, 0, 800, 600, ins, out);
+    expect(out.x).toBe(760);
   });
 });
 

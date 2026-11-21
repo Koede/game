@@ -115,7 +115,7 @@ export class HearthLights {
     this.haze.begin();
     this.shimmer.begin();
     this.halos.begin(time);
-    const halo = 0.18 + 0.42 * (1 - day);
+    const halo = 0.08 + 0.5 * (1 - day);
     const heat = this.heat;
     let shown = 0;
     for (let i = 0; i < this.trackedCount; i++) {
@@ -132,7 +132,7 @@ export class HearthLights {
       // The pool's heat (0..1 over 300..1400 C) melts its crust away.
       const melt = ignited ? 1 : Math.min(1, Math.max(0, (temp - 300) / 1100));
       this.pool.push(x0 + 0.001, y0 + 0.03, z0 + 0.001, x1 + 0.999, y0 + 0.03, z1 + 0.999, heat[0], heat[1], heat[2], melt);
-      this.haze.push(x0 + 0.015, y0 + 0.015, z0 + 0.015, x1 + 0.985, y1 + 0.985, z1 + 0.985, heat[0], heat[1], heat[2], 0.32 * k);
+      this.haze.push(x0 + 0.015, y0 + 0.015, z0 + 0.015, x1 + 0.985, y1 + 0.985, z1 + 0.985, heat[0], heat[1], heat[2], (h.box.closed ? 0.5 : 0.34) * k);
       const cx = (x0 + x1 + 1) / 2;
       const cz = (z0 + z1 + 1) / 2;
       const across = Math.max(x1 - x0, z1 - z0) + 1;
@@ -143,7 +143,7 @@ export class HearthLights {
         this.smoke(h, dt, x0, z0, x1, z1, top, day, e.lit === true, k);
       }
       const w = h.windows;
-      const wk = halo * k * 0.6;
+      const wk = halo * k * 0.9;
       for (let j = 0; j < w.length; j += 6) {
         this.halos.add(w[j] + 0.5 + w[j + 3] * 0.75, w[j + 1] + 0.5 + w[j + 4] * 0.75, w[j + 2] + 0.5 + w[j + 5] * 0.75, 1.5, heat[0] * wk, heat[1] * wk, heat[2] * wk);
       }
