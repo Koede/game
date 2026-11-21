@@ -94,7 +94,7 @@ export class Simulation implements ActionHost {
   tick(dt: number): void {
     this.tickCount++;
     this.everySecond = this.tickCount % TICK_RATE === 0;
-    if (this.envDirty || this.topologyDirty) this.refresh();
+    this.fresh();
     this.sunlight = this.clock.sunlight();
     this.wind = windAt(this.clock.worldTimeS, WIND.windMin, WIND.windMax);
     const world = this.world;
@@ -159,7 +159,9 @@ export class Simulation implements ActionHost {
     this.topologyDirty = true;
   }
 
-  private refresh(): void {
+  /** Brings surroundings and networks up to date with the blocks, if anything changed. */
+  private fresh(): void {
+    if (!this.envDirty && !this.topologyDirty) return;
     for (const n of this.nodes) this.surroundings(n);
     if (this.topologyDirty) this.networks = buildNetworks(this.world, this.nodes, this.byKey, this.networks);
     this.envDirty = false;
@@ -375,7 +377,7 @@ export class Simulation implements ActionHost {
   }
 
   startIgnition(x: number, y: number, z: number): ActionResult {
-    if (this.envDirty || this.topologyDirty) this.refresh();
+    this.fresh();
     return this.withFurnace(x, y, z, (e, node) => actions.startIgnition(this, e, node));
   }
 
@@ -397,6 +399,7 @@ export class Simulation implements ActionHost {
   // ---- queries --------------------------------------------------------------------------------------------------
 
   furnaceView(x: number, y: number, z: number): FurnaceView | null {
+    this.fresh();
     const node = this.byKey.get(posKey(x, y, z));
     return node && isFurnace(node.e) ? furnaceView(this, node) : null;
   }
@@ -408,19 +411,20 @@ export class Simulation implements ActionHost {
   }
 
   machineView(x: number, y: number, z: number): MachineView | null {
+    this.fresh();
     const node = this.byKey.get(posKey(x, y, z));
     return node && !isFurnace(node.e) ? machineView(node) : null;
   }
 
   /** Stats of the network a power device at this position belongs to. */
   networkAt(x: number, y: number, z: number): NetworkStats | null {
-    if (this.envDirty || this.topologyDirty) this.refresh();
+    this.fresh();
     const net = this.byKey.get(posKey(x, y, z))?.net;
     return net ? networkStats(net) : null;
   }
 
   allNetworks(): NetworkStats[] {
-    if (this.envDirty || this.topologyDirty) this.refresh();
+    this.fresh();
     return this.networks.map(networkStats);
   }
 
