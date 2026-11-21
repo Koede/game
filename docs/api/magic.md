@@ -43,3 +43,16 @@ rod, jar), chained in `npm run e2e`.
 ## Not built yet (see OVERHAUL_PLAN B and SESSION_CONTEXT 10)
 Jar fill rendering, wellsprings/nodes, essentia tubes, rune desk, infusion altar, foci, servants, vial in a still (entry
 `still_trace` exists, its effect does not), aura reading HUD, Codex aspect page, optional side objectives, scan of creatures.
+
+## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
+- A Glass Vial works wherever an empty Glass Beaker is taken: the sap tap (`src/player/sapTools.ts`) and taking liquid from a
+  distillery module (`src/sim/distillActions.ts` maps the vial to a beaker); both hand back beaker-sized fills. Sugar has a
+  vial row (`sugar_vial`, forge). Vials and beakers are made at the same rate (1 glass -> 2).
+- Beaker of Water / Vial of Water (filled at the workbench from a water bucket, 4 at a time) set on a hot furnace top on their
+  own boil through the brewing `boil_bucket` machine (`CONTAINER_BLOCKS` in src/core/brewing.ts): `ContainerSpec.boilScale`
+  makes a beaker boil in half, a vial in 0.3 of a bucket's time. Boiling ones cool like the boiling bucket and brew a cup
+  over a loaded cone (the glass comes back); a kettle fills an empty beaker/vial with boiling water.
+- A Pine Sap beaker on a furnace top cooks to resin (`ContainerSpec.holds: 'sap'`, `returns: 'glass_beaker'`): it never boils
+  dry, never counts as water (registry `containerBoilingTo` / `containerEmptiedTo` and the solver filter on `holds`).
+- Tests: `src/sim/glassware.test.ts`, `src/player/glassTap.test.ts`; e2e-magic step "a vial of water ... boils".
+- Not yet: a slimmer shape for glass on the furnace (it uses the bucket shape), filling glass straight from water.

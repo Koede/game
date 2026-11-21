@@ -160,11 +160,16 @@ export interface DrinkSpec {
  * or flask needs this field and a furnace-top block in src/core/brewing.ts CONTAINER_BLOCKS.
  */
 export interface ContainerSpec {
-  holds: 'water';
+  /** 'water' boils (brewing, kettles); 'sap' cooks down to `boilsTo` on a furnace top and never counts as water. */
+  holds: 'water' | 'sap';
   /** Key of the same container full of boiling water (water_pail -> boiling_pail). */
   boilsTo: string;
   /** Key of the container when empty (water_pail -> pail). */
   emptyTo: string;
+  /** Share of BOIL_SECONDS it takes on a furnace top (small glass < 1). Default 1. */
+  boilScale?: number;
+  /** Handed back too when the cooked `boilsTo` is taken (the beaker a cooked resin sat in). */
+  returns?: string;
 }
 
 /** An item that goes back to another one after a while in a pack (a carried boiling bucket cools to water). */

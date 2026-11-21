@@ -179,6 +179,31 @@ async function runDevice(device) {
       await d.shot('5-jar');
     });
 
+    await step('a vial of water set on the furnace top boils on its own and comes back boiling', async () => {
+      await d.hw(() => window.__hw.give('water_vial', 1));
+      await d.selectItem('water_vial');
+      const top = { x: P.x0 + 3, y: P.gy + 1, z: P.z0 };
+      await d.hw((p) => window.__hw.teleport(p.x + 0.5, p.y - 1, p.z + 2.5), top);
+      await d.settle(300);
+      await d.centerMouse();
+      // lookAt adds half a block: this is the point just above the middle of the furnace's top face.
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y - 0.48, p.z + 0.1), top);
+      await d.settle(400);
+      const aimed = await d.hw(() => window.__hw.state().target);
+      assert(aimed && aimed.block === 'furnace_clay', `aims at the furnace: ${JSON.stringify(aimed)}`);
+      await d.use();
+      await d.settle(300);
+      assert((await d.hw((p) => window.__hw.getBlock(p.x, p.y, p.z).block, top)) === 'furnace_vial', 'the vial stands on the furnace');
+      await d.hw(() => window.__hw.tick(400));
+      await d.settle(500);
+      assert((await d.hw((p) => window.__hw.getBlock(p.x, p.y, p.z).block, top)) === 'furnace_vial_boiling', 'the vial boils');
+      await d.shot('6-vial-boiling');
+      await d.selectEmptyHand();
+      await d.use();
+      await d.settle(300);
+      assert(await d.hw(() => window.__hw.app.game.state.player.inventory.count('boiling_vial') === 1), 'a boiling vial in the pack');
+    });
+
     await step('no page errors', async () => {
       assert(errors.length === 0, `errors: ${errors.slice(0, 3).join(' | ')}`);
     });

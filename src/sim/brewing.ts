@@ -206,12 +206,14 @@ export class Brewing {
       return;
     }
     const t = furnace ? furnace.tempC : AMBIENT_TEMP_C;
+    const spec = itemOrNull(e.container)?.container;
+    const boilS = BOIL_SECONDS * (spec?.boilScale ?? 1);
     if (!e.boiling) {
       if (t >= BOIL_TEMP_C) {
         e.heatS += dt * Math.min(2, Math.max(0.5, (t - 100) / 200 + 0.5));
         if (furnace) furnace.extractW += HEAT_W;
       } else e.heatS = Math.max(0, e.heatS - dt);
-      if (e.heatS >= BOIL_SECONDS) {
+      if (e.heatS >= boilS) {
         e.boiling = true;
         e.dryS = 0;
         this.swap(e, blocks.boiling);
@@ -223,10 +225,12 @@ export class Brewing {
     }
     if (t < BOIL_TEMP_C - 20) {
       e.boiling = false;
-      e.heatS = BOIL_SECONDS * 0.5;
+      e.heatS = boilS * 0.5;
       this.swap(e, blocks.cold);
       return;
     }
+    // Cooked things (sap to resin) wait to be taken; only water boils dry.
+    if (spec && spec.holds !== 'water') return;
     e.dryS += dt;
     if (furnace) furnace.extractW += BOILING_W;
     if (e.dryS >= BOIL_DRY_SECONDS) this.lose(e, true);

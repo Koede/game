@@ -24,7 +24,8 @@ export const SUGAR_ITEMS: ItemSpec[] = [
   },
   {
     key: 'pine_sap', name: 'Pine Sap', category: 'material', age: 0, stack: 16,
-    desc: 'A beaker of sticky, clear sap. Boil it in a crucible at 180 C to thicken it into resin.',
+    container: { holds: 'sap', boilsTo: 'pine_resin', emptyTo: 'glass_beaker', returns: 'glass_beaker', boilScale: 1.5 },
+    desc: 'A beaker of sticky, clear sap. Set it on a hot furnace top, or boil it in a crucible at 180 C, to thicken it into resin.',
   },
   {
     key: 'pine_resin', name: 'Pine Resin', category: 'material', age: 0, stack: 32,

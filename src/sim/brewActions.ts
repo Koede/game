@@ -80,6 +80,11 @@ function takeBucket(b: Brewing, e: BoilBucket): BrewResult {
   const container = itemOrNull(e.container)?.container;
   const { boiling, container: key } = e;
   b.removeBlock(e.x, e.y, e.z);
+  if (boiling && container && container.holds !== 'water') {
+    // Cooked (sap to resin): the result, and the glass it sat in.
+    if (container.returns) b.host.returnItem(e.x, e.y, e.z, container.returns);
+    return { ok: true, consume: false, give: container.boilsTo };
+  }
   if (boiling && container) return { ok: true, consume: false, give: container.boilsTo, giveDurability: BOILING_KEEPS_S };
   return { ok: true, consume: false, give: key };
 }
@@ -88,7 +93,7 @@ function useKettle(e: Kettle, held: string | null): BrewResult {
   const heldItem = held ? itemOrNull(held) : null;
   if (!held || !heldItem) return refuse(e.waterL > 0 ? 'Use an empty bucket to take boiling water' : 'The kettle is empty - pour water in');
   const full = heldItem.container;
-  if (full) {
+  if (full && full.holds === 'water') {
     if (e.waterL + KETTLE_BUCKET_L > KETTLE_CAPACITY_L) return refuse('The kettle is full');
     e.waterL += KETTLE_BUCKET_L;
     return { ok: true, consume: true, give: full.emptyTo };
@@ -124,7 +129,10 @@ export function brewView(b: Brewing, x: number, y: number, z: number): BrewView 
   if (e.kind === 'boil_bucket') {
     const k = e as BoilBucket;
     const t = b.host.furnaceBelow(x, y - 1, z)?.tempC ?? null;
-    if (k.boiling) return view('boiling', 'Boiling water - take it', { tempC: t });
+    if (k.boiling) {
+      const c = itemOrNull(k.container)?.container;
+      return view('boiling', c && c.holds !== 'water' ? `${name(c.boilsTo)} ready - take it` : 'Boiling water - take it', { tempC: t });
+    }
     const label = name(k.container);
     if (t === null || t < 100) return view('heating', `${label} - needs a furnace at 100 C or more`, { tempC: t, progress: k.heatS / BOIL_SECONDS });
     const rate = Math.min(2, Math.max(0.5, (t - 100) / 200 + 0.5));

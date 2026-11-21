@@ -367,7 +367,7 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
 
 /** A cup, a cone and boiling water to pour: all that brewing needs besides an ingredient (the furnace tier is checked by the caller's boil). */
 const hasBrewingGear = (items: ReadonlySet<string>): boolean =>
-  items.has(CUP_ITEM) && items.has(CONE_ITEM) && ITEMS.some((it) => it.container !== undefined && items.has(it.container.boilsTo));
+  items.has(CUP_ITEM) && items.has(CONE_ITEM) && ITEMS.some((it) => it.container?.holds === 'water' && items.has(it.container.boilsTo));
 
 const hasFuel = (p: Progress): boolean => [...p.items].some((key) => item(key).fuel !== undefined);
 
@@ -403,7 +403,7 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   [FLAG_FELLED_TREE]: (p) => p.items.has('chainsaw') && p.items.has('fuel_canister'),
   [FLAG_DROVE_TRACTOR]: (p) => p.items.has('tractor') && p.items.has('fuel_canister'),
   // Brewing: the first boiling bucket, the first cup, and all six drinks (each needs its ingredient made at its own heat).
-  [FLAG_BOILED_WATER]: (p) => ITEMS.some((it) => it.container !== undefined && p.items.has(it.container.boilsTo)),
+  [FLAG_BOILED_WATER]: (p) => ITEMS.some((it) => it.container?.holds === 'water' && p.items.has(it.container.boilsTo)),
   [FLAG_BREWED]: (p) => DRINKS.some((d) => p.items.has(d.key)),
   [FLAG_SIX_CUPS]: (p) => DRINKS.length === 6 && DRINKS.every((d) => p.items.has(d.key)),
   // Spec 19: an automaton broken apart (bare hands will do, slowly), or a world on Peaceful.

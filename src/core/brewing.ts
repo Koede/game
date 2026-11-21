@@ -58,6 +58,10 @@ export interface ContainerBlocks {
 }
 export const CONTAINER_BLOCKS: Readonly<Record<string, ContainerBlocks>> = {
   water_pail: { cold: 'furnace_bucket', boiling: 'furnace_bucket_boiling' },
+  // Glassware (src/content/itemsGlass.ts): water in a beaker or vial, and pine sap cooking down to resin.
+  water_beaker: { cold: 'furnace_beaker', boiling: 'furnace_beaker_boiling' },
+  water_vial: { cold: 'furnace_vial', boiling: 'furnace_vial_boiling' },
+  pine_sap: { cold: 'furnace_sap', boiling: 'furnace_sap_resin' },
 };
 
 /** The kettle pot block (its machine kind is KETTLE_MACHINE; the active bit of its voxel is set while it boils). */

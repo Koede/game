@@ -17,7 +17,7 @@ export const MAGIC_SPEC = {
       'vis_rod: 1 vis_rod <- 2 stick, 1 glass_vial, 1 copper_ingot',
       'essentia_jar: 1 essentia_jar <- 3 glass, 1 plank',
     ],
-    furnace: ['glass_vial: 4 glass_vial <- 1 glass @650 T1'],
+    furnace: ['glass_vial: 2 glass_vial <- 1 glass @650 T1'],
   } as Record<string, string[]>,
   /** Texture layers added: 24 item icons and the two jar faces (the atlas splits beyond the device's layer limit). */
   textures: 26,

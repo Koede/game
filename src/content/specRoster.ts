@@ -8,6 +8,7 @@ import { BREW_SPEC } from './specRosterBrew';
 import { DISTILL_SPEC } from './specRosterDistill';
 import { MAGIC_SPEC } from './specRosterMagic';
 import { WORKSHOP_SPEC } from './specRosterWorkshop';
+import { GLASS_SPEC } from './specRosterGlass';
 import { EMBER_SPEC } from './specRosterEmber';
 import { GROUND_SPEC } from './specRosterGround';
 import { FOOD_SPEC } from './specRosterFood';
@@ -391,3 +392,9 @@ SPEC.blocks.push(...WORKSHOP_SPEC.blocks);
 SPEC.items.push(...WORKSHOP_SPEC.items);
 for (const station of Object.keys(WORKSHOP_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...WORKSHOP_SPEC.recipes[station]];
 SPEC.maxTextures += WORKSHOP_SPEC.textures;
+
+// Glassware (vials and beakers on the furnace top) comes after the workshop.
+SPEC.blocks.push(...GLASS_SPEC.blocks);
+SPEC.items.push(...GLASS_SPEC.items);
+for (const station of Object.keys(GLASS_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...GLASS_SPEC.recipes[station]];
+SPEC.maxTextures += GLASS_SPEC.textures;

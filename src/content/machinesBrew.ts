@@ -1,4 +1,5 @@
 /** Machines of brewing (BREWING_PLAN 4, 11.3): two wild plants, the cup setup, a bucket on a furnace and the kettle. */
+import { GLASS_TOP_BLOCK_KEYS } from './itemsGlass';
 import { BOIL_DRY_SECONDS, BOIL_SECONDS, BOIL_TEMP_C, BREW_SECONDS, BREW_STEAM_S, KETTLE_BOIL_C, TEA_REGROW_S } from '../core/constants';
 import { CUP_BLOCK } from '../core/brewing';
 import type { MachineSpec } from '../core/types';
@@ -29,7 +30,7 @@ export const BREW_MACHINES: MachineSpec[] = [
   //   dryS           seconds boiling before it boils dry and the empty bucket comes back
   //   heatDrawW      watts it draws from the furnace while heating, boilingDrawW while boiling
   {
-    kind: 'boil_bucket', name: 'Bucket on the Furnace', role: 'brew', blocks: ['furnace_bucket', 'furnace_bucket_boiling'],
+    kind: 'boil_bucket', name: 'Bucket on the Furnace', role: 'brew', blocks: ['furnace_bucket', 'furnace_bucket_boiling', ...GLASS_TOP_BLOCK_KEYS],
     params: { boilC: BOIL_TEMP_C, boilS: BOIL_SECONDS, dryS: BOIL_DRY_SECONDS, heatDrawW: 600, boilingDrawW: 300 },
     desc: 'A bucket of water set on a hot furnace comes to the boil in seconds. Pick up the boiling water to brew with it.',
   },

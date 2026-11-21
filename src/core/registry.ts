@@ -617,9 +617,9 @@ export const drinkBrewedFrom = (ingredientKey: string): ItemDef | null => {
 /** Whether the item is something a cup is loaded with. */
 export const isBrewIngredient = (key: string): boolean => itemsByKey.get(key)?.brews !== undefined;
 /** The container item that boils into `boilingKey` (boiling_pail -> water_pail), or null: the pour row's lookup. */
-export const containerBoilingTo = (boilingKey: string): ItemDef | null => ITEMS.find((it) => it.container?.boilsTo === boilingKey) ?? null;
+export const containerBoilingTo = (boilingKey: string): ItemDef | null => ITEMS.find((it) => it.container?.holds === 'water' && it.container.boilsTo === boilingKey) ?? null;
 /** The container that is `emptyKey` when empty (pail -> water_pail): the kettle fills an empty one with boiling water. */
-export const containerEmptiedTo = (emptyKey: string): ItemDef | null => ITEMS.find((it) => it.container?.emptyTo === emptyKey) ?? null;
+export const containerEmptiedTo = (emptyKey: string): ItemDef | null => ITEMS.find((it) => it.container?.holds === 'water' && it.container.emptyTo === emptyKey) ?? null;
 
 // ---------------------------------------------------------------------------------------------
 // Ember handwork (docs/api/handwork-content.md): hand stations, moulds and cast metals

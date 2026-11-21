@@ -52,6 +52,8 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
     d.touched();
     return { ok: true, consume: true, give: full.empty, toast: `${fluidName(full.fluid)} poured in (${litresText(total(e.mix))})` };
   }
+  // A glass vial takes the place of an empty beaker (src/content/itemsGlass.ts).
+  if (heldKey === 'glass_vial') heldKey = 'glass_beaker';
   if (isEmptyChemContainer(heldKey)) {
     if (!TAKES_FROM.has(e.kind)) return { ok: false, reason: `Nothing to take from ${an(moduleName(e))}` };
     const name = nameOf(e.mix);

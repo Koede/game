@@ -25,7 +25,7 @@ describe('food items', () => {
 
   it('makes cooking worth it: every cooked dish fills more than what went into the crucible', () => {
     const kitchen = recipesAt('furnace').filter((r) => item(r.output.item).food);
-    expect(kitchen.map((r) => r.id).sort()).toEqual(['baked_potato', 'bread', 'cooked_chop', 'cooked_fowl', 'cooked_mutton', 'hearth_stew', 'hearth_stew_fowl', 'hearth_stew_mutton', 'sugar', 'sugar_cake', 'sugar_cookie', 'sweet_bun']);
+    expect(kitchen.map((r) => r.id).sort()).toEqual(['baked_potato', 'bread', 'cooked_chop', 'cooked_fowl', 'cooked_mutton', 'hearth_stew', 'hearth_stew_fowl', 'hearth_stew_mutton', 'sugar', 'sugar_cake', 'sugar_cookie', 'sugar_vial', 'sweet_bun']);
     for (const r of kitchen.filter((k) => k.kind === 'smelt')) {
       const raw = item(r.inputs[0].item).food?.hunger ?? 0;
       expect(item(r.output.item).food?.hunger ?? 0, r.id).toBeGreaterThan(raw);

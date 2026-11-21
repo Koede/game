@@ -49,7 +49,9 @@ export class SapTools {
   use(hit: RayHit): SapOutcome | null {
     const { player } = this.host;
     if (hit.block.liquid !== null || !SAP_LOGS.has(hit.block.key)) return null;
-    if (player.heldStack()?.item !== EMPTY_BEAKER) return null;
+    // A glass vial works as well as a beaker (src/content/itemsGlass.ts); the sap comes back as a beaker of sap.
+    const held = player.heldStack()?.item;
+    if (held !== EMPTY_BEAKER && held !== 'glass_vial') return null;
     const cell = `${hit.x},${hit.y},${hit.z}`;
     const wait = this.waitS(hit.x, hit.y, hit.z);
     this.host.stopMining();
@@ -59,8 +61,8 @@ export class SapTools {
     }
     player.inventory.removeAt(player.selectedSlot, 1);
     if (player.give(SAP_ITEM, 1) > 0) {
-      // No room for the sap: put the beaker back and leave the log alone.
-      player.give(EMPTY_BEAKER, 1);
+      // No room for the sap: put the glass back and leave the log alone.
+      player.give(held, 1);
       this.host.advise(`sap-full-${cell}`, 'Your pack is full');
       return 'refused';
     }

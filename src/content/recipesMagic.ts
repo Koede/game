@@ -10,7 +10,7 @@ export const MAGIC_RECIPES: RecipeSpec[] = [
   { id: 'vis_rod', station: 'workbench', inputs: amounts('2 stick, 1 glass_vial, 1 copper_ingot'), output: amount('vis_rod'), age: 0 },
   { id: 'essentia_jar', station: 'workbench', inputs: amounts('3 glass, 1 plank'), output: amount('essentia_jar'), age: 0 },
   {
-    id: 'glass_vial', station: 'furnace', kind: 'forge', inputs: amounts('1 glass'), output: amount('4 glass_vial'),
+    id: 'glass_vial', station: 'furnace', kind: 'forge', inputs: amounts('1 glass'), output: amount('2 glass_vial'),
     minTempC: 650, minTier: 1, age: 0,
   },
 ];

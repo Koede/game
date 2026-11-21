@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DISTILL_ITEMS } from '../../content/itemsDistill';
 import { MAGIC_ITEMS } from '../../content/itemsMagic';
 import { WORKSHOP_ITEMS } from '../../content/itemsWorkshop';
+import { GLASS_ITEMS } from '../../content/itemsGlass';
 import { BLOCKS, TEXTURE_NAMES } from '../../core/registry';
 import { Canvas } from './canvas';
 import { averageColor, hasPainter, paintTexture, TEXTURE_SIZE } from './index';
@@ -243,7 +244,7 @@ describe('texture content', () => {
   it('item icons have a transparent background and a darker outline', () => {
     const icons = TEXTURE_NAMES.filter((n) => n.startsWith('item_'));
     // 153 before the glass distillery, which adds one icon per non-block item (src/content/itemsDistill.ts).
-    expect(icons.length).toBe(153 + DISTILL_ITEMS.length + MAGIC_ITEMS.length + WORKSHOP_ITEMS.length);
+    expect(icons.length).toBe(153 + DISTILL_ITEMS.length + MAGIC_ITEMS.length + WORKSHOP_ITEMS.length + GLASS_ITEMS.length);
     for (const name of icons) {
       const px = paintTexture(name);
       let clear = 0;

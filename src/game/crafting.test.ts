@@ -37,6 +37,8 @@ describe('crafting', () => {
       'vis_rod', 'essentia_jar',
       // The Bronze workshop pieces (src/content/recipesWorkshop.ts).
       'hand_crank', 'drive_shaft', 'conveyor_belt', 'conveyor_belt_cloth', 'mech_millstone', 'mech_loom',
+      // Glassware (src/content/itemsGlass.ts).
+      'water_beaker', 'water_vial',
     ]);
   });
 
