@@ -288,8 +288,8 @@ the bus. Real input for everything under test:
 2. The furnace's STRUCTURE tab reads "Formed - Blast hearth 1x1x1".
 3. A crate and three bronze chutes are placed (crate -> 2 pipes on the ground -> 1 up -> the hatch); the line has two
    ends, the crate end pushing. Copper ore goes into the crate through the crate screen.
-4. The wrench on the pipe arm reaching into the crate turns that end to Pull ("Pulling from Crate"); a packet is seen
-   in the transport snapshot and the ore reaches the furnace's crucible through the hatch.
+4. The wrench on the pipe arm reaching into the crate turns that end to Pull ("Pulling from Crate"); the renderer draws
+   the ore moving in the pipes (`renderer.stats.tech.packets`) and it reaches the furnace's crucible through the hatch.
 5. A placed tank takes a water bucket (the bucket comes back empty, the tank holds 1000 L, no screen opens), and the
    empty bucket scoops it back (tank 0 L).
 6. With an empty hotbar slot, Use on a pipe opens the pipe screen; the Item Hatch row's Off is pressed and the
@@ -299,8 +299,6 @@ Screenshots in `test-results/e2e-tech/`. Taps that span a slow software frame re
 the steps tap again only when nothing changed.
 
 ### Known gaps
-- Items moving inside the pipes were not visible in the packet screenshots (the packet exists in the snapshot); the
-  renderer's packet drawing is the render engineer's current work.
 - No long-press on touch for the pipe screen (see above).
 - Wrench-parted joints still draw their arm (mesher, render-machines.md); the wrench targets them through the core.
 

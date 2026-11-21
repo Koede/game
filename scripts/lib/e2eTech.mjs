@@ -363,8 +363,9 @@ export async function techSteps({ d, step, assert, page }) {
     assert(port.mode === 'pull', `the crate end is ${port.mode}`);
     // Bronze chutes send 4 items every 2 s at 4 blocks a second: in real time, the first batch drawn on its way.
     await d.hw((c) => window.__hw.lookAt(c.x, c.y, c.z), ctx.pipes[1]);
-    const moving = await waitFor(page, () => window.__hw.app.game.state.sim.transportView().packets.length, 'a packet in the pipes', { timeout: 15_000, interval: 50 });
-    assert(moving > 0, 'nothing moving');
+    // The renderer draws the packet (its stats count the items drawn in pipes last frame).
+    const drawn = await waitFor(page, () => window.__hw.app.game.renderer.stats.tech?.packets ?? 0, 'an item drawn moving in the pipes', { timeout: 15_000, interval: 50 });
+    assert(drawn > 0, 'nothing drawn moving');
     await d.settle(150);
     await d.shot('36-packets');
     for (let i = 0; i < 20; i++) {

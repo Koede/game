@@ -417,11 +417,18 @@ export async function featureSteps({ d, step, assert, page }) {
     await d.shot('27-lava-aim');
     await useUntil(d, { fn: () => window.__hw.state().inventory.some((s) => s.item === 'lava_bucket'), arg: null }, 'a lava bucket');
     assert((await d.hw((c) => window.__hw.getBlock(c.x, c.y, c.z).block, pool)) === 'air', 'the lava block is still there');
-    const spot = await aimAtTop(d, (await d.hw(() => {
+    // Pour onto open ground in reach: the kind the player stands on first, then any common ground.
+    const under = await d.hw(() => {
       const p = window.__hw.state().player;
       return window.__hw.getBlock(Math.floor(p.x), Math.floor(p.y) - 1, Math.floor(p.z)).block;
-    })));
-    assert(spot, 'no ground to pour on');
+    });
+    let spot = null;
+    for (const key of [...new Set([under, 'grass', 'dirt', 'sand', 'stone', 'snow', 'gravel'])]) {
+      spot = await aimAtTopInReach(d, key);
+      if (spot) break;
+    }
+    spot ??= await aimAtTop(d, under);
+    assert(spot, `no ground to pour on (standing on ${under})`);
     await useUntil(d, { fn: (c) => window.__hw.getBlock(c.x, c.y + 1, c.z).block === 'lava', arg: spot }, 'lava poured');
     const inv = await d.inventory();
     assert(inv.bronze_bucket === 1 && !inv.lava_bucket, `buckets after pouring: ${JSON.stringify(inv)}`);
