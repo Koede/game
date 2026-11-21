@@ -4,7 +4,7 @@ World generation now builds the marsh, surface life for every biome, five kinds 
 (geodes, lakes, lava falls, cave glowcaps), ore outcrops on cliffs, oil seeps and the Old Works ruins with real
 loot crates. Everything stays a pure, chunk-order-independent function of `(seed, cx, cz)`; the only thing that
 is not in the generated voxels is a ruin's crate, which the `World` places through its entity API on first load.
-Tests: `npx vitest run src/world` (90 tests; `features.test.ts` is new). Review: `node scripts/world-map.mjs`.
+Tests: `npx vitest run src/world` (86 tests; `features.test.ts` is new). Review: `node scripts/world-map.mjs`.
 
 ## Public API
 
@@ -115,3 +115,6 @@ the world itself, the map script and tests:
 - Steam particles and hiss above vents, and the cyan tint of glowcap/crystal light, are render work (see
   docs/api/world-content.md section 6); the world only places the blocks.
 - Rusted shells inside a ruin can sit next to the crate; they need a bronze pickaxe, the crate does not.
+- The oil texture tiles into a visible repeating pattern over a large pool (texture work, src/render/textures).
+- `meshChunk`'s own timing test (src/world/mesher.test.ts, 25 ms) now meshes ~4% more faces on generated terrain
+  (plants, ruins); it passes alone (12-21 ms) but can exceed 25 ms when the machine is heavily loaded.
