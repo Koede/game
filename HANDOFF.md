@@ -6,6 +6,10 @@ review pass (item 10) is done; see "Release state" below. What is left is delive
 issues listed there. Spec section 19 (the Emberbound hostile automatons): data, contracts, models, art and sounds are
 laid down (row below); no behaviour yet.
 
+**Next big feature (planned, not built):** steam and mechanics - `docs/STEAM_PLAN.md` is the full
+implementation plan (contracts, numbers, files, tests, briefs); `docs/PROGRESSION.md` is the whole-game
+progression it fits into.
+
 **Read first:** `docs/SPEC.md` (design, rules, architecture, a brief per module) and `docs/api/*.md` (what
 each finished module exports). `README.md` describes the finished game, not the current state.
 
