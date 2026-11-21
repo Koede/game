@@ -28,24 +28,22 @@ export class HearthGhost {
   private readonly previews = new Map<string, Preview>();
   /** The target the player last chose per furnace (kept for the session, so the tab reopens on it). */
   private readonly targets = new Map<string, StructureTarget>();
-  private readonly offs: (() => void)[] = [];
   private readonly dirty = new Set<string>();
   private flushQueued = false;
 
   constructor(private readonly bus: GameBus, private readonly sim: StructureSource) {
-    this.offs.push(
-      bus.on('block:changed', ({ x, y, z }) => this.onChange(x, y, z)),
-      bus.on('hearth:formed', ({ x, y, z, tier }) => {
-        const p = this.previews.get(posKey(x, y, z));
-        if (p && tier >= p.target.tier) this.hide(x, y, z);
-      }),
-      bus.on('machine:removed', ({ entity }) => {
-        if (entity.kind === 'furnace') {
-          this.hide(entity.x, entity.y, entity.z);
-          this.targets.delete(posKey(entity.x, entity.y, entity.z));
-        }
-      }),
-    );
+    // The keeper lives as long as the game (its bus): these listeners are never removed.
+    bus.on('block:changed', ({ x, y, z }) => this.onChange(x, y, z));
+    bus.on('hearth:formed', ({ x, y, z, tier }) => {
+      const p = this.previews.get(posKey(x, y, z));
+      if (p && tier >= p.target.tier) this.hide(x, y, z);
+    });
+    bus.on('machine:removed', ({ entity }) => {
+      if (entity.kind === 'furnace') {
+        this.hide(entity.x, entity.y, entity.z);
+        this.targets.delete(posKey(entity.x, entity.y, entity.z));
+      }
+    });
   }
 
   /** The preview of this furnace is on. */
@@ -85,12 +83,6 @@ export class HearthGhost {
     if (!p) return;
     this.previews.delete(posKey(x, y, z));
     this.bus.emit('ghost:clear', { key: p.key });
-  }
-
-  dispose(): void {
-    for (const p of [...this.previews.values()]) this.hide(p.x, p.y, p.z);
-    for (const off of this.offs) off();
-    this.offs.length = 0;
   }
 
   /** Recomputes the cells and shows them; hides the preview when nothing is left to place or break. */

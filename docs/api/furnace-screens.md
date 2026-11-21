@@ -8,6 +8,11 @@ The furnace screen (the game's main screen), every machine screen and the crate.
 Tests: `npx vitest run src/ui/screens/furnace src/ui/screens/machines` (18 tests, DOM-free logic against real
 simulation views from `src/sim/testKit`).
 
+> **Tech UI (spec 16.3, 17.4):** the furnace screen now has a STRUCTURE tab (between Forge and Grid), the upgrade sheet
+> a "Plan the hearth" button, machine screens fluid tanks (and layouts `tank`, `boiler`, `part`), and
+> `registerStationScreens` also registers the `'pipe'` screen. `ScreenSim` gained `structureView`, `pipeView`, `setPort`.
+> See `docs/api/ui-tech.md`.
+
 ## Wiring (integration, 7.5) - one line in main.ts
 
 ```ts

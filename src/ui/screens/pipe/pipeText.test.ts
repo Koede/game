@@ -4,7 +4,7 @@ import type { PortView } from '../../../sim';
 import { run } from '../../../sim/pipeKit';
 import { makeKit } from '../../../sim/testKit';
 import {
-  clampPriority, contentText, distanceText, filterChoices, filterSummary, lineSummary, nearPorts, portKey, portTone, priorityNote, priorityText,
+  contentText, distanceText, filterChoices, filterSummary, lineSummary, nearPorts, portKey, portTone, priorityNote, priorityText,
   setFilterSlot,
 } from './pipeText';
 
@@ -69,8 +69,6 @@ describe('pipe screen text', () => {
   });
 
   it('words priority, fluid contents and long lists', () => {
-    expect(clampPriority(7)).toBe(2);
-    expect(clampPriority(-3)).toBe(-2);
     expect([2, 0, -1].map(priorityText)).toEqual(['+2', '0', '-1']);
     expect(priorityNote(1)).toMatch(/before/);
     expect(contentText({ family: 'fluid', fluidName: 'Water', litres: 1210.4, capacityL: 3000, packets: 0, items: 0 })).toBe('Water - 1,210 of 3,000 L');

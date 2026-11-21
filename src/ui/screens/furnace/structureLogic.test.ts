@@ -4,7 +4,7 @@ import type { GameEvents } from '../../../core/gameEvents';
 import { makeKit, type Kit } from '../../../sim/testKit';
 import { HearthGhost } from './hearthGhost';
 import {
-  checkText, effectText, ghostCells, groupProblems, ghostKey, hearthIntro, innerBounds, materialTexts, statusTone, stepInner, structureBadge, tierRules,
+  checkText, effectText, ghostCells, groupProblems, ghostKey, hearthIntro, innerBounds, materialTexts, statusTone, structureBadge, tierRules,
   tierShort, wallSource,
 } from './structureText';
 
@@ -49,13 +49,11 @@ describe('structure text', () => {
     expect(materialTexts({ item: 'brick', need: 16, placed: 16, missing: 0, have: 0, ok: true }).have).toBe('All placed');
   });
 
-  it('steps the inside within the tier bounds', () => {
+  it('bounds the inside steppers by the tier', () => {
     const plasma = kitWith('furnace_plasma').sim.structureView(0, 1, 0)!.tiers[2];
     expect(innerBounds(plasma, 0)).toEqual([2, 5]);
     expect(innerBounds(plasma, 2)).toEqual([2, 4]);
-    expect(stepInner([2, 2, 2], plasma, 0, 1)).toEqual([3, 2, 2]);
-    expect(stepInner([2, 2, 2], plasma, 1, -1)).toEqual([2, 2, 2]);
-    expect(stepInner([5, 2, 4], plasma, 2, 1)).toEqual([5, 2, 4]);
+    expect(innerBounds(plasma, 1)).toEqual([2, 5]);
   });
 
   it('says what the hearth means for the furnace', () => {

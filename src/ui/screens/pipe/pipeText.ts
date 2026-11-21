@@ -2,7 +2,7 @@
  * DOM-free helpers of the pipe screen (spec 16.3): row keys, status tones, the window's summary lines, filter edits,
  * the filter picker's choices, priority text, and which ports to list.
  */
-import { PIPE_FILTER_SLOTS, PIPE_PRIORITY_MAX, PIPE_PRIORITY_MIN } from '../../../core/constants';
+import { PIPE_FILTER_SLOTS } from '../../../core/constants';
 import { FLUIDS, fluidOrNull, itemOrNull } from '../../../core/registry';
 import type { Slot } from '../../../core/types';
 import type { PipeNetView, PipeView, PortView } from '../../../sim';
@@ -56,8 +56,6 @@ export function filterChoices(family: Family, pack: readonly Slot[]): string[] {
   for (const s of pack) if (s && !seen.has(s.item)) seen.add(s.item);
   return [...seen];
 }
-
-export const clampPriority = (p: number): number => Math.max(PIPE_PRIORITY_MIN, Math.min(PIPE_PRIORITY_MAX, Math.round(p)));
 
 /** "+2", "0", "-1" */
 export const priorityText = (p: number): string => (p > 0 ? `+${p}` : String(p));

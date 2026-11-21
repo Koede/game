@@ -42,16 +42,6 @@ export function innerBounds(choice: Pick<TierChoice, 'minInner' | 'maxInner'>, a
   return [choice.minInner[axis], choice.maxInner[axis]];
 }
 
-/** The inside after one stepper tap, clamped to the tier's bounds. */
-export function stepInner(
-  inner: readonly [number, number, number], choice: Pick<TierChoice, 'minInner' | 'maxInner'>, axis: Axis, delta: number,
-): [number, number, number] {
-  const next: [number, number, number] = [inner[0], inner[1], inner[2]];
-  const [lo, hi] = innerBounds(choice, axis);
-  next[axis] = Math.max(lo, Math.min(hi, next[axis] + delta));
-  return next;
-}
-
 /** "3x3x2" */
 export const sizeText = (inner: readonly number[]): string => inner.join('x');
 
