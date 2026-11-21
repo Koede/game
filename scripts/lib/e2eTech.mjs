@@ -180,6 +180,27 @@ async function placeInto(d, site, item, cell, { where = null, supports = null } 
   throw new Error(`could not place ${item} at ${JSON.stringify(cell)}`);
 }
 
+/**
+ * Presses Use until the held item becomes `item` (a bucket swap). A tap that spans a slow software frame reads as a
+ * hold; the retry only happens while nothing changed, so a bucket is never swapped twice.
+ */
+async function useForHeld(d, item, aim) {
+  for (let attempt = 0; ; attempt++) {
+    await d.use();
+    try {
+      await waitFor(d.page, (k) => {
+        const s = window.__hw.state();
+        return s.inventory.find((x) => x.slot === s.player.selectedSlot)?.item === k;
+      }, `a ${item} in hand`, { timeout: 4000, interval: 100, arg: item });
+      return;
+    } catch (err) {
+      if (attempt >= 2 || (await d.state()).ui.uiOpen) throw err;
+      console.log('       (the tap did not use the bucket; tapping again)');
+      await aim();
+    }
+  }
+}
+
 /** Selects an empty hotbar slot with the real control (number key or tap). */
 async function selectEmptySlot(d) {
   const used = new Set((await d.state()).inventory.filter((s) => s.slot < 9).map((s) => s.slot));
@@ -321,20 +342,30 @@ export async function techSteps({ d, step, assert, page }) {
     const arm = { x: pipe.x + 0.93, y: pipe.y + 0.5, z: pipe.z + 0.5 };
     assert(await aimPoint(d, arm, pipe), 'cannot aim at the pipe arm');
     await d.shot('34-wrench-aim');
-    await d.use();
-    const log = await waitFor(page, () => {
-      const l = window.__techLog;
-      return l.some((e) => e === 'toast:Pulling from Crate') ? l : null;
-    }, 'the "Pulling from Crate" toast', { timeout: 6000, interval: 100 });
-    assert(log.length > 0, 'no toast');
+    // A tap spanning a slow software frame reads as a hold (exactly as on a stalling phone): tap again while the end
+    // still pushes.
+    for (let attempt = 0; ; attempt++) {
+      await d.use();
+      try {
+        await waitFor(page, () => window.__techLog.includes('toast:Pulling from Crate'), 'the "Pulling from Crate" toast', { timeout: 4000, interval: 100 });
+        break;
+      } catch (err) {
+        const mode = (await pipeView(d, pipe)).ports.find((p) => p.block === 'crate').mode;
+        if (attempt >= 2 || mode !== 'push') throw err;
+        console.log('       (the tap did not turn the end; tapping again)');
+        assert(await aimPoint(d, arm, pipe), 'cannot aim at the pipe arm again');
+      }
+    }
+    await d.settle(250);
+    await d.shot('35-pulling');
     const view = await pipeView(d, pipe);
     const port = view.ports.find((p) => p.block === 'crate');
     assert(port.mode === 'pull', `the crate end is ${port.mode}`);
-    await d.settle(400);
-    await d.shot('35-pulling');
-    // Bronze chutes send 4 items every 2 s at 4 blocks a second: real time first (packets drawn), then ticks.
+    // Bronze chutes send 4 items every 2 s at 4 blocks a second: in real time, the first batch drawn on its way.
     await d.hw((c) => window.__hw.lookAt(c.x, c.y, c.z), ctx.pipes[1]);
-    await d.settle(1500);
+    const moving = await waitFor(page, () => window.__hw.app.game.state.sim.transportView().packets.length, 'a packet in the pipes', { timeout: 15_000, interval: 50 });
+    assert(moving > 0, 'nothing moving');
+    await d.settle(150);
     await d.shot('36-packets');
     for (let i = 0; i < 20; i++) {
       const f = (await d.state()).furnaces.find((x) => x.x === ctx.furnace.x && x.z === ctx.furnace.z);
@@ -361,8 +392,7 @@ export async function techSteps({ d, step, assert, page }) {
       await d.hw((s) => window.__hw.teleport(s.x, s.y, s.z), { x: ctx.tank.x + 0.5, y: y0 + 1, z: ctx.tank.z + 2.5 });
       assert(await aimPoint(d, top, ctx.tank), 'cannot aim at the tank');
     }
-    await d.use();
-    await waitFor(page, () => window.__hw.state().inventory.some((s) => s.item === 'pail'), 'the bucket to come back empty', { timeout: 6000, interval: 100 });
+    await useForHeld(d, 'pail', () => aimPoint(d, top, ctx.tank));
     let s = await d.state();
     assert(!s.ui.uiOpen, `a screen opened: ${s.ui.open}`);
     const litres = await d.hw((c) => window.__hw.app.game.state.sim.machineView(c.x, c.y, c.z)?.fluids?.stack?.litres ?? null, ctx.tank);
@@ -370,8 +400,7 @@ export async function techSteps({ d, step, assert, page }) {
     await d.shot('37-tank-filled');
     await d.selectItem('pail');
     await aimPoint(d, top, ctx.tank);
-    await d.use();
-    await waitFor(page, () => window.__hw.state().inventory.some((s) => s.item === 'water_pail'), 'the bucket to fill at the tank', { timeout: 6000, interval: 100 });
+    await useForHeld(d, 'water_pail', () => aimPoint(d, top, ctx.tank));
     s = await d.state();
     assert(!s.ui.uiOpen, `a screen opened: ${s.ui.open}`);
     const after = await d.hw((c) => window.__hw.app.game.state.sim.machineView(c.x, c.y, c.z)?.fluids?.stack?.litres ?? null, ctx.tank);
@@ -410,19 +439,36 @@ export async function techSteps({ d, step, assert, page }) {
   });
 
   await step('glowcap light tints an animal and a pump cyan at night', async () => {
-    const { cx, cz, y0 } = ctx.site;
-    // Render check (set-up only): a hen and a pump beside glowcaps, at night.
-    await d.hw(({ cx, cz, y0 }) => {
+    const { cx, cz } = ctx.site;
+    // Render check (set-up only): a hen and a pump beside glowcaps on a stone shelf high up, far from the hearth's
+    // firelight, at night.
+    const shelf = { x: cx + 24, y: 75, z: cz };
+    await d.hw((p) => {
       const hw = window.__hw;
       hw.setTime(0.9);
-      for (const [dx, dz] of [[-2, -3], [0, -3], [2, -3]]) hw.setVoxel(cx + dx, y0 + 1, cz + dz, 'glowcap');
-      hw.setVoxel(cx + 1, y0 + 1, cz - 2, 'pump', 2);
-      hw.spawnMob('hen', cx - 0.5, y0 + 1, cz - 1.5);
-      hw.teleport(cx + 0.5, y0 + 1, cz + 3.5);
-      hw.lookAt(cx, y0 + 1, cz - 2);
-    }, ctx.site);
-    await d.settle(1500);
+      hw.teleport(p.x + 0.5, p.y + 1, p.z + 2.5);
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) hw.setVoxel(p.x + dx, p.y, p.z + dz, 'stone');
+      for (const [dx, dz] of [[-2, -2], [0, -3], [2, -2], [-1, 0]]) hw.setVoxel(p.x + dx, p.y + 1, p.z + dz, 'glowcap');
+      hw.setVoxel(p.x + 1, p.y + 1, p.z - 1, 'pump', 2);
+      hw.spawnMob('hen', p.x - 0.5, p.y + 1, p.z - 0.5);
+      hw.lookAt(p.x, p.y + 0.6, p.z - 1);
+    }, shelf);
+    await d.settle(2000);
     await d.shot('40-glowcap-night');
+    const cool = await d.hw(() => {
+      const scene = window.__hw.app.game.renderer.scene;
+      const share = (name) => {
+        const mesh = scene.getObjectByName(name);
+        if (!mesh || !mesh.count) return null;
+        const a = mesh.geometry.getAttribute('aCool');
+        let best = 0;
+        for (let i = 0; i < mesh.count; i++) best = Math.max(best, a.array[i]);
+        return best;
+      };
+      return { hen: share('mob-hen'), pump: share('machine-pump') };
+    });
+    console.log(`       cool share: hen ${cool.hen}, pump ${cool.pump}`);
+    assert(cool.hen > 0.5 && cool.pump > 0.5, `the glowcaps' light does not tint them: ${JSON.stringify(cool)}`);
     const frame = await d.hw(() => window.__hw.sampleFrame());
     assert(frame.distinctColors > 20, `the night frame is flat: ${JSON.stringify(frame)}`);
   });
