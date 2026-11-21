@@ -171,16 +171,25 @@ function spodumene(c: Canvas): void {
   }
 }
 
-/** Pitchblende: pitch-black blots with a faint green glow seeping from their rims. */
+/** Pitchblende: irregular pitch-black blots, a faint green glow seeping from their lower rims. */
 function pitchblende(c: Canvas): void {
   const u = P.URANIUM;
   const tar: RGB = P.rgb(0x0c100c);
-  for (const [x, y] of c.scatter(4, 6)) {
-    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1], [-1, 0], [2, 1], [1, 2], [0, -1]]) c.wset(x + dx, y + dy, tar);
-    c.wset(x - 1, y + 1, u[1]);
-    c.wset(x + 2, y, u[2]);
-    c.wset(x + 1, y - 1, u[1]);
-    c.wset(x, y + 2, u[1]);
+  const blots = [
+    ['.##.', '####', '###.', '.#..'],
+    ['##..', '###.', '.###', '..#.'],
+    ['.#.', '###', '##.'],
+  ];
+  for (const [i, [x, y]] of c.scatter(4, 6).entries()) {
+    const b = blots[i % blots.length];
+    b.forEach((row, dy) => [...row].forEach((ch, dx) => ch === '#' && c.wset(x + dx, y + dy, dy === 0 ? shade(tar, 0.25) : tar)));
+    // Glow where a blot's lower edge meets the rock.
+    b.forEach((row, dy) =>
+      [...row].forEach((ch, dx) => {
+        const below = b[dy + 1]?.[dx];
+        if (ch === '#' && below !== '#') c.wset(x + dx, y + dy + 1, (dx + i) % 2 === 0 ? u[2] : u[1]);
+      }),
+    );
     c.wset(x + 1, y + 1, u[3]);
   }
 }

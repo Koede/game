@@ -46,20 +46,25 @@ function ceramicInsulator(c: Canvas): void {
 }
 
 function bellows(c: Canvas): void {
-  // Two teardrop boards hinged at a brass nozzle, leather pleats between them.
+  // Seen from above: a teardrop board with a handle, leather pleats showing at its rim, a brass nozzle.
   const w = P.WOOD;
   const leather = P.rgb(0x6a4030);
   c.each((x, y) => {
-    const u = (x - 6) / 6;
-    const v = (y - 7.5) / 6;
-    if (u < -1 || u > 1 || Math.abs(v) > 0.9 - u * 0.35) return null;
-    if (Math.abs(v) > 0.7 - u * 0.35) return y < 8 ? w[3] : w[1];
-    return x % 2 === 0 ? leather : shade(leather, 0.2);
+    const u = (x - 6.5) / 6;
+    const v = (y - 8) / 5.5;
+    const r = Math.hypot(u * (u < 0 ? 1 : 0.8), v) - u * 0.25;
+    if (r > 1 || u > 1.05) return null;
+    if (r > 0.82) return (x + y) % 2 === 0 ? leather : shade(leather, 0.25);
+    return x + y < 14 ? w[3] : x + y < 18 ? w[2] : w[1];
   });
+  // Handle at the broad end, nozzle at the narrow one.
+  c.rect(0, 6, 2, 4, w[1]);
+  c.rect(0, 6, 1, 4, w[3]);
   c.rect(12, 7, 3, 2, P.BRONZE[3]);
   c.rect(12, 8, 3, 1, P.BRONZE[1]);
-  c.rect(1, 6, 2, 4, w[2]);
-  c.set(1, 6, w[4]);
+  c.set(15, 7, P.BRONZE[4]);
+  c.set(5, 6, w[4]);
+  c.set(6, 6, w[4]);
 }
 
 function chassis(c: Canvas): void {
