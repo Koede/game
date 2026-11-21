@@ -408,92 +408,87 @@ plus ONE of these. The chain workflow used all session takes `{ model, effort, t
 
 ---------------------------------------------------------------------------------------------------------
 
-## 13. ADDENDUM - the Bronze Age (owner's later decision; SPEC 21 is the design)
+## 13. The Bronze Age has its own plan
 
-Owner: "a fully separate bronze age with pneumatics and pressure mechanics and steam boilers and steam engines
-etc. forge era will be more advanced smelting, heavy factory stuff/machines still. there should be thermocouple
-blocks in the bronze era that can move heat when connected to a heated source".
+The owner added a separate Bronze Age (pressure, pneumatics, thermocouples, the steam boiler as the first
+multiblock). Everything about it - design, numbers, algorithms, work items, briefs - is in `docs/BRONZE_PLAN.md`.
+What it changes HERE: this file now covers the EMBER mechanics only (kettle, rotor, wheel, windmill, wooden
+axles and cogs, gearbox, clutch, flywheel, gauges, millstone, saw bench, shaft bellows, mech pump, mech drill,
+draft fan, bronze trip hammer). The steam engine, boiler and pressure move to Bronze; iron/steel axles, crusher
+drive, thermopile and the DYNAMO move to Forge (still built as written in sections 2-3, just later in the tier
+order). Do the six-tier refactor (BRONZE_PLAN W0) BEFORE any wave of this file.
 
-What changes in THIS plan:
-- Sections 2-3 above: kettle, rotor, wheel, windmill, wooden axles/cogs, millstone, saw, shaft bellows, clutch,
-  flywheel, gauges stay EMBER. Move to BRONZE: steam_engine (now pressure-driven piston engine), boiler,
-  trip hammer's steam variant, mech pump/drill get pneumatic big brothers. Move to FORGE: dynamo (end of age),
-  iron axle, crusher, thermopile. Bronze gearbox stays Ember (bronze exists at the end of Ember).
-- Build order becomes: W0 the SIX-TIER REFACTOR (below), then the Ember mechanics waves W1-W4 as written,
-  then Bronze waves B1-B4.
 
-**W0 - six tiers and six ages (do this first, alone, before any new feature):**
-1. `src/content/tech.ts`: insert AgeSpec 'bronze' at index 1 and FurnaceTierSpec tier 2 `furnace_bronze`
-   (block, textures side/top/front/front_on, numbers in SPEC 21.2); renumber the rest. Hearth `structure` rules
-   move with their tiers (Blast = tier 3 ...).
-2. Every `minTier`, `age`, objective `furnaceTier`, loot age test, `specRoster*`, `progression.ts`,
-   `src/core/hearth.ts` tables, UI texts ("tier N of 5"), e2e scripts (`upgrade to Blast` now needs the Bronze
-   Furnace first) and the playthrough. Search: `rg -n "tier\b|minTier|furnaceTier|MAX_FURNACE_TIER|age:" src scripts`.
-3. Saves: bump the save document version in `src/save/document.ts` with a migration: furnace entity
-   `tier >= 2` -> `tier + 1`; voxel block ids are remapped by key already (check `docs/api/world.md` "palette") -
-   if ids are stored raw, add the palette first. Objectives completed list is by id (safe).
-4. AC: all tests, full e2e, an old save (commit one from the current build under `tests/fixtures/`) loads and
-   its Blast hearth is still formed.
+## 14. Pseudocode for the hard parts (Ember mechanics)
 
-**B1 - contracts + content (Bronze):** new networks need contracts in src/core/types.ts:
-`heat?: { role: 'conductor'|'source'|'user'; capW?: number; lossPerBlock?: number; demandW?: number }`,
-`steam?: { role: 'pipe'|'boiler'|'user'|'tank'|'valve'|'gauge'; volumeL?: number; ratedBar?: number; minBar?: number }`,
-`air?: { ... same shape ... }` on BlockSpec; constants (STEAM_L_PER_KJ, BURST_SECONDS 5, BURST_WARN_BAR 7,
-THERMO_LOSS 0.02, THERMO_BURN_C 300); events `steam:burst`, `steam:vent`, `air:leak`; SfxNames valve_shriek,
-boiler_burst, air_hiss, piston, pneumatic_thump, tube_whoosh; all blocks/items/recipes/objectives of SPEC 21
-with numbers; textures (bronze pipework with rivets, glass gauges, a boiler with bands and a firebox door);
-solver: Bronze Age needs no electricity; Blast hearth requires blast_nozzle + air.
-**B2 - simulation, three small solvers that all reuse the pipe-graph pattern (`src/sim/pipeGraph.ts`):**
-- `heatNet.ts`: flood networks; per tick per user: path length by BFS from the hottest source (cache per
-  rebuild); delivered = min(demand, cap) x 0.98^n; add to source furnace `extractW` (follow how thermopile heat
-  draw is applied in `machines.ts`/`furnace.ts`); expose temperature per conductor block for rendering and burn.
-- `steamNet.ts`: per network: volumeL, steamL (so bar = steamL / volumeL x k, clamp 0..12); boilers add
-  `heatW x STEAM_L_PER_KJ x dt` while they hold water (1 L water -> 10 L steam as today); users take
-  `rate x bar` and report drive = clamp((bar - minBar) / (rated - minBar), 0, 1); valves vent down to their
-  setting; burst logic with the 5 s timer on the lowest-rated member; saved fields: steamL per network anchor
-  entity (same trick as fluid networks: one pipe entity per network holds the amount - see `fluidNet.ts`).
-- `airNet.ts`: same file shape with compressor in, tube users out, leak = any tube arm ending in air
-  (mesher already knows open arms: reuse `meshPipe` join tables in sim via registry helper).
-- Pneumatic tubes as item transport: reuse `itemNet.ts` packets with speed x3 and a per-packet air cost; refuse
-  to pull when bar < 2 (status "No air pressure").
-- Steam engine as mech source with drive from bar; steam hammer; pneumatic press/drill; air hammer tool
-  (item with `charges`; `PlayerState` durability field can carry charges; refill via a sim action like
-  `bucketUse`).
-- Tests: conservation (steam made = used + vented + stored), burst timing and that a valve prevents it, heat
-  loss per block and the 6 kW cap, furnace cools by exactly the heat exported, pneumatic packets stop at low
-  pressure, save/load of pressures, perf.
-**B3 - render/UI/audio/player:** glowing thermocouples by temperature (vertex colour from the sim snapshot, or
-active-bit textures in 3 heat steps if cheaper), gauge needles (parts layer, angle = value), valve plume and
-shriek, piston engine with a moving beam and flywheel, burst debris; pressure and heat panels on machine
-screens ("5.2 bar - rated 8"), HUD warning at 7 bar near the player ("Boiler pressure high"), goal texts;
-Use on a valve cycles its setting (2/4/6/8) with a toast; scald damage cause 'burn' already exists.
-**B4 - wiring, `scripts/e2e-bronze.mjs`, review, release:** e2e: thermocouples from a furnace to a boiler
-3 blocks away; pressure climbs on the gauge; engine turns a millstone; remove the valve and let it burst
-(player at a distance survives; screenshot); compressor + tube delivers an item.
+### 14.1 Shaft graph with gear ratios (`mechGraph.ts`)
+```
+edges(cell):
+  b = block(cell)
+  axle/cog/clutch(engaged): the two cells along its axis, if that neighbour accepts a shaft from this side
+  junction/source/consumer/flywheel/gauge: 6 neighbours; an axle neighbour only if its axis points here
+  cog additionally: MESH edges to cogs on a parallel axis in the 4 cells perpendicular to the axis
+      ratio = this.small and that.large ? -1 (that turns half as fast) : this.large and that.small ? +1 : 0
+      every mesh edge also flips direction
+accepts(neighbour, fromDir) = neighbour is mech and (not axis-bound or its axis is along fromDir)
 
-Risks to design around (decide in B1, write them down):
-- Three more network types on top of power, shafts, items and fluids: keep ONE shared graph builder
-  (generalise `pipeGraph.ts` with a predicate) or the sim becomes unmaintainable; `simulation.ts` is already
-  too long - new systems register through a small `Subsystem { blockChanged, chunkChanged, tick, clear, save }`
-  interface instead of more fields on Simulation.
-- Phone readability: gauges must be readable as HUD target text when aimed at.
-- Bursts must be fair: warnings start at 7 bar (sound, shaking needle, HUD line) at least 5 s before.
-- The Bronze Chute (current Ember item pipe) vs pneumatic tubes: keep the chute as the slow Ember gravity-free
-  pipe, tubes are the fast Bronze upgrade (do not delete the chute; saves use it).
+build(seed):
+  queue = [seed]; node[seed] = { ratioLog2: 0, dir: +1 }
+  while queue: c = pop
+    for (n, ratioStep, flips) in edges(c):
+      want = { ratioLog2: node[c].ratioLog2 + ratioStep, dir: node[c].dir * (flips ? -1 : 1) }
+      if n not visited: node[n] = want; push n
+      else if node[n] != want: net.jammed = true        // gears fight each other
+  net.maxRpmRef = min over members of  member.maxRpm / 2^ratioLog2        // material caps at the reference shaft
+```
 
-### 13.1 Owner decision: Bronze Furnace = single block; the steam boiler = first multiblock (SPEC 21.8)
-Implementation consequences:
-- Generalise the hearth scan BEFORE writing the boiler: `hearthScan.ts` takes a `StructureRules` object
-  { walls(tier) , faceParts, roofParts, interior: 'air', ceiling: 'required'|'optional', controllerInFace,
-  minInner, maxInner, requiredParts } - the hearth passes its tier rules, the boiler passes SPEC 21.8. Put the
-  rules data in `src/content` (a `STRUCTURES` table) so content tests can compute smallest-shell material
-  counts (the solver needs them for the Bronze gate: 1x1x2 interior = 3x3x4 shell = 34 cells minus ports).
-- New sim file `boilerVessel.ts`: tracks formed vessels (same runtime shape as `hearth.ts`: dirty box, retry
-  when the player is near, one-cell sweep), exposes water L, steam L, bar, heat intake, dry timer; is the
-  `boiler` member of a steam network; ports proxy like hearth hatches (`itemEndpoint`/`fluidEndpoint` pattern).
-- UI: reuse the Structure tab component (`src/ui/screens/furnace/structureTab.ts`) - lift it to
-  `src/ui/screens/structure/` taking a generic StructureView; the boiler screen = gauge (bar), water level bar,
-  heat in (kW), steam out (L/s), valve setting, Structure tab.
-- Render: water level visible in the gauge glass (parts layer), plume from the valve, burst debris.
-- Tests: boiler forms/unforms with every problem code; capacity by size; dry-fire warp; burst with and without
-  valve; heat only via heat_port; e2e-bronze builds the smallest boiler from the ghost preview on a phone.
+### 14.2 Speed and stress solve (`mech.ts`)
+```
+tick(net, dt):
+  if net.jammed: stop(net, 'Gears fight each other'); return
+  ref = 0; cap = 0
+  for s in sources: d = s.drive()                      // rotor: steam share; wheel: flowing faces; engine: bar
+     if d <= 0: continue
+     ref = max(ref, s.rpm * d / 2^ratio(s))            // its speed expressed at the reference shaft
+     cap += s.capacity * d
+  ref = min(ref, net.maxRpmRef, MECH_MAX_RPM)
+  if ref == 0:                                         // nothing drives it
+     if net.flywheels > 0 and net.coastS < FLYWHEEL_COAST_S: net.coastS += dt; ref = net.lastRef * (1 - net.coastS / FLYWHEEL_COAST_S)
+     else: setSpeed(net, 0, 'No steam'); return
+  else net.coastS = 0; net.lastRef = ref
+  load = 0
+  for m in consumers: rpm = ref * 2^ratio(m)
+     m.willRun = m.on and m.hasWork() and rpm >= m.minRpm
+     if m.willRun: load += m.stress * rpm / MECH_BASE_RPM
+  seized = load > cap
+  if seized != net.seized: net.seized = seized; emit(seized ? 'mech:seized' : 'mech:freed'); toast once
+  for every member: member.rpm = seized ? 0 : ref * 2^ratio(member) * member.dir
+  for m in consumers: if m.willRun and !seized: m.advance(dt * |m.rpm| / m.minRpm capped at 4x)
+                      else m.status = seized ? seizedText(load, cap) : tooSlowText(m.minRpm, |m.rpm|)
+  net.capacity = cap; net.load = load
+```
+
+### 14.3 Kettle and rotor coupling (`kettle.ts`)
+```
+kettle.tick(dt):
+  f = furnaceBelow(); T = f ? f.tempC : AMBIENT
+  rotors = touching steam_rotors that are on and whose shaft is not seized
+  demand = rotors.length > 0 ? 1 : 0                    // open kettle: steam is only made when something uses it
+  canBoil = T >= KETTLE_MIN_TEMP_C and waterL > 0
+  rate = canBoil ? KETTLE_BOIL_L_PER_S * demand * clamp((T - 120) / 200 + 0.5, 0.5, 1) : 0
+  waterL -= rate * WATER_PER_STEAM * dt
+  f.extractW += KETTLE_HEAT_W * rate / KETTLE_BOIL_L_PER_S          // the fire pays
+  share = rotors.length ? rate / rotors.length : 0
+  for r in rotors: r.driveValue = share / KETTLE_BOIL_L_PER_S       // 0..1 -> rotor.drive()
+  refill: touching water source with >= 2 source neighbours -> waterL += 50 * dt (endless);
+          a lone source is consumed for 1000 L; buckets/pipes through the fluid endpoint
+```
+
+### 14.4 Turning parts that never jump (render)
+```
+per network, on the CPU each frame:  net.angle = (net.angle + net.refRpm * 6 * frameDt) mod 360*64   // degrees
+per instance upload:  angle = net.angle * 2^ratioLog2 * dir + phase
+  phase for a cog = (meshParity ? 180 / teeth : 0) so meshed teeth interleave
+shader: rotate the part's vertices about its axis by `angle` (no time uniform), so a speed change never snaps
+seized: refRpm = 0 and a 0.3 s decaying shake offset = sin(t * 60) * 0.02 * e^(-t / 0.1)
+```
