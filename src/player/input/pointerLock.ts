@@ -8,6 +8,11 @@
 const LOCK_TIMEOUT_MS = 800;
 /** After this many refusals in a row, clicks stop asking for the lock on their own. */
 const MAX_AUTO_FAILURES = 2;
+/**
+ * Browsers refuse a new lock for about a second after the player left one with Escape. Refusals in that window
+ * say nothing about whether locking works here, so they are not counted.
+ */
+const RELOCK_COOLDOWN_MS = 2000;
 
 export interface PointerLockEvents {
   locked(): void;
@@ -20,6 +25,7 @@ export class PointerLock {
   private failures = 0;
   private expectUnlock = false;
   private wasLocked = false;
+  private unlockedAt = -Infinity;
   private waiters: Array<(locked: boolean) => void> = [];
   private disposed = false;
   private readonly onChange = (): void => this.changed();
@@ -100,6 +106,7 @@ export class PointerLock {
     }
     if (!this.wasLocked) return;
     this.wasLocked = false;
+    this.unlockedAt = performance.now();
     const byPlayer = !this.expectUnlock;
     this.expectUnlock = false;
     this.events.unlocked(byPlayer);
@@ -107,7 +114,7 @@ export class PointerLock {
 
   private failed(): void {
     if (this.waiters.length === 0) return;
-    this.failures++;
+    if (performance.now() - this.unlockedAt > RELOCK_COOLDOWN_MS) this.failures++;
     this.settle(false);
   }
 
