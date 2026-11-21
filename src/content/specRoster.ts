@@ -6,6 +6,7 @@
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { BREW_SPEC } from './specRosterBrew';
 import { DISTILL_SPEC } from './specRosterDistill';
+import { MAGIC_SPEC } from './specRosterMagic';
 import { EMBER_SPEC } from './specRosterEmber';
 import { GROUND_SPEC } from './specRosterGround';
 import { FOOD_SPEC } from './specRosterFood';
@@ -377,3 +378,9 @@ Object.assign(SPEC.machines, DISTILL_SPEC.machines);
 Object.assign(SPEC.blockProps, DISTILL_SPEC.blockProps);
 SPEC.recipes.furnace.push(...DISTILL_SPEC.recipes.furnace);
 for (const station of Object.keys(DISTILL_SPEC.recipes)) if (station !== 'furnace') SPEC.recipes[station] = DISTILL_SPEC.recipes[station];
+
+// Essentia & Research (docs/OVERHAUL_PLAN.md B) comes after the distillery: its lists are appended last.
+SPEC.blocks.push(...MAGIC_SPEC.blocks);
+SPEC.items.push(...MAGIC_SPEC.items);
+for (const station of Object.keys(MAGIC_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...MAGIC_SPEC.recipes[station]];
+SPEC.maxTextures += MAGIC_SPEC.textures;

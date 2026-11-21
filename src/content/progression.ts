@@ -27,6 +27,8 @@
  * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
+import { ASPECTS } from '../magic/aspects';
+import { vialKey } from './itemsMagic';
 import {
   AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS,
   FURNACE_BUFF_C,
@@ -306,6 +308,8 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     }
     // Resin: a glass beaker held against a pine log catches its sap (player/sapTools.ts; item use, not a recipe).
     if (items.has('glass_beaker') && items.has('pine_log') && gain('pine_sap', 'tap')) changed = true;
+    // Essentia (docs/OVERHAUL_PLAN.md B): a gathering rod fills empty vials from the land (item use). Source 'gather'.
+    if (items.has('vis_rod') && items.has('glass_vial')) for (const a of ASPECTS) if (gain(vialKey(a.key), 'gather')) changed = true;
     if (canTill(world, items)) {
       for (const crop of crops) {
         if (!crop.seed || !items.has(crop.seed)) continue;
