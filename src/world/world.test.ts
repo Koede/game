@@ -217,16 +217,23 @@ describe('World streaming', () => {
     await settle(world, 8, 8);
     expect(world.getVoxel(5, 70, 5)).toBe(STONE);
     expect(world.getVoxel(-20, 3, 40)).toBe(edited);
-    expect(world.stats().edits).toBe(2);
+    // Besides the player's two edits: one per Old Works crate the World placed in the chunks it loaded on the way.
+    const crates = [...world.entities()].filter((e) => e.kind === 'crate').length;
+    expect(world.stats().edits).toBe(2 + crates);
   });
 
   it('keeps chunks around block entities loaded however far the player goes', async () => {
     const rec = record();
     const world = new World(SEED, rec.bus);
     await settle(world, 8, 8);
-    const crate: BlockEntity = { kind: 'crate', x: 8, y: 40, z: 8, slots: [] };
+    const crate: BlockEntity = { kind: 'thermopile', x: 8, y: 40, z: 8 };
     world.setEntity(crate);
     expect(world.getEntity(8, 40, 8)).toBe(crate);
+    // Crates never pin (they do nothing on their own; whatever reaches into one pins its own chunks).
+    const pinned = world.stats().pinned;
+    world.setEntity({ kind: 'crate', x: 200, y: 40, z: 8, slots: [] });
+    expect(world.stats().pinned).toBe(pinned);
+    world.removeEntity(200, 40, 8);
     rec.clear();
     await settle(world, 40 * CHUNK_SIZE, 8);
     for (let cz = -1; cz <= 1; cz++) {
@@ -243,7 +250,7 @@ describe('World streaming', () => {
     world.update(40 * CHUNK_SIZE, 8, 2, 0);
     expect(world.isLoaded(8, 8)).toBe(false);
     expect(rec.count('chunk:unloaded', 0, 0)).toBe(1);
-    expect([...world.entities()]).toEqual([]);
+    expect([...world.entities()].filter((e) => e.kind !== 'crate')).toEqual([]);
   });
 
   it('loads the chunks around a far-away entity, after the ones in view', async () => {

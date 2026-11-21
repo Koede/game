@@ -183,7 +183,7 @@ function drawPine(voxels: Uint16Array, x0: number, z0: number, s: TreeSite, top:
     // A cone of alternating wide and narrow rings; tall pines widen further towards the ground.
     let r = k === 0 ? 0 : k < 3 ? 1 : k % 2 === 1 ? 2 : 1;
     if (tall && k >= 6) r = k % 3 === 0 ? 2 : 3;
-    const limit = r * r + (r > 1 ? 1 : 0) - (r === 3 ? 2 : 0);
+    const limit = r === 3 ? 10 : r * r + (r > 1 ? 1 : 0);
     for (let dz = -r; dz <= r; dz++) {
       for (let dx = -r; dx <= r; dx++) if (dx * dx + dz * dz <= limit) put(voxels, x0, z0, s.x + dx, y, s.z + dz, ID.pineLeaves, false);
     }

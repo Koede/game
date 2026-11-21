@@ -12,6 +12,8 @@ import {
 import { chunkCoord, chunkKey, localCoord, type Chunk } from './chunk';
 import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
+import { CRATE_VOXEL, ruinCrateEntity } from './ruinCrates';
+import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
 import { WorkerPool, type PoolMode } from './workerPool';
 import { biomeAt, findSpawn } from './worldgen';
@@ -57,6 +59,7 @@ export class World implements IWorld {
   private streamer: ChunkStreamer;
   private readonly host: StreamHost;
   private readonly ownsPool: boolean;
+  private readonly offChunkLoaded: () => void;
 
   constructor(seed: number, readonly bus: GameBus, options: WorldOptions = {}) {
     this.currentSeed = seed >>> 0;
@@ -74,6 +77,7 @@ export class World implements IWorld {
       entities: this.entityStore,
     };
     this.streamer = new ChunkStreamer(this.host);
+    this.offChunkLoaded = bus.on('chunk:loaded', ({ cx, cz }) => this.placeRuinCrates(cx, cz));
   }
 
   /** Restores a world from a snapshot (see load). */
@@ -233,8 +237,22 @@ export class World implements IWorld {
     this.streamer = new ChunkStreamer(this.host);
   }
 
+  /**
+   * The Old Works crates of a freshly loaded chunk: placed through the entity API with their loot the first
+   * time only. Once placed (or once anything else happened to that cell) the edit log remembers it.
+   */
+  private placeRuinCrates(cx: number, cz: number): void {
+    for (const { x, y, z } of ruinCrateCells(this.currentSeed, cx, cz)) {
+      if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z))) || this.entityStore.get(x, y, z)) continue;
+      if (this.getVoxel(x, y, z) !== AIR) continue;
+      this.setEntity(ruinCrateEntity(this.currentSeed, x, y, z, this.spawnPoint()));
+      this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
+    }
+  }
+
   /** Stops streaming; disposes the pool if the world created it. */
   dispose(): void {
+    this.offChunkLoaded();
     this.streamer.dispose();
     if (this.ownsPool) this.pool.dispose();
   }

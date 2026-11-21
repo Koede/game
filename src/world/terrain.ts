@@ -135,8 +135,8 @@ function frostfellHeight(t: Terrain, x: number, z: number, detail: number): numb
 
 /** Flat wetland at sea level: dry tussocks at y 31-32 between shallow pools one or two blocks deep. */
 function marshHeight(t: Terrain, x: number, z: number, detail: number): number {
-  const pools = t.marshPool.fbm2(x / 21, z / 21, 2) + 0.35 * t.marshPool.noise2(x / 7 + 40, z / 7 - 40);
-  return 32.25 + 0.55 * detail - 2.7 * smoothstep(0.08, 0.3, pools);
+  const pools = t.marshPool.fbm2(x / 19, z / 19, 2) + 0.3 * t.marshPool.noise2(x / 6 + 40, z / 6 - 40);
+  return 32.25 + 0.55 * detail - 2.8 * smoothstep(-0.04, 0.2, pools);
 }
 
 function scarHeight(t: Terrain, x: number, z: number): number {
@@ -163,7 +163,7 @@ export function sampleColumn(t: Terrain, x: number, z: number, out: Column): Col
   let wMarsh = 0;
   if (temperate > 0) {
     const near = smoothstep(MARSH_NEAR, MARSH_FULL, Math.hypot(x, z));
-    if (near > 0) wMarsh = temperate * near * smoothstep(0.1, 0.22, t.marsh.fbm2(x / 290 + 13.1, z / 290 - 71.3, 3));
+    if (near > 0) wMarsh = temperate * near * smoothstep(0.03, 0.15, t.marsh.fbm2(x / 340 + 13.1, z / 340 - 71.3, 3));
   }
   const wWood = temperate - wMarsh;
 
@@ -215,11 +215,11 @@ export function sampleColumn(t: Terrain, x: number, z: number, out: Column): Col
   const oilGateS = wScar > 0.85 && !lava ? smoothstep(0.86, 0.93, wScar) * (1 - smoothstep(0.04, 0.12, lavaNoise)) : 0;
   const oilGate = oilGateD > 0 ? oilGateD * (1 - smoothstep(0.3, 0.4, t.oasis.noise2(x / 100, z / 100))) : oilGateS;
   if (oilGate > 0) {
-    const o = t.oil.fbm2(x / 38, z / 38, 2);
-    if (o > 0.24) {
+    const o = t.oil.noise2(x / 34, z / 34);
+    if (o > 0.12) {
       oilTop = oilGateD > 0 ? OIL_TOP_DUNES : OIL_TOP_SCAR;
-      h = lerp(h, Math.max(h, oilTop + 0.95), smoothstep(0.24, 0.33, o) * oilGate);
-      oil = smoothstep(0.42, 0.52, o) * smoothstep(0.97, 1, oilGate);
+      h = lerp(h, Math.max(h, oilTop + 0.95), smoothstep(0.12, 0.2, o) * oilGate);
+      oil = smoothstep(0.29, 0.38, o) * smoothstep(0.97, 1, oilGate);
       if (oil > 0) h = lerp(h, oilTop - 1.6, oil);
     }
   }
@@ -282,8 +282,8 @@ export function surfaceKind(t: Terrain, col: Column, x: number, z: number): numb
       // Clay-rich: pools are floored with clay or peat, and the wet ground between them shows both in patches.
       if (col.liquid === LIQUID_WATER) return clay > -0.12 ? SURFACE_CLAY : SURFACE_PEAT;
       if (depth >= 0) {
-        if (clay > 0.3) return SURFACE_CLAY;
-        if (gravel > 0.28) return SURFACE_PEAT;
+        if (clay > 0.26) return SURFACE_CLAY;
+        if (gravel > 0.12) return SURFACE_PEAT;
       }
       return SURFACE_GRASS;
     default:

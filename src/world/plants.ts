@@ -204,7 +204,7 @@ export function placeSurfaceLife(t: Terrain, voxels: Uint16Array, x0: number, z0
           const dz = z - s.z;
           const height = dx === 0 && dz === 0 ? s.size : dx * dz === 0 ? (s.size >> 1) - ((s.bits >>> (dx + 2 * dz + 3)) & 1) : s.size >= 10 ? s.size >> 2 : 0;
           if (height > 0) {
-            stack(voxels, i, h, height, ID.packedIce, ID.iceSpike);
+            stack(voxels, i, h, Math.max(2, height), ID.packedIce, ID.iceSpike);
             continue;
           }
         }

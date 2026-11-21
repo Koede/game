@@ -139,7 +139,7 @@ export function squareRuin(seed: number, sx: number, sz: number): RuinSite | nul
   if ((h & 0xffff) / 65536 < RUIN_CHANCE) {
     const t = terrainFor(seed);
     const span = SQUARE - 2 * SQUARE_MARGIN;
-    for (let attempt = 0; attempt < 4 && !found; attempt++) {
+    for (let attempt = 0; attempt < 8 && !found; attempt++) {
       const a = hash32(seed, sx, sz, 0x2a1e + attempt);
       found = siteAt(t, sx * SQUARE + SQUARE_MARGIN + (a % span), sz * SQUARE + SQUARE_MARGIN + ((a >>> 12) % span), a >>> 3, 3);
     }

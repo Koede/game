@@ -1,9 +1,13 @@
 /**
  * Block entities (machine state) keyed by position. Every entity pins its own chunk and the 8 around it:
- * the world keeps their voxels loaded however far away the player is (spec section 5).
+ * the world keeps their voxels loaded however far away the player is (spec section 5). Crates are the
+ * exception: they never act on their own, and every machine or furnace that reaches into a crate (touching,
+ * or within 4 blocks) already pins the chunks around itself, so a crate left in a far-off ruin costs nothing.
  */
 import type { BlockEntity } from '../core/types';
 import { chunkCoord, chunkKey } from './chunk';
+
+const pins = (e: BlockEntity): boolean => e.kind !== 'crate';
 
 const SPAN = 1 << 21;
 const HALF = 1 << 20;
@@ -30,9 +34,11 @@ export class EntityStore {
   /** Adds or replaces the entity at its position; returns true when the set of pinned chunks changed. */
   set(entity: BlockEntity): boolean {
     const key = positionKey(Math.floor(entity.x), Math.floor(entity.y), Math.floor(entity.z));
-    const had = this.byPos.has(key);
+    const old = this.byPos.get(key);
     this.byPos.set(key, entity);
-    return had ? false : this.pin(entity, 1);
+    const unpinned = old !== undefined && pins(old) && this.pin(old, -1);
+    const pinned = pins(entity) && this.pin(entity, 1);
+    return unpinned || pinned;
   }
 
   /** Removes and returns the entity at a position; `changed` tells whether pinned chunks changed. */
@@ -41,7 +47,7 @@ export class EntityStore {
     const entity = this.byPos.get(key);
     if (!entity) return { entity, changed: false };
     this.byPos.delete(key);
-    return { entity, changed: this.pin(entity, -1) };
+    return { entity, changed: pins(entity) && this.pin(entity, -1) };
   }
 
   values(): IterableIterator<BlockEntity> {

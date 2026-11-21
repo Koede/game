@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { seedFromString } from '../core/math';
 import { BLOCKS, ORE_VEINS, blockId } from '../core/registry';
 import { AIR, CHUNK_SIZE, SEA_LEVEL, WORLD_HEIGHT, voxelId, voxelIndex } from '../core/types';
+import { RUIN_SPAWN_RADIUS } from '../core/constants';
 import { chunkKey } from './chunk';
+import { ruinCrateCells, spawnRuin } from './ruins';
 import { biomeAt, findSpawn, generateChunk } from './worldgen';
 
 const SEED = seedFromString('worldgen-test');
 const WATER = blockId('water');
 const LOGS = new Set([blockId('oak_log'), blockId('pine_log')]);
+const LEAVES = new Set([blockId('oak_leaves'), blockId('pine_leaves')]);
 
 /** Generated chunks of one seed with world-coordinate access (AIR outside what was generated). */
 class Sample {
@@ -42,7 +45,7 @@ describe('generateChunk', () => {
     for (const voxels of big.chunks.values()) {
       let bad = 0;
       for (let i = 0; i < CHUNK_SIZE * CHUNK_SIZE; i++) if (voxels[i] !== corestone) bad++;
-      for (let i = 0; i < voxels.length; i++) if (voxels[i] >= BLOCKS.length) bad++;
+      for (let i = 0; i < voxels.length; i++) if (voxelId(voxels[i]) >= BLOCKS.length) bad++;
       expect(bad).toBe(0);
     }
   });
@@ -53,7 +56,8 @@ describe('generateChunk', () => {
       const x = cx * CHUNK_SIZE + 15;
       for (let z = -96; z < 96; z++) {
         for (let y = SEA_LEVEL; y < WORLD_HEIGHT - 2; y++) {
-          if (!LOGS.has(big.get(x, y, z)) || LOGS.has(big.get(x, y + 1, z))) continue;
+          // The top of a trunk under its crown (boughs and leafless snags have no crown to continue).
+          if (!LOGS.has(big.get(x, y, z)) || !LOGS.has(big.get(x, y - 1, z)) || !LEAVES.has(big.get(x, y + 1, z))) continue;
           // The crown around the top of a trunk on the border reaches into the next chunk.
           expect(big.get(x + 1, y, z), `crown of the tree at ${x},${y},${z}`).not.toBe(AIR);
           expect(big.get(x - 1, y, z)).not.toBe(AIR);
@@ -108,12 +112,21 @@ describe('generateChunk', () => {
     }
   });
 
-  it('generates a chunk well within 25 ms', () => {
-    const t0 = performance.now();
-    for (let i = 0; i < 30; i++) generateChunk(SEED + 7, 20 + (i % 6), 20 + Math.floor(i / 6));
-    const ms = (performance.now() - t0) / 30;
-    console.log(`generateChunk: ${ms.toFixed(2)} ms average over 30 chunks`);
-    expect(ms).toBeLessThan(25);
+  it('generates a chunk in well under 4 ms', () => {
+    // Warm up first: the seed's noise tables, spawn point and spawn ruin are built once per seed and thread.
+    for (let i = 0; i < 4; i++) generateChunk(SEED + 7, -20 - i, 3);
+    // Best of five batches, so other work on the machine (parallel test files) does not count.
+    let best = Infinity;
+    let total = 0;
+    for (let batch = 0; batch < 5; batch++) {
+      const t0 = performance.now();
+      for (let i = 0; i < 12; i++) generateChunk(SEED + 7, 20 + (i % 6) + batch * 6, 20 + Math.floor(i / 6));
+      const ms = (performance.now() - t0) / 12;
+      best = Math.min(best, ms);
+      total += ms;
+    }
+    console.log(`generateChunk: ${(total / 5).toFixed(2)} ms average over 60 chunks, best batch ${best.toFixed(2)} ms`);
+    expect(best).toBeLessThan(4);
   });
 });
 
@@ -124,7 +137,7 @@ describe('findSpawn', () => {
     expect(findSpawn(SEED)).toEqual(findSpawn(SEED));
   });
 
-  it.each(seeds)('seed "%s" starts in dry woodland with wood, stone, clay, gravel and water nearby', (name) => {
+  it.each(seeds)('seed "%s" starts in dry woodland with wood, stone, clay, gravel, water and wild wheat nearby, and a ruin', (name) => {
     const seed = seedFromString(name);
     const spawn = findSpawn(seed);
     expect(biomeAt(seed, spawn.x, spawn.z)).toBe('woodland');
@@ -136,7 +149,8 @@ describe('findSpawn', () => {
     expect(BLOCKS[area.get(spawn.x, spawn.y, spawn.z)].solid).toBe(false);
     expect(area.get(spawn.x, spawn.y + 1, spawn.z)).toBe(AIR);
 
-    const count = { logs: 0, clay: 0, gravel: 0, water: 0, stone: 0 };
+    const count = { logs: 0, clay: 0, gravel: 0, water: 0, stone: 0, wheat: 0 };
+    const wheat = blockId('wild_wheat');
     const ids = { clay: blockId('clay'), gravel: blockId('gravel'), stone: blockId('stone') };
     for (let dz = -48; dz <= 48; dz++) {
       for (let dx = -48; dx <= 48; dx++) {
@@ -150,6 +164,7 @@ describe('findSpawn', () => {
           if (id === AIR) continue;
           if (LOGS.has(id)) count.logs++;
           else if (id === WATER) count.water++;
+          else if (id === wheat) count.wheat++;
           else if (BLOCKS[id].opaque && !BLOCKS[id].key.endsWith('leaves')) {
             // Only what lies within 5 blocks of the surface counts as easy to reach.
             depth++;
@@ -165,5 +180,17 @@ describe('findSpawn', () => {
     expect(count.gravel).toBeGreaterThanOrEqual(12);
     expect(count.water).toBeGreaterThanOrEqual(8);
     expect(count.stone).toBeGreaterThanOrEqual(20);
+    expect(count.wheat).toBeGreaterThanOrEqual(3);
+
+    // The Old Works: a ruin's crate cell within RUIN_SPAWN_RADIUS, empty and standing on the ruin's floor.
+    const ruin = spawnRuin(seed);
+    expect(ruin).not.toBeNull();
+    if (!ruin) return;
+    const crate = { x: ruin.crateX, y: ruin.floor + 1, z: ruin.crateZ };
+    expect(Math.hypot(crate.x - spawn.x, crate.z - spawn.z)).toBeLessThanOrEqual(RUIN_SPAWN_RADIUS);
+    const voxels = generateChunk(seed, Math.floor(crate.x / 16), Math.floor(crate.z / 16));
+    expect(voxels[voxelIndex(crate.x & 15, crate.y, crate.z & 15)]).toBe(AIR);
+    expect(BLOCKS[voxelId(voxels[voxelIndex(crate.x & 15, crate.y - 1, crate.z & 15)])].solid).toBe(true);
+    expect(ruinCrateCells(seed, Math.floor(crate.x / 16), Math.floor(crate.z / 16))).toContainEqual(crate);
   });
 });

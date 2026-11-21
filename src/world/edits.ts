@@ -70,6 +70,11 @@ export class EditLog {
     map.set(index, voxel);
   }
 
+  /** True when the voxel at `index` of chunk (cx, cz) was ever changed. */
+  has(cx: number, cz: number, index: number): boolean {
+    return this.chunks.get(chunkKey(cx, cz))?.has(index) ?? false;
+  }
+
   /** Writes the stored edits of a chunk over its voxels; returns how many there were. */
   apply(cx: number, cz: number, voxels: Uint16Array): number {
     const map = this.chunks.get(chunkKey(cx, cz));
