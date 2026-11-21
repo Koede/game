@@ -88,3 +88,4 @@ All keys are exactly those of spec section 2. Things worth knowing:
 
 ## Later additions
 Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, sounds, ambience fields and textures here: see `docs/api/world-content.md`.
+Spec sections 16-17 (item and fluid transport, multiblock hearths) added keys, fluids, structures, sounds and textures, and changed the upgrade costs: see `docs/api/tech-content.md`.

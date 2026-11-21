@@ -1090,3 +1090,19 @@ T3 2 copper_coil, 2 steel_plate; T4 2 circuit, 2 tungsten_rod; T5 1 star_core, 8
   temperature heat ramp) and the hearth lights its surroundings by temperature; open tops emit heat shimmer and
   smoke; windows show the inner glow. Formation moment: a light sweep across the shell, a deep "whoomph" (new
   SfxName 'hearth_formed'), toast "Blast hearth formed".
+
+### 16-17 data (laid down by the tech-content pass; full tables in docs/api/tech-content.md)
+- Contracts: BlockShape 'pipe' with `BlockSpec.pipe` (family, ratePerS, batch, speedBlocksPerS, capacityL, hot);
+  `FluidKey` / `FluidSpec` and the registry's `FLUIDS` (water, lava, steam, crude_oil, fuel - colour, hot, glow, world
+  liquid, bucket); `MachineSpec.fluids` (accepts, gives, capacityL); `FurnaceTierSpec.structure` (wall, min/maxInner,
+  ceiling, electrodes, powerPorts, crucible rule); `BlockTextures.bottomActive`; roles 'tank' and 'hearth_part'; events
+  'hearth:formed' / 'hearth:unformed'; sfx hearth_formed, pipe_clunk; PIPE_* and HEARTH_* constants; pure hearth
+  lookups in src/core/hearth.ts; registry helpers pipeJoins, pipeCarries, isItemEndpoint, isFluidEndpoint,
+  hearthWallTier, fluidInBucket, bucketFilledWith, fluidOfLiquid.
+- Keys: blocks item_pipe, fast_item_pipe, fluid_pipe, hot_fluid_pipe, pump, tank, boiler, steam_turbine,
+  refractory_brick, plasma_casing, star_casing, electrode, item_hatch, fluid_hatch, power_port; item wrench (a tool
+  with no ToolSpec). Machines pump, tank, boiler, steam_turbine, item_hatch, fluid_hatch, power_port; fluid ports on
+  steam_engine, electrolyzer, fission_pile, combustion_engine, still, geothermal_tap.
+- Objectives pipe_ore ("Pipe it in", after blast_furnace) and pump_water ("Pump water", after arc_furnace). The
+  progression solver requires each tier's smallest shell (16 brick; 24 refractory brick + 1 electrode; 53 plasma
+  casing + 2 power ports; 93 star casing + 4 power ports) to be obtainable at the previous tier.

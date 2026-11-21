@@ -125,7 +125,7 @@ const PARTS: ItemSpec[] = [
   { key: 'copper_wire', name: 'Copper Wire', desc: 'Drawn copper. The start of every cable, coil and circuit.', category: 'component', age: 0 },
   { key: 'copper_coil', name: 'Copper Coil', desc: 'Wire wound on an iron core. With a coil, motion becomes current and current becomes motion.', category: 'component', age: 1 },
   { key: 'chassis', name: 'Chassis', desc: 'An iron frame braced with bronze. Most machines are built around one.', category: 'component', age: 1 },
-  { key: 'graphite_electrode', name: 'Graphite Electrode', desc: 'A baked carbon rod that carries an electric arc. The Arc Furnace is built on three of them.', category: 'component', age: 1 },
+  { key: 'graphite_electrode', name: 'Graphite Electrode', desc: 'A baked carbon rod that carries an electric arc. Three of them make the Arc Electrode set in the ceiling of an Arc hearth.', category: 'component', age: 1 },
   { key: 'silica', name: 'Silica', desc: 'Crushed quartz, white and gritty. The raw stuff of wafers and fused quartz.', category: 'material', age: 1 },
   { key: 'silicon_wafer', name: 'Silicon Wafer', desc: 'A thin slice of purified silicon. Circuits and solar panels are built on it.', category: 'component', age: 2 },
   { key: 'circuit', name: 'Circuit', desc: 'A wafer wired to think a little. It lets a machine regulate itself.', category: 'component', age: 2 },
