@@ -12,25 +12,23 @@ import {
   HOSTILE_SPAWN_INTERVAL_S,
   HOSTILE_WIND_DOWN_SUNLIGHT,
   MOB_DEATH_S,
-  MOB_HIT_COOLDOWN_S,
   PLAYER_HEIGHT,
-  FLAG_AUTOMATON_SALVAGED,
 } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
 import { hostileCap, hostileDamage, type SkyFacts } from '../core/hostile';
 import type { CreatureSpec, HostileSpec, IWorld } from '../core/types';
-import { angleDiff, bodyHeight, halfWidth, yawTowards } from './brain';
+import { bodyHeight, halfWidth } from './brain';
 import { knockVector, voicePitch } from './attacks';
-import { CORPSE_FADE_S, FLASH_S, KNOCK_H, KNOCK_V, VOID_Y } from './constants';
+import { CORPSE_FADE_S, VOID_Y } from './constants';
 import { separate } from './crowd';
 import { guardRuin, sweepRuins, type GuardHost } from './guards';
-import { PROVOKED_S, thinkHostile, wake } from './hostileBrain';
+import { thinkHostile } from './hostileBrain';
+import { hitHostile, hurtHostile, type HurtEnv } from './hostileHurt';
 import type { HostileCtx } from './hostileCtx';
 import { stepFlyer } from './hostileMove';
 import { createHostile, saveHostiles, type RestoredHostiles } from './hostileRecords';
 import { trySpawn, type HostileSpawnHost } from './hostileSpawner';
 import type { HitOptions, HostileHooks, HostileRole, HostilesSnapshot, Projectile } from './hostileTypes';
-import { rollDrops } from './mob';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
 import { Projectiles, type BoltHost } from './projectiles';
 import { liquidAt } from './terrain';
@@ -41,8 +39,6 @@ import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
 const STEP_RANGE = 24;
 /** How often (seconds) ruins near the player are checked for guards, and far automatons for despawning. */
 const SWEEP_S = 1;
-/** A hit throws an automaton back by KNOCK_H scaled by min(1, this / its health): the colossus barely moves. */
-const KNOCK_MASS = 8;
 const CLEAR_SKY: SkyFacts = { storm: false, moonPhase: 4 };
 
 /** What the layer needs from the manager. */
@@ -80,6 +76,7 @@ export class HostileLayer {
   private readonly boltHost: BoltHost;
   private readonly spawnHost: HostileSpawnHost;
   private readonly guardHost: GuardHost;
+  private readonly hurtEnv: HurtEnv;
   /** Chunk columns loaded since the last tick ([cx, cz] pairs): their ruins may now be whole. */
   private readonly freshChunks: number[] = [];
   private readonly off: () => void;
@@ -91,7 +88,7 @@ export class HostileLayer {
       player: { x: 0, y: 0, z: 0, yaw: 0, heldItem: () => null },
       playerSafe: false, playerWet: false, night: false, daylight: true, safe,
       hurtPlayer: (m, spec, mult, dx, dz, knock, sx, sy, sz) => this.hurtPlayer(m, spec, mult, dx, dz, knock, sx, sy, sz),
-      fireBolt: (m, spec, x, y, z, vx, vy, vz) => {
+      fireBolt: (m, _spec, x, y, z, vx, vy, vz) => {
         this.projectiles.fire(host.bus, { id: m.id, species: m.spec.key }, x, y, z, vx, vy, vz, hostileDamage(m.spec, this.difficulty));
       },
     };
@@ -110,6 +107,7 @@ export class HostileLayer {
       world: host.world, seed: host.seed, guarded: this.guarded,
       addGuard: (spec, x, y, z, yaw, role, ruin) => this.addGuard(spec, x, y, z, yaw, role, ruin),
     };
+    this.hurtEnv = { bus: host.bus, rng: host.rng, ctx: this.ctx, died: (d) => host.died(d) };
     this.off = host.bus.on('chunk:loaded', ({ cx, cz }) => {
       this.freshChunks.push(cx, cz);
     });
@@ -344,66 +342,13 @@ export class HostileLayer {
 
   // ------------------------------------------------------------------------------------------ the player's hits
 
-  /**
-   * The player hits automaton `m` for `damage` from (fromX, fromZ): a shield arm facing the blow takes
-   * `shieldFront` of it, a knock back scaled by its bulk, a flash and a clang; it wakes and turns on the player, and
-   * an arc maul (opts.stunS) stuns it. At 0 health it breaks apart at once: 'automaton:salvaged', 'mob:died', the
-   * flag and the drops (death listeners).
-   */
+  /** The player hits automaton `m` (see hitHostile in hostileHurt.ts). */
   hit(m: Mob, damage: number, fromX: number, fromZ: number, opts: HitOptions = {}): HitResult {
-    if (m.state === 'dying') return { ok: false, reason: 'dead' };
-    if (m.hitCooldownS > 0) return { ok: false, reason: 'cooldown' };
-    const s = m.spec.hostile!;
-    const h = m.hostile!;
-    m.hitCooldownS = opts.cooldownS ?? MOB_HIT_COOLDOWN_S;
-    const dx = fromX - m.x;
-    const dz = fromZ - m.z;
-    if (s.shieldFront !== undefined && h.stunS <= 0 && Math.abs(angleDiff(m.yaw, yawTowards(dx, dz))) <= Math.PI / 2) damage *= s.shieldFront;
-    if (!s.stationary) {
-      const k = KNOCK_H * Math.min(1, KNOCK_MASS / m.spec.health);
-      const d = Math.hypot(dx, dz) || 1;
-      m.vx = (-dx / d) * k;
-      m.vz = (-dz / d) * k;
-      if (m.onGround && !s.flying) m.vy = KNOCK_V * Math.min(1, KNOCK_MASS / m.spec.health);
-    }
-    if (h.mode === 'dormant') wake(this.ctx, m);
-    h.mode = h.mode === 'dormant' || h.mode === 'roam' ? 'chase' : h.mode;
-    h.aware = true;
-    h.unseenS = 0;
-    h.roamS = 0;
-    h.lastX = fromX;
-    h.lastZ = fromZ;
-    h.provokedS = PROVOKED_S;
-    if (opts.stunS !== undefined && opts.stunS > 0) {
-      h.stunS = Math.max(h.stunS, opts.stunS);
-      if (h.mode === 'windup' || h.mode === 'dash') h.mode = 'chase';
-    }
-    this.hurtMob(m, damage, 'player');
-    return { ok: true, health: Math.max(0, m.health), killed: m.health <= 0 };
+    return hitHostile(this.hurtEnv, m, damage, fromX, fromZ, opts);
   }
 
   private hurtMob(m: Mob, damage: number, cause: DeathCause): void {
-    m.health -= damage;
-    m.hurtS = FLASH_S;
-    const y = m.y + bodyHeight(m) * 0.6;
-    const bus = this.host.bus;
-    bus.emit('mob:hurt', { id: m.id, species: m.spec.key, health: Math.max(0, m.health) });
-    bus.emit('sfx', { name: 'automaton_hurt', x: m.x, y, z: m.z, pitch: voicePitch(m.spec) });
-    if (m.health > 0) return;
-    // It breaks apart at once (the debris is the renderer's); the corpse only fades.
-    m.state = 'dying';
-    m.deadS = MOB_DEATH_S;
-    m.vx = m.vz = 0;
-    m.deathCause = cause;
-    m.hostile!.mode = 'roam';
-    bus.emit('sfx', { name: 'automaton_break', x: m.x, y, z: m.z, pitch: voicePitch(m.spec) });
-    const drops = cause === 'player' ? rollDrops(m.spec.drops, this.host.rng) : [];
-    bus.emit('mob:died', { id: m.id, species: m.spec.key });
-    if (cause === 'player') {
-      bus.emit('automaton:salvaged', { id: m.id, species: m.spec.key, x: m.x, y: m.y, z: m.z, drops });
-      bus.emit('flag', { flag: FLAG_AUTOMATON_SALVAGED });
-    }
-    this.host.died({ id: m.id, species: m.spec.key, x: m.x, y: m.y, z: m.z, cause, drops });
+    hurtHostile(this.hurtEnv, m, damage, cause);
   }
 
   // ------------------------------------------------------------------------------------------ persistence
