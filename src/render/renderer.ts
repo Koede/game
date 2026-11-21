@@ -122,10 +122,10 @@ export class Renderer implements IView {
     this.held = new HeldItem(this.atlas.texture);
 
     this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points);
-    this.scene.matrixWorldAutoUpdate = true;
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
+    this.offs.push(bus.on('block:placed', () => this.held.bump()));
     const lost = (e: Event): void => {
       e.preventDefault();
       this.contextLost = true;

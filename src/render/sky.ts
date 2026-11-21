@@ -234,7 +234,8 @@ export class Sky {
     u.uSunColor.value.fromArray(sky.sunColor);
     u.uStars.value = sky.stars;
     u.uDay.value = sky.day;
-    u.uTime.value = time;
+    // GPU floats lose precision on large values; the twinkle only needs a wrapping phase.
+    u.uTime.value = time % 3600;
     if (veil) u.uVeil.value.set(veil.x, veil.y, veil.z, 1);
     else u.uVeil.value.w = 0;
     this.clouds.visible = !veil;

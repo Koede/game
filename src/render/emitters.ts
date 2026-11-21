@@ -10,6 +10,7 @@ import { blockOf, TEXTURE_NAMES } from '../core/registry';
 import { Face, FACE_DIRS, FACING_TO_FACE, voxelActive, voxelFacing, type BlockDef, type IWorld, type Voxel } from '../core/types';
 import type { Glows } from './glows';
 import { ParticleLook, type ParticleSpec, type Particles } from './particles';
+import { shapePuff, shapeSpark, type PuffKind } from './puffs';
 import { tileColor } from './tiles';
 
 /** Brightness 0..1 of the light at a point (supplied by the renderer). */
@@ -261,28 +262,8 @@ export class Emitters {
   }
 
   private spark(x: number, y: number, z: number, vx: number, vy: number, vz: number, gold: boolean): void {
-    const p = this.spec;
-    p.x = x;
-    p.y = y;
-    p.z = z;
-    p.vx = vx;
-    p.vy = vy;
-    p.vz = vz;
-    p.r = 1;
-    p.g = gold ? 0.92 : 0.85;
-    p.b = gold ? 0.55 : 0.35;
-    p.r2 = gold ? 1 : 0.9;
-    p.g2 = gold ? 0.6 : 0.25;
-    p.b2 = gold ? 0.15 : 0.05;
-    p.size = 0.06 + rnd() * 0.04;
-    p.sizeEnd = 0.03;
-    p.life = 0.45 + rnd() * 0.6;
-    p.alpha = 1;
-    p.gravity = 9;
-    p.drag = 0.9;
-    p.look = ParticleLook.Chip;
-    p.fog = 0.6;
-    this.particles.spawn(p);
+    shapeSpark(this.spec, x, y, z, vx, vy, vz, gold);
+    this.particles.spawn(this.spec);
   }
 
   /** Sparks blown out of the furnace mouth (its front face), plus a breath of smoke from the top. */
@@ -347,58 +328,10 @@ export class Emitters {
   }
 
   /** Soft puffs: furnace smoke, machine steam, exhaust, the Starhearth's golden motes, explosion clouds. */
-  private puffs(x: number, y: number, z: number, kind: Source['kind'] | 'blast', count: number): void {
+  private puffs(x: number, y: number, z: number, kind: PuffKind, count: number): void {
     const p = this.spec;
-    const day = this.day;
     for (let i = 0; i < count; i++) {
-      p.look = ParticleLook.Puff;
-      p.x = x + spread(0.18);
-      p.y = y + rnd() * 0.1;
-      p.z = z + spread(0.18);
-      p.vx = spread(0.25);
-      p.vz = spread(0.25);
-      const jitter = hashFloat(i, count) * 0.08;
-      if (kind === 'smoke') {
-        // Lit from below by the fire at first, then plain soot grey (much lighter in daylight).
-        p.vy = 1.4 + rnd() * 0.5;
-        p.r = 0.78 - day * 0.2; p.g = 0.46 + day * 0.02; p.b = 0.26 + day * 0.12;
-        // Soot: dark against a bright sky, a lighter grey at night so the column still shows.
-        const grey = 0.3 + day * 0.04 + jitter;
-        p.r2 = grey; p.g2 = grey * 0.98; p.b2 = grey * 1.04 + 0.02;
-        p.size = 0.7; p.sizeEnd = 3.4 + rnd() * 1.2;
-        p.life = 7 + rnd() * 3; p.alpha = 0.42 + day * 0.12;
-        p.gravity = -0.05; p.drag = 0.1; p.fog = 0.25;
-      } else if (kind === 'steam') {
-        p.vy = 1.6 + rnd() * 0.6;
-        const w = 0.55 + day * 0.4;
-        p.r = p.r2 = w; p.g = p.g2 = w; p.b = p.b2 = w * 1.04;
-        p.size = 0.3; p.sizeEnd = 1.5;
-        p.life = 1.6 + rnd(); p.alpha = 0.5;
-        p.gravity = -0.2; p.drag = 0.5; p.fog = 0.8;
-      } else if (kind === 'exhaust') {
-        p.vy = 1.2 + rnd() * 0.4;
-        const g = 0.12 + day * 0.18;
-        p.r = p.r2 = g; p.g = p.g2 = g; p.b = p.b2 = g * 1.05;
-        p.size = 0.35; p.sizeEnd = 2;
-        p.life = 3 + rnd(); p.alpha = 0.5;
-        p.gravity = -0.05; p.drag = 0.2; p.fog = 0.6;
-      } else if (kind === 'star') {
-        p.vy = 0.8 + rnd() * 1.2;
-        p.vx = spread(0.8); p.vz = spread(0.8);
-        p.r = 1; p.g = 0.92; p.b = 0.55; p.r2 = 1; p.g2 = 0.7; p.b2 = 0.25;
-        p.size = 0.35; p.sizeEnd = 0.1;
-        p.life = 2 + rnd() * 1.5; p.alpha = 0.95;
-        p.gravity = -0.3; p.drag = 0.3; p.fog = 0.3;
-      } else {
-        p.x = x + spread(1.5); p.y = y + spread(1.5); p.z = z + spread(1.5);
-        p.vx = spread(2.5); p.vy = 1 + rnd() * 2.5; p.vz = spread(2.5);
-        p.r = 1; p.g = 0.62; p.b = 0.25;
-        const g = 0.2 + day * 0.25;
-        p.r2 = g; p.g2 = g; p.b2 = g;
-        p.size = 1.4; p.sizeEnd = 5 + rnd() * 2;
-        p.life = 3 + rnd() * 2; p.alpha = 0.75;
-        p.gravity = -0.2; p.drag = 0.9; p.fog = 0.5;
-      }
+      shapePuff(p, kind, x, y, z, this.day, hashFloat(i, count) * 0.08);
       this.particles.spawn(p);
     }
   }

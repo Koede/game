@@ -167,6 +167,7 @@ function armGeometry(): THREE.BufferGeometry {
 
 const SWING_S = 0.3;
 const DIP_S = 0.32;
+const BUMP_S = 0.22;
 
 export class HeldItem {
   readonly scene = new THREE.Scene();
@@ -183,6 +184,7 @@ export class HeldItem {
   private time = 0;
   private glow = 0;
   private baseX = 0.5;
+  private bumpT = 1;
 
   constructor(atlas: THREE.Texture) {
     this.material = new THREE.ShaderMaterial({
@@ -218,6 +220,11 @@ export class HeldItem {
     if (this.swingT > 0.45) this.swingT = 0;
   }
 
+  /** A short shallow dip, as the hand sets a block down. */
+  bump(): void {
+    this.bumpT = 0;
+  }
+
   /** Light colour at the player's eye (multiplier per channel). */
   setLight(r: number, g: number, b: number): void {
     (this.material.uniforms.uLight.value as THREE.Vector3).set(r, g, b);
@@ -227,8 +234,10 @@ export class HeldItem {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
     // Keep the hand inside the right edge of narrow (portrait phone) screens.
+    // Narrow screens also get a smaller hand, so it does not fill a third of a phone held upright.
     const halfWidth = 0.78 * Math.tan((this.camera.fov * Math.PI) / 360) * aspect;
-    this.baseX = Math.min(0.5, halfWidth * 0.78);
+    this.baseX = Math.min(0.5, halfWidth * 0.72);
+    this.pivot.scale.setScalar(Math.min(1, Math.max(0.6, aspect * 1.25)));
   }
 
   update(dt: number): void {
@@ -240,7 +249,8 @@ export class HeldItem {
       if (before < 0.5 && this.dipT >= 0.5) this.show(this.wanted);
     }
     // Pose: idle breathing, the dip (down and back up), the swing (a short downward arc towards the centre).
-    const dip = Math.sin(this.dipT * Math.PI) * 0.55;
+    this.bumpT = Math.min(1, this.bumpT + dt / BUMP_S);
+    const dip = Math.sin(this.dipT * Math.PI) * 0.55 + Math.sin(this.bumpT * Math.PI) * 0.1;
     const s = this.swingT < 1 ? Math.sin(this.swingT * Math.PI) : 0;
     const s2 = this.swingT < 1 ? Math.sin(Math.sqrt(this.swingT) * Math.PI) : 0;
     const p = this.pivot;

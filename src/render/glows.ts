@@ -73,7 +73,7 @@ export class Glows {
   /** Starts a new frame's list of halos. */
   begin(time: number): void {
     this.count = 0;
-    this.material.uniforms.uTime.value = time;
+    this.material.uniforms.uTime.value = time % 3600;
   }
 
   /** Adds a halo of `size` blocks across, coloured r,g,b (additive, so 0.3 is already a strong glow). */
