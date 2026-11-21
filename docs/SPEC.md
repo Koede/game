@@ -728,3 +728,14 @@ Then verify in a real browser (spec section 6). Write a harness in your scratch 
 Screenshot the overlay in both phone orientations (with the joystick active) and look at the screenshots: the controls must be clearly visible over both bright sky and dark cave backgrounds (put a bright and a dark half behind them in the harness), comfortably sized, not overlapping each other or the bottom-centre area where the hotbar will sit (leave the bottom-centre ~60% width x 64px free). Fix what you see. Report the results of each check.
 
 Check with: npx tsc --noEmit -p . 2>&1 | grep -E "^src/player/"   and   npx vitest run src/player
+
+---------------------------------------------------------------------------------------------------------
+
+## 11. Integration notes collected from module engineers (read before wiring main.ts)
+
+- player: place the player at `world.spawnPoint()` + 0.5 on x and z (it returns block-corner integers).
+- player: send the controller's target to `GameUI.setTarget` as well as to the renderer (same signature); call
+  `input.requestPointerCapture()` from the Play / Continue button's click.
+- player: scooping with the pail leaves the water block in place (water does not flow); the click that captures
+  the pointer does not mine.
+- textures: machines look alike as small isometric cube icons; the icon provider may show machine fronts flat.
