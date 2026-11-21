@@ -105,8 +105,8 @@ export function productBadges(recipe: RecipeDef): RecipeRequirement[] {
   return out;
 }
 
-/** The brewing chain's steps that are neither a drink nor an ingredient: they sit with the drinks in the Kitchen chip. */
-const BREWING_STAGES: ReadonlySet<string> = new Set(['tea_leaves', 'coffee_cherries', 'roasted_beans', 'dark_beans']);
+/** Brewing items that are neither a drink nor an ingredient (the chain's steps, the cup, cone and kettle): they sit with the drinks in the Kitchen chip. */
+const BREWING_STAGES: ReadonlySet<string> = new Set(['tea_leaves', 'coffee_cherries', 'roasted_beans', 'dark_beans', 'clay_cup', 'drip_cone', 'kettle_pot']);
 
 const isFood = (itemKey: string): boolean => {
   const def = itemOrNull(itemKey);

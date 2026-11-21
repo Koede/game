@@ -67,7 +67,7 @@ describe('stroke stations', () => {
     t.world.put(5, 5, 5, 'stone');
     expect(t.hand.count).toBe(1);
     const e = t.world.getEntity(5, 5, 5) as HandEntity;
-    expect(e.kind).toBe('quern');
+    expect(e.kind).toBe('hand');
     e.slots[0] = { item: 'wheat', count: 3 };
     t.world.put(5, 5, 5, 'oak_log');
     expect(t.hand.count).toBe(0);

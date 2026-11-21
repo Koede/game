@@ -106,3 +106,30 @@ describe('hunger state', () => {
     expect(hungerNote('hunger', 0)).toBeNull();
   });
 });
+
+describe('drink text', () => {
+  it('names the buff and its length like "+N food"', () => {
+    expect(foodLine('light_roast')).toBe('Swift 3 min');
+    expect(foodLine('green_tea')).toBe('Spring 3 min');
+    expect(foodRows('berry_tea')).toEqual([['Drink', 'Mending 3 min'], ['Effect', 'Heal 2 times as fast']]);
+    expect(foodRows('black_tea_cup')).toContainEqual(['Warms', '+10 warmth']);
+  });
+
+  it('an ingredient says which drink it brews', () => {
+    expect(foodRows('ground_coffee')).toEqual([['Brews', 'Light Roast: Swift 3 min'], ['Effect', 'Walk, sprint and swim 20% faster']]);
+    expect(foodRows('trail_blend')[0]).toEqual(['Brews', 'Trail Blend: Lasting 3 min']);
+    expect(foodRows('dried_tea')[0][1]).toBe('Green Tea: Spring 3 min');
+  });
+
+  it('the item card of a cup of coffee carries the buff rows', () => {
+    expect(itemCard({ item: 'dark_roast', count: 1 }).rows).toContainEqual(['Drink', 'Vigor 3 min']);
+  });
+
+  it('recipe rows badge the drink an ingredient makes, and the tea and coffee chain sits in the Kitchen chip', () => {
+    expect(productBadges(r('ground_coffee')).map((b) => b.text)).toContain('Brews Light Roast');
+    for (const id of ['dried_tea', 'black_tea', 'roasted_beans', 'dark_beans', 'ground_coffee', 'trail_blend', 'berry_tea_blend', 'clay_cup', 'drip_cone']) {
+      expect(isKitchenRecipe(r(id)), id).toBe(true);
+    }
+    expect(isKitchenRecipe(r('copper_ingot'))).toBe(false);
+  });
+});

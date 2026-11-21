@@ -106,9 +106,9 @@ export class HandWork {
     if (!toDef) return false;
     if (this.byKey.has(key)) return true;
     const stored = this.d.world.getEntity(x, y, z) as HandEntity | undefined;
-    if (stored && stored.kind === toDef.key) this.track(stored, toDef);
+    if (stored && stored.kind === 'hand') this.track(stored, toDef);
     else {
-      const e: HandEntity = { kind: toDef.key, x, y, z, slots: [null, null], progress: 0, recipe: null, hotS: 0, made: null };
+      const e: HandEntity = { kind: 'hand', x, y, z, slots: [null, null], progress: 0, recipe: null, hotS: 0, made: null };
       this.d.world.setEntity(e);
       this.track(e, toDef);
     }

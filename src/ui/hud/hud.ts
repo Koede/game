@@ -198,12 +198,14 @@ export class Hud {
     this.showTarget();
   }
 
-  /** The block under the crosshair in words; a crop says how it grows (refreshed on the slow tick). */
+  /** The block under the crosshair in words; a crop says how it grows, a cup or bucket the step it is at (refreshed on the slow tick). */
   private targetLabel(): string | null {
     const t = this.targetAt;
     if (!t.has) return null;
     const crop = this.deps.sim().cropView(t.x, t.y, t.z);
     if (crop) return cropLabel(crop);
+    const brew = this.deps.sim().brewView(t.x, t.y, t.z);
+    if (brew) return brew.text;
     const block = this.deps.world.getBlock(t.x, t.y, t.z);
     return block.id === 0 ? null : block.name;
   }

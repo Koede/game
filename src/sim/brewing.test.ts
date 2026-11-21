@@ -134,7 +134,7 @@ describe('bucket on a furnace top', () => {
     hold(kit, f, 400, 6.5);
     hold(kit, f, 400, BOIL_DRY_SECONDS - 6);
     expect(keyAt(kit, 0, 2, 0)).toBe('furnace_bucket_boiling');
-    hold(kit, f, 400, 4);
+    hold(kit, f, 400, 6);
     expect(keyAt(kit, 0, 2, 0)).toBe('air');
     expect(kit.world.getEntity(0, 2, 0)).toBeUndefined();
     expect(kit.player.inventory.count('pail')).toBe(1);
@@ -154,6 +154,17 @@ describe('bucket on a furnace top', () => {
     expect(kit.sim.brewCount).toBe(0);
   });
 
+
+  it('a full pack spills the returned bucket into a crate', () => {
+    const kit = makeKit();
+    const f = kit.furnace(0, 1, 0);
+    bucketOn(kit, f);
+    while (kit.player.inventory.space('pail') > 0) kit.player.give('stone', 999);
+    kit.world.setVoxel(0, 1, 0, 0, 'player');
+    kit.run(DT * 3);
+    expect(kit.player.inventory.count('pail')).toBe(0);
+    expect(kit.sim.entityCount).toBe(1); // the crate that holds the pail
+  });
 
   it('taking it: cold gives the water bucket, boiling gives the boiling pail with its heat', () => {
     const kit = makeKit();

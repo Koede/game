@@ -6,10 +6,11 @@ import type { SfxName } from '../core/gameEvents';
 import type { BlockEntity, ItemAmount, Slot, ToolKind } from '../core/types';
 
 /**
- * The saved state of one station block (plain JSON). `kind` is the station's machine kind (= its block key); `slots` is
+ * The saved state of one station block (plain JSON). `kind` is always 'hand' (the station is the block at x,y,z); `slots` is
  * [input, output].
  */
 export interface HandEntity extends BlockEntity {
+  kind: 'hand';
   slots: Slot[];
   /** Strokes done (stroke stations) or seconds done (timed stations). */
   progress: number;

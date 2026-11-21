@@ -5,7 +5,7 @@ import {
 import { fuelOf, item, machine, recipe, recipesAt } from '../core/registry';
 import type { RecipeDef } from '../core/types';
 import { addToSlots, type ExtraFuel, type FurnaceEntity, type SimContext, type SimNode } from './entities';
-import { castRoom, coolMolten, pourOutOfSmelt } from './casting';
+import { ALLOY_POT, castRoom, coolMolten, pourOutOfSmelt, runPot } from './casting';
 import { furnaceStats, type FurnaceStats } from './hearthStats';
 
 const FURNACE = machine('furnace');
@@ -239,6 +239,10 @@ function runCrucibles(e: FurnaceEntity, ctx: SimContext, dt: number, fs: Furnace
         e.crucibleRecipe[i] = null;
         e.crucibleProgress[i] = 0;
       }
+      continue;
+    }
+    if (inp.item === ALLOY_POT) {
+      runPot(e, i, ctx, dt);
       continue;
     }
     const current = e.crucibleRecipe[i];

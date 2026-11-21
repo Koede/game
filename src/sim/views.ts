@@ -8,7 +8,7 @@ import type { ActionResult, FurnaceEntity, IgnitionState, SimNode } from './enti
 import {
   IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fireboxJunk, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed, statsOf,
 } from './furnace';
-import { ALLOY_POT, moltenLeft } from './casting';
+import { ALLOY_POT, alloyMinC, alloyTimeS, moltenLeft, potBlock } from './casting';
 import { ignitionCheck, restCheck, tierLock, upgradeStructure, type ActionHost } from './furnaceActions';
 import type { Hearth } from './hearth';
 import { hearthName } from './hearthScan';
@@ -190,6 +190,23 @@ function crucibleView(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleVi
   return view;
 }
 
+/** The alloy pot's status: what it holds and what it waits for. */
+function potView(view: CrucibleView, e: FurnaceEntity, i: number): void {
+  const [cu, sn] = e.crucibleMix[i];
+  const block = potBlock(e, i);
+  view.requiredC = alloyMinC();
+  if (cu === 0 && sn === 0) view.status = 'Alloy pot - pour 3 copper and 1 tin ingots in';
+  else if (cu < 3 || sn < 1) view.status = `Alloy pot: ${cu} copper, ${sn} tin - needs 3 copper and 1 tin`;
+  else if (block) view.status = block;
+  else if (!e.ignited && e.tempC < alloyMinC()) view.status = `Needs ${alloyMinC()} C - now ${Math.floor(e.tempC)} C`;
+  else {
+    view.active = true;
+    view.progress = Math.min(1, e.crucibleProgress[i] / alloyTimeS());
+    view.secondsLeft = alloyTimeS() - e.crucibleProgress[i];
+    view.status = `Alloying bronze (${cu} copper, ${sn} tin)`;
+  }
+}
+
 function crucibleBase(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleView {
   const id = e.crucibleRecipe[i];
   const locked = i >= fs.crucibles;
@@ -205,7 +222,7 @@ function crucibleBase(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleVi
     return view;
   }
   if (!r) {
-    if (e.crucibleIn[i]?.item === ALLOY_POT) view.status = view.mix && (view.mix[0] || view.mix[1]) ? `Alloy pot: ${view.mix[0]} copper, ${view.mix[1]} tin` : 'Alloy pot - pour copper and tin in';
+    if (e.crucibleIn[i]?.item === ALLOY_POT) potView(view, e, i);
     else if (e.crucibleIn[i]) view.status = 'Cannot be smelted here';
     else if (e.crucibleOut[i]) view.status = 'Done - take it out';
     return view;

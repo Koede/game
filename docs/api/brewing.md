@@ -11,8 +11,9 @@ the tick's machine list, `machineView`, `machineAt`, `furnaceAt`, `entityCount`,
 
 ```ts
 BoilBucket { kind: 'boil_bucket', x, y, z, heatS: number, boiling: boolean, dryS: number, container: string }
-BrewCup    { kind: 'brew_cup',    x, y, z, stage: 'cup' | 'cone' | 'loaded' | 'brewing' | 'done',
-             drink: string | null /* drink ITEM key */, brewS: number, steamS: number }
+BrewCup    { kind: 'brew_cup',    x, y, z, stage: CupStage /* src/core/brewing.ts */, ingredient: string | null,
+             drink: string | null /* drink ITEM key, set when loaded */, brewS: number, steamS: number }
+Kettle     { kind: 'kettle',      x, y, z, waterL: number, boiling: boolean }   // voxel ACTIVE bit = boiling
 ```
 `container` is the held-item key that was set down (today `water_pail`), so a boiled-dry or broken bucket returns
 the right empty container (`container.emptyTo`). Created from `block:changed` like crops (also on load), removed when
@@ -25,6 +26,7 @@ brewUse(x: number, y: number, z: number, heldKey: string | null): BrewResult
 placeContainer(x: number, y: number, z: number, heldKey: string | null): BrewResult
 isFurnaceTop(x: number, y: number, z: number): boolean
 brewView(x: number, y: number, z: number): BrewView | null
+brewCount: number   // getter, a diagnostic
 
 type BrewResult =
   | { ok: true; consume: boolean; give?: string; giveDurability?: number; toast?: string }
@@ -47,18 +49,19 @@ when the block is a kettle (`kettle` machine) and the hand holds an empty contai
 
 | Aimed block | Held | Result |
 |---|---|---|
-| clay_cup | drip_cone | block -> cup_cone, `consume` |
+| clay_cup (stage cup) | drip_cone | block -> cup_cone, `consume` |
 | clay_cup | other | refuse "Set a drip cone on the cup" |
 | cup_cone | item with `brews` | block -> cup_cone_loaded, entity drink = item.brews, `consume` |
 | cup_cone | anything else | refuse "Load the cone with tea leaves or ground coffee" |
-| cup_cone_loaded | any container's `boilsTo` (boiling_pail) | stage brewing, `consume`, `give` = container emptyTo (pail), sfx pour, `brew:started` |
+| cup_cone_loaded | any container's `boilsTo` (boiling_pail) | block -> cup_brewing, `consume`, `give` = container emptyTo (pail), sfx pour, `brew:started` |
 | cup_cone_loaded | a water container (water_pail) | refuse "The water must be boiling - heat the bucket on the furnace" |
 | cup_cone_loaded | other | refuse "Pour boiling water over it" |
 | (brewing) | any | refuse "Still dripping" |
-| cup_full | any (empty hand too) | block -> cup_cone, `give` = the drink item (no consume), flag nothing |
+| cup_full | any (empty hand too) | block -> cup_cone, `give` = the drink item (no consume) |
 | furnace_bucket_boiling | any | block removed, `give` boiling container, `giveDurability` BOILING_KEEPS_S |
 | furnace_bucket | any | block removed, `give` the water container (`container`) |
-| kettle, boiling (water in it, furnace >= KETTLE_BOIL_C) | empty container (`emptyTo` of a container) | 1000 L out of the kettle, `consume`, `give` its `boilsTo` |
+| kettle | water container (water_pail) | +1000 L (max 4000, else "The kettle is full"), `consume`, `give` emptyTo |
+| kettle, boiling (water in it, furnace >= KETTLE_BOIL_C) | empty container (`emptyTo` of a container) | -1000 L, `consume`, `give` its `boilsTo`, `giveDurability` BOILING_KEEPS_S |
 | kettle, not boiling | empty container | refuse "The kettle is not boiling yet" |
 
 Anything else on a brew block refuses with a sentence; it never silently does nothing. If the pack has no room for
@@ -74,8 +77,8 @@ top"`), held item is not a water container ("Only a bucket of water can be heate
 ### `brewView` - the sentence for the target name and screens
 ```ts
 interface BrewView {
-  kind: 'boil_bucket' | 'brew_cup';
-  stage: 'heating' | 'boiling' | 'cup' | 'cone' | 'loaded' | 'brewing' | 'done';
+  kind: 'boil_bucket' | 'brew_cup' | 'kettle';
+  stage: 'heating' | 'boiling' | 'cup' | 'cone' | 'loaded' | 'brewing' | 'done' | 'empty' | 'filled';
   text: string;           // e.g. "Water Bucket - 8 s to the boil", "Boiling water - take it",
                           // "Cup with drip cone - add tea or ground coffee", "Brewing 3 s", "Coffee - take it"
   progress: number;       // 0..1 of the current phase (heating -> boil, brewing -> done), 0 elsewhere
@@ -105,8 +108,23 @@ Null when no brew entity stands there. Cheap: reads the entity and the furnace b
   panel), added before the furnace is advanced the same tick.
 - Brewing: `BREW_SECONDS` (4), sfx `drip` every 0.5 s, then block -> `cup_full`, `brew:done`, sfx `smelt_done`
   (pitched up), `FLAG_BREWED` once. A done cup steams `BREW_STEAM_S` (render reads `brewView`/entity `steamS`).
+- Breaking a cup block: the sim gives back the INGREDIENT (stage loaded) or the DRINK (stage done) to the player (crate when
+  the pack is full); the player module's break handler only handles the block's own drops (`CUP_PARTS`). A broken bucket or
+  kettle block gives nothing from the sim (the block's own drops apply).
 - Breaking the furnace under a bucket: the bucket block is removed and the container returned (as
   boil-dry). Breaking the cup/bucket block itself: entity forgotten, the block's own drops apply (the player module's
   break handler); the sim returns nothing extra.
 - Save/load: both entities are JSON; `resync()` re-adopts them. A bucket mid-boil continues; a cup mid-brew continues.
 - Perf: O(brew entities) per tick, one furnace lookup each (two map reads); sleeping buckets cost a few flops.
+
+## Kettle pot (role brew, machine `kettle`)
+Sits on a furnace like the bucket (placement is the block's `placeOn`, nothing special from the sim). Holds `waterL`
+(0..4000), boils while `waterL > 0` and the furnace below is >= `KETTLE_BOIL_C` (stays boiling down to 10 C less),
+sets the voxel's active bit (textures `kettle_pot_on`), emits `water:boiling` on each start and draws 300 W of heat. It
+makes no steam power here; the steam kettle of STEAM_PLAN is a separate, later machine.
+
+## Files
+`src/sim/brewing.ts` (entities, lifecycle, tick), `src/sim/brewActions.ts` (`brewUse`, `placeContainer`, `brewView`),
+tests `src/sim/brewing.test.ts`. `Simulation` routes `block:changed` for blocks whose machine is a brew kind to the
+`Brewing` set instead of creating a machine node, and calls `brewing.tick` after the machines and before the furnaces
+advance (heat draw lands in the same tick).

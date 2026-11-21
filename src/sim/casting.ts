@@ -88,7 +88,7 @@ export const metalOfBloom = (key: string): CastMetalSpec | null => CAST_METALS.f
 
 const alloyRecipe = (): RecipeDef | null => recipe(ALLOY_RECIPE);
 export const alloyMinC = (): number => alloyRecipe()?.minTempC ?? ALLOY_FALLBACK_C;
-const alloyTimeS = (): number => alloyRecipe()?.timeS ?? ALLOY_FALLBACK_S;
+export const alloyTimeS = (): number => alloyRecipe()?.timeS ?? ALLOY_FALLBACK_S;
 
 export const hasPot = (e: FurnaceEntity, i: number): boolean => e.crucibleIn[i]?.item === ALLOY_POT;
 

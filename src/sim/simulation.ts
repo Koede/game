@@ -211,7 +211,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** A hand station's saved entity (its block is the station of that kind): followed by HandWork, never a node. */
   private trackHand(e: BlockEntity): boolean {
     const def = contentRules.station(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key);
-    if (!def || def.key !== e.kind) return false;
+    if (!def || e.kind !== 'hand') return false;
     this.hand.track(e as HandEntity, def);
     return true;
   }

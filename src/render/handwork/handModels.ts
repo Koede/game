@@ -49,8 +49,8 @@ export interface PartDef {
 export interface HandAnim {
   /** Block keys this animation belongs to. */
   stations: readonly string[];
-  /** Step run once per record per frame, before the parts' poses (eases `angle`). */
-  step?(r: HandRec, dt: number): void;
+  /** Radians the record's `angle` advances per stroke (it eases there): the quern's 30 degrees, the loom's half turn. */
+  turn?: number;
   centerY: number;
   radius: number;
   probeY: number;
@@ -76,7 +76,7 @@ const DRIED = finish('concrete', 1.3, 1.1, 0.65);
 const centre = (n: number): number => n / 16 - 0.5;
 /** A box from sixteenths [x0,y0,z0]-[x1,y1,z1] as (centre, size) in blocks, relative to the cell centre / floor. */
 function b16(b: ModelBuilder, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, f: Finish): void {
-  b.box([centre((x0 + x1) / 2 + 8), (y0 + y1) / 32, centre((z0 + z1) / 2 + 8)], [(x1 - x0) / 16, (y1 - y0) / 16, (z1 - z0) / 16], f);
+  b.box([centre((x0 + x1) / 2), (y0 + y1) / 32, centre((z0 + z1) / 2)], [(x1 - x0) / 16, (y1 - y0) / 16, (z1 - z0) / 16], f);
 }
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -120,9 +120,7 @@ function quernRunner(): PartModel {
 const QUERN: HandAnim = {
   stations: ['hand_quern'],
   centerY: 0.5, radius: 0.9, probeY: 0.6,
-  step(r, dt) {
-    r.angle += (r.strokes * QUERN_STEP - r.angle) * Math.min(1, dt * 16);
-  },
+  turn: QUERN_STEP,
   parts: [{ name: 'runner', build: quernRunner, visible: () => true, pose: (r, o) => { o.x = r.angle; o.y = 0; } }],
 };
 
@@ -131,7 +129,7 @@ const QUERN: HandAnim = {
 function hammer(): PartModel {
   const b = new ModelBuilder();
   // Lying along the anvil's face, hinged at the handle's end; the head is a block of iron on its far end.
-  arm(b, [-0.4, 0.755, 0], false, 0.5, [0.2, 0.2, 0.17], 0.6, WOOD, IRON);
+  arm(b, [-0.4, 0.775, 0], false, 0.5, [0.2, 0.2, 0.17], 0.6, WOOD, IRON);
   return b.build();
 }
 function anvilFlash(): PartModel {
@@ -153,16 +151,16 @@ const ANVIL: HandAnim = {
 function axe(): PartModel {
   const b = new ModelBuilder();
   // Hinged on the block's right edge, handle running left over the log; the blade is thin in X and wide in Z.
-  arm(b, [0.42, 0.7, 0], true, 0.56, [0.06, 0.24, 0.13], 0.58, WOOD, IRON);
+  arm(b, [0.42, 0.73, 0], true, 0.56, [0.06, 0.24, 0.13], 0.58, WOOD, IRON);
   return b.build();
 }
 function logHalves(): PartModel {
   const b = new ModelBuilder();
-  // Two half logs lying along Z on the stump; each can move apart along X (Pulse is local Y: turned to +-X).
+  // Two half logs lying along Z on the stump. Pulse moves along local Y, which each half's frame turns to +-X (and
+  // local X to +-world Y, hence the centre (height, offset)): the halves slide apart as the crack opens.
   for (const side of [-1, 1] as const) {
-    b.assembly([0, 0, 0], rotZ(side * -Math.PI / 2), Motion.Pulse, 0.05);
-    // Local (x, y, z) = world (y, -side * x... ) so the centre in local is (height, side * 0.075, 0).
-    b.box([0.8, side * -0.075 * -1, 0], [0.3, 0.15, 0.5], LOG);
+    b.assembly([0, 0, 0], rotZ(-side * Math.PI / 2), Motion.Pulse, 0.05);
+    b.box([-side * 0.84, 0.075, 0], [0.3, 0.15, 0.5], LOG);
   }
   return b.build();
 }
@@ -195,9 +193,7 @@ function cloth(): PartModel {
 const LOOM: HandAnim = {
   stations: ['loom'],
   centerY: 0.5, radius: 1, probeY: 0.6,
-  step(r, dt) {
-    r.angle += (r.strokes * Math.PI - r.angle) * Math.min(1, dt * 12);
-  },
+  turn: Math.PI,
   parts: [
     { name: 'shuttle', build: shuttle, visible: () => true, pose: (r, o) => { o.x = r.angle; o.y = 0; } },
     { name: 'cloth', build: cloth, visible: (r) => r.loaded && r.frac > 0.04, pose: (r, o) => { o.x = 0; o.y = clamp01(r.frac); } },
@@ -230,7 +226,7 @@ function lump(): PartModel {
 }
 function stick(): PartModel {
   const b = new ModelBuilder();
-  arm(b, [-0.4, 0.82, 0.02], false, 0.55, [0.07, 0.07, 0.07], 0.5, WOOD, WOOD);
+  arm(b, [-0.45, 1.03, 0.02], false, 0.55, [0.07, 0.07, 0.07], 0.5, WOOD, WOOD);
   return b.build();
 }
 const CLAY_TABLE: HandAnim = {
@@ -255,7 +251,7 @@ function bundles(f: Finish): PartModel {
 }
 const rackPart = (name: string, variant: number, f: Finish): PartDef => ({
   name, build: () => bundles(f), visible: (r) => r.variant === variant,
-  pose: (r, o) => { o.x = 0.09 * Math.sin(r.time * 1.3 + r.phase); o.y = 0; },
+  pose: (r, o) => { o.x = 0.14 * Math.sin(r.time * 1.3 + r.phase); o.y = 0; },
 });
 const RACK: HandAnim = {
   stations: ['drying_rack'],

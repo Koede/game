@@ -39,6 +39,12 @@ export interface UICropView {
   ripeInS: number;
 }
 
+/** A cup setup or a bucket on a furnace in words (a subset of the simulation's BrewView). */
+export interface UIBrewView {
+  /** The target name: "Cup with drip cone - add tea or ground coffee", "Brewing 3 s", "Coffee - take it". */
+  text: string;
+}
+
 export interface UISimQuery {
   /** The furnace entity at a block position, or null (home compass: temperature, tier, hot). */
   furnaceAt(x: number, y: number, z: number): UIFurnaceState | null;
@@ -48,6 +54,8 @@ export interface UISimQuery {
   stationSources(x: number, y: number, z: number): Inventory[];
   /** The crop at a block position, or null (crosshair: why it is or is not growing). */
   cropView(x: number, y: number, z: number): UICropView | null;
+  /** The brewing entity at a block position, or null (crosshair: the step the cup or bucket is at). */
+  brewView(x: number, y: number, z: number): UIBrewView | null;
 }
 
 /** Before the simulation exists: no furnaces, no networks, no station sources (screens fall back to the player). */
@@ -56,4 +64,5 @@ export const NO_UI_SIM: UISimQuery = {
   allNetworks: () => [],
   stationSources: () => [],
   cropView: () => null,
+  brewView: () => null,
 };
