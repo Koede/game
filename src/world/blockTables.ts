@@ -2,7 +2,7 @@
  * Per-block-id lookup tables for the hot loops of lighting and meshing. Every table has 1024 entries so a
  * masked voxel id can index it without a bounds check; ids without a block behave like air.
  */
-import { BLOCKS, faceLayer } from '../core/registry';
+import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
 
 const SIZE = VOXEL_ID_MASK + 1;
@@ -14,10 +14,10 @@ export const SHAPE_CROSS = 3;
 export const SHAPE_TORCH = 4;
 export const SHAPE_CABLE = 5;
 export const SHAPE_SLAB = 6;
+export const SHAPE_PIPE = 7;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
-  // Stand-in until the mesher draws pipes (spec 16): a cable-like core with arms towards power devices.
-  pipe: SHAPE_CABLE,
+  pipe: SHAPE_PIPE,
 };
 
 export const BATCH_OPAQUE = 0;
@@ -45,6 +45,25 @@ export const LIQUID = new Uint8Array(SIZE);
 export const POWERED = new Uint8Array(SIZE);
 /** 1 for non-opaque blocks that hide the faces between two blocks of the same id (liquids, glass). */
 export const MERGES = new Uint8Array(SIZE);
+/** Transport families (spec 16), as bits: PIPE_ITEM, PIPE_FLUID. */
+export const PIPE_ITEM = 1;
+export const PIPE_FLUID = 2;
+/** The family of a pipe block (0 for anything else). */
+export const PIPE_FAMILY = new Uint8Array(SIZE);
+/**
+ * The families a block joins: a pipe its own; an endpoint every family it takes or gives. A pipe of family f grows
+ * an arm towards a neighbour n exactly when PIPE_JOINS[n] & f (registry.pipeJoins, precomputed).
+ */
+export const PIPE_JOINS = new Uint8Array(SIZE);
+/** 1 for pipe endpoints (not pipes): an arm meeting one gets a collar. */
+export const PIPE_ENDPOINT = new Uint8Array(SIZE);
+/** Colour of the light a block emits: 0 warm firelight, 1 cyan, 2 violet (cool glows of caves, spec 14). */
+export const LIGHT_HUE = new Uint8Array(SIZE);
+export const HUE_CYAN = 1;
+export const HUE_VIOLET = 2;
+const COOL_EMITTERS: Readonly<Record<string, number>> = { glowcap: HUE_CYAN, crystal_cluster: HUE_VIOLET };
+/** 1 for plants that glow (cross blocks emitting light): drawn full-bright. */
+export const GLOWS = new Uint8Array(SIZE);
 
 /** Bits 10-12 of a voxel (facing and active flag) select one of 8 visual states. */
 export const voxelState = (v: number): number => (v >> 10) & 7;
@@ -63,9 +82,17 @@ for (const def of BLOCKS) {
   LIGHT_CLASS[id] = def.opaque || def.liquid === 'lava' ? LIGHT_BLOCKED : def.liquid ? LIGHT_FILTER : LIGHT_CLEAR;
   EMIT[id] = def.light;
   EMIT_ACTIVE[id] = def.lightActive;
-  BATCH[id] = def.translucent ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' ? BATCH_CUTOUT : BATCH_OPAQUE;
+  // Item pipes are see-through tubes (glass panes in their tile): the blended batch draws back faces first.
+  const glassPipe = def.pipe?.family === 'item';
+  BATCH[id] = def.translucent || glassPipe ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' ? BATCH_CUTOUT : BATCH_OPAQUE;
   POWERED[id] = def.power ? 1 : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
+  if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
+  else {
+    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0);
+    PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
+  }
+  GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;
   for (let state = 0; state < STATES; state++) {
     const facing = (state & 3) as Facing;
     const active = (state & 4) !== 0;
@@ -76,4 +103,8 @@ for (const def of BLOCKS) {
       FACE_GLOW[slot] = active && def.lightActive > 0 && layer !== faceLayer(def, face as Face, facing, false) ? 1 : 0;
     }
   }
+}
+for (const [key, hue] of Object.entries(COOL_EMITTERS)) {
+  const def = blockOrNull(key);
+  if (def) LIGHT_HUE[def.id] = hue;
 }

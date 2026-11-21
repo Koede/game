@@ -4,7 +4,7 @@
  * worker pool both call `runJob`, so the results are identical wherever a job ran.
  */
 import type { ChunkMeshData } from '../core/types';
-import { borderHashes, computeLight } from './lighting';
+import { borderHashes, computeLight, LIGHT_VOLUME } from './lighting';
 import { meshBuffers, meshChunk } from './mesher';
 import { generateChunk } from './worldgen';
 
@@ -44,6 +44,9 @@ export interface MeshResult {
 }
 
 export type JobResult = GenerateResult | MeshResult;
+
+/** Light colour of the chunk being meshed (filled by computeLight, read by meshChunk before the next job). */
+const hue = new Uint8Array(LIGHT_VOLUME);
 export type ResultOf<J extends Job> = J extends GenerateJob ? GenerateResult : MeshResult;
 
 export function runJob<J extends Job>(job: J): ResultOf<J>;
@@ -53,8 +56,8 @@ export function runJob(job: Job): JobResult {
     const voxels = generateChunk(job.seed, job.cx, job.cz);
     return { type: 'generate', cx: job.cx, cz: job.cz, voxels, ms: performance.now() - start };
   }
-  const light = computeLight(job.chunks);
-  const mesh = meshChunk({ cx: job.cx, cz: job.cz, chunks: job.chunks, light });
+  const light = computeLight(job.chunks, hue);
+  const mesh = meshChunk({ cx: job.cx, cz: job.cz, chunks: job.chunks, light, hue });
   return { type: 'mesh', mesh, borders: borderHashes(light), ms: performance.now() - start };
 }
 

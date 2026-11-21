@@ -6,14 +6,21 @@
  * bottom-left corner of a face seen from outside and v points up (on top and bottom faces u points
  * east); partial shapes (slab, torch, cable, lowered liquid) sample the matching part of the texture.
  */
-import { CHUNK_SIZE, FACE_DIRS, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, type ChunkMeshData, type MeshBatch } from '../core/types';
+import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, type ChunkMeshData } from '../core/types';
 import {
-  BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
-  SHAPE_CUBE, SHAPE_LIQUID, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
+  BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, GLOWS, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
+  SHAPE_CUBE, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
 } from './blockTables';
 import type { ChunkNeighborhood } from './chunk';
 import { ID } from './ids';
 import { LIGHT_H, LIGHT_VOLUME, LIGHT_W, computeLight, lightIndex } from './lighting';
+import {
+  AO_CURVE, CORNER_A, CORNER_B, D_CORNER, D_FRONT, D_SIDE1, D_SIDE2, FACE_SHADE, QBlock, QFlags, QShade, QSky, QU, QV, QX, QY, QZ,
+  SY, VX, VY, VZ, box, builders, cellCoolBits, coolBits, lit, noHue, pushQuad, vol, type Builder,
+} from './meshQuads';
+import { pipe } from './meshPipe';
+
+export { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from './meshQuads';
 
 export interface MeshInput {
   cx: number;
@@ -22,127 +29,24 @@ export interface MeshInput {
   chunks: ChunkNeighborhood;
   /** Result of computeLight(chunks) when the caller already has it. */
   light?: Uint8Array;
+  /** The light colour computeLight wrote alongside `light` (its hueOut); all firelight when missing. */
+  hue?: Uint8Array;
 }
 
 /** Height of a liquid's surface inside its cell when nothing of the same liquid lies above. */
 export const LIQUID_SURFACE = 14 / 16;
-const FACE_SHADE = [0.65, 0.65, 1, 0.5, 0.8, 0.8];
-const AO_CURVE = [0.5, 0.67, 0.84, 1];
-const U_AXIS = [[0, 0, -1], [0, 0, 1], [1, 0, 0], [1, 0, 0], [1, 0, 0], [-1, 0, 0]];
-const V_AXIS = [[0, 1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1], [0, 1, 0], [0, 1, 0]];
-const CORNER_A = [0, 1, 1, 0];
-const CORNER_B = [0, 0, 1, 1];
-const SY = LIGHT_W * LIGHT_W;
-const offset = (v: readonly number[]): number => v[0] + v[2] * LIGHT_W + v[1] * SY;
 
-// Per face and corner: the corner's position inside the unit cube, and where (relative to the block)
-// the two edge neighbours and the diagonal neighbour that shade and light that corner are.
-const VX = new Float32Array(24);
-const VY = new Float32Array(24);
-const VZ = new Float32Array(24);
-const D_FRONT = new Int32Array(6);
-const D_SIDE1 = new Int32Array(24);
-const D_SIDE2 = new Int32Array(24);
-const D_CORNER = new Int32Array(24);
-for (let f = 0; f < 6; f++) {
-  const n = FACE_DIRS[f];
-  const u = U_AXIS[f];
-  const v = V_AXIS[f];
-  D_FRONT[f] = offset(n);
-  for (let k = 0; k < 4; k++) {
-    const a = CORNER_A[k] - 0.5;
-    const b = CORNER_B[k] - 0.5;
-    VX[f * 4 + k] = 0.5 + 0.5 * n[0] + a * u[0] + b * v[0];
-    VY[f * 4 + k] = 0.5 + 0.5 * n[1] + a * u[1] + b * v[1];
-    VZ[f * 4 + k] = 0.5 + 0.5 * n[2] + a * u[2] + b * v[2];
-    D_SIDE1[f * 4 + k] = D_FRONT[f] + offset(u) * (a > 0 ? 1 : -1);
-    D_SIDE2[f * 4 + k] = D_FRONT[f] + offset(v) * (b > 0 ? 1 : -1);
-    D_CORNER[f * 4 + k] = D_SIDE1[f * 4 + k] + offset(v) * (b > 0 ? 1 : -1);
-  }
-}
-
-class Builder {
-  positions = new Float32Array(3 * 2048);
-  uvs = new Float32Array(2 * 2048);
-  layers = new Float32Array(2048);
-  light = new Uint8Array(4 * 2048);
-  indices = new Uint32Array(3072);
-  verts = 0;
-  count = 0;
-
-  reserveQuad(): void {
-    if (this.verts + 4 <= this.layers.length) return;
-    const grow = <T extends Float32Array | Uint8Array | Uint32Array>(old: T): T => {
-      const next = new (old.constructor as new (n: number) => T)(old.length * 2);
-      next.set(old);
-      return next;
-    };
-    this.positions = grow(this.positions);
-    this.uvs = grow(this.uvs);
-    this.layers = grow(this.layers);
-    this.light = grow(this.light);
-    this.indices = grow(this.indices);
-  }
-
-  /** Exactly-sized copies, ready to be transferred to another thread. */
-  finish(): MeshBatch {
-    const batch = {
-      positions: this.positions.slice(0, this.verts * 3),
-      uvs: this.uvs.slice(0, this.verts * 2),
-      layers: this.layers.slice(0, this.verts),
-      light: this.light.slice(0, this.verts * 4),
-      indices: this.indices.slice(0, this.count),
-    };
-    this.verts = 0;
-    this.count = 0;
-    return batch;
-  }
-}
-
-const builders = [new Builder(), new Builder(), new Builder()];
-const vol = new Uint16Array(LIGHT_VOLUME);
-let light: Uint8Array = new Uint8Array(0);
-// The quad being assembled.
-const QX = new Float32Array(4);
-const QY = new Float32Array(4);
-const QZ = new Float32Array(4);
-const QU = new Float32Array(4);
-const QV = new Float32Array(4);
-const QSky = new Uint8Array(4);
-const QBlock = new Uint8Array(4);
-const QShade = new Uint8Array(4);
-const QFlags = new Uint8Array(4);
-
-function pushQuad(b: Builder, layer: number, reversed = false): void {
-  b.reserveQuad();
-  const first = b.verts;
-  for (let k = 0; k < 4; k++) {
-    const v = first + k;
-    b.positions[v * 3] = QX[k];
-    b.positions[v * 3 + 1] = QY[k];
-    b.positions[v * 3 + 2] = QZ[k];
-    b.uvs[v * 2] = QU[k];
-    b.uvs[v * 2 + 1] = QV[k];
-    b.layers[v] = layer;
-    b.light[v * 4] = QSky[k];
-    b.light[v * 4 + 1] = QBlock[k];
-    b.light[v * 4 + 2] = QShade[k];
-    b.light[v * 4 + 3] = QFlags[k];
-  }
-  // Split along the brighter diagonal, so a single dark corner shades the same way in every orientation.
-  const m = (k: number): number => QShade[k] + Math.max(QSky[k], QBlock[k]);
-  const s = m(0) + m(2) >= m(1) + m(3) ? 0 : 1;
-  const i = b.count;
-  const mid = reversed ? 3 : 1;
-  const end = reversed ? 1 : 3;
-  b.indices[i] = first + s;
-  b.indices[i + 1] = first + ((s + mid) & 3);
-  b.indices[i + 2] = first + ((s + 2) & 3);
-  b.indices[i + 3] = first + s;
-  b.indices[i + 4] = first + ((s + 2) & 3);
-  b.indices[i + 5] = first + ((s + end) & 3);
-  b.verts += 4;
-  b.count += 6;
+/** Light summed over the cells around one vertex (smooth lighting). */
+const sums = { sky: 0, block: 0, cool: 0, violet: 0, cells: 0 };
+function addCell(q: number): void {
+  const l = lit.light[q];
+  const block = l & 15;
+  const h = lit.hue[q];
+  sums.sky += l >> 4;
+  sums.block += block;
+  if (h !== 0) sums.cool += block;
+  if (h === 2) sums.violet += block;
+  sums.cells++;
 }
 
 /** Faces of a full cube or a liquid cell, with ambient occlusion and smooth light. */
@@ -160,65 +64,33 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
     let flags = 0;
     if (liquid) flags = (f === Face.PY ? LIGHT_FLAG_LIQUID : 0) | (LIQUID[id] === 2 ? LIGHT_FLAG_EMISSIVE : 0);
     else if (FACE_GLOW[slot + f] === 1) flags = LIGHT_FLAG_EMISSIVE;
-    const front = light[pf];
     for (let k = 0; k < 4; k++) {
       const c = f * 4 + k;
       const p1 = p + D_SIDE1[c];
       const p2 = p + D_SIDE2[c];
       const o1 = OPAQUE[vol[p1] & VOXEL_ID_MASK];
       const o2 = OPAQUE[vol[p2] & VOXEL_ID_MASK];
-      let skySum = front >> 4;
-      let blockSum = front & 15;
-      let cells = 1;
+      sums.sky = sums.block = sums.cool = sums.violet = sums.cells = 0;
+      addCell(pf);
       let ao = 0;
-      if (o1 === 0) { skySum += light[p1] >> 4; blockSum += light[p1] & 15; cells++; }
-      if (o2 === 0) { skySum += light[p2] >> 4; blockSum += light[p2] & 15; cells++; }
+      if (o1 === 0) addCell(p1);
+      if (o2 === 0) addCell(p2);
       if (o1 === 0 || o2 === 0) {
         const pc = p + D_CORNER[c];
         const oc = OPAQUE[vol[pc] & VOXEL_ID_MASK];
-        if (oc === 0) { skySum += light[pc] >> 4; blockSum += light[pc] & 15; cells++; }
+        if (oc === 0) addCell(pc);
         ao = 3 - o1 - o2 - oc;
       }
+      const cells = sums.cells;
       QX[k] = x + VX[c];
       QY[k] = y + VY[c] * height;
       QZ[k] = z + VZ[c];
       QU[k] = CORNER_A[k];
       QV[k] = f === Face.PY || f === Face.NY ? CORNER_B[k] : CORNER_B[k] * height;
-      QSky[k] = (skySum * 17) / cells + 0.5;
-      QBlock[k] = (blockSum * 17) / cells + 0.5;
+      QSky[k] = (sums.sky * 17) / cells + 0.5;
+      QBlock[k] = (sums.block * 17) / cells + 0.5;
       QShade[k] = FACE_SHADE[f] * AO_CURVE[ao] * 255;
-      QFlags[k] = flags;
-    }
-    pushQuad(b, FACE_LAYER[slot + f]);
-  }
-}
-
-/**
- * An axis-aligned box inside a cell, lit flatly with the cell's own light. `skip` is a bit mask of faces
- * to leave out; `flags` go on every vertex. Faces showing the block's glowing active texture are
- * emissive, as on full cubes.
- */
-function box(b: Builder, slot: number, p: number, x: number, y: number, z: number, lo: readonly number[], hi: readonly number[], skip: number, flags: number): void {
-  const cell = light[p];
-  for (let f = 0; f < 6; f++) {
-    if ((skip >> f) & 1) continue;
-    const u = U_AXIS[f];
-    const v = V_AXIS[f];
-    const glow = FACE_GLOW[slot + f] === 1 ? LIGHT_FLAG_EMISSIVE : 0;
-    for (let k = 0; k < 4; k++) {
-      const c = f * 4 + k;
-      const px = VX[c] ? hi[0] : lo[0];
-      const py = VY[c] ? hi[1] : lo[1];
-      const pz = VZ[c] ? hi[2] : lo[2];
-      QX[k] = x + px;
-      QY[k] = y + py;
-      QZ[k] = z + pz;
-      QU[k] = 0.5 + (px - 0.5) * u[0] + (py - 0.5) * u[1] + (pz - 0.5) * u[2];
-      QV[k] = 0.5 + (px - 0.5) * v[0] + (py - 0.5) * v[1] + (pz - 0.5) * v[2];
-      QSky[k] = (cell >> 4) * 17;
-      QBlock[k] = (cell & 15) * 17;
-      QShade[k] = FACE_SHADE[f] * 255;
-      QFlags[k] = glow | flags;
+      QFlags[k] = flags | coolBits(sums.block, sums.cool, sums.violet);
     }
     pushQuad(b, FACE_LAYER[slot + f]);
   }
@@ -227,8 +99,10 @@ function box(b: Builder, slot: number, p: number, x: number, y: number, z: numbe
 const CROSS_LO = 0.15;
 const CROSS_HI = 0.85;
 /** Two diagonal quads, each drawn from both sides so the cutout material can keep back-face culling. */
-function cross(b: Builder, slot: number, p: number, x: number, y: number, z: number): void {
-  const cell = light[p];
+function cross(b: Builder, slot: number, p: number, x: number, y: number, z: number, id: number): void {
+  const cell = lit.light[p];
+  // Glowcaps and crystals shine with their own (cool) light: drawn full-bright.
+  const flags = GLOWS[id] === 1 ? LIGHT_FLAG_EMISSIVE : cellCoolBits(p);
   for (let d = 0; d < 2; d++) {
     for (let k = 0; k < 4; k++) {
       const a = CORNER_A[k];
@@ -240,7 +114,7 @@ function cross(b: Builder, slot: number, p: number, x: number, y: number, z: num
       QSky[k] = (cell >> 4) * 17;
       QBlock[k] = (cell & 15) * 17;
       QShade[k] = 255;
-      QFlags[k] = CORNER_B[k] ? LIGHT_FLAG_SWAY : 0;
+      QFlags[k] = (CORNER_B[k] ? LIGHT_FLAG_SWAY : 0) | flags;
     }
     pushQuad(b, FACE_LAYER[slot]);
     pushQuad(b, FACE_LAYER[slot], true);
@@ -295,6 +169,8 @@ function slab(b: Builder, slot: number, p: number, x: number, y: number, z: numb
   box(b, slot, p, x, y, z, SLAB_LO, SLAB_HI, skip, 0);
 }
 
+const ownHue = new Uint8Array(LIGHT_VOLUME);
+
 function fillVolume(chunks: ChunkNeighborhood): void {
   vol.fill(ID.corestone, 0, SY);
   vol.fill(0, SY);
@@ -320,8 +196,16 @@ function fillVolume(chunks: ChunkNeighborhood): void {
 export function meshChunk(input: MeshInput): ChunkMeshData {
   if (!input.chunks[4]) throw new Error(`meshChunk ${input.cx},${input.cz}: the centre chunk is missing`);
   fillVolume(input.chunks);
-  light = input.light ?? computeLight(input.chunks);
-  if (light.length !== LIGHT_VOLUME || LIGHT_H !== WORLD_HEIGHT + 2) throw new Error('meshChunk: light volume has the wrong size');
+  if (input.light) {
+    lit.light = input.light;
+    lit.hue = input.hue ?? noHue();
+  } else {
+    lit.hue = ownHue;
+    lit.light = computeLight(input.chunks, ownHue);
+  }
+  if (lit.light.length !== LIGHT_VOLUME || lit.hue.length !== LIGHT_VOLUME || LIGHT_H !== WORLD_HEIGHT + 2) {
+    throw new Error('meshChunk: light volume has the wrong size');
+  }
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
       let p = lightIndex(0, y, z);
@@ -332,10 +216,11 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
         switch (SHAPE[id]) {
           case SHAPE_CUBE: cubeFaces(v, id, p, x, y, z, false); break;
           case SHAPE_LIQUID: cubeFaces(v, id, p, x, y, z, true); break;
-          case SHAPE_CROSS: cross(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
+          case SHAPE_CROSS: cross(builders[BATCH[id]], faceSlot(v), p, x, y, z, id); break;
           case SHAPE_TORCH: torch(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z); break;
           case SHAPE_CABLE: cable(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
           case SHAPE_SLAB: slab(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
+          case SHAPE_PIPE: pipe(builders[BATCH[id]], faceSlot(v), id, p, x, y, z); break;
           default: break;
         }
       }

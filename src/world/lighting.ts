@@ -7,7 +7,7 @@
  * (3 per block of water). Block light spreads from emitters the same way.
  */
 import { CHUNK_SIZE, VOXEL_ID_MASK, WORLD_HEIGHT } from '../core/types';
-import { EMIT, EMIT_ACTIVE, LIGHT_BLOCKED, LIGHT_CLASS, LIGHT_CLEAR, LIGHT_FILTER } from './blockTables';
+import { EMIT, EMIT_ACTIVE, LIGHT_BLOCKED, LIGHT_CLASS, LIGHT_CLEAR, LIGHT_FILTER, LIGHT_HUE } from './blockTables';
 import type { ChunkNeighborhood } from './chunk';
 
 /** The light volume covers the chunk plus one cell on every side (also above and below). */
@@ -27,11 +27,14 @@ const ACTIVE_BIT = 1 << 12;
 const cls = new Uint8Array(VOLUME);
 const sky = new Uint8Array(VOLUME);
 const blk = new Uint8Array(VOLUME);
+/** Colour of the block light in each cell: the LIGHT_HUE of the emitter that lights it most (0 warm). */
+const hue = new Uint8Array(VOLUME);
 const skyFloor = new Int16Array(AREA);
 const QUEUE_MASK = (1 << 20) - 1;
 const queue = new Int32Array(QUEUE_MASK + 1);
 
-function flood(light: Uint8Array, count: number): void {
+/** Spreads light from the queued cells; with `colour`, each cell also takes the colour of the cell that lit it. */
+function flood(light: Uint8Array, count: number, colour: Uint8Array | null): void {
   let head = 0;
   let tail = count;
   while (head < tail) {
@@ -55,6 +58,7 @@ function flood(light: Uint8Array, count: number): void {
       const next = level - (c === LIGHT_FILTER ? 3 : 1);
       if (next > light[n]) {
         light[n] = next;
+        if (colour) colour[n] = colour[i];
         queue[tail++ & QUEUE_MASK] = n;
       }
     }
@@ -64,12 +68,14 @@ function flood(light: Uint8Array, count: number): void {
 /**
  * Light of the centre chunk of `chunks` plus a one-cell border: a Uint8Array of LIGHT_VOLUME cells,
  * addressed with `lightIndex`. Missing neighbours count as open air. Cells above the world are fully
- * sky-lit, cells below it are dark.
+ * sky-lit, cells below it are dark. With `hueOut` (LIGHT_VOLUME bytes) it also writes the colour of each
+ * cell's block light there: the LIGHT_HUE of the emitter that lights it most (0 warm, 1 cyan, 2 violet).
  */
-export function computeLight(chunks: ChunkNeighborhood): Uint8Array {
+export function computeLight(chunks: ChunkNeighborhood, hueOut?: Uint8Array): Uint8Array {
   cls.fill(LIGHT_CLEAR);
   sky.fill(0);
   blk.fill(0);
+  hue.fill(0);
   let count = 0;
   for (let n = 0; n < 9; n++) {
     const voxels = chunks[n];
@@ -88,13 +94,14 @@ export function computeLight(chunks: ChunkNeighborhood): Uint8Array {
           const emit = (v & ACTIVE_BIT) !== 0 ? EMIT_ACTIVE[id] : EMIT[id];
           if (emit > 0) {
             blk[dst + lx] = emit;
+            hue[dst + lx] = LIGHT_HUE[id];
             queue[count++] = dst + lx;
           }
         }
       }
     }
   }
-  flood(blk, count);
+  flood(blk, count, hue);
 
   // Straight down from the sky: full light through clear cells, then fading through water.
   for (let c = 0; c < AREA; c++) {
@@ -126,7 +133,7 @@ export function computeLight(chunks: ChunkNeighborhood): Uint8Array {
     if (top > WORLD_HEIGHT) top = WORLD_HEIGHT;
     for (let y = floor; y < top; y++) queue[count++] = c + y * AREA;
   }
-  flood(sky, count);
+  flood(sky, count, null);
 
   const out = new Uint8Array(LIGHT_VOLUME);
   out.fill(0xf0, LIGHT_W * LIGHT_W * (LIGHT_H - 1));
@@ -135,7 +142,12 @@ export function computeLight(chunks: ChunkNeighborhood): Uint8Array {
       const src = y * AREA + (lz + CHUNK_SIZE) * W + CHUNK_SIZE - 1;
       const dst = lightIndex(-1, y, lz);
       for (let k = 0; k < LIGHT_W; k++) out[dst + k] = (sky[src + k] << 4) | blk[src + k];
+      if (hueOut) for (let k = 0; k < LIGHT_W; k++) hueOut[dst + k] = hue[src + k];
     }
+  }
+  if (hueOut) {
+    hueOut.fill(0, 0, LIGHT_W * LIGHT_W);
+    hueOut.fill(0, LIGHT_W * LIGHT_W * (LIGHT_H - 1));
   }
   return out;
 }
