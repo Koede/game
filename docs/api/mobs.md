@@ -253,3 +253,8 @@ PART_GROUP; MOB_DRAW_CAPACITY = 64; PROBES_PER_FRAME = 2; FRESH_PROBES = 6
 
 ## The Emberbound (spec 19)
 Automatons are CreatureSpecs with `hostile`, listed in the registry's `AUTOMATONS` (not `CREATURES`, so the animal spawner is unchanged). `hitDamage` now returns a held weapon's `weapon.damage` (the mauls). Everything else for the AI is in `docs/api/emberbound-content.md` section 7; `PART_GROUP` in src/render/mobs/geometry.ts maps the new anim tags (middle legs, arms - rigid for now).
+
+**Behaviour built (spec 19.2-19.3):** AI, attacks, ember bolts, night spawning, ruin guards, daylight wind-down, safe
+zones, salvage and saves are in the same manager - see `docs/api/emberbound-ai.md` (wiring, API, deviations).
+`MobManager.hit` gained a fifth argument `stunS` (the arc maul), `MobView` gained `glow`, `flare`, `attack`, `dormant`,
+`MobsSnapshot` an optional `hostiles`, and `projectiles(alpha)` / `useHostileHooks` / `setDifficulty` / `hostiles` are new.
