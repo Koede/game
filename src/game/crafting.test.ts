@@ -35,6 +35,8 @@ describe('crafting', () => {
       'bronze_pickaxe', 'bronze_axe', 'bronze_shovel', 'bronze_hoe', 'bronze_maul',
       // Essentia & Research (src/content/recipesMagic.ts), last.
       'vis_rod', 'essentia_jar',
+      // The Bronze workshop pieces (src/content/recipesWorkshop.ts).
+      'hand_crank', 'drive_shaft', 'conveyor_belt', 'conveyor_belt_cloth', 'mech_millstone', 'mech_loom',
     ]);
   });
 

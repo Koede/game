@@ -8,6 +8,7 @@ import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, hearthMaterials,
 import { SPEC } from './specRoster';
 import { DISTILL_RECIPE_COUNT, DISTILL_SPEC } from './specRosterDistill';
 import { MAGIC_RECIPE_COUNT, MAGIC_SPEC } from './specRosterMagic';
+import { WORKSHOP_RECIPE_COUNT, WORKSHOP_SPEC } from './specRosterWorkshop';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
 const stationsOf = (): string[] => [...new Set(RECIPES.map((r) => r.station))];
@@ -62,12 +63,12 @@ describe('1. registry validation', () => {
 describe('2. roster of spec section 2', () => {
   it('has exactly the 142 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19, 12 of brewing, 10 of handwork; distillery ones on top), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(142 + DISTILL_SPEC.blocks.length + MAGIC_SPEC.blocks.length);
+    expect(SPEC.blocks).toHaveLength(142 + DISTILL_SPEC.blocks.length + MAGIC_SPEC.blocks.length + WORKSHOP_SPEC.blocks.length);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
   it('has exactly the 153 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19, 20 of brewing, 30 of handwork, 12 of ground items, vehicles and sugar; distillery ones on top)', () => {
-    expect(SPEC.items).toHaveLength(153 + DISTILL_SPEC.items.length + MAGIC_SPEC.items.length);
+    expect(SPEC.items).toHaveLength(153 + DISTILL_SPEC.items.length + MAGIC_SPEC.items.length + WORKSHOP_SPEC.items.length);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
     expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
@@ -86,7 +87,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(195 + DISTILL_RECIPE_COUNT + MAGIC_RECIPE_COUNT);
+    expect(RECIPES).toHaveLength(195 + DISTILL_RECIPE_COUNT + MAGIC_RECIPE_COUNT + WORKSHOP_RECIPE_COUNT);
   });
 
   it('has the furnace tiers of table 2.4', () => {

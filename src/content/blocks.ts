@@ -13,6 +13,7 @@ import { WORLD_BLOCKS } from './blocksWorld';
 import { BREW_BLOCKS } from './blocksBrew';
 import { DISTILL_BLOCKS } from './blocksDistill';
 import { MAGIC_BLOCKS } from './itemsMagic';
+import { WORKSHOP_BLOCKS } from './itemsWorkshop';
 import { HAND_BLOCKS } from './blocksHand';
 
 const FOLIAGE_DROPS: Drop[] = [
@@ -266,4 +267,5 @@ export const BLOCK_SPECS: BlockSpec[] = [
   ...HAND_BLOCKS,
   ...DISTILL_BLOCKS,
   ...MAGIC_BLOCKS,
+  ...WORKSHOP_BLOCKS,
 ];

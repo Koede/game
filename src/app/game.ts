@@ -6,6 +6,8 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
+import { isKinetic, Workshop } from '../workshop/workshop';
 import { setCraftGate } from '../game/crafting';
 import { JAR_BLOCK, Magic } from '../magic/magic';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
@@ -76,6 +78,8 @@ export class Game {
   readonly vehicles: VehicleManager;
   /** Essentia & Research (docs/api/magic.md): research, jars, the land's drawn essentia. */
   readonly magic: Magic;
+  /** The Bronze workshop pieces (docs/api/workshop.md): cranks, shafts, belts, mechanical stations. */
+  readonly workshop: Workshop;
   private readonly tractorRenderer: TractorRenderer;
   private readonly vehicleHud: VehicleHud;
   readonly audio: AudioEngine;
@@ -124,6 +128,10 @@ export class Game {
     this.magic.load(world.extra('magic'));
     this.offs.push(world.persist('magic', () => this.magic.toJSON()));
     setCraftGate((id) => this.magic.craftGate(id));
+    this.workshop = new Workshop(world, bus, player.ground);
+    this.workshop.load(world.extra('workshop'));
+    this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    this.offs.push(() => this.workshop.dispose());
     this.offs.push(() => {
       setCraftGate(null);
       this.magic.dispose();
@@ -170,7 +178,14 @@ export class Game {
       };
       this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hands: sim });
       this.vehicles.bindPhysics(this.controller.physics);
-      this.controller.interaction.beforeUse = (hit) => this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block } : null);
+      this.controller.interaction.beforeUse = (hit) => {
+        if (hit) {
+          const held = player.heldStack();
+          const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
+          if (shop !== null) return shop;
+        }
+        return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block } : null);
+      };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);
@@ -331,6 +346,15 @@ export class Game {
     return this.covered;
   }
 
+  private readonly inspectProbe: InspectProbe = {
+    workshop: (x, y, z) => this.workshop.describe(x, y, z),
+    furnace: (x, y, z) => {
+      const f = this.state.sim.furnaceView(x, y, z);
+      return f ? { name: f.spec.name, tempC: f.tempC, burning: f.burning, burnTimeLeftS: f.burnTimeLeftS } : null;
+    },
+    machine: (x, y, z) => this.state.sim.machineView(x, y, z),
+  };
+
   /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
   private namedStation: string | null = null;
   private showStationName(): void {
@@ -338,6 +362,8 @@ export class Game {
     const hit = this.controller.targetAnimal === null ? this.controller.target : null;
     if (hit && hit.block.handStation !== null) label = this.state.sim.handView(hit.x, hit.y, hit.z)?.label ?? null;
     else if (hit && hit.block.key === JAR_BLOCK) label = this.magic.jarText(hit.x, hit.y, hit.z);
+    else if (hit && this.state.player.inventory.has(GOGGLES)) label = inspect(this.inspectProbe, hit.x, hit.y, hit.z);
+    else if (hit && isKinetic(hit.block.key)) label = hit.block.name;
     if (label === this.namedStation) return;
     this.namedStation = label;
     this.ui.setTargetName(label);
@@ -362,6 +388,8 @@ export class Game {
   private tickOnce(): void {
     this.state.tick(DT);
     this.magic.tick(DT);
+    this.workshop.tick(DT);
+    if (this.state.ticks % 200 === 0) this.workshop.verify();
     this.state.world.leaves.tick();
   }
 

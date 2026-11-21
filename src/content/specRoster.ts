@@ -7,6 +7,7 @@ import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { BREW_SPEC } from './specRosterBrew';
 import { DISTILL_SPEC } from './specRosterDistill';
 import { MAGIC_SPEC } from './specRosterMagic';
+import { WORKSHOP_SPEC } from './specRosterWorkshop';
 import { EMBER_SPEC } from './specRosterEmber';
 import { GROUND_SPEC } from './specRosterGround';
 import { FOOD_SPEC } from './specRosterFood';
@@ -384,3 +385,9 @@ SPEC.blocks.push(...MAGIC_SPEC.blocks);
 SPEC.items.push(...MAGIC_SPEC.items);
 for (const station of Object.keys(MAGIC_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...MAGIC_SPEC.recipes[station]];
 SPEC.maxTextures += MAGIC_SPEC.textures;
+
+// The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
+SPEC.blocks.push(...WORKSHOP_SPEC.blocks);
+SPEC.items.push(...WORKSHOP_SPEC.items);
+for (const station of Object.keys(WORKSHOP_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...WORKSHOP_SPEC.recipes[station]];
+SPEC.maxTextures += WORKSHOP_SPEC.textures;
