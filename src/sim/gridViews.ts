@@ -149,8 +149,8 @@ export interface NetworkStats {
   historyUsed: number[];
 }
 
-export function networkStats(net: Network): NetworkStats {
-  const members: NetworkMember[] = net.nodes.map((n) => {
+function membersOf(net: Network): NetworkMember[] {
+  return net.nodes.map((n) => {
     const base = { kind: n.e.kind, x: n.e.x, y: n.e.y, z: n.e.z, role: n.spec.role };
     if (n.e.kind === 'furnace') {
       const e = n.e as FurnaceEntity;
@@ -163,10 +163,20 @@ export function networkStats(net: Network): NetworkStats {
     const watts = n.spec.role === 'storage' ? view.outW - view.chargeW : n.spec.role === 'generator' ? view.outW : -view.demandW * net.f;
     return { ...base, name: n.spec.name, watts, status: view.status };
   });
+}
+
+/** A snapshot of one network. `members` is worked out on first access (the HUD only needs the totals). */
+export function networkStats(net: Network): NetworkStats {
+  let members: NetworkMember[] | null = null;
   return {
     id: net.id, generationW: net.generationW, demandW: net.demandW, deliveredW: net.deliveredW, storedJ: net.storedJ,
     capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW, ratingW: net.ratingW, cables: net.cables,
-    satisfaction: net.f, overloaded: net.overloaded, state: net.state, members, historyG: [...net.historyG], historyUsed: [...net.historyUsed],
+    satisfaction: net.f, overloaded: net.overloaded, state: net.state,
+    get members(): NetworkMember[] {
+      if (members === null) members = membersOf(net);
+      return members;
+    },
+    historyG: [...net.historyG], historyUsed: [...net.historyUsed],
   };
 }
 

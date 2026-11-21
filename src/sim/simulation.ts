@@ -1,8 +1,8 @@
 /**
- * The simulation facade: owns the runtime nodes of every block entity, follows block changes, ticks the
- * machines, solves the power networks, and exposes the player's actions and the queries the UI needs.
+ * The simulation facade: follows block changes to create and remove block entities, ticks the machines, solves
+ * the power networks, and exposes the player's actions and the queries the UI and the objectives need.
  */
-import { STATION_CRATE_RADIUS, TICK_RATE } from '../core/constants';
+import { TICK_RATE } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
@@ -11,38 +11,33 @@ import { voxelActive, withActive, type IWorld } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
+import { cratesNear, pushToCrates } from './crates';
 import {
-  OK, addToSlots, createFurnace, createMachine, createNode, isFurnace, posKey, refuse, resizeFurnace,
-  type ActionResult, type FurnaceEntity, type MachineEntity, type SimContext, type SimEntity, type SimNode,
+  OK, createFurnace, createMachine, isFurnace, posKey, refuse, resizeFurnace,
+  type ActionResult, type FurnaceEntity, type MachineEntity, type SimEntity, type SimNode,
 } from './entities';
-import { explode, fissionPile, meltDown } from './fission';
+import { explode, meltDown } from './fission';
 import { applyFurnace, prepareFurnace } from './furnace';
 import * as actions from './furnaceActions';
 import type { ActionHost, ForgeResult } from './furnaceActions';
-import { behaviourOf, windAt, type Behaviour } from './machines';
-import { Network, buildNetworks, chunkKey } from './power';
-import { SlotAccess, type FurnaceSlots } from './slots';
-import { concerns, nearChunk, surroundings } from './surroundings';
 import { gridSummary, machineView, networkStats, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
+import { windAt } from './machines';
+import { NodeSet } from './nodes';
+import type { Network } from './power';
+import { SlotAccess, type FurnaceSlots } from './slots';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 
 const WIND = machine('wind_turbine').params ?? {};
 
 export class Simulation implements ActionHost {
+  /** Sunlight factor and wind factor of the current tick (read by solar panels and wind turbines). */
   sunlight = 1;
   wind = 1;
+  /** True on one tick per second. */
   everySecond = false;
+  readonly random: () => number;
 
-  private readonly nodes: SimNode[] = [];
-  private readonly furnaceNodes: SimNode[] = [];
-  private readonly tickers: SimNode[] = [];
-  private readonly behaviours: Behaviour[] = [];
-  private readonly byKey = new Map<string, SimNode>();
-  private networks: Network[] = [];
-  /** Network of every cable position, refilled with the networks. */
-  private readonly cableNets = new Map<string, Network>();
-  private envDirty = true;
-  private topologyDirty = true;
+  private readonly nodes: NodeSet;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
   private destroying = false;
   private tickCount = 0;
@@ -50,7 +45,10 @@ export class Simulation implements ActionHost {
   private readonly meltdowns: SimNode[] = [];
   private readonly slots = new SlotAccess();
   private readonly offs: Array<() => void> = [];
-  readonly random: () => number;
+  /** allNetworks() of the current tick and topology. */
+  private stats: NetworkStats[] = [];
+  private statsTick = -1;
+  private statsOf: Network[] | null = null;
 
   constructor(
     readonly world: IWorld,
@@ -59,10 +57,11 @@ export class Simulation implements ActionHost {
     readonly clock: GameClock,
   ) {
     this.random = mulberry32(world.seed ^ 0x5eed);
+    this.nodes = new NodeSet(world);
     this.offs.push(
       bus.on('block:changed', (ev) => this.onBlockChanged(ev)),
-      bus.on('chunk:loaded', ({ cx, cz }) => this.onChunk(cx, cz)),
-      bus.on('chunk:unloaded', ({ cx, cz }) => this.onChunk(cx, cz)),
+      bus.on('chunk:loaded', ({ cx, cz }) => this.nodes.chunkChanged(cx, cz)),
+      bus.on('chunk:unloaded', ({ cx, cz }) => this.nodes.chunkChanged(cx, cz)),
       bus.on('ui:opened', ({ screen }) => {
         if (screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z)) player.setHome(screen.x, screen.y, screen.z);
       }),
@@ -77,14 +76,8 @@ export class Simulation implements ActionHost {
 
   /** Rebuilds the runtime from the world's entities. Call after a save was loaded into the world. */
   resync(): void {
-    this.nodes.length = 0;
-    this.furnaceNodes.length = 0;
-    this.tickers.length = 0;
-    this.behaviours.length = 0;
-    this.byKey.clear();
-    this.networks = [];
-    for (const e of this.world.entities()) this.track(e as SimEntity);
-    this.markDirty();
+    this.nodes.clear();
+    for (const e of this.world.entities()) this.nodes.track(e as SimEntity);
   }
 
   // ---- ticking ------------------------------------------------------------------------------------------------
@@ -92,17 +85,16 @@ export class Simulation implements ActionHost {
   tick(dt: number): void {
     this.tickCount++;
     this.everySecond = this.tickCount % TICK_RATE === 0;
-    this.fresh();
+    const { world, nodes } = this;
+    nodes.fresh();
     this.sunlight = this.clock.sunlight();
     this.wind = windAt(this.clock.worldTimeS, WIND.windMin, WIND.windMax);
-    const world = this.world;
 
-    for (const n of this.furnaceNodes) {
+    for (const n of nodes.furnaces) {
       n.loaded = world.isLoaded(n.e.x, n.e.z);
       (n.e as FurnaceEntity).extractW = 0;
     }
-    const tickers = this.tickers;
-    const behaviours = this.behaviours;
+    const { tickers, behaviours } = nodes;
     for (let i = 0; i < tickers.length; i++) {
       const n = tickers[i];
       n.loaded = world.isLoaded(n.e.x, n.e.z);
@@ -112,130 +104,53 @@ export class Simulation implements ActionHost {
         n.e.demandW = 0;
       }
     }
-    for (const n of this.furnaceNodes) {
+    for (const n of nodes.furnaces) {
       if (n.loaded) prepareFurnace(n);
       else {
         n.e.availW = 0;
         n.e.demandW = 0;
       }
     }
-    for (const net of this.networks) {
+    for (const net of nodes.networks) {
       net.solve(dt);
       net.alert(this.bus);
       if (this.everySecond) net.sample();
     }
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
-    for (const n of this.furnaceNodes) if (n.loaded) applyFurnace(n, this, dt);
+    for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt);
 
     if (this.meltdowns.length > 0) {
-      const due = this.meltdowns.splice(0);
-      for (const n of due) if (this.byKey.get(n.key) === n) this.explodeNode(n);
-    }
-  }
-
-  private explodeNode(node: SimNode): void {
-    this.destroying = true;
-    try {
-      meltDown(this, node);
-    } finally {
-      this.destroying = false;
+      for (const n of this.meltdowns.splice(0)) if (nodes.byKey.get(n.key) === n) this.destroy(() => meltDown(this, n));
     }
   }
 
   /** Blows up a sphere of blocks around a position (machines inside are destroyed with their contents). */
   explode(x: number, y: number, z: number, radius: number): void {
+    this.destroy(() => explode(this, x, y, z, radius));
+  }
+
+  private destroy(fn: () => void): void {
     this.destroying = true;
     try {
-      explode(this, x, y, z, radius);
+      fn();
     } finally {
       this.destroying = false;
     }
   }
 
-  /** Everything must be looked at again (a save was loaded). */
-  private markDirty(): void {
-    for (const n of this.nodes) n.dirty = true;
-    this.envDirty = true;
-    this.topologyDirty = true;
-  }
-
-  /** A chunk column arrived or left: only machines in or beside it, and networks reaching it, can change. */
-  private onChunk(cx: number, cz: number): void {
-    for (const n of this.nodes) {
-      if (!nearChunk(n, cx, cz)) continue;
-      n.dirty = true;
-      this.envDirty = true;
-      this.topologyDirty = true;
-    }
-    if (this.topologyDirty) return;
-    for (const net of this.networks) {
-      const c = net.chunks;
-      if (c.has(chunkKey(cx, cz)) || c.has(chunkKey(cx + 1, cz)) || c.has(chunkKey(cx - 1, cz)) || c.has(chunkKey(cx, cz + 1)) || c.has(chunkKey(cx, cz - 1))) {
-        this.topologyDirty = true;
-        return;
-      }
-    }
-  }
-
-  /** Brings surroundings and networks up to date with the blocks, if anything changed. */
-  private fresh(): void {
-    if (this.envDirty) {
-      for (const n of this.nodes) {
-        if (!n.dirty) continue;
-        surroundings(this.world, this.byKey, this.tickers, n);
-        n.dirty = false;
-      }
-      this.envDirty = false;
-    }
-    if (this.topologyDirty) {
-      this.networks = buildNetworks(this.world, this.nodes, this.byKey, this.networks, this.cableNets);
-      this.topologyDirty = false;
-    }
-  }
-
   // ---- entity lifecycle ---------------------------------------------------------------------------------------
-
-  private track(e: SimEntity): SimNode {
-    const node = createNode(e);
-    node.active = voxelActive(this.world.getVoxel(e.x, e.y, e.z));
-    this.nodes.push(node);
-    this.byKey.set(node.key, node);
-    if (isFurnace(e)) this.furnaceNodes.push(node);
-    else if (e.kind !== 'crate') {
-      this.tickers.push(node);
-      this.behaviours.push(e.kind === 'fission_pile' ? fissionPile : behaviourOf(e.kind));
-    }
-    return node;
-  }
-
-  private untrack(node: SimNode): void {
-    this.byKey.delete(node.key);
-    this.nodes.splice(this.nodes.indexOf(node), 1);
-    const f = this.furnaceNodes.indexOf(node);
-    if (f >= 0) this.furnaceNodes.splice(f, 1);
-    const t = this.tickers.indexOf(node);
-    if (t >= 0) {
-      this.tickers.splice(t, 1);
-      this.behaviours.splice(t, 1);
-    }
-  }
 
   private onBlockChanged(ev: GameEvents['block:changed']): void {
     const from = blockOf(ev.from);
     const to = blockOf(ev.to);
     if (from.id === to.id) return;
     const { x, y, z } = ev;
-    if (from.power !== null || to.power !== null) this.topologyDirty = true;
-    const wheel = from.machine === 'water_wheel' || to.machine === 'water_wheel';
-    for (const n of this.nodes) {
-      if (n.dirty || !concerns(n, x, y, z, wheel)) continue;
-      n.dirty = true;
-      this.envDirty = true;
-    }
-    const node = this.byKey.get(posKey(x, y, z));
+    const key = posKey(x, y, z);
+    this.nodes.blockChanged(x, y, z, from.power !== null || to.power !== null, from.machine === 'water_wheel' || to.machine === 'water_wheel');
+    const node = this.nodes.byKey.get(key);
     if (node && node.e.kind !== to.machine) this.removeMachine(node);
     if (to.machine === null) return;
-    const kept = this.byKey.get(posKey(x, y, z));
+    const kept = this.nodes.byKey.get(key);
     if (kept) {
       // Same machine kind under a new block: a furnace was rebuilt as another tier.
       const tier = furnaceTierOfBlock(to.key);
@@ -249,15 +164,14 @@ export class Simulation implements ActionHost {
       e = to.machine === 'furnace' ? createFurnace(x, y, z, furnaceTierOfBlock(to.key)?.tier ?? 1) : createMachine(to.machine, x, y, z);
       this.world.setEntity(e);
     }
-    this.track(e);
-    this.envDirty = true;
+    this.nodes.track(e);
     if (ev.source !== 'load') this.bus.emit('machine:placed', { entity: e });
     if (ev.source === 'player' && isFurnace(e)) this.player.setHome(x, y, z);
   }
 
   private removeMachine(node: SimNode): void {
     const e = node.e;
-    this.untrack(node);
+    this.nodes.untrack(node);
     this.world.removeEntity(e.x, e.y, e.z);
     if (!this.destroying) {
       const held = isFurnace(e) ? [...e.fuel, ...e.crucibleIn, ...e.crucibleOut] : (e as MachineEntity).slots;
@@ -287,20 +201,7 @@ export class Simulation implements ActionHost {
   }
 
   pushToCrates(node: SimNode, from: number, to: number): void {
-    if (node.crates.length === 0) return;
-    const slots = (node.e as MachineEntity).slots;
-    for (let i = from; i < to; i++) {
-      for (const crate of node.crates) {
-        const s = slots[i];
-        if (!s) break;
-        const left = addToSlots(crate.slots, s.item, s.count);
-        if (left === s.count) continue;
-        if (left > 0) s.count = left;
-        else slots[i] = null;
-        this.touch(crate);
-        this.touch(node.e);
-      }
-    }
+    pushToCrates(node, from, to, (e) => this.touch(e));
   }
 
   meltdown(node: SimNode): void {
@@ -309,25 +210,18 @@ export class Simulation implements ActionHost {
 
   /** The player's inventory, then the crates within STATION_CRATE_RADIUS of a station (nearest first). */
   stationSources(x: number, y: number, z: number): Inventory[] {
-    const near: Array<{ d: number; e: MachineEntity }> = [];
-    for (const n of this.nodes) {
-      if (n.e.kind !== 'crate') continue;
-      const d = Math.max(Math.abs(n.e.x - x), Math.abs(n.e.y - y), Math.abs(n.e.z - z));
-      if (d <= STATION_CRATE_RADIUS) near.push({ d, e: n.e as MachineEntity });
-    }
-    near.sort((a, b) => a.d - b.d);
-    return [this.player.inventory, ...near.map((c) => this.slots.machine(c.e))];
+    return [this.player.inventory, ...cratesNear(this.nodes.all, x, y, z).map((c) => this.slots.machine(c))];
   }
 
   // ---- lookups --------------------------------------------------------------------------------------------------
 
   furnaceAt(x: number, y: number, z: number): FurnaceEntity | null {
-    const node = this.byKey.get(posKey(x, y, z));
+    const node = this.nodes.byKey.get(posKey(x, y, z));
     return node && isFurnace(node.e) ? node.e : null;
   }
 
   machineAt(x: number, y: number, z: number): MachineEntity | null {
-    const node = this.byKey.get(posKey(x, y, z));
+    const node = this.nodes.byKey.get(posKey(x, y, z));
     return node && !isFurnace(node.e) ? (node.e as MachineEntity) : null;
   }
 
@@ -346,7 +240,7 @@ export class Simulation implements ActionHost {
   // ---- player actions -------------------------------------------------------------------------------------------
 
   private withFurnace(x: number, y: number, z: number, fn: (e: FurnaceEntity, node: SimNode) => ActionResult): ActionResult {
-    const node = this.byKey.get(posKey(x, y, z));
+    const node = this.nodes.byKey.get(posKey(x, y, z));
     return node && isFurnace(node.e) ? fn(node.e, node) : refuse('There is no furnace here');
   }
 
@@ -376,7 +270,7 @@ export class Simulation implements ActionHost {
   }
 
   startIgnition(x: number, y: number, z: number): ActionResult {
-    this.fresh();
+    this.nodes.fresh();
     return this.withFurnace(x, y, z, (e, node) => actions.startIgnition(this, e, node));
   }
 
@@ -404,8 +298,8 @@ export class Simulation implements ActionHost {
   // ---- queries --------------------------------------------------------------------------------------------------
 
   furnaceView(x: number, y: number, z: number): FurnaceView | null {
-    this.fresh();
-    const node = this.byKey.get(posKey(x, y, z));
+    this.nodes.fresh();
+    const node = this.nodes.byKey.get(posKey(x, y, z));
     return node && isFurnace(node.e) ? furnaceView(this, node) : null;
   }
 
@@ -416,27 +310,34 @@ export class Simulation implements ActionHost {
   }
 
   machineView(x: number, y: number, z: number): MachineView | null {
-    this.fresh();
-    const node = this.byKey.get(posKey(x, y, z));
+    this.nodes.fresh();
+    const node = this.nodes.byKey.get(posKey(x, y, z));
     return node && !isFurnace(node.e) ? machineView(node) : null;
   }
 
   /** Stats of the network a power device or cable at this position belongs to (null: none, or a lone cable run). */
   networkAt(x: number, y: number, z: number): NetworkStats | null {
-    this.fresh();
+    this.nodes.fresh();
     const key = posKey(x, y, z);
-    const net = this.byKey.get(key)?.net ?? this.cableNets.get(key);
+    const net = this.nodes.byKey.get(key)?.net ?? this.nodes.cableNets.get(key);
     return net ? networkStats(net) : null;
   }
 
+  /** Every network. The list is built at most once per tick; treat it as read-only. */
   allNetworks(): NetworkStats[] {
-    this.fresh();
-    return this.networks.map(networkStats);
+    this.nodes.fresh();
+    const networks = this.nodes.networks;
+    if (this.statsTick !== this.tickCount || this.statsOf !== networks) {
+      this.stats = networks.map(networkStats);
+      this.statsTick = this.tickCount;
+      this.statsOf = networks;
+    }
+    return this.stats;
   }
 
   /** Totals of every network and the worst alert state, for the HUD. */
   grid(): GridSummary {
-    return gridSummary(this.networks);
+    return gridSummary(this.nodes.networks);
   }
 
   /** The furnace the player calls home (player.home), or null when there is none or it is gone. */
@@ -447,30 +348,31 @@ export class Simulation implements ActionHost {
 
   maxFurnaceTempC(): number {
     let t = 0;
-    for (const n of this.furnaceNodes) t = Math.max(t, (n.e as FurnaceEntity).tempC);
+    for (const n of this.nodes.furnaces) t = Math.max(t, (n.e as FurnaceEntity).tempC);
     return t;
   }
 
   maxFurnaceTier(): number {
     let t = 0;
-    for (const n of this.furnaceNodes) t = Math.max(t, (n.e as FurnaceEntity).tier);
+    for (const n of this.nodes.furnaces) t = Math.max(t, (n.e as FurnaceEntity).tier);
     return t;
   }
 
   /** Sum of available generator watts over all networks. */
   generationW(): number {
     let w = 0;
-    for (const net of this.networks) w += net.generationW;
+    for (const net of this.nodes.networks) w += net.generationW;
     return w;
   }
 
+  /** Joules held in every battery and lithium bank. */
   storedJ(): number {
     let j = 0;
-    for (const net of this.networks) j += net.storedJ;
+    for (const net of this.nodes.networks) j += net.storedJ;
     return j;
   }
 
   get entityCount(): number {
-    return this.nodes.length;
+    return this.nodes.all.length;
   }
 }
