@@ -56,10 +56,6 @@ export class CropField {
     return this.awake.length;
   }
 
-  at(x: number, y: number, z: number): CropNode | undefined {
-    return this.byKey.get(posKey(x, y, z));
-  }
-
   /** Forgets every crop and lamp (before a resync). */
   clear(): void {
     this.byKey.clear();

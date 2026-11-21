@@ -200,6 +200,11 @@ the worst announced one (overload > brownout > ok).
 `REST_FUEL_S` (60), `HISTORY_SECONDS` (60), `smeltRecipeFor(item): RecipeDef | null`,
 `machineRecipeFor(kind, item): RecipeDef | null`, `windAt(timeS, min, max): number` (deterministic wind factor).
 
+## Crops (spec 12.4)
+Crop growth lives in `src/sim/crops.ts` / `cropRules.ts`; API, rules and numbers in `docs/api/crops.md`. Crops are
+block entities of kind `crop` but never machines: `machineAt` / `machineView` / networks / `entityCount` leave them
+out; use `cropView(x, y, z)`, `cropCount`.
+
 ## Events emitted
 `machine:placed`, `machine:removed`, `furnace:lit`, `furnace:out`, `furnace:pumped`, `furnace:smelted` (each item),
 `furnace:upgraded`, `furnace:ignition` (`started`, `progress` in 10% steps, `failed`, `done`), `machine:job`,
