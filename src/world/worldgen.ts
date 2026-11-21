@@ -1,33 +1,40 @@
 /**
  * World generation. `generateChunk` is a pure function of (seed, cx, cz): it keeps no state between calls
- * and can run in any order and in any thread. The stages are terrain columns, caves, ore veins, trees,
- * small plants.
+ * and can run in any order and in any thread. The stages are terrain columns, caves, ore veins, the deeper
+ * underground (geodes, lakes, lava falls), cliff outcrops, trees, surface life, cave glowcaps and ruins.
  */
-import { hash32, hashFloat } from '../core/math';
-import { AIR, CHUNK_SIZE, CHUNK_VOLUME, WORLD_HEIGHT, voxelIndex, type BiomeKey } from '../core/types';
+import { hash32 } from '../core/math';
+import { CHUNK_SIZE, CHUNK_VOLUME, WORLD_HEIGHT, voxelIndex, type BiomeKey } from '../core/types';
 import { carveCaves } from './caves';
+import { MARGIN, createColumns } from './columns';
 import { placeTrees } from './flora';
 import { ID } from './ids';
-import { placeVeins } from './ores';
+import { placeOutcrops, placeVeins } from './ores';
+import { placeSurfaceLife } from './plants';
+import { drawRuin, ruinsNear } from './ruins';
 import {
-  BIOME_KEYS, Column, DUNES, FROSTFELL, LAVA_POOL_TOP, LIQUID_LAVA, LIQUID_NONE, LIQUID_WATER, SCAR,
-  SURFACE_CLAY, SURFACE_DIRT, SURFACE_GRASS, SURFACE_GRAVEL, SURFACE_SAND, SURFACE_SNOW, TREE_LINE, WATER_TOP,
+  BIOME_KEYS, Column, DUNES, FROSTFELL, LIQUID_LAVA, LIQUID_NONE, LIQUID_OIL, LIQUID_WATER, MARSH, SCAR,
+  SURFACE_CLAY, SURFACE_DIRT, SURFACE_GRASS, SURFACE_GRAVEL, SURFACE_PEAT, SURFACE_SAND, SURFACE_SNOW, TREE_LINE,
   caveMouth, sampleColumn, surfaceKind, terrainFor, type Terrain,
 } from './terrain';
+import { fillUndergroundLake, placeCaveGlowcaps, placeGeodes, placeLavaFall } from './underground';
 
 export { findSpawn } from './spawn';
 
-const MARGIN = CHUNK_SIZE + 2;
 const Y_STRIDE = CHUNK_SIZE * CHUNK_SIZE;
-// Scratch buffers: generation is synchronous, so one set per thread is enough.
-const heights = new Int16Array(MARGIN * MARGIN);
-const liquids = new Uint8Array(MARGIN * MARGIN);
-const biomes = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE);
-const caveLimit = new Int16Array(CHUNK_SIZE * CHUNK_SIZE);
+// Scratch: generation is synchronous, so one set per thread is enough.
+const cols = createColumns();
 const col = new Column();
 
 function layer(voxels: Uint16Array, top: number, count: number, id: number): void {
   for (let n = 0, i = top; n < count && i >= Y_STRIDE; n++, i -= Y_STRIDE) voxels[i] = id;
+}
+
+/** Marsh ground: under the surface lie layers of peat, then clay, before the stone. */
+function marshSoil(voxels: Uint16Array, top: number, r: number): void {
+  const peat = 2 + (r & 1);
+  layer(voxels, top - Y_STRIDE * 2, peat, ID.peat);
+  layer(voxels, top - Y_STRIDE * (2 + peat), 2, ID.clay);
 }
 
 function fillColumn(t: Terrain, voxels: Uint16Array, c: Column, lx: number, lz: number, x: number, z: number): void {
@@ -42,10 +49,12 @@ function fillColumn(t: Terrain, voxels: Uint16Array, c: Column, lx: number, lz: 
 
   const top = base + h * Y_STRIDE;
   const extra = (r >> 7) & 1;
+  const marsh = c.biome === MARSH;
   switch (surfaceKind(t, c, x, z)) {
     case SURFACE_GRASS:
       voxels[top] = ID.grass;
       layer(voxels, top - Y_STRIDE, 3, ID.dirt);
+      if (marsh) marshSoil(voxels, top, r >> 8);
       break;
     case SURFACE_DIRT:
       layer(voxels, top, 3, ID.dirt);
@@ -58,6 +67,11 @@ function fillColumn(t: Terrain, voxels: Uint16Array, c: Column, lx: number, lz: 
       break;
     case SURFACE_CLAY:
       layer(voxels, top, 2 + extra, ID.clay);
+      if (marsh) layer(voxels, top - Y_STRIDE * (2 + extra), 2, ID.peat);
+      break;
+    case SURFACE_PEAT:
+      layer(voxels, top, 3 + extra, ID.peat);
+      layer(voxels, top - Y_STRIDE * (3 + extra), 2, ID.clay);
       break;
     case SURFACE_SNOW:
       voxels[top] = ID.snow;
@@ -67,34 +81,10 @@ function fillColumn(t: Terrain, voxels: Uint16Array, c: Column, lx: number, lz: 
       break;
   }
 
-  if (c.liquid === LIQUID_WATER) {
-    for (let y = h + 1, i = top + Y_STRIDE; y <= WATER_TOP; y++, i += Y_STRIDE) voxels[i] = ID.water;
-    if (c.biome === FROSTFELL) voxels[base + WATER_TOP * Y_STRIDE] = ID.ice;
-  } else if (c.liquid === LIQUID_LAVA) {
-    for (let y = h + 1, i = top + Y_STRIDE; y <= LAVA_POOL_TOP; y++, i += Y_STRIDE) voxels[i] = ID.lava;
-  }
-}
-
-/** Tall grass and shrubs on untouched ground. Runs last, so it never grows into a tree or over a cave mouth. */
-function placePlants(seed: number, voxels: Uint16Array, x0: number, z0: number): void {
-  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const m = (lz + 1) * MARGIN + lx + 1;
-      const h = heights[m];
-      if (liquids[m] !== LIQUID_NONE || h + 1 >= WORLD_HEIGHT) continue;
-      const i = voxelIndex(lx, h, lz);
-      if (voxels[i + Y_STRIDE] !== AIR) continue;
-      const ground = voxels[i];
-      const r = hashFloat(seed, x0 + lx, z0 + lz, 0x9a55);
-      if (ground === ID.grass) {
-        if (r < 0.1) voxels[i + Y_STRIDE] = ID.tallGrass;
-        else if (r > 0.996) voxels[i + Y_STRIDE] = ID.dryShrub;
-      } else if (ground === ID.sand) {
-        if (r < (biomes[lz * CHUNK_SIZE + lx] === DUNES ? 0.014 : 0.03)) voxels[i + Y_STRIDE] = ID.dryShrub;
-      } else if (ground === ID.basalt || ground === ID.snow) {
-        if (r < 0.005) voxels[i + Y_STRIDE] = ID.dryShrub;
-      }
-    }
+  if (c.liquid !== LIQUID_NONE) {
+    const id = c.liquid === LIQUID_WATER ? ID.water : c.liquid === LIQUID_LAVA ? ID.lava : ID.oil;
+    for (let y = h + 1, i = top + Y_STRIDE; y <= c.liquidTop; y++, i += Y_STRIDE) voxels[i] = id;
+    if (c.liquid === LIQUID_WATER && c.biome === FROSTFELL) voxels[base + c.liquidTop * Y_STRIDE] = ID.ice;
   }
 }
 
@@ -103,6 +93,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
   const voxels = new Uint16Array(CHUNK_VOLUME);
   const x0 = cx * CHUNK_SIZE;
   const z0 = cz * CHUNK_SIZE;
+  const { heights, liquids, biomes, wScar, wFrost, caveLimit } = cols;
   for (let mz = 0; mz < MARGIN; mz++) {
     for (let mx = 0; mx < MARGIN; mx++) {
       const x = x0 + mx - 1;
@@ -111,7 +102,10 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
       heights[mz * MARGIN + mx] = col.height;
       liquids[mz * MARGIN + mx] = col.liquid;
       if (mx >= 1 && mx <= CHUNK_SIZE && mz >= 1 && mz <= CHUNK_SIZE) {
-        biomes[(mz - 1) * CHUNK_SIZE + mx - 1] = col.biome;
+        const c = (mz - 1) * CHUNK_SIZE + mx - 1;
+        biomes[c] = col.biome;
+        wScar[c] = col.wScar;
+        wFrost[c] = col.wFrost;
         fillColumn(t, voxels, col, mx - 1, mz - 1, x, z);
       }
     }
@@ -133,8 +127,14 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
   }
   carveCaves(t, voxels, x0, z0, caveLimit);
   placeVeins(t, voxels, cx, cz);
+  placeGeodes(t, voxels, cx, cz);
+  fillUndergroundLake(t, voxels, cx, cz);
+  placeLavaFall(t, voxels, cx, cz);
+  placeOutcrops(t, voxels, x0, z0, cols);
   placeTrees(t, voxels, cx, cz);
-  placePlants(seed, voxels, x0, z0);
+  placeSurfaceLife(t, voxels, x0, z0, cols);
+  placeCaveGlowcaps(t, voxels, x0, z0, cols);
+  for (const ruin of ruinsNear(seed, cx, cz)) drawRuin(voxels, x0, z0, ruin);
   return voxels;
 }
 

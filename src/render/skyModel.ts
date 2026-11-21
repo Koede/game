@@ -25,6 +25,12 @@ export interface SkyState {
   stars: number;
   /** 0 at night .. 1 in full daylight (colour blend, not gameplay light). */
   day: number;
+  /** Cloud cover 0..1 (applyWeather): dims the sun disc, hides moon and stars, thickens the cloud layer. */
+  cover: number;
+  /** Storm weight 0..1: darker cloud bellies. */
+  storm: number;
+  /** Lightning flash 0..1 this frame. */
+  flash: number;
 }
 
 export function createSkyState(): SkyState {
@@ -39,6 +45,9 @@ export function createSkyState(): SkyState {
     cloud: new Float32Array(3),
     stars: 0,
     day: 1,
+    cover: 0,
+    storm: 0,
+    flash: 0,
   };
 }
 
@@ -89,7 +98,7 @@ function mix3(out: Float32Array, a: Rgb | Float32Array, b: Rgb | Float32Array, t
  * Fills `out` for a time of day (0 = sunrise, SUNSET_AT = sunset) and the clock's sunlight factor
  * (1 by day, NIGHT_SUNLIGHT at night). Allocation-free.
  */
-export function computeSky(timeOfDay: number, sunlight: number, out: SkyState): SkyState {
+export function computeSky(timeOfDay: number, sunlight: number, out: SkyState, night = NIGHT_SUNLIGHT): SkyState {
   const angle = sunAngle(timeOfDay);
   const h = Math.sin(angle);
   const c = Math.cos(angle);
@@ -115,12 +124,121 @@ export function computeSky(timeOfDay: number, sunlight: number, out: SkyState): 
   mix3(out.sunColor, SUN_LOW, SUN_HIGH, smoothstep(0, 0.45, h));
 
   // The clock's light falls to night level right at sunset; ease it so dusk keeps its warm glow a while.
-  const lit = 1 - Math.pow(1 - clamp((sunlight - NIGHT_SUNLIGHT) / (1 - NIGHT_SUNLIGHT), 0, 1), 2.5);
+  const lit = 1 - Math.pow(1 - clamp((sunlight - night) / (1 - night), 0, 1), 2.5);
   mix3(out.skyLight, DAY_LIGHT, DUSK_LIGHT, dusk);
   mix3(out.skyLight, MOON_LIGHT, out.skyLight, lit);
 
   mix3(out.cloud, NIGHT_CLOUD, DAY_CLOUD, day);
   mix3(out.cloud, out.cloud, DUSK_CLOUD, dusk * day * 0.8);
+  out.cover = 0;
+  out.storm = 0;
+  out.flash = 0;
+  return out;
+}
+
+/** What the weather does to the sky this frame (src/render/weatherFx.ts derives it from the WeatherState). */
+export interface SkyWeather {
+  /** Cloud cover 0..1. */
+  cover: number;
+  /** WEATHER_DAYLIGHT eased: brightness of the daytime sky and sunlit ground. */
+  daylight: number;
+  /** Lit fraction of tonight's moon, 0 (new) .. 1 (full). */
+  moon: number;
+  /** Storm weight 0..1. */
+  storm: number;
+  /** Haze of what falls around the camera: blown dust (sand-coloured) and snow (pale), each 0..1. */
+  dust: number;
+  snow: number;
+  /** Lightning flash 0..1. */
+  flash: number;
+}
+
+const OVERCAST_DAY: Rgb = [0.56, 0.6, 0.65];
+const OVERCAST_NIGHT: Rgb = [0.03, 0.035, 0.05];
+const STORM_SKY: Rgb = [0.3, 0.33, 0.38];
+const DUST_HAZE: Rgb = [0.74, 0.6, 0.42];
+const SNOW_HAZE: Rgb = [0.78, 0.82, 0.88];
+const FLASH: Rgb = [0.75, 0.8, 1.0];
+const STORM_CLOUD: Rgb = [0.36, 0.38, 0.43];
+
+function tint(out: Float32Array, k: number): void {
+  out[0] *= k;
+  out[1] *= k;
+  out[2] *= k;
+}
+
+function add3(out: Float32Array, c: Rgb, k: number): void {
+  out[0] += c[0] * k;
+  out[1] += c[1] * k;
+  out[2] += c[2] * k;
+}
+
+/** Scratch colour for applyWeather (keeps it allocation-free). */
+const tmp = new Float32Array(3);
+const set3 = (r: number, g: number, b: number): Float32Array => {
+  tmp[0] = r;
+  tmp[1] = g;
+  tmp[2] = b;
+  return tmp;
+};
+
+/** Greys one sky colour towards the overcast tone (keeping some of its own brightness) and dims it with the daylight. */
+function overcastField(field: Float32Array, day: number, grey: number, overcast: number, dimDay: number): void {
+  // Keep some of the clear sky's own brightness so dusk still reads as dusk under thin cloud.
+  const keep = 0.35 + 0.65 * Math.min(1, luminance(field) / 0.7);
+  mix3(field, field, set3(
+    (OVERCAST_NIGHT[0] + (OVERCAST_DAY[0] - OVERCAST_NIGHT[0]) * day) * keep,
+    (OVERCAST_NIGHT[1] + (OVERCAST_DAY[1] - OVERCAST_NIGHT[1]) * day) * keep,
+    (OVERCAST_NIGHT[2] + (OVERCAST_DAY[2] - OVERCAST_NIGHT[2]) * day) * keep,
+  ), grey);
+  if (overcast > 0) mix3(field, field, set3(STORM_SKY[0] * day + 0.02, STORM_SKY[1] * day + 0.022, STORM_SKY[2] * day + 0.03), overcast * 0.5);
+  tint(field, dimDay);
+}
+
+/**
+ * Lays the weather and the moon over a computed sky (allocation-free): cloud cover greys and darkens the dome and
+ * the daylight, hides stars and the dusk glow, the moon's phase sets how bright the night is, dust and snow haze
+ * the horizon, and a lightning flash lights everything for an instant.
+ */
+export function applyWeather(out: SkyState, w: SkyWeather): SkyState {
+  const cover = clamp(w.cover, 0, 1);
+  const day = out.day;
+  // Overcast: past half cover the dome turns to a flat grey, darker for a storm.
+  const grey = smoothstep(0.25, 1, cover) * 0.92;
+  const overcast = smoothstep(0.75, 1, w.storm);
+  const dimDay = 1 + (w.daylight - 1) * day;
+  overcastField(out.zenith, day, grey, overcast, dimDay);
+  overcastField(out.horizon, day, grey, overcast, dimDay);
+  tint(out.glow, 1 - 0.85 * cover);
+  // Sunlit ground dims with the daylight; moonlit ground with the moon's phase and the clouds over it.
+  const moonLight = 0.55 + 0.6 * clamp(w.moon, 0, 1);
+  tint(out.skyLight, dimDay * (1 + (moonLight * (1 - 0.45 * cover) - 1) * (1 - day)));
+  out.stars *= 1 - smoothstep(0.35, 0.85, cover);
+  mix3(out.cloud, out.cloud, set3(STORM_CLOUD[0] * day + 0.03, STORM_CLOUD[1] * day + 0.035, STORM_CLOUD[2] * day + 0.05), smoothstep(0.55, 1, cover) * (0.35 + 0.5 * w.storm));
+  tint(out.cloud, 0.6 + 0.4 * dimDay);
+
+  const haze = clamp(w.dust, 0, 1) * 0.75;
+  if (haze > 0) {
+    const k = 0.35 + 0.65 * Math.max(day, 0.15);
+    mix3(out.horizon, out.horizon, set3(DUST_HAZE[0] * k, DUST_HAZE[1] * k, DUST_HAZE[2] * k), haze);
+    mix3(out.zenith, out.zenith, set3(DUST_HAZE[0] * k * 0.85, DUST_HAZE[1] * k * 0.85, DUST_HAZE[2] * k * 0.85), haze * 0.6);
+  }
+  const snow = clamp(w.snow, 0, 1) * 0.5;
+  if (snow > 0) {
+    const k = 0.15 + 0.85 * day;
+    mix3(out.horizon, out.horizon, set3(SNOW_HAZE[0] * k, SNOW_HAZE[1] * k, SNOW_HAZE[2] * k), snow);
+  }
+
+  const flash = clamp(w.flash, 0, 1);
+  if (flash > 0) {
+    add3(out.zenith, FLASH, flash * 0.5);
+    add3(out.horizon, FLASH, flash * 0.6);
+    add3(out.skyLight, FLASH, flash * 0.9);
+    add3(out.cloud, FLASH, flash * 0.8);
+  }
+  out.cover = cover;
+  out.storm = clamp(w.storm, 0, 1);
+  out.flash = flash;
   return out;
 }
 

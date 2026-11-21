@@ -1,18 +1,21 @@
 /**
- * Picks the place a new world starts at: dry Woodland with wood, water, clay and gravel within a short
- * walk. Everything is judged from the pure terrain functions, never by editing the world.
+ * Picks the place a new world starts at: dry Woodland with wood, water, clay, gravel and wild wheat within a
+ * short walk. Everything is judged from the pure terrain functions, never by editing the world.
  */
 import {
   Column, LIQUID_NONE, LIQUID_WATER, SURFACE_CLAY, SURFACE_GRASS, SURFACE_GRAVEL, WATER_TOP, WOODLAND,
   caveMouth, sampleColumn, surfaceKind, terrainFor, type Terrain,
 } from './terrain';
-import { TREE_CELL, treeInCell, type TreeSite } from './flora';
+import { OAK_BROAD, TREE_CELL, newTreeSite, treeInCell } from './flora';
+import { CROP_CELL, cropPatch, newPatch } from './plants';
+import { ID } from './ids';
 
 /** Resources must lie within this many blocks of the spawn point. */
 export const SPAWN_RESOURCE_RADIUS = 48;
 const SURVEY = 44;
 const col = new Column();
-const tree: TreeSite = { x: 0, z: 0, base: 0, pine: false, trunk: 0, bits: 0 };
+const tree = newTreeSite();
+const patch = newPatch();
 
 function goodSpot(t: Terrain, x: number, z: number): boolean {
   sampleColumn(t, x, z, col);
@@ -30,11 +33,20 @@ function goodSpot(t: Terrain, x: number, z: number): boolean {
       if (!treeInCell(t, gx, gz, tree)) continue;
       const d = Math.hypot(tree.x - x, tree.z - z);
       // Not inside a trunk and not under a crown that could close over the player's head.
-      if (d < 4) return false;
-      if (d <= SURVEY) logs += tree.trunk;
+      if (d < (tree.kind === OAK_BROAD ? 7 : 4)) return false;
+      if (d <= SURVEY) logs += tree.logs;
     }
   }
   if (logs < 24) return false;
+
+  // Wild wheat: the first seeds for a farm (spec 12.4).
+  let wheat = false;
+  for (let gz = Math.floor((z - SURVEY) / CROP_CELL); gz <= Math.floor((z + SURVEY) / CROP_CELL) && !wheat; gz++) {
+    for (let gx = Math.floor((x - SURVEY) / CROP_CELL); gx <= Math.floor((x + SURVEY) / CROP_CELL) && !wheat; gx++) {
+      wheat = cropPatch(t, gx, gz, patch) && patch.block === ID.wildWheat && Math.hypot(patch.x - x, patch.z - z) <= SURVEY - patch.size;
+    }
+  }
+  if (!wheat) return false;
 
   let water = 0;
   let clay = 0;

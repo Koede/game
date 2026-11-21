@@ -1,11 +1,12 @@
 /**
- * Ore veins and gravel pockets. Every vein belongs to the chunk its centre lies in and is a pure function
+ * Ore veins, gravel pockets and ore outcrops on cliffs. Every vein belongs to the chunk its centre lies in and is a pure function
  * of (seed, that chunk, vein number); a chunk replays the veins of its 3x3 neighbourhood and keeps the
  * blocks that fall inside it, so the result never depends on the order chunks are generated in.
  */
 import { hash32, mulberry32 } from '../core/math';
 import { ORE_VEINS, blockId } from '../core/registry';
-import { CHUNK_SIZE, voxelIndex, type OreVeinSpec } from '../core/types';
+import { CHUNK_SIZE, voxelIndex, type BiomeKey, type OreVeinSpec } from '../core/types';
+import { MARGIN, marginIndex, type ChunkColumns } from './columns';
 import { ID } from './ids';
 import { BIOME_KEYS, Column, sampleColumn, type Terrain } from './terrain';
 
@@ -73,6 +74,49 @@ export function placeVeins(t: Terrain, voxels: Uint16Array, cx: number, cz: numb
           if (top < vein.minY) continue;
           walkVein(voxels, x0, z0, vein, vx, vein.minY + Math.floor(ry * (top - vein.minY + 1)), vz, walkSeed);
         }
+      }
+    }
+  }
+}
+
+const OUTCROP_ORES = ORE_VEINS.map((v) => ({ ...v, id: blockId(v.block), weight: v.veinsPerChunk * v.veinSize }));
+
+/** An ore for a cliff cluster at height y, weighted like the veins and their biome multipliers; -1 for none. */
+function outcropOre(biome: BiomeKey, y: number, roll: number): number {
+  let total = 0;
+  for (const v of OUTCROP_ORES) if (y >= v.minY && y <= v.maxY) total += v.weight * (v.biomes?.[biome] ?? 1);
+  let pick = roll * total;
+  for (const v of OUTCROP_ORES) {
+    if (y < v.minY || y > v.maxY) continue;
+    pick -= v.weight * (v.biomes?.[biome] ?? 1);
+    if (pick < 0) return v.id;
+  }
+  return -1;
+}
+
+/**
+ * Ore outcrops: small clusters of ore showing in the rock faces of cliffs (a column at least 3 blocks above a
+ * neighbour), so a sharp-eyed explorer can spot ore from outside. Uses only this chunk's columns and their
+ * immediate neighbours' heights.
+ */
+export function placeOutcrops(t: Terrain, voxels: Uint16Array, x0: number, z0: number, cols: ChunkColumns): void {
+  const { heights } = cols;
+  for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const m = marginIndex(lx, lz);
+      const h = heights[m];
+      const low = Math.min(heights[m - 1], heights[m + 1], heights[m - MARGIN], heights[m + MARGIN]);
+      if (h - low < 3) continue;
+      const x = x0 + lx;
+      const z = z0 + lz;
+      for (let y = low + 1; y < h; y++) {
+        const i = voxelIndex(lx, y, lz);
+        const v = voxels[i];
+        if (v !== ID.stone && v !== ID.basalt) continue;
+        const cluster = hash32(t.seed, x >> 2, y >> 2, z >> 2);
+        if ((cluster & 7) !== 0 || (hash32(t.seed, x, y, z) & 3) === 0) continue;
+        const ore = outcropOre(BIOME_KEYS[cols.biomes[lz * CHUNK_SIZE + lx]], y, (cluster >>> 8) / 16777216);
+        if (ore >= 0) voxels[i] = ore;
       }
     }
   }

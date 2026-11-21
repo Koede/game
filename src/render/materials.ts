@@ -21,6 +21,8 @@ export interface WorldUniforms {
   uSunDir: THREE.IUniform<THREE.Vector3>;
   /** Fog start and end distance in blocks. */
   uFog: THREE.IUniform<THREE.Vector2>;
+  /** How soaked sky-exposed surfaces look, 0..1 (weather). */
+  uWet: THREE.IUniform<number>;
 }
 
 export function createWorldUniforms(atlas: THREE.Texture | null): WorldUniforms {
@@ -34,6 +36,7 @@ export function createWorldUniforms(atlas: THREE.Texture | null): WorldUniforms 
     uFogGlow: { value: new THREE.Vector3(0, 0, 0) },
     uSunDir: { value: new THREE.Vector3(0, 1, 0) },
     uFog: { value: new THREE.Vector2(40, 90) },
+    uWet: { value: 0 },
   };
 }
 

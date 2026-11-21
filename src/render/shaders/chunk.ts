@@ -40,11 +40,15 @@ precision highp float;
 in float layer;
 in vec4 light;
 uniform float uTime;
+// How soaked sky-exposed surfaces look after rain, 0..1 (spec 15): darker, with a sheen at grazing angles.
+uniform float uWet;
 ${LIGHT_GLSL}
 out vec2 vUv;
 flat out float vLayer;
 out vec3 vColor;
 out vec4 vFog;
+out vec3 vWorld;
+out float vWet;
 
 void main() {
   vec4 world = modelMatrix * vec4(position, 1.0);
@@ -65,6 +69,10 @@ void main() {
     color *= 0.93 + 0.07 * sin(uTime * 1.4 + world.x * 0.9 + world.z * 0.7);
     uvShift = vec2(uTime * 0.018, uTime * 0.011);
   }
+  // Only what the rain reaches gets wet: full sky light, not emissive, not a liquid.
+  vWet = (flags & 5) != 0 ? 0.0 : uWet * smoothstep(0.8, 0.97, light.x);
+  color *= 1.0 - 0.2 * vWet;
+  vWorld = world.xyz;
   vec3 toVertex = world.xyz - cameraPosition;
   float dist = length(toVertex);
   vFog = vec4(fogColorFor(toVertex / max(dist, 0.0001)), fogFactor(dist));
@@ -80,10 +88,13 @@ precision mediump float;
 precision mediump sampler2DArray;
 uniform sampler2DArray uAtlas;
 uniform float uOpacity;
+uniform float uWet;
 in vec2 vUv;
 flat in float vLayer;
 in vec3 vColor;
 in vec4 vFog;
+in highp vec3 vWorld;
+in float vWet;
 out vec4 fragColor;
 
 void main() {
@@ -91,7 +102,19 @@ void main() {
 #ifdef CUTOUT
   if (tex.a < 0.4) discard;
 #endif
-  vec3 c = mix(tex.rgb * vColor, vFog.rgb, vFog.a);
+  vec3 lit = tex.rgb * vColor;
+#ifndef TRANSLUCENT
+  // A uniform branch, so the derivatives inside are well defined.
+  if (uWet > 0.0) {
+    highp vec3 n = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+    highp vec3 v = normalize(cameraPosition - vWorld);
+    if (dot(n, v) < 0.0) n = -n;
+    float fresnel = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 4.0);
+    // Wet ground mirrors a little of the sky towards the horizon.
+    lit = mix(lit, vFog.rgb * 0.85 + 0.04, fresnel * smoothstep(0.6, 0.9, n.y) * vWet * 0.55);
+  }
+#endif
+  vec3 c = mix(lit, vFog.rgb, vFog.a);
 #ifdef TRANSLUCENT
   fragColor = vec4(c, mix(tex.a * uOpacity, 1.0, vFog.a));
 #else
