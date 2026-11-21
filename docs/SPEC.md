@@ -1245,3 +1245,54 @@ All attacks are TELEGRAPHED (a visible and audible wind-up the player can step o
   HOSTILE_* / RUIN_* / EMBER_BOLT_* / WARD_BEACON_RADIUS / WEAPON_HIT_COOLDOWN_S constant; pure lookups in src/core/hostile.ts.
 - `ward_base` sits after `make_circuits` (the beacon needs a circuit). Flags the code emits: 'automaton_salvaged' (an
   automaton broken apart by the player) and 'peaceful' (a session on Peaceful), which completes salvage_automaton and ward_base.
+
+---------------------------------------------------------------------------------------------------------
+
+## 20. Steam and shafts - mechanical power before electricity (player request)
+
+The furnace boils water, steam turns a rotor, rotation travels through axles and gearboxes to machines that need
+motion. Watts come later: in the Forge Age a DYNAMO turns shaft rotation into electricity. This moves first
+electricity from the Ember Age to the Forge Age and gives the Ember Age its own mechanisms.
+
+### 20.1 Model (src/sim, a MECHANICAL network beside the electrical one, same solver shape)
+- Every block with `mech` ('shaft' | 'source' | 'consumer') joins a shaft network with its connected neighbours.
+  Axles connect only along their axis (axis stored in the voxel: facing bits N/S = z, E/W = x, variant bit = y);
+  gearboxes, sources and consumers connect on all six sides.
+- Units: TORQUE in N*m. Each source offers torque, each consumer needs torque. Per tick: supply S (sum of running
+  sources), demand D (sum of consumers switched on and with work), rating R (lowest axle rating in the network),
+  f = D > 0 ? min(1, min(S, R) / D) : 1. Consumers run at speed x f and stall below 0.25. The network's SPEED
+  (0..1, for animation and readouts) = f when D > 0, else 1 if S > 0. Overload never breaks anything: the shaft
+  just turns slower and the HUD/machine screens say "Overloaded - add a source or a stronger axle".
+- Shown to the player as "Torque 120 / 200 N*m" and a turning speed in rpm (60 rpm x speed).
+
+### 20.2 Blocks (content numbers - the content engineer may tune them, documenting why)
+| key | name | age | made | role |
+| kettle | Copper Kettle | Ember | forge T1 600 C: 3 copper_ingot, 1 bucket | sits ON a furnace; holds 4000 L water (filled by bucket, an adjacent water block, or a pipe); boils 20 L/s into steam while the furnace is >= 120 C, drawing 3 kW of furnace heat at full boil |
+| steam_rotor | Steam Rotor | Ember | forge T1 650 C: 2 copper_ingot, 2 tin_ingot, 1 plank | source: touches a kettle (or a steam pipe later); 120 N*m at 20 L/s steam, proportionally less |
+| wooden_axle | Wooden Axle | Ember | workbench: 3 plank -> 4 | shaft, rated 150 N*m |
+| bronze_gearbox | Bronze Gearbox | Ember | forge T1 700 C: 2 bronze_ingot, 1 wooden_axle | shaft junction, all six sides, rated like the weakest attached axle |
+| iron_axle | Iron Axle | Forge | forge T2 1000 C: 1 iron_ingot -> 2 | shaft, rated 1000 N*m |
+| steel_axle | Steel Axle | Current | forge T2 1300 C: 1 steel_ingot -> 2 | shaft, rated 6000 N*m |
+| water_wheel | (existing) | Ember | (existing recipe moves to the workbench + 2 copper_ingot) | becomes a MECHANICAL source: 30 N*m per flowing-water neighbour (flow matters now that water flows), max 90 |
+| steam_engine | (existing) | Forge | (existing) | becomes a MECHANICAL source: 600 N*m on top of a furnace, fed water as before |
+| millstone | Millstone | Ember | workbench: 4 stone_brick, 1 wooden_axle | consumer 40 N*m: wheat -> flour (1:1, 2 s), copper_ore / tin_ore -> 2 crushed (4 s) - early ore doubling |
+| saw_bench | Saw Bench | Ember | forge T1 600 C: 2 bronze_ingot, 4 plank | consumer 30 N*m: 1 log -> 6 plank (2 s) |
+| mech_bellows | Shaft Bellows | Ember | workbench: 1 bellows, 1 wooden_axle, 2 plank | consumer 20 N*m: holds an adjacent furnace's draft at >= 0.7 (the hand-pumped bellows, automated) |
+| trip_hammer | Trip Hammer | Forge | forge T2 1100 C: 4 iron_ingot, 1 bronze_gearbox, 2 stone_brick | consumer 120 N*m: 2 ingots -> 1 plate (iron, steel), 3 s |
+| dynamo | Dynamo | Forge | forge T2 1000 C: 2 copper_coil, 1 iron_axle, 2 iron_plate | consumer of torque AND electrical generator: converts up to 400 N*m into up to 2000 W (5 W per N*m) - the bridge to the electric grid |
+All four machines have an input and output slot (pipes and crates work with them like every machine).
+
+### 20.3 Progression changes
+- Thermopile moves to Forge Age (forge T2) so the Ember Age has no electricity; the first-power objective moves
+  after the Blast hearth and accepts a dynamo or a thermopile.
+- New Ember Age objectives after `smelt_copper`: `boil_water` "Boil water" (place kettle), `first_motion`
+  "Set it turning" (a steam rotor running), `grind` "Grind" (a millstone job). Forge Age: `first_power`
+  "Make electricity" (generate 100 W) placed after `blast_furnace`.
+
+### 20.4 Presentation
+- Axles, gearboxes, rotors, the water wheel, millstone, saw and trip hammer TURN in the world, at the network's
+  speed (instanced machine parts like the wind turbine; the axle block itself is drawn by the parts renderer so
+  it can spin). Steam puffs from a boiling kettle and a running rotor. Stalled shafts stop; overloaded shafts
+  turn slowly and creak.
+- Machine screens show the shaft network: torque supply/demand/rating, speed, members. The HUD power strip shows
+  shaft power when the player stands near a shaft network.
