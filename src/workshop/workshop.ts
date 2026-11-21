@@ -74,6 +74,13 @@ export interface WorkshopSnapshot {
 /** Seconds of clockwork a tick spends. */
 const DT_WIND = 0.05;
 
+export interface SpinView { key: string; kind: string; x: number; y: number; z: number; rpm: number }
+export interface SwingView { kind: string; x: number; y: number; z: number; phase: number; rpm: number; facing: Facing; src: [number, number, number] | null; tgt: [number, number, number] | null }
+export interface LinkView { kind: string; x1: number; y: number; z1: number; x2: number; z2: number; rpm: number }
+export interface WorkshopView { spin: SpinView[]; swings: SwingView[]; links: LinkView[] }
+/** Parts that show a turning cog on top while they run. */
+const SPIN_KINDS = new Set(['hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
+
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
 export class Workshop {
@@ -483,6 +490,47 @@ export class Workshop {
     if (taken >= count) return;
     if (taken > 0) count -= taken;
     this.ground.spawn(item, count, p.x + 0.5 + fx * 0.75, p.y + 0.3, p.z + 0.5 + fz * 0.75, { scatter: false, vx: fx * 1.2, vy: 1, vz: fz * 1.2, delayS: 1 });
+  }
+
+  // ---- Drawing (src/render/workshop) -----------------------------------------------------------------
+
+  /** What the renderer animates near (px, pz): turning gear parts, swinging / pushing machines and chain or belt links. */
+  view(px: number, pz: number, radius = 40): WorkshopView {
+    const out: WorkshopView = { spin: [], swings: [], links: [] };
+    const r2 = radius * radius;
+    for (const [key, p] of this.parts) {
+      const dx = p.x + 0.5 - px;
+      const dz = p.z + 0.5 - pz;
+      if (dx * dx + dz * dz > r2) continue;
+      const rpm = this.speed.get(key) ?? 0;
+      if (SPIN_KINDS.has(p.kind)) out.spin.push({ key, kind: p.kind, x: p.x, y: p.y, z: p.z, rpm });
+      const range = LINK_RANGE[p.kind];
+      if (range) {
+        for (const [ddx, , ddz] of [[1, 0, 0], [0, 0, 1]]) {
+          for (let d = 2; d <= range; d++) {
+            const q = this.parts.get(k3(p.x + ddx * d, p.y, p.z + ddz * d));
+            if (q && q.kind === p.kind) {
+              out.links.push({ kind: p.kind, x1: p.x, y: p.y, z1: p.z, x2: q.x, z2: q.z, rpm });
+              break;
+            }
+          }
+        }
+      }
+    }
+    for (const c of this.logi.cells.values()) {
+      const dx = c.x + 0.5 - px;
+      const dz = c.z + 0.5 - pz;
+      if (dx * dx + dz * dz > r2 || !POWERED.has(c.kind)) continue;
+      const rpm = this.speed.get(k3(c.x, c.y, c.z)) ?? 0;
+      const sw: SwingView = { kind: c.kind, x: c.x, y: c.y, z: c.z, phase: c.phase, rpm, facing: voxelFacing(this.world.getVoxel(c.x, c.y, c.z)), src: null, tgt: null };
+      if (c.kind === 'mech_arm' && c.src) {
+        sw.src = c.src.split(',').map(Number) as [number, number, number];
+        const t = c.targets[c.rr % Math.max(1, c.targets.length)];
+        sw.tgt = t ? (t.split(',').map(Number) as [number, number, number]) : null;
+      }
+      out.swings.push(sw);
+    }
+    return out;
   }
 
   // ---- Views ------------------------------------------------------------------------------------------

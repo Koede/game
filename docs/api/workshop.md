@@ -58,8 +58,8 @@ All calls are on `Game.workshop` (the `Workshop` instance); coordinates are bloc
   `item_drain` empties a full bucket (any fluid with a bucket) into the basin below and passes the empty bucket on; `spout` under a
   basin fills an empty bucket on the depot / belt beneath it. Belts hand items to any of these (and crates) at their end; machines put
   their output into the container in front instead of dropping it when there is one.
-- `mech_arm` (6 su, 16 rpm: 1.5 s a cycle): wrench on it, then on a source, then up to 4 targets within 3 blocks, then on it again.
-  `deployer` (8 su, 2 s): holds a stack and acts on the block in front. `mech_drill` (8 su): breaks the block in front, time =
+- `mech_arm` (3 su, 16 rpm: 1.5 s a cycle): wrench on it, then on a source, then up to 4 targets within 3 blocks, then on it again.
+  `deployer` (6 su, 2 s): holds a stack and acts on the block in front. `mech_drill` (6 su): breaks the block in front, time =
   hardness x 1.2 s at 16 rpm, tier 1 at most, drops land where the block was. `mixer` (6 su, needs 32 rpm: use a ratio dial) and
   `mech_press` (8 su, 16 rpm) work the basin below them: `BASIN_RECIPES` (dough, cold bronze alloy, bronze and iron plate).
 - `mech_hammer` (Trip Hammer) is the twin of the stone anvil's stroke recipes.

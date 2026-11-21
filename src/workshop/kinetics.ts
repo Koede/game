@@ -27,7 +27,7 @@ export const WORM_RATIO = 1 / 8;
 /** Stress units each kind adds per rpm-neutral part. Shafts, gearboxes and links cost almost nothing. */
 export const BASE_STRESS: Record<string, number> = {
   conveyor_belt: 0.25, mech_saw: 4, mech_millstone: 4, mech_mortar: 4, mech_loom: 2,
-  mech_hammer: 8, mech_rack: 2, mech_press: 8, mixer: 6, deployer: 8, mech_arm: 6, mech_drill: 8, mech_pump: 4,
+  mech_hammer: 8, mech_rack: 2, mech_press: 8, mixer: 6, deployer: 6, mech_arm: 3, mech_drill: 6, mech_pump: 4,
   reverse_box: 0.5, ratio_dial: 0.5, clutch: 0.25, split_box: 0.5, sequence_gearshift: 1, governor: 0.5, worm_gear: 1,
   chain_sprocket: 0.5, belt_pulley: 1, differential: 1,
 };

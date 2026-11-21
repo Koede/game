@@ -9,7 +9,10 @@
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
 import { setCraftGate } from '../game/crafting';
-import { JAR_BLOCK, Magic } from '../magic/magic';
+import { Magic } from '../magic/magic';
+import { MagicRenderer } from '../render/magic/magicRenderer';
+import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
+import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
@@ -71,6 +74,10 @@ export class Game {
   readonly mobRenderer: MobRenderer;
   /** Items lying in the world, one instanced draw per kind. */
   readonly itemRenderer: GroundItemRenderer;
+  /** Jar fills, wellsprings and items on pedestals and altars (src/render/magic). */
+  readonly magicRenderer: MagicRenderer;
+  /** Turning cogs, links, arms and pistons of the workshop (src/render/workshop). */
+  readonly workshopRenderer: WorkshopRenderer;
   readonly inputManager: InputManager;
   readonly ui: GameUI;
   readonly controller: PlayerController;
@@ -124,13 +131,38 @@ export class Game {
         f.burnLeftS += seconds;
         return true;
       },
-    });
+      furnaceFire: (x, y, z) => {
+        const f = sim.furnaceAt(x, y, z);
+        return f && f.burnItem ? f.burnLeftS : null;
+      },
+      lightFurnace: (x, y, z) => {
+        const r = sim.light(x, y, z);
+        return r.ok ? null : r.reason;
+      },
+      purifyFlask: (x, y, z, litres) => {
+        const e = sim.distill.entityAt(x, y, z);
+        const water = e?.mix.water ?? 0;
+        if (!e || water <= 0) return 0;
+        const taken = Math.min(litres, water);
+        e.mix.water = water - taken;
+        if (e.mix.water <= 1e-6) delete e.mix.water;
+        sim.distill.touched();
+        return taken;
+      },
+      crank: (x, y, z) => this.workshop.crank(x, y, z),
+    }, world.seed);
     this.magic.load(world.extra('magic'));
     this.offs.push(world.persist('magic', () => this.magic.toJSON()));
     setCraftGate((id) => this.magic.craftGate(id));
     this.workshop = new Workshop(world, bus, player.ground);
     this.workshop.load(world.extra('workshop'));
     this.workshop.generatorWatts = (x, y, z) => this.state.sim.machineView(x, y, z)?.outW ?? 0;
+    // Deployers use their stack on hand stations the way a player's stroke does; anything else falls back to placing and breaking.
+    this.workshop.actHook = (a) => {
+      const r = this.state.sim.stroke(a.target[0], a.target[1], a.target[2], a.item);
+      if (!r.ok) return null;
+      return r.did === 'insert' ? 'consumed' : 'used';
+    };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
     this.offs.push(() => this.workshop.dispose());
     this.offs.push(() => {
@@ -145,6 +177,8 @@ export class Game {
     this.renderer.setTransport(simTransportFeed(sim));
     this.mobRenderer = new MobRenderer(this.renderer, world);
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
+    this.magicRenderer = new MagicRenderer(this.renderer, world);
+    this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
       this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
       this.ui = new GameUI(root, {
@@ -164,6 +198,7 @@ export class Game {
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
       this.ui.registerScreen('notebook', (_request, ctx) => createNotebookScreen(ctx, this.magic.notebook()));
+      this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z)));
       const renderer = this.renderer;
       const ui = this.ui;
       // The controller draws through IView; the crosshair (HUD) needs the same target as the outline.
@@ -185,7 +220,7 @@ export class Game {
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
           if (shop !== null) return shop;
         }
-        return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block } : null);
+        return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
@@ -193,6 +228,8 @@ export class Game {
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
       this.itemRenderer.dispose();
+      this.magicRenderer.dispose();
+      this.workshopRenderer.dispose();
       this.mobRenderer.dispose();
       this.renderer.dispose();
       throw err;
@@ -314,6 +351,9 @@ export class Game {
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
+      const pp = state.player.position;
+      this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
+      this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z));
       this.renderer.render(paused ? 0 : dt);
       this.lastDraw = now;
     }
@@ -356,13 +396,20 @@ export class Game {
     machine: (x, y, z) => this.state.sim.machineView(x, y, z),
   };
 
+  /** Magic names under the crosshair: jars, pedestals and the altar, servants, a held rod's reading, the lens. */
+  private magicLabel(x: number, y: number, z: number, key: string): string | null {
+    const m = this.magic;
+    return m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+  }
+
   /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
   private namedStation: string | null = null;
   private showStationName(): void {
     let label: string | null = null;
     const hit = this.controller.targetAnimal === null ? this.controller.target : null;
     if (hit && hit.block.handStation !== null) label = this.state.sim.handView(hit.x, hit.y, hit.z)?.label ?? null;
-    else if (hit && hit.block.key === JAR_BLOCK) label = this.magic.jarText(hit.x, hit.y, hit.z);
+    else if (hit && (label = this.magicLabel(hit.x, hit.y, hit.z, hit.block.key)) !== null) { /* magic */ }
+    else if (!hit && (label = this.magic.rodReading()) !== null) { /* rod reading at the sky */ }
     else if (hit && this.state.player.inventory.has(GOGGLES)) label = inspect(this.inspectProbe, hit.x, hit.y, hit.z);
     else if (hit && isKinetic(hit.block.key)) label = hit.block.name;
     if (label === this.namedStation) return;
@@ -415,6 +462,8 @@ export class Game {
     this.inputManager.dispose();
     this.audio.dispose();
     this.itemRenderer.dispose();
+    this.magicRenderer.dispose();
+    this.workshopRenderer.dispose();
     this.mobRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.
     try {

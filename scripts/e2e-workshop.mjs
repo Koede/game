@@ -133,6 +133,79 @@ async function runDevice(device) {
       await d.shot('2-goggles');
     });
 
+    await step('a ratio dial lets one crank drive a mixer: dough in the basin, a funnel carries it to a depot', async () => {
+      await d.hw((p) => {
+        const hw = window.__hw;
+        const w = hw.app.game.workshop;
+        const x = p.x0;
+        const y = p.gy;
+        const z = p.z0 + 5;
+        hw.setVoxel(x, y, z, 'basin');
+        hw.setVoxel(x, y + 1, z, 'mixer');
+        hw.setVoxel(x - 1, y + 1, z, 'ratio_dial');
+        hw.setVoxel(x - 2, y + 1, z, 'hand_crank');
+        hw.setVoxel(x + 1, y, z, 'funnel', 1);
+        hw.setVoxel(x + 2, y, z, 'depot');
+        w.use(x, y, z, { item: 'water_pail', count: 1 }, () => undefined);
+        w.offer(x, y, z, 'flour', 2);
+        w.use(x + 1, y, z, { item: 'dough', count: 1 }, () => undefined);
+        w.use(x - 1, y + 1, z, null, () => undefined);
+        w.use(x - 1, y + 1, z, null, () => undefined);
+        hw.teleport(x - 2.5, y + 1, z - 1.5);
+        hw.lookAt(x - 1.5, y + 1.5, z + 0.5);
+      }, P);
+      await d.selectEmptyHand();
+      assert(await d.approach({ x: P.x0 - 2, y: P.gy + 1, z: P.z0 + 5 }), 'aims at the second crank');
+      await d.use();
+      for (let i = 0; i < 14; i++) {
+        await d.hw((p) => window.__hw.app.game.workshop.crank(p.x0 - 2, p.gy + 1, p.z0 + 5), P);
+        await d.hw(() => window.__hw.tick(20));
+      }
+      await d.shot('3-mixer');
+      const got = await d.hw((p) => window.__hw.app.game.workshop.logi.peek(p.x0 + 2, p.gy, p.z0 + 5), P);
+      assert(got.some((e) => e.item === 'dough' && e.count >= 2), `depot holds ${JSON.stringify(got)}`);
+      const text = await d.hw((p) => window.__hw.app.game.workshop.describe(p.x0, p.gy + 1, p.z0 + 5), P);
+      assert(/rpm/.test(text ?? ''), `mixer reading: ${text}`);
+      const st = await d.hw(() => window.__hw.app.game.workshopRenderer.stats);
+      assert(st.cogs > 0 && st.bars > 0, `moving parts drawn: ${JSON.stringify(st)}`);
+    });
+
+    await step('a drill, a reverse box, a belt and an arm: ore broken, carried and stacked', async () => {
+      await d.hw((p) => {
+        const hw = window.__hw;
+        const w = hw.app.game.workshop;
+        const y = p.gy;
+        const z = p.z0 - 1;
+        const x = p.x0 - 3;
+        hw.setVoxel(x, y, z, 'hand_crank');
+        hw.setVoxel(x, y, z - 1, 'hand_crank');
+        hw.setVoxel(x + 1, y, z, 'reverse_box');
+        hw.setVoxel(x + 2, y, z, 'mech_drill', 1);
+        hw.setVoxel(x + 3, y, z, 'stone');
+        hw.setVoxel(x + 2, y, z + 1, 'mech_arm');
+        hw.setVoxel(x + 1, y, z + 2, 'depot');
+        hw.setVoxel(x + 3, y, z + 2, 'depot');
+        hw.setVoxel(x + 2, y, z + 2, 'drive_shaft');
+        w.offer(x + 1, y, z + 2, 'flint', 4);
+        const wr = { item: 'wrench', count: 1 };
+        for (const c of [[x + 2, y, z + 1], [x + 1, y, z + 2], [x + 3, y, z + 2], [x + 2, y, z + 1]]) w.use(c[0], c[1], c[2], wr, () => undefined);
+      }, P);
+      for (let i = 0; i < 12; i++) {
+        await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 - 3, p.gy, p.z0 - 1); w.crank(p.x0 - 3, p.gy, p.z0 - 2); }, P);
+        await d.hw(() => window.__hw.tick(20));
+      }
+      await d.hw((p) => window.__hw.lookAt(p.x0 - 1, p.gy + 0.5, p.z0 + 0.5), P);
+      await d.shot('4-drill-arm');
+      const r = await d.hw((p) => {
+        const w = window.__hw.app.game.workshop;
+        return { broken: window.__hw.getBlock(p.x0, p.gy, p.z0 - 1).block, arm: w.logi.peek(p.x0 - 1 + 2, p.gy, p.z0 + 1).length, text: w.describe(p.x0 - 3 + 2, p.gy, p.z0 - 1) };
+      }, P);
+      assert(r.broken === 'air', `drill broke the stone: ${r.broken}`);
+      assert(/left/.test(r.text ?? ''), `the drill beyond the reverse box turns left: ${r.text}`);
+      const moved = await d.hw((p) => window.__hw.app.game.workshop.logi.peek(p.x0, p.gy, p.z0 + 1), P);
+      assert(moved.some((e) => e.item === 'flint'), `the arm carried flint across: ${JSON.stringify(moved)}`);
+    });
+
     await step('no page errors', async () => {
       assert(errors.length === 0, `errors: ${errors.slice(0, 3).join(' | ')}`);
     });
