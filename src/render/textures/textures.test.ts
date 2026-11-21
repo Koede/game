@@ -150,12 +150,40 @@ describe('texture content', () => {
     }
   });
 
+  it('pipes are opaque along the 8/16 plus the mesher samples and clear in the corners', () => {
+    const pipes = BLOCKS.filter((b) => b.shape === 'pipe').map((b) => TEXTURE_NAMES[b.layers[0]]);
+    expect(pipes).toEqual(['pipe_item', 'pipe_item_fast', 'pipe_fluid', 'pipe_fluid_hot']);
+    for (const name of pipes) {
+      const px = paintTexture(name);
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const band = (x >= 4 && x <= 11) || (y >= 4 && y <= 11);
+          expect(alphaAt(px, x, y) === 255, `${name} ${x},${y}`).toBe(band);
+        }
+      }
+    }
+  });
+
+  it('formed hearth walls glow: their lit seams are brighter than the cold ones', () => {
+    const mean = (name: string): number => {
+      const px = paintTexture(name);
+      let sum = 0;
+      for (let i = 0; i < BYTES; i += 4) sum += lum(px, i);
+      return sum / 256;
+    };
+    for (const name of ['brick', 'refractory_brick', 'plasma_casing', 'star_casing', 'electrode', 'hatch_item', 'hatch_fluid', 'power_port']) {
+      expect(mean(`${name}_on`), name).toBeGreaterThan(mean(name) + 8);
+    }
+  });
+
   it('terrain tiles tile seamlessly: the wrap seam is no harsher than the harshest edge inside the tile', () => {
     const tiled = [
       'corestone', 'stone', 'rubble', 'dirt', 'grass_top', 'sand', 'gravel', 'clay', 'snow', 'ice', 'basalt', 'limestone',
       'water', 'lava', 'corium', 'oak_leaves', 'pine_leaves', 'oak_log_side', 'pine_log_side', 'plank', 'brick', 'stone_brick',
       'concrete', 'oil_shale',
       'packed_ice', 'basalt_column_top', 'peat', 'oil', 'mossy_stone_brick', 'cactus_side',
+      // Hearth walls (spec 17), cold and formed: a whole wall of them must read as one surface.
+      'brick_on', 'refractory_brick', 'refractory_brick_on', 'plasma_casing', 'plasma_casing_on', 'star_casing', 'star_casing_on',
     ];
     const diff = (px: Uint8ClampedArray, a: number, b: number): number =>
       Math.abs(px[a] - px[b]) + Math.abs(px[a + 1] - px[b + 1]) + Math.abs(px[a + 2] - px[b + 2]);
@@ -198,7 +226,7 @@ describe('texture content', () => {
 
   it('item icons have a transparent background and a darker outline', () => {
     const icons = TEXTURE_NAMES.filter((n) => n.startsWith('item_'));
-    expect(icons.length).toBe(82);
+    expect(icons.length).toBe(83);
     for (const name of icons) {
       const px = paintTexture(name);
       let clear = 0;

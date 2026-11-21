@@ -23,7 +23,7 @@ export function masonry(c: Canvas, rows: number, w: number, face: (id: number, x
   for (const [x, y] of c.scatter(3, 6)) c.set(x, y, chip);
 }
 
-function brick(c: Canvas): void {
+export function brick(c: Canvas): void {
   const b = P.BRICK;
   const f = c.noise(4, 2, 1);
   masonry(c, 4, 8, (id, x, y) => tone([b[1], b[2], b[3]], (c.hash(id, 0, 1) * 0.6 + f(x, y) * 0.4) * 1.1), P.MORTAR, b[0]);

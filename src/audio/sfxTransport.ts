@@ -7,10 +7,10 @@ export const TRANSPORT_SFX = {
   hearth_formed: {
     priority: 1,
     layers: [
-      noise('brown', lp(180, 760), 0.85, 0.9, { a: 0.07 }),
-      tone('sine', 48, 0.55, 0.85, { a: 0.03, freqEnd: 92, glide: 0.5 }),
-      noise('pink', bp(420, 1500, 0.8), 0.4, 0.75, { at: 0.04, a: 0.14 }),
-      tone('sine', 660, 0.1, 0.9, { at: 0.3, a: 0.55, freqEnd: 1320, fm: { ratio: 2.01, index: 0.8 } }),
+      noise('brown', lp(180, 760), 0.5, 0.9, { a: 0.07 }),
+      tone('sine', 48, 0.32, 0.85, { a: 0.03, freqEnd: 92, glide: 0.5 }),
+      noise('pink', bp(420, 1500, 0.8), 0.5, 0.75, { at: 0.04, a: 0.14 }),
+      tone('sine', 660, 0.14, 0.9, { at: 0.3, a: 0.55, freqEnd: 1320, fm: { ratio: 2.01, index: 0.8 } }),
       tone('triangle', 990, 0.06, 0.8, { at: 0.42, a: 0.6, freqEnd: 1980, trem: { rate: 9, depth: 0.45 } }),
       noise('white', hp(3800, 8200), 0.08, 0.6, { at: 0.35, a: 0.6 }),
     ],
