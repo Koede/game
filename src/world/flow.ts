@@ -77,6 +77,8 @@ export class WaterFlow {
   private cacheKey = Number.NaN;
   private cacheVoxels: Uint16Array | null = null;
   private inTick = false;
+  /** Set by `desired`: the cell has no feeder and is receding. */
+  private orphan = false;
   private readonly counters: FlowStats = { pending: 0, deferred: 0, updates: 0, changes: 0, lastTickMs: 0, maxTickMs: 0 };
 
   constructor(private readonly host: FlowHost) {}
@@ -191,13 +193,25 @@ export class WaterFlow {
         if (!isWater(next)) return;
         v = next;
       }
+      // Receding water does not spread (it would refill the ring that just dried up).
+      if (this.orphan) return;
     }
     this.spread(x, y, z, v);
   }
 
-  /** What a non-source cell should hold, from its neighbours: falling, a new source, flowing water, or air. */
+  /**
+   * What a cell should hold, from its neighbours: falling under water; a source between two sources over solid
+   * ground or a source; else one level weaker than its strongest feeder - a resting neighbour that is stronger than
+   * the cell itself, so two cells that lost their supply never keep each other going. A flowing cell with no feeder
+   * is orphaned and recedes one level per update (`orphan`), the weakest rings drying first; falling water with
+   * nothing above and no feeder is gone at once.
+   */
   private desired(x: number, y: number, z: number): Voxel {
+    this.orphan = false;
     if (isWater(this.get(x, y + 1, z))) return WATER_FALLING;
+    const own = this.get(x, y, z);
+    // Open cells (being spread into) take any feeder; water only a stronger one.
+    const ownLevel = isFlowingWater(own) && !isFallingWater(own) ? waterLevel(own) : MAX_FLOW_LEVEL + 1;
     let sources = 0;
     let best = MAX_FLOW_LEVEL + 1;
     for (let d = 0; d < 4; d++) {
@@ -206,13 +220,17 @@ export class WaterFlow {
       const n = this.get(nx, y, nz);
       if (!isWater(n)) continue;
       if (n === WATER_SOURCE) sources++;
-      if (this.spreadsSideways(nx, y, nz, n)) best = Math.min(best, spreadLevel(n));
+      const level = spreadLevel(n);
+      if (level <= ownLevel && level < best && this.spreadsSideways(nx, y, nz, n)) best = level;
     }
     if (sources >= 2) {
       const below = this.get(x, y - 1, z);
       if (below === WATER_SOURCE || (!isWater(below) && !isOpenForWater(below))) return WATER_SOURCE;
     }
-    return best <= MAX_FLOW_LEVEL ? flowingWater(best) : 0;
+    if (best <= MAX_FLOW_LEVEL) return flowingWater(best);
+    if (ownLevel > MAX_FLOW_LEVEL) return 0;
+    this.orphan = true;
+    return ownLevel < MAX_FLOW_LEVEL ? flowingWater(ownLevel + 1) : 0;
   }
 
   /**

@@ -1,4 +1,4 @@
-// Food, farming, animals, buckets and weather steps of scripts/e2e-features.mjs - real input throughout.
+// Food, farming, animals, buckets, flowing water and weather steps of scripts/e2e-features.mjs - real input throughout.
 // window.__hw only sets things up (give, teleport, aim, set the time / weather / food bar, run ticks) and reads state.
 import { waitFor } from './browser.mjs';
 import { bagIndex, openTab, sendFromBag, showBag } from './e2eFurnace.mjs';
@@ -434,6 +434,52 @@ export async function featureSteps({ d, step, assert, page }) {
     assert(inv.bronze_bucket === 1 && !inv.lava_bucket, `buckets after pouring: ${JSON.stringify(inv)}`);
     await d.settle(300);
     await d.shot('28-lava-poured');
+  });
+
+  await step('poured water flows out, and the empty bucket takes its source back so the puddle drains', async () => {
+    assert(await goToOpenGround(d), 'no open ground near the player');
+    await d.hw(() => {
+      window.__hw.clearInventory();
+      window.__hw.give('water_pail', 1);
+    });
+    await d.selectItem('water_pail');
+    const under = await d.hw(() => {
+      const p = window.__hw.state().player;
+      return window.__hw.getBlock(Math.floor(p.x), Math.floor(p.y) - 1, Math.floor(p.z)).block;
+    });
+    let spot = null;
+    for (const key of [...new Set([under, 'grass', 'dirt', 'sand', 'stone', 'snow', 'gravel'])]) {
+      spot = await aimAtTopInReach(d, key);
+      if (spot) break;
+    }
+    assert(spot, `no ground to pour on (standing on ${under})`);
+    const source = { x: spot.x, y: spot.y + 1, z: spot.z };
+    await useUntil(d, { fn: (c) => window.__hw.getBlock(c.x, c.y, c.z).block === 'water', arg: source }, 'water poured');
+    // Water levels (spec 18.1): 0 = source, 1..7 flowing, read from the voxel's variant bits; null = no water.
+    const levels = (c) => d.hw((c) => {
+      const w = window.__hw.app.game.state.world;
+      const at = (x, y, z) => (window.__hw.getBlock(x, y, z).block === 'water' ? (w.getVoxel(x, y, z) >> 13) & 7 : null);
+      return [at(c.x, c.y, c.z), at(c.x + 1, c.y, c.z), at(c.x - 1, c.y, c.z), at(c.x, c.y, c.z + 1), at(c.x, c.y, c.z - 1)];
+    }, c);
+    await d.hw(() => window.__hw.tick(40));
+    const spread = await levels(source);
+    assert(spread[0] === 0, `the poured block is a source: ${JSON.stringify(spread)}`);
+    assert(spread.slice(1).some((l) => l !== null && l > 0), `the water flowed out: ${JSON.stringify(spread)}`);
+    await d.settle(600);
+    await d.shot('29-water-flows');
+    // The empty bucket aims through the flowing water at the source and takes it.
+    await d.selectItem('pail');
+    await d.hw((c) => window.__hw.lookAt(c.x, c.y, c.z), source);
+    await waitFor(page, (c) => {
+      const t = window.__hw.state().target;
+      return t && t.x === c.x && t.y === c.y && t.z === c.z;
+    }, 'aim at the source', { timeout: 3000, interval: 100, arg: source });
+    await useUntil(d, { fn: () => window.__hw.state().inventory.some((s) => s.item === 'water_pail'), arg: null }, 'the source taken');
+    await d.hw(() => window.__hw.tick(80));
+    const dry = await levels(source);
+    assert(dry.every((l) => l === null), `the puddle drained: ${JSON.stringify(dry)}`);
+    await d.settle(600);
+    await d.shot('30-water-drained');
   });
 
   await step('weather switched to rain shows rain falling', async () => {

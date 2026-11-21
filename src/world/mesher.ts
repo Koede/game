@@ -38,6 +38,8 @@ export { LIQUID_SURFACE } from './meshLiquid';
 /** Side faces of moving water sample the tile stretched this much vertically: long streaks that run down fast. */
 export const FALL_STRETCH = 0.5;
 const fract = (n: number): number => n - Math.floor(n);
+/** Face shading of moving water's side faces (cube sides use 0.65 / 0.8). */
+const MOVING_SIDE_SHADE = 0.95;
 
 /** Light summed over the cells around one vertex (smooth lighting). */
 const sums = { sky: 0, block: 0, cool: 0, violet: 0, cells: 0 };
@@ -113,7 +115,8 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
       }
       QSky[k] = (sums.sky * 17) / cells + 0.5;
       QBlock[k] = (sums.block * 17) / cells + 0.5;
-      QShade[k] = FACE_SHADE[f] * AO_CURVE[ao] * 255;
+      // Running water catches the light on every side (a waterfall reads as falling water, not a dark pillar).
+      QShade[k] = (liquid && side && LIQ.moving ? MOVING_SIDE_SHADE : FACE_SHADE[f]) * AO_CURVE[ao] * 255;
       QFlags[k] = flags | coolBits(sums.block, sums.cool, sums.violet);
     }
     pushQuad(b, FACE_LAYER[slot + f]);
