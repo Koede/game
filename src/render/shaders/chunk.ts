@@ -4,8 +4,12 @@
  * only pays for one texture fetch and a fog mix per pixel.
  */
 
+import { textureLayer } from '../../core/registry';
 import { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from '../../world/meshQuads';
 import { ATLAS_GLSL } from '../atlas';
+
+/** Texture layer of crude oil: its pool surface is shuffled per block (see liquidTexel). */
+const OIL_LAYER = textureLayer('oil');
 
 /** Colours of the cool glows (glowcaps cyan, crystal clusters violet) that tint block light (spec 14). */
 export const COOL_CYAN = [0.36, 0.84, 1.0] as const;
@@ -112,8 +116,9 @@ export const CHUNK_FRAGMENT = /* glsl */ `
 precision mediump float;
 ${ATLAS_GLSL}
 uniform float uOpacity;
-// highp: the vertex shader declares it too, and both stages must agree on a shared uniform's precision.
+// highp: the vertex shader declares these too, and both stages must agree on a shared uniform's precision.
 uniform highp float uWet;
+uniform highp float uTime;
 in vec2 vUv;
 flat in float vLayer;
 in vec3 vColor;
@@ -136,14 +141,30 @@ float valueNoise(highp vec2 p) {
   return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), f.x), mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
-// A liquid surface tiles one texture per block; over a big pool the repeat shows. Blend in the same texture turned a
-// quarter (texel-aligned, so pixels stay crisp and seamless) under a slow noise mask, and vary the brightness over
-// several blocks: the pattern no longer repeats, and a pool has darker and lighter stretches.
+// A liquid surface tiles one texture per block; over a big pool the repeat shows. Water and lava blend in the same
+// texture turned a quarter (texel-aligned, so pixels stay crisp and seamless) under a slow noise mask. Crude oil,
+// whose sheen marks would line up in a grid, is shuffled per block instead: each block turns, mirrors and shifts the
+// tile by whole texels (seams vanish in its dark noise), all drifting the same way. Every liquid also varies in
+// brightness over several blocks, so a pool has darker and lighter stretches.
 vec4 liquidTexel(vec4 tex) {
   highp vec2 wp = vWorld.xz;
-  float mask = smoothstep(0.3, 0.7, valueNoise(wp * 0.13 + 3.7));
-  vec4 turned = atlasTexel(vec2(vUv.y, -vUv.x) + vec2(0.3125, 0.6875), vLayer);
-  vec4 c = mix(tex, turned, mask);
+  vec4 c;
+  if (abs(vLayer - ${OIL_LAYER.toFixed(1)}) < 0.5) {
+    highp vec2 cell = floor(wp);
+    float h1 = hash12(cell + 17.0);
+    float h2 = hash12(cell.yx + 41.0);
+    highp vec2 q = wp;
+    if (h1 < 0.25) q = vec2(q.y, -q.x);
+    else if (h1 < 0.5) q = -q;
+    else if (h1 < 0.75) q = vec2(-q.y, q.x);
+    if (h2 > 0.5) q.x = -q.x;
+    q += floor(vec2(h1, h2) * 16.0) / 16.0 + vec2(uTime * 0.018, uTime * 0.011);
+    c = atlasTexelGrad(q, vLayer, dFdx(wp), dFdy(wp));
+  } else {
+    float mask = smoothstep(0.3, 0.7, valueNoise(wp * 0.13 + 3.7));
+    vec4 turned = atlasTexel(vec2(vUv.y, -vUv.x) + vec2(0.3125, 0.6875), vLayer);
+    c = mix(tex, turned, mask);
+  }
   float shade = valueNoise(wp * 0.07) * 0.6 + valueNoise(wp * 0.23 + 11.0) * 0.4;
   c.rgb *= 0.88 + 0.22 * shade;
   return c;

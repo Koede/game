@@ -130,15 +130,20 @@ uniform sampler2DArray uAtlas;
 #ifdef ATLAS_SPLIT
 uniform sampler2DArray uAtlas2;
 uniform float uAtlasSplit;
-vec4 atlasTexel(vec2 uv, float layer) {
-  vec2 dx = dFdx(uv);
-  vec2 dy = dFdy(uv);
+vec4 atlasTexelGrad(vec2 uv, float layer, vec2 dx, vec2 dy) {
   if (layer < uAtlasSplit) return textureGrad(uAtlas, vec3(uv, layer), dx, dy);
   return textureGrad(uAtlas2, vec3(uv, layer - uAtlasSplit), dx, dy);
+}
+vec4 atlasTexel(vec2 uv, float layer) {
+  return atlasTexelGrad(uv, layer, dFdx(uv), dFdy(uv));
 }
 #else
 vec4 atlasTexel(vec2 uv, float layer) {
   return texture(uAtlas, vec3(uv, layer));
+}
+// For coordinates that jump (a tile turned per block): the mip level comes from the smooth coordinate's gradients.
+vec4 atlasTexelGrad(vec2 uv, float layer, vec2 dx, vec2 dy) {
+  return textureGrad(uAtlas, vec3(uv, layer), dx, dy);
 }
 #endif
 `;
