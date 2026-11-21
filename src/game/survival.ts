@@ -1,6 +1,6 @@
 /**
  * Survival rules (spec 3.4): warmth, the Well-Warmed buff, breath, contact damage, radiation, regeneration and
- * where the player comes back after dying. Falls are measured by the player physics, which reports them
+ * where the player comes back after dying. Hunger (spec 12.1) lives in ./hunger and is ticked from here. Falls are measured by the player physics, which reports them
  * through `applyFall`.
  *
  * Heat and radiation sources are collected at most twice per second (block entities with a warm voxel plus a
@@ -30,6 +30,7 @@ import { clamp, type Vec3 } from '../core/math';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld } from '../core/types';
 import type { GameClock } from './clock';
+import { Hunger } from './hunger';
 import type { BlockPos, PlayerState } from './playerState';
 
 export type WarmthTrend = 'warming' | 'cooling' | 'steady';
@@ -42,6 +43,8 @@ export interface SurvivalSnapshot {
   contactAcc: number;
   radiationS: number;
   regenS: number;
+  /** Starvation timer (spec 12.1). Missing in saves made before hunger existed. */
+  starveS?: number;
 }
 
 /** Seconds between rescans of heat and radiation sources. */
@@ -112,6 +115,8 @@ export function findStandingSpot(world: IWorld, pos: BlockPos): Vec3 {
 }
 
 export class Survival {
+  /** The hunger rules (spec 12.1), ticked with everything else. */
+  readonly hunger: Hunger;
   private readonly heat: HeatSource[] = [];
   private readonly radiation: RadiationSource[] = [];
   private scanIn = 0;
@@ -133,7 +138,9 @@ export class Survival {
     private readonly player: PlayerState,
     private readonly clock: GameClock,
     private readonly biomeAt: BiomeLookup,
-  ) {}
+  ) {
+    this.hunger = new Hunger(player);
+  }
 
   /** Whether warmth is currently going up, down or nowhere (HUD arrow). */
   get trend(): WarmthTrend {
@@ -175,6 +182,7 @@ export class Survival {
       this.scan();
     }
     player.addQuietTime(dt);
+    this.hunger.tick(dt);
 
     const px = player.position.x;
     const py = player.position.y + PLAYER_HEIGHT / 2;
@@ -224,6 +232,7 @@ export class Survival {
     const at = home && furnace?.kind === 'furnace' ? findStandingSpot(this.world, home) : player.spawn;
     this.nearFurnaceS = this.coldS = this.drownAcc = this.contactAcc = this.radiationS = this.regenS = 0;
     this.scanIn = 0;
+    this.hunger.reset();
     player.respawn(this.homeIsHot(), at);
   }
 
@@ -235,6 +244,7 @@ export class Survival {
       contactAcc: this.contactAcc,
       radiationS: this.radiationS,
       regenS: this.regenS,
+      starveS: this.hunger.toJSON().starveS,
     };
   }
 
@@ -245,6 +255,7 @@ export class Survival {
     this.contactAcc = s.contactAcc;
     this.radiationS = s.radiationS;
     this.regenS = s.regenS;
+    this.hunger.load({ starveS: s.starveS });
     this.scanIn = 0;
   }
 
@@ -401,15 +412,18 @@ export class Survival {
   }
 
   private tickRegen(dt: number): void {
-    const { player } = this;
-    if (player.dead || player.health >= MAX_HEALTH || player.warmth <= REGEN_MIN_WARMTH || player.sinceDamageS < REGEN_QUIET_S) {
+    const { player, hunger } = this;
+    const quiet = player.sinceDamageS >= REGEN_QUIET_S;
+    if (player.dead || player.health >= MAX_HEALTH || player.warmth <= REGEN_MIN_WARMTH || !quiet || !hunger.canRegenerate()) {
       this.regenS = 0;
       return;
     }
     this.regenS += dt;
-    if (this.regenS >= REGEN_INTERVAL_S) {
-      this.regenS -= REGEN_INTERVAL_S;
+    const interval = hunger.regenInterval(REGEN_INTERVAL_S);
+    if (this.regenS >= interval) {
+      this.regenS -= interval;
       player.heal(1);
+      hunger.payForRegen();
     }
   }
 }

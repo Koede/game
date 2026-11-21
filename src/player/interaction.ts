@@ -1,14 +1,35 @@
 /**
  * What the player does to the block under the crosshair (spec 3.6): mining with progress, drops, tool wear and
- * dig sounds; "use" in priority order - station or machine screen, then the pail, then placing the held block -
- * with the placement rules (replaceable target, placeOn, never inside the player, oriented blocks face the player).
+ * dig sounds; "use" in priority order - station or machine screen, then the pail, the hoe (tilling), planting and
+ * eating (spec 12), then placing the held block - with the placement rules (replaceable target, placeOn, never
+ * inside the player, oriented blocks face the player).
  * DOM-free: it talks to the rest of the game through the IWorld, the PlayerState and the event bus.
  */
 import type { GameBus } from '../core/context';
 import type { ScreenRequest, SfxName } from '../core/gameEvents';
-import { ITEMS, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, Facing, WORLD_HEIGHT, makeVoxel, type BlockDef, type IWorld } from '../core/types';
-import { canHarvest, canMine, harvest, miningTime, type PlayerState } from '../game';
+import { ITEMS, blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
+import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, type BlockDef, type IWorld } from '../core/types';
+import {
+  TILLABLE,
+  canHarvest,
+  canMine,
+  canTill,
+  eat,
+  exertMining,
+  harvest,
+  isCrop,
+  isHoe,
+  isRipeCrop,
+  isUnsupported,
+  miningTime,
+  placementCell,
+  plant,
+  plantCell,
+  plantedBy,
+  rollDrops,
+  till,
+  type PlayerState,
+} from '../game';
 import type { RayHit } from './raycast';
 
 /** Seconds between dig sounds (and hand swings) while mining. */
@@ -32,19 +53,20 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-/** Which dig sound a block makes. */
+/** Which dig sound a block makes. Crops are machine blocks but plants: they rustle like any other plant. */
 export function digSound(def: BlockDef): SfxName {
-  if (def.machine || def.power || def.station) return def.tool === 'axe' ? 'dig_wood' : 'dig_metal';
+  if (def.shape === 'cross') return 'dig_sand';
+  if ((def.machine && !isCrop(def)) || def.power || def.station) return def.tool === 'axe' ? 'dig_wood' : 'dig_metal';
   if (def.tool === 'axe') return 'dig_wood';
   if (def.tool === 'shovel') return def.key === 'sand' || def.key === 'gravel' || def.key === 'snow' ? 'dig_sand' : 'dig_dirt';
   if (def.tool === 'pickaxe') return 'dig_stone';
   return def.opaque ? 'dig_dirt' : 'dig_sand';
 }
 
-/** The screen that using this block opens, or null. */
+/** The screen that using this block opens, or null (crops are machine blocks without a screen). */
 export function screenFor(def: BlockDef, x: number, y: number, z: number): ScreenRequest | null {
   if (def.station === 'workbench') return { type: 'workbench', x, y, z };
-  if (!def.machine) return null;
+  if (!def.machine || isCrop(def)) return null;
   if (def.machine === 'furnace') return { type: 'furnace', x, y, z };
   if (def.machine === 'crate') return { type: 'crate', x, y, z };
   return { type: 'machine', x, y, z };
@@ -67,7 +89,7 @@ function toolNeeded(def: BlockDef): string | null {
   return null;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -146,8 +168,8 @@ export class Interaction {
    * an empty pail is held (so water can be scooped) and skips them otherwise.
    */
   use(hit: RayHit | null): UseOutcome {
-    if (!hit || this.player.dead) return 'none';
-    const screen = hit.block.liquid === null ? screenFor(hit.block, hit.x, hit.y, hit.z) : null;
+    if (this.player.dead) return 'none';
+    const screen = hit && hit.block.liquid === null ? screenFor(hit.block, hit.x, hit.y, hit.z) : null;
     if (screen) {
       this.stopMining();
       this.bus.emit('ui:open', { screen });
@@ -156,8 +178,14 @@ export class Interaction {
     }
     const held = this.player.heldStack();
     if (!held) return 'none';
+    // Food is eaten wherever the crosshair is (the sky included), unless this Use would plant it.
+    const food = itemOrNull(held.item)?.food;
+    if (food && !(hit && plantCell(this.world, held.item, hit))) return this.eatHeld();
+    if (!hit) return 'none';
     if (held.item === 'pail') return this.scoop(hit);
     if (held.item === 'water_pail') return this.pour(hit);
+    if (isHoe(held)) return this.tillTarget(hit);
+    if (plantedBy(held.item) && plantCell(this.world, held.item, hit)) return this.plantTarget(hit);
     const def = blockOfItem(held.item);
     if (!def || hit.block.liquid !== null) return 'none';
     return this.placeBlock(hit, def) ? 'placed' : 'refused';
@@ -169,16 +197,12 @@ export class Interaction {
    */
   placeBlock(hit: RayHit, def: BlockDef): boolean {
     if (this.placeCooldown > 0) return false;
-    const intoHit = hit.block.replaceable && hit.block.liquid === null;
-    const x = intoHit ? hit.x : hit.px;
-    const y = intoHit ? hit.y : hit.py;
-    const z = intoHit ? hit.z : hit.pz;
+    const { x, y, z } = placementCell(hit);
     if (!this.placeableCell(x, y, z)) return false;
     if (def.placeOn) {
       const below = this.world.getBlock(x, y - 1, z);
       if (!def.placeOn.includes(below.key)) {
-        const names = def.placeOn.map((k) => blockByKey(k).name.toLowerCase());
-        this.advise(`place:${def.key}`, `${def.name} can only be placed on ${names.join(', ')}`);
+        this.advise(`place:${def.key}`, this.placeOnAdvice(def));
         return false;
       }
     }
@@ -225,8 +249,66 @@ export class Interaction {
     this.edits++;
     for (const d of drops) this.player.give(d.item, d.count);
     this.player.wearHeld(def);
+    exertMining(this.player);
     this.bus.emit('block:broken', { x, y, z, voxel });
-    this.bus.emit('sfx', { name: 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    this.popUnsupported(x, y + 1, z);
+  }
+
+  /** A plant left standing on nothing (its farmland or soil was just broken) pops, dropping what it would. */
+  private popUnsupported(x: number, y: number, z: number): void {
+    if (!isUnsupported(this.world, x, y, z)) return;
+    const voxel = this.world.getVoxel(x, y, z);
+    const def = blockOf(voxel);
+    if (!this.world.setVoxel(x, y, z, AIR, 'player')) return;
+    for (const d of rollDrops(def, this.rng)) this.player.give(d.item, d.count);
+    this.bus.emit('block:broken', { x, y, z, voxel });
+    this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+  }
+
+  private eatHeld(): UseOutcome {
+    const result = eat(this.player);
+    if (result.ok) {
+      this.swing.triggerSwing();
+      return 'ate';
+    }
+    if (result.message) this.advise(`eat:${result.reason}`, result.message);
+    return 'refused';
+  }
+
+  private tillTarget(hit: RayHit): UseOutcome {
+    if (this.placeCooldown > 0) return 'refused';
+    if (!canTill(this.world, hit.x, hit.y, hit.z, hit.face)) {
+      if (TILLABLE.includes(hit.block.key)) {
+        const blocked = hit.face === Face.PY && this.world.getVoxel(hit.x, hit.y + 1, hit.z) !== AIR;
+        this.advise('till', blocked ? 'Clear the top of the soil before tilling it' : 'Till the soil from above: aim at its top');
+      }
+      return 'none';
+    }
+    if (!till(this.world, this.player, hit)) return 'refused';
+    this.edits++;
+    this.placeCooldown = PLACE_COOLDOWN_S;
+    this.swing.triggerSwing();
+    return 'tilled';
+  }
+
+  private plantTarget(hit: RayHit): UseOutcome {
+    if (this.placeCooldown > 0) return 'refused';
+    if (!plant(this.world, this.player, hit)) return 'refused';
+    this.edits++;
+    this.placeCooldown = PLACE_COOLDOWN_S;
+    this.swing.triggerSwing();
+    return 'planted';
+  }
+
+  /** Why `def` cannot go here: what it must stand on (crops: how to make farmland). */
+  private placeOnAdvice(def: BlockDef): string {
+    if (isCrop(def)) {
+      const seed = ITEMS.find((it) => it.block === def.key)?.name ?? def.name;
+      return `${seed} can only be planted on farmland - till grass or dirt with a hoe first`;
+    }
+    const names = (def.placeOn ?? []).map((k) => blockByKey(k).name.toLowerCase());
+    return `${def.name} can only be placed on ${names.join(', ')}`;
   }
 
   private placeableCell(x: number, y: number, z: number): boolean {
@@ -250,10 +332,7 @@ export class Interaction {
 
   private pour(hit: RayHit): UseOutcome {
     if (this.placeCooldown > 0 || hit.block.liquid !== null) return 'none';
-    const intoHit = hit.block.replaceable;
-    const x = intoHit ? hit.x : hit.px;
-    const y = intoHit ? hit.y : hit.py;
-    const z = intoHit ? hit.z : hit.pz;
+    const { x, y, z } = placementCell(hit);
     if (!this.placeableCell(x, y, z)) return 'refused';
     const target = this.world.getBlock(x, y, z);
     if (target.liquid !== null) return 'refused';
@@ -280,10 +359,10 @@ export class Interaction {
     });
   }
 
-  /** A toast that explains a refusal, at most once per ADVICE_COOLDOWN_S for the same subject. */
-  private advise(key: string, text: string): void {
+  /** A toast that explains a refusal, at most once per `cooldownS` (default ADVICE_COOLDOWN_S) for the same subject. */
+  advise(key: string, text: string, cooldownS = ADVICE_COOLDOWN_S): void {
     const last = this.advice.get(key);
-    if (last !== undefined && this.clock - last < ADVICE_COOLDOWN_S) return;
+    if (last !== undefined && this.clock - last < cooldownS) return;
     this.advice.set(key, this.clock);
     this.bus.emit('toast', { text, kind: 'info' });
   }

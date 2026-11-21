@@ -5,7 +5,7 @@
  * Conventions: `position` is the centre of the feet (the eye is PLAYER_EYE above it). Yaw is in radians, 0 looks
  * north (-Z) and positive turns left - exactly a three.js camera's rotation.y. Pitch is positive looking up.
  */
-import { HOTBAR_SIZE, INVENTORY_SIZE, MAX_AIR_S, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE } from '../core/constants';
+import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { DamageCause } from '../core/gameEvents';
 import { clamp, type Vec3 } from '../core/math';
@@ -23,6 +23,8 @@ export interface BlockPos {
 export interface PlayerBuffs {
   /** Seconds of Well-Warmed left (0 = not active). */
   wellWarmedS: number;
+  /** Seconds of Well-Fed left (0 = not active; spec 12.1). */
+  wellFedS: number;
 }
 
 /** Lifetime counters by item / block key, recorded from the first moment of the game. */
@@ -44,11 +46,14 @@ export interface PlayerSnapshot {
   health: number;
   warmth: number;
   air: number;
+  /** Food 0..MAX_FOOD (spec 12.1). Missing in saves made before hunger existed: a full bar. */
+  food?: number;
   inventory: Slot[];
   selectedSlot: number;
   home: BlockPos | null;
   spawn: Vec3;
-  buffs: PlayerBuffs;
+  /** `wellFedS` is missing in saves made before hunger existed. */
+  buffs: { wellWarmedS: number; wellFedS?: number };
   stats: PlayerStats;
   dead: boolean;
   deathCause: DamageCause | null;
@@ -57,6 +62,8 @@ export interface PlayerSnapshot {
 
 /** Upper bound of the "seconds since the last damage" counter, so it stays a small finite number in saves. */
 const SINCE_DAMAGE_CAP_S = 3600;
+/** Coming back from death tops the food bar up to at least this, so a respawn never lands in starvation. */
+export const RESPAWN_MIN_FOOD = MAX_FOOD / 2;
 
 const bump = (counters: Record<string, number>, key: string, by: number): void => {
   counters[key] = (counters[key] ?? 0) + by;
@@ -76,6 +83,12 @@ export class PlayerState {
   warmth = MAX_WARMTH;
   /** Seconds of breath left. */
   air = MAX_AIR_S;
+  /** Food 0..MAX_FOOD (spec 12.1). Change it through `spendFood` / `feed` so the Hungry warning fires. */
+  food = MAX_FOOD;
+  /** The player is sprinting right now (written by the player physics; sprinting drains food faster). */
+  sprinting = false;
+  /** Seconds until the next bite is allowed (not saved; counted down by the hunger rules every tick). */
+  eatCooldownS = 0;
   /** Slots 0..HOTBAR_SIZE-1 are the hotbar. */
   readonly inventory = new Inventory(INVENTORY_SIZE);
   selectedSlot = 0;
@@ -83,7 +96,7 @@ export class PlayerState {
   home: BlockPos | null = null;
   /** World spawn (feet position): where the player starts and respawns without a home. */
   readonly spawn: Vec3;
-  readonly buffs: PlayerBuffs = { wellWarmedS: 0 };
+  readonly buffs: PlayerBuffs = { wellWarmedS: 0, wellFedS: 0 };
   readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, deaths: 0 };
   dead = false;
   deathCause: DamageCause | null = null;
@@ -121,6 +134,34 @@ export class PlayerState {
     return this.buffs.wellWarmedS > 0;
   }
 
+  get wellFed(): boolean {
+    return this.buffs.wellFedS > 0;
+  }
+
+  /** Food at or below HUNGRY_AT: no sprinting (spec 12.1). */
+  get hungry(): boolean {
+    return this.food <= HUNGRY_AT;
+  }
+
+  /**
+   * Takes food points away (already scaled by whoever decides the cost). Crossing into Hungry warns once with a
+   * toast; the warning comes back only after the bar has been above the line again.
+   */
+  spendFood(amount: number): void {
+    if (!(amount > 0) || this.dead) return;
+    const wasHungry = this.hungry;
+    this.food = Math.max(0, this.food - amount);
+    if (!wasHungry && this.hungry) {
+      this.bus.emit('toast', { text: 'You are hungry - eat something. You cannot sprint until you do.', kind: 'warn' });
+    }
+  }
+
+  /** Adds food points, up to MAX_FOOD. */
+  feed(amount: number): void {
+    if (!(amount > 0)) return;
+    this.food = Math.min(MAX_FOOD, this.food + amount);
+  }
+
   /** Unit vector the player looks along, written into `out`. */
   viewDir(out: Vec3): Vec3 {
     const c = Math.cos(this.pitch);
@@ -151,10 +192,17 @@ export class PlayerState {
    * and 'tool:broke' plus its sound and a toast were emitted).
    */
   wearHeld(block: BlockDef): boolean {
+    return this.wearHeldTool(wear(block, this.heldStack()));
+  }
+
+  /**
+   * Takes `uses` of durability from the held tool (a hoe tilling soil). Returns true when the tool broke, with the
+   * same events as `wearHeld`.
+   */
+  wearHeldTool(uses: number): boolean {
     const held = this.heldStack();
-    const loss = wear(block, held);
-    if (!held || held.durability === undefined || loss <= 0) return false;
-    held.durability -= loss;
+    if (!held || held.durability === undefined || !(uses > 0)) return false;
+    held.durability -= uses;
     if (held.durability > 0) {
       this.inventory.notifyChanged();
       return false;
@@ -219,6 +267,10 @@ export class PlayerState {
     this.warmth = homeIsHot ? MAX_WARMTH : MAX_WARMTH / 2;
     this.air = MAX_AIR_S;
     this.buffs.wellWarmedS = 0;
+    this.buffs.wellFedS = 0;
+    this.food = Math.max(this.food, RESPAWN_MIN_FOOD);
+    this.eatCooldownS = 0;
+    this.sprinting = false;
     this.sinceDamageS = SINCE_DAMAGE_CAP_S;
     this.extraRadiation = 0;
     this.position.x = at.x;
@@ -247,6 +299,7 @@ export class PlayerState {
       health: this.health,
       warmth: this.warmth,
       air: this.air,
+      food: this.food,
       inventory: this.inventory.toJSON(),
       selectedSlot: this.selectedSlot,
       home: this.home ? { ...this.home } : null,
@@ -276,10 +329,15 @@ export class PlayerState {
     this.health = clamp(s.health, 0, MAX_HEALTH);
     this.warmth = clamp(s.warmth, 0, MAX_WARMTH);
     this.air = clamp(s.air, 0, MAX_AIR_S);
+    this.food = typeof s.food === 'number' && Number.isFinite(s.food) ? clamp(s.food, 0, MAX_FOOD) : MAX_FOOD;
+    this.eatCooldownS = 0;
+    this.sprinting = false;
     this.inventory.load(s.inventory);
     this.selectedSlot = clamp(Math.floor(s.selectedSlot), 0, HOTBAR_SIZE - 1);
     this.home = s.home ? { ...s.home } : null;
     this.buffs.wellWarmedS = Math.max(0, s.buffs.wellWarmedS);
+    const fed = s.buffs.wellFedS;
+    this.buffs.wellFedS = typeof fed === 'number' && Number.isFinite(fed) ? Math.max(0, fed) : 0;
     this.stats.made = { ...s.stats.made };
     this.stats.placed = { ...s.stats.placed };
     this.stats.broken = { ...s.stats.broken };

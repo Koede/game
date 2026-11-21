@@ -1,8 +1,8 @@
 /**
  * Player movement against the voxel world (spec 7.3): an axis-aligned 0.6 x 1.8 box, swept one axis at a time
- * so nothing tunnels at any speed, with gravity, jumping, sprinting, swimming, stepping onto slabs and fall
- * damage. Unloaded chunks count as solid walls, so the player never falls through terrain that is not there yet.
- * DOM-free and allocation-free per step.
+ * so nothing tunnels at any speed, with gravity, jumping, sprinting (not while Hungry), swimming, stepping onto
+ * slabs and fall damage. Unloaded chunks count as solid walls, so the player never falls through terrain that is
+ * not there yet. DOM-free and allocation-free per step.
  */
 import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
 import { blockOf } from '../core/registry';
@@ -103,6 +103,7 @@ export class PlayerPhysics {
     const p = this.player;
     const pos = p.position;
     const v = p.velocity;
+    p.sprinting = false;
     if (p.dead || !(dt > 0)) return r;
     if (!Number.isFinite(pos.x + pos.y + pos.z) || pos.y < OUT_OF_WORLD_Y) {
       this.backToSpawn();
@@ -119,7 +120,9 @@ export class PlayerPhysics {
     const cos = Math.cos(p.yaw);
     const wishX = cos * input.moveX - sin * input.moveZ;
     const wishZ = -sin * input.moveX - cos * input.moveZ;
-    r.sprinting = input.sprint && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid;
+    // A Hungry player cannot sprint (spec 12.1).
+    r.sprinting = input.sprint && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
+    p.sprinting = r.sprinting;
     const speed = this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED;
     const response = this.inLiquid ? LIQUID_RESPONSE : p.onGround ? GROUND_RESPONSE : AIR_RESPONSE;
     const blend = 1 - Math.exp(-response * dt);

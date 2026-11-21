@@ -7,7 +7,7 @@ import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
 import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
 import type { IWorld } from '../core/types';
-import type { PlayerState } from '../game';
+import { exertJump, type PlayerState } from '../game';
 import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
@@ -46,6 +46,8 @@ const STEP_EVERY = 1.75;
 const LAND_SOUND_FROM = 1.2;
 /** Looking straight up or down stops just short of the pole (so the view direction never degenerates). */
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
+/** "Too hungry to sprint" is repeated at most this often (a thumb pushes the stick to the edge all the time). */
+const HUNGRY_SPRINT_ADVICE_S = 20;
 
 export class PlayerController {
   readonly physics: PlayerPhysics;
@@ -71,6 +73,8 @@ export class PlayerController {
   private stepDistance = 0;
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
+  /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
+  private sprintWanted = false;
 
   constructor(options: PlayerControllerOptions) {
     this.world = options.world;
@@ -162,9 +166,17 @@ export class PlayerController {
   }
 
   private move(dt: number, intent: Intent): void {
-    const r = this.physics.step(dt, intent);
     const p = this.player;
-    if (r.jumped) this.sfx('jump');
+    const sprintAsked = intent.sprint && intent.moveZ > 0;
+    if (sprintAsked && !this.sprintWanted && p.hungry && !p.dead) {
+      this.interaction.advise('sprint', 'Too hungry to sprint - eat something', HUNGRY_SPRINT_ADVICE_S);
+    }
+    this.sprintWanted = sprintAsked;
+    const r = this.physics.step(dt, intent);
+    if (r.jumped) {
+      this.sfx('jump');
+      exertJump(p);
+    }
     if (r.enteredWater) this.sfx('splash');
     else if (r.landedFrom > LAND_SOUND_FROM) this.sfx('land');
     if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;

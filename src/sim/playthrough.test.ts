@@ -5,9 +5,12 @@
  * Starhearth is ignited. The objective tracker and survival run alongside, so every objective must complete too.
  */
 import { describe, expect, it } from 'vitest';
-import { FURNACE_HOT_C } from '../core/constants';
+import { FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
 import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
-import { makeVoxel, voxelActive } from '../core/types';
+import { Face, voxelActive } from '../core/types';
+import { eat, plant, till, type UseTarget } from '../game';
+import { swapSlots } from '../game/transfer';
+import type { FakeWorld } from '../game/fakeWorld';
 import { Play } from './playKit';
 
 const F = { x: 0, y: 1, z: 0 };
@@ -16,7 +19,13 @@ const CRATES = [{ x: -2, y: 1, z: 1 }, { x: -2, y: 1, z: 0 }, { x: -3, y: 1, z: 
 const THERMOPILE = { x: 1, y: 1, z: 0 };
 const LAMP = { x: 2, y: 1, z: 0 };
 const STEAM = { x: 0, y: 2, z: 0 };
+/** A patch of grass beside the base: tilled into farmland and sown with wheat. */
 const FIELD = { x: 5, y: 1, z: 5 };
+/** What the player eats, best first, when the bar drops to the line below which health stops regenerating. */
+const MEALS = ['hearth_stew', 'cooked_chop', 'bread', 'baked_potato'];
+/** The hotbar slot the script puts things in hand with. */
+const HAND = 8;
+
 /** The power bus: a link north of the furnace and a run of cable along z = -2. Generators sit on the z = -3 side. */
 const BUS = [{ x: 0, y: 1, z: -1 }, { x: 0, y: 1, z: -2 }, { x: -1, y: 1, z: -2 }, { x: -2, y: 1, z: -2 }, { x: 1, y: 1, z: -2 }, { x: 2, y: 1, z: -2 }];
 const CRUSHER = { x: -3, y: 1, z: -2 };
@@ -29,10 +38,55 @@ const PILE = { x: -1, y: 2, z: -3 };
 const BANKS = [{ x: 3, y: 1, z: -3 }, { x: 4, y: 1, z: -3 }];
 const ELECTROLYZER = { x: 1, y: 1, z: -1 };
 
+/** The player's crosshair on the top face of a block (what a hoe tills and seeds are sown on). */
+function aimDown(world: FakeWorld, p: { x: number; y: number; z: number }): UseTarget {
+  return { x: p.x, y: p.y, z: p.z, face: Face.PY, px: p.x, py: p.y + 1, pz: p.z, block: world.getBlock(p.x, p.y, p.z) };
+}
+
+/** The scripted player also eats, through the real eating rule, whenever it gets peckish (spec 12.1). */
+class FedPlay extends Play {
+  meals = 0;
+
+  /** Takes an item into the hand: from the hotbar if it is there, else fetched into the HAND slot. */
+  hold(itemKey: string): void {
+    const pack = this.player.inventory;
+    for (let i = 0; i < 9; i++) {
+      if (pack.get(i)?.item !== itemKey) continue;
+      this.player.selectSlot(i);
+      return;
+    }
+    const at = pack.slots.findIndex((s) => s?.item === itemKey);
+    if (at >= 0) swapSlots(pack, at, pack, HAND);
+    else {
+      if (pack.get(HAND)) swapSlots(pack, HAND, pack, pack.firstEmpty());
+      this.load(pack, itemKey, 1, HAND);
+    }
+    this.player.selectSlot(HAND);
+  }
+
+  step(seconds: number): void {
+    // In slices, so even a long wait by the furnace has supper on time.
+    for (let left = seconds; left > 1e-9; left -= 20) {
+      super.step(Math.min(20, left));
+      this.eatIfPeckish();
+    }
+  }
+
+  private eatIfPeckish(): void {
+    if (this.player.food > REGEN_MIN_FOOD) return;
+    const meal = MEALS.find((m) => this.have(m) > 0);
+    if (!meal) return;
+    this.hold(meal);
+    const result = eat(this.player);
+    if (!result.ok) throw new Error(`could not eat ${meal}: ${result.reason}`);
+    this.meals++;
+  }
+}
 describe('scripted playthrough', () => {
   it('walks the whole tech tree from a clay furnace to an ignited Starhearth', () => {
-    const play = new Play(F);
+    const play = new FedPlay(F);
     const { sim, player, tracker, kit } = play;
+    kit.world.put(FIELD.x, FIELD.y, FIELD.z, 'grass');
     const won = kit.record('game:won');
     const alerts = kit.record('power:alert');
     const ages = kit.record('age:advanced');
@@ -81,13 +135,13 @@ describe('scripted playthrough', () => {
     done('make_charcoal');
     play.until('Well-Warmed', () => tracker.isComplete('get_warm'), 60);
     expect(player.wellWarmed).toBe(true);
-    // Supper: a boar's chops roast in the crucible at 200 C.
-    play.find('2 raw_chop');
-    play.smelt('raw_chop', 2);
+    // Supper, and food for the rest of the game: a boar's chops roast in the crucible at 200 C.
+    play.find('12 raw_chop');
+    play.smelt('raw_chop', 12);
     done('cook_food');
-    // Eating, tilling and planting are player actions (src/game, src/player - spec 12); the script does what they
-    // will do: the flag, the voxel and the event.
-    kit.bus.emit('flag', { flag: 'ate' });
+    expect(player.food).toBeLessThan(20);
+    play.hold('cooked_chop');
+    expect(eat(player)).toMatchObject({ ok: true, item: 'cooked_chop', hunger: 8 });
     play.step(0.5);
     done('eat_food');
     mark('furnace lit, charcoal, warm, fed');
@@ -99,14 +153,15 @@ describe('scripted playthrough', () => {
     play.smelt('copper_ore', 15);
     done('smelt_copper');
     play.craft('flint_hoe', 1, BENCH);
-    kit.world.setVoxel(FIELD.x, FIELD.y, FIELD.z, makeVoxel(blockId('farmland')), 'player');
-    kit.bus.emit('flag', { flag: 'tilled' });
+    play.hold('flint_hoe');
+    expect(till(kit.world, player, aimDown(kit.world, FIELD))).toBe(true);
+    expect(blockOf(kit.world.getVoxel(FIELD.x, FIELD.y, FIELD.z)).key).toBe('farmland');
     play.step(0.5);
     done('till_soil');
-    expect(player.inventory.remove('wheat_seeds', 1)).toBe(1); // the objective's reward
-    const wheat = makeVoxel(blockId('wheat_0'));
-    kit.world.setVoxel(FIELD.x, FIELD.y + 1, FIELD.z, wheat, 'player');
-    kit.bus.emit('block:placed', { ...FIELD, y: FIELD.y + 1, voxel: wheat });
+    expect(player.inventory.count('wheat_seeds')).toBe(3); // the objective's reward
+    play.hold('wheat_seeds');
+    expect(plant(kit.world, player, aimDown(kit.world, FIELD))).toEqual({ ...FIELD, y: FIELD.y + 1 });
+    expect(kit.world.getVoxel(FIELD.x, FIELD.y + 1, FIELD.z)).toBe(blockId('wheat_0'));
     play.step(0.5);
     done('plant_seeds');
     done('reach_800');
@@ -385,6 +440,10 @@ describe('scripted playthrough', () => {
     // Nothing hurt the player who stayed by the fire, and the grid spoke only when its state changed.
     expect(damage).toEqual([]);
     expect(player.warmth).toBe(100);
+    // ... and who ate whenever the bar ran low, so it never reached Hungry.
+    expect(play.meals).toBeGreaterThan(5);
+    expect(player.food).toBeGreaterThan(REGEN_MIN_FOOD - 1);
+    expect(toasts.some((t) => /hungry/i.test(t.text))).toBe(false);
     expect(alerts.length).toBeLessThan(16);
     for (let i = 1; i < alerts.length; i++) expect(alerts[i].kind).not.toBe(alerts[i - 1].kind);
     const said = toasts.map((t) => t.text);
