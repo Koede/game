@@ -9,6 +9,7 @@ import { clamp, type Vec3 } from '../core/math';
 import type { IWorld } from '../core/types';
 import { exertJump, type PlayerState } from '../game';
 import { AnimalHands, type AnimalTargets } from './animals';
+import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
@@ -36,9 +37,7 @@ export interface PlayerControllerOptions {
   animals?: AnimalTargets;
 }
 
-/** Held items that need the ray to stop at liquids: buckets that scoop (spec 13). */
-const SCOOPERS: ReadonlySet<string> = new Set(['pail', 'bronze_bucket']);
-const seesLiquids = (item: string | undefined): boolean => item !== undefined && SCOOPERS.has(item);
+const seesLiquids = (item: string | undefined): boolean => item !== undefined && SCOOPING_BUCKETS.has(item);
 
 /** Degrees added to the field of view at full sprint. */
 export const SPRINT_FOV_KICK = 8;

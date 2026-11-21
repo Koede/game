@@ -3,7 +3,7 @@
  * how a placed block faces, and the wording of placement and harvesting hints.
  */
 import type { ScreenRequest, SfxName } from '../core/gameEvents';
-import { ITEMS, block } from '../core/registry';
+import { ITEMS, block, machineOfBlock } from '../core/registry';
 import { Facing, type BlockDef } from '../core/types';
 import { isCrop } from '../game';
 
@@ -17,10 +17,10 @@ export function digSound(def: BlockDef): SfxName {
   return def.opaque ? 'dig_dirt' : 'dig_sand';
 }
 
-/** The screen that using this block opens, or null (crops are machine blocks without a screen). */
+/** The screen that using this block opens, or null (crops and wild bushes are machine blocks without a screen). */
 export function screenFor(def: BlockDef, x: number, y: number, z: number): ScreenRequest | null {
   if (def.station === 'workbench') return { type: 'workbench', x, y, z };
-  if (!def.machine || isCrop(def)) return null;
+  if (!def.machine || isCrop(def) || machineOfBlock(def)?.role === 'bush') return null;
   if (def.machine === 'furnace') return { type: 'furnace', x, y, z };
   if (def.machine === 'crate') return { type: 'crate', x, y, z };
   return { type: 'machine', x, y, z };

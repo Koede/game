@@ -7,7 +7,7 @@
  */
 import type { GameBus } from '../core/context';
 import { blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, type BlockDef, type IWorld } from '../core/types';
+import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, withId, type BlockDef, type IWorld, type Voxel } from '../core/types';
 import {
   TILLABLE,
   canHarvest,
@@ -29,6 +29,7 @@ import {
   type PlayerState,
 } from '../game';
 import { digSound, facingTowards, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
+import { Buckets } from './buckets';
 import type { RayHit } from './raycast';
 
 export { digSound, facingTowards, screenFor } from './blockRules';
@@ -54,7 +55,7 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'picked' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -71,6 +72,7 @@ export class Interaction {
   private placeCooldown = 0;
   private clock = 0;
   private readonly advice = new Map<string, number>();
+  private readonly buckets: Buckets;
 
   constructor(
     private readonly world: IWorld,
@@ -79,7 +81,21 @@ export class Interaction {
     private readonly body: BodyProbe,
     private readonly swing: SwingTarget,
     private readonly rng: () => number = Math.random,
-  ) {}
+  ) {
+    const self = this;
+    this.buckets = new Buckets({
+      world, bus, player,
+      get placeCooldown() {
+        return self.placeCooldown;
+      },
+      placed: () => (this.placeCooldown = PLACE_COOLDOWN_S),
+      advise: (key, text) => this.advise(key, text),
+      placeableCell: (x, y, z) => this.placeableCell(x, y, z),
+      bodyIn: (x, y, z) => body.intersectsCell(x, y, z),
+      edited: () => this.edits++,
+      swing: () => swing.triggerSwing(),
+    });
+  }
 
   get mining(): boolean {
     return this.progress >= 0;
@@ -141,14 +157,16 @@ export class Interaction {
       this.swing.triggerSwing();
       return 'screen';
     }
+    // A fruiting bush is picked by hand, whatever is held.
+    if (hit && hit.block.harvestLeaves !== null && hit.block.liquid === null) return this.pick(hit);
     const held = this.player.heldStack();
     if (!held) return 'none';
     // Food is eaten wherever the crosshair is (the sky included), unless this Use would plant it.
     const food = itemOrNull(held.item)?.food;
     if (food && !(hit && plantCell(this.world, held.item, hit))) return this.eatHeld();
     if (!hit) return 'none';
-    if (held.item === 'pail') return this.scoop(hit);
-    if (held.item === 'water_pail') return this.pour(hit);
+    const bucket = this.buckets.use(held.item, hit);
+    if (bucket !== null) return bucket;
     if (isHoe(held)) return this.tillTarget(hit);
     if (plantedBy(held.item) && plantCell(this.world, held.item, hit)) return this.plantTarget(hit);
     const def = blockOfItem(held.item);
@@ -210,14 +228,33 @@ export class Interaction {
     const { x, y, z, voxel } = hit;
     this.progress = -1;
     this.breakCooldown = BREAK_COOLDOWN_S;
-    if (!this.world.setVoxel(x, y, z, AIR, 'player')) return;
+    // A fruiting bush gives its fruit and stays, picked (spec 14: harvestLeaves is a block rule).
+    const left = leftBehind(def, voxel);
+    if (!this.world.setVoxel(x, y, z, left, 'player')) return;
     this.edits++;
     for (const d of drops) this.player.give(d.item, d.count);
     this.player.wearHeld(def);
     exertMining(this.player);
+    if (left !== AIR) {
+      this.bus.emit('sfx', { name: 'harvest', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+      return;
+    }
     this.bus.emit('block:broken', { x, y, z, voxel });
     this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.popUnsupported(x, y + 1, z);
+  }
+
+  /** Use on a fruiting bush: its drops into the pack, the picked block in its place (entity kept), sfx harvest. */
+  private pick(hit: RayHit): UseOutcome {
+    if (this.placeCooldown > 0) return 'refused';
+    const { x, y, z, voxel, block: def } = hit;
+    if (!this.world.setVoxel(x, y, z, leftBehind(def, voxel), 'player')) return 'refused';
+    this.edits++;
+    for (const d of rollDrops(def, this.rng)) this.player.give(d.item, d.count);
+    this.placeCooldown = PLACE_COOLDOWN_S;
+    this.bus.emit('sfx', { name: 'harvest', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    this.swing.triggerSwing();
+    return 'picked';
   }
 
   /** A plant left standing on nothing (its farmland or soil was just broken) pops, dropping what it would. */
@@ -271,49 +308,6 @@ export class Interaction {
     return this.world.getBlock(x, y, z).replaceable;
   }
 
-  private scoop(hit: RayHit): UseOutcome {
-    if (hit.block.liquid === 'water') {
-      this.swapHeld('water_pail');
-      this.bus.emit('sfx', { name: 'splash', x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
-      this.swing.triggerSwing();
-      return 'pail';
-    }
-    if (hit.block.liquid !== null) {
-      this.advise('pail:hot', 'That would burn straight through a wooden bucket');
-      return 'refused';
-    }
-    return 'none';
-  }
-
-  private pour(hit: RayHit): UseOutcome {
-    if (this.placeCooldown > 0 || hit.block.liquid !== null) return 'none';
-    const { x, y, z } = placementCell(hit);
-    if (!this.placeableCell(x, y, z)) return 'refused';
-    const target = this.world.getBlock(x, y, z);
-    if (target.liquid !== null) return 'refused';
-    const voxel = makeVoxel(blockByKey('water').id);
-    if (!this.world.setVoxel(x, y, z, voxel, 'player')) return 'refused';
-    this.edits++;
-    this.swapHeld('pail');
-    this.placeCooldown = PLACE_COOLDOWN_S;
-    this.bus.emit('block:placed', { x, y, z, voxel });
-    this.bus.emit('sfx', { name: 'splash', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
-    this.swing.triggerSwing();
-    return 'pail';
-  }
-
-  /** Replaces the held (single) pail with another pail item in the same slot. */
-  private swapHeld(item: string): void {
-    if (!itemOrNull(item)) return;
-    const inv = this.player.inventory;
-    const slot = this.player.selectedSlot;
-    inv.batch(() => {
-      inv.removeAt(slot, 1);
-      if (inv.get(slot) === null) inv.set(slot, { item, count: 1 });
-      else this.player.give(item, 1);
-    });
-  }
-
   /** A toast that explains a refusal, at most once per `cooldownS` (default ADVICE_COOLDOWN_S) for the same subject. */
   advise(key: string, text: string, cooldownS = ADVICE_COOLDOWN_S): void {
     const last = this.advice.get(key);
@@ -321,4 +315,9 @@ export class Interaction {
     this.advice.set(key, this.clock);
     this.bus.emit('toast', { text, kind: 'info' });
   }
+}
+
+/** What breaking or picking a block leaves in its cell: the picked stage of a bush (same facing and flags), else air. */
+function leftBehind(def: BlockDef, voxel: Voxel): Voxel {
+  return def.harvestLeaves !== null ? withId(voxel, blockByKey(def.harvestLeaves).id) : AIR;
 }

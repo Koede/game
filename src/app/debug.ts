@@ -5,7 +5,7 @@
  */
 import { DT } from '../core/constants';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
-import { blockId, blockOf, itemOrNull } from '../core/registry';
+import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelActive, voxelFacing, type Facing, type WeatherKind, type WeatherState } from '../core/types';
 import { isFurnace } from '../sim';
 import type { App } from './app';
@@ -31,6 +31,10 @@ export interface DebugSummary {
     fuel: unknown[]; crucibleIn: unknown[]; crucibleOut: unknown[] }[];
   ui: { open: string | null; uiOpen: boolean; paused: boolean; touch: boolean; pointerLocked: boolean } | null;
   target: { x: number; y: number; z: number; block: string; mining: number } | null;
+  /** The animal under the crosshair (spec 12.5), or null. */
+  targetAnimal: { id: number; name: string } | null;
+  /** Living animals in loaded columns, nearest first. */
+  mobs: { id: number; species: string; x: number; y: number; z: number; health: number; baby: boolean; state: string; d: number }[];
   render: { drawCalls: number; triangles: number; chunks: number } | null;
   world: { loaded: number; meshed: number; mode: string } | null;
   /** The sky (spec 15), with `forced` true while setWeather holds it. */
@@ -56,6 +60,8 @@ export interface DebugHandle {
   /** Hurts the player (the real damage rules: events, sounds, death at 0). */
   damage(amount: number, cause?: DamageCause): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
+  /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
+  spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
@@ -118,6 +124,15 @@ export function createDebugHandle(app: App): DebugHandle {
         target: g?.controller.target
           ? { x: g.controller.target.x, y: g.controller.target.y, z: g.controller.target.z, block: g.controller.target.block.key, mining: round(g.controller.miningProgress) }
           : null,
+        targetAnimal: g && g.controller.targetAnimal !== null
+          ? { id: g.controller.targetAnimal, name: s!.mobs.describe(g.controller.targetAnimal) }
+          : null,
+        mobs: s && p
+          ? s.mobs.loaded.filter((m) => m.state !== 'dying').map((m) => ({
+              id: m.id, species: m.spec.key, x: round(m.x), y: round(m.y), z: round(m.z), health: m.health, baby: m.baby, state: m.state,
+              d: round(Math.hypot(m.x - p.position.x, m.z - p.position.z), 2),
+            })).sort((a, b) => a.d - b.d)
+          : [],
         render: g ? { drawCalls: g.renderer.stats.drawCalls, triangles: g.renderer.stats.triangles, chunks: g.renderer.stats.chunks } : null,
         world: s ? (({ loaded, meshed, mode }) => ({ loaded, meshed, mode }))(s.world.stats()) : null,
         weather: s ? { ...s.weather.state, blend: round(s.weather.state.blend), intensity: round(s.weather.state.intensity), cloudCover: round(s.weather.state.cloudCover), nextInS: round(s.weather.state.nextInS, 1), forced: s.weather.override !== null } : null,
@@ -163,6 +178,10 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     setVoxel(x, y, z, block, facing = 0, active = false) {
       return game().state.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing, active), 'sim');
+    },
+    spawnMob(species, x, y, z, baby = false) {
+      const s = game().state;
+      return s.mobs.add(creature(species), { x, y, z, yaw: 0 }, baby).id;
     },
     getBlock(x, y, z) {
       const v = game().state.world.getVoxel(x, y, z);
