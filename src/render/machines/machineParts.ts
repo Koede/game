@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { blockOf } from '../../core/registry';
 import { voxelActive, voxelFacing, type IWorld } from '../../core/types';
+import { signedCool } from '../coolLight';
 import { LightProbe } from '../lightProbe';
 import type { WorldUniforms } from '../materials';
 import { createMachineMaterial } from './material';
@@ -31,6 +32,7 @@ interface Batch {
   anim: MachineAnim;
   mesh: THREE.InstancedMesh;
   state: THREE.InstancedBufferAttribute;
+  cool: THREE.InstancedBufferAttribute;
   count: number;
 }
 
@@ -49,6 +51,8 @@ interface Rec {
   running: boolean;
   sky: number;
   block: number;
+  /** Signed cool share of the block light (coolLight.ts). */
+  cool: number;
   probed: boolean;
   seen: number;
 }
@@ -86,14 +90,16 @@ export class MachineParts {
     for (const anim of MACHINE_ANIMS) {
       const model = anim.build();
       const state = new THREE.InstancedBufferAttribute(new Float32Array(MACHINE_DRAW_CAPACITY * 4), 4).setUsage(THREE.DynamicDrawUsage);
+      const cool = new THREE.InstancedBufferAttribute(new Float32Array(MACHINE_DRAW_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
       model.geometry.setAttribute('aState', state);
+      model.geometry.setAttribute('aCool', cool);
       const mesh = new THREE.InstancedMesh(model.geometry, this.material, MACHINE_DRAW_CAPACITY);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false; // culled per machine
       mesh.count = 0;
       mesh.visible = false;
       mesh.name = `machine-${anim.kind}`;
-      const batch: Batch = { anim, mesh, state, count: 0 };
+      const batch: Batch = { anim, mesh, state, cool, count: 0 };
       this.batches.push(batch);
       this.byKind.set(anim.kind, batch);
       this.group.add(mesh);
@@ -167,6 +173,7 @@ export class MachineParts {
       if (b.count === 0) continue;
       flush(b.mesh.instanceMatrix, b.count * 16);
       flush(b.state, b.count * 4);
+      flush(b.cool, b.count);
     }
     this.drawn = drawn;
   }
@@ -198,12 +205,14 @@ export class MachineParts {
     s[i * 4 + 1] = r.extent;
     s[i * 4 + 2] = r.sky;
     s[i * 4 + 3] = r.block;
+    (b.cool.array as Float32Array)[i] = r.cool;
   }
 
   private probeRecord(r: Rec): void {
     this.probe.probe(r.x + 0.5, r.y + r.batch.anim.probeY, r.z + 0.5);
     r.sky = this.probe.sky;
     r.block = this.probe.block;
+    r.cool = signedCool(this.probe);
     r.probed = true;
   }
 
@@ -226,7 +235,7 @@ export class MachineParts {
         if (r) this.forget(r);
         r = {
           key, batch, x: e.x, y: e.y, z: e.z, matrix: new Float32Array(16), angle: ((e.x * 7 + e.z * 13) % 10) * 0.6,
-          speed: 0, target: 0, extent: 1, running: false, sky: 1, block: 0, probed: false, seen: gen,
+          speed: 0, target: 0, extent: 1, running: false, sky: 1, block: 0, cool: 0, probed: false, seen: gen,
         };
         this.byKey.set(key, r);
         this.records.push(r);

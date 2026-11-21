@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import type { WorldUniforms } from '../materials';
+import { COOL_TINT_GLSL } from '../coolLight';
 import { LIGHT_GLSL } from '../shaders/chunk';
 
 const NOISE_SIZE = 32;
@@ -19,8 +20,10 @@ in float aPart;
 in vec4 aFeature; // xyz centre of the part's box, w 1 for horns / tusks
 in vec4 aAnim;   // x leg swing (rad), y head pitch (rad), z head scale, w hurt flash 0..1
 in vec4 aLight;  // x sky 0..1, y block 0..1, z fade 0..1, w eager 0..1
+in float aCool;  // share of the block light from cool glows, negative = violet (src/render/coolLight.ts)
 uniform float uTime;
 ${LIGHT_GLSL}
+${COOL_TINT_GLSL}
 out vec3 vColor;
 out vec2 vUv;
 out vec4 vFog;
@@ -50,7 +53,7 @@ void main() {
   // The terrain's face shading (top 1, bottom 0.5, north/south 0.8, east/west 0.65), from the world normal.
   float side = mix(0.65, 0.8, abs(wn.z) / (abs(wn.x) + abs(wn.z) + 1e-4));
   float shade = wn.y >= 0.0 ? mix(side, 1.0, wn.y) : mix(side, 0.5, -wn.y);
-  vec3 light = lightColor(aLight.x, aLight.y);
+  vec3 light = lightColorTinted(aLight.x, aLight.y, coolBlockTint(aCool));
   float glow = 1.0 + aLight.w * (0.1 + 0.08 * sin(uTime * 7.0));
   vColor = aColor * light * shade * glow;
   vec3 toVertex = world.xyz - cameraPosition;

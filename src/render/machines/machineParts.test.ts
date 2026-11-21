@@ -158,6 +158,23 @@ describe('MachineParts', () => {
     expect(state.getZ(0)).toBe(1);
   });
 
+  it('lights the parts with the cool glow beside a glowcap (cyan) and crystals (violet, negative)', () => {
+    const { world, parts, camera } = scene();
+    place(world, 'pump', 0, 11, 0);
+    place(world, 'pump', 6, 11, 0);
+    place(world, 'pump', -6, 11, 0);
+    world.put(1, 11, 0, 'glowcap');
+    world.put(-7, 11, 0, 'crystal_cluster');
+    parts.update(0.016, camera);
+    const pumps = parts.group.children.find((m) => m.name === 'machine-pump') as THREE.InstancedMesh;
+    expect(pumps.count).toBe(3);
+    const cool = pumps.geometry.getAttribute('aCool');
+    const values = [0, 1, 2].map((i) => cool.getX(i)).sort((a, b) => a - b);
+    expect(values[0]).toBeLessThan(-0.9);
+    expect(values[1]).toBe(0);
+    expect(values[2]).toBeGreaterThan(0.9);
+  });
+
   it('orients by facing: an east-facing rotor sits east of its mast', () => {
     const m = new Float32Array(16);
     placeMatrix(m, 10.5, 11, 3.5, -Facing.East * (Math.PI / 2));

@@ -216,13 +216,19 @@ export async function featureSteps({ d, step, assert, page }) {
     const misses = [];
     for (let attempt = 0; attempt < 24; attempt++) {
       // Let a hurt animal stop fleeing, then stand beside it and aim (set-up); the hit itself is the real Mine control.
+      // Flight lasts 5 s of GAME time; at a few frames a second the 20 Hz steps fall behind real time (at most 5 per
+      // frame), so the wait is measured in ticks: still fleeing after 7 s of game time would be a real fault.
+      const t0 = (await d.state()).ticks;
       try {
-        await waitFor(page, (id) => {
-          const m = window.__hw.state().mobs.find((x) => x.id === id);
-          return !m || m.state !== 'flee';
-        }, 'the animal to calm down', { timeout: 10_000, interval: 200, arg: mob.id });
+        await waitFor(page, ({ id, t0 }) => {
+          const s = window.__hw.state();
+          const m = s.mobs.find((x) => x.id === id);
+          return !m || m.state !== 'flee' || s.ticks - t0 > 140;
+        }, 'the animal to calm down', { timeout: 40_000, interval: 200, arg: { id: mob.id, t0 } });
+        const s = await d.state();
+        if (s.mobs.find((m) => m.id === mob.id)?.state === 'flee') misses.push(`still fleeing after ${s.ticks - t0} ticks`);
       } catch {
-        misses.push('still fleeing');
+        misses.push('still fleeing (no ticks ran)');
       }
       const alive = (await d.state()).mobs.find((m) => m.id === mob.id);
       if (!alive) break;

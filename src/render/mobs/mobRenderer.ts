@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { CREATURES } from '../../core/registry';
 import type { CreatureSpec, IWorld } from '../../core/types';
+import { signedCool } from '../coolLight';
 import { LightProbe } from '../lightProbe';
 import type { WorldUniforms } from '../materials';
 import { buildSpeciesGeometry, type SpeciesGeometry } from './geometry';
@@ -55,6 +56,7 @@ interface SpeciesBatch {
   mesh: THREE.InstancedMesh;
   anim: THREE.InstancedBufferAttribute;
   light: THREE.InstancedBufferAttribute;
+  cool: THREE.InstancedBufferAttribute;
   count: number;
 }
 
@@ -63,6 +65,9 @@ interface LightCache {
   block: number;
   targetSky: number;
   targetBlock: number;
+  /** Signed cool share of the block light (coolLight.ts), eased like the levels. */
+  cool: number;
+  targetCool: number;
   probed: boolean;
   seen: number;
 }
@@ -116,13 +121,15 @@ export class MobRenderer {
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const light = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY * 4), 4).setUsage(THREE.DynamicDrawUsage);
     shape.geometry.setAttribute('aAnim', anim);
+    const cool = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
     shape.geometry.setAttribute('aLight', light);
+    shape.geometry.setAttribute('aCool', cool);
     const mesh = new THREE.InstancedMesh(shape.geometry, this.material, MOB_DRAW_CAPACITY);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false; // culled per animal below
     mesh.count = 0;
     mesh.name = `mob-${spec.key}`;
-    const batch: SpeciesBatch = { spec, shape, mesh, anim, light, count: 0 };
+    const batch: SpeciesBatch = { spec, shape, mesh, anim, light, cool, count: 0 };
     this.batches.set(spec, batch);
     this.batchList.push(batch);
     this.group.add(mesh);
@@ -154,7 +161,7 @@ export class MobRenderer {
       const v = mobs[i];
       let lc = this.lights.get(v.id);
       if (!lc) {
-        lc = { sky: 1, block: 0, targetSky: 1, targetBlock: 0, probed: false, seen: 0 };
+        lc = { sky: 1, block: 0, targetSky: 1, targetBlock: 0, cool: 0, targetCool: 0, probed: false, seen: 0 };
         this.lights.set(v.id, lc);
       }
       lc.seen = this.frame;
@@ -163,9 +170,11 @@ export class MobRenderer {
         this.probe.probe(v.x, v.y + v.spec.size.h * v.scale * 0.6, v.z);
         lc.targetSky = this.probe.sky;
         lc.targetBlock = this.probe.block;
+        lc.targetCool = signedCool(this.probe);
         if (!lc.probed) {
           lc.sky = lc.targetSky;
           lc.block = lc.targetBlock;
+          lc.cool = lc.targetCool;
           lc.probed = true;
           fresh++;
         } else probes++;
@@ -173,6 +182,8 @@ export class MobRenderer {
       const k = Math.min(1, dt * 4);
       lc.sky += (lc.targetSky - lc.sky) * k;
       lc.block += (lc.targetBlock - lc.block) * k;
+      // Cyan and violet never blend into each other: a change of hue switches at once.
+      lc.cool = Math.sign(lc.cool) * Math.sign(lc.targetCool) < 0 ? lc.targetCool : lc.cool + (lc.targetCool - lc.cool) * k;
 
       const dx = v.x - cx;
       const dy = v.y - cy;
@@ -200,6 +211,7 @@ export class MobRenderer {
         flush(b.mesh.instanceMatrix, b.count * 16);
         flush(b.anim, b.count * 4);
         flush(b.light, b.count * 4);
+        flush(b.cool, b.count);
       }
     }
     this.shadows.count = shadows;
@@ -257,6 +269,7 @@ export class MobRenderer {
     l[i * 4 + 1] = lc.block;
     l[i * 4 + 2] = v.fade;
     l[i * 4 + 3] = v.eager ? 1 : 0;
+    (b.cool.array as Float32Array)[i] = lc.cool;
   }
 
   private writeShadow(i: number, v: MobRenderView): void {

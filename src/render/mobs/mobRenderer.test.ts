@@ -105,6 +105,19 @@ describe('MobRenderer', () => {
     expect(anim.getW(0)).toBe(1);
   });
 
+  it('takes the cool glow colour: cyan by glowcaps, violet (negative) by crystals, none by a torch', () => {
+    const { r, mesh, world } = setup();
+    world.put(1, 11, -6, 'glowcap');
+    world.put(-7, 11, -20, 'crystal_cluster');
+    world.put(9, 11, -20, 'torch');
+    r.update(0.016, [view(1, 'hen', 0.5, -6), view(2, 'hen', -6.5, -20), view(3, 'hen', 8.5, -19)]);
+    const cool = mesh('hen').geometry.getAttribute('aCool');
+    const values = [cool.getX(0), cool.getX(1), cool.getX(2)].sort((a, b) => a - b);
+    expect(values[0]).toBeLessThan(-0.9);
+    expect(values[1]).toBe(0);
+    expect(values[2]).toBeGreaterThan(0.9);
+  });
+
   it('allocates nothing new per frame once warm and frees everything on dispose', () => {
     const { r, scene } = setup();
     const herd = Array.from({ length: 30 }, (_, i) => view(i + 1, ['hen', 'goat', 'boar'][i % 3], (i % 6) - 3, -4 - Math.floor(i / 6) * 2));
