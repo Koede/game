@@ -260,8 +260,19 @@ const fmtL = (litres: number): string => `${Math.round(litres).toLocaleString('e
 const fluidName = (key: FluidKey): string => fluidSpec(key).name.toLowerCase();
 
 /**
+ * Why a full pump stops, from the pipe ends touching it (any fluid pipe, `fluidLinksAt(..., false)`): none at all, ends
+ * that only push (nothing pulls from it), or an end that pulls but the line behind it has no room. Without `links` (a
+ * caller that does not know the pipes) it gives the advice for the unpiped case.
+ */
+export function pumpFullStatus(links: FluidLinks | null): string {
+  if (links?.pullsHere) return 'Full - the line has nowhere to put it';
+  if (links?.piped) return 'Full - nothing pulls from it';
+  return 'Full - connect a pipe that pulls';
+}
+
+/**
  * Status words of the fluid machines (null: the generic status applies). `world` lets a pump never ticked look around;
- * `links` (the fluid pipe ends touching it) lets the boiler and turbine say why piped steam does not move.
+ * `links` (the fluid pipe ends touching it) lets the pump, the boiler and the turbine say why fluid does not move.
  */
 export function fluidStatus(node: SimNode, world: IWorld | null, links: FluidLinks | null = null): string | null {
   const e = node.e as MachineEntity;
@@ -270,7 +281,10 @@ export function fluidStatus(node: SimNode, world: IWorld | null, links: FluidLin
     case 'pump': {
       const src = sources.has(node) ? sources.get(node) ?? null : world ? pumpSource(world, e) : null;
       if (!src) return 'Must touch still water, lava or oil';
-      if (outRoom(e, src.fluid, PUMP.fluids?.capacityL ?? 0) <= 0) return e.fluidOut && e.fluidOut.fluid !== src.fluid ? `Still holds ${fluidName(e.fluidOut.fluid)}` : 'Full - connect a pipe that pulls';
+      if (outRoom(e, src.fluid, PUMP.fluids?.capacityL ?? 0) <= 0) {
+        if (e.fluidOut && e.fluidOut.fluid !== src.fluid) return `Still holds ${fluidName(e.fluidOut.fluid)}`;
+        return pumpFullStatus(links);
+      }
       if ((e.rateL ?? 0) > 0) return `Pumping ${fluidName(src.fluid)} - ${fmtL(e.rateL ?? 0)}/s${src.endless ? '' : ' (the pool shrinks)'}`;
       return null;
     }

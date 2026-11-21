@@ -97,6 +97,25 @@ Every action on a position without a furnace refuses with "There is no furnace h
 - `grid(): GridSummary` - totals over all networks and the worst state; allocation of one small object, fine
   every frame.
 
+### Safe zones (spec 19.2-19.4) - for the mob manager (`src/sim/safeZones.ts`)
+`Simulation` satisfies `SafeZoneQuery` and, structurally, the AI engineer's `SafeZones` in `src/mobs/hostileTypes.ts`
+(`{ isSafe(x, y, z) }`): pass `sim` as `MobManager.useHostileHooks({ safeZones: sim, ... })`.
+- `isSafe(x, y, z): boolean` - true inside any safe zone. World coordinates, fractions allowed (a mob's feet, a spawn
+  spot's centre). Use it both for "never step in" and for "never spawn in" (spec 19.3: warm zone + beacon radius).
+- `safeZoneAt(x, y, z): SafeZone | null` - the first zone containing the point (to steer away from its centre).
+- `safeZones(): readonly SafeZone[]` - every zone, `{ kind: 'furnace' | 'beacon', x, y, z, radius }`, centred on the
+  middle of the block (`x + 0.5` ...), radius inclusive, Euclidean in 3D (the same test as Survival's warmth).
+- `safeZonesVersion: number` - grows by one each time the list changes (cache what you derive from it).
+- `safeZoneRebuilds: number` - diagnostic (tests).
+- A **furnace** is a zone while `tempC >= FURNACE_HOT_C` (= `HOSTILE_WARM_ZONE_MIN_C`, 200 C; also its active bit),
+  with radius = its tier block's `warmthActive` (`furnaceWarmRadius(tier)`: clay 6, blast 8, arc 10, plasma 12, star 24).
+  A **ward beacon** is a zone while it is on and powered (its active bit: network satisfaction >= BROWNOUT_STALL), with
+  radius `machine('ward_beacon').params.radius` (WARD_BEACON_RADIUS, 32).
+- **Cost**: the list is cached and rebuilt (one pass over the sim's nodes) only after something that decides it
+  changed - a furnace's or beacon's active bit flipping (crossing 200 C, power on/off, switch), a furnace changing tier,
+  a furnace or beacon placed / broken / reloaded (`resync`). A query is a loop over the zones (a handful): no
+  allocation. Zones of furnaces in unloaded chunks stay as they were last ticked.
+
 ### Totals (objectives: `SimQuery`)
 - `maxFurnaceTempC()`, `maxFurnaceTier()` (0 without furnaces), `generationW()` (sum of available generator watts
   G over all networks - an ignited Starhearth counts its 1 MW), `storedJ()` (all batteries and lithium banks).
@@ -175,7 +194,7 @@ call `forge(..., min(5, max))`; forge stops by itself when it gets too cold.
 | `x, y, z` | position |
 | `on` | its switch |
 | `running` | the voxel's active flag (generating / working / lit) |
-| `status` | e.g. "Switched off", "Must touch a furnace", "No fuel", "The furnace is too cold", "No sunlight", "1.2 kW of 2 kW in use", "Waiting for input", "Not enough input", "Output is full", "No power", "Not enough power" (f < 0.25: stalled), "Running at 80% power", "Making Crushed Iron - 40%", "Boring at depth 12", "Stopped at water", "Pitchblende is too hard for the bore", "64% - charging 2 kW", "64% - feeding 3 kW", "64% - idle", "64% - not connected", "No fuel rod", "No cooling - core at 940 C and rising"; hearth parts "Not part of a formed hearth - build it into a hearth wall" / "Part of the Blast hearth" (fluid hatch: " - holds 600 L of lava") |
+| `status` | ward beacon: "Warding 32 blocks all round - no automaton comes near" / "No power - automatons can come near" / "Not enough power - automatons can come near"; e.g. "Switched off", "Must touch a furnace", "No fuel", "The furnace is too cold", "No sunlight", "1.2 kW of 2 kW in use", "Waiting for input", "Not enough input", "Output is full", "No power", "Not enough power" (f < 0.25: stalled), "Running at 80% power", "Making Crushed Iron - 40%", "Boring at depth 12", "Stopped at water", "Pitchblende is too hard for the bore", "64% - charging 2 kW", "64% - feeding 3 kW", "64% - idle", "64% - not connected", "No fuel rod", "No cooling - core at 940 C and rising"; hearth parts "Not part of a formed hearth - build it into a hearth wall" / "Part of the Blast hearth" (fluid hatch: " - holds 600 L of lava") |
 | `problem: string \| null` | placement problem: "Must touch a furnace", "Must sit on top of a furnace", "Needs water on one side", "Needs water on 2 sides (1 now)", "Must touch water", "Needs open sky above", "Must touch lava" |
 | `hint: string \| null` | `MachineSpec.placementHint` |
 | `network: number \| null` | id of its network (matches `NetworkStats.id` of the same tick) |
@@ -274,6 +293,9 @@ the bore rig). Nothing is emitted per tick.
 - `flagOnce` flags (`furnace_lit`, `bellows_pumped`, `machine_job`) are remembered per Simulation instance, not
   saved: after loading a save each can be emitted once more. The objective tracker ignores repeats.
 
+- **Ward beacon** (spec 19.4): a simple consumer like the lamp - draws 500 W while switched on, active (lit, warding)
+  while its network delivers at least BROWNOUT_STALL of its demand. Its zone is part of `safeZones()`.
+
 ## Known gaps
 - Placing or removing a power block rebuilds every network (about 1 ms with 300 entities in node, perhaps 3-5 ms
   on a phone) - a player-paced event, but a bore rig never triggers it (it only mines non-power blocks).
@@ -285,7 +307,8 @@ the bore rig). Nothing is emitted per tick.
 - Network history and alert state are not saved; after loading they start from zero / 'ok'.
 - `allNetworks()` returns the same array within one tick, so an action in that tick is only visible from the
   next one (or through `networkAt`, which is always fresh).
-- `src/sim/simulation.ts` is 378 lines (aim 350); `machines.test.ts` 389, `playthrough.test.ts` ~370.
+- `src/sim/simulation.ts` is ~670 lines (aim 350): the facade gained hearths, endpoints, transport and safe zones.
+  `machines.test.ts` ~400, `playthrough.test.ts` ~715.
 
 ## Weather (spec 15)
 The weather feature changed this module: see `docs/api/weather.md` for what was added and why.

@@ -184,10 +184,11 @@ export interface FluidLinks {
 }
 
 /**
- * The hot fluid pipe ends touching the block at x, y, z (steam only moves through hot pipes: for the boiler's and the
- * turbine's status). Views only: walks every fluid network.
+ * The fluid pipe ends (not switched off) touching the block at x, y, z: by default only hot pipes count (steam only
+ * moves through them: the boiler's and the turbine's status); `hotOnly` false counts every fluid pipe (the pump's).
+ * Views only: walks every fluid network.
  */
-export function fluidLinksAt(t: Transport, x: number, y: number, z: number): FluidLinks {
+export function fluidLinksAt(t: Transport, x: number, y: number, z: number, hotOnly = true): FluidLinks {
   t.refresh();
   const links: FluidLinks = { piped: false, netPulls: false, pullsHere: false };
   for (const net of t.fluids) {
@@ -197,7 +198,7 @@ export function fluidLinksAt(t: Transport, x: number, y: number, z: number): Flu
       touches = true;
       if (p.cfg.mode === 'pull') links.pullsHere = true;
     }
-    if (!touches || !net.hot) continue;
+    if (!touches || (hotOnly && !net.hot)) continue;
     links.piped = true;
     if (net.ports.some((p) => p.cfg.mode === 'pull')) links.netPulls = true;
   }

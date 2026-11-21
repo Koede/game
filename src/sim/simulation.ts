@@ -36,6 +36,7 @@ import { structureView, type StructureTarget, type StructureView } from './heart
 import { windAt } from './machines';
 import { NodeSet } from './nodes';
 import type { Network } from './power';
+import { SafeZones, guardsZone, type SafeZone, type SafeZoneQuery } from './safeZones';
 import { repairToast, sanitizeEntity } from './sanitize';
 import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills, handOver } from './spills';
@@ -44,7 +45,7 @@ import { SimWeather, type SimBiomeLookup } from './weather';
 
 const WIND = machine('wind_turbine').params ?? {};
 
-export class Simulation implements ActionHost {
+export class Simulation implements ActionHost, SafeZoneQuery {
   /** Sunlight factor and wind factor of the current tick (read by solar panels and wind turbines). */
   sunlight = 1;
   wind = 1;
@@ -76,6 +77,8 @@ export class Simulation implements ActionHost {
   private readonly offs: Array<() => void> = [];
   /** What a broken machine held that the pack had no room for, put into crates on the next tick. */
   private readonly spills: Spills;
+  /** Warm zones of hot furnaces and radii of powered ward beacons (spec 19), rebuilt only when one of them changes. */
+  private readonly zones: SafeZones;
   /** allNetworks() of the current tick and topology. */
   private stats: NetworkStats[] = [];
   private statsTick = -1;
@@ -89,6 +92,7 @@ export class Simulation implements ActionHost {
   ) {
     this.random = mulberry32(world.seed ^ 0x5eed);
     this.nodes = new NodeSet(world);
+    this.zones = new SafeZones(() => this.nodes.all);
     this.crops = new CropField(world, bus);
     const nodes = this.nodes;
     this.hearths = new HearthSet({
@@ -158,6 +162,7 @@ export class Simulation implements ActionHost {
   /** Rebuilds the runtime from the world's entities. Call after a save was loaded into the world. */
   resync(): void {
     this.nodes.clear();
+    this.zones.invalidate();
     this.crops.clear();
     this.hearths.clear();
     // A damaged entity (an older save's shape, a bad field) is repaired, or dropped when its kind is unknown, so one
@@ -181,6 +186,7 @@ export class Simulation implements ActionHost {
     const node = this.nodes.track(e);
     if (isFurnace(e)) this.hearths.track(node);
     this.lampSeen(node, true);
+    if (guardsZone(node)) this.zones.invalidate();
     return node;
   }
 
@@ -273,6 +279,8 @@ export class Simulation implements ActionHost {
       // Same machine kind under a new block: a furnace was rebuilt as another tier.
       const tier = furnaceTierOfBlock(to.key);
       if (tier && isFurnace(kept.e) && kept.e.tier !== tier.tier) resizeFurnace(kept.e, tier.tier);
+      // A new tier has a new warmth radius (the upgrade action resizes the entity before it swaps the block).
+      if (guardsZone(kept)) this.zones.invalidate();
       return;
     }
     const stored = this.world.getEntity(x, y, z) as SimEntity | undefined;
@@ -302,6 +310,7 @@ export class Simulation implements ActionHost {
   private removeMachine(node: SimNode): void {
     const e = node.e;
     this.lampSeen(node, false);
+    if (guardsZone(node)) this.zones.invalidate();
     if (isFurnace(e)) this.hearths.untrack(node);
     this.nodes.untrack(node);
     this.world.removeEntity(e.x, e.y, e.z);
@@ -319,6 +328,8 @@ export class Simulation implements ActionHost {
     if (node.active === active) return;
     node.active = active;
     this.lampSeen(node, true);
+    // A furnace's active bit is "at or above FURNACE_HOT_C"; a beacon's is "powered": either moves a safe zone.
+    if (guardsZone(node)) this.zones.invalidate();
     const { x, y, z } = node.e;
     const v = this.world.getVoxel(x, y, z);
     if (voxelActive(v) !== active) this.world.setVoxel(x, y, z, withActive(v, active), 'sim');
@@ -515,10 +526,38 @@ export class Simulation implements ActionHost {
     const kind = node.e.kind;
     const view = machineView(node, {
       hearthTier: node.spec.role === 'hearth_part' ? this.hearths.shellOwner(node.key)?.e.hearth?.tier ?? 0 : 0,
-      links: kind === 'boiler' || kind === 'steam_turbine' ? fluidLinksAt(this.transport, x, y, z) : null,
+      links: kind === 'boiler' || kind === 'steam_turbine' ? fluidLinksAt(this.transport, x, y, z) : kind === 'pump' ? fluidLinksAt(this.transport, x, y, z, false) : null,
     });
     if (node.e.kind === 'tank') tankView(view, tankColumn(this.transport.tankAt, x, y, z));
     return view;
+  }
+
+  // ---- safe zones (spec 19.2-19.4): for the mob manager ------------------------------------------------------------
+
+  /** True inside the warm zone of a furnace at >= FURNACE_HOT_C or the radius of a powered ward beacon. */
+  isSafe(x: number, y: number, z: number): boolean {
+    return this.zones.at(x, y, z) !== null;
+  }
+
+  /** The first safe zone containing the point, or null. */
+  safeZoneAt(x: number, y: number, z: number): SafeZone | null {
+    return this.zones.at(x, y, z);
+  }
+
+  /** Every safe zone (cached; a new array only when they change). */
+  safeZones(): readonly SafeZone[] {
+    return this.zones.list();
+  }
+
+  /** Grows by one whenever the safe zones change. */
+  get safeZonesVersion(): number {
+    this.zones.list();
+    return this.zones.version;
+  }
+
+  /** Times the safe-zone list was rebuilt (a diagnostic). */
+  get safeZoneRebuilds(): number {
+    return this.zones.rebuilds;
   }
 
   // ---- item and fluid transport (spec 16) --------------------------------------------------------------------------

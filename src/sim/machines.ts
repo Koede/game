@@ -206,7 +206,7 @@ const fuelGenerator: Behaviour = {
 const storage: Behaviour = { prepare() {}, apply() {} };
 const inert: Behaviour = storage;
 
-/** Lamp and space heater: draw power, and are "active" (lit, warm) while they get enough of it. */
+/** Lamp, space heater and ward beacon: draw power, and are "active" (lit, warm, warding) while they get enough of it. */
 const simpleConsumer: Behaviour = {
   prepare(node) {
     const e = node.e as MachineEntity;
@@ -362,6 +362,7 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   lithium_bank: storage,
   lamp: simpleConsumer,
   space_heater: simpleConsumer,
+  ward_beacon: simpleConsumer,
   blower,
   bore_rig: boreRig,
 };

@@ -92,6 +92,14 @@ describe('the boiler', () => {
     kit.machine('steam_turbine', 0, 5, 0);
     expect(kit.sim.machineView(0, 5, 0)!.status).toBe('No steam - pipe it in through a hot pipe');
   });
+
+  it('boiler and turbine hints tell the player to set the boiler end to Pull with the wrench (sim-3)', () => {
+    const kit = makeKit();
+    kit.furnace(0, 1, 0);
+    kit.machine('boiler', 0, 2, 0);
+    kit.machine('steam_turbine', 3, 2, 0);
+    for (const [x, y] of [[0, 2], [3, 2]]) expect(kit.sim.machineView(x, y, 0)!.hint).toMatch(/boiler to Pull with the wrench/);
+  });
 });
 
 describe('piped water, fuel and lava in the older machines', () => {

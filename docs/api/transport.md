@@ -14,7 +14,7 @@ DOM-free, inside `src/sim`. `npx vitest run src/sim` (19 files, 187 tests).
 | `fluidNet.ts` | `FluidNet`: one fluid and an amount, pull/push by priority with equal split |
 | `transport.ts` | `Transport`: owns the networks, rebuilds, ticks, saves content on anchor entities, active bits, endpoints |
 | `transportActions.ts` | wrench, port settings, buckets |
-| `transportViews.ts` | `pipeView`, `TransportRenderer` (render snapshot), `fluidAt`, `fluidLinksAt` (hot pipe ends touching a block: boiler / turbine status) |
+| `transportViews.ts` | `pipeView`, `TransportRenderer` (render snapshot), `fluidAt`, `fluidLinksAt(t, x, y, z, hotOnly = true)` (pipe ends, not off, touching a block: hot ones for the boiler / turbine status, any for the pump's) |
 | `tanks.ts` | stacked tanks: one fluid, one level |
 | `fluidMachines.ts` | pump, boiler, steam turbine, still oil runs; their status words |
 | `fluidUse.ts` | piped water / fuel / lava helpers for steam engine, electrolyzer, fission pile, combustion engine, geothermal tap |
@@ -91,8 +91,10 @@ take lava", "The Tank holds nothing to scoop", "A bucket takes 1000 L - it holds
 `fluids: { input, output, capacityL, rateL, stack } | null` for every machine with fluid ports (copies of the buffers;
 `rateL` = litres a second pumped / boiled / used last tick; tanks: `stack` = `{ tanks, fluid, litres, capacityL }` and
 the status "22,000 of 48,000 L (3 tanks)" / "Empty (2 tanks)"). New status words: pump "Pumping water - 200 L/s"
-("(the pool shrinks)" on lava/oil), "Must touch water, lava or oil", "Full - connect a pipe that pulls", "Still holds
-lava"; boiler "Boiling 400 L of steam a second", "Must sit on top of a furnace", "The furnace is too cold", "Needs water
+("(the pool shrinks)" on lava/oil), "Must touch water, lava or oil", "Still holds lava"; a full pump says why
+(`pumpFullStatus(links)`, ui-13): "Full - the line has nowhere to put it" (a pipe end at the pump pulls, but the line
+has no room or no taker), "Full - nothing pulls from it" (pipe ends touch it, none pulls - wrench it to Pull),
+"Full - connect a pipe that pulls" (no pipe end, or only switched-off ones); boiler "Boiling 400 L of steam a second", "Must sit on top of a furnace", "The furnace is too cold", "Needs water
 - pipe it in", "Steam is not being used - pipe it to a turbine" (no hot pipe touches it), "Holds steam - wrench the pipe
 end at the boiler to Pull" (hot pipes touch it, none pulls from it), "Steam is not being used"; turbine "No steam - pipe
 it in through a hot pipe", "Steam line has no end pulling from a boiler - wrench the boiler end to Pull" (its hot pipes
@@ -174,10 +176,11 @@ bucket back) - hearth.md.
   status, nearest / priority / round-robin / allow and deny filters, never its own block, re-route, return home, Blocked
   then delivered, the 48 cap, furnace smart sides and output, item hatch formed/unformed, save/load delivery, broken
   pipes (destination, then player), rebuild in flight.
-- `fluidPipes.test.ts` (12): endless water at 200 L/s, lava and oil used up farthest first, pump statuses, cold pipe vs
+- `fluidPipes.test.ts` (14): endless water at 200 L/s, lava and oil used up farthest first, pump statuses (also the
+  three "Full" reasons with a pipe attached), cold pipe vs
   lava, one fluid per network, priority with equal split, filters, capacity, "No destination", render fills, empty
   forgets, content across a save, stacked tanks, buckets (every refusal), lava bucket into a hearth's fluid hatch.
-- `fluidMachines.test.ts` (9): boiler formula and heat draw, stop when steam is unused, turbine output and load
+- `fluidMachines.test.ts` (10, incl. the boiler / turbine hints): boiler formula and heat draw, stop when steam is unused, turbine output and load
   following, steam engine / electrolyzer / fission pile on piped water, combustion engine fuel energy, still oil runs
   and item priority, geothermal piped lava.
 - `transportPerf.test.ts` (real World): 20 networks x 200 pipes, ~47 packets each at the cap: **0.016-0.020 ms per

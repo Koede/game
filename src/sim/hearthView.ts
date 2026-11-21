@@ -100,7 +100,10 @@ export interface StructureView {
   windows: number;
   /** "Formed - Blast hearth 3x3x2" or "Not formed". */
   status: string;
-  /** A neutral word when nothing of a hearth is built yet ("No hearth built around this furnace yet"), else null. */
+  /**
+   * A neutral word instead of problems, else null: NO_HEARTH_YET when nothing of a hearth stands around the furnace,
+   * NOT_SCANNED_YET while its surroundings are still loading.
+   */
   note: string | null;
   /** Up to 8, for the target tier. Each names a block position to highlight. */
   problems: HearthProblem[];
@@ -119,10 +122,20 @@ export interface StructureView {
     cells: GhostCell[];
     /** Every cell is right: it forms at this tier (once its other rules hold, e.g. the tier's ports). */
     ready: boolean;
-    /** The plan's sideways position (StructureTarget.offset) and the range it can take: for "Shift left / right". */
+    /** The plan's sideways position (StructureTarget.offset) and the range it can take: [-(across - 1), 0]. */
     offset: number;
     offsets: [number, number];
-    /** Machines and pipes in the way of the plan (in its shell or inside): they have to move. */
+    /**
+     * The `offset` to ask for to move the plan one block to the LEFT / RIGHT as the player sees it standing in front
+     * of the furnace and facing it (null: it cannot go farther that way). Pass it back with the same tier and inner
+     * size: `structureView(x, y, z, { tier, inner, offset: shiftLeft })`.
+     */
+    shiftLeft: number | null;
+    shiftRight: number | null;
+    /**
+     * Machines and pipes standing where the plan needs a wall block or air (in its shell or inside), one per cell:
+     * they have to move. Hatches and power ports in a wall face are not listed (they count as wall).
+     */
     machines: PlanMachine[];
   };
 }
@@ -134,6 +147,9 @@ export const TIER_CHOICES: readonly TierChoice[] = FURNACE_TIERS.filter((t) => t
     electrodes: s.electrodes ?? 0, ports: s.powerPorts ?? 0,
   };
 });
+
+/** The note while a furnace has not been scanned yet (its chunks within HEARTH_REACH are still loading). */
+export const NOT_SCANNED_YET = 'Checking the blocks around the furnace...';
 
 const clampInt = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, Math.round(v)));
 
@@ -329,13 +345,15 @@ export function structureView(
   return {
     x: e.x, y: e.y, z: e.z, controllerTier: e.tier, effectiveTier: e.effTier, formed: h !== null, tier: h?.tier ?? 0, name,
     inner: scan?.inner ? [...scan.inner] : null, closed: scan?.closed ?? false, windows: scan?.windows ?? 0,
-    status: h && name ? `Formed - ${name} ${h.inner[0]}x${h.inner[1]}x${h.inner[2]}` : 'Not formed', note: scan?.note ?? null,
+    status: h && name ? `Formed - ${name} ${h.inner[0]}x${h.inner[1]}x${h.inner[2]}` : 'Not formed', note: scan ? scan.note : NOT_SCANNED_YET,
     problems: scan ? problemsFor(scan, tier) : [],
     tiers: TIER_CHOICES.map((t) => ({ ...t, minInner: [...t.minInner], maxInner: [...t.maxInner] })),
     target: {
       tier, name: hearthName(tier), inner: [b.u1 - b.u0 + 1, b.depth, b.y1 - b.y0 + 1], closed: b.closed,
       min: [x0, y0, z0], max: [x1, y1, z1], checklist, materials, cells: ghost,
-      ready: ghost.every((c) => c.state === 'ok'), offset: b.u0 || 0, offsets: [b.u0 - b.u1 || 0, 0], machines,
+      ready: ghost.every((c) => c.state === 'ok'), offset: b.u0 || 0, offsets: [b.u0 - b.u1 || 0, 0],
+      // u runs to the player's left when they face the furnace's front (frameOf), so a larger u0 moves the box left.
+      shiftLeft: b.u0 < 0 ? b.u0 + 1 : null, shiftRight: b.u0 > b.u0 - b.u1 ? b.u0 - 1 : null, machines,
     },
   };
 }

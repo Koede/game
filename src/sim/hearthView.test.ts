@@ -95,6 +95,30 @@ describe('structure view', () => {
     expect(kit.sim.structureView(0, 1, 0, { tier: 4 })!.target.ready).toBe(true);
   });
 
+  it('offers shifts left and right as seen in front of the furnace, within the offset range (sim-7)', () => {
+    // Facing north, the player stands north of it looking south: their left is +x, their right -x.
+    const kit = kitWithFurnace();
+    const plan = (offset: number) => kit.sim.structureView(0, 1, 0, { tier: 2, inner: [3, 1, 1], offset })!.target;
+    const mid = plan(-1);
+    expect(mid).toMatchObject({ offset: -1, offsets: [-2, 0], shiftLeft: 0, shiftRight: -2, min: [-2, 0, 0], max: [2, 1, 2] });
+    const left = plan(mid.shiftLeft!);
+    expect(left).toMatchObject({ offset: 0, shiftLeft: null, shiftRight: -1, min: [-1, 0, 0], max: [3, 1, 2] });
+    const right = plan(mid.shiftRight!);
+    expect(right).toMatchObject({ offset: -2, shiftLeft: -1, shiftRight: null, min: [-3, 0, 0], max: [1, 1, 2] });
+    // One block wide inside: nowhere to shift.
+    expect(kit.sim.structureView(0, 1, 0, { tier: 2, inner: [1, 1, 1] })!.target).toMatchObject({ offsets: [0, 0], shiftLeft: null, shiftRight: null });
+  });
+
+  it('lists each machine or pipe in the plan\'s way once, but not hatches set in its wall (sim-7)', () => {
+    const kit = kitWithFurnace();
+    kit.machine('crate', 0, 1, 1);
+    kit.world.put(1, 1, 1, 'item_pipe');
+    kit.world.put(0, 1, 2, 'item_hatch');
+    const v = kit.sim.structureView(0, 1, 0, { tier: 2, inner: [1, 1, 1] })!;
+    expect(v.target.machines).toEqual([{ x: 0, y: 1, z: 1, block: 'crate', name: 'Crate' }, { x: 1, y: 1, z: 1, block: 'item_pipe', name: v.target.machines[1].name }]);
+    expect(v.target.cells.find((c) => c.x === 0 && c.y === 1 && c.z === 2)).toMatchObject({ want: 'item_hatch', state: 'ok' });
+  });
+
   it('is null without a furnace', () => {
     expect(makeKit().sim.structureView(0, 1, 0)).toBeNull();
   });

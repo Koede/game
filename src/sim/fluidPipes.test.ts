@@ -118,6 +118,28 @@ describe('pumps', () => {
     expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Full - connect a pipe that pulls');
     expect(kit.sim.machineView(0, 5, 0)!.fluids).toMatchObject({ output: { fluid: 'water', litres: 1000 }, capacityL: 1000 });
   });
+
+  it('say honestly why they are full when a pipe is attached (ui-13)', () => {
+    const kit = makeKit();
+    kit.world.put(0, 4, 0, 'water');
+    kit.world.put(1, 4, 0, 'water');
+    kit.machine('pump', 0, 5, 0);
+    power(kit, 0, 6, 0);
+    // A dead-end line: the pipe end at the pump pulls (the default for a pump), but nothing takes the water.
+    run(kit.world, 'fluid_pipe', [1, 5, 0], [2, 5, 0]);
+    kit.run(12);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Full - the line has nowhere to put it');
+    expect(kit.sim.setPort(1, 5, 0, Face.NX, { mode: 'push' }).ok).toBe(true);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Full - nothing pulls from it');
+    // A switched-off end is no pipe as far as the pump is concerned.
+    expect(kit.sim.setPort(1, 5, 0, Face.NX, { mode: 'off' }).ok).toBe(true);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Full - connect a pipe that pulls');
+    // Pulling again into a line that reaches a tank: it pumps.
+    expect(kit.sim.setPort(1, 5, 0, Face.NX, { mode: 'pull' }).ok).toBe(true);
+    tank(kit, 3, 5, 0);
+    kit.run(1);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toMatch(/^Pumping water - /);
+  });
 });
 
 describe('fluid networks', () => {

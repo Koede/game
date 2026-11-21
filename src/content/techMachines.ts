@@ -40,7 +40,7 @@ export const TECH_MACHINES: MachineSpec[] = [
     params: { minTempC: 200, steamPerWater: 10, steamLPerC: 1, capLPerS: 800, heatPerSteamL: 20 },
     fluids: { accepts: ['water'], gives: ['steam'], capacityL: 1000 },
     desc: 'Boils piped water into ten times as much steam with the heat of the furnace below it: up to 800 litres a second, taking 20 J of heat for every litre.',
-    placementHint: 'Goes directly on top of a furnace or a hearth.',
+    placementHint: 'Goes directly on top of a furnace or a hearth. Pipe its steam out through a hot pipe, and set the pipe end at the boiler to Pull with the wrench.',
   },
   // steam_turbine - output = outputW * min(1, steam used per second / steamLPerS); it takes steam through a hot pipe.
   // params:
@@ -50,6 +50,7 @@ export const TECH_MACHINES: MachineSpec[] = [
     params: { steamLPerS: 800 },
     fluids: { accepts: ['steam'], capacityL: 1000 },
     desc: 'Makes up to 8 kW from 800 litres of steam a second, and less from less. Steam comes from boilers through a hot pipe.',
+    placementHint: 'Pipe steam in from a boiler through a hot pipe, and set the pipe end at the boiler to Pull with the wrench.',
   },
 
   // ---- hearth parts: set into a face of a hearth's shell, they act for its controller (spec 17.1) ----

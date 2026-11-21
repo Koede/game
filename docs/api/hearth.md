@@ -142,11 +142,14 @@ change (test: a load with a wall missing unforms on the first tick).
 ### StructureView
 `{ x, y, z, controllerTier, effectiveTier, formed, tier, name, inner, closed, windows, status, note, problems, tiers, target }`
 - `status`: "Formed - Blast hearth 3x3x2" / "Not formed"; `name`: "Blast hearth" ... "Starhearth" or null.
-- `note`: "No hearth built around this furnace yet" while nothing of a shell stands (then `problems` is empty), else null.
+- `note`: a neutral line shown INSTEAD of problems (then `problems` is empty), else null: `NO_HEARTH_YET` "No hearth
+  built around this furnace yet" while nothing of a shell stands; `NOT_SCANNED_YET` "Checking the blocks around the
+  furnace..." before the first scan (its chunks within HEARTH_REACH are still loading). Both exported (hearthScan.ts,
+  hearthView.ts). UI: show it in the problems area in a neutral tone.
 - `inner`/`closed`/`windows`: what the last scan found (`inner` null without a box).
 - `problems`: hard problems + the target tier's, at most 8, each with a position (tap to highlight).
 - `tiers: TierChoice[]` - `{ tier, name, wall, minInner, maxInner, ceiling, electrodes, ports }` for the picker.
-- `target`: `{ tier, name, inner, closed, min, max, checklist, materials, cells, ready, offset, offsets, machines }` for
+- `target`: `{ tier, name, inner, closed, min, max, checklist, materials, cells, ready, offset, offsets, shiftLeft, shiftRight, machines }` for
   `target` (default: the tier the furnace needs now, else the next upgrade's; `defaultTargetTier(e)`), and its inside
   (default size: the scanned box fitted into the tier's bounds, else the tier's smallest).
   - **Position**: `StructureTarget.offset` (the inside's first column along the furnace's wall, `-(across - 1)..0`)
@@ -155,10 +158,17 @@ change (test: a load with a wall missing unforms on the first tick).
     tier's wall block, 3 any other block in the way, 20 a machine or pipe in the way - and the cheapest wins (ties go to
     the scanned box's position, else centred, the furnace on the lowest inside layer). A bigger plan therefore grows
     away from the hatches, pipes, boilers and electrodes built around the old shell where it can.
-  - `offset` / `offsets: [min, 0]`: the plan's position and its range, for "Shift left / right" buttons (UI: pass
-    `offset` back in the target).
-  - `machines: PlanMachine[]` - `{ x, y, z, block, name }` of every machine or pipe inside the plan or in its shell
-    where it does not belong: what has to move. (The STRUCTURE tab does not list them yet: UI work.)
+  - `offset` / `offsets: [-(across - 1), 0]`: the plan's position and its range.
+  - `shiftLeft` / `shiftRight: number | null` - **use these for the "Shift left / right" buttons**: the `offset` that
+    moves the plan one block to the player's LEFT / RIGHT as seen standing in front of the furnace and facing it (the
+    furnace's front faces out of the hearth, so that is where the player stands); null at the end of the range (disable
+    the button). Ask again with the same tier and size: `sim.structureView(x, y, z, { tier: t.tier, inner: t.inner,
+    offset: t.shiftLeft })`. Once the player has shifted, keep passing that offset (without one the plan goes back to
+    the cheapest placement). A one-wide inside has no shifts.
+  - `machines: PlanMachine[]` - `{ x, y, z, block, name }`, one per cell, of every machine or pipe standing where the
+    plan needs a wall block or air (inside or in its shell): what has to be moved before it can form. Hatches and power
+    ports set into a wall face are not listed (they count as wall); nor are electrodes in a ceiling. UI: "Move the
+    Crate first" rows, a tap could highlight `x, y, z` like a problem. Their cells are also in `cells` as `wrong`.
   - `checklist: StructureCheck[]` - `{ key: 'floor'|'walls'|'ceiling'|'interior'|'electrodes'|'ports', label, have, need, ok }`
     ("Floor 8/9", "Walls 6/7", "Ceiling", "Inside empty", "Electrodes 0/1", "Power ports 0/2"); ceiling only when closed.
   - `materials: MaterialRow[]` - `{ item, need, placed, missing, have, ok }` per block kind of the whole shell; `have`
@@ -276,7 +286,8 @@ interface FluidEndpoint {
   superalloy, ~240 copper coils). As the tech-content notes say, consider 4 casings per craft or a smaller Star shell.
 - Machine fluid behaviour (consuming the new buffers) and the boiler are the transport engineer's.
 - The STRUCTURE tab, problem highlight and ghost rendering are UI/render work on `structureView`. Not shown by the tab
-  yet: `note`, `target.offset`/`offsets` (shift buttons) and `target.machines`.
+  yet (sim-7, the sim side is complete and tested in hearthView.test.ts / fixes.test.ts): `note`,
+  `target.shiftLeft`/`shiftRight` (shift buttons) and `target.machines`.
 - `hearthScan.ts` is ~440 lines (aim 350) since the scan was split into `findBox` + `classify` with the prev-box check.
 - A shell block shared by two formed hearths is mapped to the later one (proxies, links); bits stay correct.
 - `src/sim/simulation.ts` is 553 lines (it was 452; aim 350) - the facade gained the hearth and endpoint members.
