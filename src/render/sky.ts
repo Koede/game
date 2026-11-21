@@ -25,6 +25,7 @@ uniform vec3 uSunColor;
 uniform float uStars;
 uniform float uDay;
 uniform float uTime;
+uniform vec4 uVeil;
 in vec3 vDir;
 out vec4 fragColor;
 
@@ -77,7 +78,8 @@ void main() {
       col += vec3(0.75, 0.8, 1.0) * uStars * twinkle * (0.35 + 0.65 * bright) * smoothstep(-0.02, 0.18, h);
     }
   }
-  fragColor = vec4(col, 1.0);
+  // Under water or lava the whole sky is replaced by the fog colour.
+  fragColor = vec4(mix(col, uVeil.rgb, uVeil.a), 1.0);
 }
 `;
 
@@ -97,18 +99,22 @@ uniform vec2 uOffset;
 uniform vec3 uCloud;
 uniform vec3 uFogColor;
 uniform float uFar;
+uniform float uAlpha;
 in vec3 vWorld;
 out vec4 fragColor;
 void main() {
   vec2 cell = (vWorld.xz + uOffset) / 12.0;
   float c = texture(uMap, cell / 48.0).r;
-  if (c < 0.5) discard;
+  // Soft-edged puffs: density above the threshold fades in over a short band.
+  float body = smoothstep(0.46, 0.6, c);
+  if (body <= 0.0) discard;
   float dist = length(vWorld.xz - cameraPosition.xz);
   float fade = 1.0 - smoothstep(uFar * 0.6, uFar, dist);
   if (fade <= 0.0) discard;
-  float shade = cameraPosition.y > vWorld.y ? 1.0 : 0.88 + 0.12 * (c - 0.5) * 2.0;
+  // Thick parts are a little darker underneath, thin edges catch the light.
+  float shade = cameraPosition.y > vWorld.y ? 1.0 : 1.0 - 0.16 * smoothstep(0.55, 0.9, c);
   vec3 col = mix(uFogColor, uCloud * shade, 0.35 + 0.65 * fade);
-  fragColor = vec4(col, 0.82 * fade);
+  fragColor = vec4(col, uAlpha * fade * body);
 }
 `;
 
@@ -159,6 +165,7 @@ export class Sky {
       uStars: { value: 0 },
       uDay: { value: 1 },
       uTime: { value: 0 },
+      uVeil: { value: new THREE.Vector4(0, 0, 0, 0) },
     };
     const dome = new THREE.Mesh(
       new THREE.SphereGeometry(1, 32, 16),
@@ -180,8 +187,8 @@ export class Sky {
 
     const size = 48;
     this.cloudMap = new THREE.DataTexture(cloudField(size), size, size, THREE.RedFormat, THREE.UnsignedByteType);
-    this.cloudMap.magFilter = THREE.NearestFilter;
-    this.cloudMap.minFilter = THREE.NearestFilter;
+    this.cloudMap.magFilter = THREE.LinearFilter;
+    this.cloudMap.minFilter = THREE.LinearFilter;
     this.cloudMap.wrapS = THREE.RepeatWrapping;
     this.cloudMap.wrapT = THREE.RepeatWrapping;
     this.cloudMap.needsUpdate = true;
@@ -191,6 +198,7 @@ export class Sky {
       uCloud: { value: new THREE.Vector3(1, 1, 1) },
       uFogColor: { value: new THREE.Vector3() },
       uFar: { value: 200 },
+      uAlpha: { value: 0.82 },
     };
     const plane = new THREE.PlaneGeometry(1, 1);
     plane.rotateX(-Math.PI / 2);
@@ -213,8 +221,11 @@ export class Sky {
     this.clouds = clouds;
   }
 
-  /** Copies the sky state into the uniforms and moves dome and clouds with the camera. Allocation-free. */
-  update(sky: SkyState, camera: THREE.Camera, time: number, far: number): void {
+  /**
+   * Copies the sky state into the uniforms and moves dome and clouds with the camera. `veil` (the fog colour)
+   * replaces the whole sky when given, for a camera under water or in lava. Allocation-free.
+   */
+  update(sky: SkyState, camera: THREE.Camera, time: number, far: number, veil: THREE.Vector3 | null): void {
     const u = this.domeUniforms;
     u.uZenith.value.fromArray(sky.zenith);
     u.uHorizon.value.fromArray(sky.horizon);
@@ -224,11 +235,16 @@ export class Sky {
     u.uStars.value = sky.stars;
     u.uDay.value = sky.day;
     u.uTime.value = time;
+    if (veil) u.uVeil.value.set(veil.x, veil.y, veil.z, 1);
+    else u.uVeil.value.w = 0;
+    this.clouds.visible = !veil;
 
     const c = this.cloudUniforms;
     c.uCloud.value.fromArray(sky.cloud);
     c.uFogColor.value.fromArray(sky.horizon);
     c.uFar.value = far;
+    // At night the clouds are only a faint veil over the stars.
+    c.uAlpha.value = 0.3 + 0.52 * sky.day;
     // Wrap the drift so float precision never degrades in a long session (the field repeats every 576 blocks).
     c.uOffset.value.set((time * CLOUD_SPEED) % 576, (time * CLOUD_SPEED * 0.35) % 576);
     const p = camera.position;

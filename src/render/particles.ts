@@ -197,14 +197,16 @@ export class Particles {
       pos[i3 + 1] += vel[i3 + 1] * dt;
       pos[i3 + 2] += vel[i3 + 2] * dt;
       const t = age[i] / life[i];
+      // Colour settles much faster than size: an ember-lit puff turns to soot early in its rise.
+      const tc = Math.min(1, t * 5);
       const c = i * 7;
       outPos[i3] = pos[i3];
       outPos[i3 + 1] = pos[i3 + 1];
       outPos[i3 + 2] = pos[i3 + 2];
       const i4 = i * 4;
-      outColor[i4] = colors[c] + (colors[c + 3] - colors[c]) * t;
-      outColor[i4 + 1] = colors[c + 1] + (colors[c + 4] - colors[c + 1]) * t;
-      outColor[i4 + 2] = colors[c + 2] + (colors[c + 5] - colors[c + 2]) * t;
+      outColor[i4] = colors[c] + (colors[c + 3] - colors[c]) * tc;
+      outColor[i4 + 1] = colors[c + 1] + (colors[c + 4] - colors[c + 1]) * tc;
+      outColor[i4 + 2] = colors[c + 2] + (colors[c + 5] - colors[c + 2]) * tc;
       // Puffs fade in quickly and out slowly; chips stay solid and fade over their last quarter.
       const fade = puff ? Math.min(1, t * 6) * (1 - t) * (1 - t) : Math.min(1, (1 - t) * 4);
       outColor[i4 + 3] = colors[c + 6] * fade;

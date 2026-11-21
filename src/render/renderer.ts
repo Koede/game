@@ -9,6 +9,7 @@ import { CHUNK_SIZE, type IWorld } from '../core/types';
 import { createAtlas, type Atlas } from './atlas';
 import { ChunkMeshes } from './chunkMeshes';
 import { Emitters } from './emitters';
+import { Glows } from './glows';
 import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
 import { createChunkMaterials, createWorldUniforms, type ChunkMaterials, type WorldUniforms } from './materials';
@@ -31,13 +32,15 @@ export interface RenderStats {
   chunks: number;
   chunkTriangles: number;
   particles: number;
+  /** Smoke and steam sources (hot furnaces, running machines) near the camera. */
+  effectSources: number;
   /** CPU milliseconds spent in the last render() call. */
   cpuMs: number;
   pixelRatio: number;
 }
 
 /** Colour of full block light: firelight, warm. */
-const BLOCK_TINT = new Float32Array([1.0, 0.74, 0.46]);
+const BLOCK_TINT = new Float32Array([1.0, 0.71, 0.42]);
 /** Darkest a surface gets (a sealed cave without a torch). */
 const AMBIENT = 0.035;
 const CLOUD_RANGE = 330;
@@ -51,7 +54,7 @@ export class Renderer implements IView {
   readonly gl: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
-  readonly stats: RenderStats = { drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, cpuMs: 0, pixelRatio: 1 };
+  readonly stats: RenderStats = { drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1 };
   /** True while the WebGL context is lost (render() does nothing until it is restored). */
   contextLost = false;
 
@@ -63,6 +66,7 @@ export class Renderer implements IView {
   private readonly skyState: SkyState = createSkyState();
   private readonly target = new TargetBox();
   private readonly particles: Particles;
+  private readonly glows = new Glows();
   private readonly emitters: Emitters;
   private readonly held: HeldItem;
   private readonly probe: LightProbe;
@@ -117,7 +121,7 @@ export class Renderer implements IView {
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z) => this.brightnessAt(x, y, z));
     this.held = new HeldItem(this.atlas.texture);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points);
     this.scene.matrixWorldAutoUpdate = true;
     this.applyDistance();
 
@@ -195,9 +199,12 @@ export class Renderer implements IView {
     const u = this.uniforms;
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);
+    // Firelight breathes a little: two incommensurate waves, never strobing.
+    const flicker = 0.97 + 0.02 * Math.sin(this.time * 6.1) + 0.012 * Math.sin(this.time * 13.7);
+    u.uBlockLight.value.set(BLOCK_TINT[0] * flicker, BLOCK_TINT[1] * flicker, BLOCK_TINT[2] * flicker);
     u.uSunDir.value.fromArray(sky.sunDir);
-    this.applyFog(sky);
-    this.sky.update(sky, cam, this.time, CLOUD_RANGE);
+    const submerged = this.applyFog(sky);
+    this.sky.update(sky, cam, this.time, CLOUD_RANGE, submerged ? u.uFogColor.value : null);
 
     if (this.targetValid) {
       const v = this.world.getVoxel(this.targetX, this.targetY, this.targetZ);
@@ -215,7 +222,7 @@ export class Renderer implements IView {
     }
 
     this.emitters.day = sky.day;
-    this.emitters.update(dt, cam.position.x, cam.position.y, cam.position.z);
+    this.emitters.update(dt, cam.position.x, cam.position.y, cam.position.z, this.glows, this.time);
     const windPhase = this.time * 0.05;
     this.particles.update(dt, 0.7 + Math.sin(windPhase) * 0.4, 0.25 + Math.cos(windPhase * 0.7) * 0.3);
     this.held.update(dt);
@@ -233,6 +240,7 @@ export class Renderer implements IView {
     s.chunks = this.chunks.count;
     s.chunkTriangles = this.chunks.triangles;
     s.particles = this.particles.count;
+    s.effectSources = this.emitters.activeSources;
     s.cpuMs = performance.now() - started;
   }
 
@@ -261,6 +269,7 @@ export class Renderer implements IView {
     this.emitters.dispose();
     this.chunks.dispose();
     this.particles.dispose();
+    this.glows.dispose();
     this.target.dispose();
     this.sky.dispose();
     this.held.dispose();
@@ -287,7 +296,8 @@ export class Renderer implements IView {
     this.camera.updateProjectionMatrix();
   }
 
-  private applyFog(sky: SkyState): void {
+  /** Sets the fog for the camera's surroundings; true when the camera is inside a liquid. */
+  private applyFog(sky: SkyState): boolean {
     const u = this.uniforms;
     const p = this.camera.position;
     const inside = blockOf(this.world.getVoxel(p.x, p.y, p.z)).liquid;
@@ -296,16 +306,19 @@ export class Renderer implements IView {
       u.uFogColor.value.copy(UNDERWATER_FOG).multiplyScalar(k);
       u.uFogGlow.value.set(0, 0, 0);
       u.uFog.value.set(1, 20);
+      return true;
     } else if (inside === 'lava') {
       u.uFogColor.value.copy(LAVA_FOG);
       u.uFogGlow.value.set(0, 0, 0);
       u.uFog.value.set(0.2, 2.5);
+      return true;
     } else {
       const edge = (this.renderDistance + 0.5) * CHUNK_SIZE - 6;
       u.uFogColor.value.fromArray(sky.horizon);
       u.uFogGlow.value.fromArray(sky.glow);
       u.uFog.value.set(edge * 0.62, edge);
     }
+    return false;
   }
 
   private brightnessAt(x: number, y: number, z: number): number {
@@ -317,6 +330,8 @@ export class Renderer implements IView {
   private updateParticleScale(): void {
     // gl_PointSize is in drawing-buffer pixels.
     const h = (this.height || 1) * this.stats.pixelRatio;
-    this.particles.setScale(h / (2 * Math.tan((this.camera.fov * Math.PI) / 360)));
+    const scale = h / (2 * Math.tan((this.camera.fov * Math.PI) / 360));
+    this.particles.setScale(scale);
+    this.glows.setScale(scale);
   }
 }

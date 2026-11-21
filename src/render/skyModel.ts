@@ -54,14 +54,14 @@ const DAY_ZENITH: Rgb = [0.25, 0.47, 0.78];
 const DAY_HORIZON: Rgb = [0.71, 0.81, 0.88];
 const DUSK_ZENITH: Rgb = [0.2, 0.2, 0.42];
 const DUSK_HORIZON: Rgb = [0.8, 0.5, 0.36];
-const NIGHT_ZENITH: Rgb = [0.012, 0.018, 0.045];
-const NIGHT_HORIZON: Rgb = [0.04, 0.058, 0.105];
+const NIGHT_ZENITH: Rgb = [0.016, 0.024, 0.06];
+const NIGHT_HORIZON: Rgb = [0.055, 0.08, 0.14];
 const DUSK_GLOW: Rgb = [0.5, 0.2, 0.02];
 const SUN_LOW: Rgb = [1.0, 0.5, 0.2];
 const SUN_HIGH: Rgb = [1.0, 0.95, 0.8];
 const DAY_LIGHT: Rgb = [1.0, 0.97, 0.92];
 const DUSK_LIGHT: Rgb = [1.0, 0.8, 0.64];
-const MOON_LIGHT: Rgb = [0.17, 0.22, 0.35];
+const MOON_LIGHT: Rgb = [0.23, 0.29, 0.45];
 const DAY_CLOUD: Rgb = [1.0, 0.99, 0.97];
 const DUSK_CLOUD: Rgb = [1.0, 0.64, 0.5];
 const NIGHT_CLOUD: Rgb = [0.075, 0.095, 0.155];
@@ -114,7 +114,8 @@ export function computeSky(timeOfDay: number, sunlight: number, out: SkyState): 
   out.glow[2] = DUSK_GLOW[2] * dusk;
   mix3(out.sunColor, SUN_LOW, SUN_HIGH, smoothstep(0, 0.45, h));
 
-  const lit = smoothstep(0, 1, clamp((sunlight - NIGHT_SUNLIGHT) / (1 - NIGHT_SUNLIGHT), 0, 1));
+  // The clock's light falls to night level right at sunset; ease it so dusk keeps its warm glow a while.
+  const lit = 1 - Math.pow(1 - clamp((sunlight - NIGHT_SUNLIGHT) / (1 - NIGHT_SUNLIGHT), 0, 1), 2.5);
   mix3(out.skyLight, DAY_LIGHT, DUSK_LIGHT, dusk);
   mix3(out.skyLight, MOON_LIGHT, out.skyLight, lit);
 

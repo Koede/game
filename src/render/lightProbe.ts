@@ -7,7 +7,7 @@ import { voxelLight } from '../core/registry';
 import type { IWorld } from '../core/types';
 
 export const skyRamp = (l: number): number => Math.exp(-3.4 * (1 - l));
-export const blockRamp = (l: number): number => Math.pow(l, 1.55) * 1.2;
+export const blockRamp = (l: number): number => Math.pow(l, 1.25) * 1.45;
 
 /** CPU twin of the shader's lightColor(): sky and block light 0..1 to an RGB multiplier. */
 export function lightColor(

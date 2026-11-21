@@ -182,6 +182,7 @@ export class HeldItem {
   private dipT = 1;
   private time = 0;
   private glow = 0;
+  private baseX = 0.5;
 
   constructor(atlas: THREE.Texture) {
     this.material = new THREE.ShaderMaterial({
@@ -225,6 +226,9 @@ export class HeldItem {
   setAspect(aspect: number): void {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
+    // Keep the hand inside the right edge of narrow (portrait phone) screens.
+    const halfWidth = 0.78 * Math.tan((this.camera.fov * Math.PI) / 360) * aspect;
+    this.baseX = Math.min(0.5, halfWidth * 0.78);
   }
 
   update(dt: number): void {
@@ -240,7 +244,7 @@ export class HeldItem {
     const s = this.swingT < 1 ? Math.sin(this.swingT * Math.PI) : 0;
     const s2 = this.swingT < 1 ? Math.sin(Math.sqrt(this.swingT) * Math.PI) : 0;
     const p = this.pivot;
-    p.position.set(0.5 - s2 * 0.22, -0.46 - dip + Math.sin(this.time * 1.6) * 0.008 - s * 0.12, -0.78 - s2 * 0.12);
+    p.position.set(this.baseX - s2 * 0.22, -0.46 - dip + Math.sin(this.time * 1.6) * 0.008 - s * 0.12, -0.78 - s2 * 0.12);
     p.rotation.set(-s * 0.9, s2 * 0.5, s * 0.25);
     this.material.uniforms.uGlow.value = this.glow;
   }
@@ -278,24 +282,24 @@ export class HeldItem {
     const m = this.mesh;
     this.glow = 0;
     if (!itemKey) {
-      m.position.set(0.05, -0.05, 0.1);
-      m.rotation.set(0.25, -0.15, 0.1);
+      m.position.set(0.08, -0.12, 0.12);
+      m.rotation.set(0.55, -0.22, 0.12);
       m.scale.setScalar(1);
       return;
     }
     const def = itemOrNull(itemKey);
     const placed = blockOfItem(itemKey);
     if (def && def.iconLayer < 0 && placed) {
-      m.position.set(0, 0.02, 0);
-      m.rotation.set(0.12, 0.78, 0);
-      m.scale.setScalar(0.42);
+      m.position.set(0.02, 0.06, -0.04);
+      m.rotation.set(0.1, 0.78, 0);
+      m.scale.setScalar(0.3);
       this.glow = placed.light >= 13 ? 0.6 : 0;
       return;
     }
     const tool = !!def?.tool;
-    m.position.set(0.02, 0.08, 0);
-    m.rotation.set(tool ? 0.1 : 0, tool ? -1.35 : -0.35, tool ? 0.45 : 0.05);
-    m.scale.setScalar(tool ? 0.72 : 0.55);
+    m.position.set(0.02, tool ? 0.12 : 0.08, -0.02);
+    m.rotation.set(tool ? 0.1 : 0, tool ? -1.3 : -0.35, tool ? 0.4 : 0.05);
+    m.scale.setScalar(tool ? 0.54 : 0.4);
     this.glow = placed && placed.light >= 13 ? 0.5 : 0;
   }
 

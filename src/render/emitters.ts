@@ -8,6 +8,7 @@ import type { GameBus } from '../core/context';
 import { hashFloat } from '../core/math';
 import { blockOf, TEXTURE_NAMES } from '../core/registry';
 import { Face, FACE_DIRS, FACING_TO_FACE, voxelActive, voxelFacing, type BlockDef, type IWorld, type Voxel } from '../core/types';
+import type { Glows } from './glows';
 import { ParticleLook, type ParticleSpec, type Particles } from './particles';
 import { tileColor } from './tiles';
 
@@ -18,11 +19,24 @@ interface Source {
   x: number;
   y: number;
   z: number;
-  /** Particles per second. */
+  /** Particles per second (0 = none, e.g. an electrically heated furnace glows but does not smoke). */
   rate: number;
   kind: 'smoke' | 'steam' | 'exhaust' | 'star';
   carry: number;
+  /** Furnaces: tier (1-5) for the halo in front of the mouth, 0 for no halo; dx/dz point out of the mouth. */
+  glowTier: number;
+  dx: number;
+  dz: number;
 }
+
+/** Halo colour per furnace tier (additive): dull red clay, orange blast, white-yellow arc, violet plasma, gold star. */
+const GLOW_COLORS: readonly (readonly [number, number, number])[] = [
+  [0.5, 0.17, 0.04],
+  [0.55, 0.26, 0.05],
+  [0.5, 0.48, 0.38],
+  [0.45, 0.32, 0.55],
+  [0.62, 0.5, 0.18],
+];
 
 const SCAN_INTERVAL_S = 0.5;
 /** Furnace smoke is emitted this far from the camera (horizontal blocks). */
@@ -76,8 +90,11 @@ export class Emitters {
     ];
   }
 
-  /** Emits continuous smoke and steam; rescans the block entities twice a second. Allocation-free per frame. */
-  update(dt: number, camX: number, camY: number, camZ: number): void {
+  /**
+   * Emits continuous smoke and steam and lists the furnace halos; rescans the block entities twice a second.
+   * Allocation-free per frame.
+   */
+  update(dt: number, camX: number, camY: number, camZ: number, glows: Glows, time: number): void {
     this.camX = camX;
     this.camY = camY;
     this.camZ = camZ;
@@ -86,6 +103,8 @@ export class Emitters {
       this.scanTimer = SCAN_INTERVAL_S;
       this.scan();
     }
+    glows.begin(time);
+    const strength = 0.3 + 0.45 * (1 - this.day);
     for (let i = 0; i < this.sourceCount; i++) {
       const s = this.sources[i];
       s.carry += s.rate * dt;
@@ -93,7 +112,13 @@ export class Emitters {
         s.carry -= 1;
         this.puffs(s.x, s.y, s.z, s.kind, 1);
       }
+      if (s.glowTier > 0) {
+        const c = GLOW_COLORS[Math.min(GLOW_COLORS.length, s.glowTier) - 1];
+        const k = strength * (s.kind === 'star' ? 1.4 : 1);
+        glows.add(s.x + s.dx * 0.7, s.y - 0.66, s.z + s.dz * 0.7, 1.5 + s.glowTier * 0.35, c[0] * k, c[1] * k, c[2] * k);
+      }
     }
+    glows.end();
   }
 
   dispose(): void {
@@ -113,17 +138,20 @@ export class Emitters {
       const d2 = dx * dx + dz * dz;
       let kind: Source['kind'] | null = null;
       let rate = 0;
+      let glowTier = 0;
       if (e.kind === 'furnace') {
         if (d2 > SMOKE_RANGE * SMOKE_RANGE) continue;
         const tier = typeof e.tier === 'number' ? e.tier : 1;
         const temp = typeof e.tempC === 'number' ? e.tempC : 0;
+        if (temp < FURNACE_HOT_C && e.ignited !== true) continue;
+        glowTier = tier;
         if (e.ignited === true) {
           kind = 'star';
           rate = 10;
-        } else if (e.lit === true && temp >= FURNACE_HOT_C) {
+        } else {
           kind = 'smoke';
           const draft = typeof e.draft === 'number' ? e.draft : 0;
-          rate = 2.2 + tier * 0.35 + draft * 2.5;
+          rate = e.lit === true ? 5 + tier * 0.5 + draft * 4 : 0;
         }
       } else if (d2 <= STEAM_RANGE * STEAM_RANGE && voxelActive(this.world.getVoxel(e.x, e.y, e.z))) {
         if (STEAM_MACHINES.has(e.kind)) {
@@ -137,7 +165,7 @@ export class Emitters {
       if (!kind) continue;
       let s = this.sources[n];
       if (!s) {
-        s = { x: 0, y: 0, z: 0, rate: 0, kind, carry: rnd() };
+        s = { x: 0, y: 0, z: 0, rate: 0, kind, carry: rnd(), glowTier: 0, dx: 0, dz: 0 };
         this.sources.push(s);
       }
       // Keep the carry of a source that stays at the same place so puffs do not bunch up every rescan.
@@ -147,6 +175,12 @@ export class Emitters {
       s.z = e.z + 0.5;
       s.kind = kind;
       s.rate = rate;
+      s.glowTier = glowTier;
+      if (glowTier > 0) {
+        const dir = FACE_DIRS[FACING_TO_FACE[voxelFacing(this.world.getVoxel(e.x, e.y, e.z))]];
+        s.dx = dir[0];
+        s.dz = dir[2];
+      }
       n++;
     }
     this.sourceCount = n;
@@ -326,13 +360,14 @@ export class Emitters {
       const jitter = hashFloat(i, count) * 0.08;
       if (kind === 'smoke') {
         // Lit from below by the fire at first, then plain soot grey (much lighter in daylight).
-        p.vy = 1.3 + rnd() * 0.5;
-        p.r = 0.62 - day * 0.12; p.g = 0.38 + day * 0.02; p.b = 0.24 + day * 0.08;
-        const grey = 0.16 + day * 0.32 + jitter;
-        p.r2 = grey; p.g2 = grey; p.b2 = grey * 1.06 + 0.02;
-        p.size = 0.55; p.sizeEnd = 3.4 + rnd();
-        p.life = 6.5 + rnd() * 2.5; p.alpha = 0.55 + day * 0.1;
-        p.gravity = -0.06; p.drag = 0.12; p.fog = 0.35;
+        p.vy = 1.4 + rnd() * 0.5;
+        p.r = 0.78 - day * 0.2; p.g = 0.46 + day * 0.02; p.b = 0.26 + day * 0.12;
+        // Soot: dark against a bright sky, a lighter grey at night so the column still shows.
+        const grey = 0.3 + day * 0.04 + jitter;
+        p.r2 = grey; p.g2 = grey * 0.98; p.b2 = grey * 1.04 + 0.02;
+        p.size = 0.7; p.sizeEnd = 3.4 + rnd() * 1.2;
+        p.life = 7 + rnd() * 3; p.alpha = 0.42 + day * 0.12;
+        p.gravity = -0.05; p.drag = 0.1; p.fog = 0.25;
       } else if (kind === 'steam') {
         p.vy = 1.6 + rnd() * 0.6;
         const w = 0.55 + day * 0.4;

@@ -17,7 +17,7 @@ uniform vec2 uFog;
 // Each sky level is ~0.8x the one above it (a cave mouth darkens quickly but keeps some light).
 float skyRamp(float l) { return exp(-3.4 * (1.0 - l)); }
 // Firelight carries further and falls off softly, so a lit furnace leaves a pool of warm light around it.
-float blockRamp(float l) { return pow(l, 1.55) * 1.2; }
+float blockRamp(float l) { return pow(l, 1.25) * 1.45; }
 
 vec3 lightColor(float sky, float block) {
   vec3 s = skyRamp(sky) * uSkyLight;

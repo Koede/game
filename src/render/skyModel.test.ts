@@ -48,10 +48,11 @@ describe('sky model', () => {
   it('makes night much darker than day but never black', () => {
     const noon = skyAt(SUNSET_AT / 2);
     const midnight = skyAt((1 + SUNSET_AT) / 2);
-    expect(luminance(midnight.skyLight)).toBeLessThan(luminance(noon.skyLight) * 0.3);
+    expect(luminance(midnight.skyLight)).toBeLessThan(luminance(noon.skyLight) * 0.35);
     expect(luminance(midnight.zenith)).toBeLessThan(luminance(noon.zenith) * 0.1);
     expect(luminance(midnight.horizon)).toBeLessThan(luminance(noon.horizon) * 0.12);
-    expect(luminance(midnight.skyLight)).toBeGreaterThan(0.12);
+    // Moonlit ground must stay readable on a dim phone screen.
+    expect(luminance(midnight.skyLight)).toBeGreaterThan(0.2);
     expect(midnight.stars).toBe(1);
     expect(noon.stars).toBe(0);
     expect(noon.day).toBe(1);
