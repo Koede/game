@@ -46,7 +46,7 @@ import { restoreMobs, saveMobs } from './persistence';
 import { MobTargets } from './targets';
 import { HostileLayer } from './hostiles';
 import { restoreHostiles } from './hostileRecords';
-import type { HitOptions, HostileHooks, ProjectileView } from './hostileTypes';
+import type { HostileHooks, ProjectileView } from './hostileTypes';
 import type { BiomeLookup, DeathCause, FeedResult, HitResult, Mob, MobClock, MobDeath, MobPlayer, MobRayHit, MobsSnapshot, MobView } from './types';
 import { fillViews } from './views';
 
@@ -187,15 +187,17 @@ export class MobManager {
   /**
    * The player hits an animal for `damage` from (fromX, fromZ): knockback, red flash, flee, 'mob:hurt', sfx.
    * Refused while the animal is still recovering from the last hit (MOB_HIT_COOLDOWN_S). At 0 health it tips
-   * over and, MOB_DEATH_S later, 'mob:died' is emitted and death listeners receive the drops.
+   * over and, MOB_DEATH_S later, 'mob:died' is emitted and death listeners receive the drops. An automaton takes
+   * the hit through the hostile layer (shield arm, waking, `stunS` > 0 stuns it: the arc maul; animals ignore it)
+   * and at 0 health breaks apart at once (see hostileHurt.ts).
    */
-  hit(id: number, damage: number, fromX: number, fromZ: number, opts: HitOptions = {}): HitResult {
+  hit(id: number, damage: number, fromX: number, fromZ: number, stunS = 0): HitResult {
     const m = this.byId.get(id);
     if (!m) return { ok: false, reason: 'missing' };
-    if (m.hostile) return this.hostileLayer.hit(m, damage, fromX, fromZ, opts);
+    if (m.hostile) return this.hostileLayer.hit(m, damage, fromX, fromZ, stunS);
     if (m.state === 'dying') return { ok: false, reason: 'dead' };
     if (m.hitCooldownS > 0) return { ok: false, reason: 'cooldown' };
-    m.hitCooldownS = opts.cooldownS ?? MOB_HIT_COOLDOWN_S;
+    m.hitCooldownS = MOB_HIT_COOLDOWN_S;
     let kx = m.x - fromX;
     let kz = m.z - fromZ;
     const d = Math.hypot(kx, kz) || 1;

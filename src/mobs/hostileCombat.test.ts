@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DT, EMBER_BOLT_GRAVITY, HOSTILE_DAMAGE_MULT, WEAPON_HIT_COOLDOWN_S } from '../core/constants';
+import { DT, EMBER_BOLT_GRAVITY, HOSTILE_DAMAGE_MULT, MOB_HIT_COOLDOWN_S } from '../core/constants';
 import { creature } from '../core/registry';
 import { arena } from './hostileKit';
 import { aimLob } from './projectiles';
@@ -182,16 +182,16 @@ describe('fighting back', () => {
     expect(w.health).toBe(14 - 4);
   });
 
-  it('a weapon sets its own cooldown; the arc maul stuns and breaks off a wind-up', () => {
+  it('hits are refused for 0.4 s; the arc maul stuns and breaks off a wind-up', () => {
     const a = arena();
     const w = a.spawn('forge_warden', 0.5, 11, 0.5, Math.PI);
     a.player.z = 2.8;
     a.run(0.5, () => undefined);
     expect(w.hostile!.mode).toBe('windup');
-    const r = a.mobs.hit(w.id, 12, 0.5, 2.8, { cooldownS: WEAPON_HIT_COOLDOWN_S, stunS: 1 });
+    const r = a.mobs.hit(w.id, 12, 0.5, 2.8, 1);
     expect(r.ok).toBe(true);
     expect(a.mobs.hit(w.id, 1, 0.5, 2.8).ok).toBe(false);
-    a.run(WEAPON_HIT_COOLDOWN_S + DT);
+    a.run(MOB_HIT_COOLDOWN_S + DT);
     expect(a.mobs.hit(w.id, 1, 0.5, 2.8).ok).toBe(true);
     const attacksBefore = a.names('hostile:attack').length;
     a.run(0.4);

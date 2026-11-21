@@ -11,7 +11,6 @@ import { voicePitch } from './attacks';
 import { FLASH_S, KNOCK_H, KNOCK_V } from './constants';
 import { PROVOKED_S, wake } from './hostileBrain';
 import type { HostileCtx } from './hostileCtx';
-import type { HitOptions } from './hostileTypes';
 import { rollDrops } from './mob';
 import type { DeathCause, HitResult, Mob, MobDeath } from './types';
 
@@ -28,15 +27,16 @@ export interface HurtEnv {
 /**
  * The player hits automaton `m` for `damage` from (fromX, fromZ): a shield arm facing the blow (within 90 degrees of
  * where it faces, not while stunned) takes `shieldFront` of it, a knock back scaled by its bulk, a flash and a clang;
- * it wakes, turns on the player and stays awake in daylight for PROVOKED_S; opts.stunS stuns it (a wind-up or dash
- * is broken off). Refused while recovering from the last hit (opts.cooldownS, default MOB_HIT_COOLDOWN_S).
+ * it wakes, turns on the player and stays awake in daylight for PROVOKED_S; `stunS` > 0 (the arc maul) stuns it (a
+ * wind-up or dash is broken off). Refused for MOB_HIT_COOLDOWN_S after a hit (the weapon's own swing timer is the
+ * player's).
  */
-export function hitHostile(env: HurtEnv, m: Mob, damage: number, fromX: number, fromZ: number, opts: HitOptions): HitResult {
+export function hitHostile(env: HurtEnv, m: Mob, damage: number, fromX: number, fromZ: number, stunS: number): HitResult {
   if (m.state === 'dying') return { ok: false, reason: 'dead' };
   if (m.hitCooldownS > 0) return { ok: false, reason: 'cooldown' };
   const s = m.spec.hostile!;
   const h = m.hostile!;
-  m.hitCooldownS = opts.cooldownS ?? MOB_HIT_COOLDOWN_S;
+  m.hitCooldownS = MOB_HIT_COOLDOWN_S;
   const dx = fromX - m.x;
   const dz = fromZ - m.z;
   if (s.shieldFront !== undefined && h.stunS <= 0 && Math.abs(angleDiff(m.yaw, yawTowards(dx, dz))) <= Math.PI / 2) damage *= s.shieldFront;
@@ -55,8 +55,8 @@ export function hitHostile(env: HurtEnv, m: Mob, damage: number, fromX: number, 
   h.lastX = fromX;
   h.lastZ = fromZ;
   h.provokedS = PROVOKED_S;
-  if (opts.stunS !== undefined && opts.stunS > 0) {
-    h.stunS = Math.max(h.stunS, opts.stunS);
+  if (stunS > 0) {
+    h.stunS = Math.max(h.stunS, stunS);
     if (h.mode === 'windup' || h.mode === 'dash') h.mode = 'chase';
   }
   hurtHostile(env, m, damage, 'player');

@@ -168,11 +168,3 @@ export interface HostilesSnapshot {
   spawnS: number;
   mobs: SavedHostile[];
 }
-
-/** Extras of a player's hit (MobManager.hit): the weapon's numbers. */
-export interface HitOptions {
-  /** Seconds before this creature can be hit again (default MOB_HIT_COOLDOWN_S; weapons WEAPON_HIT_COOLDOWN_S). */
-  cooldownS?: number;
-  /** Stuns an automaton for this long: no moving, no attacking, a wind-up is broken off (the arc maul's weapon.stunS). */
-  stunS?: number;
-}

@@ -28,7 +28,7 @@ import type { HostileCtx } from './hostileCtx';
 import { stepFlyer } from './hostileMove';
 import { createHostile, saveHostiles, type RestoredHostiles } from './hostileRecords';
 import { trySpawn, type HostileSpawnHost } from './hostileSpawner';
-import type { HitOptions, HostileHooks, HostileRole, HostilesSnapshot, Projectile } from './hostileTypes';
+import type { HostileHooks, HostileRole, HostilesSnapshot, Projectile } from './hostileTypes';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
 import { Projectiles, type BoltHost } from './projectiles';
 import { liquidAt } from './terrain';
@@ -343,8 +343,8 @@ export class HostileLayer {
   // ------------------------------------------------------------------------------------------ the player's hits
 
   /** The player hits automaton `m` (see hitHostile in hostileHurt.ts). */
-  hit(m: Mob, damage: number, fromX: number, fromZ: number, opts: HitOptions = {}): HitResult {
-    return hitHostile(this.hurtEnv, m, damage, fromX, fromZ, opts);
+  hit(m: Mob, damage: number, fromX: number, fromZ: number, stunS = 0): HitResult {
+    return hitHostile(this.hurtEnv, m, damage, fromX, fromZ, stunS);
   }
 
   private hurtMob(m: Mob, damage: number, cause: DeathCause): void {
