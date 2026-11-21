@@ -239,7 +239,12 @@ export async function emberSteps({ d, step, assert, page }) {
     await d.settle(300);
     await d.shot('03-mite-bit');
     const st = await d.state();
-    const damage = (await events(d, 'player:damage')).filter((x) => x.e.cause === 'automaton');
+    // One read of both lists: the mite keeps biting, and two reads could straddle a tick.
+    const both = await d.hw(() => ({
+      attacked: window.__ember.filter((x) => x.n === 'player:attacked'),
+      damage: window.__ember.filter((x) => x.n === 'player:damage' && x.e.cause === 'automaton'),
+    }));
+    const damage = both.damage;
     assert(bite.e.species === 'cinder_mite', `attacked by ${bite.e.species}`);
     console.log(JSON.stringify(await d.hw(() => window.__ember.filter((x) => x.n !== 'player:damage').map((x) => [x.n, x.t, x.e.id ?? x.e.species, x.e.attack]))));
     // The bite lands at the end of the wind-up (0.3 s = 6 ticks), never before it.
@@ -247,7 +252,7 @@ export async function emberSteps({ d, step, assert, page }) {
     assert(damage.length >= 1 && damage[0].e.amount === 1, `damage events ${JSON.stringify(damage.map((x) => x.e))}`);
     assert(st.player.health < health0, `health ${health0} -> ${st.player.health}`);
     // One damage path: every bite announced once and dealt once.
-    const attacked = await events(d, 'player:attacked');
+    const attacked = both.attacked;
     assert(attacked.length === damage.length, `${attacked.length} attacks announced, ${damage.length} dealt`);
     console.log(`       wind-up ${bite.t - windup.t} ticks before the bite; health ${health0} -> ${st.player.health}`);
   });
