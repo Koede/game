@@ -35,10 +35,38 @@ export function pip(c: Canvas, lit: boolean): void {
   c.rect(12, 12, 2, 1, lit ? P.CYAN_GLOW : I[1]);
 }
 
+/**
+ * Identity colours for machine fronts: every machine gets one (chosen from its name, so it is stable) as a muted body tint
+ * and a bright top stripe, so a row of dark machines tells apart by colour as well as by the drawing on the face.
+ */
+const IDENTITY: readonly P.RGB[] = [
+  P.rgb(0xb5533c), P.rgb(0x2f9e92), P.rgb(0x8a5cc4), P.rgb(0x8a9a3a), P.rgb(0x3f7fd0), P.rgb(0xc4569a),
+  P.rgb(0xd09a2c), P.rgb(0x3fa05a), P.rgb(0xc03a4a), P.rgb(0x39a9c9), P.rgb(0x6a72c8), P.rgb(0xa57440),
+];
+const identityOf = (name: string): P.RGB => {
+  let h = 7;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return IDENTITY[h % IDENTITY.length];
+};
+
+/** Tints the plate toward the machine's identity colour and lays its stripe along the top inside the bevel. */
+function identify(c: Canvas, name: string): void {
+  const tint = identityOf(name);
+  for (let y = 1; y < 15; y++) {
+    for (let x = 1; x < 15; x++) {
+      const px = c.get(x, y);
+      c.set(x, y, P.mix(px, tint, 0.2));
+    }
+  }
+  c.rect(3, 2, 10, 1, tint);
+  c.rect(3, 3, 10, 1, P.shade(tint, -0.4));
+}
+
 /** Registers `<name>_front` and `<name>_front_on` for a machine whose face is drawn by `draw`. */
 export function front(name: string, draw: (c: Canvas, lit: boolean) => void, withPip = true): PainterSet {
   const paint = (c: Canvas, lit: boolean): void => {
     plate(c);
+    identify(c, name);
     draw(c, lit);
     if (withPip) pip(c, lit);
   };
