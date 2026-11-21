@@ -10,14 +10,30 @@ import { tally } from '../game/crafting';
 import type { Inventory } from '../game/inventory';
 import type { FurnaceEntity } from './entities';
 import {
-  CellRole, boxX, boxZ, cellRole, frameOf, hearthName, isElectrode, isFacePart, isGap, problemsFor, structureOf, wallTierOf,
+  CellRole, boxX, boxZ, cellRole, frameOf, hearthName, isElectrode, isFacePart, isGap, isSolid, problemsFor, structureOf, underController,
+  wallTierOf,
   type HearthBox, type HearthProblem, type HearthScan,
 } from './hearthScan';
 
-/** What the player asks the preview for: a tier and, optionally, an inside size [across, deep, high]. */
+/**
+ * What the player asks the preview for: a tier and, optionally, an inside size [across, deep, high] and a sideways
+ * position (`offset`: the inside's first column along the furnace's wall, from -(across - 1) to 0; 0 puts the furnace
+ * at the inside's left end as seen from inside). Without an offset the plan takes the placement that needs the fewest
+ * changes, keeping clear of machines and pipes.
+ */
 export interface StructureTarget {
   tier: number;
   inner?: [number, number, number];
+  offset?: number;
+}
+
+/** A machine or pipe standing where the plan needs something else: it has to move. */
+export interface PlanMachine {
+  x: number;
+  y: number;
+  z: number;
+  block: string;
+  name: string;
 }
 
 export type GhostState = 'ok' | 'missing' | 'wrong';
@@ -84,6 +100,8 @@ export interface StructureView {
   windows: number;
   /** "Formed - Blast hearth 3x3x2" or "Not formed". */
   status: string;
+  /** A neutral word when nothing of a hearth is built yet ("No hearth built around this furnace yet"), else null. */
+  note: string | null;
   /** Up to 8, for the target tier. Each names a block position to highlight. */
   problems: HearthProblem[];
   /** Every tier with a hearth, for the target picker. */
@@ -101,6 +119,11 @@ export interface StructureView {
     cells: GhostCell[];
     /** Every cell is right: it forms at this tier (once its other rules hold, e.g. the tier's ports). */
     ready: boolean;
+    /** The plan's sideways position (StructureTarget.offset) and the range it can take: for "Shift left / right". */
+    offset: number;
+    offsets: [number, number];
+    /** Machines and pipes in the way of the plan (in its shell or inside): they have to move. */
+    machines: PlanMachine[];
   };
 }
 
@@ -122,18 +145,72 @@ export function defaultTargetTier(e: FurnaceEntity): number {
   return Math.min(max, e.tier + 1);
 }
 
-/** The box the preview fills: the scanned box fitted to the target's bounds, else the smallest one centred on the furnace. */
-function targetBox(e: FurnaceEntity, facing: Facing, scan: HearthScan | null, tier: number, inner?: Interior): HearthBox {
+/**
+ * What a block in a cell of a planned box costs: 0 it counts, 1 empty or a lower tier's wall, 3 any other wrong block,
+ * 20 a machine or pipe in the way.
+ */
+function cellCost(b: HearthBox, u: number, v: number, y: number, role: number, id: number, tier: number): number {
+  if (role === CellRole.Controller) return 0;
+  if (role === CellRole.Interior) return id === 0 ? 0 : inTheWay(id) ? 20 : 3;
+  if (wallTierOf(id) >= tier || (isSolid(id) && underController(b, u, v, y))) return 0;
+  // An empty cell, or a lower tier's wall block to swap: one block to place either way.
+  if (isGap(id) || wallTierOf(id) > 0) return 1;
+  const face = role === CellRole.WallFace || role === CellRole.FloorFace || role === CellRole.CeilingFace;
+  if ((face && isFacePart(id)) || (role === CellRole.CeilingFace && isElectrode(id))) return 0;
+  return inTheWay(id) ? 20 : 3;
+}
+
+/** A machine or a pipe: something built that the player would have to move, not just a block to swap. */
+const inTheWay = (id: number): boolean => BLOCKS[id].machine !== null || BLOCKS[id].pipe !== null;
+
+/** Total cost of a planned box (see cellCost). */
+function boxCost(world: IWorld, b: HearthBox, tier: number): number {
+  let cost = 0;
+  for (let y = b.y0 - 1; y <= b.y1 + (b.closed ? 1 : 0); y++) {
+    for (let v = 0; v <= b.depth + 1; v++) {
+      for (let u = b.u0 - 1; u <= b.u1 + 1; u++) {
+        cost += cellCost(b, u, v, y, cellRole(b, u, v, y), voxelId(world.getVoxel(boxX(b, u, v), y, boxZ(b, u, v))), tier);
+      }
+    }
+  }
+  return cost;
+}
+
+/**
+ * The box the preview fills, sized from the request (else the scanned box, else the tier's smallest) within the tier's
+ * bounds. Its position: the requested offset, else of every placement that keeps the furnace in a wall face (sideways,
+ * and up and down when it is taller than one layer) the one needing the fewest changes - away from machines and
+ * pipes - with ties going to the scanned box's position or one centred on the furnace.
+ */
+function targetBox(world: IWorld, e: FurnaceEntity, facing: Facing, scan: HearthScan | null, target: StructureTarget, tier: number): HearthBox {
   const s = structureOf(tier);
   const sb = scan?.box ?? null;
+  const inner = target.inner;
   const want: [number, number, number] = inner ? [inner[0], inner[1], inner[2]] : scan?.inner ? [...scan.inner] : [...s.minInner];
   const across = clampInt(want[0], s.minInner[0], s.maxInner[0]);
   const deep = clampInt(want[1], s.minInner[1], s.maxInner[1]);
   const high = clampInt(want[2], s.minInner[2], s.maxInner[2]);
-  const u0 = sb ? clampInt(sb.u0, -(across - 1), 0) : -Math.floor((across - 1) / 2);
-  const y0 = clampInt(sb ? sb.y0 : e.y, e.y - high + 1, e.y);
   const closed = s.ceiling === 'required' || (sb !== null && sb.closed);
-  return { cx: e.x, cy: e.y, cz: e.z, ...frameOf(facing), u0, u1: u0 + across - 1, depth: deep, y0, y1: y0 + high - 1, closed };
+  const frame = frameOf(facing);
+  const at = (u0: number, y0: number): HearthBox => ({ cx: e.x, cy: e.y, cz: e.z, ...frame, u0, u1: u0 + across - 1, depth: deep, y0, y1: y0 + high - 1, closed });
+  const homeU = sb ? clampInt(sb.u0, -(across - 1), 0) : -Math.floor((across - 1) / 2);
+  const homeY = clampInt(sb ? sb.y0 : e.y, e.y - high + 1, e.y);
+  const us = target.offset !== undefined ? [clampInt(target.offset, -(across - 1), 0)] : Array.from({ length: across }, (_, i) => (i === 0 ? 0 : -i));
+  let best = at(homeU, homeY);
+  let bestCost = Infinity;
+  for (const u0 of us) {
+    for (let y0 = e.y; y0 >= e.y - high + 1; y0--) {
+      if (y0 - 1 < 0) continue;
+      const b = at(u0, y0);
+      // A small pull towards the usual position settles ties.
+      const cost = boxCost(world, b, tier) + 0.01 * (Math.abs(u0 - homeU) + Math.abs(y0 - homeY));
+      if (cost < bestCost) {
+        best = b;
+        bestCost = cost;
+      }
+    }
+  }
+  return best;
 }
 
 const ROLE_OF: Record<number, GhostRole> = {
@@ -149,6 +226,8 @@ interface Slot {
   /** Distance used to pick where missing electrodes and ports should go. */
   d: number;
   want: string;
+  /** Counts as it stands and is not part of the materials (any solid block under the furnace). */
+  free: boolean;
 }
 
 export function structureView(
@@ -159,7 +238,11 @@ export function structureView(
   const s = structureOf(tier);
   const wall = s.wall[0];
   const facing = voxelFacing(world.getVoxel(e.x, e.y, e.z));
-  const b = targetBox(e, facing, scan, tier, target?.inner);
+  const b = targetBox(world, e, facing, scan, target ?? { tier }, tier);
+  const machines: PlanMachine[] = [];
+  const blocked = (x: number, y: number, z: number, id: number): void => {
+    if (inTheWay(id)) machines.push({ x, y, z, block: BLOCKS[id].key, name: BLOCKS[id].name });
+  };
   const midU = (b.u0 + b.u1) / 2;
   const midV = (b.depth + 1) / 2;
   const cells: Slot[] = [];
@@ -175,13 +258,18 @@ export function structureView(
         const id = voxelId(world.getVoxel(x, y, z));
         if (role === CellRole.Interior) {
           interiorTotal++;
-          if (id !== 0) interiorWrong.push({ x, y, z, role: 'interior', want: 'air', has: BLOCKS[id].key, state: 'wrong' });
+          if (id !== 0) {
+            interiorWrong.push({ x, y, z, role: 'interior', want: 'air', has: BLOCKS[id].key, state: 'wrong' });
+            blocked(x, y, z, id);
+          }
           continue;
         }
         const face = role === CellRole.WallFace || role === CellRole.FloorFace || role === CellRole.CeilingFace;
-        const keep = (face && isFacePart(id)) || (role === CellRole.CeilingFace && isElectrode(id));
+        const free = isSolid(id) && wallTierOf(id) < tier && underController(b, u, v, y);
+        const keep = free || (face && isFacePart(id)) || (role === CellRole.CeilingFace && isElectrode(id));
         const d = role === CellRole.CeilingFace ? Math.abs(u - midU) + Math.abs(v - midV) : Math.abs(u) + Math.abs(y - b.cy) + v;
-        cells.push({ x, y, z, role, id, d, want: keep ? BLOCKS[id].key : wall });
+        if (!keep && wallTierOf(id) === 0) blocked(x, y, z, id);
+        cells.push({ x, y, z, role, id, d, want: keep ? BLOCKS[id].key : wall, free });
       }
     }
   }
@@ -204,8 +292,10 @@ export function structureView(
     const ok = c.want === wall ? wallTierOf(c.id) >= tier : BLOCKS[c.id].key === c.want;
     const state: GhostState = ok ? 'ok' : isGap(c.id) ? 'missing' : 'wrong';
     ghost.push({ x: c.x, y: c.y, z: c.z, role: ROLE_OF[c.role], want: c.want, has: BLOCKS[c.id].key, state });
-    need.set(c.want, (need.get(c.want) ?? 0) + 1);
-    if (ok) placed.set(c.want, (placed.get(c.want) ?? 0) + 1);
+    if (!c.free) {
+      need.set(c.want, (need.get(c.want) ?? 0) + 1);
+      if (ok) placed.set(c.want, (placed.get(c.want) ?? 0) + 1);
+    }
     const part = c.role === CellRole.FloorFace || (c.role === CellRole.Edge && c.y < b.y0) ? checks.floor
       : c.role === CellRole.CeilingFace || (c.role === CellRole.Edge && c.y > b.y1) ? checks.ceiling : checks.walls;
     part[1]++;
@@ -239,13 +329,13 @@ export function structureView(
   return {
     x: e.x, y: e.y, z: e.z, controllerTier: e.tier, effectiveTier: e.effTier, formed: h !== null, tier: h?.tier ?? 0, name,
     inner: scan?.inner ? [...scan.inner] : null, closed: scan?.closed ?? false, windows: scan?.windows ?? 0,
-    status: h && name ? `Formed - ${name} ${h.inner[0]}x${h.inner[1]}x${h.inner[2]}` : 'Not formed',
+    status: h && name ? `Formed - ${name} ${h.inner[0]}x${h.inner[1]}x${h.inner[2]}` : 'Not formed', note: scan?.note ?? null,
     problems: scan ? problemsFor(scan, tier) : [],
     tiers: TIER_CHOICES.map((t) => ({ ...t, minInner: [...t.minInner], maxInner: [...t.maxInner] })),
     target: {
       tier, name: hearthName(tier), inner: [b.u1 - b.u0 + 1, b.depth, b.y1 - b.y0 + 1], closed: b.closed,
       min: [x0, y0, z0], max: [x1, y1, z1], checklist, materials, cells: ghost,
-      ready: ghost.every((c) => c.state === 'ok'),
+      ready: ghost.every((c) => c.state === 'ok'), offset: b.u0 || 0, offsets: [b.u0 - b.u1 || 0, 0], machines,
     },
   };
 }

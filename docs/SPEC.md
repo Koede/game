@@ -1041,6 +1041,9 @@ behind it is interior.
   Ceilings may hold electrodes (T3+). Interior: air only.
 - Structural tier = the lowest tier whose wall rules are fully met; walls of a higher tier's block also satisfy
   lower tiers (a plasma_casing wall works for a Blast hearth).
+- The floor cell directly under the controller (when the furnace sits on the lowest inside layer) is walled in by the
+  furnace and the ground, so it counts as frame whatever solid block stands there (grass, dirt, a lower tier's brick);
+  it is never counted towards a tier. A first hearth on flat ground never needs digging under the furnace.
 - The controller's effective tier = min(its own upgraded tier, structural tier). The controller is still upgraded
   in place with its upgradeCost (existing flow, objectives unchanged), but the Upgrade button additionally needs
   the structure for the next tier to be formed ("Build a Blast hearth: brick walls around the furnace").

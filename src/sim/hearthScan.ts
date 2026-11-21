@@ -108,7 +108,20 @@ export interface HearthScan {
   ceiling: CellTally;
   /** Highest tier (2..5) whose rules are all met, 0 when none: the hearth is formed at this tier. */
   structuralTier: number;
+  /** A neutral word when there is nothing to judge yet ("No hearth built around this furnace yet"), else null. */
+  note: string | null;
 }
+
+/** What the caller knows beyond the world: the last formed box, and the inside limit of the tier it plans for. */
+export interface ScanOptions {
+  /** The box of the hearth this controller last formed: a gap in it is reported where it is (spec 17.3). */
+  prev?: HearthBox | null;
+  /** Largest inside across of the tier the furnace is heading for (quoted when no walls close); default MAX_ACROSS. */
+  maxAcross?: number;
+}
+
+/** The neutral note of a furnace with nothing of a hearth around it. */
+export const NO_HEARTH_YET = 'No hearth built around this furnace yet';
 
 /** Largest inside of any tier: the scan walks no farther. */
 export const MAX_ACROSS = Math.max(...FURNACE_TIERS.map((t) => (t.structure ? Math.max(t.structure.maxInner[0], t.structure.maxInner[1]) : 0)));
@@ -139,6 +152,8 @@ const BLOWER = block('blower').id;
 
 /** The wall tier of a block id (0: not a wall block). */
 export const wallTierOf = (id: number): number => WALL_TIER[id];
+/** Whether a block id is a solid block. */
+export const isSolid = (id: number): boolean => SOLID[id] === 1;
 /** Whether a block id may stand in a face cell in place of wall (glass, hatches, ports, blowers). */
 export const isFacePart = (id: number): boolean => FACE_PART[id] === 1;
 export const isElectrode = (id: number): boolean => ELECTRODE[id] === 1;
@@ -156,6 +171,12 @@ export function frameOf(facing: Facing): { ux: number; uz: number; vx: number; v
   const vz = -fz;
   return { ux: vz, uz: -vx, vx, vz };
 }
+
+/**
+ * The floor cell right under the controller when the furnace sits on the lowest inside layer: walled in by the furnace
+ * above and the ground around, it can hardly be reached, so it counts as frame whatever solid block stands there.
+ */
+export const underController = (b: HearthBox, u: number, v: number, y: number): boolean => u === 0 && v === 0 && y === b.cy - 1 && b.y0 === b.cy;
 
 /** Role of local cell (u, v, y) in a box, or -1 outside it. */
 export function cellRole(b: HearthBox, u: number, v: number, y: number): number {
@@ -181,6 +202,7 @@ function emptyScan(): HearthScan {
   return {
     box: null, inner: null, closed: false, problems: [], problemCount: 0, wallTier: 0, windows: 0, electrodes: [], ports: [],
     itemHatches: [], fluidHatches: [], blowers: [], cells: [], floor: tally(), walls: tally(), ceiling: tally(), structuralTier: 0,
+    note: null,
   };
 }
 
@@ -190,7 +212,7 @@ function add(scan: HearthScan, code: HearthProblemCode, x: number, y: number, z:
 }
 
 /** Finds the box around the hollow behind the controller, or reports why there is none. */
-function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing, scan: HearthScan): HearthBox | null {
+function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing, scan: HearthScan, maxAcross: number): HearthBox | null {
   const f = frameOf(facing);
   const solid = (u: number, v: number, yy: number): boolean => SOLID[voxelId(world.getVoxel(x + u * f.ux + v * f.vx, yy, z + u * f.uz + v * f.vz))] === 1;
   const bx = x + f.vx;
@@ -207,7 +229,13 @@ function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing,
   const left = walk(-1, 0, 1);
   const deep = walk(0, 1, 1);
   if (right < 0 || left < 0 || deep < 0 || right + left + 1 > MAX_ACROSS) {
-    add(scan, 'open', bx, y, bz, `No walls found - the inside can be at most ${MAX_ACROSS} blocks across`);
+    // No wall block beside the furnace or around the cell behind it: no hearth is being built (a hill or a house
+    // farther off is not a hearth wall).
+    if (!solid(1, 0, y) && !solid(-1, 0, y) && !solid(1, 1, y) && !solid(-1, 1, y) && !solid(0, 2, y)) {
+      scan.note = NO_HEARTH_YET;
+      return null;
+    }
+    add(scan, 'open', bx, y, bz, `The walls do not close around the inside - it can be at most ${maxAcross} blocks across`);
     return null;
   }
   let y0 = -1;
@@ -247,11 +275,39 @@ function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing,
   return null;
 }
 
-/** Scans the hearth around the controller at x, y, z facing `facing`. The caller makes sure the chunks are loaded. */
-export function scanHearth(world: IWorld, x: number, y: number, z: number, facing: Facing): HearthScan {
+/**
+ * Scans the hearth around the controller at x, y, z facing `facing`. The caller makes sure the chunks are loaded. When
+ * no hearth forms and the last formed box (`options.prev`) still mostly stands with a gap in it, that box is reported
+ * instead: the gap is what broke it, not whatever the walk through the gap ran into.
+ */
+export function scanHearth(world: IWorld, x: number, y: number, z: number, facing: Facing, options: ScanOptions = {}): HearthScan {
   const scan = emptyScan();
-  const b = findBox(world, x, y, z, facing, scan);
-  if (!b) return scan;
+  const b = findBox(world, x, y, z, facing, scan, options.maxAcross ?? MAX_ACROSS);
+  if (b) classify(world, b, scan);
+  const prev = options.prev ?? null;
+  if (scan.structuralTier > 0 || !prev || prev.cx !== x || prev.cy !== y || prev.cz !== z || (b && sameBox(b, prev))) return scan;
+  const f = frameOf(facing);
+  if (prev.ux !== f.ux || prev.uz !== f.uz) return scan;
+  const old = emptyScan();
+  classify(world, prev, old);
+  const shell = old.floor.total + old.walls.total + old.ceiling.total;
+  const gaps = countGaps(old);
+  return gaps > 0 && (shell - gaps) * 2 >= shell ? old : scan;
+}
+
+const sameBox = (a: HearthBox, b: HearthBox): boolean =>
+  a.u0 === b.u0 && a.u1 === b.u1 && a.depth === b.depth && a.y0 === b.y0 && a.y1 === b.y1 && a.closed === b.closed;
+
+/** Empty shell cells of a classified box (its problem list is capped; this counts every cell). */
+function countGaps(scan: HearthScan): number {
+  let n = 0;
+  const c = scan.cells;
+  for (let i = 0; i < c.length; i += 5) if (c[i + 4] !== CellRole.Interior && c[i + 4] !== CellRole.Controller && GAP[c[i + 3]]) n++;
+  return n;
+}
+
+/** Classifies every cell of a box against the rules, filling the scan; sets the structural tier. */
+function classify(world: IWorld, b: HearthBox, scan: HearthScan): void {
   scan.box = b;
   scan.closed = b.closed;
   scan.inner = [b.u1 - b.u0 + 1, b.depth, b.y1 - b.y0 + 1];
@@ -273,6 +329,8 @@ export function scanHearth(world: IWorld, x: number, y: number, z: number, facin
         const t = role === CellRole.FloorFace || (role === CellRole.Edge && yy < b.y0) ? scan.floor
           : role === CellRole.CeilingFace || (role === CellRole.Edge && yy > b.y1) ? scan.ceiling : scan.walls;
         t.total++;
+        // Under the controller any solid block will do (it is not counted towards any tier).
+        if (SOLID[id] && underController(b, u, v, yy)) continue;
         const name = (): string => BLOCKS[id].name;
         let bad = '';
         let code: HearthProblemCode = 'wrong_block';
@@ -318,7 +376,6 @@ export function scanHearth(world: IWorld, x: number, y: number, z: number, facin
       if (tierProblems(scan, tier, 1).length === 0) scan.structuralTier = tier;
     }
   }
-  return scan;
 }
 
 /** Structure rules of a tier (throws for tier 1, which has none). */

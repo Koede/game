@@ -17,6 +17,7 @@ import { PipeGraph, type Rebuild } from './pipeGraph';
 import type { PipeNet, Port } from './pipeNet';
 import { cellKey, isPipeEntity, keyX, keyY, keyZ, pipeEntityEmpty, PIPE_ENTITY, type PipeEntity, type SavedPacket } from './pipeState';
 import { chunkKey } from './power';
+import { sanitizePipe } from './sanitize';
 import { tankColumn, tankStackEndpoint } from './tanks';
 
 /** What transport needs from the simulation. */
@@ -94,18 +95,24 @@ export class Transport {
     return this.graph.fluids;
   }
 
-  /** Forgets every network and finds the pipe entities again (after a save was loaded into the world). */
-  resync(): void {
+  /**
+   * Forgets every network and finds the pipe entities again (after a save was loaded into the world), repairing bad
+   * settings or contents on the way. Returns how many pipe entities needed repair.
+   */
+  resync(): number {
     this.graph.clear();
     this.entities.clear();
     this.reservations.clear();
     this.gen++;
+    let repaired = 0;
     for (const e of this.host.world.entities()) {
       if (!isPipeEntity(e)) continue;
+      if (sanitizePipe(e) !== 'ok') repaired++;
       const key = cellKey(e.x, e.y, e.z);
       this.entities.set(key, e);
       this.graph.seed(key);
     }
+    return repaired;
   }
 
   // ---- world changes ----------------------------------------------------------------------------------------------

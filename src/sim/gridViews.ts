@@ -7,7 +7,9 @@ import type { FluidStack, FurnaceEntity, MachineEntity, SimNode } from './entiti
 import { pileCooled } from './fission';
 import { fluidStatus, oilProgress } from './fluidMachines';
 import { fuelEnergyJ, holdsFuel, isProcessor, itemName, placementProblem } from './machines';
+import { hearthName } from './hearthScan';
 import type { Network, NetworkState } from './power';
+import type { FluidLinks } from './transportViews';
 
 export interface MachineView {
   kind: string;
@@ -67,10 +69,26 @@ export interface MachineFluidView {
   stack: { tanks: number; fluid: FluidStack['fluid'] | null; litres: number; capacityL: number } | null;
 }
 
-function machineStatus(node: SimNode, v: MachineView): string {
+/** What a machine's status needs beyond its own node: the hearth a hearth part sits in, the pipes reaching it. */
+export interface MachineSurroundings {
+  /** Hearth parts: the tier of the formed hearth it is part of, or 0. */
+  hearthTier?: number;
+  /** Boiler and steam turbine: the fluid pipe ends touching it. */
+  links?: FluidLinks | null;
+}
+
+function hearthPartStatus(e: MachineEntity, tier: number): string {
+  if (tier <= 0) return 'Not part of a formed hearth - build it into a hearth wall';
+  const part = `Part of the ${hearthName(tier)}`;
+  const lava = e.kind === 'fluid_hatch' && e.fluidIn?.fluid === 'lava' ? e.fluidIn.litres : 0;
+  return lava > 0 ? `${part} - holds ${Math.round(lava).toLocaleString('en-US')} L of lava` : part;
+}
+
+function machineStatus(node: SimNode, v: MachineView, around: MachineSurroundings): string {
   const e = node.e as MachineEntity;
   const spec = node.spec;
   if (spec.role === 'crate') return '';
+  if (spec.role === 'hearth_part') return hearthPartStatus(e, around.hearthTier ?? 0);
   if (!e.on) return 'Switched off';
   if (spec.role === 'storage') {
     const pct = Math.round((100 * e.storedJ) / (spec.capacityJ ?? 1));
@@ -82,7 +100,7 @@ function machineStatus(node: SimNode, v: MachineView): string {
     if (!v.cooled) return `No cooling - core at ${Math.round(e.coreC)} C and rising`;
   }
   if (v.problem) return v.problem;
-  const fluid = fluidStatus(node, null);
+  const fluid = fluidStatus(node, null, around.links ?? null);
   if (fluid) return fluid;
   if (spec.role === 'generator') {
     if (spec.fuels && spec.fuels.length > 0 && !holdsFuel(node)) return 'No fuel';
@@ -106,7 +124,7 @@ function machineStatus(node: SimNode, v: MachineView): string {
   return v.satisfaction < 1 ? `Running at ${Math.round(v.satisfaction * 100)}% power` : 'Running';
 }
 
-export function machineView(node: SimNode): MachineView {
+export function machineView(node: SimNode, around: MachineSurroundings = {}): MachineView {
   const e = node.e as MachineEntity;
   const spec = node.spec;
   const consumer = spec.role === 'consumer';
@@ -128,7 +146,7 @@ export function machineView(node: SimNode): MachineView {
       }
       : null,
   };
-  view.status = machineStatus(node, view);
+  view.status = machineStatus(node, view, around);
   return view;
 }
 
@@ -172,6 +190,16 @@ export interface NetworkStats {
   historyUsed: number[];
 }
 
+/** The tier of the formed hearth on the same network whose shell holds this part (its power ports link it), or 0. */
+function hearthTierAround(net: Network, part: SimNode): number {
+  const { x, y, z } = part.e;
+  for (const n of net.nodes) {
+    const h = n.e.kind === 'furnace' ? (n.e as FurnaceEntity).hearth : null;
+    if (h && x >= h.min[0] && x <= h.max[0] && y >= h.min[1] && y <= h.max[1] && z >= h.min[2] && z <= h.max[2]) return h.tier;
+  }
+  return 0;
+}
+
 function membersOf(net: Network): NetworkMember[] {
   return net.nodes.map((n) => {
     const base = { kind: n.e.kind, x: n.e.x, y: n.e.y, z: n.e.z, role: n.spec.role };
@@ -182,7 +210,7 @@ function membersOf(net: Network): NetworkMember[] {
       const status = e.demandW > 0 ? `Drawing ${formatWatts(e.deliveredW)} of ${formatWatts(e.demandW)}` : 'No electric load';
       return { ...base, name, watts: -e.deliveredW, status };
     }
-    const view = machineView(n);
+    const view = machineView(n, n.spec.role === 'hearth_part' ? { hearthTier: hearthTierAround(net, n) } : {});
     const watts = n.spec.role === 'storage' ? view.outW - view.chargeW : n.spec.role === 'generator' ? view.outW : -view.demandW * net.f;
     return { ...base, name: n.spec.name, watts, status: view.status };
   });

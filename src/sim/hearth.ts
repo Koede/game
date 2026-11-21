@@ -11,12 +11,14 @@
 import { HEARTH_RESCAN_RANGE, HEARTH_RESCAN_S, HEARTH_VERIFY_TICKS, PLAYER_HEIGHT } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { machine } from '../core/registry';
-import { CHUNK_SIZE, voxelActive, voxelFacing, voxelId, withActive, type IWorld } from '../core/types';
+import { CHUNK_SIZE, voxelActive, voxelFacing, voxelId, withActive, type Facing, type IWorld } from '../core/types';
 import type { PlayerState } from '../game/playerState';
 import { posKey, type ExtraFuel, type FurnaceEntity, type MachineEntity, type SimNode } from './entities';
 import {
-  CellRole, HEARTH_REACH, hearthName, isElectrode, isFacePart, reachLoaded, scanHearth, wallTierOf, type HearthScan, type Pos,
+  CellRole, HEARTH_REACH, frameOf, hearthName, isElectrode, isFacePart, reachLoaded, scanHearth, structureOf, wallTierOf,
+  type HearthBox, type HearthScan, type Pos,
 } from './hearthScan';
+import { defaultTargetTier } from './hearthView';
 import { furnaceStats, type HearthSummary } from './hearthStats';
 
 const LAVA_PER_LOAD = machine('fluid_hatch').params?.lavaLPerFuel ?? 1000;
@@ -42,6 +44,8 @@ export class Hearth implements ExtraFuel {
   scan: HearthScan | null = null;
   /** The scan the present formed state came from (null while not formed, or before the first scan after a load). */
   formedScan: HearthScan | null = null;
+  /** The box of the hearth it last formed (kept after it comes apart, to report the gap that broke it). */
+  lastBox: HearthBox | null = null;
   /** Scan on the next tick (once the chunks around it are loaded). */
   due = true;
   /** Scans run so far (a diagnostic: the schedule's tests count them). */
@@ -159,6 +163,18 @@ function summaryOf(scan: HearthScan): HearthSummary | null {
   return { tier: scan.structuralTier, inner: [scan.inner[0], scan.inner[1], scan.inner[2]], closed: scan.closed, windows: scan.windows, min, max };
 }
 
+/** The box of a formed hearth from its saved summary (a loaded game knows no scan yet). */
+function boxOfSummary(e: FurnaceEntity, facing: Facing, h: HearthSummary): HearthBox {
+  const f = frameOf(facing);
+  const us = [h.min[0], h.max[0]].flatMap((x) => [h.min[2], h.max[2]].map((z) => (x - e.x) * f.ux + (z - e.z) * f.uz));
+  const vs = [h.min[0], h.max[0]].flatMap((x) => [h.min[2], h.max[2]].map((z) => (x - e.x) * f.vx + (z - e.z) * f.vz));
+  const y0 = h.min[1] + 1;
+  return {
+    cx: e.x, cy: e.y, cz: e.z, ...f, u0: Math.min(...us) + 1, u1: Math.max(...us) - 1, depth: Math.max(...vs) - 1,
+    y0, y1: y0 + h.inner[2] - 1, closed: h.closed,
+  };
+}
+
 const boxText = (h: HearthSummary): string => `${h.tier}|${h.min.join(',')}|${h.max.join(',')}`;
 
 export class HearthSet {
@@ -254,7 +270,10 @@ export class HearthSet {
       if (!reachLoaded(world, e.x, e.z)) continue;
       h.due = false;
       h.scans++;
-      const scan = scanHearth(world, e.x, e.y, e.z, voxelFacing(world.getVoxel(e.x, e.y, e.z)));
+      const facing = voxelFacing(world.getVoxel(e.x, e.y, e.z));
+      const prev = h.lastBox ?? (e.hearth ? boxOfSummary(e, facing, e.hearth) : null);
+      const want = structureOf(defaultTargetTier(e)).maxInner;
+      const scan = scanHearth(world, e.x, e.y, e.z, facing, { prev, maxAcross: Math.max(want[0], want[1]) });
       h.scan = scan;
       const next = summaryOf(scan);
       this.apply(h, next, next ? scan : null, true);
@@ -274,6 +293,7 @@ export class HearthSet {
     e.hearth = next;
     h.formedScan = scan;
     if (next && scan) {
+      h.lastBox = scan.box;
       h.blowers = this.nodesAt(scan.blowers);
       h.fluidHatches = this.nodesAt(scan.fluidHatches);
       h.itemHatches = this.nodesAt(scan.itemHatches);

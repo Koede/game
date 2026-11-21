@@ -4,13 +4,15 @@
  * and every fluid network's fill - so the renderer only interpolates.
  */
 import { PIPE_MAX_PACKETS } from '../core/constants';
-import { fluid as fluidSpec, itemOrNull } from '../core/registry';
+import { fluid as fluidSpec, itemOrNull, MACHINES } from '../core/registry';
 import type { FluidKey } from '../core/types';
 import { FluidNet } from './fluidNet';
 import { ItemNet } from './itemNet';
 import type { Joint, JointReason, PipeNet, Port } from './pipeNet';
 import { cellKey, type Distribution, type Family, type FilterMode, type PortMode } from './pipeState';
 import type { Transport } from './transport';
+
+const machineOrNull = (kind: string) => MACHINES.get(kind) ?? null;
 
 export interface PortView {
   /** The pipe, and the direction (Face) of the block it touches. */
@@ -165,6 +167,43 @@ function itemStatus(t: Transport, net: ItemNet, port: Port): string {
   }
 }
 
+/** The fluid the endpoint of a port holds to hand out and does not take in itself (a boiler's steam), or null. */
+function givesOnly(t: Transport, port: Port): FluidKey | null {
+  const ep = t.fluidEndpointOf(port);
+  const offer = ep?.offer() ?? null;
+  if (!ep || !offer || offer.litres <= 0) return null;
+  const accepts = machineOrNull(ep.entity.kind)?.fluids?.accepts ?? [];
+  return accepts.includes(offer.fluid) ? null : offer.fluid;
+}
+
+/** How the fluid pipes reach a block: whether any touch it, any of those networks pulls at all, and any end pulls from it. */
+export interface FluidLinks {
+  piped: boolean;
+  netPulls: boolean;
+  pullsHere: boolean;
+}
+
+/**
+ * The hot fluid pipe ends touching the block at x, y, z (steam only moves through hot pipes: for the boiler's and the
+ * turbine's status). Views only: walks every fluid network.
+ */
+export function fluidLinksAt(t: Transport, x: number, y: number, z: number): FluidLinks {
+  t.refresh();
+  const links: FluidLinks = { piped: false, netPulls: false, pullsHere: false };
+  for (const net of t.fluids) {
+    let touches = false;
+    for (const p of net.ports) {
+      if (p.ex !== x || p.ey !== y || p.ez !== z || p.cfg.mode === 'off') continue;
+      touches = true;
+      if (p.cfg.mode === 'pull') links.pullsHere = true;
+    }
+    if (!touches || !net.hot) continue;
+    links.piped = true;
+    if (net.ports.some((p) => p.cfg.mode === 'pull')) links.netPulls = true;
+  }
+  return links;
+}
+
 function fluidStatus(t: Transport, net: FluidNet, port: Port): string {
   if (port.cfg.mode === 'off') return 'Off';
   if (!t.fluidEndpointOf(port)) return noEndpoint(port);
@@ -193,6 +232,9 @@ function fluidStatus(t: Transport, net: FluidNet, port: Port): string {
     }
   }
   if (port.state === 'no_endpoint') return noEndpoint(port);
+  // A block that only hands this fluid out (a boiler's steam) at an end that pushes, with nothing pulling anywhere.
+  const out = givesOnly(t, port);
+  if (out && port.rateL <= 0 && !net.ports.some((p) => p.cfg.mode === 'pull')) return `Holds ${fluidName(out).toLowerCase()} - set this end to Pull`;
   switch (port.state) {
     case 'moving':
       return port.rateL > 0 ? moving : 'Waiting for fluid';

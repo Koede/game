@@ -33,20 +33,33 @@ higher, the inside within its bounds (x/z either way round), a ceiling where req
 ports. So the weakest wall block caps it (spec: "the lowest tier whose wall rules are met" - read as "the weakest
 wall decides", since a star-casing box also meets the Blast rules). 0 = not formed.
 
-**Scan (17.3)** - `scanHearth(world, x, y, z, facing)`: from the cell behind the controller it walks solid-free cells
+**Scan (17.3)** - `scanHearth(world, x, y, z, facing, options?: ScanOptions)`: from the cell behind the controller it walks solid-free cells
 across (both ways) and deep, at most `MAX_ACROSS` (5) inside cells, to find the walls; down to the floor (at most
 `MAX_HIGH`); then up layer by layer: a layer whose inside footprint is at least half solid is the **ceiling** (closed);
 a layer whose ring is less than half built is **open sky** (open top - so a steam engine or blower resting on the rim
 does not count as a wall layer); anything else is another inside layer. Then it classifies every cell of the box
 (<= 7x7x7 = 343 reads) and checks it. Walking stops only at solid blocks, so a torch or water inside is reported as
 clutter rather than mistaken for a wall. Measured on the real World: **0.20 ms** for the largest box (budget 1 ms).
+- `ScanOptions = { prev?: HearthBox | null; maxAcross?: number }`. `prev` is the box the controller last formed
+  (`Hearth.lastBox`, or rebuilt from the saved `e.hearth` summary after a load): when no hearth forms and that box still
+  mostly stands (at least half its shell solid) with a gap in it, the scan reports **that** box - so a wall block taken
+  out reads "Wall has a gap" at the gap, not whatever the walk through the gap ran into ("no walls", "grass cannot be
+  part of the wall"). `maxAcross` is the inside limit quoted by `open` (the planned tier's, see below).
+- **Nothing built yet**: with no solid block beside the controller or around the cell behind it, the scan reports no
+  problem and sets `scan.note` = `NO_HEARTH_YET` ("No hearth built around this furnace yet"); a lone furnace shows no red
+  problem any more.
+- **The cell under the controller** (only when the furnace sits on the lowest inside layer, so that cell is a floor edge
+  walled in by the furnace and the ground) counts as frame whatever **solid** block stands there - grass, dirt, a lower
+  tier's brick: it is not tallied towards any tier and never reported; a gap there still is ("Floor has a gap").
+  `underController(box, u, v, y)` tells that cell. Spec 17.1 note: so the first Blast hearth on flat ground, and every
+  conversion (Arc's refractory floor), never needs digging under the furnace.
 
 **Problems** - `{ code, x, y, z, text }`, at most `HEARTH_MAX_PROBLEMS` (8), each naming a block to highlight:
 
 | code | text |
 |---|---|
 | `behind` | "The block behind the furnace must be the hollow inside - its front faces out" |
-| `open` | "No walls found - the inside can be at most 5 blocks across" |
+| `open` | "The walls do not close around the inside - it can be at most 3 blocks across" (the furnace's planned tier: `structureOf(defaultTargetTier(e)).maxInner`) |
 | `no_floor` | "No floor under the hearth" |
 | `too_tall` | "Too tall - the inside can be at most 5 blocks high" |
 | `interior` | "Interior must be empty" |
@@ -127,19 +140,30 @@ change (test: a load with a wall missing unforms on the first tick).
 | `giveBack(item): void` | hands one item to the player (`SimContext`; used for burned containers that found no slot) |
 
 ### StructureView
-`{ x, y, z, controllerTier, effectiveTier, formed, tier, name, inner, closed, windows, status, problems, tiers, target }`
+`{ x, y, z, controllerTier, effectiveTier, formed, tier, name, inner, closed, windows, status, note, problems, tiers, target }`
 - `status`: "Formed - Blast hearth 3x3x2" / "Not formed"; `name`: "Blast hearth" ... "Starhearth" or null.
+- `note`: "No hearth built around this furnace yet" while nothing of a shell stands (then `problems` is empty), else null.
 - `inner`/`closed`/`windows`: what the last scan found (`inner` null without a box).
 - `problems`: hard problems + the target tier's, at most 8, each with a position (tap to highlight).
 - `tiers: TierChoice[]` - `{ tier, name, wall, minInner, maxInner, ceiling, electrodes, ports }` for the picker.
-- `target`: `{ tier, name, inner, closed, min, max, checklist, materials, cells, ready }` for `target` (default: the
-  tier the furnace needs now, else the next upgrade's; `defaultTargetTier(e)`), and its inside (default: the scanned
-  box fitted into the tier's bounds, else the smallest, centred across the furnace, the furnace on the lowest inside
-  layer).
+- `target`: `{ tier, name, inner, closed, min, max, checklist, materials, cells, ready, offset, offsets, machines }` for
+  `target` (default: the tier the furnace needs now, else the next upgrade's; `defaultTargetTier(e)`), and its inside
+  (default size: the scanned box fitted into the tier's bounds, else the tier's smallest).
+  - **Position**: `StructureTarget.offset` (the inside's first column along the furnace's wall, `-(across - 1)..0`)
+    places it sideways by hand; without one, every placement that keeps the furnace in a wall face (sideways, and up or
+    down when the inside is more than one layer high) is costed - 0 a cell that already counts, 1 an empty cell or a lower
+    tier's wall block, 3 any other block in the way, 20 a machine or pipe in the way - and the cheapest wins (ties go to
+    the scanned box's position, else centred, the furnace on the lowest inside layer). A bigger plan therefore grows
+    away from the hatches, pipes, boilers and electrodes built around the old shell where it can.
+  - `offset` / `offsets: [min, 0]`: the plan's position and its range, for "Shift left / right" buttons (UI: pass
+    `offset` back in the target).
+  - `machines: PlanMachine[]` - `{ x, y, z, block, name }` of every machine or pipe inside the plan or in its shell
+    where it does not belong: what has to move. (The STRUCTURE tab does not list them yet: UI work.)
   - `checklist: StructureCheck[]` - `{ key: 'floor'|'walls'|'ceiling'|'interior'|'electrodes'|'ports', label, have, need, ok }`
     ("Floor 8/9", "Walls 6/7", "Ceiling", "Inside empty", "Electrodes 0/1", "Power ports 0/2"); ceiling only when closed.
   - `materials: MaterialRow[]` - `{ item, need, placed, missing, have, ok }` per block kind of the whole shell; `have`
-    counts the pack and the crates near the furnace.
+    counts the pack and the crates near the furnace. A solid non-wall block under the furnace is not part of it (it
+    counts as it stands, ghost state `ok`).
   - `cells: GhostCell[]` - **the ghost preview**: `{ x, y, z, role: 'wall'|'edge'|'floor'|'ceiling'|'interior', want,
     has, state: 'ok'|'missing'|'wrong' }` for every shell cell (controller excluded) and every inside cell that is not
     air (`want: 'air'`). Blue ghost = `missing`, red = `wrong`. Missing electrodes go in the empty ceiling face nearest
@@ -174,8 +198,9 @@ interface FluidEndpoint {
 ```
 - Item sides: crate - all slots both ways; processors - recipe inputs in (slot 0), products out (slot 1); fuel
   generators and the fission pile - their fuels in, nothing out; bore rig - nothing in, its buffer out; lamps and other
-  slotless machines - null. **Furnace (smart sides)**: fuel -> firebox; smeltables (at the effective tier) -> a working
-  crucible already holding that item, else an empty one; an item that is both (logs, coal) goes to a crucible only when
+  slotless machines - null. **Furnace (smart sides)**: fuel -> firebox; smeltables (at the effective tier) -> the working
+  crucibles that are empty or already hold that item, **least filled first** (piped ore spreads over every crucible
+  instead of stacking in one); an item that is both (logs, coal) goes to a crucible only when
   one already holds it, else to the firebox; forge ingredients and anything else refused; out: finished crucible
   products (locked crucibles too), then containers burned fuels left in the firebox (the bronze bucket) - never fuel
   or ore. `item_hatch` of a formed hearth = its controller's endpoint; of no formed hearth = null. `power_port` and
@@ -250,6 +275,8 @@ interface FluidEndpoint {
 - **Balance**: the playthrough spends ~45 of its 165 minutes making the Star hearth's 93 casings (47 magnet rings, ~230
   superalloy, ~240 copper coils). As the tech-content notes say, consider 4 casings per craft or a smaller Star shell.
 - Machine fluid behaviour (consuming the new buffers) and the boiler are the transport engineer's.
-- The STRUCTURE tab, problem highlight and ghost rendering are UI/render work on `structureView`.
+- The STRUCTURE tab, problem highlight and ghost rendering are UI/render work on `structureView`. Not shown by the tab
+  yet: `note`, `target.offset`/`offsets` (shift buttons) and `target.machines`.
+- `hearthScan.ts` is ~440 lines (aim 350) since the scan was split into `findBox` + `classify` with the prev-box check.
 - A shell block shared by two formed hearths is mapped to the later one (proxies, links); bits stay correct.
 - `src/sim/simulation.ts` is 553 lines (it was 452; aim 350) - the facade gained the hearth and endpoint members.

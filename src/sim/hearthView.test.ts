@@ -16,7 +16,8 @@ describe('structure view', () => {
     const kit = kitWithFurnace();
     const v = kit.sim.structureView(0, 1, 0)!;
     expect(v).toMatchObject({ controllerTier: 2, effectiveTier: 1, formed: false, tier: 0, name: null, inner: null, status: 'Not formed' });
-    expect(v.problems).toEqual([{ code: 'open', x: 0, y: 1, z: 1, text: 'No walls found - the inside can be at most 5 blocks across' }]);
+    expect(v.problems).toEqual([]);
+    expect(v.note).toBe('No hearth built around this furnace yet');
     expect(v.tiers.map((t) => [t.tier, t.name, t.wall])).toEqual([
       [2, 'Blast hearth', 'brick'], [3, 'Arc hearth', 'refractory_brick'], [4, 'Plasma hearth', 'plasma_casing'], [5, 'Starhearth', 'star_casing'],
     ]);
@@ -66,8 +67,11 @@ describe('structure view', () => {
     const electrodes = v.target.cells.filter((c) => c.want === 'electrode');
     expect(electrodes).toEqual([expect.objectContaining({ role: 'ceiling', state: 'missing', y: 2, x: 0 })]);
     // Bricks are no longer good enough: every one is wrong for an Arc hearth.
-    expect(v.target.cells.filter((c) => c.has === 'brick').every((c) => c.state === 'wrong')).toBe(true);
-    expect(v.target.materials.map((m) => [m.item, m.need])).toEqual([['refractory_brick', 52], ['electrode', 1]]);
+    // (Under the furnace any solid block will do: that cell is hard to reach once the furnace stands on it.)
+    const under = (c: { x: number; y: number; z: number }) => c.x === 0 && c.y === 0 && c.z === 0;
+    expect(v.target.cells.filter((c) => c.has === 'brick' && !under(c)).every((c) => c.state === 'wrong')).toBe(true);
+    expect(v.target.cells.find(under)).toMatchObject({ has: 'brick', want: 'brick', state: 'ok' });
+    expect(v.target.materials.map((m) => [m.item, m.need])).toEqual([['refractory_brick', 51], ['electrode', 1]]);
     expect(v.target.checklist.map((c) => c.key)).toEqual(['floor', 'walls', 'ceiling', 'interior', 'electrodes']);
     expect(v.problems).toEqual([
       { code: 'ceiling', x: 0, y: 2, z: 1, text: 'An Arc hearth needs a ceiling' },

@@ -431,7 +431,8 @@ describe('scripted playthrough', () => {
     play.place('steam_turbine', TURBINE);
     for (const p of WATER_PIPES) play.place('fluid_pipe', p);
     for (const p of STEAM_PIPES) play.place('hot_fluid_pipe', p);
-    play.must(sim.wrenchPort(STEAM_PIPES[0].x, STEAM_PIPES[0].y, STEAM_PIPES[0].z, Face.NX), 'the boiler\'s steam side pulls');
+    // The hot pipe's end at the boiler pulls by itself: the boiler only hands steam out.
+    expect(sim.pipeView(STEAM_PIPES[0].x, STEAM_PIPES[0].y, STEAM_PIPES[0].z)!.ports.find((p) => p.block === 'boiler')!.mode).toBe('pull');
     play.until('turbine power', () => sim.machineView(TURBINE.x, TURBINE.y, TURBINE.z)!.outW > 2000, 120);
     expect(sim.machineView(PUMP.x, PUMP.y, PUMP.z)!.running || sim.machineView(PUMP.x, PUMP.y, PUMP.z)!.status.startsWith('Full')).toBe(true);
     expect(sim.machineView(ROOF_ENGINE.x, ROOF_ENGINE.y, ROOF_ENGINE.z)).toMatchObject({ problem: null, availW: 2000 });

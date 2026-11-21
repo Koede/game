@@ -6,11 +6,12 @@ import { ingredientStatus, maxCraftable, tally, type IngredientStatus, type Item
 import type { Inventory } from '../game/inventory';
 import type { ActionResult, FurnaceEntity, IgnitionState, SimNode } from './entities';
 import {
-  IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed, statsOf,
+  IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fireboxJunk, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed, statsOf,
 } from './furnace';
 import { ignitionCheck, restCheck, tierLock, upgradeStructure, type ActionHost } from './furnaceActions';
 import type { Hearth } from './hearth';
 import { hearthName } from './hearthScan';
+import { ignitionPower, type IgnitionPower } from './ignitionPower';
 import type { FurnaceStats } from './hearthStats';
 import { itemName } from './machines';
 
@@ -152,7 +153,14 @@ export interface FurnaceView {
   /** Rain or snow falls on it from open sky: it loses heat FURNACE_WET_LOSS_MULT times faster (spec 15). */
   rainChilled: boolean;
   ignited: boolean;
-  ignition: { state: IgnitionState; progress: number; powerW: number; seconds: number; canStart: ActionResult };
+  ignition: {
+    state: IgnitionState; progress: number; powerW: number; seconds: number; canStart: ActionResult;
+    /**
+     * Tier 5 on a network: what ignition needs of it and whether cables, supply and storage hold (null otherwise).
+     * Always set by the simulation; optional only so views built by hand (UI tests) still type-check.
+     */
+    power?: IgnitionPower | null;
+  };
   /** The next tier, or null at the last one. */
   upgrade: UpgradeView | null;
   canRest: ActionResult;
@@ -214,16 +222,17 @@ function upgradeView(e: FurnaceEntity, sources: readonly Inventory[]): UpgradeVi
   };
 }
 
-/** Where the temperature settles with the present heat sources: fire (capped at its flame) and electric heat. */
-function targetTemp(e: FurnaceEntity, fs: FurnaceStats, flame: number | null, satisfaction: number, lossMult: number): number {
-  let target = AMBIENT_TEMP_C;
+/**
+ * Where the temperature settles with the present heat sources, mirroring applyFurnace: fire, electric heat and the
+ * heat engines' draw add up; the fire stops adding heat above its own flame.
+ */
+export function targetTemp(e: FurnaceEntity, fs: FurnaceStats, flame: number | null, satisfaction: number, lossMult: number): number {
   const lossWPerC = fs.lossWPerC * lossMult;
   const fuel = e.burnItem ? fuelOf(e.burnItem) : null;
-  if (flame !== null && fuel) {
-    const q = (fuel.energyJ / fuel.burnS) * (1 + e.draft) * fs.fireScale;
-    target = Math.min(flame, AMBIENT_TEMP_C + (q - e.extractW) / lossWPerC);
-  }
-  if (e.heatDemandW > 0) target = Math.max(target, AMBIENT_TEMP_C + (fs.electricHeatW * satisfaction - e.extractW) / lossWPerC);
+  const qFire = flame !== null && fuel ? (fuel.energyJ / fuel.burnS) * (1 + e.draft) * fs.fireScale : 0;
+  const elec = e.heatDemandW > 0 ? fs.electricHeatW * satisfaction : 0;
+  let target = AMBIENT_TEMP_C + (qFire + elec - e.extractW) / lossWPerC;
+  if (qFire > 0 && flame !== null && target > flame) target = Math.max(flame, AMBIENT_TEMP_C + (elec - e.extractW) / lossWPerC);
   return Math.min(Math.max(target, AMBIENT_TEMP_C), fs.maxTempC);
 }
 
@@ -258,6 +267,9 @@ function furnaceStatus(e: FurnaceEntity, v: FurnaceView): string {
     if (v.electric.available && v.electric.on && v.electric.demandW > 0) {
       return v.electric.networked ? 'No power for electric heating' : 'Connect it to a power network to heat it electrically';
     }
+    const junk = fireboxJunk(e);
+    // An empty container filling the whole firebox keeps any fuel out.
+    if (junk && e.fuel.every((s) => s !== null && !fuelOf(s.item))) return `Take the ${itemName(junk)} out of the firebox`;
     if (v.fuelItems === 0) return e.tempC >= FURNACE_HOT_C ? 'The fire is out - add fuel' : 'No fuel';
     return e.tempC >= FURNACE_HOT_C ? 'Cooling - light it again' : 'Ready to light';
   }
@@ -301,7 +313,7 @@ export function furnaceView(host: ActionHost, node: SimNode, lossMult = 1, heart
     extractW: e.extractW, rainChilled: !e.ignited && lossMult > 1, ignited: e.ignited,
     ignition: {
       state: e.ignition, progress: Math.min(1, e.ignitionProgressS / IGNITION_TIME_S), powerW: IGNITION_POWER,
-      seconds: IGNITION_TIME_S, canStart: ignitionCheck(e, node),
+      seconds: IGNITION_TIME_S, canStart: ignitionCheck(e, node), power: e.tier >= MAX_FURNACE_TIER ? ignitionPower(e, node) : null,
     },
     upgrade: upgradeView(e, sources), canRest: restCheck(host, e, node),
     forge: forgeRowsFrom(host, e, sources, counts), smelt: smeltRows(e, counts), status: '',

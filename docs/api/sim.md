@@ -32,11 +32,19 @@ const sim = new Simulation(world: IWorld, bus: GameBus, player: PlayerState, clo
 - Entity lifecycle follows `'block:changed'` (never call anything to place or break a machine): a block with
   `machine` appearing creates its entity (or adopts one already stored at that position with the same kind); a
   furnace block swapped for another furnace tier keeps its entity; a machine block disappearing removes the
-  entity, hands everything it held to the player (`player.give`, which toasts what did not fit) and emits
-  `machine:removed`. Placement by the player (`source: 'player'`) of a furnace makes it home.
+  entity, hands what fits of everything it held to the player and emits `machine:removed`. **Nothing is deleted**: what
+  the pack has no room for goes into a crate put where the machine stood (or the nearest free cell within 2) on the next
+  tick, 27 stacks a crate, toast "Your pack is full - the rest is left in a crate" (`src/sim/spills.ts`). Explosions and
+  meltdowns still destroy contents. Placement by the player (`source: 'player'`) of a furnace makes it home.
 - `'chunk:loaded'` / `'chunk:unloaded'` refresh only machines in or beside that chunk and networks that reach it.
 - `'ui:opened'` with a `furnace` screen sets `player.home`.
 - `dispose()` unsubscribes from the bus.
+- `resync()` repairs what a save brings in before adopting it (`src/sim/sanitize.ts`): every field the simulation uses
+  is coerced to its type (slot lists to valid stacks - unknown items become empty slots -, numbers to finite numbers,
+  a bad furnace tier to its block's tier, unknown recipes / fuels / fluids / hearth summaries to null), entities of an
+  unknown kind are removed, and pipe entities' ports, cuts, stores and packets are checked (bad ones fall back to the
+  defaults). One toast "N damaged machines were reset" when anything needed it. Fields an older build did not have yet
+  are filled in quietly. An entity adopted on `'block:changed'` goes through the same repair.
 
 ## class Simulation
 
@@ -46,13 +54,13 @@ Every action on a position without a furnace refuses with "There is no furnace h
 
 | method | does | refuses when |
 |---|---|---|
-| `light(x, y, z)` | starts the fire from the firebox; `furnace:lit`, sfx `ignite`, flag `furnace_lit` (once) | ignited / already lit / "No fuel in the firebox" |
+| `light(x, y, z)` | starts the fire from the firebox; `furnace:lit`, sfx `ignite`, flag `furnace_lit` (once) | ignited / already lit / "Take the Bronze Bucket out of the firebox" (only an empty container there) / "No fuel in the firebox" |
 | `douse(x, y, z)` | puts the fire out, fuel stays; `furnace:out`, sfx `fire_out` | ignited / not lit |
 | `pump(x, y, z)` | bellows: draft += 0.34 (max 1); `furnace:pumped`, sfx `bellows` (pitch rises with draft), flag `bellows_pumped` (once) | ignited |
 | `setElectric(x, y, z, on: boolean)` | electric heating switch (default ON for every furnace); sfx `machine_on/off` | tier without `electricHeatW` ("Electric heating starts with the Arc Furnace") |
 | `forge(x, y, z, recipeId, times = 1): ForgeResult` | `ForgeResult = { ok: true; made: number } \| { ok: false; reason }`. Makes up to `times` (floored) in a row, -25 C each (not once ignited); stops early, still `ok`, when it gets too cold or runs out - `made` says how many. Ingredients: pack first, then crates near the furnace. Output to the pack. `item:made`, sfx `forge` (once per call) | not a forge recipe / locked tier ("Needs the Blast Furnace") / `times < 1` ("Nothing to make") / too cold / missing ingredients / no room in the pack |
 | `upgrade(x, y, z)` | rebuilds as the next tier in place (block id swapped, facing and state kept, more slots, entity kept); `furnace:upgraded`, sfx `upgrade`, toast "Upgraded to the Blast Furnace" | last tier / "Missing ..." (checked first) / too cold |
-| `startIgnition(x, y, z)` | Starhearth only: starts the 90 s, 300 kW ignition; `furnace:ignition` `started`, sfx `ignition` | not tier 5 / already ignited / under way / below 3000 C / "Connect it to a power network first" (no generation and nothing stored on its network) |
+| `startIgnition(x, y, z)` | Starhearth only: starts the 90 s, 300 kW ignition; `furnace:ignition` `started`, sfx `ignition` | not tier 5 / already ignited / under way / below 3000 C / "Connect it to a power network first" (no generation and nothing stored on its network) / "Cable limit 120 kW - needs 327 kW: lay super cable" (the weakest cable cannot carry 95% of the need: it could never succeed). A supply or storage short of the need is NOT refused (failing stays part of the game, spec 3.1): `FurnaceView.ignition.power` reports it |
 | `rest(x, y, z)` | skips the clock to dawn (`clock.skipToDawn()`), burns 60 s of fuel (`REST_FUEL_S`, at no draft) unless electrically heated or ignited; flag `rested`, toast | not night / furnace below 200 C / player farther than the tier's warmth radius ("Come closer to the furnace") / "The fire would not last the night - add fuel" (needs >= 60 s of fire at the current draft, or electric heat actually delivered, or ignited) |
 | `setMachineOn(x, y, z, on)` / `toggleMachine(x, y, z)` | any machine's switch (generators, consumers, storage, fission pile); sfx `machine_on/off` on change. Switched-off storage neither charges nor discharges | crate or nothing there ("There is no machine here") |
 | `explode(x, y, z, radius)` | removes every block in the sphere except unbreakable solids (corestone), destroys machines inside WITH their contents, `explosion` event + sfx, damages the player: `ceil(20 x (1 - d / 2r))`, 0 beyond twice the radius | - |
@@ -110,11 +118,11 @@ Every action on a position without a furnace refuses with "There is no furnace h
 | `hot` | `tempC >= 200` (glows, lights, warms, can rest) |
 | `draft` | bellows draft 0..1 (decays 0.1/s; a powered blower holds >= 0.8 x f) |
 | `flameC: number \| null` | flame temperature of the burning item incl. draft bonus (+250 x draft); null without a fire; 5000 once ignited |
-| `targetC` | ESTIMATE of where the temperature settles with the present fire, draft, heat engines and electric heat (capped at maxTempC) - for a "heading for" marker |
+| `targetC` | ESTIMATE of where the temperature settles with the present fire, draft, heat engines and electric heat (capped at maxTempC) - for a "heading for" marker. Sums the sources like the furnace does: ambient + (fire + electric x f - extract) / loss, the fire adding nothing above its flame |
 | `burnItem: string \| null` | item burning now |
 | `burnItemLeftS` | seconds left of that item at the current draft |
 | `burnTimeLeftS` | seconds of fire in the whole firebox (item burning + every item waiting) at the current draft; also meaningful while unlit |
-| `fuelItems` | items waiting in the fuel slots |
+| `fuelItems` | fuel items waiting in the fuel slots (an empty container left there does not count) |
 | `crucibles: CrucibleView[]` | one per crucible (tier.crucibles) |
 | `electric.available` | this tier has electric heating (tier >= 3) |
 | `electric.on` | the switch |
@@ -129,11 +137,12 @@ Every action on a position without a furnace refuses with "There is no furnace h
 | `ignition.progress` | 0..1 of the 90 s |
 | `ignition.powerW`, `ignition.seconds` | 300000, 90 (from params) |
 | `ignition.canStart: ActionResult` | what `startIgnition` would answer now |
+| `ignition.power: IgnitionPower \| null` | tier 5 on a network: `{ needW` (the network's other demand + this furnace's heating + 300 kW) `, minW` (95% of it) `, generationW, dischargeW` (most the switched-on, charged storage can give) `, storedJ, ratingW, shortfallW` (minW - generation) `, lastsS` (storage / shortfall) `, cableOk, supplyOk, storageOk` (lasts the 90 s) `}`; null otherwise (`src/sim/ignitionPower.ts`; `cableFor(watts)` names the cable to lay) |
 | `upgrade: UpgradeView \| null` | the next tier; null at tier 5 |
 | `canRest: ActionResult` | what `rest` would answer now |
 | `forge: ForgeRow[]` | EVERY forge recipe of the game in tech-tree order, locked ones included |
 | `smelt: SmeltRow[]` | every smelt recipe, locked ones included (what the crucibles can take) |
-| `status` | the most useful single line, one of: "A star burns here. It needs nothing more." / "Igniting - 42%" / "Connect it to a power network to heat it electrically" / "No power for electric heating" / "No fuel" / "The fire is out - add fuel" / "Ready to light" / "Cooling - light it again" / "<Item> needs <C> C - now <T> C" (a loaded crucible is too cold) / "Electric heating is starved of power" (f < 0.25) / "Burns out in m:ss" / "Holding <T> C" / "Heading for <targetC> C" |
+| `status` | the most useful single line, one of: "A star burns here. It needs nothing more." / "Igniting - 42%" / "Connect it to a power network to heat it electrically" / "No power for electric heating" / "No fuel" / "The fire is out - add fuel" / "Ready to light" / "Cooling - light it again" / "Take the Bronze Bucket out of the firebox" (an empty container fills the whole firebox) / "<Item> needs <C> C - now <T> C" (a loaded crucible is too cold) / "Electric heating is starved of power" (f < 0.25) / "Burns out in m:ss" / "Holding <T> C" / "Heading for <targetC> C" |
 
 ### CrucibleView
 `index`, `input: Slot`, `output: Slot`, `recipe: RecipeDef | null` (what the loaded input runs), `progress` 0..1
@@ -166,7 +175,7 @@ call `forge(..., min(5, max))`; forge stops by itself when it gets too cold.
 | `x, y, z` | position |
 | `on` | its switch |
 | `running` | the voxel's active flag (generating / working / lit) |
-| `status` | e.g. "Switched off", "Must touch a furnace", "No fuel", "The furnace is too cold", "No sunlight", "1.2 kW of 2 kW in use", "Waiting for input", "Not enough input", "Output is full", "No power", "Not enough power" (f < 0.25: stalled), "Running at 80% power", "Making Crushed Iron - 40%", "Boring at depth 12", "Stopped at water", "Pitchblende is too hard for the bore", "64% - charging 2 kW", "64% - feeding 3 kW", "64% - idle", "64% - not connected", "No fuel rod", "No cooling - core at 940 C and rising" |
+| `status` | e.g. "Switched off", "Must touch a furnace", "No fuel", "The furnace is too cold", "No sunlight", "1.2 kW of 2 kW in use", "Waiting for input", "Not enough input", "Output is full", "No power", "Not enough power" (f < 0.25: stalled), "Running at 80% power", "Making Crushed Iron - 40%", "Boring at depth 12", "Stopped at water", "Pitchblende is too hard for the bore", "64% - charging 2 kW", "64% - feeding 3 kW", "64% - idle", "64% - not connected", "No fuel rod", "No cooling - core at 940 C and rising"; hearth parts "Not part of a formed hearth - build it into a hearth wall" / "Part of the Blast hearth" (fluid hatch: " - holds 600 L of lava") |
 | `problem: string \| null` | placement problem: "Must touch a furnace", "Must sit on top of a furnace", "Needs water on one side", "Needs water on 2 sides (1 now)", "Must touch water", "Needs open sky above", "Must touch lava" |
 | `hint: string \| null` | `MachineSpec.placementHint` |
 | `network: number \| null` | id of its network (matches `NetworkStats.id` of the same tick) |
@@ -220,7 +229,8 @@ out; use `cropView(x, y, z)`, `cropCount`.
 `furnace:upgraded`, `furnace:ignition` (`started`, `progress` in 10% steps, `failed`, `done`), `machine:job`,
 `item:made` (forge via `craftByPlayer`, each smelted item with station `furnace`, each machine job with the machine
 kind as station), `power:alert` (`overload` / `brownout` / `recovered` on state changes only, after the new state
-held 10 ticks; `meltdown_warning` once per overheating), `flag` (`furnace_lit`, `bellows_pumped`, `machine_job`
+held 10 ticks (overload) or 60 ticks (brown-out and its recovery); brown-out message "Brown-out - machines get 80%
+power", below the stall line "Stalled - only 22% power, machines stop below 25%"; `meltdown_warning` once per overheating), `flag` (`furnace_lit`, `bellows_pumped`, `machine_job`
 once per session; `rested`, `ignited`), `game:won` (once), `explosion`, `toast` (fire burned out - only when no
 electric heat holds the furnace, upgrades, overheating pile, meltdown, ignition failed/done, rested), `sfx`
 (`ignite`, `fire_out`, `bellows`, `forge`, `smelt_done`, `upgrade`, `machine_on`, `machine_off`, `machine_done`,
@@ -249,8 +259,10 @@ the bore rig). Nothing is emitted per tick.
 ## Deviations from the spec, and decisions
 - Heat engines (thermopile 4x, steam engine 3x) draw heat in proportion to the power the network actually USES
   (`outW`); an engine on a grid with no load takes no heat. The furnace's thermostat counts last tick's draw.
-- Brown-out = f < 0.999 with demand; alerts are announced only after the new state held for 10 ticks (0.5 s), so
-  a machine starting up does not flicker alerts.
+- Brown-out = f < `BROWNOUT_BELOW` (0.9) with demand, on a network with something that can supply (a generator, an
+  ignited Starhearth, storage): a consumer alone on its network is "not connected", not browned out. A brown-out and
+  its recovery are announced after holding 60 ticks (3 s), an overload after 10 ticks, so swaying solar or wind and
+  a machine starting up do not toast again and again.
 - Starhearth (tier 5) before ignition behaves like tier 4 with its own speed (3.0) and warmth; ignition demand is
   added to the furnace's own electric demand; progress needs f >= 0.95 and fails after more than 2 s below.
 - Electric heating defaults to ON; a furnace on a network at tier >= 3 heats itself as soon as power is there.
@@ -266,6 +278,10 @@ the bore rig). Nothing is emitted per tick.
 - Placing or removing a power block rebuilds every network (about 1 ms with 300 entities in node, perhaps 3-5 ms
   on a phone) - a player-paced event, but a bore rig never triggers it (it only mines non-power blocks).
 - `targetC` is an estimate (it assumes the current draft and network share hold).
+- A spill crate appears from nothing; broken again with room in the pack it gives a crate item too (a cheap block).
+  Breaking it with a full pack loses that crate item (the player module's drop rule) but never its contents.
+- A clay furnace's single fuel slot holding the lava bucket's empty bronze bucket takes no new fuel until it is taken
+  out (by hand or by a pulling item pipe); Light and the status say so.
 - Network history and alert state are not saved; after loading they start from zero / 'ok'.
 - `allNetworks()` returns the same array within one tick, so an action in that tick is only visible from the
   next one (or through `networkAt`, which is always fresh).

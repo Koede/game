@@ -12,7 +12,7 @@ const P = FURNACE.params ?? {};
 export const IGNITION_TEMP_C = P.ignitionTempC;
 export const IGNITION_POWER = P.ignitionPowerW;
 export const IGNITION_TIME_S = P.ignitionSeconds;
-const IGNITION_MIN_F = P.ignitionMinSatisfaction;
+export const IGNITION_MIN_F = P.ignitionMinSatisfaction;
 const IGNITION_GRACE_S = P.ignitionGraceS;
 export const IGNITED_TEMP_C = P.ignitedTempC;
 /** Ignition progress is announced in steps of this fraction, never every tick. */
@@ -34,11 +34,17 @@ export type GiveBack = (item: string) => void;
 
 export const isBurning = (e: FurnaceEntity): boolean => e.lit && e.burnItem !== null;
 
-/** Total fuel items in the firebox slots. */
+/** Fuel items in the firebox slots (what can burn: an empty container a burned fuel left there does not count). */
 export function fuelCount(e: FurnaceEntity): number {
   let n = 0;
-  for (const s of e.fuel) if (s) n += s.count;
+  for (const s of e.fuel) if (s && fuelOf(s.item)) n += s.count;
   return n;
+}
+
+/** The first thing in the firebox that cannot burn (the lava bucket's empty bronze bucket), or null. */
+export function fireboxJunk(e: FurnaceEntity): string | null {
+  for (const s of e.fuel) if (s && !fuelOf(s.item)) return s.item;
+  return null;
 }
 
 /** Fuel a formed hearth's fluid hatches hold burns like this item (with no bucket to give back). */

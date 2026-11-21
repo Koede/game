@@ -81,15 +81,19 @@ export const portId = (pipeKey: number, dir: number): number => pipeKey * 8 + di
 // ---- port settings ----------------------------------------------------------------------------------------------
 
 /**
- * The mode a pipe end starts in: 'push' (spec 16.3), except against a block that only gives (a pump, a bore rig),
- * where pushing could never do anything - those start pulling.
+ * The mode a pipe end starts in: 'push' (spec 16.3), except where pushing could never do anything - those start
+ * pulling: against a block that only gives (a pump, a bore rig), and a hot pipe against a block that gives a hot
+ * fluid but takes no hot fluid in (a boiler's steam: its water comes through a cold pipe).
  */
-export function defaultMode(family: Family, def: BlockDef): PortMode {
+export function defaultMode(family: Family, def: BlockDef, pipe: BlockDef | null = null): PortMode {
   const spec = machineOfBlock(def);
   if (!spec) return 'push';
   if (family === 'fluid') {
-    const f = spec.fluids;
-    return f && (f.accepts ?? []).length === 0 && (f.gives ?? []).length > 0 ? 'pull' : 'push';
+    const accepts = spec.fluids?.accepts ?? [];
+    const gives = spec.fluids?.gives ?? [];
+    if (accepts.length === 0 && gives.length > 0) return 'pull';
+    const hot = (key: string): boolean => fluidOrNull(key)?.hot ?? false;
+    return pipe?.pipe?.hot && gives.some(hot) && !accepts.some(hot) ? 'pull' : 'push';
   }
   return spec.kind === 'bore_rig' ? 'pull' : 'push';
 }

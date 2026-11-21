@@ -81,7 +81,11 @@ DOM-free helpers (unit-tested): `forgeRows.ts` (`forgeCategory`, `forgeRowView(s
     chips, Forge and ×N (N = min(5, ingredients, heat allows)). Refusals and short batches are toasted. Badge:
     recipes forgeable now.
   - GRID: the furnace's network (NetworkPanel), or an explanation of how to get power at this tier; at tier 5
-    the ignition panel above it (conditions, hold-to-ignite 900 ms, progress with seconds left, failure text).
+    the ignition panel above it (conditions, hold-to-ignite 900 ms, progress with seconds left, failure text). The grid
+    conditions come from `FurnaceView.ignition.power`, each its own badge: "Supply 66.3 kW + 3 kW storage - needs 327 kW",
+    "Cable limit 120 kW - needs 327 kW: lay super cable" (or "Cables carry 2 MW"; hidden without cables), "Storage 1.18
+    MJ - lasts 4 s of 90 s" (only when generation alone falls short); a red badge adds "As the grid stands now, it would
+    fail." to the intro. The button stays disabled while the cable cannot carry it (the sim refuses that start).
     Badge "!" on brown-out or overload.
   - LOG: the Hearth Log view of 7.4a.
 - Backpack: side column at >= 1100 x 600; elsewhere a drawer with a handle ("Backpack 13/36", B on a keyboard)

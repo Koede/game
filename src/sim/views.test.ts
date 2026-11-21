@@ -122,7 +122,7 @@ describe('queries for the HUD and the machine screens', () => {
     kit.machine('crusher', 20, 5, 0).slots[0] = { item: 'copper_ore', count: 9 };
     kit.machine('solar_panel', 21, 5, 0);
     kit.clock.setTimeOfDay(0.3);
-    kit.run(2);
+    kit.run(4);
     expect(kit.sim.grid()).toMatchObject({ networks: 2, state: 'brownout' });
     expect(tap.availW).toBe(2000);
   });

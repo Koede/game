@@ -6,6 +6,8 @@ export type { CropEntity, CropView } from './cropRules';
 export { isCrop } from './cropRules';
 export type { ForgeResult } from './furnaceActions';
 export { REST_FUEL_S } from './furnaceActions';
+export type { IgnitionPower } from './ignitionPower';
+export { cableFor } from './ignitionPower';
 export type { FurnaceSlots } from './slots';
 export type { CrucibleView, ForgeRow, FurnaceView, SmeltRow, Trend, UpgradeView } from './views';
 export type { GridSummary, MachineView, NetworkMember, NetworkStats } from './gridViews';

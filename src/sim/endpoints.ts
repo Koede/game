@@ -103,17 +103,19 @@ function slotEndpoint(e: MachineEntity, inv: Inventory, inFrom: number, inTo: nu
 function furnaceEndpoint(e: FurnaceEntity, host: EndpointHost): ItemEndpoint {
   const slots = host.furnaceSlots(e);
   const working = (): number => Math.min(host.furnaceStats(e).crucibles, e.crucibleIn.length);
-  /** Working crucibles that may take `item`: those already holding it first, then empty ones. */
+  /**
+   * Working crucibles that may take `item` (empty ones and those already holding it), least filled first, so piped
+   * ore spreads over every crucible instead of stacking up in one while the others stand idle.
+   */
   const crucibles = (item: string): number[] => {
     const n = working();
-    const same: number[] = [];
-    const empty: number[] = [];
+    const out: number[] = [];
     for (let i = 0; i < n; i++) {
       const s = e.crucibleIn[i];
-      if (!s) empty.push(i);
-      else if (s.item === item) same.push(i);
+      if (!s || s.item === item) out.push(i);
     }
-    return [...same, ...empty];
+    const count = (i: number): number => e.crucibleIn[i]?.count ?? 0;
+    return out.sort((a, b) => count(a) - count(b) || a - b);
   };
   const route = (item: string): 'fuel' | 'crucible' | null => {
     const smelts = crucibleRecipe(item, host.furnaceStats(e)) !== null;

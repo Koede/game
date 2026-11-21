@@ -24,6 +24,7 @@ import type { FurnaceEntity, MachineEntity, SimContext, SimNode } from './entiti
 import { heldL, useFluid } from './fluidUse';
 import { behaviourOf, type Behaviour } from './machines';
 import { powered } from './power';
+import type { FluidLinks } from './transportViews';
 
 const PUMP = machine('pump');
 const PP = PUMP.params ?? {};
@@ -258,8 +259,11 @@ export function fluidBehaviour(kind: string): Behaviour | null {
 const fmtL = (litres: number): string => `${Math.round(litres).toLocaleString('en-US')} L`;
 const fluidName = (key: FluidKey): string => fluidSpec(key).name.toLowerCase();
 
-/** Status words of the fluid machines (null: the generic status applies). `world` lets a pump never ticked look around. */
-export function fluidStatus(node: SimNode, world: IWorld | null): string | null {
+/**
+ * Status words of the fluid machines (null: the generic status applies). `world` lets a pump never ticked look around;
+ * `links` (the fluid pipe ends touching it) lets the boiler and turbine say why piped steam does not move.
+ */
+export function fluidStatus(node: SimNode, world: IWorld | null, links: FluidLinks | null = null): string | null {
   const e = node.e as MachineEntity;
   if (!e.on) return null;
   switch (e.kind) {
@@ -275,11 +279,16 @@ export function fluidStatus(node: SimNode, world: IWorld | null): string | null 
       if (!furnace) return 'Must sit on top of a furnace';
       if (furnace.tempC < BP.minTempC) return 'The furnace is too cold';
       if (heldL(e, 'water') <= 0) return 'Needs water - pipe it in';
-      if (outRoom(e, 'steam', BOILER.fluids?.capacityL ?? 0) <= 0) return 'Steam is not being used';
+      if (outRoom(e, 'steam', BOILER.fluids?.capacityL ?? 0) <= 0) {
+        if (links?.piped && !links.pullsHere) return 'Holds steam - wrench the pipe end at the boiler to Pull';
+        return links?.piped ? 'Steam is not being used' : 'Steam is not being used - pipe it to a turbine';
+      }
       return (e.rateL ?? 0) > 0 ? `Boiling ${fmtL(e.rateL ?? 0)} of steam a second` : null;
     }
     case 'steam_turbine':
-      return heldL(e, 'steam') <= 0 ? 'No steam - pipe it in through a hot pipe' : null;
+      if (heldL(e, 'steam') > 0) return null;
+      if (links?.piped && !links.netPulls) return 'Steam line has no end pulling from a boiler - wrench the boiler end to Pull';
+      return links?.piped ? 'No steam coming in' : 'No steam - pipe it in through a hot pipe';
     case 'still':
       if (e.recipe === OIL_RUN) return `Refining crude oil - ${Math.round((100 * e.progress) / SP.oilRunS)}%`;
       if (!e.slots[0] && heldL(e, 'crude_oil') > 0 && !oilReady(e)) {

@@ -29,14 +29,16 @@ import { tankColumn, tankView } from './tanks';
 import { Transport } from './transport';
 import * as pipes from './transportActions';
 import type { BucketResult, WrenchResult } from './transportActions';
-import { TransportRenderer, fluidAt, pipeView, type PipeView, type TransportRender } from './transportViews';
+import { TransportRenderer, fluidAt, fluidLinksAt, pipeView, type PipeView, type TransportRender } from './transportViews';
 import { HearthSet } from './hearth';
 import { furnaceStats, type FurnaceStats } from './hearthStats';
 import { structureView, type StructureTarget, type StructureView } from './hearthView';
 import { windAt } from './machines';
 import { NodeSet } from './nodes';
 import type { Network } from './power';
+import { repairToast, sanitizeEntity } from './sanitize';
 import { SlotAccess, type FurnaceSlots } from './slots';
+import { Spills, handOver } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
@@ -72,6 +74,8 @@ export class Simulation implements ActionHost {
     this.player.give(item, 1);
   };
   private readonly offs: Array<() => void> = [];
+  /** What a broken machine held that the pack had no room for, put into crates on the next tick. */
+  private readonly spills: Spills;
   /** allNetworks() of the current tick and topology. */
   private stats: NetworkStats[] = [];
   private statsTick = -1;
@@ -107,6 +111,7 @@ export class Simulation implements ActionHost {
       machineAt: (x, y, z) => this.machineAt(x, y, z),
     });
     this.transportRender = new TransportRenderer(this.transport);
+    this.spills = new Spills(world, bus, player);
     const chunkChanged = ({ cx, cz }: { cx: number; cz: number }): void => {
       this.nodes.chunkChanged(cx, cz);
       this.crops.chunkChanged(cx, cz);
@@ -155,11 +160,21 @@ export class Simulation implements ActionHost {
     this.nodes.clear();
     this.crops.clear();
     this.hearths.clear();
-    for (const e of this.world.entities()) {
+    // A damaged entity (an older save's shape, a bad field) is repaired, or dropped when its kind is unknown, so one
+    // bad field never stops the simulation.
+    let repaired = 0;
+    for (const e of [...this.world.entities()]) {
       if (isPlant(e)) this.crops.track(e);
-      else if (!isPipeEntity(e)) this.trackNode(e as SimEntity);
+      else if (!isPipeEntity(e)) {
+        const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
+        if (r !== 'ok') repaired++;
+        if (r === 'dropped') this.world.removeEntity(e.x, e.y, e.z);
+        else this.trackNode(e as SimEntity);
+      }
     }
-    this.transport.resync();
+    repaired += this.transport.resync();
+    const text = repairToast(repaired);
+    if (text) this.bus.emit('toast', { text, kind: 'warn' });
   }
 
   private trackNode(e: SimEntity): SimNode {
@@ -172,6 +187,7 @@ export class Simulation implements ActionHost {
   // ---- ticking ------------------------------------------------------------------------------------------------
 
   tick(dt: number): void {
+    this.spills.place();
     this.tickCount++;
     this.everySecond = this.tickCount % TICK_RATE === 0;
     const { world, nodes } = this;
@@ -261,7 +277,7 @@ export class Simulation implements ActionHost {
     }
     const stored = this.world.getEntity(x, y, z) as SimEntity | undefined;
     let e: SimEntity;
-    if (stored && stored.kind === to.machine) e = stored;
+    if (stored && stored.kind === to.machine && sanitizeEntity(stored, furnaceTierOfBlock(to.key)?.tier ?? null) !== 'dropped') e = stored;
     else {
       e = to.machine === 'furnace' ? createFurnace(x, y, z, furnaceTierOfBlock(to.key)?.tier ?? 1) : createMachine(to.machine, x, y, z);
       this.world.setEntity(e);
@@ -291,7 +307,8 @@ export class Simulation implements ActionHost {
     this.world.removeEntity(e.x, e.y, e.z);
     if (!this.destroying) {
       const held = isFurnace(e) ? [...e.fuel, ...e.crucibleIn, ...e.crucibleOut] : (e as MachineEntity).slots;
-      for (const s of held) if (s) this.player.give(s.item, s.count, s.durability);
+      const left = handOver(this.player, held);
+      if (left.length > 0) this.spills.add(e.x, e.y, e.z, left);
     }
     this.bus.emit('machine:removed', { entity: e });
   }
@@ -495,7 +512,11 @@ export class Simulation implements ActionHost {
     this.nodes.fresh();
     const node = this.nodes.byKey.get(posKey(x, y, z));
     if (!node || isFurnace(node.e)) return null;
-    const view = machineView(node);
+    const kind = node.e.kind;
+    const view = machineView(node, {
+      hearthTier: node.spec.role === 'hearth_part' ? this.hearths.shellOwner(node.key)?.e.hearth?.tier ?? 0 : 0,
+      links: kind === 'boiler' || kind === 'steam_turbine' ? fluidLinksAt(this.transport, x, y, z) : null,
+    });
     if (node.e.kind === 'tank') tankView(view, tankColumn(this.transport.tankAt, x, y, z));
     return view;
   }

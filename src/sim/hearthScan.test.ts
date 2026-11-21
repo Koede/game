@@ -101,12 +101,18 @@ describe('hearth scan: problems', () => {
     const back = setup({ tier: 2 });
     back.world.setVoxel(0, 5, 0, makeVoxel(blockId('furnace_blast'), Facing.South));
     expect(codes(scanHearth(back.world, 0, 5, 0, Facing.South).problems)).toEqual(['open']);
+    expect(scanHearth(back.world, 0, 5, 0, Facing.South).problems[0].text).toBe('The walls do not close around the inside - it can be at most 5 blocks across');
   });
 
   it('reports open sides, a missing floor and endless walls', () => {
     const world = new FakeWorld();
     world.put(0, 5, 0, 'furnace_blast');
-    expect(scanHearth(world, 0, 5, 0, Facing.North).problems[0]).toMatchObject({ code: 'open', text: 'No walls found - the inside can be at most 5 blocks across' });
+    // A furnace with nothing built around it has no problem yet, only a neutral note.
+    expect(scanHearth(world, 0, 5, 0, Facing.North)).toMatchObject({ problems: [], note: 'No hearth built around this furnace yet' });
+    world.put(1, 5, 0, 'brick');
+    expect(scanHearth(world, 0, 5, 0, Facing.North, { maxAcross: 3 }).problems[0]).toMatchObject({
+      code: 'open', text: 'The walls do not close around the inside - it can be at most 3 blocks across',
+    });
     const { world: w2, scan } = setup({ tier: 2 });
     w2.put(0, 4, 1, 'air');
     expect(codes(scan().problems)).toEqual(['no_floor']);

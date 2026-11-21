@@ -14,7 +14,7 @@ DOM-free, inside `src/sim`. `npx vitest run src/sim` (19 files, 187 tests).
 | `fluidNet.ts` | `FluidNet`: one fluid and an amount, pull/push by priority with equal split |
 | `transport.ts` | `Transport`: owns the networks, rebuilds, ticks, saves content on anchor entities, active bits, endpoints |
 | `transportActions.ts` | wrench, port settings, buckets |
-| `transportViews.ts` | `pipeView`, `TransportRenderer` (render snapshot), `fluidAt` |
+| `transportViews.ts` | `pipeView`, `TransportRenderer` (render snapshot), `fluidAt`, `fluidLinksAt` (hot pipe ends touching a block: boiler / turbine status) |
 | `tanks.ts` | stacked tanks: one fluid, one level |
 | `fluidMachines.ts` | pump, boiler, steam turbine, still oil runs; their status words |
 | `fluidUse.ts` | piped water / fuel / lava helpers for steam engine, electrolyzer, fission pile, combustion engine, geothermal tap |
@@ -72,7 +72,8 @@ take lava", "The Tank holds nothing to scoop", "A bucket takes 1000 L - it holds
   both: "Blocked", "Off", "Not connected", "The hearth is not formed" (a hatch of no formed hearth), "Network too long"
   (inert). Fluid pull: "Moving 200 L/s", "Too hot for this pipe", "The pipes hold Water", "Filter blocks Lava",
   "No destination", "Destination full", "Nothing to pull"; fluid push: "Moving 200 L/s", "Destination full", "Does not
-  take Steam", "Filter blocks Water", "Waiting for fluid".
+  take Steam", "Filter blocks Water", "Waiting for fluid", and "Holds steam - set this end to Pull" (a block that only
+  hands that fluid out, at a pushing end, with no end of the network pulling).
 - `PipeNetView`: `{ id, family, pipes, inertPipes, ports, inertPorts, hot, fluid` (held, or flowing through right now)
   `, fluidName, litres, capacityL, fill, packets, items, maxPackets, warnings }`; warnings: "Network too long - 1024 of
   1064 pipes work", "Too many ends - 6 do nothing", "Pipes are full - pulling waits", "Touches pipes holding another fluid".
@@ -92,7 +93,10 @@ take lava", "The Tank holds nothing to scoop", "A bucket takes 1000 L - it holds
 the status "22,000 of 48,000 L (3 tanks)" / "Empty (2 tanks)"). New status words: pump "Pumping water - 200 L/s"
 ("(the pool shrinks)" on lava/oil), "Must touch water, lava or oil", "Full - connect a pipe that pulls", "Still holds
 lava"; boiler "Boiling 400 L of steam a second", "Must sit on top of a furnace", "The furnace is too cold", "Needs water
-- pipe it in", "Steam is not being used"; turbine "No steam - pipe it in through a hot pipe"; still "Refining crude oil
+- pipe it in", "Steam is not being used - pipe it to a turbine" (no hot pipe touches it), "Holds steam - wrench the pipe
+end at the boiler to Pull" (hot pipes touch it, none pulls from it), "Steam is not being used"; turbine "No steam - pipe
+it in through a hot pipe", "Steam line has no end pulling from a boiler - wrench the boiler end to Pull" (its hot pipes
+have no pulling end), "No steam coming in"; still "Refining crude oil
 - 40%", "Needs 500 L of crude oil", "Fuel is full - pipe it out" (`progress` follows the oil run).
 
 ## Rules as built
@@ -105,8 +109,10 @@ the first 1024 pipes (`PIPE_MAX_PIPES`) and 64 ports (`PIPE_MAX_PORTS`) it finds
 rebuilds when it loads. Pipes in unloaded chunks are found again through the pipe entities in them.
 
 **Ports (16.3).** A pipe end touching an endpoint of its family. Settings `{ mode, distribution, filter (<= 5 keys),
-filterMode, priority -2..2 }`; an empty filter lets everything through. Defaults: `push`, except against a block that
-only gives (pump, bore rig): `pull`. Settings are saved on the pipe's entity only once changed (`ports[dir]`), and
+filterMode, priority -2..2 }`; an empty filter lets everything through. Defaults: `push`, except where pushing could
+never do anything - those start `pull`: against a block that only gives (pump, bore rig), and a **hot** pipe against a
+block that gives a hot fluid but takes no hot fluid in (the boiler's steam; its water comes through a cold pipe, whose
+end still pushes) - `defaultMode(family, endDef, pipeDef?)`. So a boiler -> hot pipe -> turbine line works as built. Settings are saved on the pipe's entity only once changed (`ports[dir]`), and
 dropped when the endpoint goes.
 
 **Items.** A pulling end fires every `1 / ratePerS` s (bronze chute 2 s, steel conveyor 0.5 s): it takes the first stack
@@ -177,8 +183,8 @@ bucket back) - hearth.md.
   **~2.2-2.7 ms per rebuild** including the block events (budget 5).
 - `playthrough.test.ts`: from the Blast hearth on, two item hatches swapped into the walls, 90 iron ore piped in from a
   crate and the ingots piped out into a crate beside the furnace; at the Arc hearth a pump in a roof pool feeds the
-  steam engine (piped water) and a boiler whose steam runs a turbine through a hot pipe (the wrench sets the boiler end
-  to pull); the Plasma hearth swallows the north hatch, a second east hatch takes over (wrench parts the two lines);
+  steam engine (piped water) and a boiler whose steam runs a turbine through a hot pipe (the boiler end pulls by
+  default); the Plasma hearth swallows the north hatch, a second east hatch takes over (wrench parts the two lines);
   330 copper ore piped through at the Star age. Every objective in order, `game:won` at ~179 game minutes.
 - Real built game in headless Chromium (desktop 1280x800 and phone 390x844, through `window.__hw`): a crate -> 7 bronze
   chutes -> crate line ("Moving 4 every 2 s", items arriving) and a pump on a pool with a solar panel -> iron pipes ->

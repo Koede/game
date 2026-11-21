@@ -8,10 +8,15 @@ export type NetworkState = 'ok' | 'brownout' | 'overload';
 
 /** Seconds of history kept per network (one sample per second). */
 export const HISTORY_SECONDS = 60;
-/** A new state must hold this many ticks before it is announced, so a machine starting up does not flicker alerts. */
-const ALERT_HOLD_TICKS = 10;
-/** Below this satisfaction a network counts as browned out (just under 1 to ignore rounding). */
-const BROWNOUT_BELOW = 0.999;
+/** An overload must hold this many ticks before it is announced, so a machine starting up does not flicker alerts. */
+const OVERLOAD_HOLD_TICKS = 10;
+/**
+ * A brown-out, and the recovery from one, must hold this many ticks (3 s) before they are announced: solar and wind
+ * that sway around the demand would otherwise toast again and again.
+ */
+const BROWNOUT_HOLD_TICKS = 60;
+/** Below this satisfaction a network counts as browned out: a few percent short is not worth an alert. */
+export const BROWNOUT_BELOW = 0.9;
 
 /** Numeric key of a chunk column (|cx|, |cz| < 32768). */
 export const chunkKey = (cx: number, cz: number): number => ((cx & 0xffff) << 16) | (cz & 0xffff);
@@ -126,12 +131,14 @@ export class Network {
 
   /** Announces overload / brown-out / recovery, on changes only. */
   alert(bus: GameBus): void {
-    const now: NetworkState = this.overloaded ? 'overload' : this.demandW > 0 && this.f < BROWNOUT_BELOW ? 'brownout' : 'ok';
+    const now: NetworkState = this.overloaded ? 'overload'
+      : this.demandW > 0 && this.f < BROWNOUT_BELOW && this.hasSource() ? 'brownout' : 'ok';
     if (now !== this.pending) {
       this.pending = now;
       this.pendingTicks = 0;
     }
-    if (now === this.state || ++this.pendingTicks < ALERT_HOLD_TICKS) return;
+    if (now === this.state) return;
+    if (++this.pendingTicks < (now === 'overload' ? OVERLOAD_HOLD_TICKS : BROWNOUT_HOLD_TICKS)) return;
     const was = this.state;
     this.state = now;
     const at = this.nodes[0].e;
@@ -140,10 +147,23 @@ export class Network {
       bus.emit('power:alert', { kind: 'overload', message: `Cables overloaded - machines get ${pct}% power`, x: at.x, y: at.y, z: at.z });
       bus.emit('sfx', { name: 'spark', x: at.x, y: at.y, z: at.z });
     } else if (now === 'brownout') {
-      bus.emit('power:alert', { kind: 'brownout', message: `Brown-out - machines get ${pct}% power`, x: at.x, y: at.y, z: at.z });
+      const message = this.f < BROWNOUT_STALL
+        ? `Stalled - only ${pct}% power, machines stop below ${Math.round(BROWNOUT_STALL * 100)}%`
+        : `Brown-out - machines get ${pct}% power`;
+      bus.emit('power:alert', { kind: 'brownout', message, x: at.x, y: at.y, z: at.z });
     } else if (was !== 'ok') {
       bus.emit('power:alert', { kind: 'recovered', message: 'Power restored', x: at.x, y: at.y, z: at.z });
     }
+  }
+
+  /**
+   * Whether anything on the network can supply power (a generator, an ignited Starhearth, storage). A consumer alone on
+   * its network is not browned out: it is not connected, and its own status says so.
+   */
+  private hasSource(): boolean {
+    if (this.storage.length > 0) return true;
+    for (const n of this.nodes) if (n.spec.role === 'generator' || n.e.availW > 0) return true;
+    return false;
   }
 
   /** Pushes one sample (the mean of the last second) into the rolling history. */

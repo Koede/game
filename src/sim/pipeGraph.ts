@@ -255,7 +255,7 @@ export class PipeGraph {
     for (const [i, dir, pipeDef, endDef] of portCells) {
       const key = keys[i];
       const saved = this.host.entity(key)?.ports?.[dir] ?? null;
-      const cfg = saved ?? defaultConfig(defaultMode(family, endDef));
+      const cfg = saved ?? defaultConfig(defaultMode(family, endDef, pipeDef));
       const p = pipeDef.pipe!;
       const local = i < PIPE_MAX_PIPES ? i : -1;
       const port = new Port(portId(key, dir), local, key, xs[i], ys[i], zs[i], dir, endDef, cfg, saved !== null, p.ratePerS, p.batch ?? 1);

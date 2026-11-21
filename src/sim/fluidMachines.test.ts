@@ -46,7 +46,7 @@ describe('the boiler', () => {
     expect(b.fluidOut).toEqual({ fluid: 'steam', litres: 1000 });
     expect(b.rateL).toBe(0);
     expect(f.extractW).toBe(0);
-    expect(kit.sim.machineView(0, 6, 0)).toMatchObject({ running: false, status: 'Steam is not being used' });
+    expect(kit.sim.machineView(0, 6, 0)).toMatchObject({ running: false, status: 'Steam is not being used - pipe it to a turbine' });
     hold(kit, f, 1500, 0.05);
     expect(kit.sim.machineView(0, 6, 0)!.fluids).toMatchObject({ output: { fluid: 'steam', litres: 1000 }, capacityL: 1000 });
   });
@@ -66,7 +66,8 @@ describe('the boiler', () => {
     kit.machine('boiler', 0, 6, 0);
     waterTank(kit, [-2, 6, 0], [-1, 6, 0], Face.NX);
     run(kit.world, 'hot_fluid_pipe', [1, 6, 0], [2, 6, 0]);
-    expect(kit.sim.wrenchPort(1, 6, 0, Face.NX)).toMatchObject({ ok: true, mode: 'pull' }); // the boiler's steam side pulls
+    // The hot pipe's end at the boiler starts pulling (the boiler only hands steam out); nothing pulls before that.
+    expect(kit.sim.pipeView(1, 6, 0)!.ports.find((p) => p.block === 'boiler')!.mode).toBe('pull');
     const turbine = kit.machine('steam_turbine', 3, 6, 0);
     const bank = kit.machine('lithium_bank', 4, 6, 0); // empty: it takes up to 150 kW
     hold(kit, f, 1200, 6); // 800 L/s of steam at 1000 C and above

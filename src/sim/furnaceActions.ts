@@ -8,9 +8,10 @@ import type { GameClock } from '../game/clock';
 import { craftByPlayer, ingredientStatus, takeIngredients } from '../game/crafting';
 import type { Inventory } from '../game/inventory';
 import { OK, refuse, resizeFurnace, type ActionResult, type FurnaceEntity, type SimContext, type SimNode } from './entities';
-import { IGNITION_TEMP_C, burn, burnSecondsLeft, fuelCount, lightFire, statsOf } from './furnace';
+import { IGNITION_TEMP_C, burn, burnSecondsLeft, fireboxJunk, fuelCount, lightFire, statsOf } from './furnace';
 import { hearthName } from './hearthScan';
 import { buildHint } from './hearthStats';
+import { cableRefusal, ignitionPower } from './ignitionPower';
 import { itemName } from './machines';
 
 /** Seconds of fuel a night's rest consumes, and the least fire that must be left to allow it. */
@@ -24,13 +25,18 @@ export interface ActionHost extends SimContext {
 
 export type ForgeResult = { ok: true; made: number } | { ok: false; reason: string };
 
+/** Why there is nothing to light: an empty container blocking the firebox, or no fuel at all. */
+export function noFuelReason(e: FurnaceEntity): string {
+  const junk = fireboxJunk(e);
+  return junk && fuelCount(e) === 0 ? `Take the ${itemName(junk)} out of the firebox` : 'No fuel in the firebox';
+}
+
 const tooCold = (needC: number, e: FurnaceEntity): string => `Needs ${needC} C - the furnace is at ${Math.floor(e.tempC)} C`;
 
 export function light(host: ActionHost, e: FurnaceEntity, node: SimNode): ActionResult {
   if (e.ignited) return refuse('The Starhearth needs no fire');
   if (e.lit) return refuse('The fire is already burning');
-  if (e.burnItem === null && fuelCount(e) === 0 && (node.extraFuel?.lavaUnits() ?? 0) === 0) return refuse('No fuel in the firebox');
-  lightFire(e, host, node.extraFuel);
+  if (!lightFire(e, host, node.extraFuel)) return refuse(noFuelReason(e));
   e.fuelSeen = fuelCount(e);
   return OK;
 }
@@ -138,7 +144,9 @@ export function ignitionCheck(e: FurnaceEntity, node: SimNode): ActionResult {
   if (e.tempC < IGNITION_TEMP_C) return refuse(tooCold(IGNITION_TEMP_C, e));
   const net = node.net;
   if (!net || (net.generationW <= 0 && net.storedJ <= 0)) return refuse('Connect it to a power network first');
-  return OK;
+  const power = ignitionPower(e, node);
+  const cable = power ? cableRefusal(power) : null;
+  return cable ? refuse(cable) : OK;
 }
 
 export function startIgnition(host: ActionHost, e: FurnaceEntity, node: SimNode): ActionResult {

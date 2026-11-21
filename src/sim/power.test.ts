@@ -256,7 +256,7 @@ describe('network solving', () => {
 
     kit.sim.setMachineOn(3, 5, 0, false);
     kit.sim.setMachineOn(2, 5, 0, false);
-    kit.run(2);
+    kit.run(4);
     expect(crusher.f).toBe(1);
     expect(alerts.map((a) => a.kind)).toEqual(['brownout', 'recovered']);
     kit.run(20);
@@ -282,7 +282,7 @@ describe('network solving', () => {
     expect(engine.outW).toBeCloseTo(10000, 6);
     // With the copper cable replaced the limit is the generator, not the cable.
     kit.world.put(2, 5, 0, 'heavy_cable');
-    kit.run(2);
+    kit.run(4);
     expect(net(kit, 0, 5, 0)).toMatchObject({ ratingW: 120000, deliveredW: 12000, overloaded: false, state: 'brownout' });
     expect(alerts.map((a) => a.kind)).toEqual(['overload', 'brownout']);
   });
