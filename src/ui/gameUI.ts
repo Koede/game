@@ -18,6 +18,7 @@ import type { UIRoot } from './kit/root';
 import type { Window } from './kit/window';
 import { PauseMenu } from './menus/pause';
 import { createDeathScreen } from './screens/death/deathScreen';
+import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
 import { createLogScreen } from './screens/log/logScreen';
 import { SlotController } from './screens/slots';
@@ -150,10 +151,12 @@ export class GameUI {
     this.registerScreen('inventory', createInventoryScreen);
     this.registerScreen('workbench', createWorkbenchScreen);
     this.registerScreen('log', createLogScreen);
+    this.registerScreen('creative', (_request, ctx) => createCreativeScreen(ctx));
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
         const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, onResume: () => undefined, onQuit: pause.onQuit });
+        menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });
     }

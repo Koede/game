@@ -998,3 +998,37 @@
     animation: none;
   }
 }
+
+/* Dev Mode: the Creative button, left edge, below the vitals; and the creative screen. */
+.hw-devchip {
+  position: absolute;
+  left: calc(var(--hw-safe-l, 0px) + 8px);
+  top: 46%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--hw-tap, 44px);
+  min-height: var(--hw-tap, 44px);
+  padding: 2px 8px;
+  border: 1px solid var(--hw-power, #5bb8ff);
+  border-radius: var(--hw-radius, 6px);
+  background: rgba(12, 14, 18, 0.72);
+  color: var(--hw-ink, #eee);
+  font: 600 11px/1.1 var(--hw-font-display, sans-serif);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hw-devchip b {
+  color: var(--hw-power, #5bb8ff);
+  letter-spacing: 0.08em;
+}
+.hw-hud[data-screen] .hw-devchip {
+  display: none;
+}
+@media (max-height: 519.98px) {
+  .hw-devchip {
+    top: auto;
+    bottom: 38%;
+  }
+}

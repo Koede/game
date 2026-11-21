@@ -1,5 +1,6 @@
 /** The front door: wordmark, one line of promise, and the way into a world. */
 import type { Difficulty, Settings } from '../../core/context';
+import { modeLabel, type GameMode } from '../../core/gameMode';
 import { Button, Segmented, TextField } from '../kit/controls';
 import { h, setText } from '../kit/dom';
 import { heatColor } from '../kit/format';
@@ -14,12 +15,15 @@ import { DIFFICULTY_OPTIONS, difficultyHint } from './settingsText';
 export interface TitleScreenOptions {
   /** Whether a saved world exists: adds Continue and makes New World a hold-to-confirm button. */
   hasSave: boolean;
+  /** The mode of the saved world, named on the Continue button so the two can never be mixed up. */
+  savedMode?: GameMode;
   settings: Settings;
   /**
    * Start a fresh world. `seed` is what the player typed, or null for a random world. The difficulty picked beside
+   * `mode` is the Survival | Dev choice beside the button (Survival unless the player switched it). The difficulty picked beside
    * New World has already been passed to `onSettingsChange` (key 'difficulty'): read it from the settings.
    */
-  onNewWorld: (seed: string | null) => void;
+  onNewWorld: (seed: string | null, mode: GameMode) => void;
   onContinue: () => void;
   /** Same contract as SettingsPanel: called on every change with a fresh copy. */
   onSettingsChange: (settings: Settings, key: keyof Settings) => void;
@@ -37,6 +41,10 @@ const WORD_POWER = 'WATT';
 const LETTER_TEMPS = [640, 800, 960, 1120, 1300, 1500];
 const DEFAULT_AGES = ['Ember', 'Forge', 'Current', 'Atomic', 'Star'];
 const AGE_COLORS = [heatColor(800), heatColor(1150), 'var(--hw-power)', 'var(--hw-power-hi)', heatColor(1500)];
+const MODE_HINTS: Record<GameMode, string> = {
+  survival: 'The real game: heat, hunger and the Emberbound.',
+  dev: 'Creative items, no damage or hunger, free building, flight.',
+};
 const PROMISE = ['Start with a clay furnace.', 'End with a star.'];
 
 export class TitleScreen {
@@ -50,6 +58,9 @@ export class TitleScreen {
   private readonly seed: TextField;
   private readonly difficulty: Segmented<Difficulty>;
   private readonly difficultyHint: HTMLParagraphElement;
+  private readonly mode: Segmented<GameMode>;
+  private readonly modeHint: HTMLParagraphElement;
+  private savedMode: GameMode;
   private settings: Settings;
   private hasSave: boolean;
   private buttons: Button[] = [];
@@ -61,6 +72,17 @@ export class TitleScreen {
     this.opts = opts;
     this.settings = { ...opts.settings };
     this.hasSave = opts.hasSave;
+    this.savedMode = opts.savedMode ?? 'survival';
+    this.modeHint = h('p', { class: 'hw-title__hint', text: MODE_HINTS.survival });
+    this.mode = new Segmented<GameMode>({
+      label: 'World mode',
+      options: [
+        { value: 'survival', label: 'Survival' },
+        { value: 'dev', label: 'Dev' },
+      ],
+      value: 'survival',
+      onChange: (m) => setText(this.modeHint, MODE_HINTS[m]),
+    });
     this.seed = new TextField({
       label: 'World seed',
       placeholder: 'Leave empty for a random world',
@@ -142,9 +164,10 @@ export class TitleScreen {
   }
 
   /** Call after a save was written or deleted while the title is alive. */
-  setHasSave(hasSave: boolean): void {
-    if (hasSave === this.hasSave) return;
+  setHasSave(hasSave: boolean, savedMode: GameMode = this.savedMode): void {
+    if (hasSave === this.hasSave && savedMode === this.savedMode) return;
     this.hasSave = hasSave;
+    this.savedMode = savedMode;
     this.buildMenu();
   }
 
@@ -177,7 +200,7 @@ export class TitleScreen {
       onClick: () => this.newWorld(),
     });
     const resume = this.hasSave
-      ? new Button({ label: 'Continue', kind: 'primary', size: 'lg', block: true, icon: 'play', onClick: () => this.opts.onContinue() })
+      ? new Button({ label: 'Continue', kind: 'primary', size: 'lg', block: true, icon: 'play', hint: `${modeLabel(this.savedMode)} world`, onClick: () => this.opts.onContinue() })
       : null;
     const settings = new Button({ label: 'Settings', kind: 'quiet', block: true, onClick: () => this.openSettings() });
     const howTo = new Button({ label: 'How to Play', kind: 'quiet', block: true, onClick: () => this.openHowTo() });
@@ -189,6 +212,7 @@ export class TitleScreen {
         { class: 'hw-title__new' },
         newWorld.el,
         this.seed.el,
+        h('div', { class: 'hw-title__difficulty hw-title__mode' }, h('span', { class: 'hw-title__label', text: 'Mode' }), this.mode.el, this.modeHint),
         h(
           'div',
           { class: 'hw-title__difficulty' },
@@ -203,7 +227,7 @@ export class TitleScreen {
 
   private newWorld(): void {
     const seed = this.seed.value.trim();
-    this.opts.onNewWorld(seed === '' ? null : seed);
+    this.opts.onNewWorld(seed === '' ? null : seed, this.mode.value);
   }
 
   /** Every settings change made on the title (its Settings window or the New World difficulty) goes through here. */

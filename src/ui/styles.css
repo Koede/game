@@ -2762,3 +2762,40 @@ body {
     font-size: 15px;
   }
 }
+
+/* Dev Mode creative screen (docs/api/dev-mode.md) */
+.hw-creative__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.hw-creative__make {
+  gap: 8px;
+}
+.hw-creative__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.hw-creative__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 4px;
+}
+.hw-creative__grid > [hidden] {
+  display: none;
+}
+.hw-creative__empty,
+.hw-creative__info {
+  margin: 0;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+.hw-creative__info {
+  flex: 0 0 auto;
+  min-height: 2.6em;
+  max-height: 4.2em;
+  overflow: hidden;
+}

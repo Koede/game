@@ -126,6 +126,7 @@ export class Hud {
       this.crosshair.el,
       bottom,
       this.coach.el,
+      deps.player.dev ? this.devButton(bus) : null,
     );
     root.layers.hud.appendChild(this.el);
     // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
@@ -248,6 +249,13 @@ export class Hud {
   }
 
   /** A screen covers the view: the crosshair and the gain feed step back. */
+  /** Dev Mode: the always-visible Creative button (E and the touch backpack button open the same screen). */
+  private devButton(bus: GameBus): HTMLButtonElement {
+    const button = h('button', { class: 'hw-devchip', attrs: { type: 'button', 'aria-label': 'Open the creative menu (Dev Mode)' } }, h('b', { text: 'DEV' }), h('span', { text: 'Items' }));
+    button.addEventListener('click', () => bus.emit('ui:open', { screen: { type: 'creative' } }));
+    return button;
+  }
+
   setScreenOpen(open: boolean): void {
     this.screenOpen = open;
     setFlag(this.el, 'screen', open);

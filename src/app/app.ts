@@ -5,6 +5,7 @@
  */
 import workerSource from 'virtual:worker';
 import type { Settings } from '../core/context';
+import { parseGameMode, type GameMode } from '../core/gameMode';
 import { SaveSlot, type WorldSave } from '../save/document';
 import type { SaveResult } from '../save/storage';
 import { UIRoot } from '../ui/kit/root';
@@ -37,6 +38,8 @@ export class App {
   lastSave: { ok: boolean; reason?: string; at: number } | null = null;
   /** The world in the save slot as JSON text (what Continue loads and every save writes), or null. */
   private worldText: string | null;
+  /** Mode of the world in the slot (named on the title's Continue button). */
+  private savedMode: GameMode;
   private title: TitleScreen | null = null;
   private readonly loading = new LoadingScreen();
   private rafId = 0;
@@ -58,6 +61,7 @@ export class App {
     const doc = this.slot.read();
     this.settings = { ...doc.settings };
     this.worldText = doc.world ? JSON.stringify(doc.world) : null;
+    this.savedMode = parseGameMode(doc.world?.mode);
     diag('app.boot', () => ({
       persistent: this.slot.persistent,
       slotProblem: this.slot.lastProblem ?? null,
@@ -113,14 +117,15 @@ export class App {
     if (!this.title) {
       this.title = new TitleScreen(this.root, {
         hasSave: this.slotTaken,
+        savedMode: this.savedMode,
         settings: this.settings,
         version: VERSION,
-        onNewWorld: (seed) => this.newWorld(seed),
+        onNewWorld: (seed, mode) => this.newWorld(seed, mode),
         onContinue: () => this.continueWorld(),
         onSettingsChange: (s, key) => this.changeSettings(s, key),
       });
     }
-    this.title.setHasSave(this.slotTaken);
+    this.title.setHasSave(this.slotTaken, this.savedMode);
     this.title.show();
   }
 
@@ -132,10 +137,10 @@ export class App {
 
   // ---- starting a world --------------------------------------------------------------------------------------
 
-  newWorld(seedText: string | null): void {
+  newWorld(seedText: string | null, mode: GameMode = 'survival'): void {
     if (this.phase !== 'title') return;
     const seed = seedFrom(seedText);
-    this.start('Generating world', seedText ? `Seed "${seedText}" (${seed})` : `Seed ${seed}`, (pool) => GameState.create(seed, seedText, { pool, difficulty: this.settings.difficulty }));
+    this.start('Generating world', seedText ? `Seed "${seedText}" (${seed})` : `Seed ${seed}`, (pool) => GameState.create(seed, seedText, { pool, difficulty: this.settings.difficulty, mode }));
   }
 
   continueWorld(): void {
@@ -280,6 +285,7 @@ export class App {
     if (game && (this.phase === 'playing' || this.phase === 'loading')) {
       try {
         this.worldText = game.toSaveJson();
+        this.savedMode = game.state.mode;
       } catch (err) {
         console.error('[app] could not snapshot the world', err);
         diag('save.snapshot_failed', { error: String(err), phase: this.phase });
@@ -337,8 +343,9 @@ export class App {
   /** Forgets the saved world (debug / tests). */
   deleteSave(): void {
     this.worldText = null;
+    this.savedMode = 'survival';
     this.slot.writeText({ ...this.settings }, null);
-    this.title?.setHasSave(this.slotTaken);
+    this.title?.setHasSave(this.slotTaken, this.savedMode);
   }
 
   // ---- settings ----------------------------------------------------------------------------------------------

@@ -91,7 +91,7 @@ export interface DebugHandle {
   selectSlot(slot: number): void;
   tick(n: number): void;
   save(): boolean;
-  newWorld(seed?: string | null): void;
+  newWorld(seed?: string | null, mode?: 'survival' | 'dev'): void;
   continueWorld(): void;
   quit(): void;
   /** Stops the running world without saving and deletes the save. */
@@ -288,7 +288,7 @@ export function createDebugHandle(app: App): DebugHandle {
       game().tick(n);
     },
     save: () => app.save(),
-    newWorld: (seed = null) => app.newWorld(seed),
+    newWorld: (seed = null, mode = 'survival') => app.newWorld(seed, mode),
     continueWorld: () => app.continueWorld(),
     quit: () => app.saveAndQuit(),
     reset() {
