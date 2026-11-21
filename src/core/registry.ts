@@ -10,12 +10,14 @@ import {
   CREATURE_SPECS,
   FURNACE_TIERS as FURNACE_TIER_SPECS,
   ITEM_SPECS,
+  LOOT_TABLES as LOOT_TABLE_SPECS,
   MACHINE_SPECS,
   OBJECTIVES as OBJECTIVE_SPECS,
   ORE_VEINS as ORE_VEIN_SPECS,
   RECIPE_SPECS,
 } from '../content';
 import {
+  ALL_BIOMES,
   Face,
   FACING_TO_FACE,
   VOXEL_ID_MASK,
@@ -32,6 +34,9 @@ import {
   type FurnaceTierSpec,
   type ItemDef,
   type ItemSpec,
+  type ItemStack,
+  type LootTableSpec,
+  type LootTier,
   type MachineSpec,
   type ObjectiveCondition,
   type ObjectiveSpec,
@@ -122,6 +127,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     cableRatingW: spec.cableRatingW ?? 0,
     age: spec.age ?? 0,
     placeOn: spec.placeOn ?? null,
+    harvestLeaves: spec.harvestLeaves ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
     layersActive,
@@ -325,6 +331,53 @@ export function creature(key: string): CreatureSpec {
 export const creatureOrNull = (key: string): CreatureSpec | null => creaturesByKey.get(key) ?? null;
 
 // ---------------------------------------------------------------------------------------------
+// Old Works loot (spec 14)
+// ---------------------------------------------------------------------------------------------
+
+/** The loot tables of ruin crates, one per tier. */
+export const LOOT_TABLES: readonly LootTableSpec[] = LOOT_TABLE_SPECS;
+/** The table of a tier. Throws when the content has none. */
+export function lootTable(tier: LootTier): LootTableSpec {
+  const table = LOOT_TABLES.find((t) => t.tier === tier);
+  if (!table) throw new Error(`no loot table for tier "${tier}"`);
+  return table;
+}
+
+const rollCount = (count: number | readonly [number, number], random: () => number): number =>
+  typeof count === 'number' ? count : count[0] + Math.floor(random() * (count[1] - count[0] + 1));
+
+/**
+ * Fills a ruin crate: `rolls` weighted draws (with replacement) from the table, each of its count, merged into
+ * stacks no larger than each item's stack size, in draw order (tools come with full durability). `random`
+ * returns [0, 1) - pass a stream seeded
+ * from the world seed and the crate's position so the same world always holds the same loot.
+ */
+export function rollLoot(table: LootTableSpec, random: () => number): ItemStack[] {
+  const total = table.entries.reduce((sum, e) => sum + e.weight, 0);
+  const out: ItemStack[] = [];
+  const draws = rollCount(table.rolls, random);
+  for (let d = 0; d < draws; d++) {
+    let pick = random() * total;
+    const entry = table.entries.find((e) => (pick -= e.weight) < 0) ?? table.entries[table.entries.length - 1];
+    let count = rollCount(entry.count, random);
+    const def = item(entry.item);
+    const stack = def.stack;
+    for (const s of out) {
+      if (count === 0) break;
+      if (s.item !== entry.item || s.count >= stack) continue;
+      const moved = Math.min(count, stack - s.count);
+      s.count += moved;
+      count -= moved;
+    }
+    for (; count > 0; count -= Math.min(count, stack)) {
+      const n = Math.min(count, stack);
+      out.push(def.tool ? { item: entry.item, count: n, durability: def.tool.durability } : { item: entry.item, count: n });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Validation (used by tests; returns human-readable problems, empty when content is consistent)
 // ---------------------------------------------------------------------------------------------
 
@@ -338,11 +391,15 @@ export function validateContent(): string[] {
     if (def.placeOn) for (const k of def.placeOn) if (!blocksByKey.has(k)) problems.push(`block ${def.key}: placeOn "${k}" is not a block`);
     if (def.power === 'cable' && def.cableRatingW <= 0) problems.push(`block ${def.key}: cable without cableRatingW`);
     if (def.light < 0 || def.light > 15 || def.lightActive < 0 || def.lightActive > 15) problems.push(`block ${def.key}: light out of 0..15`);
+    if (def.harvestLeaves !== null && !blocksByKey.has(def.harvestLeaves)) problems.push(`block ${def.key}: harvestLeaves "${def.harvestLeaves}" is not a block`);
   }
   for (const it of ITEMS) {
     if (it.block && !blocksByKey.has(it.block)) problems.push(`item ${it.key}: places unknown block "${it.block}"`);
     if (it.age < 0 || it.age >= AGES.length) problems.push(`item ${it.key}: age ${it.age} out of range`);
     if (it.stack < 1) problems.push(`item ${it.key}: stack must be >= 1`);
+    const back = it.fuel?.fuelReturns;
+    if (back !== undefined && !knownItem(back)) problems.push(`item ${it.key}: fuelReturns "${back}" is not an item`);
+    if (back !== undefined && it.stack !== 1) problems.push(`item ${it.key}: a fuel that returns its container must stack to 1`);
   }
   for (const r of RECIPES) {
     if (!knownItem(r.output.item)) problems.push(`recipe ${r.id}: output "${r.output.item}" is not an item`);
@@ -397,10 +454,24 @@ export function validateContent(): string[] {
     if (food.buffS !== undefined && !(food.buffS > 0)) problems.push(`item ${it.key}: food buffS must be > 0`);
   }
   for (const c of CREATURES) problems.push(...validateCreature(c));
+  for (const v of ORE_VEINS) for (const b of Object.keys(v.biomes ?? {})) if (!BIOMES.has(b)) problems.push(`ore vein ${v.block}: unknown biome "${b}"`);
+  const tiers = new Set<string>();
+  for (const t of LOOT_TABLES) {
+    if (tiers.has(t.tier)) problems.push(`loot ${t.tier}: duplicate table`);
+    tiers.add(t.tier);
+    if (!(t.rolls[0] >= 1) || t.rolls[1] < t.rolls[0]) problems.push(`loot ${t.tier}: rolls must be [min >= 1, max >= min]`);
+    if (t.entries.length === 0) problems.push(`loot ${t.tier}: no entries`);
+    for (const e of t.entries) {
+      if (!knownItem(e.item)) problems.push(`loot ${t.tier}: "${e.item}" is not an item`);
+      if (!(e.weight > 0)) problems.push(`loot ${t.tier}: ${e.item} needs a weight > 0`);
+      const [lo, hi] = typeof e.count === 'number' ? [e.count, e.count] : e.count;
+      if (!(lo >= 1) || hi < lo) problems.push(`loot ${t.tier}: ${e.item} count must be >= 1`);
+    }
+  }
   return problems;
 }
 
-const BIOMES: ReadonlySet<string> = new Set(['woodland', 'dunes', 'frostfell', 'scar']);
+const BIOMES: ReadonlySet<string> = new Set(ALL_BIOMES);
 
 /** Problems with one species (validateContent runs it on every creature; exported for tests of the checks). */
 export function validateCreature(c: CreatureSpec): string[] {

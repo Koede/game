@@ -100,8 +100,8 @@ const BOAR: CreaturePart[] = [
 
 export const CREATURE_SPECS: CreatureSpec[] = [
   {
-    key: 'hen', name: 'Hen', desc: 'A plump, fussy bird of the woods and dunes. Scatter wheat seeds and she will follow you home.',
-    biomes: ['woodland', 'dunes'], health: 4, speed: 2.2, size: { w: 0.45, h: 0.7 },
+    key: 'hen', name: 'Hen', desc: 'A plump, fussy bird of the woods, the dunes and the marsh. Scatter wheat seeds and she will follow you home.',
+    biomes: ['woodland', 'dunes', 'marsh'], health: 4, speed: 2.2, size: { w: 0.45, h: 0.7 },
     drops: [{ item: 'raw_fowl', count: 1 }], likes: ['wheat_seeds'], group: [2, 4], model: HEN,
   },
   {
@@ -110,8 +110,8 @@ export const CREATURE_SPECS: CreatureSpec[] = [
     drops: [{ item: 'raw_mutton', count: [1, 2] }, { item: 'hide', count: 1, chance: 0.5 }], likes: ['wheat'], group: [2, 3], model: GOAT,
   },
   {
-    key: 'boar', name: 'Boar', desc: 'A bristly wild boar of the woods and the scar. Shy, but potatoes and carrots win it over.',
-    biomes: ['woodland', 'scar'], health: 10, speed: 2.8, size: { w: 0.9, h: 0.9 },
+    key: 'boar', name: 'Boar', desc: 'A bristly wild boar of the woods, the scar and the marsh wallows. Shy, but potatoes and carrots win it over.',
+    biomes: ['woodland', 'scar', 'marsh'], health: 10, speed: 2.8, size: { w: 0.9, h: 0.9 },
     drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }], likes: ['potato', 'carrot'], group: [2, 3], model: BOAR,
   },
 ];

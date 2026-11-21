@@ -7,6 +7,7 @@
  * becomes obtainable (content.test.ts proves it against the progression solver).
  */
 import type { BlockSpec, Drop } from '../core/types';
+import { WORLD_BLOCKS } from './blocksWorld';
 
 const FOLIAGE_DROPS: Drop[] = [
   { item: 'fiber', count: 1, chance: 0.3 },
@@ -247,4 +248,6 @@ export const BLOCK_SPECS: BlockSpec[] = [
     [{ item: 'wheat_seeds', count: [1, 2] }, { item: 'wheat', count: 1, chance: 0.5 }]),
   wildPlant('wild_potato', 'Wild Potato', 'Low leaves with small white flowers. Pull it up for a potato or two.', [{ item: 'potato', count: [1, 2] }]),
   wildPlant('wild_carrot', 'Wild Carrot', 'Lacy white flowers over a thin orange root. Pull it up for a carrot or two.', [{ item: 'carrot', count: [1, 2] }]),
+
+  ...WORLD_BLOCKS,
 ];

@@ -4,7 +4,7 @@
  *
  * Adding an event: append it here (never rename or remove one that another module may use).
  */
-import type { BlockEntity, ChangeSource, ChunkMeshData, Voxel } from './types';
+import type { BlockEntity, ChangeSource, ChunkMeshData, Voxel, WeatherKind } from './types';
 
 /** 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own). */
 export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger';
@@ -68,7 +68,14 @@ export type SfxName =
   | 'hen'
   | 'goat'
   | 'boar'
-  | 'mob_hurt';
+  | 'mob_hurt'
+  // ---- buckets, a richer world, weather (spec 13-15) ----
+  /** Rolling thunder; distance is expressed through `volume` (see 'weather:lightning'). Never positioned. */
+  | 'thunder'
+  /** A steam vent's breathy hiss, positioned at the vent. */
+  | 'steam_hiss'
+  /** A bronze bucket scooping (or pouring) lava: a thick glop and a sizzle. */
+  | 'scoop_lava';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed';
@@ -164,4 +171,14 @@ export interface GameEvents {
   'mob:died': { id: number; species: string };
   /** A crop advanced to `stage` (0-based; the last stage is ripe). */
   'crop:grew': { x: number; y: number; z: number; stage: number };
+
+  // ---- weather (spec 15) ----
+  /** The weather began changing (once per change, when the blend from `previous` to `kind` starts). */
+  'weather:changed': { kind: WeatherKind; previous: WeatherKind };
+  /**
+   * A storm's lightning flashed `distance` blocks away, towards `bearing` (radians, the camera's yaw convention:
+   * 0 = north, positive turns left). Visual only - it never strikes anything. The thunder 'sfx' follows after
+   * distance / SOUND_SPEED seconds.
+   */
+  'weather:lightning': { distance: number; bearing: number };
 }

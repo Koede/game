@@ -5,6 +5,10 @@
  */
 import { MUFFLE_OPEN_HZ } from './master';
 
+/** Rain heard in the open, and on a roof overhead. */
+export const RAIN_OPEN_HZ = 6500;
+export const RAIN_ROOF_HZ = 1300;
+
 export interface AmbienceState {
   /** How hot the nearest furnace is, 0 (cold, silent) .. 1 (as hot as it gets). */
   furnaceHeat: number;
@@ -23,6 +27,15 @@ export interface AmbienceState {
   cold: number;
   /** Starhearth ignition progress, 0 (not igniting) .. 1. */
   ignition: number;
+  /**
+   * Rain falling around the listener, 0..1: WeatherState.intensity while its precipitation is 'rain', else 0
+   * (snow falls silently; dust is heard through `storm`).
+   */
+  rain: number;
+  /** Storm gusts, 0..1: the intensity of a storm (or of a dust wind in the dunes); 0 in any other weather. */
+  storm: number;
+  /** A roof is overhead: rain turns into a dull drumming and the gusts are heard from inside. */
+  sheltered: boolean;
 }
 
 /** A silent state. The game loop can keep one of these and mutate it every frame. */
@@ -36,6 +49,9 @@ export const createAmbienceState = (): AmbienceState => ({
   underwater: false,
   cold: 0,
   ignition: 0,
+  rain: 0,
+  storm: 0,
+  sheltered: false,
 });
 
 /** Mixer settings derived from an AmbienceState. Levels are 0..1 before each layer's own trim. */
@@ -61,6 +77,14 @@ export interface AmbienceTargets {
   /** Cents below the final chord; the chord climbs an octave as ignition completes. */
   ignitionDetune: number;
   ignitionCutoff: number;
+  /** Rain hiss and patter. */
+  rain: number;
+  /** Low-pass on the rain: wide open outdoors, closed to a drum under a roof. */
+  rainCutoff: number;
+  /** The heavy low wash of a downpour (grows with the square of the rain). */
+  rainBody: number;
+  /** Storm gusts: deep, slow swells of wind. */
+  gust: number;
 }
 
 export const createAmbienceTargets = (): AmbienceTargets => ({
@@ -82,6 +106,10 @@ export const createAmbienceTargets = (): AmbienceTargets => ({
   ignition: 0,
   ignitionDetune: -1200,
   ignitionCutoff: 400,
+  rain: 0,
+  rainCutoff: RAIN_OPEN_HZ,
+  rainBody: 0,
+  gust: 0,
 });
 
 /** The fire is at full strength within this many blocks and inaudible past FIRE_NEAR + FIRE_RANGE. */
@@ -127,5 +155,12 @@ export function computeTargets(s: AmbienceState, out: AmbienceTargets): Ambience
   out.ignition = ignition > 0 ? 0.25 + 0.75 * ignition : 0;
   out.ignitionDetune = -1200 * (1 - ignition);
   out.ignitionCutoff = 400 + 4200 * ignition * ignition;
+
+  // The weather: shut out under water, softened (not silenced) under a roof.
+  const rain = s.underwater ? 0 : unit(s.rain);
+  out.rain = rain * (s.sheltered ? 0.7 : 1);
+  out.rainCutoff = s.sheltered ? RAIN_ROOF_HZ : RAIN_OPEN_HZ;
+  out.rainBody = rain * rain * (s.sheltered ? 0.5 : 1);
+  out.gust = s.underwater ? 0 : unit(s.storm) * (s.sheltered ? 0.45 : 1);
   return out;
 }

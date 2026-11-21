@@ -9,11 +9,12 @@ function vein(block: string, minY: number, maxY: number, veinsPerChunk: number, 
 }
 
 export const ORE_VEINS: OreVeinSpec[] = [
-  vein('coal_ore', 20, 70, 5, 8),
+  vein('coal_ore', 20, 70, 5, 8, { marsh: 1.5 }),
   vein('copper_ore', 16, 60, 4, 6, { dunes: 2 }),
   vein('tin_ore', 30, 66, 2.5, 5),
   vein('limestone', 22, 52, 1.5, 14),
-  vein('iron_ore', 6, 46, 4, 6),
+  // The marsh is rich in bog iron and in coal laid down from old peat.
+  vein('iron_ore', 6, 46, 4, 6, { marsh: 1.5 }),
   vein('sulfur_ore', 4, 34, 1, 5, { scar: 3 }),
   vein('oil_shale', 10, 40, 1, 8, { dunes: 2, scar: 2 }),
   vein('quartz_ore', 6, 38, 1.5, 5),

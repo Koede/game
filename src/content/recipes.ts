@@ -116,6 +116,8 @@ const FORGE: RecipeSpec[] = [
   forge(1, 'hearth_stew', '1 cooked_chop, 1 potato, 1 carrot, 1 water_pail', 300, { byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_mutton', byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_fowl', byproducts: '1 pail' }),
+  // Spec 13: a bucket that survives lava.
+  forge(1, 'bronze_bucket', '3 bronze_ingot', 700),
 
   // ---- Blast Furnace ----
   forge(2, 'iron_pickaxe', '3 iron_ingot, 2 stick', 1000),

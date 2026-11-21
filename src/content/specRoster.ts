@@ -5,6 +5,7 @@
  */
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { FOOD_SPEC } from './specRosterFood';
+import { WORLD_SPEC } from './specRosterWorld';
 
 type Numbers = Record<string, number>;
 
@@ -31,6 +32,7 @@ export const SPEC = {
     'blower', 'space_heater', 'crusher', 'still', 'bore_rig', 'centrifuge', 'electrolyzer',
     'corium',
     ...FOOD_SPEC.blocks,
+    ...WORLD_SPEC.blocks,
   ],
 
   items: [
@@ -45,6 +47,7 @@ export const SPEC = {
     'star_core', 'fuel_canister',
     'pail', 'water_pail', 'padded_coat', 'shield_suit',
     ...FOOD_SPEC.items,
+    ...WORLD_SPEC.items,
   ],
 
   /** material -> [tier, speed, durability] for its pickaxe, axe and shovel. */
@@ -54,6 +57,7 @@ export const SPEC = {
   fuels: {
     stick: [30_000, 12, 450], plank: [60_000, 20, 550], oak_log: [200_000, 50, 650], pine_log: [200_000, 50, 650],
     charcoal: [400_000, 80, 1000], coal: [800_000, 100, 1250], coke: [1_200_000, 120, 1550],
+    ...WORLD_SPEC.fuels,
   } as Record<string, number[]>,
 
   /**
@@ -121,6 +125,7 @@ export const SPEC = {
       'hearth_stew: 1 hearth_stew <- 1 cooked_chop, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_mutton: 1 hearth_stew <- 1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_fowl: 1 hearth_stew <- 1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail @300 T1',
+      'bronze_bucket: 1 bronze_bucket <- 3 bronze_ingot @700 T1',
 
       'iron_pickaxe: 1 iron_pickaxe <- 3 iron_ingot, 2 stick @1000 T2',
       'iron_axe: 1 iron_axe <- 3 iron_ingot, 2 stick @1000 T2',
@@ -206,7 +211,7 @@ export const SPEC = {
     burner_generator: ['generator', { outputW: 3000, efficiency: 0.3, slots: 1 }],
     water_wheel: ['generator', { outputW: 400, minWater: 2, shareRadius: 3 }],
     wind_turbine: ['generator', { outputW: 1500, windMin: 0.25, windMax: 1, altitudeBaseY: 40, altitudeSpanY: 40, altitudeMin: 0.25, altitudeMax: 1 }],
-    solar_panel: ['generator', { outputW: 300, minSunlight: 0.1 }],
+    solar_panel: ['generator', { outputW: 300, minSunlight: 0.15 }],
     combustion_engine: ['generator', { outputW: 12_000, efficiency: 0.4, fuelEnergyJ: 6_000_000, slots: 1 }],
     geothermal_tap: ['generator', { outputW: 6000, wattsPerLava: 2000, capW: 6000 }],
     fission_pile: ['generator', {
@@ -224,15 +229,16 @@ export const SPEC = {
     centrifuge: ['consumer', { drawW: 8000, slots: 2 }],
     electrolyzer: ['consumer', { drawW: 20_000, slots: 2, minWater: 1 }],
     crop: ['crop', { stageS: 100, dryRate: 0.5, hydrationRadius: 4, lampRadius: 5, minSunlight: 0.3 }],
+    berry_bush: ['bush', { regrowS: 300 }],
   } as Record<string, [MachineRole, Numbers]>,
 
   /** block, minY, maxY, veinsPerChunk, veinSize, biome multipliers. */
   oreVeins: [
-    ['coal_ore', 20, 70, 5, 8, {}],
+    ['coal_ore', 20, 70, 5, 8, { marsh: 1.5 }],
     ['copper_ore', 16, 60, 4, 6, { dunes: 2 }],
     ['tin_ore', 30, 66, 2.5, 5, {}],
     ['limestone', 22, 52, 1.5, 14, {}],
-    ['iron_ore', 6, 46, 4, 6, {}],
+    ['iron_ore', 6, 46, 4, 6, { marsh: 1.5 }],
     ['sulfur_ore', 4, 34, 1, 5, { scar: 3 }],
     ['oil_shale', 10, 40, 1, 8, { dunes: 2, scar: 2 }],
     ['quartz_ore', 6, 38, 1.5, 5, {}],
@@ -287,17 +293,18 @@ export const SPEC = {
     space_heater: { ...DEVICE, warmth: 0, warmthActive: 6 },
     corium: { ...pick(5), radiation: 8, light: 9, drops: [], itemKey: null },
     ...FOOD_SPEC.blockProps,
+    ...WORLD_SPEC.blockProps,
   } as Record<string, Partial<BlockDef>>,
 
   /** Block items that exist for the codex but can never be picked up: these blocks drop something else. */
   worldOnlyItems: ['stone', 'grass', 'oak_leaves', 'pine_leaves', 'tall_grass', 'dry_shrub', 'coal_ore', 'sulfur_ore'],
 
   /** World blocks the tech tree must not depend on: lava, loose rubble, and the biome-flavoured ones. */
-  optionalWorldBlocks: ['lava', 'rubble', 'snow', 'ice', 'basalt'],
+  optionalWorldBlocks: ['lava', 'rubble', 'snow', 'ice', 'basalt', ...WORLD_SPEC.optional],
 
   /**
    * Ceiling on distinct texture names (block faces + item icons + 'missing'). One texture array holds them all,
-   * and WebGL2 only guarantees 256 layers.
+   * and WebGL2 only guarantees 256 layers: 224 are in use after sections 13-15, so spend the rest with care.
    */
-  maxTextures: 210,
+  maxTextures: 232,
 };

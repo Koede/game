@@ -11,19 +11,49 @@
  *
  * Food (spec 12): animals are hunted bare-handed from the start, so their drops are world resources. Wild plants
  * are natural blocks. A crop yields its ripe drops once its seed, a hoe and tillable soil are all to hand.
+ *
+ * A richer world (spec 13-14): marsh peat is a natural fuel, a picked berry bush leaves a bare bush (whose drops
+ * count too), and a bucket fills from a liquid of the world (wooden bucket from water, bronze bucket from lava).
+ * The Old Works' salvage blocks and crate loot are finite bonus finds, so they are not part of the assumed world:
+ * content tests hold them to the ages they may hand out instead.
  */
 import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FURNACE_BUFF_C } from '../core/constants';
 import {
   BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
   block, furnaceTier, item, machine, recipe, recipesFor,
 } from '../core/registry';
-import type { BlockDef, FurnaceTierSpec, ItemAmount, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind } from '../core/types';
+import type {
+  BiomeKey, BlockDef, FurnaceTierSpec, ItemAmount, LiquidKind, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind,
+} from '../core/types';
 
 /** Blocks the world generator places besides ore veins (spec 2.1 "Natural", minus air and the unbreakable floor). */
 export const NATURAL_BLOCKS: readonly string[] = [
   'stone', 'rubble', 'dirt', 'grass', 'sand', 'gravel', 'clay', 'snow', 'ice', 'basalt', 'limestone', 'water', 'lava',
   'oak_log', 'oak_leaves', 'pine_log', 'pine_leaves', 'tall_grass', 'dry_shrub',
   'wild_wheat', 'wild_potato', 'wild_carrot',
+  'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'glowcap', 'cactus', 'packed_ice', 'ice_spike',
+  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'oil',
+];
+
+/** Ruin blocks that hold finite salvage (spec 14): bonus finds, left out of the assumed world. */
+export const RUIN_SALVAGE_BLOCKS: readonly string[] = ['collapsed_furnace', 'rusted_shell'];
+
+/**
+ * Natural blocks that only one biome has (as far as the tech tree may assume); every other natural block occurs in
+ * any biome. Tests prove the game can be finished from each biome alone.
+ */
+export const BIOME_ONLY_BLOCKS: Readonly<Record<BiomeKey, readonly string[]>> = {
+  woodland: ['fern'],
+  dunes: ['cactus'],
+  frostfell: ['snow', 'ice', 'packed_ice', 'ice_spike', 'frost_lily'],
+  scar: ['basalt', 'basalt_column', 'steam_vent'],
+  marsh: ['peat'],
+};
+
+/** Using an empty container on a liquid of the world fills it: [container, liquid, filled item] (spec 13). */
+export const BUCKET_FILLS: ReadonlyArray<readonly [string, LiquidKind, string]> = [
+  ['pail', 'water', 'water_pail'],
+  ['bronze_bucket', 'lava', 'lava_bucket'],
 ];
 
 /** Blocks a hoe turns into farmland. */
@@ -62,7 +92,17 @@ export interface Progress {
   cableRatingW: number;
 }
 
-const worldBlocks: BlockDef[] = [...new Set([...NATURAL_BLOCKS, ...ORE_VEINS.map((v) => v.block)])].map(block);
+/** Blocks in the world, plus what harvesting them leaves behind (a picked berry bush), transitively. */
+function withHarvests(keys: Iterable<string>): BlockDef[] {
+  const out = new Set<string>(keys);
+  for (const key of out) {
+    const leaves = block(key).harvestLeaves;
+    if (leaves) out.add(leaves);
+  }
+  return [...out].map(block);
+}
+const worldKeys: readonly string[] = [...new Set([...NATURAL_BLOCKS, ...ORE_VEINS.map((v) => v.block)])];
+const worldBlocks: BlockDef[] = withHarvests(worldKeys);
 const generators = [...MACHINES.values()].filter((m) => m.role === 'generator');
 const storages = [...MACHINES.values()].filter((m) => m.role === 'storage');
 const cables = BLOCKS.filter((b) => b.power === 'cable' && b.itemKey !== null);
@@ -85,8 +125,8 @@ const heatDriven = (m: MachineSpec): boolean => m.params?.heatPerWatt !== undefi
  * `missing` removes blocks from the assumed world, to prove that nothing essential hangs on them.
  */
 export function solve(maxTier: number, missing: readonly string[] = []): Progress {
-  const world = worldBlocks.filter((b) => !missing.includes(b.key));
-  const worldHasLiquid = (kind: 'water' | 'lava'): boolean => world.some((b) => b.liquid === kind);
+  const world = withHarvests(worldKeys.filter((key) => !missing.includes(key)));
+  const worldHasLiquid = (kind: LiquidKind): boolean => world.some((b) => b.liquid === kind);
   const items = new Set<string>();
   const source = new Map<string, string>();
   const recipes = new Set<string>();
@@ -157,8 +197,10 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
       if (!minable(def)) continue;
       for (const drop of def.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, 'world')) changed = true;
     }
-    // A pail used on water becomes a pail of water (item use, not a recipe).
-    if (items.has('pail') && worldHasLiquid('water') && gain('water_pail', 'world')) changed = true;
+    // An empty bucket used on its liquid fills (item use, not a recipe).
+    for (const [empty, liquid, full] of BUCKET_FILLS) {
+      if (items.has(empty) && worldHasLiquid(liquid) && gain(full, 'world')) changed = true;
+    }
     // Animals live in the world from the start and can be hunted by hand.
     for (const c of CREATURES) {
       for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;

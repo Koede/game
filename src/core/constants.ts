@@ -1,4 +1,5 @@
 /** Gameplay tunables shared across modules. Content-specific numbers (recipes, machines) live in src/content. */
+import type { BiomeKey, Precipitation, WeatherKind } from './types';
 
 // --- simulation clock ---
 export const TICK_RATE = 20;
@@ -132,3 +133,65 @@ export const MOB_HIT_COOLDOWN_S = 0.4;
 export const MOB_DEATH_S = 0.6;
 export const MOB_CALL_MIN_S = 8;
 export const MOB_CALL_MAX_S = 20;
+
+// --- weather and the moon (spec 15; lookups in src/core/weather.ts) ---
+/** A weather state lasts this long (uniformly between the two), then the next one is drawn. */
+export const WEATHER_MIN_S = 240;
+export const WEATHER_MAX_S = 720;
+/** A change from one state to the next eases over this long (uniformly between the two). */
+export const WEATHER_BLEND_MIN_S = 30;
+export const WEATHER_BLEND_MAX_S = 60;
+/** Chance of each state at every draw (sums to 1). Drawing the state already current simply extends it. */
+export const WEATHER_CHANCE: Readonly<Record<WeatherKind, number>> = { clear: 0.45, cloudy: 0.25, rain: 0.2, storm: 0.1 };
+/** Cloud cover 0..1 of each settled state (sky, cloud layer, sun disc dimming). */
+export const WEATHER_CLOUD_COVER: Readonly<Record<WeatherKind, number>> = { clear: 0.15, cloudy: 0.7, rain: 0.9, storm: 1 };
+/**
+ * Brightness multiplier on the daytime sky and sunlit terrain of each settled state. Render only: the clock's
+ * sunlight factor, which crops and the HUD read, is never changed by the weather.
+ */
+export const WEATHER_DAYLIGHT: Readonly<Record<WeatherKind, number>> = { clear: 1, cloudy: 0.82, rain: 0.68, storm: 0.52 };
+/** Strength 0..1 of whatever falls (rain, snow or dust) in each settled state. */
+export const WEATHER_INTENSITY: Readonly<Record<WeatherKind, number>> = { clear: 0, cloudy: 0, rain: 0.6, storm: 1 };
+/** Solar panel output multiplier of each state (whatever falls: rain, snow or dust all block the sun). */
+export const WEATHER_SOLAR: Readonly<Record<WeatherKind, number>> = { clear: 1, cloudy: 0.5, rain: 0.2, storm: 0.2 };
+/** Wind turbine output multiplier of each state (may lift a turbine past its rated output). */
+export const WEATHER_WIND: Readonly<Record<WeatherKind, number>> = { clear: 1, cloudy: 1, rain: 1, storm: 1.5 };
+/** What falls in each biome when it rains: snow in the frostfell, a dry dust wind in the dunes. */
+export const BIOME_PRECIPITATION: Readonly<Record<BiomeKey, Precipitation>> = {
+  woodland: 'rain', dunes: 'dust', frostfell: 'snow', scar: 'rain', marsh: 'rain',
+};
+/** At or above this height rain falls as snow in every biome except the dunes (high altitude). */
+export const SNOW_LINE_Y = 72;
+/** Rain or snow weaker than this is a drizzle: it does not chill the player or a furnace, nor water crops. */
+export const WET_MIN_INTENSITY = 0.25;
+/** Warmth lost per second while rain or snow falls on the player under open sky (on top of every other drain). */
+export const WARMTH_DRAIN_WET = 0.3;
+/** Heat-loss multiplier of a furnace with open sky above it while rain or snow falls there. */
+export const FURNACE_WET_LOSS_MULT = 1.5;
+/** Storms only: seconds between lightning flashes (uniform), and how far away they strike, in blocks. */
+export const LIGHTNING_MIN_S = 6;
+export const LIGHTNING_MAX_S = 22;
+export const LIGHTNING_MIN_DIST = 60;
+export const LIGHTNING_MAX_DIST = 900;
+/** Thunder follows a flash after distance / SOUND_SPEED seconds (blocks are metres). */
+export const SOUND_SPEED = 343;
+/** The moon runs through this many phases, one per day: 0 = new, 4 = full. */
+export const MOON_PHASES = 8;
+/** Phase of the moon on the first night of a new world (a full moon: the first night is the hardest). */
+export const MOON_FIRST_PHASE = 4;
+/** Night-time sunlight factor at new moon and at full moon (spec 3.5's ~0.08 is the average). */
+export const NIGHT_LIGHT_NEW_MOON = 0.04;
+export const NIGHT_LIGHT_FULL_MOON = 0.12;
+/** The star field turns about the pole this many times a day. */
+export const STAR_TURNS_PER_DAY = 1;
+
+// --- the Old Works ruins (spec 14; loot tables in src/content/loot.ts) ---
+/** One ruin site per square of this many chunks a side (at most; rolled per square from the seed). */
+export const RUIN_GRID_CHUNKS = 7;
+/** Chance that a square of the grid holds a ruin at all. */
+export const RUIN_CHANCE = 0.8;
+/** One ruin is always placed with its crate within this many blocks of world spawn. */
+export const RUIN_SPAWN_RADIUS = 96;
+/** A ruin farther than this from spawn, or with its crate this far below sea level or deeper, rolls the 'deep' table. */
+export const RUIN_DEEP_DISTANCE = 400;
+export const RUIN_DEEP_BELOW_SEA = 8;

@@ -57,14 +57,14 @@ describe('1. registry validation', () => {
 
 // -------------------------------------------------------------------------------------------------
 describe('2. roster of spec section 2', () => {
-  it('has exactly the 84 blocks (68 of section 2, 16 of section 12), air first', () => {
+  it('has exactly the 104 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(84);
+    expect(SPEC.blocks).toHaveLength(104);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
-  it('has exactly the 79 non-block items (60 of section 2, 19 of section 12)', () => {
-    expect(SPEC.items).toHaveLength(79);
+  it('has exactly the 82 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14)', () => {
+    expect(SPEC.items).toHaveLength(82);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
     expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
@@ -83,7 +83,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(110);
+    expect(RECIPES).toHaveLength(111);
   });
 
   it('has the furnace tiers of table 2.4', () => {
@@ -104,7 +104,9 @@ describe('2. roster of spec section 2', () => {
       for (const name of Object.keys(machine(kind).params ?? {})) expect(numbers, `${kind}.params.${name}`).toHaveProperty(name);
     }
     expect(machine('furnace').blocks).toEqual(FURNACE_TIERS.map((t) => t.block));
-    expect(sorted(machine('burner_generator').fuels ?? [])).toEqual(sorted(Object.keys(SPEC.fuels)));
+    // Every fuel except those that hand a container back: the burner's one slot has nowhere to put the bucket.
+    const returnsContainer = (key: string): boolean => item(key).fuel?.fuelReturns !== undefined;
+    expect(sorted(machine('burner_generator').fuels ?? [])).toEqual(sorted(Object.keys(SPEC.fuels).filter((k) => !returnsContainer(k))));
     expect(machine('combustion_engine').fuels).toEqual(['fuel_canister']);
     expect(machine('fission_pile').fuels).toEqual(['fuel_rod']);
   });
@@ -196,6 +198,12 @@ describe('4. structural rules', () => {
         expect(def.power, def.key).toBeNull();
         expect(def.itemKey, def.key).toBeNull();
         expect(def.placeOn, def.key).toEqual(['farmland']);
+        continue;
+      }
+      if (spec?.role === 'bush') {
+        // A regrowing wild plant: no power; picking the fruiting block leaves another block of the same bush.
+        expect(def.power, def.key).toBeNull();
+        expect(def.harvestLeaves === null || spec.blocks.includes(def.harvestLeaves), def.key).toBe(true);
         continue;
       }
       expect(def.drops, `${def.key} must drop itself`).toEqual([{ item: def.key, count: 1 }]);

@@ -105,6 +105,12 @@ export interface FuelSpec {
   flameTempC: number;
   /** Seconds one item burns for in a furnace firebox. */
   burnS: number;
+  /**
+   * Item handed back when one of this fuel has burned (the container it came in): a lava bucket returns the
+   * bronze bucket. Whatever consumes the fuel must give this item back; machines with no place to put it do not
+   * accept the fuel at all (spec 13).
+   */
+  fuelReturns?: string;
 }
 
 export type ItemCategory = 'block' | 'resource' | 'material' | 'component' | 'tool' | 'machine' | 'fuel' | 'misc' | 'food';
@@ -248,6 +254,11 @@ export interface BlockSpec {
   age?: number;
   /** If set, the block can only be placed on top of a block with one of these keys (plants, oil pump...). */
   placeOn?: string[];
+  /**
+   * Harvesting this block (breaking it, or picking it with Use) gives its drops and leaves this block in its
+   * place instead of air, keeping the voxel's block entity: a picked berry bush stays as a bare bush (spec 14).
+   */
+  harvestLeaves?: string;
 }
 
 export interface BlockDef {
@@ -280,6 +291,8 @@ export interface BlockDef {
   cableRatingW: number;
   age: number;
   placeOn: string[] | null;
+  /** Key of the block left behind when this one is harvested (see BlockSpec.harvestLeaves), or null. */
+  harvestLeaves: string | null;
   /** Key of the item that places this block, or null. */
   itemKey: string | null;
   /**
@@ -390,7 +403,12 @@ export type MachineRole =
   | 'crate'
   | 'boiler'
   /** A growing plant on farmland (no power, no screen): src/sim advances its stage block. */
-  | 'crop';
+  | 'crop'
+  /**
+   * A wild plant that fruits again after being picked (the berry bush; no power, no screen): src/sim swaps its
+   * picked block back to the fruiting block after params.regrowS seconds.
+   */
+  | 'bush';
 
 /** Static numbers for one kind of machine. The behaviour itself lives in src/sim. */
 export interface MachineSpec {
@@ -461,7 +479,10 @@ export interface ObjectiveSpec {
 // World generation data (authored in src/content, consumed by src/world)
 // ---------------------------------------------------------------------------------------------
 
-export type BiomeKey = 'woodland' | 'dunes' | 'frostfell' | 'scar';
+export type BiomeKey = 'woodland' | 'dunes' | 'frostfell' | 'scar' | 'marsh';
+
+/** Every biome, in a fixed order (spec 14 added the marsh). */
+export const ALL_BIOMES: readonly BiomeKey[] = ['woodland', 'dunes', 'frostfell', 'scar', 'marsh'];
 
 export interface OreVeinSpec {
   /** Block key of the ore. */
@@ -532,6 +553,61 @@ export interface CreatureSpec {
   group: readonly [number, number];
   /** Box model of an adult (see CreaturePart for units and orientation). */
   model: CreaturePart[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Old Works loot (authored in src/content/loot.ts, rolled by src/world into the crates of ruins; spec 14)
+// ---------------------------------------------------------------------------------------------
+
+/** 'near': ruins on the surface close to spawn - modest help. 'deep': buried or far-flung ruins - richer finds. */
+export type LootTier = 'near' | 'deep';
+
+export interface LootEntry {
+  item: string;
+  /** Count, or an inclusive [min, max] range. */
+  count: number | [number, number];
+  /** Relative weight among the entries of its table (> 0). */
+  weight: number;
+}
+
+export interface LootTableSpec {
+  tier: LootTier;
+  /** Number of weighted draws (with replacement), inclusive [min, max]. */
+  rolls: [number, number];
+  entries: LootEntry[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Weather and the moon (spec 15). Numbers live in src/core/constants.ts, lookups in src/core/weather.ts.
+// ---------------------------------------------------------------------------------------------
+
+export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'storm';
+/** What actually falls at a place: rain turns to snow in the cold and to blown dust in the dunes. */
+export type Precipitation = 'rain' | 'snow' | 'dust' | 'none';
+
+/**
+ * The weather as one module computes it (src/game, from the seed and the elapsed time) and the others read it
+ * (sim, render, audio, HUD). Plain JSON: it is saved as it is.
+ */
+export interface WeatherState {
+  /** The state the sky is in, or changing to while `blend` < 1. */
+  kind: WeatherKind;
+  /** The state it is changing from; equals `kind` once settled. */
+  previous: WeatherKind;
+  /** Progress of the change from `previous` to `kind`, 0..1 (1 = settled). Every effect eases across it. */
+  blend: number;
+  /** What falls where the player is (their biome and height): see `precipitationFor` in src/core/weather.ts. */
+  precipitation: Precipitation;
+  /** Strength of that precipitation right now, 0..1 (already eased by `blend`; 0 when nothing falls). */
+  intensity: number;
+  /** Cloud cover 0..1, eased by `blend`. */
+  cloudCover: number;
+  /** Phase of tonight's moon, integer 0..7: 0 = new moon, 4 = full moon. */
+  moonPhase: number;
+  /** The state that follows this one (the Hearth Log forecast). */
+  next: WeatherKind;
+  /** Seconds until the change to `next` begins. */
+  nextInS: number;
 }
 
 // ---------------------------------------------------------------------------------------------

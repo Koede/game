@@ -51,6 +51,8 @@ function toolSet(set: ToolSet): ItemSpec[] {
 
 const RAW: ItemSpec[] = [
   burnableBlock('oak_log', fuel(200, 50, 650)),
+  // Marsh peat (spec 14): the first fuel hotter than wood, before charcoal.
+  burnableBlock('peat', fuel(500, 50, 900)),
   burnableBlock('pine_log', fuel(200, 50, 650)),
   burnableBlock('plank', fuel(60, 20, 550)),
   { key: 'stick', name: 'Stick', desc: 'A straight length of wood. Tool handles, torches, and kindling in a pinch.', category: 'resource', age: 0, fuel: fuel(30, 12, 450) },
@@ -144,8 +146,24 @@ const PARTS: ItemSpec[] = [
 ];
 
 const GEAR: ItemSpec[] = [
-  { key: 'pail', name: 'Pail', desc: 'A wooden pail. Use it on water to fill it.', category: 'misc', age: 0, stack: 1 },
-  { key: 'water_pail', name: 'Pail of Water', desc: 'Use it on a block to pour the water out there. You keep the empty pail.', category: 'misc', age: 0, stack: 1 },
+  // The keys stay 'pail' / 'water_pail' so saves and recipes keep working; the player only ever reads "Bucket".
+  {
+    key: 'pail', name: 'Bucket', desc: 'A wooden bucket. Use it on water to fill it: every pool is an endless spring, so take all you need.',
+    category: 'misc', age: 0, stack: 1,
+  },
+  {
+    key: 'water_pail', name: 'Water Bucket', desc: 'Use it on a block to pour the water out there. Dough and stew each take one and give the bucket back.',
+    category: 'misc', age: 0, stack: 1,
+  },
+  {
+    key: 'bronze_bucket', name: 'Bronze Bucket', desc: 'A bucket that will not burn. Use it on lava to scoop it up; lava pools are not endless.',
+    category: 'misc', age: 0, stack: 1,
+  },
+  {
+    // Burns like a fuel and hands the bronze bucket back (FuelSpec.fuelReturns); stack 1 so the slot it burned from is free for it.
+    key: 'lava_bucket', name: 'Lava Bucket', desc: 'Molten rock in bronze. It fuels a furnace at 1300 C for 100 seconds and the bucket comes back.',
+    category: 'fuel', age: 0, stack: 1, fuel: { ...fuel(2000, 100, 1300), fuelReturns: 'bronze_bucket' },
+  },
   { key: 'padded_coat', name: 'Padded Coat', desc: 'Layers of cord and fiber. While you carry it, the cold drains your warmth half as fast.', category: 'misc', age: 0, stack: 1 },
   { key: 'shield_suit', name: 'Shield Suit', desc: 'Superalloy plate and fused quartz. While you carry it, radiation does a tenth of its harm.', category: 'misc', age: 3, stack: 1 },
 ];
@@ -189,6 +207,13 @@ const FOOD: ItemSpec[] = [
   { key: 'flour', name: 'Flour', desc: 'Ground wheat. Mixed with water at the workbench it becomes dough.', category: 'material', age: 0 },
   { key: 'dough', name: 'Dough', desc: 'Flour and water, ready for a crucible. At 220 C it bakes into bread.', category: 'material', age: 0 },
   { key: 'hide', name: 'Hide', desc: 'A tough animal hide. It makes bellows and a warm coat without all that cord.', category: 'resource', age: 0 },
+  // Spec 14: picked from wild berry bushes, which fruit again five minutes later.
+  { key: 'wildberries', name: 'Wildberries', desc: 'A handful of tart dark berries from a berry bush. A small snack on the move.', category: 'food', age: 0, food: food(2) },
+  {
+    // The item of the picked bush: planting it starts a bush that fruits again (its block is the bare stage).
+    key: 'berry_bush_bare', name: 'Berry Bush', desc: 'A berry bush dug up with its roots. Plant it on grass, dirt or peat and it fruits every five minutes.',
+    category: 'block', age: 0, stack: 16,
+  },
 ];
 
 export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD];

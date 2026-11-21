@@ -34,6 +34,8 @@ export const FOOD_SPEC = {
   hunger: {
     raw_fowl: 2, raw_mutton: 3, raw_chop: 3, cooked_fowl: 6, cooked_mutton: 7, cooked_chop: 8,
     potato: 1, baked_potato: 5, carrot: 3, bread: 6, hearth_stew: 12,
+    // Spec 14: picked from berry bushes.
+    wildberries: 2,
   } as Record<string, number>,
   /** Foods that grant a buff: item -> [buff, seconds]. */
   buffs: { hearth_stew: ['well_fed', 360] } as Record<string, [string, number]>,
@@ -56,13 +58,13 @@ export const FOOD_SPEC = {
 
   /** Table 12.5: species -> numbers. */
   creatures: {
-    hen: { biomes: ['woodland', 'dunes'], health: 4, speed: 2.2, size: { w: 0.45, h: 0.7 }, likes: ['wheat_seeds'], drops: [{ item: 'raw_fowl', count: 1 }] },
+    hen: { biomes: ['woodland', 'dunes', 'marsh'], health: 4, speed: 2.2, size: { w: 0.45, h: 0.7 }, likes: ['wheat_seeds'], drops: [{ item: 'raw_fowl', count: 1 }] },
     goat: {
       biomes: ['frostfell', 'woodland'], health: 8, speed: 2.6, size: { w: 0.8, h: 1.2 }, likes: ['wheat'],
       drops: [{ item: 'raw_mutton', count: [1, 2] }, { item: 'hide', count: 1, chance: 0.5 }],
     },
     boar: {
-      biomes: ['woodland', 'scar'], health: 10, speed: 2.8, size: { w: 0.9, h: 0.9 }, likes: ['potato', 'carrot'],
+      biomes: ['woodland', 'scar', 'marsh'], health: 10, speed: 2.8, size: { w: 0.9, h: 0.9 }, likes: ['potato', 'carrot'],
       drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }],
     },
   } as Record<string, { biomes: BiomeKey[]; health: number; speed: number; size: { w: number; h: number }; likes: string[]; drops: Drop[] }>,

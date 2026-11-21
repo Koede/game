@@ -48,8 +48,11 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
   },
 ];
 
-/** Everything with a FuelSpec: what a furnace firebox and a burner generator accept. */
-const FIREBOX_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel).map((it) => it.key);
+/**
+ * What a burner generator accepts: every FuelSpec item except those that hand a container back (the lava bucket),
+ * since its single fuel slot has nowhere to put the empty bucket. The furnace firebox takes every fuel.
+ */
+const BURNER_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel && it.fuel.fuelReturns === undefined).map((it) => it.key);
 
 export const MACHINE_SPECS: MachineSpec[] = [
   // furnace - one spec for all five tier blocks. Per-tier numbers are in FURNACE_TIERS and the fire model's
@@ -102,7 +105,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
   // fuel.energyJ * efficiency. slots: 1 fuel slot. No params.
   {
     kind: 'burner_generator', name: 'Burner Generator', role: 'generator', blocks: ['burner_generator'], outputW: 3000,
-    fuels: FIREBOX_FUELS, efficiency: 0.3, slots: 1,
+    fuels: BURNER_FUELS, efficiency: 0.3, slots: 1,
     desc: 'Makes up to 3 kW from any furnace fuel, turning 30% of its heat into electricity. It burns only as fast as the network draws.',
   },
   // water_wheel - params:
@@ -125,10 +128,11 @@ export const MACHINE_SPECS: MachineSpec[] = [
     placementHint: 'Needs open sky above. Higher is better.',
   },
   // solar_panel - watts = outputW * sunlight, only under open sky. params:
-  //   minSunlight  sunlight factor at or below which it makes nothing (the night sky is about 0.08)
+  //   minSunlight  sunlight factor at or below which it makes nothing: above the brightest full-moon night (0.12),
+  //                so moonlight never powers a panel. The weather scales output too (WEATHER_SOLAR in core/constants).
   {
     kind: 'solar_panel', name: 'Solar Panel', role: 'generator', blocks: ['solar_panel'], outputW: 300,
-    params: { minSunlight: 0.1 },
+    params: { minSunlight: 0.15 },
     desc: 'Makes up to 300 W in full daylight, less at dawn and dusk, and nothing at night.',
     placementHint: 'Needs open sky above.',
   },
@@ -254,5 +258,16 @@ export const MACHINE_SPECS: MachineSpec[] = [
     params: { stageS: 100, dryRate: 0.5, hydrationRadius: 4, lampRadius: 5, minSunlight: 0.3 },
     desc: 'Grows a stage every 100 seconds while it has daylight or a lamp, half as fast with no water nearby.',
     placementHint: 'Plant on farmland.',
+  },
+
+  // berry_bush - one entity per bush (spec 14), carried by both of its blocks. Picking a fruiting 'berry_bush'
+  // gives its drops and leaves 'berry_bush_bare' in place (BlockSpec.harvestLeaves), entity and all. No power,
+  // no screen. params:
+  //   regrowS  seconds after which a bare bush swaps its voxel id back to 'berry_bush' (fruiting again)
+  {
+    kind: 'berry_bush', name: 'Berry Bush', role: 'bush', blocks: ['berry_bush', 'berry_bush_bare'],
+    params: { regrowS: 300 },
+    desc: 'A wild bush that fruits again five minutes after it is picked, wherever it stands.',
+    placementHint: 'Plant on grass, dirt or peat.',
   },
 ];

@@ -10,7 +10,7 @@ const targets = (patch: Partial<AmbienceState>) => computeTargets({ ...createAmb
 describe('ambience targets', () => {
   it('is completely silent for the default state', () => {
     const t = targets({});
-    for (const level of [t.fire, t.arc, t.machine, t.wind, t.whistle, t.night, t.water, t.ignition]) expect(level).toBe(0);
+    for (const level of [t.fire, t.arc, t.machine, t.wind, t.whistle, t.night, t.water, t.ignition, t.rain, t.rainBody, t.gust]) expect(level).toBe(0);
     expect(t.muffle).toBe(MUFFLE_OPEN_HZ);
   });
 
@@ -68,6 +68,25 @@ describe('ambience targets', () => {
     expect(wet.arc).toBeLessThan(dry.arc / 2);
   });
 
+  it('rain hisses louder and heavier as it strengthens, and drums dully on a roof', () => {
+    const light = targets({ rain: 0.3 });
+    const heavy = targets({ rain: 1 });
+    const roofed = targets({ rain: 1, sheltered: true });
+    expect(heavy.rain).toBeGreaterThan(light.rain);
+    expect(heavy.rainBody).toBeGreaterThan(light.rainBody * 5);
+    expect(roofed.rain).toBeGreaterThan(0);
+    expect(roofed.rain).toBeLessThan(heavy.rain);
+    expect(roofed.rainCutoff).toBeLessThan(heavy.rainCutoff / 3);
+    expect(targets({ rain: 1, underwater: true }).rain).toBe(0);
+  });
+
+  it('storm gusts follow the storm, softened indoors and gone under water', () => {
+    expect(targets({ storm: 0 }).gust).toBe(0);
+    expect(targets({ storm: 1 }).gust).toBeGreaterThan(targets({ storm: 0.4 }).gust);
+    expect(targets({ storm: 1, sheltered: true }).gust).toBeLessThan(targets({ storm: 1 }).gust);
+    expect(targets({ storm: 1, underwater: true }).gust).toBe(0);
+  });
+
   it('the ignition chord climbs to its final pitch and opens up', () => {
     const start = targets({ ignition: 0.01 });
     const mid = targets({ ignition: 0.5 });
@@ -111,6 +130,9 @@ const everything: AmbienceState = {
   underwater: false,
   cold: 0.5,
   ignition: 0.4,
+  rain: 0.6,
+  storm: 0.5,
+  sheltered: false,
 };
 
 describe('Ambience', () => {
@@ -167,6 +189,8 @@ describe('Ambience', () => {
       state.wind = (i % 500) / 500;
       state.underwater = i % 1000 > 900;
       state.night = i % 3000 > 1500;
+      state.rain = (i % 700) / 700;
+      state.sheltered = i % 2000 > 1000;
       ambience.update(state, ctx.currentTime);
     }
     expect(ctx.nodes.length).toBe(nodes);
@@ -197,7 +221,7 @@ describe('Ambience', () => {
     ambience.update(everything, 0);
     ambience.update(createAmbienceState(), 1);
     const buses = ctx.nodes.filter((n): n is FakeGain => n instanceof FakeGain && n.outputs.includes(out));
-    expect(buses.length).toBeGreaterThanOrEqual(7);
+    expect(buses.length).toBeGreaterThanOrEqual(8);
     for (const bus of buses) {
       const last = bus.gain.events[bus.gain.events.length - 1];
       expect(last.value).toBe(0);
