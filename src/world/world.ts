@@ -38,6 +38,8 @@ export interface WorldSnapshot {
   water?: WaterSnapshot;
   /** Leaves still waiting to decay; absent in saves from before leaf decay. */
   leaves?: LeafSnapshot;
+  /** Data other modules keep with the world (World.persist): vehicles. Absent in older saves. */
+  extras?: Record<string, unknown>;
 }
 
 /** Numbers for a debug overlay. */
@@ -64,6 +66,8 @@ export class World implements IWorld {
   /** Leaf decay: the game ticks it at 20 Hz with `leaves.tick()`; it saves with the world. */
   readonly leaves: LeafDecay;
   private readonly chunks = new Map<number, Chunk>();
+  private readonly savers = new Map<string, () => unknown>();
+  private loadedExtras: Record<string, unknown> = {};
   private readonly edits = new EditLog();
   private readonly entityStore = new EntityStore();
   private currentSeed: number;
@@ -232,6 +236,23 @@ export class World implements IWorld {
     };
   }
 
+  /**
+   * Lets a module save its own data with the world: `save()` is called by every `toJSON` and its result stored under
+   * `key` (JSON-safe). What a loaded save held under `key` is `extra(key)`. Returns the unregister function.
+   */
+  persist(key: string, save: () => unknown): () => void {
+    this.savers.set(key, save);
+    return () => {
+      if (this.savers.get(key) === save) this.savers.delete(key);
+    };
+  }
+
+  /** What the world snapshot this world was loaded from held under `key` (a copy), or undefined. */
+  extra(key: string): unknown {
+    const v = this.loadedExtras[key];
+    return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  }
+
   // ---- persistence -------------------------------------------------------------------------------
 
   /**
@@ -240,6 +261,8 @@ export class World implements IWorld {
    */
   toJSON(options?: { shared?: boolean }): WorldSnapshot {
     const live = [...this.entityStore.values()];
+    const extras: Record<string, unknown> = { ...this.loadedExtras };
+    for (const [key, save] of this.savers) extras[key] = save();
     return {
       version: WORLD_SNAPSHOT_VERSION,
       seed: this.currentSeed,
@@ -247,6 +270,7 @@ export class World implements IWorld {
       entities: options?.shared === true ? live : (JSON.parse(JSON.stringify(live)) as BlockEntity[]),
       water: this.water.toJSON(),
       leaves: this.leaves.toJSON(),
+      extras,
     };
   }
 
@@ -284,6 +308,7 @@ export class World implements IWorld {
     for (const e of snapshot.entities) this.entityStore.set(JSON.parse(JSON.stringify(e)) as BlockEntity);
     this.water.load(water);
     this.leaves.load(leaves);
+    this.loadedExtras = snapshot.extras && typeof snapshot.extras === 'object' ? JSON.parse(JSON.stringify(snapshot.extras)) : {};
     this.streamer = new ChunkStreamer(this.host);
   }
 

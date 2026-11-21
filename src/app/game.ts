@@ -9,6 +9,9 @@
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
 import { collectLeafDrops } from '../game/leafDrops';
+import { VehicleHud } from '../ui/vehicleHud';
+import { TractorRenderer } from '../render/vehicles/tractorRenderer';
+import { VehicleManager, wrapIntentSource } from '../vehicles';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
@@ -66,6 +69,10 @@ export class Game {
   readonly inputManager: InputManager;
   readonly ui: GameUI;
   readonly controller: PlayerController;
+  /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
+  readonly vehicles: VehicleManager;
+  private readonly tractorRenderer: TractorRenderer;
+  private readonly vehicleHud: VehicleHud;
   readonly audio: AudioEngine;
   readonly ambience: AmbienceProbe;
   /** Frames drawn and fixed ticks run since the game started (debug / tests). */
@@ -98,6 +105,9 @@ export class Game {
     this.pool = opts.pool;
     const { bus, world, player, clock, sim, survival, objectives } = state;
     this.offs.push(collectLeafDrops(bus, player));
+    this.vehicles = new VehicleManager({ world, bus, player });
+    this.vehicles.load(world.extra('vehicles'));
+    this.offs.push(world.persist('vehicles', () => this.vehicles.toJSON()));
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
@@ -137,7 +147,10 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hand: sim });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hand: sim });
+      this.vehicles.bindPhysics(this.controller.physics);
+      this.tractorRenderer = new TractorRenderer(this.renderer, world);
+      this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
@@ -146,6 +159,17 @@ export class Game {
       this.renderer.dispose();
       throw err;
     }
+    const onKey = (down: boolean) => (e: KeyboardEvent): void => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.code === 'KeyF') this.vehicles.setWorkKey(down);
+      else if (e.code === 'KeyR' && down && !e.repeat) this.vehicles.pressSwapKey();
+    };
+    const keyDown = onKey(true);
+    const keyUp = onKey(false);
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', keyUp);
+    this.offs.push(() => window.removeEventListener('keydown', keyDown), () => window.removeEventListener('keyup', keyUp));
     const invalidate = (): void => this.invalidateView();
     window.addEventListener('resize', invalidate);
     this.offs.push(
@@ -244,11 +268,13 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.vehicleHud.update(this.vehicles.status());
     this.ui.frame(dt);
     if (this.shouldDraw(paused, now)) {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
+      this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       this.renderer.render(paused ? 0 : dt);
       this.lastDraw = now;
@@ -329,6 +355,8 @@ export class Game {
     this.disposed = true;
     for (const off of this.offs) off();
     this.offs.length = 0;
+    this.vehicleHud.dispose();
+    this.tractorRenderer.dispose();
     this.ui.dispose();
     this.controller.dispose();
     this.inputManager.dispose();

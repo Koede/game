@@ -284,8 +284,7 @@ export function createDebugHandle(app: App): DebugHandle {
       game().state.player.selectSlot(slot);
     },
     tick(n) {
-      const g = game();
-      for (let i = 0; i < n; i++) g.state.tick(DT);
+      game().tick(n);
     },
     save: () => app.save(),
     newWorld: (seed = null) => app.newWorld(seed),
