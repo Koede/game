@@ -68,7 +68,7 @@ describe('farming', () => {
   });
 
   it('plants seeds, potatoes and carrots as the first stage of their crop, with icons of their own', () => {
-    const planting = Object.fromEntries(ITEMS.filter((it) => it.block && it.block !== it.key).map((it) => [it.key, it.block]));
+    const planting = Object.fromEntries(ITEMS.filter((it) => it.block && it.block !== it.key && !it.key.endsWith('_cutting')).map((it) => [it.key, it.block]));
     expect(planting).toEqual(FOOD_SPEC.plants);
     for (const key of Object.keys(FOOD_SPEC.plants)) {
       expect(item(key).icon, key).toBe(`item_${key}`);
