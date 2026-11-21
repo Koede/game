@@ -2,7 +2,7 @@
 
 Import everything from `src/player` (index re-exports `./input` too). Never imports `src/sim`, `src/render` or
 `src/ui`: it draws through `IView` (src/core/context.ts), opens screens with `'ui:open'` and changes machines only
-by editing voxels (the simulation reacts to `'block:changed'`). 120 unit tests: `npx vitest run src/player`.
+by editing voxels (the simulation reacts to `'block:changed'`). 96 unit tests: `npx vitest run src/player`.
 
 ## Wiring (what main.ts does)
 
