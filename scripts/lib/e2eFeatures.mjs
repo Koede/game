@@ -124,12 +124,13 @@ async function goToOpenGround(d) {
         }
         if (!ok) continue;
         hw.teleport(x + 0.5, y0 + 1, z + 0.5);
-        // Mow the grass tufts around (they are targeted through their whole cell and would catch the crosshair).
+        // Mow the grass tufts and flowers around (they are targeted through their whole cell and would catch the
+        // crosshair). Flowers are not `replaceable`, so test for any non-solid plant, not only replaceable ones.
         for (let dx = -4; dx <= 4; dx++) {
           for (let dz = -4; dz <= 4; dz++) {
             const gy = groundY(x + dx, z + dz) + 1;
             const b = hw.getBlock(x + dx, gy, z + dz);
-            if (b.block !== 'air' && b.replaceable && !['water', 'lava'].includes(b.block)) hw.setVoxel(x + dx, gy, z + dz, 'air');
+            if (b.block !== 'air' && !b.solid && !['water', 'lava'].includes(b.block)) hw.setVoxel(x + dx, gy, z + dz, 'air');
           }
         }
         let best = 0;

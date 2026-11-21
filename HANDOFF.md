@@ -1,8 +1,9 @@
 # Hearthwatt - handoff
 
 Pick-up notes for whoever continues this build. Every module is built and wired together: the game boots,
-plays and saves (`npm run build`, then open dist/index.html through any static server). What is left is the
-playtest and review pass and delivery (items 10 and 11 below).
+plays and saves (`npm run build`, then open dist/index.html through any static server). The playtest and
+review pass (item 10) is done; see "Release state" below. What is left is delivery (item 11) and the known
+issues listed there. Spec section 19 (the Emberbound hostile automatons) is design only: no code exists yet.
 
 **Read first:** `docs/SPEC.md` (design, rules, architecture, a brief per module) and `docs/api/*.md` (what
 each finished module exports). `README.md` describes the finished game, not the current state.
@@ -65,6 +66,79 @@ git log --oneline | head -20
 | Tech UI (spec 16.3, 17.4): furnace STRUCTURE tab, ghost / highlight requests, PIPE screen, fluid tanks on machine screens (`src/ui/screens/{furnace/structure*,furnace/hearthGhost.ts,pipe,machines/fluid*,stepper.ts}`) | done, tested (17 new tests), browser-verified (harness + real game) | STRUCTURE tab between Forge and Grid: status chip, what the hearth means for the furnace, tier-1 "What is a hearth?" card, checklist with ticks and counts, problems in plain words (same words folded, "×6"; a tap emits `highlight:block` for its block, cycling, and says "Shown in the world"), plan picker (tier, Across / Deep / High steppers, rules, materials with have/need) and **Show in world**: `HearthGhost` emits `ghost:show` with the non-ok structure cells, follows block changes while shown, and clears on forming at the target tier / all in place / furnace gone / switch off - it outlives the screen. `!` badge while the furnace needs its hearth; the upgrade sheet's "Plan the hearth" opens the tab on the next tier. On portrait phones the tab folds the firebox to its status line. PIPE screen (`'pipe'`, registered by `registerStationScreens`; the player opens it on Use with an empty hand): line summary, fluid bar in the fluid's colour, warnings, nearest 8 ends then "Show N more", each with icon / name / distance (tap: highlight), toned status, Push / Pull / Off, settings fold (Nearest / Round, 5 filter slots picked from the pack or the five fluids, Allow / Deny, priority -2..+2), ~4 Hz refresh. Machine screens: fluid buffers as coloured bars (tank stacks as one), layouts `tank` / `boiler` / `part`, no pack / network / switch where they mean nothing. Verified at 390x844, 844x390, 1280x800 (screens, touch and mouse flows) and in the built game (ghost cubes and the highlight drawn by `src/render/tech`). No wiring needed. API in `docs/api/ui-tech.md`. |
 | Flowing water and source blocks (spec 18): `src/world/{water,flow,meshLiquid}.ts`, mesher, chunk shader, buckets / ray / currents in `src/player`, currents in `src/mobs/physics.ts`, pumps in `src/sim/fluidMachines.ts`, texts in `src/content`, one tick line in `src/app/state.ts` | done, tested (15 world, 6 player/mobs, 3 sim, 1 state tests new), browser-verified | Water flows like the player asked: a scheduled cellular update in `World.water` (woken by `setVoxel`, never by `'load'` edits; 0.25 s per step, 256 cells a tick, waits at unloaded chunks), down first, sideways towards the nearest drop within 4, levels 1-7, draining ring by ring, a hole with two sources beside it refills as a source, washable plants washed away, crops/torches/machines block it; ticked after the sim, its queue saved with the world (older saves load; a world saved mid-flow continues identically). Generated water is all sources and perfectly still (0 updates over 12 seeds). Sloped surfaces by level, waterfalls with streaming sides, the texture runs along the flow (flags bits 2+4, rotated uvs, no new attributes). Buckets take a SOURCE through flowing water (toast when there is none) and pour a source into air, a washable plant or flowing water; pumps draw sources (endless only where the refill rule holds); every water-nearby rule counts flowing water; currents carry players and animals. 7-level flood ~0.1 ms per busy tick in the browser. e2e-features gained a pour/flow/take-back step. API, deviations and gaps in `docs/api/water.md`. |
 
+| Playtest and review pass (item 10): six review groups, then a release check | done, tested, full `npm run e2e` passing | See "Release state" below for what was reviewed, fixed and is still open. |
+
+## Release state
+
+Checked on 2026-11-21 by the release engineer on branch `ccr-3c8b169f-e78nk2`, after the six review groups had
+committed their fixes. Results on the final tree: `npm run typecheck` clean, `npm test` 113 files / 1300 tests
+passing, `npm run build` clean, full `npm run e2e` passing: 110 steps, 0 failed (e2e.mjs 60: desktop,
+phone portrait and phone landscape 18 each, sandboxed frame 5, no WebGL2 1; e2e-features 24: desktop and phone
+portrait 12 each; e2e-tech 26: desktop and phone portrait 13 each), about 12 minutes on a quiet machine. The
+first full run failed one e2e-features step on phone portrait (fixed below, then the whole suite was rerun).
+
+**Reviewed and fixed** (each group's details, tests and screenshots are in its commit and in `docs/api/*.md`):
+
+- **Sim** (`0ea4099`, sim-1..12): breaking a full machine never loses items (a spill crate takes what the pack
+  cannot); `targetTemp` matches where the furnace settles; boiler lines default the boiler end to Pull and say
+  how to fix them; the floor under the furnace counts as frame; ignition reports need, supply, storage and cable
+  rating and refuses a cable that cannot carry it; a lone furnace reports no problem; hearth plans pick the
+  offset with the fewest changes; piped ore fills the emptiest crucible; brown-out alerts only below 90% for 3 s;
+  hatch texts; an empty bucket is not fuel; damaged machines and pipes in a save are repaired on load.
+- **UI** (`100dc73`, ui-1..8, 11, 12, 14, 16, parts of 10 and 13): compact furnace firebox on phones, tab and
+  chip rows that fit at 390 px, fuel and batch buttons that pick sensibly and say what they use, the Structure
+  tab after forming, banners that wait for closed screens, honest upgrade sheet texts, refusal toasts, pipe
+  screen Pull advice, crop labels, touch coach marks, the day dial.
+- **Player, app, save** (`bd9dd36` and part of `e001006`, pa-1..9): Shift + Use and the touch Place toggle
+  place against screen blocks (building blocks go on any side but the front); Use reaches a furnace behind a
+  cable; full or unreadable storage never deletes a save; taps survive frame stalls; repeated frame errors and
+  lost WebGL stop the world with a notice; no redraws behind pause; autosave serialises once.
+- **Render** (`1b4aa97`, r-1..3): the light probe reads chunk arrays (7x faster, no garbage); phones default to
+  render distance 4; the problem highlight fades when the hearth forms.
+- **World and animals** (`066cbb9` and part of `64b5dfa`, wm-1..7): breeding works at a full herd and fed
+  animals stay tame; far animals are culled so the world keeps spawning as you explore; animals keep a block
+  from lava and cacti and heal; small-integer chunk keys; picked bushes do not pin chunks; drops of an animal
+  killed just before a save survive; animals push apart and followers keep 2 blocks away.
+- **Game, content, docs** (`3eddfb3` and part of `e001006`, gc-1..5, 7..10): a dry first night with a warmth
+  floor; cold warnings and a HUD line that name the cause, and a matching death screen; How to Play and README
+  rewritten; bread after the lamp; the bellows goal completes on the first pump; new tools land on the hotbar;
+  respawn food 14; breeding foods described.
+- **Release check** (this commit): `scripts/lib/e2eFeatures.mjs` `goToOpenGround` now mows every non-solid plant
+  around the player, not only `replaceable` ones. Flowers are not replaceable, so on phone portrait an Ember
+  Poppy next to the player stayed in the crosshair's way and the lava-bucket step found "no spot in plain sight"
+  (deterministic for that seed, not timing; what the step checks is unchanged). How to Play lists Shift + Right
+  click / Place + Use. README controls and feature sections brought up to date (feeding, flowing water and
+  buckets, boilers and hatches, spill crates, the HUD hint line, kept saves, the three e2e scripts).
+
+**Known issues still open:**
+
+- No 'UI size: Large' setting; the touch Mine/Use/Jump captions are 10 px and nine hotbar slots cannot reach 44 px at
+  390 px wide (ui-10, needs src/core settings + src/player touch styles).
+- The pump says "Full - connect a pipe that pulls" even when a pulling pipe is attached but the line is full
+  (ui-13; text lives in `src/sim/fluidMachines.ts`).
+- The Structure tab does not yet offer the sim's `offsets` ("Shift left/right"), the `machines` list or
+  `StructureView.note` (sim-7); boiler/turbine hint texts in `src/content` still lack the "wrench to Pull" advice
+  (sim-3, the status lines carry it).
+- `FurnaceTierSpec.crucibles` in `src/content/tech.ts` still holds the old per-tier counts; the upgrade sheet uses
+  the hearth rule instead (ui-6).
+- Use on a formed hearth's wall, hatch or power port does not open the controller's furnace screen (needs a sim
+  lookup). On a tap that a late frame already turned into a hold, an instant-break plant can still be broken.
+- A spill crate appears from nothing: breaking it again gives a crate item, and with a full pack that crate item
+  is lost (never its contents). A clay furnace's single fuel slot stays blocked by an empty bucket until removed.
+- Animals still take occasional cactus hurts in dense dunes (2 hurts, no deaths in 30 min with 12 hens).
+- `IWorld` in `src/core/types.ts` has no `chunkVoxels`; the light probe (like `src/render/vents.ts`) reaches it
+  through an optional cast.
+- Over the 350-line aim: `src/sim/hearthScan.ts` (~440), `src/mobs/manager.ts` (~440), `src/game/survival.ts`
+  (~470).
+- Not done (optional in the briefs): a cheap campfire, a "raise a chick" objective, a vertical tab rail in
+  landscape. Save time on a throttled phone was not re-measured after pa-9.
+- Spec section 19 (Emberbound hostile automatons) is design only.
+- The world flow timing test (`src/world/flow.test.ts`, "under 0.5 ms a tick") has failed once under parallel
+  load; it passed in every full run of this release check.
+- On phones the first coach mark ("Aim at a tree and hold MINE") sits over the small Place toggle above Mine
+  until the player first breaks a block (seen in the e2e-features phone screenshots, where nothing is mined).
+- Headless Chromium is slow on software WebGL: tap-to-open steps occasionally need retries (the driver retries).
+
 ## What is left, in order
 
 Each item has a full brief in `docs/SPEC.md`. Dependencies are in brackets. Items on the same line of the
@@ -91,7 +165,7 @@ dependency chain can be built at the same time (the spec's section 9 explains ho
    most important screen in the game.
 9. **Integration** - spec 7.5 [everything]. `src/main.ts`, game loop, save document, `window.__hw` debug
    handle, `scripts/e2e.mjs` on desktop and phone viewports.
-10. **Playtest and review.** Drive the built game in headless Chromium like a player on desktop and phone;
+10. **Playtest and review.** (Done - see "Release state".) Drive the built game in headless Chromium like a player on desktop and phone;
     review the simulation against spec section 3; fix what is found. Check the first 30 minutes are
     learnable from the objective tracker alone.
 11. **Deliver.** `npm run build`, then publish `dist/artifact.html` as the page with `dist/game.js` as a
@@ -107,7 +181,7 @@ dependency chain can be built at the same time (the spec's section 9 explains ho
 - **The published page runs in a sandboxed frame:** no alert/confirm/prompt, no downloads, localStorage may
   throw, pointer lock and fullscreen may be refused, audio only after a gesture. Details at the end of spec
   section 5.
-- **Decisions already made:** drops go straight to the inventory; death keeps the inventory; no creatures;
+- **Decisions already made:** drops go straight to the inventory; death keeps the inventory; animals are passive (no hostile creatures until spec 19 is built);
   cable rating of a network = its weakest cable; machines push output into a touching crate; the furnace
   borrows ingredients from crates within 4 blocks; corium is hardness 120 / tier 5 (see
   `docs/api/content.md` for the content engineer's other calls, e.g. bore rig stops at tier-5 blocks).
@@ -117,4 +191,5 @@ dependency chain can be built at the same time (the spec's section 9 explains ho
   request (nothing to open one against). `.github/workflows/pages.yml` deploys on pushes to `main`, which
   does not exist yet. Several commits are checkpoints of half-written modules and do not build.
 - **Checks:** `npm run typecheck`, `npm test` and `npm run build` pass for the whole repository; `npm run e2e`
-  (about 6 minutes on software WebGL) drives the built game.
+  (about 15 minutes on software WebGL; run it on a quiet machine) drives the built game through `e2e.mjs`,
+  `e2e-features.mjs` and `e2e-tech.mjs`.

@@ -25,7 +25,8 @@ The game runs in any browser with WebGL2, on desktop and on phones; without WebG
 starting. Progress is saved in the browser: when you enter a world, every 30 seconds, when you pause, when you
 switch away from the page, and on "Save and quit". Continue on the title screen picks up exactly where you
 left. Inside a page that blocks storage the game still runs, warns you once, and keeps your world until the
-page is closed.
+page is closed. A save that cannot be read (or comes from a newer version) is kept as a backup and never
+overwritten unless you start a New World; a full storage never deletes the last good save.
 
 ## Controls
 
@@ -36,7 +37,8 @@ page is closed.
 | Jump / swim up | Space | Jump button |
 | Sprint | Shift | push the stick to its edge |
 | Mine | hold left mouse button | hold the Mine button, or press and hold on the world |
-| Use / place / eat | right mouse button | Use button, or tap the world |
+| Use / place / eat / feed an animal | right mouse button | Use button, or tap the world |
+| Place a block against a furnace or machine | Shift + right mouse button (machines, pipes, cables, tanks and hearth walls also go on any side but the front without Shift) | arm the Place button, then Use |
 | Pick hotbar slot | 1-9 or mouse wheel | tap the slot |
 | Inventory and hand crafting | E | bag button |
 | Hearth Log (goals) | L | tap the goal tracker |
@@ -84,7 +86,8 @@ A bigger hearth also gives the furnace more crucibles.
 **Come home at night.** Nights are cold, and rain or snow under open sky chills you faster, day or night;
 the frostfell is cold even by day. At 0 warmth the cold hurts. Any roof overhead keeps the rain off, and a
 fire, a torch or a hot furnace warms everything around it. Time spent beside the furnace leaves you
-Well-Warmed: faster at mining and slower to freeze. The HUD warns you, with the cause, as warmth falls. Your
+Well-Warmed: faster at mining and slower to freeze. The HUD warns you, with the cause, as warmth falls, and a
+short line under the bars says what to do ("Soaked: find a roof", "Hungry: eat something"). Your
 last furnace is home: the compass points to it, and it is where you wake up if the world gets the better of
 you, with everything you carried.
 
@@ -98,18 +101,25 @@ Kitchen chip on the Smelt tab), and a hearth stew forged at the furnace makes yo
 sprint; below 12 food you do not heal; an empty bar slowly wears your health down.
 
 **Farming and animals.** A hoe turns grass or dirt into farmland. Wheat seeds (from tall grass), potatoes and
-carrots grow on it in daylight or lamplight, twice as fast with water within four blocks. Mine an animal to
-hunt it. Hold what it likes and it follows you: hens like wheat seeds, goats wheat, boars potatoes and carrots.
-Feed two of a kind and they raise a young one.
+carrots grow on it in daylight or lamplight, twice as fast with water within four blocks; aim at a crop to see
+how long it has left. Mine an animal to hunt it. Hold what it likes and it follows you: hens like wheat seeds,
+goats wheat, boars potatoes and carrots. Press Use on an animal to feed it; feed two of a kind near each other
+and they raise a young one. Animals you have fed stay tame. Animals keep clear of lava and cacti, and the wild
+herd refills as you explore.
 
-**Buckets and bread.** A bucket (pail) fills at still water and pours out as a new source. Four wheat grind
-into two flour at the workbench, two flour and a bucket of water make dough, and dough bakes into bread at
-220 C. A bronze bucket can carry lava.
+**Buckets, water and bread.** Water flows: it runs downhill, spreads up to seven blocks and drains away when
+its source is gone. A bucket takes one source block out of still water (a lake refills the gap, a lone puddle
+does not) and pours it back out as a new source. Four wheat grind into two flour at the workbench, two flour and
+a bucket of water make dough, and dough bakes into bread at 220 C. A bronze bucket can carry lava, which also
+burns as furnace fuel and hands the bucket back.
 
 **Pipes and the wrench.** Bronze chutes carry items, iron fluid pipes carry water and oil, and steel hot pipes
 carry steam and lava. Use the wrench on a pipe where it meets a crate, a furnace or a machine to cycle that end through
 Push, Pull and Off; use it between two pipes to part or join them. Use a pipe with an empty hand to open the
-pipe screen: what flows, filters and priorities.
+pipe screen: what flows, filters and priorities. Pumps draw water, lava or oil; a boiler on a hot furnace makes
+steam for a steam turbine (set the pipe end at the boiler to Pull). Hatches and power ports built into a hearth
+wall feed the furnace through its walls. Breaking a full crate or machine puts what fits in your pack and leaves
+the rest in a crate where it stood.
 
 ## Development
 
@@ -120,11 +130,13 @@ npm run build       # dist/game.js + dist/index.html
 npm run e2e         # drives the built game in headless Chromium (needs Playwright)
 ```
 
-`npm run e2e` plays the opening of the game on desktop, a portrait phone and a landscape phone with real
-keyboard, mouse and touch input (mine logs, craft, place a workbench and a furnace, fuel and light it, smelt,
-forge, save, reload, Continue), then checks a sandboxed page (no storage, no pointer lock) and a browser without
-WebGL2. Screenshots of every step land in `test-results/e2e/`. `--device=desktop|phonePortrait|phoneLandscape|sandbox`
-picks one, `--no-build` reuses dist/. In the page, `window.__hw` is a debug handle (state summary, give,
+`npm run e2e` (about 15 minutes on software WebGL) runs three scripts. `scripts/e2e.mjs` plays the opening of
+the game on desktop, a portrait phone and a landscape phone with real keyboard, mouse and touch input (mine
+logs, craft, place a workbench and a furnace, fuel and light it, smelt, forge, save, reload, Continue), then
+checks a sandboxed page (no storage, no pointer lock) and a browser without WebGL2; `--device=desktop|phonePortrait|phoneLandscape|sandbox`
+picks one, `--no-build` reuses dist/. `scripts/e2e-features.mjs` hunts, cooks and eats, tills, plants, bakes
+bread, scoops and pours lava and water and checks rain. `scripts/e2e-tech.mjs` builds a Blast hearth brick by
+brick, pipes ore into it with the wrench and uses buckets on a tank. Screenshots land in `test-results/e2e*/`. In the page, `window.__hw` is a debug handle (state summary, give,
 teleport, setTime, tick, save...).
 
 | Directory | What lives there |
