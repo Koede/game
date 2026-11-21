@@ -789,7 +789,6 @@ describe('scripted playthrough', () => {
     // ---- Star Age: 300 kW for 90 s ----------------------------------------------------------------------------------
     // Super cable carries 2 MW; the ignition needs 340 kW with the hearth's own heating.
     for (const p of ENGINES) play.load(play.machineSlots(p), 'fuel_canister', 6);
-    play.step(5); console.log('ENG', JSON.stringify(ENGINES.map((p) => sim.machineView(p.x, p.y, p.z))), JSON.stringify(sim.grid()));
     play.until('banks charged', () => sim.grid().storedJ >= 30e6, 1200);
     play.heat(3000);
     const ready = play.view();
