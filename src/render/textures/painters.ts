@@ -6,7 +6,9 @@ import { CONSUMERS } from './consumers';
 import { FURNACES } from './furnaces';
 import { GENERATORS } from './generators';
 import { GRID } from './grid';
-import { PROVISIONAL } from './provisional';
+import { MATERIAL_ICONS } from './iconsMaterials';
+import { PART_ICONS } from './iconsParts';
+import { TOOL_ICONS } from './iconsTools';
 import { ORES } from './ores';
 import { PLANTS } from './plants';
 import { TERRAIN } from './terrain';
@@ -15,6 +17,6 @@ const MISSING: PainterSet = {
   missing: (c) => c.each((x, y) => (((x >> 2) + (y >> 2)) % 2 === 0 ? [255, 0, 255] : [0, 0, 0])),
 };
 
-const sets: PainterSet[] = [PROVISIONAL, TERRAIN, ORES, PLANTS, BUILDING, FURNACES, CASING, GENERATORS, CONSUMERS, GRID, MISSING];
+const sets: PainterSet[] = [TERRAIN, ORES, PLANTS, BUILDING, FURNACES, CASING, GENERATORS, CONSUMERS, GRID, MATERIAL_ICONS, TOOL_ICONS, PART_ICONS, MISSING];
 
 export const PAINTERS: Readonly<Record<string, Painter>> = Object.assign({}, ...sets);
