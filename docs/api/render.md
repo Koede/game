@@ -155,3 +155,8 @@ outline with cracks, effects (bellows sparks, debris, steam, exhaust, explosion)
 
 ## Weather (spec 15)
 The weather feature changed this module: see `docs/api/weather.md` for what was added and why.
+
+## Transport and hearths in the world (spec 16, 17.4)
+`src/render/tech/` (feature visuals part 2): items and fluids in pipes, formed-hearth glow, ghost preview, problem
+highlight. New on the Renderer: `setTransport(source)` (`simTransportFeed(sim)`), `RenderStats.tech` / `techMs`. See
+`docs/api/render-tech.md`.
