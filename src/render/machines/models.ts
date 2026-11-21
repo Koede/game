@@ -12,6 +12,7 @@ const finish = (tile: string, r: number, g: number, b: number): Finish => ({ til
 // 'concrete' is a quiet light-grey tile: tinted, it gives painted metal with a little pixel grain.
 const STEEL = finish('concrete', 0.68, 0.72, 0.78);
 const DARK = finish('concrete', 0.34, 0.35, 0.39);
+const IRON = finish('concrete', 0.5, 0.5, 0.54);
 const WHITE = finish('concrete', 1.45, 1.45, 1.4);
 const RED = finish('concrete', 1.3, 0.42, 0.32);
 const BRASS = finish('concrete', 1.3, 1.02, 0.52);
@@ -111,7 +112,7 @@ function steamEngine(): PartModel {
     .box([0.56, wheelY, wheelZ], [0.06, 0.12, 0.12], DARK);
   // Axle along +X: local x is world -Z, so a crank pin at local +x sits at z = wheelZ - r cos(angle).
   b.assembly([0.63, wheelY, wheelZ], rotY(HALF_PI), Motion.Spin)
-    .ring(10, [0, 0.35, 0], [0.24, 0.09, 0.1], DARK)
+    .ring(10, [0, 0.35, 0], [0.24, 0.09, 0.1], IRON)
     .box([0, 0, 0], [0.05, 0.66, 0.05], STEEL)
     .box([0, 0, 0], [0.66, 0.05, 0.05], STEEL)
     .box([0, 0, 0], [0.13, 0.13, 0.14], STEEL)
@@ -156,10 +157,11 @@ function boreRig(): PartModel {
     .box([0.1, 0, 0.5], [0.05, 0.03, 1], DARK)
     .box([-0.1, 0, 0.5], [0.05, 0.03, 1], DARK);
   b.assembly([0, 0, 0], down, Motion.Follow)
-    .box([0, 0, 1.18], [0.28, 0.28, 0.36], DARK)
-    .box([0, 0, 1.24], [0.44, 0.07, 0.14], STEEL)
-    .box([0, 0, 1.24], [0.07, 0.44, 0.14], STEEL)
-    .box([0, 0, 1.42], [0.12, 0.12, 0.12], BRASS);
+    .box([0, 0, 1.02], [0.22, 0.22, 0.06], BRASS)
+    .box([0, 0, 1.18], [0.3, 0.3, 0.3], DARK)
+    .box([0, 0, 1.26], [0.5, 0.08, 0.2], STEEL)
+    .box([0, 0, 1.26], [0.08, 0.5, 0.2], STEEL)
+    .box([0, 0, 1.4], [0.14, 0.14, 0.12], BRASS);
   return b.build();
 }
 
