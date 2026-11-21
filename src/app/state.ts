@@ -147,12 +147,24 @@ export class GameState {
     this.ticks++;
   }
 
-  /** Everything needed to continue this world later, as plain JSON-safe data. */
+  /** Everything needed to continue this world later, as plain JSON-safe data (independent of the live world). */
   toSave(): WorldSave {
+    return this.snapshot(false);
+  }
+
+  /**
+   * The save as JSON text, serialised once from the live objects (no intermediate deep copy): what autosaves write.
+   * Nothing runs between taking the snapshot and serialising it, so it is as consistent as toSave().
+   */
+  toSaveJson(): string {
+    return JSON.stringify(this.snapshot(true));
+  }
+
+  private snapshot(shared: boolean): WorldSave {
     return {
       seed: this.world.seed,
       seedText: this.seedText,
-      world: this.world.toJSON(),
+      world: this.world.toJSON({ shared }),
       player: this.player.toJSON(),
       clock: this.clock.toJSON(),
       survival: this.survival.toJSON(),

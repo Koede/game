@@ -122,6 +122,7 @@ export class InputManager {
     const intent = this.core.frame(dtSeconds, performance.now(), blocked);
     this.state.pointerLocked = this.isLocked();
     this.overlay.setVisible(this.touchEnabled && !blocked);
+    this.overlay.setPlaceArmed(this.core.placeArmed);
     this.overlay.render(this.core.touch);
     return intent;
   }
@@ -213,7 +214,7 @@ export class InputManager {
     if (this.blocked()) return;
     e.preventDefault();
     const button = this.overlay.buttonAt(e.target);
-    if (button === 'bag' || button === 'pause') {
+    if (button === 'bag' || button === 'pause' || button === 'place') {
       this.touchPointers.set(e.pointerId, { kind: 'tap', button });
       this.press(button, true);
       return;
@@ -250,6 +251,7 @@ export class InputManager {
     if (role.kind === 'tap') {
       if (!cancelled && this.overlay.hit(role.button, e.clientX, e.clientY)) {
         if (role.button === 'bag') this.core.requestInventory();
+        else if (role.button === 'place') this.core.togglePlace();
         else this.core.requestPause();
       }
       return;

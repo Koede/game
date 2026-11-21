@@ -14,7 +14,8 @@ import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
-import { createRayHit, raycast, type LiquidAim, type RayHit } from './raycast';
+import { blockOfItem } from '../core/registry';
+import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
 
 /** Where the controller gets its per-frame intent (the InputManager, or a script in tests and harnesses). */
 export interface IntentSource {
@@ -72,6 +73,8 @@ export class PlayerController {
   private readonly settings: Settings;
   private readonly state: InputState;
   private readonly hit: RayHit = createRayHit();
+  /** A screen block behind a thin block under the crosshair (see useTarget). */
+  private readonly behind: RayHit = createRayHit();
   private readonly dir: Vec3 = { x: 0, y: 0, z: 1 };
   private readonly targetBox = { x: 0, y: 0, z: 0 };
   private readonly unsubscribe: Array<() => void> = [];
@@ -156,7 +159,7 @@ export class PlayerController {
       const edits = this.interaction.edits;
       if (this.animals?.target != null) this.actOnAnimal(dt, intent);
       else {
-        if (intent.use) this.interaction.use(this.currentTarget);
+        if (intent.use) this.interaction.use(this.useTarget(this.currentTarget), intent.place);
         this.interaction.updateMining(dt, intent.mine, this.currentTarget);
       }
       // A broken or placed block changes what is under the crosshair this very frame.
@@ -245,11 +248,24 @@ export class PlayerController {
     return animal === null ? hit : null;
   }
 
+  /**
+   * What Use acts on: the target, or the screen block behind it when the target is a thin block without a screen
+   * (a cable in a furnace mouth) that the ray passes beside, or that nothing held could be placed against.
+   */
+  private useTarget(hit: RayHit | null): RayHit | null {
+    if (!hit) return null;
+    const p = this.player;
+    const held = p.heldStack()?.item;
+    const d = this.dir;
+    const behind = screenBehindThin(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, liquidAim(held), hit, this.behind, !held || blockOfItem(held) === null);
+    return behind ?? hit;
+  }
+
   /** Mine and Use while an animal is under the crosshair: no block is mined; Use falls through when it is not food for it. */
   private actOnAnimal(dt: number, intent: Intent): void {
     const hands = this.animals as AnimalHands;
     this.interaction.updateMining(dt, false, null);
-    if (intent.use && hands.use() === 'pass') this.interaction.use(this.blockBehind);
+    if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
   }
 

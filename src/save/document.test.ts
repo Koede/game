@@ -6,7 +6,7 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { Survival } from '../game/survival';
 import { FakeWorld } from '../game/fakeWorld';
-import { isWorldSave, normalizeDocument, sanitizeSettings, SaveSlot, SAVE_KEY, SAVE_VERSION, type WorldSave } from './document';
+import { BACKUP_KEY, isWorldSave, normalizeDocument, sanitizeSettings, SaveSlot, SAVE_KEY, SAVE_VERSION, SETTINGS_KEY, type WorldSave } from './document';
 import { MemoryStorage, type StorageLike } from './storage';
 
 function worldSave(): WorldSave {
@@ -115,22 +115,43 @@ describe('SaveSlot', () => {
     expect(JSON.parse(storage.getItem(SAVE_KEY)!).v).toBe(SAVE_VERSION);
   });
 
-  it('ignores corrupt text and documents from an unknown version', () => {
-    const storage = new MemoryStorage();
-    storage.setItem(SAVE_KEY, '{not json');
-    expect(new SaveSlot(storage).read().world).toBeNull();
-    storage.setItem(SAVE_KEY, JSON.stringify({ v: 999, t: 0, d: { settings: {}, world: worldSave() } }));
-    expect(new SaveSlot(storage).read().world).toBeNull();
+  it('corrupt text, a newer version and a damaged world are reported, backed up and never written over by settings', () => {
+    const cases: [string, RegExp][] = [
+      ['{not json', /could not be read/],
+      [JSON.stringify({ v: 2, t: 0, d: { settings: { volume: 0.3 }, world: worldSave() } }), /newer version/],
+      [JSON.stringify({ v: SAVE_VERSION, t: 0, d: { settings: { volume: 0.3 }, world: { ...worldSave(), player: { position: { x: null } } } } }), /damaged/],
+    ];
+    for (const [raw, message] of cases) {
+      const storage = new MemoryStorage();
+      storage.setItem(SAVE_KEY, raw);
+      const slot = new SaveSlot(storage);
+      const doc = slot.read();
+      expect(doc.world).toBeNull();
+      expect(slot.lastProblem).toMatch(message);
+      expect(slot.held).toBe(true);
+      expect(storage.getItem(BACKUP_KEY)).toBe(raw);
+      expect(slot.hasBackup).toBe(true);
+      // A settings change (the app writes 400 ms after a slider moves) keeps the stored text as it was.
+      expect(slot.write({ settings: { ...doc.settings, fov: 91 }, world: null }).ok).toBe(true);
+      expect(slot.writeText({ ...doc.settings, fov: 92 }, null).ok).toBe(true);
+      expect(storage.getItem(SAVE_KEY)).toBe(raw);
+      // ...and the settings live on under their own key.
+      const again = new SaveSlot(storage);
+      expect(again.read().settings.fov).toBe(92);
+      expect(again.held).toBe(true);
+      // Starting a New World on purpose replaces it; the backup stays.
+      expect(again.writeText(again.read().settings, JSON.stringify(worldSave())).ok).toBe(true);
+      expect(again.held).toBe(false);
+      expect(new SaveSlot(storage).read().world?.seed).toBe(99);
+      expect(storage.getItem(BACKUP_KEY)).toBe(raw);
+    }
   });
 
-  it('reports a damaged world once and still reads the settings', () => {
+  it('keeps the settings of a damaged or newer save', () => {
     const storage = new MemoryStorage();
-    storage.setItem(SAVE_KEY, JSON.stringify({ v: SAVE_VERSION, t: 0, d: { settings: { volume: 0.2 }, world: { broken: true } } }));
-    const slot = new SaveSlot(storage);
-    const doc = slot.read();
-    expect(doc.world).toBeNull();
-    expect(doc.settings.volume).toBe(0.2);
-    expect(slot.lastProblem).toMatch(/damaged/);
+    storage.setItem(SAVE_KEY, JSON.stringify({ v: 2, t: 0, d: { settings: { volume: 0.25 }, world: null } }));
+    expect(new SaveSlot(storage).read().settings.volume).toBe(0.25);
+    expect(storage.getItem(SETTINGS_KEY)).toBeNull();
   });
 
   it('keeps working in memory when storage throws (sandboxed frames)', () => {
@@ -144,7 +165,37 @@ describe('SaveSlot', () => {
   it('survives a full storage: the save stays in memory and the reason is quota', () => {
     const slot = new SaveSlot(new QuotaStorage());
     const result = slot.write({ settings: { ...DEFAULT_SETTINGS }, world: worldSave() });
-    expect(result).toEqual({ ok: false, reason: 'quota' });
+    expect(result).toEqual({ ok: false, reason: 'quota', keptAt: null });
     expect(slot.read().world?.seedText).toBe('ninety-nine');
+  });
+
+  it('a full storage never deletes the last good save, and frees the backup of an old unreadable save first', () => {
+    const backing = new MemoryStorage();
+    let room = 0;
+    const storage: StorageLike = {
+      getItem: (k) => backing.getItem(k),
+      removeItem: (k) => backing.removeItem(k),
+      setItem: (k, v) => {
+        const used = [SAVE_KEY, BACKUP_KEY, SETTINGS_KEY].reduce((n, key) => n + (key === k ? 0 : (backing.getItem(key)?.length ?? 0)), 0);
+        if (used + v.length > room) throw Object.assign(new Error('full'), { name: 'QuotaExceededError' });
+        backing.setItem(k, v);
+      },
+    };
+    room = 1e9;
+    const first = { settings: { ...DEFAULT_SETTINGS }, world: worldSave() };
+    expect(new SaveSlot(storage).write(first).ok).toBe(true);
+    const good = backing.getItem(SAVE_KEY);
+    room = good!.length + 10;
+    const slot = new SaveSlot(storage);
+    const bigger = { ...first, world: { ...first.world!, seedText: 'x'.repeat(200) } };
+    const result = slot.write(bigger);
+    expect(result).toMatchObject({ ok: false, reason: 'quota' });
+    expect(backing.getItem(SAVE_KEY)).toBe(good);
+    expect(new SaveSlot(storage).read().world?.seedText).toBe('ninety-nine');
+    // An old backup is given up to make room.
+    backing.setItem(BACKUP_KEY, 'y'.repeat(400));
+    room = good!.length + 260;
+    expect(slot.write(bigger).ok).toBe(true);
+    expect(backing.getItem(BACKUP_KEY)).toBeNull();
   });
 });

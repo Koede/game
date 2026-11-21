@@ -220,12 +220,17 @@ export class World implements IWorld {
 
   // ---- persistence -------------------------------------------------------------------------------
 
-  toJSON(): WorldSnapshot {
+  /**
+   * The world as plain data. Entities are deep copies, unless `shared` is set: then they are the live entity objects,
+   * for a caller that serialises the snapshot straight away (an autosave; copying first would serialise them twice).
+   */
+  toJSON(options?: { shared?: boolean }): WorldSnapshot {
+    const live = [...this.entityStore.values()];
     return {
       version: WORLD_SNAPSHOT_VERSION,
       seed: this.currentSeed,
       edits: this.edits.toJSON(),
-      entities: JSON.parse(JSON.stringify([...this.entityStore.values()])) as BlockEntity[],
+      entities: options?.shared === true ? live : (JSON.parse(JSON.stringify(live)) as BlockEntity[]),
       water: this.water.toJSON(),
     };
   }

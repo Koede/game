@@ -28,7 +28,7 @@ import {
   till,
   type PlayerState,
 } from '../game';
-import { digSound, facingTowards, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
+import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import { Buckets } from './buckets';
 import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
@@ -45,6 +45,8 @@ export const BREAK_COOLDOWN_S = 0.12;
 export const PLACE_COOLDOWN_S = 0.15;
 /** The same advisory toast (e.g. "needs a bronze pickaxe") is not repeated within this many seconds. */
 const ADVICE_COOLDOWN_S = 8;
+/** How often the "placed against it - open it from the front" hint may repeat. */
+const PLACED_AGAINST_HINT_S = 180;
 
 /** The collision test the placement rule needs from the physics. */
 export interface BodyProbe {
@@ -156,11 +158,25 @@ export class Interaction {
 
   /**
    * "Use" on the target, in the priority of spec 3.6. `hit` should come from a ray that includes liquids when
-   * an empty pail is held (so water can be scooped) and skips them otherwise. Pipes and fluid blocks come first
-   * (pipeTools.ts): the wrench, a bucket on a tank or fluid endpoint, the pipe screen.
+   * an empty pail is held (so water can be scooped) and skips them otherwise. A held block is placed first when
+   * `forcePlace` asks for it (Shift, the touch Place toggle) or when it is a building block aimed at a screen block
+   * anywhere but its front (an engine on a furnace, a tank on a tank, bricks around a hearth). Then pipes and fluid
+   * blocks (pipeTools.ts): the wrench, a bucket on a tank or fluid endpoint, the pipe screen. Then screens.
    */
-  use(hit: RayHit | null): UseOutcome {
+  use(hit: RayHit | null, forcePlace = false): UseOutcome {
     if (this.player.dead) return 'none';
+    if (hit && hit.block.liquid === null) {
+      const def = blockOfItem(this.player.heldStack()?.item ?? '');
+      const against = def !== null && !forcePlace && placesAgainst(def, hit);
+      if (def && (forcePlace || against)) {
+        if (!this.placeBlock(hit, def)) return 'refused';
+        if (against) {
+          const front = hit.block.oriented ? 'its front or ' : '';
+          this.advise('placed-against', `Placed against the ${hit.block.name}. To open it, use ${front}an empty hand.`, PLACED_AGAINST_HINT_S);
+        }
+        return 'placed';
+      }
+    }
     if (hit) {
       const piped = this.pipes.use(hit, this.player.heldStack()?.item ?? null);
       if (piped !== null) return piped;
@@ -330,6 +346,15 @@ export class Interaction {
     this.advice.set(key, this.clock);
     this.bus.emit('toast', { text, kind: 'info' });
   }
+}
+
+/**
+ * A building block held against a block that has a screen goes on the face aimed at, unless that face is the front
+ * (the furnace mouth, a machine's front), which still opens the screen. Pipes keep their own rules (pipeTools.ts).
+ */
+function placesAgainst(def: BlockDef, hit: RayHit): boolean {
+  if (!buildsOnto(def) || hit.block.pipe !== null || !screenFor(hit.block, hit.x, hit.y, hit.z)) return false;
+  return frontFace(hit.block, hit.voxel) !== hit.face;
 }
 
 /** What breaking or picking a block leaves in its cell: the picked stage of a bush (same facing and flags), else air. */

@@ -3,6 +3,7 @@
  * - the wrench on a pipe works on the side aimed at (pipeAim.ts): an end touching a block cycles push -> pull -> off,
  *   a side towards a pipe parts or joins the two (the simulation toasts and clunks);
  * - a bucket (empty, water, bronze, lava) on a tank or any fluid endpoint moves 1000 L and swaps the held bucket;
+ *   when it cannot (nothing to scoop, no room, the wrong fluid) the reason is toasted and the block's screen opens;
  * - Use on a pipe with anything that is not the wrench, a bucket or a placeable block opens the PIPE screen.
  *
  * The simulation is reached through the small TransportHands interface (src/sim's Simulation fits it structurally), so
@@ -15,6 +16,7 @@ import type { Face, IWorld } from '../core/types';
 import type { PlayerState } from '../game';
 import { BUCKETS, swapHeldItem } from './buckets';
 import { pipeSideAt } from './pipeAim';
+import { screenFor } from './blockRules';
 import type { RayHit } from './raycast';
 
 /** What the player module needs from the simulation's transport (src/sim's Simulation fits it). */
@@ -96,7 +98,8 @@ export class PipeTools {
     }
     if (!r.endpoint) return null;
     h.advise(`bucket:${r.reason}`, r.reason);
-    return 'refused';
+    // A machine that has a screen opens it (it shows what the machine holds); only a screenless block ends here.
+    return screenFor(hit.block, hit.x, hit.y, hit.z) ? null : 'refused';
   }
 
   private openPipe(hit: RayHit): PipeToolOutcome {

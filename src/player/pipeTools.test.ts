@@ -125,13 +125,14 @@ describe('buckets on tanks and fluid endpoints', () => {
     expect(events.some((e) => e.type === 'ui:open')).toBe(false);
   });
 
-  it('a refusal from a fluid block is toasted and opens nothing', () => {
+  it('a refusal is toasted and the machine screen opens instead (it shows what the machine holds)', () => {
     const { interaction, transport, aim, hold, events, player } = setup();
-    hold({ item: 'water_pail', count: 1 });
-    transport.bucketAnswer = { ok: false, reason: 'The Tank holds lava', endpoint: true };
-    expect(interaction.use(aim(2.5, 10.5, -1.5))).toBe('refused');
-    expect(player.heldStack()).toEqual({ item: 'water_pail', count: 1 });
-    expect(events.map((e) => e.type)).toEqual(['toast']);
+    hold({ item: 'pail', count: 1 });
+    transport.bucketAnswer = { ok: false, reason: 'The Tank holds nothing to scoop', endpoint: true };
+    expect(interaction.use(aim(2.5, 10.5, -1.5))).toBe('screen');
+    expect(player.heldStack()).toEqual({ item: 'pail', count: 1 });
+    expect(events.map((e) => e.type)).toEqual(['toast', 'ui:open']);
+    expect(events[1].e).toEqual({ screen: { type: 'machine', x: 2, y: 10, z: -2 } });
   });
 
   it('blocks that take no fluid are not asked, and without a transport a tank just opens its screen', () => {

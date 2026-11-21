@@ -29,7 +29,8 @@ export interface GestureConfig {
 }
 
 export const GESTURE_DEFAULTS: Readonly<GestureConfig> = {
-  tapMaxMs: 220,
+  // Equal to holdMs: a still touch lifted at any time before mining starts is a tap (no dead band between them).
+  tapMaxMs: 280,
   tapSlopPx: 10,
   holdMs: 280,
   lookSlopPx: 4,
@@ -103,6 +104,8 @@ export class TouchGestures {
   private jumpCount = 0;
   private mineCount = 0;
   private useCount = 0;
+  /** Time of the previous update() (frame clock); -Infinity before the first. */
+  private lastUpdateT = -Infinity;
 
   constructor(config: Partial<GestureConfig> = {}) {
     this.config = { ...GESTURE_DEFAULTS, ...config };
@@ -205,9 +208,18 @@ export class TouchGestures {
     const p = this.find(id);
     if (!p) return;
     if (p.role === LOOK) {
-      this.promoteHold(p, t);
       const still = p.maxDist <= this.config.tapSlopPx;
-      if (!p.holding && still && t - p.downT <= this.config.tapMaxMs) this.usePulses++;
+      if (still && t - p.downT <= this.config.tapMaxMs && t - p.downT < this.config.holdMs) {
+        // The finger lifted before the hold threshold by the event clock: a tap, even if a late frame already
+        // promoted it to a hold (the frame clock ran ahead of events queued during a stall).
+        if (p.holding) {
+          p.holding = false;
+          this.mineCount--;
+        }
+        this.usePulses++;
+      } else {
+        this.promoteHold(p, t);
+      }
     }
     this.release(p);
   }
@@ -218,12 +230,18 @@ export class TouchGestures {
     if (p) this.release(p);
   }
 
-  /** Advances time-based state (hold-to-mine). Call once per frame with the current time. */
+  /**
+   * Advances time-based state (hold-to-mine). Call once per frame with the current time. A touch is only promoted to
+   * a hold by a frame when an earlier frame already saw it down: after a stall, events queued during it (the lift of
+   * a quick tap) are delivered before the next frame, so a tap is never turned into a hold by a late frame.
+   */
   update(t: number): void {
     this.holdPhase = HOLD_NONE;
+    const seenBefore = this.lastUpdateT;
+    this.lastUpdateT = t;
     for (const p of this.pointers) {
       if (p.role !== LOOK) continue;
-      this.promoteHold(p, t);
+      if (seenBefore > p.downT) this.promoteHold(p, t);
       const phase = p.holding ? HOLD_MINING : p.maxDist <= this.config.tapSlopPx ? HOLD_CHARGING : HOLD_NONE;
       if (phase <= this.holdPhase) continue;
       this.holdPhase = phase;

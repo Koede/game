@@ -3,8 +3,8 @@
  * how a placed block faces, and the wording of placement and harvesting hints.
  */
 import type { ScreenRequest, SfxName } from '../core/gameEvents';
-import { ITEMS, block, machineOfBlock } from '../core/registry';
-import { Facing, type BlockDef } from '../core/types';
+import { ITEMS, block, hearthWallTier, machineOfBlock } from '../core/registry';
+import { FACING_TO_FACE, Facing, voxelFacing, type BlockDef, type Face, type Voxel } from '../core/types';
 import { isCrop } from '../game';
 
 /** Which dig sound a block makes. Crops are machine blocks but plants: they rustle like any other plant. */
@@ -24,6 +24,20 @@ export function screenFor(def: BlockDef, x: number, y: number, z: number): Scree
   if (def.machine === 'furnace') return { type: 'furnace', x, y, z };
   if (def.machine === 'crate') return { type: 'crate', x, y, z };
   return { type: 'machine', x, y, z };
+}
+
+/**
+ * Blocks that are normally built against machines and stations: machines and generators (an engine on a furnace,
+ * tanks stacked), cables, pipes and hearth walls. Held, they are placed on any face of a screen block except its
+ * front, instead of opening its screen (spec 3.6).
+ */
+export function buildsOnto(def: BlockDef): boolean {
+  return def.machine !== null || def.power !== null || def.pipe !== null || def.key === 'electrode' || hearthWallTier(def.key) > 0;
+}
+
+/** The face a block's screen is opened from when a building block is held: the front of an oriented block, else none. */
+export function frontFace(def: BlockDef, voxel: Voxel): Face | null {
+  return def.oriented ? FACING_TO_FACE[voxelFacing(voxel)] : null;
 }
 
 /** Facing that turns a block's front towards a player looking along yaw (0 = north, positive turns left). */

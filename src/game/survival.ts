@@ -32,6 +32,7 @@ import { blockOf, voxelWarmth } from '../core/registry';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
 import type { GameClock } from './clock';
+import { ColdWatch, FIRST_DAY_WARMTH_FLOOR, type ColdCause } from './cold';
 import { Hunger } from './hunger';
 import type { BlockPos, PlayerState } from './playerState';
 import { openSkyAbove } from './weather';
@@ -138,6 +139,8 @@ export class Survival {
   /** Open sky above the player's head, as of the last scan. */
   private exposed = false;
   private soaked = false;
+  private cause: ColdCause | null = null;
+  private readonly coldWatch: ColdWatch;
   /**
    * The world's weather (src/game/weather.ts), read every tick: rain or snow on a player under open sky drains
    * WARMTH_DRAIN_WET more warmth per second (spec 15). Null = no weather.
@@ -151,6 +154,7 @@ export class Survival {
     private readonly biomeAt: BiomeLookup,
   ) {
     this.hunger = new Hunger(player);
+    this.coldWatch = new ColdWatch(player.bus);
   }
 
   /** Whether warmth is currently going up, down or nowhere (HUD arrow). */
@@ -177,6 +181,11 @@ export class Survival {
   /** Rain or snow is soaking the player (wet weather and no roof overhead) as of the last tick. */
   get wet(): boolean {
     return this.soaked;
+  }
+
+  /** The biggest drain on warmth as of the last tick (null while warmth is not being drained). */
+  get coldCause(): ColdCause | null {
+    return this.cause;
   }
 
   /** Seconds of Well-Warmed left (0 = not active). */
@@ -249,6 +258,7 @@ export class Survival {
     this.nearFurnaceS = this.coldS = this.drownAcc = this.contactAcc = this.radiationS = this.regenS = 0;
     this.scanIn = 0;
     this.hunger.reset();
+    this.coldWatch.reset();
     player.respawn(this.homeIsHot(), at);
   }
 
@@ -336,19 +346,37 @@ export class Survival {
     const w = this.weather;
     this.soaked = w !== null && this.exposed && isWet(w.precipitation, w.intensity);
     let rate: number;
+    let cause: ColdCause | null = null;
     if (heated) rate = WARMTH_GAIN_HEAT;
     else {
       const night = this.clock.isNight;
-      let drain = night ? WARMTH_DRAIN_NIGHT : 0;
-      if (this.frost) drain += night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY;
-      if (player.inWater) drain += WARMTH_DRAIN_WATER;
-      if (this.soaked) drain += WARMTH_DRAIN_WET;
+      // Each drain on its own; the biggest names the cause (ties go to the one the player can act on first).
+      const water = player.inWater ? WARMTH_DRAIN_WATER : 0;
+      const wet = this.soaked ? WARMTH_DRAIN_WET : 0;
+      const frost = this.frost ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
+      const dark = night ? WARMTH_DRAIN_NIGHT : 0;
+      let drain = water + wet + frost + dark;
+      if (drain > 0) {
+        const top = Math.max(water, wet, frost, dark);
+        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top ? 'frost' : 'night';
+      }
       if (this.coat) drain *= COAT_DRAIN_FACTOR;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
       rate = drain > 0 ? -drain : WARMTH_GAIN_DAY;
     }
+    this.cause = cause;
+    let next = clamp(player.warmth + rate * dt, 0, MAX_WARMTH);
+    if (rate < 0 && this.clock.day === 1 && !player.inWater) {
+      // The first day's safety margin: weather and night stop at the floor (cold water does not).
+      const floor = Math.min(player.warmth, FIRST_DAY_WARMTH_FLOOR);
+      if (next < floor) {
+        next = floor;
+        rate = 0;
+      }
+    }
     this.rate = rate;
-    player.warmth = clamp(player.warmth + rate * dt, 0, MAX_WARMTH);
+    player.warmth = next;
+    this.coldWatch.update(next, cause);
     if (player.warmth > 0) {
       this.coldS = 0;
       return;
@@ -356,6 +384,7 @@ export class Survival {
     this.coldS += dt;
     if (this.coldS >= COLD_DAMAGE_INTERVAL_S) {
       this.coldS -= COLD_DAMAGE_INTERVAL_S;
+      player.coldCause = cause ?? 'night';
       player.damage(1, 'cold');
     }
   }

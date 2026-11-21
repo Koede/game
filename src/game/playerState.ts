@@ -5,12 +5,13 @@
  * Conventions: `position` is the centre of the feet (the eye is PLAYER_EYE above it). Yaw is in radians, 0 looks
  * north (-Z) and positive turns left - exactly a three.js camera's rotation.y. Pitch is positive looking up.
  */
-import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE } from '../core/constants';
+import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE, REGEN_MIN_FOOD } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { DamageCause } from '../core/gameEvents';
 import { clamp, type Vec3 } from '../core/math';
 import { blockOf, itemOrNull } from '../core/registry';
 import type { BlockDef, Slot } from '../core/types';
+import type { ColdCause } from './cold';
 import { Inventory } from './inventory';
 import { wear } from './mining';
 
@@ -57,13 +58,18 @@ export interface PlayerSnapshot {
   stats: PlayerStats;
   dead: boolean;
   deathCause: DamageCause | null;
+  /** What chilled the player when the cold last hurt them. Missing in older saves. */
+  coldCause?: ColdCause | null;
   sinceDamageS: number;
 }
 
 /** Upper bound of the "seconds since the last damage" counter, so it stays a small finite number in saves. */
 const SINCE_DAMAGE_CAP_S = 3600;
-/** Coming back from death tops the food bar up to at least this, so a respawn never lands in starvation. */
-export const RESPAWN_MIN_FOOD = MAX_FOOD / 2;
+/**
+ * Coming back from death tops the food bar up to at least this: never starving, and enough above REGEN_MIN_FOOD
+ * that a respawn at half health heals once it is warm, without eating first.
+ */
+export const RESPAWN_MIN_FOOD = Math.min(MAX_FOOD, REGEN_MIN_FOOD + 2);
 
 const bump = (counters: Record<string, number>, key: string, by: number): void => {
   counters[key] = (counters[key] ?? 0) + by;
@@ -100,6 +106,11 @@ export class PlayerState {
   readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, deaths: 0 };
   dead = false;
   deathCause: DamageCause | null = null;
+  /**
+   * What chilled the player when the cold last hurt them (written by Survival just before cold damage), so a cold
+   * death can name it: night, rain, snow, the frostfell or cold water.
+   */
+  coldCause: ColdCause | null = null;
   /** Seconds since the player last took damage (advanced by Survival; health regenerates after a quiet spell). */
   sinceDamageS = SINCE_DAMAGE_CAP_S;
   /**
@@ -313,6 +324,7 @@ export class PlayerState {
       },
       dead: this.dead,
       deathCause: this.deathCause,
+      coldCause: this.coldCause,
       sinceDamageS: this.sinceDamageS,
     };
   }
@@ -344,6 +356,7 @@ export class PlayerState {
     this.stats.deaths = s.stats.deaths;
     this.dead = s.dead;
     this.deathCause = s.deathCause;
+    this.coldCause = s.coldCause ?? null;
     this.sinceDamageS = s.sinceDamageS;
     this.extraRadiation = 0;
   }

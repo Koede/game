@@ -47,8 +47,19 @@ export class InputCore {
   private logEdge = false;
   private pauseEdge = false;
   private blocked = false;
+  private armed = false;
 
   constructor(private readonly settings: Settings) {}
+
+  /** The touch Place toggle is armed: the next Use places the held block (see Intent.place). */
+  get placeArmed(): boolean {
+    return this.armed;
+  }
+
+  /** Arms or disarms the touch Place toggle. */
+  togglePlace(): void {
+    if (!this.blocked) this.armed = !this.armed;
+  }
 
   /** Gameplay input was blocked (a screen open or paused) on the most recent frame. */
   get isBlocked(): boolean {
@@ -139,6 +150,7 @@ export class InputCore {
     this.inventoryEdge = false;
     this.logEdge = false;
     this.pauseEdge = false;
+    this.armed = false;
   }
 
   /**
@@ -173,6 +185,9 @@ export class InputCore {
     intent.sprint = keySprint(this.keys) || stick.sprint;
     intent.mine = this.lockedMine || this.drag.mineHeld || this.touch.mineHeld;
     intent.use = this.frameUse(dtSeconds);
+    // Shift is also sprint: it only means "place" together with a Use, and sprinting needs the walk key anyway.
+    intent.place = intent.use && (keySprint(this.keys) || this.armed);
+    if (intent.use) this.armed = false;
 
     intent.hotbarSlot = this.hotbarSlot;
     this.hotbarSlot = null;

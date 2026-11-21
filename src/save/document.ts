@@ -13,11 +13,15 @@ import type { SurvivalSnapshot } from '../game/survival';
 import type { WeatherSnapshot } from '../game/weather';
 import type { MobsSnapshot } from '../mobs';
 import type { WorldSnapshot } from '../world/world';
-import { SaveStore, type StorageLike } from './storage';
+import { SaveStore, browserStorage, type LoadProblem, type SaveResult, type StorageLike } from './storage';
 
 /** Bump when the document's shape changes; add a step to `migrateSave` at the same time. */
 export const SAVE_VERSION = 1;
 export const SAVE_KEY = 'hearthwatt.save';
+/** A copy of a stored save this build could not use, kept before anything could replace it. */
+export const BACKUP_KEY = 'hearthwatt.save.bak';
+/** The settings alone, written while the save key holds a world this build cannot read (so it is never replaced). */
+export const SETTINGS_KEY = 'hearthwatt.settings';
 
 /** A world in progress. */
 export interface WorldSave {
@@ -148,23 +152,42 @@ export function migrateSave(_data: unknown, _fromVersion: number): SaveDocument 
   return null;
 }
 
+const PROBLEM_TEXT: Readonly<Record<LoadProblem | 'world', string>> = {
+  corrupt: 'The saved game could not be read. A copy was kept; starting a New World replaces it.',
+  newer: 'This save is from a newer version of the game and cannot be opened here. It is kept as it was.',
+  older: 'This save is from an old version of the game that cannot be opened. A copy was kept.',
+  invalid: 'The saved game could not be read. A copy was kept; starting a New World replaces it.',
+  world: 'The saved world is damaged and could not be loaded. A copy was kept; starting a New World replaces it.',
+};
+
 /**
  * The game's single save slot on top of SaveStore (versioned, never throws, memory fallback).
  * `storage` defaults to localStorage when it works.
+ *
+ * A stored save this build cannot use (not JSON, a newer version, a damaged world) is never thrown away: it is copied
+ * to BACKUP_KEY, `lastProblem` says why, and the slot is `held` - settings-only writes then go to SETTINGS_KEY and the
+ * save key keeps the old text until a world is written (the player started a New World on purpose).
  */
 export class SaveSlot {
   readonly store: SaveStore<SaveDocument>;
-  /** Why the last loaded world was discarded, if it was. */
+  private readonly settingsStore: SaveStore<Settings>;
+  private readonly storage: StorageLike | null;
+  /** Why the stored world could not be used, if it could not. */
   lastProblem: string | null = null;
+  private heldRaw = false;
 
   constructor(storage?: StorageLike | null) {
+    this.storage = storage === undefined ? browserStorage() : storage;
     this.store = new SaveStore<SaveDocument>({
       key: SAVE_KEY,
       version: SAVE_VERSION,
-      storage,
+      storage: this.storage,
       migrate: migrateSave,
       validate: (d) => isRecord(d),
+      // A full storage may first give up the backup of an unreadable save (never while the save key still holds it).
+      onQuota: () => !this.heldRaw && this.removeBackup(),
     });
+    this.settingsStore = new SaveStore<Settings>({ key: SETTINGS_KEY, version: SAVE_VERSION, storage: this.storage, validate: isRecord });
   }
 
   /** True when saves survive a page reload (false inside frames that block storage). */
@@ -172,14 +195,85 @@ export class SaveSlot {
     return this.store.persistent;
   }
 
+  /** The save key holds a world this build could not read; it is kept until a world is written over it. */
+  get held(): boolean {
+    return this.heldRaw;
+  }
+
   /** The document, repaired; defaults when there is none. Never throws. */
   read(): SaveDocument {
     this.lastProblem = null;
-    const doc = normalizeDocument(this.store.load(), (reason) => (this.lastProblem = reason));
-    return doc ?? { settings: { ...DEFAULT_SETTINGS }, world: null };
+    this.heldRaw = false;
+    const found = this.store.inspect();
+    let worldDropped = false;
+    const doc = normalizeDocument(found.data, () => (worldDropped = true));
+    const problem = found.problem ?? (worldDropped ? 'world' : null);
+    if (problem && found.raw) {
+      this.lastProblem = PROBLEM_TEXT[problem];
+      this.heldRaw = true;
+      this.backUp(found.raw);
+    }
+    const settings = this.heldRaw ? (this.settingsStore.load() ?? doc?.settings ?? settingsOf(found.raw)) : doc?.settings;
+    return { settings: sanitizeSettings(settings), world: doc?.world ?? null };
   }
 
-  write(doc: SaveDocument): ReturnType<SaveStore<SaveDocument>['save']> {
-    return this.store.save(doc);
+  write(doc: SaveDocument): SaveResult {
+    if (doc.world === null && this.heldRaw) return this.settingsStore.save(doc.settings);
+    const result = this.store.save(doc);
+    if (result.ok) this.heldRaw = false;
+    return result;
+  }
+
+  /**
+   * write() for a world already serialised to JSON (`worldJson`, or null for none): the world text is used as it is,
+   * so a settings change never serialises the world again and never mixes live state into the last snapshot.
+   */
+  writeText(settings: Settings, worldJson: string | null): SaveResult {
+    if (worldJson === null && this.heldRaw) return this.settingsStore.save(settings);
+    const result = this.store.saveText(`{"settings":${JSON.stringify(settings)},"world":${worldJson ?? 'null'}}`);
+    if (result.ok) this.heldRaw = false;
+    return result;
+  }
+
+  /** A copy of an unreadable save exists in BACKUP_KEY. */
+  get hasBackup(): boolean {
+    return this.getItem(BACKUP_KEY) !== null;
+  }
+
+  private backUp(raw: string): void {
+    if (this.getItem(BACKUP_KEY) === raw) return;
+    try {
+      this.storage?.setItem(BACKUP_KEY, raw);
+    } catch {
+      // Full or blocked: the save key itself still holds the text (held), so nothing is lost.
+    }
+  }
+
+  private removeBackup(): boolean {
+    if (this.getItem(BACKUP_KEY) === null) return false;
+    try {
+      this.storage?.removeItem(BACKUP_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private getItem(key: string): string | null {
+    try {
+      return this.storage?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** The settings of a stored envelope whose world cannot be used (best effort; anything broken gives defaults). */
+function settingsOf(raw: string | null): unknown {
+  try {
+    const env: unknown = raw ? JSON.parse(raw) : null;
+    return isRecord(env) && isRecord(env.d) ? env.d.settings : null;
+  } catch {
+    return null;
   }
 }

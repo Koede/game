@@ -134,6 +134,40 @@ describe('use auto-repeat', () => {
   });
 });
 
+describe('place (Shift + Use, the touch Place toggle)', () => {
+  it('Shift held turns a Use into a place; Shift alone or a plain Use does not', () => {
+    const core = make();
+    core.keyDown('ShiftLeft');
+    expect(core.frame(DT, 0, false).place).toBe(false);
+    core.mouseButton('right', true);
+    expect(core.frame(DT, 16, false)).toMatchObject({ use: true, place: true });
+    core.mouseButton('right', false);
+    core.keyUp('ShiftLeft');
+    core.mouseButton('right', true);
+    expect(core.frame(DT, 32, false)).toMatchObject({ use: true, place: false });
+  });
+
+  it('the armed toggle places on the next Use only, and a screen opening disarms it', () => {
+    const core = make();
+    core.togglePlace();
+    expect(core.placeArmed).toBe(true);
+    expect(core.frame(DT, 0, false).place).toBe(false);
+    core.touch.down(1, 300, 300, 0, 'world');
+    core.touch.up(1, 80);
+    expect(core.frame(DT, 100, false)).toMatchObject({ use: true, place: true });
+    expect(core.placeArmed).toBe(false);
+    core.touch.down(1, 300, 300, 200, 'world');
+    core.touch.up(1, 260);
+    expect(core.frame(DT, 300, false)).toMatchObject({ use: true, place: false });
+    core.togglePlace();
+    core.frame(DT, 400, true);
+    expect(core.placeArmed).toBe(false);
+    core.togglePlace();
+    core.togglePlace();
+    expect(core.frame(DT, 500, false).place).toBe(false);
+  });
+});
+
 describe('look scaling', () => {
   it('applies mouse sensitivity and the pitch sign (mouse up = look up)', () => {
     const core = make({ mouseSensitivity: 2 });

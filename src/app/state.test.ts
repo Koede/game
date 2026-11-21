@@ -166,6 +166,20 @@ describe('GameState', () => {
     state.dispose();
   });
 
+  it('toSaveJson is the same save, serialised once from the live entities', () => {
+    const { state, fx, fy, fz } = playedState();
+    const text = state.toSaveJson();
+    expect(JSON.parse(text)).toEqual(JSON.parse(JSON.stringify(state.toSave())));
+    // toSave() stays a copy: changing the live furnace afterwards does not change a snapshot taken before.
+    const snap = state.toSave();
+    const before = JSON.stringify(snap);
+    for (let i = 0; i < 40; i++) state.tick();
+    expect(state.world.getEntity(fx, fy, fz)).toBeDefined();
+    expect(JSON.stringify(snap)).toBe(before);
+    expect(isWorldSave(JSON.parse(text))).toBe(true);
+    state.dispose();
+  });
+
   it('refuses a broken world snapshot without side effects', () => {
     const { state } = playedState();
     const save = state.toSave();

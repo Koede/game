@@ -112,3 +112,18 @@
   color: var(--hw-ash-1);
   overflow-wrap: anywhere;
 }
+/* Over a running world (graphics lost, a world that stopped): the frozen picture shows through, dimmed. */
+.hw-notice--game {
+  background: rgba(10, 8, 7, 0.82);
+  z-index: 40;
+}
+.hw-notice__error {
+  max-height: 7.5em;
+  overflow: auto;
+  white-space: pre-wrap;
+  padding: 8px;
+  background: var(--hw-soot-0);
+  border: 1px solid var(--hw-iron-1);
+  user-select: text;
+  -webkit-user-select: text;
+}

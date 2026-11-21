@@ -78,6 +78,7 @@ export class Script implements IntentSource {
   frame(): Intent {
     const out = { ...this.next };
     this.next.use = false;
+    this.next.place = false;
     this.next.hotbarSlot = null;
     this.next.hotbarStep = 0;
     this.next.inventory = this.next.log = this.next.pause = false;

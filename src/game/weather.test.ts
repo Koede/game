@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DT, LIGHTNING_MAX_DIST, LIGHTNING_MAX_S, LIGHTNING_MIN_DIST, LIGHTNING_MIN_S, SOUND_SPEED, WEATHER_BLEND_MAX_S,
+  DAY_LENGTH_S, DT, LIGHTNING_MAX_DIST, LIGHTNING_MAX_S, LIGHTNING_MIN_DIST, LIGHTNING_MIN_S, SOUND_SPEED, WEATHER_BLEND_MAX_S,
   WEATHER_BLEND_MIN_S, WEATHER_CHANCE, WEATHER_CLOUD_COVER, WEATHER_MAX_S, WEATHER_MIN_S,
 } from '../core/constants';
 import { createBus } from '../core/context';
@@ -11,7 +11,7 @@ import {
   FORCED_BLEND_S, PRECIP_FADE_S, RELEASE_BLEND_S, Weather, fallingKind, openSkyAbove, stormLevel, wetAt,
   type WeatherBiomeLookup,
 } from './weather';
-import { WEATHER_KINDS, WeatherSchedule, drawWeather } from './weatherSchedule';
+import { DRY_UNTIL_S, WEATHER_KINDS, WeatherSchedule, drawDryWeather, drawWeather } from './weatherSchedule';
 
 const at = { x: 0.5, y: 40, z: 0.5 };
 
@@ -73,6 +73,30 @@ describe('WeatherSchedule', () => {
     for (const k of WEATHER_KINDS) expect(counts[k] / n).toBeCloseTo(WEATHER_CHANCE[k], 1);
     expect(drawWeather(0)).toBe('clear');
     expect(drawWeather(0.999999)).toBe('storm');
+  });
+
+  it('keeps the whole first day and night dry in every world (gc-1: night 1 must not soak a new player)', () => {
+    expect(DRY_UNTIL_S).toBe(DAY_LENGTH_S);
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 2000; seed++) {
+      const s = new WeatherSchedule(seed);
+      for (let t = 0; t < DAY_LENGTH_S; t += 15) {
+        const kind = s.at(t).kind;
+        seen.add(kind);
+        expect(kind === 'clear' || kind === 'cloudy', `seed ${seed} at ${t} s: ${kind}`).toBe(true);
+      }
+    }
+    expect([...seen].sort()).toEqual(['clear', 'cloudy']);
+    // Dry draws keep clear and cloudy in their spec proportions; rain comes back after the first dawn.
+    expect(drawDryWeather(0)).toBe('clear');
+    expect(drawDryWeather(WEATHER_CHANCE.clear / (WEATHER_CHANCE.clear + WEATHER_CHANCE.cloudy) - 1e-9)).toBe('clear');
+    expect(drawDryWeather(0.999999)).toBe('cloudy');
+    let wet = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = new WeatherSchedule(seed);
+      for (let i = 1; i < 6; i++) if (s.segment(i).startS >= DAY_LENGTH_S && (s.segment(i).kind === 'rain' || s.segment(i).kind === 'storm')) wet++;
+    }
+    expect(wet).toBeGreaterThan(50);
   });
 
   it('finds the segment of any time, also after going back', () => {

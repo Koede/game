@@ -109,10 +109,44 @@ describe('look, tap and hold', () => {
     expect(g.mineHeld).toBe(false);
   });
 
-  it('a slow touch (between tap and hold) does nothing', () => {
+  it('a still touch lifted any time before the hold starts is a tap (no dead band)', () => {
     const g = phone();
     g.down(1, 250, 300, 0, 'world');
-    g.up(1, 250);
+    g.up(1, 270);
+    expect(g.takeUsePulses()).toBe(1);
+    expect(g.mineHeld).toBe(false);
+  });
+
+  it('a stalled frame does not turn a quick tap into a hold', () => {
+    const g = phone();
+    g.update(-10);
+    g.down(1, 250, 300, 0, 'world');
+    g.update(400); // the first frame after the touch landed comes late
+    expect(g.mineHeld).toBe(false);
+    g.up(1, 120); // the lift, queued during the stall, carries its real time
+    expect(g.takeUsePulses()).toBe(1);
+    expect(g.mineHeld).toBe(false);
+  });
+
+  it('a tap that a late frame already promoted is still a tap, and the hold is undone', () => {
+    const g = phone();
+    g.down(1, 250, 300, 0, 'world');
+    g.update(10);
+    g.update(400);
+    expect(g.mineHeld).toBe(true);
+    g.up(1, 120);
+    expect(g.takeUsePulses()).toBe(1);
+    expect(g.mineHeld).toBe(false);
+  });
+
+  it('a held still finger becomes a hold on the frame after the threshold', () => {
+    const g = phone();
+    g.down(1, 250, 300, 0, 'world');
+    for (let t = 16; t < 280; t += 16) g.update(t);
+    expect(g.mineHeld).toBe(false);
+    g.update(288);
+    expect(g.mineHeld).toBe(true);
+    g.up(1, 600);
     expect(g.takeUsePulses()).toBe(0);
     expect(g.mineHeld).toBe(false);
   });

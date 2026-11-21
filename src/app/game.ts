@@ -26,6 +26,12 @@ export const STREAM_BUDGET_MS = 4;
 export const LOADING_BUDGET_MS = 14;
 /** Chunks around the player that must be meshed before play starts (Chebyshev radius in chunks). */
 export const READY_RADIUS = 2;
+/** While nothing moves (paused, held, or a window covering the whole view) the world is redrawn this often at most. */
+export const STILL_REDRAW_MS = 1000;
+/** Frames drawn after the view was invalidated (a resize clears the canvas once the renderer catches up). */
+const DIRTY_FRAMES = 3;
+/** While a window is open, how often to check whether it covers the whole view. */
+const COVER_CHECK_MS = 700;
 
 export interface GameOptions {
   app: HTMLElement;
@@ -68,7 +74,19 @@ export class Game {
   /** The animal whose name and health the crosshair shows, and the health it showed (refreshed when either changes). */
   private namedAnimal: number | null = null;
   private namedHealth = -1;
-
+  /**
+   * Set by the app while the world must not run (the graphics were lost, frames keep failing): no controls and no
+   * ticks, as if paused, without opening the pause menu.
+   */
+  held = false;
+  /** Frames still to draw whatever happens (after a pause, a resize, a settings change, a restored context). */
+  private dirtyFrames = DIRTY_FRAMES;
+  private wasStill = false;
+  private lastDraw = 0;
+  /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
+  private covered = false;
+  private coverCheckedAt = -Infinity;
+  private readonly offs: (() => void)[] = [];
   constructor(opts: GameOptions) {
     const { state, settings, root } = opts;
     this.state = state;
@@ -121,6 +139,20 @@ export class Game {
       this.renderer.dispose();
       throw err;
     }
+    const invalidate = (): void => this.invalidateView();
+    window.addEventListener('resize', invalidate);
+    this.offs.push(
+      () => window.removeEventListener('resize', invalidate),
+      bus.on('settings:changed', invalidate),
+      bus.on('ui:opened', () => {
+        this.coverCheckedAt = -Infinity;
+        invalidate();
+      }),
+      bus.on('ui:closed', () => {
+        this.covered = false;
+        invalidate();
+      }),
+    );
     state.prepareAroundPlayer(1);
     const p = player.position;
     this.renderer.setView(p.x, player.eyeY, p.z, player.yaw, player.pitch);
@@ -162,12 +194,29 @@ export class Game {
     this.renderer.render(dt);
   }
 
-  /** One animation frame of play. `rawDt` in seconds; clamped to 0.1. */
-  frame(rawDt: number): void {
+  /** Draw the world on the next few frames even if nothing moves (a resize, a restored graphics context). */
+  invalidateView(): void {
+    this.dirtyFrames = DIRTY_FRAMES;
+  }
+
+  /** True while the world is not running: the pause menu, or held by the app. */
+  get stopped(): boolean {
+    return this.input.paused || this.held;
+  }
+
+  /** Nothing much is happening (no walking, no mining) or a window is open: a good moment for an autosave. */
+  get calm(): boolean {
+    if (this.ui.isOpen) return true;
+    const v = this.state.player.velocity;
+    return Math.hypot(v.x, v.z) < 0.1 && !this.controller.interaction.mining;
+  }
+
+  /** One animation frame of play. `rawDt` in seconds; clamped to 0.1. `now` (ms) paces redraws while still. */
+  frame(rawDt: number, now = performance.now()): void {
     if (this.disposed) return;
     const dt = clampFrameDt(rawDt);
     const { state } = this;
-    const paused = this.input.paused;
+    const paused = this.stopped;
     if (paused) {
       // Keep the input layer in step (it releases everything while paused) without moving the player.
       this.inputManager.frame(dt);
@@ -177,15 +226,46 @@ export class Game {
       for (let i = 0; i < ticks; i++) state.tick(DT);
     }
     const p = state.player;
-    state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
+    // Nothing moves while paused: chunks stream again on resume.
+    if (!paused) state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
     this.audio.setListener(p.position.x, p.eyeY, p.position.z, p.yaw);
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.ui.frame(dt);
-    // Animals are interpolated between the last two ticks; frozen in place while paused.
-    this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
-    this.renderer.render(paused ? 0 : dt);
+    if (this.shouldDraw(paused, now)) {
+      // Animals are interpolated between the last two ticks; frozen in place while paused.
+      this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
+      this.renderer.render(paused ? 0 : dt);
+      this.lastDraw = now;
+    }
     this.frames++;
+  }
+
+  /**
+   * Whether to draw the world this frame. While paused the scene does not change: it is drawn as the pause starts,
+   * when invalidated, and then about once a second. Behind a window that covers the whole view (the phone screens)
+   * the simulation keeps running but nobody sees the world, so it is drawn just as rarely.
+   */
+  private shouldDraw(paused: boolean, now: number): boolean {
+    const still = paused || this.coversView(now);
+    if (still !== this.wasStill) {
+      this.wasStill = still;
+      this.dirtyFrames = Math.max(this.dirtyFrames, 1);
+    }
+    if (this.dirtyFrames > 0) {
+      this.dirtyFrames--;
+      return true;
+    }
+    return !still || now - this.lastDraw >= STILL_REDRAW_MS;
+  }
+
+  /** An open window hides the whole view (every probe point lands on it): checked on opening and then now and then. */
+  private coversView(now: number): boolean {
+    if (!this.ui.isOpen) return false;
+    if (now - this.coverCheckedAt < COVER_CHECK_MS) return this.covered;
+    this.coverCheckedAt = now;
+    this.covered = windowCoversView();
+    return this.covered;
   }
 
   /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */
@@ -207,9 +287,16 @@ export class Game {
     return this.state.toSave();
   }
 
+  /** The save as JSON text (one serialisation, no deep copies). */
+  toSaveJson(): string {
+    return this.state.toSaveJson();
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    for (const off of this.offs) off();
+    this.offs.length = 0;
     this.ui.dispose();
     this.controller.dispose();
     this.inputManager.dispose();
@@ -225,4 +312,26 @@ export class Game {
     this.state.dispose();
     this.pool.dispose();
   }
+}
+
+/** Points (fractions of the viewport) that must all land on an opaque window for it to count as covering the view. */
+const COVER_PROBES: readonly (readonly [number, number])[] = [[0.03, 0.03], [0.97, 0.03], [0.5, 0.5], [0.03, 0.97], [0.97, 0.97]];
+
+function windowCoversView(): boolean {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  for (const [fx, fy] of COVER_PROBES) {
+    const el = document.elementFromPoint(fx * w, fy * h);
+    const win = el?.closest<HTMLElement>('.hw-window');
+    if (!win || !opaque(win)) return false;
+  }
+  return true;
+}
+
+function opaque(el: HTMLElement): boolean {
+  const bg = getComputedStyle(el).backgroundColor;
+  const m = /rgba?\(([^)]+)\)/.exec(bg);
+  if (!m) return false;
+  const parts = m[1].split(',').map((v) => Number.parseFloat(v));
+  return parts.length < 4 || parts[3] >= 0.98;
 }

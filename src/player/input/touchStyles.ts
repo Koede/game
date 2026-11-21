@@ -93,6 +93,10 @@ export const TOUCH_CSS = `
 .hw-touch-btn--jump { --hw-touch-s: 76px; right: calc(20px + var(--hw-touch-r)); bottom: calc(16px + var(--hw-touch-b)); }
 .hw-touch-btn--mine { --hw-touch-s: 72px; right: calc(110px + var(--hw-touch-r)); bottom: calc(72px + var(--hw-touch-b)); }
 .hw-touch-btn--use { --hw-touch-s: 62px; right: calc(26px + var(--hw-touch-r)); bottom: calc(110px + var(--hw-touch-b)); }
+/* Place: a small toggle up and to the left of Use; armed, the next Use places the held block. */
+.hw-touch-btn--place { --hw-touch-s: 46px; right: calc(100px + var(--hw-touch-r)); bottom: calc(158px + var(--hw-touch-b)); }
+.hw-touch-btn--place .hw-touch-label { font-size: 8px; }
+.hw-touch-btn--armed { border-color: var(--hw-touch-accent); color: var(--hw-touch-accent); background: rgba(24, 18, 14, 0.78); }
 .hw-touch-btn--pause,
 .hw-touch-btn--bag { --hw-touch-s: 44px; top: calc(10px + var(--hw-touch-t)); border-radius: 13px; }
 .hw-touch-btn--pause { right: calc(10px + var(--hw-touch-r)); }
@@ -161,6 +165,7 @@ export const TOUCH_CSS = `
   .hw-touch-btn--jump { --hw-touch-s: 72px; right: calc(16px + var(--hw-touch-r)); bottom: calc(88px + var(--hw-touch-b)); }
   .hw-touch-btn--mine { --hw-touch-s: 70px; right: calc(100px + var(--hw-touch-r)); bottom: calc(138px + var(--hw-touch-b)); }
   .hw-touch-btn--use { --hw-touch-s: 60px; right: calc(20px + var(--hw-touch-r)); bottom: calc(178px + var(--hw-touch-b)); }
+  .hw-touch-btn--place { right: calc(94px + var(--hw-touch-r)); bottom: calc(222px + var(--hw-touch-b)); }
   .hw-touch-stick { left: calc(26px + var(--hw-touch-l)); bottom: calc(96px + var(--hw-touch-b)); }
 }
 @media (prefers-reduced-motion: reduce) {

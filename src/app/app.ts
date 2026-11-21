@@ -5,7 +5,8 @@
  */
 import workerSource from 'virtual:worker';
 import type { Settings } from '../core/context';
-import { SaveSlot, type SaveDocument } from '../save/document';
+import { SaveSlot, type WorldSave } from '../save/document';
+import type { SaveResult } from '../save/storage';
 import { UIRoot } from '../ui/kit/root';
 import { TitleScreen } from '../ui/menus/title';
 import { WorkerPool } from '../world';
@@ -13,9 +14,12 @@ import { installDebugHandle } from './debug';
 import { Game } from './game';
 import { hasWebGL2, injectAppCss, LoadingScreen, NO_WEBGL_NOTICE, showNotice } from './screens';
 import { GameState, seedFrom } from './state';
+import { agoText, FrameGuard, Troubles } from './troubles';
 
 /** Seconds of play between autosaves. */
 export const AUTOSAVE_INTERVAL_S = 30;
+/** A due autosave waits for a calm moment (standing still, a screen open) at most this many seconds more. */
+export const AUTOSAVE_GRACE_S = 10;
 /** Settings are written this long after the last change (sliders fire on every step). */
 const SETTINGS_SAVE_DELAY_MS = 400;
 export const VERSION = 'v0.1.0';
@@ -30,7 +34,8 @@ export class App {
   game: Game | null = null;
   /** Result of the last save attempt (debug / tests). */
   lastSave: { ok: boolean; reason?: string; at: number } | null = null;
-  private doc: SaveDocument;
+  /** The world in the save slot as JSON text (what Continue loads and every save writes), or null. */
+  private worldText: string | null;
   private title: TitleScreen | null = null;
   private readonly loading = new LoadingScreen();
   private rafId = 0;
@@ -39,13 +44,33 @@ export class App {
   private settingsTimer = 0;
   private warnedVolatile = false;
   private readonly offs: (() => void)[] = [];
+  private readonly guard = new FrameGuard();
+  private readonly troubles: Troubles;
 
   constructor(readonly app: HTMLElement) {
     injectAppCss();
     this.root = new UIRoot(app);
     this.slot = new SaveSlot();
-    this.doc = this.slot.read();
-    this.settings = { ...this.doc.settings };
+    const doc = this.slot.read();
+    this.settings = { ...doc.settings };
+    this.worldText = doc.world ? JSON.stringify(doc.world) : null;
+    this.troubles = new Troubles(this.root.el, {
+      game: () => this.game,
+      playing: () => this.phase === 'playing',
+      save: () => this.save(),
+      savedAt: () => this.slot.store.savedAt(),
+      persistent: () => this.slot.persistent,
+      quit: () => {
+        this.stopGame();
+        this.showTitle();
+      },
+      resume: () => {
+        this.guard.reset();
+        this.lastTime = performance.now();
+        this.loop();
+      },
+      stopLoop: () => cancelAnimationFrame(this.rafId),
+    });
     installDebugHandle(this);
     this.listen();
     if (!hasWebGL2()) {
@@ -57,8 +82,14 @@ export class App {
     if (this.slot.lastProblem) this.root.toasts.show({ text: this.slot.lastProblem, kind: 'bad' });
   }
 
+  /** A saved world can be continued. */
   get hasSave(): boolean {
-    return this.doc.world !== null;
+    return this.worldText !== null;
+  }
+
+  /** The title treats the slot as taken (Continue shown, New World held to confirm) also while it keeps an unreadable save. */
+  private get slotTaken(): boolean {
+    return this.hasSave || this.slot.held;
   }
 
   // ---- title -------------------------------------------------------------------------------------------------
@@ -67,7 +98,7 @@ export class App {
     this.phase = 'title';
     if (!this.title) {
       this.title = new TitleScreen(this.root, {
-        hasSave: this.hasSave,
+        hasSave: this.slotTaken,
         settings: this.settings,
         version: VERSION,
         onNewWorld: (seed) => this.newWorld(seed),
@@ -75,7 +106,7 @@ export class App {
         onSettingsChange: (s, key) => this.changeSettings(s, key),
       });
     }
-    this.title.setHasSave(this.hasSave);
+    this.title.setHasSave(this.slotTaken);
     this.title.show();
   }
 
@@ -95,8 +126,12 @@ export class App {
 
   continueWorld(): void {
     if (this.phase !== 'title') return;
-    const save = this.doc.world;
-    if (!save) return;
+    if (!this.worldText) {
+      // The slot holds a save this version cannot open: say so again rather than do nothing.
+      if (this.slot.lastProblem) this.root.toasts.show({ text: this.slot.lastProblem, kind: 'bad', durationMs: 7000 });
+      return;
+    }
+    const save = JSON.parse(this.worldText) as WorldSave;
     const seedLine = save.seedText ? `Seed "${save.seedText}"` : `Seed ${save.seed}`;
     this.start('Loading your world', seedLine, (pool) => GameState.restore(save, { pool }));
   }
@@ -130,6 +165,8 @@ export class App {
         this.game.bus.on('game:paused', ({ paused }) => {
           if (paused) this.save();
         });
+        this.troubles.attach(this.game);
+        this.guard.reset();
         this.lastTime = performance.now();
         this.loop();
       }),
@@ -168,7 +205,7 @@ export class App {
     cancelAnimationFrame(this.rafId);
     const frame = (now: number): void => {
       const game = this.game;
-      if (!game) return;
+      if (!game || this.troubles.broken) return;
       this.rafId = requestAnimationFrame(frame);
       const dt = (now - this.lastTime) / 1000;
       this.lastTime = now;
@@ -178,14 +215,17 @@ export class App {
           this.loading.set(game.loadingProgress);
           if (game.ready) this.enterPlay();
         } else if (this.phase === 'playing') {
-          game.frame(dt);
-          if (!game.input.paused) {
+          game.frame(dt, now);
+          if (!game.stopped) {
             this.sinceSave += Math.min(dt, 0.1);
-            if (this.sinceSave >= AUTOSAVE_INTERVAL_S) this.save();
+            const due = this.sinceSave >= AUTOSAVE_INTERVAL_S;
+            if (due && (game.calm || this.sinceSave >= AUTOSAVE_INTERVAL_S + AUTOSAVE_GRACE_S)) this.save();
           }
         }
+        this.guard.ok();
       } catch (err) {
         console.error('[app] frame failed', err);
+        if (this.guard.fail(now)) this.troubles.halt(err);
       }
     };
     this.rafId = requestAnimationFrame(frame);
@@ -197,29 +237,35 @@ export class App {
   save(): boolean {
     this.sinceSave = 0;
     const game = this.game;
+    // A world that stopped on repeated failures is never saved again (the fault could go into the save).
+    if (this.troubles.broken) return false;
     if (game && (this.phase === 'playing' || this.phase === 'loading')) {
       try {
-        this.doc.world = game.toSave();
+        this.worldText = game.toSaveJson();
       } catch (err) {
         console.error('[app] could not snapshot the world', err);
         return false;
       }
     }
-    this.doc.settings = { ...this.settings };
-    const result = this.slot.write(this.doc);
+    const result = this.slot.writeText({ ...this.settings }, this.worldText);
     this.lastSave = { ok: result.ok, reason: result.ok ? undefined : result.reason, at: Date.now() };
     if (result.ok) {
       game?.bus.emit('game:saved', {});
       return true;
     }
+    this.saveFailed(result, game !== null);
+    return false;
+  }
+
+  private saveFailed(result: Exclude<SaveResult, { ok: true }>, playing: boolean): void {
     const toasts = this.root.toasts;
     if (result.reason === 'quota') {
-      toasts.show({ text: 'Storage is full: the game could not be saved. It is kept until this page closes.', kind: 'bad', durationMs: 6000 });
-    } else if (!this.warnedVolatile && game) {
+      const kept = result.keptAt !== null ? `Your last save (${agoText(result.keptAt, Date.now())}) is still kept.` : 'Progress lasts until this page closes.';
+      toasts.show({ text: `Storage is full: this save failed. ${kept}`, kind: 'bad', durationMs: 7000 });
+    } else if (!this.warnedVolatile && playing) {
       this.warnedVolatile = true;
       toasts.show({ text: 'This page cannot keep saves: progress lasts until it is closed.', kind: 'warn', durationMs: 6000 });
     }
-    return false;
   }
 
   saveAndQuit(): void {
@@ -233,6 +279,7 @@ export class App {
   stopGame(): void {
     cancelAnimationFrame(this.rafId);
     this.loading.hide();
+    this.troubles.detach();
     const game = this.game;
     this.game = null;
     game?.dispose();
@@ -240,9 +287,9 @@ export class App {
 
   /** Forgets the saved world (debug / tests). */
   deleteSave(): void {
-    this.doc.world = null;
-    this.slot.write(this.doc);
-    this.title?.setHasSave(false);
+    this.worldText = null;
+    this.slot.writeText({ ...this.settings }, null);
+    this.title?.setHasSave(this.slotTaken);
   }
 
   // ---- settings ----------------------------------------------------------------------------------------------
@@ -252,9 +299,8 @@ export class App {
     this.game?.bus.emit('settings:changed', {});
     window.clearTimeout(this.settingsTimer);
     this.settingsTimer = window.setTimeout(() => {
-      this.doc.settings = { ...this.settings };
-      // Only the settings change here: the world part of the document stays as last saved.
-      this.slot.write(this.doc);
+      // Only the settings change here: the world text stays exactly as last saved (never re-taken from live state).
+      this.slot.writeText({ ...this.settings }, this.worldText);
     }, SETTINGS_SAVE_DELAY_MS);
   }
 
@@ -269,7 +315,7 @@ export class App {
     }
     const hidden = (): void => {
       if (document.visibilityState !== 'hidden') return;
-      if (this.phase !== 'playing' || !this.game) return;
+      if (this.phase !== 'playing' || !this.game || this.troubles.broken) return;
       this.save();
       // Come back to a paused game, not one that kept freezing the player while the phone was in a pocket.
       if (!this.game.ui.isOpen) this.game.bus.emit('ui:open', { screen: { type: 'pause' } });

@@ -1,14 +1,33 @@
 /** The death screen: what happened, what was kept, where the player wakes, and the Respawn button. */
 import type { DamageCause } from '../../../core/gameEvents';
 import { blockOf } from '../../../core/registry';
+import type { ColdCause } from '../../../game/cold';
 import type { GameScreen, ScreenContext } from '../../gameUI';
 import { Button } from '../../kit/controls';
 import { h, setText } from '../../kit/dom';
 import { Window } from '../../kit/window';
 import { hungerNote } from '../food';
 
+/** A cold death says what chilled the player (PlayerState.coldCause) and the remedy for that. */
+const COLD_DEATHS: Record<ColdCause, { title: string; line: string }> = {
+  night: { title: 'The cold took you', line: 'Nights drain warmth. Stay near a fire, a torch or your furnace after dark.' },
+  rain: {
+    title: 'The rain chilled you',
+    line: 'Rain under open sky drains warmth fast. Any roof overhead keeps it off; a fire, a torch or your furnace warms you back up.',
+  },
+  snow: {
+    title: 'The snow froze you',
+    line: 'Falling snow soaks you through. Get under a roof and stand by a fire, a torch or your furnace.',
+  },
+  frost: {
+    title: 'The frostfell froze you',
+    line: 'The frostfell is cold even by day and bitter at night. Carry torches, build a fire, or wear a padded coat.',
+  },
+  water: { title: 'The cold water took you', line: 'Cold water drains warmth faster than anything. Get out, and dry off by a fire.' },
+};
+
 const CAUSES: Record<DamageCause, { title: string; line: string }> = {
-  cold: { title: 'The cold took you', line: 'Nights drain warmth. Stay near a fire, a torch or your furnace after dark.' },
+  cold: COLD_DEATHS.night,
   fall: { title: 'You fell too far', line: 'Anything past three blocks hurts. Dig steps down instead of jumping.' },
   lava: { title: 'Lost to the lava', line: 'Lava burns fast. Watch the glow in deep caves and keep a block in hand to seal it.' },
   drown: { title: 'You drowned', line: 'Fifteen seconds of breath under water. Watch the air bar and surface early.' },
@@ -32,7 +51,8 @@ export function wakeText(ctx: ScreenContext): string {
 }
 
 export function createDeathScreen(ctx: ScreenContext, respawn: () => void): GameScreen {
-  const cause = CAUSES[ctx.player.deathCause ?? 'burn'];
+  const { deathCause, coldCause } = ctx.player;
+  const cause = deathCause === 'cold' && coldCause ? COLD_DEATHS[coldCause] : CAUSES[deathCause ?? 'burn'];
   const starving = hungerNote(ctx.player.deathCause, ctx.player.food);
   const wake = h('p', { class: 'hw-death__wake' });
   const deaths = h('p', { class: 'hw-death__count hw-num' });

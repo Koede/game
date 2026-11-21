@@ -1,5 +1,9 @@
-/** Health, warmth (with its trend), food (Hungry / starving), air while under water, and the Well-Warmed / Well-Fed buffs. */
+/**
+ * Health, warmth (with its trend), food (Hungry / starving), air while under water, the Well-Warmed / Well-Fed
+ * buffs, and one short visible line saying why warmth falls or that food is low (titles never show on touch).
+ */
 import { MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, WELL_WARMED_AFTER_S } from '../../core/constants';
+import { survivalNote, type SurvivalNoteTone } from '../../game/cold';
 import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
 import { h, setAttr, setFlag, setText } from '../kit/dom';
@@ -76,6 +80,16 @@ const HUNGER_TITLES: Record<HungerState, string | null> = {
   starving: 'Starving: an empty stomach takes your health. Eat something.',
 };
 
+const NOTE_COLOURS: Record<SurvivalNoteTone, string> = { cold: '#8fc4ff', warn: 'var(--hw-warn)', bad: 'var(--hw-bad-hi)' };
+
+/** Styled inline: the line is this module's alone and hud.css belongs to the HUD as a whole. */
+const NOTE_STYLE: Readonly<Record<string, string>> = {
+  font: '600 11px / 1.2 var(--hw-font-display)',
+  'letter-spacing': '0.02em',
+  'padding-left': '20px',
+  'margin-top': '-1px',
+};
+
 export class Vitals {
   readonly el: HTMLDivElement;
   private readonly health = new VitalBar('health', 'heart', 'Health');
@@ -87,6 +101,8 @@ export class Vitals {
   private readonly warmBuff = new BuffPill('warm', 'flame');
   private readonly fedBuff = new BuffPill('fed', 'bowl');
   private readonly buffs: HTMLDivElement;
+  private readonly note: HTMLDivElement;
+  private shownNote = '';
   private shownTrend = '';
   private shownHunger: HungerState | '' = '';
 
@@ -99,7 +115,9 @@ export class Vitals {
     this.air.el.hidden = true;
     this.buffs = h('div', { class: 'hw-buffs' }, this.warmBuff.el, this.fedBuff.el);
     this.buffs.hidden = true;
-    this.el = h('div', { class: 'hw-vitals hw-hud-plate' }, this.health.el, this.warmth.el, this.food.el, this.air.el, this.buffs);
+    this.note = h('div', { class: 'hw-vitals__note', style: NOTE_STYLE, attrs: { role: 'status' } });
+    this.note.hidden = true;
+    this.el = h('div', { class: 'hw-vitals hw-hud-plate' }, this.health.el, this.warmth.el, this.food.el, this.air.el, this.note, this.buffs);
   }
 
   update(player: PlayerState, survival: Survival): void {
@@ -120,6 +138,16 @@ export class Vitals {
       setAttr(this.food.el, 'aria-label', hunger === 'fed' ? 'Food' : hunger === 'hungry' ? 'Food (Hungry)' : 'Food (starving)');
       setAttr(this.food.el, 'title', HUNGER_TITLES[hunger]);
       setText(this.hungerTag, hunger === 'fed' ? '' : '!');
+    }
+    const note = survivalNote(survival.coldCause, player.warmth, player.food);
+    const noteKey = note ? `${note.tone}|${note.text}` : '';
+    if (noteKey !== this.shownNote) {
+      this.shownNote = noteKey;
+      this.note.hidden = note === null;
+      if (note) {
+        setText(this.note, note.text);
+        this.note.style.color = NOTE_COLOURS[note.tone];
+      }
     }
     const underwater = player.headInWater || player.air < MAX_AIR_S - 0.05;
     this.air.el.hidden = !underwater;

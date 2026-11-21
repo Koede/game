@@ -2,7 +2,7 @@
 import { HOLD_CHARGING, HOLD_MINING, HOLD_NONE, type TouchGestures } from './gestures';
 import { TOUCH_CSS } from './touchStyles';
 
-export type TouchButton = 'jump' | 'mine' | 'use' | 'bag' | 'pause';
+export type TouchButton = 'jump' | 'mine' | 'use' | 'place' | 'bag' | 'pause';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -11,6 +11,7 @@ const ICONS: Readonly<Record<TouchButton, readonly string[]>> = {
   jump: ['M5 12.5 12 5.5l7 7', 'M5 19l7-7 7 7'],
   mine: ['M5.5 20 15 10.5', 'M8.5 5.2c5-1.4 9.9 1.6 10.6 7.6', 'M13.2 8.4l2.6 2.6'],
   use: ['M12 3.2 19.6 7.5v9L12 20.8 4.4 16.5v-9z', 'M4.6 7.6 12 11.9l7.4-4.3', 'M12 11.9v8.7'],
+  place: ['M10 6.2 15.8 9.5v6.6L10 19.4l-5.8-3.3V9.5z', 'M4.4 9.6 10 12.8l5.6-3.2', 'M10 12.8v6.4', 'M18.2 2.8v6', 'M15.2 5.8h6'],
   bag: ['M6.2 9h11.6l1.1 9.9a1.8 1.8 0 0 1-1.8 2H6.9a1.8 1.8 0 0 1-1.8-2z', 'M9 9V7.4a3 3 0 0 1 6 0V9'],
   pause: ['M7 5h3.4v14H7z', 'M13.6 5H17v14h-3.4z'],
 };
@@ -19,12 +20,13 @@ const LABELS: Readonly<Record<TouchButton, string>> = {
   jump: 'Jump',
   mine: 'Mine',
   use: 'Use',
+  place: 'Place',
   bag: 'Inventory',
   pause: 'Pause',
 };
 
-const CAPTIONED: readonly TouchButton[] = ['jump', 'mine', 'use'];
-const ORDER: readonly TouchButton[] = ['jump', 'mine', 'use', 'bag', 'pause'];
+const CAPTIONED: readonly TouchButton[] = ['jump', 'mine', 'use', 'place'];
+const ORDER: readonly TouchButton[] = ['jump', 'mine', 'use', 'place', 'bag', 'pause'];
 
 function icon(name: TouchButton): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -53,6 +55,7 @@ export class TouchOverlay {
   private holdPhase = HOLD_NONE;
   private holdKey = '';
   private diameter = 0;
+  private placeArmed = false;
 
   constructor(layer: HTMLElement) {
     this.style = document.createElement('style');
@@ -115,6 +118,15 @@ export class TouchOverlay {
 
   setPressed(name: TouchButton, pressed: boolean): void {
     this.buttons.get(name)?.classList.toggle('hw-touch-btn--pressed', pressed);
+  }
+
+  /** Shows the Place toggle armed (the next Use places the held block). */
+  setPlaceArmed(armed: boolean): void {
+    if (armed === this.placeArmed) return;
+    this.placeArmed = armed;
+    const el = this.buttons.get('place');
+    el?.classList.toggle('hw-touch-btn--armed', armed);
+    el?.setAttribute('aria-pressed', String(armed));
   }
 
   clearPressed(): void {

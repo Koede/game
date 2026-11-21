@@ -20,6 +20,11 @@ export interface Intent {
   mine: boolean;
   /** True on the frame the use control was pressed, and again every USE_REPEAT_S while it stays held. */
   use: boolean;
+  /**
+   * With `use`: this Use places the held block on the face aimed at, skipping screens, the pipe screen and buckets
+   * (Shift held on a keyboard, or the touch Place toggle armed for one Use).
+   */
+  place: boolean;
   /** 0-8 on the frame a number key was pressed, otherwise null. */
   hotbarSlot: number | null;
   /** -1 (previous slot), 0 or +1 (next slot) from the mouse wheel. */
@@ -40,6 +45,7 @@ export function createIntent(): Intent {
     sprint: false,
     mine: false,
     use: false,
+    place: false,
     hotbarSlot: null,
     hotbarStep: 0,
     inventory: false,
@@ -58,6 +64,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.sprint = false;
   intent.mine = false;
   intent.use = false;
+  intent.place = false;
   intent.hotbarSlot = null;
   intent.hotbarStep = 0;
   intent.inventory = false;

@@ -4,10 +4,13 @@
  * liquids are skipped unless asked for, and the ray stops at unloaded chunks and the bottom of the world.
  * An empty bucket's ray asks for liquid SOURCES only (spec 18.3): it looks through flowing water as if it were not
  * there, and when it finds nothing behind the flow it hands back the first flowing cell it crossed.
+ * Use looks past a thin block without a screen when the ray misses its real shape and a screen block stands behind
+ * it (`screenBehindThin`): a cable in a furnace mouth must not hide the furnace. Mining keeps the whole cell.
  */
 import { blockOf } from '../core/registry';
-import { Face, WORLD_HEIGHT, type BlockDef, type IWorld, type Voxel } from '../core/types';
+import { Face, WORLD_HEIGHT, type BlockDef, type BlockShape, type IWorld, type Voxel } from '../core/types';
 import { isLiquidSource } from '../world/water';
+import { screenFor } from './blockRules';
 
 /** Which liquid cells stop the ray: none, every one, or only sources (an empty bucket). */
 export type LiquidAim = boolean | 'sources';
@@ -132,4 +135,71 @@ function copyFlow(out: RayHit): RayHit {
   fill(out, flow.x, flow.y, flow.z, flow.face, flow.voxel, flow.block, flow.distance);
   out.throughFlow = true;
   return out;
+}
+
+/** Real boxes of the thin shapes inside their cell, in sixteenths: min x, y, z, max x, y, z (a cable's core only). */
+const THIN_BOX: Partial<Record<BlockShape, readonly number[]>> = {
+  cable: [5, 5, 5, 11, 11, 11],
+  torch: [6, 0, 6, 10, 11, 10],
+  slab: [0, 0, 0, 16, 8, 16],
+};
+/** How far into the thin cell the second ray starts (it never tests its own cell). */
+const NUDGE = 1e-4;
+
+/**
+ * For Use: when `hit` (from `raycast` with the same arguments) is a thin block that has no screen - a cable, a torch,
+ * a slab - and the ray passes beside its real shape (or `anyAim`: nothing placeable is held, so Use could do nothing
+ * with the thin block), the next block along the ray is returned in `out` if it has a screen. Otherwise null, and
+ * `hit` stays the target.
+ */
+export function screenBehindThin(
+  world: IWorld,
+  ox: number,
+  oy: number,
+  oz: number,
+  dx: number,
+  dy: number,
+  dz: number,
+  maxDist: number,
+  liquids: LiquidAim,
+  hit: RayHit,
+  out: RayHit,
+  anyAim = false,
+): RayHit | null {
+  const box = THIN_BOX[hit.block.shape];
+  if (!box || screenFor(hit.block, hit.x, hit.y, hit.z)) return null;
+  const len = Math.hypot(dx, dy, dz);
+  if (!(len > 0)) return null;
+  const ux = dx / len;
+  const uy = dy / len;
+  const uz = dz / len;
+  if (!anyAim && rayHitsBox(ox - hit.x, oy - hit.y, oz - hit.z, ux, uy, uz, box)) return null;
+  const t0 = hit.distance + NUDGE;
+  const behind = raycast(world, ox + ux * t0, oy + uy * t0, oz + uz * t0, ux, uy, uz, maxDist - t0, liquids, out);
+  if (!behind || behind.block.liquid !== null || !screenFor(behind.block, behind.x, behind.y, behind.z)) return null;
+  behind.distance += t0;
+  return behind;
+}
+
+/** Slab test of a ray (origin relative to the cell, unit direction) against a box given in sixteenths. */
+function rayHitsBox(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, box: readonly number[]): boolean {
+  let near = 0;
+  let far = Infinity;
+  const o = [ox, oy, oz];
+  const d = [dx, dy, dz];
+  for (let a = 0; a < 3; a++) {
+    const lo = box[a] / 16;
+    const hi = box[a + 3] / 16;
+    if (d[a] === 0) {
+      if (o[a] < lo || o[a] > hi) return false;
+      continue;
+    }
+    let t1 = (lo - o[a]) / d[a];
+    let t2 = (hi - o[a]) / d[a];
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    near = Math.max(near, t1);
+    far = Math.min(far, t2);
+    if (near > far) return false;
+  }
+  return true;
 }

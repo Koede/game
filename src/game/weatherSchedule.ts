@@ -2,10 +2,13 @@
  * The world's weather timetable (spec 15): a sequence of segments, each a state drawn from WEATHER_CHANCE and
  * lasting WEATHER_MIN_S..WEATHER_MAX_S, with the change into it eased over WEATHER_BLEND_MIN_S..MAX_S. Every
  * number is a hash of the world seed and the segment index, so the weather at any moment follows from the seed
- * and the elapsed world time alone. The first segment is always clear (a new world opens under a clear sky).
+ * and the elapsed world time alone. The first segment is always clear (a new world opens under a clear sky), and
+ * every segment that starts before the first dawn (world time DAY_LENGTH_S) is dry: clear or cloudy, never rain
+ * or a storm. A new player has no torches yet and a clear night already drains almost all their warmth, so the
+ * first night must not soak them as well.
  */
 import {
-  WEATHER_BLEND_MAX_S, WEATHER_BLEND_MIN_S, WEATHER_CHANCE, WEATHER_MAX_S, WEATHER_MIN_S,
+  DAY_LENGTH_S, WEATHER_BLEND_MAX_S, WEATHER_BLEND_MIN_S, WEATHER_CHANCE, WEATHER_MAX_S, WEATHER_MIN_S,
 } from '../core/constants';
 import { hashFloat } from '../core/math';
 import type { WeatherKind } from '../core/types';
@@ -37,6 +40,14 @@ export function drawWeather(r: number): WeatherKind {
   return WEATHER_KINDS[WEATHER_KINDS.length - 1];
 }
 
+/** The dry state a uniform number r in [0, 1) draws: clear and cloudy in their WEATHER_CHANCE proportions. */
+export function drawDryWeather(r: number): WeatherKind {
+  return r * (WEATHER_CHANCE.clear + WEATHER_CHANCE.cloudy) < WEATHER_CHANCE.clear ? 'clear' : 'cloudy';
+}
+
+/** Segments starting before this world time (the first dawn) are always dry. */
+export const DRY_UNTIL_S = DAY_LENGTH_S;
+
 /** Segments are generated on demand and kept (one per 4-12 minutes of play: a long game holds a few thousand). */
 export class WeatherSchedule {
   private readonly segments: WeatherSegment[] = [];
@@ -50,10 +61,12 @@ export class WeatherSchedule {
     while (list.length <= index) {
       const i = list.length;
       const prev = i > 0 ? list[i - 1] : null;
+      const startS = prev ? prev.startS + prev.lengthS : 0;
+      const r = hashFloat(this.seed, i, SALT_KIND);
       list.push({
         index: i,
-        kind: i === 0 ? 'clear' : drawWeather(hashFloat(this.seed, i, SALT_KIND)),
-        startS: prev ? prev.startS + prev.lengthS : 0,
+        kind: i === 0 ? 'clear' : startS < DRY_UNTIL_S ? drawDryWeather(r) : drawWeather(r),
+        startS,
         lengthS: WEATHER_MIN_S + hashFloat(this.seed, i, SALT_LENGTH) * (WEATHER_MAX_S - WEATHER_MIN_S),
         blendS: WEATHER_BLEND_MIN_S + hashFloat(this.seed, i, SALT_BLEND) * (WEATHER_BLEND_MAX_S - WEATHER_BLEND_MIN_S),
       });
