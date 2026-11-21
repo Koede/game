@@ -480,3 +480,20 @@ Risks to design around (decide in B1, write them down):
 - Bursts must be fair: warnings start at 7 bar (sound, shaking needle, HUD line) at least 5 s before.
 - The Bronze Chute (current Ember item pipe) vs pneumatic tubes: keep the chute as the slow Ember gravity-free
   pipe, tubes are the fast Bronze upgrade (do not delete the chute; saves use it).
+
+### 13.1 Owner decision: Bronze Furnace = single block; the steam boiler = first multiblock (SPEC 21.8)
+Implementation consequences:
+- Generalise the hearth scan BEFORE writing the boiler: `hearthScan.ts` takes a `StructureRules` object
+  { walls(tier) , faceParts, roofParts, interior: 'air', ceiling: 'required'|'optional', controllerInFace,
+  minInner, maxInner, requiredParts } - the hearth passes its tier rules, the boiler passes SPEC 21.8. Put the
+  rules data in `src/content` (a `STRUCTURES` table) so content tests can compute smallest-shell material
+  counts (the solver needs them for the Bronze gate: 1x1x2 interior = 3x3x4 shell = 34 cells minus ports).
+- New sim file `boilerVessel.ts`: tracks formed vessels (same runtime shape as `hearth.ts`: dirty box, retry
+  when the player is near, one-cell sweep), exposes water L, steam L, bar, heat intake, dry timer; is the
+  `boiler` member of a steam network; ports proxy like hearth hatches (`itemEndpoint`/`fluidEndpoint` pattern).
+- UI: reuse the Structure tab component (`src/ui/screens/furnace/structureTab.ts`) - lift it to
+  `src/ui/screens/structure/` taking a generic StructureView; the boiler screen = gauge (bar), water level bar,
+  heat in (kW), steam out (L/s), valve setting, Structure tab.
+- Render: water level visible in the gauge glass (parts layer), plume from the valve, burst debris.
+- Tests: boiler forms/unforms with every problem code; capacity by size; dry-fire warp; burst with and without
+  valve; heat only via heat_port; e2e-bronze builds the smallest boiler from the ghost preview on a phone.

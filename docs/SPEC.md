@@ -1414,3 +1414,26 @@ bronze_furnace (tier 2) - move_heat (place a thermocouple network that feeds a u
 making steam) - read_pressure (place a pressure gauge) - fit_valve (place a safety valve) - piston_power
 (a steam engine turning) - compress_air (an air network at 2 bar) - pneumatic_post (an item arrives by
 pneumatic tube) - press_plates (pneumatic press job) - blast_nozzle (make one) -> Forge: blast_furnace.
+
+### 21.8 DECIDED by the owner: the Bronze Furnace stays a single block; the STEAM BOILER is the first multiblock
+"bronze furnace will be what it is and the steam boiler will be the first separate multiblock". This replaces the
+single-block `boiler` of 21.4 for the Bronze Age (the old one-block boiler becomes the Ember KETTLE's role only).
+
+- Structure: a hollow cuboid of `boiler_plate` (bronze casing; forge T2 800 C: 2 bronze_plate -> 2), standing
+  anywhere - it is NOT built around the furnace. Interior 1x1x2 up to 3x3x4 (x*z*y), always closed (floor, walls,
+  roof). Controller: `boiler_gauge_glass` in a wall face (shows the water level in the world; Use opens the
+  boiler screen). Required wall parts: >= 1 `heat_port` (a thermocouple network connects here - heat still comes
+  only from the furnace or lava), >= 1 `water_port` (bucket or pipe in), >= 1 `steam_port` (steam pipe out).
+  Optional in the roof: `safety_valve` (setting 2-8 bar). Glass is not allowed (pressure vessel).
+- Size grants: water capacity 2000 L per interior cell; steam volume 1000 L per interior cell; heat intake limit
+  6 kW per heat_port; rated pressure 8 bar (bronze plate) - iron plate later 16 bar.
+- Formation: automatic, same cuboid scan and feedback as the hearth (reuse `src/sim/hearthScan.ts` by making its
+  scan take a rule set: wall blocks, part kinds, interior rule, ceiling rule); active bit on formed shell
+  blocks; Structure tab on the boiler screen with checklist, problems, ghost preview.
+- Burst (21.4) applies to the whole vessel: above rated pressure for 5 s with no working valve -> the shell
+  blows out (radius 3), the plates drop as items (half are lost), scalding 6 in radius 4.
+- Running dry: heating an empty formed boiler for 20 s warps it (unforms; one plate cracks into scrap) -
+  warning text and a rattle from 5 s on. Keep the water port fed (mech pump).
+- Objectives: `seal_boiler` becomes "Build a steam boiler" (a formed boiler); the rest of 21.7 unchanged.
+- The Forge Age Blast hearth is then the SECOND multiblock the player builds, with the same language of
+  shells, ports and the Structure tab.
