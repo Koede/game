@@ -65,15 +65,12 @@ export async function sandboxChecks({ report, dir, shotDir }) {
     });
 
     await step('holding the mouse still mines without the lock', async () => {
+      // The block under the player's feet: nothing can stand between the eye and it.
       const target = await d.hw(() => {
         const p = window.__hw.state().player;
-        const x = Math.floor(p.x);
-        const z = Math.floor(p.z) - 2;
-        for (let y = Math.floor(p.y) + 1; y >= Math.floor(p.y) - 3; y--) {
-          const b = window.__hw.getBlock(x, y, z);
-          if (b.solid && ['grass', 'dirt', 'sand', 'gravel'].includes(b.block)) return { x, y, z, block: b.block };
-        }
-        return null;
+        const pos = { x: Math.floor(p.x), y: Math.floor(p.y) - 1, z: Math.floor(p.z) };
+        const b = window.__hw.getBlock(pos.x, pos.y, pos.z);
+        return b.solid && b.block !== 'corestone' ? { ...pos, block: b.block } : null;
       });
       assert(target, 'no soft block in front of the player');
       assert(await d.aimAt(target), 'cannot aim at the block');
