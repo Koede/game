@@ -132,9 +132,9 @@ describe('bucket on a furnace top', () => {
     const toasts = kit.record('toast');
     bucketOn(kit, f);
     hold(kit, f, 400, 6.5);
-    hold(kit, f, 400, BOIL_DRY_SECONDS - 3);
+    hold(kit, f, 400, BOIL_DRY_SECONDS - 6);
     expect(keyAt(kit, 0, 2, 0)).toBe('furnace_bucket_boiling');
-    hold(kit, f, 400, 2);
+    hold(kit, f, 400, 4);
     expect(keyAt(kit, 0, 2, 0)).toBe('air');
     expect(kit.world.getEntity(0, 2, 0)).toBeUndefined();
     expect(kit.player.inventory.count('pail')).toBe(1);

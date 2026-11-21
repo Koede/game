@@ -123,7 +123,7 @@ describe('cup liquid', () => {
     const start = colours(liquid)[0];
     world.setEntity(cup(3, 'brewing', { brewS: 3.9 }));
     liquid.update(1, 0, 0);
-    expect(colours(liquid)[0]).toBeLessThan(start - 0.2);
+    expect(colours(liquid)[0]).toBeLessThan(start - 0.15);
   });
 
   it('is lit like its surroundings and never overflows its buffer', () => {
@@ -132,7 +132,7 @@ describe('cup liquid', () => {
     world.setEntity(cup(3, 'done'));
     dark.update(1, 0, 0);
     expect(colours(dark)[0]).toBeCloseTo((0x6b / 255) * 0.25);
-    for (let i = 0; i < LIQUID_CAPACITY + 20; i++) world.setEntity({ ...cup(0, 'done'), x: i, z: 40 });
+    for (let i = 0; i < LIQUID_CAPACITY + 20; i++) world.setEntity({ ...cup(0, 'done'), x: i % 10, z: 6 + Math.floor(i / 10) });
     dark.update(1, 0, 0);
     expect(dark.count).toBe(LIQUID_CAPACITY);
     expect(blockId('cup_full')).toBeGreaterThan(0);

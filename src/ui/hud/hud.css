@@ -197,6 +197,24 @@
 .hw-buff .hw-buff__time {
   font-family: var(--hw-font-display);
 }
+.hw-buff[data-family='tea'] {
+  --hw-buff: #7fd0b4;
+  --hw-buff-ink: #06201a;
+}
+.hw-buff[data-family='coffee'] {
+  --hw-buff: #d39a62;
+  --hw-buff-ink: #231203;
+}
+.hw-buffs[data-tight] {
+  gap: 3px;
+}
+.hw-buffs[data-tight] .hw-buff {
+  gap: 3px;
+  padding: 2px 4px;
+}
+.hw-buffs[data-tight] .hw-buff__name {
+  display: none;
+}
 .hw-buff[data-pending] {
   color: var(--hw-buff);
   background: var(--hw-heat-wash);

@@ -31,6 +31,12 @@ const GLYPHS = {
   /** A steaming bowl: food (the HUD's food meter, Well-Fed). */
   bowl:
     'M5.6 1.2C4.5 2.6 4.6 3.4 5.4 4.3c.6.7.6 1.3.1 1.9l1.1.4c.7-.8.7-1.8-.1-2.7-.6-.7-.7-1.2.2-2.2ZM9.1 1.2C8 2.6 8.1 3.4 8.9 4.3c.6.7.6 1.3.1 1.9l1.1.4c.7-.8.7-1.8-.1-2.7-.6-.7-.7-1.2.2-2.2ZM1 7.6h14c0 3.6-3 5.8-7 5.8S1 11.2 1 7.6ZM5.5 13.7h5V15h-5Z',
+  /** A pickaxe: the Vigor drink buff (mining). */
+  pick: 'M2 5.2C4.2 2.6 8.6 2 14 3.4v1.8c-.8 0-1.6.2-2.4.5L9 14.5H7.2L9.6 5.8C7 5.4 4.2 5.8 2.7 7Z',
+  /** An hourglass: the Lasting drink buff (food lasts). */
+  hourglass: 'M3.5 1h9v2.4L9.6 8l2.9 4.6V15h-9v-2.4L6.4 8 3.5 3.4ZM5.4 3v.6L8 7.4l2.6-3.8V3Zm0 10h5.2v-.4L8 9.4l-2.6 3.2Z',
+  /** A clay cup with steam: brewing (How to Play, the Drinks facts). */
+  cup: 'M5.4 .8c-.8 1-.7 1.6-.1 2.3l.9-.4c-.4-.6-.4-.9.1-1.5ZM8.4 .8c-.8 1-.7 1.6-.1 2.3l.9-.4c-.4-.6-.4-.9.1-1.5ZM2.5 4.6h9v1.2h1.4a2.1 2.1 0 0 1 0 4.2h-1.6c-.6 2.6-1.7 4-4.3 4S3.1 12.4 2.5 9.4ZM12.2 7v1.6c.5 0 .9-.4.9-.8s-.4-.8-.9-.8Z',
   /** A maul: the Emberbound section of How to Play. */
   maul: 'M2 2h10v5H2ZM12 3h2v3h-2ZM6 7h2.5v8H6Z',
   /** A shield: armour. */

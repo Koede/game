@@ -464,15 +464,6 @@ export interface RecipeSpec {
   toolOutput?: ItemAmount;
   /** Hand stations: an extra output rolled once per finished job. */
   bonus?: ItemAmount & { chance: number };
-  /**
-   * Hand stations (Ember handwork): strokes of progress the job needs (a whole number). Timed hand stations (drying
-   * rack, tanning trough, alloy pot) leave it out and use `timeS` instead.
-   */
-  strokes?: number;
-  /** Hand stations: the output instead of `output` when the finishing stroke was struck with the station's tool. */
-  toolOutput?: ItemAmount;
-  /** Hand stations: an extra output rolled once per finished job. */
-  bonus?: ItemAmount & { chance: number };
   /** Technology age (index into AGES) the recipe belongs to. */
   age: number;
 }

@@ -1,6 +1,6 @@
 /**
  * Health, warmth (with its trend), food (Hungry / starving), air while under water, the Burning / Well-Warmed /
- * Well-Fed pills, and one short visible line saying why warmth falls or that food is low (titles never show on touch).
+ * Well-Fed and drink (tea, coffee) pills, and one short visible line saying why warmth falls or that food is low (titles never show on touch).
  */
 import { MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, WELL_WARMED_AFTER_S } from '../../core/constants';
 import { survivalNote, type SurvivalNoteTone } from '../../game/cold';
@@ -8,6 +8,9 @@ import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
 import { h, setAttr, setFlag, setText } from '../kit/dom';
 import { glyph, type GlyphName } from '../kit/icons';
+import { DRINK_GLYPHS, chipDensity, drinkChips } from './drinkBuffs';
+import { DRINK_BUFF_KEYS } from '../../core/brewing';
+import type { DrinkBuff } from '../../core/types';
 import { clockTime, hungerState, type HungerState } from '../screens/food';
 
 class VitalBar {
@@ -61,8 +64,9 @@ class BuffPill {
     this.el.hidden = true;
   }
 
-  show(name: string, time: string, pending: boolean, title: string): void {
+  show(name: string, time: string, pending: boolean, title: string, family?: string): void {
     this.el.hidden = false;
+    if (family) this.el.dataset.family = family;
     setFlag(this.el, 'pending', pending);
     setText(this.name, name);
     setText(this.time, time);
@@ -102,6 +106,8 @@ export class Vitals {
   private readonly fedBuff = new BuffPill('fed', 'bowl');
   /** Spec 19: an ember bolt's burning (PlayerCombat.burning), first in the row. */
   private readonly burnBuff = new BuffPill('burn', 'flame');
+  /** The six drink buffs (BREWING_PLAN 11.1): a pill each, shown while it runs. */
+  private readonly drinkPills = new Map<DrinkBuff, BuffPill>();
   private readonly buffs: HTMLDivElement;
   private readonly note: HTMLDivElement;
   private shownNote = '';
@@ -115,7 +121,8 @@ export class Vitals {
     this.hungerTag = h('span', { class: 'hw-vital__trend hw-vital__hunger' });
     this.food = new VitalBar('food', 'bowl', 'Food', this.hungerTag);
     this.air.el.hidden = true;
-    this.buffs = h('div', { class: 'hw-buffs' }, this.burnBuff.el, this.warmBuff.el, this.fedBuff.el);
+    for (const key of DRINK_BUFF_KEYS) this.drinkPills.set(key, new BuffPill(key, DRINK_GLYPHS[key]));
+    this.buffs = h('div', { class: 'hw-buffs' }, this.burnBuff.el, this.warmBuff.el, this.fedBuff.el, ...[...this.drinkPills.values()].map((p) => p.el));
     this.buffs.hidden = true;
     this.note = h('div', { class: 'hw-vitals__note', style: NOTE_STYLE, attrs: { role: 'status' } });
     this.note.hidden = true;
@@ -168,10 +175,19 @@ export class Vitals {
     const combat = player.combat;
     if (combat.burning) this.burnBuff.show('Burning', `${Math.max(1, Math.ceil(combat.burnTimeLeftS))} s`, false, 'Burning: water puts it out');
     else this.burnBuff.hide();
-    const none = this.warmBuff.el.hidden && this.fedBuff.el.hidden && this.burnBuff.el.hidden;
+    let shown = Number(!this.warmBuff.el.hidden) + Number(!this.fedBuff.el.hidden) + Number(!this.burnBuff.el.hidden);
+    const running = drinkChips(player.buffs);
+    for (const [key, pill] of this.drinkPills) {
+      const chip = running.find((c) => c.buff === key);
+      if (chip) pill.show(chip.name, chip.time, false, chip.title, chip.family);
+      else pill.hide();
+    }
+    shown += running.length;
+    const none = shown === 0;
     if (this.buffs.hidden !== none) this.buffs.hidden = none;
-    // Phones show both pills side by side as glyph + time (hud.css); one alone keeps its name.
-    const shown = Number(!this.warmBuff.el.hidden) + Number(!this.fedBuff.el.hidden) + Number(!this.burnBuff.el.hidden);
-    setFlag(this.buffs, 'both', shown >= 2);
+    // Two pills or more show as glyph + time side by side (hud.css); four or more are tighter still; one alone keeps its name.
+    const density = chipDensity(shown);
+    setFlag(this.buffs, 'both', density !== 'full');
+    setFlag(this.buffs, 'tight', density === 'tight');
   }
 }

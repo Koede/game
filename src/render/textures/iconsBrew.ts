@@ -3,7 +3,7 @@
  * processed to, boiling water, and the six drinks. Each stage reads differently at a glance: fresh leaves are bright
  * green, dried tea olive, black tea near black; cherries red, roasted beans brown, dark beans almost black.
  */
-import type { Canvas, PainterSet } from './canvas';
+import type { Canvas, Painter, PainterSet } from './canvas';
 import * as P from './palette';
 import { type RGB, type Ramp, rgb } from './palette';
 import { icon, mound } from './shapes';
@@ -113,7 +113,6 @@ function boilingPail(c: Canvas): void {
   c.line(2, 6, 4, 3, P.IRON_METAL[3]);
   c.line(4, 3, 11, 3, P.IRON_METAL[3]);
   c.line(11, 3, 13, 6, P.IRON_METAL[1]);
-  for (const [x, y, hot] of [[5, 1, true], [6, 0, false], [9, 1, true], [10, 0, false]] as const) c.set(x, y, hot ? STEAM : STEAM_FAINT);
 }
 
 /**
@@ -132,7 +131,6 @@ function cup(c: Canvas, liquid: Ramp, extra: (c: Canvas) => void): void {
   c.set(4, 8, liquid[4]);
   c.sprite(['bb.', '.cb', '.cb', 'bb.'], { b: CUP[1], c: CUP[2] }, 13, 9);
   extra(c);
-  for (const [x, y, hot] of [[5, 5, true], [6, 3, false], [9, 5, true], [10, 3, false], [8, 1, true]] as const) c.set(x, y, hot ? STEAM : STEAM_FAINT);
 }
 
 const GREEN_TEA = ramp(0x5a6a1e, 0x748a2a, 0x9fae45, 0xc0cd6a, 0xe6f0a8);
@@ -141,6 +139,14 @@ const BERRY_CUP = ramp(0x701a2c, 0x8e2640, 0xa8324a, 0xc4506a, 0xe68aa0);
 const ROAST_CUP = ramp(0x3e2412, 0x56361a, 0x6b4423, 0x8c5c30, 0xc79a62);
 const DARK_CUP = ramp(0x080403, 0x140a06, 0x2c1a10, 0x44291a, 0x6a4430);
 const TRAIL_CUP = ramp(0x2c1a0c, 0x3c2412, 0x4a2f1a, 0x684630, 0x8a6446);
+
+/** Steam is drawn after the outline: wisps of single pixels must not get an outline of their own. */
+const steamed = (paint: Painter, wisps: ReadonlyArray<readonly [number, number, boolean]>): Painter => (c) => {
+  icon(paint)(c);
+  for (const [x, y, hot] of wisps) c.set(x, y, hot ? STEAM : STEAM_FAINT);
+};
+const CUP_STEAM = [[5, 5, true], [6, 3, false], [9, 5, true], [10, 3, false], [8, 1, true]] as const;
+const cupIcon = (liquid: Ramp, extra: (c: Canvas) => void): Painter => steamed((c) => cup(c, liquid, extra), CUP_STEAM);
 
 export const BREW_ICONS: PainterSet = {
   item_drip_cone: icon(dripCone),
@@ -156,14 +162,14 @@ export const BREW_ICONS: PainterSet = {
   item_ground_coffee: icon((c) => pileOf(c, GROUNDS, GROUNDS[4])),
   item_ground_dark_coffee: icon((c) => pileOf(c, DARK_GROUNDS, DARK_GROUNDS[4])),
   item_trail_blend: icon((c) => pileOf(c, GROUNDS, DARK_GROUNDS[1])),
-  item_boiling_pail: icon(boilingPail),
-  item_green_tea: icon((c) => cup(c, GREEN_TEA, (cv) => leaf(cv, 6, 9, 1, 3, FRESH))),
-  item_black_tea_cup: icon((c) => cup(c, BLACK_CUP, () => undefined)),
-  item_berry_tea: icon((c) => cup(c, BERRY_CUP, (cv) => {
+  item_boiling_pail: steamed(boilingPail, [[5, 1, true], [6, 0, false], [9, 1, true], [10, 0, false]]),
+  item_green_tea: cupIcon(GREEN_TEA, (cv) => leaf(cv, 6, 9, 1, 3, FRESH)),
+  item_black_tea_cup: cupIcon(BLACK_CUP, () => undefined),
+  item_berry_tea: cupIcon(BERRY_CUP, (cv) => {
     cv.set(5, 8, BERRY[3]);
     cv.set(9, 9, BERRY[2]);
-  })),
-  item_light_roast: icon((c) => cup(c, ROAST_CUP, (cv) => cv.rect(5, 8, 6, 1, ROAST_CUP[4]))),
-  item_dark_roast: icon((c) => cup(c, DARK_CUP, (cv) => cv.set(5, 8, DARK_CUP[4]))),
-  item_trail_blend_cup: icon((c) => cup(c, TRAIL_CUP, (cv) => cv.line(5, 9, 10, 7, P.WOOD[3]))),
+  }),
+  item_light_roast: cupIcon(ROAST_CUP, (cv) => cv.rect(5, 8, 6, 1, ROAST_CUP[4])),
+  item_dark_roast: cupIcon(DARK_CUP, (cv) => cv.set(5, 8, DARK_CUP[4])),
+  item_trail_blend_cup: cupIcon(TRAIL_CUP, (cv) => cv.line(5, 9, 10, 7, P.WOOD[3])),
 };
