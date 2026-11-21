@@ -241,15 +241,21 @@ export class World implements IWorld {
     for (const e of snapshot.entities) {
       if (!e || typeof e.kind !== 'string' || ![e.x, e.y, e.z].every(Number.isFinite)) throw new Error('world: malformed entity in snapshot');
     }
-    // Parses (and throws) before anything changes.
-    checkWaterSnapshot(snapshot.water);
+    // Parses (and throws) before anything changes. Damaged pending water only costs the water still on its way.
+    let water = snapshot.water;
+    try {
+      checkWaterSnapshot(water);
+    } catch (err) {
+      console.warn('[world] pending water could not be restored; it rests where it is', err);
+      water = undefined;
+    }
     this.edits.load(snapshot.edits ?? {});
     this.streamer.unloadAll();
     this.streamer.dispose();
     this.currentSeed = snapshot.seed >>> 0;
     this.entityStore.clear();
     for (const e of snapshot.entities) this.entityStore.set(JSON.parse(JSON.stringify(e)) as BlockEntity);
-    this.water.load(snapshot.water);
+    this.water.load(water);
     this.streamer = new ChunkStreamer(this.host);
   }
 

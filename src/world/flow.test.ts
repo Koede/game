@@ -248,7 +248,9 @@ describe('flowing water (spec 18.2)', () => {
     delete snapshot.water;
     const b = World.fromJSON(snapshot, createBus());
     expect(b.water.stats().pending).toBe(0);
-    expect(() => World.fromJSON({ ...snapshot, water: { queue: [1, 2], deferred: [] } }, createBus())).toThrow(/water/);
+    // A damaged queue costs only the water on its way, never the world.
+    const damaged = World.fromJSON({ ...snapshot, water: { queue: [1, 2], deferred: [] } }, createBus());
+    expect(damaged.water.stats().pending).toBe(0);
   });
 
   it('a freshly generated world is perfectly still (12 seeds)', () => {

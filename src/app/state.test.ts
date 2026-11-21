@@ -75,6 +75,35 @@ describe('GameState', () => {
     copy.dispose();
   });
 
+  it('ticks flowing water, saves it mid-flow and continues it identically (spec 18.2)', () => {
+    const state = GameState.create(7, 'seven');
+    const p = state.player.position;
+    const x = Math.floor(p.x) + 3;
+    const z = Math.floor(p.z) + 3;
+    const y = state.world.surfaceY(x, z) + 6;
+    // A hanging source a few blocks above the ground: it pours down and spreads.
+    expect(state.world.setVoxel(x, y, z, makeVoxel(blockId('water')), 'player')).toBe(true);
+    for (let i = 0; i < 40; i++) state.tick();
+    expect(state.world.water.stats().changes).toBeGreaterThan(3);
+    expect(state.world.water.stats().pending).toBeGreaterThan(0);
+    const save = JSON.parse(JSON.stringify(state.toSave())) as unknown;
+    if (!isWorldSave(save)) throw new Error('not a world save');
+    const copy = GameState.restore(save);
+    copy.prepareAroundPlayer(1);
+    for (let i = 0; i < 300; i++) {
+      state.tick();
+      copy.tick();
+    }
+    for (let dy = -8; dy <= 0; dy++) {
+      for (let dz = -9; dz <= 9; dz++) {
+        for (let dx = -9; dx <= 9; dx++) expect(copy.world.getVoxel(x + dx, y + dy, z + dz)).toBe(state.world.getVoxel(x + dx, y + dy, z + dz));
+      }
+    }
+    expect(copy.world.water.stats().changes).toBeGreaterThan(0);
+    state.dispose();
+    copy.dispose();
+  });
+
   it('saves the weather, continues it identically, and loads saves made before the weather existed', () => {
     const { state } = playedState();
     state.weather.force('storm', state.clock.worldTimeS);

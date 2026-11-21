@@ -133,11 +133,13 @@ export class GameState {
     this.player.pitch = -0.08;
   }
 
-  /** One fixed simulation step (spec section 4: clock, weather, simulation, animals, survival, objectives). */
+  /** One fixed simulation step (spec section 4: clock, weather, simulation, flowing water, animals, survival, objectives). */
   tick(dt: number = DT): void {
     this.clock.tick(dt);
     this.weather.update(dt, this.clock.worldTimeS, this.clock.day, this.player.position);
     this.sim.tick(dt);
+    // Flowing water (spec 18.2): one step of the world's scheduled water updates per fixed tick.
+    this.world.water.tick();
     this.mobs.tick(dt, this.mobPlayer);
     this.survival.tick(dt);
     this.objectives.tick(dt);
