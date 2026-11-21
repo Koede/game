@@ -36,3 +36,5 @@ export type { MachineFluidView } from './gridViews';
 // Brewing (docs/api/brewing.md).
 export type { BrewResult, BrewView } from './brewActions';
 export type { BoilBucket, BrewCup, BrewEntity, Kettle } from './brewing';
+// Hand stations (docs/api/handwork.md).
+export type { HandEntity, HandState, HandView, StrokeResult } from './handTypes';
