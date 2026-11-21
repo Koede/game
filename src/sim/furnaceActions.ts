@@ -106,7 +106,7 @@ export function upgrade(host: ActionHost, e: FurnaceEntity): ActionResult {
   host.world.setVoxel(e.x, e.y, e.z, withId(host.world.getVoxel(e.x, e.y, e.z), blockId(next.block)), 'sim');
   host.bus.emit('furnace:upgraded', { x: e.x, y: e.y, z: e.z, tier: next.tier });
   host.bus.emit('sfx', { name: 'upgrade', x: e.x, y: e.y, z: e.z });
-  host.bus.emit('toast', { text: `The furnace is now a ${next.name}`, kind: 'good', item: next.block });
+  host.bus.emit('toast', { text: `Upgraded to the ${next.name}`, kind: 'good', item: next.block });
   return OK;
 }
 

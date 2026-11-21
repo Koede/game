@@ -135,7 +135,7 @@ export class Network {
     const was = this.state;
     this.state = now;
     const at = this.nodes[0].e;
-    const pct = Math.round(this.f * 100);
+    const pct = Math.floor(this.f * 100);
     if (now === 'overload') {
       bus.emit('power:alert', { kind: 'overload', message: `Cables overloaded - machines get ${pct}% power`, x: at.x, y: at.y, z: at.z });
       bus.emit('sfx', { name: 'spark', x: at.x, y: at.y, z: at.z });

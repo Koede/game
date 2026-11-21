@@ -125,7 +125,8 @@ export function applyFurnace(node: SimNode, ctx: SimContext, dt: number): void {
       e.fuelSeen = 0;
       ctx.bus.emit('furnace:out', { x: e.x, y: e.y, z: e.z });
       ctx.bus.emit('sfx', { name: 'fire_out', x: e.x, y: e.y, z: e.z });
-      ctx.bus.emit('toast', { text: 'The furnace fire burned out', kind: 'warn' });
+      // Not worth a warning while electricity keeps the furnace hot.
+      if (e.deliveredW <= 0) ctx.bus.emit('toast', { text: 'The furnace fire burned out', kind: 'warn' });
     }
   }
   e.flameC = flame;
