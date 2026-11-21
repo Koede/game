@@ -307,3 +307,39 @@ export const ARMOUR_CAUSES: readonly DamageCause[] = ['automaton'];
 /** Flags the game emits for spec 19's objectives: an automaton broken apart by the player, and a world played on Peaceful. */
 export const FLAG_AUTOMATON_SALVAGED = 'automaton_salvaged';
 export const FLAG_PEACEFUL = 'peaceful';
+
+// --- brewing (BREWING_PLAN 2 and 11) ---
+/** A water container heated to this or more boils. */
+export const BOIL_TEMP_C = 100;
+/** Seconds of full heating before a bucket on a furnace top comes to the boil, and how long it boils before it is dry. */
+export const BOIL_SECONDS = 12;
+export const BOIL_DRY_SECONDS = 180;
+/** A kettle boils at this furnace temperature or more (it needs water in it). */
+export const KETTLE_BOIL_C = 120;
+/** Seconds boiling water drips through a loaded cone, and how long a finished cup steams. */
+export const BREW_SECONDS = 4;
+export const BREW_STEAM_S = 20;
+/** A carried boiling bucket cools back to a water bucket after this many seconds. */
+export const BOILING_KEEPS_S = 90;
+/** How long every drink's buff lasts, and the pause between two drinks. */
+export const DRINK_BUFF_S = 180;
+export const DRINK_COOLDOWN_S = 1;
+/** Spring: jump velocity x this (fall damage must not worsen: the safe fall grows with the jump). */
+export const SPRING_JUMP_MULT = 1.35;
+/** Hearthkept: factor on warmth drain, and the warmth a cup restores at once. */
+export const HEARTHKEPT_DRAIN_MULT = 0.5;
+export const HEARTHKEPT_DRINK_WARMTH = 10;
+/** Mending: health regenerates this many times as fast (the interval is divided by it). */
+export const MENDING_REGEN_MULT = 2;
+/** Swift: walk, sprint and swim speed x this. */
+export const SWIFT_SPEED_MULT = 1.2;
+/** Vigor: mining speed x this. */
+export const VIGOR_MINING_MULT = 1.25;
+/** Lasting: factor on food drain. */
+export const LASTING_DRAIN_MULT = 0.5;
+/** Seconds a tea bush or coffee shrub takes to fruit again after being picked. */
+export const TEA_REGROW_S = 360;
+/** Flags the game emits for brewing's goals: the first bucket boiled, the first cup brewed, all six drinks drunk. */
+export const FLAG_BOILED_WATER = 'boiled_water';
+export const FLAG_BREWED = 'brewed';
+export const FLAG_SIX_CUPS = 'six_cups';

@@ -16,8 +16,9 @@ const spread = (): number => rnd() * 2 - 1;
 export function emberSpark(p: Particles, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size = 0.07): void {
   spec.x = x; spec.y = y; spec.z = z; spec.vx = vx; spec.vy = vy; spec.vz = vz;
   spec.life = life; spec.size = size; spec.sizeEnd = size * 0.35;
-  spec.r = 1; spec.g = 0.66 + rnd() * 0.2; spec.b = 0.22;
-  spec.r2 = 0.75; spec.g2 = 0.14; spec.b2 = 0.05;
+  // Colour settles within the first fifth of a particle's life (particles.ts), so the second colour is the one seen.
+  spec.r = 1; spec.g = 0.85; spec.b = 0.5;
+  spec.r2 = 1; spec.g2 = 0.42 + rnd() * 0.2; spec.b2 = 0.1;
   spec.alpha = 1; spec.gravity = 7; spec.drag = 0.6; spec.look = ParticleLook.Chip; spec.fog = 0.25;
   p.spawn(spec);
 }
@@ -26,8 +27,8 @@ export function emberSpark(p: Particles, x: number, y: number, z: number, vx: nu
 export function arcSpark(p: Particles, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size = 0.075): void {
   spec.x = x; spec.y = y; spec.z = z; spec.vx = vx; spec.vy = vy; spec.vz = vz;
   spec.life = life; spec.size = size; spec.sizeEnd = size * 0.5;
-  spec.r = 0.78; spec.g = 0.95; spec.b = 1;
-  spec.r2 = 0.25; spec.g2 = 0.5; spec.b2 = 1;
+  spec.r = 0.9; spec.g = 1; spec.b = 1;
+  spec.r2 = 0.45; spec.g2 = 0.78; spec.b2 = 1;
   spec.alpha = 1; spec.gravity = 0; spec.drag = 2; spec.look = ParticleLook.Chip; spec.fog = 0.2;
   p.spawn(spec);
 }

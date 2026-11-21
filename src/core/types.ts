@@ -129,6 +129,45 @@ export interface FoodSpec {
   buffS?: number;
 }
 
+/** The six drink buffs of brewing (BREWING_PLAN 11.1): three from tea, three from coffee. */
+export type DrinkBuff = 'spring' | 'hearthkept' | 'mending' | 'swift' | 'vigor' | 'lasting';
+export type DrinkFamily = 'tea' | 'coffee';
+
+/**
+ * What drinking one of an item does (brewing). Drinking grants `buff` for `buffS` seconds; at most one buff of each
+ * family is active, and a new one of the same family replaces it. The numbers of the buffs are in constants.ts.
+ */
+export interface DrinkSpec {
+  buff: DrinkBuff;
+  family: DrinkFamily;
+  buffS: number;
+  /** 0xRRGGBB of the liquid: the tint of the quad that shows the drink in the cup. */
+  colour: number;
+  /** Warmth restored on drinking (Hearthkept's +10). */
+  warmth?: number;
+  /** Food points restored on drinking. */
+  hunger?: number;
+}
+
+/**
+ * An item that can hold water and be boiled on a furnace top (BREWING_PLAN 11.3). Only the water bucket today; a bowl
+ * or flask needs this field and a furnace-top block in src/core/brewing.ts CONTAINER_BLOCKS.
+ */
+export interface ContainerSpec {
+  holds: 'water';
+  /** Key of the same container full of boiling water (water_pail -> boiling_pail). */
+  boilsTo: string;
+  /** Key of the container when empty (water_pail -> pail). */
+  emptyTo: string;
+}
+
+/** An item that goes back to another one after a while in a pack (a carried boiling bucket cools to water). */
+export interface CoolsSpec {
+  to: string;
+  /** Seconds it lasts. A stack's `durability` holds the seconds left; a fresh one starts at this. */
+  afterS: number;
+}
+
 /**
  * What a weapon does when Mine hits a creature with it (spec 19.4). It replaces the tool table of spec 12.5 for that
  * item; the hit cooldown is WEAPON_HIT_COOLDOWN_S and every hit wears the weapon's ToolSpec durability by 1.
@@ -170,6 +209,14 @@ export interface ItemSpec {
   weapon?: WeaponSpec;
   /** Worn gear that counts while it is anywhere in the inventory (spec 19.4; the padded coat too). */
   armour?: ArmourSpec;
+  /** A cup of tea or coffee: Use drinks it (brewing). */
+  drink?: DrinkSpec;
+  /** An ingredient: loaded into a cup with a drip cone it brews the drink item with this key. */
+  brews?: string;
+  /** A container that holds water and boils on a furnace top. */
+  container?: ContainerSpec;
+  /** Reverts to another item after a while carried (boiling_pail -> water_pail). */
+  cools?: CoolsSpec;
   category: ItemCategory;
   /** Technology age (0-based index into AGES) in which the item first becomes obtainable. */
   age: number;
@@ -200,8 +247,12 @@ export interface ItemDef extends ItemSpec {
  *  pipe   - a core with arms to every neighbour it joins (spec 16): another pipe of the same family or an endpoint of
  *           that family (see `BlockSpec.pipe`). Core and arms span PIPE_CORE_MIN..PIPE_CORE_MAX of the cell; the
  *           texture is a plus whose centre square is the core and whose bands are the arms, like a cable's.
+ *  cup    - a small box standing on the floor of the cell, not solid (brewing): the clay cup and its cone states. A
+ *           cup is 6/16 wide and 5/16 tall, a cone on top makes it 10/16; its textures are cut-out sprites.
+ *  bucket - a small round-ish pot box standing on the floor of the cell, not solid (brewing): a bucket on a furnace
+ *           top and the kettle pot, 10/16 wide and 8/16 tall.
  */
-export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe';
+export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe' | 'cup' | 'bucket';
 
 /**
  * Names of procedural 16x16 textures. Fallbacks for unlisted faces:
@@ -505,7 +556,12 @@ export type MachineRole =
    * A part set into a hearth's shell (spec 17.1): item hatch, fluid hatch, power port. It proxies to the controller
    * of the formed hearth it belongs to and does nothing on its own.
    */
-  | 'hearth_part';
+  | 'hearth_part'
+  /**
+   * Brewing (no power, no machine screen): the cup setup, a bucket boiling on a furnace, the kettle pot. Each has an
+   * entity of its own kind but is never a machine node, like a crop. The world interaction is the interface.
+   */
+  | 'brew';
 
 /** Static numbers for one kind of machine. The behaviour itself lives in src/sim. */
 export interface MachineSpec {

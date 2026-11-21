@@ -39,7 +39,7 @@ export function breakApart(
       {
         x: x + wx, y: y + ly, z: z + wz,
         vx: (dx / d) * out + (rnd() - 0.5), vy: 2.5 + rnd() * 4.5 + Math.max(0, ly - mid) * 1.2, vz: (dz / d) * out + (rnd() - 0.5),
-        size: Math.min(0.24, Math.max(0.06, dims * 0.42)) * (0.75 + rnd() * 0.5) * scale,
+        size: Math.min(0.17, Math.max(0.05, dims * 0.36)) * (0.75 + rnd() * 0.5) * scale,
         r: Math.min(1, a.colors[i * 3] * j), g: Math.min(1, a.colors[i * 3 + 1] * j), b: Math.min(1, a.colors[i * 3 + 2] * j),
         emissive: hot, sky, block, life: hot ? 1.7 + rnd() * 0.6 : 2.4 + rnd() * 1.2,
       },

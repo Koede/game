@@ -36,6 +36,8 @@ export interface AmbienceState {
   storm: number;
   /** A roof is overhead: rain turns into a dull drumming and the gusts are heard from inside. */
   sheltered: boolean;
+  /** Boiling water near the listener (brewing), 0..1: bubbling that fades with the distance to a boiling bucket. */
+  boil: number;
 }
 
 /** A silent state. The game loop can keep one of these and mutate it every frame. */
@@ -52,6 +54,7 @@ export const createAmbienceState = (): AmbienceState => ({
   rain: 0,
   storm: 0,
   sheltered: false,
+  boil: 0,
 });
 
 /** Mixer settings derived from an AmbienceState. Levels are 0..1 before each layer's own trim. */
@@ -85,6 +88,8 @@ export interface AmbienceTargets {
   rainBody: number;
   /** Storm gusts: deep, slow swells of wind. */
   gust: number;
+  /** The bubbling of a boiling bucket. */
+  boil: number;
 }
 
 export const createAmbienceTargets = (): AmbienceTargets => ({
@@ -110,6 +115,7 @@ export const createAmbienceTargets = (): AmbienceTargets => ({
   rainCutoff: RAIN_OPEN_HZ,
   rainBody: 0,
   gust: 0,
+  boil: 0,
 });
 
 /** The fire is at full strength within this many blocks and inaudible past FIRE_NEAR + FIRE_RANGE. */
@@ -162,5 +168,7 @@ export function computeTargets(s: AmbienceState, out: AmbienceTargets): Ambience
   out.rainCutoff = s.sheltered ? RAIN_ROOF_HZ : RAIN_OPEN_HZ;
   out.rainBody = rain * rain * (s.sheltered ? 0.5 : 1);
   out.gust = s.underwater ? 0 : unit(s.storm) * (s.sheltered ? 0.45 : 1);
+  // Boiling water is a small sound: it fades with distance already in `boil` and is shut out under water.
+  out.boil = s.underwater ? 0 : unit(s.boil);
   return out;
 }

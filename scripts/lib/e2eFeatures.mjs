@@ -248,7 +248,7 @@ export async function featureSteps({ d, step, assert, page }) {
       }
       if (!shot) {
         const label = await page.locator('.hw-cross__name').textContent();
-        assert(label.includes(' - ') && label.toLowerCase().includes(mob.species), `crosshair label "${label}"`);
+        assert(/\d+\/\d+/.test(label) && label.toLowerCase().includes(mob.species), `crosshair label "${label}"`);
         await d.shot('20-animal-target');
         shot = true;
       }

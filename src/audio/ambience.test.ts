@@ -10,7 +10,7 @@ const targets = (patch: Partial<AmbienceState>) => computeTargets({ ...createAmb
 describe('ambience targets', () => {
   it('is completely silent for the default state', () => {
     const t = targets({});
-    for (const level of [t.fire, t.arc, t.machine, t.wind, t.whistle, t.night, t.water, t.ignition, t.rain, t.rainBody, t.gust]) expect(level).toBe(0);
+    for (const level of [t.fire, t.arc, t.machine, t.wind, t.whistle, t.night, t.water, t.ignition, t.rain, t.rainBody, t.gust, t.boil]) expect(level).toBe(0);
     expect(t.muffle).toBe(MUFFLE_OPEN_HZ);
   });
 
@@ -80,6 +80,13 @@ describe('ambience targets', () => {
     expect(targets({ rain: 1, underwater: true }).rain).toBe(0);
   });
 
+  it('boiling follows its level and is shut out under water', () => {
+    expect(targets({ boil: 0 }).boil).toBe(0);
+    expect(targets({ boil: 0.8 }).boil).toBeGreaterThan(targets({ boil: 0.3 }).boil);
+    expect(targets({ boil: 5 }).boil).toBe(1);
+    expect(targets({ boil: 1, underwater: true }).boil).toBe(0);
+  });
+
   it('storm gusts follow the storm, softened indoors and gone under water', () => {
     expect(targets({ storm: 0 }).gust).toBe(0);
     expect(targets({ storm: 1 }).gust).toBeGreaterThan(targets({ storm: 0.4 }).gust);
@@ -133,6 +140,7 @@ const everything: AmbienceState = {
   rain: 0.6,
   storm: 0.5,
   sheltered: false,
+  boil: 0.7,
 };
 
 describe('Ambience', () => {

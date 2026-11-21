@@ -4,7 +4,7 @@
  *
  * Adding an event: append it here (never rename or remove one that another module may use).
  */
-import type { BlockEntity, ChangeSource, ChunkMeshData, HostileAttack, ItemAmount, ProjectileKind, Voxel, WeatherKind } from './types';
+import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack, ItemAmount, ProjectileKind, Voxel, WeatherKind } from './types';
 
 /**
  * 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own).
@@ -103,10 +103,19 @@ export type SfxName =
   /** A clang: the player hits an automaton. */
   | 'automaton_hurt'
   /** An automaton breaks apart: a crash of plates and a tinkle of scrap. */
-  | 'automaton_break';
+  | 'automaton_break'
+  // ---- brewing (BREWING_PLAN 2): positioned where they happen, except `sip` ----
+  /** Water bubbling in a heated container: a soft, short burble. Positioned at the bucket or kettle. */
+  | 'boil_bubble'
+  /** Boiling water poured from a bucket over the cone: a gentle rush. */
+  | 'pour'
+  /** One drop falling from the cone into the cup. */
+  | 'drip'
+  /** Drinking a cup: a quiet sip and swallow. */
+  | 'sip';
 
 /** Buffs the player can carry. */
-export type BuffName = 'well_warmed' | 'well_fed';
+export type BuffName = 'well_warmed' | 'well_fed' | DrinkBuff;
 
 export interface GameEvents {
   // ---- world ----
@@ -257,4 +266,14 @@ export interface GameEvents {
    * with 'mob:died' and the flag FLAG_AUTOMATON_SALVAGED.
    */
   'automaton:salvaged': { id: number; species: string; x: number; y: number; z: number; drops: ItemAmount[] };
+
+  // ---- brewing (BREWING_PLAN 2, 11) ----
+  /** Boiling water was poured over a loaded cone: the cup at x,y,z started to drip. `drink` is the drink item it will hold. */
+  'brew:started': { x: number; y: number; z: number; drink: string };
+  /** The cup at x,y,z finished brewing `drink` (a drink item key); it can be taken now. */
+  'brew:done': { x: number; y: number; z: number; drink: string };
+  /** A container on a furnace top (or a kettle) at x,y,z came to the boil. */
+  'water:boiling': { x: number; y: number; z: number };
+  /** The player drank one `item` (a drink item key). */
+  'player:drank': { item: string };
 }

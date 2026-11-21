@@ -260,7 +260,7 @@ export class AutomatonFx {
     const flick = 0.92 + 0.08 * Math.sin(this.time * 11 + v.id * 1.9);
     const o = this.place(h, v, fx, pose);
     const power = glow * (0.14 + 0.36 * flare) * flick;
-    this.halos.add(o.x, o.y, o.z, h.size * k * (0.75 + 0.3 * glow + 1.1 * flare), h.r * power, h.g * power, h.b * power);
+    this.halos.add(o.x, o.y, o.z, h.size * k * (0.7 + 0.25 * glow + 0.8 * flare), h.r * power, h.g * power, h.b * power);
     if (flare > 0.05) {
       const w = this.place(a.arc, v, fx, pose);
       const f = flare * flare;
@@ -338,7 +338,7 @@ export class AutomatonFx {
           const px = fx + (x - fx) * u;
           const py = fy + (y - fy) * u;
           const pz = fz + (z - fz) * u;
-          emberSpark(p, px, py, pz, (Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 0.9 + 0.2, (Math.random() - 0.5) * 0.9, 0.3 + Math.random() * 0.3, 0.075);
+          emberSpark(p, px, py, pz, (Math.random() - 0.5) * 0.9, (Math.random() - 0.5) * 0.9 + 0.2, (Math.random() - 0.5) * 0.9, 0.3 + Math.random() * 0.3, 0.06);
           if (s % 3 === 0) smokePuff(p, px, py, pz, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0.2, 0.22);
         }
       }
