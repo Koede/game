@@ -65,6 +65,7 @@ export class BrewTools {
     const held = this.host.player.heldStack()?.item ?? null;
     const kind = machineOfBlock(hit.block);
     if (kind?.role !== 'brew' || (kind.kind === KETTLE && !isEmptyContainer(held))) return null;
+    if (this.host.placeCooldown > 0) return this.pause();
     return this.apply(this.brew.brewUse(hit.x, hit.y, hit.z, held), held);
   }
 
@@ -78,14 +79,19 @@ export class BrewTools {
     if (held === null || !CONTAINER_BLOCKS[held]) return null;
     const y = hit.y + 1;
     if (!this.brew.isFurnaceTop(hit.x, y, hit.z)) return null;
+    if (this.host.placeCooldown > 0) return this.pause();
     return this.apply(this.brew.placeContainer(hit.x, y, hit.z, held), held);
+  }
+
+  /** A held button repeats Use: the next step waits for the press delay, so one tap is never read twice. */
+  private pause(): BrewOutcome {
+    this.host.stopMining();
+    return 'refused';
   }
 
   private apply(r: BrewResult, held: string | null): BrewOutcome {
     const h = this.host;
     h.stopMining();
-    // A held button repeats Use: the next step waits for the press delay, so one tap is never read twice.
-    if (h.placeCooldown > 0) return 'refused';
     if (!r.ok) {
       h.advise(`brew:${r.reason.replace(/\d+/g, '')}`, r.reason);
       return 'refused';
@@ -104,12 +110,20 @@ export class BrewTools {
     return held !== null && CONTAINER_BLOCKS[held] && r.give === undefined ? 'placed' : 'brewed';
   }
 
-  /** `give` into `slot` when that slot is empty now, else into the pack; a boiling bucket carries its seconds left. */
+  /**
+   * `give` into `slot` when that slot is empty now, else into the first free slot (hotbar first). A boiling bucket's
+   * seconds left are written on the stack here: Inventory.add keeps a durability only for tools. A full pack spills.
+   */
   private give(item: string, durability: number | undefined, slot: number | null): void {
     const { player } = this.host;
     if (!itemOrNull(item)) return;
     const inv = player.inventory;
-    if (slot !== null && inv.get(slot) === null) inv.set(slot, durability === undefined ? { item, count: 1 } : { item, count: 1, durability });
-    else player.give(item, 1, durability);
+    const free = slot !== null && inv.get(slot) === null ? slot : inv.slots.findIndex((s) => s === null);
+    if (free < 0) {
+      player.give(item, 1);
+      return;
+    }
+    inv.set(free, durability === undefined ? { item, count: 1 } : { item, count: 1, durability });
+    player.bus.emit('item:gained', { item, count: 1 });
   }
 }

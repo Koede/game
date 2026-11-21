@@ -5,13 +5,14 @@ import { blockId, creature } from '../core/registry';
 import { voxelId } from '../core/types';
 import { MobManager, mobPlayerOf } from '../mobs';
 import { likedByAnimals } from './animals';
+import type { BrewHands } from './brewTools';
 import { PlayerController } from './controller';
 import { Script, StubView, flatWorld, makePlayer, record } from './testKit';
 
 const DT = 1 / 60;
 
 /** A player on a flat stone floor (top at y 10) looking at an animal 2.5 blocks north (-Z) of them. */
-function setup(species = 'goat') {
+function setup(species = 'goat', brew?: BrewHands) {
   const bus = createBus();
   const world = flatWorld(bus);
   const player = makePlayer(bus);
@@ -21,7 +22,7 @@ function setup(species = 'goat') {
   const view = new StubView();
   const input = new Script();
   const controller = new PlayerController({
-    world, bus, player, view, input, settings: { ...DEFAULT_SETTINGS }, state: createInputState(), rng: () => 0, animals: mobs,
+    world, bus, player, view, input, settings: { ...DEFAULT_SETTINGS }, state: createInputState(), rng: () => 0, animals: mobs, brew,
   });
   const aim = (): void => {
     const eye = player.eyeY;
@@ -125,6 +126,29 @@ describe('the player and the animals', () => {
     let placed = 0;
     for (let z = -6; z <= 0; z++) if (voxelId(world.getVoxel(0, 10, z)) === blockId('dirt')) placed++;
     expect(placed).toBe(1);
+  });
+
+  it('an animal with a liked item beats a cup behind it; an item the animal does not like goes to the cup', () => {
+    const calls: Array<{ x: number; y: number; z: number; held: string | null }> = [];
+    const brew: BrewHands = {
+      brewUse: (x, y, z, held) => (calls.push({ x, y, z, held }), { ok: false, reason: 'Set a drip cone on the cup' }),
+      placeContainer: () => ({ ok: false, reason: 'no' }),
+      isFurnaceTop: () => false,
+    };
+    const { controller, input, player, world, mob } = setup('goat', brew);
+    world.put(0, 10, -3, 'clay_cup');
+    player.give('wheat', 2);
+    input.next.use = true;
+    controller.update(DT);
+    expect(mob.eagerS).toBeGreaterThan(0);
+    expect(player.inventory.count('wheat')).toBe(1);
+    expect(calls).toHaveLength(0);
+
+    player.inventory.clear();
+    player.give('drip_cone', 1);
+    input.next.use = true;
+    controller.update(DT);
+    expect(calls).toEqual([{ x: 0, y: 10, z: -3, held: 'drip_cone' }]);
   });
 
   it('knows which items animals like', () => {

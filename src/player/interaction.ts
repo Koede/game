@@ -13,6 +13,7 @@ import {
   canHarvest,
   canMine,
   canTill,
+  drink,
   eat,
   exertMining,
   harvest,
@@ -143,7 +144,7 @@ export class Interaction {
     }
     const def = hit.block;
     // The held stack can change mid-dig (hotbar, a tool breaking), so the rate is re-evaluated every frame.
-    const time = miningTime(def, this.player.heldStack(), this.player.wellWarmed);
+    const time = miningTime(def, this.player.heldStack(), this.player.wellWarmed, this.player.buffs.miningMult);
     if (Number.isFinite(time)) this.progress = time <= 0 ? 1 : Math.min(1, this.progress + dt / time);
 
     this.digTimer -= dt;
@@ -329,13 +330,10 @@ export class Interaction {
   }
 
   private drinkHeld(): UseOutcome {
-    const result = drink(this.player);
-    if (result.ok) {
-      this.swing.triggerSwing();
-      return 'drank';
-    }
-    if (result.message) this.advise(`drink:${result.reason}`, result.message);
-    return 'refused';
+    // Refusals (the cooldown) are quiet, like a bite.
+    if (!drink(this.player).ok) return 'refused';
+    this.swing.triggerSwing();
+    return 'drank';
   }
 
   private tillTarget(hit: RayHit): UseOutcome {
