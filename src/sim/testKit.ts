@@ -24,9 +24,10 @@ export interface Kit {
   record<K extends keyof GameEvents>(type: K): Array<GameEvents[K]>;
 }
 
-export function makeKit(): Kit {
+/** A simulation over a fresh fake world (or one made by `makeWorld`, e.g. a subclass with unloaded chunks). */
+export function makeKit(makeWorld: (bus: GameBus) => FakeWorld = (bus) => new FakeWorld(bus)): Kit {
   const bus = createBus();
-  const world = new FakeWorld(bus);
+  const world = makeWorld(bus);
   const player = new PlayerState(bus, { x: 0.5, y: 1, z: 2.5 });
   const clock = new GameClock(bus);
   const sim = new Simulation(world, bus, player, clock);

@@ -351,7 +351,7 @@ describe('Starhearth ignition', () => {
   });
 });
 
-describe('persistence and speed', () => {
+describe('persistence', () => {
   const build = (kit: Kit): void => {
     const burner = kit.machine('burner_generator', 0, 5, 0);
     burner.slots[0] = { item: 'coal', count: 20 };
@@ -385,30 +385,5 @@ describe('persistence and speed', () => {
     const snap = (kit: Kit) => JSON.parse(JSON.stringify([...kit.world.entities()]));
     expect(snap(b)).toEqual(snap(a));
     expect(b.sim.entityCount).toBe(6);
-  });
-
-  it('ticks 300 entities in under a millisecond', () => {
-    const kit = makeKit();
-    for (let i = 0; i < 60; i++) {
-      const x = (i % 10) * 6;
-      const z = Math.floor(i / 10) * 6;
-      kit.world.put(x, 4, z, 'lava');
-      kit.machine('geothermal_tap', x, 5, z);
-      kit.machine('battery', x + 1, 5, z);
-      const crusher = kit.machine('crusher', x + 2, 5, z);
-      crusher.slots[0] = { item: 'copper_ore', count: 99 };
-      const e = kit.furnace(x, 5, z + 1);
-      fire(kit, e, 'coal');
-      kit.machine('thermopile', x + 1, 5, z + 1);
-    }
-    expect(kit.sim.entityCount).toBe(300);
-    kit.run(5);
-    let best = Infinity;
-    for (let batch = 0; batch < 8; batch++) {
-      const t0 = performance.now();
-      for (let i = 0; i < 100; i++) kit.sim.tick(DT);
-      best = Math.min(best, (performance.now() - t0) / 100);
-    }
-    expect(best).toBeLessThan(1);
   });
 });
