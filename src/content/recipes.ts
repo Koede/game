@@ -166,6 +166,11 @@ const FORGE: RecipeSpec[] = [
   forge(3, 'solar_panel', '2 silicon_wafer, 1 glass, 1 aluminum_ingot', 1200),
   forge(3, 'still', '1 chassis, 2 steel_plate, 2 glass, 1 copper_coil', 1200),
   forge(3, 'combustion_engine', '1 chassis, 4 steel_plate, 3 copper_coil, 1 circuit', 1400),
+  // Engines on the move (docs/api/chainsaw.md, docs/api/tractor.md): the same engine parts, a Fuel Canister to run on.
+  forge(3, 'chainsaw', '1 chassis, 2 steel_plate, 1 copper_coil, 1 circuit', 1300),
+  forge(3, 'tractor', '2 chassis, 4 steel_plate, 3 copper_coil, 1 circuit, 4 iron_plate', 1400),
+  forge(3, 'tractor_tiller', '1 chassis, 4 iron_plate, 2 steel_plate', 1200),
+  forge(3, 'tractor_harvester', '1 chassis, 4 steel_plate, 2 copper_coil', 1300),
   forge(3, 'geothermal_tap', '1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit', 1400),
   forge(3, 'bore_rig', '1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit', 1600),
   forge(3, '2 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),

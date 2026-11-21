@@ -100,6 +100,12 @@ export interface ToolSpec {
   durability: number;
   /** Effective against every block regardless of the block's tool kind (the power drill). */
   universal?: boolean;
+  /**
+   * A chainsaw: breaking a log with it fells the connected trunk too (at most `maxLogs` logs, game/felling.ts). Its
+   * `durability` is its FUEL TANK, not blade wear: every log cut takes `fuelPerLog`; a Fuel Canister refills it
+   * (`canisterFuel`); at 1 it is out of fuel and counts as bare hands.
+   */
+  fell?: { maxLogs: number; fuelPerLog: number; canisterFuel: number };
 }
 
 export interface FuelSpec {

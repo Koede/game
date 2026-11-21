@@ -11,6 +11,7 @@ export const toolOf = (held: Slot): ToolSpec | null => (held ? itemOrNull(held.i
 /** The held tool works on this block: its kind is the block's tool kind, or it is universal. */
 export function toolMatches(block: BlockDef, held: Slot): boolean {
   const tool = toolOf(held);
+  if (tool?.fell && held && held.durability !== undefined && held.durability <= 1) return false; // out of fuel: dead weight
   return tool !== null && (tool.universal === true || (block.tool !== null && tool.kind === block.tool));
 }
 

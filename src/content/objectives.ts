@@ -6,7 +6,7 @@
  * Rewards are small conveniences the player could already have made; content.test.ts checks that none of them
  * hands out anything from further up the tree.
  */
-import { FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL } from '../core/constants';
+import { FLAG_AUTOMATON_SALVAGED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_PEACEFUL } from '../core/constants';
 import type { ObjectiveCondition, ObjectiveSpec } from '../core/types';
 import { amounts } from './amounts';
 import { BREW_OBJECTIVES } from './objectivesBrew';
@@ -114,6 +114,10 @@ export const OBJECTIVES: ObjectiveSpec[] = [
     'Crush quartz into silica, forge silicon wafers at 1700 C, and wire each one into a circuit.'),
   objective(2, 'ward_base', 'Ward your base', orPeaceful(place('ward_beacon')),
     'Forge a Ward Beacon from two ember cores, a circuit, steel plate and glass, and give it power: no automaton wakes within 32 blocks of it. On Peaceful this completes by itself.'),
+  objective(2, 'fell_tree', 'Fell a tree', flag(FLAG_FELLED_TREE),
+    'Forge a Chainsaw at the Arc Furnace, fill its tank with a Fuel Canister from the Still (hold the canister, press Use), and Mine a log: the whole trunk comes down at once.'),
+  objective(2, 'drive_tractor', 'Take a tractor out', flag(FLAG_DROVE_TRACTOR),
+    'Forge a Tractor and a Tiller, set the tractor on open ground, feed it Fuel Canisters, fit the tiller and climb aboard. Drive over grass and press F to till it; a Harvester reaps ripe crops the same way.'),
   objective(2, 'generate_10kw', 'Generate 10 kW', generate(10000),
     'Grow your grid to 10 kW. Wind turbines, solar panels, geothermal taps and combustion engines are all forged at the Arc Furnace.'),
   objective(2, 'make_tungsten', 'Sinter tungsten', make('tungsten_rod', 4),

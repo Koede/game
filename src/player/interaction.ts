@@ -16,6 +16,7 @@ import {
   drink,
   eat,
   exertMining,
+  fellTree,
   harvest,
   isHoe,
   isRipeCrop,
@@ -25,7 +26,9 @@ import {
   plant,
   plantCell,
   plantedBy,
+  refuelChainsaw,
   rollDrops,
+  SAW_FUEL_ITEM,
   till,
   type PlayerState,
 } from '../game';
@@ -60,7 +63,7 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'picked' | 'wrenched' | 'brewed' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'fuelled' | 'picked' | 'wrenched' | 'brewed' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -211,6 +214,11 @@ export class Interaction {
     if (hit && hit.block.harvestLeaves !== null && hit.block.liquid === null) return this.pick(hit);
     const held = this.player.heldStack();
     if (!held) return 'none';
+    // A Fuel Canister in hand tops up a chainsaw carried in the pack.
+    if (held.item === SAW_FUEL_ITEM && refuelChainsaw(this.player) === 'refuelled') {
+      this.swing.triggerSwing();
+      return 'fuelled';
+    }
     if (itemOrNull(held.item)?.drink) return this.drinkHeld();
     // Food is eaten wherever the crosshair is (the sky included), unless this Use would plant it.
     const food = itemOrNull(held.item)?.food;
@@ -273,6 +281,14 @@ export class Interaction {
   }
 
   private breakBlock(hit: RayHit): void {
+    // A chainsaw takes the whole trunk (game/felling.ts); without one, or without fuel, this is null.
+    if (fellTree(this.world, this.player, hit.x, hit.y, hit.z, this.rng)) {
+      this.progress = -1;
+      this.breakCooldown = BREAK_COOLDOWN_S;
+      this.edits++;
+      exertMining(this.player);
+      return;
+    }
     const def = hit.block;
     const held = this.player.heldStack();
     const drops = harvest(def, held, this.rng);

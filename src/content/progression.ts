@@ -27,7 +27,7 @@
  * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
-import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL, FURNACE_BUFF_C } from '../core/constants';
+import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_PEACEFUL, FURNACE_BUFF_C } from '../core/constants';
 import { smallestShell } from '../core/hearth';
 import {
   AUTOMATONS, BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
@@ -335,6 +335,9 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   ignited: canIgnite,
   ate: (p) => [...p.items].some((key) => item(key).food !== undefined),
   tilled: (p) => canTill(worldBlocks, p.items),
+  // Current Age engines: a chainsaw and something to run it on; a tractor and its fuel.
+  [FLAG_FELLED_TREE]: (p) => p.items.has('chainsaw') && p.items.has('fuel_canister'),
+  [FLAG_DROVE_TRACTOR]: (p) => p.items.has('tractor') && p.items.has('fuel_canister'),
   // Spec 19: an automaton broken apart (bare hands will do, slowly), or a world on Peaceful.
   [FLAG_AUTOMATON_SALVAGED]: (p) => p.hostiles,
   [FLAG_PEACEFUL]: (p) => !p.hostiles,

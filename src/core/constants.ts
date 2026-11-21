@@ -360,3 +360,8 @@ export const STROKE_HOT_MULT = 2;
 export const CASTING_BENCH_RANGE = 4;
 /** The flag the first pour emits (objective `first_pour`). */
 export const FLAG_FIRST_POUR = 'first_pour';
+
+/** Flag: the player felled a whole tree with a chainsaw (game/felling.ts). */
+export const FLAG_FELLED_TREE = 'felled_tree';
+/** Flag: the player drove a tractor (vehicles/). */
+export const FLAG_DROVE_TRACTOR = 'drove_tractor';

@@ -75,6 +75,11 @@ export type SfxName =
   | 'goat'
   | 'boar'
   | 'mob_hurt'
+  // ---- Current Age engines: chainsaw and tractor ----
+  | 'saw_cut'
+  | 'tree_fall'
+  | 'engine'
+  | 'engine_start'
   // ---- buckets, a richer world, weather (spec 13-15) ----
   /** Rolling thunder; distance is expressed through `volume` (see 'weather:lightning'). Never positioned. */
   | 'thunder'
