@@ -1,0 +1,114 @@
+/* Integration screens: the loading screen and the full-screen notices (no WebGL2, fatal errors). */
+
+.hw-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(24px + var(--hw-safe-t)) calc(20px + var(--hw-safe-r)) calc(24px + var(--hw-safe-b)) calc(20px + var(--hw-safe-l));
+  background: radial-gradient(ellipse at 50% 120%, #3a1a08 0%, var(--hw-soot-0) 62%);
+  color: var(--hw-bone);
+  pointer-events: auto;
+  transition: opacity 360ms ease-out;
+}
+.hw-loading[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+.hw-loading__card {
+  width: min(380px, 100%);
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  text-align: center;
+}
+.hw-loading__mark {
+  margin: 0;
+  font-family: var(--hw-font-display);
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+.hw-loading__mark span:first-child {
+  color: var(--hw-heat);
+}
+.hw-loading__mark span:last-child {
+  color: var(--hw-power);
+}
+.hw-loading__ember {
+  width: 54px;
+  height: 54px;
+  clip-path: polygon(50% 0, 88% 46%, 76% 100%, 24% 100%, 12% 46%);
+  background: linear-gradient(to top, var(--hw-temp-500), var(--hw-temp-800) 45%, var(--hw-temp-1100) 80%, var(--hw-temp-1500));
+  animation: hw-loading-flicker 1.4s ease-in-out infinite alternate;
+  transform-origin: 50% 100%;
+}
+@keyframes hw-loading-flicker {
+  0% { transform: scale(0.92, 0.88); filter: brightness(0.85); }
+  50% { transform: scale(1, 1.04); filter: brightness(1.05); }
+  100% { transform: scale(0.96, 0.95); filter: brightness(0.95); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-loading__ember { animation: none; }
+}
+.hw-loading__meter {
+  width: 100%;
+}
+.hw-loading__status {
+  margin: 0;
+  min-height: 1.4em;
+  font-family: var(--hw-font-body);
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+.hw-loading__seed {
+  margin: 0;
+  font-family: var(--hw-font-mono);
+  font-size: var(--hw-fs-xs);
+  color: var(--hw-ash-1);
+  overflow-wrap: anywhere;
+}
+
+.hw-notice {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: calc(24px + var(--hw-safe-t)) calc(20px + var(--hw-safe-r)) calc(24px + var(--hw-safe-b)) calc(20px + var(--hw-safe-l));
+  background: var(--hw-soot-0);
+  color: var(--hw-bone);
+  pointer-events: auto;
+  z-index: 10;
+}
+.hw-notice__card {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 22px 20px;
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-2);
+  border-top: 3px solid var(--hw-heat);
+}
+.hw-notice__title {
+  margin: 0;
+  font-family: var(--hw-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.hw-notice__body {
+  margin: 0;
+  font-family: var(--hw-font-body);
+  font-size: var(--hw-fs-md);
+  line-height: 1.5;
+  color: var(--hw-ash-2);
+}
+.hw-notice__detail {
+  margin: 0;
+  font-family: var(--hw-font-mono);
+  font-size: var(--hw-fs-xs);
+  color: var(--hw-ash-1);
+  overflow-wrap: anywhere;
+}
