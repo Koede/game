@@ -40,7 +40,7 @@ export interface RenderStats {
 const BLOCK_TINT = new Float32Array([1.0, 0.74, 0.46]);
 /** Darkest a surface gets (a sealed cave without a torch). */
 const AMBIENT = 0.035;
-const CLOUD_RANGE = 280;
+const CLOUD_RANGE = 330;
 const UNDERWATER_FOG = new THREE.Vector3(0.05, 0.2, 0.27);
 const LAVA_FOG = new THREE.Vector3(0.75, 0.25, 0.04);
 /** How often the light at the eye is re-probed for the held item. */
@@ -283,7 +283,7 @@ export class Renderer implements IView {
   /** Fog ends just inside the edge of the loaded circle so the world dissolves into the sky instead of ending. */
   private applyDistance(): void {
     const edge = (this.renderDistance + 0.5) * CHUNK_SIZE;
-    this.camera.far = Math.max(360, edge + 64);
+    this.camera.far = Math.max(400, edge + 64);
     this.camera.updateProjectionMatrix();
   }
 
@@ -304,7 +304,7 @@ export class Renderer implements IView {
       const edge = (this.renderDistance + 0.5) * CHUNK_SIZE - 6;
       u.uFogColor.value.fromArray(sky.horizon);
       u.uFogGlow.value.fromArray(sky.glow);
-      u.uFog.value.set(edge * 0.55, edge);
+      u.uFog.value.set(edge * 0.62, edge);
     }
   }
 

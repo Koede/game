@@ -51,7 +51,8 @@ void main() {
   vec3 col = mix(uHorizon, uZenith, up);
   float g = max(dot(dir, uSunDir), 0.0);
   col += uGlow * (g * g * g) * (1.0 - up * 0.6);
-  if (h < 0.0) col = mix(uHorizon, uHorizon * 0.82, min(-h * 4.0, 1.0));
+  // Below the horizon the dome is exactly the fog colour, so the far terrain melts into it without a seam.
+  if (h < 0.0) col = uHorizon + uGlow * (g * g * g);
 
   float sun = squareDist(dir, uSunDir);
   if (sun < 0.075) col = mix(col, uSunColor * 1.3, sun < 0.06 ? 1.0 : 0.45);
@@ -103,7 +104,7 @@ void main() {
   float c = texture(uMap, cell / 48.0).r;
   if (c < 0.5) discard;
   float dist = length(vWorld.xz - cameraPosition.xz);
-  float fade = 1.0 - smoothstep(uFar * 0.45, uFar, dist);
+  float fade = 1.0 - smoothstep(uFar * 0.6, uFar, dist);
   if (fade <= 0.0) discard;
   float shade = cameraPosition.y > vWorld.y ? 1.0 : 0.88 + 0.12 * (c - 0.5) * 2.0;
   vec3 col = mix(uFogColor, uCloud * shade, 0.35 + 0.65 * fade);
@@ -138,7 +139,7 @@ function cloudField(size: number): Uint8Array {
   return out;
 }
 
-const CLOUD_HEIGHT = 118;
+const CLOUD_HEIGHT = 112;
 const CLOUD_SPEED = 1.1;
 
 export class Sky {

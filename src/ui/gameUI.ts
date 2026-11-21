@@ -10,6 +10,7 @@ import type { GameClock } from '../game/clock';
 import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
 import type { Survival } from '../game/survival';
+import { BackGesture } from './hud/backGesture';
 import { Hud } from './hud/hud';
 import { NO_UI_SIM, type UISimQuery } from './hud/query';
 import { setIconProvider, type IconProvider } from './kit/icons';
@@ -102,8 +103,9 @@ export class GameUI {
   private dirty = false;
   private sinceRefresh = 0;
   private switching = false;
-  private historyArmed = false;
-  private ignorePop = false;
+  private readonly back: BackGesture;
+  /** The game was won while the death screen was up: celebrate after the respawn. */
+  private winPending = false;
 
   constructor(root: UIRoot, deps: GameUIDeps) {
     this.root = root;
@@ -130,10 +132,13 @@ export class GameUI {
     );
     for (const type of REFRESH_EVENTS) this.offs.push(bus.on(type, () => (this.dirty = true)));
     const onKey = (ev: KeyboardEvent): void => this.onKey(ev);
-    const onPop = (): void => this.onPopState();
     document.addEventListener('keydown', onKey);
-    window.addEventListener('popstate', onPop);
-    this.offs.push(() => document.removeEventListener('keydown', onKey), () => window.removeEventListener('popstate', onPop));
+    this.back = new BackGesture(() => {
+      if (this.active?.modal) return false;
+      this.closeActive();
+      return true;
+    });
+    this.offs.push(() => document.removeEventListener('keydown', onKey), () => this.back.dispose());
 
     this.registerScreen('inventory', createInventoryScreen);
     this.registerScreen('workbench', createWorkbenchScreen);
@@ -268,7 +273,7 @@ export class GameUI {
     this.hud.setScreenOpen(true);
     if (request) this.deps.bus.emit('ui:opened', { screen: request });
     if (!wasOpen) this.deps.bus.emit('sfx', { name: 'ui_open' });
-    this.armHistory();
+    this.back.arm();
     this.dirty = false;
     this.sinceRefresh = 0;
     screen.refresh();
@@ -296,9 +301,13 @@ export class GameUI {
     if (this.switching) return;
     this.deps.input.uiOpen = false;
     this.hud.setScreenOpen(false);
-    this.disarmHistory();
+    this.back.disarm();
     this.deps.bus.emit('ui:closed', {});
     this.deps.bus.emit('sfx', { name: 'ui_close' });
+    if (this.winPending && active.kind === 'death') {
+      this.winPending = false;
+      this.showWin();
+    }
   }
 
   private setPaused(paused: boolean): void {
@@ -313,7 +322,10 @@ export class GameUI {
   }
 
   private showWin(): void {
-    if (this.active?.modal) return;
+    if (this.active?.modal) {
+      this.winPending = true;
+      return;
+    }
     this.show('win', null, false, (ctx) => createWinScreen(ctx));
   }
 
@@ -331,41 +343,5 @@ export class GameUI {
       if (active.kind === 'log') this.closeActive();
       else this.open({ type: 'log' });
     }
-  }
-
-  // Android's back gesture (and the browser's back button) closes the open screen instead of leaving the page.
-  private armHistory(): void {
-    if (this.historyArmed) return;
-    try {
-      history.pushState({ hwScreen: true }, '');
-      this.historyArmed = true;
-    } catch {
-      this.historyArmed = false;
-    }
-  }
-
-  private disarmHistory(): void {
-    if (!this.historyArmed) return;
-    this.historyArmed = false;
-    this.ignorePop = true;
-    try {
-      history.back();
-    } catch {
-      this.ignorePop = false;
-    }
-  }
-
-  private onPopState(): void {
-    if (this.ignorePop) {
-      this.ignorePop = false;
-      return;
-    }
-    if (!this.historyArmed) return;
-    this.historyArmed = false;
-    if (this.active?.modal) {
-      this.armHistory();
-      return;
-    }
-    if (this.active) this.closeActive();
   }
 }

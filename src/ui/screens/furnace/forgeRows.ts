@@ -70,10 +70,8 @@ export const forgeRowViews = (rows: readonly ForgeRow[]): RecipeRowView[] => row
 /** Rows that can be forged right now (the FORGE tab badge). */
 export const forgeReady = (rows: readonly ForgeRow[]): number => rows.reduce((n, row) => n + (row.canMake ? 1 : 0), 0);
 
-/** The message after a forge call that made fewer than asked. */
-export function forgeShortfall(made: number, asked: number, row: ForgeRow | undefined): string | null {
-  if (made >= asked) return null;
-  const what = row ? nameOf(row.recipe.output.item) : 'items';
-  const why = row && !row.tempOk ? ` - the furnace cooled below ${row.recipe.minTempC} °C` : '';
-  return `Forged ${made} of ${asked} ${what}${why}`;
+/** The message after a forge call that made fewer than asked (the chill or the ingredients stopped it). */
+export function forgeShortfall(made: number, asked: number, item: string): string | null {
+  if (made >= asked || made <= 0) return null;
+  return `Forged ${made} of ${asked} ${nameOf(item)} - it ran too cold or short of ingredients`;
 }

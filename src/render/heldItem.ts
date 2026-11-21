@@ -27,6 +27,7 @@ precision mediump sampler2DArray;
 uniform sampler2DArray uAtlas;
 uniform vec3 uLight;
 uniform vec3 uArm;
+uniform vec3 uSleeve;
 uniform float uGlow;
 in vec2 vUv;
 flat in float vLayer;
@@ -34,7 +35,9 @@ in float vShade;
 out vec4 fragColor;
 void main() {
   vec3 base;
-  if (vLayer < 0.0) {
+  if (vLayer < -1.5) {
+    base = uSleeve;
+  } else if (vLayer < -0.5) {
     base = uArm;
   } else {
     vec4 t = texture(uAtlas, vec3(vUv, vLayer));
@@ -86,6 +89,11 @@ class GeometryBuilder {
 /** A unit cube centred on the origin with per-face texture layers (indexed by Face); `height` < 1 for slabs. */
 export function cubeGeometry(layers: readonly number[], height = 1): THREE.BufferGeometry {
   const b = new GeometryBuilder();
+  addCube(b, layers, height);
+  return b.build();
+}
+
+function addCube(b: GeometryBuilder, layers: readonly number[], height: number): void {
   const h = height;
   const top = h - 0.5;
   const vTop = 1 - h; // sides sample the bottom part of the tile (v grows downwards in the atlas)
@@ -96,7 +104,6 @@ export function cubeGeometry(layers: readonly number[], height = 1): THREE.Buffe
   b.quad([-0.5, -0.5, -0.5], [1, 0, 0], [0, 0, 1], [0, 1, 1, 0], layers[Face.NY], FACE_SHADE[Face.NY]);
   b.quad([-0.5, -0.5, 0.5], [1, 0, 0], [0, h, 0], side, layers[Face.PZ], FACE_SHADE[Face.PZ]);
   b.quad([0.5, -0.5, -0.5], [-1, 0, 0], [0, h, 0], side, layers[Face.NZ], FACE_SHADE[Face.NZ]);
-  return b.build();
 }
 
 /**
@@ -129,11 +136,33 @@ export function spriteGeometry(layer: number, pixels: Uint8ClampedArray): THREE.
   return b.build();
 }
 
-/** A blocky forearm (no texture: layer -1 is drawn in the arm colour). */
+/** A blocky forearm: a canvas work sleeve (layer -2) and a bare hand (layer -1), untextured. */
 function armGeometry(): THREE.BufferGeometry {
-  const box = cubeGeometry([-1, -1, -1, -1, -1, -1]);
-  box.scale(0.2, 0.2, 0.75);
-  return box;
+  const sleeve = new GeometryBuilder();
+  addCube(sleeve, [-2, -2, -2, -2, -2, -2], 1);
+  const hand = new GeometryBuilder();
+  addCube(hand, [-1, -1, -1, -1, -1, -1], 1);
+  const g1 = sleeve.build();
+  g1.scale(0.21, 0.21, 0.56);
+  g1.translate(0, 0, 0.1);
+  const g2 = hand.build();
+  g2.scale(0.18, 0.18, 0.2);
+  g2.translate(0, 0, -0.28);
+  const pos = new Float32Array([...(g1.attributes.position.array as Float32Array), ...(g2.attributes.position.array as Float32Array)]);
+  const cat = (name: string): Float32Array =>
+    new Float32Array([...(g1.getAttribute(name).array as Float32Array), ...(g2.getAttribute(name).array as Float32Array)]);
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(cat('uv'), 2));
+  merged.setAttribute('layer', new THREE.BufferAttribute(cat('layer'), 1));
+  merged.setAttribute('shade', new THREE.BufferAttribute(cat('shade'), 1));
+  const offset = g1.attributes.position.count;
+  const i1 = Array.from(g1.getIndex()?.array ?? []);
+  const i2 = Array.from(g2.getIndex()?.array ?? [], (i) => i + offset);
+  merged.setIndex([...i1, ...i2]);
+  g1.dispose();
+  g2.dispose();
+  return merged;
 }
 
 const SWING_S = 0.3;
@@ -161,7 +190,8 @@ export class HeldItem {
       uniforms: {
         uAtlas: { value: atlas },
         uLight: { value: new THREE.Vector3(1, 1, 1) },
-        uArm: { value: new THREE.Vector3(0.78, 0.56, 0.42) },
+        uArm: { value: new THREE.Vector3(0.74, 0.55, 0.43) },
+        uSleeve: { value: new THREE.Vector3(0.36, 0.3, 0.22) },
         uGlow: { value: 0 },
       },
       vertexShader: VERTEX,
