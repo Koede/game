@@ -34,6 +34,11 @@ export class Hotbar {
         }
         this.refresh();
       },
+      // Long-press (touch) or right-click: throw the whole stack out of that slot. It lies where it lands and comes back
+      // when walked over (after a moment), so a slip costs nothing.
+      onSecondary: (i) => {
+        if (player.dropSlot(i, Infinity) > 0) this.refresh();
+      },
     });
     this.grid.slots.forEach((slot, i) => slot.el.setAttribute('data-key', String(i + 1)));
     this.nameEl = h('div', { class: 'hw-hotbar__name', attrs: { 'aria-live': 'polite' } });

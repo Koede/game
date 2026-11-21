@@ -25,8 +25,8 @@ export interface CraftingScreenOptions {
 
 const coarsePointer = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
-export const SLOT_HINT_TOUCH = 'Tap a stack, then tap where it goes. Long-press: half. Double-tap: quick move.';
-export const SLOT_HINT_MOUSE = 'Click a stack, then click where it goes. Right-click: half. Shift-click: quick move.';
+export const SLOT_HINT_TOUCH = 'Tap a stack, then tap where it goes. Long-press: half. Double-tap: quick move. Pick a stack to Drop it.';
+export const SLOT_HINT_MOUSE = 'Click a stack, then click where it goes. Right-click: half. Shift-click: quick move. Q: drop.';
 export const slotHint = (): string => (coarsePointer() ? SLOT_HINT_TOUCH : SLOT_HINT_MOUSE);
 
 export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOptions): GameScreen {

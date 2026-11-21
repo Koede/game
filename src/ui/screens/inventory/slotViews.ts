@@ -15,6 +15,7 @@ export function itemCard(stack: { item: string; count: number; durability?: numb
     rows.push(['Tool', `${titleFromKey(def.tool.kind)}, tier ${def.tool.tier}`]);
     if (stack.durability !== undefined) rows.push(['Uses left', `${stack.durability} / ${def.tool.durability}`]);
   }
+  if (def?.wear !== undefined && stack.durability !== undefined) rows.push(['Suction left', `${Math.round(stack.durability)} s / ${def.wear} s`]);
   rows.push(...foodRows(stack.item));
   if (def?.fuel) {
     rows.push(['Burns for', formatDuration(def.fuel.burnS)]);

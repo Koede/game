@@ -12,6 +12,7 @@ import { collectLeafDrops } from '../game/leafDrops';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
+import { GroundItemRenderer } from '../render/groundItems';
 import { MobRenderer } from '../render/mobs';
 import type { WorldSave } from '../save/document';
 import { GameUI } from '../ui/gameUI';
@@ -60,6 +61,8 @@ export class Game {
   readonly renderer: Renderer;
   /** The animals' models, drawn into the renderer's scene (updated before every render). */
   readonly mobRenderer: MobRenderer;
+  /** Items lying in the world, one instanced draw per kind. */
+  readonly itemRenderer: GroundItemRenderer;
   readonly inputManager: InputManager;
   readonly ui: GameUI;
   readonly controller: PlayerController;
@@ -102,6 +105,7 @@ export class Game {
     // Items and fluids in pipes (spec 16): the renderer reads the simulation's transport snapshot every frame.
     this.renderer.setTransport(simTransportFeed(sim));
     this.mobRenderer = new MobRenderer(this.renderer, world);
+    this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     try {
       this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
       this.ui = new GameUI(root, {
@@ -137,6 +141,7 @@ export class Game {
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
+      this.itemRenderer.dispose();
       this.mobRenderer.dispose();
       this.renderer.dispose();
       throw err;
@@ -197,6 +202,7 @@ export class Game {
     this.state.world.update(p.position.x, p.position.z, this.settings.renderDistance, LOADING_BUDGET_MS);
     this.renderer.setView(p.position.x, p.eyeY, p.position.z, p.yaw, p.pitch);
     this.mobRenderer.update(0, this.state.mobs.views(1));
+    this.itemRenderer.update(0, p.ground.items);
     this.renderer.render(dt);
   }
 
@@ -243,6 +249,7 @@ export class Game {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
+      this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       this.renderer.render(paused ? 0 : dt);
       this.lastDraw = now;
     }
@@ -326,6 +333,7 @@ export class Game {
     this.controller.dispose();
     this.inputManager.dispose();
     this.audio.dispose();
+    this.itemRenderer.dispose();
     this.mobRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.
     try {

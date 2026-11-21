@@ -219,6 +219,14 @@ export interface SlotBinding {
   unbind(): void;
 }
 
+/** Lets the player's own slots drop items into the world: Q over a slot, and Drop buttons in the carry bar. */
+export interface SlotDropper {
+  /** Only this inventory's slots can be dropped from (the player's pack, not a crate). */
+  inventory: Inventory;
+  /** Drops `count` out of the slot; returns how many left. */
+  drop(slot: number, count: number): number;
+}
+
 /** The DOM side: drives ItemSlots from inventories and turns their taps into SlotInteraction calls. */
 export class SlotController {
   readonly logic = new SlotInteraction();
@@ -239,6 +247,11 @@ export class SlotController {
   private lastTap = { group: '', index: -1, at: -Infinity };
   /** Called after every move the player makes here (screens update have/need figures). */
   onChange: (() => void) | null = null;
+  /** Set by GameUI: dropping from the player's pack (null: nothing can be dropped here). */
+  dropper: SlotDropper | null = null;
+  /** The slot under the mouse (or last touched), for the Q key. */
+  private hover: { group: string; index: number } | null = null;
+  private qAll = false;
 
   /**
    * `ghostLayer` holds the icon that follows a mouse while something is picked (normally the tooltip layer);
@@ -267,6 +280,11 @@ export class SlotController {
       this.disposer.add(listen(document, 'pointermove', (ev) => this.moveGhost(ev), { passive: true }));
     }
     this.disposer.add(() => this.ghost.remove());
+    // Q over a slot of the pack drops one of it; Shift+Q, or holding Q, the whole stack.
+    this.disposer.add(listen(document, 'keydown', (ev) => this.onKey(ev)));
+    this.disposer.add(listen(document, 'keyup', (ev) => {
+      if (ev.code === 'KeyQ') this.qAll = false;
+    }));
   }
 
   get picked(): Readonly<SlotPick> | null {
@@ -283,6 +301,12 @@ export class SlotController {
         onPrimary: (_slot, ev) => this.onPrimary(spec.id, start + k, ev),
         onSecondary: () => this.after(this.logic.secondary(spec.id, start + k)),
       });
+      tips.push(
+        listen(view.el, 'pointerenter', () => (this.hover = { group: spec.id, index: start + k })),
+        listen(view.el, 'pointerleave', () => {
+          if (this.hover?.group === spec.id && this.hover.index === start + k) this.hover = null;
+        }),
+      );
       if (this.tooltip) {
         const source = (): TooltipCard | null => {
           const stack = spec.inventory.slots[start + k];
@@ -332,6 +356,36 @@ export class SlotController {
     }
     this.bindings.clear();
     this.disposer.dispose();
+  }
+
+  /** Drops from the pack slot at (group, index). Returns how many left the pack. */
+  private dropFrom(group: string, index: number, all: boolean): number {
+    const dropper = this.dropper;
+    const g = this.logic.groups.get(group);
+    if (!dropper || !g || g.inventory !== dropper.inventory) return 0;
+    const stack = g.inventory.slots[index];
+    if (!stack) return 0;
+    const n = dropper.drop(index, all ? stack.count : 1);
+    if (n > 0) {
+      if (this.logic.picked && this.logic.picked.group === group && this.logic.picked.index === index && !g.inventory.slots[index]) this.logic.picked = null;
+      this.refresh();
+      this.onChange?.();
+    }
+    return n;
+  }
+
+  private onKey(ev: KeyboardEvent): void {
+    if (ev.code !== 'KeyQ' || ev.ctrlKey || ev.metaKey || ev.altKey || !this.hover) return;
+    ev.preventDefault();
+    if (ev.repeat) {
+      // Holding the key: the rest of the stack, once.
+      if (!this.qAll) {
+        this.qAll = true;
+        this.dropFrom(this.hover.group, this.hover.index, true);
+      }
+      return;
+    }
+    this.dropFrom(this.hover.group, this.hover.index, ev.shiftKey);
   }
 
   private onPrimary(group: string, index: number, ev: Event): void {
@@ -385,7 +439,8 @@ export class SlotController {
     this.barIcon.set(stack.item);
     this.ghostIcon.set(stack.item);
     const targets = this.logic.quickTargets(group).filter((t) => t.group !== group || t.start !== group.start);
-    const key = `${pick.group}|${pick.index}|${stack.item}|${targets.map((t) => t.group.id).join(',')}`;
+    const canDrop = this.dropper !== null && group.inventory === this.dropper.inventory;
+    const key = `${pick.group}|${pick.index}|${stack.item}|${targets.map((t) => t.group.id).join(',')}|${canDrop ? (stack.count > 1 ? 2 : 1) : 0}`;
     if (key === this.barKey) return;
     this.barKey = key;
     const seen = new Set<string>();
@@ -398,6 +453,11 @@ export class SlotController {
       if (!accepts) continue;
       const id = t.group.id;
       buttons.push(new Button({ label: `To ${t.group.label}`, size: 'sm', onClick: () => this.after(this.logic.sendPicked(id)) }).el);
+    }
+    if (canDrop) {
+      const { group: gid, index } = pick;
+      buttons.push(new Button({ label: 'Drop', size: 'sm', onClick: () => this.dropFrom(gid, index, stack.count <= 1) }).el);
+      if (stack.count > 1) buttons.push(new Button({ label: 'Drop all', size: 'sm', onClick: () => this.dropFrom(gid, index, true) }).el);
     }
     this.barMoves.replaceChildren(...buttons);
   }

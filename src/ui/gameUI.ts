@@ -260,6 +260,8 @@ export class GameUI {
   private show(kind: string, request: ScreenRequest | null, modal: boolean, build: (ctx: ScreenContext) => GameScreen | null): boolean {
     const slots = new SlotController(this.deps.bus, this.root.layers.tooltip, this.root.tooltip);
     slots.onChange = () => (this.dirty = true);
+    const player = this.deps.player;
+    slots.dropper = { inventory: player.inventory, drop: (slot, count) => player.dropSlot(slot, count) };
     let screen: GameScreen | null = null;
     try {
       screen = build(this.context(request ?? { type: 'inventory' }, slots));
