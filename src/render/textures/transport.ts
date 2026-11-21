@@ -29,6 +29,11 @@ interface PipeLook {
   collar: readonly [RGB, RGB, RGB];
   /** The hub drawn in the middle of the collar. */
   hub: (c: Canvas) => void;
+  /**
+   * Opacity of band row `k` at `t` (default 255): item pipes are see-through where they are glazed (the mesher
+   * draws them in the blended batch). Kept >= 128 so the held item's pixel extrusion still shows the glass.
+   */
+  see?: (k: number, t: number) => number;
 }
 
 function pipe(c: Canvas, look: PipeLook): void {
@@ -39,6 +44,15 @@ function pipe(c: Canvas, look: PipeLook): void {
     // Horizontal arms run along x with band rows y; vertical arms along y with band rows x (lit side first).
     return h ? look.band(y - LO, x) : look.band(x - LO, y);
   });
+  const see = look.see;
+  if (see) {
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        if (!inBand(x) && !inBand(y)) continue;
+        c.set(x, y, c.get(x, y), inBand(y) ? see(y - LO, x) : see(x - LO, y));
+      }
+    }
+  }
   const [hi, mid, lo] = look.collar;
   c.rect(LO, LO, 8, 8, mid);
   bevel(c, LO, LO, 8, 8, hi, lo);
@@ -54,23 +68,24 @@ const tube = (metal: readonly RGB[], inner: (k: number, t: number) => RGB) => (k
   return inner(k, t);
 };
 
-// Bronze chute: a bronze-framed glass tube - bronze ribs every 4 pixels, pale glass between them with a dim warm
-// interior, so it looks see-through. The renderer animates items in it; the tile stays empty.
+// Bronze chute: a bronze-framed glass tube - bronze ribs every 4 pixels, pale glass between them that is really
+// see-through (the far wall and, later, the items inside show through). The tile stays empty.
 const BRONZE_GLASS = (k: number, t: number): RGB => {
   const b = P.BRONZE;
   if (t % 4 === 1) return k === 2 ? b[4] : b[2];
   if (k === 2) return P.GLASS[3];
   if (k === 5) return mix(P.GLASS[0], b[1], 0.5);
-  return mix(P.GLASS[1], b[0], k === 3 ? 0.45 : 0.6);
+  return mix(P.GLASS[2], b[0], k === 3 ? 0.2 : 0.3);
 };
 const ITEM_PIPE: PipeLook = {
   band: tube(P.BRONZE, BRONZE_GLASS),
   collar: [P.BRONZE[4], P.BRONZE[2], P.BRONZE[0]],
   hub: (c) => {
-    c.rect(6, 6, 4, 4, mix(P.GLASS[1], P.BRONZE[0], 0.5));
-    c.set(6, 6, P.GLASS[4]);
+    c.rect(6, 6, 4, 4, mix(P.GLASS[2], P.BRONZE[0], 0.3), 140);
+    c.set(6, 6, P.GLASS[4], 190);
     c.set(9, 9, P.BRONZE[1]);
   },
+  see: (k, t) => (k <= 1 || k >= 6 || t % 4 === 1 ? 255 : k === 2 ? 175 : k === 5 ? 155 : 132),
 };
 
 // Steel conveyor: blue-white steel with a long dark slot showing the rollers inside.
@@ -86,6 +101,8 @@ const FAST_PIPE: PipeLook = {
     c.rect(6, 7, 4, 1, P.HAZARD);
     c.rect(6, 8, 4, 1, shade(P.HAZARD, -0.4));
   },
+  // The roller slot: rollers solid, the gaps between them open onto the inside of the conveyor.
+  see: (k, t) => ((k === 3 || k === 4) && t % 2 === 1 ? 140 : 255),
 };
 
 // Iron fluid pipe: dark iron with a short glass window in every other segment.

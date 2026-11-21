@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { blockOfItem, itemOrNull, TEXTURE_NAMES } from '../core/registry';
 import { Face } from '../core/types';
+import { ATLAS_GLSL, atlasDefines, type AtlasUniforms } from './atlas';
 import { paintTile, TILE_SIZE } from './tiles';
 
 const VERTEX = /* glsl */ `
@@ -23,8 +24,7 @@ void main() {
 `;
 const FRAGMENT = /* glsl */ `
 precision mediump float;
-precision mediump sampler2DArray;
-uniform sampler2DArray uAtlas;
+${ATLAS_GLSL}
 uniform vec3 uLight;
 uniform vec3 uArm;
 uniform vec3 uSleeve;
@@ -40,7 +40,7 @@ void main() {
   } else if (vLayer < -0.5) {
     base = uArm;
   } else {
-    vec4 t = texture(uAtlas, vec3(vUv, vLayer));
+    vec4 t = atlasTexel(vUv, vLayer);
     if (t.a < 0.5) discard;
     base = t.rgb;
   }
@@ -186,12 +186,16 @@ export class HeldItem {
   private baseX = 0.5;
   private bumpT = 1;
 
-  constructor(atlas: THREE.Texture) {
+  /** `atlas`: the renderer's atlas uniforms (shared objects; null in tests). */
+  constructor(atlas: AtlasUniforms | null) {
     this.material = new THREE.ShaderMaterial({
       name: 'held-item',
       glslVersion: THREE.GLSL3,
+      defines: atlasDefines({ texture2: (atlas?.uAtlas2.value as THREE.DataArrayTexture | null) ?? null }),
       uniforms: {
-        uAtlas: { value: atlas },
+        uAtlas: atlas?.uAtlas ?? { value: null },
+        uAtlas2: atlas?.uAtlas2 ?? { value: null },
+        uAtlasSplit: atlas?.uAtlasSplit ?? { value: 0 },
         uLight: { value: new THREE.Vector3(1, 1, 1) },
         uArm: { value: new THREE.Vector3(0.74, 0.55, 0.43) },
         uSleeve: { value: new THREE.Vector3(0.36, 0.3, 0.22) },

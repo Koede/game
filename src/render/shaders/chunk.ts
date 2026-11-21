@@ -4,6 +4,14 @@
  * only pays for one texture fetch and a fog mix per pixel.
  */
 
+import { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from '../../world/meshQuads';
+import { ATLAS_GLSL } from '../atlas';
+
+/** Colours of the cool glows (glowcaps cyan, crystal clusters violet) that tint block light (spec 14). */
+export const COOL_CYAN = [0.36, 0.84, 1.0] as const;
+export const COOL_VIOLET = [0.72, 0.5, 1.0] as const;
+const vec3 = (c: readonly number[]): string => `vec3(${c.map((v) => v.toFixed(3)).join(', ')})`;
+
 /** Shared by the chunk shaders and the held item: perceptual light ramps and the fog colour. */
 export const LIGHT_GLSL = /* glsl */ `
 uniform vec3 uSkyLight;
@@ -19,10 +27,24 @@ float skyRamp(float l) { return exp(-3.4 * (1.0 - l)); }
 // Firelight carries further and falls off softly, so a lit furnace leaves a pool of warm light around it.
 float blockRamp(float l) { return pow(l, 1.25) * 1.45; }
 
-vec3 lightColor(float sky, float block) {
+// Block light tinted by 'tint' instead of the firelight colour (cool glows).
+vec3 lightColorTinted(float sky, float block, vec3 tint) {
   vec3 s = skyRamp(sky) * uSkyLight;
-  vec3 b = blockRamp(block) * uBlockLight;
+  vec3 b = blockRamp(block) * tint;
   return max(max(s, b) + 0.22 * min(s, b), vec3(uAmbient));
+}
+
+vec3 lightColor(float sky, float block) {
+  return lightColorTinted(sky, block, uBlockLight);
+}
+
+// The block-light colour of a chunk vertex: firelight, blended towards cyan or violet by the share of its light
+// that comes from cool emitters (flags bits 4-7, the violet choice in bit 3; see src/world/meshQuads.ts).
+vec3 blockTint(int flags) {
+  int cool = flags >> ${LIGHT_COOL_SHIFT};
+  if (cool == 0) return uBlockLight;
+  vec3 c = (flags & ${LIGHT_FLAG_VIOLET}) != 0 ? ${vec3(COOL_VIOLET)} : ${vec3(COOL_CYAN)};
+  return mix(uBlockLight, c, float(cool) / ${LIGHT_COOL_MAX.toFixed(1)});
 }
 
 vec3 fogColorFor(vec3 dir) {
@@ -58,7 +80,7 @@ void main() {
   if ((flags & 1) != 0) {
     color = vec3(1.0);
   } else {
-    color = lightColor(light.x, light.y) * light.z;
+    color = lightColorTinted(light.x, light.y, blockTint(flags)) * light.z;
   }
   if ((flags & 2) != 0) {
     float phase = uTime * 1.7 + world.x * 0.63 + world.z * 0.41;
@@ -85,8 +107,7 @@ void main() {
 
 export const CHUNK_FRAGMENT = /* glsl */ `
 precision mediump float;
-precision mediump sampler2DArray;
-uniform sampler2DArray uAtlas;
+${ATLAS_GLSL}
 uniform float uOpacity;
 uniform float uWet;
 in vec2 vUv;
@@ -98,7 +119,7 @@ in float vWet;
 out vec4 fragColor;
 
 void main() {
-  vec4 tex = texture(uAtlas, vec3(vUv, vLayer));
+  vec4 tex = atlasTexel(vUv, vLayer);
 #ifdef CUTOUT
   if (tex.a < 0.4) discard;
 #endif

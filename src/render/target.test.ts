@@ -37,6 +37,7 @@ describe('outline bounds', () => {
   it('hugs the visible part of thin shapes and the whole cell otherwise', () => {
     expect(shapeBounds('cube')).toEqual([0, 0, 0, 1, 1, 1]);
     expect(shapeBounds('slab')[4]).toBe(0.5);
+    expect(shapeBounds('pipe')).toEqual([0.25, 0.25, 0.25, 0.75, 0.75, 0.75]);
     const t = shapeBounds('torch');
     expect(t[3] - t[0]).toBeLessThan(0.3);
     expect(t[4]).toBeLessThan(0.75);

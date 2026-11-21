@@ -44,17 +44,38 @@ export function buildAtlasData(names: readonly string[], paint: (name: string) =
   return data;
 }
 
+/** WebGL2 guarantees at least this many layers in one array texture (MAX_ARRAY_TEXTURE_LAYERS). */
+export const GUARANTEED_LAYERS = 256;
+/** At most this many array textures (pages) are bound for the atlas; ATLAS_GLSL samples two. */
+export const MAX_ATLAS_PAGES = 2;
+
+/**
+ * How `layers` tiles are split over array textures of at most `maxLayers` layers each: the layer index where
+ * the second page starts (= layers when one page holds everything). Throws when even two pages are too few.
+ */
+export function atlasSplit(layers: number, maxLayers: number): number {
+  const max = Math.max(1, Math.floor(maxLayers));
+  if (layers <= max) return layers;
+  if (layers > max * MAX_ATLAS_PAGES) {
+    throw new Error(`the texture atlas needs ${layers} layers but this device holds ${max} per array texture (${max * MAX_ATLAS_PAGES} in all)`);
+  }
+  return max;
+}
+
 export interface Atlas {
+  /** The first page: layers 0 .. split-1. */
   texture: THREE.DataArrayTexture;
+  /** The second page (layers split .. layers-1), or null when one array texture holds every layer. */
+  texture2: THREE.DataArrayTexture | null;
+  /** First layer of the second page (= layers when there is none). */
+  split: number;
   /** The pixels behind the texture (layer i at i * TILE_BYTES). Read-only. */
   data: Uint8Array;
   layers: number;
 }
 
-/** Paints every registered texture and uploads it as a sampler2DArray: crisp up close, mip-mapped far away. */
-export function createAtlas(): Atlas {
-  const data = buildAtlasData(TEXTURE_NAMES, paintTile);
-  const texture = new THREE.DataArrayTexture(data, TILE_SIZE, TILE_SIZE, TEXTURE_NAMES.length);
+function arrayTexture(data: Uint8Array, depth: number): THREE.DataArrayTexture {
+  const texture = new THREE.DataArrayTexture(data, TILE_SIZE, TILE_SIZE, depth);
   texture.format = THREE.RGBAFormat;
   texture.type = THREE.UnsignedByteType;
   // Painted colours go to the screen untouched: the whole pipeline works in display space.
@@ -65,5 +86,59 @@ export function createAtlas(): Atlas {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.needsUpdate = true;
-  return { texture, data, layers: TEXTURE_NAMES.length };
+  return texture;
 }
+
+/**
+ * Paints every registered texture and uploads it as a sampler2DArray: crisp up close, mip-mapped far away.
+ * `maxLayers` is the device's MAX_ARRAY_TEXTURE_LAYERS: past it the tiles go into a second array texture,
+ * which every atlas shader samples through ATLAS_GLSL (compiled with ATLAS_SPLIT, see atlasDefines).
+ */
+export function createAtlas(maxLayers = Infinity): Atlas {
+  const layers = TEXTURE_NAMES.length;
+  const data = buildAtlasData(TEXTURE_NAMES, paintTile);
+  const split = atlasSplit(layers, maxLayers);
+  const texture = arrayTexture(split < layers ? data.subarray(0, split * TILE_BYTES) : data, split);
+  const texture2 = split < layers ? arrayTexture(data.subarray(split * TILE_BYTES), layers - split) : null;
+  return { texture, texture2, split, data, layers };
+}
+
+/** Shader defines for a material that samples the atlas through ATLAS_GLSL. */
+export const atlasDefines = (atlas: Pick<Atlas, 'texture2'>): Record<string, number> => (atlas.texture2 ? { ATLAS_SPLIT: 1 } : {});
+
+/** Uniforms ATLAS_GLSL reads (share the objects between materials). */
+export interface AtlasUniforms {
+  [name: string]: THREE.IUniform;
+  uAtlas: THREE.IUniform<THREE.Texture | null>;
+  uAtlas2: THREE.IUniform<THREE.Texture | null>;
+  uAtlasSplit: THREE.IUniform<number>;
+}
+export const atlasUniforms = (atlas: Atlas): AtlasUniforms => ({
+  uAtlas: { value: atlas.texture },
+  uAtlas2: { value: atlas.texture2 },
+  uAtlasSplit: { value: atlas.split },
+});
+
+/**
+ * GLSL ES 3.00: `atlasTexel(uv, layer)` samples the tile of a registry layer. With one page it is a plain
+ * texture() call; split over two pages (ATLAS_SPLIT defined) it picks the page per primitive and samples with
+ * gradients taken outside the branch, so mip selection stays well defined.
+ */
+export const ATLAS_GLSL = /* glsl */ `
+precision mediump sampler2DArray;
+uniform sampler2DArray uAtlas;
+#ifdef ATLAS_SPLIT
+uniform sampler2DArray uAtlas2;
+uniform float uAtlasSplit;
+vec4 atlasTexel(vec2 uv, float layer) {
+  vec2 dx = dFdx(uv);
+  vec2 dy = dFdy(uv);
+  if (layer < uAtlasSplit) return textureGrad(uAtlas, vec3(uv, layer), dx, dy);
+  return textureGrad(uAtlas2, vec3(uv, layer - uAtlasSplit), dx, dy);
+}
+#else
+vec4 atlasTexel(vec2 uv, float layer) {
+  return texture(uAtlas, vec3(uv, layer));
+}
+#endif
+`;

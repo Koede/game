@@ -150,17 +150,28 @@ describe('texture content', () => {
     }
   });
 
-  it('pipes are opaque along the 8/16 plus the mesher samples and clear in the corners', () => {
+  it('pipes fill the 8/16 plus the mesher samples and are clear in the corners; item pipes are glazed', () => {
     const pipes = BLOCKS.filter((b) => b.shape === 'pipe').map((b) => TEXTURE_NAMES[b.layers[0]]);
     expect(pipes).toEqual(['pipe_item', 'pipe_item_fast', 'pipe_fluid', 'pipe_fluid_hot']);
     for (const name of pipes) {
+      const glazed = name.startsWith('pipe_item');
       const px = paintTexture(name);
+      let seeThrough = 0;
       for (let y = 0; y < 16; y++) {
         for (let x = 0; x < 16; x++) {
           const band = (x >= 4 && x <= 11) || (y >= 4 && y <= 11);
-          expect(alphaAt(px, x, y) === 255, `${name} ${x},${y}`).toBe(band);
+          const a = alphaAt(px, x, y);
+          if (!band) expect(a, `${name} ${x},${y}`).toBe(0);
+          // Glass stays at least half opaque: the held item's pixel extrusion keeps texels with alpha >= 128.
+          else if (glazed) expect(a, `${name} ${x},${y}`).toBeGreaterThanOrEqual(128);
+          else expect(a, `${name} ${x},${y}`).toBe(255);
+          if (band && a < 255) seeThrough++;
         }
       }
+      if (glazed) expect(seeThrough, name).toBeGreaterThanOrEqual(16);
+      // The tube's rims (the outer rows of every arm) stay solid, so a run of pipe keeps its outline.
+      expect(alphaAt(px, 0, 4)).toBe(255);
+      expect(alphaAt(px, 4, 0)).toBe(255);
     }
   });
 

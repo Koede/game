@@ -135,8 +135,8 @@ export class Renderer implements IView {
     this.camera = new THREE.PerspectiveCamera(settings.fov, 1, 0.06, 1000);
     this.camera.rotation.order = 'YXZ';
 
-    this.atlas = createAtlas();
-    this.uniforms = createWorldUniforms(this.atlas.texture);
+    this.atlas = createAtlas(context.getParameter(context.MAX_ARRAY_TEXTURE_LAYERS) as number);
+    this.uniforms = createWorldUniforms(this.atlas.texture, this.atlas.texture2, this.atlas.split);
     this.uniforms.uBlockLight.value.fromArray(BLOCK_TINT);
     this.uniforms.uAmbient.value = AMBIENT;
     this.materials = createChunkMaterials(this.uniforms);
@@ -144,7 +144,7 @@ export class Renderer implements IView {
     this.particles = new Particles(this.uniforms);
     this.probe = new LightProbe(world);
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z) => this.brightnessAt(x, y, z));
-    this.held = new HeldItem(this.atlas.texture);
+    this.held = new HeldItem(this.uniforms);
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
@@ -331,6 +331,7 @@ export class Renderer implements IView {
     this.held.dispose();
     this.materials.dispose();
     this.atlas.texture.dispose();
+    this.atlas.texture2?.dispose();
     this.gl.dispose();
     this.canvas.remove();
   }

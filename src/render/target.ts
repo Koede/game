@@ -4,6 +4,7 @@
  * the block.
  */
 import * as THREE from 'three';
+import { PIPE_CORE_MAX, PIPE_CORE_MIN } from '../core/constants';
 import { mulberry32 } from '../core/math';
 import { blockOf } from '../core/registry';
 import type { BlockShape, Voxel } from '../core/types';
@@ -133,6 +134,8 @@ export function shapeBounds(shape: BlockShape): readonly [number, number, number
       return [6 / 16, 0, 6 / 16, 10 / 16, 11 / 16, 10 / 16];
     case 'cross':
       return [0.12, 0, 0.12, 0.88, 0.85, 0.88];
+    case 'pipe':
+      return [PIPE_CORE_MIN, PIPE_CORE_MIN, PIPE_CORE_MIN, PIPE_CORE_MAX, PIPE_CORE_MAX, PIPE_CORE_MAX];
     default:
       return [0, 0, 0, 1, 1, 1];
   }

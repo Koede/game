@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TEXTURE_NAMES } from '../core/registry';
-import { buildAtlasData, createAtlas } from './atlas';
+import { ATLAS_GLSL, atlasDefines, atlasSplit, buildAtlasData, createAtlas, GUARANTEED_LAYERS } from './atlas';
 import { paintTile, TILE_BYTES, TILE_SIZE } from './tiles';
 
 describe('texture atlas', () => {
@@ -53,5 +53,43 @@ describe('texture atlas', () => {
     expect(atlas.texture.image.height).toBe(TILE_SIZE);
     expect(atlas.texture.image.depth).toBe(TEXTURE_NAMES.length);
     expect(atlas.texture.isDataArrayTexture).toBe(true);
+  });
+
+  it('holds every layer in one array texture when the device allows it', () => {
+    const atlas = createAtlas(2048);
+    expect(atlas.texture2).toBeNull();
+    expect(atlas.split).toBe(TEXTURE_NAMES.length);
+    expect(atlasDefines(atlas)).toEqual({});
+  });
+
+  it('splits into two array textures past the device limit, layer for layer', () => {
+    expect(atlasSplit(252, 256)).toBe(252);
+    expect(atlasSplit(300, 256)).toBe(256);
+    expect(atlasSplit(512, 256)).toBe(256);
+    expect(() => atlasSplit(513, 256)).toThrow(/needs 513 layers/);
+    // The real atlas on a device that holds fewer layers than it has (and beyond WebGL2's guaranteed 256).
+    const max = Math.floor(TEXTURE_NAMES.length / 2) + 3;
+    const atlas = createAtlas(max);
+    expect(atlas.split).toBe(max);
+    expect(atlas.texture.image.depth).toBe(max);
+    expect(atlas.texture2?.image.depth).toBe(TEXTURE_NAMES.length - max);
+    expect(atlasDefines(atlas)).toEqual({ ATLAS_SPLIT: 1 });
+    const page1 = atlas.texture.image.data as Uint8Array;
+    const page2 = atlas.texture2?.image.data as Uint8Array;
+    expect(page1.length).toBe(max * TILE_BYTES);
+    expect(page2.length).toBe((TEXTURE_NAMES.length - max) * TILE_BYTES);
+    for (const layer of [0, max - 1, max, TEXTURE_NAMES.length - 1]) {
+      const page = layer < max ? page1 : page2;
+      const at = (layer < max ? layer : layer - max) * TILE_BYTES;
+      expect(Array.from(page.subarray(at, at + TILE_BYTES))).toEqual(Array.from(atlas.data.subarray(layer * TILE_BYTES, (layer + 1) * TILE_BYTES)));
+    }
+    // Room to grow: 456 tiles on a device with only WebGL2's guaranteed 256 layers per array.
+    expect(atlasSplit(GUARANTEED_LAYERS + 200, GUARANTEED_LAYERS)).toBe(GUARANTEED_LAYERS);
+  });
+
+  it('samples the second page relative to the split, only when compiled split', () => {
+    expect(ATLAS_GLSL).toContain('#ifdef ATLAS_SPLIT');
+    expect(ATLAS_GLSL).toMatch(/layer - uAtlasSplit/);
+    expect(ATLAS_GLSL).toMatch(/textureGrad\(uAtlas2/);
   });
 });

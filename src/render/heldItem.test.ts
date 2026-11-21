@@ -28,7 +28,7 @@ describe('held item geometry', () => {
 
 describe('HeldItem', () => {
   it('swaps the item at the bottom of the dip and swings on demand', () => {
-    const held = new HeldItem(null as unknown as import('three').Texture);
+    const held = new HeldItem(null);
     held.set('flint_pickaxe');
     expect(held.current).toBe(null);
     held.update(0.1);

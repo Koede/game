@@ -3,11 +3,15 @@
  * frame no matter how many chunks are drawn.
  */
 import * as THREE from 'three';
+import { atlasDefines } from './atlas';
 import { CHUNK_FRAGMENT, CHUNK_VERTEX } from './shaders/chunk';
 
 export interface WorldUniforms {
   [name: string]: THREE.IUniform;
   uAtlas: THREE.IUniform<THREE.Texture | null>;
+  /** The atlas's second page and the layer it starts at, when the device needed a split (see atlas.ts). */
+  uAtlas2: THREE.IUniform<THREE.Texture | null>;
+  uAtlasSplit: THREE.IUniform<number>;
   uTime: THREE.IUniform<number>;
   /** Colour of a fully sky-lit surface (time of day). */
   uSkyLight: THREE.IUniform<THREE.Vector3>;
@@ -25,9 +29,11 @@ export interface WorldUniforms {
   uWet: THREE.IUniform<number>;
 }
 
-export function createWorldUniforms(atlas: THREE.Texture | null): WorldUniforms {
+export function createWorldUniforms(atlas: THREE.Texture | null, atlas2: THREE.Texture | null = null, split = 0): WorldUniforms {
   return {
     uAtlas: { value: atlas },
+    uAtlas2: { value: atlas2 },
+    uAtlasSplit: { value: split },
     uTime: { value: 0 },
     uSkyLight: { value: new THREE.Vector3(1, 1, 1) },
     uBlockLight: { value: new THREE.Vector3(1.0, 0.74, 0.46) },
@@ -57,7 +63,10 @@ function chunkMaterial(uniforms: WorldUniforms, kind: 'opaque' | 'cutout' | 'tra
     uniforms: own,
     vertexShader: CHUNK_VERTEX,
     fragmentShader: CHUNK_FRAGMENT,
-    defines: kind === 'cutout' ? { CUTOUT: 1 } : translucent ? { TRANSLUCENT: 1 } : {},
+    defines: {
+      ...(kind === 'cutout' ? { CUTOUT: 1 } : translucent ? { TRANSLUCENT: 1 } : {}),
+      ...atlasDefines({ texture2: uniforms.uAtlas2.value as THREE.DataArrayTexture | null }),
+    },
     transparent: translucent,
     depthWrite: !translucent,
     // Water surfaces must also be seen from below; the mesher emits them single-sided.
