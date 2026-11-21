@@ -2,6 +2,7 @@
  * Machine screens ('machine' and 'crate' requests): the machine's panel by role, its on/off switch, the network
  * it is on (compact), and the player's backpack beside it (stacked under it on phones). Crates get 27 slots.
  */
+import { STATION_CRATE_RADIUS } from '../../../core/constants';
 import type { MachineRole } from '../../../core/types';
 import type { GameScreen, ScreenContext } from '../../gameUI';
 import { Toggle } from '../../kit/controls';
@@ -98,7 +99,7 @@ export function createCrateScreen(request: At, ctx: ScreenContext, sim: ScreenSi
   const grid = new SlotGrid({ count: inventory.size, columns: 9, label: 'Crate', minSlotPx: 32 });
   const binding = ctx.slots.bind({ id: 'crate', label: 'Crate', inventory, views: grid.slots, quickTo: TO_BAG });
   const bag = new InventoryPanel(ctx.slots, ctx.player.inventory, { quickTo: ['crate'] });
-  const note = h('p', { class: 'hw-mscreen__note', text: 'Furnaces and workbenches within 4 blocks borrow from this crate. Machines touching it push their output into it.' });
+  const note = h('p', { class: 'hw-mscreen__note', text: `Furnaces and workbenches within ${STATION_CRATE_RADIUS} blocks borrow from this crate. Machines touching it push their output into it.` });
   const body = h(
     'div',
     { class: 'hw-mscreen hw-mscreen--crate' },
