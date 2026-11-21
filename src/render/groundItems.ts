@@ -303,12 +303,12 @@ export class GroundItemRenderer {
       ring.visible = on;
       if (!on) continue;
       const phase = ((this.ringT / RING_PERIOD_S + i / RINGS) % 1 + 1) % 1; // 0 far/large .. 1 near/small
-      const size = 0.55 * (1 - phase) + 0.04;
+      const size = 0.34 * (1 - phase) + 0.03;
       ring.position.set(0, 0, -1.0 - 0.5 * (1 - phase));
       ring.scale.setScalar(size);
       ring.position.applyQuaternion(cam.quaternion).add(cam.position);
       ring.quaternion.copy(cam.quaternion);
     }
-    this.ringMaterial.opacity = 0.55;
+    this.ringMaterial.opacity = 0.4;
   }
 }

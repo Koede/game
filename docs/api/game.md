@@ -215,3 +215,6 @@ The weather feature changed this module: see `docs/api/weather.md` for what was 
 
 ## The Emberbound (spec 19)
 The coat's warmth is now data: Survival multiplies the drain by `bestArmour(inventory).warmthDrainMult` (src/core/hostile.ts; padded coat, plated coat and steel cuirass all 0.5) and `COAT_DRAIN_FACTOR` is gone. Armour on damage, difficulty and burning are still to do: see `docs/api/emberbound-content.md` section 7.
+
+## Ground items
+Items lying in the world, the drop key and collectors (the vacuum pump): `docs/api/ground-items.md`. `PlayerState` gained `ground`, `collectors`, `drop`, `dropAll`, `dropSlot`, `dropHeld`; the snapshot gained optional `ground`; `Survival.tick` ticks the items.

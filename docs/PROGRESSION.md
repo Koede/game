@@ -168,3 +168,7 @@ block from the Bronze Copper Kettle (steam).
 
 Still open:
 1. Star hearth: keep 93 casings or reduce?
+
+Note on items in the world: broken blocks, animals and spills drop as ground items that fly to the player in reach; the Bronze Age
+Hand Vacuum Pump pulls them from nine blocks, and the Current Age Electromagnet is planned to do the same electrically
+(`docs/api/ground-items.md`).

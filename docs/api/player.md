@@ -224,3 +224,6 @@ appears wherever the left thumb lands in the lower-left region (left half; below
   break instantly (plants, torches) can be lost to it. The per-frame cap makes this rare.
 - Fall damage is applied by the physics directly (`player.damage`), not through `Survival.applyFall`; both use
   the same `fallDamage` rule and the physics already skips it in water.
+
+## Drops and the drop key
+Broken blocks and picked bushes now spawn ground items (`player.dropAll`); `Q` drops the held item; Use with a collector in hand runs it. See `docs/api/ground-items.md`. Intent gained `drop` and `dropAll`.

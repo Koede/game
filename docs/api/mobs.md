@@ -258,3 +258,6 @@ Automatons are CreatureSpecs with `hostile`, listed in the registry's `AUTOMATON
 zones, salvage and saves are in the same manager - see `docs/api/emberbound-ai.md` (wiring, API, deviations).
 `MobManager.hit` gained a fifth argument `stunS` (the arc maul), `MobView` gained `glow`, `flare`, `attack`, `dormant`,
 `MobsSnapshot` an optional `hostiles`, and `projectiles(alpha)` / `useHostileHooks` / `setDifficulty` / `hostiles` are new.
+
+## Drops
+An animal's drops (`MobDeath.drops`) now fall as ground items at the body (`GameState`: `player.dropAll`) instead of going straight into the pack.

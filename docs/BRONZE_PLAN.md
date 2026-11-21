@@ -595,3 +595,8 @@ dryFire(b):
   if b.dryS >= DRY_WARP_S: replace one random shell plate with air + give/leave 1 scrap_metal; unform; toast
 blockChanged(x,y,z): for v whose box grown by 1 contains (x,y,z): v.dirty = true
 ```
+
+> **Ground items (built):** dropped items are world entities (`docs/api/ground-items.md`). The Bronze Age also gets a handheld
+> **Hand Vacuum Pump** (`hand_vacuum`, wear-powered, radius 9) that pulls ground items to the player. It is not the chute machine
+> `vacuum_pump` below. Until W0 it is made at the tier-1 furnace; after W0 move its recipe to `forge(2, ...)` and give it `age: 1`.
+> The Current Age Electromagnet is the same mechanism with an electric power source (`COLLECTORS` in `src/game/collectors.ts`).

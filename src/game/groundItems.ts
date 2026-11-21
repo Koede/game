@@ -226,7 +226,11 @@ export class GroundItems {
         const dx = px - e.x;
         const dy = py - e.y;
         const dz = pz - e.z;
-        const d2 = dx * dx + dy * dy + dz * dz;
+        // Reach is measured to the body (a vertical segment, feet to head), so an item one block down in a hole or on
+        // a step below still counts; it then flies to the body centre.
+        const feet = player.position.y;
+        const gap = e.y < feet - 0.2 ? feet - 0.2 - e.y : e.y > feet + 1.6 ? e.y - feet - 1.6 : 0;
+        const d2 = dx * dx + gap * gap + dz * dz;
         if (d2 <= reach * reach && player.inventory.space(e.item) > 0) {
           let speed = 0;
           if (d2 <= PICKUP_RADIUS * PICKUP_RADIUS) speed = HOMING_SPEED;
@@ -238,8 +242,8 @@ export class GroundItems {
           }
           if (speed > 0) {
             e.homing = true;
-            const d = Math.sqrt(d2);
-            if (d <= TAKE_RADIUS) {
+            const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (d <= TAKE_RADIUS || d2 <= TAKE_RADIUS * TAKE_RADIUS) {
               if (this.deliver(e, player)) {
                 this.items.splice(i, 1);
                 changed = true;

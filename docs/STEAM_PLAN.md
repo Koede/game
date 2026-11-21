@@ -625,3 +625,6 @@ seized: refRpm = 0 and a 0.3 s decaying shake offset = sin(t * 60) * 0.02 * e^(-
   fills it. That is the Ember Kettle Pot's job. The Copper Kettle of this plan is a different block (Bronze, steam
   for rotors); it also accepts the same two use rows as a small extra (section 2). Only the Copper Kettle makes
   steam power.
+
+> **Ground items (built):** drops, the drop key and the Hand Vacuum Pump (a Bronze Age handheld) are in `docs/api/ground-items.md`;
+> the pump has no shaft or steam input (it wears like a tool). A steam-fed variant could use a `PowerSource` of kind `'steam'`.
