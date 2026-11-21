@@ -155,6 +155,7 @@ describe('texture content', () => {
       'corestone', 'stone', 'rubble', 'dirt', 'grass_top', 'sand', 'gravel', 'clay', 'snow', 'ice', 'basalt', 'limestone',
       'water', 'lava', 'corium', 'oak_leaves', 'pine_leaves', 'oak_log_side', 'pine_log_side', 'plank', 'brick', 'stone_brick',
       'concrete', 'oil_shale',
+      'packed_ice', 'basalt_column_top', 'peat', 'oil', 'mossy_stone_brick', 'cactus_side',
     ];
     const diff = (px: Uint8ClampedArray, a: number, b: number): number =>
       Math.abs(px[a] - px[b]) + Math.abs(px[a + 1] - px[b + 1]) + Math.abs(px[a + 2] - px[b + 2]);
@@ -197,7 +198,7 @@ describe('texture content', () => {
 
   it('item icons have a transparent background and a darker outline', () => {
     const icons = TEXTURE_NAMES.filter((n) => n.startsWith('item_'));
-    expect(icons.length).toBe(79);
+    expect(icons.length).toBe(82);
     for (const name of icons) {
       const px = paintTexture(name);
       let clear = 0;
