@@ -210,9 +210,10 @@ export function applyWeather(out: SkyState, w: SkyWeather): SkyState {
   overcastField(out.zenith, day, grey, overcast, dimDay);
   overcastField(out.horizon, day, grey, overcast, dimDay);
   tint(out.glow, 1 - 0.85 * cover);
-  // Sunlit ground dims with the daylight; moonlit ground with the moon's phase and the clouds over it.
-  const moonLight = 0.55 + 0.6 * clamp(w.moon, 0, 1);
-  tint(out.skyLight, dimDay * (1 + (moonLight * (1 - 0.45 * cover) - 1) * (1 - day)));
+  // Sunlit ground dims with the daylight; moonlit ground with the moon's phase and the clouds over it. The range
+  // is narrower than the gameplay night light (0.04..0.12): a new-moon night must stay readable on a phone.
+  const moonLight = 0.75 + 0.5 * clamp(w.moon, 0, 1);
+  tint(out.skyLight, dimDay * (1 + (moonLight * (1 - 0.3 * cover) - 1) * (1 - day)));
   out.stars *= 1 - smoothstep(0.35, 0.85, cover);
   mix3(out.cloud, out.cloud, set3(STORM_CLOUD[0] * day + 0.03, STORM_CLOUD[1] * day + 0.035, STORM_CLOUD[2] * day + 0.05), smoothstep(0.55, 1, cover) * (0.35 + 0.5 * w.storm));
   tint(out.cloud, 0.6 + 0.4 * dimDay);

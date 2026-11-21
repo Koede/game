@@ -33,7 +33,7 @@ describe('applyWeather', () => {
   it('lights the night by the moon: a full moon is brighter than a new one, clouds dim both and hide the stars', () => {
     const full = sky(MIDNIGHT, { moon: 1 });
     const fresh = sky(MIDNIGHT, { moon: 0 });
-    expect(luminance(full.skyLight)).toBeGreaterThan(luminance(fresh.skyLight) * 1.8);
+    expect(luminance(full.skyLight)).toBeGreaterThan(luminance(fresh.skyLight) * 1.5);
     expect(luminance(fresh.skyLight)).toBeGreaterThan(0.05);
     const overcast = sky(MIDNIGHT, { moon: 1, cover: 1 });
     expect(luminance(overcast.skyLight)).toBeLessThan(luminance(full.skyLight));

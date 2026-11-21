@@ -11,7 +11,7 @@ import { MASK_SIZE, type RainMask } from './rainMask';
 
 /** Particles in the pool (desktop / touch devices). `amount` 0..1 draws that share of them. */
 export const PRECIP_MAX_DESKTOP = 5000;
-export const PRECIP_MAX_TOUCH = 2600;
+export const PRECIP_MAX_TOUCH = 3200;
 
 interface Look {
   /** Half extents of the box of particles around the camera. */
@@ -26,12 +26,15 @@ interface Look {
   color: [number, number, number];
   alpha: number;
   kind: number;
+  /** Share of the pool drawn at full intensity (light snow still fills the air), and how far below the eye the box is centred. */
+  density: number;
+  drop: number;
 }
 
 const LOOKS: Record<Exclude<Precipitation, 'none'>, Look> = {
-  rain: { half: [16, 13, 16], fall: 15, wind: 1.2, windStorm: 4.5, size: 0.024, length: 0.8, color: [0.78, 0.84, 0.94], alpha: 0.62, kind: 0 },
-  snow: { half: [12, 8, 12], fall: 1.5, wind: 0.5, windStorm: 3.5, size: 0.075, length: 0, color: [0.97, 0.98, 1.0], alpha: 0.9, kind: 1 },
-  dust: { half: [14, 6, 14], fall: 0.4, wind: 8, windStorm: 13, size: 0.05, length: 1.3, color: [0.86, 0.72, 0.5], alpha: 0.5, kind: 2 },
+  rain: { half: [16, 13, 16], fall: 15, wind: 1.2, windStorm: 4.5, size: 0.024, length: 0.8, color: [0.78, 0.84, 0.94], alpha: 0.62, kind: 0, density: 1, drop: 0 },
+  snow: { half: [12, 8, 12], fall: 1.5, wind: 0.5, windStorm: 3.5, size: 0.085, length: 0, color: [0.97, 0.98, 1.0], alpha: 0.9, kind: 1, density: 1.6, drop: 0 },
+  dust: { half: [14, 6, 14], fall: 0.4, wind: 8, windStorm: 13, size: 0.05, length: 1.3, color: [0.86, 0.72, 0.5], alpha: 0.5, kind: 2, density: 1, drop: 2.5 },
 };
 
 const VERTEX = /* glsl */ `
@@ -65,9 +68,9 @@ void main() {
 
   vec3 toP = p - cameraPosition;
   float dist = length(toP);
-  float alpha = (1.0 - smoothstep(uHalf.x * 0.55, uHalf.x, length(p.xz - uOrigin.xz))) * (0.7 + 0.3 * aSeed.w);
-  // No streak right in the eye.
-  alpha *= smoothstep(0.6, 2.6, dist);
+  float alpha = (1.0 - smoothstep(uHalf.x * 0.7, uHalf.x, length(p.xz - uOrigin.xz))) * (0.7 + 0.3 * aSeed.w);
+  // No streak right in the eye: the nearest drops would each cover a large part of the screen for nothing.
+  alpha *= smoothstep(1.2, 3.0, dist);
   float top = texelFetch(uMask, ivec2(mod(floor(p.xz), ${MASK_SIZE}.0)), 0).r * 255.0;
   if (p.y < top || alpha < 0.003) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -187,7 +190,7 @@ export class PrecipitationLayer {
    */
   update(kind: Precipitation, amount: number, storm: number, windAngle: number, time: number, camera: THREE.Vector3, light: ArrayLike<number>, hidden: boolean): void {
     const look = kind === 'none' ? null : LOOKS[kind];
-    const n = look && !hidden ? Math.round(this.max * Math.min(1, amount)) : 0;
+    const n = look && !hidden ? Math.round(this.max * Math.min(1, amount * look.density)) : 0;
     this.mesh.visible = n > 0;
     if (!look || n === 0) return;
     this.geometry.instanceCount = n;
@@ -196,7 +199,7 @@ export class PrecipitationLayer {
       this.maskTexture.needsUpdate = true;
     }
     const u = this.uniforms;
-    u.uOrigin.value.copy(camera);
+    u.uOrigin.value.set(camera.x, camera.y - look.drop, camera.z);
     u.uHalf.value.set(look.half[0], look.half[1], look.half[2]);
     const wind = look.wind + (look.windStorm - look.wind) * storm;
     u.uVel.value.set(Math.cos(windAngle) * wind, -look.fall, Math.sin(windAngle) * wind);
