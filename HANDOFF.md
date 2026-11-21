@@ -92,8 +92,8 @@ dependency chain can be built at the same time (the spec's section 9 explains ho
   cable rating of a network = its weakest cable; machines push output into a touching crate; the furnace
   borrows ingredients from crates within 4 blocks; corium is hardness 120 / tier 5 (see
   `docs/api/content.md` for the content engineer's other calls, e.g. bore rig stops at tier-5 blocks).
-- **Open question in content:** objective `reach_800` comes right after bronze, which already needs 800 C,
-  so it completes instantly. Consider moving it before `make_bronze`.
+- **Objective order:** `reach_800` now comes before `make_bronze` (bronze needs 800 C, so the old order
+  completed it instantly).
 - **Git:** the repository was empty, so `ccr-3c8b169f-e78nk2` is the only branch and there is no pull
   request (nothing to open one against). `.github/workflows/pages.yml` deploys on pushes to `main`, which
   does not exist yet. Several commits are checkpoints of half-written modules and do not build.
