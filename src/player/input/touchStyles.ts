@@ -15,8 +15,8 @@ export const TOUCH_CSS = `
   overscroll-behavior: none;
 }
 .hw-touch {
-  --hw-touch-ink: var(--hw-text, #fff3e2);
-  --hw-touch-accent: var(--hw-accent, #ff9a3d);
+  --hw-touch-ink: var(--hw-bone, #f0e8db);
+  --hw-touch-accent: var(--hw-heat, #ff8a2b);
   --hw-touch-fill: rgba(24, 18, 14, 0.5);
   --hw-touch-rim: rgba(255, 243, 226, 0.82);
   --hw-touch-edge: 0 0 0 1.5px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(0, 0, 0, 0.35);
@@ -86,7 +86,7 @@ export const TOUCH_CSS = `
   background: color-mix(in srgb, var(--hw-touch-accent) 78%, transparent);
 }
 @supports not (background: color-mix(in srgb, red 50%, transparent)) {
-  .hw-touch-btn--pressed { background: rgba(255, 154, 61, 0.78); }
+  .hw-touch-btn--pressed { background: rgba(255, 138, 43, 0.78); }
 }
 
 /* Landscape (and desktop) cluster: Jump in the corner, Mine beside it under the thumb's arc, Use above. */
