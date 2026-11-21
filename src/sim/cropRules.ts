@@ -3,7 +3,7 @@
  * entity, and the functions that decide whether a crop is lit, watered and how fast it grows. CropField (crops.ts)
  * keeps the cached facts these read up to date.
  */
-import { blockId, machine } from '../core/registry';
+import { MACHINES, block, blockId, machine } from '../core/registry';
 import type { BlockDef, BlockEntity } from '../core/types';
 
 const SPEC = machine('crop');
@@ -22,15 +22,22 @@ export const HYDRATION_R = param('hydrationRadius');
 export const LAMP_R = param('lampRadius');
 export const MIN_SUNLIGHT = param('minSunlight');
 
-/** One stage block of a crop. */
+/** One stage block of a crop (or of a wild bush that fruits again). */
 export interface StageInfo {
-  /** Crop key: the stage block keys are `<crop>_<stage>` ('wheat', 'potato', 'carrot'). */
+  /** Crop key: the stage block keys are `<crop>_<stage>` ('wheat', 'potato', 'carrot'); a bush's machine kind. */
   crop: string;
   /** 0-based; `stages - 1` is ripe. */
   stage: number;
   stages: number;
   /** Block id of the next stage, -1 when ripe. */
   next: number;
+  /** Seconds of full-rate growth to the next stage. */
+  stageS: number;
+  /**
+   * A wild bush (MachineRole 'bush', spec 14): it regrows wherever it stands - no farmland, light or water needed -
+   * and its entity has the bush's machine kind.
+   */
+  wild: boolean;
 }
 
 /** Stage of every crop block, by block id. */
@@ -47,22 +54,43 @@ export const STAGE_OF: Array<StageInfo | undefined> = [];
   for (const [crop, list] of families) {
     list.sort((a, b) => a.stage - b.stage);
     list.forEach(({ id }, i) => {
-      STAGE_OF[id] = { crop, stage: i, stages: list.length, next: i + 1 < list.length ? list[i + 1].id : -1 };
+      STAGE_OF[id] = { crop, stage: i, stages: list.length, next: i + 1 < list.length ? list[i + 1].id : -1, stageS: STAGE_S, wild: false };
     });
   }
+  // Bushes: the fruiting block (it has `harvestLeaves`) is ripe; picking it leaves the bare stage, which regrows.
+  for (const spec of MACHINES.values()) {
+    if (spec.role !== 'bush') continue;
+    const regrowS = spec.params?.regrowS;
+    if (regrowS === undefined) throw new Error(`MachineSpec '${spec.kind}' lacks params.regrowS`);
+    for (const key of spec.blocks) {
+      const bare = block(key).harvestLeaves;
+      if (!bare) continue;
+      const ripe = blockId(key);
+      STAGE_OF[blockId(bare)] = { crop: spec.kind, stage: 0, stages: 2, next: ripe, stageS: regrowS, wild: true };
+      STAGE_OF[ripe] = { crop: spec.kind, stage: 1, stages: 2, next: -1, stageS: regrowS, wild: true };
+    }
+  }
 }
+
+/** Whether a block is a growing plant the crops follow: a crop stage or a wild bush. */
+export const isPlantBlock = (def: BlockDef): boolean => STAGE_OF[def.id] !== undefined;
 
 /** Stage of a crop block, or null for any other block. */
 export const cropStage = (def: BlockDef): StageInfo | null => STAGE_OF[def.id] ?? null;
 
-/** The saved state of a crop: only its growing time into the current stage (the stage is the block itself). */
+/**
+ * The saved state of a crop (kind 'crop') or a wild bush (kind: its machine, e.g. 'berry_bush'): only its growing time
+ * into the current stage (the stage is the block itself).
+ */
 export interface CropEntity extends BlockEntity {
-  kind: 'crop';
   /** Seconds of full-rate growing time into the current stage (0..stageS). */
   growS: number;
 }
 
 export const isCrop = (e: BlockEntity | undefined): e is CropEntity => e !== undefined && e.kind === 'crop';
+/** A crop or a wild bush: an entity the crops follow, never a machine. */
+export const isPlant = (e: BlockEntity | undefined): e is CropEntity =>
+  e !== undefined && (e.kind === 'crop' || MACHINES.get(e.kind)?.role === 'bush');
 
 /** Runtime companion of a crop entity (never saved). */
 export interface CropNode {
@@ -100,9 +128,11 @@ export function isHydrated(c: CropNode, ctx: CropContext): boolean {
   return c.water || (c.rain && ctx.wetAt !== null && ctx.wetAt(c.e.x, c.e.y, c.e.z));
 }
 
-/** Growth per second of game time: 1 hydrated, dryRate dry, 0 when ripe, unlit or off farmland. */
+/** Growth per second of game time: 1 hydrated, dryRate dry, 0 when ripe, unlit or off farmland. A bush: 1 until ripe. */
 export function growthRate(c: CropNode, ctx: CropContext): number {
-  if (c.info === null || c.info.next < 0 || !c.soil || !isLit(c, ctx)) return 0;
+  if (c.info === null || c.info.next < 0) return 0;
+  if (c.info.wild) return 1;
+  if (!c.soil || !isLit(c, ctx)) return 0;
   return isHydrated(c, ctx) ? 1 : DRY_RATE;
 }
 

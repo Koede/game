@@ -12,7 +12,7 @@ import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
 import { cratesNear, pushToCrates } from './crates';
-import { isCrop, type CropView } from './cropRules';
+import { isPlant, isPlantBlock, type CropView } from './cropRules';
 import { CropField } from './crops';
 import {
   OK, createFurnace, createMachine, isFurnace, posKey, refuse, resizeFurnace,
@@ -136,7 +136,7 @@ export class Simulation implements ActionHost {
     this.crops.clear();
     this.hearths.clear();
     for (const e of this.world.entities()) {
-      if (isCrop(e)) this.crops.track(e);
+      if (isPlant(e)) this.crops.track(e);
       else this.trackNode(e as SimEntity);
     }
   }
@@ -218,9 +218,10 @@ export class Simulation implements ActionHost {
     const key = posKey(x, y, z);
     this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
-    const fromCrop = from.machine === 'crop';
-    if (to.machine === 'crop') {
-      // A crop growing a stage, or planted: nothing a machine looks at changes when one crop replaces another.
+    // Crops and wild bushes (spec 12.4, 14) are plants the crops follow, never machines.
+    const fromCrop = isPlantBlock(from);
+    if (isPlantBlock(to)) {
+      // A crop growing a stage, a bush picked or fruiting, or planted: nothing a machine looks at changes.
       if (!fromCrop) this.machineBlockChanged(x, y, z, from, to);
       this.crops.place(x, y, z, to);
       return;

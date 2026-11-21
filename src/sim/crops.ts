@@ -11,7 +11,7 @@ import type { GameBus } from '../core/context';
 import { BLOCKS, blockId } from '../core/registry';
 import { CHUNK_SIZE, WORLD_HEIGHT, voxelId, withId, type BlockDef, type BlockEntity, type IWorld } from '../core/types';
 import {
-  HYDRATION_R, LAMP_R, MIN_SUNLIGHT, STAGE_OF, STAGE_S, cropStage, growthRate, isCrop, isHydrated, isLit,
+  HYDRATION_R, LAMP_R, MIN_SUNLIGHT, STAGE_OF, cropStage, growthRate, isHydrated, isLit, isPlant,
   type CropContext, type CropEntity, type CropNode, type CropView, type StageInfo,
 } from './cropRules';
 import { posKey } from './entities';
@@ -90,9 +90,11 @@ export class CropField {
       return;
     }
     const stored = this.world.getEntity(x, y, z);
-    if (isCrop(stored)) this.track(stored);
+    const info = cropStage(def);
+    const kind = info?.wild ? info.crop : 'crop';
+    if (isPlant(stored) && stored.kind === kind) this.track(stored);
     else {
-      const e: CropEntity = { kind: 'crop', x, y, z, growS: 0 };
+      const e: CropEntity = { kind, x, y, z, growS: 0 };
       this.world.setEntity(e);
       this.track(e);
     }
@@ -201,16 +203,18 @@ export class CropField {
     if (info === null) return null;
     const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt };
     const ripe = info.next < 0;
-    const lit = isLit(c, ctx);
-    const hydrated = isHydrated(c, ctx);
+    const lit = info.wild || isLit(c, ctx);
+    const hydrated = info.wild || isHydrated(c, ctx);
     const rate = growthRate(c, ctx);
-    const left = ripe ? 0 : STAGE_S - c.e.growS;
-    const status = ripe ? 'Ripe' : !c.soil ? 'Needs farmland' : !lit ? 'Needs light' : `Growing - stage ${info.stage + 1} of ${info.stages}`;
+    const stageS = info.stageS;
+    const left = ripe ? 0 : stageS - c.e.growS;
+    const status = ripe ? 'Ripe' : info.wild ? 'Fruiting again'
+      : !c.soil ? 'Needs farmland' : !lit ? 'Needs light' : `Growing - stage ${info.stage + 1} of ${info.stages}`;
     return {
       x, y, z, crop: info.crop, name: this.world.getBlock(x, y, z).name, stage: info.stage, stages: info.stages, ripe,
-      soil: c.soil, lit, hydrated, rate, progress: ripe ? 1 : Math.min(1, c.e.growS / STAGE_S),
+      soil: info.wild || c.soil, lit, hydrated, rate, progress: ripe ? 1 : Math.min(1, c.e.growS / stageS),
       nextStageS: ripe ? 0 : rate > 0 ? Math.max(0, left) / rate : Infinity,
-      ripeInS: ripe ? 0 : rate > 0 ? (Math.max(0, left) + (info.stages - 2 - info.stage) * STAGE_S) / rate : Infinity,
+      ripeInS: ripe ? 0 : rate > 0 ? (Math.max(0, left) + (info.stages - 2 - info.stage) * stageS) / rate : Infinity,
       status,
     };
   }
@@ -221,12 +225,12 @@ export class CropField {
     const e = c.e;
     e.growS += amount;
     const info = c.info;
-    if (e.growS < STAGE_S || info === null || info.next < 0) return;
+    if (info === null || e.growS < info.stageS || info.next < 0) return;
     const v = this.world.getVoxel(e.x, e.y, e.z);
     if (!this.world.setVoxel(e.x, e.y, e.z, withId(v, info.next), 'sim')) return;
     const next = STAGE_OF[info.next] as StageInfo;
     c.info = next;
-    e.growS = next.next < 0 ? 0 : e.growS - STAGE_S;
+    e.growS = next.next < 0 ? 0 : e.growS - info.stageS;
     this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage });
   }
 
@@ -238,6 +242,7 @@ export class CropField {
     let reads = 2;
     c.dirty = 0;
     c.info = STAGE_OF[voxelId(world.getVoxel(x, y, z))] ?? null;
+    if (c.info?.wild) return reads; // a bush needs nothing around it
     if (d & DIRTY_SOIL) c.soil = voxelId(world.getVoxel(x, y - 1, z)) === FARMLAND;
     if (d & DIRTY_SKY) {
       c.sky = true;
