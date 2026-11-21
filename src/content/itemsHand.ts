@@ -36,10 +36,6 @@ export const HAND_ITEMS: ItemSpec[] = [
   bloom('tin', 'Tin', 250),
   bloom('bronze', 'Bronze', 800),
   {
-    key: 'copper_plate', name: 'Copper Plate', category: 'material', age: 0,
-    desc: 'Two copper ingots beaten flat on the Stone Anvil.',
-  },
-  {
     key: 'bronze_plate', name: 'Bronze Plate', category: 'material', age: 0,
     desc: 'Two bronze ingots beaten flat. Furnace upgrades ask for it.',
   },

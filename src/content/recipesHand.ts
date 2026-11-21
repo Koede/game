@@ -65,7 +65,6 @@ export const HAND_RECIPES: RecipeSpec[] = [
   // Hand Quern.
   strokes('flour', 'hand_quern', 'flour', '1 wheat', 6),
   // Stone Anvil: plates and wire (hot work halves the strokes).
-  strokes('copper_plate', 'stone_anvil', 'copper_plate', '2 copper_ingot', 8),
   strokes('bronze_plate', 'stone_anvil', 'bronze_plate', '2 bronze_ingot', 8),
   strokes('copper_wire', 'stone_anvil', '3 copper_wire', '1 copper_ingot', 6),
   // Mortar: ore stretching, a second portion 35% of the time.

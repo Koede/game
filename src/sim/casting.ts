@@ -7,7 +7,7 @@
  */
 import { FLAG_FIRST_POUR, MOLTEN_WINDOW_S, MOULD_POURS } from '../core/constants';
 import { CAST_METALS, castMetalOfIngot, castOf, itemOrNull, mouldOf, recipe } from '../core/registry';
-import type { CastMetalSpec, RecipeDef } from '../core/types';
+import type { CastMetalSpec, RecipeDef, Slot } from '../core/types';
 import { OK, refuse, stackMax, type ActionResult, type FurnaceEntity, type SimContext } from './entities';
 
 /** The alloy pot: item and block key, set in a crucible slot. */
@@ -213,9 +213,8 @@ export interface PourOption {
   poursLeft: number;
 }
 
-export function pourOptions(e: FurnaceEntity, i: number, pack: readonly ({ item: string; durability?: number } | null)[]): PourOption[] {
-  const melt = e.crucibleMelt[i];
-  if (!melt || e.crucibleMoltenS[i] <= 0) return [];
+export function pourOptions(melt: Slot, moltenS: number, pack: readonly ({ item: string; durability?: number } | null)[]): PourOption[] {
+  if (!melt || moltenS <= 0) return [];
   const seen = new Set<string>();
   const out: PourOption[] = [];
   for (const s of pack) {
@@ -224,8 +223,7 @@ export function pourOptions(e: FurnaceEntity, i: number, pack: readonly ({ item:
     const cast = castOf(s.item, melt.item);
     if (!cast) continue;
     const at = wornestMould(pack, s.item);
-    const left = pack[at]?.durability ?? MOULD_POURS;
-    out.push({ mould: s.item, name: name(s.item), makes: cast.item, units: cast.units, casts: Math.floor(melt.count / cast.units), poursLeft: left });
+    out.push({ mould: s.item, name: name(s.item), makes: cast.item, units: cast.units, casts: Math.floor(melt.count / cast.units), poursLeft: pack[at]?.durability ?? MOULD_POURS });
   }
   return out;
 }

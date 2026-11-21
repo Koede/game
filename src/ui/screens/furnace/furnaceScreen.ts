@@ -14,7 +14,7 @@ import { BagDrawer } from './bagDrawer';
 import { FireboxPanel } from './firebox';
 import { ForgeTab } from './forgeTab';
 import { GridTab } from './gridTab';
-import type { ScreenSim } from './simApi';
+import { pretty, type ScreenSim } from './simApi';
 import { SmeltTab } from './smeltTab';
 import { ghostFor } from './hearthGhost';
 import { StructureTab } from './structureTab';
@@ -65,7 +65,15 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     sim, pos, bus, player, clock: ctx.clock, slots: ctx.slots, toBag: TO_BAG, changed,
     spareSmeltable: () => ctx.objectives.current?.id === 'make_charcoal',
   });
-  const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed });
+  const pour = (index: number, key: string): void => {
+    const result = sim.pourCrucible(pos.x, pos.y, pos.z, index, key);
+    if (!result.ok) {
+      bus.emit('toast', { text: pretty(result.reason), kind: 'warn' });
+      bus.emit('sfx', { name: 'error' });
+    }
+    changed();
+  };
+  const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed, pour });
   const forge = new ForgeTab({ sim, pos, bus, changed });
   const grid = new GridTab({ sim, pos, bus, changed });
   const structure = new StructureTab({ sim, pos, bus, ghost, changed });
@@ -147,7 +155,9 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     if (tab === 'log') log.refresh();
     window.tabs?.setBadge('forge', forge.ready > 0 ? forge.ready : null);
     const done = view.crucibles.filter((c) => c.output !== null).length;
-    window.tabs?.setBadge('smelt', done > 0 ? done : null, { more: ' done', tone: 'good' });
+    const molten = view.crucibles.filter((c) => c.moltenS > 0).length;
+    if (molten > 0) window.tabs?.setBadge('smelt', molten, { more: ' molten', tone: 'good' });
+    else window.tabs?.setBadge('smelt', done > 0 ? done : null, { more: ' done', tone: 'good' });
     window.tabs?.setBadge('grid', grid.alert(view) ? '!' : null);
     window.tabs?.setBadge('structure', structureBadge(view));
     ctx.slots.refresh();

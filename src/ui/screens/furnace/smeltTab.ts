@@ -6,19 +6,29 @@ import type { GameBus } from '../../../core/context';
 import { recipe as recipeById } from '../../../core/registry';
 import type { Inventory } from '../../../game/inventory';
 import { quickMove } from '../../../game/transfer';
+import { MOLTEN_WINDOW_S } from '../../../core/constants';
+import type { Slot } from '../../../core/types';
 import type { CrucibleView, FurnaceSlots, FurnaceView } from '../../../sim';
 import { h, prefersReducedMotion, setAttr, setText } from '../../kit/dom';
 import { heatColor } from '../../kit/format';
+import { Button } from '../../kit/controls';
 import { Badge, Meter } from '../../kit/gauges';
 import { RecipeList } from '../../kit/recipe';
 import { ItemSlot } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
+import { castView, choicesKey } from './castText';
 import { nameOf, SMELT_CATEGORIES, smeltRowViews } from './forgeRows';
 import { clockText, slotOf } from './furnaceText';
 import { pretty } from './simApi';
 
 interface CrucibleRow {
   el: HTMLElement;
+  pour: HTMLDivElement;
+  moltenMeter: Meter;
+  pourButtons: HTMLDivElement;
+  pourHint: HTMLParagraphElement;
+  buttons: Button[];
+  choices: string;
   input: ItemSlot;
   output: ItemSlot;
   name: HTMLSpanElement;
@@ -27,7 +37,7 @@ interface CrucibleRow {
 }
 
 const crucibleState = (c: CrucibleView): string =>
-  c.active ? 'active' : c.status.startsWith('Needs') && c.requiredC !== null ? 'cold' : c.output && !c.input ? 'done' : c.input ? 'blocked' : 'idle';
+  c.moltenS > 0 ? 'molten' : c.active ? 'active' : c.status.startsWith('Needs') && c.requiredC !== null ? 'cold' : c.output && !c.input ? 'done' : c.input ? 'blocked' : 'idle';
 
 export class SmeltTab {
   readonly el: HTMLElement;
@@ -40,8 +50,14 @@ export class SmeltTab {
   private rows: CrucibleRow[] = [];
   private bindings: SlotBinding[] = [];
   private furnaceSlots: FurnaceSlots | null = null;
+  private readonly pour: (index: number, key: string) => void;
 
-  constructor(opts: { slots: SlotController; toBag: readonly QuickTarget[]; bus: GameBus; sources: () => readonly Inventory[]; changed: () => void }) {
+  constructor(opts: {
+    slots: SlotController; toBag: readonly QuickTarget[]; bus: GameBus; sources: () => readonly Inventory[]; changed: () => void;
+    /** Pours crucible `index` into the mould (or alloy pot ingot) `key`; says why not through a toast. */
+    pour: (index: number, key: string) => void;
+  }) {
+    this.pour = opts.pour;
     this.slots = opts.slots;
     this.toBag = opts.toBag;
     this.bus = opts.bus;
@@ -75,6 +91,7 @@ export class SmeltTab {
     for (const row of this.rows) {
       row.input.dispose();
       row.output.dispose();
+      for (const b of row.buttons) b.dispose();
     }
     this.rows = [];
     for (let i = 0; i < slots.crucibleIn.size; i++) this.rows.push(this.buildRow(i));
@@ -86,6 +103,7 @@ export class SmeltTab {
   }
 
   update(view: FurnaceView): void {
+    const pack = this.sources()[0]?.slots ?? [];
     view.crucibles.forEach((c, i) => {
       const row = this.rows[i];
       if (!row) return;
@@ -98,6 +116,7 @@ export class SmeltTab {
       row.meter.setLabel(c.active ? 'Smelting' : pretty(c.status));
       row.meter.setTone(c.active ? 'heat' : crucibleState(c) === 'cold' ? 'warn' : crucibleState(c) === 'done' ? 'good' : 'neutral');
       row.meter.set(c.progress, 1, c.active ? clockText(c.secondsLeft) : '');
+      this.updatePour(row, i, c, pack);
     });
     this.list.setRows(smeltRowViews(view.smelt));
   }
@@ -107,6 +126,7 @@ export class SmeltTab {
     for (const row of this.rows) {
       row.input.dispose();
       row.output.dispose();
+      for (const b of row.buttons) b.dispose();
     }
     this.list.dispose();
   }
@@ -117,6 +137,11 @@ export class SmeltTab {
     const name = h('span', { class: 'hw-cru__name' });
     const badge = new Badge({ text: '', tone: 'heat' });
     const meter = new Meter({ label: 'Empty', tone: 'neutral', value: 0, max: 1, text: '' });
+    const moltenMeter = new Meter({ label: 'Molten', tone: 'heat', value: 0, max: MOLTEN_WINDOW_S, text: '' });
+    const pourButtons = h('div', { class: 'hw-cru__pourbtns' });
+    const pourHint = h('p', { class: 'hw-cru__hint' });
+    const pour = h('div', { class: 'hw-cru__pour' }, moltenMeter.el, pourButtons, pourHint);
+    pour.hidden = true;
     const el = h(
       'article',
       { class: 'hw-cru' },
@@ -124,8 +149,32 @@ export class SmeltTab {
       h('div', { class: 'hw-cru__body' }, h('div', { class: 'hw-cru__top' }, name, badge.el), meter.el),
       h('span', { class: 'hw-cru__arrow', attrs: { 'aria-hidden': 'true' } }),
       output.el,
+      pour,
     );
-    return { el, input, output, name, badge, meter };
+    return { el, input, output, name, badge, meter, pour, moltenMeter, pourButtons, pourHint, buttons: [], choices: '' };
+  }
+
+  /** The molten countdown and the pour buttons of one crucible (rebuilt only when the choices change). */
+  private updatePour(row: CrucibleRow, index: number, c: CrucibleView, pack: readonly Slot[]): void {
+    const cast = castView(c, pack);
+    row.pour.hidden = !cast.show;
+    setAttr(row.el, 'data-molten', cast.molten ? 'true' : null);
+    if (!cast.show) return;
+    row.moltenMeter.setLabel(cast.meterLabel);
+    row.moltenMeter.setTone(cast.molten ? 'heat' : 'neutral');
+    row.moltenMeter.set(cast.molten ? cast.left : 0, cast.window, cast.meterText);
+    setText(row.pourHint, cast.hint);
+    const key = choicesKey(cast.choices);
+    if (key !== row.choices) {
+      row.choices = key;
+      for (const b of row.buttons) b.dispose();
+      row.buttons = cast.choices.map((choice) => new Button({
+        label: choice.label, hint: choice.sub, kind: cast.molten ? 'primary' : 'default', size: 'md', block: true,
+        onClick: () => this.pour(index, choice.key),
+      }));
+      cast.choices.forEach((choice, k) => row.buttons[k].setDisabled(!choice.enabled, choice.sub));
+      row.pourButtons.replaceChildren(...row.buttons.map((b) => b.el));
+    }
   }
 
   /** Load: a stack of the recipe's input from the pack (or a nearby crate) into the crucibles. */

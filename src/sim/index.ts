@@ -14,6 +14,8 @@ export type { GridSummary, MachineView, NetworkMember, NetworkStats } from './gr
 export type { NetworkState } from './power';
 export { HISTORY_SECONDS } from './power';
 export { smeltRecipeFor } from './furnace';
+export type { PourOption } from './casting';
+export { ALLOY_POT, POT_COPPER_MAX, POT_TIN_MAX, pourOptions } from './casting';
 export { machineRecipeFor, windAt } from './machines';
 export { SimWeather, type SimBiomeLookup } from './weather';
 export type { FluidStack } from './entities';

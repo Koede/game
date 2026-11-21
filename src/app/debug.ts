@@ -29,7 +29,7 @@ export interface DebugSummary {
   time: { timeOfDay: number; day: number; phase: string } | null;
   objective: { id: string | null; completed: string[]; age: number } | null;
   furnaces: { x: number; y: number; z: number; tier: number; tempC: number; lit: boolean; draft: number; ignited: boolean;
-    fuel: unknown[]; crucibleIn: unknown[]; crucibleOut: unknown[] }[];
+    fuel: unknown[]; crucibleIn: unknown[]; crucibleOut: unknown[]; crucibleMelt: unknown[]; crucibleMoltenS: number[] }[];
   ui: { open: string | null; uiOpen: boolean; paused: boolean; touch: boolean; pointerLocked: boolean } | null;
   target: { x: number; y: number; z: number; block: string; mining: number } | null;
   /** The animal under the crosshair (spec 12.5), or null. */
@@ -134,6 +134,7 @@ export function createDebugHandle(app: App): DebugHandle {
           ? [...s.world.entities()].filter(isFurnace).map((f) => ({
               x: f.x, y: f.y, z: f.z, tier: f.tier, tempC: round(f.tempC, 2), lit: f.lit, draft: round(f.draft), ignited: f.ignited,
               fuel: JSON.parse(JSON.stringify(f.fuel)), crucibleIn: JSON.parse(JSON.stringify(f.crucibleIn)), crucibleOut: JSON.parse(JSON.stringify(f.crucibleOut)),
+              crucibleMelt: JSON.parse(JSON.stringify(f.crucibleMelt)), crucibleMoltenS: f.crucibleMoltenS.map((v) => round(v, 2)),
             }))
           : [],
         ui: g ? { open: g.ui.current?.type ?? (g.ui.isOpen ? 'modal' : null), uiOpen: g.input.uiOpen, paused: g.input.paused, touch: g.input.touch, pointerLocked: g.input.pointerLocked } : null,

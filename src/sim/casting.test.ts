@@ -146,12 +146,12 @@ describe('mould wear', () => {
   it('pourOptions lists the moulds in the pack that fit the metal', () => {
     const { kit, e } = setup(['ingot_mould', 'pickaxe_mould', 'axe_mould']);
     molten(e, 0, 'bronze_ingot', 4);
-    const options = pourOptions(e, 0, kit.player.inventory.slots);
+    const options = pourOptions(e.crucibleMelt[0], e.crucibleMoltenS[0], kit.player.inventory.slots);
     expect(options.map((o) => o.mould).sort()).toEqual(['axe_mould', 'ingot_mould', 'pickaxe_mould']);
     expect(options.find((o) => o.mould === 'ingot_mould')).toMatchObject({ casts: 4, makes: 'bronze_ingot', poursLeft: MOULD_POURS });
     molten(e, 1, 'copper_ingot', 4);
-    expect(pourOptions(e, 1, kit.player.inventory.slots).map((o) => o.mould)).toEqual(['ingot_mould']);
-    expect(pourOptions(e, 2, kit.player.inventory.slots)).toEqual([]);
+    expect(pourOptions(e.crucibleMelt[1], e.crucibleMoltenS[1], kit.player.inventory.slots).map((o) => o.mould)).toEqual(['ingot_mould']);
+    expect(pourOptions(e.crucibleMelt[2], e.crucibleMoltenS[2], kit.player.inventory.slots)).toEqual([]);
   });
 });
 

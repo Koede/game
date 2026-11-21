@@ -14,6 +14,8 @@ export interface ScreenSim {
   light(x: number, y: number, z: number): ActionResult;
   douse(x: number, y: number, z: number): ActionResult;
   pump(x: number, y: number, z: number): ActionResult;
+  /** Pours a crucible's molten metal into the fired mould `heldKey`, or an ingot of copper or tin into the alloy pot in it. */
+  pourCrucible(x: number, y: number, z: number, slot: number, heldKey: string | null): ActionResult;
   setElectric(x: number, y: number, z: number, on: boolean): ActionResult;
   forge(x: number, y: number, z: number, recipeId: string, times?: number): ForgeResult;
   upgrade(x: number, y: number, z: number): ActionResult;

@@ -61,24 +61,43 @@ export async function furnaceSteps({ d, step, assert, hw, page }) {
     await d.shot('07-furnace-lit');
   });
 
-  await step('smelts copper ore and collects the ingot', async () => {
+  await step('smelts copper ore into molten metal and pours it into a mould', async () => {
+    await hw(() => window.__hw.give('ingot_mould', 1));
     await openTab(d, 'smelt');
     await sendFromBag(d, 'copper_ore', 'Crucible');
     let f = await furnace(d);
     assert(f.crucibleIn[0]?.item === 'copper_ore', `crucible holds ${JSON.stringify(f.crucibleIn[0])}`);
-    // Fast-forward the fire (copper needs 700 C), a few simulated seconds at a time.
+    // Fast-forward the fire (copper needs 700 C), a few simulated seconds at a time; stop with both ingots molten.
     for (let i = 0; i < 40; i++) {
       f = await furnace(d);
-      if (f.crucibleOut[0]?.item === 'copper_ingot' && f.crucibleOut[0].count >= 2) break;
+      if (f.crucibleMelt[0]?.item === 'copper_ingot' && f.crucibleMelt[0].count >= 2) break;
       await hw(() => window.__hw.tick(100));
     }
-    assert(f.crucibleOut[0]?.item === 'copper_ingot', `no ingot after smelting: ${JSON.stringify(f.crucibleOut)} at ${f.tempC} C`);
+    assert(f.crucibleMelt[0]?.item === 'copper_ingot', `no molten copper: ${JSON.stringify(f.crucibleMelt)} at ${f.tempC} C`);
+    assert(f.crucibleOut[0] === null, 'the metal is molten, not an ingot in the output slot');
     await d.settle(400);
-    await d.shot('08-smelted');
-    await showBag(d, false);
-    await d.press(page.locator('.hw-window .hw-cru .hw-slot').nth(1));
-    await d.press(page.locator('.hw-window .hw-carry button', { hasText: 'Backpack' }).first());
-    await waitFor(page, () => window.__hw.state().inventory.some((s) => s.item === 'copper_ingot'), 'the ingot in the pack', { timeout: 5000, interval: 100 });
+    await d.shot('08-molten');
+    const pour = page.locator('.hw-window .hw-cru__pour button', { hasText: 'Pour into Ingot Mould' });
+    assert(await pour.isVisible(), 'the pour button is shown');
+    await d.press(pour);
+    await waitFor(page, () => window.__hw.state().inventory.some((s) => s.item === 'copper_ingot' && s.count >= 2), 'the cast ingots in the pack', { timeout: 5000, interval: 100 });
+    await d.settle(300);
+    await d.shot('08c-poured');
+  });
+
+  await step('metal left unpoured cools into a bloom', async () => {
+    await hw(() => window.__hw.give('copper_ore', 1));
+    await sendFromBag(d, 'copper_ore', 'Crucible');
+    for (let i = 0; i < 40; i++) {
+      const f = await furnace(d);
+      if (f.crucibleMelt[0]) break;
+      await hw(() => window.__hw.tick(100));
+    }
+    await hw(() => window.__hw.tick(420));
+    await d.settle(400);
+    const f = await furnace(d);
+    assert(f.crucibleOut[0]?.item === 'copper_bloom', `the output is ${JSON.stringify(f.crucibleOut[0])}`);
+    await d.shot('08d-bloom');
   });
 
   await step('forges copper wire at the furnace', async () => {
