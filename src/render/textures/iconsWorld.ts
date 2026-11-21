@@ -21,10 +21,13 @@ function bronzeBucket(c: Canvas, fill: 'empty' | 'lava'): void {
   c.rect(2, 5, 12, 1, b[4]);
   c.set(13, 5, b[2]);
   if (fill === 'lava') {
-    c.rect(3, 6, 10, 1, P.LAVA[3]);
-    c.set(5, 6, P.LAVA[4]);
-    c.set(9, 6, P.LAVA[4]);
-    // A glowing drip running down the side.
+    // Molten lava domed just over the rim, glowing on the bronze below it, with a drip down the side.
+    c.rect(3, 6, 10, 1, P.LAVA[2]);
+    c.rect(3, 5, 10, 1, P.LAVA[3]);
+    c.rect(5, 4, 6, 1, P.LAVA[4]);
+    c.set(6, 5, P.LAVA[4]);
+    c.set(10, 5, P.LAVA[1]);
+    for (let x = 3; x <= 12; x++) c.set(x, 7, shade(b[3], 0.25));
     c.set(11, 7, P.LAVA[2]);
     c.set(11, 8, P.LAVA[3]);
     c.set(11, 9, P.LAVA[1]);
@@ -46,16 +49,20 @@ function bronzeBucket(c: Canvas, fill: 'empty' | 'lava'): void {
 
 /** A handful of wildberries: a cluster of round berries, each with a highlight, and a leaf. */
 function wildberries(c: Canvas): void {
+  // Five loose round berries, each lit on its upper left, under a sprig of two leaves.
   const g = P.OAK_LEAF;
-  c.sprite(['..aab', '.abbc', 'abbc.', 'bcc..'], { a: g[4], b: g[3], c: g[1] }, 9, 1);
-  for (const [x, y] of [[4, 6], [8, 5], [6, 9], [10, 9], [3, 11], [8, 12], [12, 6]] as const) {
+  c.line(7, 4, 12, 1, P.OAK_BARK[3]);
+  c.sprite(['.ab', 'abc', 'bc.'], { a: g[4], b: g[3], c: g[1] }, 11, 0);
+  c.sprite(['ab.', 'bbc', '.cc'], { a: g[4], b: g[3], c: g[1] }, 3, 2);
+  for (const [x, y] of [[7, 6], [3, 9], [10, 9], [6, 12], [11, 13]] as const) {
     c.disc(x + 0.5, y + 0.5, 1.6, BERRY[2]);
     c.set(x + 1, y + 1, BERRY[1]);
     c.set(x + 1, y + 2, BERRY[0]);
+    c.set(x + 2, y + 1, BERRY[0]);
     c.set(x - 1, y, BERRY[3]);
     c.set(x, y - 1, BERRY[4]);
+    c.set(x, y, BERRY[3]);
   }
-  c.line(9, 4, 11, 3, P.OAK_BARK[3]);
 }
 
 export const WORLD_ICONS: PainterSet = {

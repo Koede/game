@@ -22,7 +22,8 @@ const UNRIPE = ramp(0x51682a, 0x6c8634, 0x8aa442, 0xa8c05c, 0xccdc8a);
 const GILL = ramp(0x0e2a30, 0x14404a, 0x1e5a64, 0x2c7880, 0x4aa0a6);
 const GLOWCAP = ramp(0x1a6c78, 0x2ea4b0, 0x52d2d8, 0x9cf2f0, 0xe8fffc);
 const STALK_PALE = ramp(0x8a8a7a, 0xa8a692, 0xc6c2aa, 0xdedac4, 0xf4f0de);
-const CRYSTAL = ramp(0x3a6a78, 0x5f9aa8, 0x92cad2, 0xc8eeee, 0xffffff);
+// Pale aquamarine, so geode crystals never read as ice (or as any purple gem).
+const CRYSTAL = ramp(0x2c6658, 0x4a9a82, 0x7cc8ac, 0xb8eed6, 0xf2fff6);
 const POLLEN: RGB = rgb(0xf2c440);
 
 /** A stem rising from the bottom row: `h` tall, curving by `lean` pixels at the tip. Returns the tip. */
@@ -74,22 +75,22 @@ function bell(c: Canvas, x: number, y: number): void {
 }
 
 function skybell(c: Canvas): void {
-  // Two arching stems, each carrying bells that hang from short pedicels, over grassy leaves.
-  const arch = (x0: number, h: number, reach: number): Array<[number, number]> => {
-    const pts: Array<[number, number]> = [];
-    for (let i = 0; i <= h; i++) pts.push([x0 + Math.round(reach * Math.pow(i / h, 3)), 15 - i]);
-    for (let i = 1; i <= Math.abs(reach); i++) pts.push([x0 + reach + Math.sign(reach) * i, 15 - h + Math.floor(i / 2)]);
-    return pts;
-  };
-  const stems = [arch(5, 12, 3), arch(10, 9, -3)];
-  for (const pts of stems) pts.forEach(([x, y], i) => c.set(x, y, i < 2 ? STEM[0] : STEM[2]));
-  for (const [x, y] of [[9, 4], [11, 5], [12, 7], [6, 7], [4, 8]] as const) {
-    c.set(x, y, STEM[3]);
-    bell(c, x, y + 1);
-  }
-  blade(c, 5, 14, -1, 4);
-  blade(c, 6, 13, 1, 3);
-  blade(c, 10, 14, 1, 4);
+  // Two crook-shaped stems, each arching over at the top with bells hanging from the arch on short pedicels.
+  const main: Array<[number, number]> = [[8, 4], [9, 3], [10, 3], [11, 4], [12, 5]];
+  for (let y = 15; y >= 5; y--) c.set(7, y, y > 13 ? STEM[0] : STEM[2]);
+  for (const [x, y] of main) c.set(x, y, STEM[3]);
+  for (let y = 15; y >= 9; y--) c.set(3, y, y > 13 ? STEM[0] : STEM[2]);
+  for (const [x, y] of [[2, 8], [1, 9]] as const) c.set(x, y, STEM[3]);
+  bell(c, 10, 4);
+  bell(c, 13, 6);
+  bell(c, 1, 10);
+  // A bud still closed at the top of the crook.
+  c.set(8, 5, SKYBELL[1]);
+  c.set(8, 6, SKYBELL[2]);
+  blade(c, 7, 14, 1, 5);
+  blade(c, 6, 13, -1, 3);
+  blade(c, 3, 14, 1, 3);
+  blade(c, 11, 15, 1, 3);
 }
 
 /** A lily trumpet seen from the side, opening upwards: three reflexed petals and stamens. (x, y) = its foot. */

@@ -13,7 +13,7 @@ import { type RGB, type Ramp, mix, rgb, shade } from './palette';
 const ramp = (a: number, b: number, c: number, d: number, e: number): Ramp => [rgb(a), rgb(b), rgb(c), rgb(d), rgb(e)];
 
 const CACTUS = ramp(0x1f3d22, 0x2b5530, 0x3a6e3c, 0x4f8a4a, 0x76a862);
-const SPINE: RGB = rgb(0xeee2b8);
+const SPINE: RGB = rgb(0xcfc49a);
 const PACKED = ramp(0x2c5a86, 0x3c74a2, 0x5492bc, 0x78b2d2, 0xb6dcec);
 const PEAT = ramp(0x1a120e, 0x261a12, 0x342418, 0x45301f, 0x5a432c);
 const MOSS = ramp(0x2a4018, 0x3a561e, 0x4e6e26, 0x668a32, 0x88a84a);
@@ -31,12 +31,11 @@ function cactusSide(c: Canvas): void {
     const base = u === 0 ? CACTUS[0] : u === 1 ? CACTUS[3] : u === 2 ? CACTUS[2] : CACTUS[1];
     return f(x, y) > 0.7 && u !== 0 ? shade(base, 0.08) : base;
   });
-  // Areoles every few pixels down each crest, a tuft of two spines from each.
+  // Areoles spaced down each crest, staggered between ribs: one pale spine point with a dark base.
   for (let x = 1; x < 16; x += 4) {
-    for (let y = (x * 3) % 4; y < 16; y += 4) {
+    for (let y = (x * 5) % 6; y < 16; y += 6) {
       c.set(x, y, SPINE);
-      c.wset(x - 1, y - 1, shade(SPINE, -0.15));
-      c.wset(x + 1, y - 1, shade(SPINE, -0.15));
+      c.wset(x, y + 1, CACTUS[1]);
     }
   }
 }
@@ -60,41 +59,50 @@ function cactusTop(c: Canvas): void {
   }
 }
 
-/** Packed ice: deep blue, pressed into faint layers, almost no bubbles, a few long white fractures. */
+/** Packed ice: deep blue and dense, two faint pressure seams across it, a few long white fractures, no bubbles. */
 function packedIce(c: Canvas): void {
-  const f = c.noise(8, 4, 1);
-  const layer = c.noise(16, 4, 2);
-  c.each((x, y) => {
-    const v = 0.45 + (f(x, y) - 0.5) * 0.9 + (Math.floor((y + layer(x, y) * 3) / 4) % 2 === 0 ? 0.12 : -0.1);
-    return tone([PACKED[1], PACKED[2], PACKED[3]], v);
-  });
-  crack(c, c.int(16), c.int(16), 9, 1, 0, PACKED[4]);
-  crack(c, c.int(16), c.int(16), 6, 1, 1, PACKED[4]);
+  const f = c.noise(8, 8, 1);
+  const g = c.noise(4, 4, 2);
+  c.each((x, y) => tone([PACKED[1], PACKED[2], PACKED[2], PACKED[3]], 0.45 + (f(x, y) - 0.5) * 0.8 + (g(x, y) - 0.5) * 0.3));
+  // Pressure seams: thin pale lines that drift by a pixel across the tile (seamless left to right).
+  const drift = c.noise(8, 16, 3);
+  for (const y0 of [4, 11]) {
+    for (let x = 0; x < 16; x++) {
+      const y = y0 + Math.round((drift(x, y0) - 0.5) * 2);
+      c.wset(x, y, shade(PACKED[3], 0.15));
+      c.wset(x, y + 1, PACKED[1]);
+    }
+  }
+  crack(c, c.int(16), c.int(16), 7, 1, 1, PACKED[4]);
+  crack(c, c.int(16), c.int(16), 5, -1, 1, PACKED[4]);
   for (const [x, y] of c.scatter(2, 8)) c.wset(x, y, PACKED[0]);
 }
 
 // ---- the scar -------------------------------------------------------------------------------------------
 
-/** Basalt columns from the side: two broad columns per tile, vertical joints, staggered cross joints. */
+/**
+ * Basalt columns from the side: three six-sided pillars per tile, each showing a lit facet, a face-on facet and a
+ * shaded facet, split by deep joints, with the pillars' cross joints at staggered heights.
+ */
 function basaltColumnSide(c: Canvas): void {
   const b = P.BASALT;
   const f = c.noise(4, 8, 1);
   const cols = [[0, 6], [6, 11], [11, 16]] as const;
   cols.forEach(([x0, x1], k) => {
     const cut = (k * 7 + 3) % 16;
+    const w = x1 - x0;
     for (let x = x0; x < x1; x++) {
+      const u = x - x0;
+      const facet = u === 0 ? -1 : u <= 1 ? 0.3 : u >= w - 1 ? -0.25 : 0.05;
       for (let y = 0; y < 16; y++) {
-        const facet = x - x0 < (x1 - x0) / 2 ? 0.12 : -0.08;
-        let col = tone([b[1], b[2], b[3]], 0.45 + facet + (f(x, y) - 0.5) * 0.7 + (k === 1 ? 0.08 : 0));
-        if (x === x0) col = b[0];
-        else if (x === x0 + 1) col = shade(col, 0.15);
-        if (y === cut) col = b[0];
-        else if (y === (cut + 1) % 16 && x !== x0) col = b[3];
+        let col = facet < -0.5 ? shade(b[0], -0.3) : tone([b[1], b[2], b[3], b[4]], 0.45 + facet + (f(x, y) - 0.5) * 0.5);
+        if (u > 0 && y === cut) col = b[0];
+        else if (u > 0 && y === (cut + 1) % 16) col = shade(col, 0.18);
         c.set(x, y, col);
       }
     }
   });
-  for (const [x, y] of c.scatter(3, 6)) if (x % 5 !== 0) c.wset(x, y, b[4]);
+  for (const [x, y] of c.scatter(3, 6)) if (x !== 0 && x !== 6 && x !== 11) c.wset(x, y, b[4]);
 }
 
 /** Basalt column tops: a packed mosaic of polygons, each a column end, dark joints between. */
@@ -143,15 +151,21 @@ function peat(c: Canvas): void {
 
 /** Stone brick split by frost: a few cracks running across bricks, a chipped corner and some lost mortar. */
 function crackedStoneBrick(c: Canvas): void {
-  stoneBrick(c);
+  // The same wall as plain stone brick (its random stream too), so a ruin reads as weathered brick of that kind.
+  c.withSeed('stone_brick', () => stoneBrick(c));
   const s = P.STONE;
-  crack(c, 3, 1, 7, 1, 1, s[0], s[3]);
-  crack(c, 12, 9, 6, -1, 1, s[0], s[3]);
-  crack(c, 9, 4, 4, 1, 0, s[0]);
+  // One long frost split wandering down through both courses and a short one, drawn a shade above the mortar so
+  // they read as fine splits rather than marks.
+  const split = shade(s[0], 0.1);
+  const pts: ReadonlyArray<readonly [number, number]> = [[3, 0], [3, 1], [4, 2], [4, 3], [5, 4], [5, 5], [6, 6], [6, 8], [7, 9], [7, 10], [8, 11], [9, 12], [9, 13], [10, 14]];
+  for (const [x, y] of pts) {
+    if (y === 7 || y === 15) continue;
+    c.set(x, y, split);
+  }
+  for (const [x, y] of [[13, 9], [12, 10], [12, 11], [11, 12]] as const) c.set(x, y, split);
   // A missing corner where a chunk fell away.
   c.rect(13, 1, 2, 2, shade(s[0], -0.2));
   c.set(12, 2, s[1]);
-  for (const [x, y] of c.scatter(4, 5)) c.wset(x, y, s[1]);
 }
 
 /** Old stone brick overgrown with moss that follows the mortar and spills over the tops of the bricks. */
@@ -176,6 +190,8 @@ function collapsedFurnace(c: Canvas): void {
   bevelCells(c, map, (id, x, y) => tone([k[0], k[1], k[2]], c.hash(id, 0, 1) * 0.8 + c.hash(x >> 2, y >> 2, 2) * 0.2), shade(k[0], -0.25), 0.8, 0.12, 0.25);
   const mouth = (x: number, y: number): boolean => y >= 6 && y <= 13 && (y >= 8 ? x >= 4 && x <= 11 : y === 7 ? x >= 5 && x <= 10 : x >= 6 && x <= 9);
   c.each((x, y) => (mouth(x, y) ? (y < 9 ? P.SOOT : shade(P.SOOT, 0.1)) : null));
+  // What is left of the arch's pale clay rim, broken away on the right where the crown fell in.
+  c.each((x, y) => (!mouth(x, y) && x < 10 && (mouth(x - 1, y) || mouth(x + 1, y) || mouth(x, y - 1) || mouth(x, y + 1)) ? k[4] : null));
   // The crown has slumped: its lintel bricks lie across the mouth, rubble half fills it.
   const s = P.STONE;
   c.sprite(
