@@ -79,7 +79,8 @@ export class FireboxPanel {
     this.addFuel.el.setAttribute('aria-label', 'Add fuel from your pack');
     this.addFuel.el.title = 'Add fuel from your pack';
     this.lightBtn = new Button({ label: 'Light', kind: 'primary', onClick: () => this.lightOrDouse() });
-    this.pumpBtn = new Button({ label: 'Pump', kind: 'primary', size: 'lg', hint: 'Bellows', onClick: () => this.pump() });
+    const keys = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
+    this.pumpBtn = new Button({ label: 'Pump', kind: 'primary', size: 'lg', hint: keys ? 'Bellows - P' : 'Bellows', onClick: () => this.pump() });
     this.pumpBtn.el.classList.add('hw-fbx__pump');
     this.elecToggle = new Toggle({
       label: 'Electric heating',

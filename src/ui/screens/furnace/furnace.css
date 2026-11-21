@@ -468,7 +468,7 @@
 }
 .hw-drawer > .hw-carry {
   flex: none;
-  margin: 6px 6px 0;
+  margin: 0 6px 6px;
 }
 .hw-drawer__handle {
   display: flex;
@@ -601,6 +601,11 @@
   }
   .hw-drawer {
     left: 0;
+  }
+  /* The drawer grows upwards from the bottom edge here: the carry bar goes on top of it. */
+  .hw-drawer > .hw-carry {
+    order: -1;
+    margin: 6px 6px 0;
   }
   .hw-drawer[data-open] {
     top: auto;

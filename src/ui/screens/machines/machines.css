@@ -2,6 +2,14 @@
    MACHINE AND CRATE SCREENS, NETWORK PANEL (src/ui/screens/machines). Only the kit's --hw-* tokens.
    ========================================================================================== */
 
+/* Anchored at the top, not centred: the carry bar appearing must not move every slot between two taps. */
+@media (min-width: 720px) and (min-height: 520px) {
+  .hw-window.hw-mach-window {
+    align-self: flex-start;
+    margin-top: min(8vh, 72px);
+    max-height: calc(100% - min(8vh, 72px));
+  }
+}
 .hw-mscreen {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

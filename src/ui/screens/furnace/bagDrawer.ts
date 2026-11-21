@@ -20,7 +20,10 @@ export class BagDrawer {
   private readonly inventory: Inventory;
   private open = rememberOpen;
 
-  /** `carry` (the slot controller's action bar) sits on top of the drawer, next to the bag, open or closed. */
+  /**
+   * `carry` (the slot controller's action bar) sits next to the bag, open or closed: below it, or on top of the
+   * bottom-anchored drawer on phones, so it never pushes a slot from under the finger between two taps.
+   */
   constructor(slots: SlotController, inventory: Inventory, quickTo: readonly QuickTarget[], carry: HTMLElement) {
     this.inventory = inventory;
     this.panel = new InventoryPanel(slots, inventory, { quickTo });
@@ -36,9 +39,9 @@ export class BagDrawer {
     this.el = h(
       'aside',
       { class: 'hw-drawer', attrs: { 'aria-label': 'Your backpack' } },
-      carry,
       this.handle,
       h('div', { class: 'hw-drawer__sheet' }, this.panel.el, h('p', { class: 'hw-drawer__hint', text: slotHint() })),
+      carry,
     );
     this.setOpen(this.open);
   }
