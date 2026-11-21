@@ -201,11 +201,12 @@ export class TargetBox {
     this.group.visible = false;
   }
 
-  /** Dark outline by day, a pale one at night so it still reads against dark ground. */
-  setDaylight(day: number): void {
-    const v = day > 0.35 ? 0.08 : 0.78;
+  /** Dark outline where it is bright, a pale one where it is dark (night, caves) so it always reads. */
+  setBrightness(brightness: number): void {
+    const bright = brightness > 0.3;
+    const v = bright ? 0.08 : 0.78;
     this.outlineMaterial.color.setRGB(v, v * 0.92, v * 0.82);
-    this.outlineMaterial.opacity = day > 0.35 ? 0.7 : 0.55;
+    this.outlineMaterial.opacity = bright ? 0.7 : 0.55;
   }
 
   dispose(): void {
