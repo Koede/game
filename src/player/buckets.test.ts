@@ -6,8 +6,9 @@ import { BUCKET_HINTS } from './buckets';
 import { Interaction, screenFor } from './interaction';
 import { block } from '../core/registry';
 import { PlayerPhysics } from './physics';
-import { createRayHit, raycast, type RayHit } from './raycast';
+import { createRayHit, raycast, type LiquidAim, type RayHit } from './raycast';
 import { flatWorld, makePlayer, record } from './testKit';
+import { WATER_SOURCE, flowingWater } from '../world/water';
 
 /** A player at (0.5, 10, 0.5) on a stone floor (top at y 10). */
 function setup() {
@@ -17,7 +18,7 @@ function setup() {
   const physics = new PlayerPhysics(world, player);
   const interaction = new Interaction(world, bus, player, physics, { triggerSwing: () => undefined }, () => 0);
   const hit = createRayHit();
-  const aim = (x: number, y: number, z: number, liquids = false): RayHit | null => {
+  const aim = (x: number, y: number, z: number, liquids: LiquidAim = false): RayHit | null => {
     const ex = player.position.x;
     const ey = player.eyeY;
     const ez = player.position.z;
@@ -72,6 +73,64 @@ describe('buckets (spec 13)', () => {
     expect(world.getBlock(0, 10, -2).key).toBe('lava');
     expect(world.getBlock(-1, 10, -2).key).toBe('oil');
     expect(toasts.map((t) => t.e.text)).toEqual([BUCKET_HINTS.hotWood, BUCKET_HINTS.oil, BUCKET_HINTS.bronzeWater]);
+  });
+});
+
+describe('buckets and flowing water (spec 18.3)', () => {
+  it('the empty bucket aims through flowing water at the first source behind it and takes it', () => {
+    const { bus, world, player, interaction, aim, hold } = setup();
+    world.setVoxel(0, 10, -1, flowingWater(2));
+    world.setVoxel(0, 10, -2, flowingWater(1));
+    world.setVoxel(0, 10, -3, WATER_SOURCE);
+    hold({ item: 'pail', count: 1 });
+    const sounds = record(bus, 'sfx');
+    const hit = aim(0.5, 10.4, -2.5, 'sources');
+    expect(hit && [hit.x, hit.y, hit.z]).toEqual([0, 10, -3]);
+    expect(hit?.throughFlow).toBe(true);
+    expect(interaction.use(hit)).toBe('pail');
+    expect(player.heldStack()).toEqual({ item: 'water_pail', count: 1 });
+    expect(world.getVoxel(0, 10, -3)).toBe(0);
+    expect(world.getVoxel(0, 10, -2)).toBe(flowingWater(1));
+    expect(sounds.map((s) => s.e.name)).toContain('splash');
+  });
+
+  it('refuses with a short toast when only flowing water is in reach', () => {
+    const { bus, world, player, interaction, aim, hold } = setup();
+    world.setVoxel(0, 10, -1, flowingWater(3));
+    world.setVoxel(0, 10, -2, flowingWater(4));
+    hold({ item: 'pail', count: 1 });
+    const toasts = record(bus, 'toast');
+    // Through the flow onto the floor behind it.
+    expect(interaction.use(aim(0.5, 9.9, -2.5, 'sources'))).toBe('refused');
+    // Through the flow with nothing behind it in reach (a sheet at eye height): the flowing cell itself is the target.
+    world.setVoxel(0, 11, -2, flowingWater(2));
+    const flat = aim(0.5, player.eyeY, -7.5, 'sources');
+    expect(flat && [flat.x, flat.y, flat.z]).toEqual([0, 11, -2]);
+    expect(flat?.block.key).toBe('water');
+    expect(interaction.use(flat)).toBe('refused');
+    expect(player.heldStack()?.item).toBe('pail');
+    expect(world.getVoxel(0, 10, -2)).toBe(flowingWater(4));
+    expect(toasts.map((t) => t.e.text)).toEqual([BUCKET_HINTS.flowing]);
+    // Plain ground with no water at all: nothing happens, no toast.
+    expect(interaction.use(aim(3.5, 9.9, 2.5, 'sources'))).toBe('none');
+  });
+
+  it('the water bucket places a source in air, a washable plant or flowing water, never on a source', () => {
+    const { world, player, interaction, aim, hold, wait } = setup();
+    hold({ item: 'water_pail', count: 1 });
+    world.setVoxel(2, 10, -1, flowingWater(5));
+    expect(interaction.use(aim(2.5, 9.9, -0.5))).toBe('pail');
+    expect(world.getVoxel(2, 10, -1)).toBe(WATER_SOURCE);
+    expect(player.heldStack()?.item).toBe('pail');
+    wait();
+    hold({ item: 'water_pail', count: 1 });
+    world.put(-2, 10, -1, 'ember_poppy');
+    expect(interaction.use(aim(-1.5, 10.3, -0.5))).toBe('pail');
+    expect(world.getVoxel(-2, 10, -1)).toBe(WATER_SOURCE);
+    wait();
+    hold({ item: 'water_pail', count: 1 });
+    expect(interaction.use(aim(2.5, 9.9, -0.5))).toBe('refused');
+    expect(player.heldStack()?.item).toBe('water_pail');
   });
 });
 

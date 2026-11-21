@@ -1,14 +1,17 @@
 /**
- * Buckets (spec 13): the wooden bucket fills at water (every pool is an endless spring) and pours a water block;
- * the bronze bucket scoops LAVA - lava pools are finite, so the lava block goes - and a lava bucket pours it back
- * and returns the bronze bucket. A wooden bucket refuses lava, a bronze one is kept for lava, and nothing scoops
- * crude oil (a pump draws it). DOM-free: talks to the world, the player and the bus through its host.
+ * Buckets (spec 13, 18.3): the wooden bucket takes a water SOURCE block - the ray looks through flowing water for
+ * one, and the source goes (a hole in a lake fills again from its neighbours; a lone source is gone) - and a water
+ * bucket pours a source into air, a washable plant or flowing water; the bronze bucket scoops LAVA (the block goes)
+ * and a lava bucket pours it back and returns the bronze bucket. A wooden bucket refuses lava, a bronze one is kept
+ * for lava, and nothing scoops crude oil (a pump draws it). DOM-free: talks to the world, the player and the bus
+ * through its host.
  */
 import type { GameBus } from '../core/context';
 import type { SfxName } from '../core/gameEvents';
 import { block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, makeVoxel, type IWorld } from '../core/types';
+import { AIR, WORLD_HEIGHT, makeVoxel, type IWorld } from '../core/types';
 import { placementCell, type PlayerState } from '../game';
+import { WASHABLE, WATER_SOURCE, isFlowingWater, isLiquidSource } from '../world/water';
 import type { RayHit } from './raycast';
 
 /** What the buckets need from the Interaction that owns them. */
@@ -32,7 +35,7 @@ export interface BucketHost {
 
 /** Item keys of every bucket, empty or full. */
 export const BUCKETS: ReadonlySet<string> = new Set(['pail', 'water_pail', 'bronze_bucket', 'lava_bucket']);
-/** Empty buckets: the ray must stop at liquids while one is held, so they can be filled. */
+/** Empty buckets: while one is held the ray stops at liquid sources (through flowing water), so they can be filled. */
 export const SCOOPING_BUCKETS: ReadonlySet<string> = new Set(['pail', 'bronze_bucket']);
 
 export const BUCKET_HINTS = {
@@ -40,6 +43,7 @@ export const BUCKET_HINTS = {
   bronzeWater: 'A bronze bucket is kept for lava - use a wooden bucket for water',
   oil: 'Too thick for a bucket - a pump draws oil',
   pourOnSelf: 'Step back before pouring lava',
+  flowing: 'No still water in reach - a bucket takes a source block, not flowing water',
 } as const;
 
 export type BucketOutcome = 'pail' | 'refused' | 'none';
@@ -66,18 +70,23 @@ export class Buckets {
   private scoop(hit: RayHit, liquid: 'water' | 'lava', full: string, sfx: SfxName): BucketOutcome {
     const h = this.host;
     const found = hit.block.liquid;
-    if (found === null) return 'none';
+    if (found === null || !isLiquidSource(hit.voxel)) {
+      // Aimed through (or at) flowing water and no source behind it.
+      if (liquid === 'water' && (hit.throughFlow === true || found === 'water')) {
+        h.advise('bucket:flowing', BUCKET_HINTS.flowing);
+        return 'refused';
+      }
+      return 'none';
+    }
     if (found !== liquid) {
       if (found === 'oil') h.advise('bucket:oil', BUCKET_HINTS.oil);
       else if (found === 'lava') h.advise('bucket:hot', BUCKET_HINTS.hotWood);
       else h.advise('bucket:bronze', BUCKET_HINTS.bronzeWater);
       return 'refused';
     }
-    // Water is an endless spring; a lava pool gives up the block it was scooped from.
-    if (liquid === 'lava') {
-      if (!h.world.setVoxel(hit.x, hit.y, hit.z, AIR, 'player')) return 'refused';
-      h.edited();
-    }
+    // The source goes: the water around it reacts (a hole in a lake fills again, a lone source is gone).
+    if (!h.world.setVoxel(hit.x, hit.y, hit.z, AIR, 'player')) return 'refused';
+    h.edited();
     this.swapHeld(full);
     h.bus.emit('sfx', { name: sfx, x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
     h.swing();
@@ -87,14 +96,14 @@ export class Buckets {
   private pour(hit: RayHit, liquid: 'water' | 'lava', empty: string, sfx: SfxName): BucketOutcome {
     const h = this.host;
     if (h.placeCooldown > 0 || hit.block.liquid !== null) return 'none';
-    const { x, y, z } = placementCell(hit);
-    if (!h.placeableCell(x, y, z)) return 'refused';
-    if (h.world.getBlock(x, y, z).liquid !== null) return 'refused';
+    // A water source goes into a washable plant's own cell (washing it away), else where a block would go.
+    const { x, y, z } = liquid === 'water' && WASHABLE[hit.block.id] === 1 ? hit : placementCell(hit);
+    if (!this.pourable(liquid, x, y, z)) return 'refused';
     if (liquid === 'lava' && h.bodyIn(x, y, z)) {
       h.advise('bucket:self', BUCKET_HINTS.pourOnSelf);
       return 'refused';
     }
-    const voxel = makeVoxel(blockByKey(liquid).id);
+    const voxel = liquid === 'water' ? WATER_SOURCE : makeVoxel(blockByKey(liquid).id);
     if (!h.world.setVoxel(x, y, z, voxel, 'player')) return 'refused';
     h.edited();
     this.swapHeld(empty);
@@ -103,6 +112,15 @@ export class Buckets {
     h.bus.emit('sfx', { name: sfx, x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     h.swing();
     return 'pail';
+  }
+
+  /** Water goes into air, a washable plant or flowing water (spec 18.3); lava into a replaceable cell with no liquid. */
+  private pourable(liquid: 'water' | 'lava', x: number, y: number, z: number): boolean {
+    const h = this.host;
+    if (y < 0 || y >= WORLD_HEIGHT || !h.world.isLoaded(x, z)) return false;
+    const v = h.world.getVoxel(x, y, z);
+    if (liquid === 'water' && (WASHABLE[h.world.getBlock(x, y, z).id] === 1 || isFlowingWater(v))) return true;
+    return h.placeableCell(x, y, z) && h.world.getBlock(x, y, z).liquid === null;
   }
 
   private swapHeld(item: string): void {

@@ -8,6 +8,9 @@ import { textureLayer } from '../../core/registry';
 import { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from '../../world/meshQuads';
 import { ATLAS_GLSL } from '../atlas';
 
+/** Tiles per second moving water's texture runs along its flow (spec 18.4). */
+export const WATER_SCROLL = 0.9;
+
 /** Texture layer of crude oil: its pool surface is shuffled per block (see liquidTexel). */
 const OIL_LAYER = textureLayer('oil');
 
@@ -87,7 +90,8 @@ void main() {
   } else {
     color = lightColorTinted(light.x, light.y, blockTint(flags)) * light.z;
   }
-  if ((flags & 2) != 0) {
+  // Bit 1 alone sways a plant top; with the liquid bit 2 it marks moving water instead (spec 18.4).
+  if ((flags & 6) == 2) {
     float phase = uTime * 1.7 + world.x * 0.63 + world.z * 0.41;
     world.x += sin(phase) * 0.055;
     world.z += cos(phase * 0.83) * 0.045;
@@ -95,7 +99,9 @@ void main() {
   vLiquid = 0.0;
   if ((flags & 4) != 0) {
     color *= 0.93 + 0.07 * sin(uTime * 1.4 + world.x * 0.9 + world.z * 0.7);
-    uvShift = vec2(uTime * 0.018, uTime * 0.011);
+    // The tile repeats, so only the fraction of the drift matters: it keeps texture coordinates small (mediump).
+    // Moving water runs along v (the mesher points v along the flow on top, downwards on the sides).
+    uvShift = (flags & 2) != 0 ? vec2(0.0, fract(uTime * ${WATER_SCROLL.toFixed(2)})) : fract(vec2(uTime * 0.018, uTime * 0.011));
     vLiquid = 1.0;
   }
   // Only what the rain reaches gets wet: full sky light, not emissive, not a liquid.

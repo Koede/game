@@ -1,13 +1,15 @@
 /**
  * Player movement against the voxel world (spec 7.3): an axis-aligned 0.6 x 1.8 box, swept one axis at a time
  * so nothing tunnels at any speed, with gravity, jumping, sprinting (not while Hungry), swimming, stepping onto
- * slabs and fall damage. Unloaded chunks count as solid walls, so the player never falls through terrain that is
- * not there yet. DOM-free and allocation-free per step.
+ * slabs and fall damage. Flowing water carries the player along and a waterfall pushes down (spec 18.4). Unloaded
+ * chunks count as solid walls, so the player never falls through terrain that is not there yet. DOM-free and
+ * allocation-free per step.
  */
 import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
 import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, type PlayerState } from '../game';
+import { currentAt } from '../world/water';
 import { EPS, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
 
 /** What the physics needs from this frame's intent. */
@@ -57,6 +59,10 @@ const OUT_OF_WORLD_Y = -8;
 const WAIST = 0.4;
 /** Sprinting needs the stick or keys pushed mostly forward. */
 const SPRINT_MIN_FORWARD = 0.3;
+/** Downward acceleration of a waterfall on a swimmer, m/s^2: swimming up still climbs it, slowly. */
+const FALLING_WATER_PUSH = 10;
+/** Heights above the feet where the current is felt (feet, then waist). */
+const CURRENT_SAMPLES = [0.1, WAIST] as const;
 
 export class PlayerPhysics {
   readonly result: StepResult = { landedFrom: 0, jumped: false, enteredWater: false, walked: 0, steppedUp: 0, fellOut: false, sprinting: false };
@@ -66,6 +72,8 @@ export class PlayerPhysics {
   private fallTop: number;
   /** Set by moveAxis: the last sweep was cut short. */
   private blocked = false;
+  /** The current where the body is this step (m/s; y -1 = under a waterfall). */
+  readonly current = { x: 0, y: 0, z: 0 };
 
   constructor(
     private readonly world: IWorld,
@@ -126,13 +134,16 @@ export class PlayerPhysics {
     const speed = this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED;
     const response = this.inLiquid ? LIQUID_RESPONSE : p.onGround ? GROUND_RESPONSE : AIR_RESPONSE;
     const blend = 1 - Math.exp(-response * dt);
-    v.x += (wishX * speed - v.x) * blend;
-    v.z += (wishZ * speed - v.z) * blend;
+    // Flowing water at the feet or the waist carries the body along (what it would do with no input).
+    const c = this.sampleCurrent();
+    v.x += (wishX * speed + c.x - v.x) * blend;
+    v.z += (wishZ * speed + c.z - v.z) * blend;
 
     // Vertical.
     if (this.inLiquid) {
       if (input.jump) v.y += (SWIM_UP_SPEED - v.y) * (1 - Math.exp(-SWIM_UP_RESPONSE * dt));
       else v.y = (v.y - LIQUID_SINK * dt) * Math.exp(-LIQUID_DRAG * dt);
+      if (c.y < 0) v.y -= FALLING_WATER_PUSH * dt;
     } else {
       if (input.jump && p.onGround) {
         v.y = JUMP_VELOCITY;
@@ -263,6 +274,19 @@ export class PlayerPhysics {
     this.inLiquid = waist !== null;
     p.inWater = waist === 'water' || this.liquidAt(x, Math.floor(pos.y + 0.1), z) === 'water' || this.liquidAt(x, Math.floor(pos.y + 1.2), z) === 'water';
     p.headInWater = this.liquidAt(x, Math.floor(pos.y + PLAYER_EYE), z) === 'water';
+  }
+
+  /** The current at the feet, else at the waist (spec 18.4). */
+  private sampleCurrent(): { x: number; y: number; z: number } {
+    const pos = this.player.position;
+    const x = Math.floor(pos.x);
+    const z = Math.floor(pos.z);
+    const c = this.current;
+    for (const dy of CURRENT_SAMPLES) {
+      const y = Math.floor(pos.y + dy);
+      if (y >= 0 && y < WORLD_HEIGHT && this.world.isLoaded(x, z) && currentAt(this.world, x, y, z, c)) return c;
+    }
+    return c;
   }
 
   private liquidAt(x: number, y: number, z: number): string | null {

@@ -238,7 +238,7 @@ describe('use: pail', () => {
     const sounds = record(bus, 'sfx');
     expect(interaction.use(aim(0.5, 10.5, -1.5, true))).toBe('pail');
     expect(player.heldStack()).toEqual({ item: 'water_pail', count: 1 });
-    expect(world.getBlock(0, 10, -2).key).toBe('water'); // the source is not used up
+    expect(world.getBlock(0, 10, -2).key).toBe('air'); // the source block is taken (spec 18.3)
     expect(sounds.some((x) => x.e.name === 'splash')).toBe(true);
     // Pour onto the floor further away.
     expect(interaction.use(aim(2.5, 9.9, -0.5))).toBe('pail');

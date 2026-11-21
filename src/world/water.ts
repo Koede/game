@@ -56,9 +56,16 @@ export function waterHeight(v: Voxel): number {
 /** Strength 0..1 of the current in a water cell (spec 18.4): 1 for sources, falling water and level 1; 1/7 at level 7. */
 export const currentStrength = (v: Voxel): number => (((v >> 12) & 1) === 1 ? 1 : (8 - Math.max(1, waterLevel(v))) / 7);
 
-/** Reads one voxel (a World, or any voxel source); out-of-world rules are the reader's. */
-export type VoxelReader = (x: number, y: number, z: number) => Voxel;
+/** Anything voxels can be read from (an IWorld fits); out-of-world rules are the reader's. */
+export interface VoxelReader {
+  getVoxel(x: number, y: number, z: number): Voxel;
+}
 
+/** Speed of the current in level-1 water, m/s (spec 18.4); weaker levels push less (`currentStrength`). */
+export const CURRENT_SPEED = 1.4;
+
+/** Scratch direction for currentAt. */
+const dir = { x: 0, z: 0 };
 const HDX = [1, -1, 0, 0];
 const HDZ = [0, 0, 1, -1];
 
@@ -77,14 +84,14 @@ function levelFor(v: Voxel): number {
 export function flowDirection(read: VoxelReader, x: number, y: number, z: number, out: { x: number; z: number }): { x: number; z: number } {
   out.x = 0;
   out.z = 0;
-  const v = read(x, y, z);
+  const v = read.getVoxel(x, y, z);
   if (!isWater(v)) return out;
   const own = levelFor(v);
   const source = v === WATER_SOURCE;
   let fx = 0;
   let fz = 0;
   for (let d = 0; d < 4; d++) {
-    const n = read(x + HDX[d], y, z + HDZ[d]);
+    const n = read.getVoxel(x + HDX[d], y, z + HDZ[d]);
     let diff: number;
     if (isWater(n)) diff = levelFor(n) - own;
     else if (!source && isOpenForWater(n)) diff = 8 - own;
@@ -98,4 +105,27 @@ export function flowDirection(read: VoxelReader, x: number, y: number, z: number
     out.z = fz / len;
   }
   return out;
+}
+
+/**
+ * The current in the cell at x, y, z (spec 18.4), m/s, written to `out`: along the flow, CURRENT_SPEED at level 1 and
+ * weaker at higher levels; falling water pushes down instead (out.y = -1, a direction - the caller picks the force).
+ * Returns false (out zeroed) in still water and anywhere that is not water.
+ */
+export function currentAt(read: VoxelReader, x: number, y: number, z: number, out: { x: number; y: number; z: number }): boolean {
+  out.x = 0;
+  out.y = 0;
+  out.z = 0;
+  const v = read.getVoxel(x, y, z);
+  if (!isWater(v)) return false;
+  if (isFallingWater(v)) {
+    out.y = -1;
+    return true;
+  }
+  flowDirection(read, x, y, z, dir);
+  if (dir.x === 0 && dir.z === 0) return false;
+  const speed = CURRENT_SPEED * currentStrength(v);
+  out.x = dir.x * speed;
+  out.z = dir.z * speed;
+  return true;
 }

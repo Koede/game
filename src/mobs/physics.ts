@@ -1,11 +1,12 @@
 /**
  * An animal's body against the voxels: an axis-aligned box (w x w footprint, h tall, origin at the centre of the
- * feet) with gravity, buoyancy in liquids and per-axis sweeps that never tunnel. Unloaded columns are walls
+ * feet) with gravity, buoyancy in liquids, currents in flowing water and per-axis sweeps that never tunnel. Unloaded columns are walls
  * (solidHeight). Cells the box already overlaps are ignored, so an animal a block was placed into walks out.
  */
 import { GRAVITY } from '../core/constants';
 import { blockOf } from '../core/registry';
 import type { IWorld } from '../core/types';
+import { currentAt } from '../world/water';
 import { liquidAt, solidHeight } from './terrain';
 
 /** Upward speed of a hop: clears one block (v^2 / 2g = 1.23 blocks). */
@@ -15,6 +16,10 @@ export const SWIM_CLIMB_VELOCITY = 5.5;
 export const MAX_FALL_SPEED = 40;
 const MAX_STEP = 0.45;
 const EPS = 1e-4;
+/** A waterfall drags an animal down at up to this speed (m/s) despite its buoyancy (spec 18.4). */
+const FALLING_WATER_SINK = 2.5;
+/** The current where the body is (m/s), shared scratch: flowing water carries animals along (spec 18.4). */
+const current = { x: 0, y: 0, z: 0 };
 
 export interface Body {
   x: number;
@@ -124,7 +129,13 @@ export function stepBody(world: IWorld, b: Body, hw: number, h: number, dt: numb
   const feet = liquidAt(world, Math.floor(b.x), Math.floor(b.y + 0.05), Math.floor(b.z));
   b.inLiquid = waist !== null || feet !== null;
   info.blocked = false;
-  if (waist !== null) {
+  // The current at the feet, else at the waist; it adds to the walk without changing the brain's velocity.
+  if (feet === null || !currentAt(world, Math.floor(b.x), Math.floor(b.y + 0.05), Math.floor(b.z), current)) {
+    if (waist === null || !currentAt(world, Math.floor(b.x), Math.floor(b.y + h * 0.45), Math.floor(b.z), current)) current.x = current.y = current.z = 0;
+  }
+  if (waist !== null && current.y < 0) {
+    b.vy = Math.max(b.vy - 22 * dt, -FALLING_WATER_SINK);
+  } else if (waist !== null) {
     b.vy = Math.min(b.vy + 22 * dt, 1.8);
     b.vy *= 0.9;
   } else if (feet !== null) {
@@ -134,12 +145,12 @@ export function stepBody(world: IWorld, b: Body, hw: number, h: number, dt: numb
     b.vy = Math.max(b.vy - GRAVITY * dt, -MAX_FALL_SPEED);
   }
 
-  const steps = Math.max(1, Math.ceil((Math.max(Math.abs(b.vx), Math.abs(b.vy), Math.abs(b.vz)) * dt) / MAX_STEP));
+  const steps = Math.max(1, Math.ceil((Math.max(Math.abs(b.vx + current.x), Math.abs(b.vy), Math.abs(b.vz + current.z)) * dt) / MAX_STEP));
   const sdt = dt / steps;
   let grounded = false;
   for (let i = 0; i < steps; i++) {
-    const wantX = b.vx * sdt;
-    const wantZ = b.vz * sdt;
+    const wantX = (b.vx + current.x) * sdt;
+    const wantZ = (b.vz + current.z) * sdt;
     if (Math.abs(moveAxis(world, b, hw, h, 0, wantX) - wantX) > 1e-6) {
       info.blocked = true;
       b.vx = 0;

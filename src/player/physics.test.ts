@@ -3,6 +3,7 @@ import { GRAVITY, JUMP_VELOCITY, MAX_HEALTH, SPRINT_SPEED, WALK_SPEED } from '..
 import { createBus } from '../core/context';
 import { PlayerPhysics, STEP_HEIGHT } from './physics';
 import { flatWorld, idle, makePlayer, PatchyWorld } from './testKit';
+import { WATER_FALLING, WATER_SOURCE, flowingWater } from '../world/water';
 
 const DT = 1 / 60;
 
@@ -263,5 +264,51 @@ describe('swimming', () => {
     run(physics, 4, { moveX: 0, moveZ: 1, jump: true, sprint: false });
     expect(player.position.z).toBeLessThan(-2);
     expect(player.position.y).toBeGreaterThanOrEqual(12 - 1e-6);
+  });
+});
+
+describe('currents (spec 18.4)', () => {
+  it('flowing water carries a player standing in it along the flow, weaker water less', () => {
+    const world = flatWorld();
+    // A stream running east along z = 0: level 1 at x 0, weaker further on, a source upstream.
+    world.setVoxel(-1, 10, 0, WATER_SOURCE);
+    for (let x = 0; x <= 6; x++) world.setVoxel(x, 10, 0, flowingWater(x + 1));
+    const player = makePlayer(createBus(), 0.5, 10, 0.5);
+    const physics = new PlayerPhysics(world, player);
+    run(physics, 0.5);
+    expect(player.velocity.x).toBeGreaterThan(1);
+    expect(Math.abs(player.velocity.z)).toBeLessThan(0.05);
+    expect(player.position.x).toBeGreaterThan(0.8);
+    const fast = player.velocity.x;
+    player.position.x = 5.5;
+    run(physics, 0.5);
+    expect(player.velocity.x).toBeGreaterThan(0);
+    expect(player.velocity.x).toBeLessThan(fast / 2);
+    // Still water (a lake of sources) pushes nobody.
+    const lake = flatWorld();
+    lake.fill(-3, 10, -3, 3, 10, 3, 'water');
+    const swimmer = makePlayer(createBus(), 0.5, 10, 0.5);
+    const still = new PlayerPhysics(lake, swimmer);
+    run(still, 1);
+    expect(Math.hypot(swimmer.position.x - 0.5, swimmer.position.z - 0.5)).toBeLessThan(1e-6);
+  });
+
+  it('a waterfall pushes a swimmer down, though swimming up still climbs it', () => {
+    const world = flatWorld();
+    for (let y = 10; y <= 20; y++) world.setVoxel(0, y, 0, WATER_FALLING);
+    const calm = flatWorld();
+    calm.fill(0, 10, 0, 0, 20, 0, 'water');
+    const a = makePlayer(createBus(), 0.5, 15, 0.5);
+    const b = makePlayer(createBus(), 0.5, 15, 0.5);
+    a.onGround = b.onGround = false;
+    const fall = new PlayerPhysics(world, a);
+    const pool = new PlayerPhysics(calm, b);
+    run(fall, 0.5);
+    run(pool, 0.5);
+    expect(a.position.y).toBeLessThan(b.position.y - 0.5);
+    const up = { moveX: 0, moveZ: 0, jump: true, sprint: false };
+    const y0 = a.position.y;
+    run(fall, 1, up);
+    expect(a.position.y).toBeGreaterThan(y0 + 0.5);
   });
 });

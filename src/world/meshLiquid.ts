@@ -25,7 +25,7 @@ export const LIQ = {
   fz: 0,
 };
 
-const readVol: VoxelReader = (x, y, z) => vol[lightIndex(x, y, z)];
+const readVol: VoxelReader = { getVoxel: (x, y, z) => vol[lightIndex(x, y, z)] };
 const dir = { x: 0, z: 0 };
 
 /** Own surface height of cell p if it holds liquid `id`, else -1. */

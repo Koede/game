@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DT } from '../core/constants';
 import { contactHazard, embedded, HOP_VELOCITY, stepBody, type Body, type StepInfo } from './physics';
 import { FlatWorld } from './testKit';
+import { WATER_SOURCE, flowingWater } from '../world/water';
 
 const body = (x: number, y: number, z: number): Body => ({ x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, inLiquid: false });
 const info = (): StepInfo => ({ blocked: false });
@@ -123,5 +124,23 @@ describe('animal physics', () => {
     const b = body(0.5, 13, 0.5);
     run(w, b, 1);
     expect(b.y).toBeCloseTo(11.5, 3);
+  });
+});
+
+describe('currents (spec 18.4)', () => {
+  it('flowing water carries an animal along the stream; still water does not', () => {
+    const w = new FlatWorld();
+    // A shallow stream on the grass (top at 11), running east along z 0.
+    w.setVoxel(-1, 11, 0, WATER_SOURCE);
+    for (let x = 0; x <= 6; x++) w.setVoxel(x, 11, 0, flowingWater(Math.min(7, x + 1)));
+    const b = body(0.5, 11, 0.5);
+    run(w, b, 1);
+    expect(b.x).toBeGreaterThan(1.2);
+    expect(Math.abs(b.z - 0.5)).toBeLessThan(0.05);
+    const lake = new FlatWorld();
+    for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) lake.setVoxel(x, 11, z, WATER_SOURCE);
+    const c = body(0.5, 11, 0.5);
+    run(lake, c, 1);
+    expect(c.x).toBeCloseTo(0.5, 6);
   });
 });

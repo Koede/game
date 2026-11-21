@@ -14,7 +14,7 @@ import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
-import { createRayHit, raycast, type RayHit } from './raycast';
+import { createRayHit, raycast, type LiquidAim, type RayHit } from './raycast';
 
 /** Where the controller gets its per-frame intent (the InputManager, or a script in tests and harnesses). */
 export interface IntentSource {
@@ -40,7 +40,8 @@ export interface PlayerControllerOptions {
   transport?: TransportHands;
 }
 
-const seesLiquids = (item: string | undefined): boolean => item !== undefined && SCOOPING_BUCKETS.has(item);
+/** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
+const liquidAim = (item: string | undefined): LiquidAim => (item !== undefined && SCOOPING_BUCKETS.has(item) ? 'sources' : false);
 
 /** Degrees added to the field of view at full sprint. */
 export const SPRINT_FOV_KICK = 8;
@@ -237,7 +238,7 @@ export class PlayerController {
     const held = p.heldStack();
     p.viewDir(this.dir);
     const d = this.dir;
-    const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, seesLiquids(held?.item), this.hit);
+    const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, liquidAim(held?.item), this.hit);
     this.blockBehind = hit;
     if (!this.animals || p.dead) return hit;
     const animal = this.animals.aim(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, hit ? hit.distance : Infinity);

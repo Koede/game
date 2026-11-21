@@ -37,6 +37,7 @@ export interface MeshInput {
 export { LIQUID_SURFACE } from './meshLiquid';
 /** Side faces of moving water sample the tile stretched this much vertically: long streaks that run down fast. */
 export const FALL_STRETCH = 0.5;
+const fract = (n: number): number => n - Math.floor(n);
 
 /** Light summed over the cells around one vertex (smooth lighting). */
 const sums = { sky: 0, block: 0, cool: 0, violet: 0, cells: 0 };
@@ -97,10 +98,9 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
       QY[k] = y + vy;
       QZ[k] = z + VZ[c];
       if (scrollsTop && f === Face.PY) {
-        const px = x + VX[c];
-        const pz = z + VZ[c];
-        QU[k] = px * LIQ.fz - pz * LIQ.fx;
-        QV[k] = px * LIQ.fx + pz * LIQ.fz;
+        // Rotated so v runs along the flow; the cell's offset only matters modulo the tile (small numbers for mediump).
+        QU[k] = fract(x * LIQ.fz - z * LIQ.fx) + VX[c] * LIQ.fz - VZ[c] * LIQ.fx;
+        QV[k] = fract(x * LIQ.fx + z * LIQ.fz) + VX[c] * LIQ.fx + VZ[c] * LIQ.fz;
       } else {
         QU[k] = CORNER_A[k];
         QV[k] = !side ? CORNER_B[k] : liquid && LIQ.moving ? -vy * FALL_STRETCH : vy;
