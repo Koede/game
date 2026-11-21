@@ -278,8 +278,10 @@ export class HandParts {
   }
 
   private refresh(r: Rec, e: BlockEntity): void {
-    const input = itemOf(e.input);
-    const output = itemOf(e.output);
+    // The sim's entity keeps [input, output] in `slots` (docs/api/handwork.md names them input and output).
+    const slots = Array.isArray(e.slots) ? (e.slots as unknown[]) : [];
+    const input = itemOf(slots[0] ?? e.input);
+    const output = itemOf(slots[1] ?? e.output);
     r.loaded = input !== '';
     r.ready = output !== '';
     r.variant = r.anim.stations[0] === 'drying_rack' ? rackVariant(input, output) : 0;

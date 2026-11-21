@@ -23,7 +23,8 @@ function scene() {
 
 function station(world: FakeWorld, key: string, x: number, z: number, fields: Record<string, unknown> = {}, facing = Facing.North): void {
   world.put(x, 11, z, key, facing);
-  world.setEntity({ kind: 'hand', station: key, x, y: 11, z, input: null, output: null, progress: 0, recipe: null, hotS: 0, wetS: 0, ...fields });
+  const { input = null, output = null, ...rest } = fields;
+  world.setEntity({ kind: 'hand', station: key, x, y: 11, z, slots: [input, output], progress: 0, recipe: null, hotS: 0, ...rest });
 }
 
 const mesh = (parts: HandParts, name: string): THREE.InstancedMesh => parts.group.children.find((m) => m.name === name) as THREE.InstancedMesh;
@@ -109,7 +110,7 @@ describe('HandParts', () => {
     parts.update(0.016, camera);
     const log = mesh(parts, 'hand-chopping_block-log');
     expect(log.count).toBe(1);
-    world.setEntity({ kind: 'hand', station: 'chopping_block', x: 0, y: 11, z: 0, input: null, output: { item: 'plank', count: 4 }, progress: 0, recipe: null });
+    world.setEntity({ kind: 'hand', station: 'chopping_block', x: 0, y: 11, z: 0, slots: [null, { item: 'plank', count: 4 }], progress: 0, recipe: null });
     for (let i = 0; i < 40; i++) parts.update(0.02, camera);
     expect(log.count).toBe(0);
   });
