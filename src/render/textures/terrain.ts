@@ -5,15 +5,22 @@ import * as P from './palette';
 import { type RGB, type Ramp, mix, shade } from './palette';
 
 /** Soft two-octave field in 0..1 that tiles (cell sizes divide 16). */
-function field(c: Canvas, big: number, small: number, salt = 0, weight = 0.4): (x: number, y: number) => number {
+/**
+ * The small octave is the pixel-level speckle. `calm` (0..1, default 1 = unchanged) scales its weight down so large ground
+ * reads as a surface rather than static; only the tiles seen most (stone and the ores painted on it, dirt, grass) use it,
+ * because a calmer field visits fewer steps of a short ramp.
+ */
+const CALM = 0.7;
+function field(c: Canvas, big: number, small: number, salt = 0, weight = 0.4, calm = 1): (x: number, y: number) => number {
   const a = c.noise(big, big, salt);
   const b = c.noise(small, small, salt + 7);
-  return (x, y) => a(x, y) * (1 - weight) + b(x, y) * weight;
+  const w = weight * calm;
+  return (x, y) => a(x, y) * (1 - w) + b(x, y) * w;
 }
 
 /** Stone: soft tonal patches and a couple of hairline cracks. Ores paint it under their flecks. */
 export function stoneBase(c: Canvas, ramp: Ramp = P.STONE): void {
-  const f = field(c, 4, 2, 0, 0.35);
+  const f = field(c, 4, 2, 0, 0.35, CALM);
   const broad = c.noise(8, 8, 1);
   const mid = [ramp[1], ramp[2], ramp[2], ramp[2], ramp[3]];
   c.each((x, y) => tone(mid, 0.5 + (f(x, y) - 0.5) * 1.9 + (broad(x, y) - 0.5) * 0.35));
@@ -34,7 +41,7 @@ export function deepBase(c: Canvas): void {
 }
 
 function grassTop(c: Canvas): void {
-  const f = field(c, 4, 2, 0, 0.4);
+  const f = field(c, 4, 2, 0, 0.4, CALM);
   const g = P.GRASS;
   c.each((x, y) => tone([g[1], g[2], g[3]], 0.5 + (f(x, y) - 0.5) * 2));
   // Short blade tips: a lighter pixel over a darker one, scattered but never clumped.
@@ -59,7 +66,7 @@ function grassSide(c: Canvas): void {
 }
 
 function dirt(c: Canvas): void {
-  const f = field(c, 4, 2, 0, 0.4);
+  const f = field(c, 4, 2, 0, 0.4, CALM);
   const d = P.DIRT;
   c.each((x, y) => tone([d[1], d[2], d[2], d[3]], 0.5 + (f(x, y) - 0.5) * 1.8));
   // Small stones and roots: a few 2px lighter pebbles with a dark underside.
@@ -146,7 +153,7 @@ function basalt(c: Canvas): void {
     for (let i = 0; i < edges.length; i++) if (x >= edges[i]) k = i;
     return k;
   };
-  const f = field(c, 8, 4, 0, 0.5);
+    const f = field(c, 8, 4, 0, 0.5);
   c.each((x, y) => {
     const k = col(x);
     const v = 0.45 + (k % 2 === 0 ? 0.1 : -0.1) + (f(x, y) - 0.5) * 1.2 + (shift(k * 4, y) - 0.5) * 0.4;

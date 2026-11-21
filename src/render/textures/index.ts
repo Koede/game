@@ -5,6 +5,7 @@
  */
 import { Canvas, TEXTURE_SIZE, type Painter } from './canvas';
 import { PAINTERS } from './painters';
+import { applyReadability } from './readability';
 
 export { TEXTURE_SIZE } from './canvas';
 export { pipeWindow } from './transport';
@@ -42,7 +43,8 @@ function painted(name: string): Uint8ClampedArray {
     if (paint) {
       const canvas = new Canvas(name);
       paint(canvas);
-      px = canvas.data;
+      // Every painted texture goes through the readability tone curve (readability.ts); unknown names stay the raw checker.
+      px = name === 'missing' ? canvas.data : applyReadability(canvas.data);
     } else px = checker();
     cache.set(name, px);
   }

@@ -4,6 +4,7 @@ import { BLOCKS, TEXTURE_NAMES } from '../../core/registry';
 import { Canvas } from './canvas';
 import { averageColor, hasPainter, paintTexture, TEXTURE_SIZE } from './index';
 import { PAINTERS } from './painters';
+import { applyReadability, readable } from './readability';
 
 const BYTES = 16 * 16 * 4;
 const alphaAt = (px: Uint8ClampedArray, x: number, y: number): number => px[(y * 16 + x) * 4 + 3];
@@ -12,7 +13,8 @@ const lum = (px: Uint8ClampedArray, i: number): number => 0.3 * px[i] + 0.59 * p
 function fresh(name: string): Uint8ClampedArray {
   const c = new Canvas(name);
   PAINTERS[name](c);
-  return c.data;
+  // What paintTexture hands out: the painter's pixels through the readability tone curve (the checker stays raw).
+  return name === 'missing' ? c.data : applyReadability(c.data);
 }
 
 /** Texture names used by blocks of the given predicate, on any face, idle or active. */

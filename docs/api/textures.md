@@ -86,3 +86,18 @@ Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, so
 
 ## The Emberbound (spec 19)
 Twelve more tiles in `src/render/textures/ember.ts` (scrap, ember core, mauls, armours, ward beacon): see `docs/api/emberbound-content.md` section 6.
+
+## Readability pass (`readability.ts`)
+
+Every painted texture goes through one POINTWISE tone curve in `paintTexture` (the `missing` checker stays raw), so the
+set reads clearly on a phone and in dim caves. Habits taken from the better Minecraft packs (Faithful's contrast
+guidance, ReMaster, Stark Contrast) and general pixel art: lift the darkest tones (`SHADOW_LIFT`, only real below the
+mids so highlights are not compressed), a gentle S-curve (`S_CURVE`), richer colour (`CHROMA_BOOST`), warm highlights
+and cool shadows (`WARM_LIGHTS`, `COOL_SHADOWS`). Because it is pointwise and monotonic it cannot add seams, keeps the
+ores' host rock identical to `stone`, and keeps every "lit is brighter than cold" relation. When you paint a new texture
+do not pre-compensate for it; judge new art on `node scripts/texture-sheet.mjs` (the sheet shows the final pixels).
+Tests that paint through `PAINTERS` directly must apply `applyReadability` (see `fresh()` in textures.test.ts).
+Terrain noise: `field(..., calm)` in `terrain.ts` scales the pixel-level octave down; only stone (and so every ore),
+dirt and grass use it (`CALM`), because a calmer field visits fewer steps of a short ramp.
+Cast heads (`iconsHand.ts`) are drawn as their tool silhouettes (pick arc, axe blade + poll, spade, hoe L, maul block)
+and each mould's cavity is the same silhouette, so a head and its mould visibly match.
