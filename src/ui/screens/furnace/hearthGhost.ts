@@ -22,6 +22,12 @@ interface Preview {
   max: [number, number, number];
 }
 
+const copyTarget = (t: StructureTarget): StructureTarget => {
+  const out: StructureTarget = { tier: t.tier, inner: t.inner ? [...t.inner] : undefined };
+  if (t.offset !== undefined) out.offset = t.offset;
+  return out;
+};
+
 const posKey = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
 export class HearthGhost {
@@ -54,13 +60,13 @@ export class HearthGhost {
   /** The target the player chose for this furnace, if any. */
   target(x: number, y: number, z: number): StructureTarget | undefined {
     const t = this.targets.get(posKey(x, y, z));
-    return t ? { tier: t.tier, inner: t.inner ? [...t.inner] : undefined } : undefined;
+    return t ? copyTarget(t) : undefined;
   }
 
   /** Remembers the player's choice; a preview that is on follows it (cleared, then shown for the new target). */
   choose(x: number, y: number, z: number, target: StructureTarget): void {
     const k = posKey(x, y, z);
-    this.targets.set(k, { tier: target.tier, inner: target.inner ? [...target.inner] : undefined });
+    this.targets.set(k, copyTarget(target));
     const p = this.previews.get(k);
     if (!p) return;
     this.bus.emit('ghost:clear', { key: p.key });
@@ -71,7 +77,7 @@ export class HearthGhost {
   /** Turns the preview on for this target. False when there is nothing to show (no furnace, or every block in place). */
   show(x: number, y: number, z: number, target: StructureTarget): boolean {
     const k = posKey(x, y, z);
-    this.targets.set(k, { tier: target.tier, inner: target.inner ? [...target.inner] : undefined });
+    this.targets.set(k, copyTarget(target));
     const p: Preview = { x, y, z, key: ghostKey(x, y, z), target: this.targets.get(k) as StructureTarget, min: [0, 0, 0], max: [0, 0, 0] };
     this.previews.set(k, p);
     return this.emit(p);
@@ -93,7 +99,10 @@ export class HearthGhost {
       return false;
     }
     // Keep the size the sim fitted, so the preview does not jump as the scanned box changes under construction.
+    // A position the player chose by hand (shift buttons) is kept too; otherwise the cheapest placement follows.
+    const byHand = p.target.offset !== undefined;
     p.target = { tier: view.target.tier, inner: [...view.target.inner] };
+    if (byHand) p.target.offset = view.target.offset;
     p.min = view.target.min;
     p.max = view.target.max;
     const cells = ghostCells(view);

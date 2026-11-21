@@ -10,8 +10,8 @@
 import type { GameBus } from '../../../core/context';
 import { HEARTH_HIGHLIGHT_S } from '../../../core/constants';
 import { itemOrNull } from '../../../core/registry';
-import type { HearthProblem, StructureCheck, StructureView, TierChoice } from '../../../sim';
-import { Toggle } from '../../kit/controls';
+import type { HearthProblem, StructureCheck, StructureTarget, StructureView, TierChoice } from '../../../sim';
+import { Button, Toggle } from '../../kit/controls';
 import { Segmented } from '../../kit/fields';
 import { h, setAttr, setText } from '../../kit/dom';
 import { Badge } from '../../kit/gauges';
@@ -72,6 +72,13 @@ export class StructureTab {
   private readonly materialEls: MaterialEl[] = [];
   private readonly show: Toggle;
   private readonly showNote: HTMLParagraphElement;
+  private readonly shiftLeft: Button;
+  private readonly shiftRight: Button;
+  private readonly shiftText: HTMLSpanElement;
+  private readonly shiftRow: HTMLDivElement;
+  private readonly wayHead: HTMLHeadingElement;
+  private readonly wayList: HTMLDivElement;
+  private wayKey = '';
   private view: StructureView | null = null;
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly formedPart: HTMLElement;
@@ -120,6 +127,14 @@ export class StructureTab {
       (axis) => new Stepper({ label: AXIS_LABEL[axis], min: 1, max: 1, value: 1, onChange: (v) => this.resize(axis, v) }),
     );
     this.rules = h('p', { class: 'hw-st__rules' });
+    this.shiftLeft = new Button({ label: 'Shift left', kind: 'quiet', size: 'sm', onClick: () => this.shift('shiftLeft') });
+    this.shiftRight = new Button({ label: 'Shift right', kind: 'quiet', size: 'sm', onClick: () => this.shift('shiftRight') });
+    this.shiftText = h('span', { class: 'hw-st__shifttext' });
+    this.shiftRow = h('div', { class: 'hw-st__shift', attrs: { 'aria-label': 'Move the plan sideways' } }, this.shiftLeft.el, this.shiftText, this.shiftRight.el);
+    this.wayHead = h('h4', { class: 'hw-heading' });
+    this.wayList = h('div', { class: 'hw-st__way' });
+    this.wayHead.hidden = true;
+    this.wayList.hidden = true;
     this.materials = h('ul', { class: 'hw-st__mats', attrs: { 'aria-label': 'Materials' } });
     this.show = new Toggle({
       label: 'Show the planned hearth in the world',
@@ -144,6 +159,9 @@ export class StructureTab {
         this.tierHost,
         h('div', { class: 'hw-st__size' }, ...this.steppers.map((s) => s.el)),
         this.rules,
+        this.shiftRow,
+        this.wayHead,
+        this.wayList,
         h('div', { class: 'hw-st__show' }, h('span', { class: 'hw-st__showlabel', text: 'Show in world' }), this.show.el),
         this.showNote,
         h('h4', { class: 'hw-heading', text: 'Materials' }),
@@ -177,7 +195,7 @@ export class StructureTab {
       setText(this.nextLabel, `Next: ${view.target.name}${todo > 0 ? ` - ${todo} to build` : ''}`);
     }
     this.updateChecks(view.target.checklist);
-    this.updateProblems(view.problems, view.formed && view.tier >= view.target.tier, ahead);
+    this.updateProblems(view.problems, view.formed && view.tier >= view.target.tier, ahead, view.note);
     this.updateTarget(view);
   }
 
@@ -200,7 +218,7 @@ export class StructureTab {
   }
 
   /** `todo`: the list is the next tier's work (headed "To build", neutral colours), not faults of a standing hearth. */
-  private updateProblems(problems: readonly HearthProblem[], complete: boolean, todo: boolean): void {
+  private updateProblems(problems: readonly HearthProblem[], complete: boolean, todo: boolean, note: string | null): void {
     const list = groupProblems(problems);
     const word = todo ? 'To build' : 'Problems';
     setText(this.problemHead, problems.length > 0 ? `${word} (${problems.length})` : complete ? 'Complete' : word);
@@ -227,7 +245,10 @@ export class StructureTab {
       setAttr(row.el, 'aria-label', `${g.text}${g.at.length > 1 ? ` (${g.at.length} blocks)` : ''} - show it in the world`);
     });
     this.none.hidden = list.length > 0;
-    setText(this.none, complete ? 'Every block of this hearth is in place.' : 'Nothing wrong with what stands. Place the blocks still missing below.');
+    setText(
+      this.none,
+      note ?? (complete ? 'Every block of this hearth is in place.' : 'Nothing wrong with what stands. Place the blocks still missing below.'),
+    );
   }
 
   private highlight(row: ProblemRow): void {
@@ -264,6 +285,8 @@ export class StructureTab {
       s.set(t.inner[axis], lo, hi);
     });
     setText(this.rules, `${t.name} ${sizeText(t.inner)}: ${tierRules(choice)}.`);
+    this.updateShift(t);
+    this.updateMachines(t.machines);
     this.updateMaterials(view);
     const shown = this.ghost.isShown(this.pos.x, this.pos.y, this.pos.z);
     this.show.set(shown);
@@ -275,6 +298,48 @@ export class StructureTab {
         : shown
           ? 'Blue cubes: place a block there. Red: the wrong block - break it. The preview stays after you close the furnace.'
           : 'Shows where each block goes, as see-through cubes in the world.',
+    );
+  }
+
+  /** "Shift left / right": the plan one block sideways as seen from in front of the furnace; null = end of the range. */
+  private updateShift(t: StructureView['target']): void {
+    const none = t.offsets[0] === t.offsets[1];
+    this.shiftRow.hidden = none;
+    this.shiftLeft.setDisabled(t.shiftLeft === null, 'At the edge');
+    this.shiftRight.setDisabled(t.shiftRight === null, 'At the edge');
+    setText(this.shiftText, `Position ${t.offset - t.offsets[0] + 1} of ${t.offsets[1] - t.offsets[0] + 1}`);
+  }
+
+  private shift(which: 'shiftLeft' | 'shiftRight'): void {
+    const t = this.view?.target;
+    const offset = t?.[which];
+    if (!t || offset === null || offset === undefined) return;
+    this.choose({ tier: t.tier, inner: [...t.inner], offset });
+  }
+
+  /** Machines and pipes standing where the plan needs a wall or air: "Move the Crate first" (tap: shown in the world). */
+  private updateMachines(list: StructureView['target']['machines']): void {
+    const key = list.map((m) => `${m.x},${m.y},${m.z}`).join(';');
+    this.wayHead.hidden = list.length === 0;
+    this.wayList.hidden = list.length === 0;
+    if (key === this.wayKey) return;
+    this.wayKey = key;
+    setText(this.wayHead, `In the way (${list.length})`);
+    this.wayList.replaceChildren(
+      ...list.map((m) => {
+        const row = h(
+          'button',
+          { class: 'hw-st__problem hw-st__moveme', attrs: { type: 'button', 'aria-label': `Move the ${m.name} first - show it in the world` } },
+          glyph('warn', 14),
+          h('span', { class: 'hw-st__pmain' }, h('span', { class: 'hw-st__ptext', text: `Move the ${m.name} first` })),
+          glyph('chevron', 12),
+        );
+        row.addEventListener('click', () => {
+          this.bus.emit('highlight:block', { x: m.x, y: m.y, z: m.z, seconds: HEARTH_HIGHLIGHT_S });
+          this.bus.emit('sfx', { name: 'ui_click' });
+        });
+        return row;
+      }),
     );
   }
 
@@ -301,7 +366,7 @@ export class StructureTab {
     });
   }
 
-  private choose(target: { tier: number; inner?: [number, number, number] }): void {
+  private choose(target: { tier: number; inner?: [number, number, number]; offset?: number }): void {
     const { x, y, z } = this.pos;
     this.ghost.choose(x, y, z, target);
     this.update();
@@ -319,7 +384,10 @@ export class StructureTab {
     const { x, y, z } = this.pos;
     const t = this.view?.target;
     if (on && t) {
-      if (!this.ghost.show(x, y, z, { tier: t.tier, inner: [...t.inner] })) this.show.set(false);
+      const offset = this.ghost.target(x, y, z)?.offset;
+      const target: StructureTarget = { tier: t.tier, inner: [...t.inner] };
+      if (offset !== undefined) target.offset = offset;
+      if (!this.ghost.show(x, y, z, target)) this.show.set(false);
     } else this.ghost.hide(x, y, z);
     this.update();
   }

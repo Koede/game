@@ -38,6 +38,9 @@ state (before the first tick) and whenever the setting changes.
 `AnimalHands.strike()` calls `mobs.hit(id, hitDamage(item), x, z, stunOf(item))` - the fifth argument is the arc
 maul's stun. Raycast and `describe` ("Forge Warden - 9/16") include automatons.
 
+> TODO (app wiring): `state.mobs.projectiles(alpha)` is not handed to the renderer yet - `docs/api/emberbound-render.md`
+> (the render engineer's hook) does not exist; connect it in src/app/game.ts once it does.
+
 ### 3. Renderer (src/render - for the render engineer; nothing to wire beyond this)
 ```ts
 this.mobRenderer.update(dt, state.mobs.views(alpha));     // already wired: automatons are in the same list

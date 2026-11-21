@@ -9,7 +9,7 @@
     "dev": "node scripts/build.mjs --watch --serve",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "node scripts/e2e.mjs && node scripts/e2e-features.mjs --no-build && node scripts/e2e-tech.mjs --no-build"
+    "e2e": "node scripts/e2e.mjs && node scripts/e2e-features.mjs --no-build && node scripts/e2e-tech.mjs --no-build && node scripts/e2e-ember.mjs --no-build"
   },
   "devDependencies": {
     "@types/three": "0.170.0",

@@ -350,3 +350,27 @@
     min-height: 34px;
   }
 }
+
+.hw-st__shift {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hw-st__shift[hidden],
+.hw-st__way[hidden] {
+  display: none;
+}
+.hw-st__shifttext {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+  text-align: center;
+}
+.hw-st__way {
+  display: grid;
+  gap: 4px;
+}
+.hw-st__moveme {
+  background: var(--hw-warn-wash, var(--hw-bad-wash));
+  border-left-color: var(--hw-warn, var(--hw-bad));
+}
