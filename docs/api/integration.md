@@ -352,7 +352,7 @@ the steps tap again only when nothing changed.
 ### scripts/e2e-ember.mjs (+ scripts/lib/e2eEmber.mjs) - run by `npm run e2e` after e2e-tech (Emberbound, spec 19)
 Desktop and phone portrait, real input; `window.__hw` only sets up (time, a level strip, give, the automaton placed,
 aiming, furnace fast-forward) and reads. 7 steps per device plus the console check: a clay furnace placed with Use at
-night; a bronze maul forged at the furnace screen; a Cinder Mite placed near the player winds up (`hostile:windup`),
+night; the furnace lit at its screen and a bronze maul given by set-up (hand-cast now); a Cinder Mite placed near the player winds up (`hostile:windup`),
 bites 6 ticks later and health drops, every bite announced once and dealt once (one damage path); the maul breaks mites
 apart and scrap comes (`automaton:salvaged`); a Forge Warden never comes nearer than the clay furnace's 6-block warm
 zone (measured ~7.0) and nothing hurts the player; a fatal blow names the killer on the death screen ("Felled by a Forge
@@ -364,8 +364,8 @@ Connected: hooks and difficulty (state.ts), crosshair name + health for automato
 directional damage pulse on `player:attacked`, off-screen wind-up arrow on `hostile:windup`, Burning chip and edge flames
 (`combat.burning`), death screen `killerLine` + telegraph hint, Settings Difficulty and UI size (Large scales the touch
 overlay), New World Difficulty, How to Play Emberbound card, save/load (`mobs.toJSON` carries `hostiles`).
-Not connected: projectiles are not given to the renderer (no `docs/api/emberbound-render.md` yet; TODO in
-`emberbound-ai.md`).
+Projectiles: `mobRenderer.setBolts(state.mobs.projectiles(alpha))` is wired in src/app/game.ts (render engineer's hook,
+`docs/api/emberbound-render.md`). Nothing known is left unconnected.
 Hearth STRUCTURE tab now shows `target.shiftLeft/shiftRight` ("Shift left / right" buttons, "Position n of m"; the chosen
 offset is kept in `HearthGhost` and dropped when tier or size changes), the `machines` list ("In the way", "Move the X
 first", tap highlights it) and `view.note` (neutral line in the problems area).

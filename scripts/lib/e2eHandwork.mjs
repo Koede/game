@@ -87,26 +87,30 @@ export async function handworkSteps({ d, step, assert, page }) {
   await step('holding Use repeats strokes at the station rate (4 a second at the chopping block)', async () => {
     await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('oak_log', 3); });
     await stand(cell(0));
-    let l = await label(d);
     // The first block is still loaded from the last step (one log): top it up so a held Use has work to do.
     await tapStep(d);
-    await d.hw(() => { const bus = window.__hw.app.game.bus; window.__strokes = []; bus.on('hand:stroke', () => window.__strokes.push(performance.now())); });
-    if (d.touch) {
-      const c = await d.centerOf('[data-hw-touch="use"]');
-      await d.fingerDown(5, c.x, c.y);
-      await d.settle(1500);
-      await d.fingerUp(5);
-    } else {
-      await d.page.mouse.move(d.size.width / 2, d.size.height / 2);
-      await d.page.mouse.down({ button: 'right' });
-      await d.settle(1500);
-      await d.page.mouse.up({ button: 'right' });
-    }
-    const times = await d.hw(() => window.__strokes);
-    const gaps = times.slice(1).map((t, i) => t - times[i]).filter((g) => g < 600);
-    assert(times.length >= 3, `only ${times.length} strokes while held`);
-    assert(gaps.length > 0 && Math.min(...gaps) > 150 && Math.min(...gaps) < 450, `stroke gaps ${gaps.map(Math.round)} ms: want about 250`);
-    l = await label(d);
+    // Stroke times are read in game ticks (20 a second): a slow software-rendered frame must not look like a slow stroke rate.
+    await d.hw(() => { const g = window.__hw.app.game; window.__strokes = []; g.bus.on('hand:stroke', () => window.__strokes.push(g.state.ticks)); });
+    const hold = async (ms) => {
+      if (d.touch) {
+        const c = await d.centerOf('[data-hw-touch="use"]');
+        await d.fingerDown(5, c.x, c.y);
+        await d.settle(ms);
+        await d.fingerUp(5);
+      } else {
+        await d.page.mouse.move(d.size.width / 2, d.size.height / 2);
+        await d.page.mouse.down({ button: 'right' });
+        await d.settle(ms);
+        await d.page.mouse.up({ button: 'right' });
+      }
+    };
+    for (let tries = 0; tries < 3 && (await d.hw(() => window.__strokes.length)) < 3; tries++) await hold(2500);
+    const ticks = await d.hw(() => window.__strokes);
+    const gaps = ticks.slice(1).map((t, i) => t - ticks[i]).filter((g) => g < 12);
+    assert(ticks.length >= 3, `only ${ticks.length} strokes while held`);
+    // 0.25 s between repeats is 5 ticks; a stroke that lands on a take (no stroke event) leaves a longer gap, filtered out.
+    assert(gaps.length > 0 && Math.min(...gaps) >= 4 && Math.min(...gaps) <= 8, `stroke gaps ${gaps} ticks: want about 5`);
+    const l = await label(d);
     assert(l.startsWith('Chopping Block'), l);
   });
 
