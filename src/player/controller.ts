@@ -67,6 +67,8 @@ const LAND_SOUND_FROM = 1.2;
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 /** "Too hungry to sprint" is repeated at most this often (a thumb pushes the stick to the edge all the time). */
 const HUNGRY_SPRINT_ADVICE_S = 20;
+/** Dev Mode: two Jump taps within this many seconds toggle flight. */
+const DOUBLE_TAP_S = 0.35;
 
 export class PlayerController {
   readonly physics: PlayerPhysics;
@@ -99,6 +101,8 @@ export class PlayerController {
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
   /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
+  private jumpHeld = false;
+  private sinceJumpTap = 9;
   private sprintWanted = false;
 
   constructor(options: PlayerControllerOptions) {
@@ -202,7 +206,7 @@ export class PlayerController {
 
   private menus(intent: Intent): void {
     if (intent.pause) this.bus.emit('ui:open', { screen: { type: 'pause' } });
-    else if (intent.inventory) this.bus.emit('ui:open', { screen: { type: 'inventory' } });
+    else if (intent.inventory) this.bus.emit('ui:open', { screen: { type: this.player.dev ? 'creative' : 'inventory' } });
     else if (intent.log) this.bus.emit('ui:open', { screen: { type: 'log' } });
   }
 
@@ -213,6 +217,7 @@ export class PlayerController {
       this.interaction.advise('sprint', 'Too hungry to sprint - eat something', HUNGRY_SPRINT_ADVICE_S);
     }
     this.sprintWanted = sprintAsked;
+    this.devFlight(dt, intent.jump);
     const r = this.physics.step(dt, intent);
     if (r.jumped) {
       this.sfx('jump');
@@ -234,6 +239,24 @@ export class PlayerController {
     this.bobAmount += (bobTarget - this.bobAmount) * (1 - Math.exp(-10 * dt));
     if (p.onGround) this.bobPhase += r.walked * BOB_FREQ * Math.PI * 2;
     this.sprintFov(dt, r.sprinting && speed > WALK_SPEED * 0.9);
+  }
+
+  /** Dev Mode: a second tap of Jump within 0.35 s toggles flight. */
+  private devFlight(dt: number, jump: boolean): void {
+    const p = this.player;
+    this.sinceJumpTap += dt;
+    if (!p.dev) {
+      p.flying = false;
+      this.jumpHeld = jump;
+      return;
+    }
+    if (jump && !this.jumpHeld) {
+      if (this.sinceJumpTap < DOUBLE_TAP_S) {
+        p.flying = !p.flying;
+        this.sinceJumpTap = DOUBLE_TAP_S;
+      } else this.sinceJumpTap = 0;
+    }
+    this.jumpHeld = jump;
   }
 
   private sprintFov(dt: number, sprinting: boolean): void {

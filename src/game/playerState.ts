@@ -114,6 +114,15 @@ export class PlayerState {
   readonly spawn: Vec3;
   readonly buffs: PlayerBuffs = new Buffs();
   readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, drunk: {}, deaths: 0 };
+  /**
+   * Dev Mode (docs/api/dev-mode.md): no damage, no wear, free placing, optional flight. Set by GameState from the
+   * world's mode; never saved with the player.
+   */
+  dev = false;
+  /** Dev Mode: placing a block does not use it up. */
+  devFreePlace = true;
+  /** Dev Mode: flying (no gravity; Jump rises, sprint descends). */
+  flying = false;
   dead = false;
   deathCause: DamageCause | null = null;
   /**
@@ -237,7 +246,7 @@ export class PlayerState {
    */
   wearHeldTool(uses: number): boolean {
     const held = this.heldStack();
-    if (!held || held.durability === undefined || !(uses > 0)) return false;
+    if (!held || held.durability === undefined || !(uses > 0) || this.dev) return false;
     held.durability -= uses;
     if (held.durability > 0) {
       this.inventory.notifyChanged();
@@ -327,7 +336,7 @@ export class PlayerState {
 
   /** Hurts the player. Emits 'player:damage' (and 'player:death' when health runs out) with their sounds. */
   damage(amount: number, cause: DamageCause): void {
-    if (this.dead || !(amount > 0)) return;
+    if (this.dead || !(amount > 0) || this.dev) return;
     this.health = Math.max(0, this.health - amount);
     this.sinceDamageS = 0;
     this.bus.emit('player:damage', { amount, cause, health: this.health });

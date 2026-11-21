@@ -3,8 +3,9 @@
  * and the objective tracker, wired in dependency order, plus the fixed 20 Hz tick and the save snapshot.
  * Runs in node (tests drive whole sessions through it); the browser-side Game adds rendering, input, UI and audio.
  */
-import { DT } from '../core/constants';
+import { DT, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH } from '../core/constants';
 import { createBus, type Difficulty, type GameBus } from '../core/context';
+import { parseGameMode, type GameMode } from '../core/gameMode';
 import { seedFromString } from '../core/math';
 import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
@@ -24,6 +25,8 @@ export interface StateOptions {
   bus?: GameBus;
   /** Settings.difficulty (spec 19.3) the session starts on; 'normal' by default. Change it later with setDifficulty. */
   difficulty?: Difficulty;
+  /** A new world's mode (Dev Mode only by the title screen's choice). `restore` takes the save's own mode. */
+  mode?: GameMode;
 }
 
 export class GameState {
@@ -41,6 +44,8 @@ export class GameState {
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
   readonly seedText: string | null;
+  /** 'dev' for a Dev Mode world: the player is invulnerable and free (docs/api/dev-mode.md). */
+  readonly mode: GameMode;
   /** Seconds of simulated play in this world, across sessions. */
   playTimeS = 0;
   /** Number of fixed ticks run since this session started. */
@@ -48,13 +53,15 @@ export class GameState {
   /** The difficulty both halves of combat run on (the automatons and the player's side): never one without the other. */
   private difficultyNow: Difficulty;
 
-  private constructor(world: World, bus: GameBus, seedText: string | null, save: WorldSave | null, difficulty: Difficulty) {
+  private constructor(world: World, bus: GameBus, seedText: string | null, save: WorldSave | null, difficulty: Difficulty, mode: GameMode) {
     this.difficultyNow = difficulty;
+    this.mode = mode;
     this.bus = bus;
     this.world = world;
     this.seedText = seedText;
     const spawn = world.spawnPoint();
     this.player = new PlayerState(bus, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
+    this.player.dev = mode === 'dev';
     this.clock = new GameClock(bus);
     // Load the player before the tracker and the simulation see anything: the tracker reads player.stats.
     if (save) {
@@ -122,7 +129,7 @@ export class GameState {
   static create(seed: number, seedText: string | null, options: StateOptions = {}): GameState {
     const bus = options.bus ?? createBus();
     const world = new World(seed >>> 0, bus, { pool: options.pool });
-    const state = new GameState(world, bus, seedText, null, options.difficulty ?? 'normal');
+    const state = new GameState(world, bus, seedText, null, options.difficulty ?? 'normal', parseGameMode(options.mode));
     state.prepareAroundPlayer(1);
     state.faceOpenView();
     return state;
@@ -132,7 +139,7 @@ export class GameState {
   static restore(save: WorldSave, options: StateOptions = {}): GameState {
     const bus = options.bus ?? createBus();
     const world = World.fromJSON(save.world, bus, { pool: options.pool });
-    return new GameState(world, bus, save.seedText, save, options.difficulty ?? 'normal');
+    return new GameState(world, bus, save.seedText, save, options.difficulty ?? 'normal', parseGameMode(save.mode));
   }
 
   /** The difficulty the session runs on (Settings.difficulty). */
@@ -190,8 +197,19 @@ export class GameState {
     this.mobs.tick(dt, this.mobPlayer);
     this.survival.tick(dt);
     this.objectives.tick(dt);
+    if (this.mode === 'dev') this.devUpkeep();
     this.playTimeS += dt;
     this.ticks++;
+  }
+
+  /** Dev Mode: the bars never fall (no starving, freezing or drowning), and the dead are revived. */
+  private devUpkeep(): void {
+    const p = this.player;
+    p.health = MAX_HEALTH;
+    p.food = MAX_FOOD;
+    p.warmth = MAX_WARMTH;
+    p.air = MAX_AIR_S;
+    if (p.dead) p.dead = false;
   }
 
   /** Everything needed to continue this world later, as plain JSON-safe data (independent of the live world). */
@@ -210,6 +228,7 @@ export class GameState {
   private snapshot(shared: boolean): WorldSave {
     diag('state.snapshot', () => ({ shared, player: playerBrief(this.player), ticks: this.ticks, playTimeS: this.playTimeS }));
     return {
+      ...(this.mode === 'dev' ? { mode: this.mode } : {}),
       seed: this.world.seed,
       seedText: this.seedText,
       world: this.world.toJSON({ shared }),

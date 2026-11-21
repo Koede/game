@@ -5,6 +5,7 @@
  * DOM-free. Validation is structural: it guarantees that every snapshot has the shape its module's `load()`
  * expects, so a corrupt or hand-edited save is refused here instead of breaking the game half-way through loading.
  */
+import type { GameMode } from '../core/gameMode';
 import { DEFAULT_SETTINGS, DIFFICULTIES, type Difficulty, type Settings } from '../core/context';
 import type { ClockSnapshot } from '../game/clock';
 import type { ObjectivesSnapshot } from '../game/objectives';
@@ -45,6 +46,11 @@ export interface WorldSave {
    * MobManager.load refuses is ignored the same way, never a reason to drop the world.
    */
   mobs?: MobsSnapshot;
+  /**
+   * 'dev' for a Dev Mode world (docs/api/dev-mode.md). Optional: absent means survival, and survival saves never write it,
+   * so they stay exactly as before.
+   */
+  mode?: GameMode;
 }
 
 export interface SaveDocument {
@@ -145,7 +151,10 @@ export function normalizeDocument(raw: unknown, onDropped?: (reason: string) => 
   const settings = sanitizeSettings(raw.settings);
   let world: WorldSave | null = null;
   if (raw.world !== null && raw.world !== undefined) {
-    if (isWorldSave(raw.world)) world = raw.world;
+    if (isWorldSave(raw.world)) {
+      world = raw.world;
+      if (world.mode !== undefined && world.mode !== 'dev') delete world.mode;
+    }
     else onDropped?.('The saved world is damaged and could not be loaded.');
   }
   return { settings, world };

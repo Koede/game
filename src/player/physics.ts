@@ -41,6 +41,10 @@ export interface StepResult {
 const MAX_SUBSTEP = 0.45;
 /** Fastest fall, m/s (still exact at any speed: the sweep is continuous). */
 export const MAX_FALL_SPEED = 60;
+/** Dev Mode flight: vertical speed (blocks/s) and how fast it is reached. */
+export const FLY_SPEED = 9;
+export const FLY_RESPONSE = 10;
+export const FLY_SPEED_MULT = 1.8;
 /** Highest ledge (in blocks) walked onto without jumping: a slab. */
 export const STEP_HEIGHT = 0.5 + 0.02;
 /** How quickly horizontal velocity follows the intent (1/s) on the ground, in the air and in liquids. */
@@ -134,7 +138,7 @@ export class PlayerPhysics {
     // A Hungry player cannot sprint (spec 12.1).
     r.sprinting = input.sprint && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
     p.sprinting = r.sprinting;
-    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED) * p.buffs.speedMult;
+    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED) * p.buffs.speedMult * (p.flying && p.dev ? FLY_SPEED_MULT : 1);
     const response = this.inLiquid ? LIQUID_RESPONSE : p.onGround ? GROUND_RESPONSE : AIR_RESPONSE;
     const blend = 1 - Math.exp(-response * dt);
     // Flowing water at the feet or the waist carries the body along (what it would do with no input).
@@ -143,7 +147,12 @@ export class PlayerPhysics {
     v.z += (wishZ * speed + c.z - v.z) * blend;
 
     // Vertical.
-    if (this.inLiquid) {
+    if (p.flying && p.dev) {
+      // Dev Mode flight: no gravity; Jump rises, sprint (shift) descends.
+      const want = input.jump ? FLY_SPEED : input.sprint ? -FLY_SPEED : 0;
+      v.y += (want - v.y) * (1 - Math.exp(-FLY_RESPONSE * dt));
+      this.fallTop = pos.y;
+    } else if (this.inLiquid) {
       if (input.jump) v.y += (SWIM_UP_SPEED - v.y) * (1 - Math.exp(-SWIM_UP_RESPONSE * dt));
       else v.y = (v.y - LIQUID_SINK * dt) * Math.exp(-LIQUID_DRAG * dt);
       if (c.y < 0) v.y -= FALLING_WATER_PUSH * dt;

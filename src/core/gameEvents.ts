@@ -24,6 +24,8 @@ export type ScreenRequest =
   | { type: 'crate'; x: number; y: number; z: number }
   | { type: 'log' }
   | { type: 'pause' }
+  /** Dev Mode's item browser (docs/api/dev-mode.md). */
+  | { type: 'creative' }
   /** The pipe screen for the pipe (network segment) at this position. */
   | { type: 'pipe'; x: number; y: number; z: number };
 

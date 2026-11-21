@@ -278,7 +278,7 @@ export class Interaction {
     const voxel = makeVoxel(def.id, def.oriented ? facingTowards(this.player.yaw) : Facing.North);
     if (!this.world.setVoxel(x, y, z, voxel, 'player')) return false;
     this.edits++;
-    this.player.consumeHeld(1);
+    if (!(this.player.dev && this.player.devFreePlace)) this.player.consumeHeld(1);
     this.placeCooldown = PLACE_COOLDOWN_S;
     this.bus.emit('block:placed', { x, y, z, voxel });
     this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
