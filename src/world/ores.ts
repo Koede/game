@@ -95,9 +95,9 @@ function outcropOre(biome: BiomeKey, y: number, roll: number): number {
 }
 
 /**
- * Ore outcrops: small clusters of ore showing in the rock faces of cliffs (a column at least 3 blocks above a
- * neighbour), so a sharp-eyed explorer can spot ore from outside. Uses only this chunk's columns and their
- * immediate neighbours' heights.
+ * Ore outcrops: small clusters of ore showing in bare rock at the surface - the faces of cliffs, terraces and
+ * gorges (the cells of a column above its lowest neighbour) and rock that lies open on top - so a sharp-eyed
+ * explorer can spot ore from outside. Uses only this chunk's columns and their immediate neighbours' heights.
  */
 export function placeOutcrops(t: Terrain, voxels: Uint16Array, x0: number, z0: number, cols: ChunkColumns): void {
   const { heights } = cols;
@@ -105,16 +105,15 @@ export function placeOutcrops(t: Terrain, voxels: Uint16Array, x0: number, z0: n
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const m = marginIndex(lx, lz);
       const h = heights[m];
-      const low = Math.min(heights[m - 1], heights[m + 1], heights[m - MARGIN], heights[m + MARGIN]);
-      if (h - low < 3) continue;
+      const low = Math.min(h - 1, heights[m - 1], heights[m + 1], heights[m - MARGIN], heights[m + MARGIN]);
       const x = x0 + lx;
       const z = z0 + lz;
-      for (let y = low + 1; y < h; y++) {
+      for (let y = low + 1; y <= h; y++) {
         const i = voxelIndex(lx, y, lz);
         const v = voxels[i];
         if (v !== ID.stone && v !== ID.basalt) continue;
         const cluster = hash32(t.seed, x >> 2, y >> 2, z >> 2);
-        if ((cluster & 7) !== 0 || (hash32(t.seed, x, y, z) & 3) === 0) continue;
+        if ((cluster & 7) !== 0 || (hash32(t.seed, x, y, z) & 1) === 0) continue;
         const ore = outcropOre(BIOME_KEYS[cols.biomes[lz * CHUNK_SIZE + lx]], y, (cluster >>> 8) / 16777216);
         if (ore >= 0) voxels[i] = ore;
       }

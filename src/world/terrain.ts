@@ -136,7 +136,7 @@ function frostfellHeight(t: Terrain, x: number, z: number, detail: number): numb
 /** Flat wetland at sea level: dry tussocks at y 31-32 between shallow pools one or two blocks deep. */
 function marshHeight(t: Terrain, x: number, z: number, detail: number): number {
   const pools = t.marshPool.fbm2(x / 19, z / 19, 2) + 0.3 * t.marshPool.noise2(x / 6 + 40, z / 6 - 40);
-  return 32.25 + 0.55 * detail - 2.8 * smoothstep(-0.04, 0.2, pools);
+  return 32.5 + 0.3 * detail - 3 * smoothstep(-0.04, 0.2, pools);
 }
 
 function scarHeight(t: Terrain, x: number, z: number): number {
@@ -207,20 +207,21 @@ export function sampleColumn(t: Terrain, x: number, z: number, out: Column): Col
     }
   }
 
-  // Oil seeps: pools in the deep Dunes and the dry Scar, sunk below a rim that is raised to stay above the oil,
-  // so oil never touches air at its sides. Kept clear of rivers, oases and lava pools.
-  let oil = 0;
+  // Oil seeps: in the deep Dunes and the dry Scar the land settles into a flat pan just above the oil line, with a
+  // pool sunk in its middle. Whatever ends below the oil line fills with oil; every column beside it is oil too or
+  // pan at least as high as the oil, so oil never touches air at its sides.
+  let basin = 0;
   let oilTop = 0;
   const oilGateD = wDunes > 0.85 ? smoothstep(0.86, 0.93, wDunes) * smoothstep(0.1, 0.16, riverGap) : 0;
   const oilGateS = wScar > 0.85 && !lava ? smoothstep(0.86, 0.93, wScar) * (1 - smoothstep(0.04, 0.12, lavaNoise)) : 0;
   const oilGate = oilGateD > 0 ? oilGateD * (1 - smoothstep(0.3, 0.4, t.oasis.noise2(x / 100, z / 100))) : oilGateS;
   if (oilGate > 0) {
-    const o = t.oil.noise2(x / 34, z / 34);
-    if (o > 0.12) {
+    const o = t.oil.noise2(x / 30, z / 30);
+    if (o > -0.05) {
       oilTop = oilGateD > 0 ? OIL_TOP_DUNES : OIL_TOP_SCAR;
-      h = lerp(h, Math.max(h, oilTop + 0.95), smoothstep(0.12, 0.2, o) * oilGate);
-      oil = smoothstep(0.29, 0.38, o) * smoothstep(0.97, 1, oilGate);
-      if (oil > 0) h = lerp(h, oilTop - 1.6, oil);
+      h = lerp(h, oilTop + 1.2, smoothstep(-0.05, 0.2, o) * oilGate);
+      basin = smoothstep(0.26, 0.42, o) * oilGate;
+      if (basin > 0) h = lerp(h, oilTop - 1.7, basin);
     }
   }
 
@@ -241,7 +242,7 @@ export function sampleColumn(t: Terrain, x: number, z: number, out: Column): Col
   if (lava && height < LAVA_POOL_TOP) {
     out.liquid = LIQUID_LAVA;
     out.liquidTop = LAVA_POOL_TOP;
-  } else if (oil > 0.02 && height < oilTop) {
+  } else if (basin > 0 && height < oilTop) {
     out.liquid = LIQUID_OIL;
     out.liquidTop = oilTop;
   } else if (height < WATER_TOP) {

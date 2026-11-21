@@ -128,7 +128,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
   carveCaves(t, voxels, x0, z0, caveLimit);
   placeVeins(t, voxels, cx, cz);
   placeGeodes(t, voxels, cx, cz);
-  fillUndergroundLake(t, voxels, cx, cz);
+  fillUndergroundLake(t, voxels, cx, cz, cols);
   placeLavaFall(t, voxels, cx, cz);
   placeOutcrops(t, voxels, x0, z0, cols);
   placeTrees(t, voxels, cx, cz);

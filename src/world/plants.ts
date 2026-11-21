@@ -19,19 +19,21 @@ const Y = CHUNK_SIZE * CHUNK_SIZE;
 export interface Patch {
   x: number;
   z: number;
-  /** Radius (patches) or height (spires). */
+  /** Radius in blocks (a spire or vent cluster: 1). */
   size: number;
+  /** Height of a spire's centre column. */
+  height: number;
   block: number;
   bits: number;
 }
 
-export const newPatch = (): Patch => ({ x: 0, z: 0, size: 0, block: 0, bits: 0 });
+export const newPatch = (): Patch => ({ x: 0, z: 0, size: 0, height: 0, block: 0, bits: 0 });
 
 /** Wild wheat, potatoes and carrots grow in small patches on Woodland grass. */
 export const CROP_CELL = 12;
 const BERRY_CELL = 16;
 const SPIRE_CELL = 11;
-const VENT_CELL = 9;
+const VENT_CELL = 13;
 
 const col = new Column();
 
@@ -76,7 +78,8 @@ function spire(t: Terrain, gx: number, gz: number, out: Patch): boolean {
   if ((h & 0x3ff) >= 560) return false;
   centre(out, gx, gz, SPIRE_CELL, 1, h);
   if (!dryGround(t, out.x, out.z, FROSTFELL, SURFACE_SNOW) || col.wFrost < 0.85 || col.height > 74) return false;
-  out.size = 5 + ((h >>> 26) % 9);
+  out.size = 1;
+  out.height = 5 + ((h >>> 26) % 9);
   out.block = ID.packedIce;
   out.bits = h;
   return true;
@@ -84,7 +87,7 @@ function spire(t: Terrain, gx: number, gz: number, out: Patch): boolean {
 
 function vent(t: Terrain, gx: number, gz: number, out: Patch): boolean {
   const h = hash32(t.seed, gx, gz, 0x7e47);
-  if ((h & 0x3ff) >= 600) return false;
+  if ((h & 0x3ff) >= 420) return false;
   centre(out, gx, gz, VENT_CELL, 1, h);
   sampleColumn(t, out.x, out.z, col);
   if (col.biome !== SCAR || col.wScar < 0.8 || col.liquid !== LIQUID_NONE) return false;
@@ -202,7 +205,7 @@ export function placeSurfaceLife(t: Terrain, voxels: Uint16Array, x0: number, z0
           // A frost spire: a tall centre with shorter shoulders, all packed ice under a glassy point.
           const dx = x - s.x;
           const dz = z - s.z;
-          const height = dx === 0 && dz === 0 ? s.size : dx * dz === 0 ? (s.size >> 1) - ((s.bits >>> (dx + 2 * dz + 3)) & 1) : s.size >= 10 ? s.size >> 2 : 0;
+          const height = dx === 0 && dz === 0 ? s.height : dx * dz === 0 ? (s.height >> 1) - ((s.bits >>> (dx + 2 * dz + 3)) & 1) : s.height >= 10 ? s.height >> 2 : 0;
           if (height > 0) {
             stack(voxels, i, h, Math.max(2, height), ID.packedIce, ID.iceSpike);
             continue;

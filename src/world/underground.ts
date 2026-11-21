@@ -13,8 +13,7 @@ const Y = CHUNK_SIZE * CHUNK_SIZE;
 const GEODE_CHANCE = 0.075;
 /** Geode centres stay at or below this y: under the lowest possible lake bed, so a geode never opens under water. */
 const GEODE_TOP = 19;
-const LAKE_CHANCE = 0.3;
-const LAKE_RADIUS = 4.5;
+const LAKE_CHANCE = 0.14;
 const LAVA_FALL_CHANCE = 0.3;
 /** Lakes and falls live in this y band ("deep caves"). */
 const DEEP_MIN = 11;
@@ -31,8 +30,8 @@ export function placeGeodes(t: Terrain, voxels: Uint16Array, cx: number, cz: num
     for (let ncx = cx - 1; ncx <= cx + 1; ncx++) {
       const h = hash32(t.seed, ncx, ncz, 0x6e0d);
       if ((h & 0xffff) / 65536 >= GEODE_CHANCE) continue;
-      const big = (h >>> 16) & 1;
-      const R = big ? 4.1 : 3.3;
+      // Radius 3.3, 4.1 or 4.9: the biggest have room to stand in among the crystals.
+      const R = 3.3 + 0.8 * ((h >>> 15) % 3);
       const gx = ncx * CHUNK_SIZE + 3 + ((h >>> 17) % 10);
       const gz = ncz * CHUNK_SIZE + 3 + ((h >>> 21) % 10);
       const gy = 11 + ((h >>> 25) % (GEODE_TOP - 10));
@@ -67,46 +66,47 @@ export function placeGeodes(t: Terrain, voxels: Uint16Array, cx: number, cz: num
 }
 
 /**
- * Floods the lowest part of a cave inside a round region of this chunk, then drains every water block that
- * would touch air at its sides or below until what is left is a contained pool.
+ * An underground lake: a domed cavern hollowed out of the rock with water filling its lower half. Every water
+ * block that would touch air at its sides or below (where another cave cuts through) drains away until what is
+ * left is a contained pool. The cavern stays inside this chunk and under the column's cave limit, so it never
+ * breaks the surface or opens under water.
  */
-export function fillUndergroundLake(t: Terrain, voxels: Uint16Array, cx: number, cz: number): void {
+export function fillUndergroundLake(t: Terrain, voxels: Uint16Array, cx: number, cz: number, cols: ChunkColumns): void {
   const rng = mulberry32(hash32(t.seed, cx, cz, 0x1a4e));
   if (rng() >= LAKE_CHANCE) return;
-  const ccx = 5 + Math.floor(rng() * 6);
-  const ccz = 5 + Math.floor(rng() * 6);
-  let floor = DEEP_MAX;
-  for (let lz = ccz - 4; lz <= ccz + 4; lz++) {
-    for (let lx = ccx - 4; lx <= ccx + 4; lx++) {
-      if ((lx - ccx) ** 2 + (lz - ccz) ** 2 > LAKE_RADIUS * LAKE_RADIUS) continue;
-      for (let y = DEEP_MIN; y < floor; y++) {
+  const ccx = 7.5 + rng();
+  const ccz = 7.5 + rng();
+  const r = 4.5 + rng();
+  const ry = 3 + rng();
+  const cy = DEEP_MIN + 4 + Math.floor(rng() * (DEEP_MAX - DEEP_MIN - 9));
+  const level = cy - 1;
+  const x0 = Math.floor(ccx - r);
+  const x1 = Math.ceil(ccx + r);
+  const z0 = Math.floor(ccz - r);
+  const z1 = Math.ceil(ccz + r);
+  const y0 = Math.floor(cy - ry);
+  const y1 = Math.ceil(cy + ry);
+  for (let y = y0; y <= y1; y++) {
+    for (let lz = z0; lz <= z1; lz++) {
+      for (let lx = x0; lx <= x1; lx++) {
+        const dx = (lx + 0.5 - ccx) / r;
+        const dz = (lz + 0.5 - ccz) / r;
+        const dy = (y + 0.5 - cy) / ry;
+        if (dx * dx + dz * dz + dy * dy > 1 || y > cols.caveLimit[lz * CHUNK_SIZE + lx]) continue;
         const i = voxelIndex(lx, y, lz);
-        if (voxels[i] === AIR && voxels[i - Y] !== AIR && voxels[i - Y] !== ID.lava) {
-          floor = y;
-          break;
-        }
+        if (voxels[i] === ID.corestone || voxels[i] === ID.lava) continue;
+        voxels[i] = y <= level ? ID.water : AIR;
       }
     }
   }
-  if (floor >= DEEP_MAX - 2) return;
-  const level = floor + 1 + Math.floor(rng() * 3);
-  const inside = (lx: number, lz: number): boolean => (lx - ccx) ** 2 + (lz - ccz) ** 2 <= LAKE_RADIUS * LAKE_RADIUS;
-  for (let y = floor; y <= level; y++) {
-    for (let lz = ccz - 4; lz <= ccz + 4; lz++) {
-      for (let lx = ccx - 4; lx <= ccx + 4; lx++) {
-        const i = voxelIndex(lx, y, lz);
-        if (inside(lx, lz) && voxels[i] === AIR) voxels[i] = ID.water;
-      }
-    }
-  }
-  // Drain until stable. The region never touches the chunk's edge, so every neighbour is in this chunk.
+  // Drain until stable. The cavern never reaches the chunk's edge, so every neighbour is in this chunk.
   for (let changed = true; changed;) {
     changed = false;
-    for (let y = floor; y <= level; y++) {
-      for (let lz = ccz - 4; lz <= ccz + 4; lz++) {
-        for (let lx = ccx - 4; lx <= ccx + 4; lx++) {
+    for (let y = y0; y <= level; y++) {
+      for (let lz = z0; lz <= z1; lz++) {
+        for (let lx = x0; lx <= x1; lx++) {
           const i = voxelIndex(lx, y, lz);
-          if (voxels[i] !== ID.water || !inside(lx, lz)) continue;
+          if (voxels[i] !== ID.water) continue;
           if (voxels[i - Y] === AIR || voxels[i - 1] === AIR || voxels[i + 1] === AIR || voxels[i - CHUNK_SIZE] === AIR || voxels[i + CHUNK_SIZE] === AIR) {
             voxels[i] = AIR;
             changed = true;
@@ -116,9 +116,9 @@ export function fillUndergroundLake(t: Terrain, voxels: Uint16Array, cx: number,
     }
   }
   // A bed of gravel and clay under the water.
-  for (let y = floor; y <= level; y++) {
-    for (let lz = ccz - 4; lz <= ccz + 4; lz++) {
-      for (let lx = ccx - 4; lx <= ccx + 4; lx++) {
+  for (let y = y0; y <= level; y++) {
+    for (let lz = z0; lz <= z1; lz++) {
+      for (let lx = x0; lx <= x1; lx++) {
         const i = voxelIndex(lx, y, lz);
         if (voxels[i] === ID.water && isRock(voxels[i - Y])) voxels[i - Y] = rng() < 0.5 ? ID.gravel : ID.clay;
       }
