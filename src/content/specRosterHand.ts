@@ -14,7 +14,7 @@ export const HAND_SPEC = {
 
   items: [
     'flint_hammer', 'bronze_hammer', 'bronze_pickaxe_head', 'bronze_axe_head', 'bronze_shovel_head', 'bronze_hoe_head', 'bronze_maul_head',
-    'copper_bloom', 'tin_bloom', 'bronze_bloom', 'bronze_plate', 'soaked_hide', 'leather', 'cloth',
+    'copper_bloom', 'tin_bloom', 'bronze_bloom', 'copper_plate', 'bronze_plate', 'soaked_hide', 'leather', 'cloth',
     'unfired_cup', 'unfired_cone', 'unfired_alloy_pot', 'unfired_ingot_mould', 'unfired_pickaxe_mould', 'unfired_axe_mould',
     'unfired_shovel_mould', 'unfired_hoe_mould', 'unfired_maul_mould',
     'ingot_mould', 'pickaxe_mould', 'axe_mould', 'shovel_mould', 'hoe_mould', 'maul_mould',
@@ -85,6 +85,7 @@ export const HAND_SPEC = {
       'flour: 1 flour <- 1 wheat',
     ],
     stone_anvil: [
+      'copper_plate: 1 copper_plate <- 2 copper_ingot',
       'bronze_plate: 1 bronze_plate <- 2 bronze_ingot',
       'copper_wire: 3 copper_wire <- 1 copper_ingot',
     ],
@@ -93,15 +94,15 @@ export const HAND_SPEC = {
       'crushed_tin_mortar: 1 crushed_tin <- 1 tin_ore',
     ],
     clay_table: [
-      'unfired_cup: 2 unfired_cup <- 2 clay',
-      'unfired_cone: 2 unfired_cone <- 2 clay',
+      'unfired_maul_mould: 1 unfired_maul_mould <- 9 clay',
+      'unfired_pickaxe_mould: 1 unfired_pickaxe_mould <- 8 clay',
+      'unfired_axe_mould: 1 unfired_axe_mould <- 7 clay',
+      'unfired_hoe_mould: 1 unfired_hoe_mould <- 6 clay',
+      'unfired_shovel_mould: 1 unfired_shovel_mould <- 5 clay',
       'unfired_alloy_pot: 1 unfired_alloy_pot <- 4 clay',
-      'unfired_ingot_mould: 1 unfired_ingot_mould <- 2 clay',
-      'unfired_pickaxe_mould: 1 unfired_pickaxe_mould <- 3 clay',
-      'unfired_axe_mould: 1 unfired_axe_mould <- 3 clay',
-      'unfired_shovel_mould: 1 unfired_shovel_mould <- 3 clay',
-      'unfired_hoe_mould: 1 unfired_hoe_mould <- 3 clay',
-      'unfired_maul_mould: 1 unfired_maul_mould <- 3 clay',
+      'unfired_ingot_mould: 1 unfired_ingot_mould <- 3 clay',
+      'unfired_cone: 1 unfired_cone <- 2 clay',
+      'unfired_cup: 1 unfired_cup <- 1 clay',
     ],
     loom: [
       'cloth: 1 cloth <- 4 fiber',

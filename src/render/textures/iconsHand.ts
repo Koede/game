@@ -273,6 +273,7 @@ export const HAND_ICONS: PainterSet = {
   item_copper_bloom: bloom(P.COPPER),
   item_tin_bloom: bloom(P.TIN),
   item_bronze_bloom: bloom(P.BRONZE),
+  item_copper_plate: icon((c) => plate(c, P.COPPER)),
   item_bronze_plate: icon((c) => plate(c, P.BRONZE)),
   item_soaked_hide: soakedHide,
   item_leather: leather,

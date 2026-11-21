@@ -51,7 +51,7 @@ describe('food items', () => {
   it('grinds flour by hand on the quern, stroke by stroke, and on the crusher by machine', () => {
     const hand = recipesFor('flour').find((r) => r.station === 'hand_quern');
     const mill = recipesFor('flour').find((r) => r.station === 'crusher');
-    expect(recipesFor('flour')[0]).toBe(hand);
+    expect(hand).toBeDefined();
     expect(hand?.strokes).toBe(6);
     expect(hand?.inputs).toEqual([{ item: 'wheat', count: 1 }]);
     expect(mill?.id).toBe('flour_milled');

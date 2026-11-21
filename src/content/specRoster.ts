@@ -285,7 +285,7 @@ export const SPEC = {
     'have rubble 12', 'have clay 6', 'place furnace_clay 1', 'flag furnace_lit', 'make charcoal 4', 'flag well_warmed',
     'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
     'place clay_table 1', 'make ingot_mould 1', 'make copper_ingot 2', 'flag first_pour', 'place hand_quern 1', 'flag tilled', 'place wheat_0 1',
-    'make flour 1', 'make bread 1', ...BREW_SPEC.objectives, 'place stone_anvil 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_plate 1', 'make bronze_pickaxe_head 1',
+    'make flour 1', 'make bread 1', ...BREW_SPEC.objectives, 'place stone_anvil 1', 'make copper_plate 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_pickaxe_head 1',
     'make bronze_maul 1', 'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1',
     'place drying_rack 1', 'make leather 1', 'make cloth 1', 'tier 2', 'place item_pipe 1',
     'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3', 'place pump 1',

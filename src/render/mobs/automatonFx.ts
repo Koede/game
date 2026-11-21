@@ -18,7 +18,7 @@ import { DebrisField, type PieceDraw } from './debris';
 import { Halos } from './halos';
 import type { MobRenderView } from './mobRenderer';
 import { automatonPose, newPose, newPoseMemory, poseStyle, type Pose, type PoseMemory, type PoseStyle, type PoseView } from './poses';
-import { arcLine, arcSpark, dustPuff, emberSpark, smokePuff, sparkBurst } from './sparks';
+import { arcLine, arcSpark, dustPuff, emberSpark, setSparkEye, smokePuff, sparkBurst } from './sparks';
 
 /** The parts of the Renderer the effects draw into (the Renderer fits; `canvas` only sizes the sparks). */
 export interface FxScene {
@@ -119,6 +119,8 @@ export class AutomatonFx {
     this.time += dt;
     this.halos.begin();
     this.cubes.begin();
+    const eye = this.view.camera.position;
+    setSparkEye(eye.x, eye.y, eye.z);
   }
 
   private memOf(id: number): AutoMem {
