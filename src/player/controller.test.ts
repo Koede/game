@@ -1,61 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER_EYE } from '../core/constants';
-import { DEFAULT_SETTINGS, createBus, createInputState, type IView } from '../core/context';
-import { PlayerController, SPRINT_FOV_KICK, type IntentSource } from './controller';
-import { createIntent, type Intent } from './input/intent';
-import { flatWorld, makePlayer, record } from './testKit';
+import { DEFAULT_SETTINGS, createBus, createInputState } from '../core/context';
+import { PlayerController, SPRINT_FOV_KICK } from './controller';
+import { Script, StubView, flatWorld, makePlayer, record } from './testKit';
 
 const DT = 1 / 60;
-
-class StubView implements IView {
-  view = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0 };
-  fov = 0;
-  fovCalls = 0;
-  target: { x: number; y: number; z: number } | null = null;
-  mining = -1;
-  held: Array<string | null> = [];
-  swings = 0;
-  setView(x: number, y: number, z: number, yaw: number, pitch: number): void {
-    this.view = { x, y, z, yaw, pitch };
-  }
-  setFov(degrees: number): void {
-    this.fov = degrees;
-    this.fovCalls++;
-  }
-  setTarget(target: { x: number; y: number; z: number } | null, mining: number): void {
-    this.target = target ? { ...target } : null;
-    this.mining = mining;
-  }
-  setHeldItem(itemKey: string | null): void {
-    this.held.push(itemKey);
-  }
-  triggerSwing(): void {
-    this.swings++;
-  }
-}
-
-/** An intent source the test writes into; one-shot fields are cleared after each frame. */
-class Script implements IntentSource {
-  readonly next: Intent = createIntent();
-  captures = 0;
-  releases = 0;
-  frame(): Intent {
-    const out = { ...this.next };
-    this.next.use = false;
-    this.next.hotbarSlot = null;
-    this.next.hotbarStep = 0;
-    this.next.inventory = this.next.log = this.next.pause = false;
-    this.next.lookYaw = this.next.lookPitch = 0;
-    return out;
-  }
-  requestPointerCapture(): Promise<boolean> {
-    this.captures++;
-    return Promise.resolve(true);
-  }
-  releasePointerCapture(): void {
-    this.releases++;
-  }
-}
 
 function setup() {
   const bus = createBus();

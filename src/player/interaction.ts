@@ -6,8 +6,7 @@
  * DOM-free: it talks to the rest of the game through the IWorld, the PlayerState and the event bus.
  */
 import type { GameBus } from '../core/context';
-import type { ScreenRequest, SfxName } from '../core/gameEvents';
-import { ITEMS, blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
+import { blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
 import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, type BlockDef, type IWorld } from '../core/types';
 import {
   TILLABLE,
@@ -17,7 +16,6 @@ import {
   eat,
   exertMining,
   harvest,
-  isCrop,
   isHoe,
   isRipeCrop,
   isUnsupported,
@@ -30,7 +28,10 @@ import {
   till,
   type PlayerState,
 } from '../game';
+import { digSound, facingTowards, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import type { RayHit } from './raycast';
+
+export { digSound, facingTowards, screenFor } from './blockRules';
 
 /** Seconds between dig sounds (and hand swings) while mining. */
 export const DIG_INTERVAL_S = 0.25;
@@ -51,42 +52,6 @@ export interface BodyProbe {
 /** The hand swing the interaction asks for (IView.triggerSwing). */
 export interface SwingTarget {
   triggerSwing(): void;
-}
-
-/** Which dig sound a block makes. Crops are machine blocks but plants: they rustle like any other plant. */
-export function digSound(def: BlockDef): SfxName {
-  if (def.shape === 'cross') return 'dig_sand';
-  if ((def.machine && !isCrop(def)) || def.power || def.station) return def.tool === 'axe' ? 'dig_wood' : 'dig_metal';
-  if (def.tool === 'axe') return 'dig_wood';
-  if (def.tool === 'shovel') return def.key === 'sand' || def.key === 'gravel' || def.key === 'snow' ? 'dig_sand' : 'dig_dirt';
-  if (def.tool === 'pickaxe') return 'dig_stone';
-  return def.opaque ? 'dig_dirt' : 'dig_sand';
-}
-
-/** The screen that using this block opens, or null (crops are machine blocks without a screen). */
-export function screenFor(def: BlockDef, x: number, y: number, z: number): ScreenRequest | null {
-  if (def.station === 'workbench') return { type: 'workbench', x, y, z };
-  if (!def.machine || isCrop(def)) return null;
-  if (def.machine === 'furnace') return { type: 'furnace', x, y, z };
-  if (def.machine === 'crate') return { type: 'crate', x, y, z };
-  return { type: 'machine', x, y, z };
-}
-
-/** Facing that turns a block's front towards a player looking along yaw (0 = north, positive turns left). */
-export function facingTowards(yaw: number): Facing {
-  const lookX = -Math.sin(yaw);
-  const lookZ = -Math.cos(yaw);
-  if (Math.abs(lookZ) >= Math.abs(lookX)) return lookZ < 0 ? Facing.South : Facing.North;
-  return lookX > 0 ? Facing.West : Facing.East;
-}
-
-/** Name of the cheapest tool that harvests the block, for the "needs a ..." hint. */
-function toolNeeded(def: BlockDef): string | null {
-  for (const it of ITEMS) {
-    const tool = it.tool;
-    if (tool && tool.tier === def.minTier && (tool.kind === def.tool || tool.universal)) return it.name.toLowerCase();
-  }
-  return null;
 }
 
 export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'refused';
@@ -202,7 +167,7 @@ export class Interaction {
     if (def.placeOn) {
       const below = this.world.getBlock(x, y - 1, z);
       if (!def.placeOn.includes(below.key)) {
-        this.advise(`place:${def.key}`, this.placeOnAdvice(def));
+        this.advise(`place:${def.key}`, placeOnAdvice(def));
         return false;
       }
     }
@@ -299,16 +264,6 @@ export class Interaction {
     this.placeCooldown = PLACE_COOLDOWN_S;
     this.swing.triggerSwing();
     return 'planted';
-  }
-
-  /** Why `def` cannot go here: what it must stand on (crops: how to make farmland). */
-  private placeOnAdvice(def: BlockDef): string {
-    if (isCrop(def)) {
-      const seed = ITEMS.find((it) => it.block === def.key)?.name ?? def.name;
-      return `${seed} can only be planted on farmland - till grass or dirt with a hoe first`;
-    }
-    const names = (def.placeOn ?? []).map((k) => blockByKey(k).name.toLowerCase());
-    return `${def.name} can only be placed on ${names.join(', ')}`;
   }
 
   private placeableCell(x: number, y: number, z: number): boolean {
