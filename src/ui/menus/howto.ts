@@ -88,9 +88,9 @@ const BUILDING: readonly Tip[] = [
 export const BREWING: readonly Tip[] = [
   { icon: 'sun', text: 'Tea grows wild in woodland and marsh, coffee near the dunes. Pick a bush for leaves or cherries, plant its cutting, and it fruits again every six minutes.' },
   { icon: 'flame', text: 'Dry tea leaves and roast coffee cherries in a crucible; grind roasted beans at the workbench. Hotter or blended makes another drink: black tea, berry tea, dark roast, trail blend.' },
-  { icon: 'bag', text: 'Set a water bucket on top of a hot furnace: it boils in about 12 seconds. Tap it to pick it up; boiling water cools in your pack after a minute and a half.' },
-  { icon: 'cup', text: 'Place a clay cup, tap a drip cone onto it, tap the tea or ground coffee into the cone, then tap the cup with the boiling bucket. It drips for 4 seconds.' },
-  { icon: 'heart', text: 'Tap the full cup to take it, then Use it to drink: three minutes of Spring, Hearthkept, Mending, Swift, Vigor or Lasting. One tea and one coffee at a time; the cup and cone are reusable.' },
+  { icon: 'bag', text: 'Set a water bucket on top of a hot furnace: it boils in about 12 seconds. Use it to pick it up; boiling water cools in your pack after a minute and a half.' },
+  { icon: 'cup', text: 'Place a clay cup, then Use a drip cone on it, tea or ground coffee on the cone, and the boiling bucket on the cup. It drips for 4 seconds.' },
+  { icon: 'heart', text: 'Use the full cup to take it, then Use it again to drink: three minutes of Spring, Hearthkept, Mending, Swift, Vigor or Lasting. One tea and one coffee at a time; the cup and cone are reusable.' },
 ];
 
 /** The Emberbound (spec 19): who they are and how to live with them. */
