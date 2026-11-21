@@ -5,7 +5,7 @@
 import type { Settings } from '../../core/context';
 import { TouchGestures, type LookDelta } from './gestures';
 import { clearIntent, createIntent, type Intent } from './intent';
-import { CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyJump, keySprint, reduceKeys } from './keys';
+import { CMD_DROP, CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyDropHeld, keyJump, keySprint, reduceKeys } from './keys';
 import { MouseDrag } from './mouseDrag';
 
 /** View rotation per pixel of mouse travel at sensitivity 1. */
@@ -14,6 +14,8 @@ export const MOUSE_RAD_PER_PX = 0.0022;
 export const TOUCH_RAD_PER_PX = 0.0048;
 /** While the use control stays held, `use` fires again this often (seconds). */
 export const USE_REPEAT_S = 0.25;
+/** Holding the drop key this long drops the rest of the stack. */
+export const DROP_HOLD_S = 0.5;
 /** Time constant (seconds) of the touch look filter: evens out uneven touch sampling without perceptible lag. */
 export const TOUCH_SMOOTH_S = 0.02;
 
@@ -46,6 +48,9 @@ export class InputCore {
   private inventoryEdge = false;
   private logEdge = false;
   private pauseEdge = false;
+  private dropEdge = false;
+  private dropAllEdge = false;
+  private dropHeldS = 0;
   private blocked = false;
   private armed = false;
 
@@ -150,6 +155,9 @@ export class InputCore {
     this.inventoryEdge = false;
     this.logEdge = false;
     this.pauseEdge = false;
+    this.dropEdge = false;
+    this.dropAllEdge = false;
+    this.dropHeldS = 0;
     this.armed = false;
   }
 
@@ -198,6 +206,16 @@ export class InputCore {
     intent.inventory = this.inventoryEdge;
     intent.log = this.logEdge;
     intent.pause = this.pauseEdge;
+    // Q drops one (Shift+Q the stack); holding Q past DROP_HOLD_S drops what is left of the stack, once.
+    if (keyDropHeld(this.keys)) {
+      const before = this.dropHeldS;
+      this.dropHeldS += dtSeconds;
+      if (before < DROP_HOLD_S && this.dropHeldS >= DROP_HOLD_S) this.dropAllEdge = true;
+    } else this.dropHeldS = 0;
+    intent.drop = this.dropEdge || this.dropAllEdge;
+    intent.dropAll = this.dropAllEdge;
+    this.dropEdge = false;
+    this.dropAllEdge = false;
     this.inventoryEdge = false;
     this.logEdge = false;
     this.pauseEdge = false;
@@ -253,6 +271,10 @@ export class InputCore {
     if (cmd === CMD_INVENTORY) this.inventoryEdge = true;
     else if (cmd === CMD_LOG) this.logEdge = true;
     else if (cmd === CMD_PAUSE) this.pauseEdge = true;
+    else if (cmd === CMD_DROP) {
+      this.dropEdge = true;
+      if (keySprint(this.keys)) this.dropAllEdge = true;
+    }
     else this.hotbarSlot = cmd;
   }
 }

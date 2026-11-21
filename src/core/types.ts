@@ -208,6 +208,8 @@ export interface ItemSpec {
   /** Key of the block this item places. */
   block?: string;
   tool?: ToolSpec;
+  /** Uses of an item that wears out without being a tool (the hand vacuum pump: seconds of suction). Stack 1. */
+  wear?: number;
   fuel?: FuelSpec;
   /** Edible: Use eats one (unless it would plant it, see `block`). */
   food?: FoodSpec;

@@ -16,3 +16,5 @@ export * from './weather';
 export * from './weatherSchedule';
 export * from './leafDrops';
 export * from './felling';
+export * from './groundItems';
+export * from './collectors';

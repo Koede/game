@@ -11,6 +11,7 @@ import { GENERATORS } from './generators';
 import { GRID } from './grid';
 import { HEARTH_SHELL } from './hearthShell';
 import { BREW_ICONS } from './iconsBrew';
+import { GROUND_ICONS } from './iconsGround';
 import { FOOD_ICONS } from './iconsFood';
 import { MATERIAL_ICONS } from './iconsMaterials';
 import { PART_ICONS } from './iconsParts';
@@ -28,6 +29,6 @@ const MISSING: PainterSet = {
   missing: (c) => c.each((x, y) => (((x >> 2) + (y >> 2)) % 2 === 0 ? [255, 0, 255] : [0, 0, 0])),
 };
 
-const sets: PainterSet[] = [TERRAIN, ORES, PLANTS, BUILDING, FURNACES, CASING, GENERATORS, CONSUMERS, GRID, MATERIAL_ICONS, TOOL_ICONS, PART_ICONS, FARM, FOOD_ICONS, WORLD_PLANTS, WORLD_GROUND, WORLD_ICONS, HEARTH_SHELL, TRANSPORT, EMBER_TEXTURES, BREW, BREW_ICONS, VEHICLE_ICONS, MISSING];
+const sets: PainterSet[] = [TERRAIN, ORES, PLANTS, BUILDING, FURNACES, CASING, GENERATORS, CONSUMERS, GRID, MATERIAL_ICONS, TOOL_ICONS, PART_ICONS, FARM, FOOD_ICONS, WORLD_PLANTS, WORLD_GROUND, WORLD_ICONS, HEARTH_SHELL, TRANSPORT, EMBER_TEXTURES, BREW, BREW_ICONS, VEHICLE_ICONS, GROUND_ICONS, MISSING];
 
 export const PAINTERS: Readonly<Record<string, Painter>> = Object.assign({}, ...sets);

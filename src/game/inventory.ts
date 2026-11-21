@@ -27,7 +27,10 @@ export function stackLimit(item: string): number {
 }
 
 /** Uses a fresh tool of this kind has, or undefined for anything that is not a tool. */
-export const fullDurability = (item: string): number | undefined => itemOrNull(item)?.tool?.durability;
+export const fullDurability = (item: string): number | undefined => {
+  const def = itemOrNull(item);
+  return def?.tool?.durability ?? def?.wear;
+};
 
 export const makeStack = (item: string, count: number, durability?: number): ItemStack =>
   durability === undefined ? { item, count } : { item, count, durability };

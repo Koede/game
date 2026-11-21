@@ -158,6 +158,9 @@ export class PlayerController {
       this.move(dt, intent);
     }
 
+      if (intent.drop) p.dropHeld(intent.dropAll);
+      // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
+      if (intent.use && p.collectors.trigger()) intent.use = false;
     this.currentTarget = this.cast();
     if (!p.dead) {
       const edits = this.interaction.edits;

@@ -9,7 +9,7 @@ function setup(spawn = { x: 0.5, y: 5, z: 0.5 }) {
   const world = new FakeWorld(bus);
   world.fill(-20, 0, -20, 20, 4, 20, 'stone');
   const player = new PlayerState(bus, spawn);
-  const ground = new GroundItems(bus, () => 0.5);
+  const ground = player.ground;
   const run = (seconds: number, collectors: Parameters<GroundItems['tick']>[3] = []): void => {
     for (let t = 0; t < seconds - 1e-9; t += 0.05) ground.tick(0.05, world, player, collectors);
   };
@@ -165,5 +165,58 @@ describe('GroundItems', () => {
     run(1);
     expect(names).toContain('pickup');
     expect(DROP_DELAY_S).toBeGreaterThan(0);
+  });
+});
+
+describe('dropping from the pack', () => {
+  it('dropHeld throws one item forward with a pickup delay; dropHeld(true) the whole stack', () => {
+    const { player, ground, run } = setup();
+    player.yaw = 0;
+    player.pitch = 0;
+    player.give('coal', 5);
+    expect(player.dropHeld()).toBe(1);
+    expect(player.inventory.count('coal')).toBe(4);
+    expect(ground.size).toBe(1);
+    const e = ground.items[0];
+    expect(e.delayS).toBeGreaterThan(1);
+    expect(e.vz).toBeLessThan(0); // yaw 0 looks north (-Z)
+    run(1);
+    expect(ground.count('coal')).toBe(1); // not instantly re-collected
+    run(3);
+    expect(player.inventory.count('coal')).toBe(4); // it lies where it landed, out of reach
+    player.position.x = ground.items[0].x;
+    player.position.z = ground.items[0].z;
+    run(1);
+    expect(player.inventory.count('coal')).toBe(5); // walked up to it, delay over: back in the pack
+    expect(player.dropHeld(true)).toBe(5);
+    expect(player.heldStack()).toBeNull();
+    expect(player.dropHeld()).toBe(0);
+  });
+
+  it('dropSlot takes from any slot, keeps tool wear, and does nothing for a dead player', () => {
+    const { player, ground } = setup();
+    player.inventory.set(12, { item: 'flint_pickaxe', count: 1, durability: 17 });
+    expect(player.dropSlot(12)).toBe(1);
+    expect(player.inventory.get(12)).toBeNull();
+    expect(ground.items[0]).toMatchObject({ item: 'flint_pickaxe', durability: 17, count: 1 });
+    player.give('coal', 3);
+    player.dead = true;
+    expect(player.dropSlot(0)).toBe(0);
+    expect(player.inventory.count('coal')).toBe(3);
+  });
+
+  it('ground items travel with the player snapshot, and an old snapshot without them loads', () => {
+    const { player, ground } = setup();
+    player.drop('coal', 4, undefined, { x: 3.5, y: 5, z: 3.5 });
+    const snap = JSON.parse(JSON.stringify(player.toJSON()));
+    expect(snap.ground).toHaveLength(1);
+    const bus = createBus();
+    const again = new PlayerState(bus);
+    again.load(snap);
+    expect(again.ground.count('coal')).toBe(4);
+    delete snap.ground;
+    again.load(snap);
+    expect(again.ground.size).toBe(0);
+    expect(ground.size).toBe(1);
   });
 });

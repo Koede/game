@@ -115,6 +115,8 @@ const FORGE: RecipeSpec[] = [
   // Transport (spec 16.1): the first pipe and the tool that sets its ends.
   forge(1, '8 item_pipe', '2 bronze_ingot, 1 glass', 800),
   forge(1, 'wrench', '3 bronze_ingot', 600),
+  // Ground items: the handheld pump that pulls loose items in (Bronze Age by design; see itemsGround.ts for the gate).
+  forge(1, 'hand_vacuum', '4 bronze_plate, 2 leather, 1 bellows, 2 copper_plate', 800),
   // The Emberbound (spec 19.4): weapons for breaking metal.
 
   // ---- Blast Furnace ----

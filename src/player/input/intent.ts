@@ -33,6 +33,10 @@ export interface Intent {
   inventory: boolean;
   log: boolean;
   pause: boolean;
+  /** Edge: the drop key (Q) went down: drop one of the held item. */
+  drop: boolean;
+  /** With `drop`: Shift was held; or alone: Q was held long enough to drop the rest of the stack. */
+  dropAll: boolean;
 }
 
 export function createIntent(): Intent {
@@ -51,6 +55,8 @@ export function createIntent(): Intent {
     inventory: false,
     log: false,
     pause: false,
+    drop: false,
+    dropAll: false,
   };
 }
 
@@ -70,5 +76,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.inventory = false;
   intent.log = false;
   intent.pause = false;
+  intent.drop = false;
+  intent.dropAll = false;
   return intent;
 }

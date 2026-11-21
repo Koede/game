@@ -18,7 +18,7 @@ describe('keys', () => {
     m = reduceKeys(m, 'down', 'ArrowRight');
     m = reduceKeys(m, 'down', 'KeyA');
     expect(keyAxisX(m)).toBe(0);
-    expect(reduceKeys(m, 'down', 'KeyQ')).toBe(m);
+    expect(reduceKeys(m, 'down', 'KeyZ')).toBe(m);
   });
 
   it('maps commands and recovers codes from bare keys', () => {
