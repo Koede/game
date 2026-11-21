@@ -36,7 +36,7 @@ git log --oneline | head -20
 | `src/audio` | done, tested | All sounds synthesised. Measured, never listened to. |
 | `src/save` | done, tested | `SaveStore` only (versioned storage). The save document itself is integration work. |
 | `src/ui/kit`, `src/ui/menus`, `src/ui/styles.css` | written, typechecks | Was interrupted during its visual check: never screenshotted at phone sizes. No `docs/api` notes. |
-| `src/game` | about half | inventory, transfer, crafting, mining, clock, playerState written, NO tests. Missing: survival, objectives, index. |
+| `src/game` | done, tested (71 tests) | inventory, transfer, crafting, mining, clock, playerState, survival, objectives, index. API and decisions in `docs/api/game.md`. Only run against a fake world and scripted events so far. |
 | `src/world` | just started | chunk, blockTables, terrain only. Missing: worldgen assembly, lighting, mesher, worker, pool, World, tests. |
 | `src/render/textures` | just started | canvas + palette only. No painters. |
 | `src/render` | early | atlas, tiles, skyModel, shaders. One failing test (`skyModel` continuity over the day wrap). |
