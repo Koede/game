@@ -13,6 +13,14 @@ function sandboxInit() {
   Element.prototype.requestPointerLock = function () {
     return Promise.reject(new DOMException('Pointer lock is not allowed here', 'NotAllowedError'));
   };
+  // Every toast text ever shown (the storage warning appears once, on the first save, and fades after 6 s).
+  window.__toastTexts = [];
+  new MutationObserver(() => {
+    for (const el of document.querySelectorAll('.hw-toast')) {
+      const text = el.textContent ?? '';
+      if (!window.__toastTexts.includes(text)) window.__toastTexts.push(text);
+    }
+  }).observe(document, { childList: true, subtree: true, characterData: true });
   window.__dialogs = 0;
   window.alert = window.confirm = window.prompt = () => {
     window.__dialogs++;
@@ -65,10 +73,14 @@ export async function sandboxChecks({ report, dir, shotDir }) {
     });
 
     await step('holding the mouse still mines without the lock', async () => {
-      // The block under the player's feet: nothing can stand between the eye and it.
+      // Straight down: the plant the player stands in (wild wheat grows around spawn), else the block underfoot -
+      // nothing can stand between the eye and it.
       const target = await d.hw(() => {
         const p = window.__hw.state().player;
-        const pos = { x: Math.floor(p.x), y: Math.floor(p.y) - 1, z: Math.floor(p.z) };
+        const feet = { x: Math.floor(p.x), y: Math.floor(p.y), z: Math.floor(p.z) };
+        const plant = window.__hw.getBlock(feet.x, feet.y, feet.z);
+        if (plant.block !== 'air' && !plant.solid && plant.block !== 'water') return { ...feet, block: plant.block };
+        const pos = { ...feet, y: feet.y - 1 };
         const b = window.__hw.getBlock(pos.x, pos.y, pos.z);
         return b.solid && b.block !== 'corestone' ? { ...pos, block: b.block } : null;
       });
@@ -83,7 +95,7 @@ export async function sandboxChecks({ report, dir, shotDir }) {
       const before = await d.state();
       await d.press(page.locator('.hw-window button', { hasText: 'Save and quit to title' }));
       await page.waitForSelector('.hw-title button:has-text("Continue")', { timeout: 10_000 });
-      const toast = await page.locator('.hw-toast', { hasText: 'cannot keep saves' }).count();
+      const toast = (await page.evaluate(() => window.__toastTexts)).filter((t) => t.includes('cannot keep saves')).length;
       await d.shot('title');
       assert(toast > 0, 'no warning that saves do not last');
       await d.press(page.locator('.hw-title button', { hasText: 'Continue' }));

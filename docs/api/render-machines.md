@@ -47,7 +47,8 @@ most, a single store per improvement) and a mix in the vertex shader. No new ver
   (0.72, 0.5, 1.0) by the share; `lightColorTinted(sky, block, tint)` (in `LIGHT_GLSL`; `lightColor` is unchanged
   for the mob shader). Cool light does not flicker.
 - Glowcaps and crystal clusters themselves are drawn full-bright (`GLOWS[id]`: cross blocks that emit light).
-- Not tinted: the light probe (held item, particle colours) still treats all block light as firelight.
+- (Resolved) The light probe now reports the cool share (`LightProbe.cool/violet/tint`): the held item and particle
+  debris take the cyan / violet glow (docs/api/integration.md, pass 2). Machine parts and animals still use firelight.
 
 ## 3. Texture capacity (src/render/atlas.ts)
 

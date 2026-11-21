@@ -115,6 +115,6 @@ the world itself, the map script and tests:
 - Steam particles and hiss above vents, and the cyan tint of glowcap/crystal light, are render work (see
   docs/api/world-content.md section 6); the world only places the blocks.
 - Rusted shells inside a ruin can sit next to the crate; they need a bronze pickaxe, the crate does not.
-- The oil texture tiles into a visible repeating pattern over a large pool (texture work, src/render/textures).
+- (Resolved in the liquid shader) Oil pools are shuffled per block so the pattern no longer repeats (docs/api/integration.md, pass 2).
 - `meshChunk`'s own timing test (src/world/mesher.test.ts, 25 ms) now meshes ~4% more faces on generated terrain
   (plants, ruins); it passes alone (12-21 ms) but can exceed 25 ms when the machine is heavily loaded.

@@ -196,6 +196,8 @@ Near loot is all Ember Age; deep loot reaches the Forge Age at most (iron ingots
   night in headless Chromium (a diorama of every new block, plus the icon provider's slots).
 
 ## 6. What the next engineers build on this
+(The player items - buckets, berry picking - and the steam vents' steam and hiss are done: docs/api/integration.md,
+"Integration and polish pass 2".)
 - **Player (src/player/interaction.ts)**: bronze_bucket used on lava: swap to lava_bucket, **remove the lava block**
   (lava is finite), sfx `scoop_lava`; on water: refuse with a hint ("A bronze bucket is kept for lava - use a wooden
   bucket for water"); the wooden bucket on lava keeps its refusal. Proposed: lava_bucket used on a face pours a lava

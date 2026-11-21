@@ -204,9 +204,8 @@ PART_GROUP; MOB_DRAW_CAPACITY = 64; PROBES_PER_FRAME = 2; FRESH_PROBES = 6
 - Babies have the adult's health.
 
 ## Known gaps
-- Not wired into the game (src/app, src/player, src/ui belong to other engineers): see Wiring.
-- PlayerState has no "wear the held tool by 1" helper for hits (wearHeld needs a block).
-- The HUD cannot show an animal's name yet (needs a target-name hook).
+- (Resolved) Wired into the game by the integration pass exactly as in Wiring - see docs/api/integration.md
+  "Integration and polish pass 2" (PlayerState.wearHeldTool(1) wears tools; GameUI.setTargetName names the animal).
 - A chunk rolled while the stored cap (300) is full never gets its group later; keep-alive spawns still top up the
   area around the player.
 - Animal behaviour state (current target, timers) is not saved, only what the spec lists; after loading each
