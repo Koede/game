@@ -28,13 +28,13 @@
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
 import {
-  AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_PEACEFUL, FLAG_SIX_CUPS, FURNACE_BUFF_C,
+  AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS, FURNACE_BUFF_C,
 } from '../core/constants';
 import { CONE_ITEM, CUP_ITEM } from '../core/brewing';
 import { smallestShell } from '../core/hearth';
 import {
-  AUTOMATONS, BLOCKS, CREATURES, DRINKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
-  block, furnaceTier, item, machine, recipe, recipesFor,
+  AUTOMATONS, BLOCKS, CREATURES, DRINKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, MOULDS, ORE_VEINS, RECIPES,
+  block, castMetalOfIngot, furnaceTier, isHandStation, item, machine, recipe, recipesFor,
 } from '../core/registry';
 import type {
   BiomeKey, BlockDef, Drop, FurnaceTierSpec, ItemAmount, LiquidKind, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind,
@@ -58,11 +58,11 @@ export const RUIN_SALVAGE_BLOCKS: readonly string[] = ['collapsed_furnace', 'rus
  * any biome. Tests prove the game can be finished from each biome alone.
  */
 export const BIOME_ONLY_BLOCKS: Readonly<Record<BiomeKey, readonly string[]>> = {
-  woodland: ['fern', 'tea_bush', 'coffee_shrub'],
+  woodland: ['fern', 'berry_bush', 'tea_bush', 'coffee_shrub'],
   dunes: ['cactus'],
   frostfell: ['snow', 'ice', 'packed_ice', 'ice_spike', 'frost_lily'],
   scar: ['basalt', 'basalt_column', 'steam_vent'],
-  marsh: ['peat', 'tea_bush'],
+  marsh: ['peat', 'berry_bush', 'tea_bush'],
 };
 
 /** Using an empty container on a liquid of the world fills it: [container, liquid, filled item] (spec 13). */
