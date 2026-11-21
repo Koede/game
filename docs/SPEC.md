@@ -877,3 +877,67 @@ HUD: food meter beside health and warmth (drumstick-free original glyph: a small
 indicator. Tooltips and recipe rows show "+N food" for food items. Furnace SMELT tab: cooking recipes appear in
 the recipe list under a "Kitchen" chip (category Food). The target name for crops shows their stage; for animals,
 their name and health.
+
+---------------------------------------------------------------------------------------------------------
+
+## 13. Buckets and water (player request)
+
+- The pail becomes the BUCKET: item keys stay `pail` / `water_pail` (saves and recipes keep working) but every
+  player-facing name and description says "Bucket" / "Water Bucket". Using an empty bucket on water fills it
+  (sfx 'splash'); every water block is an endless spring (lakes are never emptied - water does not flow in this
+  game), the description says so. Using a water bucket on a block face pours a water block there and returns the
+  bucket. A water bucket is also a fluid container for the fluid system of section 16 (a tank or fluid port
+  accepts it and gives back an empty bucket, and vice versa).
+- Dough REQUIRES water: dough <- 2 flour + 1 water_pail (byproduct: the empty bucket). Hearth stew also needs one.
+  Tooltips and recipe rows show "returns the bucket".
+- Buckets of lava: a bronze bucket (`bronze_bucket`, forge 700 C: 3 bronze_ingot) can also scoop LAVA
+  (`lava_bucket`) - lava is a furnace fuel (flame 1300 C, 2 MJ, 100 s; the bucket comes back) and the fluid
+  source for the geothermal tap via pipes. Scooping lava removes the lava block (lava pools are finite).
+
+## 14. A richer world (player request: "make more of the world beyond the furnace screens")
+
+The 3D world must be worth exploring and must feel alive; screens are where you plan, the world is where you live.
+- Surface life: flowers (ember_poppy red, skybell blue, frost_lily white - cross plants, biome-specific, decor
+  and dye-free), ferns in woodland shade, reeds at shorelines (cross, on sand/dirt/clay next to water), berry
+  bushes (`berry_bush`, cross, drops 1-3 `wildberries`, food 2, and stays as `berry_bush_bare` that regrows in
+  300 s - a crop-like entity), glowcap mushrooms on dark forest floor and cave floors (light 6, soft cyan - caves
+  have their own light), cacti in dunes (contact damage 1/s, drops itself), ice spikes in frostfell, basalt
+  columns and steam vents in the scar (vent: emits steam particles, warmth 3, hiss sound nearby).
+- Trees with character: oaks in three sizes (bush, normal, broad old oak with a 2x2 trunk), tall and short pines,
+  dead snags in the scar, palm-free dunes. Leaves sway (already in the shader).
+- A new biome, MARSH: flat wetland at sea level with shallow pools, reeds, willow-shaped oaks, clay-rich ground,
+  and PEAT (`peat` block, shovel, early fuel: 500 kJ, 50 s, flame 900 C - hotter than wood, before charcoal).
+- Landmarks: OLD WORKS ruins - remnants of someone who tamed fire before you: crumbling stone-brick and brick
+  walls, a collapsed cold furnace (decor block), rusted machine shells, and a loot crate with modest help
+  (rubble, clay, copper or tin ore, coal, seeds, sometimes a bucket or a flint tool; deeper or farther ruins hold
+  iron, a thermopile, cable). About one per 7x7 chunks; one is guaranteed within 96 blocks of spawn. Deterministic
+  from the seed, generated chunk-order-independently like trees.
+- Underground: crystal geodes (quartz_ore shell with an amethyst-free original `crystal_cluster` cross block
+  inside, light 4), underground lakes, static lava falls in deep caves, ore outcrops visible on cliffs.
+- Ambient motion (render only, no gameplay): fireflies at night near water and in woodland, drifting leaves under
+  trees, wind-blown sand in dunes, snow flurries in frostfell, heat shimmer above lava, birds that circle high over
+  woodland by day.
+- MACHINES ALIVE IN THE WORLD: machines are not just textured cubes - the wind turbine has a spinning 3D rotor
+  (speed follows wind), the water wheel turns, the steam engine's flywheel spins and puffs, the bore rig's drill
+  turns and shakes, generators and furnaces glow, formed multiblock furnaces (section 17) look like one building
+  with a roaring mouth, pipes show items moving through them (section 16). All render-only animation driven by
+  the block entity state, cheap on phones (instanced / merged, culled, no per-frame allocation).
+
+## 15. Day, night and weather (player request: "a whole dynamic day/night cycle")
+
+The clock, sun, moon, stars, clouds and sunlight-driven lighting exist. Add:
+- Moon phases: 8-day cycle; night brightness scales from 0.04 (new moon) to 0.12 (full moon); the moon is drawn
+  with its phase. Stars slowly rotate. Sunrise and sunset paint the horizon on the sun's side (already partly).
+- WEATHER, per world, changing every 4-12 minutes with smooth 30-60 s transitions; deterministic from the seed and
+  the elapsed time so it is saved implicitly (save the current state anyway):
+  clear (45%), cloudy (25%), rain (20%), storm (10%). In frostfell and high altitude rain falls as snow; in dunes
+  rain becomes a dry dust wind instead.
+  * visuals: cloud cover and darkness follow the weather; rain streaks / snowflakes / dust as camera-local pooled
+    particles that stop under a roof (sky-light test at the camera); wet surfaces slightly darker and glossier;
+    storms flash lightning (sky flash + delayed thunder by distance) - lightning is visual only, it never strikes.
+  * sound: rain bed, wind gusts, thunder (new SfxName 'thunder'; ambience fields rain 0..1, storm 0..1).
+  * gameplay: solar output x0.5 cloudy, x0.2 rain/storm/snow; wind turbines x1.5 in storms; rain hydrates crops
+    (counts as water in reach); rain/snow adds 0.3 warmth drain per second when not under a roof; a furnace exposed
+    to rain from above loses heat faster (+50% loss) - build it a roof.
+- HUD: the day/night dial shows the weather glyph and the moon phase; the forecast line in the Hearth Log says
+  "Rain within the hour" when the next state is rain or storm (the hearth keeper reads the sky).
