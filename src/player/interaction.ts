@@ -143,6 +143,9 @@ export class Interaction {
     }, hands);
   }
 
+  /** A Use handler that goes first (after placing against a screen block); returns null to pass. Set by the app. */
+  beforeUse: ((hit: RayHit | null) => 'worked' | 'refused' | 'screen' | null) | null = null;
+
   get mining(): boolean {
     return this.progress >= 0;
   }
@@ -214,6 +217,15 @@ export class Interaction {
           this.advise('placed-against', `Placed against the ${hit.block.name}. To open it, use ${front}an empty hand.`, PLACED_AGAINST_HINT_S);
         }
         return 'placed';
+      }
+    }
+    // Essentia & Research (src/magic/magic.ts, set by the app): the notebook, rod, vials and jars, before sap and screens.
+    if (!forcePlace && this.beforeUse) {
+      const magic = this.beforeUse(hit && hit.block.liquid === null ? hit : null);
+      if (magic !== null) {
+        this.stopMining();
+        if (magic === 'worked') this.swing.triggerSwing();
+        return magic === 'screen' ? 'screen' : magic === 'worked' ? 'worked' : 'refused';
       }
     }
     // A glass beaker aimed at a pine log taps its sap (sapTools.ts), before any placing or screen.

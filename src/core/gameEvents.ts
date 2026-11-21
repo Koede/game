@@ -27,7 +27,9 @@ export type ScreenRequest =
   /** Dev Mode's item browser (docs/api/dev-mode.md). */
   | { type: 'creative' }
   /** The pipe screen for the pipe (network segment) at this position. */
-  | { type: 'pipe'; x: number; y: number; z: number };
+  | { type: 'pipe'; x: number; y: number; z: number }
+  /** The field notebook: scanned things, aspects, research boards (docs/api/magic.md). */
+  | { type: 'notebook' };
 
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
 export type SfxName =

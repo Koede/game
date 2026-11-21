@@ -6,6 +6,9 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import { setCraftGate } from '../game/crafting';
+import { JAR_BLOCK, Magic } from '../magic/magic';
+import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
 import { collectLeafDrops } from '../game/leafDrops';
@@ -71,6 +74,8 @@ export class Game {
   readonly controller: PlayerController;
   /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
   readonly vehicles: VehicleManager;
+  /** Essentia & Research (docs/api/magic.md): research, jars, the land's drawn essentia. */
+  readonly magic: Magic;
   private readonly tractorRenderer: TractorRenderer;
   private readonly vehicleHud: VehicleHud;
   readonly audio: AudioEngine;
@@ -108,6 +113,21 @@ export class Game {
     this.vehicles = new VehicleManager({ world, bus, player });
     this.vehicles.load(world.extra('vehicles'));
     this.offs.push(world.persist('vehicles', () => this.vehicles.toJSON()));
+    this.magic = new Magic(world, bus, player, {
+      stokeFurnace: (x, y, z, seconds) => {
+        const f = sim.furnaceAt(x, y, z);
+        if (!f || !f.burnItem) return false;
+        f.burnLeftS += seconds;
+        return true;
+      },
+    });
+    this.magic.load(world.extra('magic'));
+    this.offs.push(world.persist('magic', () => this.magic.toJSON()));
+    setCraftGate((id) => this.magic.craftGate(id));
+    this.offs.push(() => {
+      setCraftGate(null);
+      this.magic.dispose();
+    });
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
@@ -134,6 +154,7 @@ export class Game {
       });
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
+      this.ui.registerScreen('notebook', (_request, ctx) => createNotebookScreen(ctx, this.magic.notebook()));
       const renderer = this.renderer;
       const ui = this.ui;
       // The controller draws through IView; the crosshair (HUD) needs the same target as the outline.
@@ -149,6 +170,7 @@ export class Game {
       };
       this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hands: sim });
       this.vehicles.bindPhysics(this.controller.physics);
+      this.controller.interaction.beforeUse = (hit) => this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block } : null);
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);
@@ -315,6 +337,7 @@ export class Game {
     let label: string | null = null;
     const hit = this.controller.targetAnimal === null ? this.controller.target : null;
     if (hit && hit.block.handStation !== null) label = this.state.sim.handView(hit.x, hit.y, hit.z)?.label ?? null;
+    else if (hit && hit.block.key === JAR_BLOCK) label = this.magic.jarText(hit.x, hit.y, hit.z);
     if (label === this.namedStation) return;
     this.namedStation = label;
     this.ui.setTargetName(label);
@@ -338,6 +361,7 @@ export class Game {
   /** One fixed step: the game state, then leaf decay (world/leafDecay.ts) beside the water ticks. */
   private tickOnce(): void {
     this.state.tick(DT);
+    this.magic.tick(DT);
     this.state.world.leaves.tick();
   }
 

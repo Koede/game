@@ -208,7 +208,19 @@ export interface PlayerCraftOptions {
  * into the player's inventory. On success emits 'item:made' for every output (and the sound), and a tool, food or
  * machine that landed in the pack is brought onto the hotbar (see `bringToHotbar`).
  */
+/**
+ * An extra rule a craft by the player must pass (Essentia & Research gates some recipes behind research; src/magic/gates.ts).
+ * Returns the reason it is refused, or null. Set by the app; null = nothing is gated (tests, the playthrough).
+ */
+let craftGate: ((recipeId: string) => string | null) | null = null;
+export function setCraftGate(gate: ((recipeId: string) => string | null) | null): void {
+  craftGate = gate;
+}
+export const craftGateFor = (recipeId: string): string | null => craftGate?.(recipeId) ?? null;
+
 export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: PlayerCraftOptions = {}): CraftResult {
+  const gated = craftGateFor(recipe.id);
+  if (gated) return { ok: false, reason: gated, missing: [] };
   const sources = [player.inventory, ...(options.crates ?? [])];
   const result = craft(recipe, sources, player.inventory, options.times ?? 1);
   if (!result.ok) return result;

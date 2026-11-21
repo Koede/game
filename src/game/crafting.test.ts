@@ -33,6 +33,8 @@ describe('crafting', () => {
       'ground_coffee', 'ground_dark_coffee', 'berry_tea_blend', 'trail_blend',
       'hand_quern', 'stone_anvil', 'clay_table', 'loom', 'tanning_trough', 'bronze_hammer',
       'bronze_pickaxe', 'bronze_axe', 'bronze_shovel', 'bronze_hoe', 'bronze_maul',
+      // Essentia & Research (src/content/recipesMagic.ts), last.
+      'vis_rod', 'essentia_jar',
     ]);
   });
 
