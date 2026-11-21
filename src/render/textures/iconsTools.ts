@@ -13,6 +13,8 @@ const FLINT: Ramp = [P.rgb(0x2b2c37), P.rgb(0x40424f), P.rgb(0x5a5d70), P.rgb(0x
 const HEADS: Record<string, Ramp> = { flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
 
 /** Axe head, hand-drawn: a crescent edge on the left, the neck wrapping the handle on the right. */
+/** Columns the axe sprite is moved right so its body sits on the handle instead of beside it. */
+const AXE_SHIFT = 3;
 const AXE = [
   '................',
   '..45............',
@@ -56,7 +58,8 @@ function headShape(kind: Kind, x: number, y: number): number {
     return 0.5 + (r - 10.2) / (half * 2) + (a - mid) * 0.35;
   }
   if (kind === 'axe') {
-    const d = AXE[y]?.[x];
+    // The head is centred on the rod near its top end (the rod crosses the body at about (11, 5)), blade facing away.
+    const d = AXE[y]?.[x - AXE_SHIFT];
     return d === undefined || d === '.' ? -1 : (Number(d) - 1) / 4;
   }
   if (kind === 'hoe') {
@@ -100,7 +103,7 @@ function tool(c: Canvas, kind: Kind, material: string): void {
     return r[Math.max(0, Math.min(4, Math.floor(v * 4.99)))];
   });
   // Binding at the joint: cord lashing for flint, a bright wedge for cast metal.
-  const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [9, 7] : kind === 'hoe' ? [10, 4] : [6, 8];
+  const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [11, 5] : kind === 'hoe' ? [10, 4] : [6, 8];
   if (material === 'flint') {
     c.set(jx, jy, P.CLOTH[3]);
     c.set(jx + 1, jy + 1, P.CLOTH[1]);
