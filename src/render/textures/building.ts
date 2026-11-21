@@ -12,7 +12,8 @@ function masonry(c: Canvas, rows: number, w: number, face: (id: number, x: numbe
     const shift = row % 2 === 0 ? 0 : w / 2;
     const u = (x + shift) % w;
     const v = y % h;
-    const id = row * 8 + Math.floor((x + shift) / w);
+    // Wrapped, so the brick that straddles the left/right edge keeps one tone.
+    const id = row * 8 + Math.floor(((x + shift) % 16) / w);
     if (v === h - 1 || u === w - 1) return mortar;
     let col = face(id, x, y);
     if (v === 0 || u === 0) col = shade(col, 0.16);

@@ -66,28 +66,34 @@ function logTop(c: Canvas): void {
 }
 
 function leaves(c: Canvas, ramp: Ramp, needles: boolean): void {
+  // Dense foliage: dark depths between lit clumps, so it never reads as a lawn.
   const f = c.noise(4, 4, 1);
   const gaps = c.noise(2, 2, 2);
   c.each((x, y) => {
-    if (gaps(x, y) < 0.22) return ramp[0];
-    return tone([ramp[1], ramp[2], ramp[3]], f(x, y) * 1.15 - 0.05);
+    if (gaps(x, y) < 0.3) return ramp[0];
+    return tone([ramp[0], ramp[1], ramp[2]], f(x, y) * 1.2 - 0.05);
   });
   if (needles) {
-    // Short paired needles slanting down-left and down-right.
-    for (const [x, y] of c.scatter(12, 3)) {
+    // Sprays of needles: a lit spine with paired needles slanting down from it.
+    for (const [x, y] of c.scatter(9, 4)) {
       c.wset(x, y, ramp[4]);
-      c.wset(x + 1, y + 1, ramp[3]);
+      c.wset(x, y + 1, ramp[3]);
       c.wset(x - 1, y + 1, ramp[3]);
+      c.wset(x + 1, y + 1, ramp[3]);
+      c.wset(x - 2, y + 2, ramp[2]);
+      c.wset(x + 2, y + 2, ramp[2]);
       c.wset(x, y + 2, ramp[0]);
     }
   } else {
-    // Broad leaves: 2x2 lit tops with a shadow below.
-    for (const [x, y] of c.scatter(9, 4)) {
+    // Broad leaves: lit 3x2 clumps with a shadow tucked under each.
+    for (const [x, y] of c.scatter(8, 4)) {
       c.wset(x, y, ramp[4]);
       c.wset(x + 1, y, ramp[3]);
+      c.wset(x - 1, y + 1, ramp[3]);
       c.wset(x, y + 1, ramp[3]);
+      c.wset(x + 1, y + 1, ramp[2]);
+      c.wset(x, y + 2, ramp[0]);
       c.wset(x + 1, y + 2, ramp[0]);
-      c.wset(x + 2, y + 1, ramp[0]);
     }
   }
 }

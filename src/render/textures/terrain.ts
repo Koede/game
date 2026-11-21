@@ -15,8 +15,8 @@ function field(c: Canvas, big: number, small: number, salt = 0, weight = 0.4): (
 export function stoneBase(c: Canvas, ramp: Ramp = P.STONE): void {
   const f = field(c, 4, 2, 0, 0.35);
   const broad = c.noise(8, 8, 1);
-  const mid = [ramp[1], ramp[2], ramp[2], ramp[3]];
-  c.each((x, y) => tone(mid, 0.5 + (f(x, y) - 0.5) * 2.3 + (broad(x, y) - 0.5) * 0.5));
+  const mid = [ramp[1], ramp[2], ramp[2], ramp[2], ramp[3]];
+  c.each((x, y) => tone(mid, 0.5 + (f(x, y) - 0.5) * 1.9 + (broad(x, y) - 0.5) * 0.35));
   crack(c, c.int(16), c.int(16), 6, 1, 0, ramp[0], ramp[4]);
   crack(c, c.int(16), c.int(16), 4, 1, 1, ramp[0], ramp[4]);
 }
@@ -61,7 +61,7 @@ function grassSide(c: Canvas): void {
 function dirt(c: Canvas): void {
   const f = field(c, 4, 2, 0, 0.4);
   const d = P.DIRT;
-  c.each((x, y) => tone([d[1], d[2], d[3]], 0.5 + (f(x, y) - 0.5) * 2));
+  c.each((x, y) => tone([d[1], d[2], d[2], d[3]], 0.5 + (f(x, y) - 0.5) * 1.8));
   // Small stones and roots: a few 2px lighter pebbles with a dark underside.
   for (const [x, y] of c.scatter(5, 5)) {
     c.wset(x, y, d[4]);
@@ -100,7 +100,7 @@ function clay(c: Canvas): void {
   const band = c.noise(16, 4, 1);
   const f = field(c, 8, 4, 0, 0.3);
   const k = P.CLAY;
-  c.each((x, y) => tone([k[1], k[2], k[3]], 0.5 + (f(x, y) - 0.5) * 1.3 + (band(x, y) - 0.5) * 0.9));
+  c.each((x, y) => tone([k[1], k[2], k[2], k[3]], 0.5 + (f(x, y) - 0.5) * 1.3 + (band(x, y) - 0.5) * 0.5));
   // Smooth wet smears: short horizontal highlights with a shadow under them.
   for (const [x, y] of c.scatter(4, 6)) {
     const w = 3 + c.int(3);

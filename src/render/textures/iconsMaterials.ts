@@ -116,7 +116,9 @@ function sulfur(c: Canvas): void {
 
 const ingotOf = (r: Ramp): Painter => icon((c) => ingot(c, r));
 const plateOf = (r: Ramp): Painter => icon((c) => plate(c, r));
-const crushedOf = (r: Ramp): Painter => icon((c) => crushedPile(c, r, P.STONE));
+const crushedOf = (r: Ramp, rock: Ramp = P.STONE): Painter => icon((c) => crushedPile(c, r, rock));
+/** Crushed copper keeps the green of its ore so it never passes for crushed iron. */
+const COPPER_GREEN: Ramp = [P.rgb(0x2c5a4c), P.rgb(0x3d7a68), P.VERDIGRIS, P.rgb(0x74bca6), P.rgb(0xa8dcc8)];
 const powderOf = (r: Ramp, grains: RGB | null): Painter => icon((c) => mound(c, r, grains));
 
 function fusedQuartz(c: Canvas): void {
@@ -190,9 +192,9 @@ export const MATERIAL_ICONS: PainterSet = {
   item_steel_ingot: ingotOf(P.STEEL),
   item_aluminum_ingot: ingotOf(P.ALUMINUM),
   item_superalloy: ingotOf(P.SUPERALLOY),
-  item_crushed_copper: crushedOf(P.COPPER),
+  item_crushed_copper: crushedOf(P.COPPER, COPPER_GREEN),
   item_crushed_tin: crushedOf(TIN),
-  item_crushed_iron: crushedOf(P.RUST),
+  item_crushed_iron: crushedOf(P.RUST, P.IRON_METAL),
   item_iron_plate: plateOf(P.IRON_METAL),
   item_steel_plate: plateOf(P.STEEL),
   item_silica: powderOf(SILICA, P.GLASS[2]),

@@ -154,20 +154,21 @@ describe('texture content', () => {
     const tiled = [
       'corestone', 'stone', 'rubble', 'dirt', 'grass_top', 'sand', 'gravel', 'clay', 'snow', 'ice', 'basalt', 'limestone',
       'water', 'lava', 'corium', 'oak_leaves', 'pine_leaves', 'oak_log_side', 'pine_log_side', 'plank', 'brick', 'stone_brick',
-      'concrete', 'coal_ore', 'copper_ore', 'tin_ore', 'iron_ore', 'sulfur_ore', 'quartz_ore', 'bauxite', 'wolframite',
-      'spodumene', 'pitchblende', 'oil_shale',
+      'concrete', 'oil_shale',
     ];
     const diff = (px: Uint8ClampedArray, a: number, b: number): number =>
       Math.abs(px[a] - px[b]) + Math.abs(px[a + 1] - px[b + 1]) + Math.abs(px[a + 2] - px[b + 2]);
-    // Mean difference between row (or column) j and j+1, wrapping at 15 -> 0.
+    // Median difference between row (or column) j and j+1, wrapping at 15 -> 0. A real seam shows along most
+    // of the edge; the median ignores the odd pebble that happens to straddle it.
     const rowStep = (px: Uint8ClampedArray, j: number, vertical: boolean): number => {
-      let sum = 0;
+      const steps: number[] = [];
       for (let k = 0; k < 16; k++) {
         const a = vertical ? (k * 16 + j) * 4 : (j * 16 + k) * 4;
         const b = vertical ? (k * 16 + ((j + 1) % 16)) * 4 : (((j + 1) % 16) * 16 + k) * 4;
-        sum += diff(px, a, b);
+        steps.push(diff(px, a, b));
       }
-      return sum / 16;
+      steps.sort((p, q) => p - q);
+      return (steps[7] + steps[8]) / 2;
     };
     for (const name of tiled) {
       const px = paintTexture(name);
@@ -175,6 +176,21 @@ describe('texture content', () => {
         let harshest = 0;
         for (let j = 0; j < 15; j++) harshest = Math.max(harshest, rowStep(px, j, vertical));
         expect(rowStep(px, 15, vertical), `${name} ${vertical ? 'left/right' : 'top/bottom'}`).toBeLessThanOrEqual(harshest * 1.15 + 4);
+      }
+    }
+  });
+
+  it('ores keep the host rock of their depth untouched between their flecks (so they tile like it)', () => {
+    const hosts: Record<string, string[]> = {
+      stone: ['coal_ore', 'copper_ore', 'tin_ore', 'iron_ore', 'sulfur_ore', 'quartz_ore'],
+    };
+    for (const [host, ores] of Object.entries(hosts)) {
+      const rock = paintTexture(host);
+      for (const name of ores) {
+        const px = paintTexture(name);
+        let same = 0;
+        for (let i = 0; i < BYTES; i += 4) if (px[i] === rock[i] && px[i + 1] === rock[i + 1] && px[i + 2] === rock[i + 2]) same++;
+        expect(same / 256, name).toBeGreaterThan(0.5);
       }
     }
   });

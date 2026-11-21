@@ -13,19 +13,21 @@ const M = P.IRON_METAL;
 const WHITE: RGB = P.rgb(0xffffff);
 
 function blower(c: Canvas, lit: boolean): void {
-  // A square fan housing behind diagonal guard bars; running, the four blades blur into a pale disc.
-  well(c, 2, 1, 11, 11);
-  if (lit) c.disc(7.5, 6.5, 4.4, mix(P.SOOT, M[3], 0.4));
+  // A fan in a round shroud with a three-bar guard; running, the blades blur into a pale disc.
+  c.disc(7.5, 6.5, 5.5, M[0]);
+  c.disc(7.5, 6.5, 4.6, P.SOOT);
+  if (lit) c.disc(7.5, 6.5, 4.2, mix(P.SOOT, M[3], 0.35));
   else {
-    for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
-      for (let r = 1; r <= 4; r++) {
-        c.set(Math.floor(7.5 + dx * r + (dy > 0 ? -1 : 0)), Math.floor(6.5 + dy * (r - 1)), M[3]);
-        c.set(Math.floor(7.5 + dx * r), Math.floor(6.5 + dy * r), M[2]);
-      }
-    }
+    c.sprite(
+      ['..bb.....', '..bbb....', '...bb..aa', '....o.aaa', '.aa.o..a.', 'aaa......', '.a..bb...', '....bbb..', '.....bb..'],
+      { a: M[2], b: M[3], o: M[1] },
+      3,
+      2,
+    );
   }
   c.disc(7.5, 6.5, 1.3, lit ? P.CYAN : M[4]);
-  for (let i = 3; i <= 12; i += 3) c.line(i, 2, i - 1 + 2, 11, mix(M[1], P.SOOT, 0.2));
+  for (const y of [3, 6, 9]) c.rect(3, y, 10, 1, mix(M[1], P.SOOT, 0.15));
+  c.ring(7.5, 6.5, 5.5, M[3]);
 }
 
 function spaceHeater(c: Canvas, lit: boolean): void {
