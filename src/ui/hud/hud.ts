@@ -193,7 +193,7 @@ export class Hud {
       this.gridTimer = 0;
       this.power.update(summarizeGrid(d.sim().allNetworks()));
     }
-    this.vignettes.update(d.player.warmth, d.player.wellWarmed);
+    this.vignettes.update(d.player.warmth, d.player.wellWarmed, d.player.food);
     this.feed.tick();
   }
 

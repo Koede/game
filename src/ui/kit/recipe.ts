@@ -20,9 +20,10 @@ export interface RecipeIngredient {
 }
 
 export interface RecipeRequirement {
-  /** "900 °C", "Tier 2", "8 s", "1 kW". */
+  /** "900 °C", "Tier 2", "8 s", "1 kW"; facts about the product: "+8 food", "Returns the bucket". */
   text: string;
-  kind?: 'heat' | 'tier' | 'power' | 'time';
+  /** 'food' (what eating the product does) and 'note' (what else the recipe gives) are facts, not requirements. */
+  kind?: 'heat' | 'tier' | 'power' | 'time' | 'food' | 'note';
   /** true = satisfied right now, false = not yet, omit for plain facts such as a duration. */
   met?: boolean;
   /** For kind 'heat': the temperature, drawn as a heat-ramp swatch. */
@@ -64,11 +65,16 @@ interface IngredientChip {
   name: HTMLSpanElement;
 }
 
+/** Food and note badges describe the product: they get a line of their own under the name. */
+const isFact = (r: RecipeRequirement): boolean => r.kind === 'food' || r.kind === 'note';
+
 const REQUIREMENT_TONE: Record<NonNullable<RecipeRequirement['kind']>, Tone> = {
   heat: 'heat',
   tier: 'neutral',
   power: 'power',
   time: 'neutral',
+  food: 'good',
+  note: 'neutral',
 };
 
 export class RecipeRow {
@@ -77,12 +83,14 @@ export class RecipeRow {
   private readonly nameEl: HTMLSpanElement;
   private readonly countEl: HTMLSpanElement;
   private readonly badgeHost: HTMLDivElement;
+  private readonly factHost: HTMLDivElement;
   private readonly chipHost: HTMLDivElement;
   private readonly reasonEl: HTMLDivElement;
   private readonly makeBtn: Button;
   private readonly manyBtn: Button | null;
   private readonly many: number;
   private readonly badges: Badge[] = [];
+  private readonly facts: Badge[] = [];
   private readonly chips: IngredientChip[] = [];
   private id = '';
   private available = -1;
@@ -93,6 +101,7 @@ export class RecipeRow {
     this.nameEl = h('span', { class: 'hw-recipe__name' });
     this.countEl = h('span', { class: 'hw-recipe__count hw-num' });
     this.badgeHost = h('div', { class: 'hw-recipe__badges' });
+    this.factHost = h('div', { class: 'hw-recipe__facts hw-recipe__badges' });
     this.chipHost = h('div', { class: 'hw-recipe__chips' });
     this.reasonEl = h('div', { class: 'hw-recipe__reason' });
     this.makeBtn = new Button({ label: 'Make', kind: 'primary', size: 'sm', onClick: () => opts.onMake(this.id, 1) });
@@ -104,6 +113,7 @@ export class RecipeRow {
       { class: 'hw-recipe', attrs: { role: 'listitem' } },
       h('div', { class: 'hw-recipe__icon' }, this.icon.el, lock),
       h('div', { class: 'hw-recipe__head' }, h('div', { class: 'hw-recipe__title' }, this.nameEl, this.countEl), this.badgeHost),
+      this.factHost,
       this.chipHost,
       h('div', { class: 'hw-recipe__actions' }, this.manyBtn?.el, this.makeBtn.el),
       this.reasonEl,
@@ -122,7 +132,9 @@ export class RecipeRow {
     const locked = view.locked ?? false;
     const ready = !locked && view.available > 0;
     setAttr(this.el, 'data-state', locked ? 'locked' : ready ? 'ready' : 'short');
-    this.updateBadges(view.requirements ?? []);
+    const all = view.requirements ?? [];
+    this.updateBadges(this.badges, this.badgeHost, all.filter((r) => !isFact(r)));
+    this.updateBadges(this.facts, this.factHost, all.filter(isFact));
     this.updateChips(view.ingredients);
     const reason = ready ? '' : view.reason ?? '';
     setText(this.reasonEl, reason);
@@ -145,8 +157,8 @@ export class RecipeRow {
     this.manyBtn?.dispose();
   }
 
-  private updateBadges(requirements: readonly RecipeRequirement[]): void {
-    while (this.badges.length > requirements.length) this.badges.pop()?.el.remove();
+  private updateBadges(badges: Badge[], host: HTMLElement, requirements: readonly RecipeRequirement[]): void {
+    while (badges.length > requirements.length) badges.pop()?.el.remove();
     requirements.forEach((req, i) => {
       const opts = {
         text: req.text,
@@ -154,13 +166,14 @@ export class RecipeRow {
         met: req.met ?? null,
         swatch: req.kind === 'heat' && req.tempC !== undefined ? heatColor(req.tempC) : null,
       };
-      const badge = this.badges[i];
+      let badge = badges[i];
       if (badge) badge.update(opts);
       else {
-        const created = new Badge(opts);
-        this.badges.push(created);
-        this.badgeHost.appendChild(created.el);
+        badge = new Badge(opts);
+        badges.push(badge);
+        host.appendChild(badge.el);
       }
+      setAttr(badge.el, 'data-kind', req.kind ?? null);
     });
   }
 

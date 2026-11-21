@@ -3,7 +3,10 @@ import { recipe } from '../../../core/registry';
 import type { RecipeDef } from '../../../core/types';
 import type { ForgeRow, FurnaceView, SmeltRow } from '../../../sim';
 import { fire, makeKit } from '../../../sim/testKit';
-import { forgeAvailable, forgeCategory, forgeReady, forgeRowView, forgeShortfall, smeltRowViews } from './forgeRows';
+import {
+  FORGE_CATEGORIES, forgeAvailable, forgeCategory, forgeReady, forgeRowView, forgeRowViews, forgeShortfall, SMELT_CATEGORIES, smeltCategory,
+  smeltRowViews,
+} from './forgeRows';
 import {
   bestFuelSlot, burnFraction, burnText, clockText, flameLook, shortName, slotOf, sourceText, statusTone, thermoNotches,
   upgradeProgress,
@@ -40,6 +43,25 @@ describe('forge rows', () => {
     expect(forgeCategory(r('battery'))).toBe('power');
     expect(forgeCategory(r('brick'))).toBe('building');
     expect(forgeCategory(r('concrete'))).toBe('building');
+    expect(forgeCategory(r('hearth_stew'))).toBe('kitchen');
+    expect(forgeCategory(r('hearth_stew_fowl'))).toBe('kitchen');
+    expect(forgeCategory(r('bronze_hoe'))).toBe('tools');
+    expect(FORGE_CATEGORIES[0].id).toBe('kitchen');
+  });
+
+  it('shows stew variants the player can make, else the one they are closest to', () => {
+    const stews = (setup: (kit: ReturnType<typeof makeKit>) => void): string[] =>
+      forgeRowViews(liveView(setup).forge)
+        .filter((v) => v.item === 'hearth_stew')
+        .map((v) => v.id);
+    expect(stews(() => undefined)).toEqual(['hearth_stew']);
+    expect(stews((kit) => kit.player.give('cooked_fowl', 1))).toEqual(['hearth_stew_fowl']);
+    const both = (kit: ReturnType<typeof makeKit>): void => {
+      for (const item of ['cooked_chop', 'cooked_mutton', 'potato', 'potato', 'carrot', 'carrot', 'water_pail', 'water_pail']) kit.player.give(item, 1);
+    };
+    expect(stews(both)).toEqual(['hearth_stew', 'hearth_stew_mutton']);
+    const stew = forgeRowViews(liveView(both).forge).find((v) => v.id === 'hearth_stew');
+    expect(stew?.requirements?.map((q) => q.text)).toEqual(['300 °C', '+12 food', 'Well-Fed 6 min', 'Returns the bucket']);
   });
 
   it('turns live rows into kit rows: heat badge, locked tier badge, have/need chips, reason', () => {
@@ -100,6 +122,18 @@ describe('smelt reference rows', () => {
     expect(locked.locked).toBe(true);
     expect(locked.available).toBe(0);
     expect(smeltRowViews([row('aluminum_ingot', 1)])[0]).toMatchObject({ available: 0, reason: 'Bring 2 Alumina' });
+  });
+
+  it('gathers cooking under the Kitchen chip and says what each dish restores', () => {
+    expect(SMELT_CATEGORIES.map((c) => c.id)).toEqual(['kitchen', 'materials', 'fuel']);
+    expect(['cooked_fowl', 'cooked_mutton', 'cooked_chop', 'baked_potato', 'bread'].map((id) => smeltCategory(r(id)))).toEqual(Array(5).fill('kitchen'));
+    expect(smeltCategory(r('charcoal'))).toBe('fuel');
+    expect(smeltCategory(r('coke'))).toBe('fuel');
+    expect(smeltCategory(r('copper_ingot'))).toBe('materials');
+    expect(smeltCategory(r('glass'))).toBe('materials');
+    const bread = smeltRowViews([row('bread', 2)])[0];
+    expect(bread.category).toBe('kitchen');
+    expect(bread.requirements?.filter((q) => q.kind === 'food')).toEqual([{ text: '+6 food', kind: 'food' }]);
   });
 });
 

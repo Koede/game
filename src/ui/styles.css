@@ -48,6 +48,12 @@
   --hw-bad-hi: #ffa3ae;
   --hw-bad-wash: #33131a;
 
+  /* Food (spec 12.8): the HUD's food meter, Well-Fed and the "+N food" facts. */
+  --hw-food: #b5d35a;
+  --hw-food-hi: #dcef9a;
+  --hw-food-wash: #1c230c;
+  --hw-food-ink: #151b05;
+
   /* Anchors of the temperature ramp; kit/format.ts (HEAT_STOPS) is the source of truth. */
   --hw-temp-500: #9a2a14;
   --hw-temp-800: #f26b1d;
@@ -1050,6 +1056,18 @@ body {
   border-color: var(--hw-ash-1);
   border-style: dashed;
 }
+/* Facts about the product rather than requirements: what eating it restores, what the recipe gives back. */
+.hw-badge[data-kind='food'] {
+  color: var(--hw-food-hi);
+  background: var(--hw-food-wash);
+  border-color: rgba(181, 211, 90, 0.45);
+}
+.hw-badge[data-kind='note'] {
+  font-family: var(--hw-font-body);
+  color: var(--hw-ash-2);
+  background: transparent;
+  border-style: dotted;
+}
 
 .hw-chip {
   display: inline-flex;
@@ -1145,6 +1163,7 @@ body {
   grid-template-columns: 44px minmax(0, 1fr) auto;
   grid-template-areas:
     'icon head actions'
+    '. facts facts'
     'chips chips chips'
     'reason reason reason';
   align-items: center;
@@ -1238,6 +1257,11 @@ body {
 .hw-recipe__badges:empty {
   display: none;
 }
+/* Facts about the product ("+8 food", "Returns the bucket") on a line of their own under the name. */
+.hw-recipe__facts {
+  grid-area: facts;
+  margin-top: 6px;
+}
 .hw-recipe__chips {
   grid-area: chips;
   display: flex;
@@ -1319,6 +1343,7 @@ body {
     grid-template-columns: 44px minmax(150px, 0.75fr) minmax(0, 1.5fr) auto;
     grid-template-areas:
       'icon head chips actions'
+      'icon facts chips actions'
       'icon reason reason actions';
   }
   .hw-recipe__chips {
@@ -2181,13 +2206,25 @@ body {
   --hw-icon: 26px;
 }
 .hw-carry__text {
+  display: grid;
   flex: 1 1 auto;
   min-width: 0;
+}
+.hw-carry__name,
+.hw-carry__note {
   overflow: hidden;
-  font: 600 13px / 1.25 var(--hw-font-display);
-  letter-spacing: 0.04em;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.hw-carry__name {
+  font: 600 13px / 1.25 var(--hw-font-display);
+  letter-spacing: 0.04em;
+}
+/* What the picked item does when eaten ("+12 food, Well-Fed 6 min"): touch has no item card. */
+.hw-carry__note {
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: var(--hw-food-hi);
 }
 .hw-carry__moves {
   display: flex;
@@ -2471,6 +2508,11 @@ body {
 .hw-death__line {
   font-size: 15px;
   line-height: 1.45;
+}
+.hw-death__hunger {
+  padding-left: 10px;
+  color: var(--hw-ash-2);
+  border-left: 2px solid var(--hw-warn);
 }
 .hw-death__kept {
   padding: 8px 10px;

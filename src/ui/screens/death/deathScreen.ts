@@ -5,6 +5,7 @@ import type { GameScreen, ScreenContext } from '../../gameUI';
 import { Button } from '../../kit/controls';
 import { h, setText } from '../../kit/dom';
 import { Window } from '../../kit/window';
+import { hungerNote } from '../food';
 
 const CAUSES: Record<DamageCause, { title: string; line: string }> = {
   cold: { title: 'The cold took you', line: 'Nights drain warmth. Stay near a fire, a torch or your furnace after dark.' },
@@ -14,7 +15,10 @@ const CAUSES: Record<DamageCause, { title: string; line: string }> = {
   radiation: { title: 'Radiation sickness', line: 'Pitchblende and hot piles poison slowly. A shield suit cuts the dose tenfold.' },
   explosion: { title: 'Caught in the blast', line: 'A fission pile without water melts down. Keep two water blocks beside it.' },
   burn: { title: 'You burned', line: 'Something hot was too close for too long.' },
-  hunger: { title: 'Hunger wore you down', line: 'An empty stomach saps your strength. Cook meat or bake bread at the furnace and eat.' },
+  hunger: {
+    title: 'Hunger wore you down',
+    line: 'An empty stomach drains your health. Cook meat or bake bread in the furnace, then hold it and press Use to eat.',
+  },
 };
 
 export function wakeText(ctx: ScreenContext): string {
@@ -29,6 +33,7 @@ export function wakeText(ctx: ScreenContext): string {
 
 export function createDeathScreen(ctx: ScreenContext, respawn: () => void): GameScreen {
   const cause = CAUSES[ctx.player.deathCause ?? 'burn'];
+  const starving = hungerNote(ctx.player.deathCause, ctx.player.food);
   const wake = h('p', { class: 'hw-death__wake' });
   const deaths = h('p', { class: 'hw-death__count hw-num' });
   const button = new Button({
@@ -46,6 +51,7 @@ export function createDeathScreen(ctx: ScreenContext, respawn: () => void): Game
     'div',
     { class: 'hw-death' },
     h('p', { class: 'hw-death__line', text: cause.line }),
+    starving ? h('p', { class: 'hw-death__line hw-death__hunger', text: starving }) : null,
     h('p', { class: 'hw-death__kept', text: 'Your pack is safe: everything you carried is still with you.' }),
     wake,
     button.el,

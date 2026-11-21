@@ -75,7 +75,10 @@ export class RecipeList {
     if (next === this.active || !this.chips.has(next)) return;
     this.chips.get(this.active)?.setSelected(false);
     this.active = next;
-    this.chips.get(next)?.setSelected(true);
+    const chip = this.chips.get(next);
+    chip?.setSelected(true);
+    // The chip bar scrolls sideways on phones: keep the picked chip fully in view.
+    chip?.el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     this.applyFilter();
     this.scroller.scrollTop = 0;
   }

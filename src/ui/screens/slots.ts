@@ -12,6 +12,7 @@ import { canMerge, type Inventory } from '../../game/inventory';
 import { moveHalf, moveOne, moveStack, quickMove } from '../../game/transfer';
 import { Disposer, h, listen, setText, type Dispose } from '../kit/dom';
 import type { Tooltip, TooltipCard } from '../kit/feedback';
+import { foodLine } from './food';
 import { itemCard, slotView } from './inventory/slotViews';
 
 export { itemCard, slotView };
@@ -213,6 +214,7 @@ export class SlotController {
   private readonly ghostIcon = new ItemIcon();
   private readonly barIcon = new ItemIcon();
   private readonly barText: HTMLSpanElement;
+  private readonly barNote: HTMLSpanElement;
   private readonly barMoves: HTMLDivElement;
   private barKey = '';
   private lastTap = { group: '', index: -1, at: -Infinity };
@@ -226,10 +228,18 @@ export class SlotController {
   constructor(bus: GameBus, ghostLayer: HTMLElement | null = null, tooltip: Tooltip | null = null) {
     this.bus = bus;
     this.tooltip = tooltip;
-    this.barText = h('span', { class: 'hw-carry__text' });
+    this.barText = h('span', { class: 'hw-carry__name' });
+    this.barNote = h('span', { class: 'hw-carry__note' });
     this.barMoves = h('div', { class: 'hw-carry__moves' });
     const cancel = new IconButton({ icon: 'close', label: 'Put it back', onClick: () => this.cancel() });
-    this.actionBar = h('div', { class: 'hw-carry', attrs: { role: 'status' } }, this.barIcon.el, this.barText, this.barMoves, cancel.el);
+    this.actionBar = h(
+      'div',
+      { class: 'hw-carry', attrs: { role: 'status' } },
+      this.barIcon.el,
+      h('span', { class: 'hw-carry__text' }, this.barText, this.barNote),
+      this.barMoves,
+      cancel.el,
+    );
     this.actionBar.hidden = true;
     this.ghost = h('div', { class: 'hw-slot-ghost', attrs: { 'aria-hidden': 'true' } }, this.ghostIcon.el);
     this.ghost.hidden = true;
@@ -346,6 +356,10 @@ export class SlotController {
     const name = itemOrNull(stack.item)?.name ?? stack.item;
     const amount = pick.half ? Math.ceil(stack.count / 2) : stack.count;
     setText(this.barText, `${amount > 1 ? `${amount} ` : ''}${name}${pick.half ? ' (half)' : ''}`);
+    // Touch has no item card: the carry bar is where a phone player learns what a food restores.
+    const food = foodLine(stack.item);
+    setText(this.barNote, food ?? '');
+    this.barNote.hidden = food === null;
     this.barIcon.set(stack.item);
     this.ghostIcon.set(stack.item);
     const targets = this.logic.quickTargets(group).filter((t) => t.group !== group || t.start !== group.start);

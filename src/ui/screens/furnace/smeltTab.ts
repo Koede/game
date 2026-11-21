@@ -13,7 +13,7 @@ import { Badge, Meter } from '../../kit/gauges';
 import { RecipeList } from '../../kit/recipe';
 import { ItemSlot } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
-import { nameOf, smeltRowViews } from './forgeRows';
+import { nameOf, SMELT_CATEGORIES, smeltRowViews } from './forgeRows';
 import { clockText, slotOf } from './furnaceText';
 import { pretty } from './simApi';
 
@@ -49,6 +49,7 @@ export class SmeltTab {
     this.crucibleHost = h('div', { class: 'hw-cru-list' });
     this.list = new RecipeList({
       label: 'Smelting',
+      categories: SMELT_CATEGORIES,
       many: 0,
       emptyText: 'Nothing to smelt.',
       onMake: (id) => {

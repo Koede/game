@@ -1,7 +1,8 @@
 /** Item-gain feed ("+3 Rubble") along the left edge, and the screen-edge vignettes. */
 import { itemOrNull } from '../../core/registry';
-import { h, setText } from '../kit/dom';
+import { h, setFlag, setText } from '../kit/dom';
 import { ItemIcon } from '../kit/icons';
+import { hungerLevel } from '../screens/food';
 import { GainFeed, frostLevel } from './hudMath';
 
 interface Line {
@@ -63,21 +64,28 @@ export class FeedView {
   }
 }
 
-/** Red flash on damage, frost creeping in from the edges when cold, an amber glow while Well-Warmed. */
+/**
+ * Red flash on damage, frost creeping in from the edges when cold, an amber glow while Well-Warmed, and a dull
+ * umber shadow at the edges while Hungry that deepens and breathes slowly as the bar empties.
+ */
 export class Vignettes {
   readonly el: HTMLDivElement;
   private readonly hurt: HTMLDivElement;
   private readonly frost: HTMLDivElement;
   private readonly warm: HTMLDivElement;
+  private readonly hunger: HTMLDivElement;
   private shownFrost = -1;
   private shownWarm = false;
+  private shownHunger = -1;
 
   constructor() {
     this.hurt = h('div', { class: 'hw-vignette hw-vignette--hurt' });
     this.frost = h('div', { class: 'hw-vignette hw-vignette--frost' });
     this.warm = h('div', { class: 'hw-vignette hw-vignette--warm' });
+    this.hunger = h('div', { class: 'hw-vignette hw-vignette--hunger' });
     this.warm.hidden = true;
-    this.el = h('div', { class: 'hw-vignettes', attrs: { 'aria-hidden': 'true' } }, this.warm, this.frost, this.hurt);
+    this.hunger.hidden = true;
+    this.el = h('div', { class: 'hw-vignettes', attrs: { 'aria-hidden': 'true' } }, this.warm, this.hunger, this.frost, this.hurt);
   }
 
   /** A hit: a short red pulse, stronger for bigger hits. */
@@ -89,7 +97,7 @@ export class Vignettes {
     this.hurt.classList.add('hw-vignette--pulse');
   }
 
-  update(warmth: number, wellWarmed: boolean): void {
+  update(warmth: number, wellWarmed: boolean, food: number): void {
     const frost = Math.round(frostLevel(warmth) * 50) / 50;
     if (frost !== this.shownFrost) {
       this.shownFrost = frost;
@@ -99,6 +107,13 @@ export class Vignettes {
     if (wellWarmed !== this.shownWarm) {
       this.shownWarm = wellWarmed;
       this.warm.hidden = !wellWarmed;
+    }
+    const hunger = Math.round(hungerLevel(food) * 20) / 20;
+    if (hunger !== this.shownHunger) {
+      this.shownHunger = hunger;
+      this.hunger.style.setProperty('--hw-hunger', hunger.toFixed(2));
+      this.hunger.hidden = hunger === 0;
+      setFlag(this.hunger, 'starving', food <= 0);
     }
   }
 }

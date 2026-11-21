@@ -5,6 +5,7 @@ import { itemOrNull } from '../../core/registry';
 import type { PlayerState } from '../../game/playerState';
 import { h, setText } from '../kit/dom';
 import { SlotGrid } from '../kit/slot';
+import { foodLine } from '../screens/food';
 import { slotView } from '../screens/inventory/slotViews';
 
 const NAME_LINGER_MS = 1600;
@@ -52,7 +53,11 @@ export class Hotbar {
       const first = this.shownSelected === -1;
       this.shownSelected = selected;
       this.shownHeld = held;
-      if (!first && held) this.flashName(itemOrNull(held)?.name ?? held);
+      if (!first && held) {
+        const food = foodLine(held);
+        const name = itemOrNull(held)?.name ?? held;
+        this.flashName(food ? `${name} · ${food}` : name);
+      }
     }
   }
 

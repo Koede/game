@@ -8,6 +8,7 @@ import { craftByPlayer, maxCraftable, mergeAmounts, tally, type CraftResult, typ
 import type { Inventory } from '../../../game/inventory';
 import type { PlayerState } from '../../../game/playerState';
 import type { RecipeRowView } from '../../kit/recipe';
+import { productBadges } from '../food';
 
 export const nameOf = (key: string): string => itemOrNull(key)?.name ?? key;
 
@@ -36,6 +37,7 @@ export function recipeRowView(recipe: RecipeDef, sources: readonly Inventory[], 
     item: recipe.output.item,
     name: nameOf(recipe.output.item),
     count: recipe.output.count,
+    requirements: productBadges(recipe),
     ingredients,
     available,
     reason,

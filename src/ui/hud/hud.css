@@ -115,6 +115,37 @@
 .hw-vital[data-kind='air'] {
   --hw-vital-color: var(--hw-power-hi);
 }
+.hw-vital[data-kind='food'] {
+  --hw-vital-color: var(--hw-food);
+}
+/* Hungry: the bar breathes and the bowl throbs; starving: faster, the value red, the track edged in red. */
+.hw-vital[data-hunger] .hw-vital__track {
+  animation: hw-hungry 1.6s ease-in-out infinite;
+}
+.hw-vital[data-hunger] .hw-vital__icon {
+  animation: hw-hud-throb 1.6s ease-in-out infinite;
+}
+.hw-vital[data-hunger] .hw-vital__value,
+.hw-vital[data-hunger] .hw-vital__icon,
+.hw-vital .hw-vital__hunger {
+  color: var(--hw-warn);
+}
+.hw-vital .hw-vital__hunger {
+  justify-items: center;
+  font: 700 12px / 1 var(--hw-font-display);
+}
+.hw-vital[data-hunger='starving'] .hw-vital__track {
+  box-shadow: 0 0 0 1px var(--hw-bad);
+  animation-duration: 0.9s;
+}
+.hw-vital[data-hunger='starving'] .hw-vital__icon {
+  animation-duration: 0.9s;
+}
+.hw-vital[data-hunger='starving'] .hw-vital__value,
+.hw-vital[data-hunger='starving'] .hw-vital__icon,
+.hw-vital[data-hunger='starving'] .hw-vital__hunger {
+  color: var(--hw-bad-hi);
+}
 .hw-vital[data-low] .hw-vital__value {
   color: var(--hw-bad-hi);
 }
@@ -138,25 +169,36 @@
 .hw-vital:not([data-kind='warmth']) {
   grid-template-columns: 14px minmax(0, 1fr) 22px 10px;
 }
+.hw-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 1px;
+}
 .hw-buff {
+  --hw-buff: var(--hw-heat-hi);
+  --hw-buff-ink: var(--hw-heat-ink);
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 1px;
   padding: 2px 6px 2px 5px;
   font: 600 11.5px / 1.2 var(--hw-font-display);
   letter-spacing: 0.02em;
   white-space: nowrap;
-  color: var(--hw-heat-ink);
-  background: var(--hw-heat-hi);
+  color: var(--hw-buff-ink);
+  background: var(--hw-buff);
   border-radius: 1px;
   text-shadow: none;
 }
-.hw-buff .hw-buff__text {
+.hw-buff[data-kind='fed'] {
+  --hw-buff: var(--hw-food);
+  --hw-buff-ink: var(--hw-food-ink);
+}
+.hw-buff .hw-buff__time {
   font-family: var(--hw-font-display);
 }
 .hw-buff[data-pending] {
-  color: var(--hw-heat-hi);
+  color: var(--hw-buff);
   background: var(--hw-heat-wash);
   box-shadow: inset 0 0 0 1px var(--hw-heat-lo);
 }
@@ -598,6 +640,14 @@
   mask: radial-gradient(ellipse at center, transparent 48%, #000 92%);
   transition: opacity 600ms linear;
 }
+.hw-vignette--hunger {
+  opacity: var(--hw-hunger, 0);
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(46, 33, 14, 0.42) 82%, rgba(30, 20, 8, 0.72) 100%);
+  animation: hw-hunger 3.2s ease-in-out infinite;
+}
+.hw-vignette--hunger[data-starving] {
+  animation-duration: 1.8s;
+}
 .hw-vignette--warm {
   background: radial-gradient(ellipse at center, transparent 62%, rgba(255, 138, 43, 0.16) 100%);
   animation: hw-warm 4s ease-in-out infinite;
@@ -618,6 +668,16 @@
   }
   50% {
     opacity: 1;
+  }
+}
+@keyframes hw-hungry {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes hw-hunger {
+  50% {
+    opacity: calc(var(--hw-hunger, 0) * 0.7);
   }
 }
 @keyframes hw-hud-throb {
@@ -664,6 +724,10 @@
   .hw-vitals {
     width: 140px;
   }
+  /* Both buffs at once: glyph + time side by side (the glyphs match the warmth and food meters). */
+  .hw-buffs[data-both] .hw-buff__name {
+    display: none;
+  }
   .hw-compass,
   .hw-dial,
   .hw-power {
@@ -693,6 +757,9 @@
   }
   .hw-vital {
     height: 14px;
+  }
+  .hw-buffs[data-both] .hw-buff__name {
+    display: none;
   }
   .hw-goal {
     width: clamp(180px, 30vw, 280px);
@@ -733,6 +800,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hw-vignette--warm,
+  .hw-vignette--hunger,
+  .hw-vital[data-hunger] .hw-vital__track,
+  .hw-vital[data-hunger] .hw-vital__icon,
   .hw-vital[data-kind='health'][data-low] .hw-vital__icon {
     animation: none;
   }
