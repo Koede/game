@@ -117,6 +117,13 @@ const FORGE: RecipeSpec[] = [
   forge(1, 'wrench', '3 bronze_ingot', 600),
   // Ground items: the handheld pump that pulls loose items in (Bronze Age by design; see itemsGround.ts for the gate).
   forge(1, 'hand_vacuum', '4 bronze_plate, 2 leather, 1 bellows, 2 copper_plate', 800),
+  // Resin, sugar and sweet baking (itemsSugar.ts): beakers from glass, sap boiled to resin, resin distilled to sugar, then baked.
+  forge(1, '2 glass_beaker', '1 glass', 650),
+  forge(1, 'pine_resin', '1 pine_sap', 180, { byproducts: '1 glass_beaker' }),
+  forge(1, '3 sugar', '2 pine_resin, 1 water_pail, 1 glass_beaker', 260, { byproducts: '1 pail, 1 glass_beaker' }),
+  forge(1, '4 sugar_cookie', '1 flour, 1 sugar', 190),
+  forge(1, 'sweet_bun', '1 dough, 1 sugar', 220),
+  forge(1, 'sugar_cake', '2 flour, 2 sugar, 1 water_pail', 200, { byproducts: '1 pail' }),
   // The Emberbound (spec 19.4): weapons for breaking metal.
 
   // ---- Blast Furnace ----

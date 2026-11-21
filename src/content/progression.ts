@@ -289,6 +289,8 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     if (hasBrewingGear(items)) {
       for (const it of ITEMS) if (it.brews && items.has(it.key) && gain(it.brews, 'brew')) changed = true;
     }
+    // Resin: a glass beaker held against a pine log catches its sap (player/sapTools.ts; item use, not a recipe).
+    if (items.has('glass_beaker') && items.has('pine_log') && gain('pine_sap', 'tap')) changed = true;
     if (canTill(world, items)) {
       for (const crop of crops) {
         if (!crop.seed || !items.has(crop.seed)) continue;

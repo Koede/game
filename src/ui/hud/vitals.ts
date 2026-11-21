@@ -104,6 +104,7 @@ export class Vitals {
   private readonly hungerTag: HTMLSpanElement;
   private readonly warmBuff = new BuffPill('warm', 'flame');
   private readonly fedBuff = new BuffPill('fed', 'bowl');
+  private readonly sugarBuff = new BuffPill('sugar', 'hourglass');
   /** Spec 19: an ember bolt's burning (PlayerCombat.burning), first in the row. */
   private readonly burnBuff = new BuffPill('burn', 'flame');
   /** The six drink buffs (BREWING_PLAN 11.1): a pill each, shown while it runs. */
@@ -122,7 +123,7 @@ export class Vitals {
     this.food = new VitalBar('food', 'bowl', 'Food', this.hungerTag);
     this.air.el.hidden = true;
     for (const key of DRINK_BUFF_KEYS) this.drinkPills.set(key, new BuffPill(key, DRINK_GLYPHS[key]));
-    this.buffs = h('div', { class: 'hw-buffs' }, this.burnBuff.el, this.warmBuff.el, this.fedBuff.el, ...[...this.drinkPills.values()].map((p) => p.el));
+    this.buffs = h('div', { class: 'hw-buffs' }, this.burnBuff.el, this.warmBuff.el, this.fedBuff.el, this.sugarBuff.el, ...[...this.drinkPills.values()].map((p) => p.el));
     this.buffs.hidden = true;
     this.note = h('div', { class: 'hw-vitals__note', style: NOTE_STYLE, attrs: { role: 'status' } });
     this.note.hidden = true;
@@ -172,10 +173,13 @@ export class Vitals {
     const fed = survival.hunger.wellFedTimeLeftS;
     if (fed > 0) this.fedBuff.show('Well-Fed', clockTime(fed), false, 'Well-Fed: you heal twice as fast and get hungry half as quickly');
     else this.fedBuff.hide();
+    const sugar = player.buffs.sugarS;
+    if (sugar > 0) this.sugarBuff.show('Sugar Rush', clockTime(sugar), false, 'Sugar Rush: you move faster, but Well-Fed wears off quicker');
+    else this.sugarBuff.hide();
     const combat = player.combat;
     if (combat.burning) this.burnBuff.show('Burning', `${Math.max(1, Math.ceil(combat.burnTimeLeftS))} s`, false, 'Burning: water puts it out');
     else this.burnBuff.hide();
-    let shown = Number(!this.warmBuff.el.hidden) + Number(!this.fedBuff.el.hidden) + Number(!this.burnBuff.el.hidden);
+    let shown = Number(!this.warmBuff.el.hidden) + Number(!this.fedBuff.el.hidden) + Number(!this.sugarBuff.el.hidden) + Number(!this.burnBuff.el.hidden);
     const running = drinkChips(player.buffs);
     for (const [key, pill] of this.drinkPills) {
       const chip = running.find((c) => c.buff === key);

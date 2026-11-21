@@ -17,7 +17,7 @@ describe('food items', () => {
     for (const it of ITEMS.filter((i) => i.food)) expect(it.category, it.key).toBe('food');
   });
 
-  it('grants Well-Fed only from the forged stew', () => {
+  it('grants Well-Fed only from the forged stew (sugar foods give Sugar Rush instead)', () => {
     const buffs = Object.fromEntries(ITEMS.filter((it) => it.food?.buff).map((it) => [it.key, [it.food?.buff, it.food?.buffS]]));
     expect(buffs).toEqual(FOOD_SPEC.buffs);
     for (const r of recipesFor('hearth_stew')) expect([r.station, r.kind], r.id).toEqual(['furnace', 'forge']);
@@ -25,7 +25,7 @@ describe('food items', () => {
 
   it('makes cooking worth it: every cooked dish fills more than what went into the crucible', () => {
     const kitchen = recipesAt('furnace').filter((r) => item(r.output.item).food);
-    expect(kitchen.map((r) => r.id).sort()).toEqual(['baked_potato', 'bread', 'cooked_chop', 'cooked_fowl', 'cooked_mutton', 'hearth_stew', 'hearth_stew_fowl', 'hearth_stew_mutton']);
+    expect(kitchen.map((r) => r.id).sort()).toEqual(['baked_potato', 'bread', 'cooked_chop', 'cooked_fowl', 'cooked_mutton', 'hearth_stew', 'hearth_stew_fowl', 'hearth_stew_mutton', 'sugar', 'sugar_cake', 'sugar_cookie', 'sweet_bun']);
     for (const r of kitchen.filter((k) => k.kind === 'smelt')) {
       const raw = item(r.inputs[0].item).food?.hunger ?? 0;
       expect(item(r.output.item).food?.hunger ?? 0, r.id).toBeGreaterThan(raw);

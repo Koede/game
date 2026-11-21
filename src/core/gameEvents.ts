@@ -133,7 +133,7 @@ export type SfxName =
   | 'cast_pour';
 
 /** Buffs the player can carry. */
-export type BuffName = 'well_warmed' | 'well_fed' | DrinkBuff;
+export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
 
 export interface GameEvents {
   // ---- world ----

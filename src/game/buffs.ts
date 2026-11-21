@@ -12,6 +12,8 @@ import {
   LASTING_DRAIN_MULT,
   MENDING_REGEN_MULT,
   SPRING_JUMP_MULT,
+  SUGAR_SPEED_MULT,
+  SUGAR_WELL_FED_BURN_MULT,
   SWIFT_SPEED_MULT,
   VIGOR_MINING_MULT,
 } from '../core/constants';
@@ -30,6 +32,8 @@ export interface BuffsSnapshot {
   wellWarmedS: number;
   /** Missing in saves made before hunger existed. */
   wellFedS?: number;
+  /** Seconds of Sugar Rush left. Missing in saves made before it. */
+  sugarS?: number;
   /** Seconds left per active drink buff. Missing in saves made before brewing. */
   drinks?: Partial<Record<DrinkBuff, number>>;
 }
@@ -63,6 +67,8 @@ export class Buffs {
   wellWarmedS = 0;
   /** Seconds of Well-Fed left (0 = not active; spec 12.1). */
   wellFedS = 0;
+  /** Seconds of Sugar Rush left (0 = not active): faster, but Well-Fed burns off faster too. */
+  sugarS = 0;
   private readonly slots: Record<DrinkFamily, DrinkSlot> = { tea: { buff: null, s: 0 }, coffee: { buff: null, s: 0 } };
 
   /** Seconds left of a drink buff (0 = not active). */
@@ -100,7 +106,9 @@ export class Buffs {
   /** Counts every timer down. */
   tick(dt: number): void {
     if (!(dt > 0)) return;
-    if (this.wellFedS > 0) this.wellFedS = Math.max(0, this.wellFedS - dt);
+    // Sugar Rush burns the Well-Fed timer faster (never hunger itself).
+    if (this.wellFedS > 0) this.wellFedS = Math.max(0, this.wellFedS - dt * (this.sugarS > 0 ? SUGAR_WELL_FED_BURN_MULT : 1));
+    if (this.sugarS > 0) this.sugarS = Math.max(0, this.sugarS - dt);
     for (const f of FAMILIES) {
       const slot = this.slots[f];
       if (slot.s <= 0) continue;
@@ -113,6 +121,7 @@ export class Buffs {
   clear(): void {
     this.wellWarmedS = 0;
     this.wellFedS = 0;
+    this.sugarS = 0;
     for (const f of FAMILIES) this.slots[f] = { buff: null, s: 0 };
   }
 
@@ -121,6 +130,7 @@ export class Buffs {
     const out: ActiveBuff[] = [];
     if (this.wellWarmedS > 0) out.push({ buff: 'well_warmed', timeLeftS: this.wellWarmedS });
     if (this.wellFedS > 0) out.push({ buff: 'well_fed', timeLeftS: this.wellFedS });
+    if (this.sugarS > 0) out.push({ buff: 'sugar_rush', timeLeftS: this.sugarS });
     for (const f of FAMILIES) {
       const slot = this.slots[f];
       if (slot.buff && slot.s > 0) out.push({ buff: slot.buff, timeLeftS: slot.s });
@@ -135,7 +145,7 @@ export class Buffs {
 
   /** Factor on walk, sprint and swim speed (Swift). */
   get speedMult(): number {
-    return this.has('swift') ? SWIFT_SPEED_MULT : 1;
+    return (this.has('swift') ? SWIFT_SPEED_MULT : 1) * (this.sugarS > 0 ? SUGAR_SPEED_MULT : 1);
   }
 
   /** Factor on mining speed (Vigor). */
@@ -164,13 +174,14 @@ export class Buffs {
       const s = this.timeLeftS(b);
       if (s > 0) drinks[b] = s;
     }
-    return { wellWarmedS: this.wellWarmedS, wellFedS: this.wellFedS, drinks };
+    return { wellWarmedS: this.wellWarmedS, wellFedS: this.wellFedS, ...(this.sugarS > 0 ? { sugarS: this.sugarS } : {}), drinks };
   }
 
   load(s: BuffsSnapshot): void {
     this.clear();
     this.wellWarmedS = finite(s.wellWarmedS) ? Math.max(0, s.wellWarmedS) : 0;
     this.wellFedS = finite(s.wellFedS) ? Math.max(0, s.wellFedS) : 0;
+    this.sugarS = finite(s.sugarS) ? Math.max(0, s.sugarS) : 0;
     const drinks = s.drinks;
     if (typeof drinks !== 'object' || drinks === null) return;
     for (const b of DRINK_BUFF_KEYS) {

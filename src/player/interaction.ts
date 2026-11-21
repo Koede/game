@@ -36,6 +36,7 @@ import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFo
 import { Buckets } from './buckets';
 import { BrewTools, type BrewHands } from './brewTools';
 import { HandTools, type HandHands } from './handTools';
+import { SapTools } from './sapTools';
 import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
 
@@ -85,6 +86,7 @@ export class Interaction {
   private readonly pipes: PipeTools;
   private readonly brewing: BrewTools;
   private readonly handwork: HandTools;
+  private readonly sap: SapTools;
 
   constructor(
     private readonly world: IWorld,
@@ -127,6 +129,12 @@ export class Interaction {
       swing: () => swing.triggerSwing(),
       stopMining: () => this.stopMining(),
     }, brew);
+    this.sap = new SapTools({
+      player, bus,
+      advise: (key, text) => this.advise(key, text),
+      swing: () => swing.triggerSwing(),
+      stopMining: () => this.stopMining(),
+    });
     this.handwork = new HandTools({
       player,
       advise: (key, text) => this.advise(key, text),
@@ -145,6 +153,7 @@ export class Interaction {
     this.breakCooldown = Math.max(0, this.breakCooldown - dt);
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
     this.pipes.update(dt);
+    this.sap.update(dt);
     if (!mineHeld || !hit || hit.block.liquid !== null || this.player.dead) {
       this.stopMining();
       return;
@@ -206,6 +215,11 @@ export class Interaction {
         }
         return 'placed';
       }
+    }
+    // A glass beaker aimed at a pine log taps its sap (sapTools.ts), before any placing or screen.
+    if (hit && !forcePlace) {
+      const tapped = this.sap.use(hit);
+      if (tapped !== null) return tapped === 'tapped' ? 'worked' : 'refused';
     }
     if (hit) {
       const brewed = this.brewing.use(hit) ?? this.brewing.placeContainer(hit);

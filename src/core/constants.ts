@@ -365,3 +365,9 @@ export const FLAG_FIRST_POUR = 'first_pour';
 export const FLAG_FELLED_TREE = 'felled_tree';
 /** Flag: the player drove a tractor (vehicles/). */
 export const FLAG_DROVE_TRACTOR = 'drove_tractor';
+
+// Sugar Rush (resin sugar and everything baked with it): a small speed boost that burns the Well-Fed timer faster.
+/** Factor on walk, sprint and swim speed while Sugar Rush runs. */
+export const SUGAR_SPEED_MULT = 1.12;
+/** Well-Fed runs out this many times faster while Sugar Rush runs (hunger itself drains as usual). */
+export const SUGAR_WELL_FED_BURN_MULT = 2.5;

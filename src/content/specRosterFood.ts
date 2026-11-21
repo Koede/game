@@ -34,11 +34,13 @@ export const FOOD_SPEC = {
   hunger: {
     raw_fowl: 2, raw_mutton: 3, raw_chop: 3, cooked_fowl: 6, cooked_mutton: 7, cooked_chop: 8,
     potato: 1, baked_potato: 5, carrot: 3, bread: 6, hearth_stew: 12,
+    // Resin sugar and what is baked with it (itemsSugar.ts).
+    sugar: 1, sugar_cookie: 3, sweet_bun: 6, sugar_cake: 9,
     // Spec 14: picked from berry bushes.
     wildberries: 2,
   } as Record<string, number>,
   /** Foods that grant a buff: item -> [buff, seconds]. */
-  buffs: { hearth_stew: ['well_fed', 360] } as Record<string, [string, number]>,
+  buffs: { hearth_stew: ['well_fed', 360], sugar: ['sugar_rush', 45], sugar_cookie: ['sugar_rush', 90], sweet_bun: ['sugar_rush', 150], sugar_cake: ['sugar_rush', 240] } as Record<string, [string, number]>,
 
   /** Hoes: item -> [tier, durability]. */
   hoes: { flint_hoe: [1, 64], bronze_hoe: [2, 192], iron_hoe: [3, 384] } as Record<string, [number, number]>,

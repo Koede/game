@@ -11,6 +11,7 @@ import { BLOCK_SPECS } from './blocks';
 import { EMBER_ITEMS } from './emberbound';
 import { BREW_ITEMS } from './itemsBrew';
 import { GROUND_ITEMS } from './itemsGround';
+import { SUGAR_ITEMS } from './itemsSugar';
 import { HAND_ITEMS } from './itemsHand';
 import { VEHICLE_ITEMS } from './itemsVehicle';
 
@@ -231,4 +232,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS];

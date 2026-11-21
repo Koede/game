@@ -13,7 +13,7 @@ import type { RecipeCategory, RecipeRequirement } from '../kit/recipe';
 /** The chip that gathers cooking and baking at the furnace (spec 12.8: category Food). */
 export const KITCHEN: RecipeCategory = { id: 'kitchen', label: 'Kitchen' };
 
-const BUFF_NAMES: Record<NonNullable<FoodSpec['buff']>, string> = { well_fed: 'Well-Fed' };
+const BUFF_NAMES: Record<NonNullable<FoodSpec['buff']>, string> = { well_fed: 'Well-Fed', sugar_rush: 'Sugar Rush' };
 
 /** 360 -> "6 min", 90 -> "1.5 min", 45 -> "45 s". */
 export function buffDuration(seconds: number): string {

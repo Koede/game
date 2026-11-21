@@ -106,6 +106,11 @@ export function eat(player: PlayerState, slot = player.selectedSlot): EatResult 
     player.buffs.wellFedS = Math.max(player.buffs.wellFedS, food.buffS);
     bus.emit('buff:gained', { buff, durationS: food.buffS });
     bus.emit('toast', { text: 'Well-Fed: you heal twice as fast and get hungry half as quickly', kind: 'good', item });
+  } else if (food.buff === 'sugar_rush' && food.buffS && food.buffS > 0) {
+    buff = 'sugar_rush';
+    player.buffs.sugarS = Math.max(player.buffs.sugarS, food.buffS);
+    bus.emit('buff:gained', { buff, durationS: food.buffS });
+    bus.emit('toast', { text: 'Sugar Rush: you move faster, but Well-Fed wears off quicker', kind: 'good', item });
   }
   return { ok: true, item, hunger: food.hunger, buff };
 }

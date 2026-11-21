@@ -130,7 +130,7 @@ export interface FoodSpec {
   /** Food points restored (the bar holds MAX_FOOD). */
   hunger: number;
   /** Buff granted on eating. Foods with a buff may be eaten on a full stomach. */
-  buff?: 'well_fed';
+  buff?: 'well_fed' | 'sugar_rush';
   /** Duration of the buff in seconds. */
   buffS?: number;
 }
