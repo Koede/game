@@ -49,14 +49,17 @@ order, and the gate to the next age.
 - **Tools:** flint, then bronze (pickaxe, axe, shovel, hoe, maul, bucket). **[built]**
 - **Furnace:** single block from the workbench. Fuels: sticks 450, logs 650, peat 900, charcoal 1000. Bellows
   add up to 250. Copper needs 700, bronze 800. **[built]**
-- **Steam and shafts [planned]:** Copper Kettle on the furnace boils water (bucket-filled, or standing next to
-  water). A Steam Rotor beside it turns. Wooden Axles and Bronze Gearboxes carry the turning to:
-  - Millstone: wheat to flour 1:1 (the workbench stays 2:1), copper/tin ore to 2 crushed ore.
-  - Saw Bench: 1 log to 6 planks (hand: 4).
-  - Shaft Bellows: holds the furnace draft at 0.7 so you stop pumping by hand.
-  - Water Wheel **[change]**: becomes a rotation source (30 N*m per flowing-water side, max 90) built at the
-    workbench. Windmill **[planned]**: wooden, 20-80 N*m by wind and height.
-  The tension: the kettle takes 3 kW of the fire's heat, so on logs the furnace runs cooler while the mill turns.
+- **Steam and mechanics [planned, decided: the Ember Age is all steam and motion, no electricity]:**
+  a Copper Kettle on the furnace boils water; a Steam Rotor turns at 32 rpm. Shafts carry two things, SPEED
+  (rpm) and STRESS (each source adds capacity, each machine adds load; load grows with speed; too much load and
+  the whole line seizes until you fix it). Large and small cogs trade speed for stress. Wooden parts top out
+  at 64 rpm.
+  - Sources: Steam Rotor, Water Wheel (flowing water), Windmill.
+  - Machines: Millstone (flour 1:1, ore to 2 crushed), Saw Bench (6 planks a log), Shaft Bellows (draft grows
+    with speed), Trip Hammer (bronze plates), Mechanical Pump (piped water with no electricity), Mechanical
+    Drill (mines down), Draft Fan (faster smelting).
+  - Control: Clutch, Flywheel (rides out a dying fire), Speed Gauge and Stress Gauge you read in the world.
+  The tension: the kettle takes 3 kW of the fire, every machine wants speed, and speed costs stress.
 - **Logistics:** crates; Bronze Chutes and the wrench. **[built]**
 - **Food:** hunting, cooking in crucibles, hoe farming, flour, dough with a water bucket, bread, hearth stew.
   **[built]**
@@ -162,14 +165,13 @@ Order matters because several existing things change role. Each wave leaves the 
 ## 6. Decisions I made, and ones that are yours
 
 Made (say if you want them changed):
-- Mechanical power never breaks blocks; overload only slows things.
+- Mechanical power never breaks blocks; an overstressed line seizes until fixed.
 - Workbench and hand recipes stay; the mechanical machines are better versions, not replacements.
 - Wind, solar, combustion and geothermal keep built-in generators so the Current Age is not all shafts.
 - The thermopile stays in the game but moves to the Forge Age.
 
 Yours:
-1. **Should the Ember Age have no electricity at all?** The plan says yes (first watts come from the dynamo in
-   the Forge Age). The alternative keeps the thermopile early as a weak trickle.
+1. ~~Ember Age electricity~~ - decided: none. The Ember Age runs on steam, speed and stress (SPEC 20.5).
 2. **Steam turbine as a shaft source** (needs an alternator) or left as a direct generator? The plan converts it,
    which makes the turbine hall a real build; leaving it is less work and less to learn.
 3. **Star hearth size:** 93 casings takes about a quarter of a full playthrough. Shrink the minimum shell or

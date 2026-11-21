@@ -1296,3 +1296,39 @@ All four machines have an input and output slot (pipes and crates work with them
   turn slowly and creak.
 - Machine screens show the shaft network: torque supply/demand/rating, speed, members. The HUD power strip shows
   shaft power when the player stands near a shaft network.
+
+### 20.5 DECIDED by the player: the Ember Age is the age of steam and mechanics - speed and stress
+This replaces the torque-only model of 20.1 and settles decision 1 (no electricity in the Ember Age; the
+thermopile moves to the Forge Age).
+
+Two quantities on every shaft network:
+- SPEED in rpm. Each source turns at its own speed (Steam Rotor 32 rpm at full steam, less with less steam;
+  Water Wheel 16; Windmill 8-24 with the wind). A network runs at the speed of its fastest source; slower
+  sources still add their capacity.
+- STRESS: every source adds CAPACITY, every working machine adds LOAD. A machine's load = its base stress x
+  (network speed / 16). If load > capacity the network is OVERSTRESSED: it seizes (speed 0, a groan, everything
+  on it stops) until load is removed or capacity added. Nothing is destroyed. Capacity: Steam Rotor 256,
+  Water Wheel 64 per flowing side (max 192), Windmill 32-128, Steam Engine (Forge) 1024, Steam Turbine
+  (Current) 4096.
+- GEARS trade speed for load: a Large Cog meshed with a Small Cog doubles speed (and every machine downstream
+  then costs double stress) or halves it, depending on which side drives. Chains of gear pairs stack, capped at
+  256 rpm. Axles themselves have no limit in the Ember Age; material tiers limit SPEED instead: wooden parts
+  shatter-proof but capped at 64 rpm, iron 128, steel 256 (faster input is simply clamped).
+- Machines have a MINIMUM speed and work faster above it (rate = speed / minimum, up to x4):
+  Millstone min 16, stress 4 | Saw Bench min 32, stress 4 | Shaft Bellows min 8, stress 2 (draft grows with
+  speed: 0.5 at 8 rpm to 1.0 at 64) | Mechanical Pump min 16, stress 4 (50 L/s per 16 rpm - water without
+  electricity) | Mechanical Drill min 32, stress 8 (mines the column below, 1 block per 4 s at 32 rpm) |
+  Trip Hammer min 16, stress 8 (bronze plates in Ember, iron and steel later) | Draft Fan min 32, stress 2
+  (a blower for hearth walls, +25% smelting speed) | Dynamo (Forge) min 64, stress 16, 30 W per rpm up to 2 kW.
+- Control and reading blocks: Clutch (a lever block: disconnects a shaft; Use toggles), Gearshift (reverses - only
+  matters for future direction-sensitive machines; skip in v1), Flywheel (adds no capacity; keeps the network
+  turning for 10 s when steam drops, so a dying fire does not seize the line), Speed Gauge and Stress Gauge
+  (blocks with a needle readable in the world; the machine screens show the same numbers).
+- Recipes (Ember unless noted): wooden_axle (workbench 3 plank -> 4), small_cog (workbench 2 plank, 1 stick ->
+  2), large_cog (workbench 4 plank, 1 wooden_axle), bronze_gearbox (forge 700 C: 2 bronze_ingot, 1 wooden_axle;
+  6-way junction), clutch (workbench: 1 wooden_axle, 1 stick, 1 cord), flywheel (forge 700 C: 4 bronze_ingot,
+  1 wooden_axle), speed_gauge / stress_gauge (forge 600 C: 1 copper_ingot, 1 glass, 1 small_cog),
+  mech_pump (forge 700 C: 2 bronze_ingot, 1 item_pipe, 1 small_cog), mech_drill (forge 800 C: 4 bronze_ingot,
+  2 flint, 1 large_cog), draft_fan (workbench: 4 plank, 1 small_cog), others as 20.2.
+- Ember objectives: boil_water - first_motion - grind - gear_up ("Gear it up": a network above 32 rpm) -
+  saw_planks - auto_bellows ("Let the shaft breathe for you": shaft bellows running).
