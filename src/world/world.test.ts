@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createBus, type GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
+import { mulberry32 } from '../core/math';
 import { blockId } from '../core/registry';
 import { AIR, CHUNK_SIZE, makeVoxel, voxelId, type BlockEntity, type ChunkMeshData } from '../core/types';
+import { runJob } from './jobs';
 import { World } from './world';
 
 const SEED = 20261121;
@@ -160,6 +162,41 @@ describe('World streaming', () => {
     expect(rec.count('chunk:meshed', -1, 0)).toBe(0);
     expect(rec.count('chunk:meshed', 0, 1)).toBe(0);
     expect(rec.count('chunk:meshed')).toBe(2);
+  });
+
+  it('leaves no drawn mesh out of date after many edits, lighting changes included', async () => {
+    const rec = record();
+    const world = new World(SEED, rec.bus);
+    const shown = new Map<string, ChunkMeshData>();
+    rec.bus.on('chunk:meshed', ({ mesh }) => shown.set(`${mesh.cx},${mesh.cz}`, mesh));
+    rec.bus.on('chunk:hidden', ({ cx, cz }) => shown.delete(`${cx},${cz}`));
+    await settle(world, 8, 8);
+    const rng = mulberry32(99);
+    const furnace = blockId('furnace_clay');
+    const palette = [AIR, AIR, AIR, STONE, TORCH, makeVoxel(blockId('glass')), makeVoxel(furnace, 1, true), makeVoxel(blockId('water'))];
+    const pick = (lo: number, hi: number): number => lo + Math.floor(rng() * (hi - lo + 1));
+    for (let round = 0; round < 12; round++) {
+      for (let i = 0; i < 8; i++) {
+        // Mostly near chunk borders, where lighting and geometry cross into neighbours.
+        const x = rng() < 0.6 ? pick(13, 18) : pick(-16, 31);
+        const z = rng() < 0.6 ? pick(-2, 2) : pick(-16, 31);
+        const y = rng() < 0.5 ? world.surfaceY(x, z) - pick(0, 2) : pick(8, 30);
+        world.setVoxel(x, y, z, palette[pick(0, palette.length - 1)], rng() < 0.5 ? 'player' : 'sim');
+      }
+      world.update(8, 8, 2, 0);
+      if (round % 3 === 2) await settle(world, 8, 8);
+    }
+    await settle(world, 8, 8);
+    expect(shown.size).toBe(21);
+    for (const mesh of shown.values()) {
+      const chunks: (Uint16Array | null)[] = [];
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) chunks.push(world.chunkVoxels(mesh.cx + dx, mesh.cz + dz));
+      const fresh = runJob({ type: 'mesh', cx: mesh.cx, cz: mesh.cz, chunks }).mesh;
+      for (const batch of ['opaque', 'cutout', 'translucent'] as const) {
+        expect(mesh[batch].light, `${batch} light of chunk ${mesh.cx},${mesh.cz}`).toEqual(fresh[batch].light);
+        expect(mesh[batch].positions).toEqual(fresh[batch].positions);
+      }
+    }
   });
 
   it('hides chunks that leave the view, unloads far ones, and remembers edits forever', async () => {

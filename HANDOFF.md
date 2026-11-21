@@ -37,7 +37,7 @@ git log --oneline | head -20
 | `src/save` | done, tested | `SaveStore` only (versioned storage). The save document itself is integration work. |
 | `src/ui/kit`, `src/ui/menus`, `src/ui/styles.css` | written, typechecks | Was interrupted during its visual check: never screenshotted at phone sizes. No `docs/api` notes. |
 | `src/game` | done, tested (71 tests) | inventory, transfer, crafting, mining, clock, playerState, survival, objectives, index. API and decisions in `docs/api/game.md`. Only run against a fake world and scripted events so far. |
-| `src/world` | about 70% | worldgen (biomes, caves, ores, trees, spawn search) done and tested; lighting and mesher written, one mesher test failing. Missing: World class, worker, worker pool, docs/api/world.md. |
+| `src/world` | done, tested (66 tests) | worldgen, lighting, mesher (all shapes), `World` (streaming, sync re-mesh of edits, lighting ripple, entity pinning, save/load), chunk worker + pool with main-thread fallback; streamed in headless Chromium through real workers. API in `docs/api/world.md`. Appended event `chunk:hidden` (renderer: drop the mesh). main.ts must pass `new WorkerPool(workerSource)` from `virtual:worker`. |
 | `src/render/textures` | just started | canvas + palette only. No painters. |
 | `src/render` | early | atlas, tiles, skyModel, shaders. One failing test (`skyModel` continuity over the day wrap). |
 | `src/player/input` | about 60% | gestures, keys, mouse drag, touch overlay written. Missing: InputManager, index, tests, browser check. |

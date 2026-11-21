@@ -11,6 +11,7 @@ import type { EditLog } from './edits';
 import type { EntityStore } from './entities';
 import { runJob, type MeshResult } from './jobs';
 import type { WorkerPool } from './workerPool';
+import { inData, inView, planFor, shown, type ViewPlan } from './view';
 import { generateChunk } from './worldgen';
 
 /** Voxel data stays loaded up to this many chunks (Chebyshev) past the view distance. */
@@ -39,36 +40,6 @@ export interface StreamStats {
   meshMs: number;
 }
 
-// A chunk at offset (dx, dz) from the player's chunk is drawn inside a circle of radius r + 0.5 and hidden
-// again only past r + 1.5, so walking along a border does not make chunks flicker in and out.
-const inView = (dx: number, dz: number, r: number): boolean => dx * dx + dz * dz <= r * r + r;
-const shown = (dx: number, dz: number, r: number): boolean => dx * dx + dz * dz <= (r + 1.5) * (r + 1.5);
-/** Voxels are needed for every chunk in view and for its 8 neighbours. */
-const inData = (dx: number, dz: number, r: number): boolean => inView(Math.max(Math.abs(dx) - 1, 0), Math.max(Math.abs(dz) - 1, 0), r);
-
-interface Plan {
-  /** (dx, dz) pairs of every chunk whose voxels are needed, nearest first. */
-  offsets: Int16Array;
-  /** 1 where that chunk is also in view (meshed). */
-  view: Uint8Array;
-}
-
-function planFor(r: number): Plan {
-  const list: [number, number, number][] = [];
-  for (let dz = -r - 1; dz <= r + 1; dz++) {
-    for (let dx = -r - 1; dx <= r + 1; dx++) if (inData(dx, dz, r)) list.push([dx, dz, dx * dx + dz * dz]);
-  }
-  list.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
-  const offsets = new Int16Array(list.length * 2);
-  const view = new Uint8Array(list.length);
-  list.forEach(([dx, dz], i) => {
-    offsets[i * 2] = dx;
-    offsets[i * 2 + 1] = dz;
-    view[i] = inView(dx, dz, r) ? 1 : 0;
-  });
-  return { offsets, view };
-}
-
 const average = (prev: number, next: number): number => (prev === 0 ? next : prev * 0.9 + next * 0.1);
 
 export class ChunkStreamer {
@@ -76,7 +47,7 @@ export class ChunkStreamer {
   private cz = 0;
   /** Render distance of the current plan; -1 until the first update. */
   private r = -1;
-  private plan: Plan = { offsets: new Int16Array(0), view: new Uint8Array(0) };
+  private plan: ViewPlan = { offsets: new Int16Array(0), view: new Uint8Array(0) };
   private readonly generating = new Set<number>();
   /** Chunks whose generation threw: not retried this session, so a bug cannot spin forever. */
   private readonly failed = new Set<number>();
@@ -333,6 +304,7 @@ export class ChunkStreamer {
         if (!result) return;
         this.generateMs = average(this.generateMs, result.ms);
         if (!this.host.chunks.has(key) && this.keepsData(cx, cz, key, UNLOAD_MARGIN)) this.add(cx, cz, result.voxels);
+        this.refill();
       },
       (err: Error) => {
         if (!this.alive) return;
@@ -362,9 +334,11 @@ export class ChunkStreamer {
         }
         this.meshMs = average(this.meshMs, result.ms);
         // A newer mesh (a synchronous one after an edit) already replaced this one.
-        if (chunk.epoch !== epoch) return;
-        if (!this.wantsMesh(chunk)) chunk.dirty = true;
-        else this.publish(chunk, result);
+        if (chunk.epoch === epoch) {
+          if (!this.wantsMesh(chunk)) chunk.dirty = true;
+          else this.publish(chunk, result);
+        }
+        this.refill();
       },
       (err: Error) => {
         this.meshJobs--;
@@ -372,6 +346,11 @@ export class ChunkStreamer {
         console.error(`[world] meshing chunk ${chunk.cx},${chunk.cz} failed`, err);
       },
     );
+  }
+
+  /** Hands the pool more work as soon as a job finishes, so workers do not wait for the next frame. */
+  private refill(): void {
+    if (!this.idle && this.r > 0) this.schedule();
   }
 
   private publish(chunk: Chunk, result: MeshResult): void {

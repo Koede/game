@@ -173,6 +173,11 @@ export class World implements IWorld {
     return this.streamer.isReady(chunkCoord(Math.floor(x)), chunkCoord(Math.floor(z)), Math.max(0, Math.floor(radiusChunks)));
   }
 
+  /** The live voxel array of a loaded chunk (index with voxelIndex), or null. Read it; change voxels with setVoxel. */
+  chunkVoxels(cx: number, cz: number): Uint16Array | null {
+    return this.chunks.get(chunkKey(cx, cz))?.voxels ?? null;
+  }
+
   /** Where a new player starts: feet block of a dry woodland spot (stand at x + 0.5, z + 0.5). */
   spawnPoint(): { x: number; y: number; z: number } {
     return findSpawn(this.currentSeed);
