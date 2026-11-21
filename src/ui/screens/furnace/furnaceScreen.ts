@@ -3,7 +3,7 @@
  * is open; tabs SMELT, FORGE, GRID and LOG; the player's backpack as a side column (wide) or drawer (phones).
  */
 import { AGES } from '../../../core/registry';
-import { HOTBAR_SIZE, INVENTORY_SIZE } from '../../../core/constants';
+import { INVENTORY_SIZE } from '../../../core/constants';
 import type { GameScreen, ScreenContext } from '../../gameUI';
 import { h, setAttr } from '../../kit/dom';
 import { heatColor } from '../../kit/format';
@@ -131,7 +131,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
       ev.preventDefault();
       bag.setOpen(!bag.isOpen);
     } else if (ev.code === 'Escape' && upgrade.open) {
-      ev.stopPropagation();
+      ev.stopImmediatePropagation();
       ev.preventDefault();
       upgrade.setOpen(false);
     }
@@ -153,6 +153,3 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     },
   };
 }
-
-/** Hotbar slots come first when something leaves a station for the bag (exported for tests and machine screens). */
-export const BAG_HOTBAR_FIRST = { start: 0, end: HOTBAR_SIZE };

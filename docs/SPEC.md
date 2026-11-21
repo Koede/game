@@ -746,3 +746,7 @@ Check with: npx tsc --noEmit -p . 2>&1 | grep -E "^src/player/"   and   npx vite
   saved; they restart after loading.
 - sim: an idle steam engine still draws furnace heat in proportion to its available output; the player can switch
   it off. targetC in the furnace view is an estimate.
+- hud: wire releasePointer -> InputManager.releasePointerCapture; intent.inventory/log/pause -> 'ui:open';
+  tee IView.setTarget to GameUI.setTarget; GameUI.setIconProvider(createIconProvider()); call ui.frame(dt) every
+  frame. Simulation already satisfies the HUD's UISimQuery. Full wiring notes in docs/api/hud.md.
+- hud: touch has no item tooltip (long-press picks half); item descriptions show on desktop hover only.
