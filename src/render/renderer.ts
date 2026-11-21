@@ -59,7 +59,11 @@ export class Renderer implements IView {
   contextLost = false;
 
   private readonly atlas: Atlas;
-  private readonly uniforms: WorldUniforms;
+  /**
+   * The world's shared lighting / fog / time uniforms (updated in render()). Public so extra scene objects
+   * (src/render/mobs) can be lit and fogged exactly like the terrain by sharing them.
+   */
+  readonly uniforms: WorldUniforms;
   private readonly materials: ChunkMaterials;
   private readonly chunks: ChunkMeshes;
   private readonly sky = new Sky();
