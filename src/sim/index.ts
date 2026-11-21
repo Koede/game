@@ -14,3 +14,14 @@ export { HISTORY_SECONDS } from './power';
 export { smeltRecipeFor } from './furnace';
 export { machineRecipeFor, windAt } from './machines';
 export { SimWeather, type SimBiomeLookup } from './weather';
+export type { FluidStack } from './entities';
+export { isPlant } from './cropRules';
+// Multiblock hearths (spec 17) and pipe endpoints (spec 16.2): docs/api/hearth.md.
+export type { HearthBrief } from './views';
+export type { HearthProblem, HearthProblemCode } from './hearthScan';
+export { hearthName } from './hearthScan';
+export type { FurnaceStats, HearthSummary } from './hearthStats';
+export { buildHint } from './hearthStats';
+export type { GhostCell, GhostRole, GhostState, MaterialRow, StructureCheck, StructureTarget, StructureView, TierChoice } from './hearthView';
+export { TIER_CHOICES } from './hearthView';
+export type { FluidEndpoint, ItemEndpoint } from './endpoints';

@@ -1,7 +1,13 @@
 # src/sim - public API
 
 The furnace, power networks, every machine, fission and the Starhearth (spec 2.4, 2.5, 3.1-3.3, brief 7.1).
-DOM-free, runs in node. Import from `src/sim` (index). 6 test files, 64 tests: `npx vitest run src/sim`.
+DOM-free, runs in node. Import from `src/sim` (index). `npx vitest run src/sim`.
+
+**Multiblock hearths (spec 17), item/fluid endpoints, fuel returns, berry bushes: see `docs/api/hearth.md`.** In short:
+every furnace is a hearth controller and runs at its EFFECTIVE tier `min(tier, formed hearth's tier)` (tier 1 numbers
+standing alone; `FurnaceEntity.effTier`, `hearth`); upgrades also need the next tier's hearth formed; crucibles beyond
+the hearth's count lock; heat engines draw heat for the power actually used. Where this file says "tier" for
+temperatures, crucibles, speed, electric heat or recipe locks, read "effective tier".
 
 All numbers come from the registry (`furnaceTier()`, `machine(kind).params`, recipes, `cableRatingW`) and
 `src/core/constants.ts`. All machine state lives in plain fields on the block entities the world stores and
@@ -237,9 +243,8 @@ the bore rig). Nothing is emitted per tick.
   beside a machine 0.02-0.04 ms; a tick with a cable edit (full network rebuild) 0.7-1.1 ms. Asserts < 1 ms per tick.
 
 ## Deviations from the spec, and decisions
-- Heat engines (thermopile 4x, steam engine 3x) draw heat in proportion to their AVAILABLE output, not to what the
-  network uses: an idle steam engine still cools its furnace. Switch it off to get the heat back (the playthrough
-  does this to reach 1200 C).
+- Heat engines (thermopile 4x, steam engine 3x) draw heat in proportion to the power the network actually USES
+  (`outW`); an engine on a grid with no load takes no heat. The furnace's thermostat counts last tick's draw.
 - Brown-out = f < 0.999 with demand; alerts are announced only after the new state held for 10 ticks (0.5 s), so
   a machine starting up does not flicker alerts.
 - Starhearth (tier 5) before ignition behaves like tier 4 with its own speed (3.0) and warmth; ignition demand is

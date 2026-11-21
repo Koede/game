@@ -108,7 +108,6 @@ changes the rate of a crop that is already awake (lit), so no wake-up logic is n
 ## Known gaps
 
 - Rain hydration is left to the weather engineer (see above).
-- `berry_bush` (spec 14, kind `berry_bush`, role `bush`, regrowS 300) was being added to content by another engineer
-  while this was written; the simulation still treats it as an inert machine. Its regrowth (swap
-  `berry_bush_bare` -> `berry_bush` after 300 s) would fit `CropField` with a one-stage family; not done here.
+- (Resolved) `berry_bush` regrowth now lives in `CropField` as a one-stage wild family - see `docs/api/hearth.md`
+  ("Other changes"): `StageInfo.stageS` / `wild`, `isPlant`, `isPlantBlock`.
 - `src/sim/simulation.ts` is now ~420 lines (it was 378 before; aim 350).
