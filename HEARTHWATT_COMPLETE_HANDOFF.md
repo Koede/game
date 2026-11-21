@@ -1,8 +1,8 @@
 # Hearthwatt - complete handoff bundle
 
-One file with everything needed to continue the game in a fresh session. Generated 2026-11-21T19:02Z from commit 32add35 on branch ccr-3c8b169f-e78nk2 of https://github.com/Koede/game.
-Order: 0 session context (state, open decisions, follow-ups) - 1 how to start locally (setup, phases, first message) - 2 current status - 3 whole-game progression - 4 Ember plan - 5 Brewing plan - 6 Steam plan - 7 Bronze plan - 8 full design spec and build rules - 9 README.
-Per-module API notes live in the repository under docs/api/*.md and are NOT included here (read them as you reach each module).
+One file with everything needed to continue the game in a fresh session. Generated 2026-11-21T20:47Z from commit 62c7594 on branch ccr-3c8b169f-e78nk2 of https://github.com/Koede/game.
+Order: 0 session context (state, open decisions, follow-ups) - 1 how to start locally (setup, phases, first message) - 2 current status - 3 whole-game progression - 4 Ember plan - 5 Brewing plan - 6 Steam plan - 7 Bronze plan - 8 Distillery plan and the API notes of the newest features - 9 full design spec and build rules - 10 README.
+The other per-module API notes live in the repository under docs/api/*.md and are NOT included here (read them as you reach each module).
 
 ## Contents
 1. `docs/SESSION_CONTEXT.md`
@@ -13,8 +13,15 @@ Per-module API notes live in the repository under docs/api/*.md and are NOT incl
 6. `docs/BREWING_PLAN.md`
 7. `docs/STEAM_PLAN.md`
 8. `docs/BRONZE_PLAN.md`
-9. `docs/SPEC.md`
-10. `README.md`
+9. `docs/DISTILLERY_PLAN.md`
+10. `docs/api/sugar.md`
+11. `docs/api/dev-mode.md`
+12. `docs/api/distillery.md`
+13. `docs/api/ground-items.md`
+14. `docs/api/chainsaw.md`
+15. `docs/api/handwork-front.md`
+16. `docs/SPEC.md`
+17. `README.md`
 
 
 ---
@@ -164,6 +171,66 @@ water flows and buckets take source blocks only; workbench also offers every han
 - playthrough.test.ts only unit failure (Star Age "banks charged").
 - Hearth Structure tab shift buttons / "In the way" list: no tests, not seen in browser.
 - Chromium OOM-killed at load ~20+ (environment).
+
+## 9. Local session on the owner's machine (2026-11-21): what happened since the cloud handoff
+
+Where: the repo now lives at `E:\Projects\game` (a DiskOrganizer script moved it from `C:\Users\admin\game`; that path is
+now a junction to E:). One branch only, `ccr-3c8b169f-e78nk2`; at the time of writing it is ~30 commits AHEAD of origin
+and nothing is pushed. There is NO `main` branch; `.github/workflows/pages.yml` deploys on pushes to `main`, so creating
+it publishes the game page: owner has not decided (ask first). All work was done by several Claude sessions sharing ONE
+checkout (no worktrees): only one session should run `npm run build`/`npm run e2e` at a time (they share `dist/`).
+
+Machine: Windows 11, Ryzen 5 5600X (12 threads), 16 GB RAM, RTX 3060 12 GB, Node 24, Python 3.11 (+torch CUDA, numba).
+Run everything locally; the owner is usage-limited and wants output trimmed and no sub-agent fan-out.
+
+### Tooling added
+- `HW_GPU=1` (scripts/lib/browser.mjs) makes the e2e Chromium render on the real GPU (ANGLE/D3D11) instead of SwiftShader.
+- `HW_DIAG=1` writes `test-results/diag/*.jsonl` (console, HTTP >= 400 with URL, step timings, state snapshots, screenshot
+  per failed step, driver/mining/placement events); read it with `node scripts/lib/diag.mjs summary`.
+- In the game: `?diag=1` (or `window.__HW_DIAG__ = true`, or `localStorage.hwDiag='1'`) turns on `window.__hwDiag`, a ring
+  buffer of save/load/phase/frame events (`src/app/diag.ts`). Off by default, near-zero cost.
+- Playing it: `node scripts/build.mjs --serve` serves http://localhost:5173 on all interfaces (phone: http://<LAN IP>:5173).
+  Pointer lock works in a normal browser window; it is REFUSED (WrongDocumentError) inside automation-driven windows and
+  the Claude desktop browser pane (the game falls back to drag-to-look). Test lock in the owner's real browser only.
+
+### Features landed (each has docs/api/<name>.md and tests)
+- Handwork front end (Use on a station calls `sim.stroke`; chopping block, quern, anvil, rack, trough, loom, clay table,
+  mortar, alloy pot, casting) - upstream's `src/player/handTools.ts` is canonical; planks now come from the Chopping Block.
+- Ground items (`docs/api/ground-items.md`): drops are world entities that rotate and are picked up by proximity; Q drops
+  (Shift+Q the stack); Hand Vacuum Pump (Bronze-by-design item, pulls items from 9 blocks) built on a small
+  `COLLECTORS` mechanism so the planned Electric-age electromagnet is one more definition.
+- Leaf decay (leaves cut off from every log fall away after a random delay), Chainsaw (`docs/api/chainsaw.md`, fells a
+  trunk, fuel tank in durability, Current Age), Tractor (`src/vehicles`, tiller and harvester attachments, F to work).
+- Resin, sugar and sweet baking (`docs/api/sugar.md`): glass beakers; Use a beaker on a pine log taps sap; boil to
+  resin, distil with water to sugar (furnace forge rows returning beaker/bucket); cookies, bun, cake. Eating sugar starts
+  **Sugar Rush**: +12% speed while the Well-Fed timer burns 2.5x faster (hunger itself unchanged).
+- Dev Mode (`docs/api/dev-mode.md`): Survival | Dev choice on the title screen; creative item menu, no damage/hunger/wear,
+  mode stored in the save. Old saves load as survival.
+- Glass distillery first slice (`docs/DISTILLERY_PLAN.md` section 15, `docs/api/distillery.md`): mixture model, modular
+  chem blocks, rig scan, stills/columns, fermenting, liquid animation, gasoline/diesel fuel for chainsaw and tractor.
+
+### State at the time of writing
+- `npx tsc --noEmit` clean; `npx vitest run`: 1865 passed / 0 failed (158 files) - verified by the handing-off session.
+- E2E (`HW_GPU=1 npm run e2e`): the e2e session reported desktop, phone, features, handwork (all stations), tech, ember,
+  ground, vehicles, dev and distill passing; the full chain was NOT re-run end to end by the handing-off session after the
+  last merges. Run it before trusting it. The sugar chain, tractor, chainsaw and distillery have not been played by hand.
+
+### Known gaps / next steps (in order)
+1. Re-run `HW_GPU=1 HW_DIAG=1 npm run e2e` and the browser smoke test; then decide on pushing / `main` (see above).
+2. Distillery left-list: rig screen + ghost previews, ground burner, reflux head, lubricant and bitumen/asphalt, potions,
+   tank support for the new fluids, shaft hooks (see DISTILLERY_PLAN section 15).
+3. Casting Bench block is still inert (pouring happens at the furnace); sap-tap state is not saved and has no animation.
+4. Roadmap unchanged: six-age refactor (BRONZE_PLAN W0: commit an old-save fixture FIRST), Steam first half, Bronze second
+   half, review pass, republish game and Codex.
+5. Owner decisions still open: Star hearth 93 casings; make `six_cups` an optional side goal; delete the cup/cone forge
+   recipes in favour of the Clay Table; push to GitHub / create `main`.
+
+### Lessons from running several sessions in parallel
+- Give each session disjoint files, tell it to re-read shared files before editing and to commit only its own paths;
+  commit often so a merge is never under uncommitted edits. Pause every session before merging upstream (a merge with
+  3 sessions editing was resolved by ONE session that knew both sides; upstream versions were canonical where they overlapped).
+- E2E tests that hold items or build things drift whenever content changes: fix stale scripts, but a failing step can be a
+  real game bug (the handwork front end was missing entirely and only the e2e showed it).
 
 <!-- ======================== END docs/SESSION_CONTEXT.md ======================== -->
 
@@ -673,6 +740,10 @@ block from the Bronze Copper Kettle (steam).
 
 Still open:
 1. Star hearth: keep 93 casings or reduce?
+
+Note on items in the world: broken blocks, animals and spills drop as ground items that fly to the player in reach; the Bronze Age
+Hand Vacuum Pump pulls them from nine blocks, and the Current Age Electromagnet is planned to do the same electrically
+(`docs/api/ground-items.md`).
 
 <!-- ======================== END docs/PROGRESSION.md ======================== -->
 
@@ -1701,6 +1772,9 @@ seized: refRpm = 0 and a 0.3 s decaying shake offset = sin(t * 60) * 0.02 * e^(-
   for rotors); it also accepts the same two use rows as a small extra (section 2). Only the Copper Kettle makes
   steam power.
 
+> **Ground items (built):** drops, the drop key and the Hand Vacuum Pump (a Bronze Age handheld) are in `docs/api/ground-items.md`;
+> the pump has no shaft or steam input (it wears like a tool). A steam-fed variant could use a `PowerSource` of kind `'steam'`.
+
 <!-- ======================== END docs/STEAM_PLAN.md ======================== -->
 
 
@@ -2307,7 +2381,971 @@ dryFire(b):
 blockChanged(x,y,z): for v whose box grown by 1 contains (x,y,z): v.dirty = true
 ```
 
+> **Ground items (built):** dropped items are world entities (`docs/api/ground-items.md`). The Bronze Age also gets a handheld
+> **Hand Vacuum Pump** (`hand_vacuum`, wear-powered, radius 9) that pulls ground items to the player. It is not the chute machine
+> `vacuum_pump` below. Until W0 it is made at the tier-1 furnace; after W0 move its recipe to `forge(2, ...)` and give it `age: 1`.
+> The Current Age Electromagnet is the same mechanism with an electric power source (`COLLECTORS` in `src/game/collectors.ts`).
+
 <!-- ======================== END docs/BRONZE_PLAN.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/DISTILLERY_PLAN.md ======================= -->
+# FILE: docs/DISTILLERY_PLAN.md
+
+# Distillery plan - modular glass chemistry (design, crafting tree, pseudocode, work list)
+
+Status: **plan only, no code yet** (written 2026-11-21). Owner's brief: a modular multiblock of interchangeable glass
+chemistry blocks that runs liquid crafting jobs, with liquids visibly dripping, boiling and changing colour, and a
+deep product tree: potions, alcohols, syrups, lubricants, and crude oil refined to gasoline, kerosene, diesel,
+bitumen and asphalt. Blocks and textures must change in the world when a step completes.
+
+Names marked (verify) were not checked against the code and must be confirmed before use.
+
+## 0. The five ideas that make this tractable
+
+1. **Mixtures, not recipes, for separation.** Every liquid inside a rig is a vector of components
+   (`{ ethanol: 120, water: 850, fusel: 30 }` litres). Each component has a boiling point. Distilling is then one
+   piece of physics for everything: wash to spirit, sap to syrup, crude to fractions, residue to lubricant are the
+   same 40 lines of code with different inputs. Conservation of volume is true by construction (section 5).
+2. **Geometry is the wiring.** Vapour goes up, liquid goes down or sideways, never up. The player never configures
+   a port: where a block sits says what it does. This removes the N x N interaction table (section 3).
+3. **Capabilities, not layouts.** Modules contribute capabilities to the vessel they touch (heated, sealed,
+   cooled, stirred, vacuum, catalyst). A reaction asks for capabilities and a temperature window; it never names a
+   layout. 12 block kinds give dozens of distinct rigs with no per-rig code (section 4).
+4. **Round-down naming at the boundary.** Pipes, tanks and containers carry one named fluid. A mixture leaving a rig
+   is named by its largest component and its purity grade, rounded down; a named fluid entering a rig expands to
+   that grade's minimum composition. Volume is exact, purity can only be lost at a boundary, never invented. This
+   is what makes re-input chains (distil twice) meaningful and safe (section 5.4).
+5. **Executable process cards.** Each Codex process carries a rig blueprint string. The same string draws the Codex
+   diagram, feeds the ghost preview, is built and run by a unit test, and gives the progression solver its cost.
+   The documentation cannot drift from the simulation (section 7).
+
+## 1. Scanner choice: a module graph, reusing the hearth plumbing
+
+The hearth scan (`src/sim/hearthScan.ts`) validates a hollow cuboid. A still is a free-form tree of touching
+blocks, so it gets its own **flood-fill module graph** (`src/sim/distillScan.ts`). Reused as is, not copied:
+
+| reused | from | for |
+|---|---|---|
+| problem shape `{ code, text, cells }`, cap of 8, tap-to-pulse highlight | `hearthScan.ts`, `HEARTH_MAX_PROBLEMS`, `HEARTH_HIGHLIGHT_S` | STRUCTURE tab of the rig |
+| when to rescan (dirty on `block:changed` in range, 1 s while near or screen open) | `hearth.ts`, `HEARTH_RESCAN_S/RANGE` | `DistillSet` |
+| `structureView` + ghost preview pipeline | `hearthView.ts`, `src/render/tech/ghosts.ts` | blueprint ghosts |
+| proxy map "this block stands for that controller" | `shellOwner` in `hearth.ts` | chem ports reaching module buffers |
+| `FluidEndpoint` / `ItemEndpoint` | `src/sim/endpoints.ts` | chem ports on pipes |
+| heat draw via `furnace.extractW`, `furnaceBelow` | `brewing.ts` `BrewHost` | the still base on a furnace top |
+| entities as plain JSON, never machine nodes | `brewing.ts` | every chem module |
+| instanced boxes | `src/render/tech/boxBatch.ts` | glassware and liquids |
+
+## 2. Blocks (all in `src/content/blocksDistill.ts`, appended last so voxel ids never move)
+
+Look: each module is a translucent cube, a brass-framed glass case (existing translucent batch, no mesher change).
+The glassware inside, the liquid, bubbles and drips are drawn by `src/render/distill/` (section 8).
+
+| key | role | buffer | notes |
+|---|---|---|---|
+| `still_base` | heat adapter | - | on a furnace top (`FURNACE_TOPS`) it takes the furnace temperature; on the ground it burns a fuel item itself (charcoal 250 C, ethanol beaker 300 C) |
+| `boiling_flask` | boiler vessel | 4000 L | must stand on a `still_base`. Borosilicate limit 450 C |
+| `reaction_vessel` | reactor | 4000 L + 4 item slots | reactions happen here; heated only if on a `still_base` |
+| `column_segment` | vapour riser | 200 L holdup | stacks on a flask, up to 8. Each is one theoretical plate |
+| `reflux_head` | top of a column | - | wrench cycles return 0 / 50 / 75 %: more purity, less flow |
+| `condenser_coil` | vapour to liquid | 100 L | beside a column segment = side draw (a cut); on top of the stack = head |
+| `cooling_jacket` | modifier | 1000 L water | touching a condenser: head 30 C instead of 60 C, x3 rate. Touching a vessel: capability `cooled` |
+| `receiver` | collection vessel | 2000 L | where liquid ends up; beakers, canisters and ports take from it |
+| `glass_tube` | liquid line | 50 L | carries liquid sideways and down, never up; shows the stream's colour |
+| `filter_bed` | inline filter | 500 L + 1 slot | liquid in from above, out below; uses up a medium (charcoal, sand, clay) |
+| `catalyst_bed` | modifier in the vapour path | 1 slot | sits in the column stack like a segment; holds a catalyst with durability |
+| `airlock_cap` | cap | - | on a vessel: capability `sealed` (fermenting) |
+| `vacuum_cap` | cap | - | on a stack or vessel: pressure 0.1 bar, boiling points x0.7. Needs power or shaft rpm |
+| `pressure_cap` | cap | - | pressure 5 bar, boiling points x1.3, capability `pressure` |
+| `chem_port` | fluid endpoint | proxy | touching a flask or vessel it is an inlet, touching a receiver an outlet. One block, direction from position |
+| `chem_hopper` | item endpoint | proxy | item pipes into a vessel's or bed's slots |
+
+### 2.1 Step-completion states in the world (owner's requirement)
+
+Every module shows its state on the block itself, readable from across the room with no screen open. The voxel has
+one free state bit (ACTIVE), so each stateful module is **two block variants x the active bit = four states**,
+exactly the cup-stage pattern of brewing (`CUP_BLOCK`, block swaps done by the sim):
+
+| state | block | active bit | frame lamp on the tile | glass |
+|---|---|---|---|---|
+| idle / empty | `X` | 0 | dark | clear |
+| working | `X` | 1 | amber, flickers (`_on` twin) | fogged at the top, lit by `lightActive` |
+| step complete | `X_done` | 0 | green | clear, liquid settled |
+| blocked | `X_done` | 1 | red | - |
+
+- Stateful modules: `boiling_flask`, `reaction_vessel`, `receiver`, `filter_bed`, `catalyst_bed`, `still_base`
+  (base: cold / firing only). The `_done` variants are `item: false` and drop the plain block.
+- What "complete" means per module: flask - the charge is spent (nothing left that boils at this temperature);
+  vessel - the reaction ran to its end; receiver - full, or its source finished; filter and catalyst beds -
+  medium spent (shown red: blocked, needs a new one).
+- **Extra visible changes that cost no textures**: the fermenter's liquid goes cloudy then clears; a spent filter
+  medium is drawn dark; a column draws one colour band per cut actually flowing; a `still_base` with the whole rig
+  finished gets a small green flag drawn by the renderer; each change of state emits `distill:step`
+  `{ x, y, z, state, process? }` with a `sfx` (glass chime on complete, dull clunk on blocked) and one toast per
+  finished run ("Spirit run finished - 1.4 buckets in the receiver").
+- Texture budget: 2 shared frame tiles (`chem_case`, `chem_case_top`) x 4 lamp states = 8 tiles, plus one emblem
+  tile per module kind composited into the frame at paint time (16 kinds x at most 4 states, painted from one
+  function, so no hand-drawn duplicates). The atlas already splits past 256 layers; raise the content-test cap.
+- Objectives hook on `distill:step` with `state: 'done'` and the process key ("Run your first spirit").
+
+## 3. How blocks connect: the adjacency rules (the whole interaction table)
+
+Each kind declares what it does through each face class. `U` up, `D` down, `H` any horizontal face.
+
+| kind | vapour in | vapour out | liquid in | liquid out | attaches as modifier to |
+|---|---|---|---|---|---|
+| still_base | - | - | - | - | vessel on its U (gives heat) |
+| boiling_flask | - | U | U, H (ports, tubes) | D-side drain cock (H tube at the base) | - |
+| reaction_vessel | - | U (only if heated) | U, H | H, D | - |
+| column_segment | D | U, H (to a condenser) | U (reflux falling back) | D | - |
+| catalyst_bed | D | U | - | - | the stack it is in |
+| reflux_head | D | U, H | - | D | the stack below |
+| condenser_coil | D or H | - | - | D, H | - |
+| receiver | - | - | U, H | H, D | - |
+| glass_tube | - | - | U, H | H, D | - |
+| filter_bed | - | - | U | D | - |
+| caps | - | - | - | - | the block on their D |
+| cooling_jacket | - | - | - | - | every condenser or vessel on its H, U, D |
+| chem_port / chem_hopper | - | - | - | - | the first vessel-like block they touch |
+
+Edges are derived, never stored:
+
+```
+vapourEdge(a -> b)  iff  a.vapourOut has the face towards b  and  b.vapourIn has the face towards a
+liquidEdge(a -> b)  iff  a.liquidOut has the face towards b  and  b.liquidIn has the face towards a
+                         and b is not above a
+```
+
+Because liquid never goes up, **the liquid graph has no cycles inside one rig except through a vapour edge**
+(boil up, drip back: that is reflux, and it is legal). Lifting liquid needs a `chem_port`, a normal fluid pipe and
+a pump, so every long re-input loop passes through the named-fluid boundary of idea 4. A cascade down a hillside
+needs no pump at all: receiver, tube, next flask one block lower.
+
+Tie-breaks that keep it deterministic: several liquid targets split evenly (fixed order: D first, then N, E, S, W);
+a condenser touching two columns serves the lower-indexed one and reports a problem.
+
+## 4. Capabilities and the rigs they make
+
+```
+caps(vessel) = { heated      if on a still_base that is firing
+                 sealed      if airlock_cap on top
+                 vacuum      if vacuum_cap on top of it or of its stack (and powered)
+                 pressure    if pressure_cap likewise
+                 cooled      if a cooling_jacket with water touches it
+                 stirred     if a mech shaft >= 16 rpm touches it (STEAM_PLAN mech graph; later)
+                 catalyst:k  if a catalyst_bed holding k is in its stack
+                 plates:n    column segments above it x reflux factor }
+```
+
+| rig (smallest form) | blocks | capabilities | what it does |
+|---|---|---|---|
+| Pot still | base, flask, condenser on top, receiver beside | heated | one-pass distilling, evaporating |
+| Fractionating column | base, flask, n segments, side condensers, head condenser, receivers | heated, plates:n | n+1 cuts in one pass |
+| Reflux still | pot still + segments + reflux_head | heated, plates x(1+2r) | high purity (fuel ethanol) |
+| Fermenter | vessel + airlock_cap | sealed | wash, wine, must (no heat) |
+| Heated reactor | base, vessel | heated | infusions, asphalt mix, soap, blending |
+| Crystalliser | vessel + cooling_jacket | cooled | syrup to sugar + molasses |
+| Vacuum still | any still + vacuum_cap | heated, vacuum | gentle concentration (potions), residue to lube base |
+| Cracker | column with catalyst_bed + pressure_cap | heated, pressure, catalyst | heavy oil to gasoline |
+| Polishing line | receiver, filter_bed, receiver | - | lube base to lubricant, cloudy to clear |
+
+Everything composes: a fermenter draining through a filter into a flask with a 3-segment column is one rig that
+turns berries into brandy unattended. No code knows that rig exists.
+
+## 5. The mixture model (`src/core/chem.ts`, pure, DOM-free)
+
+### 5.1 Components
+
+| component | bp C | colour | viscosity | notes |
+|---|---|---|---|---|
+| methanol ("heads") | 65 | 0xdfe8ee | 0.6 | comes first; makes Rough Spirit if kept |
+| ethanol | 78 | 0xf1efe2 | 1.0 | |
+| gasoline | 90 | 0xf2d24a | 0.5 | |
+| water | 100 | 0x3a86b4 | 1.0 | |
+| fusel ("tails") | 130 | 0xb9a36a | 2.0 | |
+| turpentine | 160 | 0xcfe0a6 | 1.2 | from pine sap |
+| kerosene | 190 | 0x9fc4e8 | 1.5 | |
+| diesel | 280 | 0xc98f2e | 3.0 | |
+| lube_base | 370 | 0x7a5a1e | 12 | |
+| bitumen | 520 | 0x15120f | 200 | never boils in glass |
+| sugars, rosin, essence_*, solids | none | per key | 30 | non-volatile: stay in the flask |
+
+Feed compositions (`FluidSpec.mix`, fractions sum to 1, checked by validation):
+
+```
+crude_oil   gasoline .22  kerosene .13  diesel .30  lube_base .12  bitumen .23
+pine_sap    water .60  sugars .20  turpentine .10  rosin .10
+sugar_wash  water .84  ethanol .12  methanol .01  fusel .03
+grain_wash  water .86  ethanol .10  methanol .01  fusel .03
+berry_must  water .85  ethanol .11  methanol .01  fusel .02  essence_berry .01
+residue     lube_base .34  bitumen .66            (what an atmospheric crude run leaves)
+```
+
+### 5.2 One step of a still (runs at 4 Hz, not every tick)
+
+```
+stepStill(rig, flask, dt):
+  T  = flask.tempC                      # first-order lag towards the base's temperature
+  pf = vacuum ? 0.7 : pressure ? 1.3 : 1
+  n  = 1 + rig.plates * (1 + 2 * rig.refluxRatio)        # enrichment exponent
+  for each component i in flask.mix:
+      bp   = bpOf(i) * pf
+      gate = clamp((T - bp + 40) / 40, 0, 1)             # starts 40 C under its boiling point
+      w[i] = flask.mix[i] * gate * 2 ** ((100 - bp) / 10 * n)      # relative volatility ^ n
+  if sum(w) == 0: flask.state = DONE; return             # spent charge -> block swaps to flask_done
+  V = min(heatW / LATENT_J_PER_L,                        # heat limited
+          sum(condenser rates) * (1 - rig.refluxRatio),  # condenser limited
+          flask.litres / dt)
+  for each component i:
+      dL   = min(flask.mix[i], V * dt * w[i] / sum(w))
+      draw = drawFor(rig, bp_i, T)                       # section 5.3
+      took = draw.receiverChain.accept(i, dL)            # may be less: receiver full
+      flask.mix[i] -= took                               # ONLY ever moves what was accepted
+  furnace.extractW += V * LATENT_J_PER_L + lossW
+```
+
+The single `took` line is the conservation proof: litres leave the flask only as litres entering exactly one
+buffer. Unit test: total litres over all modules is constant to 1e-6 across 10 000 steps of random rigs.
+
+Tuning check done by hand: `sugar_wash` in a pot still (n = 1) gives 38 % ethanol (Low Wines); that run again gives
+74 % (Spirit); three plates in one pass give 93 % (Fuel Ethanol). Plates and second passes are both real choices.
+
+### 5.3 Where each component leaves a column
+
+```
+trayT(h) = T_flask - (T_flask - T_head) * h / H        # H = stack height, T_head 60 C (air) or 30 C (jacket)
+drawFor(rig, bp, T):
+  for draw in rig.sideDraws ordered bottom to top:     # a condenser beside segment h
+      if bp >= trayT(draw.h): return draw              # it condenses here: this is its cut
+  return rig.head                                      # light ends reach the top
+  # bp > T + 40 never left the flask: it is the residue, drained from the flask's cock
+smear: a share 1 / (2 + segments between this draw and the next) of each cut goes to the neighbouring draw
+```
+
+Worked example the slice must reproduce: crude at 350 C, 3 segments, 2 side draws, jacketed head:
+trays at 243 / 137 / 30 C. Diesel (280) condenses at draw 1, kerosene (190) at draw 2, gasoline (90) at the head,
+and `residue` (lube base + bitumen) stays. A 2-segment column merges diesel and kerosene into one worse cut: the
+player sees why height matters. Stack height = number of cuts.
+
+### 5.4 The boundary: naming a mixture and expanding a name
+
+```
+nameOf(mix):                                   # leaving a rig: receiver -> beaker, port, pipe
+  major = component with the largest share s
+  return highest grade g of major with g.minPurity <= s, else 'slop'
+expand(fluid, L):                              # entering a rig
+  g = gradeOf(fluid);  return { g.major: L * g.minPurity, ...g.rest scaled to L * (1 - g.minPurity) }
+```
+
+Grades: ethanol - `low_wines` 0.30, `spirit` 0.65, `fuel_ethanol` 0.90. Diesel - `diesel` 0.80. Gasoline -
+`gasoline` 0.80. Kerosene - `kerosene` 0.75. Lube - `lube_base` 0.70. Sugars - `syrup` 0.55. Anything else is
+`slop`, which can be poured back into a flask (it expands to a stored fixed mix: cheap, lossy, never a dead end).
+Because expansion uses the minimum purity, storing a liquid can only lose quality: no exploit by round-tripping.
+
+## 6. Reactions (`src/content/recipesDistill.ts`: `REACTION_SPECS`)
+
+```ts
+interface ReactionSpec {
+  key: string; name: string;
+  in: Partial<Record<Component, number>>;      // parts by volume
+  items?: ItemAmount[];                        // consumed from the vessel's slots per batchL
+  out: Partial<Record<Component, number>>;     // parts; sum(out) == sum(in) unless `gasLoss` is declared
+  gives?: ItemAmount[];                        // solids handed out when done (sugar, rosin, asphalt)
+  needs: Capability[];                         // sealed, heated, cooled, vacuum, pressure, stirred, catalyst:k
+  tempC: [number, number];                     // window; outside it the reaction pauses, above `ruinC` it spoils
+  ruinC?: number;  batchL: number;  seconds: number;  age: AgeKey;
+}
+stepVessel(v, dt):
+  r = first reaction whose inputs, items, caps and window all hold      # fixed order, so deterministic
+  if !r: v.state = (v.lastDone ? DONE : IDLE); return
+  frac = min(dt / r.seconds, limiting reagent share)
+  move frac * batchL from the `in` components to the `out` components     # same litres out as in
+  when a whole batch completes: consume items, push `gives`, emit distill:step done, swap block to vessel_done
+```
+
+## 7. Process cards (`PROCESS_SPECS`) - Codex, ghosts, tests and solver from one string
+
+```ts
+{ key: 'spirit', name: 'Spirit', age: 'ember', feeds: [{ fluid: 'sugar_wash', L: 4000 }], heatC: 92,
+  expect: [{ fluid: 'low_wines', minL: 900 }],
+  rig: ['C R',      // layer y+2: Condenser, Receiver     legend: B base, F flask, V vessel, | segment, C condenser,
+        'F .',      // layer y+1: Flask                            R receiver, T tube, X filter, K catalyst, A airlock,
+        'B .'] }    // layer y  : Base                             U vacuum cap, P pressure cap, J jacket, i port
+```
+
+- **Codex**: draws the rig from the string and lists feeds, temperature and outputs.
+- **Ghost preview**: choosing a card in the still's STRUCTURE tab shows the missing blocks as ghosts.
+- **Test**: `distillProcess.test.ts` builds every card's rig in a fake world, pours the feeds, runs the sim and
+  asserts `expect`. A card that lies fails the build.
+- **Solver**: a card is a pseudo-recipe (inputs = feeds, outputs = expect, station = the rig's blocks, minTempC).
+
+Structure tab extra: "This rig can: distil, 2 cuts, ferment" and "One more Column Segment would add: Kerosene" -
+computed by re-running the capability match with one block added, over the 16 kinds (16 cheap scans, on demand).
+
+## 8. The crafting tree
+
+```
+SUGAR AND RESIN (Ember)
+ pine log --tap--> pine_sap --pot still 115 C--> water (vented) + SYRUP (residue grade)
+ syrup --crystalliser (vessel + jacket)--> sugar x3 + molasses
+ pine_sap --pot still 175 C--> TURPENTINE (head) + rosin (solid residue)
+ existing furnace recipes for resin and sugar stay as the slow hand route
+
+ALCOHOL (Ember -> Forge)
+ syrup or molasses + water + yeast --fermenter 120 s--> sugar_wash     (yeast: first from berries, then skimmed
+ flour + boiling water --heated vessel 65 C--> mash --fermenter--> grain_wash      back from every ferment)
+ berries + water --fermenter--> berry_must (drinkable as Wine)
+ wash --pot still 92 C--> LOW WINES --again--> SPIRIT        or  --3-plate column--> FUEL ETHANOL in one pass
+   keep the first 5 % (heads): Rough Spirit (drink: Tipsy but Blurred).  Discard heads: clean Spirit
+ spirit + barrel + time --> Aged Spirit (later; better buff)
+ uses: drink (Warmed: cold resistance, ties to cold.ts and well_warmed; Tipsy: +10 % melee, slight sway),
+       burner fuel for a still_base off the furnace, antiseptic (fuel_ethanol + cloth -> bandage: heal over time),
+       solvent for every tincture, engine fuel (weak), lamp fuel
+
+POTIONS (Ember base, Forge for the strong ones) - concentrates of the brewing buffs
+ brewed drink x4 (tea, coffee: docs/api/brewing-buffs.md) --vacuum still 60 C, ruin above 80 C--> essence_*
+ herb / glowcap / berries + spirit --heated vessel 50 C (maceration)--> tincture --filter_bed (charcoal)--> clear tincture
+ essence + clear tincture + syrup --vessel (blend)--> ELIXIR, bottled in vials (4 per 1000 L)
+   Elixir of the drink = the same buff, 3x the time, +1 strength.  Glowcap Draught = night sight.
+   Berry Tonic = regeneration.  Miner's Draught (coffee essence + syrup) = mining speed.  Ember Salts = warmth.
+ 3 to 5 steps each, each step a different rig: the advanced recipes are longer graphs, as asked
+
+OIL (Forge: needs the pump and a 350 C base)
+ crude_oil --3-segment column 350 C--> GASOLINE (head) + KEROSENE (draw 2) + DIESEL (draw 1) + residue (flask)
+ residue --vacuum still 330 C--> LUBE BASE (head) + BITUMEN (hot residue; cools to bitumen blocks)
+ lube_base --filter_bed (clay)--> LUBRICANT        lubricant + rosin + tallow --heated vessel--> GREASE
+ bitumen + gravel + sand --heated vessel 150 C--> ASPHALT x8      bitumen + planks --> tarred planks
+ diesel or residue --cracker (catalyst_bed zeolite, pressure_cap, 480 C steel still)--> gasoline + slop (Current age)
+ gasoline + diesel 1:1 --vessel (blend)--> fuel (the existing Refined Fuel; the old `still` machine stays as the
+   lossy one-box route: 80 % yield, no fractions)
+```
+
+### 8.1 What each product is for
+
+| product | use | hook |
+|---|---|---|
+| gasoline | chainsaw (best: x1.3 per canister), tractor fast | `felling.ts` `SAW_FUEL_ITEM`, `tractor.ts` `FUEL_ITEM` become a `FUEL_GRADES` table lookup |
+| diesel | tractor and combustion engine (x1.5 burn time), bore rig | `combustion_engine` `fluids.accepts` |
+| kerosene | kerosene lantern (bright, long), heater (cold system) | new lamp block; `cold.ts` |
+| fuel_ethanol | weak engine fuel (x0.7), burner, antiseptic | as above |
+| lubricant | oiler on a shaft network: stress capacity x1.25, friction halved; chainsaw bar oil: wear halved | STEAM_PLAN mech solve: `capacity *= net.lube`; slice consumer = chainsaw |
+| grease | stress capacity x1.5, lasts 4x longer | same hook |
+| bitumen / asphalt | road block: walking x1.25, tractor x1.4, never churns to mud; tarred planks do not burn or rot | block field `speedMult` (verify the tractor's surface table) |
+| turpentine | thinner (lubricant recipe alternative), varnish, lamp fuel | recipes |
+| rosin | flux for solder (circuit recipes), grip, sealing wax for caps | recipes |
+
+`FUEL_GRADES: Record<fluid, { canister: itemKey, energy: number, saw: number, tractor: number, engine: number }>`
+lives in `itemsDistill.ts`; consumers read multipliers from it, and the existing `fuel_canister` keeps energy 1.
+
+### 8.2 Containers
+
+`FluidSpec.bucket` gains an optional `litres` (default 1000). Items are **generated from a table**, not hand
+written: every drinkable or chemical fluid gets `beaker_<fluid>` (250 L, empty `glass_beaker`), every fuel gets
+`<fluid>_canister` (1000 L, empty canister (verify key)), elixirs get `vial_<key>` (250 L). `fluidInBucket` and
+`bucketFilledWith` then work for all of them with no new code path.
+
+## 9. Scan and tick pseudocode (`distillScan.ts`, `distill.ts`)
+
+```
+scanRig(world, start):                               # start: any chem block; cap 64 modules
+  cells = floodFill(start, isChemBlock, 6-neighbour, limit 64)
+  for c in cells: m = module(c.kind); derive vapourEdges, liquidEdges (section 3)
+  stacks = for each flask or heated vessel: walk U while column_segment | catalyst_bed | reflux_head; note the cap
+  for each stack: sideDraws = condensers on H of a segment (with h); head = condenser on U of the top, or H of reflux_head
+  receiverChain(condenser) = BFS over liquidEdges until a block with a buffer (tubes pass through)
+  attach modifiers (caps, jackets, base) -> caps(vessel)
+  problems (first 8):
+     NO_BASE "The flask needs a Still Base under it"         NO_HEAT "The base is cold: set it on a furnace or fuel it"
+     NO_CONDENSER "Vapour has nowhere to go"                 DRIPS_NOWHERE "This condenser drips onto nothing"
+     UPHILL "Liquid cannot climb: lower the receiver"        TOO_TALL "A column holds 8 segments"
+     TWO_CAPS  TOO_HOT_FOR_GLASS  SHARED_CONDENSER  TOO_MANY (64)  CAP_UNPOWERED  MEDIUM_SPENT
+  return { modules, stacks, problems, capabilities, order: liquid edges in topological order (vapour edges cut) }
+
+DistillSet.tick(dt):
+  acc += dt; if acc < 0.25: return                    # 4 Hz
+  for rig in awake rigs:
+      for v in rig.order:                             # upstream first, so a drop moves at most one module per step
+          stepHeat(v); if v is a still: stepStill; if v is a vessel: stepVessel; if v is a filter: stepFilter
+          drain(v)                                    # liquid edges: move min(rate, space) to the next buffer
+      updateStates(rig)                               # block swaps and active bits of section 2.1, events, sfx
+      if nothing moved for 8 steps: rig sleeps until a block change, a pour, or its heat source changes
+```
+
+Save and load: each module is its own entity `{ kind: 'chem', mix, tempC, slots, cfg, state }`. The rig is derived
+by a rescan on load and never saved (like a hearth's formed state). Breaking a module loses only its own contents
+(spilled as `slop` particles; solids drop as items).
+
+Fuzz test (the guard for "many possible combinatorics"): 500 random assemblies of up to 12 random modules in a
+3x4x3 box, random feeds and temperatures, 2000 steps each: the scan never throws, every litre is accounted for, no
+NaN, no negative amount, state blocks always match state, save then load then step equals step.
+
+## 10. Rendering (`src/render/distill/`), three draw calls
+
+- **Glass and liquid**: one `InstancedMesh` of unit boxes (boxBatch). Per module 3 to 6 boxes: glassware outline
+  (translucent), liquid body scaled to the fill level, a darker meniscus slab. Liquid colour = volume-weighted mean
+  of its components' colours, so wash visibly pales as the ethanol leaves and crude turns from brown to black.
+- **Bubbles, drips, streams**: one more instanced mesh of tiny boxes, **animated entirely in the vertex shader**:
+  `y = base + fract(uTime * rate + phase(instanceId)) * travel`. The CPU writes an instance only when a module's
+  rate or colour changes (4 Hz at most); between changes the frame cost is zero CPU. Bubble size and drip period
+  scale with viscosity (bitumen drips once every 2 s, gasoline runs).
+- **Column bands**: each segment's liquid slab takes the colour of the component condensing at its tray
+  temperature: gold over blue over amber over black for crude. Bands appear bottom-up as the column warms.
+- **Tubes**: a thin core box in the stream colour with the same shader offset scrolling along the tube's axis;
+  this is the sight-glass look of `pipeOverlay.ts`, reused for fluid pipes leaving a `chem_port`.
+- Data: `sim.distillViews(camX, camZ, range)` fills a reused Float32Array (kind, fill, r, g, b, rate, viscosity,
+  state). Range 32 blocks, cap 128 modules, light from `LightProbe`.
+
+## 11. Ages (one table, `DISTILL_AGE` in `itemsDistill.ts`, so the six-age refactor edits one place)
+
+| age key today | furnace | parts unlocked | rigs |
+|---|---|---|---|
+| ember | T1 clay | beaker, tube, flask, condenser, receiver, vessel, airlock, still_base, filter_bed | pot still, fermenter, tinctures, syrup |
+| forge | T2 | column_segment, reflux_head, cooling_jacket, chem_port, chem_hopper | 3-cut crude column, fuel ethanol, lubricant |
+| current | T3 | vacuum_cap, pressure_cap, catalyst_bed, steel still shell (900 C) | vacuum residue run, cracker, strong elixirs |
+| atomic+ | T4 | refinery tower: a hearth-style cuboid running the same `stepStill` at x16 throughput | continuous refining |
+
+Recipes use `minTier` of the forge and the block `age` field only. **Nothing existing depends on any distillery
+item**, so the progression solver still completes the game; `content.test.ts` gains "every distillery item is
+reachable in its age" using the process cards as pseudo-recipes.
+
+## 12. Player and UI
+
+- Pour: a filled beaker, bucket or canister on a flask or vessel pours in (`expand`). An empty one on a receiver
+  takes out (`nameOf`); on a flask's lower half it opens the drain cock for the residue.
+- Items (yeast, herbs, filter medium, catalyst): use on the vessel or bed. Wrench on a `reflux_head` cycles its ratio.
+- Empty hand: the rig screen with tabs PROCESS (thermometer with each component's boiling point marked, contents
+  bars per module, live outputs), STRUCTURE (problems, capabilities, process picker with ghosts), CODEX link.
+- Target name line without a screen: "Boiling Flask - 2.1 buckets, 92 C, distilling Low Wines".
+
+## 13. Ordered work list (each step leaves `npm test` green)
+
+First slice (W1 to W9):
+1. W1 `src/core/chem.ts` + tests: components, mixtures, `nameOf`, `expand`, `stepStill` maths, conservation.
+2. W2 content: `blocksDistill.ts` (kinds of section 2 needed for the slice: base, flask, vessel, segment, condenser,
+   jacket, receiver, tube, airlock, port; with `_done` variants), `itemsDistill.ts` (generated containers,
+   `FUEL_GRADES`), fluids appended to `fluids.ts`, `FluidKey` widened, validation `distillValidation.ts`.
+3. W3 `distillScan.ts` + tests (every problem code, every row of section 3, the fuzz scan).
+4. W4 `distill.ts`, `distillActions.ts`, wiring in `simulation.ts` (the five one-line touchpoints brewing uses),
+   state swaps of section 2.1, save and load tests.
+5. W5 processes: sugar_wash ferment, low wines and spirit, syrup, crude 3-cut; `distillProcess.test.ts`.
+6. W6 textures (frame x lamp states, emblems) and `src/render/distill/` (liquid, bubbles, drips, bands).
+7. W7 player: pour and take, rig screen, Codex page from the process cards.
+8. W8 fuel integration: `FUEL_GRADES` in chainsaw and tractor; gasoline and diesel canisters.
+9. W9 `scripts/e2e-distill.mjs` (build to a scratch dir, phone and desktop screenshots of a running crude column),
+   chained into `package.json` `e2e`; `docs/api/distillery.md`.
+
+After the slice, by value:
+10. Reflux head, filter bed, lubricant and the chainsaw bar-oil consumer.
+11. Vacuum cap, residue run, bitumen and asphalt road blocks (speed effect).
+12. Potions: essences, tinctures, elixirs and their buffs; vials.
+13. Drinks: Warmed, Tipsy, heads and Rough Spirit; antiseptic bandage; kerosene lantern.
+14. Chem hopper and full pipe automation; structure-tab "one more block would add".
+15. Shaft hooks: stirrer capability, oiler on the mech graph (after STEAM_PLAN lands shafts).
+16. Catalyst bed, pressure cap, cracker; steel still shell.
+17. Refinery tower multiblock.
+
+## 14. Risks
+
+- `FluidKey` is a closed union read by tanks, pipes and UI: widening it is a shared-file edit; do it in one small
+  commit and run the transport tests.
+- Glass cases are translucent cubes: liquid boxes inside must draw before the translucent chunk pass (render
+  order), as `BrewLiquid` already does with polygon offset. Check on a phone GPU.
+- Litres are small in this game (a bucket is 1000 L): all numbers above use that scale.
+- Balance of fuel multipliers and elixir strength is a first guess; the process cards make retuning one-line edits.
+
+## 15. Status (2026-11-21) and what is left, by priority
+
+Built and tested (commits df0ad72, 40b32ec, be9a02c, 48c3936; API: `docs/api/distillery.md`): W1-W6 and W8-W9 of
+section 13 - mixture model, 10 module kinds with done/blocked looks, rig scan, stills and columns, fermenting, liquid
+flow, chemistry port, pour/take by hand, crosshair lines, 7 process cards in the Codex and the solver, gasoline and diesel
+in the chainsaw and the tractor, liquids/bubbles/drips/bands, unit tests (scan, stepping, conservation fuzz, save/load,
+every card), and `scripts/e2e-distill.mjs` (desktop + phone portrait, passing). Deviations from the plan: the module
+graph keeps only receivers, condensers, tubes, flasks, vessels and jackets as buffers (segments hold no liquid); there is
+no `distill:step` event yet (sfx + toast + flags instead); the reflux head was not built.
+
+Left, in order:
+1. **Rig screen**: a STRUCTURE-style panel on Use-with-wrench (problems list with tap-to-highlight, capabilities, the
+   process picker) and **ghost previews** from a card's rig string (`render/tech/ghosts.ts`). Today problems show only
+   in the crosshair line.
+2. **Burner on the ground**: a still base burning charcoal or a fuel-ethanol beaker without a furnace (Ember comfort).
+3. **Reflux head** (plan 2) and **filter bed**; then **lubricant** from residue (vacuum cap) and the chainsaw bar-oil
+   consumer; **bitumen and asphalt** road blocks with their speed effect.
+4. **Potions**: essences under vacuum, tinctures, elixirs tied to the brewing buffs; vials; drinks of spirit (Warmed,
+   Tipsy) and the antiseptic bandage.
+5. **Tank support for the new fluids** (the tank's `accepts` list is still the five old fluids) and pipes out of a
+   receiver into tanks end to end in the e2e.
+6. **Shaft hooks** once STEAM_PLAN lands: stirrer capability, lubricant raising stress capacity.
+7. **Catalyst bed, pressure cap, cracker**; steel still shell; the refinery tower multiblock.
+8. Polish: a `distill:step` game event for objectives ("Run your first spirit"), sounds of their own (bubbling loop,
+   drip), a Codex progression branch in `scripts/codex/progression.json` (owned by the scripts session), balance pass on
+   fuel multipliers and yields (the cards are one-line edits).
+
+<!-- ======================== END docs/DISTILLERY_PLAN.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/api/sugar.md ======================= -->
+# FILE: docs/api/sugar.md
+
+# Resin, sugar and sweet baking (Sugar Rush)
+
+Owner's brief: spruce resin can be taken and refined into sugar, then baked into baked goods with wheat in the
+furnace; eating anything with sugar gives a small speed boost, but while it lasts the Well-Fed buff runs out faster
+(hunger itself drains as usual). Everything is done in game with glass beakers and rudimentary chemistry. The only
+conifer in the world is the **pine**, so pine logs weep the sap ("spruce" in the owner's words).
+
+## The chain (all at the Clay Furnace, tier 1, and by hand)
+
+| Step | Recipe / action |
+|---|---|
+| Glass | `smelt` sand 700 C -> glass (existing) |
+| Chemistry supplies | forge `2 glass_beaker` from `1 glass`, 650 C |
+| Tap | **Use** a Glass Beaker on a pine log: the beaker becomes `pine_sap`; that log weeps again after 120 s (`TAP_COOLDOWN_S`, not saved) |
+| Boil | forge `pine_resin` from `1 pine_sap`, 180 C, beaker returned |
+| Distil | forge `3 sugar` from `2 pine_resin + 1 water_pail + 1 glass_beaker`, 260 C, bucket and beaker returned |
+| Bake | forge `4 sugar_cookie` (flour + sugar, 190 C); `sweet_bun` (dough + sugar, 220 C); `sugar_cake` (2 flour + 2 sugar + water bucket, 200 C, bucket returned) |
+
+Flour comes from wheat at the Hand Quern; dough is the existing flour + water bucket recipe.
+
+## Sugar Rush (`src/game/buffs.ts`)
+
+- Foods carry `food.buff = 'sugar_rush'` and `buffS`: sugar 45 s (1 food), cookie 90 s (3), bun 150 s (6), cake 240 s (9).
+- `Buffs.sugarS` counts down; `speedMult` = Swift x `SUGAR_SPEED_MULT` (1.12) so it applies to walking, sprinting and swimming
+  in `PlayerPhysics` with no further wiring.
+- While `sugarS > 0` the **Well-Fed timer burns `SUGAR_WELL_FED_BURN_MULT` (2.5) times faster** (`Buffs.tick`). Hunger drain,
+  regeneration and every other buff are untouched.
+- A longer Sugar Rush is never shortened by a shorter one (same rule as Well-Fed). Cleared on respawn. Saved as
+  `BuffsSnapshot.sugarS` (optional; older saves load with none). `buff:gained` is emitted with `buff: 'sugar_rush'`.
+- HUD: a "Sugar Rush" pill (`src/ui/hud/vitals.ts`); the food card reads "Sugar Rush 1.5 min" (`src/ui/screens/food.ts`).
+
+## Code map
+
+- Items: `src/content/itemsSugar.ts`; recipes: `src/content/recipes.ts` (search `itemsSugar.ts`); icons: `src/render/textures/iconsSugar.ts`.
+- Tapping: `src/player/sapTools.ts`, called from `Interaction.use` before placing and screens (Shift places the beaker instead).
+- Solver: `src/content/progression.ts` knows sap comes from tapping (a beaker and a pine log); roster tables in `specRosterFood.ts`.
+- Tests: `src/game/sugarRush.test.ts`, `src/player/sapTools.test.ts`, `src/content/food.test.ts`.
+
+## Gaps
+
+- The tap has no animation or particles yet, only the `sip` sound, a toast and the arm swing.
+- Tapping state is not saved. The six-age refactor (BRONZE_PLAN W0) should keep these recipes at the Clay Furnace (Ember age).
+
+<!-- ======================== END docs/api/sugar.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/api/dev-mode.md ======================= -->
+# FILE: docs/api/dev-mode.md
+
+# Dev Mode - src/core/gameMode.ts, src/ui/screens/creative, plus small hooks in state, player, title and HUD
+
+A second way to play a world: the Creative menu with every item, no damage, no hunger, no wear, free placing and
+flight. It is chosen once, on the title screen, when the world is created, and it lives in the save. Survival saves
+and survival play are untouched. Tests: `npx vitest run src/app/devMode.test.ts src/ui/screens/creative`. Browser:
+`node scripts/e2e-dev.mjs` (desktop, phone portrait, phone landscape; `HW_GPU=1` for the real GPU), also the last
+step of `npm run e2e`.
+
+## The mode flag
+```ts
+type GameMode = 'survival' | 'dev'                 // src/core/gameMode.ts
+parseGameMode(raw: unknown): GameMode              // anything but 'dev' is survival
+modeLabel(mode): 'Survival' | 'Dev Mode'
+WorldSave.mode?: GameMode                          // src/save/document.ts, optional
+GameState.create(seed, seedText, { mode?: GameMode, ... })   // a new world; only the title's choice passes 'dev'
+GameState.restore(save)                            // takes save.mode (missing = survival)
+GameState.mode: GameMode                           // readonly; sets player.dev
+```
+- Survival worlds never write `mode` (the save stays byte-identical to before); dev worlds write `mode: 'dev'`.
+- `normalizeDocument` drops any `mode` other than `'dev'`, so a damaged value reads as survival.
+- Nothing converts a world between modes: there is no switch in the pause menu or the settings.
+- `window.__hw.newWorld(seed, mode)` and `__hw.state().gameMode` exist for tests.
+
+## Title screen
+A `Mode` row (`Segmented`: Survival | Dev, `.hw-title__mode`) between the seed field and Difficulty, with a one-line
+hint. It resets to Survival every time the title is built, so a dev world can only come from an explicit choice.
+`TitleScreen`'s `onNewWorld(seed, mode)` gets the mode; `TitleScreenOptions.savedMode` / `setHasSave(has, savedMode)`
+put "Dev Mode world" / "Survival world" under the Continue label. The pause menu's subtitle says the same
+("Dev Mode world"). Seed entry is unchanged and works with both modes. Checked at 390x844, 844x390 and 1280x800.
+
+## Dev rules (what `player.dev` changes)
+| Rule | Where |
+| --- | --- |
+| No damage of any kind (falls, lava, cold, drowning, hunger, automatons, burning) | `PlayerState.damage` returns early |
+| No starving, freezing or drowning: health, food, warmth and air are held full each tick; the dead are revived | `GameState.devUpkeep` (after survival and objectives) |
+| Tools never wear | `PlayerState.wearHeldTool` returns false |
+| Placing a block does not use it up (menu switch "Free placing", default on, `player.devFreePlace`) | `Interaction.use` |
+| Flight (`player.flying`): double-tap Jump (within 0.35 s) or the menu switch "Flight". No gravity; Jump rises, sprint (Shift) descends; horizontal speed x1.8 | `PlayerController.devFlight`, `PlayerPhysics.step` |
+Objectives and achievements keep running as in survival. Free placing and flight are session settings (not saved).
+Only blocks placed by `Interaction.use` are free; other things that consume the held item (buckets, seeds, vehicles)
+behave as in survival.
+
+## Creative menu
+`{ type: 'creative' }` is a `ScreenRequest` (src/core/gameEvents.ts); GameUI registers `createCreativeScreen`
+(src/ui/screens/creative/creativeScreen.ts), which returns null outside dev mode. Open it with:
+- `E` / the inventory key, and the touch backpack button: in a dev world the controller opens `creative` instead of
+  `inventory` (the hand-crafting screen is not needed there);
+- the always-visible `DEV Items` HUD button (`.hw-devchip`, 44 px; hidden while a screen is open). With a mouse the
+  pointer is locked during play, so on desktop use `E`; the button is for touch.
+
+Contents: search box (name, key and description, every word must match), tabs with counts, the grid of every item,
+an info line (name and description, for touch where there is no tooltip; hover cards on desktop), the player's own
+pack and hotbar (the normal `InventoryPanel` and slot controller: pick, move, half, quick move all work), and:
+- tap / click: one item into the pack; Shift-click, right-click, long-press, or the `Full stacks` switch: a full stack;
+- drag an item onto a pack or hotbar slot (desktop): puts it there, replacing what was in it;
+- `Trash`: removes the picked pack stack; `Clear pack` (hold): empties the whole pack;
+- `Free placing` and `Flight` switches.
+Phones: portrait shows the item list first (fixed height) and the pack and switches below (the screen scrolls);
+landscape keeps the pack on the left and the list on the right.
+
+### Catalogue (src/ui/screens/creative/catalogue.ts, DOM-free, unit-tested)
+```ts
+CREATIVE_TABS: { id: 'all'|'block'|'material'|'tool'|'food'|'machine'|'fuel'|'misc'; label; categories: ItemCategory[] }[]
+buildCatalogue(items = ITEMS): CatalogueEntry[]      // every registry item once, in registry order
+tabOfCategory(category): tab id                      // block; resource+material+component -> Materials; tool; food; machine; fuel; misc
+filterCatalogue(entries, tab, query): CatalogueEntry[]
+tabCounts(entries, query): Record<tab, number>
+grantItem(inventory, key, full): number              // returns what did not fit; tools arrive with full durability
+clearSlot(inventory, index): boolean
+```
+A new item added to the registry appears in the menu without any change here.
+
+## Known gaps
+- Free placing is not saved, and flight resets on every start.
+- No creative items tab ordering beyond registry order; no favourites.
+- The HUD button cannot be clicked while the desktop pointer is locked (use `E`).
+
+<!-- ======================== END docs/api/dev-mode.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/api/distillery.md ======================= -->
+# FILE: docs/api/distillery.md
+
+# Glass distillery - API (first playable slice)
+
+Design and the full plan: `docs/DISTILLERY_PLAN.md`. This note is what exists in code and how to use it.
+Tests: `npx vitest run src/core/chem.test.ts src/sim/distill src/render/distill src/game/distillFuel.test.ts`
+(35 tests). Browser: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --out=<dir>` (desktop and
+phone portrait; chained last in `npm run e2e`).
+
+## Files
+
+| file | what |
+|---|---|
+| `src/core/chem.ts` | the mixture model: components, bubble point, vapour enrichment, grades (`nameOf` / `expand`), column trays and cuts |
+| `src/core/distill.ts` | module kinds (`CHEM`), the four states and their look, setpoints, rates, `CHEM_CONTAINERS`, `FUEL_GRADES` |
+| `src/content/{blocks,items,machines,fluids,recipes}Distill.ts` | 13 blocks (10 kinds + 3 `_done` twins), 12 items, 10 machine specs (role `chem`), 11 fluids, forge recipes and process cards |
+| `src/sim/distillScan.ts` | `scanRig(world, x, y, z)`: modules, stills, liquid edges, seals, jackets, problems |
+| `src/sim/distill.ts` | `Distillery`: entities, rigs, the 4 Hz step, block states |
+| `src/sim/distillActions.ts` | `chemUse`, `chemView`, `chemPortEndpoint` |
+| `src/render/distill/distillFx.ts` | liquids, bubbles, drips, tube streams and column bands (2 draw calls) |
+| `src/render/textures/distill.ts` | module tiles (frame, emblem, state lamp and rim) and container icons |
+| `src/sim/distillKit.ts` | test fixture: `buildRig(rigString)`, `feed(card, flask)`, `runUntil` |
+| `scripts/e2e-distill.mjs` | the browser check |
+
+## Contracts
+
+- **Mixtures** (`Mix`): litres per `Component`. Every move goes through `pour` / `take` / `add`; litres leave a buffer
+  only as litres another buffer took. Fuzz-tested (60 random rigs, 2000 steps).
+- **Grades**: `nameOf(mix)` is the first grade in `GRADES` the mixture meets (best first), else `'slop'`;
+  `expand(fluid, L)` is the grade's own composition, which meets it. Round trips never gain purity.
+- **Fluids**: `FluidKey` gained `sap syrup sugar_wash low_wines spirit fuel_ethanol gasoline kerosene diesel residue slop`.
+  `crude_oil`, `gasoline`, `kerosene`, `diesel` and `residue` have `bucket: { full: '<x>_canister', empty: 'empty_canister' }`,
+  so tanks, pumps and `bucketUse` handle canisters like buckets (1000 L).
+- **MachineRole** gained `'chem'`. Chem blocks are never machine nodes: `Simulation.onBlockChanged` routes them to
+  `Distillery.place/remove` (before brewing), `resync` tracks entities whose kind is a chem kind.
+- **Entity** (saved as JSON): `{ kind: <module kind>, x, y, z, mix, state, setC? (base), ran?, recvS?, flow?, band?, tempC? }`.
+  Rigs are derived and never saved.
+- **State on the block** (plan 2.1): `idle` plain/off, `working` plain/active, `done` `_done`/off, `blocked` `_done`/active
+  (flask, vessel, receiver). Base, segments, condensers, tubes and jackets use the active bit for working. Tiles: dark /
+  amber / green / red lamp and rim.
+- **Events**: `sfx machine_done` (pitch 1.4) and a `toast` "Distilling run finished" or "Fermenting done: ..." when a flask
+  or vessel goes working -> done; `sfx pipe_clunk` on becoming blocked; flags `distilled`, `fermented` (`flagOnce`).
+- **Heat**: a still base holds its flask at `min(setC, furnace below, 450)`; boiling draws `400 J/L` into the furnace's
+  `extractW` (20 L/s -> 8 kW).
+
+## Simulation calls
+
+```ts
+sim.distill: Distillery                       // entities: entityAt, all(), litres(), rigAt(x,y,z), step(dt), baseTemp(base)
+sim.chemUse(x, y, z, heldKey): ChemResult | null   // null = not a chemistry action (the tap carries on)
+sim.brewView(x, y, z)                         // now BrewView | ChemView | null; ChemView.text is the crosshair line
+sim.fluidEndpoint(x, y, z, face)              // a chem_port: touching a flask/vessel = inlet, a receiver = outlet
+```
+
+`chemUse` table: empty hand on a base cycles `STILL_SETPOINTS` (78 92 97 130 200 260 350 420); empty hand elsewhere
+toasts the view line; a full container (`CHEM_CONTAINERS`) pours into a flask, vessel, receiver or (water only) jacket if
+the whole container fits; an empty container takes the named contents of a flask, vessel, receiver or condenser when
+there is a full container's worth and that container can hold that fluid (beakers: 250 L alcohols and syrups; canisters:
+1000 L oils and slop; pails: water). Every refusal is a sentence. The player module reaches it through `BrewTools`
+(role `chem` -> `BrewHands.chemUse`).
+
+## Rig rules (what the scan derives)
+
+Still = flask on a still base; column = segments straight up; head = condenser on top; side draw = condenser beside a
+segment (height h). Liquid pours down and sideways, never up; a flask or vessel takes from the side only through a
+glass tube; edges both ends can pour along share levels. Airlock cap on a vessel = sealed; a cooling jacket with water
+touching a condenser = x3 condensing and a 30 C head. Problems: `no_base no_condenser drips_nowhere too_tall
+loose_segment shared_condenser too_many` (shown in the crosshair line of the module they name).
+
+## Process cards (Codex)
+
+`PROCESS_CARDS` in `recipesDistill.ts` are RecipeSpecs at a module station (role `chem`, energy 0) with a `rig` string,
+so the Codex lists them through `RECIPES` with no script change. The solver (`progression.ts chemReady`) runs one when
+every block of its rig is owned and, with a base, a furnace reaches its setting. `distillProcess.test.ts` builds each rig
+and checks it makes at least the card's outputs. Cards: distil_syrup (130 C), ferment_wash, distil_low_wines (97 C),
+distil_spirit (92 C), refine_crude (350 C, 3 segments), rectify_spirit (2 segments), refine_crude_short (2 segments:
+gasoline and kerosene come over as slop).
+
+## Engines
+
+`FUEL_GRADES`: `fuel_canister` 1/1, `gasoline_canister` saw 1.3 / tractor 1.2, `diesel_canister` tractor 1.5 (a chainsaw
+refuses it), `fuel_ethanol_beaker` 0.25 / 0.2. `felling.ts isSawFuel / refuelChainsaw` and `vehicles/manager.ts refuel`
+read it and hand the empty container back.
+
+## Ages
+
+Ember (furnace tier 1): base, flask, condenser, receiver, tube, vessel, airlock; syrup, wash, low wines, spirit.
+Forge (tier 2): column segment, jacket, port, canisters; crude refining, fuel ethanol. Gated by the recipes' `minTier`
+and items' `age` only, so the six-age refactor moves them by editing those fields.
+
+<!-- ======================== END docs/api/distillery.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/api/ground-items.md ======================= -->
+# FILE: docs/api/ground-items.md
+
+# Ground items, the drop key and collectors
+
+Items are real entities in the world. Anything that gives items spawns `GroundItem`s instead of filling the pack:
+broken blocks, picked bushes, dead animals, a broken machine's contents, a returned bucket the pack had no room for,
+and the player's own drop key. DOM-free and node-testable (`npx vitest run src/game/groundItems src/game/collectors`).
+
+## src/game/groundItems.ts
+- `class GroundItems` - owned by PlayerState as `player.ground`; ticked by `Survival.tick` (so it runs on the 20 Hz tick, also
+  while dead); saved in `PlayerSnapshot.ground` (optional: older saves load with none).
+  - `items: GroundItem[]` `{ id, item, count, durability?, x, y, z, vx, vy, vz, age, delayS, onGround, homing, pulled, phase }`; `version` bumps on any add/merge/removal.
+  - `spawn(item, count, x, y, z, opts?)` - splits above one stack into several entities; `opts`: `durability`, `vx/vy/vz`, `delayS` (default `DROP_DELAY_S` 0.5), `scatter` (default true: small random offset and hop). `spawnSlot`, `near`, `count(item)`, `drain(player)` (give everything that fits, wherever it lies: tests/debug), `clear`.
+  - `tick(dt, world, player, collectors = [])`: falling (gravity 22, terminal 24, slab and liquid aware, frozen over unloaded chunks, lifted out of a block placed on it), resting, merging (same item, no wear, within `MERGE_RADIUS` 0.9, both at rest, every 0.5 s), despawn at `DESPAWN_S` 300, pickup.
+  - Pickup: a ready item (`delayS` 0) within `PICKUP_RADIUS` 1.4 of the BODY (a vertical segment feet..head, so an item one block down still counts) while the pack has room flies to the player at `HOMING_SPEED` 9 and is taken inside `TAKE_RADIUS` 0.5 via `player.give` (emits `item:gained`, sfx `pickup`). What does not fit stays; a full pack leaves everything lying. Nothing is picked up while dead.
+  - Cap `MAX_GROUND_ITEMS` 256: past it the oldest entity is merged into the nearest same-kind stack with room, else removed.
+  - `toJSON()/load()` - unknown items, bad numbers and anything past the cap are dropped on load.
+- `PlayerState`: `drop(item, count, durability?, at?)`, `dropAll(stacks, at?)` (the spawn calls for "something gave items"), `dropSlot(slot, count)` and `dropHeld(all)` (thrown forward from the eye with `THROWN_DELAY_S` 2 so it is not instantly re-collected).
+- Wiring done: `Interaction.breakBlock/pick/popUnsupported` (`player.dropAll` at the block), `GameState.mobs.onDeath` (animal drops), `Spills.add/release` in src/sim (a broken machine's contents, and what the pack could not take: they drop as ground items; only what the capped list has no room for still goes into a crate, toast "Pack and ground are full - the rest is left in a crate"). The chainsaw's felled logs: call `player.dropAll(...)` / `player.ground.spawn(...)` instead of `player.give`.
+- Things that are not "drops" still use `player.give` (crafting results, rewards, a bucket swapped in the hand, hand-station returns).
+
+## Drop key
+- Intent gained `drop` (edge, one frame) and `dropAll`. `Q` drops one of the held item; `Shift+Q`, or holding Q past `DROP_HOLD_S` 0.5, the rest of the stack once. The controller calls `player.dropHeld(intent.dropAll)`.
+- Inventory screens (`SlotController`, src/ui/screens/slots.ts): `Q` while the pointer is over a slot of the player's pack drops one of it (Shift+Q or key repeat: all). `slots.dropper` is set by GameUI for the player's pack only (crates cannot be dropped from).
+- Touch: picking a stack in the inventory shows the carry bar with `Drop` (one, or the whole stack when it is 1) and `Drop all`; a long-press (right-click on a mouse) on a hotbar slot drops that slot's whole stack. Hints in the workbench/inventory footer mention both.
+
+## src/game/collectors.ts - the shared pull mechanism
+`CollectorDef { item, radius, pull, burstS, power: PowerSource, sound?, soundEveryS? }` in `COLLECTORS` (by item key). `PowerSource` is
+`{ kind: 'wear', perS }` (durability of the held stack), `{ kind: 'free' }` or `{ kind: 'electric', watts, supply(joules): boolean }`.
+`player.collectors` (class `Collectors`): `trigger()` (Use with a collector in hand; arms it for `burstS`, holding Use keeps it armed; false when the
+hand holds none so Use falls through), `tick(dt)` (draws power, returns the `ActiveCollector[]` for `GroundItems.tick`), `running`, `stop()`.
+The controller calls `trigger()` before any other use of the Use intent.
+
+**Electromagnet (Current Age, future - not built):** add one `COLLECTORS` entry, e.g. `{ item: 'electromagnet', radius: 12, pull: 14, burstS: 3, power: { kind: 'electric', watts: 400, supply } }`
+with `supply` drawing from the player's battery/grid (a `drawJoules` hook in src/sim), plus its item, recipe and icon. If it should only pull metal, add an optional
+`accepts(item)` filter to `CollectorDef` and `ActiveCollector` and test it in `GroundItems.tick`. Nothing else changes.
+
+## Hand Vacuum Pump (`hand_vacuum`)
+- Item in `src/content/itemsGround.ts` (`GROUND_ITEMS`), icon `item_hand_vacuum` (`src/render/textures/iconsGround.ts`), stack 1, `wear` 480 (new `ItemSpec.wear`: uses of a non-tool item; `fullDurability` reads it, so slots show a wear bar and the card shows "Suction left").
+- Collector: radius 9, pull 11 blocks/s, one Use runs 2.5 s, 1 wear per second of suction, sound `steam_hiss` every 0.55 s plus `machine_on` on start.
+- Recipe: Clay Furnace forge at 800 C: 4 bronze plate, 2 leather, 1 bellows, 2 copper plate. **Gate:** the code still has five tiers and ages; the Bronze Furnace (tier 2 after BRONZE_PLAN W0) does not exist, so the pump is made at the tier-1 furnace from Ember crafts and documented as a Bronze Age tool. After W0 move it to `forge(2, 'hand_vacuum', ...)` and set `age: 1` in `itemsGround.ts`. No objective yet (a "Gather from afar" goal fits after the Bronze Furnace goals).
+- It is NOT the machine `vacuum_pump` of BRONZE_PLAN 5.4 (the air user on a chute network); the key is `hand_vacuum` so both can exist.
+
+## src/render/groundItems.ts
+`GroundItemRenderer(renderer, world)`; `update(dt, items, pulling)` each frame. One `InstancedMesh` (one draw call) per item kind: a small cube for block items, an extruded pixel sprite for the rest (shared with the held item), spinning and gently bobbing, stacks of 2+ / 16+ show 2 / 3 copies, lit like the terrain (light probed a few items per frame, eased), distance-fogged and skipped beyond the fog. Pulled items glow; while a collector runs, three cyan rings close in on the view centre. `drawn`, `instances` for stats. Created and drawn by `Game` (src/app/game.ts).
+
+## Tests and checks
+`src/game/groundItems.test.ts`, `collectors.test.ts`, `src/player/input/drop.test.ts`, `src/render/groundItems.test.ts`; the existing tests of drops were updated (`player.ground.drain(player)` where they read the pack after a break). Browser check: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-ground.mjs --out=<dir> --device=desktop|phonePortrait --shots=<dir>` (items resting, pick-up, Q / long-press / Drop button, pump pulling; `HW_GPU=1` for the real GPU).
+
+<!-- ======================== END docs/api/ground-items.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/api/chainsaw.md ======================= -->
+# FILE: docs/api/chainsaw.md
+
+# The chainsaw (Current Age)
+
+A handheld tool that fells a whole tree. **Mine** on a log with it in hand removes that log and the connected trunk
+above it in one cut; the logs drop as ground items (docs/api/ground-items.md), the saw burns fuel and wears nothing else. Code: `src/game/felling.ts`
+(rules), `src/content/itemsVehicle.ts` (item and numbers), `src/player/interaction.ts` (two hooks), `src/audio/sfxVehicle.ts`,
+`src/render/textures/iconsVehicle.ts`. Tests: `src/game/felling.test.ts`, `src/content/vehicleContent.test.ts`.
+
+## Which age, and why
+
+**Current Age** (PROGRESSION "Age 3 - Current"; `age: 2` and forged at furnace tier 3 in today's five-age numbering, the
+six-age renumbering (BRONZE_PLAN W0) bumps both like every other `age:`/`minTier`).
+
+- It needs an *engine*. The only engine in the game that runs on a liquid fuel is the Combustion Engine, forged at the
+  Arc Furnace, and the only liquid fuel is the **Fuel Canister** from the Still (Current). A chainsaw is that engine on
+  a handle, so it belongs where the engine and its fuel do.
+- Not Ember: the age is manual handwork with no machines (owner decision, docs/LOCAL_HANDOFF.md section 2); the Chopping
+  Block and the axe are the Ember answer to trees.
+- Not Bronze/Forge: steam devices drive shafts and are not portable, there is no fuel to carry before the Still, and
+  Forge is about iron and heavy factory machines. (A pneumatic saw on an air tank would suit Bronze if the owner wants
+  one earlier; it would be a second item, not a change to this one.)
+
+Recipe (Arc Furnace, 1300 C): `1 chassis, 2 steel_plate, 1 copper_coil, 1 circuit`. Objective `fell_tree` ("Fell a
+tree", flag `felled_tree`, age 2) sits right after Ward your base.
+
+## Rules
+
+- `tool: { kind: 'axe', tier: 5, speed: 9, durability: 841, fell: { maxLogs: 48, fuelPerLog: 7, canisterFuel: 420 } }`.
+  `ToolSpec.fell` (src/core/types.ts) marks a chainsaw. **The stack's `durability` is its fuel tank**: 841 = a full
+  tank of 840 units + the 1 that means empty (durability never reaches 0, so the saw is never destroyed).
+- Felling (`fellTree(world, player, x, y, z, rng)`): the log under the crosshair plus every log of the same kind joined
+  to it face-, edge- or corner-wise (boughs count), **from that height up**, nearest first, at most
+  `min(maxLogs, floor(fuel / fuelPerLog))` = 48 logs. Logs below the cut (the stump) stay. Other woods touching it and
+  detached logs stay. Each log is a `'player'` edit with `'block:broken'` (the "gather logs" objectives count them) and
+  the drops spawn as ground items where each log stood. A full tank is 120 logs (a canister 60): about two broad oaks or twenty ordinary trees.
+- Leaves of the felled tree decay by themselves afterwards (docs/api/leaf-decay.md): the saw wakes them like any log
+  removal.
+- Fuel: `refuelChainsaw(player)`: **hold a Fuel Canister and press Use** (anywhere, no target needed); it fills the
+  emptiest saw in the pack by `canisterFuel` (420, never past full) and uses one canister only when it adds something.
+  The saw's durability bar in the hotbar and inventory is its fuel gauge.
+- Out of fuel (durability 1): `toolMatches` says no, so it mines like bare hands, and a toast says how to refill.
+- Wear: none beyond the fuel (the brief's "fuel/wear" is one number).
+- Sound: `saw_cut` (the chain) with `tree_fall` for trunks of 2+ logs, both in `src/audio/sfxVehicle.ts`.
+- Flag `felled_tree` (FLAG_FELLED_TREE) for a tree of >= 3 logs.
+- Held model: the first-person hand extrudes the `item_chainsaw` icon like every tool (src/render/heldItem.ts); the icon is
+  in the existing pixel style (orange housing, rear handle, steel bar with teeth).
+
+## API (src/game/felling.ts)
+
+```ts
+SAW_FUEL_ITEM = 'fuel_canister';  LOG_BLOCKS = ['oak_log', 'pine_log'];  TREE_MIN_LOGS = 3
+isChainsaw(stack), sawOf(stack): ToolSpec | null, sawFuel(stack), sawCapacity(stack), canFell(stack), isLog(def)
+trunkAbove(world, x, y, z, cap): LogCell[]
+fellTree(world, player, x, y, z, rng): FellResult | null   // { logs, drops, fuel, more }
+refuelChainsaw(player): 'refuelled' | 'full' | 'no-saw' | 'no-fuel'
+```
+`Interaction.breakBlock` calls `fellTree` first (null = break normally); `Interaction.use` calls `refuelChainsaw` when a
+Fuel Canister is held (`UseOutcome` gains `'fuelled'`).
+
+Note: the tier is 5 and the numbers are scaled up (tank 840, 7 per log) only so that the axe table stays strictly increasing in speed and durability (content.test.ts); the felling ratios are unchanged: 120 logs a tank, 60 a canister. Tier 5 is irrelevant in play because the saw only matters on logs.
+
+<!-- ======================== END docs/api/chainsaw.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/api/handwork-front.md ======================= -->
+# FILE: docs/api/handwork-front.md
+
+# Handwork front end (EMBER_PLAN 2 and 5) - player, world shapes, render, UI
+
+What the player SEES and DOES at the Ember hand stations. Data: `docs/api/handwork-content.md`; strokes: `docs/api/handwork.md`;
+casting: `docs/api/casting.md`. Nothing here moves power. Tests: `npx vitest run src/player src/world/stationShapes.test.ts
+src/render/handwork`; browser check: `node scripts/e2e-handwork.mjs` (desktop and phone portrait; also last in `npm run e2e`).
+
+## Use priority (src/player/handTools.ts, interaction.ts)
+
+`Interaction.use` order: held building block placed (Shift / Place toggle, or against a screen block) -> brewing
+(`brewTools.ts`) -> **hand work (`handTools.ts`)** -> pipes -> screens -> bushes, drink, eat, buckets, hoe, plant, place.
+
+```ts
+interface HandHands {                       // src/sim's Simulation fits it structurally; passed as PlayerControllerOptions.hands
+  stroke(x, y, z, heldKey: string | null): HandResult;          // handwork.md: insert / stroke / take / done
+  handReturn(x, y, z): HandResult;                              // empty hand: the loaded input back to the pack
+  pourCrucible(x, y, z, slot, heldKey: string | null): PourResult;   // casting.md
+  furnaceView(x, y, z): { crucibles: readonly { index: number; moltenS: number }[] } | null;
+}
+class HandTools { constructor(host: HandToolsHost, hands: HandHands | null); use(hit: RayHit, forceReturn: boolean): 'worked' | 'poured' | 'refused' | null }
+useRepeatFor(def: BlockDef | null): number    // seconds between repeats of a held Use aimed at def
+```
+- A block with `handStation` takes the tap. One Use = one `sim.stroke`; the hand swings; a refusal is toasted with the sim's
+  sentence (`advise`, once per 8 s per sentence) and ends the tap. The sim decides insert / take / stroke.
+- What goes to the sim as the held key: an ingredient of a recipe at that station, or the station's tool (matched on
+  `ItemSpec.tool.kind === handStation.tool`). **Any other non-block item is a bare hand** (heldKey null), so a pickaxe in hand
+  strokes with bare hands instead of being refused. **A block that is not an ingredient is not handled** (null): it is placed
+  beside the station as usual (a log IS an ingredient of the chopping block, so it loads).
+- Shift + Use (or Place, then Use on a phone) with an **empty hand** -> `handReturn` (take back what you loaded).
+- A fired mould (`ItemSpec.mould`) in hand aimed at a furnace where some crucible has `moltenS > 0` pours the first molten
+  crucible (`pourCrucible`, the cast goes to the pack, sim events as casting.md) without opening the screen. With nothing
+  molten the furnace screen opens as before.
+- `screenFor` returns null for role `hand` machines (no screen for stations).
+- **Hold-to-repeat**: `IntentSource.setUseRepeat?(seconds)` (new, optional; `InputManager` and `InputCore.useRepeatS`
+  implement it). The controller sets `useRepeatFor(aimed block)` before every `input.frame`, so a held Use strikes at
+  `1 / handStation.strokesPerS` (chopping 0.25 s, quern 0.33, anvil 0.4, loom 0.5) and at `USE_REPEAT_S` (0.25) elsewhere.
+  A tap always fires at once; only the repeats follow the rate. A completed job followed by a held Use takes the output
+  and goes on with the next load.
+- Mining a station (hold Mine) breaks it and the sim hands the contents to the pack.
+
+## World shapes (src/world/stationShapes.ts, meshStation.ts, blockTables.ts)
+
+The content declares the stations as `cube` (chopping block, anvil, clay table, loom, drying rack, casting bench) and `slab`
+(quern, mortar, trough, alloy pot) blocks. `STATION_BOXES` (keyed by block key, boxes in sixteenths in the north-facing frame)
+makes the mesher draw them as several small boxes instead: stump, bedstone, anvil (block, waist, face, horn), mortar bowl,
+table, loom frame with warp sheet, rack posts and poles, trough, bench, alloy pot. East / South / West facings turn the boxes
+(`turnBox`); each face keeps the texture of the face it lands on, so the loom's front texture follows its facing.
+- `blockTables.STATION[id]` = 1 + index in the table (0 for every other block). Station blocks get `OPAQUE`/`MERGES` 0 and
+  `LIGHT_CLASS` clear: they hide no neighbour's face and cast no shadow. Collision, the raycast and Use still treat the whole
+  cell (cube: full height, slab: half), which is easier to hit with a thumb.
+- `stationBounds(key)` (used by `render/target.ts` `shapeBounds`) hugs the outline to the boxes; the quern and mortar reach up
+  to their moving part (`PART_TOP`).
+- To add a station shape: one entry in `STATION_BOXES`; to animate it, one `HandAnim` in `render/handwork/handModels.ts`.
+  The casting bench and alloy pot have shapes but no animation (their entities are the casting engineer's).
+
+## Render (src/render/handwork/)
+
+`HandParts(world, uniforms, bus, particles)` (created and updated by the Renderer, group in its scene) draws the moving
+parts through the machine-parts layer: the same `ModelBuilder`, shader (`machines/material.ts`, new motion code
+`Motion.Pulse` = move along local Y by the instance's `extent` x stroke), light probe and instancing. **Nothing runs at a
+speed; every pose is a function of what just happened**:
+- `hand:stroke` (record made on the spot) bumps the record's `strokes`, resets `since`, sets `frac = progress / needed`;
+  `hand:done` clears `frac` and puffs. Twice a second it rescans `world.entities()` of kind `hand` within 64 blocks for what
+  is loaded and the work fraction (`slots[0]` input, `slots[1]` output, `recipe`, `progress`), and forgets stations whose
+  block is gone.
+- Parts per station: **quern** runner stone + peg turns 30 degrees per stroke (`HandAnim.turn`, eased at 14/s);
+  **anvil** hammer lifts and strikes (visible 0.55 s after a stroke) + an impact flash plate; **chopping block** axe swing +
+  the log lying on the stump as two halves that open with the work (`frac`) and twitch on each stroke (hidden when the input
+  is empty); **loom** shuttle crosses once per stroke (`turn` = pi) + cloth rising out of the floor with `frac`; **mortar**
+  pestle lifts and drops; **clay table** clay lump (when loaded) + smoothing stick; **drying rack** bundles hung from the pole
+  (green leaves / hide / dried goods by what is on the rack) swaying; **trough** water and the hide in it.
+- Particles on strokes (`HandFx`): sparks off the anvil (more when the stroke counted double), wood chips at the chopping
+  block, flour / ore dust at quern and mortar; a soft puff on `hand:done`.
+- `HAND_DRAW_CAPACITY` 64 instances per part, `HAND_RANGE` 64 blocks; one draw call per part in view, nothing allocated per
+  frame. `PartDef.visible/pose` and `HandAnim` are the extension points (`HAND_ANIMS`).
+- The molten glow of a crucible is drawn by the furnace screen (casting engineer, `castText.ts`, `furnaceTabs.css`); the world
+  furnace block is unchanged.
+
+## UI (src/ui/hud, src/ui/menus/howto.ts, src/app)
+
+- `UISimQuery.handView(x, y, z): { label: string; fraction: number } | null` (Simulation's `handView` fits). The crosshair
+  name under a hand station is the sim's `label` ("Hand Quern - wheat 3/6 strokes", "Drying Rack - waiting for sun"), refreshed
+  at once on `hand:stroke` / `hand:done` / `hand:taken` for the aimed station (not only on the 0.125 s slow tick). The
+  crosshair's **ring fills with the work** (`fraction`) while a station is aimed and nothing is being mined.
+- How to Play: a "Working by hand" card (`HANDWORK`) between "Building big" and "Tea and coffee"; the Use lines of both control
+  lists mention strokes, and the Shift / Place line says an empty hand takes back what you loaded.
+- `src/app/game.ts`: `hands: sim` passed to `PlayerController` (one word).
+
+## Notes, deviations, known gaps
+
+- Handwork entities keep `[input, output]` in `slots` (not `input` / `output` as handwork.md's text says); the render reads
+  `slots` first and falls back to the named fields.
+- The aiming line says "copper ingot 0/6 strokes" for the anvil's wire recipe and the sim picks plate vs wire by how many
+  ingots were loaded (each Use loads one); the label does not name the recipe. A sim / label question, not a front-end one.
+- Parts are drawn only within 64 blocks and 64 instances per part; beyond that the quern shows its bedstone without the runner.
+- A tool stroke that counted double plays the same animation (sparks only grow). The anvil flash is a tinted plate, not
+  emissive: the machine shader has no glow.
+- The Casting Bench pouring into set moulds and hot work from molten metal taken by hand are not built (casting.md); no mould
+  is drawn on the bench.
+- First-run coach marks ("Drag here to look around") can sit on the portrait tap point and eat the first taps in a scripted run.
+
+<!-- ======================== END docs/api/handwork-front.md ======================== -->
 
 
 ---

@@ -140,3 +140,63 @@ water flows and buckets take source blocks only; workbench also offers every han
 - playthrough.test.ts only unit failure (Star Age "banks charged").
 - Hearth Structure tab shift buttons / "In the way" list: no tests, not seen in browser.
 - Chromium OOM-killed at load ~20+ (environment).
+
+## 9. Local session on the owner's machine (2026-11-21): what happened since the cloud handoff
+
+Where: the repo now lives at `E:\Projects\game` (a DiskOrganizer script moved it from `C:\Users\admin\game`; that path is
+now a junction to E:). One branch only, `ccr-3c8b169f-e78nk2`; at the time of writing it is ~30 commits AHEAD of origin
+and nothing is pushed. There is NO `main` branch; `.github/workflows/pages.yml` deploys on pushes to `main`, so creating
+it publishes the game page: owner has not decided (ask first). All work was done by several Claude sessions sharing ONE
+checkout (no worktrees): only one session should run `npm run build`/`npm run e2e` at a time (they share `dist/`).
+
+Machine: Windows 11, Ryzen 5 5600X (12 threads), 16 GB RAM, RTX 3060 12 GB, Node 24, Python 3.11 (+torch CUDA, numba).
+Run everything locally; the owner is usage-limited and wants output trimmed and no sub-agent fan-out.
+
+### Tooling added
+- `HW_GPU=1` (scripts/lib/browser.mjs) makes the e2e Chromium render on the real GPU (ANGLE/D3D11) instead of SwiftShader.
+- `HW_DIAG=1` writes `test-results/diag/*.jsonl` (console, HTTP >= 400 with URL, step timings, state snapshots, screenshot
+  per failed step, driver/mining/placement events); read it with `node scripts/lib/diag.mjs summary`.
+- In the game: `?diag=1` (or `window.__HW_DIAG__ = true`, or `localStorage.hwDiag='1'`) turns on `window.__hwDiag`, a ring
+  buffer of save/load/phase/frame events (`src/app/diag.ts`). Off by default, near-zero cost.
+- Playing it: `node scripts/build.mjs --serve` serves http://localhost:5173 on all interfaces (phone: http://<LAN IP>:5173).
+  Pointer lock works in a normal browser window; it is REFUSED (WrongDocumentError) inside automation-driven windows and
+  the Claude desktop browser pane (the game falls back to drag-to-look). Test lock in the owner's real browser only.
+
+### Features landed (each has docs/api/<name>.md and tests)
+- Handwork front end (Use on a station calls `sim.stroke`; chopping block, quern, anvil, rack, trough, loom, clay table,
+  mortar, alloy pot, casting) - upstream's `src/player/handTools.ts` is canonical; planks now come from the Chopping Block.
+- Ground items (`docs/api/ground-items.md`): drops are world entities that rotate and are picked up by proximity; Q drops
+  (Shift+Q the stack); Hand Vacuum Pump (Bronze-by-design item, pulls items from 9 blocks) built on a small
+  `COLLECTORS` mechanism so the planned Electric-age electromagnet is one more definition.
+- Leaf decay (leaves cut off from every log fall away after a random delay), Chainsaw (`docs/api/chainsaw.md`, fells a
+  trunk, fuel tank in durability, Current Age), Tractor (`src/vehicles`, tiller and harvester attachments, F to work).
+- Resin, sugar and sweet baking (`docs/api/sugar.md`): glass beakers; Use a beaker on a pine log taps sap; boil to
+  resin, distil with water to sugar (furnace forge rows returning beaker/bucket); cookies, bun, cake. Eating sugar starts
+  **Sugar Rush**: +12% speed while the Well-Fed timer burns 2.5x faster (hunger itself unchanged).
+- Dev Mode (`docs/api/dev-mode.md`): Survival | Dev choice on the title screen; creative item menu, no damage/hunger/wear,
+  mode stored in the save. Old saves load as survival.
+- Glass distillery first slice (`docs/DISTILLERY_PLAN.md` section 15, `docs/api/distillery.md`): mixture model, modular
+  chem blocks, rig scan, stills/columns, fermenting, liquid animation, gasoline/diesel fuel for chainsaw and tractor.
+
+### State at the time of writing
+- `npx tsc --noEmit` clean; `npx vitest run`: 1865 passed / 0 failed (158 files) - verified by the handing-off session.
+- E2E (`HW_GPU=1 npm run e2e`): the e2e session reported desktop, phone, features, handwork (all stations), tech, ember,
+  ground, vehicles, dev and distill passing; the full chain was NOT re-run end to end by the handing-off session after the
+  last merges. Run it before trusting it. The sugar chain, tractor, chainsaw and distillery have not been played by hand.
+
+### Known gaps / next steps (in order)
+1. Re-run `HW_GPU=1 HW_DIAG=1 npm run e2e` and the browser smoke test; then decide on pushing / `main` (see above).
+2. Distillery left-list: rig screen + ghost previews, ground burner, reflux head, lubricant and bitumen/asphalt, potions,
+   tank support for the new fluids, shaft hooks (see DISTILLERY_PLAN section 15).
+3. Casting Bench block is still inert (pouring happens at the furnace); sap-tap state is not saved and has no animation.
+4. Roadmap unchanged: six-age refactor (BRONZE_PLAN W0: commit an old-save fixture FIRST), Steam first half, Bronze second
+   half, review pass, republish game and Codex.
+5. Owner decisions still open: Star hearth 93 casings; make `six_cups` an optional side goal; delete the cup/cone forge
+   recipes in favour of the Clay Table; push to GitHub / create `main`.
+
+### Lessons from running several sessions in parallel
+- Give each session disjoint files, tell it to re-read shared files before editing and to commit only its own paths;
+  commit often so a merge is never under uncommitted edits. Pause every session before merging upstream (a merge with
+  3 sessions editing was resolved by ONE session that knew both sides; upstream versions were canonical where they overlapped).
+- E2E tests that hold items or build things drift whenever content changes: fix stale scripts, but a failing step can be a
+  real game bug (the handwork front end was missing entirely and only the e2e showed it).
