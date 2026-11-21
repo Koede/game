@@ -458,3 +458,30 @@ After the slice, by value:
   order), as `BrewLiquid` already does with polygon offset. Check on a phone GPU.
 - Litres are small in this game (a bucket is 1000 L): all numbers above use that scale.
 - Balance of fuel multipliers and elixir strength is a first guess; the process cards make retuning one-line edits.
+
+## 15. Status (2026-11-21) and what is left, by priority
+
+Built and tested (commits df0ad72, 40b32ec, be9a02c, 48c3936; API: `docs/api/distillery.md`): W1-W6 and W8-W9 of
+section 13 - mixture model, 10 module kinds with done/blocked looks, rig scan, stills and columns, fermenting, liquid
+flow, chemistry port, pour/take by hand, crosshair lines, 7 process cards in the Codex and the solver, gasoline and diesel
+in the chainsaw and the tractor, liquids/bubbles/drips/bands, unit tests (scan, stepping, conservation fuzz, save/load,
+every card), and `scripts/e2e-distill.mjs` (desktop + phone portrait, passing). Deviations from the plan: the module
+graph keeps only receivers, condensers, tubes, flasks, vessels and jackets as buffers (segments hold no liquid); there is
+no `distill:step` event yet (sfx + toast + flags instead); the reflux head was not built.
+
+Left, in order:
+1. **Rig screen**: a STRUCTURE-style panel on Use-with-wrench (problems list with tap-to-highlight, capabilities, the
+   process picker) and **ghost previews** from a card's rig string (`render/tech/ghosts.ts`). Today problems show only
+   in the crosshair line.
+2. **Burner on the ground**: a still base burning charcoal or a fuel-ethanol beaker without a furnace (Ember comfort).
+3. **Reflux head** (plan 2) and **filter bed**; then **lubricant** from residue (vacuum cap) and the chainsaw bar-oil
+   consumer; **bitumen and asphalt** road blocks with their speed effect.
+4. **Potions**: essences under vacuum, tinctures, elixirs tied to the brewing buffs; vials; drinks of spirit (Warmed,
+   Tipsy) and the antiseptic bandage.
+5. **Tank support for the new fluids** (the tank's `accepts` list is still the five old fluids) and pipes out of a
+   receiver into tanks end to end in the e2e.
+6. **Shaft hooks** once STEAM_PLAN lands: stirrer capability, lubricant raising stress capacity.
+7. **Catalyst bed, pressure cap, cracker**; steel still shell; the refinery tower multiblock.
+8. Polish: a `distill:step` game event for objectives ("Run your first spirit"), sounds of their own (bubbling loop,
+   drip), a Codex progression branch in `scripts/codex/progression.json` (owned by the scripts session), balance pass on
+   fuel multipliers and yields (the cards are one-line edits).
