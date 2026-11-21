@@ -76,7 +76,7 @@ export function trunkAbove(world: IWorld, x: number, y: number, z: number, cap: 
 export interface FellResult {
   /** Logs removed (>= 1). */
   logs: number;
-  /** The items that went into the pack. */
+  /** The items dropped (ground items at the logs, which fly to the player when picked up). */
   drops: ItemAmount[];
   /** Fuel the cut used. */
   fuel: number;
@@ -106,7 +106,9 @@ export function fellTree(world: IWorld, player: PlayerState, x: number, y: numbe
     const voxel = world.getVoxel(c.x, c.y, c.z);
     if (!world.setVoxel(c.x, c.y, c.z, AIR, 'player')) continue;
     logs++;
-    for (const d of rollDrops(target, rng)) {
+    const rolled = rollDrops(target, rng);
+    player.dropAll(rolled, { x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5 });
+    for (const d of rolled) {
       const known = drops.find((o) => o.item === d.item);
       if (known) known.count += d.count;
       else drops.push({ item: d.item, count: d.count });
@@ -114,7 +116,6 @@ export function fellTree(world: IWorld, player: PlayerState, x: number, y: numbe
     player.bus.emit('block:broken', { x: c.x, y: c.y, z: c.z, voxel });
   }
   if (logs === 0) return null;
-  for (const d of drops) player.give(d.item, d.count);
   const fuel = Math.min(sawFuel(held), logs * fuelPerLog);
   held.durability = Math.max(1, (held.durability ?? 1) - fuel);
   player.bus.emit('sfx', { name: 'saw_cut', x: x + 0.5, y: y + 0.5, z: z + 0.5 });

@@ -1,7 +1,7 @@
 # The chainsaw (Current Age)
 
 A handheld tool that fells a whole tree. **Mine** on a log with it in hand removes that log and the connected trunk
-above it in one cut; the logs go into the pack, the saw burns fuel and wears nothing else. Code: `src/game/felling.ts`
+above it in one cut; the logs drop as ground items (docs/api/ground-items.md), the saw burns fuel and wears nothing else. Code: `src/game/felling.ts`
 (rules), `src/content/itemsVehicle.ts` (item and numbers), `src/player/interaction.ts` (two hooks), `src/audio/sfxVehicle.ts`,
 `src/render/textures/iconsVehicle.ts`. Tests: `src/game/felling.test.ts`, `src/content/vehicleContent.test.ts`.
 
@@ -31,7 +31,7 @@ tree", flag `felled_tree`, age 2) sits right after Ward your base.
   to it face-, edge- or corner-wise (boughs count), **from that height up**, nearest first, at most
   `min(maxLogs, floor(fuel / fuelPerLog))` = 48 logs. Logs below the cut (the stump) stay. Other woods touching it and
   detached logs stay. Each log is a `'player'` edit with `'block:broken'` (the "gather logs" objectives count them) and
-  the drops go to the pack. A full tank is 120 logs: about two broad oaks or twenty ordinary trees.
+  the drops spawn as ground items where each log stood. A full tank is 120 logs: about two broad oaks or twenty ordinary trees.
 - Leaves of the felled tree decay by themselves afterwards (docs/api/leaf-decay.md): the saw wakes them like any log
   removal.
 - Fuel: `refuelChainsaw(player)`: **hold a Fuel Canister and press Use** (anywhere, no target needed); it fills the

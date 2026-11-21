@@ -27,7 +27,7 @@ function rig(fuel: number = SAW_TANK) {
   bus.on('toast', (e) => toasts.push(e.text));
   player.inventory.set(player.selectedSlot, { item: 'chainsaw', count: 1, durability: fuel + 1 });
   const saw = () => player.inventory.get(player.selectedSlot)!;
-  const count = (item: string): number => player.inventory.slots.reduce((n, s) => n + (s?.item === item ? s.count : 0), 0);
+  const count = (item: string): number => player.ground.count(item);
   const trunk = (x: number, z: number, h: number, key = 'oak_log') => world.fill(x, 10, z, x, 9 + h, z, key);
   return { bus, world, player, flags, sfx, broken, toasts, saw, count, trunk };
 }
