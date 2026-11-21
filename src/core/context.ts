@@ -46,3 +46,20 @@ export interface InputState {
 }
 
 export const createInputState = (): InputState => ({ uiOpen: false, pointerLocked: false, touch: false, paused: false });
+
+/**
+ * What the player controller needs from whatever draws the world. src/render's Renderer implements it;
+ * tests and harnesses can pass a stub.
+ */
+export interface IView {
+  /** Places the camera: eye position, yaw (radians, 0 = north/-Z, positive turns left) and pitch (positive looks up). */
+  setView(x: number, y: number, z: number, yaw: number, pitch: number): void;
+  /** Vertical field of view in degrees. */
+  setFov(degrees: number): void;
+  /** Outlines the targeted block (null = none). `mining` is the mining progress 0..1, or -1 when not mining. */
+  setTarget(target: { x: number; y: number; z: number } | null, mining: number): void;
+  /** Shows this item in the player's hand (null = empty hand). */
+  setHeldItem(itemKey: string | null): void;
+  /** Plays the hand swing once (mining hit, placing, using). */
+  triggerSwing(): void;
+}

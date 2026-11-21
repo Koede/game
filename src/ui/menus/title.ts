@@ -32,7 +32,7 @@ const WORD_POWER = 'WATT';
 const LETTER_TEMPS = [640, 800, 960, 1120, 1300, 1500];
 const DEFAULT_AGES = ['Ember', 'Forge', 'Current', 'Atomic', 'Star'];
 const AGE_COLORS = [heatColor(800), heatColor(1150), 'var(--hw-power)', 'var(--hw-power-hi)', heatColor(1500)];
-const PROMISE = 'Start with a clay furnace. End with a star.';
+const PROMISE = ['Start with a clay furnace.', 'End with a star.'];
 
 export class TitleScreen {
   readonly el: HTMLElement;
@@ -54,7 +54,7 @@ export class TitleScreen {
     this.hasSave = opts.hasSave;
     this.seed = new TextField({
       label: 'World seed',
-      placeholder: 'Empty = a random world',
+      placeholder: 'Leave empty for a random world',
       maxLength: 32,
       mono: true,
       onEnter: () => (this.hasSave ? undefined : this.newWorld()),
@@ -81,7 +81,7 @@ export class TitleScreen {
             ),
             h('span', { class: 'hw-title__power', text: WORD_POWER, attrs: { 'aria-hidden': 'true' } }),
           ),
-          h('p', { class: 'hw-title__promise', text: PROMISE }),
+          h('p', { class: 'hw-title__promise' }, PROMISE.map((line) => h('span', { text: line }))),
           h(
             'ol',
             { class: 'hw-title__ages', attrs: { 'aria-label': 'The five ages' } },
@@ -89,8 +89,8 @@ export class TitleScreen {
           ),
         ),
         this.menu,
-        opts.version ? h('p', { class: 'hw-title__foot hw-num', text: opts.version }) : null,
       ),
+      opts.version ? h('p', { class: 'hw-title__version hw-num', text: opts.version }) : null,
     );
     this.buildMenu();
   }
