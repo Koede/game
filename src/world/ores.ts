@@ -113,7 +113,8 @@ export function placeOutcrops(t: Terrain, voxels: Uint16Array, x0: number, z0: n
         const v = voxels[i];
         if (v !== ID.stone && v !== ID.basalt) continue;
         const cluster = hash32(t.seed, x >> 2, y >> 2, z >> 2);
-        if ((cluster & 7) !== 0 || (hash32(t.seed, x, y, z) & 1) === 0) continue;
+        // Faces of steps show ore more often than rock lying open on top (which would speckle whole rock plains).
+        if ((cluster & (y < h ? 7 : 31)) !== 0 || (hash32(t.seed, x, y, z) & 1) === 0) continue;
         const ore = outcropOre(BIOME_KEYS[cols.biomes[lz * CHUNK_SIZE + lx]], y, (cluster >>> 8) / 16777216);
         if (ore >= 0) voxels[i] = ore;
       }

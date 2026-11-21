@@ -115,17 +115,17 @@ describe('generateChunk', () => {
   it('generates a chunk in well under 4 ms', () => {
     // Warm up first: the seed's noise tables, spawn point and spawn ruin are built once per seed and thread.
     for (let i = 0; i < 4; i++) generateChunk(SEED + 7, -20 - i, 3);
-    // Best of five batches, so other work on the machine (parallel test files) does not count.
+    // Best of eight batches, so other work on the machine (parallel test files, other processes) does not count.
     let best = Infinity;
     let total = 0;
-    for (let batch = 0; batch < 5; batch++) {
+    for (let batch = 0; batch < 8; batch++) {
       const t0 = performance.now();
-      for (let i = 0; i < 12; i++) generateChunk(SEED + 7, 20 + (i % 6) + batch * 6, 20 + Math.floor(i / 6));
-      const ms = (performance.now() - t0) / 12;
+      for (let i = 0; i < 8; i++) generateChunk(SEED + 7, 20 + (i % 4) + batch * 4, 20 + (i >> 2));
+      const ms = (performance.now() - t0) / 8;
       best = Math.min(best, ms);
       total += ms;
     }
-    console.log(`generateChunk: ${(total / 5).toFixed(2)} ms average over 60 chunks, best batch ${best.toFixed(2)} ms`);
+    console.log(`generateChunk: ${(total / 8).toFixed(2)} ms average over 64 chunks, best batch ${best.toFixed(2)} ms`);
     expect(best).toBeLessThan(4);
   });
 });

@@ -11,7 +11,7 @@ import type { Terrain } from './terrain';
 
 const Y = CHUNK_SIZE * CHUNK_SIZE;
 const GEODE_CHANCE = 0.075;
-/** Geode centres stay at or below this y: under the lowest possible lake bed, so a geode never opens under water. */
+/** Geode centres stay at y 13 to this: above the lava of the deepest caves and under the lowest possible lake bed. */
 const GEODE_TOP = 19;
 const LAKE_CHANCE = 0.14;
 const LAVA_FALL_CHANCE = 0.3;
@@ -34,7 +34,7 @@ export function placeGeodes(t: Terrain, voxels: Uint16Array, cx: number, cz: num
       const R = 3.3 + 0.8 * ((h >>> 15) % 3);
       const gx = ncx * CHUNK_SIZE + 3 + ((h >>> 17) % 10);
       const gz = ncz * CHUNK_SIZE + 3 + ((h >>> 21) % 10);
-      const gy = 11 + ((h >>> 25) % (GEODE_TOP - 10));
+      const gy = 13 + ((h >>> 25) % (GEODE_TOP - 12));
       const reach = Math.ceil(R + 1);
       if (gx + reach < x0 || gx - reach >= x0 + CHUNK_SIZE || gz + reach < z0 || gz - reach >= z0 + CHUNK_SIZE) continue;
       for (let dy = -reach; dy <= reach; dy++) {
@@ -121,6 +121,15 @@ export function fillUndergroundLake(t: Terrain, voxels: Uint16Array, cx: number,
       for (let lx = x0; lx <= x1; lx++) {
         const i = voxelIndex(lx, y, lz);
         if (voxels[i] === ID.water && isRock(voxels[i - Y])) voxels[i - Y] = rng() < 0.5 ? ID.gravel : ID.clay;
+      }
+    }
+  }
+  // Glowcaps crowd the shore, so a grotto that no tunnel reaches still glows when it is dug into.
+  for (let y = y0; y <= y1; y++) {
+    for (let lz = z0; lz <= z1; lz++) {
+      for (let lx = x0; lx <= x1; lx++) {
+        const i = voxelIndex(lx, y, lz);
+        if (voxels[i] === AIR && CAVE_FLOOR.has(voxels[i - Y]) && rng() < 0.3) voxels[i] = ID.glowcap;
       }
     }
   }

@@ -41,18 +41,25 @@ the world itself, the map script and tests:
 - Marsh: reeds and skybells along every pool, tall grass, ferns. Sand: cacti (1-3 tall, dunes), dry shrubs, reeds
   on shores. Snow: frost spires (packed ice under an ice spike, 5-13 tall centre with shoulders, one per 11x11 cell
   at most) and small spikes, frost lilies (denser in flower patches). Scar: basalt organ pipes (columns of 1-6
-  `basalt_column` in patches), steam vent clusters (1-3 vents per 9x9 cell), dry shrubs.
+  `basalt_column` in patches), steam vent clusters (1-3 vents, at most one cluster per 13x13 cell), dry shrubs.
 
 ### underground.ts
-- `placeGeodes` (7.5% of chunks; basalt rind, quartz ore shell, `crystal_cluster`s lining the inside; centres at
-  y 11-19, below any lake bed, so a geode never opens under water), `fillUndergroundLake` (30% of chunks: floods the
-  lowest cave floor of a round region with water 1-3 deep, drains every water block that would touch air at its
-  sides or below, beds it with gravel/clay), `placeLavaFall` (30% of chunks: a lava column from a cave ceiling at
-  y 15-30 to the floor plus a splash pool, never beside water), `placeCaveGlowcaps` (clusters on cave floors).
+- `placeGeodes(t, voxels, cx, cz)` - 7.5% of chunks: radius 3.3, 4.1 or 4.9, a basalt rind, a quartz ore shell and
+  `crystal_cluster`s lining the inside; centres at y 13-19, above the deep-cave lava and below any lake bed, so a
+  geode never opens under water. Replayed from the 3x3 neighbourhood like veins.
+- `fillUndergroundLake(t, voxels, cx, cz, cols)` - 14% of chunks: a domed cavern (radius 4.5-5.5, 6-8 high, centre
+  y 15-24, never above the column's cave limit) with water in its lower half; every water block that would touch air
+  at its sides or below drains until the pool is contained; a gravel/clay bed; glowcaps crowd the shore so the
+  grotto has its own light.
+- `placeLavaFall(t, voxels, cx, cz)` - 30% of chunks: a lava column from a cave ceiling at y 15-30 to the floor plus
+  a splash pool, never beside water.
+- `placeCaveGlowcaps(t, voxels, x0, z0, cols)` - clusters on cave floors below the surface.
 
 ### ores.ts
-- `placeOutcrops(t, voxels, x0, z0, cols)` - small ore clusters in the rock faces of cliffs (a column 3+ blocks
-  above a neighbour); ore chosen with the vein weights, biome multipliers and y bands of `ORE_VEINS`.
+- `placeOutcrops(t, voxels, x0, z0, cols)` - small ore clusters in bare surface rock: the faces of cliffs, terraces
+  and gorges (cells of a column above its lowest neighbour; 1 in 8 clusters) and, more rarely, rock lying open on
+  top (1 in 32). The ore follows the vein weights, biome multipliers and y bands of `ORE_VEINS`; most show in the
+  scar's terraces and in mountain and river cliffs.
 
 ### ruins.ts and ruinCrates.ts (the Old Works)
 - `RuinSite { x0, z0, w, d, floor, biome, bits, door, crateX, crateZ }`; `squareRuin(seed, sx, sz)` (the ruin of

@@ -131,9 +131,11 @@ Streaming and extras:
   `{mesh, borders, ms}`. `resultTransferables(result)`. The worker answers `{ready: true}` once, then
   `{id, result}` or `{id, error}` per request.
 
-## Worldgen (finished earlier, unchanged)
+## Worldgen
 `generateChunk(seed, cx, cz): Uint16Array`, `biomeAt(seed, x, z): BiomeKey`, `findSpawn(seed): {x, y, z}`,
-`SPAWN_RESOURCE_RADIUS = 48`. Review terrain with `node scripts/world-map.mjs`.
+`SPAWN_RESOURCE_RADIUS = 48`. Review terrain with `node scripts/world-map.mjs`. The marsh, surface life, tree
+kinds, the underground, outcrops, oil seeps and the Old Works ruins (whose loot crates the World places on chunk
+load; crates no longer pin chunks) are described in `docs/api/world-features.md`.
 
 Also exported: `Chunk`, `chunkCoord`, `localCoord`, `chunkKey`, `keyChunkX`, `keyChunkZ`, `ChunkNeighborhood`,
 `EditLog`, `EditsSnapshot`.
