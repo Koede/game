@@ -65,8 +65,8 @@ function headShape(kind: Kind, x: number, y: number): number {
     const dy = y + 0.5 - 4;
     const along = (dx + dy) / Math.SQRT2;
     const across = (dx - dy) / Math.SQRT2;
-    if (along < -0.8 || along > 5.6 || Math.abs(across) > (along > 3.8 ? 1.2 : 0.8)) return -1;
-    if (along > 4.3) return 0.98;
+    if (along < -1.2 || along > 6.4 || Math.abs(across) > (along > 3.8 ? 2.0 : 1.3)) return -1;
+    if (along > 4.6) return 0.98;
     return across < 0 ? 0.7 : 0.35;
   }
   // Shovel: a long spade blade below the handle, with a raised centre ridge and a rounded point.
