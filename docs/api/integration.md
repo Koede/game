@@ -352,7 +352,7 @@ the steps tap again only when nothing changed.
 ### scripts/e2e-ember.mjs (+ scripts/lib/e2eEmber.mjs) - run by `npm run e2e` after e2e-tech (Emberbound, spec 19)
 Desktop and phone portrait, real input; `window.__hw` only sets up (time, a level strip, give, the automaton placed,
 aiming, furnace fast-forward) and reads. 7 steps per device plus the console check: a clay furnace placed with Use at
-night; a bronze maul forged at the furnace screen; a Cinder Mite placed near the player winds up (`hostile:windup`),
+night; the furnace lit at its screen and a bronze maul given by set-up (hand-cast now); a Cinder Mite placed near the player winds up (`hostile:windup`),
 bites 6 ticks later and health drops, every bite announced once and dealt once (one damage path); the maul breaks mites
 apart and scrap comes (`automaton:salvaged`); a Forge Warden never comes nearer than the clay furnace's 6-block warm
 zone (measured ~7.0) and nothing hurts the player; a fatal blow names the killer on the death screen ("Felled by a Forge

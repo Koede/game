@@ -237,7 +237,8 @@ export async function emberSteps({ d, step, assert, page }) {
     await d.settle(200);
     const windup = await waitFor(page, (id) => window.__ember.find((x) => x.n === 'hostile:windup' && x.e.id === id), 'the mite to wind up', { timeout: 120_000, interval: 50, arg: id });
     await d.shot('02-mite-windup');
-    const bite = await waitFor(page, () => window.__ember.find((x) => x.n === 'player:attacked'), 'the bite', { timeout: 60_000, interval: 50 });
+    // The first bite at or after OUR mite's wind-up (a natural automaton of the night may have struck earlier).
+    const bite = await waitFor(page, (t) => window.__ember.find((x) => x.n === 'player:attacked' && x.t >= t && x.e.species === 'cinder_mite'), 'the bite', { timeout: 60_000, interval: 50, arg: windup.t });
     await d.settle(300);
     await d.shot('03-mite-bit');
     const st = await d.state();
@@ -326,8 +327,11 @@ export async function emberSteps({ d, step, assert, page }) {
     const s = ctx.s;
     await d.hw(() => window.__hw.clearInventory());
     await standAt(d, s, along(s, 14), -1);
+    // Wait (in ticks) until the player stands, so no landing hurts after the health is read; 'burn' leaves 1 health.
+    for (let i = 0; i < 40 && !(await d.state()).player.onGround; i++) await d.hw(() => window.__hw.tick(5));
+    await d.hw(() => window.__hw.tick(10));
     const h = (await d.state()).player.health;
-    await d.hw((n) => window.__hw.damage(n, 'fall'), h - 1);
+    await d.hw((n) => window.__hw.damage(n, 'burn'), h - 1);
     await waitFor(page, () => window.__hw.state().player.dead, 'the player to fall', { timeout: 40_000, interval: 100 });
     const respawn = page.locator('.hw-window button', { hasText: 'Respawn' });
     await respawn.waitFor({ state: 'visible', timeout: 10_000 });
