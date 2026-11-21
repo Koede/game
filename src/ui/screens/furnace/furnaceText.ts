@@ -154,5 +154,6 @@ export function sourceText(item: string): string {
     const tier = r.minTier > 1 ? ` (${furnaceTier(r.minTier).name})` : '';
     return `${r.kind === 'smelt' ? 'smelt' : 'forge'} it here at ${r.minTempC} °C${tier}`;
   }
+  if (r.station === 'alloy_pot') return `alloy copper and tin in an alloy pot at ${r.minTempC} °C`;
   return `made by the ${machine(r.station).name}`;
 }
