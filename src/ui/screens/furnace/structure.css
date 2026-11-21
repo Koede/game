@@ -92,6 +92,18 @@
 .hw-st__problem > svg:last-child {
   color: var(--hw-ash-1);
 }
+.hw-st__pmain {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.hw-st__pcount {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hw-bad-hi);
+}
 .hw-st__ptext {
   font-size: var(--hw-fs-sm);
   line-height: 1.3;
@@ -140,10 +152,18 @@
 .hw-st__size .hw-step__value {
   min-width: 28px;
 }
-/* Five tabs on a phone: tighter tabs so LOG stays in view. */
+/* Five tabs on a phone: tighter tabs so LOG stays in view. On a portrait phone the Structure tab folds the firebox
+   to its status line: building needs the room, and the line still says the one thing that matters about the fire. */
 @media (max-width: 719.98px) and (min-height: 520px) {
   .hw-fx-window .hw-tab {
     padding: 0 9px;
+  }
+  .hw-fx[data-tab='structure'] .hw-fbx {
+    grid-template-rows: auto;
+    grid-template-areas: 'status status';
+  }
+  .hw-fx[data-tab='structure'] .hw-fbx > :not(.hw-fbx__status) {
+    display: none;
   }
 }
 .hw-st__rules {

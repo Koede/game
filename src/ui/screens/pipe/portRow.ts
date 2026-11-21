@@ -249,7 +249,14 @@ export class PortRow {
       ? `Pick a fluid for slot ${index + 1}`
       : choices.length > 0 ? `Pick an item from your pack for slot ${index + 1}` : 'Your pack is empty - carry the item you want to filter.');
     const key = choices.join(',');
-    if (key === this.pickerKey) return;
+    if (key !== this.pickerKey) this.buildPicker(choices, key);
+    for (const b of this.pickerGrid.children) {
+      if (b instanceof HTMLElement) setFlag(b, 'chosen', this.port.filter.includes(b.dataset.key ?? ''));
+    }
+  }
+
+  private buildPicker(choices: readonly string[], key: string): void {
+    const family = this.deps.family;
     this.pickerKey = key;
     this.pickerGrid.replaceChildren(
       ...choices.map((k) => {
@@ -262,6 +269,7 @@ export class PortRow {
           tile.el,
           h('span', { class: 'hw-pipe__cname', text: name }),
         );
+        b.dataset.key = k;
         b.addEventListener('click', () => this.pick(k));
         return b;
       }),

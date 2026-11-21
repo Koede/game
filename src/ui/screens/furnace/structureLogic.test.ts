@@ -4,7 +4,7 @@ import type { GameEvents } from '../../../core/gameEvents';
 import { makeKit, type Kit } from '../../../sim/testKit';
 import { HearthGhost } from './hearthGhost';
 import {
-  checkText, effectText, ghostCells, ghostKey, hearthIntro, innerBounds, materialTexts, statusTone, stepInner, structureBadge, tierRules,
+  checkText, effectText, ghostCells, groupProblems, ghostKey, hearthIntro, innerBounds, materialTexts, statusTone, stepInner, structureBadge, tierRules,
   tierShort, wallSource,
 } from './structureText';
 
@@ -83,6 +83,18 @@ describe('structure text', () => {
     const held = arc.sim.structureView(0, 1, 0)!;
     expect(statusTone(held)).toBe('warn');
     expect(effectText(held)).toBe('The Blast hearth holds it back - the Arc Furnace runs like a Blast Furnace until its Arc hearth forms.');
+  });
+
+  it('folds problems with the same words into one row with every block', () => {
+    const kit = kitWith('furnace_blast');
+    kit.formed(0, 1, 0, { tier: 2, inner: [3, 3, 2] });
+    const view = kit.sim.structureView(0, 1, 0, { tier: 4 })!;
+    expect(view.problems.length).toBe(8);
+    const groups = groupProblems(view.problems);
+    expect(groups.length).toBeLessThan(view.problems.length);
+    const walls = groups.find((g) => g.text === 'Wall is not Plasma Casing')!;
+    expect(walls.at.length).toBe(view.problems.filter((p) => p.text === walls.text).length);
+    expect(groups.reduce((n, g) => n + g.at.length, 0)).toBe(8);
   });
 
   it('introduces the hearth at tier 1 with the real brick recipe', () => {

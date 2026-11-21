@@ -15,14 +15,18 @@ import { glyph, ItemIcon } from '../../kit/icons';
 import { Stepper } from '../stepper';
 import type { HearthGhost, StructureSource } from './hearthGhost';
 import {
-  AXIS_LABEL, checkText, effectText, hearthIntro, innerBounds, materialTexts, sizeText, statusTone, tierRules, tierShort, type Axis,
+  AXIS_LABEL, checkText, effectText, groupProblems, hearthIntro, innerBounds, materialTexts, sizeText, statusTone, tierRules, tierShort,
+  type Axis, type ProblemGroup,
 } from './structureText';
 
 interface ProblemRow {
   el: HTMLButtonElement;
   text: HTMLSpanElement;
+  count: HTMLSpanElement;
   note: HTMLSpanElement;
-  problem: HearthProblem;
+  group: ProblemGroup;
+  /** Which of the group's blocks the next tap shows. */
+  next: number;
 }
 
 interface MaterialEl {
@@ -145,34 +149,41 @@ export class StructureTab {
     );
   }
 
-  private updateProblems(list: readonly HearthProblem[], complete: boolean): void {
-    setText(this.problemHead, list.length > 0 ? `Problems (${list.length})` : complete ? 'Complete' : 'Problems');
+  private updateProblems(problems: readonly HearthProblem[], complete: boolean): void {
+    const list = groupProblems(problems);
+    setText(this.problemHead, problems.length > 0 ? `Problems (${problems.length})` : complete ? 'Complete' : 'Problems');
     while (this.problemRows.length > list.length) this.problemRows.pop()?.el.remove();
-    list.forEach((p, i) => {
+    list.forEach((g, i) => {
       let row = this.problemRows[i];
       if (!row) {
         const text = h('span', { class: 'hw-st__ptext' });
+        const count = h('span', { class: 'hw-st__pcount hw-num' });
         const note = h('span', { class: 'hw-st__pnote', text: 'Shown in the world' });
         note.hidden = true;
-        const el = h('button', { class: 'hw-st__problem', attrs: { type: 'button' } }, glyph('warn', 14), text, note, glyph('chevron', 12));
-        const made: ProblemRow = { el, text, note, problem: p };
+        const el = h('button', { class: 'hw-st__problem', attrs: { type: 'button' } }, glyph('warn', 14), h('span', { class: 'hw-st__pmain' }, text, count), note, glyph('chevron', 12));
+        const made: ProblemRow = { el, text, count, note, group: g, next: 0 };
         el.addEventListener('click', () => this.highlight(made));
         row = made;
         this.problemRows.push(row);
         this.problemList.appendChild(el);
       }
-      row.problem = p;
-      setText(row.text, p.text);
-      setAttr(row.el, 'aria-label', `${p.text} - show this block in the world`);
+      if (row.group.text !== g.text) row.next = 0;
+      row.group = g;
+      setText(row.text, g.text);
+      setText(row.count, g.at.length > 1 ? `×${g.at.length}` : '');
+      row.count.hidden = g.at.length < 2;
+      setAttr(row.el, 'aria-label', `${g.text}${g.at.length > 1 ? ` (${g.at.length} blocks)` : ''} - show it in the world`);
     });
     this.none.hidden = list.length > 0;
     setText(this.none, complete ? 'Every block of this hearth is in place.' : 'Nothing wrong with what stands. Place the blocks still missing below.');
   }
 
   private highlight(row: ProblemRow): void {
-    const p = row.problem;
-    this.bus.emit('highlight:block', { x: p.x, y: p.y, z: p.z, seconds: HEARTH_HIGHLIGHT_S });
+    const at = row.group.at[row.next % row.group.at.length];
+    row.next = (row.next + 1) % row.group.at.length;
+    this.bus.emit('highlight:block', { x: at.x, y: at.y, z: at.z, seconds: HEARTH_HIGHLIGHT_S });
     this.bus.emit('sfx', { name: 'ui_click' });
+    setText(row.note, row.group.at.length > 1 ? `Shown in the world - ${((row.next + row.group.at.length - 1) % row.group.at.length) + 1} of ${row.group.at.length}` : 'Shown in the world');
     for (const r of this.problemRows) r.note.hidden = r !== row;
     if (this.hintTimer !== null) clearTimeout(this.hintTimer);
     this.hintTimer = setTimeout(() => {

@@ -4,7 +4,7 @@
  */
 import type { GameEvents } from '../../../core/gameEvents';
 import { furnaceTier, itemOrNull, recipesFor } from '../../../core/registry';
-import type { FurnaceView, MaterialRow, StructureCheck, StructureView, TierChoice } from '../../../sim';
+import type { FurnaceView, HearthProblem, MaterialRow, StructureCheck, StructureView, TierChoice } from '../../../sim';
 
 export type GhostPayloadCell = GameEvents['ghost:show']['cells'][number];
 export type Axis = 0 | 1 | 2;
@@ -119,4 +119,20 @@ export function hearthIntro(): { title: string; lines: string[] } {
       'Tap "Show in world" below: blue cubes mark where each brick goes, red ones a block in the way.',
     ].filter((l) => l !== ''),
   };
+}
+
+/** Problems with the same words, folded into one row: each tap shows the next of its blocks. */
+export interface ProblemGroup {
+  text: string;
+  at: Array<{ x: number; y: number; z: number }>;
+}
+
+export function groupProblems(problems: readonly HearthProblem[]): ProblemGroup[] {
+  const out: ProblemGroup[] = [];
+  for (const p of problems) {
+    const g = out.find((o) => o.text === p.text);
+    if (g) g.at.push({ x: p.x, y: p.y, z: p.z });
+    else out.push({ text: p.text, at: [{ x: p.x, y: p.y, z: p.z }] });
+  }
+  return out;
 }

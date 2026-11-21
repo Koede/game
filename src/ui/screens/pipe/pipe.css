@@ -267,6 +267,10 @@
   border: 1px solid var(--hw-iron-1);
   border-radius: var(--hw-radius);
 }
+.hw-pipe__choice[data-chosen] {
+  border-color: var(--hw-good);
+  box-shadow: inset 3px 0 0 var(--hw-good);
+}
 .hw-pipe__cname {
   min-width: 0;
   overflow: hidden;
