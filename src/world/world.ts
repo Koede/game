@@ -12,6 +12,7 @@ import {
 import { chunkCoord, chunkKey, localCoord, type Chunk } from './chunk';
 import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
+import { WaterFlow, checkWaterSnapshot, type WaterSnapshot } from './flow';
 import { CRATE_VOXEL, ruinCrateEntity } from './ruinCrates';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
@@ -31,6 +32,8 @@ export interface WorldSnapshot {
   seed: number;
   edits: EditsSnapshot;
   entities: BlockEntity[];
+  /** Water still on its way (spec 18.2); absent in saves from before flowing water (nothing pending). */
+  water?: WaterSnapshot;
 }
 
 /** Numbers for a debug overlay. */
@@ -52,6 +55,8 @@ const BELOW_WORLD: Voxel = makeVoxel(blockId('corestone'));
 
 export class World implements IWorld {
   readonly pool: WorkerPool;
+  /** Flowing water (spec 18.2): the game ticks it at 20 Hz with `water.tick()`; it saves with the world. */
+  readonly water: WaterFlow;
   private readonly chunks = new Map<number, Chunk>();
   private readonly edits = new EditLog();
   private readonly entityStore = new EntityStore();
@@ -77,7 +82,14 @@ export class World implements IWorld {
       entities: this.entityStore,
     };
     this.streamer = new ChunkStreamer(this.host);
-    this.offChunkLoaded = bus.on('chunk:loaded', ({ cx, cz }) => this.placeRuinCrates(cx, cz));
+    this.water = new WaterFlow({
+      chunk: (cx, cz) => this.chunks.get(chunkKey(cx, cz))?.voxels ?? null,
+      setVoxel: (x, y, z, voxel, source) => this.setVoxel(x, y, z, voxel, source),
+    });
+    this.offChunkLoaded = bus.on('chunk:loaded', ({ cx, cz }) => {
+      this.placeRuinCrates(cx, cz);
+      this.water.chunkLoaded(cx, cz);
+    });
   }
 
   /** Restores a world from a snapshot (see load). */
@@ -124,6 +136,7 @@ export class World implements IWorld {
     this.edits.record(cx, cz, index, voxel);
     this.streamer.onEdit(chunk, lx, lz, from, voxel, source);
     this.bus.emit('block:changed', { x: bx, y: by, z: bz, from, to: voxel, source });
+    this.water.changed(bx, by, bz, from, voxel, source);
     return true;
   }
 
@@ -213,6 +226,7 @@ export class World implements IWorld {
       seed: this.currentSeed,
       edits: this.edits.toJSON(),
       entities: JSON.parse(JSON.stringify([...this.entityStore.values()])) as BlockEntity[],
+      water: this.water.toJSON(),
     };
   }
 
@@ -228,12 +242,14 @@ export class World implements IWorld {
       if (!e || typeof e.kind !== 'string' || ![e.x, e.y, e.z].every(Number.isFinite)) throw new Error('world: malformed entity in snapshot');
     }
     // Parses (and throws) before anything changes.
+    checkWaterSnapshot(snapshot.water);
     this.edits.load(snapshot.edits ?? {});
     this.streamer.unloadAll();
     this.streamer.dispose();
     this.currentSeed = snapshot.seed >>> 0;
     this.entityStore.clear();
     for (const e of snapshot.entities) this.entityStore.set(JSON.parse(JSON.stringify(e)) as BlockEntity);
+    this.water.load(snapshot.water);
     this.streamer = new ChunkStreamer(this.host);
   }
 

@@ -18,6 +18,7 @@ import {
   AO_CURVE, CORNER_A, CORNER_B, D_CORNER, D_FRONT, D_SIDE1, D_SIDE2, FACE_SHADE, QBlock, QFlags, QShade, QSky, QU, QV, QX, QY, QZ,
   SY, VX, VY, VZ, box, builders, cellCoolBits, coolBits, lit, noHue, pushQuad, vol, type Builder,
 } from './meshQuads';
+import { LIQ, liquidShape } from './meshLiquid';
 import { pipe } from './meshPipe';
 
 export { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from './meshQuads';
@@ -33,8 +34,9 @@ export interface MeshInput {
   hue?: Uint8Array;
 }
 
-/** Height of a liquid's surface inside its cell when nothing of the same liquid lies above. */
-export const LIQUID_SURFACE = 14 / 16;
+export { LIQUID_SURFACE } from './meshLiquid';
+/** Side faces of moving water sample the tile stretched this much vertically: long streaks that run down fast. */
+export const FALL_STRETCH = 0.5;
 
 /** Light summed over the cells around one vertex (smooth lighting). */
 const sums = { sky: 0, block: 0, cool: 0, violet: 0, cells: 0 };
@@ -49,21 +51,29 @@ function addCell(q: number): void {
   sums.cells++;
 }
 
-/** Faces of a full cube or a liquid cell, with ambient occlusion and smooth light. */
+/**
+ * Faces of a full cube or a liquid cell, with ambient occlusion and smooth light. A liquid's top corners follow
+ * meshLiquid's heights; moving water carries its flow in the texture coordinates and the flowing flag (liquid + sway
+ * bits): its top face's v axis points along the flow and its side faces' v axis points down, so the shader only has
+ * to scroll v (spec 18.4).
+ */
 function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: number, liquid: boolean): void {
   const b = builders[BATCH[id]];
   const slot = faceSlot(v);
-  const above = vol[p + SY] & VOXEL_ID_MASK;
-  // Under ice (or anything opaque) the surface stays full height, so no gap opens below the cover.
-  const height = liquid && above !== id && OPAQUE[above] === 0 ? LIQUID_SURFACE : 1;
   const merges = MERGES[id] === 1;
+  if (liquid) liquidShape(v, id, p, x, y, z);
+  const scrollsTop = liquid && (LIQ.fx !== 0 || LIQ.fz !== 0);
   for (let f = 0; f < 6; f++) {
     const pf = p + D_FRONT[f];
     const nid = vol[pf] & VOXEL_ID_MASK;
     if (OPAQUE[nid] === 1 || (merges && nid === id)) continue;
+    const side = f !== Face.PY && f !== Face.NY;
     let flags = 0;
-    if (liquid) flags = (f === Face.PY ? LIGHT_FLAG_LIQUID : 0) | (LIQUID[id] === 2 ? LIGHT_FLAG_EMISSIVE : 0);
-    else if (FACE_GLOW[slot + f] === 1) flags = LIGHT_FLAG_EMISSIVE;
+    if (liquid) {
+      flags = LIQUID[id] === 2 ? LIGHT_FLAG_EMISSIVE : 0;
+      if (f === Face.PY) flags |= LIGHT_FLAG_LIQUID | (scrollsTop ? LIGHT_FLAG_SWAY : 0);
+      else if (side && LIQ.moving) flags |= LIGHT_FLAG_LIQUID | LIGHT_FLAG_SWAY;
+    } else if (FACE_GLOW[slot + f] === 1) flags = LIGHT_FLAG_EMISSIVE;
     for (let k = 0; k < 4; k++) {
       const c = f * 4 + k;
       const p1 = p + D_SIDE1[c];
@@ -82,11 +92,19 @@ function cubeFaces(v: number, id: number, p: number, x: number, y: number, z: nu
         ao = 3 - o1 - o2 - oc;
       }
       const cells = sums.cells;
+      const vy = liquid && VY[c] === 1 ? LIQ.h[VX[c] + 2 * VZ[c]] : VY[c];
       QX[k] = x + VX[c];
-      QY[k] = y + VY[c] * height;
+      QY[k] = y + vy;
       QZ[k] = z + VZ[c];
-      QU[k] = CORNER_A[k];
-      QV[k] = f === Face.PY || f === Face.NY ? CORNER_B[k] : CORNER_B[k] * height;
+      if (scrollsTop && f === Face.PY) {
+        const px = x + VX[c];
+        const pz = z + VZ[c];
+        QU[k] = px * LIQ.fz - pz * LIQ.fx;
+        QV[k] = px * LIQ.fx + pz * LIQ.fz;
+      } else {
+        QU[k] = CORNER_A[k];
+        QV[k] = !side ? CORNER_B[k] : liquid && LIQ.moving ? -vy * FALL_STRETCH : vy;
+      }
       QSky[k] = (sums.sky * 17) / cells + 0.5;
       QBlock[k] = (sums.block * 17) / cells + 0.5;
       QShade[k] = FACE_SHADE[f] * AO_CURVE[ao] * 255;
