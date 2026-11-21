@@ -26,6 +26,8 @@ export class FluidNet extends PipeNet {
   private orderOf: string | null = null;
   private readonly limits: number[] = [];
   private readonly takers: Port[] = [];
+  /** Blocks pulled from this tick: fluid never goes straight back into them. */
+  private readonly sources: BlockEntity[] = [];
 
   constructor() {
     super('fluid');
@@ -36,14 +38,19 @@ export class FluidNet extends PipeNet {
     return this.hot || !fluidSpec(key).hot;
   }
 
-  tick(env: FluidEnv, dt: number): void {
+  /** One tick; returns the litres it pulled in (what flowed through it, even when none is left in the pipes). */
+  tick(env: FluidEnv, dt: number): number {
     const store = this.store;
-    for (const port of this.ports) if (port.cfg.mode === 'pull') this.pull(env, port, dt);
+    const before = store.litres;
+    let pulled = 0;
+    this.sources.length = 0;
+    for (const port of this.ports) if (port.cfg.mode === 'pull') pulled += this.pull(env, port, dt);
     if (store.litres > EMPTY_L && store.fluid) this.push(env, store.fluid, dt);
     if (store.litres <= EMPTY_L) {
       store.litres = 0;
       store.fluid = null;
     }
+    return pulled + Math.max(0, before - store.litres);
   }
 
   /** Every second: the litres each end moved become its shown rate. */
@@ -54,28 +61,30 @@ export class FluidNet extends PipeNet {
     }
   }
 
-  private pull(env: FluidEnv, port: Port, dt: number): void {
+  private pull(env: FluidEnv, port: Port, dt: number): number {
     const ep = env.fluidEndpoint(port);
     if (!ep) {
       port.state = 'no_endpoint';
-      return;
+      return 0;
     }
     const offer = ep.offer();
     if (!offer || offer.litres <= 0) {
       port.state = 'empty';
       port.subject = null;
-      return;
+      return 0;
     }
     port.subject = offer.fluid;
     const store = this.store;
     if (!passes(port.cfg, offer.fluid)) port.state = 'filtered';
     else if (!this.carries(offer.fluid)) port.state = 'too_hot';
-    else if (store.fluid !== null && store.fluid !== offer.fluid) port.state = 'other_fluid';
-    else {
+    else if (store.fluid !== null && store.fluid !== offer.fluid) {
+      port.state = 'other_fluid';
+      port.subject = store.fluid;
+    } else {
       const room = this.capacity - store.litres;
       if (room <= EMPTY_L) {
         port.state = this.anyTaker(env, offer.fluid, ep.entity) ? 'dest_full' : 'no_dest';
-        return;
+        return 0;
       }
       const got = ep.drain(offer.fluid, Math.min(port.rate * dt, room, offer.litres));
       if (got > 0) {
@@ -83,8 +92,11 @@ export class FluidNet extends PipeNet {
         store.litres += got;
         port.litres += got;
         port.state = 'moving';
+        if (!this.sources.includes(ep.entity)) this.sources.push(ep.entity);
       }
+      return got;
     }
+    return 0;
   }
 
   /** Whether a pushing end of this network would ever take the fluid (for "No destination"). */
@@ -125,6 +137,10 @@ export class FluidNet extends PipeNet {
           continue;
         }
         port.subject = key;
+        if (this.sources.includes(ep.entity)) {
+          port.state = 'waiting';
+          continue;
+        }
         if (!passes(port.cfg, key)) {
           port.state = 'filtered';
           continue;

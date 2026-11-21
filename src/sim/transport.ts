@@ -49,7 +49,7 @@ export class Transport {
     this.graph = new PipeGraph({
       world: host.world,
       entity: (key) => this.entities.get(key),
-      pruned: (e) => this.dropIfEmpty(e),
+      pruned: (e) => this.tidy(e),
     });
     const self = this;
     this.itemEnv = {
@@ -147,10 +147,11 @@ export class Transport {
     const second = this.ticks % TICK_RATE === 0;
     for (const net of this.graph.fluids) {
       const had = net.store.litres > 0;
-      if (net.ports.length > 0) net.tick(this.fluidEnv, dt);
+      if (net.ports.length > 0 && net.tick(this.fluidEnv, dt) > 0) net.busyAt = this.time;
       if (second) net.sample();
       const has = net.store.litres > 0;
-      if (has !== net.carrying) this.setCarrying(net, has);
+      const busy = has || this.time - net.busyAt < 1;
+      if (busy !== net.carrying) this.setCarrying(net, busy);
       // A joint refused for what this network held can close once it ran dry.
       if (had && !has && net.refused) this.graph.redo(net);
     }
@@ -199,7 +200,7 @@ export class Transport {
       else this.spill(p.rec);
     }
     for (const net of r.built) this.anchor(net);
-    for (const e of oldAnchors) if (e !== undefined) this.dropIfEmpty(e);
+    for (const e of oldAnchors) this.tidy(e);
     for (const net of r.built) {
       const busy = net instanceof FluidNet ? net.store.litres > 0 : (net as ItemNet).packets.length > 0;
       if (busy && net instanceof ItemNet) net.busyAt = this.time;
@@ -327,7 +328,8 @@ export class Transport {
     return e;
   }
 
-  private dropIfEmpty(e: PipeEntity): void {
+  /** Drops a pipe entity that remembers nothing any more. */
+  tidy(e: PipeEntity): void {
     if (pipeEntityEmpty(e)) this.removeEntity(e);
   }
 

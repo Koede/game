@@ -79,7 +79,11 @@ export function wrenchJoint(t: Transport, x: number, y: number, z: number, dir: 
   if (parted) {
     if (ea?.cut) ea.cut &= ~(1 << dir);
     if (eb?.cut) eb.cut &= ~(1 << back);
-    for (const e of [ea, eb]) if (e && !e.cut) delete e.cut;
+    for (const e of [ea, eb]) {
+      if (!e || e.cut) continue;
+      delete e.cut;
+      t.tidy(e);
+    }
   } else {
     const na = t.ensureEntity(a);
     const nb = t.ensureEntity(b);
@@ -143,8 +147,10 @@ export function bucketUse(t: Transport, x: number, y: number, z: number, face: F
   if (full) {
     const room = ep.room(full.key);
     if (room < LITRES_PER_BUCKET) {
+      const other = ep.offer();
       const reason = !takes(ep, full.key) ? `The ${block.name} does not take ${full.name.toLowerCase()}`
-        : room > 0 ? 'Not enough room for a bucketful' : `The ${block.name} is full`;
+        : other && other.fluid !== full.key ? `The ${block.name} holds ${fluidSpec(other.fluid).name.toLowerCase()}`
+          : room > 0 ? 'Not enough room for a bucketful' : `The ${block.name} is full`;
       return { ok: false, reason, endpoint: true };
     }
     ep.fill(full.key, LITRES_PER_BUCKET);

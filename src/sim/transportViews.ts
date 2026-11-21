@@ -141,8 +141,8 @@ function itemStatus(t: Transport, net: ItemNet, port: Port): string {
   const blocked = net.blockedAt(port);
   if (blocked > 0) return 'Blocked';
   if (port.cfg.mode === 'off') return 'Off';
+  if (!t.itemEndpointOf(port)) return noEndpoint(port);
   if (port.cfg.mode === 'push') {
-    if (port.state === 'no_endpoint') return noEndpoint(port);
     if (t.time - port.at < RECENT_S) return `Receiving ${itemName(port.subject)}`;
     return port.state === 'full' ? 'Destination full' : 'Ready';
   }
@@ -164,8 +164,9 @@ function itemStatus(t: Transport, net: ItemNet, port: Port): string {
   }
 }
 
-function fluidStatus(net: FluidNet, port: Port): string {
+function fluidStatus(t: Transport, net: FluidNet, port: Port): string {
   if (port.cfg.mode === 'off') return 'Off';
+  if (!t.fluidEndpointOf(port)) return noEndpoint(port);
   const moving = `Moving ${fmtL(port.rateL > 0 ? port.rateL : port.rate)}/s`;
   const held = net.store.fluid;
   if (port.cfg.mode === 'pull') {
@@ -175,7 +176,7 @@ function fluidStatus(net: FluidNet, port: Port): string {
       case 'too_hot':
         return 'Too hot for this pipe';
       case 'other_fluid':
-        return `The pipes hold ${fluidName(held)}`;
+        return `The pipes hold ${fluidName(port.subject)}`;
       case 'filtered':
         return `Filter blocks ${fluidName(port.subject)}`;
       case 'no_dest':
@@ -191,25 +192,24 @@ function fluidStatus(net: FluidNet, port: Port): string {
     }
   }
   if (port.state === 'no_endpoint') return noEndpoint(port);
-  if (!held) return 'Waiting for fluid';
   switch (port.state) {
     case 'moving':
       return port.rateL > 0 ? moving : 'Waiting for fluid';
     case 'full':
       return 'Destination full';
     case 'refuses':
-      return `Does not take ${fluidName(held)}`;
+      return `Does not take ${fluidName(port.subject)}`;
     case 'filtered':
-      return `Filter blocks ${fluidName(held)}`;
+      return `Filter blocks ${fluidName(port.subject)}`;
     default:
-      return 'Waiting for fluid';
+      return held ? 'Waiting' : 'Waiting for fluid';
   }
 }
 
 function portView(t: Transport, net: PipeNet, port: Port, inert: boolean, from: { x: number; y: number; z: number }): PortView {
   const status = inert
     ? 'Network too long'
-    : net instanceof ItemNet ? itemStatus(t, net, port) : fluidStatus(net as FluidNet, port);
+    : net instanceof ItemNet ? itemStatus(t, net, port) : fluidStatus(t, net as FluidNet, port);
   const rate = net instanceof ItemNet ? `${port.batch} every ${fmtS(1 / port.rate)}` : `${fmtL(port.rate)}/s`;
   const moving = !inert && (net instanceof ItemNet ? t.time - port.at < RECENT_S : port.rateL > 0);
   return {
