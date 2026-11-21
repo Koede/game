@@ -10,7 +10,6 @@ export interface ParamLike {
   linearRampToValueAtTime(value: number, time: number): unknown;
   exponentialRampToValueAtTime(value: number, time: number): unknown;
   setTargetAtTime(target: number, time: number, timeConstant: number): unknown;
-  cancelScheduledValues(time: number): unknown;
 }
 
 export interface NodeLike {

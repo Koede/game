@@ -15,7 +15,7 @@ export const CUE_SFX = {
   upgrade: {
     priority: 1,
     layers: [
-      tone('sine', N.C3, 0.2, 1.1, { a: 0.02 }),
+      tone('sine', N.C3, 0.13, 1.1, { a: 0.02 }),
       ...run([N.C4, N.E4, N.G4, N.C5], 0.09, 0.2, 0.35),
       ...warm(N.E5, 0.2, 0.9, 0.36),
       ...warm(N.C5, 0.12, 0.9, 0.36),
@@ -29,8 +29,8 @@ export const CUE_SFX = {
   age: {
     priority: 1,
     layers: [
-      tone('sine', N.C3, 0.22, 2.2, { a: 0.04 }),
-      tone('sine', N.G3, 0.12, 2.0, { a: 0.04 }),
+      tone('sine', N.C3, 0.14, 2.2, { a: 0.04 }),
+      tone('sine', N.G3, 0.1, 2.0, { a: 0.04 }),
       ...run([N.G3, N.C4, N.D4, N.G4, N.A4], 0.14, 0.18, 0.5),
       ...warm(N.C5, 0.17, 1.6, 0.7),
       ...warm(N.E5, 0.14, 1.6, 0.74),
@@ -42,14 +42,14 @@ export const CUE_SFX = {
   win: {
     priority: 2,
     layers: [
-      tone('sine', N.C3, 0.24, 3.6, { a: 0.03, hold: 0.6 }),
+      tone('sine', N.C3, 0.12, 3.6, { a: 0.03, hold: 0.6 }),
       ...warm(N.C4, 0.16, 3.4),
-      ...warm(N.G4, 0.14, 3.4),
-      ...warm(N.F4, 0.14, 0.55),
-      ...warm(N.E4, 0.15, 3.0, 0.5),
-      ...warm(N.C5, 0.12, 2.9, 0.55),
-      ...warm(N.E5, 0.1, 2.8, 0.62),
-      ...warm(N.G5, 0.08, 2.7, 0.7),
+      ...warm(N.G4, 0.15, 3.4),
+      ...warm(N.F4, 0.15, 0.55),
+      ...warm(N.E4, 0.16, 3.0, 0.5),
+      ...warm(N.C5, 0.14, 2.9, 0.55),
+      ...warm(N.E5, 0.12, 2.8, 0.62),
+      ...warm(N.G5, 0.1, 2.7, 0.7),
       ...shimmer([N.C6, N.E6, N.G6, N.C7, N.E7, N.G7], 0.75, 0.14, 0.035, 2.2),
       noise('white', hp(6000), 0.02, 2.0, { at: 0.6, a: 0.4 }),
     ],
@@ -70,8 +70,8 @@ export const CUE_SFX = {
   error: {
     ui: true,
     layers: [
-      tone('triangle', 196, 0.2, 0.09, { a: 0.005, filter: lp(900) }),
-      tone('triangle', 155, 0.2, 0.12, { at: 0.11, a: 0.005, filter: lp(900) }),
+      tone('triangle', 330, 0.2, 0.09, { a: 0.005, filter: lp(1400) }),
+      tone('triangle', 262, 0.2, 0.12, { at: 0.11, a: 0.005, filter: lp(1400) }),
     ],
   },
 } satisfies Record<string, Patch>;

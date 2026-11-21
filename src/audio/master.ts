@@ -2,7 +2,7 @@
  * The output stage every sound passes through:
  *
  *   world bus -> muffle (underwater low-pass) -+
- *                                              +-> master gain -> compressor -> soft clip -> speakers
+ *                                              +-> master gain -> rumble filter -> compressor -> soft clip -> speakers
  *   ui bus ------------------------------------+
  */
 import type { AudioCtxLike, FilterLike, GainLike, NodeLike } from './types';
@@ -62,10 +62,17 @@ export function createMasterChain(ctx: AudioCtxLike, destination: NodeLike = ctx
   const clip = ctx.createWaveShaper();
   clip.curve = softClipCurve();
 
+  // Removes DC and sub-bass that small speakers cannot reproduce but that still eats headroom.
+  const rumble = ctx.createBiquadFilter();
+  rumble.type = 'highpass';
+  rumble.frequency.value = 28;
+  rumble.Q.value = 0.7;
+
   world.connect(muffle);
   muffle.connect(master);
   ui.connect(master);
-  master.connect(comp);
+  master.connect(rumble);
+  rumble.connect(comp);
   comp.connect(pre);
   pre.connect(clip);
   clip.connect(destination);
@@ -76,7 +83,7 @@ export function createMasterChain(ctx: AudioCtxLike, destination: NodeLike = ctx
     ui,
     muffle,
     dispose() {
-      for (const node of [world, muffle, ui, master, comp, pre, clip]) node.disconnect();
+      for (const node of [world, muffle, ui, master, rumble, comp, pre, clip]) node.disconnect();
     },
   };
 }

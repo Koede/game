@@ -137,14 +137,32 @@ export function fillNightChimes(data: Float32Array, sampleRate: number, seed: nu
     const start = Math.floor(((k + 0.15 + rng() * 0.7) / notes) * n);
     const semis = NIGHT_SCALE[Math.floor(rng() * NIGHT_SCALE.length)];
     const freq = 440 * Math.pow(2, semis / 12);
-    const w = (2 * Math.PI * freq) / sampleRate;
     const amp = 0.35 + rng() * 0.65;
     const tau = (0.5 + rng() * 0.5) * sampleRate;
     const attack = 0.03 * sampleRate;
     const len = Math.min(n, Math.floor(tau * 6));
+    // Two sine partials by recurrence (s[i+1] = 2cos(w)s[i] - s[i-1]) and a running decay: this
+    // buffer is the largest one generated, so it avoids a sin() and an exp() per sample.
+    const w1 = (2 * Math.PI * freq) / sampleRate;
+    const w2 = w1 * 2.005;
+    const k1 = 2 * Math.cos(w1);
+    const k2 = 2 * Math.cos(w2);
+    let a0 = 0;
+    let a1 = -Math.sin(w1);
+    let b0 = 0;
+    let b1 = -Math.sin(w2);
+    let decay = amp;
+    const fall = Math.exp(-1 / tau);
     for (let i = 0; i < len; i++) {
-      const env = Math.min(1, i / attack) * Math.exp(-i / tau);
-      data[(start + i) % n] += (Math.sin(i * w) + 0.18 * Math.sin(i * w * 2.005)) * env * amp;
+      const env = i < attack ? (i / attack) * decay : decay;
+      data[(start + i) % n] += (a0 + 0.18 * b0) * env;
+      const a2 = k1 * a0 - a1;
+      a1 = a0;
+      a0 = a2;
+      const b2 = k2 * b0 - b1;
+      b1 = b0;
+      b0 = b2;
+      decay *= fall;
     }
   }
   normalise(data, 0.9);
@@ -157,6 +175,16 @@ const FLICKER_RATE = 8000;
 /** Lazily builds and caches every generated buffer for one audio context. */
 export class BufferBank {
   private readonly cache = new Map<string, BufferLike>();
+  private readonly recipes: ReadonlyArray<() => BufferLike> = [
+    () => this.noise('white'),
+    () => this.noise('pink'),
+    () => this.noise('brown'),
+    () => this.crackle(false),
+    () => this.crackle(true),
+    () => this.flicker(),
+    () => this.nightChimes(),
+  ];
+  private warmed = 0;
 
   constructor(private readonly ctx: AudioCtxLike) {}
 
@@ -168,6 +196,15 @@ export class BufferBank {
       this.cache.set(key, buffer);
     }
     return buffer;
+  }
+
+  /**
+   * Generates one more buffer per call and returns true once all of them exist, so the cost of
+   * synthesising the sample data can be spread over several frames instead of one long hitch.
+   */
+  warm(): boolean {
+    if (this.warmed < this.recipes.length) this.recipes[this.warmed++]();
+    return this.warmed >= this.recipes.length;
   }
 
   noise(color: NoiseColor): BufferLike {
