@@ -1,0 +1,244 @@
+/**
+ * The PlayerController ties the player together once per frame: intent -> look and hotbar -> physics -> raycast
+ * -> interaction -> camera. It drives whatever draws the world only through IView (spec section 9) and never
+ * imports src/render, src/sim or src/ui: screens are requested with 'ui:open' and machines react to world edits.
+ */
+import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
+import type { GameBus, InputState, IView, Settings } from '../core/context';
+import { clamp, type Vec3 } from '../core/math';
+import type { IWorld } from '../core/types';
+import type { PlayerState } from '../game';
+import type { Intent } from './input/intent';
+import { Interaction } from './interaction';
+import { PlayerPhysics } from './physics';
+import { createRayHit, raycast, type RayHit } from './raycast';
+
+/** Where the controller gets its per-frame intent (the InputManager, or a script in tests and harnesses). */
+export interface IntentSource {
+  frame(dtSeconds: number): Intent;
+  /** Capture the mouse again (after a screen closed). Optional for sources without a pointer. */
+  requestPointerCapture?(): Promise<boolean>;
+  releasePointerCapture?(): void;
+}
+
+export interface PlayerControllerOptions {
+  world: IWorld;
+  bus: GameBus;
+  player: PlayerState;
+  view: IView;
+  input: IntentSource;
+  settings: Settings;
+  state: InputState;
+  /** Random source for drop rolls (default Math.random). */
+  rng?: () => number;
+}
+
+/** Degrees added to the field of view at full sprint. */
+export const SPRINT_FOV_KICK = 8;
+/** Vertical / sideways amplitude of the view bob at walking speed, in blocks. */
+const BOB_Y = 0.045;
+const BOB_X = 0.025;
+/** Bob cycles per block walked. */
+const BOB_FREQ = 0.62;
+/** Blocks walked on the ground between footstep sounds. */
+const STEP_EVERY = 1.75;
+/** A landing from higher than this makes a thud. */
+const LAND_SOUND_FROM = 1.2;
+/** Looking straight up or down stops just short of the pole (so the view direction never degenerates). */
+const PITCH_LIMIT = Math.PI / 2 - 0.01;
+
+export class PlayerController {
+  readonly physics: PlayerPhysics;
+  readonly interaction: Interaction;
+  private readonly world: IWorld;
+  private readonly bus: GameBus;
+  private readonly player: PlayerState;
+  private readonly view: IView;
+  private readonly input: IntentSource;
+  private readonly settings: Settings;
+  private readonly state: InputState;
+  private readonly hit: RayHit = createRayHit();
+  private readonly dir: Vec3 = { x: 0, y: 0, z: 1 };
+  private readonly targetBox = { x: 0, y: 0, z: 0 };
+  private readonly unsubscribe: Array<() => void> = [];
+  private currentTarget: RayHit | null = null;
+  private fov = -1;
+  private heldKey: string | null | undefined = undefined;
+  private bobPhase = 0;
+  private bobAmount = 0;
+  /** Camera lag after stepping up onto a slab, so the eye glides instead of snapping. */
+  private stepOffset = 0;
+  private stepDistance = 0;
+  /** The mouse was captured at some point and should be captured again when a screen closes. */
+  private wantsLock = false;
+
+  constructor(options: PlayerControllerOptions) {
+    this.world = options.world;
+    this.bus = options.bus;
+    this.player = options.player;
+    this.view = options.view;
+    this.input = options.input;
+    this.settings = options.settings;
+    this.state = options.state;
+    this.physics = new PlayerPhysics(this.world, this.player);
+    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random);
+    this.unsubscribe.push(
+      this.bus.on('ui:opened', () => {
+        this.interaction.stopMining();
+        this.input.releasePointerCapture?.();
+      }),
+      this.bus.on('ui:closed', () => this.recapture()),
+      this.bus.on('player:respawn', () => this.physics.reset()),
+    );
+  }
+
+  /** The block under the crosshair after the last update, or null. */
+  get target(): RayHit | null {
+    return this.currentTarget;
+  }
+
+  /** Mining progress 0..1 on the target, or -1. */
+  get miningProgress(): number {
+    return this.interaction.progress;
+  }
+
+  /** Moves the player (feet position) and forgets any fall in progress. */
+  teleport(x: number, y: number, z: number): void {
+    const p = this.player.position;
+    p.x = x;
+    p.y = y;
+    p.z = z;
+    this.physics.reset();
+  }
+
+  /** One frame. `dt` in seconds (the game loop clamps it to 0.1). */
+  update(dt: number): void {
+    const intent = this.input.frame(dt);
+    const p = this.player;
+    if (this.state.pointerLocked) this.wantsLock = true;
+
+    if (!p.dead) {
+      p.yaw -= intent.lookYaw;
+      if (p.yaw > Math.PI) p.yaw -= Math.PI * 2;
+      else if (p.yaw < -Math.PI) p.yaw += Math.PI * 2;
+      p.pitch = clamp(p.pitch + intent.lookPitch, -PITCH_LIMIT, PITCH_LIMIT);
+      this.hotbar(intent);
+      this.menus(intent);
+      this.move(dt, intent);
+    }
+
+    this.currentTarget = this.cast();
+    if (!p.dead) {
+      const edits = this.interaction.edits;
+      if (intent.use) this.interaction.use(this.currentTarget);
+      this.interaction.updateMining(dt, intent.mine, this.currentTarget);
+      // A broken or placed block changes what is under the crosshair this very frame.
+      if (this.interaction.edits !== edits) this.currentTarget = this.cast();
+    } else {
+      this.interaction.stopMining();
+    }
+    this.updateView(dt);
+  }
+
+  dispose(): void {
+    for (const off of this.unsubscribe) off();
+    this.unsubscribe.length = 0;
+    this.interaction.stopMining();
+  }
+
+  // ---------------------------------------------------------------------------------------------
+
+  private hotbar(intent: Intent): void {
+    if (intent.hotbarSlot !== null) this.player.selectSlot(intent.hotbarSlot);
+    if (intent.hotbarStep !== 0) {
+      this.player.selectSlot((this.player.selectedSlot + intent.hotbarStep + HOTBAR_SIZE) % HOTBAR_SIZE);
+    }
+  }
+
+  private menus(intent: Intent): void {
+    if (intent.pause) this.bus.emit('ui:open', { screen: { type: 'pause' } });
+    else if (intent.inventory) this.bus.emit('ui:open', { screen: { type: 'inventory' } });
+    else if (intent.log) this.bus.emit('ui:open', { screen: { type: 'log' } });
+  }
+
+  private move(dt: number, intent: Intent): void {
+    const r = this.physics.step(dt, intent);
+    const p = this.player;
+    if (r.jumped) this.sfx('jump');
+    if (r.enteredWater) this.sfx('splash');
+    else if (r.landedFrom > LAND_SOUND_FROM) this.sfx('land');
+    if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;
+    if (p.onGround && r.walked > 0) {
+      this.stepDistance += r.walked;
+      if (this.stepDistance >= STEP_EVERY) {
+        this.stepDistance -= STEP_EVERY;
+        this.sfx('step', 0.6);
+      }
+    }
+    // View bob follows the distance walked, fading in and out with ground speed.
+    const speed = Math.hypot(p.velocity.x, p.velocity.z);
+    const bobTarget = p.onGround && !this.physics.inLiquid ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
+    this.bobAmount += (bobTarget - this.bobAmount) * (1 - Math.exp(-10 * dt));
+    if (p.onGround) this.bobPhase += r.walked * BOB_FREQ * Math.PI * 2;
+    this.sprintFov(dt, r.sprinting && speed > WALK_SPEED * 0.9);
+  }
+
+  private sprintFov(dt: number, sprinting: boolean): void {
+    const target = this.settings.fov + (sprinting ? SPRINT_FOV_KICK : 0);
+    let next = this.fov < 0 ? target : this.fov + (target - this.fov) * (1 - Math.exp(-8 * dt));
+    if (Math.abs(next - target) < 0.05) next = target;
+    if (next !== this.fov) {
+      this.fov = next;
+      this.view.setFov(next);
+    }
+  }
+
+  private cast(): RayHit | null {
+    const p = this.player;
+    const held = p.heldStack();
+    p.viewDir(this.dir);
+    return raycast(this.world, p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z, REACH, held?.item === 'pail', this.hit);
+  }
+
+  private updateView(dt: number): void {
+    const p = this.player;
+    this.stepOffset *= Math.exp(-14 * dt);
+    if (Math.abs(this.stepOffset) < 1e-3) this.stepOffset = 0;
+    const bobY = Math.abs(Math.sin(this.bobPhase)) * BOB_Y * this.bobAmount;
+    const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
+    const x = p.position.x + Math.cos(p.yaw) * side;
+    const z = p.position.z - Math.sin(p.yaw) * side;
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset, z, p.yaw, p.pitch);
+    if (this.fov < 0) this.sprintFov(dt, false);
+
+    const t = this.currentTarget;
+    if (t) {
+      this.targetBox.x = t.x;
+      this.targetBox.y = t.y;
+      this.targetBox.z = t.z;
+      const mining = this.interaction.progress >= 0 && t.x === this.interaction.mx && t.y === this.interaction.my && t.z === this.interaction.mz;
+      this.view.setTarget(this.targetBox, mining ? this.interaction.progress : -1);
+    } else {
+      this.view.setTarget(null, -1);
+    }
+
+    const key = p.heldStack()?.item ?? null;
+    if (key !== this.heldKey) {
+      this.heldKey = key;
+      this.view.setHeldItem(key);
+    }
+  }
+
+  private recapture(): void {
+    if (!this.wantsLock || this.state.touch || !this.input.requestPointerCapture) return;
+    void this.input.requestPointerCapture().then((locked) => {
+      // A refusal (no user gesture yet) is fine: the next click on the view captures again.
+      if (locked) this.state.pointerLocked = true;
+    });
+  }
+
+  private sfx(name: 'jump' | 'splash' | 'land' | 'step', volume?: number): void {
+    const p = this.player.position;
+    this.bus.emit('sfx', { name, x: p.x, y: p.y, z: p.z, volume });
+  }
+}
