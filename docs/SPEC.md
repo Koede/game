@@ -884,8 +884,7 @@ their name and health.
 
 - The pail becomes the BUCKET: item keys stay `pail` / `water_pail` (saves and recipes keep working) but every
   player-facing name and description says "Bucket" / "Water Bucket". Using an empty bucket on water fills it
-  (sfx 'splash'); every water block is an endless spring (lakes are never emptied - water does not flow in this
-  game), the description says so. Using a water bucket on a block face pours a water block there and returns the
+  (sfx 'splash'). SUPERSEDED by section 18: water flows, and buckets only take source blocks. Using a water bucket on a block face pours a water block there and returns the
   bucket. A water bucket is also a fluid container for the fluid system of section 16 (a tank or fluid port
   accepts it and gives back an empty bucket, and vice versa).
 - Dough REQUIRES water: dough <- 2 flour + 1 water_pail (byproduct: the empty bucket). Hearth stew also needs one.
@@ -1106,3 +1105,50 @@ T3 2 copper_coil, 2 steel_plate; T4 2 circuit, 2 tungsten_rod; T5 1 star_core, 8
 - Objectives pipe_ore ("Pipe it in", after blast_furnace) and pump_water ("Pump water", after arc_furnace). The
   progression solver requires each tier's smallest shell (16 brick; 24 refractory brick + 1 electrode; 53 plasma
   casing + 2 power ports; 93 star casing + 4 power ports) to be obtainable at the previous tier.
+
+---------------------------------------------------------------------------------------------------------
+
+## 18. Flowing water and source blocks (player request - replaces "water does not flow" and the endless-spring bucket rule of section 13)
+
+### 18.1 Water states (voxel encoding of the `water` block)
+- variant bits (0..7) = LEVEL: 0 = SOURCE, 1..7 = flowing water, 1 strongest .. 7 weakest.
+- active bit = FALLING (water dropping down a column; behaves as a strong flow when it lands).
+- World generation places only sources (every existing lake, river and pool), so a freshly generated world is
+  perfectly still. Water only moves after something changes next to it.
+
+### 18.2 Flow rules (src/world, a scheduled cellular update - never a scan of the world)
+- A water cell is re-evaluated when it or one of its 6 neighbours changes (block placed/broken, water arrives or
+  leaves). Updates are queued with a delay of 5 game ticks (0.25 s) per step so water visibly spreads, processed at
+  most 256 per tick (excess carries over), and never cross into an unloaded chunk (retried when it loads).
+- Down first: if the cell below is air or a block water can wash away, water flows into it as FALLING water.
+- Sideways: a source or a flowing cell of level L < 7 that is resting on something solid (or on water) spreads to
+  each horizontal neighbour that is air or washable, with level L + 1 (falling water lands and spreads as level 1).
+  Spreading prefers the directions that lead to the nearest drop within 4 blocks; if no drop is near, all
+  directions are equal.
+- Draining: a flowing cell whose feeding neighbour is gone recomputes its level from its neighbours (lowest
+  neighbour level + 1, or falling if fed from above); if nothing feeds it, it disappears (levels recede over a few
+  updates, not all at once).
+- New sources: a flowing cell with at least 2 horizontally adjacent SOURCE cells, and a solid block or a source
+  below it, becomes a source. This is what keeps lakes and two-block pools endless for buckets and pumps.
+- Washable blocks (water flows into them and destroys them, no drop): tall_grass, fern, flowers, dry_shrub, reeds.
+  Everything else (crops, torches, machines, pipes, cables, crates, ...) blocks the flow.
+- Lava and crude oil stay still (unchanged).
+
+### 18.3 Buckets (replaces 13: "every water block is an endless spring")
+- An empty bucket can only take a SOURCE block: the ray aims through flowing water at the first source along the
+  line of sight (as if flowing water were not there); taking it REMOVES the source (set to air), and the water
+  around reacts (a hole in a lake refills from its neighbours by the new-source rule; a lone source is gone).
+- A water bucket places a SOURCE block in the targeted cell (air, a washable block, or flowing water) and returns
+  the empty bucket; the new source then flows by the rules above.
+- Tanks and fluid endpoints keep working with buckets exactly as before (section 16.2).
+- Pumps: a pump takes water from source blocks; a source with at least 2 adjacent sources is endless (same rule
+  as before, now consistent with 18.2), a lone source is removed when pumped.
+
+### 18.4 Rendering and physics
+- Flowing water is drawn lower by level (source and falling: full height minus 2/16; level L: (8 - L) / 9 of a
+  block), with sloped surfaces: each top corner takes the average height of the up-to-4 water cells around it,
+  and a flowing surface scrolls its texture in the flow direction (vertex data; no new texture layers needed).
+- Currents: the player and animals standing or swimming in flowing water are pushed along the flow (~1.4 m/s at
+  level 1, weaker at higher levels); falling water pushes down.
+- Everything that needs "water nearby" (steam engine, water wheel, crops hydration, fission cooling, electrolyzer)
+  counts flowing water as water.
