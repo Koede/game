@@ -24,6 +24,7 @@ const TAKES_FROM: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM
 
 const fluidName = (key: string | null): string => (key ? (fluidOrNull(key)?.name ?? key) : 'nothing');
 const moduleName = (e: ChemEntity): string => item(e.kind).name;
+const an = (word: string): string => (/^[AEIOU]/i.test(word) ? `an ${word}` : `a ${word}`);
 const litresText = (l: number): string => (l >= 1000 ? `${(l / 1000).toFixed(1)} buckets` : `${Math.round(l)} L`);
 
 /**
@@ -43,7 +44,7 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
   }
   const full = CHEM_CONTAINERS[heldKey];
   if (full) {
-    if (!POURS_INTO.has(e.kind)) return { ok: false, reason: `Pour into a Boiling Flask, a Reaction Vessel or a Receiver, not a ${moduleName(e)}` };
+    if (!POURS_INTO.has(e.kind)) return { ok: false, reason: `Pour into a Boiling Flask, a Reaction Vessel or a Receiver, not ${an(moduleName(e))}` };
     if (e.kind === CHEM.jacket && full.fluid !== 'water') return { ok: false, reason: 'A Cooling Jacket takes water only' };
     const room = CHEM_CAPACITY_L[e.kind] - total(e.mix);
     if (room < full.litres) return { ok: false, reason: `The ${moduleName(e)} is full` };
@@ -52,15 +53,15 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
     return { ok: true, consume: true, give: full.empty, toast: `${fluidName(full.fluid)} poured in (${litresText(total(e.mix))})` };
   }
   if (isEmptyChemContainer(heldKey)) {
-    if (!TAKES_FROM.has(e.kind)) return { ok: false, reason: `Nothing to take from a ${moduleName(e)}` };
+    if (!TAKES_FROM.has(e.kind)) return { ok: false, reason: `Nothing to take from ${an(moduleName(e))}` };
     const name = nameOf(e.mix);
     if (name === null) return { ok: false, reason: `The ${moduleName(e)} is empty` };
     const into = filledWith(heldKey, name);
     const holder = itemOrNull(heldKey)?.name ?? heldKey;
-    if (!into) return { ok: false, reason: `A ${holder} cannot hold ${fluidName(name)}${name === 'water' ? '' : ' - try an Empty Canister or a Glass Beaker'}` };
+    if (!into) return { ok: false, reason: `${an(holder).replace(/^a/, 'A')} cannot hold ${fluidName(name)}${name === 'water' ? '' : ' - try an Empty Canister or a Glass Beaker'}` };
     const litres = CHEM_CONTAINERS[into].litres;
     const have = total(e.mix);
-    if (have + 1e-6 < litres) return { ok: false, reason: `Only ${Math.floor(have)} L of ${fluidName(name)} here - a ${holder} takes ${litres} L` };
+    if (have + 1e-6 < litres) return { ok: false, reason: `Only ${Math.floor(have)} L of ${fluidName(name)} here - ${an(holder)} takes ${litres} L` };
     const out: Mix = {};
     pour(e.mix, out, litres);
     d.touched();

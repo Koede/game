@@ -26,7 +26,7 @@ const LAMP: Record<Lamp, [RGB, RGB]> = {
 };
 
 /** Glass pane alpha: see-through, like the glass block's pane but a little more present. */
-const PANE_A = 70;
+const PANE_A = 44;
 
 function frame(c: Canvas): void {
   c.fill(GLASS[2], PANE_A);
@@ -43,9 +43,17 @@ function frame(c: Canvas): void {
 
 function lamp(c: Canvas, state: Lamp): void {
   const [dark, light] = LAMP[state];
-  c.rect(11, 2, 3, 3, BRASS[0]);
-  c.rect(12, 2, 2, 2, dark);
+  c.rect(10, 2, 4, 4, BRASS[0]);
+  c.rect(11, 2, 3, 3, dark);
+  c.set(11, 2, light);
   c.set(12, 2, light);
+  c.set(11, 3, light);
+  if (state === 'off') return;
+  // The inner rim takes the lamp's colour too, so a module's state reads from across the room.
+  c.rect(1, 1, 14, 1, light);
+  c.rect(1, 14, 14, 1, dark);
+  c.rect(1, 2, 1, 12, dark);
+  c.rect(14, 2, 1, 12, dark);
 }
 
 const etch = (c: Canvas, x: number, y: number, a = 210): void => c.set(x, y, ETCH, a);

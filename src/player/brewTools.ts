@@ -125,6 +125,12 @@ export class BrewTools {
     const { player } = this.host;
     if (!itemOrNull(item)) return;
     const inv = player.inventory;
+    // Without a durability to keep, an item stacks onto what the pack already holds (four emptied canisters make one
+    // stack, not four slots); only an emptied held slot takes it in place.
+    if (durability === undefined && !(slot !== null && inv.get(slot) === null)) {
+      player.give(item, 1);
+      return;
+    }
     const free = slot !== null && inv.get(slot) === null ? slot : inv.slots.findIndex((s) => s === null);
     if (free < 0) {
       player.give(item, 1);
