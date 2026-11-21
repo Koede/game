@@ -1,0 +1,152 @@
+/**
+ * How animals read the voxels around them: what blocks a body, where a column can be stood on from a given
+ * height (the rule behind "never step into liquid or a drop deeper than MOB_MAX_DROP"), and where a group may
+ * spawn. Unloaded columns count as walls everywhere, so an animal never walks into missing terrain.
+ */
+import { MOB_MAX_DROP } from '../core/constants';
+import { blockOf, blockOrNull } from '../core/registry';
+import { WORLD_HEIGHT, type IWorld } from '../core/types';
+
+/** Height of the solid part of a cell: 0 (passable), 0.5 (slab) or 1. Unloaded and below-world cells are 1. */
+export function solidHeight(world: IWorld, x: number, y: number, z: number): number {
+  if (y < 0) return 1;
+  if (y >= WORLD_HEIGHT) return 0;
+  if (!world.isLoaded(x, z)) return 1;
+  const def = blockOf(world.getVoxel(x, y, z));
+  if (!def.solid) return 0;
+  return def.shape === 'slab' ? 0.5 : 1;
+}
+
+/** Liquid in a cell (null when none or unloaded). */
+export function liquidAt(world: IWorld, x: number, y: number, z: number): 'water' | 'lava' | 'oil' | null {
+  if (y < 0 || y >= WORLD_HEIGHT) return null;
+  return blockOf(world.getVoxel(x, y, z)).liquid;
+}
+
+/** Cells (blocks) of headroom a body of height h needs. */
+export const clearanceOf = (h: number): number => Math.max(1, Math.ceil(h - 1e-6));
+
+/** A cell an animal can occupy: not solid, not liquid, loaded. */
+function open(world: IWorld, x: number, y: number, z: number): boolean {
+  if (y >= WORLD_HEIGHT) return true;
+  if (y < 0 || !world.isLoaded(x, z)) return false;
+  const def = blockOf(world.getVoxel(x, y, z));
+  return !def.solid && def.liquid === null;
+}
+
+/**
+ * The feet cell an animal walking at feet cell `fy` would stand in after entering column (x, z), or NaN when it
+ * must not go there: a wall more than one block high, liquid, a drop deeper than MOB_MAX_DROP, or not loaded.
+ * A result of fy + 1 means it hops up one block.
+ */
+export function standCell(world: IWorld, x: number, z: number, fy: number, clearance: number): number {
+  if (!world.isLoaded(x, z)) return NaN;
+  if (solidHeight(world, x, fy, z) > 0) {
+    // A step: everything above it up to the body's height must be free.
+    for (let y = fy + 1; y <= fy + clearance; y++) if (!open(world, x, y, z)) return NaN;
+    return fy + 1;
+  }
+  for (let y = fy; y >= fy - MOB_MAX_DROP; y--) {
+    if (liquidAt(world, x, y, z) !== null) return NaN;
+    if (solidHeight(world, x, y - 1, z) > 0) {
+      for (let c = y; c < fy + clearance; c++) if (!open(world, x, c, z)) return NaN;
+      return y;
+    }
+  }
+  return NaN;
+}
+
+/**
+ * Feet cell at the end of a straight walk from (x0, z0) at feet cell fy to (x1, z1), or NaN when the walk
+ * crosses a column standCell refuses.
+ */
+export function walkable(world: IWorld, x0: number, z0: number, fy: number, x1: number, z1: number, clearance: number): number {
+  const dx = x1 - x0;
+  const dz = z1 - z0;
+  const len = Math.hypot(dx, dz);
+  const steps = Math.max(1, Math.ceil(len / 0.5));
+  let cy = fy;
+  let lastX = Math.floor(x0);
+  let lastZ = Math.floor(z0);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const cx = Math.floor(x0 + dx * t);
+    const cz = Math.floor(z0 + dz * t);
+    if (cx === lastX && cz === lastZ) continue;
+    // Diagonal corner cuts must be passable through at least one of the two side cells.
+    if (cx !== lastX && cz !== lastZ) {
+      const a = standCell(world, cx, lastZ, cy, clearance);
+      const b = standCell(world, lastX, cz, cy, clearance);
+      if (Number.isNaN(a) && Number.isNaN(b)) return NaN;
+    }
+    const next = standCell(world, cx, cz, cy, clearance);
+    if (Number.isNaN(next)) return NaN;
+    cy = next;
+    lastX = cx;
+    lastZ = cz;
+  }
+  return cy;
+}
+
+/** Natural ground a group may spawn on. The Scar has no grass, so its basalt and gravel count too; marsh peat. */
+const SPAWN_GROUND: ReadonlySet<number> = new Set(
+  ['grass', 'dirt', 'snow', 'sand', 'gravel', 'basalt', 'peat'].map((k) => blockOrNull(k)?.id ?? -1).filter((id) => id >= 0),
+);
+
+/**
+ * Feet cell of a spawn spot in column (x, z), or -1: the highest solid block must be natural ground, open to
+ * the sky (only plants above it), with headroom for the body and no liquid on top.
+ */
+export function spawnCell(world: IWorld, x: number, z: number, clearance: number): number {
+  if (!world.isLoaded(x, z)) return -1;
+  let y = world.surfaceY(x, z);
+  if (y < 0) return -1;
+  // Step down through plants standing on the ground.
+  while (y > 0) {
+    const def = blockOf(world.getVoxel(x, y, z));
+    if (def.liquid !== null) return -1;
+    if (def.solid) break;
+    y--;
+  }
+  if (!SPAWN_GROUND.has(blockOf(world.getVoxel(x, y, z)).id)) return -1;
+  for (let c = y + 1; c <= y + clearance; c++) if (!open(world, x, c, z)) return -1;
+  return y + 1;
+}
+
+/**
+ * Nearest dry column an animal in water can climb out to, searched in growing rings up to `radius`: its top
+ * solid block sits at most one block above the water surface level `wy` with headroom and no liquid on it.
+ * Writes the column centre to out[0], out[1]; false when there is none.
+ */
+export function findShore(world: IWorld, x: number, z: number, wy: number, radius: number, clearance: number, out: number[]): boolean {
+  const bx = Math.floor(x);
+  const bz = Math.floor(z);
+  for (let r = 1; r <= radius; r++) {
+    let best = Infinity;
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        const cx = bx + dx;
+        const cz = bz + dz;
+        if (!world.isLoaded(cx, cz)) continue;
+        // Ground at the waterline or one block above it, dry on top.
+        for (let gy = wy + 1; gy >= wy - 1; gy--) {
+          if (solidHeight(world, cx, gy, cz) === 0) continue;
+          let clear = true;
+          for (let c = gy + 1; c <= gy + clearance; c++) if (!open(world, cx, c, cz)) clear = false;
+          if (clear) {
+            const d = dx * dx + dz * dz;
+            if (d < best) {
+              best = d;
+              out[0] = cx + 0.5;
+              out[1] = cz + 0.5;
+            }
+          }
+          break;
+        }
+      }
+    }
+    if (best < Infinity) return true;
+  }
+  return false;
+}

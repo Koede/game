@@ -1,0 +1,72 @@
+/** The animals' save document (spec 12.5 persistence): every animal plus the spawning state, plain JSON. */
+import { MOB_STORED_CAP } from '../core/constants';
+import { creatureOrNull } from '../core/registry';
+import { createMob } from './mob';
+import { columnKey, type Spawner } from './spawner';
+import type { Mob, MobsSnapshot, SavedMob } from './types';
+
+export const MOBS_SNAPSHOT_VERSION = 1;
+
+const OFFSET = 0x100000;
+const ROW = 0x200000;
+
+/** Snapshot of the living animals (corpses are left out: their drops were already handed out or lost). */
+export function saveMobs(mobs: readonly Mob[], nextId: number, spawner: Spawner): MobsSnapshot {
+  const saved: SavedMob[] = [];
+  for (const m of mobs) {
+    if (m.state === 'dying') continue;
+    saved.push({
+      id: m.id,
+      species: m.spec.key,
+      x: round(m.x),
+      y: round(m.y),
+      z: round(m.z),
+      yaw: round(m.yaw),
+      health: m.health,
+      baby: m.baby,
+      ageS: round(m.ageS),
+      eagerS: round(m.eagerS),
+      cooldownS: round(m.cooldownS),
+    });
+  }
+  const rolled: number[] = [];
+  for (const key of spawner.rolled) rolled.push(Math.floor(key / ROW) - OFFSET, (key % ROW) - OFFSET);
+  return { version: MOBS_SNAPSHOT_VERSION, nextId, rolled, guaranteed: spawner.guaranteed, keepAliveS: spawner.keepAliveS, mobs: saved };
+}
+
+const round = (v: number): number => Math.round(v * 1000) / 1000;
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * Animals and rolled columns from a snapshot. Throws on a malformed or newer snapshot; skips animals of
+ * species that no longer exist and keeps at most MOB_STORED_CAP.
+ */
+export function restoreMobs(s: MobsSnapshot, rng: () => number): { mobs: Mob[]; nextId: number; rolled: number[] } {
+  if (!s || typeof s !== 'object' || s.version !== MOBS_SNAPSHOT_VERSION) throw new Error('mobs: unsupported snapshot');
+  if (!Array.isArray(s.mobs) || !Array.isArray(s.rolled) || s.rolled.length % 2 !== 0 || !finite(s.nextId)) {
+    throw new Error('mobs: malformed snapshot');
+  }
+  const mobs: Mob[] = [];
+  let maxId = 0;
+  const seen = new Set<number>();
+  for (const r of s.mobs) {
+    const spec = creatureOrNull(r?.species);
+    if (!spec || !finite(r.id) || seen.has(r.id) || ![r.x, r.y, r.z, r.yaw, r.health, r.ageS].every(finite)) continue;
+    if (mobs.length >= MOB_STORED_CAP) break;
+    seen.add(r.id);
+    const m = createMob(r.id, spec, r.x, r.y, r.z, r.yaw, r.baby === true, rng);
+    m.health = Math.min(spec.health, Math.max(0.5, r.health));
+    m.ageS = Math.max(0, r.ageS);
+    m.eagerS = finite(r.eagerS) ? Math.max(0, r.eagerS) : 0;
+    m.cooldownS = finite(r.cooldownS) ? Math.max(0, r.cooldownS) : 0;
+    mobs.push(m);
+    maxId = Math.max(maxId, r.id);
+  }
+  const rolled: number[] = [];
+  for (let i = 0; i < s.rolled.length; i += 2) {
+    const cx = s.rolled[i];
+    const cz = s.rolled[i + 1];
+    if (Number.isInteger(cx) && Number.isInteger(cz)) rolled.push(columnKey(cx, cz));
+  }
+  return { mobs, nextId: Math.max(s.nextId, maxId + 1), rolled };
+}
