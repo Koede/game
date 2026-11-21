@@ -4,7 +4,7 @@ import {
   block, furnaceTier, item, machine, recipesAt, validateContent,
 } from '../core/registry';
 import type { ObjectiveCondition, RecipeDef, ToolKind } from '../core/types';
-import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, rawCost, solve, type Progress } from './progression';
+import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, itemPlacing, rawCost, solve, type Progress } from './progression';
 import { SPEC } from './specRoster';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
@@ -57,15 +57,16 @@ describe('1. registry validation', () => {
 
 // -------------------------------------------------------------------------------------------------
 describe('2. roster of spec section 2', () => {
-  it('has exactly the 68 blocks, air first', () => {
+  it('has exactly the 84 blocks (68 of section 2, 16 of section 12), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(68);
+    expect(SPEC.blocks).toHaveLength(84);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
-  it('has exactly the 60 non-block items', () => {
-    expect(SPEC.items).toHaveLength(60);
-    expect(sorted(ITEMS.filter((it) => !it.block).map((it) => it.key))).toEqual(sorted(SPEC.items));
+  it('has exactly the 79 non-block items (60 of section 2, 19 of section 12)', () => {
+    expect(SPEC.items).toHaveLength(79);
+    // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
+    expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
 
   it('has the tools and fuels with their numbers', () => {
@@ -82,7 +83,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(94);
+    expect(RECIPES).toHaveLength(110);
   });
 
   it('has the furnace tiers of table 2.4', () => {
@@ -162,7 +163,7 @@ describe('4. structural rules', () => {
 
   it('makes the furnace the main crafting place and keeps the workbench minor', () => {
     expect(furnaceRecipes.length / RECIPES.length).toBeGreaterThan(0.65);
-    expect(recipesAt('workbench')).toHaveLength(6);
+    expect(recipesAt('workbench').length / RECIPES.length).toBeLessThan(0.1);
   });
 
   it('has sane fuels, monotonic tool tiers and rated cables', () => {
@@ -190,6 +191,13 @@ describe('4. structural rules', () => {
     for (const def of BLOCKS.filter((b) => b.machine)) {
       const spec = MACHINES.get(def.machine ?? '');
       expect(spec?.blocks, def.key).toContain(def.key);
+      if (spec?.role === 'crop') {
+        // A crop is a plant, not a device: it drops its harvest and never joins a power network.
+        expect(def.power, def.key).toBeNull();
+        expect(def.itemKey, def.key).toBeNull();
+        expect(def.placeOn, def.key).toEqual(['farmland']);
+        continue;
+      }
       expect(def.drops, `${def.key} must drop itself`).toEqual([{ item: def.key, count: 1 }]);
       expect(def.minTier, def.key).toBe(0);
       expect(def.power, def.key).toBe(def.machine === 'crate' ? null : 'device');
@@ -256,7 +264,7 @@ describe('3. progression solver', () => {
     /** Items an objective names outright, and everything it consumes (an upgrade consumes its cost). */
     const asks = (c: ObjectiveCondition): string[] => {
       if (c.type === 'make' || c.type === 'have') return [c.item];
-      return c.type === 'place' ? [block(c.block).itemKey ?? ''] : [];
+      return c.type === 'place' ? [itemPlacing(c.block) ?? ''] : [];
     };
     const consumes = (c: ObjectiveCondition): string[] =>
       c.type === 'furnaceTier' ? furnaceTier(c.tier).upgradeCost.map((u) => u.item) : asks(c);
@@ -324,7 +332,7 @@ describe('5. summary', () => {
   it('prints counts and the raw-resource budget of every furnace tier', () => {
     const full = solve(MAX_FURNACE_TIER);
     const lines: string[] = [];
-    const blockItems = ITEMS.filter((it) => it.block).length;
+    const blockItems = ITEMS.filter((it) => it.block === it.key).length;
     lines.push(`blocks ${BLOCKS.length} | items ${ITEMS.length} (${blockItems} block items + ${ITEMS.length - blockItems} others) | machines ${MACHINES.size} | objectives ${OBJECTIVES.length}`);
     const perStation = stationsOf().map((s) => `${s} ${recipesAt(s).length}`).join(', ');
     const furnaceShare = Math.round((100 * recipesAt('furnace').length) / RECIPES.length);

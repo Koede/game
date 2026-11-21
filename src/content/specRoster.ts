@@ -4,6 +4,7 @@
  * A deliberate balance change has to be made here as well. Nothing but the test imports this file.
  */
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
+import { FOOD_SPEC } from './specRosterFood';
 
 type Numbers = Record<string, number>;
 
@@ -29,6 +30,7 @@ export const SPEC = {
     'copper_cable', 'heavy_cable', 'super_cable', 'battery', 'lithium_bank',
     'blower', 'space_heater', 'crusher', 'still', 'bore_rig', 'centrifuge', 'electrolyzer',
     'corium',
+    ...FOOD_SPEC.blocks,
   ],
 
   items: [
@@ -42,6 +44,7 @@ export const SPEC = {
     'yellowcake', 'enriched_pellet', 'fuel_rod', 'empty_cell', 'deuterium_cell', 'superalloy', 'fused_quartz', 'magnet_ring',
     'star_core', 'fuel_canister',
     'pail', 'water_pail', 'padded_coat', 'shield_suit',
+    ...FOOD_SPEC.items,
   ],
 
   /** material -> [tier, speed, durability] for its pickaxe, axe and shovel. */
@@ -69,6 +72,7 @@ export const SPEC = {
       'workbench: 1 workbench <- 6 plank',
       'torch: 4 torch <- 1 stick, 1 charcoal',
       'torch_coal: 4 torch <- 1 stick, 1 coal',
+      'flint_hoe: 1 flint_hoe <- 1 flint, 2 stick, 1 cord',
     ],
     workbench: [
       'furnace_clay: 1 furnace_clay <- 12 rubble, 6 clay',
@@ -76,7 +80,11 @@ export const SPEC = {
       'stone_brick: 4 stone_brick <- 4 rubble',
       'pail: 1 pail <- 3 plank, 1 cord',
       'padded_coat: 1 padded_coat <- 6 cord, 6 fiber',
+      'padded_coat_hide: 1 padded_coat <- 4 hide, 2 cord',
       'bellows: 1 bellows <- 4 plank, 4 cord',
+      'bellows_hide: 1 bellows <- 4 plank, 2 hide',
+      'flour: 1 flour <- 2 wheat',
+      'dough: 1 dough <- 2 flour, 1 water_pail',
     ],
     furnace: [
       'charcoal: 1 charcoal <- 1 oak_log @300 8s T1',
@@ -93,6 +101,11 @@ export const SPEC = {
       'aluminum_ingot: 1 aluminum_ingot <- 2 alumina @1500 12s T3',
       'tungsten_rod: 1 tungsten_rod <- 2 tungsten_powder @2000 16s T3',
       'fused_quartz: 1 fused_quartz <- 2 silica @2400 12s T4',
+      'cooked_fowl: 1 cooked_fowl <- 1 raw_fowl @180 6s T1',
+      'cooked_mutton: 1 cooked_mutton <- 1 raw_mutton @200 8s T1',
+      'cooked_chop: 1 cooked_chop <- 1 raw_chop @200 8s T1',
+      'baked_potato: 1 baked_potato <- 1 potato @180 6s T1',
+      'bread: 1 bread <- 1 dough @220 10s T1',
 
       'bronze_ingot: 4 bronze_ingot <- 3 copper_ingot, 1 tin_ingot @800 T1',
       'bronze_pickaxe: 1 bronze_pickaxe <- 3 bronze_ingot, 2 stick @600 T1',
@@ -104,10 +117,15 @@ export const SPEC = {
       'copper_cable: 6 copper_cable <- 3 copper_wire, 2 ceramic_insulator @500 T1',
       'thermopile: 1 thermopile <- 4 copper_ingot, 2 tin_ingot, 2 firebrick @700 T1',
       'lamp: 1 lamp <- 1 glass, 2 copper_wire @500 T1',
+      'bronze_hoe: 1 bronze_hoe <- 2 bronze_ingot, 2 stick @600 T1',
+      'hearth_stew: 1 hearth_stew <- 1 cooked_chop, 1 potato, 1 carrot, 1 water_pail @300 T1',
+      'hearth_stew_mutton: 1 hearth_stew <- 1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail @300 T1',
+      'hearth_stew_fowl: 1 hearth_stew <- 1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail @300 T1',
 
       'iron_pickaxe: 1 iron_pickaxe <- 3 iron_ingot, 2 stick @1000 T2',
       'iron_axe: 1 iron_axe <- 3 iron_ingot, 2 stick @1000 T2',
       'iron_shovel: 1 iron_shovel <- 1 iron_ingot, 2 stick @1000 T2',
+      'iron_hoe: 1 iron_hoe <- 2 iron_ingot, 2 stick @1000 T2',
       'iron_plate: 1 iron_plate <- 2 iron_ingot @900 T2',
       'copper_coil: 1 copper_coil <- 4 copper_wire, 1 iron_ingot @700 T2',
       'chassis: 1 chassis <- 4 iron_plate, 2 bronze_ingot @1000 T2',
@@ -160,6 +178,7 @@ export const SPEC = {
       'yellowcake: 2 yellowcake <- 1 pitchblende 4s 4000J',
       'gravel: 1 gravel <- 1 rubble 4s 4000J',
       'sand: 1 sand <- 1 gravel 4s 4000J',
+      'flour_milled: 1 flour <- 1 wheat 4s 4000J',
     ],
     still: ['fuel_canister: 1 fuel_canister <- 2 oil_shale 20s 40000J'],
     centrifuge: ['enriched_pellet: 1 enriched_pellet <- 4 yellowcake 20s 160000J'],
@@ -204,6 +223,7 @@ export const SPEC = {
     bore_rig: ['consumer', { drawW: 4000, slots: 9, secondsPerBlock: 2, toolTier: 4 }],
     centrifuge: ['consumer', { drawW: 8000, slots: 2 }],
     electrolyzer: ['consumer', { drawW: 20_000, slots: 2, minWater: 1 }],
+    crop: ['crop', { stageS: 100, dryRate: 0.5, hydrationRadius: 4, lampRadius: 5, minSunlight: 0.3 }],
   } as Record<string, [MachineRole, Numbers]>,
 
   /** block, minY, maxY, veinsPerChunk, veinSize, biome multipliers. */
@@ -226,7 +246,9 @@ export const SPEC = {
   objectives: [
     'any(break oak_log 4 | break pine_log 4)', 'make plank 4', 'place workbench 1', 'have flint 3', 'make flint_pickaxe 1',
     'have rubble 12', 'have clay 6', 'place furnace_clay 1', 'flag furnace_lit', 'make charcoal 4', 'flag well_warmed',
-    'make copper_ingot 2', 'temp 800', 'make bronze_ingot 4', 'make bronze_pickaxe 1', 'generate 100', 'place lamp 1', 'tier 2',
+    'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
+    'make copper_ingot 2', 'flag tilled', 'place wheat_0 1', 'temp 800', 'make bronze_ingot 4', 'make bronze_pickaxe 1',
+    'make bread 1', 'generate 100', 'place lamp 1', 'tier 2',
     'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3',
     'temp 1900', 'make circuit 2', 'generate 10000', 'make tungsten_rod 4', 'tier 4',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 5',
@@ -246,7 +268,7 @@ export const SPEC = {
     lava: { shape: 'liquid', liquid: 'lava', light: 15, contactDamage: 4, warmth: 4, itemKey: null },
     oak_log: AXE, pine_log: AXE, plank: AXE, workbench: { ...AXE, station: 'workbench' }, crate: { ...AXE, machine: 'crate' },
     oak_leaves: FOLIAGE, pine_leaves: FOLIAGE,
-    tall_grass: { shape: 'cross', drops: [{ item: 'fiber', count: 1, chance: 0.5 }] },
+    tall_grass: { shape: 'cross', drops: [{ item: 'fiber', count: 1, chance: 0.5 }, { item: 'wheat_seeds', count: 1, chance: 0.15 }] },
     dry_shrub: { shape: 'cross', drops: [{ item: 'stick', count: [1, 2] }] },
     coal_ore: { ...pick(1), drops: [{ item: 'coal', count: [1, 2] }] },
     copper_ore: pick(1), tin_ore: pick(1), iron_ore: pick(2), oil_shale: pick(2),
@@ -264,6 +286,7 @@ export const SPEC = {
     centrifuge: DEVICE, electrolyzer: DEVICE,
     space_heater: { ...DEVICE, warmth: 0, warmthActive: 6 },
     corium: { ...pick(5), radiation: 8, light: 9, drops: [], itemKey: null },
+    ...FOOD_SPEC.blockProps,
   } as Record<string, Partial<BlockDef>>,
 
   /** Block items that exist for the codex but can never be picked up: these blocks drop something else. */
@@ -272,6 +295,9 @@ export const SPEC = {
   /** World blocks the tech tree must not depend on: lava, loose rubble, and the biome-flavoured ones. */
   optionalWorldBlocks: ['lava', 'rubble', 'snow', 'ice', 'basalt'],
 
-  /** Ceiling on distinct texture names (block faces + item icons + 'missing'). */
-  maxTextures: 170,
+  /**
+   * Ceiling on distinct texture names (block faces + item icons + 'missing'). One texture array holds them all,
+   * and WebGL2 only guarantees 256 layers.
+   */
+  maxTextures: 210,
 };

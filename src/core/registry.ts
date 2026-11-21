@@ -396,13 +396,15 @@ export function validateContent(): string[] {
     if ((food.buff === undefined) !== (food.buffS === undefined)) problems.push(`item ${it.key}: food buff and buffS go together`);
     if (food.buffS !== undefined && !(food.buffS > 0)) problems.push(`item ${it.key}: food buffS must be > 0`);
   }
-  for (const c of CREATURES) problems.push(...validateCreature(c, knownItem));
+  for (const c of CREATURES) problems.push(...validateCreature(c));
   return problems;
 }
 
 const BIOMES: ReadonlySet<string> = new Set(['woodland', 'dunes', 'frostfell', 'scar']);
 
-function validateCreature(c: CreatureSpec, knownItem: (key: string) => boolean): string[] {
+/** Problems with one species (validateContent runs it on every creature; exported for tests of the checks). */
+export function validateCreature(c: CreatureSpec): string[] {
+  const knownItem = (key: string): boolean => itemsByKey.has(key);
   const problems: string[] = [];
   const at = `creature ${c.key}`;
   if (c.biomes.length === 0) problems.push(`${at}: no biomes`);

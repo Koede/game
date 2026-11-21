@@ -27,7 +27,9 @@ describe('crafting', () => {
   it('lists the hand and workbench recipes', () => {
     expect(HAND_RECIPES.map((r) => r.id)).toContain('flint_pickaxe');
     expect(HAND_RECIPES.every((r) => r.station === 'hand')).toBe(true);
-    expect(WORKBENCH_RECIPES.map((r) => r.id)).toEqual(['furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'bellows']);
+    expect(WORKBENCH_RECIPES.map((r) => r.id)).toEqual([
+      'furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'flour', 'dough',
+    ]);
   });
 
   it('counts ingredients across several inventories', () => {

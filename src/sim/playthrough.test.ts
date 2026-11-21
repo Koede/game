@@ -6,8 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FURNACE_HOT_C } from '../core/constants';
-import { OBJECTIVES, blockOf, furnaceTier, machine } from '../core/registry';
-import { voxelActive } from '../core/types';
+import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
+import { makeVoxel, voxelActive } from '../core/types';
 import { Play } from './playKit';
 
 const F = { x: 0, y: 1, z: 0 };
@@ -16,6 +16,7 @@ const CRATES = [{ x: -2, y: 1, z: 1 }, { x: -2, y: 1, z: 0 }, { x: -3, y: 1, z: 
 const THERMOPILE = { x: 1, y: 1, z: 0 };
 const LAMP = { x: 2, y: 1, z: 0 };
 const STEAM = { x: 0, y: 2, z: 0 };
+const FIELD = { x: 5, y: 1, z: 5 };
 /** The power bus: a link north of the furnace and a run of cable along z = -2. Generators sit on the z = -3 side. */
 const BUS = [{ x: 0, y: 1, z: -1 }, { x: 0, y: 1, z: -2 }, { x: -1, y: 1, z: -2 }, { x: -2, y: 1, z: -2 }, { x: 1, y: 1, z: -2 }, { x: 2, y: 1, z: -2 }];
 const CRUSHER = { x: -3, y: 1, z: -2 };
@@ -80,7 +81,16 @@ describe('scripted playthrough', () => {
     done('make_charcoal');
     play.until('Well-Warmed', () => tracker.isComplete('get_warm'), 60);
     expect(player.wellWarmed).toBe(true);
-    mark('furnace lit, charcoal, warm');
+    // Supper: a boar's chops roast in the crucible at 200 C.
+    play.find('2 raw_chop');
+    play.smelt('raw_chop', 2);
+    done('cook_food');
+    // Eating, tilling and planting are player actions (src/game, src/player - spec 12); the script does what they
+    // will do: the flag, the voxel and the event.
+    kit.bus.emit('flag', { flag: 'ate' });
+    play.step(0.5);
+    done('eat_food');
+    mark('furnace lit, charcoal, warm, fed');
 
     play.find('40 coal, 15 copper_ore, 5 tin_ore, 8 clay, 2 sand');
     play.fuel = 'coal';
@@ -88,6 +98,17 @@ describe('scripted playthrough', () => {
     expect(play.view().forge.find((r) => r.recipe.id === 'bronze_ingot')).toMatchObject({ locked: false, canMake: false });
     play.smelt('copper_ore', 15);
     done('smelt_copper');
+    play.craft('flint_hoe', 1, BENCH);
+    kit.world.setVoxel(FIELD.x, FIELD.y, FIELD.z, makeVoxel(blockId('farmland')), 'player');
+    kit.bus.emit('flag', { flag: 'tilled' });
+    play.step(0.5);
+    done('till_soil');
+    expect(player.inventory.remove('wheat_seeds', 1)).toBe(1); // the objective's reward
+    const wheat = makeVoxel(blockId('wheat_0'));
+    kit.world.setVoxel(FIELD.x, FIELD.y + 1, FIELD.z, wheat, 'player');
+    kit.bus.emit('block:placed', { ...FIELD, y: FIELD.y + 1, voxel: wheat });
+    play.step(0.5);
+    done('plant_seeds');
     done('reach_800');
     play.smelt('tin_ore', 5);
     // The furnace's recipe list is the tech tree: higher tiers are listed, locked, with what they need.
@@ -97,6 +118,11 @@ describe('scripted playthrough', () => {
     done('make_bronze');
     play.forge('bronze_pickaxe');
     done('bronze_pickaxe');
+    play.find('4 wheat, 1 water_pail');
+    play.craft('flour', 2, BENCH);
+    play.craft('dough', 1, BENCH);
+    play.smelt('dough', 1);
+    done('bake_bread');
     play.smelt('clay', 8);
     play.smelt('sand', 2);
     play.forge('thermopile');
