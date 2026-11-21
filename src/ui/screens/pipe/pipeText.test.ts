@@ -1,5 +1,6 @@
 /** The pipe screen's DOM-free logic, partly against real pipe views (src/sim/testKit + pipeKit). */
 import { describe, expect, it } from 'vitest';
+import { DISTILL_FLUIDS } from '../../../content/fluidsDistill';
 import type { PortView } from '../../../sim';
 import { run } from '../../../sim/pipeKit';
 import { makeKit } from '../../../sim/testKit';
@@ -65,7 +66,7 @@ describe('pipe screen text', () => {
   it('offers the pack for item filters and every fluid for fluid filters', () => {
     const pack = [{ item: 'coal', count: 3 }, null, { item: 'copper_ore', count: 1 }, { item: 'coal', count: 9 }];
     expect(filterChoices('item', pack)).toEqual(['coal', 'copper_ore']);
-    expect(filterChoices('fluid', pack)).toEqual(['water', 'lava', 'steam', 'crude_oil', 'fuel']);
+    expect(filterChoices('fluid', pack)).toEqual(['water', 'lava', 'steam', 'crude_oil', 'fuel', ...DISTILL_FLUIDS.map((f) => f.key)]);
   });
 
   it('words priority, fluid contents and long lists', () => {

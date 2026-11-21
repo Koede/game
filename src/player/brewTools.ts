@@ -34,6 +34,8 @@ export interface BrewHands {
   placeContainer(x: number, y: number, z: number, heldKey: string | null): BrewResult;
   /** Whether the air cell x, y, z lies on a furnace or a hearth's roof. */
   isFurnaceTop(x: number, y: number, z: number): boolean;
+  /** The glass distillery (docs/api/distillery.md): the held item used on a chemistry module; null when it does nothing. */
+  chemUse?(x: number, y: number, z: number, heldKey: string | null): BrewResult | null;
 }
 
 /** What the tools need from the Interaction that owns them. */
@@ -64,6 +66,11 @@ export class BrewTools {
     if (!this.brew || hit.block.liquid !== null) return null;
     const held = this.host.player.heldStack()?.item ?? null;
     const kind = machineOfBlock(hit.block);
+    if (kind?.role === 'chem' && this.brew.chemUse) {
+      if (this.host.placeCooldown > 0) return this.pause();
+      const r = this.brew.chemUse(hit.x, hit.y, hit.z, held);
+      return r === null ? null : this.apply(r, held);
+    }
     if (kind?.role !== 'brew' || (kind.kind === KETTLE && !isEmptyContainer(held))) return null;
     if (this.host.placeCooldown > 0) return this.pause();
     return this.apply(this.brew.brewUse(hit.x, hit.y, hit.z, held), held);

@@ -15,6 +15,8 @@ import { cratesNear, pushToCrates } from './crates';
 import { MIN_SUNLIGHT, isPlant, isPlantBlock, type CropView } from './cropRules';
 import { Brewing, isBrewKind } from './brewing';
 import { brewUse, brewView, isFurnaceTop, placeContainer, type BrewResult, type BrewView } from './brewActions';
+import { Distillery, isChemKind } from './distill';
+import { chemPortEndpoint, chemUse, chemView, type ChemResult, type ChemView } from './distillActions';
 import { CropField } from './crops';
 import { HandWork } from './handWork';
 import { contentRules } from './handRules';
@@ -69,6 +71,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private readonly hand: HandWork;
   /** Buckets on furnace tops, cup setups and kettles (docs/api/brewing.md): entities that are not machine nodes. */
   private readonly brewing: Brewing;
+  /** The glass distillery's modules and rigs (docs/api/distillery.md): entities that are not machine nodes. */
+  readonly distill: Distillery;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
   private destroying = false;
   private tickCount = 0;
@@ -114,6 +118,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       furnaceBelow: (x, y, z) => this.furnaceUnder(x, y, z),
       flagOnce: (flag) => this.flagOnce(flag),
       returnItem: (x, y, z, item, durability) => this.returnItem(x, y, z, item, durability),
+    });
+    this.distill = new Distillery(world, bus, {
+      furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z),
+      flagOnce: (flag) => this.flagOnce(flag),
     });
     const nodes = this.nodes;
     this.hearths = new HearthSet({
@@ -189,6 +197,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.crops.clear();
     this.hand.clear();
     this.brewing.clear();
+    this.distill.clear();
     this.hearths.clear();
     // A damaged entity (an older save's shape, a bad field) is repaired, or dropped when its kind is unknown, so one
     // bad field never stops the simulation.
@@ -197,6 +206,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       if (isPlant(e)) this.crops.track(e);
       else if (this.trackHand(e)) continue;
       else if (isBrewKind(e.kind)) this.brewing.track(e);
+      else if (isChemKind(e.kind)) this.distill.track(e);
       else if (!isPipeEntity(e)) {
         const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
         if (r !== 'ok') repaired++;
@@ -266,6 +276,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
     // Brewing draws its heat into the furnaces' extractW before they are advanced.
     this.brewing.tick(dt);
+    this.distill.tick(dt);
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
     this.crops.tick(dt, this.sunlight, this.wetAt);
@@ -313,6 +324,13 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     if (fromCrop) this.crops.remove(x, y, z);
     this.machineBlockChanged(x, y, z, from, to);
     if (station) return;
+    // The distillery's glassware (docs/api/distillery.md) keeps its own entities too.
+    if (Distillery.handles(to)) {
+      if (Distillery.handles(from) && from.machine !== to.machine) this.distill.remove(x, y, z);
+      this.distill.place(x, y, z, to);
+      return;
+    }
+    if (Distillery.handles(from)) this.distill.remove(x, y, z);
     // Buckets, cups and kettles (docs/api/brewing.md) keep their own entities; they are never machine nodes.
     if (Brewing.handles(to)) {
       this.brewing.place(x, y, z, to);
@@ -436,8 +454,13 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   }
 
   /** What the bucket, cup or kettle at a position is doing (the target sentence), or null. */
-  brewView(x: number, y: number, z: number): BrewView | null {
-    return brewView(this.brewing, x, y, z);
+  brewView(x: number, y: number, z: number): BrewView | ChemView | null {
+    return brewView(this.brewing, x, y, z) ?? chemView(this.distill, x, y, z);
+  }
+
+  /** The distillery's table: what the held item (null: empty hand) does to the module at x,y,z; null when nothing. */
+  chemUse(x: number, y: number, z: number, heldKey: string | null): ChemResult | null {
+    return chemUse(this.distill, x, y, z, heldKey);
   }
 
   /** Brewing entities (buckets, cups, kettles): a diagnostic. */
@@ -619,6 +642,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * counts only as part of a formed hearth (its lava fuels the controller). Null for anything else.
    */
   fluidEndpoint(x: number, y: number, z: number, face: Face): FluidEndpoint | null {
+    const chem = chemPortEndpoint(this.distill, x, y, z);
+    if (chem) return chem;
     const key = posKey(x, y, z);
     const node = this.nodes.byKey.get(key);
     if (!node) return null;

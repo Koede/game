@@ -68,8 +68,8 @@ export const DISTILL_SPEC = {
     ],
     boiling_flask: [
       'distil_syrup: 1 syrup_beaker <- 4 pine_sap 120s 0J',
-      'distil_low_wines: 1 low_wines_beaker <- 8 wash_beaker 70s 0J',
-      'distil_spirit: 1 spirit_beaker <- 4 low_wines_beaker 60s 0J',
+      'distil_low_wines: 1 low_wines_beaker <- 16 wash_beaker 70s 0J',
+      'distil_spirit: 1 spirit_beaker <- 8 low_wines_beaker 60s 0J',
     ],
     reaction_vessel: ['ferment_wash: 5 wash_beaker <- 1 syrup_beaker, 1 water_pail, 4 glass_beaker 110s 0J'],
     column_segment: [

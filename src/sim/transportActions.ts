@@ -162,7 +162,9 @@ export function bucketUse(t: Transport, x: number, y: number, z: number, face: F
   const into = bucketFilledWith(held, offer.fluid);
   const spec = fluidSpec(offer.fluid);
   if (!into) {
-    const reason = !spec.bucket ? `A bucket cannot carry ${spec.name.toLowerCase()}`
+    // Crude oil and the distillery's fuels ride in canisters, which a bucket is not.
+    const inBucket = spec.bucket && (spec.bucket.empty === 'pail' || spec.bucket.empty === 'bronze_bucket');
+    const reason = !inBucket ? `A bucket cannot carry ${spec.name.toLowerCase()}`
       : offer.fluid === 'lava' ? 'Lava needs a bronze bucket' : 'A bronze bucket is kept for lava';
     return { ok: false, reason, endpoint: true };
   }
