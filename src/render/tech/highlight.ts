@@ -2,7 +2,8 @@
  * The problem highlight (spec 17.4, 'highlight:block'): a pulsing red outline round one block for a few seconds, seen
  * through whatever stands in front of it, and - while the block is off-screen or behind the camera - a red arrow at
  * the edge of the screen pointing the way (a small DOM element placed just above the canvas, under the UI).
- * A new highlight replaces the old one.
+ * A new highlight replaces the old one. A 'hearth:formed' round the marked block ends it early (it fades out): the
+ * problem it pointed at is solved, and a red marker on the finished shell would say otherwise.
  */
 import * as THREE from 'three';
 import type { GameBus } from '../../core/context';
@@ -77,7 +78,7 @@ export class BlockHighlight {
   private readonly outlineMaterial: THREE.MeshBasicMaterial;
   private readonly fillMaterial: THREE.MeshBasicMaterial;
   private readonly arrow: HTMLDivElement;
-  private readonly off: () => void;
+  private readonly offs: (() => void)[];
   private readonly v = new THREE.Vector3();
   private readonly ndc = new THREE.Vector3();
   private readonly placed: EdgeArrow = { visible: false, x: 0, y: 0, angle: 0 };
@@ -117,7 +118,10 @@ export class BlockHighlight {
     this.arrow.innerHTML = ARROW_SVG;
     // Right above the canvas and under the UI root (which comes later in the container).
     canvas.after(this.arrow);
-    this.off = bus.on('highlight:block', ({ x, y, z, seconds }) => this.show(x, y, z, seconds));
+    this.offs = [
+      bus.on('highlight:block', ({ x, y, z, seconds }) => this.show(x, y, z, seconds)),
+      bus.on('hearth:formed', ({ min, max }) => this.settle(min, max)),
+    ];
   }
 
   /** Seconds the current highlight has left (0: none). */
@@ -138,6 +142,19 @@ export class BlockHighlight {
     this.time = 0;
     this.group.position.set(x - 0.02, y - 0.02, z - 0.02);
     this.outline.scale.setScalar(1.04);
+  }
+
+  /**
+   * A hearth formed with its shell in min..max: a highlight on it (or one block round it, where its problems are
+   * reported) fades out now.
+   */
+  private settle(min: readonly number[], max: readonly number[]): void {
+    if (this.left <= 0) return;
+    const inside =
+      this.x >= min[0] - 1 && this.x <= max[0] + 1 &&
+      this.y >= min[1] - 1 && this.y <= max[1] + 1 &&
+      this.z >= min[2] - 1 && this.z <= max[2] + 1;
+    if (inside) this.left = Math.min(this.left, FADE_S);
   }
 
   update(dt: number, camera: THREE.PerspectiveCamera): void {
@@ -189,7 +206,7 @@ export class BlockHighlight {
   }
 
   dispose(): void {
-    this.off();
+    for (const off of this.offs) off();
     this.arrow.remove();
     this.outline.geometry.dispose();
     this.fill.geometry.dispose();

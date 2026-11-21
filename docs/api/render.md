@@ -102,8 +102,11 @@ renderer.render(dt);
   a sleeve and hand. Swing on `triggerSwing()`, a dip on item change, a small dip on `block:placed`; lit by
   a light probe at the eye; smaller and further in on portrait screens.
 - **Light probe** (lightProbe.ts): estimates sky and block light at any point from the voxels (`surfaceY`
-  and emitters within 7 blocks) with the same ramps as the shader. Used for the hand, the outline colour and
-  debris colours.
+  and emitters within 7 blocks) with the same ramps as the shader. Used for the hand, the outline colour,
+  debris colours, animals, machine parts and cell lights. The 15-wide cube is read straight from the 1-4 chunk
+  voxel arrays it spans (`World.chunkVoxels`, optional on the world: test worlds without it fall back to
+  `getVoxel`), with emission from the `EMIT`/`EMIT_ACTIVE` tables and rows skipped once nothing in them can win:
+  about 0.013 ms a probe in node (0.1 ms before) and no garbage.
 
 ## Measured (headless Chromium, SwiftShader software GL, seed 1234567, spawn)
 

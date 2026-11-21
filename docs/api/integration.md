@@ -153,6 +153,8 @@ Screenshots of every step in `test-results/e2e/`. Driver helpers: `scripts/lib/e
 ## Deviations from the spec
 
 - Settings live in the same document as the world (`{ settings, world }`), so they persist without a world.
+- `DEFAULT_SETTINGS` (src/core/context.ts) is per device: render distance 4 on a touch-first device (touch points and a
+  coarse pointer, `isTouchFirst()`), 6 elsewhere; `defaultSettings(touchFirst)` builds either. A saved value wins.
 - Screens other than the pause menu do not pause the simulation (the furnace keeps burning while you sort
   your pack); only the pause menu does.
 - Hiding the tab / switching apps opens the pause menu (and saves), so a phone player returns to a paused game.

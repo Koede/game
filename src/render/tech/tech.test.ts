@@ -1,5 +1,7 @@
 /** Feature visuals part 2: the pure logic behind packets, pipe contents, hearths, ghosts and the highlight arrow. */
-import { describe, expect, it } from 'vitest';
+import * as THREE from 'three';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createBus } from '../../core/context';
 import { PIPE_CORE_MAX, PIPE_CORE_MIN } from '../../core/constants';
 import { blockId, itemOrNull } from '../../core/registry';
 import { Face } from '../../core/types';
@@ -9,7 +11,7 @@ import { FakeWorld } from '../testKit';
 import { CellLight, packLight, skyOf, blockOf } from './cellLight';
 import { hearthBox, hearthOpenTop, shellNormal } from './hearthInfo';
 import { HEAT_RAMP, heatColor, heatGlow } from './heat';
-import { edgeArrow, type EdgeArrow } from './highlight';
+import { BlockHighlight, edgeArrow, type EdgeArrow } from './highlight';
 import { itemLook } from './packets';
 import { cumulativeLengths, packetDistance, pointAlong } from './path';
 import { buildPipeMask, pipePieces, shownLevel } from './pipeOverlay';
@@ -137,6 +139,54 @@ describe('ghost sight lines', () => {
     v.put(6, 21, 0, 'stone');
     v.put(0, 21, 0, 'stone');
     expect(sightTo(v, 0.5, 21.5, 0.5, 6, 21, 0)).toBe(CLEAR);
+  });
+});
+
+describe('problem highlight', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** Just enough DOM for the edge arrow (the test runs in node). */
+  const make = (): { bus: ReturnType<typeof createBus>; hl: BlockHighlight; cam: THREE.PerspectiveCamera } => {
+    const el = (): object => ({ style: {}, remove: () => undefined });
+    vi.stubGlobal('document', { getElementById: () => null, createElement: el, head: { appendChild: () => undefined } });
+    const canvas = { clientWidth: 400, clientHeight: 800, after: () => undefined } as unknown as HTMLCanvasElement;
+    const bus = createBus();
+    const cam = new THREE.PerspectiveCamera(70, 0.5, 0.1, 100);
+    cam.updateMatrixWorld();
+    return { bus, hl: new BlockHighlight(bus, canvas), cam };
+  };
+
+  it('fades out once the hearth round the marked block forms, instead of marking a solved problem', () => {
+    const { bus, hl, cam } = make();
+    bus.emit('highlight:block', { x: 4, y: 10, z: 2, seconds: 10 });
+    hl.update(0.5, cam);
+    expect(hl.remaining).toBeCloseTo(9.5);
+    bus.emit('hearth:formed', { x: 5, y: 10, z: 4, tier: 1, min: [3, 9, 2], max: [7, 12, 6] });
+    expect(hl.remaining).toBeLessThanOrEqual(0.6);
+    expect(hl.remaining).toBeGreaterThan(0);
+    hl.update(0.3, cam);
+    expect(hl.remaining).toBeGreaterThan(0); // fading, not vanished
+    hl.update(0.3, cam);
+    expect(hl.remaining).toBe(0);
+    expect(hl.group.visible).toBe(true);
+    hl.update(0.016, cam);
+    expect(hl.group.visible).toBe(false);
+    hl.dispose();
+  });
+
+  it('keeps a highlight on another structure, and one that is already fading, as they are', () => {
+    const { bus, hl } = make();
+    bus.emit('highlight:block', { x: 40, y: 10, z: 2, seconds: 10 });
+    bus.emit('hearth:formed', { x: 5, y: 10, z: 4, tier: 1, min: [3, 9, 2], max: [7, 12, 6] });
+    expect(hl.remaining).toBe(10);
+    bus.emit('highlight:block', { x: 4, y: 10, z: 2, seconds: 0.3 });
+    bus.emit('hearth:formed', { x: 5, y: 10, z: 4, tier: 1, min: [3, 9, 2], max: [7, 12, 6] });
+    expect(hl.remaining).toBe(0.3);
+    hl.dispose();
+    bus.emit('highlight:block', { x: 4, y: 10, z: 2, seconds: 5 });
+    expect(hl.remaining).toBe(0.3); // unsubscribed
   });
 });
 

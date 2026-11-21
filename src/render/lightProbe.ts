@@ -3,9 +3,8 @@
  * meshes). Used for things that are not part of a chunk mesh: the held item and particle colours. The ramps
  * mirror LIGHT_GLSL in shaders/chunk.ts exactly, so a probed colour matches the terrain next to it.
  */
-import { voxelLight } from '../core/registry';
-import { VOXEL_ID_MASK, type IWorld } from '../core/types';
-import { HUE_VIOLET, LIGHT_HUE } from '../world/blockTables';
+import { CHUNK_SIZE, VOXEL_ID_MASK, WORLD_HEIGHT, voxelActive, type IWorld } from '../core/types';
+import { EMIT, EMIT_ACTIVE, HUE_VIOLET, LIGHT_HUE } from '../world/blockTables';
 import { COOL_CYAN, COOL_VIOLET } from './shaders/chunk';
 
 export const skyRamp = (l: number): number => Math.exp(-3.4 * (1 - l));
@@ -33,6 +32,13 @@ export function lightColor(
 /** Block light reaches this far (spec: light travels at most 15 blocks; nearer emitters dominate anyway). */
 const BLOCK_RADIUS = 7;
 const SKY_RING = 4;
+/** No block emits more than this (spec: light levels 0..15). */
+const MAX_LIGHT = 15;
+
+/** World's direct chunk access (optional on IWorld: test worlds may lack it). */
+interface ChunkSource {
+  chunkVoxels?(cx: number, cz: number): Uint16Array | null;
+}
 
 export class LightProbe {
   /** Last probed sky and block light, 0..1. */
@@ -46,6 +52,8 @@ export class LightProbe {
   violet = false;
   private warmBest = 0;
   private coolBest = 0;
+  /** The chunk columns of the current probe, [cx offset * 2 + cz offset] (the 15-wide cube spans at most 2 x 2). */
+  private readonly cols: (Uint16Array | null)[] = [null, null, null, null];
 
   constructor(private readonly world: IWorld) {}
 
@@ -87,35 +95,76 @@ export class LightProbe {
     return best;
   }
 
-  /** Brightest block light reaching the cell; also keeps the best warm and cool levels apart for `cool`. */
+  /**
+   * Brightest block light reaching the cell; also keeps the best warm and cool levels apart for `cool`.
+   * Reads the 1-4 chunk columns the cube spans straight from their voxel arrays (no per-voxel world lookup, no
+   * garbage); a world without `chunkVoxels` falls back to getVoxel. Visits cells in the same y, z, x order as a
+   * plain triple loop, so ties between a cyan and a violet emitter resolve the same way.
+   */
   private blockAt(x: number, y: number, z: number): number {
     const w = this.world;
-    let warm = 0;
-    let cool = 0;
-    let violet = false;
-    for (let dy = -BLOCK_RADIUS; dy <= BLOCK_RADIUS; dy++) {
-      const ady = Math.abs(dy);
+    const source = (w as IWorld & ChunkSource).chunkVoxels;
+    const direct = typeof source === 'function';
+    const x0 = x - BLOCK_RADIUS;
+    const x1 = x + BLOCK_RADIUS;
+    const z0 = z - BLOCK_RADIUS;
+    const cx0 = x0 >> 4;
+    const cxN = (x1 >> 4) - cx0 + 1;
+    const cz0 = z0 >> 4;
+    const cols = this.cols;
+    if (direct) {
+      const czN = ((z + BLOCK_RADIUS) >> 4) - cz0 + 1;
+      for (let i = 0; i < cxN; i++) {
+        for (let j = 0; j < czN; j++) cols[i * 2 + j] = source.call(w, cx0 + i, cz0 + j);
+      }
+    }
+    this.warmBest = 0;
+    this.coolBest = 0;
+    this.violet = false;
+    const y0 = Math.max(0, y - BLOCK_RADIUS);
+    const y1 = Math.min(WORLD_HEIGHT - 1, y + BLOCK_RADIUS);
+    for (let yy = y0; yy <= y1; yy++) {
+      const ady = Math.abs(yy - y);
       for (let dz = -BLOCK_RADIUS; dz <= BLOCK_RADIUS; dz++) {
-        const adz = Math.abs(dz);
-        for (let dx = -BLOCK_RADIUS; dx <= BLOCK_RADIUS; dx++) {
-          const d = ady + adz + Math.abs(dx);
-          const v = w.getVoxel(x + dx, y + dy, z + dz);
-          if (v === 0) continue;
-          const l = voxelLight(v) - d;
-          if (l <= 0) continue;
-          const hue = LIGHT_HUE[v & VOXEL_ID_MASK];
-          if (hue === 0) {
-            if (l > warm) warm = l;
-          } else if (l > cool) {
-            cool = l;
-            violet = hue === HUE_VIOLET;
+        const dyz = ady + Math.abs(dz);
+        // Nothing in this row can beat both bests (warm and cool are tracked apart, so both must be beaten).
+        if (MAX_LIGHT - dyz <= Math.min(this.warmBest, this.coolBest)) continue;
+        const zz = z + dz;
+        const j = (zz >> 4) - cz0;
+        const rowBase = (yy * CHUNK_SIZE + (zz & 15)) * CHUNK_SIZE;
+        for (let i = 0; i < cxN; i++) {
+          const left = (cx0 + i) * CHUNK_SIZE;
+          const xa = Math.max(x0, left);
+          const xb = Math.min(x1, left + CHUNK_SIZE - 1);
+          if (!direct) {
+            for (let xx = xa; xx <= xb; xx++) this.consider(w.getVoxel(xx, yy, zz), dyz + Math.abs(xx - x));
+            continue;
+          }
+          const vox = cols[i * 2 + j];
+          if (vox === null) continue;
+          const base = rowBase - left;
+          for (let xx = xa; xx <= xb; xx++) {
+            const v = vox[base + xx];
+            if (v !== 0) this.consider(v, dyz + Math.abs(xx - x));
           }
         }
       }
     }
-    this.warmBest = warm;
-    this.coolBest = cool;
-    this.violet = violet;
-    return Math.max(warm, cool);
+    if (direct) cols.fill(null);
+    return Math.max(this.warmBest, this.coolBest);
+  }
+
+  /** Counts the light of voxel `v`, `d` blocks away, towards the warm or the cool best. */
+  private consider(v: number, d: number): void {
+    const id = v & VOXEL_ID_MASK;
+    const l = (voxelActive(v) ? EMIT_ACTIVE[id] : EMIT[id]) - d;
+    if (l <= 0) return;
+    const hue = LIGHT_HUE[id];
+    if (hue === 0) {
+      if (l > this.warmBest) this.warmBest = l;
+    } else if (l > this.coolBest) {
+      this.coolBest = l;
+      this.violet = hue === HUE_VIOLET;
+    }
   }
 }

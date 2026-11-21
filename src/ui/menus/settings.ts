@@ -39,7 +39,7 @@ export class SettingsPanel {
       { class: 'hw-settings' },
       this.section(
         'View',
-        this.slider('renderDistance', 'Render distance', 'How far the world is drawn. Lower it if the game stutters.', L.renderDistance, (v) => `${v} chunks`),
+        this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', L.renderDistance, (v) => `${v} chunks`),
         this.slider('fov', 'Field of view', '', L.fov, (v) => `${v}°`),
         this.toggle('showFps', 'Show frame rate', ''),
       ),

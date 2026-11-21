@@ -92,7 +92,9 @@ without the depth test draws, at 45%, only the ghosts that just leaves stand in 
 voxels, 8 a frame, only after the camera moved). Two draw calls while a preview is up.
 
 **Problem highlight** (`highlight.ts`). `'highlight:block' { x, y, z, seconds }`: a thick red outline and faint red
-fill, pulsing, drawn through everything, fading out over the last 0.6 s; a new highlight replaces the old one. While the
+fill, pulsing, drawn through everything, fading out over the last 0.6 s; a new highlight replaces the old one, and a
+`'hearth:formed'` whose shell (plus one block round it) holds the marked block cuts it to that 0.6 s fade - the problem
+is solved, so no red marker stays on the finished shell. While the
 block is off-screen a red arrow (a 40 px DOM element inserted right after the canvas, under the UI root) sits where the
 line from the screen centre towards the block leaves a rectangle kept clear of the HUD (top 40 px + 8%, bottom 70 px +
 14%, sides 30 px + 4%) and points at it; for a block behind the camera it sits on the left or right edge - the way to

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { blockId } from '../core/registry';
+import { CHUNK_SIZE, CHUNK_VOLUME, makeVoxel, voxelIndex, type Voxel } from '../core/types';
 import { blockRamp, lightColor, LightProbe, skyRamp } from './lightProbe';
 import { COOL_CYAN } from './shaders/chunk';
 import { FakeWorld } from './testKit';
@@ -89,6 +91,55 @@ describe('LightProbe', () => {
     expect(probe.sky).toBeLessThan(1);
   });
 });
+
+describe('LightProbe on chunk voxel arrays', () => {
+  it('matches the per-voxel scan exactly, across chunk borders, below and above the world, and next to unloaded chunks', () => {
+    const chunked = new ChunkedWorld();
+    const plain = new FakeWorld(-1);
+    let seed = 7;
+    const rnd = (): number => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const emitters = ['torch', 'glowcap', 'crystal_cluster', 'furnace_clay', 'plank'];
+    for (let i = 0; i < 400; i++) {
+      const x = Math.floor(rnd() * 64) - 32;
+      const y = Math.floor(rnd() * 96);
+      const z = Math.floor(rnd() * 64) - 32;
+      const v = makeVoxel(blockId(emitters[i % emitters.length]), 0, rnd() < 0.5);
+      if (chunked.set(x, y, z, v)) plain.setVoxel(x, y, z, v);
+    }
+    const a = new LightProbe(chunked);
+    const b = new LightProbe(plain);
+    for (let i = 0; i < 600; i++) {
+      const x = rnd() * 70 - 35;
+      const y = i % 10 === 0 ? 0.5 : i % 10 === 1 ? 95.5 : rnd() * 96;
+      const z = rnd() * 70 - 35;
+      a.probe(x, y, z);
+      b.probe(x, y, z);
+      expect([a.block, a.cool, a.violet]).toEqual([b.block, b.cool, b.violet]);
+    }
+  });
+});
+
+/** Voxels held per chunk like the real World; chunks with cx = 1 are never loaded (chunkVoxels gives null). */
+class ChunkedWorld extends FakeWorld {
+  private readonly chunks = new Map<string, Uint16Array>();
+  constructor() {
+    super(-1);
+  }
+  chunkVoxels(cx: number, cz: number): Uint16Array | null {
+    if (cx === 1) return null;
+    const k = `${cx},${cz}`;
+    let c = this.chunks.get(k);
+    if (!c) this.chunks.set(k, (c = new Uint16Array(CHUNK_VOLUME)));
+    return c;
+  }
+  /** Stores a voxel; false (nothing stored) inside an unloaded chunk. */
+  set(x: number, y: number, z: number, v: Voxel): boolean {
+    const c = this.chunkVoxels(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
+    if (!c) return false;
+    c[voxelIndex(x & 15, y, z & 15)] = v;
+    return true;
+  }
+}
 
 function luminance(c: ArrayLike<number>): number {
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
