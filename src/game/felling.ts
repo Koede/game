@@ -5,6 +5,7 @@
  * the stack's `durability` is its tank (see ToolSpec.fell), `fuelPerLog` per log, topped up from Fuel Canisters.
  * An empty saw (durability 1) counts as bare hands (mining.ts toolMatches). DOM-free.
  */
+import { fuelGrade } from '../core/distill';
 import { FLAG_FELLED_TREE } from '../core/constants';
 import { itemOrNull } from '../core/registry';
 import { AIR, WORLD_HEIGHT, type BlockDef, type IWorld, type ItemAmount, type Slot, type ToolSpec } from '../core/types';
@@ -128,13 +129,18 @@ export function fellTree(world: IWorld, player: PlayerState, x: number, y: numbe
 
 export type RefuelOutcome = 'refuelled' | 'full' | 'no-saw' | 'no-fuel';
 
+/** Whether an item fuels a chainsaw (src/core/distill.ts FUEL_GRADES: the Fuel Canister, gasoline, fuel ethanol). */
+export const isSawFuel = (item: string): boolean => (fuelGrade(item)?.saw ?? 0) > 0;
+
 /**
  * Use with a Fuel Canister in hand refuels a chainsaw carried anywhere in the pack: one canister adds
- * `canisterFuel`, never past the full tank (a canister is only used when it adds something).
+ * `canisterFuel`, never past the full tank (a canister is only used when it adds something). The distillery's fuels
+ * count by their grade (gasoline 1.3 canisters' worth) and hand their empty container back.
  */
 export function refuelChainsaw(player: PlayerState): RefuelOutcome {
   const held = player.heldStack();
-  if (!held || held.item !== SAW_FUEL_ITEM) return 'no-fuel';
+  const grade = held ? fuelGrade(held.item) : null;
+  if (!held || !grade || grade.saw <= 0) return 'no-fuel';
   let target: NonNullable<Slot> | null = null;
   for (const s of player.inventory.slots) {
     if (s && isChainsaw(s) && s.durability !== undefined && s.durability < (sawOf(s)?.durability ?? 0) && (!target || s.durability < (target.durability ?? 0))) target = s;
@@ -145,8 +151,9 @@ export function refuelChainsaw(player: PlayerState): RefuelOutcome {
     return any ? 'full' : 'no-saw';
   }
   const saw = sawOf(target)!;
-  target.durability = Math.min(saw.durability, (target.durability ?? 1) + saw.fell!.canisterFuel);
+  target.durability = Math.min(saw.durability, (target.durability ?? 1) + Math.round(saw.fell!.canisterFuel * grade.saw));
   player.consumeHeld(1);
+  if (grade.empty) player.give(grade.empty, 1);
   player.bus.emit('sfx', { name: 'fuel_add' });
   player.bus.emit('toast', { text: `Chainsaw refuelled (${Math.round((sawFuel(target) / sawCapacity(target)) * 100)}%)`, kind: 'info' });
   return 'refuelled';

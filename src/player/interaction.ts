@@ -28,7 +28,7 @@ import {
   plantedBy,
   refuelChainsaw,
   rollDrops,
-  SAW_FUEL_ITEM,
+  isSawFuel,
   till,
   type PlayerState,
 } from '../game';
@@ -241,7 +241,7 @@ export class Interaction {
     const held = this.player.heldStack();
     if (!held) return 'none';
     // A Fuel Canister in hand tops up a chainsaw carried in the pack.
-    if (held.item === SAW_FUEL_ITEM && refuelChainsaw(this.player) === 'refuelled') {
+    if (isSawFuel(held.item) && refuelChainsaw(this.player) === 'refuelled') {
       this.swing.triggerSwing();
       return 'fuelled';
     }

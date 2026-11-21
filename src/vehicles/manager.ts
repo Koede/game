@@ -13,6 +13,7 @@
  *            is the seat, their yaw the machine's heading plus the head turn. Everything else is zeroed in the
  *            Intent so the controller neither walks, mines nor places.
  */
+import { fuelGrade } from '../core/distill';
 import type { GameBus } from '../core/context';
 import { REACH } from '../core/constants';
 import { FLAG_DROVE_TRACTOR } from '../core/constants';
@@ -228,15 +229,21 @@ export class VehicleManager {
     return true;
   }
 
-  /** One Fuel Canister from the held stack, if the tank has room for it. */
+  /**
+   * One canister from the held stack, if the tank has room for it: the Fuel Canister, or a distillery fuel worth its
+   * grade (diesel 1.5 canisters, gasoline 1.2; src/core/distill.ts FUEL_GRADES), whose empty container comes back.
+   */
   refuel(t: Tractor): boolean {
     const { player, bus } = this.host;
-    if (t.fuel > TANK_S - CANISTER_S * 0.5) {
+    const grade = fuelGrade(player.heldStack()?.item ?? FUEL_ITEM) ?? fuelGrade(FUEL_ITEM)!;
+    const adds = CANISTER_S * grade.tractor;
+    if (t.fuel > TANK_S - adds * 0.5) {
       bus.emit('toast', { text: 'The tank is full', kind: 'info' });
       return false;
     }
     player.consumeHeld(1);
-    t.fuel = Math.min(TANK_S, t.fuel + CANISTER_S);
+    if (grade.empty) player.give(grade.empty, 1);
+    t.fuel = Math.min(TANK_S, t.fuel + adds);
     bus.emit('sfx', { name: 'fuel_add', x: t.x, y: t.y + 0.8, z: t.z });
     bus.emit('toast', { text: `Tractor refuelled (${Math.round((t.fuel / TANK_S) * 100)}%)`, kind: 'info' });
     return true;
@@ -327,7 +334,7 @@ export class VehicleManager {
       const t = target.tractor;
       if (intent.place) this.pickUp(t);
       else if (held && attachmentOfItem(held.item)) this.mount(t, attachmentOfItem(held.item)!);
-      else if (held?.item === FUEL_ITEM) this.refuel(t);
+      else if (held && (fuelGrade(held.item)?.tractor ?? 0) > 0) this.refuel(t);
       else this.enter(t);
       return true;
     }
