@@ -25,3 +25,9 @@ export { buildHint } from './hearthStats';
 export type { GhostCell, GhostRole, GhostState, MaterialRow, StructureCheck, StructureTarget, StructureView, TierChoice } from './hearthView';
 export { TIER_CHOICES } from './hearthView';
 export type { FluidEndpoint, ItemEndpoint } from './endpoints';
+// Item and fluid transport (spec 16): docs/api/transport.md.
+export type { Distribution, FilterMode, PipeEntity, PortChange, PortConfig, PortMode, SavedPacket } from './pipeState';
+export { isPipeEntity } from './pipeState';
+export type { BucketResult, WrenchResult } from './transportActions';
+export type { FluidRender, JointView, PacketRender, PipeNetView, PipeView, PortView, TransportRender } from './transportViews';
+export type { MachineFluidView } from './gridViews';

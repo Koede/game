@@ -8,6 +8,7 @@ import { machine } from '../core/registry';
 import type { FluidKey } from '../core/types';
 import type { FluidEndpoint } from './endpoints';
 import type { FluidStack, MachineEntity } from './entities';
+import type { MachineView } from './gridViews';
 
 const TANK = machine('tank');
 const TANK_L = TANK.fluids?.capacityL ?? 0;
@@ -53,6 +54,14 @@ export function stackContent(tanks: readonly MachineEntity[]): { fluid: FluidKey
     litres += t.fluidIn.litres;
   }
   return { fluid, litres, capacityL: tanks.length * TANK_L };
+}
+
+/** A tank's machine view speaks for its stack: "22,000 of 48,000 L (3 tanks)", and `fluids.stack`. */
+export function tankView(view: MachineView, tanks: readonly MachineEntity[]): void {
+  const c = stackContent(tanks);
+  if (view.fluids) view.fluids.stack = { tanks: tanks.length, ...c };
+  const of = tanks.length > 1 ? ` (${tanks.length} tanks)` : '';
+  view.status = c.fluid ? `${Math.round(c.litres).toLocaleString('en-US')} of ${c.capacityL.toLocaleString('en-US')} L${of}` : `Empty${of}`;
 }
 
 /** Sets a stack to hold `litres` of `fluid`, bottom tanks full first. */

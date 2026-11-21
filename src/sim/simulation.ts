@@ -25,7 +25,7 @@ import * as actions from './furnaceActions';
 import type { ActionHost, ForgeResult } from './furnaceActions';
 import { gridSummary, machineView, networkStats, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
 import { isPipeEntity, type PortChange } from './pipeState';
-import { stackContent, tankColumn } from './tanks';
+import { tankColumn, tankView } from './tanks';
 import { Transport } from './transport';
 import * as pipes from './transportActions';
 import type { BucketResult, WrenchResult } from './transportActions';
@@ -496,13 +496,7 @@ export class Simulation implements ActionHost {
     const node = this.nodes.byKey.get(posKey(x, y, z));
     if (!node || isFurnace(node.e)) return null;
     const view = machineView(node);
-    if (node.e.kind === 'tank' && view.fluids) {
-      const stack = tankColumn(this.transport.tankAt, x, y, z);
-      const c = stackContent(stack);
-      view.fluids.stack = { tanks: stack.length, ...c };
-      const of = stack.length > 1 ? ` (${stack.length} tanks)` : '';
-      view.status = c.fluid ? `${Math.round(c.litres).toLocaleString('en-US')} of ${c.capacityL.toLocaleString('en-US')} L${of}` : `Empty${of}`;
-    }
+    if (node.e.kind === 'tank') tankView(view, tankColumn(this.transport.tankAt, x, y, z));
     return view;
   }
 

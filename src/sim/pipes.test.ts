@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { PIPE_MAX_PIPES, PIPE_MAX_PORTS } from '../core/constants';
 import { Face, voxelActive } from '../core/types';
+import { FakeWorld } from '../game/fakeWorld';
 import type { FluidNet } from './fluidNet';
 import { netOf, run } from './pipeKit';
 import { cellKey, isPipeEntity, keyX, keyY, keyZ, stepKey, type PipeEntity } from './pipeState';
@@ -197,5 +198,73 @@ describe('pipe networks', () => {
     kit.machine('solar_panel', 0, 6, 0);
     kit.run(2);
     for (let x = 1; x <= 4; x++) expect(voxelActive(kit.world.getVoxel(x, 5, 0))).toBe(true);
+  });
+});
+
+describe('pipes and the saved world', () => {
+  it('port settings and parted joints come back with a loaded save', () => {
+    const a = makeKit();
+    a.machine('crate', 0, 5, 0);
+    run(a.world, 'item_pipe', [1, 5, 0], [6, 5, 0]);
+    a.sim.setPort(1, 5, 0, Face.NX, { mode: 'pull', distribution: 'round', filter: ['coal'], filterMode: 'allow', priority: -1 });
+    a.sim.wrenchJoint(3, 5, 0, Face.PX);
+    const saved = JSON.parse(JSON.stringify([...a.world.entities()]));
+
+    const b = makeKit();
+    b.world.put(0, 5, 0, 'crate');
+    run(b.world, 'item_pipe', [1, 5, 0], [6, 5, 0]);
+    for (const e of [...b.world.entities()]) b.world.removeEntity(e.x, e.y, e.z);
+    for (const e of saved) b.world.setEntity(e);
+    b.sim.resync();
+    const view = b.sim.pipeView(1, 5, 0)!;
+    expect(view.ports[0]).toMatchObject({ mode: 'pull', distribution: 'round', filter: ['coal'], filterMode: 'allow', priority: -1 });
+    expect(view.network.pipes).toBe(3);
+    expect(view.joints).toMatchObject([{ x: 3, dir: Face.PX, reason: 'cut' }]);
+  });
+
+  it('finds saved networks when their chunks load, and grows a network into a chunk that loads later', () => {
+    /** A fake world whose chunk column x >= 16 is not loaded until `ready`. */
+    class Partial extends FakeWorld {
+      ready = false;
+      override isLoaded(...at: number[]): boolean {
+        return this.ready || (at[0] ?? 0) < 16;
+      }
+      override getVoxel(x: number, y: number, z: number): number {
+        return this.isLoaded(x) ? super.getVoxel(x, y, z) : 0;
+      }
+    }
+    const a = makeKit();
+    const t = a.machine('tank', 20, 5, 0);
+    t.fluidIn = { fluid: 'water', litres: 8000 };
+    run(a.world, 'fluid_pipe', [10, 5, 0], [19, 5, 0]);
+    a.sim.setPort(19, 5, 0, Face.PX, { mode: 'pull' });
+    a.run(15); // the pipes fill to 2500 L and nobody takes it
+    expect((netOf(a, 10, 5, 0) as FluidNet).store).toEqual({ fluid: 'water', litres: 2500 });
+    const saved = JSON.parse(JSON.stringify([...a.world.entities()]));
+    const anchor = saved.find(isPipeEntity);
+    expect(anchor).toMatchObject({ store: { fluid: 'water', litres: 2500 } });
+
+    let world: Partial | null = null;
+    const b = makeKit((bus) => (world = new Partial(bus)));
+    const w = world as unknown as Partial;
+    w.ready = true;
+    b.world.put(20, 5, 0, 'tank');
+    run(b.world, 'fluid_pipe', [10, 5, 0], [19, 5, 0]);
+    for (const e of [...b.world.entities()]) b.world.removeEntity(e.x, e.y, e.z);
+    for (const e of saved) b.world.setEntity(e);
+    w.ready = false;
+    b.sim.resync();
+    // Only x < 16 is loaded: the part found so far keeps all the water (it cannot know how much was further on)...
+    const part = netOf(b, 10, 5, 0) as FluidNet;
+    expect(part.size).toBe(6);
+    expect(part.store).toEqual({ fluid: 'water', litres: 2500 });
+    expect(part.ports).toEqual([]);
+    // ...and when the rest arrives, it is one network with all its water again.
+    w.ready = true;
+    b.bus.emit('chunk:loaded', { cx: 1, cz: 0 });
+    const net = netOf(b, 10, 5, 0) as FluidNet;
+    expect(net.size).toBe(10);
+    expect(net.store).toEqual({ fluid: 'water', litres: 2500 });
+    expect(net.ports.map((p) => p.cfg.mode)).toEqual(['pull']);
   });
 });

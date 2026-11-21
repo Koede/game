@@ -224,7 +224,8 @@ export class Transport {
       }
       delete o.store;
     }
-    litres = Math.min(litres, net.capacity);
+    // Part of the network may still be in chunks not loaded yet: it keeps their share until they arrive.
+    if (net.frontier.size === 0) litres = Math.min(litres, net.capacity);
     net.store = { fluid: litres > 0 ? fluid : null, litres: litres > 0 ? litres : 0 };
   }
 
