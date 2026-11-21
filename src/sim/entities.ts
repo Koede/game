@@ -78,6 +78,10 @@ export interface MachineEntity extends BlockEntity {
    */
   fluidIn: FluidStack | null;
   fluidOut: FluidStack | null;
+  /** Pump: litres drawn from the lava or oil block it is emptying (a block goes every litresPerBlock). */
+  drawnL?: number;
+  /** Pump, boiler, steam turbine: litres a second it pumped, boiled or used last tick. */
+  rateL?: number;
   // Figures of the last tick.
   availW: number;
   outW: number;

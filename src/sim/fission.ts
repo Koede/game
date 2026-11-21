@@ -3,12 +3,14 @@ import { AMBIENT_TEMP_C, MAX_HEALTH, PLAYER_HEIGHT } from '../core/constants';
 import { blockId, machine } from '../core/registry';
 import { AIR, makeVoxel } from '../core/types';
 import type { MachineEntity, SimContext, SimNode } from './entities';
+import { pipedWater, useFluid } from './fluidUse';
 import { burnFuel, holdsFuel, type Behaviour } from './machines';
 
 const PILE = machine('fission_pile');
 const P = PILE.params ?? {};
 
-export const pileCooled = (node: SimNode): boolean => node.water >= P.minWater;
+/** Cooled by water blocks, or by piped water at P.pipedWaterLPerS (spec 16.2). */
+export const pileCooled = (node: SimNode): boolean => node.water >= P.minWater || pipedWater(node.e as MachineEntity, P.pipedWaterLPerS);
 
 export const fissionPile: Behaviour = {
   prepare(node) {
@@ -21,7 +23,9 @@ export const fissionPile: Behaviour = {
     e.outW = e.availW * (node.net ? node.net.load : 0);
     if (e.outW > 0) burnFuel(node, ctx, e.outW * dt);
 
-    if (reacting && !pileCooled(node)) {
+    const cooled = pileCooled(node);
+    if (reacting && cooled && node.water < P.minWater) useFluid(e, 'water', P.pipedWaterLPerS * dt);
+    if (reacting && !cooled) {
       e.coreC += P.heatRateC * dt;
     } else {
       const target = reacting ? P.runTempC : AMBIENT_TEMP_C;

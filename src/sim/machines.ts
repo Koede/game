@@ -8,6 +8,7 @@ import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
 import { rollDrops } from '../game/mining';
 import { addToSlots, roomInSlots, type FurnaceEntity, type MachineEntity, type SimContext, type SimNode } from './entities';
+import { heldL, pipedWater, useFluid } from './fluidUse';
 import { powered } from './power';
 
 export interface Behaviour {
@@ -33,12 +34,15 @@ const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > 
 /** What is wrong with where a machine stands, or null. Shown on its screen. */
 export function placementProblem(node: SimNode): string | null {
   const p = node.spec.params ?? {};
+  const e = node.e as MachineEntity;
+  // Piped water stands in for water blocks, piped lava for lava blocks (spec 16.2).
+  if (pipedWater(e, p.pipedWaterLPerS) && node.spec.kind !== 'steam_engine') return null;
   switch (node.spec.kind) {
     case 'thermopile':
       return node.furnaces.length > 0 ? null : 'Must touch a furnace';
     case 'steam_engine':
       if (node.furnaces.length === 0) return 'Must sit on top of a furnace';
-      return node.sideWater >= p.minWater ? null : 'Needs water on one side';
+      return node.sideWater >= p.minWater || pipedWater(e, p.pipedWaterLPerS) ? null : 'Needs water on one side';
     case 'water_wheel':
     case 'fission_pile':
       return node.water >= p.minWater ? null : `Needs water on ${p.minWater} sides (${node.water} now)`;
@@ -48,7 +52,7 @@ export function placementProblem(node: SimNode): string | null {
     case 'solar_panel':
       return node.openSky ? null : 'Needs open sky above';
     case 'geothermal_tap':
-      return node.lava > 0 ? null : 'Must touch lava';
+      return node.lava > 0 || heldL(e, 'lava') > 0 ? null : 'Must touch lava';
     case 'blower':
       return node.furnaces.length > 0 ? null : 'Must touch a furnace';
     default:
@@ -74,14 +78,17 @@ const heatEngine: Behaviour = {
     const e = node.e as MachineEntity;
     const p = node.spec.params ?? {};
     const hottest = hottestFurnace(node);
-    const ok = e.on && hottest !== null && (p.minWater === undefined || node.sideWater >= p.minWater);
+    const ok = e.on && hottest !== null && (p.minWater === undefined || node.sideWater >= p.minWater || pipedWater(e, p.pipedWaterLPerS));
     e.availW = ok && hottest ? clamp(p.wattsPerC * (hottest.tempC - p.minTempC), 0, p.capW) : 0;
   },
-  apply(node, ctx) {
+  apply(node, ctx, dt) {
     followLoad(node, ctx);
     const e = node.e as MachineEntity;
     const hottest = e.outW > 0 ? hottestFurnace(node) : null;
     if (hottest) hottest.extractW += (node.spec.params?.heatPerWatt ?? 0) * e.outW;
+    // Running on piped water: it boils away at its rate.
+    const p = node.spec.params ?? {};
+    if (e.outW > 0 && p.minWater !== undefined && node.sideWater < p.minWater) useFluid(e, 'water', (p.pipedWaterLPerS ?? 0) * dt);
   },
 };
 
@@ -106,7 +113,23 @@ const windTurbine = ambient((n, ctx, s) => {
   return (s.outputW ?? 0) * ctx.wind * clamp((n.e.y - p.altitudeBaseY) / p.altitudeSpanY, p.altitudeMin, p.altitudeMax);
 });
 const solarPanel = ambient((n, ctx, s) => (n.openSky && ctx.sunlight > (s.params?.minSunlight ?? 0) ? (s.outputW ?? 0) * ctx.sunlight * ctx.solar : 0));
-const geothermalTap = ambient((n, _c, s) => Math.min(s.params?.capW ?? 0, (s.params?.wattsPerLava ?? 0) * n.lava));
+/** Watts a geothermal tap gets from the lava blocks touching it (they never run out). */
+const lavaBlockW = (n: SimNode, s: MachineSpec): number => Math.min(s.params?.capW ?? 0, (s.params?.wattsPerLava ?? 0) * n.lava);
+/** Piped lava (spec 16.2) runs it at full output; lavaLPerRun lasts lavaRunS at that output, on top of what blocks give. */
+const geothermalTap: Behaviour = {
+  prepare(node) {
+    const e = node.e as MachineEntity;
+    const s = node.spec;
+    e.availW = !e.on ? 0 : heldL(e, 'lava') > 0 ? s.params?.capW ?? 0 : lavaBlockW(node, s);
+  },
+  apply(node, ctx, dt) {
+    followLoad(node, ctx);
+    const e = node.e as MachineEntity;
+    const p = node.spec.params ?? {};
+    const piped = Math.max(0, e.outW - lavaBlockW(node, node.spec));
+    if (piped > 0 && p.capW > 0) useFluid(e, 'lava', (piped / p.capW) * (p.lavaLPerRun / p.lavaRunS) * dt);
+  },
+};
 
 /** Wind factor at a world time: a slow, deterministic wander between `min` and `max`. */
 export function windAt(timeS: number, min: number, max: number): number {
@@ -121,11 +144,21 @@ export function fuelEnergyJ(spec: MachineSpec, itemKey: string): number {
   return heat * (spec.efficiency ?? 1);
 }
 
+/** Electric joules one litre of piped refined fuel is worth in this generator (0: it burns none). */
+export function fluidFuelJPerL(spec: MachineSpec): number {
+  const perCanister = spec.params?.fuelLPerCanister;
+  if (!perCanister || !spec.fluids?.accepts?.includes('fuel')) return 0;
+  return fuelEnergyJ(spec, spec.fuels?.[0] ?? '') / perCanister;
+}
+
 export const holdsFuel = (node: SimNode): boolean => {
   const e = node.e as MachineEntity;
   const s = e.slots[0];
-  return e.fuelJ > 0 || (s !== null && s !== undefined && fuelEnergyJ(node.spec, s.item) > 0);
+  return e.fuelJ > 0 || (s !== null && s !== undefined && fuelEnergyJ(node.spec, s.item) > 0) || (heldL(e, 'fuel') > 0 && fluidFuelJPerL(node.spec) > 0);
 };
+
+/** Litres of piped fuel taken at a time (a tenth of a canister), so the buffer drains smoothly. */
+const FUEL_SIP = 0.1;
 
 /** Takes `joules` of electricity out of the fuel, loading the next item from the slot when one runs out. */
 export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
@@ -135,11 +168,17 @@ export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
     if (e.fuelJ <= 0) {
       const s = e.slots[0];
       const worth = s ? fuelEnergyJ(node.spec, s.item) : 0;
-      if (!s || worth <= 0) return;
-      s.count--;
-      if (s.count <= 0) e.slots[0] = null;
-      e.fuelJ = worth;
-      ctx.touch(e);
+      if (s && worth > 0) {
+        s.count--;
+        if (s.count <= 0) e.slots[0] = null;
+        e.fuelJ = worth;
+        ctx.touch(e);
+      } else {
+        const perL = fluidFuelJPerL(node.spec);
+        const sip = perL > 0 ? useFluid(e, 'fuel', FUEL_SIP * (node.spec.params?.fuelLPerCanister ?? 0)) : 0;
+        if (sip <= 0) return;
+        e.fuelJ = sip * perL;
+      }
     }
     const use = Math.min(need, e.fuelJ);
     e.fuelJ -= use;
@@ -211,7 +250,8 @@ const processor: Behaviour = {
       e.progress = 0;
     }
     const minWater = node.spec.params?.minWater;
-    const blocked = !e.on || r === null || (minWater !== undefined && node.water < minWater) || roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
+    const dry = minWater !== undefined && node.water < minWater && !pipedWater(e, node.spec.params?.pipedWaterLPerS);
+    const blocked = !e.on || r === null || dry || roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
     node.job = blocked ? null : r;
     e.demandW = blocked ? 0 : node.spec.drawW ?? 0;
   },
@@ -222,6 +262,8 @@ const processor: Behaviour = {
     const running = r !== null && e.f >= BROWNOUT_STALL;
     ctx.setActive(node, running);
     if (r && running) {
+      const p = node.spec.params ?? {};
+      if (p.minWater !== undefined && node.water < p.minWater) useFluid(e, 'water', (p.pipedWaterLPerS ?? 0) * dt);
       e.progress += dt * e.f;
       if (e.progress >= r.timeS) {
         e.progress = 0;

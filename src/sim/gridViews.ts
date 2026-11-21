@@ -3,8 +3,9 @@ import { BROWNOUT_STALL } from '../core/constants';
 import { furnaceTier, recipe } from '../core/registry';
 import type { MachineRole, RecipeDef, Slot } from '../core/types';
 import { formatWatts } from '../game/objectives';
-import type { FurnaceEntity, MachineEntity, SimNode } from './entities';
+import type { FluidStack, FurnaceEntity, MachineEntity, SimNode } from './entities';
 import { pileCooled } from './fission';
+import { fluidStatus, oilProgress } from './fluidMachines';
 import { fuelEnergyJ, holdsFuel, isProcessor, itemName, placementProblem } from './machines';
 import type { Network, NetworkState } from './power';
 
@@ -50,6 +51,20 @@ export interface MachineView {
   depthY: number;
   /** The live slot array (read-only for the UI; use Simulation.machineSlots to move items). */
   slots: Slot[];
+  /** Machines with fluid ports (spec 16.2): their buffers; null for the others. */
+  fluids: MachineFluidView | null;
+}
+
+export interface MachineFluidView {
+  /** What pipes or buckets put in (a tank: its own part of the stack), and what it hands out. Copies. */
+  input: FluidStack | null;
+  output: FluidStack | null;
+  /** Litres each buffer holds. */
+  capacityL: number;
+  /** Litres a second it pumped, boiled or used last tick (pump, boiler, steam turbine), else 0. */
+  rateL: number;
+  /** Tanks: the stack it is part of (they share one fluid and one level). */
+  stack: { tanks: number; fluid: FluidStack['fluid'] | null; litres: number; capacityL: number } | null;
 }
 
 function machineStatus(node: SimNode, v: MachineView): string {
@@ -67,6 +82,8 @@ function machineStatus(node: SimNode, v: MachineView): string {
     if (!v.cooled) return `No cooling - core at ${Math.round(e.coreC)} C and rising`;
   }
   if (v.problem) return v.problem;
+  const fluid = fluidStatus(node, null);
+  if (fluid) return fluid;
   if (spec.role === 'generator') {
     if (spec.fuels && spec.fuels.length > 0 && !holdsFuel(node)) return 'No fuel';
     if (e.availW <= 0) {
@@ -101,9 +118,15 @@ export function machineView(node: SimNode): MachineView {
     kind: e.kind, name: spec.name, role: spec.role, x: e.x, y: e.y, z: e.z, on: e.on, running: node.active, status: '',
     problem: placementProblem(node), hint: spec.placementHint ?? null, network: node.net ? node.net.id : null,
     availW: e.availW, outW: e.outW, demandW: e.demandW, satisfaction: consumer ? (node.net ? node.net.f : 0) : 1,
-    progress: Math.min(1, e.progress / span), recipe: r, storedJ: e.storedJ, capacityJ: spec.capacityJ ?? 0,
+    progress: oilProgress(e) ?? Math.min(1, e.progress / span), recipe: r, storedJ: e.storedJ, capacityJ: spec.capacityJ ?? 0,
     chargeW: spec.role === 'storage' ? e.f : 0, fuelJ, fuelLeftS: e.outW > 0 ? fuelJ / e.outW : Infinity, coreC: e.coreC,
     cooled: e.kind === 'fission_pile' ? pileCooled(node) : true, depthY: e.depthY, slots: e.slots,
+    fluids: spec.fluids
+      ? {
+        input: e.fluidIn ? { ...e.fluidIn } : null, output: e.fluidOut ? { ...e.fluidOut } : null,
+        capacityL: spec.fluids.capacityL, rateL: e.rateL ?? 0, stack: null,
+      }
+      : null,
   };
   view.status = machineStatus(node, view);
   return view;

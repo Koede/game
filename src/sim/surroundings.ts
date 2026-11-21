@@ -45,7 +45,7 @@ export function surroundings(
       n.crates.push(other.e as MachineEntity);
       continue;
     }
-    if (!TOUCHES_FURNACE.has(kind) && !(kind === 'steam_engine' && dy === -1)) continue;
+    if (!TOUCHES_FURNACE.has(kind) && !((kind === 'steam_engine' || kind === 'boiler') && dy === -1)) continue;
     const furnace = other && isFurnace(other.e) ? other.e : shellOwner ? shellOwner(key) : null;
     if (furnace && !n.furnaces.includes(furnace)) n.furnaces.push(furnace);
   }

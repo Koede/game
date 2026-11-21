@@ -5,6 +5,7 @@
 import { voxelActive, type IWorld } from '../core/types';
 import { createNode, isFurnace, type SimEntity, type SimNode } from './entities';
 import { fissionPile } from './fission';
+import { fluidBehaviour } from './fluidMachines';
 import { behaviourOf, type Behaviour } from './machines';
 import { buildNetworks, chunkKey, type Network } from './power';
 import { concerns, nearChunk, surroundings, type ShellOwner } from './surroundings';
@@ -47,7 +48,7 @@ export class NodeSet {
     if (isFurnace(e)) this.furnaces.push(node);
     else if (e.kind !== 'crate') {
       this.tickers.push(node);
-      this.behaviours.push(e.kind === 'fission_pile' ? fissionPile : behaviourOf(e.kind));
+      this.behaviours.push(fluidBehaviour(e.kind) ?? (e.kind === 'fission_pile' ? fissionPile : behaviourOf(e.kind)));
     }
     this.envDirty = true;
     return node;

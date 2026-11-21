@@ -24,6 +24,12 @@ import { applyFurnace, prepareFurnace, statsOf } from './furnace';
 import * as actions from './furnaceActions';
 import type { ActionHost, ForgeResult } from './furnaceActions';
 import { gridSummary, machineView, networkStats, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
+import { isPipeEntity, type PortChange } from './pipeState';
+import { stackContent, tankColumn } from './tanks';
+import { Transport } from './transport';
+import * as pipes from './transportActions';
+import type { BucketResult, WrenchResult } from './transportActions';
+import { TransportRenderer, fluidAt, pipeView, type PipeView, type TransportRender } from './transportViews';
 import { HearthSet } from './hearth';
 import { furnaceStats, type FurnaceStats } from './hearthStats';
 import { structureView, type StructureTarget, type StructureView } from './hearthView';
@@ -59,6 +65,9 @@ export class Simulation implements ActionHost {
   private readonly slots = new SlotAccess((e) => this.statsOfFurnace(e));
   private readonly hearths: HearthSet;
   private readonly endpoints: Endpoints;
+  /** Item and fluid transport (spec 16): pipe networks, packets, fluid amounts. */
+  readonly transport: Transport;
+  private readonly transportRender: TransportRenderer;
   readonly giveBack = (item: string): void => {
     this.player.give(item, 1);
   };
@@ -91,6 +100,13 @@ export class Simulation implements ActionHost {
       furnaceStats: (e) => this.statsOfFurnace(e),
       touch: (e) => this.touch(e),
     });
+    this.transport = new Transport({
+      world, bus, player,
+      itemEndpoint: (x, y, z, face) => this.itemEndpoint(x, y, z, face),
+      fluidEndpoint: (x, y, z, face) => this.fluidEndpoint(x, y, z, face),
+      machineAt: (x, y, z) => this.machineAt(x, y, z),
+    });
+    this.transportRender = new TransportRenderer(this.transport);
     const chunkChanged = ({ cx, cz }: { cx: number; cz: number }): void => {
       this.nodes.chunkChanged(cx, cz);
       this.crops.chunkChanged(cx, cz);
@@ -98,7 +114,10 @@ export class Simulation implements ActionHost {
     };
     this.offs.push(
       bus.on('block:changed', (ev) => this.onBlockChanged(ev)),
-      bus.on('chunk:loaded', chunkChanged),
+      bus.on('chunk:loaded', (ev) => {
+        chunkChanged(ev);
+        this.transport.chunkLoaded(ev.cx, ev.cz);
+      }),
       bus.on('chunk:unloaded', chunkChanged),
       bus.on('ui:opened', ({ screen }) => {
         const furnace = screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z);
@@ -123,6 +142,7 @@ export class Simulation implements ActionHost {
   dispose(): void {
     for (const off of this.offs) off();
     this.offs.length = 0;
+    this.transport.dispose();
   }
 
   /** Where rain soaks exposed crops this tick, or null when nothing soaks anywhere (the crops skip the check). */
@@ -137,8 +157,9 @@ export class Simulation implements ActionHost {
     this.hearths.clear();
     for (const e of this.world.entities()) {
       if (isPlant(e)) this.crops.track(e);
-      else this.trackNode(e as SimEntity);
+      else if (!isPipeEntity(e)) this.trackNode(e as SimEntity);
     }
+    this.transport.resync();
   }
 
   private trackNode(e: SimEntity): SimNode {
@@ -187,6 +208,7 @@ export class Simulation implements ActionHost {
     }
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
+    this.transport.tick(dt);
     this.crops.tick(dt, this.sunlight, this.wetAt);
 
     if (this.meltdowns.length > 0) {
@@ -216,6 +238,7 @@ export class Simulation implements ActionHost {
     if (from.id === to.id) return;
     const { x, y, z } = ev;
     const key = posKey(x, y, z);
+    this.transport.blockChanged(x, y, z, from, to);
     this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
     // Crops and wild bushes (spec 12.4, 14) are plants the crops follow, never machines.
@@ -471,7 +494,58 @@ export class Simulation implements ActionHost {
   machineView(x: number, y: number, z: number): MachineView | null {
     this.nodes.fresh();
     const node = this.nodes.byKey.get(posKey(x, y, z));
-    return node && !isFurnace(node.e) ? machineView(node) : null;
+    if (!node || isFurnace(node.e)) return null;
+    const view = machineView(node);
+    if (node.e.kind === 'tank' && view.fluids) {
+      const stack = tankColumn(this.transport.tankAt, x, y, z);
+      const c = stackContent(stack);
+      view.fluids.stack = { tanks: stack.length, ...c };
+      const of = stack.length > 1 ? ` (${stack.length} tanks)` : '';
+      view.status = c.fluid ? `${Math.round(c.litres).toLocaleString('en-US')} of ${c.capacityL.toLocaleString('en-US')} L${of}` : `Empty${of}`;
+    }
+    return view;
+  }
+
+  // ---- item and fluid transport (spec 16) --------------------------------------------------------------------------
+
+  /** The pipe screen of the pipe at a position: its network, every port with its status, the joints that are open. */
+  pipeView(x: number, y: number, z: number): PipeView | null {
+    return pipeView(this.transport, x, y, z);
+  }
+
+  /** The wrench on a pipe's side `dir` (Face): towards a block it cycles push -> pull -> off, towards a pipe it parts or joins. */
+  wrench(x: number, y: number, z: number, dir: Face): WrenchResult {
+    return pipes.wrench(this.transport, x, y, z, dir);
+  }
+
+  /** Cycles the pipe end towards `dir` push -> pull -> off (toast "Pulling from Blast Furnace", sfx pipe_clunk). */
+  wrenchPort(x: number, y: number, z: number, dir: Face): WrenchResult {
+    return pipes.wrenchPort(this.transport, x, y, z, dir);
+  }
+
+  /** Parts the pipe from the neighbouring pipe towards `dir`, or joins them again. */
+  wrenchJoint(x: number, y: number, z: number, dir: Face): WrenchResult {
+    return pipes.wrenchJoint(this.transport, x, y, z, dir);
+  }
+
+  /** Changes a pipe end's settings from the pipe screen (mode, distribution, filter, filter mode, priority). */
+  setPort(x: number, y: number, z: number, dir: Face, change: PortChange): ActionResult {
+    return pipes.setPort(this.transport, x, y, z, dir, change);
+  }
+
+  /** A bucket used on a tank or fluid endpoint: fills or empties 1000 L; `held` is what the player holds afterwards. */
+  bucketUse(x: number, y: number, z: number, face: Face, heldKey: string): BucketResult {
+    return pipes.bucketUse(this.transport, x, y, z, face, heldKey);
+  }
+
+  /** Packets in flight and fluid fills for the renderer (one snapshot per tick, its objects reused). */
+  transportView(): TransportRender {
+    return this.transportRender.view();
+  }
+
+  /** Fluid in the pipe at a position and its network's fill, or null. */
+  pipeFluidAt(x: number, y: number, z: number): ReturnType<typeof fluidAt> {
+    return fluidAt(this.transport, x, y, z);
   }
 
   /** Stats of the network a power device or cable at this position belongs to (null: none, or a lone cable run). */
