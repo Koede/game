@@ -60,7 +60,7 @@ export class MagicRenderer {
       const j = jars[i];
       const h = Math.max(0.04, Math.min(1, j.fill)) * 0.78;
       mesh.visible = true;
-      mesh.material = this.material(aspectInfo(j.aspect).color, 0.78);
+      mesh.material = this.material(aspectInfo(j.aspect).color, 0.92);
       mesh.scale.set(1, h, 1);
       mesh.position.set(j.x + 0.5, j.y + 0.04 + h / 2, j.z + 0.5);
     }

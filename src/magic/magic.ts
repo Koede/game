@@ -362,7 +362,17 @@ export class Magic {
   nodesAround(x: number, z: number, radiusChunks = 2): (NodeSite & { y: number; left: number })[] {
     return nodesNear(this.seed, x, z, radiusChunks)
       .filter((n) => this.world.isLoaded(n.x, n.z))
-      .map((n) => ({ ...n, y: this.world.surfaceY(n.x, n.z) + NODE_HEIGHT, left: this.nodeLeft(n.key) }));
+      .map((n) => ({ ...n, y: this.groundY(n.x, n.z) + NODE_HEIGHT, left: this.nodeLeft(n.key) }));
+  }
+
+  /** The ground under a column: below leaves, logs, plants and anything not solid (trees do not lift a wellspring). */
+  groundY(x: number, z: number): number {
+    let y = this.world.surfaceY(x, z);
+    for (let i = 0; i < 40 && y > 0; i++, y--) {
+      const b = this.world.getBlock(x, y, z);
+      if (b.solid && !/(leaves|log)$/.test(b.key)) break;
+    }
+    return y + 1;
   }
 
   nodeLeft(key: string): number {
@@ -404,12 +414,12 @@ export class Magic {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([a, n]) => `${aspectInfo(a).name} ${n}`);
-    let text = `Land: ${land.length ? land.join(', ') : 'drained'}`;
+    let text = land.length ? land.join(', ') : 'Land drained';
     const nodes = this.nodesAround(p.x, p.z, 3);
     if (nodes.length) {
       const n = nodes.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
       const d = Math.round(Math.hypot(n.x + 0.5 - p.x, n.z + 0.5 - p.z));
-      text += ` - wellspring of ${aspectInfo(n.aspect).name} ${d < 3 ? 'here' : `${d} blocks ${compass(p.x, p.z, n.x + 0.5, n.z + 0.5)}`} (${Math.floor(n.left)})`;
+      text += ` · ${aspectInfo(n.aspect).name} well ${d < 3 ? 'here' : `${d} ${compass(p.x, p.z, n.x + 0.5, n.z + 0.5)}`} (${Math.floor(n.left)})`;
     }
     return text;
   }

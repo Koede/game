@@ -204,6 +204,143 @@ async function runDevice(device) {
       assert(await d.hw(() => window.__hw.app.game.state.player.inventory.count('boiling_vial') === 1), 'a boiling vial in the pack');
     });
 
+    // ---- the second slice: desk, altar, foci, wellsprings, servants (research done by set-up) ----------------------
+    const M = (fn, arg) => d.hw(fn, arg);
+    await step('set-up: every research done, a clear yard', async () => {
+      await M((p) => {
+        const hw = window.__hw;
+        const m = hw.app.game.magic;
+        for (const e of m.notebook().entries()) m.research.entries[e.key] = { done: true, tokens: {} };
+        hw.clearInventory();
+        for (let x = p.x0 - 3; x <= p.x0 + 6; x++)
+          for (let z = p.z0 + 5; z <= p.z0 + 14; z++) {
+            hw.setVoxel(x, p.gy - 1, z, 'stone');
+            for (let y = p.gy; y <= p.gy + 4; y++) hw.setVoxel(x, y, z, 'air');
+          }
+      }, P);
+      P.yard = { x: P.x0 + 1, z: P.z0 + 9 };
+    });
+
+    await step('the rune desk screen makes a bronze rod from ingredients and carried vials', async () => {
+      const desk = { x: P.yard.x, y: P.gy, z: P.yard.z - 3 };
+      await M((p) => {
+        const hw = window.__hw;
+        hw.setVoxel(p.x, p.y, p.z, 'rune_desk');
+        for (const [k, n] of [['vis_rod', 1], ['bronze_ingot', 2], ['vial_gale', 1], ['vial_loam', 1], ['vial_rune', 1]]) hw.give(k, n);
+      }, desk);
+      await d.selectEmptyHand();
+      assert(await d.approach(desk), 'aims at the desk');
+      await d.use();
+      await page.waitForSelector('.hw-nb__recipe[data-recipe="bronze_rod"]', { timeout: 5000 });
+      await d.settle(300);
+      await d.shot('7-rune-desk');
+      await d.press(page.locator('[data-make="bronze_rod"]'));
+      await d.settle(300);
+      assert(await M(() => window.__hw.app.game.state.player.inventory.count('bronze_rod') === 1), 'a bronze rod in the pack');
+      await page.keyboard.press('Escape');
+      await d.settle(300);
+    });
+
+    await step('an infusion on the altar makes a Scrying Lens from pedestals and jars', async () => {
+      const A = { x: P.yard.x, y: P.gy, z: P.yard.z + 1 };
+      await M((a) => {
+        const hw = window.__hw;
+        const m = hw.app.game.magic;
+        hw.setVoxel(a.x, a.y, a.z, 'infusion_altar');
+        hw.setVoxel(a.x + 2, a.y, a.z, 'arcane_pedestal');
+        hw.setVoxel(a.x - 2, a.y, a.z, 'arcane_pedestal');
+        [['vein', 0, -2], ['mind', 2, 2], ['clarity', -2, 2]].forEach(([asp, dx, dz]) => {
+          hw.setVoxel(a.x + dx, a.y, a.z + dz, 'essentia_jar');
+          m.setJar(a.x + dx, a.y, a.z + dz, asp, 16);
+        });
+        hw.give('glass', 1);
+        hw.give('copper_ingot', 2);
+      }, A);
+      await d.settle(300);
+      const useWith = async (item, pos) => {
+        if (item) await d.selectItem(item);
+        else await d.selectEmptyHand();
+        assert(await d.approach(pos), `aims at ${JSON.stringify(pos)}`);
+        await d.use();
+        await d.settle(350);
+      };
+      await useWith('glass', A);
+      await useWith('copper_ingot', { x: A.x + 2, y: A.y, z: A.z });
+      await useWith('copper_ingot', { x: A.x - 2, y: A.y, z: A.z });
+      await useWith('bronze_rod', A);
+      assert(await M((a) => window.__hw.app.game.magic.infusionAt(a.x, a.y, a.z) !== null, A), 'the infusion started');
+      await M(() => window.__hw.tick(60));
+      await d.hw((a) => window.__hw.teleport(a.x + 0.5, a.y, a.z + 4.5), A);
+      await d.settle(300);
+      await d.hw((a) => window.__hw.lookAt(a.x, a.y, a.z), A);
+      await d.settle(600);
+      await d.shot('8-infusing');
+      await M(() => window.__hw.tick(600));
+      const text = await M((a) => window.__hw.app.game.magic.altarText(a.x, a.y, a.z), A);
+      assert(/Scrying Lens/.test(text ?? ''), `altar says ${text}`);
+      await useWith(null, A);
+      assert(await M(() => window.__hw.app.game.state.player.inventory.count('vein_lens') === 1), 'the lens in the pack');
+    });
+
+    await step('a charged rod and the Light Focus set a floating light', async () => {
+      await M(() => {
+        const hw = window.__hw;
+        hw.give('focus_light', 1);
+        hw.app.game.magic.charge = 16;
+      });
+      await d.selectItem('focus_light');
+      const floor = { x: P.yard.x + 3, y: P.gy - 1, z: P.yard.z + 4 };
+      assert(await d.approach(floor), 'aims at the floor');
+      await d.use();
+      await d.settle(300);
+      assert((await M((f) => window.__hw.getBlock(f.x, f.y + 1, f.z).block, floor)) === 'magic_light', 'a light stands there');
+    });
+
+    await step('a wellspring floats near by and a held rod reads it', async () => {
+      const node = await M(() => {
+        const hw = window.__hw;
+        const p = hw.state().player;
+        const n = hw.app.game.magic.nodesAround(p.x, p.z, 4)[0];
+        return n ? { x: n.x, y: n.y, z: n.z, aspect: n.aspect } : null;
+      });
+      assert(node !== null, 'a wellspring within four chunks');
+      // Stand on the ground four blocks south of it, in a cleared patch, and look at it.
+      await d.hw((n) => {
+        const hw = window.__hw;
+        const gy = Math.round(n.y - 2.5);
+        for (let x = n.x - 2; x <= n.x + 2; x++)
+          for (let z = n.z - 1; z <= n.z + 6; z++) for (let y = gy; y <= gy + 6; y++) hw.setVoxel(x, y, z, 'air');
+        hw.teleport(n.x + 0.5, gy, n.z + 4.5);
+      }, node);
+      await d.settle(500);
+      await d.hw((n) => window.__hw.lookAt(n.x, n.y - 0.5, n.z), node);
+      await d.selectItem('bronze_rod');
+      await d.settle(800);
+      assert(await M(() => window.__hw.app.game.magicRenderer.stats.nodes > 0), 'the crystal is drawn');
+      await d.shot('9-wellspring');
+    });
+
+    await step('a clay servant fed Spring turns a hand crank', async () => {
+      const S = { x: P.yard.x + 4, y: P.gy, z: P.yard.z };
+      await M((s) => {
+        const hw = window.__hw;
+        hw.teleport(s.x - 2.5, s.y, s.z + 3.5);
+        hw.setVoxel(s.x, s.y, s.z, 'clay_servant', 2);
+        hw.setVoxel(s.x + 1, s.y, s.z, 'hand_crank');
+        hw.setVoxel(s.x, s.y, s.z - 1, 'essentia_jar');
+        hw.app.game.magic.setJar(s.x, s.y, s.z - 1, 'spring', 8);
+        hw.tick(80);
+      }, S);
+      await d.settle(300);
+      await d.hw((s) => window.__hw.lookAt(s.x, s.y, s.z), S);
+      await d.settle(600);
+      const said = await M((s) => window.__hw.app.game.magic.servantText(s.x, s.y, s.z), S);
+      assert(/cranking/.test(said ?? ''), `servant: ${said}`);
+      const crank = await M((s) => window.__hw.app.game.workshop.describe(s.x + 1, s.y, s.z), S);
+      assert(/rpm/.test(crank ?? ''), `crank: ${crank}`);
+      await d.shot('10-servant');
+    });
+
     await step('no page errors', async () => {
       assert(errors.length === 0, `errors: ${errors.slice(0, 3).join(' | ')}`);
     });

@@ -34,6 +34,7 @@ const CSS = `
 .hw-nb__aspect{display:flex;align-items:center;gap:8px;min-height:32px}
 .hw-nb__dot{width:18px;height:18px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.5)}
 .hw-nb__muted{opacity:.6}
+.hw-nb__btn:disabled{opacity:.4}
 .hw-nb__age{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;width:100%}
 .hw-nb__recipe{display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,.05)}
 .hw-nb__recipe-body{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}

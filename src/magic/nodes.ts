@@ -46,9 +46,9 @@ export function nodesNear(seed: number, x: number, z: number, radius: number): N
   return out;
 }
 
-/** "north-east" from (fromX, fromZ) to (toX, toZ); north is -Z. */
+/** "NE" from (fromX, fromZ) to (toX, toZ); north is -Z. */
 export function compass(fromX: number, fromZ: number, toX: number, toZ: number): string {
   const a = Math.atan2(toX - fromX, -(toZ - fromZ));
-  const names = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+  const names = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   return names[(Math.round(a / (Math.PI / 4)) + 8) % 8];
 }
