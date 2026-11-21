@@ -7,7 +7,7 @@ import { recipe as recipeById } from '../../../core/registry';
 import type { Inventory } from '../../../game/inventory';
 import { quickMove } from '../../../game/transfer';
 import type { CrucibleView, FurnaceSlots, FurnaceView } from '../../../sim';
-import { h, setAttr, setText } from '../../kit/dom';
+import { h, prefersReducedMotion, setAttr, setText } from '../../kit/dom';
 import { heatColor } from '../../kit/format';
 import { Badge, Meter } from '../../kit/gauges';
 import { RecipeList } from '../../kit/recipe';
@@ -94,7 +94,7 @@ export class SmeltTab {
       if (c.requiredC !== null) {
         row.badge.update({ text: `${c.requiredC} °C`, tone: 'heat', met: view.tempC >= c.requiredC, swatch: heatColor(c.requiredC) });
       }
-      row.meter.setLabel(pretty(c.status));
+      row.meter.setLabel(c.active ? 'Smelting' : pretty(c.status));
       row.meter.setTone(c.active ? 'heat' : crucibleState(c) === 'cold' ? 'warn' : crucibleState(c) === 'done' ? 'good' : 'neutral');
       row.meter.set(c.progress, 1, c.active ? clockText(c.secondsLeft) : '');
     });
@@ -137,6 +137,9 @@ export class SmeltTab {
       if (from < 0) continue;
       if (quickMove(inv, from, target) > 0) {
         this.bus.emit('sfx', { name: 'fuel_add' });
+        // Show the crucible that took it: the list is below the crucibles.
+        const pane = this.el.parentElement;
+        if (pane && pane.scrollTop > 0) pane.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
         return;
       }
       break;

@@ -53,8 +53,9 @@ export function createMachineScreen(request: At, ctx: ScreenContext, sim: Screen
   const body = h(
     'div',
     { class: 'hw-mscreen' },
-    h('div', { class: 'hw-mscreen__machine' }, panel.el, h('h3', { class: 'hw-heading', text: 'Power network' }), net.el),
-    h('div', { class: 'hw-mscreen__bag' }, bag.el, ctx.slots.actionBar),
+    h('div', { class: 'hw-mscreen__machine' }, panel.el),
+    h('div', { class: 'hw-mscreen__bag' }, ctx.slots.actionBar, bag.el),
+    h('div', { class: 'hw-mscreen__net' }, h('h3', { class: 'hw-heading', text: 'Power network' }), net.el),
   );
   const window = new Window({
     title: first.name,
@@ -104,7 +105,7 @@ export function createCrateScreen(request: At, ctx: ScreenContext, sim: ScreenSi
     'div',
     { class: 'hw-mscreen hw-mscreen--crate' },
     h('div', { class: 'hw-mscreen__machine' }, h('h3', { class: 'hw-heading', text: 'Crate' }), grid.el, note),
-    h('div', { class: 'hw-mscreen__bag' }, bag.el, ctx.slots.actionBar),
+    h('div', { class: 'hw-mscreen__bag' }, ctx.slots.actionBar, bag.el),
   );
   const window = new Window({ title: 'Crate', subtitle: `${inventory.size} slots`, size: 'lg', body, footer: slotHint() });
   window.frame.classList.add('hw-mach-window');

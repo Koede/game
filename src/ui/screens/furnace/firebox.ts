@@ -75,20 +75,24 @@ export class FireboxPanel {
     this.draftEl = h('span', { class: 'hw-fbx__draft hw-num' });
     this.fuelHost = h('div', { class: 'hw-fbx__fuelslots' });
     this.burn = new Meter({ label: 'Firebox', tone: 'heat', value: 0, max: 1, text: '' });
-    this.addFuel = new Button({ label: 'Add fuel', kind: 'quiet', size: 'sm', onClick: () => this.loadFuel() });
+    this.addFuel = new Button({ label: 'Add fuel', icon: 'flame', kind: 'quiet', size: 'sm', onClick: () => this.loadFuel() });
+    this.addFuel.el.setAttribute('aria-label', 'Add fuel from your pack');
+    this.addFuel.el.title = 'Add fuel from your pack';
     this.lightBtn = new Button({ label: 'Light', kind: 'primary', onClick: () => this.lightOrDouse() });
     this.pumpBtn = new Button({ label: 'Pump', kind: 'primary', size: 'lg', hint: 'Bellows', onClick: () => this.pump() });
     this.pumpBtn.el.classList.add('hw-fbx__pump');
     this.elecToggle = new Toggle({
       label: 'Electric heating',
       tone: 'power',
+      onText: 'Electric on',
+      offText: 'Electric off',
       onChange: (on) => this.report(sim.setElectric(pos.x, pos.y, pos.z, on)),
     });
     this.elecMeter = new Meter({ label: '', tone: 'power', value: 0, max: 1 });
     this.elecRow = h(
       'div',
       { class: 'hw-fbx__elec' },
-      h('div', { class: 'hw-fbx__elechead' }, h('span', { class: 'hw-fbx__eleclabel', text: 'Electric' }), this.elecToggle.el),
+      this.elecToggle.el,
       this.elecMeter.el,
     );
     this.facts = h(
@@ -170,13 +174,13 @@ export class FireboxPanel {
       this.lightBtn.setKind('primary');
       this.lightBtn.setDisabled(view.fuelItems === 0, 'No fuel');
     }
-    this.pumpBtn.setDisabled(!view.lit && !view.hot, 'Light it first');
+    this.pumpBtn.setDisabled(!view.lit && !view.hot, 'Not lit');
 
     this.elecRow.hidden = !view.electric.available || view.ignited;
     if (view.electric.available) {
       const e = view.electric;
       this.elecToggle.set(e.on);
-      this.elecMeter.setLabel(!e.on ? 'Switched off' : !e.networked ? 'No network' : `${formatWatts(e.deliveredW)} of ${formatWatts(e.demandW)}`);
+      this.elecMeter.setLabel(!e.on ? 'Switched off' : !e.networked ? 'No network' : `${formatWatts(e.deliveredW)} in`);
       this.elecMeter.set(e.on && e.networked ? e.satisfaction : 0, 1);
       this.elecMeter.setTone(e.on && e.demandW > 0 && e.satisfaction < 0.999 ? 'warn' : 'power');
     }

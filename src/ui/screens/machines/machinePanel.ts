@@ -68,7 +68,7 @@ export class MachinePanel {
     this.problem.hidden = view.problem === null;
     setText(this.problem, view.problem ?? '');
     this.hint.hidden = view.hint === null;
-    setText(this.hint, view.hint ? `Placement: ${view.hint}` : '');
+    setText(this.hint, view.hint ? `Placement: ${pretty(view.hint)}` : '');
     switch (this.layout) {
       case 'burner':
         if (this.fuel) setText(this.fuel, fuelText(view));
@@ -158,11 +158,11 @@ export class MachinePanel {
       }
       case 'consumer':
         this.meter = new Meter({ label: 'Power supplied', tone: 'power' });
-        this.extra.append(this.meter.el, h('p', { class: 'hw-mach__note', text: spec.desc }));
+        this.extra.append(this.meter.el, h('p', { class: 'hw-mach__note', text: pretty(spec.desc) }));
         break;
       case 'storage':
         this.meter = new Meter({ label: 'Charge', tone: 'power' });
-        this.extra.append(this.meter.el, h('p', { class: 'hw-mach__note', text: `Charges and feeds up to ${formatWatts(spec.rateW ?? 0)}. ${spec.desc}` }));
+        this.extra.append(this.meter.el, h('p', { class: 'hw-mach__note', text: pretty(spec.desc) }));
         break;
       case 'bore': {
         this.recipeLine = h('span', { class: 'hw-mach__recipe' });
@@ -198,7 +198,7 @@ export class MachinePanel {
         break;
       }
       default:
-        this.extra.append(h('p', { class: 'hw-mach__note', text: spec.desc }));
+        this.extra.append(h('p', { class: 'hw-mach__note', text: pretty(spec.desc) }));
         break;
     }
   }

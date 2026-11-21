@@ -58,17 +58,6 @@
   flex-direction: column;
   overflow: hidden;
 }
-.hw-fx__carry {
-  position: absolute;
-  right: 0;
-  bottom: calc(var(--hw-handle) + 8px);
-  left: 0;
-  z-index: 3;
-}
-.hw-fx__carry > .hw-carry {
-  box-shadow: 0 -6px 14px color-mix(in srgb, var(--hw-soot-0) 80%, transparent);
-}
-
 /* ---- firebox ---------------------------------------------------------------------------- */
 .hw-fbx {
   display: grid;
@@ -156,6 +145,15 @@
 .hw-fbx__fuel > .hw-btn {
   flex: 1 1 auto;
 }
+/* Two fuel slots leave room only for the flame icon of Add fuel. */
+.hw-fbx__fuel:has(.hw-slot + .hw-slot) > .hw-btn {
+  --hw-pad-x: 6px;
+  flex: none;
+  width: 44px;
+}
+.hw-fbx__fuel:has(.hw-slot + .hw-slot) > .hw-btn .hw-btn__label {
+  display: none;
+}
 .hw-fbx__btns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
@@ -185,22 +183,16 @@
   border: 1px solid var(--hw-power-lo);
   border-radius: var(--hw-radius);
 }
-.hw-fbx__elechead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.hw-fbx__eleclabel {
-  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-  text-transform: uppercase;
-  color: var(--hw-power-hi);
-}
 .hw-fbx__elec .hw-toggle {
   min-height: 36px;
+  justify-self: start;
+}
+.hw-fbx__elec .hw-toggle__state {
+  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--hw-power-hi);
 }
 .hw-fbx__elec .hw-meter__label {
   font: 500 12px / 1.2 var(--hw-font-mono);
@@ -474,6 +466,10 @@
   border-radius: var(--hw-radius);
   box-shadow: 0 -8px 18px color-mix(in srgb, var(--hw-soot-0) 85%, transparent);
 }
+.hw-drawer > .hw-carry {
+  flex: none;
+  margin: 6px 6px 0;
+}
 .hw-drawer__handle {
   display: flex;
   flex: none;
@@ -539,9 +535,6 @@
   .hw-fx__main {
     padding-bottom: 0;
   }
-  .hw-fx__carry {
-    bottom: 0;
-  }
   .hw-drawer,
   .hw-drawer[data-open] {
     position: static;
@@ -596,8 +589,12 @@
   }
   .hw-fbx__fuel > .hw-btn {
     --hw-pad-x: 6px;
+    flex: none;
+    width: 44px;
     min-width: 0;
-    white-space: nowrap;
+  }
+  .hw-fbx__fuel > .hw-btn .hw-btn__label {
+    display: none;
   }
   .hw-fbx__pump {
     min-height: 52px;
@@ -613,12 +610,27 @@
 /* Landscape phones: very little height. */
 @media (max-height: 519.98px) {
   .hw-fx {
-    --hw-fire-w: 336px;
+    --hw-fire-w: 344px;
     --hw-fx-gap: 12px;
   }
+  /* The status goes first so it never scrolls away; the firebox column scrolls if a tier needs more room. */
   .hw-fbx {
+    flex: none;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      'status status'
+      'thermo controls'
+      'rest rest';
     gap: 6px 8px;
+    width: 100%;
+    min-height: 100%;
     padding: 8px;
+  }
+  .hw-fbx__thermo {
+    min-height: 230px;
+  }
+  .hw-forge__note {
+    display: none;
   }
   .hw-fbx .hw-thermo__value {
     font-size: 24px;
@@ -640,8 +652,12 @@
   }
   .hw-fbx__fuel > .hw-btn {
     --hw-pad-x: 6px;
+    flex: none;
+    width: 44px;
     min-width: 0;
-    white-space: nowrap;
+  }
+  .hw-fbx__fuel > .hw-btn .hw-btn__label {
+    display: none;
   }
   .hw-fbx__pump {
     min-height: 48px;

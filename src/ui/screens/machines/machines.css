@@ -5,11 +5,24 @@
 .hw-mscreen {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'machine bag'
+    'net bag';
   align-items: start;
-  gap: 20px;
+  gap: 16px 20px;
+}
+.hw-mscreen__machine {
+  grid-area: machine;
+}
+.hw-mscreen__bag {
+  grid-area: bag;
+}
+.hw-mscreen__net {
+  grid-area: net;
 }
 .hw-mscreen__machine,
-.hw-mscreen__bag {
+.hw-mscreen__bag,
+.hw-mscreen__net {
   display: grid;
   align-content: start;
   gap: 10px;
@@ -19,9 +32,11 @@
   font-size: var(--hw-fs-sm);
   color: var(--hw-ash-1);
 }
+/* Phones in portrait: the machine, then the backpack (to load it), then its network. */
 @media (max-width: 719.98px) and (min-height: 520px) {
   .hw-mscreen {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'machine' 'bag' 'net';
     gap: 16px;
   }
 }

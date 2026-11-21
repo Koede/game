@@ -94,6 +94,7 @@ export function machineTone(view: MachineView): 'good' | 'warn' | 'bad' | 'neutr
   if (view.problem) return 'bad';
   if (/rising|Meltdown|No cooling/.test(view.status)) return 'bad';
   if (!view.on) return 'neutral';
+  if (view.role === 'storage') return /not connected/.test(view.status) ? 'warn' : 'power';
   if (/No |Not enough|full|Waiting|stopped|Stopped|too cold|too hard|not connected|Idle/i.test(view.status)) return 'warn';
   return view.running ? 'power' : 'neutral';
 }

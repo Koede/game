@@ -750,3 +750,5 @@ Check with: npx tsc --noEmit -p . 2>&1 | grep -E "^src/player/"   and   npx vite
   tee IView.setTarget to GameUI.setTarget; GameUI.setIconProvider(createIconProvider()); call ui.frame(dt) every
   frame. Simulation already satisfies the HUD's UISimQuery. Full wiring notes in docs/api/hud.md.
 - hud: touch has no item tooltip (long-press picks half); item descriptions show on desktop hover only.
+- render: create the Renderer BEFORE the first world.update() (it builds meshes only from 'chunk:meshed' events);
+  call renderer.render(dt) after world.update; catch the constructor's WebGL2 error and show the friendly message.

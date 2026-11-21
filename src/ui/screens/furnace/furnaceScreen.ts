@@ -51,7 +51,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
   const forge = new ForgeTab({ sim, pos, bus, changed });
   const grid = new GridTab({ sim, pos, bus, changed });
   const log = new HearthLogView(ctx.objectives);
-  const bag = new BagDrawer(ctx.slots, player.inventory, bagQuick);
+  const bag = new BagDrawer(ctx.slots, player.inventory, bagQuick, ctx.slots.actionBar);
   fire.bindSlots(furnaceSlots);
   smelt.bindSlots(furnaceSlots);
 
@@ -61,8 +61,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     grid: h('div', { class: 'hw-fx__pane', attrs: { 'data-pane': 'grid' } }, grid.el),
     log: h('div', { class: 'hw-fx__pane', attrs: { 'data-pane': 'log' } }, log.el),
   };
-  const carry = h('div', { class: 'hw-fx__carry' }, ctx.slots.actionBar);
-  const main = h('div', { class: 'hw-fx__main' }, ...TABS.map((t) => panes[t.id]), carry);
+  const main = h('div', { class: 'hw-fx__main' }, ...TABS.map((t) => panes[t.id]));
   const layout = h('div', { class: 'hw-fx' }, h('div', { class: 'hw-fx__fire' }, fire.el), main, bag.el, upgrade.sheet);
 
   let tab = lastTab;

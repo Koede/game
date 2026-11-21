@@ -94,7 +94,11 @@ async function runDevice(device) {
       await d.shot('03-mined');
     });
 
-    await step('crafts planks and a workbench in the inventory screen', async () => {
+    await step('crafts planks, a workbench and a flint pickaxe in the inventory screen', async () => {
+      await hw(() => {
+        window.__hw.give('flint', 3);
+        window.__hw.give('fiber', 3);
+      });
       await d.openInventory();
       await d.shot('04-inventory');
       const logKey = (await d.inventory()).oak_log >= 2 ? 'oak_log' : 'pine_log';
@@ -104,6 +108,11 @@ async function runDevice(device) {
       await d.make('workbench');
       inv = await d.inventory();
       assert(inv.workbench === 1, 'no workbench in the pack');
+      await d.make('stick');
+      await d.make('cord');
+      await d.make('flint_pickaxe');
+      inv = await d.inventory();
+      assert(inv.flint_pickaxe === 1, 'no flint pickaxe in the pack');
       await d.closeScreen();
     });
 
@@ -118,6 +127,8 @@ async function runDevice(device) {
         window.__hw.give('rubble', 12);
         window.__hw.give('clay', 6);
       });
+      // 'Have 12 rubble' and 'have 6 clay' are goals of their own: let the tracker see them before the bench uses them.
+      await waitFor(page, () => window.__hw.state().objective.completed.includes('collect_clay'), 'the rubble and clay goals', { timeout: 10_000 });
       await d.useBlock(d.places.workbench);
       await page.waitForSelector('.hw-window .hw-recipe[data-id="furnace_clay"]', { timeout: 10_000 });
       await d.shot('05-workbench');
@@ -136,9 +147,12 @@ async function runDevice(device) {
 
     await step('objectives advanced', async () => {
       const s = await hw(() => window.__hw.state());
-      for (const id of ['gather_logs', 'make_planks', 'place_workbench', 'place_furnace', 'light_furnace']) {
+      const ids = ['gather_logs', 'make_planks', 'place_workbench', 'find_flint', 'make_pickaxe', 'collect_rubble', 'collect_clay', 'place_furnace', 'light_furnace'];
+      for (const id of ids) {
         assert(s.objective.completed.includes(id), `objective ${id} not completed (completed: ${s.objective.completed.join(', ')})`);
       }
+      const goal = await page.locator('.hw-goal__title').first().textContent();
+      assert(goal && /charcoal/i.test(goal), `the goal tracker does not show the next goal: ${goal}`);
       await d.shot('09-goals');
     });
 

@@ -113,7 +113,8 @@ export class Flame {
 
   private buildPalette(): void {
     const { mode, tempC } = this.look;
-    const top = mode === 'star' ? 6000 : Math.max(450, tempC);
+    // Electric elements glow orange-yellow whatever the chamber temperature, so the haze stays a dull red.
+    const top = mode === 'star' ? 6000 : mode === 'electric' ? Math.min(Math.max(450, tempC), 1300) : Math.max(450, tempC);
     let band = -1;
     for (let level = 1; level <= MAX_HEAT; level++) {
       while (band + 1 < BANDS.length && level >= BANDS[band + 1][0]) band++;
@@ -169,7 +170,7 @@ export class Flame {
       const haze = Math.max(0, 1 - fromBottom / (ROWS * 0.8));
       for (let x = 0; x < COLS; x++) {
         const inset = x >= 2 && x < COLS - 2;
-        const level = coil && inset ? 0.95 * shimmer : haze * 0.42;
+        const level = coil && inset ? 0.95 * shimmer : haze * 0.24;
         heat[y * COLS + x] = Math.round(MAX_HEAT * level);
       }
     }
