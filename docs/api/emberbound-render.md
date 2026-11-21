@@ -60,7 +60,25 @@ vent, arc points and break-apart boxes per species), `bolts.ts` (pure tracker), 
 
 ## Measured
 
-MEASURED_PLACEHOLDER
+Headless Chromium (software GL, a loaded machine, so only the JS share is meaningful), 390x844, real game, night:
+`MobRenderer.update` per call, best of 300 after 30 warm-up calls, with 12-13 real automatons (two of each type) placed in a
+field:
+
+| scene | ms per frame |
+|---|---|
+| 12 hens (animal path, the baseline) | 0.050 |
+| 12 automatons idle (halos + smoke/sparks) | 0.090 |
+| 12 automatons all mid wind-up (flare 0.8) | 0.172 |
+| 12 automatons winding up + 8 bolts flying with trails | 0.101 |
+
+So the extra cost of 12 automatons and 8 bolts is 0.05-0.12 ms of JS per frame, against the 1 ms budget. GPU side: one more
+draw call each for halos, cubes and particles (3 + 6 species batches only when present; every species is one instanced call
+as before); halos are additive quads (capped 64, each never wider than 0.9 x its distance), particles at most 640 points.
+Not measured on a real phone GPU. `renderer.cpuMs` was 3.7 ms/frame in the same run (software GL), not comparable.
+
+Verified by screenshots at 1280x800 and 390x844 (night unless noted): every type close up idle and mid wind-up, warden hammer
+swing and impact, colossus slam, drone zap arc, kiln sentry shot and bolts in flight with trail, hound crouch with flared
+ribs, break-apart of a warden, hound and colossus, dormant ones in daylight (dark, slumped).
 
 ## Known gaps
 
