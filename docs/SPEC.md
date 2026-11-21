@@ -1209,8 +1209,8 @@ All attacks are TELEGRAPHED (a visible and audible wind-up the player can step o
 - Mine on a hostile attacks it (same as animals): hands 1, tools as for animals, and new WEAPONS - mauls, made for
   breaking metal (they do not mine faster):
   bronze_maul (forge T1 700 C: 4 bronze_ingot, 2 stick) 5 damage | iron_maul (forge T2 1100 C: 4 iron_ingot,
-  2 stick) 7 | steel_maul (forge T2 1400 C: 4 steel_ingot, 2 stick) 9 | arc_maul (forge T3 1800 C: 2 superalloy-free
-  recipe: 2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery) 12 and stuns automatons for 1 s.
+  2 stick) 7 | steel_maul (forge T2 1400 C: 4 steel_ingot, 2 stick) 9 | arc_maul (forge T3 1800 C: 2 steel_plate,
+  1 copper_coil, 1 ember_core, 1 battery) 12 and stuns automatons for 1 s.
   Attack cooldown 0.5 s (tools 0.4 s), durability like tools. Hits knock back, flash, clang.
 - ARMOUR (worn from the inventory like the padded coat; the best one counts): plated_coat (forge T2 1100 C:
   6 iron_plate, 1 padded_coat) -25% damage and keeps the coat's warmth; steel_cuirass (forge T2 1400 C: 6 steel_plate,
