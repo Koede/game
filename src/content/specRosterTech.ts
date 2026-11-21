@@ -60,6 +60,11 @@ export const TECH_SPEC = {
     combustion_engine: [['fuel'], [], 4000],
     still: [['crude_oil'], ['fuel'], 4000],
     geothermal_tap: [['lava'], [], 2000],
+    chem_port: [
+      ['water', 'crude_oil', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'],
+      ['water', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'],
+      1000,
+    ],
   } as Record<string, [FluidKey[], FluidKey[], number]>,
 
   /** key -> [name, hot, glow, world liquid, full bucket]. */
@@ -67,8 +72,20 @@ export const TECH_SPEC = {
     water: ['Water', false, false, 'water', 'water_pail'],
     lava: ['Lava', true, true, 'lava', 'lava_bucket'],
     steam: ['Steam', true, false, null, null],
-    crude_oil: ['Crude Oil', false, false, 'oil', null],
+    crude_oil: ['Crude Oil', false, false, 'oil', 'crude_canister'],
     fuel: ['Refined Fuel', false, false, null, null],
+    // The glass distillery (fluidsDistill.ts).
+    sap: ['Pine Sap', false, false, null, null],
+    syrup: ['Pine Syrup', false, false, null, null],
+    sugar_wash: ['Sugar Wash', false, false, null, null],
+    low_wines: ['Low Wines', false, false, null, null],
+    spirit: ['Spirit', false, false, null, null],
+    fuel_ethanol: ['Fuel Ethanol', false, false, null, null],
+    gasoline: ['Gasoline', false, false, null, 'gasoline_canister'],
+    kerosene: ['Kerosene', false, false, null, 'kerosene_canister'],
+    diesel: ['Diesel', false, false, null, 'diesel_canister'],
+    residue: ['Heavy Residue', false, false, null, 'residue_canister'],
+    slop: ['Slop', false, false, null, null],
   } as Record<string, [string, boolean, boolean, string | null, string | null]>,
 
   /** tier -> [walls, minInner, maxInner, ceiling, electrodes, powerPorts, maxCrucibles, crucibleBonus] (spec 17.1). */

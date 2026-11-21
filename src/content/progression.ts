@@ -33,6 +33,7 @@ import {
 } from '../core/constants';
 import { CONE_ITEM, CUP_ITEM } from '../core/brewing';
 import { smallestShell } from '../core/hearth';
+import { PROCESS_BY_ID, rigBlocks } from './recipesDistill';
 import {
   AUTOMATONS, BLOCKS, CREATURES, DRINKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, MOULDS, ORE_VEINS, RECIPES,
   block, castMetalOfIngot, furnaceTier, isHandStation, item, machine, recipe, recipesFor,
@@ -70,6 +71,8 @@ export const BIOME_ONLY_BLOCKS: Readonly<Record<BiomeKey, readonly string[]>> = 
 export const BUCKET_FILLS: ReadonlyArray<readonly [string, LiquidKind, string]> = [
   ['pail', 'water', 'water_pail'],
   ['bronze_bucket', 'lava', 'lava_bucket'],
+  // The distillery's steel canister takes crude oil from a pool (player/buckets.ts).
+  ['empty_canister', 'oil', 'crude_canister'],
 ];
 
 /** Blocks a hoe turns into farmland. */
@@ -252,6 +255,17 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
   };
   /** A recipe whose output is a cast metal ingot comes out molten: it only becomes an ingot poured into a fired mould. */
   const castGated = (r: RecipeDef): boolean => castMetalOfIngot(r.output.item) !== null && (r.station === 'furnace' || isHandStation(r.station));
+  /**
+   * The glass distillery (docs/DISTILLERY_PLAN.md 7): a process card runs once every block of its rig is owned and,
+   * when it stands on a still base, a furnace reaches the card's setting.
+   */
+  const chemReady = (r: RecipeDef): boolean => {
+    const card = PROCESS_BY_ID.get(r.id);
+    if (!card) return false;
+    const blocks = rigBlocks(card.rig);
+    if (!blocks.every((b) => items.has(b))) return false;
+    return !blocks.includes('still_base') || (tier >= 1 && Math.max(...temps().slice(1)) >= r.minTempC);
+  };
   const usableUngated = (r: RecipeDef): boolean => {
     if (!r.inputs.every((i) => items.has(i.item))) return false;
     if (isHandStation(r.station)) return handReady(r);
@@ -259,6 +273,7 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     if (r.station === 'workbench') return items.has('workbench');
     if (r.station === 'furnace') return tier >= r.minTier && Math.max(...temps().slice(r.minTier)) >= r.minTempC;
     const m = MACHINES.get(r.station);
+    if (m?.role === 'chem') return chemReady(r);
     return m !== undefined && placed(m) && generationW() >= (m.drawW ?? 0);
   };
   const usable = (r: RecipeDef): boolean => usableUngated(r) && (!castGated(r) || items.has('ingot_mould'));

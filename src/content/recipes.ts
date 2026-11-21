@@ -8,6 +8,7 @@
 import type { RecipeSpec } from '../core/types';
 import { amount, amounts } from './amounts';
 import { BREW_RECIPES } from './recipesBrew';
+import { DISTILL_RECIPES } from './recipesDistill';
 import { HAND_RECIPES } from './recipesHand';
 import { MACHINE_SPECS } from './tech';
 
@@ -224,4 +225,4 @@ const MACHINE: RecipeSpec[] = [
   ...machineRecipes('electrolyzer', 45, [['deuterium_cell', 'empty_cell', 3]]),
 ];
 
-export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES];
+export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...DISTILL_RECIPES];

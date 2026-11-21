@@ -32,6 +32,7 @@ const ROLE_TEXT: Record<MachineRole, string> = {
   hearth_part: 'Hearth part',
   brew: 'Brewing',
   hand: 'Handwork',
+  chem: 'Distillery',
 };
 
 type At = { x: number; y: number; z: number };

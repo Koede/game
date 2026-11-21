@@ -589,7 +589,12 @@ export type MachineRole =
    * (`BlockSpec.handStation`), timed (drying rack, tanning trough, alloy pot) or holding moulds (casting bench).
    * Never a machine node. Recipes name the station block's key as their `station`.
    */
-  | 'hand';
+  | 'hand'
+  /**
+   * A module of the glass distillery (docs/DISTILLERY_PLAN.md): flask, column, condenser, receiver and the rest. Each
+   * has an entity of kind 'chem', never a machine node; the rig it belongs to is found by touching blocks.
+   */
+  | 'chem';
 
 /** Static numbers for one kind of machine. The behaviour itself lives in src/sim. */
 export interface MachineSpec {
@@ -637,7 +642,10 @@ export interface MachineFluids {
 // Fluids (spec 16.5; authored in src/content/fluids.ts, read through the registry's FLUIDS)
 // ---------------------------------------------------------------------------------------------
 
-export type FluidKey = 'water' | 'lava' | 'steam' | 'crude_oil' | 'fuel';
+export type FluidKey =
+  | 'water' | 'lava' | 'steam' | 'crude_oil' | 'fuel'
+  // The glass distillery (src/content/fluidsDistill.ts).
+  | 'sap' | 'syrup' | 'sugar_wash' | 'low_wines' | 'spirit' | 'fuel_ethanol' | 'gasoline' | 'kerosene' | 'diesel' | 'residue' | 'slop';
 
 export interface FluidSpec {
   key: FluidKey;

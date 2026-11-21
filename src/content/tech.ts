@@ -9,6 +9,7 @@ import { ITEM_SPECS } from './items';
 import { HAND_MACHINES } from './blocksHand';
 import { EMBER_MACHINES } from './emberbound';
 import { BREW_MACHINES } from './machinesBrew';
+import { DISTILL_MACHINES } from './machinesDistill';
 import { TECH_MACHINES } from './techMachines';
 
 /** Hearth wall blocks by tier (spec 17.1). A tier accepts its own wall and every higher tier's. */
@@ -312,5 +313,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
 
   // ---- brewing ----
   ...BREW_MACHINES,
+  // ---- glass distillery (docs/DISTILLERY_PLAN.md) ----
+  ...DISTILL_MACHINES,
   ...HAND_MACHINES,
 ];

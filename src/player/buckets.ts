@@ -34,14 +34,15 @@ export interface BucketHost {
 }
 
 /** Item keys of every bucket, empty or full. */
-export const BUCKETS: ReadonlySet<string> = new Set(['pail', 'water_pail', 'bronze_bucket', 'lava_bucket']);
+export const BUCKETS: ReadonlySet<string> = new Set(['pail', 'water_pail', 'bronze_bucket', 'lava_bucket', 'empty_canister']);
 /** Empty buckets: while one is held the ray stops at liquid sources (through flowing water), so they can be filled. */
-export const SCOOPING_BUCKETS: ReadonlySet<string> = new Set(['pail', 'bronze_bucket']);
+export const SCOOPING_BUCKETS: ReadonlySet<string> = new Set(['pail', 'bronze_bucket', 'empty_canister']);
 
 export const BUCKET_HINTS = {
   hotWood: 'That would burn straight through a wooden bucket - a bronze bucket can carry lava',
   bronzeWater: 'A bronze bucket is kept for lava - use a wooden bucket for water',
-  oil: 'Too thick for a bucket - a pump draws oil',
+  oil: 'Too thick for a bucket - an Empty Canister or a pump takes oil',
+  canister: 'A canister is for oil and the distillery - use a bucket for water and lava',
   pourOnSelf: 'Step back before pouring lava',
   flowing: 'No still water in reach - a bucket takes a source block, not flowing water',
 } as const;
@@ -58,6 +59,8 @@ export class Buckets {
         return this.scoop(hit, 'water', 'water_pail', 'splash');
       case 'bronze_bucket':
         return this.scoop(hit, 'lava', 'lava_bucket', 'scoop_lava');
+      case 'empty_canister':
+        return this.scoop(hit, 'oil', 'crude_canister', 'splash');
       case 'water_pail':
         return this.pour(hit, 'water', 'pail', 'splash');
       case 'lava_bucket':
@@ -67,7 +70,7 @@ export class Buckets {
     }
   }
 
-  private scoop(hit: RayHit, liquid: 'water' | 'lava', full: string, sfx: SfxName): BucketOutcome {
+  private scoop(hit: RayHit, liquid: 'water' | 'lava' | 'oil', full: string, sfx: SfxName): BucketOutcome {
     const h = this.host;
     const found = hit.block.liquid;
     if (found === null || !isLiquidSource(hit.voxel)) {
@@ -79,7 +82,8 @@ export class Buckets {
       return 'none';
     }
     if (found !== liquid) {
-      if (found === 'oil') h.advise('bucket:oil', BUCKET_HINTS.oil);
+      if (liquid === 'oil') h.advise('bucket:canister', BUCKET_HINTS.canister);
+      else if (found === 'oil') h.advise('bucket:oil', BUCKET_HINTS.oil);
       else if (found === 'lava') h.advise('bucket:hot', BUCKET_HINTS.hotWood);
       else h.advise('bucket:bronze', BUCKET_HINTS.bronzeWater);
       return 'refused';

@@ -5,6 +5,7 @@
  */
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { BREW_SPEC } from './specRosterBrew';
+import { DISTILL_SPEC } from './specRosterDistill';
 import { EMBER_SPEC } from './specRosterEmber';
 import { GROUND_SPEC } from './specRosterGround';
 import { FOOD_SPEC } from './specRosterFood';
@@ -368,3 +369,11 @@ const furnaceAfter = (id: string, lines: string[]): void => {
 };
 furnaceAfter('wrench', GROUND_SPEC.furnaceAfterWrench);
 furnaceAfter('combustion_engine', GROUND_SPEC.furnaceAfterCombustionEngine);
+
+// The glass distillery comes last everywhere: its content files are appended after every other (docs/DISTILLERY_PLAN.md).
+SPEC.blocks.push(...DISTILL_SPEC.blocks);
+SPEC.items.push(...DISTILL_SPEC.items);
+Object.assign(SPEC.machines, DISTILL_SPEC.machines);
+Object.assign(SPEC.blockProps, DISTILL_SPEC.blockProps);
+SPEC.recipes.furnace.push(...DISTILL_SPEC.recipes.furnace);
+for (const station of Object.keys(DISTILL_SPEC.recipes)) if (station !== 'furnace') SPEC.recipes[station] = DISTILL_SPEC.recipes[station];

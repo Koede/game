@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DISTILL_ITEMS } from '../../content/itemsDistill';
 import { BLOCKS, TEXTURE_NAMES } from '../../core/registry';
 import { Canvas } from './canvas';
 import { averageColor, hasPainter, paintTexture, TEXTURE_SIZE } from './index';
@@ -237,7 +238,8 @@ describe('texture content', () => {
 
   it('item icons have a transparent background and a darker outline', () => {
     const icons = TEXTURE_NAMES.filter((n) => n.startsWith('item_'));
-    expect(icons.length).toBe(153);
+    // 153 before the glass distillery, which adds one icon per non-block item (src/content/itemsDistill.ts).
+    expect(icons.length).toBe(153 + DISTILL_ITEMS.length);
     for (const name of icons) {
       const px = paintTexture(name);
       let clear = 0;
