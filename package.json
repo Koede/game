@@ -1,0 +1,23 @@
+{
+  "name": "hearthwatt",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A voxel sandbox about heat, power and the furnace at the heart of your base.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch --serve",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "devDependencies": {
+    "@types/three": "0.170.0",
+    "esbuild": "0.24.0",
+    "typescript": "5.6.3",
+    "vitest": "2.1.5"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}
