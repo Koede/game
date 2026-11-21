@@ -40,6 +40,8 @@ export class ItemSlot {
   private readonly durFill: HTMLElement;
   private readonly label: string;
   private readonly unbind: Dispose;
+  private onPrimary: ItemSlotOptions['onPrimary'];
+  private onSecondary: ItemSlotOptions['onSecondary'];
   private current: SlotView | null = null;
   private shownCount = '';
   private shownDur = -1;
@@ -58,17 +60,23 @@ export class ItemSlot {
       this.durEl,
       this.countEl,
     );
+    this.onPrimary = opts.onPrimary;
+    this.onSecondary = opts.onSecondary;
     this.unbind = bindPress(this.el, {
       primary: (ev) => {
-        if (!this.disabled) opts.onPrimary?.(this, ev);
+        if (!this.disabled) this.onPrimary?.(this, ev);
       },
-      secondary: opts.onSecondary
-        ? (ev) => {
-            if (!this.disabled) opts.onSecondary?.(this, ev);
-          }
-        : undefined,
+      secondary: (ev) => {
+        if (!this.disabled) this.onSecondary?.(this, ev);
+      },
     });
     this.render(null);
+  }
+
+  /** Replaces the activation handlers (the slot-interaction controller takes over slots a screen created). */
+  setHandlers(handlers: Pick<ItemSlotOptions, 'onPrimary' | 'onSecondary'>): void {
+    this.onPrimary = handlers.onPrimary;
+    this.onSecondary = handlers.onSecondary;
   }
 
   /** What the slot currently shows. */

@@ -2157,3 +2157,409 @@ body {
     transition: none;
   }
 }
+
+/* ---- 13. game screens (src/ui/screens) ---------------------------------------------------
+   Shared by every in-game screen: the picked-slot action bar and mouse ghost, the player's bag,
+   the bag + recipe list layout (inventory, workbench), the Hearth Log, death and win. */
+.hw-carry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 6px 6px 8px;
+  background: var(--hw-soot-3);
+  border: 1px solid var(--hw-iron-2);
+  border-left: 3px solid var(--hw-bone);
+  border-radius: var(--hw-radius);
+}
+.hw-carry > .hw-icon {
+  --hw-icon: 26px;
+}
+.hw-carry__text {
+  flex: 1 1 120px;
+  min-width: 0;
+  overflow: hidden;
+  font: 600 13px / 1.25 var(--hw-font-display);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hw-carry__moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hw-slot-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.hw-slot-ghost > .hw-icon {
+  --hw-icon: 36px;
+}
+.hw-slot[data-selected] .hw-icon {
+  opacity: 0.55;
+}
+
+.hw-bag {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.hw-bag__head--hotbar {
+  margin-top: 4px;
+  color: var(--hw-heat-hi);
+}
+.hw-bag__head--hotbar::before {
+  background: var(--hw-heat);
+}
+.hw-bag__hotbar {
+  padding: 4px;
+  background: var(--hw-heat-wash);
+  border: 1px solid var(--hw-heat-lo);
+  border-radius: var(--hw-radius);
+}
+
+/* Bag on the left, the list on the right; stacked on narrow phones. */
+.hw-craft {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  min-height: 0;
+}
+.hw-craft__bag,
+.hw-craft__make {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.hw-craft__bag {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.hw-craft__note {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+@media (max-width: 719.98px) and (min-height: 520px) {
+  .hw-craft {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+  }
+  .hw-craft__bag {
+    overflow: visible;
+  }
+}
+@media (max-height: 519.98px) {
+  .hw-craft {
+    gap: 14px;
+  }
+  .hw-craft__bag {
+    gap: 8px;
+  }
+  .hw-bag {
+    gap: 4px;
+  }
+  .hw-bag .hw-slotgrid {
+    --hw-slot-gap: 3px;
+  }
+}
+
+/* Hearth Log */
+.hw-log {
+  display: grid;
+  gap: 18px;
+}
+.hw-log__age {
+  display: grid;
+  gap: 8px;
+}
+.hw-log__age-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.hw-log__age-kicker {
+  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hw-ash-1);
+}
+.hw-log__age-name {
+  font: 700 20px / 1.15 var(--hw-font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.hw-log__age-blurb {
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+.hw-log__ages {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+}
+.hw-log__age-step {
+  --hw-age: var(--hw-iron-2);
+  display: grid;
+  gap: 4px;
+  font: 600 10.5px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hw-iron-3);
+}
+.hw-log__age-step > i {
+  height: 4px;
+  background: var(--hw-age);
+}
+.hw-log__age-step[data-age='0'] { --hw-age-on: var(--hw-temp-800); }
+.hw-log__age-step[data-age='1'] { --hw-age-on: var(--hw-temp-1100); }
+.hw-log__age-step[data-age='2'] { --hw-age-on: var(--hw-power); }
+.hw-log__age-step[data-age='3'] { --hw-age-on: var(--hw-power-hi); }
+.hw-log__age-step[data-age='4'] { --hw-age-on: var(--hw-temp-1500); }
+.hw-log__age-step[data-state='past'],
+.hw-log__age-step[data-state='now'] {
+  --hw-age: var(--hw-age-on);
+  color: var(--hw-ash-2);
+}
+.hw-log__age-step[data-state='now'] {
+  color: var(--hw-bone);
+}
+.hw-log__age-step[data-state='now'] > i {
+  box-shadow: 0 0 0 1px var(--hw-soot-1), 0 0 0 2px var(--hw-age-on);
+}
+.hw-log__goal {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px 16px;
+  background: var(--hw-soot-3);
+  border: 1px solid var(--hw-iron-2);
+  border-left: 3px solid var(--hw-heat);
+  border-radius: var(--hw-radius);
+}
+.hw-log__goal[data-done] {
+  border-left-color: var(--hw-good);
+}
+.hw-log__goal-kicker {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hw-heat-hi);
+}
+.hw-log__goal-progress {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--hw-bone);
+}
+.hw-log__goal-title {
+  font: 700 18px / 1.25 var(--hw-font-display);
+  letter-spacing: 0.03em;
+}
+.hw-log__goal-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--hw-ash-2);
+}
+.hw-log__goal-reward {
+  font: 500 12px / 1.3 var(--hw-font-mono);
+  color: var(--hw-good);
+}
+.hw-log__goal-track {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: var(--hw-soot-0);
+}
+.hw-log__goal-fill {
+  height: 100%;
+  background: var(--hw-heat);
+  transform-origin: left center;
+  transition: transform 240ms ease-out;
+}
+.hw-log__section {
+  display: grid;
+  gap: 8px;
+}
+.hw-log__list {
+  display: grid;
+  gap: 2px;
+}
+.hw-log__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: var(--hw-soot-2);
+  border-radius: var(--hw-radius);
+}
+.hw-log__item[data-state='next'] {
+  color: var(--hw-ash-2);
+}
+.hw-log__item[data-state='next']::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--hw-iron-3);
+}
+.hw-log__item[data-state='done'] {
+  color: var(--hw-ash-1);
+  background: transparent;
+  min-height: 28px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.hw-log__tick {
+  display: grid;
+  color: var(--hw-good);
+}
+.hw-log__more {
+  padding: 4px 10px;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-iron-3);
+}
+
+/* Death */
+.hw-window--death {
+  --hw-accent: var(--hw-bad);
+}
+.hw-death {
+  display: grid;
+  gap: 12px;
+}
+.hw-death__line {
+  font-size: 15px;
+  line-height: 1.45;
+}
+.hw-death__kept {
+  padding: 8px 10px;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-good);
+  background: var(--hw-good-wash);
+  border-left: 3px solid var(--hw-good);
+}
+.hw-death__wake {
+  font-size: var(--hw-fs-sm);
+  line-height: 1.45;
+  color: var(--hw-ash-2);
+}
+.hw-death > .hw-btn {
+  margin-top: 6px;
+}
+.hw-death__count {
+  font-size: 12px;
+  text-align: center;
+  color: var(--hw-ash-1);
+}
+@media (max-width: 719.98px), (max-height: 519.98px) {
+  /* A death is not a full-screen sheet: the world stays visible around the card. */
+  .hw-scrim:has(> .hw-window--death) {
+    padding: 16px;
+    background: rgba(40, 4, 8, 0.72);
+  }
+  .hw-window.hw-window--death {
+    height: auto;
+    max-width: 440px;
+    padding: 1px;
+  }
+}
+
+/* Win */
+.hw-win {
+  display: grid;
+  gap: 16px;
+}
+.hw-win__hero {
+  position: relative;
+  display: grid;
+  align-content: end;
+  gap: 4px;
+  min-height: 150px;
+  padding: 14px 16px;
+  overflow: hidden;
+  background: var(--hw-soot-0);
+  border: 1px solid var(--hw-iron-1);
+}
+.hw-win__hero > canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.hw-win__kicker,
+.hw-win__title {
+  position: relative;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7);
+}
+.hw-win__kicker {
+  font: 600 12px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--hw-temp-1100);
+}
+.hw-win__title {
+  font: 700 clamp(22px, 5vw, 32px) / 1.1 var(--hw-font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hw-temp-1500);
+}
+.hw-win__line {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--hw-ash-2);
+}
+.hw-win__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.hw-win__stat {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-1);
+}
+.hw-win__stat > dt {
+  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hw-ash-1);
+}
+.hw-win__stat > dd {
+  font-size: 18px;
+  font-weight: 600;
+}
+@media (max-width: 559.98px) {
+  .hw-win__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-height: 519.98px) {
+  .hw-win__hero {
+    min-height: 96px;
+  }
+  .hw-win__stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .hw-win__stat > dd {
+    font-size: 15px;
+  }
+}

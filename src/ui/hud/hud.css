@@ -1,0 +1,719 @@
+/* ==========================================================================================
+   HEARTHWATT HUD (injected by src/ui/hud/hud.ts; tokens come from src/ui/styles.css)
+   Phone first: the hotbar owns the bottom centre, everything else sits along the top. The
+   top-right corner stays free for the touch overlay's bag and pause buttons (data-touch).
+   ========================================================================================== */
+.hw-hud {
+  --hw-hud-pad: 8px;
+  --hw-hud-reserve: 0px;
+  --hw-plate: rgba(13, 10, 8, 0.7);
+  --hw-plate-edge: rgba(113, 99, 85, 0.6);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--hw-bone);
+  font-family: var(--hw-font-body);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+.hw-hud[data-touch] {
+  /* The touch overlay's bag + pause buttons: about 112 x 60 px at the top right. */
+  --hw-hud-reserve: 116px;
+}
+.hw-hud-plate {
+  background: var(--hw-plate);
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ---- top row ------------------------------------------------------------------------------ */
+.hw-hud__top {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: 'left mid right';
+  align-items: start;
+  gap: 8px;
+  padding: calc(var(--hw-hud-pad) + var(--hw-safe-t)) calc(var(--hw-hud-pad) + var(--hw-safe-r) + var(--hw-hud-reserve)) 0
+    calc(var(--hw-hud-pad) + var(--hw-safe-l));
+}
+.hw-hud__left {
+  grid-area: left;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+}
+.hw-hud__mid {
+  grid-area: mid;
+  min-width: 0;
+}
+.hw-hud__right {
+  grid-area: right;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* ---- vitals ------------------------------------------------------------------------------- */
+.hw-vitals {
+  display: grid;
+  gap: 4px;
+  width: 172px;
+  padding: 6px 8px 6px 7px;
+}
+.hw-vital {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 22px auto;
+  align-items: center;
+  gap: 6px;
+  height: 16px;
+}
+.hw-vital__icon {
+  display: grid;
+  color: var(--hw-vital-color);
+}
+.hw-vital__track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+/* Ten cells, like a row of lamps: one cell = 10% of the bar (2 health). */
+.hw-vital__track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to right, transparent 0 calc(10% - 1px), rgba(0, 0, 0, 0.6) calc(10% - 1px) 10%);
+}
+.hw-vital__fill {
+  position: absolute;
+  inset: 0;
+  background: var(--hw-vital-color);
+  transform-origin: left center;
+  transition: transform 160ms linear;
+}
+.hw-vital__value {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: right;
+}
+.hw-vital[data-kind='health'] {
+  --hw-vital-color: #e8475a;
+}
+.hw-vital[data-kind='warmth'] {
+  --hw-vital-color: var(--hw-heat);
+}
+.hw-vital[data-kind='air'] {
+  --hw-vital-color: var(--hw-power-hi);
+}
+.hw-vital[data-low] .hw-vital__value {
+  color: var(--hw-bad-hi);
+}
+.hw-vital[data-kind='health'][data-low] .hw-vital__icon {
+  animation: hw-hud-throb 0.9s ease-in-out infinite;
+}
+.hw-vital[data-kind='warmth'][data-low] {
+  --hw-vital-color: #8fc4ff;
+}
+.hw-vital__trend {
+  display: grid;
+  width: 10px;
+  color: var(--hw-ash-1);
+}
+.hw-vital__trend[data-trend='warming'] {
+  color: var(--hw-heat-hi);
+}
+.hw-vital__trend[data-trend='cooling'] {
+  color: #8fc4ff;
+}
+.hw-vital:not([data-kind='warmth']) {
+  grid-template-columns: 14px minmax(0, 1fr) 22px 10px;
+}
+.hw-buff {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+  padding: 2px 6px 2px 5px;
+  font: 600 10.5px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hw-heat-ink);
+  background: var(--hw-heat-hi);
+  border-radius: 1px;
+  text-shadow: none;
+}
+.hw-buff .hw-buff__text {
+  font-family: var(--hw-font-display);
+}
+.hw-buff[data-pending] {
+  color: var(--hw-heat-hi);
+  background: var(--hw-heat-wash);
+  box-shadow: inset 0 0 0 1px var(--hw-heat-lo);
+}
+.hw-fps {
+  padding: 1px 5px;
+  font-size: 11px;
+  color: var(--hw-ash-2);
+  background: var(--hw-plate);
+}
+
+/* ---- goal tracker ------------------------------------------------------------------------- */
+.hw-goal {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  width: clamp(220px, 30vw, 340px);
+  min-height: 48px;
+  padding: 6px 10px 8px;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hw-goal__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hw-goal__kicker {
+  font: 600 10px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hw-heat-hi);
+}
+.hw-goal__progress {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--hw-ash-2);
+}
+.hw-goal__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.hw-goal__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font: 600 15px / 1.25 var(--hw-font-display);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hw-goal__more {
+  display: grid;
+  flex: none;
+  color: var(--hw-ash-1);
+}
+.hw-goal__track {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.hw-goal__fill {
+  position: absolute;
+  inset: 0;
+  background: var(--hw-heat);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 240ms ease-out;
+}
+@media (hover: hover) {
+  .hw-goal:hover {
+    border-color: var(--hw-ash-1);
+  }
+}
+.hw-goal:active {
+  background: rgba(36, 31, 26, 0.85);
+}
+
+/* ---- compass, dial, power ----------------------------------------------------------------- */
+.hw-compass,
+.hw-dial,
+.hw-power {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 48px;
+  padding: 0 9px 0 6px;
+}
+.hw-compass__dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--hw-home-heat, var(--hw-iron-3));
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+}
+.hw-compass__needle {
+  display: grid;
+  color: var(--hw-bone);
+  transform-origin: 50% 50%;
+  transition: transform 90ms linear;
+}
+.hw-compass[data-hot] .hw-compass__needle {
+  color: var(--hw-heat-hi);
+}
+.hw-compass__home {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  margin-left: -6.5px;
+  color: var(--hw-soot-0);
+  background: var(--hw-home-heat, var(--hw-iron-3));
+  border-radius: 50%;
+}
+.hw-compass__text,
+.hw-dial__text {
+  display: grid;
+  gap: 1px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.hw-compass__dist {
+  font-size: 13px;
+  font-weight: 600;
+}
+.hw-compass__temp {
+  font-size: 11px;
+  color: var(--hw-ash-1);
+}
+.hw-dial__face {
+  flex: none;
+  overflow: visible;
+}
+.hw-dial__sky {
+  fill: #3e5f7c;
+}
+.hw-dial__night {
+  fill: #141a2b;
+}
+.hw-dial__horizon {
+  stroke: var(--hw-iron-3);
+  stroke-width: 1;
+}
+.hw-dial__body {
+  fill: #ffd56b;
+  stroke: #1c0e03;
+  stroke-width: 1;
+}
+.hw-dial[data-night] .hw-dial__body {
+  fill: #dfe6f5;
+}
+.hw-dial__day {
+  font: 600 11px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hw-ash-2);
+}
+.hw-dial__until {
+  font-size: 11.5px;
+}
+.hw-dial[data-night] .hw-dial__until {
+  color: #b9c8ff;
+}
+.hw-power {
+  --hw-tone: var(--hw-power);
+  gap: 6px;
+  min-width: 128px;
+}
+.hw-power[data-state='short'] {
+  --hw-tone: var(--hw-warn);
+}
+.hw-power[data-state='overload'] {
+  --hw-tone: var(--hw-bad);
+  border-color: var(--hw-bad);
+}
+.hw-power__icon {
+  display: grid;
+  color: var(--hw-tone);
+}
+.hw-power__body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.hw-power__row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.hw-power__gen {
+  color: var(--hw-power-hi);
+}
+.hw-power__sep {
+  color: var(--hw-iron-3);
+}
+.hw-power__use {
+  color: var(--hw-ash-2);
+}
+.hw-power__track {
+  position: relative;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.hw-power__fill {
+  position: absolute;
+  inset: 0;
+  background: var(--hw-tone);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 300ms linear;
+}
+.hw-power__marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--hw-bone);
+}
+.hw-power__note {
+  font-size: 10.5px;
+  line-height: 1.1;
+  color: var(--hw-tone);
+  white-space: nowrap;
+}
+
+/* ---- crosshair ---------------------------------------------------------------------------- */
+.hw-cross {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+}
+.hw-cross__mark::before,
+.hw-cross__mark::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: rgba(255, 246, 232, 0.92);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+.hw-cross__mark::before {
+  width: 14px;
+  height: 2px;
+  margin: -1px 0 0 -7px;
+}
+.hw-cross__mark::after {
+  width: 2px;
+  height: 14px;
+  margin: -7px 0 0 -1px;
+}
+.hw-cross[data-target] .hw-cross__mark::before,
+.hw-cross[data-target] .hw-cross__mark::after {
+  background: #fff;
+}
+.hw-cross__svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+  opacity: 0;
+  transition: opacity 120ms linear;
+}
+.hw-cross[data-mining] .hw-cross__svg {
+  opacity: 1;
+}
+.hw-cross__track {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 4;
+}
+.hw-cross__ring {
+  fill: none;
+  stroke: var(--hw-heat-hi);
+  stroke-width: 3;
+}
+.hw-cross__name {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  padding: 2px 8px;
+  font: 600 12px / 1.3 var(--hw-font-display);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--hw-bone);
+  background: rgba(13, 10, 8, 0.55);
+  border-radius: 1px;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 160ms linear;
+}
+.hw-cross__name[data-shown] {
+  opacity: 1;
+}
+.hw-hud[data-screen] .hw-cross,
+.hw-hud[data-screen] .hw-feed {
+  visibility: hidden;
+}
+
+/* ---- gain feed ---------------------------------------------------------------------------- */
+.hw-feed {
+  position: absolute;
+  top: calc(var(--hw-hud-top, 72px) + 10px);
+  left: calc(var(--hw-hud-pad) + var(--hw-safe-l));
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  max-width: 46vw;
+}
+.hw-feed__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 8px 2px 3px;
+  font-size: 12.5px;
+  line-height: 1.2;
+  background: rgba(13, 10, 8, 0.6);
+  border-left: 2px solid var(--hw-good);
+  animation: hw-feed-in 160ms ease-out;
+}
+.hw-feed__line > .hw-icon {
+  --hw-icon: 22px;
+}
+.hw-feed__text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hw-feed__line--bump .hw-feed__text {
+  animation: hw-feed-bump 220ms ease-out;
+}
+
+/* ---- hotbar ------------------------------------------------------------------------------- */
+.hw-hud__bottom {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--hw-hud-pad) + var(--hw-safe-b));
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 calc(var(--hw-hud-pad) + var(--hw-safe-r)) 0 calc(var(--hw-hud-pad) + var(--hw-safe-l));
+}
+.hw-hotbar {
+  position: relative;
+  width: min(100%, 520px);
+  padding: 4px;
+  pointer-events: auto;
+  background: rgba(13, 10, 8, 0.62);
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+}
+.hw-hotbar .hw-slotgrid {
+  --hw-slot-gap: 3px;
+  --hw-slot-max: 56px;
+  max-width: none;
+}
+.hw-hotbar .hw-slot {
+  --hw-icon: 30px;
+  background: rgba(8, 6, 4, 0.7);
+}
+.hw-hotbar .hw-slot::after {
+  content: attr(data-key);
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font: 600 9px / 1 var(--hw-font-mono);
+  color: var(--hw-iron-3);
+}
+.hw-hud[data-touch] .hw-hotbar .hw-slot::after {
+  display: none;
+}
+.hw-hotbar .hw-slot[data-selected] {
+  border-color: var(--hw-heat-hi);
+  box-shadow:
+    inset 0 0 0 1px var(--hw-heat-hi),
+    inset 0 0 0 3px var(--hw-soot-0),
+    0 0 0 1px var(--hw-heat-lo);
+}
+.hw-hotbar__name {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  padding: 3px 10px;
+  font: 600 13px / 1.2 var(--hw-font-display);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  background: rgba(13, 10, 8, 0.72);
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+
+/* ---- vignettes ---------------------------------------------------------------------------- */
+.hw-vignettes,
+.hw-vignette {
+  position: absolute;
+  inset: 0;
+}
+.hw-vignette--hurt {
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 24, 38, 0.75) 100%);
+}
+.hw-vignette--pulse {
+  animation: hw-hurt 520ms ease-out;
+}
+.hw-vignette--frost {
+  opacity: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 50%, rgba(170, 210, 255, 0.28) 78%, rgba(220, 238, 255, 0.72) 100%),
+    repeating-conic-gradient(from 10deg at 50% 50%, rgba(235, 245, 255, 0.07) 0deg 3deg, transparent 3deg 11deg);
+  -webkit-mask: radial-gradient(ellipse at center, transparent 48%, #000 92%);
+  mask: radial-gradient(ellipse at center, transparent 48%, #000 92%);
+  transition: opacity 600ms linear;
+}
+.hw-vignette--warm {
+  background: radial-gradient(ellipse at center, transparent 62%, rgba(255, 138, 43, 0.16) 100%);
+  animation: hw-warm 4s ease-in-out infinite;
+}
+
+@keyframes hw-hurt {
+  0% {
+    opacity: var(--hw-hurt, 0.6);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes hw-warm {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes hw-hud-throb {
+  50% {
+    transform: scale(1.25);
+  }
+}
+@keyframes hw-feed-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+@keyframes hw-feed-bump {
+  40% {
+    color: var(--hw-good);
+  }
+}
+
+/* ---- phones ------------------------------------------------------------------------------- */
+/* Portrait: the goal gets the whole first row (minus the touch buttons), vitals and the status cluster share the second. */
+@media (max-width: 599.98px) {
+  .hw-hud__top {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'mid mid'
+      'left right';
+    gap: 6px;
+    padding-right: calc(var(--hw-hud-pad) + var(--hw-safe-r));
+  }
+  .hw-hud__mid {
+    margin-right: var(--hw-hud-reserve);
+  }
+  .hw-goal {
+    width: 100%;
+  }
+  .hw-vitals {
+    width: 150px;
+  }
+  .hw-compass,
+  .hw-dial,
+  .hw-power {
+    height: 44px;
+  }
+  .hw-hotbar .hw-slot {
+    --hw-icon: 26px;
+  }
+  .hw-hotbar .hw-slot::after {
+    display: none;
+  }
+}
+/* Landscape phones: one compact row along the top. */
+@media (max-height: 519.98px) {
+  .hw-hud {
+    --hw-hud-pad: 6px;
+  }
+  .hw-hud__top {
+    gap: 6px;
+  }
+  .hw-vitals {
+    width: 140px;
+    padding: 4px 6px;
+    gap: 3px;
+  }
+  .hw-vital {
+    height: 14px;
+  }
+  .hw-goal {
+    width: clamp(180px, 30vw, 280px);
+    min-height: 44px;
+    padding: 4px 9px 7px;
+  }
+  .hw-goal__title {
+    font-size: 14px;
+  }
+  .hw-compass,
+  .hw-dial,
+  .hw-power {
+    height: 44px;
+    gap: 5px;
+    padding: 0 7px 0 5px;
+  }
+  .hw-dial__day {
+    display: none;
+  }
+  .hw-power {
+    min-width: 0;
+  }
+  /* The touch overlay keeps the bottom-centre 60% x 64px free for the hotbar. */
+  .hw-hotbar {
+    width: min(100%, 60vw, 480px);
+    padding: 3px;
+  }
+  .hw-hotbar .hw-slot {
+    --hw-icon: 28px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-vignette--warm,
+  .hw-vital[data-kind='health'][data-low] .hw-vital__icon {
+    animation: none;
+  }
+  .hw-goal__fill,
+  .hw-vital__fill,
+  .hw-power__fill,
+  .hw-compass__needle {
+    transition: none;
+  }
+}
