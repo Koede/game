@@ -74,6 +74,9 @@ export class Hud {
   private fpsTime = 0;
   private echo: { text: string; until: number } | null = null;
   private targetKey = '';
+  private blockName: string | null = null;
+  private mining = -1;
+  private nameOverride: string | null = null;
   private screenOpen = false;
   /** Goals completed while a screen covered the view: announced once it closes (the tracker's toast covers the moment). */
   private heldGoal: string | null = null;
@@ -149,6 +152,23 @@ export class Hud {
       const block = this.deps.world.getBlock(target.x, target.y, target.z);
       name = block.id === 0 ? null : block.name;
     }
+    this.blockName = name;
+    this.mining = mining;
+    this.showTarget();
+  }
+
+  /**
+   * A name that replaces the block's under the crosshair (an animal: "Goat - 6/8"), or null to show the block
+   * again. Cheap to call every frame: the label only changes when the text does.
+   */
+  setTargetName(name: string | null): void {
+    this.nameOverride = name;
+    this.showTarget();
+  }
+
+  private showTarget(): void {
+    const name = this.nameOverride ?? this.blockName;
+    const mining = this.nameOverride !== null ? -1 : this.mining;
     const key = `${name}|${mining}`;
     if (key === this.targetKey) return;
     this.targetKey = key;

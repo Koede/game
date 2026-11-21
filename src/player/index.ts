@@ -16,3 +16,4 @@ export {
   type SwingTarget,
   type UseOutcome,
 } from './interaction';
+export { AnimalHands, likedByAnimals, type AnimalTargets, type AnimalUse, type Advisor } from './animals';

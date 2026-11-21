@@ -11,6 +11,7 @@ import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
 import type { SurvivalSnapshot } from '../game/survival';
 import type { WeatherSnapshot } from '../game/weather';
+import type { MobsSnapshot } from '../mobs';
 import type { WorldSnapshot } from '../world/world';
 import { SaveStore, type StorageLike } from './storage';
 
@@ -35,6 +36,11 @@ export interface WorldSave {
    * follows from the seed and the time anyway), never a reason to drop the world.
    */
   weather?: WeatherSnapshot;
+  /**
+   * The animals (spec 12.5). Optional: saves from before the animals lack it (they start fresh), and one that
+   * MobManager.load refuses is ignored the same way, never a reason to drop the world.
+   */
+  mobs?: MobsSnapshot;
 }
 
 export interface SaveDocument {

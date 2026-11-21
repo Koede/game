@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockId } from '../core/registry';
+import { blockId, creature } from '../core/registry';
 import { Facing, makeVoxel } from '../core/types';
 import { isWorldSave } from '../save/document';
 import { isFurnace } from '../sim';
@@ -101,6 +101,40 @@ describe('GameState', () => {
     const broken = GameState.restore({ ...save, weather: { state: 'storm' } as never });
     expect(broken.weather.override).toBeNull();
     for (const s of [state, copy, fresh, broken]) s.dispose();
+  });
+
+  it('runs the animals: spawned around the player, saved, restored, and old saves without them still load', () => {
+    const { state } = playedState();
+    // The spawn guarantee and the chunk rolls put animals around a new world's spawn once its area is loaded.
+    state.prepareAroundPlayer(3);
+    for (let i = 0; i < 40; i++) state.tick();
+    expect(state.mobs.all.length).toBeGreaterThan(0);
+    const save = JSON.parse(JSON.stringify(state.toSave())) as unknown;
+    if (!isWorldSave(save)) throw new Error('not a save');
+    expect(save.mobs?.mobs.length).toBe(state.mobs.all.length);
+    const copy = GameState.restore(save);
+    expect(copy.mobs.toJSON()).toEqual(state.mobs.toJSON());
+
+    const old = { ...save };
+    delete old.mobs;
+    expect(isWorldSave(old)).toBe(true);
+    const fresh = GameState.restore(old);
+    expect(fresh.mobs.all).toHaveLength(0);
+    const broken = GameState.restore({ ...save, mobs: { version: 1, mobs: 'goats' } as never });
+    expect(broken.mobs.all).toHaveLength(0);
+    for (const s of [state, copy, fresh, broken]) s.dispose();
+  });
+
+  it('puts the drops of an animal the player kills into the pack', () => {
+    const state = GameState.create(7, null);
+    const p = state.player.position;
+    const hen = state.mobs.add(creature('hen'), { x: p.x + 2, y: p.y, z: p.z, yaw: 0 });
+    const before = state.player.inventory.count('raw_fowl');
+    const r = state.mobs.hit(hen.id, 99, p.x, p.z);
+    expect(r).toEqual({ ok: true, health: 0, killed: true });
+    for (let i = 0; i < 20; i++) state.tick();
+    expect(state.player.inventory.count('raw_fowl')).toBe(before + 1);
+    state.dispose();
   });
 
   it('refuses a broken world snapshot without side effects', () => {

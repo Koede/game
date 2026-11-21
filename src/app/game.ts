@@ -2,14 +2,16 @@
  * One playable world in the browser: the DOM-free GameState plus the renderer, input, player controller, UI and
  * audio, wired in dependency order, and the per-frame game loop of spec section 4.
  *
- * Frame order: controls + player physics -> fixed 20 Hz ticks (clock, simulation, survival, objectives; at most
- * 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI -> render.
+ * Frame order: controls + player physics -> fixed 20 Hz ticks (clock, weather, simulation, animals, survival,
+ * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
+ * -> animal models (interpolated) -> render.
  */
 import { AudioEngine } from '../audio';
 import { DT } from '../core/constants';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer } from '../render';
+import { MobRenderer } from '../render/mobs';
 import type { WorldSave } from '../save/document';
 import { GameUI } from '../ui/gameUI';
 import type { UIRoot } from '../ui/kit/root';
@@ -49,6 +51,8 @@ export class Game {
   readonly state: GameState;
   readonly input: InputState = createInputState();
   readonly renderer: Renderer;
+  /** The animals' models, drawn into the renderer's scene (updated before every render). */
+  readonly mobRenderer: MobRenderer;
   readonly inputManager: InputManager;
   readonly ui: GameUI;
   readonly controller: PlayerController;
@@ -61,6 +65,9 @@ export class Game {
   private readonly settings: Settings;
   private readonly readyTarget = chunksInView(READY_RADIUS);
   private disposed = false;
+  /** The animal whose name and health the crosshair shows, and the health it showed (refreshed when either changes). */
+  private namedAnimal: number | null = null;
+  private namedHealth = -1;
 
   constructor(opts: GameOptions) {
     const { state, settings, root } = opts;
@@ -72,6 +79,7 @@ export class Game {
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
     this.renderer.setWeather(state.weather.state);
+    this.mobRenderer = new MobRenderer(this.renderer, world);
     try {
       this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
       this.ui = new GameUI(root, {
@@ -103,10 +111,11 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input });
+      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input, animals: state.mobs });
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
+      this.mobRenderer.dispose();
       this.renderer.dispose();
       throw err;
     }
@@ -147,6 +156,7 @@ export class Game {
     const p = this.state.player;
     this.state.world.update(p.position.x, p.position.z, this.settings.renderDistance, LOADING_BUDGET_MS);
     this.renderer.setView(p.position.x, p.eyeY, p.position.z, p.yaw, p.pitch);
+    this.mobRenderer.update(0, this.state.mobs.views(1));
     this.renderer.render(dt);
   }
 
@@ -168,9 +178,22 @@ export class Game {
     state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
     this.audio.setListener(p.position.x, p.eyeY, p.position.z, p.yaw);
     this.audio.setAmbience(this.ambience.update(dt));
+    this.showAnimalName();
     this.ui.frame(dt);
+    // Animals are interpolated between the last two ticks; frozen in place while paused.
+    this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
     this.renderer.render(paused ? 0 : dt);
     this.frames++;
+  }
+
+  /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */
+  private showAnimalName(): void {
+    const id = this.controller.targetAnimal;
+    const health = id !== null ? (this.state.mobs.get(id)?.health ?? -1) : -1;
+    if (id === this.namedAnimal && health === this.namedHealth) return;
+    this.namedAnimal = id;
+    this.namedHealth = health;
+    this.ui.setTargetName(id !== null ? this.state.mobs.describe(id) || null : null);
   }
 
   /** Runs `n` fixed simulation ticks right now (debug / tests). */
@@ -189,6 +212,7 @@ export class Game {
     this.controller.dispose();
     this.inputManager.dispose();
     this.audio.dispose();
+    this.mobRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.
     try {
       this.renderer.gl.forceContextLoss();

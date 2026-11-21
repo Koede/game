@@ -11,6 +11,7 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { Survival } from '../game/survival';
 import { Weather, isWeatherSnapshot } from '../game/weather';
+import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
 import { World, type WorkerPool } from '../world';
@@ -32,6 +33,10 @@ export class GameState {
   readonly objectives: ObjectiveTracker;
   /** The sky (spec 15): its `state` is read by the simulation, survival, renderer, audio and HUD. */
   readonly weather: Weather;
+  /** The animals (spec 12.5), ticked after the simulation; their drops go straight into the player's pack. */
+  readonly mobs: MobManager;
+  /** Live view of the player for the animals (position, yaw, held item). */
+  readonly mobPlayer: MobPlayer;
   readonly seedText: string | null;
   /** Seconds of simulated play in this world, across sessions. */
   playTimeS = 0;
@@ -60,6 +65,19 @@ export class GameState {
     this.survival = new Survival(world, this.player, this.clock, biomeAt);
     this.survival.weather = this.weather.state;
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
+    this.mobs = new MobManager(world, bus, this.clock, world.seed);
+    this.mobPlayer = mobPlayerOf(this.player);
+    this.mobs.onDeath((d) => {
+      for (const s of d.drops) this.player.give(s.item, s.count);
+    });
+    if (save?.mobs) {
+      try {
+        this.mobs.load(save.mobs);
+      } catch (err) {
+        // A damaged herd is no reason to refuse the world: the animals start afresh around the player.
+        console.warn('[save] the animals could not be restored; starting fresh', err);
+      }
+    }
     if (save) {
       this.survival.load(save.survival);
       this.objectives.load(save.objectives);
@@ -115,11 +133,12 @@ export class GameState {
     this.player.pitch = -0.08;
   }
 
-  /** One fixed simulation step (spec section 4: clock, weather, simulation, survival, objectives). */
+  /** One fixed simulation step (spec section 4: clock, weather, simulation, animals, survival, objectives). */
   tick(dt: number = DT): void {
     this.clock.tick(dt);
     this.weather.update(dt, this.clock.worldTimeS, this.clock.day, this.player.position);
     this.sim.tick(dt);
+    this.mobs.tick(dt, this.mobPlayer);
     this.survival.tick(dt);
     this.objectives.tick(dt);
     this.playTimeS += dt;
@@ -138,11 +157,13 @@ export class GameState {
       objectives: this.objectives.toJSON(),
       playTimeS: this.playTimeS,
       weather: this.weather.toJSON(),
+      mobs: this.mobs.toJSON(),
     };
   }
 
   dispose(): void {
     this.objectives.dispose();
+    this.mobs.dispose();
     this.sim.dispose();
     this.player.dispose();
     this.world.dispose();

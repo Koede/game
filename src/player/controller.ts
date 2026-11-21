@@ -8,6 +8,7 @@ import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
 import type { IWorld } from '../core/types';
 import { exertJump, type PlayerState } from '../game';
+import { AnimalHands, type AnimalTargets } from './animals';
 import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
@@ -31,7 +32,13 @@ export interface PlayerControllerOptions {
   state: InputState;
   /** Random source for drop rolls (default Math.random). */
   rng?: () => number;
+  /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
+  animals?: AnimalTargets;
 }
+
+/** Held items that need the ray to stop at liquids: buckets that scoop (spec 13). */
+const SCOOPERS: ReadonlySet<string> = new Set(['pail', 'bronze_bucket']);
+const seesLiquids = (item: string | undefined): boolean => item !== undefined && SCOOPERS.has(item);
 
 /** Degrees added to the field of view at full sprint. */
 export const SPRINT_FOV_KICK = 8;
@@ -52,6 +59,8 @@ const HUNGRY_SPRINT_ADVICE_S = 20;
 export class PlayerController {
   readonly physics: PlayerPhysics;
   readonly interaction: Interaction;
+  /** Mine / Use on animals, when the game has them. */
+  readonly animals: AnimalHands | null;
   private readonly world: IWorld;
   private readonly bus: GameBus;
   private readonly player: PlayerState;
@@ -64,6 +73,8 @@ export class PlayerController {
   private readonly targetBox = { x: 0, y: 0, z: 0 };
   private readonly unsubscribe: Array<() => void> = [];
   private currentTarget: RayHit | null = null;
+  /** The block behind an animal under the crosshair (Use that means nothing to animals goes there). */
+  private blockBehind: RayHit | null = null;
   private fov = -1;
   private heldKey: string | null | undefined = undefined;
   private bobPhase = 0;
@@ -86,6 +97,7 @@ export class PlayerController {
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
     this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random);
+    this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {
         this.interaction.stopMining();
@@ -96,9 +108,14 @@ export class PlayerController {
     );
   }
 
-  /** The block under the crosshair after the last update, or null. */
+  /** The block under the crosshair after the last update, or null (also while an animal is in front of it). */
   get target(): RayHit | null {
     return this.currentTarget;
+  }
+
+  /** Id of the animal under the crosshair after the last update, or null. */
+  get targetAnimal(): number | null {
+    return this.animals?.target ?? null;
   }
 
   /** Mining progress 0..1 on the target, or -1. */
@@ -134,12 +151,16 @@ export class PlayerController {
     this.currentTarget = this.cast();
     if (!p.dead) {
       const edits = this.interaction.edits;
-      if (intent.use) this.interaction.use(this.currentTarget);
-      this.interaction.updateMining(dt, intent.mine, this.currentTarget);
+      if (this.animals?.target != null) this.actOnAnimal(dt, intent);
+      else {
+        if (intent.use) this.interaction.use(this.currentTarget);
+        this.interaction.updateMining(dt, intent.mine, this.currentTarget);
+      }
       // A broken or placed block changes what is under the crosshair this very frame.
       if (this.interaction.edits !== edits) this.currentTarget = this.cast();
     } else {
       this.interaction.stopMining();
+      if (this.animals) this.animals.target = null;
     }
     this.updateView(dt);
   }
@@ -205,11 +226,28 @@ export class PlayerController {
     }
   }
 
+  /**
+   * The block under the crosshair, or null when nothing is in reach or an animal stands in front of it (then the
+   * block is kept in `blockBehind` and the animal in `animals.target`).
+   */
   private cast(): RayHit | null {
     const p = this.player;
     const held = p.heldStack();
     p.viewDir(this.dir);
-    return raycast(this.world, p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z, REACH, held?.item === 'pail', this.hit);
+    const d = this.dir;
+    const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, seesLiquids(held?.item), this.hit);
+    this.blockBehind = hit;
+    if (!this.animals || p.dead) return hit;
+    const animal = this.animals.aim(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, hit ? hit.distance : Infinity);
+    return animal === null ? hit : null;
+  }
+
+  /** Mine and Use while an animal is under the crosshair: no block is mined; Use falls through when it is not food for it. */
+  private actOnAnimal(dt: number, intent: Intent): void {
+    const hands = this.animals as AnimalHands;
+    this.interaction.updateMining(dt, false, null);
+    if (intent.use && hands.use() === 'pass') this.interaction.use(this.blockBehind);
+    if (intent.mine) hands.strike();
   }
 
   private updateView(dt: number): void {

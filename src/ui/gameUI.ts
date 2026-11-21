@@ -214,6 +214,11 @@ export class GameUI {
     this.hud.setTarget(target, mining);
   }
 
+  /** Shows `name` under the crosshair instead of the block's (an animal: "Goat - 6/8"); null shows the block again. */
+  setTargetName(name: string | null): void {
+    this.hud.setTargetName(name);
+  }
+
   dispose(): void {
     if (this.active) this.closeActive();
     for (const off of this.offs) off();
