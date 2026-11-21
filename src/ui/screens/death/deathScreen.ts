@@ -14,6 +14,7 @@ const CAUSES: Record<DamageCause, { title: string; line: string }> = {
   radiation: { title: 'Radiation sickness', line: 'Pitchblende and hot piles poison slowly. A shield suit cuts the dose tenfold.' },
   explosion: { title: 'Caught in the blast', line: 'A fission pile without water melts down. Keep two water blocks beside it.' },
   burn: { title: 'You burned', line: 'Something hot was too close for too long.' },
+  hunger: { title: 'Hunger wore you down', line: 'An empty stomach saps your strength. Cook meat or bake bread at the furnace and eat.' },
 };
 
 export function wakeText(ctx: ScreenContext): string {

@@ -8,3 +8,4 @@ export { RECIPE_SPECS } from './recipes';
 export { AGES, FURNACE_TIERS, MACHINE_SPECS } from './tech';
 export { OBJECTIVES } from './objectives';
 export { ORE_VEINS } from './oreVeins';
+export { CREATURE_SPECS } from './creatures';

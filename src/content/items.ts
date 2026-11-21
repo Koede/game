@@ -5,7 +5,8 @@
  * `category` is only a grouping for the UI. Whether something burns is decided by `fuel` (registry `fuelOf`),
  * never by the category: sticks are a resource and logs are blocks, yet all of them are fuel.
  */
-import type { FuelSpec, ItemSpec, ToolKind } from '../core/types';
+import { WELL_FED_DURATION_S } from '../core/constants';
+import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
 
 const fuel = (energyKJ: number, burnS: number, flameTempC: number): FuelSpec => ({ energyJ: energyKJ * 1000, burnS, flameTempC });
@@ -29,6 +30,13 @@ interface ToolSet {
 }
 
 const TOOL_KINDS: Array<[ToolKind, string]> = [['pickaxe', 'Pickaxe'], ['axe', 'Axe'], ['shovel', 'Shovel']];
+
+/** A hoe tills grass or dirt into farmland (1 durability per use). It is no mining tool: speed 1, and it counts as bare hands. */
+const hoe = (material: string, name: string, tier: number, durability: number, age: number, desc: string): ItemSpec => ({
+  key: `${material}_hoe`, name: `${name} Hoe`, desc, category: 'tool', age, tool: { kind: 'hoe', tier, speed: 1, durability },
+});
+
+const food = (hunger: number): FoodSpec => ({ hunger });
 
 function toolSet(set: ToolSet): ItemSpec[] {
   return TOOL_KINDS.map(([kind, label], i) => ({
@@ -142,4 +150,45 @@ const GEAR: ItemSpec[] = [
   { key: 'shield_suit', name: 'Shield Suit', desc: 'Superalloy plate and fused quartz. While you carry it, radiation does a tenth of its harm.', category: 'misc', age: 3, stack: 1 },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...METALS, ...PARTS, ...GEAR];
+const HOES: ItemSpec[] = [
+  hoe('flint', 'Flint', 1, 64, 0, 'Turns grass or dirt into farmland. Use it on the top of the block.'),
+  hoe('bronze', 'Bronze', 2, 192, 0, 'Tills soil three times as long as a flint hoe before it wears out.'),
+  hoe('iron', 'Iron', 3, 384, 1, 'A heavy iron blade that will till a whole field and then some.'),
+];
+
+/**
+ * Food and farm goods (spec 12.2). Seeds, potatoes and carrots carry `block`: Use on farmland plants them. Their
+ * `icon` must be explicit, or the registry would show the planted crop's texture instead.
+ */
+const FOOD: ItemSpec[] = [
+  { key: 'raw_fowl', name: 'Raw Fowl', desc: 'Pale meat from a hen. Barely a mouthful raw; the furnace makes a meal of it.', category: 'food', age: 0, food: food(2) },
+  { key: 'raw_mutton', name: 'Raw Mutton', desc: 'Lean red meat from a goat. Cook it in a crucible at 200 C.', category: 'food', age: 0, food: food(3) },
+  { key: 'raw_chop', name: 'Raw Chop', desc: 'A thick cut from a boar. Better cooked: a crucible at 200 C does it in seconds.', category: 'food', age: 0, food: food(3) },
+  { key: 'cooked_fowl', name: 'Roast Fowl', desc: 'Fowl roasted golden in the furnace.', category: 'food', age: 0, food: food(6) },
+  { key: 'cooked_mutton', name: 'Roast Mutton', desc: 'Mutton seared over the furnace fire. Rich and filling.', category: 'food', age: 0, food: food(7) },
+  { key: 'cooked_chop', name: 'Roast Chop', desc: 'A crackling roast chop. The most filling plain meal there is.', category: 'food', age: 0, food: food(8) },
+  {
+    key: 'potato', name: 'Potato', desc: 'A starchy tuber. Eat it raw, bake it, or plant it on farmland for more.',
+    category: 'food', age: 0, food: food(1), block: 'potato_0', icon: 'item_potato',
+  },
+  { key: 'baked_potato', name: 'Baked Potato', desc: 'Baked soft in a crucible. Plain, hot and filling.', category: 'food', age: 0, food: food(5) },
+  {
+    key: 'carrot', name: 'Carrot', desc: 'Sweet and crunchy. Eat it, plant it on farmland, or put it in a stew.',
+    category: 'food', age: 0, food: food(3), block: 'carrot_0', icon: 'item_carrot',
+  },
+  { key: 'bread', name: 'Bread', desc: 'A crusty loaf baked from dough in a crucible at 220 C.', category: 'food', age: 0, food: food(6) },
+  {
+    key: 'hearth_stew', name: 'Hearth Stew', desc: 'Roast meat, potato and carrot simmered at the furnace. Very filling, and it leaves you Well-Fed.',
+    category: 'food', age: 0, stack: 16, food: { hunger: 12, buff: 'well_fed', buffS: WELL_FED_DURATION_S },
+  },
+  {
+    key: 'wheat_seeds', name: 'Wheat Seeds', desc: 'Found in tall grass and wild wheat. Plant them on farmland. Hens love them.',
+    category: 'resource', age: 0, block: 'wheat_0', icon: 'item_wheat_seeds',
+  },
+  { key: 'wheat', name: 'Wheat', desc: 'A sheaf of ripe grain. Grind it into flour. Goats will follow it anywhere.', category: 'resource', age: 0 },
+  { key: 'flour', name: 'Flour', desc: 'Ground wheat. Mixed with water at the workbench it becomes dough.', category: 'material', age: 0 },
+  { key: 'dough', name: 'Dough', desc: 'Flour and water, ready for a crucible. At 220 C it bakes into bread.', category: 'material', age: 0 },
+  { key: 'hide', name: 'Hide', desc: 'A tough animal hide. It makes bellows and a warm coat without all that cord.', category: 'resource', age: 0 },
+];
+
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD];

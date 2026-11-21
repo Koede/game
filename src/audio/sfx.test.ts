@@ -19,7 +19,7 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
-    expect(SFX_NAMES.length).toBe(37);
+    expect(SFX_NAMES.length).toBe(45);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);
   });
@@ -81,6 +81,8 @@ describe('sound definitions', () => {
     under(['error', 'pickup', 'craft', 'place', 'jump', 'step', 'land'], 0.3);
     under(['dig_stone', 'dig_dirt', 'dig_wood', 'dig_sand', 'dig_metal', 'break'], 0.25);
     under(['explosion', 'age', 'death', 'alarm', 'upgrade', 'ignite'], 3);
+    under(['eat', 'till', 'plant', 'harvest', 'mob_hurt'], 0.35);
+    under(['hen', 'goat', 'boar'], 0.7);
     under(SFX_NAMES, 4.5);
     expect(patchDuration(SFX.explosion)).toBeGreaterThan(2);
   });
@@ -91,7 +93,7 @@ describe('sound definitions', () => {
   });
 
   it('gives repeated physical sounds a random pitch spread', () => {
-    for (const name of ['step', 'dig_stone', 'dig_dirt', 'dig_wood', 'dig_sand', 'dig_metal'] as const) {
+    for (const name of ['step', 'dig_stone', 'dig_dirt', 'dig_wood', 'dig_sand', 'dig_metal', 'eat', 'till', 'plant', 'harvest', 'hen', 'goat', 'boar', 'mob_hurt'] as const) {
       expect(SFX[name].jitter ?? 0, name).toBeGreaterThan(0);
     }
   });

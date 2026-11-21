@@ -8,10 +8,13 @@
  * water has to be carried in a pail, a fire only gets a draft once a bellows exists, a temperature only counts
  * when the heat balance of that furnace tier can actually hold it, and only the player's own tools mine (a bore
  * rig is taken to reach nothing a steel pickaxe could not).
+ *
+ * Food (spec 12): animals are hunted bare-handed from the start, so their drops are world resources. Wild plants
+ * are natural blocks. A crop yields its ripe drops once its seed, a hoe and tillable soil are all to hand.
  */
 import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FURNACE_BUFF_C } from '../core/constants';
 import {
-  BLOCKS, FURNACE_TIERS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
+  BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
   block, furnaceTier, item, machine, recipe, recipesFor,
 } from '../core/registry';
 import type { BlockDef, FurnaceTierSpec, ItemAmount, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind } from '../core/types';
@@ -20,7 +23,16 @@ import type { BlockDef, FurnaceTierSpec, ItemAmount, MachineSpec, ObjectiveCondi
 export const NATURAL_BLOCKS: readonly string[] = [
   'stone', 'rubble', 'dirt', 'grass', 'sand', 'gravel', 'clay', 'snow', 'ice', 'basalt', 'limestone', 'water', 'lava',
   'oak_log', 'oak_leaves', 'pine_log', 'pine_leaves', 'tall_grass', 'dry_shrub',
+  'wild_wheat', 'wild_potato', 'wild_carrot',
 ];
+
+/** Blocks a hoe turns into farmland. */
+export const TILLABLE_BLOCKS: readonly string[] = ['grass', 'dirt'];
+
+/** The item that places a block: its own block item, or another item that plants it (seeds, potato, carrot). */
+export function itemPlacing(blockKey: string): string | null {
+  return block(blockKey).itemKey ?? ITEMS.find((it) => it.block === blockKey)?.key ?? null;
+}
 
 /** How many units of one generator or battery kind a "reasonable grid" is assumed to have. */
 export const GRID_UNITS = 8;
@@ -32,7 +44,10 @@ export interface Progress {
   items: ReadonlySet<string>;
   /** Ids of every usable recipe. */
   recipes: ReadonlySet<string>;
-  /** How each item was first obtained: the id of a recipe, 'world' (mined, gathered, scooped) or 'upgrade'. */
+  /**
+   * How each item was first obtained: the id of a recipe, 'world' (mined, gathered, scooped), 'upgrade',
+   * 'animal:<species>' (hunted) or 'crop:<block>' (harvested ripe).
+   */
   source: ReadonlyMap<string, string>;
   /** Hottest temperature each owned tier can hold; index = tier, index 0 is ambient. */
   tempC: readonly number[];
@@ -51,6 +66,15 @@ const worldBlocks: BlockDef[] = [...new Set([...NATURAL_BLOCKS, ...ORE_VEINS.map
 const generators = [...MACHINES.values()].filter((m) => m.role === 'generator');
 const storages = [...MACHINES.values()].filter((m) => m.role === 'storage');
 const cables = BLOCKS.filter((b) => b.power === 'cable' && b.itemKey !== null);
+/** Each crop: the item that plants it and the ripe stage, whose drops a harvest yields. */
+const crops = [...MACHINES.values()].filter((m) => m.role === 'crop').flatMap((m) => {
+  const stagesOf = new Map<string, string[]>();
+  for (const key of m.blocks) {
+    const name = key.replace(/_\d+$/, '');
+    stagesOf.set(name, [...(stagesOf.get(name) ?? []), key]);
+  }
+  return [...stagesOf.values()].map((stages) => ({ seed: itemPlacing(stages[0]), ripe: block(stages[stages.length - 1]) }));
+});
 /** Recipes run by a processing machine (the furnace is a machine kind too, but it is the player who works it). */
 export const isMachineRecipe = (r: RecipeDef): boolean => r.station !== 'hand' && r.station !== 'workbench' && r.station !== 'furnace';
 /** Generators that live off a furnace's heat cannot be what heats that furnace electrically. */
@@ -135,6 +159,16 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
     }
     // A pail used on water becomes a pail of water (item use, not a recipe).
     if (items.has('pail') && worldHasLiquid('water') && gain('water_pail', 'world')) changed = true;
+    // Animals live in the world from the start and can be hunted by hand.
+    for (const c of CREATURES) {
+      for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;
+    }
+    if (canTill(world, items)) {
+      for (const crop of crops) {
+        if (!crop.seed || !items.has(crop.seed)) continue;
+        for (const drop of crop.ripe.drops) if (gain(drop.item, `crop:${crop.ripe.key}`)) changed = true;
+      }
+    }
 
     if (tier === 0 && maxTier >= 1 && items.has(furnaceTier(1).block)) {
       tier = 1;
@@ -171,6 +205,12 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
 
 const hasFuel = (p: Progress): boolean => [...p.items].some((key) => item(key).fuel !== undefined);
 
+/** A hoe in hand and soil to use it on. */
+function canTill(world: readonly BlockDef[], items: ReadonlySet<string>): boolean {
+  const hoe = [...items].some((key) => item(key).tool?.kind === 'hoe');
+  return hoe && world.some((b) => TILLABLE_BLOCKS.includes(b.key));
+}
+
 /** Starhearth ignition: the top tier at ignition temperature, with cable and supply for ignition plus holding the heat. */
 function canIgnite(p: Progress): boolean {
   const params = machine('furnace').params ?? {};
@@ -188,6 +228,8 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   rested: (p) => p.tier >= 1 && hasFuel(p),
   machine_job: (p) => RECIPES.some((r) => isMachineRecipe(r) && p.recipes.has(r.id)),
   ignited: canIgnite,
+  ate: (p) => [...p.items].some((key) => item(key).food !== undefined),
+  tilled: (p) => canTill(worldBlocks, p.items),
 };
 export const KNOWN_FLAGS: readonly string[] = Object.keys(FLAG_RULES);
 
@@ -199,7 +241,7 @@ export function conditionMet(c: ObjectiveCondition, p: Progress): boolean {
     case 'make':
       return recipesFor(c.item).some((r) => p.recipes.has(r.id));
     case 'place':
-      return p.items.has(block(c.block).itemKey ?? '');
+      return p.items.has(itemPlacing(c.block) ?? '');
     case 'break': {
       const def = block(c.block);
       return def.hardness >= 0 && (worldBlocks.includes(def) || p.items.has(def.itemKey ?? ''));

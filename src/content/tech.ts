@@ -238,4 +238,21 @@ export const MACHINE_SPECS: MachineSpec[] = [
     desc: 'Draws 20 kW. Every 45 seconds it fills an empty cell with deuterium, for as long as it touches water.',
     placementHint: 'Must touch water.',
   },
+
+  // ---- farming (spec 12.4) --------------------------------------------------------------------
+  // crop - one entity per planted crop; the stage blocks <crop>_0..3 swap in place as it grows (like a furnace
+  // upgrade). No power, no screen. A crop only grows while it stands on farmland and is lit. params:
+  //   stageS           seconds of growing time per stage: 3 stages from planted to ripe = 300 s
+  //   dryRate          growth rate when no water is within hydrationRadius (a dry crop ripens in 600 s)
+  //   hydrationRadius  water within this many blocks horizontally (|dx|, |dz| <= r), at the crop's y or y-1,
+  //                    hydrates it
+  //   lampRadius       a powered (active) lamp within this Euclidean distance lights it at any hour, underground too
+  //   minSunlight      by day: clock sunlight at or above this with no opaque block anywhere above lights it
+  {
+    kind: 'crop', name: 'Crop', role: 'crop',
+    blocks: ['wheat', 'potato', 'carrot'].flatMap((c) => [0, 1, 2, 3].map((stage) => `${c}_${stage}`)),
+    params: { stageS: 100, dryRate: 0.5, hydrationRadius: 4, lampRadius: 5, minSunlight: 0.3 },
+    desc: 'Grows a stage every 100 seconds while it has daylight or a lamp, half as fast with no water nearby.',
+    placementHint: 'Plant on farmland.',
+  },
 ];

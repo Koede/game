@@ -7,6 +7,7 @@
 import {
   AGES as AGE_SPECS,
   BLOCK_SPECS,
+  CREATURE_SPECS,
   FURNACE_TIERS as FURNACE_TIER_SPECS,
   ITEM_SPECS,
   MACHINE_SPECS,
@@ -24,6 +25,7 @@ import {
   type AgeSpec,
   type BlockDef,
   type BlockSpec,
+  type CreatureSpec,
   type Drop,
   type Facing,
   type FuelSpec,
@@ -304,6 +306,25 @@ export const OBJECTIVES: readonly ObjectiveSpec[] = OBJECTIVE_SPECS;
 export const ORE_VEINS: readonly OreVeinSpec[] = ORE_VEIN_SPECS;
 
 // ---------------------------------------------------------------------------------------------
+// Creatures
+// ---------------------------------------------------------------------------------------------
+
+/** Every animal species, in authored order. */
+export const CREATURES: readonly CreatureSpec[] = CREATURE_SPECS;
+const creaturesByKey = new Map<string, CreatureSpec>();
+for (const c of CREATURES) {
+  if (creaturesByKey.has(c.key)) throw new Error(`content: duplicate creature key "${c.key}"`);
+  creaturesByKey.set(c.key, c);
+}
+/** Species by key. Throws on unknown keys. */
+export function creature(key: string): CreatureSpec {
+  const spec = creaturesByKey.get(key);
+  if (!spec) throw new Error(`unknown creature "${key}"`);
+  return spec;
+}
+export const creatureOrNull = (key: string): CreatureSpec | null => creaturesByKey.get(key) ?? null;
+
+// ---------------------------------------------------------------------------------------------
 // Validation (used by tests; returns human-readable problems, empty when content is consistent)
 // ---------------------------------------------------------------------------------------------
 
@@ -368,5 +389,55 @@ export function validateContent(): string[] {
     if (!blocksByKey.has(v.block)) problems.push(`ore vein: unknown block "${v.block}"`);
     if (v.minY > v.maxY) problems.push(`ore vein ${v.block}: minY > maxY`);
   }
+  for (const it of ITEMS) {
+    const food = it.food;
+    if (!food) continue;
+    if (!(food.hunger > 0)) problems.push(`item ${it.key}: food must restore hunger > 0`);
+    if ((food.buff === undefined) !== (food.buffS === undefined)) problems.push(`item ${it.key}: food buff and buffS go together`);
+    if (food.buffS !== undefined && !(food.buffS > 0)) problems.push(`item ${it.key}: food buffS must be > 0`);
+  }
+  for (const c of CREATURES) problems.push(...validateCreature(c, knownItem));
+  return problems;
+}
+
+const BIOMES: ReadonlySet<string> = new Set(['woodland', 'dunes', 'frostfell', 'scar']);
+
+function validateCreature(c: CreatureSpec, knownItem: (key: string) => boolean): string[] {
+  const problems: string[] = [];
+  const at = `creature ${c.key}`;
+  if (c.biomes.length === 0) problems.push(`${at}: no biomes`);
+  for (const b of c.biomes) if (!BIOMES.has(b)) problems.push(`${at}: unknown biome "${b}"`);
+  if (!(c.health > 0) || !(c.speed > 0) || !(c.size.w > 0) || !(c.size.h > 0)) problems.push(`${at}: health, speed and size must be > 0`);
+  if (!(c.group[0] >= 1) || c.group[1] < c.group[0]) problems.push(`${at}: group must be [min >= 1, max >= min]`);
+  for (const d of c.drops) if (!knownItem(d.item)) problems.push(`${at}: drop "${d.item}" is not an item`);
+  for (const k of c.likes) if (!knownItem(k)) problems.push(`${at}: liked item "${k}" is not an item`);
+  if (c.likes.length === 0) problems.push(`${at}: likes nothing, so it can never be lured or bred`);
+
+  const names = new Set<string>();
+  const pivots = new Map<string, string>();
+  let top = 0;
+  for (const p of c.model) {
+    if (names.has(p.name)) problems.push(`${at}: duplicate model part "${p.name}"`);
+    names.add(p.name);
+    if (p.from.some((v, i) => !(p.to[i] > v))) problems.push(`${at}: part ${p.name} has an empty or inverted box`);
+    if (!Number.isInteger(p.color) || p.color < 0 || p.color > 0xffffff) problems.push(`${at}: part ${p.name} colour is not 0xRRGGBB`);
+    top = Math.max(top, p.to[1]);
+    if (p.anim === 'none') continue;
+    if (!p.pivot) {
+      problems.push(`${at}: animated part ${p.name} has no pivot`);
+      continue;
+    }
+    const pivot = p.pivot.join(',');
+    const shared = pivots.get(p.anim);
+    if (shared !== undefined && shared !== pivot) problems.push(`${at}: parts animated as ${p.anim} disagree on the pivot`);
+    pivots.set(p.anim, pivot);
+  }
+  // Bipeds use the front pair only; quadrupeds have all four.
+  if (!pivots.has('legFL') || !pivots.has('legFR')) problems.push(`${at}: model needs legFL and legFR parts`);
+  if (pivots.has('legBL') !== pivots.has('legBR')) problems.push(`${at}: back legs come in pairs (legBL and legBR)`);
+  if (!pivots.has('head')) problems.push(`${at}: model has no head part`);
+  if (!c.model.some((p) => p.from[1] <= 0)) problems.push(`${at}: model does not touch the ground`);
+  const h16 = c.size.h * 16;
+  if (top < h16 * 0.75 || top > h16 * 1.2) problems.push(`${at}: model is ${top}/16 tall but its box is ${h16.toFixed(1)}/16`);
   return problems;
 }

@@ -13,8 +13,8 @@ const hand = (id: string, output: string, inputs: string): RecipeSpec => ({
   id, station: 'hand', inputs: amounts(inputs), output: amount(output), age: 0,
 });
 
-const workbench = (id: string, output: string, inputs: string): RecipeSpec => ({
-  id, station: 'workbench', inputs: amounts(inputs), output: amount(output), age: 0,
+const workbench = (id: string, output: string, inputs: string, byproducts?: string): RecipeSpec => ({
+  id, station: 'workbench', inputs: amounts(inputs), output: amount(output), age: 0, ...(byproducts ? { byproducts: amounts(byproducts) } : {}),
 });
 
 /** Crucible recipe: one input item type, cooked over `timeS` while the furnace stays at `minTempC` or hotter. */
@@ -22,19 +22,26 @@ const smelt = (id: string, output: string, input: string, minTempC: number, time
   id, station: 'furnace', kind: 'smelt', inputs: [amount(input)], output: amount(output), minTempC, timeS, minTier, age,
 });
 
-/** Made on the spot at a furnace of `minTier` or better that is at `minTempC` or hotter. The id is the output key. */
-function forge(minTier: number, output: string, inputs: string, minTempC: number): RecipeSpec {
+/**
+ * Made on the spot at a furnace of `minTier` or better that is at `minTempC` or hotter. The id is the output key
+ * unless `id` is given (a second route to the same item).
+ */
+function forge(minTier: number, output: string, inputs: string, minTempC: number, extra: { id?: string; byproducts?: string } = {}): RecipeSpec {
   const out = amount(output);
-  return { id: out.item, station: 'furnace', kind: 'forge', inputs: amounts(inputs), output: out, minTempC, minTier, age: minTier - 1 };
+  const spec: RecipeSpec = { id: extra.id ?? out.item, station: 'furnace', kind: 'forge', inputs: amounts(inputs), output: out, minTempC, minTier, age: minTier - 1 };
+  return extra.byproducts ? { ...spec, byproducts: amounts(extra.byproducts) } : spec;
 }
 
-/** Recipes of one processing machine: one input item type, `timeS` per run, energy = the machine's draw x time. */
-function machineRecipes(station: string, timeS: number, rows: Array<[output: string, input: string, age: number]>): RecipeSpec[] {
+/**
+ * Recipes of one processing machine: one input item type, `timeS` per run, energy = the machine's draw x time.
+ * The id is the output key unless a row gives its own (when another station already makes that item).
+ */
+function machineRecipes(station: string, timeS: number, rows: Array<[output: string, input: string, age: number, id?: string]>): RecipeSpec[] {
   const drawW = MACHINE_SPECS.find((m) => m.kind === station)?.drawW;
   if (!drawW) throw new Error(`content: "${station}" is not a powered machine`);
-  return rows.map(([output, input, age]) => {
+  return rows.map(([output, input, age, id]) => {
     const out = amount(output);
-    return { id: out.item, station, inputs: [amount(input)], output: out, timeS, energyJ: drawW * timeS, age };
+    return { id: id ?? out.item, station, inputs: [amount(input)], output: out, timeS, energyJ: drawW * timeS, age };
   });
 }
 
@@ -49,16 +56,24 @@ const HAND: RecipeSpec[] = [
   hand('workbench', 'workbench', '6 plank'),
   hand('torch', '4 torch', '1 stick, 1 charcoal'),
   hand('torch_coal', '4 torch', '1 stick, 1 coal'),
+  hand('flint_hoe', 'flint_hoe', '1 flint, 2 stick, 1 cord'),
 ];
 
-/** The complete workbench list, forever: it builds the first furnace and a handful of cold wooden things. */
+/**
+ * The complete workbench list: the first furnace, a handful of cold wooden things, and the cold half of the
+ * kitchen (milling flour by hand, mixing dough). The hide variants follow the plain recipes they replace.
+ */
 const WORKBENCH: RecipeSpec[] = [
   workbench('furnace_clay', 'furnace_clay', '12 rubble, 6 clay'),
   workbench('crate', 'crate', '8 plank'),
   workbench('stone_brick', '4 stone_brick', '4 rubble'),
   workbench('pail', 'pail', '3 plank, 1 cord'),
   workbench('padded_coat', 'padded_coat', '6 cord, 6 fiber'),
+  workbench('padded_coat_hide', 'padded_coat', '4 hide, 2 cord'),
   workbench('bellows', 'bellows', '4 plank, 4 cord'),
+  workbench('bellows_hide', 'bellows', '4 plank, 2 hide'),
+  workbench('flour', 'flour', '2 wheat'),
+  workbench('dough', 'dough', '2 flour, 1 water_pail', '1 pail'),
 ];
 
 const SMELT: RecipeSpec[] = [
@@ -77,6 +92,12 @@ const SMELT: RecipeSpec[] = [
   smelt('aluminum_ingot', 'aluminum_ingot', '2 alumina', 1500, 12, 3),
   smelt('tungsten_rod', 'tungsten_rod', '2 tungsten_powder', 2000, 16, 3),
   smelt('fused_quartz', 'fused_quartz', '2 silica', 2400, 12, 4),
+  // The kitchen (spec 12.3): a Clay Furnace barely warm cooks and bakes.
+  smelt('cooked_fowl', 'cooked_fowl', 'raw_fowl', 180, 6),
+  smelt('cooked_mutton', 'cooked_mutton', 'raw_mutton', 200, 8),
+  smelt('cooked_chop', 'cooked_chop', 'raw_chop', 200, 8),
+  smelt('baked_potato', 'baked_potato', 'potato', 180, 6),
+  smelt('bread', 'bread', 'dough', 220, 10),
 ];
 
 const FORGE: RecipeSpec[] = [
@@ -91,11 +112,16 @@ const FORGE: RecipeSpec[] = [
   forge(1, '6 copper_cable', '3 copper_wire, 2 ceramic_insulator', 500),
   forge(1, 'thermopile', '4 copper_ingot, 2 tin_ingot, 2 firebrick', 700),
   forge(1, 'lamp', '1 glass, 2 copper_wire', 500),
+  forge(1, 'bronze_hoe', '2 bronze_ingot, 2 stick', 600),
+  forge(1, 'hearth_stew', '1 cooked_chop, 1 potato, 1 carrot, 1 water_pail', 300, { byproducts: '1 pail' }),
+  forge(1, 'hearth_stew', '1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_mutton', byproducts: '1 pail' }),
+  forge(1, 'hearth_stew', '1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_fowl', byproducts: '1 pail' }),
 
   // ---- Blast Furnace ----
   forge(2, 'iron_pickaxe', '3 iron_ingot, 2 stick', 1000),
   forge(2, 'iron_axe', '3 iron_ingot, 2 stick', 1000),
   forge(2, 'iron_shovel', '1 iron_ingot, 2 stick', 1000),
+  forge(2, 'iron_hoe', '2 iron_ingot, 2 stick', 1000),
   forge(2, 'iron_plate', '2 iron_ingot', 900),
   forge(2, 'copper_coil', '4 copper_wire, 1 iron_ingot', 700),
   forge(2, 'chassis', '4 iron_plate, 2 bronze_ingot', 1000),
@@ -152,6 +178,8 @@ const MACHINE: RecipeSpec[] = [
     ['2 yellowcake', 'pitchblende', 3],
     ['gravel', 'rubble', 1],
     ['sand', 'gravel', 1],
+    // The electric mill: one wheat per flour where hand-grinding at the workbench takes two.
+    ['flour', 'wheat', 1, 'flour_milled'],
   ]),
   ...machineRecipes('still', 20, [['fuel_canister', '2 oil_shale', 2]]),
   ...machineRecipes('centrifuge', 20, [['enriched_pellet', '4 yellowcake', 3]]),

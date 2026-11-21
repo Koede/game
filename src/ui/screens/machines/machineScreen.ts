@@ -25,6 +25,7 @@ const ROLE_TEXT: Record<MachineRole, string> = {
   storage: 'Storage',
   crate: 'Storage',
   boiler: 'Generator',
+  crop: 'Crop',
 };
 
 type At = { x: number; y: number; z: number };

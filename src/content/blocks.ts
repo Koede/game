@@ -38,6 +38,20 @@ function machine(key: string, name: string, desc: string, age: number, extra: Pa
   };
 }
 
+/** The four growth stages of a crop: `<crop>_0` (just planted) .. `<crop>_3` (ripe), carried by one 'crop' entity. */
+function crop(key: string, name: string, stageNames: [string, string, string, string], desc: [string, string, string, string], seed: string, ripe: Drop[]): BlockSpec[] {
+  return stageNames.map((stage, i) => ({
+    key: `${key}_${i}`, name: `${name} (${stage})`, desc: desc[i],
+    shape: 'cross', hardness: 0, item: false, placeOn: ['farmland'], machine: 'crop',
+    drops: i === 3 ? ripe : [{ item: seed, count: 1 }], textures: { all: `${key}_stage${i}` },
+  }));
+}
+
+/** A wild food plant: grows on grass in small patches, drops food or seed, never placed back by the player. */
+function wildPlant(key: string, name: string, desc: string, drops: Drop[]): BlockSpec {
+  return { key, name, desc, shape: 'cross', hardness: 0.2, item: false, placeOn: ['grass', 'dirt'], drops, textures: { all: key } };
+}
+
 function cable(key: string, name: string, desc: string, age: number, cableRatingW: number): BlockSpec {
   return { key, name, desc, age, cableRatingW, shape: 'cable', power: 'cable', hardness: 0.4, category: 'machine', textures: { all: key } };
 }
@@ -107,8 +121,9 @@ export const BLOCK_SPECS: BlockSpec[] = [
     hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'pine_leaves' },
   },
   {
-    key: 'tall_grass', name: 'Tall Grass', desc: 'Long grass. Pull it up for fiber.',
-    shape: 'cross', hardness: 0.1, replaceable: true, drops: [{ item: 'fiber', count: 1, chance: 0.5 }],
+    key: 'tall_grass', name: 'Tall Grass', desc: 'Long grass. Pull it up for fiber, and now and then a few wheat seeds.',
+    shape: 'cross', hardness: 0.1, replaceable: true,
+    drops: [{ item: 'fiber', count: 1, chance: 0.5 }, { item: 'wheat_seeds', count: 1, chance: 0.15 }],
     placeOn: ['grass', 'dirt'], textures: { all: 'tall_grass' },
   },
   {
@@ -204,4 +219,32 @@ export const BLOCK_SPECS: BlockSpec[] = [
     key: 'corium', name: 'Corium', desc: 'The slag of a melted reactor. Fiercely radioactive, and only a power drill clears it away.',
     hardness: 120, tool: 'pickaxe', minTier: 5, drops: 'none', item: false, light: 9, radiation: 8, age: 3, textures: { all: 'corium' },
   },
+
+  // ---- food and farming (spec 12) - appended, so every older block keeps its id ---------------
+  {
+    key: 'farmland', name: 'Farmland', desc: 'Soil turned with a hoe into dark furrows. Seeds, potatoes and carrots grow on it.',
+    hardness: 0.8, tool: 'shovel', item: false, drops: [{ item: 'dirt', count: 1 }], textures: { top: 'farmland_top', side: 'dirt', bottom: 'dirt' },
+  },
+  ...crop('wheat', 'Wheat', ['sprouting', 'growing', 'heading', 'ripe'], [
+    'Wheat, just sown. It needs daylight or a lamp, and grows twice as fast with water close by.',
+    'Young wheat, green and growing.',
+    'Wheat in ear, not yet golden.',
+    'Ripe golden wheat. Harvest it for grain and more seed.',
+  ], 'wheat_seeds', [{ item: 'wheat', count: [1, 2] }, { item: 'wheat_seeds', count: [1, 3] }]),
+  ...crop('potato', 'Potatoes', ['sprouting', 'growing', 'flowering', 'ripe'], [
+    'A seed potato in the furrow. It needs daylight or a lamp, and grows twice as fast with water close by.',
+    'Potato leaves pushing up out of the soil.',
+    'Potatoes in flower, still swelling underground.',
+    'The leaves have yellowed: the potatoes are ready to dig.',
+  ], 'potato', [{ item: 'potato', count: [2, 4] }]),
+  ...crop('carrot', 'Carrots', ['sprouting', 'growing', 'thickening', 'ripe'], [
+    'A carrot just planted. It needs daylight or a lamp, and grows twice as fast with water close by.',
+    'Feathery carrot tops, still thin.',
+    'Carrots thickening below the leaves.',
+    'Orange shoulders show at the soil: the carrots are ready to pull.',
+  ], 'carrot', [{ item: 'carrot', count: [2, 4] }]),
+  wildPlant('wild_wheat', 'Wild Wheat', 'A tuft of wild grain. It gives wheat seeds, and sometimes a little wheat.',
+    [{ item: 'wheat_seeds', count: [1, 2] }, { item: 'wheat', count: 1, chance: 0.5 }]),
+  wildPlant('wild_potato', 'Wild Potato', 'Low leaves with small white flowers. Pull it up for a potato or two.', [{ item: 'potato', count: [1, 2] }]),
+  wildPlant('wild_carrot', 'Wild Carrot', 'Lacy white flowers over a thin orange root. Pull it up for a carrot or two.', [{ item: 'carrot', count: [1, 2] }]),
 ];

@@ -6,7 +6,8 @@
  */
 import type { BlockEntity, ChangeSource, ChunkMeshData, Voxel } from './types';
 
-export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn';
+/** 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own). */
+export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type ToastKind = 'info' | 'good' | 'warn' | 'bad';
 
@@ -58,7 +59,19 @@ export type SfxName =
   | 'alarm'
   | 'explosion'
   | 'ignition'
-  | 'win';
+  | 'win'
+  // ---- food, farming and animals (spec 12.7) ----
+  | 'eat'
+  | 'till'
+  | 'plant'
+  | 'harvest'
+  | 'hen'
+  | 'goat'
+  | 'boar'
+  | 'mob_hurt';
+
+/** Buffs the player can carry. */
+export type BuffName = 'well_warmed' | 'well_fed';
 
 export interface GameEvents {
   // ---- world ----
@@ -115,7 +128,7 @@ export interface GameEvents {
   'age:advanced': { age: number };
   /** A named one-off thing happened (objective conditions of type 'flag' listen for these). */
   'flag': { flag: string };
-  'buff:gained': { buff: 'well_warmed'; durationS: number };
+  'buff:gained': { buff: BuffName; durationS: number };
   'game:won': Record<string, never>;
 
   // ---- time ----
@@ -140,4 +153,15 @@ export interface GameEvents {
   'settings:changed': Record<string, never>;
   'game:saved': Record<string, never>;
   'game:paused': { paused: boolean };
+
+  // ---- food, farming and animals (spec 12) ----
+  /** The player ate one `item`, restoring `hunger` food points. */
+  'player:ate': { item: string; hunger: number };
+  /** An animal entered the world (spawn roll, keep-alive spawn or birth). `id` is unique for the session and saved. */
+  'mob:spawned': { id: number; species: string };
+  /** An animal was hit; `health` is what it has left. */
+  'mob:hurt': { id: number; species: string; health: number };
+  'mob:died': { id: number; species: string };
+  /** A crop advanced to `stage` (0-based; the last stage is ripe). */
+  'crop:grew': { x: number; y: number; z: number; stage: number };
 }

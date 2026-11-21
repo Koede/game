@@ -83,7 +83,8 @@ export interface ItemStack {
 }
 export type Slot = ItemStack | null;
 
-export type ToolKind = 'pickaxe' | 'axe' | 'shovel';
+/** Mining tools, plus the hoe: a farming tool that tills soil and never speeds up mining (it counts as bare hands). */
+export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
 
 export interface ToolSpec {
   kind: ToolKind;
@@ -106,7 +107,17 @@ export interface FuelSpec {
   burnS: number;
 }
 
-export type ItemCategory = 'block' | 'resource' | 'material' | 'component' | 'tool' | 'machine' | 'fuel' | 'misc';
+export type ItemCategory = 'block' | 'resource' | 'material' | 'component' | 'tool' | 'machine' | 'fuel' | 'misc' | 'food';
+
+/** What eating one of an item does (spec 12.1/12.2). */
+export interface FoodSpec {
+  /** Food points restored (the bar holds MAX_FOOD). */
+  hunger: number;
+  /** Buff granted on eating. Foods with a buff may be eaten on a full stomach. */
+  buff?: 'well_fed';
+  /** Duration of the buff in seconds. */
+  buffS?: number;
+}
 
 export interface ItemSpec {
   key: string;
@@ -121,6 +132,8 @@ export interface ItemSpec {
   block?: string;
   tool?: ToolSpec;
   fuel?: FuelSpec;
+  /** Edible: Use eats one (unless it would plant it, see `block`). */
+  food?: FoodSpec;
   category: ItemCategory;
   /** Technology age (0-based index into AGES) in which the item first becomes obtainable. */
   age: number;
@@ -375,7 +388,9 @@ export type MachineRole =
   | 'consumer'
   | 'storage'
   | 'crate'
-  | 'boiler';
+  | 'boiler'
+  /** A growing plant on farmland (no power, no screen): src/sim advances its stage block. */
+  | 'crop';
 
 /** Static numbers for one kind of machine. The behaviour itself lives in src/sim. */
 export interface MachineSpec {
@@ -460,6 +475,63 @@ export interface OreVeinSpec {
   veinSize: number;
   /** Per-biome multiplier on veinsPerChunk. Missing biomes count as 1. */
   biomes?: Partial<Record<BiomeKey, number>>;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Creatures (authored in src/content/creatures.ts, simulated by src/mobs, drawn by src/render)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Which animation drives a model part. Legs swing about their pivot's X axis in pairs (FL with BR, FR with BL)
+ * in proportion to walking speed; 'head' parts tilt together about the head pivot (down while grazing, a small
+ * bob while walking); 'none' parts are rigid with the body.
+ */
+export type CreatureAnim = 'legFL' | 'legFR' | 'legBL' | 'legBR' | 'head' | 'none';
+
+/**
+ * One box of a creature's model. Units are 1/16 of a block, relative to the centre of the creature's feet.
+ * The model is authored FACING NORTH (-Z, like a camera at yaw 0): the head is at negative z, +X is east
+ * (the creature's right), +Y is up and y = 0 is the ground. A creature with yaw θ is this model rotated by θ
+ * about +Y (the camera convention: positive turns left).
+ */
+export interface CreaturePart {
+  /** Unique within the model, e.g. 'body', 'head', 'beak', 'legFL'. */
+  name: string;
+  /** Minimum corner [x, y, z] (1/16 block). */
+  from: readonly [number, number, number];
+  /** Maximum corner [x, y, z] (1/16 block); every component > the same one of `from`. */
+  to: readonly [number, number, number];
+  /** Fill colour, 0xRRGGBB. The renderer shades faces and adds subtle pixel noise in this colour. */
+  color: number;
+  anim: CreatureAnim;
+  /**
+   * Point the part rotates about (1/16 block), required for every animated part: the hip of a leg (top
+   * centre), the neck of the head. All parts that share an anim tag share the same pivot and move as one.
+   */
+  pivot?: readonly [number, number, number];
+}
+
+export interface CreatureSpec {
+  key: string;
+  name: string;
+  /** One or two short sentences for the codex. */
+  desc: string;
+  /** Biomes it spawns in. */
+  biomes: BiomeKey[];
+  /** Hit points of an adult. */
+  health: number;
+  /** Walking speed in blocks (metres) per second. */
+  speed: number;
+  /** Collision box of an adult in blocks: w x w footprint, h tall (babies are half size). */
+  size: { w: number; h: number };
+  /** What an adult drops when killed (straight into the player's inventory). Babies drop nothing. */
+  drops: Drop[];
+  /** Item keys that lure it (held within follow range) and, fed with Use, make it eager to breed. */
+  likes: string[];
+  /** Animals per spawned group, inclusive [min, max]. */
+  group: readonly [number, number];
+  /** Box model of an adult (see CreaturePart for units and orientation). */
+  model: CreaturePart[];
 }
 
 // ---------------------------------------------------------------------------------------------

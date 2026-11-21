@@ -76,3 +76,59 @@ export const IGNITION_POWER_W = 300_000;
 export const IGNITION_SECONDS = 90;
 /** Output of an ignited Starhearth. */
 export const STARHEARTH_OUTPUT_W = 1_000_000;
+
+// --- hunger (spec 12.1) ---
+export const MAX_FOOD = 20;
+/** Food lost per second at rest (a full bar lasts 20 minutes), the sprint multiplier, and the cost of effort. */
+export const FOOD_DRAIN_PER_S = 1 / 60;
+export const FOOD_DRAIN_SPRINT_MULT = 2.5;
+export const FOOD_COST_PER_BLOCK_MINED = 0.03;
+export const FOOD_COST_PER_JUMP = 0.03;
+/** At or below this the player is Hungry: no sprinting, one warning toast when crossing it. */
+export const HUNGRY_AT = 6;
+/** Seconds between hits of 1 damage while the food bar is empty (never below 1 health from hunger alone). */
+export const STARVE_INTERVAL_S = 6;
+/** Health only regenerates at or above this much food, and each point regenerated costs this much food. */
+export const REGEN_MIN_FOOD = 12;
+export const REGEN_FOOD_COST = 0.25;
+/** Seconds between two bites. */
+export const EAT_COOLDOWN_S = 0.6;
+/** Well-Fed (from forged meals): duration, health regeneration speed-up, and the factor on all food drain. */
+export const WELL_FED_DURATION_S = 360;
+export const WELL_FED_REGEN_MULT = 2;
+export const WELL_FED_DRAIN_MULT = 0.5;
+
+// --- animals (spec 12.5) ---
+/** Hard caps: animals simulated (loaded) at once, and animals kept in the save. */
+export const MOB_LOADED_CAP = 40;
+export const MOB_STORED_CAP = 300;
+/** Chance that a chunk column rolls a group the first time it loads. */
+export const MOB_CHUNK_SPAWN_CHANCE = 0.15;
+/** Wandering: farthest target in blocks, deepest drop it will step down, and the flee burst. */
+export const MOB_WANDER_RADIUS = 8;
+export const MOB_MAX_DROP = 2;
+export const MOB_FLEE_SPEED_MULT = 1.6;
+export const MOB_FLEE_S = 5;
+/** Following a player who holds a liked item: notice range and how close it comes. */
+export const MOB_FOLLOW_RANGE = 10;
+export const MOB_FOLLOW_DISTANCE = 2;
+/** Breeding: how long a fed animal stays eager, partner search radius, time to a baby, cooldown afterwards. */
+export const MOB_EAGER_S = 30;
+export const MOB_BREED_RADIUS = 8;
+export const MOB_BREED_S = 3;
+export const MOB_BREED_COOLDOWN_S = 300;
+/** Babies are this fraction of adult size and grow up after this many seconds. */
+export const MOB_BABY_SCALE = 0.5;
+export const MOB_GROW_UP_S = 300;
+/** Keep-alive spawning near the player: minimum adults within the radius, daytime seconds below it, min distance. */
+export const MOB_KEEPALIVE_MIN_ADULTS = 6;
+export const MOB_KEEPALIVE_RADIUS = 64;
+export const MOB_KEEPALIVE_AFTER_S = 120;
+export const MOB_KEEPALIVE_MIN_DISTANCE = 24;
+/** The chunks around world spawn guarantee groups within this many blocks. */
+export const MOB_SPAWN_GUARANTEE_RADIUS = 40;
+/** Hitting animals: seconds between hits, tip-over time before the drops, and idle call interval range. */
+export const MOB_HIT_COOLDOWN_S = 0.4;
+export const MOB_DEATH_S = 0.6;
+export const MOB_CALL_MIN_S = 8;
+export const MOB_CALL_MAX_S = 20;
