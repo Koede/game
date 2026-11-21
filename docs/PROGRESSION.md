@@ -2,8 +2,8 @@
 
 The complete path from bare hands to the Starhearth, in six ages. **[built]** = in the game today;
 **[planned]** = designed, not built; **[change]** = alters something built. Numbers for planned parts are
-starting values. Detailed plans: `docs/STEAM_PLAN.md` (Ember mechanics), `docs/BREWING_PLAN.md` (tea and
-coffee), `docs/BRONZE_PLAN.md` (the Bronze Age), `docs/SPEC.md` (rules of everything built). The Codex page
+starting values. Detailed plans: `docs/EMBER_PLAN.md` (the handwork age), `docs/STEAM_PLAN.md` (first half of the
+Bronze Age: shafts, speed and stress), `docs/BREWING_PLAN.md` (tea and coffee), `docs/BRONZE_PLAN.md` (second half of the Bronze Age), `docs/SPEC.md` (rules of everything built). The Codex page
 shows this progression as a tree.
 
 Note on numbering: the game today has five ages and five furnace tiers. The Bronze Age inserts a new second
@@ -14,7 +14,7 @@ age and a new tier 2 (BRONZE_PLAN work item W0 renumbers everything).
 | Step | Energy form | Made from | Age | Carried by | Measured in |
 |---|---|---|---|---|---|
 | 1 | Heat | fuel in the furnace | Ember | the furnace; from Bronze on, thermocouples | degrees C, kW |
-| 2 | Open steam and rotation | heat + water in a kettle, flowing water, wind | Ember | wooden axles, cogs | rpm and stress |
+| 2 | Open steam and rotation | heat + water in a copper kettle, flowing water, wind | Bronze (first half) | wooden axles, cogs | rpm and stress |
 | 3 | Pressure steam | heat into a sealed boiler | Bronze | steam pipes | bar |
 | 4 | Compressed air | rotation into a compressor | Bronze | air tubes | bar |
 | 5 | Electricity | rotation into a dynamo, later direct | Forge (end) | cables | watts |
@@ -51,7 +51,7 @@ Every conversion is a block in the world you can watch working.
   bucket set on top of the furnace boils; cup + drip cone + leaves or grounds; pour the boiling water; drink
   - six drinks, each its own 3-minute boost: Green Tea (jump), Black Tea (warmth), Berry Tea (healing), Light
   Roast (speed), Dark Roast (mining), Trail Blend (hunger). One tea and one coffee boost at a time. The kettle
-  also gives boiling water; any future container works too.
+  also gives boiling water (the Ember Kettle Pot, not the Bronze Copper Kettle); any future container works too.
 - **Handwork [planned, EMBER_PLAN] - the age is manual (owner: "ember era should feel very manual and like
   you're making a bunch of different stuff"):** no steam, no shafts, no machines. Hand stations worked stroke by
   stroke: Chopping Block, Hand Quern, Stone Anvil, Mortar, Clay Table, Casting Bench with moulds, Drying Rack,
@@ -72,9 +72,10 @@ Every conversion is a block in the world you can watch working.
 ### Age 1 - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [planned, BRONZE_PLAN]
 
 - **Furnace:** still one block; 1100 C, two crucibles.
-- **Steam begins (first half of the age, STEAM_PLAN):** Copper Kettle + Steam Rotor, Water Wheel, Windmill,
-  wooden axles and cogs; SPEED and STRESS; Millstone, Saw Bench, Trip Hammer, Shaft Bellows, Mechanical Pump
-  and Drill automate the Ember hand stations. Clutch, Flywheel, gauges.
+- **Steam begins (first half of the age, STEAM_PLAN):** Copper Kettle (not the Ember Kettle Pot, which only boils
+  water) + Steam Rotor, Water Wheel, Windmill, wooden axles and cogs; SPEED and STRESS; Millstone, Saw Bench,
+  Trip Hammer, Shaft Bellows, Mechanical Pump and Drill; the Millstone, Saw Bench and Trip Hammer automate the
+  Ember hand stations (Hand Quern, Chopping Block, Stone Anvil). Clutch, Flywheel, gauges.
 - **Heat moves:** Thermocouples carry furnace (or lava) heat to Hot Plates, Heat Vents and boiler Heat Ports:
   2% lost per block, 6 kW per line; they glow by temperature and burn to the touch. The furnace stays the only
   origin of heat.
@@ -82,14 +83,15 @@ Every conversion is a block in the world you can watch working.
   Glass, Heat Port, Water Port and Steam Port, built from a ghost preview in the Structure planner.
 - **Pressure:** steam in bronze pipes, measured in bar; Pressure Gauges; Safety Valves; above 8 bar with no
   valve the weakest part bursts after a 5-second warning. Boiling dry warps the vessel.
-- **Piston power:** the Steam Engine gives 16 rpm and 128 stress capacity per bar onto the shaft lines from
-  the Ember Age. Steam Hammer, Steam Whistle.
+- **Piston power:** the Steam Engine gives 16 rpm and 128 stress capacity per bar onto the shaft lines of the
+  first half of this age. Steam Hammer, Steam Whistle.
 - **Pneumatics:** Air Compressor on a shaft, Air Tubes, Air Tank (to 6 bar; open ends leak). Pneumatic Press,
   Pneumatic Drill, the Air Hammer hand tool, the Blast Nozzle.
 - **Items move:** the Bronze Chute does nothing alone; a Vacuum Pump on the chute network (fed with air) draws
   items from every chute end toward itself and delivers them where it stands.
 - **Threats:** scalding and bursts; Bellows Hounds at night.
-- **Goals, in order:** Bronze Furnace - move the heat - build a steam boiler - raise steam - fit a safety
+- **Goals, in order:** Bronze Furnace - boil water - set it turning - grind - gear up - saw planks - shaft bellows
+  (STEAM_PLAN) - move the heat - build a steam boiler - raise steam - fit a safety
   valve - piston power - compress air - pneumatic post (vacuum chute) - press plates - forge a blast nozzle.
 - **Gate:** brick walls around the furnace with a Blast Nozzle in one wall, fed by air at 2 bar: the Blast
   hearth forms.
@@ -116,7 +118,7 @@ Every conversion is a block in the world you can watch working.
 - **Find:** quartz, bauxite, wolframite, spodumene, oil pools. **[built]**
 - **Hearth:** electric heating; silicon 1700, tungsten 2000. **[built]**
 - **Power:** the modern Steam Turbine turns steam straight into electricity **[built]** (decided: only the
-  Ember and Bronze steam devices drive shafts); wind, solar, combustion, geothermal with built-in generators
+  Bronze steam devices drive shafts; no alternator); wind, solar, combustion, geothermal with built-in generators
   **[built]**. Storms boost wind and bring Arc Drones; cloud and rain cut
   solar. **[built]**
 - **Machines:** still, bore rig, fast item pipes, heavy cable, circuits, Ward Beacon, arc maul. **[built]**
@@ -137,7 +139,7 @@ Hold 300 kW for 90 seconds on a line that can carry it. Then 1 MW forever, every
 ## 4. Requirements and complexity
 
 The Codex "Item map" places every built item by crafting steps and furnace tier with its raw cost (181 items
-today; the planned ages add roughly 14 Ember mechanics items, 12 brewing items and 25 Bronze items, nearly all
+today; the planned ages add roughly 14 early-Bronze mechanics items, 12 brewing items and 25 Bronze items, nearly all
 at steps 1-3 of the first two ages).
 
 ## 5. Build order across the plans
@@ -146,7 +148,7 @@ at steps 1-3 of the first two ages).
 2. BREWING_PLAN - independent, small; can go first.
 3. BRONZE_PLAN W0 - six tiers and ages (pure refactor, with a save migration).
 3b. EMBER_PLAN - hand stations, casting, leather and cloth; move instant recipes onto stations.
-4. STEAM_PLAN waves - open steam and shafts (now early Bronze).
+4. STEAM_PLAN waves - open steam and shafts (first half of the Bronze Age; after W0).
 5. BRONZE_PLAN B1-B4 - heat, boiler, pressure, air, vacuum chute.
 6. Forge heavy industry and the dynamo (to be planned in the same detail once Bronze is in).
 Each step ends with the full test suite, a review pass, and a republished game and Codex.
@@ -160,8 +162,9 @@ multiblock; the Bronze Chute lives in the Bronze Age and needs a Vacuum Pump; br
 are also at the workbench; buckets take source blocks and water flows; enemies are the Emberbound.
 
 Also decided: every tea and coffee variety gives its own boost; tea and coffee are regrowing bushes; the
-kettle and any future container give boiling water; steam drives shafts in the Ember and Bronze ages and the
-modern Steam Turbine (Current Age) converts straight to electricity.
+kettle and any future container give boiling water; steam drives shafts in the Bronze Age (rotor, then piston engine) and the
+modern Steam Turbine (Current Age) converts straight to electricity; the Ember Kettle Pot (brewing) is a different
+block from the Bronze Copper Kettle (steam).
 
 Still open:
 1. Star hearth: keep 93 casings or reduce?

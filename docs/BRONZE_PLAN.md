@@ -2,13 +2,15 @@
 
 Standalone plan for the second age of Hearthwatt: pressure, pneumatics, and heat you can move. Design AND
 implementation, written so an engineer who was not in the design conversation can build it exactly. Nothing in
-this file is built yet. Companion files: `docs/STEAM_PLAN.md` (Ember mechanics: speed and stress, built first),
-`docs/PROGRESSION.md` (whole game), `docs/SPEC.md` 21 (short form of this design; THIS file wins on detail).
+this file is built yet. Companion files: `docs/STEAM_PLAN.md` (the first half of this age: shaft mechanics, speed and stress, built first; sections cited below keep their numbers),
+`docs/EMBER_PLAN.md` (the handwork age before this one),
+`docs/PROGRESSION.md` (whole game), `docs/SPEC.md` 21 and 21.8 (short form of this design; THIS file wins on detail).
 
 > **Scope update:** the owner moved ALL steam and shaft mechanics into this age ("steam is a bronze age
 > thing"). The Bronze Age therefore has two halves: (a) open steam and turning - the kettle, steam rotor,
 > water wheel, windmill, axles, cogs, speed and stress, shaft machines - exactly as specified in
-> `docs/STEAM_PLAN.md`, re-tiered to the Bronze Furnace; then (b) everything in this file: thermocouples, the
+> `docs/STEAM_PLAN.md` (rewritten for the Bronze Furnace, tier 2; its Copper Kettle is `copper_kettle`, not the Ember
+> Kettle Pot); then (b) everything in this file: thermocouples, the
 > boiler multiblock, pressure, piston engines, air, the vacuum chute. The machines of (a) automate the hand
 > stations of the Ember Age (`docs/EMBER_PLAN.md`): millstone = hand quern, saw bench = chopping block, trip
 > hammer = stone anvil. The furnace upgrade list is shown from the first minute of each age.
@@ -42,8 +44,8 @@ Furnace tiers: 1 Clay Furnace 800 C, **2 Bronze Furnace 1100 C**, 3 Blast hearth
 |---|---|---|---|
 | Furnace | clay, single block | bronze, single block, 1100 C | blast hearth, multiblock, needs a blast nozzle |
 | Heat | stays in the furnace | thermocouples carry it up to ~12 blocks | iron thermocouples, 20 kW |
-| Steam | open kettle, no pressure | sealed multiblock boiler, 0-8 bar, pipes, valves | steel vessels and pipes, 16 bar |
-| Motion | rotor 32 rpm, wheel, windmill | piston engine: 16 rpm and 128 stress per bar | iron and steel shafts, heavy machines |
+| Steam | none (the Kettle Pot only boils tea water) | first half: open Copper Kettle, no pressure; second half: sealed multiblock boiler, 0-8 bar, pipes, valves | steel vessels and pipes, 16 bar |
+| Motion | none: hand stations (Quern, Chopping Block, Stone Anvil) | first half: rotor 32 rpm, wheel, windmill, shafts; second half: piston engine, 16 rpm and 128 stress per bar | iron and steel shafts, heavy machines |
 | Items | none (carry it, crates) | Bronze Chute pulled by a Vacuum Pump | steel conveyor pipe |
 | Tools | bronze | air hammer | iron, steel |
 | Electricity | none | none | dynamo at the end of the age |
@@ -65,7 +67,7 @@ Leave the age: a Blast hearth needs at least one `blast_nozzle` in its wall fed 
    Water Port; the gauge glass shows water rising. Then steam: a bronze Steam Pipe from the Steam Port, a
    Pressure Gauge on it. The needle climbs.
 5. **Piston power.** A Steam Engine on the pipe: beam rocking, flywheel turning, 16 rpm per bar. At 6 bar it
-   does three times what the Ember rotor did. Hook it to the Ember shaft line through a clutch.
+   does three times what the steam rotor of the first half of the age did (STEAM_PLAN). Hook it to your existing shaft line through a clutch.
 6. **The lesson.** With the engine clutched out, pressure keeps climbing: 7 bar - hiss, shaking needle, HUD
    "Boiler pressure high - fit a Safety Valve or use the steam". Fit a valve (set 6): shriek, plume, safe.
    A player who ignores it for the full count loses the vessel.
@@ -87,8 +89,8 @@ Acceptance for the whole age (all must hold):
 
 ## 4. Blocks and items (all numbers are starting values; keep them in src/content)
 
-Made at the Bronze Furnace (forge, tier 2) unless noted. "plate" = `bronze_plate` (trip hammer in Ember:
-2 bronze_ingot -> 1; also pneumatic press here).
+Made at the Bronze Furnace (forge, tier 2) unless noted. "plate" = `bronze_plate` (hammered by hand on the Ember Stone Anvil, or by the
+STEAM_PLAN Trip Hammer: 2 bronze_ingot -> 1; also the pneumatic press here).
 
 ### 4.1 Heat
 | key | name | role | numbers | recipe |
@@ -133,7 +135,7 @@ Made at the Bronze Furnace (forge, tier 2) unless noted. "plate" = `bronze_plate
 ### 4.5 Changes to existing content
 - `boiler` (current one-block Forge boiler) is REMOVED from recipes; saves that contain one keep it as a legacy
   block that still works (do not delete the block id) - mark `legacy: true`, hidden from the Codex.
-- `steam_engine` gets the 4.3 definition (its Ember-plan variant in STEAM_PLAN is void).
+- `steam_engine` gets the 4.3 definition (the first-draft variant in STEAM_PLAN section 2 is void).
 - `hot_fluid_pipe` (steel) stays the Forge upgrade for steam (16 bar) and lava.
 - `item_pipe` (Bronze Chute) MOVES to the Bronze Age (owner decision, section 5.4): its recipe needs bronze
   plate and the Bronze Furnace, and it moves nothing without a Vacuum Pump. The Ember Age has no item pipes.
@@ -151,7 +153,7 @@ All three reuse the pipe-graph pattern in `src/sim/pipeGraph.ts` (flood fill on 
 
 ### 5.1 Heat (`src/sim/heatNet.ts`)
 - Members: thermocouples; SOURCES = furnace or formed hearth shell blocks (temperature = furnace temp, only if
-  >= 200 C), lava blocks (1300 C, max 2 kW per touching face); USERS = hot_plate, heat_vent, heat_port, kettle.
+  >= 200 C), lava blocks (1300 C, max 2 kW per touching face); USERS = hot_plate, heat_vent, heat_port, copper_kettle (STEAM_PLAN; the brewing Kettle Pot is not a heat user).
   A source or user touching any thermocouple of the network is in it. A user touching a furnace directly needs
   no thermocouple (distance 0).
 - On rebuild: for each user, BFS distance `n` (thermocouple blocks) to each source.
@@ -442,7 +444,7 @@ Tests: place/remove in the middle splits and conserves; joining two nets merges;
 ```
 onRebuild(net):
   net.sources = members touching a furnace/hearth shell (>= 200 C) or lava
-  net.users   = hot_plate, heat_vent, heat_port, kettle touching a member
+  net.users   = hot_plate, heat_vent, heat_port, copper_kettle touching a member
   for u in users: for s in sources: dist[u][s] = bfsBlocks(u.touchCell -> s.touchCell)   // thermocouple count
   for cell in net.cells: distToAnySource[cell] = multi-source BFS
 
