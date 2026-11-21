@@ -41,7 +41,7 @@ git log --oneline | head -20
 | `src/render/textures` | just started | canvas + palette only. No painters. |
 | `src/render` | early | atlas, tiles, skyModel, shaders. One failing test (`skyModel` continuity over the day wrap). |
 | `src/player/input` | about 60% | gestures, keys, mouse drag, touch overlay written. Missing: InputManager, index, tests, browser check. |
-| `src/sim` | about 90% | furnace heat model, forging, upgrades, power networks, every generator and machine, fission, ignition: written and tested (92 tests). Missing: the scripted full-playthrough test, docs/api/sim.md, a final read of the Simulation facade's UI queries. |
+| `src/sim` | done, tested (64 tests) | Furnace, forging, upgrades, power networks, every machine, fission, ignition. A scripted playthrough walks clay furnace -> ignited Starhearth through the public API with survival and the objective tracker running (every objective completes, ~98 min game time). 300 entities tick in ~0.04 ms (node). Furnace/machine/network views for the UI, `grid()` and `homeFurnace()` for the HUD; `Simulation` satisfies `SimQuery` and the HUD's `UISimQuery`. API, every view field and decisions in `docs/api/sim.md`. |
 | `src/player` (physics, raycast, interaction, controller) | not started | |
 | `src/ui/hud`, `src/ui/screens` | not started | |
 | `src/main.ts`, `src/app`, save document, `scripts/e2e.mjs` | not started | |
