@@ -1,7 +1,8 @@
 # Hearthwatt - handoff
 
-Pick-up notes for whoever continues this build. The game is NOT playable yet: the foundations exist, the
-middle is half-written, and nothing is wired together.
+Pick-up notes for whoever continues this build. Every module is built and wired together: the game boots,
+plays and saves (`npm run build`, then open dist/index.html through any static server). What is left is the
+playtest and review pass and delivery (items 10 and 11 below).
 
 **Read first:** `docs/SPEC.md` (design, rules, architecture, a brief per module) and `docs/api/*.md` (what
 each finished module exports). `README.md` describes the finished game, not the current state.
@@ -45,7 +46,7 @@ git log --oneline | head -20
 | `src/player` (physics, raycast, interaction, controller) | done, tested (96 tests incl. input) | Swept-box physics (slab step, swimming, fall damage, unloaded columns are walls), DDA raycast, mining / placing / pail / screens per spec 3.6, `PlayerController` driving `IView` (bob, sprint FOV kick, held item, swing, pointer re-capture). Verified in headless Chromium with the real `World` on desktop and phone (walk, look, mine, place, use, jump). Not yet run with the real Renderer. Wiring and decisions in `docs/api/player.md` (note: centre the player on `world.spawnPoint()` with +0.5). |
 | `src/ui/hud`, `src/ui/gameUI.ts`, `src/ui/screens/{slots,inventory,workbench,log,death,win}` (7.4a) | done, tested, browser-verified | GameUI (registerScreen contract), HUD, slot controller, inventory / workbench / log / death / win. Touch and mouse flows pass in headless Chromium. API in `docs/api/hud.md`. Furnace / machine screens are 7.4b. |
 | `src/ui/screens/furnace`, `src/ui/screens/machines` (7.4b) | done, tested (18 tests), browser-verified | The furnace screen (header + upgrade sheet, always-visible firebox with thermometer, live flame, fuel, Light/Douse, PUMP, electric switch, status, Rest; tabs SMELT / FORGE / GRID (+ Starhearth ignition) / LOG; backpack as side column or drawer), every machine layout and the crate. Screenshotted in every brief state at 390x844, 844x390, 1280x800; tap / click flows (fuel, light, pump, smelt, collect, forge, upgrade, machines, crate) pass. **Integration: call `registerStationScreens(gameUI, sim)` once** (GameUI untouched). API in `docs/api/furnace-screens.md`. |
-| `src/main.ts`, `src/app`, save document, `scripts/e2e.mjs` | not started | |
+| `src/main.ts`, `src/app`, save document, `scripts/e2e.mjs` (7.5) | done, tested (32 tests), e2e passing | Boot flow (no-WebGL2 notice -> title -> New World / Continue -> loading with progress -> play; pause; settings persisted; save and quit), `GameState` (DOM-free session: create / restore / 20 Hz tick / toSave, node-tested round trip that continues identically), `Game` (wiring + frame loop), save document `{ settings, world }` on SaveStore (autosave every 30 s, on pause, on hide / pagehide), audio unlock + ambience feed, `window.__hw`. `npm run e2e` plays the opening on desktop, portrait and landscape phones with real input (mine 4 logs, craft, workbench, furnace, fuel, light, heat, smelt, collect, forge, death + respawn, objectives, save/quit/reload/Continue) plus a sandboxed-frame run and a no-WebGL2 run; screenshots in `test-results/e2e/`. Fixed in `src/player/input`: Chromium's bogus look movement when pointer lock starts. API in `docs/api/integration.md`. |
 
 ## What is left, in order
 
@@ -98,5 +99,5 @@ dependency chain can be built at the same time (the spec's section 9 explains ho
 - **Git:** the repository was empty, so `ccr-3c8b169f-e78nk2` is the only branch and there is no pull
   request (nothing to open one against). `.github/workflows/pages.yml` deploys on pushes to `main`, which
   does not exist yet. Several commits are checkpoints of half-written modules and do not build.
-- **No `src/main.ts` yet,** so `npm run build` fails until integration. `npm test` and `npm run typecheck`
-  work today.
+- **Checks:** `npm run typecheck`, `npm test` and `npm run build` pass for the whole repository; `npm run e2e`
+  (about 6 minutes on software WebGL) drives the built game.
