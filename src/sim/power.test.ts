@@ -36,18 +36,19 @@ describe('heat engines', () => {
   it('a coal fire under a steam engine settles near 820 C delivering 2 kW', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, 'furnace_blast');
-    // A closed 1x1x1 hearth (the single block's numbers); the engine sits on its ceiling, a battery takes its power.
-    kit.formed(0, 1, 0, { closed: true });
-    const engine = kit.machine('steam_engine', 0, 3, 0);
-    kit.machine('battery', 0, 4, 0);
+    // The smallest Blast hearth (the tier table's numbers) is open at the top: the engine sits on the furnace, and a
+    // battery takes its power.
+    kit.formed(0, 1, 0);
+    const engine = kit.machine('steam_engine', 0, 2, 0);
+    kit.machine('battery', 0, 3, 0);
     e.fuel[0] = { item: 'coal', count: 99 };
     e.fuel[1] = { item: 'coal', count: 99 };
     kit.sim.light(0, 1, 0);
     kit.run(120);
     expect(engine.availW).toBe(0);
-    expect(kit.sim.machineView(0, 3, 0)!.problem).toBe('Needs water on one side');
+    expect(kit.sim.machineView(0, 2, 0)!.problem).toBe('Needs water on one side');
     expect(e.tempC).toBeCloseTo(1250, 6);
-    kit.world.put(1, 3, 0, 'water');
+    kit.world.put(1, 2, 0, 'water');
     kit.run(600);
     expect(e.tempC).toBeGreaterThan(815);
     expect(e.tempC).toBeLessThan(825);

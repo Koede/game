@@ -259,10 +259,10 @@ export class Play {
     this.step(0.5);
   }
 
-  /** Smelts `count` input items in the crucibles, a batch at a time, and carries the products to the crates. */
+  /** Smelts `count` input items in the working crucibles, a batch at a time, and carries the products to the crates. */
   smelt(input: string, count: number): void {
     const slots = this.furnaceSlots();
-    const crucibles = slots.crucibleIn.size;
+    const crucibles = this.view().cruciblesActive;
     let left = count;
     while (left > 0) {
       const each = Math.min(Math.ceil(left / crucibles), 40);
@@ -303,6 +303,31 @@ export class Play {
       this.stash();
       if (inv.get(0) === null && left === 0) return;
     }
+  }
+
+  /**
+   * Builds the hearth of `tier` around the home furnace the way the STRUCTURE tab's ghost preview shows it: breaks
+   * every block that is in the way, places every block that is missing (from the pack or the crates), and checks that
+   * it formed. Returns how many blocks were placed.
+   */
+  buildHearth(tier: number): number {
+    const { x, y, z } = this.at;
+    const plan = this.sim.structureView(x, y, z, { tier });
+    if (!plan) throw new Error('the home furnace is gone');
+    const short = plan.target.materials.filter((m) => !m.ok).map((m) => `${m.missing - m.have} ${m.item}`);
+    if (short.length > 0) throw new Error(`hearth ${tier}: short of ${short.join(', ')}`);
+    let placed = 0;
+    for (const c of plan.target.cells) {
+      if (c.state === 'ok') continue;
+      if (c.state === 'wrong') this.breakBlock(c);
+      if (c.want === 'air') continue;
+      this.place(c.want, c);
+      placed++;
+    }
+    this.stash();
+    const built = this.sim.structureView(x, y, z, { tier });
+    if (!built || built.tier < tier) throw new Error(`hearth ${tier} did not form: ${JSON.stringify(built?.problems)}`);
+    return placed;
   }
 
   /** Checks the result of one of the furnace's or a machine's buttons, then lets half a second pass. */

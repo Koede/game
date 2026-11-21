@@ -3,8 +3,8 @@
  * hearth around it) - tier 1 numbers when it stands alone - and a formed interior scales the tier's numbers. Every
  * part of the furnace model reads these instead of the raw tier table.
  */
-import { hearthCrucibles, hearthScale, type Interior } from '../core/hearth';
-import { block, furnaceTier } from '../core/registry';
+import { hearthCrucibles, hearthScale, smallestShell, type HearthScale, type Interior } from '../core/hearth';
+import { FURNACE_TIERS, block, furnaceTier } from '../core/registry';
 import type { FurnaceTierSpec } from '../core/types';
 import { article, hearthName, structureOf } from './hearthScan';
 
@@ -36,12 +36,23 @@ export interface FurnaceStats {
   /**
    * A hearth's fire and heater are sized to its shell: fuel burns this many times faster and gives this many times
    * the heat, so every legal hearth reaches the same temperatures and a bigger one simply costs more to keep hot.
-   * Equals the heat-loss multiplier (1 for a lone furnace).
+   * Equals the heat-loss multiplier against the tier's smallest shell (1 for a lone furnace and a smallest hearth).
    */
   fireScale: number;
   /** Blowers in its faces running this tick (only HEARTH_MAX_TUYERES count). */
   tuyeres: number;
 }
+
+/**
+ * What each tier's smallest legal shell scales by (spec 17.1's formulas take a 1x1x1 inside as the reference). The
+ * stats divide by it, so the smallest hearth of every tier runs at exactly its tier table's numbers - which the power
+ * budget of the game (objective texts, the 340 kW ignition) is balanced on - and bigger shells cost more from there.
+ */
+const REFERENCE: Array<HearthScale | null> = FURNACE_TIERS.map((t) => {
+  if (!t.structure) return null;
+  const min = smallestShell(t.structure);
+  return hearthScale(min.inner, { closed: min.closed, windows: 0, tuyeres: 0 });
+});
 
 /** Effective tier of a furnace of upgraded `tier` in a hearth formed at `structural` (0: not formed). */
 export const effectiveTier = (tier: number, structural: number): number => Math.max(1, Math.min(tier, structural));
@@ -57,14 +68,16 @@ export function furnaceStats(tier: number, h: HearthSummary | null, tuyeres = 0,
   out.spec = spec;
   out.maxTempC = spec.maxTempC;
   out.tuyeres = tuyeres;
-  if (eff >= 2 && h) {
+  const ref = REFERENCE[eff - 1];
+  if (eff >= 2 && h && ref) {
     const inner: Interior = h.inner;
     const scale = hearthScale(inner, { closed: h.closed, windows: h.windows, tuyeres });
-    out.heatCapacityJ = spec.heatCapacityJ * scale.heatCapacity;
-    out.lossWPerC = spec.lossWPerC * scale.loss;
+    const loss = scale.loss / ref.loss;
+    out.heatCapacityJ = (spec.heatCapacityJ * scale.heatCapacity) / ref.heatCapacity;
+    out.lossWPerC = spec.lossWPerC * loss;
     out.speed = spec.speed * scale.speed;
     out.crucibles = hearthCrucibles(structureOf(eff), inner);
-    out.fireScale = scale.loss;
+    out.fireScale = loss;
   } else {
     out.heatCapacityJ = spec.heatCapacityJ;
     out.lossWPerC = spec.lossWPerC;

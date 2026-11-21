@@ -1,8 +1,9 @@
 /**
  * The proof that the core loop works: one long scripted game through the public API only - raw materials are
  * found, everything else is crafted, smelted, forged, crushed, distilled, spun and split by the real rules, the
- * furnace is upgraded in place from clay to Starhearth, power grows from a thermopile to a fission pile, and the
- * Starhearth is ignited. The objective tracker and survival run alongside, so every objective must complete too.
+ * furnace is upgraded in place from clay to Starhearth inside the hearth built around it for each tier (spec 17: the
+ * player places every wall block), power grows from a thermopile to fission piles, and the Starhearth is ignited. The
+ * objective tracker and survival run alongside, so every objective must complete too.
  */
 import { describe, expect, it } from 'vitest';
 import { FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
@@ -13,11 +14,19 @@ import { swapSlots } from '../game/transfer';
 import type { FakeWorld } from '../game/fakeWorld';
 import { Play } from './playKit';
 
+/**
+ * The home furnace faces south (the way the player looks at it), so its hearth lies north of it: the hearths grow
+ * from a 1x1x1 inside (Blast, Arc) to 2x2x2 (Plasma) and 3x3x3 (Starhearth), all within x -3..1, z -4..0, y 0..4.
+ * Everything else stays out of that block.
+ */
 const F = { x: 0, y: 1, z: 0 };
-const BENCH = { x: 2, y: 1, z: 2 };
-const CRATES = [{ x: -2, y: 1, z: 1 }, { x: -2, y: 1, z: 0 }, { x: -3, y: 1, z: -1 }, { x: -3, y: 1, z: 0 }, { x: -3, y: 1, z: 1 }, { x: -4, y: 1, z: 0 }];
-const THERMOPILE = { x: 1, y: 1, z: 0 };
-const LAMP = { x: 2, y: 1, z: 0 };
+const BENCH = { x: -2, y: 1, z: 5 };
+/** Twelve crates south-west of the furnace, within its reach (and the bench's). */
+const CRATES = [2, 3, 4].flatMap((z) => [-1, -2, -3, -4].map((x) => ({ x, y: 1, z })));
+/** At the furnace's mouth: it touches the furnace and carries the grid to it. */
+const THERMOPILE = { x: 0, y: 1, z: 1 };
+const LAMP = { x: -1, y: 1, z: 1 };
+/** On the furnace: the Blast hearth's open top leaves room for it. */
 const STEAM = { x: 0, y: 2, z: 0 };
 /** A patch of grass beside the base: tilled into farmland and sown with wheat. */
 const FIELD = { x: 5, y: 1, z: 5 };
@@ -26,20 +35,21 @@ const MEALS = ['hearth_stew', 'cooked_chop', 'bread', 'baked_potato'];
 /** The hotbar slot the script puts things in hand with. */
 const HAND = 8;
 
-/** The power bus: a link north of the furnace and a run of cable along z = -2. Generators sit on the z = -3 side. */
-const BUS = [{ x: 0, y: 1, z: -1 }, { x: 0, y: 1, z: -2 }, { x: -1, y: 1, z: -2 }, { x: -2, y: 1, z: -2 }, { x: 1, y: 1, z: -2 }, { x: 2, y: 1, z: -2 }];
-const CRUSHER = { x: -3, y: 1, z: -2 };
-const BATTERY = { x: -1, y: 1, z: -3 };
-const BURNERS = [{ x: -2, y: 1, z: -3 }, { x: 0, y: 1, z: -3 }, { x: 1, y: 1, z: -3 }];
-const STILL = { x: 3, y: 1, z: -2 };
-const ENGINES = [{ x: 2, y: 1, z: -3 }, { x: -2, y: 1, z: -1 }];
-const CENTRIFUGE = { x: -1, y: 1, z: -1 };
-const PILE = { x: -1, y: 2, z: -3 };
-const BANKS = [{ x: 3, y: 1, z: -3 }, { x: 4, y: 1, z: -3 }];
-const ELECTROLYZER = { x: 1, y: 1, z: -1 };
+/** The power bus: a run of cable east from the thermopile along z = 1, machines on both sides of it. */
+const BUS = [1, 2, 3, 4, 5, 6, 7, 8].map((x) => ({ x, y: 1, z: 1 }));
+const CRUSHER = { x: 3, y: 1, z: 2 };
+const BATTERY = { x: 4, y: 1, z: 2 };
+const BURNERS = [{ x: 5, y: 1, z: 2 }, { x: 6, y: 1, z: 2 }, { x: 2, y: 1, z: 0 }];
+const STILL = { x: 3, y: 1, z: 0 };
+const ENGINES = [{ x: 4, y: 1, z: 0 }, { x: 5, y: 1, z: 0 }];
+const CENTRIFUGE = { x: 7, y: 1, z: 2 };
+/** The fission pile, with water above it and beside it. */
+const PILE = { x: 8, y: 1, z: 2 };
+const BANKS = [{ x: 7, y: 1, z: 0 }, { x: 9, y: 1, z: 1 }];
+const ELECTROLYZER = { x: 10, y: 1, z: 1 };
 /** Spec 16: the first item pipe and the first pump (their objectives only ask for the placement). */
-const PIPE = { x: 3, y: 1, z: 1 };
-const PUMP = { x: 3, y: 1, z: 2 };
+const PIPE = { x: 1, y: 1, z: 4 };
+const PUMP = { x: 1, y: 1, z: 5 };
 
 /** The player's crosshair on the top face of a block (what a hoe tills and seeds are sown on). */
 function aimDown(world: FakeWorld, p: { x: number; y: number; z: number }): UseTarget {
@@ -96,14 +106,15 @@ describe('scripted playthrough', () => {
     const flags = kit.record('flag');
     const toasts = kit.record('toast');
     const damage = kit.record('player:damage');
+    const hearths = kit.record('hearth:formed');
     const done = (id: string) => expect(tracker.isComplete(id), `objective ${id}`).toBe(true);
     const log: string[] = [];
     const mark = (what: string) => log.push(`${(play.time / 60).toFixed(1).padStart(6)} min  ${what}`);
 
     // ---- Ember Age: wood, flint, a clay furnace ------------------------------------------------------------------
-    play.gather('oak_log', 28, '28 oak_log');
+    play.gather('oak_log', 44, '44 oak_log');
     done('gather_logs');
-    play.craft('plank', 17);
+    play.craft('plank', 30);
     done('make_planks');
     play.craft('workbench');
     play.place('workbench', BENCH);
@@ -202,25 +213,35 @@ describe('scripted playthrough', () => {
     expect(kit.clock.isNight).toBe(false);
     expect(flags).toContainEqual({ flag: 'rested' });
 
+    // Spec 17: the Blast Furnace needs a Blast hearth - 16 brick around the clay furnace, open at the top.
     play.craft('bellows', 1, BENCH);
+    expect(play.view().upgrade).toMatchObject({ ok: false, structureOk: false, reason: 'Build a Blast hearth: brick walls around the furnace' });
+    play.find('26 clay');
+    play.smelt('clay', 26);
+    play.forge('brick', 16);
+    const formed = kit.record('hearth:formed');
+    expect(play.buildHearth(2)).toBe(16);
+    expect(formed).toEqual([{ ...F, tier: 2, min: [-1, 0, -2], max: [1, 1, 0] }]);
+    expect(toasts.map((t) => t.text)).toContain('Blast hearth formed');
+    expect(play.view()).toMatchObject({ tier: 1, effectiveTier: 1, hearth: { formed: true, text: 'Formed - Blast hearth 1x1x1' } });
     const upgrade1 = play.view().upgrade!;
     expect(upgrade1).toMatchObject({ ok: true, reason: null, requiredC: 700 });
-    // Spec 17: once the simulation makes upgrades need a formed hearth, the script must build a Blast hearth (16 brick
-    // around the furnace) before this point - the simulation engineer adds that together with hearth formation.
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to blast furnace');
     done('blast_furnace');
     expect(blockOf(kit.world.getVoxel(F.x, F.y, F.z)).key).toBe('furnace_blast');
-    expect(play.view()).toMatchObject({ tier: 2, lit: true });
+    expect(play.view()).toMatchObject({ tier: 2, effectiveTier: 2, cruciblesActive: 2, lit: true });
     mark('Blast Furnace');
 
     // ---- Forge Age: iron, steel, the first machines and power ---------------------------------------------------
-    play.find('130 iron_ore, 150 coal, 16 limestone, 32 copper_ore, 4 tin_ore, 12 clay, 4 sand, 3 sulfur');
+    play.find('130 iron_ore, 160 coal, 16 limestone, 36 copper_ore, 4 tin_ore, 60 clay, 4 sand, 3 sulfur');
     play.heat(1150);
+    play.find('12 raw_chop'); // the hunt goes on: supper for the long middle of the game
+    play.smelt('raw_chop', 12);
     play.smelt('iron_ore', 110);
-    play.smelt('coal', 40);
-    play.smelt('copper_ore', 32);
+    play.smelt('coal', 50);
+    play.smelt('copper_ore', 36);
     play.smelt('tin_ore', 4);
-    play.smelt('clay', 12);
+    play.smelt('clay', 60);
     play.smelt('sand', 4);
     // Objective 'pipe_ore' comes first in the Forge Age; the iron smelted above completes 'smelt_iron' right after it.
     play.forge('item_pipe');
@@ -241,11 +262,15 @@ describe('scripted playthrough', () => {
     play.forge('crusher');
     play.place('crusher', CRUSHER);
     done('place_crusher');
+    // Six cables came with the first power; the bus takes eight.
+    play.find('1 clay, 1 sand');
+    play.forge('ceramic_insulator');
+    play.forge('copper_cable');
     for (const p of BUS) play.place('copper_cable', p);
     expect(sim.networkAt(BUS[3].x, BUS[3].y, BUS[3].z)!.ratingW).toBe(10000);
     expect(sim.machineView(CRUSHER.x, CRUSHER.y, CRUSHER.z)!.network).toBe(sim.networkAt(F.x, F.y, F.z)!.id);
 
-    // Steam: an engine on top of the furnace with water beside it.
+    // Steam: an engine on top of the furnace (the Blast hearth is open at the top) with water beside it.
     play.forge('iron_plate', 8);
     play.forge('chassis');
     play.forge('copper_coil', 2);
@@ -254,7 +279,6 @@ describe('scripted playthrough', () => {
     expect(sim.machineView(STEAM.x, STEAM.y, STEAM.z)!.problem).toBe('Needs water on one side');
     play.pour({ x: 1, y: 2, z: 0 });
     play.until('2 kW of steam', () => sim.generationW() >= 2000, 300);
-    expect(sim.furnaceView(F.x, F.y, F.z)!.extractW).toBeGreaterThan(6000);
     mark('steam power');
 
     play.process(CRUSHER, 'iron_ore', 20);
@@ -264,6 +288,9 @@ describe('scripted playthrough', () => {
     play.forge('iron_plate', 2);
     play.forge('battery');
     play.place('battery', BATTERY);
+    // The battery soaks up what the grid does not use, so the steam engine now draws real heat: 3 J for every J.
+    play.step(2);
+    expect(sim.furnaceView(F.x, F.y, F.z)!.extractW).toBeGreaterThan(5000);
     play.until('1 MJ stored', () => tracker.isComplete('store_energy'), 1500);
     for (const p of BURNERS) {
       play.forge('iron_plate', 4);
@@ -273,14 +300,25 @@ describe('scripted playthrough', () => {
       play.place('burner_generator', p);
       play.load(play.machineSlots(p), 'coal', 15);
     }
-    // The steam engine steals 6 kW of heat; with burners on the grid it can be switched off to get the heat back.
     play.must(sim.toggleMachine(STEAM.x, STEAM.y, STEAM.z), 'steam off');
     expect(sim.machineView(STEAM.x, STEAM.y, STEAM.z)!.status).toBe('Switched off');
     play.smelt('crushed_iron', 40);
     play.forge('steel_ingot', 8);
     play.forge('steel_plate', 8);
     play.forge('graphite_electrode', 3);
+    play.forge('copper_wire', 2);
     play.forge('copper_coil', 4);
+    // The Arc hearth: refractory brick walls, a ceiling with an electrode. Forged while the Blast hearth still stands
+    // (refractory brick needs 1300 C); building it puts a lid on the furnace, so the steam engine comes off it.
+    play.forge('brick', 24);
+    play.forge('refractory_brick', 6);
+    play.forge('electrode');
+    expect(play.view().upgrade).toMatchObject({
+      ok: false, structure: 'Build an Arc hearth: refractory brick walls around the furnace, a ceiling and 1 Arc Electrode',
+    });
+    play.buildHearth(3);
+    expect(kit.world.getBlock(STEAM.x, STEAM.y, STEAM.z).key).toBe('refractory_brick');
+    expect(play.view()).toMatchObject({ tier: 2, effectiveTier: 2, hearth: { tier: 3, closed: true } });
     play.heat(1200);
     expect(play.view().upgrade).toMatchObject({ ok: true, requiredC: 1200 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to arc furnace');
@@ -344,6 +382,40 @@ describe('scripted playthrough', () => {
     play.smelt('tungsten_powder', 48);
     done('make_tungsten');
     play.smelt('alumina', 60);
+
+    // The Plasma hearth: a 2x2x2 inside in plasma casing, with two power ports. 53 casings, forged at 1900 C.
+    play.find('130 iron_ore, 70 coal, 54 limestone, 28 bauxite, 28 wolframite, 20 copper_ore, 10 clay, 10 sand');
+    play.smelt('iron_ore', 130);
+    play.smelt('coal', 70);
+    play.process(CRUSHER, 'bauxite', 28);
+    play.process(CRUSHER, 'wolframite', 28);
+    play.smelt('alumina', 56);
+    play.smelt('tungsten_powder', 56);
+    play.smelt('copper_ore', 20);
+    play.smelt('clay', 10);
+    play.forge('steel_ingot', 54);
+    play.forge('steel_plate', 54);
+    play.heat(1900);
+    play.forge('plasma_casing', 27);
+    play.forge('copper_wire', 8);
+    play.forge('copper_coil', 4);
+    play.forge('ceramic_insulator', 2);
+    play.forge('iron_plate', 2);
+    play.forge('power_port', 2);
+    play.buildHearth(4);
+    expect(play.view()).toMatchObject({ tier: 3, effectiveTier: 3, hearth: { tier: 4, inner: [2, 2, 2] } });
+    // The arc heater sized up to the bigger shell is more than copper cable carries.
+    play.step(2);
+    expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: true, ratingW: 10000 });
+    expect(alerts.map((a) => a.kind)).toContain('overload');
+    play.forge('ceramic_insulator', 2);
+    play.forge('heavy_cable', 2);
+    for (const p of BUS) {
+      play.breakBlock(p);
+      play.place('heavy_cable', p);
+    }
+    play.step(2);
+    expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: false, ratingW: 120000 });
     play.heat(1900);
     expect(play.view().upgrade).toMatchObject({ ok: true, requiredC: 1900 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to plasma furnace');
@@ -351,14 +423,7 @@ describe('scripted playthrough', () => {
     mark('Plasma Furnace');
 
     // ---- Atomic Age: plasma, superalloy, fission ----------------------------------------------------------------------
-    // 40 kW of plasma heating is more than copper cable carries.
-    play.step(2);
-    expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: true, ratingW: 10000 });
-    expect(alerts.map((a) => a.kind)).toContain('overload');
-    for (const p of BUS) {
-      play.breakBlock(p);
-      play.place('heavy_cable', p);
-    }
+    // The Plasma hearth's heater (40 kW, sized up to its 2x2x2 shell) fits heavy cable.
     play.step(2);
     expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: false, ratingW: 120000 });
     play.find('50 iron_ore, 30 limestone, 50 copper_ore, 3 tin_ore, 20 quartz_ore, 13 spodumene, 8 pitchblende, 10 clay, 10 sand, 64 oil_shale, 150 coal');
@@ -398,7 +463,7 @@ describe('scripted playthrough', () => {
     done('place_fission_pile');
     expect(sim.machineView(PILE.x, PILE.y, PILE.z)!.problem).toBe('Needs water on 2 sides (0 now)');
     play.pour({ x: PILE.x, y: PILE.y + 1, z: PILE.z });
-    play.pour({ x: PILE.x - 1, y: PILE.y, z: PILE.z });
+    play.pour({ x: PILE.x + 1, y: PILE.y, z: PILE.z });
     play.load(play.machineSlots(PILE), 'fuel_rod', 1);
     play.until('60 kW', () => tracker.isComplete('generate_60kw'), 30);
     play.until('pile at its running temperature', () => sim.machineView(PILE.x, PILE.y, PILE.z)!.coreC >= 600, 120);
@@ -412,26 +477,52 @@ describe('scripted playthrough', () => {
     play.forge('electrolyzer');
     play.place('electrolyzer', ELECTROLYZER);
     expect(sim.machineView(ELECTROLYZER.x, ELECTROLYZER.y, ELECTROLYZER.z)!.problem).toBe('Must touch water');
-    play.pour({ x: 2, y: 1, z: -1 });
+    play.pour({ x: ELECTROLYZER.x + 1, y: 1, z: ELECTROLYZER.z });
     play.process(ELECTROLYZER, 'empty_cell', 8);
     // The tracker checks on an interval: give it a moment to see the last cell.
     play.until('deuterium objective', () => tracker.isComplete('make_deuterium'), 5);
     play.forge('star_core');
     done('make_star_core');
-    play.heat(3000);
+    mark('star core');
+
+    // ---- The Starhearth's hearth: 3x3x3 in star casing with four power ports, and super cable for the ignition ------
+    play.find(
+      '520 iron_ore, 240 limestone, 330 copper_ore, 130 bauxite, 130 wolframite, 70 quartz_ore, 60 spodumene, 12 clay, '
+      + '8 sand, 300 coal',
+    );
+    play.find('12 raw_chop');
+    play.smelt('raw_chop', 12);
+    play.smelt('coal', 140);
+    play.smelt('iron_ore', 520);
+    play.smelt('copper_ore', 330);
+    for (const ore of ['bauxite', 'wolframite', 'quartz_ore', 'spodumene'] as const) play.process(CRUSHER, ore, play.have(ore));
+    play.smelt('alumina', 260);
+    play.smelt('tungsten_powder', 260);
+    play.smelt('silica', 140);
+    play.forge('steel_ingot', 120);
+    play.forge('superalloy', 120);
+    play.forge('copper_wire', 330);
+    play.forge('copper_coil', 240);
+    play.forge('magnet_ring', 52);
+    play.forge('star_casing', 47);
+    play.forge('ceramic_insulator', 6);
+    play.forge('super_cable', 2);
+    for (const p of BUS) {
+      play.breakBlock(p);
+      play.place('super_cable', p);
+    }
+    play.forge('iron_plate', 4);
+    play.forge('power_port', 4);
+    play.buildHearth(5);
+    expect(play.view()).toMatchObject({ tier: 4, effectiveTier: 4, hearth: { tier: 5, inner: [3, 3, 3] } });
+    play.heat(3000, 900);
     expect(play.view().upgrade).toMatchObject({ ok: true, requiredC: 3000 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to Starhearth');
     done('starhearth');
     mark('Starhearth');
 
     // ---- Star Age: 300 kW for 90 s ----------------------------------------------------------------------------------
-    // Heavy cable carries 120 kW; the ignition needs 340. Super cable carries 2 MW.
-    play.forge('magnet_ring');
-    play.forge('super_cable');
-    for (const p of BUS) {
-      play.breakBlock(p);
-      play.place('super_cable', p);
-    }
+    // Super cable carries 2 MW; the ignition needs 340 kW with the hearth's own heating.
     for (const p of ENGINES) play.load(play.machineSlots(p), 'fuel_canister', 6);
     play.until('banks charged', () => sim.grid().storedJ >= 30e6, 1200);
     play.heat(3000);
@@ -469,6 +560,11 @@ describe('scripted playthrough', () => {
     for (let i = 1; i < alerts.length; i++) expect(alerts[i].kind).not.toBe(alerts[i - 1].kind);
     const said = toasts.map((t) => t.text);
     for (let tier = 2; tier <= 5; tier++) expect(said).toContain(`Upgraded to the ${furnaceTier(tier).name}`);
+    // Each hearth formed once, as it was finished; the last one stands around the Starhearth.
+    expect(hearths.map((h) => h.tier)).toEqual([2, 3, 4, 5]);
+    for (const name of ['Blast hearth', 'Arc hearth', 'Plasma hearth', 'Starhearth']) expect(said).toContain(`${name} formed`);
+    expect(star.hearth).toMatchObject({ formed: true, tier: 5, inner: [3, 3, 3], closed: true });
+    expect(hearths[3]).toMatchObject({ min: [-3, 0, -4], max: [1, 4, 0] });
     expect(said).not.toContain('The furnace fire burned out');
   }, 120_000);
 });
