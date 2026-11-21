@@ -153,40 +153,60 @@ describe('mould wear', () => {
 });
 
 describe('alloy pot', () => {
-  it('3 copper and 1 tin poured into a pot make 4 molten bronze, which pours into the bronze moulds', () => {
+  const pack = (kit: Kit, item: string, n: number): void => void kit.player.inventory.add(item, n);
+
+  it('3 copper and 1 tin ingots poured into a pot melt into 4 bronze, which pour into the bronze moulds', () => {
     const { kit, e } = setup(['pickaxe_mould']);
-    e.crucibleIn[2] = { item: ALLOY_POT, count: 1 };
-    molten(e, 0, 'copper_ingot', 3);
-    molten(e, 1, 'tin_ingot', 1);
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, ALLOY_POT).ok).toBe(true);
+    pack(kit, 'copper_ingot', 5);
+    pack(kit, 'tin_ingot', 2);
+    e.crucibleIn[0] = { item: ALLOY_POT, count: 1 };
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'copper_ingot').ok).toBe(true);
+    expect(e.crucibleMix[0]).toEqual([5, 0]);
+    expect(kit.sim.furnaceView(0, 1, 0)!.crucibles[0].status).toBe('Alloy pot: 5 copper, 0 tin - needs 3 copper and 1 tin');
+    kit.run(12);
     expect(e.crucibleMelt[0]).toBeNull();
-    expect(e.crucibleMix[2]).toEqual([3, 0]);
-    expect(e.crucibleMelt[2]).toBeNull();
-    expect(kit.sim.furnaceView(0, 1, 0)!.crucibles[2].status).toBe('Alloy pot: 3 copper, 0 tin');
-    expect(kit.sim.pourCrucible(0, 1, 0, 1, ALLOY_POT).ok).toBe(true);
-    expect(e.crucibleMix[2]).toEqual([0, 0]);
-    expect(e.crucibleMelt[2]).toEqual({ item: 'bronze_ingot', count: 4 });
-    expect(e.crucibleMoltenS[2]).toBe(MOLTEN_WINDOW_S);
-    expect(kit.sim.pourCrucible(0, 1, 0, 2, 'pickaxe_mould').ok).toBe(true);
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'tin_ingot').ok).toBe(true);
+    expect(e.crucibleMix[0]).toEqual([5, 2]);
+    expect(kit.player.inventory.count('copper_ingot')).toBe(0);
+    expect(kit.player.inventory.count('tin_ingot')).toBe(0);
+    const v = kit.sim.furnaceView(0, 1, 0)!.crucibles[0];
+    expect(v.active).toBe(true);
+    kit.run(9);
+    expect(e.crucibleMix[0]).toEqual([2, 1]);
+    expect(e.crucibleMelt[0]).toEqual({ item: 'bronze_ingot', count: 4 });
+    expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 3);
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'pickaxe_mould').ok).toBe(true);
     expect(kit.player.inventory.count('bronze_pickaxe_head')).toBe(1);
-    expect(e.crucibleMelt[2]).toEqual({ item: 'bronze_ingot', count: 1 });
+    expect(e.crucibleMelt[0]).toEqual({ item: 'bronze_ingot', count: 1 });
   });
 
-  it('refuses without a pot, for a non-alloy metal, when too cold and when the pot is full of one metal', () => {
+  it('waits for 800 C, and holds still while the crucible still has molten metal of another kind', () => {
     const { kit, e } = setup();
-    molten(e, 0, 'copper_ingot', 6);
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, ALLOY_POT)).toEqual({ ok: false, reason: 'Set an alloy pot in another crucible first' });
-    e.crucibleIn[1] = { item: ALLOY_POT, count: 1 };
-    molten(e, 2, 'bronze_ingot', 1);
-    expect(kit.sim.pourCrucible(0, 1, 0, 2, ALLOY_POT)).toMatchObject({ ok: false, reason: 'Only copper and tin go into the pot' });
+    e.crucibleIn[0] = { item: ALLOY_POT, count: 1 };
+    e.crucibleMix[0] = [3, 1];
     e.tempC = 500;
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, ALLOY_POT)).toMatchObject({ ok: false, reason: expect.stringContaining('Needs 800 C') });
-    e.tempC = 900;
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, ALLOY_POT).ok).toBe(true);
-    expect(e.crucibleMix[1]).toEqual([6, 0]);
+    e.fuel[0] = null;
+    e.lit = false;
+    kit.run(20);
     expect(e.crucibleMelt[0]).toBeNull();
-    molten(e, 0, 'copper_ingot', 1);
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, ALLOY_POT)).toMatchObject({ ok: false, reason: expect.stringContaining('full of copper') });
+    expect(kit.sim.furnaceView(0, 1, 0)!.crucibles[0].status).toMatch(/^Needs 800 C/);
+    e.tempC = 900;
+    e.crucibleMelt[0] = { item: 'tin_ingot', count: 1 };
+    e.crucibleMoltenS[0] = 1000;
+    expect(kit.sim.furnaceView(0, 1, 0)!.crucibles[0].status).toMatch(/^Molten/);
+    kit.run(10);
+    expect(e.crucibleMix[0]).toEqual([3, 1]);
+  });
+
+  it('refuses without a pot, without ingots and when the pot has enough of that metal', () => {
+    const { kit, e } = setup();
+    pack(kit, 'copper_ingot', 9);
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'copper_ingot')).toEqual({ ok: false, reason: 'Set an alloy pot in this crucible first' });
+    e.crucibleIn[0] = { item: ALLOY_POT, count: 1 };
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'tin_ingot')).toEqual({ ok: false, reason: 'You have no Tin Ingot' });
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'copper_ingot').ok).toBe(true);
+    expect(kit.player.inventory.count('copper_ingot')).toBe(3);
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'copper_ingot')).toMatchObject({ ok: false, reason: expect.stringContaining('needs tin') });
   });
 
   it('the pot goes into a crucible slot through the slot rules', () => {
