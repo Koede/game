@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Facing } from '../../core/types';
 import { createWorldUniforms } from '../materials';
 import { FakeWorld } from '../testKit';
-import { MACHINE_DRAW_CAPACITY, MachineParts, placeMatrix } from './machineParts';
+import { MACHINE_DRAW_CAPACITY, MachineParts, openSideYaw, placeMatrix } from './machineParts';
 import { Motion } from './model';
 import { MACHINE_ANIMS } from './models';
 
@@ -197,5 +197,32 @@ describe('MachineParts', () => {
     console.log(`MachineParts.update: ${ms.toFixed(3)} ms per frame with 50 machines (scans and probes included)`);
     expect(ms).toBeLessThan(1);
     expect(MACHINE_DRAW_CAPACITY).toBeGreaterThanOrEqual(64);
+  });
+});
+
+describe('openSideYaw (the steam engine flywheel)', () => {
+  /** World direction of the model's +X flank for a yaw (placeMatrix's first column). */
+  const flank = (yaw: number): [number, number] => [Math.round(Math.cos(yaw)) + 0, Math.round(-Math.sin(yaw)) + 0];
+
+  it('keeps +X when it is free and turns away from solid blocks and water', () => {
+    const world = new FakeWorld(10);
+    expect(flank(openSideYaw(world, 0, 11, 0))).toEqual([1, 0]);
+    world.put(1, 11, 0, 'stone');
+    expect(flank(openSideYaw(world, 0, 11, 0))).toEqual([0, -1]);
+    world.put(0, 11, -1, 'water');
+    expect(flank(openSideYaw(world, 0, 11, 0))).toEqual([-1, 0]);
+    world.put(-1, 11, 0, 'brick');
+    expect(flank(openSideYaw(world, 0, 11, 0))).toEqual([0, 1]);
+  });
+
+  it('prefers empty air to a plant, and a plant to a wall', () => {
+    const world = new FakeWorld(10);
+    world.put(1, 11, 0, 'tall_grass');
+    world.put(0, 11, -1, 'stone');
+    world.put(-1, 11, 0, 'stone');
+    world.put(0, 11, 1, 'stone');
+    expect(flank(openSideYaw(world, 0, 11, 0))).toEqual([1, 0]);
+    world.put(0, 11, 1, 'air');
+    expect(flank(openSideYaw(world, 0, 11, 0))).toEqual([0, 1]);
   });
 });

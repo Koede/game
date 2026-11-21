@@ -13,7 +13,7 @@ function setup() {
   const world = new FakeWorld(10);
   const particles = new Particles(createWorldUniforms(null), 4096);
   const glows = new Glows();
-  const emitters = new Emitters(bus, world, particles, () => 1);
+  const emitters = new Emitters(bus, world, particles, (_x, _y, _z, out) => out.fill(1));
   const step = (seconds: number, cam = [0, 12, 0]): void => {
     for (let t = 0; t < seconds; t += 0.05) {
       emitters.update(0.05, cam[0], cam[1], cam[2], glows, t);

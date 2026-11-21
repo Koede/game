@@ -236,7 +236,8 @@ export class MachineParts {
       r.running = active;
       r.target = batch.anim.speed(e, active);
       r.extent = batch.anim.extent ? batch.anim.extent(e) : 1;
-      const yaw = batch.anim.byWater ? this.waterYaw(e.x, e.y, e.z) : -voxelFacing(v) * (Math.PI / 2);
+      const anim = batch.anim;
+      const yaw = anim.byWater ? this.waterYaw(e.x, e.y, e.z) : anim.openSide ? openSideYaw(this.world, e.x, e.y, e.z) : -voxelFacing(v) * (Math.PI / 2);
       placeMatrix(r.matrix, e.x + 0.5, e.y, e.z + 0.5, yaw);
     }
     for (let i = this.records.length - 1; i >= 0; i--) {
@@ -261,6 +262,33 @@ export class MachineParts {
     const alongX = water(1, 0) + water(-1, 0);
     return alongX > alongZ ? Math.PI / 2 : 0;
   }
+}
+
+/** The four flanks in order of preference (+X first, as the models are built), with the yaw that turns +X there. */
+const FLANKS: readonly (readonly [dx: number, dz: number, yaw: number])[] = [
+  [1, 0, 0],
+  [0, -1, Math.PI / 2],
+  [-1, 0, Math.PI],
+  [0, 1, -Math.PI / 2],
+];
+
+/**
+ * Yaw that turns a model's +X flank to the most open side of the block at (x, y, z): empty air first, then
+ * something thin (a plant, a torch, a cable), never a solid block or a liquid unless every side is one. Ties keep
+ * the earlier flank, so a free-standing engine looks as it always did.
+ */
+export function openSideYaw(world: IWorld, x: number, y: number, z: number): number {
+  let best = -1;
+  let yaw = 0;
+  for (const [dx, dz, flankYaw] of FLANKS) {
+    const def = blockOf(world.getVoxel(x + dx, y, z + dz));
+    const score = def.liquid !== null || def.solid ? 0 : def.shape === 'none' ? 2 : 1;
+    if (score > best) {
+      best = score;
+      yaw = flankYaw;
+    }
+  }
+  return yaw;
 }
 
 /** T(x, y, z) * Ry(yaw), column-major. */

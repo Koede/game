@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { blockRamp, lightColor, LightProbe, skyRamp } from './lightProbe';
+import { COOL_CYAN } from './shaders/chunk';
 import { FakeWorld } from './testKit';
 
 const WHITE = [1, 1, 1];
@@ -57,6 +58,26 @@ describe('LightProbe', () => {
     world.put(0, 11, 1, 'furnace_clay', 0, false);
     probe.probe(0.5, 11.5, 0.5);
     expect(probe.block * 15).toBeCloseTo(10, 6);
+  });
+
+  it('knows how much of the light is a cool glow: cyan by a glowcap, violet by crystals, warm when a torch outshines them', () => {
+    const world = new FakeWorld(10);
+    world.put(1, 11, 0, 'glowcap');
+    const probe = new LightProbe(world);
+    probe.probe(0.5, 11.5, 0.5);
+    expect(probe.cool).toBe(1);
+    expect(probe.violet).toBe(false);
+    const tint = probe.tint(WARM, new Float32Array(3));
+    expect([...tint].map((v) => Math.round(v * 100) / 100)).toEqual([...COOL_CYAN].map((v) => Math.round(v * 100) / 100));
+    world.put(-1, 11, 0, 'torch');
+    probe.probe(0.5, 11.5, 0.5);
+    expect(probe.cool).toBeLessThan(0.3);
+    expect(probe.block * 15).toBeCloseTo(12, 6);
+    world.put(-1, 11, 0, 'air');
+    world.put(1, 11, 0, 'crystal_cluster');
+    probe.probe(0.5, 11.5, 0.5);
+    expect(probe.violet).toBe(true);
+    expect(probe.cool).toBe(1);
   });
 
   it('lets sky light leak in sideways under a roof', () => {

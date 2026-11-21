@@ -38,6 +38,11 @@ export interface MachineAnim {
   shake?: number;
   /** Orient by the water around it instead of the facing (the water wheel). */
   byWater?: boolean;
+  /**
+   * The model's side parts stand on its local +X flank: turn that flank to the open side (not a solid block, not
+   * water) instead of following the facing (the steam engine's flywheel).
+   */
+  openSide?: boolean;
 }
 
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -190,7 +195,7 @@ export const MACHINE_ANIMS: readonly MachineAnim[] = [
     speed: (e, active) => 1.5 * outputShare(e, active),
   },
   {
-    kind: 'steam_engine', build: steamEngine, centerY: 0.5, radius: 1, probeY: 0.6,
+    kind: 'steam_engine', build: steamEngine, centerY: 0.5, radius: 1, probeY: 0.6, openSide: true,
     speed: (e, active) => 7 * outputShare(e, active),
   },
   {

@@ -21,6 +21,7 @@ import { RainMask } from './rainMask';
 import { Sky, type SkyExtras } from './sky';
 import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
 import { TargetBox } from './target';
+import { SteamVents } from './vents';
 import { WeatherFx } from './weatherFx';
 
 /** What the renderer needs from the game clock (GameClock satisfies it). */
@@ -93,6 +94,7 @@ export class Renderer implements IView {
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
   private readonly machines: MachineParts;
+  private readonly vents: SteamVents;
   private readonly held: HeldItem;
   private readonly probe: LightProbe;
   private readonly fx = new WeatherFx();
@@ -101,6 +103,8 @@ export class Renderer implements IView {
   private readonly skyExtras: SkyExtras = { moonPhase: 4, starAngle: 0, flashDir: new THREE.Vector3(0, 0.4, -1), bolt: new THREE.Vector4(), dt: 0 };
   private weather: WeatherState | null = null;
   private readonly lightRgb = new Float32Array(3);
+  /** Block-light colour at the last probe (firelight, or a glowcap's cyan nearby). */
+  private readonly probeTint = new Float32Array(3);
   private readonly offs: (() => void)[] = [];
   private readonly resizeObserver: ResizeObserver | null = null;
   private readonly pixelRatioCap: number;
@@ -148,7 +152,8 @@ export class Renderer implements IView {
     this.chunks = new ChunkMeshes(bus, this.materials);
     this.particles = new Particles(this.uniforms);
     this.probe = new LightProbe(world);
-    this.emitters = new Emitters(bus, world, this.particles, (x, y, z) => this.brightnessAt(x, y, z));
+    this.emitters = new Emitters(bus, world, this.particles, (x, y, z, out) => this.lightAt(x, y, z, out));
+    this.vents = new SteamVents(bus, world, this.particles);
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
     this.rainMask = new RainMask(world);
@@ -275,13 +280,16 @@ export class Renderer implements IView {
     if (this.probeTimer <= 0) {
       this.probeTimer = PROBE_INTERVAL_S;
       this.probe.probe(cam.position.x, cam.position.y, cam.position.z);
-      const c = lightColor(this.probe.sky, this.probe.block, sky.skyLight, BLOCK_TINT, AMBIENT, this.lightRgb);
+      const tint = this.probe.tint(BLOCK_TINT, this.probeTint);
+      const c = lightColor(this.probe.sky, this.probe.block, sky.skyLight, tint, AMBIENT, this.lightRgb);
       this.held.setLight(c[0], c[1], c[2]);
       this.target.setBrightness(luminance(c));
     }
 
     this.emitters.day = sky.day;
     this.emitters.update(dt, cam.position.x, cam.position.y, cam.position.z, this.glows, this.time);
+    this.vents.day = sky.day;
+    this.vents.update(dt, cam.position.x, cam.position.y, cam.position.z);
     const machinesStarted = performance.now();
     this.machines.update(dt, cam);
     const machinesMs = performance.now() - machinesStarted;
@@ -302,7 +310,7 @@ export class Renderer implements IView {
     s.chunks = this.chunks.count;
     s.chunkTriangles = this.chunks.triangles;
     s.particles = this.particles.count;
-    s.effectSources = this.emitters.activeSources;
+    s.effectSources = this.emitters.activeSources + this.vents.count;
     s.precipitation = this.precipitation.count;
     s.machines = this.machines.drawn;
     s.machinesMs = machinesMs;
@@ -333,6 +341,7 @@ export class Renderer implements IView {
     for (const off of this.offs) off();
     this.resizeObserver?.disconnect();
     this.emitters.dispose();
+    this.vents.dispose();
     this.chunks.dispose();
     this.particles.dispose();
     this.glows.dispose();
@@ -392,10 +401,13 @@ export class Renderer implements IView {
     return false;
   }
 
-  private brightnessAt(x: number, y: number, z: number): number {
+  /** Light colour (0..1 per channel) at a point for particles, tinted by firelight or a cool glow like the terrain. */
+  private lightAt(x: number, y: number, z: number, out: Float32Array): Float32Array {
     this.probe.probe(x, y, z);
-    const c = lightColor(this.probe.sky, this.probe.block, this.skyState.skyLight, BLOCK_TINT, AMBIENT, this.lightRgb);
-    return Math.min(1, luminance(c) * 1.1);
+    const tint = this.probe.tint(BLOCK_TINT, this.probeTint);
+    const c = lightColor(this.probe.sky, this.probe.block, this.skyState.skyLight, tint, AMBIENT, out);
+    for (let i = 0; i < 3; i++) c[i] = Math.min(1, c[i] * 1.1);
+    return c;
   }
 
   private updateParticleScale(): void {

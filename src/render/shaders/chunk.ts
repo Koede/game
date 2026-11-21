@@ -71,6 +71,7 @@ out vec3 vColor;
 out vec4 vFog;
 out vec3 vWorld;
 out float vWet;
+flat out float vLiquid;
 
 void main() {
   vec4 world = modelMatrix * vec4(position, 1.0);
@@ -87,9 +88,11 @@ void main() {
     world.x += sin(phase) * 0.055;
     world.z += cos(phase * 0.83) * 0.045;
   }
+  vLiquid = 0.0;
   if ((flags & 4) != 0) {
     color *= 0.93 + 0.07 * sin(uTime * 1.4 + world.x * 0.9 + world.z * 0.7);
     uvShift = vec2(uTime * 0.018, uTime * 0.011);
+    vLiquid = 1.0;
   }
   // Only what the rain reaches gets wet: full sky light, not emissive, not a liquid.
   vWet = (flags & 5) != 0 ? 0.0 : uWet * smoothstep(0.8, 0.97, light.x);
@@ -117,10 +120,38 @@ in vec3 vColor;
 in vec4 vFog;
 in highp vec3 vWorld;
 in float vWet;
+flat in float vLiquid;
 out vec4 fragColor;
+
+// Hash without sine (stable on phone GPUs at large world coordinates) and smooth value noise over it.
+highp float hash12(highp vec2 p) {
+  highp vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float valueNoise(highp vec2 p) {
+  highp vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), f.x), mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// A liquid surface tiles one texture per block; over a big pool the repeat shows. Blend in the same texture turned a
+// quarter (texel-aligned, so pixels stay crisp and seamless) under a slow noise mask, and vary the brightness over
+// several blocks: the pattern no longer repeats, and a pool has darker and lighter stretches.
+vec4 liquidTexel(vec4 tex) {
+  highp vec2 wp = vWorld.xz;
+  float mask = smoothstep(0.3, 0.7, valueNoise(wp * 0.13 + 3.7));
+  vec4 turned = atlasTexel(vec2(vUv.y, -vUv.x) + vec2(0.3125, 0.6875), vLayer);
+  vec4 c = mix(tex, turned, mask);
+  float shade = valueNoise(wp * 0.07) * 0.6 + valueNoise(wp * 0.23 + 11.0) * 0.4;
+  c.rgb *= 0.88 + 0.22 * shade;
+  return c;
+}
 
 void main() {
   vec4 tex = atlasTexel(vUv, vLayer);
+  if (vLiquid > 0.5) tex = liquidTexel(tex);
 #ifdef CUTOUT
   if (tex.a < 0.4) discard;
 #endif

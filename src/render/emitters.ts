@@ -13,8 +13,8 @@ import { ParticleLook, type ParticleSpec, type Particles } from './particles';
 import { shapePuff, shapeSpark, type PuffKind } from './puffs';
 import { tileColor } from './tiles';
 
-/** Brightness 0..1 of the light at a point (supplied by the renderer). */
-export type LightProbe = (x: number, y: number, z: number) => number;
+/** Colour of the light at a point, 0..1 per channel, written into `out` (supplied by the renderer). */
+export type LightProbe = (x: number, y: number, z: number, out: Float32Array) => Float32Array;
 
 interface Source {
   x: number;
@@ -58,6 +58,7 @@ export class Emitters {
     r: 1, g: 1, b: 1, r2: 1, g2: 1, b2: 1, alpha: 1, gravity: 0, drag: 0, look: ParticleLook.Chip, fog: 1,
   };
   private readonly colorCache = new Map<number, [number, number, number][]>();
+  private readonly lightRgb = new Float32Array(3);
   private readonly offs: (() => void)[];
   private camX = 0;
   private camY = 0;
@@ -203,18 +204,18 @@ export class Emitters {
   private debris(x: number, y: number, z: number, voxel: Voxel, count: number, speed: number): void {
     if (blockOf(voxel).shape === 'none') return;
     const colors = this.colorsOf(voxel);
-    const light = this.light(x + 0.5, y + 0.5, z + 0.5);
+    const light = this.light(x + 0.5, y + 0.5, z + 0.5, this.lightRgb);
     const p = this.spec;
     for (let i = 0; i < count; i++) {
       const c = colors[(rnd() * colors.length) | 0];
-      const k = light * (0.8 + rnd() * 0.35);
+      const k = 0.8 + rnd() * 0.35;
       p.x = x + 0.15 + rnd() * 0.7;
       p.y = y + 0.15 + rnd() * 0.7;
       p.z = z + 0.15 + rnd() * 0.7;
       p.vx = spread(2.2) * speed;
       p.vy = (1.5 + rnd() * 3) * speed;
       p.vz = spread(2.2) * speed;
-      this.chip(c[0] * k, c[1] * k, c[2] * k, 0.07 + rnd() * 0.07, 0.45 + rnd() * 0.5);
+      this.chip(c[0] * light[0] * k, c[1] * light[1] * k, c[2] * light[2] * k, 0.07 + rnd() * 0.07, 0.45 + rnd() * 0.5);
     }
   }
 
@@ -224,7 +225,7 @@ export class Emitters {
     const def: BlockDef = blockOf(v);
     if (def.shape === 'none' || def.liquid) return;
     const colors = this.colorsOf(v);
-    const light = this.light(x + 0.5, y + 0.5, z + 0.5);
+    const light = this.light(x + 0.5, y + 0.5, z + 0.5, this.lightRgb);
     let dx = this.camX - (x + 0.5);
     let dy = this.camY - (y + 0.5);
     let dz = this.camZ - (z + 0.5);
@@ -241,7 +242,7 @@ export class Emitters {
       p.vx = dx * 1.6 + spread(1.2);
       p.vy = 1.5 + rnd() * 1.5;
       p.vz = dz * 1.6 + spread(1.2);
-      this.chip(c[0] * light, c[1] * light, c[2] * light, 0.05 + rnd() * 0.05, 0.35 + rnd() * 0.3);
+      this.chip(c[0] * light[0], c[1] * light[1], c[2] * light[2], 0.05 + rnd() * 0.05, 0.35 + rnd() * 0.3);
     }
   }
 
