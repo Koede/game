@@ -32,6 +32,8 @@ export const ID = {
   fern: blockId('fern'),
   reeds: blockId('reeds'),
   berryBush: blockId('berry_bush'),
+  teaBush: blockId('tea_bush'),
+  coffeeShrub: blockId('coffee_shrub'),
   glowcap: blockId('glowcap'),
   cactus: blockId('cactus'),
   packedIce: blockId('packed_ice'),

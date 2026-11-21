@@ -6,7 +6,7 @@
  * objective tracker and survival run alongside, so every objective must complete too.
  */
 import { describe, expect, it } from 'vitest';
-import { FLAG_AUTOMATON_SALVAGED, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
+import { FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_SIX_CUPS, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
 import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
 import { Face, voxelActive } from '../core/types';
 import { eat, plant, till, type UseTarget } from '../game';
@@ -298,6 +298,13 @@ describe('scripted playthrough', () => {
     play.step(1);
     done('place_lamp');
     done('bake_bread');
+    // STAND-IN (the brewing simulation replaces these): the three brewing goals complete from their flags alone. The
+    // real actions (a bucket boiled on the furnace, a cup brewed, all six drinks drunk) are tested in src/sim/brewing*.test.ts.
+    for (const [flag, id] of [[FLAG_BOILED_WATER, 'boil_bucket'], [FLAG_BREWED, 'first_brew'], [FLAG_SIX_CUPS, 'six_cups']] as const) {
+      kit.bus.emit('flag', { flag });
+      play.step(0.5);
+      done(id);
+    }
     expect(voxelActive(kit.world.getVoxel(LAMP.x, LAMP.y, LAMP.z))).toBe(true);
 
     // A night by the fire.

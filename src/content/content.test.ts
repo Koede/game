@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AGES, BLOCKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, RECIPES, TEXTURE_NAMES,
-  block, furnaceTier, item, machine, recipesAt, validateContent,
+  block, furnaceTier, isHandStation, item, machine, recipesAt, validateContent,
 } from '../core/registry';
 import type { ObjectiveCondition, RecipeDef, ToolKind } from '../core/types';
 import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, hearthMaterials, itemPlacing, rawCost, solve, type Progress } from './progression';
@@ -57,14 +57,14 @@ describe('1. registry validation', () => {
 
 // -------------------------------------------------------------------------------------------------
 describe('2. roster of spec section 2', () => {
-  it('has exactly the 120 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19), air first', () => {
+  it('has exactly the 132 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19, 12 of brewing), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(120);
+    expect(SPEC.blocks).toHaveLength(132);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
-  it('has exactly the 91 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19)', () => {
-    expect(SPEC.items).toHaveLength(91);
+  it('has exactly the 111 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19, 20 of brewing)', () => {
+    expect(SPEC.items).toHaveLength(111);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
     expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
@@ -83,7 +83,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(135);
+    expect(RECIPES).toHaveLength(146);
   });
 
   it('has the furnace tiers of table 2.4', () => {
@@ -132,7 +132,7 @@ describe('2. roster of spec section 2', () => {
 describe('4. structural rules', () => {
   const furnaceRecipes = recipesAt('furnace');
   const smelts = furnaceRecipes.filter((r) => r.kind === 'smelt');
-  const machineStations = stationsOf().filter((s) => !['hand', 'workbench', 'furnace'].includes(s));
+  const machineStations = stationsOf().filter((s) => !['hand', 'workbench', 'furnace'].includes(s) && !isHandStation(s) && machine(s).role !== 'hand');
 
   it('gives smelt and machine recipes exactly one input item type, unique per station', () => {
     for (const group of [smelts, ...machineStations.map((s) => recipesAt(s))]) {
@@ -204,6 +204,17 @@ describe('4. structural rules', () => {
         // A regrowing wild plant: no power; picking the fruiting block leaves another block of the same bush.
         expect(def.power, def.key).toBeNull();
         expect(def.harvestLeaves === null || spec.blocks.includes(def.harvestLeaves), def.key).toBe(true);
+        continue;
+      }
+      if (spec?.role === 'hand') {
+        // Ember handwork: stations worked by the player's hands. No power; they drop themselves.
+        expect(def.power, def.key).toBeNull();
+        expect(def.drops, def.key).toEqual([{ item: def.key, count: 1 }]);
+        continue;
+      }
+      if (spec?.role === 'brew') {
+        // Brewing: small blocks you work by Use. No power; the cup states and buckets drop their parts, not themselves.
+        expect(def.power, def.key).toBeNull();
         continue;
       }
       expect(def.drops, `${def.key} must drop itself`).toEqual([{ item: def.key, count: 1 }]);

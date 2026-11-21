@@ -4,8 +4,10 @@
  * A deliberate balance change has to be made here as well. Nothing but the test imports this file.
  */
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
+import { BREW_SPEC } from './specRosterBrew';
 import { EMBER_SPEC } from './specRosterEmber';
 import { FOOD_SPEC } from './specRosterFood';
+import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
 
@@ -37,6 +39,8 @@ export const SPEC = {
     ...WORLD_SPEC.blocks,
     ...TECH_SPEC.blocks,
     ...EMBER_SPEC.blocks,
+    ...BREW_SPEC.blocks,
+    ...HAND_SPEC.blocks,
   ],
 
   items: [
@@ -54,6 +58,8 @@ export const SPEC = {
     ...WORLD_SPEC.items,
     ...TECH_SPEC.items,
     ...EMBER_SPEC.items,
+    ...BREW_SPEC.items,
+    ...HAND_SPEC.items,
   ],
 
   /** material -> [tier, speed, durability] for its pickaxe, axe and shovel. */
@@ -73,9 +79,6 @@ export const SPEC = {
    */
   recipes: {
     hand: [
-      'plank: 4 plank <- 1 oak_log',
-      'plank_pine: 4 plank <- 1 pine_log',
-      'stick: 4 stick <- 2 plank',
       'cord: 1 cord <- 3 fiber',
       'flint_pickaxe: 1 flint_pickaxe <- 2 flint, 2 stick, 1 cord',
       'flint_axe: 1 flint_axe <- 2 flint, 2 stick, 1 cord',
@@ -90,11 +93,10 @@ export const SPEC = {
       'crate: 1 crate <- 8 plank',
       'stone_brick: 4 stone_brick <- 4 rubble',
       'pail: 1 pail <- 3 plank, 1 cord',
-      'padded_coat: 1 padded_coat <- 6 cord, 6 fiber',
-      'padded_coat_hide: 1 padded_coat <- 4 hide, 2 cord',
+      'padded_coat: 1 padded_coat <- 4 cloth, 2 cord',
+      'padded_coat_hide: 1 padded_coat <- 4 leather, 2 cord',
       'bellows: 1 bellows <- 4 plank, 4 cord',
       'bellows_hide: 1 bellows <- 4 plank, 2 hide',
-      'flour: 1 flour <- 2 wheat',
       'dough: 1 dough <- 2 flour, 1 water_pail',
     ],
     furnace: [
@@ -119,24 +121,17 @@ export const SPEC = {
       'bread: 1 bread <- 1 dough @220 10s T1',
       'iron_ingot_scrap: 1 iron_ingot <- 1 scrap_metal @1150 10s T2',
 
-      'bronze_ingot: 4 bronze_ingot <- 3 copper_ingot, 1 tin_ingot @800 T1',
-      'bronze_pickaxe: 1 bronze_pickaxe <- 3 bronze_ingot, 2 stick @600 T1',
-      'bronze_axe: 1 bronze_axe <- 3 bronze_ingot, 2 stick @600 T1',
-      'bronze_shovel: 1 bronze_shovel <- 1 bronze_ingot, 2 stick @600 T1',
       'brick: 1 brick <- 4 firebrick @400 T1',
       'ceramic_insulator: 2 ceramic_insulator <- 1 clay, 1 sand @600 T1',
-      'copper_wire: 3 copper_wire <- 1 copper_ingot @500 T1',
       'copper_cable: 6 copper_cable <- 3 copper_wire, 2 ceramic_insulator @500 T1',
       'thermopile: 1 thermopile <- 4 copper_ingot, 2 tin_ingot, 2 firebrick @700 T1',
       'lamp: 1 lamp <- 1 glass, 2 copper_wire @500 T1',
-      'bronze_hoe: 1 bronze_hoe <- 2 bronze_ingot, 2 stick @600 T1',
       'hearth_stew: 1 hearth_stew <- 1 cooked_chop, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_mutton: 1 hearth_stew <- 1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_fowl: 1 hearth_stew <- 1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'bronze_bucket: 1 bronze_bucket <- 3 bronze_ingot @700 T1',
       'item_pipe: 8 item_pipe <- 2 bronze_ingot, 1 glass @800 T1',
       'wrench: 1 wrench <- 3 bronze_ingot @600 T1',
-      'bronze_maul: 1 bronze_maul <- 4 bronze_ingot, 2 stick @700 T1',
 
       'iron_pickaxe: 1 iron_pickaxe <- 3 iron_ingot, 2 stick @1000 T2',
       'iron_axe: 1 iron_axe <- 3 iron_ingot, 2 stick @1000 T2',
@@ -264,6 +259,8 @@ export const SPEC = {
     berry_bush: ['bush', { regrowS: 300 }],
     ...TECH_SPEC.machines,
     ...EMBER_SPEC.machines,
+    ...BREW_SPEC.machines,
+    ...HAND_SPEC.machines,
   } as Record<string, [MachineRole, Numbers]>,
 
   /** block, minY, maxY, veinsPerChunk, veinSize, biome multipliers. */
@@ -284,11 +281,13 @@ export const SPEC = {
 
   /** Objective conditions in order, in the notation of `signature()` in the test. */
   objectives: [
-    'any(break oak_log 4 | break pine_log 4)', 'make plank 4', 'place workbench 1', 'have flint 3', 'make flint_pickaxe 1',
+    'any(break oak_log 4 | break pine_log 4)', 'place chopping_block 1', 'make plank 4', 'place workbench 1', 'have flint 3', 'make flint_pickaxe 1',
     'have rubble 12', 'have clay 6', 'place furnace_clay 1', 'flag furnace_lit', 'make charcoal 4', 'flag well_warmed',
     'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
-    'make copper_ingot 2', 'flag tilled', 'place wheat_0 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_maul 1',
-    'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1', 'make bread 1', 'tier 2', 'place item_pipe 1',
+    'place clay_table 1', 'make ingot_mould 1', 'make copper_ingot 2', 'flag first_pour', 'place hand_quern 1', 'flag tilled', 'place wheat_0 1',
+    'make flour 1', 'make bread 1', 'place stone_anvil 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_plate 1', 'make bronze_pickaxe_head 1',
+    'make bronze_pickaxe 1', 'make bronze_maul 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1',
+    'place drying_rack 1', 'make leather 1', ...BREW_SPEC.objectives, 'make cloth 1', 'tier 2', 'place item_pipe 1',
     'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3', 'place pump 1',
     'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', 'generate 10000', 'make tungsten_rod 4', 'tier 4',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 5',
@@ -330,6 +329,8 @@ export const SPEC = {
     ...WORLD_SPEC.blockProps,
     ...TECH_SPEC.blockProps,
     ...EMBER_SPEC.blockProps,
+    ...BREW_SPEC.blockProps,
+    ...HAND_SPEC.blockProps,
   } as Record<string, Partial<BlockDef>>,
 
   /** Block items that exist for the codex but can never be picked up: these blocks drop something else. */
@@ -343,5 +344,16 @@ export const SPEC = {
    * array texture; the renderer splits the atlas over two arrays past the device's limit (docs/api/render-machines.md),
    * so the hard ceiling is twice that. This cap keeps growth deliberate: 264 are in use after section 19.
    */
-  maxTextures: 320,
+  maxTextures: 400,
 };
+
+// Brewing's recipes come last in their stations' lists (recipesBrew.ts is appended after every older recipe).
+SPEC.recipes.workbench.push(...BREW_SPEC.recipes.workbench);
+SPEC.recipes.furnace.push(...BREW_SPEC.recipes.furnace);
+// The Ember handwork's recipes are appended after brewing's (recipesHand.ts comes last); its stations have lists of their own.
+SPEC.recipes.hand.push(...HAND_SPEC.recipes.hand);
+SPEC.recipes.workbench.push(...HAND_SPEC.recipes.workbench);
+SPEC.recipes.furnace.push(...HAND_SPEC.recipes.furnace);
+for (const station of Object.keys(HAND_SPEC.recipes)) {
+  if (!['hand', 'workbench', 'furnace'].includes(station)) SPEC.recipes[station] = HAND_SPEC.recipes[station];
+}

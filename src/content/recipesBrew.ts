@@ -1,6 +1,6 @@
 /**
- * Recipes of brewing (BREWING_PLAN 3, 11.1). All at furnace tier 1: the Clay Furnace. Crucible recipes need unique
- * inputs, so the cup and cone are forge recipes (clay already smelts to firebrick). Appended after every older recipe.
+ * Recipes of brewing (BREWING_PLAN 3, 11.1). All at furnace tier 1: the Clay Furnace. The clay cup and drip cone are pressed on the Clay Table and fired
+ * (recipesHand.ts). Appended after every older recipe.
  */
 import type { RecipeSpec } from '../core/types';
 import { amount, amounts } from './amounts';
@@ -16,8 +16,6 @@ const bench = (output: string, inputs: string): RecipeSpec => ({
 });
 
 export const BREW_RECIPES: RecipeSpec[] = [
-  forge('2 clay_cup', '1 clay', 400),
-  forge('drip_cone', '1 clay, 1 fiber', 400),
   forge('kettle_pot', '3 copper_ingot', 600),
   smelt('dried_tea', 'tea_leaves', 150, 5),
   smelt('black_tea', 'dried_tea', 250, 6),
