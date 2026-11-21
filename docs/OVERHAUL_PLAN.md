@@ -355,3 +355,9 @@ interface ResearchState {
 Fit rule for this session: build M1-M3 in full; M4 as far as the sim/containers allow; A1 (goggles) and A2 (belts with hand
 crank) if budget remains. Open questions for the owner: (1) is the name set (cinder, loam, brook, gale, rune, rift) okay;
 (2) should magic be optional per world like Dev Mode; (3) is a servant construct allowed to automate crafting at all.
+
+## Status (2026-11-21, end of the overhaul session)
+Done: M1, M2, M3 (all seven Ember/Bronze entries; vial, rod and jar gated), M4 without the still trace (aura = the summed
+fingerprints of the blocks around the player, chunk draws recover; Cinder-in-furnace is the first essentia use), A1 goggles,
+A2 belts with the crank drive (as `src/workshop/workshop.ts`, not `mechLite.ts`), part of A3 (mechanical twins of the saw,
+quern, mortar and loom; no basin/press/mixer yet). Everything else in A.11 and C is open; order in SESSION_CONTEXT section 10.

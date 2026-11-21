@@ -200,3 +200,34 @@ Run everything locally; the owner is usage-limited and wants output trimmed and 
   3 sessions editing was resolved by ONE session that knew both sides; upstream versions were canonical where they overlapped).
 - E2E tests that hold items or build things drift whenever content changes: fix stale scripts, but a failing step can be a
   real game bug (the handwork front end was missing entirely and only the e2e showed it).
+
+## 10. Overhaul session (2026-11-21): Essentia & Research, Bronze workshop
+
+Plan: `docs/OVERHAUL_PLAN.md` (A = Create-style workshop parts for the Bronze era, B = original research magic). Owner steer
+mid-session: "fill that whole era in with goodies and trinkets and fun modular things" and "implement all of them after".
+Commits: fcc7260 (plan), 850c16e (aspects/fingerprints/research/content), 44c8bfe (magic runtime + notebook), 7ad0d55
+(e2e-magic), a29366a (workshop), then e2e-workshop and docs. API notes: `docs/api/magic.md`, `docs/api/workshop.md`.
+
+Built and checked (unit tests + `e2e-magic` / `e2e-workshop`, desktop and phone portrait, HW_GPU=1; full `npx vitest run`
+green at 1898 tests; the full `npm run e2e` chain was NOT re-run):
+- Every block and item has an aspect fingerprint (21 aspects, one data table). Field notebook scans blocks/carried items,
+  teaches aspects and lore; a 5 x 5 kin board per research entry (7 entries); research gates the glass vial, gathering rod and
+  essentia jar recipes; the rod fills vials from the land's aspects (chunk draw recovers); jars hold 32 units; a Vial of
+  Cinder adds burn to a burning furnace after research.
+- Bronze workshop: hand crank, drive shafts, conveyor belts (move ground items), mechanical saw / millstone / stamp mill /
+  power loom (same recipes as the hand stations), speed and stress with overstress, Engineer's Goggles readout.
+
+Important: the STEAM_PLAN shaft core does not exist in code; the workshop is its own small kinetic layer (crank-driven) with an
+`extraRpm` hook for the shaft core later.
+
+Left, in priority order (OVERHAUL_PLAN work lists A.11 and C):
+1. Render: jar fill level, belt item motion looks right but belts do not animate their texture direction; crank handle turning.
+2. Workshop A.4/A.5: funnels with filters, depots, chutes, basin + press + mixer, spout and item drain (distillery bottling).
+3. Workshop A.2 transmission and trinkets once the shaft core lands: reverse/ratio/differential/clutch/sequence, shear pins,
+   governor, lubricant can (distillery lubricant), wind vane, bell, tally board, metronome and the signal layer.
+4. Workshop A.7 deployer and mechanical arm (reuse Interaction with a machine actor), reaper; A.8 rail skiff, bearing (stretch).
+5. Magic B.3-B.6: wellsprings, essentia tubes on the fluid-pipe machinery, rune desk with aspect costs, infusion altar,
+   vial-in-still trace (entry exists), aura reading, foci, clay servants, more entries for Bronze/Forge.
+6. Cross-cutting: Codex aspect page and planned items, optional side objectives (scan_ten, first_research), sounds
+   (scan_chime, essentia_pour, rod_hum), workbench/forge rows should show "needs research" instead of failing on craft.
+7. W0 six-age refactor: only `src/magic/ageMap.ts` needs its table changed for these pieces.
