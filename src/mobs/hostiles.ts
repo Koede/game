@@ -27,7 +27,7 @@ import { guardRuin, sweepRuins, type GuardHost } from './guards';
 import { PROVOKED_S, thinkHostile, wake } from './hostileBrain';
 import type { HostileCtx } from './hostileCtx';
 import { stepFlyer } from './hostileMove';
-import { createHostile, restoreHostiles, saveHostiles } from './hostileRecords';
+import { createHostile, saveHostiles, type RestoredHostiles } from './hostileRecords';
 import { trySpawn, type HostileSpawnHost } from './hostileSpawner';
 import type { HitOptions, HostileHooks, HostileRole, HostilesSnapshot, Projectile } from './hostileTypes';
 import { rollDrops } from './mob';
@@ -35,7 +35,7 @@ import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from '.
 import { Projectiles, type BoltHost } from './projectiles';
 import { liquidAt } from './terrain';
 import type { BiomeLookup, DeathCause, HitResult, Mob, MobClock, MobDeath, MobPlayer } from './types';
-import type { RuinGuardPlan } from '../world/ruinGuards';
+import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
 
 /** Footsteps are voiced within this many blocks of the player. */
 const STEP_RANGE = 24;
@@ -80,6 +80,9 @@ export class HostileLayer {
   private readonly boltHost: BoltHost;
   private readonly spawnHost: HostileSpawnHost;
   private readonly guardHost: GuardHost;
+  /** Chunk columns loaded since the last tick ([cx, cz] pairs): their ruins may now be whole. */
+  private readonly freshChunks: number[] = [];
+  private readonly off: () => void;
 
   constructor(private readonly host: HostileHost) {
     const safe = (x: number, y: number, z: number): boolean => this.hooks.safeZones?.isSafe(x, y, z) ?? false;
@@ -107,6 +110,13 @@ export class HostileLayer {
       world: host.world, seed: host.seed, guarded: this.guarded,
       addGuard: (spec, x, y, z, yaw, role, ruin) => this.addGuard(spec, x, y, z, yaw, role, ruin),
     };
+    this.off = host.bus.on('chunk:loaded', ({ cx, cz }) => {
+      this.freshChunks.push(cx, cz);
+    });
+  }
+
+  dispose(): void {
+    this.off();
   }
 
   // ------------------------------------------------------------------------------------------ configuration
@@ -187,6 +197,10 @@ export class HostileLayer {
 
   tick(dt: number, player: MobPlayer, clock: MobClock): void {
     const world = this.host.world;
+    for (let i = 0; i < this.freshChunks.length; i += 2) {
+      for (const p of ruinGuardPlans(this.host.seed, this.freshChunks[i], this.freshChunks[i + 1])) guardRuin(this.guardHost, p);
+    }
+    this.freshChunks.length = 0;
     this.sweepS -= dt;
     if (this.sweepS <= 0) {
       this.sweepS = SWEEP_S;
@@ -398,9 +412,8 @@ export class HostileLayer {
     return saveHostiles(this.list, this.guarded, this.spawnS);
   }
 
-  /** Replaces every automaton (ids in `taken` belong to animals). Returns the largest id restored (0 if none). */
-  load(s: HostilesSnapshot | undefined, taken: ReadonlySet<number>): number {
-    const r = restoreHostiles(s, taken, this.host.rng);
+  /** Replaces every automaton with restored ones (restoreHostiles). Returns the largest id restored (0 if none). */
+  load(r: RestoredHostiles): number {
     for (const m of this.list) this.host.byId.delete(m.id);
     this.list.length = 0;
     this.activeList.length = 0;

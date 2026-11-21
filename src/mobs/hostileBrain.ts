@@ -59,7 +59,9 @@ function outOfBounds(ctx: HostileCtx, m: Mob): boolean {
   const h = m.hostile!;
   if (h.role === 'natural' || (h.role === 'turret' && !ctx.daylight)) return false;
   const p = ctx.player;
-  return Math.hypot(p.x - h.homeX, p.z - h.homeZ) > RUIN_GUARD_LEASH + spec(m).range;
+  // Guards strike at the edge of their leash; turrets by day watch only the ruin itself.
+  const reach = h.role === 'guard' ? RUIN_GUARD_LEASH + spec(m).range : RUIN_GUARD_LEASH;
+  return Math.hypot(p.x - h.homeX, p.z - h.homeZ) > reach;
 }
 
 /** A look at the player: line of sight within senseRange, or anything within HOSTILE_SENSE_BLIND. */
@@ -220,6 +222,7 @@ function chase(ctx: HostileCtx, m: Mob, s: HostileSpec, dt: number): void {
     turnAway(ctx, m, tx, tz);
     return;
   }
+  if (fresh && r === 'arrived') turnTo(m, yawTowards(tx - m.x, tz - m.z), TURN, dt);
   if (!fresh && r === 'arrived') {
     h.aware = h.unseenS < HOSTILE_FORGET_S;
     return;

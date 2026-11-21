@@ -43,11 +43,17 @@ export function saveHostiles(mobs: readonly Mob[], guarded: ReadonlySet<string>,
   return { guarded: [...guarded], spawnS: round(spawnS), mobs: saved };
 }
 
+export interface RestoredHostiles {
+  mobs: Mob[];
+  guarded: string[];
+  spawnS: number;
+}
+
 /**
  * Automatons from a snapshot (absent: none). Throws on a malformed one; skips records of unknown types or with
  * broken numbers, and ids already taken (`taken`).
  */
-export function restoreHostiles(s: HostilesSnapshot | undefined, taken: ReadonlySet<number>, rng: () => number): { mobs: Mob[]; guarded: string[]; spawnS: number } {
+export function restoreHostiles(s: HostilesSnapshot | undefined, taken: ReadonlySet<number>, rng: () => number): RestoredHostiles {
   if (s === undefined) return { mobs: [], guarded: [], spawnS: HOSTILE_SPAWN_INTERVAL_S };
   if (!s || typeof s !== 'object' || !Array.isArray(s.mobs) || !Array.isArray(s.guarded)) throw new Error('mobs: malformed hostiles');
   const mobs: Mob[] = [];

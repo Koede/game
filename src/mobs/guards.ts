@@ -9,7 +9,7 @@ import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
 import { floorAt } from './hostileSpawner';
 import { clearanceOf } from './terrain';
 
-/** Chunk radius around the player checked for ruins without guards, once a second. */
+/** Chunk radius around the player checked once a second for ruins without guards (a safety net behind chunk:loaded). */
 export const GUARD_SWEEP_RADIUS = 4;
 /** A sentry stands on a wall at least this many blocks above the ruin floor. */
 const SENTRY_MIN_WALL = 2;

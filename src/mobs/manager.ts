@@ -45,6 +45,7 @@ import type { SpawnSpot } from './spawning';
 import { restoreMobs, saveMobs } from './persistence';
 import { MobTargets } from './targets';
 import { HostileLayer } from './hostiles';
+import { restoreHostiles } from './hostileRecords';
 import type { HitOptions, HostileHooks, ProjectileView } from './hostileTypes';
 import type { BiomeLookup, DeathCause, FeedResult, HitResult, Mob, MobClock, MobDeath, MobPlayer, MobRayHit, MobsSnapshot, MobView } from './types';
 import { fillViews } from './views';
@@ -464,8 +465,7 @@ export class MobManager {
   /** Replaces every animal and the spawning state with a snapshot's. Throws on a malformed snapshot. */
   load(snapshot: MobsSnapshot): void {
     const restored = restoreMobs(snapshot, this.rng);
-    const taken = new Set(restored.mobs.map((m) => m.id));
-    const maxHostile = this.hostileLayer.load(snapshot.hostiles, taken);
+    const hostiles = restoreHostiles(snapshot.hostiles, new Set(restored.mobs.map((m) => m.id)), this.rng);
     this.mobs.length = 0;
     this.active.length = 0;
     this.byId.clear();
@@ -473,6 +473,7 @@ export class MobManager {
       this.mobs.push(m);
       this.byId.set(m.id, m);
     }
+    const maxHostile = this.hostileLayer.load(hostiles);
     this.nextId = Math.max(restored.nextId, maxHostile + 1);
     this.loadedCount = 0;
     for (const m of this.mobs) if (this.world.isLoaded(m.x, m.z)) this.loadedCount++;
@@ -485,6 +486,7 @@ export class MobManager {
   dispose(): void {
     for (const off of this.offs) off();
     this.offs.length = 0;
+    this.hostileLayer.dispose();
     this.deathListeners.clear();
   }
 
