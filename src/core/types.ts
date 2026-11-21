@@ -209,6 +209,8 @@ export interface ItemSpec {
   weapon?: WeaponSpec;
   /** Worn gear that counts while it is anywhere in the inventory (spec 19.4; the padded coat too). */
   armour?: ArmourSpec;
+  /** A fired mould (Ember handwork): stack 1; the stack's durability is the pours left (absent = `pours`). */
+  mould?: { pours: number };
   /** A cup of tea or coffee: Use drinks it (brewing). */
   drink?: DrinkSpec;
   /** An ingredient: loaded into a cup with a drip cone it brews the drink item with this key. */
@@ -462,6 +464,15 @@ export interface RecipeSpec {
   toolOutput?: ItemAmount;
   /** Hand stations: an extra output rolled once per finished job. */
   bonus?: ItemAmount & { chance: number };
+  /**
+   * Hand stations (Ember handwork): strokes of progress the job needs (a whole number). Timed hand stations (drying
+   * rack, tanning trough, alloy pot) leave it out and use `timeS` instead.
+   */
+  strokes?: number;
+  /** Hand stations: the output instead of `output` when the finishing stroke was struck with the station's tool. */
+  toolOutput?: ItemAmount;
+  /** Hand stations: an extra output rolled once per finished job. */
+  bonus?: ItemAmount & { chance: number };
   /** Technology age (index into AGES) the recipe belongs to. */
   age: number;
 }
@@ -573,7 +584,13 @@ export type MachineRole =
    * Brewing (no power, no machine screen): the cup setup, a bucket boiling on a furnace, the kettle pot. Each has an
    * entity of its own kind but is never a machine node, like a crop. The world interaction is the interface.
    */
-  | 'brew';
+  | 'brew'
+  /**
+   * An Ember handwork station (no power, no screen; the world interaction is the interface): worked by strokes
+   * (`BlockSpec.handStation`), timed (drying rack, tanning trough, alloy pot) or holding moulds (casting bench).
+   * Never a machine node. Recipes name the station block's key as their `station`.
+   */
+  | 'hand';
 
 /** Static numbers for one kind of machine. The behaviour itself lives in src/sim. */
 export interface MachineSpec {

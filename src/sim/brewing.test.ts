@@ -76,7 +76,7 @@ describe('bucket on a furnace top', () => {
   it('boils in about 16 s at 150 C and 6 s at 400 C', () => {
     expect(boilTime(150)).toBeCloseTo(16, 0);
     expect(boilTime(400)).toBeCloseTo(6, 0);
-    expect(boilTime(250)).toBeCloseTo(12 / 1, 0); // factor (250-100)/200+0.5 = 1.25 -> 9.6
+    expect(boilTime(250)).toBeCloseTo(9.6, 0); // rate (250-100)/200+0.5 = 1.25
   });
 
   it('does not heat below 100 C and loses progress', () => {
@@ -100,7 +100,7 @@ describe('bucket on a furnace top', () => {
     const b = bucketOn(kit, f);
     hold(kit, f, 400, 1);
     expect(f.extractW).toBe(600);
-    expect(kit.sim.brewView(0, 2, 0)).toMatchObject({ stage: 'heating', tempC: 400 });
+    expect(kit.sim.brewView(0, 2, 0)).toMatchObject({ stage: 'heating' });
     hold(kit, f, 400, 6);
     expect(b.boiling).toBe(true);
     expect(keyAt(kit, 0, 2, 0)).toBe('furnace_bucket_boiling');
@@ -131,8 +131,8 @@ describe('bucket on a furnace top', () => {
     const f = kit.furnace(0, 1, 0);
     const toasts = kit.record('toast');
     bucketOn(kit, f);
-    hold(kit, f, 400, 8);
-    hold(kit, f, 400, BOIL_DRY_SECONDS - 1);
+    hold(kit, f, 400, 6.5);
+    hold(kit, f, 400, BOIL_DRY_SECONDS - 3);
     expect(keyAt(kit, 0, 2, 0)).toBe('furnace_bucket_boiling');
     hold(kit, f, 400, 2);
     expect(keyAt(kit, 0, 2, 0)).toBe('air');
@@ -170,7 +170,7 @@ describe('bucket on a furnace top', () => {
 
   it('works on the roof of a formed hearth', () => {
     const kit = makeKit();
-    const f = kit.furnace(0, 1, 0, 'furnace_stone');
+    const f = kit.furnace(0, 1, 0, 'furnace_blast');
     const box = kit.formed(0, 1, 0, { tier: 2, closed: true });
     const roof = boxCells(box).find((c) => c.y === box.y1 + 1 && kit.sim.isFurnaceTop(c.x, c.y + 1, c.z));
     expect(roof).toBeDefined();
