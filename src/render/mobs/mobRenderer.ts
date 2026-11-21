@@ -6,13 +6,16 @@
  * the renderer's LightProbe, a few animals per frame, and eased so it never pops. No per-frame allocation.
  */
 import * as THREE from 'three';
-import { CREATURES } from '../../core/registry';
-import type { CreatureSpec, IWorld } from '../../core/types';
+import { AUTOMATONS, CREATURES } from '../../core/registry';
+import type { CreatureSpec, HostileAttack, IWorld } from '../../core/types';
 import { signedCool } from '../coolLight';
 import { LightProbe } from '../lightProbe';
 import type { WorldUniforms } from '../materials';
+import { AutomatonFx } from './automatonFx';
+import type { BoltView } from './bolts';
 import { buildSpeciesGeometry, type SpeciesGeometry } from './geometry';
 import { createMobMaterial, createNoiseTexture, createShadowMaterial } from './material';
+import type { Pose } from './poses';
 
 /** What the MobRenderer reads from each animal (src/mobs' MobView satisfies it). */
 export interface MobRenderView {
@@ -31,6 +34,11 @@ export interface MobRenderView {
   fade: number;
   onGround: boolean;
   eager: boolean;
+  /** Automatons (spec 19.5; src/mobs' MobView has them): ember glow, wind-up progress, the attack, dormant. */
+  glow?: number;
+  flare?: number;
+  attack?: HostileAttack | null;
+  dormant?: boolean;
 }
 
 /** The parts of the Renderer it draws into (the Renderer satisfies it). */
@@ -38,6 +46,8 @@ export interface MobScene {
   readonly scene: THREE.Scene;
   readonly camera: THREE.PerspectiveCamera;
   readonly uniforms: WorldUniforms;
+  /** Sizes the sparks (drawing-buffer height); the Renderer has it. */
+  readonly canvas?: HTMLCanvasElement;
 }
 
 /** Instances per species and shadows in all; animals beyond this are not drawn. */
@@ -57,6 +67,7 @@ interface SpeciesBatch {
   anim: THREE.InstancedBufferAttribute;
   light: THREE.InstancedBufferAttribute;
   cool: THREE.InstancedBufferAttribute;
+  ember: THREE.InstancedBufferAttribute;
   count: number;
 }
 
@@ -84,6 +95,7 @@ export class MobRenderer {
   private readonly noise: THREE.DataTexture;
   private readonly shadows: THREE.InstancedMesh;
   private readonly shadowAlpha: THREE.InstancedBufferAttribute;
+  private readonly fx: AutomatonFx;
   private readonly probe: LightProbe;
   private readonly lights = new Map<number, LightCache>();
   private readonly frustum = new THREE.Frustum();
@@ -102,6 +114,8 @@ export class MobRenderer {
     this.material = createMobMaterial(view.uniforms, this.noise);
     this.shadowMaterial = createShadowMaterial(view.uniforms);
     for (const spec of CREATURES) this.addBatch(spec);
+    for (const spec of AUTOMATONS) this.addBatch(spec);
+    this.fx = new AutomatonFx(view, world);
 
     const quad = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     this.shadowAlpha = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
@@ -121,15 +135,19 @@ export class MobRenderer {
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY * 4), 4).setUsage(THREE.DynamicDrawUsage);
     const light = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY * 4), 4).setUsage(THREE.DynamicDrawUsage);
     shape.geometry.setAttribute('aAnim', anim);
-    const cool = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
+    // aCool: x cool share of the block light, y head turn (a sentry's kiln, a drone's coil).
+    const cool = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY * 2), 2).setUsage(THREE.DynamicDrawUsage);
+    // aEmber: x ember glow, y flare, z left arm angle, w right arm angle.
+    const ember = new THREE.InstancedBufferAttribute(new Float32Array(MOB_DRAW_CAPACITY * 4), 4).setUsage(THREE.DynamicDrawUsage);
     shape.geometry.setAttribute('aLight', light);
     shape.geometry.setAttribute('aCool', cool);
+    shape.geometry.setAttribute('aEmber', ember);
     const mesh = new THREE.InstancedMesh(shape.geometry, this.material, MOB_DRAW_CAPACITY);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false; // culled per animal below
     mesh.count = 0;
     mesh.name = `mob-${spec.key}`;
-    const batch: SpeciesBatch = { spec, shape, mesh, anim, light, cool, count: 0 };
+    const batch: SpeciesBatch = { spec, shape, mesh, anim, light, cool, ember, count: 0 };
     this.batches.set(spec, batch);
     this.batchList.push(batch);
     this.group.add(mesh);
@@ -140,6 +158,7 @@ export class MobRenderer {
   update(dt: number, mobs: readonly MobRenderView[]): void {
     this.frame++;
     this.time += dt;
+    this.fx.begin(dt);
     const cam = this.view.camera;
     cam.updateMatrixWorld();
     this.projView.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
@@ -193,9 +212,20 @@ export class MobRenderer {
       const s = batch.shape;
       this.sphere.center.set(v.x, v.y + s.height * 0.5 * v.scale, v.z);
       this.sphere.radius = s.radius * v.scale + 0.2;
+      if (v.spec.hostile) this.sphere.radius += 0.7;
       if (!this.frustum.intersectsSphere(this.sphere)) continue;
       if (batch.count >= MOB_DRAW_CAPACITY) continue;
-      this.writeInstance(batch, v, lc);
+      let pose: Pose | null = null;
+      if (v.spec.hostile) {
+        // A broken automaton is not drawn: its pieces fly instead.
+        if (v.tip > 0) {
+          this.fx.corpse(v, lc.sky, lc.block);
+          continue;
+        }
+        pose = this.fx.pose(v, this.legSwing(batch, v));
+        this.fx.emit(v, pose, dx * dx + dy * dy + dz * dz);
+      }
+      this.writeInstance(batch, v, lc, pose);
       if (shadows < MOB_DRAW_CAPACITY && v.fade < 1) {
         this.writeShadow(shadows, v);
         shadows++;
@@ -211,7 +241,8 @@ export class MobRenderer {
         flush(b.mesh.instanceMatrix, b.count * 16);
         flush(b.anim, b.count * 4);
         flush(b.light, b.count * 4);
-        flush(b.cool, b.count);
+        flush(b.cool, b.count * 2);
+        flush(b.ember, b.count * 4);
       }
     }
     this.shadows.count = shadows;
@@ -220,33 +251,54 @@ export class MobRenderer {
       flush(this.shadowAlpha, shadows);
     }
     this.drawn = drawn;
+    this.fx.end();
     if ((this.frame & 63) === 0) this.forgetGone();
   }
 
-  private writeInstance(b: SpeciesBatch, v: MobRenderView, lc: LightCache): void {
+  /** The ember bolts in flight (src/mobs' `projectiles(alpha)`); call before `update`. Drawn with a spark trail. */
+  setBolts(views: readonly BoltView[]): void {
+    this.fx.setBolts(views);
+  }
+
+  /** Effects drawn last frame (halos, cubes, live particles), for stats and tests. */
+  get fxStats(): { halos: number; cubes: number; particles: number } {
+    return this.fx.drawn;
+  }
+
+  private legSwing(b: SpeciesBatch, v: MobRenderView): number {
+    return Math.sin(v.walk * (1.9 / b.shape.legHeight)) * LEG_SWING * v.stride;
+  }
+
+  private writeInstance(b: SpeciesBatch, v: MobRenderView, lc: LightCache, pose: Pose | null): void {
     const i = b.count++;
     const s = v.scale;
     // Tip over onto a side (alternating by id), lifted so the body rests on the ground.
     const phi = (v.id & 1 ? 1 : -1) * v.tip * (Math.PI / 2);
-    const cy = Math.cos(v.yaw);
-    const sy = Math.sin(v.yaw);
+    const yaw = pose ? pose.yaw : v.yaw;
+    const cy = Math.cos(yaw);
+    const sy = Math.sin(yaw);
     const cp = Math.cos(phi);
     const sp = Math.sin(phi);
-    const lift = Math.abs(sp) * v.spec.size.w * 0.5 * s;
-    // M = T * Ry(yaw) * Rz(phi) * S(s), column-major.
+    // An automaton's pose also pitches the body (nose up positive), squashes it vertically and lifts it (a drone's bob).
+    const pitch = pose ? pose.pitch : 0;
+    const ca = Math.cos(pitch);
+    const sa = Math.sin(pitch);
+    const sq = pose ? pose.squash : 1;
+    const lift = Math.abs(sp) * v.spec.size.w * 0.5 * s + (pose ? pose.lift : 0);
+    // M = T * Ry(yaw) * Rx(pitch) * Rz(phi) * S(s, s * squash, s), column-major.
     const e = b.mesh.instanceMatrix.array as Float32Array;
     const o = i * 16;
-    e[o] = cy * cp * s;
-    e[o + 1] = sp * s;
-    e[o + 2] = -sy * cp * s;
+    e[o] = (cy * cp + sy * sa * sp) * s;
+    e[o + 1] = ca * sp * s;
+    e[o + 2] = (-sy * cp + cy * sa * sp) * s;
     e[o + 3] = 0;
-    e[o + 4] = -cy * sp * s;
-    e[o + 5] = cp * s;
-    e[o + 6] = sy * sp * s;
+    e[o + 4] = (-cy * sp + sy * sa * cp) * s * sq;
+    e[o + 5] = ca * cp * s * sq;
+    e[o + 6] = (sy * sp + cy * sa * cp) * s * sq;
     e[o + 7] = 0;
-    e[o + 8] = sy * s;
-    e[o + 9] = 0;
-    e[o + 10] = cy * s;
+    e[o + 8] = sy * ca * s;
+    e[o + 9] = -sa * s;
+    e[o + 10] = cy * ca * s;
     e[o + 11] = 0;
     e[o + 12] = v.x;
     e[o + 13] = v.y + lift;
@@ -261,7 +313,7 @@ export class MobRenderer {
     const nod = Math.sin(v.walk * freq * 2) * 0.07 * v.stride;
     const a = b.anim.array as Float32Array;
     a[i * 4] = swing;
-    a[i * 4 + 1] = alive ? -(v.head * GRAZE_PITCH) + nibble + nod : 0;
+    a[i * 4 + 1] = pose ? pose.headPitch : alive ? -(v.head * GRAZE_PITCH) + nibble + nod : 0;
     a[i * 4 + 2] = s < 1 ? BABY_HEAD : 1;
     a[i * 4 + 3] = v.flash;
     const l = b.light.array as Float32Array;
@@ -269,7 +321,14 @@ export class MobRenderer {
     l[i * 4 + 1] = lc.block;
     l[i * 4 + 2] = v.fade;
     l[i * 4 + 3] = v.eager ? 1 : 0;
-    (b.cool.array as Float32Array)[i] = lc.cool;
+    const c = b.cool.array as Float32Array;
+    c[i * 2] = lc.cool;
+    c[i * 2 + 1] = pose ? pose.headTurn : 0;
+    const m = b.ember.array as Float32Array;
+    m[i * 4] = pose ? pose.ember : 0;
+    m[i * 4 + 1] = pose ? pose.flare : 0;
+    m[i * 4 + 2] = pose ? pose.armL : 0;
+    m[i * 4 + 3] = pose ? pose.armR : 0;
   }
 
   private writeShadow(i: number, v: MobRenderView): void {
@@ -310,6 +369,7 @@ export class MobRenderer {
       b.mesh.dispose();
       b.shape.geometry.dispose();
     }
+    this.fx.dispose();
     this.shadows.geometry.dispose();
     this.shadows.dispose();
     this.material.dispose();

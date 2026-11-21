@@ -238,6 +238,7 @@ export class Game {
     this.ui.frame(dt);
     if (this.shouldDraw(paused, now)) {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
+      this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
       this.renderer.render(paused ? 0 : dt);
       this.lastDraw = now;
