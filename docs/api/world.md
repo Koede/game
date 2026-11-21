@@ -167,3 +167,10 @@ Also exported: `Chunk`, `chunkCoord`, `localCoord`, `chunkKey`, `keyChunkX`, `ke
 - `streamer.ts` (367 lines) and `mesher.ts` (354) are a little over the 350-line aim.
 - The renderer is not built yet, so meshes were checked by unit tests and counts/timings in the browser,
   not by looking at them.
+
+## Later additions (feature visuals, see docs/api/render-machines.md)
+- Shape `pipe` is meshed for real (`src/world/meshPipe.ts`): core, arms to every same-family neighbour
+  (`PIPE_JOINS` / `PIPE_FAMILY` = registry.pipeJoins), collars at endpoints; item pipes in the translucent batch.
+- Light colour: `computeLight(chunks, hueOut?)`, `MeshInput.hue`; flags byte bit 3 = violet, bits 4-7 = cool share
+  of the block light (`LIGHT_FLAG_VIOLET`, `LIGHT_COOL_SHIFT`, `LIGHT_COOL_MAX` from mesher.ts). `LIGHT_HUE[id]`.
+- The quad machinery of the mesher lives in `src/world/meshQuads.ts`.

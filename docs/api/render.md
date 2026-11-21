@@ -144,3 +144,11 @@ outline with cracks, effects (bellows sparks, debris, steam, exhaust, explosion)
 - Torches and lava have no particles (only furnaces and machines with block entities emit).
 - No catch-up API for chunks meshed before the Renderer was created (create it first, see Wiring).
 - Frame times were only measured in headless software rendering; real-phone GPU timing is untested.
+
+## Later additions (feature visuals, see docs/api/render-machines.md)
+- `src/render/machines`: animated machine parts (`MachineParts`, created by the Renderer); `RenderStats.machines`,
+  `machinesMs`.
+- Atlas split over two array textures past `MAX_ARRAY_TEXTURE_LAYERS` (`createAtlas(maxLayers)`, `ATLAS_GLSL`,
+  `atlasDefines`, uniforms `uAtlas2` / `uAtlasSplit`); `new HeldItem(uniforms)` now takes the atlas uniforms.
+- Cool block light (cyan glowcaps, violet crystals) through the chunk flags byte: `blockTint`, `lightColorTinted`.
+- `shapeBounds('pipe')` is the pipe core.
