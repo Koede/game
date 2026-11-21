@@ -8,7 +8,7 @@
 import { DAY_LENGTH_S, SUNSET_AT, TWILIGHT } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { DayPhase } from '../core/gameEvents';
-import { lerp, mod, smoothstep } from '../core/math';
+import { lerp, smoothstep } from '../core/math';
 
 /** Sunlight factor in the middle of the night. */
 export const NIGHT_SUNLIGHT = 0.08;
@@ -18,6 +18,8 @@ export const START_TIME_OF_DAY = TWILIGHT;
 export const WAKE_TIME_OF_DAY = TWILIGHT / 2;
 
 const DUSK_AT = SUNSET_AT - TWILIGHT;
+/** Wraps into [0, 1) without disturbing values that are already inside (a double modulo would add rounding noise). */
+const wrap = (t: number): number => t - Math.floor(t);
 
 export interface ClockSnapshot {
   timeOfDay: number;
@@ -47,7 +49,7 @@ export class GameClock {
   private lastPhase: DayPhase;
 
   constructor(private readonly bus: GameBus | null = null, timeOfDay = START_TIME_OF_DAY) {
-    this.timeOfDay = mod(timeOfDay, 1);
+    this.timeOfDay = wrap(timeOfDay);
     this.lastPhase = phaseAt(this.timeOfDay);
   }
 
@@ -93,7 +95,7 @@ export class GameClock {
 
   /** Sets the time within the current day (debugging, tests). */
   setTimeOfDay(timeOfDay: number): void {
-    this.timeOfDay = mod(timeOfDay, 1);
+    this.timeOfDay = wrap(timeOfDay);
     this.announce();
   }
 
@@ -103,7 +105,7 @@ export class GameClock {
 
   /** Restores a snapshot without announcing a phase change. */
   load(snapshot: ClockSnapshot): void {
-    this.timeOfDay = mod(snapshot.timeOfDay, 1);
+    this.timeOfDay = wrap(snapshot.timeOfDay);
     this.day = Math.max(1, Math.floor(snapshot.day));
     this.lastPhase = phaseAt(this.timeOfDay);
   }
