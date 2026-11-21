@@ -2,7 +2,7 @@
  * A 16x16 RGBA pixel canvas with the few drawing tools the painters share. Everything random comes from a
  * stream seeded by the texture's name, so a tile never depends on which tiles were painted before it.
  */
-import { clamp, hashFloat, lerp, mod, mulberry32, seedFromString } from '../../core/math';
+import { hashFloat, lerp, mod, mulberry32, seedFromString } from '../../core/math';
 import { type RGB, mix, shade } from './palette';
 
 export const TEXTURE_SIZE = 16;
@@ -26,18 +26,6 @@ const wrapDelta = (d: number): number => {
   const m = mod(d, N);
   return m > N / 2 ? m - N : m;
 };
-
-/** Legend entries `keys[i] -> ramp[i]`, for sprites shaded with one material ramp. */
-export function tones(keys: string, ramp: readonly RGB[]): Record<string, RGB> {
-  const out: Record<string, RGB> = {};
-  for (let i = 0; i < keys.length; i++) out[keys[i]] = ramp[i];
-  return out;
-}
-
-/** Registers the idle and the running (`_on`) variant of one painter. */
-export function pair(name: string, paint: (c: Canvas, lit: boolean) => void): Record<string, Painter> {
-  return { [name]: (c) => paint(c, false), [`${name}_on`]: (c) => paint(c, true) };
-}
 
 export class Canvas {
   readonly data = new Uint8ClampedArray(N * N * 4);
@@ -94,14 +82,6 @@ export class Canvas {
     const py = mod(Math.floor(y), N);
     if (this.data[(py * N + px) * 4 + 3] === 0) return;
     this.set(px, py, mix(this.get(px, py), c, t), this.data[(py * N + px) * 4 + 3]);
-  }
-
-  /** Darkens (negative) or lightens (positive) the existing pixel. */
-  lit(x: number, y: number, amount: number): void {
-    const px = mod(Math.floor(x), N);
-    const py = mod(Math.floor(y), N);
-    const a = this.data[(py * N + px) * 4 + 3];
-    if (a > 0) this.set(px, py, shade(this.get(px, py), amount), a);
   }
 
   // ---- shapes ----------------------------------------------------------------------------------
@@ -195,16 +175,6 @@ export class Canvas {
       const ty = smooth(fy - iy);
       return lerp(lerp(at(ix, iy), at(ix + 1, iy), tx), lerp(at(ix, iy + 1), at(ix + 1, iy + 1), tx), ty);
     };
-  }
-
-  /** Fills the tile with soft patches of the ramp's colours: two octaves of noise, posterised. */
-  mottle(ramp: readonly RGB[], cellX = 4, cellY = cellX, contrast = 1, salt = 0): void {
-    const a = this.noise(cellX, cellY, salt);
-    const b = this.noise(Math.max(1, cellX / 2), Math.max(1, cellY / 2), salt + 1);
-    this.each((x, y) => {
-      const v = clamp(0.5 + (a(x, y) * 0.65 + b(x, y) * 0.35 - 0.5) * 2.1 * contrast, 0, 0.9999);
-      return ramp[Math.floor(v * ramp.length)];
-    });
   }
 
   /** `count` points spread over the tile, kept `minDist` apart (measured across the wrapping edges). */

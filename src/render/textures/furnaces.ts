@@ -7,7 +7,7 @@
 import type { Canvas, PainterSet } from './canvas';
 import { bevel, bevelCells, rivet, tone } from './brush';
 import * as P from './palette';
-import { type RGB, type Ramp, mix, shade } from './palette';
+import { type Ramp, mix, shade } from './palette';
 
 type Mask = (x: number, y: number) => boolean;
 
