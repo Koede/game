@@ -1,0 +1,355 @@
+<title>Hearthwatt Codex</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a forged-iron reference book - sticky tab bar, one column of station sections (crafting) or a dense tile grid (blocks), detail drawer for an item. Single dark look, like the game's own screens. */
+:root {
+  --soot: #16130f;
+  --plate: #211c17;
+  --plate-2: #2b241d;
+  --edge: #3d3329;
+  --ink: #efe6d8;
+  --ink-2: #b9ab98;
+  --ink-3: #85786a;
+  --ember: #f08a2c;
+  --power: #5fd3e0;
+  --good: #8fc06a;
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html { background: var(--soot); }
+body { background: var(--soot); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--plate); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { background: var(--plate); border-bottom: 1px solid var(--edge); position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding-block: 12px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0; }
+h1 span { color: var(--ember); }
+nav.tabs { display: flex; gap: 4px; overflow-x: auto; max-width: 100%; }
+nav.tabs a { white-space: nowrap; }
+nav.tabs a { font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); text-decoration: none; padding: 8px 12px; border: 1px solid transparent; }
+nav.tabs a[aria-current="page"] { color: var(--ink); border-color: var(--edge); background: var(--plate-2); box-shadow: inset 0 -2px 0 var(--ember); }
+nav.tabs a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--power); outline-offset: 2px; }
+.search { flex: 1 1 200px; min-width: 0; }
+.search input { width: 100%; box-sizing: border-box; background: var(--soot); color: var(--ink); border: 1px solid var(--edge); padding: 8px 10px; font: inherit; }
+main { padding-block: 18px 40px; }
+.lede { color: var(--ink-2); max-width: 66ch; margin: 0 0 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
+.chips button { font-family: var(--display); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); background: var(--plate); border: 1px solid var(--edge); padding: 6px 10px; cursor: pointer; }
+.chips button[aria-pressed="true"] { color: var(--soot); background: var(--ember); border-color: var(--ember); }
+section.station { margin: 0 0 26px; }
+.station > h2 { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 4px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.station > h2 small { font-family: var(--body); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink-3); }
+.station > p { margin: 0 0 10px; color: var(--ink-2); font-size: 13.5px; max-width: 70ch; }
+.sub { font-family: var(--mono); font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em; margin: 12px 0 6px; }
+.recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 6px; }
+.recipe { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; background: var(--plate); border: 1px solid var(--edge); padding: 8px 10px; min-width: 0; }
+.recipe .out { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; min-width: 0; }
+.recipe .out b { font-weight: 600; overflow-wrap: anywhere; }
+.recipe .meta { margin-left: auto; display: flex; gap: 4px; flex-shrink: 0; }
+.badge { font-family: var(--mono); font-size: 11.5px; padding: 1px 6px; border: 1px solid var(--edge); color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.badge.heat { color: var(--soot); border-color: transparent; font-weight: 500; }
+.badge.food { color: var(--good); }
+.ins { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.ins .from { color: var(--ink-3); font-family: var(--mono); font-size: 11.5px; align-self: center; margin-right: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--soot); border: 1px solid var(--edge); padding: 1px 6px 1px 2px; cursor: pointer; color: inherit; font: inherit; font-size: 13px; }
+.chip:hover { border-color: var(--ink-3); }
+.ret { color: var(--power); font-size: 12px; grid-column: 1 / -1; }
+img.px { image-rendering: pixelated; width: 22px; height: 22px; flex-shrink: 0; }
+img.px.lg { width: 32px; height: 32px; }
+button.link { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; text-align: left; }
+button.link:hover b { color: var(--ember); }
+/* blocks */
+.blocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 6px; }
+.block { display: grid; grid-template-columns: 64px 1fr; gap: 10px; background: var(--plate); border: 1px solid var(--edge); padding: 10px; min-width: 0; }
+.block h3 { font-family: var(--display); font-size: 14.5px; font-weight: 600; margin: 0 0 3px; overflow-wrap: anywhere; }
+.block dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 1px 8px; font-size: 12.5px; }
+.block dt { color: var(--ink-3); font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; align-self: center; }
+.block dd { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.cube { width: 56px; height: 56px; position: relative; margin: 4px 0 0 4px; }
+.cube i { position: absolute; width: 32px; height: 32px; background-size: 100% 100%; image-rendering: pixelated; }
+.cube .t { left: 12px; top: 0; transform: rotate(45deg) scaleY(1) ; transform-origin: center; filter: brightness(1.12); clip-path: none; }
+.cube.iso .t { left: 12px; top: -4px; transform: matrix(0.707, 0.408, -0.707, 0.408, 0, 0); }
+.cube.iso .l { left: 0px; top: 16px; transform: matrix(0.707, 0.408, 0, 0.816, 0, 0); transform-origin: 0 0; filter: brightness(0.82); }
+.cube.iso .r { left: 22.6px; top: 29.1px; transform: matrix(0.707, -0.408, 0, 0.816, 0, 0); transform-origin: 0 0; filter: brightness(0.66); }
+.flat { width: 48px; height: 48px; image-rendering: pixelated; margin: 4px; }
+.desc { color: var(--ink-3); font-size: 12px; margin: 4px 0 0; }
+/* drawer */
+.drawer { position: fixed; inset: auto 0 0 0; max-height: 70%; overflow: auto; background: var(--plate-2); border-top: 2px solid var(--ember); z-index: 20; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.drawer .wrap { padding-block: 14px 18px; }
+.drawer .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.drawer h3 { font-family: var(--display); margin: 0; font-size: 18px; }
+.drawer .close { margin-left: auto; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; background: var(--plate); color: var(--ink); border: 1px solid var(--edge); padding: 6px 12px; cursor: pointer; }
+.drawer h4 { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin: 12px 0 6px; font-weight: 500; }
+/* progression tree */
+.tree ul { list-style: none; margin: 0; padding-left: 18px; border-left: 2px solid var(--edge); }
+.tree > ul { border-left: 0; padding-left: 0; }
+.tree li { position: relative; padding: 5px 0 5px 14px; }
+.tree li::before { content: ""; position: absolute; left: -18px; top: 17px; width: 28px; height: 2px; background: var(--edge); }
+.tree > ul > li { padding-left: 0; margin-bottom: 14px; }
+.tree > ul > li::before { display: none; }
+.tree .age { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: var(--plate); border: 1px solid var(--edge); border-left: 4px solid var(--c, var(--ember)); padding: 10px 12px; }
+.tree .age b { font-family: var(--display); font-size: 17px; letter-spacing: 0.05em; text-transform: uppercase; }
+.tree .age span { color: var(--ink-2); font-size: 13px; }
+.tree .branch { font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: 0.04em; }
+.tree .leaf { color: var(--ink-2); font-size: 13.5px; }
+.tree .leaf .chip { margin: 1px 2px 1px 0; }
+.tree .leaf .tag { display: inline-block; margin: 2px 4px 2px 0; }
+.tag { font-family: var(--mono); font-size: 11px; padding: 0 5px; border: 1px solid var(--edge); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.tag.plan { color: var(--power); border-color: var(--power); }
+/* item map */
+.mapscroll { overflow-x: auto; }
+.imap { display: grid; grid-template-columns: 92px repeat(6, minmax(150px, 1fr)); gap: 4px; min-width: 1010px; }
+.imap .hd { font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); padding: 6px; position: sticky; top: 0; }
+.imap .rowhd { font-family: var(--display); font-size: 13px; font-weight: 600; padding: 8px 6px; border-left: 4px solid var(--c); background: var(--plate); }
+.imap .cell { background: var(--plate); border: 1px solid var(--edge); padding: 5px; display: flex; flex-wrap: wrap; gap: 3px; align-content: flex-start; min-height: 34px; }
+.node { display: inline-flex; align-items: center; gap: 3px; background: var(--soot); border: 1px solid var(--edge); padding: 1px 5px 1px 2px; font: inherit; font-size: 12px; color: var(--ink-2); cursor: pointer; }
+.node small { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+.imap.lit .node { opacity: 0.28; }
+.imap.lit .node.sel { opacity: 1; border-color: var(--ink); color: var(--ink); }
+.imap.lit .node.req { opacity: 1; border-color: var(--ember); color: var(--ink); }
+.imap.lit .node.dep { opacity: 1; border-color: var(--power); color: var(--ink); }
+.empty { color: var(--ink-3); font-size: 13px; }
+.count { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+@media (prefers-reduced-motion: no-preference) { .chip, nav.tabs a { transition: border-color 0.15s, background 0.15s; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <h1>Hearth<span>watt</span> Codex</h1>
+    <nav class="tabs" aria-label="Views">
+      <a href="#crafting" id="tab-crafting">Crafting map</a>
+      <a href="#blocks" id="tab-blocks">Blocks</a>
+      <a href="#progression" id="tab-progression">Progression</a>
+      <a href="#items" id="tab-items">Item map</a>
+    </nav>
+    <label class="search"><input id="q" type="search" placeholder="Find an item or block" aria-label="Search"></label>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="view-crafting">
+    <p class="lede">Every recipe in the game, in the order you reach them: by hand, at the workbench, at the furnace tier by tier, then in machines. Furnace rows show the temperature the fire must reach. Tap any item to see what it is made from and what it goes into.</p>
+    <div class="chips" id="station-chips"></div>
+    <div id="crafting"></div>
+  </div>
+  <div id="view-blocks" hidden>
+    <p class="lede">Every block in the world, with the tool that breaks it, the tier that tool must be for anything to drop, and what you get.</p>
+    <div class="chips" id="block-chips"></div>
+    <p class="count" id="block-count"></p>
+    <div class="blocks" id="blocks"></div>
+  </div>
+</main>
+
+<div class="wrap" id="view-progression" hidden style="padding-block:18px 40px">
+  <p class="lede">The whole game as one tree. Six ages. Each begins when the furnace reaches its next tier; the branches are what that tier opens up. Items shown as icons exist in the game today. Branches marked <span class="tag plan">planned</span> are designed but not built yet.</p>
+  <div class="tree" id="tree"></div>
+</div>
+<div class="wrap" id="view-items" hidden style="padding-block:18px 40px">
+  <p class="lede">Every item placed by complexity: columns count the crafting steps from raw materials, rows are the furnace tier it needs in the game as built today (five tiers; the planned Bronze Age is not in this map yet). Tap an item to light up everything it requires (amber) and everything that needs it (cyan). The number is how many raw materials one of it costs in total.</p>
+  <div class="chips" id="map-legend"><button id="map-clear" aria-pressed="false">Clear highlight</button></div>
+  <div class="mapscroll"><div class="imap" id="imap"></div></div>
+</div>
+
+<aside class="drawer" id="drawer" hidden aria-live="polite"></aside>
+
+<script>
+(async () => {
+  const data = await (await fetch('codex-data.json')).json();
+  const { tex, items, recipes, blocks, tiers, ages } = data;
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const img = (name, cls = 'px') => `<img class="${cls}" src="${tex[name] || tex.missing}" alt="">`;
+  const itemName = (k) => items[k]?.name ?? k;
+  const itemIcon = (k, cls) => img(items[k]?.icon, cls);
+
+  // Heat ramp, matching the game's thermometer.
+  const RAMP = [[20, [70, 60, 55]], [500, [150, 40, 30]], [800, [235, 120, 40]], [1100, [245, 205, 70]], [1500, [250, 245, 225]], [1900, [190, 225, 255]], [3200, [150, 190, 255]]];
+  function heat(t) {
+    for (let i = 1; i < RAMP.length; i++) {
+      if (t <= RAMP[i][0]) {
+        const [a, ca] = RAMP[i - 1], [b, cb] = RAMP[i], f = (t - a) / (b - a);
+        return `rgb(${ca.map((v, j) => Math.round(v + (cb[j] - v) * f)).join(',')})`;
+      }
+    }
+    return 'rgb(150,190,255)';
+  }
+
+  // ---------- crafting map ----------
+  const MACHINE_NAMES = { crusher: 'Crusher', still: 'Still', centrifuge: 'Centrifuge', electrolyzer: 'Electrolyzer' };
+  const sections = [];
+  sections.push({ id: 'hand', title: 'By hand', note: 'Anywhere, from the inventory. The workbench can make all of these too.', groups: [{ rows: recipes.filter((r) => r.station === 'hand') }] });
+  sections.push({ id: 'workbench', title: 'Workbench', note: 'Cold work: wood, rope, the first furnace. Everything above is also on its list.', groups: [{ rows: recipes.filter((r) => r.station === 'workbench') }] });
+  for (const t of tiers) {
+    const rows = recipes.filter((r) => r.station === 'furnace' && r.tier === t.tier);
+    if (!rows.length) continue;
+    const smelt = rows.filter((r) => r.kind === 'smelt').sort((a, b) => a.temp - b.temp);
+    const forge = rows.filter((r) => r.kind === 'forge').sort((a, b) => a.temp - b.temp);
+    sections.push({
+      id: 'furnace-' + t.tier, title: t.name, small: `${ages[t.age]?.name ?? ''} - holds up to ${t.max} C`,
+      note: t.tier === 1 ? 'Smelt: loaded into a crucible and cooked over time. Forge: made on the spot while the fire is hot enough.' : '',
+      groups: [{ label: 'Smelt in a crucible', rows: smelt }, { label: 'Forge at temperature', rows: forge }].filter((g) => g.rows.length),
+    });
+  }
+  const machineRows = recipes.filter((r) => MACHINE_NAMES[r.station]);
+  sections.push({ id: 'machines', title: 'Machines', note: 'Powered machines process one input type each, using electricity from your grid.', groups: Object.keys(MACHINE_NAMES).map((m) => ({ label: MACHINE_NAMES[m], rows: machineRows.filter((r) => r.station === m) })).filter((g) => g.rows.length) });
+
+  function recipeHtml(r) {
+    const out = items[r.output.item];
+    const badges = [];
+    if (r.station === 'furnace' || MACHINE_NAMES[r.station]) {
+      if (r.temp > 0) badges.push(`<span class="badge heat" style="background:${heat(r.temp)}">${r.temp} C</span>`);
+      if (r.t > 0) badges.push(`<span class="badge">${r.t} s</span>`);
+    }
+    if (out?.food) badges.push(`<span class="badge food">+${out.food} food</span>`);
+    const ins = r.inputs.map((i) => `<button class="chip" data-item="${esc(i.item)}">${itemIcon(i.item)}${i.count > 1 ? i.count + ' ' : ''}${esc(itemName(i.item))}</button>`).join('');
+    const by = (r.by || []).map((b) => `${b.count > 1 ? b.count + ' ' : ''}${esc(itemName(b.item))}`).join(', ');
+    return `<div class="recipe" data-search="${esc((itemName(r.output.item) + ' ' + r.inputs.map((i) => itemName(i.item)).join(' ')).toLowerCase())}">
+      <div class="out"><button class="link" data-item="${esc(r.output.item)}" style="display:flex;align-items:center;gap:8px;min-width:0">${itemIcon(r.output.item, 'px lg')}<b>${esc(out?.name ?? r.output.item)}${r.output.count > 1 ? ' x' + r.output.count : ''}</b></button><span class="meta">${badges.join('')}</span></div>
+      <div class="ins"><span class="from">from</span>${ins}</div>
+      ${by ? `<div class="ret">Also gives back: ${by}</div>` : ''}
+    </div>`;
+  }
+
+  let station = 'all';
+  function renderCrafting() {
+    const q = $('#q').value.trim().toLowerCase();
+    $('#crafting').innerHTML = sections.filter((s) => station === 'all' || s.id === station).map((s) => {
+      const groups = s.groups.map((g) => {
+        const rows = g.rows.map(recipeHtml).filter((h) => !q || h.includes(`data-search="`) && h.match(/data-search="([^"]*)"/)[1].includes(q));
+        if (!rows.length) return '';
+        return `${g.label ? `<p class="sub">${esc(g.label)} - ${rows.length}</p>` : ''}<div class="recipes">${rows.join('')}</div>`;
+      }).join('');
+      if (!groups) return '';
+      return `<section class="station" id="${s.id}"><h2>${esc(s.title)}${s.small ? `<small>${esc(s.small)}</small>` : ''}</h2>${s.note ? `<p>${esc(s.note)}</p>` : ''}${groups}</section>`;
+    }).join('') || '<p class="empty">Nothing matches that search.</p>';
+  }
+  const stationChips = [['all', 'All']].concat(sections.map((s) => [s.id, s.title]));
+  $('#station-chips').innerHTML = stationChips.map(([id, t]) => `<button data-station="${id}" aria-pressed="${id === 'all'}">${esc(t)}</button>`).join('');
+  $('#station-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    station = b.dataset.station;
+    $('#station-chips').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    renderCrafting();
+  });
+
+  // ---------- blocks ----------
+  const ORES = new Set(['bauxite', 'wolframite', 'spodumene', 'pitchblende', 'oil_shale', 'limestone']);
+  function blockGroup(b) {
+    if (b.liquid) return 'Liquids';
+    if (b.machine === 'crop' || b.machine === 'bush' || b.shape === 'cross') return 'Plants';
+    if (b.key.startsWith('furnace_') || /hearth|refractory|plasma_casing|star_casing|electrode|hatch|power_port/.test(b.key)) return 'Furnace & hearth';
+    if (b.shape === 'pipe' || b.shape === 'cable') return 'Pipes & cables';
+    if (b.machine) return 'Machines';
+    if (b.key.endsWith('_ore') || ORES.has(b.key)) return 'Ores';
+    return 'Terrain & building';
+  }
+  const GROUPS = ['Terrain & building', 'Ores', 'Plants', 'Liquids', 'Furnace & hearth', 'Machines', 'Pipes & cables'];
+  const TIER = ['hands', 'flint', 'bronze', 'iron', 'steel', 'power drill'];
+  let bgroup = 'all';
+  function blockHtml(b) {
+    const cubeLike = b.shape === 'cube' || b.shape === 'slab' || b.shape === 'liquid';
+    const vis = cubeLike
+      ? `<div class="cube iso"><i class="t" style="background-image:url(${tex[b.top]})"></i><i class="l" style="background-image:url(${tex[b.front] && b.machine ? tex[b.front] : tex[b.side]})"></i><i class="r" style="background-image:url(${tex[b.side]})"></i></div>`
+      : `<img class="flat" src="${tex[b.side]}" alt="">`;
+    const breaks = b.hard < 0 ? 'cannot be broken' : `${b.hard} s by hand${b.tool ? ', ' + b.tool : ''}`;
+    const needs = b.tier > 0 ? `${TIER[b.tier] ?? 'tier ' + b.tier} ${b.tool ?? ''}`.trim() : 'anything';
+    const drops = b.drops.length ? [...new Set(b.drops)].map((k) => `<button class="chip" data-item="${esc(k)}">${itemIcon(k)}${esc(itemName(k))}</button>`).join(' ') : 'nothing';
+    return `<article class="block" data-search="${esc(b.name.toLowerCase())}">
+      ${vis}
+      <div style="min-width:0"><h3>${esc(b.name)}</h3>
+      <dl><dt>Breaks</dt><dd>${esc(breaks)}</dd><dt>Needs</dt><dd>${esc(needs)}</dd>${b.light ? `<dt>Light</dt><dd>${b.light} / 15</dd>` : ''}<dt>Drops</dt><dd>${drops}</dd></dl>
+      ${b.desc ? `<p class="desc">${esc(b.desc)}</p>` : ''}</div>
+    </article>`;
+  }
+  function renderBlocks() {
+    const q = $('#q').value.trim().toLowerCase();
+    const list = blocks.filter((b) => (bgroup === 'all' || blockGroup(b) === bgroup) && (!q || b.name.toLowerCase().includes(q)));
+    $('#block-count').textContent = `${list.length} of ${blocks.length} blocks`;
+    $('#blocks').innerHTML = list.map(blockHtml).join('') || '<p class="empty">Nothing matches that search.</p>';
+  }
+  $('#block-chips').innerHTML = [['all', 'All']].concat(GROUPS.map((g) => [g, g])).map(([id, t]) => `<button data-group="${esc(id)}" aria-pressed="${id === 'all'}">${esc(t)}</button>`).join('');
+  $('#block-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    bgroup = b.dataset.group;
+    $('#block-chips').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    renderBlocks();
+  });
+
+  // ---------- item drawer: made from / used in ----------
+  const stationLabel = (r) => r.station === 'furnace' ? `${tiers[r.tier - 1]?.name ?? 'Furnace'} - ${r.kind === 'smelt' ? 'smelt' : 'forge'}` : (MACHINE_NAMES[r.station] ?? (r.station === 'hand' ? 'By hand' : 'Workbench'));
+  function openItem(key) {
+    const it = items[key]; if (!it) return;
+    const made = recipes.filter((r) => r.output.item === key);
+    const used = recipes.filter((r) => r.inputs.some((i) => i.item === key));
+    const droppedBy = blocks.filter((b) => b.drops.includes(key)).map((b) => b.name);
+    const list = (rs) => rs.length ? `<div class="recipes">${rs.map((r) => recipeHtml(r).replace('<div class="out">', `<div class="out"><span class="badge">${esc(stationLabel(r))}</span>`)).join('')}</div>` : '<p class="empty">None.</p>';
+    const d = $('#drawer');
+    d.innerHTML = `<div class="wrap"><div class="head">${itemIcon(key, 'px lg')}<h3>${esc(it.name)}</h3><button class="close" id="close">Close</button></div>
+      ${it.desc ? `<p class="lede" style="margin:0">${esc(it.desc)}</p>` : ''}
+      ${it.fuel ? `<p class="desc">Fuel - burns at ${it.fuel} C</p>` : ''}${it.food ? `<p class="desc">Food - +${it.food}</p>` : ''}
+      ${droppedBy.length ? `<h4>Found by breaking</h4><p class="desc">${esc(droppedBy.join(', '))}</p>` : ''}
+      <h4>Made from</h4>${list(made)}<h4>Used in (${used.length})</h4>${list(used)}</div>`;
+    d.hidden = false;
+    $('#close').focus();
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-item]');
+    if (t) { openItem(t.dataset.item); return; }
+    if (e.target.id === 'close') $('#drawer').hidden = true;
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#drawer').hidden = true; });
+
+  // ---------- routing ----------
+  const VIEWS = ['crafting', 'blocks', 'progression', 'items'];
+  function route() {
+    const h = location.hash.slice(1);
+    const view = VIEWS.includes(h) ? h : 'crafting';
+    for (const v of VIEWS) {
+      $('#view-' + v).hidden = v !== view;
+      if (v === view) $('#tab-' + v).setAttribute('aria-current', 'page'); else $('#tab-' + v).removeAttribute('aria-current');
+    }
+  }
+  window.addEventListener('hashchange', route);
+  $('#q').addEventListener('input', () => { renderCrafting(); renderBlocks(); });
+
+  // ---------- progression tree ----------
+  const AGE_C = ['#c8452e', '#d9a441', '#f08a2c', '#5fd3e0', '#a48cf0', '#f5d76a'];
+  const chipOf = (k) => items[k] ? `<button class="chip" data-item="${k}">${itemIcon(k)}${esc(itemName(k))}</button>` : `<span class="tag plan">${esc(k)}</span>`;
+  const P = data.progression.ages;
+  $('#tree').innerHTML = '<ul>' + P.map((a, i) => `<li><div class="age" style="--c:${AGE_C[i]}">${itemIcon(a.furnace, 'px lg')}<b>${esc(a.name)}</b>${a.planned ? '<span class="tag plan">planned age</span>' : ''}<span>${esc(a.head)}. ${esc(a.line)}</span></div><ul>`
+    + a.branches.map(({ name, items: list, planned, note }) => `<li><span class="branch">${esc(name)}</span> ${planned ? '<span class="tag plan">planned</span>' : ''}<div class="leaf">${list.map(chipOf).join('')}${note ? `<div>${esc(note)}</div>` : ''}</div></li>`).join('') + '</ul></li>').join('') + '</ul>';
+
+  // ---------- item map: complexity by steps and tier ----------
+  const cx = data.cx;
+  const ROWS = [[0, 'Raw / by hand'], [1, 'Clay Furnace'], [2, 'Blast Furnace'], [3, 'Arc Furnace'], [4, 'Plasma Furnace']];
+  const rowOf = (k) => { const c = cx[k]; if (c.tier) return c.tier; let t = 0; for (const r of recipes) if (r.output.item === k) for (const i of r.inputs) t = Math.max(t, cx[i.item]?.tier ?? 0, rowCache[i.item] ?? 0); return t; };
+  const rowCache = {};
+  const order = Object.keys(items).sort((a, b) => cx[a].depth - cx[b].depth);
+  for (const k of order) rowCache[k] = rowOf(k);
+  let html = '<div class="hd"></div>' + [0, 1, 2, 3, 4, 5].map((d) => `<div class="hd">${d === 0 ? 'Raw material' : d + (d === 1 ? ' step' : ' steps')}</div>`).join('');
+  for (const [row, label] of ROWS) {
+    html += `<div class="rowhd" style="--c:${row ? AGE_C[row - 1] : 'var(--edge)'}">${esc(label)}</div>`;
+    for (let d = 0; d <= 5; d++) {
+      const here = order.filter((k) => rowCache[k] === row && Math.min(cx[k].depth, 5) === d).sort((a, b) => cx[a].raw - cx[b].raw);
+      html += `<div class="cell">${here.map((k) => `<button class="node" data-node="${k}" title="${esc(itemName(k))}">${itemIcon(k)}${esc(itemName(k))}${cx[k].raw ? `<small>${Math.round(cx[k].raw)}</small>` : ''}</button>`).join('')}</div>`;
+    }
+  }
+  $('#imap').innerHTML = html;
+  const reqOf = (k, acc = new Set()) => { const r = recipes.filter((x) => x.output.item === k)[0]; if (r) for (const i of r.inputs) if (!acc.has(i.item)) { acc.add(i.item); reqOf(i.item, acc); } return acc; };
+  const depOf = (k, acc = new Set()) => { for (const r of recipes) if (r.inputs.some((i) => i.item === k) && !acc.has(r.output.item)) { acc.add(r.output.item); depOf(r.output.item, acc); } return acc; };
+  function light(k) {
+    const m = $('#imap'); m.classList.toggle('lit', !!k);
+    const req = k ? reqOf(k) : new Set(), dep = k ? depOf(k) : new Set();
+    m.querySelectorAll('.node').forEach((n) => { const id = n.dataset.node; n.classList.toggle('sel', id === k); n.classList.toggle('req', req.has(id)); n.classList.toggle('dep', dep.has(id) && !req.has(id)); });
+  }
+  $('#imap').addEventListener('click', (e) => { const n = e.target.closest('.node'); if (n) light(n.dataset.node); });
+  $('#map-clear').addEventListener('click', () => light(null));
+
+  route(); renderCrafting(); renderBlocks();
+})();
+</script>

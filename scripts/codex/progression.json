@@ -1,0 +1,88 @@
+{
+  "ages": [
+    {
+      "name": "Ember Age",
+      "furnace": "furnace_clay",
+      "head": "Clay Furnace - up to 800 C",
+      "line": "Handwork: fire, casting, food and brewing. No steam, no machines.",
+      "branches": [
+        {"name":"Survive","items":["flint_pickaxe","workbench","torch","padded_coat","pail","crate"]},
+        {"name":"The fire","items":["charcoal","bellows","firebrick","brick"]},
+        {"name":"First metal","items":["copper_ingot","tin_ingot","bronze_ingot","bronze_pickaxe","bronze_maul","bronze_bucket"]},
+        {"name":"Food and farming","items":["flint_hoe","wheat_seeds","flour","dough","bread","hearth_stew"]},
+        {"name":"Brewing","items":["Tea Bush","Coffee Shrub","Clay Cup","Drip Cone","Kettle Pot","Green Tea","Black Tea","Berry Tea","Light Roast","Dark Roast","Trail Blend"],"planned":true,"note":"Boil water on the furnace, pour it over the cone. Six drinks, six different boosts."},
+        {"name":"Hand stations","items":["Chopping Block","Hand Quern","Stone Anvil","Mortar","Loom","Drying Rack","Tanning Trough"],"planned":true,"note":"Worked stroke by stroke with your own hands. No steam, no machines in this age."},
+        {"name":"Clay and casting","items":["Clay Table","Moulds","Casting Bench","Alloy Pot"],"planned":true,"note":"Shape clay, fire it, pour molten metal into moulds. Bronze is alloyed in a pot."},
+        {"name":"Gate to the next age","items":["bronze_ingot","firebrick","bellows"],"note":"The furnace asks for its upgrade: 8 bronze, 4 firebrick, a bellows, 2 bronze plates, leather"}
+      ]
+    },
+    {
+      "name": "Bronze Age",
+      "furnace": "bronze_ingot",
+      "head": "Bronze Furnace - up to 1100 C",
+      "line": "Steam begins: turning shafts, then heat, pressure and air. Still no electricity.",
+      "planned": true,
+      "branches": [
+        {"name":"Steam and turning","items":["Copper Kettle","Steam Rotor","Water Wheel","Windmill","Wooden Axle","Small Cog","Large Cog","Bronze Gearbox"],"planned":true,"note":"Speed in rpm, stress as load against capacity. Too much load and the line seizes."},
+        {"name":"Shaft machines","items":["Millstone","Saw Bench","Shaft Bellows","Trip Hammer","Mechanical Pump","Mechanical Drill","Draft Fan"],"planned":true,"note":"They do the Ember hand stations' work for you."},
+        {"name":"Control and gauges","items":["Clutch","Flywheel","Speed Gauge","Stress Gauge"],"planned":true},
+        {"name":"Moving heat","items":["Thermocouple","Hot Plate","Heat Vent","Heat Port"],"planned":true,"note":"Rods carry furnace heat, losing 2% a block. They glow, and burn to the touch."},
+        {"name":"The boiler - first multiblock","items":["Boiler Plate","Gauge Glass","Water Port","Steam Port","Safety Valve"],"planned":true,"note":"A sealed vessel standing apart from the furnace, built from a ghost preview."},
+        {"name":"Pressure","items":["Bronze Steam Pipe","Steam Receiver","Pressure Gauge","Steam Engine","Steam Hammer","Steam Whistle"],"planned":true,"note":"Bar on a gauge. 16 rpm per bar. Past 8 bar without a valve, it bursts."},
+        {"name":"Air","items":["Air Compressor","Air Tube","Air Tank","Pneumatic Press","Pneumatic Drill","Air Hammer"],"planned":true},
+        {"name":"Items move","items":["item_pipe","Vacuum Pump"],"planned":true,"note":"The Bronze Chute does nothing alone: a Vacuum Pump draws items toward itself."},
+        {"name":"Gate to the next age","items":["Blast Nozzle","brick"],"planned":true,"note":"Brick walls around the furnace with a Blast Nozzle fed by air"}
+      ]
+    },
+    {
+      "name": "Forge Age",
+      "furnace": "furnace_blast",
+      "head": "Blast hearth - up to 1500 C",
+      "line": "Iron, steel and heavy industry. The first watts come at the end.",
+      "branches": [
+        {"name":"Iron and steel","items":["coke","iron_ingot","iron_plate","steel_ingot","steel_plate","steel_pickaxe"]},
+        {"name":"Heavy industry","items":["Iron Axle","Steel Axle","Rolling Mill","Drop Forge","crusher","chassis"],"planned":true},
+        {"name":"Fluids","items":["fluid_pipe","hot_fluid_pipe","pump","tank"]},
+        {"name":"First electricity","items":["Dynamo","thermopile","copper_coil","copper_cable","lamp","battery"],"planned":true,"note":"Shaft rotation becomes watts."},
+        {"name":"Defence","items":["iron_maul","steel_maul","plated_coat","steel_cuirass"]},
+        {"name":"Gate to the next age","items":["refractory_brick","electrode"],"note":"Refractory walls with an electrode in the roof"}
+      ]
+    },
+    {
+      "name": "Current Age",
+      "furnace": "furnace_arc",
+      "head": "Arc hearth - up to 2100 C",
+      "line": "The furnace runs on electricity. You build a grid.",
+      "branches": [
+        {"name":"Electronics","items":["silicon_wafer","circuit","aluminum_ingot","heavy_cable"]},
+        {"name":"Generation","items":["wind_turbine","solar_panel","combustion_engine","geothermal_tap","steam_turbine","Alternator"]},
+        {"name":"Oil","items":["still","fuel_canister"]},
+        {"name":"Automation","items":["bore_rig","fast_item_pipe","tungsten_rod"]},
+        {"name":"Defence","items":["arc_maul","ward_beacon"]},
+        {"name":"Gate to the next age","items":["plasma_casing","power_port"],"note":"Plasma casing shell with two power ports"}
+      ]
+    },
+    {
+      "name": "Atomic Age",
+      "furnace": "furnace_plasma",
+      "head": "Plasma hearth - up to 3200 C",
+      "line": "Tens of kilowatts. Splitting the atom.",
+      "branches": [
+        {"name":"Superalloy","items":["superalloy","fused_quartz","power_drill","shield_suit"]},
+        {"name":"Fission","items":["centrifuge","enriched_pellet","fuel_rod","fission_pile"]},
+        {"name":"Storage and lines","items":["lithium_bank","magnet_ring","super_cable"]},
+        {"name":"Heavy water","items":["electrolyzer","empty_cell","deuterium_cell"]},
+        {"name":"Gate to the next age","items":["star_casing","star_core"],"note":"Star casing shell, a star core and eight deuterium cells"}
+      ]
+    },
+    {
+      "name": "Star Age",
+      "furnace": "furnace_star",
+      "head": "Starhearth",
+      "line": "Hold 300 kW for 90 seconds. The furnace becomes a star.",
+      "branches": [
+        {"name":"Ignition","items":["furnace_star"],"note":"1 MW forever, every recipe at any heat - the win"}
+      ]
+    }
+  ]
+}
