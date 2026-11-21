@@ -71,6 +71,7 @@ export class Game {
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
+    this.renderer.setWeather(state.weather.state);
     try {
       this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
       this.ui = new GameUI(root, {
@@ -83,6 +84,7 @@ export class Game {
         objectives,
         survival,
         sim,
+        weather: () => state.weather.state,
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: { onSettingsChange: opts.onSettingsChange, onQuit: opts.onQuit },
       });
@@ -103,7 +105,7 @@ export class Game {
       };
       this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input });
       this.audio = new AudioEngine(bus, settings);
-      this.ambience = new AmbienceProbe(world, player, clock);
+      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
       this.renderer.dispose();
       throw err;

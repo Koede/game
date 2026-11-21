@@ -381,6 +381,77 @@
 .hw-dial[data-night] .hw-dial__next {
   color: #ffd56b;
 }
+/* Weather (spec 15): the sky half greys with the clouds; a glyph in the middle; tonight's moon in its phase. */
+.hw-dial[data-weather='cloudy'] .hw-dial__sky {
+  fill: #50667a;
+}
+.hw-dial[data-weather='rain'] .hw-dial__sky,
+.hw-dial[data-weather='snow'] .hw-dial__sky {
+  fill: #4a5664;
+}
+.hw-dial[data-weather='storm'] .hw-dial__sky {
+  fill: #363d4a;
+}
+.hw-dial[data-weather='dust'] .hw-dial__sky {
+  fill: #7a6446;
+}
+.hw-dial__cloud-edge > * {
+  fill: #0e1219;
+  stroke: #0e1219;
+  stroke-width: 1.7;
+}
+.hw-dial__cloud-fill > * {
+  fill: #e4e9f1;
+}
+.hw-dial__wx--rain .hw-dial__cloud-fill > *,
+.hw-dial__wx--snow .hw-dial__cloud-fill > * {
+  fill: #b3bfcd;
+}
+.hw-dial__wx--storm .hw-dial__cloud-fill > * {
+  fill: #7a8494;
+}
+.hw-dial__drop {
+  stroke: #9fd0ff;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.hw-dial__flake {
+  fill: #ffffff;
+  stroke: #0e1219;
+  stroke-width: 0.7;
+}
+.hw-dial__bolt {
+  fill: #ffd84a;
+  stroke: #1c0e03;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.hw-dial__dust {
+  stroke: #e0bd84;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.hw-dial__moon {
+  display: none;
+}
+.hw-dial[data-night] .hw-dial__moon {
+  display: inline;
+}
+.hw-dial[data-night] .hw-dial__body {
+  display: none;
+}
+.hw-dial__moon-dark {
+  fill: #2a3148;
+  stroke: #0b0e18;
+  stroke-width: 0.8;
+}
+.hw-dial__moon-lit {
+  fill: #e9eef9;
+}
+.hw-dial__moon-icon {
+  display: block;
+  overflow: visible;
+}
 .hw-power {
   --hw-tone: var(--hw-power);
   gap: 6px;

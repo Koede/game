@@ -4,7 +4,7 @@ import { Window } from '../../kit/window';
 import { HearthLogView } from './hearthLog';
 
 export function createLogScreen(_request: { type: 'log' }, ctx: ScreenContext): GameScreen {
-  const view = new HearthLogView(ctx.objectives);
+  const view = new HearthLogView(ctx.objectives, () => ctx.weather);
   const window = new Window({ title: 'Hearth Log', subtitle: `Day ${ctx.clock.day}`, size: 'md', fit: 'tall', body: view.el });
   return {
     window,

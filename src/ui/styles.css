@@ -2452,6 +2452,53 @@ body {
   transform-origin: left center;
   transition: transform 240ms ease-out;
 }
+/* The hearth keeper reads the sky (spec 15). */
+.hw-log__sky {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--hw-soot-2);
+  border: 1px solid var(--hw-iron-2);
+  border-left: 3px solid #7f97b3;
+  border-radius: var(--hw-radius);
+}
+.hw-log__sky[data-weather='rain'],
+.hw-log__sky[data-weather='storm'] {
+  border-left-color: #9fd0ff;
+}
+.hw-log__sky-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  background: #2c3a4b;
+  border-radius: 50%;
+}
+.hw-log__sky-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.hw-log__sky-kicker {
+  font: 600 var(--hw-fs-xs) / 1.2 var(--hw-font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hw-ash-1);
+}
+.hw-log__sky-line {
+  font: 600 15px / 1.3 var(--hw-font-display);
+  letter-spacing: 0.02em;
+}
+.hw-log__sky-when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 3px;
+  font-size: 12px;
+  color: var(--hw-ash-2);
+}
 .hw-log__section {
   display: grid;
   gap: 8px;

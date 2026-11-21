@@ -5,6 +5,7 @@ import { makeVoxel } from '../core/types';
 import { GameClock } from '../game/clock';
 import { FakeWorld } from '../game/fakeWorld';
 import { PlayerState } from '../game/playerState';
+import { createWeatherState } from '../game/weather';
 import { AmbienceProbe, furnaceHeatLevel, FURNACE_HEARING } from './ambience';
 
 function setup() {
@@ -72,5 +73,28 @@ describe('AmbienceProbe', () => {
     expect(s.night).toBe(true);
     expect(s.underwater).toBe(true);
     expect(s.cold).toBeCloseTo(0.8, 6);
+  });
+
+  it('feeds the rain bed, storm gusts and the roof from the weather', () => {
+    const { world, player, clock } = setup();
+    const w = createWeatherState();
+    const probe = new AmbienceProbe(world, player, clock, w);
+    Object.assign(w, { kind: 'rain', previous: 'rain', blend: 1, precipitation: 'rain', intensity: 0.6 });
+    let s = probe.update(0.016);
+    expect(s.rain).toBeCloseTo(0.6);
+    expect(s.storm).toBe(0);
+    expect(s.sheltered).toBe(false);
+    Object.assign(w, { kind: 'storm', previous: 'rain', blend: 0.5, intensity: 0.8 });
+    s = probe.update(0.016);
+    expect(s.storm).toBeCloseTo(0.5);
+    Object.assign(w, { kind: 'storm', previous: 'storm', blend: 1, precipitation: 'snow', intensity: 1 });
+    s = probe.update(0.016);
+    expect(s.rain).toBe(0);
+    expect(s.storm).toBe(1);
+    Object.assign(w, { kind: 'rain', previous: 'rain', precipitation: 'dust', intensity: 0.6 });
+    expect(probe.update(0.016).storm).toBeCloseTo(0.6);
+    world.fill(-3, 45, -3, 3, 45, 3, 'plank');
+    probe.invalidate();
+    expect(probe.update(0.016).sheltered).toBe(true);
   });
 });

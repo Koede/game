@@ -10,6 +10,7 @@ import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { Survival } from '../game/survival';
+import { Weather, isWeatherSnapshot } from '../game/weather';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
 import { World, type WorkerPool } from '../world';
@@ -29,6 +30,8 @@ export class GameState {
   readonly sim: Simulation;
   readonly survival: Survival;
   readonly objectives: ObjectiveTracker;
+  /** The sky (spec 15): its `state` is read by the simulation, survival, renderer, audio and HUD. */
+  readonly weather: Weather;
   readonly seedText: string | null;
   /** Seconds of simulated play in this world, across sessions. */
   playTimeS = 0;
@@ -48,8 +51,14 @@ export class GameState {
       this.clock.load(save.clock);
       this.playTimeS = save.playTimeS;
     }
+    const biomeAt = (x: number, z: number) => world.biomeAt(x, z);
+    this.weather = new Weather(world.seed, bus, biomeAt);
+    if (save?.weather && isWeatherSnapshot(save.weather)) this.weather.load(save.weather);
+    this.weather.update(0, this.clock.worldTimeS, this.clock.day, this.player.position);
     this.sim = new Simulation(world, bus, this.player, this.clock);
-    this.survival = new Survival(world, this.player, this.clock, (x, z) => world.biomeAt(x, z));
+    this.sim.useWeather(this.weather.state, biomeAt);
+    this.survival = new Survival(world, this.player, this.clock, biomeAt);
+    this.survival.weather = this.weather.state;
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
     if (save) {
       this.survival.load(save.survival);
@@ -106,9 +115,10 @@ export class GameState {
     this.player.pitch = -0.08;
   }
 
-  /** One fixed simulation step (spec section 4: clock, simulation, survival, objectives). */
+  /** One fixed simulation step (spec section 4: clock, weather, simulation, survival, objectives). */
   tick(dt: number = DT): void {
     this.clock.tick(dt);
+    this.weather.update(dt, this.clock.worldTimeS, this.clock.day, this.player.position);
     this.sim.tick(dt);
     this.survival.tick(dt);
     this.objectives.tick(dt);
@@ -127,6 +137,7 @@ export class GameState {
       survival: this.survival.toJSON(),
       objectives: this.objectives.toJSON(),
       playTimeS: this.playTimeS,
+      weather: this.weather.toJSON(),
     };
   }
 

@@ -3,8 +3,10 @@
  * A view the standalone Log screen and the furnace's LOG tab both embed.
  */
 import { AGES, OBJECTIVES, itemOrNull } from '../../../core/registry';
-import type { ObjectiveSpec } from '../../../core/types';
+import type { ObjectiveSpec, WeatherState } from '../../../core/types';
 import type { ObjectiveTracker } from '../../../game/objectives';
+import { moonArt, weatherIcon } from '../../hud/status';
+import { forecast, moonName, weatherGlyph, weatherWord } from '../../hud/weatherText';
 import { h, setAttr, setText } from '../../kit/dom';
 import { glyph } from '../../kit/icons';
 
@@ -30,10 +32,25 @@ export class HearthLogView {
   private readonly upcoming: HTMLOListElement;
   private readonly doneHead: HTMLHeadingElement;
   private readonly done: HTMLOListElement;
+  private readonly sky: HTMLElement;
+  private readonly skyIcon: HTMLSpanElement;
+  private readonly skyKicker: HTMLSpanElement;
+  private readonly skyLine: HTMLParagraphElement;
+  private readonly skyWhen: HTMLParagraphElement;
+  private readonly weather: (() => WeatherState | null) | null;
   private shownKey = '';
+  private shownSky = '';
 
-  constructor(objectives: ObjectiveTracker) {
+  /** `weather` (optional) adds the hearth keeper's reading of the sky: the forecast line (spec 15). */
+  constructor(objectives: ObjectiveTracker, weather: (() => WeatherState | null) | null = null) {
     this.objectives = objectives;
+    this.weather = weather;
+    this.skyIcon = h('span', { class: 'hw-log__sky-icon' });
+    this.skyKicker = h('span', { class: 'hw-log__sky-kicker' });
+    this.skyLine = h('p', { class: 'hw-log__sky-line' });
+    this.skyWhen = h('p', { class: 'hw-log__sky-when' });
+    this.sky = h('section', { class: 'hw-log__sky', attrs: { 'aria-label': 'Forecast' } }, this.skyIcon, h('div', { class: 'hw-log__sky-text' }, this.skyKicker, this.skyLine, this.skyWhen));
+    this.sky.hidden = true;
     this.ages = h('ol', { class: 'hw-log__ages', attrs: { 'aria-label': 'Ages' } });
     this.ageName = h('span', { class: 'hw-log__age-name' });
     this.ageBlurb = h('p', { class: 'hw-log__age-blurb' });
@@ -59,6 +76,7 @@ export class HearthLogView {
       { class: 'hw-log' },
       h('section', { class: 'hw-log__age' }, h('div', { class: 'hw-log__age-row' }, h('span', { class: 'hw-log__age-kicker', text: 'Age' }), this.ageName), this.ages, this.ageBlurb),
       this.goalCard,
+      this.sky,
       h('section', { class: 'hw-log__section' }, h('h3', { class: 'hw-heading', text: 'Up next' }), this.upcoming),
       h('section', { class: 'hw-log__section' }, this.doneHead, this.done),
     );
@@ -81,6 +99,25 @@ export class HearthLogView {
       setText(this.goalProgress, p ? p.text : '');
       this.goalFill.style.transform = `scaleX(${(p?.fraction ?? 0).toFixed(3)})`;
     }
+    this.refreshSky();
+  }
+
+  /** The forecast card: what the sky does now, what comes next and roughly when, and tonight's moon. */
+  private refreshSky(): void {
+    const w = this.weather?.() ?? null;
+    this.sky.hidden = w === null;
+    if (!w) return;
+    const g = weatherGlyph(w);
+    const f = forecast(w);
+    const moon = moonName(w.moonPhase);
+    const key = `${g}|${f.line}|${f.when}|${moon}`;
+    if (key === this.shownSky) return;
+    this.shownSky = key;
+    this.skyIcon.replaceChildren(weatherIcon(g, 30));
+    setText(this.skyKicker, `The sky: ${weatherWord(g)}`);
+    setText(this.skyLine, f.line);
+    this.skyWhen.replaceChildren(h('span', { text: `${f.when} · Tonight: ` }), moonArt(w.moonPhase, 12), h('span', { text: ` ${moon.toLowerCase()}` }));
+    setAttr(this.sky, 'data-weather', g);
   }
 
   private renderAges(ageIndex: number): void {

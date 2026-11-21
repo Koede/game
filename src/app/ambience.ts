@@ -5,9 +5,10 @@
  */
 import { createAmbienceState, type AmbienceState } from '../audio/ambienceState';
 import { IGNITION_SECONDS } from '../core/constants';
-import { voxelActive, type IWorld } from '../core/types';
+import { voxelActive, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { PlayerState } from '../game/playerState';
+import { openSkyAbove, stormLevel } from '../game/weather';
 import { isFurnace, type MachineEntity } from '../sim';
 
 /** Seconds between entity scans. */
@@ -42,6 +43,8 @@ export class AmbienceProbe {
     private readonly world: IWorld,
     private readonly player: PlayerState,
     private readonly clock: GameClock,
+    /** The world's weather (rain bed, storm gusts, roof); null = always fair. */
+    private readonly weather: WeatherState | null = null,
   ) {}
 
   /** Call every frame; returns the (reused) state to hand to AudioEngine.setAmbience. */
@@ -56,6 +59,12 @@ export class AmbienceProbe {
     s.night = this.clock.isNight;
     s.underwater = p.headInWater;
     s.cold = p.dead ? 0 : unit((COLD_FROM - p.warmth) / COLD_FROM);
+    const w = this.weather;
+    if (w) {
+      // Snow falls silently; a dust wind and a storm are heard as gusts.
+      s.rain = w.precipitation === 'rain' ? w.intensity : 0;
+      s.storm = w.precipitation === 'dust' ? w.intensity : unit(stormLevel(w));
+    }
     return s;
   }
 
@@ -107,5 +116,6 @@ export class AmbienceProbe {
     // Under a roof or in a cave the wind is a distant murmur.
     const open = surface < 0 || ey >= surface + 1 ? 1 : 0.2;
     s.wind = unit((0.15 + 0.85 * altitude) * open);
+    s.sheltered = !openSkyAbove(this.world, ex, ey, ez);
   }
 }

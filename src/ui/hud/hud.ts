@@ -4,7 +4,7 @@
  */
 import type { GameBus, InputState, Settings } from '../../core/context';
 import { AGES, OBJECTIVES } from '../../core/registry';
-import type { IWorld } from '../../core/types';
+import type { IWorld, WeatherState } from '../../core/types';
 import type { GameClock } from '../../game/clock';
 import type { ObjectiveTracker } from '../../game/objectives';
 import type { PlayerState } from '../../game/playerState';
@@ -33,6 +33,8 @@ export interface HudDeps {
   /** The current simulation query (it can be swapped after the HUD exists). */
   sim: () => UISimQuery;
   input: InputState;
+  /** The world's weather (spec 15) for the dial's glyph and moon; null or missing = none. */
+  weather?: () => WeatherState | null;
 }
 
 const SLOW_S = 0.125;
@@ -188,7 +190,7 @@ export class Hud {
     this.goal.update(d.objectives);
     const home = d.player.home;
     this.compass.update(d.player, home ? d.sim().furnaceAt(home.x, home.y, home.z) : null);
-    this.dial.update(d.clock.timeOfDay, d.clock.day);
+    this.dial.update(d.clock.timeOfDay, d.clock.day, d.weather?.() ?? null);
     if (this.gridTimer >= GRID_S) {
       this.gridTimer = 0;
       this.power.update(summarizeGrid(d.sim().allNetworks()));

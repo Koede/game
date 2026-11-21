@@ -75,6 +75,34 @@ describe('GameState', () => {
     copy.dispose();
   });
 
+  it('saves the weather, continues it identically, and loads saves made before the weather existed', () => {
+    const { state } = playedState();
+    state.weather.force('storm', state.clock.worldTimeS);
+    for (let i = 0; i < 200; i++) state.tick();
+    expect(state.weather.state.kind).toBe('storm');
+    expect(state.sim.weather.wind).toBeCloseTo(1.5, 1);
+    expect(state.survival.weather).toBe(state.weather.state);
+    const save = JSON.parse(JSON.stringify(state.toSave())) as unknown;
+    if (!isWorldSave(save)) throw new Error('not a save');
+    expect(save.weather?.forced?.kind).toBe('storm');
+    const copy = GameState.restore(save);
+    expect(copy.weather.state).toEqual(state.weather.state);
+    for (let i = 0; i < 300; i++) {
+      state.tick();
+      copy.tick();
+    }
+    expect(copy.weather.state).toEqual(state.weather.state);
+
+    const old = { ...save };
+    delete old.weather;
+    expect(isWorldSave(old)).toBe(true);
+    const fresh = GameState.restore(old);
+    expect(fresh.weather.state.kind).toBe(fresh.weather.schedule.at(fresh.clock.worldTimeS).kind);
+    const broken = GameState.restore({ ...save, weather: { state: 'storm' } as never });
+    expect(broken.weather.override).toBeNull();
+    for (const s of [state, copy, fresh, broken]) s.dispose();
+  });
+
   it('refuses a broken world snapshot without side effects', () => {
     const { state } = playedState();
     const save = state.toSave();

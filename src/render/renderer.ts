@@ -3,9 +3,10 @@
  * first-person hand, and implements IView for the player controller. One render(dt) per frame, allocation-free.
  */
 import * as THREE from 'three';
+import { STAR_TURNS_PER_DAY } from '../core/constants';
 import type { GameBus, IView, Settings } from '../core/context';
 import { blockOf } from '../core/registry';
-import { CHUNK_SIZE, type IWorld } from '../core/types';
+import { CHUNK_SIZE, type IWorld, type WeatherState } from '../core/types';
 import { createAtlas, type Atlas } from './atlas';
 import { ChunkMeshes } from './chunkMeshes';
 import { Emitters } from './emitters';
@@ -14,14 +15,19 @@ import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
 import { createChunkMaterials, createWorldUniforms, type ChunkMaterials, type WorldUniforms } from './materials';
 import { Particles } from './particles';
-import { Sky } from './sky';
-import { computeSky, createSkyState, luminance, type SkyState } from './skyModel';
+import { PRECIP_MAX_DESKTOP, PRECIP_MAX_TOUCH, PrecipitationLayer } from './precipitation';
+import { RainMask } from './rainMask';
+import { Sky, type SkyExtras } from './sky';
+import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
 import { TargetBox } from './target';
+import { WeatherFx } from './weatherFx';
 
 /** What the renderer needs from the game clock (GameClock satisfies it). */
 export interface ClockLike {
   readonly timeOfDay: number;
   sunlight(): number;
+  /** 1-based day (turns the star field); taken as 1 when missing. */
+  readonly day?: number;
 }
 
 export interface RenderStats {
@@ -37,6 +43,9 @@ export interface RenderStats {
   /** CPU milliseconds spent in the last render() call. */
   cpuMs: number;
   pixelRatio: number;
+  /** Rain / snow / dust particles drawn, and CPU milliseconds the weather took in the last frame (roof mask included). */
+  precipitation: number;
+  weatherMs: number;
 }
 
 /** Colour of full block light: firelight, warm. */
@@ -48,13 +57,20 @@ const UNDERWATER_FOG = new THREE.Vector3(0.05, 0.2, 0.27);
 const LAVA_FOG = new THREE.Vector3(0.75, 0.25, 0.04);
 /** How often the light at the eye is re-probed for the held item. */
 const PROBE_INTERVAL_S = 0.2;
+/** Roof-mask columns measured per frame at most (a whole new window takes a few frames). */
+const MASK_BUDGET = 256;
+/** In rain or snow the fog closes in by up to this share; in a dust wind by DUST_FOG. */
+const WET_FOG = 0.3;
+const DUST_FOG = 0.55;
 
 export class Renderer implements IView {
   readonly canvas: HTMLCanvasElement;
   readonly gl: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
-  readonly stats: RenderStats = { drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1 };
+  readonly stats: RenderStats = {
+    drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1, precipitation: 0, weatherMs: 0,
+  };
   /** True while the WebGL context is lost (render() does nothing until it is restored). */
   contextLost = false;
 
@@ -74,6 +90,11 @@ export class Renderer implements IView {
   private readonly emitters: Emitters;
   private readonly held: HeldItem;
   private readonly probe: LightProbe;
+  private readonly fx = new WeatherFx();
+  private readonly rainMask: RainMask;
+  private readonly precipitation: PrecipitationLayer;
+  private readonly skyExtras: SkyExtras = { moonPhase: 4, starAngle: 0, flashDir: new THREE.Vector3(0, 0.4, -1), bolt: new THREE.Vector4(), dt: 0 };
+  private weather: WeatherState | null = null;
   private readonly lightRgb = new Float32Array(3);
   private readonly offs: (() => void)[] = [];
   private readonly resizeObserver: ResizeObserver | null = null;
@@ -124,12 +145,17 @@ export class Renderer implements IView {
     this.probe = new LightProbe(world);
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z) => this.brightnessAt(x, y, z));
     this.held = new HeldItem(this.atlas.texture);
+    this.rainMask = new RainMask(world);
+    this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh);
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
     this.offs.push(bus.on('block:placed', () => this.held.bump()));
+    this.offs.push(bus.on('weather:lightning', ({ distance, bearing }) => this.fx.lightning(distance, bearing)));
+    this.offs.push(bus.on('block:changed', ({ x, z }) => this.rainMask.invalidateColumn(x, z)));
+    this.offs.push(bus.on('chunk:meshed', ({ mesh }) => this.rainMask.invalidateChunk(mesh.cx, mesh.cz)));
     const lost = (e: Event): void => {
       e.preventDefault();
       this.contextLost = true;
@@ -186,6 +212,14 @@ export class Renderer implements IView {
     this.held.swing();
   }
 
+  /**
+   * The weather to draw (the Weather's live state object, read every frame), or null for a clear sky with a
+   * gibbous moon. Lightning comes from the 'weather:lightning' event.
+   */
+  setWeather(weather: WeatherState | null): void {
+    this.weather = weather;
+  }
+
   // ---------------------------------------------------------------------------------------------- frame
 
   /** Draws one frame. `dt` in seconds drives animation (water, plants, particles, the hand). */
@@ -199,8 +233,13 @@ export class Renderer implements IView {
       this.applyDistance();
     }
 
-    const sky = computeSky(this.clock.timeOfDay, this.clock.sunlight(), this.skyState);
+    const weatherStarted = performance.now();
+    const fx = this.fx;
+    fx.update(dt, this.weather);
+    const sky = computeSky(this.clock.timeOfDay, this.clock.sunlight(), this.skyState, fx.nightLevel);
+    applyWeather(sky, fx.sky);
     const u = this.uniforms;
+    u.uWet.value = fx.wet;
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);
     // Firelight breathes a little: two incommensurate waves, never strobing.
@@ -208,7 +247,17 @@ export class Renderer implements IView {
     u.uBlockLight.value.set(BLOCK_TINT[0] * flicker, BLOCK_TINT[1] * flicker, BLOCK_TINT[2] * flicker);
     u.uSunDir.value.fromArray(sky.sunDir);
     const submerged = this.applyFog(sky);
-    this.sky.update(sky, cam, this.time, CLOUD_RANGE, submerged ? u.uFogColor.value : null);
+    const extras = this.skyExtras;
+    extras.moonPhase = fx.moonPhase;
+    extras.starAngle = (2 * Math.PI * STAR_TURNS_PER_DAY * ((this.clock.day ?? 1) - 1 + this.clock.timeOfDay)) % (2 * Math.PI);
+    extras.flashDir.fromArray(fx.flashDir).normalize();
+    extras.bolt.fromArray(fx.bolt);
+    extras.dt = dt;
+    this.sky.update(sky, cam, this.time, CLOUD_RANGE, submerged ? u.uFogColor.value : null, extras);
+    this.rainMask.center(cam.position.x, cam.position.z);
+    this.rainMask.update(MASK_BUDGET);
+    this.precipitation.update(fx.precipitation, fx.amount, fx.sky.storm, fx.windAngle, this.time, cam.position, sky.skyLight, submerged);
+    const weatherMs = performance.now() - weatherStarted;
 
     if (this.targetValid) {
       const v = this.world.getVoxel(this.targetX, this.targetY, this.targetZ);
@@ -245,6 +294,8 @@ export class Renderer implements IView {
     s.chunkTriangles = this.chunks.triangles;
     s.particles = this.particles.count;
     s.effectSources = this.emitters.activeSources;
+    s.precipitation = this.precipitation.count;
+    s.weatherMs = weatherMs;
     s.cpuMs = performance.now() - started;
   }
 
@@ -276,6 +327,7 @@ export class Renderer implements IView {
     this.glows.dispose();
     this.target.dispose();
     this.sky.dispose();
+    this.precipitation.dispose();
     this.held.dispose();
     this.materials.dispose();
     this.atlas.texture.dispose();
@@ -317,10 +369,12 @@ export class Renderer implements IView {
       u.uFog.value.set(0.2, 2.5);
       return true;
     } else {
-      const edge = (this.renderDistance + 0.5) * CHUNK_SIZE - 6;
+      const fx = this.fx;
+      const close = fx.precipitation === 'dust' ? DUST_FOG : fx.precipitation === 'none' ? 0 : WET_FOG;
+      const edge = ((this.renderDistance + 0.5) * CHUNK_SIZE - 6) * (1 - close * fx.amount);
       u.uFogColor.value.fromArray(sky.horizon);
       u.uFogGlow.value.fromArray(sky.glow);
-      u.uFog.value.set(edge * 0.62, edge);
+      u.uFog.value.set(edge * (0.62 - 0.35 * close * fx.amount), edge);
     }
     return false;
   }

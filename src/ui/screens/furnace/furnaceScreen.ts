@@ -50,7 +50,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
   const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed });
   const forge = new ForgeTab({ sim, pos, bus, changed });
   const grid = new GridTab({ sim, pos, bus, changed });
-  const log = new HearthLogView(ctx.objectives);
+  const log = new HearthLogView(ctx.objectives, () => ctx.weather);
   const bag = new BagDrawer(ctx.slots, player.inventory, bagQuick, ctx.slots.actionBar);
   fire.bindSlots(furnaceSlots);
   smelt.bindSlots(furnaceSlots);

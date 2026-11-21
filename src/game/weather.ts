@@ -51,6 +51,23 @@ const THUNDER_STALE_S = 10;
 
 const WET_KIND = (k: WeatherKind): boolean => k === 'rain' || k === 'storm';
 
+const KINDS: readonly string[] = WEATHER_KINDS;
+const PRECIPITATIONS: readonly string[] = ['rain', 'snow', 'dust', 'none'];
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/** Structural check of a saved weather snapshot (a damaged one is simply not loaded: the sky follows from the seed). */
+export function isWeatherSnapshot(v: unknown): v is WeatherSnapshot {
+  if (!isRecord(v) || !isRecord(v.state) || !num(v.flashes) || !num(v.nextFlashS)) return false;
+  const s = v.state;
+  if (!KINDS.includes(s.kind as string) || !KINDS.includes(s.previous as string) || !KINDS.includes(s.next as string)) return false;
+  if (!PRECIPITATIONS.includes(s.precipitation as string)) return false;
+  if (![s.blend, s.intensity, s.cloudCover, s.moonPhase, s.nextInS].every(num)) return false;
+  if (v.forced === null) return true;
+  const f = v.forced;
+  return isRecord(f) && KINDS.includes(f.kind as string) && KINDS.includes(f.previous as string) && [f.startS, f.blendS, f.untilS].every(num);
+}
+
 export const createWeatherState = (): WeatherState => ({
   kind: 'clear', previous: 'clear', blend: 1, precipitation: 'none', intensity: 0,
   cloudCover: WEATHER_CLOUD_COVER.clear, moonPhase: moonPhase(0), next: 'clear', nextInS: 0,
@@ -183,9 +200,13 @@ export class Weather {
   private sky(t: number, out: WeatherState): void {
     const sched = this.schedule;
     const f = this.forced;
-    if (f && t < f.startS) this.forced = null;
+    // Time went back (a debug clock change, or a save from before the override): keep holding, already settled.
+    if (f && t < f.startS) {
+      f.untilS = t + (f.untilS - f.startS);
+      f.startS = t - f.blendS;
+    }
     const seg = sched.at(t);
-    if (f && this.forced) {
+    if (f) {
       if (t < f.untilS) {
         out.kind = f.kind;
         out.previous = f.previous;

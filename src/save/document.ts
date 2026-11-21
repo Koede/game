@@ -10,6 +10,7 @@ import type { ClockSnapshot } from '../game/clock';
 import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
 import type { SurvivalSnapshot } from '../game/survival';
+import type { WeatherSnapshot } from '../game/weather';
 import type { WorldSnapshot } from '../world/world';
 import { SaveStore, type StorageLike } from './storage';
 
@@ -29,6 +30,11 @@ export interface WorldSave {
   objectives: ObjectivesSnapshot;
   /** Seconds of play (simulation time while not paused), across sessions. */
   playTimeS: number;
+  /**
+   * The weather (spec 15). Optional: saves from before the weather lack it, and a damaged one is ignored (the sky
+   * follows from the seed and the time anyway), never a reason to drop the world.
+   */
+  weather?: WeatherSnapshot;
 }
 
 export interface SaveDocument {

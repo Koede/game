@@ -6,7 +6,7 @@
 import { DT } from '../core/constants';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, itemOrNull } from '../core/registry';
-import { makeVoxel, voxelActive, voxelFacing, type Facing } from '../core/types';
+import { makeVoxel, voxelActive, voxelFacing, type Facing, type WeatherKind, type WeatherState } from '../core/types';
 import { isFurnace } from '../sim';
 import type { App } from './app';
 
@@ -33,6 +33,8 @@ export interface DebugSummary {
   target: { x: number; y: number; z: number; block: string; mining: number } | null;
   render: { drawCalls: number; triangles: number; chunks: number } | null;
   world: { loaded: number; meshed: number; mode: string } | null;
+  /** The sky (spec 15), with `forced` true while setWeather holds it. */
+  weather: (WeatherState & { forced: boolean }) | null;
 }
 
 export interface DebugHandle {
@@ -44,6 +46,13 @@ export interface DebugHandle {
   /** Turns the view to the centre of block (x, y, z). */
   lookAt(x: number, y: number, z: number): void;
   setTime(timeOfDay: number): void;
+  /** Sets the clock's day (1-based; the moon follows: day 1 full, day 5 new). */
+  setDay(day: number): void;
+  /**
+   * Turns the weather to `kind` (at once unless `instant` is false: then over a few seconds) and holds it for a
+   * long while; 'auto' hands the sky back to the seed's timetable.
+   */
+  setWeather(kind: WeatherKind | 'auto', instant?: boolean): void;
   /** Hurts the player (the real damage rules: events, sounds, death at 0). */
   damage(amount: number, cause?: DamageCause): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
@@ -111,6 +120,7 @@ export function createDebugHandle(app: App): DebugHandle {
           : null,
         render: g ? { drawCalls: g.renderer.stats.drawCalls, triangles: g.renderer.stats.triangles, chunks: g.renderer.stats.chunks } : null,
         world: s ? (({ loaded, meshed, mode }) => ({ loaded, meshed, mode }))(s.world.stats()) : null,
+        weather: s ? { ...s.weather.state, blend: round(s.weather.state.blend), intensity: round(s.weather.state.intensity), cloudCover: round(s.weather.state.cloudCover), nextInS: round(s.weather.state.nextInS, 1), forced: s.weather.override !== null } : null,
       };
     },
     give(item, count = 1) {
@@ -135,6 +145,18 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     setTime(t) {
       game().state.clock.setTimeOfDay(t);
+    },
+    setDay(day) {
+      const s = game().state;
+      s.clock.day = Math.max(1, Math.floor(day));
+      s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
+    },
+    setWeather(kind, instant = true) {
+      const s = game().state;
+      if (kind === 'auto') s.weather.release();
+      else if (['clear', 'cloudy', 'rain', 'storm'].includes(kind)) s.weather.force(kind, s.clock.worldTimeS, instant);
+      else throw new Error(`unknown weather "${kind}"`);
+      s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
     },
     damage(amount, cause = 'fall') {
       game().state.player.damage(amount, cause);

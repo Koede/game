@@ -5,7 +5,7 @@
  */
 import type { GameBus, InputState, Settings } from '../core/context';
 import type { GameEvents, ScreenRequest } from '../core/gameEvents';
-import type { IWorld } from '../core/types';
+import type { IWorld, WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
@@ -44,6 +44,8 @@ export interface ScreenContext {
   readonly survival: Survival;
   /** The current simulation query (follows setSim). */
   readonly sim: UISimQuery;
+  /** The world's weather now (spec 15), or null when the game has none. */
+  readonly weather: WeatherState | null;
   /** A fresh slot-interaction controller for this screen; disposed by GameUI on close. */
   readonly slots: SlotController;
   /** Refresh on the next frame. */
@@ -66,6 +68,8 @@ export interface GameUIDeps {
   objectives: ObjectiveTracker;
   survival: Survival;
   sim?: UISimQuery;
+  /** The world's weather (spec 15): the HUD dial's glyph and moon, the Hearth Log's forecast. */
+  weather?: () => WeatherState | null;
   /** Lets the mouse go when a screen opens (normally InputManager.releasePointerCapture). GameUI never touches pointer lock itself. */
   releasePointer?: () => void;
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
@@ -121,6 +125,7 @@ export class GameUI {
       survival: deps.survival,
       sim: () => this.sim,
       input: deps.input,
+      weather: () => deps.weather?.() ?? null,
     });
     const bus = deps.bus;
     this.offs.push(
@@ -230,6 +235,9 @@ export class GameUI {
       survival: d.survival,
       get sim() {
         return ui.sim;
+      },
+      get weather() {
+        return d.weather?.() ?? null;
       },
       slots,
       invalidate: () => (this.dirty = true),
