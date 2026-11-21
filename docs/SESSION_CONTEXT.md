@@ -239,3 +239,19 @@ rotation rules, the logistics pieces and the stable machine interface (`offer/ta
 in `npm run e2e`. Shared-file edits: `app/game.ts` (renderer, generatorWatts, actHook), `content/objectives.ts` + `specRoster.ts`
 (six goals after salvage_automaton), `render/textures/painters.ts`. Stress numbers (arm 3, drill 6, deployer 6, mixer 6, press 8)
 are in `workshop/kinetics.ts` BASE_STRESS; one crank carries 8 su, so a drill plus an arm wants two cranks.
+
+## 12. Essentia & Research completed (Part B, 2026-11-21)
+Commits f75507d, bee8a1a, d1d3956, bdd0493 (plus the earlier 850c16e, 44c8bfe, 45f7f88). API: `docs/api/magic.md`.
+Built and checked (unit tests, `e2e-magic` desktop + phone with screenshots looked at, Codex preview clean):
+- 24 research entries across Ember / Bronze / Forge with varied boards; lore from scans (x1.5 with the Scrying Lens) and from
+  studying vials; hints; notebook tabs Research (grouped by age), Aspects, Notes, Goals (eight optional side goals).
+- Rods with tiers (charge 16/32/64, draw 1/2/3), charging for foci; wellsprings (seeded, tappable, refill) with a crystal render;
+  aura reading under the crosshair; compound drawing at Forge.
+- Jars and void jars with visible fill, glass tubes joining jars to the desk, the altar, furnaces and servants.
+- Rune Desk screen (7 arcane recipes with essentia costs), Infusion Altar with pedestals (4 infusions incl. alchemical steel).
+- Foci: Kindling (lights a furnace), Light (floating light block), Warding (halves damage 30 s), Blinking (8-block step).
+- Clay servants crank workshop hand cranks while fed Spring (through `Workshop.crank`); hearth siphon; Clarity takes water
+  out of distillery flasks; Cinder vials stoke fires; vials double as beakers; glass boils on its own on a furnace top.
+- Six new synthesised sounds; Codex Essentia tab; progression solver covers desk and altar rows; content tests green.
+Left (small): spark/soul/void only via late blocks; tubes are not fluid pipes; desk loses the rest of a partly used vial; foci
+have no hand animation; magic goals live in the notebook, not on the main objective track (the tracker is strictly sequential).

@@ -373,3 +373,8 @@ cogs/links/arms/pistons, six workshop goals, e2e steps. NOT built: shear pin, fl
 vault, fluid-pipe tie-ins for spouts and drains, vacuum collector, tractor/chainsaw tie-ins, signals and trinkets of A.6 (wind vane,
 bell, tally board...), moving contraptions (bearing/piston), rail skiff, belts through contraption blocks, a Codex screen for basin
 cards (they show under the goggles on mixers and presses).
+
+## Status of part B (2026-11-21, after the Part B session)
+Done: B.1-B.11 as built in `docs/api/magic.md`: aspects and fingerprints, aura (block-summed) and wellsprings, vials, jars, void
+jars, tubes (own network), three rod tiers, research tree of 24 entries, rune desk, infusion altar, four foci, clay servants on the
+workshop crank interface, hearth siphon, Clarity in the still, Codex tab, sounds, save. Magic objectives are notebook Goals.
