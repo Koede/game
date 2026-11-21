@@ -3,6 +3,10 @@
 The furnace, power networks, every machine, fission and the Starhearth (spec 2.4, 2.5, 3.1-3.3, brief 7.1).
 DOM-free, runs in node. Import from `src/sim` (index). `npx vitest run src/sim`.
 
+**Item and fluid transport (spec 16): pipes, ports, packets, fluid networks, pumps, tanks, boiler, steam turbine, piped
+fluids for the older machines, buckets, the wrench, the pipe view and the render snapshot - see `docs/api/transport.md`.**
+`MachineView` gained `fluids`; `resync()` also finds pipe entities (`kind: 'pipe'`, not machines).
+
 **Multiblock hearths (spec 17), item/fluid endpoints, fuel returns, berry bushes: see `docs/api/hearth.md`.** In short:
 every furnace is a hearth controller and runs at its EFFECTIVE tier `min(tier, formed hearth's tier)` (tier 1 numbers
 standing alone; `FurnaceEntity.effTier`, `hearth`); upgrades also need the next tier's hearth formed; crucibles beyond

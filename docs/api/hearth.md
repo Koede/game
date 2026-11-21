@@ -188,8 +188,8 @@ interface FluidEndpoint {
   null.
 - Endpoint objects are cached per entity; fetch again after block changes. `face` is part of the lookup; every side of
   today's blocks behaves the same. Hot/cold pipe rules (`pipeCarries`) and reservations are the network's business.
-- **Not done here (transport):** what machines do with their fluid buffers (steam engine piped water, still oil runs,
-  combustion engine fuel, geothermal lava, boiler, turbine, pump, stacked tanks).
+- What machines do with their fluid buffers (steam engine piped water, still oil runs, combustion engine fuel,
+  geothermal lava, boiler, turbine, pump, stacked tanks) is in `docs/api/transport.md`.
 
 ## Other changes in src/sim
 - **fuelReturns**: when a fuel with `fuelReturns` (lava bucket) goes into the fire, its container is left in the
