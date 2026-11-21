@@ -7,7 +7,7 @@ import { BROWNOUT_STALL } from '../core/constants';
 import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
 import { rollDrops } from '../game/mining';
-import { addToSlots, roomInSlots, type MachineEntity, type SimContext, type SimNode } from './entities';
+import { addToSlots, roomInSlots, type FurnaceEntity, type MachineEntity, type SimContext, type SimNode } from './entities';
 import { powered } from './power';
 
 export interface Behaviour {
@@ -58,19 +58,31 @@ export function placementProblem(node: SimNode): string | null {
 
 // ---- generators -------------------------------------------------------------------------------------------
 
-/** Thermopile and steam engine: watts from the heat of a furnace, which they cool in return. */
+/** The hottest furnace a heat engine works with, or null. */
+function hottestFurnace(node: SimNode): FurnaceEntity | null {
+  let hottest: FurnaceEntity | null = null;
+  for (const fe of node.furnaces) if (!hottest || fe.tempC > hottest.tempC) hottest = fe;
+  return hottest;
+}
+
+/**
+ * Thermopile and steam engine: watts from the heat of a furnace, which they cool in return - by heatPerWatt times
+ * the power the network actually USES (an idle engine on a grid with no load takes no heat).
+ */
 const heatEngine: Behaviour = {
   prepare(node) {
     const e = node.e as MachineEntity;
     const p = node.spec.params ?? {};
-    let hottest = node.furnaces.length > 0 ? node.furnaces[0] : null;
-    for (const fe of node.furnaces) if (hottest && fe.tempC > hottest.tempC) hottest = fe;
+    const hottest = hottestFurnace(node);
     const ok = e.on && hottest !== null && (p.minWater === undefined || node.sideWater >= p.minWater);
-    const w = ok && hottest ? clamp(p.wattsPerC * (hottest.tempC - p.minTempC), 0, p.capW) : 0;
-    e.availW = w;
-    if (w > 0 && hottest) hottest.extractW += p.heatPerWatt * w;
+    e.availW = ok && hottest ? clamp(p.wattsPerC * (hottest.tempC - p.minTempC), 0, p.capW) : 0;
   },
-  apply: followLoad,
+  apply(node, ctx) {
+    followLoad(node, ctx);
+    const e = node.e as MachineEntity;
+    const hottest = e.outW > 0 ? hottestFurnace(node) : null;
+    if (hottest) hottest.extractW += (node.spec.params?.heatPerWatt ?? 0) * e.outW;
+  },
 };
 
 function followLoad(node: SimNode, ctx: SimContext): void {

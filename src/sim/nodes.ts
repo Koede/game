@@ -7,7 +7,7 @@ import { createNode, isFurnace, type SimEntity, type SimNode } from './entities'
 import { fissionPile } from './fission';
 import { behaviourOf, type Behaviour } from './machines';
 import { buildNetworks, chunkKey, type Network } from './power';
-import { concerns, nearChunk, surroundings } from './surroundings';
+import { concerns, nearChunk, surroundings, type ShellOwner } from './surroundings';
 
 export class NodeSet {
   readonly all: SimNode[] = [];
@@ -21,6 +21,9 @@ export class NodeSet {
   readonly cableNets = new Map<string, Network>();
   private envDirty = true;
   private topologyDirty = true;
+  /** Formed hearths: links between a controller and its power ports, and the furnace each shell block stands for. */
+  links: ReadonlyMap<string, readonly number[]> | null = null;
+  shellOwner: ShellOwner | null = null;
 
   constructor(private readonly world: IWorld) {}
 
@@ -90,18 +93,32 @@ export class NodeSet {
     }
   }
 
+  /**
+   * A formed hearth changed within [min, max]: what touches its shell sees a different furnace, and its power ports
+   * link differently.
+   */
+  shellChanged(min: readonly number[], max: readonly number[]): void {
+    this.topologyDirty = true;
+    for (const n of this.all) {
+      const { x, y, z } = n.e;
+      if (x < min[0] - 1 || x > max[0] + 1 || y < min[1] - 1 || y > max[1] + 1 || z < min[2] - 1 || z > max[2] + 1) continue;
+      n.dirty = true;
+      this.envDirty = true;
+    }
+  }
+
   /** Brings surroundings and networks up to date with the blocks, if anything changed. */
   fresh(): void {
     if (this.envDirty) {
       for (const n of this.all) {
         if (!n.dirty) continue;
-        surroundings(this.world, this.byKey, this.tickers, n);
+        surroundings(this.world, this.byKey, this.tickers, n, this.shellOwner);
         n.dirty = false;
       }
       this.envDirty = false;
     }
     if (this.topologyDirty) {
-      this.networks = buildNetworks(this.world, this.all, this.byKey, this.networks, this.cableNets);
+      this.networks = buildNetworks(this.world, this.all, this.byKey, this.networks, this.cableNets, this.links);
       this.topologyDirty = false;
     }
   }

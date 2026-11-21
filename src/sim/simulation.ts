@@ -7,7 +7,7 @@ import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
-import { voxelActive, withActive, type BlockDef, type IWorld, type WeatherState } from '../core/types';
+import { voxelActive, withActive, type BlockDef, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
@@ -18,11 +18,15 @@ import {
   OK, createFurnace, createMachine, isFurnace, posKey, refuse, resizeFurnace,
   type ActionResult, type FurnaceEntity, type MachineEntity, type SimEntity, type SimNode,
 } from './entities';
+import { Endpoints, type FluidEndpoint, type ItemEndpoint } from './endpoints';
 import { explode, meltDown } from './fission';
-import { applyFurnace, prepareFurnace } from './furnace';
+import { applyFurnace, prepareFurnace, statsOf } from './furnace';
 import * as actions from './furnaceActions';
 import type { ActionHost, ForgeResult } from './furnaceActions';
 import { gridSummary, machineView, networkStats, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
+import { HearthSet } from './hearth';
+import { furnaceStats, type FurnaceStats } from './hearthStats';
+import { structureView, type StructureTarget, type StructureView } from './hearthView';
 import { windAt } from './machines';
 import { NodeSet } from './nodes';
 import type { Network } from './power';
@@ -52,7 +56,12 @@ export class Simulation implements ActionHost {
   private tickCount = 0;
   private readonly flags = new Set<string>();
   private readonly meltdowns: SimNode[] = [];
-  private readonly slots = new SlotAccess();
+  private readonly slots = new SlotAccess((e) => this.statsOfFurnace(e));
+  private readonly hearths: HearthSet;
+  private readonly endpoints: Endpoints;
+  readonly giveBack = (item: string): void => {
+    this.player.give(item, 1);
+  };
   private readonly offs: Array<() => void> = [];
   /** allNetworks() of the current tick and topology. */
   private stats: NetworkStats[] = [];
@@ -68,16 +77,36 @@ export class Simulation implements ActionHost {
     this.random = mulberry32(world.seed ^ 0x5eed);
     this.nodes = new NodeSet(world);
     this.crops = new CropField(world, bus);
+    const nodes = this.nodes;
+    this.hearths = new HearthSet({
+      world, bus, player, byKey: nodes.byKey,
+      setActive: (node, active) => this.setActive(node, active),
+      shellChanged: (min, max) => nodes.shellChanged(min, max),
+    });
+    nodes.links = this.hearths.links;
+    nodes.shellOwner = (key) => this.hearths.shellOwner(key)?.e ?? null;
+    this.endpoints = new Endpoints({
+      machineSlots: (e) => this.slots.machine(e),
+      furnaceSlots: (e) => this.slots.furnace(e),
+      furnaceStats: (e) => this.statsOfFurnace(e),
+      touch: (e) => this.touch(e),
+    });
     const chunkChanged = ({ cx, cz }: { cx: number; cz: number }): void => {
       this.nodes.chunkChanged(cx, cz);
       this.crops.chunkChanged(cx, cz);
+      this.hearths.chunkChanged(cx, cz);
     };
     this.offs.push(
       bus.on('block:changed', (ev) => this.onBlockChanged(ev)),
       bus.on('chunk:loaded', chunkChanged),
       bus.on('chunk:unloaded', chunkChanged),
       bus.on('ui:opened', ({ screen }) => {
-        if (screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z)) player.setHome(screen.x, screen.y, screen.z);
+        const furnace = screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z);
+        this.hearths.screenAt = furnace ? posKey(screen.x, screen.y, screen.z) : null;
+        if (furnace) player.setHome(screen.x, screen.y, screen.z);
+      }),
+      bus.on('ui:closed', () => {
+        this.hearths.screenAt = null;
       }),
     );
     this.resync();
@@ -105,10 +134,18 @@ export class Simulation implements ActionHost {
   resync(): void {
     this.nodes.clear();
     this.crops.clear();
+    this.hearths.clear();
     for (const e of this.world.entities()) {
       if (isCrop(e)) this.crops.track(e);
-      else this.lampSeen(this.nodes.track(e as SimEntity), true);
+      else this.trackNode(e as SimEntity);
     }
+  }
+
+  private trackNode(e: SimEntity): SimNode {
+    const node = this.nodes.track(e);
+    if (isFurnace(e)) this.hearths.track(node);
+    this.lampSeen(node, true);
+    return node;
   }
 
   // ---- ticking ------------------------------------------------------------------------------------------------
@@ -117,6 +154,7 @@ export class Simulation implements ActionHost {
     this.tickCount++;
     this.everySecond = this.tickCount % TICK_RATE === 0;
     const { world, nodes } = this;
+    this.hearths.tick(dt);
     nodes.fresh();
     const weather = this.weather;
     weather.update();
@@ -124,10 +162,7 @@ export class Simulation implements ActionHost {
     this.wind = windAt(this.clock.worldTimeS, WIND.windMin, WIND.windMax) * weather.wind;
     this.solar = weather.solar;
 
-    for (const n of nodes.furnaces) {
-      n.loaded = world.isLoaded(n.e.x, n.e.z);
-      (n.e as FurnaceEntity).extractW = 0;
-    }
+    for (const n of nodes.furnaces) n.loaded = world.isLoaded(n.e.x, n.e.z);
     const { tickers, behaviours } = nodes;
     for (let i = 0; i < tickers.length; i++) {
       const n = tickers[i];
@@ -181,6 +216,7 @@ export class Simulation implements ActionHost {
     if (from.id === to.id) return;
     const { x, y, z } = ev;
     const key = posKey(x, y, z);
+    this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
     const fromCrop = from.machine === 'crop';
     if (to.machine === 'crop') {
@@ -206,7 +242,7 @@ export class Simulation implements ActionHost {
       e = to.machine === 'furnace' ? createFurnace(x, y, z, furnaceTierOfBlock(to.key)?.tier ?? 1) : createMachine(to.machine, x, y, z);
       this.world.setEntity(e);
     }
-    this.lampSeen(this.nodes.track(e), true);
+    this.trackNode(e);
     if (ev.source !== 'load') this.bus.emit('machine:placed', { entity: e });
     if (ev.source === 'player' && isFurnace(e)) this.player.setHome(x, y, z);
   }
@@ -226,6 +262,7 @@ export class Simulation implements ActionHost {
   private removeMachine(node: SimNode): void {
     const e = node.e;
     this.lampSeen(node, false);
+    if (isFurnace(e)) this.hearths.untrack(node);
     this.nodes.untrack(node);
     this.world.removeEntity(e.x, e.y, e.z);
     if (!this.destroying) {
@@ -296,12 +333,13 @@ export class Simulation implements ActionHost {
   // ---- player actions -------------------------------------------------------------------------------------------
 
   private withFurnace(x: number, y: number, z: number, fn: (e: FurnaceEntity, node: SimNode) => ActionResult): ActionResult {
+    this.hearths.validate();
     const node = this.nodes.byKey.get(posKey(x, y, z));
     return node && isFurnace(node.e) ? fn(node.e, node) : refuse('There is no furnace here');
   }
 
   light(x: number, y: number, z: number): ActionResult {
-    return this.withFurnace(x, y, z, (e) => actions.light(this, e));
+    return this.withFurnace(x, y, z, (e, node) => actions.light(this, e, node));
   }
 
   douse(x: number, y: number, z: number): ActionResult {
@@ -317,6 +355,7 @@ export class Simulation implements ActionHost {
   }
 
   forge(x: number, y: number, z: number, recipeId: string, times = 1): ForgeResult {
+    this.hearths.validate();
     const e = this.furnaceAt(x, y, z);
     return e ? actions.forge(this, e, recipeId, times) : { ok: false, reason: 'There is no furnace here' };
   }
@@ -331,7 +370,7 @@ export class Simulation implements ActionHost {
   }
 
   rest(x: number, y: number, z: number): ActionResult {
-    return this.withFurnace(x, y, z, (e) => actions.rest(this, e));
+    return this.withFurnace(x, y, z, (e, node) => actions.rest(this, e, node));
   }
 
   /** Switches a machine (generator, consumer, storage, fission pile) on or off. Crates have no switch. */
@@ -354,11 +393,69 @@ export class Simulation implements ActionHost {
   // ---- queries --------------------------------------------------------------------------------------------------
 
   furnaceView(x: number, y: number, z: number): FurnaceView | null {
+    this.hearths.validate();
     this.nodes.fresh();
-    const node = this.nodes.byKey.get(posKey(x, y, z));
+    const key = posKey(x, y, z);
+    const node = this.nodes.byKey.get(key);
     if (!node || !isFurnace(node.e)) return null;
     this.weather.update();
-    return furnaceView(this, node, this.weather.furnaceLoss(node));
+    const hearth = this.hearths.get(key) ?? null;
+    hearth?.refreshStats();
+    return furnaceView(this, node, this.weather.furnaceLoss(node), hearth);
+  }
+
+  // ---- multiblock hearths (spec 17) -------------------------------------------------------------------------------
+
+  /**
+   * The STRUCTURE tab of the furnace at a position: status, checklist, problems, and for `target` (default: the tier
+   * the furnace needs next) the materials and the ghost-preview cells. Null when there is no furnace.
+   */
+  structureView(x: number, y: number, z: number, target?: StructureTarget): StructureView | null {
+    this.hearths.validate();
+    const key = posKey(x, y, z);
+    const node = this.nodes.byKey.get(key);
+    if (!node || !isFurnace(node.e)) return null;
+    return structureView(this.world, node.e, this.hearths.get(key)?.scan ?? null, this.stationSources(x, y, z), target);
+  }
+
+  /** Runs every hearth scan that is due now (each tick does this first; for callers that need edits seen at once). */
+  validateHearths(): void {
+    this.hearths.validate();
+    for (const h of this.hearths.list) h.refreshStats();
+  }
+
+  /**
+   * What a pipe end touching the block at x, y, z on `face` may put in and take out (spec 16.2): a furnace's smart
+   * sides, a crate's or a machine's slots; an item hatch of a formed hearth stands for its controller. Null for
+   * anything else. `face` is the side of that block the pipe touches; every side of today's blocks behaves the same.
+   */
+  itemEndpoint(x: number, y: number, z: number, face: Face): ItemEndpoint | null {
+    const key = posKey(x, y, z);
+    const node = this.nodes.byKey.get(key);
+    if (!node) return null;
+    if (node.e.kind === 'item_hatch') {
+      const owner = this.hearths.shellOwner(key);
+      return owner ? this.endpoints.item(owner.e) : null;
+    }
+    return node.spec.role === 'hearth_part' ? null : this.endpoints.item(node.e);
+  }
+
+  /**
+   * The fluid side of the block at x, y, z (spec 16.2): a machine with fluid ports, through its buffers. A fluid hatch
+   * counts only as part of a formed hearth (its lava fuels the controller). Null for anything else.
+   */
+  fluidEndpoint(x: number, y: number, z: number, face: Face): FluidEndpoint | null {
+    const key = posKey(x, y, z);
+    const node = this.nodes.byKey.get(key);
+    if (!node) return null;
+    if (node.e.kind === 'fluid_hatch' && !this.hearths.shellOwner(key)) return null;
+    return this.endpoints.fluid(node.e);
+  }
+
+  /** The numbers a furnace entity runs at (its node's; a furnace no longer tracked counts as standing alone). */
+  private statsOfFurnace(e: FurnaceEntity): FurnaceStats {
+    const node = this.nodes.byKey.get(posKey(e.x, e.y, e.z));
+    return node && node.e === e ? statsOf(node) : furnaceStats(e.tier, null);
   }
 
   /** The forge recipe list of a furnace with per-row availability (also part of furnaceView). */

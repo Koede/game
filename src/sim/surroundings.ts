@@ -4,7 +4,7 @@
  */
 import { machine } from '../core/registry';
 import { CHUNK_SIZE, FACE_DIRS, WORLD_HEIGHT, type IWorld } from '../core/types';
-import { isFurnace, posKey, type MachineEntity, type SimNode } from './entities';
+import { isFurnace, posKey, type FurnaceEntity, type MachineEntity, type SimNode } from './entities';
 
 const WHEEL_RADIUS = machine('water_wheel').params?.shareRadius ?? 0;
 /** Machines whose `furnaces` list is every furnace touching them. */
@@ -15,8 +15,17 @@ const SKY = new Set(['wind_turbine', 'solar_panel', 'furnace']);
 const chebyshev = (n: SimNode, x: number, y: number, z: number): number =>
   Math.max(Math.abs(n.e.x - x), Math.abs(n.e.y - y), Math.abs(n.e.z - z));
 
-/** Recomputes the surroundings of one node. `tickers` are every non-furnace, non-crate node (for water wheels). */
-export function surroundings(world: IWorld, byKey: ReadonlyMap<string, SimNode>, tickers: readonly SimNode[], n: SimNode): void {
+/** The furnace a block of a formed hearth's shell stands for (spec 17), or null. */
+export type ShellOwner = (key: string) => FurnaceEntity | null;
+
+/**
+ * Recomputes the surroundings of one node. `tickers` are every non-furnace, non-crate node (for water wheels). A
+ * block of a formed hearth's shell counts as its controller: a thermopile or blower touching the shell touches the
+ * furnace, a steam engine on the shell sits on it.
+ */
+export function surroundings(
+  world: IWorld, byKey: ReadonlyMap<string, SimNode>, tickers: readonly SimNode[], n: SimNode, shellOwner: ShellOwner | null = null,
+): void {
   const { x, y, z, kind } = n.e;
   n.water = 0;
   n.sideWater = 0;
@@ -30,10 +39,15 @@ export function surroundings(world: IWorld, byKey: ReadonlyMap<string, SimNode>,
       n.water++;
       if (dy === 0) n.sideWater++;
     } else if (liquid === 'lava') n.lava++;
-    const other = byKey.get(posKey(x + dx, y + dy, z + dz));
-    if (!other) continue;
-    if (other.e.kind === 'crate') n.crates.push(other.e as MachineEntity);
-    else if (isFurnace(other.e) && (TOUCHES_FURNACE.has(kind) || (kind === 'steam_engine' && dy === -1))) n.furnaces.push(other.e);
+    const key = posKey(x + dx, y + dy, z + dz);
+    const other = byKey.get(key);
+    if (other && other.e.kind === 'crate') {
+      n.crates.push(other.e as MachineEntity);
+      continue;
+    }
+    if (!TOUCHES_FURNACE.has(kind) && !(kind === 'steam_engine' && dy === -1)) continue;
+    const furnace = other && isFurnace(other.e) ? other.e : shellOwner ? shellOwner(key) : null;
+    if (furnace && !n.furnaces.includes(furnace)) n.furnaces.push(furnace);
   }
   if (SKY.has(kind)) {
     n.openSky = true;

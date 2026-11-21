@@ -8,7 +8,9 @@ import type { GameClock } from '../game/clock';
 import { craftByPlayer, ingredientStatus, takeIngredients } from '../game/crafting';
 import type { Inventory } from '../game/inventory';
 import { OK, refuse, resizeFurnace, type ActionResult, type FurnaceEntity, type SimContext, type SimNode } from './entities';
-import { IGNITION_TEMP_C, burn, burnSecondsLeft, fuelCount, lightFire } from './furnace';
+import { IGNITION_TEMP_C, burn, burnSecondsLeft, fuelCount, lightFire, statsOf } from './furnace';
+import { hearthName } from './hearthScan';
+import { buildHint } from './hearthStats';
 import { itemName } from './machines';
 
 /** Seconds of fuel a night's rest consumes, and the least fire that must be left to allow it. */
@@ -24,11 +26,11 @@ export type ForgeResult = { ok: true; made: number } | { ok: false; reason: stri
 
 const tooCold = (needC: number, e: FurnaceEntity): string => `Needs ${needC} C - the furnace is at ${Math.floor(e.tempC)} C`;
 
-export function light(host: ActionHost, e: FurnaceEntity): ActionResult {
+export function light(host: ActionHost, e: FurnaceEntity, node: SimNode): ActionResult {
   if (e.ignited) return refuse('The Starhearth needs no fire');
   if (e.lit) return refuse('The fire is already burning');
-  if (e.burnItem === null && fuelCount(e) === 0) return refuse('No fuel in the firebox');
-  lightFire(e, host);
+  if (e.burnItem === null && fuelCount(e) === 0 && (node.extraFuel?.lavaUnits() ?? 0) === 0) return refuse('No fuel in the firebox');
+  lightFire(e, host, node.extraFuel);
   e.fuelSeen = fuelCount(e);
   return OK;
 }
@@ -68,7 +70,8 @@ export function setElectric(host: ActionHost, e: FurnaceEntity, on: boolean): Ac
 export function forge(host: ActionHost, e: FurnaceEntity, recipeId: string, times = 1): ForgeResult {
   const r = recipe(recipeId);
   if (!r || r.station !== 'furnace' || r.kind !== 'forge') return { ok: false, reason: 'Not a forge recipe' };
-  if (r.minTier > e.tier) return { ok: false, reason: `Needs the ${furnaceTier(r.minTier).name}` };
+  const locked = tierLock(e, r.minTier);
+  if (locked) return { ok: false, reason: locked };
   if (!(times >= 1)) return { ok: false, reason: 'Nothing to make' };
   const crates = host.stationSources(e.x, e.y, e.z).slice(1);
   let made = 0;
@@ -90,10 +93,26 @@ export function forge(host: ActionHost, e: FurnaceEntity, recipeId: string, time
   return made > 0 ? { ok: true, made } : { ok: false, reason };
 }
 
-/** Rebuilds the furnace as the next tier, in place. */
+/**
+ * Why a recipe of `minTier` cannot be made here, or null: the furnace is a lower tier ("Needs the Blast Furnace"), or
+ * its hearth does not let it run that high ("Needs a formed Blast hearth").
+ */
+export function tierLock(e: FurnaceEntity, minTier: number): string | null {
+  if (minTier > e.tier) return `Needs the ${furnaceTier(minTier).name}`;
+  if (minTier > e.effTier) return `Needs a formed ${hearthName(minTier)}`;
+  return null;
+}
+
+/** What keeps the next tier's hearth from counting as built, or null (spec 17.1: the upgrade needs it formed). */
+export const upgradeStructure = (e: FurnaceEntity, nextTier: number): string | null =>
+  (e.hearth?.tier ?? 0) >= nextTier ? null : buildHint(nextTier);
+
+/** Rebuilds the furnace as the next tier, in place. Needs the next tier's hearth formed around it. */
 export function upgrade(host: ActionHost, e: FurnaceEntity): ActionResult {
   if (e.tier >= MAX_FURNACE_TIER) return refuse('This is the last furnace there is');
   const next = furnaceTier(e.tier + 1);
+  const structure = upgradeStructure(e, next.tier);
+  if (structure) return refuse(structure);
   const sources = host.stationSources(e.x, e.y, e.z);
   const status = ingredientStatus(next.upgradeCost, sources);
   if (!status.ok) {
@@ -114,6 +133,7 @@ export function upgrade(host: ActionHost, e: FurnaceEntity): ActionResult {
 export function ignitionCheck(e: FurnaceEntity, node: SimNode): ActionResult {
   if (e.tier < MAX_FURNACE_TIER) return refuse(`Only the ${furnaceTier(MAX_FURNACE_TIER).name} can be ignited`);
   if (e.ignited) return refuse('Already ignited');
+  if (e.effTier < MAX_FURNACE_TIER) return refuse(buildHint(MAX_FURNACE_TIER));
   if (e.ignition === 'running') return refuse('Ignition is under way');
   if (e.tempC < IGNITION_TEMP_C) return refuse(tooCold(IGNITION_TEMP_C, e));
   const net = node.net;
@@ -133,22 +153,23 @@ export function startIgnition(host: ActionHost, e: FurnaceEntity, node: SimNode)
 }
 
 /** Whether the player may rest at this furnace until dawn. */
-export function restCheck(host: ActionHost, e: FurnaceEntity): ActionResult {
+export function restCheck(host: ActionHost, e: FurnaceEntity, node: SimNode): ActionResult {
   if (!host.clock.isNight) return refuse('You can only rest at night');
   if (e.tempC < FURNACE_HOT_C) return refuse('The furnace is cold');
   const p = host.player.position;
   const d = Math.hypot(p.x - (e.x + 0.5), p.y + PLAYER_HEIGHT / 2 - (e.y + 0.5), p.z - (e.z + 0.5));
   if (d > furnaceTier(e.tier).warmth) return refuse('Come closer to the furnace');
   const heated = e.ignited || (e.electric && e.heatDemandW > 0 && e.deliveredW > 0);
-  const fireLasts = e.lit && burnSecondsLeft(e) / (1 + e.draft) >= REST_FUEL_S;
+  const fireLasts = e.lit && burnSecondsLeft(e, node.extraFuel) / ((1 + e.draft) * statsOf(node).fireScale) >= REST_FUEL_S;
   return heated || fireLasts ? OK : refuse('The fire would not last the night - add fuel');
 }
 
-export function rest(host: ActionHost, e: FurnaceEntity): ActionResult {
-  const check = restCheck(host, e);
+export function rest(host: ActionHost, e: FurnaceEntity, node: SimNode): ActionResult {
+  const check = restCheck(host, e, node);
   if (!check.ok) return check;
-  if (e.lit && !e.ignited && burnSecondsLeft(e) >= REST_FUEL_S) {
-    burn(e, REST_FUEL_S);
+  const fire = REST_FUEL_S * statsOf(node).fireScale;
+  if (e.lit && !e.ignited && burnSecondsLeft(e, node.extraFuel) >= fire) {
+    burn(e, fire, node.extraFuel, host.giveBack);
     e.fuelSeen = fuelCount(e);
     host.touch(e);
   }

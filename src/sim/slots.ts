@@ -5,13 +5,14 @@
 import { fuelOf, machine } from '../core/registry';
 import { Inventory } from '../game/inventory';
 import type { FurnaceEntity, MachineEntity, SimEntity } from './entities';
-import { smeltRecipeFor } from './furnace';
+import { crucibleRecipe } from './furnace';
+import type { FurnaceStats } from './hearthStats';
 import { fuelEnergyJ, isProcessor, machineRecipeFor } from './machines';
 
 export interface FurnaceSlots {
   /** Firebox: accepts only fuels. */
   fuel: Inventory;
-  /** Crucible inputs: accept only items smeltable at the furnace's current tier. */
+  /** Crucible inputs: accept only items smeltable at the furnace's effective tier, in working crucibles. */
   crucibleIn: Inventory;
   /** Crucible outputs: take-only. */
   crucibleOut: Inventory;
@@ -21,15 +22,19 @@ export class SlotAccess {
   private readonly furnaces = new WeakMap<FurnaceEntity, FurnaceSlots>();
   private readonly machines = new WeakMap<MachineEntity, Inventory>();
 
+  /** `stats` gives the numbers a furnace runs at (its effective tier and working crucibles). */
+  constructor(private readonly stats: (e: FurnaceEntity) => FurnaceStats) {}
+
   furnace(e: FurnaceEntity): FurnaceSlots {
     let s = this.furnaces.get(e);
     if (!s) {
       s = {
         fuel: Inventory.over(e.fuel, { accept: (item) => fuelOf(item) !== null }),
+        // Only working crucibles take items (locked ones beyond the hearth's count just give theirs back).
         crucibleIn: Inventory.over(e.crucibleIn, {
-          accept: (item) => {
-            const r = smeltRecipeFor(item);
-            return r !== null && r.minTier <= e.tier;
+          accept: (item, slot) => {
+            const fs = this.stats(e);
+            return slot < fs.crucibles && crucibleRecipe(item, fs) !== null;
           },
         }),
         crucibleOut: Inventory.over(e.crucibleOut, { takeOnly: true }),

@@ -165,7 +165,8 @@ export const powered = (net: Network | null): boolean => net !== null && net.f >
 /**
  * Flood-fills every network from the power devices in `nodes` and writes `node.net`; `cables` is refilled with
  * the network of every cable position. Networks that keep their first member inherit alert state and history
- * from `previous`.
+ * from `previous`. `links` joins positions that do not touch (a formed hearth's controller and its power ports:
+ * position key -> x, y, z of each linked block).
  */
 export function buildNetworks(
   world: IWorld,
@@ -173,6 +174,7 @@ export function buildNetworks(
   byKey: ReadonlyMap<string, SimNode>,
   previous: readonly Network[],
   cables: Map<string, Network>,
+  links: ReadonlyMap<string, readonly number[]> | null = null,
 ): Network[] {
   const old = new Map<string, Network>();
   for (const net of previous) old.set(net.anchor, net);
@@ -194,13 +196,14 @@ export function buildNetworks(
       const y = stack.pop() as number;
       const x = stack.pop() as number;
       const def = world.getBlock(x, y, z);
+      const here = posKey(x, y, z);
       net.chunks.add(chunkKey(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)));
       if (def.power === 'cable') {
         net.cables++;
         if (def.cableRatingW < net.ratingW) net.ratingW = def.cableRatingW;
-        cablesSeen.push(posKey(x, y, z));
+        cablesSeen.push(here);
       } else {
-        const node = byKey.get(posKey(x, y, z));
+        const node = byKey.get(here);
         if (node) {
           node.net = net;
           net.nodes.push(node);
@@ -212,6 +215,15 @@ export function buildNetworks(
         if (seen.has(k) || world.getBlock(x + dx, y + dy, z + dz).power === null) continue;
         seen.add(k);
         stack.push(x + dx, y + dy, z + dz);
+      }
+      const linked = links?.get(here);
+      if (linked) {
+        for (let i = 0; i < linked.length; i += 3) {
+          const k = posKey(linked[i], linked[i + 1], linked[i + 2]);
+          if (seen.has(k) || world.getBlock(linked[i], linked[i + 1], linked[i + 2]).power === null) continue;
+          seen.add(k);
+          stack.push(linked[i], linked[i + 1], linked[i + 2]);
+        }
       }
     }
     if (net.nodes.length === 0) continue;

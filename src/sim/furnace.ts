@@ -2,9 +2,10 @@
 import {
   AMBIENT_TEMP_C, DRAFT_DECAY_PER_S, DRAFT_FLAME_BONUS_C, FURNACE_HOT_C,
 } from '../core/constants';
-import { fuelOf, furnaceTier, item, machine, recipe, recipesAt } from '../core/registry';
+import { fuelOf, item, machine, recipe, recipesAt } from '../core/registry';
 import type { RecipeDef } from '../core/types';
-import { stackMax, type FurnaceEntity, type SimContext, type SimNode } from './entities';
+import { addToSlots, stackMax, type ExtraFuel, type FurnaceEntity, type SimContext, type SimNode } from './entities';
+import { furnaceStats, type FurnaceStats } from './hearthStats';
 
 const FURNACE = machine('furnace');
 const P = FURNACE.params ?? {};
@@ -23,7 +24,13 @@ for (const r of recipesAt('furnace')) if (r.kind === 'smelt') smeltByInput.set(r
 /** The smelt recipe a crucible runs for this input item (smelt inputs are unique). */
 export const smeltRecipeFor = (itemKey: string): RecipeDef | null => smeltByInput.get(itemKey) ?? null;
 
-export const furnaceMaxTempC = (e: FurnaceEntity): number => (e.ignited ? IGNITED_TEMP_C : furnaceTier(e.tier).maxTempC);
+/** The numbers a furnace node runs at (kept by the hearths; a lone furnace's until they first look). */
+export const statsOf = (node: SimNode): FurnaceStats => node.fs ?? (node.fs = furnaceStats((node.e as FurnaceEntity).tier, null));
+
+export const furnaceMaxTempC = (e: FurnaceEntity, fs: FurnaceStats): number => (e.ignited ? IGNITED_TEMP_C : fs.maxTempC);
+
+/** Hands an item back to whoever is at the furnace (a burned lava bucket's empty bucket that found no slot). */
+export type GiveBack = (item: string) => void;
 
 export const isBurning = (e: FurnaceEntity): boolean => e.lit && e.burnItem !== null;
 
@@ -34,15 +41,27 @@ export function fuelCount(e: FurnaceEntity): number {
   return n;
 }
 
-/** Seconds of fire left across the whole firebox at no draft (the item burning plus every item waiting). */
-export function burnSecondsLeft(e: FurnaceEntity): number {
+/** Fuel a formed hearth's fluid hatches hold burns like this item (with no bucket to give back). */
+const LAVA_FUEL = 'lava_bucket';
+const LAVA_BURN_S = fuelOf(LAVA_FUEL)?.burnS ?? 0;
+
+/**
+ * Seconds of fire left across the whole firebox at no draft and a fire scale of 1 (the item burning, every item
+ * waiting, and lava waiting in the hearth's fluid hatches).
+ */
+export function burnSecondsLeft(e: FurnaceEntity, extra: ExtraFuel | null = null): number {
   let s = e.burnItem !== null ? Math.max(0, e.burnLeftS) : 0;
   for (const slot of e.fuel) if (slot) s += (fuelOf(slot.item)?.burnS ?? 0) * slot.count;
+  if (extra) s += extra.lavaUnits() * LAVA_BURN_S;
   return s;
 }
 
-/** Moves the next fuel item from the slots into the fire. False when the firebox is empty. */
-export function takeNextFuel(e: FurnaceEntity): boolean {
+/**
+ * Moves the next fuel item from the slots into the fire (then a load of the hearth's lava). A fuel that comes in a
+ * container (FuelSpec.fuelReturns: the lava bucket) leaves the container in the firebox slot it emptied; if that
+ * slot is still taken, in another one, else it is handed to `give`. False when there is nothing left to burn.
+ */
+export function takeNextFuel(e: FurnaceEntity, extra: ExtraFuel | null = null, give: GiveBack | null = null): boolean {
   for (let i = 0; i < e.fuel.length; i++) {
     const s = e.fuel[i];
     const fuel = s ? fuelOf(s.item) : null;
@@ -51,6 +70,16 @@ export function takeNextFuel(e: FurnaceEntity): boolean {
     e.burnLeftS += fuel.burnS;
     s.count--;
     if (s.count <= 0) e.fuel[i] = null;
+    const back = fuel.fuelReturns;
+    if (back) {
+      if (e.fuel[i] === null) e.fuel[i] = { item: back, count: 1 };
+      else if (addToSlots(e.fuel, back, 1) > 0) give?.(back);
+    }
+    return true;
+  }
+  if (extra && extra.takeLava()) {
+    e.burnItem = LAVA_FUEL;
+    e.burnLeftS += LAVA_BURN_S;
     return true;
   }
   e.burnItem = null;
@@ -59,10 +88,10 @@ export function takeNextFuel(e: FurnaceEntity): boolean {
 }
 
 /** Burns `seconds` of fire. Returns false when the fire ran out of fuel on the way (it is then out). */
-export function burn(e: FurnaceEntity, seconds: number): boolean {
+export function burn(e: FurnaceEntity, seconds: number, extra: ExtraFuel | null = null, give: GiveBack | null = null): boolean {
   e.burnLeftS -= seconds;
   while (e.burnLeftS <= 0) {
-    if (!takeNextFuel(e)) {
+    if (!takeNextFuel(e, extra, give)) {
       e.lit = false;
       return false;
     }
@@ -70,20 +99,26 @@ export function burn(e: FurnaceEntity, seconds: number): boolean {
   return true;
 }
 
-/** Before the networks are solved: draft decay and this tick's electric demand. `extractW` is already summed. */
+/**
+ * Before the networks are solved: this tick's electric demand. The thermostat counts the heat engines' draw of the
+ * last tick (`extractW`), which is then cleared: they add this tick's draw after the networks are solved, in
+ * proportion to the power actually used.
+ */
 export function prepareFurnace(node: SimNode): void {
   const e = node.e as FurnaceEntity;
+  const fs = statsOf(node);
+  const extract = e.extractW;
+  e.extractW = 0;
   if (e.ignited) {
     e.demandW = 0;
     e.heatDemandW = 0;
     e.availW = FURNACE.outputW ?? 0;
     return;
   }
-  const tier = furnaceTier(e.tier);
   let demand = 0;
-  if (e.electric && tier.electricHeatW > 0) {
-    const want = tier.lossWPerC * (e.tempC - AMBIENT_TEMP_C) + e.extractW + ((tier.maxTempC - e.tempC) * tier.heatCapacityJ) / 2;
-    demand = want <= 0 ? 0 : want >= tier.electricHeatW ? tier.electricHeatW : want;
+  if (e.electric && fs.electricHeatW > 0) {
+    const want = fs.lossWPerC * (e.tempC - AMBIENT_TEMP_C) + extract + ((fs.maxTempC - e.tempC) * fs.heatCapacityJ) / 2;
+    demand = want <= 0 ? 0 : want >= fs.electricHeatW ? fs.electricHeatW : want;
   }
   e.heatDemandW = demand;
   e.demandW = e.ignition === 'running' ? demand + IGNITION_POWER : demand;
@@ -96,33 +131,36 @@ export function prepareFurnace(node: SimNode): void {
  */
 export function applyFurnace(node: SimNode, ctx: SimContext, dt: number, lossMult = 1): void {
   const e = node.e as FurnaceEntity;
-  const tier = furnaceTier(e.tier);
+  const fs = statsOf(node);
   if (e.ignited) {
     e.tempC = IGNITED_TEMP_C;
     e.rateCPerS = 0;
     e.flameC = IGNITED_TEMP_C;
     e.deliveredW = 0;
-    runCrucibles(e, ctx, dt, tier.speed);
+    runCrucibles(e, ctx, dt, fs);
     ctx.setActive(node, true);
     return;
   }
   const f = node.net ? node.net.f : 0;
   e.deliveredW = f * e.demandW;
+  const extra = node.extraFuel;
+  const give = ctx.giveBack;
 
   // Adding fuel to a furnace that is still hot relights it.
-  const count = fuelCount(e);
-  if (!e.lit && count > e.fuelSeen && e.tempC >= FURNACE_HOT_C) lightFire(e, ctx);
+  const count = fuelCount(e) + (extra ? extra.lavaUnits() : 0);
+  if (!e.lit && count > e.fuelSeen && e.tempC >= FURNACE_HOT_C) lightFire(e, ctx, extra);
   e.fuelSeen = count;
 
   const draft = e.draft;
   let qFuel = 0;
   let flame = AMBIENT_TEMP_C;
   if (e.lit) {
-    if (burn(e, dt * (1 + draft))) {
+    // A hearth's fire is sized to its shell: it burns fireScale times as much, and gives as much more heat.
+    if (burn(e, dt * (1 + draft) * fs.fireScale, extra, give)) {
       const fuel = fuelOf(e.burnItem ?? '');
       if (fuel) {
         flame = fuel.flameTempC + DRAFT_FLAME_BONUS_C * draft;
-        if (e.tempC <= flame) qFuel = (fuel.energyJ / fuel.burnS) * (1 + draft);
+        if (e.tempC <= flame) qFuel = (fuel.energyJ / fuel.burnS) * (1 + draft) * fs.fireScale;
       }
     } else {
       e.fuelSeen = 0;
@@ -136,23 +174,26 @@ export function applyFurnace(node: SimNode, ctx: SimContext, dt: number, lossMul
   e.draft = Math.max(0, draft - DRAFT_DECAY_PER_S * dt);
 
   const before = e.tempC;
-  const loss = tier.lossWPerC * lossMult * (before - AMBIENT_TEMP_C);
-  const base = before + ((f * e.heatDemandW - loss - e.extractW) * dt) / tier.heatCapacityJ;
-  let t = base + (qFuel * dt) / tier.heatCapacityJ;
+  const loss = fs.lossWPerC * lossMult * (before - AMBIENT_TEMP_C);
+  const base = before + ((f * e.heatDemandW - loss - e.extractW) * dt) / fs.heatCapacityJ;
+  let t = base + (qFuel * dt) / fs.heatCapacityJ;
   // A fire never heats past its own flame: a steady fire sits exactly at its flame temperature.
   if (qFuel > 0 && t > flame) t = Math.max(flame, base);
-  t = t < AMBIENT_TEMP_C ? AMBIENT_TEMP_C : t > tier.maxTempC ? tier.maxTempC : t;
+  // Above its maximum (its hearth came apart) nothing heats it: it cools down to the maximum by itself.
+  if (before > fs.maxTempC) t = Math.max(fs.maxTempC, before - ((loss + e.extractW) * dt) / fs.heatCapacityJ);
+  const top = before > fs.maxTempC ? before : fs.maxTempC;
+  t = t < AMBIENT_TEMP_C ? AMBIENT_TEMP_C : t > top ? top : t;
   e.tempC = t;
   e.rateCPerS = (t - before) / dt;
 
-  runCrucibles(e, ctx, dt, tier.speed);
+  runCrucibles(e, ctx, dt, fs);
   if (e.ignition === 'running') runIgnition(e, ctx, dt, f);
   ctx.setActive(node, t >= FURNACE_HOT_C);
 }
 
 /** Starts the fire if there is anything to burn. */
-export function lightFire(e: FurnaceEntity, ctx: SimContext): boolean {
-  if (e.burnItem === null && !takeNextFuel(e)) return false;
+export function lightFire(e: FurnaceEntity, ctx: SimContext, extra: ExtraFuel | null = null): boolean {
+  if (e.burnItem === null && !takeNextFuel(e, extra, ctx.giveBack)) return false;
   e.lit = true;
   ctx.bus.emit('furnace:lit', { x: e.x, y: e.y, z: e.z });
   ctx.bus.emit('sfx', { name: 'ignite', x: e.x, y: e.y, z: e.z });
@@ -175,8 +216,16 @@ export function smeltSpeed(e: FurnaceEntity, r: RecipeDef, tierSpeed: number): n
   return tierSpeed * (1 + Math.min(1, Math.max(0, (e.tempC - r.minTempC) / 300)));
 }
 
-function runCrucibles(e: FurnaceEntity, ctx: SimContext, dt: number, tierSpeed: number): void {
-  for (let i = 0; i < e.crucibleIn.length; i++) {
+/** The smelt recipe this furnace may run on an input item at its effective tier, or null. */
+export function crucibleRecipe(itemKey: string, fs: FurnaceStats): RecipeDef | null {
+  const r = smeltRecipeFor(itemKey);
+  return r && r.minTier <= fs.tier ? r : null;
+}
+
+/** Crucibles beyond the hearth's count are locked: they hold still, and only give their contents back. */
+function runCrucibles(e: FurnaceEntity, ctx: SimContext, dt: number, fs: FurnaceStats): void {
+  const n = Math.min(fs.crucibles, e.crucibleIn.length);
+  for (let i = 0; i < n; i++) {
     const inp = e.crucibleIn[i];
     if (!inp) {
       if (e.crucibleRecipe[i] !== null) {
@@ -187,14 +236,13 @@ function runCrucibles(e: FurnaceEntity, ctx: SimContext, dt: number, tierSpeed: 
     }
     const current = e.crucibleRecipe[i];
     let r = current === null ? null : recipe(current);
-    if (!r || r.inputs[0].item !== inp.item) {
-      r = smeltRecipeFor(inp.item);
-      if (r && r.minTier > e.tier) r = null;
+    if (!r || r.inputs[0].item !== inp.item || r.minTier > fs.tier) {
+      r = crucibleRecipe(inp.item, fs);
       e.crucibleRecipe[i] = r ? r.id : null;
       e.crucibleProgress[i] = 0;
     }
     if (!r || crucibleBlock(e, i, r) !== null) continue;
-    e.crucibleProgress[i] += dt * smeltSpeed(e, r, tierSpeed);
+    e.crucibleProgress[i] += dt * smeltSpeed(e, r, fs.speed);
     if (e.crucibleProgress[i] < r.timeS) continue;
     e.crucibleProgress[i] = 0;
     inp.count -= r.inputs[0].count;

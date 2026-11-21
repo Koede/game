@@ -6,8 +6,9 @@
 import { AMBIENT_TEMP_C } from '../core/constants';
 import { furnaceTier, itemOrNull, machine } from '../core/registry';
 import type { GameBus } from '../core/context';
-import type { BlockEntity, IWorld, MachineSpec, RecipeDef, Slot } from '../core/types';
+import type { BlockEntity, FluidKey, IWorld, MachineSpec, RecipeDef, Slot } from '../core/types';
 import type { PlayerState } from '../game/playerState';
+import type { FurnaceStats, HearthSummary } from './hearthStats';
 import type { Network } from './power';
 
 export type IgnitionState = 'idle' | 'running' | 'failed' | 'done';
@@ -37,6 +38,10 @@ export interface FurnaceEntity extends BlockEntity {
   ignition: IgnitionState;
   ignitionProgressS: number;
   ignitionLowS: number;
+  /** The formed hearth it sits in (spec 17), or null; saved so a loaded game runs on until the first scan confirms it. */
+  hearth: HearthSummary | null;
+  /** Tier it runs at: min(tier, the hearth's structural tier), 1 when it stands alone (spec 17.1). */
+  effTier: number;
   // Figures of the last tick, for the UI and the network.
   flameC: number;
   rateCPerS: number;
@@ -67,6 +72,12 @@ export interface MachineEntity extends BlockEntity {
   /** Bore rig: y of the block it mined last, and why it stopped ('' while it can go on). */
   depthY: number;
   halted: string;
+  /**
+   * Fluid buffers of machines with fluid ports (spec 16.2): what pipes or buckets put in, and what it hands out. A
+   * machine whose `accepts` and `gives` share a fluid (the tank) keeps both in `fluidIn`.
+   */
+  fluidIn: FluidStack | null;
+  fluidOut: FluidStack | null;
   // Figures of the last tick.
   availW: number;
   outW: number;
@@ -76,40 +87,46 @@ export interface MachineEntity extends BlockEntity {
 
 export type SimEntity = FurnaceEntity | MachineEntity;
 
+/** Some litres of one fluid. */
+export interface FluidStack {
+  fluid: FluidKey;
+  litres: number;
+}
+
 export const isFurnace = (e: BlockEntity | undefined): e is FurnaceEntity => e !== undefined && e.kind === 'furnace';
 
 const emptySlots = (n: number): Slot[] => new Array<Slot>(n).fill(null);
+/** Crucibles of a furnace standing alone (tier 1 numbers until a hearth forms around it; the arrays grow then). */
+const LONE = furnaceTier(1).crucibles;
 
 export function createFurnace(x: number, y: number, z: number, tier: number): FurnaceEntity {
   const spec = furnaceTier(tier);
   return {
     kind: 'furnace', x, y, z, tier, tempC: AMBIENT_TEMP_C, lit: false, draft: 0, ignited: false,
     fuel: emptySlots(spec.fuelSlots), burnItem: null, burnLeftS: 0, fuelSeen: 0,
-    crucibleIn: emptySlots(spec.crucibles), crucibleOut: emptySlots(spec.crucibles),
-    crucibleProgress: new Array<number>(spec.crucibles).fill(0),
-    crucibleRecipe: new Array<string | null>(spec.crucibles).fill(null),
-    electric: true, ignition: 'idle', ignitionProgressS: 0, ignitionLowS: 0,
+    crucibleIn: emptySlots(LONE), crucibleOut: emptySlots(LONE),
+    crucibleProgress: new Array<number>(LONE).fill(0),
+    crucibleRecipe: new Array<string | null>(LONE).fill(null),
+    electric: true, ignition: 'idle', ignitionProgressS: 0, ignitionLowS: 0, hearth: null, effTier: 1,
     flameC: AMBIENT_TEMP_C, rateCPerS: 0, extractW: 0, heatDemandW: 0, demandW: 0, deliveredW: 0, availW: 0,
   };
 }
 
-/** Grows the slot arrays in place when the tier changes (the arrays are wrapped by inventories, so never replaced). */
+/**
+ * Grows the firebox in place when the tier changes (the arrays are wrapped by inventories, so never replaced). The
+ * crucibles follow the effective stats instead (src/sim/hearth.ts grows them when a hearth grants more).
+ */
 export function resizeFurnace(e: FurnaceEntity, tier: number): void {
   const spec = furnaceTier(tier);
   e.tier = tier;
   while (e.fuel.length < spec.fuelSlots) e.fuel.push(null);
-  while (e.crucibleIn.length < spec.crucibles) {
-    e.crucibleIn.push(null);
-    e.crucibleOut.push(null);
-    e.crucibleProgress.push(0);
-    e.crucibleRecipe.push(null);
-  }
 }
 
 export function createMachine(kind: string, x: number, y: number, z: number): MachineEntity {
   return {
     kind, x, y, z, on: true, slots: emptySlots(machine(kind).slots ?? 0), progress: 0, recipe: null, fuelJ: 0, storedJ: 0,
-    coreC: AMBIENT_TEMP_C, hotS: 0, warned: false, alarmS: 0, depthY: y, halted: '', availW: 0, outW: 0, demandW: 0, f: 0,
+    coreC: AMBIENT_TEMP_C, hotS: 0, warned: false, alarmS: 0, depthY: y, halted: '', fluidIn: null, fluidOut: null,
+    availW: 0, outW: 0, demandW: 0, f: 0,
   };
 }
 
@@ -140,6 +157,18 @@ export interface SimNode {
   maxOut: number;
   /** Processors: the job that can run this tick. */
   job: RecipeDef | null;
+  /** Furnaces: the numbers it runs at (effective tier, hearth size, tuyeres); kept by src/sim/hearth.ts. */
+  fs: FurnaceStats | null;
+  /** Furnaces: fuel its formed hearth adds to the firebox (lava in fluid hatches), or null. */
+  extraFuel: ExtraFuel | null;
+}
+
+/** What a formed hearth adds to its controller's firebox (spec 17.1: lava through fluid hatches). */
+export interface ExtraFuel {
+  /** Whole loads of lava waiting (each burns like one lava bucket). */
+  lavaUnits(): number;
+  /** Takes one load; false when there is none. No bucket comes back from piped lava. */
+  takeLava(): boolean;
 }
 
 export const posKey = (x: number, y: number, z: number): string => `${x},${y},${z}`;
@@ -147,7 +176,7 @@ export const posKey = (x: number, y: number, z: number): string => `${x},${y},${
 export function createNode(e: SimEntity): SimNode {
   return {
     e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, loaded: true, dirty: true, water: 0, sideWater: 0,
-    lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null,
+    lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, fs: null, extraFuel: null,
   };
 }
 
@@ -217,4 +246,6 @@ export interface SimContext {
   meltdown(node: SimNode): void;
   /** Deterministic random number in [0, 1). */
   random(): number;
+  /** Hands one item to the player (a container a burned fuel left behind and no slot could hold). */
+  readonly giveBack: (item: string) => void;
 }

@@ -6,9 +6,12 @@ import { ingredientStatus, maxCraftable, tally, type IngredientStatus, type Item
 import type { Inventory } from '../game/inventory';
 import type { ActionResult, FurnaceEntity, IgnitionState, SimNode } from './entities';
 import {
-  IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed,
+  IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed, statsOf,
 } from './furnace';
-import { ignitionCheck, restCheck, type ActionHost } from './furnaceActions';
+import { ignitionCheck, restCheck, tierLock, upgradeStructure, type ActionHost } from './furnaceActions';
+import type { Hearth } from './hearth';
+import { hearthName } from './hearthScan';
+import type { FurnaceStats } from './hearthStats';
 import { itemName } from './machines';
 
 export type Trend = 'rising' | 'falling' | 'steady';
@@ -32,7 +35,29 @@ export interface CrucibleView {
   secondsLeft: number;
   /** True while the crucible is advancing this tick. */
   active: boolean;
+  /** Beyond what the hearth holds (spec 17.3): it holds still and only gives its contents back. */
+  locked: boolean;
   status: string;
+}
+
+/** The hearth around a furnace, in brief (the STRUCTURE tab has the details: Simulation.structureView). */
+export interface HearthBrief {
+  formed: boolean;
+  /** Structural tier 2..5, 0 when not formed. */
+  tier: number;
+  /** "Blast hearth" ... "Starhearth", or null when not formed. */
+  name: string | null;
+  /** [across, deep, high] of the inside when formed. */
+  inner: [number, number, number] | null;
+  closed: boolean;
+  windows: number;
+  /** Blowers in its faces, and how many of them run (each running one is a tuyere: +25% smelting). */
+  blowers: number;
+  tuyeres: number;
+  /** "Formed - Blast hearth 3x3x2" or "Not formed". */
+  text: string;
+  /** The first thing wrong with it (for the tier the furnace wants), or null. */
+  problem: string | null;
 }
 
 export interface UpgradeView {
@@ -40,8 +65,15 @@ export interface UpgradeView {
   ingredients: IngredientStatus[];
   requiredC: number;
   tempOk: boolean;
+  /**
+   * The next tier's hearth is formed around the furnace (spec 17.1), and what to build for it otherwise ("Build a
+   * Blast hearth: brick walls around the furnace"). Always set by the simulation; optional only so views built by
+   * hand (UI tests) still type-check.
+   */
+  structureOk?: boolean;
+  structure?: string | null;
   ok: boolean;
-  /** What is missing, or null when the upgrade can be done now. */
+  /** What is missing, or null when the upgrade can be done now. Order: the hearth, ingredients, temperature. */
   reason: string | null;
 }
 
@@ -75,8 +107,14 @@ export interface FurnaceView {
   x: number;
   y: number;
   z: number;
+  /** The furnace block's (upgraded) tier, and its spec: name, age, blurb. */
   tier: number;
   spec: FurnaceTierSpec;
+  /** The tier it runs at: min(tier, the formed hearth's tier), 1 standing alone (spec 17.1). */
+  effectiveTier: number;
+  hearth: HearthBrief;
+  /** Crucibles that work now (the rest are locked). */
+  cruciblesActive: number;
   /** This furnace is the player's home (respawn point, compass target). */
   home: boolean;
   tempC: number;
@@ -132,13 +170,19 @@ const clock = (seconds: number): string => {
 const missingText = (ingredients: readonly IngredientStatus[]): string =>
   `Missing ${ingredients.filter((s) => !s.ok).map((s) => `${s.need - s.have} ${itemName(s.item)}`).join(', ')}`;
 
-function crucibleView(e: FurnaceEntity, i: number, tierSpeed: number): CrucibleView {
+function crucibleView(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleView {
   const id = e.crucibleRecipe[i];
-  const r = id ? recipe(id) : null;
+  const locked = i >= fs.crucibles;
+  const r = id && !locked ? recipe(id) : null;
   const view: CrucibleView = {
     index: i, input: e.crucibleIn[i], output: e.crucibleOut[i], recipe: r, progress: 0, requiredC: r ? r.minTempC : null,
-    secondsLeft: Infinity, active: false, status: 'Empty',
+    secondsLeft: Infinity, active: false, locked, status: 'Empty',
   };
+  if (locked) {
+    view.status = e.crucibleIn[i] || e.crucibleOut[i] ? 'Locked - take it out'
+      : fs.tier < 2 ? 'Locked - build a hearth to use it' : 'Locked - a bigger hearth opens it';
+    return view;
+  }
   if (!r) {
     if (e.crucibleIn[i]) view.status = 'Cannot be smelted here';
     else if (e.crucibleOut[i]) view.status = 'Done - take it out';
@@ -151,7 +195,7 @@ function crucibleView(e: FurnaceEntity, i: number, tierSpeed: number): CrucibleV
   else if (block === 'cold') view.status = `Needs ${r.minTempC} C - now ${Math.floor(e.tempC)} C`;
   else {
     view.active = true;
-    view.secondsLeft = (r.timeS - e.crucibleProgress[i]) / smeltSpeed(e, r, tierSpeed);
+    view.secondsLeft = (r.timeS - e.crucibleProgress[i]) / smeltSpeed(e, r, fs.speed);
     view.status = `Smelting ${itemName(r.output.item)}`;
   }
   return view;
@@ -162,26 +206,52 @@ function upgradeView(e: FurnaceEntity, sources: readonly Inventory[]): UpgradeVi
   const next = furnaceTier(e.tier + 1);
   const status = ingredientStatus(next.upgradeCost, sources);
   const tempOk = e.tempC >= next.upgradeTempC;
-  const reason = !status.ok ? missingText(status.ingredients) : tempOk ? null : `Needs ${next.upgradeTempC} C - now ${Math.floor(e.tempC)} C`;
-  return { next, ingredients: status.ingredients, requiredC: next.upgradeTempC, tempOk, ok: status.ok && tempOk, reason };
+  const structure = upgradeStructure(e, next.tier);
+  const reason = structure ?? (!status.ok ? missingText(status.ingredients) : tempOk ? null : `Needs ${next.upgradeTempC} C - now ${Math.floor(e.tempC)} C`);
+  return {
+    next, ingredients: status.ingredients, requiredC: next.upgradeTempC, tempOk, structureOk: structure === null, structure,
+    ok: structure === null && status.ok && tempOk, reason,
+  };
 }
 
 /** Where the temperature settles with the present heat sources: fire (capped at its flame) and electric heat. */
-function targetTemp(e: FurnaceEntity, tier: FurnaceTierSpec, flame: number | null, satisfaction: number, lossMult: number): number {
+function targetTemp(e: FurnaceEntity, fs: FurnaceStats, flame: number | null, satisfaction: number, lossMult: number): number {
   let target = AMBIENT_TEMP_C;
-  const lossWPerC = tier.lossWPerC * lossMult;
+  const lossWPerC = fs.lossWPerC * lossMult;
   const fuel = e.burnItem ? fuelOf(e.burnItem) : null;
   if (flame !== null && fuel) {
-    const q = (fuel.energyJ / fuel.burnS) * (1 + e.draft);
+    const q = (fuel.energyJ / fuel.burnS) * (1 + e.draft) * fs.fireScale;
     target = Math.min(flame, AMBIENT_TEMP_C + (q - e.extractW) / lossWPerC);
   }
-  if (e.heatDemandW > 0) target = Math.max(target, AMBIENT_TEMP_C + (tier.electricHeatW * satisfaction - e.extractW) / lossWPerC);
-  return Math.min(Math.max(target, AMBIENT_TEMP_C), tier.maxTempC);
+  if (e.heatDemandW > 0) target = Math.max(target, AMBIENT_TEMP_C + (fs.electricHeatW * satisfaction - e.extractW) / lossWPerC);
+  return Math.min(Math.max(target, AMBIENT_TEMP_C), fs.maxTempC);
+}
+
+/** The hearth in brief, for the furnace screen's header and status line. */
+function hearthBrief(e: FurnaceEntity, fs: FurnaceStats, hearth: Hearth | null): HearthBrief {
+  const h = e.hearth;
+  const scan = hearth?.scan ?? null;
+  const want = Math.max(2, e.tier);
+  let problem: string | null = null;
+  if (scan && (!h || h.tier < want)) problem = scan.problems[0]?.text ?? null;
+  const blowers = hearth?.blowers.length ?? 0;
+  if (!h) {
+    return { formed: false, tier: 0, name: null, inner: null, closed: false, windows: 0, blowers, tuyeres: 0, text: 'Not formed', problem };
+  }
+  const name = hearthName(h.tier);
+  return {
+    formed: true, tier: h.tier, name, inner: [...h.inner], closed: h.closed, windows: h.windows, blowers, tuyeres: fs.tuyeres,
+    text: `Formed - ${name} ${h.inner[0]}x${h.inner[1]}x${h.inner[2]}`, problem,
+  };
 }
 
 function furnaceStatus(e: FurnaceEntity, v: FurnaceView): string {
   if (e.ignited) return 'A star burns here. It needs nothing more.';
   if (e.ignition === 'running') return `Igniting - ${Math.round(v.ignition.progress * 100)}%`;
+  if (v.effectiveTier < e.tier) {
+    const runs = `it runs like a ${furnaceTier(v.effectiveTier).name}`;
+    return v.hearth.formed ? `The ${v.hearth.name} holds it back - ${runs}` : `No ${hearthName(e.tier)} formed - ${runs}`;
+  }
   const cold = v.crucibles.find((c) => c.recipe !== null && crucibleBlock(e, c.index, c.recipe) === 'cold');
   const heated = v.electric.deliveredW > 0;
   if (!e.lit && !heated) {
@@ -198,36 +268,42 @@ function furnaceStatus(e: FurnaceEntity, v: FurnaceView): string {
   return (v.trend === 'steady' ? `Holding ${Math.floor(e.tempC)} C` : `Heading for ${Math.floor(v.targetC)} C`) + rain;
 }
 
-/** `lossMult`: this tick's heat-loss multiplier from the weather (1 when dry or roofed). */
-export function furnaceView(host: ActionHost, node: SimNode, lossMult = 1): FurnaceView {
+/**
+ * `lossMult`: this tick's heat-loss multiplier from the weather (1 when dry or roofed). `hearth`: the runtime of the
+ * hearth around it (the last scan's problems).
+ */
+export function furnaceView(host: ActionHost, node: SimNode, lossMult = 1, hearth: Hearth | null = null): FurnaceView {
   const e = node.e as FurnaceEntity;
   const tier = furnaceTier(e.tier);
+  const fs = statsOf(node);
   const burning = isBurning(e);
   const flame = e.ignited ? e.tempC : burning ? e.flameC : null;
-  const rate = 1 + e.draft;
+  const rate = (1 + e.draft) * fs.fireScale;
   const net = node.net;
   const satisfaction = net ? net.f : 0;
   const sources = host.stationSources(e.x, e.y, e.z);
   const counts = tally(sources);
   const home = host.player.home;
   const view: FurnaceView = {
-    x: e.x, y: e.y, z: e.z, tier: e.tier, spec: tier, home: home !== null && home.x === e.x && home.y === e.y && home.z === e.z,
-    tempC: e.tempC, maxTempC: furnaceMaxTempC(e),
+    x: e.x, y: e.y, z: e.z, tier: e.tier, spec: tier, effectiveTier: fs.tier, hearth: hearthBrief(e, fs, hearth),
+    cruciblesActive: Math.min(fs.crucibles, e.crucibleIn.length),
+    home: home !== null && home.x === e.x && home.y === e.y && home.z === e.z, tempC: e.tempC, maxTempC: furnaceMaxTempC(e, fs),
     trend: e.rateCPerS > STEADY_C_PER_S ? 'rising' : e.rateCPerS < -STEADY_C_PER_S ? 'falling' : 'steady',
     rateCPerS: e.rateCPerS, lit: e.lit, burning, hot: e.tempC >= FURNACE_HOT_C, draft: e.draft, flameC: flame,
-    targetC: e.ignited ? e.tempC : targetTemp(e, tier, flame, satisfaction, lossMult), burnItem: e.burnItem,
-    burnItemLeftS: e.burnItem ? Math.max(0, e.burnLeftS) / rate : 0, burnTimeLeftS: burnSecondsLeft(e) / rate, fuelItems: fuelCount(e),
-    crucibles: e.crucibleIn.map((_s, i) => crucibleView(e, i, tier.speed)),
+    targetC: e.ignited ? e.tempC : targetTemp(e, fs, flame, satisfaction, lossMult), burnItem: e.burnItem,
+    burnItemLeftS: e.burnItem ? Math.max(0, e.burnLeftS) / rate : 0, burnTimeLeftS: burnSecondsLeft(e, node.extraFuel) / rate,
+    fuelItems: fuelCount(e),
+    crucibles: e.crucibleIn.map((_s, i) => crucibleView(e, i, fs)),
     electric: {
-      available: tier.electricHeatW > 0, on: e.electric, networked: net !== null && net.nodes.length > 1, demandW: e.heatDemandW,
-      deliveredW: e.heatDemandW * satisfaction, maxW: tier.electricHeatW, satisfaction,
+      available: fs.electricHeatW > 0, on: e.electric, networked: net !== null && net.nodes.length > 1, demandW: e.heatDemandW,
+      deliveredW: e.heatDemandW * satisfaction, maxW: fs.electricHeatW, satisfaction,
     },
     extractW: e.extractW, rainChilled: !e.ignited && lossMult > 1, ignited: e.ignited,
     ignition: {
       state: e.ignition, progress: Math.min(1, e.ignitionProgressS / IGNITION_TIME_S), powerW: IGNITION_POWER,
       seconds: IGNITION_TIME_S, canStart: ignitionCheck(e, node),
     },
-    upgrade: upgradeView(e, sources), canRest: restCheck(host, e),
+    upgrade: upgradeView(e, sources), canRest: restCheck(host, e, node),
     forge: forgeRowsFrom(host, e, sources, counts), smelt: smeltRows(e, counts), status: '',
   };
   view.status = furnaceStatus(e, view);
@@ -244,11 +320,12 @@ function forgeRowsFrom(host: ActionHost, e: FurnaceEntity, sources: readonly Inv
   const rows: ForgeRow[] = [];
   for (const r of FORGE_RECIPES) {
     const have = ingredientStatus(r.inputs, counts);
-    const locked = r.minTier > e.tier;
+    const lock = tierLock(e, r.minTier);
+    const locked = lock !== null;
     const tempOk = e.ignited || e.tempC >= r.minTempC;
     const heatAllows = e.ignited ? Infinity : tempOk ? Math.floor((e.tempC - r.minTempC) / FORGE_CHILL_C) + 1 : 0;
     let reason: string | null = null;
-    if (locked) reason = `Needs the ${furnaceTier(r.minTier).name}`;
+    if (lock) reason = lock;
     else if (!tempOk) reason = `Needs ${r.minTempC} C`;
     else if (!have.ok) reason = missingText(have.ingredients);
     else if (!host.player.inventory.canFit(r.output)) reason = 'No room in your pack';
@@ -263,9 +340,10 @@ function forgeRowsFrom(host: ActionHost, e: FurnaceEntity, sources: readonly Inv
 /** Every smelt recipe (what the crucibles can take), judged against this furnace. */
 function smeltRows(e: FurnaceEntity, counts: ItemTally): SmeltRow[] {
   return SMELT_RECIPES.map((r) => {
-    const locked = r.minTier > e.tier;
+    const lock = tierLock(e, r.minTier);
+    const locked = lock !== null;
     const tempOk = e.ignited || e.tempC >= r.minTempC;
-    const reason = locked ? `Needs the ${furnaceTier(r.minTier).name}` : tempOk ? null : `Needs ${r.minTempC} C`;
+    const reason = lock ?? (tempOk ? null : `Needs ${r.minTempC} C`);
     return { recipe: r, locked, tempOk, have: counts.get(r.inputs[0].item) ?? 0, reason };
   });
 }
