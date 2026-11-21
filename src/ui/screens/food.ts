@@ -4,9 +4,10 @@
  * Kitchen chip gathers; and the HUD's hunger state.
  */
 import { HUNGRY_AT, MAX_FOOD } from '../../core/constants';
-import { itemOrNull } from '../../core/registry';
+import { DRINK_BUFFS } from '../../core/brewing';
+import { drinkBrewedFrom, itemOrNull } from '../../core/registry';
 import type { DamageCause } from '../../core/gameEvents';
-import type { FoodSpec, RecipeDef } from '../../core/types';
+import type { DrinkSpec, FoodSpec, RecipeDef } from '../../core/types';
 import type { RecipeCategory, RecipeRequirement } from '../kit/recipe';
 
 /** The chip that gathers cooking and baking at the furnace (spec 12.8: category Food). */
@@ -31,9 +32,20 @@ export function buffText(food: FoodSpec): string | null {
 /** "+8 food". */
 export const foodText = (food: FoodSpec): string => `+${food.hunger} food`;
 
-/** One line about an item as food ("+12 food, Well-Fed 6 min"), or null when it is not edible. */
+/** "Swift 3 min": a cup of tea or coffee and the buff it gives (the "+N food" of drinks). */
+export const drinkText = (drink: DrinkSpec): string => `${DRINK_BUFFS[drink.buff].name} ${buffDuration(drink.buffS)}`;
+
+/** "Brews Light Roast": what an ingredient makes in a cup with a drip cone, or null for any other item. */
+export function brewsText(itemKey: string): string | null {
+  const made = drinkBrewedFrom(itemKey);
+  return made ? `Brews ${made.name}` : null;
+}
+
+/** One line about an item as food or drink ("+12 food, Well-Fed 6 min", "Swift 3 min"), or null when it is neither. */
 export function foodLine(itemKey: string): string | null {
-  const food = itemOrNull(itemKey)?.food;
+  const def = itemOrNull(itemKey);
+  if (def?.drink) return drinkText(def.drink);
+  const food = def?.food;
   if (!food) return null;
   const buff = buffText(food);
   return buff ? `${foodText(food)}, ${buff}` : foodText(food);
@@ -41,7 +53,19 @@ export function foodLine(itemKey: string): string | null {
 
 /** The item card rows of a food item: [["Eat", "+8 food"], ["Buff", "Well-Fed 6 min"]]. */
 export function foodRows(itemKey: string): [string, string][] {
-  const food = itemOrNull(itemKey)?.food;
+  const def = itemOrNull(itemKey);
+  if (def?.drink) {
+    const rows: [string, string][] = [['Drink', drinkText(def.drink)], ['Effect', DRINK_BUFFS[def.drink.buff].effect]];
+    if (def.drink.warmth) rows.push(['Warms', `+${def.drink.warmth} warmth`]);
+    if (def.drink.hunger) rows.push(['Eat', `+${def.drink.hunger} food`]);
+    return rows;
+  }
+  const brews = brewsText(itemKey);
+  if (brews) {
+    const made = drinkBrewedFrom(itemKey);
+    return made?.drink ? [['Brews', `${made.name}: ${drinkText(made.drink)}`], ['Effect', DRINK_BUFFS[made.drink.buff].effect]] : [];
+  }
+  const food = def?.food;
   if (!food) return [];
   const rows: [string, string][] = [['Eat', foodText(food)]];
   const buff = buffText(food);
@@ -67,7 +91,11 @@ export function byproductNotes(recipe: RecipeDef): string[] {
  */
 export function productBadges(recipe: RecipeDef): RecipeRequirement[] {
   const out: RecipeRequirement[] = [];
-  const food = itemOrNull(recipe.output.item)?.food;
+  const made = itemOrNull(recipe.output.item);
+  if (made?.drink) out.push({ text: drinkText(made.drink), kind: 'food' });
+  const brews = brewsText(recipe.output.item);
+  if (brews) out.push({ text: brews, kind: 'food' });
+  const food = made?.food;
   if (food) {
     out.push({ text: foodText(food), kind: 'food' });
     const buff = buffText(food);
@@ -77,12 +105,15 @@ export function productBadges(recipe: RecipeDef): RecipeRequirement[] {
   return out;
 }
 
+/** The brewing chain's steps that are neither a drink nor an ingredient: they sit with the drinks in the Kitchen chip. */
+const BREWING_STAGES: ReadonlySet<string> = new Set(['tea_leaves', 'coffee_cherries', 'roasted_beans', 'dark_beans']);
+
 const isFood = (itemKey: string): boolean => {
   const def = itemOrNull(itemKey);
-  return def !== null && (def.food !== undefined || def.category === 'food');
+  return def !== null && (def.food !== undefined || def.category === 'food' || def.drink !== undefined || def.brews !== undefined || BREWING_STAGES.has(itemKey));
 };
 
-/** The Kitchen chip gathers every recipe that makes food or uses food (roasts, baked potato, bread, stews). */
+/** The Kitchen chip gathers every recipe that makes food or uses food (roasts, baked potato, bread, stews, and the tea and coffee chain). */
 export function isKitchenRecipe(recipe: RecipeDef): boolean {
   return isFood(recipe.output.item) || recipe.inputs.some((i) => isFood(i.item));
 }

@@ -2,8 +2,8 @@
  * Casting at the furnace (docs/api/casting.md, docs/EMBER_PLAN.md section 2). A smelt of a cast metal (copper, tin,
  * bronze) does not put an ingot in the output slot: the metal sits MOLTEN in the crucible for MOLTEN_WINDOW_S
  * (`crucibleMelt` + `crucibleMoltenS`). Pouring it into a fired mould makes the mould's shape; left alone it cools
- * into blooms in `crucibleOut`, which must be smelted again. An alloy pot set in a crucible slot takes molten copper
- * and tin and makes molten bronze. Other metals (iron and up) smelt to ingots as before.
+ * into blooms in `crucibleOut`, which must be smelted again. An alloy pot set in a crucible slot takes copper
+ * and tin ingots and melts them into molten bronze at 800 C. Other metals (iron and up) smelt to ingots as before.
  */
 import { FLAG_FIRST_POUR, MOLTEN_WINDOW_S, MOULD_POURS } from '../core/constants';
 import { CAST_METALS, castMetalOfIngot, castOf, itemOrNull, mouldOf, recipe } from '../core/registry';
@@ -12,7 +12,7 @@ import { OK, refuse, stackMax, type ActionResult, type FurnaceEntity, type SimCo
 
 /** The alloy pot: item and block key, set in a crucible slot. */
 export const ALLOY_POT = 'alloy_pot';
-/** Copper and tin a pot holds at most; bronze needs three parts copper to one of tin and makes four ingots. */
+/** Copper and tin ingots a pot holds at most; bronze needs three of copper to one of tin and makes four ingots. */
 export const POT_COPPER_MAX = 6;
 export const POT_TIN_MAX = 2;
 const BRONZE = 'bronze_ingot';
@@ -20,6 +20,9 @@ const ALLOY_RECIPE = 'bronze_ingot_alloy';
 const ALLOY_COPPER = 3;
 const ALLOY_TIN = 1;
 const ALLOY_FALLBACK_C = 800;
+const ALLOY_FALLBACK_S = 8;
+const COPPER = 'copper_ingot';
+const TIN = 'tin_ingot';
 
 export type PourResult = { ok: true; count: number } | { ok: false; reason: string };
 
@@ -83,61 +86,59 @@ export function coolMolten(e: FurnaceEntity, ctx: SimContext, dt: number): void 
 /** The metal a bloom item is made of, or null. */
 export const metalOfBloom = (key: string): CastMetalSpec | null => CAST_METALS.find((m) => m.bloom === key) ?? null;
 
-/** Index of the first crucible holding an alloy pot other than `except`, or -1. */
-export function potSlot(e: FurnaceEntity, working: number, except: number): number {
-  for (let i = 0; i < Math.min(working, e.crucibleIn.length); i++) if (i !== except && e.crucibleIn[i]?.item === ALLOY_POT) return i;
-  return -1;
-}
+const alloyRecipe = (): RecipeDef | null => recipe(ALLOY_RECIPE);
+export const alloyMinC = (): number => alloyRecipe()?.minTempC ?? ALLOY_FALLBACK_C;
+const alloyTimeS = (): number => alloyRecipe()?.timeS ?? ALLOY_FALLBACK_S;
 
-const alloyMinC = (): number => recipe(ALLOY_RECIPE)?.minTempC ?? ALLOY_FALLBACK_C;
+export const hasPot = (e: FurnaceEntity, i: number): boolean => e.crucibleIn[i]?.item === ALLOY_POT;
 
-/** Whether the pot at `p` can take a batch of bronze right now (its pool and output are free). */
-function potFree(e: FurnaceEntity, p: number): string | null {
-  const melt = e.crucibleMelt[p];
+/** Why the pot in crucible `i` cannot take a batch of bronze right now (its pool or output is in the way), or null. */
+export function potBlock(e: FurnaceEntity, i: number): string | null {
+  const melt = e.crucibleMelt[i];
   if (melt && melt.item !== BRONZE) return `The pot still holds molten ${name(melt.item)}`;
-  const out = e.crucibleOut[p];
-  const bloom = metalOfIngot(BRONZE)?.bloom;
-  if (out && out.item !== bloom) return `Take the ${name(out.item)} out of the pot's crucible first`;
+  const bloom = metalOfIngot(BRONZE)?.bloom ?? '';
+  const out = e.crucibleOut[i];
+  if (out && out.item !== bloom) return `Take the ${name(out.item)} out of the crucible first`;
+  const batch = alloyRecipe()?.output.count ?? 4;
+  if ((out?.count ?? 0) + (melt?.count ?? 0) + batch > stackMax(bloom)) return 'The crucible is full of bronze';
   return null;
 }
 
-/** Pours the molten copper or tin of crucible `slot` into the alloy pot in another slot; bronze forms at 3 : 1. */
-function pourIntoPot(e: FurnaceEntity, slot: number, working: number): PourResult {
-  const melt = e.crucibleMelt[slot];
-  if (!melt) return { ok: false, reason: 'Nothing molten there' };
-  const p = potSlot(e, working, slot);
-  if (p < 0) return { ok: false, reason: 'Set an alloy pot in another crucible first' };
-  const copper = melt.item === 'copper_ingot';
-  if (!copper && melt.item !== 'tin_ingot') return { ok: false, reason: 'Only copper and tin go into the pot' };
-  if (!e.ignited && e.tempC < alloyMinC()) return { ok: false, reason: `Needs ${alloyMinC()} C - the furnace is at ${Math.floor(e.tempC)} C` };
-  const busy = potFree(e, p);
-  if (busy) return { ok: false, reason: busy };
-  const mix = e.crucibleMix[p];
-  const k = copper ? 0 : 1;
-  const room = (copper ? POT_COPPER_MAX : POT_TIN_MAX) - mix[k];
-  if (room <= 0) return { ok: false, reason: `The pot is full of ${copper ? 'copper' : 'tin'} - it needs the other metal` };
-  const n = Math.min(room, melt.count);
+/** Pours cold ingots of copper or tin from the pack into the alloy pot set in crucible `slot`. */
+function loadPot(ctx: SimContext, e: FurnaceEntity, slot: number, ingot: string): ActionResult {
+  if (!hasPot(e, slot)) return refuse('Set an alloy pot in this crucible first');
+  const k = ingot === COPPER ? 0 : 1;
+  const mix = e.crucibleMix[slot];
+  const room = (k === 0 ? POT_COPPER_MAX : POT_TIN_MAX) - mix[k];
+  if (room <= 0) return refuse(k === 0 ? 'The pot has all the copper it takes - it needs tin' : 'The pot has all the tin it takes - it needs copper');
+  const n = Math.min(room, ctx.player.inventory.count(ingot));
+  if (n < 1) return refuse(`You have no ${name(ingot)}`);
+  ctx.player.inventory.remove(ingot, n);
   mix[k] += n;
-  melt.count -= n;
-  if (melt.count <= 0) {
-    e.crucibleMelt[slot] = null;
-    e.crucibleMoltenS[slot] = 0;
-  }
-  return { ok: true, count: n };
+  ctx.touch(e);
+  ctx.bus.emit('sfx', { name: 'pour', x: e.x, y: e.y, z: e.z });
+  return OK;
 }
 
-/** Turns what the pot holds into molten bronze as long as there is a full batch and room for it. */
-function alloyBatches(e: FurnaceEntity, p: number): number {
-  const mix = e.crucibleMix[p];
-  const bronze = recipe(ALLOY_RECIPE)?.output.count ?? 4;
-  let made = 0;
-  while (mix[0] >= ALLOY_COPPER && mix[1] >= ALLOY_TIN && potFree(e, p) === null) {
-    mix[0] -= ALLOY_COPPER;
-    mix[1] -= ALLOY_TIN;
-    addMelt(e, p, BRONZE, bronze);
-    made += bronze;
+/** An alloy pot melts a full batch (3 copper, 1 tin) into molten bronze while the furnace is hot enough. */
+export function runPot(e: FurnaceEntity, i: number, ctx: SimContext, dt: number): void {
+  const mix = e.crucibleMix[i];
+  const idle = mix[0] < ALLOY_COPPER || mix[1] < ALLOY_TIN || potBlock(e, i) !== null;
+  if (idle) {
+    e.crucibleProgress[i] = 0;
+    return;
   }
-  return made;
+  if (!e.ignited && e.tempC < alloyMinC()) return;
+  e.crucibleProgress[i] += dt;
+  if (e.crucibleProgress[i] < alloyTimeS()) return;
+  e.crucibleProgress[i] = 0;
+  mix[0] -= ALLOY_COPPER;
+  mix[1] -= ALLOY_TIN;
+  const batch = alloyRecipe()?.output.count ?? 4;
+  addMelt(e, i, BRONZE, batch);
+  ctx.touch(e);
+  ctx.bus.emit('sfx', { name: 'smelt_done', x: e.x, y: e.y, z: e.z });
+  ctx.bus.emit('toast', { text: `${batch} bronze ingots molten in the pot - pour them into a mould`, kind: 'good', item: BRONZE });
 }
 
 /** First stack of `key` in the pack with the fewest pours left (worn moulds go first). */
@@ -157,23 +158,15 @@ function wornestMould(slots: readonly ({ item: string; durability?: number } | n
 
 /**
  * Pours the molten metal of crucible `slot`. `heldKey` is a fired mould in the pack (every pour the metal covers, up
- * to the pours the mould has left and the room in the pack) or ALLOY_POT (into the pot in another crucible).
+ * to the pours the mould has left and the room in the pack), or an ingot of copper or tin to pour from the pack into
+ * the alloy pot set in this crucible.
  */
 export function pourCrucible(ctx: SimContext, e: FurnaceEntity, slot: number, heldKey: string | null, working: number): ActionResult {
   if (!Number.isInteger(slot) || slot < 0 || slot >= Math.min(working, e.crucibleIn.length)) return refuse('There is no such crucible');
+  if (heldKey === COPPER || heldKey === TIN) return loadPot(ctx, e, slot, heldKey);
   const melt = e.crucibleMelt[slot];
   if (!melt || e.crucibleMoltenS[slot] <= 0) return refuse(e.crucibleOut[slot] ? 'It has gone cold - smelt the bloom again' : 'Nothing molten there');
   const pos = { x: e.x, y: e.y, z: e.z };
-  if (heldKey === ALLOY_POT) {
-    const poured = pourIntoPot(e, slot, working);
-    if (!poured.ok) return refuse(poured.reason);
-    const p = potSlot(e, working, slot);
-    const made = alloyBatches(e, p);
-    ctx.touch(e);
-    ctx.bus.emit('sfx', { name: 'pour', ...pos });
-    if (made > 0) ctx.bus.emit('toast', { text: `Bronze: ${made} molten in the pot - pour it into a mould`, kind: 'good', item: BRONZE });
-    return OK;
-  }
   const mould = heldKey ? mouldOf(heldKey) : null;
   if (!heldKey || !mould) return refuse('Hold a fired mould to pour into');
   const metal = metalOfIngot(melt.item);
