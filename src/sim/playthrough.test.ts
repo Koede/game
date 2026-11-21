@@ -6,7 +6,7 @@
  * objective tracker and survival run alongside, so every objective must complete too.
  */
 import { describe, expect, it } from 'vitest';
-import { FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_SIX_CUPS, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
+import { FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_FIRST_POUR, FLAG_SIX_CUPS, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
 import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
 import { Face, voxelActive } from '../core/types';
 import { eat, plant, till, type UseTarget } from '../game';
@@ -25,6 +25,10 @@ const BENCH = { x: -2, y: 1, z: 5 };
 const CHOP = { x: -4, y: 1, z: 5 };
 const QUERN = { x: -5, y: 1, z: 5 };
 const ANVIL = { x: -6, y: 1, z: 5 };
+const CLAY_TABLE = { x: -7, y: 1, z: 5 };
+const LOOM = { x: -8, y: 1, z: 5 };
+const RACK = { x: -9, y: 1, z: 5 };
+const TROUGH = { x: -10, y: 1, z: 5 };
 /** Twelve crates south-west of the furnace, within its reach (and the bench's). */
 const CRATES = [2, 3, 4].flatMap((z) => [-1, -2, -3, -4].map((x) => ({ x, y: 1, z })));
 /** At the furnace's mouth: it touches the furnace and carries the grid to it. */
@@ -154,6 +158,12 @@ class FedPlay extends Play {
   /** STAND-IN (casting replaces): bronze ingots, which the alloy pot and the moulds will make. */
   bronze(n: number): void {
     this.find(`${n} bronze_ingot`);
+    this.made('bronze_ingot', n);
+  }
+
+  /** STAND-IN (handwork sim and casting replace): an item that was made at a hand station or poured, announced the way the sim will. */
+  made(item: string, count: number): void {
+    this.kit.bus.emit('item:made', { item, count, station: 'hand', recipeId: item });
   }
 
   private eatIfPeckish(): void {
@@ -240,6 +250,20 @@ describe('scripted playthrough', () => {
     done('eat_food');
     mark('furnace lit, charcoal, warm, fed');
 
+    // STAND-IN (handwork sim and casting replace): a clay table, a pressed and fired ingot mould, and the first pour. Copper
+    // smelts to plain ingots in this simulation until the molten window and the moulds are in (docs/api/handwork-content.md).
+    play.find('1 clay');
+    play.craft('clay_table', 1, BENCH);
+    play.place('clay_table', CLAY_TABLE);
+    play.find('3 clay');
+    play.work(CLAY_TABLE, 'clay', 3);
+    play.find('1 ingot_mould');
+    play.made('ingot_mould', 1);
+    play.step(0.5);
+    done('place_clay_table');
+    done('fire_mould');
+    kit.bus.emit('flag', { flag: FLAG_FIRST_POUR });
+
     play.find('40 coal, 15 copper_ore, 5 tin_ore, 8 clay, 2 sand');
     play.fuel = 'coal';
     play.heat(780);
@@ -259,6 +283,22 @@ describe('scripted playthrough', () => {
     expect(kit.world.getVoxel(FIELD.x, FIELD.y + 1, FIELD.z)).toBe(blockId('wheat_0'));
     play.step(0.5);
     done('plant_seeds');
+    // Flour at the quern, dough and bread, the brewing goals, then a copper plate at the anvil: the goals come in this order.
+    play.find('4 wheat, 1 water_pail');
+    play.work(QUERN, 'wheat', 4);
+    done('grind_flour');
+    play.craft('dough', 1, BENCH);
+    play.smelt('dough', 1);
+    done('bake_bread');
+    // STAND-IN (the brewing simulation replaces these): the three brewing goals complete from their flags alone. The
+    // real actions (a bucket boiled on the furnace, a cup brewed, all six drinks drunk) are tested in src/sim/brewing*.test.ts.
+    for (const [flag, id] of [[FLAG_BOILED_WATER, 'boil_bucket'], [FLAG_BREWED, 'first_brew'], [FLAG_SIX_CUPS, 'six_cups']] as const) {
+      kit.bus.emit('flag', { flag });
+      play.step(0.5);
+      done(id);
+    }
+    play.work(ANVIL, 'copper_ingot', 2, null, 2);
+    done('hammer_plate');
     done('reach_800');
     play.smelt('tin_ore', 5);
     // The furnace's recipe list is the tech tree: higher tiers are listed, locked, with what they need.
@@ -272,6 +312,8 @@ describe('scripted playthrough', () => {
     play.smelt('tin_ore', 1);
     play.bronze(1);
     play.find('1 bronze_maul_head, 1 bronze_pickaxe_head'); // STAND-IN (casting replaces): poured into the maul and pickaxe moulds
+    play.made('bronze_pickaxe_head', 1);
+    done('cast_pick_head');
     play.craft('bronze_maul', 1, BENCH);
     done('forge_maul');
     play.craft('bronze_pickaxe', 1, BENCH);
@@ -281,10 +323,6 @@ describe('scripted playthrough', () => {
     kit.bus.emit('flag', { flag: FLAG_AUTOMATON_SALVAGED });
     play.step(0.5);
     done('salvage_automaton');
-    play.find('4 wheat, 1 water_pail');
-    play.work(QUERN, 'wheat', 4);
-    play.craft('dough', 1, BENCH);
-    play.smelt('dough', 1);
     play.smelt('clay', 8);
     play.smelt('sand', 2);
     play.forge('thermopile');
@@ -297,14 +335,6 @@ describe('scripted playthrough', () => {
     play.place('lamp', LAMP);
     play.step(1);
     done('place_lamp');
-    done('bake_bread');
-    // STAND-IN (the brewing simulation replaces these): the three brewing goals complete from their flags alone. The
-    // real actions (a bucket boiled on the furnace, a cup brewed, all six drinks drunk) are tested in src/sim/brewing*.test.ts.
-    for (const [flag, id] of [[FLAG_BOILED_WATER, 'boil_bucket'], [FLAG_BREWED, 'first_brew'], [FLAG_SIX_CUPS, 'six_cups']] as const) {
-      kit.bus.emit('flag', { flag });
-      play.step(0.5);
-      done(id);
-    }
     expect(voxelActive(kit.world.getVoxel(LAMP.x, LAMP.y, LAMP.z))).toBe(true);
 
     // A night by the fire.

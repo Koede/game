@@ -54,6 +54,7 @@ function rig(): Rig {
 /** Plays the first five objectives: logs, planks, workbench, flint, pickaxe. */
 function playFive(r: Rig): void {
   r.broken('pine_log', 4);
+  r.placed('chopping_block');
   r.made('plank', 4);
   r.placed('workbench');
   r.player.give('flint', 3);
@@ -62,7 +63,7 @@ function playFive(r: Rig): void {
 }
 
 describe('ObjectiveTracker', () => {
-  it('walks through the first ten objectives', () => {
+  it('walks through the first eleven objectives', () => {
     const r = rig();
     const { tracker } = r;
     const sounds: string[] = [];
@@ -83,6 +84,9 @@ describe('ObjectiveTracker', () => {
     expect(r.completed).toEqual(['gather_logs']);
     expect(toasts).toEqual([`Done: ${OBJECTIVES[0].title}`]);
 
+    r.placed('chopping_block');
+    tracker.check();
+    expect(tracker.current?.id).toBe('make_planks');
     r.made('plank', 4);
     tracker.check();
     expect(tracker.current?.id).toBe('place_workbench');
@@ -119,13 +123,13 @@ describe('ObjectiveTracker', () => {
     r.made('charcoal', 2);
     tracker.check();
 
-    expect(r.completed).toEqual(OBJECTIVES.slice(0, 10).map((o) => o.id));
+    expect(r.completed).toEqual(OBJECTIVES.slice(0, 11).map((o) => o.id));
     expect(tracker.completed.map((o) => o.id)).toEqual(r.completed);
     expect(tracker.current?.id).toBe('get_warm');
-    expect(tracker.upcoming[0].id).toBe(OBJECTIVES[11].id);
+    expect(tracker.upcoming[0].id).toBe(OBJECTIVES[12].id);
     expect(tracker.isComplete('place_furnace')).toBe(true);
     expect(tracker.isComplete('get_warm')).toBe(false);
-    expect(sounds.filter((s) => s === 'objective')).toHaveLength(10);
+    expect(sounds.filter((s) => s === 'objective')).toHaveLength(11);
     expect(tracker.age).toBe(0);
   });
 
@@ -138,7 +142,7 @@ describe('ObjectiveTracker', () => {
     r.player.give('clay', 6);
     r.player.give('rubble', 12);
     playFive(r);
-    expect(r.completed).toEqual(OBJECTIVES.slice(0, 10).map((o) => o.id));
+    expect(r.completed).toEqual(OBJECTIVES.slice(0, 11).map((o) => o.id));
     expect(r.tracker.current?.id).toBe('get_warm');
     expect(r.player.inventory.count('torch')).toBe(4);
   });
@@ -252,7 +256,7 @@ describe('ObjectiveTracker', () => {
     expect(events).toEqual([]);
     expect(next.tracker.toJSON()).toEqual(r.tracker.toJSON());
     expect(next.tracker.current?.id).toBe('collect_rubble');
-    expect(next.tracker.completed.map((o) => o.id)).toEqual(OBJECTIVES.slice(0, 5).map((o) => o.id));
+    expect(next.tracker.completed.map((o) => o.id)).toEqual(OBJECTIVES.slice(0, 6).map((o) => o.id));
     expect(next.tracker.age).toBe(1);
     expect(next.tracker.hasFlag('furnace_lit')).toBe(true);
     expect(next.tracker.progressOf({ type: 'furnaceTemp', tempC: 800 }).current).toBe(640);

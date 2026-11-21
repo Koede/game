@@ -29,8 +29,10 @@ describe('crafting', () => {
     expect(HAND_RECIPES.map((r) => r.id)).toContain('flint_pickaxe');
     expect(HAND_RECIPES.every((r) => r.station === 'hand')).toBe(true);
     expect(WORKBENCH_RECIPES.map((r) => r.id)).toEqual([
-      'furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'flour', 'dough',
+      'furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'dough',
       'ground_coffee', 'ground_dark_coffee', 'berry_tea_blend', 'trail_blend',
+      'hand_quern', 'stone_anvil', 'clay_table', 'loom', 'tanning_trough', 'bronze_hammer',
+      'bronze_pickaxe', 'bronze_axe', 'bronze_shovel', 'bronze_hoe', 'bronze_maul',
     ]);
   });
 
@@ -156,7 +158,7 @@ describe('crafting', () => {
     const crate = new Inventory(2);
     crate.add('pine_log', 2);
     expect(craftByPlayer(player, need('plank_pine'), { crates: [crate], times: 2 }).ok).toBe(true);
-    expect(made).toEqual(['8 plank @hand #plank_pine']);
+    expect(made).toEqual(['8 plank @chopping_block #plank_pine']);
     expect(sounds).toEqual(['craft']);
     expect(player.stats.made.plank).toBe(8);
     expect(player.inventory.count('plank')).toBe(8);

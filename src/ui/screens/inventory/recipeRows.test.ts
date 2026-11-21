@@ -25,11 +25,13 @@ describe('recipeRows', () => {
 
   it('merges variants of the same output into one row, preferring the one that can be made', () => {
     const inv = new Inventory(36);
-    const planks = () => recipeRows(HAND_RECIPES, [inv], inv).filter((r) => r.item === 'plank');
-    expect(planks()).toHaveLength(1);
-    expect(planks()[0].id).toBe('plank');
-    inv.add('pine_log', 2);
-    expect(planks()[0]).toMatchObject({ id: 'plank_pine', available: 2 });
+    // The two torch recipes (charcoal, coal) merge into one row, preferring the one that can be made.
+    const torches = () => recipeRows(HAND_RECIPES, [inv], inv).filter((r) => r.item === 'torch');
+    expect(torches()).toHaveLength(1);
+    expect(torches()[0].id).toBe('torch');
+    inv.add('stick', 2);
+    inv.add('coal', 2);
+    expect(torches()[0]).toMatchObject({ id: 'torch_coal', available: 2 });
     const ids = recipeRows(HAND_RECIPES, [inv], inv).map((r) => r.item);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -52,15 +54,17 @@ describe('makeRecipe', () => {
     const bus = createBus();
     const player = new PlayerState(bus);
     const crate = new Inventory(27);
-    player.give('oak_log', 1);
-    crate.add('oak_log', 1);
+    player.give('stick', 1);
+    player.give('coal', 1);
+    crate.add('stick', 1);
+    crate.add('coal', 1);
     const made: unknown[] = [];
     bus.on('item:made', (e) => made.push(e));
-    const result = makeRecipe(player, recipe('plank')!, 5, [crate]);
+    const result = makeRecipe(player, recipe('torch_coal')!, 5, [crate]);
     expect(result.ok).toBe(true);
-    expect(player.inventory.count('plank')).toBe(8);
-    expect(crate.count('oak_log')).toBe(0);
-    expect(made).toEqual([{ item: 'plank', count: 8, station: 'hand', recipeId: 'plank' }]);
+    expect(player.inventory.count('torch')).toBe(8);
+    expect(crate.count('coal')).toBe(0);
+    expect(made).toEqual([{ item: 'torch', count: 8, station: 'hand', recipeId: 'torch_coal' }]);
   });
 
   it('refuses with a reason when nothing can be made', () => {

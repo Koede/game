@@ -18,7 +18,8 @@ void main() {
   vec4 mv = viewMatrix * vec4(aHalo.xyz, 1.0);
   float dist = length(mv.xyz);
   mv.xyz += (-mv.xyz / max(dist, 0.001)) * min(0.45, aHalo.w * 0.4);
-  mv.xy += position.xy * aHalo.w;
+  // Never wider than the distance (a halo right in front of the lens would flood the screen: fill rate on phones).
+  mv.xy += position.xy * min(aHalo.w, max(0.3, dist * 0.9));
   vLocal = position.xy * 2.0;
   vColor = aTint * (1.0 - 0.85 * smoothstep(uFog.x, uFog.y, dist));
   gl_Position = projectionMatrix * mv;
