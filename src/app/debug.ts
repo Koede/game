@@ -54,6 +54,8 @@ export interface DebugHandle {
   state(): DebugSummary;
   give(item: string, count?: number): number;
   teleport(x: number, y: number, z: number): void;
+  /** Items lying in the world (drops waiting to be picked up), for the e2e driver. */
+  groundItems(): { item: string; count: number; x: number; y: number; z: number }[];
   look(yaw: number, pitch: number): void;
   /** Turns the view to the centre of block (x, y, z). */
   lookAt(x: number, y: number, z: number): void;
@@ -170,6 +172,9 @@ export function createDebugHandle(app: App): DebugHandle {
     give(item, count = 1) {
       if (!itemOrNull(item)) throw new Error(`unknown item "${item}"`);
       return count - game().state.player.give(item, count);
+    },
+    groundItems() {
+      return game().state.player.ground.items.map((g) => ({ item: g.item, count: g.count, x: g.x, y: g.y, z: g.z }));
     },
     teleport(x, y, z) {
       game().teleport(x, y, z);

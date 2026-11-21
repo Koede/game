@@ -110,3 +110,20 @@ episode. The trough soaks 60 s anywhere (no sky rule) and its output (soaked hid
 Read through `src/sim/handRules.ts` (one adapter, so a contract change touches one file): `handStation` on the
 block (`strokesPerS`, `tool`, `strokeSound`, `hot`, `sky`), recipes with `station = <block key>` and `strokes`
 (or `timeS` for the timed ones). See `docs/api/handwork-content.md` when it lands.
+
+## Front end (player, render, audio)
+
+- **Use** (`src/player/handTools.ts`, decided first in `Interaction.use`): a Use on a hand station calls `sim.stroke`
+  with the selected item; it repeats while Use is held at `strokesPerS` (desktop right hold, the touch Use button;
+  a tap on the world is one Use on a phone). Refusals toast the sim's sentence. Touch hold on the world mines, so
+  phone portrait strokes by tapping.
+- **Furnace pour in the world** (`sim.pourHeld(x,y,z,heldKey)`, `casting.pourHeld`): Use on a furnace with a fired
+  mould pours the first crucible whose molten metal it takes (opens the hot-work window of anvils within 6 blocks);
+  Use with copper or tin ingots loads an alloy pot set in a crucible. Returns null when the held item is neither:
+  the furnace screen opens as before. No screen is needed to load, pour or take a station's work.
+- **Render**: `HandParts` (`src/render/handwork`) is created by the `Renderer`; it reacts to `hand:stroke` and
+  `hand:done` (bouncing parts, chips, sparks, dust, loaded items visible on the station).
+- **Audio**: the sim emits `sfx` with the station's `strokeSound`; `src/audio/sfxHand.ts` defines them.
+- **Aiming line**: `Game.showStationName` shows `HandView.label` in the crosshair name.
+- Not built: the Casting Bench block holds no moulds (pouring happens at the furnace with the mould in hand).
+- E2E: `scripts/e2e-handwork.mjs` / `scripts/lib/e2eHandwork.mjs` drive each station with real input.

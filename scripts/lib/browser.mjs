@@ -2,6 +2,7 @@
 // Playwright is resolved from wherever it is installed (globally in the dev container, or as a dev dependency).
 import { createRequire } from 'node:module';
 import { serve } from '../build.mjs';
+import { attachPage, diagEnabled, hlog, logEnv, snapshotFailure } from './diag.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -28,11 +29,23 @@ export async function openGame({ dir, device = 'desktop', query = '', log = fals
   const { chromium } = loadPlaywright();
   const server = await serve(0, dir);
   const url = `http://localhost:${server.address().port}/${query}`;
-  const browser = await chromium.launch();
+  // HW_GPU=1 renders on the machine's real GPU (ANGLE/D3D11 on Windows) instead of software WebGL: much faster.
+  const gpu = process.env.HW_GPU === '1';
+  const browser = await chromium.launch(
+    gpu ? { channel: 'chromium', args: ['--use-angle=d3d11', '--ignore-gpu-blocklist', '--enable-gpu-rasterization'] } : {},
+  );
   const context = await browser.newContext(VIEWPORTS[device] ?? VIEWPORTS.desktop);
   const page = await context.newPage();
   // `init` runs in the page before any of its scripts (e.g. to make storage throw, like a sandboxed frame).
   if (init) await page.addInitScript(init);
+  // HW_DIAG=1: switch the game's own diagnostics on (src/app/diag.ts) and log everything the page does (scripts/lib/diag.mjs).
+  let detachDiag = async () => {};
+  if (diagEnabled) {
+    await page.addInitScript(() => {
+      window.__HW_DIAG__ = true;
+    });
+    detachDiag = attachPage(page, `${device}${query ? ` ${query}` : ''}`);
+  }
   const errors = [];
   page.on('pageerror', (err) => errors.push(`pageerror: ${err.message}`));
   page.on('console', (msg) => {
@@ -40,7 +53,9 @@ export async function openGame({ dir, device = 'desktop', query = '', log = fals
     if (log) console.log(`[page:${msg.type()}] ${msg.text()}`);
   });
   await page.goto(url);
+  if (diagEnabled) await logEnv(page, `${device}${query ? ` ${query}` : ''}`);
   const close = async () => {
+    await detachDiag();
     await browser.close();
     await new Promise((done) => server.close(done));
   };
@@ -64,12 +79,16 @@ export function createReporter() {
   return {
     async step(name, run) {
       const started = Date.now();
+      hlog('step.start', { step: name });
       try {
         await run();
         console.log(`  ok   ${name} (${Date.now() - started} ms)`);
+        hlog('step.ok', { step: name, ms: Date.now() - started });
       } catch (err) {
         failures++;
         console.log(`  FAIL ${name}: ${err.message}`);
+        hlog('step.fail', { step: name, ms: Date.now() - started, message: err.message, stack: err.stack });
+        await snapshotFailure(name);
       }
     },
     assert(condition, message) {

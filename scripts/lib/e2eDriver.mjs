@@ -1,6 +1,7 @@
 // Real-input driver for scripts/e2e.mjs: keyboard and mouse on desktop, CDP multi-touch and taps on phones.
 // window.__hw is used to aim (look at a block), to find things in the world and to read state back.
 import { waitFor } from './browser.mjs';
+import { hlog } from './diag.mjs';
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -117,6 +118,7 @@ export class Driver {
       while (Date.now() - started < timeoutMs) {
         if (await done()) {
           await this.mineUp();
+          hlog('mine.hold', { result: 'done', attempts, ms: Date.now() - started, progressed });
           return true;
         }
         const s = await this.state();
@@ -126,8 +128,10 @@ export class Driver {
         await sleep(150);
       }
       await this.mineUp();
+      hlog('mine.release', { attempts, progressed, ms: Date.now() - started, why: progressed ? 'timeout' : 'no progress (pointer capture?)' });
       await sleep(150);
     }
+    hlog('mine.hold', { result: 'timeout', attempts, ms: Date.now() - started, target: (await this.state()).target });
     return false;
   }
 
@@ -162,6 +166,22 @@ export class Driver {
       await this.fingerDown(3, p.x, p.y);
       await sleep(60);
       await this.fingerUp(3);
+    }
+  }
+
+  /** Holds Use for `ms`: right mouse held (desktop, it auto-repeats) or the Use button held (landscape phone). */
+  async holdUse(ms) {
+    if (!this.touch) {
+      const { width, height } = this.size;
+      await this.page.mouse.move(width / 2, height / 2);
+      await this.page.mouse.down({ button: 'right' });
+      await sleep(ms);
+      await this.page.mouse.up({ button: 'right' });
+    } else {
+      const c = await this.centerOf('[data-hw-touch="use"]');
+      await this.fingerDown(4, c.x, c.y);
+      await sleep(ms);
+      await this.fingerUp(4);
     }
   }
 
@@ -202,9 +222,11 @@ export class Driver {
   async mineLogs(count) {
     let mined = 0;
     const skipped = new Set();
-    for (let tries = 0; mined < count && tries < count * 4; tries++) {
+    const clears = {};
+    for (let tries = 0; mined < count && tries < count * 8; tries++) {
       const logs = await this.hw(() => window.__hw.findBlocks('oak_log', 40, 64));
       const candidates = logs.filter((l) => !skipped.has(`${l.x},${l.y},${l.z}`));
+      hlog('mine.try', { tries, mined, found: logs.length, candidates: candidates.length, skipped: skipped.size, nearest: candidates[0] ?? null });
       if (!candidates.length) throw new Error('no reachable oak logs near spawn');
       let target = candidates.find((l) => l.d <= 4.2);
       if (!target) {
@@ -218,18 +240,52 @@ export class Driver {
         }
         await this.hw((s) => window.__hw.teleport(s.x, s.y, s.z), stand);
         await this.settle(300);
+        hlog('mine.stand', { trunk, stand });
         target = trunk;
       }
+      const aimStarted = Date.now();
       if (!(await this.aimAt(target))) {
-        skipped.add(`${target.x},${target.y},${target.z}`);
+        const st = await this.state();
+        hlog('mine.aim_failed', { target, ms: Date.now() - aimStarted, crosshair: st.target, player: st.player });
+        // Leaves or grass in the way: clear that block first, like a player would, then try the same log again.
+        const c = st.target;
+        const key = `${target.x},${target.y},${target.z}`;
+        clears[key] = (clears[key] ?? 0) + 1;
+        if (c && /leaves|grass|fern|shrub/.test(c.block) && clears[key] <= 4) {
+          const cleared = await this.holdMine(async () => (await this.hw((p) => window.__hw.getBlock(p.x, p.y, p.z).block, c)) !== c.block, 8_000);
+          hlog('mine.cleared_cover', { cover: c, cleared });
+          if (cleared) continue;
+        }
+        skipped.add(key);
         continue;
       }
+      hlog('mine.aimed', { target, ms: Date.now() - aimStarted });
       if (mined === 0) await this.shot('03a-aim-log');
       const broke = await this.holdMine(async () => (await this.hw((p) => window.__hw.getBlock(p.x, p.y, p.z).block, target)) !== 'oak_log');
+      hlog('mine.result', { target, broke, mined: mined + (broke ? 1 : 0) });
       if (broke) mined++;
       else skipped.add(`${target.x},${target.y},${target.z}`);
     }
+    await this.collectDrops();
     return mined;
+  }
+
+  /**
+   * Picks up what broke blocks left lying (ground items fly to the player only inside ~1.4 blocks): walks to each
+   * (teleport, as the stand-beside setup does) until none are left or `maxMs` passes. Returns how many were left.
+   */
+  async collectDrops(maxMs = 12_000) {
+    const started = Date.now();
+    let left = [];
+    while (Date.now() - started < maxMs) {
+      left = await this.hw(() => window.__hw.groundItems());
+      if (!left.length) break;
+      const g = left[0];
+      await this.hw((t) => window.__hw.teleport(t.x, Math.floor(t.y), t.z), g);
+      await this.settle(800);
+    }
+    hlog('drops.collected', { left: left.length, ms: Date.now() - started });
+    return left.length;
   }
 
   // ---- screens ---------------------------------------------------------------------------------------------------
@@ -292,11 +348,60 @@ export class Driver {
 
   /** Selects the hotbar slot holding `item` with the real control (number key or tap). */
   async selectItem(item) {
-    const slot = (await this.state()).inventory.find((s) => s.item === item && s.slot < 9)?.slot;
+    let slot = (await this.state()).inventory.find((s) => s.item === item && s.slot < 9)?.slot;
+    if (slot === undefined) {
+      // A crafted item lands in the first free pack slot, often behind the hotbar: tidy it onto the hotbar (setup, as a
+      // player would drag it there in the inventory screen), then select it with the real control.
+      slot = await this.hw((key) => {
+        const inv = window.__hw.app.game.state.player.inventory;
+        const at = inv.slots.findIndex((s, i) => i >= 9 && s && s.item === key);
+        if (at < 0) return undefined;
+        let to = inv.slots.findIndex((s, i) => i < 9 && !s);
+        if (to < 0) to = 8;
+        const tmp = inv.slots[to];
+        inv.slots[to] = inv.slots[at];
+        inv.slots[at] = tmp;
+        inv.notifyChanged();
+        return to;
+      }, item);
+      hlog('select.moved_to_hotbar', { item, slot });
+    }
     if (slot === undefined) throw new Error(`${item} is not on the hotbar`);
     if (this.touch) await this.press(this.page.locator('.hw-hotbar .hw-slot').nth(slot));
     else await this.page.keyboard.press(`Digit${slot + 1}`);
     await waitFor(this.page, (s) => window.__hw.state().player.selectedSlot === s, 'hotbar selection', { timeout: 5000, interval: 100, arg: slot });
+  }
+
+  /** Selects a hotbar slot with nothing in it (an empty hand: what hand stations count as bare-handed strokes). */
+  async selectEmptyHand() {
+    const used = new Set((await this.state()).inventory.filter((s) => s.slot < 9).map((s) => s.slot));
+    const slot = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((i) => !used.has(i));
+    if (slot === undefined) throw new Error('no empty hotbar slot for an empty hand');
+    if (this.touch) await this.press(this.page.locator('.hw-hotbar .hw-slot').nth(slot));
+    else await this.page.keyboard.press(`Digit${slot + 1}`);
+    await waitFor(this.page, (s) => window.__hw.state().player.selectedSlot === s, 'empty hotbar slot', { timeout: 5000, interval: 100, arg: slot });
+    return slot;
+  }
+
+  /**
+   * Works a hand station (chopping block ...) with real Use taps until `done()` (run in node) is true.
+   * Returns how many taps it took; throws after `maxTaps`.
+   */
+  async workStation(pos, done, maxTaps = 40) {
+    for (let taps = 0; taps < maxTaps; taps++) {
+      if (await done()) {
+        hlog('station.worked', { pos, taps });
+        return taps;
+      }
+      // Finished work is taken into the selected slot, so the hand is no longer empty: pick a free slot again.
+      const st = await this.state();
+      if (st.inventory.some((i) => i.slot === st.player.selectedSlot)) await this.selectEmptyHand();
+      if (!(await this.aimAt(pos))) throw new Error(`cannot aim at the station ${JSON.stringify(pos)}`);
+      await this.use();
+      await this.settle(250);
+    }
+    hlog('station.gave_up', { pos, maxTaps, state: (await this.state()).inventory });
+    throw new Error(`the station at ${JSON.stringify(pos)} did not finish in ${maxTaps} taps`);
   }
 
   /**
@@ -304,18 +409,27 @@ export class Driver {
    * Returns the placed cell or null.
    */
   async placeHeld(item, avoid = null) {
+    // A first pass close to the player, then a wider one (a canopy or a trunk can leave no aimable spot nearby).
+    for (const [rMin, rMax] of [[1.9, 3.2], [1.5, 4.8]]) {
+      const spot = await this.placeHeldWithin(item, avoid, rMin, rMax);
+      if (spot) return spot;
+    }
+    return null;
+  }
+
+  async placeHeldWithin(item, avoid, rMin, rMax) {
     await this.selectItem(item);
-    const spots = await this.hw(({ avoid }) => {
+    const spots = await this.hw(({ avoid, rMin, rMax }) => {
       const hw = window.__hw;
       const p = hw.state().player;
       const fx = Math.floor(p.x);
       const fy = Math.floor(p.y);
       const fz = Math.floor(p.z);
       const out = [];
-      for (let dx = -3; dx <= 3; dx++) {
-        for (let dz = -3; dz <= 3; dz++) {
+      for (let dx = -5; dx <= 5; dx++) {
+        for (let dz = -5; dz <= 5; dz++) {
           const r = Math.hypot(dx, dz);
-          if (r < 1.9 || r > 3.2) continue;
+          if (r < rMin || r > rMax) continue;
           const x = fx + dx;
           const z = fz + dz;
           if (avoid && Math.max(Math.abs(x - avoid.x), Math.abs(z - avoid.z)) < 2) continue;
@@ -332,17 +446,22 @@ export class Driver {
         }
       }
       return out.sort((a, b) => a.r - b.r);
-    }, { avoid });
+    }, { avoid, rMin, rMax });
+    hlog('place.spots', { item, rMin, rMax, candidates: spots.length });
     const blockKey = item;
     for (const spot of spots) {
       const aimAt = spot.replace ? spot.cell : spot.ground;
-      if (!(await this.aimAt(aimAt))) continue;
+      if (!(await this.aimAt(aimAt))) {
+        hlog('place.aim_failed', { item, aimAt, crosshair: (await this.state()).target });
+        continue;
+      }
       await this.use();
       try {
         await waitFor(this.page, ({ c, k }) => window.__hw.getBlock(c.x, c.y, c.z).block === k, `${item} placed`, { timeout: 4000, interval: 100, arg: { c: spot.cell, k: blockKey } });
         await this.settle(300);
         return spot.cell;
       } catch {
+        hlog('place.refused', { item, cell: spot.cell });
         // Something refused (a plant in the way, the player's box): try the next spot.
       }
     }

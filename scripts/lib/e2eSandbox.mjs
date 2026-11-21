@@ -91,6 +91,9 @@ export async function sandboxChecks({ report, dir, shotDir }) {
     });
 
     await step('save and quit keeps the world in memory; Continue restores it', async () => {
+      // The step before may have mined the block underfoot: save only once the player has landed, or the restored
+      // player (position AND velocity are saved exactly) just keeps falling and "moves" a few tenths of a block.
+      await waitFor(page, () => window.__hw.state().player?.onGround === true, 'the player to stand on the ground', { timeout: 15_000 });
       await d.pause();
       const before = await d.state();
       await d.press(page.locator('.hw-window button', { hasText: 'Save and quit to title' }));
@@ -103,7 +106,8 @@ export async function sandboxChecks({ report, dir, shotDir }) {
       const after = await d.state();
       const p0 = before.player;
       const p1 = after.player;
-      assert(Math.hypot(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z) < 0.05, 'position not restored from memory');
+      const drift = Math.hypot(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z);
+      assert(drift < 0.05, `position not restored from memory (moved ${drift.toFixed(3)}: ${p0.x},${p0.y},${p0.z} -> ${p1.x},${p1.y},${p1.z})`);
       assert(JSON.stringify(after.inventory) === JSON.stringify(before.inventory), 'inventory not restored from memory');
     });
 

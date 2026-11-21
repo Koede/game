@@ -112,12 +112,29 @@ async function runDevice(device) {
       await d.shot('03-mined');
     });
 
-    await step('crafts planks and a workbench in the inventory screen', async () => {
+    // Ember age: planks are split at a Chopping Block (hand recipe from a log; Use loads the logs, three bare-handed
+    // strokes split one, one more Use takes the planks), no longer made straight from the inventory screen.
+    await step('crafts a chopping block, places it and splits logs into planks', async () => {
       await d.openInventory();
       await d.shot('04-inventory');
-      for (let i = 0; i < 2; i++) await d.make('plank');
+      await d.make('chopping_block');
+      await d.closeScreen();
+      const spot = await d.placeHeld('chopping_block');
+      assert(spot, 'the chopping block was not placed');
+      d.places.chopping_block = spot;
+      await d.selectItem('oak_log');
+      assert(await d.aimAt(spot), 'cannot aim at the chopping block');
+      await d.use(); // loads the logs in hand onto the block
+      await d.selectEmptyHand();
+      const taps = await d.workStation(spot, async () => ((await d.inventory()).plank ?? 0) >= 8);
+      const inv = await d.inventory();
+      assert((inv.plank ?? 0) >= 8, `only ${inv.plank ?? 0} planks after ${taps} taps`);
+      await d.shot('04b-chopped');
+    });
+
+    await step('crafts a workbench in the inventory screen', async () => {
+      await d.openInventory();
       let inv = await d.inventory();
-      assert((inv.plank ?? 0) >= 8, `only ${inv.plank ?? 0} planks after two Make`);
       await d.make('workbench');
       inv = await d.inventory();
       assert(inv.workbench === 1, 'no workbench in the pack');
@@ -136,8 +153,14 @@ async function runDevice(device) {
         window.__hw.give('fiber', 3);
       });
       await waitFor(page, () => window.__hw.state().objective.completed.includes('find_flint'), 'the flint goal', { timeout: 10_000 });
+      // Sticks are split from a plank at the Chopping Block now (two strokes make four), not made in the inventory.
+      const block = d.places.chopping_block;
+      await d.selectItem('plank');
+      assert(await d.aimAt(block), 'cannot aim at the chopping block');
+      await d.use(); // loads the planks in hand
+      await d.selectEmptyHand();
+      await d.workStation(block, async () => ((await d.inventory()).stick ?? 0) >= 2, 12);
       await d.openInventory();
-      await d.make('stick');
       await d.make('cord');
       await d.make('flint_pickaxe');
       assert((await d.inventory()).flint_pickaxe === 1, 'no flint pickaxe in the pack');
