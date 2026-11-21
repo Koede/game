@@ -164,6 +164,7 @@ class FedPlay extends Play {
   /** STAND-IN (handwork sim and casting replace): an item that was made at a hand station or poured, announced the way the sim will. */
   made(item: string, count: number): void {
     this.kit.bus.emit('item:made', { item, count, station: 'hand', recipeId: item });
+    this.step(0.5);
   }
 
   private eatIfPeckish(): void {
@@ -304,7 +305,7 @@ describe('scripted playthrough', () => {
     // The furnace's recipe list is the tech tree: higher tiers are listed, locked, with what they need.
     const steelRow = play.view().forge.find((r) => r.recipe.id === 'steel_ingot');
     expect(steelRow).toMatchObject({ locked: true, canMake: false, reason: 'Needs the Blast Furnace' });
-    play.bronze(3);
+    play.bronze(4);
     done('make_bronze');
     // Spec 19.4: a maul for the automatons that wake at night (four more bronze than the pickaxe alone needs).
     play.find('3 copper_ore, 1 tin_ore');
