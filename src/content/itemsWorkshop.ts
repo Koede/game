@@ -20,6 +20,7 @@ export const MECH_TWINS: readonly MechTwin[] = [
   { block: 'mech_millstone', station: 'hand_quern', name: 'Millstone', desc: 'A stone runner on a turning shaft. Drop wheat on top while it turns: flour comes out of its front.' },
   { block: 'mech_mortar', station: 'mortar', name: 'Stamp Mill', desc: 'Cam-lifted stamps. Drop ore on top while it turns: crushed ore comes out of its front, now and then a double portion.' },
   { block: 'mech_hammer', station: 'stone_anvil', name: 'Trip Hammer', desc: 'A cam-lifted hammer over an anvil face. Drop ingots and stock on top while it turns: it works them like the anvil, hot or cold, out of its front.' },
+  { block: 'mech_rack', station: 'drying_rack', name: 'Drying Machine', desc: 'A rack in a warm draught from a turning fan. Drop wet stock on top while it turns: it dries in half the time, rain or shine, out of its front.' },
   { block: 'mech_loom', station: 'loom', name: 'Power Loom', desc: 'A loom whose shuttle a shaft throws. Drop fibre on top while it turns: cloth comes out of its front.' },
 ];
 

@@ -7,7 +7,7 @@
  * (funnel, chute, arm) only ever use those three, so any new container works with all of them.
  */
 import type { GameBus } from '../core/context';
-import { BASIN_RECIPES } from '../content/basinWorkshop';
+import { BASIN_RECIPES, basinCard } from '../content/basinWorkshop';
 import { blockId, blockOrNull, fluidInBucket, fluidOrNull, itemOrNull } from '../core/registry';
 import { Facing, makeVoxel, voxelFacing, type IWorld } from '../core/types';
 import { rollDrops } from '../game/mining';
@@ -548,6 +548,10 @@ export class Logistics {
     if (c.kind === 'mech_arm') bits.push(c.src ? `${c.targets.length} target${c.targets.length === 1 ? '' : 's'}` : 'not set: use a wrench');
     if (POWERED.has(c.kind) && this.host.rpmAt(x, y, z) <= 0) bits.push('still');
     if ((c.kind === 'mixer' || c.kind === 'mech_press') && c.progress > 0) bits.push(`working ${Math.round(c.progress * 10) / 10} s`);
+    if ((c.kind === 'mixer' || c.kind === 'mech_press') && c.progress <= 0) {
+      const cards = BASIN_RECIPES.filter((r) => r.machine === c.kind).map(basinCard);
+      if (cards.length) bits.push(`makes: ${cards.join('; ')}`);
+    }
     return `${name}${bits.length ? ` - ${bits.join(', ')}` : ' - empty'}`;
   }
 

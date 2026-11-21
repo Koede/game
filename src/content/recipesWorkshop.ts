@@ -41,5 +41,6 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('mech_arm', '2 bronze_plate, 2 bronze_cog, 1 drive_shaft', 600),
   forge('mech_drill', '2 bronze_ingot, 2 bronze_plate, 1 bronze_cog, 1 drive_shaft', 600),
   forge('mech_hammer', '3 bronze_ingot, 2 stone_brick, 1 drive_shaft', 600),
+  forge('mech_rack', '2 bronze_ingot, 3 stick, 1 drive_shaft', 600),
   forge('engineer_goggles', '2 copper_ingot, 1 glass, 1 leather', 650),
 ];

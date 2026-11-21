@@ -80,6 +80,7 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   deployer: { tint: 0x50c080, draw: (c, on) => { c.rect(3, 6, 6, 4, IRON[2]); c.rect(on ? 9 : 8, 7, 4, 2, BRONZE[3]); c.rect(on ? 12 : 11, 5, 2, 6, BRONZE[4]); c.rect(3, 11, 10, 2, WOOD[1]); } },
   mech_arm: { tint: 0xd0c040, draw: (c, on) => { c.rect(6, 11, 4, 3, IRON[1]); const x = on ? 10 : 3; c.rect(Math.min(8, x), 7, Math.abs(x - 8) + 1, 1, BRONZE[3]); c.rect(7, 7, 2, 5, IRON[2]); c.rect(x - 1, 5, 3, 3, BRONZE[4]); } },
   mech_drill: { tint: 0xb0b0b8, draw: (c, on) => { for (let i = 0; i < 5; i++) c.rect(3 + i * 2 + (on && i % 2 ? 1 : 0), 4 + i, 8 - i * 2 > 0 ? 8 - i * 2 : 1, 1, i % 2 ? IRON[3] : IRON[1]); c.rect(7, 10, 2, 4, IRON[0]); } },
+  rack: { tint: 0x80a860, draw: (c, on) => { for (let x = 3; x < 14; x += 3) c.rect(x, 4, 1, 9, WOOD[4]); c.rect(2, 4, 12, 1, WOOD[3]); c.rect(2, 12, 12, 1, WOOD[3]); for (let i = 0; i < 3; i++) c.rect(4 + i * 3, 6 + (on ? i % 2 : 0), 2, 4, P.rgb(0xc7b88a)); c.rect(6, 14, 4, 1, on ? GLOW : IRON[0]); } },
   hammer: { tint: 0x8a6a40, draw: (c, on) => { c.rect(2, 12, 12, 3, IRON[1]); c.rect(2, 12, 12, 1, IRON[3]); c.rect(7, on ? 6 : 2, 2, 5, WOOD[3]); c.rect(4, on ? 4 : 1, 8, 3, IRON[2]); c.rect(4, on ? 4 : 1, 8, 1, IRON[3]); } },
 };
 

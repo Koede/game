@@ -231,3 +231,11 @@ Left, in priority order (OVERHAUL_PLAN work lists A.11 and C):
 6. Cross-cutting: Codex aspect page and planned items, optional side objectives (scan_ten, first_research), sounds
    (scan_chime, essentia_pour, rod_hum), workbench/forge rows should show "needs research" instead of failing on craft.
 7. W0 six-age refactor: only `src/magic/ageMap.ts` needs its table changed for these pieces.
+
+## 11. Workshop session (2026-11-21): Create-style Bronze workshop, second slice
+See `docs/OVERHAUL_PLAN.md` "Status update, workshop session" for what exists and what does not, and `docs/api/workshop.md` for the
+rotation rules, the logistics pieces and the stable machine interface (`offer/take/crank/act`) the magic constructs use. Tests:
+`src/workshop/{kinetics,logistics,workshop}.test.ts`; `scripts/e2e-workshop.mjs` (mixer+funnel+depot, drill+reverse+arm) is chained
+in `npm run e2e`. Shared-file edits: `app/game.ts` (renderer, generatorWatts, actHook), `content/objectives.ts` + `specRoster.ts`
+(six goals after salvage_automaton), `render/textures/painters.ts`. Stress numbers (arm 3, drill 6, deployer 6, mixer 6, press 8)
+are in `workshop/kinetics.ts` BASE_STRESS; one crank carries 8 su, so a drill plus an arm wants two cranks.

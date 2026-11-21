@@ -2,8 +2,9 @@
 export const WORKSHOP_SPEC = {
   blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
-    'mech_hammer', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill'],
+    'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill'],
   items: ['engineer_goggles', 'bronze_cog'],
+  objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1'],
   recipes: {
     workbench: [
       'hand_crank: 1 hand_crank <- 3 plank, 2 stick, 1 cord',
@@ -39,11 +40,12 @@ export const WORKSHOP_SPEC = {
       'mech_arm: 1 mech_arm <- 2 bronze_plate, 2 bronze_cog, 1 drive_shaft @600 T1',
       'mech_drill: 1 mech_drill <- 2 bronze_ingot, 2 bronze_plate, 1 bronze_cog, 1 drive_shaft @600 T1',
       'mech_hammer: 1 mech_hammer <- 3 bronze_ingot, 2 stone_brick, 1 drive_shaft @600 T1',
+      'mech_rack: 1 mech_rack <- 2 bronze_ingot, 3 stick, 1 drive_shaft @600 T1',
       'engineer_goggles: 1 engineer_goggles <- 2 copper_ingot, 1 glass, 1 leather @650 T1',
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then 20 fronts of the modular parts (two for each running one) and one icon. */
-  textures: 59,
+  textures: 61,
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

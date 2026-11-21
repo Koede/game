@@ -174,4 +174,13 @@ describe('logistics', () => {
     u.shop.load(snap);
     expect(count(u, 2, 0, 0).flour).toBeGreaterThan(0);
   });
+  it('a drying machine dries soaked hides in half the time into a depot', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'mech_rack', Facing.East);
+    t.put(2, 0, 0, 'depot');
+    t.shop.offer(1, 0, 0, 'soaked_hide', 2);
+    t.run(70, [0, 0, 0]);
+    expect(count(t, 2, 0, 0).leather).toBe(2);
+  });
 });

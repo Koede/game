@@ -361,3 +361,15 @@ Done: M1, M2, M3 (all seven Ember/Bronze entries; vial, rod and jar gated), M4 w
 fingerprints of the blocks around the player, chunk draws recover; Cinder-in-furnace is the first essentia use), A1 goggles,
 A2 belts with the crank drive (as `src/workshop/workshop.ts`, not `mechLite.ts`), part of A3 (mechanical twins of the saw,
 quern, mortar and loom; no basin/press/mixer yet). Everything else in A.11 and C is open; order in SESSION_CONTEXT section 10.
+
+### Status update, workshop session (2026-11-21)
+Part A built beyond the first slice (code: `src/workshop/{kinetics,logistics,workshop}.ts`, content `itemsWorkshopParts.ts`, `basinWorkshop.ts`,
+`objectivesWorkshop.ts`, renderer `src/render/workshop/`): signed rotation with reverse box, ratio dial, clutch, split box, sequenced
+gearshift (three preset programs instead of punched cards), governor, worm gear, chain sprocket and belt pulley links, clockwork motor,
+water wheel / wind turbine / steam engine turning shafts they touch, oil (Heavy Residue canister x1.25, pine resin x1.10), jam detection;
+depot, funnel, chute, basin, spout, item drain, mixer, press (basin recipes with cards in the goggles), deployer, mechanical arm
+(wrench setup), drill, trip hammer (stone anvil twin), drying machine (rack twin), crates as sources and targets, animated instanced
+cogs/links/arms/pistons, six workshop goals, e2e steps. NOT built: shear pin, flywheel, differential, treadwheel, saw arm, item
+vault, fluid-pipe tie-ins for spouts and drains, vacuum collector, tractor/chainsaw tie-ins, signals and trinkets of A.6 (wind vane,
+bell, tally board...), moving contraptions (bearing/piston), rail skiff, belts through contraption blocks, a Codex screen for basin
+cards (they show under the goggles on mixers and presses).

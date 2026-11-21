@@ -324,6 +324,16 @@ describe('scripted playthrough', () => {
     kit.bus.emit('flag', { flag: FLAG_AUTOMATON_SALVAGED });
     play.step(0.5);
     done('salvage_automaton');
+    // The Bronze workshop goals (docs/OVERHAUL_PLAN.md A): the first of each piece, set down in a spare corner.
+    play.find('1 bronze_ingot, 1 hand_crank, 1 mech_millstone, 1 ratio_dial, 1 mixer, 1 mech_arm');
+    play.forge('bronze_cog');
+    play.place('hand_crank', { x: 8, y: 1, z: 8 });
+    play.place('mech_millstone', { x: 9, y: 1, z: 8 });
+    play.place('ratio_dial', { x: 10, y: 1, z: 8 });
+    play.place('mixer', { x: 11, y: 1, z: 8 });
+    play.place('mech_arm', { x: 12, y: 1, z: 8 });
+    play.step(0.5);
+    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm']) done(id);
     play.smelt('clay', 8);
     play.smelt('sand', 2);
     play.forge('thermopile');

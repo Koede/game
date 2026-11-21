@@ -15,3 +15,9 @@ export const BASIN_RECIPES: readonly BasinRecipe[] = [
   { id: 'bronze_plate_press', machine: 'mech_press', items: { bronze_ingot: 2 }, output: { item: 'bronze_plate', count: 1 }, seconds: 3, minRpm: 16 },
   { id: 'iron_plate_press', machine: 'mech_press', items: { iron_ingot: 2 }, output: { item: 'iron_plate', count: 1 }, seconds: 3, minRpm: 16 },
 ];
+
+/** One line per recipe, drawn as a card: inputs, the machine and its speed, the output ("2 flour + 250 L water > mixer 32 rpm, 4 s > 2 dough"). */
+export function basinCard(r: BasinRecipe): string {
+  const ins = [...Object.entries(r.items).map(([i, n]) => `${n} ${i.replace(/_/g, ' ')}`), ...(r.fluid ? [`${r.fluid.litres} L ${r.fluid.key}`] : [])];
+  return `${ins.join(' + ')} > ${r.machine === 'mixer' ? 'mixer' : 'press'} ${r.minRpm} rpm, ${r.seconds} s > ${r.output.count} ${r.output.item.replace(/_/g, ' ')}`;
+}

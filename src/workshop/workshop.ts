@@ -81,6 +81,9 @@ export interface WorkshopView { spin: SpinView[]; swings: SwingView[]; links: Li
 /** Parts that show a turning cog on top while they run. */
 const SPIN_KINDS = new Set(['hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
 
+/** Seconds a recipe takes at 16 rpm: strokes x STROKE_S, or half the drying / soaking time of a timed recipe. */
+const needS = (r: RecipeDef): number => ((r.strokes ?? 0) > 0 ? (r.strokes as number) * STROKE_S : (r.timeS ?? 2) * 0.5);
+
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
 export class Workshop {
@@ -381,7 +384,7 @@ export class Workshop {
   private recipeFor(kind: string, item: string): RecipeDef | null {
     const twin = TWIN.get(kind);
     if (!twin) return null;
-    return recipesAt(twin.station).find((r) => r.inputs[0]?.item === item && (r.strokes ?? 0) > 0) ?? null;
+    return recipesAt(twin.station).find((r) => r.inputs[0]?.item === item && ((r.strokes ?? 0) > 0 || (kind === 'mech_rack' && (r.timeS ?? 0) > 0))) ?? null;
   }
 
   private twinAccept(x: number, y: number, z: number, item: string, n: number, commit: boolean): number {
@@ -445,7 +448,7 @@ export class Workshop {
         continue;
       }
       m.recipe = r.id;
-      const need = (r.strokes ?? 1) * STROKE_S;
+      const need = needS(r);
       m.progress += (dt * rpm) / 16;
       if (m.progress < need) continue;
       m.progress = 0;
@@ -563,7 +566,7 @@ export class Workshop {
       const held = Object.entries(m.buffer).map(([i, n]) => `${n} ${itemOrNull(i)?.name ?? i}`);
       if (m.recipe) {
         const r = recipesAt(TWIN.get(p.kind)!.station).find((x) => x.id === m.recipe);
-        const need = (r?.strokes ?? 1) * STROKE_S;
+        const need = r ? needS(r) : 1;
         parts.push(`${itemOrNull(r?.output.item ?? '')?.name ?? ''} ${Math.round((m.progress / need) * 100)}%`);
       }
       if (held.length) parts.push(`holds ${held.join(', ')}`);

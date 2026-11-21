@@ -11,6 +11,7 @@ import type { ObjectiveCondition, ObjectiveSpec } from '../core/types';
 import { amounts } from './amounts';
 import { BREW_OBJECTIVES } from './objectivesBrew';
 import { HAND_OBJECTIVES } from './objectivesHand';
+import { WORKSHOP_OBJECTIVES } from './objectivesWorkshop';
 
 const make = (item: string, count = 1): ObjectiveCondition => ({ type: 'make', item, count });
 const have = (item: string, count = 1): ObjectiveCondition => ({ type: 'have', item, count });
@@ -86,6 +87,7 @@ export const OBJECTIVES: ObjectiveSpec[] = [
     'Bind the cast head to two sticks with cord at the workbench. A bronze pickaxe opens iron ore, sulfur and oil shale, and lasts three times as long as flint.'),
   objective(0, 'salvage_automaton', 'Salvage an automaton', orPeaceful(flag(FLAG_AUTOMATON_SALVAGED)),
     'After dark the old machines wake in caves and ruins. When an automaton\'s embers flare it is about to strike: step out of reach, then hit back. Its scrap smelts into iron. On Peaceful this completes by itself.'),
+  ...WORKSHOP_OBJECTIVES,
   objective(0, 'first_power', 'Make electricity', generate(100),
     'Forge a Thermopile and set it against the furnace. It makes a quarter of a watt for every degree above 100 C, so a fire near 500 C gives 100 W.',
     '6 copper_cable'),
