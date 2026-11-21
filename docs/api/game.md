@@ -4,6 +4,8 @@ Game rules that are not machines. DOM-free, runs in node. Import from `src/game`
 below); the test fixture `FakeWorld` is imported by path from `src/game/fakeWorld`. Never imports `src/world`
 (only `IWorld`). 71 unit tests, `npx vitest run src/game`.
 
+Hunger (`hunger.ts`), farming rules (`farming.ts`) and the food fields of `PlayerState` are documented in `docs/api/food-rules.md`.
+
 ## inventory.ts
 - `type AcceptRule = (item: string, slot: number) => boolean`; `interface InventoryOptions { accept?: AcceptRule; takeOnly?: boolean }`
 - `stackLimit(item: string): number` - most of this item one slot holds (tools always 1; unknown items 99).

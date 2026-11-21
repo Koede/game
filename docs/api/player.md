@@ -4,6 +4,8 @@ Import everything from `src/player` (index re-exports `./input` too). Never impo
 `src/ui`: it draws through `IView` (src/core/context.ts), opens screens with `'ui:open'` and changes machines only
 by editing voxels (the simulation reacts to `'block:changed'`). 96 unit tests: `npx vitest run src/player`.
 
+Eating, tilling, planting, crop handling and the hunger effects on sprinting/jumping/mining: `docs/api/food-rules.md`.
+
 ## Wiring (what main.ts does)
 
 ```ts
