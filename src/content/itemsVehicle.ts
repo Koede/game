@@ -6,9 +6,9 @@
 import type { ItemSpec } from '../core/types';
 
 /** Fuel units in a full chainsaw tank (the stack's durability is 1 + this), per log cut, and per Fuel Canister. */
-export const SAW_TANK = 240;
-export const SAW_FUEL_PER_LOG = 2;
-export const SAW_CANISTER_FUEL = 120;
+export const SAW_TANK = 840;
+export const SAW_FUEL_PER_LOG = 7;
+export const SAW_CANISTER_FUEL = 420;
 /** Most logs one chainsaw cut fells. */
 export const SAW_MAX_LOGS = 48;
 
@@ -17,7 +17,7 @@ export const VEHICLE_ITEMS: ItemSpec[] = [
     key: 'chainsaw', name: 'Chainsaw',
     desc: 'A small two-stroke engine driving a steel chain. Mine a log and the whole trunk above it comes down, fast; every log burns a little fuel. Hold a Fuel Canister and press Use to refill the tank. Empty, it is dead weight.',
     category: 'tool', age: 2,
-    tool: { kind: 'axe', tier: 3, speed: 9, durability: SAW_TANK + 1, fell: { maxLogs: SAW_MAX_LOGS, fuelPerLog: SAW_FUEL_PER_LOG, canisterFuel: SAW_CANISTER_FUEL } },
+    tool: { kind: 'axe', tier: 5, speed: 9, durability: SAW_TANK + 1, fell: { maxLogs: SAW_MAX_LOGS, fuelPerLog: SAW_FUEL_PER_LOG, canisterFuel: SAW_CANISTER_FUEL } },
   },
   {
     key: 'tractor', name: 'Tractor',

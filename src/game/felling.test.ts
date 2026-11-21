@@ -112,10 +112,10 @@ describe('felling', () => {
   });
 
   it('burns fuelPerLog per log and stops at the tank, never destroying the saw', () => {
-    const t = rig(7);
+    const t = rig(22);
     t.trunk(0, 0, 10);
     const r = fellTree(t.world, t.player, 0, 10, 0, rng)!;
-    // 7 fuel = 3 logs at 2 each; one unit stays in the tank.
+    // 22 fuel = 3 logs at 7 each; one unit stays in the tank.
     expect(r.logs).toBe(3);
     expect(t.saw().durability).toBe(2);
     expect(t.world.getBlock(0, 13, 0).key).toBe('oak_log');

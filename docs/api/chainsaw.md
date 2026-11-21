@@ -24,18 +24,18 @@ tree", flag `felled_tree`, age 2) sits right after Ward your base.
 
 ## Rules
 
-- `tool: { kind: 'axe', tier: 3, speed: 9, durability: 241, fell: { maxLogs: 48, fuelPerLog: 2, canisterFuel: 120 } }`.
-  `ToolSpec.fell` (src/core/types.ts) marks a chainsaw. **The stack's `durability` is its fuel tank**: 241 = a full
-  tank of 240 units + the 1 that means empty (durability never reaches 0, so the saw is never destroyed).
+- `tool: { kind: 'axe', tier: 5, speed: 9, durability: 841, fell: { maxLogs: 48, fuelPerLog: 7, canisterFuel: 420 } }`.
+  `ToolSpec.fell` (src/core/types.ts) marks a chainsaw. **The stack's `durability` is its fuel tank**: 841 = a full
+  tank of 840 units + the 1 that means empty (durability never reaches 0, so the saw is never destroyed).
 - Felling (`fellTree(world, player, x, y, z, rng)`): the log under the crosshair plus every log of the same kind joined
   to it face-, edge- or corner-wise (boughs count), **from that height up**, nearest first, at most
   `min(maxLogs, floor(fuel / fuelPerLog))` = 48 logs. Logs below the cut (the stump) stay. Other woods touching it and
   detached logs stay. Each log is a `'player'` edit with `'block:broken'` (the "gather logs" objectives count them) and
-  the drops spawn as ground items where each log stood. A full tank is 120 logs: about two broad oaks or twenty ordinary trees.
+  the drops spawn as ground items where each log stood. A full tank is 120 logs (a canister 60): about two broad oaks or twenty ordinary trees.
 - Leaves of the felled tree decay by themselves afterwards (docs/api/leaf-decay.md): the saw wakes them like any log
   removal.
 - Fuel: `refuelChainsaw(player)`: **hold a Fuel Canister and press Use** (anywhere, no target needed); it fills the
-  emptiest saw in the pack by `canisterFuel` (120, never past full) and uses one canister only when it adds something.
+  emptiest saw in the pack by `canisterFuel` (420, never past full) and uses one canister only when it adds something.
   The saw's durability bar in the hotbar and inventory is its fuel gauge.
 - Out of fuel (durability 1): `toolMatches` says no, so it mines like bare hands, and a toast says how to refill.
 - Wear: none beyond the fuel (the brief's "fuel/wear" is one number).
@@ -55,3 +55,5 @@ refuelChainsaw(player): 'refuelled' | 'full' | 'no-saw' | 'no-fuel'
 ```
 `Interaction.breakBlock` calls `fellTree` first (null = break normally); `Interaction.use` calls `refuelChainsaw` when a
 Fuel Canister is held (`UseOutcome` gains `'fuelled'`).
+
+Note: the tier is 5 and the numbers are scaled up (tank 840, 7 per log) only so that the axe table stays strictly increasing in speed and durability (content.test.ts); the felling ratios are unchanged: 120 logs a tank, 60 a canister. Tier 5 is irrelevant in play because the saw only matters on logs.

@@ -86,7 +86,7 @@ try {
     assert((await block(PX, startY - 1, PZ)) === (startY > FLOOR + 1 ? 'oak_log' : 'grass'), 'the stump below the cut stays');
     await d.settle(1200);
     const after = await fuel();
-    assert(after === before - 2 * felled, `fuel used 2 per log: ${before} -> ${after}`);
+    assert(after === before - 7 * felled, `fuel used 7 per log: ${before} -> ${after}`);
     const onGround = (await page.evaluate(() => window.__hw.groundItems())).filter((g) => g.item === 'oak_log').reduce((n, g) => n + g.count, 0);
     const have = (await d.inventory()).oak_log ?? 0;
     assert(onGround + have === felled, `${felled} logs dropped or collected, got ${onGround + have}`);
@@ -118,7 +118,7 @@ try {
     await d.use();
     await d.settle(400);
     const st = await page.evaluate(() => window.__hw.state().inventory);
-    assert(st.find((s) => s.item === 'chainsaw').durability === 170, 'tank +120');
+    assert(st.find((s) => s.item === 'chainsaw').durability === 470, 'tank +420');
     assert(st.find((s) => s.item === 'fuel_canister').count === 1, 'one canister used');
   });
 
