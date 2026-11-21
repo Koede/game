@@ -9,5 +9,6 @@ export { AGES, FURNACE_TIERS, MACHINE_SPECS } from './tech';
 export { OBJECTIVES } from './objectives';
 export { ORE_VEINS } from './oreVeins';
 export { CREATURE_SPECS } from './creatures';
+export { AUTOMATON_SPECS } from './automatons';
 export { LOOT_TABLES } from './loot';
 export { FLUID_SPECS } from './fluids';

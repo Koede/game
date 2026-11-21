@@ -34,6 +34,9 @@ const CAUSES: Record<DamageCause, { title: string; line: string }> = {
   radiation: { title: 'Radiation sickness', line: 'Pitchblende and hot piles poison slowly. A shield suit cuts the dose tenfold.' },
   explosion: { title: 'Caught in the blast', line: 'A fission pile without water melts down. Keep two water blocks beside it.' },
   burn: { title: 'You burned', line: 'Something hot was too close for too long.' },
+  // Spec 19: generic lines until the death screen names the automaton ("Felled by a Forge Warden").
+  automaton: { title: 'Felled by an automaton', line: 'Every attack is telegraphed: when the embers flare, step out of reach. Your hot furnace is safe ground.' },
+  ember: { title: 'The embers caught you', line: 'An ember bolt sets you burning for a moment. Keep walls between you and a kiln sentry.' },
   hunger: {
     title: 'Hunger wore you down',
     line: 'An empty stomach drains your health. Cook meat or bake bread in the furnace, then hold it and press Use to eat.',

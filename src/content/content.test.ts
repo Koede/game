@@ -57,14 +57,14 @@ describe('1. registry validation', () => {
 
 // -------------------------------------------------------------------------------------------------
 describe('2. roster of spec section 2', () => {
-  it('has exactly the 119 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17), air first', () => {
+  it('has exactly the 120 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(119);
+    expect(SPEC.blocks).toHaveLength(120);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
-  it('has exactly the 83 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16)', () => {
-    expect(SPEC.items).toHaveLength(83);
+  it('has exactly the 91 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19)', () => {
+    expect(SPEC.items).toHaveLength(91);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
     expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
   });
@@ -83,7 +83,7 @@ describe('2. roster of spec section 2', () => {
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
     expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
     for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(127);
+    expect(RECIPES).toHaveLength(135);
   });
 
   it('has the furnace tiers of table 2.4', () => {

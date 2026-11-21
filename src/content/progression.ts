@@ -20,15 +20,21 @@
  * Hearths (spec 17): an upgrade to tier 2-5 also needs the materials of that tier's smallest legal shell (its wall
  * blocks, electrodes and power ports), obtainable with the furnace the player already has. Transport (spec 16): a
  * steam turbine is heat-driven like the steam engine - it runs on a boiler over the one furnace, with water to hand.
+ *
+ * The Emberbound (spec 19): on Normal and Hard the automatons roam from the first night and can be broken by hand,
+ * so their drops count from the start like an animal's (source 'automaton:<species>'; the kiln sentries of the ruins
+ * are among them, so ember cores are always to hand). Relic drops - parts of a later age than the Ember Age - are
+ * bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
+ * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
-import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FURNACE_BUFF_C } from '../core/constants';
+import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL, FURNACE_BUFF_C } from '../core/constants';
 import { smallestShell } from '../core/hearth';
 import {
-  BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
+  AUTOMATONS, BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
   block, furnaceTier, item, machine, recipe, recipesFor,
 } from '../core/registry';
 import type {
-  BiomeKey, BlockDef, FurnaceTierSpec, ItemAmount, LiquidKind, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind,
+  BiomeKey, BlockDef, Drop, FurnaceTierSpec, ItemAmount, LiquidKind, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind,
 } from '../core/types';
 
 /** Blocks the world generator places besides ore veins (spec 2.1 "Natural", minus air and the unbreakable floor). */
@@ -87,19 +93,30 @@ export function hearthMaterials(tier: number): ItemAmount[] {
   return out;
 }
 
+/**
+ * A relic (spec 19): an automaton's drop of a part from a later age than the Ember Age. Relics are lucky finds the
+ * solver leaves out, so the tech tree never waits on a lucky drop and every age keeps its meaning.
+ */
+export const isRelic = (drop: Drop): boolean => item(drop.item).age > 0;
+
+/** Every relic an automaton can carry, in authored order, without repeats. */
+export const AUTOMATON_RELICS: readonly string[] = [...new Set(AUTOMATONS.flatMap((c) => c.drops.filter(isRelic).map((d) => d.item)))];
+
 /** How many units of one generator or battery kind a "reasonable grid" is assumed to have. */
 export const GRID_UNITS = 8;
 
 export interface Progress {
   /** Furnace tier reached (0 = no furnace yet). */
   tier: number;
+  /** Automatons roam this world (false on Peaceful). */
+  hostiles: boolean;
   /** Keys of every obtainable item. */
   items: ReadonlySet<string>;
   /** Ids of every usable recipe. */
   recipes: ReadonlySet<string>;
   /**
    * How each item was first obtained: the id of a recipe, 'world' (mined, gathered, scooped), 'upgrade',
-   * 'animal:<species>' (hunted) or 'crop:<block>' (harvested ripe).
+   * 'animal:<species>' (hunted), 'automaton:<species>' (salvaged) or 'crop:<block>' (harvested ripe).
    */
   source: ReadonlyMap<string, string>;
   /** Hottest temperature each owned tier can hold; index = tier, index 0 is ambient. */
@@ -147,11 +164,17 @@ const pumps = [...MACHINES.values()].filter((m) => m.kind === 'pump');
 /** Generators that live off a furnace's heat (directly or through a boiler) cannot be what heats that furnace electrically. */
 const heatDriven = (m: MachineSpec): boolean => m.params?.heatPerWatt !== undefined || steamFed(m);
 
+/** World options of a solve: Peaceful has no automatons. */
+export interface SolveOptions {
+  peaceful?: boolean;
+}
+
 /**
  * Everything obtainable and doable with a furnace of at most `maxTier` (0 = before the first furnace).
  * `missing` removes blocks from the assumed world, to prove that nothing essential hangs on them.
  */
-export function solve(maxTier: number, missing: readonly string[] = []): Progress {
+export function solve(maxTier: number, missing: readonly string[] = [], options: SolveOptions = {}): Progress {
+  const hostiles = options.peaceful !== true;
   const world = withHarvests(worldKeys.filter((key) => !missing.includes(key)));
   const worldHasLiquid = (kind: LiquidKind): boolean => world.some((b) => b.liquid === kind);
   const items = new Set<string>();
@@ -240,6 +263,10 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
     for (const c of CREATURES) {
       for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;
     }
+    // So do the automatons (not on Peaceful); their relic parts are left to luck.
+    for (const c of hostiles ? AUTOMATONS : []) {
+      for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && !isRelic(drop) && gain(drop.item, `automaton:${c.key}`)) changed = true;
+    }
     if (canTill(world, items)) {
       for (const crop of crops) {
         if (!crop.seed || !items.has(crop.seed)) continue;
@@ -271,7 +298,7 @@ export function solve(maxTier: number, missing: readonly string[] = []): Progres
   const tempC = temps();
   const bank = storages.filter(owns).sort((a, b) => (b.capacityJ ?? 0) - (a.capacityJ ?? 0))[0];
   return {
-    tier, items, recipes, source, tempC,
+    tier, hostiles, items, recipes, source, tempC,
     hottestC: Math.max(...tempC),
     generationW: generationW(),
     storageJ: GRID_UNITS * (bank?.capacityJ ?? 0),
@@ -308,6 +335,9 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   ignited: canIgnite,
   ate: (p) => [...p.items].some((key) => item(key).food !== undefined),
   tilled: (p) => canTill(worldBlocks, p.items),
+  // Spec 19: an automaton broken apart (bare hands will do, slowly), or a world on Peaceful.
+  [FLAG_AUTOMATON_SALVAGED]: (p) => p.hostiles,
+  [FLAG_PEACEFUL]: (p) => !p.hostiles,
 };
 export const KNOWN_FLAGS: readonly string[] = Object.keys(FLAG_RULES);
 

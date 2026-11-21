@@ -4,6 +4,7 @@
  * A deliberate balance change has to be made here as well. Nothing but the test imports this file.
  */
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
+import { EMBER_SPEC } from './specRosterEmber';
 import { FOOD_SPEC } from './specRosterFood';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
@@ -35,6 +36,7 @@ export const SPEC = {
     ...FOOD_SPEC.blocks,
     ...WORLD_SPEC.blocks,
     ...TECH_SPEC.blocks,
+    ...EMBER_SPEC.blocks,
   ],
 
   items: [
@@ -51,6 +53,7 @@ export const SPEC = {
     ...FOOD_SPEC.items,
     ...WORLD_SPEC.items,
     ...TECH_SPEC.items,
+    ...EMBER_SPEC.items,
   ],
 
   /** material -> [tier, speed, durability] for its pickaxe, axe and shovel. */
@@ -61,6 +64,7 @@ export const SPEC = {
     stick: [30_000, 12, 450], plank: [60_000, 20, 550], oak_log: [200_000, 50, 650], pine_log: [200_000, 50, 650],
     charcoal: [400_000, 80, 1000], coal: [800_000, 100, 1250], coke: [1_200_000, 120, 1550],
     ...WORLD_SPEC.fuels,
+    ...EMBER_SPEC.fuels,
   } as Record<string, number[]>,
 
   /**
@@ -113,6 +117,7 @@ export const SPEC = {
       'cooked_chop: 1 cooked_chop <- 1 raw_chop @200 8s T1',
       'baked_potato: 1 baked_potato <- 1 potato @180 6s T1',
       'bread: 1 bread <- 1 dough @220 10s T1',
+      'iron_ingot_scrap: 1 iron_ingot <- 1 scrap_metal @1150 10s T2',
 
       'bronze_ingot: 4 bronze_ingot <- 3 copper_ingot, 1 tin_ingot @800 T1',
       'bronze_pickaxe: 1 bronze_pickaxe <- 3 bronze_ingot, 2 stick @600 T1',
@@ -131,6 +136,7 @@ export const SPEC = {
       'bronze_bucket: 1 bronze_bucket <- 3 bronze_ingot @700 T1',
       'item_pipe: 8 item_pipe <- 2 bronze_ingot, 1 glass @800 T1',
       'wrench: 1 wrench <- 3 bronze_ingot @600 T1',
+      'bronze_maul: 1 bronze_maul <- 4 bronze_ingot, 2 stick @700 T1',
 
       'iron_pickaxe: 1 iron_pickaxe <- 3 iron_ingot, 2 stick @1000 T2',
       'iron_axe: 1 iron_axe <- 3 iron_ingot, 2 stick @1000 T2',
@@ -163,6 +169,10 @@ export const SPEC = {
       'tank: 1 tank <- 4 iron_plate, 4 glass @1000 T2',
       'pump: 1 pump <- 1 chassis, 1 copper_coil, 2 fluid_pipe @1000 T2',
       'boiler: 1 boiler <- 4 iron_plate, 2 copper_coil, 1 tank @1100 T2',
+      'iron_maul: 1 iron_maul <- 4 iron_ingot, 2 stick @1100 T2',
+      'steel_maul: 1 steel_maul <- 4 steel_ingot, 2 stick @1400 T2',
+      'plated_coat: 1 plated_coat <- 6 iron_plate, 1 padded_coat @1100 T2',
+      'steel_cuirass: 1 steel_cuirass <- 6 steel_plate, 1 padded_coat @1400 T2',
 
       'silicon_wafer: 1 silicon_wafer <- 2 silica, 1 coke @1700 T3',
       'circuit: 1 circuit <- 1 silicon_wafer, 3 copper_wire, 1 ceramic_insulator @900 T3',
@@ -177,6 +187,8 @@ export const SPEC = {
       'plasma_casing: 2 plasma_casing <- 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod @1900 T3',
       'power_port: 1 power_port <- 2 copper_coil, 2 ceramic_insulator, 1 iron_plate @1200 T3',
       'steam_turbine: 1 steam_turbine <- 1 chassis, 4 steel_plate, 4 copper_coil @1600 T3',
+      'arc_maul: 1 arc_maul <- 2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery @1800 T3',
+      'ward_beacon: 1 ward_beacon <- 2 ember_core, 1 circuit, 2 steel_plate, 1 glass @1500 T3',
 
       'superalloy: 2 superalloy <- 2 steel_ingot, 1 tungsten_rod, 1 aluminum_ingot @2600 T4',
       'power_drill: 1 power_drill <- 2 superalloy, 2 tungsten_rod, 1 copper_coil, 1 battery @2600 T4',
@@ -251,6 +263,7 @@ export const SPEC = {
     crop: ['crop', { stageS: 100, dryRate: 0.5, hydrationRadius: 4, lampRadius: 5, minSunlight: 0.3 }],
     berry_bush: ['bush', { regrowS: 300 }],
     ...TECH_SPEC.machines,
+    ...EMBER_SPEC.machines,
   } as Record<string, [MachineRole, Numbers]>,
 
   /** block, minY, maxY, veinsPerChunk, veinSize, biome multipliers. */
@@ -274,10 +287,10 @@ export const SPEC = {
     'any(break oak_log 4 | break pine_log 4)', 'make plank 4', 'place workbench 1', 'have flint 3', 'make flint_pickaxe 1',
     'have rubble 12', 'have clay 6', 'place furnace_clay 1', 'flag furnace_lit', 'make charcoal 4', 'flag well_warmed',
     'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
-    'make copper_ingot 2', 'flag tilled', 'place wheat_0 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_pickaxe 1',
-    'generate 100', 'place lamp 1', 'make bread 1', 'tier 2', 'place item_pipe 1',
+    'make copper_ingot 2', 'flag tilled', 'place wheat_0 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_maul 1',
+    'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1', 'make bread 1', 'tier 2', 'place item_pipe 1',
     'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 3', 'place pump 1',
-    'temp 1900', 'make circuit 2', 'generate 10000', 'make tungsten_rod 4', 'tier 4',
+    'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', 'generate 10000', 'make tungsten_rod 4', 'tier 4',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 5',
     'flag ignited',
   ],
@@ -316,6 +329,7 @@ export const SPEC = {
     ...FOOD_SPEC.blockProps,
     ...WORLD_SPEC.blockProps,
     ...TECH_SPEC.blockProps,
+    ...EMBER_SPEC.blockProps,
   } as Record<string, Partial<BlockDef>>,
 
   /** Block items that exist for the codex but can never be picked up: these blocks drop something else. */
@@ -325,9 +339,9 @@ export const SPEC = {
   optionalWorldBlocks: ['lava', 'rubble', 'snow', 'ice', 'basalt', ...WORLD_SPEC.optional],
 
   /**
-   * Ceiling on distinct texture names (block faces + item icons + 'missing'). One texture array holds them all,
-   * and WebGL2 only guarantees 256 layers: 252 are in use after sections 16-17. Anything more needs the renderer to
-   * split the array (or a check of MAX_ARRAY_TEXTURE_LAYERS) first.
+   * Ceiling on distinct texture names (block faces + item icons + 'missing'). WebGL2 only guarantees 256 layers per
+   * array texture; the renderer splits the atlas over two arrays past the device's limit (docs/api/render-machines.md),
+   * so the hard ceiling is twice that. This cap keeps growth deliberate: 264 are in use after section 19.
    */
-  maxTextures: 256,
+  maxTextures: 320,
 };

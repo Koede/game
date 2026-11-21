@@ -113,6 +113,8 @@ describe('hit damage', () => {
     expect(hitDamage('steel_shovel')).toBe(5);
     expect(hitDamage('iron_hoe')).toBe(1);
     expect(hitDamage('power_drill')).toBe(6);
+    expect(hitDamage('bronze_maul')).toBe(5);
+    expect(hitDamage('arc_maul')).toBe(12);
   });
 });
 

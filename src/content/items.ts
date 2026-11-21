@@ -8,6 +8,7 @@
 import { WELL_FED_DURATION_S } from '../core/constants';
 import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
+import { EMBER_ITEMS } from './emberbound';
 
 const fuel = (energyKJ: number, burnS: number, flameTempC: number): FuelSpec => ({ energyJ: energyKJ * 1000, burnS, flameTempC });
 
@@ -164,7 +165,11 @@ const GEAR: ItemSpec[] = [
     key: 'lava_bucket', name: 'Lava Bucket', desc: 'Molten rock in bronze. It fuels a furnace at 1300 C for 100 seconds and the bucket comes back.',
     category: 'fuel', age: 0, stack: 1, fuel: { ...fuel(2000, 100, 1300), fuelReturns: 'bronze_bucket' },
   },
-  { key: 'padded_coat', name: 'Padded Coat', desc: 'Layers of cord and fiber. While you carry it, the cold drains your warmth half as fast.', category: 'misc', age: 0, stack: 1 },
+  {
+    // Worn from the pack (spec 19.4 gives the plated coat and the steel cuirass the same warmth, plus protection).
+    key: 'padded_coat', name: 'Padded Coat', desc: 'Layers of cord and fiber. While you carry it, the cold drains your warmth half as fast.',
+    category: 'misc', age: 0, stack: 1, armour: { reduction: 0, warmthDrainMult: 0.5 },
+  },
   { key: 'shield_suit', name: 'Shield Suit', desc: 'Superalloy plate and fused quartz. While you carry it, radiation does a tenth of its harm.', category: 'misc', age: 3, stack: 1 },
   {
     // Spec 16.3. A tool, but no ToolSpec: it never mines faster, never wears out, and Use on a pipe is its whole job.
@@ -222,4 +227,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS];

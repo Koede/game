@@ -12,8 +12,13 @@
 import * as THREE from 'three';
 import type { CreatureAnim, CreaturePart, CreatureSpec } from '../../core/types';
 
-/** Animation group of each anim tag. Legs swing in diagonal pairs (FL with BR, FR with BL). */
-export const PART_GROUP: Record<CreatureAnim, number> = { none: 0, head: 1, legFL: 2, legBR: 2, legFR: 3, legBL: 3 };
+/**
+ * Animation group of each anim tag. Legs swing in diagonal pairs (FL with BR, FR with BL); an automaton's middle legs
+ * join them (MR with FL/BR, ML with FR/BL). Automaton arms (spec 19) are rigid here until their wind-up is animated.
+ */
+export const PART_GROUP: Record<CreatureAnim, number> = {
+  none: 0, head: 1, legFL: 2, legBR: 2, legMR: 2, legFR: 3, legBL: 3, legML: 3, armL: 0, armR: 0,
+};
 
 const PX = 1 / 16;
 

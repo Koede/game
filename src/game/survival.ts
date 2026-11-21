@@ -28,6 +28,7 @@ import {
 } from '../core/constants';
 import type { DamageCause } from '../core/gameEvents';
 import { clamp, type Vec3 } from '../core/math';
+import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
@@ -59,7 +60,6 @@ export const RADIATION_RANGE = 4;
 export const RADIATION_SAFE_DOSE = 1;
 export const RADIATION_DAMAGE_INTERVAL_S = 2;
 export const SHIELD_SUIT_FACTOR = 0.1;
-export const COAT_DRAIN_FACTOR = 0.5;
 export const WELL_WARMED_DRAIN_FACTOR = 0.5;
 export const REGEN_INTERVAL_S = 4;
 export const REGEN_QUIET_S = 8;
@@ -125,7 +125,8 @@ export class Survival {
   private readonly radiation: RadiationSource[] = [];
   private scanIn = 0;
   private frost = false;
-  private coat = false;
+  /** Warmth drain multiplier of the best coat carried (ItemSpec.armour; 1 without one). */
+  private coatMult = 1;
   private suit = false;
   private nearFurnaceS = 0;
   private coldS = 0;
@@ -318,7 +319,7 @@ export class Survival {
     }
     this.frost = this.biomeAt(cx, cz) === 'frostfell';
     this.exposed = openSkyAbove(world, player.position.x, player.position.y + PLAYER_HEIGHT, player.position.z);
-    this.coat = player.inventory.has('padded_coat');
+    this.coatMult = bestArmour(player.inventory.slots).warmthDrainMult;
     this.suit = player.inventory.has('shield_suit');
   }
 
@@ -360,7 +361,7 @@ export class Survival {
         const top = Math.max(water, wet, frost, dark);
         cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top ? 'frost' : 'night';
       }
-      if (this.coat) drain *= COAT_DRAIN_FACTOR;
+      drain *= this.coatMult;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
       rate = drain > 0 ? -drain : WARMTH_GAIN_DAY;
     }

@@ -68,6 +68,12 @@ describe('Survival: warmth', () => {
     coat.run(10);
     expect(coat.player.warmth).toBeCloseTo(98.5, 5);
 
+    // Spec 19.4: the plated coat and the steel cuirass are built on a padded coat and keep its warmth.
+    const plated = rig(NIGHT);
+    plated.player.give('plated_coat');
+    plated.run(10);
+    expect(plated.player.warmth).toBeCloseTo(98.5, 5);
+
     const buffed = rig(NIGHT);
     buffed.player.buffs.wellWarmedS = 300;
     buffed.run(10);

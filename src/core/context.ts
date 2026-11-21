@@ -20,7 +20,18 @@ export interface Settings {
   /** 'auto' shows on-screen controls when the device has a touch screen. */
   touchControls: 'auto' | 'on' | 'off';
   showFps: boolean;
+  /**
+   * Spec 19.3: Peaceful (no automatons; objectives that need one complete themselves through FLAG_PEACEFUL), Normal,
+   * Hard (HOSTILE_CAP x1.5, HOSTILE_DAMAGE_MULT x1.25). Older saved settings lack it and read as 'normal'.
+   */
+  difficulty: Difficulty;
+  /** 'large' scales the HUD, the touch buttons and their captions up for small phone screens (review ui-10). */
+  uiScale: 'normal' | 'large';
 }
+
+/** Spec 19.3. */
+export type Difficulty = 'peaceful' | 'normal' | 'hard';
+export const DIFFICULTIES: readonly Difficulty[] = ['peaceful', 'normal', 'hard'];
 
 /** Render distance by default: phones draw less (about 30% fewer chunks, draw calls and frame time than at 6). */
 export const PHONE_RENDER_DISTANCE = 4;
@@ -41,6 +52,8 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   volume: 0.8,
   touchControls: 'auto',
   showFps: false,
+  difficulty: 'normal',
+  uiScale: 'normal',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

@@ -5,7 +5,7 @@
  * DOM-free. Validation is structural: it guarantees that every snapshot has the shape its module's `load()`
  * expects, so a corrupt or hand-edited save is refused here instead of breaking the game half-way through loading.
  */
-import { DEFAULT_SETTINGS, type Settings } from '../core/context';
+import { DEFAULT_SETTINGS, DIFFICULTIES, type Difficulty, type Settings } from '../core/context';
 import type { ClockSnapshot } from '../game/clock';
 import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
@@ -65,6 +65,7 @@ export const SETTINGS_BOUNDS = {
 } as const satisfies Partial<Record<keyof Settings, readonly [number, number]>>;
 
 const TOUCH_MODES: readonly Settings['touchControls'][] = ['auto', 'on', 'off'];
+const UI_SCALES: readonly Settings['uiScale'][] = ['normal', 'large'];
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -84,6 +85,9 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (typeof raw.invertY === 'boolean') out.invertY = raw.invertY;
   if (typeof raw.showFps === 'boolean') out.showFps = raw.showFps;
   if (TOUCH_MODES.includes(raw.touchControls as Settings['touchControls'])) out.touchControls = raw.touchControls as Settings['touchControls'];
+  // Settings saved before spec 19 have neither: they keep the defaults (Normal, normal size).
+  if (DIFFICULTIES.includes(raw.difficulty as Difficulty)) out.difficulty = raw.difficulty as Difficulty;
+  if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
   return out;
 }
 

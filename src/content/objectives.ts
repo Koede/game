@@ -6,6 +6,7 @@
  * Rewards are small conveniences the player could already have made; content.test.ts checks that none of them
  * hands out anything from further up the tree.
  */
+import { FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL } from '../core/constants';
 import type { ObjectiveCondition, ObjectiveSpec } from '../core/types';
 import { amounts } from './amounts';
 
@@ -16,6 +17,8 @@ const flag = (name: string): ObjectiveCondition => ({ type: 'flag', flag: name }
 const furnaceTier = (tier: number): ObjectiveCondition => ({ type: 'furnaceTier', tier });
 const furnaceTemp = (tempC: number): ObjectiveCondition => ({ type: 'furnaceTemp', tempC });
 const generate = (watts: number): ObjectiveCondition => ({ type: 'generate', watts });
+/** Done by doing it, or by playing on Peaceful, where there are no automatons to do it with (spec 19.3). */
+const orPeaceful = (c: ObjectiveCondition): ObjectiveCondition => ({ type: 'any', of: [c, flag(FLAG_PEACEFUL)] });
 
 function objective(age: number, id: string, title: string, condition: ObjectiveCondition, text: string, reward?: string): ObjectiveSpec {
   return reward ? { id, title, text, condition, age, reward: amounts(reward) } : { id, title, text, condition, age };
@@ -63,8 +66,12 @@ export const OBJECTIVES: ObjectiveSpec[] = [
     'Open the furnace and pump the bellows (the Pump button, or P). A strong draft burns fuel faster and runs up to 250 C hotter, so a log fire reaches what only charcoal could. Bronze needs 800 C, the most a Clay Furnace can take.'),
   objective(0, 'make_bronze', 'Forge bronze', make('bronze_ingot', 4),
     'Smelt a tin ingot, then forge three copper and one tin into bronze. It takes 800 C, as hot as a Clay Furnace can get.'),
+  objective(0, 'forge_maul', 'Forge a maul', make('bronze_maul'),
+    'The old machines of the Old Works still walk at night. Forge a Bronze Maul from four bronze and two sticks: it digs nothing, but it breaks automaton plate.'),
   objective(0, 'bronze_pickaxe', 'Forge a bronze pickaxe', make('bronze_pickaxe'),
     'A bronze pickaxe opens iron ore, sulfur and oil shale, and lasts three times as long as flint.'),
+  objective(0, 'salvage_automaton', 'Salvage an automaton', orPeaceful(flag(FLAG_AUTOMATON_SALVAGED)),
+    'After dark they wake in caves and ruins. When an automaton\'s embers flare it is about to strike: step out of reach, then hit back. Its scrap smelts into iron. (Peaceful: done.)'),
   objective(0, 'first_power', 'Make electricity', generate(100),
     'Forge a Thermopile and set it against the furnace. It makes a quarter of a watt for every degree above 100 C, so a fire near 500 C gives 100 W.',
     '6 copper_cable'),
@@ -100,9 +107,11 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(2, 'pump_water', 'Pump water', place('pump'),
     'Forge a Pump and set it against still water - a pond two blocks wide never runs dry. Wire it to power, lay Iron Fluid Pipe to a Tank or a machine, and wrench the pump end so it pulls.'),
   objective(2, 'reach_1900', 'Reach 1900 C', furnaceTemp(1900),
-    'No fuel burns this hot. Cable the Arc Furnace to your network, switch on its electric heating and supply about 6 kW.'),
+    'Only ember cores under a strong draft burn this hot. Cable the Arc Furnace to your network instead, switch on its electric heating and supply about 6 kW.'),
   objective(2, 'make_circuits', 'Make circuits', make('circuit', 2),
     'Crush quartz into silica, forge silicon wafers at 1700 C, and wire each one into a circuit.'),
+  objective(2, 'ward_base', 'Ward your base', orPeaceful(place('ward_beacon')),
+    'Forge a Ward Beacon from two ember cores, a circuit, steel plate and glass, and give it power. No automaton wakes within 32 blocks of it. (Peaceful: done.)'),
   objective(2, 'generate_10kw', 'Generate 10 kW', generate(10000),
     'Grow your grid to 10 kW. Wind turbines, solar panels, geothermal taps and combustion engines are all forged at the Arc Furnace.'),
   objective(2, 'make_tungsten', 'Sinter tungsten', make('tungsten_rod', 4),

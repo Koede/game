@@ -6,7 +6,7 @@
  * objective tracker and survival run alongside, so every objective must complete too.
  */
 import { describe, expect, it } from 'vitest';
-import { FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
+import { FLAG_AUTOMATON_SALVAGED, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
 import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
 import { Face, voxelActive } from '../core/types';
 import { eat, plant, till, type UseTarget } from '../game';
@@ -38,6 +38,8 @@ const HAND = 8;
 /** The power bus: a run of cable east from the thermopile along z = 1, machines on both sides of it. */
 const BUS = [1, 2, 3, 4, 5, 6, 7, 8].map((x) => ({ x, y: 1, z: 1 }));
 const CRUSHER = { x: 3, y: 1, z: 2 };
+/** Spec 19.4: on the bus beside the crusher. */
+const WARD = { x: 2, y: 1, z: 2 };
 const BATTERY = { x: 4, y: 1, z: 2 };
 const BURNERS = [{ x: 5, y: 1, z: 2 }, { x: 6, y: 1, z: 2 }, { x: 2, y: 1, z: 0 }];
 const STILL = { x: 3, y: 1, z: 0 };
@@ -209,8 +211,20 @@ describe('scripted playthrough', () => {
     expect(steelRow).toMatchObject({ locked: true, canMake: false, reason: 'Needs the Blast Furnace' });
     play.forge('bronze_ingot', 3);
     done('make_bronze');
+    // Spec 19.4: a maul for the automatons that wake at night (four more bronze than the pickaxe alone needs).
+    play.find('3 copper_ore, 1 tin_ore');
+    play.smelt('copper_ore', 3);
+    play.smelt('tin_ore', 1);
+    play.forge('bronze_ingot');
+    play.forge('bronze_maul');
+    done('forge_maul');
     play.forge('bronze_pickaxe');
     done('bronze_pickaxe');
+    // Stand-in for src/mobs until automatons fight: one is broken apart (a ruin's kiln sentry) and its salvage taken.
+    play.find('3 scrap_metal, 2 ember_core');
+    kit.bus.emit('flag', { flag: FLAG_AUTOMATON_SALVAGED });
+    play.step(0.5);
+    done('salvage_automaton');
     play.find('4 wheat, 1 water_pail');
     play.craft('flour', 2, BENCH);
     play.craft('dough', 1, BENCH);
@@ -262,6 +276,7 @@ describe('scripted playthrough', () => {
     play.find('12 raw_chop'); // the hunt goes on: supper for the long middle of the game
     play.smelt('raw_chop', 12);
     play.smelt('iron_ore', 20);
+    play.smelt('scrap_metal', 3); // the salvage of spec 19: the old smiths' iron, back into ingots
     // Spec 16: two item hatches swapped into the Blast hearth's walls (each in one go, so it never comes apart), a
     // crate of ore piped into one and the ingots piped out of the other into a crate beside the furnace.
     play.gather('oak_log', 8, '8 oak_log');
@@ -466,6 +481,13 @@ describe('scripted playthrough', () => {
     done('make_circuits');
     play.forge('steel_ingot', 18);
     play.forge('steel_plate', 18);
+    // Spec 19.4: a ward beacon on the bus, built around the salvaged ember cores.
+    play.find('1 sand');
+    play.smelt('sand', 1);
+    play.forge('ward_beacon');
+    play.place('ward_beacon', WARD);
+    play.step(1);
+    done('ward_base');
     play.forge('bronze_ingot', 3);
     play.forge('iron_plate', 12);
     play.forge('chassis', 3);

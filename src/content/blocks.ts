@@ -7,6 +7,7 @@
  * becomes obtainable (content.test.ts proves it against the progression solver).
  */
 import type { BlockSpec, Drop } from '../core/types';
+import { EMBER_BLOCKS } from './emberbound';
 import { TECH_BLOCKS } from './blocksTech';
 import { WORLD_BLOCKS } from './blocksWorld';
 
@@ -256,4 +257,5 @@ export const BLOCK_SPECS: BlockSpec[] = [
 
   ...WORLD_BLOCKS,
   ...TECH_BLOCKS,
+  ...EMBER_BLOCKS,
 ];

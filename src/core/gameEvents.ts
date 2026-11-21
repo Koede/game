@@ -4,10 +4,14 @@
  *
  * Adding an event: append it here (never rename or remove one that another module may use).
  */
-import type { BlockEntity, ChangeSource, ChunkMeshData, Voxel, WeatherKind } from './types';
+import type { BlockEntity, ChangeSource, ChunkMeshData, HostileAttack, ItemAmount, ProjectileKind, Voxel, WeatherKind } from './types';
 
-/** 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own). */
-export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger';
+/**
+ * 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own).
+ * 'automaton': a landed automaton attack, ember bolts included (spec 19.2; armour counts). 'ember': the burning an
+ * ember bolt leaves (spec 19.1). The automaton behind either is the species of the last 'player:attacked'.
+ */
+export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type ToastKind = 'info' | 'good' | 'warn' | 'bad';
 
@@ -82,7 +86,24 @@ export type SfxName =
   /** A hearth formed: a deep whoomph as the fire takes the whole chamber, with a rising shimmer. Positioned at the controller. */
   | 'hearth_formed'
   /** A soft metallic tick: the wrench changed a pipe end or a pipe joint. */
-  | 'pipe_clunk';
+  | 'pipe_clunk'
+  // ---- the Emberbound automatons (spec 19.5); all positioned at the automaton or the projectile ----
+  /** A heavy metal clank: one footfall of a walking automaton (the colossus at a low pitch, mites high and light). */
+  | 'automaton_step'
+  /** A whirr winding up with a hiss of embers catching: an automaton wakes (notices the player, or is hit while dormant). */
+  | 'automaton_wake'
+  /** The telegraph: a rising hiss and bellows-inhale through the whole wind-up. Must cut through on a phone speaker. */
+  | 'automaton_windup'
+  /** A metal impact: a blow, a dash or a slam lands. */
+  | 'automaton_attack'
+  /** A kiln sentry launches an ember bolt: a throaty whoosh with crackle. */
+  | 'ember_bolt'
+  /** An arc drone's zap: a sharp electric crack and buzz. */
+  | 'arc_zap'
+  /** A clang: the player hits an automaton. */
+  | 'automaton_hurt'
+  /** An automaton breaks apart: a crash of plates and a tinkle of scrap. */
+  | 'automaton_break';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed';
@@ -208,4 +229,32 @@ export interface GameEvents {
   'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
   /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
   'hearth:unformed': { x: number; y: number; z: number };
+
+  // ---- the Emberbound automatons (spec 19; they also use 'mob:spawned' / 'mob:hurt' / 'mob:died') ----
+  /** An automaton woke: it noticed the player, was hit while dormant, or night fell on it. x,y,z = its feet. */
+  'hostile:woke': { id: number; species: string; x: number; y: number; z: number };
+  /** An automaton wound down (daylight under open sky, spec 19.2): it stops, its glow dims, it no longer attacks. */
+  'hostile:dormant': { id: number; species: string; x: number; y: number; z: number };
+  /**
+   * The telegraph of an attack began: ember parts flare and sfx automaton_windup plays for `durationS` (the spec's
+   * windupS). The HUD shows an edge arrow towards x,z when it is off-screen.
+   */
+  'hostile:windup': { id: number; species: string; attack: HostileAttack; x: number; y: number; z: number; durationS: number };
+  /** The wind-up ended and the attack was released (a blow or slam swings, a bolt leaves, a dash starts its charge, a zap arcs). */
+  'hostile:attack': { id: number; species: string; attack: HostileAttack; x: number; y: number; z: number };
+  /**
+   * An automaton's attack hurt the player: emitted just before PlayerState.damage(amount, 'automaton'). `amount` is
+   * after the difficulty multiplier and before armour; x,y,z is where the blow came from (the automaton, or the bolt).
+   * The HUD pulses the screen edge towards it; the death screen names `species` ("Felled by a Forge Warden").
+   */
+  'player:attacked': { species: string; attack: HostileAttack; amount: number; x: number; y: number; z: number };
+  /** A projectile left its launcher (`from` = the automaton's mob id). Velocity in blocks per second. */
+  'projectile:fired': { id: number; kind: ProjectileKind; species: string; from: number; x: number; y: number; z: number; vx: number; vy: number; vz: number };
+  /** A projectile ended: it struck the player or a block, or flew out its lifetime ('expired'). x,y,z = where. */
+  'projectile:hit': { id: number; kind: ProjectileKind; species: string; from: number; x: number; y: number; z: number; target: 'player' | 'block' | 'expired' };
+  /**
+   * The player broke an automaton apart (spec 19.5: debris, sparks). `drops` went into the inventory. Emitted together
+   * with 'mob:died' and the flag FLAG_AUTOMATON_SALVAGED.
+   */
+  'automaton:salvaged': { id: number; species: string; x: number; y: number; z: number; drops: ItemAmount[] };
 }

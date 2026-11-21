@@ -6,6 +6,7 @@
  */
 import {
   AGES as AGE_SPECS,
+  AUTOMATON_SPECS,
   BLOCK_SPECS,
   CREATURE_SPECS,
   FLUID_SPECS,
@@ -49,6 +50,7 @@ import {
   type Voxel,
 } from './types';
 import { validateTech } from './techValidation';
+import { validateAutomaton, validateGear } from './hostileValidation';
 
 // ---------------------------------------------------------------------------------------------
 // Textures: every texture name referenced by content gets a layer in one texture array.
@@ -329,7 +331,16 @@ for (const c of CREATURES) {
   if (creaturesByKey.has(c.key)) throw new Error(`content: duplicate creature key "${c.key}"`);
   creaturesByKey.set(c.key, c);
 }
-/** Species by key. Throws on unknown keys. */
+/**
+ * The Emberbound automatons (spec 19), in authored order: every CreatureSpec with `hostile`. They are not in
+ * CREATURES (the animal spawner reads that list); creature() and creatureOrNull() find both.
+ */
+export const AUTOMATONS: readonly CreatureSpec[] = AUTOMATON_SPECS;
+for (const c of AUTOMATONS) {
+  if (creaturesByKey.has(c.key)) throw new Error(`content: duplicate creature key "${c.key}"`);
+  creaturesByKey.set(c.key, c);
+}
+/** Species (animal or automaton) by key. Throws on unknown keys. */
 export function creature(key: string): CreatureSpec {
   const spec = creaturesByKey.get(key);
   if (!spec) throw new Error(`unknown creature "${key}"`);
@@ -518,6 +529,9 @@ export function validateContent(): string[] {
     if (food.buffS !== undefined && !(food.buffS > 0)) problems.push(`item ${it.key}: food buffS must be > 0`);
   }
   for (const c of CREATURES) problems.push(...validateCreature(c));
+  for (const c of CREATURES) if (c.hostile) problems.push(`creature ${c.key}: automatons belong in AUTOMATON_SPECS`);
+  for (const c of AUTOMATONS) problems.push(...validateAutomaton(c, knownItem));
+  problems.push(...validateGear(ITEMS));
   for (const v of ORE_VEINS) for (const b of Object.keys(v.biomes ?? {})) if (!BIOMES.has(b)) problems.push(`ore vein ${v.block}: unknown biome "${b}"`);
   const tiers = new Set<string>();
   for (const t of LOOT_TABLES) {

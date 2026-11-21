@@ -84,10 +84,13 @@ export function feedRefusal(m: Mob | undefined, itemKey: string): string | null 
 
 /**
  * Damage of one hit with the item in hand (spec 12.5): 1 by hand or with anything that is not a tool, an axe
- * tier + 2, a pickaxe or shovel tier + 1, a hoe 1. Tools lose 1 durability per hit (the caller wears them).
+ * tier + 2, a pickaxe or shovel tier + 1, a hoe 1; a weapon (spec 19.4: the mauls) its own damage. Tools and
+ * weapons lose 1 durability per hit (the caller wears them).
  */
 export function hitDamage(heldItem: string | null): number {
-  const tool = heldItem ? itemOrNull(heldItem)?.tool : undefined;
+  const def = heldItem ? itemOrNull(heldItem) : null;
+  if (def?.weapon) return def.weapon.damage;
+  const tool = def?.tool;
   if (!tool) return 1;
   if (tool.kind === 'axe') return tool.tier + 2;
   if (tool.kind === 'pickaxe' || tool.kind === 'shovel') return tool.tier + 1;

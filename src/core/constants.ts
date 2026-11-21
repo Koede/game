@@ -1,4 +1,6 @@
 /** Gameplay tunables shared across modules. Content-specific numbers (recipes, machines) live in src/content. */
+import type { Difficulty } from './context';
+import type { DamageCause } from './gameEvents';
 import type { BiomeKey, Precipitation, WeatherKind } from './types';
 
 // --- simulation clock ---
@@ -244,3 +246,64 @@ export const HEARTH_RESCAN_RANGE = 16;
 export const HEARTH_VERIFY_TICKS = 4;
 /** Seconds a tapped structure problem stays highlighted in the world. */
 export const HEARTH_HIGHLIGHT_S = 10;
+
+// --- the Emberbound automatons (spec 19; per-type numbers live on CreatureSpec.hostile in src/content/automatons.ts) ---
+/** Hostiles loaded at once per difficulty (spec 19.3: Peaceful none, Normal 10, Hard x1.5). Ruin guards count too. */
+export const HOSTILE_CAP: Readonly<Record<Difficulty, number>> = { peaceful: 0, normal: 10, hard: 15 };
+/** Multiplier on every automaton's damage per difficulty (Hard x1.25). Peaceful has no automatons at all. */
+export const HOSTILE_DAMAGE_MULT: Readonly<Record<Difficulty, number>> = { peaceful: 0, normal: 1, hard: 1.25 };
+/** The night spawner tries one spot this often, and only while fewer than HOSTILE_CAP hostiles are loaded. */
+export const HOSTILE_SPAWN_INTERVAL_S = 2;
+/** Candidate spots lie this far from the player (horizontal blocks), never in view of the camera. */
+export const HOSTILE_SPAWN_MIN_DISTANCE = 24;
+export const HOSTILE_SPAWN_MAX_DISTANCE = 40;
+/** Block light at or above this (a torch or lamp nearby) prevents spawning on a spot. */
+export const HOSTILE_SPAWN_LIGHT = 7;
+/** Clock sunlight below this is night for the spawner and wakes automatons that wound down. */
+export const HOSTILE_NIGHT_SUNLIGHT = 0.2;
+/**
+ * Daylight wind-down (spec 19.2): once the clock's sunlight reaches this, automatons under open sky stop and go
+ * dormant over HOSTILE_WIND_DOWN_S (glow dimming), and dormant ones despawn beyond HOSTILE_DORMANT_DESPAWN_DISTANCE.
+ */
+export const HOSTILE_WIND_DOWN_SUNLIGHT = 0.5;
+export const HOSTILE_WIND_DOWN_S = 2;
+/** Hostiles farther than this from the player are removed (ruin guards never are). */
+export const HOSTILE_DESPAWN_DISTANCE = 64;
+export const HOSTILE_DORMANT_DESPAWN_DISTANCE = 48;
+/**
+ * The warm zone (spec 19.2): automatons never step within the warmth radius (the block's warmthActive) of a furnace
+ * at or above this temperature - they halt at its edge and turn away - and nothing spawns inside it.
+ */
+export const HOSTILE_WARM_ZONE_MIN_C = FURNACE_HOT_C;
+/** A powered ward beacon keeps spawns out of this radius and hostiles avoid it like a warm zone (its machine param `radius`). */
+export const WARD_BEACON_RADIUS = 32;
+/** Senses: without line of sight an automaton notices the player only this close; it forgets them after this long out of reach. */
+export const HOSTILE_SENSE_BLIND = 6;
+export const HOSTILE_FORGET_S = 10;
+/** Blocked this long while steering at the player (no path finding), it gives up and wanders. */
+export const HOSTILE_GIVE_UP_S = 4;
+/** Flying automatons hover this many blocks above the ground. */
+export const HOSTILE_HOVER_MIN = 2;
+export const HOSTILE_HOVER_MAX = 4;
+/** Spawn places (SpawnPlace in types.ts): 'deep' is below this y, 'peak' at or above HOSTILE_PEAK_Y (about the top 5% of the land). */
+export const HOSTILE_DEEP_Y = 20;
+export const HOSTILE_PEAK_Y = 48;
+/** 'storm_or_moonless' skies: a night whose moon shows at most this lit fraction (moonIllumination: phases 7, 0, 1). */
+export const HOSTILE_MOONLESS_MAX_ILLUMINATION = 0.15;
+/** A dash runs this many blocks past where the player stood when it began. */
+export const HOSTILE_DASH_OVERRUN = 2;
+/** Ember bolts: gravity (blocks/s^2, lighter than the player's so the arc reads), collision radius, longest flight. */
+export const EMBER_BOLT_GRAVITY = 12;
+export const EMBER_BOLT_RADIUS = 0.2;
+export const EMBER_BOLT_MAX_S = 4;
+/** Ruins (spec 19.3): forge wardens per ruin (inclusive range), the chance of a kiln sentry, how far guards stray. */
+export const RUIN_WARDENS: readonly [number, number] = [1, 2];
+export const RUIN_SENTRY_CHANCE = 0.5;
+export const RUIN_GUARD_LEASH = 12;
+/** Seconds between two hits with a weapon (spec 19.4; tools and hands keep MOB_HIT_COOLDOWN_S). */
+export const WEAPON_HIT_COOLDOWN_S = 0.5;
+/** Damage causes armour (ItemSpec.armour.reduction) softens: automaton blows and bolts, not the burning, cold or falls. */
+export const ARMOUR_CAUSES: readonly DamageCause[] = ['automaton'];
+/** Flags the game emits for spec 19's objectives: an automaton broken apart by the player, and a world played on Peaceful. */
+export const FLAG_AUTOMATON_SALVAGED = 'automaton_salvaged';
+export const FLAG_PEACEFUL = 'peaceful';

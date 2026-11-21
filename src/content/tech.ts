@@ -6,6 +6,7 @@ import { BATTERY_EFFICIENCY, CRATE_SIZE, IGNITION_POWER_W, IGNITION_SECONDS, STA
 import type { AgeSpec, FurnaceTierSpec, HearthStructureSpec, MachineSpec } from '../core/types';
 import { amounts } from './amounts';
 import { ITEM_SPECS } from './items';
+import { EMBER_MACHINES } from './emberbound';
 import { TECH_MACHINES } from './techMachines';
 
 /** Hearth wall blocks by tier (spec 17.1). A tier accepts its own wall and every higher tier's. */
@@ -303,4 +304,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
 
   // ---- transport and hearths (spec 16-17) ----
   ...TECH_MACHINES,
+
+  // ---- the Emberbound (spec 19) ----
+  ...EMBER_MACHINES,
 ];

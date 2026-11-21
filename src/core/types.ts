@@ -83,8 +83,12 @@ export interface ItemStack {
 }
 export type Slot = ItemStack | null;
 
-/** Mining tools, plus the hoe: a farming tool that tills soil and never speeds up mining (it counts as bare hands). */
-export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
+/**
+ * Mining tools, plus the hoe: a farming tool that tills soil and never speeds up mining (it counts as bare hands),
+ * and the maul (spec 19.4): a weapon made for breaking metal. No block names 'hoe' or 'maul' as its tool, so both
+ * count as bare hands for mining and never wear while mining; a maul's combat numbers are its ItemSpec.weapon.
+ */
+export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul';
 
 export interface ToolSpec {
   kind: ToolKind;
@@ -125,6 +129,28 @@ export interface FoodSpec {
   buffS?: number;
 }
 
+/**
+ * What a weapon does when Mine hits a creature with it (spec 19.4). It replaces the tool table of spec 12.5 for that
+ * item; the hit cooldown is WEAPON_HIT_COOLDOWN_S and every hit wears the weapon's ToolSpec durability by 1.
+ */
+export interface WeaponSpec {
+  /** Damage of one hit, automaton or animal. */
+  damage: number;
+  /** Automatons it hits are stunned this long: they stop, and a wind-up in progress is cancelled (the arc maul). */
+  stunS?: number;
+}
+
+/**
+ * Gear worn from the inventory (spec 19.4): it counts while it is anywhere in the player's inventory, and of several
+ * the best one counts, separately for each number (the best reduction, the lowest warmth multiplier).
+ */
+export interface ArmourSpec {
+  /** Fraction 0..1 taken off every hit of a cause in ARMOUR_CAUSES (0.25 = 25% less damage). 0 for clothing. */
+  reduction: number;
+  /** Multiplier on the cold's warmth drain while carried (the padded coat's 0.5). Absent: no effect on warmth. */
+  warmthDrainMult?: number;
+}
+
 export interface ItemSpec {
   key: string;
   name: string;
@@ -140,6 +166,10 @@ export interface ItemSpec {
   fuel?: FuelSpec;
   /** Edible: Use eats one (unless it would plant it, see `block`). */
   food?: FoodSpec;
+  /** A weapon (spec 19.4): the damage a hit with it deals to any creature. Mauls also carry a ToolSpec of kind 'maul'. */
+  weapon?: WeaponSpec;
+  /** Worn gear that counts while it is anywhere in the inventory (spec 19.4; the padded coat too). */
+  armour?: ArmourSpec;
   category: ItemCategory;
   /** Technology age (0-based index into AGES) in which the item first becomes obtainable. */
   age: number;
@@ -607,7 +637,15 @@ export interface OreVeinSpec {
  * in proportion to walking speed; 'head' parts tilt together about the head pivot (down while grazing, a small
  * bob while walking); 'none' parts are rigid with the body.
  */
-export type CreatureAnim = 'legFL' | 'legFR' | 'legBL' | 'legBR' | 'head' | 'none';
+export type CreatureAnim =
+  | 'legFL' | 'legFR' | 'legBL' | 'legBR' | 'head' | 'none'
+  /**
+   * Automatons (spec 19): the middle pair of a six-legged walker (legML swings with legFR and legBL, legMR with legFL
+   * and legBR, so the gait alternates three legs at a time), and arms about the shoulder's X axis (armL is the
+   * model's left, -X; armR its right, +X). Arms hang still while walking and RISE through a wind-up: the warden's
+   * hammer arm (armR), both of the colossus's arms.
+   */
+  | 'legML' | 'legMR' | 'armL' | 'armR';
 
 /**
  * One box of a creature's model. Units are 1/16 of a block, relative to the centre of the creature's feet.
@@ -630,6 +668,11 @@ export interface CreaturePart {
    * centre), the neck of the head. All parts that share an anim tag share the same pivot and move as one.
    */
   pivot?: readonly [number, number, number];
+  /**
+   * An ember part (spec 19.5): drawn full-bright in its colour while the automaton is active, brighter still through a
+   * wind-up (the flare that telegraphs an attack), dark while it is dormant or dead.
+   */
+  emissive?: boolean;
 }
 
 export interface CreatureSpec {
@@ -653,7 +696,91 @@ export interface CreatureSpec {
   group: readonly [number, number];
   /** Box model of an adult (see CreaturePart for units and orientation). */
   model: CreaturePart[];
+  /**
+   * Hostile automatons only (spec 19): how it fights and where it lives. Automatons never breed or grow (`likes` is
+   * empty), are authored in src/content/automatons.ts and listed in the registry's AUTOMATONS, never in CREATURES.
+   */
+  hostile?: HostileSpec;
 }
+
+/**
+ * How an automaton attacks (spec 19.1). Every attack is telegraphed: a wind-up of `windupS` (ember parts flare,
+ * sfx automaton_windup, event 'hostile:windup') starts when the player is within `range` (and, for bolt and zap, in
+ * line of sight), then the attack is released ('hostile:attack') and judged against where the player is THEN, so
+ * stepping out of reach during the wind-up dodges it.
+ *  melee - a blow at the end of the wind-up: hits if the player is still within `range` and in front (90-degree arc)
+ *  dash  - crouch through the wind-up, then charge in a straight line at `dashSpeed` towards where the player stood,
+ *          HOSTILE_DASH_OVERRUN blocks past it or until it hits a wall; touching the player hits once
+ *  bolt  - lob an ember bolt (a projectile with gravity EMBER_BOLT_GRAVITY) at `projectileSpeed`, aimed to land on
+ *          the player; it hits the first solid block or the player and never breaks blocks
+ *  zap   - an arc to the player if still within `range` with line of sight (x `wetMult` in water)
+ *  slam  - both arms come down: hits everything within `range` around it, no facing needed
+ */
+export type HostileAttack = 'melee' | 'dash' | 'bolt' | 'zap' | 'slam';
+
+/**
+ * Kinds of place the night spawner tells apart (spec 19.3). A candidate spot (solid floor, block light below
+ * HOSTILE_SPAWN_LIGHT, never sunlit) matches every place whose test it passes:
+ *  cave       - no open sky above, y >= HOSTILE_DEEP_Y (any time of day)
+ *  deep       - no open sky above, y < HOSTILE_DEEP_Y (any time of day)
+ *  surface    - open sky above, at night
+ *  scar       - in the scar biome, any time it is dark there (night, or a cave or overhang by day)
+ *  scar_night - in the scar biome, at night (open sky or not)
+ *  peak       - open sky above, y >= HOSTILE_PEAK_Y, at night
+ */
+export type SpawnPlace = 'cave' | 'deep' | 'surface' | 'scar' | 'scar_night' | 'peak';
+
+export interface HostileHabitat {
+  /**
+   * Relative spawn weight per place. At a spot, a type's weight is the largest of its weights for the places the
+   * spot matches (absent or 0: it never spawns there). Empty for types only ever placed with ruins.
+   */
+  places: Partial<Record<SpawnPlace, number>>;
+  /** Extra condition on the sky: spawns only while a storm rages or the moon is (nearly) new (HOSTILE_MOONLESS_*). */
+  sky?: 'storm_or_moonless';
+  /**
+   * Placed by src/world with each Old Works ruin (spec 19.3), persistent and never respawned: 'guard' walks the ruin
+   * (RUIN_WARDENS of them, active day and night within RUIN_GUARD_LEASH blocks of it); 'turret' stands on a ruin wall
+   * (on RUIN_SENTRY_CHANCE of the ruins).
+   */
+  ruin?: 'guard' | 'turret';
+  /** At most this many of the type loaded at once (the colossus: one). */
+  maxLoaded?: number;
+}
+
+export interface HostileSpec {
+  attack: HostileAttack;
+  /** Damage of one landed attack on Normal (x HOSTILE_DAMAGE_MULT of the difficulty), cause 'automaton'. */
+  damage: number;
+  /** Seconds of telegraph before the attack is released. */
+  windupS: number;
+  /** Seconds from the start of one wind-up to the start of the next: the attack period (always > windupS). */
+  cooldownS: number;
+  /** Blocks: reach of a melee blow or zap, range of a bolt, distance a dash starts from, radius of a slam. */
+  range: number;
+  /** Blocks within which it notices the player with line of sight (HOSTILE_SENSE_BLIND without). */
+  senseRange: number;
+  /** Flies HOSTILE_HOVER_MIN..MAX blocks above the ground instead of walking (no legs; gravity does not apply). */
+  flying?: boolean;
+  /** Never moves: turns to aim but stays where it was placed (speed 0). */
+  stationary?: boolean;
+  /** Damage multiplier on hits from the front (within 90 degrees of where it faces): a shield arm, 0.5 halves them. */
+  shieldFront?: number;
+  /** Horizontal speed (blocks per second) a landed hit throws the player back with. */
+  knockback?: number;
+  /** bolt: a hit also sets the player burning, `perS` damage a second for `seconds` (cause 'ember'). */
+  burn?: { seconds: number; perS: number };
+  /** zap: damage multiplier while the player stands in water. */
+  wetMult?: number;
+  /** bolt: launch speed in blocks per second. */
+  projectileSpeed?: number;
+  /** dash: charge speed in blocks per second. */
+  dashSpeed?: number;
+  habitat: HostileHabitat;
+}
+
+/** Projectiles in flight (spec 19.2). */
+export type ProjectileKind = 'ember_bolt';
 
 // ---------------------------------------------------------------------------------------------
 // Old Works loot (authored in src/content/loot.ts, rolled by src/world into the crates of ruins; spec 14)

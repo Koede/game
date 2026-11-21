@@ -98,6 +98,8 @@ const SMELT: RecipeSpec[] = [
   smelt('cooked_chop', 'cooked_chop', 'raw_chop', 200, 8),
   smelt('baked_potato', 'baked_potato', 'potato', 180, 6),
   smelt('bread', 'bread', 'dough', 220, 10),
+  // Spec 19.4: the old smiths' iron, taken back off the automatons.
+  smelt('iron_ingot_scrap', 'iron_ingot', 'scrap_metal', 1150, 10, 2),
 ];
 
 const FORGE: RecipeSpec[] = [
@@ -121,6 +123,8 @@ const FORGE: RecipeSpec[] = [
   // Transport (spec 16.1): the first pipe and the tool that sets its ends.
   forge(1, '8 item_pipe', '2 bronze_ingot, 1 glass', 800),
   forge(1, 'wrench', '3 bronze_ingot', 600),
+  // The Emberbound (spec 19.4): weapons for breaking metal.
+  forge(1, 'bronze_maul', '4 bronze_ingot, 2 stick', 700),
 
   // ---- Blast Furnace ----
   forge(2, 'iron_pickaxe', '3 iron_ingot, 2 stick', 1000),
@@ -156,6 +160,11 @@ const FORGE: RecipeSpec[] = [
   forge(2, 'tank', '4 iron_plate, 4 glass', 1000),
   forge(2, 'pump', '1 chassis, 1 copper_coil, 2 fluid_pipe', 1000),
   forge(2, 'boiler', '4 iron_plate, 2 copper_coil, 1 tank', 1100),
+  // The Emberbound (spec 19.4): heavier mauls, and armour worn from the pack.
+  forge(2, 'iron_maul', '4 iron_ingot, 2 stick', 1100),
+  forge(2, 'steel_maul', '4 steel_ingot, 2 stick', 1400),
+  forge(2, 'plated_coat', '6 iron_plate, 1 padded_coat', 1100),
+  forge(2, 'steel_cuirass', '6 steel_plate, 1 padded_coat', 1400),
 
   // ---- Arc Furnace ----
   forge(3, 'silicon_wafer', '2 silica, 1 coke', 1700),
@@ -171,6 +180,9 @@ const FORGE: RecipeSpec[] = [
   forge(3, '2 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),
   forge(3, 'power_port', '2 copper_coil, 2 ceramic_insulator, 1 iron_plate', 1200),
   forge(3, 'steam_turbine', '1 chassis, 4 steel_plate, 4 copper_coil', 1600),
+  // The Emberbound (spec 19.4): relic machines built around ember cores.
+  forge(3, 'arc_maul', '2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery', 1800),
+  forge(3, 'ward_beacon', '2 ember_core, 1 circuit, 2 steel_plate, 1 glass', 1500),
 
   // ---- Plasma Furnace ----
   forge(4, '2 superalloy', '2 steel_ingot, 1 tungsten_rod, 1 aluminum_ingot', 2600),
