@@ -19,19 +19,22 @@ import {
   MOB_STORED_CAP,
 } from '../core/constants';
 import type { GameBus } from '../core/context';
+import type { SfxName } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
-import { blockOf, itemOrNull } from '../core/registry';
 import type { CreatureSpec, IWorld } from '../core/types';
 import { bodyHeight, halfWidth, think, type BrainContext } from './brain';
 import { CALL_RANGE, CORPSE_FADE_S, FLASH_S, KNOCK_H, KNOCK_V, VOID_Y } from './constants';
-import { createMob, rollDrops } from './mob';
-import { embedded, stepBody, type StepInfo } from './physics';
+import { createMob, feedRefusal, rollDrops } from './mob';
+import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
 import { Spawner, type SpawnHost } from './spawner';
 import type { SpawnSpot } from './spawning';
 import { restoreMobs, saveMobs } from './persistence';
 import { MobTargets } from './targets';
 import type { BiomeLookup, DeathCause, FeedResult, HitResult, Mob, MobClock, MobDeath, MobPlayer, MobRayHit, MobsSnapshot, MobView } from './types';
 import { fillViews } from './views';
+
+/** A species' call: the sfx named like the creature (spec 12.7; src/audio ignores names it has no patch for). */
+const callOf = (spec: CreatureSpec): SfxName => spec.key as SfxName;
 
 export interface MobManagerOptions {
   /** Biome of a column. Default: `world.biomeAt` when the world has one, else always woodland. */
@@ -60,7 +63,8 @@ export class MobManager {
   private readonly viewList: MobView[] = [];
   private readonly deathListeners = new Set<(d: MobDeath) => void>();
   private readonly offs: (() => void)[] = [];
-  private readonly info: StepInfo = { blocked: false, inLava: false };
+  private readonly info: StepInfo = { blocked: false };
+  private readonly hazard: Hazard = { damage: 0, x: 0, z: 0 };
   private readonly brain: BrainContext;
   private readonly natural: boolean;
   private nextId = 1;
@@ -158,15 +162,8 @@ export class MobManager {
    */
   feed(id: number, itemKey: string): FeedResult {
     const m = this.byId.get(id);
-    if (!m || m.state === 'dying') return { ok: false, reason: 'Nothing to feed' };
-    const name = m.spec.name;
-    if (!m.spec.likes.includes(itemKey)) {
-      const liked = m.spec.likes.map((k) => itemOrNull(k)?.name ?? k).join(' or ');
-      return { ok: false, reason: `${name}s eat ${liked.toLowerCase()}` };
-    }
-    if (m.baby) return { ok: false, reason: `This ${name.toLowerCase()} is too young` };
-    if (m.cooldownS > 0) return { ok: false, reason: `This ${name.toLowerCase()} is not ready yet (${Math.ceil(m.cooldownS)} s)` };
-    if (m.eagerS > 0) return { ok: false, reason: `This ${name.toLowerCase()} is already keen` };
+    const refused = feedRefusal(m, itemKey);
+    if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing to feed' };
     m.eagerS = MOB_EAGER_S;
     this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     return { ok: true };
@@ -241,33 +238,16 @@ export class MobManager {
     m.speed = moved / dt;
     m.walk += moved;
 
-    if ((m.id + this.contactTick) % 5 === 0) this.contact(m, info.inLava, hw, h);
+    if ((m.id + this.contactTick) % 5 === 0) this.contact(m, hw, h);
     this.call(m, dt, player);
   }
 
   /** Hazards: lava (and any block with contact damage) touching the body, checked every 0.25 s. */
-  private contact(m: Mob, inLava: boolean, hw: number, h: number): void {
+  private contact(m: Mob, hw: number, h: number): void {
     if (m.contactS > 0) m.contactS -= DT * 5;
-    let worst = 0;
-    let hx = m.x;
-    let hz = m.z;
-    for (let cy = Math.floor(m.y); cy <= Math.floor(m.y + h); cy++) {
-      for (let cz = Math.floor(m.z - hw - 0.05); cz <= Math.floor(m.z + hw + 0.05); cz++) {
-        for (let cx = Math.floor(m.x - hw - 0.05); cx <= Math.floor(m.x + hw + 0.05); cx++) {
-          const dmg = blockOf(this.world.getVoxel(cx, cy, cz)).contactDamage;
-          if (dmg > worst) {
-            worst = dmg;
-            hx = cx + 0.5;
-            hz = cz + 0.5;
-          }
-        }
-      }
-    }
-    if (worst === 0 && inLava) worst = 4;
-    if (worst > 0 && m.contactS <= 0) {
-      m.contactS = 1;
-      this.hurt(m, worst, hx, hz, 'world');
-    }
+    if (m.contactS > 0 || contactHazard(this.world, m, hw, h, this.hazard) === 0) return;
+    m.contactS = 1;
+    this.hurt(m, this.hazard.damage, this.hazard.x, this.hazard.z, 'world');
   }
 
   private call(m: Mob, dt: number, player: MobPlayer): void {
@@ -275,7 +255,7 @@ export class MobManager {
     if (m.callS > 0) return;
     m.callS = MOB_CALL_MIN_S + this.rng() * (MOB_CALL_MAX_S - MOB_CALL_MIN_S);
     if ((m.x - player.x) ** 2 + (m.z - player.z) ** 2 > CALL_RANGE * CALL_RANGE) return;
-    this.bus.emit('sfx', { name: m.spec.key as 'hen', x: m.x, y: m.y + bodyHeight(m) * 0.8, z: m.z, pitch: m.baby ? 1.45 : 0.94 + this.rng() * 0.12 });
+    this.bus.emit('sfx', { name: callOf(m.spec), x: m.x, y: m.y + bodyHeight(m) * 0.8, z: m.z, pitch: m.baby ? 1.45 : 0.94 + this.rng() * 0.12 });
   }
 
   private hurt(m: Mob, damage: number, fromX: number, fromZ: number, cause: DeathCause): void {
@@ -296,7 +276,7 @@ export class MobManager {
     m.fleeS = 0;
     m.pendingDrops = cause === 'player' && !m.baby ? rollDrops(m.spec.drops, this.rng) : [];
     m.deathCause = cause;
-    this.bus.emit('sfx', { name: m.spec.key as 'hen', x: m.x, y, z: m.z, pitch: 0.75 });
+    this.bus.emit('sfx', { name: callOf(m.spec), x: m.x, y, z: m.z, pitch: 0.75 });
   }
 
   private finishDeath(m: Mob): void {
@@ -330,7 +310,7 @@ export class MobManager {
     }
     const spot: SpawnSpot = { x: (a.x + b.x) / 2, y: Math.max(a.y, b.y), z: (a.z + b.z) / 2, yaw: a.yaw };
     this.add(a.spec, spot, true);
-    this.bus.emit('sfx', { name: a.spec.key as 'hen', x: spot.x, y: spot.y + 0.5, z: spot.z, pitch: 1.3 });
+    this.bus.emit('sfx', { name: callOf(a.spec), x: spot.x, y: spot.y + 0.5, z: spot.z, pitch: 1.3 });
   }
 
   // ------------------------------------------------------------------------------------------ population

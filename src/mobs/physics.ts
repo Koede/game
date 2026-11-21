@@ -4,6 +4,7 @@
  * (solidHeight). Cells the box already overlaps are ignored, so an animal a block was placed into walks out.
  */
 import { GRAVITY } from '../core/constants';
+import { blockOf } from '../core/registry';
 import type { IWorld } from '../core/types';
 import { liquidAt, solidHeight } from './terrain';
 
@@ -30,8 +31,34 @@ export interface Body {
 export interface StepInfo {
   /** Horizontal movement was cut short by a wall. */
   blocked: boolean;
-  /** The waist is in lava (contact damage). */
-  inLava: boolean;
+}
+
+/** The worst contact damage touching a body and where it comes from (reused object). */
+export interface Hazard {
+  damage: number;
+  x: number;
+  z: number;
+}
+
+/**
+ * Largest contactDamage (per second: lava, cactus...) among the cells the body overlaps or touches sideways;
+ * writes it and the centre of that cell to `out`. Returns the damage (0 = safe).
+ */
+export function contactHazard(world: IWorld, b: Body, hw: number, h: number, out: Hazard): number {
+  out.damage = 0;
+  for (let cy = Math.floor(b.y); cy <= Math.floor(b.y + h); cy++) {
+    for (let cz = Math.floor(b.z - hw - 0.05); cz <= Math.floor(b.z + hw + 0.05); cz++) {
+      for (let cx = Math.floor(b.x - hw - 0.05); cx <= Math.floor(b.x + hw + 0.05); cx++) {
+        const dmg = blockOf(world.getVoxel(cx, cy, cz)).contactDamage;
+        if (dmg > out.damage) {
+          out.damage = dmg;
+          out.x = cx + 0.5;
+          out.z = cz + 0.5;
+        }
+      }
+    }
+  }
+  return out.damage;
 }
 
 /** Moves the body by `d` along one axis (0 x, 1 y, 2 z), stopping at solid cells. Returns the distance moved. */
@@ -96,7 +123,6 @@ export function stepBody(world: IWorld, b: Body, hw: number, h: number, dt: numb
   const waist = liquidAt(world, Math.floor(b.x), Math.floor(b.y + h * 0.45), Math.floor(b.z));
   const feet = liquidAt(world, Math.floor(b.x), Math.floor(b.y + 0.05), Math.floor(b.z));
   b.inLiquid = waist !== null || feet !== null;
-  info.inLava = waist === 'lava' || feet === 'lava';
   info.blocked = false;
   if (waist !== null) {
     b.vy = Math.min(b.vy + 22 * dt, 1.8);

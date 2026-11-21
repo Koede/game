@@ -21,7 +21,7 @@ import type { Mob, MobPlayer } from './types';
 /** Fraction of the species speed used while wandering (following and breeding use the full speed). */
 export const WANDER_SPEED = 0.55;
 export const SWIM_SPEED = 0.6;
-/** Seconds without getting closer to a walk target before giving up on it. */
+/** Seconds pressing against a wall before giving up on a wander target. */
 export const STUCK_S = 2;
 /** A baby farther than this from the nearest adult of its kind trots back to it. */
 export const BABY_LEASH = 5;
@@ -302,15 +302,13 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
 function idleCycle(ctx: BrainContext, m: Mob, dt: number): void {
   m.stateS -= dt;
   if (m.state === 'wander') {
-    const before = (m.tx - m.x) ** 2 + (m.tz - m.z) ** 2;
     const r = steer(ctx, m, m.tx, m.tz, m.spec.speed * WANDER_SPEED, 0.4, dt);
     if (r !== 'moving') {
       setState(m, 'idle', 1 + ctx.rng() * 2);
       return;
     }
-    // Making no headway (a wall the hop cannot clear): give up after a while.
-    const after = (m.tx - m.x - m.vx * dt) ** 2 + (m.tz - m.z - m.vz * dt) ** 2;
-    m.stuckS = m.blocked && after >= before - 1e-4 ? m.stuckS + dt : Math.max(0, m.stuckS - dt);
+    // Pressing against a wall the hop cannot clear: give up after a while.
+    m.stuckS = m.blocked ? m.stuckS + dt : Math.max(0, m.stuckS - dt);
     if (m.stuckS > STUCK_S || m.stateS <= 0) setState(m, 'idle', 1 + ctx.rng() * 2);
     return;
   }
@@ -334,16 +332,8 @@ function idleCycle(ctx: BrainContext, m: Mob, dt: number): void {
         cz = a.z;
       }
     }
-    if (pickWanderTarget(ctx, m, cx, cz)) {
-      const t = m.tx;
-      const z = m.tz;
-      setState(m, 'wander', 10);
-      m.tx = t;
-      m.tz = z;
-      m.hasTarget = true;
-      return;
-    }
-    setState(m, 'idle', 1 + ctx.rng() * 2);
+    setState(m, 'wander', 10);
+    if (!pickWanderTarget(ctx, m, cx, cz)) setState(m, 'idle', 1 + ctx.rng() * 2);
   } else if (pick < 0.72) {
     setState(m, 'graze', 3 + ctx.rng() * 4);
   } else {

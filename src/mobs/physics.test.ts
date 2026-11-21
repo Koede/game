@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { DT } from '../core/constants';
-import { embedded, HOP_VELOCITY, stepBody, type Body, type StepInfo } from './physics';
+import { contactHazard, embedded, HOP_VELOCITY, stepBody, type Body, type StepInfo } from './physics';
 import { FlatWorld } from './testKit';
 
 const body = (x: number, y: number, z: number): Body => ({ x, y, z, vx: 0, vy: 0, vz: 0, onGround: false, inLiquid: false });
-const info = (): StepInfo => ({ blocked: false, inLava: false });
+const info = (): StepInfo => ({ blocked: false });
 const HW = 0.4;
 const H = 0.9;
 
@@ -97,12 +97,15 @@ describe('animal physics', () => {
     expect(b.y).toBeLessThan(11.2);
   });
 
-  it('reports lava contact', () => {
+  it('finds lava touching the body, also beside it', () => {
     const w = new FlatWorld();
-    w.put(0, 10, 0, 'lava');
-    const b = body(0.5, 11, 0.5);
-    const i = run(w, b, 0.5);
-    expect(i.inLava).toBe(true);
+    const b = body(0.58, 11, 0.5);
+    const hz = { damage: 0, x: 0, z: 0 };
+    expect(contactHazard(w, b, HW, H, hz)).toBe(0);
+    w.put(1, 11, 0, 'lava');
+    expect(contactHazard(w, b, HW, H, hz)).toBe(4);
+    expect(hz.x).toBe(1.5);
+    expect(hz.z).toBe(0.5);
   });
 
   it('a body inside a block walks out instead of sticking', () => {

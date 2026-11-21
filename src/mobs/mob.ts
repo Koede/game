@@ -66,6 +66,20 @@ export function rollDrops(drops: readonly Drop[], rng: () => number): ItemAmount
   return out;
 }
 
+/** Why an animal will not take `itemKey` right now, or null when it will (spec 12.5 breeding rules). */
+export function feedRefusal(m: Mob | undefined, itemKey: string): string | null {
+  if (!m || m.state === 'dying') return 'Nothing to feed';
+  const name = m.spec.name.toLowerCase();
+  if (!m.spec.likes.includes(itemKey)) {
+    const liked = m.spec.likes.map((k) => itemOrNull(k)?.name ?? k).join(' or ');
+    return `${m.spec.name}s eat ${liked.toLowerCase()}`;
+  }
+  if (m.baby) return `This ${name} is too young`;
+  if (m.cooldownS > 0) return `This ${name} is not ready yet (${Math.ceil(m.cooldownS)} s)`;
+  if (m.eagerS > 0) return `This ${name} is already keen`;
+  return null;
+}
+
 /**
  * Damage of one hit with the item in hand (spec 12.5): 1 by hand or with anything that is not a tool, an axe
  * tier + 2, a pickaxe or shovel tier + 1, a hoe 1. Tools lose 1 durability per hit (the caller wears them).

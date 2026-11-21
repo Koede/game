@@ -41,7 +41,8 @@ export const groupSize = (spec: CreatureSpec, pick: number): number =>
 
 /**
  * Places up to `count` members around an anchor column (whose spawn cell must be valid): each member on a valid
- * spawn cell within GROUP_SPREAD of the anchor and at most two blocks above or below it, never two on one cell.
+ * spawn cell within GROUP_SPREAD of the anchor, inside the anchor's chunk column (so a roll never depends on
+ * whether a neighbouring chunk happens to be loaded), at most two blocks above or below it, one per cell.
  */
 export function placeGroup(world: IWorld, spec: CreatureSpec, ax: number, az: number, count: number, rand: () => number): SpawnSpot[] {
   const clearance = clearanceOf(spec.size.h);
@@ -49,9 +50,9 @@ export function placeGroup(world: IWorld, spec: CreatureSpec, ax: number, az: nu
   if (ay < 0) return [];
   const spots: SpawnSpot[] = [{ x: ax + 0.5, y: ay, z: az + 0.5, yaw: rand() * Math.PI * 2 }];
   for (let k = 1; k < count; k++) {
-    for (let attempt = 0; attempt < 8; attempt++) {
-      const x = ax + Math.floor(rand() * (GROUP_SPREAD * 2 + 1)) - GROUP_SPREAD;
-      const z = az + Math.floor(rand() * (GROUP_SPREAD * 2 + 1)) - GROUP_SPREAD;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const x = clampToChunk(ax + Math.floor(rand() * (GROUP_SPREAD * 2 + 1)) - GROUP_SPREAD, ax);
+      const z = clampToChunk(az + Math.floor(rand() * (GROUP_SPREAD * 2 + 1)) - GROUP_SPREAD, az);
       if (spots.some((s) => Math.floor(s.x) === x && Math.floor(s.z) === z)) continue;
       const y = spawnCell(world, x, z, clearance);
       if (y < 0 || Math.abs(y - ay) > 2) continue;
@@ -60,6 +61,12 @@ export function placeGroup(world: IWorld, spec: CreatureSpec, ax: number, az: nu
     }
   }
   return spots;
+}
+
+/** `v` moved into the chunk column (along one axis) that contains `anchor`. */
+function clampToChunk(v: number, anchor: number): number {
+  const lo = Math.floor(anchor / CHUNK_SIZE) * CHUNK_SIZE;
+  return v < lo ? lo : v > lo + CHUNK_SIZE - 1 ? lo + CHUNK_SIZE - 1 : v;
 }
 
 /** A deterministic random source for one roll of one chunk. */
@@ -83,8 +90,9 @@ export function rollChunk(world: IWorld, seed: number, cx: number, cz: number, b
   const clearance = clearanceOf(spec.size.h);
   for (let i = 0; i < 16; i++) {
     const h = hash32(seed ^ SALT_ANCHOR, cx, cz, i);
-    const x = x0 + (h & 15);
-    const z = z0 + ((h >>> 4) & 15);
+    // Anchors keep off the chunk's rim so the group has room around them.
+    const x = x0 + 2 + ((h & 0xffff) % 12);
+    const z = z0 + 2 + ((h >>> 16) % 12);
     if (!spec.biomes.includes(biomeAt(x, z))) continue;
     if (spawnCell(world, x, z, clearance) < 0) continue;
     const rand = chunkRand(seed, cx, cz, SALT_MEMBER);
