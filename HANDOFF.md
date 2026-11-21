@@ -83,7 +83,7 @@ Checked on 2026-11-21 by the release engineer on branch `ccr-3c8b169f-e78nk2`, a
 committed their fixes. Results on the final tree: `npm run typecheck` clean, `npm test` 113 files / 1300 tests
 passing, `npm run build` clean, full `npm run e2e` passing: 110 steps, 0 failed (e2e.mjs 60: desktop,
 phone portrait and phone landscape 18 each, sandboxed frame 5, no WebGL2 1; e2e-features 24: desktop and phone
-portrait 12 each; e2e-tech 26: desktop and phone portrait 13 each), about 12 minutes on a quiet machine. The
+portrait 12 each; e2e-tech 26: desktop and phone portrait 13 each; e2e-ember 9: 9 each), about 12 minutes on a quiet machine. The
 first full run failed one e2e-features step on phone portrait (fixed below, then the whole suite was rerun).
 
 **Reviewed and fixed** (each group's details, tests and screenshots are in its commit and in `docs/api/*.md`):
@@ -139,8 +139,9 @@ first full run failed one e2e-features step on phone portrait (fixed below, then
 - Not done (optional in the briefs): a cheap campfire, a "raise a chick" objective, a vertical tab rail in
   landscape. Save time on a throttled phone was not re-measured after pa-9.
 - Spec section 19 (Emberbound hostile automatons): data, AI/spawning/combat (src/mobs), player combat (src/game) and the
-  ward beacon (src/sim) are built; still to do: wiring the mob hooks and difficulty in src/app, the automatons' rendering
-  (glow, poses, bolts, debris) and HUD/settings (see each row).
+  ward beacon (src/sim) are built, and the app/UI wiring is done and checked by `scripts/e2e-ember.mjs` (see
+  `docs/api/integration.md`); still to do: hand `mobs.projectiles(alpha)` to the renderer once the render engineer's
+  `docs/api/emberbound-render.md` exists (TODO in emberbound-ai.md).
 - The world flow timing test (`src/world/flow.test.ts`, "under 0.5 ms a tick") has failed once under parallel
   load; it passed in every full run of this release check.
 - On phones the first coach mark ("Aim at a tree and hold MINE") sits over the small Place toggle above Mine

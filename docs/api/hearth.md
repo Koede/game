@@ -286,8 +286,7 @@ interface FluidEndpoint {
   superalloy, ~240 copper coils). As the tech-content notes say, consider 4 casings per craft or a smaller Star shell.
 - Machine fluid behaviour (consuming the new buffers) and the boiler are the transport engineer's.
 - The STRUCTURE tab, problem highlight and ghost rendering are UI/render work on `structureView`. Not shown by the tab
-  yet (sim-7, the sim side is complete and tested in hearthView.test.ts / fixes.test.ts): `note`,
-  `target.shiftLeft`/`shiftRight` (shift buttons) and `target.machines`.
+  yet: nothing - `note`, `target.shiftLeft`/`shiftRight` and `target.machines` are now shown by the tab.
 - `hearthScan.ts` is ~440 lines (aim 350) since the scan was split into `findBox` + `classify` with the prev-box check.
 - A shell block shared by two formed hearths is mapped to the later one (proxies, links); bits stay correct.
 - `src/sim/simulation.ts` is 553 lines (it was 452; aim 350) - the facade gained the hearth and endpoint members.

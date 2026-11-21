@@ -132,13 +132,15 @@ async function chooseDifficulty(d, value) {
  * Swings the selected weapon with the real Mine control at automaton `id` until it breaks apart (aim follows it).
  * Returns the number of swings that landed.
  */
-async function fight(d, id, timeoutMs = 30_000) {
+async function fight(d, id, timeoutTicks = 900) {
+  // Game ticks, not wall time (slow software rendering stretches a second): 900 ticks = 45 game seconds, wall cap 3 min.
   const started = Date.now();
+  const t0 = (await d.state()).ticks;
   let landed = 0;
   let last = Infinity;
   let down = false;
   let downAt = 0;
-  while (Date.now() - started < timeoutMs) {
+  while (Date.now() - started < 180_000 && (await d.state()).ticks - t0 < timeoutTicks) {
     const m = await aimAtHostile(d, id);
     if (!m) break;
     if (m.health < last) {
@@ -233,9 +235,9 @@ export async function emberSteps({ d, step, assert, page }) {
     const id = await spawn(d, 'cinder_mite', along(s, 16));
     ctx.mite = id;
     await d.settle(200);
-    const windup = await waitFor(page, (id) => window.__ember.find((x) => x.n === 'hostile:windup' && x.e.id === id), 'the mite to wind up', { timeout: 30_000, interval: 50, arg: id });
+    const windup = await waitFor(page, (id) => window.__ember.find((x) => x.n === 'hostile:windup' && x.e.id === id), 'the mite to wind up', { timeout: 120_000, interval: 50, arg: id });
     await d.shot('02-mite-windup');
-    const bite = await waitFor(page, () => window.__ember.find((x) => x.n === 'player:attacked'), 'the bite', { timeout: 15_000, interval: 50 });
+    const bite = await waitFor(page, () => window.__ember.find((x) => x.n === 'player:attacked'), 'the bite', { timeout: 60_000, interval: 50 });
     await d.settle(300);
     await d.shot('03-mite-bit');
     const st = await d.state();

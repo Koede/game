@@ -349,6 +349,27 @@ the bus. Real input for everything under test:
 Screenshots in `test-results/e2e-tech/`. Taps that span a slow software frame read as a hold (as on a stalling phone);
 the steps tap again only when nothing changed.
 
+### scripts/e2e-ember.mjs (+ scripts/lib/e2eEmber.mjs) - run by `npm run e2e` after e2e-tech (Emberbound, spec 19)
+Desktop and phone portrait, real input; `window.__hw` only sets up (time, a level strip, give, the automaton placed,
+aiming, furnace fast-forward) and reads. 7 steps per device plus the console check: a clay furnace placed with Use at
+night; a bronze maul forged at the furnace screen; a Cinder Mite placed near the player winds up (`hostile:windup`),
+bites 6 ticks later and health drops, every bite announced once and dealt once (one damage path); the maul breaks mites
+apart and scrap comes (`automaton:salvaged`); a Forge Warden never comes nearer than the clay furnace's 6-block warm
+zone (measured ~7.0) and nothing hurts the player; a fatal blow names the killer on the death screen ("Felled by a Forge
+Warden"); Peaceful from pause -> Settings removes every natural automaton, then Normal again. Waits are game ticks (fight
+cap 900 ticks), wall-time caps only as a safety net. Screenshots in `test-results/e2e-ember/`.
+
+### Emberbound wiring audit (app + UI)
+Connected: hooks and difficulty (state.ts), crosshair name + health for automatons (`showAnimalName` uses `mobs.describe`),
+directional damage pulse on `player:attacked`, off-screen wind-up arrow on `hostile:windup`, Burning chip and edge flames
+(`combat.burning`), death screen `killerLine` + telegraph hint, Settings Difficulty and UI size (Large scales the touch
+overlay), New World Difficulty, How to Play Emberbound card, save/load (`mobs.toJSON` carries `hostiles`).
+Not connected: projectiles are not given to the renderer (no `docs/api/emberbound-render.md` yet; TODO in
+`emberbound-ai.md`).
+Hearth STRUCTURE tab now shows `target.shiftLeft/shiftRight` ("Shift left / right" buttons, "Position n of m"; the chosen
+offset is kept in `HearthGhost` and dropped when tier or size changes), the `machines` list ("In the way", "Move the X
+first", tap highlights it) and `view.note` (neutral line in the problems area).
+
 ### Known gaps
 - No long-press on touch for the pipe screen (see above).
 - Wrench-parted joints still draw their arm (mesher, render-machines.md); the wrench targets them through the core.
