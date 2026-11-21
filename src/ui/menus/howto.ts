@@ -1,6 +1,6 @@
 /**
  * How to Play: the core loop in five lines, staying alive (food, farming, animals, cold), building big (hearths,
- * pipes), then the controls for keyboard + mouse and for touch.
+ * pipes), the Emberbound automatons, then the controls for keyboard + mouse and for touch.
  */
 import { Segmented } from '../kit/controls';
 import { h } from '../kit/dom';
@@ -84,6 +84,16 @@ const BUILDING: readonly Tip[] = [
   { icon: 'bolt', text: 'Machines need watts: join them to generators with cable, and add batteries to cover the gaps.' },
 ];
 
+/** The Emberbound (spec 19): who they are and how to live with them. */
+export const EMBERBOUND: readonly Tip[] = [
+  { icon: 'automaton', text: 'Long ago this land burned bright with machines; the Old Works were their forges. Some still walk, fed by the last embers in their cores, and they wake in the dark.' },
+  { icon: 'home', text: 'A hot furnace is safe ground: no automaton steps into its warmth or strikes you there. Torches and lamps keep them from appearing nearby, and at dawn those under open sky wind down.' },
+  { icon: 'warn', text: 'Every attack is telegraphed: when the embers flare and the hiss rises, step out of reach. An ember arrow at the screen edge marks one winding up out of view.' },
+  { icon: 'maul', text: 'Mine on an automaton to strike it. Mauls, forged from bronze, iron or steel, hit hardest. Broken apart, they drop scrap and ember cores - the hottest early fuel.' },
+  { icon: 'shield', text: 'Armour works from the backpack like the padded coat: a plated coat takes a quarter off each blow, a steel cuirass two fifths.' },
+  { icon: 'bolt', text: 'A powered ward beacon keeps them 32 blocks away all round your base. Rather build in peace? Choose Peaceful in Settings.' },
+];
+
 /** Entries of `keys` drawn as plain separators between caps, not as caps. */
 const SEPARATORS = new Set(['–', '/']);
 
@@ -129,6 +139,7 @@ export class HowToPlay {
       ),
       this.tips('Staying alive', 'var(--hw-food)', LIVING),
       this.tips('Building big', 'var(--hw-power)', BUILDING),
+      this.tips('The Emberbound', '#ff7a2a', EMBERBOUND),
       h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch),
     );
   }

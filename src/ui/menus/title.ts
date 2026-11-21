@@ -1,19 +1,24 @@
 /** The front door: wordmark, one line of promise, and the way into a world. */
-import type { Settings } from '../../core/context';
-import { Button, TextField } from '../kit/controls';
-import { h } from '../kit/dom';
+import type { Difficulty, Settings } from '../../core/context';
+import { Button, Segmented, TextField } from '../kit/controls';
+import { h, setText } from '../kit/dom';
 import { heatColor } from '../kit/format';
 import type { UIRoot } from '../kit/root';
+import { applyUiScale } from '../kit/uiScale';
 import { Window } from '../kit/window';
 import { EmberField } from './fire';
 import { HowToPlay, type HowToPlayOptions } from './howto';
 import { SettingsPanel } from './settings';
+import { DIFFICULTY_OPTIONS, difficultyHint } from './settingsText';
 
 export interface TitleScreenOptions {
   /** Whether a saved world exists: adds Continue and makes New World a hold-to-confirm button. */
   hasSave: boolean;
   settings: Settings;
-  /** Start a fresh world. `seed` is what the player typed, or null for a random world. */
+  /**
+   * Start a fresh world. `seed` is what the player typed, or null for a random world. The difficulty picked beside
+   * New World has already been passed to `onSettingsChange` (key 'difficulty'): read it from the settings.
+   */
   onNewWorld: (seed: string | null) => void;
   onContinue: () => void;
   /** Same contract as SettingsPanel: called on every change with a fresh copy. */
@@ -43,6 +48,8 @@ export class TitleScreen {
   private readonly wordmark: HTMLHeadingElement;
   private readonly fitObserver: ResizeObserver | null;
   private readonly seed: TextField;
+  private readonly difficulty: Segmented<Difficulty>;
+  private readonly difficultyHint: HTMLParagraphElement;
   private settings: Settings;
   private hasSave: boolean;
   private buttons: Button[] = [];
@@ -61,6 +68,17 @@ export class TitleScreen {
       mono: true,
       onEnter: () => (this.hasSave ? undefined : this.newWorld()),
     });
+    this.difficultyHint = h('p', { class: 'hw-title__hint', text: difficultyHint(this.settings.difficulty) });
+    this.difficulty = new Segmented<Difficulty>({
+      label: 'Difficulty',
+      options: [...DIFFICULTY_OPTIONS],
+      value: this.settings.difficulty,
+      onChange: (d) => {
+        setText(this.difficultyHint, difficultyHint(d));
+        this.changeSettings({ ...this.settings, difficulty: d }, 'difficulty');
+      },
+    });
+    applyUiScale(root.el, this.settings.uiScale);
     this.menu = h('div', { class: 'hw-title__menu' });
     const ages = opts.ages ?? DEFAULT_AGES;
     this.wordmark = h(
@@ -166,7 +184,19 @@ export class TitleScreen {
     this.buttons = [newWorld, settings, howTo, ...(resume ? [resume] : [])];
     this.menu.replaceChildren(
       ...(resume ? [resume.el] : []),
-      h('div', { class: 'hw-title__new' }, newWorld.el, this.seed.el),
+      h(
+        'div',
+        { class: 'hw-title__new' },
+        newWorld.el,
+        this.seed.el,
+        h(
+          'div',
+          { class: 'hw-title__difficulty' },
+          h('span', { class: 'hw-title__label', text: 'Difficulty' }),
+          this.difficulty.el,
+          this.difficultyHint,
+        ),
+      ),
       h('div', { class: 'hw-title__pair' }, settings.el, howTo.el),
     );
   }
@@ -174,6 +204,17 @@ export class TitleScreen {
   private newWorld(): void {
     const seed = this.seed.value.trim();
     this.opts.onNewWorld(seed === '' ? null : seed);
+  }
+
+  /** Every settings change made on the title (its Settings window or the New World difficulty) goes through here. */
+  private changeSettings(settings: Settings, key: keyof Settings): void {
+    this.settings = settings;
+    if (key === 'difficulty') {
+      this.difficulty.set(settings.difficulty);
+      setText(this.difficultyHint, difficultyHint(settings.difficulty));
+    }
+    applyUiScale(this.root.el, settings.uiScale);
+    this.opts.onSettingsChange({ ...settings }, key);
   }
 
   private openSub(win: Window): void {
@@ -184,10 +225,7 @@ export class TitleScreen {
   private openSettings(): void {
     const panel = new SettingsPanel({
       settings: this.settings,
-      onChange: (settings, key) => {
-        this.settings = settings;
-        this.opts.onSettingsChange(settings, key);
-      },
+      onChange: (settings, key) => this.changeSettings(settings, key),
     });
     this.openSub(new Window({ title: 'Settings', size: 'md', body: panel.el, onClose: () => (this.sub = null) }));
   }

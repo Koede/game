@@ -7,6 +7,7 @@ import { Button } from '../../kit/controls';
 import { h, setText } from '../../kit/dom';
 import { Window } from '../../kit/window';
 import { hungerNote } from '../food';
+import { AUTOMATON_GEAR_LINE, automatonDeath } from './deathText';
 
 /** A cold death says what chilled the player (PlayerState.coldCause) and the remedy for that. */
 const COLD_DEATHS: Record<ColdCause, { title: string; line: string }> = {
@@ -34,7 +35,7 @@ const CAUSES: Record<DamageCause, { title: string; line: string }> = {
   radiation: { title: 'Radiation sickness', line: 'Pitchblende and hot piles poison slowly. A shield suit cuts the dose tenfold.' },
   explosion: { title: 'Caught in the blast', line: 'A fission pile without water melts down. Keep two water blocks beside it.' },
   burn: { title: 'You burned', line: 'Something hot was too close for too long.' },
-  // Spec 19: generic lines until the death screen names the automaton ("Felled by a Forge Warden").
+  // Spec 19: used only when the attacker is unknown; otherwise automatonDeath names it ("Felled by a Forge Warden").
   automaton: { title: 'Felled by an automaton', line: 'Every attack is telegraphed: when the embers flare, step out of reach. Your hot furnace is safe ground.' },
   ember: { title: 'The embers caught you', line: 'An ember bolt sets you burning for a moment. Keep walls between you and a kiln sentry.' },
   hunger: {
@@ -54,8 +55,10 @@ export function wakeText(ctx: ScreenContext): string {
 }
 
 export function createDeathScreen(ctx: ScreenContext, respawn: () => void): GameScreen {
-  const { deathCause, coldCause } = ctx.player;
-  const cause = deathCause === 'cold' && coldCause ? COLD_DEATHS[coldCause] : CAUSES[deathCause ?? 'burn'];
+  const { deathCause, coldCause, killedBy } = ctx.player;
+  const killed = automatonDeath(deathCause, killedBy);
+  const cause = killed ?? (deathCause === 'cold' && coldCause ? COLD_DEATHS[coldCause] : CAUSES[deathCause ?? 'burn']);
+  const fought = deathCause === 'automaton' || deathCause === 'ember';
   const starving = hungerNote(ctx.player.deathCause, ctx.player.food);
   const wake = h('p', { class: 'hw-death__wake' });
   const deaths = h('p', { class: 'hw-death__count hw-num' });
@@ -74,6 +77,7 @@ export function createDeathScreen(ctx: ScreenContext, respawn: () => void): Game
     'div',
     { class: 'hw-death' },
     h('p', { class: 'hw-death__line', text: cause.line }),
+    fought ? h('p', { class: 'hw-death__line', text: AUTOMATON_GEAR_LINE }) : null,
     starving ? h('p', { class: 'hw-death__line hw-death__hunger', text: starving }) : null,
     h('p', { class: 'hw-death__kept', text: 'Your pack is safe: everything you carried is still with you.' }),
     wake,

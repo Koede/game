@@ -1,6 +1,6 @@
 /**
- * Health, warmth (with its trend), food (Hungry / starving), air while under water, the Well-Warmed / Well-Fed
- * buffs, and one short visible line saying why warmth falls or that food is low (titles never show on touch).
+ * Health, warmth (with its trend), food (Hungry / starving), air while under water, the Burning / Well-Warmed /
+ * Well-Fed pills, and one short visible line saying why warmth falls or that food is low (titles never show on touch).
  */
 import { MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, WELL_WARMED_AFTER_S } from '../../core/constants';
 import { survivalNote, type SurvivalNoteTone } from '../../game/cold';
@@ -100,6 +100,8 @@ export class Vitals {
   private readonly hungerTag: HTMLSpanElement;
   private readonly warmBuff = new BuffPill('warm', 'flame');
   private readonly fedBuff = new BuffPill('fed', 'bowl');
+  /** Spec 19: an ember bolt's burning (PlayerCombat.burning), first in the row. */
+  private readonly burnBuff = new BuffPill('burn', 'flame');
   private readonly buffs: HTMLDivElement;
   private readonly note: HTMLDivElement;
   private shownNote = '';
@@ -113,7 +115,7 @@ export class Vitals {
     this.hungerTag = h('span', { class: 'hw-vital__trend hw-vital__hunger' });
     this.food = new VitalBar('food', 'bowl', 'Food', this.hungerTag);
     this.air.el.hidden = true;
-    this.buffs = h('div', { class: 'hw-buffs' }, this.warmBuff.el, this.fedBuff.el);
+    this.buffs = h('div', { class: 'hw-buffs' }, this.burnBuff.el, this.warmBuff.el, this.fedBuff.el);
     this.buffs.hidden = true;
     this.note = h('div', { class: 'hw-vitals__note', style: NOTE_STYLE, attrs: { role: 'status' } });
     this.note.hidden = true;
@@ -163,9 +165,13 @@ export class Vitals {
     const fed = survival.hunger.wellFedTimeLeftS;
     if (fed > 0) this.fedBuff.show('Well-Fed', clockTime(fed), false, 'Well-Fed: you heal twice as fast and get hungry half as quickly');
     else this.fedBuff.hide();
-    const none = this.warmBuff.el.hidden && this.fedBuff.el.hidden;
+    const combat = player.combat;
+    if (combat.burning) this.burnBuff.show('Burning', `${Math.max(1, Math.ceil(combat.burnTimeLeftS))} s`, false, 'Burning: water puts it out');
+    else this.burnBuff.hide();
+    const none = this.warmBuff.el.hidden && this.fedBuff.el.hidden && this.burnBuff.el.hidden;
     if (this.buffs.hidden !== none) this.buffs.hidden = none;
     // Phones show both pills side by side as glyph + time (hud.css); one alone keeps its name.
-    setFlag(this.buffs, 'both', !this.warmBuff.el.hidden && !this.fedBuff.el.hidden);
+    const shown = Number(!this.warmBuff.el.hidden) + Number(!this.fedBuff.el.hidden) + Number(!this.burnBuff.el.hidden);
+    setFlag(this.buffs, 'both', shown >= 2);
   }
 }

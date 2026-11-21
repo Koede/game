@@ -31,6 +31,12 @@ const GLYPHS = {
   /** A steaming bowl: food (the HUD's food meter, Well-Fed). */
   bowl:
     'M5.6 1.2C4.5 2.6 4.6 3.4 5.4 4.3c.6.7.6 1.3.1 1.9l1.1.4c.7-.8.7-1.8-.1-2.7-.6-.7-.7-1.2.2-2.2ZM9.1 1.2C8 2.6 8.1 3.4 8.9 4.3c.6.7.6 1.3.1 1.9l1.1.4c.7-.8.7-1.8-.1-2.7-.6-.7-.7-1.2.2-2.2ZM1 7.6h14c0 3.6-3 5.8-7 5.8S1 11.2 1 7.6ZM5.5 13.7h5V15h-5Z',
+  /** A maul: the Emberbound section of How to Play. */
+  maul: 'M2 2h10v5H2ZM12 3h2v3h-2ZM6 7h2.5v8H6Z',
+  /** A shield: armour. */
+  shield: 'M8 1 14 3v5c0 3.6-2.6 6-6 7-3.4-1-6-3.4-6-7V3Zm0 2.2L4 4.5V8c0 2.4 1.6 4.2 4 5Z',
+  /** An automaton's head with its two ember eyes cut out: the Emberbound. */
+  automaton: 'M7 0h2v2H7ZM3 2.5h10V12H3ZM5 6v2.2h2.2V6Zm3.8 0v2.2H11V6ZM4.5 12.5h2.5V16H4.5Zm4.5 0h2.5V16H9Z',
 } as const;
 
 export type GlyphName = keyof typeof GLYPHS;

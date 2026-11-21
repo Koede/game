@@ -12,3 +12,4 @@ export * from './recipe';
 export * from './scrollFade';
 export * from './gauges';
 export * from './feedback';
+export * from './uiScale';

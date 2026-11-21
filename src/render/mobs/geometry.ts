@@ -2,7 +2,8 @@
  * One BufferGeometry per species, built from its CreatureSpec boxes: every part's six faces, in blocks, with the
  * attributes the animal shader animates and lights per vertex:
  *   aColor  the part colour (display space)        aPivot  the part's pivot, blocks
- *   aPart   0 rigid, 1 head, 2 legs swinging forward with the stride phase, 3 legs swinging backward
+ *   aPart   0 rigid, 1 head, 2 legs swinging forward with the stride phase, 3 legs swinging backward,
+ *           4 left arm, 5 right arm (automatons); + EMISSIVE_FLAG for an ember part (spec 19.5)
  *   normal  face normal (model space)              uv      position on the face in model pixels (1/16 block),
  *                                                          offset per box so neighbouring boxes do not share noise
  *   aFeature  centre of the part's box and 1 for grown-up features (horns, tusks) that young animals only
@@ -14,11 +15,14 @@ import type { CreatureAnim, CreaturePart, CreatureSpec } from '../../core/types'
 
 /**
  * Animation group of each anim tag. Legs swing in diagonal pairs (FL with BR, FR with BL); an automaton's middle legs
- * join them (MR with FL/BR, ML with FR/BL). Automaton arms (spec 19) are rigid here until their wind-up is animated.
+ * join them (MR with FL/BR, ML with FR/BL). Automaton arms (spec 19) pivot at the shoulder on their own angle.
  */
 export const PART_GROUP: Record<CreatureAnim, number> = {
-  none: 0, head: 1, legFL: 2, legBR: 2, legMR: 2, legFR: 3, legBL: 3, legML: 3, armL: 0, armR: 0,
+  none: 0, head: 1, legFL: 2, legBR: 2, legMR: 2, legFR: 3, legBL: 3, legML: 3, armL: 4, armR: 5,
 };
+
+/** Added to `aPart` for an emissive (ember) part; the shader splits it off again. */
+export const EMISSIVE_FLAG = 8;
 
 const PX = 1 / 16;
 
@@ -62,7 +66,7 @@ export function buildSpeciesGeometry(spec: CreatureSpec): SpeciesGeometry {
   let reach = 0;
   parts.forEach((p: CreaturePart, pi) => {
     const group = PART_GROUP[p.anim];
-    if (group >= 2) legHeight = Math.max(legHeight, (p.to[1] - p.from[1]) * PX);
+    if (group === 2 || group === 3) legHeight = Math.max(legHeight, (p.to[1] - p.from[1]) * PX);
     top = Math.max(top, p.to[1] * PX);
     const pivot = p.pivot ?? [0, 0, 0];
     const r = ((p.color >> 16) & 255) / 255;
@@ -85,7 +89,7 @@ export function buildSpeciesGeometry(spec: CreatureSpec): SpeciesGeometry {
         uv[v * 2 + 1] = corner[f.v] + ov;
         col.set([r, g, b], v * 3);
         piv.set([pivot[0] * PX, pivot[1] * PX, pivot[2] * PX], v * 3);
-        grp[v] = group;
+        grp[v] = group + (p.emissive ? EMISSIVE_FLAG : 0);
         feat.set(centre, v * 4);
         v++;
       }

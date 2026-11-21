@@ -3,6 +3,7 @@ import type { Settings } from '../../core/context';
 import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
+import { DIFFICULTY_OPTIONS, difficultyHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
 export const SETTINGS_LIMITS = {
@@ -37,8 +38,10 @@ export class SettingsPanel {
     this.el = h(
       'div',
       { class: 'hw-settings' },
+      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint)),
       this.section(
         'View',
+        this.choice('uiScale', 'UI size', UI_SCALE_OPTIONS, uiScaleHint),
         this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', L.renderDistance, (v) => `${v} chunks`),
         this.slider('fov', 'Field of view', '', L.fov, (v) => `${v}°`),
         this.toggle('showFps', 'Show frame rate', ''),
@@ -75,13 +78,38 @@ export class SettingsPanel {
     return h('section', { class: 'hw-settings__section' }, h('h3', { class: 'hw-heading', text: title }), rows);
   }
 
-  private row(label: string, hint: string, control: HTMLElement, wide: boolean): HTMLElement {
+  private row(label: string, hint: string | HTMLElement, control: HTMLElement, wide: boolean): HTMLElement {
+    const hintEl = typeof hint === 'string' ? (hint ? h('div', { class: 'hw-setting__hint', text: hint }) : null) : hint;
     return h(
       'div',
       { class: ['hw-setting', wide && 'hw-setting--wide'] },
-      h('div', { class: 'hw-setting__text' }, h('div', { class: 'hw-setting__label', text: label }), hint ? h('div', { class: 'hw-setting__hint', text: hint }) : null),
+      h('div', { class: 'hw-setting__text' }, h('div', { class: 'hw-setting__label', text: label }), hintEl),
       h('div', { class: 'hw-setting__control' }, control),
     );
+  }
+
+  /** A segmented choice whose hint says what the picked value means (Difficulty, UI size). */
+  private choice<K extends 'difficulty' | 'uiScale'>(
+    key: K,
+    label: string,
+    options: readonly { value: Settings[K]; label: string }[],
+    hintOf: (value: Settings[K]) => string,
+  ): HTMLElement {
+    const hint = h('div', { class: 'hw-setting__hint', text: hintOf(this.current[key]) });
+    const seg = new Segmented<Settings[K]>({
+      label,
+      options: [...options],
+      value: this.current[key],
+      onChange: (v) => {
+        hint.textContent = hintOf(v);
+        this.change(key, v);
+      },
+    });
+    this.sync.push(() => {
+      seg.set(this.current[key]);
+      hint.textContent = hintOf(this.current[key]);
+    });
+    return this.row(label, hint, seg.el, true);
   }
 
   private slider(

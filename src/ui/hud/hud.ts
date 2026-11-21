@@ -11,12 +11,16 @@ import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
 import { h, setFlag, setText } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
+import { applyUiScale } from '../kit/uiScale';
+import { CombatCues } from './combatCues';
+import { parseTargetName, type TargetInfo } from './combatMath';
 import { Compass } from './compass';
 import { Crosshair } from './crosshair';
 import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
 import hudCss from './hud.css';
+import combatCss from './combat.css';
 import { summarizeGrid } from './hudMath';
 import { CoachMarks } from './coach';
 import { cropLabel } from './cropText';
@@ -48,7 +52,7 @@ function injectCss(): void {
   if (document.getElementById('hw-hud-css')) return;
   const style = document.createElement('style');
   style.id = 'hw-hud-css';
-  style.textContent = hudCss;
+  style.textContent = `${hudCss}\n${combatCss}`;
   document.head.appendChild(style);
 }
 
@@ -81,6 +85,9 @@ export class Hud {
   private blockName: string | null = null;
   private mining = -1;
   private nameOverride: string | null = null;
+  /** The creature named by the override ("Forge Warden - 9/16"), shown with a health bar. */
+  private creature: TargetInfo | null = null;
+  private readonly cues: CombatCues;
   private readonly targetAt = { has: false, x: 0, y: 0, z: 0 };
   private screenOpen = false;
   /**
@@ -106,13 +113,16 @@ export class Hud {
       h('div', { class: 'hw-hud__mid' }, this.goal.el),
       h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el),
     );
+    const bottom = h('div', { class: 'hw-hud__bottom' }, this.hotbar.el);
+    this.cues = new CombatCues(this.top, bottom, () => deps.input.touch);
     this.el = h(
       'div',
       { class: 'hw-hud' },
       this.vignettes.el,
+      this.cues.el,
       this.top,
       this.crosshair.el,
-      h('div', { class: 'hw-hud__bottom' }, this.hotbar.el),
+      bottom,
       this.coach.el,
     );
     root.layers.hud.appendChild(this.el);
@@ -129,6 +139,15 @@ export class Hud {
         if (screen.type === 'log') this.coach.goalOpened();
       }),
       bus.on('player:damage', ({ amount }) => this.vignettes.damage(amount)),
+      // Spec 19.5: where the blow came from, and the telegraph of one coming from out of view.
+      bus.on('player:attacked', ({ x, z, amount }) => this.cues.hit(x, z, amount)),
+      bus.on('hostile:windup', (e) => this.cues.windup(e.id, e.species, e.attack, e.x, e.y, e.z, e.durationS)),
+      bus.on('hostile:attack', ({ id }) => this.cues.release(id)),
+      bus.on('hostile:dormant', ({ id }) => this.cues.forget(id)),
+      bus.on('mob:died', ({ id }) => this.cues.forget(id)),
+      bus.on('player:death', () => this.cues.clear()),
+      bus.on('player:respawn', () => this.cues.clear()),
+      bus.on('settings:changed', () => applyUiScale(root.el, deps.settings.uiScale)),
       bus.on('inventory:changed', () => (this.hotbarDirty = true)),
       bus.on('hotbar:selected', () => (this.hotbarDirty = true)),
       bus.on('power:alert', (a) => {
@@ -140,6 +159,7 @@ export class Hud {
     // Toasts and banners start below whatever the HUD keeps along the top edge.
     this.observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.placeToasts()) : null;
     this.observer?.observe(this.top);
+    applyUiScale(root.el, deps.settings.uiScale);
     this.update();
   }
 
@@ -151,6 +171,7 @@ export class Hud {
       this.hotbarDirty = false;
       this.hotbar.refresh();
     }
+    this.cues.frame(dt, d.player, d.settings.fov);
     this.countFps(dt);
     this.slow += dt;
     this.gridTimer += dt;
@@ -192,6 +213,7 @@ export class Hud {
    * again. Cheap to call every frame: the label only changes when the text does.
    */
   setTargetName(name: string | null): void {
+    if (name !== this.nameOverride) this.creature = parseTargetName(name);
     this.nameOverride = name;
     this.showTarget();
   }
@@ -202,7 +224,7 @@ export class Hud {
     const key = `${name}|${mining}`;
     if (key === this.targetKey) return;
     this.targetKey = key;
-    this.crosshair.set(name, mining);
+    this.crosshair.set(name, mining, this.nameOverride !== null ? this.creature : null);
   }
 
   /** A screen covers the view: the crosshair and the gain feed step back. */
@@ -251,6 +273,9 @@ export class Hud {
       this.power.update(summarizeGrid(d.sim().allNetworks()));
     }
     this.vignettes.update(d.player.warmth, d.player.wellWarmed, d.player.food);
+    this.cues.setBurning(d.player.combat.burning);
+    // Settings are read by reference: a change made anywhere (title, pause menu) shows within a slow tick.
+    applyUiScale(this.root.el, d.settings.uiScale);
     this.feed.tick();
     // The goal tip waits for the first finished goal (the list is built on each read: ask only until then).
     if (!this.goalDone && d.objectives.completed.length > 0) {
