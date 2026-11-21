@@ -53,6 +53,8 @@ async function runDevice(device) {
     await report.step(name, run);
     if (report.failures !== before) {
       ok = false;
+      const trail = await page.evaluate(() => (window.__e2eLog ?? []).slice(-25)).catch(() => []);
+      if (trail.length) console.log(`       recent events: ${trail.join(' | ')}`);
       await d.shot(`FAILED-${name.replace(/\W+/g, '-')}`).catch(() => undefined);
     }
   };
@@ -70,6 +72,16 @@ async function runDevice(device) {
       await d.press(page.locator('.hw-title button', { hasText: 'New World' }));
       await waitFor(page, () => window.__hw.state().phase === 'loading' || window.__hw.state().phase === 'playing', 'loading screen', { timeout: 10_000 });
       await waitFor(page, () => window.__hw.state().phase === 'playing', 'play', { timeout: 120_000 });
+      // A trail of UI events, printed when a step fails.
+      await page.evaluate(() => {
+        const log = (window.__e2eLog = []);
+        const bus = window.__hw.app.game.bus;
+        const t0 = performance.now();
+        for (const type of ['ui:open', 'ui:opened', 'ui:close', 'ui:closed', 'game:paused', 'player:death', 'block:placed']) {
+          bus.on(type, (e) => log.push(`${((performance.now() - t0) / 1000).toFixed(2)} ${type} ${JSON.stringify(e)}`));
+        }
+        window.addEventListener('popstate', () => log.push(`${((performance.now() - t0) / 1000).toFixed(2)} popstate`));
+      });
       await d.settle(1500);
     });
 
@@ -154,6 +166,21 @@ async function runDevice(device) {
     });
 
     await furnaceSteps({ d, step, assert, hw, page });
+
+    await step('death screen, Respawn wakes the player at the home furnace', async () => {
+      const home = d.places.furnace;
+      await hw(() => window.__hw.teleport(window.__hw.state().player.x + 6, window.__hw.state().player.y + 0.01, window.__hw.state().player.z));
+      await hw(() => window.__hw.damage(40, 'cold'));
+      const respawn = page.locator('.hw-window button', { hasText: 'Respawn' });
+      await respawn.waitFor({ state: 'visible', timeout: 10_000 });
+      await d.settle(300);
+      await d.shot('08c-death');
+      await d.press(respawn);
+      await waitFor(page, () => !window.__hw.state().player.dead && !window.__hw.state().ui.uiOpen, 'respawn', { timeout: 10_000 });
+      const p = (await hw(() => window.__hw.state())).player;
+      assert(Math.hypot(p.x - (home.x + 0.5), p.z - (home.z + 0.5)) < 3.5, `woke at ${p.x}, ${p.z}, not beside the furnace at ${home.x}, ${home.z}`);
+      assert(p.health === 20, `woke with ${p.health} health beside a hot furnace`);
+    });
 
     await step('objectives advanced', async () => {
       const s = await hw(() => window.__hw.state());

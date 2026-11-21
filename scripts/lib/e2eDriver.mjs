@@ -274,8 +274,19 @@ export class Driver {
       if (stand) await this.hw((s) => window.__hw.teleport(s.x, s.y, s.z), stand);
       if (!(await this.aimAt(pos))) throw new Error(`cannot aim at ${JSON.stringify(pos)}`);
     }
-    await this.use();
-    await waitFor(this.page, () => window.__hw.state().ui.uiOpen, 'a screen to open', { timeout: 10_000, interval: 100 });
+    // Software-rendered frames can take a few hundred ms; a tap that spans such a hitch reads as a press-and-hold
+    // (exactly as it would on a stalling phone). Tap once more in that case.
+    for (let attempt = 0; ; attempt++) {
+      await this.use();
+      try {
+        await waitFor(this.page, () => window.__hw.state().ui.uiOpen, 'a screen to open', { timeout: 5000, interval: 100 });
+        break;
+      } catch (err) {
+        if (attempt >= 1) throw err;
+        console.log('       (use did not open a screen; tapping again)');
+        await this.aimAt(pos);
+      }
+    }
     await this.settle(300);
   }
 

@@ -4,7 +4,7 @@
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
 import { DT } from '../core/constants';
-import type { ScreenRequest } from '../core/gameEvents';
+import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelActive, voxelFacing, type Facing } from '../core/types';
 import { isFurnace } from '../sim';
@@ -44,6 +44,8 @@ export interface DebugHandle {
   /** Turns the view to the centre of block (x, y, z). */
   lookAt(x: number, y: number, z: number): void;
   setTime(timeOfDay: number): void;
+  /** Hurts the player (the real damage rules: events, sounds, death at 0). */
+  damage(amount: number, cause?: DamageCause): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
@@ -133,6 +135,9 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     setTime(t) {
       game().state.clock.setTimeOfDay(t);
+    },
+    damage(amount, cause = 'fall') {
+      game().state.player.damage(amount, cause);
     },
     setVoxel(x, y, z, block, facing = 0, active = false) {
       return game().state.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing, active), 'sim');

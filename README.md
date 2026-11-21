@@ -14,13 +14,17 @@ lava, radiation and reactors you forgot to cool.
 
 ```
 npm install
-npm run build
-npx serve dist        # or any static file server; dist/index.html is the whole game
+npm run build         # dist/index.html + dist/game.js (dist/artifact.html for hosts that supply the page)
+node scripts/build.mjs --serve    # serves dist/ on http://localhost:5173 (any static file server works)
 ```
 
 `npm run dev` rebuilds on change and serves the game on http://localhost:5173.
 
-The game runs in any browser with WebGL2, on desktop and on phones. Progress is saved in the browser.
+The game runs in any browser with WebGL2, on desktop and on phones; without WebGL2 it says so instead of
+starting. Progress is saved in the browser: when you enter a world, every 30 seconds, when you pause, when you
+switch away from the page, and on "Save and quit". Continue on the title screen picks up exactly where you
+left. Inside a page that blocks storage the game still runs, warns you once, and keeps your world until the
+page is closed.
 
 ## Controls
 
@@ -36,6 +40,11 @@ The game runs in any browser with WebGL2, on desktop and on phones. Progress is 
 | Inventory and hand crafting | E | bag button |
 | Hearth Log (goals) | L | tap the goal tracker |
 | Pause / close a screen | Esc | pause button |
+| At the furnace: pump the bellows / show the backpack | P / B | Pump button / Backpack handle |
+
+Screens use the same slot rules everywhere: click (tap) a stack to pick it up, click (tap) where it goes;
+right-click (long-press) takes half; shift-click (double-tap) or the "To ..." buttons move it straight across.
+Switching away from the page pauses the game.
 
 ## How the game works
 
@@ -77,6 +86,13 @@ npm run build       # dist/game.js + dist/index.html
 npm run e2e         # drives the built game in headless Chromium (needs Playwright)
 ```
 
+`npm run e2e` plays the opening of the game on desktop, a portrait phone and a landscape phone with real
+keyboard, mouse and touch input (mine logs, craft, place a workbench and a furnace, fuel and light it, smelt,
+forge, save, reload, Continue), then checks a sandboxed page (no storage, no pointer lock) and a browser without
+WebGL2. Screenshots of every step land in `test-results/e2e/`. `--device=desktop|phonePortrait|phoneLandscape|sandbox`
+picks one, `--no-build` reuses dist/. In the page, `window.__hw` is a debug handle (state summary, give,
+teleport, setTime, tick, save...).
+
 | Directory | What lives there |
 |---|---|
 | `src/core` | shared types, the content registry, the event bus, gameplay constants |
@@ -89,6 +105,7 @@ npm run e2e         # drives the built game in headless Chromium (needs Playwrig
 | `src/ui` | the HUD and every screen |
 | `src/audio` | synthesised sound |
 | `src/save` | saving and loading |
+| `src/app`, `src/main.ts` | boot, title, loading, the game loop and the wiring of everything above |
 
 All textures are painted in code and all sound is synthesised; the repository contains no asset files.
 Game balance lives in `src/content` and `src/core/constants.ts`.
