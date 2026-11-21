@@ -1,5 +1,6 @@
 /** Shared shapes of src/mobs: the live animal record, what the manager needs from its surroundings, snapshots. */
-import type { BiomeKey, CreatureSpec, ItemAmount } from '../core/types';
+import type { BiomeKey, CreatureSpec, HostileAttack, ItemAmount } from '../core/types';
+import type { HostileState, HostilesSnapshot } from './hostileTypes';
 
 /** What an animal is doing. 'breed' covers walking to a partner and the 3 s together; 'dying' is the tip-over. */
 export type MobState = 'idle' | 'wander' | 'graze' | 'flee' | 'follow' | 'breed' | 'swim' | 'dying';
@@ -78,6 +79,8 @@ export interface Mob {
   phead: number;
   /** Seconds the current walk target has been pursued without progress. */
   stuckS: number;
+  /** An automaton's behaviour (spec 19.2); null for animals. */
+  hostile: HostileState | null;
 }
 
 /** The player, as far as animals care. `heldItem()` is the key of the item in the hand, or null. */
@@ -151,6 +154,17 @@ export interface MobView {
   fade: number;
   onGround: boolean;
   eager: boolean;
+  /** Automatons (spec 19.5): ember glow 0 dark (dormant, dead) .. 1 lit. 0 for animals. */
+  glow: number;
+  /**
+   * 0..1 progress of an automaton's wind-up (the flare: ember parts brighten, arms rise, the hound crouches); 1 while
+   * a dash runs; 0 otherwise and for animals.
+   */
+  flare: number;
+  /** The attack being telegraphed or run (null when none, and for animals). */
+  attack: HostileAttack | null;
+  /** Wound down in daylight (spec 19.2). */
+  dormant: boolean;
 }
 
 /** A saved animal. */
@@ -187,4 +201,6 @@ export interface MobsSnapshot {
   /** Daytime seconds spent with too few adults near the player. */
   keepAliveS: number;
   mobs: SavedMob[];
+  /** The automatons (absent in older saves). */
+  hostiles?: HostilesSnapshot;
 }
