@@ -34,7 +34,7 @@ describe('forge rows', () => {
     expect(forgeCategory(r('bronze_pickaxe'))).toBe('tools');
     expect(forgeCategory(r('shield_suit'))).toBe('tools');
     expect(forgeCategory(r('power_drill'))).toBe('tools');
-    expect(forgeCategory(r('bronze_ingot'))).toBe('parts');
+    expect(forgeCategory(r('item_pipe'))).toBe('building');
     expect(forgeCategory(r('circuit'))).toBe('parts');
     expect(forgeCategory(r('crusher'))).toBe('machines');
     expect(forgeCategory(r('lamp'))).toBe('machines');
@@ -66,17 +66,17 @@ describe('forge rows', () => {
 
   it('turns live rows into kit rows: heat badge, locked tier badge, have/need chips, reason', () => {
     const view = liveView((kit) => {
-      kit.player.give('copper_ingot', 3);
-      kit.player.give('tin_ingot', 1);
+      kit.player.give('bronze_ingot', 2);
+      kit.player.give('glass', 1);
       const e = kit.sim.furnaceAt(0, 1, 0);
       if (e) e.tempC = 820;
     });
-    const bronze = view.forge.find((f) => f.recipe.id === 'bronze_ingot') as ForgeRow;
+    const bronze = view.forge.find((f) => f.recipe.id === 'item_pipe') as ForgeRow;
     const row = forgeRowView(bronze);
     expect(row.available).toBe(1);
     expect(row.action).toBe('Forge');
     expect(row.requirements?.[0]).toMatchObject({ kind: 'heat', met: true, tempC: 800 });
-    expect(row.ingredients.map((i) => [i.item, i.have, i.need])).toEqual([['copper_ingot', 3, 3], ['tin_ingot', 1, 1]]);
+    expect(row.ingredients.map((i) => [i.item, i.have, i.need])).toEqual([['bronze_ingot', 2, 2], ['glass', 1, 1]]);
 
     const steel = forgeRowView(view.forge.find((f) => f.recipe.id === 'steel_ingot') as ForgeRow);
     expect(steel.locked).toBe(true);
@@ -84,10 +84,10 @@ describe('forge rows', () => {
     expect(steel.requirements?.[0]).toMatchObject({ kind: 'tier', text: 'Blast Furnace', met: false });
     expect(steel.reason).toBe('Needs the Blast Furnace');
 
-    const pick = forgeRowView(view.forge.find((f) => f.recipe.id === 'bronze_pickaxe') as ForgeRow);
-    expect(pick.reason).toMatch(/^Missing 3 Bronze Ingot/);
+    const pick = forgeRowView(view.forge.find((f) => f.recipe.id === 'bronze_bucket') as ForgeRow);
+    expect(pick.reason).toMatch(/^Missing 1 Bronze Ingot/);
 
-    const cold = liveView().forge.find((f) => f.recipe.id === 'bronze_ingot') as ForgeRow;
+    const cold = liveView().forge.find((f) => f.recipe.id === 'item_pipe') as ForgeRow;
     expect(forgeRowView(cold).reason).toBe('Needs 800 °C - charcoal, or logs with the bellows');
     expect(forgeReady(view.forge)).toBeGreaterThanOrEqual(1);
   });
@@ -159,9 +159,9 @@ describe('furnace texts', () => {
       fire(kit, e, 'coal', 5);
       kit.run(2);
     });
-    const notches = thermoNotches(view, r('bronze_ingot'));
+    const notches = thermoNotches(view, r('item_pipe'));
     expect(notches).toContainEqual({ tempC: 700, label: 'Copper', kind: 'threshold' });
-    expect(notches).toContainEqual({ tempC: 800, label: 'Bronze', kind: 'threshold' });
+    expect(notches).toContainEqual({ tempC: 800, label: 'Bronze Chute', kind: 'threshold' });
     expect(notches).toContainEqual({ tempC: 700, label: 'Upgrade', kind: 'threshold' });
     expect(notches.find((n) => n.label === 'Flame')).toMatchObject({ tempC: 1250, kind: 'limit' });
     // The same recipe twice collapses.
@@ -200,7 +200,7 @@ describe('furnace texts', () => {
 
   it('says where a missing item comes from', () => {
     expect(sourceText('bellows')).toBe('make it at the workbench');
-    expect(sourceText('bronze_ingot')).toBe('forge it here at 800 °C');
+    expect(sourceText('bronze_ingot')).toBe('alloy copper and tin in an alloy pot at 800 °C');
     expect(sourceText('iron_ingot')).toBe('smelt it here at 1150 °C (Blast Furnace)');
     expect(sourceText('tungsten_powder')).toBe('made by the Crusher');
     expect(sourceText('cord')).toBe('craft it by hand');

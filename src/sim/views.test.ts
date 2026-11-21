@@ -22,7 +22,7 @@ describe('furnace view', () => {
     expect(row(kit, 'steel_ingot')).toMatchObject({ locked: true, canMake: false, reason: 'Needs the Blast Furnace' });
     expect(row(kit, 'circuit')).toMatchObject({ locked: true, reason: 'Needs the Arc Furnace' });
     expect(row(kit, 'star_core')).toMatchObject({ locked: true, reason: 'Needs the Plasma Furnace' });
-    expect(row(kit, 'bronze_bucket')).toMatchObject({ locked: false, tempOk: false, heatAllows: 0, reason: 'Needs 700 C', max: 0 });
+    expect(row(kit, 'item_pipe')).toMatchObject({ locked: false, tempOk: false, heatAllows: 0, reason: 'Needs 800 C', max: 0 });
     expect(v.smelt.find((r) => r.recipe.id === 'iron_ingot')).toMatchObject({ locked: true, reason: 'Needs the Blast Furnace' });
     expect(v.smelt.find((r) => r.recipe.id === 'copper_ingot')).toMatchObject({ locked: false, tempOk: false, reason: 'Needs 700 C', have: 0 });
     expect(v.canRest).toEqual({ ok: false, reason: 'You can only rest at night' });
@@ -35,16 +35,16 @@ describe('furnace view', () => {
     fire(kit, e, 'coal');
     kit.run(30);
     expect(e.tempC).toBe(800);
-    kit.player.give('bronze_ingot', 2);
-    expect(row(kit, 'bronze_bucket')).toMatchObject({ tempOk: true, canMake: false, reason: 'Missing 1 Bronze Ingot', max: 0 });
-    kit.player.give('bronze_ingot', 5);
-    expect(row(kit, 'bronze_bucket')).toMatchObject({ canMake: true, reason: null, max: 2 });
-    expect(row(kit, 'wrench')).toMatchObject({ canMake: true, heatAllows: Math.floor((800 - 600) / FORGE_CHILL_C) + 1, max: 2 });
+    kit.player.give('bronze_ingot', 7);
+    expect(row(kit, 'item_pipe')).toMatchObject({ tempOk: true, canMake: false, reason: 'Missing 1 Glass', heatAllows: 1, max: 0 });
+    kit.player.give('glass', 2);
+    expect(row(kit, 'item_pipe')).toMatchObject({ canMake: true, reason: null, max: 2 });
+    expect(row(kit, 'bronze_bucket')).toMatchObject({ canMake: true, heatAllows: Math.floor((800 - 700) / FORGE_CHILL_C) + 1, max: 2 });
     expect(view(kit).smelt.find((r) => r.recipe.id === 'copper_ingot')).toMatchObject({ tempOk: true, reason: null });
     // A pack with no room for the product.
     for (let i = 0; i < 36; i++) if (!kit.player.inventory.get(i)) kit.player.inventory.set(i, { item: 'flint_pickaxe', count: 1, durability: 64 });
-    expect(row(kit, 'wrench')).toMatchObject({ canMake: false, reason: 'No room in your pack' });
-    expect(kit.sim.forge(0, 1, 0, 'wrench', 0)).toEqual({ ok: false, reason: 'Nothing to make' });
+    expect(row(kit, 'bronze_bucket')).toMatchObject({ canMake: false, reason: 'No room in your pack' });
+    expect(kit.sim.forge(0, 1, 0, 'bronze_bucket', 0)).toEqual({ ok: false, reason: 'Nothing to make' });
   });
 
   it('describes the fire, the crucibles and the cooling furnace', () => {
@@ -67,7 +67,7 @@ describe('furnace view', () => {
     expect(v.status).toMatch(/^Burns out in 3:\d\d$/);
     c = v.crucibles[0];
     expect(c.active).toBe(true);
-    // Copper comes out molten: the status shows the pool to pour, the smelt keeps going behind it.
+    // The first ingot is molten metal by now; the next one is still smelting.
     expect(c.status).toMatch(/^Molten Copper Ingot - pour it in \d+ s$/);
     // 10 s per ingot at speed 1 x (1 + min(1, (800 - 700) / 300)).
     expect(c.secondsLeft).toBeCloseTo((10 - c.progress * 10) / (1 + 100 / 300), 6);

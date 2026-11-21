@@ -17,11 +17,11 @@ export function digSound(def: BlockDef): SfxName {
   return def.opaque ? 'dig_dirt' : 'dig_sand';
 }
 
-/** The screen that using this block opens, or null (crops, wild bushes and brewing setups are machine blocks without a screen). */
+/** The screen that using this block opens, or null (crops, wild bushes, brewing setups and hand stations are machine blocks without a screen). */
 export function screenFor(def: BlockDef, x: number, y: number, z: number): ScreenRequest | null {
   if (def.station === 'workbench') return { type: 'workbench', x, y, z };
   const role = def.machine ? machineOfBlock(def)?.role : undefined;
-  if (!def.machine || isCrop(def) || role === 'bush' || role === 'brew') return null;
+  if (!def.machine || isCrop(def) || role === 'bush' || role === 'brew' || role === 'hand') return null;
   if (def.machine === 'furnace') return { type: 'furnace', x, y, z };
   if (def.machine === 'crate') return { type: 'crate', x, y, z };
   return { type: 'machine', x, y, z };

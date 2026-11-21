@@ -10,12 +10,23 @@ const spec: ParticleSpec = {
 };
 
 const rnd = (): number => Math.random();
+
+// Chips right in front of the camera would fill the screen (a point's size grows as 1/distance): they are scaled down
+// inside NEAR blocks of the eye.
+const eye = { x: 0, y: 0, z: 0 };
+const NEAR = 6;
+export function setSparkEye(x: number, y: number, z: number): void {
+  eye.x = x;
+  eye.y = y;
+  eye.z = z;
+}
+const near = (x: number, y: number, z: number): number => Math.min(1, Math.max(0.25, Math.hypot(x - eye.x, y - eye.y, z - eye.z) / NEAR));
 const spread = (): number => rnd() * 2 - 1;
 
 /** One glowing ember chip: orange-white cooling to dull red. */
 export function emberSpark(p: Particles, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size = 0.07): void {
   spec.x = x; spec.y = y; spec.z = z; spec.vx = vx; spec.vy = vy; spec.vz = vz;
-  spec.life = life; spec.size = size; spec.sizeEnd = size * 0.35;
+  spec.life = life; spec.size = size * near(x, y, z); spec.sizeEnd = spec.size * 0.35;
   // Colour settles within the first fifth of a particle's life (particles.ts), so the second colour is the one seen.
   spec.r = 1; spec.g = 0.85; spec.b = 0.5;
   spec.r2 = 1; spec.g2 = 0.42 + rnd() * 0.2; spec.b2 = 0.1;
@@ -26,7 +37,7 @@ export function emberSpark(p: Particles, x: number, y: number, z: number, vx: nu
 /** One blue-white arc chip (a drone's crackle): no gravity, gone in a blink. */
 export function arcSpark(p: Particles, x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, size = 0.075): void {
   spec.x = x; spec.y = y; spec.z = z; spec.vx = vx; spec.vy = vy; spec.vz = vz;
-  spec.life = life; spec.size = size; spec.sizeEnd = size * 0.5;
+  spec.life = life; spec.size = size * near(x, y, z); spec.sizeEnd = spec.size * 0.5;
   spec.r = 0.9; spec.g = 1; spec.b = 1;
   spec.r2 = 0.45; spec.g2 = 0.78; spec.b2 = 1;
   spec.alpha = 1; spec.gravity = 0; spec.drag = 2; spec.look = ParticleLook.Chip; spec.fog = 0.2;

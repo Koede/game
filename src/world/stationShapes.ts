@@ -1,6 +1,6 @@
 /**
  * The hand stations' shapes (EMBER_PLAN 2): small boxes where a cube would be wrong - a stump, a quern's lower stone,
- * an anvil, a loom frame, a drying rack. The stations are ordinary `cube` blocks in the content; this table, keyed by
+ * an anvil, a loom frame, a drying rack. The stations are ordinary `cube` (and, for the low ones, `slab`) blocks in the content; this table, keyed by
  * block key, makes the mesher draw them as several boxes instead (blockTables.ts STATION; meshStation.ts draws). Collision, aiming and the
  * Use rules still treat the whole cell, which is easier to hit with a thumb; only the drawing and the target outline
  * (`stationBounds`) follow the real shape.
@@ -47,12 +47,15 @@ export const STATION_BOXES: Readonly<Record<string, readonly Box16[]>> = {
   // Two forked posts and two cross poles: bundles hang from the upper pole (moving parts).
   drying_rack: [post(1, 7, 15), post(13, 7, 15), [3, 12, 7, 13, 14, 9], [3, 6, 7, 13, 8, 9]],
   tanning_trough: [
-    [1, 0, 2, 15, 3, 14], [1, 3, 2, 15, 9, 4], [1, 3, 12, 15, 9, 14], [1, 3, 4, 3, 9, 12], [13, 3, 4, 15, 9, 12],
+    [1, 0, 2, 15, 2, 14], [1, 2, 2, 15, 8, 4], [1, 2, 12, 15, 8, 14], [1, 2, 4, 3, 8, 12], [13, 2, 4, 15, 8, 12],
   ],
   // A low bench with a top and four legs; moulds stand on it.
   casting_bench: [[0, 9, 0, 16, 12, 16], post(1, 1, 9, 3), post(12, 1, 9, 3), post(1, 12, 9, 3), post(12, 12, 9, 3)],
-  alloy_pot: bowl(3, 13, 2, 10, 2),
+  alloy_pot: bowl(3, 13, 2, 8, 2),
 };
+
+/** Stations whose moving parts stand above the static boxes: the target outline reaches the top of the part (sixteenths). */
+const PART_TOP: Readonly<Record<string, number>> = { hand_quern: 12, mortar: 14 };
 
 const keys = Object.keys(STATION_BOXES);
 /** Whether a block key is drawn from the table. */
@@ -70,6 +73,7 @@ export function stationBounds(key: string): readonly [number, number, number, nu
     out[i] = Math.min(out[i], b[i]);
     out[i + 3] = Math.max(out[i + 3], b[i + 3]);
   }
+  out[4] = Math.max(out[4], PART_TOP[key] ?? 0);
   return out.map((n) => n / 16) as unknown as [number, number, number, number, number, number];
 }
 

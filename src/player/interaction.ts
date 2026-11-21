@@ -64,7 +64,7 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'fuelled' | 'picked' | 'wrenched' | 'brewed' | 'worked' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'fuelled' | 'picked' | 'wrenched' | 'brewed' | 'worked' | 'poured' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -95,7 +95,7 @@ export class Interaction {
     private readonly rng: () => number = Math.random,
     transport: TransportHands | null = null,
     brew: BrewHands | null = null,
-    hand: HandHands | null = null,
+    hands: HandHands | null = null,
   ) {
     const self = this;
     this.buckets = new Buckets({
@@ -132,7 +132,7 @@ export class Interaction {
       advise: (key, text) => this.advise(key, text),
       swing: () => swing.triggerSwing(),
       stopMining: () => this.stopMining(),
-    }, hand);
+    }, hands);
   }
 
   get mining(): boolean {
@@ -145,7 +145,6 @@ export class Interaction {
     this.breakCooldown = Math.max(0, this.breakCooldown - dt);
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
     this.pipes.update(dt);
-    this.handwork.update(dt);
     if (!mineHeld || !hit || hit.block.liquid !== null || this.player.dead) {
       this.stopMining();
       return;
@@ -191,16 +190,11 @@ export class Interaction {
    * anywhere but its front (an engine on a furnace, a tank on a tank, bricks around a hearth). Then pipes and fluid
    * blocks (pipeTools.ts): the wrench, a bucket on a tank or fluid endpoint, the pipe screen. Then screens.
    * Brewing comes before all of that (brewTools.ts): a cup or a heated bucket takes the held item as the next step,
-   * and a water container aimed at a furnace top is set there; a held drink is drunk after the screens.
+   * and a water container aimed at a furnace top is set there; a held drink is drunk after the screens. Hand work comes
+   * right after (handTools.ts): a stroke, an insert or a take at a hand station, a mould poured from a molten furnace.
    */
   use(hit: RayHit | null, forcePlace = false): UseOutcome {
     if (this.player.dead) return 'none';
-    // Hand stations first (handTools.ts): a log in hand loads the chopping block rather than being placed against it.
-    // Shift / the touch Place toggle still places the held block.
-    if (hit && !forcePlace) {
-      const worked = this.handwork.use(hit);
-      if (worked !== null) return worked;
-    }
     if (hit && hit.block.liquid === null) {
       const def = blockOfItem(this.player.heldStack()?.item ?? '');
       const against = def !== null && !forcePlace && placesAgainst(def, hit);
@@ -216,6 +210,8 @@ export class Interaction {
     if (hit) {
       const brewed = this.brewing.use(hit) ?? this.brewing.placeContainer(hit);
       if (brewed !== null) return brewed;
+      const worked = this.handwork.use(hit, forcePlace);
+      if (worked !== null) return worked;
       const piped = this.pipes.use(hit, this.player.heldStack()?.item ?? null);
       if (piped !== null) return piped;
     }

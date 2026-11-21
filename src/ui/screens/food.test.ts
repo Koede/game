@@ -127,7 +127,7 @@ describe('drink text', () => {
 
   it('recipe rows badge the drink an ingredient makes, and the tea and coffee chain sits in the Kitchen chip', () => {
     expect(productBadges(r('ground_coffee')).map((b) => b.text)).toContain('Brews Light Roast');
-    for (const id of ['dried_tea', 'black_tea', 'roasted_beans', 'dark_beans', 'ground_coffee', 'trail_blend', 'berry_tea_blend', 'clay_cup', 'drip_cone']) {
+    for (const id of ['dried_tea', 'black_tea', 'roasted_beans', 'dark_beans', 'ground_coffee', 'trail_blend', 'berry_tea_blend', 'kettle_pot']) {
       expect(isKitchenRecipe(r(id)), id).toBe(true);
     }
     expect(isKitchenRecipe(r('copper_ingot'))).toBe(false);

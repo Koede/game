@@ -19,7 +19,7 @@ import type { FurnaceView } from './views';
 /** Facing of everything the player places: the front looks south, towards where the player stands. */
 const SOUTH = 2;
 
-interface Pos {
+export interface Pos {
   x: number;
   y: number;
   z: number;
@@ -259,6 +259,25 @@ export class Play {
     this.step(0.5);
   }
 
+  /**
+   * Pours every crucible's molten metal into ingot moulds (casting, docs/api/casting.md): the pack gets a mould when it
+   * has none - a STAND-IN for the clay table and the firing - and the ingots go to the crates. True when nothing is
+   * molten any more.
+   */
+  pourMolten(): boolean {
+    const e = this.furnace;
+    let clear = true;
+    for (let i = 0; i < e.crucibleMelt.length; i++) {
+      if (!e.crucibleMelt[i] || e.crucibleMoltenS[i] <= 0) continue;
+      if (!this.player.inventory.has('ingot_mould')) this.player.inventory.add('ingot_mould', 1);
+      const r = this.sim.pourCrucible(this.at.x, this.at.y, this.at.z, i, 'ingot_mould');
+      if (!r.ok) throw new Error(`pour crucible ${i}: ${r.reason}`);
+      clear = clear && !e.crucibleMelt[i];
+    }
+    this.stash();
+    return clear;
+  }
+
   /** Smelts `count` input items in the working crucibles, a batch at a time, and carries the products to the crates. */
   smelt(input: string, count: number): void {
     const slots = this.furnaceSlots();
@@ -271,7 +290,7 @@ export class Play {
         this.load(slots.crucibleIn, input, n, i);
         left -= n;
       }
-      this.until(`smelt ${input}`, () => slots.crucibleIn.count(input) === 0, 1200);
+      this.until(`smelt ${input}`, () => this.pourMolten() && slots.crucibleIn.count(input) === 0, 1200);
       this.collect(slots.crucibleOut);
     }
     this.step(0.5);

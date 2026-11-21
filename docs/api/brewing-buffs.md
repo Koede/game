@@ -40,10 +40,8 @@ and the flag `six_cups` the first time the sixth distinct drink is drunk. Refusa
 (`message` is always null: they are quiet, like a bite cooldown). Same shape as `eat()`.
 
 ## Mining (Vigor)
-`miningTime(block, held, wellWarmed, speedMult = 1)` in `src/game/mining.ts`. Callers must pass
-`player.buffs.miningMult` as the 4th argument. INTERACTION ENGINEER: `src/player/interaction.ts` line ~132 still passes three
-arguments, so Vigor has no effect until it becomes
-`miningTime(def, this.player.heldStack(), this.player.wellWarmed, this.player.buffs.miningMult)`.
+`miningTime(block, held, wellWarmed, speedMult = 1)` in `src/game/mining.ts`; `src/player/interaction.ts` already passes
+`player.buffs.miningMult` as the 4th argument.
 
 ## Physics
 `PlayerPhysics.step`: walk, sprint and swim speed x `buffs.speedMult`; jump velocity x `buffs.jumpMult`; the landing's

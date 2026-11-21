@@ -24,7 +24,10 @@ const recipe = (r: Partial<HandRecipe> & Pick<HandRecipe, 'id' | 'station' | 'in
   ({ toolOutput: null, bonus: null, strokes: 0, timeS: 0, ...r });
 const RECIPES: Record<string, HandRecipe[]> = {
   quern: [recipe({ id: 'flour', station: 'quern', inputs: [{ item: 'wheat', count: 1 }], output: { item: 'flour', count: 1 }, strokes: 6 })],
-  anvil: [recipe({ id: 'copper_plate', station: 'anvil', inputs: [{ item: 'copper_ingot', count: 2 }], output: { item: 'copper_plate', count: 1 }, strokes: 8 })],
+  anvil: [
+    recipe({ id: 'copper_plate', station: 'anvil', inputs: [{ item: 'copper_ingot', count: 2 }], output: { item: 'copper_plate', count: 1 }, strokes: 8 }),
+    recipe({ id: 'copper_wire', station: 'anvil', inputs: [{ item: 'copper_ingot', count: 1 }], output: { item: 'copper_wire', count: 3 }, strokes: 4 }),
+  ],
   rack: [recipe({ id: 'leather', station: 'rack', inputs: [{ item: 'soaked_hide', count: 1 }], output: { item: 'leather', count: 1 }, timeS: 10 })],
   trough: [recipe({ id: 'soaked_hide', station: 'trough', inputs: [{ item: 'hide', count: 1 }], output: { item: 'soaked_hide', count: 1 }, timeS: 6 })],
 };
@@ -113,9 +116,13 @@ describe('stroke stations', () => {
     expect(t.hand.stroke(5, 5, 5, 'flour')).toEqual({ ok: false, reason: 'Hand Quern cannot work flour' });
     t.hold('copper_ingot', 1);
     expect(t.hand.stroke(6, 5, 5, 'copper_ingot')).toEqual({ ok: true, did: 'insert' });
-    expect(t.hand.stroke(6, 5, 5, null)).toEqual({ ok: false, reason: 'Needs 2 copper ingot' });
+    expect(t.hand.stroke(6, 5, 5, null)).toEqual({ ok: true, did: 'stroke' });
+    t.hold('copper_ingot', 1);
+    expect(t.hand.stroke(6, 5, 5, 'copper_ingot')).toEqual({ ok: true, did: 'insert' });
+    expect(t.hand.stroke(6, 5, 5, null)).toEqual({ ok: true, did: 'stroke' });
+    expect(t.hand.view(6, 5, 5)?.recipe).toBe('copper_wire');
     t.hold('wheat');
-    expect(t.hand.stroke(6, 5, 5, 'wheat')).toEqual({ ok: false, reason: 'Busy with copper ingot' });
+    expect(t.hand.stroke(6, 5, 5, 'wheat')).toEqual({ ok: false, reason: 'Stone Anvil cannot work wheat' });
     expect(t.hand.stroke(1, 1, 1, null)).toMatchObject({ ok: false });
   });
 
@@ -125,6 +132,8 @@ describe('stroke stations', () => {
     const strokes = t.seen('hand:stroke');
     t.hold('copper_ingot', 8);
     t.hand.stroke(6, 5, 5, 'copper_ingot');
+    t.hand.stroke(6, 5, 5, 'copper_ingot');
+    expect(t.hand.view(6, 5, 5)).toMatchObject({ recipe: 'copper_plate', needed: 8 });
     // 8 needed: four tool strokes finish it.
     for (let i = 0; i < 3; i++) t.hand.stroke(6, 5, 5, 'flint_pickaxe');
     expect(strokes.map((s) => s.progress)).toEqual([2, 4, 6]);
@@ -132,6 +141,8 @@ describe('stroke stations', () => {
     expect(t.hand.stroke(6, 5, 5, 'flint_pickaxe')).toMatchObject({ ok: true, done: true });
     expect(t.hand.stroke(6, 5, 5, null)).toEqual({ ok: true, did: 'take' });
     // Hot window: bare hands count double; tool and hot do not stack.
+    t.hand.stroke(6, 5, 5, 'copper_ingot');
+    t.hand.stroke(6, 5, 5, 'copper_ingot');
     t.hand.openHotWindow(6, 5, 5);
     expect(t.hand.view(6, 5, 5)?.hot).toBe(true);
     t.hand.stroke(6, 5, 5, null);
@@ -276,5 +287,22 @@ describe('perf', () => {
     const t0 = performance.now();
     for (let i = 0; i < 1000; i++) t.hand.tick(DT, true, null);
     expect(performance.now() - t0).toBeLessThan(100);
+  });
+});
+
+describe('shared inputs', () => {
+  it('one ingot makes wire, two a plate, and work begun stays on its recipe', () => {
+    const t = setup();
+    t.world.put(6, 5, 5, 'dirt');
+    t.hold('copper_ingot', 5);
+    t.hand.stroke(6, 5, 5, 'copper_ingot');
+    expect(t.hand.view(6, 5, 5)).toMatchObject({ recipe: 'copper_wire', needed: 4 });
+    t.hand.stroke(6, 5, 5, null);
+    t.hand.stroke(6, 5, 5, 'copper_ingot');
+    expect(t.hand.view(6, 5, 5)).toMatchObject({ recipe: 'copper_wire', progress: 1 });
+    for (let i = 0; i < 3; i++) t.hand.stroke(6, 5, 5, null);
+    expect(t.hand.view(6, 5, 5)?.output).toEqual({ item: 'copper_wire', count: 3 });
+    t.hand.stroke(6, 5, 5, null);
+    expect((t.world.getEntity(6, 5, 5) as HandEntity).slots[0]).toEqual({ item: 'copper_ingot', count: 1 });
   });
 });

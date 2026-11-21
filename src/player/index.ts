@@ -20,3 +20,4 @@ export { AnimalHands, likedByAnimals, type AnimalTargets, type AnimalUse, type A
 export { PipeTools, WRENCH, WRENCH_COOLDOWN_S, type TransportHands, type PipeToolOutcome } from './pipeTools';
 export { pipeSideAt, pipeArmMask, PIPE_AIM_MARGIN } from './pipeAim';
 export { BUCKETS, SCOOPING_BUCKETS, swapHeldItem } from './buckets';
+export { HandTools, useRepeatFor, type HandHands, type HandResult, type PourResult, type HandOutcome } from './handTools';

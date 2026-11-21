@@ -7,7 +7,7 @@
  */
 import { FLAG_FIRST_POUR, MOLTEN_WINDOW_S, MOULD_POURS } from '../core/constants';
 import { CAST_METALS, castMetalOfIngot, castOf, itemOrNull, mouldOf, recipe } from '../core/registry';
-import type { CastMetalSpec, RecipeDef } from '../core/types';
+import type { CastMetalSpec, RecipeDef, Slot } from '../core/types';
 import { OK, refuse, stackMax, type ActionResult, type FurnaceEntity, type SimContext } from './entities';
 
 /** The alloy pot: item and block key, set in a crucible slot. */
@@ -202,36 +202,6 @@ export function pourCrucible(ctx: SimContext, e: FurnaceEntity, slot: number, he
   return OK;
 }
 
-/**
- * The in-world Use on a furnace with `heldKey` in hand: a fired mould pours the first crucible whose molten metal it
- * takes; copper or tin ingots go into the first alloy pot that has room. Null when the held item is neither (the Use
- * opens the furnace screen as before) or an ingot has no pot to go into.
- */
-export function pourHeld(ctx: SimContext, e: FurnaceEntity, heldKey: string | null, working: number): ActionResult | null {
-  if (!heldKey) return null;
-  const n = Math.min(working, e.crucibleIn.length);
-  if (heldKey === COPPER || heldKey === TIN) {
-    const k = heldKey === COPPER ? 0 : 1;
-    let pot = -1;
-    for (let i = 0; i < n; i++) {
-      if (!hasPot(e, i)) continue;
-      pot = i;
-      if (e.crucibleMix[i][k] < (k === 0 ? POT_COPPER_MAX : POT_TIN_MAX)) return pourCrucible(ctx, e, i, heldKey, working);
-    }
-    return pot < 0 ? null : pourCrucible(ctx, e, pot, heldKey, working);
-  }
-  if (!mouldOf(heldKey)) return null;
-  let first = -1;
-  for (let i = 0; i < n; i++) {
-    const melt = e.crucibleMelt[i];
-    if (!melt || e.crucibleMoltenS[i] <= 0) continue;
-    if (first < 0) first = i;
-    if (castOf(heldKey, melt.item) && melt.count >= (castOf(heldKey, melt.item)?.units ?? 1)) return pourCrucible(ctx, e, i, heldKey, working);
-  }
-  if (first < 0) return refuse('Nothing molten to pour');
-  return pourCrucible(ctx, e, first, heldKey, working);
-}
-
 /** Moulds in the pack that take the metal of this crucible's pool, with their pours left and what one pour makes. */
 export interface PourOption {
   mould: string;
@@ -243,9 +213,8 @@ export interface PourOption {
   poursLeft: number;
 }
 
-export function pourOptions(e: FurnaceEntity, i: number, pack: readonly ({ item: string; durability?: number } | null)[]): PourOption[] {
-  const melt = e.crucibleMelt[i];
-  if (!melt || e.crucibleMoltenS[i] <= 0) return [];
+export function pourOptions(melt: Slot, moltenS: number, pack: readonly ({ item: string; durability?: number } | null)[]): PourOption[] {
+  if (!melt || moltenS <= 0) return [];
   const seen = new Set<string>();
   const out: PourOption[] = [];
   for (const s of pack) {
@@ -254,8 +223,7 @@ export function pourOptions(e: FurnaceEntity, i: number, pack: readonly ({ item:
     const cast = castOf(s.item, melt.item);
     if (!cast) continue;
     const at = wornestMould(pack, s.item);
-    const left = pack[at]?.durability ?? MOULD_POURS;
-    out.push({ mould: s.item, name: name(s.item), makes: cast.item, units: cast.units, casts: Math.floor(melt.count / cast.units), poursLeft: left });
+    out.push({ mould: s.item, name: name(s.item), makes: cast.item, units: cast.units, casts: Math.floor(melt.count / cast.units), poursLeft: pack[at]?.durability ?? MOULD_POURS });
   }
   return out;
 }

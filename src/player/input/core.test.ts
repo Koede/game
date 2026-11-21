@@ -125,6 +125,15 @@ describe('use auto-repeat', () => {
     expect(core.frame(DT, 1e4, false).use).toBe(false);
   });
 
+  it('repeats at the rate the controller sets (a hand station\'s stroke rate) and a press always fires at once', () => {
+    const core = make();
+    core.useRepeatS = 0.4;
+    core.mouseButton('right', true);
+    let fired = 0;
+    for (let f = 0; f < Math.round(1.7 / DT); f++) if (core.frame(DT, f * 16, false).use) fired++;
+    expect(fired).toBe(5); // press + repeats at 0.4, 0.8, 1.2, 1.6 s
+  });
+
   it('a world tap fires use once', () => {
     const core = make();
     core.touch.down(1, 300, 300, 0, 'world');

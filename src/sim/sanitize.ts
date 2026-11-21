@@ -110,7 +110,8 @@ export function sanitizeEntity(e: BlockEntity, blockTier: number | null = null):
 
 /** Casting state (molten metal, its countdown, an alloy pot's mix) as long as the crucibles, every value valid. */
 function repairCasting(f: Fields, set: (key: string, value: unknown) => void): void {
-  const n = (f.crucibleIn as unknown[]).length;
+  // As many as the crucibles (the arrays grow together; crucibleOut is the one nothing but the hearth ever extends).
+  const n = (f.crucibleOut as unknown[]).length;
   const melt = (f.crucibleMelt as unknown[]).slice(0, n).map(cleanSlot);
   const moltenS = (f.crucibleMoltenS as unknown[]).slice(0, n).map((v) => (finite(v) && v > 0 ? v : 0));
   const mix = (f.crucibleMix as unknown[]).slice(0, n).map((v): [number, number] =>

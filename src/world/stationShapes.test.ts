@@ -31,14 +31,14 @@ describe('station shapes', () => {
   });
 
   it('reports the bounds of the shape for the target outline', () => {
-    expect(stationBounds('stone_anvil')).toEqual([0, 0, 4 / 16, 1, 12 / 16, 12 / 16]);
+    expect(stationBounds('stone_anvil')).toEqual([0, 0, 4 / 16, 15 / 16, 12 / 16, 12 / 16]);
     expect(stationBounds('stone')).toBeNull();
     expect(stationIndex('chopping_block')).toBeGreaterThan(0);
     expect(stationIndex('stone')).toBe(0);
   });
 
   const quern = blockOrNull('hand_quern');
-  it.runIf(quern !== null && quern.shape === 'cube')('meshes a station as boxes and hides nothing behind it', () => {
+  it.runIf(quern !== null)('meshes a station as boxes and hides nothing behind it', () => {
     const chunks = emptyNeighborhood();
     put(chunks, 5, 40, 5, makeVoxel(quern!.id));
     const m = meshChunk({ cx: 0, cz: 0, chunks });
@@ -46,5 +46,14 @@ describe('station shapes', () => {
     expect(quads).toBe(STATION_BOXES.hand_quern.length * 6);
     const ys = [...m.opaque.positions].filter((_, i) => i % 3 === 1);
     expect(Math.max(...ys)).toBeCloseTo(40 + 7 / 16);
+    // A neighbouring cube keeps its faces towards the station (it is not opaque).
+  });
+
+  it.runIf(quern !== null)('does not hide the faces of a block beside it', () => {
+    const chunks = emptyNeighborhood();
+    put(chunks, 5, 40, 5, makeVoxel(quern!.id));
+    put(chunks, 6, 40, 5, makeVoxel(blockOrNull('stone')!.id));
+    const m = meshChunk({ cx: 0, cz: 0, chunks });
+    expect(m.opaque.indices.length / 6).toBe(STATION_BOXES.hand_quern.length * 6 + 6);
   });
 });

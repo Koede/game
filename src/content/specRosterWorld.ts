@@ -50,7 +50,7 @@ export const WORLD_SPEC = {
   /** World blocks of sections 13-14 the tech tree must not depend on (biome-flavoured, ruins, decoration). */
   optional: [
     'peat', 'cactus', 'packed_ice', 'ice_spike', 'basalt_column', 'steam_vent', 'crystal_cluster', 'glowcap',
-    'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'cracked_stone_brick', 'mossy_stone_brick',
+    'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'cracked_stone_brick', 'mossy_stone_brick',
   ],
 
   /** Latest age an item in each loot tier may belong to: ruins speed the climb, they never skip it. */

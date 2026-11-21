@@ -116,4 +116,16 @@ Item icons: `item_drip_cone` `item_tea_cutting` `item_coffee_cutting` `item_tea_
 ## 9. Worldgen
 Tea bushes in woodland and marsh grass, coffee shrubs in woodland grass near the dunes (`src/world/plants.ts` patches, same flora pass as
 the berry bush; deterministic and chunk-order independent). Both are in `NATURAL_BLOCKS`; tea is listed under the woodland and marsh
-biome-only blocks and coffee under woodland (the tech tree to the Starhearth never needs them).
+biome-only blocks and coffee under woodland (the tech tree to the Starhearth never needs them). Because Berry Tea needs wildberries, `berry_bush` moved from the "optional world blocks" fixture to the biome-only lists (woodland and
+marsh), so the lean-world test (no lava, rubble or biome-flavoured blocks) still reaches every recipe. Tea patches: cell 20, coffee cell 22,
+coffee needs dunes blend >= 0.06 (`COFFEE_WARMTH` in plants.ts).
+
+## 10. Deviations from the plan
+- `ItemSpec.cools` (new): the boiling bucket's cooling is data, not a hard-coded key.
+- The brewing stage has its own block (`cup_brewing`), so the five stages map one to one to blocks; the plan's `cup_cone_tea` / `cup_tea` etc. became
+  `cup_cone_loaded` / `cup_full` with the drink on the entity (11.1).
+- The kettle uses the voxel's active bit for "boiling" instead of a second block.
+- `six_cups` sits in the strictly sequential goal list, so it holds the goal line until all six drinks are drunk (see section 6).
+- No crusher (mill) recipes for ground coffee yet, no loot-table additions (the plan lists none).
+- The Handwork engineer's Clay Table makes unfired cups and cones (`item_unfired_cup`); my `clay_cup` / `drip_cone` forge recipes at 400 C are the
+  brewing route. Decide which stays, or let the table fire into `clay_cup` / `drip_cone`.

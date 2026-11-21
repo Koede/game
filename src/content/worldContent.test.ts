@@ -180,6 +180,6 @@ describe('15. weather and the moon, as content sees them', () => {
   });
 
   it('gives every machine kind a role the UI and simulation know', () => {
-    for (const m of MACHINES.values()) expect(['furnace', 'generator', 'consumer', 'storage', 'crate', 'boiler', 'crop', 'bush', 'tank', 'hearth_part']).toContain(m.role);
+    for (const m of MACHINES.values()) expect(['furnace', 'generator', 'consumer', 'storage', 'crate', 'boiler', 'crop', 'bush', 'tank', 'hearth_part', 'brew', 'hand']).toContain(m.role);
   });
 });

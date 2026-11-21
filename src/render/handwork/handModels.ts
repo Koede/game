@@ -264,13 +264,13 @@ const RACK: HandAnim = {
 function water(): PartModel {
   const b = new ModelBuilder();
   b.assembly([0, 0, 0], IDENTITY, Motion.Static);
-  b16(b, 3, 3, 4, 13, 7, 12, WATER);
+  b16(b, 3, 2, 4, 13, 6, 12, WATER);
   return b.build();
 }
 function soaking(): PartModel {
   const b = new ModelBuilder();
   b.assembly([0, 0, 0], IDENTITY, Motion.Static);
-  b16(b, 4, 7, 5, 12, 8, 11, HIDE);
+  b16(b, 4, 5, 5, 12, 7, 11, HIDE);
   return b.build();
 }
 const TROUGH: HandAnim = {

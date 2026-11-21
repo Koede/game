@@ -45,6 +45,14 @@ export interface UIBrewView {
   text: string;
 }
 
+/** A hand station in words (a subset of the simulation's HandView): the aiming line and how far the work is. */
+export interface UIHandView {
+  /** The target name: "Hand Quern - wheat 3/6 strokes", "Drying Rack - waiting for sun", "Hand Quern - flour ready". */
+  label: string;
+  /** 0..1 through the job (the crosshair ring fills with it). */
+  fraction: number;
+}
+
 export interface UISimQuery {
   /** The furnace entity at a block position, or null (home compass: temperature, tier, hot). */
   furnaceAt(x: number, y: number, z: number): UIFurnaceState | null;
@@ -56,6 +64,8 @@ export interface UISimQuery {
   cropView(x: number, y: number, z: number): UICropView | null;
   /** The brewing entity at a block position, or null (crosshair: the step the cup or bucket is at). */
   brewView(x: number, y: number, z: number): UIBrewView | null;
+  /** The hand station at a block position, or null (crosshair: what it holds and how far the work is). */
+  handView(x: number, y: number, z: number): UIHandView | null;
 }
 
 /** Before the simulation exists: no furnaces, no networks, no station sources (screens fall back to the player). */
@@ -65,4 +75,5 @@ export const NO_UI_SIM: UISimQuery = {
   stationSources: () => [],
   cropView: () => null,
   brewView: () => null,
+  handView: () => null,
 };

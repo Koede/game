@@ -26,9 +26,13 @@ const timed = (id: string, station: string, output: string, inputs: string, time
 
 /** Clay worked on the table: four strokes a piece. */
 const CLAY_STROKES = 4;
-const CLAY_PIECES: Array<[output: string, count: number, clay: number]> = [
-  ['unfired_cup', 2, 2], ['unfired_cone', 2, 2], ['unfired_alloy_pot', 1, 4], ['unfired_ingot_mould', 1, 2],
-  ['unfired_pickaxe_mould', 1, 3], ['unfired_axe_mould', 1, 3], ['unfired_shovel_mould', 1, 3], ['unfired_hoe_mould', 1, 3], ['unfired_maul_mould', 1, 3],
+/**
+ * Every piece starts from clay, so the CLAY LOADED picks the job (the sim runs the first recipe the loaded count can pay
+ * for): each piece costs a distinct number of clay, listed from the dearest down. Bigger moulds cost more.
+ */
+const CLAY_PIECES: Array<[output: string, clay: number]> = [
+  ['unfired_maul_mould', 9], ['unfired_pickaxe_mould', 8], ['unfired_axe_mould', 7], ['unfired_hoe_mould', 6],
+  ['unfired_shovel_mould', 5], ['unfired_alloy_pot', 4], ['unfired_ingot_mould', 3], ['unfired_cone', 2], ['unfired_cup', 1],
 ];
 /** Fired in a crucible: [fired item, unfired item, recipe id]. */
 const FIRED: Array<[string, string, string]> = [
@@ -64,7 +68,7 @@ export const HAND_RECIPES: RecipeSpec[] = [
   strokes('stick', 'chopping_block', '4 stick', '1 plank', 2),
   // Hand Quern.
   strokes('flour', 'hand_quern', 'flour', '1 wheat', 6),
-  // Stone Anvil: plates and wire (hot work halves the strokes).
+  // Stone Anvil: plates (two ingots) and wire (one): the count loaded picks the job, so a plate is listed first.
   strokes('copper_plate', 'stone_anvil', 'copper_plate', '2 copper_ingot', 8),
   strokes('bronze_plate', 'stone_anvil', 'bronze_plate', '2 bronze_ingot', 8),
   strokes('copper_wire', 'stone_anvil', '3 copper_wire', '1 copper_ingot', 6),
@@ -74,7 +78,7 @@ export const HAND_RECIPES: RecipeSpec[] = [
   // Loom.
   strokes('cloth', 'loom', 'cloth', '4 fiber', 10),
   // Clay Table.
-  ...CLAY_PIECES.map(([out, count, clay]) => strokes(out, 'clay_table', `${count} ${out}`, `${clay} clay`, CLAY_STROKES)),
+  ...CLAY_PIECES.map(([out, clay]) => strokes(out, 'clay_table', out, `${clay} clay`, CLAY_STROKES)),
   // Timed: the trough, the rack and the alloy pot.
   timed('soaked_hide', 'tanning_trough', '2 soaked_hide', '2 hide', 60),
   timed('leather', 'drying_rack', '2 leather', '2 soaked_hide', 120),

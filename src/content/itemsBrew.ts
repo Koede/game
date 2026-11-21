@@ -26,14 +26,14 @@ export const BREW_ITEMS: ItemSpec[] = [
   { key: 'coffee_cutting', name: 'Coffee Cutting', desc: 'A rooted coffee cutting. Plant it on grass, dirt, peat or farmland and it fruits every six minutes.', category: 'block', age: 0, stack: 16, block: 'coffee_shrub_bare', icon: 'item_coffee_cutting' },
   stuff('tea_leaves', 'Tea Leaves', 'Fresh green tea leaves. Dry them in a crucible at 150 C.', { category: 'resource' }),
   ingredient('dried_tea', 'Dried Tea', 'Tea leaves dried in the furnace. In a cone it brews Green Tea; roast it hotter for black tea, or blend it with berries.', 'green_tea'),
-  ingredient('black_tea', 'Black Tea', 'Dried tea fired again at 250 C until it turns dark. In a cone it brews Black Tea.', 'black_tea_cup'),
+  ingredient('black_tea', 'Black Tea Leaves', 'Dried tea fired again at 250 C until it turns dark. In a cone it brews Black Tea.', 'black_tea_cup'),
   ingredient('berry_tea_blend', 'Berry Tea Blend', 'Dried tea crushed with wildberries. In a cone it brews Berry Tea.', 'berry_tea'),
   stuff('coffee_cherries', 'Coffee Cherries', 'Red coffee cherries, picked ripe. Roast them in a crucible at 220 C.', { category: 'resource' }),
   stuff('roasted_beans', 'Roasted Beans', 'Beans roasted brown. Grind them for a light roast, or roast them again at 400 C for a dark one.'),
   stuff('dark_beans', 'Dark Beans', 'Beans roasted nearly black at 400 C. Grind them for a dark roast.'),
   ingredient('ground_coffee', 'Ground Coffee', 'Two roasted beans ground at the workbench. In a cone it brews a Light Roast.', 'light_roast'),
   ingredient('ground_dark_coffee', 'Ground Dark Coffee', 'Two dark beans ground at the workbench. In a cone it brews a Dark Roast.', 'dark_roast'),
-  ingredient('trail_blend', 'Trail Blend', 'Light and dark grounds mixed at the workbench, two portions to a batch. In a cone it brews a Trail Blend.', 'trail_blend_cup'),
+  ingredient('trail_blend', 'Trail Blend Grounds', 'Light and dark grounds mixed at the workbench, two portions to a batch. In a cone it brews a Trail Blend.', 'trail_blend_cup'),
   {
     // Boiling water in a bucket. Its stack's durability is the seconds left (the pack ticks it down).
     key: 'boiling_pail', name: 'Boiling Bucket', desc: 'A bucket of boiling water, too hot to keep: it cools back to water in a minute and a half. Pour it over a loaded cone.',

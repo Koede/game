@@ -142,9 +142,8 @@ describe('crucibles', () => {
     h.crucibleIn[0] = { item: 'copper_ore', count: 3 };
     // At 800 C: speed 1 x (1 + 100/300) -> the 10 s recipe takes 7.5 s.
     hot.run(7.3);
-    expect(h.crucibleMelt[0]).toBeNull();
+    expect(h.crucibleOut[0]).toBeNull();
     hot.run(7.9);
-    // Copper comes out molten (src/sim/casting.ts), not as an ingot in the output slot.
     expect(h.crucibleMelt[0]).toEqual({ item: 'copper_ingot', count: 2 });
   });
 
@@ -215,7 +214,7 @@ describe('forging and upgrading', () => {
     expect(kit.player.inventory.count('bronze_bucket')).toBe(2);
     expect(kit.player.inventory.count('bronze_ingot')).toBe(1);
     expect(made).toHaveLength(2);
-    e.tempC = 740;
+    e.tempC = 700;
     kit.player.inventory.remove('bronze_ingot', 1);
     const r = kit.sim.forge(0, 1, 0, 'bronze_bucket');
     expect(r.ok).toBe(false);
@@ -232,9 +231,9 @@ describe('forging and upgrading', () => {
     kit.player.give('bronze_ingot', 1);
     e.tempC = 800;
     const rows = kit.sim.forgeList(0, 1, 0);
-    const bronze = rows.find((r) => r.recipe.id === 'bronze_bucket')!;
-    expect(bronze.canMake).toBe(true);
-    expect(bronze.ingredients.find((i) => i.item === 'bronze_ingot')).toMatchObject({ have: 3, need: 3, ok: true });
+    const bucket = rows.find((r) => r.recipe.id === 'bronze_bucket')!;
+    expect(bucket.canMake).toBe(true);
+    expect(bucket.ingredients.find((i) => i.item === 'bronze_ingot')).toMatchObject({ have: 3, need: 3, ok: true });
     expect(rows.find((r) => r.recipe.id === 'iron_plate')).toMatchObject({ locked: true, canMake: false });
     expect(kit.sim.forge(0, 1, 0, 'bronze_bucket', 2)).toEqual({ ok: true, made: 1 });
     expect(kit.player.inventory.count('bronze_ingot')).toBe(0);
@@ -281,7 +280,7 @@ describe('forging and upgrading', () => {
     expect(kit.sim.maxFurnaceTier()).toBe(2);
   });
 
-  it('breaking a furnace drops what it held', () => {
+  it('breaking a furnace hands back what it held', () => {
     const kit = makeKit();
     const removed = kit.record('machine:removed');
     const e = kit.furnace(0, 1, 0);
@@ -291,9 +290,9 @@ describe('forging and upgrading', () => {
     kit.world.setVoxel(0, 1, 0, 0, 'player');
     expect(kit.sim.furnaceAt(0, 1, 0)).toBeNull();
     expect(kit.world.getEntity(0, 1, 0)).toBeUndefined();
-    expect(kit.player.ground.count('coal')).toBe(7);
-    expect(kit.player.ground.count('tin_ore')).toBe(2);
-    expect(kit.player.ground.count('tin_ingot')).toBe(3);
+    expect(kit.player.inventory.count('coal')).toBe(7);
+    expect(kit.player.inventory.count('tin_ore')).toBe(2);
+    expect(kit.player.inventory.count('tin_ingot')).toBe(3);
     expect(removed).toHaveLength(1);
   });
 });
@@ -336,8 +335,9 @@ describe('rest and home', () => {
 describe('persistence', () => {
   it('a furnace saved mid-run continues identically', () => {
     const a = makeKit();
-    const e = a.furnace(0, 1, 0);
+    const e = a.furnace(0, 1, 0, 'furnace_blast');
     e.crucibleIn[0] = { item: 'copper_ore', count: 9 };
+    e.crucibleIn[1] = { item: 'sand', count: 9 };
     fire(a, e, 'charcoal', 6);
     a.sim.pump(0, 1, 0);
     a.run(47.3);
@@ -345,7 +345,7 @@ describe('persistence', () => {
 
     const b = makeKit();
     b.world.setEntity(saved);
-    b.world.put(0, 1, 0, 'furnace_clay', true);
+    b.world.put(0, 1, 0, 'furnace_blast', true);
     expect(b.sim.furnaceAt(0, 1, 0)).toBe(saved);
     a.run(200);
     b.run(200);

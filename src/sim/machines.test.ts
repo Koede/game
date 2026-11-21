@@ -329,8 +329,8 @@ describe('Starhearth ignition', () => {
     expect(voxelActive(kit.world.getVoxel(0, 1, 0))).toBe(true);
     expect(kit.sim.maxFurnaceTempC()).toBe(5000);
     // Every forge minimum is met and forging no longer chills it.
-    kit.player.give('copper_ingot', 1);
-    expect(kit.sim.forge(0, 1, 0, 'copper_wire')).toEqual({ ok: true, made: 1 });
+    kit.player.give('bronze_ingot', 3);
+    expect(kit.sim.forge(0, 1, 0, 'bronze_bucket')).toEqual({ ok: true, made: 1 });
     expect(e.tempC).toBe(5000);
     expect(kit.sim.light(0, 1, 0).ok).toBe(false);
     kit.run(100);

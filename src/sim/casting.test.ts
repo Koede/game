@@ -9,7 +9,9 @@ import { sanitizeEntity } from './sanitize';
 /** A lit furnace hot enough for anything cast, with the player holding the given moulds. */
 function setup(moulds: string[] = []): { kit: Kit; e: FurnaceEntity } {
   const kit = makeKit();
-  const e = kit.furnace(0, 1, 0);
+  const e = kit.furnace(0, 1, 0, 'furnace_blast');
+  kit.formed(0, 1, 0);
+  e.electric = false;
   fire(kit, e, 'charcoal');
   e.tempC = 900;
   for (const m of moulds) kit.player.inventory.add(m, 1);
@@ -25,10 +27,10 @@ describe('molten smelts', () => {
   it('a finished copper smelt is molten metal, not an ingot', () => {
     const { kit, e } = setup();
     e.crucibleIn[0] = { item: 'copper_ore', count: 1 };
-    kit.run(7);
+    kit.run(14);
     expect(e.crucibleOut[0]).toBeNull();
     expect(e.crucibleMelt[0]).toEqual({ item: 'copper_ingot', count: 1 });
-    expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 5);
+    expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 12);
     const v = kit.sim.furnaceView(0, 1, 0)!.crucibles[0];
     expect(v.moltenS).toBeGreaterThan(0);
     expect(v.status).toMatch(/^Molten Copper Ingot - pour it in \d+ s$/);
@@ -64,11 +66,11 @@ describe('molten smelts', () => {
 
   it('a second smelt adds to the pool and restarts the window; another metal waits', () => {
     const { kit, e } = setup();
-    molten(e, 0, 'copper_ingot', 1, 14);
+    molten(e, 0, 'copper_ingot', 1, 15);
     e.crucibleIn[0] = { item: 'copper_ore', count: 1 };
-    kit.run(11);
+    kit.run(12);
     expect(e.crucibleMelt[0]?.count).toBe(2);
-    expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 6);
+    expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 12);
     const f = setup();
     molten(f.e, 0, 'tin_ingot', 1);
     f.e.crucibleIn[0] = { item: 'copper_ore', count: 1 };
@@ -107,11 +109,11 @@ describe('pour matrix', () => {
     const { kit, e } = setup(['pickaxe_mould', 'ingot_mould']);
     molten(e, 0, 'copper_ingot', 3);
     expect(kit.sim.pourCrucible(0, 1, 0, 0, 'pickaxe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('does not take') });
-    molten(e, 0, 'bronze_ingot', 2);
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'pickaxe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('Needs 3 molten') });
+    molten(e, 1, 'bronze_ingot', 2);
+    expect(kit.sim.pourCrucible(0, 1, 0, 1, 'pickaxe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('Needs 3 molten') });
     expect(kit.sim.pourCrucible(0, 1, 0, 0, null)).toMatchObject({ ok: false });
-    molten(e, 0, 'bronze_ingot', 3);
-    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'axe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('You have no') });
+    molten(e, 1, 'bronze_ingot', 3);
+    expect(kit.sim.pourCrucible(0, 1, 0, 1, 'hoe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('You have no') });
     expect(kit.sim.pourCrucible(0, 1, 0, 9, 'ingot_mould')).toMatchObject({ ok: false });
     expect(e.crucibleMelt[0]?.count).toBe(3);
   });
@@ -128,12 +130,8 @@ describe('mould wear', () => {
   it('wears one pour per cast and breaks at zero; the most worn mould goes first', () => {
     const { kit, e } = setup();
     const inv = kit.player.inventory;
-    inv.add('ingot_mould', 1);
-    inv.add('ingot_mould', 1);
-    // Moulds carry no tool durability: the wear sits on the stack once poured, so set it by hand.
-    const moulds = inv.slots.filter((s) => s?.item === 'ingot_mould');
-    moulds[0]!.durability = 5;
-    moulds[1]!.durability = 2;
+    inv.add('ingot_mould', 1, 5);
+    inv.add('ingot_mould', 1, 2);
     molten(e, 0, 'copper_ingot', 3);
     const broke = kit.record('tool:broke');
     expect(kit.sim.pourCrucible(0, 1, 0, 0, 'ingot_mould').ok).toBe(true);
@@ -148,12 +146,12 @@ describe('mould wear', () => {
   it('pourOptions lists the moulds in the pack that fit the metal', () => {
     const { kit, e } = setup(['ingot_mould', 'pickaxe_mould', 'axe_mould']);
     molten(e, 0, 'bronze_ingot', 4);
-    const options = pourOptions(e, 0, kit.player.inventory.slots);
+    const options = pourOptions(e.crucibleMelt[0], e.crucibleMoltenS[0], kit.player.inventory.slots);
     expect(options.map((o) => o.mould).sort()).toEqual(['axe_mould', 'ingot_mould', 'pickaxe_mould']);
     expect(options.find((o) => o.mould === 'ingot_mould')).toMatchObject({ casts: 4, makes: 'bronze_ingot', poursLeft: MOULD_POURS });
     molten(e, 1, 'copper_ingot', 4);
-    expect(pourOptions(e, 1, kit.player.inventory.slots).map((o) => o.mould)).toEqual(['ingot_mould']);
-    expect(pourOptions(e, 2, kit.player.inventory.slots)).toEqual([]);
+    expect(pourOptions(e.crucibleMelt[1], e.crucibleMoltenS[1], kit.player.inventory.slots).map((o) => o.mould)).toEqual(['ingot_mould']);
+    expect(pourOptions(e.crucibleMelt[2], e.crucibleMoltenS[2], kit.player.inventory.slots)).toEqual([]);
   });
 });
 
@@ -224,19 +222,19 @@ describe('save and load', () => {
   it('molten state survives a JSON round trip and sanitising, and old saves get empty fields', () => {
     const { e } = setup();
     molten(e, 0, 'tin_ingot', 2, 7.5);
-    e.crucibleMix[0] = [2, 1];
+    e.crucibleMix[1] = [2, 1];
     const copy = JSON.parse(JSON.stringify(e)) as FurnaceEntity;
     expect(sanitizeEntity(copy)).toBe('ok');
     expect(copy.crucibleMelt[0]).toEqual({ item: 'tin_ingot', count: 2 });
     expect(copy.crucibleMoltenS[0]).toBe(7.5);
-    expect(copy.crucibleMix[0]).toEqual([2, 1]);
+    expect(copy.crucibleMix[1]).toEqual([2, 1]);
     const old = JSON.parse(JSON.stringify(e)) as Record<string, unknown>;
     delete old.crucibleMelt;
     delete old.crucibleMoltenS;
     delete old.crucibleMix;
     sanitizeEntity(old as unknown as FurnaceEntity);
-    expect(old.crucibleMelt).toEqual([null]);
-    expect(old.crucibleMoltenS).toEqual([0]);
+    expect(old.crucibleMelt).toEqual([null, null]);
+    expect(old.crucibleMoltenS).toEqual([0, 0]);
   });
 
   it('keeps counting down after load: a loaded pool still cools on time', () => {
@@ -252,7 +250,7 @@ describe('save and load', () => {
     raw.crucibleMelt = [{ item: 'nonsense', count: 2 }];
     raw.crucibleMoltenS = [-4];
     expect(sanitizeEntity(raw as unknown as FurnaceEntity)).toBe('repaired');
-    expect(raw.crucibleMelt).toEqual([null]);
-    expect(raw.crucibleMoltenS).toEqual([0]);
+    expect(raw.crucibleMelt).toEqual([null, null]);
+    expect(raw.crucibleMoltenS).toEqual([0, 0]);
   });
 });

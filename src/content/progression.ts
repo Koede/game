@@ -27,11 +27,15 @@
  * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
-import { AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_PEACEFUL, FURNACE_BUFF_C } from '../core/constants';
+import {
+  AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS,
+  FURNACE_BUFF_C,
+} from '../core/constants';
+import { CONE_ITEM, CUP_ITEM } from '../core/brewing';
 import { smallestShell } from '../core/hearth';
 import {
-  AUTOMATONS, BLOCKS, CREATURES, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, ORE_VEINS, RECIPES,
-  block, furnaceTier, item, machine, recipe, recipesFor,
+  AUTOMATONS, BLOCKS, CREATURES, DRINKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, MOULDS, ORE_VEINS, RECIPES,
+  block, castMetalOfIngot, furnaceTier, isHandStation, item, machine, recipe, recipesFor,
 } from '../core/registry';
 import type {
   BiomeKey, BlockDef, Drop, FurnaceTierSpec, ItemAmount, LiquidKind, MachineSpec, ObjectiveCondition, RecipeDef, ToolKind,
@@ -44,6 +48,7 @@ export const NATURAL_BLOCKS: readonly string[] = [
   'wild_wheat', 'wild_potato', 'wild_carrot',
   'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'glowcap', 'cactus', 'packed_ice', 'ice_spike',
   'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'oil',
+  'tea_bush', 'coffee_shrub',
 ];
 
 /** Ruin blocks that hold finite salvage (spec 14): bonus finds, left out of the assumed world. */
@@ -54,11 +59,11 @@ export const RUIN_SALVAGE_BLOCKS: readonly string[] = ['collapsed_furnace', 'rus
  * any biome. Tests prove the game can be finished from each biome alone.
  */
 export const BIOME_ONLY_BLOCKS: Readonly<Record<BiomeKey, readonly string[]>> = {
-  woodland: ['fern'],
+  woodland: ['fern', 'berry_bush', 'tea_bush', 'coffee_shrub'],
   dunes: ['cactus'],
   frostfell: ['snow', 'ice', 'packed_ice', 'ice_spike', 'frost_lily'],
   scar: ['basalt', 'basalt_column', 'steam_vent'],
-  marsh: ['peat'],
+  marsh: ['peat', 'berry_bush', 'tea_bush'],
 };
 
 /** Using an empty container on a liquid of the world fills it: [container, liquid, filled item] (spec 13). */
@@ -156,7 +161,7 @@ const crops = [...MACHINES.values()].filter((m) => m.role === 'crop').flatMap((m
   return [...stagesOf.values()].map((stages) => ({ seed: itemPlacing(stages[0]), ripe: block(stages[stages.length - 1]) }));
 });
 /** Recipes run by a processing machine (the furnace is a machine kind too, but it is the player who works it). */
-export const isMachineRecipe = (r: RecipeDef): boolean => r.station !== 'hand' && r.station !== 'workbench' && r.station !== 'furnace';
+export const isMachineRecipe = (r: RecipeDef): boolean => r.station !== 'hand' && r.station !== 'workbench' && r.station !== 'furnace' && !isHandStation(r.station);
 /** Generators that run on the steam of a boiler (spec 16.5). */
 const steamFed = (m: MachineSpec): boolean => m.fluids?.accepts?.includes('steam') ?? false;
 const boilers = [...MACHINES.values()].filter((m) => m.role === 'boiler');
@@ -240,14 +245,23 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     const heat = generators.filter((m) => heatDriven(m) && tier >= 1 && runs(m)).map((m) => heatW(m, hottest));
     return Math.max(gridW(), ...heat);
   };
-  const usable = (r: RecipeDef): boolean => {
+  /** Ember handwork: whether the player owns the station block of a hand recipe (and, for the alloy pot, a hot enough furnace). */
+  const handReady = (r: RecipeDef): boolean => {
+    if (!items.has(block(r.station).itemKey ?? '')) return false;
+    return r.station !== 'alloy_pot' || (tier >= 1 && Math.max(...temps().slice(1)) >= r.minTempC);
+  };
+  /** A recipe whose output is a cast metal ingot comes out molten: it only becomes an ingot poured into a fired mould. */
+  const castGated = (r: RecipeDef): boolean => castMetalOfIngot(r.output.item) !== null && (r.station === 'furnace' || isHandStation(r.station));
+  const usableUngated = (r: RecipeDef): boolean => {
     if (!r.inputs.every((i) => items.has(i.item))) return false;
+    if (isHandStation(r.station)) return handReady(r);
     if (r.station === 'hand') return true;
     if (r.station === 'workbench') return items.has('workbench');
     if (r.station === 'furnace') return tier >= r.minTier && Math.max(...temps().slice(r.minTier)) >= r.minTempC;
     const m = MACHINES.get(r.station);
     return m !== undefined && placed(m) && generationW() >= (m.drawW ?? 0);
   };
+  const usable = (r: RecipeDef): boolean => usableUngated(r) && (!castGated(r) || items.has('ingot_mould'));
 
   for (let changed = true; changed; ) {
     changed = false;
@@ -266,6 +280,14 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     // So do the automatons (not on Peaceful). Only what one always carries counts: chance drops and relics are luck.
     for (const c of hostiles ? AUTOMATONS : []) {
       for (const drop of c.drops) if ((drop.chance ?? 1) >= 1 && !isRelic(drop) && gain(drop.item, `automaton:${c.key}`)) changed = true;
+    }
+    // Brewing: a water container set on a hot furnace top boils, and boiling water poured through a cone loaded with an
+    // ingredient fills the cup (item use, not recipes). Source 'boil' / 'brew'.
+    for (const it of ITEMS) {
+      if (it.container && tier >= 1 && items.has(it.key) && gain(it.container.boilsTo, 'boil')) changed = true;
+    }
+    if (hasBrewingGear(items)) {
+      for (const it of ITEMS) if (it.brews && items.has(it.key) && gain(it.brews, 'brew')) changed = true;
     }
     if (canTill(world, items)) {
       for (const crop of crops) {
@@ -293,6 +315,21 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
       for (const extra of r.byproducts) gain(extra.item, r.id);
       changed = true;
     }
+    // Ember casting: metal smelted without a mould cools into a bloom (a lump to smelt again); a fired mould turns molten
+    // metal into its cast item. Ingots themselves come from the gated recipes above (their source stays a recipe).
+    const molten = new Set<string>();
+    for (const r of RECIPES) {
+      const metal = castGated(r) ? castMetalOfIngot(r.output.item) : null;
+      if (!metal || !usableUngated(r)) continue;
+      molten.add(metal.key);
+      if (!r.inputs.some((i) => i.item === metal.bloom) && gain(metal.bloom, `${r.id}:bloom`)) changed = true;
+    }
+    for (const mould of MOULDS) {
+      if (!items.has(mould.item)) continue;
+      for (const [metal, out] of Object.entries(mould.casts)) {
+        if (molten.has(metal) && !castMetalOfIngot(out) && gain(out, `cast:${mould.item}`)) changed = true;
+      }
+    }
   }
 
   const tempC = temps();
@@ -306,6 +343,10 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     cableRatingW: cableRatingW(),
   };
 }
+
+/** A cup, a cone and boiling water to pour: all that brewing needs besides an ingredient (the furnace tier is checked by the caller's boil). */
+const hasBrewingGear = (items: ReadonlySet<string>): boolean =>
+  items.has(CUP_ITEM) && items.has(CONE_ITEM) && ITEMS.some((it) => it.container !== undefined && items.has(it.container.boilsTo));
 
 const hasFuel = (p: Progress): boolean => [...p.items].some((key) => item(key).fuel !== undefined);
 
@@ -327,6 +368,8 @@ function canIgnite(p: Progress): boolean {
 /** When each flag the game code emits can be earned. */
 const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   furnace_lit: (p) => p.tier >= 1 && hasFuel(p),
+  // Ember casting: the first pour needs a fired ingot mould and metal to pour.
+  [FLAG_FIRST_POUR]: (p) => p.items.has('ingot_mould') && p.items.has('copper_ingot'),
   // The bellows are part of every fuel-fired furnace: pumping needs no bellows item.
   bellows_pumped: (p) => p.tier >= 1,
   well_warmed: (p) => p.tier >= 1 && p.hottestC >= FURNACE_BUFF_C,
@@ -338,6 +381,10 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   // Current Age engines: a chainsaw and something to run it on; a tractor and its fuel.
   [FLAG_FELLED_TREE]: (p) => p.items.has('chainsaw') && p.items.has('fuel_canister'),
   [FLAG_DROVE_TRACTOR]: (p) => p.items.has('tractor') && p.items.has('fuel_canister'),
+  // Brewing: the first boiling bucket, the first cup, and all six drinks (each needs its ingredient made at its own heat).
+  [FLAG_BOILED_WATER]: (p) => ITEMS.some((it) => it.container !== undefined && p.items.has(it.container.boilsTo)),
+  [FLAG_BREWED]: (p) => DRINKS.some((d) => p.items.has(d.key)),
+  [FLAG_SIX_CUPS]: (p) => DRINKS.length === 6 && DRINKS.every((d) => p.items.has(d.key)),
   // Spec 19: an automaton broken apart (bare hands will do, slowly), or a world on Peaceful.
   [FLAG_AUTOMATON_SALVAGED]: (p) => p.hostiles,
   [FLAG_PEACEFUL]: (p) => !p.hostiles,
@@ -350,7 +397,7 @@ export function conditionMet(c: ObjectiveCondition, p: Progress): boolean {
     case 'have':
       return p.items.has(c.item);
     case 'make':
-      return recipesFor(c.item).some((r) => p.recipes.has(r.id));
+      return recipesFor(c.item).some((r) => p.recipes.has(r.id)) || (p.source.get(c.item)?.startsWith('cast:') ?? false);
     case 'place':
       return p.items.has(itemPlacing(c.block) ?? '');
     case 'break': {

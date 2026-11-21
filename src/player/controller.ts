@@ -9,7 +9,7 @@ import { clamp, type Vec3 } from '../core/math';
 import type { IWorld } from '../core/types';
 import { exertJump, type PlayerState } from '../game';
 import type { BrewHands } from './brewTools';
-import type { HandHands } from './handTools';
+import { useRepeatFor, type HandHands } from './handTools';
 import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
@@ -25,6 +25,8 @@ export interface IntentSource {
   /** Capture the mouse again (after a screen closed). Optional for sources without a pointer. */
   requestPointerCapture?(): Promise<boolean>;
   releasePointerCapture?(): void;
+  /** Seconds between repeats of a held Use (a hand station's stroke rate); optional for scripted sources. */
+  setUseRepeat?(seconds: number): void;
 }
 
 export interface PlayerControllerOptions {
@@ -43,8 +45,8 @@ export interface PlayerControllerOptions {
   transport?: TransportHands;
   /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
   brew?: BrewHands;
-  /** The simulation's hand stations (src/sim's Simulation fits it): chopping block, quern, anvil, rack, loom... */
-  hand?: HandHands;
+  /** The simulation's hand work (src/sim's Simulation fits it): strokes at the Ember stations, moulds poured at a furnace. */
+  hands?: HandHands;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -108,7 +110,7 @@ export class PlayerController {
     this.settings = options.settings;
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
-    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null, options.hand ?? null);
+    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null, options.hands ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {
@@ -146,6 +148,8 @@ export class PlayerController {
 
   /** One frame. `dt` in seconds (the game loop clamps it to 0.1). */
   update(dt: number): void {
+    // Holding Use on a hand station repeats at its stroke rate (the aim of the last frame decides).
+    this.input.setUseRepeat?.(useRepeatFor(this.currentTarget?.block ?? null));
     const intent = this.input.frame(dt);
     const p = this.player;
     if (this.state.pointerLocked) this.wantsLock = true;

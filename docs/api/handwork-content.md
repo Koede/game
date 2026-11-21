@@ -172,3 +172,32 @@ collect_clay, place_furnace, light_furnace, make_charcoal, get_warm, cook_food, 
 make_bronze (now: alloy), *cast_pick_head (make bronze_pickaxe_head), bronze_pickaxe, forge_maul, salvage_automaton,
 first_power, place_lamp, *place_drying_rack, *make_leather, *place_loom (make cloth), blast_furnace (the furnace
 upgrade list is untouched until the refactor). The tracker is unchanged: still the first incomplete objective.
+
+## 10. As built (supersedes the sections above where they differ)
+
+- **Machine kinds.** All stroke and timed stations (chopping_block, hand_quern, stone_anvil, mortar, clay_table, loom, drying_rack,
+  tanning_trough) share ONE machine kind `'hand'` (role `'hand'`, the sim's `HandEntity`), no `slots` (the sim holds the slots).
+  `casting_bench` and `alloy_pot` have machine kinds of their own (role `'hand'`). Recipes use the block key as `station`;
+  `isHandStation(blockKey)` in the registry says whether a recipe station is one. Rack and trough have a `handStation` with
+  `strokesPerS: 1` but their recipes have `timeS`, no strokes.
+- **BlockSpec.handStation** also has `strokeSound?: string`, `hot?: boolean` (anvil), `sky?: boolean` (rack).
+- **Events** are the sim's (docs/api/handwork.md): `hand:stroke { x,y,z,station,progress,needed,double }`, `hand:done { x,y,z,station,output,count }`,
+  `hand:taken { x,y,z,station,item,count }`, plus `cast:poured` as in section 5. The metal pour sound is `cast_pour` (`pour` is brewing's water).
+- **Shared inputs: the count picks the job** (the sim runs the first recipe whose input count the loaded stack can pay for, so
+  authored order is dearest first). Anvil: `copper_plate` (2 copper_ingot) before `copper_wire` (1). Clay table: every piece starts from clay,
+  costing a distinct amount: maul mould 9, pickaxe mould 8, axe mould 7, hoe mould 6, shovel mould 5, alloy pot 4, ingot mould 3, cone 2, cup 1.
+  A test holds this (handwork.test.ts).
+- **Items**: 30 (adds `copper_plate`; the unfired pieces are 9). `tall_grass -> fiber` at the rack is NOT built (tall_grass can never be
+  held). Timed batches are 2 (`2 hide -> 2 soaked_hide`, `2 soaked_hide -> 2 leather`); the alloy pot's `timeS` is 8 at `minTempC` 800.
+- **Recipes replaced** are as section 6. The cup and drip cone forge recipes of brewing are gone: they are pressed at the clay table and fired
+  (`clay_cup_fired`, `drip_cone_fired`, 500 C, 8 s). Padded coat: 4 cloth + 2 cord (hide route: 4 leather + 2 cord).
+- **Objectives** (final order): gather_logs, place_chopping_block, make_planks, place_workbench, find_flint, make_pickaxe, collect_rubble,
+  collect_clay, place_furnace, light_furnace, make_charcoal, get_warm, cook_food, eat_food, place_clay_table, fire_mould, smelt_copper, first_pour,
+  place_quern, till_soil, plant_seeds, grind_flour, bake_bread, [brewing goals], place_anvil, hammer_plate (make copper_plate), reach_800,
+  make_bronze, cast_pick_head, forge_maul, bronze_pickaxe, salvage_automaton, first_power, place_lamp, place_drying_rack, make_leather,
+  weave_cloth, blast_furnace ... (first_power/place_lamp and the furnace upgrade list stay until the refactor engineer).
+- **Solver** (`progression.ts`): a hand recipe needs its station block owned (the alloy pot also a hot enough furnace); recipes whose output is a
+  cast ingot need a fired `ingot_mould` (the bloom, `<metal>_ingot:bloom`, is gained without one); cast items (heads) come from an owned mould
+  and a metal that can be melted (`cast:<mould>`); flag `first_pour`; `isMachineRecipe` excludes hand stations.
+- **Needs from other engineers**: `src/game/inventory.ts` `fullDurability` must read `mould.pours` for moulds; `item:made` must be emitted when a hand
+  station output is taken (objectives count it).

@@ -154,6 +154,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
         this.hearths.screenAt = furnace ? posKey(screen.x, screen.y, screen.z) : null;
         if (furnace) player.setHome(screen.x, screen.y, screen.z);
       }),
+      // Metal poured at a furnace is fresh from the fire: a stone anvil nearby works it with half the strokes for 20 s.
+      bus.on('cast:poured', ({ x, y, z }) => this.hand.openHotWindow(x, y, z)),
       bus.on('ui:closed', () => {
         this.hearths.screenAt = null;
       }),
@@ -490,20 +492,6 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** Pours crucible `slot`'s molten metal into the fired mould `heldKey` (a pack item) or, for 'alloy_pot', into the pot. */
   pourCrucible(x: number, y: number, z: number, slot: number, heldKey: string | null): ActionResult {
     return this.withFurnace(x, y, z, (e, node) => actions.pour(this, e, node, slot, heldKey));
-  }
-
-  /**
-   * Use on a furnace with `heldKey` in hand, in the world: a fired mould pours the molten metal of the first crucible it
-   * fits (and opens the hot-work window of the anvils nearby), an ingot of copper or tin goes into an alloy pot. Null
-   * when the held item is neither, so the Use opens the furnace screen.
-   */
-  pourHeld(x: number, y: number, z: number, heldKey: string | null): ActionResult | null {
-    this.hearths.validate();
-    const node = this.nodes.byKey.get(posKey(x, y, z));
-    if (!node || !isFurnace(node.e)) return null;
-    const r = actions.pourWithHeld(this, node.e, node, heldKey);
-    if (r && r.ok && heldKey && heldKey !== 'copper_ingot' && heldKey !== 'tin_ingot') this.openHotWindow(x, y, z);
-    return r;
   }
 
   setElectric(x: number, y: number, z: number, on: boolean): ActionResult {

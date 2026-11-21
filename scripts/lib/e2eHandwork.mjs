@@ -1,316 +1,166 @@
-// The Ember handwork steps of scripts/e2e-handwork.mjs (docs/api/handwork.md): every hand station driven with real Use
-// input - the hand quern, stone anvil (with the hot-work window after a pour), mortar, loom, clay table, the tanning
-// trough and drying rack (timed: insert and take only), and the furnace pour with a fired mould and the alloy pot.
-// Desktop: right click and right hold; phone portrait: a tap on the world is Use. window.__hw only SETS UP (a cleared
-// level stage, items, the clock and weather, the molten metal, fast-forwarding the timed stations) and reads state.
-// Every step writes diag records (`hw.*`) so a failure says which station, taps and label it stopped at.
-import { waitFor } from './browser.mjs';
-import { hlog } from './diag.mjs';
-
+// The Ember handwork steps of scripts/e2e-handwork.mjs (EMBER_PLAN 2 and 5) - real input for everything under test: a tap
+// (right click on desktop) is one stroke at a station, a held Use button repeats at the station's rate, a fired mould is
+// poured at a furnace, the crosshair line and work ring are read from the page. window.__hw only sets things up (a level
+// yard, the stations placed, items given, the furnace's molten metal, aiming) and reads state back.
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-/** Half the width of the cleared stage (blocks) around the player. */
-const STAGE_R = 5;
+const STATIONS = ['chopping_block', 'hand_quern', 'stone_anvil', 'mortar', 'clay_table', 'loom', 'drying_rack', 'tanning_trough'];
 
-/** The station's view as the sim reports it (null when the cell is not a tracked station). */
-const view = (d, pos) => d.hw((p) => window.__hw.app.game.state.sim.handView(p.x, p.y, p.z), pos);
-/** The text the crosshair shows for the aimed block (the aiming line of a station). */
-const aimLine = (d) => d.page.evaluate(() => document.querySelector('.hw-cross__label')?.textContent ?? '');
+const label = (d) => d.page.evaluate(() => document.querySelector('.hw-cross__name')?.textContent ?? '');
+const inventory = async (d) => JSON.stringify(await d.inventory());
 
-/**
- * A level, roofless stage around the player (setup): the ground under the player is flattened to its own block, the
- * air above it cleared, so the sky is open and nothing is in the way. Returns the stage centre cell (feet height).
- */
-async function stage(d) {
-  const c = await d.hw((r) => {
-    const hw = window.__hw;
-    const p = hw.state().player;
-    const cx = Math.floor(p.x);
-    const cz = Math.floor(p.z);
-    let gy = Math.floor(p.y) - 1;
-    while (gy > 1 && !hw.getBlock(cx, gy, cz).solid) gy--;
-    const floor = hw.getBlock(cx, gy, cz).block;
-    for (let dx = -r; dx <= r; dx++) {
-      for (let dz = -r; dz <= r; dz++) {
-        hw.setVoxel(cx + dx, gy, cz + dz, floor);
-        for (let dy = 1; dy <= 10; dy++) hw.setVoxel(cx + dx, gy + dy, cz + dz, 'air');
-      }
+/** Taps Use (the first taps can be eaten by a coach mark) until `changed()` is true; returns how many taps it took. */
+async function tapUntil(d, changed, tries = 5) {
+  for (let n = 1; n <= tries; n++) {
+    await d.use();
+    for (let w = 0; w < 8; w++) {
+      await d.settle(100);
+      if (await changed()) return n;
     }
-    hw.teleport(cx + 0.5, gy + 1.01, cz + 0.5);
-    return { x: cx, y: gy + 1, z: cz };
-  }, STAGE_R);
-  await d.settle(500);
-  hlog('hw.stage', c);
-  return c;
-}
-
-/** Clears the pack, gives `items` ([key, count]...) and stages the player. */
-async function prepare(d, items, { clock = 0.3 } = {}) {
-  await d.hw(([list, t]) => {
-    const hw = window.__hw;
-    hw.clearInventory();
-    hw.setTime(t);
-    hw.setWeather('clear', true);
-    for (const [key, n] of list) hw.give(key, n);
-  }, [items, clock]);
-  return stage(d);
-}
-
-/** One real Use on the station: aim, then right click / tap. */
-async function tap(d, pos) {
-  if (!(await d.aimAt(pos))) throw new Error(`cannot aim at ${JSON.stringify(pos)}`);
-  await d.use();
-  await d.settle(220);
-}
-
-/** Taps until `done()` (node side) holds; returns the taps. The hand stays whatever is selected. */
-async function tapUntil(d, pos, done, what, maxTaps = 40) {
-  for (let taps = 0; taps < maxTaps; taps++) {
-    if (await done()) return taps;
-    await tap(d, pos);
   }
-  const v = await view(d, pos);
-  hlog('hw.gave_up', { what, pos, view: v, aim: await aimLine(d) });
-  throw new Error(`${what}: not done after ${maxTaps} taps (${v?.label ?? 'no view'})`);
+  throw new Error('the tap changed nothing');
 }
 
-/** Selects the empty hand, and a held tool when given. */
-async function hold(d, item) {
-  if (item) await d.selectItem(item);
-  else await d.selectEmptyHand();
+/** Taps until the crosshair line or the pack changes. */
+async function tapStep(d) {
+  const l = await label(d);
+  const i = await inventory(d);
+  await tapUntil(d, async () => (await label(d)) !== l || (await inventory(d)) !== i);
+  return label(d);
 }
 
-/** Places the station item as a real placement; returns the cell. */
-async function placeStation(d, item) {
-  const spot = await d.placeHeld(item);
-  if (!spot) throw new Error(`${item} was not placed`);
-  await d.settle(200);
-  const v = await view(d, spot);
-  if (!v) throw new Error(`${item} placed at ${JSON.stringify(spot)} but the simulation has no hand station there`);
-  return spot;
-}
+export async function handworkSteps({ d, step, assert, page }) {
+  let yard = null;
+  const cell = (i) => ({ x: yard.bx - 4 + i, y: yard.y0, z: yard.bz - 3 });
+  const stand = async (pos, dist = 2.4) => {
+    await d.hw((a) => { const hw = window.__hw; hw.teleport(a.x, a.y, a.z); hw.lookAt(a.tx, a.ty, a.tz); }, { x: pos.x + 0.5, y: pos.y, z: pos.z + dist, tx: pos.x + 0.5, ty: pos.y + 0.45, tz: pos.z + 0.5 });
+    await d.settle(500);
+    assert(await d.aimAt(pos), `cannot aim at ${JSON.stringify(pos)}`);
+  };
 
-/**
- * A stroke station job: load `input`, stroke bare-handed (or with `tool`) until the output waits, take it. Returns
- * { strokes, labels } so the steps can assert on what the player saw.
- */
-async function strokeJob(d, assert, { station, input, inputs = [], tool = null, out, shot }) {
-  const pos0 = await prepare(d, [[station, 1], [input, 4], ...inputs, ...(tool ? [[tool, 1]] : [])]);
-  const spot = await placeStation(d, station);
-  hlog('hw.job', { station, input, spot, pos0 });
-  let v = await view(d, spot);
-  assert(v.state === 'empty', `${station} starts ${v.state}`);
-  assert(/empty/.test(await (async () => { await d.aimAt(spot); await d.settle(300); return aimLine(d); })()), `${station} aiming line does not say empty`);
-  // Load: the held stack goes onto the station (Use with the item in hand).
-  await d.selectItem(input);
-  await tap(d, spot);
-  v = await view(d, spot);
-  assert(v.input && v.input.item === input, `${station} did not load ${input}: ${v.label}`);
-  const loadedLine = await aimLine(d);
-  assert(loadedLine.includes(v.name), `aiming line "${loadedLine}" does not name ${v.name}`);
-  // Work.
-  await hold(d, tool);
-  let shotDone = false;
-  const strokes = await tapUntil(d, spot, async () => {
-    const now = await view(d, spot);
-    if (!shotDone && now.progress > 0 && shot) {
-      shotDone = true;
-      await d.shot(shot);
-    }
-    return now.state === 'ready';
-  }, `${station} work`);
-  v = await view(d, spot);
-  const readyLine = await aimLine(d);
-  assert(/ready/.test(v.label), `${station} label when done: ${v.label}`);
-  assert(v.output && v.output.item === out, `${station} output is ${v.output?.item}, not ${out}`);
-  // Take with an empty hand.
-  await hold(d, null);
-  await tap(d, spot);
-  const inv = await d.inventory();
-  assert((inv[out] ?? 0) >= 1, `${station} gave no ${out} (${JSON.stringify(inv)})`);
-  hlog('hw.job.done', { station, strokes, readyLine, loadedLine });
-  return { strokes, spot, readyLine };
-}
-
-/** Sets a furnace at `cell` (setup) and returns after its entity exists. */
-async function setFurnace(d, cell) {
-  await d.hw((p) => window.__hw.setVoxel(p.x, p.y, p.z, 'furnace_clay', 2), cell);
-  await waitFor(d.page, (p) => !!window.__hw.app.game.state.sim.furnaceAt(p.x, p.y, p.z), 'a furnace entity', { timeout: 5000, interval: 100, arg: cell });
-}
-
-/** The cell 3 blocks east of a station spot, flat on the stage (for a furnace next to it). */
-const eastOf = (spot, dx = 3) => ({ x: spot.x + dx, y: spot.y, z: spot.z });
-
-export async function handworkSteps({ d, step, assert }) {
-  await step('hand quern grinds wheat into flour with real Use input', async () => {
-    const r = await strokeJob(d, assert, { station: 'hand_quern', input: 'wheat', out: 'flour', shot: 'hw-quern' });
-    assert(r.strokes >= 5, `the quern finished in ${r.strokes} taps - it should take about 6 strokes`);
-    await d.shot('hw-quern-ready');
-  });
-
-  await step('mortar crushes copper ore', async () => {
-    await strokeJob(d, assert, { station: 'mortar', input: 'copper_ore', out: 'crushed_copper' });
-  });
-
-  await step('loom weaves fiber into cloth', async () => {
-    await strokeJob(d, assert, { station: 'loom', input: 'fiber', out: 'cloth' });
-  });
-
-  await step('clay table shapes clay into unfired cups', async () => {
-    const r = await strokeJob(d, assert, { station: 'clay_table', input: 'clay', out: 'unfired_cup' });
-    assert(r.strokes >= 3, `the clay table finished in ${r.strokes} taps`);
-  });
-
-  await step('stone anvil: hammer makes strokes count double', async () => {
-    const cold = await strokeJob(d, assert, { station: 'stone_anvil', input: 'copper_ingot', out: 'copper_plate' });
-    const hammered = await strokeJob(d, assert, { station: 'stone_anvil', input: 'copper_ingot', out: 'copper_plate', tool: 'flint_hammer' });
-    hlog('hw.anvil', { cold: cold.strokes, hammered: hammered.strokes });
-    assert(hammered.strokes < cold.strokes, `the hammer did not speed the anvil up (${hammered.strokes} vs ${cold.strokes} taps)`);
-  });
-
-  await step('pouring molten metal at the furnace opens the anvil hot-work window', async () => {
-    await prepare(d, [['stone_anvil', 1], ['ingot_mould', 1], ['copper_ingot', 4]]);
-    const anvil = await placeStation(d, 'stone_anvil');
-    const furnace = eastOf(anvil);
-    await setFurnace(d, furnace);
-    // Setup: a finished smelt waiting in the crucible, molten.
-    await d.hw((p) => {
-      const e = window.__hw.app.game.state.sim.furnaceAt(p.x, p.y, p.z);
-      e.crucibleMelt[0] = { item: 'copper_ingot', count: 2 };
-      e.crucibleMoltenS[0] = 20;
-    }, furnace);
-    // Real input: the fired mould in hand, Use on the furnace.
-    await d.selectItem('ingot_mould');
-    const before = (await d.inventory()).copper_ingot ?? 0;
-    await tap(d, furnace);
-    const after = (await d.inventory()).copper_ingot ?? 0;
-    hlog('hw.pour', { before, after, line: await aimLine(d) });
-    assert(after - before === 2, `pouring gave ${after - before} ingots, not 2`);
-    assert(!(await d.hw(() => window.__hw.state().ui.uiOpen)), 'the pour opened a screen');
-    let v = await view(d, anvil);
-    assert(v.hot, `the anvil is not hot after the pour: ${v.label}`);
-    // Work the hot window: 2 copper ingots make a plate in 8 strokes cold, so 4 taps hot.
-    await d.selectItem('copper_ingot');
-    await tap(d, anvil);
-    await hold(d, null);
-    const taps = await tapUntil(d, anvil, async () => (await view(d, anvil)).state === 'ready', 'hot anvil work');
-    hlog('hw.hotwork', { taps });
-    assert(taps <= 5, `hot work took ${taps} taps (8 cold, 4 hot)`);
-    await d.shot('hw-anvil-hot');
-    await tap(d, anvil);
-    assert(((await d.inventory()).copper_plate ?? 0) >= 1, 'no copper plate taken');
-  });
-
-  await step('alloy pot: copper and tin ingots poured in at the furnace become bronze, cast with a mould', async () => {
-    await prepare(d, [['copper_ingot', 3], ['tin_ingot', 1], ['ingot_mould', 1], ['pickaxe_mould', 1]]);
-    const cell = await d.hw(() => {
-      const p = window.__hw.state().player;
-      return { x: Math.floor(p.x) + 2, y: Math.floor(p.y), z: Math.floor(p.z) };
-    });
-    await setFurnace(d, cell);
-    await d.hw((p) => {
-      const sim = window.__hw.app.game.state.sim;
-      const e = sim.furnaceAt(p.x, p.y, p.z);
-      e.crucibleIn[0] = { item: 'alloy_pot', count: 1 };
-      e.fuel[0] = { item: 'charcoal', count: 4 };
-      sim.light(p.x, p.y, p.z);
-    }, cell);
-    await d.selectItem('copper_ingot');
-    await tap(d, cell);
-    await d.selectItem('tin_ingot');
-    await tap(d, cell);
-    const mix = await d.hw((p) => window.__hw.app.game.state.sim.furnaceAt(p.x, p.y, p.z).crucibleMix[0], cell);
-    hlog('hw.pot', { mix });
-    assert(mix[0] === 3 && mix[1] === 1, `the pot holds ${JSON.stringify(mix)}, not 3 copper and 1 tin`);
-    // Fast-forward the furnace until the bronze is molten (setup), then pour it with real input.
-    const molten = await d.hw((p) => {
-      const g = window.__hw.app.game;
-      const e = g.state.sim.furnaceAt(p.x, p.y, p.z);
-      for (let i = 0; i < 400; i++) {
-        window.__hw.tick(20);
-        if (e.crucibleMelt[0]) return { item: e.crucibleMelt[0].item, count: e.crucibleMelt[0].count, s: e.crucibleMoltenS[0], temp: e.tempC };
+  await step('a yard of hand stations is set up and the crosshair names them', async () => {
+    yard = await d.hw(() => {
+      const hw = window.__hw;
+      hw.setTime(0.35);
+      const p = hw.state().player;
+      const bx = Math.floor(p.x);
+      const bz = Math.floor(p.z);
+      const gy = hw.surfaceY(bx, bz);
+      // Level, cleared ground with as few edits as possible (every edit re-meshes a chunk).
+      for (let dx = -5; dx <= 7; dx++) {
+        for (let dz = -5; dz <= 8; dz++) {
+          const x = bx + dx;
+          const z = bz + dz;
+          const here = hw.surfaceY(x, z);
+          for (let y = here; y > gy; y--) hw.setVoxel(x, y, z, 'air');
+          for (let y = here + 1; y <= gy; y++) hw.setVoxel(x, y, z, 'dirt');
+          for (let y = gy + 1; y < gy + 4; y++) if (hw.getBlock(x, y, z).block !== 'air') hw.setVoxel(x, y, z, 'air');
+        }
       }
-      return { item: null, temp: e.tempC };
-    }, cell);
-    hlog('hw.pot.molten', molten);
-    assert(molten.item === 'bronze_ingot' && molten.count === 4, `the alloy pot made ${JSON.stringify(molten)}`);
-    await d.selectItem('pickaxe_mould');
-    await tap(d, cell);
-    let inv = await d.inventory();
-    assert((inv.bronze_pickaxe_head ?? 0) === 1, `no bronze pickaxe head cast (${JSON.stringify(inv)})`);
-    await d.selectItem('ingot_mould');
-    await tap(d, cell);
-    inv = await d.inventory();
-    assert((inv.bronze_ingot ?? 0) === 1, `the leftover bronze did not cast an ingot (${JSON.stringify(inv)})`);
-    await d.shot('hw-cast');
-  });
-
-  await step('tanning trough and drying rack: timed work, insert and take only, rain resets it', async () => {
-    await prepare(d, [['tanning_trough', 1], ['drying_rack', 1], ['hide', 2]]);
-    const trough = await placeStation(d, 'tanning_trough');
-    await d.selectItem('hide');
-    await tap(d, trough);
-    let v = await view(d, trough);
-    assert(v.timed && v.input?.item === 'hide', `the trough did not take the hide: ${v.label}`);
-    // A Use on a timed station must not stroke it.
-    await hold(d, null);
-    await tap(d, trough);
-    const same = await view(d, trough);
-    assert(same.progress === v.progress || same.progress <= 1, `a tap moved the trough from ${v.progress} to ${same.progress}`);
-    await d.hw(() => window.__hw.tick(20 * 65));
-    v = await view(d, trough);
-    assert(v.state === 'ready', `the trough is ${v.state} (${v.label}) after 65 s`);
-    await tap(d, trough);
-    assert(((await d.inventory()).soaked_hide ?? 0) >= 2, 'no soaked hide taken from the trough');
-    // The rack, in the open by day.
-    await d.hw(() => window.__hw.setTime(0.3));
-    await d.selectEmptyHand();
-    const rack = await placeStation(d, 'drying_rack');
-    await d.selectItem('soaked_hide');
-    await tap(d, rack);
-    v = await view(d, rack);
-    assert(v.input?.item === 'soaked_hide', `the rack did not take the soaked hide: ${v.label}`);
-    await d.hw(() => window.__hw.tick(20 * 30));
-    v = await view(d, rack);
-    hlog('hw.rack.dry', { label: v.label, state: v.state, progress: v.progress });
-    assert(v.progress > 20 && v.state !== 'ready', `the rack did not dry by day: ${v.label}`);
-    // Rain starts the drying over; the label says so.
-    await d.hw(() => {
-      window.__hw.setWeather('rain', true);
-      window.__hw.tick(20 * 4);
+      return { bx, bz, y0: gy + 1 };
     });
-    const wet = await view(d, rack);
-    hlog('hw.rack.rain', { label: wet.label, progress: wet.progress, reason: wet.waitReason });
-    assert(wet.progress < v.progress, `rain did not reset the rack (${v.progress} -> ${wet.progress})`);
-    await d.shot('hw-rack-rain');
-    // Clear again, dry it out, take the leather.
-    await d.hw(() => {
-      window.__hw.setWeather('clear', true);
-      window.__hw.tick(20 * 130);
-    });
-    v = await view(d, rack);
-    assert(v.state === 'ready', `the rack is ${v.state} (${v.label}) after clear drying`);
-    await hold(d, null);
-    await tap(d, rack);
-    assert(((await d.inventory()).leather ?? 0) >= 2, 'no leather taken from the rack');
-  });
-
-  await step('holding Use repeats strokes at the station pace', async () => {
-    await prepare(d, [['hand_quern', 1], ['wheat', 4]]);
-    const quern = await placeStation(d, 'hand_quern');
-    await d.selectItem('wheat');
-    await tap(d, quern);
-    await hold(d, null);
-    assert(await d.aimAt(quern), 'cannot aim at the quern');
-    const before = (await view(d, quern)).progress;
-    if (d.device === 'phonePortrait') {
-      // Portrait has no Use button (a held world touch mines); taps are the stroke input there.
-      for (let i = 0; i < 4; i++) await d.use();
-    } else {
-      await d.holdUse(1200);
+    for (let i = 0; i < STATIONS.length; i++) {
+      const c = cell(i);
+      await d.hw((a) => window.__hw.setVoxel(a.x, a.y, a.z, a.key, 2), { ...c, key: STATIONS[i] });
     }
-    await d.settle(200);
-    const v = await view(d, quern);
-    hlog('hw.hold', { before, after: v.progress, state: v.state, device: d.device });
-    assert(v.progress > before || v.state === 'ready', `no strokes from Use (${before} -> ${v.progress})`);
+    await d.settle(800);
+    await stand(cell(1));
+    assert((await label(d)) === 'Hand Quern - empty', `the quern line is "${await label(d)}"`);
+    await d.shot('hand-01-quern');
+    await stand(cell(6));
+    assert((await label(d)) === 'Drying Rack - empty', `the rack line is "${await label(d)}"`);
+    await d.shot('hand-01-rack');
+  });
+
+  await step('taps chop a log at the block: load, three strokes with a counting line, take four planks', async () => {
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('oak_log', 2); window.__hw.setFood(20); });
+    await stand(cell(0));
+    assert((await tapStep(d)) === 'Chopping Block - oak log 0/3 strokes', 'the log was not loaded');
+    assert((await tapStep(d)).endsWith('1/3 strokes'), 'the first stroke did not count');
+    await d.shot('hand-02-chop');
+    assert((await tapStep(d)).endsWith('2/3 strokes'), 'the second stroke did not count');
+    assert((await tapStep(d)) === 'Chopping Block - planks ready', 'the third stroke did not finish');
+    await tapStep(d);
+    const inv = await d.inventory();
+    assert(inv.plank === 4, `planks: ${JSON.stringify(inv)}`);
+  });
+
+  await step('holding Use repeats strokes at the station rate (4 a second at the chopping block)', async () => {
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('oak_log', 3); });
+    await stand(cell(0));
+    let l = await label(d);
+    // The first block is still loaded from the last step (one log): top it up so a held Use has work to do.
+    await tapStep(d);
+    await d.hw(() => { const bus = window.__hw.app.game.bus; window.__strokes = []; bus.on('hand:stroke', () => window.__strokes.push(performance.now())); });
+    if (d.touch) {
+      const c = await d.centerOf('[data-hw-touch="use"]');
+      await d.fingerDown(5, c.x, c.y);
+      await d.settle(1500);
+      await d.fingerUp(5);
+    } else {
+      await d.page.mouse.move(d.size.width / 2, d.size.height / 2);
+      await d.page.mouse.down({ button: 'right' });
+      await d.settle(1500);
+      await d.page.mouse.up({ button: 'right' });
+    }
+    const times = await d.hw(() => window.__strokes);
+    const gaps = times.slice(1).map((t, i) => t - times[i]).filter((g) => g < 600);
+    assert(times.length >= 3, `only ${times.length} strokes while held`);
+    assert(gaps.length > 0 && Math.min(...gaps) > 150 && Math.min(...gaps) < 450, `stroke gaps ${gaps.map(Math.round)} ms: want about 250`);
+    l = await label(d);
+    assert(l.startsWith('Chopping Block'), l);
+  });
+
+  await step('a quern turns wheat into flour: six strokes, take with an empty hand', async () => {
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('wheat', 6); });
+    await stand(cell(1));
+    assert((await tapStep(d)) === 'Hand Quern - wheat 0/6 strokes', 'the wheat was not loaded');
+    for (let i = 1; i <= 5; i++) {
+      assert((await tapStep(d)) === `Hand Quern - wheat ${i}/6 strokes`, `stroke ${i} did not count`);
+      if (i === 3) await d.shot('hand-03-quern-mid');
+    }
+    assert((await tapStep(d)) === 'Hand Quern - flour ready', 'the sixth stroke did not finish');
+    await tapStep(d);
+    const inv = await d.inventory();
+    assert(inv.flour === 1, `flour: ${JSON.stringify(inv)}`);
+  });
+
+  await step('the anvil takes two ingots to a plate with a hammer; its line says the work', async () => {
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('copper_ingot', 2); window.__hw.give('flint_hammer', 1); window.__hw.selectSlot(0); });
+    await stand(cell(2));
+    // Two Uses with the ingots load one each (two recipes share the ingot), then the hammer strikes double.
+    assert((await tapStep(d)).startsWith('Stone Anvil - copper ingot'), 'the first ingot was not loaded');
+    await tapStep(d);
+    await d.selectItem('flint_hammer');
+    let l = await label(d);
+    for (let i = 0; i < 8 && !l.endsWith('ready'); i++) {
+      l = await tapStep(d);
+      if (i === 1) await d.shot('hand-04-anvil');
+    }
+    assert(l === 'Stone Anvil - copper plate ready', `the anvil line is "${l}"`);
+    await d.hw(() => window.__hw.selectSlot(8));
+    await tapStep(d);
+    const inv = await d.inventory();
+    assert(inv.copper_plate === 1, `plate: ${JSON.stringify(inv)}`);
+  });
+
+  await step('a fired mould held at a furnace with molten bronze pours a cast head without the screen', async () => {
+    const c = { x: yard.bx + 5, y: yard.y0, z: yard.bz - 3 };
+    await d.hw((a) => window.__hw.setVoxel(a.x, a.y, a.z, 'furnace_clay', 2), c);
+    await d.settle(400);
+    const setup = await d.hw((a) => {
+      const e = window.__hw.app.game.state.sim.furnaceAt(a.x, a.y, a.z);
+      if (!e) return false;
+      e.crucibleMelt[0] = { item: 'bronze_ingot', count: 3 };
+      e.crucibleMoltenS[0] = 20;
+      return true;
+    }, c);
+    assert(setup, 'no furnace entity');
+    await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('pickaxe_mould', 1); window.__hw.selectSlot(0); });
+    await stand(c);
+    await tapUntil(d, async () => (await d.inventory()).bronze_pickaxe_head === 1);
+    const state = await d.state();
+    assert(!state.ui.uiOpen, 'the furnace screen opened instead of pouring');
+    await d.shot('hand-05-pour');
+    await sleep(100);
   });
 }

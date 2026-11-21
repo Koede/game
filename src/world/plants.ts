@@ -32,6 +32,11 @@ export const newPatch = (): Patch => ({ x: 0, z: 0, size: 0, height: 0, block: 0
 /** Wild wheat, potatoes and carrots grow in small patches on Woodland grass. */
 export const CROP_CELL = 12;
 const BERRY_CELL = 16;
+/** Tea bushes (woodland and marsh grass) and coffee shrubs (woodland where it blends into the dunes): brewing's plants. */
+const TEA_CELL = 20;
+const COFFEE_CELL = 22;
+/** How much dunes blend must reach into the woodland for coffee to grow (the warm edge, not deep woods). */
+const COFFEE_WARMTH = 0.06;
 const SPIRE_CELL = 11;
 const VENT_CELL = 13;
 
@@ -69,6 +74,30 @@ function berryPatch(t: Terrain, gx: number, gz: number, out: Patch): boolean {
   sampleColumn(t, out.x, out.z, col);
   if ((col.biome !== WOODLAND && col.biome !== MARSH) || col.liquid !== LIQUID_NONE || surfaceKind(t, col, out.x, out.z) !== SURFACE_GRASS) return false;
   out.block = ID.berryBush;
+  out.bits = h;
+  return true;
+}
+
+function teaPatch(t: Terrain, gx: number, gz: number, out: Patch): boolean {
+  const h = hash32(t.seed, gx, gz, 0x7ea5);
+  if ((h & 0x3ff) >= 300) return false;
+  out.size = 2;
+  centre(out, gx, gz, TEA_CELL, 2, h);
+  sampleColumn(t, out.x, out.z, col);
+  if ((col.biome !== WOODLAND && col.biome !== MARSH) || col.liquid !== LIQUID_NONE || surfaceKind(t, col, out.x, out.z) !== SURFACE_GRASS) return false;
+  out.block = ID.teaBush;
+  out.bits = h;
+  return true;
+}
+
+function coffeePatch(t: Terrain, gx: number, gz: number, out: Patch): boolean {
+  const h = hash32(t.seed, gx, gz, 0xc0ff);
+  if ((h & 0x3ff) >= 520) return false;
+  out.size = 2;
+  centre(out, gx, gz, COFFEE_CELL, 2, h);
+  sampleColumn(t, out.x, out.z, col);
+  if (col.biome !== WOODLAND || col.wDunes < COFFEE_WARMTH || col.liquid !== LIQUID_NONE || surfaceKind(t, col, out.x, out.z) !== SURFACE_GRASS) return false;
+  out.block = ID.coffeeShrub;
   out.bits = h;
   return true;
 }
@@ -164,6 +193,8 @@ function marshPlant(shore: boolean, r: number, r2: number): number {
 export function placeSurfaceLife(t: Terrain, voxels: Uint16Array, x0: number, z0: number, cols: ChunkColumns): void {
   const crops = collect(t, CROP_CELL, x0, z0, cropPatch);
   const berries = collect(t, BERRY_CELL, x0, z0, berryPatch);
+  const teas = collect(t, TEA_CELL, x0, z0, teaPatch);
+  const coffees = collect(t, COFFEE_CELL, x0, z0, coffeePatch);
   const spires = collect(t, SPIRE_CELL, x0, z0, spire);
   const vents = collect(t, VENT_CELL, x0, z0, vent);
   const seed = t.seed;
@@ -184,8 +215,8 @@ export function placeSurfaceLife(t: Terrain, voxels: Uint16Array, x0: number, z0
       let plant = AIR;
 
       if (ground === ID.grass) {
-        const patch = biome === WOODLAND || biome === MARSH ? inPatch(crops, x, z) ?? inPatch(berries, x, z) : null;
-        if (patch && r2 < (patch.block === ID.berryBush ? 0.45 : 0.62)) plant = patch.block;
+        const patch = biome === WOODLAND || biome === MARSH ? inPatch(crops, x, z) ?? inPatch(berries, x, z) ?? inPatch(teas, x, z) ?? inPatch(coffees, x, z) : null;
+        if (patch && r2 < (patch.block === ID.berryBush || patch.block === ID.teaBush || patch.block === ID.coffeeShrub ? 0.45 : 0.62)) plant = patch.block;
         else if (biome === MARSH) plant = marshPlant(shoreOf(cols, lx, lz), r, r2);
         else if (shoreOf(cols, lx, lz) && h <= WATER_TOP + 1 && r2 < 0.4) plant = ID.reeds;
         else plant = woodlandPlant(t, cols, c, x, z, r, r2);

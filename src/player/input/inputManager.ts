@@ -107,6 +107,11 @@ export class InputManager {
     return !this.isLocked();
   }
 
+  /** Seconds between repeats of a held Use (the controller sets a hand station's stroke rate while one is aimed at). */
+  setUseRepeat(seconds: number): void {
+    this.core.useRepeatS = seconds;
+  }
+
   /**
    * This frame's intent; accumulated deltas and edges are consumed. While a screen is open or the game is
    * paused it is neutral and every held control is released.

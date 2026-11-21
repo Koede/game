@@ -42,6 +42,8 @@ export class InputCore {
   private lockedUse = false;
   private usePending = false;
   private useTimer = 0;
+  /** Seconds between repeats of a held Use (USE_REPEAT_S; a hand station sets its own stroke rate). */
+  useRepeatS = USE_REPEAT_S;
   private wheelTravel = 0;
   private wheelSteps = 0;
   private hotbarSlot: number | null = null;
@@ -257,8 +259,8 @@ export class InputCore {
     }
     if (!(this.lockedUse || this.drag.useHeld || this.touch.useHeld)) return false;
     this.useTimer += dt;
-    if (this.useTimer < USE_REPEAT_S) return false;
-    this.useTimer -= USE_REPEAT_S;
+    if (this.useTimer < this.useRepeatS) return false;
+    this.useTimer -= this.useRepeatS;
     return true;
   }
 
