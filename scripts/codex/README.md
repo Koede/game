@@ -5,7 +5,7 @@ Regenerates the Codex page (crafting map, blocks, progression tree, item map) fr
     npm run codex                                   # = node scripts/codex/build.mjs  -> dist-codex/
     node scripts/codex/preview.mjs <outDir>         # screenshots every tab at 1280x800 and 390x844, reports console errors and horizontal overflow
 
-Outputs in `dist-codex/` (git-ignored by being new; do not commit): `codex.html` (artifact body, no doctype/html/body),
+Outputs in `dist-codex/` (git-ignored): `codex.html` (artifact body, no doctype/html/body),
 `codex-data.json` (fetched by the page), `index.html` (wrapper for local preview; serve the folder, e.g. with `scripts/lib/browser.mjs`).
 
 Files:
