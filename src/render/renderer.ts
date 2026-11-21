@@ -13,6 +13,7 @@ import { BrewFx } from './brewFx';
 import { BrewLiquid } from './brewLiquid';
 import { Emitters } from './emitters';
 import { MachineParts } from './machines';
+import { HandParts } from './handwork/handParts';
 import { Glows } from './glows';
 import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
@@ -102,6 +103,7 @@ export class Renderer implements IView {
   private readonly emitters: Emitters;
   private readonly brewFx: BrewFx;
   private readonly brewLiquid: BrewLiquid;
+  private readonly handParts: HandParts;
   private readonly machines: MachineParts;
   private readonly tech: TechLayer;
   private readonly vents: SteamVents;
@@ -165,6 +167,7 @@ export class Renderer implements IView {
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.vents = new SteamVents(bus, world, this.particles);
     this.brewFx = new BrewFx(world, this.particles);
+    this.handParts = new HandParts(world, this.uniforms, bus, this.particles);
     this.brewLiquid = new BrewLiquid(world, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
@@ -173,7 +176,7 @@ export class Renderer implements IView {
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.tech.group, this.brewLiquid.mesh);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.brewLiquid.mesh);
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
@@ -318,6 +321,7 @@ export class Renderer implements IView {
     this.brewLiquid.update(dt, cam.position.x, cam.position.z);
     const machinesStarted = performance.now();
     this.machines.update(dt, cam);
+    this.handParts.update(dt, cam);
     const machinesMs = performance.now() - machinesStarted;
     const techStarted = performance.now();
     this.tech.update(dt, this.time, cam, sky.day, this.probe.sky, this.probe.block);
@@ -380,6 +384,7 @@ export class Renderer implements IView {
     this.sky.dispose();
     this.precipitation.dispose();
     this.machines.dispose();
+    this.handParts.dispose();
     this.tech.dispose();
     this.held.dispose();
     this.materials.dispose();

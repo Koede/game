@@ -9,6 +9,7 @@ import { clamp, type Vec3 } from '../core/math';
 import type { IWorld } from '../core/types';
 import { exertJump, type PlayerState } from '../game';
 import type { BrewHands } from './brewTools';
+import type { HandHands } from './handTools';
 import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
@@ -42,6 +43,8 @@ export interface PlayerControllerOptions {
   transport?: TransportHands;
   /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
   brew?: BrewHands;
+  /** The simulation's hand stations (src/sim's Simulation fits it): chopping block, quern, anvil, rack, loom... */
+  hand?: HandHands;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -105,7 +108,7 @@ export class PlayerController {
     this.settings = options.settings;
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
-    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null);
+    this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null, options.hand ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {
@@ -155,12 +158,12 @@ export class PlayerController {
       p.pitch = clamp(p.pitch + intent.lookPitch, -PITCH_LIMIT, PITCH_LIMIT);
       this.hotbar(intent);
       this.menus(intent);
-      this.move(dt, intent);
-    }
-
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
+      this.move(dt, intent);
+    }
+
     this.currentTarget = this.cast();
     if (!p.dead) {
       const edits = this.interaction.edits;

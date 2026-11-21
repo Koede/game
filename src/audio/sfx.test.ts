@@ -19,7 +19,7 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
-    expect(SFX_NAMES.length).toBe(58);
+    expect(SFX_NAMES.length).toBe(72);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);
   });

@@ -133,7 +133,7 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input, animals: state.mobs, transport: sim, brew: sim });
+      this.controller = new PlayerController({ world, bus, player, view, input: this.inputManager, settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hand: sim });
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
@@ -237,6 +237,7 @@ export class Game {
     this.audio.setListener(p.position.x, p.eyeY, p.position.z, p.yaw);
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
+    this.showStationName();
     this.ui.frame(dt);
     if (this.shouldDraw(paused, now)) {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
@@ -273,6 +274,17 @@ export class Game {
     this.coverCheckedAt = now;
     this.covered = windowCoversView();
     return this.covered;
+  }
+
+  /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
+  private namedStation: string | null = null;
+  private showStationName(): void {
+    let label: string | null = null;
+    const hit = this.controller.targetAnimal === null ? this.controller.target : null;
+    if (hit && hit.block.handStation !== null) label = this.state.sim.handView(hit.x, hit.y, hit.z)?.label ?? null;
+    if (label === this.namedStation) return;
+    this.namedStation = label;
+    this.ui.setTargetName(label);
   }
 
   /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */

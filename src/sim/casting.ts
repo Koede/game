@@ -202,6 +202,36 @@ export function pourCrucible(ctx: SimContext, e: FurnaceEntity, slot: number, he
   return OK;
 }
 
+/**
+ * The in-world Use on a furnace with `heldKey` in hand: a fired mould pours the first crucible whose molten metal it
+ * takes; copper or tin ingots go into the first alloy pot that has room. Null when the held item is neither (the Use
+ * opens the furnace screen as before) or an ingot has no pot to go into.
+ */
+export function pourHeld(ctx: SimContext, e: FurnaceEntity, heldKey: string | null, working: number): ActionResult | null {
+  if (!heldKey) return null;
+  const n = Math.min(working, e.crucibleIn.length);
+  if (heldKey === COPPER || heldKey === TIN) {
+    const k = heldKey === COPPER ? 0 : 1;
+    let pot = -1;
+    for (let i = 0; i < n; i++) {
+      if (!hasPot(e, i)) continue;
+      pot = i;
+      if (e.crucibleMix[i][k] < (k === 0 ? POT_COPPER_MAX : POT_TIN_MAX)) return pourCrucible(ctx, e, i, heldKey, working);
+    }
+    return pot < 0 ? null : pourCrucible(ctx, e, pot, heldKey, working);
+  }
+  if (!mouldOf(heldKey)) return null;
+  let first = -1;
+  for (let i = 0; i < n; i++) {
+    const melt = e.crucibleMelt[i];
+    if (!melt || e.crucibleMoltenS[i] <= 0) continue;
+    if (first < 0) first = i;
+    if (castOf(heldKey, melt.item) && melt.count >= (castOf(heldKey, melt.item)?.units ?? 1)) return pourCrucible(ctx, e, i, heldKey, working);
+  }
+  if (first < 0) return refuse('Nothing molten to pour');
+  return pourCrucible(ctx, e, first, heldKey, working);
+}
+
 /** Moulds in the pack that take the metal of this crucible's pool, with their pours left and what one pour makes. */
 export interface PourOption {
   mould: string;

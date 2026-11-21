@@ -25,7 +25,7 @@ describe('molten smelts', () => {
   it('a finished copper smelt is molten metal, not an ingot', () => {
     const { kit, e } = setup();
     e.crucibleIn[0] = { item: 'copper_ore', count: 1 };
-    kit.run(30);
+    kit.run(7);
     expect(e.crucibleOut[0]).toBeNull();
     expect(e.crucibleMelt[0]).toEqual({ item: 'copper_ingot', count: 1 });
     expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 5);
@@ -64,9 +64,9 @@ describe('molten smelts', () => {
 
   it('a second smelt adds to the pool and restarts the window; another metal waits', () => {
     const { kit, e } = setup();
-    molten(e, 0, 'copper_ingot', 1, 3);
+    molten(e, 0, 'copper_ingot', 1, 14);
     e.crucibleIn[0] = { item: 'copper_ore', count: 1 };
-    kit.run(15);
+    kit.run(11);
     expect(e.crucibleMelt[0]?.count).toBe(2);
     expect(e.crucibleMoltenS[0]).toBeGreaterThan(MOLTEN_WINDOW_S - 6);
     const f = setup();
@@ -107,9 +107,10 @@ describe('pour matrix', () => {
     const { kit, e } = setup(['pickaxe_mould', 'ingot_mould']);
     molten(e, 0, 'copper_ingot', 3);
     expect(kit.sim.pourCrucible(0, 1, 0, 0, 'pickaxe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('does not take') });
-    molten(e, 1, 'bronze_ingot', 2);
-    expect(kit.sim.pourCrucible(0, 1, 0, 1, 'pickaxe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('Needs 3 molten') });
+    molten(e, 0, 'bronze_ingot', 2);
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'pickaxe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('Needs 3 molten') });
     expect(kit.sim.pourCrucible(0, 1, 0, 0, null)).toMatchObject({ ok: false });
+    molten(e, 0, 'bronze_ingot', 3);
     expect(kit.sim.pourCrucible(0, 1, 0, 0, 'axe_mould')).toMatchObject({ ok: false, reason: expect.stringContaining('You have no') });
     expect(kit.sim.pourCrucible(0, 1, 0, 9, 'ingot_mould')).toMatchObject({ ok: false });
     expect(e.crucibleMelt[0]?.count).toBe(3);
@@ -127,8 +128,12 @@ describe('mould wear', () => {
   it('wears one pour per cast and breaks at zero; the most worn mould goes first', () => {
     const { kit, e } = setup();
     const inv = kit.player.inventory;
-    inv.add('ingot_mould', 1, 5);
-    inv.add('ingot_mould', 1, 2);
+    inv.add('ingot_mould', 1);
+    inv.add('ingot_mould', 1);
+    // Moulds carry no tool durability: the wear sits on the stack once poured, so set it by hand.
+    const moulds = inv.slots.filter((s) => s?.item === 'ingot_mould');
+    moulds[0]!.durability = 5;
+    moulds[1]!.durability = 2;
     molten(e, 0, 'copper_ingot', 3);
     const broke = kit.record('tool:broke');
     expect(kit.sim.pourCrucible(0, 1, 0, 0, 'ingot_mould').ok).toBe(true);
@@ -219,12 +224,12 @@ describe('save and load', () => {
   it('molten state survives a JSON round trip and sanitising, and old saves get empty fields', () => {
     const { e } = setup();
     molten(e, 0, 'tin_ingot', 2, 7.5);
-    e.crucibleMix[1] = [2, 1];
+    e.crucibleMix[0] = [2, 1];
     const copy = JSON.parse(JSON.stringify(e)) as FurnaceEntity;
     expect(sanitizeEntity(copy)).toBe('ok');
     expect(copy.crucibleMelt[0]).toEqual({ item: 'tin_ingot', count: 2 });
     expect(copy.crucibleMoltenS[0]).toBe(7.5);
-    expect(copy.crucibleMix[1]).toEqual([2, 1]);
+    expect(copy.crucibleMix[0]).toEqual([2, 1]);
     const old = JSON.parse(JSON.stringify(e)) as Record<string, unknown>;
     delete old.crucibleMelt;
     delete old.crucibleMoltenS;

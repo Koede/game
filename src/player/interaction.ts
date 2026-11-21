@@ -35,6 +35,7 @@ import {
 import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import { Buckets } from './buckets';
 import { BrewTools, type BrewHands } from './brewTools';
+import { HandTools, type HandHands } from './handTools';
 import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
 
@@ -63,7 +64,7 @@ export interface SwingTarget {
   triggerSwing(): void;
 }
 
-export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'fuelled' | 'picked' | 'wrenched' | 'brewed' | 'refused';
+export type UseOutcome = 'none' | 'screen' | 'pail' | 'placed' | 'tilled' | 'planted' | 'ate' | 'drank' | 'fuelled' | 'picked' | 'wrenched' | 'brewed' | 'worked' | 'refused';
 
 export class Interaction {
   /** Cell being mined and its progress 0..1; progress is -1 while not mining. */
@@ -83,6 +84,7 @@ export class Interaction {
   private readonly buckets: Buckets;
   private readonly pipes: PipeTools;
   private readonly brewing: BrewTools;
+  private readonly handwork: HandTools;
 
   constructor(
     private readonly world: IWorld,
@@ -93,6 +95,7 @@ export class Interaction {
     private readonly rng: () => number = Math.random,
     transport: TransportHands | null = null,
     brew: BrewHands | null = null,
+    hand: HandHands | null = null,
   ) {
     const self = this;
     this.buckets = new Buckets({
@@ -124,6 +127,12 @@ export class Interaction {
       swing: () => swing.triggerSwing(),
       stopMining: () => this.stopMining(),
     }, brew);
+    this.handwork = new HandTools({
+      player,
+      advise: (key, text) => this.advise(key, text),
+      swing: () => swing.triggerSwing(),
+      stopMining: () => this.stopMining(),
+    }, hand);
   }
 
   get mining(): boolean {
@@ -136,6 +145,7 @@ export class Interaction {
     this.breakCooldown = Math.max(0, this.breakCooldown - dt);
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
     this.pipes.update(dt);
+    this.handwork.update(dt);
     if (!mineHeld || !hit || hit.block.liquid !== null || this.player.dead) {
       this.stopMining();
       return;
@@ -185,6 +195,12 @@ export class Interaction {
    */
   use(hit: RayHit | null, forcePlace = false): UseOutcome {
     if (this.player.dead) return 'none';
+    // Hand stations first (handTools.ts): a log in hand loads the chopping block rather than being placed against it.
+    // Shift / the touch Place toggle still places the held block.
+    if (hit && !forcePlace) {
+      const worked = this.handwork.use(hit);
+      if (worked !== null) return worked;
+    }
     if (hit && hit.block.liquid === null) {
       const def = blockOfItem(this.player.heldStack()?.item ?? '');
       const against = def !== null && !forcePlace && placesAgainst(def, hit);
