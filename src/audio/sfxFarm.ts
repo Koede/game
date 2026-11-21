@@ -26,8 +26,8 @@ export const FARM_SFX = {
   plant: {
     jitter: 1.5,
     layers: [
-      tone('sine', 190, 0.24, 0.07, { freqEnd: 115 }),
-      noise('pink', lp(650, 300), 0.32, 0.06, { a: 0.004 }),
+      tone('sine', 230, 0.24, 0.07, { freqEnd: 140 }),
+      noise('pink', lp(900, 350), 0.42, 0.06, { a: 0.004 }),
       tone('sine', 170, 0.14, 0.06, { at: 0.09, freqEnd: 110 }),
       noise('pink', lp(550, 260), 0.18, 0.05, { at: 0.09, a: 0.004 }),
     ],
@@ -37,13 +37,15 @@ export const FARM_SFX = {
     jitter: 1.5,
     layers: [
       noise('white', bp(4200, 2600, 0.8), 0.28, 0.16, { a: 0.012, trem: { rate: 28, depth: 0.7 } }),
-      noise('white', hp(2600), 0.46, 0.025, { at: 0.12 }),
+      noise('white', hp(2600), 0.3, 0.025, { at: 0.12 }),
       tone('triangle', 950, 0.16, 0.045, { at: 0.12, freqEnd: 420 }),
     ],
   },
   // A hen: two short clucks and a higher third, each a quick downward chirp through a nasal band.
   hen: {
     jitter: 1,
+    // The narrow band-pass eats most of the triangle's energy; this brings the clucks level with the other calls.
+    gain: 2.4,
     layers: [
       tone('triangle', 720, 0.26, 0.055, { freqEnd: 520, filter: bp(1500, undefined, 1.5) }),
       noise('pink', bp(1600, undefined, 2), 0.18, 0.03),
@@ -55,6 +57,7 @@ export const FARM_SFX = {
   // A goat: a nasal, wavering bleat - a buzzy tone through a narrow formant, with a fast tremolo.
   goat: {
     jitter: 1,
+    gain: 1.4,
     layers: [
       tone('sawtooth', 390, 0.24, 0.24, { a: 0.03, hold: 0.22, freqEnd: 340, filter: bp(1250, 1050, 3), trem: { rate: 13, depth: 0.55 } }),
       tone('sawtooth', 394, 0.12, 0.22, { a: 0.03, hold: 0.2, freqEnd: 344, filter: bp(2500, 2100, 4), trem: { rate: 13, depth: 0.5 } }),
@@ -65,9 +68,9 @@ export const FARM_SFX = {
   boar: {
     jitter: 1,
     layers: [
-      tone('sawtooth', 112, 0.4, 0.2, { a: 0.015, freqEnd: 86, filter: lp(650, 320), trem: { rate: 24, depth: 0.7 } }),
+      tone('sawtooth', 112, 0.4, 0.2, { a: 0.015, freqEnd: 86, filter: lp(950, 420), trem: { rate: 24, depth: 0.7 } }),
       noise('brown', lp(420), 0.3, 0.16, { a: 0.015 }),
-      tone('sawtooth', 98, 0.28, 0.16, { at: 0.3, a: 0.015, freqEnd: 78, filter: lp(560, 300), trem: { rate: 22, depth: 0.7 } }),
+      tone('sawtooth', 98, 0.28, 0.16, { at: 0.3, a: 0.015, freqEnd: 78, filter: lp(850, 380), trem: { rate: 22, depth: 0.7 } }),
       noise('brown', lp(380), 0.2, 0.12, { at: 0.3, a: 0.015 }),
     ],
   },
