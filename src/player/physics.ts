@@ -4,10 +4,11 @@
  * damage. Unloaded chunks count as solid walls, so the player never falls through terrain that is not there yet.
  * DOM-free and allocation-free per step.
  */
-import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, PLAYER_HEIGHT, PLAYER_WIDTH, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
+import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
 import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, type PlayerState } from '../game';
+import { EPS, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
 
 /** What the physics needs from this frame's intent. */
 export interface MoveInput {
@@ -34,8 +35,6 @@ export interface StepResult {
   sprinting: boolean;
 }
 
-const HALF = PLAYER_WIDTH / 2;
-const EPS = 1e-4;
 /** Largest distance moved in one sub-step along any axis. */
 const MAX_SUBSTEP = 0.45;
 /** Fastest fall, m/s (still exact at any speed: the sweep is continuous). */
@@ -83,25 +82,12 @@ export class PlayerPhysics {
 
   /** Height of the collision box in cell (x, y, z): 0 = passable, 0.5 = slab, 1 = full. */
   solidHeight(x: number, y: number, z: number): number {
-    if (y < 0) return 1;
-    if (y >= WORLD_HEIGHT) return 0;
-    if (!this.world.isLoaded(x, z)) return 1;
-    const def = blockOf(this.world.getVoxel(x, y, z));
-    if (!def.solid) return 0;
-    return def.shape === 'slab' ? 0.5 : 1;
+    return solidHeight(this.world, x, y, z);
   }
 
   /** Whether a block of the given height in cell (x, y, z) would intersect the player's box. */
   intersectsCell(x: number, y: number, z: number, height = 1): boolean {
-    const p = this.player.position;
-    return (
-      p.x + HALF > x + EPS &&
-      p.x - HALF < x + 1 - EPS &&
-      p.z + HALF > z + EPS &&
-      p.z - HALF < z + 1 - EPS &&
-      p.y + PLAYER_HEIGHT > y + EPS &&
-      p.y < y + height - EPS
-    );
+    return boxIntersectsCell(this.player.position, x, y, z, height);
   }
 
   /** Advances the player by `dt` seconds. */
@@ -241,72 +227,21 @@ export class PlayerPhysics {
     return 0;
   }
 
-  /**
-   * Sweeps the box along one axis (0 = x, 1 = y, 2 = z) by `d`, stopping at the first solid box in the way.
-   * Boxes the player already overlaps are ignored so a stuck player can always walk out. Returns the distance
-   * actually moved and sets `blocked` when the move was cut short.
-   */
+  /** Sweeps the box along one axis; sets `blocked` when the move was cut short. */
   private moveAxis(axis: 0 | 1 | 2, d: number): number {
-    this.blocked = false;
-    if (d === 0) return 0;
-    const pos = this.player.position;
-    const minX = pos.x - HALF;
-    const maxX = pos.x + HALF;
-    const minY = pos.y;
-    const maxY = pos.y + PLAYER_HEIGHT;
-    const minZ = pos.z - HALF;
-    const maxZ = pos.z + HALF;
-    // Swept region: the box extended along the axis of motion.
-    const lo0 = axis === 0 && d < 0 ? minX + d : minX;
-    const hi0 = axis === 0 && d > 0 ? maxX + d : maxX;
-    const lo1 = axis === 1 && d < 0 ? minY + d : minY;
-    const hi1 = axis === 1 && d > 0 ? maxY + d : maxY;
-    const lo2 = axis === 2 && d < 0 ? minZ + d : minZ;
-    const hi2 = axis === 2 && d > 0 ? maxZ + d : maxZ;
-    const cx0 = Math.floor(lo0 + EPS);
-    const cx1 = Math.floor(hi0 - EPS);
-    const cy0 = Math.floor(lo1 + EPS);
-    const cy1 = Math.floor(hi1 - EPS);
-    const cz0 = Math.floor(lo2 + EPS);
-    const cz1 = Math.floor(hi2 - EPS);
-    let allowed = d;
-    for (let y = cy0; y <= cy1; y++) {
-      for (let z = cz0; z <= cz1; z++) {
-        for (let x = cx0; x <= cx1; x++) {
-          const h = this.solidHeight(x, y, z);
-          if (h === 0) continue;
-          const top = y + h;
-          if (axis === 0) {
-            if (!(top > minY + EPS && y < maxY - EPS && z + 1 > minZ + EPS && z < maxZ - EPS)) continue;
-            if (d > 0 && x >= maxX - EPS) allowed = Math.min(allowed, Math.max(0, x - maxX));
-            else if (d < 0 && x + 1 <= minX + EPS) allowed = Math.max(allowed, Math.min(0, x + 1 - minX));
-          } else if (axis === 1) {
-            if (!(x + 1 > minX + EPS && x < maxX - EPS && z + 1 > minZ + EPS && z < maxZ - EPS)) continue;
-            if (d > 0 && y >= maxY - EPS) allowed = Math.min(allowed, Math.max(0, y - maxY));
-            else if (d < 0 && top <= minY + EPS) allowed = Math.max(allowed, Math.min(0, top - minY));
-          } else {
-            if (!(top > minY + EPS && y < maxY - EPS && x + 1 > minX + EPS && x < maxX - EPS)) continue;
-            if (d > 0 && z >= maxZ - EPS) allowed = Math.min(allowed, Math.max(0, z - maxZ));
-            else if (d < 0 && z + 1 <= minZ + EPS) allowed = Math.max(allowed, Math.min(0, z + 1 - minZ));
-          }
-        }
-      }
-    }
-    if (allowed !== d) this.blocked = true;
-    if (axis === 0) pos.x += allowed;
-    else if (axis === 1) pos.y += allowed;
-    else pos.z += allowed;
-    return allowed;
+    const moved = sweepAxis(this.world, this.player.position, axis, d);
+    this.blocked = moved !== d;
+    return moved;
   }
 
   /** Lifts the player out of loaded solid blocks it is stuck in (a block appeared inside it), up to 2 blocks. */
   private unstick(): void {
     const pos = this.player.position;
-    if (!this.overlapsLoadedSolid()) return;
+    if (!overlapsLoadedSolid(this.world, pos)) return;
     const y0 = pos.y;
     for (let lift = 1; lift <= 3; lift++) {
       pos.y = Math.floor(y0) + lift;
-      if (!this.overlapsLoadedSolid()) {
+      if (!overlapsLoadedSolid(this.world, pos)) {
         if (pos.y - y0 > 2.01) break;
         this.player.velocity.y = 0;
         this.fallTop = pos.y;
@@ -314,26 +249,6 @@ export class PlayerPhysics {
       }
     }
     pos.y = y0;
-  }
-
-  private overlapsLoadedSolid(): boolean {
-    const pos = this.player.position;
-    const x0 = Math.floor(pos.x - HALF + EPS);
-    const x1 = Math.floor(pos.x + HALF - EPS);
-    const z0 = Math.floor(pos.z - HALF + EPS);
-    const z1 = Math.floor(pos.z + HALF - EPS);
-    const y0 = Math.floor(pos.y + EPS);
-    const y1 = Math.floor(pos.y + PLAYER_HEIGHT - EPS);
-    for (let y = y0; y <= y1; y++) {
-      for (let z = z0; z <= z1; z++) {
-        for (let x = x0; x <= x1; x++) {
-          if (!this.world.isLoaded(x, z)) continue;
-          const h = this.solidHeight(x, y, z);
-          if (h > 0 && y + h > pos.y + EPS) return true;
-        }
-      }
-    }
-    return false;
   }
 
   private sampleLiquids(): void {

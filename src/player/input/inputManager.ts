@@ -7,6 +7,7 @@ import { InputCore } from './core';
 import type { TouchTarget } from './gestures';
 import type { Intent } from './intent';
 import { physicalCode } from './keys';
+import { PointerLock } from './pointerLock';
 import { TouchOverlay, type TouchButton } from './touchOverlay';
 
 export interface InputManagerOptions {
@@ -19,10 +20,6 @@ export interface InputManagerOptions {
   bus: GameBus;
 }
 
-/** How long requestPointerCapture waits for the browser to answer before giving up. */
-const LOCK_TIMEOUT_MS = 800;
-/** After this many refusals in a row, clicks stop asking for pointer lock (drag-to-look stays in charge). */
-const MAX_AUTO_LOCK_FAILURES = 2;
 /** Elements whose events belong to the UI, never to the game surface. */
 const UI_SELECTOR = '.hw-window, .hw-ui-blocking';
 
@@ -35,6 +32,7 @@ export class InputManager {
   readonly core: InputCore;
   private readonly container: HTMLElement;
   private readonly overlay: TouchOverlay;
+  private readonly lock: PointerLock;
   private readonly settings: Settings;
   private readonly state: InputState;
   private readonly bus: GameBus;
@@ -44,13 +42,6 @@ export class InputManager {
   private readonly pressedCount = new Map<TouchButton, number>();
   private rectLeft = 0;
   private rectTop = 0;
-  /** The browser has no pointer lock at all. */
-  private lockUnsupported = false;
-  /** Pointer lock requests refused in a row (reset by a successful capture). */
-  private lockFailures = 0;
-  /** We asked the browser to leave pointer lock, so the unlock is not the player pressing Escape. */
-  private expectUnlock = false;
-  private lockWaiters: Array<(locked: boolean) => void> = [];
   /** A touch was seen ('auto' shows the overlay from then on even if the media query said otherwise). */
   private touchSeen = false;
   private wasBlocked = false;
@@ -63,6 +54,10 @@ export class InputManager {
     this.bus = options.bus;
     this.core = new InputCore(this.settings);
     this.overlay = new TouchOverlay(options.touchLayer);
+    this.lock = new PointerLock(this.container, {
+      locked: () => this.onLockChange(true, false),
+      unlocked: (byPlayer) => this.onLockChange(false, byPlayer),
+    });
     this.container.classList.add('hw-touch-surface');
 
     const c = this.container;
@@ -85,8 +80,6 @@ export class InputManager {
     this.listen(window, 'resize', () => this.measure());
     this.listen(window, 'orientationchange', () => this.measure());
     this.listen(document, 'visibilitychange', () => this.releaseEverything());
-    this.listen(document, 'pointerlockchange', () => this.onLockChange());
-    this.listen(document, 'pointerlockerror', () => this.onLockError());
     this.cleanups.push(this.bus.on('settings:changed', () => this.refreshTouchVisibility()));
 
     this.measure();
@@ -130,52 +123,20 @@ export class InputManager {
    * When the browser refuses, drag-to-look takes over and this resolves false.
    */
   requestPointerCapture(): Promise<boolean> {
-    if (this.isLocked()) return Promise.resolve(true);
-    if (this.disposed || this.lockUnsupported) return Promise.resolve(false);
-    const el = this.container as HTMLElement & { requestPointerLock?: (options?: object) => unknown };
-    if (typeof el.requestPointerLock !== 'function') {
-      this.lockUnsupported = true;
-      return Promise.resolve(false);
-    }
-    if (this.lockWaiters.length > 0) return new Promise<boolean>((resolve) => this.lockWaiters.push(resolve));
-    const answer = new Promise<boolean>((resolve) => {
-      this.lockWaiters.push(resolve);
-      window.setTimeout(() => {
-        if (this.lockWaiters.length > 0 && !this.isLocked()) this.onLockError();
-      }, LOCK_TIMEOUT_MS);
-    });
-    try {
-      const result = el.requestPointerLock();
-      if (result && typeof (result as Promise<void>).then === 'function') {
-        (result as Promise<void>).then(
-          () => this.settleLock(this.isLocked()),
-          () => this.onLockError(),
-        );
-      }
-    } catch {
-      this.onLockError();
-    }
-    return answer;
+    return this.disposed ? Promise.resolve(false) : this.lock.request();
   }
 
   /** Lets the mouse go (a screen opened). Does not count as a pause request. */
   releasePointerCapture(): void {
-    if (!this.isLocked()) return;
-    this.expectUnlock = true;
-    try {
-      document.exitPointerLock();
-    } catch {
-      this.expectUnlock = false;
-    }
+    this.lock.release();
   }
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.releasePointerCapture();
+    this.lock.dispose();
     for (const off of this.cleanups) off();
     this.cleanups.length = 0;
-    this.settleLock(false);
     this.overlay.dispose();
     this.container.classList.remove('hw-touch-surface');
     this.state.touch = false;
@@ -190,7 +151,7 @@ export class InputManager {
   }
 
   private isLocked(): boolean {
-    return document.pointerLockElement === this.container;
+    return this.lock.locked;
   }
 
   /** Events on UI windows, HUD widgets and anything opted out belong to the UI, not to the game surface. */
@@ -304,7 +265,7 @@ export class InputManager {
     // Not captured yet: try to capture, and meanwhile treat the press as a drag-to-look press so a refusal
     // (or a browser without pointer lock) never leaves the player unable to look or mine.
     this.core.drag.down(which, e.clientX, e.clientY, e.timeStamp);
-    if (which === 'left' && this.lockFailures < MAX_AUTO_LOCK_FAILURES) void this.requestPointerCapture();
+    if (which === 'left' && this.lock.worthAsking) void this.lock.request();
   }
 
   private onMouseUp(e: PointerEvent): void {
@@ -334,34 +295,15 @@ export class InputManager {
 
   // ---- pointer lock -----------------------------------------------------------------------------
 
-  private onLockChange(): void {
-    const locked = this.isLocked();
+  private onLockChange(locked: boolean, byPlayer: boolean): void {
     this.state.pointerLocked = locked;
     // Whatever the drag fallback had pressed belongs to the time before the capture.
     this.core.drag.reset();
-    if (locked) {
-      this.lockFailures = 0;
-      this.settleLock(true);
-      return;
-    }
+    if (locked) return;
     this.core.mouseButton('left', false);
     this.core.mouseButton('right', false);
-    // The browser consumes Escape to leave pointer lock: treat an unlock we did not ask for as a pause.
-    if (!this.expectUnlock && !this.blocked()) this.core.requestPause();
-    this.expectUnlock = false;
-  }
-
-  private onLockError(): void {
-    if (this.lockWaiters.length === 0) return;
-    this.lockFailures++;
-    this.settleLock(false);
-  }
-
-  private settleLock(locked: boolean): void {
-    const waiters = this.lockWaiters;
-    if (waiters.length === 0) return;
-    this.lockWaiters = [];
-    for (const resolve of waiters) resolve(locked);
+    // The browser consumes Escape to leave pointer lock: an unlock the game did not ask for is a pause.
+    if (byPlayer && !this.blocked()) this.core.requestPause();
   }
 }
 

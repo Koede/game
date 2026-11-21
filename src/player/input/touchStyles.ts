@@ -112,7 +112,7 @@ export const TOUCH_CSS = `
   border-radius: 50%;
   background: radial-gradient(circle, rgba(24, 18, 14, 0.2) 0%, rgba(24, 18, 14, 0.5) 100%);
   box-shadow: var(--hw-touch-edge);
-  opacity: 0.55;
+  opacity: 0.72;
   transition: opacity 140ms ease-out;
 }
 .hw-touch-knob {
