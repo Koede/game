@@ -90,8 +90,9 @@ export class Driver {
       return;
     }
     const { height } = this.size;
+    // Lower-left thumb zone, clear of the hotbar (full width at the bottom in portrait).
     const x = 90;
-    const y = height - 60;
+    const y = this.device === 'phonePortrait' ? height - 170 : height - 70;
     await this.fingerDown(1, x, y);
     for (let i = 1; i <= 6; i++) {
       await this.fingerMove(1, x, y - i * 12);
