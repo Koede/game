@@ -221,3 +221,8 @@ export function surfaceKind(t: Terrain, col: Column, x: number, z: number): numb
 export function forestDensity(t: Terrain, x: number, z: number): number {
   return smoothstep(-0.25, 0.4, t.forest.fbm2(x / 110, z / 110, 2));
 }
+
+/** True where caves are allowed to break through the surface. Trees and the spawn point avoid these spots. */
+export function caveMouth(t: Terrain, x: number, z: number): boolean {
+  return t.patchB.noise2(x / 37 + 400, z / 37 - 400) > 0.3;
+}
