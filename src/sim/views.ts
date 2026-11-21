@@ -8,7 +8,7 @@ import type { ActionResult, FurnaceEntity, IgnitionState, SimNode } from './enti
 import {
   IGNITION_POWER, IGNITION_TIME_S, burnSecondsLeft, crucibleBlock, fireboxJunk, fuelCount, furnaceMaxTempC, isBurning, smeltSpeed, statsOf,
 } from './furnace';
-import { ALLOY_POT, alloyMinC, alloyTimeS, moltenLeft, potBlock } from './casting';
+import { ALLOY_POT, alloyMinC, alloyTimeS, moltenLeft, metalOfBloom, potBlock } from './casting';
 import { ignitionCheck, restCheck, tierLock, upgradeStructure, type ActionHost } from './furnaceActions';
 import type { Hearth } from './hearth';
 import { hearthName } from './hearthScan';
@@ -224,7 +224,7 @@ function crucibleBase(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleVi
   if (!r) {
     if (e.crucibleIn[i]?.item === ALLOY_POT) potView(view, e, i);
     else if (e.crucibleIn[i]) view.status = 'Cannot be smelted here';
-    else if (e.crucibleOut[i]) view.status = 'Done - take it out';
+    else if (e.crucibleOut[i]) view.status = metalOfBloom(e.crucibleOut[i]!.item) ? 'Gone cold - smelt the bloom again' : 'Done - take it out';
     return view;
   }
   view.progress = Math.min(1, e.crucibleProgress[i] / r.timeS);

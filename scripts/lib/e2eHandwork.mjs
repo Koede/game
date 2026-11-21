@@ -45,10 +45,15 @@ export async function handworkSteps({ d, step, assert, page }) {
       const bx = Math.floor(p.x);
       const bz = Math.floor(p.z);
       const gy = hw.surfaceY(bx, bz);
-      for (let dx = -6; dx <= 7; dx++) {
-        for (let dz = -8; dz <= 9; dz++) {
-          hw.setVoxel(bx + dx, gy, bz + dz, 'dirt');
-          for (let y = gy + 1; y < gy + 6; y++) hw.setVoxel(bx + dx, y, bz + dz, 'air');
+      // Level, cleared ground with as few edits as possible (every edit re-meshes a chunk).
+      for (let dx = -5; dx <= 7; dx++) {
+        for (let dz = -5; dz <= 8; dz++) {
+          const x = bx + dx;
+          const z = bz + dz;
+          const here = hw.surfaceY(x, z);
+          for (let y = here; y > gy; y--) hw.setVoxel(x, y, z, 'air');
+          for (let y = here + 1; y <= gy; y++) hw.setVoxel(x, y, z, 'dirt');
+          for (let y = gy + 1; y < gy + 4; y++) if (hw.getBlock(x, y, z).block !== 'air') hw.setVoxel(x, y, z, 'air');
         }
       }
       return { bx, bz, y0: gy + 1 };

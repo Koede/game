@@ -100,12 +100,13 @@ export async function furnaceSteps({ d, step, assert, hw, page }) {
     await d.shot('08d-bloom');
   });
 
-  await step('forges copper wire at the furnace', async () => {
+  await step('forges a mortar at the furnace', async () => {
+    await hw(() => window.__hw.give('clay', 1));
     await openTab(d, 'forge');
-    const before = (await d.inventory()).copper_wire ?? 0;
-    await d.make('copper_wire');
-    const after = (await d.inventory()).copper_wire ?? 0;
-    assert(after >= before + 3, `copper wire ${before} -> ${after}`);
+    const before = (await d.inventory()).mortar ?? 0;
+    await d.make('mortar');
+    const after = (await d.inventory()).mortar ?? 0;
+    assert(after >= before + 1, `mortar ${before} -> ${after}`);
     await d.shot('08b-forged');
     await d.closeScreen();
   });
