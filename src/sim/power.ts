@@ -1,7 +1,7 @@
 /** Power networks (spec 3.2): flood-filled groups of touching power blocks, solved once per tick. */
 import { BATTERY_EFFICIENCY, BROWNOUT_STALL } from '../core/constants';
 import type { GameBus } from '../core/context';
-import { FACE_DIRS, type IWorld } from '../core/types';
+import { CHUNK_SIZE, FACE_DIRS, type IWorld } from '../core/types';
 import { posKey, type MachineEntity, type SimNode } from './entities';
 
 export type NetworkState = 'ok' | 'brownout' | 'overload';
@@ -13,12 +13,17 @@ const ALERT_HOLD_TICKS = 10;
 /** Below this satisfaction a network counts as browned out (just under 1 to ignore rounding). */
 const BROWNOUT_BELOW = 0.999;
 
+/** Numeric key of a chunk column (|cx|, |cz| < 32768). */
+export const chunkKey = (cx: number, cz: number): number => ((cx & 0xffff) << 16) | (cz & 0xffff);
+
 export class Network {
   readonly nodes: SimNode[] = [];
   readonly storage: SimNode[] = [];
   cables = 0;
   /** Lowest cable rating in the network; Infinity when it has no cable. */
   ratingW = Infinity;
+  /** Chunk columns (chunkKey) holding any block of this network: loading or unloading one may change it. */
+  readonly chunks = new Set<number>();
 
   // Results of the last solve.
   generationW = 0;
@@ -74,8 +79,9 @@ export class Network {
       const cap = n.spec.capacityJ ?? 0;
       const rate = n.spec.rateW ?? 0;
       const eff = n.spec.params?.chargeEfficiency ?? BATTERY_EFFICIENCY;
-      n.maxOut = n.loaded ? Math.min(rate, e.storedJ / dt) : 0;
-      n.maxIn = n.loaded ? Math.min(rate, (cap - e.storedJ) / (eff * dt)) : 0;
+      const usable = n.loaded && e.on;
+      n.maxOut = usable ? Math.min(rate, e.storedJ / dt) : 0;
+      n.maxIn = usable ? Math.max(0, Math.min(rate, (cap - e.storedJ) / (eff * dt))) : 0;
       outCap += n.maxOut;
       inCap += n.maxIn;
       stored += e.storedJ;
@@ -157,15 +163,24 @@ export class Network {
 export const powered = (net: Network | null): boolean => net !== null && net.f >= BROWNOUT_STALL && net.deliveredW > 0;
 
 /**
- * Flood-fills every network from the power devices in `nodes` and writes `node.net`. Networks that keep their
- * first member inherit alert state and history from `previous`.
+ * Flood-fills every network from the power devices in `nodes` and writes `node.net`; `cables` is refilled with
+ * the network of every cable position. Networks that keep their first member inherit alert state and history
+ * from `previous`.
  */
-export function buildNetworks(world: IWorld, nodes: readonly SimNode[], byKey: ReadonlyMap<string, SimNode>, previous: readonly Network[]): Network[] {
+export function buildNetworks(
+  world: IWorld,
+  nodes: readonly SimNode[],
+  byKey: ReadonlyMap<string, SimNode>,
+  previous: readonly Network[],
+  cables: Map<string, Network>,
+): Network[] {
   const old = new Map<string, Network>();
   for (const net of previous) old.set(net.anchor, net);
   const seen = new Set<string>();
   const out: Network[] = [];
   const stack: number[] = [];
+  const cablesSeen: string[] = [];
+  cables.clear();
   for (const n of nodes) n.net = null;
   for (const start of nodes) {
     if (start.net !== null || seen.has(start.key)) continue;
@@ -173,14 +188,17 @@ export function buildNetworks(world: IWorld, nodes: readonly SimNode[], byKey: R
     const net = new Network(out.length + 1, start.key);
     stack.push(start.e.x, start.e.y, start.e.z);
     seen.add(start.key);
+    cablesSeen.length = 0;
     while (stack.length > 0) {
       const z = stack.pop() as number;
       const y = stack.pop() as number;
       const x = stack.pop() as number;
       const def = world.getBlock(x, y, z);
+      net.chunks.add(chunkKey(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE)));
       if (def.power === 'cable') {
         net.cables++;
         if (def.cableRatingW < net.ratingW) net.ratingW = def.cableRatingW;
+        cablesSeen.push(posKey(x, y, z));
       } else {
         const node = byKey.get(posKey(x, y, z));
         if (node) {
@@ -197,6 +215,7 @@ export function buildNetworks(world: IWorld, nodes: readonly SimNode[], byKey: R
       }
     }
     if (net.nodes.length === 0) continue;
+    for (const k of cablesSeen) cables.set(k, net);
     const before = old.get(net.anchor);
     if (before) net.inherit(before);
     out.push(net);

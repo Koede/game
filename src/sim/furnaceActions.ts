@@ -69,10 +69,12 @@ export function forge(host: ActionHost, e: FurnaceEntity, recipeId: string, time
   const r = recipe(recipeId);
   if (!r || r.station !== 'furnace' || r.kind !== 'forge') return { ok: false, reason: 'Not a forge recipe' };
   if (r.minTier > e.tier) return { ok: false, reason: `Needs the ${furnaceTier(r.minTier).name}` };
+  if (!(times >= 1)) return { ok: false, reason: 'Nothing to make' };
   const crates = host.stationSources(e.x, e.y, e.z).slice(1);
   let made = 0;
   let reason = '';
-  while (made < times) {
+  const count = Math.floor(times);
+  while (made < count) {
     if (!e.ignited && e.tempC < r.minTempC) {
       reason = tooCold(r.minTempC, e);
       break;
@@ -92,13 +94,13 @@ export function forge(host: ActionHost, e: FurnaceEntity, recipeId: string, time
 export function upgrade(host: ActionHost, e: FurnaceEntity): ActionResult {
   if (e.tier >= MAX_FURNACE_TIER) return refuse('This is the last furnace there is');
   const next = furnaceTier(e.tier + 1);
-  if (e.tempC < next.upgradeTempC) return refuse(tooCold(next.upgradeTempC, e));
   const sources = host.stationSources(e.x, e.y, e.z);
   const status = ingredientStatus(next.upgradeCost, sources);
   if (!status.ok) {
     const missing = status.ingredients.filter((i) => !i.ok).map((i) => `${i.need - i.have} ${itemName(i.item)}`);
     return refuse(`Missing ${missing.join(', ')}`);
   }
+  if (e.tempC < next.upgradeTempC) return refuse(tooCold(next.upgradeTempC, e));
   takeIngredients(next.upgradeCost, sources);
   resizeFurnace(e, next.tier);
   host.world.setVoxel(e.x, e.y, e.z, withId(host.world.getVoxel(e.x, e.y, e.z), blockId(next.block)), 'sim');

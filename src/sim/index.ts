@@ -5,9 +5,8 @@ export { isFurnace } from './entities';
 export type { ForgeResult } from './furnaceActions';
 export { REST_FUEL_S } from './furnaceActions';
 export type { FurnaceSlots } from './slots';
-export type {
-  CrucibleView, ForgeRow, FurnaceView, MachineView, NetworkMember, NetworkStats, Trend, UpgradeView,
-} from './views';
+export type { CrucibleView, ForgeRow, FurnaceView, SmeltRow, Trend, UpgradeView } from './views';
+export type { GridSummary, MachineView, NetworkMember, NetworkStats } from './gridViews';
 export type { NetworkState } from './power';
 export { HISTORY_SECONDS } from './power';
 export { smeltRecipeFor } from './furnace';

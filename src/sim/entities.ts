@@ -122,7 +122,9 @@ export interface SimNode {
   /** Mirrors the voxel's active flag so the world is only written on change. */
   active: boolean;
   loaded: boolean;
-  // Surroundings, recomputed whenever a block changes.
+  /** The surroundings below must be recomputed (a block near it changed, or its chunk was loaded). */
+  dirty: boolean;
+  // Surroundings, recomputed whenever a block near it changes.
   water: number;
   sideWater: number;
   lava: number;
@@ -144,7 +146,7 @@ export const posKey = (x: number, y: number, z: number): string => `${x},${y},${
 
 export function createNode(e: SimEntity): SimNode {
   return {
-    e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, loaded: true, water: 0, sideWater: 0,
+    e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, loaded: true, dirty: true, water: 0, sideWater: 0,
     lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null,
   };
 }

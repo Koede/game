@@ -126,7 +126,7 @@ describe('crucibles', () => {
     kit.run(200);
     expect(e.tempC).toBeCloseTo(650, 3);
     expect(e.crucibleProgress[0]).toBe(0);
-    expect(kit.sim.furnaceView(0, 1, 0)!.status).toBe('Copper Ingot needs 700 C - now 650');
+    expect(kit.sim.furnaceView(0, 1, 0)!.status).toBe('Copper Ingot needs 700 C - now 650 C');
     e.tempC = r.minTempC;
     e.lit = false;
     kit.run(1);
@@ -159,7 +159,7 @@ describe('crucibles', () => {
     expect(e.crucibleIn[0]).toEqual({ item: 'clay', count: 3 });
     expect(smelted).toEqual([{ x: 0, y: 1, z: 0, item: 'firebrick', count: 2 }]);
     expect(made).toEqual([{ item: 'firebrick', count: 2, station: 'furnace', recipeId: 'firebrick' }]);
-    expect(kit.sim.furnaceView(0, 1, 0)!.crucibles[0].status).toBe('Output is full');
+    expect(kit.sim.furnaceView(0, 1, 0)!.crucibles[0].status).toBe('Output is full - take it out');
   });
 
   it('accept only what the tier can smelt, and the firebox only fuel', () => {
@@ -246,13 +246,15 @@ describe('forging and upgrading', () => {
     expect(kit.player.home).toEqual({ x: 0, y: 1, z: 0 });
     e.fuel[0] = { item: 'charcoal', count: 9 };
     e.crucibleIn[0] = { item: 'copper_ore', count: 2 };
-    expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: 'Needs 700 C - the furnace is at 20 C' });
-    e.tempC = 750;
     const missing = kit.sim.upgrade(0, 1, 0);
     expect(missing.ok ? '' : missing.reason).toBe('Missing 12 Firebrick, 8 Bronze Ingot, 1 Bellows');
+    expect(kit.sim.furnaceView(0, 1, 0)!.upgrade!.reason).toBe('Missing 12 Firebrick, 8 Bronze Ingot, 1 Bellows');
     kit.player.give('firebrick', 12);
     kit.player.give('bronze_ingot', 8);
     kit.player.give('bellows', 1);
+    expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: 'Needs 700 C - the furnace is at 20 C' });
+    expect(kit.sim.furnaceView(0, 1, 0)!.upgrade).toMatchObject({ ok: false, tempOk: false, reason: 'Needs 700 C - now 20 C' });
+    e.tempC = 750;
     expect(kit.sim.furnaceView(0, 1, 0)!.upgrade).toMatchObject({ ok: true, reason: null });
     expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: true });
     const v = kit.world.getVoxel(0, 1, 0);

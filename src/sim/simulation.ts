@@ -7,7 +7,7 @@ import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
-import { FACE_DIRS, WORLD_HEIGHT, voxelActive, withActive, type IWorld } from '../core/types';
+import { voxelActive, withActive, type IWorld } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
@@ -20,17 +20,13 @@ import { applyFurnace, prepareFurnace } from './furnace';
 import * as actions from './furnaceActions';
 import type { ActionHost, ForgeResult } from './furnaceActions';
 import { behaviourOf, windAt, type Behaviour } from './machines';
-import { Network, buildNetworks } from './power';
+import { Network, buildNetworks, chunkKey } from './power';
 import { SlotAccess, type FurnaceSlots } from './slots';
-import {
-  forgeRows, furnaceView, machineView, networkStats,
-  type ForgeRow, type FurnaceView, type MachineView, type NetworkStats,
-} from './views';
+import { concerns, nearChunk, surroundings } from './surroundings';
+import { gridSummary, machineView, networkStats, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
+import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 
 const WIND = machine('wind_turbine').params ?? {};
-const WHEEL_RADIUS = machine('water_wheel').params?.shareRadius ?? 0;
-/** Machines whose `furnaces` list is every furnace touching them. */
-const TOUCHES_FURNACE = new Set(['thermopile', 'blower']);
 
 export class Simulation implements ActionHost {
   sunlight = 1;
@@ -43,6 +39,8 @@ export class Simulation implements ActionHost {
   private readonly behaviours: Behaviour[] = [];
   private readonly byKey = new Map<string, SimNode>();
   private networks: Network[] = [];
+  /** Network of every cable position, refilled with the networks. */
+  private readonly cableNets = new Map<string, Network>();
   private envDirty = true;
   private topologyDirty = true;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
@@ -63,8 +61,8 @@ export class Simulation implements ActionHost {
     this.random = mulberry32(world.seed ^ 0x5eed);
     this.offs.push(
       bus.on('block:changed', (ev) => this.onBlockChanged(ev)),
-      bus.on('chunk:loaded', () => this.markDirty()),
-      bus.on('chunk:unloaded', () => this.markDirty()),
+      bus.on('chunk:loaded', ({ cx, cz }) => this.onChunk(cx, cz)),
+      bus.on('chunk:unloaded', ({ cx, cz }) => this.onChunk(cx, cz)),
       bus.on('ui:opened', ({ screen }) => {
         if (screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z)) player.setHome(screen.x, screen.y, screen.z);
       }),
@@ -154,49 +152,44 @@ export class Simulation implements ActionHost {
     }
   }
 
+  /** Everything must be looked at again (a save was loaded). */
   private markDirty(): void {
+    for (const n of this.nodes) n.dirty = true;
     this.envDirty = true;
     this.topologyDirty = true;
   }
 
-  /** Brings surroundings and networks up to date with the blocks, if anything changed. */
-  private fresh(): void {
-    if (!this.envDirty && !this.topologyDirty) return;
-    for (const n of this.nodes) this.surroundings(n);
-    if (this.topologyDirty) this.networks = buildNetworks(this.world, this.nodes, this.byKey, this.networks);
-    this.envDirty = false;
-    this.topologyDirty = false;
+  /** A chunk column arrived or left: only machines in or beside it, and networks reaching it, can change. */
+  private onChunk(cx: number, cz: number): void {
+    for (const n of this.nodes) {
+      if (!nearChunk(n, cx, cz)) continue;
+      n.dirty = true;
+      this.envDirty = true;
+      this.topologyDirty = true;
+    }
+    if (this.topologyDirty) return;
+    for (const net of this.networks) {
+      const c = net.chunks;
+      if (c.has(chunkKey(cx, cz)) || c.has(chunkKey(cx + 1, cz)) || c.has(chunkKey(cx - 1, cz)) || c.has(chunkKey(cx, cz + 1)) || c.has(chunkKey(cx, cz - 1))) {
+        this.topologyDirty = true;
+        return;
+      }
+    }
   }
 
-  private surroundings(n: SimNode): void {
-    const { x, y, z, kind } = n.e;
-    const world = this.world;
-    n.water = 0;
-    n.sideWater = 0;
-    n.lava = 0;
-    n.furnaces.length = 0;
-    n.crates.length = 0;
-    if (kind === 'crate') return;
-    for (const [dx, dy, dz] of FACE_DIRS) {
-      const liquid = world.getBlock(x + dx, y + dy, z + dz).liquid;
-      if (liquid === 'water') {
-        n.water++;
-        if (dy === 0) n.sideWater++;
-      } else if (liquid === 'lava') n.lava++;
-      const other = this.byKey.get(posKey(x + dx, y + dy, z + dz));
-      if (!other) continue;
-      if (other.e.kind === 'crate') n.crates.push(other.e as MachineEntity);
-      else if (isFurnace(other.e) && (TOUCHES_FURNACE.has(kind) || (kind === 'steam_engine' && dy === -1))) n.furnaces.push(other.e);
-    }
-    if (kind === 'wind_turbine' || kind === 'solar_panel') {
-      n.openSky = true;
-      for (let yy = y + 1; yy < WORLD_HEIGHT && n.openSky; yy++) if (world.getBlock(x, yy, z).solid) n.openSky = false;
-    } else if (kind === 'water_wheel') {
-      n.wheels = 0;
-      for (const o of this.tickers) {
-        if (o.e.kind !== 'water_wheel') continue;
-        if (Math.max(Math.abs(o.e.x - x), Math.abs(o.e.y - y), Math.abs(o.e.z - z)) <= WHEEL_RADIUS) n.wheels++;
+  /** Brings surroundings and networks up to date with the blocks, if anything changed. */
+  private fresh(): void {
+    if (this.envDirty) {
+      for (const n of this.nodes) {
+        if (!n.dirty) continue;
+        surroundings(this.world, this.byKey, this.tickers, n);
+        n.dirty = false;
       }
+      this.envDirty = false;
+    }
+    if (this.topologyDirty) {
+      this.networks = buildNetworks(this.world, this.nodes, this.byKey, this.networks, this.cableNets);
+      this.topologyDirty = false;
     }
   }
 
@@ -231,9 +224,14 @@ export class Simulation implements ActionHost {
     const from = blockOf(ev.from);
     const to = blockOf(ev.to);
     if (from.id === to.id) return;
-    this.envDirty = true;
-    if (from.power !== null || to.power !== null) this.topologyDirty = true;
     const { x, y, z } = ev;
+    if (from.power !== null || to.power !== null) this.topologyDirty = true;
+    const wheel = from.machine === 'water_wheel' || to.machine === 'water_wheel';
+    for (const n of this.nodes) {
+      if (n.dirty || !concerns(n, x, y, z, wheel)) continue;
+      n.dirty = true;
+      this.envDirty = true;
+    }
     const node = this.byKey.get(posKey(x, y, z));
     if (node && node.e.kind !== to.machine) this.removeMachine(node);
     if (to.machine === null) return;
@@ -252,6 +250,7 @@ export class Simulation implements ActionHost {
       this.world.setEntity(e);
     }
     this.track(e);
+    this.envDirty = true;
     if (ev.source !== 'load') this.bus.emit('machine:placed', { entity: e });
     if (ev.source === 'player' && isFurnace(e)) this.player.setHome(x, y, z);
   }
@@ -385,7 +384,7 @@ export class Simulation implements ActionHost {
     return this.withFurnace(x, y, z, (e) => actions.rest(this, e));
   }
 
-  /** Switches a machine on or off. */
+  /** Switches a machine (generator, consumer, storage, fission pile) on or off. Crates have no switch. */
   setMachineOn(x: number, y: number, z: number, on: boolean): ActionResult {
     const e = this.machineAt(x, y, z);
     if (!e || e.kind === 'crate') return refuse('There is no machine here');
@@ -396,6 +395,12 @@ export class Simulation implements ActionHost {
     return OK;
   }
 
+  /** Flips a machine's switch. */
+  toggleMachine(x: number, y: number, z: number): ActionResult {
+    const e = this.machineAt(x, y, z);
+    return this.setMachineOn(x, y, z, e ? !e.on : true);
+  }
+
   // ---- queries --------------------------------------------------------------------------------------------------
 
   furnaceView(x: number, y: number, z: number): FurnaceView | null {
@@ -404,7 +409,7 @@ export class Simulation implements ActionHost {
     return node && isFurnace(node.e) ? furnaceView(this, node) : null;
   }
 
-  /** The forge recipe list of a furnace with per-row availability. */
+  /** The forge recipe list of a furnace with per-row availability (also part of furnaceView). */
   forgeList(x: number, y: number, z: number): ForgeRow[] {
     const e = this.furnaceAt(x, y, z);
     return e ? forgeRows(this, e) : [];
@@ -416,16 +421,28 @@ export class Simulation implements ActionHost {
     return node && !isFurnace(node.e) ? machineView(node) : null;
   }
 
-  /** Stats of the network a power device at this position belongs to. */
+  /** Stats of the network a power device or cable at this position belongs to (null: none, or a lone cable run). */
   networkAt(x: number, y: number, z: number): NetworkStats | null {
     this.fresh();
-    const net = this.byKey.get(posKey(x, y, z))?.net;
+    const key = posKey(x, y, z);
+    const net = this.byKey.get(key)?.net ?? this.cableNets.get(key);
     return net ? networkStats(net) : null;
   }
 
   allNetworks(): NetworkStats[] {
     this.fresh();
     return this.networks.map(networkStats);
+  }
+
+  /** Totals of every network and the worst alert state, for the HUD. */
+  grid(): GridSummary {
+    return gridSummary(this.networks);
+  }
+
+  /** The furnace the player calls home (player.home), or null when there is none or it is gone. */
+  homeFurnace(): FurnaceEntity | null {
+    const h = this.player.home;
+    return h ? this.furnaceAt(h.x, h.y, h.z) : null;
   }
 
   maxFurnaceTempC(): number {
