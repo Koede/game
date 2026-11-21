@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { SUNSET_AT, TWILIGHT } from '../core/constants';
-import { smoothstep } from '../core/math';
+import { SUNSET_AT } from '../core/constants';
+import { sunlightAt } from '../game/clock';
 import { computeSky, createSkyState, luminance, NIGHT_SUNLIGHT, sunAngle, sunHeight, type SkyState } from './skyModel';
-
-/** A clock-like sunlight curve: 1 by day, NIGHT_SUNLIGHT at night, smooth ramps TWILIGHT wide. */
-function sunlightAt(t: number): number {
-  const half = TWILIGHT / 2;
-  const dawn = t > 0.5 ? smoothstep(1 - half, 1 + half, t) : smoothstep(-half, half, t);
-  const dusk = 1 - smoothstep(SUNSET_AT - half, SUNSET_AT + half, t);
-  return NIGHT_SUNLIGHT + (1 - NIGHT_SUNLIGHT) * Math.min(dawn, t > 0.5 && t < 1 - half ? dusk : Math.max(dusk, dawn));
-}
 
 const skyAt = (t: number): SkyState => computeSky(t, sunlightAt(t), createSkyState());
 const COLOURS = ['zenith', 'horizon', 'glow', 'sunColor', 'skyLight', 'cloud', 'sunDir', 'moonDir'] as const;

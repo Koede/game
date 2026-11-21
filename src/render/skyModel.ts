@@ -4,6 +4,7 @@
  */
 import { SUNSET_AT } from '../core/constants';
 import { clamp, mod, smoothstep } from '../core/math';
+import { NIGHT_SUNLIGHT } from '../game/clock';
 
 export type Rgb = readonly [number, number, number];
 
@@ -47,7 +48,7 @@ const COS_TILT = Math.cos(SUN_TILT);
 const SIN_TILT = Math.sin(SUN_TILT);
 
 /** Night sunlight factor of the game clock; anything at or below it is treated as full night. */
-export const NIGHT_SUNLIGHT = 0.08;
+export { NIGHT_SUNLIGHT };
 
 const DAY_ZENITH: Rgb = [0.25, 0.47, 0.78];
 const DAY_HORIZON: Rgb = [0.71, 0.81, 0.88];

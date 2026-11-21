@@ -8,12 +8,16 @@
  */
 import type { GameBus } from '../../core/context';
 import { itemOrNull } from '../../core/registry';
-import { canMerge, fullDurability, type Inventory } from '../../game/inventory';
+import { canMerge, type Inventory } from '../../game/inventory';
 import { moveHalf, moveOne, moveStack, quickMove } from '../../game/transfer';
-import { Disposer, h, listen, setText } from '../kit/dom';
+import { Disposer, h, listen, setText, type Dispose } from '../kit/dom';
+import type { Tooltip, TooltipCard } from '../kit/feedback';
+import { itemCard, slotView } from './inventory/slotViews';
+
+export { itemCard, slotView };
 import { Button, IconButton } from '../kit/controls';
 import { ItemIcon } from '../kit/icons';
-import type { ItemSlot, SlotView } from '../kit/slot';
+import type { ItemSlot } from '../kit/slot';
 
 /** Where quick move sends a stack: a group id (its whole range), or an explicit slot range of a group's inventory. */
 export type QuickTarget = string | { group: string; start: number; end: number };
@@ -188,18 +192,15 @@ const DOUBLE_TAP_MS = 380;
 interface Binding {
   spec: SlotGroupSpec;
   start: number;
+  tips: Dispose[];
 }
 
-export interface SlotBinding {
-  unbind(): void;
-}
-
-/** The DOM side: drives ItemSlots from inventories and turns their taps into SlotInteraction calls. */
 export class SlotController {
   readonly logic = new SlotInteraction();
   /** Picked item, "Move to ..." buttons and Cancel. Hidden while nothing is picked; place it in your layout. */
   readonly actionBar: HTMLDivElement;
   private readonly bus: GameBus;
+  private readonly tooltip: Tooltip | null;
   private readonly bindings = new Map<string, Binding>();
   private readonly disposer = new Disposer();
   private readonly ghost: HTMLDivElement;
@@ -212,9 +213,13 @@ export class SlotController {
   /** Called after every move the player makes here (screens update have/need figures). */
   onChange: (() => void) | null = null;
 
-  /** `ghostLayer` holds the icon that follows a mouse while something is picked (normally the tooltip layer). */
-  constructor(bus: GameBus, ghostLayer: HTMLElement | null = null) {
+  /**
+   * `ghostLayer` holds the icon that follows a mouse while something is picked (normally the tooltip layer);
+   * `tooltip` shows item cards on hover / keyboard focus (touch keeps long-press for half stacks).
+   */
+  constructor(bus: GameBus, ghostLayer: HTMLElement | null = null, tooltip: Tooltip | null = null) {
     this.bus = bus;
+    this.tooltip = tooltip;
     this.barText = h('span', { class: 'hw-carry__text' });
     this.barMoves = h('div', { class: 'hw-carry__moves' });
     const cancel = new IconButton({ icon: 'close', label: 'Put it back', onClick: () => this.cancel() });
@@ -236,16 +241,25 @@ export class SlotController {
   bind(spec: SlotGroupSpec): SlotBinding {
     const start = spec.start ?? 0;
     this.logic.addGroup({ id: spec.id, label: spec.label, inventory: spec.inventory, start, size: spec.views.length, quickTo: spec.quickTo });
-    this.bindings.set(spec.id, { spec, start });
+    const tips: Dispose[] = [];
+    this.bindings.set(spec.id, { spec, start, tips });
     spec.views.forEach((view, k) => {
       view.setHandlers({
         onPrimary: (_slot, ev) => this.onPrimary(spec.id, start + k, ev),
         onSecondary: () => this.after(this.logic.secondary(spec.id, start + k)),
       });
+      if (this.tooltip) {
+        const source = (): TooltipCard | null => {
+          const stack = spec.inventory.slots[start + k];
+          return stack && !this.logic.picked ? itemCard(stack) : null;
+        };
+        tips.push(this.tooltip.attach(view.el, source, { touch: 'none' }));
+      }
     });
     this.refresh();
     return {
       unbind: () => {
+        for (const off of tips) off();
         for (const view of spec.views) view.setHandlers({});
         this.bindings.delete(spec.id);
         this.logic.removeGroup(spec.id);
@@ -277,7 +291,10 @@ export class SlotController {
   }
 
   dispose(): void {
-    for (const id of [...this.bindings.keys()]) this.bindings.get(id)?.spec.views.forEach((v) => v.setHandlers({}));
+    for (const b of this.bindings.values()) {
+      for (const off of b.tips) off();
+      for (const v of b.spec.views) v.setHandlers({});
+    }
     this.bindings.clear();
     this.disposer.dispose();
   }
@@ -353,16 +370,4 @@ export class SlotController {
     this.ghost.hidden = this.logic.picked === null;
     if (!this.ghost.hidden) this.ghost.style.transform = `translate(${ev.clientX + 10}px, ${ev.clientY + 10}px)`;
   }
-}
-
-/** How a stored stack is shown in a slot (tool wear as a 0..1 fraction). */
-export function slotView(stack: { item: string; count: number; durability?: number } | null | undefined): SlotView | null {
-  if (!stack) return null;
-  const full = stack.durability !== undefined ? fullDurability(stack.item) : undefined;
-  return {
-    item: stack.item,
-    count: stack.count,
-    durability: full && stack.durability !== undefined ? stack.durability / full : undefined,
-    name: itemOrNull(stack.item)?.name,
-  };
 }

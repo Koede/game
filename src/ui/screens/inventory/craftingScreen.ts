@@ -53,7 +53,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
   const body = h(
     'div',
     { class: 'hw-craft' },
-    h('section', { class: 'hw-craft__bag' }, bag.el, ctx.slots.actionBar),
+    h('section', { class: 'hw-craft__bag' }, bag.el),
     h('section', { class: 'hw-craft__make' }, h('h3', { class: 'hw-heading', text: opts.listTitle }), note, list.el),
   );
   const window = new Window({ title: opts.title, subtitle: opts.subtitle, size: 'lg', fit: 'tall', scroll: false, body, footer: slotHint() });

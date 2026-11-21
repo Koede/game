@@ -5,7 +5,7 @@ import { itemOrNull } from '../../core/registry';
 import type { PlayerState } from '../../game/playerState';
 import { h, setText } from '../kit/dom';
 import { SlotGrid } from '../kit/slot';
-import { slotView } from '../screens/slots';
+import { slotView } from '../screens/inventory/slotViews';
 
 const NAME_LINGER_MS = 1600;
 

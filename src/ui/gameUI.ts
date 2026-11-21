@@ -235,7 +235,7 @@ export class GameUI {
   }
 
   private show(kind: string, request: ScreenRequest | null, modal: boolean, build: (ctx: ScreenContext) => GameScreen | null): boolean {
-    const slots = new SlotController(this.deps.bus, this.root.layers.tooltip);
+    const slots = new SlotController(this.deps.bus, this.root.layers.tooltip, this.root.tooltip);
     slots.onChange = () => (this.dirty = true);
     let screen: GameScreen | null = null;
     try {
@@ -255,6 +255,8 @@ export class GameUI {
     }
     const active: Active = { request, kind, screen, slots, modal, offClose: () => undefined };
     this.active = active;
+    // The picked-stack bar docks over the window's footer unless the screen placed it: it never shifts the slots.
+    if (!slots.actionBar.parentElement) screen.window.frame.querySelector('.hw-window__inner')?.appendChild(slots.actionBar);
     screen.window.open(this.root.layers.windows);
     active.offClose = screen.window.whenClosed(() => {
       if (this.active === active) this.finishClose(active);

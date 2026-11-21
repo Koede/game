@@ -2197,6 +2197,23 @@ body {
 .hw-carry > .hw-iconbtn {
   flex: none;
 }
+/* Docked by GameUI: over the window's footer (the slot hint), so picking a stack never moves anything. */
+.hw-window__inner {
+  position: relative;
+}
+.hw-window__inner > .hw-carry {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  padding-right: calc(6px + var(--hw-safe-r));
+  padding-bottom: var(--hw-safe-b);
+  padding-left: calc(10px + var(--hw-safe-l));
+  border-width: 1px 0 0;
+  border-radius: 0;
+  box-shadow: 0 -8px 18px rgba(0, 0, 0, 0.45);
+}
 .hw-slot-ghost {
   position: absolute;
   top: 0;
