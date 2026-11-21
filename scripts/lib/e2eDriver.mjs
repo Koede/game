@@ -155,7 +155,26 @@ export class Driver {
   }
 
   /** Use / place at the crosshair: right click, a tap on the world (portrait) or the Use button (landscape). */
+  /**
+   * Puts the mouse at the screen centre (desktop). A mouse that was elsewhere (a button clicked in a screen, the first move after
+   * load) arrives there as a big movement delta, which the game reads as a look turn: it swung the view off the aimed block
+   * (a log placed on the anvil, a bucket scooping grass). The view is restored to what it was, so a click lands where the
+   * aim was set.
+   */
+  async centerMouse() {
+    if (this.touch) return;
+    const { width, height } = this.size;
+    const before = (await this.state()).player;
+    await this.page.mouse.move(width / 2, height / 2);
+    const after = (await this.state()).player;
+    if (Math.abs(after.yaw - before.yaw) > 0.002 || Math.abs(after.pitch - before.pitch) > 0.002) {
+      hlog('mouse.turn_undone', { dyaw: after.yaw - before.yaw, dpitch: after.pitch - before.pitch });
+      await this.hw((l) => window.__hw.look(l.yaw, l.pitch), before);
+    }
+  }
+
   async use() {
+    await this.centerMouse();
     if (!this.touch) {
       const { width, height } = this.size;
       await this.page.mouse.click(width / 2, height / 2, { button: 'right' });
@@ -171,6 +190,7 @@ export class Driver {
 
   /** Holds Use for `ms`: right mouse held (desktop, it auto-repeats) or the Use button held (landscape phone). */
   async holdUse(ms) {
+    await this.centerMouse();
     if (!this.touch) {
       const { width, height } = this.size;
       await this.page.mouse.move(width / 2, height / 2);
@@ -187,6 +207,7 @@ export class Driver {
 
   /** Aims at a block and waits until the controller targets exactly it. False when something else is in the way. */
   async aimAt(pos) {
+    await this.centerMouse();
     await this.hw((p) => window.__hw.lookAt(p.x, p.y, p.z), pos);
     try {
       await waitFor(this.page, (p) => {
@@ -197,6 +218,16 @@ export class Driver {
     } catch {
       return false;
     }
+  }
+
+  /** Aims at pos; when something is in the way or it is out of reach, steps next to it first (a player would walk there). */
+  async approach(pos) {
+    if (await this.aimAt(pos)) return true;
+    const stand = await this.standBeside(pos);
+    hlog('aim.approach', { pos, stand, crosshair: (await this.state()).target });
+    if (stand) await this.hw((t) => window.__hw.teleport(t.x, t.y, t.z), stand);
+    await this.settle(300);
+    return this.aimAt(pos);
   }
 
   /** A spot to stand on next to `pos`: solid ground, two free cells. Nearest offsets first. */
@@ -284,7 +315,7 @@ export class Driver {
       await this.hw((t) => window.__hw.teleport(t.x, Math.floor(t.y), t.z), g);
       await this.settle(800);
     }
-    hlog('drops.collected', { left: left.length, ms: Date.now() - started });
+    hlog('drops.collected', { left: left.length, ms: Date.now() - started, items: left.slice(0, 6), player: (await this.state()).player, inventory: (await this.state()).inventory });
     return left.length;
   }
 
@@ -396,12 +427,24 @@ export class Driver {
       // Finished work is taken into the selected slot, so the hand is no longer empty: pick a free slot again.
       const st = await this.state();
       if (st.inventory.some((i) => i.slot === st.player.selectedSlot)) await this.selectEmptyHand();
-      if (!(await this.aimAt(pos))) throw new Error(`cannot aim at the station ${JSON.stringify(pos)}`);
+      if (!(await this.approach(pos))) throw new Error(`cannot aim at the station ${JSON.stringify(pos)}`);
       await this.use();
       await this.settle(250);
     }
     hlog('station.gave_up', { pos, maxTaps, state: (await this.state()).inventory });
     throw new Error(`the station at ${JSON.stringify(pos)} did not finish in ${maxTaps} taps`);
+  }
+
+  /** Bare-handed strokes and takes until the station at pos holds nothing (leftover logs or planks of an earlier job block a new load). */
+  async emptyStation(pos, maxTaps = 20) {
+    const view = () => this.hw((p) => window.__hw.app.game.state.sim.handView(p.x, p.y, p.z), pos);
+    for (let n = 0; n < maxTaps; n++) {
+      const v = await view();
+      if (!v || v.state === 'empty') return n;
+      await this.workStation(pos, async () => false, 1).catch(() => undefined);
+    }
+    hlog('station.not_empty', { pos, view: await view() });
+    return maxTaps;
   }
 
   /**
@@ -449,6 +492,15 @@ export class Driver {
     }, { avoid, rMin, rMax });
     hlog('place.spots', { item, rMin, rMax, candidates: spots.length });
     const blockKey = item;
+    // Every placement is recorded: a tap that lands a block next to the planned cell (the view moved a little) still counts.
+    await this.hw(() => {
+      const g = window.__hw.app.game;
+      window.__placed = [];
+      if (!window.__placedHooked) {
+        window.__placedHooked = true;
+        g.bus.on('block:placed', (e) => window.__placed.push({ x: e.x, y: e.y, z: e.z, key: e.voxel?.block ?? e.voxel?.key ?? null }));
+      }
+    });
     for (const spot of spots) {
       const aimAt = spot.replace ? spot.cell : spot.ground;
       if (!(await this.aimAt(aimAt))) {
@@ -457,9 +509,11 @@ export class Driver {
       }
       await this.use();
       try {
-        await waitFor(this.page, ({ c, k }) => window.__hw.getBlock(c.x, c.y, c.z).block === k, `${item} placed`, { timeout: 4000, interval: 100, arg: { c: spot.cell, k: blockKey } });
+        await waitFor(this.page, ({ c, k }) => window.__hw.getBlock(c.x, c.y, c.z).block === k || window.__placed.some((p) => window.__hw.getBlock(p.x, p.y, p.z).block === k), `${item} placed`, { timeout: 4000, interval: 100, arg: { c: spot.cell, k: blockKey } });
         await this.settle(300);
-        return spot.cell;
+        const at = await this.hw(({ c, k }) => (window.__hw.getBlock(c.x, c.y, c.z).block === k ? c : window.__placed.find((p) => window.__hw.getBlock(p.x, p.y, p.z).block === k)), { c: spot.cell, k: blockKey });
+        if (at.x !== spot.cell.x || at.y !== spot.cell.y || at.z !== spot.cell.z) hlog('place.landed_elsewhere', { item, planned: spot.cell, at });
+        return { x: at.x, y: at.y, z: at.z };
       } catch {
         hlog('place.refused', { item, cell: spot.cell });
         // Something refused (a plant in the way, the player's box): try the next spot.

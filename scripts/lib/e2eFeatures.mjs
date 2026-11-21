@@ -1,6 +1,7 @@
 // Food, farming, animals, buckets, flowing water and weather steps of scripts/e2e-features.mjs - real input throughout.
 // window.__hw only sets things up (give, teleport, aim, set the time / weather / food bar, run ticks) and reads state.
 import { waitFor } from './browser.mjs';
+import { hlog } from './diag.mjs';
 import { bagIndex, openTab, sendFromBag, showBag } from './e2eFurnace.mjs';
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
@@ -267,6 +268,10 @@ export async function featureSteps({ d, step, assert, page }) {
     }
     if (misses.length) console.log(`       misses: ${misses.join(', ')}`);
     assert(hits >= 1, 'the animal was never hit');
+    // The meat lies on the ground now (ground items): walk onto it, like a player would.
+    // (a killed animal drops after its death animation, so give the drop a moment to appear first)
+    await waitFor(page, (meat) => window.__hw.groundItems().length > 0 || window.__hw.state().inventory.some((s) => s.item === meat), `${ctx.meat} dropped`, { timeout: 10_000, interval: 200, arg: ctx.meat }).catch(() => hlog('drop.never_appeared', { meat: ctx.meat }));
+    await d.collectDrops(8000);
     await waitFor(page, (meat) => window.__hw.state().inventory.some((s) => s.item === meat), `${ctx.meat} in the pack`, { timeout: 8000, interval: 200, arg: ctx.meat });
     const axe = (await d.state()).inventory.find((s) => s.item === 'flint_axe');
     assert(axe && axe.durability < 64, `the axe did not wear: ${JSON.stringify(axe)}`);

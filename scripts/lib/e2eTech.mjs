@@ -463,7 +463,8 @@ export async function techSteps({ d, step, assert, page }) {
         if (!mesh || !mesh.count) return null;
         const a = mesh.geometry.getAttribute('aCool');
         let best = 0;
-        for (let i = 0; i < mesh.count; i++) best = Math.max(best, a.array[i]);
+        // aCool is a vec2 on mobs (x cool share, y head turn): read the x of every instance, whatever the item size.
+        for (let i = 0; i < mesh.count; i++) best = Math.max(best, a.array[i * a.itemSize]);
         return best;
       };
       return { hen: share('mob-hen'), pump: share('machine-pump') };

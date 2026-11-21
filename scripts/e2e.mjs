@@ -123,7 +123,7 @@ async function runDevice(device) {
       assert(spot, 'the chopping block was not placed');
       d.places.chopping_block = spot;
       await d.selectItem('oak_log');
-      assert(await d.aimAt(spot), 'cannot aim at the chopping block');
+      assert(await d.approach(spot), 'cannot aim at the chopping block');
       await d.use(); // loads the logs in hand onto the block
       await d.selectEmptyHand();
       const taps = await d.workStation(spot, async () => ((await d.inventory()).plank ?? 0) >= 8);
@@ -155,8 +155,9 @@ async function runDevice(device) {
       await waitFor(page, () => window.__hw.state().objective.completed.includes('find_flint'), 'the flint goal', { timeout: 10_000 });
       // Sticks are split from a plank at the Chopping Block now (two strokes make four), not made in the inventory.
       const block = d.places.chopping_block;
+      await d.emptyStation(block); // the logs of the last job may still be loaded
       await d.selectItem('plank');
-      assert(await d.aimAt(block), 'cannot aim at the chopping block');
+      assert(await d.approach(block), 'cannot aim at the chopping block');
       await d.use(); // loads the planks in hand
       await d.selectEmptyHand();
       await d.workStation(block, async () => ((await d.inventory()).stick ?? 0) >= 2, 12);
