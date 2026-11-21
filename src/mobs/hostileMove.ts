@@ -4,7 +4,6 @@
  * HOSTILE_HOVER_MIN..MAX above the ground with no gravity; stationary ones only turn. No path finding: the brain
  * counts the time a walker spends 'blocked' and gives up.
  */
-import { HOSTILE_HOVER_MAX } from '../core/constants';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { angleDiff, bodyHeight, halfWidth, yawTowards } from './brain';
 import { HOP_VELOCITY, moveAxis } from './physics';
@@ -171,6 +170,3 @@ export function stepFlyer(world: IWorld, m: Mob, dt: number): void {
   m.onGround = false;
   m.inLiquid = false;
 }
-
-/** A random hover height for a new flyer. */
-export const pickHover = (rng: () => number, min: number): number => min + rng() * (HOSTILE_HOVER_MAX - min);

@@ -214,7 +214,7 @@ function chase(ctx: HostileCtx, m: Mob, s: HostileSpec, dt: number): void {
   const tx = fresh ? ctx.player.x : h.lastX;
   const tz = fresh ? ctx.player.z : h.lastZ;
   // Where the player was last sensed is a place to search, not someone to stand off from.
-  const r = go(ctx, m, tx, tz, s.speed, fresh ? closeEnough(m, s) : 0.5, TURN, dt);
+  const r = go(ctx, m, tx, tz, m.spec.speed, fresh ? closeEnough(m, s) : 0.5, TURN, dt);
   if (r === 'unsafe') {
     // At the edge of a warm zone: halt and turn away for a while.
     turnAway(ctx, m, tx, tz);
@@ -278,7 +278,7 @@ function roam(ctx: HostileCtx, m: Mob, dt: number): void {
     return;
   }
   if (m.hasTarget) {
-    const r = go(ctx, m, m.tx, m.tz, s.speed * ROAM_SPEED, 0.6, IDLE_TURN * 2, dt);
+    const r = go(ctx, m, m.tx, m.tz, m.spec.speed * ROAM_SPEED, 0.6, IDLE_TURN * 2, dt);
     if (r !== 'moving' || m.stateS <= 0) {
       m.hasTarget = false;
       m.stateS = 1.5 + ctx.rng() * 3;
@@ -301,7 +301,7 @@ function guardHome(ctx: HostileCtx, m: Mob, dt: number): boolean {
     return false;
   }
   h.mode = 'return';
-  const r = go(ctx, m, h.homeX, h.homeZ, spec(m).speed, 0.5, TURN, dt);
+  const r = go(ctx, m, h.homeX, h.homeZ, m.spec.speed, 0.5, TURN, dt);
   h.blockedS = r === 'blocked' ? h.blockedS + dt : 0;
   if (r === 'arrived' || h.blockedS >= HOSTILE_GIVE_UP_S) {
     h.blockedS = 0;
@@ -314,7 +314,7 @@ function guardHome(ctx: HostileCtx, m: Mob, dt: number): boolean {
 function dash(ctx: HostileCtx, m: Mob, s: HostileSpec, dt: number): void {
   const h = m.hostile!;
   dashContact(ctx, m, s);
-  const speed = s.dashSpeed ?? s.speed;
+  const speed = s.dashSpeed ?? m.spec.speed;
   h.dashLeft -= speed * dt;
   const r = walkTo(ctx.world, ctx.safe, m, m.x + h.dashX * (h.dashLeft + 2), m.z + h.dashZ * (h.dashLeft + 2), speed, 0, TURN * 3, dt);
   if (h.dashLeft <= 0 || r === 'blocked' || r === 'unsafe') {
@@ -352,6 +352,6 @@ function retreat(ctx: HostileCtx, m: Mob, dt: number): void {
   }
   // Walking out of the zone: the halt-at-the-edge rule does not apply (it already is inside).
   const s = spec(m);
-  if (s.flying) flyTo(ctx.world, () => false, m, m.tx, m.tz, s.speed, 0.5, h.hover || HOSTILE_HOVER_MIN, TURN, dt);
-  else walkTo(ctx.world, () => false, m, m.tx, m.tz, s.speed, 0.5, TURN, dt);
+  if (s.flying) flyTo(ctx.world, () => false, m, m.tx, m.tz, m.spec.speed, 0.5, h.hover || HOSTILE_HOVER_MIN, TURN, dt);
+  else walkTo(ctx.world, () => false, m, m.tx, m.tz, m.spec.speed, 0.5, TURN, dt);
 }

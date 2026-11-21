@@ -19,7 +19,7 @@ import {
   MOB_STORED_CAP,
   MOB_STORED_SOFT_CAP,
 } from '../core/constants';
-import type { GameBus } from '../core/context';
+import type { Difficulty, GameBus } from '../core/context';
 import type { SfxName } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import type { CreatureSpec, IWorld } from '../core/types';
@@ -44,6 +44,8 @@ import { Spawner, type SpawnHost } from './spawner';
 import type { SpawnSpot } from './spawning';
 import { restoreMobs, saveMobs } from './persistence';
 import { MobTargets } from './targets';
+import { HostileLayer } from './hostiles';
+import type { HitOptions, HostileHooks, ProjectileView } from './hostileTypes';
 import type { BiomeLookup, DeathCause, FeedResult, HitResult, Mob, MobClock, MobDeath, MobPlayer, MobRayHit, MobsSnapshot, MobView } from './types';
 import { fillViews } from './views';
 
@@ -58,8 +60,13 @@ export interface MobManagerOptions {
   biomeAt?: BiomeLookup;
   /** World spawn (feet block) for the spawn-area guarantee. Default: `world.spawnPoint()` when present. */
   spawn?: { x: number; y: number; z: number } | null;
-  /** False turns off chunk rolls, the spawn guarantee and keep-alive spawns (tests, harnesses). Default true. */
+  /**
+   * False turns off chunk rolls, the spawn guarantee, keep-alive spawns and the automatons' night spawning (tests,
+   * harnesses; ruin guards still appear). Default true.
+   */
   naturalSpawning?: boolean;
+  /** Spec 19.3. Default 'normal'; change it later with setDifficulty. */
+  difficulty?: Difficulty;
 }
 
 interface WorldExtras {
@@ -91,6 +98,9 @@ export class MobManager {
   private despawnS = 0;
   /** Simulated animals retired during this tick (to make room for a birth). */
   private readonly retiring: Mob[] = [];
+  /** The Emberbound automatons (spec 19): their own list, the same ids, views and hits. */
+  private readonly hostileLayer: HostileLayer;
+  private readonly rayHit: MobRayHit = { id: 0, distance: 0 };
 
   constructor(
     readonly world: IWorld,
@@ -123,6 +133,15 @@ export class MobManager {
       birth: (a, b) => this.birth(a, b),
     };
     this.natural = options.naturalSpawning ?? true;
+    this.hostileLayer = new HostileLayer({
+      world, bus, seed, rng: this.rng, biomeAt: this.biomeAt, byId: this.byId,
+      nextId: () => this.nextId++,
+      died: (d) => {
+        for (const fn of this.deathListeners) fn(d);
+      },
+    });
+    this.hostileLayer.naturalSpawning = this.natural;
+    this.hostileLayer.setDifficulty(options.difficulty ?? 'normal');
     this.offs.push(bus.on('chunk:loaded', ({ cx, cz }) => this.spawner.chunkLoaded(cx, cz)));
   }
 
@@ -148,9 +167,18 @@ export class MobManager {
     return `${name} - ${Math.max(1, Math.ceil(m.health))}/${m.spec.health}`;
   }
 
-  /** Nearest living animal whose box the ray hits within maxDist (dir need not be normalised), or null. */
+  /** Nearest living animal or automaton whose box the ray hits within maxDist (dir need not be normalised), or null. */
   raycast(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): MobRayHit | null {
-    return this.targets.raycast(this.active, ox, oy, oz, dx, dy, dz, maxDist);
+    const a = this.targets.raycast(this.active, ox, oy, oz, dx, dy, dz, maxDist);
+    const out = this.rayHit;
+    if (a) {
+      out.id = a.id;
+      out.distance = a.distance;
+      maxDist = a.distance;
+    }
+    const h = this.targets.raycast(this.hostileLayer.active, ox, oy, oz, dx, dy, dz, maxDist);
+    if (h) return h;
+    return a ? out : null;
   }
 
   // ------------------------------------------------------------------------------------------ player actions
@@ -160,12 +188,13 @@ export class MobManager {
    * Refused while the animal is still recovering from the last hit (MOB_HIT_COOLDOWN_S). At 0 health it tips
    * over and, MOB_DEATH_S later, 'mob:died' is emitted and death listeners receive the drops.
    */
-  hit(id: number, damage: number, fromX: number, fromZ: number): HitResult {
+  hit(id: number, damage: number, fromX: number, fromZ: number, opts: HitOptions = {}): HitResult {
     const m = this.byId.get(id);
     if (!m) return { ok: false, reason: 'missing' };
+    if (m.hostile) return this.hostileLayer.hit(m, damage, fromX, fromZ, opts);
     if (m.state === 'dying') return { ok: false, reason: 'dead' };
     if (m.hitCooldownS > 0) return { ok: false, reason: 'cooldown' };
-    m.hitCooldownS = MOB_HIT_COOLDOWN_S;
+    m.hitCooldownS = opts.cooldownS ?? MOB_HIT_COOLDOWN_S;
     let kx = m.x - fromX;
     let kz = m.z - fromZ;
     const d = Math.hypot(kx, kz) || 1;
@@ -234,6 +263,7 @@ export class MobManager {
       const m = this.mobs[i];
       if ((m.state === 'dying' && m.deadS >= MOB_DEATH_S + CORPSE_FADE_S) || m.y < VOID_Y) this.remove(i);
     }
+    this.hostileLayer.tick(dt, player, this.clock);
   }
 
   /** Timers and behaviour of one simulated animal (sets its velocity). */
@@ -359,8 +389,12 @@ export class MobManager {
     retireFar(this.mobs, this.world, p.x, p.z, keep, this.spawner.rolled, (m) => this.removeMob(m));
   }
 
-  /** Adds an animal (emits 'mob:spawned'). Used by spawning, breeding and tests. */
+  /**
+   * Adds an animal (emits 'mob:spawned'). Used by spawning, breeding and tests. An automaton (spec.hostile) goes to
+   * the hostile layer as a natural one (debug spawns, tests); `baby` is ignored for it.
+   */
   add(spec: CreatureSpec, spot: SpawnSpot, baby = false): Mob {
+    if (spec.hostile) return this.hostileLayer.add(spec, spot.x, spot.y, spot.z, spot.yaw, 'natural', '', spot);
     const m = createMob(this.nextId++, spec, spot.x, spot.y, spot.z, spot.yaw, baby, this.rng);
     this.mobs.push(m);
     this.byId.set(m.id, m);
@@ -394,18 +428,44 @@ export class MobManager {
    * reused by the next call.
    */
   views(alpha: number): readonly MobView[] {
-    return fillViews(this.active, alpha, this.viewPool, this.viewList);
+    return fillViews(this.active, this.hostileLayer.active, alpha, this.viewPool, this.viewList);
+  }
+
+  /** Interpolated views of the ember bolts in flight (reused array and objects), like views(alpha). */
+  projectiles(alpha: number): readonly ProjectileView[] {
+    return this.hostileLayer.projectiles.views(alpha);
+  }
+
+  // ------------------------------------------------------------------------------------------ the Emberbound
+
+  /** The automatons (spec 19): their list, bolts, ruin bookkeeping (read only; tests, debug). */
+  get hostiles(): HostileLayer {
+    return this.hostileLayer;
+  }
+
+  /** Plugs the game into the automatons: safe zones, damage and knockback to the player, the sky (spec 19.2). */
+  useHostileHooks(hooks: HostileHooks): void {
+    this.hostileLayer.useHooks(hooks);
+  }
+
+  /** Spec 19.3: Peaceful removes every natural automaton at once and spawns none; ruin guards wait in the save. */
+  setDifficulty(d: Difficulty): void {
+    this.hostileLayer.setDifficulty(d);
   }
 
   // ------------------------------------------------------------------------------------------ persistence
 
   toJSON(): MobsSnapshot {
-    return saveMobs(this.mobs, this.nextId, this.spawner);
+    const s = saveMobs(this.mobs, this.nextId, this.spawner);
+    s.hostiles = this.hostileLayer.toJSON();
+    return s;
   }
 
   /** Replaces every animal and the spawning state with a snapshot's. Throws on a malformed snapshot. */
   load(snapshot: MobsSnapshot): void {
     const restored = restoreMobs(snapshot, this.rng);
+    const taken = new Set(restored.mobs.map((m) => m.id));
+    const maxHostile = this.hostileLayer.load(snapshot.hostiles, taken);
     this.mobs.length = 0;
     this.active.length = 0;
     this.byId.clear();
@@ -413,7 +473,7 @@ export class MobManager {
       this.mobs.push(m);
       this.byId.set(m.id, m);
     }
-    this.nextId = restored.nextId;
+    this.nextId = Math.max(restored.nextId, maxHostile + 1);
     this.loadedCount = 0;
     for (const m of this.mobs) if (this.world.isLoaded(m.x, m.z)) this.loadedCount++;
     this.spawner.rolled.clear();
