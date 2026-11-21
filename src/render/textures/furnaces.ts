@@ -39,21 +39,31 @@ function cold(c: Canvas, m: Mask): void {
   });
 }
 
-/** A lit mouth: hottest at the bottom centre, cooling towards its rim; walls nearby catch the light. */
+/**
+ * A lit mouth: hottest at the bottom centre, cooling towards its rim. The renderer draws this whole face
+ * full-bright, so the walls fall off into shadow away from the mouth and catch its light close to it.
+ */
 function hot(c: Canvas, m: Mask, glow: Ramp): void {
   let top = 16;
   let bottom = 0;
+  let sx = 0;
+  let sy = 0;
+  let n = 0;
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (m(x, y)) {
     top = Math.min(top, y);
     bottom = Math.max(bottom, y);
+    sx += x;
+    sy += y;
+    n++;
   }
+  const cx = sx / n;
+  const cy = sy / n;
   const span = Math.max(1, bottom - top);
   c.each((x, y) => {
     if (m(x, y)) return null;
-    let near = false;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (m(x + dx, y + dy)) near = true;
-    if (!near) return null;
-    return mix(c.get(x, y), glow[2], 0.35);
+    const d = Math.hypot(x - cx, y - cy);
+    const lit = mix(c.get(x, y), glow[2], Math.max(0, 0.4 - d * 0.06));
+    return shade(lit, -Math.min(0.42, Math.max(0, (d - 4) * 0.07)));
   });
   c.each((x, y) => {
     if (!m(x, y)) return null;
@@ -87,7 +97,7 @@ const clay: Tier = {
     c.rect(3, 14, 10, 1, shade(k[0], -0.1));
   },
   mouth: archMouth,
-  glow: [P.EMBER[0], P.EMBER[1], P.EMBER[1], P.EMBER[2], P.EMBER[3]],
+  glow: [P.EMBER[0], P.EMBER[1], P.EMBER[2], P.EMBER[2], P.EMBER[3]],
   over: (c, lit) => {
     if (!lit) return;
     for (const [x, w] of [[4, 3], [8, 4]]) c.rect(x, 13, w, 1, shade(P.COAL[1], 0.1));

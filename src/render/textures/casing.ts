@@ -6,7 +6,9 @@ import type { Canvas, PainterSet } from './canvas';
 import { bevel, rivet, tone } from './brush';
 import * as P from './palette';
 
-const I = P.IRON;
+/** Casing iron: a step lighter than raw IRON so machines still read as metal on a shaded side. */
+export const CASE_IRON: P.Ramp = [P.rgb(0x24242c), P.rgb(0x33333c), P.rgb(0x42434d), P.rgb(0x565862), P.rgb(0x787a86)];
+const I = CASE_IRON;
 
 /** The bare plate of a machine face: soft tonal variation, a bevelled border and four corner rivets. */
 export function plate(c: Canvas): void {

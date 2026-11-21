@@ -4,11 +4,11 @@
  */
 import type { Canvas, PainterSet } from './canvas';
 import { bevel } from './brush';
-import { front, well } from './casing';
+import { CASE_IRON, front, well } from './casing';
 import * as P from './palette';
 import { type RGB, mix } from './palette';
 
-const I = P.IRON;
+const I = CASE_IRON;
 const M = P.IRON_METAL;
 const WHITE: RGB = P.rgb(0xffffff);
 

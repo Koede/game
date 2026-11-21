@@ -260,9 +260,15 @@ describe('texture content', () => {
       expect(TEXTURE_NAMES, name).toContain(idle);
       expect(paintTexture(name), name).not.toEqual(paintTexture(idle));
     }
+    // Row 9, x 5..10 lies inside every tier's mouth and clear of the blast furnace's grate bars.
+    const mouth = (n: string): number => {
+      const px = paintTexture(n);
+      let sum = 0;
+      for (let x = 5; x <= 10; x++) sum += lum(px, (9 * 16 + x) * 4);
+      return sum / 6;
+    };
     for (const tier of ['clay', 'blast', 'arc', 'plasma', 'star']) {
-      const mean = (n: string): number => averageColor(n).reduce((s, v) => s + v, 0);
-      expect(mean(`furnace_${tier}_front_on`), tier).toBeGreaterThan(mean(`furnace_${tier}_front`));
+      expect(mouth(`furnace_${tier}_front_on`), tier).toBeGreaterThan(mouth(`furnace_${tier}_front`) + 50);
     }
   });
 
