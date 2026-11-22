@@ -578,3 +578,304 @@ other unit has yet; otherwise append), and update the count in `sfx.test.ts`.
   a quarter block, colour clay `0xb07a4a`, darkening linearly towards `0x3a2c20` as the band shrinks; a spent bed (medium set,
   catchL 0) shows a thin dark band. Drips from bed to receiver use the existing drip emitter on edges.
 - Pump: animated front `_on` while turning (existing ACTIVE-bit path).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save
+
+### 7.1 Distillery (`src/sim/distill.ts`, saved inside the world entity JSON as today)
+
+```ts
+export interface ChemEntity extends BlockEntity {
+  // ... existing fields
+  /** Filter bed: the FILTER_MEDIA key loaded (kept while spent so the bed draws dark). */
+  medium?: string;
+  /** Filter bed: litres of catch left in the medium. */
+  catchL?: number;
+  /** Filter bed: litres the medium has soaked up since the bed was placed (conservation ledger, diagnostics). */
+  caughtL?: number;
+  /** Render hint, written every step (harmless in a save): this flask/vessel is under vacuum. */
+  vac?: boolean;
+}
+```
+
+Sanitising in `Distillery.track` (old saves have none of these; missing = default):
+
+```ts
+if (e.kind === CHEM.filter) {
+  e.medium = typeof e.medium === 'string' && e.medium in FILTER_MEDIA ? e.medium : undefined;
+  const m = e.medium ? FILTER_MEDIA[e.medium] : null;
+  e.catchL = m ? Math.min(m.maxItems * m.catchLPerItem, Math.max(0, finite(e.catchL, 0))) : 0;
+  e.caughtL = Math.max(0, finite(e.caughtL, 0));
+} else { delete e.medium; delete e.catchL; delete e.caughtL; }
+e.vac = e.vac === true;
+```
+
+Nothing about the vacuum is saved (derived). Rigs stay unsaved.
+
+### 7.2 Workshop (`src/workshop/workshop.ts`)
+
+```ts
+export interface OilSpec { item: string; name: string; factor: number; s: number; empty: string | null }
+export const LUBE = {
+  pine_resin: { item: 'pine_resin', name: 'Pine Resin', factor: 1.1, s: 300, empty: null },
+  residue: { item: 'residue_canister', name: 'Heavy Residue', factor: 1.25, s: 600, empty: EMPTY_CANISTER },
+  lube_base: { item: 'lube_base_canister', name: 'Lube Base', factor: 1.25, s: 600, empty: EMPTY_CANISTER },
+  lubricant: { item: 'lubricant_canister', name: 'Lubricant', factor: 1.5, s: 900, empty: EMPTY_CANISTER },
+} as const satisfies Record<string, OilSpec>;
+export type OilKey = keyof typeof LUBE;
+export const oilOf = (item: string): OilKey | null => (Object.keys(LUBE) as OilKey[]).find((k) => LUBE[k].item === item) ?? null;
+export const VACUUM_MIN_RPM = 16;
+
+// class Workshop: the two maps `lube` (seconds) and `lubeFactor` are replaced by one
+private readonly oil = new Map<string, { k: OilKey; s: number }>();
+
+export interface WorkshopSnapshot {
+  // ... existing
+  /** Oil per part key: [oil key, seconds left]. Missing in saves before Unit 8: nothing oiled. */
+  oil?: Record<string, [string, number]>;
+}
+```
+
+`EMPTY_CANISTER` comes from `src/core/distill.ts`. Keep the existing `LUBE.residue.factor` / `.s` member names so the existing
+tests that read them still compile (they gain `item`, `name`, `empty`). The old declared-but-unused `lube?: Record<string,
+number>` member of `WorkshopSnapshot` stays declared and is ignored on load (no save ever wrote it).
+
+Load: `for (const [k, v] of Object.entries(s.oil ?? {}))` keep when `this.parts.has(k)`, `Array.isArray(v)`, `v[0] in LUBE`,
+`typeof v[1] === 'number' && v[1] > 0`; clamp seconds to `LUBE[v[0]].s`. `toJSON` writes `oil` when non-empty.
+`relocate(map)` re-keys `oil` (today it re-keys `lube` and `lubeFactor`: `re(this.lube); re(this.lubeFactor);`).
+`blockChanged` / removal deletes `oil` for the key (today: `this.lube.delete(key); this.lubeFactor.delete(key);`).
+
+### 7.3 Player (`src/game/playerState.ts`, `src/save/document.ts`)
+
+```ts
+// PlayerState
+barOilLogs = 0;
+// PlayerSnapshot
+/** Logs of bar-oiled chainsaw cutting left (shared by every saw carried). Missing in saves before Unit 8: 0. */
+barOilLogs?: number;
+```
+
+Write it in the player's snapshot function only when > 0; read with
+`p.barOilLogs = Math.min(BAR_OIL_MAX, Math.max(0, Math.floor(finite(raw.barOilLogs, 0))))`. `document.ts`'s validator must
+not reject a snapshot with or without the field (it checks required fields only; verify `isValidPlayer`-style checks do
+not enumerate keys). No `SAVE_VERSION` bump (T10 rule 3).
+
+### 7.4 Felling constants (`src/game/felling.ts`)
+
+```ts
+export const BAR_OIL_ITEM = 'lubricant_canister';
+export const BAR_OIL_LOGS = 240;   // logs per canister (SYSTEMS 5.2)
+export const BAR_OIL_MAX = 480;    // at most two canisters on the chain
+export const BAR_OIL_MULT = 0.75;  // fuel per oiled log: 7 -> 5.25
+export type BarOilOutcome = 'oiled' | 'full' | 'no-saw' | 'not-oil';
+export function oilChainsaw(player: PlayerState): BarOilOutcome;
+export function sawStatusText(player: PlayerState): string | null;   // null when no chainsaw is held
+/** Logs the held saw can fell with `fuel` units and `oil` oiled logs, and the fuel that costs. Pure. */
+export function fellCost(fuelPerLog: number, fuel: number, oil: number, want: number): { logs: number; fuel: number; oiled: number };
+```
+
+### 7.5 Old-save compatibility summary
+
+| saved thing | old save | result |
+|---|---|---|
+| chem entity without `medium/catchL/caughtL/vac` | loads | defaults; no filter beds existed |
+| workshop snapshot without `oil` | loads | nothing oiled (as today after any reload) |
+| player without `barOilLogs` | loads | 0 |
+| block ids `vacuum_cap`, `filter_bed`, `filter_bed_done`, `vacuum_pump` | appended at the END of their block lists | existing voxel ids never move (append rule, SYSTEMS 2) |
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered; each step leaves `npm test` green)
+
+1. **Core constants** - `src/core/distill.ts`: `VACUUM_BP_FACTOR = 0.7`, `VACUUM_ENTRAIN = 0.12`, `FILTER_LPS = 10`,
+   `FilterMedium`, `FILTER_MEDIA` (clay row), `bpFactor(caps: readonly Capability[]): number` (import the type from
+   `src/core/reactions.ts`), `STATEFUL` gains `CHEM.filter`. Check Unit 0's `CHEM_CAPACITY_L.filter_bed === 500`.
+2. **Chem physics** - `src/core/chem.ts`: add `pf = 1` to `pressureAt`, `bubblePoint`, `vapourShares` (`bp * pf`).
+   Tests in `chem.test.ts` (9.1).
+3. **Scan** - `src/sim/distillScan.ts`:
+   - `RigProblemCode` gains `'loose_cap'`; `Rig` gains `vacuum: Map<string, string>` (or Unit 0's generic caps map).
+   - `export function capTarget(modules, stills, cap: RigModule): string | null` - the flask key when the cell under the cap is
+     a still's `head`, the vessel key when it is a `reaction_vessel`, else null. Build a `headOwner: Map<condenserKey,
+     flaskKey>` from `stills` first.
+   - In the Modifiers loop: `if (m.kind === CHEM.vacuumCap) { const t = capTarget(...); if (t) vacuum.set(t, m.key); else
+     problem('loose_cap', ..., [m.key]); }`.
+   - `pours(kind, d)`: add `kind === CHEM.filter && d === 0`. `takes(kind, d, from)`: add
+     `if (kind === CHEM.filter) return d === 1;` (the `pours` side already restricts `from` to pouring kinds).
+   - The `drips_nowhere` check: also run it for every filter bed (a bed with no outgoing edge), text "This filter drips onto
+     nothing: set a Receiver or a Glass Tube below it".
+4. **Distillery** - `src/sim/distill.ts`:
+   - `stepStill`: `const caps = this.capabilitiesOf(flask.x, flask.y, flask.z); const pf = bpFactor(caps);`
+     `flask.vac = caps.includes('vacuum');` sealed check first: `if (rig.vacuum.has(still.flask) && !flask.vac)` -> set
+     `blocked` when `ts !== null && total > 0` (else today's states) and return. Use `pf` in `bubblePoint`, `vapourShares`,
+     `route` and the band loop. After the move loop, entrainment when `flask.vac`:
+     `const l = Math.min(moved * VACUUM_ENTRAIN, roomOf(targets[last]!)); if (l > 1e-9) pour(flask.mix, targets[last]!.mix, l);`
+     (count it into `moved` for `flow` and into the furnace draw? No: droplets are not boiled - they do not draw heat).
+   - `stepRig` loop: vessels get `e.vac = this.capabilitiesOf(...).includes('vacuum')` for the render hint (the reaction
+     engine reads capabilities itself).
+   - `flow`: `if (a.kind === CHEM.filter) { this.filterPour(a, b, edge.to, dt, arrived); continue; }` before the shared/unshared
+     logic (beds are never shared).
+   - `private filterPour(bed, to, toKey, dt, arrived)` - section 4.5 steps 1-6.
+   - `show`: `case CHEM.filter:` sets state by the 4.5 table (`working` when `arrived`-from... use `bed.flow > 0` this step).
+   - `announce`: (a) a flask going `working -> blocked` while `rig.vacuum.has(key)` toasts "Vacuum lost - the run waits for the
+     Vacuum Pump" (needs the rig: pass `rig` into `announce`, or compute a `sealed` set in `show`); (b) a filter bed going to
+     `blocked` toasts the no-clay or spent sentence; (c) a cap going idle -> working emits `vacuum_hiss` and `flagOnce('pulled_vacuum')`.
+     Caps get a `case CHEM.vacuumCap:` in `show`: `working` when the target has `vacuum`, else `idle`.
+   - `look`: works unchanged for the bed (STATEFUL) and the cap (active bit).
+   - `track`: sanitising of 7.1.
+   - `offerItem(x, y, z, item, count)`: when the entity is a filter bed and `item in FILTER_MEDIA`, the loading rule of 4.5
+     (returns n). Leave Unit 0's vessel branch alone.
+5. **Actions and view** - `src/sim/distillActions.ts`:
+   - `chemUse`: a held `FILTER_MEDIA` item on a bed -> load (result `{ ok: true, consume: true, count: n, toast }`); the
+     refusals of 5.2 as `{ ok: false, toast }` (match the existing refusal shape). `ChemResult` gains optional `count?: number`
+     (items to take; default 1); update its one caller in the player module (`BrewHands.chemUse` / brewTools: take `count`
+     instead of 1). Empty containers on a bed: refusal "Take it from the Receiver below the Filter Bed"; full containers on a
+     bed: "Pour it into the Receiver above the Filter Bed".
+   - `chemUse` bottling: when an empty canister takes `lubricant` from a receiver, `d.host.flagOnce('made_lubricant')`.
+   - `chemView`: the lines of 6.1 for `vacuum_cap` and `filter_bed`; the `, vacuum` suffix and the "waiting for the Vacuum
+     Pump" line for flasks/vessels; `capabilities` / `problems` fields as Unit 6 defines them.
+6. **Content** - `src/content/blocksDistill.ts` LOOKS rows for `vacuum_cap` and `filter_bed` with `age: ageIndexOf('bronze')`
+   and the descriptions of 4.1 (append; the `_done` twin of `filter_bed` is generated from `STATEFUL` automatically - verify
+   the generator loop does that, as for `receiver_done`); `machinesDistill.ts` machine specs (role `chem`) for both, like the
+   other modules; `recipesDistill.ts` two `forge` rows + two cards + `RIG_LEGEND` rows; canister descriptions (Unit 0's item
+   rows; edit `desc` only); textures (4.1).
+7. **Workshop** - `src/content/itemsWorkshopParts.ts`: append `{ key: 'vacuum_pump', name: 'Vacuum Pump', anim: true, desc:
+   ... }` to `PART_DEFS` (at the END of the array). `kinetics.ts`: `vacuum_pump: 4` in `BASE_STRESS`.
+   `recipesWorkshop.ts`: the forge row. `iconsWorkshopParts.ts`: the two fronts. `workshop.ts`:
+   - `LUBE` / `OilSpec` / `OilKey` / `oilOf` / `VACUUM_MIN_RPM` (7.2); the `oil` map replacing `lube` + `lubeFactor`
+     everywhere (`solve`, `tick`, `describe`, `relocate`, removal, `toJSON`, `load`).
+   - `Workshop.use`: replace the residue/resin branch with `const ok = held ? oilOf(held.item) : null; if (ok && part.kind !==
+     'hand_crank' && !blockOrNull(held.item)) return this.oilNetwork(key, ok, takeHeld, giveBack);` - **giving the empty
+     canister back** needs a way to hand an item to the player: `use()` today receives `held` and `takeHeld(n)`; add an optional
+     `give?: (item: string, n: number) => void` parameter (the Interaction caller passes `(i, n) => player.give(i, n)`; old
+     callers/tests omit it and the empty is dropped as a ground item at the part via `this.ground` - never lost).
+   - `private oilNetwork(key, oil, takeHeld, give): UseResult` - the ladder rules of 4.6; toasts; `oil_glug`; flag via the
+     bus `flag` event `{ flag: 'oiled_works' }` when the oil is `lubricant`.
+   - `tick`: count down `oil`; collect expired keys; if any expired key's `netOf` entry had `rpm !== 0`, toast "The oil has worn
+     off - the network carries its plain load again" once per tick.
+   - `vacuumAt(x, y, z): boolean` (4.3).
+   - `describe`: for `p.kind === 'vacuum_pump'`, after the existing parts: too slow -> replace the speed fact with `too slow
+     (${r} of 16 rpm)` and drop the load; turning -> append `pulling on the cap above|below|beside` / `pulling on 2 caps` /
+     `no cap to pull on` by scanning the six neighbours for `vacuum_cap` with `this.world.getBlock`.
+8. **Game wiring** - `src/app/game.ts` next to `this.workshop.standingOn = ...`:
+   `this.state.sim.distill.vacuumAt = (x, y, z) => this.workshop.vacuumAt(x, y, z);` (use the actual path to the Distillery,
+   `sim.distill`). The pump's describe line reaches the goggles through `inspector.ts` with no change (workshop parts first).
+9. **Chainsaw** - `src/game/felling.ts`: constants, `fellCost`, `oilChainsaw`, `sawStatusText`; `fellTree` uses
+   `fellCost(fuelPerLog, sawFuel(held), player.barOilLogs, maxLogs)` for `affordable` and the burn, decrements
+   `player.barOilLogs`, toasts the dry message. `src/player/interaction.ts` in the held-item tail, right after the refuel line:
+   ```ts
+   if ((held.item === BAR_OIL_ITEM || held.item === 'lube_base_canister') && hit?.block.liquid !== undefined /* any */) {
+     const r = oilChainsaw(this.player);           // handles lube base's refusal text too
+     if (r === 'oiled') { this.swing.triggerSwing(); return 'worked'; }
+     if (r !== 'not-oil') return 'refused';
+   }
+   if (isChainsaw(held)) { const t = sawStatusText(this.player); if (t) { this.bus.emit('toast', { text: t, kind: 'info' }); return 'none'; } }
+   ```
+   (The workshop and chemistry branches run before this tail, so a canister aimed at a shaft or a flask never reaches it.
+   The chainsaw status only fires when Use has nothing else to do - placing, buckets and screens come first.) Remove the
+   placeholder `hit?...` condition when writing it: the check is simply "reached this point".
+   `playerState.ts`: `barOilLogs`, snapshot write/read (7.3).
+10. **Side goal** - `src/content/objectivesVacuum.ts` NEW:
+    ```ts
+    export const VACUUM_SIDE_GOALS: ObjectiveSpec[] = [{
+      id: 'oil_the_works', title: 'Oil the works',
+      text: 'Use a Lubricant canister on a turning shaft part: the whole network carries 50% more for 15 min.',
+      flag: 'oiled_works', age: ageIndexOf('forge'), /* + whatever reward/fields ObjectiveSpec requires, copied from a sibling */
+    }];
+    ```
+    Add `...VACUUM_SIDE_GOALS` to `SIDE_OBJECTIVES` in `objectivesSide.ts`. Use the exact `ObjectiveSpec` field names from
+    `src/content/objectives.ts` (do not guess: open a flag-based objective such as the distillery's `distilled` one and copy
+    its shape).
+11. **Sounds** - 6.4.
+12. **Roster** - `src/content/specRosterDistill.ts`: `vacuum_cap`, `filter_bed`, `filter_bed_done` (if `_done` twins are
+    listed there), process cards and recipe counts; `src/content/specRosterWorkshop.ts`: `vacuum_pump` with its recipe.
+13. **Docs** - 11.
+
+Helpers to reuse, never re-implement: `pour`, `take`, `total`, `viscosityOf`, `nameOf` (chem.ts); `roomOf`, `finite`,
+`litresText`, `fluidName` (distill / distillActions); `netMembers`, `fmt`, `blockOrNull` (workshop.ts); `sawFuel`,
+`sawCapacity`, `isChainsaw`, `sawOf` (felling.ts); `fuelGrade`, `EMPTY_CANISTER`, `filledWith` (core/distill.ts).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest; co-located)
+
+### 9.1 `src/core/chem.test.ts`
+- `bubblePoint(mix, 0.7)` of `expand('residue', 1000)` is within 1 C of 228.6 and equals `0.7`-scaled physics: for a pure
+  component `bubblePoint({ diesel: 10 }, 0.7) === 196` (+-1e-9).
+- `vapourShares(expand('residue', 1000), 1, out, 0.7)`: `out.diesel > 0.9`; with `pf = 1` and the default the shares equal
+  the old call's shares (no behaviour change).
+- `pressureAt('lube_base', 259, 0.7)` is 1 (+-1e-9).
+
+### 9.2 `src/sim/distillScan.test.ts` (or the scan block of `distill.test.ts`)
+- `UM/C R/F./B.`-style rig (build with `buildRig('MU./.CR/.F./.B.')`): `rig.vacuum.get(flaskKey) === capKey`, no problems.
+- A cap on a column segment with no head -> `loose_cap` with the cap's cell; also `no_condenser`.
+- A cap on a reaction vessel -> `rig.vacuum.get(vesselKey) === capKey`.
+- A cap on a receiver -> `loose_cap`.
+- `R/X/R`: edges receiver->bed and bed->receiver exist, neither `shared`; a bed with air below -> `drips_nowhere`.
+- A bed beside a flask does not feed it (no edge).
+
+### 9.3 `src/sim/distill.test.ts` (Distillery behaviour; `buildRig`, `feed`, `runUntil`)
+- **Vacuum run yields lube base.** `vacuum_residue` rig, kit `vacuumAt` true, 3 residue canisters fed, base 350:
+  `runUntil` flask `done`; head receiver `nameOf === 'lube_base'`, its `lube_base` share in [0.6, 0.85]; flask `lube_base`
+  share < 0.02; flask `nameOf` is neither `lube_base` nor `lubricant`.
+- **Without vacuum the lube stays.** Same rig, `vacuumAt` false and the cap removed (plain pot still): after `runUntil` done,
+  receiver lube_base L < 5% of the fed lube base.
+- **Sealed, not pulled = blocked, no boil.** Cap present, `vacuumAt` false: after 20 s of steps, flask state `blocked`,
+  receiver empty, `furnace.extractW` not raised by boiling, no "Distilling run finished" toast.
+- **Pump stops mid-run.** Start pulled; after the receiver holds > 100 L, set `vacuumAt` to false: next step flask `blocked`;
+  one toast "Vacuum lost - the run waits for the Vacuum Pump"; set true: `working` again; the run completes with the same
+  final lube share band as the uninterrupted run (+-0.02).
+- **Entrainment conserves.** `distillery.litres()` constant (1e-6) over a whole vacuum run.
+- **Diesel first.** First 20 L in the head receiver: diesel share > 0.6.
+- **Filter makes lubricant.** `polish_lubricant` rig, top receiver fed 2 lube base canisters (`feed`), bed `medium='clay'`,
+  `catchL=600`: after `runUntil` (no base: run steps until the top receiver and bed are empty or 300 s), bottom receiver
+  `nameOf === 'lubricant'`, litres within 5% of 1405; `litres() + bed.caughtL` equals 2000 (1e-6).
+- **Clay runs out.** Bed with `catchL = 100` fed 2000 L lube base: bed state `blocked`, toast "The Filter Bed's Clay is
+  spent - Use fresh Clay on it", catch 0, bottom receiver < 300 L.
+- **No medium holds.** Bed without medium: nothing passes, state `blocked`.
+- **Backs up, never overfills.** Bottom receiver pre-filled to 1990 L: never exceeds 2000; bed keeps the rest.
+- **Load rules** via `chemUse(d, bed, 'clay')` with counts: 3 clay -> `count 3`, catchL 300; 8 more on a full bed -> refused;
+  charcoal row stubbed into `FILTER_MEDIA` in the test on a bed with catch -> refused sentence; on a spent bed -> accepted.
+- **offerItem** on a bed with clay returns n; with a non-medium item returns 0.
+- **Save round-trip.** Bed entity with `medium/catchL/caughtL` survives `track(JSON.parse(JSON.stringify(e)))`; an old entity
+  without the fields -> `catchL 0`, `medium undefined`; a bed with `medium: 'gold'` -> cleared.
+- **Process cards**: `distillProcess.test.ts` already builds every card; it must pass for both new cards (kit sets
+  `vacuumAt` to "a `vacuum_pump` block touches the cap"; `polish_lubricant` loads 6 clay into the bed from the card's inputs -
+  extend `feed` to put `FILTER_MEDIA` items into a bed of the rig through `offerItem`).
+
+### 9.4 `src/workshop/workshop.test.ts` / `parts.test.ts` (`setup()`)
+- **vacuumAt.** Crank + shaft + `vacuum_pump` with a `vacuum_cap` block beside the pump: after Use on the crank and a tick,
+  `vacuumAt(cap)` true; after `CRANK_S + 0.1` s without Use, false; with a worm gear in the line (2 rpm), false; overstressed
+  line (pump + 2 millstones on one crank) false.
+- **Stress.** Pump on one crank at 16 rpm: `netAt` stress 4 of capacity 8.
+- **describe.** "Vacuum Pump - right 16 rpm, load 4/8 su, pulling on the cap above" (cap at y+1); no cap: ends "no cap to
+  pull on"; 12 rpm (treadwheel): "Vacuum Pump - too slow (12 of 16 rpm)".
+- **Oil ladder.** Lubricant on an unoiled net: `netAt.capacity` 12 (8 x 1.5), `give('empty_canister', 1)` called, toast text
+  exact; residue then refused with "Already oiled better (Lubricant, 15 min left)" and `takeHeld` not called; after 600 s
+  resin refused "Already oiled better (Lubricant, 5 min left)"; lubricant at 300 s left refreshes to 900; lubricant again at
+  900 s refused "Already oiled as well (Lubricant, 15 min left)"; residue on a lube_base net with 100 s left refreshes to 600.
+- **Residue now returns its canister** (regression for the old bug).
+- **Expiry toast.** Turning net, oil runs out: one "The oil has worn off ..." toast; a still net: none.
+- **Save.** Oil survives `toJSON` -> `load` (kind and seconds); a snapshot without `oil` loads with nothing oiled; an `oil`
+  entry with an unknown kind or for a missing part is dropped; seconds clamp to the oil's `s`.
+- **Relocate.** A piston moving an oiled part keeps its oil under the new key.
+- **Flag.** Lubricant oiling emits `flag` `{ flag: 'oiled_works' }`; residue does not.
+
+### 9.5 `src/game/felling.test.ts`
+- `fellCost(7, 840, 0, 999)` -> 120 logs, 840 fuel; `fellCost(7, 840, 240, 999)` -> 160 logs, 840 fuel, 160 oiled;
+  `fellCost(7, 100, 5, 12)` -> 12 logs? (5 x 5.25 + 7 x 7 = 75.25 -> 76 <= 100) -> 12 logs, 76 fuel, 5 oiled.
+- `oilChainsaw`: saw in pack, oil 0 -> `'oiled'`, `barOilLogs` 240, canister gone, `empty_canister` given, toast exact;
+  at 300 -> `'full'`, nothing used; no saw -> `'no-saw'` + toast; lube base -> `'full'`-like refusal with the "too rough"
+  sentence (outcome `'no-saw'`? no: return `'not-oil'` only for items that are neither; lube base returns `'full'`... - write
+  it as its own outcome `'rough'` and include it in `BarOilOutcome`); a non-oil item -> `'not-oil'`.
+- `fellTree` with oil 5 and a 12-log tree: fuel burned 76, `barOilLogs` 0, dry toast once.
+- `sawStatusText`: "Chainsaw - fuel 62%, bar oil 180 logs" / "Chainsaw - fuel 62%, chain dry".
+- Player snapshot round trip with and without `barOilLogs`; negative / NaN / 9999 sanitised to 0 / 0 / 480.
+
+### 9.6 Content tests
+- `specRosterDistill.ts` / `specRosterWorkshop.ts` list the new keys; `content.test.ts` roster and recipe counts updated;
+  textures readability test covers the new tiles; `content.test.ts` progression still completes (nothing on the spine depends
+  on this unit; the solver may now also run `vacuum_residue` and `polish_lubricant` when the blocks are owned).
+- `sfx.test.ts` count expression gains the two sounds.
+- Side goal: `oil_the_works` is in `SIDE_OBJECTIVES`, never in `OBJECTIVES` (Unit 0's test pattern).
+
