@@ -30,7 +30,14 @@ for (const device of ['phonePortrait', 'phoneLandscape', 'desktop']) {
     sim.light(c.x, c.y, c.z);
   }, pos);
   for (let i = 0; i < 60; i++) await page.evaluate(() => window.__hw.tick(100));
+  await page.evaluate((c) => { const sim = window.__hw.app.game.state.sim; sim.furnaceSlots(c.x, c.y, c.z).crucibleIn.add('copper_ore', 2); window.__hw.tick(60); }, pos);
   await page.waitForTimeout(800);
+  const count = await page.evaluate(() => {
+    const vis = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && !el.closest('[hidden]'); };
+    const q = (sel) => [...document.querySelectorAll('.hw-window ' + sel)].filter(vis).length;
+    return { controls: q('button'), badges: q('.hw-badge, .hw-tab__badge, .hw-chip__count'), chips: q('.hw-ingr'), slots: q('.hw-slot') };
+  });
+  console.log(device, JSON.stringify(count));
   const shot = (n) => page.screenshot({ path: join(out, `${device}-${n}.png`) });
   for (const t of wanted) {
     if (t === 'upgrade') { await page.locator('.hw-window .hw-upg-btn').click(); await page.waitForTimeout(700); await shot('upgrade'); await page.keyboard.press('Escape'); await page.waitForTimeout(300); continue; }

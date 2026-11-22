@@ -291,7 +291,7 @@ export async function techSteps({ d, step, assert, page }) {
     await d.shot('31-hearth-formed');
   });
 
-  await step('the STRUCTURE tab says the hearth is formed', async () => {
+  await step('the hearth sheet (floating button) says the hearth is formed', async () => {
     await d.useBlock(ctx.furnace);
     await d.waitScreen('furnace');
     await openTab(d, 'structure');
@@ -300,6 +300,7 @@ export async function techSteps({ d, step, assert, page }) {
     assert(/formed/i.test(status) && !/not formed/i.test(status), `structure status "${status}"`);
     await d.settle(400);
     await d.shot('32-structure-tab');
+    await openTab(d, 'smelt'); // Back from the sheet; Escape closes the sheet first, then the screen
     await d.closeScreen();
   });
 

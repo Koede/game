@@ -1,5 +1,7 @@
 # src/ui/screens/furnace and src/ui/screens/machines (7.4b) - public API
 
+> **Simplified (see `docs/api/furnace-simplify.md`):** the furnace screen is now ONE page with no tabs - firebox, crucibles and one "can make now" list (smelt and forge rows together, "Everything" switch, 4 categories, one-line rows). STRUCTURE, GRID and LOG are sheets opened by floating buttons (Hearth / Power / Log) on the right edge. The tab descriptions below are historical; the readings list and draft text are gone and Light loads fuel when the firebox is empty.
+
 > **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
 
 
