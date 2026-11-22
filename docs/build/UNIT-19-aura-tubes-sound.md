@@ -431,3 +431,98 @@ No sound loops; `tube_flow` repeats only while units actually move (T9 rule 3: i
 | magic sound volumes | all 1 | see 4.3 table | T9 tiers |
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 5. Behaviour and rules (including edge cases)
+
+### 5.1 Dial rules
+1. `auraView()` is null when: no rod held (and not `aura_dial` with a rod carried), or neither `aura_reading` nor `aura_dial`
+   is set. The flag check is `hasFlag(this.research, 'aura_reading') || hasFlag(this.research, 'aura_dial')`.
+2. **Rod switched** (hotbar scroll, number key, touch tap to another slot): the next `auraView()` call sees `heldRod()` change.
+   The cache key includes the held item key, so the dial hides within one HUD slow tick (<= 0.125 s). Switching between two rod
+   tiers keeps the dial (numbers do not depend on the tier) and plays no `aura_tick` (it never went null).
+3. **No research**: no dial, no tick, and the crosshair no longer shows `rodReading()` either (it already returned null).
+4. **Research learned while holding the rod**: the dial appears on the next slow tick with `aura_tick`.
+5. **Drawing with the rod**: each draw changes `lastDraw`, which invalidates the cache, so the drawn aspect's number drops at
+   once; when the land runs out the chips read `Land drained` (and the existing advice toast
+   `The land here is drained. Move on, or wait for it to recover` still comes from `gather`).
+6. **Recovery**: `drawn()` recovers 1 per `DRAW_RECOVER_S` 30 s; the 0.5 s refresh makes the numbers climb back while
+   standing still.
+7. **Wellspring**: nearest of `nodesAround(p.x, p.z, 3)` by horizontal distance (as `rodReading` does today). `dist` rounded;
+   `dist < 3` = `here`. The pip shows it even before `node_tap` (the reading always showed wells; drawing from them still needs
+   `wellsprings`). A well that is fully drawn still shows with `(0)`.
+8. **Underground / caves**: the cube is around the player wherever they stand; nothing special.
+9. **Paused**: the HUD keeps calling; the clock does not advance, so the cache simply holds.
+10. **aura_tick on well**: emitted once when `well.dist` goes from >= 3 to < 3 while the dial is shown; not again until it has
+    gone back to >= 4 (1 block hysteresis so standing on the edge does not tick repeatedly).
+
+### 5.2 Flow rules
+1. Near beats tubed: a jar within the consumer's reach is always drained first and costs no budget.
+2. A grant is allowed iff `budget > 0`; the whole request is subtracted. Budgets refill in `Magic.tick(dt)` by `rate x dt`,
+   capped at `rate x TUBE_BURST_S`. Rate is read every tick (learning `steady_tubes` takes effect at once; the cap grows, the
+   current budget does not jump).
+3. One grant per (network, take call) for the units taken from that network's jars in that call.
+4. **Consumer touching two networks**: each is asked separately, in `nets` order (sorted by id); a network in debt is skipped.
+5. **Network split mid-infusion**: the half no longer touching the altar simply stops being reachable; the altar's next step
+   uses what is left; if nothing holds the aspect, the existing 6 s advice fires
+   (`The altar needs Vein 4: fill a jar near it`).
+6. **Network merge**: min budget rule (4.2.4).
+7. **Jar emptied by another consumer**: the take finds 0 there and moves to the next jar; no grant is spent for 0 units.
+8. **Tube broken by the player while motes run**: motes of that flow fade out over `TUBE_FLOW_SHOW_S` (they do not snap away,
+   and nothing moves through air: the fade is in place, T9 rule 4 "nothing teleports").
+9. **Old save loaded**: budgets start at `cap` (full). The first desk craft after loading may skip one short rest: accepted.
+10. **Many tubes**: `MAX_TUBES` 256 per network is unchanged; a longer line simply does not reach beyond 256 tubes (today too).
+11. Tubes stay their own network (T3): a fluid pipe next to a tube does not join; a jar is never a fluid container.
+12. Conservation: total units in all jars + carried vials + paid infusion units + desk outputs' costs is constant across any
+    sequence of grants, refusals, splits and merges (tested, 9.3).
+
+### 5.3 Messages (all exact)
+
+| when | text | channel |
+|---|---|---|
+| desk row affordable only with tubes in debt | `The tubes are still carrying - ready in 3 s` (N = ceil(-budget / rate), min 1) | desk row `problem` (screen) and the return of `make` |
+| crosshair on a tube with a flow on its network | `Essentia Tube - carrying Vein, 4 units/s, 12 tubes` | crosshair (`tubeText`) |
+| crosshair on a tube, no flow, jars on the line | `Essentia Tube - idle, 12 tubes, 2 jars` | crosshair |
+| crosshair on a tube, line in debt (desk just paid) | `Essentia Tube - resting, ready in 2 s, 12 tubes` | crosshair |
+| crosshair on a lone tube (no jar) | `Essentia Tube - no jar on this line` | crosshair |
+| dial drained | `Land drained` | dial chips |
+
+`carrying` names the aspect of the most recent flow on that network and the network's current rate (4 or 8). Tube counts are
+the network size (`TubeNet.tubes`, capped display `256+`). All lines are <= 60 characters at worst case
+(`Essentia Tube - resting, ready in 4 s, 256+ tubes` = 48).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 6. UI and feedback
+
+### 6.1 Strings (T8)
+- Chip text: `<aspect key> <left>` in lowercase with the number, e.g. `cinder 6`; container text joins chips with two spaces:
+  `cinder 6  loam 4  gale 2` (SYSTEMS.md T8 example, verbatim).
+- Well line: `<Aspect Name> well <dist> m <dir> (<left>)` or `<Aspect Name> well here (<left>)`, e.g. `Glow well 12 m NE (20)`.
+  (The old crosshair form `Glow well 12 NE (20)` gains the unit `m`, matching the home compass `12 m`.)
+- Aria label (`role="img"` on the plate), sentence, full names:
+  `Aura: Cinder 6, Loam 4, Gale 2. Glow well 12 m NE, 20 left.` / `Aura: land drained.` (+ well sentence when present).
+- Landscape compact chips: each chip has `title="Cinder 6"`.
+- Desk / tube strings as 5.3.
+
+### 6.2 Phone layout summary
+
+| viewport | dial content | size |
+|---|---|---|
+| desktop (>= 600 w, >= 520 h) | ring + centre number + 3 chips + well line | 48 px tall, <= 230 px wide |
+| portrait phone (< 600 w), 390 x 844 | ring + centre number only, pip | 44 x 44 px |
+| landscape phone (< 520 h), 844 x 390 | ring + 3 number-only chips, pip, no well line | 44 px tall, <= 130 px wide |
+
+The dial never sits in the touch reserve (`--hw-hud-reserve`), never covers the hotbar, crosshair or goal tracker; it is
+`pointer-events: none`. Colours: arcs use `aspectInfo(a).color`; very dark aspects (`rift` `#5a3a6e`, `void` `#3a2a55`) get a
+1 px `rgba(255,255,255,.35)` outline arc underneath (a second static track circle drawn at r 16, stroke 1) so they read on the
+dark plate.
+
+### 6.3 Sounds (T9 tiers)
+`aura_tick` 0.3, `tube_flow` 0.3, `golem_step` 0.6; existing magic sounds per 4.3. Visual vocabulary: motes take the aspect
+colour (no amber/green/red here: those are machine states; a resting tube is shown by the crosshair word `resting` only).
+
+### 6.4 Reduced motion
+Under `prefers-reduced-motion: reduce`: the "here" pip pulse is off; motes still move (they are information) but at
+`MOTE_SPEED / 2`; read once at renderer construction via `matchMedia` (no per-frame query).
+
+---------------------------------------------------------------------------------------------------------------------------
