@@ -56,12 +56,13 @@ for vessels too.
 | id / API | file | shape | consumers |
 |---|---|---|---|
 | `vacuum_cap` block (chem module) | `src/content/blocksDistill.ts` (LOOKS row), recipe in `recipesDistill.ts` | chem kind `CHEM.vacuumCap` (key from Unit 0), no buffer, no `_done` twin | 10 (essences need `vacuum`), 11 (shares the "cap on the top" slot with `pressure_cap`) |
-| cap placement rule | `src/sim/distillScan.ts` | `Rig.vacuum: Map<string, string>` NEW: flask-or-vessel key -> cap key; problem code `loose_cap` NEW | 0's `capabilitiesOf`, 6 (rig screen lists problems generically), 10, 11 |
+| cap placement rule | `src/sim/distillScan.ts` | NEW helpers over Unit 0's `rig.stacks`: `capTarget(rig, capKey): string \| null`, `vacuumCapOf(rig, key): string \| null`; problem code `loose_cap` NEW | 0's `capabilitiesOf`, 6 (rig screen lists problems generically), 10, 11 |
 | `vacuum_pump` workshop part | `src/content/itemsWorkshopParts.ts` `PART_DEFS` row, `kinetics.ts BASE_STRESS.vacuum_pump = 4` | kinetic part (not in `NON_KINETIC`), anim front | 12 (pump on shared networks with the stirrer) |
 | `Workshop.vacuumAt(x, y, z): boolean` | `src/workshop/workshop.ts` | true when a `vacuum_pump` touching cell (x, y, z) turns at `abs(rpm) >= VACUUM_MIN_RPM` (16) | Game wires `sim.distill.vacuumAt = (x, y, z) => workshop.vacuumAt(x, y, z)` |
 | `VACUUM_MIN_RPM = 16` | `src/workshop/workshop.ts` | const | 12 may mirror the pattern for `STIR_MIN_RPM` |
-| `VACUUM_BP_FACTOR = 0.7`, `bpFactor(caps)` | `src/core/distill.ts` | `bpFactor(caps: readonly Capability[]): number` (0.7 with `vacuum`, else 1) | 11 adds the `pressure` branch (1.3) in the same function |
+| `bpFactor(caps)` (reads Unit 0's `BP_MULT.vacuum` 0.7) | `src/core/distill.ts` | `bpFactor(caps: readonly Capability[] \| ReadonlySet<Capability>): number` (`BP_MULT.vacuum` with `vacuum`, else 1) | 11 adds the `pressure` branch (1.3) in the same function |
 | boiling-point factor in chem physics | `src/core/chem.ts` | optional last param `pf = 1` on `pressureAt`, `bubblePoint`, `vapourShares` | 10, 11 (all stills read it) |
+| `SCORCH` table (lube base cracks above 360 C) | `src/core/distill.ts` | `Partial<Record<Component, { c; share; to }>>` | 9 (its 420 C run gets slop, not lube base), 11 |
 | `VACUUM_ENTRAIN = 0.12` | `src/core/distill.ts` | share of the boiled litres carried over as droplets of the flask's own liquid in a vacuum still | 11 (cracker is pressure, unaffected) |
 | `filter_bed` + `filter_bed_done` | `blocksDistill.ts`, `STATEFUL` in `core/distill.ts` | stateful module, 500 L (`CHEM_CAPACITY_L.filter_bed`, Unit 0 row) | 10 (tinctures through charcoal) |
 | `FilterMedium`, `FILTER_MEDIA` | `src/core/distill.ts` | table, one row `clay` here; Unit 10 appends `charcoal` | 10 |
@@ -87,7 +88,7 @@ for vessels too.
   the coordinator aligns them to these, because the yields below are computed from them):
 
   ```ts
-  { fluid: 'lubricant', need: { lube_base: 0.9 },  mix: { lube_base: 0.92, diesel: 0.06, bitumen: 0.02 } },
+  { fluid: 'lubricant', need: { lube_base: 0.9 },  mix: { lube_base: 0.92, diesel: 0.05, bitumen: 0.03 } },
   { fluid: 'lube_base', need: { lube_base: 0.6 },  mix: { lube_base: 0.65, diesel: 0.2, bitumen: 0.15 } },
   // ... then the existing { fluid: 'residue', need: { bitumen: 0.45 }, ... }
   ```
@@ -96,11 +97,13 @@ for vessels too.
 
 ### 2.3 Contracts with the other units (read these, they are where merges go wrong)
 
-- **Unit 0 (`capabilitiesOf`).** Unit 0 computes capabilities; Unit 8 supplies the *geometry* (where a cap counts) through
-  `Rig.vacuum` and the hook value. `capabilitiesOf` returns `'vacuum'` for a flask or vessel iff `rig.vacuum.get(key)` is a cap
-  key and `this.vacuumAt?.(cap.x, cap.y, cap.z) === true`. If Unit 0 already scans caps generically (a `rig.caps` map), Unit 8
-  uses that map instead of adding `Rig.vacuum` and adds only the placement rule and the `loose_cap` problem. Either way the
-  hook is called with the **cap's** cell.
+- **Unit 0 (`capabilitiesOf`, `rig.stacks`, `BP_MULT`).** Unit 0 (docs/build/UNIT-00-foundations.md 4.4) already derives
+  each flask's / vessel's *stack* (walking up through `column_segment`, `catalyst_bed`, `reflux_head`, `condenser_coil`) and its
+  *stack cap* (`rig.stacks.get(key).cap`), and computes `vacuum` as "stack cap is a `vacuum_cap` AND `vacuumAt?.(cap) === true`".
+  Unit 8 does NOT add a second map. It adds the *placement rule* on top (4.2): a vacuum cap counts only where `capTarget` says so
+  (on a still's head condenser, or directly on a vessel); Unit 8 changes Unit 0's `vacuum` line in `capabilitiesOf` to
+  `vacuumCapOf(rig, key) !== null && vacuumAt?.(cap)`, and pushes `loose_cap` for every vacuum cap that is no valid target's cap.
+  `BP_MULT = { vacuum: 0.7, pressure: 1.3 }` is Unit 0's constant; Unit 8 only reads it (no second 0.7 anywhere).
 - **Unit 10 (essences).** A `vacuum_cap` directly on a `reaction_vessel` gives that vessel `vacuum`. Reactions that list
   `needs: ['vacuum']` run only while the pump turns; Unit 0's engine pauses them otherwise. Entrainment (`VACUUM_ENTRAIN`) is a
   still-only rule (`stepStill`), it never touches vessels. Unit 10 appends `FILTER_MEDIA.charcoal` and any optional behaviour
@@ -202,8 +205,8 @@ Textures: the cap and bed get emblem tiles in `src/render/textures/distill.ts` (
 state lamp + rim), drawn in the existing pixel style: the cap a brass dome with a leather ring and a small gauge needle; the bed
 a glass case with a tan clay band and a perforated plate. The pump front (`iconsWorkshopParts.ts`) is a bronze box with a
 pleated leather bellows and a gauge; the `_on` twin shows the bellows compressed and the needle in the green. The two canister
-icons are canister rows in the existing container icon painter: lube base brown `0x7a5a1e`, lubricant clear amber `0xd9a441`
-(the `lube_base` component colour is `0x7a5a1e`; the lubricant liquid colour in rigs comes from `colourOf` anyway).
+icons are canister rows in the existing container icon painter in Unit 0's fluid colours: lube base `0x681800` (dark oxblood
+brown), lubricant `0xf8f060` (pale clear gold). Liquid colour inside glass still comes from `colourOf(mix)` (component colours).
 
 ### 4.2 Where the cap counts (the placement rule)
 
@@ -213,6 +216,10 @@ A `vacuum_cap` applies to exactly one *target*:
    (`still.head === below.key`). Target = that still's flask; the whole stack (flask, segments, side draws, head) is under
    vacuum. This is the legend letter `U` sitting on a `C` at the top of a stack.
 2. **On a reaction vessel.** The block directly below is a `reaction_vessel`. Target = that vessel (Unit 10's essences).
+
+This is a subset of Unit 0's generic *stack cap* (UNIT-00 4.4: the first cap above a flask's/vessel's stack of segments, beds,
+reflux heads and condensers): Unit 0 finds the cap, `capTarget` says whether a vacuum cap there counts. A cap on top of a
+column whose top is a segment (no head condenser) is a stack cap to Unit 0 but **not** a valid vacuum target here.
 
 Anywhere else (on a flask with no condenser, on a column segment, beside something, on a receiver, floating) the cap does
 nothing and the scan adds the problem
@@ -253,14 +260,14 @@ wheel or winds a clockwork motor (one wind = 2 min of vacuum). That is the works
 
 ### 4.4 Vacuum physics in the still
 
-- `bpFactor(caps)`: `caps.includes('vacuum') ? VACUUM_BP_FACTOR : 1` (0.7, SYSTEMS 5.1). Unit 11 adds `pressure`.
+- `bpFactor(caps)`: `has(caps, 'vacuum') ? BP_MULT.vacuum : 1` (0.7, SYSTEMS 5.1; `BP_MULT` from Unit 0). Unit 11 adds `pressure`.
 - `chem.ts` gains an optional last parameter `pf = 1` on `pressureAt(c, tempC, pf)`, `bubblePoint(m, pf)`,
   `vapourShares(m, n, out, pf)`; inside, `bp` becomes `bp * pf`. Every existing call keeps `pf = 1` (no behaviour change; the
   existing chem tests prove it).
 - `Distillery.stepStill` computes `pf = bpFactor(this.capabilitiesOf(flask.x, flask.y, flask.z))` once per step and uses it
   in `bubblePoint`, `vapourShares`, the `route()` call (`drawIndex((COMPONENTS[c].bp ?? 0) * pf, drawTrays)`) and the band
   colour test (`bp * pf`).
-- **Sealed and not pulling = no boil.** A still whose head carries a vacuum cap (`rig.vacuum.has(flask)`) but has no `vacuum`
+- **Sealed and not pulling = no boil.** A still whose head carries a vacuum cap (`vacuumCapOf(rig, flask) !== null`) but has no `vacuum`
   capability does not boil at all: `flask.state = total > 0 && ts !== null ? 'blocked' : <usual>`. A sealed stack with no
   pump would build pressure; the game shows it as "waiting for the pump" instead of silently running at 1 bar. This is also
   what makes "pump stops mid-run" safe: the run pauses red and resumes when the pump turns, and never toasts a false
@@ -286,6 +293,40 @@ named `lube_base` (>= 0.6), not `lubricant` (< 0.9). The flask keeps ~555 L at ~
 2.3 Unit 9). A careful player can strip the diesel first at the 260 C notch (under vacuum diesel boils, lube base barely does:
 ~93 L diesel-grade cut), then switch the receiver and go to 350 C: that cut is ~87% lube base - better, still not Lubricant
 because of the foam. Skill pays (a cleaner cut uses less clay), the filter stays the only road to Lubricant (SYSTEMS T3).
+
+### 4.4b Why the vacuum is required: lube base scorches at 1 bar (decision)
+
+Unit 9 showed (its section 3.2) that today's maths already splits residue in a plain pot still at 420 C: with no vacuum the
+diesel goes first and lube base follows once the flask liquid passes ~386 C. Left alone, that would make the vacuum cap a
+convenience and even give *cleaner* lube base than the vacuum run (no foam), so a two-step atmospheric run (350 C to strip
+diesel, then 420 C) would bottle ~99% lube base - Lubricant with no filter, against SYSTEMS T3 ("only a filter bed gets
+there") and against the point of this unit.
+
+**Decision: lube base boiled hotter than 360 C cracks.** This is the real reason refineries distil the heavy end under vacuum:
+lube oils crack (break into lighter oils and coke) above roughly 350-370 C. One table row in `src/core/distill.ts`:
+
+```ts
+/** Components that crack when they boil out of a liquid hotter than `c`: `share` of each such litre leaves as `to` instead. */
+export const SCORCH: Readonly<Partial<Record<Component, { c: number; share: number; to: Component }>>> = {
+  lube_base: { c: 360, share: 0.4, to: 'diesel' },
+};
+```
+
+In `stepStill`, after the litres of each component are taken from the flask and before they are added to their target: if
+`flask.tempC > SCORCH[c].c`, `share` of `got` is added as `SCORCH[c].to` (routed like that component, i.e. `route(to)`) and
+the rest as `c`. Litres are conserved exactly (a relabel inside one `add`). Consequences, by hand:
+
+| run | flask liquid temperature while lube base boils | head receiver (per 1000 L residue) | named |
+|---|---|---|---|
+| atmospheric, 420 C (Unit 9's `strip_residue`) | 386-420 C (> 360) | ~100 diesel + ~175 lube base + ~117 diesel from cracking | ~45% lube: `slop` (or `diesel`-near); not lube base |
+| vacuum, 350 C (this unit) | 229-350 C (< 360) | ~68% lube base | `lube_base` |
+| vacuum, 420 C (overheated) | rises past 360 only when lube base is nearly gone; but bitumen (364 C under vacuum) now boils too | tar-heavy cut | usually `slop` - "too hot" is visible and teaches the 350 notch |
+
+Unit 9 is unaffected: it wants the flask's leftover, which is ~97% bitumen either way. The flask line shows the fact
+`scorching` while any litre cracks this step (`Boiling Flask - 2.1 buckets, 402 C, boiling, scorching`), and once per run a toast:
+"Lube base scorches above 360 C - pull a vacuum on the still to boil it cooler". (Transient `scorchWarned: Set<string>` of flask
+keys on the Distillery, cleared when the flask empties; not saved.) The table is generic so Unit 11 may add rows (it should not
+need to: the cracker is its own reaction).
 
 ### 4.5 The Filter Bed
 
@@ -404,6 +445,11 @@ one-crank network carry a pump plus a mixer, or a water wheel line take two more
   saw in the pack: "Lube Base is too rough for a chain - filter it into Lubricant first".
 
 ### 4.8 Process cards (Codex, ghosts, solver)
+
+**Rig legend letters (stated explicitly; `P` is already `chem_port` in code, so DISTILLERY_PLAN's `P`/`U` table is not used
+as-is):** Unit 8 owns **`U` = `vacuum_cap`**, **`X` = `filter_bed`**, **`M` = `vacuum_pump`** (a workshop part; the only non-chem
+letter, see below). Unit 11 has already recorded these three as Unit 8's (UNIT-11 section 2) and picks its own. Unit 6's
+reserved `;` stays untouched.
 
 ```ts
 // RIG_LEGEND additions
@@ -668,7 +714,7 @@ export const BAR_OIL_ITEM = 'lubricant_canister';
 export const BAR_OIL_LOGS = 240;   // logs per canister (SYSTEMS 5.2)
 export const BAR_OIL_MAX = 480;    // at most two canisters on the chain
 export const BAR_OIL_MULT = 0.75;  // fuel per oiled log: 7 -> 5.25
-export type BarOilOutcome = 'oiled' | 'full' | 'no-saw' | 'not-oil';
+export type BarOilOutcome = 'oiled' | 'full' | 'no-saw' | 'rough' | 'not-oil';   // 'rough' = lube base held
 export function oilChainsaw(player: PlayerState): BarOilOutcome;
 export function sawStatusText(player: PlayerState): string | null;   // null when no chainsaw is held
 /** Logs the held saw can fell with `fuel` units and `oil` oiled logs, and the fuel that costs. Pure. */
@@ -688,25 +734,27 @@ export function fellCost(fuelPerLog: number, fuel: number, oil: number, want: nu
 
 ## 8. Implementation plan (ordered; each step leaves `npm test` green)
 
-1. **Core constants** - `src/core/distill.ts`: `VACUUM_BP_FACTOR = 0.7`, `VACUUM_ENTRAIN = 0.12`, `FILTER_LPS = 10`,
+1. **Core constants** - `src/core/distill.ts`: `VACUUM_ENTRAIN = 0.12`, `SCORCH` (4.4b), `FILTER_LPS = 10`,
    `FilterMedium`, `FILTER_MEDIA` (clay row), `bpFactor(caps: readonly Capability[]): number` (import the type from
    `src/core/reactions.ts`), `STATEFUL` gains `CHEM.filter`. Check Unit 0's `CHEM_CAPACITY_L.filter_bed === 500`.
 2. **Chem physics** - `src/core/chem.ts`: add `pf = 1` to `pressureAt`, `bubblePoint`, `vapourShares` (`bp * pf`).
    Tests in `chem.test.ts` (9.1).
 3. **Scan** - `src/sim/distillScan.ts`:
-   - `RigProblemCode` gains `'loose_cap'`; `Rig` gains `vacuum: Map<string, string>` (or Unit 0's generic caps map).
-   - `export function capTarget(modules, stills, cap: RigModule): string | null` - the flask key when the cell under the cap is
-     a still's `head`, the vessel key when it is a `reaction_vessel`, else null. Build a `headOwner: Map<condenserKey,
-     flaskKey>` from `stills` first.
-   - In the Modifiers loop: `if (m.kind === CHEM.vacuumCap) { const t = capTarget(...); if (t) vacuum.set(t, m.key); else
-     problem('loose_cap', ..., [m.key]); }`.
+   - `RigProblemCode` gains `'loose_cap'`.
+   - `export function capTarget(rig: Rig, capKey: string): string | null` - over Unit 0's `rig.stacks`: the flask/vessel key
+     whose `stack.cap === capKey`, provided it is a vessel, or a flask whose still has `head` and the cap stands directly on that
+     head (the stack's last cell is `still.head`); else null. Unit 11 calls it for `pressure_cap`.
+   - `export function vacuumCapOf(rig: Rig, key: string): string | null` - `rig.stacks.get(key)?.cap` when that cell is a
+     `vacuum_cap` and `capTarget(rig, cap) === key`; else null.
+   - After stacks are built: for every `vacuum_cap` module with `capTarget(rig, m.key) === null`,
+     `problem('loose_cap', 'A Vacuum Cap must sit on the top condenser of a still or on a Reaction Vessel', [m.key])`.
    - `pours(kind, d)`: add `kind === CHEM.filter && d === 0`. `takes(kind, d, from)`: add
      `if (kind === CHEM.filter) return d === 1;` (the `pours` side already restricts `from` to pouring kinds).
    - The `drips_nowhere` check: also run it for every filter bed (a bed with no outgoing edge), text "This filter drips onto
      nothing: set a Receiver or a Glass Tube below it".
 4. **Distillery** - `src/sim/distill.ts`:
    - `stepStill`: `const caps = this.capabilitiesOf(flask.x, flask.y, flask.z); const pf = bpFactor(caps);`
-     `flask.vac = caps.includes('vacuum');` sealed check first: `if (rig.vacuum.has(still.flask) && !flask.vac)` -> set
+     `flask.vac = caps.includes('vacuum');` sealed check first: `if (vacuumCapOf(rig, still.flask) && !flask.vac)` -> set
      `blocked` when `ts !== null && total > 0` (else today's states) and return. Use `pf` in `bubblePoint`, `vapourShares`,
      `route` and the band loop. After the move loop, entrainment when `flask.vac`:
      `const l = Math.min(moved * VACUUM_ENTRAIN, roomOf(targets[last]!)); if (l > 1e-9) pour(flask.mix, targets[last]!.mix, l);`
@@ -717,7 +765,7 @@ export function fellCost(fuelPerLog: number, fuel: number, oil: number, want: nu
      logic (beds are never shared).
    - `private filterPour(bed, to, toKey, dt, arrived)` - section 4.5 steps 1-6.
    - `show`: `case CHEM.filter:` sets state by the 4.5 table (`working` when `arrived`-from... use `bed.flow > 0` this step).
-   - `announce`: (a) a flask going `working -> blocked` while `rig.vacuum.has(key)` toasts "Vacuum lost - the run waits for the
+   - `announce`: (a) a flask going `working -> blocked` while `vacuumCapOf(rig, key)` toasts "Vacuum lost - the run waits for the
      Vacuum Pump" (needs the rig: pass `rig` into `announce`, or compute a `sealed` set in `show`); (b) a filter bed going to
      `blocked` toasts the no-clay or spent sentence; (c) a cap going idle -> working emits `vacuum_hiss` and `flagOnce('pulled_vacuum')`.
      Caps get a `case CHEM.vacuumCap:` in `show`: `working` when the target has `vacuum`, else `idle`.
@@ -726,10 +774,9 @@ export function fellCost(fuelPerLog: number, fuel: number, oil: number, want: nu
    - `offerItem(x, y, z, item, count)`: when the entity is a filter bed and `item in FILTER_MEDIA`, the loading rule of 4.5
      (returns n). Leave Unit 0's vessel branch alone.
 5. **Actions and view** - `src/sim/distillActions.ts`:
-   - `chemUse`: a held `FILTER_MEDIA` item on a bed -> load (result `{ ok: true, consume: true, count: n, toast }`); the
-     refusals of 5.2 as `{ ok: false, toast }` (match the existing refusal shape). `ChemResult` gains optional `count?: number`
-     (items to take; default 1); update its one caller in the player module (`BrewHands.chemUse` / brewTools: take `count`
-     instead of 1). Empty containers on a bed: refusal "Take it from the Receiver below the Filter Bed"; full containers on a
+   - `chemUse`: a held `FILTER_MEDIA` item on a bed -> load (result `{ ok: true, consume: true, consumeCount: n, toast }`,
+     using Unit 0's optional `consumeCount` on the `ChemResult` ok-branch, which the player module already honours after Unit 0);
+     the refusals of 5.2 as `{ ok: false, toast }` (match the existing refusal shape). Empty containers on a bed: refusal "Take it from the Receiver below the Filter Bed"; full containers on a
      bed: "Pour it into the Receiver above the Filter Bed".
    - `chemUse` bottling: when an empty canister takes `lubricant` from a receiver, `d.host.flagOnce('made_lubricant')`.
    - `chemView`: the lines of 6.1 for `vacuum_cap` and `filter_bed`; the `, vacuum` suffix and the "waiting for the Vacuum
@@ -764,16 +811,16 @@ export function fellCost(fuelPerLog: number, fuel: number, oil: number, want: nu
    `fellCost(fuelPerLog, sawFuel(held), player.barOilLogs, maxLogs)` for `affordable` and the burn, decrements
    `player.barOilLogs`, toasts the dry message. `src/player/interaction.ts` in the held-item tail, right after the refuel line:
    ```ts
-   if ((held.item === BAR_OIL_ITEM || held.item === 'lube_base_canister') && hit?.block.liquid !== undefined /* any */) {
+   if (held.item === BAR_OIL_ITEM || held.item === 'lube_base_canister') {
      const r = oilChainsaw(this.player);           // handles lube base's refusal text too
      if (r === 'oiled') { this.swing.triggerSwing(); return 'worked'; }
      if (r !== 'not-oil') return 'refused';
    }
    if (isChainsaw(held)) { const t = sawStatusText(this.player); if (t) { this.bus.emit('toast', { text: t, kind: 'info' }); return 'none'; } }
    ```
-   (The workshop and chemistry branches run before this tail, so a canister aimed at a shaft or a flask never reaches it.
-   The chainsaw status only fires when Use has nothing else to do - placing, buckets and screens come first.) Remove the
-   placeholder `hit?...` condition when writing it: the check is simply "reached this point".
+   (The workshop branch (`beforeUse`) and the chemistry branch (`brewing.use` -> `chemUse`) run before this tail, so a
+   canister aimed at a shaft or a flask never reaches it. The chainsaw status only fires when Use has nothing else to do -
+   placing, buckets and screens come first. `UseOutcome` already has `'worked'`, `'refused'`, `'none'`.)
    `playerState.ts`: `barOilLogs`, snapshot write/read (7.3).
 10. **Side goal** - `src/content/objectivesVacuum.ts` NEW:
     ```ts
@@ -787,7 +834,9 @@ export function fellCost(fuelPerLog: number, fuel: number, oil: number, want: nu
     `src/content/objectives.ts` (do not guess: open a flag-based objective such as the distillery's `distilled` one and copy
     its shape).
 11. **Sounds** - 6.4.
-12. **Roster** - `src/content/specRosterDistill.ts`: `vacuum_cap`, `filter_bed`, `filter_bed_done` (if `_done` twins are
+12. **Roster** - remove `lube_base_canister` and `lubricant_canister` from `SPEC.worldOnlyItems` in `src/content/specRoster.ts`
+    (Unit 0 put them there "until Unit 8 adds a producer"; the two process cards are their producers now).
+    `src/content/specRosterDistill.ts`: `vacuum_cap`, `filter_bed`, `filter_bed_done` (if `_done` twins are
     listed there), process cards and recipe counts; `src/content/specRosterWorkshop.ts`: `vacuum_pump` with its recipe.
 13. **Docs** - 11.
 
@@ -807,9 +856,9 @@ Helpers to reuse, never re-implement: `pour`, `take`, `total`, `viscosityOf`, `n
 - `pressureAt('lube_base', 259, 0.7)` is 1 (+-1e-9).
 
 ### 9.2 `src/sim/distillScan.test.ts` (or the scan block of `distill.test.ts`)
-- `UM/C R/F./B.`-style rig (build with `buildRig('MU./.CR/.F./.B.')`): `rig.vacuum.get(flaskKey) === capKey`, no problems.
+- `UM/C R/F./B.`-style rig (build with `buildRig('MU./.CR/.F./.B.')`): `vacuumCapOf(rig, flaskKey) === capKey`, `capTarget(rig, capKey) === flaskKey`, no problems.
 - A cap on a column segment with no head -> `loose_cap` with the cap's cell; also `no_condenser`.
-- A cap on a reaction vessel -> `rig.vacuum.get(vesselKey) === capKey`.
+- A cap on a reaction vessel -> `vacuumCapOf(rig, vesselKey) === capKey`.
 - A cap on a receiver -> `loose_cap`.
 - `R/X/R`: edges receiver->bed and bed->receiver exist, neither `shared`; a bed with air below -> `drips_nowhere`.
 - A bed beside a flask does not feed it (no edge).
@@ -826,6 +875,10 @@ Helpers to reuse, never re-implement: `pour`, `take`, `total`, `viscosityOf`, `n
   one toast "Vacuum lost - the run waits for the Vacuum Pump"; set true: `working` again; the run completes with the same
   final lube share band as the uninterrupted run (+-0.02).
 - **Entrainment conserves.** `distillery.litres()` constant (1e-6) over a whole vacuum run.
+- **Scorch at 1 bar.** Plain pot still (no cap), 2 residue canisters, base 420: run to done; head receiver `nameOf` is not
+  `lube_base` and its diesel share > 0.4; `litres()` conserved; one toast "Lube base scorches above 360 C - pull a vacuum on the
+  still to boil it cooler"; the flask leftover still meets Unit 9's bitumen/residue naming (not lube base).
+- **No scorch under vacuum at 350.** In the vacuum run, no litre is relabelled (spy: diesel in receiver <= diesel fed + 1 L).
 - **Diesel first.** First 20 L in the head receiver: diesel share > 0.6.
 - **Filter makes lubricant.** `polish_lubricant` rig, top receiver fed 2 lube base canisters (`feed`), bed `medium='clay'`,
   `catchL=600`: after `runUntil` (no base: run steps until the top receiver and bed are empty or 300 s), bottom receiver
@@ -834,7 +887,7 @@ Helpers to reuse, never re-implement: `pour`, `take`, `total`, `viscosityOf`, `n
   spent - Use fresh Clay on it", catch 0, bottom receiver < 300 L.
 - **No medium holds.** Bed without medium: nothing passes, state `blocked`.
 - **Backs up, never overfills.** Bottom receiver pre-filled to 1990 L: never exceeds 2000; bed keeps the rest.
-- **Load rules** via `chemUse(d, bed, 'clay')` with counts: 3 clay -> `count 3`, catchL 300; 8 more on a full bed -> refused;
+- **Load rules** via `chemUse(d, bed, 'clay')` with counts: 3 clay -> `consumeCount 3`, catchL 300; 8 more on a full bed -> refused;
   charcoal row stubbed into `FILTER_MEDIA` in the test on a bed with catch -> refused sentence; on a spent bed -> accepted.
 - **offerItem** on a bed with clay returns n; with a non-medium item returns 0.
 - **Save round-trip.** Bed entity with `medium/catchL/caughtL` survives `track(JSON.parse(JSON.stringify(e)))`; an old entity
@@ -863,11 +916,10 @@ Helpers to reuse, never re-implement: `pour`, `take`, `total`, `viscosityOf`, `n
 
 ### 9.5 `src/game/felling.test.ts`
 - `fellCost(7, 840, 0, 999)` -> 120 logs, 840 fuel; `fellCost(7, 840, 240, 999)` -> 160 logs, 840 fuel, 160 oiled;
-  `fellCost(7, 100, 5, 12)` -> 12 logs? (5 x 5.25 + 7 x 7 = 75.25 -> 76 <= 100) -> 12 logs, 76 fuel, 5 oiled.
+  `fellCost(7, 100, 5, 12)` -> 12 logs, 76 fuel, 5 oiled (5 x 5.25 + 7 x 7 = 75.25, rounded up).
 - `oilChainsaw`: saw in pack, oil 0 -> `'oiled'`, `barOilLogs` 240, canister gone, `empty_canister` given, toast exact;
-  at 300 -> `'full'`, nothing used; no saw -> `'no-saw'` + toast; lube base -> `'full'`-like refusal with the "too rough"
-  sentence (outcome `'no-saw'`? no: return `'not-oil'` only for items that are neither; lube base returns `'full'`... - write
-  it as its own outcome `'rough'` and include it in `BarOilOutcome`); a non-oil item -> `'not-oil'`.
+  at 300 -> `'full'`, nothing used; no saw -> `'no-saw'` + toast; held `lube_base_canister` with a saw -> `'rough'` + toast
+  "Lube Base is too rough for a chain - filter it into Lubricant first", nothing used; any other item -> `'not-oil'`, no toast.
 - `fellTree` with oil 5 and a 12-log tree: fuel burned 76, `barOilLogs` 0, dry toast once.
 - `sawStatusText`: "Chainsaw - fuel 62%, bar oil 180 logs" / "Chainsaw - fuel 62%, chain dry".
 - Player snapshot round trip with and without `barOilLogs`; negative / NaN / 9999 sanitised to 0 / 0 / 480.
@@ -879,3 +931,163 @@ Helpers to reuse, never re-implement: `pour`, `take`, `total`, `viscosityOf`, `n
 - `sfx.test.ts` count expression gains the two sounds.
 - Side goal: `oil_the_works` is in `SIDE_OBJECTIVES`, never in `OBJECTIVES` (Unit 0's test pattern).
 
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E (browser) steps
+
+Run: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --out=<dir> --device=desktop` and
+`node scripts/e2e-workshop.mjs --out=<dir> --device=desktop` (no `HW_GPU`); repeat both with `--device=phonePortrait` (the
+lines and toasts are UI). Screenshots to `test-results/e2e-distill/` and `test-results/e2e-workshop/`, one per new step,
+named after the step. `window.__hw` only for set-up and reading state; the actions (Use on the crank, Use with clay, Use with
+the canisters, the still base tap) are real inputs through the script's existing input helpers (the same ones the existing
+steps use to tap the still base and pour sap).
+
+### 10.1 `scripts/e2e-distill.mjs` - new steps appended after the existing column steps
+
+1. `step('a vacuum still with a pump and a polishing line stands on a lit furnace', ...)` - set-up in a clear yard beside
+   the existing rigs with the same `put(x, y, z, b)` helper (`hw.setVoxel`): `furnace_clay` at (vx, gy), `still_base` gy+1,
+   `boiling_flask` gy+2, `condenser_coil` gy+3, `vacuum_cap` gy+4; `receiver` at (vx+1, gy+3), `filter_bed` (vx+1, gy+2),
+   `receiver` (vx+1, gy+1); `vacuum_pump` at (vx-1, gy+4); `drive_shaft` (vx-1, gy+3); `hand_crank` (vx-1, gy+2). Light the
+   furnace as the existing set-up does. Read back with `hw.getBlock` that all ten cells are right.
+2. `step('residue pours in and the base is tapped to 350 C', ...)` - `hw.give('residue_canister', 3)`, aim at the flask,
+   real Use x3; tap the base (real Use, empty hand) until `sim.distill.entityAt(base).setC === 350`. Assert the flask holds
+   3000 L (+-1).
+3. `step('without the pump turning the sealed flask waits, red', ...)` - fast-forward 10 s (`hw.tick`); assert flask state
+   `blocked`, `hw.getBlock(flask).key === 'boiling_flask_done'` and active; the crosshair name on the cap (aim at it) contains
+   `Vacuum Cap - not pulling`. Screenshot.
+4. `step('cranking pulls a vacuum: the cap lamp goes amber and lube base comes over', ...)` - give clay: `hw.give('clay', 8)`,
+   aim at the bed, real Use once: assert toast `Filter Bed: 8 Clay loaded - catches 800 L` and `entity.catchL === 800`. Aim at
+   the crank and hold Use (the input helper's hold) while fast-forwarding in slices of 2 s (re-pressing every 2 s like the
+   existing workshop e2e does) until the head receiver holds > 200 L. Assert: cap voxel active; flask `working`; flag
+   `pulled_vacuum` set; `nameOf` of the head receiver mix is `lube_base` once it holds > 200 L. Screenshot (amber cap, bubbles).
+5. `step('the filter bed drips clear lubricant into the receiver below', ...)` - keep cranking (or, to keep the script short,
+   place a wound `clockwork_motor` beside the shaft via set-up and wind it with real Use x4 = 120 s) until the flask is `done`
+   (green) and the bed `done`; assert the bottom receiver `nameOf === 'lubricant'` and > 250 L; bed `caughtL > 0`; litres
+   conserved: sum of module litres + bed `caughtL` equals 3000 (+-1). Screenshot.
+6. `step('a lubricant canister is bottled from the receiver', ...)` - the receiver holds < 1000 L after one run, so set-up
+   tops it up with `hw` by writing a lubricant-grade mix into the receiver entity to 1000 L (documented as set-up), then real
+   Use with `hw.give('empty_canister', 1)` aimed at it; assert the pack holds `lubricant_canister`, flag `made_lubricant`.
+
+### 10.2 `scripts/e2e-workshop.mjs` - new steps
+
+7. `step('lubricant oils a network: x1.5 for 15 min and the canister comes back', ...)` - set-up: crank + 1 shaft + a
+   `mech_millstone` + `vacuum_pump` (4 + 4 su on an 8 su crank = full) + one more `mech_mortar` (12 su: over capacity). Crank
+   with real Use: assert toast contains `overstressed` or the existing seize text. `hw.give('lubricant_canister', 1)`, aim at
+   the shaft, real Use: assert toast `Oiled with Lubricant: this network carries 50% more for 15 min`, pack has
+   `empty_canister`, flag `oiled_works`, side goal `oil_the_works` done (`objective:side` seen or tracker `side()` done).
+   Crank again: `netAt(shaft).capacity === 12`, `overstressed === false`, goggles line on the pump (give
+   `engineer_goggles`, aim) contains `, oiled` and `pulling on` or `no cap to pull on`. Screenshot.
+8. `step('a weaker oil is refused while lubricant runs', ...)` - `hw.give('residue_canister', 1)`, real Use on the shaft:
+   toast starts `Already oiled better (Lubricant,`; the residue canister is still in the pack.
+9. `step('lubricant oils the chainsaw chain', ...)` - `hw.give('chainsaw', 1)` (full tank via the give helper's durability
+   default) and `hw.give('lubricant_canister', 1)`; select the canister, aim at the sky/air, real Use: toast `Chain oiled: the
+   next 240 logs cost a quarter less fuel`; `player.barOilLogs === 240`. Select the chainsaw, aim at air, Use: toast
+   `Chainsaw - fuel 100%, bar oil 240 logs`. (If e2e-vehicles.mjs already plants a tree for the saw, optionally fell it there
+   and assert fuel used = ceil(logs x 5.25); not required.)
+10. `step('oil survives a save and reload', ...)` - use the script's existing save/reload helper if it has one (the workshop
+    e2e saves for the vault); assert after reload `netAt(shaft).capacity` is 12 again while cranked and `barOilLogs === 240`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/distillery.md`: Files table (filter bed, cap rows); Contracts: vacuum (`capTarget`, `vacuumCapOf`, `bpFactor`,
+  entrainment, sealed-not-pulled = blocked, `SCORCH`), filter bed (medium table, catch ledger, four states); Rig rules: caps
+  on the head or a vessel, bed geometry (in from above, out below); problem `loose_cap`; Process cards: `vacuum_residue`,
+  `polish_lubricant`; legend `U X M`; Ages: cap/bed Bronze, oils Forge; test count.
+- `docs/api/workshop.md`: Rotation section: the oil ladder (four rows, best wins, empties back, saved), `vacuum_pump` part and
+  `vacuumAt`; replace "Oil: Use a residue_canister (distillery lube base) x1.25 for 10 min, pine_resin x1.10 for 5 min" with
+  the ladder; "Machine interface" note: `vacuumAt` is read by the Distillery via Game.
+- `docs/api/chainsaw.md`: a "Bar oil" section (240 logs a canister, 480 at most, x0.75 fuel, shared by every saw, status Use,
+  `PlayerSnapshot.barOilLogs`), API list gains `oilChainsaw`, `sawStatusText`, `fellCost`.
+- `docs/DISTILLERY_PLAN.md` section 15: mark vacuum cap, filter bed, lubricant, bar oil done (status line only).
+- Not `docs/WHATS_LEFT.md` (coordinator), not `docs/build/SYSTEMS.md` (coordinator; see 14).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] `vacuum_cap`, `filter_bed` (+ `_done`), `vacuum_pump` exist with the names, descriptions, ages (`ageIndexOf('bronze')`),
+      stacks and recipes of 4.1; textures readable; block rows appended at the ends of their lists.
+- [ ] A vacuum cap counts only on a still's head condenser or on a vessel; elsewhere `loose_cap` with the cap highlighted.
+- [ ] A pump at >= 16 rpm touching the cap gives `vacuum`; slower, still, jammed or overstressed does not; the pump costs
+      4 su at 16 rpm.
+- [ ] Boiling points x0.7 (`BP_MULT.vacuum`) in stills under vacuum; `pf` defaults keep every old test green.
+- [ ] Residue at 350 C under vacuum fills the head receiver with `lube_base` (0.6-0.85) and leaves bitumen; without vacuum at
+      420 C the cut scorches and is not lube base.
+- [ ] A sealed, unpulled still never boils; stopping the pump mid-run turns the flask red with "Vacuum lost - ..."; turning it
+      again resumes; no false "Distilling run finished".
+- [ ] Filter bed of clay turns lube base into `lubricant` (>= 0.9); catch is counted (`litres() + caughtL` constant); spent /
+      missing clay blocks red with the sentences of 5.2; Use loads up to 8 clay in one tap.
+- [ ] `LUBE` has four rows; best oil wins; weaker refused with "Already oiled better (...)"; canisters come back empty; oil is
+      saved and relocated; worn-off toast on turning networks.
+- [ ] Lubricant on a network: capacity x1.5 for 900 s, `, oiled` in goggles, flag `oiled_works`, side goal "Oil the works".
+- [ ] Lubricant with a saw in the pack: +240 bar oil (max 480); oiled logs cost 5.25; dry toast; status Use line; saved.
+- [ ] `lube_base_canister`, `lubricant_canister` removed from `SPEC.worldOnlyItems`; rosters and counts updated; `npm test`
+      green; progression solver still completes without this unit's content.
+- [ ] Two sounds registered (`vacuum_hiss`, `oil_glug`), `sfx.test.ts` count updated; no idle loops.
+- [ ] e2e steps 1-10 pass on desktop and phone portrait; screenshots saved.
+- [ ] Old saves (no `medium/catchL/caughtL`, no `oil`, no `barOilLogs`) load to defaults (tests).
+- [ ] Docs of 11 updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- A vacuum hose / line block, vacuum on item chutes (BRONZE_PLAN 5.4's air network; when it lands it uses this same
+  `vacuum_pump` block as its source - SYSTEMS 8 question 1).
+- Grease (`lubricant + rosin + tallow`, DISTILLERY_PLAN 8) and turpentine thinner: no consumer in this build.
+- Lubricant halving machine wear or friction (DISTILLERY_PLAN 8.1 "friction halved", "wear halved"): there is no wear model;
+  the one oil rule is capacity (T2 rule 1). The chainsaw's "wear" is its fuel, hence bar oil = fuel per log.
+- Lube base or lubricant as burner fuel (T4 row: "burner fuel? no") or engine fuel (`FUEL_GRADES` unchanged).
+- Bitumen naming/asphalt (Unit 9), pressure cap and cracker (Unit 11), essences (Unit 10), stirrer (Unit 12), continuous
+  spouts filling canisters (Unit 14), the rig screen (Unit 6).
+- Oil on non-kinetic parts, per-part oil levels, oil on tractors.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **350 C, not 330 C.** J1 step 3 and Unit 9 say "330 C under vacuum"; there is no 330 notch in `STILL_SETPOINTS` and the
+   run behaves the same at the existing 350 notch (the lube/bitumen split ratio does not depend on temperature; bitumen needs
+   364 C under vacuum). Unit 8 uses 350 (also exactly what a kerosene ground burner gives, Unit 7). Please change J1's "330"
+   to "350" and Unit 9's two mentions.
+2. **Lube base needs the vacuum (Unit 9's finding).** Decided in 4.4b: lube base boiled above 360 C cracks 40% to diesel
+   (`SCORCH`), so the 420 C atmospheric run gives slop, not lube base; Unit 9's bitumen leftover is unaffected. Unit 9's text
+   that mentions lube base coming over at 420 C should say "scorched, comes over as slop".
+3. **Vacuum foam (`VACUUM_ENTRAIN` 0.12).** Added so a careful vacuum cut still cannot skip the filter bed (SYSTEMS T3 "only a
+   filter bed gets there"). Please add both constants to SYSTEMS 5.1/5.2.
+4. **"or tubes to" dropped** (SYSTEMS T2 table, `vacuum_pump` row): touching only; rotation travels by shaft instead.
+5. **Rig legend letters** `U` (vacuum_cap), `X` (filter_bed), `M` (vacuum_pump) - please record them in SYSTEMS 4 next to
+   Unit 11's; `M` is the first non-chem legend letter (`rigBlocks` returns it so the solver requires a pump; `buildRig` places
+   it as a plain block; Unit 6's ghosts show it like any letter).
+6. **`LUBE` gains a fourth row** `lube_base` (x1.25 / 600 s): T4 lists lube base as an oil at the residue rung; SYSTEMS T2's
+   ladder table shows three rows - please add it.
+7. **Existing oil bugs fixed here:** residue canister not returned, weaker oil overwriting, oil not saved
+   (`WorkshopSnapshot.oil` new). Unit 13/15/16/17 touching `Workshop.use` / `toJSON` should rebase onto this.
+8. **`Workshop.use` gains an optional `give` parameter** to hand back empties; any unit adding Use behaviour that returns items
+   should use it.
+9. **`sfxWorkshop.ts`** may be created by 13, 14, 16 or 8, whoever lands first; the others append. The `sfx.test.ts` count
+   expression is a merge hotspot.
+10. **Unit 0 alignment:** this spec uses Unit 0's `BP_MULT`, `rig.stacks` / stack cap, `consumeCount`, `CHEM_CAPACITY_L.filter_bed`
+    500, `STATEFUL` incl. `filter_bed`, fluid colours `0x681800` / `0xf8f060`, and grade mixes (lubricant `0.92/0.05/0.03`).
+    It replaces Unit 0's `vacuum` line in `capabilitiesOf` with the stricter `vacuumCapOf` (cap on head or vessel only).
+11. **Unit 10** gets: cap on a vessel = `vacuum`; `FILTER_MEDIA` to append `charcoal`; beds accept any medium row; `offerItem`
+    loads beds. **Unit 11** gets: `capTarget`, `bpFactor`, the `pf` parameter, letters reserved.
+12. **Verification of citations (2026-11-22).** Existing and grepped: `CHEM`, `STATEFUL`, `CHEM_CAPACITY_L`, `STILL_SETPOINTS`,
+    `GLASS_MAX_C`, `CONDENSE_LPS`, `FLOW_LPS`, `CHEM_CONTAINERS`, `EMPTY_CANISTER`, `FUEL_GRADES`, `fuelGrade` (core/distill.ts);
+    `pressureAt`, `bubblePoint`, `vapourShares`, `GRADES`, `nameOf`, `expand`, `pour`, `take`, `viscosityOf`, `drawIndex`,
+    `stagesOf` (core/chem.ts); `Distillery.stepStill/flow/show/announce/look/track`, `baseTemp`, `roomOf`, `finite`
+    (sim/distill.ts); `scanRig`, `pours`, `takes`, `RigProblemCode` (sim/distillScan.ts); `chemUse`, `chemView`, `litresText`
+    (sim/distillActions.ts); `forge`, `card`, `RIG_LEGEND`, `rigBlocks`, `PROCESS_CARDS` (recipesDistill.ts); `LUBE`, `netMembers`,
+    `describe`, `toJSON`, `load`, `WorkshopSnapshot.lube`, `CRANK_S`, `CLOCKWORK` (workshop.ts); `BASE_STRESS` (kinetics.ts);
+    `PART_DEFS`, `NON_KINETIC` (itemsWorkshopParts.ts); `fellTree`, `refuelChainsaw`, `isSawFuel`, `sawFuel`, `sawCapacity`
+    (felling.ts); `Interaction.use` (player/interaction.ts); `chemReady` (progression.ts); `SPEC.worldOnlyItems`
+    (specRoster.ts); items `clay`, `glass`, `cloth`, `leather`, `bronze_ingot`, `bronze_cog`, `drive_shaft`, `pine_resin`.
+    From Unit 0 (not yet in code): `CHEM.vacuumCap/filter`, `BP_MULT`, `Capability`, `capabilitiesOf`, `vacuumAt`,
+    `offerItem`, `rig.stacks`, `consumeCount`, the two fluids/canisters, `SIDE_OBJECTIVES`, `CHEM_LOOKS`. NEW in Unit 8:
+    `vacuum_cap`/`filter_bed`/`vacuum_pump` content, `capTarget`, `vacuumCapOf`, `bpFactor`, `pf` params, `VACUUM_ENTRAIN`,
+    `SCORCH`, `FILTER_MEDIA`, `FilterMedium`, `FILTER_LPS`, `filterPour`, `loose_cap`, `OilSpec`, `OilKey`, `oilOf`,
+    `VACUUM_MIN_RPM`, `Workshop.vacuumAt`, `oilNetwork`, `WorkshopSnapshot.oil`, `BAR_OIL_*`, `oilChainsaw`, `sawStatusText`,
+    `fellCost`, `barOilLogs`, `VACUUM_SIDE_GOALS`, `objectivesVacuum.ts`, `vacuum_hiss`, `oil_glug`, cards `vacuum_residue`,
+    `polish_lubricant`, flags `oiled_works`, `pulled_vacuum`, `made_lubricant`.

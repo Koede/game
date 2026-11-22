@@ -490,58 +490,297 @@ Events: on first forming (and on re-forming with a different tray count) toast `
 `ProcessCard.rig` doc comment lists them. Cards (appended to `PROCESS_CARDS`; `card(id, station, inputs, output, byproducts,
 setC, timeS, age, rig)`, age = `ageIndexOf(...)`):
 
-| id | station | inputs -> output (+ byproducts) | set C | time | rig |
-|---|---|---|---|---|---|
-| `reflux_fuel_ethanol` | `reflux_head` | 16 low_wines_beaker -> 1 fuel_ethanol_beaker (+ 15 glass_beaker) | 92 | 420 | `'CR/H./\|./F./B.'` (reflux at 75%) |
-| `crack_diesel` | `catalyst_bed` | 3 diesel_canister, 1 catalyst_pellets -> 1 gasoline_canister (+ 2 empty_canister) | 480 | 180 | `'Q../C R/\|C R/\|C R/\|../K../S../B..'` written exactly as below |
-| `crack_residue` | `catalyst_bed` | 4 residue_canister, 1 catalyst_pellets -> 1 diesel_canister (+ 2 residue_canister, 1 empty_canister) | 560 | 260 | same rig as `crack_diesel` |
-| `refine_crude_tower` | `refinery_boiler` | 16 crude_canister, 1 lubricant_canister -> 4 diesel_canister (+ 3 gasoline_canister, 2 kerosene_canister, 5 residue_canister, 2 empty_canister, 1 empty_canister) | 350 | 220 | `'WWW/WDW/WDW/WDW/WOW;WWW/W.W/W.W/W.W/WWW;WWW/WWW/WWW/WWW/WWW'` |
+| id | station | inputs -> output (+ byproducts) | set C | time s | age | rig |
+|---|---|---|---|---|---|---|
+| `reflux_fuel_ethanol` | `reflux_head` | 16 low_wines_beaker -> 1 fuel_ethanol_beaker (+ 15 glass_beaker) | 92 | 420 | `ageIndexOf('forge')` | `'CR/H./\|./F./B.'` (reflux at 75%) |
+| `crack_diesel` | `catalyst_bed` | 3 diesel_canister, 1 catalyst_pellets -> 1 gasoline_canister (+ 2 empty_canister) | 480 | 180 | `ageIndexOf('current')` | CRACK_RIG (below) |
+| `crack_residue` | `catalyst_bed` | 4 residue_canister, 1 catalyst_pellets -> 1 diesel_canister (+ 2 residue_canister, 1 empty_canister) | 560 | 260 | `ageIndexOf('current')` | CRACK_RIG |
+| `refine_crude_tower` | `refinery_boiler` | 16 crude_canister, 1 lubricant_canister -> 4 diesel_canister (+ 3 gasoline_canister, 2 kerosene_canister, 5 residue_canister, 3 empty_canister) | 350 | 220 | `ageIndexOf('current')` | TOWER_RIG (below) |
 
-The cracker rig, one slice, top layer first, cells along +x (S at x = 1 so condensers fit on both sides):
+Canisters balance (16 + 1 in, 14 filled + 3 empty out), as `refine_crude` does. Litres check for the tower card: crude is
+`gasoline .22, kerosene .13, diesel .30, lube_base .12, bitumen .23` -> 3520 / 2080 / 4800 L of cuts and 5600 L residue.
 
-```
-'.Q../.CR./RC../.|CR/.K../.S../.B..'   NO - use this exact string instead:
-
-layer y+7  . Q . .        Q pressure cap on the head condenser
-layer y+6  . C R .        head condenser + receiver (gasoline)
-layer y+5  . | C R        segment 3 ... side draw? no: draws at segments 1 and 2 only
-...
-```
-
-To leave no doubt, the exact cracker string is (7 layers, top first):
+**CRACK_RIG** (one slice, 8 layers, top first, x = 0..4; the stack stands at x = 2): base (y0), steel flask, catalyst bed,
+segment 1 with a side draw to +x, segment 2 with a side draw to -x, segment 3, head condenser + receiver, pressure cap on the
+head condenser.
 
 ```
-crack rig = '.Q../.CR./.|../R|C./.|CR/.K../.S../.B..'
-   y+7  .Q..   pressure cap
-   y+6  .CR.   head condenser, receiver (gasoline)
-   y+5  .|..   segment 3
-   y+4  R|C.   ... wait - see 4.8.1
+y0+7  ..Q..     Q pressure cap (on the head condenser: Unit 8's cap rule)
+y0+6  ..CR.     head condenser, receiver  -> gasoline (117 C under pressure, tray 3 = 60 C)
+y0+5  ..|..     segment 3
+y0+4  RC|..     segment 2, side draw left -> kerosene (247 C >= tray 2 = 200 C)
+y0+3  ..|CR     segment 1, side draw right -> diesel / lube base (364 C >= tray 1 = 340 C)
+y0+2  ..K..     catalyst bed, right on the flask
+y0+1  ..S..     steel flask
+y0    ..B..     still base (furnace under it)
 ```
 
-#### 4.8.1 The cracker string, final
+String: `'..Q../..CR./..|../RC|../..|CR/..K../..S../..B..'` (same layout idea as `refine_crude`'s
+`'..CR/..|./RC|./..|CR/..F/..B'`). At 560 C (`crack_residue`) the trays are 393 / 227 / 60 C: uncracked lube base (481) at
+draw 1, diesel (364) at draw 2, gasoline at the head; bitumen never boils and stays as residue in the flask.
 
-Stack from the base up: base (y0), steel flask (y0+1), catalyst bed (y0+2), segment 1 (y0+3), segment 2 (y0+4),
-segment 3 (y0+5), head condenser (y0+6), pressure cap (y0+7). Side draw at segment 1 to the right (+x), side draw at segment 2
-to the left (-x); each condenser has a receiver beyond it. The stack is at x = 2. Layers, top first, x = 0..4:
+**TOWER_RIG** (three depth slices, front first, separated by `;`, each slice top layer first):
+`'WWW/WDW/WDW/WDW/WOW;WWW/W.W/W.W/W.W/WWW;WWW/WWW/WWW/WWW/WWW'` - 38 casings, 3 draws stacked on the front face, the boiler
+in the front middle of the floor, the core air. `buildRig` puts a furnace under every `O`.
 
-```
-y0+7  ..Q..
-y0+6  ..CR.
-y0+5  ..|..
-y0+4  RC|..
-y0+3  ..|CR
-y0+2  ..K..
-y0+1  ..S..
-y0    ..B..
-```
-
-String: `'..Q../..CR./..|../RC|../..|CR/..K../..S../..B..'`. The `crack_diesel` and `crack_residue` cards both use it. Under
-pressure at 480 C the trays are 340 / 200 / 60 C with draws at trays 1 and 2: diesel to the right receiver, kerosene to the
-left, gasoline to the head. (Same layout idea as `refine_crude`'s `'..CR/..|./RC|./..|CR/..F/..B'`.)
-
-Reflux card string, final: `'CR/H./|./S./B.'` is NOT used (glass is fine): `'CR/H./|./F./B.'` - base, glass flask, 1 segment,
-reflux head, head condenser + receiver. The test sets the reflux entity to 0.75 before running (cards cannot carry a dial
-setting; the card's Codex text says "reflux 75%" in its name line).
+The reflux card cannot carry a dial setting: `distillProcess.test.ts` sets the reflux head's `reflux = 0.75` before running it,
+and the Codex text of that card says "Reflux Head at 75%".
 
 Card display names come from the output recipe row; the Codex lists `reflux_fuel_ethanol` under the Reflux Head station,
 `crack_*` under the Catalyst Bed, `refine_crude_tower` under the Refinery Boiler.
+---------------------------------------------------------------------------------------------------------------------------
+
+## 5. Behaviour and rules, including edge cases
+
+### 5.1 Use table (all in `chemUse`, `src/sim/distillActions.ts`; result shape `ChemResult`)
+
+| held | target | result | toast / refusal |
+|---|---|---|---|
+| wrench | `reflux_head` | cycles `REFLUX_STEPS` | `"Reflux Head set to return 50%"` / `"75%"` / `"Reflux Head set to return nothing"` |
+| wrench | any other chem module | not handled here (null) -> Unit 6 opens the rig screen | - |
+| empty hand | `still_base` | cycles `setpointsFor(steelAbove)` | `"Still Base set to 480 C"` (existing format) |
+| empty hand | `refinery_boiler` | cycles `setpointsFor(true)` (the boiler is steel) | `"Refinery Boiler set to 350 C"` |
+| empty hand | any new module | toasts its crosshair line (existing behaviour) | - |
+| `catalyst_pellets` | `catalyst_bed` | adds `min(held, BED_PELLETS_MAX - have)` to slot 0 (`consumeCount` from Unit 0's `BrewResult`) | `"3 Catalyst Pellets in the bed (3 of 4)"`; full: `"The Catalyst Bed is full - it takes 4 pellets"` |
+| `charcoal`, `sand`, `clay_ball`, any filter medium of Unit 8 | `catalyst_bed` | refused | `"A Catalyst Bed takes Catalyst Pellets - charcoal, sand and clay go in a Filter Bed"` |
+| any other item | `catalyst_bed` | null (carry on) | - |
+| `lubricant_canister` | `refinery_boiler` | `oilS = min(oilS + TOWER_OIL_S, TOWER_OIL_MAX_S)`, gives `empty_canister` | `"Valves oiled - 30 min of running"` (`"... - 60 min of running"` when banked); full: `"The valves are oiled for 60 min already"` |
+| `residue_canister` / `lube_base_canister` | `refinery_boiler` with dry valves... | treated as a fluid container: pours in (it IS a chem container) | normal pour toast - the valves need Lubricant, and the dry-valves line says so |
+| full chem container | `steel_flask`, `refinery_boiler` | pours (both in `POURS_INTO`), boiler room 16 000 L | existing pour toast |
+| empty container | `steel_flask`, `refinery_boiler`, `refinery_draw` | takes (in `TAKES_FROM`) | existing take toast and refusals ("Only 640 L of Gasoline here - an Empty Canister takes 1000 L") |
+| full container | `refinery_draw` | refused | `"Draw Trays only give - pour into the Refinery Boiler"` |
+| any | `pressure_cap`, `refinery_casing` | null / no chem action (casing has no entity) | - |
+
+Taking pellets back out: there is no take; breaking the bed releases its pellets through Unit 0's `host.release` (pack first,
+then a spill crate). A partly worn pellet comes back whole (wear is lost) - documented in the bed's tooltip line? No: the
+crosshair says `"... 1 pellet 60% worn"`; breaking accepts the small exploit (it costs a bed swap and 4000 L of wear at most).
+
+### 5.2 Reflux edge cases
+
+- Reflux head with no segments (directly on the flask): allowed; n = 1 x (1 + 2r) (2.5 at 75%). It is a valid "reflux pot".
+- Reflux head on a vessel: vessels have no stills; the head is `loose_module` (no flask under its stack).
+- Reflux with side draws: all cuts get sharper and all slow by (1 - r). Side draws still work.
+- Reflux on a pressurised cracker: allowed and multiplies stages; the bed acts on the vapour before routing, unaffected.
+- r is read every step; changing it mid-run takes effect the next step (no state to reset).
+
+### 5.3 Pressure and overpressure
+
+- Pressure applies only to a `steel_flask` stack (the cap's `capTarget` resolves to it and there is no `cap_conflict`). On a
+  glass flask or a reaction vessel the cap does nothing and the scan says `glass_pressure`.
+- Overpressure: a pressurised still that is boiling-capable (`ts > tb`) but whose targets cannot take (the existing
+  `scale <= 1e-9` blocked path: receivers full, condenser missing) counts `overS += dt` on the flask entity (transient, NOT
+  saved; reset to 0 whenever it boils or stops being blocked). At `OVERPRESSURE_S` (5 s) the cap vents ONCE per blocked spell:
+  `sfx cap_hiss` at the cap (volume 1.0), a 1 s steam puff (16 particles, white), warning toast
+  `"The Pressure Cap is venting - empty the receivers"`. No litres are lost, no block breaks (danger stays environmental and
+  gentle, SYSTEMS 1.1). The flask shows red (blocked) as today. When boiling resumes, `overS` resets and the next blocked spell
+  may vent again.
+- The cap's look: active bit (amber lamp, glow 2) while its stack boils under pressure; off otherwise.
+
+### 5.4 Catalyst wear and wrong catalyst
+
+- Slot 0 of the bed's `items` (Unit 0's field; Unit 11 adds `catalyst_bed` to `ITEM_SLOT_KINDS` with ONE slot - the bed uses
+  only index 0; Unit 0's Use rules are bypassed for the bed by Unit 11's own branch above so a bed never accepts other items).
+- `wearL` (NEW optional entity field) counts litres cracked on the top pellet; at `CATALYST_L_PER_PELLET` one pellet is removed.
+- Pellets run out mid-run: the bed goes `blocked` (`catalyst_bed_done` + active bit = red lamp), `sfx pipe_clunk` via the
+  existing blocked announce, toast once `"The Catalyst Bed is spent - add Catalyst Pellets"`. The column keeps distilling
+  uncracked vapour (the player sees diesel arriving at draw 1 and the gasoline receiver stop). Adding pellets clears it.
+- Bed full of pellets but too cool (glass flask or base below 460): `idle`, line says why (6.1). Too hot for diesel (560): the
+  lube window applies; with no lube base in the vapour, nothing cracks: line `"nothing to crack at 560 C"`.
+- A bed with pellets in a stack WITHOUT a pressure cap: `pickReaction` reports the missing capability; line
+  `"needs a Pressure Cap on the head"` (Unit 0's capability words `needs a Pressure Cap`).
+
+### 5.5 Tower edge cases
+
+- **Broken mid-run** (a casing mined, a draw removed): next rescan `formed = false`; the boiler stops (blocked if it holds
+  liquid), casing seams go dark, the came-apart toast fires once. Liquids stay in the boiler and in every remaining draw (their
+  entities are untouched). Rebuilding re-forms it and the run continues.
+- **Boiler broken**: its 16 000 L are lost with it (the distillery's rule: a module's contents go with the glass, `remove()`).
+  The boiler's line warns while it holds more than 1000 L: nothing extra - the rule is the same as every flask. (Coordinator
+  note: consider a spill to slop later; out of scope.)
+- **Draw broken**: its up-to-1000 L is lost; the tower re-scans (fewer draws: cuts merge, still valid if >= 1 draw).
+- **Draw full**: that cut's share cannot leave; the boil scales down to what the fullest target accepts (exactly the still
+  rule) - a tower with one full draw stalls; line on the boiler `"stalled - empty the Draw Trays"` (blocked after 1 s).
+- **Dry valves**: `oilS <= 0` while it could boil -> blocked, problem appended live (see 5.6), line
+  `"Refinery Boiler - valves dry, Use a Lubricant Canister"`.
+- **Cold furnace / no furnace**: idle (not blocked) with no liquid; blocked with liquid and `no_furnace`; cold furnace = the
+  line `"no hot furnace under it"` (same words as the base).
+- **Chunk unload**: `Distillery.rescan` already skips unloaded entities; `scanTower` returns the previous `TowerScan` when any
+  box cell is unloaded, and `stepTower` does not run for a tower whose boiler chunk is unloaded (the rig is not in `rigs`).
+  Nothing unforms, nothing is lost.
+- **Save / load**: towers are derived (never saved, like hearth formed state and rigs); the boiler's `mix`, `setC`, `oilS`,
+  `state`, the draws' `mix` and `recvS` are entity JSON. On load `track()` sanitises them and the first `rescan` re-forms the
+  tower; no toast on a load re-form (the `formedOnce` memory is transient; a tower formed at load is "already formed").
+- **Two towers sharing a wall**: each casing may belong to one shell only; a scan that finds a casing already in another formed
+  tower's `shell` treats it as fine (shared walls are allowed, like hearths) but the active bit is cleared only when no formed
+  tower lists it.
+- **Contraptions** (Unit 13 moving blocks): chem modules are not movable by pistons today; nothing to do.
+
+### 5.6 Live-state problems (added after the scan by `Distillery`, not by the pure scan)
+
+Unit 6 allows live problems in `Rig.problems` via the Distillery. `Distillery.rescan()` does not know oil levels, so Unit 11
+adds them where `chemView` builds problems: `towerLiveProblems(rig, boiler): RigProblem[]` (NEW, pure, `distillActions.ts`)
+returns `dry_valves` `"The tower's valves are dry - Use a Lubricant Canister on the Refinery Boiler"` (cells: boiler) when
+`oilS <= 0`, and `bed_spent` `"The Catalyst Bed is spent - add Catalyst Pellets"` for any still with a bed whose pellets are 0
+after it ran. Unit 6's screen shows them through `ChemView.problems?`.
+
+### 5.7 Failure messages (complete list, for the T8 review)
+
+Scan: `bed_misplaced`, `bed_glass`, `reflux_misplaced`, `reflux_no_head`, `glass_pressure`, `cap_conflict`, `loose_module`,
+`no_tower`, `tower_gap`, `tower_block`, `tower_core`, `tower_short`, `tower_tall`, `draw_edge`, `draw_twice`, `no_draw`,
+`no_furnace`, `two_boilers` (texts in 4.3 and 4.7). Live: `dry_valves`, `bed_spent`. Use refusals: section 5.1. Toasts:
+cap venting, bed spent, tower formed, tower came apart, valves oiled.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 6. UI and feedback
+
+### 6.1 Crosshair lines (`chemView`, T8 grammar, <= ~60 chars)
+
+| module | line (examples) |
+|---|---|
+| Reflux Head | `"Reflux Head - return 75%, sharper x2.5, flow x0.25"`; r = 0: `"Reflux Head - return nothing (wrench to set)"` |
+| Steel Flask | existing flask format: `"Steel Flask - 2.9 buckets Diesel, 364 C, boiling"`; under pressure add `", 5 bar"`: `"Steel Flask - 2.9 buckets Diesel, 364 C, boiling, 5 bar"` |
+| Catalyst Bed | working: `"Catalyst Bed - cracking Diesel, 480 C, 3 pellets"`; `"Catalyst Bed - 1 pellet 60% worn, 480 C"`; idle reasons: `"Catalyst Bed - too cool (450 of 460 C), 4 pellets"`, `"Catalyst Bed - needs a Pressure Cap on the head"`, `"Catalyst Bed - nothing to crack at 560 C"`, `"Catalyst Bed - empty, add Catalyst Pellets"`; spent: `"Catalyst Bed - spent, add Catalyst Pellets"` |
+| Pressure Cap | `"Pressure Cap - holding 5 bar on the Steel Flask"`; on glass: the problem line; nothing under: `"Pressure Cap - nothing to hold"` |
+| Still Base | existing; with a steel flask above 450: `"Still Base - set 480 C, holding 480 C"`; set 480 under glass: Unit 6's `over_glass` problem line wins |
+| Refinery Boiler | `"Refinery Boiler - 12.4 buckets Crude Oil, 350 C, boiling"`, `"... run done"`, `"Refinery Boiler - valves dry, Use a Lubricant Canister"`, `"Refinery Boiler - set 350 C, no hot furnace under it"`; not formed: first tower problem `"Refinery Boiler - Wall has a gap"`; nothing built: `"Refinery Boiler - No tower built on this boiler yet"` |
+| Draw Tray | `"Draw Tray - tray 3 of 3, 640 L Gasoline, filling"`; `"Draw Tray - tray 1 of 3, full - empty it or pipe it away"` |
+| Refinery Casing | no entity -> no chem line (a plain block name `"Refinery Casing"`; formed casing shows its glow) |
+
+Second goggles line (inspector) for the boiler: `"Oil 24 min left, draws 3, trays 3, 80 L/s"` (only with goggles; keeps the
+first line short).
+
+### 6.2 Rig screen (Unit 6, generic)
+
+Nothing to build in Unit 6's screen. Unit 11 guarantees: new modules appear in its glassware list via `CHEM_KINDS`; `Rig.problems`
+carries every scan problem with cells (tap highlights the gap casing, which is a non-chem cell: Unit 6 highlights by cell
+coordinates, so it works); capabilities print `pressure`, `catalyst:catalyst_pellets` (Unit 0 words: "pressure",
+"catalyst (Catalyst Pellets)"); the tower card's three slices draw side by side ("Slices front to back."). Unit 6 may add the
+title rule `rig.tower ? 'Refinery tower'` first (its section 14 note 3).
+
+Phone: everything is Use / wrench / an existing screen. No new screen. Lines fit 60 chars (the longest above, the bed's
+too-cool line, is 49).
+
+### 6.3 Textures (`src/render/textures/distill.ts`)
+
+- `EMBLEMS` gains a painter per new chem kind (it is `Record<ChemKind, ...>`, so TypeScript forces them): `reflux_head` (a
+  funnel with a return arrow), `steel_flask` (the flask outline over a darker steel-grey pane `IRON` tones, rivets), `catalyst_bed`
+  (rows of round pellets, dark when the bed is empty - drawn by the renderer from the slot count is out of scope; the emblem is
+  static), `pressure_cap` (a dial gauge on the slab), `refinery_boiler` (a kettle with a flame mark, steel frame instead of brass),
+  `refinery_draw` (a tray with a spout).
+- `refinery_casing` and `refinery_casing_on`: NEW plain tiles (not the glass case): riveted steel plate 16x16, the `_on` twin
+  has warm orange seams like the hearth wall `_on` tiles. Icon from the side tile.
+- Icon `catalyst_pellets`: a small heap of off-white beads with a grey rim.
+- Raise the texture layer cap in the content test if it trips (DISTILLERY_PLAN 2.1 already warned).
+
+### 6.4 Render (`src/render/distill/distillFx.ts`)
+
+- Steel flask: same liquid body and bubbles as the boiling flask (it is a flask kind - the render switch uses `isFlaskKind`).
+- Catalyst bed: no liquid; while working, its `flow` drives the existing bubble/drip instance path as a slow rising shimmer
+  (reuse the column band slab in the colour of the cracked product, gasoline gold).
+- Pressure cap vent: the 1 s puff uses the existing particle emitter with at most 16 particles (T9 cap 24).
+- Tower: the boiler draws its liquid body like a flask (scaled to 16 000 L); draws draw like receivers. The core is hidden
+  inside casing; no interior render.
+
+### 6.5 Sounds (T9)
+
+- NEW `cap_hiss` in Unit 12's `sfxDistill.ts`: a 0.8 s filtered noise burst falling in pitch, volume 1.0 (normal), only on a
+  venting event (never looped). Add to `SfxName` in `src/core/gameEvents.ts` and to the distill set count in `sfx.test.ts`.
+- Tower forming: existing `hearth_formed`, `pitch: 0.8`. Came apart: existing blocked clunk.
+- Boiling: the tower's boiler counts as one boiling flask for Unit 12's boil ambience layer (it reads boiling flasks near the
+  listener; Unit 11 makes `isFlaskKind`-or-boiler states visible to it by exporting `isBoilingVessel(e)` NEW in `distill.ts`).
+- Wrench cycle on the reflux head: the existing UI click of `chemUse` toasts (no new sound).
+
+### 6.6 Side goal
+
+NEW `src/content/objectivesRefinery.ts`:
+
+```ts
+export const REFINERY_SIDE_GOALS: ObjectiveSpec[] = [{
+  id: 'crack_oil', title: 'Crack heavy oil',
+  text: 'Catalyst Pellets in a Catalyst Bed on a Steel Flask, a Pressure Cap on the head condenser, the base at 480 C: diesel comes over as gasoline.',
+  condition: { type: 'flag', flag: 'cracked_oil' }, age: ageIndexOf('current'), reward: [{ item: 'catalyst_pellets', count: 2 }],
+}];
+```
+
+`objectivesSide.ts` appends `...REFINERY_SIDE_GOALS` (one line, unit order). Flags set: `cracked_oil` (first litre cracked),
+`tower_formed` (first forming), `refluxed` (first run with r > 0 that finishes) - plain `flagOnce`, no objectives for the last two.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save
+
+### 7.1 TypeScript sketches
+
+```ts
+// src/core/distill.ts (NEW members)
+export const STEEL_MAX_C = 600;
+export const STILL_SETPOINTS: readonly number[] = [78, 92, 97, 130, 200, 260, 350, 420, 480, 560];
+export const REFLUX_STEPS: readonly number[] = [0, 0.5, 0.75];
+export const CATALYST_L_PER_PELLET = 4000;
+export const BED_PELLETS_MAX = 4;
+export const CRACK_MIN_C = 460;
+export const CRACK_MAX_C = 520;
+export const OVERPRESSURE_S = 5;
+export const TOWER_BOIL_LPS = 4 * BOIL_LPS;
+export const TOWER_DRAW_LPS = 40;
+export const TOWER_MIN_TRAYS = 3;
+export const TOWER_MAX_TRAYS = MAX_SEGMENTS;
+export const TOWER_OIL_S = 1800;
+export const TOWER_OIL_MAX_S = 3600;
+export const TOWER_HEAD_C = HEAD_C;
+export const CATALYST_ITEM = 'catalyst_pellets';
+export const TOWER_OIL_ITEM = 'lubricant_canister';
+export const TOWER_CASING = 'refinery_casing';
+// CHEM gains (Unit 11): boiler: 'refinery_boiler', draw: 'refinery_draw'
+// CHEM_CAPACITY_L gains: refinery_boiler: 16000, refinery_draw: 1000
+// STATEFUL gains: CHEM.boiler, CHEM.draw
+export const isFlaskKind = (k: string): boolean => k === CHEM.flask || k === CHEM.steelFlask;
+export const isTowerKind = (k: string): boolean => k === CHEM.boiler || k === CHEM.draw;
+export const shellMaxC = (k: string | null): number => (k === CHEM.steelFlask || k === CHEM.boiler ? STEEL_MAX_C : GLASS_MAX_C);
+export function setpointsFor(steel: boolean): readonly number[];
+export function nextReflux(r: number): number;            // 0 -> 0.5 -> 0.75 -> 0; unknown -> 0.5
+// bpFactor (Unit 8) gains: caps.includes('pressure') ? BP_MULT.pressure
+```
+
+```ts
+// src/sim/distill.ts - ChemEntity gains (all OPTIONAL, all sanitised in track())
+reflux?: number;     // reflux_head: one of REFLUX_STEPS, else 0
+wearL?: number;      // catalyst_bed: litres cracked on the top pellet, clamp [0, CATALYST_L_PER_PELLET)
+oilS?: number;       // refinery_boiler: seconds of oiled running left, clamp [0, TOWER_OIL_MAX_S]
+// transient (never written to the entity JSON; kept in private Maps on Distillery):
+//   overS (pressure spell seconds), vented (bool per spell), formed memory per boiler key
+```
+
+```ts
+// src/sim/distillScan.ts
+export type RigProblemCode = /* existing */ | 'bed_misplaced' | 'bed_glass' | 'reflux_misplaced' | 'reflux_no_head'
+  | 'glass_pressure' | 'cap_conflict' | 'loose_module' | TowerProblemCode | 'dry_valves' | 'bed_spent';
+export interface Still { /* existing */ bed?: string; reflux?: string; steel: boolean; pressure?: string }
+export interface Rig { /* existing + Unit 0/8 fields */ tower?: TowerScan }
+export const RIG_MAX_SCAN_PROBLEMS = 8;   // exported rename of the private MAX_PROBLEMS (value unchanged)
+```
+
+```ts
+// src/core/reactions.ts (Unit 0's ReactionSpec): ONE optional member added by Unit 11
+site?: 'vessel' | 'bed';   // default 'vessel'; 'bed' rows act on vapour rising through a catalyst bed
+```
+
+### 7.2 Sanitising (in `Distillery.track`)
+
+```ts
+if (e.kind === CHEM.reflux) e.reflux = REFLUX_STEPS.includes(finite(e.reflux, 0)) ? e.reflux : 0;
+if (e.kind === CHEM.catalyst) e.wearL = clamp(finite(e.wearL, 0), 0, CATALYST_L_PER_PELLET - 1e-6);
+if (e.kind === CHEM.boiler) { e.oilS = clamp(finite(e.oilS, 0), 0, TOWER_OIL_MAX_S); e.setC = sanitised like a base }
+// catalyst bed slot: Unit 0 sanitises items; Unit 11 additionally drops anything that is not catalyst_pellets and caps count at 4
+```
+
+### 7.3 Old-save compatibility
+
+- Every field is optional; a save from before Unit 11 has no such entities, so nothing changes.
+- A save made with Unit 11 and loaded by an older build: unknown block ids are a block-table concern (append-only, SYSTEMS 2);
+  not supported backwards, as everywhere.
+- `setC` 480/560 on a base loads (full list sanitiser).
+- Block ids: all new blocks are APPENDED at the end of `DISTILL_BLOCKS` (the `CHEM` object order decides `module()` order:
+  Unit 11's two new keys go after Unit 0's six; `refinery_casing` is pushed after the module blocks). Never insert.
+- No `SAVE_VERSION` bump (T10 rule 3).
