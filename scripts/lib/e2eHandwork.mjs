@@ -6,7 +6,15 @@ import { hlog } from './diag.mjs';
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const STATIONS = ['chopping_block', 'hand_quern', 'stone_anvil', 'mortar', 'clay_table', 'loom', 'drying_rack', 'tanning_trough'];
 
-const label = (d) => d.page.evaluate(() => document.querySelector('.hw-cross__label')?.textContent ?? '');
+// The crosshair line is refreshed on the next frame after a tap or a look, so wait (up to 1.5 s) for it to hold text instead of reading it at once.
+const label = async (d) => {
+  for (let i = 0; i < 30; i++) {
+    const t = await d.page.evaluate(() => document.querySelector('.hw-cross__label')?.textContent ?? '');
+    if (t) return t;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return '';
+};
 const inventory = async (d) => JSON.stringify(await d.inventory());
 
 /** Taps Use (the first taps can be eaten by a coach mark) until `changed()` is true; returns how many taps it took. */

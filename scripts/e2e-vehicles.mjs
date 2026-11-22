@@ -77,6 +77,8 @@ try {
       window.__hw.lookAt(x, y + 1, z);
     }, [PX, PZ, FLOOR]);
     await select('chainsaw');
+    // The crosshair target is computed on the next frame after the look, so wait for it instead of reading it at once.
+    await waitFor(page, () => !!window.__hw.state().target, 'the log under the crosshair', { timeout: 5000, interval: 50 });
     const startY = (await d.state()).target.y;
     const felled = FLOOR + 7 - startY + 1;
     const fuel = () => page.evaluate(() => window.__hw.state().inventory.find((s) => s.item === 'chainsaw').durability);
