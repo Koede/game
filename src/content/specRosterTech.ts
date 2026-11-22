@@ -50,7 +50,11 @@ export const TECH_SPEC = {
   /** kind -> [accepts, gives, capacityL] of every fluid endpoint (spec 16.2). */
   fluidPorts: {
     pump: [[], ['water', 'lava', 'crude_oil'], 1000],
-    tank: [['water', 'lava', 'steam', 'crude_oil', 'fuel'], ['water', 'lava', 'steam', 'crude_oil', 'fuel'], 16_000],
+    tank: [
+      ['water', 'lava', 'steam', 'crude_oil', 'fuel', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'],
+      ['water', 'lava', 'steam', 'crude_oil', 'fuel', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'],
+      16_000,
+    ],
     boiler: [['water'], ['steam'], 1000],
     steam_turbine: [['steam'], [], 1000],
     fluid_hatch: [['lava'], [], 1000],

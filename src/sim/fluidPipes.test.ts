@@ -1,6 +1,7 @@
 /** Fluid transport (spec 16.1, 16.2, 16.4, 16.5): pumps, one fluid per network, hot and cold pipes, priorities, tanks, buckets. */
 import { describe, expect, it } from 'vitest';
-import { blockOf } from '../core/registry';
+import { blockOf, machine } from '../core/registry';
+import type { FluidKey } from '../core/types';
 import { Face } from '../core/types';
 import type { FluidNet } from './fluidNet';
 import { netOf, run } from './pipeKit';
@@ -262,6 +263,23 @@ describe('tanks', () => {
     expect(kit.sim.machineView(0, 7, 0)!.status).toBe('22,000 of 48,000 L (3 tanks)');
     expect(kit.sim.machineView(0, 6, 0)!.fluids!.stack).toEqual({ tanks: 3, fluid: 'water', litres: 22000, capacityL: 48000 });
     expect(kit.sim.machineView(3, 5, 0)!.status).toBe('Empty (2 tanks)');
+  });
+
+  it('takes a gasoline canister and a pulling pipe moves it into a second tank', () => {
+    const kit = makeKit();
+    const from = tank(kit, 0, 5, 0);
+    expect(kit.sim.bucketUse(0, 5, 0, Face.PX, 'gasoline_canister')).toEqual({ ok: true, held: 'empty_canister', fluid: 'gasoline', litres: 1000 });
+    expect(from.fluidIn).toEqual({ fluid: 'gasoline', litres: 1000 });
+    run(kit.world, 'fluid_pipe', [1, 5, 0], [2, 5, 0]);
+    const to = tank(kit, 3, 5, 0);
+    kit.sim.setPort(1, 5, 0, Face.NX, { mode: 'pull' });
+    kit.run(6);
+    expect(to.fluidIn).toEqual({ fluid: 'gasoline', litres: 1000 });
+    expect(from.fluidIn).toBeNull();
+    const added: FluidKey[] = ['sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'];
+    const ports = machine('tank').fluids!;
+    expect(ports.accepts).toEqual(expect.arrayContaining(added));
+    expect(ports.gives).toEqual(expect.arrayContaining(added));
   });
 
   it('a tank holding another fluid starts a stack of its own', () => {
