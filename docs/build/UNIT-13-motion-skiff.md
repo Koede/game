@@ -194,6 +194,10 @@ The skiff recipe stays `forge('skiff', '2 bronze_plate, 2 plank, 1 bronze_cog', 
   along rails' (screenshots `9-contraptions`, `10-contraptions-after`).
 - Docs: `docs/api/workshop.md` ends "Steps are discrete (no tween yet)."; `docs/OVERHAUL_PLAN.md` status lists "tween animation
   of moving structures, riding a skiff" as still open.
+- Not in the tree yet (verified 2026-11-22 by grep): `MovingView`, `WorkshopView.moving` and `src/content/objectivesSide.ts`
+  (all Unit 0), `src/audio/sfxWorkshop.ts` (first of Units 13/14/16). Everything else quoted in this section exists as named.
+- Marking convention below: every function, field, constant, file or string not listed in this section is NEW in this unit
+  (or, for the two Unit 0 shapes, Unit 0's).
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -326,10 +330,11 @@ platform: PlatformCarry | null = null; // on PlayerPhysics
   overlapping it horizontally by more than 0.1). `dx/dy/dz` = drawn offset change of that glide between `prevNow` and `now`;
   for a rotation, the player's feet point is rotated about `pivot` by the angle change and `yawDelta` is that angle (the view
   turns with the platform, like standing on a turntable). `ignore` = the glide's destination cell keys.
-- `PlayerPhysics.step`: when `platform` is set, first `pos += (dx, dy, dz)`, `yaw += yawDelta`, then the normal step, but the
-  sweeps (`sweepAxis`) and `unstick()` treat cells in `ignore` as passable for the vertical axis, and the player counts as
-  `onGround` with `vy = max(vy, 0)` when `dy >= 0` (rising lift) and falls freely otherwise; `fallTop` is reset to the current y
-  so a descending lift never deals fall damage. When the glide ends (`platform` becomes null) the destination cells are under
+- `PlayerPhysics.step`: when `platform` is set, first `pos += (dx, dy, dz)`, `yaw += yawDelta`; then the horizontal part of
+  the normal step runs (walking on the platform works; horizontal sweeps already ignore boxes the body overlaps), but the
+  VERTICAL part is skipped: `vy = 0`, `onGround = true`, no gravity, no vertical sweep, no `unstick()` against cells in
+  `ignore`, and `fallTop` is set to the current y (a descending lift never deals fall damage). A jump cancels the carry for the
+  rest of that glide (the player leaves the platform and normal physics resumes at once). When the glide ends (`platform` becomes null) the destination cells are under
   the feet exactly (the carried total equals the step), so the next normal step stands on them.
 - Walking while carried is allowed (the carry adds to it). Jumping off a rising lift works.
 - One rider rule: only the player is carried. Mobs and tractors on a moved structure stay where they are logically (mobs are
@@ -345,10 +350,9 @@ Held items still go in (`putOrTake`) as today - a full hand never boards. Refusa
 - no room for a body over the cart (cells `y+1` and `y+2` above the skiff solid): `"No room to sit - clear the two blocks above
   the skiff"`;
 - the player is already riding: Use means Exit (4.6 controls), never reaches here;
-- Dev Mode flight on: boarding switches flight off (`player.flying = false`) silently.
+- Dev Mode flight on: boarding switches flight off silently (the controller's Dev Mode flight flag).
 
-`Workshop.board(x, y, z): 'worked' | 'refused'` (NEW) sets `ridden = "x,y,z"`, emits `flag` `rode_skiff` (once per world via the
-flag set; the tracker dedupes), event `skiff:boarded` `{ x, y, z }` (NEW `GameEvents` entry, `<system>:<verb>`), sfx `place`
+`Workshop.board(x, y, z): 'worked' | 'refused'` (NEW) sets `ridden = "x,y,z"`, emits event `skiff:boarded` `{ x, y, z }` (NEW `GameEvents` entry, `<system>:<verb>`), sfx `place`
 pitch 0.8 at the cart, and the toast (desktop / touch wording chosen by the HUD, section 6). `ridden` is re-keyed by
 `Contraptions.relocate` (`Workshop.relocate` updates it when the map contains it).
 
@@ -437,15 +441,16 @@ other skiff), so each sees a rail end, dwells and turns round (today's rule). A 
 ### 5.2 Rail end, broken rail, broken skiff
 
 - **Rail end** (next cell has no `rail` under it, or is not `air`): the last step uses curve `'out'`; the cart dwells 2 s, flips
-  (`FLIP`) and starts back with curve `'in'`. A rider's view turns with it (4.6).
+  (`FLIP`) and starts back with curve `'in'`. A rider's view turns with it (4.6). The first time a RIDDEN cart reaches a rail end
+  and starts its dwell, the workshop emits `flag` `rode_skiff` (the side goal "Ride the skiff": board AND ride to the end).
 - **Rail mined under a rolling cart**: next step sees no rail -> rail end, as above. The cart never leaves the track.
 - **Rail mined under the cart's own cell**: the cart stays (blocks do not fall in Hearthwatt); it simply cannot step until a
   rail is under the next cell. Goggles: `"Skiff - no rail ahead, waiting"` (NEW wording, replaces "waiting at the end of the
   rail" only in this case).
-- **Skiff broken while ridden** (mined by the player - impossible while riding since Mine is taken - or by a drill, a deployer,
-  an explosion-free world: a `mech_drill` or a piston pushing into it is refused, a drill CAN break it): `Workshop.noteBlock`
-  sees `ridden` cell no longer a skiff -> `leave()` without moving the player, the player falls normally from the seat
-  (physics resumes; fall height 0.6 + ... no damage below 3 blocks as today), toast `"The skiff broke - you climbed out"`.
+- **Skiff broken while ridden** (the rider cannot mine it - Mine is Brake while riding - but a `mech_drill` or `deployer`
+  facing the track can break it as it passes): `Workshop.noteBlock` sees the `ridden` cell no longer a skiff -> `leave()`
+  without moving the player; normal physics resumes from the seat (a 0.6 block drop onto the rail, no damage), toast
+  `"The skiff broke - you climbed out"`.
   Its stack drops (existing logistics break rule) and the skiff item drops (normal block drops).
 - **Player dies while riding**: `VehicleManager.handle` already exits a tractor when `player.dead`; it does the same for the
   skiff (`skiffs.leave()`).
@@ -486,7 +491,7 @@ other skiff), so each sees a rail end, dwells and turns round (today's rule). A 
 | player in a piston's path | `You are in the way of the piston` | warn |
 | player in a bearing's path | `You are in the way of the bearing` | warn |
 | empty-hand Use on a loaded skiff | `Took 3 Flint - Use again to climb in` (count + item name) | info |
-| board, desktop | `W go, S or hold Mine brake, Use to get off` | info |
+| board, desktop | `W or Space go, S or hold Mine brake, Use to get off` | info |
 | board, touch | `Go sets off, hold Brake to stop, Exit gets off` | info |
 | no head room to board | `No room to sit - clear the two blocks above the skiff` | info |
 | low ceiling while riding | `Too low to ride under - the skiff turns back` | info (once per ride) |
@@ -520,7 +525,7 @@ null)` (NEW), called by Game every frame with `this.vehicles.rideStatus()`. Whil
 - The same panel `.hw-vehicle` shows one row: `Skiff` + state chip (`rolling` / `braked` / `turning round`) + load (`3 Flint` or
   nothing), and the hint line:
   - touch: `Go: set off. Hold Brake: stop. Exit: get off.`
-  - desktop: `W go, S or hold Mine brake, Use get off`
+  - desktop: `W or Space go, S or hold Mine brake, Use get off`
 - Touch captions (NEW `RIDE_CAPTIONS`, same mechanism as `CAPTIONS`): `.hw-touch-btn--mine` -> `Brake`, `.hw-touch-btn--use` ->
   `Exit`, `.hw-touch-btn--jump` -> `Go`. Restored on exit. The buttons are the existing 44 px+ touch buttons; nothing new is
   added to the layout (works at 390 px portrait and 844 x 390 landscape by construction).
@@ -580,6 +585,7 @@ interface ContraptionHost {
   now?(): number;                                  // workshop clock (Workshop passes () => this.clock)
   near?(x: number, z: number): boolean;            // within MOTION_RADIUS of the player (Workshop: playerXZ hook)
   bodyIn?(x: number, y: number, z: number): boolean;
+  bodyOn?(x: number, y: number, z: number): boolean; // the player's feet stand on the top of this cell (rider rule, 4.5)
   rider?(): { ridden: string | null; brake: boolean; go: boolean; headroom: boolean };
 }
 
@@ -702,7 +708,8 @@ l. `existing contraption tests pass unchanged` (no edits to the four current cas
 `src/workshop/skiffRide.test.ts` (NEW):
 
 m. `empty hand Use on an empty skiff boards; on a loaded skiff it hands the stack first with "Took 3 Flint - Use again to climb
-   in"` (call `shop.use(x,y,z,null,take)` twice; `shop.ridden` set after the second; `rode_skiff` flag emitted once).
+   in"` (call `shop.use(x,y,z,null,take)` twice; `shop.ridden` set after the second); riding to the rail end emits flag
+   `rode_skiff` exactly once (bus `flag` listener).
 n. `a held item still goes into the skiff and never boards`.
 o. `boarding refuses without head room` (stone at y+2; toast text exact).
 p. `seatAt follows the cart smoothly`: ride 5 rails; sample `seatAt(now)` every 0.01 s of workshop time; x is monotonic while
@@ -746,14 +753,14 @@ Add two named steps after 'a piston pushes a framed depot, a bearing turns an ar
 run `node scripts/e2e-workshop.mjs --device=desktop` (no `HW_GPU`) and `--device=phonePortrait` (the HUD captions are UI).
 
 **Step 'a piston glides: mid-move the depot is drawn between its cells'**
-1. `window.__hw` set-up: clear a 9 x 9 yard (reuse P), place `hand_crank` at `(x0+4, gy, z0+9)`, `piston` facing west (3) at
+1. `window.__hw` set-up: clear a strip `x0-3..x0+4`, `z0+8..z0+12` (stone floor at `gy-1`, air above, like the first set-up step), place `hand_crank` at `(x0+4, gy, z0+9)`, `piston` facing west (3) at
    `(x0+3, ..)`, `contraption_frame` at `x0+2`, `depot` at `x0+1` with 4 flint; teleport the player 4 blocks south, `lookAt` the
    depot.
 2. Real input: `d.selectEmptyHand()`, `d.approach({ x: P.x0 + 4, y: P.gy, z: P.z0 + 9 })` then `d.use()` on the crank.
 3. Poll up to 3 s (`waitFor`) for `window.__hw.app.game.workshop.view(px, pz).moving.length > 0`; then read
    `window.__hw.app.game.motionRenderer.stats.blocks > 0` and the drawn x of the depot instance via a NEW debug read
-   `motionRenderer.probe(x, y, z)` (returns the drawn centre of the proxy whose destination is that cell, or null). Assert the
-   probe's x is strictly between `x0 + 0.5 - 1` and `x0 + 0.5` exclusive by at least 0.05 (fractional: mid-glide). Screenshot
+   `motionRenderer.probe(x, y, z)` (returns the drawn centre of the proxy whose destination is that cell, or null). The depot glides
+   west from `x0+1` to `x0`: assert the probe's x is strictly between `x0 + 0.55` and `x0 + 1.45` (fractional: mid-glide). Screenshot
    `11-piston-mid-glide`.
 4. After 1 s: `moving` empty or a new glide; the chunk mesh shows the depot (no hold left: `stats.held === 0` within 1 s).
 
