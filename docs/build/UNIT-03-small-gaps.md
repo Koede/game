@@ -479,3 +479,217 @@ running line, the boiler's too-cold line gains numbers, the pump's "Still holds"
 `fluidStatus` stays as it is; only the returned strings change.
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 6. UI and feedback
+
+### 6.1 Every changed string (before -> after)
+
+All in `src/sim/fluidMachines.ts` (`fluidStatus`, `pumpFullStatus`) unless noted. Length = characters of the AFTER text.
+`<f>` = `fluidName(key)` (lower-case fluid name, exists), `<T>` = furnace `Math.round(tempC)`, `<min>` = `BP.minTempC` (200).
+
+#### 6.1.1 Pump
+
+| # | branch | before | after | len |
+|---|---|---|---|---|
+| P1 | no source | `Must touch still water, lava or oil` | `Not touching still water, lava or oil - set it against one` | 58 |
+| P2 | buffer holds another fluid | `Still holds <f>` | `Still holds <f> - pipe it out first` | <= 41 |
+| P3 | full, an end pulls but the line has no room (ui-13) | `Full - the line has nowhere to put it` | `Full, 1 bucket - the line has no room, add a Tank` | 49 |
+| P4 | full, piped, nothing pulls | `Full - nothing pulls from it` | `Full, 1 bucket - wrench the pipe end at the pump to Pull` | 56 |
+| P5 | full, no pipe | `Full - connect a pipe that pulls` | `Full, 1 bucket - lay a pipe from it and wrench it to Pull` | 57 |
+| P6 | pumping, finite body | `Pumping <f> - 200 L/s (the pool shrinks)` | `Pumping <f>, 200 L/s, the pool shrinks` | <= 44 |
+| P7 | pumping, endless water | `Pumping water - 200 L/s` | `Pumping water, 200 L/s, never runs dry` | 38 |
+
+"1 bucket" is `litresText(PUMP.fluids.capacityL)` (1000 L), never a literal.
+
+#### 6.1.2 Boiler
+
+| # | branch | before | after | len |
+|---|---|---|---|---|
+| B1 | no furnace | `Must sit on top of a furnace` | `Not on a furnace - set it on top of a furnace or hearth` | 55 |
+| B2 | furnace below `minTempC` | `The furnace is too cold` | `Too cold, furnace <T> C - it boils from <min> C` | <= 47 |
+| B3 | no water | `Needs water - pipe it in` | `No water - pipe water in from a Pump or Tank` | 44 |
+| B4 | full, piped, its end does not pull | `Holds steam - wrench the pipe end at the boiler to Pull` | `Full of steam - wrench the pipe end at the boiler to Pull` | 57 |
+| B5 | full, piped, pulled but unused | `Steam is not being used` | `Full of steam - nothing uses it, add a Steam Turbine` | 52 |
+| B6 | full, no pipe | `Steam is not being used - pipe it to a turbine` | `Full of steam - pipe it to a Steam Turbine (hot pipe)` | 53 |
+| B7 | boiling | `Boiling <n> L of steam a second` | `Boiling, <n> L/s of steam, <formatWatts(rateL x heatPerSteamL)> of heat` e.g. `Boiling, 800 L/s of steam, 16 kW of heat` | <= 48 |
+
+#### 6.1.3 Steam turbine
+
+| # | branch | before | after | len |
+|---|---|---|---|---|
+| U1 | piped, no end pulls from a boiler (sim-3) | `Steam line has no end pulling from a boiler - wrench the boiler end to Pull` (73, too long) | `No steam - wrench the pipe end at the boiler to Pull` | 51 |
+| U2 | piped and pulled, nothing arrives | `No steam coming in` | `No steam - the boiler is cold or out of water` | 45 |
+| U3 | not piped | `No steam - pipe it in through a hot pipe` | `No steam - pipe it in from a Boiler (hot pipe)` | 46 |
+| U4 | **NEW** branch: holds steam, `outW > 0` (was the generic generator line) | `6 kW of 8 kW in use` | `Turning, 6 kW of 8 kW in use, 600 L/s of steam` | <= 50 |
+| U5 | **NEW** branch: holds steam, `outW` 0 | `0 W of 8 kW in use` | `Ready - nothing on the cables uses power` | 40 |
+
+#### 6.1.4 Still (same function; T8 commas only)
+
+| # | before | after |
+|---|---|---|
+| S1 | `Refining crude oil - 40%` | `Refining crude oil, 40%` |
+| S2 | `Needs <oilPerRunL> L of crude oil` | `Needs <litresText(oilPerRunL)> of crude oil` (a value of 1000 or more now reads in buckets) |
+| S3 | `Fuel is full - pipe it out` | unchanged (already `<problem> - <fix>`) |
+
+#### 6.1.5 Heat engine status (src/sim/gridViews.ts generator branch)
+
+| # | branch | before | after |
+|---|---|---|---|
+| E1 | heat engine, `shaftW > 0` | `1.5 kW of 2 kW in use` (shaft invisible) | `1.5 kW to the grid, 400 W on the shaft, of 2 kW` (47) |
+| E2 | heat engine, `shaftW` 0 | `1.5 kW of 2 kW in use` | unchanged (keeps power.test / machineText tests green) |
+| E3 | engine hot, both outputs idle | `0 W of 2 kW in use` | unchanged - and the firebox "Heat drawn" reads `None` (firebox.ts:226 already prints `None` for 0) |
+
+#### 6.1.6 Content strings (src/content/techMachines.ts `placementHint`, src/content/objectives.ts)
+
+| id | before | after |
+|---|---|---|
+| `pump.placementHint` | `Must touch still water, lava or oil.` | `Set it against still water, lava or oil, wire it to power, and wrench the pipe end at the pump to Pull.` |
+| `boiler.placementHint` | `Goes directly on top of a furnace or a hearth. Pipe its steam out through a hot pipe, and set the pipe end at the boiler to Pull with the wrench.` | `Set it on top of a furnace or a hearth. Lay a hot pipe from it to a Steam Turbine, and wrench the pipe end at the boiler to Pull.` |
+| `steam_turbine.placementHint` | `Pipe steam in from a boiler through a hot pipe, and set the pipe end at the boiler to Pull with the wrench.` | `Lay a hot pipe from a Boiler to it, and wrench the pipe end at the boiler to Pull.` |
+| objective `pump_water` text (objectives.ts:125) | `... lay Iron Fluid Pipe to a Tank or a machine, and wrench the pump end so it pulls.` | `... lay Iron Fluid Pipe to a Tank or a machine, and wrench the pipe end at the pump to Pull.` (only the last clause changes) |
+
+The `desc` fields (techMachines.ts) and block descriptions (blocksTech.ts:50-56) already name the use and the number
+("Boils piped water into ten times as much steam ... up to 800 litres a second, taking 20 J of heat for every litre");
+they stay as they are. Item/block descriptions are paragraphs, not lines: "litres" spelled out is the existing voice there.
+
+#### 6.1.7 Structure tab (new strings, src/ui/screens/furnace/structureText.ts + structureTab.ts)
+
+| where | text |
+|---|---|
+| summary line, 0 | `Structure - no machines yet` |
+| summary line, 1 | `Structure - 1 machine: <Name>` |
+| summary line, n | `Structure - <n> machines: <Kind>[ xN], <Kind>...[, +k more]` (<= 60) |
+| section head | `Machines (<n>)` |
+| row main | `<Name>` / `<Name> x<N>` |
+| row note after tap | `Shown in the world` / `Shown in the world - <i> of <N>` |
+| row aria-label | `<Name> - show it in the world` / `<Name> x<N> - show them in the world one by one` |
+| empty hint | `Set a Boiler, Steam Engine or Thermopile against the furnace to put its heat to work.` |
+
+#### 6.1.8 Floor-related strings
+
+None change. The PLACE label stays `PLACE` (only its size changes).
+
+### 6.2 Where the player sees each change
+
+- **Crop pop:** a short puff of soil-and-leaf debris (8 particles, the block's own colours - the existing `debris(x, y, z,
+  voxel, count, scale)` in src/render/emitters.ts:77, called with count 8, scale 0.8), the `break` / `harvest` sound, the
+  seeds hop out like any drop. No toast (it is not news; it is physics).
+- **Engine:** the furnace screen's firebox "Heat drawn" figure (firebox.ts:226) moves with shaft load; the engine's
+  machine screen status line (E1); the goggles kinetic line of the shaft network shows its capacity (unchanged format)
+  now non-zero with no grid.
+- **Floors:** visible only as legibility; no new UI.
+- **Structure:** the new section in the STRUCTURE tab.
+- **Wording:** machine screens' status line and the crosshair target line.
+
+### 6.3 Phone layout
+
+- Hotbar: section 4.3. At 390 x 844 portrait Normal, two rows (242-302 px wide x 101-127 px tall), centred in the bottom
+  band; the touch cluster's portrait offsets are raised by the second row's height if they would overlap (assertion in
+  10.3). At 844 x 390 landscape: one row (844 > 445).
+- Structure rows: each row is a `button` of the existing `.hw-st__problem` style; min-height must be >= 44 px (`--hw-tap`).
+  If `.hw-st__problem` is shorter today, add `min-height: var(--hw-tap)` to the NEW `.hw-st__machine` class rather than
+  changing the shared class (structure.css). The list scrolls with the tab (no inner scroller).
+- The summary line wraps at 390 px if needed (it is a screen line in a tab, not the HUD); the 60-character limit keeps it
+  to two lines at the tab's font.
+
+### 6.4 Sounds (T9)
+
+No new `SfxName`; `sfx.test.ts` count unchanged.
+
+| event | sound | volume tier |
+|---|---|---|
+| plant pops (sim) | `harvest` if ripe, else `break` (positioned at the block) | normal (1, the request default) |
+| structure row tap | `ui_click` | small (default of UI sounds) |
+| engine starts taking shaft load | none (machines make sound only when their state changes: the engine's active bit does not change) | - |
+
+### 6.5 Particles
+
+`plant:popped` -> `Emitters.debris(x, y, z, voxel, 8, 0.8)` (18 for `block:broken` today). Under the 24-per-emitter cap
+(T9 rule 4). A field of 48 popping in one tick = 6 emitters' worth over 1-2 ticks; the existing particle pool handles a
+TNT-sized burst already.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save
+
+### 7.1 Type sketches
+
+```ts
+// src/sim/plantSupport.ts  (NEW)
+export const PLANT_POPS_PER_TICK = 64;
+export class PlantSupport {
+  private readonly keys = new Set<string>();
+  /** Remembers a cell whose plant may have lost its footing; checked on the next flush. */
+  queue(x: number, y: number, z: number): void;
+  get size(): number;
+  /**
+   * Checks up to `max` queued cells (insertion order) and calls `pop` for each one in a loaded chunk; every checked cell
+   * leaves the queue whatever `pop` returns. Returns how many popped.
+   */
+  flush(world: IWorld, pop: (x: number, y: number, z: number) => boolean, max?: number): number;
+  clear(): void;
+}
+
+// src/game/farming.ts  (NEW export, next to isUnsupported)
+/**
+ * Pops the plant at x,y,z if it no longer stands on what its `placeOn` needs: sets air (with `source`), drops
+ * `rollDrops(def, rng)` through `drop` at the block centre, emits sfx harvest/break and, for source 'sim', 'plant:popped'.
+ * Returns the popped voxel, or null when it was supported (nothing changes).
+ */
+export function popUnsupportedAt(
+  world: IWorld, bus: GameBus, x: number, y: number, z: number, rng: () => number,
+  drop: (stacks: ItemAmount[], at: { x: number; y: number; z: number }) => void,
+  source: 'player' | 'sim',
+): number | null;
+
+// src/core/gameEvents.ts  (NEW event, appended)
+'plant:popped': { x: number; y: number; z: number; voxel: number };
+
+// src/sim/crops.ts  (NEW member)
+class CropField { onBareSoil: ((x: number, y: number, z: number) => void) | null = null; }
+
+// src/sim/entities.ts  (NEW optional / runtime members)
+interface SimContext { shaftUseW?: ((x: number, y: number, z: number) => number) | null }
+interface SimNode { shaftW: number }          // runtime only, 0 in the node factory (entities.ts ~193)
+
+// src/sim/gridViews.ts
+interface MachineView { /* existing */ shaftW: number }   // node.shaftW, 0 for non-engines
+
+// src/workshop/workshop.ts  (NEW)
+class Workshop {
+  /** Watts a generator part's shaft network uses from it now (its share of the used stress / suPerW); 0 when stalled. */
+  generatorUseW(x: number, y: number, z: number): number;
+}
+
+// src/sim/hearthView.ts  (NEW)
+export interface AttachedMachine { x: number; y: number; z: number; block: string; name: string }
+interface StructureView { attached?: AttachedMachine[] }
+
+// src/ui/screens/furnace/structureText.ts  (NEW exports)
+export interface MachineGroup { name: string; block: string; at: Array<[number, number, number]> }
+export function machineGroups(list: readonly AttachedMachine[], from: { x: number; y: number; z: number }): MachineGroup[];
+export function machinesLine(list: readonly AttachedMachine[], max?: number /* 60 */): string;
+
+// src/sim/fluidMachines.ts  (NEW exports; fmtL removed)
+export function litresText(litres: number): string;
+export const WRENCH_PULL = (machine: string): string => `wrench the pipe end at the ${machine} to Pull`;
+```
+
+`popUnsupportedAt` returns the voxel (a number) rather than a boolean so the Interaction caller can emit `block:broken`
+with it; the Simulation caller treats non-null as "popped". (`PlantSupport.flush`'s `pop` callback returns boolean:
+`(x, y, z) => popUnsupportedAt(...) !== null`.)
+
+### 7.2 Saved fields
+
+None. `PlantSupport` is runtime; `SimNode.shaftW` is runtime; `StructureView.attached` is a view. No `world.persist` key,
+no `PlayerSnapshot` field, no `SAVE_VERSION` change (T10 rule 3).
+
+### 7.3 Old saves
+
+- A save with floating crops: on load `resync` -> `CropField.track` (`DIRTY_ALL`) -> first `refresh` finds `soil` false ->
+  `onBareSoil` queues -> next tick they pop and drop. The player who reloads finds seeds/wheat lying where the floating
+  crops were (ground items despawn after `DESPAWN_S` 300 s - long enough to notice and pick up). A test covers this
+  (9.1, "an old save's floating crop pops once its chunk is seen").
+- Saves with a steam engine: no stored state is read differently; the shaft simply starts turning when it should.
+
+---------------------------------------------------------------------------------------------------------------------------

@@ -125,8 +125,8 @@ the ladle to the alloy pot it pours from. Coordinator: update the T4 row to "cla
 - `pourCrucible(ctx, e, slot, heldKey, working)` (l.164): the only pour. Refusals quoted in `docs/api/casting.md`. It
   emits `cast:poured { ..., at: 'furnace' }`, `item:made`, **sfx `'pour'`** (l.200) and `flagOnce(FLAG_FIRST_POUR)`.
   BUG to fix here: `'pour'` is brewing's water sound; `src/audio/sfxHand.ts:59` defines `cast_pour` and
-  `gameEvents.ts:147` documents it as "Molten metal poured into a mould ... (not the water 'pour' of brewing)". Both pours
-  (l.119 loadPot keeps `'pour'`? no - ingots into a pot are metal too) switch to `cast_pour`.
+  `gameEvents.ts:147` documents it as "Molten metal poured into a mould ... (not the water 'pour' of brewing)". Both metal
+  sounds switch to `cast_pour`: the mould pour (l.200) and `loadPot` (l.119, cold ingots dropped into a hot pot are metal too).
 - `wornestMould(slots, key)` (l.145, private): the most worn stack of a mould first. The bench reuses the rule (export it).
 - `pourOptions(melt, moltenS, pack)` (l.216) feeds the SMELT tab buttons.
 
@@ -254,7 +254,7 @@ A cast slot is only ever set while its mould slot is set. Constants: `BENCH_MOUL
 2. `heldKey === 'clay_ladle'` -> refuse "Fill the ladle at a furnace first - Use it on molten metal".
 3. `heldKey` is a fired mould (`mouldOf(heldKey)`) and `forceReturn` is false -> **set the mould**: the first null of
    `slots[0..3]` gets the HELD stack (count 1, durability travels; `player.consumeHeld(1)` returns it with its durability -
-   check `consumeHeld` keeps durability; if it does not, use `inventory.removeAt(selectedSlot, 1)`). Sfx `scrape` pitch 1.3.
+   it is `inventory.removeAt(selectedSlot, count)`, playerState.ts:233). Sfx `scrape` pitch 1.3.
    No room: refuse "The bench holds 4 moulds - take one out first".
 4. Any casts waiting (some `slots[4..7]` set) and `forceReturn` false -> **take the casts**: all of them into the pack, in
    socket order, as far as they fit (`inventory.space(item) >= 1` each). Each cast taken emits
@@ -306,9 +306,9 @@ or onto a Stone Anvil" and return `'refused'` (do not open the screen; the playe
 2. Run `fillBench(e, ingot, units)` (shared with Pour to bench, 4.5): for `i = 0..3`: mould `m = slots[i]`, skip if null or
    `slots[4+i]` set; `cast = castOf(m.item, ingot)`; skip if null or `cast.units > left`; set `slots[4+i] = { item:
    cast.item, count: 1 }`, `left -= cast.units`, wear the mould by 1 (`durability = (m.durability ?? MOULD_POURS) - 1`;
-   at 0 the mould breaks: `slots[i] = null`, the CAST STAYS in `slots[4+i]`? No - a cast needs a mould under it: when the
-   mould breaks on this pour, the cast goes straight to the pack (or drops at the bench if full) and `tool:broke { item }`
-   is emitted, toast "The <Mould> cracked after its last pour"). Returns `{ casts: Array<{ mould, item, units }>, used }`.
+   at 0 the mould breaks: `slots[i] = null` and, because a cast never sits in a socket without its mould, that cast goes
+   straight to the pack (dropped at the bench with `player.drop(..., at)` when the pack is full); `tool:broke { item }`
+   is emitted and the toast "The Hoe Mould cracked after its last pour" (warn) names it. It is still counted in `casts`). Returns `{ casts: Array<{ mould, item, units }>, used }`.
 3. `casts.length === 0` -> refuse, ladle unchanged: no moulds -> "Set a fired mould on the bench first"; moulds but all
    holding casts -> "Take the casts out first"; moulds that do not take it -> `` `No mould on the bench takes ${name(ingot)}` ``
    ("No mould on the bench takes Tin Ingot").
@@ -329,8 +329,8 @@ or onto a Stone Anvil" and return `'refused'` (do not open the screen; the playe
 3. Input loaded with another item -> `` `Busy with ${itemName(input)}` ``. Input of the same ingot with less than 4 room
    (`stackLimit - count < 4`) -> "The Stone Anvil is full".
 4. Put the 4 ingots into `slots[0]` (add to an existing same-ingot stack), set `e.hotS = Math.max(e.hotS, hotS)`
-   where `hotS = Math.min(HOT_WORK_WINDOW_S, Math.ceil(ladleSecondsLeft))`, `sync(node)`, emit `hand:stroke`? No -
-   emit `ladle:poured { x, y, z, metal, units: 4, to: 'anvil' }` and sfx `cast_pour` pitch 1.2. The ladle becomes a
+   where `hotS = Math.min(HOT_WORK_WINDOW_S, Math.ceil(ladleSecondsLeft))`, `sync(node)`, and emit (no `hand:stroke`: nothing was struck)
+   `ladle:poured { x, y, z, metal, units: 4, to: 'anvil' }` and sfx `cast_pour` pitch 1.2. The ladle becomes a
    `clay_ladle` in place. Return `{ ok: true, did: 'insert' }`.
 5. The anvil then works as today: the loaded count picks the job (4 copper -> `copper_plate` first, twice; wire needs a
    single ingot loaded from the pack), every stroke inside the window counts double (`STROKE_HOT_MULT`), the label ends
@@ -359,14 +359,8 @@ or onto a Stone Anvil" and return `'refused'` (do not open the screen; the playe
 
 `coolStack(stack, dt)` (drink.ts:74) becomes:
 
-```ts
-export interface Cooled { stack: NonNullable<Slot>; returns: string | null }
-/** null: does not cool; same stack: ticked; otherwise what replaces it, and the container to hand back. */
-export function coolStack(stack: NonNullable<Slot>, dt: number): NonNullable<Slot> | Cooled | null
-```
-
-Keep the return type simple for the builder: keep `coolStack` returning `NonNullable<Slot> | null` as today (existing tests
-use it) and add `cooledReturn(item: string): string | null` (`itemOrNull(item)?.cools?.returns ?? null`). The replacement
+Keep its signature (`(stack, dt) => NonNullable<Slot> | null`; existing tests call it) and add one pure helper
+`cooledReturn(item: string): string | null` (`itemOrNull(item)?.cools?.returns ?? null`). The replacement
 stack is `makeStack(cools.to, stack.count * (cools.count ?? 1))` - for a ladle 4 blooms, for a pail 1 water pail
 (unchanged).
 
@@ -446,6 +440,9 @@ metal still in the pool. Tests sum `units` before and after every action (9.2). 
 - **Moving structures** (pistons/bearings, Unit 13): a bench is a machine entity; whatever moves crates' entities moves
   the bench's. This unit adds no position-keyed map, so nothing needs `Workshop.relocate`. If a contraption carries a
   bench out of `CASTING_BENCH_RANGE`, Pour to bench simply stops listing it.
+- **Pipes, arms, golems:** the bench's 8 slots must NOT become an item endpoint (a pipe pushing ingots into a mould socket
+  would break the layout). `Simulation.itemEndpoint` returns null for `casting_bench` nodes, exactly as it does for
+  `hearth_part` (`simulation.ts:637`); a test asserts it (9.2 #17). Automation of the bench is out of scope (13).
 - **Two benches in range:** nearest first; the button pours into all of them in order (4.5).
 - **Bench placed next to the furnace, anvil next to the bench:** a bench pour emits `cast:poured` at the bench, so the anvil
   within 6 blocks of the bench gets the 20 s window - the intended workshop layout ("pour, then hammer the ingots").
@@ -548,8 +545,8 @@ component, `size: 'md'`, `block: true` (full width, >= 44 px tall - the existing
 | bench | "Pour to bench" | "Casting Bench - 2 moulds take Bronze" / "2 benches - 5 moulds take Bronze" / "No mould on the bench takes Copper" / "Bench is full - take the casts" | a bench within 4 blocks has at least one free mould that takes the metal and the pool covers its units |
 
 The bench button is only SHOWN when at least one bench is within range (a player with no bench never sees it). The ladle
-button is shown whenever the player has ever owned... no: shown whenever there is molten metal (it teaches the ladle),
-disabled with the sub "No Clay Ladle in your pack".
+button is shown whenever the crucible is molten (it teaches the ladle exists), disabled with the sub "No Clay Ladle in your
+pack" when there is none.
 
 Data plumbing (DOM-free): `castView(c, pack, benches?: BenchNear[])` - NEW optional third argument; `PourChoice.key`
 gains two reserved values `'@ladle'` and `'@bench'` (a mould or ingot key never starts with `@`). `smeltTab` passes the
@@ -722,7 +719,7 @@ No `SAVE_VERSION` bump, no `PlayerSnapshot` field (T10 rule 3).
    benchView(x, y, z): BenchView | null
    benchesNear(x, y, z, range): MachineEntity[]      // scans this.nodes.byKey values of kind 'casting_bench'
    ```
-   `handView` falls back to the bench (6.1). `resync` and `onBlockChanged` call `upgradeBench` for `casting_bench`
+   `handView` falls back to the bench (6.1). `itemEndpoint` returns null for `casting_bench` (5.3). `resync` and `onBlockChanged` call `upgradeBench` for `casting_bench`
    entities before `sanitizeEntity`. `furnaceView` fills `benches` when a crucible is molten. The `cast:poured` listener
    stays as is. The held ladle's seconds: `pourLadle` reads `player.heldStack()` (must be a full ladle, else refuse
    "Hold a full ladle to pour"), its `durability ?? MOLTEN_WINDOW_S`.
@@ -739,8 +736,9 @@ No `SAVE_VERSION` bump, no `PlayerSnapshot` field (T10 rule 3).
    5. mould / pot ingots on a furnace (unchanged).
    Outcomes: `'poured'` for fills and pours, `'worked'` for set/take, `'refused'` for refusals (advise + `stopMining`).
 10. **UI** - `src/ui/screens/furnace/castText.ts` `castView(c, pack, benches?)` with the two choices (6.3), DOM-free;
-    `smeltTab.ts` passes `benches` and routes `'@ladle'` / `'@bench'`; the furnace screen controller (where `pour` is
-    wired to `sim.pourCrucible`) adds the two routes. `src/ui/menus/howto.ts` texts.
+    `smeltTab.ts` passes `benches` and routes `'@ladle'` / `'@bench'`; `src/ui/screens/furnace/furnaceScreen.ts:69` (where
+    `pour` calls `sim.pourCrucible`) adds the two routes, and `src/ui/screens/furnace/simApi.ts:18` (the screen's sim
+    interface) gains `fillLadle(x, y, z, slot): ActionResult` and `pourToBench(x, y, z, slot): ActionResult`. `src/ui/menus/howto.ts` texts.
 11. **Events + side goal** - `gameEvents.ts` (7.3); `src/content/objectivesHand.ts` `export const HAND_SIDE_GOALS:
     ObjectiveSpec[] = [{ id: 'pour_bench', title: 'Fill a casting bench', text: 'Set fired moulds on a Casting Bench,
     then pour a full Clay Ladle over it - or press Pour to bench at a furnace within 4 blocks.', condition: flag
@@ -754,3 +752,259 @@ Helpers to reuse, not rewrite: `castOf`, `mouldOf`, `castMetalOfIngot`, `makeSta
 `refuse`/`OK`, `posKey`, `stackMax`, `itemName`, `advise`, `ctx.flagOnce`, `ctx.touch`, `spills.release`.
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest; exact files, names, assertions)
+
+Fixtures: the sim kit used by `src/sim/casting.test.ts` / `src/sim/handWork.test.ts` (copy how they build a furnace with a
+molten pool: `e.crucibleMelt[0] = { item: 'bronze_ingot', count: 4 }; e.crucibleMoltenS[0] = 20`), `rig()` / `run()` from
+`src/game/brewBuffs.test.ts` for the player + Survival loop, `fakeWorld.ts` for ground items.
+
+### 9.1 `src/game/inventory.test.ts` (extend) and `src/game/brewBuffs.test.ts` (extend "the carried boiling pail")
+
+- `it('keeps a boiling pail\'s seconds through add, quickMove and load')`: `inv.add('boiling_pail', 1, 37.5)` ->
+  `inv.get(0)?.durability === 37.5`; `quickMove(inv, 0, other, 0)` (other built `{ holdsHot: true }`) -> 37.5;
+  `Inventory.fromJSON([{ item: 'boiling_pail', count: 1, durability: 37.5 }], { holdsHot: true }).get(0)?.durability === 37.5`;
+  `fullDurability('boiling_pail') === BOILING_KEEPS_S`; a fresh `inv.add('boiling_pail', 1)` gets `BOILING_KEEPS_S`.
+- `it('refuses hot items in containers that do not hold heat')`: `new Inventory(4).add('boiling_pail', 1, 50) === 1`
+  (nothing fit); `new Inventory(4).accepts('ladle_bronze', 0) === false`; `transfer(pack, i, crate, 0) === 0`; a cold
+  `water_pail` is accepted.
+- `it('shows a heat bar for a boiling pail')`: `slotView({ item: 'boiling_pail', count: 1, durability: 45 })!.durability`
+  `toBeCloseTo(0.5)` (file `src/ui/screens/inventory/slotViews.test.ts` if it exists, else in inventory.test.ts importing
+  `slotView`).
+- `it('a picked-up pail keeps its seconds')`: player `give('boiling_pail', 1, 12)` -> pack stack durability 12; then
+  `ground.spawn('boiling_pail', 1, x, y, z, { durability: 12 })`, walk the player onto it, tick -> pack durability within
+  12 +- 0.5 (minus the ticks).
+- Existing "the carried boiling pail" tests stay green unchanged.
+
+### 9.2 `src/sim/castingBench.test.ts` (NEW)
+
+1. `fills a clay ladle from a pool of 4 and leaves the pool empty`: pack has `clay_ladle`; pool 4 bronze, 17 s ->
+   `sim.fillLadle(fx, fy, fz, 0).ok`; pack slot holds `{ item: 'ladle_bronze', count: 1, durability: 17 }`;
+   `crucibleMelt[0] === null`; one `ladle:filled` event with `units: 4, seconds: 17`.
+2. `a ladle takes exactly 4 and leaves the rest molten`: pool 6 -> pool 2 afterwards, `crucibleMoltenS[0]` unchanged.
+3. `refuses a pool of 3 with the count in the sentence`: reason `'A ladle takes 4 molten Bronze Ingot - there is 3'`.
+4. `refuses without a clay ladle`: `'You have no Clay Ladle'`; `refuses a cold pool`: blooms in out ->
+   `'It has gone cold - smelt the bloom again'`.
+5. `a mould set on the bench keeps its pours`: hold `pickaxe_mould` durability 7 -> `benchUse(..., 'pickaxe_mould',
+   false)` -> `e.slots[0]` `{ item: 'pickaxe_mould', count: 1, durability: 7 }`, hand empty; fifth mould refused
+   `'The bench holds 4 moulds - take one out first'`.
+6. `a ladle of bronze fills moulds in socket order and returns the clay ladle`: sockets [pickaxe, ingot, maul, shovel];
+   pour `ladle_bronze` -> casts: socket 1 `bronze_pickaxe_head` (3 units), socket 2 `bronze_ingot` (1), maul skipped
+   (4 > 0 left), shovel skipped; held slot is `clay_ladle`; no blooms; pickaxe mould durability 39, ingot mould 39;
+   3 + 1 = 4 units accounted; events: 2 `cast:poured` with `at: 'bench'`, 1 `bench:filled { casts: 2, from: 'ladle' }`,
+   flags `first_pour` and `filled_bench`.
+7. `leftover metal sets into blooms in the pack`: sockets [pickaxe] only -> 1 `bronze_bloom` in pack, toast text
+   `'1 Bronze left in the ladle set into a bloom'`. Conservation: casts' units + blooms = 4.
+8. `refuses a ladle no mould takes and keeps it`: sockets [pickaxe], `ladle_copper` -> `'No mould on the bench takes
+   Copper Ingot'`; held is still `ladle_copper` with the same durability.
+9. `takes every cast with an empty hand and emits item:made at the take`: after test 6, `benchUse(null, false)` -> pack
+   has 1 `bronze_pickaxe_head` + 1 `bronze_ingot`; `slots[4..7]` all null; two `item:made` with
+   `station: 'casting_bench'`, `recipeId: 'cast:pickaxe_mould'` / `'cast:ingot_mould'`.
+10. `Shift takes the last mould back unless its cast waits`: refusal `'Take the casts out first'`, then after taking casts
+    the shovel mould comes back with its durability.
+11. `a mould on its last pour cracks and its cast still reaches the pack`: ingot mould durability 1 -> after the pour
+    socket empty, pack +1 `bronze_ingot`, `tool:broke { item: 'ingot_mould' }`.
+12. `pour to bench fills a bench within 4 blocks and leaves the rest in the pool`: bench at distance 3 with [hoe]; pool 5
+    bronze -> hoe head cast, pool 3, window unchanged; bench at distance 5 is ignored; none in range ->
+    `'No Casting Bench within 4 blocks of the furnace'`.
+13. `pour to bench serves the nearest bench first`: benches at 2 and 3 each with [maul]; pool 4 -> only the nearer one
+    has the cast.
+14. `a bench pour opens the hot window on an anvil next to the bench`: anvil 2 blocks from the bench and 10 from the
+    furnace; after a ladle pour `handView(anvil).hot === true`.
+15. `benchLabel` (pure): `([null,null,null,null],[...]) -> 'Casting Bench - empty, set a fired mould in it'`;
+    `(['pickaxe_mould','ingot_mould','axe_mould',null], all null) -> 'Casting Bench - 3 moulds set, Pickaxe Mould ready to pour'`;
+    one mould -> `'1 mould set'`; casts in 2 of 3 -> `'Casting Bench - 2 casts to take, Axe Mould ready to pour'`;
+    four casts -> `'Casting Bench - 4 casts to take'`. Every label `length <= 60`.
+16. `a broken bench spills its moulds with their pours and its casts`: remove the block -> ground items include the moulds
+    with `durability` and the casts.
+17. `a casting bench is not an item endpoint`: `sim.itemEndpointAt?.(bx, by, bz)` (or whatever the existing endpoint test
+    uses for `hearth_part`) is null.
+
+### 9.3 `src/sim/handWork.test.ts` (extend)
+
+- `a ladle poured on the anvil loads four hot ingots`: `pourHot(ax, ay, az, 'copper_ingot', 4, 14)` -> `ok`, `did:
+  'insert'`, `slots[0]` 4 copper, `hotS === 14`; the next stroke with bare hands gains 2; a hammer stroke also gains 2
+  (never 4).
+- `refuses tin on the anvil`: `'The Stone Anvil cannot work Tin Ingot'`; `refuses while the output waits`.
+- `the hot window never shortens`: `hotS` 18 from a furnace pour, then a ladle with 5 s -> still 18.
+
+### 9.4 Save tests (`src/sim/castingBench.test.ts`)
+
+- `round-trips a bench with moulds and casts`: serialise the world entity, `resync()`, same 8 slots, no repair toast.
+- `an old bench with no slots loads with 8 empty slots and no repair toast` (T10 rule 1): stored entity `{ kind:
+  'casting_bench', ..., slots: [] }` -> after `resync()` `slots.length === 8`, toasts contain no "repaired".
+- `a ladle in the pack keeps its seconds through save and load` (in `src/save/` document round-trip test or inventory
+  snapshot): `{ item: 'ladle_bronze', count: 1, durability: 9.5 }` -> 9.5.
+
+### 9.5 Cooling (`src/game/brewBuffs.test.ts` -> new `describe('the carried ladle')`, or `src/game/ladle.test.ts` NEW)
+
+- `a ladle cools into four blooms and hands the clay ladle back`: pack `{ ladle_bronze, durability: 2 }`, `run(3)` -> that
+  slot `{ item: 'bronze_bloom', count: 4 }`, pack has 1 `clay_ladle`, toast `'The Ladle of Bronze set: 4 Bronze Bloom and
+  the Clay Ladle back'`, one `ladle:cooled { metal: 'bronze', units: 4 }`.
+- `with a full pack the clay ladle drops at the feet`: fill every other slot; after cooling a ground item `clay_ladle`
+  exists.
+- `a ladle on the ground cools too`: `ground.spawn('ladle_copper', 1, ..., { durability: 1 })`, tick 2 s -> ground has 4
+  `copper_bloom` and 1 `clay_ladle`, no `ladle_copper`.
+- `a boiling pail on the ground cools to a water pail` (closes the freeze trick): durability 1, tick 2 -> `water_pail`,
+  no extra item (no `returns`).
+
+### 9.6 Content / roster
+
+- `src/content/specRosterHand.ts`: items += `unfired_ladle`, `clay_ladle`, `ladle_copper`, `ladle_tin`, `ladle_bronze`;
+  recipes += `'unfired_ladle: 1 unfired_ladle <- 1 unfired_alloy_pot (clay_table, 4 strokes)'` and the firing line in the
+  roster's existing format (copy the `ingot_mould` line's format exactly); machine `casting_bench` gains `slots: 8`.
+- `src/content/handwork.test.ts`: the "clay pieces cost distinct clay" test stays green (the ladle is not a clay piece);
+  NEW `it('has one ladle per cast metal that cools into its bloom and returns the clay ladle')`: for each `CAST_METALS`
+  row, `item(\`ladle_${m.key}\`).cools` equals `{ to: m.bloom, afterS: MOLTEN_WINDOW_S, count: LADLE_UNITS, returns:
+  'clay_ladle' }` and stack 1.
+- Texture readability test covers the 5 new icons automatically (check it iterates every `item_` icon; if it uses a list,
+  add them).
+- `content.test.ts` progression completes; `gates.test.ts` unchanged.
+- `src/ui/screens/furnace/castText.test.ts` (extend): with a pool of 4 and a clay ladle in the pack the choices end with
+  `{ key: '@ladle', label: 'Take with the ladle', sub: 'Ladle of Bronze - 4 of 4 molten', enabled: true }`; pool 3 ->
+  sub `'Needs 4 molten - there is 3'`, disabled; no ladle -> `'No Clay Ladle in your pack'`; `benches` undefined -> no
+  `'@bench'` choice; one bench with `freeFor: { bronze: 2 }` -> `{ key: '@bench', label: 'Pour to bench', sub: 'Casting
+  Bench - 2 moulds take Bronze', enabled: true }`.
+- `src/player/handTools.test.ts` (if present; else the player tests that cover `HandTools`): a full ladle aimed at a
+  bench calls `pourLadle`; at an anvil calls `pourLadle` (not `stroke`); at a furnace returns `'refused'` with the
+  sentence; a clay ladle at a furnace with nothing molten returns `null`.
+- `src/audio/sfx.test.ts`: count unchanged (no new names).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E - `scripts/lib/e2eHandwork.mjs` (steps run by `scripts/e2e-handwork.mjs`)
+
+Append three steps after "a fired mould held at a furnace with molten bronze pours a cast head without the screen"
+(reuse its furnace cell `c` and the helpers `stand`, `tapUntil`, `takeOut`, `bareHand`, `label`, `ticks`, `d.shot`).
+`window.__hw` only for setup and reading; every action is a real tap (`d.use()` via `tapUntil` / `tapStep`).
+
+```js
+await step('a clay ladle takes molten bronze at the furnace and fills two moulds on a casting bench', async () => {
+  const bench = { x: c.x + 2, y: c.y, z: c.z };               // 2 blocks from the furnace
+  await d.hw((a) => window.__hw.setVoxel(a.x, a.y, a.z, 'casting_bench', 2), bench);
+  await d.settle(400);
+  await d.hw((a) => { const e = window.__hw.app.game.state.sim.furnaceAt(a.x, a.y, a.z);
+    e.crucibleMelt[0] = { item: 'bronze_ingot', count: 4 }; e.crucibleMoltenS[0] = 20; }, c);
+  await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('pickaxe_mould', 1); window.__hw.give('ingot_mould', 1);
+    window.__hw.give('clay_ladle', 1); window.__hw.selectSlot(0); });
+  await stand(bench);
+  await tapUntil(d, async () => (await label(d)).includes('1 mould set'));          // pickaxe mould set
+  await d.hw(() => window.__hw.selectSlot(1));                                       // the ingot mould (give fills slots 0,1,2 in order)
+  await tapUntil(d, async () => (await label(d)).includes('2 moulds set'));
+  assert((await label(d)) === 'Casting Bench - 2 moulds set, Pickaxe Mould ready to pour', `line: ${await label(d)}`);
+  await d.shot('hand-09-bench-set');
+  await d.hw(() => window.__hw.selectSlot(2));                                       // the clay ladle
+  await stand(c);
+  await tapUntil(d, async () => (await d.inventory()).ladle_bronze === 1);
+  assert(!(await d.state()).ui.uiOpen, 'the furnace screen opened instead of filling the ladle');
+  await stand(bench);
+  await tapUntil(d, async () => (await d.inventory()).clay_ladle === 1);
+  assert((await label(d)) === 'Casting Bench - 2 casts to take', `line after pour: ${await label(d)}`);
+  await d.shot('hand-10-bench-poured');
+  await takeOut();
+  const inv = await d.inventory();
+  assert(inv.bronze_pickaxe_head === 1 && inv.bronze_ingot === 1, `casts not taken: ${JSON.stringify(inv)}`);
+});
+
+await step('a ladle poured on a far stone anvil loads hot ingots: strokes count double', async () => {
+  const anvil = cell(STATIONS.indexOf('stone_anvil'));          // the yard anvil, > 6 blocks from the furnace
+  await d.hw((a) => { const e = window.__hw.app.game.state.sim.furnaceAt(a.x, a.y, a.z);
+    e.crucibleMelt[0] = { item: 'copper_ingot', count: 4 }; e.crucibleMoltenS[0] = 20; }, c);
+  await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('clay_ladle', 1); window.__hw.selectSlot(0); });
+  await stand(c);
+  await tapUntil(d, async () => (await d.inventory()).ladle_copper === 1);
+  await stand(anvil);
+  await tapUntil(d, async () => (await label(d)).endsWith('(hot)'));
+  await d.shot('hand-11-anvil-hot');
+  await bareHand();
+  await tapStep(d);                                              // one bare-hand stroke
+  assert((await label(d)).includes('2/8 strokes'), `hot stroke did not count double: ${await label(d)}`);
+});
+
+await step('a ladle left too long sets into blooms and the clay ladle comes back', async () => {
+  await d.hw(() => { window.__hw.clearInventory(); window.__hw.give('ladle_tin', 1); });
+  await ticks(21 * 20);                                          // 21 s at the sim's 20 ticks/s (match __hw.tick's unit)
+  const inv = await d.inventory();
+  assert(inv.tin_bloom === 4 && inv.clay_ladle === 1 && !inv.ladle_tin, `ladle did not cool: ${JSON.stringify(inv)}`);
+});
+```
+
+Notes for the builder: `window.__hw.give(key, n)` must hand a ladle with its full seconds (it calls `inventory.add`, which
+now gives `afterS`). If `give` puts items into fixed slots, select by item instead of slot number (add a tiny
+`selectItem(key)` to `__hw` if none exists - it is a test hook, allowed). The anvil cell: use whichever index the yard's
+`STATIONS` array gives `stone_anvil`; if the yard anvil is within 6 blocks of `c`, move the bench/furnace step's cells,
+not the anvil. Check the tick unit of `window.__hw.tick(n)` (the existing `ticks` helper) before using `21 * 20`.
+
+Run: `node scripts/e2e-handwork.mjs --device=desktop` (no `HW_GPU`), then `--device=phonePortrait` (SYSTEMS 6c: UI
+changed). Screenshots land in `test-results/e2e-handwork/<device>-hand-09-bench-set.png`, `-hand-10-bench-poured.png`,
+`-hand-11-anvil-hot.png`. Take the `.run-lock` mutex before building (WHATS_LEFT 7).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/casting.md`: rewrite "Not built" into "Ladle and Casting Bench" (fill, pour to bench, ladle pours, cooling with
+  returns, refusals list of 5.4, events 7.3); sound is `cast_pour`.
+- `docs/api/handwork.md`: "Hot work" paragraph gains `pourHot` and "a bench pour opens the window around the bench".
+- `docs/api/handwork-content.md` section 10 ("As built"): Casting Bench built (slots layout 8), ladle items and recipes,
+  `CoolsSpec.returns/count`, and strike "NOT BUILT" in section 4.
+- `docs/api/handwork-front.md`: Use priority (ladle and bench lines), render (bench moulds and glow), remove the "not built"
+  known gap.
+- `docs/api/furnace-screens.md`: the SMELT tab's two new buttons.
+- `docs/api/brewing.md` (or wherever the boiling pail is documented): seconds now survive every path; hot items refuse
+  containers; ground cooling.
+- Do NOT edit `docs/WHATS_LEFT.md` or `docs/build/SYSTEMS.md` (coordinator).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] `npx tsc --noEmit` clean; `npx vitest run` all green, including every test named in section 9.
+- [ ] `fullDurability('boiling_pail') === 90`; a boiling pail keeps its seconds through give, ground pickup, quick-move,
+      save/load; its heat bar draws.
+- [ ] Hot items (`cools`) refuse every non-pack inventory; they cool in the pack and on the ground.
+- [ ] Clay table: 1 Unfired Alloy Pot -> Unfired Ladle in 4 strokes; fired at 500 C, 8 s -> Clay Ladle.
+- [ ] Use a Clay Ladle on a furnace with >= 4 molten: `ladle_<metal>` in the same slot with the pool's seconds (<= 20).
+- [ ] Casting Bench: Use sets moulds (max 4), a ladle fills free matching moulds in socket order, leftovers become blooms,
+      empty-hand Use lifts casts, Shift/Place-Use takes the last mould back; the crosshair line follows 6.1 exactly.
+- [ ] "Pour to bench" appears in the SMELT tab only with a bench within 4 blocks, and pours the pool into it.
+- [ ] A ladle on a Stone Anvil anywhere loads 4 hot ingots with a window of the ladle's seconds; strokes count x2.
+- [ ] A cooled ladle gives 4 blooms and the Clay Ladle back (dropped if the pack is full).
+- [ ] Metal pours play `cast_pour`, never `pour`.
+- [ ] Side goal "Fill a casting bench" completes on the first bench fill (not in `OBJECTIVES`).
+- [ ] An old save with a bench loads with no repair toast; a bench broken spills moulds (with pours) and casts.
+- [ ] `node scripts/e2e-handwork.mjs --device=desktop` and `--device=phonePortrait` pass with the three new steps and
+      their screenshots.
+- [ ] Docs of section 11 updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- Pouring a ladle back into a crucible; partly filled ladles; ladles for iron and up (they never pool).
+- Burn damage from carrying molten metal (no new danger, SYSTEMS 1.1).
+- Bench automation: arms/deployers/golems setting moulds or taking casts (T6 `offer/take` on the bench). The bench's
+  slots could later be exposed through `itemEndpoint`; not now.
+- The `alloy_pot` BLOCK touching a furnace (casting.md DEVIATION stays).
+- A furnace broken with a molten pool (unchanged loss).
+- A held-ladle first-person model or carried light; a "Casting Bench" screen.
+- Six-age refactor: all items are `ageIndexOf('ember')`; nothing to move when W0 lands.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **SYSTEMS T4 row change (argued in 2.3):** `unfired_ladle` comes from 1 `unfired_alloy_pot` at the clay table, not
+   "2 clay" (2 clay is the drip cone; the clay table picks its job by clay count). Please edit the T4 row.
+2. **`CoolsSpec.count?` is a new optional member** (SYSTEMS 6.5 lists only `returns?`). Add it to the sketch.
+3. **Ladle seconds = the pool's seconds left (<= 20)**, not a fresh 20 - J3's "20 s and falling" holds for a fresh pool.
+4. **Ladle capacity is fixed at 4** (`LADLE_UNITS`) because stacks have no metadata (SYSTEMS 2, 6d). Pools under 4 cannot
+   be ladled; Pour to bench and moulds in hand still take any amount.
+5. **`Inventory.accepts` now refuses hot items except in the pack** (`holdsHot`). This touches every unit whose containers
+   use `Inventory` (crates, vaults, depots); it only affects items with `cools` (boiling pail/beaker/vial, ladles). Units 14
+   and 15 should know (a spout or vault never receives a boiling bucket).
+6. **Ground items now cool** (`GroundItems.tick`); Unit 14's electromagnet pulls metal ground items - a ladle is not
+   "metal" by its key rule (no `ingot/plate/...` in `ladle_bronze`), so no interaction.
+7. **Side goal** `pour_bench` uses flag `filled_bench` and lives in `HAND_SIDE_GOALS` (`objectivesHand.ts`); Unit 0's
+   `objectivesSide.ts` must concatenate it.
+8. **Sound fix** in `casting.ts` (`pour` -> `cast_pour`) is a pre-existing bug this unit fixes because it owns casting.

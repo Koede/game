@@ -287,12 +287,11 @@ bucket = 450/1450 = 0.31 > 0.3 -> the vessel shows the existing blocked word `"t
 Process card (NEW, appended to `PROCESS_CARDS`, after `ferment_wash`):
 
 ```ts
-card('ferment_sugar_wash', 'reaction_vessel', '10 sugar, 1 water_pail, 5 glass_beaker', '5 wash_beaker', '1 pail', 20, 170, 0, 'A/V'),
+card('ferment_sugar_wash', 'reaction_vessel', '10 sugar, 1 water_pail, 5 glass_beaker', '5 wash_beaker', '1 pail', 20, 170, ageIndexOf('ember'), 'A/V'),
 ```
 
 (5 beakers in, 5 wash beakers out: the card counts the empty beakers that carry the wash out, like `ferment_wash` counts 4 + the
-syrup beaker. `age` literal 0 matches the neighbouring rows of this file's `card()` helper signature; write `ageIndexOf('ember')`
-if the helper accepts it - it takes a plain number, so pass `ageIndexOf('ember')`.)
+syrup beaker. The `age` argument of `card()` is a plain number: pass `ageIndexOf('ember')`, not the literal 0 the older rows use.)
 
 A flask also takes sugar (`SOLIDS_INTO` includes `boiling_flask`): sugar dissolved into a flask of water makes syrup-like liquor
 when boiled down (water leaves, `sugars` stays) - this needs no new code (bp null components stay behind) and gives Unit 10 a way to
@@ -426,7 +425,7 @@ Crosshair (pine log, from `SapTools.label(x, y, z, heldItem)`; returns null when
 
 | situation | line |
 |---|---|
-| tapped, recovering | `"Pine Log - weeping, ready in 40 s"` (`formatCountdown`-style: seconds under 60 as `N s`, else `1.5 min`; reuse `formatCountdown` from `src/ui/hud/hudMath.ts` if its output matches the T8 grammar, else a local `secondsText`) |
+| tapped, recovering | `"Pine Log - weeping, ready in 40 s"` / `"Pine Log - weeping, ready in 1.5 min"`. Wait text from a NEW pure `waitText(s)` in `sapTools.ts`: under 60 s -> `Math.ceil(s / 10) * 10` + ` s` (the same rounding as the existing refusal, so line and refusal agree); 60 s and over -> `Math.ceil(s / 30) / 2` + ` min` (`1.5 min`, `2 min`). Do NOT use `formatCountdown` (`src/ui/hud/hudMath.ts`): it prints `2 m`, not the T8 `min`. |
 | tapped, bead full (lingering) | `"Pine Log - a full bead, ready to tap"` |
 | not tapped, holding `glass_beaker` or `glass_vial` | `"Pine Log - Use the beaker to catch its sap"` |
 | not tapped, other item | null (plain `"Pine Log"`) |
@@ -490,7 +489,8 @@ As 4.1. Visual vocabulary T9: amber = working (drips running, bead growing), the
 green bead would look wrong on a tree; the "done" signal is the glint and the stop of the drips - document this exception in
 `docs/api/sugar.md`). No red state (the tap has no blocked state).
 
-Sweetening a cup: reuse `BrewFx` 'cup' steam? No new effect beyond the sound and toast: the cup's steam continues as before.
+Sweetening a cup adds no particle effect: the `cup_stir` sound, the toast and the renamed crosshair line are the feedback; the cup's
+existing `BrewFx` steam carries on unchanged.
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -510,8 +510,9 @@ export interface SapSnapshot {
 
 export class SapTools {
   // existing: update, waitS, use
-  /** NEW: the beads to draw, nearest first is the renderer's job; allocation-free: fills and returns a reused array. */
-  beads(): readonly SapBead[];
+  /** NEW: fills caller-owned `out` (preallocated SapBead objects) with every live bead; returns the count. Allocation-free.
+   *  Nearest-first selection and the 24 cap are the renderer's job. */
+  beads(out: SapBead[]): number;
   /** NEW: crosshair line for a sap log, or null. */
   label(x: number, y: number, z: number, held: string | null): string | null;
   /** NEW */ toJSON(): SapSnapshot;
@@ -523,10 +524,8 @@ export class SapTools {
 export interface DrinkSpec { /* existing */ sugarS?: number; sweetOf?: string }
 ```
 
-`beads()` keeps a private `SapBead[]` pool (grown up to `MAX_TAPS`, objects reused) and a `beadCount`; returns
-`this.pool` sliced by a length field - to avoid `slice`, return `{ list, count }` or make the renderer read `beadCount`. Choose:
-`beads(out: SapBead[]): number` - fills `out` (caller-owned, preallocated by `SapFx` with `MAX_TAPS` objects) and returns the count.
-That is the signature to build.
+`beads(out)` writes into `out[0..n-1]` (the renderer preallocates `MAX_TAPS` objects once) and returns `n`; it never allocates.
+`fill = clamp((clock - at) / TAP_COOLDOWN_S, 0, 1)`.
 
 The `SapToolsHost` gains nothing; `SapTools` gets the bus from the host already (`host.bus`) for `'block:changed'`, `'flag'` and
 `'sfx'`. Block key from voxel: use the registry helper `blockOf(voxelId)` as `createRayHit` does (`blockOf(0)`); check the exact name
@@ -570,7 +569,7 @@ registry and the six new keys are registered. Vessels need no save change: `suga
    `CHEM_SOLIDS`, `SOLIDS_INTO`.
 2. **Content.** `src/content/itemsSugar.ts`: extend `SUGAR_RUSH_S`; append `toffee`, `berry_tart`, `syrup_bread` to `SUGAR_ITEMS`
    with `age: ageIndexOf('ember')` (import from `../magic/ageMap`; check content files may import it - if `src/content` must not depend
-   on `src/magic`, use the same import other build units use; SYSTEMS §1.2 mandates `ageIndexOf`). Update the `sugar` desc.
+   on `src/magic` - it already does: `src/content/itemsWorkshop.ts` imports `ageIndexOf` from `'../magic/ageMap'`). Update the `sugar` desc.
    `src/content/itemsBrew.ts`: `sweeten()` + `SWEET_DRINK_ITEMS`; register them after `BREW_ITEMS`.
    `src/content/recipes.ts`: three `forge(1, ...)` rows directly after the `sugar_cake` row (comment `// Unit 5: more sweet baking.`).
    `src/content/recipesBrew.ts`: six `bench(...)` rows appended at the end.
@@ -593,8 +592,8 @@ registry and the six new keys are registered. Vessels need no save change: `suga
    `src/player/interaction.ts`: make `sap` public readonly.
 9. **Game wiring.** `src/app/game.ts`: load/persist/dispose (7.3); crosshair: in `showStationName()` add, before the goggles
    branch: `else if (hit && SAP_LOGS.has(hit.block.key) && (label = this.controller.interaction.sap.label(hit.x, hit.y, hit.z, this.state.player.heldStack()?.item ?? null)) !== null) { /* sap log */ }`.
-   Because `showStationName` caches by label string, the countdown updates whenever the text changes (once per 10 s step if the
-   label rounds like the refusal; round the label to whole seconds under 60 and to 0.5 min above, so it ticks visibly but rarely).
+   Because `showStationName` caches by label string, the line only re-renders when `waitText` changes (every 10 s under a minute,
+   every 30 s above) - visible progress, no per-frame DOM work.
 10. **Render.** `src/render/sapFx.ts` (NEW): `export class SapFx { readonly group: THREE.Group; constructor(particles: Particles); update(dt: number, camX: number, camY: number, camZ: number, beads: readonly SapBead[], count: number): void; dispose(): void }`
     with constants `SAP_FX_BEADS` 24, `SAP_FX_RANGE` 32, `DRIP_EVERY_S` 2.5, `BEAD_MIN_R` 0.025, `BEAD_MAX_R` 0.075. Pure helper
     exported for tests: `beadTransform(bead: SapBead, out: { x: number; y: number; z: number; r: number; sy: number }): void` (face
@@ -639,13 +638,14 @@ Helpers to reuse (do not rewrite): `forge`/`bench` local helpers, `amounts`, `it
 8. `'tap state survives a save'` - tap, advance 50 s, `const snap = JSON.parse(JSON.stringify(sap.toJSON()))`; a fresh `setup()`,
    `sap.load(snap)`; `waitS` = 70 (+-0.1); bead face preserved.
 9. `'a save without sap state loads with every log ready'` - `sap.load(undefined)`, `sap.load({})`, `sap.load({ taps: 5 })`,
-   `sap.load({ taps: { 'x,y': [1, 4], '1,2,3': ['a', 4], '4,5,6': [-3, 9], '7,8,9': [10, 99] } })`: no throw; only `'4,5,6'`... no:
-   negative age clamps to 0 -> kept with face fallback `Face.PZ`; `'7,8,9'` kept with face `Face.PZ`; the two malformed dropped. Assert
-   `beads` count 2 and both faces `Face.PZ`.
+   `sap.load({ taps: { 'x,y': [1, 4], '1,2,3': ['a', 4], '4,5,6': [-3, 9], '7,8,9': [10, 99] } })`: no throw. `'x,y'` (bad cell) and
+   `'1,2,3'` (non-number age) are dropped; `'4,5,6'` (negative age clamps to 0, face 9 invalid) and `'7,8,9'` (face 99 invalid) are
+   kept with the fallback face. Assert `beads` count 2, both faces `Face.PZ`, and `waitS(4,5,6)` = 120.
 10. `'tapping plays the tap sound, not the sip'` - `record(bus, 'sfx')` contains `name: 'sap_tap'` and not `'sip'`.
 11. `'the pine log line says how long the bead needs'` - `label(0,10,-2,'glass_beaker')` before tapping =
     `'Pine Log - Use the beaker to catch its sap'`; with `'stick'` = null; after tap + 80 s = `'Pine Log - weeping, ready in 40 s'`;
-    after 121 s = `'Pine Log - a full bead, ready to tap'`.
+    after 121 s = `'Pine Log - a full bead, ready to tap'`. Pure `waitText`: 40 -> `'40 s'`, 41 -> `'50 s'`, 80 -> `'1.5 min'`,
+    120 -> `'2 min'`.
 12. Existing 4 cases stay green unchanged (`'the same log is spent for a while, then weeps again'` etc.).
 
 Accessing `sap`: `interaction.sap` (now public).
@@ -740,15 +740,17 @@ await step('a beaker taps a pine log, which grows an amber bead and remembers it
     return { x, y, z };
   });
   await d.selectItem('glass_beaker');
-  await d.hw((c) => window.__hw.lookAt(c.x + 0.5, c.y + 0.5, c.z + 0.5), p);
+  await d.aimAt({ x: p.x, y: p.y, z: p.z });             // driver helper (scripts/lib/e2eDriver.mjs aimAt(pos))
   await d.use();
   const tap = await d.hw((c) => {
     const sap = window.__hw.app.game.controller.interaction.sap;
     return { wait: sap.waitS(c.x, c.y, c.z), sapCount: window.__hw.app.game.state.player.inventory.count('pine_sap') };
   }, p);
   assert(tap.sapCount === 1 && tap.wait > 100, `tapped: ${JSON.stringify(tap)}`);
-  await d.hw(() => window.__hw.tick(60 * 60));          // 60 s of game time at 60 Hz: the bead is half grown, drips running
-  const fx = await d.hw(() => window.__hw.app.game.renderer.sapFx?.counts ?? null);   // expose { beads, drips } like distillFx.counts
+  // The sap clock advances in Interaction.updateMining (per frame), not in the fixed sim tick, so advance it directly (setup):
+  await d.hw(() => window.__hw.app.game.controller.interaction.sap.update(60));
+  await d.settle(800);                                   // a few frames: the bead is half grown, drips running
+  const fx = await d.hw(() => window.__hw.app.game.renderer.sapFx?.counts ?? null);   // NEW getter { beads, drips }, read like distillFx.counts at e2e line 189
   assert(fx && fx.beads === 1 && fx.drips <= 24, `sap fx ${JSON.stringify(fx)}`);
   const line = await d.hw(() => document.querySelector('.hw-cross__label')?.textContent ?? '');
   assert(/^Pine Log - weeping, ready in \d+ s$/.test(line), `crosshair: ${line}`);
@@ -761,38 +763,52 @@ await step('a beaker taps a pine log, which grows an amber bead and remembers it
 });
 
 await step('a spoon of sugar in a finished cup makes it sweet, and drinking it starts a Sugar Rush', async () => {
-  // set up a finished cup the cheap way: place clay_cup, drip_cone, ground_coffee, boiling_pail via real Use presses,
-  // then tick BREW_SECONDS. Or reuse the cup the brewing e2e builds if this script already has one (it does not).
-  // ... real presses with d.selectItem + d.use() on the cup cell (mirror e2e-features.mjs's brewing steps) ...
-  await d.hw(() => window.__hw.give('sugar', 1));
+  // Setup by __hw: a clay cup on the ground two blocks away; every brewing action after that is a real Use press.
+  const cup = await d.hw(() => {
+    const s = window.__hw.state(); const x = Math.floor(s.player.x) - 2, z = Math.floor(s.player.z), y = window.__hw.surfaceY(x, z);
+    window.__hw.setVoxel(x, y, z, 'clay_cup');            // setVoxel(x, y, z, blockKey, facing = 0, active = false)
+    window.__hw.give('drip_cone', 1); window.__hw.give('ground_coffee', 1); window.__hw.give('boiling_pail', 1); window.__hw.give('sugar', 1);
+    return { x, y, z };
+  });
+  // If setVoxel's 'sim' source does not create the brew_cup entity, place the cup instead: d.selectItem('clay_cup'); d.placeHeld('clay_cup').
+  for (const item of ['drip_cone', 'ground_coffee', 'boiling_pail']) { await d.selectItem(item); await d.useBlock(cup); }
+  await d.hw(() => window.__hw.tick(5 * 60));            // BREW_SECONDS is 4; the cup is 'done'
   await d.selectItem('sugar');
-  await d.use();                                         // aimed at the full cup
+  await d.useBlock(cup);
   const text = await d.hw(() => document.querySelector('.hw-cross__label')?.textContent ?? '');
   assert(text === 'Sweet Light Roast - take it', text);
-  await d.selectItem(null);                              // empty hand (or any non-sugar item) to take it
-  await d.use();
+  await d.selectEmptyHand();                             // empty hand takes the drink
+  await d.useBlock(cup);
   await d.selectItem('sweet_light_roast');
-  await d.drink();                                       // the driver's eat/drink press; if absent use the hotbar Use on air as eat does
+  await d.hw(() => window.__hw.look(0, 1.4));            // aim at the sky: Use with a drink held drinks it (Interaction.drinkHeld)
+  await d.use();
   const b = await d.hw(() => { const bf = window.__hw.app.game.state.player.buffs; return { swift: bf.timeLeftS('swift'), sugar: bf.sugarS }; });
   assert(b.swift > 260 && b.sugar > 25, JSON.stringify(b));
   await d.shot('sweet-cup-pills');                       // both pills visible in the HUD
 });
 
 await step('ten sugars stirred into a vessel of water ferment under an airlock', async () => {
-  // place a reaction_vessel + airlock_cap pair next to the rigs (P.pot area), pour one water_pail by Use, then:
-  await d.hw(() => window.__hw.give('sugar', 10));
+  const vessel = await d.hw(() => {
+    const s = window.__hw.state(); const x = Math.floor(s.player.x), z = Math.floor(s.player.z) + 2, y = window.__hw.surfaceY(x, z);
+    window.__hw.setVoxel(x, y, z, 'reaction_vessel'); window.__hw.setVoxel(x, y + 1, z, 'airlock_cap');
+    window.__hw.give('water_pail', 1); window.__hw.give('sugar', 10);
+    return { x, y, z };
+  });
+  await d.selectItem('water_pail');
+  await d.useBlock(vessel);                              // 1000 L of water
   await d.selectItem('sugar');
-  for (let i = 0; i < 10; i++) await d.use();            // real presses: 10 x 25 L
+  for (let i = 0; i < 10; i++) await d.useBlock(vessel); // real presses: 10 x 25 L
   const sugars = await d.hw((c) => window.__hw.app.game.state.sim.distill.entityAt(c.x, c.y, c.z)?.mix.sugars ?? 0, vessel);
   assert(Math.abs(sugars - 250) < 1e-6, `sugars ${sugars}`);
   await fastForward((c) => window.__hw.app.game.state.sim.distill.entityAt(c.x, c.y, c.z)?.state === 'done', vessel, 'the sugar wash', 400);
+  const named = await d.hw((c) => window.__hw.app.game.state.sim.distill.entityAt(c.x, c.y, c.z)?.mix ?? null, vessel);
+  assert(named && Math.abs(Object.values(named).reduce((a, b) => a + b, 0) - 1250) < 1e-3, 'litres conserved');
   await d.shot('sugar-wash-done');
 });
 ```
 
-Builder notes: `d.drink()` / `d.selectItem(null)` may not exist in `scripts/lib/e2eDriver.mjs` - use the existing equivalents (the
-driver has `use()`, `useBlock(pos)`, `selectItem(item)`); for an empty hand select an empty hotbar slot via
-`window.__hw.selectSlot(n)` after `clearInventory` of that slot. `renderer.sapFx.counts` is NEW: a getter `{ beads, drips }` on
+Builder notes: driver helpers used are real (`use()`, `aimAt(pos)`, `selectItem(item)`, `selectEmptyHand()`, `useBlock(pos)` in
+`scripts/lib/e2eDriver.mjs`); `look(yaw, pitch)` and `setVoxel` are `window.__hw` methods (`src/app/debug.ts`) - confirm argument order. `surfaceY(x, z)`: if it returns the top solid block rather than the first air cell, place at `surfaceY + 1` (check `src/app/debug.ts`). `game.controller` and `renderer.sapFx` may be TS-private; e2e reads them at runtime exactly as line 189 reads `renderer.distillFx` (private in `src/render/renderer.ts`). `renderer.sapFx.counts` is NEW: a getter `{ beads, drips }` on
 `SapFx` and the renderer field made reachable the same way `distillFx` is read at e2e line 189. The cup setup should mirror the
 existing brewing e2e steps (grep `cup_cone` in `scripts/e2e-features.mjs`); if it is long, put the sweet-cup step in
 `scripts/e2e-features.mjs` beside them instead and say so in the PR.
@@ -865,5 +881,6 @@ existing brewing e2e steps (grep `cup_cone` in `scripts/e2e-features.mjs`); if i
 6. **Unit 10** can count sweet drinks toward "4 drinks of that buff" for essences (their `drink.buff` is the base buff) - suggest
    they do; nothing to change here.
 7. **T9 exception:** the full bead signals "done" with a glint in amber, not green (a green bead on a tree reads as moss/rot).
-8. **`ageIndexOf` in content files:** if `src/content` importing `src/magic/ageMap.ts` creates a cycle, the coordinator should pick
-   one home for `ageIndexOf` that every unit imports (several units hit this).
+8. **`ageIndexOf` in content files** is already imported by `src/content/itemsWorkshop.ts`; no cycle concern.
+9. **`brewing.test.ts` 'has six drinks'** will fail when sweet drinks register; this unit rewrites it to count base drinks.
+   Any other unit's test that iterates `DRINKS` expecting six must do the same (grep `DRINKS` before merging Units 2 and 10).
