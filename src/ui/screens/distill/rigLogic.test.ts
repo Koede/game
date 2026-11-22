@@ -100,9 +100,14 @@ describe('rig ghost cells', () => {
   it('offers the cards that use the wrenched block', () => {
     expect(cardChoices('boiling_flask').map((c) => c.id)).toEqual([
       'distil_syrup', 'distil_low_wines', 'distil_spirit', 'refine_crude', 'rectify_spirit', 'refine_crude_short',
+      'vacuum_residue',
+      'essence_spring', 'essence_hearthkept', 'essence_mending', 'essence_swift', 'essence_vigor', 'essence_lasting',
     ]);
     expect(cardChoices('boiling_flask_done').map((c) => c.id)).toContain('distil_spirit');
-    expect(cardChoices('reaction_vessel').map((c) => c.id)).toEqual(['ferment_wash']);
+    expect(cardChoices('reaction_vessel').map((c) => c.id)).toEqual([
+      'ferment_wash', 'macerate_tincture', 'mix_asphalt',
+      'elixir_spring', 'elixir_hearthkept', 'elixir_mending', 'elixir_swift', 'elixir_vigor', 'elixir_lasting',
+    ]);
     expect(cardChoices('cooling_jacket')).toEqual([]);
     const spirit = cardChoices('still_base').find((c) => c.id === 'distil_spirit');
     expect(spirit).toMatchObject({ title: 'Spirit', detail: '92 °C on the still base' });
@@ -150,17 +155,17 @@ describe('rig problems and capabilities', () => {
 
   it('says distil, the cuts, ferment and cooled from what is standing', () => {
     expect(capabilityText({
-      stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0'], draws: [], head: '0,4,0' }],
+      stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0'], draws: [], head: '0,4,0', reflux: null, vacuum: false }],
       sealed: new Set(['1,0,0']),
       jackets: new Map([['0,4,0', ['2,4,0']]]),
     })).toBe('This rig can: distil, 1 cut, ferment, cooled.');
     expect(capabilityText({
-      stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0', '0,4,0'], draws: [{ h: 1, condenser: '1,2,0' }], head: '0,5,0' }],
+      stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0', '0,4,0'], draws: [{ h: 1, condenser: '1,2,0' }], head: '0,5,0', reflux: null, vacuum: false }],
       sealed: new Set(),
       jackets: new Map(),
     })).toBe('This rig can: distil, 2 cuts.');
     expect(capabilityText({
-      stills: [{ flask: '0,1,0', base: null, segments: [], draws: [], head: null }],
+      stills: [{ flask: '0,1,0', base: null, segments: [], draws: [], head: null, reflux: null, vacuum: false }],
       sealed: new Set(),
       jackets: new Map(),
     })).toBe('This rig can: nothing yet.');
