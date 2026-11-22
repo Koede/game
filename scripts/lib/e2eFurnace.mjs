@@ -127,6 +127,8 @@ export async function furnaceSteps({ d, step, assert, hw, page }) {
     const t = (await furnace(d)).tempC;
     assert(t >= 700, `the furnace is only ${t} C`);
     await d.press(page.locator('.hw-window .hw-upg-btn'));
+    // The sheet fills on the next UI refresh after it opens, so wait for its text instead of reading it the instant after the tap.
+    await waitFor(page, () => (document.querySelector('.hw-window .hw-upg__kicker')?.textContent ?? '').trim().length > 0, 'the upgrade sheet to fill', { timeout: 5000, interval: 50 });
     const kicker = await page.locator('.hw-window .hw-upg__kicker').textContent();
     assert(/Bronze Age - tier 2/.test(kicker), `the upgrade sheet says "${kicker}"`);
     const rows = await page.locator('.hw-window .hw-upg__table tbody tr').allTextContents();
