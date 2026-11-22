@@ -5,7 +5,7 @@
  * coerced to its type (slot lists to valid stacks, numbers to finite numbers, the tier into range), in place; what
  * cannot be repaired is reported so the caller drops it.
  */
-import { MACHINES, MAX_FURNACE_TIER, fluidOrNull, fuelOf, itemOrNull, recipe } from '../core/registry';
+import { MACHINES, MAX_FURNACE_TIER, canonicalItemKey, fluidOrNull, fuelOf, itemOrNull, recipe } from '../core/registry';
 import { PIPE_FILTER_SLOTS, PIPE_PRIORITY_MAX, PIPE_PRIORITY_MIN } from '../core/constants';
 import type { BlockEntity, Slot } from '../core/types';
 import { createFurnace, createMachine } from './entities';
@@ -20,8 +20,10 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 
 /** A valid stack, or null (unknown items, counts that are not whole positive numbers). */
 function cleanSlot(v: unknown): Slot {
-  if (!isObject(v) || typeof v.item !== 'string' || !itemOrNull(v.item) || !finite(v.count) || v.count < 1) return null;
-  const s: Exclude<Slot, null> = { item: v.item, count: Math.floor(v.count) };
+  if (!isObject(v) || typeof v.item !== 'string' || !finite(v.count) || v.count < 1) return null;
+  const key = canonicalItemKey(v.item);
+  if (key === null) return null;
+  const s: Exclude<Slot, null> = { item: key, count: Math.floor(v.count) };
   if (finite(v.durability)) s.durability = v.durability;
   return s;
 }

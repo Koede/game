@@ -1,3 +1,4 @@
+import { SAVE_REV } from './migrations';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../core/context';
 import { createBus } from '../core/context';
@@ -120,7 +121,7 @@ describe('SaveSlot', () => {
     const doc = { settings: { ...DEFAULT_SETTINGS, fov: 80 }, world: worldSave() };
     expect(slot.write(doc).ok).toBe(true);
     const again = new SaveSlot(storage).read();
-    expect(again).toEqual(JSON.parse(JSON.stringify(doc)));
+    expect(again).toEqual(JSON.parse(JSON.stringify({ ...doc, world: { ...doc.world, rev: SAVE_REV } })));
     expect(JSON.parse(storage.getItem(SAVE_KEY)!).v).toBe(SAVE_VERSION);
   });
 

@@ -5,7 +5,7 @@
  *
  * Operations between two slots (the click / tap interactions of the UI) are in ./transfer.
  */
-import { itemOrNull } from '../core/registry';
+import { canonicalItemKey, itemOrNull } from '../core/registry';
 import type { ItemAmount, ItemStack, Slot } from '../core/types';
 
 /** Decides whether an item may be put into a slot of this inventory. Taking out is never restricted. */
@@ -43,13 +43,15 @@ export const canMerge = (a: ItemStack, b: ItemStack): boolean =>
 
 /** A slot as it may be stored: unknown items and broken data become empty, counts and durability are clamped. */
 function sanitize(raw: Slot | undefined): Slot {
-  if (!raw || typeof raw.item !== 'string' || !itemOrNull(raw.item)) return null;
-  const count = Math.min(Math.floor(raw.count), stackLimit(raw.item));
+  if (!raw || typeof raw.item !== 'string') return null;
+  const item = canonicalItemKey(raw.item);
+  if (item === null) return null;
+  const count = Math.min(Math.floor(raw.count), stackLimit(item));
   if (!(count > 0)) return null;
-  const full = fullDurability(raw.item);
-  if (full === undefined) return { item: raw.item, count };
+  const full = fullDurability(item);
+  if (full === undefined) return { item, count };
   const durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), full) : full;
-  return { item: raw.item, count, durability };
+  return { item, count, durability };
 }
 
 export class Inventory {

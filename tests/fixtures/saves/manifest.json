@@ -1,0 +1,32 @@
+[
+  {
+    "name": "before-bronze",
+    "file": "save-before-bronze.json",
+    "v": 1,
+    "summary": {
+      "entities": 2,
+      "items": 21,
+      "scanned": 2,
+      "completed": 52,
+      "age": 2,
+      "extras": [
+        "magic"
+      ]
+    }
+  },
+  {
+    "name": "sixage-rev2",
+    "file": "saves/sixage-rev2.json",
+    "v": 2,
+    "summary": {
+      "entities": 2,
+      "items": 21,
+      "scanned": 2,
+      "completed": 52,
+      "age": 2,
+      "extras": [
+        "magic"
+      ]
+    }
+  }
+]

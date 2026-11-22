@@ -12,7 +12,7 @@
  * it feed speed into these networks without changing anything else here.
  */
 import type { GameBus } from '../core/context';
-import { blockOrNull, itemOrNull, recipesAt } from '../core/registry';
+import { blockOrNull, canonicalItemKey, itemOrNull, recipesAt } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
@@ -763,7 +763,10 @@ export class Workshop {
       const [x, y, z, buffer, progress, recipe] = row;
       const m = this.machines.get(k3(x, y, z));
       if (!m || !buffer || typeof buffer !== 'object') continue;
-      for (const [i, n] of Object.entries(buffer)) if (itemOrNull(i) && typeof n === 'number' && n > 0) m.buffer[i] = Math.min(MACHINE_BUFFER, Math.floor(n));
+      for (const [i, n] of Object.entries(buffer)) {
+        const key = canonicalItemKey(i);
+        if (key !== null && typeof n === 'number' && n > 0) m.buffer[key] = Math.min(MACHINE_BUFFER, Math.floor(n));
+      }
       m.progress = typeof progress === 'number' && progress > 0 ? progress : 0;
       m.recipe = typeof recipe === 'string' ? recipe : null;
     }

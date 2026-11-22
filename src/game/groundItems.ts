@@ -7,7 +7,7 @@
  *
  * One object per world session, owned by PlayerState (`player.ground`) and ticked by Survival on the 20 Hz tick.
  */
-import { itemOrNull } from '../core/registry';
+import { canonicalItemKey, itemOrNull } from '../core/registry';
 import type { IWorld, Slot } from '../core/types';
 import type { GameBus } from '../core/context';
 import { stackLimit } from './inventory';
@@ -447,10 +447,11 @@ export class GroundItems {
     if (!Array.isArray(snapshot)) return;
     for (const s of snapshot.slice(0, MAX_GROUND_ITEMS)) {
       if (!s || typeof s.item !== 'string' || !finite(s.count) || !finite(s.x) || !finite(s.y) || !finite(s.z)) continue;
-      if (!itemOrNull(s.item)) continue;
-      const count = Math.min(Math.floor(s.count), Math.max(1, stackLimit(s.item)));
+      const key = canonicalItemKey(s.item);
+      if (key === null) continue;
+      const count = Math.min(Math.floor(s.count), Math.max(1, stackLimit(key)));
       if (!(count >= 1)) continue;
-      const [e] = this.spawn(s.item, count, s.x, s.y, s.z, {
+      const [e] = this.spawn(key, count, s.x, s.y, s.z, {
         scatter: false,
         vx: 0,
         vy: 0,

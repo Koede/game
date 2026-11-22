@@ -3,6 +3,7 @@
  * and the objective tracker, wired in dependency order, plus the fixed 20 Hz tick and the save snapshot.
  * Runs in node (tests drive whole sessions through it); the browser-side Game adds rendering, input, UI and audio.
  */
+import { SAVE_REV } from '../save/migrations';
 import { DT, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH } from '../core/constants';
 import { createBus, type Difficulty, type GameBus } from '../core/context';
 import { parseGameMode, type GameMode } from '../core/gameMode';
@@ -229,6 +230,7 @@ export class GameState {
     diag('state.snapshot', () => ({ shared, player: playerBrief(this.player), ticks: this.ticks, playTimeS: this.playTimeS }));
     return {
       ...(this.mode === 'dev' ? { mode: this.mode } : {}),
+      rev: SAVE_REV,
       seed: this.world.seed,
       seedText: this.seedText,
       world: this.world.toJSON({ shared }),

@@ -14,21 +14,30 @@ import type { SurvivalSnapshot } from '../game/survival';
 import type { WeatherSnapshot } from '../game/weather';
 import type { MobsSnapshot } from '../mobs';
 import type { WorldSnapshot } from '../world/world';
+import { migrateWorld } from './migrations';
 import { SaveStore, browserStorage, type LoadProblem, type SaveResult, type StorageLike } from './storage';
 
 /**
- * Bump when the document's shape changes; add a step to `migrateSave` at the same time.
- * 1: the first format (five furnace tiers, five ages). 2: the six ages and furnace tiers (BRONZE_PLAN W0).
+ * The ENVELOPE version. Do not bump it for content or format changes: bump `SAVE_REV` (save/migrations.ts) and add a
+ * migration instead; an envelope bump makes every older save unusable. 1: five ages. 2: the six ages (BRONZE_PLAN W0).
  */
 export const SAVE_VERSION = 2;
 export const SAVE_KEY = 'hearthwatt.save';
 /** A copy of a stored save this build could not use, kept before anything could replace it. */
 export const BACKUP_KEY = 'hearthwatt.save.bak';
+/**
+ * The previous good save: before an autosave replaces the stored text, that text is copied here when it is at least
+ * PREV_MIN_AGE_MS older than the new write. Every future migration bug stays recoverable. Dropped first on quota.
+ */
+export const PREV_KEY = 'hearthwatt.save.prev';
+export const PREV_MIN_AGE_MS = 10 * 60 * 1000;
 /** The settings alone, written while the save key holds a world this build cannot read (so it is never replaced). */
 export const SETTINGS_KEY = 'hearthwatt.settings';
 
 /** A world in progress. */
 export interface WorldSave {
+  /** Content/format revision (save/migrations.ts). Absent = a build before `rev` existed (treated as the revision it wrote). */
+  rev?: number;
   seed: number;
   /** What the player typed as the seed, or null for a random world. Shown on the title screen. */
   seedText: string | null;
@@ -154,7 +163,16 @@ export function normalizeDocument(raw: unknown, onDropped?: (reason: string) => 
   const settings = sanitizeSettings(raw.settings);
   let world: WorldSave | null = null;
   if (raw.world !== null && raw.world !== undefined) {
-    if (isWorldSave(raw.world)) {
+    let migrated: 'ok' | 'newer' | 'failed' = 'failed';
+    if (isRecord(raw.world)) {
+      try {
+        migrated = migrateWorld(raw.world);
+      } catch {
+        migrated = 'failed';
+      }
+    }
+    if (migrated === 'newer') onDropped?.('This world was saved by a newer version of the game.');
+    else if (migrated === 'ok' && isWorldSave(raw.world)) {
       world = raw.world;
       if (world.mode !== undefined && world.mode !== 'dev') delete world.mode;
     }
@@ -164,40 +182,13 @@ export function normalizeDocument(raw: unknown, onDropped?: (reason: string) => 
 }
 
 /**
- * Version 1 -> 2, the six-age renumbering (BRONZE_PLAN W0): the Bronze Furnace is tier 2 and the age after Ember, so
- * furnace tiers 2-5 become 3-6 and ages 1-4 become 2-5. Block ids do not change (the new furnace block was appended
- * after every older block), research and the pack are untouched, and objectives keep their ids. A save that had
- * already built the Blast Furnace is given the new goal before it (`bronze_furnace`) so its place in the list is the
- * same, and a formed Blast hearth stays formed (its summary moves to tier 3 with its furnace).
+ * Envelope upgrade (only for envelope versions below SAVE_VERSION): stamps the world with `rev` 1, the revision of
+ * every envelope-v1 save, so `migrateWorld` (run by normalizeDocument for every read) walks the whole chain.
+ * Never throws on a bad shape: null.
  */
-export function migrateSixAges(doc: Record<string, unknown>): void {
-  const world = doc.world;
-  if (!isRecord(world)) return;
-  const bump = (n: unknown): unknown => (isNum(n) && n >= 2 ? n + 1 : n);
-  const inner = world.world;
-  if (isRecord(inner) && Array.isArray(inner.entities)) {
-    for (const e of inner.entities) {
-      if (!isRecord(e) || e.kind !== 'furnace') continue;
-      e.tier = bump(e.tier);
-      e.effTier = bump(e.effTier);
-      if (isRecord(e.hearth)) e.hearth.tier = bump(e.hearth.tier);
-    }
-  }
-  const o = world.objectives;
-  if (isRecord(o)) {
-    const reachedBlast = isRecord(o.peaks) && isNum(o.peaks.tier) && o.peaks.tier >= 2;
-    if (isRecord(o.peaks)) o.peaks.tier = bump(o.peaks.tier);
-    if (isNum(o.age) && o.age >= 1) o.age += 1; // the ages 1-4 become 2-5; Ember stays 0
-    if (Array.isArray(o.completed) && (reachedBlast || o.completed.includes('blast_furnace')) && !o.completed.includes('bronze_furnace')) {
-      o.completed.push('bronze_furnace');
-    }
-  }
-}
-
-/** Upgrades older documents (`data` is the stored document, `fromVersion` its envelope version). Never throws on a bad shape: null. */
 export function migrateSave(data: unknown, fromVersion: number): SaveDocument | null {
   if (!isRecord(data) || !isNum(fromVersion) || fromVersion < 1 || fromVersion > SAVE_VERSION) return null;
-  if (fromVersion < 2) migrateSixAges(data);
+  if (fromVersion < 2 && isRecord(data.world) && data.world.rev === undefined) data.world.rev = 1;
   return data as unknown as SaveDocument;
 }
 
@@ -225,7 +216,10 @@ export class SaveSlot {
   lastProblem: string | null = null;
   private heldRaw = false;
 
-  constructor(storage?: StorageLike | null) {
+  private readonly now: () => number;
+
+  constructor(storage?: StorageLike | null, now: () => number = Date.now) {
+    this.now = now;
     this.storage = storage === undefined ? browserStorage() : storage;
     this.store = new SaveStore<SaveDocument>({
       key: SAVE_KEY,
@@ -234,7 +228,8 @@ export class SaveSlot {
       migrate: migrateSave,
       validate: (d) => isRecord(d),
       // A full storage may first give up the backup of an unreadable save (never while the save key still holds it).
-      onQuota: () => !this.heldRaw && this.removeBackup(),
+      now,
+      onQuota: () => (!this.heldRaw && this.removeBackup()) || this.removeKey(PREV_KEY),
     });
     this.settingsStore = new SaveStore<Settings>({ key: SETTINGS_KEY, version: SAVE_VERSION, storage: this.storage, migrate: (d) => (isRecord(d) ? (d as unknown as Settings) : null), validate: isRecord });
   }
@@ -268,6 +263,7 @@ export class SaveSlot {
 
   write(doc: SaveDocument): SaveResult {
     if (doc.world === null && this.heldRaw) return this.settingsStore.save(doc.settings);
+    this.rollPrev();
     const result = this.store.save(doc);
     if (result.ok) this.heldRaw = false;
     return result;
@@ -279,9 +275,44 @@ export class SaveSlot {
    */
   writeText(settings: Settings, worldJson: string | null): SaveResult {
     if (worldJson === null && this.heldRaw) return this.settingsStore.save(settings);
+    this.rollPrev();
     const result = this.store.saveText(`{"settings":${JSON.stringify(settings)},"world":${worldJson ?? 'null'}}`);
     if (result.ok) this.heldRaw = false;
     return result;
+  }
+
+  /** The previous good save (PREV_KEY) exists. */
+  get hasPrev(): boolean {
+    return this.getItem(PREV_KEY) !== null;
+  }
+
+  /** The raw text of the previous good save, or null. */
+  readPrev(): string | null {
+    return this.getItem(PREV_KEY);
+  }
+
+  /** Copies the stored save to PREV_KEY when it is old enough and readable; never while the slot holds an unreadable save. */
+  private rollPrev(): void {
+    if (this.heldRaw || !this.storage) return;
+    const cur = this.getItem(SAVE_KEY);
+    const at = this.store.storedAt();
+    if (cur === null || at === null || this.now() - at < PREV_MIN_AGE_MS) return;
+    if (this.getItem(PREV_KEY) === cur) return;
+    try {
+      this.storage.setItem(PREV_KEY, cur);
+    } catch {
+      // Full: the new save matters more than its predecessor.
+    }
+  }
+
+  private removeKey(key: string): boolean {
+    if (this.getItem(key) === null) return false;
+    try {
+      this.storage?.removeItem(key);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** A copy of an unreadable save exists in BACKUP_KEY. */

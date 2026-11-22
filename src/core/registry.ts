@@ -4,6 +4,7 @@
  *
  * Everything outside src/content reads blocks, items and recipes through this module.
  */
+import { ITEM_ALIASES, noteLostItem } from '../content/aliases';
 import {
   AGES as AGE_SPECS,
   AUTOMATON_SPECS,
@@ -254,6 +255,17 @@ export function item(key: string): ItemDef {
   return def;
 }
 export const itemOrNull = (key: string): ItemDef | null => itemsByKey.get(key) ?? null;
+/**
+ * A stored item key resolved for loading: itself, its alias (content/aliases.ts), or null (then counted as lost so the
+ * player is told). Use this, not `itemOrNull`, wherever a SAVED item key is read back.
+ */
+export function canonicalItemKey(key: string): string | null {
+  if (itemsByKey.has(key)) return key;
+  const to = ITEM_ALIASES[key];
+  if (to !== undefined && itemsByKey.has(to)) return to;
+  noteLostItem(key);
+  return null;
+}
 export const fuelOf = (key: string): FuelSpec | null => itemsByKey.get(key)?.fuel ?? null;
 /** The block an item places, or null. */
 export const blockOfItem = (key: string): BlockDef | null => {

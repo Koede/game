@@ -8,7 +8,7 @@
  */
 import type { GameBus } from '../core/context';
 import { BASIN_RECIPES, basinCard } from '../content/basinWorkshop';
-import { blockId, blockOrNull, fluidInBucket, fluidOrNull, itemOrNull } from '../core/registry';
+import { blockId, blockOrNull, fluidInBucket, canonicalItemKey, fluidOrNull, itemOrNull } from '../core/registry';
 import { Facing, makeVoxel, voxelFacing, type IWorld } from '../core/types';
 import { trunkAbove } from '../game/felling';
 import { rollDrops } from '../game/mining';
@@ -751,9 +751,12 @@ export class Logistics {
       if (![x, y, z].every(Number.isInteger) || typeof kind !== 'string' || !LOGI.has(kind)) continue;
       this.noteBlock(x, y, z, kind);
       const c = this.cells.get(k3(x, y, z)) as Cell;
-      for (const [i, n] of Object.entries(items ?? {})) if (itemOrNull(i) && typeof n === 'number' && n > 0) c.items[i] = Math.min(CELL_CAP * 4, Math.floor(n));
+      for (const [i, n] of Object.entries(items ?? {})) {
+        const key = canonicalItemKey(i);
+        if (key !== null && typeof n === 'number' && n > 0) c.items[key] = Math.min(CELL_CAP * 4, Math.floor(n) + (c.items[key] ?? 0));
+      }
       if (fluid && typeof fluid.key === 'string' && fluidOrNull(fluid.key) && typeof fluid.litres === 'number') c.fluid = { key: fluid.key, litres: Math.max(0, Math.min(BASIN_LITRES, fluid.litres)) };
-      c.filter = typeof filter === 'string' && itemOrNull(filter) ? filter : null;
+      c.filter = typeof filter === 'string' ? canonicalItemKey(filter) : null;
       c.src = typeof src === 'string' ? src : null;
       c.targets = Array.isArray(targets) ? targets.filter((t) => typeof t === 'string').slice(0, ARM_TARGETS) : [];
       if (kind === 'tally_board') {
