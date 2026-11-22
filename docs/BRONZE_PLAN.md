@@ -280,7 +280,13 @@ export interface StructureRules { key: string; controller: string; walls: string
 
 ## 8. Work items, in order, with acceptance checks
 
-**W0 - six tiers and ages (alone in the repo; before anything else, also before STEAM_PLAN's waves)**
+**W0 - six tiers and ages (alone in the repo; before anything else, also before STEAM_PLAN's waves) - DONE (see `docs/api/ages.md`)**
+
+Status: built and tested; the fixture, `migrateSixAges` (save version 2), the Bronze Furnace block (appended last, textures `furnace_bronze_*`),
+the renumbering and the moves of the Bronze-age items onto the Bronze Furnace are in. Differences from the text below: the fixture is
+`tests/fixtures/save-before-bronze.json`; block ids needed no palette (the new block is appended); `hearth` structure rules are keyed by the
+new tier numbers 3-6 and the validator says tiers below `FIRST_HEARTH_TIER` have none; `bronze_furnace` is a new Ember-ending goal and the Blast
+hearth goal opens the Forge Age. Still to do from this plan: `requiredParts: { blast_nozzle: 1 }` (B1) and the Blast hearth's air requirement.
 1. Insert age 'bronze' at index 1 and furnace tier 2 `furnace_bronze` (block + 4 textures + numbers: 1100 C,
    heat capacity 220, loss 2.2, crucibles 2, fuel slots 2, speed 1.1, warmth 7; upgrade 8 bronze_ingot,
    4 firebrick, 1 bellows at 700 C). Renumber tiers 2-5 -> 3-6 and ages 1-4 -> 2-5 everywhere:
@@ -598,5 +604,5 @@ blockChanged(x,y,z): for v whose box grown by 1 contains (x,y,z): v.dirty = true
 
 > **Ground items (built):** dropped items are world entities (`docs/api/ground-items.md`). The Bronze Age also gets a handheld
 > **Hand Vacuum Pump** (`hand_vacuum`, wear-powered, radius 9) that pulls ground items to the player. It is not the chute machine
-> `vacuum_pump` below. Until W0 it is made at the tier-1 furnace; after W0 move its recipe to `forge(2, ...)` and give it `age: 1`.
+> `vacuum_pump` below. (Done in W0: `hand_vacuum` is `forge(2, ...)`, age 1.)
 > The Current Age Electromagnet is the same mechanism with an electric power source (`COLLECTORS` in `src/game/collectors.ts`).

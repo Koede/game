@@ -276,7 +276,7 @@ export async function techSteps({ d, step, assert, page }) {
       return l.some((e) => e.startsWith('formed')) && l.some((e) => /hearth formed/i.test(e)) ? l : null;
     }, 'the hearth to form', { timeout: 15_000, interval: 200 });
     console.log(`       ${log.filter((e) => /formed|hearth/i.test(e)).join(' | ')}`);
-    assert(log.includes('formed:2'), `structural tier: ${log.join(' | ')}`);
+    assert(log.includes('formed:3'), `structural tier: ${log.join(' | ')}`);
     const active = await d.hw((c) => window.__hw.getBlock(c.x, c.y, c.z).active, ctx.ring[0]);
     assert(active, 'the formed shell does not glow (active bit off)');
     // A view of the whole hearth from outside, a little above.

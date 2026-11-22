@@ -151,7 +151,7 @@ button.link:hover b { color: var(--ember); }
   <div class="tree" id="tree"></div>
 </div>
 <div class="wrap" id="view-items" hidden style="padding-block:18px 40px">
-  <p class="lede">Every item placed by complexity: columns count the crafting steps from raw materials, rows are the furnace tier it needs in the game as built today (five tiers; the planned Bronze Age is not in this map yet). Tap an item to light up everything it requires (amber) and everything that needs it (cyan). The number is how many raw materials one of it costs in total.</p>
+  <p class="lede">Every item placed by complexity: columns count the crafting steps from raw materials, rows are the furnace tier it needs in the game as built today (six tiers: Clay, Bronze, Blast, Arc, Plasma, Star). Tap an item to light up everything it requires (amber) and everything that needs it (cyan). The number is how many raw materials one of it costs in total.</p>
   <div class="chips" id="map-legend"><button id="map-clear" aria-pressed="false">Clear highlight</button></div>
   <div class="mapscroll"><div class="imap" id="imap"></div></div>
 </div>
@@ -350,7 +350,7 @@ button.link:hover b { color: var(--ember); }
 
   // ---------- item map: complexity by steps and tier ----------
   const cx = data.cx;
-  const ROWS = [[0, 'Raw / by hand'], [1, 'Clay Furnace'], [2, 'Blast Furnace'], [3, 'Arc Furnace'], [4, 'Plasma Furnace']];
+  const ROWS = [[0, 'Raw / by hand'], [1, 'Clay Furnace'], [2, 'Bronze Furnace'], [3, 'Blast Furnace'], [4, 'Arc Furnace'], [5, 'Plasma Furnace']];
   const rowOf = (k) => { const c = cx[k]; if (c.tier) return c.tier; let t = 0; for (const r of recipes) if (r.output.item === k) for (const i of r.inputs) t = Math.max(t, cx[i.item]?.tier ?? 0, rowCache[i.item] ?? 0); return t; };
   const rowCache = {};
   const order = Object.keys(items).sort((a, b) => cx[a].depth - cx[b].depth);

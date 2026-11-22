@@ -1,7 +1,7 @@
 # The tractor (Current Age)
 
 A drivable farm vehicle with swappable attachments. Same age and reasoning as the chainsaw (docs/api/chainsaw.md): it is a
-combustion engine on wheels, fed by Fuel Canisters from the Still; `age: 2`, forged at the Arc Furnace (tier 3).
+combustion engine on wheels, fed by Fuel Canisters from the Still; `age: 3`, forged at the Arc Furnace (tier 4, since BRONZE_PLAN W0).
 
 Code: `src/vehicles/` (`tractor.ts` body and physics, `collide.ts` sweeps, `tractorWork.ts` attachments, `manager.ts` controls,
 saving and the intent wrapper), `src/render/vehicles/tractorRenderer.ts` (model), `src/ui/vehicleHud.ts` (HUD, touch captions),
@@ -16,7 +16,7 @@ saving and the intent wrapper), `src/render/vehicles/tractorRenderer.ts` (model)
 | `tractor_tiller` | 1 chassis, 4 iron plate, 2 steel plate (1200 C) | |
 | `tractor_harvester` | 1 chassis, 4 steel plate, 2 copper coil (1300 C) | |
 
-Objective `drive_tractor` ("Take a tractor out", flag `drove_tractor`, age 2).
+Objective `drive_tractor` ("Take a tractor out", flag `drove_tractor`, age 3).
 
 ## Controls
 

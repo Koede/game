@@ -1,5 +1,8 @@
 # src/ui/screens/furnace and src/ui/screens/machines (7.4b) - public API
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 The furnace screen (the game's main screen), every machine screen and the crate. Built on the UI kit, GameUI's
 `registerScreen` contract and its slot controller (docs/api/hud.md). Reads the simulation through `ScreenSim`
 (types only; `Simulation` satisfies it as is). CSS ships with the module (`furnace.css`, `furnaceTabs.css`,

@@ -1,5 +1,8 @@
 # Multiblock hearths (src/sim) - public API
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Spec 17 (17.1 structure rules, 17.3 validation; the feedback of 17.4 that the simulation owns), on the data of
 `docs/api/tech-content.md`. Also in this pass: the furnace hands back `fuelReturns`, berry bushes regrow, heat engines
 draw heat for the power actually used, and the item/fluid **endpoint interface** the transport engineer builds on.

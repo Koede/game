@@ -110,4 +110,40 @@ export async function furnaceSteps({ d, step, assert, hw, page }) {
     await d.shot('08b-forged');
     await d.closeScreen();
   });
+
+  // BRONZE_PLAN W0: the Clay Furnace is rebuilt as the single-block Bronze Furnace through the real upgrade sheet (no hearth needed).
+  await step('the upgrade sheet offers the Bronze Furnace and holding its button rebuilds the furnace in place', async () => {
+    await hw(() => {
+      window.__hw.give('bronze_ingot', 8);
+      window.__hw.give('firebrick', 4);
+      window.__hw.give('bellows', 1);
+      window.__hw.give('charcoal', 6);
+    });
+    await d.useBlock(d.places.furnace);
+    await d.waitScreen('furnace');
+    await sendFromBag(d, 'charcoal', 'Firebox');
+    if (!(await furnace(d)).lit) await d.press(page.locator('.hw-window .hw-fbx__btns button', { hasText: 'Light' }));
+    for (let i = 0; i < 60 && (await furnace(d)).tempC < 760; i++) await hw(() => window.__hw.tick(100));
+    const t = (await furnace(d)).tempC;
+    assert(t >= 700, `the furnace is only ${t} C`);
+    await d.press(page.locator('.hw-window .hw-upg-btn'));
+    const kicker = await page.locator('.hw-window .hw-upg__kicker').textContent();
+    assert(/Bronze Age - tier 2/.test(kicker), `the upgrade sheet says "${kicker}"`);
+    const rows = await page.locator('.hw-window .hw-upg__table tbody tr').allTextContents();
+    assert(rows.some((r) => /Max temperature/.test(r) && /1100/.test(r)), `the table: ${rows.join(' | ')}`);
+    await d.shot('08e-bronze-upgrade');
+    const go = page.locator('.hw-window .hw-upg__btns button', { hasText: 'Upgrade to the Bronze Furnace' });
+    const box = await go.boundingBox();
+    assert(box, 'no Upgrade to the Bronze Furnace button');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await d.settle(1100);
+    await page.mouse.up();
+    await waitFor(page, () => window.__hw.state().furnaces[0].tier === 2, 'the furnace to become tier 2', { timeout: 6000, interval: 100 });
+    const block = await d.hw((c) => window.__hw.getBlock(c.x, c.y, c.z).block, d.places.furnace);
+    assert(block === 'furnace_bronze', `the block is ${block}`);
+    await d.settle(400);
+    await d.shot('08f-bronze-furnace');
+    await d.closeScreen();
+  });
 }

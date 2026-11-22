@@ -1,5 +1,8 @@
 # Glass distillery - API (first playable slice)
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Design and the full plan: `docs/DISTILLERY_PLAN.md`. This note is what exists in code and how to use it.
 Tests: `npx vitest run src/core/chem.test.ts src/sim/distill src/render/distill src/game/distillFuel.test.ts`
 (35 tests). Browser: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --out=<dir>` (desktop and

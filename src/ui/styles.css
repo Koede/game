@@ -693,7 +693,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The subtitle wraps to a second line rather than cutting off ("Ember Age - tier 1 of 5 - home"). */
+/* The subtitle wraps to a second line rather than cutting off ("Ember Age - tier 1 of 6 - home"). */
 .hw-window__subtitle {
   display: -webkit-box;
   overflow: hidden;
@@ -1948,7 +1948,7 @@ body {
 .hw-title__promise > span:last-child {
   color: var(--hw-bone);
 }
-/* Five ages: two of fire, then the current arrives. */
+/* Six ages: three of fire and metal, then the current arrives. */
 .hw-title__ages {
   display: flex;
   gap: 4px;
@@ -2468,10 +2468,11 @@ body {
   background: var(--hw-age);
 }
 .hw-log__age-step[data-age='0'] { --hw-age-on: var(--hw-temp-800); }
-.hw-log__age-step[data-age='1'] { --hw-age-on: var(--hw-temp-1100); }
-.hw-log__age-step[data-age='2'] { --hw-age-on: var(--hw-power); }
-.hw-log__age-step[data-age='3'] { --hw-age-on: var(--hw-power-hi); }
-.hw-log__age-step[data-age='4'] { --hw-age-on: var(--hw-temp-1500); }
+.hw-log__age-step[data-age='1'] { --hw-age-on: var(--hw-temp-1000, #c8872e); }
+.hw-log__age-step[data-age='2'] { --hw-age-on: var(--hw-temp-1100); }
+.hw-log__age-step[data-age='3'] { --hw-age-on: var(--hw-power); }
+.hw-log__age-step[data-age='4'] { --hw-age-on: var(--hw-power-hi); }
+.hw-log__age-step[data-age='5'] { --hw-age-on: var(--hw-temp-1500); }
 .hw-log__age-step[data-state='past'],
 .hw-log__age-step[data-state='now'] {
   --hw-age: var(--hw-age-on);

@@ -106,7 +106,8 @@
           "items": [
             "bronze_ingot",
             "firebrick",
-            "bellows"
+            "bellows",
+            "furnace_bronze"
           ],
           "note": "The furnace asks for its upgrade: 8 bronze, 4 firebrick, a bellows, 2 bronze plates, leather"
         }
@@ -114,7 +115,7 @@
     },
     {
       "name": "Bronze Age",
-      "furnace": "bronze_ingot",
+      "furnace": "furnace_bronze",
       "head": "Bronze Furnace - up to 1100 C",
       "line": "Steam begins: turning shafts, then heat, pressure and air. Still no electricity.",
       "planned": true,
@@ -147,6 +148,32 @@
           ],
           "planned": true,
           "note": "They do the Ember hand stations' work for you."
+        },
+        {
+          "name": "Bronze workshop",
+          "items": [
+            "hand_crank",
+            "drive_shaft",
+            "conveyor_belt",
+            "mech_millstone",
+            "mech_saw",
+            "mech_mortar",
+            "mech_loom",
+            "ratio_dial",
+            "clutch",
+            "flywheel",
+            "mixer",
+            "mech_arm",
+            "saw_arm",
+            "item_vault",
+            "vacuum_collector",
+            "crank_lever",
+            "bell",
+            "piston",
+            "skiff",
+            "engineer_goggles"
+          ],
+          "note": "Cranks, shafts, belts and the machines they drive, all forged at the Bronze Furnace. Hold Use on a crank to turn the line."
         },
         {
           "name": "Control and gauges",
@@ -209,6 +236,7 @@
         {
           "name": "Items move",
           "items": [
+            "hand_vacuum",
             "item_pipe",
             "Vacuum Pump"
           ],

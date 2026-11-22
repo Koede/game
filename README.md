@@ -68,14 +68,15 @@ engine on top turns more heat into more power, and now the same fire has to choo
 Water wheels, burner generators, wind turbines, solar panels, combustion engines and geothermal taps follow.
 Cables join machines into networks; every cable type has a limit, and batteries cover the gaps.
 
-**The furnace grows with you.** It is upgraded in place four times, and each tier begins an age. Every
-upgrade needs a formed hearth around the furnace first: walls of the right block with enough room inside. The
+**The furnace grows with you.** It is upgraded in place five times, and each tier begins an age (six ages in all). The Bronze Furnace is still one block;
+every upgrade after it needs a formed hearth around the furnace first: walls of the right block with enough room inside. The
 furnace's Structure tab shows the plan, marks every missing block in the world and says what is wrong; then the
 upgrade panel asks for the parts and the heat below.
 
 | Furnace | Age | Reaches | Heated by | Needs |
 |---|---|---|---|---|
 | Clay Furnace | Ember | 800 C | wood, charcoal | built at the workbench |
+| Bronze Furnace | Bronze | 1100 C | wood, charcoal, coal | no hearth; 8 bronze ingots, 4 firebrick, a bellows, fire at 700 C |
 | Blast Furnace | Forge | 1500 C | coal, coke, bellows | Blast hearth (brick); 4 bronze ingots, a bellows, fire at 700 C |
 | Arc Furnace | Current | 2100 C | fuel, or 8 kW of electricity | Arc hearth (refractory brick, a ceiling, an Arc Electrode); 2 copper coils, 2 steel plates, 1200 C |
 | Plasma Furnace | Atomic | 3200 C | 40 kW of electricity | Plasma hearth (plasma casing, 2x2x2 inside, 2 Power Ports); 2 circuits, 2 tungsten rods, 1900 C |

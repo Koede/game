@@ -6,8 +6,9 @@ starting values. Detailed plans: `docs/EMBER_PLAN.md` (the handwork age), `docs/
 Bronze Age: shafts, speed and stress), `docs/BREWING_PLAN.md` (tea and coffee), `docs/BRONZE_PLAN.md` (second half of the Bronze Age), `docs/SPEC.md` (rules of everything built). The Codex page
 shows this progression as a tree.
 
-Note on numbering: the game today has five ages and five furnace tiers. The Bronze Age inserts a new second
-age and a new tier 2 (BRONZE_PLAN work item W0 renumbers everything).
+Note on numbering: **BRONZE_PLAN work item W0 is done** - the game has six ages and six furnace tiers (Ember 0 / Clay 1,
+Bronze 1 / Bronze Furnace 2, Forge 2 / Blast hearth 3, Current 3 / Arc 4, Atomic 4 / Plasma 5, Star 5 / Starhearth 6).
+The gate table, the migration and the constants are in `docs/api/ages.md`.
 
 ## 1. The spine: one furnace, six energy forms
 
@@ -69,9 +70,10 @@ Every conversion is a block in the world you can watch working.
   ingots, 4 firebricks, 1 bellows, 2 bronze plates, 1 leather at 700 C. From here on every age is opened by the
   furnace's upgrade list. **[planned]**
 
-### Age 1 - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [planned, BRONZE_PLAN]
+### Age 1 - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [Furnace, workshop and Essentia pieces built; the rest planned, BRONZE_PLAN]
 
-- **Furnace:** still one block; 1100 C, two crucibles.
+- **Furnace [built, W0]:** still one block; 1100 C, two crucibles; the Clay Furnace upgrades in place (8 bronze ingots, 4 firebrick, a bellows, fire at 700 C), no hearth.
+- **Built here already:** the Bronze workshop (cranks, shafts, belts, machines, contraptions), the Hand Vacuum Pump, and the Rune Desk, Essentia Tube and Arcane Pedestal with the bronze gathering rod and its foci - all forged at the Bronze Furnace.
 - **Steam begins (first half of the age, STEAM_PLAN):** Copper Kettle (not the Ember Kettle Pot, which only boils
   water) + Steam Rotor, Water Wheel, Windmill, wooden axles and cogs; SPEED and STRESS; Millstone, Saw Bench,
   Trip Hammer, Shaft Bellows, Mechanical Pump and Drill; the Millstone, Saw Bench and Trip Hammer automate the
@@ -146,7 +148,7 @@ at steps 1-3 of the first two ages).
 
 1. Finish the Emberbound (visuals, screens, wiring, e2e) - in progress.
 2. BREWING_PLAN - independent, small; can go first.
-3. BRONZE_PLAN W0 - six tiers and ages (pure refactor, with a save migration).
+3. BRONZE_PLAN W0 - six tiers and ages (pure refactor, with a save migration) **[done]**.
 3b. EMBER_PLAN - hand stations, casting, leather and cloth; move instant recipes onto stations.
 4. STEAM_PLAN waves - open steam and shafts (first half of the Bronze Age; after W0).
 5. BRONZE_PLAN B1-B4 - heat, boiler, pressure, air, vacuum chute.

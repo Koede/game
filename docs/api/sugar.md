@@ -1,5 +1,8 @@
 # Resin, sugar and sweet baking (Sugar Rush)
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Owner's brief: spruce resin can be taken and refined into sugar, then baked into baked goods with wheat in the
 furnace; eating anything with sugar gives a small speed boost, but while it lasts the Well-Fed buff runs out faster
 (hunger itself drains as usual). Everything is done in game with glass beakers and rudimentary chemistry. The only

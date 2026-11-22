@@ -73,7 +73,7 @@ water flows and buckets take source blocks only; workbench also offers every han
 - ui: Structure tab shift buttons (target.shiftLeft/Right), machines list, note
 - steam plan: mech_pump recipe names item_pipe (Bronze Chute) - probably meant fluid_pipe; decide at content time
 - names: brewing owns kettle_pot / machine 'kettle' / KETTLE_*; steam plan uses copper_kettle / COPPER_KETTLE_*
-- repo still has five furnace tiers until W0 (six-age refactor) runs
+- W0 (six-age refactor) DONE 2026-11-21: six furnace tiers and ages, Bronze Furnace = tier 2 (single block), hearths from tier 3; see `docs/api/ages.md`
 - brewing: six_cups gates strictly sequential tracker -> make optional side goal (src/game objectives tracker change)
 - brewing vs handwork: clay_cup/drip_cone forge recipes vs Clay Table unfired cups - decide (recommend keep Clay Table only)
 - brewing not done: crusher recipes for ground coffee; interaction.ts must call brewUse/placeContainer; UI target name from brewView().text
@@ -85,7 +85,7 @@ water flows and buckets take source blocks only; workbench also offers every han
 ## 7. Work order from here
 1. Triage red tests (section 3); finish the unfinished agent pieces (brewing meshes/UI, handwork data/casting/front end, Emberbound UI + e2e-ember); fix the scripted playthrough (`src/sim/playthrough.test.ts` stops at `play.smelt('tin_ore')` because molten copper from casting blocks the crucible - `playKit.smelt` must pour or cool cast metal).
 2. Add `scripts/e2e-brewing.mjs` and `scripts/e2e-handwork.mjs` (real input; `window.__hw` only for setup) and chain them in the `e2e` npm script. Full run green; rebuild; republish the game artifact.
-3. Six-age refactor (BRONZE_PLAN W0): commit an old-save fixture FIRST, renumber tiers/ages, migrate saves, add the single-block Bronze Furnace. Full e2e.
+3. Six-age refactor (BRONZE_PLAN W0): **done** (fixture `tests/fixtures/save-before-bronze.json`, save version 2 migration, `furnace_bronze`, renumbering; gate table in `docs/api/ages.md`).
 4. Steam first half of Bronze (STEAM_PLAN), then Bronze second half (BRONZE_PLAN B1-B4).
 5. Review pass as a phone player; republish game and Codex (`npm run codex`).
 
@@ -189,8 +189,7 @@ Run everything locally; the owner is usage-limited and wants output trimmed and 
 2. Distillery left-list: rig screen + ghost previews, ground burner, reflux head, lubricant and bitumen/asphalt, potions,
    tank support for the new fluids, shaft hooks (see DISTILLERY_PLAN section 15).
 3. Casting Bench block is still inert (pouring happens at the furnace); sap-tap state is not saved and has no animation.
-4. Roadmap unchanged: six-age refactor (BRONZE_PLAN W0: commit an old-save fixture FIRST), Steam first half, Bronze second
-   half, review pass, republish game and Codex.
+4. Roadmap: six-age refactor DONE; next Steam first half, Bronze second half (BRONZE_PLAN B1-B4), review pass, republish game and Codex.
 5. Owner decisions still open: Star hearth 93 casings; make `six_cups` an optional side goal; delete the cup/cone forge
    recipes in favour of the Clay Table; push to GitHub / create `main`.
 
@@ -230,7 +229,7 @@ Left, in priority order (OVERHAUL_PLAN work lists A.11 and C):
    vial-in-still trace (entry exists), aura reading, foci, clay servants, more entries for Bronze/Forge.
 6. Cross-cutting: Codex aspect page and planned items, optional side objectives (scan_ten, first_research), sounds
    (scan_chime, essentia_pour, rod_hum), workbench/forge rows should show "needs research" instead of failing on craft.
-7. W0 six-age refactor: only `src/magic/ageMap.ts` needs its table changed for these pieces.
+7. W0 six-age refactor: done (`AGE_INDEX` edited; the magic Bronze pieces are `forge(2, ...)` at the Bronze Furnace).
 
 ## 11. Workshop session (2026-11-21): Create-style Bronze workshop, second slice
 See `docs/OVERHAUL_PLAN.md` "Status update, workshop session" for what exists and what does not, and `docs/api/workshop.md` for the

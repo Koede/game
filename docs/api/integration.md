@@ -1,5 +1,8 @@
 # Integration (7.5) - src/main.ts, src/app, src/save/document.ts, scripts/e2e.mjs, scripts/e2e-features.mjs
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 How the modules are wired into one game, the boot flow, the save document, the debug handle and the
 end-to-end checks. Unit tests: `npx vitest run src/app src/save src/player src/render src/ui`. Browser: `npm run e2e`
 (the opening on three devices, then `scripts/e2e-features.mjs` and `scripts/e2e-tech.mjs` on desktop and phone

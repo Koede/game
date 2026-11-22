@@ -338,7 +338,7 @@ interface ResearchState {
 | atomic | (reserved) warded home | |
 | star | star light, `void` mastery | |
 
-`ageIndexOf(name)` in `src/magic/ageMap.ts` returns the index in `AGES`; W0 changes only its table.
+`ageIndexOf(name)` in `src/magic/ageMap.ts` returns the index in `AGES`; W0 changed only its table (done: ember 0, bronze 1, forge 2, current 3, atomic 4, star 5).
 
 ## C. Work list (B first, then slices of A that fit)
 

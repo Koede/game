@@ -6,7 +6,7 @@ mechGraph/mech) is NOT built; this module is a self-contained kinetic layer that
 ## Content (`src/content/itemsWorkshop.ts`, `recipesWorkshop.ts`, fixture `specRosterWorkshop.ts`)
 Blocks: `hand_crank`, `drive_shaft`, `conveyor_belt` (slab, oriented), `mech_saw` (chopping_block recipes, full blade yield),
 `mech_millstone` (hand_quern), `mech_mortar` "Stamp Mill" (mortar, with its bonus chance), `mech_loom` (loom). Item:
-`engineer_goggles`. All age `ageIndexOf('bronze')` (= 0 until BRONZE_PLAN W0). Faces/icon: `src/render/textures/iconsWorkshop.ts`.
+`engineer_goggles`. All age `ageIndexOf('bronze')` (= 1 since BRONZE_PLAN W0) and all forged at the Bronze Furnace (`forge(2, ...)`: the six that were workbench recipes - crank, shaft, belts, millstone, loom - are furnace recipes at 400-500 C now). The eleven workshop goals sit in the Bronze Age after `bronze_furnace` (`docs/api/ages.md`). Faces/icon: `src/render/textures/iconsWorkshop.ts`.
 
 ## Runtime (`workshop.ts`, class `Workshop`, owned by `Game`, saved with `world.persist('workshop')`)
 - Parts join on all six sides into networks (BFS each tick, capped 512). A network turns at `CRANK_RPM` 16 while a crank in it

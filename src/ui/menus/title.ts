@@ -31,7 +31,7 @@ export interface TitleScreenOptions {
   controls?: HowToPlayOptions;
   /** Small print in the corner, e.g. "v0.1.0". */
   version?: string;
-  /** Names of the five ages for the strip under the promise. Default: the ages of the spec. */
+  /** Names of the six ages for the strip under the promise. Default: the ages of the spec. */
   ages?: readonly string[];
 }
 
@@ -40,7 +40,7 @@ const WORD_POWER = 'WATT';
 /** The first six letters climb the heat ramp to white heat; the last four are electric. */
 const LETTER_TEMPS = [640, 800, 960, 1120, 1300, 1500];
 const DEFAULT_AGES = ['Ember', 'Forge', 'Current', 'Atomic', 'Star'];
-const AGE_COLORS = [heatColor(800), heatColor(1150), 'var(--hw-power)', 'var(--hw-power-hi)', heatColor(1500)];
+const AGE_COLORS = [heatColor(800), heatColor(1000), heatColor(1150), 'var(--hw-power)', 'var(--hw-power-hi)', heatColor(1500)];
 const MODE_HINTS: Record<GameMode, string> = {
   survival: 'The real game: heat, hunger and the Emberbound.',
   dev: 'Creative items, no damage or hunger, free building, flight.',
@@ -120,7 +120,7 @@ export class TitleScreen {
       h('p', { class: 'hw-title__promise' }, PROMISE.map((line) => h('span', { text: line }))),
       h(
         'ol',
-        { class: 'hw-title__ages', attrs: { 'aria-label': 'The five ages' } },
+        { class: 'hw-title__ages', attrs: { 'aria-label': 'The six ages' } },
         ages.map((name, i) => h('li', { style: { '--hw-age': AGE_COLORS[i % AGE_COLORS.length] } }, h('i'), h('span', { text: name }))),
       ),
     );

@@ -15,9 +15,9 @@ features (sugar chain, tractor, chainsaw, distillery, essentia magic, workshop) 
    cup/cone forge recipes in favour of the Clay Table; whether to create `main` (pages.yml deploys the game on pushes to `main`).
 
 ## 1. Roadmap spine (unchanged)
-1. Six-age refactor (BRONZE_PLAN W0): commit an OLD-SAVE FIXTURE first, renumber tiers/ages everywhere, save migration, add the
-   single-block Bronze Furnace. Several new items are gated by tier today (vacuum pump, chainsaw, workshop parts, magic ages) and
-   have notes saying where to move them when W0 lands (`docs/api/ground-items.md`, `docs/api/chainsaw.md`, `OVERHAUL_PLAN` age tables).
+1. ~~Six-age refactor (BRONZE_PLAN W0)~~ **DONE**: old-save fixture, renumbering, save version 2, the single-block Bronze Furnace; every gate is in
+   `docs/api/ages.md`. What it leaves: the Blast hearth still needs no Blast Nozzle (BRONZE_PLAN B1), the `OVERHAUL_PLAN` age tables
+   use the old numbers (names are fine), and nothing has been played by hand on a phone yet (Dev Mode lists `furnace_bronze`).
 2. Steam first half of Bronze (STEAM_PLAN), then Bronze second half (BRONZE_PLAN B1-B4); several workshop pieces already stand in for it.
 3. Review pass as a phone player, republish the game artifact and the Codex (`npm run codex`).
 4. Electric age: the electromagnet is one more definition in `src/game/collectors.ts` (the vacuum pump's collector mechanism).
@@ -57,3 +57,9 @@ hint texts; the steam-plan item names (copper_kettle vs kettle_pot, mech_pump re
   `npm run build` or e2e (they rebuild `dist/`). Pause everything before merging upstream.
 - Pointer lock is refused in automation-driven browser windows; test the real cursor in a normal browser.
 - Regenerate the handoff bundle with `bash scripts/make-handoff-bundle.sh HEARTHWATT_COMPLETE_HANDOFF.md`.
+
+## 8. Known e2e flakes seen after W0 (not furnace-related)
+`node scripts/e2e.mjs` (GPU): "mines four logs by holding Mine" (phoneLandscape, pack held 2 logs) and, in the sandboxed-frame run,
+"save and quit keeps the world in memory; Continue restores it: inventory not restored from memory" (a pickup lands between the two
+state reads). Both are timing in the real-input mining steps; the Bronze upgrade step and the furnace/hearth steps passed on all devices.
+The rest of the e2e chain (features, tech, ember, handwork, ground, vehicles, dev, distill, magic, workshop) was NOT run after W0.

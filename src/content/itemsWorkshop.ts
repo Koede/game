@@ -3,8 +3,8 @@
  * carry its turning, belts that carry ground items, mechanical twins of four hand stations (saw, millstone, mortar,
  * loom) that work the same recipes from items dropped on their top, and Engineer's Goggles that read machines.
  *
- * Gate: the code still has five ages (BRONZE_PLAN W0 not run), so these Bronze pieces are age 0 and made at the
- * workbench or the Clay Furnace from Ember materials; ageMap.ts maps 'bronze' to that index until W0.
+ * Gate (BRONZE_PLAN W0 done): these are Bronze Age pieces, age 1, and every one is forged at the Bronze Furnace (furnace
+ * tier 2, src/content/recipesWorkshop.ts); ageMap.ts maps 'bronze' to the age index.
  */
 import type { BlockSpec, ItemSpec } from '../core/types';
 import { ageIndexOf } from '../magic/ageMap';

@@ -1,5 +1,8 @@
 # Tech content - data for spec sections 16 and 17
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Item and fluid transport (pipes, pumps, tanks, boiler, steam turbine, the wrench) and multiblock hearths (walls,
 electrodes, hatches, power ports, structure rules). This pass lays down **data, contracts, textures and sounds
 only**: nothing moves items, pumps a litre or forms a hearth yet. Section 6 says what each next engineer builds on it.

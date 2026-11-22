@@ -7,8 +7,8 @@ above it in one cut; the logs drop as ground items (docs/api/ground-items.md), t
 
 ## Which age, and why
 
-**Current Age** (PROGRESSION "Age 3 - Current"; `age: 2` and forged at furnace tier 3 in today's five-age numbering, the
-six-age renumbering (BRONZE_PLAN W0) bumps both like every other `age:`/`minTier`).
+**Current Age** (PROGRESSION "Age 3 - Current"; `age: 3` and forged at furnace tier 4 since the six-age renumbering, BRONZE_PLAN W0:
+see `docs/api/ages.md`), objective `fell_tree` age 3.
 
 - It needs an *engine*. The only engine in the game that runs on a liquid fuel is the Combustion Engine, forged at the
   Arc Furnace, and the only liquid fuel is the **Fuel Canister** from the Still (Current). A chainsaw is that engine on
@@ -20,7 +20,7 @@ six-age renumbering (BRONZE_PLAN W0) bumps both like every other `age:`/`minTier
   one earlier; it would be a second item, not a change to this one.)
 
 Recipe (Arc Furnace, 1300 C): `1 chassis, 2 steel_plate, 1 copper_coil, 1 circuit`. Objective `fell_tree` ("Fell a
-tree", flag `felled_tree`, age 2) sits right after Ward your base.
+tree", flag `felled_tree`, age 3) sits right after Ward your base.
 
 ## Rules
 

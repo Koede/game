@@ -1,5 +1,8 @@
 # Tech UI (src/ui) - the STRUCTURE tab, the pipe screen, fluid tanks on machine screens
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Spec 16.3 (pipe screen) and 17.4 (STRUCTURE tab, problem highlight, ghost preview), on the simulation views of
 `docs/api/hearth.md` (`structureView`) and `docs/api/transport.md` (`pipeView`, `setPort`, `MachineView.fluids`), built on
 the kit, GameUI's `registerScreen` and the station screens of `docs/api/furnace-screens.md`. The UI only ASKS for world

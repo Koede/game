@@ -19,7 +19,7 @@ desk and altar rows from `recipesMagic.ts` so their outputs count as obtainable)
 - `nodes.ts`: wellsprings from the seed (`nodeInChunk`, `nodesNear`; 1 in 10 chunks; 70% primal), `NODE_POOL` 32, refill 1 / 15 s,
   `NODE_REACH` 6, `compass`.
 - `essentiaNet.ts`: `jarsFor(blockAt, x, y, z, radius)` (jars in reach + every jar joined by `essentia_tube`s), `shortfall`.
-- `ageMap.ts`: ages by name; W0 edits only `AGE_INDEX`.
+- `ageMap.ts`: ages by name; W0 edited only `AGE_INDEX` (now ember 0, bronze 1, forge 2, current 3, atomic 4, star 5). Rune Desk, Essentia Tube and Arcane Pedestal are `forge(2, ...)` at the Bronze Furnace (`recipesMagic.ts`).
 
 ## Content (`src/content/itemsMagic.ts`, `recipesMagic.ts`, fixture `specRosterMagic.ts`)
 Items: field_notebook, glass_vial, 21 `vial_<aspect>` (4 units), rods `vis_rod` / `bronze_rod` / `iron_rod` (`RODS`: capacity

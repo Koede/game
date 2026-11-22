@@ -36,7 +36,7 @@ with `supply` drawing from the player's battery/grid (a `drawJoules` hook in src
 ## Hand Vacuum Pump (`hand_vacuum`)
 - Item in `src/content/itemsGround.ts` (`GROUND_ITEMS`), icon `item_hand_vacuum` (`src/render/textures/iconsGround.ts`), stack 1, `wear` 480 (new `ItemSpec.wear`: uses of a non-tool item; `fullDurability` reads it, so slots show a wear bar and the card shows "Suction left").
 - Collector: radius 9, pull 11 blocks/s, one Use runs 2.5 s, 1 wear per second of suction, sound `steam_hiss` every 0.55 s plus `machine_on` on start.
-- Recipe: Clay Furnace forge at 800 C: 4 bronze plate, 2 leather, 1 bellows, 2 copper plate. **Gate:** the code still has five tiers and ages; the Bronze Furnace (tier 2 after BRONZE_PLAN W0) does not exist, so the pump is made at the tier-1 furnace from Ember crafts and documented as a Bronze Age tool. After W0 move it to `forge(2, 'hand_vacuum', ...)` and set `age: 1` in `itemsGround.ts`. No objective yet (a "Gather from afar" goal fits after the Bronze Furnace goals).
+- Recipe: Bronze Furnace forge (`forge(2, 'hand_vacuum', ...)`, tier 2) at 800 C: 4 bronze plate, 2 leather, 1 bellows, 2 copper plate; `age: 1` in `itemsGround.ts` (moved by BRONZE_PLAN W0, see `docs/api/ages.md`). No objective yet (a "Gather from afar" goal fits after the Bronze Furnace goals).
 - It is NOT the machine `vacuum_pump` of BRONZE_PLAN 5.4 (the air user on a chute network); the key is `hand_vacuum` so both can exist.
 
 ## src/render/groundItems.ts

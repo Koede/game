@@ -1,5 +1,8 @@
 # Brewing - data layer (contracts, content, textures, sounds, worldgen)
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Written by the brewing data engineer. Design: `docs/BREWING_PLAN.md` (section 11 overrides 1-9). The simulation is
 `docs/api/brewing.md` (src/sim/brewing.ts), the player/UI/render work builds on both. Everything here is DATA and
 contracts: no behaviour. Every key below exists in the registry; `npm test` proves it.

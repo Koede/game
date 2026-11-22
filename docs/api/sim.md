@@ -1,5 +1,8 @@
 # src/sim - public API
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 The furnace, power networks, every machine, fission and the Starhearth (spec 2.4, 2.5, 3.1-3.3, brief 7.1).
 DOM-free, runs in node. Import from `src/sim` (index). `npx vitest run src/sim`.
 

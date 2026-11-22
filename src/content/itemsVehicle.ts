@@ -1,7 +1,7 @@
 /**
  * Current Age engines on the move (docs/api/chainsaw.md, docs/api/tractor.md): the chainsaw, the tractor and its two
  * attachments. They need a combustion engine, so they sit in the same age as the Combustion Engine and the Fuel
- * Canister that feeds them (age 2 today; the six-age renumbering moves them with it: PROGRESSION "Current").
+ * Canister that feeds them (age 3, the Current Age, forged at furnace tier 4: PROGRESSION "Current").
  */
 import type { ItemSpec } from '../core/types';
 
