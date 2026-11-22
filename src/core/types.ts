@@ -650,7 +650,8 @@ export interface MachineFluids {
 export type FluidKey =
   | 'water' | 'lava' | 'steam' | 'crude_oil' | 'fuel'
   // The glass distillery (src/content/fluidsDistill.ts).
-  | 'sap' | 'syrup' | 'sugar_wash' | 'low_wines' | 'spirit' | 'fuel_ethanol' | 'gasoline' | 'kerosene' | 'diesel' | 'residue' | 'slop';
+  | 'sap' | 'syrup' | 'sugar_wash' | 'low_wines' | 'spirit' | 'fuel_ethanol' | 'gasoline' | 'kerosene' | 'diesel' | 'residue' | 'slop'
+  | 'lube_base' | 'bitumen' | 'lubricant' | 'tincture' | 'clear_tincture';
 
 export interface FluidSpec {
   key: FluidKey;

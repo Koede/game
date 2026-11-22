@@ -11,6 +11,7 @@ import type { FluidKey, MachineSpec } from '../core/types';
 const TANK_FLUIDS: FluidKey[] = [
   'water', 'lava', 'steam', 'crude_oil', 'fuel',
   'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop',
+  'lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture',
 ];
 
 export const TECH_MACHINES: MachineSpec[] = [

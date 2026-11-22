@@ -23,4 +23,9 @@ export const DISTILL_FLUIDS: FluidSpec[] = [
   f('diesel', 'Diesel', 0xb88a2e, 'diesel_canister'),
   f('residue', 'Heavy Residue', 0x5a4a40, 'residue_canister'),
   { key: 'slop', name: 'Slop', colour: 0x7a8a50, hot: false, glow: false },
+  f('lube_base', 'Lube Base', 0x6020a0, 'lube_base_canister'),
+  f('bitumen', 'Bitumen', 0x103060, 'bitumen_canister'),
+  f('lubricant', 'Lubricant', 0x20ff80, 'lubricant_canister'),
+  f('tincture', 'Tincture', 0xc02080),
+  f('clear_tincture', 'Clear Tincture', 0x66ffcc),
 ];

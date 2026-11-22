@@ -52,11 +52,18 @@ export function buildRig(rig: string, y0 = 2, kit: Kit = makeKit()): BuiltRig {
 export function feed(card: ProcessCard, into: ChemEntity): number {
   const liquids = card.inputs.filter((i) => CHEM_CONTAINERS[i.item]);
   const litres = liquids.reduce((n, i) => n + i.count * CHEM_CONTAINERS[i.item].litres, 0);
-  const k = Math.min(1, CHEM_CAPACITY_L[into.kind] / litres);
+  const k = litres <= 0 ? 1 : Math.min(1, CHEM_CAPACITY_L[into.kind] / litres);
   for (const i of liquids) {
     const c = CHEM_CONTAINERS[i.item];
     const l = i.count * c.litres * k;
     pour(expand(c.fluid, l), into.mix, l);
+  }
+  for (const i of card.inputs) {
+    if (CHEM_CONTAINERS[i.item]) continue;
+    const n = Math.max(1, Math.round(i.count * (litres <= 0 ? 1 : k)));
+    const have = into.slots?.find((s) => s.item === i.item);
+    if (have) have.count += n;
+    else (into.slots ??= []).push({ item: i.item, count: n });
   }
   return k;
 }

@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { expand, nameOf, pour, total } from '../core/chem';
-import { CHEM, STILL_SETPOINTS } from '../core/distill';
+import { bubblePoint, expand, nameOf, pour, stagesOf, total, type Mix } from '../core/chem';
+import { createBus } from '../core/context';
+import { CHEM, ESSENCE_DRINKS, GLASS_MAX_C, STILL_SETPOINTS, VACUUM_BP, elixirGrant, nextReflux, roadSpeedOf } from '../core/distill';
 import { DT } from '../core/constants';
+import { item, machine } from '../core/registry';
 import { Face } from '../core/types';
+import { SAW_FUEL_PER_LOG } from '../content/itemsVehicle';
+import { FakeWorld } from '../game/fakeWorld';
+import { fellTree } from '../game/felling';
+import { PlayerState } from '../game/playerState';
 import type { ChemEntity } from './distill';
 import { chemPortEndpoint } from './distillActions';
 import { buildRig, runUntil } from './distillKit';
@@ -204,5 +210,102 @@ describe('player and pipes', () => {
     expect(outlet.offer()).toEqual({ fluid: 'gasoline', litres: 800 });
     expect(outlet.drain('gasoline', 500)).toBeCloseTo(500, 9);
     expect(outlet.drain('diesel', 100)).toBe(0);
+  });
+});
+
+describe('distill modules', () => {
+  it('a ground burner is 250 C on charcoal and 300 C on fuel ethanol; a furnace wins, and glass stops at 450 C', () => {
+    const kit = makeKit();
+    kit.world.put(0, 2, 0, 'still_base');
+    kit.world.put(0, 3, 0, 'boiling_flask');
+    expect(kit.sim.chemUse(0, 2, 0, 'charcoal')).toMatchObject({ ok: true, consume: true });
+    kit.sim.tick(1);
+    expect(kit.sim.distill.entityAt(0, 3, 0)!.tempC).toBe(250);
+    kit.sim.distill.entityAt(0, 2, 0)!.slots = [{ item: 'fuel_ethanol_beaker', count: 1 }];
+    kit.sim.tick(1);
+    expect(kit.sim.distill.entityAt(0, 3, 0)!.tempC).toBe(300);
+
+    const r = buildRig(POT);
+    expect(r.kit.sim.chemUse(0, 2, 0, 'charcoal')).toMatchObject({ ok: true });
+    r.first('B').setC = 97;
+    r.furnaces[0].tempC = 800;
+    r.kit.sim.tick(1);
+    expect(r.first('F').tempC).toBe(97);
+    r.first('B').setC = 800;
+    r.furnaces[0].tempC = 900;
+    r.kit.sim.tick(1);
+    expect(r.first('F').tempC).toBe(GLASS_MAX_C);
+  });
+
+  it('reflux return cycles 0 / 50 / 75 percent and plates scale by 1 + 2r', () => {
+    expect(stagesOf(4, 0)).toBe(5);
+    expect(stagesOf(4, 0.5)).toBe(9);
+    expect(stagesOf(4, 0.75)).toBe(11);
+    const kit = makeKit();
+    kit.world.put(0, 2, 0, 'reflux_head');
+    const head = kit.sim.distill.entityAt(0, 2, 0)!;
+    expect(head.reflux).toBe(0);
+    const opened: string[] = [];
+    kit.bus.on('ui:open', (e) => opened.push(e.screen.type));
+    expect(nextReflux(0)).toBe(0.5);
+    expect(kit.sim.chemUse(0, 2, 0, 'wrench')?.ok).toBe(true);
+    expect(head.reflux).toBe(0.5);
+    kit.sim.chemUse(0, 2, 0, 'wrench');
+    expect(head.reflux).toBe(0.75);
+    kit.sim.chemUse(0, 2, 0, 'wrench');
+    expect(head.reflux).toBe(0);
+    expect(opened).toEqual(['distill_rig', 'distill_rig', 'distill_rig']);
+  });
+
+  it('a filter spends one medium per fill and clay turns lube base into lubricant', () => {
+    const kit = makeKit();
+    kit.world.put(0, 2, 0, 'filter_bed');
+    const bed = kit.sim.distill.entityAt(0, 2, 0)!;
+    fill(bed, 'lube_base', 200);
+    bed.slots = [{ item: 'clay', count: 2 }];
+    kit.sim.tick(1);
+    expect(bed.slots[0].count).toBe(1);
+    expect(nameOf(bed.mix)).toBe('lubricant');
+    kit.sim.tick(1);
+    expect(bed.slots[0].count).toBe(1);
+  });
+
+  it('a vacuum cap multiplies boiling points by 0.7', () => {
+    for (const c of ['lube_base', 'bitumen'] as const) {
+      const pure: Mix = { [c]: 100 };
+      expect(bubblePoint(pure, VACUUM_BP)).toBeCloseTo(bubblePoint(pure)! * VACUUM_BP, 6);
+    }
+  });
+
+  it('an elixir lasts three times the drink and adds one strength', () => {
+    for (const row of ESSENCE_DRINKS) {
+      const src = item(row.item).drink!;
+      const grant = elixirGrant(row, src.buffS);
+      expect(grant.buff).toBe(src.buff);
+      expect(grant.buffS).toBe(src.buffS * 3);
+      expect(grant.strengthAdd).toBe(1);
+    }
+  });
+
+  it('a tank accepts and gives every new distill fluid', () => {
+    const tank = machine('tank');
+    for (const key of ['lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture'] as const) {
+      expect(tank.fluids?.accepts).toContain(key);
+      expect(tank.fluids?.gives).toContain(key);
+    }
+    expect(roadSpeedOf('asphalt')).toEqual({ walk: 1.25, tractor: 1.4 });
+  });
+
+  it('a lubricant canister halves chainsaw bar wear and is not used up', () => {
+    const bus = createBus();
+    const world = new FakeWorld(bus);
+    world.fill(0, 10, 0, 0, 12, 0, 'oak_log');
+    const player = new PlayerState(bus, { x: 0.5, y: 11, z: 2.5 });
+    player.inventory.set(0, { item: 'chainsaw', count: 1, durability: 80 });
+    player.inventory.set(1, { item: 'lubricant_canister', count: 1 });
+    player.selectedSlot = 0;
+    fellTree(world, player, 0, 10, 0, () => 0.5);
+    expect(player.inventory.get(0)!.durability).toBeCloseTo(80 - 3 * SAW_FUEL_PER_LOG * 0.5, 6);
+    expect(player.inventory.get(1)!.count).toBe(1);
   });
 });

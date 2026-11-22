@@ -340,7 +340,13 @@ export const SPEC = {
   } as Record<string, Partial<BlockDef>>,
 
   /** Block items that exist for the codex but can never be picked up: these blocks drop something else. */
-  worldOnlyItems: ['stone', 'grass', 'oak_leaves', 'pine_leaves', 'tall_grass', 'dry_shrub', 'coal_ore', 'sulfur_ore'],
+  worldOnlyItems: [
+    'stone', 'grass', 'oak_leaves', 'pine_leaves', 'tall_grass', 'dry_shrub', 'coal_ore', 'sulfur_ore',
+    // Potion vials are made by the still (PROCESS_CARDS) but are not recipe-book rows: a drink cannot be a recipe
+    // input (brewing.test). The solver therefore never grants them. S10 can move them into the book with that exception.
+    'essence_spring', 'elixir_spring', 'essence_hearthkept', 'elixir_hearthkept', 'essence_mending', 'elixir_mending',
+    'essence_swift', 'elixir_swift', 'essence_vigor', 'elixir_vigor', 'essence_lasting', 'elixir_lasting',
+  ],
 
   /** World blocks the tech tree must not depend on: lava, loose rubble, and the biome-flavoured ones. */
   optionalWorldBlocks: ['lava', 'rubble', 'snow', 'ice', 'basalt', ...WORLD_SPEC.optional],
@@ -380,6 +386,7 @@ Object.assign(SPEC.machines, DISTILL_SPEC.machines);
 Object.assign(SPEC.blockProps, DISTILL_SPEC.blockProps);
 SPEC.recipes.furnace.push(...DISTILL_SPEC.recipes.furnace);
 for (const station of Object.keys(DISTILL_SPEC.recipes)) if (station !== 'furnace') SPEC.recipes[station] = DISTILL_SPEC.recipes[station];
+SPEC.maxTextures += DISTILL_SPEC.textures;
 
 // Essentia & Research (docs/OVERHAUL_PLAN.md B) comes after the distillery: its lists are appended last.
 SPEC.blocks.push(...MAGIC_SPEC.blocks);

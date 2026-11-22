@@ -18,6 +18,9 @@ const DESC: Record<string, string> = {
   glass_tube: 'Carries liquid sideways and down.',
   airlock_cap: 'Seals the vessel below it.',
   chem_port: 'Fluid pipes in and out of the glassware.',
+  reflux_head: 'Wrench cycles the return: 0, 50 or 75 percent. Plates count (1 + 2 r) times.',
+  filter_bed: 'Holds 500 L. Liquid enters from above and leaves below. Charcoal, sand or clay is used up; clay turns lube base into lubricant.',
+  vacuum_cap: 'On the stack, boiling points are 0.7 times. No shaft is required.',
 };
 
 const distillFluids = DISTILL_FLUIDS.map((f) => f.key);
