@@ -1,9 +1,8 @@
 name: Deploy to GitHub Pages
 
 # Publishes the built game as a static site. Needs Pages set to "GitHub Actions" in the repository settings.
+# Auto-deploy is off until Forest turns publishing back on.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
