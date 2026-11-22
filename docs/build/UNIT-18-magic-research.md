@@ -5,7 +5,7 @@ Where this file and SYSTEMS.md disagree, SYSTEMS.md wins; where this file and th
 the code wins and the builder tells the coordinator.
 
 **Threads:** T4 (material web: `vial_soul` gets a second producer, essences and tinctures get their magic consumers, a new
-tool `steel_rod`), T7 (knowledge and gating: nine new research entries, the flags `late_draw`, `golem_walk`, `steady_tubes`,
+tool `steel_rod`), T7 (knowledge and gating: eight new research entries, the flags `late_draw`, `golem_walk`, `steady_tubes`,
 `essence_ward`, `aura_dial`, `essence_study`, a `gates` list for recipes owned by other units), T8 (crosshair and desk
 phrasing of the rest of a vial, the rod's tuning), T9 (reuses existing magic sounds only), T10 (two optional save fields).
 
@@ -30,7 +30,7 @@ furnace overrides carried them at all. This unit finishes the magic layer's top 
 3. **Nothing poured away.** The Rune Desk used to swallow the rest of a vial it broke open (bronze rod: Rune 2 from a vial
    of 4 - two units gone). Now the rest pours back into a jar within reach (or tubed) that holds the same aspect or is empty;
    the desk row says so before you press Make. Only when no jar has room is it lost, and the row warns you first.
-4. **Research that reaches out.** Nine new entries tie the notebook to the rest of the build: golems that walk (Unit 17),
+4. **Research that reaches out.** Eight new entries tie the notebook to the rest of the build: golems that walk (Unit 17),
    tubes that flow twice as fast (Unit 19), elixirs that stretch to six with a ward vial (Unit 10), the aura dial (Unit 19),
    studying potion essences for lore, steeping tinctures into Soul at the altar, and a fourth rod tier of steel.
 
@@ -295,7 +295,7 @@ vial, as today), applies `refunds` via `setJar`, emits `essentia_pour` at the fi
 The infusion altar pays from jars only (`withVials` false) and is unchanged. `take()` stays for the altar, servants and
 siphon; the desk no longer calls it.
 
-### 4.4 New research entries (nine)
+### 4.4 New research entries (eight)
 
 All boards were checked with `solveBoard` against the aspects of **items only** (no blocks) with `age <= ageIndexOf(age)`,
 excluding vials and excluding late aspects from the palette (tokens never need a late aspect: anchors provide them and kin
@@ -358,8 +358,8 @@ Texts:
 entry gates. `RESEARCH_GATES` and `unlockedRecipes` include them exactly like `recipes`; the only difference is that the
 "every gated recipe exists" test skips `gates` ids. Today only `golem_walk.unlocks.gates = ['clay_golem']`.
 
-Goal impact: `goals()`'s `all_research` counts boards, so it reads `Finish every research (24/32)` for a player who had
-finished all 24 boards (24 old boards + 8 new boards; `field_notes` has no board). This is intended: there is more to do.
+Goal impact: `goals()`'s `all_research` counts boards, so it reads `Finish every research (23/31)` for a player who had
+finished all 23 old boards (23 old + 8 new; `field_notes` has no board). This is intended: there is more to do.
 Its `done` flips back to false for such a player - goals are derived, not saved, so nothing breaks.
 
 ### 4.5 New items and recipes
@@ -498,7 +498,7 @@ Plural rule: `1 Rune`, `2 Rune` (aspect names are mass nouns, as in the existing
 
 ### 6.1 Notebook (phone first)
 
-- **Research tab:** the nine entries appear under their age headings (`Bronze`, `Forge`) by the existing grouping on
+- **Research tab:** the eight entries appear under their age headings (`Bronze`, `Forge`) by the existing grouping on
   `e.age`; no layout change. The 5 x 5 board with 44 px cells and aspect chips already fits 390 px portrait. Late anchors
   draw with the existing aspect glyphs (`iconsMagic.ts` already paints all 21) and colours (Spark `#6ae0ff`, Soul
   `#ff9ad0`, Void `#3a2a55`). Void's dark colour on the dark board: the builder checks the anchor cell keeps its existing
@@ -602,9 +602,9 @@ Each step leaves `npm test` green. Run `npx vitest run src/magic src/content` af
    `RESEARCH_GATES` maps `[...(e.unlocks.recipes ?? []), ...(e.unlocks.gates ?? [])]`. `src/magic/research.ts`:
    `unlockedRecipes` adds `gates` ids too. Update the header comment of `entries.ts` (the tree paragraph) with one sentence
    for the new entries.
-3. **Nine entries** - append to `RESEARCH` per 4.4 (Bronze four at the end of the Bronze block, Forge four at the end of the
-   Forge block; that is eight with boards; `field_notes` remains the only board-less entry). Use the existing helpers
-   `pair`, `corners`, `triple`, `quad`, `wall`, `cellAt`. Note: that is 8 new entries, not 9 - see the count note in 14.
+3. **Eight entries** - append to `RESEARCH` per 4.4 (Bronze four at the end of the Bronze block, Forge four at the end of the
+   Forge block; all eight have boards; `field_notes` remains the only board-less entry). Use the existing helpers
+   `pair`, `corners`, `triple`, `quad`, `wall`, `cellAt`.
 4. **Steel rod content** - `src/content/itemsMagic.ts`: `RODS` row, `MAX_ROD_CAPACITY`, the `steel_rod` item.
    `src/content/recipesMagic.ts`: the `steel_rod` arcane row, the two `soul_steep` infusions. `src/content/specRosterMagic.ts`:
    add `'steel_rod'` after `'iron_rod'` in `items`; `textures: 49`. `src/render/textures/iconsMagic.ts`: `STEEL_R` and
@@ -745,7 +745,7 @@ it('a jar of another aspect is never used for the rest', () => {
   expect(p.refunds).toEqual([]); expect(p.lost).toEqual({ rune: 2 });
 });
 it('a nearly full jar takes what fits, then an empty jar', () => {
-  expect(planPayment({ rune: 2 }, [jar('r', 'rune', 31), jar('e', null, 0)], { rune: 0 + 1 }).refunds)
+  expect(planPayment({ rune: 2 }, [jar('r', 'rune', 31), jar('e', null, 0)], { rune: 1 }).refunds)
     .toEqual([['r', 'rune', 1], ['e', 'rune', 1]]);
 });
 it('a jar drained by the payment receives the rest (net cost exact)', () => {
@@ -771,8 +771,8 @@ it('is deterministic', () => { /* same inputs twice -> toEqual */ });
 - `late aspects are drawn only after late_draw, and first`: put 12 `item_vault` around (cells within 3 of `(0, 1, 0)`), give
   `iron_rod` + 2 `glass_vial`; `learn('compound_draw')` -> `magic.richest(0, 1, 0)!.aspect` is not `'void'`; `learn('late_draw')`
   -> `'void'`; gather twice with `magic.tick(0.3)` between -> pack has `vial_void >= 1`.
-- `soul comes from living company`: build `Magic` with `livingNear: () => 4` (4 tame = weight 8? no: the hook returns a weight;
-  return 8) -> after `late_draw`, `landAspects(0, 1, 0).get('soul') === 32` and `richest().aspect === 'soul'`.
+- `soul comes from living company`: build `Magic` with `livingNear: () => 8` (the hook returns the weighted count: 4 tame animals = 8)
+  -> after `late_draw`, `landAspects(0, 1, 0).get('soul') === 32` and `richest().aspect === 'soul'`.
 - `a rod tuned on a jar draws only that aspect`: `fillJar(t, 2, 1, 0, 'cinder', 1)`; hold `vis_rod`; `use(at(2, 1, 0))` ->
   `'worked'`, `magic.tuned === 'cinder'`, toast `The rod is tuned to Cinder - it draws only Cinder now`; with an empty vial
   carried and loam richer, gathering fills `vial_cinder`. Use on an empty jar -> `tuned === null`.
@@ -817,16 +817,15 @@ Run `node scripts/e2e-magic.mjs --device=desktop` and `--device=phonePortrait` (
    - Setup (`M`): in the yard, place 12 `item_vault` in a ring at `P.gy` around `(P.yard.x + 3, P.yard.z + 2)` (the 12 cells at
      Chebyshev distance 2 on the cardinal and diagonal lines plus 4 at distance 1 off-axis - any 12 cells within 3 blocks);
      `clearInventory`; give `iron_rod` 1, `glass_vial` 2; teleport the player to the ring's centre.
-   - Action: select the rod (`d.selectSlot(0)` or the existing helper used for the vis rod step), aim at the sky
+   - Action: `d.selectItem('iron_rod')`, aim at the sky
      (`lookAt` upward via `d.hw`), `d.use()` 6 times with `d.settle(250)` between (`ROD_INTERVAL_S` 0.2).
    - Assert: `inventory.count('vial_void') >= 1`; `magic.rodReading()` contains `Void`.
    - Screenshot `8-void-draw`.
 2. `step('a rod used on a jar is tuned to its aspect', ...)`
-   - Setup: an `essentia_jar` beside the ring, filled via `hw.app.game.magic` test-free path: give `vial_cinder` and pour with
+   - Setup: place an `essentia_jar` beside the ring (`hw.setVoxel`); give `vial_cinder` 1 and pour it in with
      real Use (select the vial, `d.approach(jar)`, `d.use()`).
-   - Action: select the iron rod, `d.approach(jar)`, `d.use()`.
-   - Assert: `magic.tuned === 'cinder'`; the last toast text (read through the existing toast probe used elsewhere in the
-     script, or `__hw.state().toasts`) contains `tuned to Cinder`.
+   - Action: `d.selectItem('iron_rod')`, `d.approach(jar)`, `d.use()`.
+   - Assert: `magic.tuned === 'cinder'` (read with `d.hw`). The toast text is asserted in the unit test (9.4), not here.
    - Then untune: place an empty jar, approach, Use -> `tuned === null`. Screenshot `9-rod-tuned`.
 3. `step('the rune desk pours the rest of a vial back into a jar', ...)`
    - Setup: reuse the desk position of the bronze rod step (`{ x: P.yard.x, y: P.gy, z: P.yard.z - 3 }`); place an
@@ -899,7 +898,7 @@ The existing bronze rod step stays green: with no jar near its desk the rest is 
 ## 14. Notes for the coordinator
 
 1. **Count.** The brief said "new research entries"; this spec adds **eight** entries (four Bronze, four Forge): 24 -> 32.
-   (An earlier draft counted nine; `field_notes` remains the only board-less entry.)
+   `field_notes` remains the only board-less entry: boards go from 23 to 31, so the Goals line reads `Finish every research (23/31)` for a player who had finished everything.
 2. **Unit 17** must name its infusion row id exactly `clay_golem`; the gate comes from `golem_walk.unlocks.gates` and the
    existing `startInfusion -> craftGate` path, so Unit 17 needs no gate code. T4 says its cost includes Soul: Soul is
    drawable after `late_draw`, which `golem_walk` requires, so the order is consistent.

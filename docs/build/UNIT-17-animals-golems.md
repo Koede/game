@@ -100,13 +100,24 @@ already do - they do it with legs, which is the delight.
   animal itself (the wheel's tween ends where the animal already stands, Unit 13 recomputes on the step's END).
 - A golem's home is NOT relocated (it is a floor cell, not a structure block).
 
+### 2.5b Unit 4 - hot items; Unit 13 - riders
+- Unit 4 makes every non-pack `Inventory` refuse hot items (`Inventory.accepts` refuses `isHot(item) && !this.holdsHot`) and keeps the
+  casting bench out of item endpoints. A golem's carried stack is NOT an `Inventory`, so the rule is enforced at the source: the
+  golem never takes a hot item (`GolemHooks.take` / `peek` entries whose item `isHot` are skipped, Game passes Unit 4's `isHot`
+  helper into the hook as `hot(item)`). Containers already refuse to hold them, so in practice a golem only meets one if a mod or
+  a future path puts one there. Golems never target the casting bench (it is not `canHold`, not a hand station).
+- Unit 13's `PlayerPhysics.platform` carries the PLAYER on moving structures. Mobs are not carried by it: a harnessed animal is
+  re-pinned to its wheel's new top through `MobManager.relocate` (2.5); a golem standing on a moving platform simply stays put and
+  repaths (it is a floor walker; out of scope to ride).
+
 ### 2.6 Unit 10 - bandage and elixirs; Unit 18 - research
 - Use a `bandage` on a damaged golem: +6 HP at once (the golem is clay; no heal-over-time slot on a mob). Use any item whose key
   starts with `elixir_` and that exists in the registry: the golem works twice as fast for `GOLEM_ELIXIR_S` 300 s (T4 row "golems fed an
   elixir work 2x for 5 min"). Both read item keys only; if Unit 10 has not merged, those Uses simply never happen. Clay (`clay`, an
   Ember block item that already exists) also patches a golem: +2 HP. So repair never depends on Unit 10.
-- `golem_walk` (Unit 18) gates the infusion: Unit 18's entry lists `unlocks: { recipes: ['clay_golem'], flags: ['golem_walk'] }`,
-  so the existing `RESEARCH_GATES` / `craftGateReason` path refuses the infusion in `startInfusion` until it is researched. Before
+- `golem_walk` (Unit 18, entry title "The Walking Clay") gates the infusion: Unit 18's entry lists `unlocks: { gates: ['clay_golem'],
+  flags: ['golem_walk'] }` (Unit 18's NEW optional `unlocks.gates`), so `RESEARCH_GATES` / `craftGateReason` refuse the infusion in
+  `startInfusion` with `Research "The Walking Clay" in your notebook first` until it is researched. Before
   Unit 18 merges, `RESEARCH_GATES` has no row for `clay_golem`, so Unit 17 adds a guard (section 4.3.1) that refuses the golem
   infusion unless `hasFlag(research, 'golem_walk')`. Result: the golem is never craftable without the research, and the build stays
   consistent whatever order the units merge in (SYSTEMS 6.3 "a unit reading a flag another unit defines works before the other
@@ -312,7 +323,7 @@ The player and an animal cannot usefully stand on one 1-block wheel; if both are
   Reasoning: the servant is the heart (SYSTEMS T4: "clay_servant + 4 soul + 2 drive"); the pedestals give it more body (2 clay),
   a heart-cog that turns (bronze_cog, the Bronze workshop's part) and a leather strap for carrying. The essentia cost is small in
   units because Soul is a late aspect (Unit 18's `late_draw` or late-block overrides) and is the real gate. 30 s draws.
-- Gate: Unit 18's `golem_walk` entry unlocks `recipes: ['clay_golem']`. Unit 17's guard in `Magic.startInfusion`, right after the
+- Gate: Unit 18's `golem_walk` entry lists `unlocks.gates: ['clay_golem']`. Unit 17's guard in `Magic.startInfusion`, right after the
   existing `craftGate` check: `if (r.id === 'clay_golem' && !hasFlag(this.research, 'golem_walk')) { this.advise(GOLEM_GATE_TEXT);
   return 'refused'; }` with `GOLEM_GATE_TEXT = 'Research "The Walking Clay" in your notebook first'` (if Unit 18's entry title differs,
   the craftGate message already wins because it runs first once the entry exists; the guard text only shows before Unit 18 merges).
@@ -772,6 +783,7 @@ export interface GolemHooks {
   feed(x: number, y: number, z: number, radius: number): boolean;           // magic.feedConstruct
   drop(item: string, count: number, x: number, y: number, z: number): void;  // ground.spawn
   stackLimit(item: string): number;
+  hot(item: string): boolean;                                                // Unit 4 isHot; golems never carry hot items
   itemName(item: string): string;
 }
 
@@ -1070,13 +1082,15 @@ for the toasts only - no new screen, so phone runs are a smoke check that toasts
 1. **Unit 16 seam (horn):** Unit 16's `callTame` already skips `harness` defensively; Unit 17 adds `if (m.golem) continue;`.
    Padlock: golems may fill but never empty a padlock chest (Unit 16 rule), so it is refused only as a golem SOURCE. Unit 16's padlock is detected by block key `padlock_chest`; if 16 adds a per-chest
    lock toggle, expose `logi.isLocked?(x, y, z)` and Unit 17's `locked` hook uses it.
-2. **Unit 18 seam (gate):** Unit 18's `golem_walk` entry should unlock `recipes: ['clay_golem']` and `flags: ['golem_walk']`; its
-   title should be "The Walking Clay" so Unit 17's pre-merge guard text matches (or update `GOLEM_GATE_TEXT`).
+2. **Unit 18 seam (gate):** aligned with UNIT-18: entry `golem_walk` "The Walking Clay", `unlocks.gates: ['clay_golem']`, flag
+   `golem_walk`. Unit 17's infusion id must be exactly `clay_golem`; its pre-merge guard text equals Unit 18's gate message.
 3. **Unit 19 seam (sound):** `golem_step` is listed under Unit 19 in SYSTEMS T9 ("17 may use"); Unit 17 adds it with `golem_wake`
    in `sfxMagic.ts`. If 19 lands first with `golem_step`, 17 keeps 19's patch.
 4. **Unit 15 seam (vaults):** optional `logi.groupKey?(x, y, z)` lets golem setup dedupe a group; without it everything still works.
 5. **Unit 13 seam (moving wheels):** Unit 17 adds `Workshop.onRelocate?` (called at the end of `Workshop.relocate`) so mobs follow
    moved wheels/targets. If Unit 13 already adds a relocate listener, reuse it.
+5b. **Unit 4 / 13 seams:** golems skip hot items (Unit 4 `isHot`, via the `hot` hook); mobs are not riders of Unit 13's
+   `PlayerPhysics.platform` - harnessed animals follow their wheel through `MobManager.relocate`.
 6. **Unit 10 seam:** bandage and `elixir_*` are read by key; nothing breaks before Unit 10. Elixirs are assumed to be in glass vials
    (the vial is given back).
 7. **New registry list `CONSTRUCTS`** (beside `AUTOMATONS`) and `validateConstruct`: small edit to `src/core/registry.ts`, which

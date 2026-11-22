@@ -395,8 +395,8 @@ golem_step: {
 ```
 
 (`bell` and `lp` are exported by `src/audio/sfxKit.ts`; `sfxMagic.ts` today imports `bp, hp, noise, tone` and adds `bell, lp`.
-If `'brown'` is not a `NoiseColor` in `buffers.ts`, use `'pink'` with `lp(400)`; every patch must pass the existing per-sound
-tests: frequencies 20 Hz..Nyquist, no exponential ramp to 0, distinct layers.)
+`'brown'` is a `NoiseColor` in `src/audio/buffers.ts`. Every patch must pass the existing per-sound tests in `sfx.test.ts`:
+frequencies 20 Hz..Nyquist, no exponential ramp to 0, layers distinct from every other patch.)
 
 **Loudness pass on existing magic sounds** (emit sites add `volume`; patches unchanged):
 
