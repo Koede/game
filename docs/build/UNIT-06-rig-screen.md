@@ -13,7 +13,7 @@ touched (section 7 argues the "no save" decision).
 
 Ids this unit DEFINES (SYSTEMS 6.2 row "rig screen, ghost previews, `chemView` richer fields"): the `'rig'` screen request,
 `rigView`, `fitCard` / `placeCard`, `rigCells`, the ghost key `distill:card`, `ChemView.capabilities?` and
-`ChemView.problems?`. Ids it READS from other units, generically (never by name): `CHEM` / `CHEM_KINDS` (Unit 0 extends it
+`ChemView.problems?`, `rigWords.ts` helpers. Ids it READS from other units, generically (never by name): `CHEM` / `CHEM_KINDS` (Unit 0 extends it
 with `vacuum_cap`, `pressure_cap`, `filter_bed`, `catalyst_bed`, `reflux_head`, `steel_flask`), `Distillery.capabilitiesOf`
 (Unit 0), `Rig.problems` (every unit that adds scan rules: 7, 8, 11), `RIG_LEGEND` rows (8, 11 append letters),
 `PROCESS_CARDS` rows (7-12 append cards).
@@ -152,9 +152,9 @@ title, tabs and close on one row (kit behaviour, nothing to add).
 Window
   title     = RigView.title                   "Column still"
   subtitle  = RigView.summary                 "12 pieces of glassware - 1 still, 3 cuts"
-  accent    = tone colour: bad if problems, good if a still/vessel is working, neutral otherwise
+  accent    = Window.setAccent: var(--hw-bad) if problems, var(--hw-heat) if a still/vessel is working, null otherwise
   tabs
-    'rig'        label "Rig"        badge: problem count (tone bad) or none
+    'rig'        label "Rig"        badge: number of problem groups (tone bad) or none
     'processes'  label "Processes"  badge: number of cards Ready here (tone good) or none
   footer    = none (the kit footer is not used; hints live in the panels)
 ```
@@ -171,8 +171,8 @@ Window
    vessel (`'highlight:block'` with `seconds: HEARTH_HIGHLIGHT_S`), so "which still is Still 2?" is answered in the world.
    Lines are toned: working = heat tone (amber), done = good, blocked = bad, idle = neutral (T9 visual vocabulary).
 4. **Glassware** heading `Glassware`, a wrap of small chips, one per `CHEM_KINDS` entry present in the rig, in
-   `CHEM_KINDS` order: item icon (24 px), `3 Column Segment`. Display only (not buttons; no touch target needed, but chips
-   are 32 px tall so they never look tappable-yet-small... they carry no `button` role).
+   `CHEM_KINDS` order: item icon (24 px), `3 Column Segment`. Display only: plain `<span>` chips 32 px tall with no
+   `button` role and no hover/press style, so they never read as tappable.
 
 **Processes tab**:
 
@@ -308,7 +308,7 @@ Processes tab an open card's diagram sits LEFT of its text (CSS grid `auto 1fr` 
 |---|---|---|
 | tab labels | `Rig`, `Processes` | |
 | title (`rigTitle(rig)`, first rule that holds) | 1 still with >= 1 segment: `Column still`; 1 still with no segment: `Pot still`; 2+ stills: `Still house`; no still but a sealed vessel: `Fermenter`; no still, a vessel: `Reaction vessel`; else `Glassware` | computed from the rig, not from module names, so new modules never need a rule; Unit 11 may add `Refinery tower` as the FIRST rule when its scan marks a tower (section 14 note 3) |
-| summary | `<n> piece(s) of glassware` + (` - ` + parts joined by `, `) where parts are `<k> still(s)` (if > 0), `<c> cuts` (max cuts of any still, if >= 2), `<v> vessel(s)` (if > 0) | e.g. `5 pieces of glassware - 1 still`; `1 piece of glassware`; `12 pieces of glassware - 1 still, 3 cuts` |
+| summary | `<n> piece(s) of glassware` + (` - ` + parts joined by `, `) where parts are `<k> still(s)` (if > 0), `<c> cuts` (max cuts of any still, if >= 2), `<v> vessel(s)` (if > 0) | e.g. `4 pieces of glassware - 1 still`; `1 piece of glassware`; `12 pieces of glassware - 1 still, 3 cuts` |
 | can line | `This rig can: ` + words | |
 | can line, nothing | `This rig cannot run anything yet` | when the word list is empty |
 | problems heading | `Problems (<n>)` (n = groups) | |
@@ -347,7 +347,7 @@ tests).
 
 ### 4.5 The view data model (sim side, DOM-free)
 
-New file `src/sim/rigView.ts` (NEW):
+New file `src/sim/rigView.ts` (NEW; `RigProblemView` and the word helpers live in `src/sim/rigWords.ts`, section 8 step 3):
 
 ```ts
 import type { Cell, Rig, RigProblem } from './distillScan';
@@ -359,7 +359,8 @@ export interface RigWorkLine {
   tone: 'heat' | 'good' | 'bad' | 'neutral';
 }
 
-/** A problem the screen shows: the scan's problem with its cells as coordinates, or one derived from live state. */
+/** (Defined in rigWords.ts, shown here for reading.) A problem the screen shows: the scan's problem with its cells as
+ *  coordinates, or one derived from live state. */
 export interface RigProblemView {
   code: string;                     // RigProblemCode or a derived code ('cold_base', 'over_glass'); display never switches on it
   text: string;
@@ -459,7 +460,7 @@ export function groupRigProblems(problems: readonly RigProblemView[]): Array<{ t
 export function problemNote(i: number, k: number, touch: boolean): string;
 export function ghostPayload(fit: CardFit): GhostPayloadCell[];  // missing -> { block, state: 'missing' }, wrong -> { block, state: 'wrong' }
 export const GHOST_KEY = 'distill:card';
-export const COLD_BASE_TEXT = 'The Still Base is cold - light the furnace under it';
+export const COLD_BASE_TEXT = 'The Still Base is cold - light the furnace under it'; // re-export of rigWords.ts
 ```
 
 `rigText.ts` must not import DOM; `rigView.ts` and `rigFit.ts` must not import from `src/ui`.
@@ -484,9 +485,9 @@ export const COLD_BASE_TEXT = 'The Still Base is cold - light the furnace under 
    | `catalyst:<item>` | `catalyst (<Item Name>)` | `itemOrNull(item)?.name ?? item` |
    | anything else | the raw string with `_` -> space | the generic fallback: a capability Unit 0 or a later unit invents still prints |
 
-4. `cool` also comes from a jacket on a CONDENSER (`rig.jackets.size > 0`) - the scan's existing "watered jacket = x3
-   condensing" - so today's e2e column (jacket on its head condenser) reads "distil, 3 cuts, cool" even before
-   capabilitiesOf reports `cooled` for vessels.
+4. A jacket on a CONDENSER (`rig.jackets.size > 0`, the scan's existing "watered jacket = x3 condensing") adds `cooled` to
+   the capability set BEFORE step 3 maps it, so the word lands in its table position. Today's e2e column (jacket on its
+   head condenser) therefore reads "distil, 3 cuts, cool" even though capabilitiesOf reports `cooled` only for vessels.
 
 Result for today's rigs: pot still -> `distil`; 3-cut column with the head jacket -> `distil, 3 cuts, cool`; fermenter
 (`A/V`) -> `ferment`; a lonely flask on a base with nothing above -> `This rig cannot run anything yet` (plus the
@@ -732,12 +733,17 @@ persisted.
    Tests: section 9.1.
 2. **`src/sim/rigFit.ts`** (NEW): `turnOffset`, `placeCard`, `fitCard`, `FIT_MAX`. Free-cell test: `world.getBlock(x, y, z).replaceable`
    (the same flag placement honours); an unloaded cell counts as `wrong` (never ghost into unloaded terrain). Tests: 9.2.
-3. **`src/sim/rigView.ts`** (NEW): `rigView`, `capabilityWords`, `derivedProblems`, `RIG_MAX_PROBLEMS`, `RIG_WORK_LINES`,
-   title and summary rules. Export `litresText`, `moduleName` and `fluidName` from `distillActions.ts` (today private) so
-   the still lines share them; reuse `chemView(d, x, y, z).text` for vessel lines. Extend `ChemView` with the two optional
-   fields and fill them in `chemView` from `rigView`'s helpers (compute once per call; `rigAt` is cached). Tests: 9.3.
+3. **`src/sim/rigWords.ts`** (NEW, no imports from `distillActions.ts` or `rigView.ts`, to avoid an import cycle):
+   `RigProblemView`, `CAPABILITY_WORDS`, `capabilityWords(rig, d)`, `rigProblems(rig, d)` (scan + derived, section 4.7),
+   `COLD_BASE_TEXT` (re-exported by `rigText.ts` for the UI), and the wording helpers `litresText`, `moduleName`,
+   `fluidName` MOVED here from `distillActions.ts` (which then imports them; behaviour identical).
+   **`src/sim/rigView.ts`** (NEW): `rigView`, `rigTitle`, `rigSummary`, `RIG_MAX_PROBLEMS`, `RIG_WORK_LINES`; imports
+   `rigWords.ts` and `chemView` (vessel lines reuse `chemView(d, x, y, z).text`). `distillActions.ts` extends `ChemView`
+   with the two optional fields and fills them in `chemView` from `rigWords.ts` (`rigAt` is cached, so this is cheap).
+   Tests: 9.3.
 4. **Simulation façade**: `rigView`, `rigFits`, `placeCard` on `Simulation` (`src/sim/simulation.ts`, next to
-   `brewView` / `chemUse`); export the new types from `src/sim/index.ts`. Add the three to `ScreenSim`
+   `brewView` / `chemUse`); export the new types the UI needs (`RigView`, `CardFit`, `RigPlacement`, `CardCell`, `RigProblemView`) from
+   `src/sim/index.ts` (it already re-exports the sim types the screens use, e.g. `StructureView`). Add the three to `ScreenSim`
    (`src/ui/screens/furnace/simApi.ts`).
 5. **`ScreenRequest`**: add `{ type: 'rig'; x; y; z }` with a doc comment `/** The distillery rig screen for the module at
    this position (docs/api/distillery.md). */` in `src/core/gameEvents.ts`.
@@ -812,7 +818,7 @@ it is 8 lines and the types differ; do NOT import furnace types into the rig fol
 
 ### 9.3 `src/sim/rigView.test.ts` (NEW)
 
-1. Pot still on a lit furnace: `title 'Pot still'`, `summary '5 pieces of glassware - 1 still'`, `capabilities ['distil']`,
+1. Pot still on a lit furnace (`CR/F./B.`): `title 'Pot still'`, `summary '4 pieces of glassware - 1 still'`, `capabilities ['distil']`,
    `canLine 'This rig can: distil'`, `problems []`, `glass` in `CHEM_KINDS` order with names from the registry.
 2. The e2e column (3 segments, 2 side draws + head, jacket on the head condenser): `title 'Column still'`,
    `cuts 3`, `capabilities` starts `['distil', '3 cuts', 'cool']`, summary ends `1 still, 3 cuts`.
@@ -876,7 +882,8 @@ Run: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --o
 `--device=phonePortrait` (no `HW_GPU`). Screenshots land in `test-results/e2e-distill/<device>-<name>.png`.
 
 1. `step('a wrench on the column opens the rig screen with its can line', ...)`:
-   - setup: `window.__hw.give('wrench', 1)`; `d.selectItem('wrench')`.
+   - setup: `window.__hw.give('wrench', 1)`; `d.selectItem('wrench')`; refuel both furnaces as the `fastForward` body does
+     (so the bases are hot; and an empty flask never raises `cold_base` anyway).
    - action: `d.approach(P.col.flask)`; `d.use()`; `d.waitScreen('rig')` (waits for `window.__hw.state().ui.open === 'rig'`,
      which `src/app/debug.ts` reads from `ui.current?.type`).
    - assert: the text of `.hw-rig__can` is `This rig can: distil, 3 cuts, cool`; the window title is `Column still`;
@@ -894,8 +901,7 @@ Run: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --o
 3. `step('the Processes tab fits Refine crude and the ghost marks the missing receiver', ...)`:
    - action: press the `Processes` tab, press the `Refine crude` row.
    - assert: its status chip reads `1 to place`; the detail's To place row names `Receiver`; press `Show in world`;
-     `window.__hw.app.game.renderer` tech stats `ghosts === 1` after a frame (`RenderStats.tech.ghosts`), or a
-     recorded `'ghost:show'` with key `distill:card` and exactly one cell at the broken receiver's position, state
+     a recorded `'ghost:show'` (same recorder as step 2) with key `distill:card` and exactly one cell at the broken receiver's position, state
      `missing`, block `receiver`.
    - `d.shot('6-rig-ghost')` with the screen open, then `d.closeScreen()` and `view('7-rig-ghost-world')` (the existing
      helper) so the blue cube shows in the world.
@@ -922,9 +928,9 @@ Run: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --o
 - `docs/api/furnace-screens.md`: `registerStationScreens` also registers `'rig'`; `ScreenSim` gained `rigView`,
   `rigFits`, `placeCard`.
 - `docs/DISTILLERY_PLAN.md` section 15 item 1: mark built (one line, "built in Unit 6: see docs/api/distillery.md").
-- The Wrench item description (`src/content/items.ts`) as in 4.1; How to Play (`src/ui/menus` HowToPlay "Building big"
-  section mentions pipes and the wrench): add one sentence `A Wrench on glassware opens the rig screen: problems, what the
-  rig can do, and ghosts for a process.` if the section lists wrench uses; otherwise leave it.
+- The Wrench item description (`src/content/items.ts`) as in 4.1; How to Play (`src/ui/menus/howto.ts`, the "Hearths, pipes and the wrench"
+  section, the `gear` line that starts `Chutes carry items, pipes carry water...`): append ` On glassware the wrench opens
+  the rig screen: its problems, what it can do, and ghosts for a process.`
 - Never `docs/WHATS_LEFT.md`, never `docs/build/SYSTEMS.md` (coordinator).
 
 ---------------------------------------------------------------------------------------------------------------------------
