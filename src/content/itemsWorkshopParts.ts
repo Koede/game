@@ -16,7 +16,7 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'ratio_dial', name: 'Ratio Dial', anim: true, desc: 'A gear train with a dial. Use it to cycle the output speed: half, equal, double, triple.' },
   { key: 'clutch', name: 'Clutch', anim: true, desc: 'Use it to engage or release: a released clutch hands nothing on, so the machines beyond it stop.' },
   { key: 'split_box', name: 'Split Box', anim: true, desc: 'A bevel box that joins shafts on every side and shares the load between them.' },
-  { key: 'sequence_gearshift', name: 'Sequenced Gearshift', anim: true, desc: 'A drum that engages, reverses and changes speed on a loop. Use it to pick one of three programs.' },
+  { key: 'sequence_gearshift', name: 'Sequenced Gearshift', anim: true, desc: 'A drum that engages, reverses and changes speed on a loop. Use a punched card for eight steps, or Use it empty to pick one of three programs.' },
   { key: 'governor', name: 'Governor', anim: true, desc: 'Flyweights that cap the speed beyond it. Use it to cycle 32, 64 and 96 rpm.' },
   { key: 'worm_gear', name: 'Worm Gear', anim: true, desc: 'Slows the turning to an eighth. Only the worm side can drive it.' },
   { key: 'chain_sprocket', name: 'Chain Sprocket', anim: true, desc: 'Face two sprockets along a straight line, up to 16 blocks apart, and a chain joins their shafts without slipping.' },
@@ -48,18 +48,20 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'bell', name: 'Bell', anim: false, desc: 'Rings when a signal reaches it, and whenever a machine within 12 blocks seizes, jams or is overloaded.' },
   { key: 'tally_board', name: 'Tally Board', anim: false, desc: 'Passes items on out of its front like a funnel and counts them. Use it to reset the count.' },
   { key: 'clockface', name: 'Clockface', anim: false, desc: 'A dial that shows the time of day under the goggles.' },
+  { key: 'wind_vane', name: 'Wind Vane', anim: false, desc: 'Shows the wind the turbines feel, the same rise and fall, with no bonus for where it stands.' },
   { key: 'contraption_frame', name: 'Contraption Frame', anim: false, desc: 'A timber frame that holds a moving structure together. Pistons and bearings carry every frame and workshop part connected to them.' },
   { key: 'piston', name: 'Piston', anim: true, desc: 'While turning it pushes the structure in front of it out one block at a time (up to 4), leaving a rod; stopped, it pulls it back. A lever makes it a lift.' },
   { key: 'bearing', name: 'Bearing', anim: true, desc: 'Turns the structure on top of it a quarter turn every 1.5 s, with the shaft: left or right. Machines on it stay powered through the bearing.' },
   { key: 'rail', name: 'Rail', anim: false, flat: true, desc: 'A track of slats. A skiff above a line of rails rolls along it, waits at the end and turns round.' },
-  { key: 'skiff', name: 'Skiff', anim: false, desc: 'A little ore cart on rails (rails under it). It holds a stack that arms and funnels load and unload. A signal cell it touches brakes it while off.' },
+  { key: 'skiff', name: 'Skiff', anim: false, desc: 'A little ore cart on rails. It holds a stack that arms and funnels load and unload. Use it empty-handed to board. A signal cell it touches brakes it while off.' },
 ];
 
 /** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
-export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'contraption_frame', 'rail', 'skiff']);
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },
+  { key: 'punched_card', name: 'Punched Card', category: 'material', age: BRONZE, stack: 16, desc: 'A stiff card of eight steps for a sequenced gearshift. Each step sets a speed ratio, a direction and how many seconds it runs.' },
 ];
 
 const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, ...(anim ? { frontActive: `ws_${key}_front_on` } : {}) });

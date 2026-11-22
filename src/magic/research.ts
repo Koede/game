@@ -19,6 +19,11 @@ export interface ResearchState {
   known: Aspect[];
   lore: Aspects;
   entries: Record<string, EntryState>;
+  /**
+   * Flags granted besides a finished entry. Late aspects (`spark`, `soul`, `void`) are drawn only when their name is
+   * here or on a finished entry. Omitted when empty; not a research entry of its own.
+   */
+  flags?: string[];
 }
 
 export const freshResearch = (): ResearchState => ({ v: 1, scanned: [], known: [...STARTING_ASPECTS], lore: {}, entries: {} });
@@ -108,7 +113,7 @@ export function unlockedRecipes(s: ResearchState): Set<string> {
   return out;
 }
 export const hasFlag = (s: ResearchState, flag: string): boolean =>
-  RESEARCH.some((e) => isDone(s, e.key) && (e.unlocks.flags ?? []).includes(flag));
+  (s.flags?.includes(flag) ?? false) || RESEARCH.some((e) => isDone(s, e.key) && (e.unlocks.flags ?? []).includes(flag));
 
 /** Repairs anything loaded: unknown aspects and entries are dropped, numbers clamped. */
 export function sanitizeResearch(raw: unknown): ResearchState {
@@ -130,5 +135,9 @@ export function sanitizeResearch(raw: unknown): ResearchState {
           if (typeof a === 'string' && isAspect(a) && Number.isInteger(Number(c))) tokens[Number(c)] = a;
       s.entries[k] = { done: ev.done === true, tokens };
     }
+  if (Array.isArray(r.flags)) {
+    const flags = r.flags.filter((f): f is string => typeof f === 'string').slice(0, 32);
+    if (flags.length) s.flags = [...new Set(flags)];
+  }
   return s;
 }
