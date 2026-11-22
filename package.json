@@ -17,6 +17,7 @@
     "pretypecheck": "node scripts/gen-indexes.mjs",
     "pretest": "node scripts/gen-indexes.mjs",
     "precodex": "node scripts/gen-indexes.mjs",
+    "roadmap": "node scripts/roadmap/dump.mjs && node scripts/roadmap/gen.mjs",
     "golden:update": "node scripts/golden-update.mjs",
     "test:perf": "vitest run --config vitest.perf.config.ts"
   },

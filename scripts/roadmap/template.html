@@ -1,0 +1,240 @@
+<title>Hearthwatt Roadmap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a collapsible tree. Four trunks (ages, technologies, magic, connections), each a column of nested branches with a coloured rail.
+   Every leaf is one real thing in the game or one planned thing, marked built, partial or planned. Dark soot palette from the game itself. */
+:root {
+  color-scheme: dark;
+  --bg: #0e0b09; --surface: #17130f; --surface-2: #1d1812; --line: #3a3027; --line-2: #2a231c;
+  --text: #efe6d8; --muted: #a99b88; --ember: #ff8a2b; --power: #41d6f5;
+  --built: #8ccf6a; --partial: #e9d24a; --planned: #ff8a2b;
+  --display: 'Chakra Petch', 'Bahnschrift', system-ui, sans-serif;
+  --body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 130px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 14.5px/1.5 var(--body); padding-block: 22px 60px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(28px, 6.4vw, 48px); line-height: 1.02; }
+h1 em { font-style: normal; color: var(--ember); }
+h2 { font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+h2::before { content: ''; width: 18px; height: 2px; background: var(--ember); flex: none; }
+.lede { max-width: 66ch; color: var(--muted); margin: 12px 0 0; }
+.totals { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; font: 500 12px/1.3 var(--mono); color: var(--muted); }
+.totals b { color: var(--text); font-weight: 500; }
+
+/* controls */
+.bar { position: sticky; top: 0; z-index: 20; background: var(--bg); padding: 10px 0 12px; border-bottom: 1px solid var(--line); margin-top: 4px; display: grid; gap: 8px; }
+.bar::before { content: ''; position: absolute; left: -100vw; right: -100vw; top: 0; bottom: 0; background: var(--bg); z-index: -1; border-bottom: 1px solid var(--line); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#q { flex: 1 1 220px; min-width: 0; height: 40px; padding: 0 12px; font: 16px var(--body); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 2px; }
+#q:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+button.f, a.jump { font: 600 12px/1 var(--display); letter-spacing: 0.08em; text-transform: uppercase; height: 34px; padding: 0 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 2px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
+button.f[aria-pressed='true'] { color: #1c0e03; background: var(--c, var(--text)); border-color: var(--c, var(--text)); }
+button.f::before { content: ''; width: 8px; height: 8px; background: var(--c, var(--muted)); flex: none; }
+button.f[aria-pressed='true']::before { background: #1c0e03; }
+button.f[data-f='all'] { --c: #efe6d8; }
+button.f[data-f='built'] { --c: var(--built); }
+button.f[data-f='partial'] { --c: var(--partial); }
+button.f[data-f='planned'] { --c: var(--planned); }
+button.f.plain::before { display: none; }
+a.jump:hover, button.f:hover { color: var(--text); }
+.shown { font: 500 12px var(--mono); color: var(--muted); margin-left: auto; }
+
+/* flowchart */
+.scroll-x { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); padding: 14px; }
+.scroll-x pre.mermaid { margin: 0; min-width: 780px; text-align: center; }
+.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; max-width: 72ch; }
+
+/* tree */
+.tree { display: grid; gap: 14px; }
+details.node { --bc: var(--line); min-width: 0; }
+details.node > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; padding: 9px 12px 9px 14px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--bc); user-select: none; position: relative; }
+details.node > summary::-webkit-details-marker { display: none; }
+details.node > summary::after { content: '+'; margin-left: auto; font: 500 18px/1 var(--mono); color: var(--muted); align-self: center; order: 9; padding-left: 8px; }
+details.node[open] > summary::after { content: '\2212'; }
+details.node > summary:hover { background: var(--surface-2); }
+details.node > summary:focus-visible { outline: 2px solid var(--ember); outline-offset: -2px; }
+.st { font-family: var(--display); font-weight: 600; letter-spacing: 0.02em; }
+.ss { font: 400 12px/1.3 var(--mono); color: var(--muted); }
+.cnt { display: inline-flex; gap: 5px; margin-left: 2px; }
+.cnt b { font: 500 11px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--line); color: var(--text); border-radius: 2px; position: relative; padding-left: 14px; font-weight: 500; }
+.cnt b::before { content: ''; position: absolute; left: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; background: var(--c); }
+.cnt b[data-s='built'] { --c: var(--built); } .cnt b[data-s='partial'] { --c: var(--partial); } .cnt b[data-s='planned'] { --c: var(--planned); }
+.nb { border-left: 1px solid var(--line); margin-left: 5px; padding: 10px 0 2px 14px; display: grid; gap: 8px; }
+details.d1 > summary { padding: 14px 16px 14px 16px; background: var(--surface-2); border-left-width: 6px; }
+details.d1 > summary .st { font-size: 22px; letter-spacing: 0.04em; text-transform: uppercase; }
+details.d1 > .nb { border-left-color: var(--bc); margin-left: 8px; padding-left: 16px; gap: 10px; }
+details.d2 > summary .st { font-size: 17px; }
+details.d3 > summary { background: transparent; border-color: var(--line-2); padding: 7px 10px 7px 12px; }
+details.d3 > summary .st { font-size: 14px; font-weight: 600; }
+details.d4 > summary { background: transparent; border-color: var(--line-2); border-left-width: 2px; padding: 6px 10px 6px 12px; }
+details.d4 > summary .st { font-size: 13px; text-transform: capitalize; }
+.theme { margin: 0; color: var(--text); max-width: 70ch; }
+dl.feel { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 14px; margin: 0; font-size: 13.5px; }
+dl.feel dt { font: 500 11px/1.9 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+dl.feel dd { margin: 0; }
+
+/* leaves */
+ul.leaves, ul.links, ol.goals { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: g; }
+li.leaf { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 9px; align-items: start; padding: 3px 0; min-width: 0; }
+li.leaf i { width: 9px; height: 9px; margin-top: 0.42em; background: var(--c, var(--muted)); display: block; flex: none; }
+li.leaf[data-s='built'] { --c: var(--built); } li.leaf[data-s='partial'] { --c: var(--partial); } li.leaf[data-s='planned'] { --c: var(--planned); }
+li.leaf[data-s='partial'] i { background: linear-gradient(135deg, var(--partial) 50%, transparent 50%); box-shadow: inset 0 0 0 1px var(--partial); }
+li.leaf[data-s='planned'] i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--planned); }
+.lt { min-width: 0; overflow-wrap: anywhere; }
+.lt b { font-weight: 600; }
+.lt code { font: 400 11.5px var(--mono); color: var(--muted); }
+.lt em { font: 400 11px var(--mono); color: var(--muted); font-style: normal; border: 1px solid var(--line-2); padding: 1px 5px; border-radius: 2px; white-space: normal; }
+.d { display: block; color: var(--muted); font-size: 13px; line-height: 1.4; margin-top: 1px; }
+.d.inl { display: inline; margin-left: 6px; }
+.a { font: 500 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ac); border: 1px solid var(--ac); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
+a.tc { font: 600 11.5px/1 var(--display); letter-spacing: 0.04em; color: var(--text); text-decoration: none; border: 1px solid var(--bc); padding: 3px 7px; border-radius: 2px; white-space: normal; display: inline-block; }
+a.tc:hover { background: var(--surface-2); }
+.arrow { color: var(--muted); }
+ol.goals li.leaf::before { counter-increment: g; content: counter(g); font: 500 11px/1.9 var(--mono); color: var(--muted); grid-column: 1; }
+ol.goals li.leaf { grid-template-columns: 22px 9px minmax(0, 1fr); }
+ol.goals li.leaf i { grid-column: 2; }
+ol.goals li.leaf .lt { grid-column: 3; }
+
+.chiprow { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; margin: 2px 0 8px; }
+.cl { font: 600 11px/1.6 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; width: 100%; }
+.cl b { color: var(--text); font-weight: 500; }
+.ch { font-size: 12.5px; padding: 3px 8px; background: var(--surface); border: 1px solid var(--line-2); border-left: 2px solid var(--built); border-radius: 2px; }
+.ch.static { border-left-color: var(--muted); }
+[hidden] { display: none !important; }
+.empty { padding: 28px 14px; color: var(--muted); border: 1px dashed var(--line); text-align: center; }
+footer { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 14px; max-width: 84ch; }
+@media (max-width: 560px) { details.d1 > summary .st { font-size: 18px; } .nb { padding-left: 10px; } .shown { margin-left: 0; width: 100%; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Hearthwatt <em>roadmap</em></h1>
+    <p class="lede">The whole game as one tree: every block, item, machine, recipe and goal that exists, every system that is built, and everything planned, each branch tied to the others. Start with a clay furnace, end with a star.</p>
+    <div class="totals" id="totals"><!--TOTALS--></div>
+  </header>
+
+  <section>
+    <h2>The order of work</h2>
+    <div class="scroll-x" style="margin-top:14px">
+<pre class="mermaid">
+%%{init: {"theme":"base","flowchart":{"curve":"basis","htmlLabels":true,"nodeSpacing":26,"rankSpacing":44},"themeVariables":{"fontFamily":"IBM Plex Sans, system-ui, sans-serif","fontSize":"14px","primaryColor":"#201a14","primaryTextColor":"#efe6d8","primaryBorderColor":"#3a3027","lineColor":"#a99b88","textColor":"#efe6d8","clusterBkg":"#17130f","clusterBorder":"#3a3027","edgeLabelBackground":"#0e0b09"}}}%%
+flowchart LR
+  DONE["<b>Built and verified</b><br/>six ages · foundation · offline PRs<br/>2117 tests · 11 of 11 e2e"]:::built
+  TRUST{"Repository trusted<br/>for worktree sessions?"}:::decide
+  DONE --> TRUST
+  subgraph LANES["Parallel lanes: an architect heads each, builders take task cards"]
+    direction TB
+    LA["<b>A</b> Steam and Bronze"]:::next
+    LB["<b>B</b> Distillery completion"]:::next
+    LC["<b>C</b> Workshop polish"]:::next
+    LD["<b>D</b> Magic depth"]:::next
+    LE["<b>E</b> Food, farming, brewing"]:::next
+    LF["<b>F</b> World, art, audio"]:::next
+    LU["<b>U</b> Phone UX and HUD"]:::next
+  end
+  TRUST -- "yes: worktree per lane" --> LANES
+  TRUST -- "no: shared checkout" --> LANES
+  LA -. "shared kinetic model" .- LC
+  LB -. "lubricant, spouts, arms" .- LC
+  LD -. "golems run cranks" .- LC
+  LE -. "spirits and potions" .- LB
+  LANES --> INTEG["<b>Integration lane</b><br/>balance numbers · full e2e<br/>playtest checklist"]:::next
+  INTEG --> REVIEW["<b>Fresh-eyes review</b>"]:::next
+  REVIEW --> SHIP["<b>Ship</b><br/>republish · handoff · push"]:::ship
+  classDef built fill:#18260f,stroke:#8ccf6a,color:#efe6d8,stroke-width:1.5px;
+  classDef next fill:#2e1b0e,stroke:#ff8a2b,color:#efe6d8,stroke-width:1.5px;
+  classDef decide fill:#33131a,stroke:#ff5a6e,color:#efe6d8,stroke-width:1.5px;
+  classDef ship fill:#0d262e,stroke:#41d6f5,color:#efe6d8,stroke-width:1.5px;
+</pre>
+    </div>
+    <p class="note">Lanes run in parallel because each owns its own files. Dotted lines are the real hand-offs. Whoever writes the code never signs it off.</p>
+  </section>
+
+  <section>
+    <h2>The tree</h2>
+    <div class="bar" id="bar">
+      <div class="row">
+        <input id="q" type="search" placeholder="Search everything: item, block, recipe, goal, research, feature..." autocomplete="off" aria-label="Search the tree">
+      </div>
+      <div class="row">
+        <button class="f" data-f="all" aria-pressed="true">All</button>
+        <button class="f" data-f="built" aria-pressed="false">Built</button>
+        <button class="f" data-f="partial" aria-pressed="false">Partial</button>
+        <button class="f" data-f="planned" aria-pressed="false">Planned</button>
+        <button class="f plain" id="expand">Expand all</button>
+        <button class="f plain" id="collapse">Collapse all</button>
+        <span class="shown" id="shown"></span>
+      </div>
+      <div class="row">
+        <a class="jump" href="#trunk-ages">Ages</a><a class="jump" href="#trunk-tech">Technologies</a><a class="jump" href="#trunk-magic">Magic</a><a class="jump" href="#trunk-conn">Connections</a>
+      </div>
+    </div>
+    <div class="tree" id="tree" style="margin-top:16px">
+<!--TREE-->
+    </div>
+    <div class="empty" id="none" hidden>Nothing matches. Clear the search or the status filter.</div>
+  </section>
+
+  <footer>
+    Built items, blocks, machines, recipes, goals, research and aspects are read from the game's own registry (22 Nov 2026). Planned features come from <span style="font-family:var(--mono)">docs/build/SYSTEMS.md</span> and its 20 unit specs, the six advisor dossiers, <span style="font-family:var(--mono)">docs/PROGRESSION.md</span> and <span style="font-family:var(--mono)">docs/OVERHAUL_PLAN.md</span>. Status: built means merged and tested, partial means some of it exists, planned means designed but not built.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var tree = document.getElementById('tree');
+  var leaves = Array.prototype.slice.call(tree.querySelectorAll('li.leaf, .ch'));
+  var nodes = Array.prototype.slice.call(tree.querySelectorAll('details.node'));
+  var nodesRev = nodes.slice().reverse();
+  var q = document.getElementById('q'), shown = document.getElementById('shown'), none = document.getElementById('none');
+  var filter = 'all';
+  // counts per node
+  nodes.forEach(function (n) {
+    var c = { built: 0, partial: 0, planned: 0 };
+    n.querySelectorAll('li.leaf').forEach(function (l) { c[l.getAttribute('data-s')] = (c[l.getAttribute('data-s')] || 0) + 1; });
+    var span = n.querySelector(':scope > summary .cnt');
+    if (!span) return;
+    ['built', 'partial', 'planned'].forEach(function (k) { if (c[k]) { var b = document.createElement('b'); b.setAttribute('data-s', k); b.textContent = c[k]; b.title = c[k] + ' ' + k; span.appendChild(b); } });
+  });
+  function apply() {
+    var term = q.value.trim().toLowerCase();
+    var vis = 0, total = 0;
+    leaves.forEach(function (l) {
+      var s = l.getAttribute('data-s') || 'built';
+      var okS = filter === 'all' || s === filter;
+      var okQ = !term || (l.getAttribute('data-q') || '').indexOf(term) !== -1;
+      var ok = okS && okQ;
+      l.hidden = !ok;
+      if (l.tagName === 'LI') { total++; if (ok) vis++; }
+    });
+    var active = term || filter !== 'all';
+    nodesRev.forEach(function (n) {
+      var has = !!n.querySelector('li.leaf:not([hidden]), .ch:not([hidden])') || (!active && !n.querySelector('li.leaf, .ch'));
+      n.hidden = active && !has;
+      if (active && has && term) n.open = true;
+    });
+    shown.textContent = active ? vis + ' of ' + total + ' entries shown' : total + ' entries';
+    none.hidden = !(active && vis === 0);
+  }
+  var t;
+  q.addEventListener('input', function () { clearTimeout(t); t = setTimeout(apply, 120); });
+  document.querySelectorAll('button.f[data-f]').forEach(function (b) {
+    b.addEventListener('click', function () { filter = b.getAttribute('data-f'); document.querySelectorAll('button.f[data-f]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); apply(); });
+  });
+  document.getElementById('expand').addEventListener('click', function () { nodes.forEach(function (n) { n.open = true; }); });
+  document.getElementById('collapse').addEventListener('click', function () { nodes.forEach(function (n) { n.open = false; }); document.querySelectorAll('details.d1').forEach(function (n) { n.open = true; }); });
+  function openTo(id) { var el = id && document.getElementById(id); if (!el) return; var p = el; while (p) { if (p.tagName === 'DETAILS') p.open = true; p = p.parentElement; } el.scrollIntoView(); }
+  document.addEventListener('click', function (e) { var a = e.target.closest && e.target.closest('a[href^="#"]'); if (a) { var id = a.getAttribute('href').slice(1); setTimeout(function () { openTo(id); }, 0); } });
+  window.addEventListener('hashchange', function () { openTo(location.hash.slice(1)); });
+  apply();
+  if (location.hash) openTo(location.hash.slice(1));
+})();
+</script>

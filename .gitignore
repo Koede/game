@@ -9,3 +9,5 @@ dist-codex/
 .gate-heavy
 .w0tmp
 _generated/
+
+scripts/roadmap/dump.json
