@@ -202,12 +202,11 @@ export interface AuraView {
 #### 4.1.5 Phone layouts
 
 Portrait (`max-width: 599.98px`, 390 x 844 reference): the top cluster wraps to a second row (`'left right'`), right side
-holds compass + day dial + power already. The dial collapses to **ring + centre number only** (44 px tall, 44 px wide incl.
-padding 5 px): chips and well line `display: none`. The pip still points at the wellspring. The ring is the only addition, so
-the right column grows by 50 px (44 + gap 6), which fits beside a 140 px vitals block at 390 px:
-`390 - 16 pad - 140 vitals - 6 gap = 228 px` for the right column; compass (~92) + dial (~44 compact at portrait already
-measured by the day dial's own collapse rules) + aura (44) fits on one line or wraps right-aligned below (flex-wrap is already
-on). Never covers the hotbar or the crosshair (it is in the top band).
+holds compass + day dial + power already. The dial collapses to **ring + centre number only** (a 44 x 44 px plate, padding
+5 px). The right column then holds compass, day dial, power strip and the 44 px ring; `.hw-hud__right` already has
+`flex-wrap: wrap` and `justify-content: flex-end`, so when the row is too narrow the dial wraps to a second right-aligned line
+(on portrait it gets CSS `order: 9`, so it is the element that wraps to the end of the cluster, never the compass). The builder verifies at 390 px in the phonePortrait screenshot that nothing
+overlaps the goal tracker, and the dial never covers the hotbar or the crosshair (it is in the top band).
 
 ```
  390 px portrait
@@ -526,3 +525,352 @@ Under `prefers-reduced-motion: reduce`: the "here" pip pulse is off; motes still
 `MOTE_SPEED / 2`; read once at renderer construction via `matchMedia` (no per-frame query).
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save
+
+### 7.1 Types (TS sketches)
+
+```ts
+// src/magic/tubeFlow.ts (NEW)
+import type { Aspect } from './aspects';
+export type Cell = [number, number, number];
+export const TUBE_UPS = 4;
+export const TUBE_BURST_S = 2;
+export const TUBE_FLOW_SHOW_S = 1.5;
+export const TUBE_SOUND_S = 0.5;
+export const TUBE_NET_FORGET_S = 60;
+
+export interface TubeFlowView { net: string; aspect: Aspect; path: readonly Cell[]; t: number; rate: number }
+
+export class TubeFlow {
+  /** `rate` units/s, read each tick (TUBE_UPS, or 2x with steady_tubes). */
+  tick(dt: number, rate: number, clock: number): void;          // refill every known budget, prune unused ones
+  budget(net: string, rate: number): number;                    // current units (cap if unknown)
+  /** Learns the cells of a network seen by jarReach; applies the merge/split min rule for a new id. */
+  observe(net: string, tubes: readonly Cell[], rate: number, clock: number): void;
+  /** True and subtracts n when budget > 0; false and changes nothing otherwise. */
+  grant(net: string, n: number, rate: number, clock: number): boolean;
+  /** Seconds until budget > 0 (0 when it already is). */
+  readyInS(net: string, rate: number): number;
+  /** Records a flow for the renderer; returns true when a tube_flow sound may play (TUBE_SOUND_S since the last one). */
+  flowed(net: string, consumer: Cell, aspect: Aspect, path: readonly Cell[], rate: number, clock: number): boolean;
+  flows(clock: number): readonly TubeFlowView[];                // granted within TUBE_FLOW_SHOW_S, at most 16, reused array
+  lastFlow(net: string): { aspect: Aspect; t: number } | null;  // for tubeText
+}
+export const tubeRate = (steady: boolean): number => (steady ? TUBE_UPS * 2 : TUBE_UPS);
+```
+
+```ts
+// src/magic/essentiaNet.ts additions
+export interface TubeNet { id: string; tubes: Cell[]; jars: { cell: Cell; path: Cell[] }[] }
+export interface JarReach { near: Cell[]; nets: TubeNet[] }
+export function jarReach(blockAt: BlockAt, x: number, y: number, z: number, radius: number): JarReach;
+export function netOfTube(blockAt: BlockAt, x: number, y: number, z: number): TubeNet | null; // for tubeText (BFS from a tube)
+// jarsFor keeps its signature and results (built on jarReach).
+```
+
+```ts
+// src/magic/auraText.ts (NEW, pure)
+export const AURA_CHIPS = 3;
+export const AURA_ARCS = 6;
+export function auraChips(view: AuraView): { aspect: Aspect; text: string; color: string }[]; // top 3, 'cinder 6'
+export function auraChipsText(view: AuraView): string;        // 'cinder 6  loam 4  gale 2' | 'Land drained'
+export function auraWellText(well: AuraWell | null): string;  // 'Glow well 12 m NE (20)' | 'Glow well here (32)' | ''
+export function auraAria(view: AuraView): string;             // 'Aura: Cinder 6, Loam 4, Gale 2. Glow well 12 m NE, 20 left.'
+export function auraArcs(view: AuraView): { color: string; frac: number }[]; // up to 6, frac = left / DRAW_CAP clamped 0..1
+export function auraLine(view: AuraView): string;             // legacy rodReading text: 'Cinder 6, Loam 4, Gale 2 · Glow well 12 m NE (20)'
+export function auraKey(view: AuraView | null): string;       // change-detection key for the HUD
+```
+
+`DRAW_CAP` (24) is already exported by `magic.ts`. To keep `auraText.ts` free of `magic.ts` (which imports the registry),
+`auraArcs(view, cap = 24)` takes the cap as a parameter and `magic.ts`/`AuraDial` pass `DRAW_CAP`; a unit test pins
+`DRAW_CAP === 24` so the default cannot drift silently.
+
+```ts
+// src/ui/hud/hud.ts
+export interface HudDeps { /* existing */ aura?: () => AuraView | null }   // optional member, NEW
+// src/ui/gameUI.ts
+export interface GameUIDeps { /* existing */ aura?: () => AuraView | null } // passed through to Hud
+// src/render/magic/magicRenderer.ts
+update(dt, jars, nodes, displays, eye, flows: readonly TubeFlowView[] = []): void; // 6th param optional, NEW
+stats = { jars: 0, nodes: 0, items: 0, motes: 0 };
+```
+
+### 7.2 Save (T10)
+
+Nothing new is saved:
+- Budgets are transient: on load every network starts full (`cap`). Saving them would add a field whose only effect is a
+  <= 4 s rest; not worth a schema field.
+- Flows and motes are visual and transient.
+- The dial has no state (the `aura_dial` flag is saved by research, Unit 18).
+- `MagicSnapshot` keys and `toJSON()` output are unchanged; the T10 test (9.3) proves an old snapshot loads, and that
+  `toJSON()` after flow activity has exactly the same keys as before (no accidental field).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered)
+
+1. **`src/magic/essentiaNet.ts`** - add `Cell` re-export (or import from `tubeFlow.ts`), `TubeNet`, `JarReach`,
+   `jarReach(blockAt, x, y, z, radius)` (BFS per touching tube; one BFS per network, parent map for paths; id = min cell by
+   `(y, z, x)`), `netOfTube(blockAt, x, y, z)`. Re-implement `jarsFor` on top of `jarReach` with identical output order:
+   near jars (cube scan order) first, then tubed jars in BFS discovery order. Keep `shortfall`, `MAX_TUBES`, `TUBE`,
+   `JAR_BLOCKS`.
+2. **`src/magic/tubeFlow.ts`** (NEW) - constants and `TubeFlow` (7.1). Pure, no world access; ~150 lines.
+3. **`src/magic/auraText.ts`** (NEW) - `AuraAspect`, `AuraWell`, `AuraView` and the helpers (7.1). Uses `aspectInfo` and
+   `aspectOrder` from `aspects.ts`.
+4. **`src/magic/magic.ts`**
+   - `private readonly flow = new TubeFlow()`; `private tubeRate(): number { return tubeRate(hasFlag(this.research, 'steady_tubes')); }`.
+   - `private reachMemo = new Map<string, JarReach>()`; `private reach(x, y, z, r): JarReach` (memo, cleared in
+     `blockChanged` when `from`/`to` is `TUBE` or in `JAR_BLOCKS`, and every 5 s in `tick`). `blockChanged` needs the old key:
+     read it from the event (`e.from` voxel -> `BLOCKS[voxelId(e.from)].key`) - extend the listener to pass `e.from`.
+   - `tick(dt)`: `this.flow.tick(dt, this.tubeRate(), this.clock)` first.
+   - Replace private `available(...)` and `take(...)` with budget-aware versions:
+     `available(x, y, z, radius, withVials, includeResting = false): Aspects` (tubed jars only from nets with budget > 0
+     unless `includeResting`) and `take(x, y, z, radius, aspect, n, withVials): number` (near, then nets in id order with
+     `grant`, then vials). On each successful tubed take call `flow.flowed(...)` with the path of the jar it drew from and
+     the consumer cell; if it returns true emit `{ name: 'tube_flow', x: cx + 0.5, y: cy + 0.5, z: cz + 0.5, volume: 0.3 }`.
+   - `deskRow`: compute `have` (ready) and `haveAll` (`includeResting`); if `shortfall(cost, have)` is non-empty but
+     `shortfall(cost, haveAll)` is empty, `problem = \`The tubes are still carrying - ready in ${n} s\``.
+   - `tickSiphon`: split `consumersOf` result into touching (first 6) vs tubed; for a tubed furnace, find the jar's network
+     (`reach(x, y, z, 1)` from the jar's side: `netOfTube` on any touching tube) and `grant(net, 1)` before stoking.
+   - `auraView(): AuraView | null` with the cache of 4.1.6 and the `aura_tick` emission of 5.1.4/5.1.10
+     (`{ name: 'aura_tick', volume: 0.3 }`, no position).
+   - `rodReading()` becomes `const v = this.auraView(); return v && v.mode === 'held' ? auraLine(v) : null;` (keeps the
+     method; text gains `m`).
+   - `tubeFlows(): readonly TubeFlowView[]` -> `this.flow.flows(this.clock)`.
+   - `tubeText(x, y, z): string | null` -> null unless the block is `TUBE`; else 5.3 lines via `netOfTube` (memoised by the
+     same reach memo key `"t,x,y,z"`).
+   - Add `volume` to the six existing `sfx` emits per 4.3.
+   - Export constant `AURA_REFRESH_S = 0.5`.
+5. **`src/audio/sfxMagic.ts`** - add `tube_flow`, `aura_tick`, `golem_step` (4.3); import `bell`, `lp`. Update the header
+   comment (nine sounds).
+6. **`src/core/gameEvents.ts`** - append `| 'tube_flow' | 'aura_tick' | 'golem_step'` after `| 'cast'` in `SfxName`
+   (append only; if Unit 17 already added `golem_step`, skip it).
+7. **`src/audio/sfx.test.ts`** - the count line is a shared merge point: do NOT restructure it. The magic term
+   `Object.keys(MAGIC_SFX).length` already counts the three new patches; only update the comment to
+   `// 72 before Essentia & Research; MAGIC_SFX now holds nine (Unit 19 added tube_flow, aura_tick, golem_step).` If by merge
+   time the line has become a sum of named terms (`72 + MAGIC + DISTILL + WORKSHOP`, SYSTEMS.md T9 rule 1), keep the `MAGIC`
+   term as is. Add one new `it` (9.4).
+8. **`src/ui/hud/auraDial.ts`** (NEW) - `class AuraDial { readonly el; update(view: AuraView | null): void; aim(player:
+   PlayerState): void }`. Built with `h`, `setText`, `setAttr`, `setFlag` from `src/ui/kit/dom.ts`; SVG ring built once (six
+   arc circles, track, outline); `key` change detection via `auraKey`; `aim` uses `relativeBearing` from `./hudMath`, rounds
+   to whole degrees and skips unchanged angles like `Compass.aim`. ~140 lines.
+9. **`src/ui/hud/hud.ts`** - `private readonly aura = new AuraDial()`; insert `this.aura.el` first in `.hw-hud__right`;
+   `frame()`: `this.aura.aim(d.player)`; `update()`: `this.aura.update(d.aura?.() ?? null)`.
+10. **`src/ui/hud/hud.css`** - `.hw-aura` (shares the `.hw-compass, .hw-dial, .hw-power` block: add `.hw-aura` to that
+    selector list for height/padding), `.hw-aura__ring`, `__top`, `__pip`, `__chips`, `__chip`, `__dot`, `__well`,
+    `[data-mode='carried'] .hw-aura__ring { opacity: .7 }`, `[data-drained]`, the `@keyframes hw-aura-here` with its
+    reduced-motion override, and the two phone media blocks (portrait: hide `__chips`, `__well`; landscape: hide `__well`,
+    chips show only `.hw-aura__num`).
+11. **`src/ui/gameUI.ts`** - `GameUIDeps.aura?` passed into `new Hud(root, { ..., aura: () => deps.aura?.() ?? null })`.
+12. **`src/app/game.ts`** - pass `aura: () => this.magic.auraView()` to `new GameUI(...)`; remove `?? m.rodReading()` from
+    `magicLabel` and add `?? m.tubeText(x, y, z)` in its place; delete the `!hit && rodReading()` branch in
+    `showStationName`; pass `this.magic.tubeFlows()` as the 6th argument to `this.magicRenderer.update(...)`.
+13. **`src/render/magic/magicRenderer.ts`** - motes (4.2.5), `stats.motes`, dispose the instanced mesh geometry/material.
+14. **Docs** (11).
+
+Helpers to reuse, never duplicate: `aspectInfo`, `aspectOrder`, `ASPECT_LIST` (`aspects.ts`); `compass` (`nodes.ts`);
+`relativeBearing` (`hudMath.ts`); `h`/`setText`/`setAttr`/`setFlag` (`kit/dom.ts`); `hasFlag` (`research.ts`); `tone`, `noise`,
+`bp`, `hp`, `lp`, `bell`, `N` (`sfxKit.ts`); the material cache `MagicRenderer.material()` is not used for motes (instanced
+colour instead).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest, exact cases)
+
+### 9.1 `src/magic/auraText.test.ts` (NEW, pure)
+1. `auraChipsText` of `{ mode:'held', aspects:[{cinder,6},{loam,4},{gale,2},{brook,1}], well:null }` is
+   `'cinder 6  loam 4  gale 2'` (two spaces, top 3 only).
+2. Ties sort by `aspectOrder`: `[{loam,4},{cinder,4}]` -> `'cinder 4  loam 4'`.
+3. Empty aspects -> `'Land drained'`; `auraArcs` -> `[]`.
+4. `auraWellText({aspect:'glow', dist:12, dir:'NE', left:20, ...})` = `'Glow well 12 m NE (20)'`; `dist: 2` ->
+   `'Glow well here (20)'`; `left: 19.7` floors to `(19)`.
+5. `auraAria` = `'Aura: Cinder 6, Loam 4, Gale 2. Glow well 12 m NE, 20 left.'`; drained without well = `'Aura: land drained.'`.
+6. `auraArcs` with `left 30` clamps `frac` to 1; 7 aspects -> 6 arcs; colour equals `aspectInfo(a).color`.
+7. `auraLine` = `'Cinder 6, Loam 4, Gale 2 · Glow well 12 m NE (20)'`.
+8. `auraKey(null) !== auraKey(view)` and is stable for equal views.
+9. Every chip line is <= 60 characters for the longest names (`clarity 24  spring 24  frost 24`).
+
+### 9.2 `src/magic/tubeFlow.test.ts` (NEW, pure)
+1. Unknown net: `budget('n', 4)` = 8 (cap = 4 x 2).
+2. `grant('n', 16, 4, 0)` -> true, budget -8; `grant('n', 1, 4, 0)` -> false, budget still -8 (nothing taken).
+3. `readyInS('n', 4)` = 2 after the 16-unit grant; after `tick(1, 4, 1)` -> budget -4, `readyInS` 1; after 2 more seconds
+   budget is 4; after 10 more, 8 (capped).
+4. Steady: rate 8 -> cap 16; `grant(16)` from full leaves 0 -> next grant refused until a tick (>0 rule).
+5. Merge: nets A (budget -4) and B (budget 8) observed, then `observe('C', cellsOfA.concat(cellsOfB))` -> `budget('C')` = -4.
+6. Split: A (budget 2) then `observe('A2', half)` and `observe('A3', other half)` -> both 2.
+7. Prune: an entry untouched for `TUBE_NET_FORGET_S` + 1 s is gone (budget back to cap) - and it was full anyway.
+8. `flowed` returns true, then false within 0.5 s, then true after; `flows(clock)` drops entries older than 1.5 s; never more
+   than 16 entries; the same array object is returned each call (no allocation).
+
+### 9.3 `src/magic/magicRuntime.test.ts` (extend `describe('tubes, desk and altar')`, using the existing `setup()`/`fillJar`)
+1. **`jarReach` splits near and tubed**: jar at (10,1,0) via tubes x=1..9 and a jar at (0,1,1): `near` = [[0,1,1]],
+   `nets[0].jars[0].cell` = [10,1,0], `nets[0].tubes.length` = 9, `path[0]` = [1,1,0], `path.at(-1)` = [9,1,0];
+   `jarsFor` still equals `[[0,1,1],[10,1,0]]` (order kept) and the existing test still passes untouched.
+2. **Net id is start-independent**: `jarReach` from either end of the same line gives the same `id`.
+3. **Infusion through tubes pays at most the tube rate**: `learnAll()`, altar at (0,1,0) with two pedestals as the existing
+   lens test, the three jars moved to x=6..8 behind a 5-tube line (out of `ALTAR_REACH + 1`): start the infusion, tick
+   `0.1 x 10` (1 s): paid units <= 8 + 4 x 1 = 12 and > 0; after 200 ticks the lens is done (`altarText` =
+   `'Infusion Altar - Scrying Lens'`). Same build with jars within reach: paid after 1 s equals `floor(1 / INFUSE_STEP_S)` = 2
+   (unchanged behaviour). Debt bites: then force the line into debt (`(t.magic as any).flow.grant(id, 20, 4, clock)`, id from
+   `jarReach`) and assert the paid sum does not grow while `flow.readyInS(id, 4) > 0`, then grows again once it reaches 0.
+4. **Desk rests the line**: desk at (2,1,0); five tubes (2,1,1)..(2,1,5); three jars touching the far end and all more than
+   `DESK_REACH` 3 away: (2,1,6), (3,1,5), (1,1,5) (z distance 5 or 6 > 3, so outside
+   the reach cube), holding gale 8, loam 8, rune 8. `learn('bronze_rod')`, ingredients for two rods. First `make('bronze_rod')` -> `'Made Bronze Rod'`
+   (cost gale 4 + loam 4 + rune 2 = 10 tubed units; budget 8 -> -2). Immediately `row().problem` =
+   `'The tubes are still carrying - ready in 1 s'` (ceil(2 / 4) = 1). After `tick(0.1)` x 6 (budget -2 + 2.4 = 0.4 > 0) the
+   problem is null and the second `make` succeeds. Control: the same jars at distance 1 (near) allow two makes back to back
+   with no problem.
+5. **Servant waits, then eats, through a resting line**: servant + crank, Spring jar 4 tubes away; drive the line into debt
+   with a desk make; servant idle text for <= 2 s of ticks, then `cranking`.
+6. **Siphon via tube costs a grant**: a Cinder jar tubed to the furnace position with `setFire(5)`: one unit per second while
+   the line has budget (stoked equals `CINDER_BURN_S / VIAL_UNITS` per unit); touching jar case unchanged (existing test).
+7. **Conservation fuzz**: seed 1..20; random sequence of 200 actions among {desk make, infusion step, servant tick, place
+   tube, mine tube, tick 0.1}; invariant: sum of all jar units + 4 x carried vials + infusion paid + aspect cost of items made
+   = initial total.
+8. **Motes are reported**: after a tubed take, `magic.tubeFlows().length` = 1, its `aspect` is the jar's, `path.length` = 5;
+   after ticking 2 s with no takes it is 0.
+9. **Sound**: a `bus.on('sfx')` collector sees `tube_flow` with `volume 0.3` at the consumer cell once per 0.5 s per network,
+   never for near jars.
+10. **`steady_tubes`** (`it.skipIf(!RESEARCH.some((e) => e.unlocks.flags?.includes('steady_tubes')))`): with the flag the
+    infusion of case 3 pays <= 16 + 8 in 1 s and the desk of case 4 shows no problem on the second make.
+11. **Aura view gating**: no research -> `auraView()` null with a rod held; `learn('aura_reading')` + hold `vis_rod` ->
+    `mode 'held'`, aspects match `rodReading`-era values (stone floor gives `loam`); hold `glass` -> null;
+    `aura_dial` case with `it.skipIf` like 10 -> `mode 'carried'` while the rod is only in the pack.
+12. **Aura cache and tick**: `auraView()` twice returns the same object within 0.5 s; after a rod draw (`use(null)` with the
+    rod) the drawn aspect's `left` drops by the rod's `draw`; `aura_tick` emitted once when the view first appears, not on the
+    second call.
+13. **Tube crosshair**: `tubeText` on a lone tube = `'Essentia Tube - no jar on this line'`; on the line of case 8 during the
+    flow = `'Essentia Tube - carrying Vein, 4 units/s, 5 tubes'`; idle = `'Essentia Tube - idle, 5 tubes, 1 jar'`
+    (singular `jar` for 1, `jars` otherwise); in debt = `'Essentia Tube - resting, ready in 1 s, 5 tubes'`.
+14. **Save (T10)**: `toJSON()` keys after flow activity equal the keys of a fresh `toJSON()`; loading the existing full
+    snapshot of `'saves and loads every part of the state'` still passes; a snapshot from before this unit (the same object)
+    loads and every network starts at `cap`.
+15. **Performance**: a 256-tube straight line, `jarReach` < 5 ms (measured with `performance.now()`, generous), and the memo
+    returns the identical object for a second `deskRow` within the same tick.
+
+### 9.4 `src/audio/sfx.test.ts`
+- Existing count line keeps passing (MAGIC_SFX = 9 -> 72 + 9 = 81 before other units' terms).
+- NEW: `it('Unit 19 magic sounds are short enough to repeat', ...)`: `patchDuration(SFX.tube_flow) <= TUBE_SOUND_S` (0.5)
+  and `patchDuration(SFX.aura_tick) <= 0.3` and `patchDuration(SFX.golem_step) <= 0.5` (a golem steps every 0.5 s).
+
+### 9.5 Others
+- `src/magic/magic.test.ts` / `fingerprint.test.ts` unchanged. `content.test.ts`, `gates.test.ts` must stay green (no content).
+- `src/ui/hud`: the DOM is thin; the logic lives in `auraText.ts` (tested). No jsdom test required.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E steps (`scripts/e2e-magic.mjs`, after `'a clay servant fed Spring turns a hand crank'`)
+
+Run: `node scripts/e2e-magic.mjs --device=desktop` (no `HW_GPU`), then `--device=phonePortrait` (UI change, SYSTEMS 6c).
+Use the existing helpers: `step`, `M` (`d.hw`), `d.selectItem`, `d.use`, `d.settle`, `d.shot`, `window.__hw.setVoxel`,
+`teleport`, `lookAt`, `give`, `tick(n)` (n fixed ticks of `DT` = 1/20 s). Research is already all done by the
+`'set-up: every research done, a clear yard'` step.
+
+1. **`step('the aura dial shows the land while a rod is held', ...)`**
+   - Setup: `M(() => window.__hw.give('vis_rod', 1))`; teleport to the yard centre `P.yard` on the stone floor.
+   - Real input: `await d.selectItem('vis_rod'); await d.settle(400);`
+   - Assert: `page.locator('.hw-aura')` is visible; on desktop
+     `(await page.textContent('.hw-aura__chips')).trim()` matches `/^(Land drained|[a-z]+ \d+(  [a-z]+ \d+){0,2})$/` and the
+     yard's stone gives `loam` (assert `/loam \d+/`); on phonePortrait assert `.hw-aura__chips` is hidden
+     (`isHidden`) and `.hw-aura__top` text matches `/^\d*$/`.
+   - Assert the crosshair no longer shows the reading: aim at the floor (`lookAt` the cell under the player) and check the
+     crosshair label text equals the block name (`Stone`) - read via `window.__hw.state().target` / `.hw-crosshair` text.
+   - Assert the plate does not overlap the hotbar: bounding boxes of `.hw-aura` and `.hw-hotbar` do not intersect, and
+     `.hw-aura` right edge <= viewport width.
+   - `await d.shot('11-aura-dial')`.
+   - Real input: `await d.selectItem('glass_vial')` (or any non-rod item given in setup) -> `.hw-aura` hidden within 500 ms.
+2. **`step('a rod draw lowers the dial at once', ...)`**: select the rod again, read the top number, `d.use()` at the sky
+   (`lookAt` up) once, settle 300 ms, assert the top number decreased or the text became `Land drained`.
+3. **`step('tubes carry essentia to the altar with visible motes', ...)`**
+   - Setup (via `M`): altar at `A = { x: P.yard.x + 2, y: P.gy, z: P.yard.z + 3 }`; pedestals at `(A.x + 2, A.y, A.z)` and
+     `(A.x - 2, A.y, A.z)` as in the existing infusion step; six tubes at `(A.x, A.y, A.z + 1)` .. `(A.x, A.y, A.z + 6)`; three
+     jars touching the far end, all more than 4 blocks from the altar: `(A.x, A.y, A.z + 7)`, `(A.x + 1, A.y, A.z + 6)`,
+     `(A.x - 1, A.y, A.z + 6)`, filled with `hw.app.game.magic.setJar(...)` (vein 8, mind 8, clarity 8); `glass` on the altar
+     and a `copper_ingot` on each pedestal (as the existing step does it). Clear the yard cells first (the set-up step did).
+   - Real input: hold the rod (`d.selectItem('bronze_rod')`), `lookAt` the altar, `d.use()`.
+   - Assert: `infusionAt` non-null; after `tick(20)` (1 s) paid units (`progress x 14`, or read `infusion.paid` sum) <= 12.
+   - Stand 4 blocks off, look at the tube line, `settle(600)`: `window.__hw.app.game.magicRenderer.stats.motes > 0`.
+   - Crosshair on a tube reads `/^Essentia Tube - carrying (Vein|Mind|Clarity), 4 units\/s, 6 tubes$/`.
+   - `await d.shot('12-tube-motes')`; then `tick(600)` and assert `altarText` = `Infusion Altar - Scrying Lens`.
+4. Existing `'no page errors'` stays last.
+
+---------------------------------------------------------------------------------------------------------------------------
+## 11. Docs to update (same PR)
+
+- `docs/api/magic.md`:
+  - Data: `essentiaNet.ts` line gains `jarReach` (near vs tubed, networks with ids and paths), `netOfTube`; new lines for
+    `tubeFlow.ts` (`TUBE_UPS` 4, `TUBE_BURST_S` 2, budgets with debt, merge = min, `steady_tubes` x2) and `auraText.ts`.
+  - Runtime: `auraView()` (gate `aura_reading` held / `aura_dial` carried, 0.5 s cache), `tubeFlows()`, `tubeText()`; the
+    desk refusal `The tubes are still carrying - ready in N s`; consumers pay near jars instantly and tubed jars from the
+    network budget.
+  - Sounds list gains `tube_flow`, `aura_tick`, `golem_step`, with the volume tiers.
+  - UI and render: the aura dial (`src/ui/hud/auraDial.ts`), motes in `MagicRenderer` (`stats.motes`).
+  - Known limits: remove "an aura HUD dial" from "Not built"; replace "Tubes are glass blocks with their own small network"
+    with "...own network, 4 units/s each (8 with Steady Tubes); budgets are not saved".
+- `docs/api/hud.md`: the top-right cluster order is now aura dial, compass, day dial, power; the dial's three layouts.
+- `docs/api/audio.md`: nothing structural (sounds are listed per feature in `magic.md`).
+- Never edit `docs/WHATS_LEFT.md` or `docs/build/SYSTEMS.md` (the coordinator does).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] With `aura_reading` done and a rod held, `.hw-aura` shows ring + `cinder 6  loam 4  gale 2`-style chips (desktop) within
+      0.125 s; hidden with any other item; hidden without the research.
+- [ ] With `aura_dial` (Unit 18) the dial shows while a rod is only carried, ring at 70% opacity.
+- [ ] The crosshair names blocks while a rod is held (no reading text in the crosshair any more).
+- [ ] The pip points at the nearest wellspring and turns with the view; `here` within 3 blocks.
+- [ ] Portrait 390 x 844: ring only, 44 px, no overlap with hotbar, goal tracker or touch reserve. Landscape 844 x 390: ring +
+      number chips, one row.
+- [ ] `auraView()` scans the land at most every 0.5 s plus once per rod draw.
+- [ ] A tube-only consumer receives at most `8 + 4 t` units in `t` seconds (`16 + 8 t` with `steady_tubes`); near jars are
+      instant; units are conserved (fuzz test).
+- [ ] Desk on a resting line shows `The tubes are still carrying - ready in N s` and recovers by itself.
+- [ ] Merging lines never refreshes a budget (min rule); splitting never doubles it.
+- [ ] Motes in the aspect colour run jar -> consumer along the tubes, <= 8 per flow, <= 96 total, one draw call, no per-frame
+      allocation; they fade after 1.5 s.
+- [ ] `Essentia Tube - ...` crosshair lines exactly as 5.3.
+- [ ] `tube_flow` (0.3, <= 2/s per network), `aura_tick` (0.3), `golem_step` (0.6) exist in `MAGIC_SFX` and `SfxName`;
+      existing magic sounds carry their tier volume; `npm test` green including `sfx.test.ts` count.
+- [ ] `MagicSnapshot` unchanged; old saves load.
+- [ ] `node scripts/e2e-magic.mjs --device=desktop` and `--device=phonePortrait` green, screenshots `11-aura-dial`,
+      `12-tube-motes` saved in `test-results/e2e-magic/`.
+- [ ] `content.test.ts` and `gates.test.ts` green (magic still optional).
+- [ ] `docs/api/magic.md` and `docs/api/hud.md` updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- Defining research entries or their boards (`steady_tubes`, `aura_dial`, `late_draw`, `essence_ward`, `golem_walk`): Unit 18.
+- Golem behaviour and when to step: Unit 17 (this unit only ships the `golem_step` patch).
+- Joining tubes to the fluid pipe machinery, per-aspect tube filters, tube valves, one-way tubes.
+- Saving tube budgets; showing budgets anywhere but the tube crosshair line and the desk refusal.
+- A tap/expand interaction on the dial (it is display-only); a settings toggle for the dial.
+- Lighting or bloom on motes and crystals; wellspring visuals (unchanged).
+- Rebalancing aspects, fingerprints (`AGE_BONUS_PER_AGE`), rods, foci or recipe costs (balance table says unchanged and why).
+- Changing `DESK_REACH` / `ALTAR_REACH` (see 14, question 1).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **"Instant for jars directly touching the consumer" (SYSTEMS 5.2) is read as "jars within the consumer's existing reach
+   radius"**: touching for servants, siphon and golems; 3 for the desk (`DESK_REACH`), 4 for the altar (`ALTAR_REACH + 1`).
+   Making desk-reach jars slow would silently nerf every existing base. If the owner wants the literal "touching only",
+   change one argument in `Magic.take` (pass radius 1 for the instant part) and note it in 5.2.
+2. **Flag names**: reads `steady_tubes` exactly as Unit 18 defines it (Forge-age research entry, 8 units/s). Reads
+   `aura_dial` and interprets it as "the dial stays while a rod is carried"; the dial itself is unlocked by the existing
+   `aura_reading`, as SYSTEMS T7 says. Unit 18's entry text should say so (suggested text in 2.1). If Unit 18 did not define
+   `aura_dial`, the carried mode is simply never active. Does not read `essence_ward` (Unit 10's concern).
+3. **`sfx.test.ts` count line is a shared merge point**: this unit does not change the expression; the three new patches are
+   counted by the existing `Object.keys(MAGIC_SFX).length` term. Merge rule: keep one `MAGIC` term whatever shape the line
+   takes after Units 12/13/14/16 (`72 + MAGIC + DISTILL + WORKSHOP`).
+4. **`SfxName` merge**: append `tube_flow`, `aura_tick`, `golem_step` after `cast`; Unit 17 must not add `golem_step` twice.
+5. **Golem feeding** (Unit 17) must go through `Magic`'s take path so it obeys tube budgets; please check this at Unit 17 review.
+6. **Crosshair change**: removing `rodReading()` from `Game.magicLabel` changes what e2e or other units may expect when aiming
+   with a rod; the only current consumer is the magic e2e `'a wellspring floats near by and a held rod reads it'`, which asserts
+   only `magicRenderer.stats.nodes` and is unaffected.
+7. `MagicRenderer.update` gains an optional 6th parameter; no other unit calls it.
+8. SYSTEMS.md T4 needs no row (no new item). SYSTEMS 5.2 could add `TUBE_BURST_S` 2 (cap 8 / 16) next to `TUBE_UPS`.
