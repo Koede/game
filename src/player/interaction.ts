@@ -168,7 +168,7 @@ export class Interaction {
     }
     const def = hit.block;
     // The held stack can change mid-dig (hotbar, a tool breaking), so the rate is re-evaluated every frame.
-    const time = miningTime(def, this.player.heldStack(), this.player.wellWarmed, this.player.buffs.miningMult);
+    const time = miningTime(def, this.player.heldStack(), this.player.wellWarmed, this.player.buffs.miningMult, this.player.buffs.strength);
     if (Number.isFinite(time)) this.progress = time <= 0 ? 1 : Math.min(1, this.progress + dt / time);
 
     this.digTimer -= dt;
