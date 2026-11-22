@@ -39,11 +39,18 @@ const block = (x, y, z) => page.evaluate(([a, b, c]) => window.__hw.app.game.sta
 const setBlock = (x, y, z, k) => page.evaluate(([a, b, c, key]) => window.__hw.setVoxel(a, b, c, key), [x, y, z, k]);
 const slotOf = (item) => page.evaluate((i) => window.__hw.state().inventory.find((s) => s.item === i)?.slot, item);
 const select = async (item) => page.evaluate((s) => window.__hw.selectSlot(s), await slotOf(item));
+const crownLeaves = () => page.evaluate(([x, z, y]) => {
+  let n = 0;
+  for (let yy = y; yy < y + 12; yy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) if (window.__hw.app.game.state.world.getBlock(x + dx, yy, z + dz).key === 'oak_leaves') n++;
+  return n;
+}, [PX, PZ, FLOOR]);
 
 // A flat grass platform high in the sky, far from any terrain.
 const PX = 0;
 const PZ = 0;
 const FLOOR = 80;
+
+let crownAfterCut = 0;
 
 try {
   await step('a new world loads into play and a platform is built', async () => {
@@ -84,6 +91,9 @@ try {
     console.log('mined', got, JSON.stringify(st.ui), JSON.stringify(st.player), JSON.stringify(st.target), st.player.selectedSlot, JSON.stringify(st.inventory.slice(0, 3)), await block(PX, FLOOR + 7, PZ), await block(PX, 82, PZ));
     for (let y = startY; y <= FLOOR + 7; y++) assert((await block(PX, y, PZ)) === 'air', `log at ${y} still stands`);
     assert((await block(PX, startY - 1, PZ)) === (startY > FLOOR + 1 ? 'oak_log' : 'grass'), 'the stump below the cut stays');
+    // Count before the settle below. Leaf delay is 8-48 ticks (docs/api/leaf-decay.md); a 1.2 s settle at full
+    // tick rate can finish that window, so "still there" has to be read at the moment the trunk is gone.
+    crownAfterCut = await crownLeaves();
     await d.settle(1200);
     const after = await fuel();
     assert(after === before - 7 * felled, `fuel used 7 per log: ${before} -> ${after}`);
@@ -94,15 +104,9 @@ try {
   });
 
   await step('leaf decay: the crown does not vanish at once, then falls away on its own', async () => {
-    const count = () => page.evaluate(([x, z, y]) => {
-      let n = 0;
-      for (let yy = y; yy < y + 12; yy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) if (window.__hw.app.game.state.world.getBlock(x + dx, yy, z + dz).key === 'oak_leaves') n++;
-      return n;
-    }, [PX, PZ, FLOOR]);
-    const early = await count();
-    assert(early > 0, 'leaves still there right after the cut');
+    assert(crownAfterCut > 0, 'leaves still there right after the cut');
     await page.evaluate(() => window.__hw.tick(500));
-    assert((await count()) === 0, 'all leaves decayed');
+    assert((await crownLeaves()) === 0, 'all leaves decayed');
   });
 
   await step('chainsaw refuel: Use with a Fuel Canister tops up a part-empty tank', async () => {
