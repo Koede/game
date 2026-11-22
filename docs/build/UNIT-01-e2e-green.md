@@ -13,7 +13,7 @@ DEFINES three things every later unit consumes (section 6.2 row "e2e chain green
 |---|---|---|
 | `scripts/lib/e2eHarness.mjs` | one argument parser, one step wrapper, one new-world opener, one timeout scale for all scripts | every unit that adds an e2e step |
 | `scripts/e2e-all.mjs` (+ `npm run e2e` pointing at it) | sequential runner with a summary table, no `&&` short-circuit, a flake retry policy | coordinator, every unit's acceptance |
-| `window.__hw` set-up helpers `clearYard`, `describe`, `events` (`src/app/debug.ts`) | the setup/read helpers the scripts keep re-implementing inline | Units 4-19 |
+| `window.__hw` set-up/read helpers `clearYard`, `events` / `eventsOf` / `clearEvents` (`src/app/debug.ts`, logic in `src/app/debugHelpers.ts`) | the set-up and event recorders the scripts keep re-implementing inline | Units 2-19 |
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -36,6 +36,12 @@ This unit:
    table, and applies a written flake policy (section 7).
 4. Writes the protocol every later unit follows when it adds e2e steps (section 8), so 19 units do not each invent a
    step wrapper, a timeout, a seed and a screenshot folder.
+
+Headline of the investigation (section 4): on commit `2b24bdc`, run one browser at a time, 9 of 11 scripts pass on desktop
+and 6 of 11 device runs fail on phones; every red step traces to the test harness or a stale script - none to game code.
+Nine root causes are listed in section 5 with exact fixes (plus a table of flag inconsistencies); the deterministic ones
+were proven by re-running a patched scratch copy of `scripts/` (section 4.3), which turned every red script that was
+re-run green.
 
 Why it matters to the game and not only to CI: the scripts walk the player's first hour (logs -> chopping block -> workbench
 -> flint pickaxe -> clay furnace -> fire -> copper -> mould -> death -> respawn at the hearth -> save/continue). That is the
@@ -116,7 +122,9 @@ Drift between scripts (each one is small; together they are why a later unit can
   157 from `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` (headless shell), no GPU: SwiftShader software WebGL.
 - `npm ci` (clean), `node scripts/build.mjs` builds `dist/` in under 1 s.
 - Commit under test: `2b24bdc` (Docs: shared systems design) on top of `8bfb3f0` (workshop contraptions).
-- Runs were `node scripts/e2e-<x>.mjs [--no-build] --device=desktop`, with `HW_DIAG=1` for the second pass.
+- Runs were `node scripts/e2e-<x>.mjs [--no-build] --device=<desktop|phonePortrait|phoneLandscape|sandbox>`, one at a
+  time except the first desktop pair (noted), with `HW_DIAG=1` from the second pass on. Not run: `e2e-ember` on
+  phonePortrait (its default list includes it; left for the acceptance run).
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -131,15 +139,17 @@ The `HW_DIAG` state samples of the features run show the consequence: `frames` +
 
 `src/app/loop.ts` clamps a frame to `MAX_FRAME_DT` 0.1 s, so each frame advances the simulation by at most 2 ticks
 (0.1 s). At ~1.5 fps the game runs at roughly **one sixth of real time** (0.15 game-s per wall-s). On the owner's RTX 3060
-(`HW_GPU=1`) it runs at real time. Every script assertion written as a wall-clock wait for something that happens in GAME
-time (an animal calming down, a leaf falling, a drop flying to the player, a screen's first frame) is therefore 6x tighter
-here than on the machine it was written on, and every wall-clock interval that is supposed to be SHORT in game time (the
-moment right after a cut) is 6x longer in ticks on a GPU than here or vice versa. That is the flake class (c) of section 1.
+(`HW_GPU=1`) the reported step times are several times shorter, i.e. close to real time; the scripts' literal timeouts
+were tuned there. Every script assertion written as a wall-clock wait for something that happens in GAME
+time (an animal calming down, a leaf falling, a drop flying to the player, a screen's first frame) is therefore about 6x tighter
+here than on the machine it was written on; and any assertion that samples state "a little while" after an action (the
+crown right after a cut) samples an interval nobody controls, which holds a different number of ticks on every machine.
+Both are flake class (c) of section 1.
 Lowering render distance does not help (measured); lowering the pixel count is not allowed (the viewports are the device
 contract). Section 7 therefore scales timeouts and moves game-time waits onto ticks.
 
 A second fact: two Chromium instances on 4 cores roughly halve each other's frame rate again. The first pass of this
-investigation ran `e2e.mjs` and `e2e-magic.mjs` side by side and both failed on timing; both passed when run alone (4.3).
+investigation ran `e2e.mjs` and `e2e-magic.mjs` side by side and both failed on timing; both passed when run alone (4.2).
 Rule: **one browser at a time** on a machine without a GPU (section 7.4).
 
 ### 4.2 Desktop results (`--device=desktop`, headless, software WebGL, one script at a time unless noted)
@@ -153,7 +163,7 @@ Rule: **one browser at a time** on a machine without a GPU (section 7.4).
 | `e2e-ember.mjs` | **FAIL** 4/9 ok | 2 m 39 s | `the bronze maul breaks mites apart and salvages scrap: no scrap after 8 mites: {"bronze_maul":1,"bronze_ingot":4,"stick":2}` | (b) stale script, see 5.1 |
 | `e2e-handwork.mjs` | **PASS 13/13** | 10 m 43 s | - | - |
 | `e2e-ground.mjs` | **PASS 7/7** | 1 m 12 s | - | - |
-| `e2e-vehicles.mjs` | **FAIL** 2/7 ok | 0 m 33 s | `leaf decay: the crown does not vanish at once, then falls away on its own: leaves still there right after the cut` | (b)/(c) racy assertion, see 5.2 |
+| `e2e-vehicles.mjs` (run twice, same result) | **FAIL** 2/7 ok | 0 m 33 s | `leaf decay: the crown does not vanish at once, then falls away on its own: leaves still there right after the cut` | (b)/(c) racy assertion, see 5.2; behind it 5.6 |
 | `e2e-dev.mjs` | **PASS 11/11** | 1 m 22 s | - | - |
 | `e2e-distill.mjs` | **PASS 10/10** | 4 m 52 s | - | - |
 | `e2e-magic.mjs` run 1 (in parallel with e2e) | FAIL 10/16 ok | 6 m 16 s | `the rune desk screen makes a bronze rod ...: page.waitForSelector: Timeout 5000ms exceeded.` - Playwright's own call log says `locator resolved to visible <div class="hw-nb__recipe" data-recipe="bronze_rod">`; the failure screenshot shows the Rune Desk open with "Bronze Gathering Rod - Ready" | (c) timing, see 5.4 |
@@ -161,20 +171,68 @@ Rule: **one browser at a time** on a machine without a GPU (section 7.4).
 | `e2e-workshop.mjs` | **PASS 10/10** | 3 m 4 s | - | - |
 
 Summary of desktop: **9 of 11 scripts pass when run alone; 2 fail deterministically on stale/racy script logic
-(ember, vehicles); 2 more fail only under CPU contention (e2e, magic).** No red step on desktop traced to a game bug in
+(ember, vehicles - vehicles twice in a row with the same message); 2 more fail only under CPU contention (e2e, magic).
+Behind the vehicles failure sits a third timing failure (5.6) that only shows once 5.2 is fixed.** No red step on desktop traced to a game bug in
 `src/`. No console errors in any passing run.
 
-<!-- PHONE -->
+### 4.2b Phone results (`--device=phonePortrait`, plus `phoneLandscape` and `sandbox` for `e2e.mjs`; one at a time, `HW_DIAG=1`)
+
+Phones render 390 x 844 (a third of the desktop's pixels): the diag frame samples show ~20 fps (`dtMs` 50), i.e. the game
+runs at real time on the phone viewports here. Phone failures are therefore NOT the slow-frame class of 4.1.
+
+| script | device | result | failing step and message |
+|---|---|---|---|
+| `e2e.mjs` | phonePortrait | **PASS 20/20**, 1 m 56 s | - |
+| `e2e.mjs` | sandbox | **PASS 6/6**, 16 s | - |
+| `e2e.mjs` | phoneLandscape | **FAIL**, 4 m 15 s | `crafts sticks, cord and a flint pickaxe by hand: cannot aim at the chopping block` |
+| `e2e-features.mjs` | phonePortrait | **FAIL**, 1 m 33 s | `dough is made at the workbench from flour and a water bucket: timed out waiting for a screen to open` (after 6 `not targeted` misses in the animal step) |
+| `e2e-tech.mjs` | phonePortrait | **FAIL**, 36 s | `the hearth floor is laid brick by brick (real placing): locator.waitFor: Timeout 10000ms exceeded.` |
+| `e2e-handwork.mjs` | phonePortrait | **PASS 13/13**, 1 m 39 s | - |
+| `e2e-ground.mjs` | phonePortrait | **PASS**, 23 s | - |
+| `e2e-dev.mjs` | phonePortrait | **PASS**, 18 s | - |
+| `e2e-distill.mjs` | phonePortrait | **FAIL**, 39 s | `crude oil pours into the column flask and its base is set to 350 C: column base at 350 C` (one of four taps on the base was lost) |
+| `e2e-magic.mjs` | phonePortrait | **FAIL 3 runs of 3** | `the notebook notes three blocks with real Use and learns their aspects: scanned ["glass","workbench"]` (run 2: `["workbench"]`) |
+| `e2e-workshop.mjs` | phonePortrait | **PASS 10/10**, 35 s | - |
+| `e2e-ember.mjs`, `e2e-vehicles.mjs` | phonePortrait | not run (ember's default list includes phonePortrait; vehicles is desktop-only) | - |
+
+Causes: magic, distill and features - **lost world taps** (5.7); tech - the player killed by a Forge Warden (5.8);
+landscape - the workbench placed on top of the chopping block (5.9). All verified in 4.3. A probe that aims at
+three blocks and taps each once lost 0-3 of 3 taps per run; instrumenting `TouchGestures.up` showed every lost tap had a
+down-to-up time of 289-314 ms by the page's event clock, although the Driver holds the finger only 60 ms.
+
 
 ### 4.3 Verification of the proposed script fixes
 
-<!-- VERIFY -->
+Both deterministic reds were re-run with the fix applied to a COPY of `scripts/` in a scratch directory (this design
+pass does not edit the repository), against the same `dist/`, desktop, alone, `HW_DIAG=1`:
+
+| script (patched copy) | result | evidence |
+|---|---|---|
+| `e2e-ember.mjs` with 5.1 (collect drops after each kill, 12 rounds) | **PASS 9/9**, 2 m 34 s | `1 mite(s) broken apart, scrap 1, maul durability 191`; the later steps (warm zone, death screen, Peaceful) all pass |
+| `e2e-vehicles.mjs` with 5.2 only | FAIL at the next step, `drove 2.4 m` (5.6) | |
+| `e2e-vehicles.mjs` with 5.2 + 5.6 (crown sampled at the cut, driving held for ticks) | **PASS 7/7**, 1 m 38 s | `crown at the cut 71, 0 when this step starts` - the crown was intact at the cut and fully gone before the old sample point, exactly the race described |
+| `e2e-vehicles.mjs` unpatched, run 2 | FAIL at the same step, same message | the original failure is deterministic |
+
+Phone fixes, verified the same way (patched copy of `scripts/`, one browser at a time):
+
+| script (patched copy) | result | evidence |
+|---|---|---|
+| `e2e-magic.mjs` phonePortrait with 5.7 (`tapWorld`) | **PASS 16/16**, 48 s | notebook step 3.6 s (was red 3 of 3 runs) |
+| `e2e-distill.mjs` phonePortrait with 5.7 | **PASS 10/10**, 1 m 6 s | the column base reaches 350 C in four taps |
+| `e2e-features.mjs` phonePortrait with 5.7 | **PASS 12/12**, 1 m 9 s | `misses: not targeted` once (was 6) |
+| `e2e-tech.mjs` phonePortrait with 5.7 only | FAIL, the death screen (5.8) | |
+| `e2e-tech.mjs` phonePortrait with 5.7 + 5.8 (Peaceful) | **PASS 13/13**, 1 m 20 s | the floor in 14 s |
+| `e2e.mjs` phoneLandscape (patched copy, 5.9 NOT yet applied) | **PASS 20/20**, 2 m 21 s | the stacking of 5.9 depends on the stance; it did not recur |
+| `e2e-dev.mjs` phoneLandscape | **PASS**, 23 s | - |
+
+The two contention failures (5.3, 5.4) were verified by re-running the unpatched scripts ALONE (4.2: both green). Their
+fixes make them tolerate contention; acceptance item 10.4 tests that.
 
 ---------------------------------------------------------------------------------------------------------------------------
 ## 5. Root causes and exact fixes
 
 Each entry: the failing step, the evidence, the root cause in code, the fix (file, function, change), and how the fix is
-proven. None of the red steps of section 4 is a game bug; the game code changes of this unit are the three debug helpers of
+proven. None of the red steps of section 4 is a game bug; the only game-code changes of this unit are the `window.__hw` helpers of
 section 8.3 (which also remove the duplicated set-up code the root causes below grew out of). If a later re-run on top of
 Unit 0 shows a step red because of game code, the builder adds an entry here in the same shape and fixes `src/`.
 
@@ -186,8 +244,8 @@ Unit 0 shows a step red because of game code, the builder adds an entry here in 
   an automaton's salvage does not go into the pack. `src/mobs/hostileHurt.ts` `hurtHostile` rolls
   `rollDrops(m.spec.drops, env.rng)` and passes them to `env.died`; the manager's death listener in `src/app/state.ts`
   (`this.mobs.onDeath((d) => this.player.dropAll(d.drops, ...))`) spills them as ground items at the mite. They reach the
-  pack only inside `PICKUP_RADIUS` 1.4 (`src/game/groundItems.ts`). The mite dies 1.5-2.5 blocks away (the fight keeps
-  the player out of bite range), so the scrap lies there. `cinder_mite` drops `scrap_metal` with `chance: 0.5`
+  pack only inside `PICKUP_RADIUS` 1.4 (`src/game/groundItems.ts`). The mite breaks apart wherever the fight left it
+  (the patched run shows the scrap arrives as soon as the player walks over), so the scrap lies there. `cinder_mite` drops `scrap_metal` with `chance: 0.5`
   (`src/content/automatons.ts`); with eight kills the chance that none of them dropped scrap is 1/256, so the pack is
   empty because nobody walked to the drops, not because of bad luck. `e2e-features.mjs` was updated for ground items
   (`d.collectDrops(8000)` after the animal dies); `lib/e2eEmber.mjs` was not.
@@ -231,15 +289,15 @@ Unit 0 shows a step red because of game code, the builder adds an entry here in 
 - **Root cause.** `Driver.collectDrops(maxMs = 12_000)` in `scripts/lib/e2eDriver.mjs` walks (teleports) to each ground
   item and waits `settle(800)` wall-ms for it to fly in. A drop flies only after `DROP_DELAY_S` 0.5 game-s and at
   `HOMING_SPEED` 9 b/s; at 0.5-1 fps under contention, 800 wall-ms is 1 frame = 2 ticks = 0.1 game-s, so most visits
-  do not collect and the 12 s wall budget ran out with one log still lying (often on a leaf block of the canopy, where the
-  teleport to `Math.floor(t.y)` stands the player inside the crown and the game pushes it up).
+  do not collect and the 12 s wall budget ran out with one log still lying (the run had no `HW_DIAG`, so which drop stayed is not recorded; the screenshot shows fiber and 8 sticks from leaf
+  decay next to the 3 logs, i.e. the crown had fallen and its drops were competing for the same 12 s budget).
 - **Fix (driver, justified: the budget is wall time for a game-time process).** In `Driver.collectDrops`:
   1. replace the wall-clock loop with a TICK budget: `maxTicks = 200` (10 game-s) AND a wall cap
      `maxMs = 60_000 x E2E_SLOW` (section 7.2);
   2. after each teleport wait until either the item is gone from `groundItems()` or 30 ticks passed (`waitTicks` helper,
      section 8.2), instead of `settle(800)`;
-  3. teleport to the item's cell standing on the first free cell at or above `Math.floor(t.y)` (use `standBeside`'s free
-     test), so an item resting on leaves does not put the player inside them;
+  3. teleport to the first free two-cell column at or above `Math.floor(t.y)` (the free test `standBeside` already uses), so
+     an item resting on a leaf or a step cannot put the player inside a block;
   4. return the list of items left; `mineLogs` throws `logs broke but <n> stayed on the ground: <list>` when any oak or
      pine log is still lying after it, so the message names the cause next time.
 - **Proof.** `e2e.mjs --device=desktop` passes alone (4.2); with the fix it must pass twice in a row (section 10).
@@ -268,7 +326,84 @@ Unit 0 shows a step red because of game code, the builder adds an entry here in 
   `targetAnimal?.id === id`, `waitTicks(1)` between polls (one rendered frame). Keep the 24-attempt cap; the step must
   pass with at most 6 misses on software WebGL (logged; section 10 checks the log line).
 
-### 5.6 Inconsistencies fixed while the scripts are touched (no red step, but they mislead the chain)
+### 5.6 `e2e-vehicles.mjs` - "tractor: W drives, A steers, F tills ahead" (hidden behind 5.2, wall-time driving)
+
+- **Evidence.** Revealed once 5.2 was fixed in the patched copy: `drove 2.4 m` (the assertion wants more than 3 m).
+- **Root cause.** The step holds W+F for `sleep(2500)` WALL ms. The tractor moves at up to 5.5 m/s in GAME time
+  (`docs/api/tractor.md`); at the measured fraction of real time the tractor got about half a game second of driving.
+  The same pattern follows in the step: `sleep(1200)` for steering (asserts a yaw change > 0.4 rad) and `sleep(900)` for
+  the harvester's F.
+- **Fix (script).** A `holdKeysTicks(keys, ticks)` helper (keys down, poll `__hw.state().ticks` every 100 ms until
+  `+ticks`, wall cap `T(120_000)`, keys up in reverse order) replaces the three sleeps: W+F for 50 ticks (2.5 game-s, the
+  original intent), W+A for 24 ticks, F for 18 ticks. The helper moves into the Driver as `Driver.holdKeys(keys, ticks)`
+  (desktop) so Units 9 (asphalt speed: "the tractor runs 7.7 m/s on it") and 13 (skiff riding) measure speed in game
+  time from day one. The fixed `sleep(800)` waits after `d.use()` in the "set it down, refuel" step become
+  `waitTicks(page, 8)`.
+- **Proof.** Section 4.3.
+
+### 5.7 Phones - world taps lost (`e2e-magic`, `e2e-distill`, `e2e-features` phonePortrait)
+
+- **Evidence.** `e2e-magic.mjs --device=phonePortrait` failed 3 of 3 runs at the first notebook step (one or two of three
+  scans missing); `e2e-distill.mjs` phone set the column base to the wrong setpoint (one of four taps missing). A probe
+  (the magic yard, six aim-and-tap rounds) wrapped `TouchGestures.down/up` (`src/player/input/gestures.ts`) through
+  `window.__hw.app.game.inputManager.core.touch`:
+  every tap that did not register was a `LOOK` pointer whose `up` came 289-314 ms after its `down` by the event clock;
+  taps at 191-272 ms registered. `GESTURE_DEFAULTS.tapMaxMs` = `holdMs` = 280: a still touch longer than that is the
+  start of a mining hold, not a Use - correct game behaviour for a real finger.
+- **Root cause (driver).** `Driver.use()` on phonePortrait does `await fingerDown(3)` -> `sleep(60)` -> `await fingerUp(3)`.
+  `Input.dispatchTouchEvent` resolves only after the renderer has handled the event (behind a frame), and Chromium stamps a
+  CDP touch when it receives it. So the up is sent ~200 ms after the down was SENT, and the 60 ms tap arrives as a
+  250-320 ms press. Passing CDP's `timestamp` parameter did not change the measured interval (tried: still 191-314 ms).
+- **Fix (driver, justified: a real phone stamps touches in hardware; the game's tap window is right).** New
+  `Driver.tapWorld(id = 3)` in `scripts/lib/e2eDriver.mjs`: send `touchStart` WITHOUT awaiting it, `sleep(60)`, send
+  `touchEnd`, then `await Promise.all([down, up])`. `use()` on phonePortrait calls it. Measured with the fix: all 18 probe taps
+  (three runs) were 60-63 ms by the page clock and all 9 first scans registered; without it, three probe runs lost 5 of
+  9 first scans.
+  The `useBlock` "tapping again" retry (written for this very symptom, "a tap that spans such a hitch reads as a
+  press-and-hold") stays as a safety net but should no longer print.
+- **Same pattern elsewhere.** `Driver.holdUse` and `Driver.walk` hold fingers on purpose (long presses), unaffected.
+  `Driver.press(locator)` uses Playwright's `locator.tap()` on HUD buttons, which are UI targets with their own click
+  handling, not gestures - unaffected. Any future helper that makes a QUICK world gesture must use the same
+  send-without-await pattern; section 8.2 says so.
+- **Proof.** Section 4.3 (patched copy runs of the phone scripts).
+
+### 5.8 `e2e-tech.mjs` phonePortrait - "the hearth floor is laid brick by brick" (the player is killed by an automaton)
+
+- **Evidence.** Still red with the 5.7 tap fix: `locator.waitFor: Timeout 10000ms exceeded ... waiting for
+  locator('.hw-window button[aria-label="Close"]')`. The failure screenshot is the death screen: "FELLED BY A FORGE WARDEN",
+  health 0. `placeInto` (in `scripts/lib/e2eTech.mjs`) saw a screen open after a missed placement and tried to close it
+  with the Close button the death screen does not have.
+- **Root cause (stale script).** `e2e-tech` predates the Emberbound automatons (docs/api/emberbound-*.md). The building
+  site `findSite` picks near spawn can be within reach of a ruin's Forge Warden; on the phone viewport the game runs at
+  real time (4.2b), so the warden gets six times more ticks during the 30 s step than on the desktop run, reaches the
+  player and kills it. The game is right (automatons fight; `e2e-ember` tests exactly that, and that Peaceful removes them).
+- **Fix (script + harness).**
+  1. `scripts/lib/e2eTech.mjs`, set-up step `'a flat building site is found and the bricks are given'`: add
+     `hw.setDifficulty('peaceful')` beside `hw.setTime(0.3)`.
+  2. Harness rule (7.1 `newWorld`): every script except `e2e-ember.mjs` starts its world with
+     `setDifficulty('peaceful')` (option `{ peaceful: false }` for scripts that test combat). A hearth, a still or a
+     workshop step is not a combat test; an uncontrolled hostile is set-up noise.
+  3. `makeStepper` (7.1): when a step fails and `__hw.state().player.dead` is true, the failure message gets
+     ` (the player died: <combat.deathCause> by <combat.killedBy>)` appended, so the next such failure names itself
+     instead of timing out on a missing button.
+- **Proof.** Section 4.3.
+
+### 5.9 `e2e.mjs` phoneLandscape - "crafts sticks, cord and a flint pickaxe by hand: cannot aim at the chopping block"
+
+- **Evidence.** The failure screenshot shows the Workbench standing ON TOP of the Chopping Block; the diag log has ten
+  `aim.approach` records for the chopping block at y 43, each with the crosshair on `workbench` at y 44, then
+  `station.not_empty` and the failure. The re-run (patched copy) passed: it depends on where the player stood.
+- **Root cause (driver).** `Driver.placeHeldWithin` accepts any cell whose block below is `solid && !replaceable` as
+  "flat ground" - a placed Chopping Block qualifies. Step `'places the workbench'` in `scripts/e2e.mjs` calls
+  `d.placeHeld('workbench')` with no `avoid`, so the nearest candidate can be the top of the chopping block placed two
+  steps earlier. A player would not stack a bench on the chopping block; the game allows it (correctly).
+- **Fix (driver).** `Driver.placeHeld(item, avoid = null)` takes `avoid` as one cell OR an array, and ALWAYS adds every
+  cell in `this.places` (the stations the run already placed) to it; `placeHeldWithin` skips a candidate whose ground
+  cell or 8-neighbourhood contains one of them (the existing `< 2` Chebyshev rule). The explicit
+  `placeHeld('furnace_clay', d.places.workbench)` keeps working.
+- **Proof.** Deterministic re-proof needs the same stance; acceptance 10.1 runs phoneLandscape twice.
+
+### 5.10 Inconsistencies fixed while the scripts are touched (no red step, but they mislead the chain)
 
 | file | problem | fix |
 |---|---|---|
@@ -290,8 +425,11 @@ other reason writes the same sentence first, or fixes the game instead.
 | vehicles: sample the crown at the cut (5.2) | `docs/api/leaf-decay.md`: leaves wait 8..48 ticks, then peel; the unit test proves the rule; the script sampled 0.5-20 s later |
 | driver `collectDrops` on ticks (5.3) | pickup is game-time physics (`DROP_DELAY_S`, `HOMING_SPEED`); a wall budget is wrong on any slow device, including a real slow phone |
 | magic and all UI waits via `T()` (5.4) | the screen was open (Playwright resolved it; screenshot); only the clock was short |
+| driver: never place on a station the run placed (5.9) | the game lets a player stack blocks on a chopping block; the test's intent was a bench beside it |
+| tech: Peaceful for a building test (5.8) | `e2e-ember` proves automatons fight and that Peaceful removes them; a hearth test must not depend on where a warden walks |
 | features: re-aim at a moving animal (5.5) | animals wander by design (`src/mobs/`); a player re-aims too |
-| flags and devices (5.6) | no game behaviour involved |
+| driver `tapWorld` without awaiting the down (5.7) | a real phone stamps a touch in hardware; the 280 ms tap window is the right rule for a finger and is unit-tested in `src/player/input/gestures.test.ts` |
+| flags and devices (5.10) | no game behaviour involved |
 
 What Unit 1 must NOT do to make a step green: lower an assertion's threshold (e.g. "4 logs" to "3 logs"), replace a real
 input with `window.__hw` (e.g. `inventory.add` instead of walking onto the drop), delete a step, or add `--device` skips.
@@ -315,7 +453,8 @@ export function parseE2eArgs(argv, { name, defaultDevices = ['desktop', 'phonePo
 }
 export async function prepareBuild({ noBuild, dist }) { /* build({ quiet: true, outDir: dist }) unless noBuild */ }
 export function makeStepper({ report, d, page, onFail }) { /* the skip-after-first-failure step + FAILED-<name>.png */ }
-export async function newWorld(page, d, seed, { mode = 'survival' } = {}) { /* title -> seed -> New World -> playing -> settle */ }
+export async function newWorld(page, d, seed, { mode = 'survival', peaceful = true } = {}) { /* title -> seed -> New World -> playing -> settle; peaceful: __hw.setDifficulty('peaceful') (5.8) */ }
+export async function crosshairText(page) { /* waits one slow-tick refresh, returns .hw-cross__name text (8.3) */ }
 export const E2E_SLOW = process.env.HW_GPU === '1' ? 1 : Number(process.env.HW_E2E_SLOW ?? 4);
 export const T = (ms) => Math.round(ms * E2E_SLOW);
 export async function waitTicks(page, n, { wallMs = T(30_000) } = {}) { /* polls __hw.state().ticks until +n */ }
@@ -331,8 +470,9 @@ dev `desktop, phonePortrait, phoneLandscape`; magic/workshop/dev/vehicles `scrat
   a still boils, leaves fall) is measured in ticks with `waitTicks` or `waitFor(..., s.ticks - t0 > n)`, never in wall ms.
   The ember and features scripts already do this in places ("Game ticks, not wall time" in `fight`); this becomes the rule.
   A wait for something the PAGE does (a screen opens, a button appears) uses `T(ms)`.
-- **Scale.** `E2E_SLOW` = 1 with `HW_GPU=1`, 4 on software WebGL (measured: ~1-1.5 fps vs ~6 fps the timeouts were tuned
-  at), overridable with `HW_E2E_SLOW=<n>` for a slower machine. `T(5000)` = 20 s here.
+- **Scale.** `E2E_SLOW` = 1 with `HW_GPU=1`, 4 on software WebGL, overridable with `HW_E2E_SLOW=<n>` for a slower
+  machine. `T(5000)` = 20 s here. Why 4: the one UI wait that failed (rune desk screen, contended run) needed more than
+  5 s while the screen was already drawn; 20 s gives 3x headroom over that without letting a truly missing screen hang a step for minutes.
 - **Caps that stay literal.** World load `120_000` (already generous: measured 4-8 s) and title `30_000` stay; they are
   wrapped in `T()` only if a run shows them close (more than half used).
 - **Per-script wall cap.** `e2e-all.mjs` kills a script that runs longer than `25 min x E2E_SLOW / 4` (the slowest
@@ -379,4 +519,186 @@ Order (cheap and foundational first, so a red spine shows in minutes): `e2e` (sp
   use ticks).
 - **Diagnostics on red.** The runner re-runs the red script's retry with `HW_DIAG=1` so the JSONL log and the
   `-fail-N.png` exist for the second failure, and prints `node scripts/lib/diag.mjs summary` for it.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Protocol for later units adding e2e steps
+
+This is the contract Units 0 and 2-19 build against (SYSTEMS 6c, made concrete). A unit spec that adds an e2e step says
+which script, which step names, which devices, and which `window.__hw` reads it uses.
+
+### 8.1 Where a step goes
+
+| unit | script it extends | why there |
+|---|---|---|
+| 0 Foundations | none new (no player-visible content); must leave the chain green | - |
+| 2 Owner decisions (rack under glass, `six_cups` side goal) | `e2e-handwork.mjs` (rack stops under glass), `e2e-features.mjs` (side goal ticks out of order) | the rack step lives in handwork; the spine script `e2e.mjs` stays about the first hour and is not extended |
+| 3 Small known gaps | `e2e-tech.mjs` (structure tab machines list), `e2e-features.mjs` (crop pops off farmland) | existing hearth / farming steps |
+| 4 Casting and hot metal | `e2e-handwork.mjs` | the anvil hot window and mould pour steps are there |
+| 5 Sap tap and sugar | `e2e-distill.mjs` (sugar into a vessel) and a new `e2e-sugar.mjs` only if more than 3 steps | the pot still is in distill |
+| 6 Rig screen | `e2e-distill.mjs` | rigs are built there; phonePortrait REQUIRED (a screen) |
+| 7, 8, 9, 10, 11, 12 (distillery family) | `e2e-distill.mjs`, one `describe`-style section comment per unit (`// ---- Unit 8: vacuum line ----`) | one rig yard, one world load |
+| 13, 14, 15, 16 (workshop family) | `e2e-workshop.mjs`, same section comments | the yard and goggles helpers are there |
+| 17 Harness and golems | `e2e-workshop.mjs` (treadwheel, golem carrying) | needs the yard and an animal: `__hw.spawnMob` exists |
+| 18, 19 Magic | `e2e-magic.mjs` | research set-up exists |
+
+A NEW script is allowed only when a unit adds more than 6 steps that need a different world set-up; it uses the harness
+(7.1), is added to the runner's order list, and gets a `docs/api/<feature>.md` line saying how to run it.
+
+### 8.2 How a step is written
+
+1. **Name**: a sentence of what the player sees, present tense, the number in it, matching T8 voice:
+   `step('a ladle of copper pours into the casting bench: three moulds fill in order', ...)`, not `step('bench test')`.
+   The name is unique within the script (the failure screenshot is named after it).
+2. **Set-up through `window.__hw` only** (give, teleport, setVoxel, setTime, setWeather, tick, `clearYard`); the ACTION
+   under test through the Driver (`d.use()`, `d.holdUse()`, `d.holdMine()`, `d.press(locator)`, `d.selectItem()`,
+   `d.walk()`, keyboard). Reading state back through `window.__hw` or the DOM.
+3. **Waits**: game events with ticks (`waitTicks(page, n)` or a `waitFor` whose predicate compares `s.ticks`), UI with
+   `T(ms)`. `window.__hw.tick(n)` fast-forwards when the test is about the RESULT of time passing (a still finishing),
+   never when it is about what the player does during it.
+4. **Assertions say what was seen**: `assert(x === y, \`bench holds ${JSON.stringify(view)}\`)`. Every assertion message
+   includes the observed value.
+5. **One screenshot per step** via `d.shot('<nn>-<slug>')` into `test-results/e2e-<script>/<device>-<nn>-<slug>.png`;
+   `<nn>` continues the script's numbering (Unit numbers may prefix: `u4-01-bench-filled`).
+6. **Devices**: desktop always; `phonePortrait` for anything with a screen, a HUD element, a button or a touch path
+   (SYSTEMS 1.3). The step must use `d.touch` branches the Driver already has; a step that cannot run on phone is a design
+   bug in the feature (phone first), not a reason to skip the device.
+7. **Quick world gestures** (a tap, a flick) are sent without awaiting the down event (`Driver.tapWorld`, 5.7); only
+   deliberate long presses await each event.
+8. **No new globals in the page** except through `__hw.events` (8.3). Event recorders like the ember script's
+   `window.__ember` migrate to it when that script is next touched.
+9. **Cost**: a step should take under 60 s on software WebGL; anything longer fast-forwards with `tick` or is split.
+   The runner prints per-step times; a unit that pushes its script over 12 min desktop software time splits it.
+
+### 8.3 `window.__hw` helpers this unit adds (`src/app/debug.ts`, `DebugHandle`)
+
+Small, setup-and-read only, typed in `DebugHandle`, unit-tested where pure:
+
+```ts
+/** Flattens a w x d patch at the player's feet level (or `y`): `floor` block below, air `height` blocks up. Returns the
+ *  origin cell. Replaces the hand-written clearing loops in e2e-magic/-workshop/-distill. */
+clearYard(x0: number, z0: number, w: number, d: number, opts?: { y?: number; floor?: string; height?: number }): { x0: number; y: number; z0: number };
+
+/** Starts recording these bus events (with the tick they happened in) into a ring of 2000; returns how many it now
+ *  records. Generalises the ember script's window.__ember recorder. */
+events(types: string[]): number;
+/** Recorded events of one type (oldest first), each { type, tick, e } (e is a JSON copy). */
+eventsOf(type: string): { type: string; tick: number; e: unknown }[];
+clearEvents(): void;
+```
+
+The crosshair line - the T8 grammar every later unit asserts on - is read from the DOM, not a new hook, because the DOM
+is what the player reads: `page.locator('.hw-cross__name').textContent()` (harness helper `crosshairText(page)`, which waits
+one slow-tick refresh first). Goggles lines need the goggles in the pack (`give('engineer_goggles')`), as for a player.
+
+Helpers later units add themselves, in their own spec, following the same rule (setup and read only, never the action):
+Unit 0 `__hw.vessel(x,y,z)` (slots + rx progress), Unit 5/10 `__hw.buffs()` (a `BuffsSnapshot` copy), Unit 0
+`__hw.sideGoals()` (`ObjectiveTracker.side()` copy). They append to `DebugHandle`; no unit edits another's helper.
+
+### 8.4 Before a unit merges (its own e2e acceptance)
+
+1. `npm run build`, then `node scripts/e2e-all.mjs --no-build --only=<its scripts>` desktop + phonePortrait: green,
+   no `FLAKY`.
+2. `node scripts/e2e-all.mjs --no-build` once for the whole chain on desktop (the coordinator may run it instead when
+   several units merge together): every script green or `FLAKY` with an existing entry in a section 5 table.
+3. Attach `test-results/e2e-summary.json` (or paste its table) to the merge note.
+
+### 8.5 Review checklist for e2e code (rejected if any is "no")
+
+- step name is a player-visible sentence with a number; unique;
+- the action is real input; `__hw` only sets up or reads;
+- no literal `timeout:` number (use `T()`); no `waitForTimeout`/`settle` used as a wait for a game event;
+- assertion messages contain the observed value;
+- a screenshot per step, in the script's folder;
+- phonePortrait covered when there is UI;
+- runs under 60 s per step on software WebGL.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests
+
+Unit tests (vitest, co-located, run in `npm test`):
+
+- `tests/e2eHarness.test.ts` (new; `vitest.config.ts` already includes `tests/**/*.test.ts` and `tsconfig.json` includes
+  `tests`): imports the pure exports of `scripts/lib/e2eHarness.mjs` and `scripts/e2e-all.mjs`'s parser (export
+  `parseStepLines` from a side-effect-free module `scripts/lib/e2eSummary.mjs`, so importing it does not start a run).
+  Keep the harness importable without launching anything: `openGame`/Playwright stay behind function calls (as
+  `loadPlaywright` already is). Cases: default devices per script name; `--device` repeatable; `--out=` is an alias of
+  `--dist=`; `--no-build` never changes the device list; `T(5000)` is 20 000 with `HW_GPU` unset and 5000 with
+  `HW_GPU=1` (set `process.env` before a fresh dynamic import, `vi.resetModules()`); `parseStepLines` turns
+  `  ok   x (12 ms)`, `  FAIL x: msg`, `  skip x` into `{ ok: 1, failed: 1, skipped: 1, firstFailure: 'x: msg' }`.
+  A `.mjs` import from TypeScript needs a one-line `tests/e2eHarness.d.ts` (or `// @ts-expect-error` per import);
+  `npx tsc --noEmit` must stay clean.
+- `src/app/debugHelpers.test.ts` (new). The two helpers' logic lives in `src/app/debugHelpers.ts` as pure pieces so they
+  test without an `App`: `yardCells(x0, z0, w, d, y, height)` returning the floor and air cells, applied by
+  `createDebugHandle` through `world.setVoxel(..., 'sim')` as `setVoxel` does today; and `class EventRecorder { record(type,
+  tick, e); of(type); clear() }` with a 2000-entry ring, which `createDebugHandle` subscribes to `game.bus`. Cases:
+  exactly `w x d` floor cells and `w x d x height` air cells; ring drops the oldest at 2001; `of` filters by type;
+  `clear` empties; subscribing the same type twice records once; the stored `e` is a copy (mutating the source object
+  later does not change it).
+- Existing suites stay green: `npx tsc --noEmit`, `npx vitest run` (1988 tests at WHATS_LEFT time).
+
+Browser verification (the unit's real test): section 10.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. Acceptance checklist
+
+All on this kind of machine (no GPU, `HW_GPU` unset), `npm ci`, one `npm run build`:
+
+1. `node scripts/e2e-all.mjs --no-build` (default devices of every script, which after 5.10 includes phonePortrait for
+   every script but vehicles, and phoneLandscape + sandbox for `e2e.mjs`) ends with every script `PASS` - no `FAIL`, no
+   `TIMEOUT`; at most one `FLAKY`, and that one has a section 5 entry naming the wait that caused it.
+2. The same command run a SECOND time in a row: every script `PASS` (no `FLAKY`) - proves 5.3-5.5 removed the timing
+   flakes rather than the retry hiding them.
+3. `node scripts/e2e-all.mjs --no-build --only=ember,vehicles --retries=0` passes (the two deterministic reds of 4.2).
+4. `node scripts/e2e.mjs --no-build --device=desktop` and `node scripts/e2e-magic.mjs --no-build --device=desktop` each
+   pass while ANOTHER browser script runs beside them with `HW_E2E_SLOW=8` (contention tolerance with a doubled scale).
+   This is the direct regression test of 5.3 and 5.4.
+5. `test-results/e2e-summary.json` exists and lists 11 scripts with ok/failed/skipped/ms.
+6. `npm run e2e` runs `scripts/e2e-all.mjs` (package.json), and a deliberately broken step (local edit, not committed:
+   change one assertion in `e2e-ground.mjs`) shows `FAIL` for ground AND the following scripts still run.
+7. `grep -rn "timeout: [0-9]" scripts/e2e*.mjs scripts/lib/e2e*.mjs` finds only the two kept literals (world load 120 000,
+   title 30 000) - every other timeout goes through `T()`.
+8. The features animal step logs `misses:` with at most 6 entries on desktop (5.5).
+9. With `HW_GPU=1` on the owner's machine (coordinator note), the chain is still green: `T()` collapses to the old
+   literals there.
+10. `npx tsc --noEmit` clean; `npx vitest run` green; the self-test of 9 passes.
+11. Every script's `--help`-equivalent header comment lists the harness flags (`--device`, `--no-build`, `--dist`,
+    `--shots`, `--seed`).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Out of scope
+
+- Any gameplay change. If a re-run on top of Unit 0 finds a red step caused by game code, the fix is in scope only if it
+  is a regression of existing behaviour (a bug); new behaviour belongs to the owning unit.
+- Adding e2e to CI (`.github/workflows/ci.yml`). GitHub's runners have no GPU; a 60-90 min software chain per push is not
+  worth it. A nightly or manual `workflow_dispatch` job is a coordinator decision (section 12).
+- Speeding up the game's software rendering (resolution scaling, a "low" graphics preset). Measured: render distance does
+  not change the frame rate here; a pixel-ratio setting below 1 is a product decision for phones (UI size setting is
+  Unit 3), not a test trick.
+- Writing the e2e steps of later units (each unit owns its steps, section 8).
+- The `phoneLandscape` device for scripts other than `e2e.mjs` and `e2e-dev.mjs` (they never ran it; nothing new needs it).
+- Hand play-testing (excluded by the owner, SYSTEMS header).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Notes for the coordinator
+
+1. **Baseline today (commit `2b24bdc`), software WebGL, one browser at a time.** Desktop: 9/11 green; ember and vehicles
+   red on script logic (5.1, 5.2 + 5.6; proven fixed in a patched copy, 4.3); e2e and magic red only when run in parallel
+   with another browser. Phone: e2e portrait, sandbox, handwork, ground, dev, workshop green; magic, distill, features
+   red on the lost-tap driver bug (5.7), tech on an automaton kill (5.8), e2e landscape on a stacked placement (5.9).
+   With all fixes applied in a scratch copy, every script that was run is green on both devices. No red step was caused
+   by game code.
+2. **Never run two e2e browsers at once on a no-GPU machine** (including two units' builders on one checkout): it turns
+   green scripts red. The runner enforces it with `.run-lock`; sessions that call scripts directly must check the lock.
+3. **Full chain cost here:** about 60 min desktop-only, roughly double with phonePortrait. Run the full chain once per
+   wave merge; units run `--only=<their scripts>`.
+4. **Merge order inside Wave 0:** Unit 1 can merge before or after Unit 0. If after, re-run 10.1 on top of Unit 0 before
+   merging (Unit 0 moves fermenting into the reaction table, which `e2e-distill` exercises indirectly).
+5. **`HW_GPU=1` on the owner's Windows machine** uses `--use-angle=d3d11`; on Linux the flag does nothing useful. Leave
+   as is; `E2E_SLOW` keys only on `HW_GPU`.
+6. Decide whether a nightly CI e2e (software, `--only=e2e,ground,dev` ~15 min) is wanted; this spec does not add it.
 
