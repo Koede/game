@@ -334,9 +334,11 @@ running row's `ruinC`. Consequences the player meets:
   becomes slop, the vessel goes red, the cups and vial are NOT consumed (Unit 0 consumes items only at completion) - the player
   pours out the slop and starts again with the same cups. If the base is set to 60, nothing is ruined; the batch waits for the pump.
   This is the essence's one lesson: **set the base low, or keep the pump turning**.
-- Tincture at 78 C or more: spirit's bubble point (about 82 C) lets the vessel pass 75: ruined. At 50 or 60: fine.
-- Elixir heated to 92: ruined above 80. At 60 or 78 (78 < 80) fine; 78 is outside the window (15-70), so the batch pauses
-  ("too hot (78 C), needs 15-70 C" from Unit 0's phrases) - the setpoint the player wants is 60.
+- A batch never STARTS outside its window: a tincture vessel on a base left at 78 just waits (`too hot (78 C), needs 45-60 C`) -
+  spirit's bubble point (about 82 C) does not hold it down. Ruin needs a batch in progress: the player started at 50 and then
+  tapped the base up to 78 or more mid-batch -> past 75 -> ruined (herbs and vial kept, spirit lost to slop).
+- Elixir: a base at 78 or 92 never starts a batch (window 15-70); raising the base past 80 mid-batch ruins it. The setpoint the
+  player wants is 60 (heated x1.5) or no base at all (cold, 120 s).
 
 ### 4.4 Clearing a tincture at the filter bed
 
@@ -434,8 +436,8 @@ is in that window. Two more taps on the base is the cheapest possible UI.
 | essence, no pump turning | `Reaction Vessel - needs vacuum - turn a Vacuum Pump on the cap` (Unit 0 nearest-miss; Unit 10 supplies the `needsText` override below) |
 | essence, cups missing | `Reaction Vessel - needs 4 Light Roast` |
 | essence, no water | `Reaction Vessel - holds 4 Light Roast, needs water - pour in a Beaker of Water` |
-| tincture too hot (paused) | `Reaction Vessel - too hot (82 C), needs 45-60 C` |
-| tincture ruined | `Reaction Vessel - ruined - pour it out, 162 L Slop` |
+| tincture too hot (paused) | `Reaction Vessel - too hot (78 C), needs 45-60 C` |
+| tincture ruined | `Reaction Vessel - ruined - pour it out, 250 L Slop` |
 | elixir running stirred | `Reaction Vessel - blending 75%, stirred, Swift elixir` |
 | done, outputs waiting | `Reaction Vessel - done, 4 Swift Elixir ready` |
 
@@ -452,7 +454,7 @@ Cloudy Glowcap Tincture"`, `"Elixirs done: 4 Swift Elixir"`. Unit 12's `glass_ch
 
 1. Refusals: dead -> quiet; `player.drinkCooldownS > 0` -> quiet (shares the cup cooldown, `DRINK_COOLDOWN_S` 1 s).
 2. Remove one `spirit_beaker`; give back `glass_beaker` (same slot when the stack was 1).
-3. `const g = buffs.takeSpirit()` (NEW): `wasTipsy = tipsyS > 0`; `wellWarmedS = max(wellWarmedS, SPIRIT_WARMED_S)`;
+3. `const g = buffs.takeSpirit(spec.warmedS, spec.tipsyS)` (NEW): `wasTipsy = tipsyS > 0`; `wellWarmedS = max(wellWarmedS, SPIRIT_WARMED_S)`;
    `tipsyS = max(tipsyS, TIPSY_S)`; if `wasTipsy` then `blurredS = max(blurredS, BLURRED_S)`. Returns `{ wasTipsy }`.
 4. `drinkCooldownS = DRINK_COOLDOWN_S`; `stats.drunk.spirit_beaker++`; events `player:drank { item }`, `buff:gained { buff:
    'well_warmed', durationS: 300 }`, `buff:gained { buff: 'tipsy', durationS: 120 }`; sfx `sip`.
@@ -829,3 +831,272 @@ Nothing is renamed, no id reorders, no `SAVE_VERSION` bump (T10 rule 3). New fie
 length 4 (pre-change `VESSEL_SLOTS`) pad to 6 in Unit 0's sanitiser. A save from a build with Unit 10 loaded into one without it
 would drop `tipsyS` etc. silently (the load functions ignore unknown keys) - acceptable.
 
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered; each step leaves `npm test` green)
+
+1. **Preconditions check.** Confirm Unit 0 (`src/core/reactions.ts`, `src/content/reactionsDistill.ts`, `VESSEL_SLOTS`) and Unit 8
+   (`vacuum_cap`, `vacuum_pump`, `filter_bed`, `Workshop.vacuumAt`) are on the branch. Read Unit 8's filter bed load code and
+   Unit 0's `chooseReaction`. If `VESSEL_SLOTS` is 4, change it to 6 (one constant; run Unit 0's slot tests) unless the
+   coordinator chose the 3-cup fallback (section 2.2). If `ReactionSpec.research?` / `Distillery.researched` are missing, add them
+   (2.2).
+2. **Constants and types.** `src/core/constants.ts` block 7.1; `src/core/types.ts` 7.2 (`DrinkBuff`, `DrinkFamily`, `DrinkSpec.returns`,
+   `SpiritSpec`, `HealSpec`, `ItemSpec.spirit/heal`); `src/core/gameEvents.ts` (`BuffName` + `'tipsy'`, `'player:bandaged'`).
+   TypeScript will now flag every exhaustive `Record<DrinkBuff, ...>` / `Record<DrinkFamily, ...>`: fix each (step 3, 6).
+3. **Brewing tables.** `src/core/brewing.ts`: `DRINK_BUFFS.night_sight`, `DRINK_BUFF_KEYS` + `'night_sight'` (last), `CUP_BUFFS`
+   (the first six), `TIPSY_TEXT`. Grep `DRINK_BUFF_KEYS` users (`buffs.ts`, `drinkBuffs.ts`, `vitals.ts`) - each must cope with a
+   buff that has no cup (any brew validation that expects a cup per buff iterates `CUP_BUFFS` instead).
+4. **Buffs.** `src/game/buffs.ts` 7.3. Unit tests 9.2 first (TDD is cheap here).
+5. **Drink.** `src/game/drink.ts`: `returns ?? CUP_ITEM`; toasts 5.1 with `fmtMinutes`; `six_cups` on `CUP_BUFFS` (5.9);
+   `drinkSpirit(player, slot = player.selectedSlot): DrinkResult`-shaped result `{ ok: true; item; wasTipsy } | { ok: false; reason }`.
+6. **HUD.** `src/ui/hud/drinkBuffs.ts`: `DRINK_GLYPHS.night_sight = 'moon'`. `src/ui/hud/vitals.ts`: `tipsyBuff` pill after the drink
+   pills, `data-blurred`; health vital `hw-vital--mending` from `survival.mending > 0`; `div.hw-vignette` with opacity from
+   `buffs.vignette`. CSS next to the existing `.hw-buff` rules.
+7. **Bandage + heal over time.** `src/game/survival.ts` 7.4 (`healOverTime`, `tickMend`, save, respawn reset). NEW
+   `src/game/bandage.ts`: `applyBandage(player: PlayerState, survival: Survival, slot = player.selectedSlot): BandageResult` with
+   `type BandageResult = { ok: true } | { ok: false; reason: 'dead' | 'not_bandage' | 'full' | 'running'; message: string | null }`.
+   How interaction reaches Survival: the same way it reaches other game systems (constructor dependency or the existing app hook
+   used by `beforeUse`); pick the existing pattern in `interaction.ts`, do not add a global.
+8. **Interaction.** `src/player/interaction.ts` after line 260: `if (itemOrNull(held.item)?.spirit) return this.drinkSpiritHeld();`
+   and `if (itemOrNull(held.item)?.heal) return this.bandageHeld();` - both before food. `UseOutcome` gains nothing new (`'drank'`
+   for spirit, `'worked'` for a bandage). `bandageHeld` uses `this.advise('bandage', message)` for refusals.
+9. **Combat and render.** `src/player/animals.ts` `strike()`: `hitDamage(item) * this.player.buffs.meleeMult`. Renderer: the
+   `uNightSight` uniform (6.5) in the shared uniforms and the terrain + mob shaders' light floor; fog lerp; camera roll (6.6) in the
+   player camera and the tractor camera. The frame state passed to `render()` gains `nightSight`, `swayDeg`.
+10. **Content.** NEW `src/content/itemsPotions.ts` (7.5), registered with the other item arrays; `spirit_beaker` edit in
+    `itemsDistill.ts`; recipes `bandage`, `bandage_ethanol` (`station: 'workbench'`, byproducts `1 glass_beaker`; the ethanol route
+    `age: ageIndexOf('forge')`); NEW `src/content/reactionsPotions.ts` (4.3) spread into `REACTIONS`; `STILL_SETPOINTS` 5.2.
+    Icons 6.4 in the texture painter.
+11. **Filter bed use.** NEW `src/sim/distillPotions.ts`: `clearTincture` (4.4); wire it into `chemUse` (src/sim/distillActions.ts)
+    before Unit 8's filter bed handling, or into Unit 8's filter use function, whichever Unit 8 made the entry point. Add
+    `charcoal` to the bed's accepted loads.
+12. **Research hook wiring.** In Game (where `distill.vacuumAt` is wired by Unit 8): `distill.researched = (f) =>
+    hasFlag(magic.research, f)` (the existing magic flag check; grep `hasFlag(`).
+13. **Side goal.** NEW `src/content/objectivesPotions.ts` `POTION_SIDE_GOALS` (5.10) concatenated in `objectivesSide.ts`.
+14. **Rosters and docs** (sections 9.4, 11). **E2E** (section 10).
+
+Helpers to reuse, never re-implement: `Buffs.grant` (refresh/replace), `makeStack`, `player.give` (drops when full),
+`player.inventory.removeAt`/`set`, `clockTime` (HUD), `itemOrNull`, `ageIndexOf`, `amounts()` / `amount()` (recipes),
+Unit 0's `announce`/`flagOnce` via row `done`/`flag`, Unit 0's slot insert/take, `this.advise` in interaction for repeat-safe hints.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest, co-located)
+
+### 9.1 Pure / content - `src/content/potions.test.ts` (NEW)
+
+- `every potion key uses an allowed prefix`: every `POTION_ITEMS` key matches `/^(essence|tincture|elixir)_/` or is
+  `glowcap_draught` / `bandage`; none starts with `vial_` (T3 rule 4).
+- `22 potion items with the right stacks and ages`: count 22; all `stack` 16; essences/clear tinctures/elixirs/draught age
+  `ageIndexOf('bronze')`; cloudy tinctures and bandage `ageIndexOf('ember')`.
+- `every elixir grants its cup's buff for ELIXIR_BUFF_S and returns the vial`: for each `ESSENCE_SOURCES` pair, `elixir_<buff>.drink`
+  = `{ buff, family: DRINK_BUFFS[buff].family, buffS: 540, returns: 'glass_vial' }`; hearthkept has `warmth: 10`.
+- `the glowcap draught is night_sight in the tonic family for 300 s`.
+- `every elixir tooltip carries its effect number`: e.g. `elixir_swift.desc` contains `20%`, `elixir_spring` `35%`,
+  `elixir_vigor` `25%`, and all contain `nine minutes`.
+- `every tincture herb exists as an item` (`glowcap`, `wildberries`, `tea_leaves`, `coffee_cherries` resolve via `itemOrNull`), and
+  `CLOUDY_TO_CLEAR` maps each of the 4 cloudy keys to an existing clear key.
+- `spirit_beaker is drinkable and still a chem container`: `spirit` = `{ warmedS: 300, tipsyS: 120, returns: 'glass_beaker' }`;
+  `CHEM_CONTAINERS.spirit_beaker.fluid === 'spirit'`.
+- `fuel ethanol and low wines are not drinkable` (no `spirit`, no `drink`).
+- `bandage heals 6 over 12`: `bandage.heal` = `{ hp: 6, seconds: 12 }`; recipes `bandage` (4 out, byproduct glass_beaker) and
+  `bandage_ethanol` (6 out).
+- `potion strings fit the crosshair`: `"Reaction Vessel - concentrating 40%, 70 C, Hearthkept essence"`-style lines built from the
+  longest names are <= 60 chars (build with the real `verb`s).
+
+### 9.2 Buffs - `src/game/brewBuffs.test.ts` (extend; it already builds `new Buffs()`)
+
+- `tonic is its own family`: `grant('night_sight', 300)` then `grant('swift', 540)` and `grant('spring', 180)`: all three running.
+- `an elixir refresh never shortens`: `grant('swift', 540)`, tick 100, `grant('swift', 180)` -> `refreshed: true`, left 440.
+- `takeSpirit warms and makes tipsy`: fresh Buffs, `takeSpirit(300, 120)` -> `wasTipsy false`, `wellWarmedS 300`, `tipsyS 120`,
+  `blurredS 0`, `meleeMult 1.1`.
+- `a second swig while tipsy blurs`: second call -> `wasTipsy true`, `blurredS 20`, `speedMult` = `0.9` (no Swift, no sugar);
+  with Swift `1.2 x 0.9`.
+- `warmed never shortens`: `wellWarmedS = 400`, `takeSpirit` -> 400.
+- `blurred ends with tipsy`: tipsy 5 s left, blurred 20 -> tick 6 -> both 0.
+- `swayDeg fades in and out and is 0 sober`: at t+0 small, at mid `TIPSY_SWAY_DEG`, at 5 s left half, sober 0.
+- `nightSight fades`: 300 s left -> ramps to 1 by 2 s; 2.5 s left -> 0.5; 0 -> 0.
+- `clear ends tipsy, blurred and night sight` (respawn).
+- `active() order`: warm, fed, sugar, tea, coffee, night_sight, tipsy.
+- `save round trip`: tipsy 50, blurred 10, night_sight 200 -> `toJSON` -> new Buffs `load` -> same; `toJSON` of a sober Buffs has
+  no `tipsyS`/`blurredS` keys.
+- `old save loads`: `load({ wellWarmedS: 5 })` -> tipsy 0, blurred 0, no night sight; `load({ wellWarmedS: 0, tipsyS: NaN,
+  blurredS: -3 })` -> 0, 0; `load({ wellWarmedS: 0, tipsyS: 1e9 })` -> 120; `load({ wellWarmedS: 0, blurredS: 10 })` (no tipsy) ->
+  blurred 0; `drinks: { swift: 1e9 }` -> 540.
+
+### 9.3 Drink, bandage, survival - `src/game/brewBuffs.test.ts` (drink cases), `src/game/bandage.test.ts` (NEW), `src/game/survival.test.ts`
+
+- `drinking an elixir returns a glass vial to the same slot` (stack 1) and `to the pack` (stack 3: slot keeps 2, pack +1 vial).
+- `elixir toast names the time`: emitted toast `Swift for 9 min: Walk, sprint and swim 20% faster`; replacing Vigor:
+  `Swift replaces Vigor - 9 min`; cup under a longer elixir: `Swift already runs longer (7.5 min left)` and left stays 450.
+- `cups keep today's toasts` (`Spring: Jump 35% higher` unchanged - regression guard).
+- `six_cups ignores elixirs`: drink all six elixirs -> no `six_cups` flag; drink the six cups -> flag.
+- `drinkSpirit` : beaker -> glass_beaker in slot; events `buff:gained` x2 (`well_warmed` 300, `tipsy` 120); toast text exact; second
+  swig toast `That one went to your head - the world blurs for 20 s`; cooldown refuses a third within 1 s; dead refuses.
+- `bandage at full health is refused and kept` (count unchanged, message exact).
+- `bandage heals 6 over 12 in whole points`: health 10, apply, tick 0.25 s steps: health 11 at 2 s, 13 at 6 s, 16 at 12 s, never
+  above; `mending` 0 after.
+- `a second bandage while one heals is refused with the health left` (`A bandage is already on - 3 health still to heal` at 6 s).
+- `bandage stops at full health`: health 18 -> 20 after 4 s, `mending` 0, no third point banked.
+- `damage does not interrupt a bandage`.
+- `respawn clears the bandage`.
+- `survival save round trip mid-bandage` (`mendHp` 3, `mendS` 6) and `old survival snapshot loads with no bandage`; one bad field
+  zeroes both.
+
+### 9.4 Reactions - `src/sim/distillPotions.test.ts` (NEW, uses `buildRig` / `feed` / `runUntil` from `src/sim/distillKit.ts`)
+
+- `every potion row conserves litres and glass`: for each row in `POTION_REACTIONS`, `sum(out) === sum(in) x (1 - gasLoss)` and
+  glass count (items ending in `_vial`, `essence_`, `tincture_`, `elixir_`, `glowcap_draught`) in == out.
+- `essence: four cups, a vial and water under vacuum at 60 C give one essence and four clay cups` (rig: base set 60, vessel, a fake
+  `vacuumAt` returning true; 250 L water poured; slots 4 `light_roast` + 1 `glass_vial`; `runUntil` done): out slots
+  `essence_swift x1`, `clay_cup x4`; vessel water 125 L; `Distillery.vented` (Unit 0, NEW) grew by 125.
+- `essence does not run without vacuum` (line contains `needs vacuum`); `essence at 92 C under vacuum holds 70 C and runs`.
+- `essence ruins when the pump stops at 92 C` : start under vacuum at base 92, run half a batch, set `vacuumAt` false, step: state
+  `blocked`, mix is slop, the 4 cups and the vial still in the input slots.
+- `essence with the base at 60 survives a stopped pump` (paused, not ruined, resumes).
+- `tincture at 50 C`: 4 glowcap + vial + 250 L spirit -> `tincture_glowcap_cloudy`, ethanol down 150 L, water up 150 L.
+- `tincture waits at 78 C and ruins when raised mid-batch`: base 78 from the start -> no `rx`, line `too hot (78 C), needs 45-60 C`,
+  nothing ruined; base 50, run half a batch, set the base to 78, step -> `tempC > 75`, state `blocked`, mix slop, 4 glowcaps and the
+  vial still in the input slots.
+- `elixir blends cold, faster heated, fastest stirred`: same inputs, measure seconds to done: ~120 / ~80 / ~40 (+- one 0.25 s step;
+  stirred via fake `stirredAt`).
+- `ward row needs the research flag and the ward vial`: without the flag -> plain row (4 elixirs); with `researched = () => true` and
+  `vial_ward` in a slot -> 6 elixirs + 1 glass_vial; with the flag but no ward vial -> plain row.
+- `glowcap draught`: 2 clear glowcap tinctures + 2 vials + 160 L sugars -> 4 draughts.
+- `first elixir batch sets bottled_elixir once`.
+- `clearTincture`: bed with 2 charcoal, holding 6 cloudy -> 4 clear to the pack, 2 cloudy left, 1 charcoal left, toast exact; with
+  clay -> refusal text; empty -> refusal; bed holding lube base liquid -> busy refusal; other held item -> null.
+- `vessel slots fit the essence batch`: `VESSEL_SLOTS >= 5` (guards the slot-count contract; with the coordinator's 3-cup fallback,
+  this test becomes `>= 4` together with the rows).
+
+### 9.5 Rosters and existing tests to update
+
+- **NEW** `src/content/specRosterPotions.ts` (pattern of `specRosterDistill.ts`): the 22 item keys with names; recipes `bandage: 4
+  bandage <- 1 spirit_beaker, 2 cloth`, `bandage_ethanol: 6 bandage <- 1 fuel_ethanol_beaker, 2 cloth`; wired where the other
+  rosters are aggregated in `specRoster.ts`.
+- `src/content/content.test.ts`: progression still completes (potions are optional; nothing in the spine needs them); recipe count
+  +2.
+- `src/content/brewing.test.ts`: any assertion "DRINKS has 6" becomes "the six cup drinks" (filter `returns === undefined`).
+- `src/ui/hud/drinkBuffs.test.ts` (if present): `DRINK_GLYPHS` covers `night_sight`; chips list night sight last.
+- Texture readability test: the 22 new icons (cloudy vs clear must differ).
+- `src/audio/sfx.test.ts`: unchanged (no new sounds) - a deliberate non-change.
+- Unit 0's reaction validation test runs over `REACTIONS`, so the 23-29 potion rows are validated for free.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E - `scripts/e2e-distill.mjs` (new steps after the existing chainsaw step, before "no console errors")
+
+Run: `node scripts/e2e-distill.mjs --device=desktop` (no `HW_GPU`) and `--device=phonePortrait` for the HUD step. Screenshots to
+`test-results/e2e-distill/` as `potion-<n>-<name>.png`. Setup through `window.__hw` only; actions by real input (aim with the
+existing look helper, press the Use key / tap the Use button on phone).
+
+1. `step('a cup, a vial and water boil down under vacuum to a Swift Essence', ...)`
+   - Setup (`__hw`): on the existing lit furnace beside the pot still, place `still_base`, `reaction_vessel` on it, the `vacuum_cap`
+     where Unit 8's rig legend puts it, a `vacuum_pump` touching the cap and a `clockwork` (24 rpm, no hand needed) driving it
+     through a shaft (Unit 8's e2e helper if it exists). Give the player 4 `light_roast`, 1 `glass_vial`, 1 `water_beaker`.
+   - Real input: tap the base with an empty hand until the crosshair reads `set 60 C` (the e2e reads `__hw` crosshair text
+     between taps; at most 10 taps); select and Use the water beaker on the vessel; Use each cup (four Uses); Use the vial.
+   - `__hw.tick(80)` (sim time, enough for one 60 s batch plus heat-up).
+   - Assert: vessel `out` contains `essence_swift x1` and `clay_cup x4`; crosshair line starts `Reaction Vessel - done`.
+     Empty-hand Use twice: pack gains the essence and the 4 cups. Screenshot `potion-1-essence.png`.
+2. `step('glowcaps steep in spirit at 50 C and a charcoal Filter Bed clears the tincture', ...)`
+   - Setup: second vessel on a base; a `filter_bed` nearby; give 4 `glowcap`, 1 `glass_vial`, 1 `spirit_beaker`, 1 `charcoal`.
+   - Real input: tap base to `set 50 C`; Use spirit beaker, glowcaps, vial on the vessel; `tick(70)`; empty-hand Use takes
+     `tincture_glowcap_cloudy`. Use charcoal on the filter bed (Unit 8's load Use), then Use the cloudy tincture on it.
+   - Assert: pack has `tincture_glowcap x1`, no cloudy; toast text `1 Glowcap Tincture cleared - no charcoal left in the Filter Bed`.
+     Screenshot `potion-2-tincture.png`.
+3. `step('essence, clear tincture, vials and syrup blend into four Swift Elixirs, and one runs 9 minutes', ...)`
+   - Setup: give `tincture_coffee_cherries x1` (cleared earlier route already proven), 2 `glass_vial`, 1 `syrup_beaker`; reuse the
+     essence from step 1; the first vessel emptied (`__hw` pours out the leftover water).
+   - Real input: Use syrup, essence, tincture, vials on the vessel (base still 60 C: heated x1.5); `tick(90)`; empty-hand Use takes 4
+     `elixir_swift`. Select them, Use in the air.
+   - Assert: `__hw` reads `buffs.timeLeftS('swift')` within 539..540; HUD pill `.hw-buff[data-kind="swift"]` text contains `9:00`
+     (or `8:59`); pack holds 3 elixirs + 1 `glass_vial`; side goal `bottle_elixir` done. Screenshot `potion-3-elixir.png`.
+4. `step('a swig of spirit warms and tips the head; a bandage heals 6 over 12 s', ...)`
+   - Setup: give 2 `spirit_beaker`, 1 `bandage`, set health 10 via `__hw`.
+   - Real input: Use spirit (air); Use spirit again; Use bandage; `tick(13)`.
+   - Assert: `wellWarmedS >= 299`, `tipsyS` ~120, `blurredS` ~20 after the 2nd swig; pills `warm` and `tipsy` visible; `.hw-vignette`
+     opacity > 0; health 16; a glass beaker came back twice. With `--device=phonePortrait`: the pill row bounding box does not
+     intersect the hotbar's. Screenshot `potion-4-tipsy.png` (the sway is visible as a tilted horizon in the shot).
+5. Optional (desktop only): drink a `glowcap_draught` at night (`__hw` sets the clock to midnight, player in a dark cave cell),
+   compare the mean screen luminance of two screenshots before/after: after must be > before x 1.5. Screenshot
+   `potion-5-night-sight.png`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/brewing-buffs.md`: elixirs (540 s, same families), `tonic` family / Night Sight, Tipsy/Blurred, the new getters, the
+  spirit drink, `DrinkSpec.returns`, the save fields.
+- `docs/api/brewing-content.md`: the potion items table (22), the `six_cups` cup-only rule.
+- `docs/api/distillery.md`: the potion reaction rows (essence/tincture/elixir/draught), setpoints 50/60, filter bed tincture use,
+  `research?` row member.
+- `docs/api/food-rules.md`: the bandage (heal over time, not food) and `Survival.healOverTime`.
+- `docs/api/hud.md`: tonic and tipsy pills, glyphs, the mending "+", the vignette.
+- `docs/api/render.md` (or render-tech.md, whichever documents the shared uniforms): `uNightSight`, camera roll sway.
+- Never `docs/WHATS_LEFT.md`, never `docs/build/SYSTEMS.md` (coordinator).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] 22 new items registered with the keys, names, stacks and ages of 4.2; no `vial_` keys.
+- [ ] 23 reaction rows (29 with Unit 5) in `POTION_REACTIONS`, all passing Unit 0's load validation (litres) and 9.4's glass
+      conservation.
+- [ ] Essence runs only with `heated` + `vacuum` in 50-80 C; ruins above 80 with items kept; base at 60 survives a stopped pump.
+- [ ] Tincture runs at 45-60 C, ruins above 75; one spirit beaker = one tincture.
+- [ ] Filter bed with charcoal clears up to 4 cloudy tinctures per charcoal; refusals exact.
+- [ ] Elixir: 4 per syrup beaker (6 with `essence_ward` + `vial_ward`); cold 120 s, heated 80 s, stirred 60 s, both 40 s.
+- [ ] Drinking an elixir gives its buff for 540 s in its family slot, the vial back, the exact toasts; refresh never shortens.
+- [ ] Glowcap Draught: Night Sight 300 s in the `tonic` slot, coexists with tea and coffee; the dark visibly lifts in a cave and at
+      night; gameplay light and mob spawns unchanged.
+- [ ] Spirit: drinkable from the beaker (beaker back), Warmed 300 s (max), Tipsy 120 s (melee x1.1, roll sway 0.6 deg, aim
+      unchanged); a swig while tipsy adds Blurred 20 s (vignette, speed x0.9); `TIPSY_SWAY_DEG = 0` turns the sway off.
+- [ ] Bandage: workbench 1 spirit + 2 cloth -> 4 (+ beaker back); 6 HP over 12 s in whole points; refused at full health and
+      while one heals; survives damage; cleared on death.
+- [ ] Save/load mid-tipsy, mid-night-sight, mid-bandage round-trips; old saves load with zeros.
+- [ ] `six_cups` still needs exactly the six cup buffs.
+- [ ] HUD order warm, fed, sugar, tea, coffee, tonic, tipsy; the mending "+"; the vignette; no overlap with the hotbar at 390 px.
+- [ ] Side goal "Bottle an elixir" completes on the first elixir/draught batch, reward 2 glass vials.
+- [ ] `npm test` green; `npx tsc --noEmit` clean; e2e-distill potion steps pass on desktop and phonePortrait (HUD step).
+- [ ] Docs of section 11 updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- New buff strength levels ("+1 strength" of DISTILLERY_PLAN 8): SYSTEMS T5 rules "stronger means longer".
+- Berry Tonic, Miner's Draught, Ember Salts (DISTILLERY_PLAN 8 extras); Rough Spirit / kept heads; Aged Spirit and barrels;
+  wine / berry must; kerosene lantern.
+- New fluids or components for potions (`essence_*` components of DISTILLERY_PLAN 5.1): potions are items; litres stay in the rig.
+- A reduce-motion setting (only the constant `TIPSY_SWAY_DEG`).
+- Golem elixir feeding and golem bandage repair (Unit 17 reads the keys), the rune desk / infusion altar uses (Unit 18).
+- Drunk-driving effects on vehicles; vomiting, hangovers, addiction - not this game.
+- Potion bottling from a pipe or tank, automation of the filter bed by arms/golems (Unit 0's `offerItem`/`takeItem` will let a
+  golem load vessels later with no Unit 10 code).
+- A tipsy sound; any new `SfxName`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **Vessel slots: 4 -> 6 (blocking decision).** SYSTEMS J2 / T4 put 4 cups (stack 1 each) + 1 vial in a vessel: five stacks,
+   but Unit 0 fixes `VESSEL_SLOTS = 4`. This spec asks for 6 (one constant; Unit 0's sanitiser pads). Fallback if refused: essences
+   take 3 cups and the T4 row reads "3 drinks". Please decide before Wave 2.
+2. **One optional `ReactionSpec` member and one hook:** `research?: string` + `Distillery.researched` for the `essence_ward` rows
+   (Unit 18's flag). Unit 0 may already have room; if not, Unit 10 adds them (optional, SYSTEMS 6.5-compliant).
+3. **SYSTEMS 5.2 "elixir ... 4 per 1000 L batch" should read "4 per syrup beaker (160 L sugars)"**, matching T4's "syrup 250 L ->
+   4". Tincture `batchL` 150 (one spirit beaker) is below the 250-1000 guidance on purpose, like `rx_ferment_wash`.
+4. **T5 speed rule:** the `(blurred ? 0.9 : 1)` term is implemented inside `Buffs.speedMult` (physics unchanged; vehicles
+   unaffected). Please note this in SYSTEMS T5 so Unit 9 does not add a second blurred factor in physics.
+5. **T4 rows to merge:** section 4.6 (clear vs cloudy tincture keys: clear = `tincture_<herb>`, cloudy = `tincture_<herb>_cloudy`;
+   bandage second route `bandage_ethanol`; glowcap and charcoal gain consumers).
+6. **Unit 8 handshake:** the filter bed must accept `charcoal` as a load and expose its single load slot; Unit 10 adds the tincture
+   use. Unit 8's spec should say where its use function lives so Unit 10 hooks in front of it.
+7. **`STILL_SETPOINTS` gains 50 and 60** (front). Unit 11 appends 480/560 at the back: trivial merge.
+8. **Unit 5 / Unit 2 `six_cups`:** whichever lands first, the rule must be "one cup of each of the six cup buffs"; elixirs return a
+   vial (`returns`) and never count.
+9. **Bandage refresh reading:** SYSTEMS T5 says "refreshing"; this spec refuses a second bandage while one heals (no waste, clear
+   message) instead of restarting it. If the owner prefers restart-on-reuse, it is a two-line change in `healOverTime`.
+10. **Owner question 8.3 (Tipsy on phones):** sway is a pure camera roll (aim unaffected), 0.6 deg, fades in/out, off with
+    `TIPSY_SWAY_DEG = 0`; blur is a cheap CSS vignette, no post-process.

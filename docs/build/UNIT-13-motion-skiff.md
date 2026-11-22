@@ -412,3 +412,437 @@ existing `physics.reset()` path does).
 other skiff), so each sees a rail end, dwells and turns round (today's rule). A ridden skiff meeting another does the same.
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 5. Behaviour and rules, edge cases
+
+### 5.1 Blocked steps and bodies in the path
+
+- **Blocked by blocks** (terrain, crate, another actuator, a solid non-movable): refused exactly as today, nothing glides, the
+  same toasts ("Something blocks the piston", "Something blocks the bearing"). The piston/bearing tries again next step.
+- **The player in the path.** NEW host hook `ContraptionHost.bodyIn?(x, y, z): boolean` (Workshop forwards its NEW public hook
+  `bodyIn: ((x, y, z) => boolean) | null`, Game: `boxIntersectsCell(player.position, x, y, z)` from `src/player/collision.ts`,
+  false while the player rides a skiff). `commit` refuses when any destination cell that is not also an origin cell overlaps the
+  player's body, EXCEPT when the player is a rider of this very structure (4.5: their feet stand on an origin cell; a lift
+  rising under them is not "in the path"). Toasts (same `warned` throttle):
+  - piston: `"You are in the way of the piston"`;
+  - bearing: `"You are in the way of the bearing"`;
+  - skiff (rider-less cart meets the player standing on the track): the cart treats it as a rail end and turns back, no toast.
+- **Mid-glide obstruction cannot happen**: the step was committed with its destination free; a block placed into a destination
+  cell during the glide is impossible (it is occupied in data). A player walking INTO a gliding block collides with its
+  destination box (up to one block ahead of the picture for <= 0.6 s). Accepted; the glide is short and the destination is where
+  it is going.
+- **Pulling back** (piston unpowered): the frame rod cell is cleared first (as today) and the rest glides back; if refused, the
+  rod is restored (as today) and nothing glides.
+
+### 5.2 Rail end, broken rail, broken skiff
+
+- **Rail end** (next cell has no `rail` under it, or is not `air`): the last step uses curve `'out'`; the cart dwells 2 s, flips
+  (`FLIP`) and starts back with curve `'in'`. A rider's view turns with it (4.6).
+- **Rail mined under a rolling cart**: next step sees no rail -> rail end, as above. The cart never leaves the track.
+- **Rail mined under the cart's own cell**: the cart stays (blocks do not fall in Hearthwatt); it simply cannot step until a
+  rail is under the next cell. Goggles: `"Skiff - no rail ahead, waiting"` (NEW wording, replaces "waiting at the end of the
+  rail" only in this case).
+- **Skiff broken while ridden** (mined by the player - impossible while riding since Mine is taken - or by a drill, a deployer,
+  an explosion-free world: a `mech_drill` or a piston pushing into it is refused, a drill CAN break it): `Workshop.noteBlock`
+  sees `ridden` cell no longer a skiff -> `leave()` without moving the player, the player falls normally from the seat
+  (physics resumes; fall height 0.6 + ... no damage below 3 blocks as today), toast `"The skiff broke - you climbed out"`.
+  Its stack drops (existing logistics break rule) and the skiff item drops (normal block drops).
+- **Player dies while riding**: `VehicleManager.handle` already exits a tractor when `player.dead`; it does the same for the
+  skiff (`skiffs.leave()`).
+- **Ridden skiff unloaded** (chunk streams out - only possible by teleport): `seatAt` returns null when `!world.isLoaded`; the
+  manager leaves the ride, player placed at the last seat.
+
+### 5.3 Chunk boundaries
+
+- Structures may straddle chunks; the mesh mask touches every chunk that holds a masked cell plus border neighbours (4.3). The
+  proxies are in world space, unaffected by chunk borders.
+- A glide into a chunk that is not loaded cannot happen: `world.getBlock` of an unloaded cell is not air (the world returns
+  solid/unknown there - `commit` refuses, as today).
+- A skiff rolling across a chunk border costs nothing extra (meshless, no remesh).
+
+### 5.4 Save and load mid-move
+
+- Saved: the finished step (the voxels are already at the destination), the extended piston count (`pist`, as today), the
+  ridden cell `ride?: [x, y, z]` (NEW). NOT saved: glides, rider carry, ground-item `slide`, the skiff's dwell timer and
+  `ext` (as today).
+- Load: no glides exist; everything is drawn at rest (no animation of history). If `ride` names a cell that is a skiff after
+  `verify()`, the player is re-seated: `Workshop.load` sets `ridden`, and on the first frame `VehicleManager` sees a seat and
+  carries the player to it (the saved player position is the seat already, within 0.1). If the cell is not a skiff, `ride` is
+  dropped and the player stands where they were saved.
+- Masks are not saved; `World.setMeshMask` state is cleared on `World` load (a new streamer).
+
+### 5.5 Performance limits and far structures
+
+- Glides are recorded only within `MOTION_RADIUS` 40 of the player and at most `MOTION_MAX` 6 at once (oldest-first slots; a 7th
+  concurrent step snaps). A structure that snaps still calls `onMoveEnd` in the same tick.
+- At most `STRUCTURE_MAX` 48 cells per glide -> at most 288 proxy cubes drawn; plus skiffs (cap 32 drawn, nearest first).
+- Each piston/bearing glide costs two async chunk meshes per touched chunk (mask on, mask off). Worst case a piston on a
+  0.8 s cycle touching 2 chunks: 5 meshes/s. Unit test asserts `setMeshMask` is called exactly twice per glide.
+
+### 5.6 Messages (complete list, T8)
+
+| when | text | kind |
+|---|---|---|
+| player in a piston's path | `You are in the way of the piston` | warn |
+| player in a bearing's path | `You are in the way of the bearing` | warn |
+| empty-hand Use on a loaded skiff | `Took 3 Flint - Use again to climb in` (count + item name) | info |
+| board, desktop | `W go, S or hold Mine brake, Use to get off` | info |
+| board, touch | `Go sets off, hold Brake to stop, Exit gets off` | info |
+| no head room to board | `No room to sit - clear the two blocks above the skiff` | info |
+| low ceiling while riding | `Too low to ride under - the skiff turns back` | info (once per ride) |
+| skiff broken under the rider | `The skiff broke - you climbed out` | warn |
+| side goal (Unit 0 mechanism) | `Side goal: Ride the skiff` | (tracker) |
+
+Crosshair / goggles lines (`Contraptions.describe`, <= 60 chars):
+
+| state | line |
+|---|---|
+| piston pushing, mid-glide | `Piston - pushing, extended 2 of 4` (unchanged) |
+| bearing | `Bearing - turning right` (unchanged) |
+| skiff rolling, empty | `Skiff - rolling east, empty` |
+| skiff rolling with load | `Skiff - rolling east, 3 Flint` |
+| skiff at the end | `Skiff - waiting at the end of the rail, 3 Flint` |
+| skiff braked by a signal | `Skiff - braked by the signal` |
+| skiff ridden, braked | `Skiff - you hold the brake` |
+| skiff no rail ahead | `Skiff - no rail ahead, waiting` |
+| empty skiff, idle hint suffix (only when not ridden and empty) | `Skiff - waiting at the end of the rail, empty - Use to ride` |
+
+Compass words: `north` / `east` / `south` / `west` from the facing (`Facing`).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 6. UI and feedback
+
+### 6.1 HUD while riding (`src/ui/vehicleHud.ts`)
+
+`VehicleHud.update(status)` gains a second input: `updateRide(ride: { braked: boolean; waiting: boolean; load: string | null } |
+null)` (NEW), called by Game every frame with `this.vehicles.rideStatus()`. While riding:
+- The same panel `.hw-vehicle` shows one row: `Skiff` + state chip (`rolling` / `braked` / `turning round`) + load (`3 Flint` or
+  nothing), and the hint line:
+  - touch: `Go: set off. Hold Brake: stop. Exit: get off.`
+  - desktop: `W go, S or hold Mine brake, Use get off`
+- Touch captions (NEW `RIDE_CAPTIONS`, same mechanism as `CAPTIONS`): `.hw-touch-btn--mine` -> `Brake`, `.hw-touch-btn--use` ->
+  `Exit`, `.hw-touch-btn--jump` -> `Go`. Restored on exit. The buttons are the existing 44 px+ touch buttons; nothing new is
+  added to the layout (works at 390 px portrait and 844 x 390 landscape by construction).
+- No fuel gauge for the skiff (`.hw-vehicle-gauge` hidden while riding).
+
+### 6.2 Sounds (T9; NEW `src/audio/sfxWorkshop.ts`)
+
+| name | when | volume tier | patch sketch |
+|---|---|---|---|
+| `skiff_roll` | each skiff step while rolling, at the cart (replaces `step` 0.3) | whisper 0.3 (0.45 while ridden, it is under you) | short wood-on-iron knock: `noise('brown', lp(600), 0.06, 0.08)` + `tone('triangle', 140, 0.05, 0.05, { freqEnd: 110 })`, `jitter: 2`; pitch 0.9-1.1 alternating per cell so the rhythm reads as wheels over rail joints |
+| `piston_slide` | at the END of a piston glide (t0 + `PISTON_MOVE_S`), pitch 0.7 push / 0.55 pull | normal 1 | a soft wooden scrape during (low noise 0.5 s, `a: 0.2`) ending in a thud `tone('sine', 70, 0.15, 0.4, { freqEnd: 45 })`; it is ONE request at glide start with the thud at `at: 0.55` so the thud lands on the stop |
+| `bearing_turn` | at glide start of a bearing step, pitch 0.9 | normal 1 | geared ratchet: 6 short clicks over 1.1 s `tone('square', 900, 0.01, 0.02, { at: i * 0.18, filter: lp(2000) })` + a low groan `tone('sawtooth', 55, 1.1, 0.15, { filter: lp(300) })` |
+
+`place` (existing) at pitch 0.8 for boarding and 0.7 for climbing out. No loop: the roll is per step, so a still cart is silent
+(T9 rule 3). The skiff's dwell is silent; the turn round plays `bearing_turn` at pitch 1.4, volume 0.3 (a small swivel).
+
+`src/audio/sfx.test.ts` expression becomes `72 + Object.keys(MAGIC_SFX).length + Object.keys(WORKSHOP_SFX).length` (plus DISTILL
+when Unit 12 lands; whichever lands second edits the sum, section 14).
+
+### 6.3 Particles
+
+- Piston glide end: 4 dust puffs (existing `src/render/puffs.ts` style, wood-brown) at the leading face of the structure's
+  front cells, at most 8 per step. Bearing: none (the swing is the show).
+- Skiff: 1 tiny spark (`0xffc070`, 0.15 s) from under the cart at each rail joint while ridden only, at most 2 alive (keeps phone
+  cost near zero). Both through the renderer's existing particle helper; caps per T9 "particles at most 24 per emitter".
+
+### 6.4 Docs/Guide text
+
+- `PART_DEFS` desc updates (exact):
+  - `skiff`: `'A little ore cart on rails (rails under it). It rolls 5 blocks a second, holds a stack that arms and funnels load and unload, and an empty one carries you: Use it with an empty hand to climb in. A signal cell it touches brakes it while off.'`
+  - `piston`: unchanged text.
+  - `rail`: `'A track of slats. A skiff above a line of rails rolls along it, slows into the end, waits and turns round.'`
+- Workshop Guide (Rules tab, `src/ui/screens/workshop/workshopScreen.ts`): add one rule line: `Ride a skiff: Use an empty skiff
+  with an empty hand. Go sets off, Brake stops, Exit (Use) gets off.`
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save
+
+```ts
+// src/workshop/contraption.ts (NEW exports)
+export const PISTON_MOVE_S = 0.6;
+export const BEARING_MOVE_S = 1.2;
+export const SKIFF_SEAT_Y = 0.6;
+export const SKIFF_RATTLE = 0.015;
+export const MOTION_RADIUS = 40;
+export const MOTION_MAX = 6;
+export const MOTION_HOLD_MAX_S = 0.5;
+export type MotionCurve = 'ease' | 'in' | 'out' | 'linear';
+export function motionFraction(m: { t0: number; durS: number; curve?: MotionCurve }, now: number): number;
+/** Drawn offset of a point that ended at (x, y, z) in glide m at time now (translation or rotation about pivot). */
+export function motionPoint(m: MovingView, x: number, y: number, z: number, now: number, out: { x: number; y: number; z: number }): void;
+
+// ContraptionHost additions (all optional so existing test fixtures compile)
+interface ContraptionHost {
+  /* existing */
+  now?(): number;                                  // workshop clock (Workshop passes () => this.clock)
+  near?(x: number, z: number): boolean;            // within MOTION_RADIUS of the player (Workshop: playerXZ hook)
+  bodyIn?(x: number, y: number, z: number): boolean;
+  rider?(): { ridden: string | null; brake: boolean; go: boolean; headroom: boolean };
+}
+
+// Contraptions additions
+class Contraptions {
+  readonly glides: MovingView[];                   // alive glides (with voxels, curve, id), pruned in tick when t0 + durS < now
+  skiffViews(px: number, pz: number, radius: number): SkiffView[];
+  /** Glide ends due this tick -> callbacks (Unit 15). */
+  onEnd: ((cells: readonly string[]) => void)[];
+}
+
+// src/workshop/workshop.ts
+export interface SkiffView { x: number; y: number; z: number; voxel: number; from: [number, number, number] | null; t0: number; durS: number; curve: MotionCurve }
+export interface WorkshopSnapshot { /* existing */ ride?: [number, number, number] }
+class Workshop {
+  get time(): number;                              // NEW: the private clock
+  ridden: string | null;                           // NEW: "x,y,z" of the skiff the player sits in
+  bodyIn: ((x: number, y: number, z: number) => boolean) | null; // NEW, Game
+  playerXZ: (() => [number, number]) | null;       // NEW, Game (MOTION_RADIUS test)
+  board(x: number, y: number, z: number): 'worked' | 'refused';
+  leave(): void;
+  rideControl(go: boolean, brake: boolean): void;
+  seatAt(now: number): SkiffSeat | null;
+  riderCarry(px: number, py: number, pz: number, now: number, prevNow: number): PlatformCarry | null;
+  onMoveEnd(fn: (cells: readonly string[]) => void): () => void;
+  view(px: number, pz: number, radius?: number, now?: number): WorkshopView; // fills moving, skiffs, now
+}
+```
+
+Sanitising `ride` in `Workshop.load`: accept only an array of 3 integers; keep it pending until `verify()` (chunks in) confirms
+the block is `skiff`, else drop it. `toJSON` writes `ride` only while `ridden !== null`.
+
+Old saves: no `ride` -> on foot. No `moving` is ever saved. `pist` unchanged. Test: load a snapshot without `ride`.
+
+No item, recipe, fluid or block id is added. `skiff` gains `meshless: true` (a spec field, not an id). No T4 row is needed (no
+new material).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered)
+
+1. **Types** (skip if Unit 0 merged): `MovingView`, `WorkshopView.moving` in `src/workshop/workshop.ts` exactly as SYSTEMS 6.5;
+   `view()` returns `moving: []`. Add the optional members of 2.5 and `SkiffView`, `WorkshopSnapshot.ride?`.
+2. **Pure motion helpers** in `src/workshop/contraption.ts`: constants (section 7), `motionFraction`, `motionPoint`. Unit tests
+   first (section 9 a).
+3. **Record glides in `Contraptions.commit`**: add a parameter `glide: { from: [n,n,n] | null; rot: -1|0|1; pivot: [n,n,n] | null;
+   durS: number; curve: MotionCurve } | null`. After a successful commit, when `host.near?.(ax, az) !== false` and fewer than
+   `MOTION_MAX` glides live, push `{ cells, voxels, from, rot, pivot, t0: host.now?.() ?? 0, durS, curve, id: ++this.glideSeq }`.
+   Set each moved ground item's `slide` (4.4). `piston()` passes `from = [-dx, 0, -dz]` (push) / `[dx, 0, dz]` (pull), `durS =
+   PISTON_MOVE_S`, `'ease'`; `bearing()` passes `rot = cw ? 1 : -1`, `pivot = [a.x + 0.5, a.y + 1, a.z + 0.5]`, `BEARING_MOVE_S`;
+   `skiff()` passes its translation and curve: `'in'` when the previous call did not step (`a.ext` just reset or a brake/gate
+   just released: keep a NEW `Act.rolled` boolean), `'out'` when the cell after `next` has no rail, else `'linear'`.
+   `tick()` prunes glides whose `t0 + durS <= now` and calls `onEnd` callbacks with their cell keys.
+4. **Sounds**: replace `pipe_clunk`/`step` requests with `piston_slide` / `bearing_turn` / `skiff_roll` (section 6.2); add
+   `src/audio/sfxWorkshop.ts`, the `SfxName` entries in `src/core/gameEvents.ts`, the merge in `src/audio/sfx.ts`, the test sum.
+5. **Bodies in the path**: `bodyIn` check in `commit` (5.1), rider exemption via `riderCarry`'s start rule (store, per glide, the
+   `riderAtStart` boolean computed in commit from `host.bodyOn?` = feet on an origin top; Workshop gives it from Game's player).
+6. **Skiff riding in the workshop**: `Workshop.board/leave/rideControl/seatAt/ridden`, `relocate` re-keys `ridden`,
+   `noteBlock` drops it when the block is gone (5.2), `Logistics.use` skiff empty-hand board via NEW `LogiHost.board?`, head
+   room check, describe lines (5.6), save `ride`.
+7. **VehicleManager**: `skiffs: SkiffSeatHost | null` field; in `handle`, after the tractor branch: `const seat =
+   this.skiffs?.seat(this.skiffs.now())`; if seat -> `ride(intent, dt, seat)` (4.6); `rideStatus()`; `skiffExitSpot`. Dead player
+   -> leave.
+8. **Physics carry**: `PlayerPhysics.platform` (4.5); Game sets it each frame before `controller.update(dt)` from
+   `workshop.riderCarry(...)` using `now = workshop.time + step.alpha*DT + dt` and the previous frame's `now`.
+9. **World mesh mask**: `World.setMeshMask`, `World.maskSettled`, `Streamer.neighbourhood` copy-with-zeros (4.3 a). Unit
+   tests in `src/world/world.test.ts` / streamer.
+10. **Meshless skiff**: `BlockSpec.meshless?` (`src/core/types.ts`), `MESHLESS` table in `src/world/blockTables.ts`, mesher skip
+    + culling, `skiff` row. Mesher test.
+11. **MotionRenderer** (`src/render/workshop/motionRenderer.ts`, 4.4) + `GroundItemRenderer.place` slide offset; Game creates,
+    updates (`this.motionRenderer.update(dt, view)` with `view = this.workshop.view(pp.x, pp.z, 40, this.workshop.time +
+    this.step.alpha * DT)` - one view object shared with `workshopRenderer`), disposes.
+12. **HUD**: `VehicleHud.updateRide`, `RIDE_CAPTIONS`; Game calls it.
+13. **Side goal**: `src/content/objectivesWorkshopMotion.ts` with `WORKSHOP_MOTION_SIDE_GOALS = [{ id: 'ride_skiff', title: 'Ride
+    the skiff', text: 'Use an empty skiff with an empty hand to climb in, and ride it to the end of the rails.', flag:
+    'rode_skiff', age: ageIndexOf('bronze') }]` (shape per Unit 0's `ObjectiveSpec`; reward: none, or what Unit 0's side goals
+    use by default), concatenated in `objectivesSide.ts`; `FLAG_RODE_SKIFF = 'rode_skiff'` in `src/core/constants.ts` beside
+    `FLAG_DROVE_TRACTOR`.
+14. **Text**: `PART_DEFS` desc, Guide rule line, docs (section 11).
+15. **E2E** (section 10).
+
+Helpers to reuse (do not re-implement): `cubeGeometry` (`src/render/heldItem.ts`), `faceLayer` (`src/core/registry.ts`),
+`LightProbe` (`src/render/lightProbe.ts`), `LIGHT_GLSL`, `ATLAS_GLSL`, `atlasDefines`, `boxFree` (`src/vehicles/collide.ts`),
+`boxIntersectsCell` (`src/player/collision.ts`), `USE_COOLDOWN_S`, the `CAPTIONS` swap in `VehicleHud`, `FLIP`/`DELTA` in
+`contraption.ts`, `setup()` from `src/workshop/parts.test.ts`.
+
+**Performance budget.** MotionRenderer: <= 1 draw call per distinct voxel kind on screen (typically 3-8), <= 300 instances, zero
+allocation per frame (the existing `groundItems.test.ts` style allocation check is copied). Mesh masks: <= 2 async meshes per
+touched chunk per glide. CPU per tick for glide bookkeeping: O(glides) <= 6. Skiffs: no chunk meshing ever. Target: no frame time
+change measurable on the e2e desktop run (`renderer.stats` triangles drop by the skiff faces, instances rise by <= 300).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest)
+
+`src/workshop/contraption.test.ts` (extend, using `setup()`; the fixture's `bus` and `shop`):
+
+a. `motionFraction is smoothstep for ease, u for linear, u^2 for in, 1-(1-u)^2 for out, clamped to 0..1` (pure; values at u =
+   0, 0.25, 0.5, 1, and before t0 / after t0 + durS).
+b. `a piston push records one glide with from = minus the push, ease, PISTON_MOVE_S, and the voxels already at the destination`:
+   run the existing piston setup 1 s; `shop.view(0, 0).moving.length === 1`; `from` deep-equals `[-1, 0, 0]`; `cells` include
+   the depot at x 4; `world.getBlock(4,0,0).key === 'depot'` (logic unchanged).
+c. `mid-glide the drawn offset is fractional`: with `now = t0 + 0.3`, `motionPoint` of the depot cell gives x in (3.2, 3.8)
+   (strictly between origin 3 and destination 4) - the "fractional offset" assertion.
+d. `glides end: pruned after t0 + durS and onMoveEnd fires once with the cell keys` (register via `shop.onMoveEnd`).
+e. `a bearing step records rot 1 for right, -1 for left, the pivot at the bearing's top centre`.
+f. `the skiff's first step eases in, its middle steps are linear, the step into the last rail cell eases out` (5 rails).
+g. `no glide is recorded far from the player`: set `shop.playerXZ = () => [100, 100]`; step; `moving.length === 0`, the move
+   still happened, `onMoveEnd` fired in the same tick.
+h. `at most MOTION_MAX glides live at once`.
+i. `the player in a piston's path refuses the step with "You are in the way of the piston"`: `shop.bodyIn = (x,y,z) => x === 4
+   && y === 0 && z === 0`; depot stays at x 3.
+j. `a player standing on a rising lift is not in the way` (piston facing up under a frame; bodyIn true for the cell above the
+   frame; feet-on-origin rule) - the frame moves up; `riderCarry` returns `dy > 0` mid-glide and the sum of `dy` over the glide
+   equals 1 within 1e-6.
+k. `ground items on a moved depot get a slide equal to the glide and keep their data at the destination` (existing item test +
+   `slide.dx === -1`).
+l. `existing contraption tests pass unchanged` (no edits to the four current cases).
+
+`src/workshop/skiffRide.test.ts` (NEW):
+
+m. `empty hand Use on an empty skiff boards; on a loaded skiff it hands the stack first with "Took 3 Flint - Use again to climb
+   in"` (call `shop.use(x,y,z,null,take)` twice; `shop.ridden` set after the second; `rode_skiff` flag emitted once).
+n. `a held item still goes into the skiff and never boards`.
+o. `boarding refuses without head room` (stone at y+2; toast text exact).
+p. `seatAt follows the cart smoothly`: ride 5 rails; sample `seatAt(now)` every 0.01 s of workshop time; x is monotonic while
+   rolling, never jumps more than 0.06 between samples, y === skiff y + 0.6 (+ rattle within 0.015).
+q. `brake holds the cart; go cuts the dwell short and turns round`.
+r. `a ridden cart turns back under a low ceiling with "Too low to ride under - the skiff turns back" (once)`; an empty cart
+   passes under the same ceiling.
+s. `breaking the ridden skiff ends the ride with "The skiff broke - you climbed out"`.
+t. `ride is saved and restored; an old snapshot without ride loads on foot; a ride naming a non-skiff cell is dropped after
+   verify()`.
+u. `describe lines`: rolling east with 3 Flint -> `Skiff - rolling east, 3 Flint`; each <= 60 chars.
+
+`src/vehicles/manager.test.ts` (extend): a fake `SkiffSeatHost`:
+v. `riding carries the player to the seat, zeroes move/mine/use/jump, keeps look free`.
+w. `stick forward = go, stick back or Mine = brake, Use after the cooldown = leave and the player stands at a free spot beside
+   the cart`.
+x. `a dead rider leaves the skiff`.
+
+`src/player/physics.test.ts` (extend):
+y. `a platform carry moves the player with the floor and deals no fall damage on a descending lift`.
+z. `without a platform nothing changes` (existing tests).
+
+`src/world/world.test.ts` / `src/world/streamer` (extend):
+aa. `setMeshMask meshes masked cells as air and maskSettled turns true after the unmasked mesh publishes` (run jobs on the main
+    thread fallback; read the mesh's vertex count with and without the mask).
+bb. `a meshless block emits no faces and does not cull its neighbours' faces` (`src/world/mesher.test.ts`).
+
+`src/render/workshop/motionRenderer.test.ts` (NEW, with `src/render/testKit.ts`):
+cc. `draws one instance per moving cell at the fractional offset and calls mask(id, cells) once and mask(id, null) once`.
+dd. `holds finished glides until maskSettled or 0.5 s`.
+ee. `no allocation per frame in steady state` (copy the groundItems pattern).
+
+`src/audio/sfx.test.ts`: the count expression including `WORKSHOP_SFX` (section 6.2). `src/content` tests: the side goal exists
+in `SIDE_OBJECTIVES`; `content.test.ts` progression unchanged (riding gates nothing).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E (`scripts/e2e-workshop.mjs`)
+
+Add two named steps after 'a piston pushes a framed depot, a bearing turns an arm, a skiff shuttles its load along rails', and
+run `node scripts/e2e-workshop.mjs --device=desktop` (no `HW_GPU`) and `--device=phonePortrait` (the HUD captions are UI).
+
+**Step 'a piston glides: mid-move the depot is drawn between its cells'**
+1. `window.__hw` set-up: clear a 9 x 9 yard (reuse P), place `hand_crank` at `(x0+4, gy, z0+9)`, `piston` facing west (3) at
+   `(x0+3, ..)`, `contraption_frame` at `x0+2`, `depot` at `x0+1` with 4 flint; teleport the player 4 blocks south, `lookAt` the
+   depot.
+2. Real input: `d.selectEmptyHand()`, `d.approach({ x: P.x0 + 4, y: P.gy, z: P.z0 + 9 })` then `d.use()` on the crank.
+3. Poll up to 3 s (`waitFor`) for `window.__hw.app.game.workshop.view(px, pz).moving.length > 0`; then read
+   `window.__hw.app.game.motionRenderer.stats.blocks > 0` and the drawn x of the depot instance via a NEW debug read
+   `motionRenderer.probe(x, y, z)` (returns the drawn centre of the proxy whose destination is that cell, or null). Assert the
+   probe's x is strictly between `x0 + 0.5 - 1` and `x0 + 0.5` exclusive by at least 0.05 (fractional: mid-glide). Screenshot
+   `11-piston-mid-glide`.
+4. After 1 s: `moving` empty or a new glide; the chunk mesh shows the depot (no hold left: `stats.held === 0` within 1 s).
+
+**Step 'board the skiff with Use and ride it to the end of the rails'**
+1. Set-up: 6 rails at `(x0-2 .. x0+3, gy-1, z0+11)`, `skiff` facing east at `(x0-2, gy, z0+11)`, empty. Teleport beside it, look
+   at it.
+2. Real input: `d.selectEmptyHand()`, `d.approach({ x: P.x0 - 2, y: P.gy, z: P.z0 + 11 })`, `d.use()`.
+3. Assert `window.__hw.app.game.workshop.ridden !== null` and the HUD panel `.hw-vehicle--on` exists with text containing
+   `Skiff`; on phonePortrait the use button label reads `Exit` and the jump button `Go`. Screenshot `12-skiff-boarded`.
+4. `d.settle(600)` (real frames, no `tick`): read player x twice 150 ms apart: it increased, and `Math.abs(player.y - (gy +
+   0.6)) < 0.05` (the seat). Screenshot `13-skiff-riding`.
+5. Wait (real time, up to 3 s) until the cart is at `x0+3` and `describe` says `waiting at the end`; the player x is within 0.1
+   of `x0 + 3.5`.
+6. Exit with real input: `d.use()` (after the 0.6 s cooldown). Assert `ridden === null`, the player stands on the floor beside
+   the cart (`player.y` within 0.05 of `gy`), side goal `ride_skiff` done (`objectives.side()` entry `done`). Screenshot
+   `14-skiff-off`.
+
+The existing 'no page errors' step stays last.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/workshop.md`: replace "Steps are discrete (no tween yet)." with a "Motion" paragraph: commit-then-glide, curves and
+  constants, `MovingView` member meanings (2.5 table), `onMoveEnd`, mesh mask, meshless skiff, riding controls table (desktop /
+  phone), rider carry on lifts, the new strings, `ride?` in the snapshot.
+- `docs/api/tractor.md`: a short "Skiff riding" section (the manager also carries skiff riders; controls table; HUD captions
+  Brake / Exit / Go).
+- `docs/api/player.md` (PlayerPhysics section): `platform: PlatformCarry | null`.
+- `docs/api/render-machines.md` or `docs/api/render.md`: `MotionRenderer`, `World.setMeshMask` / `maskSettled`,
+  `BlockSpec.meshless`.
+- `docs/api/audio.md`: `sfxWorkshop.ts` and the three names.
+- `docs/OVERHAUL_PLAN.md` status paragraph: move "tween animation of moving structures, riding a skiff" from "still open" to done.
+- Never `docs/WHATS_LEFT.md`, never `docs/build/SYSTEMS.md` (coordinator).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] Every existing test in `src/workshop/contraption.test.ts` passes unedited; step timing unchanged.
+- [ ] `Workshop.view(...).moving` holds one `MovingView` per live glide with the 2.5 meanings; empty at rest and after load.
+- [ ] Mid-glide a moved block is drawn at a fractional position (unit c, e2e step 3); the chunk mesh never shows it doubled or
+      missing (mask on/off exactly once per glide; hold <= 0.5 s).
+- [ ] Bearing platforms swing about the bearing's top centre; facings and loose items turn with them.
+- [ ] Items on moving depots/belts slide with them; their data positions equal today's.
+- [ ] A player on a piston lift rises/falls smoothly, no fall damage, no pop; a player in the path refuses the step with the
+      exact text.
+- [ ] Empty-hand Use on an empty skiff boards; loaded skiff gives its stack first with the exact toast; held items never board.
+- [ ] Riding: seat 0.6 above the cart, 5 blocks/s, smooth (unit p), free look, Brake/Go/Exit on desktop and phone, captions
+      restored on exit.
+- [ ] Rail end: eases out, waits 2 s, turns (rider's view turns), eases in. Low ceiling turns a ridden cart back with the toast.
+- [ ] Skiff broken / player dead / chunk gone ends the ride safely.
+- [ ] Save mid-glide loads with blocks at rest at the destination; save while riding reloads seated; old saves load.
+- [ ] `skiff_roll`, `piston_slide`, `bearing_turn` exist, follow T9 tiers, nothing loops, idle is silent; `sfx.test.ts` green.
+- [ ] Side goal "Ride the skiff" completes on the first boarding+ride and toasts "Side goal: Ride the skiff".
+- [ ] `npx vitest run` green; `npx tsc --noEmit` clean; `node scripts/e2e-workshop.mjs --device=desktop` and
+      `--device=phonePortrait` green with screenshots 11-14 in `test-results/e2e-workshop/`.
+- [ ] Docs of section 11 updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- Carrying mobs, tractors or other skiffs on moving structures (they keep today's behaviour).
+- Pistons pushing non-movable blocks, sticky behaviour, longer strokes than `PISTON_MAX`, contraptions larger than 48.
+- Skiff steering, junctions/switches, slopes (rails stay flat, one y), powered/boosted rails, speed control beyond go/brake.
+- Riding anything but a skiff (no riding pistons as "elevator entities" - a lift is standing on a platform, 4.5).
+- Tarred-plank skiff hull (Unit 9 optional consumer; not taken).
+- Collision against the drawn (in-between) position of a gliding block: collision stays on the committed destination.
+- Third-person camera, motion-sickness settings (none exist; the bearing rider carry can be switched off by a constant
+  `CARRY_YAW` NEW = true if the owner asks).
+- Belt border hand-off and vault regrouping after moves (Unit 15, via `onMoveEnd`).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **T9 wording.** Please change T9 rule 4 to "tweened motion with ease-in-out within the step time (Unit 13: pistons glide
+   0.6 of 0.8 s, bearings 1.2 of 1.5 s, skiffs linear end to end with eased start/stop)" and add `piston_slide`, `bearing_turn`
+   beside `skiff_roll` in the T9 `sfxWorkshop.ts` list.
+2. **`sfxWorkshop.ts` ownership.** Units 13, 14, 16 all add to it. Rule: the first to merge creates the file, the `sfx.ts`
+   spread and the `sfx.test.ts` term `Object.keys(WORKSHOP_SFX).length`; later units append rows only.
+3. **Optional members added to Unit 0's shapes** (allowed by 6.5): `MovingView.voxels?`, `.curve?`, `.id?`;
+   `WorkshopView.now?`, `.skiffs?`. Please record them in SYSTEMS 6.5.
+4. **New cross-system hooks outside the workshop**: `World.setMeshMask/maskSettled` (+ `Streamer.neighbourhood` copy),
+   `BlockSpec.meshless?` (mesher table), `PlayerPhysics.platform`, `GroundItem.slide?`. All optional/default-off; no other unit
+   needs them, but Unit 15's reviewers should know `onMoveEnd` is the moment to recompute.
+5. **Visible change**: skiffs beyond 40 blocks are not drawn (meshless). If the owner dislikes it, raise `MOTION_RADIUS` for
+   skiffs only (instances are cheap).
+6. **Interaction order**: boarding goes through `Workshop.use` -> `Logistics.use` (called first in `Interaction.beforeUse`), so no
+   change to the vehicle manager's on-foot aim code is needed; while riding the manager takes Use (exit) before the controller.
+7. SYSTEMS 5.2 "skiff | 5 blocks/s (`SKIFF_STEP_S` 0.2), rider seat offset 0.6" is used verbatim (`SKIFF_SEAT_Y` 0.6).
