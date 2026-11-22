@@ -94,7 +94,7 @@ distillery item" property, DISTILLERY_PLAN 11).
 
 | unit | what flows | rule |
 |---|---|---|
-| 0 | `BlockSpec.surface` field, reaction engine, vessel slots, `heated` capability, side goals | consumed as specified in SYSTEMS 6.5. One OPTIONAL member is requested on `ReactionSpec`: `minShare?` (4.3). If Unit 0 already merged without it, Unit 9 adds it (one optional field + one check in the engine's "can this reaction run" test) and says so in its PR. |
+| 0 | `BlockSpec.surface` field, reaction engine, vessel slots, `heated` capability, side goals | consumed as specified in SYSTEMS 6.5. Assumed: a `reaction_vessel` standing directly on a `still_base` that holds a temperature is `heated` at that temperature (`Distillery.baseTemp`), and the vessel line follows the T8 grammar. One OPTIONAL member is requested on `ReactionSpec`: `minShare?` (4.3). If Unit 0 already merged without it, Unit 9 adds it (one optional field + one check in the engine's "can this reaction run" test) and says so in its PR. |
 | 7 | ground burner, `tankFluids()` | asphalt at 200 C works on a charcoal burner (cap 250 C). Nothing to code; one test proves it if Unit 7 is merged (skip otherwise, see 9.6). |
 | 8 | vacuum still on residue | Unit 8's flask leftover after a vacuum residue run must name as `bitumen` (share >= 0.85). Unit 9 owns the grade; Unit 8 only benefits. |
 | 10 | `blurred` factor in the speed line | Unit 10 appends `x (blurred ? 0.9 : 1)`; Unit 9's line is written so that is a pure append. |
@@ -455,8 +455,9 @@ template - if it differs in punctuation, Unit 0's template wins, the facts must 
 | situation | crosshair line (target: the vessel) |
 |---|---|
 | working | `"Reaction Vessel - 1.0 buckets Bitumen, 200 C, Asphalt mix 2 of 4"` |
-| too cold (no base, base at 130) | `"Reaction Vessel - 750 L Bitumen, 130 C, needs 150-250 C for Asphalt mix"` |
-| too hot (base at 260) | `"Reaction Vessel - 750 L Bitumen, 260 C, needs 150-250 C for Asphalt mix"` |
+| too cold (base at 130) | `"Reaction Vessel - 130 C, needs 150-250 C for Asphalt mix"` |
+| too hot (base at 260) | `"Reaction Vessel - 260 C, needs 150-250 C for Asphalt mix"` |
+| not heated (no base / cold furnace) | `"Reaction Vessel - cold, Asphalt mix needs a hot Still Base"` |
 | residue poured in | `"Reaction Vessel - too thin for Asphalt mix: 60% bitumen, needs 80%"` |
 | items short | `"Reaction Vessel - needs 4 Gravel and 2 Sand - it has 1 Gravel"` |
 | output full | `"Reaction Vessel - output full - take what it made"` |
@@ -473,7 +474,7 @@ of wash: same path, no special case).
 **Edge: half a batch** - the engine moves litres by `frac` each step; items are consumed and `gives` pushed only when a whole
 batch completes (DISTILLERY_PLAN 6). If the bitumen runs out mid-batch (e.g. 900 L poured: 3 batches + 150 L), the last partial
 batch never completes: the vessel shows `done` with 150 L of Bitumen left (the line says it: `"Reaction Vessel - done, 150 L
-Bitumen left (a batch needs 250 L)"`). Pouring another canister continues it. Items for the partial batch stay in the slots
+Bitumen left, a batch is 250 L"`). Pouring another canister continues it. Items for the partial batch stay in the slots
 (they are consumed at batch completion, never at start).
 
 ### 5.5 Laying and mining
@@ -531,12 +532,10 @@ No exclamation marks, numbers with units, " - " between name and state (SYSTEMS 
 
 ### 6.1 Strings (T8)
 
-All in 5.7. Every crosshair line in 5.4 is <= 60 characters with realistic numbers (checked: the longest,
-`"Reaction Vessel - 750 L Bitumen, 130 C, needs 150-250 C for Asphalt mix"`, is 71 - **too long**; the HUD shows
-`"Reaction Vessel - 130 C, needs 150-250 C for Asphalt mix"` (56) instead: when the reaction is paused for temperature, the
-contents fact is dropped, since the temperature is the most important state (T8 "first fact = the most important state")).
-Final table entries for the two temperature rows therefore read:
-`"Reaction Vessel - 130 C, needs 150-250 C for Asphalt mix"` and `"Reaction Vessel - 260 C, needs 150-250 C for Asphalt mix"`.
+All in 5.7. Every crosshair line in 5.4 is <= 60 characters with realistic numbers. The temperature rows deliberately drop the
+contents fact (`"... 750 L Bitumen, 130 C, needs ..."` would be 71 characters): when the reaction is paused for temperature,
+the temperature is the most important state (T8 "first fact = the most important state"). A unit test asserts every line
+produced in 9.4 is <= 60 characters.
 
 ### 6.2 Sound (T9) - the footstep set
 
@@ -706,14 +705,15 @@ by `vehicles/tractor.ts` too (vehicles already import from `../core`; importing 
 
 ### 9.2 Player speed (`src/player/physics.test.ts`, add a `describe('road surfaces')`)
 
-Fixture: `FakeWorld`, a strip `fill(-2, 9, -60, 2, 9, 2, 'grass')` and a parallel strip of `asphalt` at x 10..14; player at
+Fixture: `FakeWorld`, a strip `fill(5, 9, -60, 9, 9, 2, 'grass')` and an ADJACENT strip `fill(10, 9, -60, 14, 9, 2, 'asphalt')`
+(runs use x = 7.5 for grass and x = 12.5 for asphalt); player at
 y=10 facing -Z (yaw 0), `moveZ: 1`, step at 1/60 for 3 s, then measure distance over the next 2 s.
 
 1. Walking on grass reaches `WALK_SPEED` (velocity magnitude `toBeCloseTo(4.3, 1)`).
 2. Walking on asphalt reaches `WALK_SPEED * ASPHALT_SURFACE.walk` (5.375, `toBeCloseTo(.., 1)`); distance over 2 s on asphalt
    / on grass `toBeCloseTo(1.25, 2)`.
 3. Sprinting on asphalt reaches `SPRINT_SPEED * 1.25` (7.25).
-4. Buffs multiply, not add: with Swift active (`p.buffs` drink `swift`), asphalt speed = `WALK_SPEED * SWIFT_SPEED_MULT * 1.25`.
+4. Buffs multiply, not add: with Swift active (grant it the way `src/game/brewBuffs.test.ts` does), asphalt speed = `WALK_SPEED * SWIFT_SPEED_MULT * 1.25`.
 5. Tarred planks: `WALK_SPEED * 1.1`.
 6. Swimming over a submerged asphalt floor (water fill above it, body in liquid) moves at `SWIM_SPEED` (factor ignored).
 7. A jump while running on asphalt: horizontal speed at the apex is still >= `WALK_SPEED * 1.2` (airborne keeps the factor).
@@ -866,8 +866,8 @@ Also: `no console errors during the run` (existing final step) stays green.
 - [ ] `npm test` green; `content.test.ts` progression completes; the three cards pass `distillProcess.test.ts`.
 - [ ] E2E steps 10.1-10.4 pass on `--device=desktop`; screenshots saved.
 - [ ] Docs of section 11 updated.
-- [ ] No second speed multiplier anywhere (`grep -rn "1.25\|1.4" src/player src/vehicles` shows only the surface constants'
-      imports, not literals).
+- [ ] No second speed multiplier anywhere: `src/player/physics.ts` and `src/vehicles/tractor.ts` contain no literal 1.25, 1.4 or
+      1.1; the values live only in `src/content/blocksRoad.ts` (`ASPHALT_SURFACE`, `TARRED_PLANK_SURFACE`).
 
 ---------------------------------------------------------------------------------------------------------------------------
 
