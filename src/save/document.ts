@@ -16,8 +16,11 @@ import type { MobsSnapshot } from '../mobs';
 import type { WorldSnapshot } from '../world/world';
 import { SaveStore, browserStorage, type LoadProblem, type SaveResult, type StorageLike } from './storage';
 
-/** Bump when the document's shape changes; add a step to `migrateSave` at the same time. */
-export const SAVE_VERSION = 1;
+/**
+ * Bump when the document's shape changes; add a step to `migrateSave` at the same time.
+ * 1: the first format (five furnace tiers, five ages). 2: the six ages and furnace tiers (BRONZE_PLAN W0).
+ */
+export const SAVE_VERSION = 2;
 export const SAVE_KEY = 'hearthwatt.save';
 /** A copy of a stored save this build could not use, kept before anything could replace it. */
 export const BACKUP_KEY = 'hearthwatt.save.bak';
@@ -160,9 +163,42 @@ export function normalizeDocument(raw: unknown, onDropped?: (reason: string) => 
   return { settings, world };
 }
 
-/** Upgrades older documents. Version 1 is the first; nothing older exists. */
-export function migrateSave(_data: unknown, _fromVersion: number): SaveDocument | null {
-  return null;
+/**
+ * Version 1 -> 2, the six-age renumbering (BRONZE_PLAN W0): the Bronze Furnace is tier 2 and the age after Ember, so
+ * furnace tiers 2-5 become 3-6 and ages 1-4 become 2-5. Block ids do not change (the new furnace block was appended
+ * after every older block), research and the pack are untouched, and objectives keep their ids. A save that had
+ * already built the Blast Furnace is given the new goal before it (`bronze_furnace`) so its place in the list is the
+ * same, and a formed Blast hearth stays formed (its summary moves to tier 3 with its furnace).
+ */
+export function migrateSixAges(doc: Record<string, unknown>): void {
+  const world = doc.world;
+  if (!isRecord(world)) return;
+  const bump = (n: unknown): unknown => (isNum(n) && n >= 2 ? n + 1 : n);
+  const inner = world.world;
+  if (isRecord(inner) && Array.isArray(inner.entities)) {
+    for (const e of inner.entities) {
+      if (!isRecord(e) || e.kind !== 'furnace') continue;
+      e.tier = bump(e.tier);
+      e.effTier = bump(e.effTier);
+      if (isRecord(e.hearth)) e.hearth.tier = bump(e.hearth.tier);
+    }
+  }
+  const o = world.objectives;
+  if (isRecord(o)) {
+    const reachedBlast = isRecord(o.peaks) && isNum(o.peaks.tier) && o.peaks.tier >= 2;
+    if (isRecord(o.peaks)) o.peaks.tier = bump(o.peaks.tier);
+    if (isNum(o.age) && o.age >= 1) o.age += 1; // the ages 1-4 become 2-5; Ember stays 0
+    if (Array.isArray(o.completed) && (reachedBlast || o.completed.includes('blast_furnace')) && !o.completed.includes('bronze_furnace')) {
+      o.completed.push('bronze_furnace');
+    }
+  }
+}
+
+/** Upgrades older documents (`data` is the stored document, `fromVersion` its envelope version). Never throws on a bad shape: null. */
+export function migrateSave(data: unknown, fromVersion: number): SaveDocument | null {
+  if (!isRecord(data) || !isNum(fromVersion) || fromVersion < 1 || fromVersion > SAVE_VERSION) return null;
+  if (fromVersion < 2) migrateSixAges(data);
+  return data as unknown as SaveDocument;
 }
 
 const PROBLEM_TEXT: Readonly<Record<LoadProblem | 'world', string>> = {
@@ -200,7 +236,7 @@ export class SaveSlot {
       // A full storage may first give up the backup of an unreadable save (never while the save key still holds it).
       onQuota: () => !this.heldRaw && this.removeBackup(),
     });
-    this.settingsStore = new SaveStore<Settings>({ key: SETTINGS_KEY, version: SAVE_VERSION, storage: this.storage, validate: isRecord });
+    this.settingsStore = new SaveStore<Settings>({ key: SETTINGS_KEY, version: SAVE_VERSION, storage: this.storage, migrate: (d) => (isRecord(d) ? (d as unknown as Settings) : null), validate: isRecord });
   }
 
   /** True when saves survive a page reload (false inside frames that block storage). */

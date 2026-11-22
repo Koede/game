@@ -127,7 +127,7 @@ describe('SaveSlot', () => {
   it('corrupt text, a newer version and a damaged world are reported, backed up and never written over by settings', () => {
     const cases: [string, RegExp][] = [
       ['{not json', /could not be read/],
-      [JSON.stringify({ v: 2, t: 0, d: { settings: { volume: 0.3 }, world: worldSave() } }), /newer version/],
+      [JSON.stringify({ v: SAVE_VERSION + 1, t: 0, d: { settings: { volume: 0.3 }, world: worldSave() } }), /newer version/],
       [JSON.stringify({ v: SAVE_VERSION, t: 0, d: { settings: { volume: 0.3 }, world: { ...worldSave(), player: { position: { x: null } } } } }), /damaged/],
     ];
     for (const [raw, message] of cases) {
@@ -158,7 +158,7 @@ describe('SaveSlot', () => {
 
   it('keeps the settings of a damaged or newer save', () => {
     const storage = new MemoryStorage();
-    storage.setItem(SAVE_KEY, JSON.stringify({ v: 2, t: 0, d: { settings: { volume: 0.25 }, world: null } }));
+    storage.setItem(SAVE_KEY, JSON.stringify({ v: SAVE_VERSION + 1, t: 0, d: { settings: { volume: 0.25 }, world: null } }));
     expect(new SaveSlot(storage).read().settings.volume).toBe(0.25);
     expect(storage.getItem(SETTINGS_KEY)).toBeNull();
   });
