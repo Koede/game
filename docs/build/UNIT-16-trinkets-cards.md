@@ -210,10 +210,10 @@ expression the `windTurbine` behaviour uses today; refactor `windTurbine` to cal
 green). The vane evaluates it for a turbine standing ON the vane's cell (`y` = vane y), rounded to the nearest 10 W.
 
 **Line (T8):**
-- open sky: `Wind Vane - wind from the west, fresh (0.6), turbine 680 W`  (57 chars; max realistic is
-  `Wind Vane - wind from the north-west, strong (1.0), turbine 1500 W` = 64; when the line would exceed 60 chars the turbine fact
-  is shortened to `1.5 kW`... no: keep one rule - **the turbine fact uses `kW` with one decimal at or above 1000 W**:
-  `Wind Vane - wind from the north-west, strong (1.0), turbine 1.5 kW` = 64. Accept 64: SYSTEMS 1.3 says "about 60").
+- open sky: `Wind Vane - wind from the west, fresh (0.6), turbine 680 W` (57 chars). The turbine fact is `wattsText(W)`: below
+  1000 W rounded to 10 W (`680 W`), at or above 1000 W in kW with one decimal (`1.5 kW`). The longest possible line,
+  `Wind Vane - wind from the north-west, strong (1.0), turbine 1.5 kW`, is 66 characters - accepted (SYSTEMS 1.3 says "about 60";
+  the HUD name line wraps to two lines on narrow portrait, which `setTargetName` already allows).
 - under anything solid: `Wind Vane - sheltered, no wind reaches it` (no direction, no estimate; the arrow stands still).
 
 **Read without goggles.** The vane and the weather cock ARE instruments: their line shows in the crosshair for everyone, goggles or
@@ -267,15 +267,15 @@ export function cockReading(c: CockInput): CockReading;
 |---|---|---|
 | `!sky` | false | `Weather Cock - under a roof, it cannot feel the sky` |
 | `wetHere` and kind is `storm` | true | `Weather Cock - storm, signal on` |
-| `wetHere` | true | `Weather Cock - raining, signal on` (snow biome: `snowing, signal on`, chosen by `w.precipitation === 'snow'`... see note) |
+| `wetHere` | true | `Weather Cock - raining, signal on`; `Weather Cock - snowing, signal on` when `CockInput.snow` (see below) |
 | `wetNext && w.nextInS <= WEATHER_COCK_LEAD_S` | true | `Weather Cock - rain in about 2 min, signal on` (`< 60 s`: `rain in under a minute, signal on`; storm next: `storm in about 2 min, signal on`) |
 | `holdS > 0` | true | `Weather Cock - clearing, signal off in 25 s` |
 | `wetNext` (due later) | false | `Weather Cock - dry, rain in about 6 min` |
 | otherwise | false | `Weather Cock - dry, no rain coming` |
 
-Minutes: `Math.max(1, Math.round(nextInS / 60))`, so 2 min = 90..149 s. Note on snow: `WeatherState.precipitation` is the
-player's biome, not the cock's, so the word comes from `precipitationFor(kind, biomeAt(x, z), y)` (`src/core/weather.ts`), which
-the Workshop hook computes and passes as `CockInput.snow: boolean` (add the field). Dust (dunes) is never wet: a cock in the dunes
+Minutes: `Math.max(1, Math.round(nextInS / 60))`, so 2 min = 90..149 s. Snow: `WeatherState.precipitation` is the player's
+biome, not the cock's, so the word comes from `precipitationFor(w.kind, biomeAt(x, z), y) === 'snow'` (`src/core/weather.ts`),
+computed by the Game hook and passed as `CockInput.snow`. Dust (dunes) is never wet: a cock in the dunes
 stays off in a dust wind (it is not rain; a drying rack in the dunes needs no roof).
 
 Hold: `Trinkets` keeps `holdS` per cock cell (NOT saved; after a load the hold restarts at 0, harmless): set to
@@ -293,14 +293,14 @@ Toast: none (the bell is the alarm; a toast would fire every time weather change
 
 **Animation.** Same arrow as the vane (it is a vane with a cockerel) via `VaneView kind: 'weather_cock'`.
 
-**J5 walk (target of the e2e step):** cock on a roof -> signal wire -> crank-lever-style input of a piston... The workshop's
-pistons push while TURNING and pull back when stopped; a signal gates them through `Signals.gate` (a piston touching a signal cell
-works only while powered). So the J5 build is: a crank/clockwork/water wheel turning a piston whose side touches the wire from the
-cock; signal on -> piston extends the framed roof over the racks (up to 4 blocks); signal off -> gate closes -> the piston is
-"stopped" for the gate and pulls the roof back. The builder verifies `Contraptions` reads `gate` (it is passed in the Workshop
-constructor: `gate: (x, y, z) => this.signals.gate(x, y, z)`); if a gated-off piston holds instead of retracting, that is
-existing behaviour and the J5 build uses a clutch flipped by the signal instead (a clutch touching a powered cell flips: engaged
--> released) - document whichever works in docs/api/workshop.md and use it in the e2e.
+**J5 contraption.** Pistons push while their shaft turns and pull back when stopped; a piston touching a signal cell works only
+while powered (`Signals.gate`, passed into `Contraptions` as `gate`). The J5 build is therefore: a turning source (crank, clockwork,
+water wheel) on a piston whose side touches the wire from the cock, the piston facing a framed roof section over the racks.
+Signal on -> the piston extends the roof (up to 4 blocks); signal off -> gated -> it pulls the roof back. The builder confirms in
+`src/workshop/contraption.ts` that a gated-off piston RETRACTS. If it instead holds, the documented J5 build uses a clutch in the
+piston's shaft line touching the wire (a powered cell flips a clutch: engaged -> released, existing `Signals.flips`), with the clutch
+placed so that "released" = piston stopped = roof back. Whichever is true goes in docs/api/workshop.md and the e2e; no new piston
+rule is written by this unit.
 
 ### 4.3 Spyglass - `spyglass`
 
@@ -360,8 +360,7 @@ within a typical phone view distance. Look sensitivity scales with the zoom so a
   same polite stop distance at full species speed and IGNORES `MOB_FOLLOW_RANGE` and the `|dy| < 6` limit while called (it was in
   range when called). `advanceTimers` counts `calledS` down by `dt` (NEW line). Liked-item following keeps working unchanged.
   When a called animal can no longer path (a cliff), the existing `steer` safety (`standCell`) already stops it at the edge.
-- Babies come too (they are tame if the parent was - whatever `tame` says). Wild animals ignore the horn. Hostiles: not mobs of
-  `MobManager.mobs`'s animal kind? - the check is `m.tame === true` only, so automatons never answer.
+- Only `m.tame === true` answers: wild animals ignore the horn, babies answer if they are tame, automatons are never tame.
 - `calledS` is NOT saved (`toJSON` unchanged): a loaded world forgets a call - 20 s is shorter than any save interval matters.
 - Toasts (info): `"2 animals answer the horn"` / `"1 animal answers the horn"` / `"No tame animal within 32 blocks hears you"`.
   On cooldown: `"Catch your breath - 4 s"` (seconds rounded up), kind `info`, no sound.
@@ -397,11 +396,11 @@ the diamonds back out.
 | electromagnet / hand vacuum | n/a (they pull ground items) | n/a |
 
 Implementation: NEW `isLocked(world: IWorld, x, y, z): boolean` in `src/workshop/trinkets.ts` = `world.getBlock(x, y, z).key ===
-'padlock_chest'`. Called at the top of the crate branch of `Logistics.take` and `Logistics.peek`, in `Logistics.wrench` when a
-locked cell is chosen as an arm SOURCE, and in `machineItemEndpoint` (the sim side imports the block key constant, not the workshop
-module: use `blockOrNull`-free check `host.blockKeyAt?.(...)`, or more simply compare the voxel's block id with `blockId('padlock_chest')`
-from `src/world/ids.ts` style - the builder picks the import that keeps `src/sim` free of `src/workshop`; `src/sim/endpoints.ts`
-already knows the entity position).
+'padlock_chest'`. Called at the top of the crate branch of `Logistics.take` and `Logistics.peek`, and in `Logistics.wrench` when a
+locked cell is chosen as an arm SOURCE. The sim side (`machineItemEndpoint` in `src/sim/endpoints.ts`) must not import
+`src/workshop`: it checks the block at the entity's position through the registry
+(`world.getBlock(e.x, e.y, e.z).key === 'padlock_chest'`, with `world` reached the way the endpoint host already reaches it; if the
+host has no world, add an optional `EndpointHost.blockKeyAt?(x, y, z): string`).
 
 Arm wrench (existing `Logistics.wrench`): choosing a padlock chest as the SOURCE refuses with toast (warn)
 `"The Padlock Chest is locked - an arm cannot take from it"`; choosing it as a target is fine.
@@ -432,7 +431,7 @@ exactly like a crate (it is one).
 
 **Rules.**
 - Placement: only against the underside of a solid block or under another `lantern_chain` (support above). Refusal toast:
-  `"A lantern chain hangs from a block above it"`. Implemented in `Workshop.use`? No - placement is the interaction layer: add NEW
+  `"A lantern chain hangs from a block above it"`. Placement is the interaction layer's job: add NEW
   `BlockSpec.hangs?: true` (optional field, documented in `src/core/types.ts`), read by `Interaction` placement code (the same
   place that refuses other bad placements) - builder: grep the torch/`placeOn` placement check in `src/player/interaction.ts` and
   add one clause; if a generic `placeOn` list suffices (it lists blocks it may stand ON), it does not, because hanging needs the
@@ -511,10 +510,10 @@ Breaking a gearshift drops its card (preset item, or `punch_card` for a blank/cu
 **Lines.**
 - `setting()` for a gearshift with a card: preset `Swing card`, custom `own card, 4 steps, 8 s loop`, blank `blank card - punch it`.
   Without a card: unchanged `Gearshift program 2 of 3`.
-- `describe()` adds the current step for any running card or program: `step 3 of 4: reverse`. Full example (goggles):
-  `Sequenced Gearshift - right 16 rpm, load 1/8 su, Swing card, step 3 of 4: reverse` (75 chars - the step fact is the goggles'
-  second-line material: describe returns it after ` | `? No: keep one line; the HUD wraps at 2 lines for goggles readings; this is
-  a goggles-only line, same as today's long machine lines like `Millstone - 16 rpm, load 4.25/8 su, Flour 40%, holds 2 Wheat`).
+- `describe()` adds the current step for any running card or program: `step 3 of 4: reverse`. Full goggles example:
+  `Sequenced Gearshift - right 16 rpm, load 1/8 su, Swing card, step 3 of 4: reverse` (77 chars). This is a goggles-only
+  machine line, which may wrap to two HUD lines exactly like today's long machine lines (SYSTEMS T8 "a second goggles line may
+  carry kinetic facts"); it stays one string from `describe`.
   NEW pure helper `stepAt(steps, t): { index: number; factor: number; leftS: number }` in kinetics.ts drives it.
 
 **PART_DEFS desc change** for `sequence_gearshift`: `'A drum that engages, reverses and changes speed on a loop. Use it to pick one of three programs, or slide in a punch card: a preset, or a blank you punch yourself.'`
@@ -557,7 +556,7 @@ export interface CardHost {
 |  2  [ ■ stop        ]  [-] 1 s [+] [✕]|     through CARD_FACTORS order forward, double,
 |  3  [ ◀ reverse     ]  [-] 3 s [+] [✕]|     half, stop, half back, reverse, double back),
 |  4  [ ■ stop        ]  [-] 1 s [+] [✕]|     Stepper 1..8 s, remove (disabled at 1 step)
-|  [ + Add step ]                      |  <- disabled at 8 steps: "8 steps is all a card holds"
+|  [ + Add step ]                      |  <- adds `▶ forward 4 s`; disabled at 8 steps: "8 steps is all a card holds"
 |--------------------------------------|
 |  [   Punch card   ]                  |  <- primary, 44 px, full width
 |  Presets:  [Pulse] [Swing] [Ladder]  |  <- 3 chips 44 px; shown only when the card is blank/custom
@@ -626,7 +625,7 @@ Inputs are all existing items with producers at or before Bronze: `bronze_ingot`
 5. **Cock and the biome.** In the frostfell snow counts as wet (`wetAt` is true for snow above the threshold), so the cock signals
    and the line says `snowing`; in the dunes a dust wind never signals.
 6. **Several cocks** each compute their own reading (positions can differ in biome and sky); they share the weather state.
-7. **Spyglass in a vehicle / swimming.** Raising while seated in the tractor or skiff is refused silently? No - refused with
+7. **Spyglass in a vehicle / swimming.** Raising while seated in the tractor or skiff is refused with
    toast `Not while riding` (a moving camera at 17 deg makes people sick); in water it works.
 8. **Spyglass and dev flight / Dev Mode creative.** Works the same.
 9. **Spyglass with FOV setting change while raised.** Target is recomputed from `settings.fov` every frame, so a settings change
@@ -646,14 +645,13 @@ Inputs are all existing items with producers at or before Bronze: `bronze_ingot`
 18. **Lantern chain moved by a piston/bearing**: it is NOT movable (`Workshop.isMovable` is unchanged: only frames and workshop
     parts). A contraption leaving a chain unsupported drops it (rule 4.6).
 19. **Wind vane / weather cock on a contraption**: they ARE workshop parts (PART_DEFS), so `isMovable` returns true via
-    `SIGNAL_KINDS` (cock) and `isLogistic`/`KINETIC`? The vane is neither kinetic nor logistic nor signal. Rule: add NEW
-    `TRINKET_KINDS = new Set(['wind_vane', 'weather_cock'])` to the `isMovable` test, and `Workshop.relocate` calls
+    `SIGNAL_KINDS` (the cock); the vane is neither kinetic, logistic nor a signal, so `isMovable` gains `|| kind === 'wind_vane'`, and `Workshop.relocate` calls
     `this.trinkets.relocate(map)` so hold timers and creak timers follow. A vane on a turning bearing reads the wind like any vane.
 20. **Gearshift with a card, then Use with an empty hand during a jam**: opens the screen as usual; editing does not clear the jam.
 21. **Gearshift saved with a card whose item key no longer exists** (content removed) - `load` drops the row; the gearshift runs
     its dial program.
 22. **Card program changes mid-loop**: the new program applies from the next tick, phase from the world clock (no reset of
-    `t`); the loop position may jump - acceptable, documented in the screen? No text needed.
+    `t`); the loop position may jump to the middle of a step - acceptable and not worth a message.
 23. **Gearshift reached through a contraption move**: `cards` re-keyed in `relocate` like `wound`.
 24. **Two players**: single-player game; not applicable.
 
@@ -723,8 +721,8 @@ to the `sfx.test.ts` expression. Idle is silent (T9 rule 3): no loop sounds anyw
 ### 6.4 Textures (procedural, readable, 16x16)
 - Block faces: `ws_wind_vane_front` (a brass arrow on dark machine side), `ws_weather_cock_front`, `ws_weather_cock_front_on`
   (comb lit amber), `padlock_chest`, `padlock_chest_top`, `lantern_chain` (cut-out). The vane and cock as PART_DEFS use the
-  generated part-front path of `src/render/textures/iconsWorkshopParts.ts`; add them to its `STATIC` set? No: `STATIC` there is
-  the list of non-animated part fronts (`'clockface'` is in it) - add `'wind_vane'` to `STATIC`; `weather_cock` is animated (two
+  generated part-front path of `src/render/textures/iconsWorkshopParts.ts`; its `STATIC` set lists the
+  non-animated part fronts (`'clockface'` is in it): add `'wind_vane'` to `STATIC`; `weather_cock` is animated (two
   fronts).
 - Icons: `icon_spyglass`, `icon_brass_horn`, `icon_punch_card`, `icon_punch_card_pulse`, `icon_punch_card_swing`,
   `icon_punch_card_ladder` (the four cards share a cream card with a clipped corner; the presets differ by their hole pattern and a
@@ -789,7 +787,8 @@ class Workshop {
 }
 
 // src/workshop/trinkets.ts  NEW - DOM-free, owned by Workshop
-export const TRINKET_KINDS: ReadonlySet<string>;        // wind_vane, weather_cock, lantern_chain, padlock_chest
+export const TRINKET_KINDS: ReadonlySet<string>;        // cells Trinkets tracks: wind_vane, weather_cock, lantern_chain
+export const TRINKET_READ: ReadonlySet<string>;         // read without goggles: + padlock_chest
 export const WEATHER_COCK_LEAD_S = 120;
 export const WEATHER_COCK_HOLD_S = 30;
 export const VANE_CREAK_MIN_S = 6;
@@ -928,8 +927,8 @@ type SfxName = /* existing */ | 'horn_call' | 'vane_creak' | 'card_punch';
 11. **Logistics.** `src/workshop/logistics.ts`: `take` and `peek` - in the crate branch, `if (isLocked(this.host.world, x, y, z))
    return null` / `return []`; `wrench`: when the chosen SOURCE `isLocked`, toast and return `'refused'` without changing the
    setup.
-12. **Mobs.** `src/mobs/types.ts` `calledS?`; `src/mobs/manager.ts` `callTame`; `src/mobs/brain.ts` (or wherever
-   `advanceTimers` lives) counts `calledS` down; step 4 condition `liked || called`, range/dy checks skipped when `called`.
+12. **Mobs.** `src/mobs/types.ts` `calledS?`; `src/mobs/manager.ts` `callTame`; `advanceTimers` in `src/mobs/life.ts`
+   counts `calledS` down; step 4 condition `liked || called`, range/dy checks skipped when `called`.
    `src/player/animals.ts` `AnimalTargets.callTame?`.
 13. **Player.** NEW `src/player/trinketTools.ts` `HeldTrinkets`. `src/player/controller.ts`:
    - `readonly trinkets: HeldTrinkets` constructed with `options.animals ?? null`;
@@ -961,3 +960,227 @@ type SfxName = /* existing */ | 'horn_call' | 'vane_creak' | 'card_punch';
 Helpers to reuse, not rewrite: `openSkyAbove`, `wetAt`, `precipitationFor`, `windAt`, `raycast`, `Stepper`, `Window`, `h`,
 `withActive`/`voxelActive`, `ground.spawn`, `goal()` in objectivesWorkshop.ts, `forge()`/`bench()` in recipesWorkshop.ts, the
 `Collectors.trigger` shape, `Logistics.wrench`'s toast style.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest, co-located)
+
+**`src/workshop/kinetics.test.ts`** (append):
+1. `stepsFactor` equals `gearshiftFactor` for each preset at t = 0, 0.5, 3.9, 4, 5.9, 6, 13 (and negative t).
+2. `stepAt([[3, 1], [1, 0], [3, -1], [1, 0]], 4.5)` -> `{ index: 2, factor: -1, leftS: 2.5 }`.
+3. `passOn({ kind: 'sequence_gearshift', s: 0, prog: [[2, 2], [2, -0.5]] }, 16, 1)` = 32; at t 3 = -8; a `[[1, 0]]` prog -> null.
+4. `encodeCard(GEARSHIFT_PROGRAMS[1])` = `'3:1,1:0,3:-1,1:0'`; `decodeCard` round-trips every preset.
+5. `decodeCard` sanitises: `'9:1,2:3,0:1,2:x,2:-2'` -> `[[2, -2]]`; 9 valid steps -> 8; `''`, `42`, `null`, `'abc'` -> null.
+6. `validCard` false for 0 steps, 9 steps, seconds 0 or 9 or 1.5, factor 3; true for 8 x `[8, 2]` (64 s).
+7. solveNetwork: crank -> gearshift with `prog [[1, 2]]` -> millstone runs at 32 rpm; stress of the millstone part = `4 * 0.5`.
+
+**`src/workshop/trinketText.test.ts`** NEW:
+8. `windWord`: 0.25 calm, 0.35 light, 0.6 fresh, 0.8 strong, 1.0 strong, 1.4 gale.
+9. `compassWord`: 0 north, pi/4 north-east, pi east, 3pi/2 west, 2pi - 0.1 north, 22.4 deg north, 22.6 deg north-east.
+10. `vaneLine` exact strings: `{ from: 3pi/2, strength: 0.6, sheltered: false, turbineW: 680 }` ->
+    `'Wind Vane - wind from the west, fresh (0.6), turbine 680 W'`; turbineW 1520 -> `turbine 1.5 kW`; sheltered ->
+    `'Wind Vane - sheltered, no wind reaches it'`. Every produced line for a grid of inputs is <= 66 chars.
+11. `cockReading` - one case per table row of 4.2, exact `text` and `on`, including: `nextInS` 119 -> `rain in about 2 min, signal
+    on`; 121 -> `dry, rain in about 2 min`, off; 45 -> `rain in under a minute`; storm next -> `storm in about ...`; hold 25 ->
+    `clearing, signal off in 25 s`; `sky: false` beats `wetHere: true`; `snow: true` -> `snowing`.
+12. `wattsText`: 0 -> `0 W`, 684 -> `680 W`, 994 -> `990 W`, 996 -> `1.0 kW` (round to 10 W first; 1000 W or more -> kW with one
+    decimal), 1520 -> `1.5 kW`.
+
+**`src/workshop/trinkets.test.ts`** NEW (use `setup()` from `src/workshop/parts.test.ts` - export it if it is not exported, or the
+existing fake-world helpers there):
+13. A weather cock with `weatherAt` stubbed to rain powers a wire 3 blocks long and a signal lamp at its end is lit
+    (`describe` of the lamp contains `on`); with stub dry and `nextInS` 600 the lamp is off.
+14. Hold: rain stub on, tick 1 s, stub dry: the cock stays on for 30 s (on at 29.5, off at 30.5).
+15. Cock under a block: off, line `under a roof`.
+16. Wind vane line uses the `wind` and `turbineW` stubs; `vane_creak` is emitted once when the sector changes and not again
+    within 6 s (count `sfx` events on the bus).
+17. Lantern chain: plain -> active bit on after one tick; a lever-wire touching it, lever off -> dark, lever on -> lit.
+18. Lantern support: two chains hanging under a stone; remove the stone -> both cells air and 2 `lantern_chain` ground items.
+19. `isLocked` true only for `padlock_chest`.
+
+**`src/workshop/logistics.test.ts`** (append):
+20. A padlock chest entity holding 5 iron: `logi.take(...)` null, `logi.peek(...)` `[]`, `logi.accept(..., 'stick', 3)` = 3.
+21. Arm wrench: choosing the padlock chest as source -> `'refused'` and a warn toast with the exact text; as a target -> accepted.
+22. Conservation: an arm moving from a crate to a padlock chest for 60 s - items in crate + chest + arm = constant.
+
+**`src/workshop/workshop.test.ts`** (append):
+23. Use a `punch_card_swing` on a gearshift: the card leaves the hand (takeHeld(1)), `describe` shows `Swing card`; Use a
+    `punch_card_pulse`: swap - the swing card is given back (`giveToPlayer` stub called with `punch_card_swing`).
+24. Empty-hand Use on a gearshift with a card emits `ui:open { type: 'gearshift' }`; without a card it cycles (toast
+    `Gearshift program 2 of 3`) - the old behaviour.
+25. `cardHost().punch(x, y, z, [[2, 2], [1, 0]])` on a blank -> true; the net beyond runs at 32 rpm during the first 2 s of the
+    loop; invalid program -> false and nothing changes.
+26. `takeOut` of a custom card gives `punch_card` and the gearshift goes back to its dial program.
+27. Breaking a gearshift with a preset card spawns that card item; with a custom card spawns `punch_card`.
+28. Save round trip: preset and custom cards survive `toJSON` -> `load`; a snapshot with no `cards` loads with dial programs; a
+    damaged row (`[1, 2, 3, 'not_a_card']`, `[1, 2, 3, 'punch_card', 'zz']`) is skipped / becomes blank.
+29. `relocate` moves a card with its gearshift.
+
+**`src/mobs/manager.test.ts`** or the herd fixtures in `src/mobs/herd.test.ts` (append):
+30. Two tame goats at 20 and 40 blocks and one wild goat at 10: `callTame(..., 32, 20)` returns 1 and only the near tame goat has
+    `calledS` 20; after ticking 10 s with the player 15 blocks away and holding nothing, the called goat has moved closer
+    (distance decreased by > 5 blocks); after 21 s it no longer follows (state not `follow`).
+31. A mob with `harness` set is skipped.
+
+**`src/player/trinketTools.test.ts`** NEW (use `src/player/testKit.ts`):
+32. Use with spyglass toggles `raised`; uses at 0.25 s spacing (a held button) toggle once; a use 0.5 s after the last toggles back.
+33. Raised -> the controller's fov becomes `settings.fov / 4` within 1 s (use `controller.test.ts`'s view stub); slot change
+    lowers and restores `settings.fov`.
+34. Look scale: with raised, a `lookYaw` of 0.4 turns the yaw by 0.1.
+35. Horn: `use` calls `callTame` with (feet position, 32, 20); a second use within 6 s does not call and toasts
+    `Catch your breath - N s`.
+36. Riding: spyglass `use(.., riding = true)` toasts `Not while riding` and does not raise.
+
+**`src/sim/machines.test.ts`** or `power.test.ts` (append):
+37. `windDirAt` is deterministic, in `[0, 2pi)`, and changes by less than 0.05 rad over 1 s; at t = 0 `compassWord` is `west`.
+38. `turbineWattsAt(machine('wind_turbine'), 60, 1)` = 750 (1500 x 1 x clamp(20/40)) and the turbine behaviour test still passes.
+
+**`src/render/weatherFx.test.ts`** (append): 39. with `windFrom` given, the slant points away from the source (4.1).
+
+**`src/ui/screens/workshop/cardText.test.ts`** NEW: 40. `cardSummary` strings of 4.8; `nextFactor` cycles in the order forward ->
+double -> half -> stop -> half back -> reverse -> double back -> forward; `stripCells` length = loop seconds.
+
+**Content tests.** `specRosterWorkshop.ts` updated (step 4) so `content.test.ts` roster equality passes; recipe count follows;
+`content.test.ts` progression still completes (no trinket is on the spine; the solver must also find every new item obtainable);
+`gates.test.ts` untouched; texture readability test passes for the 12 new textures; `src/audio/sfx.test.ts` count includes
+`WORKSHOP_SFX`; the registry check accepts `padlock_chest` pointing to `crate`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E - `scripts/e2e-workshop.mjs` (run `node scripts/e2e-workshop.mjs --device=desktop`; for the card screen also
+`--device=phonePortrait`; no `HW_GPU`)
+
+Add three named steps before `'no page errors'`, in the file's style (`d.hw` for setup/reading, real input for actions,
+`d.shot` screenshots into `test-results/e2e-workshop/`). Coordinates relative to `P.x0/P.gy/P.z0` in a free strip (e.g.
+`x0 + 12`); the builder checks the yard has room.
+
+**Step A - `'a weather cock signals rain to a lamp and a vane reads the wind'`**
+1. Setup (`__hw`): stone pillars `(x, gy..gy+1, z)` and `(x, gy..gy+1, z+2)`; a `weather_cock` at `(x, gy+2, z)`, `signal_wire`
+   at `(x+1, gy+2, z)` resting on a stone at `(x+1, gy+1, z)`, a `signal_lamp` at `(x+2, gy+2, z)` on a stone; a `wind_vane` at
+   `(x, gy+2, z+2)`; nothing above any of them; `__hw.setWeather('clear')`; `__hw.tick(2)`.
+2. Assert: `workshop.describe` of the lamp contains `off`; of the cock matches `/^Weather Cock - dry/`.
+3. `__hw.setWeather('rain')` (instant), tick 1 s. Assert lamp `on`, cock line `Weather Cock - raining, signal on`.
+4. Real input: `teleport` 3 blocks from the vane, `lookAt` the vane, WITHOUT goggles in the pack; read the crosshair text from the
+   HUD DOM (the target-name element `ui.setTargetName` writes) and assert it matches
+   `/^Wind Vane - wind from the [a-z-]+, (calm|light|fresh|strong|gale) \(\d\.\d\), turbine/`. Screenshot `9-vane-cock`.
+5. `setWeather('auto')` at the end.
+
+**Step B - `'a punched card drives a mixer forward and back; the spyglass and horn work'`**
+1. Setup: crank -> `sequence_gearshift` -> shaft -> `millstone` (any consumer whose `describe` shows signed rpm) in a line.
+   `give` the player 1 `punch_card` (via the existing `__hw` give helper or inventory add), select it.
+2. Real input: `lookAt` the gearshift, `d.use()`: the card goes in and the card screen opens (`page.waitForSelector('.hw-card')`).
+3. Real input in the screen: click the first row's factor chip once (forward -> double), click `+ Add step`, click the new row's
+   chip until it reads `reverse` (forward -> ... -> reverse = 5 taps), click `Punch card`. Screenshot `10-card-editor`
+   (desktop) - and in the `--device=phonePortrait` run, the same steps with taps; assert every button's bounding box is >= 44 px
+   tall and the window fits 390 px wide with no horizontal scroll.
+4. Close (Escape). Crank for 10 s in 0.5 s ticks (`w.crank` as the existing steps do) and sample the millstone's `describe` each
+   tick: assert one sample matches `/(left|right) 32 rpm/` and another `/(left|right) 16 rpm/` with the OTHER direction word
+   (program: double 4 s, then reverse 4 s - both new rows default to 4 s, so both phases occur within any 10 s window).
+5. Spyglass: give + select `spyglass`, `d.use()`; assert `renderer`'s fov (via `__hw.state()` or `app.game.renderer` camera fov)
+   is within 1 deg of `settings.fov / 4` after 1 s; the `.hw-spyglass` overlay is visible; screenshot `11-spyglass`; `d.use()`
+   again -> fov back.
+6. Horn: spawn a tame goat 20 blocks away (`__hw` mob spawn helper with `tame = true`; if none exists, add `__hw.spawnMob(kind,
+   x, y, z, tame)` to the dev hooks - a dev-only hook is allowed), give + select `brass_horn`, `d.use()`; assert the toast
+   `1 animal answers the horn` appears; tick 8 s; assert the goat is closer than 12 blocks.
+
+**Step C - `'a padlock chest takes from an arm but gives nothing back'`**
+1. Setup: a crate with 8 `stick` -> `mech_arm` -> a padlock chest (arm wrench setup through `workshop.use` with a held wrench, as
+   the existing arm step does), crank on the arm.
+2. Tick 10 s cranking: assert the padlock chest holds 8 sticks (`__hw` machine slots read) and the crate 0.
+3. Re-wire a second arm from the padlock chest to a depot: assert the wrench step toasts
+   `The Padlock Chest is locked - an arm cannot take from it` and the depot stays empty after 10 s.
+4. Real input: look at the padlock chest, `d.use()` empty-handed: the crate screen opens with heading `Padlock Chest`; screenshot
+   `12-padlock`; Escape.
+
+The final `'no page errors'` step stays last and must pass.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/workshop.md`: "what exists" gains the trinkets (vane, cock as a signal source with its timing, padlock rule table,
+  lantern chain), punch cards (presets, limits, encoding, the card slot table, the screen), `windDirAt`/`turbineWattsAt`, the new
+  hooks on `Workshop` (`wind`, `weatherAt`, `turbineW`, `giveToPlayer`, `cardHost`, `trinkets`), `WorkshopSnapshot.cards`,
+  `WorkshopView.vanes`, and which J5 contraption works (piston gated, or clutch flipped - 4.2).
+- `docs/api/weather.md`: the weather cock reads `next`/`nextInS`/`wetAt`; wind now has a direction (`windDirAt`) that the rain
+  slant follows.
+- `docs/api/mobs.md`: `callTame`, `Mob.calledS`, brain step 4 change.
+- `docs/api/player.md`: spyglass (zoom, look scale, far label, auto-lower rules), horn, `HeldTrinkets`.
+- `docs/api/sim.md`: `windDirAt`, `WIND_TURN_S`, `turbineWattsAt`; padlock endpoint (in only).
+- `docs/api/audio.md`: `sfxWorkshop.ts` names (`horn_call`, `vane_creak`, `card_punch`).
+- `docs/api/content.md` (or the workshop content doc): new keys and recipes.
+- Never `docs/WHATS_LEFT.md` (coordinator). Do not edit `docs/build/SYSTEMS.md` (coordinator merges section 14).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] 4 blocks + 6 items exist with the exact names, descs, stacks, ages (`ageIndexOf('bronze')`) and recipes of section 4; all in
+      `specRosterWorkshop.ts`; content tests green.
+- [ ] A wind vane under open sky shows `Wind Vane - wind from the <compass>, <word> (<n.n>), turbine <W>` in the crosshair
+      WITHOUT goggles; under a roof `sheltered`; the arrow turns smoothly and creaks at most every 6 s.
+- [ ] `windDirAt` is deterministic on world time; the rain slant follows it.
+- [ ] A weather cock signals while wet and from 120 s before rain is due, holds 30 s after, never under a roof; a wired lamp
+      lights and a bell rings once; the cock's comb glows while on.
+- [ ] J5 contraption (cock -> wire -> gated piston or flipped clutch -> framed roof) is built in the e2e or documented with the
+      working variant in workshop.md.
+- [ ] Spyglass: Use toggles x4 zoom with look scaled 1/4; held Use toggles once; lowers on slot change / screen / death; far label
+      to 96 blocks; overlay never covers hotbar or touch buttons; refused while riding.
+- [ ] Brass horn: calls tame, non-harnessed, loaded animals within 32 blocks for 20 s, 6 s cooldown, exact toasts, `horn_call`
+      at 1.4.
+- [ ] Padlock chest: arms, funnels, chutes, golems (via `take`) and pipes never take out; deliveries in work; player screen and
+      station borrowing work; arm source refusal toast; heading reads `Padlock Chest`.
+- [ ] Lantern chain: lights 14 when unsignalled or signalled-on, dark when its signal is off; hangs only; falls when unsupported.
+- [ ] Cards: preset cards run their programs; swap returns the old card; a blank opens the editor; punched programs (<= 8 steps,
+      1-8 s, 7 factors) run; custom cards come out blank; cards drop when the gearshift breaks; no card = old dial behaviour.
+- [ ] Card editor usable at 390 x 844 and 844 x 390, all targets >= 44 px, no horizontal scroll, playhead live.
+- [ ] Save: `cards` round-trips; old saves load; damaged rows are skipped; nothing else new is saved.
+- [ ] Sounds: three new names in `SfxName`, `WORKSHOP_SFX`, `sfx.test.ts` count; no idle loops.
+- [ ] Side goal `read_the_wind` completes on placing a wind vane (with Unit 0's mechanism).
+- [ ] `npm test` green; `npm run typecheck`/build green; e2e-workshop desktop green with screenshots 9-12; phonePortrait run of
+      step B green.
+- [ ] Docs of section 11 updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- Copying a custom program to another card or gearshift (a "card press" or wrench copy). A later unit can add a
+  `punch_card_copy` flow; this spec keeps programs on the drum because stacks carry no metadata.
+- Cards for anything but the `sequence_gearshift` (metronome rhythms, arm schedules). SYSTEMS T4: "one consumer is enough".
+- A visible card sticking out of the gearshift model.
+- Keys, owners or multiplayer locks for the padlock chest; a lockable vault (Unit 15's vault groups stay open).
+- Seeded wind direction per world; wind direction affecting turbine output (turbines stay omnidirectional; the vane advises on
+  strength and height, the direction is information and drives the rain slant).
+- Spyglass on a tripod / mounted telescope block; zoom levels other than x4.
+- Horn calling wild animals, scaring hostiles, or summoning golems (golems are set up with the wrench - Unit 17).
+- Lantern fuel, lantern warmth, a chain you climb.
+- Weather cock forecasts longer than the timetable's next change (it reads `next` only, like the Hearth Log).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **Name clash: `MobManager.call` already exists (private, plays an animal's voice).** This spec names the horn method
+   `callTame(x, y, z, radius, seconds)`. Please change SYSTEMS T6 and 6.2 from `MobManager.call` to `MobManager.callTame`.
+2. **Padlock rule = letterbox.** "Anything may put things in; only a player's hand takes them out" (4.5). SYSTEMS T6 "Padlocked
+   chests are skipped" should read "skipped as a source" so Unit 17 refuses a padlock chest only as a golem SOURCE (2.3).
+3. **T4 row for punch cards:** presets also get workbench recipes (`1 punch_card + 1 flint`) so the progression solver and the
+   Codex see them; the gearshift screen can punch a blank into a preset too. Custom programs live on the gearshift block
+   (`WorkshopSnapshot.cards`), and a custom card comes out blank. Please amend the T4 row's "made by" text accordingly.
+4. `WorkshopView.vanes?` is a new OPTIONAL member next to Unit 0's `moving` (SYSTEMS 6.5 allows optional members).
+5. `src/audio/sfxWorkshop.ts` is shared with Units 13 and 14: first to land creates it (2.3 item 4).
+6. `BlockSpec.hangs?` is a new optional field (lantern chain); nobody else needs it.
+7. Unit 4's hot-item refusal covers the padlock chest automatically (it is a crate entity). No rig legend letters are used by this
+   unit.
+8. Verified existing (grepped 2026-11-22): `PART_DEFS`, `NON_KINETIC`, `PART_ITEMS`, `PART_BLOCKS`, `WORKSHOP_RECIPES`,
+   `WORKSHOP_SPEC` (`textures: 93`), `WORKSHOP_OBJECTIVES`, `goal()`, `GEARSHIFT_PROGRAMS`, `gearshiftFactor`, `passOn`, `KPart`,
+   `BASE_STRESS`, `solveNetwork`, `CYCLES`, `Workshop.use/describe/setting/toJSON/load/verify/relocate/noteBlock/isMovable/
+   clockText/standingOn/fluidBlock`, `WorkshopSnapshot`, `WorkshopView`, `SIGNAL_KINDS`, `SIGNAL_RANGE`, `Signals.gate/near/
+   flips/describe/tick`, `SignalHost`, `BELL_RANGE`, `Logistics.take/peek/accept/wrench/crateAt`, `windAt`, `Simulation.wind`,
+   `WEATHER_WIND`, `WeatherState.next/nextInS`, `wetAt`, `openSkyAbove`, `precipitationFor`, `WeatherFx.windAngle`,
+   `SPRINT_FOV_KICK`, `sprintFov`, `USE_REPEAT_S`, `Collectors.trigger`, `MOB_FOLLOW_RANGE`, `MobManager.feed/tick`,
+   `AnimalTargets`, `crate` block/machine (`CRATE_SIZE` 27, `STATION_CRATE_RADIUS`), `cratesNear`, `machineItemEndpoint`,
+   `createCrateScreen`, `ScreenRequest`, `SfxName`, `ScreenContext.world`, `Stepper`, `Window`, `torch` (light 13),
+   `magic_light` (light 14), `BlockSpec.lightActive`, `ageIndexOf`, `RULES` in workshopScreen.ts, `STATIC` in
+   iconsWorkshopParts.ts. Everything else named in this file is marked NEW.

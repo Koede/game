@@ -209,8 +209,10 @@ Both species give the same 12 rpm / 24 su (section 2.1).
    "The goat ate the wheat but cannot reach the treadwheel".
 2. **Lead it on (J4 wording).** A tame eligible animal whose feet cell is directly above a treadwheel (`world.getBlock(floor(x),
    floor(y + 0.01) - 1, floor(z)).key === 'treadwheel'`) and which has been there, not fleeing, for `HARNESS_SETTLE_S` 1.5 s
-   becomes harnessed when it is NOT currently following (the player is not holding a liked item within range) - i.e. you led it
-   with wheat, then put the wheat away (or walked off out of follow range). `fedS = HARNESS_FEED_S` on harnessing this way too
+   becomes harnessed when it is NOT currently following (the player is not holding a liked item within range) but WAS following
+   within the last `HARNESS_LED_S` 10 s (`m.ledS`, set to 10 every tick it is in state `follow`, counting down) - i.e. you led it
+   with wheat, then put the wheat away (or walked off out of follow range). A tame goat that wanders onto a wheel by itself is NOT
+   harnessed (no surprise hunger toasts). `fedS = HARNESS_FEED_S` on harnessing this way too
    (it is fresh from following the food). This check runs every 0.25 s per tame animal (cheap: one block read).
 
 On harnessing (either way): `m.harness = "x,y,z"` (the wheel cell), `m.state = 'harness'`, position snapped to the wheel's top
@@ -241,9 +243,9 @@ W order, `standCell`) by setting a short wander target there, so it visibly step
 - `mind()`: a harnessed animal skips `think()`; `harnessTick(m, dt, ctx)` runs instead: decrement `fedS`, checks of 4.1.3/4.1.4, sets
   `vx = vz = 0`, and pins `x/z` to the wheel's top centre. After `separate()` (crowd push) `move()` re-pins it (the crowd cannot push
   it off). `y` follows physics (it rests on the wheel top).
-- Walking in place: when the wheel is actually turning (`ctx.wheelTurning(x, y, z)` - NOT needed; simpler and always true while
-  harnessed and fed) its leg phase advances: `m.walk += HARNESS_STRIDE * dt` (1.2 blocks/s), `m.speed = 1.2`, so the renderer swings
-  legs at a calm walk while the body stays put. Head bob comes free with the walk phase.
+- Walking in place: every tick while harnessed (it walks whether or not the network is jammed - the animal does not know) its leg
+  phase advances: `m.walk += HARNESS_STRIDE * dt` (1.2 blocks/s), `m.speed = 1.2`, so the renderer swings legs at a calm walk while
+  the body stays put. Head bob comes free with the walk phase.
 - No idle calls changes: it still calls every 8-20 s (life on the farm).
 - `standingOn` contribution: `MobManager.standingOn(x, y, z)` returns true when a mob with `harness === "x,y-1,z"` exists, its column
   is loaded, it is alive, and it is in the `harnessed` sub-phase (not `going`). Lookup is O(1) through a derived
@@ -263,6 +265,7 @@ The player and an animal cannot usefully stand on one 1-block wheel; if both are
 | `HARNESS_MIN_W` | 0.75 | goat 0.8 / boar 0.9 pass, hen 0.45 fails |
 | `HARNESS_CALL_RANGE` | 12 | a little beyond `MOB_FOLLOW_RANGE` 10 |
 | `HARNESS_SETTLE_S` | 1.5 | lead-on settle time |
+| `HARNESS_LED_S` | 10 | lead-on only for an animal that followed the player this recently |
 | `HARNESS_GO_S` | 8 | give-up time walking to the wheel |
 | `HARNESS_STRIDE` | 1.2 | leg phase blocks/s in place |
 | `HARNESS_WARN_S` | 60 | hunger warning |
@@ -306,7 +309,7 @@ The player and an animal cannot usefully stand on one 1-block wheel; if both are
   units because Soul is a late aspect (Unit 18's `late_draw` or late-block overrides) and is the real gate. 30 s draws.
 - Gate: Unit 18's `golem_walk` entry unlocks `recipes: ['clay_golem']`. Unit 17's guard in `Magic.startInfusion`, right after the
   existing `craftGate` check: `if (r.id === 'clay_golem' && !hasFlag(this.research, 'golem_walk')) { this.advise(GOLEM_GATE_TEXT);
-  return 'refused'; }` with `GOLEM_GATE_TEXT = 'Research "The Walking Golem" in your notebook first'` (if Unit 18's entry title differs,
+  return 'refused'; }` with `GOLEM_GATE_TEXT = 'Research "The Walking Clay" in your notebook first'` (if Unit 18's entry title differs,
   the craftGate message already wins because it runs first once the entry exists; the guard text only shows before Unit 18 merges).
 - Codex/progression: the solver reads `INFUSIONS` already, so `clay_golem` counts as obtainable once its heart and pedestals are.
   `gates.test.ts` must still prove magic optional.
@@ -372,8 +375,8 @@ Wrench on the golem itself arrives through `AnimalHands.use()` -> `MobManager.us
      basin, funnel, chute, deployer, item_vault, skiff or item_drain, a crate block entity, or a mechanical twin station with a
      machine buffer (millstone, saw, stamp mill, loom: `offer` feeds them via `twinAccept`). Includes vault groups (Unit 15) and,
      after Unit 0, reaction vessels if `canHold` reports them (Unit 0's `Distillery.offerItem/takeItem` via logi).
-   - `'work'`: a hand station (`sim.hand.view(x, y, z) !== null`: chopping block, quern, stone anvil, mortar, clay table, loom,
-     drying rack, trough).
+   - `'work'`: a hand station (NEW pass-through `Simulation.handView(x, y, z) !== null` over the private `hand: HandWork`'s
+     existing `view(x, y, z)`: chopping block, quern, stone anvil, mortar, clay table, loom, drying rack, trough).
    - `null`: refused "A golem cannot work that - pick a crank, a container or a hand station".
    Order rule: the FIRST wrenched `'carry'` block becomes the SOURCE ("Source set: Depot. Now the targets"); every later block, and
    any crank or station, becomes the next target ("Target 1: Hand Crank - it will crank", "Target 2: Mixer - it will carry",
@@ -402,9 +405,9 @@ crank is its only target, or no other target has work, it keeps cranking. Status
 first entry whose item the target will take: `room = hooks.room(target, item, min(count, stackLimit(item)))` (dry `accept`). Take
 `hooks.take(src, item, room)` - at most ONE stack (`stackLimit`, up to 64: SYSTEMS 5.2 "carries one stack"). Walk to the target;
 `n = hooks.offer(target, item, count)`; the rest stays carried. Leftover rule (conservation, T3 rule 1 for items): try the other
-carry targets in order (walking to each), then walk back and `offer` it to the source; if even the source refuses, drop it as a
-ground item at the golem's feet through the death-drop style `bus` path is NOT used - instead `hooks.drop(item, count, x, y, z)`
-(Game: `player.ground.spawn`). Items never vanish.
+carry targets in order (walking to each), then walk back and `offer` it to the source; if even the source refuses (or is gone),
+drop it as a ground item at the golem's feet with `hooks.drop(item, count, x, y, z)` (Game: `player.ground.spawn`). Items never
+vanish.
 If the source has nothing any target takes: status "waiting for items at the Depot", retry every `GOLEM_RETRY_S`.
 If the target's room is 0 when the golem arrives (filled meanwhile): wait `GOLEM_FULL_WAIT_S` 5 s re-checking each second
 ("waiting: the Mixer is full"), then the leftover rule.
@@ -540,3 +543,542 @@ export type UseOnResult = { ok: true; consume: number; give?: ItemAmount } | { o
 - `Magic.feedConstruct(x, y, z, radius): boolean` (NEW, public): one unit of Spring from jars within `radius` or tubed.
 - `HandWork.strokeAsHelper` + `Simulation.strokeAsHelper` (NEW, 4.3.6).
 - `MachineActAction.bare?: boolean` (NEW optional member).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 5. Behaviour and rules: edge cases and messages
+
+Every message below is the exact string (T8: sentence case, a full sentence that says the fix, numbers with units, no exclamation
+marks). `kind` is the toast kind (`info` / `warn` / `good`). "Advisory" = `Interaction.advise`-style rate limit (once per subject per
+30 s, keyed without numbers).
+
+### 5.1 Harness
+| situation | what happens | message |
+|---|---|---|
+| Use wheat on a treadwheel, tame goat within 12 | goat walks to the wheel, 1 wheat used | "The goat walks to the treadwheel" (info) |
+| it arrives and settles | harnessed, flag `harnessed_animal` | "The goat is harnessed to the treadwheel - feed it every 10 min" (good) |
+| no eligible animal | nothing used | "No tame goat within 12 blocks of the treadwheel" (advisory) |
+| only hens like the item | nothing used | "A hen is too small to turn the treadwheel" (advisory) |
+| wheel already has an animal | nothing used | "The treadwheel already has a goat" (advisory) |
+| no room on top of the wheel | nothing used | "The treadwheel needs open space on top" (advisory) |
+| the walker is blocked 8 s | back to idle; the item is eaten | "The goat ate the wheat but cannot reach the treadwheel" (info) |
+| led on with food, food put away, 1.5 s on the wheel | harnessed (same toast) | as above |
+| wild animal on a wheel | nothing (not tame) | none |
+| baby on a wheel / Use with a baby nearest | babies are never chosen | "This goat is too young for the treadwheel" only when the ONLY candidate is a baby |
+| feed a harnessed animal, `fedS <= 540` | `fedS = 600`, sfx `eat` | "The goat is fed - 10 min on the wheel" (info) |
+| feed a harnessed animal, `fedS > 540` | refused, item kept | "The goat is not hungry yet (9.2 min)" (advisory) |
+| `fedS` reaches 60 s | once | "The goat on the treadwheel is getting hungry (1 min)" (info) |
+| `fedS` reaches 0 (animal unfed) | steps off; shaft stops unless the player stands on it | "The goat is hungry and steps off the treadwheel" (warn) |
+| wrench on a harnessed animal | steps off | "The goat is free of the treadwheel" (info) |
+| wheel broken / replaced / turned into another block | steps off on the next 0.25 s check, no toast (the player did it) | none |
+| wheel moved by a piston/bearing (Unit 13) | harness key follows the relocate map; the animal is re-pinned on the new top | none |
+| animal hurt (player or lava) | unharnessed, then flees as today | none (the hurt flash says it) |
+| network jams or overstresses | nothing changes for the animal (it keeps walking; the workshop's own toast reports the jam) | workshop's existing toast |
+| chunk unloads | frozen with its column; `standingOn` false while unloaded; resumes on load | none |
+| save and load while harnessed | restored harnessed with its `fedS`; harness index rebuilt; if the wheel is gone at load, unharnessed on the first loaded check | none |
+| horn blown (Unit 16) | harnessed animals ignore `call` | none |
+| player holds wheat near a harnessed goat | it does NOT follow (harness overrides follow) | none |
+| two goats led onto one wheel | the first to settle is harnessed; the second cannot stand there (cell occupied) and the crowd push keeps it off | none |
+
+### 5.2 Golem
+| situation | what happens | status line / message |
+|---|---|---|
+| infusion without research | refused | "Research \"The Walking Clay\" in your notebook first" (Unit 18's entry title once it exists) |
+| Use `clay_golem` on open ground | golem set down | "Clay Golem set down - wrench it, then a source, then up to 4 targets, then it again" |
+| no room / not the top face | refused | "Set the golem on open ground with room above it" |
+| wrench the golem | listening | "Wrench the SOURCE block, then up to 4 targets, then the golem again" |
+| wrench a container first | source | "Source set: Depot. Now the targets" |
+| wrench a crank / container / station | target n | "Target 1: Hand Crank - it will crank" / "Target 2: Mixer - it will carry" / "Target 3: Hand Quern - it will work it" |
+| too far | refused | "Too far from the golem's home (8 blocks)" |
+| padlocked chest | refused | "A padlocked chest keeps golems out" |
+| same cell / vault group again | refused | "Already a target" |
+| fifth target | refused | "The golem knows 4 targets - wrench it again to finish" |
+| not workable | refused | "A golem cannot work that - pick a crank, a container or a hand station" |
+| wrench the golem again | done | "Golem set: source Depot, 3 targets" / "Golem set: no source, 1 target" / "Golem set: nothing to do - wrench it again to start over" |
+| 60 s idle / player 24 blocks off | setup ends, keeps what was set | "Golem setup cancelled" |
+| target removed (block broken) | target dropped at its next visit | "The golem forgot target 2: the Depot is gone" (info, once) |
+| source removed | carry targets idle | status "no source, wrench it to set one" |
+| target full | waits 5 s, then other targets, then back to the source | status "waiting: the Mixer is full" |
+| source empty / nothing any target takes | idle at home, retry 5 s | status "waiting for items at the Depot" |
+| target becomes padlocked | skipped | status "skipping the padlocked chest" |
+| path blocked | next target; retry later | status "cannot reach the Mixer, path blocked"; advisory "The golem cannot reach the Mixer" |
+| pushed out of its range | paths home | status "walking home" |
+| home unreachable 30 s | stops | status "lost - wrench it to set a new home" |
+| unfed, no Spring in reach | stops where it is, keeps its stack | status "hungry, needs Spring in a jar within 8 blocks"; advisory "The Clay Golem is hungry - fill a jar of Spring near it" |
+| vial of Spring used on it | fed 120 s | "The golem drinks the Spring - fed 2 min" |
+| elixir used on it | x2 for 300 s | "The golem drinks the elixir - twice as fast for 5 min" |
+| bandage / clay on a damaged golem | +6 / +2 HP | "The golem is patched - 14/20" |
+| bandage / clay at full HP | refused | "The golem is not damaged" |
+| player hits it to 0 HP | folds: drops `clay_golem` + carried stack | "The Clay Golem folds up - pick it up" |
+| lava / cactus to 0 HP | crumbles: 4 clay + carried stack | "The Clay Golem crumbled in the heat" (warn) |
+| station output waiting | moves on; never takes it | status "the Hand Quern's output is waiting" |
+| station refuses the carried item | carried back to the source | none |
+| hand station is timed (drying rack, trough) | strokes refused; inserts still work | status "the Drying Rack works by itself" |
+| chunk with the golem unloads | frozen | none |
+| chunk with a target unloads | target unreachable until loaded | status "cannot reach the Mixer, path blocked" |
+| save/load mid-carry | the stack is saved; delivered after load | none |
+| contraption moves a target/source block | cells rewritten through `MobManager.relocate(map)` | none |
+| two golems share a source | each takes its own stack; `take` is atomic per call | none |
+| golem and arm share a depot | both use `logi`, which is the single owner of the depot's items | none |
+| golem stands on a pressure plate | plates read `standingOn` (player + harness only); golems do not press plates (they are not "standing on" anything for the workshop) | none |
+
+### 5.3 Conservation
+- Items: every take is followed by an offer of the same count to some container, or a ground spawn; nothing else changes counts.
+  A golem's carried stack is part of the save. Test 9.3.6 fuzzes this.
+- Spring: one unit per 30 s of work, from jars only (never from the player's pack automatically).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 6. UI and feedback
+
+### 6.1 Crosshair lines (T8; `MobManager.describe(id)`, shown by `GameUI.setTargetName`)
+Animal (harnessed): `"Goat - harnessed to the treadwheel, fed 6.5 min"` (T6 example); under 60 s: `"Goat - harnessed to the
+treadwheel, fed 40 s, hungry soon"`; walking to the wheel: `"Goat - walking to the treadwheel"`; hurt suffix when below max health:
+`", 6/8"`. Unharnessed animals keep today's `"Goat - 6/8"`.
+
+Golem (first fact = what it does; then numbers; max ~60 characters):
+- `"Clay Golem - not set, wrench it to give it work"`
+- `"Clay Golem - listening, wrench a source and targets"`
+- `"Clay Golem - fetching from the Depot, fed 22 s"`
+- `"Clay Golem - carrying 8 Flour to the Mixer, fed 22 s"` (T6 example)
+- `"Clay Golem - cranking the Hand Crank, fed 1.5 min"`
+- `"Clay Golem - working the Hand Quern, fed 22 s"`
+- `"Clay Golem - waiting: the Mixer is full"`, `"Clay Golem - waiting for items at the Depot"`
+- `"Clay Golem - cannot reach the Mixer, path blocked"`
+- `"Clay Golem - hungry, needs Spring in a jar within 8 blocks"`
+- `"Clay Golem - idle - nothing to carry"`, `"Clay Golem - walking home"`, `"Clay Golem - lost, wrench it to set a new home"`
+- damaged suffix `", 14/20"` appended when health < 20 and the line stays <= 64 characters (else dropped).
+Time format per T8: `22 s` under 60, `1.5 min` (one decimal) under 60 min. Counts are integers. Names are `ItemSpec.name` /
+`BlockSpec.name`, Title Case. A helper `formatFed(s)` lives in `src/mobs/helperText.ts` (pure, tested).
+
+### 6.2 Goggles second line (`inspector.ts` path: Game appends when the player carries Engineer's Goggles and targets a mob)
+- Golem: `"Home 12,64,-3, source Depot, 3 targets, x2 for 4.2 min"` (the boost part only while boosted); not set:
+  `"Hit it to fold it up and carry it"`.
+- Harnessed animal: `"Turns the treadwheel: 12 rpm, 24 su"`.
+NEW `MobManager.describeMore(id): string | null` returns this second line; Game shows it under the crosshair name only with goggles
+(same mechanism the workshop kinetic line uses; if the HUD has a single name line, Game joins with " | " on desktop and shows only
+the first line on narrow portrait - SYSTEMS 1.3 "longer facts go in the screen").
+
+### 6.3 Phone flow (every step is Use / Mine on what you look at; no drag, no long-press, no screen)
+1. Harness: select wheat in the hotbar (44 px), look at the treadwheel, tap Use. Feed: look at the goat on the wheel, tap Use. Free
+   it: wrench, look at the goat, tap Use.
+2. Golem: altar infusion as today. Select the golem item, look at the floor, tap Use. Select the wrench; tap Use on the golem, on the
+   depot, on the mixer, on the golem. Every tap answers with a toast naming what was set ("Target 2: Mixer - it will carry").
+3. Pick it up: Mine on it (hold Mine; hits repeat on the cooldown).
+No new screen: the setup has at most 6 taps and each answer fits a toast (SYSTEMS 1.3: a screen only above three options of a
+choice). Toasts are the existing toast component (44 px floors from Unit 3 apply).
+
+### 6.4 Sounds (T9)
+| name | set | when | volume | notes |
+|---|---|---|---|---|
+| `golem_step` | `sfxMagic.ts` | every 1 block a golem walks | 0.3 whisper | dull clay thud: low sine 90 Hz + short noise burst, 60 ms; pitch jitter 0.9-1.1. SYSTEMS T9 lists it under Unit 19 "(17 may use)": Unit 17 ADDS it if Unit 19 has not; whichever merges second keeps one patch |
+| `golem_wake` | `sfxMagic.ts` | golem set down, setup start/finish, first task | 0.6 small | rising glassy two-note (Soul): 440 -> 660 Hz triangle with the `scan_chime` shimmer, 0.35 s |
+| species call (`goat`, `boar`) | existing | harnessed (pitch 1.1), steps off hungry (0.8) | 1 | reuse |
+| `eat` | existing | harness feed | existing | reuse |
+| `mob_hurt` | existing | golem hit (pitch 0.7) | existing | reuse |
+| crank / station strokes | existing | the crank and stations play their own sounds when worked | existing | no new sound |
+Both new names go in the `SfxName` union (`src/core/gameEvents.ts`); `sfx.test.ts` counts `72 + Object.keys(MAGIC_SFX).length`, so
+adding them to `MAGIC_SFX` keeps the expression right. Idle golems and harnessed animals make no added loop.
+
+### 6.5 Animation summary
+Harnessed: legs at a calm walk in place (`walk` advancing 1.2/s), body pinned, facing along the wheel; the wheel spins as today (the
+workshop renderer's `SPIN_KINDS` includes `treadwheel`). Golem: walk cycle with legs; arms rise and fall while working (`flare`),
+eyes and chest hub glow with fed state (`glow`), head slumps when hungry, carried item cube between the fists, red hurt flash
+(existing), tip-over and fade on death (existing). Nothing teleports that could be seen moving (T9.4): setting down spawns at the
+tapped spot, the golem walks everywhere.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save
+
+### 7.1 Types (TypeScript sketches; final names as written here)
+```ts
+// src/mobs/types.ts (additions)
+export type MobState = 'idle' | 'wander' | 'graze' | 'flee' | 'follow' | 'breed' | 'swim' | 'dying' | 'harness';
+export interface Mob {
+  /* existing ... */
+  /** Wheel cell "x,y,z" while walking to or standing on a treadwheel (Unit 17); null otherwise. */
+  harness: string | null;
+  /** True once on the wheel (false while still walking to it). */
+  harnessed: boolean;
+  /** Seconds of harness feeding left (only counts while harnessed and loaded). */
+  fedS: number;
+  /** Seconds on a wheel cell while led there (lead-on settle), and while walking to one (give-up). */
+  harnessS: number;
+  /** Seconds since it last followed the player, counting down from HARNESS_LED_S (lead-on needs > 0). Not saved. */
+  ledS: number;
+  /** A clay golem's mind; null for animals and automatons. */
+  golem: GolemState | null;
+}
+export interface SavedMob {
+  /* existing ... */
+  /** Unit 17: absent = not harnessed. "x,y,z" of the treadwheel. Only saved when harnessed (not while walking to it). */
+  harness?: string;
+  /** Unit 17: harness feeding left, 0..HARNESS_FEED_S. */
+  fedS?: number;
+  /** Unit 17: present only for clay golems. */
+  golem?: SavedGolem;
+}
+
+// src/mobs/golemTypes.ts (NEW)
+export type GolemTaskKind = 'crank' | 'carry' | 'work';
+export interface GolemTarget { x: number; y: number; z: number; kind: GolemTaskKind; want: string | null }
+export type GolemPhase = 'unset' | 'idle' | 'toSource' | 'toTarget' | 'cranking' | 'working' | 'waiting' | 'home' | 'hungry' | 'lost';
+export interface GolemState {
+  home: [number, number, number];
+  src: [number, number, number] | null;
+  targets: GolemTarget[];          // <= GOLEM_TARGETS
+  rr: number;
+  fedS: number;
+  boostS: number;
+  carry: { item: string; count: number } | null;
+  phase: GolemPhase;
+  goal: number;                    // index into targets, -1 source, -2 home
+  path: number[];                  // flat x,y,z stand cells
+  pathI: number;
+  timerS: number;                  // time in the current phase (crank/station stay, full wait, retry)
+  blockedS: number;
+  stepAcc: number;                 // blocks walked since the last golem_step
+  note: string;                    // the status fact for describe(), e.g. 'carrying 8 Flour to the Mixer'
+  woke: boolean;                   // first task done (flag sent)
+  advisedAt: Record<string, number>; // advisory rate limits, not saved
+}
+export interface SavedGolem {
+  home: [number, number, number];
+  src: [number, number, number] | null;
+  targets: [number, number, number, GolemTaskKind][];
+  rr: number;
+  fedS: number;
+  boostS: number;
+  carry: { item: string; count: number } | null;
+}
+export interface GolemHooks {
+  blockKey(x: number, y: number, z: number): string;
+  blockName(x: number, y: number, z: number): string;
+  targetKind(x: number, y: number, z: number): GolemTaskKind | null;
+  locked(x: number, y: number, z: number): boolean;
+  groupKey?(x: number, y: number, z: number): string | null;              // Unit 15 vault groups, optional
+  peek(x: number, y: number, z: number): { item: string; count: number }[];
+  room(x: number, y: number, z: number, item: string, n: number): number;   // logi.accept(..., false)
+  offer(x: number, y: number, z: number, item: string, n: number): number;  // workshop.offer
+  take(x: number, y: number, z: number, item: string | null, max: number): { item: string; count: number } | null; // workshop.take
+  crank(x: number, y: number, z: number): boolean;                           // workshop.crank
+  work(x: number, y: number, z: number, item: string | null): 'stroked' | 'inserted' | false; // workshop.act
+  feed(x: number, y: number, z: number, radius: number): boolean;           // magic.feedConstruct
+  drop(item: string, count: number, x: number, y: number, z: number): void;  // ground.spawn
+  stackLimit(item: string): number;
+  itemName(item: string): string;
+}
+
+// src/mobs/manager.ts (public additions)
+class MobManager {
+  standingOn(x: number, y: number, z: number): boolean;
+  harnessTo(x: number, y: number, z: number, item: string, px: number, pz: number): FeedResult;
+  useOn(id: number, item: string): UseOnResult | null;
+  describeMore(id: number): string | null;
+  relocate(map: ReadonlyMap<string, [number, number, number]>): void;
+  useGolemHooks(hooks: GolemHooks): void;
+  get golems(): GolemLayer;   // configuring(): number | null; wrenchBlock(x,y,z): 'worked' | 'refused'; add(x,y,z,yaw): Mob; carryViews(): readonly CarryView[]
+}
+
+// src/workshop/logistics.ts
+export interface MachineActAction { item: string; target: [number, number, number]; face: Facing; mode: 'auto' | 'use' | 'strike' | 'place' | 'mine'; bare?: boolean }
+
+// src/player/animals.ts
+export interface AnimalTargets { /* existing */ useOn?(id: number, item: string): UseOnResult | null }
+```
+
+### 7.2 Sanitising on load (`restoreMobs`, T10 rule 1)
+- `harness`: string matching `/^-?\d+,-?\d+,-?\d+$/` and the species qualifies (adult, tame, `size.w >= HARNESS_MIN_W`); else dropped.
+  `fedS`: finite, clamped `[0, HARNESS_FEED_S]`; missing with a harness -> `HARNESS_FEED_S` (generous). Restored harnessed animals get
+  `state = 'harness'`, `harnessed = true`, position pinned at the first tick. Two animals claiming one wheel: the lower id keeps it.
+- `golem`: only kept when `species === 'clay_golem'`; a golem without a valid `golem` record gets a fresh one with `home` = its feet
+  cell. `home` 3 integers; `src` null or 3 integers within range of home (else null); `targets` up to 4 entries of 3 integers + a known
+  kind, within range (others dropped); `rr` integer mod targets length; `fedS` clamp `[0, 600]`; `boostS` clamp `[0, 300]`; `carry`
+  kept only for a known item (`itemOrNull`) with an integer count `1..stackLimit` (a bad carry is dropped - logged as lost is
+  acceptable for corrupted data only).
+- Unknown extra fields ignored. A mob of species `clay_golem` in a save from a build without Unit 17 cannot exist.
+
+### 7.3 Old saves and existing servants
+- Old saves: no `harness`/`fedS`/`golem` fields -> every animal unharnessed, exactly today's behaviour (test 9.3.8).
+- `MobsSnapshot.version` stays 1 (all additions optional; no `SAVE_VERSION` bump, T10 rule 3).
+- Existing clay servants are blocks owned by `Magic` (`servants` map, `world.persist('magic')`) and are untouched: they keep cranking
+  what they touch. A servant ITEM in the pack is the heart of the golem infusion; a placed servant can be mined back to its item
+  (existing block drop) and infused. The magic goal "Set a clay servant to work" is unchanged.
+- Harness index and golem configuring state are derived / transient (T10 rule 5).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered; each step leaves tests green)
+
+1. **Constants and types.** `src/mobs/constants.ts`: the harness and golem constants of 4.2 (the golem ones exported, `GOLEM_FEED_S`
+   imported from nothing - a literal 30 with a comment "= SERVANT_FEED_S in src/magic/magic.ts" to keep `src/mobs` free of magic
+   imports). `src/mobs/types.ts`: `Mob` fields, `SavedMob` optional fields, `MobState` `'harness'`, `UseOnResult`. `src/mobs/mob.ts`
+   `createMob`: `harness: null, harnessed: false, fedS: 0, harnessS: 0, ledS: 0, golem: null`. NEW `src/mobs/golemTypes.ts`.
+2. **Harness core** - NEW `src/mobs/harness.ts` (pure-ish, takes `world` and the mob):
+   - `harnessRefusal(m: Mob | undefined): string | null` (species, baby, tame);
+   - `wheelBelow(world, m): string | null` (key of a treadwheel under the feet);
+   - `wheelTop(key): { x, y, z }`, `freeTop(world, key, h): boolean`;
+   - `harnessTick(ctx: HarnessCtx, m: Mob, dt: number): void` (going: steer with the exported brain `steer`; harnessed: feed timer,
+     wheel check, pin, walk phase; events through `ctx.toast` / `ctx.sfx` / `ctx.flag`);
+   - `stepOffCell(world, key, m): [number, number] | null`.
+   `brain.ts`: export `steer` (and `brake`) unchanged; in `think()` nothing changes (the manager never calls `think` for harnessed or
+   golem mobs). Lead-on check (`settleCheck`) every 0.25 s in `harness.ts`, called from the manager for tame eligible animals.
+3. **Manager wiring for the harness** (`src/mobs/manager.ts`; keep it lean by delegating):
+   - private `harnessIndex = new Map<string, number>()`; `standingOn(x, y, z)`; `harnessTo(...)`; `unharness(m, why)`;
+   - `mind()`: `if (m.golem) { this.golemLayer.mind(m, dt); return; } if (m.harness) { harnessTick(...); return; }` after
+     `advanceTimers`; `move()`: re-pin harnessed mobs after `separate`;
+   - `hurt()`: `if (m.harness) this.unharness(m, 'hurt')` first; for golems: no flee (`m.fleeS = 0` after), knockback halved in `hit`;
+   - `feed()`: harnessed -> harness feeding branch (4.1.3) instead of eagerness;
+   - `remove()`: drop from `harnessIndex`;
+   - `load()`: rebuild `harnessIndex` (lower id wins).
+   `src/mobs/life.ts` `advanceTimers`: skip healing for golems; golems never age (they are never babies).
+4. **Persistence** (`src/mobs/persistence.ts`): write `harness`/`fedS` only for harnessed mobs and `golem` only for golems
+   (`saveGolem`), restore with the sanitising of 7.2 (`restoreGolem` in NEW `src/mobs/golemRecords.ts`, like `hostileRecords.ts`).
+5. **Game wiring for the harness** (`src/app/game.ts`):
+   ```ts
+   this.workshop.standingOn = (x, y, z) => playerOnWheel(this.state.player.position, x, y, z) || this.state.mobs.standingOn(x, y, z);
+   ```
+   (extract today's lambda body as a local `playerOnWheel` helper in game.ts); in `beforeUse`, the treadwheel + liked item route
+   (4.3.4) calling `mobs.harnessTo(hit.x, hit.y, hit.z, held.item, p.x, p.z)`: ok -> `player.consumeHeld(1)`, `'worked'`; refused ->
+   advisory toast, `'refused'`. `likedByAnimals` is exported from `src/player/animals.ts` already.
+   Workshop relocate: where Game learns of contraption moves (the `relocate` host callback already passed in `Workshop`), also call
+   `this.state.mobs.relocate(map)` - add an optional `onRelocate?: (map) => void` field on `Workshop` set by Game, invoked at the end
+   of `Workshop.relocate(map)`.
+6. **Player hands** (`src/player/animals.ts`): `AnimalTargets.useOn?`; in `AnimalHands.use()` before the `likedByAnimals` check:
+   ```ts
+   const r = held ? this.animals.useOn?.(this.target, held.item) ?? null : null;
+   if (r) { if (!r.ok) { this.advisor.advise(`mob:${r.reason.replace(/\d+/g, '')}`, r.reason); return 'refused'; }
+            if (r.consume > 0) this.player.consumeHeld(r.consume); if (r.give) this.player.give(r.give.item, r.give.count);
+            this.swing.triggerSwing(); return 'fed'; }
+   ```
+7. **Content: the golem.** NEW `src/content/constructs.ts` (`CONSTRUCT_SPECS = [CLAY_GOLEM]`, model of 4.3.2); `src/core/registry.ts`:
+   `CONSTRUCTS`, add to `creaturesByKey`, `validateConstruct`; `src/content/itemsMagic.ts`: `clay_golem` item; `src/content/recipesMagic.ts`:
+   the infusion row; icon in `src/render/textures/iconsMagic.ts`; `specRosterMagic.ts`: the new key and infusion count.
+8. **Golem path** - NEW `src/mobs/golemPath.ts`: `findPath(world, from: [x, y, z], goal: GoalTest, box: Box, clearance: number,
+   cap = GOLEM_PATH_NODES): number[] | null`, `adjacentGoal(tx, ty, tz): GoalTest`, `homeGoal(hx, hy, hz)`, `boxAround(home)`;
+   reuse `standCell`, `clearanceOf` (`terrain.ts`). Typed arrays for the visited set (box <= 19 x 19 x 9), no allocation per tick
+   beyond the result.
+9. **Golem layer** - NEW `src/mobs/golems.ts` (`class GolemLayer`, kept under ~350 lines; text in NEW `src/mobs/helperText.ts`):
+   `add(x, y, z, yaw)`, `mind(m, dt)` (the work loop 4.3.5 as a small phase machine), `useOn(m, item)` (the golem rows of 4.4),
+   `wrench(m)`, `wrenchBlock(x, y, z)`, `configuring()`, `cancelSetup(why)`, `describe(m)`, `describeMore(m)`, `relocate(map)`,
+   `carryViews()`, `deathDrops(m, cause)`; hooks through `useHooks(h: GolemHooks)` (no hooks = golems stand idle, "not set"; tests use
+   a fake). Setup timeout and distance checks run in `mind()` of the configuring golem with the player position from the brain
+   context. Feeding/boost timers in `mind()`. Footstep sfx via `bus.emit('sfx', { name: 'golem_step', x, y, z, volume: 0.3, pitch })`.
+10. **Magic** (`src/magic/magic.ts`): `feedConstruct(x, y, z, radius): boolean` (public, wraps the private `take`); the `golem_walk`
+    guard in `startInfusion`. Export `GOLEM_GATE_TEXT`.
+11. **Workshop** (`src/workshop/workshop.ts`, `logistics.ts`): `MachineActAction.bare?`; `Workshop.canHold(x, y, z)`; `onRelocate?`.
+    `src/sim/handWork.ts` `strokeAsHelper`; `src/sim/simulation.ts` pass-throughs `strokeAsHelper(x, y, z)` and
+    `handView(x, y, z)`. Game `actHook` per 4.3.6.
+12. **Game wiring for golems** (`src/app/game.ts`): `state.mobs.useGolemHooks({...})` right after the workshop and magic exist,
+    mapping each hook to `this.workshop` / `this.workshop.logi` / `this.magic` / `world` / `player.ground` (`targetKind` uses
+    `this.workshop.canHold`, `world.getBlock(...).key === 'hand_crank'`, and the NEW `this.state.sim.handView(x, y, z)` -
+    `Simulation.hand` is private, so step 11 adds the pass-through); in `beforeUse`: the golem
+    wrench route first (4.3.4), then the `clay_golem` set-down (top face, `mobs.golems.add`, consume 1). Crosshair: where Game calls
+    `ui.setTargetName(mobs.describe(id))`, append `describeMore` when goggles are carried. Carry cubes into the magic renderer's
+    display list each frame from `mobs.golems.carryViews()`.
+13. **Unit 16 seam**: in `MobManager.call` (if present) add the skip line of 2.3; if `call` is not there yet, leave a comment in
+    `harness.ts` naming the contract and tell the coordinator (section 14).
+14. **Sounds**: `golem_step`, `golem_wake` patches in `src/audio/sfxMagic.ts`; names in `SfxName`.
+15. **Side goals**: NEW `src/content/objectivesHelpers.ts` exporting `HELPER_SIDE_GOALS` (two `ObjectiveSpec`s, condition `flag`
+    `harnessed_animal` / `golem_woke`, titles "Put an animal to work" / "Wake a golem", texts: "Use wheat on a treadwheel with a
+    tame goat nearby: it walks the wheel at 12 rpm. Feed it every 10 min." / "Infuse a Clay Golem, wrench it to a source and a
+    target, and give it a jar of Spring within 8 blocks.", no item reward or a small one per Unit 0's reward field: 4 `wheat` / 1
+    `vial_spring`); concatenated in `src/content/objectivesSide.ts`.
+16. **Render** (`src/render/mobs/`): nothing generic needed - `addBatch` builds the golem's mesh from its spec on first sight. Check
+    `PART_GROUP` covers `armL`/`armR` (it does for automatons) and that `MobView.glow/flare` reach golems: `views.ts` `fillViews`
+    currently fills `glow`/`flare` from `m.hostile`; add a branch: `m.golem ? golemGlow(m) / golemFlare(m, t)` (pure helpers in
+    `golems.ts`). Harnessed animals need nothing (walk phase drives legs).
+17. **Docs** (section 11).
+
+Helpers to reuse (do not rewrite): `standCell`, `walkable`, `clearanceOf` (terrain.ts), `steer`/`brake` (brain.ts, exported),
+`halfWidth`/`bodyHeight`, `yawTowards`, `stackLimit` (game/inventory), `jarsFor` (via `Magic.take`), `formatFed` new but tiny,
+`Interaction.advise` semantics via `AnimalHands.advisor`, `voxelFacing`, `itemOrNull`, `creatureOrNull`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest; co-located; SYSTEMS 6c)
+
+### 9.1 `src/mobs/harness.test.ts` (NEW; fixtures from `herd.test.ts` / `testKit.ts`: a flat world, `MobManager` with
+`naturalSpawning: false`, a fake player)
+1. "a tame goat harnessed by Use on a treadwheel walks there and counts for standingOn": treadwheel block at (0, 10, 0), tame goat at
+   (5.5, 11, 0.5); `harnessTo(0, 10, 0, 'wheat', 6, 0)` -> ok; tick 4 s; `m.harnessed === true`, `standingOn(0, 11, 0) === true`,
+   `standingOn(1, 11, 0) === false`.
+2. "a hen is refused, a baby is refused, a wild goat is refused" (exact strings of 5.1).
+3. "nobody in range" -> `"No tame goat within 12 blocks of the treadwheel"` with the goat at 13 blocks.
+4. "a second animal is refused while the wheel is taken" -> `"The treadwheel already has a goat"`.
+5. "it steps off hungry after 600 s and toasts once": collect `toast` events; after 540 s one "getting hungry (1 min)"; after 600 s
+   `"The goat is hungry and steps off the treadwheel"`, `m.harness === null`, `standingOn` false, the goat stands on a neighbour
+   cell within 2 s.
+6. "feeding refreshes to 600 s and does not make it eager"; refused at `fedS > 540` with `"The goat is not hungry yet (9.2 min)"`
+   pattern `/not hungry yet \(\d+(\.\d)? min\)/`.
+7. "lead-on: a tame goat led onto the wheel, then the food put away, is harnessed after 1.5 s; while the player holds wheat it is not; a tame goat that never followed and wanders onto the wheel is not".
+8. "breaking the wheel frees it"; "a hit frees it and it flees"; "the crowd push cannot move a harnessed goat" (two goats shoved
+   against it for 5 s: x/z unchanged within 1e-6).
+9. "frozen column: fedS does not count and standingOn is false while unloaded" (testKit world with an unloaded column toggle).
+10. "brain: holding wheat does not pull a harnessed goat off".
+
+### 9.2 `src/mobs/golemPath.test.ts` (NEW)
+1. Straight line on flat ground: path length = Manhattan distance + 1.
+2. Around a wall: a 5-long wall between golem and goal -> a path that goes round; no waypoint inside the wall.
+3. One-block step up and a 2-block drop are walked; a 3-block drop and water are refused (returns null when only those lead there).
+4. Lava margin: never a waypoint beside lava.
+5. Box: a goal outside `home ± 9` -> null; node cap respected (a maze over the cap returns null, never hangs).
+6. Unloaded column is a wall.
+
+### 9.3 `src/mobs/golems.test.ts` (NEW; a fake `GolemHooks` over a map of fake containers - depot with `{ wheat: 20 }`, target with
+room 16 - and a fake magic `feed` with a counter of Spring units)
+1. "setup like an arm": wrench golem -> listening toast; `wrenchBlock(depot)` -> "Source set: Depot. Now the targets";
+   `wrenchBlock(mixer)` -> "Target 1: Mixer - it will carry"; `useOn(id, 'wrench')` -> "Golem set: source Depot, 1 target".
+2. Refusals: 9 blocks away -> "Too far from the golem's home (8 blocks)"; `padlock_chest` -> "A padlocked chest keeps golems out";
+   fifth target; duplicate; unknown block.
+3. "carries one stack per trip at 2 blocks/s": depot 6 blocks from the target; after one trip the target has 16 (its room), the
+   depot 4; with the golem starting beside the depot, the time from the take to the offer is between 6 / 2 = 3 s and 4.5 s (path
+   + arrival easing).
+4. "elixir doubles the pace": same trip with `useOn(id, 'elixir_swift')` takes < 0.65 x the time; `boostS` 300 then 0 after 300 s;
+   cranking output unchanged.
+5. "cranks: crank() is called at least once per 1.1 s while at the crank and fed" (hook call log), and "moves on after 30 s when
+   another target has work".
+6. "conservation fuzz": 200 random seconds with random target fullness, source refills and a target removed mid-carry; total items
+   (containers + carried + dropped) constant at every tick.
+7. "eats 1 Spring per 30 s of work and none while idle": 95 s of work -> 4 units (one at start, then at 30, 60, 90); 95 s idle with
+   nothing to do -> 0.
+8. "hungry: stops and keeps its stack; vial of Spring wakes it" (`useOn(id, 'vial_spring')` -> consume 1, give `glass_vial`).
+9. "target removed: forgotten with a toast at its next visit"; "target full: waits 5 s then returns the stack to the source".
+10. "work target: inserts one at a time, strokes bare, never takes the output" (fake work hook: returns false with `'output'`).
+11. "player hit to 0 folds it into the clay_golem item plus its carried stack; lava crumbles it to 4 clay plus the stack" (death
+    listener drops).
+12. "bandage +6, clay +2, refused at full health".
+13. "describe lines" exact strings for each phase of 6.1 (with `formatFed`: 22 -> "22 s", 90 -> "1.5 min").
+14. "first task emits the golem_woke flag once".
+
+### 9.4 `src/mobs/persistence.test.ts` (extend)
+1. Round trip a harnessed goat (`harness`, `fedS`) and a golem with targets, rr, boost and a carried stack through JSON.
+2. Sanitising: bad harness string, `fedS` 9999 -> 600, golem target out of range dropped, carry of an unknown item dropped, a
+   harness on a hen dropped.
+3. **Old save**: a snapshot without any of the new fields loads; every animal `harness === null`, `golem === null` (T10 rule 1).
+4. Two animals claiming one wheel: lower id keeps it.
+
+### 9.5 Other tests
+- `src/workshop/parts.test.ts`: existing "a treadwheel turns while something stands on it" stays; add "standingOn from a harnessed
+  animal turns the wheel at 12 rpm / 24 su" with `t.shop.standingOn = (x, y, z) => mobs.standingOn(x, y, z)` against a real
+  `MobManager` on the fake world (or a stub returning true for the cell - the unit point is the 12/24 numbers).
+- `src/workshop/logistics.test.ts`: `canHold` true for depot/basin/vault/crate/mech twin, false for a hand crank and air;
+  `act({ bare: true })` never places or breaks (returns false with no hook).
+- `src/sim/handWork` test (existing file for hand stations): `strokeAsHelper` refuses with `'output'` and leaves the pack and the
+  output untouched; works a loaded quern stroke like `stroke(..., null)`.
+- `src/magic/magic.test.ts` (runtime): `feedConstruct` takes 1 Spring from a jar 8 blocks away and from a tubed jar, none from 9;
+  the golem infusion is refused without `golem_walk` and starts with it (set the flag on the research state directly).
+- `src/player/animals.test.ts` (or the controller test that covers feeding): `useOn` wins over `feed`; `give` reaches the pack.
+- Content: `specRosterMagic.ts` lists `clay_golem` (item) and the 5th infusion; `content.test.ts` progression still completes;
+  `gates.test.ts` still proves magic optional; registry test: `CONSTRUCTS` has `clay_golem`, not in `CREATURES`, the spawner's
+  species list never contains it; icon readability test covers the new icon; `sfx.test.ts` passes with the two new names.
+- Side goals: `objectivesSide` test - emitting `flag` `harnessed_animal` completes "Put an animal to work" out of order.
+- Render: `mobRenderer.test.ts` builds a batch for `clay_golem` (geometry groups include arms and emissive eyes).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E steps (real inputs; `window.__hw` only for setup and reading state; `--device=desktop`, no `HW_GPU`; screenshots to
+`test-results/e2e-workshop/` and `test-results/e2e-magic/`)
+
+### 10.1 `scripts/e2e-workshop.mjs` - `step('a tame goat walks the treadwheel', ...)`
+1. Setup via `window.__hw`: flat pad near the player (the script already builds a crank + millstone line at `P.x0, P.gy, P.z0`);
+   place a `treadwheel` joined by a `drive_shaft` to a `mech_millstone`; `state.mobs.add(creature('goat'), spot 4 blocks away)` and set
+   `tame = true`; put 4 `wheat` in the hotbar slot 1 and select it; aim the camera at the treadwheel (existing `aimAt` helper of the
+   script, or set yaw/pitch through `__hw`).
+2. Real input: press Use (mouse right / the script's `use()` helper) once.
+3. Wait (poll `__hw`) up to 10 s for the goat's `harnessed === true`; assert `workshop.netAt(wheel)` rpm 12 and the millstone line
+   reads "12 rpm" in `workshop.describe(millstone)`; assert the toast "The goat is harnessed to the treadwheel - feed it every 10 min"
+   appeared (toast DOM text). Screenshot `goat-on-wheel.png` (the goat stands on the wheel, legs mid-swing).
+4. Aim at the goat; assert the crosshair label text starts with "Goat - harnessed to the treadwheel, fed".
+5. Set `fedS = 1` through `__hw`, tick 2 s: toast "The goat is hungry and steps off the treadwheel"; rpm 0. Screenshot
+   `goat-stepped-off.png`.
+
+### 10.2 `scripts/e2e-magic.mjs` - `step('a clay golem carries from a depot to a depot', ...)`
+1. Setup: grant research flag `golem_walk` (set on `magic` research state through `__hw`), give 1 `clay_golem`, 1 `wrench`; build on
+   flat ground: depot A with 20 `wheat` at home + (4, 0, 0) and empty depot B at home + (-4, 0, 1) behind a 3-block wall segment (so
+   the path must go round); an `essentia_jar` with 8 Spring 3 blocks from home.
+2. Real input: select the golem item, aim at the floor cell, Use -> assert a mob of species `clay_golem` exists; toast "Clay Golem set
+   down - wrench it, then a source, then up to 4 targets, then it again".
+3. Select the wrench; Use on the golem; Use on depot A; Use on depot B; Use on the golem -> toasts in order, last "Golem set: source
+   Depot, 1 target". (Aiming at a mob: the script's camera helper targets its centre.)
+4. Poll up to 20 s: depot B holds 20 wheat (or 16 then 4 after a second trip - assert total 20 in A + B + carried), the jar lost >= 1
+   unit. Screenshot `golem-carrying.png` mid-trip (poll until `golem.carry !== null` and it is between the depots) and `golem-done.png`.
+5. Crosshair on the golem while carrying: label matches `/^Clay Golem - carrying \d+ Wheat to the Depot, fed \d+ s$/`.
+6. Infusion sub-step (optional if the script already covers infusions): with `golem_walk` unset, put `clay_servant` on the altar and the
+   4 pedestal items, Use the rod -> toast "Research \"The Walking Clay\" in your notebook first" (or Unit 18's title).
+Run: `node scripts/e2e-workshop.mjs --device=desktop` and `node scripts/e2e-magic.mjs --device=desktop` (also `--device=phonePortrait`
+for the toasts only - no new screen, so phone runs are a smoke check that toasts fit at 390 px).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+- `docs/api/workshop.md`: Treadwheel line -> "12 rpm / 24 su while `standingOn(x, y+1, z)` (Game: the player, or a harnessed tame
+  animal - `MobManager.standingOn`)"; machine interface: `act` `bare?` and golems as callers; `Workshop.canHold`, `onRelocate`.
+- `docs/api/mobs.md`: a "Harness (Unit 17)" and a "Clay golems (Unit 17)" section: API additions (`standingOn`, `harnessTo`,
+  `useOn`, `describeMore`, `relocate`, `useGolemHooks`, `golems`), saved fields, path finding (golems only; animals still walk
+  straight), the "Known gaps" line about path finding updated.
+- `docs/api/magic.md`: `clay_golem` infusion, `feedConstruct`, the `golem_walk` guard; "Known limits / next": remove "golems that walk".
+- `docs/api/handwork` doc if one lists `HandWork` methods: `strokeAsHelper`.
+- Codex: nothing by hand (recipe extraction picks up the infusion); if `scripts/codex/progression.json` needs a node, add it under a
+  heading "Unit 17".
+- Never `docs/WHATS_LEFT.md` (coordinator).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+- [ ] A tame goat or boar Used onto a treadwheel with its liked item walks there and turns the wheel at 12 rpm / 24 su; a hen,
+      a baby and a wild animal are refused with the strings of 5.1.
+- [ ] Led on with food and left: harnessed within 1.5 s of the food being put away.
+- [ ] Unfed for 600 s it steps off with "The goat is hungry and steps off the treadwheel"; one warning at 60 s; feeding refreshes.
+- [ ] Wrench frees it; a broken wheel frees it; a hit frees it; the horn (Unit 16) does not pull it off.
+- [ ] Crosshair: "Goat - harnessed to the treadwheel, fed 6.5 min" style.
+- [ ] `clay_golem` infusion exists, is refused without `golem_walk`, works with it; the golem item sets down on open ground.
+- [ ] Wrench setup: golem, source, up to 4 targets within 8 blocks, golem; every refusal string of 5.2; padlocked chests refused.
+- [ ] A golem carries one stack per trip at 2 blocks/s round a wall; cranks a hand crank (network shows 16 rpm / 8 su); works a
+      loaded hand quern without ever taking its output.
+- [ ] 1 Spring per 30 s of work from a jar within 8 blocks or tubed; none while idle; hungry status and recovery with a vial.
+- [ ] Elixir: x2 walk and stroke rate for 300 s, crank unchanged; bandage +6, clay +2.
+- [ ] Player hits fold it into the item (+ carried stack); lava crumbles it (4 clay + stack).
+- [ ] Save/load mid-carry keeps the stack and settings; old saves load with no harness/golem; harness index rebuilt.
+- [ ] Items conserved (fuzz test); no new screen; every toast/line fits ~60 characters at 390 px.
+- [ ] Side goals "Put an animal to work" and "Wake a golem" complete from flags.
+- [ ] Sounds `golem_step` (0.3) and `golem_wake` (0.6) only while things happen; `sfx.test.ts` green.
+- [ ] `npx vitest run` green (incl. content, gates, progression), `npm run typecheck`/lint clean, e2e steps 10.1/10.2 pass on desktop.
+- [ ] Docs of section 11 updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+- Path finding for ordinary animals (they still wander in straight lines).
+- Golems pulling levers (`signal`), mining, placing blocks, fighting, following the player, riding skiffs, or taking from hand-station
+  outputs. (`signal` stays available for a later unit; the deployer covers placing/mining.)
+- More golem tiers (iron golem), golem programming beyond 4 targets, a setup screen.
+- Harnessing to anything but the treadwheel (no ploughs, carts, water wheels); species-specific wheel output.
+- Animal hunger outside the harness (animals in the field never starve).
+- Changes to clay servants (they stay blocks that crank what they touch).
+- Multiplayer considerations.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+1. **Unit 16 seam (horn):** `MobManager.call` must skip `m.harness !== null || m.golem !== null`. Whichever of 16/17 merges second
+   adds the one line; both specs should say so. Unit 16's padlock is detected by block key `padlock_chest`; if 16 adds a per-chest
+   lock toggle, expose `logi.isLocked?(x, y, z)` and Unit 17's `locked` hook uses it.
+2. **Unit 18 seam (gate):** Unit 18's `golem_walk` entry should unlock `recipes: ['clay_golem']` and `flags: ['golem_walk']`; its
+   title should be "The Walking Clay" so Unit 17's pre-merge guard text matches (or update `GOLEM_GATE_TEXT`).
+3. **Unit 19 seam (sound):** `golem_step` is listed under Unit 19 in SYSTEMS T9 ("17 may use"); Unit 17 adds it with `golem_wake`
+   in `sfxMagic.ts`. If 19 lands first with `golem_step`, 17 keeps 19's patch.
+4. **Unit 15 seam (vaults):** optional `logi.groupKey?(x, y, z)` lets golem setup dedupe a group; without it everything still works.
+5. **Unit 13 seam (moving wheels):** Unit 17 adds `Workshop.onRelocate?` (called at the end of `Workshop.relocate`) so mobs follow
+   moved wheels/targets. If Unit 13 already adds a relocate listener, reuse it.
+6. **Unit 10 seam:** bandage and `elixir_*` are read by key; nothing breaks before Unit 10. Elixirs are assumed to be in glass vials
+   (the vial is given back).
+7. **New registry list `CONSTRUCTS`** (beside `AUTOMATONS`) and `validateConstruct`: small edit to `src/core/registry.ts`, which
+   other units may also touch (append-only).
+8. **SYSTEMS.md deltas to merge** (argued here): T6 golem targets classified as crank / carry / work with the first carry block as the
+   source and an optional source; golem infusion pedestals `2 clay, 1 bronze_cog, 1 leather`, 30 s; `GOLEM_ELIXIR_S` 300 does not
+   change crank output; picking a golem up = hitting it to 0 HP (folds, no loss); clay patches a golem +2 HP besides the bandage.
+9. **manager.ts size:** already 499 lines; the plan delegates to `harness.ts`, `golems.ts`, `golemPath.ts`, `golemRecords.ts`,
+   `helperText.ts` so manager.ts grows by ~60 lines of wiring.
+10. Owner open question SYSTEMS 8.2 ("golems and automation") is assumed "yes" as defaulted there.
