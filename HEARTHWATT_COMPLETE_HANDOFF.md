@@ -1,27 +1,28 @@
 # Hearthwatt - complete handoff bundle
 
-One file with everything needed to continue the game in a fresh session. Generated 2026-11-21T20:47Z from commit 62c7594 on branch ccr-3c8b169f-e78nk2 of https://github.com/Koede/game.
+One file with everything needed to continue the game in a fresh session. Generated 2026-11-22T00:16Z from commit 8bfb3f0 on branch ccr-3c8b169f-e78nk2 of https://github.com/Koede/game.
 Order: 0 session context (state, open decisions, follow-ups) - 1 how to start locally (setup, phases, first message) - 2 current status - 3 whole-game progression - 4 Ember plan - 5 Brewing plan - 6 Steam plan - 7 Bronze plan - 8 Distillery plan and the API notes of the newest features - 9 full design spec and build rules - 10 README.
 The other per-module API notes live in the repository under docs/api/*.md and are NOT included here (read them as you reach each module).
 
 ## Contents
 1. `docs/SESSION_CONTEXT.md`
-2. `docs/LOCAL_HANDOFF.md`
-3. `HANDOFF.md`
-4. `docs/PROGRESSION.md`
-5. `docs/EMBER_PLAN.md`
-6. `docs/BREWING_PLAN.md`
-7. `docs/STEAM_PLAN.md`
-8. `docs/BRONZE_PLAN.md`
-9. `docs/DISTILLERY_PLAN.md`
-10. `docs/api/sugar.md`
-11. `docs/api/dev-mode.md`
-12. `docs/api/distillery.md`
-13. `docs/api/ground-items.md`
-14. `docs/api/chainsaw.md`
-15. `docs/api/handwork-front.md`
-16. `docs/SPEC.md`
-17. `README.md`
+2. `docs/WHATS_LEFT.md`
+3. `docs/LOCAL_HANDOFF.md`
+4. `HANDOFF.md`
+5. `docs/PROGRESSION.md`
+6. `docs/EMBER_PLAN.md`
+7. `docs/BREWING_PLAN.md`
+8. `docs/STEAM_PLAN.md`
+9. `docs/BRONZE_PLAN.md`
+10. `docs/DISTILLERY_PLAN.md`
+11. `docs/api/sugar.md`
+12. `docs/api/dev-mode.md`
+13. `docs/api/distillery.md`
+14. `docs/api/ground-items.md`
+15. `docs/api/chainsaw.md`
+16. `docs/api/handwork-front.md`
+17. `docs/SPEC.md`
+18. `README.md`
 
 
 ---
@@ -232,7 +233,134 @@ Run everything locally; the owner is usage-limited and wants output trimmed and 
 - E2E tests that hold items or build things drift whenever content changes: fix stale scripts, but a failing step can be a
   real game bug (the handwork front end was missing entirely and only the e2e showed it).
 
+## 10. Overhaul session (2026-11-21): Essentia & Research, Bronze workshop
+
+Plan: `docs/OVERHAUL_PLAN.md` (A = Create-style workshop parts for the Bronze era, B = original research magic). Owner steer
+mid-session: "fill that whole era in with goodies and trinkets and fun modular things" and "implement all of them after".
+Commits: fcc7260 (plan), 850c16e (aspects/fingerprints/research/content), 44c8bfe (magic runtime + notebook), 7ad0d55
+(e2e-magic), a29366a (workshop), then e2e-workshop and docs. API notes: `docs/api/magic.md`, `docs/api/workshop.md`.
+
+Built and checked (unit tests + `e2e-magic` / `e2e-workshop`, desktop and phone portrait, HW_GPU=1; full `npx vitest run`
+green at 1898 tests; the full `npm run e2e` chain was NOT re-run):
+- Every block and item has an aspect fingerprint (21 aspects, one data table). Field notebook scans blocks/carried items,
+  teaches aspects and lore; a 5 x 5 kin board per research entry (7 entries); research gates the glass vial, gathering rod and
+  essentia jar recipes; the rod fills vials from the land's aspects (chunk draw recovers); jars hold 32 units; a Vial of
+  Cinder adds burn to a burning furnace after research.
+- Bronze workshop: hand crank, drive shafts, conveyor belts (move ground items), mechanical saw / millstone / stamp mill /
+  power loom (same recipes as the hand stations), speed and stress with overstress, Engineer's Goggles readout.
+
+Important: the STEAM_PLAN shaft core does not exist in code; the workshop is its own small kinetic layer (crank-driven) with an
+`extraRpm` hook for the shaft core later.
+
+Left, in priority order (OVERHAUL_PLAN work lists A.11 and C):
+1. Render: jar fill level, belt item motion looks right but belts do not animate their texture direction; crank handle turning.
+2. Workshop A.4/A.5: funnels with filters, depots, chutes, basin + press + mixer, spout and item drain (distillery bottling).
+3. Workshop A.2 transmission and trinkets once the shaft core lands: reverse/ratio/differential/clutch/sequence, shear pins,
+   governor, lubricant can (distillery lubricant), wind vane, bell, tally board, metronome and the signal layer.
+4. Workshop A.7 deployer and mechanical arm (reuse Interaction with a machine actor), reaper; A.8 rail skiff, bearing (stretch).
+5. Magic B.3-B.6: wellsprings, essentia tubes on the fluid-pipe machinery, rune desk with aspect costs, infusion altar,
+   vial-in-still trace (entry exists), aura reading, foci, clay servants, more entries for Bronze/Forge.
+6. Cross-cutting: Codex aspect page and planned items, optional side objectives (scan_ten, first_research), sounds
+   (scan_chime, essentia_pour, rod_hum), workbench/forge rows should show "needs research" instead of failing on craft.
+7. W0 six-age refactor: only `src/magic/ageMap.ts` needs its table changed for these pieces.
+
+## 11. Workshop session (2026-11-21): Create-style Bronze workshop, second slice
+See `docs/OVERHAUL_PLAN.md` "Status update, workshop session" for what exists and what does not, and `docs/api/workshop.md` for the
+rotation rules, the logistics pieces and the stable machine interface (`offer/take/crank/act`) the magic constructs use. Tests:
+`src/workshop/{kinetics,logistics,workshop}.test.ts`; `scripts/e2e-workshop.mjs` (mixer+funnel+depot, drill+reverse+arm) is chained
+in `npm run e2e`. Shared-file edits: `app/game.ts` (renderer, generatorWatts, actHook), `content/objectives.ts` + `specRoster.ts`
+(six goals after salvage_automaton), `render/textures/painters.ts`. Stress numbers (arm 3, drill 6, deployer 6, mixer 6, press 8)
+are in `workshop/kinetics.ts` BASE_STRESS; one crank carries 8 su, so a drill plus an arm wants two cranks.
+
+## 12. Essentia & Research completed (Part B, 2026-11-21)
+Commits f75507d, bee8a1a, d1d3956, bdd0493 (plus the earlier 850c16e, 44c8bfe, 45f7f88). API: `docs/api/magic.md`.
+Built and checked (unit tests, `e2e-magic` desktop + phone with screenshots looked at, Codex preview clean):
+- 24 research entries across Ember / Bronze / Forge with varied boards; lore from scans (x1.5 with the Scrying Lens) and from
+  studying vials; hints; notebook tabs Research (grouped by age), Aspects, Notes, Goals (eight optional side goals).
+- Rods with tiers (charge 16/32/64, draw 1/2/3), charging for foci; wellsprings (seeded, tappable, refill) with a crystal render;
+  aura reading under the crosshair; compound drawing at Forge.
+- Jars and void jars with visible fill, glass tubes joining jars to the desk, the altar, furnaces and servants.
+- Rune Desk screen (7 arcane recipes with essentia costs), Infusion Altar with pedestals (4 infusions incl. alchemical steel).
+- Foci: Kindling (lights a furnace), Light (floating light block), Warding (halves damage 30 s), Blinking (8-block step).
+- Clay servants crank workshop hand cranks while fed Spring (through `Workshop.crank`); hearth siphon; Clarity takes water
+  out of distillery flasks; Cinder vials stoke fires; vials double as beakers; glass boils on its own on a furnace top.
+- Six new synthesised sounds; Codex Essentia tab; progression solver covers desk and altar rows; content tests green.
+Left (small): spark/soul/void only via late blocks; tubes are not fluid pipes; desk loses the rest of a partly used vial; foci
+have no hand animation; magic goals live in the notebook, not on the main objective track (the tracker is strictly sequential).
+
+Update (same session, third slice): see docs/api/workshop.md "Third slice". New files: `workshop/{signals,contraption}.ts`, `ui/screens/workshop/`,
+`workshop/{parts,signals,contraption}.test.ts`. `parts.test.ts` exports the `setup()` fixture the other workshop tests reuse. Game hooks set in
+`app/game.ts`: generatorWatts, actHook, standingOn, tractors, fluidBlock, clockText; goggles on empty air open the guide.
+
 <!-- ======================== END docs/SESSION_CONTEXT.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/WHATS_LEFT.md ======================= -->
+# FILE: docs/WHATS_LEFT.md
+
+# Hearthwatt - what is left to do (2026-11-21)
+
+One place for everything still open, in priority order. Detail lives in the linked notes. State at the time of writing:
+`npx tsc --noEmit` clean, `npx vitest run` 1988 passed / 0 failed (171 files), everything committed. The e2e scripts of the
+new features (magic, workshop, distill, dev, ground, vehicles, handwork) were reported passing by their sessions, but the
+WHOLE chain (`HW_GPU=1 HW_DIAG=1 npm run e2e`) was not re-run end to end after the last merges. Nothing in the newest
+features (sugar chain, tractor, chainsaw, distillery, essentia magic, workshop) has been played by hand yet.
+
+## 0. First (verification)
+1. Run the whole e2e chain on the GPU (`HW_GPU=1 HW_DIAG=1 npm run e2e`, read `node scripts/lib/diag.mjs summary`) and fix what is red.
+2. Play every new system on desktop AND phone (Dev Mode gives a creative item menu): notebook scan and research board,
+   gathering rod and jars, hand crank + belts + gearboxes, mixer/press/basins, contraptions and the skiff, sap tapping and
+   the sugar chain, tractor and chainsaw, distillery spirit and oil runs. Look for feel, readability and balance problems.
+3. Owner decisions still open: Star hearth 93 casings (keep or reduce); make `six_cups` an optional side goal; delete the
+   cup/cone forge recipes in favour of the Clay Table; whether to create `main` (pages.yml deploys the game on pushes to `main`).
+
+## 1. Roadmap spine (unchanged)
+1. Six-age refactor (BRONZE_PLAN W0): commit an OLD-SAVE FIXTURE first, renumber tiers/ages everywhere, save migration, add the
+   single-block Bronze Furnace. Several new items are gated by tier today (vacuum pump, chainsaw, workshop parts, magic ages) and
+   have notes saying where to move them when W0 lands (`docs/api/ground-items.md`, `docs/api/chainsaw.md`, `OVERHAUL_PLAN` age tables).
+2. Steam first half of Bronze (STEAM_PLAN), then Bronze second half (BRONZE_PLAN B1-B4); several workshop pieces already stand in for it.
+3. Review pass as a phone player, republish the game artifact and the Codex (`npm run codex`).
+4. Electric age: the electromagnet is one more definition in `src/game/collectors.ts` (the vacuum pump's collector mechanism).
+
+## 2. Workshop (Create-style) polish - `docs/api/workshop.md`, `docs/OVERHAUL_PLAN.md`
+Smooth tween animation of moving structures; riding the skiff; tame animals on the treadwheel; a vacuum pump hookup;
+continuous spouts from pipes (today spouts and drains work with buckets and canisters); punched gearshift cards (three
+presets today); item vault multiblock growth; trinkets (wind vane, weather cock, spyglass, horn, padlock chest, lantern
+chain); belts that cross structure borders automatically.
+
+## 3. Magic (Essentia and Research) - `docs/api/magic.md`
+spark / soul / void as drawable aspects (only via late-block overrides today); golems that walk (clay servants run workshop
+cranks only); an aura HUD dial; tubes are their own network, not fluid pipes; the rune desk loses the rest of a partly used
+vial; more research entries beyond the 24, deeper Forge-age tiers; balance and a music/sound pass.
+
+## 4. Distillery - `docs/DISTILLERY_PLAN.md` section 15, `docs/api/distillery.md`
+Rig screen and ghost previews; ground burner (charcoal or fuel ethanol without a furnace); reflux head and filter bed; lubricant
+from residue (vacuum cap) and the chainsaw bar-oil consumer; bitumen and asphalt road blocks with a speed effect; potions
+(essences, tinctures, elixirs tied to the brewing buffs), drinks and the antiseptic bandage; tank support for the new fluids and
+pipes out of a receiver into tanks end to end; shaft hooks (stirrer, lubricant stress); catalyst bed, pressure cap, cracker and
+the refinery tower multiblock; a `distill:step` event, own sounds, a Codex progression branch, a balance pass.
+
+## 5. Handwork, brewing, food - `docs/api/handwork*.md`, `casting.md`, `sugar.md`
+Casting Bench block is inert (pouring happens at the furnace); hand-taking molten metal for anvil hot work (the hot window
+opens on `cast:poured`); sap-tap state is not saved and the tap has no animation or particles; a boiling pail's seconds-left
+is lost when moved by `Inventory.add`/spill; more baked goods and a sugar-aware brewing/alcohol tie-in; the clay table/cup
+decision above.
+
+## 6. Smaller known gaps (collected from every session's report)
+Rack under glass keeps running (confirm intent); crops whose farmland is removed stay without growing; steam engine draws heat
+when idle; UI size setting (Normal/Large); Structure tab shift buttons and machines list; pump status wording; boiler/turbine
+hint texts; the steam-plan item names (copper_kettle vs kettle_pot, mech_pump recipe item). See `docs/SESSION_CONTEXT.md` section 6.
+
+## 7. Process notes for whoever continues
+- Run everything locally; `HW_GPU=1` renders e2e on a real GPU, `HW_DIAG=1` and `?diag=1` give diagnostics (`docs/SESSION_CONTEXT.md` section 9).
+- Several sessions shared one checkout: give each disjoint files, commit often, and use the `.run-lock` mutex folder before any
+  `npm run build` or e2e (they rebuild `dist/`). Pause everything before merging upstream.
+- Pointer lock is refused in automation-driven browser windows; test the real cursor in a normal browser.
+- Regenerate the handoff bundle with `bash scripts/make-handoff-bundle.sh HEARTHWATT_COMPLETE_HANDOFF.md`.
+
+<!-- ======================== END docs/WHATS_LEFT.md ======================== -->
 
 
 ---
