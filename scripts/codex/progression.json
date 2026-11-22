@@ -49,6 +49,22 @@
           ]
         },
         {
+          "name": "Distillery",
+          "items": [
+            "syrup_beaker",
+            "wash_beaker",
+            "low_wines_beaker",
+            "spirit_beaker",
+            "fuel_ethanol_beaker",
+            "diesel_canister",
+            "gasoline_canister",
+            "kerosene_canister",
+            "residue_canister",
+            "slop_canister"
+          ],
+          "note": "Boil pine sap into syrup, ferment a wash, distil spirit, then cut crude in a column."
+        },
+        {
           "name": "Brewing",
           "items": [
             "Tea Bush",
