@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bubblePoint, expand, nameOf, pour, stagesOf, total, type Mix } from '../core/chem';
 import { createBus } from '../core/context';
 import { CHEM, ESSENCE_DRINKS, GLASS_MAX_C, STILL_SETPOINTS, VACUUM_BP, elixirGrant, nextReflux, roadSpeedOf } from '../core/distill';
-import { DT } from '../core/constants';
+import { AMBIENT_TEMP_C, DT } from '../core/constants';
 import { item, machine } from '../core/registry';
 import { Face } from '../core/types';
 import { SAW_FUEL_PER_LOG } from '../content/itemsVehicle';
@@ -235,6 +235,21 @@ describe('distill modules', () => {
     r.furnaces[0].tempC = 900;
     r.kit.sim.tick(1);
     expect(r.first('F').tempC).toBe(GLASS_MAX_C);
+  });
+
+  it('a finished fuel-ethanol burn hands back exactly one empty beaker and clears the fuel', () => {
+    const r = buildRig(POT);
+    fill(r.first('F'), 'crude_oil', 200);
+    r.first('B').slots = [{ item: 'fuel_ethanol_beaker', count: 1 }];
+    let t = 0;
+    while (t < 600 && r.first('F').state !== 'done') {
+      r.furnaces[0].tempC = AMBIENT_TEMP_C;
+      r.kit.sim.tick(DT);
+      t += DT;
+    }
+    expect(r.first('F').state).toBe('done');
+    expect(r.first('B').slots).toEqual([{ item: 'glass_beaker', count: 1 }]);
+    expect(r.first('B').slots?.some((s) => s.item === 'fuel_ethanol_beaker')).toBe(false);
   });
 
   it('reflux return cycles 0 / 50 / 75 percent and plates scale by 1 + 2r', () => {

@@ -22,7 +22,7 @@ import {
   ASPHALT_C, ASPHALT_COUNT, BOIL_J_PER_L, BOIL_LPS, CANISTER_L, CHEM, CHEM_CAPACITY_L, CHEM_KINDS, CHEM_STEP_HZ,
   CONDENSE_LPS, DONE_SUFFIX, ELIXIR_BATCH_L, ELIXIR_VIALS, ESSENCE_COUNT, ESSENCE_RUIN_C, ESSENCE_SET_C, FERMENT_LPS, FERMENT_MAX_C,
   FERMENT_MAX_ETHANOL, FERMENT_MAX_SUGARS, FERMENT_MIN_C, FLOW_LPS, GLASS_MAX_C, HEAD_C, HEAD_JACKET_C, JACKET_MULT,
-  RECEIVE_HOLD_S, STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, TINCTURE_C, VACUUM_BP, burnerTemp, chemKindOf, drinkOfEssence, essenceDrink,
+  CHEM_CONTAINERS, RECEIVE_HOLD_S, STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, TINCTURE_C, VACUUM_BP, burnerTemp, chemKindOf, drinkOfEssence, essenceDrink, fuelGrade,
   isBotanical, isFilterMedium, isRefluxRatio, stateLook, type ChemKind, type ChemState,
 } from '../core/distill';
 import { blockId, blockOf, fluidOrNull } from '../core/registry';
@@ -598,7 +598,20 @@ export class Distillery {
     const still = rig.stills.find((s) => s.flask === flaskKey);
     const base = still?.base ? this.mod(still.base) : null;
     if (!base || this.furnaceHot(base)) return;
-    base.slots = (base.slots ?? []).filter((s) => burnerTemp(s.item) === null);
+    // Charcoal is used up. A fuel-ethanol beaker comes back empty, the same way a fuel grade hands its canister back.
+    const kept: { item: string; count: number }[] = [];
+    for (const s of base.slots ?? []) {
+      if (burnerTemp(s.item) === null || s.count <= 0) {
+        if (s.count > 0) kept.push(s);
+        continue;
+      }
+      const empty = fuelGrade(s.item)?.empty ?? CHEM_CONTAINERS[s.item]?.empty ?? null;
+      if (!empty) continue;
+      const have = kept.find((k) => k.item === empty);
+      if (have) have.count += s.count;
+      else kept.push({ item: empty, count: s.count });
+    }
+    base.slots = kept;
   }
 
   private announce(e: ChemEntity, before: ChemState): void {
