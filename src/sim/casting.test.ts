@@ -127,6 +127,17 @@ describe('pour matrix', () => {
 });
 
 describe('mould wear', () => {
+  it('a mould in the hand pours every cast one pool covers, not a single cast', () => {
+    const { kit, e } = setup(['ingot_mould']);
+    molten(e, 0, 'copper_ingot', 5);
+    const events = kit.record('cast:poured');
+    expect(kit.sim.pourCrucible(0, 1, 0, 0, 'ingot_mould').ok).toBe(true);
+    expect(kit.player.inventory.count('copper_ingot')).toBe(5);
+    expect(e.crucibleMelt[0]).toBeNull();
+    expect(events).toEqual([expect.objectContaining({ count: 5, at: 'furnace', mould: 'ingot_mould' })]);
+    expect(kit.player.inventory.slots.find((s) => s?.item === 'ingot_mould')?.durability).toBe(MOULD_POURS - 5);
+  });
+
   it('wears one pour per cast and breaks at zero; the most worn mould goes first', () => {
     const { kit, e } = setup();
     const inv = kit.player.inventory;

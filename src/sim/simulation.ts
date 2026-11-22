@@ -18,6 +18,7 @@ import { brewUse, brewView, isFurnaceTop, placeContainer, type BrewResult, type 
 import { Distillery, isChemKind } from './distill';
 import { chemPortEndpoint, chemUse, chemView, type ChemResult, type ChemView } from './distillActions';
 import { CropField } from './crops';
+import { CASTING_BENCH, CastingBenches } from './castingBench';
 import { HandWork } from './handWork';
 import { contentRules } from './handRules';
 import type { HandEntity, HandView, StrokeResult } from './handTypes';
@@ -69,6 +70,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private readonly crops: CropField;
   /** Hand stations (docs/api/handwork.md): strokes and timed work; entities that are not machine nodes. */
   private readonly hand: HandWork;
+  /** Casting benches: four mould sockets, never a power node (docs/api/handwork-content.md section 4). */
+  private readonly benches: CastingBenches;
   /** Buckets on furnace tops, cup setups and kettles (docs/api/brewing.md): entities that are not machine nodes. */
   private readonly brewing: Brewing;
   /** The glass distillery's modules and rigs (docs/api/distillery.md): entities that are not machine nodes. */
@@ -145,6 +148,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     });
     this.transportRender = new TransportRenderer(this.transport);
     this.spills = new Spills(world, bus, player);
+    this.benches = new CastingBenches(world, player, (x, y, z, held) => {
+      if (this.destroying) return;
+      this.spills.release(x, y, z, held);
+    });
     const chunkChanged = ({ cx, cz }: { cx: number; cz: number }): void => {
       this.nodes.chunkChanged(cx, cz);
       this.crops.chunkChanged(cx, cz);
@@ -196,6 +203,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.zones.invalidate();
     this.crops.clear();
     this.hand.clear();
+    this.benches.clear();
     this.brewing.clear();
     this.distill.clear();
     this.hearths.clear();
@@ -211,6 +219,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
         const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
         if (r !== 'ok') repaired++;
         if (r === 'dropped') this.world.removeEntity(e.x, e.y, e.z);
+        else if (e.kind === CASTING_BENCH) this.benches.track(e as MachineEntity);
         else this.trackNode(e as SimEntity);
       }
     }
@@ -308,6 +317,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     const to = blockOf(ev.to);
     if (from.id === to.id) return;
     const { x, y, z } = ev;
+    // A bench that left spills its moulds here, before a hand station or another machine stores its own entity.
+    if (from.machine === CASTING_BENCH && to.machine !== CASTING_BENCH) this.benches.removeAt(x, y, z);
     const key = posKey(x, y, z);
     this.transport.blockChanged(x, y, z, from, to);
     this.hearths.blockChanged(x, y, z);
@@ -337,6 +348,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       return;
     }
     if (Brewing.handles(from)) this.brewing.remove(x, y, z);
+    // Four mould sockets, stored on the block and kept out of the power-node map.
+    if (to.machine === CASTING_BENCH) {
+      this.benches.place(x, y, z);
+      return;
+    }
     if (to.machine === null) return;
     const kept = this.nodes.byKey.get(key);
     if (kept) {
@@ -515,6 +531,23 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** Pours crucible `slot`'s molten metal into the fired mould `heldKey` (a pack item) or, for 'alloy_pot', into the pot. */
   pourCrucible(x: number, y: number, z: number, slot: number, heldKey: string | null): ActionResult {
     return this.withFurnace(x, y, z, (e, node) => actions.pour(this, e, node, slot, heldKey));
+  }
+
+  /**
+   * Empty hand at a furnace: one cast into each mould of the nearest casting bench within range. Null when no bench
+   * in range holds a mould, so the furnace screen opens as usual. A mould in the hand stays on `pourCrucible`.
+   */
+  pourBench(x: number, y: number, z: number, slot: number): ActionResult | null {
+    const e = this.furnaceAt(x, y, z);
+    return e ? this.benches.pour(this, e, slot) : null;
+  }
+
+  /**
+   * Use on a casting bench. A mould in hand fills the first empty socket; an empty hand takes the last mould out.
+   * Null when the held item is not a mould, so Use can place a block.
+   */
+  useBench(x: number, y: number, z: number, heldKey: string | null): ActionResult | null {
+    return this.benches.use(x, y, z, heldKey);
   }
 
   setElectric(x: number, y: number, z: number, on: boolean): ActionResult {
