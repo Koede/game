@@ -16,7 +16,7 @@ import { Button, Toggle } from '../../kit/controls';
 import { h, setAttr, setFlag, setText } from '../../kit/dom';
 import { glyph } from '../../kit/icons';
 import type { Inventory } from '../../../game/inventory';
-import { formatPercent, formatTemp, formatWatts } from '../../kit/format';
+import { formatWatts } from '../../kit/format';
 import { Meter, Thermometer } from '../../kit/gauges';
 import { SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
@@ -40,25 +40,26 @@ export interface FireboxDeps {
   spareSmeltable: () => boolean;
 }
 
-/** Readings listed under the controls where there is room (desktop). */
-const FACTS = ['Flame', 'Heading for', 'Tier maximum', 'Heat to machines'];
-
 /** Whether the phone strip is unfolded (kept for the session). */
 let rememberOpen = false;
 
-const trendText = (view: FurnaceView): string => {
-  if (view.ignited) return 'Held by the star';
-  const rate = Math.abs(view.rateCPerS);
-  const r = rate >= 10 ? rate.toFixed(0) : rate.toFixed(1);
-  return view.trend === 'rising' ? `Rising ${r} °C/s` : view.trend === 'falling' ? `Falling ${r} °C/s` : 'Steady';
-};
+/** One word under the temperature: where it is heading. */
+export const trendText = (view: FurnaceView): string =>
+  view.ignited ? 'Held by the star' : view.trend === 'rising' ? 'Rising' : view.trend === 'falling' ? 'Falling' : 'Steady';
+
+/** The one button worth pressing next (the firebox highlights it): fuel, then light, then the bellows. */
+export type NextAction = 'fuel' | 'light' | 'pump' | null;
+export function nextAction(view: FurnaceView, packHasFuel: boolean): NextAction {
+  if (view.ignited) return null;
+  if (!view.lit) return view.fuelItems > 0 || packHasFuel ? 'light' : null;
+  return view.tempC < view.targetC - 25 && view.draft < 0.5 ? 'pump' : null;
+}
 
 export class FireboxPanel {
   readonly el: HTMLElement;
   private readonly deps: FireboxDeps;
   private readonly thermo: Thermometer;
   private readonly flame = new Flame();
-  private readonly draftEl: HTMLSpanElement;
   private readonly fuelHost: HTMLDivElement;
   private readonly burn: Meter;
   private readonly lightBtn: Button;
@@ -67,8 +68,6 @@ export class FireboxPanel {
   private readonly elecRow: HTMLDivElement;
   private readonly elecToggle: Toggle;
   private readonly elecMeter: Meter;
-  private readonly facts: HTMLDListElement;
-  private readonly factValues: HTMLElement[] = [];
   private readonly statusEl: HTMLParagraphElement;
   private readonly hintEl: HTMLParagraphElement;
   private readonly foldBtn: HTMLButtonElement;
@@ -86,7 +85,6 @@ export class FireboxPanel {
     this.deps = deps;
     const { sim, pos } = deps;
     this.thermo = new Thermometer({ min: 0, max: 800, value: 20 });
-    this.draftEl = h('span', { class: 'hw-fbx__draft hw-num' });
     this.fuelHost = h('div', { class: 'hw-fbx__fuelslots' });
     this.burn = new Meter({ label: 'Firebox', tone: 'heat', value: 0, max: 1, text: '' });
     this.addFuel = new Button({ label: 'Add fuel', icon: 'flame', kind: 'quiet', size: 'sm', onClick: () => this.loadFuel() });
@@ -111,15 +109,6 @@ export class FireboxPanel {
       this.elecToggle.el,
       this.elecMeter.el,
     );
-    this.facts = h(
-      'dl',
-      { class: 'hw-fbx__facts' },
-      FACTS.map((label) => {
-        const value = h('dd', { class: 'hw-num' });
-        this.factValues.push(value);
-        return h('div', null, h('dt', { text: label }), value);
-      }),
-    );
     this.statusEl = h('p', { class: 'hw-fbx__status', attrs: { role: 'status' } });
     this.hintEl = h('p', { class: 'hw-fbx__hint' });
     this.hintEl.hidden = true;
@@ -137,12 +126,11 @@ export class FireboxPanel {
       h(
         'div',
         { class: 'hw-fbx__controls' },
-        h('div', { class: 'hw-fbx__mouth' }, this.flame.el, this.draftEl),
+        h('div', { class: 'hw-fbx__mouth' }, this.flame.el),
         h('div', { class: 'hw-fbx__fuel' }, this.fuelHost, this.addFuel.el),
         this.burn.el,
         h('div', { class: 'hw-fbx__btns' }, this.lightBtn.el, this.pumpBtn.el),
         this.elecRow,
-        this.facts,
       ),
       this.statusEl,
       this.hintEl,
@@ -188,8 +176,6 @@ export class FireboxPanel {
       this.thermo.setNotches(notches);
     }
     this.flame.set(flameLook(view));
-    setText(this.draftEl, view.ignited ? '' : `Draft ${formatPercent(view.draft)}`);
-    setAttr(this.draftEl, 'data-strong', view.draft > 0.5 ? 'true' : null);
 
     const [burnLabel, burnReading] = burnText(view);
     this.burn.setLabel(burnLabel);
@@ -206,7 +192,8 @@ export class FireboxPanel {
     } else {
       this.lightBtn.setLabel('Light');
       this.lightBtn.setKind('primary');
-      this.lightBtn.setDisabled(view.fuelItems === 0, 'No fuel');
+      // Light also loads fuel from the pack when the firebox is empty: one tap from a cold start.
+      this.lightBtn.setDisabled(view.fuelItems === 0 && !this.packHasFuel(), 'No fuel');
     }
     this.pumpBtn.setDisabled(!view.lit && !view.hot, 'Not lit');
 
@@ -219,13 +206,10 @@ export class FireboxPanel {
       this.elecMeter.setTone(e.on && e.demandW > 0 && e.satisfaction < 0.999 ? 'warn' : 'power');
     }
 
-    const facts = [
-      view.flameC !== null ? formatTemp(view.flameC) : 'No fire',
-      view.ignited ? 'Held' : formatTemp(view.targetC),
-      formatTemp(view.maxTempC),
-      view.extractW > 0 ? formatWatts(view.extractW) : 'None',
-    ];
-    facts.forEach((text, i) => setText(this.factValues[i], text));
+    const next = nextAction(view, this.packHasFuel());
+    setAttr(this.lightBtn.el, 'data-next', next === 'light' ? 'true' : null);
+    setAttr(this.pumpBtn.el, 'data-next', next === 'pump' ? 'true' : null);
+    setAttr(this.el, 'data-next', next);
 
     setText(this.statusEl, pretty(view.status));
     setAttr(this.statusEl, 'data-tone', statusTone(view));
@@ -281,7 +265,18 @@ export class FireboxPanel {
 
   private lightOrDouse(): void {
     const { sim, pos } = this.deps;
-    this.report(this.lit ? sim.douse(pos.x, pos.y, pos.z) : sim.light(pos.x, pos.y, pos.z));
+    if (this.lit) {
+      this.report(sim.douse(pos.x, pos.y, pos.z));
+      return;
+    }
+    // Nothing in the firebox: take the cheapest sensible fuel from the pack first, so Light is the whole job.
+    const slots = sim.furnaceSlots(pos.x, pos.y, pos.z);
+    if (slots && slots.fuel.slots.every((s) => s === null)) this.loadFuel();
+    this.report(sim.light(pos.x, pos.y, pos.z));
+  }
+
+  private packHasFuel(): boolean {
+    return bestFuelSlot(this.deps.player.inventory.slots, { spareSmeltable: this.deps.spareSmeltable(), maxTempC: this.maxC || undefined }) >= 0;
   }
 
   /** One tap: about two minutes of the cheapest sensible fuel, never the logs the charcoal goal needs (unless nothing else burns). */

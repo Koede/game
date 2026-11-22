@@ -29,8 +29,14 @@ export async function sendFromBag(d, item, groupLabel) {
   await showBag(d, false);
 }
 
+/**
+ * The furnace is one page with no tabs. 'smelt' and 'forge' just make sure no sheet covers it (the crucibles and the
+ * make list are both on the page); 'structure', 'grid' and 'log' press their floating button on the right edge.
+ */
 export async function openTab(d, id) {
-  await d.press(d.page.locator(`.hw-window .hw-tab[data-tab="${id}"]`));
+  const back = d.page.locator('.hw-window .hw-fx__sheet:not([hidden]) button', { hasText: 'Back' });
+  if (await back.isVisible()) await d.press(back);
+  if (id === 'structure' || id === 'grid' || id === 'log') await d.press(d.page.locator(`.hw-window .hw-fx__float [data-sheet="${id}"]`));
   await d.settle(250);
 }
 

@@ -29,9 +29,15 @@ export function thermoNotches(view: FurnaceView, selected: RecipeDef | null): Th
   const add = (tempC: number, label: string, kind: ThermoNotch['kind'] = 'threshold'): void => {
     if (!out.some((n) => n.tempC === tempC && n.label === label)) out.push({ tempC, label, kind });
   };
-  for (const c of view.crucibles) if (c.recipe) add(c.recipe.minTempC, shortName(c.recipe.output.item));
-  if (selected && !view.ignited) add(selected.minTempC, shortName(selected.output.item));
-  if (view.upgrade) add(view.upgrade.requiredC, 'Upgrade');
+  // At most one mark besides the flame limit: what is cooking now, else the recipe last touched, else the upgrade.
+  for (const c of view.crucibles) {
+    if (c.recipe) {
+      add(c.recipe.minTempC, shortName(c.recipe.output.item));
+      break;
+    }
+  }
+  if (out.length === 0 && selected && !view.ignited) add(selected.minTempC, shortName(selected.output.item));
+  if (out.length === 0 && view.upgrade) add(view.upgrade.requiredC, 'Upgrade');
   if (view.tier === STAR_TIER && !view.ignited) add(IGNITION_TEMP_C, 'Ignite');
   if (!view.ignited) {
     if (view.flameC !== null) add(Math.round(view.flameC), 'Flame', 'limit');

@@ -10,7 +10,7 @@ import type { RecipeDef } from '../../../core/types';
 import type { ForgeRow, FurnaceView } from '../../../sim';
 import { h } from '../../kit/dom';
 import { RecipeList } from '../../kit/recipe';
-import { FORGE_BATCH, FORGE_CATEGORIES, forgeRowViews, forgeShortfall } from './forgeRows';
+import { FORGE_BATCH, FORGE_CATEGORIES, forgeRowViews, forgeShortfall, smeltRowViews } from './forgeRows';
 import { pretty, type ScreenSim } from './simApi';
 
 export class ForgeTab {
@@ -18,18 +18,24 @@ export class ForgeTab {
   /** The recipe the player last touched, or null. */
   selected: RecipeDef | null = null;
   private readonly list: RecipeList;
-  private readonly note: HTMLParagraphElement;
   private rows: readonly ForgeRow[] = [];
+  private smeltIds = new Set<string>();
 
-  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void }) {
+  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void; load: (recipeId: string) => void }) {
     const { sim, pos, bus } = opts;
     this.list = new RecipeList({
-      label: 'Forge',
+      label: 'Make',
       categories: FORGE_CATEGORIES,
       many: FORGE_BATCH,
+      simple: true,
       emptyText: 'Nothing to forge.',
       onMake: (id, count) => {
         this.selected = recipeById(id);
+        if (this.smeltIds.has(id)) {
+          opts.load(id);
+          opts.changed();
+          return;
+        }
         const result = sim.forge(pos.x, pos.y, pos.z, id, count);
         if (!result.ok) {
           bus.emit('toast', { text: pretty(result.reason), kind: 'warn' });
@@ -41,8 +47,7 @@ export class ForgeTab {
         opts.changed();
       },
     });
-    this.note = h('p', { class: 'hw-forge__note' });
-    this.el = h('div', { class: 'hw-forge' }, this.note, this.list.el);
+    this.el = h('div', { class: 'hw-forge' }, this.list.el);
     const pick = (ev: Event): void => {
       const row = ev.target instanceof Element ? ev.target.closest<HTMLElement>('.hw-recipe[data-id]') : null;
       const id = row?.dataset.id;
@@ -61,12 +66,15 @@ export class ForgeTab {
 
   update(view: FurnaceView, crates: number): void {
     this.rows = view.forge;
-    this.list.setRows(forgeRowViews(view.forge, view.electric.available));
+    this.smeltIds = new Set(view.smelt.map((r) => r.recipe.id));
+    // One list: what the crucibles take (Load) first, then what the furnace forges (Forge).
+    this.list.setRows([...smeltRowViews(view.smelt), ...forgeRowViews(view.forge, view.electric.available)]);
+    // The long "ingredients come from your pack..." note is a tooltip now: the rows already say what they use.
     const text =
       crates > 0
         ? `Forging takes ingredients from your pack, then from the ${crates} crate${crates === 1 ? '' : 's'} nearby. Each forge cools the furnace by ${FORGE_CHILL_C} °C.`
         : `Forging takes ingredients from your pack (and crates within ${STATION_CRATE_RADIUS} blocks). Each forge cools the furnace by ${FORGE_CHILL_C} °C.`;
-    if (this.note.textContent !== text) this.note.textContent = text;
+    if (this.el.title !== text) this.el.title = text;
   }
 
   dispose(): void {

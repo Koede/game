@@ -1,5 +1,5 @@
 /** The scrolling recipe list with optional category chips. This is the game's tech tree as the player sees it. */
-import { h, setText } from './dom';
+import { h, setAttr, setText } from './dom';
 import { Chip } from './gauges';
 import { RecipeRow, type RecipeRowView } from './recipe';
 import { edgeFade } from './scrollFade';
@@ -22,7 +22,16 @@ export interface RecipeListOptions {
   emptyText?: string;
   /** Called when the player picks a category chip (null = All). */
   onCategory?: (id: string | null) => void;
+  /**
+   * Simple list: rows are simple rows (see RecipeRowOptions.simple) and a two-way switch sits on top: "Can make now"
+   * (the default while anything can be made) or "Everything". The category chips show only under Everything.
+   */
+  simple?: boolean;
 }
+
+type Mode = 'ready' | 'all';
+/** What the player chose per list for the session (a simple list follows the ingredients until they choose). */
+const chosenModes = new Map<string, Mode>();
 
 const ALL = '';
 
@@ -38,10 +47,17 @@ export class RecipeList {
   private readonly emptyText: string;
   private views: readonly RecipeRowView[] = [];
   private active = ALL;
+  private readonly simple: boolean;
+  private readonly label: string;
+  private readonly modeChips = new Map<Mode, Chip>();
+  private readonly catBar: HTMLDivElement | null;
+  private mode: Mode = 'ready';
 
   constructor(opts: RecipeListOptions) {
     this.onMake = opts.onMake;
     this.many = opts.many;
+    this.simple = opts.simple ?? false;
+    this.label = opts.label;
     this.emptyText = opts.emptyText ?? 'Nothing to make here yet.';
     this.emptyEl = h('p', { class: 'hw-recipes__empty', text: this.emptyText });
     this.scroller = h('div', { class: 'hw-recipes__scroll', attrs: { role: 'list', 'aria-label': opts.label, tabindex: 0 } }, this.emptyEl);
@@ -63,7 +79,35 @@ export class RecipeList {
       }
       edgeFade(catBar);
     }
-    this.el = h('div', { class: 'hw-recipes' }, catBar, this.scroller);
+    this.catBar = catBar;
+    let modeBar: HTMLDivElement | null = null;
+    if (this.simple) {
+      modeBar = h('div', { class: 'hw-recipes__mode', attrs: { role: 'toolbar', 'aria-label': `${opts.label} filter` } });
+      for (const [mode, label] of [['ready', 'Can make now'], ['all', 'Everything']] as const) {
+        const chip = new Chip({ label, selected: false, onClick: () => this.choose(mode) });
+        this.modeChips.set(mode, chip);
+        modeBar.appendChild(chip.el);
+      }
+      this.mode = chosenModes.get(opts.label) ?? 'ready';
+    }
+    this.el = h('div', { class: 'hw-recipes' }, modeBar, catBar, this.scroller);
+    this.syncMode();
+  }
+
+  /** The player's pick of the two views (simple lists). */
+  private choose(mode: Mode): void {
+    chosenModes.set(this.label, mode);
+    this.mode = mode;
+    this.syncMode();
+    this.applyFilter();
+    this.scroller.scrollTop = 0;
+  }
+
+  private syncMode(): void {
+    if (!this.simple) return;
+    for (const [mode, chip] of this.modeChips) chip.setSelected(mode === this.mode);
+    if (this.catBar) this.catBar.hidden = this.mode !== 'all';
+    setAttr(this.el, 'data-mode', this.mode);
   }
 
   /** The selected category id, or null for All. */
@@ -100,7 +144,7 @@ export class RecipeList {
       let row = this.rows.get(view.id);
       if (row) row.update(view);
       else {
-        row = new RecipeRow(view, { onMake: this.onMake, many: this.many });
+        row = new RecipeRow(view, { onMake: this.onMake, many: this.many, simple: this.simple });
         this.rows.set(view.id, row);
       }
       if (cursor === row.el) cursor = cursor.nextElementSibling;
@@ -129,19 +173,34 @@ export class RecipeList {
     this.readyCounts.clear();
     let visible = 0;
     let readyTotal = 0;
+    for (const view of this.views) if (view.available > 0 && !view.locked) readyTotal++;
+    // Until the player picks a view, a simple list shows what can be made, or everything when that is nothing.
+    if (this.simple && !chosenModes.has(this.label)) {
+      const auto: Mode = readyTotal > 0 ? 'ready' : 'all';
+      if (auto !== this.mode) {
+        this.mode = auto;
+        this.syncMode();
+      }
+    }
+    readyTotal = 0;
     for (const view of this.views) {
       const row = this.rows.get(view.id);
       if (!row) continue;
-      const show = this.active === ALL || view.category === this.active;
+      const canNow = view.available > 0 && !view.locked;
+      const show = this.simple && this.mode === 'ready' ? canNow : this.active === ALL || view.category === this.active;
       if (row.el.hidden === show) row.el.hidden = !show;
       if (show) visible++;
-      if (view.available > 0 && !view.locked) {
+      if (canNow) {
         readyTotal++;
         if (view.category !== undefined) this.readyCounts.set(view.category, (this.readyCounts.get(view.category) ?? 0) + 1);
       }
     }
     for (const [id, chip] of this.chips) chip.setCount(id === ALL ? readyTotal : this.readyCounts.get(id) ?? 0);
+    this.modeChips.get('ready')?.setCount(readyTotal);
+    this.modeChips.get('all')?.setCount(this.views.length);
     if (this.emptyEl.hidden !== visible > 0) this.emptyEl.hidden = visible > 0;
-    if (visible === 0) setText(this.emptyEl, this.views.length === 0 ? this.emptyText : 'Nothing in this category yet.');
+    if (visible === 0) {
+      setText(this.emptyEl, this.views.length === 0 ? this.emptyText : this.simple && this.mode === 'ready' ? 'Nothing to make right now. Tap Everything to see what is missing.' : 'Nothing in this category yet.');
+    }
   }
 }

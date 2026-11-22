@@ -13,11 +13,10 @@ import { h, prefersReducedMotion, setAttr, setText } from '../../kit/dom';
 import { heatColor } from '../../kit/format';
 import { Button } from '../../kit/controls';
 import { Badge, Meter } from '../../kit/gauges';
-import { RecipeList } from '../../kit/recipe';
 import { ItemSlot } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
 import { castView, choicesKey } from './castText';
-import { nameOf, SMELT_CATEGORIES, smeltRowViews } from './forgeRows';
+import { nameOf } from './forgeRows';
 import { clockText, slotOf } from './furnaceText';
 import { pretty } from './simApi';
 
@@ -46,7 +45,6 @@ export class SmeltTab {
   private readonly bus: GameBus;
   private readonly sources: () => readonly Inventory[];
   private readonly crucibleHost: HTMLDivElement;
-  private readonly list: RecipeList;
   private rows: CrucibleRow[] = [];
   private bindings: SlotBinding[] = [];
   private furnaceSlots: FurnaceSlots | null = null;
@@ -63,23 +61,10 @@ export class SmeltTab {
     this.bus = opts.bus;
     this.sources = opts.sources;
     this.crucibleHost = h('div', { class: 'hw-cru-list' });
-    this.list = new RecipeList({
-      label: 'Smelting',
-      categories: SMELT_CATEGORIES,
-      many: 0,
-      emptyText: 'Nothing to smelt.',
-      onMake: (id) => {
-        this.load(id);
-        opts.changed();
-      },
-    });
     this.el = h(
       'div',
       { class: 'hw-smelt' },
-      h('h3', { class: 'hw-heading', text: 'Crucibles' }),
       this.crucibleHost,
-      h('h3', { class: 'hw-heading', text: 'What the crucibles take' }),
-      this.list.el,
     );
   }
 
@@ -118,7 +103,6 @@ export class SmeltTab {
       row.meter.set(c.progress, 1, c.active ? clockText(c.secondsLeft) : '');
       this.updatePour(row, i, c, pack);
     });
-    this.list.setRows(smeltRowViews(view.smelt));
   }
 
   dispose(): void {
@@ -128,7 +112,6 @@ export class SmeltTab {
       row.output.dispose();
       for (const b of row.buttons) b.dispose();
     }
-    this.list.dispose();
   }
 
   private buildRow(i: number): CrucibleRow {
@@ -178,7 +161,7 @@ export class SmeltTab {
   }
 
   /** Load: a stack of the recipe's input from the pack (or a nearby crate) into the crucibles. */
-  private load(recipeId: string): void {
+  load(recipeId: string): void {
     const target = this.furnaceSlots?.crucibleIn;
     const item = recipeById(recipeId)?.inputs[0].item;
     if (!target || !item) return;

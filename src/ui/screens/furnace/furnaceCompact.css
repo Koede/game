@@ -71,9 +71,7 @@
 .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__controls > .hw-meter,
 .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuel > .hw-btn,
 .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__elec,
-.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__facts,
 .hw-fx[data-compact] .hw-fbx:not([data-open]) > .hw-btn,
-.hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__draft,
 .hw-fx[data-compact] .hw-fbx[data-lit]:not([data-open]) .hw-fbx__light,
 .hw-fx[data-compact] .hw-fbx:not([data-lit]):not([data-open]) .hw-fbx__pump {
   display: none;

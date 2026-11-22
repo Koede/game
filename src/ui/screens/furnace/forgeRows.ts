@@ -11,16 +11,18 @@ import { isKitchenRecipe, KITCHEN, productBadges } from '../food';
 import { heatRoute } from './fuelText';
 import { pretty } from './simApi';
 
-export type ForgeCategory = 'tools' | 'parts' | 'machines' | 'power' | 'building' | 'kitchen';
+export type ForgeCategory = 'tools' | 'parts' | 'machines' | 'kitchen';
 
-/** Kitchen comes right after All in both furnace lists: on a phone the chip bar scrolls, and cooking must be easy to find. */
+/**
+ * Four chips, shown only under "Everything" (the default view lists what can be made now, no chips): Kitchen first so
+ * cooking is easy to find, then Tools, Machines (machines and power parts) and Parts (materials and building blocks).
+ * Four fit a phone without the bar scrolling.
+ */
 export const FORGE_CATEGORIES: readonly RecipeCategory[] = [
   KITCHEN,
   { id: 'tools', label: 'Tools' },
-  { id: 'parts', label: 'Parts' },
   { id: 'machines', label: 'Machines' },
-  { id: 'power', label: 'Power' },
-  { id: 'building', label: 'Building' },
+  { id: 'parts', label: 'Parts' },
 ];
 
 export type SmeltCategory = 'materials' | 'fuel' | 'kitchen';
@@ -50,10 +52,8 @@ export function forgeCategory(recipe: RecipeDef): ForgeCategory {
   if (item?.tool || item?.category === 'tool' || item?.category === 'misc') return 'tools';
   const block = blockOfItem(key);
   if (block) {
-    if (block.power === 'cable') return 'power';
-    const spec = machineOfBlock(block);
-    if (spec) return spec.role === 'generator' || spec.role === 'storage' ? 'power' : 'machines';
-    return 'building';
+    if (block.power === 'cable') return 'machines';
+    return machineOfBlock(block) ? 'machines' : 'parts';
   }
   return 'parts';
 }
@@ -62,6 +62,13 @@ export function forgeCategory(recipe: RecipeDef): ForgeCategory {
 export function forgeAvailable(row: ForgeRow): number {
   if (!row.canMake) return 0;
   return Math.max(1, Math.min(row.max, row.heatAllows, 99));
+}
+
+/** "Uses 4 Firebrick, 2 Clay" - what the recipe takes, said once (the detail view has the have/need chips). */
+export function usesText(ingredients: readonly { name: string; need: number }[]): string {
+  if (ingredients.length === 0) return '';
+  const shown = ingredients.slice(0, 3).map((i) => (i.need > 1 ? `${i.need} ${i.name}` : i.name));
+  return `Uses ${shown.join(', ')}${ingredients.length > 3 ? ` +${ingredients.length - 3}` : ''}`;
 }
 
 /** The row's refusal, with how to reach the heat when the fire is too cold (the furnace's tier allows the recipe). */
@@ -90,6 +97,7 @@ export function forgeRowView(row: ForgeRow, electric = false): RecipeRowView {
     ingredients: row.ingredients.map((s) => ({ item: s.item, name: nameOf(s.item), have: s.have, need: s.need })),
     available: forgeAvailable(row),
     reason: forgeReason(row, electric),
+    summary: [usesText(row.ingredients.map((i) => ({ name: nameOf(i.item), need: i.need }))), ...productBadges(r).filter((b) => b.kind === 'food').slice(0, 1).map((b) => b.text)].filter(Boolean).join(' - '),
     locked: row.locked,
     action: 'Forge',
   };
@@ -143,7 +151,7 @@ export function smeltRowView(row: SmeltRow): RecipeRowView {
     item: r.output.item,
     name: nameOf(r.output.item),
     count: r.output.count,
-    category: smeltCategory(r),
+    category: smeltCategory(r) === 'kitchen' ? 'kitchen' : 'parts',
     requirements: [
       ...(row.locked ? [{ text: pretty(row.reason ?? ''), kind: 'tier' as const, met: false }] : []),
       { text: `${r.minTempC} °C`, kind: 'heat', met: row.tempOk, tempC: r.minTempC },
@@ -152,9 +160,11 @@ export function smeltRowView(row: SmeltRow): RecipeRowView {
     ],
     ingredients: [{ item: input.item, name: nameOf(input.item), have: row.have, need: input.count }],
     available: row.locked ? 0 : Math.floor(row.have / input.count),
-    reason: row.locked ? undefined : `Bring ${input.count > 1 ? `${input.count} ` : ''}${nameOf(input.item)}`,
+    reason: row.locked ? pretty(row.reason ?? '') : `Bring ${input.count > 1 ? `${input.count} ` : ''}${nameOf(input.item)}`,
+    summary: `Takes ${input.count > 1 ? `${input.count} ` : ''}${nameOf(input.item)} - ${r.timeS} s at ${r.minTempC} °C`,
     locked: row.locked,
     action: 'Load',
+    single: true,
   };
 }
 

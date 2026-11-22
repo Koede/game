@@ -50,12 +50,21 @@ export interface RecipeRowView {
   locked?: boolean;
   /** Label of the main button. Default "Make". */
   action?: string;
+  /** Simple rows: the one line under the name while the row can be made ("Uses 4 Firebrick"). */
+  summary?: string;
+  /** The recipe is made once per press (no batch button), e.g. loading a crucible. */
+  single?: boolean;
 }
 
 export interface RecipeRowOptions {
   onMake: (id: string, count: number) => void;
   /** Size of the batch button ("x5"). 0 removes the button. Default 5. */
   many?: number;
+  /**
+   * Simple row: icon, name, ONE line of text and the one button. The batch button shows only when the recipe can be
+   * made twice or more, and a tap on the row opens the full detail (requirement badges, ingredient chips, the reason).
+   */
+  simple?: boolean;
 }
 
 interface IngredientChip {
@@ -99,6 +108,8 @@ export class RecipeRow {
   private readonly factHost: HTMLDivElement;
   private readonly chipHost: HTMLDivElement;
   private readonly reasonEl: HTMLDivElement;
+  private readonly lineEl: HTMLDivElement;
+  private readonly simple: boolean;
   private readonly makeBtn: Button;
   private readonly manyBtn: Button | null;
   private readonly many: number;
@@ -111,6 +122,8 @@ export class RecipeRow {
 
   constructor(view: RecipeRowView, opts: RecipeRowOptions) {
     this.many = opts.many ?? 5;
+    this.simple = opts.simple ?? false;
+    this.lineEl = h('div', { class: 'hw-recipe__line' });
     this.nameEl = h('span', { class: 'hw-recipe__name' });
     this.countEl = h('span', { class: 'hw-recipe__count hw-num' });
     this.badgeHost = h('div', { class: 'hw-recipe__badges' });
@@ -125,12 +138,22 @@ export class RecipeRow {
       'article',
       { class: 'hw-recipe', attrs: { role: 'listitem' } },
       h('div', { class: 'hw-recipe__icon' }, this.icon.el, lock),
-      h('div', { class: 'hw-recipe__head' }, h('div', { class: 'hw-recipe__title' }, this.nameEl, this.countEl), this.badgeHost),
+      h('div', { class: 'hw-recipe__head' }, h('div', { class: 'hw-recipe__title' }, this.nameEl, this.countEl), this.badgeHost, this.lineEl),
       this.factHost,
       this.chipHost,
       h('div', { class: 'hw-recipe__actions' }, this.manyBtn?.el, this.makeBtn.el),
       this.reasonEl,
     );
+    if (this.simple) {
+      setAttr(this.el, 'data-simple', 'true');
+      setAttr(this.el, 'aria-expanded', 'false');
+      this.el.addEventListener('click', (ev) => {
+        if (ev.target instanceof Element && ev.target.closest('button')) return;
+        const open = !this.el.hasAttribute('data-open');
+        setFlag(this.el, 'open', open);
+        setAttr(this.el, 'aria-expanded', String(open));
+      });
+    }
     this.update(view);
   }
 
@@ -152,6 +175,7 @@ export class RecipeRow {
     const reason = ready ? '' : view.reason ?? '';
     setText(this.reasonEl, reason);
     this.reasonEl.hidden = reason === '';
+    setText(this.lineEl, ready ? view.summary ?? '' : reason || view.summary || '');
     this.makeBtn.setLabel(view.action ?? 'Make');
     const available = ready ? view.available : 0;
     if (available !== this.available) {
@@ -161,6 +185,7 @@ export class RecipeRow {
         this.batch = ready ? Math.min(this.many, Math.max(2, available)) : this.many;
         this.manyBtn.setLabel(`×${this.batch}`);
         this.manyBtn.setDisabled(available < 2);
+        if (this.simple) this.manyBtn.el.hidden = available < 2 || view.single === true;
       }
     }
     if (this.manyBtn) {

@@ -36,6 +36,8 @@ export class UpgradeControl {
   private readonly where: HTMLUListElement;
   private whereKey = '';
   private readonly temp = new Badge({ text: '', tone: 'heat' });
+  /** The heat check: only shown while the fire is too cold for the upgrade. */
+  private readonly heat = h('div', { class: 'hw-upg__heat' }, this.temp.el);
   private readonly reason: HTMLParagraphElement;
   private readonly go: Button;
   private readonly back: Button;
@@ -88,8 +90,7 @@ export class UpgradeControl {
         h('h4', { class: 'hw-heading', text: 'Materials' }),
         this.chipHost,
         this.where,
-        h('h4', { class: 'hw-heading', text: 'Heat' }),
-        h('div', { class: 'hw-upg__temp' }, this.temp.el),
+        this.heat,
       ),
       h('div', { class: 'hw-upg__foot' }, h('div', { class: 'hw-upg__why' }, this.reason, this.structure.el), h('div', { class: 'hw-upg__btns' }, this.back.el, this.go.el)),
     );
@@ -131,7 +132,7 @@ export class UpgradeControl {
     if (key !== this.tableKey) {
       this.tableKey = key;
       this.table.replaceChildren(
-        ...upgradeStats(view, up.next).map((row) =>
+        ...upgradeStats(view, up.next).filter((row) => row.next !== row.now).map((row) =>
           h('tr', { attrs: { 'data-better': row.next !== row.now } }, h('th', { text: row.label }), h('td', { class: 'hw-num', text: row.now }), h('td', { class: 'hw-num', text: row.next })),
         ),
       );
@@ -151,6 +152,7 @@ export class UpgradeControl {
       met: up.tempOk,
       swatch: heatColor(up.requiredC),
     });
+    this.heat.hidden = up.tempOk;
     setText(this.reason, up.reason ? pretty(up.reason) : `Everything is ready. Hold to rebuild it as the ${up.next.name}.`);
     this.structure.el.hidden = up.structureOk !== false;
     this.nextTier = up.next.tier;

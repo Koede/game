@@ -30,19 +30,19 @@ function liveView(setup?: (kit: ReturnType<typeof makeKit>) => void): FurnaceVie
 }
 
 describe('forge rows', () => {
-  it('sorts every forge recipe into one of the five chips', () => {
+  it('sorts every forge recipe into one of the four chips', () => {
     expect(forgeCategory(r('bronze_pickaxe'))).toBe('tools');
     expect(forgeCategory(r('shield_suit'))).toBe('tools');
     expect(forgeCategory(r('power_drill'))).toBe('tools');
-    expect(forgeCategory(r('item_pipe'))).toBe('building');
+    expect(forgeCategory(r('item_pipe'))).toBe('parts');
     expect(forgeCategory(r('circuit'))).toBe('parts');
     expect(forgeCategory(r('crusher'))).toBe('machines');
     expect(forgeCategory(r('lamp'))).toBe('machines');
-    expect(forgeCategory(r('thermopile'))).toBe('power');
-    expect(forgeCategory(r('copper_cable'))).toBe('power');
-    expect(forgeCategory(r('battery'))).toBe('power');
-    expect(forgeCategory(r('brick'))).toBe('building');
-    expect(forgeCategory(r('concrete'))).toBe('building');
+    expect(forgeCategory(r('thermopile'))).toBe('machines');
+    expect(forgeCategory(r('copper_cable'))).toBe('machines');
+    expect(forgeCategory(r('battery'))).toBe('machines');
+    expect(forgeCategory(r('brick'))).toBe('parts');
+    expect(forgeCategory(r('concrete'))).toBe('parts');
     expect(forgeCategory(r('hearth_stew'))).toBe('kitchen');
     expect(forgeCategory(r('hearth_stew_fowl'))).toBe('kitchen');
     expect(forgeCategory(r('bronze_hoe'))).toBe('tools');
@@ -161,9 +161,17 @@ describe('furnace texts', () => {
     });
     const notches = thermoNotches(view, r('item_pipe'));
     expect(notches).toContainEqual({ tempC: 700, label: 'Copper', kind: 'threshold' });
-    expect(notches).toContainEqual({ tempC: 800, label: 'Bronze Chute', kind: 'threshold' });
-    expect(notches).toContainEqual({ tempC: 700, label: 'Upgrade', kind: 'threshold' });
+    // Only one mark besides the flame limit: what is cooking now wins over the touched recipe and the upgrade.
+    expect(notches).toHaveLength(2);
     expect(notches.find((n) => n.label === 'Flame')).toMatchObject({ tempC: 1250, kind: 'limit' });
+    // With nothing cooking, the touched recipe is the mark; with neither, the upgrade temperature.
+    const idle = liveView((kit) => {
+      const e = kit.sim.furnaceAt(0, 1, 0);
+      if (e) fire(kit, e, 'charcoal', 3);
+      kit.run(2);
+    });
+    expect(thermoNotches(idle, r('item_pipe'))).toContainEqual({ tempC: 800, label: 'Bronze Chute', kind: 'threshold' });
+    expect(thermoNotches(idle, null)).toContainEqual({ tempC: 700, label: 'Upgrade', kind: 'threshold' });
     // The same recipe twice collapses.
     expect(thermoNotches(view, r('copper_ingot')).filter((n) => n.label === 'Copper')).toHaveLength(1);
   });
