@@ -13,8 +13,8 @@ Ids this unit DEFINES (SYSTEMS 6.2 row "harness, `clay_golem` mob, golem setup, 
 and `golem_woke`, side goals `harness_animal` and `walk_golem`, `MobManager.standingOn`, `MobManager.harnessTo`,
 `MobManager.useOn`, `MobManager.golems`, `MobManager.useGolemHooks`, `MachineActAction.bare?`.
 
-Ids this unit READS: `golem_walk` research flag/entry (Unit 18), `padlock_chest` block key and the lock rule in `logi.take`
-(Unit 16), `MobManager.call` (Unit 16; Unit 17 adds one skip line), vault groups behind `logi.accept/take` (Unit 15), `bandage`
+Ids this unit READS: `golem_walk` research flag/entry (Unit 18), `padlock_chest` / `isLocked` and the lock rule in `logi.take`
+(Unit 16), `MobManager.callTame` (Unit 16; Unit 17 adds the golem skip line), vault groups behind `logi.accept/take` (Unit 15), `bandage`
 and `elixir_<buff>` items (Unit 10), `Workshop.relocate` maps and `MovingView` (Unit 13), side-goal mechanism and the
 `Workshop.standingOn` hook documentation (Unit 0).
 
@@ -39,7 +39,7 @@ Clay Golem - a squat terracotta figure with two pink Soul-lit eyes and a bronze 
 Mechanical Arm, with the wrench: golem, source, up to four targets, golem again. But where the arm reaches 3 blocks, the golem
 WALKS up to 8: it fetches a stack of wheat from the depot, carries it across the room to the millstone, comes back; it cranks the
 hand crank on the far wall for half a minute; it works the hand quern with its clay fists. It eats one unit of Spring every 30 s
-from a jar within its range. It ignores padlocked chests. It is slow (2 blocks/s), it is visible, and you can see exactly what it is
+from a jar within its range. It never empties a padlocked chest. It is slow (2 blocks/s), it is visible, and you can see exactly what it is
 doing by looking at it: "Clay Golem - carrying 8 Flour to the Mixer, fed 22 s".
 
 Both helpers are optional (T7): the tech spine never needs them, and they add nothing an arm, a crank or a clockwork motor cannot
@@ -66,18 +66,23 @@ already do - they do it with legs, which is the delight.
 - Golem feeding goes through ONE new public method on `Magic` (`feedConstruct`), the same jar search (`jarsFor`) the servants use.
 - Harnessed animals touch nothing but `standingOn`.
 
-### 2.3 Unit 16 - brass horn and padlock chest
-- **Horn.** Unit 16 owns `MobManager.call(x, y, z, radius, seconds)` (tame animals within 32 blocks follow for 20 s). Contract:
-  `call` SKIPS mobs with `harness !== null` and every golem (`m.golem !== null`). A harnessed goat does not abandon its wheel when
-  you blow the horn; a golem is not an animal. Whichever unit merges second adds the line
-  `if (m.harness !== null || m.golem !== null) continue;` at the top of `call`'s loop. Unit 17 owns harness behaviour; the
-  horn is the way back to the wheel for a goat that stepped off hungry and wandered (J4 step 2).
-- **Padlock chest.** Unit 16 makes `logi.take` refuse a locked container for every caller except the player's own hand. Unit 17
-  adds the golem side: (a) the wrench setup REFUSES a `padlock_chest` as source or target ("A padlocked chest keeps golems out");
-  (b) at run time a source or target whose block key has become `padlock_chest` is SKIPPED (status "skipping the padlocked chest")
-  and never offered to or taken from, even though `offer` would technically accept. Detection is the block key through
-  `GolemHooks.locked(x, y, z)` = `blockKey === 'padlock_chest'`; if Unit 16 exposes a richer `logi.isLocked?(x, y, z)`, Game uses it
-  instead (one line in the hook).
+### 2.3 Unit 16 - brass horn and padlock chest (aligned with docs/build/UNIT-16-trinkets-cards.md)
+- **Horn.** Unit 16 owns `MobManager.callTame(x, y, z, radius, seconds): number` (tame animals within 32 blocks follow for 20 s) and
+  already writes the harness skip defensively: `if ((m as { harness?: string }).harness) continue; // Unit 17: harnessed animals stay`.
+  Unit 17's `Mob.harness` is `string | null`, so that truthy check works as written. Unit 17 ADDS the golem skip in the same loop:
+  `if (m.golem) continue; // Unit 17: golems are not animals` (golems are `tame = true` so they are never retired, which would
+  otherwise make the horn call them). A harnessed goat does not abandon its wheel when you blow the horn; the horn is the way back to
+  the wheel for a goat that stepped off hungry and wandered (J4 step 2). If `callTame` is not merged yet, Unit 17 leaves a comment
+  in `harness.ts` naming this contract.
+- **Padlock chest.** Unit 16 adds `isLocked(world, x, y, z): boolean` (`src/workshop/trinkets.ts`, block key `padlock_chest`) and
+  makes `Logistics.take/peek` refuse locked cells for every caller except the player's own hand. A padlock chest is "a 27-slot crate
+  that machines, pipes and golems may FILL but never EMPTY". Unit 17 follows that rule exactly:
+  (a) wrench setup REFUSES a padlock chest as the SOURCE with Unit 16's string
+  `"The Padlock Chest is locked - a golem cannot take from it"`; as a carry TARGET it is ALLOWED (a golem may deliver into it);
+  (b) at run time a source that has become a padlock chest is skipped (status "the source is locked - wrench it to set another"),
+  and the leftover rule never returns a stack to a locked source (it tries other targets, then drops at the golem's feet);
+  (c) `GolemHooks.locked(x, y, z)` = Unit 16's `isLocked(world, x, y, z)`, falling back to `blockKey === 'padlock_chest'` if Unit 16
+  has not merged. `workshop.take` refusing locked cells is the safety net.
 
 ### 2.4 Unit 15 - vault groups
 - A golem source or target on ANY cell of a vault group works on the whole group, because Unit 15 makes `logi.peek/accept/take`
@@ -383,7 +388,7 @@ Wrench on the golem itself arrives through `AnimalHands.use()` -> `MobManager.us
    "Target 3: Hand Quern - it will work it"). A `'carry'` block wrenched after the source is a carry target. A golem may have no
    source (a crank-only or work-only golem). To make a station or crank the "first" thing and still have a source, wrench the source
    first.
-   Refusals (toast, setup continues): "Too far from the golem's home (8 blocks)"; "A padlocked chest keeps golems out";
+   Refusals (toast, setup continues): "Too far from the golem's home (8 blocks)"; as source only: "The Padlock Chest is locked - a golem cannot take from it";
    "Already a target" (same cell or same vault group, or the source again); "The golem knows 4 targets - wrench it again to finish".
 3. **Wrench the golem again.** Done. Toast: "Golem set: source Depot, 3 targets" / "Golem set: no source, 1 target" / with zero
    targets "Golem set: nothing to do - wrench it again to start over". Flag-free; the first finished task wakes it (4.3.8).
@@ -576,7 +581,7 @@ marks). `kind` is the toast kind (`info` / `warn` / `good`). "Advisory" = `Inter
 | network jams or overstresses | nothing changes for the animal (it keeps walking; the workshop's own toast reports the jam) | workshop's existing toast |
 | chunk unloads | frozen with its column; `standingOn` false while unloaded; resumes on load | none |
 | save and load while harnessed | restored harnessed with its `fedS`; harness index rebuilt; if the wheel is gone at load, unharnessed on the first loaded check | none |
-| horn blown (Unit 16) | harnessed animals ignore `call` | none |
+| horn blown (Unit 16) | harnessed animals and golems ignore `callTame` | none |
 | player holds wheat near a harnessed goat | it does NOT follow (harness overrides follow) | none |
 | two goats led onto one wheel | the first to settle is harnessed; the second cannot stand there (cell occupied) and the crowd push keeps it off | none |
 
@@ -590,7 +595,7 @@ marks). `kind` is the toast kind (`info` / `warn` / `good`). "Advisory" = `Inter
 | wrench a container first | source | "Source set: Depot. Now the targets" |
 | wrench a crank / container / station | target n | "Target 1: Hand Crank - it will crank" / "Target 2: Mixer - it will carry" / "Target 3: Hand Quern - it will work it" |
 | too far | refused | "Too far from the golem's home (8 blocks)" |
-| padlocked chest | refused | "A padlocked chest keeps golems out" |
+| padlock chest wrenched as the source | refused (as a target it is allowed) | "The Padlock Chest is locked - a golem cannot take from it" |
 | same cell / vault group again | refused | "Already a target" |
 | fifth target | refused | "The golem knows 4 targets - wrench it again to finish" |
 | not workable | refused | "A golem cannot work that - pick a crank, a container or a hand station" |
@@ -600,7 +605,7 @@ marks). `kind` is the toast kind (`info` / `warn` / `good`). "Advisory" = `Inter
 | source removed | carry targets idle | status "no source, wrench it to set one" |
 | target full | waits 5 s, then other targets, then back to the source | status "waiting: the Mixer is full" |
 | source empty / nothing any target takes | idle at home, retry 5 s | status "waiting for items at the Depot" |
-| target becomes padlocked | skipped | status "skipping the padlocked chest" |
+| source becomes a padlock chest | carry targets idle; stacks are never returned into it | status "the source is locked - wrench it to set another" |
 | path blocked | next target; retry later | status "cannot reach the Mixer, path blocked"; advisory "The golem cannot reach the Mixer" |
 | pushed out of its range | paths home | status "walking home" |
 | home unreachable 30 s | stops | status "lost - wrench it to set a new home" |
@@ -877,8 +882,8 @@ export interface AnimalTargets { /* existing */ useOn?(id: number, item: string)
     wrench route first (4.3.4), then the `clay_golem` set-down (top face, `mobs.golems.add`, consume 1). Crosshair: where Game calls
     `ui.setTargetName(mobs.describe(id))`, append `describeMore` when goggles are carried. Carry cubes into the magic renderer's
     display list each frame from `mobs.golems.carryViews()`.
-13. **Unit 16 seam**: in `MobManager.call` (if present) add the skip line of 2.3; if `call` is not there yet, leave a comment in
-    `harness.ts` naming the contract and tell the coordinator (section 14).
+13. **Unit 16 seam**: in `MobManager.callTame` (if present) add the golem skip line of 2.3 (the harness skip is Unit 16's); if
+    `callTame` is not there yet, leave a comment in `harness.ts` naming the contract. `GolemHooks.locked` uses `isLocked` when present.
 14. **Sounds**: `golem_step`, `golem_wake` patches in `src/audio/sfxMagic.ts`; names in `SfxName`.
 15. **Side goals**: NEW `src/content/objectivesHelpers.ts` exporting `HELPER_SIDE_GOALS` (two `ObjectiveSpec`s, condition `flag`
     `harnessed_animal` / `golem_woke`, titles "Put an animal to work" / "Wake a golem", texts: "Use wheat on a treadwheel with a
@@ -930,7 +935,7 @@ Helpers to reuse (do not rewrite): `standCell`, `walkable`, `clearanceOf` (terra
 room 16 - and a fake magic `feed` with a counter of Spring units)
 1. "setup like an arm": wrench golem -> listening toast; `wrenchBlock(depot)` -> "Source set: Depot. Now the targets";
    `wrenchBlock(mixer)` -> "Target 1: Mixer - it will carry"; `useOn(id, 'wrench')` -> "Golem set: source Depot, 1 target".
-2. Refusals: 9 blocks away -> "Too far from the golem's home (8 blocks)"; `padlock_chest` -> "A padlocked chest keeps golems out";
+2. Refusals: 9 blocks away -> "Too far from the golem's home (8 blocks)"; `padlock_chest` as source -> "The Padlock Chest is locked - a golem cannot take from it", as a target -> accepted;
    fifth target; duplicate; unknown block.
 3. "carries one stack per trip at 2 blocks/s": depot 6 blocks from the target; after one trip the target has 16 (its room), the
    depot 4; with the golem starting beside the depot, the time from the take to the offer is between 6 / 2 = 3 s and 4.5 s (path
@@ -1034,7 +1039,7 @@ for the toasts only - no new screen, so phone runs are a smoke check that toasts
 - [ ] Wrench frees it; a broken wheel frees it; a hit frees it; the horn (Unit 16) does not pull it off.
 - [ ] Crosshair: "Goat - harnessed to the treadwheel, fed 6.5 min" style.
 - [ ] `clay_golem` infusion exists, is refused without `golem_walk`, works with it; the golem item sets down on open ground.
-- [ ] Wrench setup: golem, source, up to 4 targets within 8 blocks, golem; every refusal string of 5.2; padlocked chests refused.
+- [ ] Wrench setup: golem, source, up to 4 targets within 8 blocks, golem; every refusal string of 5.2; a padlock chest refused as source, accepted as target.
 - [ ] A golem carries one stack per trip at 2 blocks/s round a wall; cranks a hand crank (network shows 16 rpm / 8 su); works a
       loaded hand quern without ever taking its output.
 - [ ] 1 Spring per 30 s of work from a jar within 8 blocks or tubed; none while idle; hungry status and recovery with a vial.
@@ -1062,8 +1067,8 @@ for the toasts only - no new screen, so phone runs are a smoke check that toasts
 ---------------------------------------------------------------------------------------------------------------------------
 
 ## 14. Notes for the coordinator
-1. **Unit 16 seam (horn):** `MobManager.call` must skip `m.harness !== null || m.golem !== null`. Whichever of 16/17 merges second
-   adds the one line; both specs should say so. Unit 16's padlock is detected by block key `padlock_chest`; if 16 adds a per-chest
+1. **Unit 16 seam (horn):** Unit 16's `callTame` already skips `harness` defensively; Unit 17 adds `if (m.golem) continue;`.
+   Padlock: golems may fill but never empty a padlock chest (Unit 16 rule), so it is refused only as a golem SOURCE. Unit 16's padlock is detected by block key `padlock_chest`; if 16 adds a per-chest
    lock toggle, expose `logi.isLocked?(x, y, z)` and Unit 17's `locked` hook uses it.
 2. **Unit 18 seam (gate):** Unit 18's `golem_walk` entry should unlock `recipes: ['clay_golem']` and `flags: ['golem_walk']`; its
    title should be "The Walking Clay" so Unit 17's pre-merge guard text matches (or update `GOLEM_GATE_TEXT`).

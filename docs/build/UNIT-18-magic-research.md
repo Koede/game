@@ -589,3 +589,336 @@ export const MAX_ROD_CAPACITY = Math.max(...RODS.map((r) => r.capacity)); // NEW
   done.
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered)
+
+Each step leaves `npm test` green. Run `npx vitest run src/magic src/content` after each.
+
+1. **Late rules and pinning** - `src/magic/aspectTable.ts`: add `LateAspect`, `LATE_RULES` (7.1). `src/magic/fingerprint.ts`:
+   add `export function pinLate(out: Aspects, key: string): Aspects` (4.1 steps 1-4; import `LATE` from `./aspects`); in
+   `aspectsOf`, after `out = normalise(...)` and only in the non-override branch, `out = pinLate(out, key)`. Run the
+   fingerprint tests; extend them (9.1).
+2. **Entries interface** - `src/magic/entries.ts`: add `gates?: readonly string[]` to `unlocks`. `src/magic/gates.ts`:
+   `RESEARCH_GATES` maps `[...(e.unlocks.recipes ?? []), ...(e.unlocks.gates ?? [])]`. `src/magic/research.ts`:
+   `unlockedRecipes` adds `gates` ids too. Update the header comment of `entries.ts` (the tree paragraph) with one sentence
+   for the new entries.
+3. **Nine entries** - append to `RESEARCH` per 4.4 (Bronze four at the end of the Bronze block, Forge four at the end of the
+   Forge block; that is eight with boards; `field_notes` remains the only board-less entry). Use the existing helpers
+   `pair`, `corners`, `triple`, `quad`, `wall`, `cellAt`. Note: that is 8 new entries, not 9 - see the count note in 14.
+4. **Steel rod content** - `src/content/itemsMagic.ts`: `RODS` row, `MAX_ROD_CAPACITY`, the `steel_rod` item.
+   `src/content/recipesMagic.ts`: the `steel_rod` arcane row, the two `soul_steep` infusions. `src/content/specRosterMagic.ts`:
+   add `'steel_rod'` after `'iron_rod'` in `items`; `textures: 49`. `src/render/textures/iconsMagic.ts`: `STEEL_R` and
+   `item_steel_rod`. Update the specRoster comment (`24 + 7 item icons` -> `25 + 7`).
+5. **Payment planner** - NEW `src/magic/payment.ts` with `JarSlot`, `PaymentPlan`, `planPayment` (4.3). No imports from the
+   registry (pure; takes `vialUnits` default from `itemsMagic.VIAL_UNITS`). Tests 9.3.
+6. **Desk wiring** - `magic.ts`:
+   - `private jarSlots(x, y, z, radius): JarSlot[]` built from `jarsFor(this.blockAt, x, y, z, radius)` + `jarAt` +
+     `jarCapacity` (key = `k3(...)`).
+   - `private carriedVials(): Partial<Record<Aspect, number>>` from `this.player.inventory.count(vialKey(a))` over `ASPECT_LIST`.
+   - `deskRow`: compute `have` as today (the `available` helper stays), then if no `problem`, `plan = planPayment(r.cost,
+     this.jarSlots(x, y, z, DESK_REACH), this.carriedVials())` and `note = noteText(plan)` (NEW module-private function
+     producing the 4.3 strings; aspect names via `aspectInfo(a).name`).
+   - `deskMake`: replace the `take` loop with applying the plan (drain `fromJars` via `setJar`; for each `vials[a]`:
+     `inventory.remove(vialKey(a), n)` and `player.give(EMPTY_VIAL, n)`; `refunds` via `setJar(jar, aspect, current + n)`),
+     sfx, toast per 4.3. Return value = the toast text (the screen shows it in its status line).
+7. **Drawable, late-first, soul** - `magic.ts`: import `LATE`; new `drawable` body (4.2); in `richest`, a first pass over
+   `LATE` (when `hasFlag(this.research, 'late_draw')`) returning the best late `{ aspect, left }` if any `left >= 1`; in
+   `landAspects`, after the block loop: `const life = this.hooks.livingNear?.(cx, cy, cz, SOUL_RADIUS) ?? 0; if (life > 0)
+   sum.set('soul', (sum.get('soul') ?? 0) + life * SOUL_PER_LIFE);`.
+8. **Tuning** - `magic.ts`: `tuned: Aspect | null = null`; in `use()`, inside `if (rod) {...}` after the altar check:
+   `if (target && key && JAR_BLOCKS.has(key)) return this.tune(target);`. `private tune(t: MagicTarget): MagicOutcome` per
+   the 4.2 table (the "which entry unlocks it" title: `RESEARCH.find((e) => e.unlocks.flags?.includes(flag))?.title` with
+   `flag = LATE.includes(a) ? 'late_draw' : 'compound_draw'`). In `gather`: if `this.tuned`, use it (refuse per 4.2 when
+   `leftOf(tuned) < 1` or `!drawable(tuned)`), and skip a wellspring whose aspect differs. `rodReading`: prefix
+   `Tuned to <Name> · ` when tuned.
+9. **Essence study** - `magic.ts`: `ESSENCE_LORE`; `notebook()` gains `canStudyEssence: () => hasFlag(this.research,
+   'essence_study')` and `studyEssence(item)` (4.6; refusal `Research "Reading Essences" first`, `You carry none`, and
+   `That is not an essence` for keys not in `ESSENCE_LORE`). `notebookScreen.ts`: the second study row (6.1), filtering
+   carried keys by `k.startsWith('essence_')`.
+10. **Desk screen note** - `deskScreen.ts`: render `r.note` (6.2), `data-note`.
+11. **Save** - `toJSON`: `...(this.tuned ? { tuned: this.tuned } : {})`; `load`: `tuned` and `MAX_ROD_CAPACITY` (7.2).
+12. **Game wiring** - `src/app/game.ts`, in the `new Magic(world, bus, player, { ... })` hooks object (~line 130): add
+    ```ts
+    livingNear: (x, y, z, r) => {
+      let n = 0;
+      for (const m of state.mobs.loaded) {
+        if (m.hostile) continue;
+        if (Math.hypot(m.px - (x + 0.5), m.py - y, m.pz - (z + 0.5)) <= r) n += m.tame ? 2 : 1;
+      }
+      return n;
+    },
+    ```
+    (`MobManager.loaded` and the `Mob` fields `px`, `py`, `pz`, `tame`, `hostile` exist; if `state.mobs` is created after
+    `this.magic`, wire the hook as a closure that reads `this.state?.mobs` lazily - the builder checks the order.)
+13. **Docs** (section 11), **tests** (9), **e2e** (10).
+
+Helpers to reuse, not rewrite: `jarsFor`, `shortfall` (essentiaNet), `aspectsText`, `aspectInfo`, `vialKey`, `vialAspect`
+(module-private in magic.ts), `setJar`, `advise`, `toast`, `entryStatus`, `solveBoard`, `cellAt`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest)
+
+### 9.1 `src/magic/fingerprint.test.ts` (add a `describe('late aspects')`)
+
+```ts
+it('pins spark, soul and void on their objects', () => {
+  expect(aspectsOf('battery')).toEqual({ cinder: 8, loam: 8, vein: 8, spark: 3 });
+  expect(aspectsOf('clay_servant').soul).toBe(4);
+  expect(aspectsOf('item_vault').void).toBe(4);
+  expect(aspectsOf('void_jar').void).toBe(6);
+  expect(aspectsOf('corestone').void).toBe(3);
+  expect(aspectsOf('copper_cable').spark).toBe(2);
+});
+it('never pins over an override and never exceeds four aspects', () => {
+  expect(aspectsOf('furnace_star')).toEqual(normalise(OVERRIDES.furnace_star as Record<string, number>));
+  for (const k of keys) expect(Object.keys(aspectsOf(k)).length, k).toBeLessThanOrEqual(MAX_ASPECTS);
+});
+it('LATE_RULES names only late aspects with amounts 1..8', () => {
+  for (const r of Object.values(LATE_RULES)) for (const [a, n] of Object.entries(r)) {
+    expect(LATE).toContain(a); expect(n >= 1 && n <= MAX_AMOUNT).toBe(true);
+  }
+});
+it('every late aspect is carried by some object of the Forge age or earlier', () => {
+  for (const a of LATE) expect(ITEMS.some((i) => i.age <= ageIndexOf('forge') && (aspectsOf(i.key)[a] ?? 0) > 0), a).toBe(true);
+});
+```
+
+(If the exact `battery` shape differs because the recipe changed since this spec, assert `spark === 3` and length 4 instead,
+and report it.) The existing determinism and coverage tests must stay green unchanged.
+
+### 9.2 `src/magic/research.test.ts`
+
+```ts
+const NEW_ENTRIES = ['essence_ward', 'aura_dial', 'reading_essences', 'steeped_soul', 'late_draw', 'golem_walk', 'steady_tubes', 'steel_rod'];
+it('new boards solve with aspects of ITEMS of their own age only (no blocks, no vials, no late tokens)', () => {
+  for (const key of NEW_ENTRIES) {
+    const e = researchEntry(key)!;
+    const pal = new Set<Aspect>();
+    for (const i of ITEMS) if (i.age <= ageIndexOf(e.age) && !i.key.startsWith('vial_'))
+      for (const a of Object.keys(aspectsOf(i.key)) as Aspect[]) if (!(LATE as readonly string[]).includes(a)) pal.add(a);
+    const sol = solveBoard(e.board!, [...pal]);
+    expect(sol, key).not.toBeNull();
+    expect(boardSolved(e.board!, sol!), key).toBe(true);
+  }
+});
+it('the solver is deterministic on the new boards', () => {
+  for (const key of NEW_ENTRIES) expect(solveBoard(researchEntry(key)!.board!, ASPECT_LIST)).toEqual(solveBoard(researchEntry(key)!.board!, ASPECT_LIST));
+});
+it('flags and gates: golem_walk gates clay_golem; each flag is set by exactly one entry', () => {
+  expect(RESEARCH_GATES.get('clay_golem')).toBe('golem_walk');
+  const s = freshResearch();
+  expect(craftGateReason(s, 'clay_golem')).toBe('Research "The Walking Clay" in your notebook first');
+  for (const f of ['late_draw', 'golem_walk', 'steady_tubes', 'essence_ward', 'aura_dial', 'essence_study'])
+    expect(RESEARCH.filter((e) => e.unlocks.flags?.includes(f)), f).toHaveLength(1);
+  s.entries.golem_walk = { done: true, tokens: {} };
+  expect(hasFlag(s, 'golem_walk')).toBe(true);
+  expect(craftGateReason(s, 'clay_golem')).toBeNull();
+});
+it('old research saves load: new entries open from their requires', () => {
+  const old = { v: 1, scanned: [], known: ['loam'], lore: {}, entries: { compound_draw: { done: true, tokens: {} } } };
+  const s = sanitizeResearch(old);
+  expect(entryStatus(s, researchEntry('late_draw')!)).toBe('open');
+  expect(entryStatus(s, researchEntry('golem_walk')!)).toBe('locked');
+});
+```
+
+And change the existing "every gated recipe exists" loop to iterate only `unlocks.recipes` ids:
+`for (const e of RESEARCH) for (const id of e.unlocks.recipes ?? []) expect(recipe(id) ?? arcaneRecipe(id) ?? infusionRecipe(id), id).not.toBeNull();`
+plus `for (const e of RESEARCH) for (const id of e.unlocks.gates ?? []) expect(e.unlocks.recipes ?? []).not.toContain(id);`.
+
+### 9.3 NEW `src/magic/payment.test.ts`
+
+```ts
+const jar = (key: string, aspect: Aspect | null, n: number, cap = 32): JarSlot => ({ key, aspect, n, cap });
+const units = (jars: JarSlot[], vials: Partial<Record<Aspect, number>>) => jars.reduce((s, j) => s + j.n, 0) + Object.values(vials).reduce((s, v) => s + (v ?? 0) * 4, 0);
+
+it('a vial over-paying with no jar loses the rest', () => {
+  const p = planPayment({ rune: 2 }, [], { rune: 1 });
+  expect(p.vials).toEqual({ rune: 1 }); expect(p.refunds).toEqual([]); expect(p.lost).toEqual({ rune: 2 }); expect(p.short).toEqual({});
+});
+it('the rest goes into an empty jar', () => {
+  expect(planPayment({ rune: 2 }, [jar('a', null, 0)], { rune: 1 }).refunds).toEqual([['a', 'rune', 2]]);
+});
+it('a jar of another aspect is never used for the rest', () => {
+  const p = planPayment({ rune: 2 }, [jar('g', 'gale', 5)], { rune: 1 });
+  expect(p.refunds).toEqual([]); expect(p.lost).toEqual({ rune: 2 });
+});
+it('a nearly full jar takes what fits, then an empty jar', () => {
+  expect(planPayment({ rune: 2 }, [jar('r', 'rune', 31), jar('e', null, 0)], { rune: 0 + 1 }).refunds)
+    .toEqual([['r', 'rune', 1], ['e', 'rune', 1]]);
+});
+it('a jar drained by the payment receives the rest (net cost exact)', () => {
+  const p = planPayment({ rune: 2 }, [jar('r', 'rune', 1)], { rune: 1 });
+  expect(p.fromJars).toEqual([['r', 'rune', 1]]); expect(p.refunds).toEqual([['r', 'rune', 3]]);
+});
+it('two aspects compete for one empty jar in ASPECT_LIST order', () => {
+  const p = planPayment({ gale: 2, rune: 3 }, [jar('e', null, 0)], { gale: 1, rune: 1 });
+  expect(p.refunds).toEqual([['e', 'gale', 2]]); expect(p.lost).toEqual({ rune: 1 });
+});
+it('short means nothing to plan', () => {
+  expect(planPayment({ rune: 9 }, [], { rune: 2 }).short).toEqual({ rune: 1 });
+});
+it('conserves units on random plans', () => {
+  // 200 seeded cases (mulberry-style LCG in the test): cost 1..12 of 1-3 aspects, 0-3 jars, 0-4 vials per aspect.
+  // For every plan without short: units(before) === units(jars after) + sum(cost) + sum(lost); jars never exceed cap.
+});
+it('is deterministic', () => { /* same inputs twice -> toEqual */ });
+```
+
+### 9.4 `src/magic/magicRuntime.test.ts` (uses the existing `setup()`, `fillJar`, `learn`)
+
+- `late aspects are drawn only after late_draw, and first`: put 12 `item_vault` around (cells within 3 of `(0, 1, 0)`), give
+  `iron_rod` + 2 `glass_vial`; `learn('compound_draw')` -> `magic.richest(0, 1, 0)!.aspect` is not `'void'`; `learn('late_draw')`
+  -> `'void'`; gather twice with `magic.tick(0.3)` between -> pack has `vial_void >= 1`.
+- `soul comes from living company`: build `Magic` with `livingNear: () => 4` (4 tame = weight 8? no: the hook returns a weight;
+  return 8) -> after `late_draw`, `landAspects(0, 1, 0).get('soul') === 32` and `richest().aspect === 'soul'`.
+- `a rod tuned on a jar draws only that aspect`: `fillJar(t, 2, 1, 0, 'cinder', 1)`; hold `vis_rod`; `use(at(2, 1, 0))` ->
+  `'worked'`, `magic.tuned === 'cinder'`, toast `The rod is tuned to Cinder - it draws only Cinder now`; with an empty vial
+  carried and loam richer, gathering fills `vial_cinder`. Use on an empty jar -> `tuned === null`.
+- `tuning a late aspect before late_draw is refused`: jar with `void` (set via `fillJar(..., 'void', 1)`), no `late_draw` ->
+  `'refused'`, toast `You cannot draw Void yet - research "The Deeper Aspects"`.
+- `the desk pours the rest of a vial into a jar in reach`: `learnAll()`; desk at `(2, 1, 0)`, empty jar at `(3, 1, 0)`; give
+  `vis_rod`, 2 `bronze_ingot`, `vial_gale`, `vial_loam`, `vial_rune`; the row's `note` is
+  `Opens 1 Vial of Rune: 2 Rune go back into a jar`; `make('bronze_rod')` -> `Made Bronze Gathering Rod - 2 Rune back into
+  the jar`; `jarText(3, 1, 0) === 'Essentia Jar - Rune 2/32'`; pack has 3 `glass_vial`.
+- `with no jar the rest is lost and said so`: same without the jar -> note contains `will be lost`, result contains `lost`.
+- `steel rod holds 96 and loads 96`: give `steel_rod`; `bestRod()!.capacity === 96`; `load({ ...toJSON(), charge: 96 })` ->
+  `charge === 96`; `load` of a snapshot without `tuned` -> `tuned === null`; with `tuned: 'nope'` -> null; with `'spark'` -> `'spark'`.
+- `essence study` (skip until Unit 10: `it.skipIf(!itemOrNull('essence_swift'))`): with `essence_study` learned, give
+  `essence_swift`; `notebook().studyEssence('essence_swift')` -> `Studied Swift Essence: +2 Soul, +3 Gale lore`; lore soul +2,
+  gale +3, `glass_vial` back; without the flag -> `Research "Reading Essences" first`.
+- `soul steep on the altar` (skip until Unit 10, same guard): altar with `glass_vial`, pedestals with the two clear tinctures,
+  jars of spring 4 and mind 4 in reach, `learn('steeped_soul')`, rod Use on the altar, `tick` 13 s in 0.1 s steps -> the altar
+  holds `vial_soul`.
+
+### 9.5 Content tests
+
+- `src/content/content.test.ts`: no literal changes needed (`MAGIC_SPEC.items` grows by `steel_rod`, counts are derived);
+  `RECIPES` count unchanged. Progression still completes.
+- Texture readability test (existing `src/render/textures/*.test.ts` over every icon): `item_steel_rod` passes.
+- NEW in `research.test.ts` (or a small `src/content/magicContent.test.ts`): every `ARCANE_RECIPES` / `INFUSIONS` input and
+  output is a registered item, except `PENDING_UNIT10_ITEMS = new Set(['essence_vigor', 'tincture_tea_leaves',
+  'tincture_wildberries', 'tincture_tea_leaves_cloudy', 'tincture_wildberries_cloudy'])` - with a comment
+  `// Unit 10 lands these in Wave 2; the coordinator deletes this set then.` The test also asserts each pending key is
+  either unregistered or registered (no-op) so it never fails after Unit 10 merges.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E steps (`scripts/e2e-magic.mjs`)
+
+Add three named steps after `'an infusion on the altar makes a Scrying Lens from pedestals and jars'` (all research is
+already done by `'set-up: every research done, a clear yard'`, which iterates `notebook().entries()` - so the new entries
+are included automatically). Use `window.__hw` only for setup and reading; the action is real input (`d.use()`, `d.press`).
+Run `node scripts/e2e-magic.mjs --device=desktop` and `--device=phonePortrait` (no `HW_GPU`). Screenshots go to
+`test-results/e2e-magic/<device>-<name>.png` through the existing `d.shot`.
+
+1. `step('a rod draws Void beside item vaults after The Deeper Aspects', ...)`
+   - Setup (`M`): in the yard, place 12 `item_vault` in a ring at `P.gy` around `(P.yard.x + 3, P.yard.z + 2)` (the 12 cells at
+     Chebyshev distance 2 on the cardinal and diagonal lines plus 4 at distance 1 off-axis - any 12 cells within 3 blocks);
+     `clearInventory`; give `iron_rod` 1, `glass_vial` 2; teleport the player to the ring's centre.
+   - Action: select the rod (`d.selectSlot(0)` or the existing helper used for the vis rod step), aim at the sky
+     (`lookAt` upward via `d.hw`), `d.use()` 6 times with `d.settle(250)` between (`ROD_INTERVAL_S` 0.2).
+   - Assert: `inventory.count('vial_void') >= 1`; `magic.rodReading()` contains `Void`.
+   - Screenshot `8-void-draw`.
+2. `step('a rod used on a jar is tuned to its aspect', ...)`
+   - Setup: an `essentia_jar` beside the ring, filled via `hw.app.game.magic` test-free path: give `vial_cinder` and pour with
+     real Use (select the vial, `d.approach(jar)`, `d.use()`).
+   - Action: select the iron rod, `d.approach(jar)`, `d.use()`.
+   - Assert: `magic.tuned === 'cinder'`; the last toast text (read through the existing toast probe used elsewhere in the
+     script, or `__hw.state().toasts`) contains `tuned to Cinder`.
+   - Then untune: place an empty jar, approach, Use -> `tuned === null`. Screenshot `9-rod-tuned`.
+3. `step('the rune desk pours the rest of a vial back into a jar', ...)`
+   - Setup: reuse the desk position of the bronze rod step (`{ x: P.yard.x, y: P.gy, z: P.yard.z - 3 }`); place an
+     `essentia_jar` at `desk.x + 2, desk.y, desk.z` (empty); give `vis_rod` 1, `bronze_ingot` 2, `vial_gale` 1, `vial_loam` 1,
+     `vial_rune` 1.
+   - Action: empty hand, `d.approach(desk)`, `d.use()`; wait for `.hw-nb__recipe[data-recipe="bronze_rod"]`.
+   - Assert: `[data-note="bronze_rod"]` text is `Opens 1 Vial of Rune: 2 Rune go back into a jar`. Screenshot
+     `10-desk-note` (on phonePortrait too: the note must be visible without horizontal scroll - assert
+     `document.documentElement.scrollWidth <= innerWidth`). Press `[data-make="bronze_rod"]`.
+   - Assert: `magic.jarText(jar) === 'Essentia Jar - Rune 2/32'`; pack `bronze_rod >= 1`. Escape.
+
+The existing bronze rod step stays green: with no jar near its desk the rest is now reported as lost
+(`Made Bronze Gathering Rod - 2 Rune lost, no jar with room in reach`); it asserts only the rod, so no change there.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/magic.md`:
+  - Data: `aspectTable.ts` gains `LATE_RULES`; `fingerprint.ts` pins late aspects (`pinLate`); `entries.ts`: 32 entries
+    (Ember 7, Bronze 14, Forge 11), flags list += `late_draw`, `golem_walk`, `steady_tubes`, `essence_ward`, `aura_dial`,
+    `essence_study`; `unlocks.gates`; NEW `payment.ts` (`planPayment`).
+  - Content: `steel_rod` (`RODS` 96/4), the `steel_rod` desk row, `soul_steep` / `soul_steep_cloudy` infusions.
+  - Runtime: late-first drawing after `late_draw`; Soul from living company (`livingNear`, `SOUL_RADIUS` 6, `SOUL_PER_LIFE` 4);
+    tuning (rod Use on a jar); desk payment "the rest of a vial pours back into a jar in reach, else it is lost and the row
+    says so" - replace the sentence "(whole vials; the rest of a vial is lost)"; essence study; save `tuned?`.
+  - Known limits: delete "The rest of a partly used vial at the desk is lost" and "Not built: spark / soul / void as drawable
+    aspects"; keep the golem/aura dial lines for Units 17/19 to edit.
+- `docs/build/SYSTEMS.md`: NOT edited by this unit (coordinator merges section 2.3 rows into T4 and the gating table).
+- `docs/WHATS_LEFT.md`: never (coordinator).
+- Codex: `scripts/codex` regenerates aspects from `aspectsOf` (no edit); the research tree reads `RESEARCH` (no edit). If
+  `scripts/codex/progression.json` lists magic branches by hand, add `steel_rod` under a section headed `Unit 18`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] `aspectsOf('battery').spark === 3`, `aspectsOf('clay_servant').soul === 4`, `aspectsOf('item_vault').void === 4`,
+      `aspectsOf('corestone').void === 3`; every key still has 1-4 aspects of 1..8; overrides unchanged.
+- [ ] Before `late_draw` no rod ever yields a late vial (even with `compound_draw`); after it, a battery room / animal pen /
+      vault wall yields Spark / Soul / Void first.
+- [ ] Tuned rods draw only their aspect; untune on an empty jar; refusals read as in 5.4.
+- [ ] Desk: rest of a vial pours into same-aspect then empty jars in reach (or tubed); never into another aspect's jar; lost
+      only when no room; row note and toast say which; units conserved (fuzz test).
+- [ ] Eight new entries with boards (titles, texts, ages, requires, boards exactly as 4.4), each solvable with its age's
+      items; flags `late_draw`, `golem_walk`, `steady_tubes`, `essence_ward`, `aura_dial`, `essence_study` each set by one entry.
+- [ ] `RESEARCH_GATES.get('clay_golem') === 'golem_walk'`; the altar refuses an ungated golem with the standard text.
+- [ ] `steel_rod` item, icon, desk row; `RODS` 96/4; charge loads up to 96.
+- [ ] `soul_steep` rows present and gated by `steeped_soul`.
+- [ ] Old saves load (no `tuned`, old research), `sanitizeResearch` unchanged.
+- [ ] `npm test` green; `node scripts/e2e-magic.mjs --device=desktop` and `--device=phonePortrait` green with the three new
+      screenshots; desk note visible at 390 px without horizontal scroll.
+- [ ] `content.test.ts` progression completes; no change to the tech spine.
+- [ ] `docs/api/magic.md` updated.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- The clay golem itself, its infusion row and behaviour (Unit 17); tube flow rate and motes (Unit 19); the aura dial HUD
+  (Unit 19); new magic sounds (Unit 19); elixir reactions and the ward rows (Unit 10).
+- Late-aspect wellsprings; changing `nodeInChunk`.
+- Scanning creatures with the notebook (no mob target reaches `Magic.use` today; Soul lore comes from servants, hide,
+  leather, studying vials and essences). A future unit may add it via `AnimalHands` passing a creature key to `scanBlock`.
+- A Current-age rod; foci that spend late aspects; per-aspect jar filters on tubes.
+- Changing vial size, jar capacity, or making the altar accept carried vials.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **Count.** The brief said "new research entries"; this spec adds **eight** entries (four Bronze, four Forge): 24 -> 32.
+   (An earlier draft counted nine; `field_notes` remains the only board-less entry.)
+2. **Unit 17** must name its infusion row id exactly `clay_golem`; the gate comes from `golem_walk.unlocks.gates` and the
+   existing `startInfusion -> craftGate` path, so Unit 17 needs no gate code. T4 says its cost includes Soul: Soul is
+   drawable after `late_draw`, which `golem_walk` requires, so the order is consistent.
+3. **Unit 19** reads `steady_tubes` and `aura_dial` - both defined here. **Unit 10** reads `essence_ward` through
+   `ReactionSpec.research` / `Distillery.researched` - defined here; nothing else is required of Unit 18.
+4. **Unit 10 keys** used here: `essence_vigor`, `essence_spring`, `essence_hearthkept`, `essence_mending`, `essence_swift`,
+   `essence_lasting`, `tincture_tea_leaves`, `tincture_wildberries`, `tincture_tea_leaves_cloudy`,
+   `tincture_wildberries_cloudy` (from UNIT-10's tables). Delete `PENDING_UNIT10_ITEMS` after Wave 2.
+5. **SYSTEMS edits to merge:** T4 rows of 2.3; T7 gating table row "golem, late aspects" can read "research: `golem_walk`,
+   `late_draw` (Forge entries)"; §2 inventory "24 research entries" -> 32; magic.md note "rune desk (loses partial vials)"
+   -> "rune desk (returns a vial's rest to a jar)".
+6. **Fingerprint shift:** `pinLate` changes the fingerprints of ~25 keys (scan lore of those keys gains a late aspect and may
+   lose its weakest). Existing saves keep their earned lore; only future scans differ. If any other unit's test asserts an
+   exact fingerprint of a cable, battery, vault, tank, crate or corestone, it needs the new value.
+7. **Verification done for this spec:** every cited path, function, type, constant and id was grepped in the tree on
+   2026-11-22; all eight boards were run through `solveBoard` with an items-only, age-limited, late-free palette (token counts
+   in 4.4); the "before" fingerprints in 4.1 come from a bundled dump of `aspectsOf` over every key. NEW names:
+   `LATE_RULES`, `LateAspect`, `pinLate`, `unlocks.gates`, `payment.ts` / `planPayment` / `JarSlot` / `PaymentPlan`,
+   `DeskRow.note`, `MagicHooks.livingNear`, `SOUL_RADIUS`, `SOUL_PER_LIFE`, `ESSENCE_LORE`, `Magic.tuned`, `tune()`,
+   `MagicSnapshot.tuned`, `NotebookApi.canStudyEssence` / `studyEssence`, `MAX_ROD_CAPACITY`, `steel_rod`, `STEEL_R`,
+   `item_steel_rod`, `soul_steep`, `soul_steep_cloudy`, the eight entry keys, flag `essence_study`, `.hw-nb__note`,
+   `data-note`, `data-study-essence`, `PENDING_UNIT10_ITEMS`.
