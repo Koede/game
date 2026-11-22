@@ -414,3 +414,26 @@ Skiff lane, side view. `=` rail, `S` skiff, `>` static belt ending above the lan
 
 Head-on, top view: `> <` - both belts hold their items at the seam; nothing oscillates.
 
+
+### 4.10 Belt ends are structure borders (the rule that makes a border exist at all)
+
+Today `Contraptions.structure` follows every face between two movable blocks. Belts and depots are movable, so a static belt that
+touches a platform after one step is swallowed into the structure on the next step and dragged along: there IS no border to hand
+across. Rule (**NEW**, in `structure()`):
+
+> The BFS does not cross a face that lies on a belt's run axis. From a `conveyor_belt` cell it does not step to the cell in front
+> of it or behind it (along `FACE_VEC[facing]`, either sign); from any cell it does not step INTO a belt whose run axis points at
+> that cell.
+
+Consequences, all intended:
+- A belt on a platform still moves with the platform as long as it touches the structure through a side or its underside (the
+  usual case: belts lie on frames). The existing test `'a belt on a turning platform still carries its items with it ...'`
+  (belt at `(2,1,0)` facing North, frame at `(1,1,0)` to its west: a side face) keeps passing unchanged.
+- A static belt pointing at the platform, or the depot / vault / millstone at the end of a carried belt, stays where it is.
+  These end-to-end contacts are exactly the border pairs of Rule H.
+- A belt line with no frame under it on a platform falls apart into "the belt touching the structure by its side" plus the rest,
+  which stays. Documented in the Guide rules line (section 11): "Belts join a moving structure by their sides and undersides,
+  never by their ends".
+- Vault-to-vault faces are followed (a vault group moves whole, 5.4).
+
+The start cell of `structure(start)` is always included (the piston's front / bearing top), even if it is a belt.
