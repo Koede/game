@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { GameState } from '../app/state';
 import { FLAG_FIRST_POUR, MOLTEN_WINDOW_S, MOULD_POURS } from '../core/constants';
-import { machine } from '../core/registry';
+import { block, blockId, isItemEndpoint, machine, pipeJoins } from '../core/registry';
+import { Face, makeVoxel } from '../core/types';
+import { pipeArmMask } from '../player/pipeAim';
+import { isWorldSave, SAVE_VERSION } from '../save/document';
 import type { FurnaceEntity, MachineEntity } from './entities';
 import { sanitizeEntity } from './sanitize';
 import { makeKit, type Kit } from './testKit';
@@ -242,6 +246,53 @@ describe('pouring from a furnace', () => {
     expect(kit.player.inventory.count('copper_ingot')).toBeGreaterThan(1);
     expect(poured).toEqual([expect.objectContaining({ count: 5, at: 'furnace' })]);
     expect(e.slots[0]?.durability).toBe(40);
+  });
+});
+
+describe('pipes and saves', () => {
+  it('an item pipe grows no arm toward the bench', () => {
+    expect(machine('casting_bench').itemPipes).toBe(false);
+    expect(isItemEndpoint(block('casting_bench'))).toBe(false);
+    expect(pipeJoins(block('item_pipe'), block('casting_bench'))).toBe(false);
+    expect(pipeJoins(block('fast_item_pipe'), block('casting_bench'))).toBe(false);
+    const kit = makeKit();
+    kit.world.put(0, 2, 0, 'item_pipe');
+    kit.world.put(1, 2, 0, 'casting_bench');
+    kit.world.put(0, 2, -1, 'crate');
+    const arms = pipeArmMask(kit.world, 0, 2, 0);
+    expect(arms & (1 << Face.PX)).toBe(0);
+    expect(arms & (1 << Face.NZ)).toBe(1 << Face.NZ);
+  });
+
+  it('keeps the four sockets through a save and load, without a new save version', () => {
+    expect(SAVE_VERSION).toBe(1);
+    const state = GameState.create(3, 'bench');
+    const p = state.player.position;
+    const x = Math.floor(p.x) + 1;
+    const z = Math.floor(p.z);
+    const y = state.world.surfaceY(x, z) + 1;
+    expect(state.world.setVoxel(x, y, z, makeVoxel(blockId('casting_bench')), 'player')).toBe(true);
+    const before = state.world.getEntity(x, y, z) as MachineEntity;
+    before.slots[0] = { item: 'ingot_mould', count: 1, durability: 12 };
+    before.slots[2] = { item: 'hoe_mould', count: 1, durability: 7 };
+    const save = JSON.parse(JSON.stringify(state.toSave())) as unknown;
+    expect(isWorldSave(save)).toBe(true);
+    if (!isWorldSave(save)) return;
+    state.dispose();
+    const copy = GameState.restore(save);
+    copy.prepareAroundPlayer(1);
+    const back = copy.world.getEntity(x, y, z) as MachineEntity;
+    expect(back.slots).toEqual([
+      { item: 'ingot_mould', count: 1, durability: 12 },
+      null,
+      { item: 'hoe_mould', count: 1, durability: 7 },
+      null,
+    ]);
+    expect(copy.sim.machineAt(x, y, z)).toBeNull();
+    expect(copy.sim.useBench(x, y, z, null)).toEqual({ ok: true });
+    expect(copy.player.inventory.slots.find((s) => s?.item === 'hoe_mould')).toMatchObject({ durability: 7 });
+    expect((copy.world.getEntity(x, y, z) as MachineEntity).slots[0]).toEqual({ item: 'ingot_mould', count: 1, durability: 12 });
+    copy.dispose();
   });
 });
 

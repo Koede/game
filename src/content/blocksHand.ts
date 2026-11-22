@@ -59,7 +59,7 @@ export const HAND_MACHINES: MachineSpec[] = [
   // casting_bench - holds up to 4 fired moulds (slots: 4 so a saved entity keeps four sockets). Not a hand station:
   // no strokes. Use sets and takes moulds; an empty hand at a furnace within params.range pours into them.
   {
-    kind: 'casting_bench', name: 'Casting Bench', role: 'hand', blocks: ['casting_bench'], slots: 4, params: { moulds: 4, range: 4 },
+    kind: 'casting_bench', name: 'Casting Bench', role: 'hand', blocks: ['casting_bench'], slots: 4, itemPipes: false, params: { moulds: 4, range: 4 },
     desc: 'Set fired moulds in it, then take molten metal from a furnace within four blocks.',
   },
   // alloy_pot - must touch a lit furnace (any of six sides); recipes at station 'alloy_pot' run while that furnace is at
