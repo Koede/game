@@ -16,7 +16,8 @@
     "prebuild": "node scripts/gen-indexes.mjs",
     "pretypecheck": "node scripts/gen-indexes.mjs",
     "pretest": "node scripts/gen-indexes.mjs",
-    "precodex": "node scripts/gen-indexes.mjs"
+    "precodex": "node scripts/gen-indexes.mjs",
+    "golden:update": "node scripts/golden-update.mjs"
   },
   "devDependencies": {
     "@types/three": "0.170.0",

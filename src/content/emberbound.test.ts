@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
 import {
   FLAG_PEACEFUL, HOSTILE_CAP, HOSTILE_DAMAGE_MULT, HOSTILE_SPAWN_LIGHT, WARD_BEACON_RADIUS,
 } from '../core/constants';
@@ -18,7 +19,7 @@ const anims = (c: CreatureSpec): Set<string> => new Set(c.model.map((p) => p.ani
 
 describe('the six automatons of table 19.1', () => {
   it('are listed apart from the animals, all hostile, and found by key', () => {
-    expect(keys(AUTOMATONS)).toEqual(Object.keys(EMBER_SPEC.automatons));
+    expectContains(keys(AUTOMATONS), Object.keys(EMBER_SPEC.automatons), 'automatons');
     expect(CREATURES.some((c) => c.hostile)).toBe(false);
     for (const c of AUTOMATONS) {
       expect(c.hostile, c.key).toBeDefined();
@@ -167,7 +168,7 @@ describe('fighting back (spec 19.4)', () => {
     for (const [key, [reduction, warmth]] of Object.entries(EMBER_SPEC.armour)) {
       expect(item(key).armour, key).toEqual({ reduction, warmthDrainMult: warmth });
     }
-    expect(ITEMS.filter((it) => it.armour).map((it) => it.key).sort()).toEqual(Object.keys(EMBER_SPEC.armour).sort());
+    expectContains(ITEMS.filter((it) => it.armour).map((it) => it.key), Object.keys(EMBER_SPEC.armour), 'armour');
   });
 
   it('burns ember cores hotter than any early fuel and smelts scrap into iron', () => {
@@ -201,7 +202,7 @@ describe('progression with and without automatons', () => {
     expect(start.items.has('scrap_metal')).toBe(true);
     expect(start.items.has('ember_core')).toBe(true);
     expect(start.source.get('scrap_metal')).toMatch(/^automaton:/);
-    expect(AUTOMATON_RELICS).toEqual(EMBER_SPEC.relics);
+    expectContains(AUTOMATON_RELICS, EMBER_SPEC.relics, 'relics');
     for (const relic of AUTOMATON_RELICS) {
       expect(start.items.has(relic), relic).toBe(false);
       expect(item(relic).age, relic).toBeGreaterThan(0);

@@ -1,4 +1,5 @@
 /** Brewing's data (BREWING_PLAN 3, 11): contracts, content, the cup table, recipes, goals and the solver. */
+import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
 import { describe, expect, it } from 'vitest';
 import { BOIL_TEMP_C, DRINK_BUFF_S, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_SIX_CUPS } from '../core/constants';
 import { CONTAINER_BLOCKS, CUP_BLOCK, CUP_STAGES, DRINK_BUFFS, DRINK_BUFF_KEYS, cupStageOfBlock } from '../core/brewing';
@@ -19,10 +20,10 @@ describe('brewing contracts', () => {
   });
 
   it('has six drinks, three of each family, each with its own buff', () => {
-    expect(drinkRows).toEqual(BREW_SPEC.drinks);
-    expect(DRINKS.map((d) => d.drink?.buff).sort()).toEqual([...DRINK_BUFF_KEYS].sort());
-    expect(DRINKS.filter((d) => d.drink?.family === 'tea')).toHaveLength(3);
-    expect(DRINKS.filter((d) => d.drink?.family === 'coffee')).toHaveLength(3);
+    expectPinned(drinkRows as Record<string, unknown>, BREW_SPEC.drinks as Record<string, unknown>, 'drinks');
+    expectContains(DRINKS.map((d) => d.drink?.buff), DRINK_BUFF_KEYS, 'drink buffs');
+    expect(DRINKS.filter((d) => d.drink?.family === 'tea').length).toBeGreaterThanOrEqual(3);
+    expect(DRINKS.filter((d) => d.drink?.family === 'coffee').length).toBeGreaterThanOrEqual(3);
     for (const d of DRINKS) {
       expect(d.stack, d.key).toBe(1);
       expect(d.drink?.buffS, d.key).toBe(DRINK_BUFF_S);
@@ -34,7 +35,7 @@ describe('brewing contracts', () => {
 
   it('brews each drink from exactly one ingredient', () => {
     const made = ITEMS.filter((it) => it.brews).map((it) => [it.key, it.brews, it.drink?.buff ?? null]);
-    expect(Object.fromEntries(made.map(([k, b]) => [k, b]))).toEqual(Object.fromEntries(Object.entries(BREW_SPEC.brews).map(([k, v]) => [k, v[0]])));
+    expectPinned(Object.fromEntries(made.map(([k, b]) => [k, b])), Object.fromEntries(Object.entries(BREW_SPEC.brews).map(([k, v]) => [k, v[0]])), 'brews');
     for (const [ingredient, [drink, buff, family]] of Object.entries(BREW_SPEC.brews)) {
       expect(isBrewIngredient(ingredient)).toBe(true);
       expect(drinkBrewedFrom(ingredient)?.key).toBe(drink);

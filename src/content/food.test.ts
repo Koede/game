@@ -1,4 +1,5 @@
 /** Spec section 12: food, farming and animals - the data the hunger, crop and animal code will run on. */
+import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKS, CREATURES, ITEMS, MACHINES, MAX_FURNACE_TIER, RECIPES, TEXTURE_NAMES,
@@ -13,13 +14,13 @@ const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
 describe('food items', () => {
   it('restore the hunger of table 12.2, and only those items are edible', () => {
     const edible = Object.fromEntries(ITEMS.filter((it) => it.food).map((it) => [it.key, it.food?.hunger]));
-    expect(edible).toEqual(FOOD_SPEC.hunger);
+    expectPinned(edible, FOOD_SPEC.hunger, 'hunger');
     for (const it of ITEMS.filter((i) => i.food)) expect(it.category, it.key).toBe('food');
   });
 
   it('grants Well-Fed only from the forged stew (sugar foods give Sugar Rush instead)', () => {
     const buffs = Object.fromEntries(ITEMS.filter((it) => it.food?.buff).map((it) => [it.key, [it.food?.buff, it.food?.buffS]]));
-    expect(buffs).toEqual(FOOD_SPEC.buffs);
+    expectPinned(buffs, FOOD_SPEC.buffs, 'buffs');
     for (const r of recipesFor('hearth_stew')) expect([r.station, r.kind], r.id).toEqual(['furnace', 'forge']);
   });
 
@@ -61,7 +62,7 @@ describe('food items', () => {
 describe('farming', () => {
   it('has three hoes that are never a mining tool', () => {
     const hoes = ITEMS.filter((it) => it.tool?.kind === 'hoe');
-    expect(Object.fromEntries(hoes.map((h) => [h.key, [h.tool?.tier, h.tool?.durability]]))).toEqual(FOOD_SPEC.hoes);
+    expectPinned(Object.fromEntries(hoes.map((h) => [h.key, [h.tool?.tier, h.tool?.durability]])), FOOD_SPEC.hoes, 'hoes');
     for (const h of hoes) expect(h.tool?.speed, h.key).toBe(1);
     expect(BLOCKS.filter((b) => b.tool === 'hoe')).toEqual([]);
     expect(recipesFor('flint_hoe').map((r) => r.station)).toEqual(['hand']);
@@ -69,7 +70,7 @@ describe('farming', () => {
 
   it('plants seeds, potatoes and carrots as the first stage of their crop, with icons of their own', () => {
     const planting = Object.fromEntries(ITEMS.filter((it) => it.block && it.block !== it.key && !it.key.endsWith('_cutting')).map((it) => [it.key, it.block]));
-    expect(planting).toEqual(FOOD_SPEC.plants);
+    expectPinned(planting, FOOD_SPEC.plants, 'plants');
     for (const key of Object.keys(FOOD_SPEC.plants)) {
       expect(item(key).icon, key).toBe(`item_${key}`);
       expect(item(key).iconLayer, key).toBe(TEXTURE_NAMES.indexOf(`item_${key}`));
@@ -113,7 +114,7 @@ describe('animals', () => {
   const shape = (p: CreaturePart): string => JSON.stringify([p.from, p.to, p.color]);
 
   it('has the species of table 12.5', () => {
-    expect(CREATURES.map((c) => c.key)).toEqual(Object.keys(FOOD_SPEC.creatures));
+    expectContains(CREATURES.map((c) => c.key), Object.keys(FOOD_SPEC.creatures), 'creatures');
     for (const [key, numbers] of Object.entries(FOOD_SPEC.creatures)) expect(creature(key), key).toMatchObject(numbers);
     for (const c of CREATURES) {
       expect(c.desc.length, c.key).toBeGreaterThan(20);

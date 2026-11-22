@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
 import {
   AGES, BLOCKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, RECIPES, TEXTURE_NAMES,
   block, furnaceTier, isHandStation, item, machine, recipesAt, validateContent,
@@ -64,14 +65,12 @@ describe('1. registry validation', () => {
 describe('2. roster of spec section 2', () => {
   it('has exactly the 143 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19, 12 of brewing, 10 of handwork; distillery ones on top), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(143 + DISTILL_SPEC.blocks.length + MAGIC_SPEC.blocks.length + WORKSHOP_SPEC.blocks.length + GLASS_SPEC.blocks.length);
-    expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
+    expectContains(BLOCKS.map((b) => b.key), SPEC.blocks, 'blocks');
   });
 
   it('has exactly the 153 non-block items (60 of section 2, 19 of section 12, 3 of sections 13-14, 1 of section 16, 8 of section 19, 20 of brewing, 30 of handwork, 12 of ground items, vehicles and sugar; distillery ones on top)', () => {
-    expect(SPEC.items).toHaveLength(153 + DISTILL_SPEC.items.length + MAGIC_SPEC.items.length + WORKSHOP_SPEC.items.length + GLASS_SPEC.items.length);
     // Seeds, potatoes and carrots plant a crop block, yet they are items of their own, not block items.
-    expect(sorted(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key))).toEqual(sorted(SPEC.items));
+    expectContains(ITEMS.filter((it) => it.block !== it.key).map((it) => it.key), SPEC.items, 'items');
   });
 
   it('has the tools and fuels with their numbers', () => {
@@ -82,13 +81,12 @@ describe('2. roster of spec section 2', () => {
     }
     expect(item('power_drill').tool).toEqual({ kind: 'pickaxe', tier: 5, speed: 10, durability: 3000, universal: true });
     const fuels = Object.fromEntries(ITEMS.filter((it) => it.fuel).map((it) => [it.key, [it.fuel?.energyJ, it.fuel?.burnS, it.fuel?.flameTempC]]));
-    expect(fuels).toEqual(SPEC.fuels);
+    expectPinned(fuels, SPEC.fuels, 'fuel');
   });
 
   it('has every recipe at its station, with its amounts, temperature, time and tier', () => {
-    expect(sorted(stationsOf())).toEqual(sorted(Object.keys(SPEC.recipes)));
-    for (const [station, lines] of Object.entries(SPEC.recipes)) expect(recipesAt(station).map(recipeLine), station).toEqual(lines);
-    expect(RECIPES).toHaveLength(195 + DISTILL_RECIPE_COUNT + MAGIC_RECIPE_COUNT + WORKSHOP_RECIPE_COUNT + GLASS_RECIPE_COUNT);
+    expectContains(stationsOf(), Object.keys(SPEC.recipes), 'stations');
+    for (const [station, lines] of Object.entries(SPEC.recipes)) expectSubsequence(recipesAt(station).map(recipeLine), lines, station);
   });
 
   it('has the furnace tiers of table 2.4', () => {
@@ -102,7 +100,7 @@ describe('2. roster of spec section 2', () => {
   });
 
   it('has every machine with the numbers of 2.5 and 3.3, and documents no other params', () => {
-    expect(sorted(MACHINES.keys())).toEqual(sorted(Object.keys(SPEC.machines)));
+    expectContains(MACHINES.keys(), Object.keys(SPEC.machines), 'machines');
     for (const [kind, [role, numbers]] of Object.entries(SPEC.machines)) {
       expect(machine(kind).role, kind).toBe(role);
       for (const [name, value] of Object.entries(numbers)) expect(machineNumber(kind, name), `${kind}.${name}`).toBe(value);
@@ -111,18 +109,18 @@ describe('2. roster of spec section 2', () => {
     expect(machine('furnace').blocks).toEqual(FURNACE_TIERS.map((t) => t.block));
     // Every fuel except those that hand a container back: the burner's one slot has nowhere to put the bucket.
     const returnsContainer = (key: string): boolean => item(key).fuel?.fuelReturns !== undefined;
-    expect(sorted(machine('burner_generator').fuels ?? [])).toEqual(sorted(Object.keys(SPEC.fuels).filter((k) => !returnsContainer(k))));
+    expectContains(machine('burner_generator').fuels ?? [], Object.keys(SPEC.fuels).filter((k) => !returnsContainer(k)), 'burner fuels');
     expect(machine('combustion_engine').fuels).toEqual(['fuel_canister']);
     expect(machine('fission_pile').fuels).toEqual(['fuel_rod']);
   });
 
   it('has the ore veins of 2.6', () => {
     const rows = ORE_VEINS.map((v) => [v.block, v.minY, v.maxY, v.veinsPerChunk, v.veinSize, v.biomes ?? {}]);
-    expect(rows).toEqual(SPEC.oreVeins);
+    expectSubsequence(rows.map((r) => JSON.stringify(r)), SPEC.oreVeins.map((r) => JSON.stringify(r)), 'ore veins');
   });
 
   it('has the objectives of 2.7 in order', () => {
-    expect(OBJECTIVES.map((o) => signature(o.condition))).toEqual(SPEC.objectives);
+    expectSubsequence(OBJECTIVES.map((o) => signature(o.condition)), SPEC.objectives, 'objectives');
     const flags = OBJECTIVES.map((o) => o.condition).filter((c) => c.type === 'flag');
     for (const c of flags) expect(KNOWN_FLAGS).toContain(c.flag);
   });

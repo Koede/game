@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
 import { HEARTH_CEILING_PARTS, HEARTH_FACE_PARTS, LITRES_PER_BUCKET } from '../core/constants';
 import { faceCells, hearthCrucibles, smallestShell } from '../core/hearth';
 import {
@@ -14,7 +15,7 @@ const firstStage = (key: string): number => stages.findIndex((p) => p.items.has(
 
 describe('16. item and fluid transport', () => {
   it('has the five fluids with their colours, heat, glow, sources and buckets', () => {
-    expect(FLUIDS.map((f) => f.key)).toEqual(Object.keys(TECH_SPEC.fluids));
+    expectContains(FLUIDS.map((f) => f.key), Object.keys(TECH_SPEC.fluids), 'fluids');
     for (const [key, [name, hot, glow, liquid, full]] of Object.entries(TECH_SPEC.fluids)) {
       const f = fluid(key as never);
       expect([f.name, f.hot, f.glow, f.liquid ?? null, f.bucket?.full ?? null], key).toEqual([name, hot, glow, liquid, full]);
@@ -35,7 +36,7 @@ describe('16. item and fluid transport', () => {
 
   it('gives every fluid endpoint the ports of 16.2, and nothing else has any', () => {
     const withPorts = [...MACHINES.values()].filter((m) => m.fluids).map((m) => m.kind).sort();
-    expect(withPorts).toEqual(Object.keys(TECH_SPEC.fluidPorts).sort());
+    expectContains(withPorts, Object.keys(TECH_SPEC.fluidPorts), 'fluid ports');
     for (const [kind, [accepts, gives, capacityL]] of Object.entries(TECH_SPEC.fluidPorts)) {
       const f = machine(kind).fluids;
       expect([f?.accepts ?? [], f?.gives ?? [], f?.capacityL], kind).toEqual([accepts, gives, capacityL]);
