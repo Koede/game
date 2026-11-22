@@ -11,7 +11,9 @@
       "age": 2,
       "extras": [
         "magic"
-      ]
+      ],
+      "parts": 0,
+      "tractors": 0
     }
   },
   {
@@ -26,7 +28,28 @@
       "age": 2,
       "extras": [
         "magic"
-      ]
+      ],
+      "parts": 0,
+      "tractors": 0
+    }
+  },
+  {
+    "name": "modules-all",
+    "file": "saves/modules-all.json",
+    "v": 2,
+    "summary": {
+      "entities": 1,
+      "items": 0,
+      "scanned": 0,
+      "completed": 0,
+      "age": 0,
+      "extras": [
+        "magic",
+        "vehicles",
+        "workshop"
+      ],
+      "parts": 6,
+      "tractors": 1
     }
   }
 ]

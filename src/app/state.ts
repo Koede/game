@@ -16,6 +16,12 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
+import { isFluidEndpoint } from '../core/registry';
+import type { Face } from '../core/types';
+import { Magic } from '../magic/magic';
+import { VehicleManager } from '../vehicles';
+import { Workshop } from '../workshop/workshop';
+import { takeLostItems } from '../content/aliases';
 import { World, type WorkerPool } from '../world';
 import { diag, playerBrief } from './diag';
 
@@ -44,7 +50,16 @@ export class GameState {
   readonly mobs: MobManager;
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
+  /** Tractors (docs/api/tractor.md). Headless: the browser Game binds the physics and draws them. */
+  readonly vehicles: VehicleManager;
+  /** Essentia & Research (docs/api/magic.md). */
+  readonly magic: Magic;
+  /** The Bronze workshop (docs/api/workshop.md). */
+  readonly workshop: Workshop;
   readonly seedText: string | null;
+  /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
+  private notices: string[] = [];
+  private readonly offs: (() => void)[] = [];
   /** 'dev' for a Dev Mode world: the player is invulnerable and free (docs/api/dev-mode.md). */
   readonly mode: GameMode;
   /** Seconds of simulated play in this world, across sessions. */
@@ -112,6 +127,75 @@ export class GameState {
     }
     // After the tracker exists: Peaceful raises its flag on the bus.
     combat.setDifficulty(difficulty);
+    this.vehicles = new VehicleManager({ world, bus, player: this.player });
+    world.loadExtra('vehicles', (raw) => this.vehicles.load(raw));
+    this.offs.push(world.persist('vehicles', () => this.vehicles.toJSON()));
+    const sim = this.sim;
+    this.magic = new Magic(world, bus, this.player, {
+      stokeFurnace: (x, y, z, seconds) => {
+        const f = sim.furnaceAt(x, y, z);
+        if (!f || !f.burnItem) return false;
+        f.burnLeftS += seconds;
+        return true;
+      },
+      furnaceFire: (x, y, z) => {
+        const f = sim.furnaceAt(x, y, z);
+        return f && f.burnItem ? f.burnLeftS : null;
+      },
+      lightFurnace: (x, y, z) => {
+        const r = sim.light(x, y, z);
+        return r.ok ? null : r.reason;
+      },
+      purifyFlask: (x, y, z, litres) => {
+        const e = sim.distill.entityAt(x, y, z);
+        const water = e?.mix.water ?? 0;
+        if (!e || water <= 0) return 0;
+        const taken = Math.min(litres, water);
+        e.mix.water = water - taken;
+        if (e.mix.water <= 1e-6) delete e.mix.water;
+        sim.distill.touched();
+        return taken;
+      },
+      crank: (x, y, z) => this.workshop.crank(x, y, z),
+    }, world.seed);
+    world.loadExtra('magic', (raw) => this.magic.load(raw));
+    this.offs.push(world.persist('magic', () => this.magic.toJSON()));
+    this.offs.push(() => this.magic.dispose());
+    this.workshop = new Workshop(world, bus, this.player.ground);
+    world.loadExtra('workshop', (raw) => this.workshop.load(raw));
+    this.workshop.generatorWatts = (x, y, z) => this.sim.machineView(x, y, z)?.outW ?? 0;
+    // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
+    this.workshop.standingOn = (x, y, z) => {
+      const p = this.player.position;
+      return Math.abs(p.x - (x + 0.5)) < 0.7 && Math.abs(p.z - (z + 0.5)) < 0.7 && p.y > y - 0.2 && p.y < y + 0.4;
+    };
+    this.workshop.tractors = () => this.vehicles.views().map((t) => ({ x: t.x, y: t.y, z: t.z, occupied: t.occupied, fuel: t.fuel }));
+    this.workshop.fluidBlock = {
+      is: (x, y, z) => isFluidEndpoint(world.getBlock(x, y, z)),
+      use: (x, y, z, item) => {
+        const r = this.sim.bucketUse(x, y, z, 2 as Face, item);
+        return r.ok ? r.held : null;
+      },
+    };
+    this.workshop.clockText = () => {
+      const h = (6 + this.clock.timeOfDay * 24) % 24;
+      return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
+    };
+    // Deployers use their stack on hand stations the way a player's stroke does; anything else falls back to placing and breaking.
+    this.workshop.actHook = (a) => {
+      const r = this.sim.stroke(a.target[0], a.target[1], a.target[2], a.item);
+      if (!r.ok) return null;
+      return r.did === 'insert' ? 'consumed' : 'used';
+    };
+    this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    this.offs.push(() => this.workshop.dispose());
+    for (const key of world.failedExtras()) this.notices.push(`Saved ${key} data could not be read. A copy was kept (${key}.bad) and it starts empty.`);
+    const lost = takeLostItems();
+    if (lost.size > 0) {
+      const n = [...lost.values()].reduce((a, b) => a + b, 0);
+      this.notices.push(`${n} item stack${n === 1 ? '' : 's'} from an old version no longer exist and were removed.`);
+      diag('save.repaired', () => ({ lostItems: [...lost.entries()] }));
+    }
     // Entities came with the world snapshot; the simulation rebuilt its runtime from them in its constructor,
     // resync again in case anything touched the world in between (the integration note asks for it after load).
     this.sim.resync();
@@ -198,6 +282,10 @@ export class GameState {
     this.mobs.tick(dt, this.mobPlayer);
     this.survival.tick(dt);
     this.objectives.tick(dt);
+    this.magic.tick(dt);
+    this.workshop.tick(dt);
+    if (this.ticks % 200 === 0) this.workshop.verify();
+    if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.mode === 'dev') this.devUpkeep();
     this.playTimeS += dt;
     this.ticks++;
@@ -245,6 +333,7 @@ export class GameState {
   }
 
   dispose(): void {
+    for (const off of this.offs.splice(0)) off();
     this.objectives.dispose();
     this.mobs.dispose();
     this.sim.dispose();

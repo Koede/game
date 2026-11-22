@@ -124,71 +124,12 @@ export class Game {
     this.pool = opts.pool;
     const { bus, world, player, clock, sim, survival, objectives } = state;
     this.offs.push(collectLeafDrops(bus, player));
-    this.vehicles = new VehicleManager({ world, bus, player });
-    this.vehicles.load(world.extra('vehicles'));
-    this.offs.push(world.persist('vehicles', () => this.vehicles.toJSON()));
-    this.magic = new Magic(world, bus, player, {
-      stokeFurnace: (x, y, z, seconds) => {
-        const f = sim.furnaceAt(x, y, z);
-        if (!f || !f.burnItem) return false;
-        f.burnLeftS += seconds;
-        return true;
-      },
-      furnaceFire: (x, y, z) => {
-        const f = sim.furnaceAt(x, y, z);
-        return f && f.burnItem ? f.burnLeftS : null;
-      },
-      lightFurnace: (x, y, z) => {
-        const r = sim.light(x, y, z);
-        return r.ok ? null : r.reason;
-      },
-      purifyFlask: (x, y, z, litres) => {
-        const e = sim.distill.entityAt(x, y, z);
-        const water = e?.mix.water ?? 0;
-        if (!e || water <= 0) return 0;
-        const taken = Math.min(litres, water);
-        e.mix.water = water - taken;
-        if (e.mix.water <= 1e-6) delete e.mix.water;
-        sim.distill.touched();
-        return taken;
-      },
-      crank: (x, y, z) => this.workshop.crank(x, y, z),
-    }, world.seed);
-    this.magic.load(world.extra('magic'));
-    this.offs.push(world.persist('magic', () => this.magic.toJSON()));
+    // Vehicles, Magic and the Workshop live in GameState (headless, persisted there); the browser adds renderers and screens.
+    this.vehicles = state.vehicles;
+    this.magic = state.magic;
+    this.workshop = state.workshop;
     setCraftGate((id) => this.magic.craftGate(id));
-    this.workshop = new Workshop(world, bus, player.ground);
-    this.workshop.load(world.extra('workshop'));
-    this.workshop.generatorWatts = (x, y, z) => this.state.sim.machineView(x, y, z)?.outW ?? 0;
-    // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
-    this.workshop.standingOn = (x, y, z) => {
-      const p = this.state.player.position;
-      return Math.abs(p.x - (x + 0.5)) < 0.7 && Math.abs(p.z - (z + 0.5)) < 0.7 && p.y > y - 0.2 && p.y < y + 0.4;
-    };
-    this.workshop.tractors = () => this.vehicles.views().map((t) => ({ x: t.x, y: t.y, z: t.z, occupied: t.occupied, fuel: t.fuel }));
-    this.workshop.fluidBlock = {
-      is: (x, y, z) => isFluidEndpoint(world.getBlock(x, y, z)),
-      use: (x, y, z, item) => {
-        const r = this.state.sim.bucketUse(x, y, z, 2 as Face, item);
-        return r.ok ? r.held : null;
-      },
-    };
-    this.workshop.clockText = () => {
-      const h = (6 + clock.timeOfDay * 24) % 24;
-      return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
-    };
-    // Deployers use their stack on hand stations the way a player's stroke does; anything else falls back to placing and breaking.
-    this.workshop.actHook = (a) => {
-      const r = this.state.sim.stroke(a.target[0], a.target[1], a.target[2], a.item);
-      if (!r.ok) return null;
-      return r.did === 'insert' ? 'consumed' : 'used';
-    };
-    this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
-    this.offs.push(() => this.workshop.dispose());
-    this.offs.push(() => {
-      setCraftGate(null);
-      this.magic.dispose();
-    });
+    this.offs.push(() => setCraftGate(null));
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
     this.renderer = new Renderer(opts.app, world, bus, clock, settings);
@@ -460,9 +401,6 @@ export class Game {
   /** One fixed step: the game state, then leaf decay (world/leafDecay.ts) beside the water ticks. */
   private tickOnce(): void {
     this.state.tick(DT);
-    this.magic.tick(DT);
-    this.workshop.tick(DT);
-    if (this.state.ticks % 200 === 0) this.workshop.verify();
     this.state.world.leaves.tick();
   }
 

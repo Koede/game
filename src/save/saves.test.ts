@@ -4,6 +4,7 @@ import { canonicalItemKey } from '../core/registry';
 import { takeLostItems } from '../content/aliases';
 import manifest from '../../tests/fixtures/saves/manifest.json';
 import beforeBronze from '../../tests/fixtures/save-before-bronze.json';
+import modulesAll from '../../tests/fixtures/saves/modules-all.json';
 import sixAgeRev2 from '../../tests/fixtures/saves/sixage-rev2.json';
 import { MemoryStorage } from './storage';
 import { PREV_KEY, SAVE_KEY, SaveSlot, type WorldSave } from './document';
@@ -31,8 +32,11 @@ interface Summary {
   completed: number;
   age: number;
   extras: string[];
+  /** Workshop parts and tractors (the headless modules, R3). */
+  parts: number;
+  tractors: number;
 }
-const FILES: Record<string, unknown> = { 'save-before-bronze.json': beforeBronze, 'saves/sixage-rev2.json': sixAgeRev2 };
+const FILES: Record<string, unknown> = { 'save-before-bronze.json': beforeBronze, 'saves/sixage-rev2.json': sixAgeRev2, 'saves/modules-all.json': modulesAll };
 const rows = manifest as unknown as Row[];
 
 function summarise(s: WorldSave): Summary {
@@ -45,6 +49,8 @@ function summarise(s: WorldSave): Summary {
     completed: s.objectives.completed.length,
     age: s.objectives.age,
     extras: Object.keys(s.world.extras ?? {}).sort(),
+    parts: (s.world.extras as { workshop?: { parts?: unknown[] } } | undefined)?.workshop?.parts?.length ?? 0,
+    tractors: (s.world.extras as { vehicles?: { tractors?: unknown[] } } | undefined)?.vehicles?.tractors?.length ?? 0,
   };
 }
 

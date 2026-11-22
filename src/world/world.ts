@@ -68,6 +68,7 @@ export class World implements IWorld {
   private readonly chunks = new Map<number, Chunk>();
   private readonly savers = new Map<string, () => unknown>();
   private loadedExtras: Record<string, unknown> = {};
+  private readonly failed: string[] = [];
   private readonly edits = new EditLog();
   private readonly entityStore = new EntityStore();
   private currentSeed: number;
@@ -251,6 +252,30 @@ export class World implements IWorld {
   extra(key: string): unknown {
     const v = this.loadedExtras[key];
     return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  }
+
+  /**
+   * Loads module data saved under `key` with `fn(raw)`, fail-soft: a throwing load is reported (`failedExtras`), the
+   * module starts empty, and the unreadable data is kept under `<key>.bad` (written back with every save), so a
+   * damaged module can never be silently overwritten by an empty one. Returns false when the load failed.
+   */
+  loadExtra(key: string, fn: (raw: unknown) => void): boolean {
+    const raw = this.extra(key);
+    if (raw === undefined) return true;
+    try {
+      fn(raw);
+      return true;
+    } catch (err) {
+      console.error(`[save] ${key} could not be loaded; a copy was kept as ${key}.bad`, err);
+      this.loadedExtras[`${key}.bad`] = raw;
+      this.failed.push(key);
+      return false;
+    }
+  }
+
+  /** Module keys whose saved data could not be loaded (see loadExtra). */
+  failedExtras(): readonly string[] {
+    return this.failed;
   }
 
   // ---- persistence -------------------------------------------------------------------------------
