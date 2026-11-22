@@ -1,0 +1,833 @@
+{
+  "v": 1,
+  "t": 1795310640690,
+  "d": {
+    "settings": {
+      "renderDistance": 2,
+      "fov": 72,
+      "mouseSensitivity": 1,
+      "touchSensitivity": 1,
+      "invertY": false,
+      "volume": 0.8,
+      "touchControls": "auto",
+      "showFps": false,
+      "difficulty": "normal",
+      "uiScale": "normal"
+    },
+    "world": {
+      "seed": 3237258699,
+      "seedText": "bronze-w0",
+      "world": {
+        "version": 1,
+        "seed": 3237258699,
+        "edits": {
+          "-3,-3": "nyonAA==",
+          "-2,-2": "visAAL8rAADPKyIQ3isAAN8rIhDvKyIQzywiEN8sIhDvLCIQvi0AAL8tAAC+LgAAvy4AAA==",
+          "-1,-2": "wCsiEMErIhDQKyIQ0SsiEOArIhDhKyIQ8CsAAPErAADALCIQwSwiENEsdBDgLCoI4SwiEA=="
+        },
+        "entities": [
+          {
+            "kind": "crate",
+            "x": -33,
+            "y": 42,
+            "z": -39,
+            "on": true,
+            "slots": [
+              {
+                "item": "rubble",
+                "count": 13
+              },
+              {
+                "item": "flint_pickaxe",
+                "count": 1,
+                "durability": 64
+              },
+              {
+                "item": "tin_ore",
+                "count": 2
+              },
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null
+            ],
+            "progress": 0,
+            "recipe": null,
+            "fuelJ": 0,
+            "storedJ": 0,
+            "coreC": 20,
+            "hotS": 0,
+            "warned": false,
+            "alarmS": 0,
+            "depthY": 42,
+            "halted": "",
+            "availW": 0,
+            "outW": 0,
+            "demandW": 0,
+            "f": 0,
+            "fluidIn": null,
+            "fluidOut": null
+          },
+          {
+            "kind": "furnace",
+            "x": -16,
+            "y": 44,
+            "z": -18,
+            "tier": 2,
+            "tempC": 20,
+            "lit": false,
+            "draft": 0,
+            "ignited": false,
+            "fuel": [
+              null,
+              null
+            ],
+            "burnItem": null,
+            "burnLeftS": 0,
+            "fuelSeen": 0,
+            "crucibleIn": [
+              null,
+              null
+            ],
+            "crucibleOut": [
+              null,
+              null
+            ],
+            "crucibleProgress": [
+              0,
+              0
+            ],
+            "crucibleRecipe": [
+              null,
+              null
+            ],
+            "crucibleMelt": [
+              null,
+              null
+            ],
+            "crucibleMoltenS": [
+              0,
+              0
+            ],
+            "crucibleMix": [
+              [
+                0,
+                0
+              ],
+              [
+                0,
+                0
+              ]
+            ],
+            "electric": true,
+            "ignition": "idle",
+            "ignitionProgressS": 0,
+            "ignitionLowS": 0,
+            "hearth": {
+              "tier": 2,
+              "inner": [
+                1,
+                1,
+                1
+              ],
+              "closed": false,
+              "windows": 0,
+              "min": [
+                -17,
+                43,
+                -20
+              ],
+              "max": [
+                -15,
+                44,
+                -18
+              ]
+            },
+            "effTier": 2,
+            "flameC": 20,
+            "rateCPerS": 0,
+            "extractW": 0,
+            "heatDemandW": 0,
+            "demandW": 0,
+            "deliveredW": 0,
+            "availW": 0
+          },
+          {
+            "kind": "item_hatch",
+            "x": -15,
+            "y": 44,
+            "z": -19,
+            "on": true,
+            "slots": [],
+            "progress": 0,
+            "recipe": null,
+            "fuelJ": 0,
+            "storedJ": 0,
+            "coreC": 20,
+            "hotS": 0,
+            "warned": false,
+            "alarmS": 0,
+            "depthY": 44,
+            "halted": "",
+            "fluidIn": null,
+            "fluidOut": null,
+            "availW": 0,
+            "outW": 0,
+            "demandW": 0,
+            "f": 0
+          }
+        ],
+        "water": {
+          "queue": [],
+          "deferred": []
+        },
+        "leaves": {
+          "queue": []
+        },
+        "extras": {
+          "vehicles": {
+            "next": 1,
+            "tractors": []
+          },
+          "magic": {
+            "v": 1,
+            "research": {
+              "v": 1,
+              "scanned": [],
+              "known": [
+                "loam",
+                "spring",
+                "craft"
+              ],
+              "lore": {},
+              "entries": {}
+            },
+            "jars": [],
+            "draws": {},
+            "charge": 0,
+            "pedestals": [],
+            "altars": [],
+            "infusion": null,
+            "servants": [],
+            "nodes": {},
+            "stats": {
+              "infusions": 0,
+              "casts": 0,
+              "studied": 0,
+              "crafted": 0
+            }
+          },
+          "workshop": {
+            "v": 1,
+            "parts": [],
+            "machines": [],
+            "logi": {
+              "cells": []
+            },
+            "sig": [],
+            "pist": []
+          }
+        }
+      },
+      "player": {
+        "position": {
+          "x": -15.5,
+          "y": 45,
+          "z": -19.5
+        },
+        "velocity": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "yaw": 0,
+        "pitch": 0,
+        "onGround": true,
+        "inWater": false,
+        "headInWater": false,
+        "health": 20,
+        "warmth": 100,
+        "air": 15,
+        "food": 19.980000000000018,
+        "inventory": [
+          {
+            "item": "brick",
+            "count": 15
+          },
+          {
+            "item": "furnace_blast",
+            "count": 1
+          },
+          {
+            "item": "item_hatch",
+            "count": 1
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "selectedSlot": 0,
+        "home": null,
+        "spawn": {
+          "x": -17.5,
+          "y": 43,
+          "z": -17.5
+        },
+        "buffs": {
+          "wellWarmedS": 0,
+          "wellFedS": 0,
+          "drinks": {}
+        },
+        "stats": {
+          "made": {},
+          "placed": {},
+          "broken": {},
+          "drunk": {},
+          "deaths": 0
+        },
+        "dead": false,
+        "deathCause": null,
+        "coldCause": null,
+        "sinceDamageS": 3600,
+        "combat": {
+          "burnLeftS": 0,
+          "burnPerS": 0,
+          "burnAccS": 0,
+          "lastAttacker": null
+        },
+        "killedBy": null,
+        "ground": []
+      },
+      "clock": {
+        "timeOfDay": 0.05133333333333341,
+        "day": 1
+      },
+      "survival": {
+        "nearFurnaceS": 0,
+        "coldS": 0,
+        "drownAcc": 0,
+        "contactAcc": 0,
+        "radiationS": 0,
+        "regenS": 0,
+        "starveS": 0
+      },
+      "objectives": {
+        "completed": [],
+        "flags": [],
+        "peaks": {
+          "tempC": 20,
+          "tier": 2,
+          "generationW": 0,
+          "storedJ": 0
+        },
+        "age": 1,
+        "pendingRewards": []
+      },
+      "playTimeS": 1.2000000000000004,
+      "weather": {
+        "state": {
+          "kind": "clear",
+          "previous": "clear",
+          "blend": 1,
+          "precipitation": "none",
+          "intensity": 0,
+          "cloudCover": 0.15,
+          "moonPhase": 4,
+          "next": "cloudy",
+          "nextInS": 1056.656004461646
+        },
+        "forced": null,
+        "flashes": 0,
+        "nextFlashS": 55.18378118872649
+      },
+      "mobs": {
+        "version": 1,
+        "nextId": 24,
+        "rolled": [
+          -3,
+          -3,
+          -2,
+          -3,
+          -1,
+          -3,
+          -3,
+          -2,
+          -2,
+          -2,
+          -1,
+          -2,
+          -3,
+          -1,
+          -2,
+          -1,
+          -1,
+          -1,
+          -2,
+          -4,
+          -2,
+          0,
+          -4,
+          -2,
+          -3,
+          -4,
+          -1,
+          -4,
+          -4,
+          -3,
+          -4,
+          -1,
+          0,
+          -2,
+          0,
+          -1,
+          0,
+          -3,
+          -1,
+          0,
+          -3,
+          0,
+          -4,
+          -4,
+          0,
+          -4,
+          -4,
+          0,
+          0,
+          0,
+          -2,
+          -5,
+          -5,
+          -2,
+          -2,
+          1,
+          1,
+          -2,
+          -3,
+          -5,
+          -1,
+          -5,
+          -5,
+          -3,
+          1,
+          -3,
+          -5,
+          -1,
+          1,
+          -1,
+          -1,
+          1,
+          -3,
+          1,
+          -4,
+          -5,
+          -5,
+          -4,
+          0,
+          -5,
+          -5,
+          0,
+          1,
+          -4,
+          1,
+          0,
+          -4,
+          1,
+          0,
+          1
+        ],
+        "guaranteed": false,
+        "keepAliveS": 0,
+        "mobs": [
+          {
+            "id": 1,
+            "species": "boar",
+            "x": -28.5,
+            "y": 42,
+            "z": -40.78,
+            "yaw": 2.639,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 2,
+            "species": "boar",
+            "x": -28.5,
+            "y": 42,
+            "z": -39.22,
+            "yaw": 6.181,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 3,
+            "species": "boar",
+            "x": -27.5,
+            "y": 43,
+            "z": -23.78,
+            "yaw": 5.439,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 4,
+            "species": "boar",
+            "x": -24.5,
+            "y": 43,
+            "z": -26.5,
+            "yaw": 2.698,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 5,
+            "species": "boar",
+            "x": -27.5,
+            "y": 43,
+            "z": -22.22,
+            "yaw": 4.343,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 6,
+            "species": "goat",
+            "x": -19.5,
+            "y": 37,
+            "z": 3.5,
+            "yaw": -0.024,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 7,
+            "species": "goat",
+            "x": -17.6,
+            "y": 35,
+            "z": 4.499,
+            "yaw": 1.891,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 8,
+            "species": "goat",
+            "x": -16.456,
+            "y": 35,
+            "z": 4.691,
+            "yaw": 2.621,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 9,
+            "species": "boar",
+            "x": -53.5,
+            "y": 43,
+            "z": -11.5,
+            "yaw": 5.212,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 10,
+            "species": "boar",
+            "x": -51.5,
+            "y": 43,
+            "z": -10.5,
+            "yaw": 1.67,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 11,
+            "species": "boar",
+            "x": -55.5,
+            "y": 44,
+            "z": -14.5,
+            "yaw": 0.025,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 12,
+            "species": "goat",
+            "x": 11.5,
+            "y": 42,
+            "z": -53.5,
+            "yaw": 2.55,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 13,
+            "species": "goat",
+            "x": 9.5,
+            "y": 42,
+            "z": -55.5,
+            "yaw": 0.666,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 14,
+            "species": "goat",
+            "x": -50.322,
+            "y": 42,
+            "z": 13.811,
+            "yaw": -2.071,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 15,
+            "species": "goat",
+            "x": -48.5,
+            "y": 42,
+            "z": 14.5,
+            "yaw": 5.764,
+            "health": 8,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 16,
+            "species": "boar",
+            "x": 7.5,
+            "y": 35,
+            "z": 11.5,
+            "yaw": 3.084,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 17,
+            "species": "boar",
+            "x": 8.5,
+            "y": 36,
+            "z": 12.5,
+            "yaw": 4.729,
+            "health": 10,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 18,
+            "species": "hen",
+            "x": 22.5,
+            "y": 43,
+            "z": -59.5,
+            "yaw": 5.164,
+            "health": 4,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 19,
+            "species": "hen",
+            "x": 25.226,
+            "y": 42.935,
+            "z": -58.5,
+            "yaw": -1.571,
+            "health": 4,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 20,
+            "species": "hen",
+            "x": 20.076,
+            "y": 44,
+            "z": -62.5,
+            "yaw": 1.571,
+            "health": 4,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          },
+          {
+            "id": 21,
+            "species": "hen",
+            "x": 23.5,
+            "y": 43,
+            "z": -59.5,
+            "yaw": 2.719,
+            "health": 4,
+            "baby": false,
+            "ageS": 1.2,
+            "eagerS": 0,
+            "cooldownS": 0,
+            "tame": false
+          }
+        ],
+        "hostiles": {
+          "guarded": [
+            "-38,-46"
+          ],
+          "spawnS": 0.8,
+          "mobs": [
+            {
+              "id": 22,
+              "species": "forge_warden",
+              "x": -32.5,
+              "y": 43,
+              "z": -42.5,
+              "yaw": 2.034,
+              "health": 16,
+              "role": "guard",
+              "home": [
+                -34.5,
+                42,
+                -41.5
+              ],
+              "ruin": "-38,-46",
+              "dormant": false,
+              "hover": 2.575
+            },
+            {
+              "id": 23,
+              "species": "forge_warden",
+              "x": -36.5,
+              "y": 42,
+              "z": -44.5,
+              "yaw": -2.554,
+              "health": 16,
+              "role": "guard",
+              "home": [
+                -34.5,
+                42,
+                -41.5
+              ],
+              "ruin": "-38,-46",
+              "dormant": false,
+              "hover": 3.674
+            }
+          ]
+        }
+      }
+    }
+  }
+}
