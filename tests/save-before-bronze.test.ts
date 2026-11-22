@@ -1,8 +1,8 @@
 /**
  * The save captured by scripts/make-save-fixture.mjs from the build before the six-age refactor.
  * Expected values are literals on purpose: the W0 migration (furnace tier >= 2 becomes +1, so this
- * Blast furnace and its hearth tier become 3) has to update them. Objectives stay as recorded
- * (gather_logs still at index 0; peaks.tier stays 2).
+ * Blast furnace and its hearth tier become 3) has to update them. Updated for the merged build: tiers 3, objectives age 2,
+ * peaks.tier 3 (gather_logs still at index 0).
  */
 import { describe, expect, it } from 'vitest';
 import { GameState } from '../src/app/state';
@@ -53,18 +53,18 @@ describe('pre-bronze save', () => {
       expect(goal).not.toBeNull();
       if (goal === null) return;
       expect(OBJECTIVES.indexOf(goal)).toBe(0);
-      expect(state.objectives.age).toBe(1);
-      expect(state.objectives.toJSON().peaks.tier).toBe(2);
+      expect(state.objectives.age).toBe(2); // six-age migration: Ember(0) Bronze(1) ... old age 1 -> 2
+      expect(state.objectives.toJSON().peaks.tier).toBe(3); // migrated with the furnace tiers (Blast was 2, now 3)
 
       expect(blockOf(state.world.getVoxel(-16, 44, -18)).key).toBe('furnace_blast');
       const furnaces = [...state.world.entities()].filter(isFurnace);
       expect(furnaces).toHaveLength(1);
       const furnace = furnaces[0];
       if (!furnace) return;
-      expect(furnace.tier).toBe(2);
-      expect(furnace.effTier).toBe(2);
+      expect(furnace.tier).toBe(3); // Bronze Furnace took tier 2
+      expect(furnace.effTier).toBe(3);
       expect(furnace.hearth).toEqual({
-        tier: 2,
+        tier: 3,
         inner: [1, 1, 1],
         closed: false,
         windows: 0,
