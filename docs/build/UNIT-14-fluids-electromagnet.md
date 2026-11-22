@@ -50,7 +50,7 @@ fallback when no tank stands above the spout.
 | `fluidBlock.room?(x, y, z, fluid): number` | **NEW optional member** | same | litres of `fluid` it would take now (0 = refuses: full, or holds another fluid). Needed so a drain refuses a bucket it could never empty instead of swallowing it |
 | `SPOUT_LPS = 250` | **NEW** constant | `src/workshop/logistics.ts` | SYSTEMS 5.2 |
 | `POUR_BUFFER_L = 1000` | **NEW** constant | `logistics.ts` | most litres a spout or drain holds in its throat (one bucket/canister) |
-| `SPOUT_RETURN_S = 2` | **NEW** constant | `logistics.ts` | a spout with litres in its throat and nothing to fill pours them back up after this long |
+| `SPOUT_RETURN_S = 2` | **NEW** constant | `logistics.ts` | seconds a spout keeps a caught can it cannot fill (the tank now holds another fluid) before releasing it empty |
 | continuous spout + drain behaviour | behaviour | `logistics.ts` (`spout`, `spoutFromTank`, `accept` case `item_drain`, NEW `drainPour`) | section 5 |
 | `PourView` + `WorkshopView.pours?` | **NEW optional member** of `WorkshopView` | `workshop.ts`; rendered in `src/render/workshop/` | `{ x, y, z, colour, toY }` per pouring spout/drain, for the stream particles |
 | `electromagnet` | **NEW** item | `src/content/itemsGround.ts` (`GROUND_ITEMS`) | section 4.2 |
@@ -226,7 +226,9 @@ stands (T3 rule 1). The spout's `Cell.items` holds **at most one caught containe
 | 3 | a `depot` cell holding an empty container that can carry the tank's fluid | takes ONE into `c.items` (depot count - 1) |
 | 4 | a ground item under the nozzle (`Math.floor(e.x) === c.x`, `Math.floor(e.z) === c.z`, `c.y - 1.6 < e.y < c.y`, `e.delayS <= 0.4`, `!e.homing`, `e.count > 0`) that is an empty container able to carry the tank's fluid | catches ONE (`e.count -= 1`, `c.items[item] = 1`); belts keep moving the rest of that stack |
 
-`F` is the throat's fluid when the throat is not empty, otherwise `fb.offer(above)?.fluid`.
+`F` is the throat's fluid when the throat is not empty, otherwise `fb.offer(above)?.fluid`. With no `F` (empty throat, empty
+source) nothing is caught (status `idle`): a can is caught only when `containerFor(item, F)` is non-null, so a spout never
+holds a can it could not fill at that moment.
 
 **The container table (no hard-coded list).** NEW private helpers in `logistics.ts`, built only from existing tables:
 
@@ -264,19 +266,24 @@ empty basin 4 s. Each spout draws independently; two spouts under one tank stack
 fills 16 canisters in 64 s. (Today's tank spout moves 1000 L per `SPOUT_S` 1 s; continuous is slower per can on purpose:
 it is visible, it reads in the crosshair, and it is the canon rate. The basin spout keeps `SPOUT_S`.)
 
-**Leftover litres (pipe empty mid-pour, can taken away).**
-- *Source runs dry mid-pour:* `draw` returns less (or 0); the throat keeps what it has and the can stays caught. The pour
-  resumes the moment the tank has `F` again. Crosshair: `"Spout - the tank above is empty, 600/1000 L in the Bucket"`.
-- *Source now holds another fluid* (it was drained and refilled with something else) while the throat holds `F`: no draw
-  (draw is always called with `F`). The throat empties into the caught can only if it reaches the can's litres, so it waits:
-  `"Spout - holds 400 L Water, the tank above gives Kerosene"`.
-- *Throat not empty and nothing caught:* after `SPOUT_RETURN_S` 2 s with no container (a NEW transient timer on the cell,
-  `c.timer`, which spouts do not use today) the spout pushes the throat back up: `back = fb.fill(above, F, throat)`,
-  `throat -= back`. A tank refilled with another fluid refuses (`room` 0): the throat waits. Breaking the spout loses
-  its throat litres (the tank rule: "breaking a tank loses what it held"); its caught can drops as a ground item
-  (`noteBlock` already spills `items`).
-- A caught can is never given back half full: `ItemStack` has no per-stack litres (SYSTEMS 2), so partial litres live
-  only in the throat.
+**Leftover litres (pipe empty mid-pour, fluid changed).** A player cannot take a caught can out of a spout (no Use case,
+not in `peek`/`take`), so the throat can only be stranded two ways, and each has one rule:
+
+- *Source runs dry mid-pour:* `draw` returns less (or 0); the throat keeps what it has and the can STAYS caught - a pipe
+  that refills the tank finishes it, which is what a belt line wants (it waits for the pipe, nothing goes out half done).
+  Crosshair: `"Spout - the tank is empty, 600/1000 L in the Bucket"`. A player who gives up breaks the spout: the can
+  drops (`noteBlock` spills `items`), the throat litres are lost (the tank rule: "breaking a tank loses what it held").
+- *Source now holds another fluid `G`* (drained and refilled with something else) while the throat holds `F`: nothing is
+  drawn (draw is always called with `F`). After `SPOUT_RETURN_S` 2 s in this state (`c.timer`, transient, unused by spouts
+  today) the spout RELEASES the caught can, still empty, onto the depot/floor below (so a belt line moves on), and from then
+  on, every tick, tries to push the throat back up: `back = fb.fill(above, F, throat)`, `throat -= back`. While the tank holds
+  `G` it refuses (`room` 0) and the spout catches nothing new (it would draw `G` into an `F` throat): crosshair
+  `"Spout - holds 400 L Water, tank has Kerosene: empty it"`. When the tank is emptied (or holds `F` again) the throat flows
+  back and the spout returns to normal. Litres conserved throughout.
+- The same push-back runs for any throat with no caught can (only reachable through the release above, or a hand-edited
+  save that the load clamp let through).
+- A caught can is never given back part-full: `ItemStack` has no per-stack litres (SYSTEMS 2), so partial litres live only
+  in the throat.
 
 **Wrong container.** A Bucket under a crude tank (`containerFor('pail', 'crude_oil') === null`) is not caught; it rides on.
 Crosshair while it sits there: `"Spout - a Bucket cannot carry Crude Oil, needs a canister"`. A Bronze Bucket is a lava
@@ -412,3 +419,535 @@ pump today). Items sealed in a fully closed cave still need a path for the PLAYE
   proportion to its `storedJ` (so a mixed battery + bank network drains evenly); subtracts from each `e.storedJ` and from
   `net.storedJ`; returns joules taken. Any other cell: 0. A switched-off battery on the network gives nothing; the one aimed
   at may be off while another on its network gives (the network is the store, as in the power screen).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 5. Behaviour and rules (with edge cases and messages)
+
+### 5.1 Spout state machine (continuous mode)
+
+Each tick `spoutFlow(c, dt, fb)` (NEW, replaces `spoutFromTank`) computes one `PourStatus` (NEW transient type, kept on
+the cell as `c.pour`, NOT saved, recomputed every tick) and acts on it:
+
+| status | when | action | crosshair line (T8, <= 60 chars) |
+|---|---|---|---|
+| `shut` | `!host.gate(...)` | nothing; `c.timer` keeps counting for the return rule | `Spout - shut by signal` |
+| `basin` | target 1, basin takes `F`, source offers `F` | basin += draw | `Spout - pouring Water into the basin, 400/1000 L` |
+| `basin_full` | target 1, basin at 1000 L of `F` | nothing | `Spout - the basin is full (1000 L Water)` |
+| `basin_other` | target 1, basin holds another fluid | nothing | `Spout - the basin holds Milk, not Water` |
+| `pouring` | caught container, source offers `F` | throat += draw | `Spout - pouring Water, 750/1000 L in the Bucket` |
+| `dry` | caught container (or basin), source offers nothing | nothing | `Spout - the tank is empty, 600/1000 L in the Bucket` |
+| `other` | throat holds `F`, source offers `G != F` | after 2 s release the can empty; push the throat back whenever the source takes `F` | `Spout - holds 400 L Water, tank has Kerosene: empty it` |
+| `cannot_carry` | an empty container sits below that `containerFor` refuses for the source's fluid | not caught | `Spout - a Bucket cannot carry Crude Oil, needs a canister` |
+| `waiting` | nothing to fill below | nothing (throat is empty here by construction) | `Spout - waiting for a can, tank holds Water` |
+| `idle` | the source offers nothing and nothing is below | nothing | `Spout - the tank is empty` |
+
+Names in lines: fluids by `fluidOrNull(key)?.name` (`Water`, `Crude Oil`, `Lubricant`), containers by
+`itemOrNull(key)?.name` (`Bucket` for `pail`, `Bronze Bucket`, `Empty Canister`, `Glass Beaker`). Litres per T8: `<n> L`
+below 1000; the `n/1000 L` fraction always uses litres because it is a progress figure (a bucket reads `750/1000 L`, a
+beaker `125/250 L`). Basin litres are integers (`Math.round`).
+
+### 5.2 Drain lines
+
+| state | line |
+|---|---|
+| throat pouring | `Item Drain - pouring Water into the tank, 600 L left` |
+| tank full (`room` 0, same fluid) | `Item Drain - the tank below is full, 400 L Water waiting` |
+| tank other fluid | `Item Drain - tank holds Kerosene, 400 L Water waiting` |
+| no endpoint below, throat not empty | `Item Drain - nothing below takes it, 400 L Water waiting` |
+| shut | `Item Drain - shut by signal, 400 L Water waiting` (or `Item Drain - shut by signal`) |
+| idle | the existing generic `describe` output (`Item Drain - empty`, `Item Drain - 2 Empty Canister`) |
+
+`describe` calls NEW `private pourLine(c): string | null` first for `spout` / `item_drain` and returns it when non-null;
+otherwise the existing generic line (so the basin-fed spout and the basin drain read as today).
+
+### 5.3 Electromagnet: Use, flat, recharge
+
+Controller (`src/player/controller.ts:171`) becomes:
+
+```ts
+// Use with a collector in hand: aimed at a battery it recharges a charge collector; otherwise it runs it.
+if (intent.use && (p.collectors.recharge(this.currentTarget) || p.collectors.trigger())) intent.use = false;
+```
+
+`this.currentTarget` is last frame's `RayHit | null` (`{ x, y, z, block, ... }`); `recharge` takes
+`{ x: number; y: number; z: number; block: BlockDef } | null` so tests pass a literal.
+
+| situation | result | toast (kind `info` unless noted) / sound |
+|---|---|---|
+| Use, charged, not aimed at storage | arms for 3 s; holding Use keeps it armed | sfx `machine_on` 0.6 / pitch 1.4 at start (exists), `magnet_hum` every 0.5 s at 0.35 while running |
+| Use, flat (`durability - 1 < 20`) | not armed; Use consumed (does not fall through to the world) | `The Electromagnet is flat - Use it on an Acid Battery to charge it` at most once per `FLAT_TOAST_S` 3 s (NEW constant in collectors.ts) |
+| goes flat during a burst | stops (`drawPower` false); renderer rings stop | the same flat toast (same cooldown) |
+| Use aimed at a storage block, missing >= 1 J, network gives all | charge = full | `Electromagnet charged - 120/120 kJ` ; sfx `spark` volume 0.6 at the block |
+| network gives part | charge += got | `Electromagnet charged to 70/120 kJ - the batteries ran dry` ; sfx `spark` 0.6 |
+| network gives 0 | nothing | `No charge to draw - the batteries here are empty or switched off` |
+| already full (missing < 1 J) | nothing | `The Electromagnet is already charged (120 kJ)` |
+| Use aimed at a storage block holding the Hand Vacuum Pump | `recharge` returns false (power kind is `wear`); pump runs as today | - |
+| Use aimed at a non-storage block | `recharge` false -> `trigger` | - |
+| player dead | `trigger`/`tick` already stop (exists) | - |
+| Dev Mode | no drain (like `wearHeldTool`) | - |
+| pack full while pulling | items whose `inventory.space` is 0 are not pulled (exists in `GroundItems.tick`); charge is still drawn (it is a field, not a per-item cost) | - |
+
+kJ in toasts: `Math.floor(durability / 1000)`; 120 kJ when full. Recharge also calls `stop()` so a burst does not continue
+while aiming at the battery.
+
+**Only metal moves.** In `GroundItems.tick` the collector loop gains one test: `if (c.accepts && !c.accepts(e.item))
+continue;` - a non-metal item outside `PICKUP_RADIUS` is left alone; inside `PICKUP_RADIUS` everything is picked up as
+always. `reach` stays the max collector radius (cheap; the per-item test decides). The `pulled` glow therefore shows only on
+metal.
+
+### 5.4 Save/load
+
+- Spout and drain throats (`Cell.fluid`) and the spout's caught can (`Cell.items`) are in the existing `LogiSnapshot` rows;
+  `load` already accepts them (fluid clamped to `BASIN_LITRES` = `POUR_BUFFER_L` = 1000). A saved-and-reloaded half-full
+  pour resumes. `c.pour` and `c.timer` are transient.
+- Old saves: spouts/drains have `fluid: null` and no items -> idle; the first tick picks the new behaviour. No migration.
+- The magnet's charge is `durability`: the pack, crates, ground items (`spawn(..., { durability })`), and `PlayerSnapshot`
+  already carry it. `fullDurability` returning `capacityJ` makes `sanitize` keep it in range.
+- `Workshop.relocate` (contraptions, Unit 13) moves the whole `Cell`, throat and caught can included.
+
+### 5.5 Conservation (normative, tested)
+
+For any tick: `tankLitres + throat + basinLitres + litresInFullContainers * their size` is unchanged by spouts and drains
+except litres in a block that is broken. Items: a caught can is in exactly one place (ground, depot, or `c.items`).
+
+### 5.6 Performance
+
+`fb.offer` / `fb.draw` / `fb.room` resolve an endpoint (a Map lookup + `tankColumn` walk). A spout calls at most
+`offer` + one `draw` per tick; a drain at most one `fill` per tick and one `room` per `accept`. With 20 spouts that is 40
+lookups per tick - negligible next to the pipe solver. No allocation per tick beyond what `tankColumn` already does.
+
+### 5.7 Things that deliberately do NOT change
+
+- No player Use on a spout or drain (the existing `use` switch has no case for them; the bucket in hand on a tank is the
+  hand route). Unit 8's `give?` parameter is untouched.
+- Basin-fed spout (`SPOUT_S` 1 s per 1000 L) and basin drain (instant) stay exactly as today, with their tests.
+- `COLLECTORS.hand_vacuum` and `PowerSource` `wear`/`free`/`electric` are unchanged; `electric` stays for a future
+  grid-tethered tool.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 6. UI and feedback
+
+### 6.1 Strings (exact, T8)
+
+Item descriptions (`src/content/itemsWorkshopParts.ts`, replace):
+
+- `spout`: `"Pours a fluid into what waits below it. Under a tank: 250 L a second into a basin, bucket, canister or beaker - it catches one off a belt and sets it back down full. Under a basin: a bucket at a time."`
+- `item_drain`: `"Empties full buckets, canisters and beakers dropped on it - into a tank below at 250 L a second, or into a basin below at once - and passes the empties out of its front."`
+- `electromagnet`: see 4.3.
+
+Item tooltip card (`itemCard`, slotViews.ts): for `def.charge` add the row `['Charge', `${Math.floor(d / 1000)} / ${def.charge.capacityJ / 1000} kJ`]`
+(e.g. `Charge  84 / 120 kJ`). The slot's durability bar is already `durability / fullDurability`, so it shows charge.
+
+Workshop Guide (`src/ui/screens/workshop/workshopScreen.ts:43`, Rules text): the sentence `"Fluids reach spouts and drains
+from tanks on the pipe network."` becomes `"Spouts under a tank pour 250 L a second into the basin or can below; drains over a
+tank empty cans at the same rate."`
+
+All crosshair lines: section 5.1 / 5.2. All toasts: section 5.3. No exclamation marks.
+
+### 6.2 Goggles
+
+Spout and drain are `NON_KINETIC`; goggles show the same single line as the bare crosshair (`Workshop.describe` ->
+`logi.describe`). No kinetic second line.
+
+### 6.3 Phone
+
+- No new screen, button or chip. The magnet works with the existing Use button (tap = 3 s burst, hold = keeps pulling);
+  recharging = aim at the battery + Use. Charge is read from the hotbar slot's bar (no hover needed) and, in the inventory,
+  the tooltip card on tap.
+- Crosshair lines all <= 60 characters (counted: `Spout - pouring Lubricant, 750/1000 L in the Empty Canister` is 59,
+  `Spout - the tank is empty, 600/1000 L in the Empty Canister` 59, `Item Drain - the tank below is full, 400 L Water waiting`
+  57). Fluid names longer than `Lubricant` (`Fuel Ethanol`) may push a line to 62: acceptable, the HUD wraps at ~64.
+
+### 6.4 Sounds (T9)
+
+NEW `src/audio/sfxWorkshop.ts` exporting `WORKSHOP_SFX` (Units 13 and 16 add to the same file - create it if missing, append
+if present; see 14). Patches follow the shape of `sfxBrew.ts`:
+
+| name | patch | when | volume |
+|---|---|---|---|
+| `spout_pour` | band-passed noise (centre ~900 Hz, Q 1.2) with a slow 6 Hz amplitude wobble, 0.9 s, soft attack/release | each spout/drain while pouring: on the first pouring tick, then every 1 s while it keeps pouring (a per-cell timer, NOT saved); stops when the pour stops | 0.3 (whisper tier, it repeats) |
+| `magnet_hum` | sine 110 Hz + 220 Hz (0.4), 4 Hz vibrato +-3 Hz, 0.55 s | `CollectorDef.sound` of the magnet, every 0.5 s while running | 0.35 (as the pump's hiss) |
+
+`splash` (exists) 0.4 stays the "container full" cue. `spark` (exists) is the recharge cue. Add both names to the
+`SfxName` union (`src/core/gameEvents.ts`), widen `CollectorDef.sound` to include `'magnet_hum'`, merge `WORKSHOP_SFX`
+in `src/audio/sfx.ts`, and update `sfx.test.ts` to `72 + MAGIC + ... + Object.keys(WORKSHOP_SFX).length` (whatever the
+expression is after the other units; this unit adds 2). Idle spouts and drains are silent (T9 rule 3).
+
+### 6.5 The pour stream (render)
+
+`WorkshopView` gains an OPTIONAL member `pours?: PourView[]` (NEW; SYSTEMS 6.5 allows optional members):
+
+```ts
+export interface PourView { x: number; y: number; z: number; colour: number; toY: number; item?: string }
+```
+
+`Workshop.view()` fills it from `logi.pours()` (NEW): one row per spout/drain whose `c.pour` is `basin` or `pouring` (spout:
+from the nozzle `y` = `c.y` down to `toY` = `c.y - 0.9` for a can / `c.y - 0.2` for the basin top surface; drain: from
+`c.y + 0.1` down to `c.y` - a short glug inside the grate). `colour` = `FluidSpec.colour`. The workshop renderer
+(`src/render/workshop/`) keeps a pool of at most 16 thin boxes (0.07 x 1 x 0.07, unit height scaled to `y - toY`), coloured
+per row, lit by the terrain light, and a pool of droplet sprites: at most 6 per stream (well under the 24-per-emitter cap),
+spawned at the bottom with a small random hop, recycled. Hidden when `pours` is empty or absent. Glowing fluids (`glow:
+true`, lava) use the emissive material the pipe renderer uses for lava. No per-frame allocation (anti-pattern 6d).
+
+A container being filled is drawn by the existing ground-item renderer? No - while caught it lives in `c.items`, not as a
+ground item. The renderer therefore also draws the caught can from `PourView.item` (the caught empty's key);
+the workshop renderer reuses the held-item sprite mesh (the one `GroundItemRenderer` shares) at `(x + 0.5, toY, z + 0.5)`,
+not spinning. If reusing the sprite is awkward in `src/render/workshop/`, draw nothing for the can: the stream ending in
+mid-air above the belt is acceptable for this unit, and the goggles line names the can (fallback the builder may take;
+note it in the PR).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 7. Data and save (TypeScript sketches)
+
+```ts
+// src/core/types.ts - ItemSpec gains (NEW, optional)
+/** A tool that runs on stored electricity: its stack's `durability` is joules left (1 = flat). Stack 1. */
+charge?: { capacityJ: number };
+
+// src/game/inventory.ts - fullDurability (one more fallback)
+return def?.tool?.durability ?? def?.wear ?? def?.mould?.pours ?? def?.charge?.capacityJ;
+
+// src/workshop/workshop.ts
+export interface FluidBlockHook { /* section 2.2 */ }
+export interface PourView { x: number; y: number; z: number; colour: number; toY: number; item?: string } // NEW
+export interface WorkshopView { /* spin, swings, links, moving (Unit 0) */ pours?: PourView[] }              // NEW optional
+
+// src/workshop/logistics.ts
+export const SPOUT_LPS = 250;           // NEW, SYSTEMS 5.2
+export const POUR_BUFFER_L = 1000;      // NEW
+export const SPOUT_RETURN_S = 2;        // NEW
+export type PourStatus = 'shut' | 'basin' | 'basin_full' | 'basin_other' | 'pouring' | 'dry' | 'other' | 'cannot_carry' | 'waiting' | 'idle'; // NEW
+export interface Cell { /* existing */ pour?: { status: PourStatus; fluid: string | null; item: string | null; litres: number; soundT: number } } // NEW, transient
+// LogiHost.fluidBlock(): FluidBlockHook | null   (type only; same object)
+
+// src/game/collectors.ts
+export type PowerSource = /* wear | free | electric (unchanged) */ | { kind: 'charge'; watts: number }; // NEW member
+export interface CollectorDef { /* existing */ accepts?: (item: string) => boolean; sound?: 'steam_hiss' | 'machine_on' | 'spark' | 'magnet_hum' }
+export const FLAT_TOAST_S = 3;          // NEW
+class Collectors {
+  /** Takes joules from the storage network of the block at x, y, z (Game: sim.drawJoules); null = nothing to draw from. */
+  drawJoules: ((x: number, y: number, z: number, J: number) => number) | null = null; // NEW
+  recharge(hit: { x: number; y: number; z: number; block: BlockDef } | null): boolean;    // NEW
+}
+
+// src/game/groundItems.ts
+export interface ActiveCollector { radius: number; pull: number; accepts?: (item: string) => boolean } // NEW optional
+
+// src/sim/power.ts
+/** Takes up to J joules out of the network's usable storage, in proportion to what each holds. Returns joules taken. */
+export function drawFromStorage(net: Network, J: number): number; // NEW
+// src/sim/simulation.ts
+drawJoules(x: number, y: number, z: number, J: number): number;  // NEW
+```
+
+**Saved fields:** none new. `LogiSnapshot` row layout is unchanged (`[x, y, z, kind, items, fluid, filter, src, targets]`);
+spouts/drains now put real values in `items` and `fluid`. `load` sanitises them already (unknown items/fluids dropped, fluid
+clamped to 1000, counts to `CELL_CAP * 4`). One extra sanitising line: for a `spout`, keep at most ONE item total in `items`
+(extras spill as ground items at the cell on the first tick - or simply clamp to the first entry with count 1; the builder
+picks the clamp, documented in a comment: a spout never holds more than one can).
+
+**Old saves:** load with `fluid: null`, empty items: identical to a fresh spout/drain. Magnet: no old save holds one.
+**T10 test:** load a `LogiSnapshot` row for a spout without items/fluid (the old shape) and one with a half-full throat;
+both load; the second resumes and finishes the can.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered)
+
+Prerequisite: Unit 0 merged (the `draw?/fill?` type). If it is not, add the two members yourself exactly as 2.2 (they are
+type-only) and tell the coordinator.
+
+1. **Hook type** - `src/workshop/workshop.ts`: export `FluidBlockHook` (2.2), use it for `fluidBlock`; `LogiHost.fluidBlock():
+   FluidBlockHook | null` in `logistics.ts`. Export `PourView`; add `pours?: PourView[]` to `WorkshopView`.
+2. **Container helpers** - `logistics.ts`: `containerFor`, `isEmptyContainer`, `fullContainer` (4.1) from `bucketFilledWith`,
+   `fluidInBucket`, `FLUIDS` (`src/core/registry.ts`), `CHEM_CONTAINERS`, `filledWith`, `isEmptyChemContainer`
+   (`src/core/distill.ts`), `LITRES_PER_BUCKET` (`src/core/constants.ts`); delete `FLUIDS_EMPTY`. `isHot` from
+   `src/game/inventory.ts` (Unit 4) or the inline `cools` test. Check `src/workshop` may import `src/core/distill.ts`
+   (it is DOM-free core; `logistics.ts` already imports `src/game/*`).
+3. **Spout** - replace `spoutFromTank(c, dt, fb)` with `private spoutFlow(c: Cell, dt: number, fb: FluidBlockHook): void`
+   implementing 4.1 / 5.1; `spout(c, dt)` routes: basin above -> existing basin code; endpoint above and full hook ->
+   `spoutFlow`; endpoint above but partial hook -> the OLD bucket code (keep it as `private spoutByBucket(...)`, renamed
+   from `spoutFromTank`, using `isEmptyContainer` instead of `FLUIDS_EMPTY`). Sound: `spout_pour` on `c.pour.soundT`.
+4. **Drain** - `accept` case `'item_drain'`: insert the continuous branch (4.2) before the existing `fb.use` branch; the
+   existing branch stays for a partial hook. `tick` case `'item_drain'`: `this.drainPour(c, dt); this.mover(c, dt);`
+   (NEW `private drainPour(c: Cell, dt: number): void`).
+5. **Gate** - spouts and drains read `this.host.gate(c.x, c.y, c.z)` inside `spoutFlow` / `drainPour` (do NOT add them to
+   `POWERED`; that set means "needs shaft power").
+6. **Lines** - `private pourLine(c: Cell): string | null` (5.1/5.2), called first in `describe` for the two kinds.
+7. **View** - `Logistics.pours(): PourView[]` (reuses one array, rows rewritten in place); `Workshop.view()` sets
+   `pours: this.logi.pours()`.
+8. **Load clamp** - `load`: a spout keeps one item (7).
+9. **Game hook** - `src/app/game.ts`: the four-member implementation of 2.3 (imports `fluidOrNull` from registry,
+   `FluidKey` type).
+10. **Render** - `src/render/workshop/` (the renderer that reads `WorkshopView`; grep `swings` to find it): stream pool +
+    droplets (6.5).
+11. **Sounds** - `src/audio/sfxWorkshop.ts` (create or append), `SfxName` union, `sfx.ts` merge, `sfx.test.ts` count.
+12. **Item spec field** - `ItemSpec.charge?` (`src/core/types.ts`), `fullDurability` (`src/game/inventory.ts`), the
+    `Charge` row in `itemCard` (`src/ui/screens/inventory/slotViews.ts`).
+13. **Item + metal rule** - `src/content/itemsGround.ts`: `ELECTROMAGNET_J`, `METAL_WORDS`, `isMetalItem`, the
+    `electromagnet` row in `GROUND_ITEMS` with `age: ageIndexOf('current')` (import from `src/magic/ageMap.ts`; if the
+    content layer must not import magic, use the same constant the other content files use for Current - grep
+    `ageIndexOf(` in `src/content/` first; Unit 0 may have moved it).
+14. **Recipe** - `src/content/recipes.ts` after `chainsaw`: `forge(3, 'electromagnet', '3 copper_coil, 2 iron_plate, 1 battery, 1 circuit', 1400)`.
+15. **Icon** - `src/render/textures/iconsGround.ts`: `item_electromagnet: icon(electromagnet)` with a 16x16 painter in the
+    file's style (red horseshoe, copper bands, silver tips). Must pass the texture readability test.
+16. **Collectors** - `collectors.ts`: `charge` member + `drawPower` case; `accepts`, widened `sound`; `COLLECTORS.electromagnet`
+    (replace the comment); `trigger()` flat check + toast cooldown; `recharge(hit)`; `tick` copies `def.accepts` into
+    `this.out.accepts` (set `undefined` for the pump so a reused `out` object never keeps a stale filter).
+17. **Ground items** - `groundItems.ts`: `ActiveCollector.accepts?` and the one-line test in the collector loop.
+18. **Sim hook** - `src/sim/power.ts` `drawFromStorage(net, J)`; `src/sim/simulation.ts` `drawJoules(x, y, z, J)`
+    (`this.nodes.fresh()`, `this.nodes.byKey.get(posKey(x, y, z))`, `node.spec.role === 'storage'`, `node.net`). Call
+    `this.touch(e)` for each battery changed so an open power screen refreshes.
+19. **Wiring** - `src/app/game.ts`: `state.player.collectors.drawJoules = (x, y, z, J) => this.state.sim.drawJoules(x, y, z, J);`
+    next to the other hooks, and cleared on dispose (`offs.push(() => { ...drawJoules = null; })`).
+20. **Controller** - `src/player/controller.ts:171` (5.3).
+21. **Text** - spout / drain descriptions (6.1); Workshop Guide sentence if applicable.
+22. **Rosters** - `src/content/specRosterGround.ts`: add `'electromagnet'` to the key list and
+    `'electromagnet: 1 electromagnet <- 3 copper_coil, 2 iron_plate, 1 battery, 1 circuit @1400 T3'` to the recipe list
+    (same format as the `hand_vacuum` line).
+23. **Docs** (11), tests (9), e2e (10).
+
+Helpers to reuse, not rewrite: `tankStackEndpoint` (through `sim.fluidEndpoint`), `bucketFilledWith`, `filledWith`,
+`fluidInBucket`, `isEmptyChemContainer`, `stackLimit`, `ground.spawn`, `host.gate`, `machineOfBlock`, `fullDurability`,
+`Network.storage`.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest)
+
+### 9.1 `src/workshop/parts.test.ts` / `logistics.test.ts` (spouts and drains)
+
+Add a test helper in the file that uses it (NOT a new fixture file): `fakeTank(at: [x, y, z], fluid, litres, cap = 16000)`
+returning a full `FluidBlockHook` (`is`, `use` (1000 L bucket swap, for the fallback), `draw`, `fill`, `offer`, `room`)
+over one in-memory `{ fluid, litres }`, with a `total()` accessor. Use the existing `setup()` / `put` / `run` / `count`.
+
+1. `it('a spout under a tank pours 250 L/s: a canister on the depot below is full after 4 s, not before')` - tank (0, 2, 0)
+   gasoline 2000; spout (0, 1, 0); depot (0, 0, 0) with 1 `empty_canister`. `run(3.9)`: depot has no `gasoline_canister`,
+   tank 2000 - ~975 (`toBeCloseTo(1025, -1)`), `describe(0, 1, 0)` matches `/^Spout - pouring Gasoline, \d+\/1000 L in the Empty Canister$/`.
+   `run(0.2)`: depot has 1 `gasoline_canister`, tank 1000.
+2. `it('a spout fills a glass beaker in one second')` - spirit tank 1000 L, `glass_beaker` on the depot: after 1.05 s the depot
+   holds 1 `spirit_beaker` (`filledWith('glass_beaker', 'spirit')`), tank 750. (Water has no beaker row: `water_pail` is its
+   only `CHEM_CONTAINERS` entry, so a beaker under a water tank is `cannot_carry` - assert that too.)
+3. `it('a spout catches a can off a belt and sets it back down full')` - cranked belt line under the spout carrying 3
+   `empty_canister` ground items; after `run(15)`: 3 `gasoline_canister` items exist (ground or past the belt's end), 0
+   empties, tank -3000. Items conserved (count of cans before = after).
+4. `it('a spout under a tank fills the basin below at 250 L/s and stops at 1000 L')` - tank water 5000; basin (0, 0, 0);
+   `run(2)`: basin `fluid.litres` within 10 of 500; `run(3)`: exactly 1000, tank 4000; line `Spout - the basin is full (1000 L Water)`.
+5. `it('a pour waits when the tank runs dry mid-fill and finishes when it is refilled')` - tank 600 L; can on depot; `run(5)`:
+   no full can, throat 600, tank 0, line contains `the tank is empty, 600/1000 L`; set tank 1000; `run(2)`: full can,
+   tank 600. Conservation: tank + throat + 1000*fullCans constant at every 0.5 s sample.
+6. `it('a tank switched to another fluid releases the can and takes the throat back once emptied')` - water tank 400 L,
+   can on the depot: `run(3)` -> throat 400, tank 0; set the tank to kerosene 1000 (`fakeTank.set`); `run(1)`: line
+   `Spout - holds 400 L Water, tank has Kerosene: empty it`, can still caught; `run(1.2)`: the empty can is back on the depot,
+   throat 400 water, tank still 1000 kerosene; set tank to 0 L; `run(0.1)`: tank 400 water, throat null. Conservation of
+   water (tank water + throat) at every sample.
+7. `it('the spout never draws a second fluid into its throat')` - continue 6 before emptying: `run(5)` with a fresh empty can on
+   the depot: no kerosene drawn, the can not caught.
+8. `it('a bucket under a crude tank is left alone')` - crude tank, `pail` on the depot: `run(5)`: pail still on the depot,
+   tank unchanged, line `Spout - a Bucket cannot carry Crude Oil, needs a canister`.
+9. `it('a hot item is never caught')` - `boiling_pail` (has `cools`) under a water tank on the depot: untouched after 5 s.
+10. `it('a lit signal shuts a spout and a drain')` - lever touching the spout (use the signals fixture from `signals.test.ts`
+    or set the gate by placing a `crank_lever` off): no litres move in 3 s; switch on -> pours. (Use whatever makes
+    `gate` false: a signal cell touching it that is OFF.)
+11. `it('a drain over a tank pours a canister at 250 L/s and passes the empty on at once')` - drain (0, 1, 0) facing east
+    over tank (0, 0, 0) gasoline 0/16000: `offer(0, 1, 0, 'gasoline_canister', 1) === 1`; after 0.3 s an `empty_canister`
+    has left the front (ground item at x 1 or in `peek`), tank ~75; after 4.1 s tank 1000, line idle.
+12. `it('a drain refuses a can its tank cannot take')` - tank holding kerosene: `offer(0, 1, 0, 'water_pail', 1) === 0`
+    (`room('water')` is 0); tank full of gasoline (16000/16000): `offer(0, 1, 0, 'gasoline_canister', 1) === 0`; nothing
+    lands in the drain's `items`.
+13. `it('a drain holds what the tank has no room for')` - tank gasoline 15600/16000; offer one canister: accepted; after 5 s
+    tank 16000, throat 600, line `Item Drain - the tank below is full, 600 L Gasoline waiting`; a second offer is 0.
+14. `it('four beakers queue in a drain throat, a fifth waits')` - spirit tank: four `spirit_beaker` accepted, the fifth 0
+    until the throat drops below 750.
+15. `it('without draw/fill the old bucket-by-bucket spout and drain still work')` - the existing test at parts.test.ts:138
+    stays green unchanged (it is the fallback test). Add an assertion comment.
+16. `it('a spout's throat and caught can survive a save round trip')` - pour 2 s, `toJSON()`, new Workshop, `load`, `run(2.1)`:
+    full can, litres conserved. And an old row `[0, 1, 0, 'spout', {}, null, null, null, []]` loads idle.
+17. `it('a contraption moves a pouring spout with its throat')` - optional if Unit 13's relocate test fixture is handy:
+    `logi.relocate(new Map([['0,1,0', [5, 1, 0]]]))` keeps `fluid` and `items`.
+18. `it('pours() lists one stream per pouring spout with the fluid colour')` - colour equals `fluidOrNull('gasoline').colour`.
+
+### 9.2 `src/game/collectors.test.ts` (electromagnet)
+
+Use the existing `setup()` / `lie()`.
+
+1. `it('the electromagnet is a registered Current item with a 120 kJ charge as durability')` - `player.give('electromagnet', 1)`
+   -> `durability === ELECTROMAGNET_J`; `itemOrNull('electromagnet').age === ageIndexOf('current')`; `collectorOf('electromagnet').radius === 12`.
+2. `it('pulls metal from twelve blocks and leaves stone, wood and wheat lying')` - lie `iron_ore` at 11.5, `copper_ingot` at
+   -10.5, `scrap_metal` at 6.5, `stone`/`oak_log`/`wheat` at 8.5, `iron_plate` at 14.5 (out of range); trigger, tick 3:
+   pack has iron_ore, copper_ingot, scrap_metal; ground still has the three non-metals and the iron plate. Sounds include
+   `magnet_hum`.
+3. `it('a burst costs 1.2 kJ and holding Use costs 400 W')` - after one full burst durability = 120000 - 1200 (+-25);
+   holding (re-trigger every 0.25 s) for 10 s costs 4000 +- 50.
+4. `it('a flat magnet does not run, says how to charge it, and is not destroyed')` - give with durability 10: trigger returns
+   true, `running` false after a tick, toast `The Electromagnet is flat - Use it on an Acid Battery to charge it` once even
+   after 10 triggers within 1 s; the stack is still there with durability >= 1.
+5. `it('runs out mid-burst and stops')` - durability 600 (0.5 burst) -> after 3 s `running` false, durability < 25, stack present.
+6. `it('recharges from a storage block, joule for joule')` - `player.collectors.drawJoules = (x, y, z, J) => { asked = J; return J; }`;
+   durability 20000; `recharge({ x: 0, y: 0, z: 0, block: blockOrNull('battery')! })` -> true, durability 120000, asked 100000,
+   toast `Electromagnet charged - 120/120 kJ`.
+7. `it('partial and empty recharges say so')` - hook returns 50000 of 100000 -> `Electromagnet charged to 70/120 kJ - the batteries ran dry`;
+   returns 0 -> `No charge to draw - the batteries here are empty or switched off`; full -> `The Electromagnet is already charged (120 kJ)`.
+8. `it('recharge ignores non-storage blocks and non-charge collectors')` - `recharge({ block: stone })` false; with
+   `hand_vacuum` held on a battery false; with nothing held false.
+9. `it('isMetalItem follows the material and shape rules')` - table test over the two lists in 4.3 (pulled / not pulled).
+10. `it('the hand vacuum still pulls everything')` - existing tests stay green; add one: pump pulls `wheat` and `iron_ore`.
+11. `it('Dev Mode does not drain the charge')`.
+
+### 9.3 `src/game/groundItems.test.ts`
+
+`it('a collector with accepts pulls only what it accepts, and plain pickup still takes everything')` - collectors
+`[{ radius: 10, pull: 12, accepts: (i) => i === 'coal' }]`: coal at 8 flies in, flint at 8 stays, flint at 1 is picked up.
+
+### 9.4 `src/sim/power.test.ts`
+
+1. `it('drawJoules takes from the storage of the aimed battery's network in proportion')` - two batteries cabled together,
+   storedJ 1 MJ and 0.5 MJ: `sim.drawJoules(b1, 300000)` returns 300000; storedJ 0.8 MJ / 0.4 MJ.
+2. `it('drawJoules gives what there is, skips switched-off storage, and is 0 for other blocks')` - battery off -> 0; stone -> 0;
+   battery with 50 kJ asked 120 kJ -> 50000.
+(Use the power test fixture already in `power.test.ts`; `Simulation` is constructed there for network tests.)
+
+### 9.5 Content and roster
+
+- `src/content/specRosterGround.ts`: key + recipe line (8, step 22). `content.test.ts` progression still completes (the
+  magnet is optional; its inputs are all obtainable at tier 3: copper_coil T2, iron_plate T2, battery T2, circuit T3).
+  The age check: recipe `age` 2 (`forge(3, ...)` -> `minTier - 1`) equals the item's `ageIndexOf('current')` 2.
+- Texture readability test covers `item_electromagnet`.
+- `src/audio/sfx.test.ts`: count includes the two new names.
+- `src/game/inventory.test.ts`: `fullDurability('electromagnet') === 120000`; a loaded slot with durability 999999 clamps to
+  120000, with 0 to 1.
+- Spout/drain item desc text: if a roster or snapshot test pins descriptions, update it.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 10. E2E steps (`scripts/e2e-workshop.mjs`)
+
+Add two named steps at the end of the existing run (they reuse the cleared yard `P = { gy, x0, z0 }` of the first step; use
+a fresh strip of it: `x0 - 3 .. x0 - 1`, `z0 + 6 .. z0 + 7`, or clear a new 3 x 3 x 5 box next to it the same way the first
+step does). `hw.tick(n)` runs `n` fixed steps of `DT` (0.05 s): `tick(20)` = 1 s. `window.__hw` ONLY for setup and reading
+state; the actions are real input (`d.use()`, `d.aimAt`, `d.holdUse`). Run `node scripts/e2e-workshop.mjs --device=desktop`
+(no `HW_GPU`); the spout step has no UI so desktop is enough; run `--device=phonePortrait` too for the magnet step (Use button).
+
+**Step A - `step('a spout under a tank pours 250 L/s into a canister on a belt', ...)`**
+
+1. Setup (`d.hw`): `hw.setVoxel(ax, gy + 2, az, 'tank')`; set its fluid:
+   `window.__hw.app.game.state.sim.machineAt(ax, gy + 2, az).fluidIn = { fluid: 'gasoline', litres: 4000 }`;
+   `hw.setVoxel(ax, gy + 1, az, 'spout')`; a depot at `(ax, gy, az)`; give the player 2 `empty_canister` and 1
+   `engineer_goggles`.
+2. Action (real input): select the canister slot (`hw.selectSlot` is setup - acceptable; or press the hotbar key), aim at the
+   depot (`d.aimAt({ x: ax, y: gy, z: az })`) and `d.use()` twice -> two empties on the depot (the depot's existing
+   `putOrTake`).
+3. `hw.tick(40)` (2 s). Read `workshop.describe(ax, gy + 1, az)`: matches `/^Spout - pouring Gasoline, \d+\/1000 L in the Empty Canister$/`
+   and the number is between 400 and 600. Screenshot `spout-pouring` (the stream must be visible above the depot; aim at the
+   spout so the crosshair line shows: `d.aimAt` the spout first, then shoot).
+4. `hw.tick(140)` (7 s more, 9 s total). Read: depot `peek` has 2 `gasoline_canister`, 0 `empty_canister`; the tank's
+   `fluidIn.litres` is 2000 (+-1). Screenshot `spout-done`.
+5. Assert the goggles line now reads `Spout - waiting for a can, tank holds Gasoline`.
+
+**Step B - `step('the electromagnet pulls metal from 12 blocks and recharges at a battery', ...)`**
+
+1. Setup: `hw.give('electromagnet', 1)` (fresh = full); select it. Spawn ground items with
+   `window.__hw.app.game.state.player.ground.spawn('iron_ore', 3, px + 10.5, gy + 0.5, pz + 0.5, { scatter: false, delayS: 0 })`,
+   `'copper_ingot'` 2 at `px - 9.5`, and `'stone'` 4 at `px + 8.5` (non-metal). Place `battery` at `(px + 2, gy, pz)`
+   with `machineAt(...).storedJ = 1_000_000`.
+2. Action: look at the open sky (or the floor away from the battery), `d.use()` once (desktop right click / phone Use).
+3. `hw.tick(80)` (4 s). Assert: pack has 3 `iron_ore` and 2 `copper_ingot`; ground still has 4 `stone`; the held stack's
+   `durability` is 118 800 +- 60. Screenshot `magnet-pulled` taken after 1 s of ticks (pulled items glowing, rings shown).
+4. Drain to flat: set the held stack's `durability = 10` (setup); `d.use()`; assert a toast element containing
+   `The Electromagnet is flat` appears (read the toast DOM the way other steps do, or `hw.state()` toasts if exposed).
+5. Recharge: `d.aimAt({ x: px + 2, y: gy, z: pz })` (the battery), `d.use()`. Assert: durability 120 000; the battery's
+   `storedJ` fell by 119 990 +- 1 (no generator on it, so nothing refills it in between - tick 0 between the two reads);
+   a toast `Electromagnet charged - 120/120 kJ`. Screenshot `magnet-recharged`.
+
+Screenshots land in `test-results/e2e-workshop/<device>-<name>.png` (the script's `d.shot`).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 11. Docs to update (same PR)
+
+- `docs/api/workshop.md`: replace the spout/drain sentences in "Logistics and processing" and the "Fluids" bullet of the third
+  slice with the continuous rules (250 L/s, throat, catching off a belt, basin fill, drain throat, return rule, signals,
+  lines, fallback without the full hook); document `FluidBlockHook` (draw/fill/offer/room) in the machine-interface section;
+  `WorkshopView.pours`. Remove "fluid pipes into spouts/drains" from the "Not built yet" line.
+- `docs/api/ground-items.md`: replace the "Electromagnet (Current Age, future - not built)" paragraph with the built tool
+  (item, recipe, charge, `charge` power kind, `accepts` / `isMetalItem` with the rule, recharge at storage, toasts, sounds);
+  add `accepts?` to the `ActiveCollector` / `CollectorDef` lines and the `drawJoules` hook.
+- `docs/api/sim.md`: `Simulation.drawJoules(x, y, z, J)` and `drawFromStorage` (power section).
+- `docs/api/tech-content.md`: the electromagnet recipe row in the Arc Furnace list.
+- `docs/api/audio.md`: `sfxWorkshop.ts` names `spout_pour`, `magnet_hum`.
+- `docs/api/content.md` (if it documents `ItemSpec`): `charge?`.
+- Never `docs/WHATS_LEFT.md` or `docs/build/SYSTEMS.md` (the coordinator; see 14).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 12. Acceptance checklist
+
+- [ ] `FluidBlockHook` exported with `draw/fill/offer/room` optional; Game implements all four over `sim.fluidEndpoint`.
+- [ ] A spout under a tank fills a canister in 4.0 s (+- one tick), a glass beaker in 1.0 s, an empty basin in 4.0 s; litres
+      conserved at every tick (unit test samples).
+- [ ] A spout catches one empty off a moving belt, fills it, sets it back down full; 3 cans in, 3 full out.
+- [ ] A dry tank pauses the pour and keeps the throat and the can; refilling finishes it. A tank switched to another fluid
+      releases the can (empty) after 2 s and keeps the throat until the tank can take it back. No litres appear or vanish (except a broken block).
+- [ ] Containers come only from `FluidSpec.bucket` + `CHEM_CONTAINERS`; `FLUIDS_EMPTY` is gone; vials and hot items are never
+      filled or caught.
+- [ ] A drain over a tank takes a full can only when the tank takes that fluid and has room, passes the empty on at once, pours
+      at 250 L/s, holds what the tank cannot take, and says so.
+- [ ] The basin spout and basin drain behave exactly as before; the existing parts.test.ts spout/drain test is untouched and green.
+- [ ] A lit-off signal touching a spout or drain stops it.
+- [ ] Every crosshair line of 5.1/5.2 appears in tests verbatim and is <= 60 characters.
+- [ ] `spout_pour` plays only while pouring; idle spouts are silent; the stream renders with <= 6 droplets per stream and <= 16
+      streams pooled; no per-frame allocation.
+- [ ] `electromagnet` exists: Current age (`ageIndexOf('current')`), stack 1, 120 kJ charge as durability, icon readable,
+      recipe `3 copper_coil, 2 iron_plate, 1 battery, 1 circuit @1400 T3`, in `specRosterGround.ts`.
+- [ ] It pulls only `isMetalItem` items from 12 blocks at 14 b/s for 3 s; costs 1.2 kJ a burst (100 bursts); never breaks;
+      a flat magnet says how to charge it (toast at most every 3 s).
+- [ ] Use on an Acid Battery / Lithium Bank recharges joule for joule from that network's usable storage; switched-off storage
+      gives nothing; every toast of 5.3 is tested.
+- [ ] Hand vacuum behaviour unchanged (all old collector tests green).
+- [ ] `content.test.ts` progression and `gates.test.ts` green; `sfx.test.ts` count updated.
+- [ ] E2E steps A and B pass on `--device=desktop`; B also on `--device=phonePortrait`; screenshots saved.
+- [ ] Docs of section 11 updated. `npm test`, `npx tsc --noEmit` (or the repo's `npm run check`) and the build pass.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 13. Out of scope
+
+- Making the spout itself a pipe endpoint (a `MachineSpec` with `fluids` so a pipe joins it directly). Today "fed by a pipe"
+  means the pipe feeds the tank/port/machine above it. A later unit can add it; the throat model already fits.
+- Partly filled containers as items (no per-stack metadata, SYSTEMS 2).
+- Spouts filling vials of essentia, or tube-fed spouts (magic tubes are their own network, Unit 19).
+- A drain over a basin pouring continuously; spout-from-basin continuous (both stay bucket-by-bucket by design).
+- A grid-tethered electric tool (`PowerSource.electric` stays unused) and wireless charging; charging the magnet from a
+  generator directly or from a power port.
+- The magnet pulling blocks, mobs, Emberbound automatons or items out of containers; line-of-sight for collectors.
+- A HUD charge chip (the slot bar is the read-out; a chip can come with a later HUD pass).
+- A side goal for the magnet or the spout (none is listed in SYSTEMS T7 for this unit; adding one is a coordinator call, 14.5).
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 14. Notes for the coordinator
+
+1. **Recipe change (SYSTEMS T4 row `electromagnet`).** The T4 recipe "forge T3 1400 C: 1 magnet_ring, 2 copper_coil,
+   1 battery, 1 iron_plate" uses `magnet_ring`, which is Atomic (`age: 3`, `forge(4, ...)` at 2800 C). This spec uses
+   `forge(3, 'electromagnet', '3 copper_coil, 2 iron_plate, 1 battery, 1 circuit', 1400)`. Please update the T4 row.
+2. **Metal rule (SYSTEMS 5.2).** The substring list would pull coal/sulfur/quartz ore, pressure plates, signal wire and ingot
+   moulds and miss coils, cogs and rods. This spec uses `isMetalItem` (first word a metal, or last word ingot/nugget/bloom, or
+   a tool of tier >= 2; never a `cools` item). Please reword 5.2's parenthesis to "metal items (`isMetalItem`, Unit 14)".
+3. **Hook members.** Two OPTIONAL members are added to Unit 0's `fluidBlock` shape: `offer?` and `room?` (mirroring
+   `FluidEndpoint`), and the shape is exported as `FluidBlockHook`. `WorkshopView` gains optional `pours?`. Please note them
+   in SYSTEMS 6.5.
+4. **Sounds.** SYSTEMS T9 lists `spout_pour` for this unit; this spec also adds `magnet_hum` (the magnet needs its own voice;
+   reusing the pump's `steam_hiss` would be wrong). Units 13, 14 and 16 all create/append `src/audio/sfxWorkshop.ts` and bump
+   the `sfx.test.ts` count: whichever merges second rebases onto the first's file.
+5. **Side goal (optional).** If the owner wants one: `fill_from_spout` "Bottle by the pipe" (a spout fills 4 containers) -
+   not specced here; T7 lists none for Unit 14.
+6. **Speed vs today.** The existing tank spout moves 1000 L per second (`SPOUT_S` 1). The canon 250 L/s makes the tank spout
+   four times slower per can but continuous and readable; the basin spout is unchanged. Flag it in the release notes.
+7. **Merge overlaps.** `logistics.ts` (Units 15, 16 also touch `accept`/`take`: 16's padlock rule in `take` does not affect
+   spouts/drains, which use neither); `src/app/game.ts` hook block (Units 0, 13, 17 add hooks next to it); `collectors.ts` and
+   `controller.ts:171` are touched only by this unit. `transportActions.ts` is NOT touched by this unit (Unit 7 owns the
+   `bucketUse` container fallback this spec relies on for the old path).
+8. **Unit 4 dependency is soft.** `isHot` is used if Unit 4 merged; otherwise the inline `cools` test (same meaning).
