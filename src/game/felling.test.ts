@@ -33,9 +33,9 @@ function rig(fuel: number = SAW_TANK) {
 }
 
 describe('the chainsaw item', () => {
-  it('is an age-2 (Current) axe-kind tool whose durability is its tank, with felling numbers', () => {
+  it('is an age-3 (Current) axe-kind tool whose durability is its tank, with felling numbers', () => {
     const def = itemOrNull('chainsaw')!;
-    expect(def.age).toBe(2);
+    expect(def.age).toBe(3);
     expect(def.tool?.kind).toBe('axe');
     expect(def.tool?.fell).toEqual({ maxLogs: SAW_MAX_LOGS, fuelPerLog: SAW_FUEL_PER_LOG, canisterFuel: SAW_CANISTER_FUEL });
     expect(def.tool?.durability).toBe(SAW_TANK + 1);

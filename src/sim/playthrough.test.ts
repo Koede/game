@@ -324,21 +324,6 @@ describe('scripted playthrough', () => {
     kit.bus.emit('flag', { flag: FLAG_AUTOMATON_SALVAGED });
     play.step(0.5);
     done('salvage_automaton');
-    // The Bronze workshop goals (docs/OVERHAUL_PLAN.md A): the first of each piece, set down in a spare corner.
-    play.find('1 bronze_ingot, 1 hand_crank, 1 mech_millstone, 1 ratio_dial, 1 mixer, 1 mech_arm, 1 saw_arm, 1 item_vault, 1 crank_lever, 1 bell, 1 piston');
-    play.forge('bronze_cog');
-    play.place('hand_crank', { x: 8, y: 1, z: 8 });
-    play.place('mech_millstone', { x: 9, y: 1, z: 8 });
-    play.place('ratio_dial', { x: 10, y: 1, z: 8 });
-    play.place('mixer', { x: 11, y: 1, z: 8 });
-    play.place('mech_arm', { x: 12, y: 1, z: 8 });
-    play.place('saw_arm', { x: 13, y: 1, z: 8 });
-    play.place('item_vault', { x: 14, y: 1, z: 8 });
-    play.place('crank_lever', { x: 15, y: 1, z: 8 });
-    play.place('bell', { x: 16, y: 1, z: 8 });
-    play.place('piston', { x: 17, y: 1, z: 8 });
-    play.step(0.5);
-    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell', 'place_piston']) done(id);
     play.smelt('clay', 8);
     play.smelt('sand', 2);
     play.forge('thermopile');
@@ -377,23 +362,47 @@ describe('scripted playthrough', () => {
     done('make_leather');
     done('weave_cloth');
 
-    // Spec 17: the Blast Furnace needs a Blast hearth - 16 brick around the clay furnace, open at the top.
+    // BRONZE_PLAN W0: the Clay Furnace is rebuilt in place as the single-block Bronze Furnace (1100 C, two crucibles).
+    play.find('8 bronze_ingot, 4 firebrick, 1 bellows'); // STAND-IN: the bellows is crafted for the Blast Furnace below
+    expect(play.view().upgrade).toMatchObject({ ok: true, structureOk: true, reason: null, requiredC: 700 });
+    play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to the bronze furnace');
+    done('bronze_furnace');
+    expect(blockOf(kit.world.getVoxel(F.x, F.y, F.z)).key).toBe('furnace_bronze');
+    expect(play.view()).toMatchObject({ tier: 2, effectiveTier: 2, cruciblesActive: 2 });
+    mark('Bronze Furnace');
+    // The Bronze workshop goals (docs/OVERHAUL_PLAN.md A): the first of each piece, set down in a spare corner.
+    play.find('1 bronze_ingot, 1 hand_crank, 1 mech_millstone, 1 ratio_dial, 1 mixer, 1 mech_arm, 1 saw_arm, 1 item_vault, 1 crank_lever, 1 bell, 1 piston');
+    play.forge('bronze_cog');
+    play.place('hand_crank', { x: 8, y: 1, z: 8 });
+    play.place('mech_millstone', { x: 9, y: 1, z: 8 });
+    play.place('ratio_dial', { x: 10, y: 1, z: 8 });
+    play.place('mixer', { x: 11, y: 1, z: 8 });
+    play.place('mech_arm', { x: 12, y: 1, z: 8 });
+    play.place('saw_arm', { x: 13, y: 1, z: 8 });
+    play.place('item_vault', { x: 14, y: 1, z: 8 });
+    play.place('crank_lever', { x: 15, y: 1, z: 8 });
+    play.place('bell', { x: 16, y: 1, z: 8 });
+    play.place('piston', { x: 17, y: 1, z: 8 });
+    play.step(0.5);
+    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell', 'place_piston']) done(id);
+
+    // Spec 17: the Blast Furnace needs a Blast hearth - 16 brick around the Bronze Furnace, open at the top.
     play.craft('bellows', 1, BENCH);
     expect(play.view().upgrade).toMatchObject({ ok: false, structureOk: false, reason: 'Build a Blast hearth: brick walls around the furnace' });
     play.find('26 clay');
     play.smelt('clay', 26);
     play.forge('brick', 16);
     const formed = kit.record('hearth:formed');
-    expect(play.buildHearth(2)).toBe(16);
-    expect(formed).toEqual([{ ...F, tier: 2, min: [-1, 0, -2], max: [1, 1, 0] }]);
+    expect(play.buildHearth(3)).toBe(16);
+    expect(formed).toEqual([{ ...F, tier: 3, min: [-1, 0, -2], max: [1, 1, 0] }]);
     expect(toasts.map((t) => t.text)).toContain('Blast hearth formed');
-    expect(play.view()).toMatchObject({ tier: 1, effectiveTier: 1, hearth: { formed: true, text: 'Formed - Blast hearth 1x1x1' } });
+    expect(play.view()).toMatchObject({ tier: 2, effectiveTier: 2, hearth: { formed: true, text: 'Formed - Blast hearth 1x1x1' } });
     const upgrade1 = play.view().upgrade!;
     expect(upgrade1).toMatchObject({ ok: true, reason: null, requiredC: 700 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to blast furnace');
     done('blast_furnace');
     expect(blockOf(kit.world.getVoxel(F.x, F.y, F.z)).key).toBe('furnace_blast');
-    expect(play.view()).toMatchObject({ tier: 2, effectiveTier: 2, cruciblesActive: 2, lit: true });
+    expect(play.view()).toMatchObject({ tier: 3, effectiveTier: 3, cruciblesActive: 2, lit: true });
     mark('Blast Furnace');
 
     // ---- Forge Age: iron, steel, the first machines and power ---------------------------------------------------
@@ -517,9 +526,9 @@ describe('scripted playthrough', () => {
     expect(play.view().upgrade).toMatchObject({
       ok: false, structure: 'Build an Arc hearth: refractory brick walls around the furnace, a ceiling and 1 Arc Electrode',
     });
-    play.buildHearth(3);
+    play.buildHearth(4);
     expect(kit.world.getBlock(STEAM.x, STEAM.y, STEAM.z).key).toBe('refractory_brick');
-    expect(play.view()).toMatchObject({ tier: 2, effectiveTier: 2, hearth: { tier: 3, closed: true } });
+    expect(play.view()).toMatchObject({ tier: 3, effectiveTier: 3, hearth: { tier: 4, closed: true } });
     play.heat(1200);
     expect(play.view().upgrade).toMatchObject({ ok: true, requiredC: 1200 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to arc furnace');
@@ -677,7 +686,7 @@ describe('scripted playthrough', () => {
     play.craft('crate', 2, BENCH);
     play.forge('item_hatch');
     play.place('item_hatch', OUT2_HATCH);
-    play.buildHearth(4);
+    play.buildHearth(5);
     play.collect(outCrate);
     play.breakBlock(OUT_CRATE);
     play.place('crate', OUT2_CRATE);
@@ -686,7 +695,7 @@ describe('scripted playthrough', () => {
     play.must(sim.wrenchJoint(OUT2_PIPES[0].x, OUT2_PIPES[0].y, OUT2_PIPES[0].z, Face.PZ), 'part the two lines');
     play.must(sim.wrenchPort(OUT2_PIPES[0].x, OUT2_PIPES[0].y, OUT2_PIPES[0].z, Face.NX), 'the east hatch end pulls');
     expect(sim.transport.netAt(OUT2_PIPES[0].x, 1, OUT2_PIPES[0].z)).not.toBe(sim.transport.netAt(IN_PIPES[0].x, 1, IN_PIPES[0].z));
-    expect(play.view()).toMatchObject({ tier: 3, effectiveTier: 3, hearth: { tier: 4, inner: [2, 2, 2] } });
+    expect(play.view()).toMatchObject({ tier: 4, effectiveTier: 4, hearth: { tier: 5, inner: [2, 2, 2] } });
     // The arc heater sized up to the bigger shell is more than copper cable carries.
     play.step(2);
     expect(sim.networkAt(F.x, F.y, F.z)).toMatchObject({ overloaded: true, ratingW: 10000 });
@@ -818,8 +827,8 @@ describe('scripted playthrough', () => {
     }
     play.forge('iron_plate', 4);
     play.forge('power_port', 4);
-    play.buildHearth(5);
-    expect(play.view()).toMatchObject({ tier: 4, effectiveTier: 4, hearth: { tier: 5, inner: [3, 3, 3] } });
+    play.buildHearth(6);
+    expect(play.view()).toMatchObject({ tier: 5, effectiveTier: 5, hearth: { tier: 6, inner: [3, 3, 3] } });
     play.heat(3000, 900);
     expect(play.view().upgrade).toMatchObject({ ok: true, requiredC: 3000 });
     play.must(sim.upgrade(F.x, F.y, F.z), 'upgrade to Starhearth');
@@ -845,13 +854,13 @@ describe('scripted playthrough', () => {
 
     // ---- The end state --------------------------------------------------------------------------------------------
     const star = play.view();
-    expect(star).toMatchObject({ tier: 5, ignited: true, tempC: 5000, hot: true, status: 'A star burns here. It needs nothing more.' });
+    expect(star).toMatchObject({ tier: 6, ignited: true, tempC: 5000, hot: true, status: 'A star burns here. It needs nothing more.' });
     expect(sim.generationW()).toBeGreaterThanOrEqual(machine('furnace').outputW!);
-    expect(sim.maxFurnaceTier()).toBe(5);
+    expect(sim.maxFurnaceTier()).toBe(6);
     expect(won).toHaveLength(1);
     expect(tracker.allDone).toBe(true);
     expect(tracker.completed.map((o) => o.id)).toEqual(OBJECTIVES.map((o) => o.id));
-    expect(ages.map((a) => a.age)).toEqual([1, 2, 3, 4]);
+    expect(ages.map((a) => a.age)).toEqual([1, 2, 3, 4, 5]);
     expect(player.dead).toBe(false);
     expect(player.home).toEqual(F);
     expect(play.furnace.tempC).toBeGreaterThan(FURNACE_HOT_C);
@@ -868,9 +877,9 @@ describe('scripted playthrough', () => {
     const said = toasts.map((t) => t.text);
     for (let tier = 2; tier <= 5; tier++) expect(said).toContain(`Upgraded to the ${furnaceTier(tier).name}`);
     // Each hearth formed once, as it was finished; the last one stands around the Starhearth.
-    expect(hearths.map((h) => h.tier)).toEqual([2, 3, 4, 5]);
+    expect(hearths.map((h) => h.tier)).toEqual([3, 4, 5, 6]);
     for (const name of ['Blast hearth', 'Arc hearth', 'Plasma hearth', 'Starhearth']) expect(said).toContain(`${name} formed`);
-    expect(star.hearth).toMatchObject({ formed: true, tier: 5, inner: [3, 3, 3], closed: true });
+    expect(star.hearth).toMatchObject({ formed: true, tier: 6, inner: [3, 3, 3], closed: true });
     expect(hearths[3]).toMatchObject({ min: [-3, 0, -4], max: [1, 4, 0] });
     expect(said).not.toContain('The furnace fire burned out');
   }, 120_000);

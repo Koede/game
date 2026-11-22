@@ -233,8 +233,8 @@ describe('ObjectiveTracker', () => {
     r.bus.emit('furnace:upgraded', { x: 0, y: 0, z: 0, tier: 5 });
     r.bus.emit('furnace:upgraded', { x: 0, y: 0, z: 0, tier: 99 });
     r.tracker.check();
-    expect(ages).toEqual([1, 2, 3, 4]);
-    expect(r.tracker.progressOf({ type: 'furnaceTier', tier: 5 }).fraction).toBe(1);
+    expect(ages).toEqual([1, 2, 3, 4, 5]);
+    expect(r.tracker.progressOf({ type: 'furnaceTier', tier: 6 }).fraction).toBe(1);
   });
 
   it('saves and loads in the middle of the list', () => {

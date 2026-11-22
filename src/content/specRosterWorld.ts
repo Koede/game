@@ -54,5 +54,5 @@ export const WORLD_SPEC = {
   ],
 
   /** Latest age an item in each loot tier may belong to: ruins speed the climb, they never skip it. */
-  lootMaxAge: { near: 0, deep: 1 } as Record<LootTier, number>,
+  lootMaxAge: { near: 0, deep: 2 } as Record<LootTier, number>,
 };

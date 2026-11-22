@@ -71,7 +71,7 @@ const RAW: ItemSpec[] = [
   { key: 'flint', name: 'Flint', desc: 'A sharp-edged stone found in gravel. Your first tools are tipped with it.', category: 'resource', age: 0 },
   { key: 'coal', name: 'Coal', desc: 'Dense black fuel. It burns long and reaches 1250 C.', category: 'fuel', age: 0, fuel: fuel(800, 100, 1250) },
   { key: 'charcoal', name: 'Charcoal', desc: 'Wood baked down to clean fuel. It burns at 1000 C, hot enough for copper and bronze.', category: 'fuel', age: 0, fuel: fuel(400, 80, 1000) },
-  { key: 'coke', name: 'Coke', desc: 'Coal with the smoke cooked out of it. The hottest fuel there is, and the carbon in steel.', category: 'fuel', age: 1, fuel: fuel(1200, 120, 1550) },
+  { key: 'coke', name: 'Coke', desc: 'Coal with the smoke cooked out of it. The hottest fuel there is, and the carbon in steel.', category: 'fuel', age: 2, fuel: fuel(1200, 120, 1550) },
   { key: 'sulfur', name: 'Sulfur', desc: 'Bright yellow powder with a sharp smell. It goes into acid batteries.', category: 'resource', age: 0 },
 ];
 
@@ -93,7 +93,7 @@ const TOOLS: ItemSpec[] = [
     ],
   }),
   ...toolSet({
-    material: 'iron', name: 'Iron', tier: 3, speed: 4.5, durability: 384, age: 1,
+    material: 'iron', name: 'Iron', tier: 3, speed: 4.5, durability: 384, age: 2,
     desc: [
       'Bites into quartz and bauxite.',
       'Drops a tree in a few strokes.',
@@ -101,7 +101,7 @@ const TOOLS: ItemSpec[] = [
     ],
   }),
   ...toolSet({
-    material: 'steel', name: 'Steel', tier: 4, speed: 6, durability: 768, age: 1,
+    material: 'steel', name: 'Steel', tier: 4, speed: 6, durability: 768, age: 2,
     desc: [
       'Reaches the deep ores: wolframite and spodumene.',
       'The last axe you will need.',
@@ -110,7 +110,7 @@ const TOOLS: ItemSpec[] = [
   }),
   {
     key: 'power_drill', name: 'Power Drill', desc: 'A tungsten bit on an electric motor. It cuts through anything, pitchblende and corium included.',
-    category: 'tool', age: 3, tool: { kind: 'pickaxe', tier: 5, speed: 10, durability: 3000, universal: true },
+    category: 'tool', age: 4, tool: { kind: 'pickaxe', tier: 5, speed: 10, durability: 3000, universal: true },
   },
 ];
 
@@ -118,41 +118,41 @@ const METALS: ItemSpec[] = [
   { key: 'copper_ingot', name: 'Copper Ingot', desc: 'Soft red metal that carries heat and current well. Copper ore gives it up at 700 C.', category: 'material', age: 0 },
   { key: 'tin_ingot', name: 'Tin Ingot', desc: 'It melts at a mere 250 C. Its great use is turning copper into bronze.', category: 'material', age: 0 },
   { key: 'bronze_ingot', name: 'Bronze Ingot', desc: 'Three parts copper to one part tin. The first metal hard enough for real tools.', category: 'material', age: 0 },
-  { key: 'iron_ingot', name: 'Iron Ingot', desc: 'Grey, strong and plentiful. The frame of every machine.', category: 'material', age: 1 },
-  { key: 'steel_ingot', name: 'Steel Ingot', desc: 'Iron refined with coke and limestone. Harder, tougher, and ready for serious heat.', category: 'material', age: 1 },
-  { key: 'aluminum_ingot', name: 'Aluminum Ingot', desc: 'Light, bright metal for heavy cable, turbine blades and sealed cells.', category: 'material', age: 2 },
+  { key: 'iron_ingot', name: 'Iron Ingot', desc: 'Grey, strong and plentiful. The frame of every machine.', category: 'material', age: 2 },
+  { key: 'steel_ingot', name: 'Steel Ingot', desc: 'Iron refined with coke and limestone. Harder, tougher, and ready for serious heat.', category: 'material', age: 2 },
+  { key: 'aluminum_ingot', name: 'Aluminum Ingot', desc: 'Light, bright metal for heavy cable, turbine blades and sealed cells.', category: 'material', age: 3 },
   { key: 'crushed_copper', name: 'Crushed Copper', desc: 'Ground copper ore: pounded in the Mortar (now and then two portions from one ore), or crushed by a machine. It smelts faster than raw rock.', category: 'material', age: 0 },
   { key: 'crushed_tin', name: 'Crushed Tin', desc: 'Ground tin ore: pounded in the Mortar (now and then two portions from one ore), or crushed by a machine. It smelts faster than raw rock.', category: 'material', age: 0 },
-  { key: 'crushed_iron', name: 'Crushed Iron', desc: 'Ground iron ore. Each ore block gives two portions, and they smelt faster than raw rock.', category: 'material', age: 1 },
+  { key: 'crushed_iron', name: 'Crushed Iron', desc: 'Ground iron ore. Each ore block gives two portions, and they smelt faster than raw rock.', category: 'material', age: 2 },
 ];
 
 const PARTS: ItemSpec[] = [
   { key: 'firebrick', name: 'Firebrick', desc: 'Clay fired until it no longer fears the flame. It lines every hotter furnace.', category: 'component', age: 0 },
   { key: 'ceramic_insulator', name: 'Ceramic Insulator', desc: 'A glazed ceramic spool that keeps current where it belongs.', category: 'component', age: 0 },
   { key: 'bellows', name: 'Bellows', desc: 'Planks and cord made to breathe. The Blast Furnace and the Blower are each built around one.', category: 'component', age: 0, stack: 16 },
-  { key: 'iron_plate', name: 'Iron Plate', desc: 'Iron hammered flat. Casings, boilers and machine beds.', category: 'component', age: 1 },
-  { key: 'steel_plate', name: 'Steel Plate', desc: 'Rolled steel sheet for anything that must hold pressure or heat.', category: 'component', age: 1 },
+  { key: 'iron_plate', name: 'Iron Plate', desc: 'Iron hammered flat. Casings, boilers and machine beds.', category: 'component', age: 2 },
+  { key: 'steel_plate', name: 'Steel Plate', desc: 'Rolled steel sheet for anything that must hold pressure or heat.', category: 'component', age: 2 },
   { key: 'copper_wire', name: 'Copper Wire', desc: 'Drawn copper. The start of every cable, coil and circuit.', category: 'component', age: 0 },
-  { key: 'copper_coil', name: 'Copper Coil', desc: 'Wire wound on an iron core. With a coil, motion becomes current and current becomes motion.', category: 'component', age: 1 },
-  { key: 'chassis', name: 'Chassis', desc: 'An iron frame braced with bronze. Most machines are built around one.', category: 'component', age: 1 },
-  { key: 'graphite_electrode', name: 'Graphite Electrode', desc: 'A baked carbon rod that carries an electric arc. Three of them make the Arc Electrode set in the ceiling of an Arc hearth.', category: 'component', age: 1 },
-  { key: 'silica', name: 'Silica', desc: 'Crushed quartz, white and gritty. The raw stuff of wafers and fused quartz.', category: 'material', age: 1 },
-  { key: 'silicon_wafer', name: 'Silicon Wafer', desc: 'A thin slice of purified silicon. Circuits and solar panels are built on it.', category: 'component', age: 2 },
-  { key: 'circuit', name: 'Circuit', desc: 'A wafer wired to think a little. It lets a machine regulate itself.', category: 'component', age: 2 },
-  { key: 'alumina', name: 'Alumina', desc: 'Crushed bauxite. Two portions smelt into an aluminum ingot at 1500 C.', category: 'material', age: 1 },
-  { key: 'tungsten_powder', name: 'Tungsten Powder', desc: 'Heavy grey powder from crushed wolframite. Two portions sinter into a rod at 2000 C.', category: 'material', age: 1 },
-  { key: 'tungsten_rod', name: 'Tungsten Rod', desc: 'Sintered tungsten. It stays solid at temperatures that turn steel to liquid.', category: 'component', age: 2 },
-  { key: 'lithium_salt', name: 'Lithium Salt', desc: 'A pale salt from crushed spodumene. Nothing you will find stores charge better.', category: 'material', age: 1 },
-  { key: 'yellowcake', name: 'Yellowcake', desc: 'Concentrated uranium from crushed pitchblende. A centrifuge refines it further.', category: 'material', age: 3 },
-  { key: 'enriched_pellet', name: 'Enriched Pellet', desc: 'Uranium enriched until it can sustain a chain reaction.', category: 'component', age: 3 },
-  { key: 'fuel_rod', name: 'Fuel Rod', desc: 'Four enriched pellets sealed in superalloy. One rod runs a fission pile for twenty minutes.', category: 'component', age: 3, stack: 16 },
-  { key: 'empty_cell', name: 'Empty Cell', desc: 'A sealed aluminum flask, waiting to be filled by an electrolyzer.', category: 'component', age: 2, stack: 16 },
-  { key: 'deuterium_cell', name: 'Deuterium Cell', desc: 'Heavy hydrogen drawn out of plain water. The fuel of a star.', category: 'component', age: 3, stack: 16 },
-  { key: 'superalloy', name: 'Superalloy', desc: 'Steel, tungsten and aluminum fused in plasma. It endures what nothing else will.', category: 'material', age: 3 },
-  { key: 'fused_quartz', name: 'Fused Quartz', desc: 'Silica melted into flawless glass that ignores heat and radiation alike.', category: 'material', age: 3 },
-  { key: 'magnet_ring', name: 'Magnet Ring', desc: 'A superconducting coil strong enough to hold plasma in place.', category: 'component', age: 3 },
-  { key: 'star_core', name: 'Star Core', desc: 'The containment heart of the Starhearth. Everything you have learned went into it.', category: 'component', age: 3, stack: 1 },
-  { key: 'fuel_canister', name: 'Fuel Canister', desc: 'Refined shale oil, sealed and ready. One canister runs a combustion engine for 200 seconds at full load.', category: 'component', age: 2, stack: 16 },
+  { key: 'copper_coil', name: 'Copper Coil', desc: 'Wire wound on an iron core. With a coil, motion becomes current and current becomes motion.', category: 'component', age: 2 },
+  { key: 'chassis', name: 'Chassis', desc: 'An iron frame braced with bronze. Most machines are built around one.', category: 'component', age: 2 },
+  { key: 'graphite_electrode', name: 'Graphite Electrode', desc: 'A baked carbon rod that carries an electric arc. Three of them make the Arc Electrode set in the ceiling of an Arc hearth.', category: 'component', age: 2 },
+  { key: 'silica', name: 'Silica', desc: 'Crushed quartz, white and gritty. The raw stuff of wafers and fused quartz.', category: 'material', age: 2 },
+  { key: 'silicon_wafer', name: 'Silicon Wafer', desc: 'A thin slice of purified silicon. Circuits and solar panels are built on it.', category: 'component', age: 3 },
+  { key: 'circuit', name: 'Circuit', desc: 'A wafer wired to think a little. It lets a machine regulate itself.', category: 'component', age: 3 },
+  { key: 'alumina', name: 'Alumina', desc: 'Crushed bauxite. Two portions smelt into an aluminum ingot at 1500 C.', category: 'material', age: 2 },
+  { key: 'tungsten_powder', name: 'Tungsten Powder', desc: 'Heavy grey powder from crushed wolframite. Two portions sinter into a rod at 2000 C.', category: 'material', age: 2 },
+  { key: 'tungsten_rod', name: 'Tungsten Rod', desc: 'Sintered tungsten. It stays solid at temperatures that turn steel to liquid.', category: 'component', age: 3 },
+  { key: 'lithium_salt', name: 'Lithium Salt', desc: 'A pale salt from crushed spodumene. Nothing you will find stores charge better.', category: 'material', age: 2 },
+  { key: 'yellowcake', name: 'Yellowcake', desc: 'Concentrated uranium from crushed pitchblende. A centrifuge refines it further.', category: 'material', age: 4 },
+  { key: 'enriched_pellet', name: 'Enriched Pellet', desc: 'Uranium enriched until it can sustain a chain reaction.', category: 'component', age: 4 },
+  { key: 'fuel_rod', name: 'Fuel Rod', desc: 'Four enriched pellets sealed in superalloy. One rod runs a fission pile for twenty minutes.', category: 'component', age: 4, stack: 16 },
+  { key: 'empty_cell', name: 'Empty Cell', desc: 'A sealed aluminum flask, waiting to be filled by an electrolyzer.', category: 'component', age: 3, stack: 16 },
+  { key: 'deuterium_cell', name: 'Deuterium Cell', desc: 'Heavy hydrogen drawn out of plain water. The fuel of a star.', category: 'component', age: 4, stack: 16 },
+  { key: 'superalloy', name: 'Superalloy', desc: 'Steel, tungsten and aluminum fused in plasma. It endures what nothing else will.', category: 'material', age: 4 },
+  { key: 'fused_quartz', name: 'Fused Quartz', desc: 'Silica melted into flawless glass that ignores heat and radiation alike.', category: 'material', age: 4 },
+  { key: 'magnet_ring', name: 'Magnet Ring', desc: 'A superconducting coil strong enough to hold plasma in place.', category: 'component', age: 4 },
+  { key: 'star_core', name: 'Star Core', desc: 'The containment heart of the Starhearth. Everything you have learned went into it.', category: 'component', age: 4, stack: 1 },
+  { key: 'fuel_canister', name: 'Fuel Canister', desc: 'Refined shale oil, sealed and ready. One canister runs a combustion engine for 200 seconds at full load.', category: 'component', age: 3, stack: 16 },
 ];
 
 const GEAR: ItemSpec[] = [
@@ -179,7 +179,7 @@ const GEAR: ItemSpec[] = [
     key: 'padded_coat', name: 'Padded Coat', desc: 'Layers of cord and fiber. While you carry it, the cold drains your warmth half as fast.',
     category: 'misc', age: 0, stack: 1, armour: { reduction: 0, warmthDrainMult: 0.5 },
   },
-  { key: 'shield_suit', name: 'Shield Suit', desc: 'Superalloy plate and fused quartz. While you carry it, radiation does a tenth of its harm.', category: 'misc', age: 3, stack: 1 },
+  { key: 'shield_suit', name: 'Shield Suit', desc: 'Superalloy plate and fused quartz. While you carry it, radiation does a tenth of its harm.', category: 'misc', age: 4, stack: 1 },
   {
     // Spec 16.3. A tool, but no ToolSpec: it never mines faster, never wears out, and Use on a pipe is its whole job.
     key: 'wrench', name: 'Wrench',
@@ -191,7 +191,7 @@ const GEAR: ItemSpec[] = [
 const HOES: ItemSpec[] = [
   hoe('flint', 'Flint', 1, 64, 0, 'Turns grass or dirt into farmland. Use it on the top of the block.'),
   hoe('bronze', 'Bronze', 2, 192, 0, 'Tills soil three times as long as a flint hoe before it wears out.'),
-  hoe('iron', 'Iron', 3, 384, 1, 'A heavy iron blade that will till a whole field and then some.'),
+  hoe('iron', 'Iron', 3, 384, 2, 'A heavy iron blade that will till a whole field and then some.'),
 ];
 
 /**

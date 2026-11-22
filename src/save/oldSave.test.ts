@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GameState } from '../app/state';
+import oldSave from '../../tests/fixtures/save-before-bronze.json';
 import { MemoryStorage } from './storage';
 import { SAVE_KEY, SaveSlot } from './document';
 
@@ -8,7 +8,7 @@ import { SAVE_KEY, SaveSlot } from './document';
  * A real save written by the build BEFORE the six-age refactor (envelope version 1): a formed Blast hearth, the whole
  * Ember age done, a little research and inventory. The migration must keep all of it.
  */
-const OLD = readFileSync('tests/fixtures/save-before-bronze.json', 'utf8');
+const OLD = JSON.stringify(oldSave);
 
 function load() {
   const storage = new MemoryStorage();

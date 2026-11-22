@@ -27,7 +27,7 @@ function ore(key: string, name: string, desc: string, hardness: number, minTier:
   return { key, name, desc, hardness, minTier, age, tool: 'pickaxe', category: 'resource', textures: { all: key }, ...extra };
 }
 
-/** One tier of the furnace. All five carry the same block entity; upgrading swaps the block id in place. */
+/** One tier of the furnace. All six carry the same block entity; upgrading swaps the block id in place. */
 function furnace(tier: string, name: string, desc: string, age: number, lightActive: number, warmthActive: number): BlockSpec {
   const key = `furnace_${tier}`;
   return {
@@ -147,11 +147,11 @@ export const BLOCK_SPECS: BlockSpec[] = [
   ore('tin_ore', 'Tin Ore', 'Dull grey ore that melts at a low heat. With copper it makes bronze.', 5.5, 1, 0),
   ore('iron_ore', 'Iron Ore', 'Rust-red ore. It gives up its iron only to a blast furnace.', 7, 2, 0),
   ore('sulfur_ore', 'Sulfur Ore', 'Yellow crystals with a sharp smell. The acid in a battery starts here.', 6, 2, 0, { drops: [{ item: 'sulfur', count: [1, 2] }] }),
-  ore('quartz_ore', 'Quartz Ore', 'Milky crystal locked in the rock. Crushed to silica, it becomes wafers and furnace glass.', 8, 3, 1),
-  ore('bauxite', 'Bauxite', 'Crumbly red-brown ore. Crushed and smelted very hot, it yields light aluminum.', 8, 3, 1),
-  ore('wolframite', 'Wolframite', 'A dark, very heavy ore from the deep. Its tungsten shrugs off heat that melts steel.', 12, 4, 1),
-  ore('spodumene', 'Spodumene', 'Pale, glassy crystals from the deep, rich in lithium.', 11, 4, 1),
-  ore('pitchblende', 'Pitchblende', 'Black, heavy and faintly glowing. It is radioactive: do not linger beside it unprotected.', 14, 5, 3, { radiation: 2, light: 4 }),
+  ore('quartz_ore', 'Quartz Ore', 'Milky crystal locked in the rock. Crushed to silica, it becomes wafers and furnace glass.', 8, 3, 2),
+  ore('bauxite', 'Bauxite', 'Crumbly red-brown ore. Crushed and smelted very hot, it yields light aluminum.', 8, 3, 2),
+  ore('wolframite', 'Wolframite', 'A dark, very heavy ore from the deep. Its tungsten shrugs off heat that melts steel.', 12, 4, 2),
+  ore('spodumene', 'Spodumene', 'Pale, glassy crystals from the deep, rich in lithium.', 11, 4, 2),
+  ore('pitchblende', 'Pitchblende', 'Black, heavy and faintly glowing. It is radioactive: do not linger beside it unprotected.', 14, 5, 4, { radiation: 2, light: 4 }),
   ore('oil_shale', 'Oil Shale', 'Dark, greasy rock. A still cooks fuel out of it.', 7, 2, 0),
 
   // ---- built ---------------------------------------------------------------------------------
@@ -166,7 +166,7 @@ export const BLOCK_SPECS: BlockSpec[] = [
     key: 'glass', name: 'Glass', desc: 'Clear glass. It lets the daylight in and keeps the weather out.',
     hardness: 0.5, opaque: false, translucent: true, textures: { all: 'glass' },
   },
-  { key: 'concrete', name: 'Concrete', desc: 'Poured stone, smooth and very hard to break. Made for walls that must hold.', hardness: 6, tool: 'pickaxe', age: 1, textures: { all: 'concrete' } },
+  { key: 'concrete', name: 'Concrete', desc: 'Poured stone, smooth and very hard to break. Made for walls that must hold.', hardness: 6, tool: 'pickaxe', age: 2, textures: { all: 'concrete' } },
   {
     key: 'torch', name: 'Torch', desc: 'A small, steady flame. It lights the dark and takes the edge off the cold.',
     shape: 'torch', hardness: 0.1, light: 13, warmth: 2, textures: { all: 'torch' },
@@ -187,50 +187,50 @@ export const BLOCK_SPECS: BlockSpec[] = [
 
   // ---- furnaces ------------------------------------------------------------------------------
   furnace('clay', 'Clay Furnace', 'The heart of your base. Feed it fuel, keep it hot, and smelt and forge at its mouth.', 0, 11, 6),
-  furnace('blast', 'Blast Furnace', 'Firebrick walls and a forced draft. Hot enough for iron and steel.', 1, 12, 8),
-  furnace('arc', 'Arc Furnace', 'Graphite electrodes turn electricity into a heat no fuel can match.', 2, 13, 10),
-  furnace('plasma', 'Plasma Furnace', 'A magnetic bottle of plasma. It melts tungsten and quartz, and it is always hungry for power.', 3, 14, 12),
-  furnace('star', 'Starhearth', 'A furnace built to hold a star. Bring it to 3000 C, feed it power, and ignite it.', 4, 15, 24),
+  furnace('blast', 'Blast Furnace', 'Firebrick walls and a forced draft. Hot enough for iron and steel.', 2, 12, 8),
+  furnace('arc', 'Arc Furnace', 'Graphite electrodes turn electricity into a heat no fuel can match.', 3, 13, 10),
+  furnace('plasma', 'Plasma Furnace', 'A magnetic bottle of plasma. It melts tungsten and quartz, and it is always hungry for power.', 4, 14, 12),
+  furnace('star', 'Starhearth', 'A furnace built to hold a star. Bring it to 3000 C, feed it power, and ignite it.', 5, 15, 24),
 
   // ---- generators ----------------------------------------------------------------------------
   machine('thermopile', 'Thermopile', "Turns a furnace's heat straight into a trickle of current. Set it against a furnace.", 0),
-  machine('steam_engine', 'Steam Engine', 'Boils water over the fire and spins a dynamo. It sits on top of a furnace with water at its side.', 1),
-  machine('burner_generator', 'Burner Generator', 'Burns any furnace fuel for electricity, and only as fast as the network asks.', 1, { lightActive: 7 }),
-  machine('water_wheel', 'Water Wheel', 'Slow, steady power from water on at least two sides. Wheels crowded together share the flow.', 1),
-  machine('wind_turbine', 'Wind Turbine', 'Catches the wind under an open sky. The higher it stands, the more it makes.', 2),
-  machine('solar_panel', 'Solar Panel', 'Silent power from daylight under an open sky. It sleeps at night.', 2, {
+  machine('steam_engine', 'Steam Engine', 'Boils water over the fire and spins a dynamo. It sits on top of a furnace with water at its side.', 2),
+  machine('burner_generator', 'Burner Generator', 'Burns any furnace fuel for electricity, and only as fast as the network asks.', 2, { lightActive: 7 }),
+  machine('water_wheel', 'Water Wheel', 'Slow, steady power from water on at least two sides. Wheels crowded together share the flow.', 2),
+  machine('wind_turbine', 'Wind Turbine', 'Catches the wind under an open sky. The higher it stands, the more it makes.', 3),
+  machine('solar_panel', 'Solar Panel', 'Silent power from daylight under an open sky. It sleeps at night.', 3, {
     shape: 'slab', oriented: false, textures: { top: 'solar_panel_top', side: 'machine_side', bottom: 'machine_top' },
   }),
-  machine('combustion_engine', 'Combustion Engine', 'A heavy engine that drinks fuel canisters and answers with real power.', 2),
-  machine('geothermal_tap', 'Geothermal Tap', 'Draws on the heat of lava beside it and never runs dry.', 2, { lightActive: 5 }),
-  machine('fission_pile', 'Fission Pile', 'Splits the atoms of a fuel rod for enormous power. Keep water on two sides of it, always.', 3, { lightActive: 5 }),
+  machine('combustion_engine', 'Combustion Engine', 'A heavy engine that drinks fuel canisters and answers with real power.', 3),
+  machine('geothermal_tap', 'Geothermal Tap', 'Draws on the heat of lava beside it and never runs dry.', 3, { lightActive: 5 }),
+  machine('fission_pile', 'Fission Pile', 'Splits the atoms of a fuel rod for enormous power. Keep water on two sides of it, always.', 4, { lightActive: 5 }),
 
   // ---- grid ----------------------------------------------------------------------------------
   cable('copper_cable', 'Copper Cable', 'Carries power between machines. A network of copper cable can move 10 kW.', 0, 10_000),
-  cable('heavy_cable', 'Heavy Cable', 'Thick aluminum conductors that move 120 kW. A network is only as strong as its weakest cable.', 2, 120_000),
-  cable('super_cable', 'Super Cable', 'A superconducting line that moves 2 MW, enough to light a star.', 3, 2_000_000),
-  machine('battery', 'Acid Battery', 'Stores 2 MJ and gives it back whenever generation falls short.', 1, {
+  cable('heavy_cable', 'Heavy Cable', 'Thick aluminum conductors that move 120 kW. A network is only as strong as its weakest cable.', 3, 120_000),
+  cable('super_cable', 'Super Cable', 'A superconducting line that moves 2 MW, enough to light a star.', 4, 2_000_000),
+  machine('battery', 'Acid Battery', 'Stores 2 MJ and gives it back whenever generation falls short.', 2, {
     textures: { side: 'machine_side', top: 'machine_top', front: 'battery_front' },
   }),
-  machine('lithium_bank', 'Lithium Bank', 'A wall of lithium cells: 40 MJ, released as fast as 150 kW.', 3, {
+  machine('lithium_bank', 'Lithium Bank', 'A wall of lithium cells: 40 MJ, released as fast as 150 kW.', 4, {
     textures: { side: 'machine_side', top: 'machine_top', front: 'lithium_bank_front' },
   }),
 
   // ---- consumers -----------------------------------------------------------------------------
-  machine('blower', 'Blower', 'An electric fan for the firebox. It keeps the draft of any furnace beside it high, so you can put the bellows down.', 1),
-  machine('space_heater', 'Space Heater', 'A glowing coil that keeps a room warm for as long as it has power.', 1, { warmthActive: 6, lightActive: 6 }),
-  machine('crusher', 'Crusher', 'Grinds ore to powder: two portions from every block, and the only way to work quartz, bauxite and the deep ores.', 1),
-  machine('still', 'Still', 'Cooks oil shale down into canisters of fuel.', 2),
-  machine('bore_rig', 'Bore Rig', 'Drills straight down, block after block, and keeps whatever it finds.', 2),
-  machine('centrifuge', 'Centrifuge', 'Spins yellowcake until only the potent fraction is left.', 3),
-  machine('electrolyzer', 'Electrolyzer', 'Splits water with a great deal of power and bottles the heavy hydrogen. It must touch water.', 3),
+  machine('blower', 'Blower', 'An electric fan for the firebox. It keeps the draft of any furnace beside it high, so you can put the bellows down.', 2),
+  machine('space_heater', 'Space Heater', 'A glowing coil that keeps a room warm for as long as it has power.', 2, { warmthActive: 6, lightActive: 6 }),
+  machine('crusher', 'Crusher', 'Grinds ore to powder: two portions from every block, and the only way to work quartz, bauxite and the deep ores.', 2),
+  machine('still', 'Still', 'Cooks oil shale down into canisters of fuel.', 3),
+  machine('bore_rig', 'Bore Rig', 'Drills straight down, block after block, and keeps whatever it finds.', 3),
+  machine('centrifuge', 'Centrifuge', 'Spins yellowcake until only the potent fraction is left.', 4),
+  machine('electrolyzer', 'Electrolyzer', 'Splits water with a great deal of power and bottles the heavy hydrogen. It must touch water.', 4),
 
   // ---- hazard --------------------------------------------------------------------------------
   {
     // Hardness -1 would make it permanent (spec 3.6), so "tier 5 only" is expressed as a block that takes a
     // power drill 12 s and anything lesser many minutes for nothing.
     key: 'corium', name: 'Corium', desc: 'The slag of a melted reactor. Fiercely radioactive, and only a power drill clears it away.',
-    hardness: 120, tool: 'pickaxe', minTier: 5, drops: 'none', item: false, light: 9, radiation: 8, age: 3, textures: { all: 'corium' },
+    hardness: 120, tool: 'pickaxe', minTier: 5, drops: 'none', item: false, light: 9, radiation: 8, age: 4, textures: { all: 'corium' },
   },
 
   // ---- food and farming (spec 12) - appended, so every older block keeps its id ---------------
@@ -270,4 +270,6 @@ export const BLOCK_SPECS: BlockSpec[] = [
   ...MAGIC_BLOCKS,
   ...WORKSHOP_BLOCKS,
   ...GLASS_BLOCKS,
+  // Appended last so no saved voxel id moves (BRONZE_PLAN W0): the Bronze Furnace is tier 2 of six.
+  furnace('bronze', 'Bronze Furnace', 'Bronze plates round the firebox: 1100 C, two crucibles, and heat enough to carry to machines. It stands alone, no hearth needed.', 1, 11, 7),
 ];

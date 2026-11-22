@@ -9,9 +9,9 @@ import type { BlockSpec } from '../core/types';
 /** Ground a wild bush grows on; cuttings also take farmland. */
 const BUSH_SOIL = ['grass', 'dirt', 'peat', 'farmland'];
 
-/** The tops a bucket or the kettle may stand on: the five furnaces and the four hearth wall blocks (a hearth's roof). */
+/** The tops a bucket or the kettle may stand on: the six furnaces and the four hearth wall blocks (a hearth's roof). */
 export const FURNACE_TOPS = [
-  'furnace_clay', 'furnace_blast', 'furnace_arc', 'furnace_plasma', 'furnace_star',
+  'furnace_clay', 'furnace_bronze', 'furnace_blast', 'furnace_arc', 'furnace_plasma', 'furnace_star',
   'brick', 'refractory_brick', 'plasma_casing', 'star_casing',
 ];
 

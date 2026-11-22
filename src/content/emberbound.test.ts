@@ -175,7 +175,7 @@ describe('fighting back (spec 19.4)', () => {
     expect(item('ember_core').fuel?.flameTempC).toBeGreaterThan(Math.max(...fuels));
     expect(machine('burner_generator').fuels).toContain('ember_core');
     const scrap = recipe('iron_ingot_scrap');
-    expect([scrap?.kind, scrap?.inputs, scrap?.output, scrap?.minTempC, scrap?.minTier]).toEqual(['smelt', [{ item: 'scrap_metal', count: 1 }], { item: 'iron_ingot', count: 1 }, 1150, 2]);
+    expect([scrap?.kind, scrap?.inputs, scrap?.output, scrap?.minTempC, scrap?.minTier]).toEqual(['smelt', [{ item: 'scrap_metal', count: 1 }], { item: 'iron_ingot', count: 1 }, 1150, 3]);
   });
 
   it('builds a ward beacon whose light also keeps spawns off it', () => {

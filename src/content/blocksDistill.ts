@@ -32,7 +32,7 @@ const LOOKS: Record<ChemKind, Look> = {
     desc: 'A wide glass jar. Capped with an Airlock it ferments syrup and water into wash; it lets its liquid go once the work is done.',
   },
   column_segment: {
-    name: 'Column Segment', age: 1,
+    name: 'Column Segment', age: 2,
     desc: 'A glass column packed with rings. Stack them on a flask: every segment sharpens the cut, and a condenser beside one draws a cut there.',
   },
   condenser_coil: {
@@ -40,7 +40,7 @@ const LOOKS: Record<ChemKind, Look> = {
     desc: 'A glass coil that turns vapour back into liquid. On top of a flask or column it takes the head; beside a column segment, a side cut.',
   },
   cooling_jacket: {
-    name: 'Cooling Jacket', age: 1,
+    name: 'Cooling Jacket', age: 2,
     desc: 'A water jacket. Filled with a bucket of water, it makes every condenser it touches three times faster and the column head colder.',
   },
   receiver: {
@@ -56,7 +56,7 @@ const LOOKS: Record<ChemKind, Look> = {
     desc: 'A water-sealed cap. On a Reaction Vessel it keeps the air out so the wash ferments.',
   },
   chem_port: {
-    name: 'Chemistry Port', age: 1,
+    name: 'Chemistry Port', age: 2,
     desc: 'Joins fluid pipes to the glassware: touching a flask or vessel it takes fluid in, touching a receiver it gives fluid out.',
   },
 };

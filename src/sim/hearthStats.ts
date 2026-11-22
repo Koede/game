@@ -7,6 +7,7 @@ import { hearthCrucibles, hearthScale, smallestShell, type HearthScale, type Int
 import { FURNACE_TIERS, block, furnaceTier } from '../core/registry';
 import type { FurnaceTierSpec } from '../core/types';
 import { article, hearthName, structureOf } from './hearthScan';
+import { LONE_MAX_TIER, FIRST_HEARTH_TIER } from '../core/constants';
 
 /** The formed hearth a furnace sits in, saved on the furnace entity (`hearth`; null while not formed). */
 export interface HearthSummary {
@@ -55,7 +56,7 @@ const REFERENCE: Array<HearthScale | null> = FURNACE_TIERS.map((t) => {
 });
 
 /** Effective tier of a furnace of upgraded `tier` in a hearth formed at `structural` (0: not formed). */
-export const effectiveTier = (tier: number, structural: number): number => Math.max(1, Math.min(tier, structural));
+export const effectiveTier = (tier: number, structural: number): number => Math.min(tier, Math.max(LONE_MAX_TIER, structural));
 
 /** The numbers a furnace of upgraded `tier` runs at, in the formed hearth `h` (null: standing alone). */
 export function furnaceStats(tier: number, h: HearthSummary | null, tuyeres = 0, into?: FurnaceStats): FurnaceStats {
@@ -69,7 +70,7 @@ export function furnaceStats(tier: number, h: HearthSummary | null, tuyeres = 0,
   out.maxTempC = spec.maxTempC;
   out.tuyeres = tuyeres;
   const ref = REFERENCE[eff - 1];
-  if (eff >= 2 && h && ref) {
+  if (eff >= FIRST_HEARTH_TIER && h && ref) {
     const inner: Interior = h.inner;
     const scale = hearthScale(inner, { closed: h.closed, windows: h.windows, tuyeres });
     const loss = scale.loss / ref.loss;

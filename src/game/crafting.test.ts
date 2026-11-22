@@ -35,8 +35,7 @@ describe('crafting', () => {
       'bronze_pickaxe', 'bronze_axe', 'bronze_shovel', 'bronze_hoe', 'bronze_maul',
       // Essentia & Research (src/content/recipesMagic.ts), last.
       'vis_rod', 'essentia_jar',
-      // The Bronze workshop pieces (src/content/recipesWorkshop.ts).
-      'hand_crank', 'drive_shaft', 'conveyor_belt', 'conveyor_belt_cloth', 'mech_millstone', 'mech_loom',
+      // (The Bronze workshop pieces are made at the Bronze Furnace now: src/content/recipesWorkshop.ts.)
       // Glassware (src/content/itemsGlass.ts).
       'water_beaker', 'water_vial',
     ]);

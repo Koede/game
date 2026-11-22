@@ -10,38 +10,38 @@ describe('Current Age engines: chainsaw and tractor content', () => {
     expect(validateContent()).toEqual([]);
   });
 
-  it('are age 2 items with icons and texts', () => {
+  it('are age 3 items with icons and texts', () => {
     for (const key of KEYS) {
       const def = item(key);
-      expect(def.age, key).toBe(2);
+      expect(def.age, key).toBe(3);
       expect(def.desc.length, key).toBeGreaterThan(40);
       expect(TEXTURE_NAMES, key).toContain(`item_${key}`);
     }
     expect(item('tractor').stack).toBe(1);
   });
 
-  it('are forged at the Arc Furnace (tier 3) from engine parts, and not before', () => {
+  it('are forged at the Arc Furnace (tier 4) from engine parts, and not before', () => {
     const forge = recipesAt('furnace').filter((r) => KEYS.includes(r.output.item));
     expect(forge.map((r) => r.output.item).sort()).toEqual([...KEYS].sort());
     for (const r of forge) {
-      expect(r.minTier, r.id).toBe(3);
-      expect(r.age, r.id).toBe(2);
+      expect(r.minTier, r.id).toBe(4);
+      expect(r.age, r.id).toBe(3);
     }
     // Relative to the Combustion Engine (same parts, same furnace): whatever the solver can reach for it, it reaches
     // for these, and nothing earlier. (Absolute reachability is content.test.ts's job.)
-    const early = solve(2);
+    const early = solve(3);
     for (const key of KEYS) expect(early.items.has(key), key).toBe(false);
-    const arc = solve(3);
+    const arc = solve(4);
     for (const key of KEYS) expect(arc.items.has(key), key).toBe(arc.items.has('combustion_engine'));
   });
 
   it('have objectives in the Current Age that the solver can reach with an Arc Furnace and not earlier', () => {
     for (const [id, flag] of [['fell_tree', FLAG_FELLED_TREE], ['drive_tractor', FLAG_DROVE_TRACTOR]]) {
       const o = OBJECTIVES.find((x) => x.id === id)!;
-      expect(o.age).toBe(2);
+      expect(o.age).toBe(3);
       expect(o.condition).toEqual({ type: 'flag', flag });
-      expect(conditionMet(o.condition, solve(2))).toBe(false);
-      expect(conditionMet(o.condition, solve(3))).toBe(solve(3).items.has('combustion_engine') && solve(3).items.has('fuel_canister'));
+      expect(conditionMet(o.condition, solve(3))).toBe(false);
+      expect(conditionMet(o.condition, solve(4))).toBe(solve(4).items.has('combustion_engine') && solve(4).items.has('fuel_canister'));
     }
   });
 

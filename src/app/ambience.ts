@@ -4,7 +4,7 @@
  * ignition. DOM-free. Entities are scanned a few times per second; the cheap per-frame values every frame.
  */
 import { createAmbienceState, type AmbienceState } from '../audio/ambienceState';
-import { IGNITION_SECONDS } from '../core/constants';
+import { FIRST_ELECTRIC_TIER, IGNITION_SECONDS } from '../core/constants';
 import { voxelActive, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { PlayerState } from '../game/playerState';
@@ -96,7 +96,7 @@ export class AmbienceProbe {
         if (level > 0 && d < best) {
           best = d;
           heat = level;
-          electric = e.tier >= 3 && e.electric && e.deliveredW > 0;
+          electric = e.tier >= FIRST_ELECTRIC_TIER && e.electric && e.deliveredW > 0;
           ignition = e.ignition === 'running' ? unit(e.ignitionProgressS / IGNITION_SECONDS) : 0;
         }
       } else if (e.kind !== 'crate' && d < MACHINE_HEARING) {

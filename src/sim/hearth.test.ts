@@ -31,16 +31,16 @@ describe('forming and coming apart', () => {
     const sfx = kit.record('sfx');
     const e = kit.furnace(0, 1, 0, 'furnace_blast');
     kit.run(0.5);
-    expect(e).toMatchObject({ effTier: 1, hearth: null });
-    expect(e.crucibleIn).toHaveLength(1);
-    const box = buildHearth(kit.world, 0, 1, 0, { tier: 2 });
+    expect(e).toMatchObject({ effTier: 2, hearth: null });
+    expect(e.crucibleIn).toHaveLength(furnaceTier(2).crucibles); // alone it runs on the Bronze Furnace's two crucibles
+    const box = buildHearth(kit.world, 0, 1, 0, { tier: 3 });
     expect(formed).toEqual([]);
     kit.run(DT);
-    expect(formed).toEqual([{ x: 0, y: 1, z: 0, tier: 2, min: [-1, 0, 0], max: [1, 1, 2] }]);
+    expect(formed).toEqual([{ x: 0, y: 1, z: 0, tier: 3, min: [-1, 0, 0], max: [1, 1, 2] }]);
     expect(toasts.map((t) => t.text)).toContain('Blast hearth formed');
     expect(sfx).toContainEqual({ name: 'hearth_formed', x: 0, y: 1, z: 0 });
-    expect(e).toMatchObject({ effTier: 2, hearth: { tier: 2, inner: [1, 1, 1], closed: false, windows: 0 } });
-    expect(e.crucibleIn).toHaveLength(hearthCrucibles(structureOf(2), [1, 1, 1]));
+    expect(e).toMatchObject({ effTier: 3, hearth: { tier: 3, inner: [1, 1, 1], closed: false, windows: 0 } });
+    expect(e.crucibleIn).toHaveLength(hearthCrucibles(structureOf(3), [1, 1, 1]));
     for (const c of boxCells(box)) {
       if (c.role === CellRole.Interior) continue;
       const v = kit.world.getVoxel(c.x, c.y, c.z);
@@ -52,7 +52,7 @@ describe('forming and coming apart', () => {
   });
 
   it('comes apart when a wall goes: nothing is destroyed, locked crucibles keep their contents', () => {
-    const kit = hearthKit('furnace_blast', 2, [3, 3, 1]);
+    const kit = hearthKit('furnace_blast', 3, [3, 3, 1]);
     const e = furnace(kit);
     expect(e.crucibleIn).toHaveLength(5);
     const unformed = kit.record('hearth:unformed');
@@ -65,16 +65,16 @@ describe('forming and coming apart', () => {
     kit.run(DT);
     expect(unformed).toEqual([{ x: 0, y: 1, z: 0 }]);
     expect(toasts.map((t) => t.text)).toContain('The Blast hearth came apart - wall has a gap');
-    expect(e).toMatchObject({ hearth: null, effTier: 1 });
+    expect(e).toMatchObject({ hearth: null, effTier: 2 });
     expect(e.crucibleIn).toHaveLength(5);
     expect(voxelActive(kit.world.getVoxel(-1, 1, 4))).toBe(false);
     const before = e.crucibleIn.map((s) => s?.count ?? 0);
     kit.run(60);
-    // Only the first crucible works on; the rest hold still and keep what they hold.
-    expect(e.crucibleIn.slice(1).map((s) => s?.count ?? 0)).toEqual(before.slice(1));
+    // Only the Bronze Furnace's two crucibles work on; the rest hold still and keep what they hold.
+    expect(e.crucibleIn.slice(2).map((s) => s?.count ?? 0)).toEqual(before.slice(2));
     const view = kit.sim.furnaceView(0, 1, 0)!;
-    expect(view.cruciblesActive).toBe(1);
-    expect(view.crucibles.map((c) => c.locked)).toEqual([false, true, true, true, true]);
+    expect(view.cruciblesActive).toBe(2);
+    expect(view.crucibles.map((c) => c.locked)).toEqual([false, false, true, true, true]);
     expect(view.crucibles[4].status).toBe('Locked - take it out');
     const slots = kit.sim.furnaceSlots(0, 1, 0)!;
     expect(slots.crucibleIn.accepts('copper_ore', 3)).toBe(false);
@@ -83,12 +83,12 @@ describe('forming and coming apart', () => {
     // Built back: it forms again and the crucibles open.
     kit.world.put(1, 1, 4, 'brick');
     kit.run(DT);
-    expect(e.hearth?.tier).toBe(2);
+    expect(e.hearth?.tier).toBe(3);
     expect(slots.crucibleIn.accepts('copper_ore', 3)).toBe(true);
   });
 
   it('breaking the furnace takes the hearth down quietly', () => {
-    const kit = hearthKit('furnace_blast', 2);
+    const kit = hearthKit('furnace_blast', 3);
     const unformed = kit.record('hearth:unformed');
     const toasts = kit.record('toast');
     kit.world.put(0, 1, 0, 'air');
@@ -98,7 +98,7 @@ describe('forming and coming apart', () => {
   });
 
   it('cools down by itself when its hearth comes apart above the new maximum', () => {
-    const kit = hearthKit('furnace_blast', 2);
+    const kit = hearthKit('furnace_blast', 3);
     const e = furnace(kit);
     fire(kit, e, 'coal', 50);
     kit.run(200);
@@ -108,35 +108,35 @@ describe('forming and coming apart', () => {
     expect(e.tempC).toBeGreaterThan(1240);
     kit.run(60);
     expect(e.tempC).toBeLessThan(1240);
-    expect(e.tempC).toBeGreaterThanOrEqual(furnaceTier(1).maxTempC);
+    expect(e.tempC).toBeGreaterThanOrEqual(furnaceTier(2).maxTempC);
     kit.run(600);
-    expect(e.tempC).toBeCloseTo(furnaceTier(1).maxTempC, 5);
+    expect(e.tempC).toBeCloseTo(furnaceTier(2).maxTempC, 5);
   });
 });
 
 describe('effective tier and grants', () => {
-  it('runs at min(its tier, the hearth tier), and alone at tier 1', () => {
-    expect(furnace(hearthKit('furnace_clay', 2))).toMatchObject({ tier: 1, effTier: 1, hearth: { tier: 2 } });
-    expect(furnace(hearthKit('furnace_arc', 2))).toMatchObject({ tier: 3, effTier: 2 });
-    expect(furnace(hearthKit('furnace_blast', 3))).toMatchObject({ tier: 2, effTier: 2, hearth: { tier: 3 } });
-    expect(furnace(hearthKit('furnace_arc', 3))).toMatchObject({ tier: 3, effTier: 3 });
+  it('runs at min(its tier, the hearth tier), and alone at most as the Bronze Furnace', () => {
+    expect(furnace(hearthKit('furnace_clay', 3))).toMatchObject({ tier: 1, effTier: 1, hearth: { tier: 3 } });
+    expect(furnace(hearthKit('furnace_arc', 3))).toMatchObject({ tier: 4, effTier: 3 });
+    expect(furnace(hearthKit('furnace_blast', 4))).toMatchObject({ tier: 3, effTier: 3, hearth: { tier: 4 } });
+    expect(furnace(hearthKit('furnace_arc', 4))).toMatchObject({ tier: 4, effTier: 4 });
     const kit = makeKit();
-    expect(kit.furnace(0, 1, 0, 'furnace_star')).toMatchObject({ tier: 5, effTier: 1 });
+    expect(kit.furnace(0, 1, 0, 'furnace_star')).toMatchObject({ tier: 6, effTier: 2 });
     const view = kit.sim.furnaceView(0, 1, 0)!;
-    expect(view).toMatchObject({ effectiveTier: 1, maxTempC: 800, hearth: { formed: false, text: 'Not formed' } });
-    expect(view.status).toBe('No Starhearth formed - it runs like a Clay Furnace');
+    expect(view).toMatchObject({ effectiveTier: 2, maxTempC: 1100, hearth: { formed: false, text: 'Not formed' } });
+    expect(view.status).toBe('No Starhearth formed - it runs like a Bronze Furnace');
   });
 
   it('scales heat capacity, loss, fire and heater with the inside; windows lose double', () => {
-    const kit = hearthKit('furnace_arc', 3, [3, 2, 2]);
+    const kit = hearthKit('furnace_arc', 4, [3, 2, 2]);
     const e = furnace(kit);
-    const spec = furnaceTier(3);
+    const spec = furnaceTier(4);
     const scale = hearthScale([3, 2, 2], { closed: true, windows: 0, tuyeres: 0 });
-    expect(e.hearth).toMatchObject({ tier: 3, inner: [3, 2, 2], closed: true });
+    expect(e.hearth).toMatchObject({ tier: 4, inner: [3, 2, 2], closed: true });
     const view = kit.sim.furnaceView(0, 1, 0)!;
-    expect(view.cruciblesActive).toBe(hearthCrucibles(structureOf(3), [3, 2, 2]));
+    expect(view.cruciblesActive).toBe(hearthCrucibles(structureOf(4), [3, 2, 2]));
     expect(view.electric.maxW).toBeCloseTo(spec.electricHeatW * scale.loss);
-    expect(view.hearth).toMatchObject({ formed: true, tier: 3, name: 'Arc hearth', text: 'Formed - Arc hearth 3x2x2' });
+    expect(view.hearth).toMatchObject({ formed: true, tier: 4, name: 'Arc hearth', text: 'Formed - Arc hearth 3x2x2' });
     // Cooling from 1000 C over one tick shows the loss and the heat capacity.
     e.tempC = 1000;
     kit.run(DT);
@@ -152,8 +152,8 @@ describe('effective tier and grants', () => {
   });
 
   it('a bigger hearth reaches the same flame on fuel, burning it faster', () => {
-    const small = hearthKit('furnace_blast', 2, [1, 1, 1]);
-    const big = hearthKit('furnace_blast', 2, [3, 3, 2]);
+    const small = hearthKit('furnace_blast', 3, [1, 1, 1]);
+    const big = hearthKit('furnace_blast', 3, [3, 3, 2]);
     for (const kit of [small, big]) fire(kit, furnace(kit), 'coal', 99);
     small.run(600);
     big.run(600);
@@ -165,7 +165,7 @@ describe('effective tier and grants', () => {
 
   it('smelts faster in a bigger hearth, and faster still with powered tuyeres', () => {
     const time = (inner: [number, number, number], blower: boolean): number => {
-      const kit = hearthKit('furnace_blast', 2, inner);
+      const kit = hearthKit('furnace_blast', 3, inner);
       if (blower) {
         kit.machine('blower', -1, 1, 1); // in the west wall face
         kit.machine('burner_generator', -2, 1, 1).slots[0] = { item: 'coal', count: 20 };
@@ -193,7 +193,7 @@ describe('effective tier and grants', () => {
 
 describe('when it scans', () => {
   it('scans on the tick after a change in reach, and not otherwise', () => {
-    const kit = hearthKit('furnace_blast', 2);
+    const kit = hearthKit('furnace_blast', 3);
     const n = scansOf(kit);
     kit.run(5);
     expect(scansOf(kit)).toBe(n);
@@ -209,7 +209,7 @@ describe('when it scans', () => {
   it('retries an unformed hearth every second only near the player or with its screen open', () => {
     const kit = makeKit();
     kit.furnace(0, 1, 0, 'furnace_blast');
-    buildHearth(kit.world, 0, 1, 0, { tier: 2 });
+    buildHearth(kit.world, 0, 1, 0, { tier: 3 });
     kit.world.put(1, 1, 2, 'air');
     kit.run(DT);
     expect(furnace(kit).hearth).toBeNull();
@@ -219,7 +219,7 @@ describe('when it scans', () => {
     expect(furnace(kit).hearth).toBeNull();
     kit.bus.emit('ui:opened', { screen: { type: 'furnace', x: 0, y: 1, z: 0 } });
     kit.run(HEARTH_RESCAN_S + DT);
-    expect(furnace(kit).hearth?.tier).toBe(2);
+    expect(furnace(kit).hearth?.tier).toBe(3);
 
     kit.bus.emit('ui:closed', {});
     voxels(kit.world).delete('1,1,2');
@@ -235,7 +235,7 @@ describe('when it scans', () => {
   });
 
   it('a formed hearth sweeps its cells and notices a change it was never told about', () => {
-    const kit = hearthKit('furnace_blast', 2, [2, 2, 2]);
+    const kit = hearthKit('furnace_blast', 3, [2, 2, 2]);
     expect(furnace(kit).hearth).not.toBeNull();
     voxels(kit.world).delete('-1,2,3');
     kit.run(0.5);
@@ -248,22 +248,22 @@ describe('when it scans', () => {
 describe('upgrades and ignition need their hearth', () => {
   it('the upgrade waits for the next tier hearth, with the reason', () => {
     const kit = makeKit();
-    const e = kit.furnace(0, 1, 0, 'furnace_clay');
+    const e = kit.furnace(0, 1, 0, 'furnace_bronze');
     kit.player.give('bronze_ingot', 4);
     kit.player.give('bellows', 1);
     e.tempC = 750;
     const hint = 'Build a Blast hearth: brick walls around the furnace';
     expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: hint });
     expect(kit.sim.furnaceView(0, 1, 0)!.upgrade).toMatchObject({ ok: false, structureOk: false, structure: hint, reason: hint });
-    buildHearth(kit.world, 0, 1, 0, { tier: 2 });
+    buildHearth(kit.world, 0, 1, 0, { tier: 3 });
     expect(kit.sim.furnaceView(0, 1, 0)!.upgrade).toMatchObject({ ok: true, structureOk: true, structure: null, reason: null });
     expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: true });
     kit.run(DT);
-    expect(e).toMatchObject({ tier: 2, effTier: 2 });
+    expect(e).toMatchObject({ tier: 3, effTier: 3 });
     expect(kit.sim.furnaceView(0, 1, 0)!.upgrade).toMatchObject({
       structureOk: false, structure: 'Build an Arc hearth: refractory brick walls around the furnace, a ceiling and 1 Arc Electrode',
     });
-    expect(kit.sim.structureView(0, 1, 0)!.target.tier).toBe(3);
+    expect(kit.sim.structureView(0, 1, 0)!.target.tier).toBe(4);
   });
 
   it('recipes above the hearth tier say what to build', () => {
@@ -288,7 +288,7 @@ describe('upgrades and ignition need their hearth', () => {
 
 describe('the shell stands for the furnace', () => {
   it('power ports carry the grid to the controller', () => {
-    const kit = hearthKit('furnace_plasma', 4);
+    const kit = hearthKit('furnace_plasma', 5);
     const e = furnace(kit);
     // The ports stand in the back wall (0, 1, 3 and 1, 1, 3); a generator touching one feeds the furnace through it.
     expect(blockOf(kit.world.getVoxel(0, 1, 3)).key).toBe('power_port');
@@ -306,7 +306,7 @@ describe('the shell stands for the furnace', () => {
   });
 
   it('a steam engine on the ceiling and a thermopile on a wall work the furnace', () => {
-    const kit = hearthKit('furnace_blast', 3);
+    const kit = hearthKit('furnace_blast', 4);
     const e = furnace(kit);
     fire(kit, e, 'coal', 99);
     kit.run(300);
@@ -326,7 +326,7 @@ describe('the shell stands for the furnace', () => {
 
 describe('saving', () => {
   it('a formed hearth loads formed, quietly, and is checked again', () => {
-    const a = hearthKit('furnace_blast', 2, [2, 2, 1]);
+    const a = hearthKit('furnace_blast', 3, [2, 2, 1]);
     const e = furnace(a);
     fire(a, e, 'coal', 40);
     a.run(30);
@@ -340,7 +340,7 @@ describe('saving', () => {
     };
     const b = load();
     const events = [b.record('hearth:formed'), b.record('hearth:unformed'), b.record('toast')];
-    expect(furnace(b)).toMatchObject({ effTier: 2, hearth: { tier: 2, inner: [2, 2, 1] } });
+    expect(furnace(b)).toMatchObject({ effTier: 3, hearth: { tier: 3, inner: [2, 2, 1] } });
     a.run(60);
     b.run(60);
     expect(events.flat()).toEqual([]);
@@ -350,14 +350,14 @@ describe('saving', () => {
     const gone = c.record('hearth:unformed');
     c.run(DT);
     expect(gone).toEqual([{ x: 0, y: 1, z: 0 }]);
-    expect(furnace(c)).toMatchObject({ hearth: null, effTier: 1 });
+    expect(furnace(c)).toMatchObject({ hearth: null, effTier: 2 });
   });
 });
 
 describe('furnace odds and ends', () => {
   it('a burned lava bucket leaves its bronze bucket in the firebox', () => {
     const kit = makeKit();
-    const e = kit.furnace(0, 1, 0, 'furnace_clay');
+    const e = kit.furnace(0, 1, 0, 'furnace_bronze');
     e.fuel[0] = { item: 'lava_bucket', count: 1 };
     expect(kit.sim.light(0, 1, 0)).toEqual({ ok: true });
     expect(e.fuel[0]).toEqual({ item: 'bronze_bucket', count: 1 });
@@ -368,7 +368,7 @@ describe('furnace odds and ends', () => {
 
   it('heat engines take heat for the power used, not the power they could make', () => {
     const kit = makeKit();
-    const e = kit.furnace(0, 1, 0, 'furnace_clay');
+    const e = kit.furnace(0, 1, 0, 'furnace_bronze');
     fire(kit, e, 'charcoal', 99);
     kit.run(120);
     kit.machine('thermopile', 1, 1, 0);

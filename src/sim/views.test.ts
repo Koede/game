@@ -82,7 +82,7 @@ describe('furnace view', () => {
     kit.furnace(0, 1, 0, 'furnace_arc');
     kit.run(0.05);
     expect(view(kit).electric).toMatchObject({ available: false, maxW: 0 });
-    expect(view(kit).status).toBe('No Arc hearth formed - it runs like a Clay Furnace');
+    expect(view(kit).status).toBe('No Arc hearth formed - it runs like a Bronze Furnace');
     kit.formed(0, 1, 0);
     kit.run(0.05);
     expect(view(kit).electric).toMatchObject({ available: true, on: true, networked: false, maxW: 8000, deliveredW: 0, satisfaction: 0 });
@@ -132,7 +132,7 @@ describe('queries for the HUD and the machine screens', () => {
     const kit = makeKit();
     expect(kit.sim.homeFurnace()).toBeNull();
     kit.world.setVoxel(4, 1, 4, makeVoxel(blockId('furnace_blast')), 'player');
-    expect(kit.sim.homeFurnace()).toMatchObject({ x: 4, y: 1, z: 4, tier: 2 });
+    expect(kit.sim.homeFurnace()).toMatchObject({ x: 4, y: 1, z: 4, tier: 3 });
     kit.furnace(9, 1, 9);
     kit.bus.emit('ui:opened', { screen: { type: 'furnace', x: 9, y: 1, z: 9 } });
     expect(kit.sim.homeFurnace()).toMatchObject({ x: 9, tier: 1 });

@@ -6,7 +6,7 @@
  * up to HEARTH_MAX_PROBLEMS problems in plain words, and the structural tier - the highest tier whose rules are all
  * met (a higher tier's wall block satisfies every lower tier, so the weakest wall block caps it).
  */
-import { HEARTH_CEILING_PARTS, HEARTH_FACE_PARTS, HEARTH_MAX_PROBLEMS } from '../core/constants';
+import { FIRST_HEARTH_TIER, HEARTH_CEILING_PARTS, HEARTH_FACE_PARTS, HEARTH_MAX_PROBLEMS } from '../core/constants';
 import { interiorFits, type Interior } from '../core/hearth';
 import { BLOCKS, FURNACE_TIERS, block, hearthWallTier } from '../core/registry';
 import { FACE_DIRS, FACING_TO_FACE, voxelId, type Facing, type HearthStructureSpec, type IWorld } from '../core/types';
@@ -372,13 +372,13 @@ function classify(world: IWorld, b: HearthBox, scan: HearthScan): void {
   }
   scan.wallTier = wallTier === 9 ? 0 : wallTier;
   if (scan.problemCount === 0) {
-    for (let tier = FURNACE_TIERS.length; tier >= 2 && scan.structuralTier === 0; tier--) {
+    for (let tier = FURNACE_TIERS.length; tier >= FIRST_HEARTH_TIER && scan.structuralTier === 0; tier--) {
       if (tierProblems(scan, tier, 1).length === 0) scan.structuralTier = tier;
     }
   }
 }
 
-/** Structure rules of a tier (throws for tier 1, which has none). */
+/** Structure rules of a tier (throws for the single-block tiers, which have none). */
 export function structureOf(tier: number): HearthStructureSpec {
   const s = FURNACE_TIERS[tier - 1]?.structure;
   if (!s) throw new Error(`furnace tier ${tier} has no hearth structure`);

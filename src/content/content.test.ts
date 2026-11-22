@@ -62,9 +62,9 @@ describe('1. registry validation', () => {
 
 // -------------------------------------------------------------------------------------------------
 describe('2. roster of spec section 2', () => {
-  it('has exactly the 142 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19, 12 of brewing, 10 of handwork; distillery ones on top), air first', () => {
+  it('has exactly the 143 blocks (68 of section 2, 16 of section 12, 20 of sections 13-14, 15 of sections 16-17, 1 of section 19, 12 of brewing, 10 of handwork; distillery ones on top), air first', () => {
     expect(BLOCKS[0].key).toBe('air');
-    expect(SPEC.blocks).toHaveLength(142 + DISTILL_SPEC.blocks.length + MAGIC_SPEC.blocks.length + WORKSHOP_SPEC.blocks.length + GLASS_SPEC.blocks.length);
+    expect(SPEC.blocks).toHaveLength(143 + DISTILL_SPEC.blocks.length + MAGIC_SPEC.blocks.length + WORKSHOP_SPEC.blocks.length + GLASS_SPEC.blocks.length);
     expect(sorted(BLOCKS.map((b) => b.key))).toEqual(sorted(SPEC.blocks));
   });
 
@@ -97,8 +97,8 @@ describe('2. roster of spec section 2', () => {
       t.upgradeCost.map((c) => `${c.count} ${c.item}`).join(', '),
     ]);
     expect(rows).toEqual(SPEC.furnaceTiers);
-    expect(FURNACE_TIERS.map((t) => t.age)).toEqual([0, 1, 2, 3, 4]);
-    expect(AGES.map((a) => a.name)).toEqual(['Ember Age', 'Forge Age', 'Current Age', 'Atomic Age', 'Star Age']);
+    expect(FURNACE_TIERS.map((t) => t.age)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(AGES.map((a) => a.name)).toEqual(['Ember Age', 'Bronze Age', 'Forge Age', 'Current Age', 'Atomic Age', 'Star Age']);
   });
 
   it('has every machine with the numbers of 2.5 and 3.3, and documents no other params', () => {
@@ -280,7 +280,7 @@ describe('3. progression solver', () => {
   const firstStage = (has: (p: Progress) => boolean): number => stages.findIndex(has);
 
   it('climbs every furnace tier, one at a time', () => {
-    expect(stages.map((p) => p.tier)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(stages.map((p) => p.tier)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(full.tempC[MAX_FURNACE_TIER]).toBe(furnaceTier(MAX_FURNACE_TIER).maxTempC);
   });
 
@@ -348,15 +348,16 @@ describe('3. progression solver', () => {
     expect(stages[0].items.has('iron_ore')).toBe(false); // needs bronze
     expect(stages[1].items.has('iron_ore')).toBe(true);
     expect(stages[1].tempC[1]).toBe(800);
-    expect(stages[2].tempC[2]).toBe(1500);
-    expect(stages[2].items.has('wolframite')).toBe(true); // steel pickaxe
-    expect(stages[3].items.has('pitchblende')).toBe(false); // power drill only
-    expect(stages[3].tempC[3]).toBe(2100); // electric: no fuel passes 1800 C
-    expect(stages[2].cableRatingW).toBe(10_000);
-    expect(stages[3].cableRatingW).toBe(120_000); // heavy cable exists before the Plasma Furnace needs its 40 kW
-    expect(stages[4].tempC[4]).toBe(3200);
-    expect(stages[4].cableRatingW).toBe(2_000_000);
-    expect(conditionMet({ type: 'flag', flag: 'ignited' }, stages[4])).toBe(false);
+    expect(stages[2].tempC[2]).toBe(1100); // the Bronze Furnace
+    expect(stages[3].tempC[3]).toBe(1500);
+    expect(stages[3].items.has('wolframite')).toBe(true); // steel pickaxe
+    expect(stages[4].items.has('pitchblende')).toBe(false); // power drill only
+    expect(stages[4].tempC[4]).toBe(2100); // electric: no fuel passes 1800 C
+    expect(stages[3].cableRatingW).toBe(10_000);
+    expect(stages[4].cableRatingW).toBe(120_000); // heavy cable exists before the Plasma Furnace needs its 40 kW
+    expect(stages[5].tempC[5]).toBe(3200);
+    expect(stages[5].cableRatingW).toBe(2_000_000);
+    expect(conditionMet({ type: 'flag', flag: 'ignited' }, stages[5])).toBe(false);
   });
 });
 

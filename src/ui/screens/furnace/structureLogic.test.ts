@@ -24,10 +24,10 @@ describe('structure text', () => {
     const cells = ghostCells(fresh);
     expect(cells).toHaveLength(16);
     expect(cells.every((c) => c.block === 'brick' && c.state === 'missing')).toBe(true);
-    kit.formed(0, 1, 0, { tier: 2 });
+    kit.formed(0, 1, 0, { tier: 3 });
     kit.world.put(1, 1, 1, 'dirt');
     kit.world.put(0, 1, 1, 'torch');
-    const view = kit.sim.structureView(0, 1, 0, { tier: 2 })!;
+    const view = kit.sim.structureView(0, 1, 0, { tier: 3 })!;
     expect(ghostCells(view)).toEqual([
       { x: 1, y: 1, z: 1, block: 'brick', state: 'wrong' },
       { x: 0, y: 1, z: 1, block: 'air', state: 'wrong' },
@@ -60,15 +60,17 @@ describe('structure text', () => {
     const clay = kitWith();
     const lone = clay.sim.structureView(0, 1, 0)!;
     expect(statusTone(lone)).toBe('neutral');
-    expect(effectText(lone)).toBe('A Clay Furnace stands alone. Build a hearth around it to upgrade it.');
-    clay.formed(0, 1, 0, { tier: 2 });
-    const ready = clay.sim.structureView(0, 1, 0)!;
+    expect(effectText(lone)).toBe('A Clay Furnace stands alone. Upgrade it to a Bronze Furnace first (header button): a hearth comes with the Blast Furnace after it.');
+    const bronze = kitWith('furnace_bronze');
+    expect(effectText(bronze.sim.structureView(0, 1, 0)!)).toBe('The Bronze Furnace stands alone. Build a hearth around it to upgrade it.');
+    bronze.formed(0, 1, 0, { tier: 3 });
+    const ready = bronze.sim.structureView(0, 1, 0)!;
     expect(effectText(ready)).toBe('The Blast hearth stands: the furnace can now be upgraded (header button).');
 
     const blast = kitWith('furnace_blast');
     const bare = blast.sim.structureView(0, 1, 0)!;
     expect(statusTone(bare)).toBe('warn');
-    expect(effectText(bare)).toBe('Until its Blast hearth forms, the Blast Furnace runs like a Clay Furnace: 800 °C at most.');
+    expect(effectText(bare)).toBe('Until its Blast hearth forms, the Blast Furnace runs like a Bronze Furnace: 1100 °C at most.');
     expect(structureBadge(blast.sim.furnaceView(0, 1, 0)!)).toBe('!');
     blast.formed(0, 1, 0);
     const formed = blast.sim.structureView(0, 1, 0)!;
@@ -77,7 +79,7 @@ describe('structure text', () => {
     expect(structureBadge(blast.sim.furnaceView(0, 1, 0)!)).toBeNull();
 
     const arc = kitWith('furnace_arc');
-    arc.formed(0, 1, 0, { tier: 2 });
+    arc.formed(0, 1, 0, { tier: 3 });
     const held = arc.sim.structureView(0, 1, 0)!;
     expect(statusTone(held)).toBe('warn');
     expect(effectText(held)).toBe('The Blast hearth holds it back: the Arc Furnace runs like a Blast Furnace (1500 °C at most) until its Arc hearth forms.');
@@ -85,8 +87,8 @@ describe('structure text', () => {
 
   it('folds problems with the same words into one row with every block', () => {
     const kit = kitWith('furnace_blast');
-    kit.formed(0, 1, 0, { tier: 2, inner: [3, 3, 2] });
-    const view = kit.sim.structureView(0, 1, 0, { tier: 4 })!;
+    kit.formed(0, 1, 0, { tier: 3, inner: [3, 3, 2] });
+    const view = kit.sim.structureView(0, 1, 0, { tier: 5 })!;
     expect(view.problems.length).toBe(8);
     const groups = groupProblems(view.problems);
     expect(groups.length).toBeLessThan(view.problems.length);
@@ -113,7 +115,7 @@ describe('hearth ghost keeper', () => {
   it('shows the cells, follows each block placed inside the plan, and clears when the hearth forms', async () => {
     const kit = kitWith();
     const { ghost, shows, clears } = keeper(kit);
-    expect(ghost.show(0, 1, 0, { tier: 2 })).toBe(true);
+    expect(ghost.show(0, 1, 0, { tier: 3 })).toBe(true);
     expect(ghost.isShown(0, 1, 0)).toBe(true);
     expect(shows).toHaveLength(1);
     expect(shows[0].key).toBe('hearth:0,1,0');
@@ -126,7 +128,7 @@ describe('hearth ghost keeper', () => {
     kit.world.put(20, 1, 20, 'brick'); // far away: nothing
     await flush();
     expect(shows).toHaveLength(2);
-    const plan = kit.sim.structureView(0, 1, 0, { tier: 2 })!;
+    const plan = kit.sim.structureView(0, 1, 0, { tier: 3 })!;
     for (const c of plan.target.cells) if (c.state !== 'ok') kit.world.put(c.x, c.y, c.z, c.want);
     kit.sim.validateHearths();
     await flush();
@@ -137,18 +139,18 @@ describe('hearth ghost keeper', () => {
   it('follows a new target while shown, remembers the choice, and clears when turned off or the furnace goes', () => {
     const kit = kitWith('furnace_plasma');
     const { ghost, shows, clears } = keeper(kit);
-    ghost.show(0, 1, 0, { tier: 4 });
+    ghost.show(0, 1, 0, { tier: 5 });
     const small = shows[0].cells.length;
-    ghost.choose(0, 1, 0, { tier: 4, inner: [3, 3, 3] });
+    ghost.choose(0, 1, 0, { tier: 5, inner: [3, 3, 3] });
     expect(clears).toEqual([{ key: 'hearth:0,1,0' }]);
     expect(shows).toHaveLength(2);
     expect(shows[1].cells.length).toBeGreaterThan(small);
-    expect(ghost.target(0, 1, 0)).toEqual({ tier: 4, inner: [3, 3, 3] });
+    expect(ghost.target(0, 1, 0)).toEqual({ tier: 5, inner: [3, 3, 3] });
     ghost.hide(0, 1, 0);
     expect(clears).toHaveLength(2);
-    ghost.choose(0, 1, 0, { tier: 2 });
+    ghost.choose(0, 1, 0, { tier: 3 });
     expect(shows).toHaveLength(2); // not shown: choosing only remembers
-    ghost.show(0, 1, 0, { tier: 2 });
+    ghost.show(0, 1, 0, { tier: 3 });
     kit.world.put(0, 1, 0, 'air');
     expect(ghost.isShown(0, 1, 0)).toBe(false);
     expect(ghost.target(0, 1, 0)).toBeUndefined();
@@ -159,8 +161,8 @@ describe('hearth ghost keeper', () => {
     const kit = kitWith('furnace_blast');
     kit.formed(0, 1, 0);
     const { ghost, shows } = keeper(kit);
-    expect(ghost.show(0, 1, 0, { tier: 2 })).toBe(false);
-    expect(ghost.show(9, 1, 9, { tier: 2 })).toBe(false);
+    expect(ghost.show(0, 1, 0, { tier: 3 })).toBe(false);
+    expect(ghost.show(9, 1, 9, { tier: 3 })).toBe(false);
     expect(shows).toHaveLength(0);
     expect(ghost.isShown(0, 1, 0)).toBe(false);
   });

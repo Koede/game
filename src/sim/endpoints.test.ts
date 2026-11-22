@@ -76,12 +76,12 @@ describe('item endpoints', () => {
     expect(ep.offer((item) => item !== 'copper_ingot')).toEqual({ item: 'bronze_bucket', count: 1 });
     expect(ep.take('charcoal', 5)).toBeNull();
     expect(ep.take('bronze_bucket', 1)).toEqual({ item: 'bronze_bucket', count: 1 });
-    // Standing alone it smelts like clay: iron ore is refused, and only one crucible works.
+    // Standing alone it smelts like the Bronze Furnace: iron ore is refused, and two crucibles work.
     const lone = kit.furnace(9, 1, 0, 'furnace_blast');
     const loneEp = kit.sim.itemEndpoint(9, 1, 0, Face.PY)!;
     expect(loneEp.room('iron_ore')).toBe(0);
-    expect(loneEp.insert('copper_ore', 150)).toBe(99);
-    expect(lone.crucibleIn).toEqual([{ item: 'copper_ore', count: 99 }]);
+    expect(loneEp.insert('copper_ore', 150)).toBe(150);
+    expect(lone.crucibleIn).toEqual([{ item: 'copper_ore', count: 99 }, { item: 'copper_ore', count: 51 }]);
   });
 
   it('an item hatch stands for the furnace of its formed hearth, and for nothing otherwise', () => {

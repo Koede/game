@@ -2,7 +2,7 @@
  * THE FURNACE screen: header with tier, age and the upgrade; the FIREBOX panel that stays in view whatever tab
  * is open; tabs SMELT, FORGE, GRID and LOG; the player's backpack as a side column (wide) or drawer (phones).
  */
-import { AGES } from '../../../core/registry';
+import { AGES, MAX_FURNACE_TIER } from '../../../core/registry';
 import { INVENTORY_SIZE } from '../../../core/constants';
 import type { GameScreen, ScreenContext } from '../../gameUI';
 import { h, setAttr } from '../../kit/dom';
@@ -140,7 +140,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     }
     window.setTitle(view.spec.name);
     const age = AGES[view.spec.age]?.name ?? '';
-    window.setSubtitle(`${age} - tier ${view.tier} of 5${view.home ? ' - home' : ''}`);
+    window.setSubtitle(`${age} - tier ${view.tier} of ${MAX_FURNACE_TIER}${view.home ? ' - home' : ''}`);
     window.setAccent(view.ignited ? heatColor(5000) : view.hot ? heatColor(view.tempC) : null);
     upgrade.update(view);
     fire.update(view, tab === 'forge' ? forge.selected : null);

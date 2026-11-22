@@ -371,3 +371,15 @@ export const FLAG_DROVE_TRACTOR = 'drove_tractor';
 export const SUGAR_SPEED_MULT = 1.12;
 /** Well-Fed runs out this many times faster while Sugar Rush runs (hunger itself drains as usual). */
 export const SUGAR_WELL_FED_BURN_MULT = 2.5;
+
+// --- the six furnace tiers (BRONZE_PLAN W0): 1 Clay, 2 Bronze, 3 Blast hearth, 4 Arc, 5 Plasma, 6 Starhearth ---
+/** The Bronze Furnace: the hottest a furnace gets while it stands alone as one block. */
+export const BRONZE_TIER = 2;
+/** The first tier whose furnace needs a formed hearth (the Blast hearth, the second multiblock after the boiler). */
+export const FIRST_HEARTH_TIER = 3;
+/** The tier a furnace without a formed hearth runs at, at most (Clay 1, Bronze 2). */
+export const LONE_MAX_TIER = FIRST_HEARTH_TIER - 1;
+/** The first tier that heats itself electrically (the Arc Furnace). */
+export const FIRST_ELECTRIC_TIER = 4;
+/** The Starhearth, the last furnace. */
+export const STAR_TIER = 6;

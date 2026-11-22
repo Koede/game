@@ -89,7 +89,7 @@ export const WORLD_BLOCKS: BlockSpec[] = [
   // Underground
   {
     key: 'crystal_cluster', name: 'Crystal Cluster', desc: 'Pale crystals glowing softly inside a geode. Pure quartz: an iron pickaxe breaks them straight into silica.',
-    shape: 'cross', hardness: 1.5, tool: 'pickaxe', minTier: 3, item: false, age: 1, light: 4,
+    shape: 'cross', hardness: 1.5, tool: 'pickaxe', minTier: 3, item: false, age: 2, light: 4,
     drops: [{ item: 'silica', count: [1, 2] }], textures: { all: 'crystal_cluster' },
   },
   {

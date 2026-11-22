@@ -31,9 +31,10 @@ interface Source {
   dz: number;
 }
 
-/** Halo colour per furnace tier (additive): dull red clay, orange blast, white-yellow arc, violet plasma, gold star. */
+/** Halo colour per furnace tier (additive): dull red clay, amber bronze, orange blast, white-yellow arc, violet plasma, gold star. */
 const GLOW_COLORS: readonly (readonly [number, number, number])[] = [
   [0.5, 0.17, 0.04],
+  [0.55, 0.22, 0.04],
   [0.55, 0.26, 0.05],
   [0.5, 0.48, 0.38],
   [0.45, 0.32, 0.55],

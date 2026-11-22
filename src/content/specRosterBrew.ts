@@ -8,7 +8,7 @@ import type { BlockDef, MachineRole } from '../core/types';
 type Numbers = Record<string, number>;
 const cross = (props: Partial<BlockDef> = {}): Partial<BlockDef> => ({ shape: 'cross', solid: false, opaque: false, ...props });
 const small = (shape: 'cup' | 'bucket', props: Partial<BlockDef> = {}): Partial<BlockDef> => ({ shape, solid: false, opaque: false, ...props });
-const TOPS = ['furnace_clay', 'furnace_blast', 'furnace_arc', 'furnace_plasma', 'furnace_star', 'brick', 'refractory_brick', 'plasma_casing', 'star_casing'];
+const TOPS = ['furnace_clay', 'furnace_bronze', 'furnace_blast', 'furnace_arc', 'furnace_plasma', 'furnace_star', 'brick', 'refractory_brick', 'plasma_casing', 'star_casing'];
 
 export const BREW_SPEC = {
   blocks: [

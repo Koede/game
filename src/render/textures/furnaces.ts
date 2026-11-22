@@ -1,5 +1,5 @@
 /**
- * The five furnace tiers, each with its own walls, crown and mouth. A lit mouth (`*_front_on`) glows in the
+ * The six furnace tiers, each with its own walls, crown and mouth. A lit mouth (`*_front_on`) glows in the
  * tier's colour: dull red clay, orange blast, white-yellow arc with a blue rim, violet-white plasma, a golden
  * star. The whole lit face is drawn full-bright by the renderer, so the walls around the mouth stay as dark
  * as on the unlit face and only pick up a little reflected glow.
@@ -106,7 +106,48 @@ const clay: Tier = {
   },
 };
 
-// ---- tier 2: blast ----------------------------------------------------------------------------------
+// ---- tier 2: bronze (single block, drawn after the others but sits between clay and blast) --------------
+const roundedMouth: Mask = (x, y) => x >= 4 && x <= 11 && y >= 6 && y <= 12 && !((x === 4 || x === 11) && (y === 6 || y === 12));
+const bronze: Tier = {
+  walls: (c) => {
+    const b = P.BRONZE;
+    // Four riveted plates (8 x 8) with dark seams, a green-brown patina creeping up from the foot.
+    c.each((x, y) => {
+      if (x % 8 === 7 || y % 8 === 7) return shade(b[0], -0.3);
+      const plate = tone([b[1], b[2], b[3]], c.hash(x >> 3, y >> 3, 5) * 0.8);
+      return x % 8 === 0 || y % 8 === 0 ? shade(plate, 0.12) : plate;
+    });
+    for (const [x, y] of [[1, 1], [5, 1], [1, 5], [5, 5], [9, 1], [13, 1], [9, 5], [13, 5], [1, 9], [5, 9], [1, 13], [5, 13], [9, 9], [13, 9], [9, 13], [13, 13]]) rivet(c, x, y, b[4], b[0]);
+    for (let x = 0; x < 16; x++) for (let y = 12; y < 16; y++) if (c.hash(x, y, 7) < 0.35 - (15 - y) * 0.08) c.blend(x, y, P.rgb(0x4f7a62), 0.4);
+    for (let x = 0; x < 16; x++) for (let y = 0; y < 3; y++) if (c.hash(x, y, 3) < 0.5 - y * 0.15) c.blend(x, y, P.SOOT, 0.4);
+  },
+  crown: (c) => {
+    const b = P.BRONZE;
+    bronze.walls(c);
+    c.rect(2, 2, 12, 12, b[1]);
+    bevel(c, 2, 2, 12, 12, b[3], b[0]);
+    c.each((x, y) => {
+      const d = Math.hypot(x - 7.5, y - 7.5);
+      return d < 3 ? P.SOOT : d < 4 ? shade(P.SOOT, 0.15) : d < 5 ? b[3] : null;
+    });
+    for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11]]) rivet(c, x, y, b[4], b[0]);
+  },
+  frame: (c) => {
+    const b = P.BRONZE;
+    c.rect(3, 5, 10, 9, b[1]);
+    bevel(c, 3, 5, 10, 9, b[4], b[0]);
+    rivet(c, 3, 5, b[4], b[0]);
+    rivet(c, 11, 5, b[4], b[0]);
+  },
+  mouth: roundedMouth,
+  glow: [P.EMBER[1], P.EMBER[2], P.EMBER[3], P.BRONZE[4], P.BRONZE[4]],
+  over: (c, lit) => {
+    if (!lit) return;
+    for (const [x, w] of [[5, 3], [8, 3]]) c.rect(x, 12, w, 1, shade(P.COAL[1], 0.1));
+  },
+};
+
+// ---- tier 3: blast ----------------------------------------------------------------------------------
 function ironBand(c: Canvas, y: number): void {
   const iron = P.IRON_METAL;
   c.rect(0, y, 16, 2, iron[1]);
@@ -150,7 +191,7 @@ const blast: Tier = {
   },
 };
 
-// ---- tier 3: arc ------------------------------------------------------------------------------------
+// ---- tier 4: arc ------------------------------------------------------------------------------------
 function panels(c: Canvas, ramp: Ramp, seams: number[]): void {
   const f = c.noise(4, 4, 1);
   c.each((x, y) => {
@@ -200,7 +241,7 @@ const arc: Tier = {
   },
 };
 
-// ---- tier 4: plasma ---------------------------------------------------------------------------------
+// ---- tier 5: plasma ---------------------------------------------------------------------------------
 function coilBand(c: Canvas, y: number): void {
   const k = P.COPPER;
   for (let x = 0; x < 16; x++) {
@@ -241,7 +282,7 @@ const plasma: Tier = {
   },
 };
 
-// ---- tier 5: starhearth -----------------------------------------------------------------------------
+// ---- tier 6: starhearth -----------------------------------------------------------------------------
 const star: Tier = {
   walls: (c) => {
     panels(c, P.STAR_ALLOY, [15]);
@@ -307,6 +348,7 @@ function tierSet(name: string, t: Tier): PainterSet {
 
 export const FURNACES: PainterSet = {
   ...tierSet('clay', clay),
+  ...tierSet('bronze', bronze),
   ...tierSet('blast', blast),
   ...tierSet('arc', arc),
   ...tierSet('plasma', plasma),

@@ -5,6 +5,7 @@ import type { FurnaceView, UpgradeView } from '../../../sim';
 import type { Tone } from '../../kit/gauges';
 import type { ThermoNotch } from '../../kit/thermometer';
 import { nameOf } from './forgeRows';
+import { STAR_TIER } from '../../../core/constants';
 
 /** The Starhearth may start its ignition from this temperature (content params). */
 export const IGNITION_TEMP_C = machine('furnace').params?.ignitionTempC ?? 3000;
@@ -31,7 +32,7 @@ export function thermoNotches(view: FurnaceView, selected: RecipeDef | null): Th
   for (const c of view.crucibles) if (c.recipe) add(c.recipe.minTempC, shortName(c.recipe.output.item));
   if (selected && !view.ignited) add(selected.minTempC, shortName(selected.output.item));
   if (view.upgrade) add(view.upgrade.requiredC, 'Upgrade');
-  if (view.tier === 5 && !view.ignited) add(IGNITION_TEMP_C, 'Ignite');
+  if (view.tier === STAR_TIER && !view.ignited) add(IGNITION_TEMP_C, 'Ignite');
   if (!view.ignited) {
     if (view.flameC !== null) add(Math.round(view.flameC), 'Flame', 'limit');
     else if (view.electric.deliveredW > 0) add(Math.round(view.targetC), 'Electric', 'limit');

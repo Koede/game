@@ -10,8 +10,9 @@ import type { ItemAmount, RecipeSpec } from '../core/types';
 import type { Aspects } from '../magic/aspects';
 import { amount, amounts } from './amounts';
 
-const forge = (id: string, output: string, inputs: string, minTempC: number): RecipeSpec => ({
-  id, station: 'furnace', kind: 'forge', inputs: amounts(inputs), output: amount(output), minTempC, minTier: 1, age: 0,
+/** `minTier` 2 (the Bronze Furnace) for the Bronze-age pieces, 1 for what the Clay Furnace still makes. */
+const forge = (id: string, output: string, inputs: string, minTempC: number, minTier = 1): RecipeSpec => ({
+  id, station: 'furnace', kind: 'forge', inputs: amounts(inputs), output: amount(output), minTempC, minTier, age: minTier - 1,
 });
 
 export const MAGIC_RECIPES: RecipeSpec[] = [
@@ -19,9 +20,9 @@ export const MAGIC_RECIPES: RecipeSpec[] = [
   { id: 'vis_rod', station: 'workbench', inputs: amounts('2 stick, 1 glass_vial, 1 copper_ingot'), output: amount('vis_rod'), age: 0 },
   { id: 'essentia_jar', station: 'workbench', inputs: amounts('3 glass, 1 plank'), output: amount('essentia_jar'), age: 0 },
   forge('glass_vial', '2 glass_vial', '1 glass', 650),
-  forge('rune_desk', 'rune_desk', '4 plank, 2 copper_ingot, 1 glass', 500),
-  forge('essentia_tube', '4 essentia_tube', '2 glass, 1 copper_ingot', 650),
-  forge('arcane_pedestal', 'arcane_pedestal', '3 stone_brick, 1 copper_ingot', 500),
+  forge('rune_desk', 'rune_desk', '4 plank, 2 copper_ingot, 1 glass', 500, 2),
+  forge('essentia_tube', '4 essentia_tube', '2 glass, 1 copper_ingot', 650, 2),
+  forge('arcane_pedestal', 'arcane_pedestal', '3 stone_brick, 1 copper_ingot', 500, 2),
 ];
 
 /** A recipe at the Rune Desk: ingredients from the pack, plus essentia. */

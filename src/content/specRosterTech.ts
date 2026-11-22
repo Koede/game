@@ -90,9 +90,9 @@ export const TECH_SPEC = {
 
   /** tier -> [walls, minInner, maxInner, ceiling, electrodes, powerPorts, maxCrucibles, crucibleBonus] (spec 17.1). */
   hearths: {
-    2: [['brick', 'refractory_brick', 'plasma_casing', 'star_casing'], [1, 1, 1], [3, 3, 3], 'optional', 0, 0, 5, 1],
-    3: [['refractory_brick', 'plasma_casing', 'star_casing'], [1, 1, 1], [4, 4, 3], 'required', 1, 0, 6, 1],
-    4: [['plasma_casing', 'star_casing'], [2, 2, 2], [5, 5, 4], 'required', 0, 2, 8, 2],
-    5: [['star_casing'], [3, 3, 3], [5, 5, 5], 'required', 0, 4, 9, 0],
+    3: [['brick', 'refractory_brick', 'plasma_casing', 'star_casing'], [1, 1, 1], [3, 3, 3], 'optional', 0, 0, 5, 1],
+    4: [['refractory_brick', 'plasma_casing', 'star_casing'], [1, 1, 1], [4, 4, 3], 'required', 1, 0, 6, 1],
+    5: [['plasma_casing', 'star_casing'], [2, 2, 2], [5, 5, 4], 'required', 0, 2, 8, 2],
+    6: [['star_casing'], [3, 3, 3], [5, 5, 5], 'required', 0, 4, 9, 0],
   } as Record<number, [string[], number[], number[], string, number, number, number, number]>,
 };

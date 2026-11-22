@@ -1,4 +1,4 @@
-/** Goals of the Bronze workshop (docs/OVERHAUL_PLAN.md A), spliced into objectives.ts after the bronze pickaxe. */
+/** Goals of the Bronze workshop (docs/OVERHAUL_PLAN.md A), spliced into objectives.ts after the Bronze Furnace goal (they need its recipes). */
 import type { ObjectiveSpec } from '../core/types';
 import { ageIndexOf } from '../magic/ageMap';
 

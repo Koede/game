@@ -2,7 +2,7 @@
  * Content checks for item and fluid transport and multiblock hearths (spec 16-17). validateContent in the registry
  * calls this with its resolved tables (passed in, so this file needs no import of the registry).
  */
-import { HEARTH_CEILING_PARTS, HEARTH_FACE_PARTS } from './constants';
+import { FIRST_HEARTH_TIER, HEARTH_CEILING_PARTS, HEARTH_FACE_PARTS } from './constants';
 import { faceCells, smallestShell } from './hearth';
 import type { BlockDef, FluidSpec, FurnaceTierSpec, MachineSpec } from './types';
 
@@ -65,8 +65,8 @@ function validateHearths(t: TechTables, problems: string[]): void {
   t.tiers.forEach((tier, i) => {
     const s = tier.structure;
     const at = `furnace tier ${tier.tier}`;
-    if (i === 0) {
-      if (s) problems.push(`${at}: the first tier stands alone and has no structure`);
+    if (tier.tier < FIRST_HEARTH_TIER) {
+      if (s) problems.push(`${at}: the single-block tiers stand alone and have no structure`);
       return;
     }
     if (!s) {

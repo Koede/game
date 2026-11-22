@@ -1,5 +1,5 @@
 /** Test fixture: a simulation over the in-memory fake world. Imported by path from tests only. */
-import { DT } from '../core/constants';
+import { DT, FIRST_HEARTH_TIER } from '../core/constants';
 import { createBus, type GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { GameClock } from '../game/clock';
@@ -56,7 +56,7 @@ export function makeKit(makeWorld: (bus: GameBus) => FakeWorld = (bus) => new Fa
     formed(x, y, z, options = {}) {
       const e = sim.furnaceAt(x, y, z);
       if (!e) throw new Error(`no furnace at ${x},${y},${z}`);
-      const box = buildHearth(world, x, y, z, { tier: Math.max(2, e.tier), facing: voxelFacing(world.getVoxel(x, y, z)), ...options });
+      const box = buildHearth(world, x, y, z, { tier: Math.max(FIRST_HEARTH_TIER, e.tier), facing: voxelFacing(world.getVoxel(x, y, z)), ...options });
       sim.validateHearths();
       return box;
     },

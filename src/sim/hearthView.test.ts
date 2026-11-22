@@ -15,13 +15,13 @@ describe('structure view', () => {
   it('plans the smallest hearth the furnace needs when nothing stands yet', () => {
     const kit = kitWithFurnace();
     const v = kit.sim.structureView(0, 1, 0)!;
-    expect(v).toMatchObject({ controllerTier: 2, effectiveTier: 1, formed: false, tier: 0, name: null, inner: null, status: 'Not formed' });
+    expect(v).toMatchObject({ controllerTier: 3, effectiveTier: 2, formed: false, tier: 0, name: null, inner: null, status: 'Not formed' });
     expect(v.problems).toEqual([]);
     expect(v.note).toBe('No hearth built around this furnace yet');
     expect(v.tiers.map((t) => [t.tier, t.name, t.wall])).toEqual([
-      [2, 'Blast hearth', 'brick'], [3, 'Arc hearth', 'refractory_brick'], [4, 'Plasma hearth', 'plasma_casing'], [5, 'Starhearth', 'star_casing'],
+      [3, 'Blast hearth', 'brick'], [4, 'Arc hearth', 'refractory_brick'], [5, 'Plasma hearth', 'plasma_casing'], [6, 'Starhearth', 'star_casing'],
     ]);
-    expect(v.target).toMatchObject({ tier: 2, name: 'Blast hearth', inner: [1, 1, 1], closed: false, min: [-1, 0, 0], max: [1, 1, 2], ready: false });
+    expect(v.target).toMatchObject({ tier: 3, name: 'Blast hearth', inner: [1, 1, 1], closed: false, min: [-1, 0, 0], max: [1, 1, 2], ready: false });
     // 16 cells, all to be placed: 9 floor, 7 walls (the furnace is the eighth).
     expect(v.target.cells).toHaveLength(16);
     expect(v.target.cells.every((c) => c.state === 'missing' && c.want === 'brick' && c.has === 'air')).toBe(true);
@@ -60,8 +60,8 @@ describe('structure view', () => {
     const kit = kitWithFurnace();
     kit.formed(0, 1, 0, { inner: [3, 2, 1] });
     const v = kit.sim.structureView(0, 1, 0)!;
-    expect(v).toMatchObject({ formed: true, tier: 2, name: 'Blast hearth', inner: [3, 2, 1], status: 'Formed - Blast hearth 3x2x1' });
-    expect(v.target.tier).toBe(3);
+    expect(v).toMatchObject({ formed: true, tier: 3, name: 'Blast hearth', inner: [3, 2, 1], status: 'Formed - Blast hearth 3x2x1' });
+    expect(v.target.tier).toBe(4);
     expect(v.target.inner).toEqual([3, 2, 1]);
     expect(v.target.closed).toBe(true);
     const electrodes = v.target.cells.filter((c) => c.want === 'electrode');
@@ -84,21 +84,21 @@ describe('structure view', () => {
 
   it('fits a chosen size into the tier bounds and puts power ports where they cost least', () => {
     const kit = kitWithFurnace('furnace_plasma');
-    const v = kit.sim.structureView(0, 1, 0, { tier: 4, inner: [9, 1, 3] })!;
+    const v = kit.sim.structureView(0, 1, 0, { tier: 5, inner: [9, 1, 3] })!;
     expect(v.target.inner).toEqual([5, 2, 3]);
     const ports = v.target.cells.filter((c) => c.want === 'power_port');
     expect(ports).toHaveLength(2);
     expect(ports.every((c) => c.role === 'wall' && c.state === 'missing')).toBe(true);
     // Placing every block the preview asks for forms it at that tier.
     for (const c of v.target.cells) if (c.want !== 'air') kit.world.put(c.x, c.y, c.z, c.want);
-    expect(kit.sim.structureView(0, 1, 0, { tier: 4, inner: [5, 2, 3] })).toMatchObject({ formed: true, tier: 4, inner: [5, 2, 3] });
-    expect(kit.sim.structureView(0, 1, 0, { tier: 4 })!.target.ready).toBe(true);
+    expect(kit.sim.structureView(0, 1, 0, { tier: 5, inner: [5, 2, 3] })).toMatchObject({ formed: true, tier: 5, inner: [5, 2, 3] });
+    expect(kit.sim.structureView(0, 1, 0, { tier: 5 })!.target.ready).toBe(true);
   });
 
   it('offers shifts left and right as seen in front of the furnace, within the offset range (sim-7)', () => {
     // Facing north, the player stands north of it looking south: their left is +x, their right -x.
     const kit = kitWithFurnace();
-    const plan = (offset: number) => kit.sim.structureView(0, 1, 0, { tier: 2, inner: [3, 1, 1], offset })!.target;
+    const plan = (offset: number) => kit.sim.structureView(0, 1, 0, { tier: 3, inner: [3, 1, 1], offset })!.target;
     const mid = plan(-1);
     expect(mid).toMatchObject({ offset: -1, offsets: [-2, 0], shiftLeft: 0, shiftRight: -2, min: [-2, 0, 0], max: [2, 1, 2] });
     const left = plan(mid.shiftLeft!);
@@ -106,7 +106,7 @@ describe('structure view', () => {
     const right = plan(mid.shiftRight!);
     expect(right).toMatchObject({ offset: -2, shiftLeft: -1, shiftRight: null, min: [-3, 0, 0], max: [1, 1, 2] });
     // One block wide inside: nowhere to shift.
-    expect(kit.sim.structureView(0, 1, 0, { tier: 2, inner: [1, 1, 1] })!.target).toMatchObject({ offsets: [0, 0], shiftLeft: null, shiftRight: null });
+    expect(kit.sim.structureView(0, 1, 0, { tier: 3, inner: [1, 1, 1] })!.target).toMatchObject({ offsets: [0, 0], shiftLeft: null, shiftRight: null });
   });
 
   it('lists each machine or pipe in the plan\'s way once, but not hatches set in its wall (sim-7)', () => {
@@ -114,7 +114,7 @@ describe('structure view', () => {
     kit.machine('crate', 0, 1, 1);
     kit.world.put(1, 1, 1, 'item_pipe');
     kit.world.put(0, 1, 2, 'item_hatch');
-    const v = kit.sim.structureView(0, 1, 0, { tier: 2, inner: [1, 1, 1] })!;
+    const v = kit.sim.structureView(0, 1, 0, { tier: 3, inner: [1, 1, 1] })!;
     expect(v.target.machines).toEqual([{ x: 0, y: 1, z: 1, block: 'crate', name: 'Crate' }, { x: 1, y: 1, z: 1, block: 'item_pipe', name: v.target.machines[1].name }]);
     expect(v.target.cells.find((c) => c.x === 0 && c.y === 1 && c.z === 2)).toMatchObject({ want: 'item_hatch', state: 'ok' });
   });

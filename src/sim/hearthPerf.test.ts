@@ -30,10 +30,10 @@ describe('hearth speed', () => {
     world.ensureLoadedAround(0, 0, 1);
     const sim = new Simulation(world, bus, new PlayerState(bus, { x: 0.5, y: Y, z: -3 }), new GameClock(bus));
     world.setVoxel(0, Y, 0, makeVoxel(blockId('furnace_star'), Facing.North), 'player');
-    buildHearth(world, 0, Y, 0, { tier: 5, inner: [5, 5, 5] });
+    buildHearth(world, 0, Y, 0, { tier: 6, inner: [5, 5, 5] });
     sim.validateHearths();
     const e = sim.furnaceAt(0, Y, 0)!;
-    expect(e).toMatchObject({ effTier: 5, hearth: { tier: 5, inner: [5, 5, 5], closed: true } });
+    expect(e).toMatchObject({ effTier: 6, hearth: { tier: 6, inner: [5, 5, 5], closed: true } });
     e.fuel[0] = { item: 'coal', count: 99 };
     sim.light(0, Y, 0);
 
@@ -43,6 +43,6 @@ describe('hearth speed', () => {
     console.log(`hearth speed (real World): full scan of a 7x7x7 box ${scan.toFixed(4)} ms; tick with a formed 5x5x5 hearth ${tick.toFixed(4)} ms`);
     expect(scan).toBeLessThan(1);
     expect(tick).toBeLessThan(0.05);
-    expect(e.hearth?.tier).toBe(5);
+    expect(e.hearth?.tier).toBe(6);
   });
 });

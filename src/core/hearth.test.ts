@@ -72,12 +72,12 @@ describe('transport and hearth validation', () => {
   });
 
   it('accepts consistent tiers and reports broken ones', () => {
-    expect(validateTech(tables({ tiers: [tier(1), tier(2, BLAST)] }))).toEqual([]);
+    expect(validateTech(tables({ tiers: [tier(1), tier(2), tier(3, BLAST)] }))).toEqual([]);
     const problems = validateTech(tables({
-      tiers: [tier(1, BLAST), tier(2), tier(3, { ...ODD, minInner: [3, 1, 1], electrodes: 2, ceiling: 'optional' })],
+      tiers: [tier(1, BLAST), tier(2), tier(3), tier(4, { ...ODD, minInner: [3, 1, 1], electrodes: 2, ceiling: 'optional' })],
     }));
-    expect(problems.some((p) => p.includes('first tier stands alone'))).toBe(true);
-    expect(problems.some((p) => p.includes('tier 2: needs a hearth structure'))).toBe(true);
+    expect(problems.some((p) => p.includes('single-block tiers stand alone'))).toBe(true);
+    expect(problems.some((p) => p.includes('tier 3: needs a hearth structure'))).toBe(true);
     expect(problems.some((p) => p.includes('minInner exceeds maxInner'))).toBe(true);
     expect(problems.some((p) => p.includes('electrodes need a required ceiling'))).toBe(true);
   });
@@ -85,8 +85,8 @@ describe('transport and hearth validation', () => {
   it('insists that higher walls also count for lower tiers', () => {
     const lower = { ...BLAST, wall: ['brick'] };
     const upper = { ...PLASMA, wall: ['casing'] };
-    const problems = validateTech(tables({ tiers: [tier(1), tier(2, lower), tier(3, upper)] }));
-    expect(problems).toContain(`furnace tier 2: tier 3's wall "casing" must also count here`);
+    const problems = validateTech(tables({ tiers: [tier(1), tier(2), tier(3, lower), tier(4, upper)] }));
+    expect(problems).toContain(`furnace tier 3: tier 4's wall "casing" must also count here`);
   });
 
   it('checks fluids and fluid ports', () => {

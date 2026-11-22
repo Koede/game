@@ -1,5 +1,6 @@
 /** Reading a formed hearth off its furnace entity (`FurnaceEntity.hearth`, written by src/sim). Pure, node-testable. */
 import type { BlockEntity } from '../../core/types';
+import { FIRST_HEARTH_TIER } from '../../core/constants';
 
 /** A formed hearth's shell and the interior inside it (inclusive block coordinates). */
 export interface HearthBox {
@@ -18,7 +19,7 @@ const isTriple = (v: unknown): v is [number, number, number] =>
 export function hearthBox(e: BlockEntity): HearthBox | null {
   if (e.kind !== 'furnace') return null;
   const h = e.hearth as { tier?: unknown; min?: unknown; max?: unknown; closed?: unknown } | null | undefined;
-  if (!h || typeof h !== 'object' || typeof h.tier !== 'number' || h.tier < 2) return null;
+  if (!h || typeof h !== 'object' || typeof h.tier !== 'number' || h.tier < FIRST_HEARTH_TIER) return null;
   if (!isTriple(h.min) || !isTriple(h.max)) return null;
   const min = h.min;
   const max = h.max;

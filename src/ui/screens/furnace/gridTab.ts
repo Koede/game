@@ -6,6 +6,7 @@ import { lonelyFurnaceText } from '../machines/machineText';
 import { NetworkPanel } from '../machines/networkPanel';
 import { IgnitionPanel } from './ignition';
 import type { ScreenSim } from './simApi';
+import { FIRST_HEARTH_TIER, STAR_TIER } from '../../../core/constants';
 
 export class GridTab {
   readonly el: HTMLElement;
@@ -24,15 +25,15 @@ export class GridTab {
 
   /** The furnace's network is in brown-out or overload (the tab badge). */
   alert(view: FurnaceView): boolean {
-    if (!view.electric.available && view.tier < 2) return false;
+    if (!view.electric.available && view.tier < FIRST_HEARTH_TIER) return false;
     const net = this.network();
     return net !== null && net.state !== 'ok';
   }
 
   update(view: FurnaceView): void {
     const net = this.network();
-    this.ignition.el.hidden = view.tier < 5;
-    if (view.tier >= 5) this.ignition.update(view, net);
+    this.ignition.el.hidden = view.tier < STAR_TIER;
+    if (view.tier >= STAR_TIER) this.ignition.update(view, net);
     this.net.setEmptyText(lonelyFurnaceText(view.tier));
     this.net.update(net, net !== null && net.members.length <= 1);
   }

@@ -1,5 +1,5 @@
 /**
- * Technology: the five ages, the five furnace tiers (spec 2.4) and the static numbers of every machine (spec 2.5
+ * Technology: the six ages, the six furnace tiers (spec 2.4) and the static numbers of every machine (spec 2.5
  * and 3.3). Behaviour lives in src/sim; it reads its numbers from here through `machine(kind)` in the registry.
  */
 import { BATTERY_EFFICIENCY, CRATE_SIZE, IGNITION_POWER_W, IGNITION_SECONDS, STARHEARTH_OUTPUT_W } from '../core/constants';
@@ -14,18 +14,19 @@ import { TECH_MACHINES } from './techMachines';
 
 /** Hearth wall blocks by tier (spec 17.1). A tier accepts its own wall and every higher tier's. */
 const WALLS = ['brick', 'refractory_brick', 'plasma_casing', 'star_casing'];
-const wallsFrom = (tier: number): string[] => WALLS.slice(tier - 2);
+const wallsFrom = (tier: number): string[] => WALLS.slice(tier - 3);
 
 /** The hearth each tier needs (spec 17.1). Crucibles of a formed hearth = min(maxCrucibles, x * z + crucibleBonus). */
 const HEARTHS: Record<number, HearthStructureSpec> = {
-  2: { wall: wallsFrom(2), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', maxCrucibles: 5, crucibleBonus: 1 },
-  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [4, 4, 3], ceiling: 'required', electrodes: 1, maxCrucibles: 6, crucibleBonus: 1 },
-  4: { wall: wallsFrom(4), minInner: [2, 2, 2], maxInner: [5, 5, 4], ceiling: 'required', powerPorts: 2, maxCrucibles: 8, crucibleBonus: 2 },
-  5: { wall: wallsFrom(5), minInner: [3, 3, 3], maxInner: [5, 5, 5], ceiling: 'required', powerPorts: 4, maxCrucibles: 9, crucibleBonus: 0 },
+  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', maxCrucibles: 5, crucibleBonus: 1 },
+  4: { wall: wallsFrom(4), minInner: [1, 1, 1], maxInner: [4, 4, 3], ceiling: 'required', electrodes: 1, maxCrucibles: 6, crucibleBonus: 1 },
+  5: { wall: wallsFrom(5), minInner: [2, 2, 2], maxInner: [5, 5, 4], ceiling: 'required', powerPorts: 2, maxCrucibles: 8, crucibleBonus: 2 },
+  6: { wall: wallsFrom(6), minInner: [3, 3, 3], maxInner: [5, 5, 5], ceiling: 'required', powerPorts: 4, maxCrucibles: 9, crucibleBonus: 0 },
 };
 
 export const AGES: AgeSpec[] = [
   { key: 'ember', name: 'Ember Age', blurb: 'A clay furnace, a wood fire, and the first metal you ever poured.' },
+  { key: 'bronze', name: 'Bronze Age', blurb: 'A hotter furnace, heat carried along rods, and steam in a kettle.' },
   { key: 'forge', name: 'Forge Age', blurb: 'Iron, steel, and the first machines to share the work.' },
   { key: 'current', name: 'Current Age', blurb: 'Electricity becomes the hottest flame you own.' },
   { key: 'atomic', name: 'Atomic Age', blurb: 'Plasma, superalloy, and the power locked inside the atom.' },
@@ -40,27 +41,33 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
     blurb: 'Rubble and clay around a fire. It smelts tin and copper, forges bronze, and keeps the night away.',
   },
   {
-    tier: 2, block: 'furnace_blast', name: 'Blast Furnace', age: 1,
+    tier: 2, block: 'furnace_bronze', name: 'Bronze Furnace', age: 1,
+    maxTempC: 1100, heatCapacityJ: 220, lossWPerC: 2.2, crucibles: 2, fuelSlots: 2, speed: 1.1, electricHeatW: 0, warmth: 7,
+    upgradeCost: amounts('8 bronze_ingot, 4 firebrick, 1 bellows'), upgradeTempC: 700,
+    blurb: 'Bronze plates round the firebox. A hotter fire, two crucibles, and heat that thermocouples can carry to your machines.',
+  },
+  {
+    tier: 3, block: 'furnace_blast', name: 'Blast Furnace', age: 2,
     maxTempC: 1500, heatCapacityJ: 300, lossWPerC: 2.5, crucibles: 2, fuelSlots: 2, speed: 1.25, electricHeatW: 0, warmth: 8,
-    upgradeCost: amounts('4 bronze_ingot, 1 bellows'), upgradeTempC: 700, structure: HEARTHS[2],
+    upgradeCost: amounts('4 bronze_ingot, 1 bellows'), upgradeTempC: 700, structure: HEARTHS[3],
     blurb: 'A hearth of brick holds the heat that clay could not. Iron, steel and your first real machines come from here.',
   },
   {
-    tier: 3, block: 'furnace_arc', name: 'Arc Furnace', age: 2,
+    tier: 4, block: 'furnace_arc', name: 'Arc Furnace', age: 3,
     maxTempC: 2100, heatCapacityJ: 400, lossWPerC: 3, crucibles: 3, fuelSlots: 2, speed: 1.5, electricHeatW: 8000, warmth: 10,
-    upgradeCost: amounts('2 copper_coil, 2 steel_plate'), upgradeTempC: 1200, structure: HEARTHS[3],
+    upgradeCost: amounts('2 copper_coil, 2 steel_plate'), upgradeTempC: 1200, structure: HEARTHS[4],
     blurb: 'Refractory walls and an arc in the ceiling. Cable it to your network and it heats itself with up to 8 kW, far past anything a fuel can reach.',
   },
   {
-    tier: 4, block: 'furnace_plasma', name: 'Plasma Furnace', age: 3,
+    tier: 5, block: 'furnace_plasma', name: 'Plasma Furnace', age: 4,
     maxTempC: 3200, heatCapacityJ: 800, lossWPerC: 8, crucibles: 4, fuelSlots: 2, speed: 2, electricHeatW: 40000, warmth: 12,
-    upgradeCost: amounts('2 circuit, 2 tungsten_rod'), upgradeTempC: 1900, structure: HEARTHS[4],
+    upgradeCost: amounts('2 circuit, 2 tungsten_rod'), upgradeTempC: 1900, structure: HEARTHS[5],
     blurb: 'Plasma held in a casing of tungsten and steel. It draws up to 40 kW through its power ports, so copper cable will no longer do.',
   },
   {
-    tier: 5, block: 'furnace_star', name: 'Starhearth', age: 4,
+    tier: 6, block: 'furnace_star', name: 'Starhearth', age: 5,
     maxTempC: 3200, heatCapacityJ: 800, lossWPerC: 8, crucibles: 4, fuelSlots: 2, speed: 3, electricHeatW: 40000, warmth: 24,
-    upgradeCost: amounts('1 star_core, 8 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[5],
+    upgradeCost: amounts('1 star_core, 8 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[6],
     blurb: 'A star core in a furnace body. Hold 3000 C, deliver 300 kW for 90 seconds, and it will burn on its own forever.',
   },
 ];
@@ -72,7 +79,7 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
 const BURNER_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel && it.fuel.fuelReturns === undefined).map((it) => it.key);
 
 export const MACHINE_SPECS: MachineSpec[] = [
-  // furnace - one spec for all five tier blocks. Per-tier numbers are in FURNACE_TIERS and the fire model's
+  // furnace - one spec for all six tier blocks. Per-tier numbers are in FURNACE_TIERS and the fire model's
   // constants in core/constants. outputW is what an ignited Starhearth generates. params:
   //   ignitionTempC            temperature the Starhearth must be at before ignition may start
   //   ignitionPowerW           watts demanded while igniting, on top of electric heating
@@ -82,7 +89,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
   //   ignitedTempC             temperature an ignited Starhearth is pinned at
   {
     kind: 'furnace', name: 'Furnace', role: 'furnace',
-    blocks: ['furnace_clay', 'furnace_blast', 'furnace_arc', 'furnace_plasma', 'furnace_star'],
+    blocks: ['furnace_clay', 'furnace_bronze', 'furnace_blast', 'furnace_arc', 'furnace_plasma', 'furnace_star'],
     outputW: STARHEARTH_OUTPUT_W,
     params: {
       ignitionTempC: 3000, ignitionPowerW: IGNITION_POWER_W, ignitionSeconds: IGNITION_SECONDS,

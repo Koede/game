@@ -1,6 +1,6 @@
 /** The home compass: a needle towards the home furnace relative to the view, its distance, and whether it is hot. */
 import { FURNACE_HOT_C } from '../../core/constants';
-import { furnaceTier } from '../../core/registry';
+import { MAX_FURNACE_TIER, furnaceTier } from '../../core/registry';
 import type { PlayerState } from '../../game/playerState';
 import { h, setAttr, setFlag, setText } from '../kit/dom';
 import { heatColor, heatTextColor } from '../kit/format';
@@ -58,7 +58,7 @@ export class Compass {
       this.tempEl.style.color = hot && furnace ? heatTextColor(furnace.tempC) : '';
       this.el.style.setProperty('--hw-home-heat', hot && furnace ? heatColor(Math.max(500, furnace.tempC)) : 'var(--hw-iron-3)');
     }
-    const name = furnace ? furnaceTier(Math.min(5, Math.max(1, furnace.tier))).name : 'Furnace';
+    const name = furnace ? furnaceTier(Math.min(MAX_FURNACE_TIER, Math.max(1, furnace.tier))).name : 'Furnace';
     setAttr(this.el, 'aria-label', `Home: ${name}, ${dist} m away, ${furnace === null ? 'missing' : hot ? `${Math.round(furnace.tempC)} °C` : 'cold'}`);
     setFlag(this.el, 'hot', hot);
     this.aim(player);

@@ -24,9 +24,9 @@ export const MAGIC_SPEC = {
     ],
     furnace: [
       'glass_vial: 2 glass_vial <- 1 glass @650 T1',
-      'rune_desk: 1 rune_desk <- 4 plank, 2 copper_ingot, 1 glass @500 T1',
-      'essentia_tube: 4 essentia_tube <- 2 glass, 1 copper_ingot @650 T1',
-      'arcane_pedestal: 1 arcane_pedestal <- 3 stone_brick, 1 copper_ingot @500 T1',
+      'rune_desk: 1 rune_desk <- 4 plank, 2 copper_ingot, 1 glass @500 T2',
+      'essentia_tube: 4 essentia_tube <- 2 glass, 1 copper_ingot @650 T2',
+      'arcane_pedestal: 1 arcane_pedestal <- 3 stone_brick, 1 copper_ingot @500 T2',
     ],
   } as Record<string, string[]>,
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */

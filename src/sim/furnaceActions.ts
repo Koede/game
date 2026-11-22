@@ -1,7 +1,5 @@
 /** What the player can do at a furnace (spec 3.1). Every action returns ok or a short human reason. */
-import {
-  AMBIENT_TEMP_C, DRAFT_PER_PUMP, FORGE_CHILL_C, FURNACE_HOT_C, PLAYER_HEIGHT,
-} from '../core/constants';
+import { AMBIENT_TEMP_C, DRAFT_PER_PUMP, FIRST_HEARTH_TIER, FORGE_CHILL_C, FURNACE_HOT_C, PLAYER_HEIGHT } from '../core/constants';
 import { FURNACE_TIERS, MAX_FURNACE_TIER, blockId, furnaceTier, recipe } from '../core/registry';
 import { withId } from '../core/types';
 import type { GameClock } from '../game/clock';
@@ -117,7 +115,7 @@ export function tierLock(e: FurnaceEntity, minTier: number): string | null {
 
 /** What keeps the next tier's hearth from counting as built, or null (spec 17.1: the upgrade needs it formed). */
 export const upgradeStructure = (e: FurnaceEntity, nextTier: number): string | null =>
-  (e.hearth?.tier ?? 0) >= nextTier ? null : buildHint(nextTier);
+  nextTier < FIRST_HEARTH_TIER || (e.hearth?.tier ?? 0) >= nextTier ? null : buildHint(nextTier);
 
 /** Rebuilds the furnace as the next tier, in place. Needs the next tier's hearth formed around it. */
 export function upgrade(host: ActionHost, e: FurnaceEntity): ActionResult {

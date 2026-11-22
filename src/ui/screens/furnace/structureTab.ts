@@ -8,7 +8,7 @@
  * still missing there is work ahead, not a fault in what was just built.
  */
 import type { GameBus } from '../../../core/context';
-import { HEARTH_HIGHLIGHT_S } from '../../../core/constants';
+import { FIRST_HEARTH_TIER, HEARTH_HIGHLIGHT_S } from '../../../core/constants';
 import { itemOrNull } from '../../../core/registry';
 import type { HearthProblem, StructureCheck, StructureTarget, StructureView, TierChoice } from '../../../sim';
 import { Button, Toggle } from '../../kit/controls';
@@ -177,7 +177,7 @@ export class StructureTab {
     this.view = view;
     this.status.update({ text: view.status, tone: statusTone(view) });
     setText(this.effect, effectText(view));
-    this.intro.hidden = view.controllerTier > 1;
+    this.intro.hidden = view.controllerTier >= FIRST_HEARTH_TIER;
     // The plan is ahead of the standing hearth: show that hearth first, the next tier's work folded below it.
     const ahead = view.formed && view.target.tier > view.tier;
     const chosen = this.ghost.target(x, y, z) !== undefined;

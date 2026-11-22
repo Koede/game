@@ -7,7 +7,7 @@ const none = { formed: false, tier: 0, inner: null };
 
 function up(over: Partial<UpgradeView>): UpgradeView {
   return {
-    next: furnaceTier(2), requiredC: 700, tempOk: true, structureOk: true, structure: null, ok: false, reason: null,
+    next: furnaceTier(3), requiredC: 700, tempOk: true, structureOk: true, structure: null, ok: false, reason: null,
     ingredients: [
       { item: 'bronze_ingot', need: 4, have: 4, ok: true },
       { item: 'bellows', need: 1, have: 1, ok: true },
@@ -19,14 +19,14 @@ function up(over: Partial<UpgradeView>): UpgradeView {
 describe('upgrade sheet texts', () => {
   it('gives crucibles from the hearth rule, not a fixed number', () => {
     expect(crucibleText(furnaceTier(1), none)).toBe(String(furnaceTier(1).crucibles));
-    expect(crucibleText(furnaceTier(3), none)).toBe('2 - up to 6');
-    expect(crucibleText(furnaceTier(4), none)).toBe('6 - up to 8');
-    expect(crucibleText(furnaceTier(5), none)).toBe('9');
-    expect(crucibleText(furnaceTier(3), { formed: true, tier: 3, inner: [2, 2, 1] })).toBe('5 (this hearth)');
+    expect(crucibleText(furnaceTier(4), none)).toBe('2 - up to 6');
+    expect(crucibleText(furnaceTier(5), none)).toBe('6 - up to 8');
+    expect(crucibleText(furnaceTier(6), none)).toBe('9');
+    expect(crucibleText(furnaceTier(4), { formed: true, tier: 4, inner: [2, 2, 1] })).toBe('5 (this hearth)');
   });
 
   it('lists the crucibles that work now beside the next tier', () => {
-    const rows = upgradeStats({ spec: furnaceTier(2), cruciblesActive: 2, hearth: { formed: true, tier: 2, inner: [1, 1, 1] } as never }, furnaceTier(3));
+    const rows = upgradeStats({ spec: furnaceTier(3), cruciblesActive: 2, hearth: { formed: true, tier: 3, inner: [1, 1, 1] } as never }, furnaceTier(4));
     expect(rows.find((r) => r.label === 'Crucibles')).toEqual({ label: 'Crucibles', now: '2', next: '2 - up to 6' });
   });
 

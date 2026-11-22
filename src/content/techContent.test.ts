@@ -95,13 +95,13 @@ describe('16. item and fluid transport', () => {
   it('makes pipes and the wrench obtainable in the age the spec puts them in', () => {
     expect(firstStage('item_pipe')).toBe(1);
     expect(firstStage('wrench')).toBe(1);
-    for (const k of ['fast_item_pipe', 'fluid_pipe', 'hot_fluid_pipe', 'pump', 'tank', 'boiler']) expect(firstStage(k), k).toBe(2);
-    expect(firstStage('steam_turbine')).toBe(3);
+    for (const k of ['fast_item_pipe', 'fluid_pipe', 'hot_fluid_pipe', 'pump', 'tank', 'boiler']) expect(firstStage(k), k).toBe(3);
+    expect(firstStage('steam_turbine')).toBe(4);
   });
 
   it('runs a steam turbine off a boiler over the furnace', () => {
     // A Current Age furnace at 2100 C boils at the boiler's cap, so one turbine gives its full 8 kW.
-    expect(stages[3].generationW).toBeGreaterThanOrEqual(machine('steam_turbine').outputW ?? 0);
+    expect(stages[4].generationW).toBeGreaterThanOrEqual(machine('steam_turbine').outputW ?? 0);
   });
 });
 
@@ -125,16 +125,16 @@ describe('17. multiblock hearths', () => {
     };
     const area = (x: number, z: number): [number, number, number] => [x, z, 1];
     for (let x = 1; x <= 5; x++) for (let z = 1; z <= 5; z++) {
-      expect(hearthCrucibles(s(2), area(x, z))).toBe(Math.min(4, x * z) + 1);
-      expect(hearthCrucibles(s(3), area(x, z))).toBe(Math.min(6, x * z + 1));
-      expect(hearthCrucibles(s(4), area(x, z))).toBe(Math.min(8, x * z + 2));
+      expect(hearthCrucibles(s(3), area(x, z))).toBe(Math.min(4, x * z) + 1);
+      expect(hearthCrucibles(s(4), area(x, z))).toBe(Math.min(6, x * z + 1));
+      expect(hearthCrucibles(s(5), area(x, z))).toBe(Math.min(8, x * z + 2));
     }
-    expect(hearthCrucibles(s(5), [3, 3, 3])).toBe(9);
-    expect(hearthCrucibles(s(5), [5, 5, 5])).toBe(9);
+    expect(hearthCrucibles(s(6), [3, 3, 3])).toBe(9);
+    expect(hearthCrucibles(s(6), [5, 5, 5])).toBe(9);
   });
 
   it('ranks walls by tier, a higher wall serving every lower tier', () => {
-    expect(['brick', 'refractory_brick', 'plasma_casing', 'star_casing'].map(hearthWallTier)).toEqual([2, 3, 4, 5]);
+    expect(['brick', 'refractory_brick', 'plasma_casing', 'star_casing'].map(hearthWallTier)).toEqual([3, 4, 5, 6]);
     expect(hearthWallTier('stone_brick')).toBe(0);
     expect(hearthWallTier('glass')).toBe(0);
     for (const key of [...HEARTH_FACE_PARTS, ...HEARTH_CEILING_PARTS]) expect(block(key).key).toBe(key);
@@ -150,11 +150,11 @@ describe('17. multiblock hearths', () => {
 
   it('shrinks the upgrade costs to those of 17.2', () => {
     const costs = FURNACE_TIERS.map((t) => t.upgradeCost.map((c) => `${c.count} ${c.item}`).join(', '));
-    expect(costs).toEqual(['', '4 bronze_ingot, 1 bellows', '2 copper_coil, 2 steel_plate', '2 circuit, 2 tungsten_rod', '1 star_core, 8 deuterium_cell']);
+    expect(costs).toEqual(['', '8 bronze_ingot, 4 firebrick, 1 bellows', '4 bronze_ingot, 1 bellows', '2 copper_coil, 2 steel_plate', '2 circuit, 2 tungsten_rod', '1 star_core, 8 deuterium_cell']);
   });
 
   it('prices the smallest legal shell of every tier', () => {
-    const shells = [2, 3, 4, 5].map((t) => hearthMaterials(t).map((m) => `${m.count} ${m.item}`).join(', '));
+    const shells = [3, 4, 5, 6].map((t) => hearthMaterials(t).map((m) => `${m.count} ${m.item}`).join(', '));
     expect(shells).toEqual([
       '16 brick', // open-topped 3x3x2 around one cell, the furnace in a wall
       '24 refractory_brick, 1 electrode',
@@ -174,20 +174,20 @@ describe('17. multiblock hearths', () => {
   });
 
   it('makes every hearth buildable with the furnace before it, and not earlier than the age it belongs to', () => {
-    for (let t = 2; t <= MAX_FURNACE_TIER; t++) {
+    for (let t = 3; t <= MAX_FURNACE_TIER; t++) {
       for (const m of hearthMaterials(t)) {
         expect(stages[t - 1].items.has(m.item), `tier ${t} needs ${m.item} at tier ${t - 1}`).toBe(true);
       }
     }
     expect(firstStage('brick')).toBe(1);
-    expect(firstStage('refractory_brick')).toBe(2);
-    expect(firstStage('electrode')).toBe(2);
-    expect(firstStage('plasma_casing')).toBe(3);
-    expect(firstStage('power_port')).toBe(3);
-    expect(firstStage('star_casing')).toBe(4);
+    expect(firstStage('refractory_brick')).toBe(3);
+    expect(firstStage('electrode')).toBe(3);
+    expect(firstStage('plasma_casing')).toBe(4);
+    expect(firstStage('power_port')).toBe(4);
+    expect(firstStage('star_casing')).toBe(5);
     // Hatches arrive with the Blast hearth, so pipes can feed it from the start of the Forge Age.
-    expect(firstStage('item_hatch')).toBe(2);
-    expect(firstStage('fluid_hatch')).toBe(2);
+    expect(firstStage('item_hatch')).toBe(3);
+    expect(firstStage('fluid_hatch')).toBe(3);
   });
 
   it('guides the player through hearths and pipes in the objectives', () => {
@@ -195,8 +195,8 @@ describe('17. multiblock hearths', () => {
     expect(ids.indexOf('pipe_ore')).toBe(ids.indexOf('blast_furnace') + 1);
     expect(ids.indexOf('pump_water')).toBe(ids.indexOf('arc_furnace') + 1);
     const byId = (id: string) => OBJECTIVES.find((o) => o.id === id);
-    expect(byId('pipe_ore')).toMatchObject({ title: 'Pipe it in', condition: { type: 'place', block: 'item_pipe' }, age: 1 });
-    expect(byId('pump_water')).toMatchObject({ title: 'Pump water', condition: { type: 'place', block: 'pump' }, age: 2 });
+    expect(byId('pipe_ore')).toMatchObject({ title: 'Pipe it in', condition: { type: 'place', block: 'item_pipe' }, age: 2 });
+    expect(byId('pump_water')).toMatchObject({ title: 'Pump water', condition: { type: 'place', block: 'pump' }, age: 3 });
     expect(byId('blast_furnace')?.text).toMatch(/Build a Blast hearth/);
     expect(byId('arc_furnace')?.text).toMatch(/refractory brick/i);
     expect(byId('plasma_furnace')?.text).toMatch(/Power Port/);

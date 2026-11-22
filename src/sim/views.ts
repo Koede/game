@@ -1,5 +1,5 @@
 /** Read-only snapshots of a furnace for the UI. Built on demand (a few times per second at most), never per tick. */
-import { AMBIENT_TEMP_C, BROWNOUT_STALL, FORGE_CHILL_C, FURNACE_HOT_C } from '../core/constants';
+import { AMBIENT_TEMP_C, BROWNOUT_STALL, FIRST_HEARTH_TIER, FORGE_CHILL_C, FURNACE_HOT_C } from '../core/constants';
 import { MAX_FURNACE_TIER, fuelOf, furnaceTier, recipe, recipesAt } from '../core/registry';
 import type { FurnaceTierSpec, RecipeDef, Slot } from '../core/types';
 import { ingredientStatus, maxCraftable, tally, type IngredientStatus, type ItemTally } from '../game/crafting';
@@ -218,7 +218,7 @@ function crucibleBase(e: FurnaceEntity, i: number, fs: FurnaceStats): CrucibleVi
   };
   if (locked) {
     view.status = e.crucibleIn[i] || e.crucibleOut[i] ? 'Locked - take it out'
-      : fs.tier < 2 ? 'Locked - build a hearth to use it' : 'Locked - a bigger hearth opens it';
+      : fs.tier < FIRST_HEARTH_TIER ? 'Locked - build a hearth to use it' : 'Locked - a bigger hearth opens it';
     return view;
   }
   if (!r) {
@@ -271,7 +271,7 @@ export function targetTemp(e: FurnaceEntity, fs: FurnaceStats, flame: number | n
 function hearthBrief(e: FurnaceEntity, fs: FurnaceStats, hearth: Hearth | null): HearthBrief {
   const h = e.hearth;
   const scan = hearth?.scan ?? null;
-  const want = Math.max(2, e.tier);
+  const want = Math.max(FIRST_HEARTH_TIER, e.tier);
   let problem: string | null = null;
   if (scan && (!h || h.tier < want)) problem = scan.problems[0]?.text ?? null;
   const blowers = hearth?.blowers.length ?? 0;

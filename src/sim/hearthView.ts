@@ -14,6 +14,7 @@ import {
   wallTierOf,
   type HearthBox, type HearthProblem, type HearthScan,
 } from './hearthScan';
+import { FIRST_HEARTH_TIER } from '../core/constants';
 
 /**
  * What the player asks the preview for: a tier and, optionally, an inside size [across, deep, high] and a sideways
@@ -157,8 +158,8 @@ const clampInt = (v: number, lo: number, hi: number): number => Math.max(lo, Mat
 export function defaultTargetTier(e: FurnaceEntity): number {
   const have = e.hearth?.tier ?? 0;
   const max = FURNACE_TIERS.length;
-  if (have < Math.max(2, e.tier)) return Math.max(2, Math.min(max, e.tier));
-  return Math.min(max, e.tier + 1);
+  if (have < Math.max(FIRST_HEARTH_TIER, e.tier)) return Math.max(FIRST_HEARTH_TIER, Math.min(max, e.tier));
+  return Math.max(FIRST_HEARTH_TIER, Math.min(max, e.tier + 1));
 }
 
 /**

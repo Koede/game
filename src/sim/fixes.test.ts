@@ -15,8 +15,8 @@ import { targetTemp } from './views';
 
 describe('heading-for temperature with fire, electric heat and a large extract (sim-2)', () => {
   it('adds every source like the furnace does, so the estimate matches where it settles', () => {
-    const fs = furnaceStats(3, { tier: 3, inner: [1, 1, 1], closed: true, windows: 0, min: [0, 0, 0], max: [2, 2, 2] });
-    const e = createFurnace(0, 0, 0, 3);
+    const fs = furnaceStats(4, { tier: 4, inner: [1, 1, 1], closed: true, windows: 0, min: [0, 0, 0], max: [2, 2, 2] });
+    const e = createFurnace(0, 0, 0, 4);
     e.fuel[0] = { item: 'coal', count: 99 };
     e.lit = true;
     const node = createNode(e);
@@ -40,8 +40,8 @@ describe('heading-for temperature with fire, electric heat and a large extract (
   });
 
   it('a fire alone never heads past its flame, and electric heat above the flame still counts', () => {
-    const fs = furnaceStats(3, { tier: 3, inner: [1, 1, 1], closed: true, windows: 0, min: [0, 0, 0], max: [2, 2, 2] });
-    const e = createFurnace(0, 0, 0, 3);
+    const fs = furnaceStats(4, { tier: 4, inner: [1, 1, 1], closed: true, windows: 0, min: [0, 0, 0], max: [2, 2, 2] });
+    const e = createFurnace(0, 0, 0, 4);
     e.lit = true;
     e.burnItem = 'charcoal';
     e.burnLeftS = 10;
@@ -259,8 +259,8 @@ describe('a first hearth on flat ground (sim-4)', () => {
     kit.formed(0, 1, 0);
     kit.world.put(0, 0, 0, 'grass'); // the floor cell under the furnace: walled in, never placed
     kit.sim.validateHearths();
-    expect(kit.sim.furnaceAt(0, 1, 0)!.hearth).toMatchObject({ tier: 2 });
-    const v = kit.sim.structureView(0, 1, 0, { tier: 2 })!;
+    expect(kit.sim.furnaceAt(0, 1, 0)!.hearth).toMatchObject({ tier: 3 });
+    const v = kit.sim.structureView(0, 1, 0, { tier: 3 })!;
     expect(v.target.cells.find((c) => c.x === 0 && c.y === 0 && c.z === 0)).toMatchObject({ has: 'grass', state: 'ok' });
     expect(v.target.materials).toEqual([expect.objectContaining({ item: 'brick', need: 15, missing: 0 })]);
     // A hole there is still a gap.
@@ -286,7 +286,7 @@ describe('hearth problems say what is really wrong (sim-6)', () => {
     expect(kit.sim.furnaceView(0, 1, 0)!.hearth.problem).toBe('Wall has a gap');
     kit.world.put(1, 1, 1, 'brick');
     kit.sim.validateHearths();
-    expect(kit.sim.furnaceAt(0, 1, 0)!.hearth).toMatchObject({ tier: 2 });
+    expect(kit.sim.furnaceAt(0, 1, 0)!.hearth).toMatchObject({ tier: 3 });
   });
 
   it('a lone furnace has no problem, only a neutral note', () => {
@@ -311,9 +311,9 @@ describe('a hearth plan keeps clear of machines (sim-7)', () => {
     const kit = makeKit();
     kit.furnace(0, 1, 0, 'furnace_blast'); // facing north: the inside lies towards +z, along +x is "right"
     kit.machine('crate', -2, 1, 1);
-    const auto = kit.sim.structureView(0, 1, 0, { tier: 2, inner: [3, 1, 1] })!;
+    const auto = kit.sim.structureView(0, 1, 0, { tier: 3, inner: [3, 1, 1] })!;
     expect(auto.target).toMatchObject({ offset: 0, offsets: [-2, 0], machines: [] });
-    const centred = kit.sim.structureView(0, 1, 0, { tier: 2, inner: [3, 1, 1], offset: -1 })!;
+    const centred = kit.sim.structureView(0, 1, 0, { tier: 3, inner: [3, 1, 1], offset: -1 })!;
     expect(centred.target.offset).toBe(-1);
     expect(centred.target.machines).toEqual([{ x: -2, y: 1, z: 1, block: 'crate', name: 'Crate' }]);
   });

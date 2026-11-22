@@ -8,7 +8,7 @@
  * HEARTH_RESCAN_RANGE or its screen is open; a formed one re-reads one cell of its box every HEARTH_VERIFY_TICKS
  * ticks as a safety net.
  */
-import { HEARTH_RESCAN_RANGE, HEARTH_RESCAN_S, HEARTH_VERIFY_TICKS, PLAYER_HEIGHT } from '../core/constants';
+import { FIRST_HEARTH_TIER, HEARTH_RESCAN_RANGE, HEARTH_RESCAN_S, HEARTH_VERIFY_TICKS, PLAYER_HEIGHT } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { machine } from '../core/registry';
 import { CHUNK_SIZE, voxelActive, voxelFacing, voxelId, withActive, type Facing, type IWorld } from '../core/types';
@@ -153,7 +153,7 @@ export class Hearth implements ExtraFuel {
 }
 
 function summaryOf(scan: HearthScan): HearthSummary | null {
-  if (scan.structuralTier < 2 || !scan.box || !scan.inner) return null;
+  if (scan.structuralTier < FIRST_HEARTH_TIER || !scan.box || !scan.inner) return null;
   const c = scan.cells;
   const min: [number, number, number] = [Infinity, Infinity, Infinity];
   const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];

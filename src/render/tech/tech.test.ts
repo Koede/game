@@ -110,14 +110,14 @@ describe('hearths', () => {
   });
 
   it('read the formed box off the furnace entity', () => {
-    const e = { kind: 'furnace', x: 5, y: 10, z: 3, hearth: { tier: 2, inner: [3, 3, 2], closed: false, windows: 0, min: [4, 9, 3], max: [8, 11, 7] } };
+    const e = { kind: 'furnace', x: 5, y: 10, z: 3, hearth: { tier: 3, inner: [3, 3, 2], closed: false, windows: 0, min: [4, 9, 3], max: [8, 11, 7] } };
     const open = hearthBox(e)!;
     expect(open.inner).toEqual([5, 10, 4, 7, 11, 6]);
     expect(hearthOpenTop(e)).toBe(true);
     const closed = hearthBox({ ...e, hearth: { ...e.hearth, closed: true, max: [8, 12, 7] } })!;
     expect(closed.inner).toEqual([5, 10, 4, 7, 11, 6]);
     expect(hearthBox({ ...e, hearth: null })).toBeNull();
-    expect(hearthBox({ ...e, hearth: { tier: 2, min: [1, 2], max: [3, 4, 5] } })).toBeNull();
+    expect(hearthBox({ ...e, hearth: { tier: 3, min: [1, 2], max: [3, 4, 5] } })).toBeNull();
     expect(hearthBox({ ...e, kind: 'crate' })).toBeNull();
     expect(shellNormal(open, 4, 10, 5)).toEqual([-1, 0, 0]);
     expect(shellNormal(open, 6, 10, 7)).toEqual([0, 0, 1]);

@@ -52,7 +52,7 @@ export const MAX_AMOUNT = 8;
 /** Hand-authored fingerprints that beat every rule. Keep short: only things the rules get wrong or special objects. */
 export const OVERRIDES: Record<string, Aspects> = {
   air: { gale: 1 }, stone: { loam: 4 }, water: { brook: 5 }, lava: { cinder: 6, rift: 2 },
-  furnace_clay: { cinder: 4, loam: 2, craft: 2 }, furnace_blast: { cinder: 6, vein: 2, craft: 2 }, furnace_arc: { spark: 4, cinder: 4, craft: 2 },
+  furnace_clay: { cinder: 4, loam: 2, craft: 2 }, furnace_bronze: { cinder: 5, vein: 1, craft: 2 }, furnace_blast: { cinder: 6, vein: 2, craft: 2 }, furnace_arc: { spark: 4, cinder: 4, craft: 2 },
   furnace_plasma: { spark: 4, glow: 4, soul: 1 }, furnace_star: { glow: 8, cinder: 6, void: 2 },
   star_core: { glow: 8, void: 3, mind: 2 }, corium: { ash: 6, spark: 3 }, superalloy: { vein: 8, ward: 4, rune: 2 },
   stick: { spring: 1, craft: 1 }, flint: { loam: 2, rift: 1 }, fiber: { spring: 1, gale: 1 }, tall_grass: { spring: 2, gale: 1 },

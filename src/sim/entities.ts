@@ -3,7 +3,7 @@
  * them as they are), so ALL machine state lives in plain fields. `SimNode` is the runtime wrapper the
  * simulation keeps next to each entity: cached surroundings and network membership, never saved.
  */
-import { AMBIENT_TEMP_C } from '../core/constants';
+import { AMBIENT_TEMP_C, LONE_MAX_TIER } from '../core/constants';
 import { furnaceTier, itemOrNull, machine } from '../core/registry';
 import type { GameBus } from '../core/context';
 import type { BlockEntity, FluidKey, IWorld, MachineSpec, RecipeDef, Slot } from '../core/types';
@@ -121,7 +121,7 @@ export function createFurnace(x: number, y: number, z: number, tier: number): Fu
     crucibleRecipe: new Array<string | null>(LONE).fill(null),
     crucibleMelt: emptySlots(LONE), crucibleMoltenS: new Array<number>(LONE).fill(0),
     crucibleMix: Array.from({ length: LONE }, (): [number, number] => [0, 0]),
-    electric: true, ignition: 'idle', ignitionProgressS: 0, ignitionLowS: 0, hearth: null, effTier: 1,
+    electric: true, ignition: 'idle', ignitionProgressS: 0, ignitionLowS: 0, hearth: null, effTier: Math.min(tier, LONE_MAX_TIER),
     flameC: AMBIENT_TEMP_C, rateCPerS: 0, extractW: 0, heatDemandW: 0, demandW: 0, deliveredW: 0, availW: 0,
   };
 }

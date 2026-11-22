@@ -185,9 +185,9 @@ describe('crucibles', () => {
   it('a higher tier smelts faster and in more crucibles', () => {
     const kit = makeKit();
     const e = kit.furnace(0, 1, 0, 'furnace_blast');
-    expect(e.crucibleIn).toHaveLength(1);
-    kit.formed(0, 1, 0);
-    expect(e.crucibleIn).toHaveLength(2);
+    expect(e.crucibleIn).toHaveLength(2); // alone it runs on the Bronze Furnace's two
+    kit.formed(0, 1, 0, { inner: [2, 2, 1] });
+    expect(e.crucibleIn).toHaveLength(5);
     e.crucibleIn[0] = { item: 'tin_ore', count: 1 };
     e.crucibleIn[1] = { item: 'tin_ore', count: 1 };
     e.tempC = 250;
@@ -246,7 +246,7 @@ describe('forging and upgrading', () => {
     const kit = makeKit();
     const upgraded = kit.record('furnace:upgraded');
     const placed = kit.record('machine:placed');
-    kit.world.setVoxel(0, 1, 0, makeVoxel(blockId('furnace_clay'), 2), 'player');
+    kit.world.setVoxel(0, 1, 0, makeVoxel(blockId('furnace_bronze'), 2), 'player');
     const e = kit.sim.furnaceAt(0, 1, 0)!;
     expect(kit.player.home).toEqual({ x: 0, y: 1, z: 0 });
     e.fuel[0] = { item: 'charcoal', count: 9 };
@@ -254,8 +254,8 @@ describe('forging and upgrading', () => {
     // Spec 17: first the next tier's hearth must stand around it (facing south, its inside lies north).
     const hint = 'Build a Blast hearth: brick walls around the furnace';
     expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: hint });
-    kit.formed(0, 1, 0, { tier: 2 });
-    expect(e).toMatchObject({ tier: 1, effTier: 1, hearth: { tier: 2, min: [-1, 0, -2], max: [1, 1, 0] } });
+    kit.formed(0, 1, 0, { tier: 3 });
+    expect(e).toMatchObject({ tier: 2, effTier: 2, hearth: { tier: 3, min: [-1, 0, -2], max: [1, 1, 0] } });
     const missing = kit.sim.upgrade(0, 1, 0);
     // The upgrade costs of spec 17.2 (the hearth structure carries most of the cost).
     expect(missing.ok ? '' : missing.reason).toBe('Missing 4 Bronze Ingot, 1 Bellows');
@@ -271,12 +271,39 @@ describe('forging and upgrading', () => {
     expect(blockOf(v).key).toBe('furnace_blast');
     expect(voxelFacing(v)).toBe(2);
     expect(kit.sim.furnaceAt(0, 1, 0)).toBe(e);
-    expect(e).toMatchObject({ tier: 2, effTier: 2 });
+    expect(e).toMatchObject({ tier: 3, effTier: 3 });
     expect(e.fuel).toEqual([{ item: 'charcoal', count: 9 }, null]);
     expect(e.crucibleIn).toEqual([{ item: 'copper_ore', count: 2 }, null]);
     expect(kit.player.inventory.count('bronze_ingot')).toBe(0);
-    expect(upgraded).toEqual([{ x: 0, y: 1, z: 0, tier: 2 }]);
+    expect(upgraded).toEqual([{ x: 0, y: 1, z: 0, tier: 3 }]);
     expect(placed).toHaveLength(1);
+    expect(kit.sim.maxFurnaceTier()).toBe(3);
+  });
+
+  it('upgrades the Clay Furnace to the Bronze Furnace in place with no hearth, and keeps its contents', () => {
+    const kit = makeKit();
+    const upgraded = kit.record('furnace:upgraded');
+    kit.world.setVoxel(0, 1, 0, makeVoxel(blockId('furnace_clay'), 2), 'player');
+    const e = kit.sim.furnaceAt(0, 1, 0)!;
+    e.fuel[0] = { item: 'charcoal', count: 9 };
+    e.crucibleIn[0] = { item: 'copper_ore', count: 2 };
+    const missing = kit.sim.upgrade(0, 1, 0);
+    expect(missing.ok ? '' : missing.reason).toBe('Missing 8 Bronze Ingot, 4 Firebrick, 1 Bellows');
+    kit.player.give('bronze_ingot', 8);
+    kit.player.give('firebrick', 4);
+    kit.player.give('bellows', 1);
+    expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: false, reason: 'Needs 700 C - the furnace is at 20 C' });
+    e.tempC = 750;
+    expect(kit.sim.upgrade(0, 1, 0)).toEqual({ ok: true });
+    expect(blockOf(kit.world.getVoxel(0, 1, 0)).key).toBe('furnace_bronze');
+    expect(voxelFacing(kit.world.getVoxel(0, 1, 0))).toBe(2);
+    kit.run(0.1);
+    expect(e).toMatchObject({ tier: 2, effTier: 2, hearth: null });
+    expect(upgraded).toEqual([{ x: 0, y: 1, z: 0, tier: 2 }]);
+    expect(e.fuel).toHaveLength(2);
+    expect(e.fuel[0]?.item).toBe('charcoal'); // (a little of it has burnt in the tick)
+    expect(e.crucibleIn).toEqual([{ item: 'copper_ore', count: 2 }, null]);
+    expect(kit.sim.furnaceView(0, 1, 0)!.upgrade?.next.name).toBe('Blast Furnace');
     expect(kit.sim.maxFurnaceTier()).toBe(2);
   });
 

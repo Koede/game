@@ -7,14 +7,14 @@
 import type { ItemSpec } from '../core/types';
 
 const beaker = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'material', age: 0, stack: 16 });
-const can = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'material', age: 1, stack: 8 });
+const can = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'material', age: 2, stack: 8 });
 
 export const DISTILL_ITEMS: ItemSpec[] = [
   beaker('syrup_beaker', 'Pine Syrup', 'A beaker of thick amber syrup boiled from pine sap. Ferment it with water in a sealed Reaction Vessel.'),
   beaker('wash_beaker', 'Sugar Wash', 'A beaker of fermented wash, a little alcohol in a lot of water. Distil it at 97 C into Low Wines.'),
   beaker('low_wines_beaker', 'Low Wines', 'A beaker of weak first-run spirit. Distil it again at 92 C into Spirit.'),
   beaker('spirit_beaker', 'Spirit', 'A beaker of clear distilled spirit, more than half alcohol.'),
-  { ...beaker('fuel_ethanol_beaker', 'Fuel Ethanol', 'Nearly pure alcohol from a column still. It burns clean: a weak fuel for the chainsaw and the tractor.'), age: 1 },
+  { ...beaker('fuel_ethanol_beaker', 'Fuel Ethanol', 'Nearly pure alcohol from a column still. It burns clean: a weak fuel for the chainsaw and the tractor.'), age: 2 },
   can('empty_canister', 'Empty Canister', 'A steel canister for 1000 litres. Fill it at a receiver, a tank, a pump or an oil pool.'),
   can('crude_canister', 'Crude Oil Canister', 'A canister of black crude oil. Pour it into a flask under a column of three segments and refine it at 350 C.'),
   can('gasoline_canister', 'Gasoline Canister', 'Light, golden gasoline from the top of the column. The best chainsaw fuel; the tractor runs on it too.'),

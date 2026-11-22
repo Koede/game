@@ -3,6 +3,7 @@ import { machine, recipesAt } from '../../../core/registry';
 import type { MachineRole } from '../../../core/types';
 import type { MachineView, NetworkStats } from '../../../sim';
 import { formatDuration, formatJoules, formatPercent, formatWatts } from '../../kit/format';
+import { FIRST_HEARTH_TIER, FIRST_ELECTRIC_TIER } from '../../../core/constants';
 
 export type MachineLayout = 'generator' | 'burner' | 'processor' | 'consumer' | 'storage' | 'bore' | 'fission' | 'crate' | 'tank' | 'boiler' | 'part';
 
@@ -43,11 +44,11 @@ export const memberWatts = (watts: number): string =>
 
 /** What the GRID tab says when the furnace is wired to nothing. */
 export function lonelyFurnaceText(tier: number): string {
-  if (tier < 2) {
+  if (tier < FIRST_HEARTH_TIER) {
     return 'No power yet. Forge a Thermopile (700 °C) and set it against the furnace: its heat becomes electricity. A Lamp touching it lights up.';
   }
   const base = 'This furnace is not wired to anything. Lay copper cable from it to generators, batteries and machines.';
-  return tier >= 3 ? `${base} Once it is on a network with power, it heats itself electrically.` : base;
+  return tier >= FIRST_ELECTRIC_TIER ? `${base} Once it is on a network with power, it heats itself electrically.` : base;
 }
 
 /** The headline figure of a machine: what it makes, uses or holds. */

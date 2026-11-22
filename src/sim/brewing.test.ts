@@ -183,7 +183,7 @@ describe('bucket on a furnace top', () => {
   it('works on the roof of a formed hearth', () => {
     const kit = makeKit();
     const f = kit.furnace(0, 1, 0, 'furnace_blast');
-    const box = kit.formed(0, 1, 0, { tier: 2, closed: true });
+    const box = kit.formed(0, 1, 0, { tier: 3, closed: true });
     const roof = boxCells(box).find((c) => c.y === box.y1 + 1 && kit.sim.isFurnaceTop(c.x, c.y + 1, c.z));
     expect(roof).toBeDefined();
     const { x, y, z } = roof!;

@@ -1,7 +1,8 @@
 /**
  * DOM-free helpers of the STRUCTURE tab (spec 17.4): the ghost preview's payload, checklist and material texts, the
- * target picker's size steppers, what the hearth means for the furnace, and the tier-1 introduction.
+ * target picker's size steppers, what the hearth means for the furnace, and the introduction for the single-block furnaces.
  */
+import { FIRST_HEARTH_TIER, STAR_TIER } from '../../../core/constants';
 import type { GameEvents } from '../../../core/gameEvents';
 import { furnaceTier, itemOrNull, recipesFor } from '../../../core/registry';
 import type { FurnaceView, HearthProblem, MaterialRow, StructureCheck, StructureView, TierChoice } from '../../../sim';
@@ -65,18 +66,19 @@ export function materialTexts(row: MaterialRow): { placed: string; have: string 
 /** Tone of the status chip. */
 export function statusTone(view: Pick<StructureView, 'formed' | 'controllerTier' | 'effectiveTier'>): 'good' | 'warn' | 'neutral' {
   if (view.formed) return view.effectiveTier >= view.controllerTier ? 'good' : 'warn';
-  return view.controllerTier >= 2 ? 'warn' : 'neutral';
+  return view.controllerTier >= FIRST_HEARTH_TIER ? 'warn' : 'neutral';
 }
 
 /** What the hearth means for the furnace right now, in one sentence. */
 export function effectText(view: Pick<StructureView, 'formed' | 'tier' | 'name' | 'controllerTier' | 'effectiveTier'>): string {
   const own = furnaceTier(view.controllerTier).name;
   const runs = furnaceTier(Math.max(1, view.effectiveTier)).name;
-  const needed = furnaceTier(Math.min(5, Math.max(2, view.controllerTier)));
-  if (view.controllerTier <= 1) {
+  const needed = furnaceTier(Math.min(STAR_TIER, Math.max(FIRST_HEARTH_TIER, view.controllerTier)));
+  if (view.controllerTier < FIRST_HEARTH_TIER) {
+    if (view.controllerTier < FIRST_HEARTH_TIER - 1) return 'A Clay Furnace stands alone. Upgrade it to a Bronze Furnace first (header button): a hearth comes with the Blast Furnace after it.';
     return view.formed && view.name
       ? `The ${view.name} stands: the furnace can now be upgraded (header button).`
-      : 'A Clay Furnace stands alone. Build a hearth around it to upgrade it.';
+      : `The ${own} stands alone. Build a hearth around it to upgrade it.`;
   }
   const max = furnaceTier(Math.max(1, view.effectiveTier)).maxTempC;
   if (view.effectiveTier >= view.controllerTier) return `Runs at full strength as the ${own}: up to ${max} °C.`;
@@ -87,7 +89,7 @@ export function effectText(view: Pick<StructureView, 'formed' | 'tier' | 'name' 
 
 /** The Structure tab badge: "!" while the furnace needs a hearth it does not have. */
 export function structureBadge(view: Pick<FurnaceView, 'tier' | 'effectiveTier'>): string | null {
-  return view.tier >= 2 && view.effectiveTier < view.tier ? '!' : null;
+  return view.tier >= FIRST_HEARTH_TIER && view.effectiveTier < view.tier ? '!' : null;
 }
 
 /** How the first hearth's wall block is made, from the recipes: "Forge it here at 400 °C from 4 Firebrick". */
@@ -99,7 +101,7 @@ export function wallSource(wall: string): string {
   return `Forge ${itemName(wall)} here at ${r.minTempC} °C from ${inputs}${out}.`;
 }
 
-/** The tier-1 introduction: what a hearth is and how to start the Blast hearth. */
+/** The introduction shown to the Clay and Bronze Furnaces: what a hearth is and how to start the Blast hearth. */
 export function hearthIntro(): { title: string; lines: string[] } {
   return {
     title: 'What is a hearth?',

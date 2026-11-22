@@ -330,7 +330,7 @@ describe('electric heat', () => {
     kit.formed(0, 1, 0);
     const engine = kit.machine('combustion_engine', 0, 1, -1); // before the furnace's mouth
     engine.slots[0] = { item: 'fuel_canister', count: 16 };
-    const tier = furnaceTier(3);
+    const tier = furnaceTier(4);
     kit.run(1);
     expect(e.demandW).toBe(tier.electricHeatW);
     kit.run(900);
