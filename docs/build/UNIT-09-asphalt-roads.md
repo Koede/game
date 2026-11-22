@@ -286,7 +286,7 @@ It is a single comparison in the engine's "can this reaction run" test, defaulti
 needs more, it adds an OPTIONAL member and says so in its spec": this is that sentence.
 
 The vessel problem text when `minShare` is not met (the engine's generic "reaction cannot start" line, filled from the spec):
-`"Reaction Vessel - too thin for Asphalt mix: 60% bitumen, needs 80%"` (54 characters with a 2-digit share; fits the ~60 rule).
+`"Reaction Vessel - too thin: 60% bitumen, Asphalt needs 80%"` (58 characters; fits the ~60 rule).
 
 Numbers and why (SYSTEMS 5):
 
@@ -454,12 +454,12 @@ template - if it differs in punctuation, Unit 0's template wins, the facts must 
 
 | situation | crosshair line (target: the vessel) |
 |---|---|
-| working | `"Reaction Vessel - 1.0 buckets Bitumen, 200 C, Asphalt mix 2 of 4"` |
+| working | `"Reaction Vessel - Asphalt mix 2 of 4, 200 C, 1.0 buckets"` |
 | too cold (base at 130) | `"Reaction Vessel - 130 C, needs 150-250 C for Asphalt mix"` |
 | too hot (base at 260) | `"Reaction Vessel - 260 C, needs 150-250 C for Asphalt mix"` |
 | not heated (no base / cold furnace) | `"Reaction Vessel - cold, Asphalt mix needs a hot Still Base"` |
-| residue poured in | `"Reaction Vessel - too thin for Asphalt mix: 60% bitumen, needs 80%"` |
-| items short | `"Reaction Vessel - needs 4 Gravel and 2 Sand - it has 1 Gravel"` |
+| residue poured in | `"Reaction Vessel - too thin: 60% bitumen, Asphalt needs 80%"` |
+| items short | `"Reaction Vessel - needs 4 Gravel, 2 Sand - it has 1 Gravel"` |
 | output full | `"Reaction Vessel - output full - take what it made"` |
 | done (no bitumen left) | `"Reaction Vessel - done, 32 Asphalt to take"` |
 
@@ -687,6 +687,17 @@ by `vehicles/tractor.ts` too (vehicles already import from `../core`; importing 
 
 ### 8.8 Helpers to reuse (do not rewrite)
 
+Verification legend (grepped 2026-11-22): everything below exists today. NOT in code yet - from Unit 0: `REACTIONS`,
+`ReactionSpec`, `src/core/reactions.ts`, `src/content/reactionsDistill.ts`, `Distillery.offerItem` / `takeItem` / `stirredAt`,
+`capabilitiesOf`, vessel `items` / `out`, `SIDE_OBJECTIVES`, `src/content/objectivesSide.ts`, `BlockSpec.surface`; from
+Unit 7: `BURNER_FUELS`, `tankFluids()`. NEW in this unit: `bitumen` (fluid, grade), `bitumen_canister`, `asphalt`,
+`tarred_plank`, `rx_asphalt`, `rx_tar_planks`, `ReactionSpec.minShare`, cards `strip_residue` / `mix_asphalt` / `tar_planks`,
+`src/player/surface.ts` (`surfaceOf`, `surfaceUnder`, `SURFACE_PROBE`, `Surface`), `src/content/blocksRoad.ts`
+(`ROAD_BLOCKS`, `ASPHALT_SURFACE`, `TARRED_PLANK_SURFACE`), `PlayerPhysics.surfaceWalk` / `onSurface`, `Tractor.surf`,
+`ROAD_STEP_VOLUME`, `ROAD_STEP_PITCH`, side goal `pave_road`, flag `paved_road`, optional `src/content/objectivesRoad.ts`
+(`ROAD_SIDE_GOALS`), `src/sim/asphalt.test.ts`, `src/player/surface.test.ts`.
+
+
 `share`, `meets`, `nameOf`, `expand`, `bubblePoint` (`src/core/chem.ts`); `canister`, `CHEM_CONTAINERS`, `filledWith`
 (`src/core/distill.ts`); `can(...)` (`itemsDistill.ts`); `card(...)`, `amounts` (`recipesDistill.ts`); `solidHeight`
 (`src/player/collision.ts`); `blockOf` (`src/core/registry.ts`); `ageIndexOf` (`src/magic/ageMap.ts`); `buildRig`, `feed`,
@@ -752,10 +763,10 @@ Fixture: the existing `field()` (grass at y 9) and a `road()` variant with `asph
 6. Stoichiometry per batch: after the first batch completes (run 41 s): 8 asphalt out, 12 gravel + 6 sand left, 750 L left.
 7. Temperature window: base at 130 -> after 120 s, 0 asphalt and 1000 L untouched; base at 260 -> same; back to 200 -> runs.
 8. **minShare**: pour a `residue_canister` + gravel + sand at 200 C -> after 200 s, 0 asphalt and the residue untouched; the
-   vessel's view text contains `"too thin for Asphalt mix"`.
+   vessel's view text contains `"too thin: 60% bitumen"`.
 9. Partial batch: pour 900 L (3.6 batches; `feed(card, into)` takes a card, so pour directly:
    `pour(expand('bitumen', 900), v.mix, 900)`) -> 24 asphalt, 150 L left, 4 gravel + 2 sand left in slots.
-10. Items short: 1000 L + 2 gravel + 2 sand -> 0 asphalt (needs 4 gravel); text contains `"needs 4 Gravel"`.
+10. Items short: 1000 L + 2 gravel + 2 sand -> 0 asphalt (needs 4 gravel); text contains `"needs 4 Gravel"`; every vessel line produced in this file is <= 60 characters (`expect(text.length).toBeLessThanOrEqual(60)`).
 11. **rx_tar_planks**: 1 canister + 32 plank -> 32 tarred_plank, 120 s.
 12. Both item sets present: 1 canister + 8 gravel + 4 sand + 16 plank -> 16 asphalt (2 batches) then 16 tarred planks
     (2 batches): deterministic order.
