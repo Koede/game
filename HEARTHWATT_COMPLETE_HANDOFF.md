@@ -1,28 +1,86 @@
 # Hearthwatt - complete handoff bundle
 
-One file with everything needed to continue the game in a fresh session. Generated 2026-11-22T00:16Z from commit 8bfb3f0 on branch ccr-3c8b169f-e78nk2 of https://github.com/Koede/game.
+One file with everything needed to continue the game in a fresh session. Generated 2026-11-22T01:23Z from commit d71a41f on branch ccr-3c8b169f-e78nk2 of https://github.com/Koede/game.
 Order: 0 session context (state, open decisions, follow-ups) - 1 how to start locally (setup, phases, first message) - 2 current status - 3 whole-game progression - 4 Ember plan - 5 Brewing plan - 6 Steam plan - 7 Bronze plan - 8 Distillery plan and the API notes of the newest features - 9 full design spec and build rules - 10 README.
 The other per-module API notes live in the repository under docs/api/*.md and are NOT included here (read them as you reach each module).
 
 ## Contents
-1. `docs/SESSION_CONTEXT.md`
-2. `docs/WHATS_LEFT.md`
-3. `docs/LOCAL_HANDOFF.md`
-4. `HANDOFF.md`
-5. `docs/PROGRESSION.md`
-6. `docs/EMBER_PLAN.md`
-7. `docs/BREWING_PLAN.md`
-8. `docs/STEAM_PLAN.md`
-9. `docs/BRONZE_PLAN.md`
-10. `docs/DISTILLERY_PLAN.md`
-11. `docs/api/sugar.md`
-12. `docs/api/dev-mode.md`
-13. `docs/api/distillery.md`
-14. `docs/api/ground-items.md`
-15. `docs/api/chainsaw.md`
-16. `docs/api/handwork-front.md`
-17. `docs/SPEC.md`
-18. `README.md`
+1. `docs/OVERHAUL_PROGRAM_STATE.md`
+2. `docs/SESSION_CONTEXT.md`
+3. `docs/WHATS_LEFT.md`
+4. `docs/team.md`
+5. `docs/CONGRUENCE.md`
+6. `docs/lanes/README.md`
+7. `docs/lanes/ROSTER.md`
+8. `docs/advice/tech-spine.md`
+9. `docs/advice/distillery-workshop.md`
+10. `docs/advice/magic-and-food.md`
+11. `docs/advice/world-progression-art.md`
+12. `docs/advice/phone-ux.md`
+13. `docs/advice/balance-economy.md`
+14. `docs/advice/engineering-risk.md`
+15. `docs/LOCAL_HANDOFF.md`
+16. `HANDOFF.md`
+17. `docs/PROGRESSION.md`
+18. `docs/EMBER_PLAN.md`
+19. `docs/BREWING_PLAN.md`
+20. `docs/STEAM_PLAN.md`
+21. `docs/BRONZE_PLAN.md`
+22. `docs/DISTILLERY_PLAN.md`
+23. `docs/api/sugar.md`
+24. `docs/api/dev-mode.md`
+25. `docs/api/distillery.md`
+26. `docs/api/ground-items.md`
+27. `docs/api/chainsaw.md`
+28. `docs/api/handwork-front.md`
+29. `docs/SPEC.md`
+30. `README.md`
+
+
+---
+
+<!-- ======================= BEGIN docs/OVERHAUL_PROGRAM_STATE.md ======================= -->
+# FILE: docs/OVERHAUL_PROGRAM_STATE.md
+
+# Overhaul program - state at handoff (2026-11-21/22)
+
+The owner asked to "overhaul each plan and step, add each feature in the plan, and make sure there is congruency amongst systems",
+run as a team of advisors, architects and builders, "multilane builders with architects heading each lane", finished quickly.
+This file says exactly how far that program got, so a fresh session can resume it in minutes.
+
+## Done
+| Item | Where | Notes |
+|---|---|---|
+| Six-age refactor (BRONZE_PLAN W0) | `4f2abb4`, `b062df1`, `5c37df5` | Ember, Bronze, Forge, Current, Atomic, Star; single-block Bronze Furnace is tier 2; hearths from tier 3; save migration v1->v2; old-save fixture `tests/fixtures/save-before-bronze.json`. 1994 tests green when verified. |
+| Congruency audit | `docs/CONGRUENCE.md` | systems matrix, conventions sheet, contradiction list, streams A-G, cross-stream ideas, playtest checklist. |
+| Seven advisor dossiers | `docs/advice/*.md` | tech-spine, distillery-workshop, magic-and-food, world-progression-art, phone-ux, balance-economy, engineering-risk (about 3,400 lines, builder-ready task lists with file ownership and acceptance checks). |
+| Team file and lane protocol | `docs/team.md`, `docs/lanes/README.md`, `docs/lanes/ROSTER.md` | working agreement, gates, collision rules, roles. |
+| Foundation step R10 | `1a74ab6` | `.gitattributes` eol=lf. |
+| Foundation step R4 | `d71a41f` | `WorldSave.rev` migration chain (six-age folded in), alias table, rolling `.prev` backup, golden-save manifest. 2005 tests green. |
+
+## Partial / not started
+- **Foundation steps R1 (block-id lock + folder registration), R2 (content-test roster refactor), R3 (move Workshop/Magic/Vehicles persistence into
+  `GameState`), R9 (lane tooling, e2e `--out`, pinned playwright, perf project)**: spec in `docs/advice/engineering-risk.md` sections 2-5. The foundation
+  session was asked to stop at a green state and write `docs/lanes/FOUNDATION.md` with the exact remainder; read that file first if it exists.
+- **Seven lane architects (A steam/Bronze, B distillery, C workshop, D magic, E food/brewing, F world/art, U phone UX) never started**: Claude Desktop refused to
+  start worktree sessions until the owner clicks **Trust repository** for `E:\Projects\game`. Nothing was lost; their briefs are reproduced by the protocol
+  (`docs/lanes/README.md`) plus the dossier named for each lane in that file. The lane branches `lane/a` .. `lane/u` do not exist yet.
+- Builders, the integration lane (apply `balance-economy.md` numbers, playtest checklist), the fresh-eyes review and the final republish: not started.
+
+## How to resume (fastest path)
+1. Click Trust for the repo in Claude Desktop (or run lanes as ordinary sessions on the shared checkout using the `.gate-heavy` lock and disjoint files).
+2. Finish the foundation first (R1, R2, R3, R9; see FOUNDATION.md), serially, one session, because every lane touches the block ids, registries and saves.
+3. Start the six lanes + U in parallel from the dossiers: per lane an architect writes `docs/lanes/<x>.md` (contract, task cards, file ownership), then builders
+   implement; the coordinator verifies each lane (tsc, full vitest, the lane's e2e with `HW_GPU=1 HW_DIAG=1`) before merging; whoever wrote code never certifies it.
+4. Integration lane: balance numbers, full e2e chain, playtest checklist (`CONGRUENCE.md` section 7, `world-progression-art.md` section 7); then a fresh-eyes review;
+   then rebuild, `bash scripts/make-handoff-bundle.sh`, and ask the owner before pushing / creating `main` (publishes the game page).
+
+## Verified state when this was written
+`npx tsc --noEmit` clean and the unit suite green at the last commit the coordinator verified (1994 passed after the refactor, 2005 after R4 per the foundation
+session's report). The full e2e chain has NOT been run end to end since the six-age refactor: the main e2e had two flaky steps (mining with ground items,
+sandbox restore), the rest was not run. Run `HW_GPU=1 HW_DIAG=1 npm run e2e` first.
+
+<!-- ======================== END docs/OVERHAUL_PROGRAM_STATE.md ======================== -->
 
 
 ---
@@ -105,7 +163,7 @@ water flows and buckets take source blocks only; workbench also offers every han
 - ui: Structure tab shift buttons (target.shiftLeft/Right), machines list, note
 - steam plan: mech_pump recipe names item_pipe (Bronze Chute) - probably meant fluid_pipe; decide at content time
 - names: brewing owns kettle_pot / machine 'kettle' / KETTLE_*; steam plan uses copper_kettle / COPPER_KETTLE_*
-- repo still has five furnace tiers until W0 (six-age refactor) runs
+- W0 (six-age refactor) DONE 2026-11-21: six furnace tiers and ages, Bronze Furnace = tier 2 (single block), hearths from tier 3; see `docs/api/ages.md`
 - brewing: six_cups gates strictly sequential tracker -> make optional side goal (src/game objectives tracker change)
 - brewing vs handwork: clay_cup/drip_cone forge recipes vs Clay Table unfired cups - decide (recommend keep Clay Table only)
 - brewing not done: crusher recipes for ground coffee; interaction.ts must call brewUse/placeContainer; UI target name from brewView().text
@@ -117,7 +175,7 @@ water flows and buckets take source blocks only; workbench also offers every han
 ## 7. Work order from here
 1. Triage red tests (section 3); finish the unfinished agent pieces (brewing meshes/UI, handwork data/casting/front end, Emberbound UI + e2e-ember); fix the scripted playthrough (`src/sim/playthrough.test.ts` stops at `play.smelt('tin_ore')` because molten copper from casting blocks the crucible - `playKit.smelt` must pour or cool cast metal).
 2. Add `scripts/e2e-brewing.mjs` and `scripts/e2e-handwork.mjs` (real input; `window.__hw` only for setup) and chain them in the `e2e` npm script. Full run green; rebuild; republish the game artifact.
-3. Six-age refactor (BRONZE_PLAN W0): commit an old-save fixture FIRST, renumber tiers/ages, migrate saves, add the single-block Bronze Furnace. Full e2e.
+3. Six-age refactor (BRONZE_PLAN W0): **done** (fixture `tests/fixtures/save-before-bronze.json`, save version 2 migration, `furnace_bronze`, renumbering; gate table in `docs/api/ages.md`).
 4. Steam first half of Bronze (STEAM_PLAN), then Bronze second half (BRONZE_PLAN B1-B4).
 5. Review pass as a phone player; republish game and Codex (`npm run codex`).
 
@@ -221,8 +279,7 @@ Run everything locally; the owner is usage-limited and wants output trimmed and 
 2. Distillery left-list: rig screen + ghost previews, ground burner, reflux head, lubricant and bitumen/asphalt, potions,
    tank support for the new fluids, shaft hooks (see DISTILLERY_PLAN section 15).
 3. Casting Bench block is still inert (pouring happens at the furnace); sap-tap state is not saved and has no animation.
-4. Roadmap unchanged: six-age refactor (BRONZE_PLAN W0: commit an old-save fixture FIRST), Steam first half, Bronze second
-   half, review pass, republish game and Codex.
+4. Roadmap: six-age refactor DONE; next Steam first half, Bronze second half (BRONZE_PLAN B1-B4), review pass, republish game and Codex.
 5. Owner decisions still open: Star hearth 93 casings; make `six_cups` an optional side goal; delete the cup/cone forge
    recipes in favour of the Clay Table; push to GitHub / create `main`.
 
@@ -262,7 +319,7 @@ Left, in priority order (OVERHAUL_PLAN work lists A.11 and C):
    vial-in-still trace (entry exists), aura reading, foci, clay servants, more entries for Bronze/Forge.
 6. Cross-cutting: Codex aspect page and planned items, optional side objectives (scan_ten, first_research), sounds
    (scan_chime, essentia_pour, rod_hum), workbench/forge rows should show "needs research" instead of failing on craft.
-7. W0 six-age refactor: only `src/magic/ageMap.ts` needs its table changed for these pieces.
+7. W0 six-age refactor: done (`AGE_INDEX` edited; the magic Bronze pieces are `forge(2, ...)` at the Bronze Furnace).
 
 ## 11. Workshop session (2026-11-21): Create-style Bronze workshop, second slice
 See `docs/OVERHAUL_PLAN.md` "Status update, workshop session" for what exists and what does not, and `docs/api/workshop.md` for the
@@ -317,9 +374,9 @@ features (sugar chain, tractor, chainsaw, distillery, essentia magic, workshop) 
    cup/cone forge recipes in favour of the Clay Table; whether to create `main` (pages.yml deploys the game on pushes to `main`).
 
 ## 1. Roadmap spine (unchanged)
-1. Six-age refactor (BRONZE_PLAN W0): commit an OLD-SAVE FIXTURE first, renumber tiers/ages everywhere, save migration, add the
-   single-block Bronze Furnace. Several new items are gated by tier today (vacuum pump, chainsaw, workshop parts, magic ages) and
-   have notes saying where to move them when W0 lands (`docs/api/ground-items.md`, `docs/api/chainsaw.md`, `OVERHAUL_PLAN` age tables).
+1. ~~Six-age refactor (BRONZE_PLAN W0)~~ **DONE**: old-save fixture, renumbering, save version 2, the single-block Bronze Furnace; every gate is in
+   `docs/api/ages.md`. What it leaves: the Blast hearth still needs no Blast Nozzle (BRONZE_PLAN B1), the `OVERHAUL_PLAN` age tables
+   use the old numbers (names are fine), and nothing has been played by hand on a phone yet (Dev Mode lists `furnace_bronze`).
 2. Steam first half of Bronze (STEAM_PLAN), then Bronze second half (BRONZE_PLAN B1-B4); several workshop pieces already stand in for it.
 3. Review pass as a phone player, republish the game artifact and the Codex (`npm run codex`).
 4. Electric age: the electromagnet is one more definition in `src/game/collectors.ts` (the vacuum pump's collector mechanism).
@@ -360,7 +417,4031 @@ hint texts; the steam-plan item names (copper_kettle vs kettle_pot, mech_pump re
 - Pointer lock is refused in automation-driven browser windows; test the real cursor in a normal browser.
 - Regenerate the handoff bundle with `bash scripts/make-handoff-bundle.sh HEARTHWATT_COMPLETE_HANDOFF.md`.
 
+## 8. Known e2e flakes seen after W0 (not furnace-related)
+`node scripts/e2e.mjs` (GPU): "mines four logs by holding Mine" (phoneLandscape, pack held 2 logs) and, in the sandboxed-frame run,
+"save and quit keeps the world in memory; Continue restores it: inventory not restored from memory" (a pickup lands between the two
+state reads). Both are timing in the real-input mining steps; the Bronze upgrade step and the furnace/hearth steps passed on all devices.
+The rest of the e2e chain (features, tech, ember, handwork, ground, vehicles, dev, distill, magic, workshop) was NOT run after W0.
+
 <!-- ======================== END docs/WHATS_LEFT.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/team.md ======================= -->
+# FILE: docs/team.md
+
+# Hearthwatt - team and working agreement
+
+Who does what on this project, how work is dispatched and accepted, and what each worker has actually proven. Maintained by
+the coordinator (the owner's main Claude session). Machine: Saturn (Windows 11, 12 threads, 16 GB, RTX 3060). Workers are
+Claude Code desktop sessions started by the coordinator; no other agent CLI (Codex, agy, kiro, opencode) is installed here.
+
+## Working agreement (set by the owner, 2026-11-21)
+- **Cadence: continue.** The owner said "just do it all": the coordinator keeps dispatching and accepting without asking
+  between tasks. Ask the owner only for: pushing/creating `main` (publishes the game page), destructive actions, and
+  decisions listed in `docs/WHATS_LEFT.md` section 0.
+- **Execution: parallel streams, disjoint files.** Every stream has an owner and a file list (from `docs/CONGRUENCE.md`).
+  The six-age refactor is the one exclusive phase: nobody else edits while it runs.
+- **Usage: local and lean.** Everything runs on Saturn; workers read trimmed output; no sub-agent fan-out inside a worker.
+- **Shared resources:** `dist/` and the e2e chain are guarded by the `.run-lock` folder (`mkdir` to take, `rmdir` to release).
+- **Notification channel:** the desktop app notes the coordinator when a session ends a turn; nobody polls.
+
+## Roles
+| Role | Who | Notes |
+|---|---|---|
+| Coordinator | main session (this conversation) | splits work, dispatches, verifies, decides; never delegated |
+| Plan/audit author | read-only audit session (docs only) | `docs/CONGRUENCE.md`; the coordinator reviews, does not rewrite |
+| Executors | one session per stream (A Steam/Bronze, B distillery, C workshop, D magic, E food/brewing, F world/progression) | one stream's files per session |
+| Integration + playtest | a separate session from the stream authors | stream G: final seams, playthrough checklist |
+| Adversarial reviewer | a session that did NOT write the code under review | per phase, before the coordinator signs off |
+
+**Rule: whoever writes the code does not certify it.** After every worker reports, the coordinator re-runs
+`npx tsc --noEmit`, `npx vitest run`, and the relevant `HW_GPU=1 npm run e2e` steps itself and reads the diff/commit list,
+never the worker's summary. A task is Done only after that. Reports are leads, not evidence.
+
+## Acceptance gates (each stream, before the next dispatch that depends on it)
+1. Typecheck clean and the full unit suite green (coordinator-run, pasted counts).
+2. The stream's e2e script passes on desktop and phone portrait with `HW_GPU=1`; screenshots looked at.
+3. Solver still completes the game from a fresh world; roster/Codex fixtures updated; docs/api note written.
+4. Committed (only the stream's own files), nothing left uncommitted, no stray files in `C:\Users\admin\game`.
+5. For risky areas (save migration, tier gating, shared sims): an independent review session before merge.
+
+## Observed capability (with evidence)
+| Worker kind | Did well | Failed / needed correction | Last used |
+|---|---|---|---|
+| Feature session (Opus, auto mode) | Distillery slice (5 commits, 1865 tests green, e2e-distill); Essentia magic (24 research entries) and the Create-style workshop built to a plan with tests and e2e; Dev Mode with creative menu | Reports of "done" overstated twice: handwork front end was missing until an e2e step exposed it; e2e green claims need re-running | 2026-11-21 |
+| Merge-conflict session (hand-stations) | Resolved a 16-file, ~40-hunk merge against upstream cleanly with typecheck green | Needed an explicit rule set (upstream canonical where overlapping) | 2026-11-21 |
+| Unit-test session | Took 13 failures to 0 without loosening assertions (`4460f87`) | none observed | 2026-11-21 |
+| E2E session | Made the chain green on the GPU; diagnosed mining, placement, sandbox-restore issues from `HW_DIAG` logs | Believed uncommitted work was lost when the repo moved to E: (it was not); verify before panicking | 2026-11-21 |
+| Any session | - | Wrote into `C:\Users\admin\game` after the DiskOrganizer move: always tell sessions the canonical path (`E:\Projects\game`) | 2026-11-21 |
+
+## Undecided
+- **Independent reviewer on a different model family:** none available locally. Until one is installed (the `~/.codex`
+  folder exists but no `codex` binary), adversarial review is a fresh Claude session that has not seen the code's author.
+- Whether to create `main` (owner decision).
+
+<!-- ======================== END docs/team.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/CONGRUENCE.md ======================= -->
+# FILE: docs/CONGRUENCE.md
+
+# Hearthwatt - congruence audit, conventions and integration streams
+
+Written 2026-11-21 by a read-only audit session (branch `ccr-3c8b169f-e78nk2`, taken while the six-age refactor was still running, so file
+and line references can shift by a few lines; names of files and symbols are stable). Sources: every plan in `docs/`, `docs/api/*`, and a
+sample of `src/content`, `src/sim`, `src/game`, `src/workshop`, `src/magic`, `src/vehicles`, `src/core`. Nothing was built or run.
+Claims marked **(unverified)** came from a doc and were not re-checked in code.
+
+Owner decisions that this document takes as fixed: six ages Ember / Bronze / Forge / Current / Atomic / Star; Ember is handwork (no steam,
+no machines, no electricity); Bronze begins steam and shafts, then the boiler multiblock, pressure, pneumatics; Forge is iron, steel and
+heavy industry with the dynamo at the end; Current is electricity and the modern steam turbine; the furnace is the heart of the base;
+in-world interaction beats UI screens; original art and names.
+
+---
+
+## 0. The five findings that matter most
+
+1. **There are two steam/shaft worlds and neither knows the other.** `STEAM_PLAN`/`BRONZE_PLAN` describe a `MechSpec` shaft core, a copper
+   kettle, rotor, boiler vessel, heat/steam/air nets. `grep MechSpec src` finds nothing. What exists instead is `src/workshop/kinetics.ts` +
+   `workshop.ts`: a complete hand-crank-driven rotation layer with solver, jams, lubricant, gearshifts, signals, contraptions. Its power
+   sources for steam-ish things are the OLD watt-based `water_wheel`, `wind_turbine`, `steam_engine` (`workshop.ts` ~line 34: a table of
+   `rpm` and `suPerW: 1/50`), which are Forge/Current electric generators in `src/content/blocks.ts` / `recipes.ts` (`forge(2,'water_wheel')`,
+   `forge(3,'wind_turbine')`, `forge(2,'steam_engine')`). So a Bronze player never gets a shaft source other than the crank, treadwheel,
+   clockwork motor and tractor power take-off. **Stream A must decide to extend the workshop solver, not build `mech.ts` as written in
+   STEAM_PLAN** (see D1, section 3.1).
+2. **Several docs are stale about the workshop.** `OVERHAUL_PLAN.md` section 0 says rotation is a plan; it is built (`docs/api/workshop.md`,
+   `WHATS_LEFT.md` section 2). `SESSION_CONTEXT.md` sections 10 and 11 disagree about what "left" means. Treat `docs/api/*.md` and the code as truth;
+   fix the plans in stream G (task G1).
+3. **Age gating is a placeholder.** `src/magic/ageMap.ts` maps `bronze` to index 0 (Ember) until the refactor. Workshop recipes are written
+   `age: 0` (`recipesWorkshop.ts` `bench()` / `forgeR()`), so today **all Bronze workshop machines are craftable in the Ember Age**. After the
+   refactor every "BRONZE" constant must resolve to the new index 1 and the recipes must be re-gated (section 3.4).
+4. **The distillery and the workshop already touch (lubricant, spouts, drain) but the loop is open.** `LUBE` in `workshop.ts` knows Heavy Residue
+   (`residue` fluid) and `pine_resin`; the distillery makes `residue` and `crude_oil` but there is no residue->lubricant can path end to end, and
+   essentia/aspects are absent from distillation (the plan's "Clarity in the still" is a status entry, not a mixture component).
+5. **Names clash in three places**: `copper_kettle` (Bronze steam) vs `kettle_pot` (Ember brewing); old `steam_engine` (Forge, dynamo-driving)
+   vs the planned Bronze "Steam Engine" (piston onto shafts) vs the workshop's `steam_engine` entry in the rpm table; `boiler` (Forge-era cased
+   machine in `blocksTech.ts`, sits on a furnace) vs the planned boiler multiblock. Details in section 3.
+
+---
+
+## 1. Theme, material, colour and signature moments per age
+
+One sentence each, written for art, sound and writing sessions. Aspect and fluid colours are already fixed in code (aspects: `src/magic/aspects.ts`;
+fluids: `src/content/fluids*.ts`); the age colours below are the **direction for new art**, not existing constants (no age-palette table exists
+yet - stream G adds `docs/ART_DIRECTION` notes or a `src/render/textures/agePalette.ts` if the owner wants one).
+
+| Age | Theme sentence | Signature material | Signature colour | Signature sound |
+|---|---|---|---|---|
+| Ember | Everything is made by hand, stroke by stroke, and the fire is a living thing you feed. | Fired clay, charcoal, bone, copper | Ember orange `#e8622a` on clay brown `#8a6a3c` | crackle, stone-on-stone strokes, kettle hiss |
+| Bronze | Heat learns to move: water, steam and turning shafts carry the fire's work across the yard. | Bronze, oak axles, leather belts, brass-warm glass | Verdigris green-gold `#b89a4a` / `#4f9a85` | rhythmic cog ticks, a chuffing piston, safety-valve whistle |
+| Forge | The furnace gets a blast and iron becomes steel; machines get heavy. | Iron, steel, coke, refractory brick | Slate blue-grey `#5a6672` with white-hot highlights | trip-hammer thud, roaring blast, rolling mill grind |
+| Current | Invisible power in copper veins; light and signal everywhere. | Copper cable, silicon, glass, aluminium | Cyan-white `#8fd8ff` and warm lamp `#ffd95a` | hum, relay clicks, turbine whine |
+| Atomic | Quiet danger and control: cool water around a hot heart. | Superalloy, fused quartz, heavy water | Reactor green-blue `#5cf0c0` over graphite black | Geiger-soft ticks, coolant flow, low drone |
+| Star | The base finally burns like a small sun. | Star core, plasma-white metal | Gold-white `#fff2b0` | rising harmonic chord, then calm |
+
+Hold the **hearth ladder** as the visual spine: clay furnace (grey-brown) -> bronze furnace (green-gold plate) -> blast hearth (slate, bricks, nozzle
+glow) -> arc hearth (cyan electrodes) -> plasma hearth (violet-white) -> starhearth. Each step re-uses the same silhouette so players recognise "the furnace".
+
+**Signature moments (one per slice, scripted by objectives/sfx, never a cutscene):**
+- Ember: *first pour* - molten bronze runs from the crucible into a mould and the mould glows then dims.
+- Ember: *first cup* - a boiling pail, a cup, a drip cone; steam rises and a buff icon appears.
+- Bronze: *the first shaft turns* - the wooden axle starts, cogs mesh, the goggles read "16 rpm, load 6/24 su".
+- Bronze: *the safety valve sings* - pressure crosses its set point and the whistle blows instead of the boiler bursting.
+- Bronze: *the first thing moves itself* - grain on a belt, into a mill, out of a chute into a basin.
+- Forge: *the blast* - air through the nozzle, the hearth flares, iron runs for the first time.
+- Current: *first lamp* - the dynamo/turbine feeds a cable; the base lights from within.
+- Atomic: *the pile goes critical* with a calm rising hum, not alarms.
+- Star: *ignition* - 300 kW for 90 s; the sky tints and the base is "forever warm".
+- Magic (cross-age, mostly Bronze/Forge): *the first scan* - the notebook names the aspects of the thing in your hand.
+
+---
+
+## 2. Systems matrix
+
+Legend: **C** consumes, **P** produces, **Age** = owning age after the six-age refactor (current code placement in brackets if different).
+"Should talk to but does not" are the integration seeds that stream section 5 turns into designs.
+
+| System | Consumes | Produces | Age | Should talk to, does not yet |
+|---|---|---|---|---|
+| **Furnace / heat** (`sim/furnace.ts`, `hearth*.ts`) | fuels (sticks 450, logs 650, peat 900, charcoal 1000 C; bellows), crucible items | heat (C, kW), smelting, bronze alloy, glass, warm zone against cold | Ember (1-block) .. Star (multiblocks) | boiler/steam (old boiler sits on it; planned one is remote via thermocouples); essentia (`hearth siphon` exists - one-way); weather (rain on open flue); distillery ground burner (planned) |
+| **Handwork** (`sim/handWork.ts`, `handRules.ts`, `recipesHand.ts`) | stroke input at stations, hot-window after pours | tools, plates, flour, rope/cloth/leather, moulds | Ember | workshop twins use the same recipes (good, via `recipesHand`); casting bench is inert (pour happens at furnace); hot metal in hand for anvil window; tractor/chainsaw don't use it; aspects on mould outputs exist only by keyword rule |
+| **Brewing** (`sim/brewing.ts`, `brewActions.ts`, `core/brewing.ts`) | water, leaves/grounds, heat under pail, cups/cones | tea/coffee drinks with 3-min buffs (`game/brewBuffs.ts`) | Ember | sugar (no sweetener step), spirit/ethanol (no tincture/elixir path), distillery beakers, essentia (Clarity vial exists in the still only), hunger value for drinks |
+| **Food / Sugar Rush** (`game/hunger.ts`, `buffs.ts`, `itemsSugar.ts`) | food items | hunger, well-fed, `sugar_rush` (speed up, well-fed burns faster) | Ember/Bronze (sap tapping) | only 4 sugar foods; no sugar in brewing; no alcohol buff; no distillery syrup->sugar rule verified (syrup fluid exists); farming crops don't feed sugar beet-type source (sap only) |
+| **Farming** (`sim/crops*.ts`, `game/farming.ts`) | tilled soil, seeds, water, weather | crops, wild plants, bushes (tea/coffee regrow) | Ember | tractor harvester (exists, `tractorWork.ts`) vs planned `reaper` (Bronze) - one of them is redundant; sprinkler/fluid pipe irrigation; weather affects growth (verify), aspects `spring` linked to growth speed (no) |
+| **Ground items** (`game/groundItems.ts`, `collectors.ts`, `render/groundItems.ts`) | drops from blocks, mobs, spills, belts | entities that fly to player; vacuum collector, hand vacuum | Ember core, vacuum Bronze | belts spawn items through `host.ground.spawn(..., delayS:0.5)` (works); no sort/filter on belts beyond funnels; magnet/electromagnet (Current) planned as one definition in `collectors.ts`; no fluids on belts |
+| **Leaf decay / chainsaw / tractor** (`game/felling.ts`, `leafDrops.ts`, `vehicles/*`) | fuel (ethanol/gasoline/diesel through canisters), logs | felled trees, harvested rows, towing | Current (gated by tier today; notes say move to age on W0) | distillery fuels are wired (ethanol weak, others stronger - verify numbers); bar oil consumer unbuilt; tractor PTO into shafts built (24 rpm, cap 30); weather/mud; sap tapping needs tree state |
+| **Fluids and pipes** (`sim/fluidNet.ts`, `pipeNet.ts`, `tanks.ts`) | pumps, tanks, buckets/canisters | water, lava, steam, crude_oil, fuel, + 11 distillery fluids | Forge (pipes, today tier 1-2) | `FluidKey` is a closed union in `core/types.ts` (every new fluid edits core); essentia tubes are a separate net (see magic); steam as a fluid is the old forge-era definition, the Bronze steam net is a separate design; tank support for distillery fluids unfinished |
+| **Distillery** (`sim/distill*.ts`, `core/chem.ts`, `core/distill.ts`) | beakers/canisters of wash, sap, syrup, crude oil; heat; water | spirit, fuel ethanol, gasoline, kerosene, diesel, residue, slop | Bronze/Forge per `DISTILL_AGE` | essentia/aspects; shafts (stirrer hook, vacuum cap pump); lubricant (residue exists, can does not); potions/tinctures; fuel ethanol into furnace? ground burner; brewing (tea->tincture) |
+| **Kinetic workshop** (`workshop/*`) | rpm from crank, treadwheel, clockwork motor, tractor PTO, old generator blocks; stress; lubricant | rotation, belts, press/mixer/deployer/arm/drill/saw/loom/hammer/quern effects, signals | Bronze (age index 0 today) | steam/boiler (no steam source on shafts in Bronze), wind/water as wooden primitives, lubricant can end to end, essentia servants (cranks only), belts into crates, signals into magic, weather |
+| **Steam** (old: `boiler`, `steam_engine`, `steam_turbine`; planned: STEAM_PLAN, BRONZE_PLAN) | furnace heat + piped water (old); planned copper kettle/boiler vessel | steam fluid; watts via dynamo (old); rotation (planned) | old: Forge/Current; planned: Bronze | whole planned stack unbuilt; shafts must be sourced here (stream A) |
+| **Power networks** (`sim/power.ts`, `nodes.ts`, `fission.ts`) | generators (solar, wind, combustion, geothermal, turbine, fission), batteries | watts to lamps, arc hearth, machines | Forge end .. Atomic | Dynamo (planned Forge end) between shafts and watts; weather already affects solar/wind in power (verify), but not workshop wind; essentia `spark` aspect is not drawable; signals (workshop) vs cables are separate and should stay so but a "relay" bridge is nice |
+| **Essentia magic** (`magic/*`, `render/magic`) | land aspects via gathering rod, vials, jars, hearth heat | notebook scans, research tree (24), wellsprings, tubes, rune desk, infusion altar, pedestals, foci, clay servants, hearth siphon | Bronze..Forge (ageMap) | tubes aren't fluid pipes; aspect fingerprints are keyword-derived not authored per new item; servants only crank; spark/soul/void undrawable; no aura HUD; no interaction with weather or time of day; distillery (Clarity) one-off |
+| **Dev Mode** (`app/devMode*`, `docs/api/dev-mode.md`) | creative item menu, flags | sandbox state | all | must enumerate new content automatically (check on every new stream); no objectives/Codex pollution flags |
+| **Objectives** (`content/objectives*.ts`, `game/objectives.ts`) | events, `ObjectiveCondition` union | goals, rewards | per age | no condition for fluids, rpm/stress, aspects learned, research done (uses `flag`); ids spread across 4 files; age field is an index so refactor renumbers |
+| **Codex** (`scripts/codex`, `Codex tab`) | content registries, progression tree, aspects | static site page, item map, research tree | all | planned items shown only as text; process cards (distillery) feed it; workshop recipe cards under goggles are in-game, not in Codex; regenerate with `npm run codex` after content changes |
+| **HUD / UI** (`ui/hud`, `ui/screens`, `ui/kit`) | game state | target line, buffs, objective tracker, screens (furnace, machine, pipe, brewing, notebook, rune desk, workshop guide) | all | goggles readout vs HUD target line vs machine screen are three presentations of the same facts; the workshop guide is a screen (against the in-world preference) |
+
+---
+
+## 3. Contradiction and gap list
+
+Severity: **B** blocks a stream, **M** confusing or exploitable, **S** small. File references are to the repo at audit time.
+
+### 3.1 Duplicate or competing mechanics
+
+| # | Sev | Finding | Where | Resolution (owner of fix) |
+|---|---|---|---|---|
+| D1 | B | Planned `MechSpec` shaft core vs built `workshop/kinetics.ts` + `workshop.ts` | `STEAM_PLAN` sections 1-3, `OVERHAUL_PLAN` A.9 `mechLite`, `src/workshop/*` | Keep the workshop solver. Add *sources* (steam rotor/engine, water wheel, windmill) as workshop part kinds with `{ rpm, capacity }` like `CLOCKWORK`/`pto` (A) |
+| D2 | B | Old watt generators `water_wheel`, `wind_turbine`, `steam_engine` double as workshop shaft sources via a table | `workshop.ts` ~34, `blocks.ts` 197-200, `recipes.ts` 141-178 | Rename the Forge-era ones (e.g. `dynamo_wheel`) or create wooden Bronze twins (`wooden_water_wheel`, `windmill`) and drop the table (A) |
+| D3 | M | Three "steam engines": Forge `steam_engine` (heat + water on furnace -> dynamo), planned Bronze piston engine, workshop rpm entry | `blocks.ts` 197, `STEAM_PLAN` section 2, `workshop.ts` | Old block becomes the **Steam Dynamo** (Forge end, electricity); the Bronze piston is `piston_engine` (A) |
+| D4 | M | Two boilers: Forge cased `boiler` (on a furnace) and the planned boiler vessel multiblock | `blocksTech.ts` 55, `BRONZE_PLAN` section 6 | Keep the vessel as `boiler`; rename old to `furnace_boiler` and move it to Forge/Current as the steam turbine feeder, or delete it after tests (A) |
+| D5 | M | Hand-station twins exist twice: workshop `mech_*` kinds and the planned `trip_hammer`/`millstone`/`saw_bench` items | `OVERHAUL_PLAN` A.4, `STEAM_PLAN` section 2, `itemsWorkshop.ts` (mech_saw, mech_millstone... are block keys in `BASE_STRESS`) | Use the workshop names; strike the STEAM_PLAN duplicates (A, C) |
+| D6 | M | Collectors: tractor harvester vs `reaper` vs `mech_arm` + deployer with a hoe | `vehicles/tractorWork.ts`, `OVERHAUL_PLAN` A.7 | Tractor = Current-age mass harvest; reaper (Bronze) = 3x3 crop cutter on a shaft; keep both, make recipes distinct (C, E) |
+| D7 | S | Vacuum: Bronze Chute + Vacuum Pump (BRONZE_PLAN 5.4), `vacuum_collector` (workshop), Hand Vacuum Pump (ground items) | `BRONZE_PLAN` 5.4, `itemsWorkshop.ts`, `game/collectors.ts`, `docs/api/ground-items.md` | One mechanism: `collectors.ts`. Chute network with a vacuum becomes a collector kind; do not build a second pull algorithm (A, C) |
+| D8 | M | Two ways to make Bronze goods: cup/cone forge recipes vs Clay Table | `WHATS_LEFT` section 0 (owner decision pending) | Owner decides; recommended: delete cup/cone forge recipes (E) |
+| D9 | S | Heat transport: planned thermocouples (BRONZE_PLAN) vs the existing `hearth siphon` (essentia) and furnace "warm zone" | `BRONZE_PLAN` 4.1, `magic.ts` | Not competing, but name them in a "heat" section of the Codex (G) |
+
+### 3.2 Name clashes (decide once, record in the conventions sheet)
+
+| Clash | Decision |
+|---|---|
+| `copper_kettle` (steam, Bronze) vs `kettle_pot` (boiling water, Ember) | Keep both; `kettle_pot` = Ember Kettle Pot (boils water only); steam item = `bronze_kettle` is NOT used; use `steam_kettle` with display name "Copper Steam Kettle". Never display "Kettle" alone. |
+| `steam_engine` x3 | see D3: Forge `steam_dynamo`, Bronze `piston_engine` |
+| `boiler` x2 | see D4 |
+| `water_wheel`, `wind_turbine` | Bronze wooden: `water_wheel`, `windmill` (axle output); Current: `wind_turbine` (watts) stays; Forge-era `water_wheel` recipe becomes the Bronze wooden one |
+| `mech_pump` (STEAM_PLAN recipe item) vs `pump` (fluid pump, `blocksTech.ts` 50) | `pump` stays the electric/fluid pump; shaft pump = `mech_pump` in workshop style |
+| `conveyor_belt` (code) vs `belt`/`drive_belt` (plans) | keep `conveyor_belt` (items) and `belt_pulley` (shaft link); never call the shaft link a "belt" in UI |
+| `drive_shaft` (code) vs "wooden axle" (plans) | code name wins; display "Wooden Axle" in Bronze, "Iron Shaft"/"Steel Shaft" later as variants of the same block key with material in `variant` or separate keys `iron_shaft`, `steel_shaft` (A decides; recommended separate keys for tool/tier rules) |
+| `six_cups` goal, `spirit_beaker` vs `spirit` fluid | cosmetic; beakers are the item form, fluids the pipe form: `<fluid>_beaker`, `<fluid>_canister` |
+
+### 3.3 Items with no use / no source / dead ends
+
+I did not run an exhaustive graph (that is a test, task G2). Observed from docs and content lists:
+
+- **No source or no way to obtain at their age:** `lubricant` as a fluid or can (workshop has `LUBE` keyed on `residue` and `pine_resin`; no `lubricant_can` item in `itemsWorkshop*.ts`
+  list); `bar oil` (chainsaw consumer unbuilt); `spark`/`soul`/`void` aspects (no source); `bent_pin` return (plan only, verify).
+- **Dead-end fluids:** `slop` (distillery waste: no use); `kerosene` (no consumer unless a lamp or jet fuel is added); `gasoline`/`diesel` have tractor/chainsaw use but
+  no generator (combustion generator uses `fuel`? verify); `sugar_wash`, `low_wines` only feed the still; `syrup` should reach sugar (rule not verified);
+  `crude_oil` and `fuel` (old refined fuel) are older than the 11 new fluids and the relation between `fuel` and `gasoline/diesel` is not documented - **one of them must absorb the other** (see section 4, B7).
+- **Closed-union cost:** `FluidKey` is a literal union in `core/types.ts` - every new fluid (steam variants, lubricant, essence) touches core. Convention below: fluids append, never reorder.
+- **Items that exist but have no recipe consumer:** unknown; expect some Atomic and glass beakers. Test G2 enumerates (item is craftable AND (used as input OR placeable OR consumable OR objective reward)).
+- **Planned only (named in docs, absent in code):** thermocouples, hot plates, heat vents, boiler vessel, copper kettle, steam rotor, steam engine (piston), pressure gauge, safety valve, air compressor/tank/tubes, pneumatic press/drill/hammer, blast nozzle, dynamo, vacuum pump block, iron/steel shafts, rolling mill, drop forge, crusher.
+
+### 3.4 Recipes that bypass the age gates
+
+- **All workshop recipes are `age: 0`** (see finding 3). A Bronze Workshop in the Ember Age is craftable with workbench bronze/copper recipes. After W0 set `age: 1` through the single `BRONZE` constant (`itemsWorkshop.ts` imports it from `ageMap`) - but also check the *station*: Ember bench recipes should not use bronze ingots in quantity unless the age 1 gate holds.
+- **Workbench recipes that craft machines from raw materials** (`bench()` rows in `recipesWorkshop.ts`) skip the "forge it" step; Bronze machines should need the bronze furnace tier (W0 adds `minTier 1`): `forgeR` already uses `minTier: 1` - that tier today is the **Clay furnace**, since tier 1 = Ember. W0 renumbering turns it into Bronze only if all `minTier: 1` literals are bumped. Search for the literal `minTier: 1` in all recipe files after W0 (task G2).
+- **Vacuum pump, chainsaw, workshop parts and magic ages are gated by tier today** (WHATS_LEFT); notes in `docs/api/ground-items.md` and `docs/api/chainsaw.md` say where to move them.
+- **Magic gates:** `src/magic/gates.ts` gates glass vial, rod and jar recipes by research; Bronze/Forge entries should depend on the same age names - verify `AGE_INDEX` use in `entries.ts` after W0.
+- **Tractor/chainsaw as Current**, but the distillery makes their fuel in Bronze-Forge: fine, but the tractor's PTO into shafts means a Current vehicle drives Bronze machines. Acceptable (a reward), but it bypasses the crank/treadwheel/steam ladder in a sandbox. Either gate the PTO behind Forge or accept it as a late-game convenience (owner decision, default: accept).
+
+### 3.5 Other contradictions found in docs
+
+| # | Finding | Fix |
+|---|---|---|
+| X1 | `OVERHAUL_PLAN` section 0 says rotation is a plan; `api/workshop.md` and code say built | Update OVERHAUL_PLAN with a "status" box; keep the design text (G1) |
+| X2 | `PROGRESSION.md` "Age 0 goals" list *Italic = planned* but some are built (clay table, casting, hand quern) | Re-mark after the refactor (G1) |
+| X3 | `SESSION_CONTEXT.md` has duplicate section numbers (two "## 7"), sections 10-12 repeat | Renumber on the next pass; low priority (G1) |
+| X4 | `PROGRESSION.md` says "Ember Kettle Pot is a different block from the Bronze Copper Kettle"; there is no mention of `steam_kettle` naming | Add to conventions (this document section 4) |
+| X5 | `STEAM_PLAN` section 8 "state of the repo" is dated; the shaft core claims "nothing exists" and it is true for `MechSpec` only | Replace with a pointer to section 0 here (A) |
+| X6 | `DISTILLERY_PLAN` section 11 puts the still in an age through `DISTILL_AGE`; `PROGRESSION` says the still is Current | Distillery plan wins for glass (Bronze, hand-fed), Current still is the older `techMachines.ts` still (a *different*, electric still). Name them `glass still` vs `electric still` in the Codex (B, G) |
+| X7 | Star hearth: 93 casings, pending owner decision | Reduce or keep: **recommend keep 93 but allow a smaller "compact star shell" achievable with superalloy hatches** (F) |
+| X8 | "Rack under glass keeps running", "crops without farmland stay without growing", "steam engine draws heat when idle" in `SESSION_CONTEXT` section 6 | Fix when touched (E, A) |
+| X9 | `Saves`: `SAVE_VERSION = 1` in `src/save/document.ts`; W0 needs a migration and a **fixture of an old save** committed first | W0 session owns; every later stream appends save keys without bumping unless changing shape (see conventions) |
+
+---
+
+## 4. Conventions sheet
+
+Everything here is either already true in code (cited) or a **decision** (marked D). Parallel streams must follow it; if a decision is wrong, change it here first.
+
+### 4.1 Naming
+
+- **Keys**: `lower_snake_case`, ASCII, stable forever (saves store keys). Never rename a key; add an alias in sanitize/migration instead (`src/sim/sanitize.ts`, `src/save/document.ts`).
+- **Items vs blocks**: a placeable thing has a block key and an item key that are the same string. Do not suffix with `_block` or `_item`.
+- **Material before shape**: `bronze_ingot`, `iron_plate`, `copper_coil`, `steel_shaft` (D). Tool kinds: `<material>_pickaxe`, ..., `<material>_maul`.
+- **Containers of fluids**: item `<fluid>_beaker` (glass, 125 mL? **unverified amount; see `content/amounts.ts`**), `<fluid>_canister` (8 stack; large), bucket = 1000 mL with `FluidSpec.bucket`. The fluid key is the bare name: `spirit`, `residue`.
+- **Display names**: Title Case, original names only (no Create/Thaumcraft/Minecraft names). Existing homages are tolerated internally (`item_vault`) but displayed names must be ours: use "Wooden Axle", "Gear Case", "Stamp Mill", "Field Notebook".
+- **Ages**: the lower-case names `'ember' | 'bronze' | 'forge' | 'current' | 'atomic' | 'star'` (`AgeName` in `src/magic/ageMap.ts`). Code uses a numeric index (0-5 after W0); **new content must use `AgeName` via `ageIndexOf()` / its age constants, never a bare number** (D). Display: "Ember Age", etc.
+- **Aspects** (all lower-case): primals `cinder loam brook gale rune rift`; compounds `glow spring vein frost ash wane drive craft mind ward steam clarity`; late `spark soul void` (`src/magic/aspects.ts`). New aspects require a tier, two parts, a colour and a research entry.
+- **Events** (`src/core/gameEvents.ts`): `namespace:verb` (`cast:poured`, `mech:seized`). New events append to the union.
+- **Machine roles** (`MachineRole` in `core/types.ts`): keep existing; new `role` values append.
+- **Test fixtures**: roster file names `specRoster<Area>.ts`, one line merge in `specRoster.ts`, and a count line in `content.test.ts`.
+
+### 4.2 Units
+
+| Quantity | Unit | Where |
+|---|---|---|
+| Temperature | degrees C (integer display) | furnace, recipes `minTempC` |
+| Heat flow | kW | thermocouples (planned 6 kW/line bronze, 20 kW iron) |
+| Electrical power | W (display kW/MW) | `core/constants.ts`, `power.ts`; storage J |
+| Rotation | rpm, signed (negative = reverse) | `workshop/kinetics.ts`; base rpm 16 (`STROKE_S` 0.5 s at 16 rpm; belt 1 block/s at 16 rpm) |
+| Stress | su ("stress units"); capacity of sources vs load; `BASE_STRESS` table | `kinetics.ts` |
+| Watts to stress | `suPerW = 1/50` for converted generators (`workshop.ts`) | until D2 is resolved |
+| Fluid | litres (L) in code, called mL in some recipe docs: **use L for machines, beakers/vials in mL where a recipe shows 125/250 mL**; `FluidSpec` bucket = 1000 L | `content/amounts.ts` |
+| Pressure | bar (Bronze steam), 8 bar bursts without valve (planned) | `BRONZE_PLAN` |
+| Essentia | integer units; jars 32; max 8 per aspect in a fingerprint, max 4 aspects (`aspectTable.ts`) | `magic` |
+| Time | game seconds in sim (`dt`), real-time in UI; day length in `game/clock.ts` | |
+| Durability | integer uses | `ItemSpec` |
+
+### 4.3 Recipes, stations and temperatures
+
+- Stations (existing): `workbench`, `furnace` (with `kind: 'forge'` or smelt rows), hand stations (chopping block, quern, stone anvil, mortar, clay table, casting bench, drying rack, tanning trough, loom), brewing pail/cup/cone, glass still modules (cards), workshop `basin:<id>` rows, Rune Desk and infusion altar.
+- **Rule 1 (D):** the more a recipe resembles a transformation of heat/force, the earlier it should be on a physical station; **workbench is for assembly of already-made parts only**. A workbench row whose inputs include an ore, raw dust or fluid is a smell.
+- **Rule 2 (D):** furnace forge rows carry `minTier` (furnace tier = age index + 1 after W0? **tier numbering is decided by W0; read `FurnaceTierSpec`**) and `minTempC`: copper 700, bronze 800 (Ember), Bronze-age rows 700-1100, iron 1150, steel 1400, silicon 1700, tungsten 2000.
+- **Rule 3 (D):** a recipe can raise at most one gate: age, research, or tier (two when the second is a safety check). Research gates are implemented through `magic/gates.ts` `setCraftGate`, never by editing the recipe function.
+- Hand recipes live in `recipesHand.ts` and **machines read them** (twins keep the same rows; time = seconds / (rpm/16)).
+- Distillery recipes are cards (`recipesDistill.ts` `card(...)`: id, vessel, inputs, outputs, temp, time, pressure/aux, glyph string). Process cards feed Codex, ghosts and tests: add a card, not an ad-hoc rule.
+
+### 4.4 Tool and tier ladder
+
+Mining tiers 1 (wood/stone/flint) .. 5 (endgame) per `BlockDef.minTier`. Ember: flint then bronze tools (bronze = tier 2 equivalent) - **bronze tools are made in the Ember Age by hand casting** (Ember plan), so the Bronze Age does not start with a tool upgrade but with machines. Forge: iron (3), steel (4); Current: tungsten/arc maul (4-5); Atomic: superalloy/power drill (5). Weapon/armour ladders follow the same names (iron/steel mauls, plated coat, steel cuirass, shield suit). New blocks choose `tool` and `minTier` from this ladder; machines made of metal need `pickaxe` tier of their age.
+
+### 4.5 How a new system registers (checklist for every stream)
+
+1. **Content**: block rows in `src/content/blocks<Area>.ts` appended LAST so voxel ids never move (id is 10 bits; facing 2, active 1, variant 3 - `docs/api/world.md`); items `items<Area>.ts`; machines `techMachines.ts`/`machines<Area>.ts`; fluids `fluids<Area>.ts` and `FluidKey` union in `core/types.ts`.
+2. **Recipes** in `recipes<Area>.ts` and the `RECIPES` index; cooking/hand rows in `recipesHand.ts`.
+3. **Fixture**: `specRoster<Area>.ts` + merge in `specRoster.ts` + counts in `content.test.ts` / `worldContent.test.ts` (the tests count items, blocks, recipes; they fail if you forget).
+4. **Solver rules** for sim-driven things: workshop part kinds in `workshop/kinetics.ts` (`BASE_STRESS`, `passOn`) and `workshop.ts` (`CYCLES`, source table); chem rules in `core/chem.ts` + `REACTION_SPECS`/`PROCESS_SPECS`.
+5. **Aspects**: every item and block gets a fingerprint automatically from `src/magic/aspectTable.ts` (`KEYWORD_RULES`, `CATEGORY_BASE`, `AGE_BONUS_PER_AGE`, `OVERRIDES`); **new content must add keyword rules or overrides so its fingerprint reads sensibly** (D), and `magic.test.ts`/`fingerprint.test.ts` check budget (max 4 aspects, max 8 each).
+6. **Codex**: `scripts/codex` reads registries; add the item to a progression branch in `content/progression.ts` and regenerate (`npm run codex`). Planned items are listed with `[planned]` until they exist.
+7. **Objectives**: add an id to the relevant `objectives*.ts`; `ObjectiveCondition` types in `core/types.ts` are limited (have, make, place, break, furnaceTemp, furnaceTier, generate, stored, flag, any); use `flag` events for anything else (D) and add typed conditions only when 3+ goals need them.
+8. **Save keys**: sim state serialises through each system's `save`/`load` into the world save (`src/save/document.ts`, `isWorldSave`, `normalizeDocument`). Add a key to the document and a default in `normalizeDocument`; do not bump `SAVE_VERSION` unless shape breaks. Missing keys MUST load as empty.
+9. **Sounds**: add a name to `SfxName` in `src/core/gameEvents.ts`, a recipe in `src/audio/sfx<Area>.ts`, list it in `sfx.test.ts`'s expected names; ambience layers in `src/audio/ambience*.ts`.
+10. **Icons/textures**: painters in `src/render/textures/*` (five-step ramps in `palette.ts`), tile listing in `render/atlas`/`textures.test.ts`; item icons from `render/icons.ts`. Every item/block needs a texture or the tests fail.
+11. **Render** for in-world animation lives in `src/render/<area>/`, instanced renderers for repeated parts.
+12. **Docs**: one `docs/api/<area>.md`; add to `SESSION_CONTEXT.md` only the commit range and state.
+13. **e2e**: a `scripts/e2e-<area>.mjs` and a line in `package.json` chain; run under the `.run-lock` mutex when others are building.
+
+### 4.6 UI language and phone interaction
+
+- **In-world first** (owner): prefer a block you press/hold/strike, a status sentence on the HUD target line, a ghost preview, or a goggles readout over a modal screen. A screen is justified only for inventories of many things (notebook, research board, Codex, rune desk) or a settings panel.
+- Touch target >= 44 px (`--hw-tap` 44px in `ui/styles.css`, `IconButton` 44 px). Phone breakpoint `(max-width: 719.98px), (max-height: 519.98px)`; windows become full-screen sheets on phones; no page scroll; long-press (420 ms) = secondary action.
+- Every machine has **one status sentence** (<= 70 characters, "Quern: grinding wheat, 14 rpm, load 4/24 su") shown on the target line and by goggles; planned exact strings exist in `BRONZE_PLAN` section 10. New machines add theirs; failures use verbs ("seized", "overheating", "out of fuel") and say what to do ("add a clutch").
+- Copy: second person, plain, <= 2 sentences per description, no jargon without a Codex entry; numbers with units (`16 rpm`, `1100 C`, `8 bar`, `2 kW`).
+- Buttons are verbs; toasts at most 3 s; never block movement with a modal during survival hazards.
+- Fonts: IBM Plex Sans / Plex Mono (class `hw-num` for readings).
+
+### 4.7 Colour and art direction
+
+- Voxel world with painted tiles from code (`src/render/textures`), five-step ramps per material, a gentle S-curve and warm highlights (`textures.md`).
+- Per age signature (section 1). Fluid colours in `FluidSpec.colour` (water `0x3a86b4`, lava `0xff7a1e`, steam `0xe6ecf0`, crude `0x1d1814`, fuel `0xe2bc3a`); **aspects keep their `AspectInfo.color` everywhere** (cinder `#e8622a`, loam `#8a6a3c`, brook `#3f8fd8`, gale `#cfe6ee`, rune `#a77fe0`, rift `#5a3a6e`, glow `#ffd95a`, spring `#5cc060`, vein `#c7a24a`, frost `#9fd6ff`).
+- Machines read by *state*: heat = emissive glow by temperature (`glows.ts`), motion = turning parts (workshop renderer), fluid level = window, essentia = floating motes in the aspect colour. A machine that does something must **show it** (no silent processing).
+- Glass always has the same blue-white transparency; metal parts carry a material colour (bronze `#b89a4a` verdigris edge, iron slate, steel bright).
+
+### 4.8 Sound conventions
+
+- All sfx are synthesised in `src/audio/sfx*.ts` with `SfxName` strings: `<area>_<what>` e.g. `essentia_pour`, `scan_chime`. One sound per player-visible action, plus one ambient layer per running machine class (`ambience*.ts`, with weather layers separate). A new loop must have a volume budget in the ambience test and respect distance attenuation.
+- Pitch encodes state (machines whine up with rpm, down with load); never add speech.
+- Phone: master volume and mute in Settings; no autoplay before first touch.
+
+---
+
+## 5. Prioritised integration work list (streams)
+
+**Ordering.** The six-age refactor (W0) lands first and exclusively. After it, run **A first** (it unblocks C, D, E and part of F), with **B, E and F-content** in parallel as soon as W0 lands; **C** can start with the non-steam items; **D** after the Bronze sources exist; **G** is last. Each stream should be one session, one branch, rebase on W0 (never merge another stream's branch). Shared files all streams touch (`src/core/types.ts`, `content.test.ts`, `specRoster.ts`, `package.json` e2e chain, `src/app/game.ts`, `src/audio/sfx.ts`): append-only, small commits, **rebase before every commit**.
+
+Every stream's end state: `npx tsc --noEmit` clean, `npx vitest run` green, its own e2e passes on desktop and phone portrait (`HW_GPU=1`), `docs/api/<area>.md` updated, Codex regenerated, no key renamed, no voxel id moved.
+
+### Stream A - Steam and Bronze mechanics (STEAM_PLAN + BRONZE_PLAN, reconciled)
+
+**Owns:** `src/sim/{heatNet,steamNet,airNet,netGraph,boilerVessel,structureScan}.ts` (new), `src/content/{blocksSteam,itemsSteam,recipesSteam,specRosterSteam}.ts` (new), `src/workshop/{kinetics,workshop}.ts` (add source part kinds only), `src/render/steam/` (new), `docs/STEAM_PLAN.md`, `docs/BRONZE_PLAN.md`, `docs/api/steam.md`. Shares append-only: `core/types.ts` (FluidKey `steam_low`? no: keep `steam` and add `air`), `core/gameEvents.ts`.
+**Does not touch:** distillery, magic, handwork.
+
+Designs (one concrete picture each):
+1. **Wooden primitives first.** `windmill` (turns by `windAt`, height gives capacity) and `wooden_water_wheel` (two water sides) become workshop *source kinds* (`{rpm, capacity}` like `CLOCKWORK`), replacing the watt table (D2). Player sees: a windmill on a hill, the wooden axle trundling down to a quern. Goggles: "Windmill: 12 rpm, wind 0.8, load 6/18 su." Weather already provides wind; storm gusts raise stress capacity and a heavy gust shears a pin (hooks the shear pin).
+2. **Copper steam kettle + rotor.** `copper_kettle` sits on the clay or bronze furnace (adjacent heat) and takes a water bucket; at the boil it makes steam that spins a `steam_rotor` placed on top. Player sees: a sealed copper pot, a puff, the rotor whirling, a shaft starting; running dry warps the kettle (rule from STEAM_PLAN). This is the "heat makes motion" moment.
+3. **Thermocouples carry heat, not fuel.** A bronze strip running from the furnace to a plate: the plate glows by temperature and burns your hand; boiler heat ports take heat from it (BRONZE_PLAN 5.1). Reuse the **hearth siphon pattern** from magic (one-way heat taken by a neighbour).
+4. **The boiler vessel multiblock** built from a ghost preview in the Structure planner; `scan` reuses `hearthScan`. Safety valve + pressure gauge; burst after a 5 s warning above 8 bar with no valve; the valve **whistle** is the signature sound. Pressure shows on the **goggles** (not a new screen).
+5. **Piston engine** (`piston_engine`) turns 16 rpm/bar with 128 su/bar capacity: the first strong shaft source. Rename old `steam_engine` to `steam_dynamo` (Forge end, watts) per D3.
+6. **Pneumatics**: compressor on a shaft -> air tubes -> tank (6 bar, leaks at open ends) -> pneumatic press/drill/air hammer; new `air` fluid (append to `FluidKey`); the tubes should look like the essentia tubes but copper (same render code if possible, different net).
+7. **Vacuum chute = collector**: see D7. A chute network with a vacuum pump calls `collectors.ts` (no new pull algorithm); items rattle through glass-ended tubes.
+8. **Blast nozzle gate** to the Forge: brick walls + nozzle fed at 2 bar -> blast hearth forms (Forge gate; edits `hearthScan` + progression gate only).
+**Acceptance (golden tests + e2e):** (a) windmill + crank-free quern grinds wheat headless (unit); (b) kettle boils a bucket and the rotor reaches 16 rpm; dry kettle warps; (c) boiler with no valve bursts after 5 s above 8 bar; (d) air tank leaks when a tube end is open; (e) blast hearth forms only with nozzle at 2 bar; (f) old saves load (fixture); (g) `e2e-steam.mjs` builds kettle -> axle -> mill on desktop and phone. Also: D1-D4 resolved, old items renamed with aliases in `sanitize.ts`.
+
+### Stream B - Distillery completion (DISTILLERY_PLAN section 15)
+
+**Owns:** `src/sim/distill*.ts`, `src/core/{chem,distill}.ts`, `src/content/{blocksDistill,itemsDistill,recipesDistill,fluidsDistill,machinesDistill,specRosterDistill}.ts`, `src/render/distill/`, `docs/DISTILLERY_PLAN.md`, `docs/api/distillery.md`. Shares append-only: `core/types.ts` FluidKey, `fluids.ts`.
+Designs:
+1. **Lubricant, end to end.** Vacuum cap on a rig separates `residue` into `lubricant` (new fluid) and bitumen; a `lubricant_can` is filled at a tank spout (workshop `spout`), used on a shaft: the goggles show "oiled, 9 min left" and the stress capacity rises (workshop `LUBE`). The chainsaw bar-oil consumer drinks the same can. Player sees oil sheen on the axle and the shaft quietens (sound filter).
+2. **Essentia in the still (aspect distillation).** A rig fed a jar's aspect or a herb produces an "essence" item (`<aspect>_essence`, appended `ItemSpec` per primal aspect) at low yield; the Clarity vial entry becomes a real reaction card. Essence makes tinctures and elixirs. Visuals: the column glows in the aspect colour. (Coordinates with D.)
+3. **Tinctures, potions, drinks, antiseptic bandage:** brewing buffs (`game/brewBuffs.ts`) gain alcohol-extracted variants: Green Tea tincture (longer jump), Berry Tea elixir (heal over time), Spirit as a drink (warmth, slows aim - small cost), Fuel ethanol in the **ground burner** (charcoal-free fire). Drinks reuse `drink.ts`.
+4. **Ground burner & reflux head & filter bed**: single-block hand-fed heat for the first rigs (no furnace needed); reflux head raises purity; filter bed (sand, charcoal) cleans slop into water.
+5. **Rig screen and ghost previews** (in-world preferred: ghosts + goggles sentences; screen only for a recipe card).
+6. **Tank/pipe end to end**: tanks accept all 11 fluids; receiver -> pipe -> tank; shaft stirrer hook in the workshop (a Bronze stirrer lowers batch time; B reads workshop `driveAt`-like API: coordinate with C).
+7. **Refinery tower** (late, Forge): catalyst bed + pressure cap + cracker: crude -> gasoline/kerosene/diesel by cut height. `slop` and `kerosene` get consumers: kerosene lamp (light without power, Bronze-Forge), slop -> fertiliser.
+8. **Merge `fuel` (old refined fuel, `fluids.ts`) into the new fuels** (B7): keep key `fuel` as an alias of `gasoline` in sanitize, or rename in the oil tech chain; the combustion generator consumes `diesel`/`gasoline`/`fuel_ethanol` with different efficiency.
+**Acceptance:** rig golden tests for lubricant and essence; a `distill:step` event; each new fluid has a tank test; `e2e-distill.mjs` runs bottle -> spout -> can -> shaft oiled, desktop + phone; `content.test.ts` counts updated.
+
+### Stream C - Workshop polish and Create-style gaps
+
+**Owns:** `src/workshop/*` (except source kinds, which A adds), `src/render/workshop/`, `src/content/{itemsWorkshop,itemsWorkshopParts,recipesWorkshop,objectivesWorkshop,specRosterWorkshop,basinWorkshop}.ts`, `docs/api/workshop.md`.
+Designs (from WHATS_LEFT section 2 plus new):
+1. **Smooth tweening of moving structures** and **riding the skiff** (seat = player locked to the skiff, view bobs with rail grade). Test: skiff carrying a player down a rail doesn't desync collision.
+2. **Treadwheel with tamed animals** (`mobs.md`): a goat or hound on the wheel gives 12 rpm; the horn calls it. Animals tire (stamina) and need food -> farming/hunger link.
+3. **Belts cross structure borders** and **belts into crates**: a belt ending against a crate adds the item (via `accept` -> `acceptCrate` already exists), so a field -> belt -> crate loop works without a funnel. Visual: crate lid opens.
+4. **Continuous spouts**: a spout connected to a pipe network fills any container on a depot every second (no bucket needed): distillery bottling line.
+5. **Punched gearshift cards** as an item with a visible pattern; Use on the gearshift loads it; cards are craftable at the workbench with a punch tool. The three presets stay as defaults.
+6. **Item vault multiblock growth** and a **sorting funnel** (filter slot, whitelist of items); belts show item sprites moving (done) and texture direction (belts animate).
+7. **Trinkets**: wind vane (reads `windAt`, rotates), weather cock, spyglass (zoom, long-press on phone), brass horn, padlock chest, lantern chain. Ship each as a block with a status sentence; trinkets feed the Codex "decor" branch.
+8. **Weather and machines**: rain makes belts slip (speed x0.8 outdoors unless under a roof, read `weather.ts` precipitation + sky exposure), frost thickens water wheel flow, storm wind may bend a windmill (stress spike). Tiny, readable, goggles show "wet belt".
+9. **Vacuum/magnet collector**: `vacuum_collector` already exists; make it a kind in `collectors.ts` with the same API the magnet will use.
+**Acceptance:** unit tests per part; goggles sentence per part; `e2e-workshop.mjs` extended: field -> belt -> mill -> chute -> crate; no regression in the six workshop goals; phone portrait e2e. **Fix first:** re-gate recipes to Bronze (C6); remove the generator table dependency once A lands.
+
+### Stream D - Magic depth and tech/magic tie-ins
+
+**Owns:** `src/magic/*`, `src/render/magic/`, `src/content/{itemsMagic,recipesMagic,specRosterMagic}.ts`, Codex Essentia tab, `docs/api/magic.md`.
+Designs:
+1. **Aspects on every new item** (task D0, runs after each stream): extend `aspectTable.ts` keywords: e.g. `kettle` -> cinder+brook+steam, `shaft/axle` -> drive+loam, `windmill` -> gale+drive, `piston` -> steam+drive, `lubricant` -> brook+glow, `spirit` -> cinder+clarity, `residue` -> loam+rift. A test lists items whose fingerprint is only `CATEGORY_BASE` (unmeaningful) and fails above a threshold.
+2. **Servants on cranks, then on more**: a clay servant turning a crank (built) grows into a **golem socket**: a servant on a *deployer* or *treadwheel* seat. Spring + Mind feeds them. Player sees a clay figure patiently grinding; golems that walk stay off the list until after (keeps scope).
+3. **Essentia tubes ARE a pipe net**: re-implement `essentiaNet.ts` on `pipeGraph.ts` with a fluid key `essentia` carrying (aspect, amount) pairs, so tubes share rendering, build tools and breakage with pipes. Existing saves migrate by adding tubes to the pipe snapshot (tests with a fixture).
+4. **Steam aspect and the boiler**: a boiler fed a jar of `steam` essentia makes steam without fuel but the furnace's warm zone dims (Essentia replaces fire but not warmth) - magic costs a trade-off. Rod charge from furnace heat (hearth siphon exists) is the bridge back.
+5. **Infusion altar upgrades items with aspects**: a lubricant can infused with `glow` never runs out; a hand crank infused with `drive` gives +50% capacity; a kettle with `cinder` boils with half the fuel. Each infusion is one small effect in a table (`INFUSIONS` in `magic/`), described in the notebook. Prevents power creep with a charge cost.
+6. **Spark / soul / void drawable** in Current/Atomic: spark from lightning rods in storms (weather link) and from the dynamo's field, soul from mob drops (Emberbound), void from deep rift places (world feature). Each unlocks one late research chain (electric servants, wards, storage).
+7. **Aura HUD dial**: a tiny dial on the compass that shows the local dominant aspect (colour) - not a screen, a HUD element.
+8. **More research entries** (24 -> 36) for Bronze/Forge: one per new Bronze system (kettle, kinetic, still, belts, pressure), gated through `gates.ts`.
+9. **Weather & time**: gathering rod draws more `gale` in storms and `cinder` at noon; wells recover by night.
+**Acceptance:** `fingerprint.test.ts` coverage test; research board tests for new entries; the e2e-magic script covers tube-on-pipe-net and altar infusion; no regression in saves (fixtures).
+
+### Stream E - Food, farming, brewing, sugar depth and cross-links
+
+**Owns:** `src/sim/{brewing,brewActions,crops*,bushes}.ts`, `src/game/{farming,hunger,buffs,brewBuffs,drink}.ts`, `src/content/{itemsBrew,itemsSugar,recipesBrew,blocksBrew,machinesBrew,objectivesBrew,specRosterFood,specRosterBrew}.ts`, `docs/api/{brewing*,sugar,food*,crops}.md`.
+Designs:
+1. **Sugar in the cup**: sugar and syrup are sweeteners that change a drink's profile: Sweet Green Tea = Green Tea + sugar -> jump + Sugar Rush speed, with the well-fed burn penalty (the existing `SUGAR_*` constants). Player adds a sugar lump to the cup before the pour (no screen: Use with sugar on the cup).
+2. **Alcohol path**: sugar wash -> low wines -> spirit (distillery) and a **fermenting jar** (Ember: clay jar + wash + days) that makes weak ale/cider you can drink raw. Drink buffs: Cider (warm + slow), Ale (hearty: hunger), Spirit (burn, heat resist). Alcohol should have a visible cost (aim sway) and a hangover-like "well-fed burn" so it is a choice.
+3. **New foods from new machines**: mill flour -> basin + mixer dough -> belt oven; sweet bun/cookie/cake exist; add savoury pie (meat + flour), cheese (milk + salt + time), jerky (rack). Each food has: hunger, well-fed seconds, optional buff. All numbers in `core/constants.ts` neighbourhood; one table.
+4. **Farming/irrigation/weather**: furrows next to water grow faster; rain waters; drought in the Current age storms? Tractor harvest and deployer-hoe both reach crop rules (`cropRules.ts`): reaper and tractor use the same ripeness check.
+5. **Sap -> syrup -> sugar chain** completes: tapped pine sap boils on the furnace into syrup (distillery fluid), syrup crystallises on a rack/hot plate into sugar; tap state saved (known gap), animation and particles.
+6. **Hunger from new drinks** with a single table `DRINK_HUNGER` so brewing, distillery and potions share it.
+7. **Bushes regrow after farmland removal** (known gap) and **rack under glass** decision.
+8. **Cup/cone vs clay table**: apply the owner's decision.
+**Acceptance:** per-recipe tests; `brewing.test.ts` + `food.test.ts` counts updated; e2e for "tea with sugar" and "tap -> syrup -> sugar"; buffs UI icon for each buff (HUD buff row) at 44 px.
+
+### Stream F - World and progression (biomes, objectives, Codex, balance)
+
+**Owns:** `src/content/{objectives*,progression,loot,oreVeins,creatures,automatons,emberbound}.ts`, `src/world/*`, `src/mobs/*`, `scripts/codex/*`, `docs/PROGRESSION.md`, `docs/api/{world*,mobs,emberbound*}.md`.
+Designs:
+1. **Objectives per age renumbered** and a single `objectives.ts` index so goals are in one ordered list per age with `requires` links (so the HUD tracker never shows a goal whose prerequisite machine isn't built). New conditions: `rpm`, `fluid`, `aspect`, `research` (typed, since 3+ goals need them).
+2. **Bronze goal chain** written to match STEAM/BRONZE plans: Bronze Furnace -> boil water -> shaft turns -> grind -> gear up -> saw planks -> heat moves -> build a boiler -> raise steam -> safety valve -> piston power -> compress air -> vacuum chute -> press plates -> blast nozzle (adds to the existing workshop goals, with `six_cups` optional).
+3. **Codex progression tree** shows the single spine (heat -> steam -> motion -> air -> watts) with each system as a branch colour; planned items grey; research tree linked; distillery process cards as a branch.
+4. **Biomes with purpose per age**: a `peat bog` (Ember: peat, wild tea), `mesa/clay flats` (Bronze: copper, tin, clay), `coal ridge` (Forge), `quartz dunes` (Current), `ruin deep` (Atomic). Spawn picks so the player finds every age's raw materials within a walk; resources are on **ore veins** (`oreVeins.ts`).
+5. **Emberbound / ruin scaling**: each age's guardians drop that age's late material (e.g. Bellows Hounds drop leather for belts), and unlock a **sound cue** when you enter a ruin of the next age (teaser).
+6. **Balance pass**: one spreadsheet-like test (`balance.test.ts`) prints time-to-gate for each age under an idealised player: target ~45 / 45 / 55 / 60 / 60 min (PROGRESSION). Tune fuel, furnace speeds and stress numbers.
+7. **Star hearth decision** (X7).
+**Acceptance:** `objectives.test.ts` proves every goal is reachable in order (existing playthrough test extended to Bronze); Codex builds without warnings; `balance.test.ts` thresholds; world map script shows resource distribution.
+
+### Stream G - Final integration and playtest
+
+**Owns:** `docs/*` (consistency), `src/content/content.test.ts` graph tests, `scripts/e2e*.mjs` chain, `package.json` chain, `docs/PLAYTEST.md` (new). Last, after A-F are merged by the owner.
+Tasks:
+- **G1 Docs reconcile**: fix X1-X5, delete duplicated plan text now built (replace with status boxes and pointers), regenerate the handoff bundle.
+- **G2 Graph tests** (new `src/content/congruence.test.ts`): every item is obtainable (some recipe/drop/loot/reward/Dev), every non-trivial item is used (input, placeable, consumable, reward) or flagged `decor`; no recipe lower than its age gate (age >= max input age except natural materials); every fluid has a source and a sink; every `FluidKey` has a bucket or canister path or is flagged pipe-only; every block has an aspect fingerprint beyond `CATEGORY_BASE`; every objective chain reachable; every `SfxName` has a recipe; every status sentence <= 70 characters.
+- **G3 Whole e2e chain** on GPU with diagnostics; fix red.
+- **G4 Playtest checklist** below.
+- **G5 Republish** the game artifact and Codex; save/load roundtrip with old-save fixture.
+
+---
+
+## 6. Cross-stream integration ideas (single concrete designs)
+
+These live between streams; owners are noted so that nothing is built twice.
+
+| Idea | What the player sees and does | Owner |
+|---|---|---|
+| **Lubricant raises shaft capacity** | Fill a can from the distillery spout (residue), press Use on a shaft: oil sheen runs along the axle, goggles say "oiled, 9 min", loads stress shows 80%; sloppy shafts squeal (filter) when un-oiled and near capacity | B + C |
+| **Essentia in the still** | Hold a jar of `cinder` against the boiling flask rig; the glass glows orange; a "Cinder Essence" bottle results; essence added to a tea at the cup makes a long-lasting warm drink | B + D + E |
+| **Oil and fuels** | Crude from a bog or oil shale pump -> still column cuts; kerosene lamp (Bronze light), gasoline/diesel/ethanol for chainsaw, tractor, combustion generator; each tank labelled with colour | B |
+| **Ground items on belts** | Drop an item on a belt; it rides; funnels filter; a magnet collector at the end drops into a crate with the lid opening | C |
+| **Sugar and alcohol in brewing** | Sugar at the cup raises speed; spirit in a tincture extends buff duration; cost: well-fed burns and aim sway | E |
+| **Aspects on every new item** | Notebook scan of a new part reads like a sentence: "Windmill: Gale and Drive" with a research hint | D |
+| **Belts into crates** | Belt end touches crate: items are taken at 1/s; crate fills; HUD shows count when goggles on | C |
+| **Servants on cranks / treadwheels** | A clay servant grinds at a quern; spring jar feeds it; you see it tire and brighten | D + C |
+| **Tractor power take-off** | Park the tractor by a shaft: engine note changes, 24 rpm to the shaft; fuel drains; chainsaw fuel is the same can | C + B |
+| **Vacuum / magnet collectors** | Pump or magnet reaches 9 blocks; items stream to the collector with a pop; electromagnet in Current uses watts | A + C |
+| **Weather affecting machines** | Wet belts, wind-driven mills, frost on wheels, lightning striking a metal vane makes `spark` | C + D + A |
+| **Hunger and buffs from new foods and drinks** | One `DRINK_HUNGER` table; HUD buff row icons; alcohol buff has a cost | E |
+| **Steam plan vs workshop vs distillery vs essentia tubes** | One shaft world (workshop), one fluid world (pipes) with air/steam as fluid keys, one tube world rebuilt on the pipe graph, one still with essences: no parallel systems | A + B + C + D |
+
+---
+
+## 7. Playtest checklist (desktop and phone portrait, Dev Mode off then on)
+
+Run on a real GPU with `?diag=1`. Mark each with: pass, feel notes, bugs. A hand-playthrough **has not been done** for the newest systems (WHATS_LEFT).
+
+**Ember (45 min):** spawn near trees/stone/clay/water; hunger and cold readable; furnace placed and lit; charcoal; copper then bronze cast by hand (first pour moment); hand quern -> flour -> dough -> bread; tea brew (boil pail, cup, cone); phone: every action reachable with thumb, targets >= 44 px; goals advance in order; gate list on the furnace screen is legible.
+**Bronze:** bronze furnace upgrade; crank + axle + quern; belts + funnel + chute + basin + mixer (the grain-to-dough line); goggles on every part; windmill and kettle/rotor (after A); boiler, valve whistle; compressor, air tank, pneumatic press; vacuum chute; lubricant can; overstress and shear pin; clutch and gearshift card; signals (lever, plate, bell); skiff ride; tally board; clockface.
+**Forge and later:** blast hearth, iron/steel, trip hammer, dynamo, first lamp; arc hearth; electric still; tractor and chainsaw with ethanol; PTO into a mill; magnet collector; fission pile; star ignition.
+**Cross-system:** distillery run (wash -> spirit -> fuel -> chainsaw; residue -> lubricant); notebook scan, research board, rod and jar, altar infusion, servant on crank; Sugar Rush (tap -> syrup -> sugar -> bun) and its penalties; weather during machines; save/quit/continue with an old save and a new save.
+**Quality gates:** no page scroll on phone; no text clipped; frame time stable at 20 view chunks; audio volume balanced across machine ambiences; no UI screen needed for any core loop (screens only: furnace, notebook, rune desk, Codex, settings); Codex shows each item with its recipe and aspects.
+
+---
+
+## 8. Open decisions for the owner (defaults in parentheses)
+
+1. Star hearth casings: keep 93 or reduce (keep, add compact shell option).
+2. `six_cups` optional (yes).
+3. Delete cup/cone forge recipes in favour of Clay Table (yes).
+4. Create `main` so pages.yml publishes (after G).
+5. Tractor PTO available before Forge (yes, as a late convenience).
+6. Display names for the Forge-era steam parts: `steam_dynamo`, `furnace_boiler` (see D3, D4).
+7. Whether shaft materials (wooden, iron, steel) are separate block keys (separate keys).
+
+<!-- ======================== END docs/CONGRUENCE.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/lanes/README.md ======================= -->
+# FILE: docs/lanes/README.md
+
+# Lane protocol (every lane architect and builder reads this first)
+
+The overhaul runs as parallel **lanes**. Each lane has an **architect** (heads the lane: contract, task cards, review, never certifies
+its own code) and **builders** (one task card each, disjoint files). The coordinator (the owner's main session) merges lanes after
+verifying them. Rules of `docs/team.md` apply: whoever writes code does not certify it; the coordinator re-runs the gates itself.
+
+Lanes: **A** Steam and Bronze mechanics, **B** distillery, **C** workshop (Create-style), **D** magic (Essentia and Research),
+**E** food, farming, brewing, sugar, **F** world, progression, art and audio, **U** phone UX, HUD and onboarding.
+Source of truth per lane (advisor dossiers, builder-ready, with task lists and file ownership): `docs/advice/`:
+A `tech-spine.md`, B and C `distillery-workshop.md`, D and E `magic-and-food.md`, F `world-progression-art.md`, U `phone-ux.md`;
+cross-cutting: `CONGRUENCE.md` (conventions, name clashes, streams), `balance-economy.md` (numbers; applied by the integration lane),
+`engineering-risk.md` (perf, saves, tests, merge safety).
+
+## Setup (once per lane)
+1. Your worktree is your own checkout on branch `lane/<x>` cut from `ccr-3c8b169f-e78nk2`. Work ONLY inside it, never in `E:\Projects\game`
+   (the main checkout) and never in `C:\Users\admin\game` (a junction to it).
+2. No `npm install`: junction the shared modules: `New-Item -ItemType Junction -Path <worktree>\node_modules -Target E:\Projects\game\node_modules`
+   (PowerShell). Playwright and Chromium live there; never run `npm install` in a lane.
+3. Ports and dirs: use `HW_LANE=<x>` and pick your dev port as 5180 + the lane's index (A=0 ... U=6); build to `<worktree>\.cache\dist` with
+   `node scripts/build.mjs --out=<worktree>\.cache\dist`, never into the main checkout's `dist/` (the owner serves that on 5173).
+4. Foundation: a serial **foundation** session lands shared fixes on `ccr-3c8b169f-e78nk2` (line endings, save `rev` + migration chain, block-id
+   lock file, folder registration, content-test refactor, hardened save modules, lane tooling). The coordinator messages you when it merged:
+   then `git merge ccr-3c8b169f-e78nk2` into your lane branch (resolve in favour of the foundation for shared registries) BEFORE builders start coding.
+   Until then, architects write only docs (`docs/lanes/<x>.md`) and spikes that do not touch shared registries.
+
+## Gates (a task is Done only after all of these, run by someone other than its author)
+- `npx tsc --noEmit` clean; `npx vitest run` green (use `vitest related` or a path filter inside a lane, the full run before reporting).
+- The lane's own e2e script on desktop and phone portrait with `HW_GPU=1 HW_DIAG=1` (build to your own dir; e2e scripts take `--no-build`/`--out` where
+  they exist; if one still hardcodes `dist/` or a shared tmp dir, fix the script first as the lane's first task).
+- Solver still completes the game; roster/Codex fixtures updated; `docs/api/<system>.md` written; screenshots LOOKED at.
+- Heavy jobs (full vitest, full e2e) take a machine-wide lock so only one runs at a time on this 12-thread/16 GB box: `mkdir E:\Projects\game\.gate-heavy`
+  (wait 60 s and retry while it exists), `rmdir` when done, also on failure. Fast gates need no lock.
+
+## Collision rules
+- New systems go in NEW files/folders (`src/<system>/`, `content/*<Name>.ts`, `render/<system>/`, `scripts/e2e-<name>.mjs`); touch shared registries
+  (`items.ts`, `recipes.ts`, `blocks.ts`, `progression.ts`, `objectives.ts`, `game.ts`, `types.ts`, `gameEvents.ts`, `painters.ts`, `package.json`) with the
+  smallest possible one-line additions, APPEND-ONLY, re-reading the file right before editing. Block ids are positional and saved: only append blocks, never
+  reorder or delete (the foundation's id lock file enforces it). Renaming or removing an item key needs an alias entry so old saves keep their items.
+- Every persisted system needs: a save key, load that never throws and never overwrites good data with empty, a golden-save row, `diag()` points
+  (`<sys>.load/.rebuild/.state`), a perf row, and an e2e step.
+- Commit often to your lane branch with the attribution line `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`; commit only your own files; never
+  revert others' edits; no push, no `main`.
+
+## Roles and reporting
+- **Architect:** reads the dossier and `CONGRUENCE.md`, writes `docs/lanes/<x>.md` (contract: data types, file ownership per task card, order, acceptance checks,
+  what other lanes must provide or consume, and which of the dossier's open questions you answered), then runs the lane: starts or briefs builders
+  (a builder is a session started with `use_worktree: false` INSIDE the lane worktree path via `cwd`, or by messaging the coordinator to start one), reviews every
+  builder's diff and gate output (never their summary), and reports to the coordinator at each milestone and when the lane is done: commits, gate counts,
+  what is left. If you cannot start sessions yourself, say so and implement the task cards yourself in order with an independent review pass from a builder
+  the coordinator starts.
+- **Builder:** one task card at a time, its files only, tests first where possible, stop and report when the card's acceptance checks pass.
+- Messages between lanes go through the other architect (`SendMessage` to its session id, which the coordinator lists in `docs/lanes/ROSTER.md`).
+
+<!-- ======================== END docs/lanes/README.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/lanes/ROSTER.md ======================= -->
+# FILE: docs/lanes/ROSTER.md
+
+# Lane roster (session ids, for SendMessage between architects)
+
+| Lane | Role | Session id | Branch |
+|---|---|---|---|
+| Coordinator | main session | `local_4bdc7aa5-0ceb-445b-9336-843dec94f1d4` | `ccr-3c8b169f-e78nk2` (main checkout `E:\Projects\game`) |
+| Foundation | saves, ids, registration, lane tooling | `local_2070b517-8040-477a-81e1-0881ff431bb4` | `ccr-3c8b169f-e78nk2` (main checkout) |
+| A | Steam and Bronze | `local_d8955f5f-ea2a-4586-bf35-8305b0837bdc` | `lane/a` |
+| B | distillery | `local_dd8e1fe6-f348-4d73-8035-2b4cf2387cb9` | `lane/b` |
+| C | workshop (Create-style) | `local_e81aaffc-7e88-4bc5-8afd-87366c84b22f` | `lane/c` |
+| D | magic (Essentia and Research) | `local_817cc7ef-47e1-42aa-849a-3e65845ea250` | `lane/d` |
+| E | food, farming, brewing, sugar | `local_4fd50b8d-4321-4de8-b75f-35aff6a46962` | `lane/e` |
+| F | world, progression, art, audio | `local_25aa37e8-7094-4a81-a831-ad423509015b` | `lane/f` |
+| U | phone UX, HUD, onboarding | `local_e79fec77-0aa6-4462-84ad-64795f62278c` | `lane/u` |
+
+Branch names above are the intent; the app may add a prefix or suffix to the actual worktree branch: use `git branch --show-current` in your worktree.
+Interlocks (who talks to whom): A<->C shared kinetic model; B<->C lubricant/arms/spouts; B<->A heat, pressure, engines; D<->C golems and cranks;
+D<->B essentia in stills; E<->B spirits, potions, sugar; E<->D aspects of plants and creatures; F<->all new content keys, ages and Codex; U<->all HUD slots.
+
+<!-- ======================== END docs/lanes/ROSTER.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/tech-spine.md ======================= -->
+# FILE: docs/advice/tech-spine.md
+
+# Technology spine - design dossier for the builders (Steam, Bronze, distillery rest, workshop polish)
+
+Advisor note, 2026-11-21, branch `ccr-3c8b169f-e78nk2`. READ-ONLY pass: nothing was built or run; the six-age refactor (W0) was still in
+the checkout, so line numbers can drift (symbol and file names are stable). Sources read: `STEAM_PLAN`, `BRONZE_PLAN`, `DISTILLERY_PLAN` s.15,
+`OVERHAUL_PLAN` A, `WHATS_LEFT`, `team.md`, `CONGRUENCE.md`, `docs/api/{workshop,distillery,sim,transport,tech-content}.md`, and code in
+`src/workshop/{kinetics,workshop}.ts`, `src/sim/{pipeGraph,fluidNet,hearthScan,...}.ts`, `src/content/tech*.ts`.
+Items marked **(verify)** are claims I could not confirm in code.
+
+Fixed by the owner (not relitigated): six ages Ember/Bronze/Forge/Current/Atomic/Star; Ember = handwork only; Bronze = steam, shafts, then the
+boiler multiblock; Forge = iron/steel + dynamo at the end; Current = electricity and the modern steam turbine; furnace is the heart of the base;
+original names; in-world interaction first, phone first.
+
+---
+
+## 0. The decisions that shape everything (read this first)
+
+| # | Decision | Why |
+|---|---|---|
+| K1 | **One shaft world: `src/workshop` (kinetics.ts + workshop.ts). `MechSpec`/`mech.ts`/`mechGraph.ts` of STEAM_PLAN are NOT built.** Steam, wind and water become *source providers*, dynamo/compressor/pump become *load providers*, of that solver. | Built, tested, saved; 3000 lines. Matches CONGRUENCE D1. |
+| K2 | **One power convention: shaft power W = `su x |rpm| x 3.125`** (`W_PER_SU_RPM = 50/16`). It is the *existing* `suPerW = 1/50` at 16 rpm, so nothing built has to change, and it makes every conversion a one-line ledger entry. | The plans' engine numbers (6 kW heat -> 768 su at 96 rpm = 230 kW) violate conservation by ~100x. See section 1.5. |
+| K3 | **Energy ledger: heat (W) -> steam (L/s at 167 J/L) -> shaft (W) -> {work, air, watts}. Every arrow has an efficiency < 1 that lives in ONE table (`src/core/energy.ts`) and ONE conservation test.** | Free-energy loops are the biggest balance trap (section 4). |
+| K4 | **Gas (steam, air) is a pressure model on the existing pipe graph, not a second graph.** `GasNet extends PipeNet` (like `FluidNet`), `PipeSpec.family` gains `'steam' | 'air'`; flood fill, joints, anchors, saving and pipe meshing are reused. Only **heat** (thermocouples) needs a tiny new graph (`heatNet.ts`, same flood helper). BRONZE_PLAN's full `netGraph<T>` generalisation of `pipeGraph.ts` is **dropped**. | `pipeGraph.ts` (318 lines) also carries the Forge item/fluid nets; rewriting it is the riskiest edit in the plan and buys nothing. |
+| K5 | **No key renames, no re-meaning of existing keys.** Old `boiler`, `steam_engine`, `steam_turbine`, `water_wheel`, `wind_turbine` stay exactly as blocks/machines (display names change, `age` changes, `legacy` flag). New Bronze things get NEW keys: `boiler_plate`, `boiler_gauge_glass`, `beam_engine` (not `piston_engine`: collides with workshop `piston`), `mill_wheel`, `windmill`, `steam_kettle` (CONGRUENCE), `steam_rotor`. | Voxels store ids by palette key; an alias that points an old saved boiler at a vessel controller would silently convert saves. CONGRUENCE D3/D4 proposed renames; this supersedes them (record in its conventions sheet). |
+| K6 | **Retire the watt->shaft bridge `GENERATOR_SHAFT` in `workshop.ts` (and `generatorWatts`).** Legacy generators produce watts only. The only shaft->watts bridge is the Forge `dynamo`; there is no watts->shaft block until Current. | Removes the loop generator -> shaft -> dynamo (section 4, R3). |
+| K7 | **Engines draw steam in proportion to the shaft's load**, not at full rate (`Workshop.loadFraction(x,y,z)`), with a 10% idle draw. | Fixes "steam engine draws heat when idle" (SESSION_CONTEXT s.6) and gives the pressure gauge meaning. |
+| K8 | The Bronze steam `steam` gas is **not** the pipe-fluid `FluidKey 'steam'` (1 L = 20 J, Forge/Current). Gas L are "volume at 1 bar of this network". No `FluidKey` change; families never join. | Avoids editing the closed `FluidKey` union and the old boiler/turbine numbers. |
+
+---
+
+## 1. The unified kinetic / heat / fluid model
+
+### 1.1 Units (all new code uses these; nothing else)
+
+| Quantity | Unit | Notes |
+|---|---|---|
+| Temperature | degC (float in sim, integer display) | `AMBIENT_TEMP_C` 20 |
+| Heat flow | W (display kW) | furnace `extractW` bus (existing) |
+| Gas amount | litres at network bar; `bar = L / volumeL` | steam and air |
+| Liquid | L in code. "mL" appears only on glassware/beaker labels (CONGRUENCE 4.2). The user's "mL" = beaker sizes; machines are L | |
+| Shaft speed | rpm signed | base 16 |
+| Stress | su; **capacity** of sources, **load** of machines | `BASE_STRESS x clamp(16/|rpm|, .25, 4)` (existing) |
+| Power conversion | `W_PER_SU_RPM = 3.125` | K2 |
+| Electric | W (Forge dynamo end, Current) | existing |
+| Pressure | bar (display 1 decimal) | |
+
+Hard consequence of K2 and the existing stress formula: a machine's *load power* is `base x 16 x 3.125 = base x 50 W` at any rpm in 4..64 (constant power),
+and *conservatively higher* above 64 rpm (clamp .25 keeps base x 0.25 su while pure physics would drop further). So gearing up never creates energy. Table of
+machine powers: crank-fed quern/saw 4 su = **200 W**; drill 6 su = 300 W; hammer/press 8 su = 400 W; belt 0.25 su = 12.5 W.
+
+### 1.2 The ledger (`src/core/energy.ts`, new, constants + tiny pure functions; T0)
+
+```ts
+export const W_PER_SU_RPM = 3.125;
+export const STEAM_J_PER_L = 167;           // 1 kW of heat = 6 L/s of steam (BRONZE_PLAN 5.2, kept)
+export const WATER_PER_STEAM = 0.1;         // L water per L steam (kept)
+export const AIR_J_PER_L = 6.25;            // shaft energy stored per L of compressed air
+export const ETA = {                        // every arrow < 1; one place to tune
+  rotor: 0.06,                              // Hero-style open rotor: weak on purpose
+  beamEngine: (bar: number) => Math.min(0.18, 0.04 + 0.025 * bar),   // 2 bar .09 ... 5.6+ bar .18
+  steamHammer: 0.12, compressor: 0.75,
+  dynamo: 0.85,                             // Forge
+  hotPlate: 0.9, thermocoupleLossPerBlock: 0.02,
+} as const;
+export const suFromW   = (w: number, rpm: number) => w / (Math.abs(rpm) * W_PER_SU_RPM);
+export const wFromSu   = (su: number, rpm: number) => su * Math.abs(rpm) * W_PER_SU_RPM;
+```
+
+Test (`src/core/energy.test.ts`, T0): for every source provider at its max, `shaftW <= heatW_in x ETA`, and for every pair of converters that can chain
+(`dynamo` then any watts->shaft block, `compressor` then pneumatic tool, `mech_pump` then wheel) the product of efficiencies is < 1.
+
+### 1.3 Three layers, one pattern
+
+```
+HEAT  (W)         furnace fire  --draw--> {kettle, thermocouple net, boiler heat port, still base, brewing pail, hot plate}
+  |  furnace.extractW is the single bus (exists). All draws go through heat.draw(); losses are paid by the fire.
+GAS   (L, bar)    boiler / kettle --steam--> {beam engine, rotor, steam hammer, whistle, valve}        (family 'steam')
+                  compressor --air--> {tank, pneumatic press/drill/hammer, vacuum pump, blast nozzle}  (family 'air')
+SHAFT (rpm, su)   source providers  --solveNetwork()-->  load providers (machines, dynamo, compressor, mech_pump, stirrer)
+```
+
+Each layer is "a network of members + a pure tick function + entities saved on an anchor + a snapshot for render". No layer reaches into another except
+through three narrow seams, all declared in T0 so builders do not edit each other's files:
+
+| Seam | Contract (file) | Producer -> consumer |
+|---|---|---|
+| Heat draw | `sim/heat.ts`: `drawHeat(f: FurnaceEntity, wantW: number, minTempC: number): { gotW, tempC }` (`f.extractW += gotW`, capped by what the fire can give this tick; refuses under `minTempC`) | all heat users |
+| Steam use | `GasNet.take(L)`, `GasNet.put(L)`, `net.bar`; engines call `take` | boiler/kettle put, engines take |
+| Shaft | `workshop/sources.ts`: `SourceProvider`, `LoadProvider`, `Workshop.addSourceProvider/addLoadProvider`, `Workshop.loadFraction()` | gas users that turn shafts |
+
+### 1.4 Data contracts (append-only; T0 lands all of them in one commit so builders start from a green tree)
+
+```ts
+// core/types.ts (append)
+export interface HeatSpec { role: 'conductor' | 'user' | 'port'; capW?: number; demandW?: number; minTempC?: number }
+export interface GasSpec  { family: 'steam' | 'air'; role: 'pipe' | 'tank' | 'user' | 'source' | 'valve' | 'gauge' | 'port' | 'station';
+                            volumeL: number; ratedBar: number; minBar?: number }
+// BlockSpec: heat?: HeatSpec; gas?: GasSpec; legacy?: boolean (hidden in Codex, still works)
+// PipeSpec.family: 'item' | 'fluid' | 'heat' | 'steam' | 'air'   (BlockShape 'pipe' reused; families never join)
+export interface StructureRules { key: string; controller: string; walls: string[]; interior: 'air';
+  minInner: [number, number, number]; maxInner: [number, number, number];
+  faceParts: string[]; roofParts: string[]; required: Record<string, number> }
+// MachineRole gains 'vessel' (boiler controller) and 'gas' (steam/air devices that own no watts and no shaft)
+
+// workshop/sources.ts (new)
+export interface Env { windAt(x:number,z:number):number; flowAround(x:number,y:number,z:number):number; skyOpen(x:number,y:number,z:number):boolean; dt:number }
+export interface SourceSample { rpm: number; powerW: number }            // capacity = suFromW(powerW, rpm)
+export interface SourceProvider { kinds: readonly string[]; sample(c: Cell, env: Env): SourceSample | null }
+export interface LoadProvider   { kinds: readonly string[]; minRpm: number; wantW(c: Cell, rpm: number): number; give(c: Cell, gotW: number, dt: number): void }
+// Workshop: loadFraction(x,y,z): number  // 0..1 stress/capacity of the network that cell is on (1-tick old)
+
+// core/gameEvents.ts (append)  'steam:vent' {x,y,z,rateL}  'steam:warning' {x,y,z,bar,rated,on}  'steam:burst' {x,y,z,radius}
+//   'air:leak' {x,y,z}  'boiler:formed' | 'boiler:unformed' {x,y,z}  'boiler:dry' {x,y,z,seconds}  'heat:burn' {x,y,z}
+//   'distill:step' {rig, from, to}   flags: first_motion heat_moved boiler_formed engine_turning air_2bar tube_delivery press_job geared_up shaft_bellows
+// SfxName: valve_shriek boiler_burst boiler_formed boiler_rattle air_hiss beam_creak pneumatic_thump tube_whoosh steam_whistle scald kettle_rumble
+// core/constants.ts: the BRONZE_PLAN list (THERMO_*, BURST_SECONDS 5, AIR_MAX_BAR 6, DRY_WARN_S 5, DRY_WARP_S 20, VALVE_MAX_VENT_L_S 400, ...) minus the ones in energy.ts
+```
+
+### 1.5 What the plans got wrong, numerically (so nobody copies them)
+
+| Plan number | Implied shaft power | Heat in | Verdict |
+|---|---|---|---|
+| STEAM_PLAN rotor 32 rpm x 256 su, 20 L/s (3.3 kW) | 25.6 kW | 3.3 kW | 8x free. **Use 16 rpm x 4 su = 200 W (6%).** |
+| BRONZE_PLAN engine 6 bar: 96 rpm x 768 su, one 6 kW port | 230 kW | 6 kW | 38x free. **Use ledger: 1.8 kW from a 10 kW port.** |
+| STEAM_PLAN water wheel 64 su per flowing side, 16 rpm | 3.2 kW per side | free | dwarfs steam. **Mill wheel 6 su/side (300 W), max 3 sides.** |
+| Old watt generators as shaft sources `W/50 su` | consistent with K2 | - | consistent, but breaks the loop rule (K6) |
+
+Worked example that becomes `steam.test.ts` (smallest vessel: interior 1x1x2 = 2 cells, steam volume 2000 L, + 10 steam pipes 1000 L = 3000 L; one heat port, **10 kW**):
+steam made `10 kW x 6 = 60 L/s`. One beam engine draws `10 L/s per bar` at full load -> equilibrium `bar = 6`, `eta = .18`, shaft `.18 x 60 x 167 = 1.8 kW`, rpm 96,
+**capacity 6.0 su**. Two engines: 3 bar each, `eta = .115`, 576 W each, 48 rpm, 3.84 su each, total 1.15 kW (< 1.8 kW: the player learns that one hot engine beats two cool ones).
+No user, no valve: 60 L/s into 3000 L = 0.02 bar/s: 7 bar in ~5.8 min, burst 5 s after crossing the rating. (Tune by `HEAT_PORT_W`, never by shrinking volume.)
+
+### 1.6 Existing code: reuse / retire / rename
+
+| Existing | Fate |
+|---|---|
+| `workshop/kinetics.ts` `solveNetwork`, `passOn`, `BASE_STRESS` | **Keep.** Extend: add dynamic loads (section 3.1), new part kinds (engine, rotor, windmill, mill_wheel, compressor, dynamo as kinds with `BASE_STRESS` 0 + provider). |
+| `workshop.ts` `GENERATOR_SHAFT`, `generatorWatts`, `extraRpm` | **Retire** `GENERATOR_SHAFT`/`generatorWatts` (K6). `extraRpm` becomes `SourceProvider`s. Tests that touch generator shafts are rewritten (T1). |
+| `workshop.ts` `LUBE` (residue 1.25 x 10 min, pine resin 1.1 x 5 min) | Keep; move the table to `content/lube.ts` (data) so the distillery adds `lubricant_can` without touching `workshop.ts` (T0). |
+| `sim/pipeGraph.ts`, `pipeNet.ts`, `fluidNet.ts`, anchors, `transport.ts` | **Reuse** for gas: add `GasNet extends PipeNet`; `Transport.tick` also ticks gas nets after furnaces; family tables get two entries. No change to item/fluid behaviour (tests prove it). |
+| `sim/itemNet.ts` (packets, destinations) | Reuse for the Bronze Chute with a `suction` flag (section 2.8). |
+| `sim/hearthScan.ts` (441 lines) | Extract the box-scan core into `structureScan.ts` **inside T4** with hearth tests unchanged and green; the boiler is a second client (BRONZE_PLAN 14.5 stands). |
+| `sim/fluidMachines.ts` boiler/turbine, `content/tech*.ts` boiler/steam_turbine/steam_engine | Untouched logic. Display names: `boiler` -> "Furnace Boiler", `steam_engine` -> "Steam Dynamo"; `age` -> Forge/Current; recipes unchanged; Codex shows them under their age. Add `legacy:true` only if W0 removes their recipes. |
+| `game/collectors.ts` (vacuum/hand pump) | The ONE pull algorithm (CONGRUENCE D7). The chute's vacuum pump registers a collector kind. |
+| `sim/brewing.ts` / `distill.ts` `furnace.extractW +=` | Route through `drawHeat()` in T2 (mechanical edit, behaviour identical) so the bus has one door. |
+
+---
+
+## 2. Feature designs
+
+Each: **Player sees/does** - **Numbers** - **Art/anim/sound** - **Status sentence** (<= 70 chars) - **Owns** (task id, section 5).
+
+### 2.1 Wooden power: windmill and mill wheel (first rotation without fire) - T1
+- *Player:* a windmill on a hillside, wooden axle down to a quern; a mill wheel in a stream. Goggles: "Windmill: 12 rpm, load 2/4 su".
+- *Numbers:* `windmill` rpm `8 + 16 x w` (w = `windAt` 0..1, + altitude bonus `min(0.3, (y-62)/100)`), `powerW = 100 + 300 x w`, needs `skyOpen` and no other windmill within 5 blocks (spam guard, R4). Storm gust (w>0.9 for 3 s): load spike x1.5 -> a fitted shear pin snaps first. `mill_wheel`: 16 rpm, 6 su (300 W) per flowing-water side (flowing = variant>0 or falling), max 3 sides; frozen water (frost) gives 0; counts only the wheel's two lateral faces.
+- *Art:* four-sail frame that turns by rpm, sails furl in a storm (idle at w<0.1); wheel with paddles whose water-side blades darken. Sound: windmill creak layer by w; wheel splash loop (reuse water ambience, volume by rpm). Texture painters in `render/textures/steam.ts`.
+- *Status:* "Windmill: 12 rpm, wind 0.6, load 2/4 su" / "Mill Wheel: needs flowing water on a side".
+
+### 2.2 Steam kettle + rotor: "heat makes motion" - T2
+- *Player:* place the Copper Steam Kettle (`steam_kettle`) on a Clay/Bronze furnace, pour a pail in, put a `steam_rotor` on top, an axle beside it; the rotor whirls and the quern behind it starts.
+- *Numbers:* kettle holds 4000 L water; boils when furnace >= 120 C: steam rate `20 L/s x demand` where demand = 1 only while a rotor (or whistle) wants steam (open kettle: no pressure, no burst); heat `3.3 kW` (`drawHeat`); rotor `eta .06`: **16 rpm, 4 su (200 W)** (one quern); two rotors split the kettle (each half). Dry kettle: `dryS` 5 s rattle, 20 s the kettle warps (becomes `scrap_metal`, toast). Refill by pail, pipe, or touching a water source (50 L/s).
+- *Art:* riveted copper drum with sight glass whose level is the water fraction; steam puffs from the spout in time with the rotor; rotor = a hub with two bent jets, blur disc above 32 rpm-equivalent. Sound: low rumble `kettle_rumble` by boil rate, a rising whistle at the moment the first rotor spins (`first_motion`).
+- *Status:* "Steam Kettle: boiling, 2800 L water, rotor 16 rpm" / "Boiling dry - add water".
+- Also: the kettle takes the two brewing Use rows (fill a cup/pail with boiling water) by reusing `brewUse` (STEAM_PLAN s.2); it must not change boil rules.
+
+### 2.3 Thermocouples, heat rods, hot plate, vent - T2
+- *Player:* a bronze rod laid from the furnace along the wall; it glows by temperature and burns your hand; a Hot Plate at the far end cooks (every smelt recipe at the delivered temperature); a Heat Vent warms a room.
+- *Numbers:* thermocouple 2%/block loss (ETA), 6 kW cap per network (bronze), 20 kW iron (Forge upgrade `iron_thermocouple`), burn threshold 300 C (1 dmg/s, `heat:burn`); users: hot_plate 500 W cooking, heat_vent 400 W (warmth radius 6), `heat_port` up to 10 kW into a boiler. Network heat is **charged to the furnace** `gotW / 0.98^n` (the fire pays losses).
+- *Algorithm (replaces BRONZE_PLAN 14.2 detail):* per rebuild BFS distances; per tick sort users by distance, `drawHeat` against the best `T x 0.98^n` source; store `Tblock` in a typed array for the renderer and `hotAt()` query (2 Hz survival scan).
+- *Art:* rods use three emissive tile steps by `Tblock` (cheap, no per-vertex); at night the rod is a glowing line; the hot plate's top tile glows. Sound: faint tick as rods heat.
+- *Status:* "Thermocouple: 640 C, 2.1 kW through" / "Hot Plate: cooking, 640 C".
+
+### 2.4 Boiler multiblock (the age's big build) - T4
+- *Player:* Structure planner ghost shows the shell; place plates around a furnace-fed volume, add heat port(s), water port, steam port, a Gauge Glass in a side face. On the last block the shell *flashes seams* and rings (`boiler_formed`); the gauge glass shows water; pressure on the goggles and as a needle on the glass.
+- *Numbers (BRONZE_PLAN s.6 stands except where noted):* shell `boiler_plate` 8 bar; interior 1x1x2 .. 3x3x4; capacity water `2000 x cells` L, steam volume `1000 x cells` L; heat 10 kW (`HEAT_PORT_W`) per heat port; dry fire 5 s warn / 20 s warp; smallest vessel 34 blocks (30 plates + glass + 3 ports) - raise plate yield to 3 per 2 ingots if the solver says wall.
+- *Rules:* formation scan on change, retry only when the player is within 16 blocks, sweep one cell per 4 ticks when formed; entity kind **`boiler_vessel`** (NOT `boiler`, which is a legacy machine kind), saved on the gauge-glass cell: `{kind:'boiler_vessel', waterL, dryS, formed:{x0,y0,z0,x1,y1,z1}}`.
+- *Safety:* valve + burst (2.5). Burst scalds within 4 (6 dmg, cause 'burn'), destroys the weakest member, never chains.
+- *Art/Sound:* formed twin textures (rivets align across cells); gauge glass level + needle in the parts layer; simmer ambience by pressure; `boiler_rattle` while dry; `boiler_burst`.
+- *Status:* "Boiler: 5.4 of 8 bar, water 3200 L, 10 kW in" / "Boiler pressure high - 7.2 bar of 8".
+
+### 2.5 Steam network, pressure, valve, burst - T3
+- *Rules:* BRONZE_PLAN 5.2 with these changes: gas on the pipe graph (K4); `makeL = heatW/167 x dt` consuming `makeL x 0.1` water; sag 0.2%/s; valve vents `(bar-set) x volume` capped 400 L/s with `steam:vent` (1/s) and plume; rating = min `ratedBar` of members; `overS += dt` above rating, burst at 5 s, decays at 2x; warning from rating-1 (`steam:warning`, gauge shake). Players choose valve 2/4/6/8 by Use.
+- *Signature moment:* the safety valve sings (`valve_shriek`, a rising-then-steady whistle with white plume) before anything bursts.
+- *Pipe look:* bronze pipes with white collar near joints; warm to touch? no (only rods burn). `pressure_gauge` shows the needle for its network.
+- *Status:* "Steam Pipe: 4.2 bar" and the gauge target name "Pressure Gauge - 5.4 bar".
+
+### 2.6 Beam engine and steam hammer (the first strong source) - T3 (gas side) + T1 (shaft side)
+- *Player:* a beam engine (a rocking beam over a cylinder and flywheel) next to the boiler; the beam rocks in time, the shaft turns, the goggles read "96 rpm, load 3/6 su".
+- *Numbers:* min 2 bar; full-load draw `10 L/s per bar`; draw = `full x max(0.1, loadFraction)`; output per K2/ledger: `powerW = ETA.beamEngine(bar) x draw x 167`, `rpm = min(96, 16 x bar)`; 2 bar -> 32 rpm; 4 bar -> 64 rpm; 6 bar -> 96. Flywheel on the shaft evens the beat. `steam_hammer`: 4 bar, 30 L a blow, ingot -> plate in 1.5 s (bronze only; same recipe rows as the stone-anvil strokes via `recipesHand` twin rule).
+- *Art:* beam pivots +-18 deg with phase = integral of rpm (never jumps on rpm change: STEAM_PLAN 14.4); piston rod, steam puff at each stroke from the cylinder; flywheel spokes. Sound `beam_creak` at stroke rate (pitch by rpm), `piston` ambience.
+- *Status:* "Beam Engine: 3.4 bar, 54 rpm, load 3/4 su" / "Needs 2 bar - has 1.3".
+
+### 2.7 Air and pneumatics - T6
+- *Player:* a compressor on a shaft (needs >= 32 rpm) puffs air into copper tubes to a tank; a pneumatic press stamps plates; a Use of the air hammer on the tank refills it. Open tube ends hiss and leak.
+- *Numbers:* compressor 1.5 L/s per rpm (so 48 L/s at 32 rpm) for a load of 8 su base x (16/32) = 4 su = 400 W at 32 rpm; stored energy `48 L/s x 6.25 J = 300 W`, i.e. eta .75 (`ETA.compressor`); max 6 bar; stalls; `air_tube` 50 L, leak 100 L/s per open end; `air_tank` 4000 L; press 3 bar min, 200 L per 2 s job; drill 3 bar, 100 L/block, tier 3; air hammer pickaxe tier 3, 60 charges; blast nozzle 2 bar, 20 L/s while the hearth burns (gate to Forge, 2.9).
+- *Art:* copper tubes with glass windows (same mesh code as essentia tubes); packets visible as brass capsules for the tube post; tank with a dial; hiss puff particles at leaks. Sound `air_hiss` (by leak), `pneumatic_thump`, `tube_whoosh`.
+- *Status:* "Air Tank: 4.8 of 6 bar" / "Compressor: needs 32 rpm - has 16".
+
+### 2.8 Vacuum-drawn Bronze Chute - T6 (uses `collectors.ts`)
+- *Player:* glass-ended bronze chutes carry items only toward a running Vacuum Pump; items rattle through at 8 blocks/s and land in the chest next to the pump.
+- *Implementation (no second pull algorithm, CONGRUENCE D7):* `item_pipe` keeps its `ItemNet`; add `net.suction = pumpsOnNet.some(running)`. With suction, every port in `pull` mode and every dropped-item collector adjacent to the net seeds packets whose **destination is the nearest running pump** (BFS distance cached per rebuild); without suction packets do not move. The pump's own collector (radius 3) registers in `game/collectors.ts` as a `CollectorKind` (one definition, like the electromagnet later).
+- *Numbers:* pump needs >= 2 bar air (its own `air_tube`), 30 L/s while items move, pulls 16 items per 0.5 s, buffer 9 slots or the touching inventory. The Ember Age has no item pipes (BRONZE_PLAN 5.4).
+- *Pseudocode:* section 3.4.
+- *Status:* "Vacuum Pump: 3.1 bar, moving 12 items/s" / "Vacuum Pump: needs 2 bar air".
+
+### 2.9 Blast nozzle gate to the Forge - T6
+`requiredParts: { blast_nozzle: 1 }` on the tier-3 structure (hearth data), nozzle satisfied when `airNet.bar >= 2`. Edits only the hearth table + a one-line check in `hearthScan` (shared with T4: T6 waits for T4 to land). Signature moment: hearth flares white when air arrives.
+
+### 2.10 Shaft hooks for the distillery - T1 (API) + T8 (use)
+- `Workshop.driveAt(x,y,z): { rpm, loadSu, capacitySu } | null` is the single read API for any non-workshop machine on a shaft (also the vacuum cap pump and the stirrer).
+- **Stirrer** (`still_stirrer`, load provider, 2 su): on a still base's top it lowers batch time by `min(0.3, rpm/64 x 0.3)` and raises purity +2%; needs rpm >= 16.
+- **Vacuum cap pump:** a `vacuum_cap` on a vessel is a `LoadProvider` (4 su at 32 rpm) that lowers boiling points (see 2.11).
+- **Lubricant:** `LUBE` data (content/lube.ts) gets `lubricant` (x1.4, 15 min). Oiled shafts show an oil sheen tile overlay + quieter loop; goggles "oiled, 9 min".
+
+### 2.11 Distillery remaining list - T8 (all inside `src/sim/distill*`, `core/chem|distill`, `content/*Distill`)
+Priority order and designs (DISTILLERY_PLAN s.15):
+
+| # | Item | Design | Numbers/rules |
+|---|---|---|---|
+| 1 | Ground burner | `still_burner` block: hand-fed charcoal (or fuel-ethanol beaker) under a still base; same `drawHeat` bus source (a pseudo-furnace entity `BurnerEntity {fuelS, tempC}`) | charcoal 4 min per item at 3 kW max 350 C; ethanol 0.25 L/min at 2 kW, 120 C cap; visible flame, sound crackle; Ember comfort |
+| 2 | Reflux head | segment kind `reflux`: returns a fraction of condensate down the column: +1 effective tray | purity grade up one step if >=1 tray; lowers rate 25% |
+| 3 | Filter bed | vessel module with sand + charcoal items; slop -> water, residue cleaned of ash | 1 item per 100 L, consumed |
+| 4 | Lubricant | vacuum cap on `residue` -> `lubricant` fluid + `bitumen` residue; `lubricant_can` (`empty_canister` filled at a tank `spout`); chainsaw bar oil uses the same can (`felling.ts` consumer: 1 mL per second of cut... use 10 L-equivalent per can = 5 min) | process card `vacuum_residue` (350 C at 0.3 bar via cap pump) |
+| 5 | Bitumen / asphalt | `bitumen_block` (slope-friendly road, +20% walk speed on it) and `asphalt` (Forge) | speed effect read in `player` via block `speedFactor` **(verify field exists)** |
+| 6 | Potions / essences / tinctures | reaction cards: `distill_essence` (jar aspect `cinder/brook/gale/...` + spirit under vacuum cap -> `<aspect>_essence` vial, 1 per 4 L spirit), tincture (essence + spirit at the cup via `brewBuffs`), elixir (+heal over time); Spirit drink = Warmed (+cold resist) then Tipsy (aim sway) | one `DRINK_HUNGER` table (E owns); essence fingerprints via aspectTable overrides (D) |
+| 7 | Tanks and receiver->tank pipes | add all 11 distillery fluids to `tank` `accepts`; a `chem_port` outlet joins a fluid pipe | tank tests per fluid; e2e receiver->pipe->tank |
+| 8 | Catalyst bed, pressure cap, cracker, refinery tower | Forge multiblock via `StructureRules` (T4's scan): tower of N segments with side draws; `catalyst_bed` item consumed 1 per 500 L; pressure cap needs air net >= 3 bar (T6) | table of cuts by height (core/chem) |
+| 9 | `distill:step` event, sounds, Codex branch | event on module state change (idle->working->done), sfx `still_bubble` loop, `still_drip`; Codex branch edit is the scripts session's | |
+| 10 | Rig screen and ghosts | recipe-card ghost from `PROCESS_CARDS.rig`; problems already in crosshair line; **no new screen** unless the card picker needs one (one sheet, phone full-screen) | |
+
+### 2.12 Workshop polish list (WHATS_LEFT s.2) - T7
+| Item | Design (in-world) | Acceptance |
+|---|---|---|
+| Smooth tween of moving structures | contraption renderer interpolates pose between sim steps (position at render dt, never snap); player carried by skiff uses delta of the structure | skiff with player moves 20 blocks, collision never desyncs >0.05 |
+| Riding the skiff | Use on skiff sits you (`riding` flag locks input except dismount: Jump); view bob by grade | headless: ride rail, dismount on end |
+| Tame animals on treadwheel | `Workshop.standingOn` also asked of `mobs.tamedAt(x,y,z)`; goat 12 rpm/24 su, tires after 4 min (stamina), needs food; horn calls it | mob test |
+| Vacuum-pump hookup | `vacuum_collector` becomes an optional consumer on a compressed air tube (2 bar) as well as a shaft; Bronze version unchanged | depends on T6 |
+| Continuous spouts from pipes | `spout` on a fluid pipe network end fills any container on a depot/belt each second (pull from net, 250 L/s) | e2e: tank->pipe->spout fills 3 cans |
+| Punched gearshift cards | `gear_card` item (3 presets + player-punched: 8 steps, set by Use cycling at a Punch Bench... reuse workbench with tool), Use on gearshift loads it | program persists in save (`s`) |
+| Vault growth | vault multiblock adds 108 stacks per adjoining vault block, max 4 | logistics test |
+| Trinkets | wind vane (reads `windAt`), weather cock, spyglass (long-press zoom), horn, padlock chest, lantern chain: one block each, status sentence | roster + textures |
+| Belts cross structure borders | belt end hands items to a belt in a neighbouring contraption | contraption test |
+| Weather on machines | rain x0.8 belt speed outdoors, frost thickens mill wheel flow | goggles "wet belt" |
+
+---
+
+## 3. Pseudocode for the hard parts
+
+### 3.1 Solver: providers, dynamic loads, load fraction (T1; `kinetics.ts` stays pure)
+
+```ts
+// workshop.ts per network (replaces sourceFor + GENERATOR_SHAFT)
+sources = new Map()
+for key in members:
+  p = parts[key]
+  s = crank/clockwork/treadwheel/pto/flywheel (as today)
+     ?? providerFor(p.kind)?.sample(cell, env)            // {rpm, powerW} -> {rpm, capacity: suFromW(powerW, rpm)}
+  if s: sources.set(key, s)
+
+solved = solveNetwork({ ..., sources })                    // static BASE_STRESS loads, as today
+// pass 2: dynamic loads (dynamo, compressor, mech_pump, stirrer, vacuum cap)
+dyn = 0
+for key in members where loadProviderFor(kind) and solved.rpm.has(key):
+  lp = provider; r = |solved.rpm[key]|
+  if r < lp.minRpm: lp.give(cell, 0, dt); continue
+  want = lp.wantW(cell, r)                                  // e.g. dynamo: electric demand W / ETA.dynamo
+  wantSu = suFromW(want, r); dyn += wantSu; want[key] = want
+spare = max(0, solved.capacity - solved.stress)
+scale = dyn > 0 ? min(1, spare / dyn) : 1                   // loads share the spare; static loads win
+for key: lp.give(cell, want[key] * scale, dt)
+total = solved.stress + dyn * scale
+overstressed = total > solved.capacity && !solved.jam       // only STATIC overload seizes; dynamic loads just slow down
+loadFraction[net] = min(1, total / max(1e-6, solved.capacity))   // read next tick by engines (K7)
+```
+A dynamo that cannot get shaft power returns less electricity (brown-out), never seizes the line. Providers are called once per network per tick.
+
+### 3.2 Gas net tick (`sim/gasNet.ts`; T3)
+
+```ts
+class GasNet extends PipeNet {            // family 'steam' | 'air'
+  store = { fluid: family, litres: 0 }    // same anchor-entity persistence as FluidNet
+  volumeL: number                          // sum of member volumeL (+ vessel interior for steam ports)
+  get bar() { return this.store.litres / this.volumeL }
+  tick(dt, env) {
+    // 1 sources first: boiler/kettle put(), compressor put()
+    for s of sources: this.store.litres += s.makeL(dt, this)          // boiler: min(heatGot/167, water*10) dt
+    // 2 users: priority valve < whistle < engines/hammers
+    for u of users sorted by priority: u.use(this, dt)                // engine: take(full * max(.1, load) * dt) if bar >= min
+    // 3 sag and leaks
+    this.store.litres *= 1 - STEAM_SAG_PER_S * dt                     // air: leaks = openEnds * 100 * dt
+    // 4 over-rating: burst clock (5 s), decays 2x when below
+    rated = min(members.ratedBar)
+    if bar > rated: overS += dt else overS = max(0, overS - 2*dt)
+    if overS >= BURST_SECONDS: burst(weakestNearestSource)            // scald 6 within 4, destroy block, litres = 0
+    if bar > rated - 1 (and not warned): emit steam:warning on
+    this.store.litres = clamp(this.store.litres, 0, volumeL * 12)
+  }
+}
+```
+Water used by the boiler is taken from the vessel entity (`waterL`), never from the gas net. Gas nets never mix: a joint of `steam` with `air` is refused with a joint reason (existing `JointReason`).
+
+### 3.3 Heat draw (`sim/heat.ts`; T2)
+
+```ts
+export function drawHeat(f: FurnaceEntity, wantW: number, minTempC: number): { gotW: number; tempC: number } {
+  const T = f.tempC;                                     // furnace chamber temperature
+  if (T < minTempC || !f.lit) return { gotW: 0, tempC: T };
+  const cap = Math.max(0, f.availW - f.extractW);        // what the fire can still give this tick (availW exists on the entity)
+  const got = Math.min(wantW, cap);
+  f.extractW += got;
+  return { gotW: got, tempC: T };
+}
+```
+All current direct `extractW +=` sites (brewing, distill, fluidMachines) call it in T2 as a pure refactor (tests unchanged).
+
+### 3.4 Bronze Chute with suction (`itemNet.ts` change; T6)
+
+```ts
+rebuild(): for each pump p on net: dist = bfs(net, p.cell)            // cached; invalidated on place/remove
+net.suction = pumps.some(p => p.running)                              // running = air >= 2 bar and not jammed
+tick(dt):
+  if !net.suction: return                                              // chutes do nothing by themselves
+  budget = 16 items per 0.5 s per pump (shared)
+  for port in net.ports where port.mode == 'pull': seed packets from the inventory/ground at that port
+  for packet: advance toward lower dist at 8 blocks/s; at the pump: deliver into touching inventory or buffer(9)
+  air.take(30 L/s while any packet moved)
+```
+Packets are the existing `ItemNet` packets (cap `PIPE_MAX_PACKETS`).
+
+### 3.5 Structure scan reuse (`structureScan.ts`; T4) - BRONZE_PLAN 14.5 stands. Rule: boiler data in a `STRUCTURES` content table; scan returns `{formed, problems[], cells}`; hearth tests unchanged and must stay green before the boiler is wired.
+
+### 3.6 Render: turning parts never jump
+Keep an `angle` accumulator per part in the renderer; `angle += rpm x 6 x dt` (deg), never `angle = rpm x t`. Same for beam phase and sails.
+
+---
+
+## 4. Risks
+
+| # | Risk | Mitigation / test |
+|---|---|---|
+| R1 | **Plans' numbers violate conservation (section 1.5).** Builders copy them. | T0 ledger test; this document wins over STEAM/BRONZE tables where they differ; `docs/api/steam.md` states the final numbers. |
+| R2 | **Save migration.** New entities (`boiler_vessel`, gas anchors, heat none), new workshop part kinds, removal of `GENERATOR_SHAFT`, W0 renumbering. | Missing keys load empty; `sanitize.ts` drops unknown kinds; keys never renamed (K5); old-save fixture (committed in W0) loaded by every stream's test; old `water_wheel`/`wind_turbine`/`steam_engine` saves keep working as watt generators; `normalizeDocument` defaults; no `SAVE_VERSION` bump unless shape breaks. |
+| R3 | **Free-energy loops.** generator -> shaft -> dynamo; compressor -> air -> pneumatic drill -> ore -> fuel; mech_pump -> wheel; flywheel; gearing up. | K6; ETA all < 1; windmill spacing; flywheel source capped 12 su for 4 s only after being charged (existing); clamp .25 conservative; energy test (T0) enumerates chains; mech_pump -> mill_wheel net negative (`pump 200 W lifts 50 L/s` returns <300 W only if drop >= 2 blocks: cap wheel flow by *source block*, not pumped water: water from a `mech_pump` counts 0 for the wheel's `flowAround`). |
+| R4 | Performance. | Budgets: gas ticks < 0.1 ms/net with 100 pipes, whole steam/air/heat < 0.3 ms/tick for 10 vessels + 500 pipes (BRONZE_PLAN); workshop solve stays BFS capped 512 and runs per tick; providers are called once per network; renderers instanced (rods, pipes, sails) with one draw call per kind; tube packets capped 48; no per-block allocations in tick; scans only on change or player within 16 blocks. Add to `perf.test.ts`. |
+| R5 | Burst/scald griefing and surprise death on phone. | Warning 5 s, HUD + sound; scald 6 not lethal; no burst in Peaceful (valve force-opens); burst never chains; never in unloaded chunks (nets in unloaded chunks hold). |
+| R6 | Furnace overdraw: many users starve the fire (kettle + plate + still + brewing). | `drawHeat` cap by `availW`; status "furnace is the limit"; hearth heat capacity numbers read from `FURNACE_TIERS` **(verify the Bronze furnace's sustained kW supports one kettle + one vessel port: acceptance check below)**. |
+| R7 | Shared-file conflicts (`types.ts`, `gameEvents.ts`, `specRoster.ts`, `package.json`). | T0 lands all contracts first; builders append one line only; rebase before every commit; `.run-lock` for `dist/`/e2e (`team.md`). |
+| R8 | Voxel ids (10 bits) near the cap. | Count free ids in T0 (`grep -c` of palette); new blocks append LAST; reuse variant bits (steam pipes/air tubes/thermocouples are one block each with joins by neighbour) - ~40 new blocks: **(verify headroom)**, if short, kettle/rotor/engine share frames. |
+| R9 | Name collisions: `boiler`, `steam_engine`, `piston`, `water_wheel`, `kettle_pot` vs `steam_kettle`. | K5; never display "Kettle" alone; Codex names listed in conventions. |
+| R10 | Phone: gauge/needle readability, no screen. | Status sentence + goggles; boiler screen only as the generic Structure sheet (already exists for hearths). |
+| R11 | Stale doc status (STEAM_PLAN s.8 says nothing exists). | T9 doc pass replaces s.8 with a pointer here; `docs/api/steam.md` is authoritative. |
+| R12 | Age gating after W0: `minTier`/`age` literals. | Every new row uses `ageIndexOf('bronze')` and the tier constant from `FurnaceTierSpec`; G2 greps `minTier: 1`. |
+
+---
+
+## 5. Builder tasks (ordered, dependency-correct, disjoint files)
+
+Convention: **a task is Done only after the coordinator re-runs** `npx tsc --noEmit`, `npx vitest run`, and the stream's e2e (`team.md`); builders never certify their own work. Every task's end state: roster/content counts updated, `docs/api/steam.md` (or the area note) section written, no key renamed, old-save fixture loads. Shared append-only files are touched **only** by T0 except one-line roster/package.json merges (rebase first).
+
+### Phase 0 (after W0 lands; one builder, short)
+**T0 - Contracts, ledger, seams.** Owns: `src/core/{types,constants,gameEvents,energy}.ts` (+ `energy.test.ts`), `src/content/lube.ts` (moves `LUBE`), `src/workshop/sources.ts` (types only), `src/sim/heat.ts` (`drawHeat`), `src/core/registry.ts` (validation of `HeatSpec/GasSpec/StructureRules`), `src/audio/sfx.ts` names with placeholder recipes, `docs/api/steam.md` skeleton. Also: count free voxel ids; run `drawHeat` refactor over brewing/distill/fluidMachines (`extractW` sites) with tests unchanged.
+*Acceptance:* typecheck + full suite green; `energy.test.ts` (efficiency chain < 1, K2 constants); registry rejects a bad `GasSpec`; old-save fixture loads; **no behaviour change** (diff of snapshot tests empty).
+
+### Phase 1 (parallel, 4 builders, disjoint files)
+
+**T1 - Shaft layer and wooden sources (Builder 1).** Owns `src/workshop/{kinetics,workshop,sources}.ts` (+tests), `src/content/{blocksSource,itemsSource,recipesSource,specRosterSource}.ts` (windmill, mill_wheel), `src/render/steam/{windmill,wheel}.ts`, `src/render/textures/steam.ts` (first half), `docs/api/workshop.md` (kinetics section). Does: providers/dynamic loads/`loadFraction`/`driveAt`; retire `GENERATOR_SHAFT` and rewrite its tests; `windmill`, `mill_wheel`; `LUBE` reads `content/lube.ts`; Codex of units.
+*Acceptance:* (a) windmill + quern grinds wheat headless (no crank); (b) mill wheel 0 on frozen/pumped water; (c) dynamic load test: loads share spare capacity, line never seizes from dynamic overload; (d) `kinetics.test.ts` and `workshop.test.ts` unchanged except removed generator cases; (e) windmill spacing guard; (f) `e2e-workshop.mjs` unchanged and green.
+
+**T2 - Heat, kettle, rotor, hot plate (Builder 2, part 1).** Owns `src/sim/{heatNet,kettle}.ts`, `src/content/{blocksHeat,itemsHeat,recipesHeat,specRosterHeat}.ts`, `src/render/steam/{rods,kettle,rotor}.ts`, `src/render/textures/steam.ts` (second half, coordinate: separate file `steamHeat.ts`), objectives `bronze_furnace/boil_water/first_motion/grind`.
+Depends: T0 (`drawHeat`), T1's `SourceProvider` interface only through T0's types (rotor registers via `Workshop.addSourceProvider` in `game.ts` wiring - one line).
+*Acceptance:* kettle boils a pail and rotor reaches 16 rpm / 4 su; dry kettle warps at 20 s; heat conservation (furnace cools by delivered / efficiency); 2%/block; 6 kW cap; burn query; hot plate cooks at delivered temp; perf 500 rods < 0.2 ms; save/load of kettle water.
+
+**T7 - Workshop polish (Builder 3, part 1).** Owns `src/workshop/{logistics,contraption,signals,inspector}.ts`, `src/render/workshop/*`, `src/content/{itemsWorkshopParts,recipesWorkshop,objectivesWorkshop,basinWorkshop}.ts`, `docs/api/workshop.md` (logistics/polish sections). **Does not touch `kinetics.ts`/`workshop.ts`** until T1 is merged; if it needs a hook, T1 adds it first (`Workshop` extension points via small `workshop/ext/*.ts` files).
+*Acceptance:* per row of 2.12; `contraption.test.ts`/`logistics.test.ts` green; e2e-workshop extended (skiff ride, spout fills cans).
+
+**T8 - Distillery (Builder 4).** Owns `src/sim/distill*.ts`, `src/core/{chem,distill}.ts`, `src/content/{blocksDistill,itemsDistill,recipesDistill,fluidsDistill,machinesDistill,specRosterDistill}.ts`, `src/render/distill/*`, `src/game/felling.ts` (bar-oil consumer only), `docs/api/distillery.md`, `docs/DISTILLERY_PLAN.md` s.15. Order: items 1,2,3,4 (lubricant can via `content/lube.ts`), 7, 9, 5, 6, then (after T1) stirrer hooks, (after T4/T6) item 8.
+*Acceptance:* golden tests for each card (existing fuzz + new cards); `distill:step` event; tank test per fluid; `e2e-distill.mjs`: bottle -> spout -> can -> shaft "oiled 15 min"; Dev Mode lists new items.
+
+### Phase 2 (after T2 and T1 land)
+
+**T3 - Gas net, steam network, beam engine, whistle, valve (Builder 2, part 2).** Owns `src/sim/gasNet.ts`, `src/sim/transport.ts` (family hook, one function), `src/sim/pipeGraph.ts` (family table entries only), `src/content/{blocksSteam,itemsSteam,recipesSteam,specRosterSteam}.ts`, `src/render/steam/{beamEngine,gauge,valve,plume}.ts`.
+*Acceptance:* worked example of 1.5 within 2%; two engines vs one (efficiency); valve holds its setting; burst only after 5 s over rating, never with a valve <= rating; pressure sags 0.2%/s; engine idle draw 10% (K7); steam/air never join; networks split/merge on pipe removal; unloaded chunks hold.
+
+**T4 - Structure scan + boiler vessel (Builder 2, part 3, or Builder 1 if idle).** Owns `src/sim/{structureScan,boilerVessel}.ts`, `src/sim/hearthScan.ts` (extraction only), `src/content/{blocksBoiler,...}.ts`, `src/ui/screens/structure/*` (generic Structure tab move), `src/render/steam/boiler.ts`.
+Depends on T3 (steam ports). *Acceptance:* hearth tests unchanged and green; vessel forms/unforms for every problem code and size 1x1x2..3x3x4; dry-fire timeline; capacities by size; ghost from planner; e2e: build smallest boiler from ghost -> 2 bar -> beam engine turns a millstone; no valve -> burst with the player 8 blocks away unhurt; with valve holds.
+
+**T6 - Air, pneumatics, chute, vacuum, nozzle (Builder 3, part 2).** Owns `src/sim/{airNet}.ts` (a `GasNet` subclass config), `src/sim/itemNet.ts` (suction flag), `src/game/collectors.ts` (vacuum pump kind), `src/content/{blocksAir,...}.ts`, `src/render/steam/{compressor,tubes,tank}.ts`, Forge gate in the hearth data.
+Depends on T3 (gas net) and T4 (hearth structure table). *Acceptance:* compressor stalls at 6 bar; open end leaks 100 L/s; tube send refused < 2 bar; chute moves nothing without a running pump, moves 16 items/0.5 s with one; blast hearth forms only with the nozzle at 2 bar; press/drill charge; save/load of air and packets; `e2e-steam.mjs` (kettle -> axle -> mill; boiler; compressor; chute) desktop + phone.
+
+### Phase 3
+**T5 - Forge dynamo + steam dynamo naming + objectives (Builder 1).** Owns dynamo block/recipe, display renames, the age/objective moves (Forge `first_power` after `blast_furnace`), `content/objectivesBronze.ts`. Depends on T1 (dynamic loads) and T3.
+*Acceptance:* dynamo produces `ETA.dynamo x shaft W` and slows the line instead of seizing; brown-out; solver: no electricity item obtainable before the Blast hearth (test); Bronze completable with no power; Peaceful completable.
+
+**T9 - Docs and Codex pass.** `docs/api/steam.md` final, STEAM_PLAN/BRONZE_PLAN status boxes pointing here, CONGRUENCE conventions updated (K5/K8), `npm run codex`. Coordinator-owned or a docs session.
+
+### Dependency graph
+```
+W0 -> T0 -> {T1, T2, T7, T8}   (T7 waits for T1 only if it needs workshop.ts)
+T1+T2 -> T3 -> T4 -> T6 ; T3 -> T6 ; T1+T3 -> T5 ; T4,T6 -> T8.item8 ; all -> T9
+```
+Parallelism: Phase 1 runs 4 builders (T1, T2, T7, T8). Phase 2: Builder 2 continues T3->T4; Builder 3 does T6 after T3 (starts early with the chute/collector half that needs no gas, using a stub air supplier); Builder 1 does T5 after T3; Builder 4 finishes T8.
+
+### Per-task review gate (who certifies)
+Independent adversarial review (a session that did not write it) before merge for: T0 (contracts), T3/T4 (safety and burst), anything touching `hearthScan`/`pipeGraph`/save keys. Reviewer checklist: free-energy chains, save of every new entity kind, no key renamed, no voxel id moved, no per-tick allocation, goggles sentence for each new block, `Peaceful` completability.
+
+---
+
+## 6. Owner decisions this dossier needs (defaults chosen)
+
+1. Engine key/name `beam_engine` "Beam Engine" instead of `piston_engine` (default: yes).
+2. Legacy Forge `boiler`/`steam_engine` keep their keys; displayed "Furnace Boiler"/"Steam Dynamo" (default: yes; supersedes CONGRUENCE D3/D4 renames).
+3. Power scale is deliberately modest (rotor 200 W, engine ~1.8 kW per 10 kW port): steam is a tool, not a generator; the Forge dynamo makes lamps only a few at a time (default: yes; the ledger lets you retune by `ETA` and `HEAT_PORT_W` in one place).
+4. Pressure gas model on the pipe graph, no new graph (K4).
+5. Burst disabled in Peaceful (valve force-opens) (default: yes).
+
+## 7. Quick map of "who edits which file" (collision table)
+
+| File | Only this task edits it |
+|---|---|
+| `core/{types,constants,gameEvents,energy}.ts` | T0 (builders: one-line appends after rebase) |
+| `workshop/{kinetics,workshop,sources}.ts` | T1 (T5 after T1) |
+| `workshop/{logistics,contraption,signals}.ts`, `render/workshop/*` | T7 |
+| `sim/{heatNet,kettle,heat}.ts` | T2 (heat.ts: T0 creates) |
+| `sim/{gasNet,transport(hook),pipeGraph(family table)}.ts` | T3 |
+| `sim/{structureScan,boilerVessel,hearthScan}.ts` | T4 |
+| `sim/{airNet,itemNet}.ts`, `game/collectors.ts` | T6 |
+| `sim/distill*.ts`, `core/{chem,distill}.ts`, `*Distill.ts`, `render/distill/*` | T8 |
+| `content/lube.ts` | T0 creates, T8 appends rows |
+| `src/app/game.ts` wiring | one-line additions only, rebase before commit |
+
+<!-- ======================== END docs/advice/tech-spine.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/distillery-workshop.md ======================= -->
+# FILE: docs/advice/distillery-workshop.md
+
+# Advice dossier - lanes B (distillery) and C (Create-style workshop)
+
+Advisor note, read-only pass, 2026-11-21. Written for the two architects and their four builders. It does not repeat
+`docs/advice/tech-spine.md` (steam, shared kinetic/heat/fluid model); where this dossier needs something from that
+spine it names the seam and a stand-in. Facts below were checked in the code on this branch; anything not checked is
+marked **(verify)**. Names are original; every sentence a player reads is under 70 characters.
+
+## 0. What the code already does (so nobody builds it twice)
+
+| fact | where | consequence |
+|---|---|---|
+| Workshop oil exists: `LUBE = { residue: 1.25 / 600 s, pine_resin: 1.10 / 300 s }`; Use of `residue_canister` or `pine_resin` on any part oils the WHOLE network (`capacityFactor` into `solveNetwork`) | `workshop.ts:39,245-252,383-392` | Lubricant work is a re-key of this table, not a new system. `residue` as oil is a *placeholder* (it is the dirty residue, not lube) and must drop to 1.10 when real lubricant lands |
+| `lube_base` (bp 370, viscosity 12) and `bitumen` (bp 520) are components; a crude run leaves `residue` = lube_base .34 + bitumen .66 | `chem.ts`, plan 5.1 | Vacuum residue run needs only the `pf = 0.7` pressure factor of plan 5.2 + a setpoint of 260-280 C |
+| A flask's temperature comes from `Distillery.baseTemp(base)` = `min(setC, furnace below, 450)`; no furnace -> `null` -> flask "blocked" | `distill.ts:192,217-230` | Ground burner = one more branch in `baseTemp` |
+| `Still` = `{ flask, base, segments[], draws[], head }`; the stack walker only knows `column_segment` | `distillScan.ts:36` | Reflux head and catalyst bed are two more stack members, same walker |
+| `stepStill` uses `stagesOf(height)`, `trayTemps`, `vapourShares`, `leakShare`; BOIL_LPS 20 | `distill.ts:217-310` | Reflux = raise the stage count and cut `want` by (1-r) |
+| Chem modules are entities, never machine nodes; rigs are derived on load, never saved | api/distillery.md | Everything new that persists lives on module entities (`ChemEntity`) |
+| Contraption steps are instant: `commit()` clears old voxels, `relocate`s per-block state, writes new voxels in one `hold()`. A structure floods through ANY movable block, belts included, up to 48 | `contraption.ts:84-110,127-160` | Tween needs a two-phase move; belt borders need a pin rule (section C.8) |
+| `standingOn(x,y,z)` is the only treadwheel input (the player only) | `game.ts:164`, `workshop.ts:349` | Animals plug in by widening this one hook |
+| `GEARSHIFT_PROGRAMS` = 3 presets of `[seconds, factor][]`; `Part.s` is the program index | `kinetics.ts:20-45` | A card is a 4th kind of program, `Part.s >= 3` or a stored pattern |
+| `ItemStack` is `{ item, count, durability? }` only | `core/types.ts:79` | Per-stack data (a punched card, sips left in a flask) needs either `durability` abuse or one append-only field `tag?: number`. **Recommended: add `tag?: number`** in one tiny shared commit (inventory save + stack-merge compare + sanitizer) |
+| `DRINK_BUFFS`: spring, hearthkept, mending (tea); swift, vigor, lasting (coffee) | `core/brewing.ts:81` | Elixirs are these six, longer |
+| Ghost pipeline: `GhostLayer` (one instanced geometry, `solid` and `xray` materials, `GHOST_CAP` 512), `GhostCell {x,y,z,role,want,has,state}` | `render/tech/ghosts.ts`, `sim/hearthView.ts` | Rig ghosts and moving blocks both reuse it |
+
+Age table for both lanes (single table each, so the six-age refactor edits one place). The distillery docs use the old
+five-age names; the owner's six ages (Ember = handwork only) move every glass rig out of Ember:
+
+| age | distillery (`DISTILL_AGE`) | workshop (`WORKSHOP_AGE`) |
+|---|---|---|
+| Ember | nothing (no glass, no machines) | nothing |
+| Bronze | still_base, flask, condenser, receiver, tube, vessel, airlock, **ground burner**; syrup, wash, low wines, spirit, tinctures; filter_bed | cranks, shafts, belts, stations, depot/funnel/chute, basin, spouts, arm, deployer, signals, **trinkets**, cards |
+| Forge | column_segment, **reflux_head**, jacket, chem_port, canisters; crude run, fuel ethanol, **vacuum_cap** (powered by a Bronze shaft), lubricant, grease, bitumen, asphalt, elixirs | piston, bearing, skiff + rail, vault growth, treadwheel animals |
+| Current | pressure_cap, catalyst_bed, steel shell (900 C), cracker | electric stirrer variant, magnet collector |
+| Atomic | refinery tower multiblock | - |
+
+The tower is "late Forge" in `CONGRUENCE` and "Atomic+" in the plan; this dossier recommends **Atomic** (a 16x throughput
+box is a late reward; Forge already has a three-cut column) and flags it as an owner decision (section H).
+
+---
+
+# LANE B - DISTILLERY
+
+## B.1 Ground burner (Bronze comfort: a still without a furnace)
+
+**Player sees.** A Still Base set on bare ground (not on a furnace) shows an empty fire cup. Use with charcoal (up to 8) or a
+Fuel Ethanol Beaker loads it; the cup glows amber, a tiny flame and heat shimmer rise through the flask, a quiet
+fire crackle plays, the base block takes its `_on` look (existing active bit). It burns down on its own; the lamp goes dark
+and a faint ember ticks when it dies. Empty hand on a burning base still cycles the setpoint, but a ground burner never
+exceeds its fuel's temperature.
+
+**Numbers (`BURN_FUELS` in `core/distill.ts`).**
+
+| fuel | holds | temp cap | burn time per item | note |
+|---|---|---|---|---|
+| `charcoal` | 8 | 260 C | 150 s | enough for syrup, low wines, spirit, tinctures. Not crude (350) |
+| `fuel_ethanol_beaker` | 1 (250 L) | 320 C | 240 s, beaker handed back empty | self-fuelling loop: spirit run makes its own fuel |
+| `residue_canister` | 1 | 300 C | 400 s | smoky: spawns soot particles, no other cost |
+
+Heat-up is the existing first-order lag towards `min(setC, cap)`. Draw on a furnace: none (a ground burner has no
+`extractW` sink; the heat is free but small: the vapour latent heat is checked against a power budget `BURNER_W` 6000 W:
+`V = min(heatW / BOIL_J_PER_L, ...)`, so a burner boils 15 L/s at most, 25 % slower than a furnace).
+
+**Contract.** `ChemEntity` (base only) gains `fuel?: { item: string; n: number; leftS: number }` (saved). `Distillery.baseTemp`:
+
+```
+baseTemp(base):
+  f = host.furnaceUnder(base)
+  if f: return min(base.setC, f.tempC, GLASS_MAX_C)            # unchanged
+  b = base.fuel
+  if b and b.leftS > 0: return min(base.setC, BURN_FUELS[b.item].cap)
+  return null                                                  # cold: flask "blocked"/idle as today
+tickBase(base, dt):                                            # new, 4 Hz, only for bases with fuel
+  if base.fuel.leftS > 0: base.fuel.leftS -= dt
+  if leftS <= 0 and base.fuel.n > 1: n -= 1; leftS = burnS      # next piece
+  if leftS <= 0 and n <= 1: base.fuel = undefined; show(idle)
+```
+Fuel only burns while a flask with a charge sits above (otherwise 10x slower: "banked"), so a burner is not wasted
+while the player gathers. `chemUse` table gains: held fuel on a base -> load; wrench -> unload (refunds `n-1`).
+
+**Phone.** Tap the base with fuel in hand (the big Use button); the crosshair line says "Burner - 4 charcoal, 210 C, 2 min".
+
+**Extend.** `core/distill.ts`, `sim/distill.ts` (`baseTemp`, new `tickBase`), `sim/distillActions.ts` (`chemUse`), `distillFx.ts`
+(flame instance on bases with `fuel`: reuse the bubble shader, `rate` = 1).
+
+**Acceptance.** Unit: `buildRig('B F / ...')` on stone, load 2 charcoal, run: flask reaches 92 C, a `spirit` card yields
+>= its `expect`; fuel burns out then flask goes `done`/idle; 2 charcoal = 300 s of heat (+/-1 step); save and load keeps
+`fuel.leftS`. E2E (`e2e-distill.mjs`): place base on grass, give charcoal, Use, screenshot shows flame instance count > 0
+(`window.__hw.distillStats()`), phone portrait too.
+
+## B.2 Reflux head
+
+**Player sees.** A tall glass finial block on top of a column. Wrench on it cycles 0 / 50 / 75 % return; its liquid
+slab shows a falling drip loop proportional to the ratio; the crosshair line says "Reflux head - 75% back, purer, slower".
+Visibly the output slows (a drip every ~2 s instead of a stream) and the spirit grade rises.
+
+**Rules.** Stack member exactly like a segment (valid top of the column; the head condenser sits on its top or on its H side).
+It adds no holdup (like a segment). `ratio` in `{0, .5, .75}` saved on its entity.
+
+```
+# distillScan.ts: stack walk accepts reflux_head as the LAST member; Still gains reflux: string | null
+# distill.ts stepStill (replace stagesOf(height) and `want`):
+  r        = reflux ? mod(reflux).ratio : 0
+  stages   = stagesOf(height) * (1 + 2 * r)       # plan 5.2: n = 1 + plates*(1+2r)
+  want     = BOIL_LPS * min(1,(ts-tb)/2) * dt * (1 - r)
+  # liquid never returned in litres: the effect is purity (more stages) and throughput (less want)
+  # => conservation untouched, no new buffer, the fuzz test stays valid
+```
+Worked numbers (check with the existing 38/74/93 hand figures): sugar_wash, 3 segments, r = .75 gives ethanol share >=
+0.90 (`fuel_ethanol` grade) in one pass at 25 % rate; r = 0 gives about 0.65.
+
+**Data.** `CHEM.reflux = 'reflux_head'`, `CHEM_CAPACITY_L.reflux_head = 0`, `ChemEntity.ratio?: 0|0.5|0.75`; new block + texture
+tile (`chem_case` frame x lamp states, emblem painted by the existing function; no `_done` twin). Problem codes appended to
+`RigProblemCode`: `reflux_not_top` ("The Reflux Head belongs at the top of the column"), `no_column` (reflux on a bare flask).
+
+**Extend.** `core/distill.ts` (kind), `distillScan.ts`, `distill.ts` (stepStill, `chemUse` wrench branch), `blocksDistill.ts`,
+`textures/distill.ts`, process card `rectify_spirit` gains a variant `reflux_ethanol` (rig string with `H`, legend letter added in
+`distillKit.buildRig`). **Acceptance.** Unit: reflux 0 vs .75 with the same 3-segment rig: purity up, litres delivered per
+second down, conservation fuzz extended to include the head. Card test `reflux_ethanol` yields `fuel_ethanol`.
+
+## B.3 Filter bed
+
+**Player sees.** A glass cylinder you pour through. Use with charcoal / clay / sand loads the medium (4 slots, shown as a dark
+layer that visibly greys as it spends). Liquid from above drips through to below; a spent medium turns the lamp red
+("blocked": needs a new one) and the layer is drawn black.
+
+```
+FILTERS (core/distill.ts):  medium -> { capacityL, removes: Component[], converts: [{from,to}] }
+  charcoal : 150 L per piece, removes fusel + methanol + turpentine     (clean-up: raises the ethanol share)
+  clay     : 200 L per piece, converts lube_base -> lubricant           (the lubricant polish, B.4)
+  sand     : 400 L per piece, removes solids only (cloudy -> clear), converts nothing
+stepFilter(f, dt):                       # runs in rig.order, before drain()
+  m = medium slot; if none or spent: state = blocked; return (liquid waits above)
+  pass = min(FLOW_LPS / sqrt(visc) * dt, f.mix litres, m.left)
+  for c in components of pass:
+      if rule.removes has c:  absorbed += x          # litres taken by the medium: m.left -= x; counted in rig.absorbed
+      elif rule.converts has c: out[to] += x          # same litres, new component
+      else out[c] += x
+  m.left -= pass; if m.left <= 0: consume one item, next piece, or blocked
+```
+Conservation: `absorbed` is added to the fuzz test's litre ledger (total + absorbed constant). New components `lubricant`
+(non-volatile, colour 0xc9a227, viscosity 8) and `clear` is not needed (purity grades read the share).
+
+**Data.** `CHEM.filter = 'filter_bed'`, stateful (`_done` twin = medium spent), entity `slot?: { item, left }` saved. Items go in by
+Use of the item or by a `chem_hopper` (B.10). **Extend.** `distill.ts` (`stepFilter` in `stepRig`), scan (liquid in U, out D),
+`textures`, `distillFx` (layer slab colour = medium wear). **Acceptance.** Unit: spirit wash with fusel 3 % through charcoal
+raises ethanol share; 151 L exhausts a 150 L charcoal piece mid-pass; `blocked` lamp; save/load keeps `left`.
+
+## B.4 Lubricant and grease, end to end (B x C)
+
+**Chain (Forge).** crude -> 3-segment column 350 C -> `residue` -> **vacuum still** 270 C (vacuum_cap on the stack, powered) ->
+`lube_base` head + `bitumen` in the flask -> `filter_bed` with clay -> `lubricant` -> `lubricant_beaker` (250 L). Grease:
+heated vessel 90 C, lubricant 3 : rosin 1 : tallow 1 (items) -> `grease` item (3 per 750 L batch).
+
+**Vacuum cap.** `CHEM.vacuum = 'vacuum_cap'`; capability `vacuum` only while powered: a kinetic part (shaft, any) touching the
+cap or the pump block below it turns >= 16 rpm. Draw 3 su on the workshop network (hook C.10 `registerLoad`). Unpowered =
+red lamp and sentence "The Vacuum Cap needs a turning shaft". `pf = 0.7` is already in the stepStill spec; `STILL_SETPOINTS`
+gains 60, 270 (new list: 60 78 92 97 130 200 260 270 350 420). Lube_base bp 370 x 0.7 = 259: at 270 C the run starts 219 C and
+finishes when the flask holds only bitumen (the existing "nothing boils -> done"). A 1000 L residue run: 340 L lube_base,
+660 L bitumen (the mix itself), about 90 s at BOIL_LPS (4 Hz steps).
+
+**What lubricant does on a shaft (C-side contract, one table).**
+
+| oil | item | factor | lasts | notes |
+|---|---|---|---|---|
+| pine resin | `pine_resin` | x1.10 | 5 min | stays |
+| residue (old) | `residue_canister` | x1.10 | 5 min | was 1.25: lower it so lubricant matters |
+| lubricant | `lubricant_beaker` | x1.25 | 10 min | glass back |
+| grease | `grease` | x1.50 | 40 min | friction halved: also -50 % squeal threshold |
+
+Change in `workshop.ts` (owner C): `LUBE` becomes `Record<item, { factor, s }>`; `use()` checks `LUBE[held.item]`; the
+`lube` map keeps the strongest. The goggles sentence already shows oil: new text "oiled x1.25, 9 min left". **Player
+sees**: a sheen strip (a one-box `bars` instance, colour amber, alpha pulsing) on every oiled shaft; an un-oiled network above
+85 % load squeals (a pitched saw-tooth `pipe_clunk` loop at 0.4 volume, gone when oiled).
+
+**Chainsaw bar oil.** Use `lubricant_beaker` on the held chainsaw: `Game.barOil = BAR_OIL_LOGS` (60 logs) and while > 0
+`fuelPerLog x 0.8`; state saved `world.persist('barOil')` (not on the item, until `tag` exists). Shown in the saw line:
+"Chainsaw - 14 fuel, oiled (41 cuts)". Files: `game/felling.ts` (B owns the constant only), `app/game.ts` (one hook).
+
+**Acceptance.** Unit: vacuum run on residue gives lube_base within 5 % of .34 of input; filter turns it to `lubricant`;
+`solveNetwork` capacity 1.25x; grease recipe. Golden e2e (`e2e-distill`): crude -> residue -> vacuum (shaft turning) -> filter ->
+beaker -> Use on shaft: sheen visible, goggles "oiled", load % falls; desktop + phone.
+
+## B.5 Bitumen, asphalt and tarred planks (road blocks)
+
+**Bitumen out of the flask.** A flask of pure bitumen is a thick black pool. Empty `empty_canister` on the flask's lower half
+(the drain cock): allowed only below 150 C ("Too hot to pour - let it cool"), gives `bitumen_canister`. New grade
+`bitumen` 0.80, container entry in `CHEM_CONTAINERS`. Drips in the flask one per 2 s (viscosity 200: already in the shader rate).
+
+**Asphalt** (heated vessel, `REACTION_SPECS`): `in: bitumen 1`, `items: gravel 4, sand 4` per 1000 L, needs `heated`, window 140-180 C,
+`ruinC` 220, seconds 60, `gives: asphalt_block x8`, emits `distill:step done`. A `chem_hopper`/arm takes the blocks.
+**Tarred planks**: a Workshop basin recipe (fluid input, C.9): `bitumen 125 L + 8 planks` mixer 16 rpm -> 8 `tarred_planks`.
+No rot, no burning (`flammable: false`, block flag `rot: false` **(verify the existing key)**).
+
+**Road effect (`speedMult`)**. Add an append-only optional `BlockDef.surface?: { walk: number; vehicle: number; mud: false }`
+(core/types.ts: shared edit). `asphalt_block`: walk 1.25, vehicle 1.4, never churns to mud; `tarred_planks`: walk 1.1. Player
+physics multiplies walk/sprint by the block under the feet (one `getBlock` per frame already read for friction **(verify
+`src/player/physics`)**); `vehicles/tractor.ts` multiplies `topSpeed` and skips the churn rule on `surface.mud === false`.
+Sound: footsteps use a new `step_asphalt` name only if the audio table accepts it; otherwise `step_stone`. Texture
+`asphalt` (dark speckle, 16 px, drawn from the existing procedural gravel generator) + a faint lane line variant is out of
+scope.
+
+**Acceptance.** Unit: bitumen cannot be taken at 200 C; asphalt card yields 8; tractor `step()` on an asphalt strip reaches
+1.4x top speed, on dirt-with-mud does not; player walk 1.25x. Content test: item reachable (process card as pseudo-recipe).
+
+## B.6 Potions, spirits and tinctures
+
+Pipeline (all vessels or stills, no new machine): **macerate -> filter -> concentrate -> blend -> bottle**.
+
+| step | rig | recipe (`REACTION_SPECS` / card) | result |
+|---|---|---|---|
+| macerate | heated vessel 50 C | 3 herb items + 500 L `spirit`, 90 s | component `tincture_<buff>` in the spirit |
+| clarify | filter_bed (charcoal) | pass | `clear_tincture` (named fluid, bottle-able) |
+| concentrate | vacuum still 60 C | clear tincture in the flask; ethanol+water come off, extract stays | component `essence_<buff>` (non-volatile; **above 80 C it scorches to slop**, rule `HEAT_SENSITIVE`) |
+| blend | vessel, sealed 20 C | essence 1 : syrup 1 : water 2 | `elixir_<buff>` fluid, 250 L per vial |
+| bottle | receiver, vial | `vial` (glass) | `elixir_<buff>_vial` |
+
+`<buff>` is each of the six `DRINK_BUFFS`; herbs: tea buffs use the existing tea leaf items, coffee buffs coffee beans, glowcap
+for Glowcap Draught (a seventh buff `nightsight`, **(verify)** or a timed `lightActive` extension). Elixir = `DrinkSpec` with
+`buffS` x3 of the cup, same `buffs.grant`; drinks reuse `game/drink.ts` (the vial returns `glass_vial`).
+Generated tables (`ELIXIRS` in `itemsDistill.ts`): 6 x (tincture, essence component, elixir fluid, vial item) = 24 specs
+generated, not written; fluids are `pipe-only` (not tanks) until needed.
+
+**Spirits as drinks.** `spirit_beaker`: 5 sips (`durability` 5 or `tag`); each sip: Warmed (existing `well_warmed` 90 s) and
+Tipsy 60 s: melee +10 %, aim sway +0.6 deg (a camera yaw noise from `Buffs.sway`, **(verify) where look input is read**); a
+fourth sip in 120 s adds "Dizzy": sprint off 10 s. `Rough Spirit` (methanol > 2 % grade) = Tipsy plus "Blurred" 20 s (vignette).
+Hunger: `DRINK_HUNGER` shared with lane E (spirit 1, elixir 0). Antiseptic bandage: basin recipe `fuel_ethanol 50 L + 2 cloth ->
+2 antiseptic_bandage` (heal over time 12 s, `mending`-class regen without the buff). Kerosene lamp: block, no power, burns
+`kerosene` from an adjacent canister slot 1 L/min, light 13; gated Forge.
+
+**Acceptance.** Unit: every elixir chain is built by a card string and run (`distillProcess.test.ts`); essence scorch above 80 C;
+drink grants 3x; content tests count 24 generated specs and each item reachable. E2E: build maceration + still rig, make
+one vial, drink it, HUD chip appears.
+
+## B.7 Rig screen, ghost previews and sentences (in-world first)
+
+Owner rule: in-world over screens. So the "rig screen" is three small things plus one thin sheet.
+
+1. **Goggles sentence** on any module: `"Pot still - 92 C, 2 cuts, 1 problem (tap)"`; Engineer's Goggles' `inspect()` (src/workshop/inspector.ts)
+   gains a chem branch calling `sim.brewView` (exists) so the sentence needs no screen. Each tap on the module cycles the
+   next problem text and **pulses the offending cells red** (`HEARTH_HIGHLIGHT_S`, `GhostLayer` set `rig:problem`, state `wrong`).
+2. **Plan ghosts.** Wrench on a still base cycles the *plan*: nothing, then each process card whose blocks the player owns
+   (`PROCESS_CARDS` filtered by inventory + unlocked ages). A chosen plan stores `plan?: string` on the base entity (saved) and
+   draws only the **next missing piece** as a ghost with the sentence "Next: Column Segment on the flask" (one ghost at a time is
+   readable on a phone; the full rig is on the long-press "show all"). Orientation: the four rotations of the card relative to
+   the base; pick the one with the fewest conflicts (the `structureView` best-placement idea).
+3. **Capability line** under the sentence: "This rig can: distil, 2 cuts, ferment" and, computed on demand, "One more Column
+   Segment would add: Kerosene" (re-run the scan with one block added over the 17 kinds: 17 cheap scans, only when the tap happens).
+4. **Rig sheet (the only screen).** Empty hand on a flask while sneaking, or goggles on a module: a bottom sheet (existing
+   `furnaceScreen` shell, `ui-tech`), two tabs only: PROCESS (thermometer with each component's bp marked and contents bars)
+   and PLAN (card list with a Preview button that sets `plan`). Nothing is editable that is not also doable in-world.
+
+**Data.** `core/rigString.ts` (new, extracted from `distillKit.parse`): `parseRig(rows) -> RigBlock[]` and `rotateRig`.
+`sim/distillPlan.ts` (new): `planGhosts(world, base, planKey): GhostCell[]` (next missing piece + whole-rig list),
+`GhostLayer.set('rig:'+baseKey, cells)`. `ChemView` gains `problems`, `caps`, `plan`.
+**Tests.** `distillPlan.test.ts`: for each card, building the pieces one by one in the ghost order empties the list and the
+rig then runs; wrong block in a cell yields `wrong`; rotation choice minimises conflicts. E2E: select card, ghost visible in the
+screenshot, place the pieces, run.
+
+## B.8 Tank and pipe support for the new fluids
+
+The tank spec `accepts` list is the five old fluids. Add one derived list `DISTILL_FLUIDS` (the 11 plus lubricant, bitumen, 6
+elixirs excluded) in `fluids.ts` (append-only) and let `tank`, `pump`, `chem_port` use it; keep `FluidKey` widening in the
+**contract commit** (section E.0). `fuel` (old refined fuel): alias to `gasoline` in the save sanitizer. E2E: receiver ->
+`chem_port` (outlet) -> pipe -> tank -> spout -> canister (the golden bottling line, B x C).
+
+## B.9 Catalyst bed, pressure cap, cracker (Current)
+
+`catalyst_bed`: stack member (like a segment), holds 1 catalyst item with durability (zeolite chips `catalyst_zeolite`,
+2000 L of throughput). `pressure_cap`: `pf = 1.3`, needs the steel shell (flask kind `steel_still` 900 C, 4000 L) and a pressure
+gauge sentence; blows its pop-off (toast, sfx, loses its cap) above 6 bar-equivalents (sum of heat input without a vent):
+never destroys glass (steel only) so the Current age is safe to play on a phone.
+Cracker rule, in `stepStill` after cut routing: for vapour passing a `catalyst_bed` with `pressure` capability at >= 450 C, each
+litre of `diesel` becomes 0.7 L `gasoline` + 0.3 L `kerosene` (litres constant) and the catalyst spends 1 L of life per litre.
+`slop` gets a consumer: fertiliser basin recipe `slop 100 L + bone meal -> 4 fertiliser` (lane E consumes). Cards:
+`crack_diesel`. Acceptance: conservation fuzz includes catalyst; catalyst spends; unpowered/unsteel rig reports `no_pressure`.
+
+## B.10 Chem hopper and arms feeding stills (B x C)
+
+`chem_hopper` (already in the plan list, not built): an **ItemEndpoint** with a facing. Contract with the workshop (hook C.10):
+
+```
+Workshop.itemSinks: { accept(x,y,z,item,n): number; peek(x,y,z): {item,count}|null; take(x,y,z,filter,max) }   # set by Game
+Distillery implements it for: reaction_vessel (4 slots), filter_bed (medium), catalyst_bed, chem_hopper (proxy to the first
+vessel it touches; output side = vessel's `gives` and spent media)
+```
+Result: a `mech_arm` can be set (wrench source then target) onto a vessel or a hopper; a belt ending at a hopper feeds it;
+the hopper in front of a belt puts asphalt, sugar, elixir vials on the belt. Failure mode to avoid: the arm must never pull a
+liquid; `peek` returns items only.
+
+## B.11 Refinery tower multiblock (Atomic)
+
+**Player sees.** A hearth-style hollow stack of `tower_casing` 3 x 3 footprint, height 6-12, with a `tower_feed` port at the
+base (pipe in crude), `tower_heater` on the lowest layer (steel base on a Star-tier furnace, or electric element: watts via
+the tech spine, **(verify the heat source seam)**), `tower_tap` blocks anywhere on the wall (each is a side draw at its height), and
+a `tower_hatch` for catalyst and spent media (item sink, B.10). Rig sheet shows the stack's cut heights.
+
+```
+scanTower(world, controller): cuboid scan reusing hearthScan helpers (problem shape, highlight, MAX 8)
+   layers n = height - 2  -> stages = n, draws = taps by height, head = top cap (needs a jacket or a `tower_cooler`)
+stepTower(t, dt) == stepStill with: BOIL_LPS x16, MAX_SEGMENTS = 12, buffers 16x, no glass limit
+```
+It reuses `stepStill` entirely (a tower is a `Still` whose parts are cells of one cuboid), so there is no second physics. A
+tower runs continuously: feed from a pipe, products leave by `chem_port`-like taps into pipes; the catalyst hatch is fed by belts.
+Autonomy loop for the e2e: crude -> pump -> tower -> three tank taps -> canisters by spouts -> belt -> crate.
+**Acceptance.** Unit: tower of 6 layers reproduces the 3-cut result of the column card at 16x rate; scan problems for gaps;
+sleeping when idle. This is last; it must not block B.1-B.8.
+
+## B.12 Polish list for B (same lane, last)
+
+`distill:step` event `{x,y,z,state,process?}` (bus, plus the existing sfx/toast); objectives "Run your first spirit" in
+`objectives*.ts` reading it (stream F owns the file: send them the event contract); sounds: `bubble_loop` (filtered noise, rate
+by boil), `drip` (short tick, pitch by viscosity), `glass_chime` on done: three entries in `audio` tables, synthesized
+(owner: audio lane, 1-line recipes); Codex progression branch (scripts session, `scripts/codex/progression.json`); balance pass
+on `FUEL_GRADES` and yields after playing.
+
+---
+
+# LANE C - WORKSHOP (Create-style)
+
+## C.1 Tweened moving structures
+
+**Player sees.** A piston pushes its machine along over 0.7 s on a sine ease with a soft thump at the end; a bearing swings a
+platform through its quarter turn smoothly and settles with a clunk; a skiff glides along a rail at 5 blocks/s with a slight
+bob; belts and cogs on the moving structure keep turning and items keep riding.
+
+**Design (two-phase move).** Today `commit()` writes voxels instantly. New flow:
+
+```
+beginMove(moves, kind, dur):                    # replaces the body of commit()
+  validate targets (same as today)
+  record pending = { id, kind, t0 = clock, dur, cells: [{from,to,turn,voxel}], items: [...] }
+  hold(): clear the FROM voxels (air); relocate() per-block state to the TO keys (logical cell = destination)
+  mark TO cells `reserved` (Contraptions.reserved: Set<string>) -> placement there refuses "A contraption is moving here"
+  emit bus 'contraption:move' { id, cells, kind, dur }          # the renderer starts the tween
+endMove(id):                                    # at t0 + dur
+  hold(): setVoxel(to, voxel with facing turned, active); clear reserved; items snap to final positions
+tick(dt): for each pending: if clock >= t0+dur endMove; ground items on moved blocks have their pos set by the SAME
+          interpolation (lerp or rotate) every frame while pending (they are carried, not teleported)
+actuators: do not start a new step while their structure is pending (piston/bearing timers wait; skiff chains steps with no
+          gap: the next beginMove runs at endMove, so a rail trip is one continuous glide)
+```
+**Rules that keep the Workshop consistent.** `Workshop.verify()` ignores keys in `moving` (else it drops parts whose voxel is
+temporarily air); machine ticking pauses for pending cells (they hold their work); belts of a pending structure carry items
+only visually (the carried item list is locked until `endMove`); the signal/gate lookups use the logical (destination) key.
+**Save.** `Contraptions.toJSON` adds `pending: [{ cells: [[fx,fy,fz,tx,ty,tz,turn]], kind }]`; `load()` completes them instantly
+(`endMove` immediately) so a save mid-move never loses blocks. Close-game mid-move test is mandatory.
+
+**Renderer.** New `src/render/workshop/movingLayer.ts` (C1): reuses `GhostLayer`'s geometry with the **solid** material and the
+atlas layer of each voxel (`aTex`); per pending cell one instance; matrix = lerp(from,to,ease(t)) or, for bearings, rotation about
+the pivot `a = ease(t) * turn * 90 deg`. 48 instances max per structure, 4 structures at once cap (`MOVING_CAP` 192).
+Ease: `sineInOut` for pistons/bearings, linear for skiffs. Cog/bar overlays of the moving parts take the same offset: the
+`WorkshopRenderer` reads `MovingLayer.offsetOf(key)` when drawing `view.spin` rows of a pending cell.
+**Sound.** Piston: low wooden thump at the end (`pipe_clunk` 0.7 pitch, existing) plus a creak loop while moving (a new
+`creak` synthesized name, 0.35 volume, pitch by speed). Bearing: ratchet ticks every 22.5 deg (4 per turn, `step` pitch 1.2). Skiff:
+wheel tick per block crossed, soft hum at 1 block/s multiples.
+**Acceptance.** Unit (fake clock): at t = 0.4 s the FROM cell is air, TO cell is `reserved`, the ground item on the moved belt sits
+midway; at dur voxels and state are final; a block placed into a reserved cell is refused; verify() keeps the parts; save mid-move
+loads completed. E2E: piston pushes a mill with a belt of wheat; screenshot mid-move shows the block offset; end state equals
+today's end state (golden compare).
+
+## C.2 Riding the skiff (and platforms)
+
+**Player sees.** Use on a skiff (empty hand) sits you on it; the camera lowers 0.2 blocks and bobs 0.01 per block of speed; a
+single "Hop off" pill appears above the hotbar on phone (jump key on desktop). While seated you look freely, cannot walk.
+Standing on a piston platform or a skiff with no seat just carries you.
+
+```
+# player side (src/app/game.ts, one hook): Player.ride: { provider: () => { x,y,z } | null } | null
+# each frame: if ride: pos = provider() + seatOffset; velocity = 0; skip collision; if provider returns null -> dismount
+# platform carry (no seat): MovingLayer.surfaceDelta(feetX, feetY, feetZ): [dx,dy,dz] | null
+#   if the feet are on the top face of a moving cell, add the per-frame delta of that cell (lerp derivative) to position;
+#   bearing: rotate the offset about the pivot by the frame's angle delta (position carried, yaw untouched)
+# dismount: nearest free cell around the skiff (check 8 neighbours + up), toast none
+```
+Collision desync guard: at `endMove` the passenger is set exactly on `to` top (tolerance 1e-3) **before** voxels are
+written, so the written block can never overlap the player's AABB.
+Riding is not saved (load dismounts and puts the player on the skiff's top).
+**Files.** `render/workshop/movingLayer.ts` (carry maths), `workshop/contraption.ts` (`passengerOf(skiffKey)`), `app/game.ts`
+(ride hook, HUD pill via `ui/hud`: the HUD owner approves the pill). **Acceptance.** Unit: skiff with a passenger along a 6-block
+rail ends with passenger at the end cell +/- 1e-3, never inside a solid; dismount finds a free cell; piston lift carries a player
+up 4 blocks without falling through. E2E: ride the skiff, screenshot (desktop + phone portrait with the pill visible).
+
+## C.3 Treadwheel with tame animals
+
+**Player sees.** A broad wooden wheel on a flat block. Lead a tamed goat onto it (a lead rope item) and it plods in place, the
+wheel rolls, a shaft beside it turns at 12 rpm / 24 su. The animal tires: after 90 s it slows, sits and pants; the wheel
+stops; it recovers in 45 s. It eats from a trough (a depot or crate holding wheat) beside the wheel: one wheat per 120 s of
+work. Without food it works 60 s more then walks off (job cancelled, toast "The goat wandered off hungry").
+
+```
+TREAD_BEASTS (src/workshop/animals.ts):   species -> { rpm, su, workS, restS, food: item, mealS }
+   goat 12 / 24 su, 90, 45, wheat, 120     hound 10 / 16, 120, 30, meat scrap, 150     ox (when it exists) 8 / 48 (verify species keys, mobs/species)
+Workshop.walkers: (x,y,z) => null | { kind: 'player' } | { kind: 'mob', species, id }       # widens standingOn (keep standingOn as the player branch)
+sourceFor(treadwheel): w = walkers(...); if !w -> null; if mob: if mob.tired or no food -> null; else { rpm: beast.rpm, capacity: beast.su }
+```
+**Mob side (stream F's folder, so a seam, not an edit).** New `src/mobs/jobs.ts`: `Job = { k: 'tread', x, y, z }`, stored on the
+tame mob (`SavedMob.job?`, `stamina?`); `brain.ts` gets ONE line: `if (mob.job) return runJob(mob, ctx)`. `runJob` walks the
+mob to the wheel's top, locks position (yaw tangent), plays the existing walk animation phase at the wheel's rpm, drains stamina,
+sits at 0, and eats from an adjacent container via `Workshop.take`. Assigning the job: Use `lead_rope` on a tame mob (ties),
+then Use on the wheel (job set); Use on the mob with an empty hand (releases). **Brass horn** (C.7) calls: every tame mob within
+24 blocks drops its job and follows. Clay servants (lane D) already stand in via `walkers` kind `servant`: same interface.
+**Save** `SavedMob.job`/`stamina` (optional fields, old saves load). **Acceptance.** Unit with a fake mob: stamina curve, feeding,
+hunger cancel, job save/load, source rpm 12; no player needed. E2E: lead a goat, shaft turns, screenshot.
+
+## C.4 Continuous spouts and drains from pipes
+
+**Today.** `spout` under a *tank* fills an empty container on the depot/belt below via `bucketUse`. **Remaining.** A spout wired
+straight to a pipe and a drain wired to a pipe, flowing continuously.
+
+```
+Spout (C Cell): if a pipe/fluid endpoint touches its TOP face and it is powered (3 su, 16 rpm) -> outlet at SPOUT_LPS = 250
+   target below, in order: (1) an empty container item on the depot/belt cell below: progress cell.fill += litres; when fill >= capacity
+      swap to the full container via CHEM_CONTAINERS.filledWith(empty, fluid) (beaker 250, canister/bucket 1000), pass it on along the belt
+   (2) a `basin` below: litres go straight in (the basin holds 1000 L), no container
+   fluid shown: a falling 0.12-wide bar in the fluid's colour (workshopRenderer `bars`), alpha scroll, + soft `pour` loop
+Drain (item_drain): a pipe touching its side or top: while a full container sits on it, empties at DRAIN_LPS = 250 into the pipe
+   (pushes into the net as the FluidEndpoint inlet), empty container passes on. Spout and drain never hold litres: partial `fill`
+   is saved on the spout cell (saved JSON) so a reload does not lose or invent litres.
+```
+Conservation: `litres_removed_from_net == litres_in_containers + basin gains + cell.fill`. Needs tank/pipe acceptance of the new fluids (B.8)
+and `FluidEndpoint` lookup through `Workshop.fluidBlock` (extend with `pull(x,y,z,face,fluid?,max): {fluid,L}|null` and
+`push(x,y,z,face,fluid,L): number`). The bottling line: receiver -> chem_port -> pipe -> spout -> beaker on a belt -> crate.
+**Acceptance.** Unit: a 4000 L tank, 4 canisters on a belt under a spout fill in 16 s +/- 1; basin below fills; litres
+conserved to 1e-6; unpowered spout does nothing; save mid-fill. E2E: golden bottling line (shared with B.8).
+
+## C.5 Punched gearshift cards
+
+**Player sees.** A stiff paper card with 8 holes in a row. The **card punch** bench (a small block) opens a thin sheet with an
+8-cell strip: tap a cell to cycle `still / forward / reverse` (3 states; hold = skip); a speed notch row of 4 (x0.5, 1, 2, 3) is
+under it; the Punch button writes the pattern onto the card (cost: the card). Use a card on a `sequence_gearshift` loads it (the
+gearshift shows 8 coloured pips on its front, running one lit at a time as it plays); Use with an empty hand ejects it. The
+three presets stay as defaults when there is no card.
+
+```
+Card pattern (24 bits ... 8 steps x { state: 2 bits (0 stop, 1 fwd, 2 rev), notch: 2 bits }) = 32-bit int, stored in
+   ItemStack.tag (recommended) or, until then, encoded in `durability` = 1 + pattern (never shows wear: item flag noWear).
+Playback: step = 1.0 s (or 0.5 s with a metronome signal touching); factor = state fwd: +notch, rev: -notch, stop: 0
+   cardFactor(t, pattern) = table lookup, loops; `GEARSHIFT_PROGRAMS` gets a 4th element type 'card' with the pattern on Part
+Part.s holds program; Part.card?: number (saved in the workshop snapshot)
+```
+Files: `workshop/kinetics.ts` (`cardFactor`), `workshop/workshop.ts` (use: card/empty-hand eject, `Part.card` in snapshot),
+`content/itemsWorkshop.ts` (`punch_card` blank, `card_punch` bench), `ui/screens/workshop/cardPunch.ts` (new thin sheet),
+`render/workshop/workshopRenderer.ts` (pips), recipe at the workbench with a punch tool (iron nail). **Acceptance.** Unit: pattern
+round-trips pack/unpack; a card `[F,F,S,R,R,S,F,S]` yields factors at the right seconds; goggles "Card: fwd, fwd, stop, ..." under
+70 chars (abbreviate to arrows: `>> . << << . > .`); save/load keeps `Part.card`. E2E: punch, load, watch the loop.
+
+## C.6 Item vault growth
+
+**Today** one block holds 108 stacks (Use empty hand gives the biggest stack). **Rule.** Face-adjacent `item_vault` blocks that form a
+**solid cuboid up to 3 x 3 x 3** share one inventory: capacity `108 + 54 x (n - 1)` stacks (max 1512). Anything else (ragged shape)
+reports "The vault must be a solid block (up to 3x3x3)" and each cell works alone. Controller = the minimum (x,y,z) cell, which
+owns the stacks; belts, funnels and arms may attach to any cell (the `logi.accept/take` lookup maps a vault cell to its controller).
+**Break**: if the rest is still a cuboid it re-forms; stacks beyond the new capacity drop as ground items at the broken cell.
+**Sound/animation**: the lid hinge opens (one bar) when something enters; the front face shows fill as 5 pips.
+**Save** controller key re-keyed on place/break (like relocate). **Acceptance.** Unit: 2x1x1 vault has 162 stacks; shape rule;
+break spills only the excess; a contraption (never carries a vault: vault is not in `movable`) refuses to pick it up (assert).
+
+## C.7 Trinkets (all blocks except spyglass and horn item; all `decor` for the congruence test)
+
+| trinket | form | behaviour (numbers) | status sentence | signal |
+|---|---|---|---|---|
+| wind vane | block | rotates to the wind direction from `windAt`/`weather.ts` (tween 1 s), fast flutter in storms | "Wind from the north-west, gentle" | lights an adjacent signal cell when wind speed >= storm level |
+| weather cock | block | turns to the wind; crows once (sfx `rooster`, synthesized) at dawn | "Fair weather" / "Rain on the way" (from `weather.ts` next `kind`) | lit while raining and sky open (`openSkyAbove`) |
+| spyglass | held item | Use toggles zoom: FOV x0.33; phone: second tap exits, drag looks; cannot sprint | - | - |
+| brass horn | block + item | item Use: calls every tame mob within 24 blocks (they drop jobs, follow 30 s) + `horn` sfx (synthesized, 2 notes); block version pulses a signal 1 s | "Horn - tap to call" | pulse |
+| padlock chest | block | a crate that refuses taking by belt/arm/funnel unless a `brass_key` item is held (Use with key opens the UI-less take of the biggest stack); inputs allowed | "Chest - locked (2 stacks)" | - |
+| lantern chain | block | hangs from any solid above up to 8 blocks, light 12, sways with wind (render sin on one bar), breaks into the lantern item | "Lantern - swinging" | - |
+
+Each is one entry in `src/workshop/trinkets.ts` (`TRINKETS` table: key, tick(dt, ctx), describe(), save) with `Workshop` calling
+`trinkets.tick` once; renders through `workshopRenderer.bars` (no new draw call). Aspects: each needs a fingerprint beyond
+`CATEGORY_BASE` (lane D's test): propose wind vane `gale`, weather cock `gale+brook`, spyglass `glow`, horn `drive`, chest
+`loam`, lantern `glow`. **Acceptance.** Unit per trinket (vane yaw follows a fake wind, cock signal in rain, horn calls fake
+mobs, chest refuses an arm without key).
+
+## C.8 Belts that cross structure borders
+
+**Actual bug to fix first.** `Contraptions.structure()` floods through *every* movable block including belts, so a fixed belt next
+to a carried one is swallowed and dragged. Fix:
+
+```
+structure(start): propagate ONLY through contraption_frame, and from a frame/actuator to every neighbouring movable part
+   (a part is carried only if it touches a frame or an actuator face directly; parts do not spread to other parts)
+Pin: Wrench on any part toggles `pinned` (saved, goggles "pinned"): a pinned part is never carried and ends propagation
+```
+Then **hand-over across a border** (belts, funnels, arms) works under one rule: items pass between a belt on a structure and a
+fixed belt/depot/crate only while that structure is idle (not pending) AND the two cells are face-aligned (the existing
+end-to-start check, run against the logical cell). Skiff docks: the 2 s dwell at the rail end is the unloading window. **Belts into
+crates** already works (`acceptCrate`); add the lid-open bar. **Acceptance.** Unit: a fixed belt beside a framed belt is NOT in
+`structure()`; hand-over works idle, blocked while pending; skiff dwelling aligned with a belt unloads. E2E: field -> belt -> mill ->
+chute -> crate loop (already planned), plus piston docking.
+
+## C.9 Workshop hooks the distillery needs (the interlock seams)
+
+All in `src/workshop/`, owner C, written as stubs in the contract commit (section E.0):
+
+| hook | signature | used by |
+|---|---|---|
+| `registerLoad(key, su, when: () => boolean)` | adds a consumer to the network of the part that touches `key`; on over-capacity the usual jam | vacuum cap (3 su), stirrer (2 su), pump |
+| `rpmAt(x,y,z): number` | max abs rpm of kinetic parts touching the cell (exists internally as `signedRpm`) | vacuum cap, stirred vessel |
+| `itemSinks` | see B.10 | arms, belts, hoppers |
+| `fluidBlock.pull/push` | see C.4 | spouts, drains |
+| basin recipes with fluid inputs | `BasinRecipe.fluid?: { key; L }` (inputs list) | tarred planks, antiseptic bandage, fertiliser |
+| lube table | `LUBE: Record<item,{factor,s}>` | lubricant, grease |
+
+---
+
+# D. HOW THE TWO LANES INTERLOCK (data flow, numbers, owners)
+
+| link | flow | contract | test |
+|---|---|---|---|
+| lubricant -> stress | `lubricant_beaker` Use -> `LUBE` -> `capacityFactor` x1.25 / 10 min; grease x1.5 / 40 min | B ships items, C owns `LUBE` (table keyed by item, B appends rows) | `solveNetwork` capacity 1.25x; golden e2e |
+| residue -> lubricant + bitumen | vacuum cap powered by shaft: `rpmAt >= 16` -> `capability vacuum` | C `rpmAt` + `registerLoad`; B scan reads `host.shaftRpm` | unit with a fake workshop host |
+| fuels -> engines | `FUEL_GRADES` table: gasoline saw 1.3 / tractor 1.2; diesel tractor 1.5; ethanol 0.25/0.2; **add `engine` column** for the combustion generator (tech spine owns it) and `burner` column (B.1) | single table in `core/distill.ts`; consumers read it | existing `distillFuel.test.ts` + new columns |
+| fuels -> chainsaw/tractor PTO | tractor drains the same canister while turning a shaft (24 rpm / 30 su, workshop PTO) | C's PTO reads `FUEL_GRADES[...].tractor` burn rate | PTO drains 1.2x slower on gasoline |
+| spouts/drains <-> basins/stills | pipes -> spout -> container/basin; drain -> pipe -> tank -> `chem_port` -> flask | C.4 + B.8 | litre ledger across the whole line |
+| arms feeding stills | `mech_arm` target = vessel/filter/catalyst/hopper via `itemSinks` | B.10 | arm loads yeast into a vessel, a hopper outputs asphalt |
+| belts through the refinery | belts deliver catalyst and filter media to `tower_hatch`, spent media and asphalt leave on belts, canisters ride belts under spouts | `itemSinks` + spout fill | e2e golden "plant" |
+| treadwheel animals <-> farming/food | goat eats wheat from a depot, hound meat; tired -> sits | C.3 `Workshop.take` | unit |
+| contraptions <-> chem | chem modules are entities with liquid, so **never movable**; a piston never pushes one; `movable()` returns false for all `CHEM_KINDS` and `tower_*` | assert in `contraption.test.ts` | unit |
+| skiff carrying liquids | a skiff carries one stack: canisters/beakers ride it to the vault; never a flask | stack rule | unit |
+| bitumen -> roads -> tractor | `asphalt_block` surface 1.4 vehicle | `BlockDef.surface` | B.5 |
+| vacuum + stirrer on the same shaft | both `registerLoad`: over capacity jams as usual; goggles shows "load 14.5/24 su" | C solver | unit |
+
+Seam ownership: **types and tables are B's, hooks are C's, the glue lines in `app/game.ts` are made once in the contract commit.**
+
+---
+
+# E. BUILDER ORDERING - 2 builders per lane, conflict-free
+
+## E.0 Contract commit (before any builder; by the lane architects, one commit each; run `tsc` + the transport tests)
+
+- **B-0** (shared, append-only): `FluidKey` += `lubricant`, `bitumen` and one
+  `elixir_<buff>` per buff (6); `fuel` alias in the sanitizer); `ItemStack.tag?: number` (+ save sanitizer, merge compare); `BlockDef.surface?`; empty
+  stubs `core/rigString.ts`, `sim/distillPlan.ts`, `sim/distillBurner.ts` exporting typed signatures. **No logic.**
+- **C-0**: `workshopHooks.ts` interface file (`registerLoad`, `rpmAt`, `itemSinks`, `walkers`, `fluidBlock.pull/push`) wired in
+  `Game` with no-op defaults; `LUBE` converted to an item-keyed table (behaviour identical); `contraption.ts` split into
+  `contraption.ts` (rules) and `contraptionMove.ts` (the new two-phase mover; initially calls the old instant commit).
+
+## E.1 Lane B
+
+| builder | owns (exclusive) | sequence |
+|---|---|---|
+| **B1 chemistry** | `core/chem.ts`, `core/distill.ts`, `sim/distill.ts`, `sim/distillScan.ts`, `content/{blocksDistill,machinesDistill,fluidsDistill}.ts`, `sim/distill*.test.ts` | W1 reflux head (B.2) -> W2 filter bed + lubricant component (B.3) -> W3 vacuum cap + residue run + bitumen grade (B.4/B.5) -> W4 asphalt/grease reactions, `HEAT_SENSITIVE`, essence (B.6) -> W5 catalyst/pressure/steel shell (B.9) -> W6 tower scan/step (B.11) |
+| **B2 player and content** | `sim/distillPlan.ts`, `sim/distillBurner.ts`, `sim/distillActions.ts`, `core/rigString.ts`, `content/{itemsDistill,recipesDistill}.ts` (+ new `itemsPotion.ts`), `render/distill/*`, `ui/screens/distill/*`, `scripts/e2e-distill.mjs`, `docs/api/distillery.md` | W1 ground burner (B.1, 3-line `baseTemp` hook agreed in B-0) -> W2 plan ghosts + problem pulse + goggles sentence (B.7) -> W3 tank/pipe support + bottling e2e (B.8) -> W4 potions, drinks, elixirs, bandage, lamp (B.6) -> W5 rig sheet -> W6 hopper/itemSinks (B.10) -> polish (B.12) |
+
+Conflict rules: only B1 edits `sim/distill.ts` and `distillScan.ts`; B2 gets what it needs through the stub `DistillHost` fields added in
+B-0 (`burnerTemp`, `planAt`). If B2 needs a change in `distill.ts` it asks B1 (one line request in the shared notes). B2's W3 waits for B-0
+fluid keys; B1's W3 waits for C-0's `rpmAt`.
+
+## E.2 Lane C
+
+| builder | owns (exclusive) | sequence |
+|---|---|---|
+| **C1 motion** | `workshop/contraption*.ts`, `render/workshop/movingLayer.ts`, `workshop/animals.ts`, `mobs/jobs.ts` (new), `app/game.ts` ride/walkers hook lines, contraption tests | W1 pin rule + `structure()` fix (C.8) -> W2 two-phase mover + tween + save-mid-move (C.1) -> W3 skiff glide, riding, platform carry (C.2) -> W4 treadwheel animals + horn calling (C.3) -> W5 belt docking and crate lid |
+| **C2 logistics and things** | `workshop/logistics.ts`, `workshop/signals.ts`, `workshop/trinkets.ts` (new), `content/{itemsWorkshop*,recipesWorkshop,basinWorkshop,objectivesWorkshop}.ts`, `ui/screens/workshop/*`, `render/workshop/workshopRenderer.ts`, `scripts/e2e-workshop.mjs`, `docs/api/workshop.md` | W1 itemSinks + fluid `pull/push` + `basin` fluid recipes (C.9) -> W2 continuous spouts/drains (C.4) -> W3 punched cards + bench (C.5) -> W4 vault growth (C.6) -> W5 trinkets (C.7) |
+
+`workshop/workshop.ts` is the hot file: C1 touches `relocate/verify/solve/tick moving`, C2 touches `use/describe/snapshot`. Rule: C1 lands
+W1-W2 first (they only add a `moving` set and the pin flag); C2's `workshop.ts` edits start after C1-W2 merges; both keep edits inside
+disjoint method bodies and rebase before commit.
+
+## E.3 Cross-lane order (the four dependencies)
+
+```
+B-0, C-0  ->  [B1 W1-W2, B2 W1-W2, C1 W1-W2, C2 W1]  in parallel (no shared files)
+          ->  C2 W2 (spouts) needs B2's tank fluids  ->  then B2 W3 bottling e2e
+          ->  B1 W3 (vacuum) needs C-0 rpmAt/registerLoad (stub then real by C2 W1)
+          ->  B1 W4 potions/essence, B2 W4 elixirs; C2 W3-W5, C1 W3-W5 in parallel
+          ->  B1 W5-W6 (Current/Atomic) last, after the six-age refactor tiers are final
+```
+"Whoever writes the code does not certify it": each builder's wave is certified by the *other* lane's builder re-running
+`tsc`, `vitest` and the lane e2e; the architect signs only after reading the diff.
+
+---
+
+# F. TEST AND E2E CHECKLIST (what "done" means per item)
+
+| item | unit (file) | e2e step |
+|---|---|---|
+| ground burner | `distillBurner.test.ts` | place base on grass, charcoal, flame count > 0, spirit run completes (desktop + phone) |
+| reflux head | `distill.test.ts` | card `reflux_ethanol` yields `fuel_ethanol` |
+| filter bed | `distillFilter.test.ts` (conservation incl. absorbed) | wash -> filter -> cleaner spirit |
+| lubricant | `distillProcess.test.ts` + `workshop.test.ts` (x1.25) | crude -> vacuum -> filter -> beaker -> oil shaft, goggles "oiled" |
+| asphalt/roads | `asphalt.test.ts` (tractor/walk multipliers) | drive tractor on asphalt vs dirt, screenshot |
+| potions | every elixir card built and run | vial drunk, HUD chip |
+| rig plan/ghosts | `distillPlan.test.ts` | ghost screenshot, then the rig runs |
+| tower | `distillTower.test.ts` | pipe-fed run, three cuts into three tanks |
+| tween | `contraptionTween.test.ts` (fake clock) | mid-move screenshot offset block |
+| riding | `ride.test.ts` | ride skiff, pill visible on phone |
+| treadwheel animals | `animals.test.ts` | goat on wheel, shaft turns |
+| continuous spout | `spoutFlow.test.ts` (litre ledger) | bottling line |
+| punched cards | `card.test.ts` | punch + load + playback |
+| vault growth | `vault.test.ts` | 2x2 vault, belt into any cell |
+| trinkets | `trinkets.test.ts` | vane turns with wind |
+| belt borders | `contraption.test.ts` pin cases | field -> belt -> mill -> chute -> crate |
+
+Fixtures to add: an **old-save fixture** with a mid-move piston and with a belt next to a frame, and one with a flask holding
+`residue` (so the new components load).
+
+# G. RISKS WORTH A BUILDER'S ATTENTION
+
+1. **Two-phase move vs `verify()`.** Forgetting the `moving` exemption silently deletes machines mid-move (the one data-loss path). Test first.
+2. **Reserved cells.** World edits (player, chunk gen, other machines, the tractor) can all write a reserved cell; the guard must live in
+   the shared "place" check and in `hold()` writers, not just the player.
+3. **`structure()` pin rule** changes existing contraptions that relied on belts spreading. Old saves keep structure shapes; migrate by
+   treating every pre-existing structure as "all parts glued" once (`Part.glued` default true, new parts default false).
+4. **Vacuum cap loops back to the shaft solver**: a vessel's `registerLoad` makes the network over-capacity and jams a mill. Show it in
+   the goggles ("load 14.5/24 su") and keep 3 su small.
+5. **Conservation with the filter** (absorbed litres) must be added to the fuzz ledger the same commit as the filter, or the fuzz fails
+   for unrelated reasons.
+6. **`ItemStack.tag`** touches inventory merge: stacks with different tags must not merge (cards, sips). One test.
+7. **Heat-sensitive essences** are the first place the still can *ruin* a batch: the toast and the red lamp must say why.
+8. **Phone**: every new interaction here is one Use tap; the only added control is the "Hop off" pill. No drag-and-drop anywhere.
+
+# H. WHAT I DID NOT DECIDE (needs the owner, defaults given)
+
+1. Tower age: Atomic (recommended) vs Forge (CONGRUENCE).
+2. Lubricant item: `lubricant_beaker` (250 L, glass back, recommended) vs a reusable oil can.
+3. Nightsight buff for Glowcap Draught: a seventh `DrinkBuff` (recommended small) vs reusing `lightActive`.
+4. Alcohol cost: aim sway and Dizzy (recommended) vs only a timer.
+5. `ItemStack.tag` (recommended) vs encoding in `durability`.
+
+# I. CHECK LIST FOR THE ARCHITECTS
+
+Contract commits (E.0) before builders; the age table moves with the six-age refactor (one table per lane); the four
+shared-file edits are `FluidKey`, `ItemStack.tag`, `BlockDef.surface`, and the `brain.ts` job line (stream F). Everything else is in
+files one builder owns.
+
+<!-- ======================== END docs/advice/distillery-workshop.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/magic-and-food.md ======================= -->
+# FILE: docs/advice/magic-and-food.md
+
+# Advice: magic depth and living systems (food, brewing, farming)
+
+Written 2026-11-21 by the magic-and-food ADVISOR (read-only session; nothing built or run). Audience: the builder sessions that
+start after the six-age refactor. Read with `docs/CONGRUENCE.md` (streams D and E), `docs/OVERHAUL_PLAN.md` part B,
+`docs/api/{magic,sugar,brewing-buffs,food-rules,crops,weather}.md`, `docs/DISTILLERY_PLAN.md` sections 9 and 12.
+Owner decisions are fixed (six ages, Ember = handwork, furnace is the heart, in-world beats screens, original names, magic is
+"a little" and research based, essentia on every block). Code facts below were checked in the repo on this date; items marked
+**(verify)** are guesses the builder must confirm in one grep before relying on them.
+
+Facts checked that shape the design:
+- `Buffs` has one slot per drink family (tea: spring/hearthkept/mending, coffee: swift/vigor/lasting) plus `wellFedS`, `wellWarmedS`,
+  `sugarS`. Constants: Swift 1.2, Spring 1.35, Vigor 1.25, Hearthkept 0.5, Lasting 0.5, Mending x2, Sugar 1.12 speed and x2.5 Well-Fed
+  burn, `DRINK_BUFF_S` 180, Well-Fed 360 s. Today the speed of Swift and Sugar Rush MULTIPLY (1.344).
+- `LIGHTNING_MIN_DIST` is 60 blocks: real strikes are always far away, so a lightning rod cannot "catch" the existing flash (see M7).
+- `DAY_LENGTH_S` is 900. `aspectTable.ts` has keywords for egg, milk, salt, meat but **no `egg`/`milk`/`cheese`/`salt` items exist**
+  in `src/content` (verify): animal products are new content. Existing mobs: hen, goat, boar (`creatures.ts`) and the Emberbound
+  automatons (`ember_core`, `scrap_metal` drops).
+- Magic today: 24 research entries (Ember 7, Bronze 10, Forge 7), rods 16/32/64 charge, foci kindle/light/ward/blink, clay servants
+  turn hand cranks only, tubes are a private network (`essentiaNet.ts`, 256 tube cap), spark/soul/void exist only as overrides.
+
+---
+
+## 0. The guardrails (every feature below must pass these)
+
+**G1. The tech spine leads.** Magic never makes a raw material, an ingot, fuel units, or a tier. It makes conveniences, saves
+trips, and gives a few small tricks. Every magic convenience has a tech equivalent that arrives later in the same age or the next
+one and is better at scale (golem carry 1.3 items/s vs a belt; hearth siphon vs a bellows; infused kettle vs a boiler).
+**G2. Magic costs a trade.** Each device draws essentia continuously; supply is bounded (wellsprings 1 in 10 chunks, rod draw
+1-5 units/s, aura recovery 1 per minute per aspect per chunk). An infusion changes one number by at most x1.5 (x1.25 for
+anything that touches electricity) and never adds an output.
+**G3. Nothing on the winning path.** The solver never reads magic or the new food/brew content (`content.test.ts` keeps proving
+completion). New foods, drinks and potions are optional comfort and are not in the required-item closure of `game:won`.
+**G4. The furnace stays hands-on.** Golems and essentia never stoke, light or tend the furnace; only the existing hearth siphon
+(one-way, near the end of a burn) and Vial of Cinder (+90 s) touch it, and both stay as they are.
+**G5. Every new item and block gets a real fingerprint** (section 4.3 test) and every new aspect gets a tier, two parts, a colour
+and an entry (CONGRUENCE 4.1).
+**G6. In-world first, phone first.** One status sentence (<= 70 chars) per device on the target line; a screen only for the
+notebook, the rune desk and the stewpot-free recipes below. Touch targets 44 px, long-press 420 ms is the secondary action.
+**G7. Ages by NAME** via `ageIndexOf('forge')`; never a bare number. No recipe raises more than one gate (CONGRUENCE rule 3).
+
+---
+
+# Part 1. Magic depth
+
+## 1.1 Research tree growth: 24 -> 40 entries
+
+Conventions: entries live in `src/magic/entries.ts` with the helpers `pair/corners/triple/quad/wall/cellAt`; each gets a board the
+existing "boards solvable with each age's aspects" test proves; recipes are gated through `gates.ts`; flags go in
+`unlocks.flags` and are read with `hasFlag(state, flag)`. Lore for a late aspect is only awarded from its age on (rule L below).
+New aspects used as anchors appear only in entries of their own age or later, so a board never asks for lore the player cannot own.
+
+| # | key | title | age | requires | board anchors (+ blockers) | unlocks | what the player gets |
+|---|---|---|---|---|---|---|---|
+| 25 | `hedge_lore` | Hedge Lore | ember | `gathering_rod` | pair spring/ward | flag `green_thumb` | spring jar boosts nearby crops (F4) |
+| 26 | `steam_sense` | The Sense of Steam | bronze | `infusion` | pair steam/drive | recipes `inf_kettle_cinder` | altar infusion: Kettle of Cinder; goggles-like aspect line on steam parts |
+| 27 | `aura_dial` | The Aura Dial | bronze | `aura_reading` | corners gale/loam/brook | flag `aura_dial` | the HUD dial (M1) |
+| 28 | `tincture_craft` | Tincture Craft | bronze | `still_trace`, `essence_jar` | triple clarity/spring/ward | flag `tincture_vial`, recipes `elixir_*` (gated in F3) | essence in the blend vessel; elixirs |
+| 29 | `workshop_infusions` | Hands of Drive | bronze | `infusion`, `rune_desk` | quad rune/craft/drive/clarity | recipes `inf_driven_crank`, `inf_ever_oil` | two workshop infusions (M5) |
+| 30 | `storm_draw` | Drawing the Storm | bronze | `aura_reading` | triple gale/frost/rift | flag `storm_draw`, recipe `storm_spire` | weather draws (M7) |
+| 31 | `soul_draw` | The Quiet Draw | forge | `clay_servant` | pair spring/mind via `soul` anchor | flag `soul_draw` | rod draws soul from living things (M2) |
+| 32 | `golem_walker` | The Clay Walker | forge | `clay_servant`, `soul_draw` | quad spring/mind/craft/drive | recipes `clay_walker`, `waypoint_seal` | walking golems (M6/G) |
+| 33 | `golem_hands` | Willing Hands | forge | `golem_walker` | triple craft/drive/rune | flag `golem_tasks` | treadwheel seat, carry task (G2) |
+| 34 | `tube_ports` | Ports and Valves | forge | `essentia_tubes`, `iron_rod` | corners clarity/steam/ward | flag `tube_ports`, recipe `essentia_valve` | tubes feed machines (M3) |
+| 35 | `ash_stave` | The Ash Stave | forge | `iron_rod`, `focus_ward` | corners vein/gale/spring | recipes `ash_stave` | stave, two foci (M4) |
+| 36 | `focus_mend` | Mending Focus | forge | `ash_stave`, `soul_draw` | quad spring/ward/mind/soul | recipes `focus_mend` | small heal focus |
+| 37 | `spark_draw` | Gathering Sparks | current | `soul_draw` | corners spark/glow/drive | flag `spark_draw`, recipe `spark_jar` | spark from storm spire and dynamo leak |
+| 38 | `spark_walker` | The Spark Walker | current | `golem_hands`, `spark_draw` | triple spark/soul/drive | recipe `spark_walker` (infusion) | fast golem |
+| 39 | `focus_arc` | Arc Focus | current | `ash_stave`, `spark_draw` | pair spark/ward | recipe `focus_arc` | stun focus |
+| 40 | `void_seed` | The Seed of Emptiness | current | `void_jar`, `spark_draw` | triple void/ward/wane | flag `void_draw` | void from deep dark; void cell (M5) |
+
+Atomic and Star stay reserved: `warded_home` (atomic) and `star_light`, `void_mastery` (star) are listed in `entries.ts` as `planned`
+comments only. If the sibling world/progression advisor puts something in those ages, add it then.
+
+Rules for the table:
+- **Rule L (late lore).** `LATE_ASPECT_AGE = { soul: 'forge', spark: 'current', void: 'current' }` in `aspectTable.ts`; `scanObject` skips
+  lore for an aspect whose age is later than the player's best reached age (`state` already knows `known`, add the age as a
+  parameter). Before then the aspect is simply not shown on that object's chips. Prevents the early scan of a hen teaching `soul`.
+- Board difficulty: free cells 14-18 of 25, one blocker for Bronze, up to three for Current; every entry's `solveBoard` hint must
+  succeed with the aspects of its own age (existing test pattern, extend the list).
+- Notebook list grows to 41 rows; group by age (already) and collapse finished entries (phone scroll).
+- Objectives (optional, flag based): `first_golem` (flag `golem_built`), `sweet_cup` (flag `sweet_drunk`), `first_potion` (flag
+  `potion_drunk`), `green_thumb_set` (flag `green_thumb_on`). One line each in the objectives file of the owning stream.
+
+## 1.2 Aspects: spark, soul, void as drawable
+
+Draw rules live in `Magic.gather()` (a held rod, Use). They are all **site-bound** (you go somewhere) so they stay small.
+
+| aspect | tier | age | where it comes from | rate | player sees |
+|---|---|---|---|---|---|
+| soul | 3 | forge | a living thing within 3 blocks of the rod: hen, goat, boar, tame or wild, automaton | 1 per 8 s per creature, creature "listless" 20 s, 120 s cooldown, max 4 per creature per day, never damage | rod glows violet, a thin violet thread lifts from the animal, it stops grazing and its head droops; animal never flees |
+| spark | 3 | current | storm spire hit (M7), `dynamo_leak`: a running dynamo/generator within 2 blocks of a spark jar | spire 8 per hit; leak 1 per 20 s costing 0.5 % of that machine's output (a hook in the power sim, optional) | blue-white arc into the jar, jar fill crackles |
+| void | 3 | current | the deep dark: aura level for void = `clamp((seaLevel - y - 30) / 2, 0, 32)` in unlit cells; rod draw 1 per 10 s | slow on purpose | rod hum drops an octave, vials look "empty" with a black core |
+
+Pseudocode, gather extension (no change for the six primals and twelve compounds):
+
+```ts
+function lateDraw(aspect: 'soul'|'spark'|'void', ctx): number {            // units this second
+  if (!ageReached(AGE_OF[aspect]) || !hasFlag(research, FLAG[aspect])) return 0; // 'soul_draw' | 'spark_draw' | 'void_draw'
+  if (aspect === 'soul') { const m = livingNear(ctx.pos, 3).find(canDrawSoul); if (!m) return 0;
+    m.soulCooldownS = 120; m.listlessS = 20; return 1 / 8; }
+  if (aspect === 'void') return voidAura(ctx.pos) > 0 ? 0.1 : 0;
+  return 0;                                    // spark is never drawn by rod: it arrives by spire / dynamo into a spark jar
+}
+```
+State: creature cooldowns are session-only (a `Map<mobId, number>` in `magic.ts`, not saved), so no save change. Fingerprints for
+creatures get a one-line `soul` weight through `aspectTableLife.ts` (4.3) and are shown only with rule L.
+Why this stays modest: soul draw is ~7 units/min per animal; a clay walker eats 2 Spring per minute (not soul), only the infusion
+that makes it (6 soul) and the focus_mend (cost 6 charge) use soul. Spark has one source per storm, void one place.
+
+## 1.3 Aura HUD dial (M1)
+
+A tiny ring on the compass, shown once `aura_dial` is done (or whenever the notebook or a rod is held). Not a screen.
+- Ring colour = the dominant primal/compound aspect at the player's feet (`aura.sample(x, z, a)` for all 18 non-late aspects, take
+  max), ring fill 0..1 = level / 64, a second small dot = the strongest OTHER aspect.
+- A pulsing outer ring when a wellspring is within `NODE_REACH` 6 (uses `compass`); the ring points toward the nearest node as a
+  tick on the circle when within 48 blocks (`nodesNear`), so the dial doubles as a compass to wellsprings.
+- Tap or long-press on the dial: toast "Aura: gale 38, loam 21. Wellspring (brook) 41 m NE" (<= 70 chars). 44 px tap target.
+- Update at 4 Hz, one `Aspects` reused object, zero allocation per frame. File: `src/ui/hud/auraDial.ts` (new) + a three-line
+  mount in the HUD (`src/ui/hud/*` compass file) **owned by the magic builder**; if the six-age refactor moves the HUD, mount it
+  where the compass is.
+- Sound: none while idle; `scan_chime` pitched down one step when the dominant aspect changes (<= 1 per 10 s).
+- Test: `auraDial.test.ts` (pure `auraDial(x,z,nodes)` returns `{aspect, level, other, nodeBearing}`): deterministic, level in 0..1,
+  nearest node bearing correct for 3 seeded cases; DOM mount smoke test under `src/ui`.
+
+## 1.4 Essentia tubes: unify or bridge? Recommendation: BRIDGE, not rewrite
+
+CONGRUENCE D3 proposes re-implementing `essentiaNet.ts` on `pipeGraph.ts` with a fluid key. Recommendation: **do not** (risk
+without gain): 21 aspects do not fit the `FluidKey` union, the pipe machinery carries one fluid per net with litres, and the
+tube network already has a 256-tube cap, tests and a save. What the player wants from "unified" is: the same placing tool, the same
+look and break behaviour, and tubes that connect to machines. Deliver those:
+
+1. **Same tool and look (reuse).** `essentia_tube` is placed with the pipe tool/line placement and uses the pipe segment mesh with
+   a glass tint and an aspect-coloured inner line (the jar's aspect, or neutral grey when empty). If the pipe placement tool is
+   keyed by `FluidKey`, add a second small registry `PIPE_LIKE = ['essentia_tube']` instead of touching the union.
+2. **Ports (new, `tube_ports` research, Forge).** A tube that touches a machine with an `ESSENTIA_PORTS` entry is a feed:
+   | machine | accepts | effect |
+   |---|---|---|
+   | still / flask rig | any aspect (as today's vial trace), `clarity` purifies | continuous trace, 1 unit per 30 s of boil |
+   | kettle / boiler (Bronze steam, when built) | `cinder` or `steam` | each unit = 20 s of heat-equivalent; `steam` makes steam with no fuel but the furnace's warm zone dims (CONGRUENCE D4: trade-off) |
+   | hearth siphon (as now) | `cinder` | as now |
+   | rune desk / altar | any (as now) | as now |
+   | farmland sprinkler: none; green-thumb reads jars directly | | |
+3. **Valve block `essentia_valve`** (Forge, vein + clarity + gale, cost 2 iron plate, 1 glass): a facing tube segment; it moves 1
+   unit/s from the upstream jar to the downstream jar. Lets a wellspring jar feed a distant store; tubes alone only let consumers
+   reach jars (today's behaviour). Throughput cap for any tube run = 4 units/s (OVERHAUL B.4): the net hands out at most 4 per second
+   per consumer pull. Visual: one mote per unit travelling the run (instanced, <= 24 total).
+4. **Save.** Nothing changes for existing tubes. A valve is a block with facing bits; fill is in the jars. Fixture test: a world
+   with 20 tubes and 3 jars loads identically.
+
+If a later builder still wants the pipe-graph rewrite, the clean migration is "tube = pipe segment with `fluid: 'essentia'` and a
+sidecar `Record<segmentKey, {aspect, n}>`", with the existing tube blocks mapped on load; record that in `docs/api/magic.md`
+Known limits instead of doing it now.
+
+## 1.5 Rods, staves, foci: progression
+
+Today: `vis_rod` 16 / draw 1 (Ember), `bronze_rod` 32 / 2 (Bronze), `iron_rod` 64 / 3 (Forge); foci kindle (cost 2), light (1), ward
+(6), blink (4), each used from the hotbar and drawing on the best carried rod.
+
+Add (all values in `RODS` / `FOCI` tables, no new code paths except the stave's slot):
+| item | age | capacity | draw/s | slots | notes |
+|---|---|---|---|---|---|
+| `ash_stave` | forge | 96 | 4 | 2 foci | held in hand; **hold Use 420 ms to swap the active focus** (phone-friendly, a small glyph above the hotbar slot shows it); crafted at the Rune Desk: iron_rod + 4 plank + 1 iron plate, cost ward 12 + rune 8 |
+| `spark_stave` | current | 128 | 5 | 3 foci | recharges 1 unit/s from an adjacent spark jar (`spark` units cost 1:4 charge, the 4 is the bridge cost) |
+
+Foci (cost is charge, cooldown seconds):
+| focus | age | cost | cd | effect |
+|---|---|---|---|---|
+| `focus_mend` | forge | 6 | 40 | heal 4 health over 6 s, stops if you take damage; sound `cast` + soft rising chime; less than a Mending tea |
+| `focus_reach` | forge | 3 | 8 | pulls ground items within 6 blocks to your feet (uses the ground-items system, `docs/api/ground-items.md`); a vacuum-pump style whoosh; an Ember-age convenience that does NOT beat the pump/magnet at scale |
+| `focus_arc` | current | 8 | 15 | an arc to the nearest hostile automaton within 10: 2 s stun and 3 damage; light flash; no griefing |
+Rod upgrade rule: a rod's `draw` multiplies gather speed on that aspect's aura only up to the aura level / 8 per second, so a Star
+rod would still not outpace aura recovery; recorded in `RODS`.
+Art: stave = rod model with a longer shaft and two small glass beads that glow in the focus colours; foci stay icons. Animation:
+a 0.3 s forward raise, a ring of aspect motes, no recoil.
+
+## 1.6 Infusions tied to every age (altar rows)
+
+`INFUSIONS` rows: `center`, `around` (pedestal items), `cost` (aspects), `seconds`. Each row changes ONE number, listed with the
+tech piece it improves. Existing: `steel_infusion`, `clay_servant`, `vein_bronze`.
+
+| age | id | center + around | cost | seconds | effect |
+|---|---|---|---|---|---|
+| bronze | `inf_ever_oil` | oil can with lubricant + 2 `glow` vial | glow 6, clarity 2 | 30 | oiled state lasts x3 (goggles: "oiled 27 min") |
+| bronze | `inf_driven_crank` | hand_crank + 2 bronze_ingot | drive 8, craft 2 | 40 | crank stress capacity x1.5 (rpm unchanged) |
+| bronze | `inf_kettle_cinder` | kettle + cinder vial | cinder 8 | 30 | kettle/boiler uses 0.5x heat; needs the kettle block to exist (Bronze stream A) |
+| forge | `inf_warded_coat` | padded coat + 2 iron plate | ward 12, rune 4 | 60 | permanent damage x0.9 (focus_ward remains x0.5 for 30 s); one per coat |
+| forge | `inf_clay_walker` | clay_servant block + 2 `soul` vial | soul 6, drive 4, mind 4 | 90 | becomes a walker (research `golem_walker`) |
+| forge | `inf_quick_quern` | quern twin (workshop) + 2 `drive` vial | drive 8 | 45 | machine speed x1.25 for that machine (flag on the machine entity, not on rpm) |
+| current | `inf_spark_walker` | clay_walker + 2 `spark` vial | spark 12, soul 4 | 120 | walker moves and works x2 |
+| current | `inf_storm_lamp` | lamp + 2 `glow` vial | glow 6, spark 3 | 40 | a lamp that never needs power, light 12 (a convenience, not a generator) |
+| current | `inf_void_cell` | battery + 2 `void` vial | void 8, ward 4 | 90 | battery capacity x1.25 |
+Atomic (reserved): `inf_warded_vault` (item vault + ward) and Star: none. The rule G2 limit x1.5 (x1.25 for electric parts) is
+asserted by a test over the table: `infusions.test.ts` loops the rows, `effect.mult <= 1.5` and `<= 1.25` for rows with `electric: true`.
+Per-machine effects are one boolean/number field on the existing machine entity (`infused?: string`), read by the owning sim at its
+single rule (`Workshop.crankCapacity`, lube duration, kettle heat). Builders add the field only where the table needs it.
+Altar feel (existing): the pedestals' items lift and spin, jars drain; add a **settling chord** on completion and a coloured ring
+that shrinks as `seconds` runs, so the player sees progress without a screen.
+
+## 1.7 Magic stays modest: a one-line budget
+
+`MAGIC_BUDGET` (docs, enforced by two tests): (a) total essentia a single wellspring can give = 1 per 15 s = 4 per minute; a
+fully-tubed base with 4 wellsprings is ~16 per minute, i.e. one infusion per 2-3 minutes at most; (b) the sum over all INFUSIONS of
+the multiplier excess is capped as above; (c) the progression solver does not read `ARCANE_RECIPES` or `INFUSIONS` for any output
+the tech spine requires (`content.test.ts` exists and keeps proving this); (d) golems: <= 4 within 32 blocks (section 1.8).
+
+## 1.8 Walking golems (the constructs of the workshop)
+
+Evolution of the existing `clay_servant` block: (1) the block still turns a crank (Forge, built); (2) the **Clay Walker** (Forge,
+`golem_walker`) is an entity that walks to jobs; (3) the **Spark Walker** (Current) does the same at x2.
+
+The Walker, as the player sees and does it:
+- Made at the altar (infusion row above). It stands up from the servant block with a puff of clay dust and a soft violet eye. It
+  is not a mob in `src/mobs` (no combat, spawning or population rules): it is a small entity list in `src/magic/golem.ts`
+  (`GolemHost`), rendered by `src/render/magic/golemRenderer.ts` with the same part-box format as `CreaturePart` (body, head, two
+  arms, two legs; `anim` swing).
+- Look: clay red-brown `#b0764a` with darker cracks (painted texture), a bronze belt, an eye in the colour of `soul` (`AspectInfo.color`).
+  Size 0.6 x 1.1 blocks. Idle: slow blink every 4 s and a breathing 1 px body bob. Working: arm swing in time with the job (crank:
+  circles, carry: lifting a small box on its back). Tired (no Spring): slumps, eye dims, 20 s later it sits down and stops.
+- Sound: `golem_step` (a low soft thud, pitch by speed, max 2 per second), `golem_work` (a short wooden knock), `golem_wake` (a
+  rising two-note chime). Volume budget: one step loop per visible walker, distance-attenuated; max 3 audible at once.
+- Needs: 1 Spring unit per 30 s idle, per 15 s working, from any jar within 4 blocks of its HOME (the servant block cell) or tubed to
+  it. It remembers the jar position, not the tube path. Without Spring it stops where it stands and the status line says why.
+- **Interaction (phone first).** Use with an empty hand: toggles Work / Stay ("Clay Walker: stays here"). Use with a Spring vial:
+  feeds 4 units. Use with the notebook: scans (it teaches `soul`, `craft`, `spring` once). **Waypoint Seal** (`waypoint_seal`, item,
+  cloth + 2 rune at the desk): Use on a block stores point A (a violet marker block outline for 10 s and a toast "Pickup set"),
+  Use on a second block stores point B; Use on the golem with a ready seal assigns the pair; a pair of the same seal can be
+  reused. No screen; an inventory-free way to say "carry from A to B".
+- Status sentence (target line and goggles): "Clay Walker: carrying wheat to crate, Spring 9" (<= 70 chars).
+
+Tasks (research `golem_hands` unlocks the last two; `clay_servant` block already does the first):
+| task | rule | numbers |
+|---|---|---|
+| crank | stands next to a hand crank and calls `Workshop.crank` | 1 stroke per second (as the servant today) |
+| treadwheel seat | a `treadwheel` within 8 blocks: walks in place on the wheel | supplies 8 rpm, 4 su (a weak source, below a crank player + below a water wheel) |
+| carry | picks up to 8 items from the pickup block's inventory/ground items at A, walks to B, drops into inventory/ground | one trip per ~6 s over <= 16 blocks: about 1.3 items per second, less than a plain belt run |
+| NOT | stoke, light or fuel the furnace; harvest; fight; place or break blocks; open doors it is not walked through | (G4) |
+
+Pathing (bounded and cheap): 3D grid A* with step-up 1 and drop <= 2, radius 16, node budget 400, replan at most 2 Hz per walker;
+a failed path sets `blocked` with the status "Clay Walker: no path to B" and retries every 10 s. At most 6 walkers are ticked; one
+that is more than 64 blocks from the player is **suspended**: its position is frozen (it shows as a still figure when the chunk
+loads), and it resumes when you return, so no offline simulation and no chunk loads. Cap: 4 working walkers within 32 blocks of each
+other (a new one refuses to wake: "Too many walkers nearby").
+Save shape: `WorldSave.golems?: { id: number; kind: 'clay'|'spark'; x,y,z: number; yaw: number; home: [number,number,number];
+spring: number; state: 'work'|'stay'|'tired'|'blocked'; task: { kind: 'crank'|'tread'|'carry'; a?: Vec3; b?: Vec3 } | null;
+carry: { item: string; n: number } | null }[]`; missing = none; each damaged entry is dropped, not the whole list (as `magic.ts`
+does for jars). `docs/api/magic.md` records it.
+
+---
+
+# Part 2. Food, brewing and farming, congruent with sugar, the still and essentia
+
+## 2.1 Baseline and what changes
+
+Keep: tea/coffee/sugar rules, Sugar Rush (speed 1.12, Well-Fed burn x2.5), `eat()` and `drink()`, hearth stew Well-Fed 360 s. The one
+rule change is **stacking** (2.2), implemented once in `buffs.ts`; every old number still holds when only one buff is active, and a
+regression test pins them.
+
+## 2.2 Buff stacking rules (F2, the core of the congruence request)
+
+Buffs act on **stats**. For each stat, active contributions are sorted strongest first and combined with diminishing returns, then
+capped. This replaces today's plain multiplication.
+
+```ts
+// bonus b_i = mult_i - 1 for stats where bigger is better; r_i = 1 - mult_i for drain stats (smaller mult is better)
+const STACK_WEIGHTS = [1, 0.5, 0.25, 0.25];                 // strongest, second, third, rest
+function combine(stat: Stat, parts: number[]): number {      // parts = bonuses (or reductions) > 0
+  parts.sort((a, b) => b - a);
+  const total = parts.reduce((s, p, i) => s + p * (STACK_WEIGHTS[Math.min(i, 3)]), 0);
+  return clamp(stat.higherIsBetter ? 1 + total : 1 - total, stat.min, stat.max);
+}
+const STATS = {
+  speed:   { higherIsBetter: true,  max: 1.35 },   // Swift .20, Sugar .12, Merry .00, Gale elixir .10
+  jump:    { higherIsBetter: true,  max: 1.5  },   // Spring .35
+  mining:  { higherIsBetter: true,  max: 1.4  },   // Vigor .25, Rift elixir .15
+  regen:   { higherIsBetter: true,  max: 2.0  },   // Mending +1.0 (x2), Hale tonic +.5   (a "x2" is bonus 1.0)
+  foodDrain:   { higherIsBetter: false, min: 0.3 },// Well-Fed .5, Lasting .5, Hearty .2, Gale elixir (sprint only) .4
+  warmthDrain: { higherIsBetter: false, min: 0.3 },// Hearthkept .5, Merry .3, Hardy tonic .3
+};
+// Costs add up, they are not diminished:
+wellFedBurn = clamp(1 + sum(burns), 1, 4);               // Sugar Rush burn 1.5 (=> 2.5 alone, as today), Firewater .5
+```
+Results, with numbers: Swift (1.2) + Sugar Rush (1.12) = 1 + .20 + .06 = **1.26** (was 1.344). Spring is a separate stat so Sweet Green
+Tea still jumps and runs. Well-Fed (.5) + Lasting (.5) + Hearty (.2) = 1 - (.5 + .25 + .05) = **0.2 -> clamped 0.3**. Hearthkept + Merry:
+1 - (.5 + .15) = .35. Sugar Rush + Firewater burns Well-Fed x3.0.
+**Visible**: the HUD buff pill row (existing) gets a small stack number "x1.26" in the speed pill's tooltip/long-press; no new HUD.
+**Back-compat**: `speedMult`, `jumpMult`, `miningMult`, `foodDrainMult`, `warmthDrainMult`, `regenMult` stay the public getters;
+only their bodies call `combine`. Tests: `buffStack.test.ts`: each existing buff alone equals today's constant; Swift+Sugar = 1.26;
+cap holds; Well-Fed burn with Sugar alone = 2.5 and the existing `sugarRush.test.ts` stays green.
+
+**Slots.** Existing drink slots: tea, coffee. New slots: `liquor` (one of merry/hearty/firewater), `tonic` (one of hale/hardy/gleam),
+`elixir` (one primal elixir). Up to five drink effects at once (tea, coffee, liquor, tonic, elixir) is deliberately possible
+and the diminishing returns make stacking all of them a sensible small gain, not a runaway. Same-slot rule is unchanged (a new
+one replaces, a longer one is never shortened). Drink cooldown 1 s.
+**Costs and caps keep it a choice:** liquors add sway (2.4); Sugar burns Well-Fed; elixirs consume a vial and an essence; tonics
+need spirit (a distillery product). `DrinkBuff` union grows by 9 keys; HUD labels from `DRINK_BUFFS` (`src/core/brewing.ts`).
+
+## 2.3 Sugar chemistry, distillery spirits and potions (the chain)
+
+All distillery processes are already designed in `DISTILLERY_PLAN` (fermenter + airlock at tier 1, `sugar_wash`, `low_wines`, `spirit`,
+`fuel_ethanol`, maceration tincture, filter bed, vessel blend into elixir "bottled in vials", 4 per 1000 L). This section designs
+the **drink items and buffs** on top; it adds no new vessel or fluid, only items and `DrinkSpec` rows. Where the distillery
+builder has not landed a process, the item exists but its recipe note says "needs the distillery (stream B)": F3 may ship the
+item data and buffs first and the recipes as cards when B lands (order in 5).
+
+Chain, with player-visible steps:
+1. Sugar: resin chain as in `sugar.md`. Sweeten a cup directly (F1) or ferment: **syrup/sugar + water + berries (as yeast) in the
+   fermenter 120 s -> `sugar_wash`** (cloudy, then clears; the fermenter shows bubbles, sound `boil_bubble` very quiet).
+2. Drinkable ferments, no still: `berry_must` -> **Berry Wine**; `grain_wash` diluted -> **Ale**. Bottled by Use of a glass vial on
+   the fermenter/receiver spout (one vial = 125 mL; the unit rule of `amounts.ts`).
+3. Still: `sugar_wash` -> low wines -> **Spirit**. Spirit in a vial is **Firewater**.
+4. Maceration: herb + spirit, 50 C heated vessel, then the charcoal filter bed -> **tincture** in a vial.
+5. Essence: a vial of an aspect in the still (existing trace rule) makes **essence** `<aspect>`; blend essence + clear tincture +
+   syrup in the vessel -> **elixir** vial.
+
+Drink table (all `ItemSpec.drink`; new `DrinkSpec` fields: `slot`, `sway?`, `burn?`). Durations default `DRINK_BUFF_S` 180:
+
+| item | slot | effect (stat group) | s | cost |
+|---|---|---|---|---|
+| `berry_wine` | liquor | **Merry**: warmthDrain -0.3; +5 warmth now | 240 | sway 0.4 deg |
+| `ale` | liquor | **Hearty**: foodDrain -0.2; +2 hunger now | 240 | sway 0.4 deg |
+| `firewater` (spirit vial) | liquor | **Firewater**: heat/lava/fire damage x0.5; +10 warmth | 90 | sway 1.2 deg, Well-Fed burn +0.5 |
+| `tonic_hale` (tea leaves + spirit) | tonic | **Hale**: regen +0.5 | 300 | none (rare ingredients) |
+| `tonic_hardy` (pine resin + spirit) | tonic | **Hardy**: warmthDrain -0.3 and hostile knockback x0.5 | 300 | none |
+| `tonic_gleam` (glowcap + spirit) | tonic | **Gleam**: ambient light floor +3 for you (dark caves are readable) | 240 | none; render: one uniform `playerLightFloor` (verify the light pipeline allows it; else drop) |
+| `elixir_cinder` | elixir | fire/lava damage x0.4 | 150 | |
+| `elixir_loam` | elixir | fall damage -2 blocks and knockback x0.5 | 150 | |
+| `elixir_brook` | elixir | breath x2 underwater if the player has breath (verify; else Swim speed +0.1) | 150 | |
+| `elixir_gale` | elixir | sprint food drain x0.6 and speed +0.10 | 150 | |
+| `elixir_rune` | elixir | tool wear x0.7 for 150 s | 150 | |
+| `elixir_rift` | elixir | mining +0.15 | 150 | |
+Each elixir costs: 1 vial of that aspect (drawn by rod) + 250 L spirit-based tincture + 250 L syrup per bottled vial (the plan's 4 per
+1000 L). Expensive enough that coffee remains the everyday boost and elixirs are for a project day. Quantities are copied from
+the distillery plan; the builder reads `DISTILLERY_PLAN` section 12 for the exact `card()` ids.
+Drinking: reuse `drink()` (same shape as `eat()`), the vessel is returned as `glass_vial`. Toast: "Firewater: fire hurts half as
+much. You sway." Sound `sip` plus `drink_gulp` (new, low pitch) for liquors.
+
+## 2.4 Alcohol's visible cost: sway
+
+While a liquor with `sway` runs: camera yaw/pitch noise `a * sin(2 pi 0.7 t) * (0.6 + 0.4 sin(2 pi 0.23 t))` degrees, `a` = the
+buff's sway; mining/placing aim is unaffected (cosmetic + slightly harder precise aiming). Cleared by respawn; **drinking any tea ends the sway** with the toast "The tea
+clears your head". File: `src/game/sway.ts` (pure `swayDeg(t, amp)`), consumed by the camera in `src/player` (one line).
+Phones: motion sickness is real; Settings gets a "Reduce screen sway" toggle (default on for the phone profile) that sets
+amplitude to 0. Required, not optional.
+
+## 2.5 Tea, coffee and sugar together (F1, Sweet Cup)
+
+**Use sugar on a finished cup** (a cup in stage `done`, block `cup_tea`/`cup_coffee`): sugar grains dissolve with a small swirl
+particle ring (6 particles, 0.6 s), the drink tints one shade lighter. State = the cup's `ingredient`... a `sweet: true` flag on the
+`BrewCup` entity; the pickup `tea`/`coffee` item gets `meta.sweet = 1` (stack `meta` exists for vials; **verify** the stack field
+name; cups hold 1 drink each so no stack-merge issue; items with different `meta` must not merge: set `stack: 1`, they already
+are).
+On drinking a sweet drink: duration x1.2, plus Sugar Rush 45 s (the burn applies, because sweetness is the cost). Sweet Green Tea,
+Sweet Coffee are shown as "Sweet Tea" in the name via `meta` (inventory name override line). Cost: 1 sugar per cup (sugar yields 3
+per 2 resin + pail, so a sweet cup is cheap but not free).
+Also: **a pinch of sugar on tea/coffee in the cone** is not supported (one way to do it keeps the UI quiet).
+
+## 2.6 Crops and creatures tied to essentia (F4)
+
+Rule: every plant and creature has a fingerprint "growth + one flavour". They already inherit from keywords; the table below
+adds explicit rows through `src/magic/aspectTableLife.ts` (owned by the FOOD builder, imported by `aspectTable.ts` in a one-line
+spread). Amounts <= 4 for foods, creatures 3-5 (a creature scanned alive is worth more than its meat).
+
+| key | fingerprint | key | fingerprint |
+|---|---|---|---|
+| wheat / wheat_seeds | spring 2, gale 1 | hen (creature) | spring 3, gale 1, soul 1 |
+| potato | spring 2, loam 2 | goat | spring 3, ward 1, soul 1 |
+| carrot | spring 2, vein 1 | boar | spring 3, rift 1, soul 1 |
+| tea_leaves / dried_tea | spring 2, steam 1 | ember_core (automaton) | cinder 2, mind 1, soul 2 |
+| coffee_cherries / roasted_beans | spring 2, drive 1 / cinder 1 | hearth_stew | spring 3, cinder 1 |
+| berries | spring 2, glow 1 | sugar | spring 2, glow 1 (as keywords) |
+| glowcap | glow 3, spring 1 | spirit (vial) | cinder 2, clarity 2 |
+| pine_sap / pine_resin | spring 2, brook 1 / spring 1, ward 1 | hide, wool, feather | existing keywords |
+`soul` shows only from Forge (rule L). Tests: `fingerprintLife.test.ts`: every food key, plant key, creature key and drink key has
+>= 2 aspects and none is only a `CATEGORY_BASE` fingerprint (reuse the "meaningless fingerprint" threshold test from CONGRUENCE D0).
+
+**Green Thumb (research `hedge_lore`, Ember).** A spring jar (the existing `essentia_jar` holding spring) within 4 blocks of an
+**unripe** crop: that crop's growth rate x1.25 (on top of hydrated 1.0 / dry 0.5). The jar spends 1 unit per 45 s while at least
+one unripe crop is in range (cap: boost applies to at most 12 crops per jar; a second jar adds another 12). Empty jar = no boost.
+In-world: green motes drift from the jar to the crops it helps (<= 12 particles total per jar, 0.5 Hz bursts), the HUD target line on
+the jar says "Spring jar: helping 7 crops, 12 left". No screen. Code: `cropRules.rateFor(...)` gets one optional input
+`boost: number` computed in `crops.ts` by a function injected from `Game` (`CropField.setBoost(fn)`) so `src/sim` never imports `src/magic`.
+Balance: x1.25 is worth ~1 min per 5; a tractor or a field of belts matters far more.
+
+**Creatures.** Soul draw (1.2) is the only mechanical tie, plus husbandry products below. Keep animal essentia off combat.
+
+## 2.7 Farming machines and shared rules (F5)
+
+One set of pure functions in `src/sim/cropRules.ts` (owned by the food builder) is called by the player, the deployer, the arm
+and the tractor so none can drift:
+
+```ts
+isRipe(blockKey): boolean
+harvestPlan(blockKey, rng): { drops: ItemAmount[]; replantTo: string | null }  // regrow bushes -> bare; crops -> first stage if a seed is in drops
+tillTarget(blockKey): string | null; plantTarget(seedKey, below: string): string | null
+```
+- **Workshop Deployer** (Bronze, built): holding a hoe it tills the block in front; holding seeds it plants; holding nothing it
+  harvests a RIPE crop in front. One action per cycle (2 s at 16 rpm, scales with rpm; the deployer's `CYCLES` table is the
+  workshop stream's). Replant takes 1 seed from the drops automatically (so wheat farms close their own loop, with a net -0 seed
+  because seed drops are 1-3).
+- **Field Arm** (arms exist: stream C): sweeps a 5 x 5 block of farmland around its pivot, 1 action per 1.5 s; Bronze players can
+  run a belt of wheat to a quern twin to a basin. This is the Bronze farming payoff.
+- **Tractor tiller/harvester** (Current, built): switch to `harvestPlan`/`tillTarget` calls so a tractor's replant matches the
+  deployer; the tractor harvests 3-wide.
+- **Golem carry** (1.8) moves the harvest from a crate to a crate; it never harvests.
+- Soil: a crop whose farmland is removed today holds still; decision for the owner (WHATS_LEFT 6) is "it pops as the item with a
+  `crop:popped` event". Recommended: pop it (drops its seed) and make all of the above call the same `cropRules.farmlandLost`.
+
+## 2.8 Seasons and weather (cheap, optional S-tier)
+
+Seasons from the clock only (no new world gen): `season = floor(day / 8) % 4` (8 days = 2 real hours; year = 8 hours): spring, summer,
+autumn, winter. Effects are one multiplier table in `cropRules.ts`:
+| season | growth (outdoors, open sky) | extras |
+|---|---|---|
+| spring | x1.15 | rain more likely? (no: weather system is seeded, leave) |
+| summer | x1.0 | none |
+| autumn | x1.0 | harvest drop bonus: 25 % chance of +1 drop |
+| winter | x0.5 | crops under glass, a roof lit by a lamp, or in a greenhouse (lit rule exists) ignore the penalty |
+Hint text on the Hearth Log page ("Winter: crops grow slowly in the open; glass and lamps keep them going"). Tie to magic: the
+rod draws `frost` x2 in snow or winter, `gale` x2 in storms (M7), `cinder` x1.25 at noon, wellspring refill +25 % at night
+(CONGRUENCE D9). Do not tint the sky by season; a sky tint is a render task for the world advisor if they want it. If time is
+short, ship F4/F1/F2 first; seasons are the cut line.
+Rain waters crops: `hydrated` becomes true while it rains (verify whether `cropRules` already reads weather; `weather.md` says crops feel it).
+
+## 2.9 Cooking depth (F7): Stewpot and variety
+
+**Stewpot** (block `stew_pot`, Ember, clay table row: 4 clay, fired): sits on a furnace top like the boil bucket (same machine
+role `brew` family, same 'furnaceBelow' lookup), holds up to 4 items by Use (one at a time, each drops in with a plop), simmers
+while the furnace is >= 120 C, ready 40 s after the last item. Take with Use on a bowl/empty hand: **a Stew** (one portion, stack 1;
+4 portions per pot). Player sees: the pot lid, bubbles, steam from the top (reuse boil bucket steam), sound `boil_bubble`.
+Rules (one table, `stewRules.ts` in `src/game`, pure):
+```ts
+groupsOf(item): 'grain'|'veg'|'meat'|'sweet'|'herb'|'dairy'|null
+function stew(items: string[]): { hunger: number; wellFedS: number; buff?: ... } {
+  const g = new Set(items.map(groupsOf).filter(Boolean));          // 1..5 distinct groups
+  return { hunger: 6 + 1.5 * g.size, wellFedS: 240 + 40 * g.size,   // 3 groups = 360 = today's hearth stew
+           buff: g.has('herb') ? 'hearthkept' : undefined /* 90 s */ };
+}
+```
+So `hearth_stew` (existing, 10 uses) stays as the 3-group case; a lone potato "stew" is poor (hunger 7.5, 280 s). Salt/pepper-like
+seasoning is out of scope (no salt item yet). Failing recipe: fewer than 2 items = "Add something more."
+**Variety:** `eat()` keeps the last three distinct food keys (`stats.recentFoods?: string[]` in `PlayerSnapshot`, optional, max 3).
+Eating the same item as the last one gives hunger x0.8 and the toast "You are tired of X"; any food not in the last 3 gives full value.
+Corner cases: buff foods and drinks are exempt. Cheap, readable, no UI.
+**Animal products and baked goods** (the CONGRUENCE E.3 list), each as one row in `itemsFood*.ts` + a rack/furnace/basin recipe:
+| item | made from | hunger | Well-Fed s | note |
+|---|---|---|---|---|
+| `meat_pie` | meat + flour at the furnace 200 C | 8 | 240 | groups grain + meat |
+| `jerky` | raw meat on the Drying Rack 180 s | 4 | 120 | stack 16, never "spoils" (no spoilage system) |
+| `cheese` | milk + wait 600 s in a crock on the rack | 5 | 180 | **needs milk** (below) |
+Husbandry (optional, F8, Bronze): `trough` block holding feed (wheat): tame hen within 3 blocks lays an `egg` every 360 s, tame goat
+gives `milk` (bucket on Use) every 480 s, each product costs 1 wheat from the trough; a `spring` jar adjacent adds +20 % speed
+(the same boost function as Green Thumb). Only if `egg`/`milk` items do not exist yet add them (verify) and a drop-only mob
+path would do if time runs out. The brewing plan's drinks never need milk.
+
+---
+
+# Part 3. Feature cards (summary, one per feature, for builder briefs)
+
+| id | feature | player does | numbers | art / animation / sound |
+|---|---|---|---|---|
+| M1 | Aura Dial | looks at the compass ring | 4 Hz, level/64, node tick within 48 | thin ring, aspect colour, outer pulse near node; `scan_chime` down a step |
+| M2 | Late draws | rod near a creature / spire / deep dark | soul 1 per 8 s, void 0.1/s, spark from spire | violet thread from animal, black-cored vials |
+| M3 | Tube ports + valve | tube touches still/kettle; place valve | 1 unit/s valve, 4/s cap, 20 s heat per cinder unit | tinted pipe mesh, inner line colour, motes |
+| M4 | Staves, foci | holds the stave, long-press swaps focus | 96/4, 128/5; mend 6, reach 3, arc 8 | raised-arm 0.3 s, aspect motes, `cast` |
+| M5 | Infusions per age | rod on altar | x1.5 max (x1.25 electric) | settling chord, shrinking ring |
+| M6 | Research 24 -> 40 | solves boards | 16 entries | tree groups by age, `research_solve` |
+| M7 | Storm spire + weather draws | places a spire (iron + vein + rune) | strike chance 1 in 4 per flash cycle (6-22 s) while storming and spire is highest block within 8; 8 spark per hit into a jar within 2 | local flash + close thunder (`thunder` at distance 12), arc into jar; gale x2 in storms, frost x2 in snow |
+| G1 | Clay Walker | wakes, seals, feeds | 0.6 x 1.1; 1 Spring/30 s idle | dust puff, violet eye, thud steps |
+| G2 | Seals and tasks | seal A, seal B, Use on walker | 8 items / ~6 s; treadwheel 8 rpm 4 su | box on back, arm swing |
+| G3 | Spark Walker | infuses | x2 speed | blue eye, small arcs |
+| F1 | Sweet Cup | sugar on cup | +20 % time, Sugar Rush 45 s | swirl ring, lighter tint |
+| F2 | Stacking | nothing (visible via pill tooltip) | table in 2.2 | none |
+| F3 | Liquors, tonics, elixirs | bottles at the fermenter, still, blend vessel | table 2.3 | `drink_gulp`, sway |
+| F4 | Green Thumb + crop aspects | spring jar by the field | x1.25, 1 per 45 s, 12 crops | green motes |
+| F5 | Field machine rules | deployer / arm / tractor | one shared function set | none |
+| F6 | Seasons | reads Hearth Log | table 2.8 | none |
+| F7 | Stewpot + variety | puts 2-4 foods in a pot | 6+1.5g hunger, 240+40g s | steam, plop sound |
+| F8 | Trough husbandry | tames, feeds | 360/480 s | egg pop |
+
+M7 pseudocode (spire): `onTick(dt)`: `if weather==='storm' && exposed(spire, 8) { t -= dt; if (t<=0) { t = rand(6,22); if (rng()<0.25) strike(spire) } }`;
+`strike`: flash, `thunder` sfx at distance 12 (so it is loud, short, and never confused with the 60+ block strikes), push 8 spark
+into jars within 2 blocks if `spark_draw` done and Current reached; else the spark is lost with a hissing sound (a lesson, no harm).
+A spire never damages the player or blocks and never starts fires.
+
+---
+
+# Part 4. Risks and checks
+
+| risk | why | mitigation / test |
+|---|---|---|
+| **Balance: stacking runaway** | tea + coffee + sugar + liquor + tonic + elixir | `combine()` caps and diminishing weights (2.2); unit test with every buff on: speed <= 1.35, foodDrain >= 0.3; playtest note. |
+| **Balance: Sweet tea + Sugar Rush loops** | sugar cheap, burns Well-Fed | burn is additive and capped at x4; sugar tonics need cups; stew gives Well-Fed 360-440 s only. |
+| **Magic outruns the tech** | golems, infusions, spark | G1-G4, caps in 1.7, `infusions.test.ts`, a `golemCap` test, and the solver test. |
+| **Aspect fingerprint coverage** | ~60 new items/blocks across three builders | one shared test: `fingerprint.test.ts` coverage + "no key whose aspects are only `CATEGORY_BASE`" with a threshold <= 5 % of registry; each builder adds keywords/overrides in ITS file (`aspectTableLife.ts` for food, `aspectTableMagic.ts`... see 4.3). |
+| **Late-aspect lore and boards** | soul/spark/void anchors need lore | Rule L + existing "boards solvable with each age's aspects" test extended with `AgeName` per entry; entries 31/37/40 need an object whose scan teaches the aspect at that age (hen/goat/boar for soul, battery/cable for spark, deep ore or `star_core` override for void; add a deep-rock keyword `deep` -> void 1 in `aspectTableMagic.ts`). |
+| **Save shape** | five new optional keys | see 4.1; every key optional, missing = fresh; sanitisers drop bad entries; fixture round-trips (old save with none loads). No `SAVE_VERSION` bump. |
+| **Content count tests collide** | `content.test.ts`, `food.test.ts`, `specRoster*.ts` counts are shared | each builder bumps counts ONLY through its own roster file (`specRosterMagic/Food/Golem...`); merge order M -> F -> G; on a conflict take both and re-add, never loosen a count. |
+| **Age index drift after the refactor** | `ageMap.ts` had `bronze: 0` | all new gating via `ageIndexOf(name)`; builders start only after W0 and re-read `ageMap.ts` and `FurnaceTierSpec`. |
+| **Golem pathing perf** | A* per walker | 400-node budget, 2 Hz, 6 ticked max, suspend beyond 64 blocks; `golem.perf.test.ts` ticks 6 walkers for 1000 frames under a time budget. |
+| **Potion items need distillery recipes not landed** | stream B ordering | ship items and buffs first; recipes as cards only once B's vessels exist; solver ignores them. |
+| **Sway on phones** | motion sickness | setting "Reduce screen sway" default ON for phone profile (2.4). |
+| **Pointer-lock caveat** | automation cannot test real mouse | e2e uses tap/`Use` calls, as the existing magic e2e. |
+| **Three sessions and `magic.ts` (1087 lines)** | conflicts | split into `magic.ts` (M track only) and `golem*.ts`, `magicFood.ts` seams (5.0). |
+| **Tube bridge not a rewrite** | owner might expect one network | recorded in `docs/api/magic.md`; the pipe-net rewrite remains a documented option. |
+
+### 4.1 Save shape (all optional)
+- `PlayerSnapshot.buffs.drinks`: add the nine new `DrinkBuff` keys (record of seconds; already a `Partial<Record<..>>`).
+- `PlayerSnapshot.stats.recentFoods?: string[]` (<= 3). `BuffsSnapshot.sugarS` unchanged.
+- `WorldSave.golems?: [...]` (1.8). `WorldSave.magic` gains nothing; creature soul cooldowns not saved.
+- `BrewCup` entity: `sweet?: boolean`. `ItemStack.meta.sweet?: 1` (check the stack meta field name).
+- Seasons derive from the clock: nothing saved.
+### 4.2 Sounds (SfxName additions, one seam commit): `golem_step`, `golem_work`, `golem_wake`, `drink_gulp`, `spire_strike`, `valve_click`. List them in `sfx.test.ts`.
+### 4.3 Fingerprint files: `src/magic/aspectTable.ts` stays owned by the magic builder; the food builder owns `src/magic/aspectTableLife.ts` (plain object `LIFE_KEYWORDS`, `LIFE_OVERRIDES`) merged by a one-line spread in the seam commit; a golem/magic keyword set lives in `aspectTable.ts`.
+
+---
+
+# Part 5. Ordered task list for three parallel builder sessions
+
+All start after the six-age refactor has landed (they need `ageMap.ts`, tier numbers, the HUD location, the `.run-lock`
+convention). Each builder: reads this note, `docs/CONGRUENCE.md` 4.5 (registration checklist), commits only its own files, runs
+`npx tsc --noEmit` and the narrow vitest set, then `HW_GPU=1 node scripts/e2e-<x>.mjs --no-build` under `.run-lock`.
+No sub-agents (usage), trimmed output.
+
+### 5.0 S0: the seam (MAGIC builder, first, small, ~half a session; the others wait for its commit)
+Files: `src/core/gameEvents.ts` (SfxNames above, events `golem:woke`, `drink:sweet`), `src/core/types.ts` (`DrinkSpec` gains `slot?`,
+`sway?`, `burn?`; `DrinkBuff` union +9), `src/save/document.ts` (the optional keys in 4.1 with defaults), `src/magic/aspectTable.ts`
+(`import { LIFE_KEYWORDS, LIFE_OVERRIDES } from './aspectTableLife'`, empty file created), `src/magic/aspects.ts`/`research.ts`
+(`LATE_ASPECT_AGE`, rule L), `magic.ts` (`golems: GolemHost` interface + `NullGolemHost`), `src/audio/sfx.test.ts`.
+Accept: tsc clean, full vitest green, old-save fixture loads, no behaviour change.
+
+### Track M (magic builder; files: `src/magic/*` except `golem*.ts` and `aspectTableLife.ts`, `src/render/magic/magicRenderer.ts`, `src/content/{itemsMagic,recipesMagic,specRosterMagic}.ts`, `src/ui/hud/auraDial.ts`, Codex Essentia tab, `docs/api/magic.md`, `scripts/e2e-magic.mjs`)
+| id | task | depends | acceptance |
+|---|---|---|---|
+| M-1 | Aura dial (1.3) | S0 | `auraDial.test.ts` (3 seeds), DOM smoke test; e2e: the dial appears with the notebook held and tapping toasts |
+| M-2 | Research 24 -> 40 (1.1) with gates, boards, flags, objectives lines | S0 | `research.test.ts` + `gates.test.ts` extended: 40 entries, every board `solveBoard`-solvable with its age's aspects, every gated recipe's own ingredients obtainable, game completes (`content.test.ts`) |
+| M-3 | Late draws: soul, void; spark jar block | M-2 flags | `magicRuntime.test.ts`: soul draw cooldowns, void only below the depth line, spark only into a jar; rule L tested |
+| M-4 | Tube ports, valve, 4/s cap, pipe-like placement | M-2 | `essentiaNet.test.ts`: valve moves 1/s, still pulls, cap holds, 20 tubes + 3 jars round-trip; e2e `tube-on-still` |
+| M-5 | Staves + foci (mend, reach, arc) | M-2, M-3 (soul/spark) | table-driven test over `RODS`/`FOCI`; stave swap by long-press covered in `interaction` test; e2e: focus_mend heals 4 over 6 s |
+| M-6 | Infusion table (1.6) + per-machine `infused` field hooks in workshop/lube/kettle | M-2, Bronze stream's parts | `infusions.test.ts` multiplier caps; each infusion's single hook test; e2e: altar infusion of a crank |
+| M-7 | Storm spire and weather draws (2.8, M7) | M-3 | deterministic test with a seeded rng: 1000 s of storm gives a bounded number of strikes; `thunder` at 12 m |
+| M-8 | Codex: Aspects page + research tree 40, `fingerprint.test.ts` coverage threshold, `docs/api/magic.md` | all above | `npm run codex` preview script passes |
+
+### Track G (golem builder; files: `src/magic/golem*.ts`, `src/render/magic/golemRenderer.ts`, `src/content/{itemsGolem,specRosterGolem}.ts`, `scripts/e2e-golem.mjs`, `docs/api/golem.md`)
+| id | task | depends | acceptance |
+|---|---|---|---|
+| G-1 | `GolemHost`: entity list, save/load, Spring feed, status sentence, cap and suspend | S0 (interface), M-2 entries (recipe only; gate can be tested with a synthetic state) | `golem.test.ts`: feed/tired/cap/suspend, save round-trip with damaged entry dropped |
+| G-2 | Walker model, animation, sounds, wake/puff, altar wake | G-1 | texture test, renderer stats; screenshot of idle / working / tired (looked at) |
+| G-3 | Tasks: crank (reuse servant path), treadwheel seat, carry between seals, A* | G-1 | `golemPath.test.ts` (obstacles, step-up, budget), `golemTasks.test.ts` (carry 8 per trip, treadwheel supplies 8 rpm / 4 su in the workshop solver, never touches a furnace); `golem.perf.test.ts` |
+| G-4 | Waypoint Seal item + interaction (Use A, Use B, Use on walker) | G-1 | `interaction` test with a fake world; e2e on phone portrait: set seals by taps, walker carries wheat from crate to crate |
+| G-5 | Spark Walker (infusion + x2 speed) | M-3 spark | test: x2 speed, needs 2 Spring/30 s, cap still holds |
+G files avoid `magic.ts`; the hook in `Game` is the one line added in S0.
+
+### Track F (food/brewing/farming builder; files: stream E's list in CONGRUENCE plus `src/magic/aspectTableLife.ts`, `src/game/{stewRules,sway}.ts`, `src/content/{itemsFood2,itemsBrew,itemsSugar,recipesBrew,specRosterFood,specRosterBrew}.ts`, `scripts/e2e-food.mjs`, `docs/api/{food-rules,brewing-buffs,sugar,crops}.md`)
+| id | task | depends | acceptance |
+|---|---|---|---|
+| F-1 | Buff stat groups + slots (`combine`, 2.2), keep public getters | S0 | `buffStack.test.ts` as in 2.2; `sugarRush.test.ts` unchanged and green |
+| F-2 | Crop and creature fingerprints (`aspectTableLife.ts`), `fingerprintLife.test.ts` | S0 | coverage test; boards still solvable (M-2's list may need soul anchors only from Forge) |
+| F-3 | Sweet Cup (1 sugar on a cup), `BrewCup.sweet`, drink handling | F-1 | `brewing.test.ts` rows: sweet cup, Sugar Rush 45 s, +20 % time; e2e "tea with sugar" |
+| F-4 | Liquor, tonic, elixir items + `DrinkSpec`s + HUD labels + sway + setting | F-1 | `food.test.ts` counts; `sway.test.ts` (amp 0 with the setting); drink() tests per slot; recipes as cards only if stream B vessels exist |
+| F-5 | Shared `cropRules` functions; deployer/arm/tractor call them; replant | none | `crops.test.ts`: same harvest result from player, deployer, tractor; farmland-lost decision applied |
+| F-6 | Green Thumb (`CropField.setBoost`, spring jar), needs `hedge_lore` flag | M-2 (flag only; test with synthetic state) | `crops.test.ts`: x1.25, 12-crop cap, jar drains 1 per 45 s, empty = none; e2e: jar next to wheat grows faster |
+| F-7 | Stewpot + variety (`stewRules.ts`, `recentFoods`) | F-1 | rule tests (3 groups = 360 s), variety x0.8 toast, old save loads |
+| F-8 | Seasons table | F-5 | `season.test.ts` (day -> season, glass exempt), Hearth Log line (cut line: drop first) |
+| F-9 | Husbandry (trough, egg, milk, cheese, pie, jerky) | F-5 | items + recipes + tests; skip if time-boxed |
+
+Ordering across tracks: S0 -> {M-1, M-2, F-1, F-2, F-5, G-1} in parallel -> {M-3, M-4, F-3, F-4, F-6, G-2, G-3} -> {M-5, M-6, M-7, F-7, F-8, G-4, G-5} -> {M-8, F-9} -> an independent review session
+(per `docs/team.md`: save migration and shared sims need one) and then the stream-G playtest.
+Merge order when two tracks touch counts: M, then F, then G (rebase, bump counts, re-run `npx vitest run`).
+Shared-file watchlist (assign one writer at a time): `src/core/types.ts`, `src/core/gameEvents.ts`, `src/save/document.ts`,
+`src/content/content.test.ts`, `src/audio/sfx.ts`: only S0 touches the first three; anyone needing more waits for S0 or appends a
+line and rebases.
+
+Owner decisions this dossier leaves open (defaults chosen, change here first): (1) tube network stays separate, bridged by ports;
+(2) a crop whose farmland is removed pops; (3) seasons are in (optional, cut line); (4) Sugar+Swift now stack to 1.26 instead of
+1.344 (an intended small nerf); (5) liquor sway ships with a phone-default reduce toggle.
+
+<!-- ======================== END docs/advice/magic-and-food.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/world-progression-art.md ======================= -->
+# FILE: docs/advice/world-progression-art.md
+
+# Hearthwatt - advisor dossier: world, progression and presentation
+
+Written 2026-11-21 by the world/progression/art ADVISOR (read-only session, branch `ccr-3c8b169f-e78nk2`, taken while the six-age refactor was running).
+Builders implement this AFTER the refactor lands. It extends `docs/CONGRUENCE.md` (section 1 themes, 4.6-4.8 conventions, Stream F) and does not replace it.
+Sources read: `PROGRESSION.md`, `SPEC.md` 2.6/2.7/7.2/14/15/19, `WHATS_LEFT.md`, `team.md`, `CONGRUENCE.md`, `docs/api/{world,world-features,textures,hud,audio,weather,magic,sugar,emberbound-content}.md`,
+`src/content/{objectives*,loot,oreVeins,progression,automatons}.ts`, `src/render/textures/palette.ts`, `src/world/*` file list, `src/audio/*` file list.
+**Not done:** the game was not run or screenshotted; nothing was built. Statements about code are from docs and file reads; anything marked **(verify)** must be checked by the builder first.
+
+Owner decisions taken as fixed: six ages Ember / Bronze / Forge / Current / Atomic / Star ("start with a clay furnace, end with a star"); Ember is handwork only; the furnace is the heart of the base;
+phone first; original names and art; in-world interaction over screens. Ages below are by name; indices are whatever the refactor's `AGE_INDEX` says (Ember 0 ... Star 5).
+
+---
+
+## 0. Summary for the coordinator (read this if nothing else)
+
+1. **The world is already rich; the gaps are age-shaped.** Five biomes, Old Works ruins, wellsprings (1 in 10 chunks), oil seeps, geodes and lava falls exist. What is missing is that nothing in the world says
+   *which age you are standing in*: every ruin is the same Old Works, every ore band is age-blind, loot is capped at "Forge". Fix: **one ruin family per age**, **three ore "provinces"** (not new biomes), **one new biome (mesa)**,
+   and **prospect rules** (the next age's raw materials are visible at the surface within a set walk).
+2. **Do not add biomes casually.** `BIOME_KEYS` order, `BIOME_PRECIPITATION`, mob habitats and ore multipliers all key on it, and any worldgen change alters unedited chunks of existing saves.
+   Add exactly one biome (`mesa`, appended at index 5) and add everything else as **overlays** (provinces, structures, tree kinds). Add `genVersion` to the world snapshot (section 6, W0) so old saves keep their old terrain.
+3. **One presentation law:** *the hearth ladder is the palette.* Each age owns one 5-step ramp (section 4.1), one motif voice (section 4.5) and one UI accent; everything of that age is painted from its ramp, with the shared violet shadow / warm highlight shift already in `palette.ts`.
+4. **Teach without text walls:** every objective is <= 2 sentences, has a *world cue* (a pulse, a sound, a ghost) and a *hint ladder* (nothing for 5 min -> tracker nudge -> compass arrow at 10 min). Codex is a vertical tree, one age per sticky section.
+5. **Pacing:** idealised 45/45/55/60/60 min (PROGRESSION) is a floor for an expert. A first-time phone player is budgeted at **x1.8** (Ember ~80 min). Sessions are 10-15 min; every age must have a *natural stopping point* ("save point" moment) at minute ~12 and ~25.
+6. **Three builder lanes, disjoint files** (section 6): `W` worldgen, `O` objectives/Codex, `U` textures/audio/UI. `U0` and `W0` are the only contract steps that must land first; everything else is parallel.
+
+---
+
+## 1. The six ages as a lived arc
+
+Convention for every row: **T** theme, **M** signature material, **P** palette ramp (name in section 4.1), **L** light mood, **S** sound mood.
+Existing numbers (furnace temperature, minutes) come from `PROGRESSION.md`; new numbers are starting values to tune with `balance.test.ts` (task O5).
+
+### 1.1 Ember - "the fire is a living thing you feed" (Clay Furnace, to 800 C, idealised 45 min, phone ~80)
+
+| | |
+|---|---|
+| T | Everything is made by hand, stroke by stroke. You are small, the night is cold, the furnace is the only warm place. |
+| M | fired clay, charcoal, copper, flint, leather, cloth |
+| P | `EMBER_AGE`: fired clay `#753f2d -> #d59b75` (existing `FIRED_CLAY`), soot `#0e0c10`, flame `EMBER` ramp |
+| L | Low sun-gold days; blue-violet nights lit only by the furnace and torches. Block light tint warm `#ffb060`. Furnace glow is the brightest thing for 100 blocks. |
+| S | crackle, wind in leaves, crickets, stone-on-stone strokes, clay slap, kettle hiss; sparse: silence is allowed |
+
+**World features.** Woodland spawn with wild wheat within 44, an Old Works within 30-78 (exists). Marsh (peat, wild tea, clay; never within 150 of spawn) is the Ember side-quest biome. Resource placement:
+
+| Resource | Where | Existing rule | Prospect rule (new) |
+|---|---|---|---|
+| logs, flint, rubble, clay, gravel, water | spawn radius 48 | `SPAWN_RESOURCE_RADIUS` | keep |
+| copper ore | y 16-60, outcrops on cliffs, dunes x2 | `oreVeins.ts` | an outcrop within **120 blocks** of spawn (test) |
+| tin ore | y 30-66, 2.5 x 5 | `oreVeins.ts` | an outcrop within **160 blocks**; tin is the "go on a walk" moment of Ember |
+| coal / peat / charcoal | peat in marsh; charcoal from logs | exists | charcoal needs no walk; peat is a bonus |
+| tea bushes / coffee shrubs | woodland edge (tea), dunes edge (coffee) | planned (BREWING_PLAN) | tea within 200, coffee within 300 |
+
+**Dangers.** Cold nights (warmth drain; the furnace warm zone and torches are safe). Cinder Mites in the dark (light level <= 7, 24-40 blocks away). Forge Wardens and Kiln Sentries guard Old Works ruins (1-2 wardens, `RUIN_WARDENS`).
+Rule kept: **every Ember hazard has a hand-made answer** (torch, furnace zone, flint maul).
+
+**Signature moments (scripted by sfx + objective, never a cutscene):**
+1. *First fire* - the clay furnace lights at dusk; a warm light disc pushes the dark back, the Cinder Mites stop at its rim, a low "hearth" chord plays once (motif note 1, section 4.5).
+2. *First pour* - the crucible tilts, molten copper runs into the fired mould, the mould glows `EMBER[4]` then dims over 6 s; the pour sound is the only loud thing on the map.
+3. *First cup* - a boiling pail, cup and cone; steam curls up; a green/brown buff pill slides into the HUD with its glyph (section 4.3).
+
+**Objective chain** (existing ids kept; `E` = existing, `N` = new): gather_logs (E) -> place_chopping_block (E) -> make_planks (E) -> place_workbench (E) -> find_flint (E) -> flint_pickaxe (E) -> rubble 12 / clay 6 (E) -> place_furnace_clay (E) ->
+furnace_lit (E) -> charcoal (E) -> well_warmed (E) -> cook a meal (E) -> clay table, fire a mould (E) -> smelt copper, **first pour** (E) -> hand quern, grind flour (E) -> till, plant wheat (E) -> stone anvil, hammer plate (E) ->
+reach 800 C (E) -> alloy bronze, cast a pickaxe head (E) -> bronze pickaxe (E) -> forge a maul (E) -> salvage an automaton (E) -> bake bread (E) -> boil a bucket, brew a cup (E) -> **N: `visit_old_works`** (flag `ruin_entered_old_works`, see lore, section 2.5) ->
+**N: `fill_upgrade_list`** (furnace upgrade list: 8 bronze ingots, 4 firebricks, 1 bellows, 2 bronze plates, 1 leather at 700 C -> condition `furnaceTier 1`). `six_cups` stays optional (side goal in the Field Journal, WHATS_LEFT 0.3).
+World cue per goal: the next resource gets a faint motes column visible to 24 blocks *only after the 10-minute hint rung* (section 3.3).
+
+### 1.2 Bronze - "heat learns to move" (Bronze Furnace to 1100 C, idealised 45 min, phone ~80)
+
+| | |
+|---|---|
+| T | The fire's work travels: water, steam and turning shafts carry it across the yard. The first machines are wooden, noisy and a little alive. |
+| M | bronze, oak axles, leather belts, brass-warm glass, pine resin |
+| P | `BRONZE_AGE`: bronze `#4a3418 #7a5a22 #a8802f #cfa84a #eed582`, verdigris `#1f4a43 #2f6f62 #4f9a85 #7bbfa5 #b4e0c8` |
+| L | Amber-green: block light `#ffc870` near steam (steam scatters a faint pale `#e6ecf0` haze at 2-3 blocks); mornings fog slightly; the boiler's gauge glass is a small warm window at night. |
+| S | cog ticks (pitch follows rpm), chuff, belt hum, valve whistle, water wheel splash, a **bell** when something seizes |
+
+**World features.**
+- **New biome `mesa` (clay flats):** dry, banded strata (red-ochre `#a8603c`, buff `#cba960`, grey), flat-topped buttes 6-14 high, sparse scrub, clay seams at the surface, copper x1.5 and tin x1.5, **no** marsh water. Rain falls normally. Hostile spawn places: `surface`, `cave`. Placement: dry land between woodland and dunes (appended noise field; never within 220 blocks of spawn; ~12% of temperate land).
+- **Pitch pine stands:** `PITCH_PINE` tree kind (`PINE_TALL` shape, amber-streaked bark `pitch_pine_log`, leaves unchanged) in groves of 5-9 at cold/high woodland edges and frostfell margins. Tapping gives `pine_sap` at x2 and sap flows 1.5x in sun (sugar chain, `docs/api/sugar.md`).
+  Prospect rule: a stand within **140 blocks** of spawn. Resin is *the* Bronze glue: belts, valve seals, kettle gaskets use `pine_resin` (proposal, coordinate with Stream A).
+- **Streams for water wheels:** worldgen guarantees one flowing-water cell (a stream of source blocks dropping >= 2 blocks) within 180 blocks of spawn (rivers/cliffs exist; add a rule + test, not new terrain).
+- **Gearhouse ruin** (Bronze ruin family, section 2.2).
+- **Seep Mounds** (section 2.3) in dunes and the marsh fringe: crude oil for the distillery/lubricant (belts and gearboxes jam without it; `lubricant` exists in the workshop).
+
+**Dangers.** Scald and burst (visible, telegraphed: the boiler's gauge needle and a 5 s warning), Bellows Hounds at night (dash attack; they drop leather for belts, CONGRUENCE F5), seized shafts (bell rings, nothing explodes).
+
+**Signature moments:**
+1. *The first shaft turns* - goggles read "16 rpm, load 6/24 su"; cog tick starts; every wooden part visibly rotates; the cogs' pitch rises with rpm.
+2. *The valve sings* - pressure crosses the set point, the whistle blows, a white steam plume rises 3 blocks; the boiler does not burst. The player *hears* the rescue.
+3. *The chute inhales* - the first Vacuum Pump pulls a stack of items along a Bronze Chute in one visible whoosh (items drawn as a stream of dots), lands in a crate with a "tock".
+
+**Objective chain** (`N` unless stated; ids final): place_bronze_furnace -> boil_water (kettle) -> place_hand_crank (E, workshop) -> shaft_turns (flag from sim: `rpm >= 16`, see 6.O1 flags table) -> place_mech_millstone (E) -> make_bronze_cog (E) -> place_ratio_dial (E) -> saw_planks (saw bench) ->
+shaft_bellows -> move_heat (thermocouple heats a hot plate) -> build_boiler (ghost-planner multiblock) -> raise_steam (>= 1 bar) -> fit_safety_valve -> piston_power (steam engine 16 rpm / bar) -> compress_air (>= 2 bar in tank) -> pneumatic_post (vacuum chute delivers) -> press_plates -> forge_blast_nozzle -> **gate:** Blast hearth forms.
+Existing workshop goals (mixer, arm, saw arm, vault, lever, bell, piston) become *optional side goals* (Field Journal) except `place_bell`, which is a required step after `fit_safety_valve` (teaches the seize alert). `six_cups` and distill/sugar goals are side goals.
+
+### 1.3 Forge - "the furnace gets a blast and iron becomes steel" (Blast hearth to 1500 C, idealised 55 min, phone ~100)
+
+| | |
+|---|---|
+| T | Machines get heavy. You build around a roaring hearth and the ground starts to look like a place that was industrial once. |
+| M | iron, steel, coke, refractory brick, slag |
+| P | `FORGE_AGE`: slate `#2a3038 #3f4852 #5a6672 #7a8794 #a9b6c2`, white-hot highlight `EMBER[4]` |
+| L | Hard, high-contrast: black shadows, white-orange blast light `#ffd0a0`; the hearth lights its own courtyard like a stage. Dust haze (render-only) on windy days. |
+| S | trip-hammer thud (on the beat of the shaft), blast roar (rises with air bar), rolling-mill grind, anvil ring, deep tank hum |
+
+**World features.**
+- **Coal Ridge province** (section 2.1): hills with exposed coal seams, iron outcrops on the cliff faces, limestone terraces; carries x2 coal/iron/limestone, not a biome. Prospect rule: coal AND iron outcrops within **220 blocks** of spawn.
+- **Blast Row ruin** (section 2.2): collapsed hearth stacks, slag heaps, a rusted rolling mill. Guards: Forge Wardens (2) + a Kiln Sentry on the chimney.
+- **Lava with the bronze bucket** (exists), **oil shale** (exists).
+
+**Dangers.** Heat burns when touched (thermocouples glow by temperature), lava, wardens at Blast Row, 16-bar steel boilers if over-pressured. Emberbound ruins here are the toughest non-boss encounters before Atomic.
+
+**Signature moments:**
+1. *The blast* - air through the nozzle, the hearth mouth flares white, a flare of sparks, first iron runs; screen-edge warm vignette for 1 s.
+2. *First steel bar* - a glowing bar goes through the rolling mill with a rising grind, comes out flat; the sound lands on the shaft's beat.
+3. *The dynamo's first spark* (end of the age) - a copper cable lights a lamp *at dusk*; the lamp is the only electric light for 100 blocks, and the hearth "hands the night to it".
+
+**Objective chain:** place_blast_nozzle (gate step from Bronze) -> blast_hearth_formed -> smelt_iron -> make_steel_ingot -> place_rolling_mill -> iron_axle -> forge_iron_thermocouple -> place_dynamo -> generate 100 W -> place_lamp ->
+place_crusher -> machine_job -> generate 2 kW -> store 1 MJ -> **gate:** Arc Electrode in the roof, grid can feed 8 kW. (Existing `thermopile` goal moves from Forge to **Bronze** side goals: the thermopile is a heat -> watts device and ruin loot; decide with Stream A.)
+
+### 1.4 Current - "invisible power in copper veins" (Arc hearth to 2100 C, idealised 60 min, phone ~110)
+
+| | |
+|---|---|
+| T | Light and signal everywhere. The base stops being a place you light and becomes a place that is lit. |
+| M | copper cable, silicon, glass, aluminium, quartz |
+| P | `CURRENT_AGE`: `ARC_GLOW` + `ARC_STEEL` (existing), lamp warm `#ffd95a`, cyan accent `#8fd8ff` |
+| L | Clean cyan-white by day-night contrast: lamps are `#ffd95a`, arcs `#a9d8ff`; wet surfaces glossy in rain; storms flash (<= 3 flashes/s). Night bases look like constellations. |
+| S | mains hum (pitch = load), relay clicks, turbine whine, arc crackle, solar "tink" at dawn, thunder |
+
+**World features.** **Quartz Flats province** (dunes/mesa margins; quartz, bauxite, spodumene x2, glass-glinting crystal geodes at the surface); wolframite deep in frostfell (exists x2). **Relay Hall ruin** (section 2.2). Storms boost wind and bring Arc Drones (exists): storms are the age's weather identity - **forecast line** ("A storm is coming") becomes a goal hint ("Turbines love storms").
+Prospect rule: quartz outcrop within **320 blocks**; bauxite within 400; wolframite is a deliberate *expedition* (frostfell, y 3-20, **not** required to be on the surface).
+
+**Dangers.** Arc Drones in storms/new moon (zap x wetMult in water: "stay out of the pond"), brown-outs (power strip warning), electric shock at damaged cables is NOT added (keep survival simple). Fire safety: none new.
+
+**Signature moments:**
+1. *The arc strikes* - electrodes in the hearth roof light, cyan flash, the hearth turns from orange to blue-white; the colour change on the furnace mouth is the age change.
+2. *Lights out, lights on* - at dusk the player throws one switch and a line of lamps ripples on at 0.1 s spacing along the cable (ripple travels the actual graph, deterministic).
+3. *Storm harvest* - first storm with turbines: blades spin up, power strip peaks, the thunder is *good news*.
+
+**Objective chain:** place_arc_electrode -> arc_hearth_formed -> pump_water -> reach_1900C -> make_circuit x2 -> generate 10 kW -> ward_beacon -> make_tungsten_rod x4 -> **gate:** plasma casing shell, two power ports, 40 kW.
+
+### 1.5 Atomic - "quiet danger and control" (Plasma hearth to 3200 C, idealised 60 min, phone ~110)
+
+| | |
+|---|---|
+| T | Cool water around a hot heart. The game gets calmer and more careful, not louder. |
+| M | superalloy, fused quartz, heavy water, graphite |
+| P | `ATOMIC_AGE`: reactor `#0d2a2a #14524a #2a8f7c #5cf0c0 #c8fff0` over graphite `#16151a`; `STAR_ALLOY` for casings |
+| L | Cold: block light shifts to the cool share (exists: `LIGHT_COOL_SHIFT`) - green-blue `#5cf0c0` from fission things, violet from plasma. Fog 8% cooler near the pile. Nights are darker (no warm emitters). |
+| S | Geiger-soft ticks (rate = pile output), coolant flow, low drone (A1), a single calm rising chord at criticality. No alarms unless a cell is truly lost. |
+
+**World features.** **Deepworks province** (below sea - 8; deep ruin tier, pitchblende x3 in the scar already): ruined concrete vaults and flooded galleries reached by caves; 6-10 blocks of lit corridors (glowcap + dim reactor-teal). **Pile Vault ruin** (section 2.2). **Slag Colossus** in the deep (exists, `maxLoaded: 1`).
+Prospect rule: none above ground; a **marked cave mouth** (steam vent + basalt columns, `scar`) within 500 blocks guides down; the Field Journal reveals "Pile Vault" when the player holds a pitchblende chunk (compass arrow).
+
+**Dangers.** Slag Colossus (boss, slam), flooded galleries (air meter), heat at the pile (shield suit). Calm failure language: "Coolant low" with the water-level window, not siren spam.
+
+**Signature moments:**
+1. *The pile goes critical* - a calm rising hum, faint blue glow in the water, Geiger ticks accelerate to a steady tick, and **nothing else happens**. The restraint is the point.
+2. *Heavy water* - the first electrolyzer bubbles deuterium; a cell glows `#5cf0c0` in the hand.
+3. *Down the Deepworks* - crossing the threshold into a vault: sound dims to a drone, then the colossus's step is heard 20 s before it is seen.
+
+**Objective chain:** plasma_hearth_formed -> superalloy x8 -> place_fission_pile -> generate 60 kW -> make_deuterium_cell x8 -> make_star_core -> **gate:** star casing shell (93 casings or fewer: X7), four power ports, star core, 8 cells.
+Owner decision pending (WHATS_LEFT 0.3): **recommend reducing to 61 casings** (a 5x5x5 shell minus corners and bevels) - 93 blocks of superalloy on a phone is a chore, not a climax; if kept, add a *ghost planner with counts* (already planned).
+
+### 1.6 Star - "the base finally burns like a small sun" (Starhearth, idealised 5-10 min of holding plus build)
+
+| | |
+|---|---|
+| T | A deliberate finale, not an age of new systems: assemble, hold 300 kW for 90 s, and then everything is warm and quiet. |
+| M | star core, plasma-white metal |
+| P | `STAR_AGE`: `STARFIRE` + `GOLD` (existing), white `#fff2b0` |
+| L | Gold-white. During the hold the sky above the base tints 8% gold and the horizon glows; after ignition the base is "forever warm" (permanent faint gold ambient inside 48 blocks, no gameplay change beyond recipes at any heat and 1 MW). |
+| S | one rising harmonic chord built from all five previous motif voices (section 4.5), then **calm** (wind and crickets return, no music) |
+
+**World features.** A **Starhearth Ring** ruin (section 2.2) 400-700 blocks from spawn that the player may visit *before* building: the ring is dark, a plaque slate says what it needs ("Hold 300 kW for 90 s"). Seeing it early makes the ending visible all game (a distant faint gold glint at night beyond 200 blocks, render-only).
+**Signature moments:** (1) the ring plaque at first visit; (2) the 90-second hold - a countdown ring around the hearth, power strip pinned, if power dips the chime softens and the ring cools, no fail state; (3) ignition - sky tint, chord, `ignited` flag, afterglow.
+**Objectives:** star_casing_shell -> place_star_core -> star_hearth_fed (300 kW line) -> hold_90s -> `ignited`. After ignition: the Field Journal shows completion %, the world continues.
+
+---
+
+## 2. World depth
+
+### 2.1 Provinces (overlays, not biomes) and the one new biome
+
+A **province** is a low-frequency noise (appended field in `Terrain`, own seed salt, scale ~192 blocks, threshold chosen so each province covers ~15% of land) that multiplies ore weights and re-skins surface rock. It never changes `BiomeKey`.
+
+| Name | Age | Where | Surface | Ore multipliers (on top of biome) | Extra |
+|---|---|---|---|---|---|
+| Coal Ridge | Forge | any land biome except marsh/frostfell summit | coal seams in cliff faces (every 8th terrace cell), limestone terraces | coal x2, iron x1.5, limestone x1.5, sulfur x1.2 | 1 ruin `blast_row` per 11x11 chunks inside |
+| Quartz Flats | Current | dunes, mesa, plains | glinting `quartz` crystals; `crystal_cluster` outcrops 1 in 24 surface cells | quartz x2, bauxite x1.5, spodumene x1.3 | glassy wind sound layer (high, thin) |
+| Deepworks | Atomic | below y 10 anywhere with caves | vault corridors (section 2.2) | pitchblende x2 below y 14 | `RUIN_DEEP_BELOW_SEA` unchanged |
+| Mesa (BIOME) | Bronze | dry temperate | banded strata, buttes, clay seams | copper x1.5, tin x1.5, clay surface | precipitation rain; weather identical to woodland |
+
+New block keys these need (all mapped to texture names in 2.9): `ochre_rock`, `ochre_sand`, `mesa_clay`.
+Spawn rule remains: *the world always starts in woodland*; provinces and mesa never within 150 blocks of spawn (mesa 220).
+
+### 2.2 Ruin families (one per age, same generator skeleton)
+
+Reuse `squareRuin` / `drawRuin` / `ruinLootTier`; each family is a `RuinStyle` with a footprint, wall materials, a "centrepiece" and a loot table whose **max age = its age** (the existing content test "never anything past the Forge Age" becomes "never past the ruin's own age + 0").
+
+| Family (age) | Footprint | Centrepiece | Walls | Guards | Loot table (key items; counts) | Frequency |
+|---|---|---|---|---|---|---|
+| Old Works (Ember, exists) | 5x5-7x7 | collapsed furnace | stone brick, cracked, mossy | 1-2 Forge Wardens or Kiln Sentry | `near`/`deep` unchanged | 1 per 7x7 chunks, ~65% (exists) |
+| Gearhouse (Bronze) | 9x7, by water if possible | dry wheel frame + 3 `rusted_gearbox` + a broken shaft run | oak frame + brick | 2 Bellows Hounds (night) + 1 Warden | `gear`: bronze_cog 2-5, bronze_plate 1-3, leather 2-4, pine_resin 2-4, copper_ingot 2-4, kettle 1 (weight 2), goggles 1 (weight 2) | 1 per 9x9 chunks, guaranteed one within 220 |
+| Blast Row (Forge) | 15x9 on Coal Ridge | 3 collapsed hearth stacks + slag heaps + rusted rolling mill | slate brick, `slag_brick` | 2 Wardens + Kiln Sentry on chimney | `row`: iron_ingot 3-6, coal 6-12, steel_ingot 1-3 (weight 3), firebrick 4-8, iron_axle 1-2, dynamo_coil 1 (weight 2) | 1 per 11x11 chunks inside the province |
+| Relay Hall (Current) | 11x11 | glass dome, 4 pylons, dead lamps on an intact cable | pale concrete | 2 Arc Drones only in storm/new moon, else none | `relay`: copper_cable 6-12, lamp 2-4, circuit 1-2 (weight 3), glass 6-10, silicon 2-4 | 1 per 13x13 chunks in Quartz Flats |
+| Pile Vault (Atomic) | 17x11, sunk 6 | cold pile shell, coolant hall, flooded lower level | concrete + `graphite_block` | Slag Colossus nearby (maxLoaded 1) | `vault`: superalloy_ingot 1-3, fused_quartz 2-4, heavy_water 1-2 (weight 2), graphite 4-8 | 1 per 15x15 chunks below y 10 |
+| Starhearth Ring (Star) | 25 diameter | dark ring, plaque slate | `star_alloy` ribbed | none (silence) | **no loot**; slate only | exactly one per world within 400-700 of spawn |
+
+All tables obey: no item of a later age than the ruin; no machine that skips its age's gate (e.g. `relay` gives circuits but never a fission part). Deep variant (distance > 400 or below sea - 8): +50% rolls, one extra weight-3 entry of the same age. Crates, guard placement and persistence use existing mechanics (`ruinCrates.ts`, `ruinGuards.ts`).
+
+### 2.3 Systems-fed world structures
+
+| Structure | Feeds | Numbers | Where | How the player reads it from afar |
+|---|---|---|---|---|
+| **Pitch Pine Stand** | sugar chain, belts/seals (resin) | 5-9 trees, 1 per ~14x14 cells at cold edges, ~2% of pine cells convert | woodland high ground, frostfell margin | amber-tinted canopy streaks, amber particle drips at dawn |
+| **Seep Mound** | distillery crude oil, lubricant, bitumen (verify `bitumen` key in `itemsDistill.ts`) | 3x3 oil pool + 2-block crusted mound (`bitumen_crust` drops 1-2 bitumen); refill 1 bucket / 3 min | dunes, scar (exist as oil bowls), marsh fringe | black-gloss pool, heat-shimmer, faint tar smell = low rumble layer |
+| **Spring Stones (aura sites)** | essentia / magic (`aura_reading`, `node_tap`) | a ring of 5-7 `standing_stone` (3-4 high) around ~40% of wellsprings, radius 5; wellsprings already 1 in 10 chunks | woodland, frostfell, marsh | slow violet motes (`#a77fe0`) rising 6 blocks, visible from 48; rod reading "bright" inside; land-aura regen x2 in the ring |
+| **Waymarks (ley-like lines)** | exploration; leads to far ruins | cairns every 12 blocks, 3-9 per line, between an Old Works and a later-age ruin; point to the *next* ruin family | between ruins | a stacked-stone cairn with a lit slit; compass-style notch toward the target ruin |
+| **Slate Cairns (lore)** | notebook `lore` (ResearchState already has it) | 12 lore slates in total (2.5) | inside ruins and at waymark ends | a single standing slab with etched lines |
+| **Barter Cairn (trade)** | exploration reward, no UI | drop 4 of any one food (or 1 ingot) on the cairn top; 10 s later a counter-gift appears on the far side | at waymark crossings (rare, ~1 per 6 lines) | a cairn topped with a flat stone and a hollow bowl |
+| **Workshop ruin pieces** | workshop/steam | rusted shaft lines (decor `rusted_shaft`) that *line up with real shaft rules* so a player can restore one: replacing missing cogs wakes it (an optional "restore the mill" mini-objective: gives a free working water wheel) | Gearhouse | cogs visible as silhouettes; a missing piece is an obvious gap |
+
+### 2.4 Exploration reward ladder (distance from spawn, never skipping the gate)
+
+| Ring | Distance | Reward class | Example |
+|---|---|---|---|
+| 0 | 0-96 | bootstrap | Old Works, wheat, first ore outcrops |
+| 1 | 96-220 | age material, one-off | Gearhouse loot, pitch stand, stream, mesa clay |
+| 2 | 220-400 | age *convenience* | goggles, a Barter Cairn gift (seed packs, a cup, a blueprint slate), Coal Ridge |
+| 3 | 400-700 | relic (cosmetic or comfort, never a skip) | Starhearth Ring plaque, a "Hearthkeeper's lantern" (lamp that needs no fuel but is dim), a clay figure |
+| Deep | y <= sea - 8 | next-age *sample* (1 piece, not enough to build) | one superalloy ingot in a Pile Vault |
+
+**Field Journal** (Codex page `Places`, in-game notebook tab): 10 discoveries (Old Works, Gearhouse, Blast Row, Relay Hall, Pile Vault, Starhearth Ring, Pitch Stand, Seep Mound, Spring Stones, Barter Cairn). Each entry is a 2-line text + a small painted glyph; completing 5 unlocks "Wayfinder's compass" (compass can point at the nearest *known type*). No XP, no points.
+
+### 2.5 Lore (12 slates, <= 140 characters each, original)
+
+Story: the Hearthkeepers lit each hearth in turn and taught their automatons to guard the fire; the Starhearth was lit once, held, then they went quiet and the guards kept watch.
+Ember (3): "We banked the first fire in clay. It did not go out for nine winters." / "The guards were built to keep the cold from the fire. They are still keeping it." / "Copper first, then tin. Bronze remembers what each forgets."
+Bronze (3): "Water turns the wheel; the wheel turns the stone. Do not ask it to do more." / "Bell on every shaft. A silent machine is a dying machine." / "The valve sings so you need not."
+Forge (2): "Iron wants air. Give it a blast and it will give you a blade." / "Heavy things need a patient hand."
+Current (2): "Copper veins under the floor, light in every window." / "Storms are a gift. Hold the sky by the wire."
+Atomic (1): "Cool water around a hot heart. That is all the secret there is."
+Star (1): "Three hundred for ninety. Then rest."
+
+Rule: a slate adds a `lore` entry to the notebook (existing `ResearchState.lore`), plays `slate_read` (soft chime) and shows one toast with the line. Nobody is made to read it.
+
+### 2.6 Balance curve (time-to-next-age)
+
+| Age | Idealised (PROGRESSION) | First-time phone (x1.8) | Objectives (required) | Main time sinks (idealised) | Walk budget to resources | Natural stops |
+|---|---|---|---|---|---|---|
+| Ember | 45 min | ~80 | 31 (+ visit ruin, fill upgrade list) | wood 6, clay/furnace 6, copper+tin 10, casting 8, farm/food 8, bronze 7 | <= 160 blocks one way | after first fire (~min 12); after bronze pickaxe (~min 55) |
+| Bronze | 45 | ~80 | ~18 | boiler build 10, steam/pressure tuning 8, air + pump 8, workshop 12 | <= 220 (pitch stand, stream) | after shaft turns (~min 12); after safety valve (~min 30) |
+| Forge | 55 | ~100 | ~14 | iron + coal mining 15, blast hearth 8, rolling/steel 10, dynamo 8 | <= 260 (Coal Ridge) | after the blast (~min 15) |
+| Current | 60 | ~110 | ~12 | cable runs 12, arc hearth 10, circuits 10, storm wait 8 | <= 340 | after arc strike (~min 15) |
+| Atomic | 60 | ~110 | ~9 | superalloy 15, pile build 12, deep trip 10 | <= 520 | after criticality (~min 25) |
+| Star | 10-15 | ~20 | 4 | casings, hold | ring visit | ignition |
+
+Tuning knobs: furnace speed multiplier, ore vein frequency (prospect rules in tests), stress capacity numbers (Stream A), crate loot rolls. **Acceptance for balance:** `balance.test.ts` (O5) prints idealised time-to-gate per age under a cost model (gather seconds per item from tool tier, craft time from recipe, build time from block count x 2.5 s, walk at 4.3 blocks/s with the prospect distances above) and asserts each age within **+-15%** of table; a failing age fails CI.
+
+---
+
+## 3. Teaching without text walls
+
+### 3.1 Rules for objectives
+- Title <= 4 words, text <= 2 sentences, units on every number. No objective introduces more than **one** new verb.
+- Each has a **world cue** (table 3.2) and an `opt` flag for side goals. Tracker shows the first incomplete *required* goal whose `requires` are met (prevents "place a boiler" before a kettle).
+- Conditions beyond today's types (`rpm`, `fluid`, `aspect`, `research`, `pressure`) are produced by owning systems as **flags** (builders of O must not edit sim). Flag names (owners in brackets): `shaft_turns` [A], `steam_raised` [A], `valve_set` [A], `air_tank_2bar` [A], `vacuum_delivered` [A], `ruin_entered_old_works/gearhouse/blast_row/relay_hall/pile_vault/ring` [W], `lore_read_n` [D/W], `scanned_first` [D], `essentia_drawn` [D].
+
+### 3.2 World cues (one per required goal; none is text)
+
+| Goal type | Cue | Rule |
+|---|---|---|
+| "place X" | a faint ghost silhouette of X at the target cell *only while X is in hand and the goal is active* (placement preview exists) | disappears when placed |
+| "reach temperature" | furnace glow ramps; thermometer segment pulses at the target | once per 30 s |
+| "find resource" | after hint rung 2: faint motes column over the nearest unmined outcrop within 120 blocks, 24-block draw distance | cap 1 column |
+| "visit ruin" | waymark cairn nearest the player glows; distant ruin chimney smoke | |
+| "machine runs" | goggles auto-open the status sentence for 6 s when the player stands within 3 blocks of the target machine | |
+
+### 3.3 Hint ladder (`coach.ts`, owner O)
+
+| Rung | Time on goal | What happens |
+|---|---|---|
+| 0 | 0-5 min | nothing (the goal text is enough) |
+| 1 | 5 min | tracker pulses once; one-line nudge in the existing hint style: "Try the marsh for peat." (from a per-goal table, <= 60 chars) |
+| 2 | 10 min | compass arrow switches target to the needed resource (`Compass` already shows bearing + distance); motes column appears |
+| 3 | 20 min | the Codex entry for the goal's item opens as a bottom sheet with "Show me" (pins the compass) |
+All rungs reset on goal completion; any rung is suppressed on Peaceful play for goals completed by `FLAG_PEACEFUL`.
+
+### 3.4 Codex tree (phone-first)
+- **Layout:** a vertical scroll. One sticky age header per section (age name, hearth silhouette in the age ramp, "min 0:00-0:45" optional). Nodes are **48 px** icon chips on a 3-column grid; the spine is a vertical line in the heat colour with branch lines in system colours.
+- **Node states:** done (filled, age ramp), available (outlined, soft pulse 2 s), locked (grey + lock glyph, tap shows "needs X"), planned (dotted).
+- **Branch colours** (always with a glyph so colour is never the only signal): heat `#e8622a` flame, motion `#b89a4a` cog, fluid `#3a86b4` drop, power `#8fd8ff` bolt, magic `#a77fe0` rune, food `#5cc060` leaf, distill `#e2bc3a` flask.
+- **Tap a node:** bottom sheet, 2 sentences + the status sentence example + "Pin" (sets the compass/goal). **Long-press:** the item's recipe tree.
+- **Mockup (portrait, 390 px):**
+```
+ EMBER  ●━━━━━━━━━━━━●        <- sticky age bar (hearth glyph, accent underline)
+  ┃  [flame][clay][pick]      <- spine nodes row 1
+  ┃     ╲      ┃
+  ┣━ [cup]━[tea]━[dry]         <- food branch (green) hangs off spine
+  ┃
+ BRONZE ●━━━━━━━━━━━━●
+  ┃  [kettle][shaft][quern]
+  ┣━ [boiler][valve][chute]
+  ┗━ [lubricant]... (planned: dotted)
+```
+- Build: `scripts/codex/*` (owner O) reads the same `OBJECTIVES` index and `progression.ts`; Codex build must print zero warnings and every *required* objective appears exactly once.
+
+---
+
+## 4. Presentation congruence (one art direction)
+
+### 4.1 Palette ramps per age (extends `palette.ts`; add `src/render/textures/agePalette.ts`)
+Each ramp runs shadow -> highlight (5 steps), obeys the existing hue shift (shadows toward `#1c1630`, highlights toward `#fff4d8`).
+
+| Age | Ramp name | Steps (dark -> light) | Where it appears (rule) | Accent |
+|---|---|---|---|---|
+| Ember | `FIRED_CLAY` (exists), `EMBER` (exists) | `#753f2d #915238 #ab6846 #c0805a #d59b75` | clay furnace, mould, cups, pots, leather, hand-station wood | ember orange `#e8622a` |
+| Bronze | `BRONZE` (new) | `#4a3418 #7a5a22 #a8802f #cfa84a #eed582` | bronze plate, cogs, pipes, kettle, gauges | verdigris `#4f9a85` edges and wear |
+| Bronze | `VERDIGRIS` (new) | `#1f4a43 #2f6f62 #4f9a85 #7bbfa5 #b4e0c8` | patina on old bronze, brass-warm glass trim, ruin metal | |
+| Forge | `BLAST_SLATE` (new) | `#2a3038 #3f4852 #5a6672 #7a8794 #a9b6c2` | iron, steel (lighter), hearth shell, rolling mill | white-hot `#ffe27e` |
+| Current | `ARC_STEEL` + `ARC_GLOW` (exist) | `#1b202c ... #66778c`; `#1c3f9e ... #fff` | machine casings, cables, lamps, glass | lamp `#ffd95a`, cyan `#8fd8ff` pip |
+| Atomic | `REACTOR` (new) | `#0d2a2a #14524a #2a8f7c #5cf0c0 #c8fff0` | pile, coolant, shield suit trim | graphite `#16151a` |
+| Star | `STARFIRE` + `GOLD` (exist) | `#7a4a10 ... #fff` | Starhearth, ring, afterglow | white `#fff2b0` |
+
+**Rule of three:** any one texture uses at most 3 ramps (base material + one age accent + one state colour). Natural materials (stone, wood, leaves, sand) never use age ramps. **Aspect colours are untouched** (`AspectInfo.color`).
+
+### 4.2 Texture and icon rules
+- 16x16, nearest-neighbour, five-step ramps, 1 px darker outline on every item icon, light from top-left, deterministic painters (existing test regime).
+- **Silhouette per category** (existing: ingots trapezoid, plates lozenge, crushed pile, powder mound, rod diagonal): add **gear** (circle + 6 teeth, always 12 px wide), **pipe segment** (two flanges), **jar** (round belly + cork), **slate** (rounded rectangle with 3 lines), **cell** (capsule). New categories added only here.
+- **Age notch:** machine *casings* have a 2x2 px corner rivet in the age's accent (clay-orange, bronze, white-hot, cyan, reactor-teal, gold), so a machine's era reads at a glance without a legend. (Existing power pip stays bottom-right.)
+- **Wear:** ruin versions of blocks are the same texture with `VERDIGRIS` or rust streaks + 2 missing pixels per row (never a new silhouette).
+- **Readability test** (extend `readability.test.ts`): every interactive block face has luminance contrast >= 1.6:1 (L* difference >= 18) against the *three* most common neighbour terrains' average colours; failures listed with names. Ores: fleck colour distinct from the host by >= 22 L* or hue distance >= 40 degrees.
+- **Glass** keeps the shared blue-white transparency; fluids keep `FluidSpec.colour`.
+
+### 4.3 UI chrome and HUD for buffs, essentia, stress
+
+**Chrome.** The existing UI kit stays; add an **age accent token** `--hw-age` (set on `:root` from the player's current age) used for: window title underline, Codex age header, goal tracker bar, furnace screen's hearth ladder strip. Surfaces never change colour; only accents.
+**Furnace screen:** the **hearth ladder strip** on top: six small furnace silhouettes in the age ramps, the current one lit, the next one outlined; below it the upgrade list with progress bars. (The list must fit 390 px without scrolling for Ember's 5 items.)
+
+**Status pills row** (HUD, under vitals; max 4 visible, then a `+N` chip that opens a bottom sheet):
+
+| Pill | Size | Colour | Glyph | Text |
+|---|---|---|---|---|
+| Warmth (Well-Warmed) | 28 px high | amber `#e8a23a` | flame | m:ss |
+| Tea buff | 28 | green `#5cc060` | leaf + drink icon | m:ss |
+| Coffee buff | 28 | brown `#8a6a3c` | bean | m:ss |
+| Essentia (aspect in jar/hand) | 28 | aspect colour | aspect sigil | amount (only while a jar is in reach or rod/jar held) |
+| Well-Fed | 28 | umber | bread | m:ss |
+Pill = rounded 14 px, 1.5 px border in the colour, dark fill, glyph + number in `hw-num`; blinks once at 10 s left and once at 0; never more than 1 s animation.
+- **Stress/speed** is **not** a permanent HUD item. Three readouts only: (a) **target line** when aiming at a machine: "Quern: grinding wheat, 14 rpm, load 4/24 su" (<= 70 chars); (b) **goggles overlay**: a ring dial around the crosshair, 3 segments (idle / ok / near limit), colour + a shape (circle / half / exclamation); (c) **in-world**: shaft textures tint toward red at > 80% load and tick faster; the bell rings at seizure.
+- **Aura dial** (WHATS_LEFT 3, "not built"): a small arc under the compass, visible only while a gathering rod or `aura_reading` research is active: arc fill = local aura strength, violet; 3 pips for aspects present.
+- **Power strip** (existing) is unchanged; Current-age additions: brown-out pill and "Storm - turbines up" micro-toast.
+- **Mockup (phone portrait HUD, 390 x 844):**
+```
+┌──────────────────────────────┐
+│ [Goal: Boil a bucket  3/3 ▮▮▮] [bag][pause]   <- goal bar, age accent underline
+│ ♥ 18/20  ❄ warm ↗  🍞 food   [◉ compass 42m] [☀ 14:20 rain-soon]
+│ (flame 2:41) (leaf 1:12) (+1)                  <- pills
+│                                                │
+│            ·  crosshair ring  ·                │
+│     Quern: grinding wheat, 14 rpm, load 4/24   │ <- target line
+│                                                │
+│ [1][2][3][4][5][6][7][8][9]                    │ <- hotbar
+│ (stick)                              (use) (jump) │
+└──────────────────────────────┘
+```
+
+### 4.4 Light and weather mood (render-side, small)
+No global age grading (the world is shared by all ages). Mood comes from **emitters**: block light tint per emitter via the existing hue flags (`LIGHT_HUE`): torch/furnace warm `#ffb060`; steam gauge glass `#ffc870`; blast `#ffd0a0`; lamp `#ffd95a`; arc `#a9d8ff` (cool share); fission `#5cf0c0`; star `#fff2b0`. Weather (exists) supplies the rest; add *dust haze* (Forge) and *glossy wet* (Current) as parameters of existing wet/haze systems, not new passes. Phone budget: no new full-screen passes; particle cap per age-new emitter 24.
+
+### 4.5 Sound palette
+
+All synthesised in `src/audio/sfx*.ts` (names `<area>_<what>`; no speech; pitch = state). **The hearth motif:** a 5-note phrase (A3 C4 E4 D4 A3; pentatonic) played on one *voice per age*, each age adding a voice to the same phrase, so the soundtrack is the arc itself:
+
+| Age | Voice added | Timbre (synth) | When it plays |
+|---|---|---|---|
+| Ember | `hearth_flute` | triangle + breath noise, slow attack | age start, first fire, first cup |
+| Bronze | `bronze_bell` | 2-op FM bell, short decay | shaft turns, valve sings, age advance |
+| Forge | `forge_low` | saw + low-pass, 80-110 Hz | the blast, steel, age advance |
+| Current | `current_pluck` | square arpeggio, fast decay | arc strike, lamps ripple, age advance |
+| Atomic | `pile_drone` | sub sine + slow tremolo | criticality, vault entry |
+| Star | `star_chord` | stacked all five voices | ignition only |
+
+Rules: music-like stingers play only at moments (>= 90 s apart), never in loops; muted by default on **Reduce sound** setting; ambience has no melody.
+
+New sfx and ambience (builders name them exactly; all go in `src/audio/*`; each needs an entry in the sfx tests):
+
+| System / age | One-shots (`SfxName`) | Ambient layer (loop, budget 0.12 of master) |
+|---|---|---|
+| Ember handwork | `chop_stroke`, `quern_grind`, `anvil_ring`, `clay_slap`, `pour_metal`, `slate_read` | furnace crackle (exists), night crickets, leaf rustle |
+| Brewing | `kettle_boil` (exists-ish), `cup_pour`, `drink_sip` | boil simmer (exists `ambienceBoil`) |
+| Bronze steam | `cog_tick` (pitch = rpm), `valve_whistle`, `steam_chuff`, `bell_seize`, `belt_hum`, `chute_whoosh`, `wheel_splash` | shaft hum (pitch/loudness by rpm and load), steam hiss |
+| Forge | `hammer_thud`, `blast_roar`, `mill_grind`, `slag_hiss` | blast bed (rises with air bar) |
+| Current | `relay_click`, `arc_strike`, `lamp_ripple`, `turbine_whine`, `thunder` (exists) | mains hum (pitch by load) |
+| Atomic | `geiger_tick`, `coolant_flow`, `pile_critical` | drone A1, coolant trickle |
+| Star | `star_charge` (rises 90 s), `star_ignite` | none (silence after) |
+| Magic | `essentia_pour` (exists), `scan_chime` (exists), `aspect_attune`, `node_hum` | spring-stone hum (very quiet, 20-block radius) |
+| World | `ruin_enter_cue` (per family: a 1.2 s phrase of that age's motif voice, played at 12 blocks inside the ruin footprint, a **teaser** for later ruins), `seep_bubble`, `cairn_tick` | wind through ruins |
+| Emberbound | `automaton_*` (exist) | none |
+
+Budgets: simultaneous one-shot voices <= 8 (phone), looped layers <= 5 active, each layer attenuated by distance (existing `furnaceDistance` model); a new loop must be added to the ambience volume-budget test.
+
+### 4.6 Accessibility and phone readability
+
+| Area | Rule | Check |
+|---|---|---|
+| Contrast | text >= 4.5:1 on surfaces; pills' border colour >= 3:1 against HUD background | automated in `layout.test.ts` helpers (add `contrast()` helper in `src/ui/kit/format.ts`, U) |
+| Colour-only | every colour-coded thing has a glyph or shape; Codex branches, pills, power strip, goggles ring | review checklist |
+| Text size | HUD body 14 px min, readings 16 px (`hw-num`), tap targets >= 44 px (exists); **UI size** setting Normal / Large (+20%) (known gap in WHATS_LEFT 6) | e2e at 390x844 and 844x390 |
+| Motion | `Reduce motion` setting: no camera shake, no screen flash, pulses become static outlines, particles halved | e2e checks flag respected |
+| Flash | lightning, arcs, ignition: <= 3 flashes per second, <= 25% screen luminance change | unit test on the flash scheduler (U) |
+| Sound | **Captions for sound** toggle: a small toast-column line for important cues with direction arrow ("<- Bellows Hound growl", "valve whistling", "bell"); haptics opt-in (`navigator.vibrate` 20 ms on pour/strike, 60 ms on seize) | settings test |
+| Phone one-hand | goal tracker and hotbar reachable by the right thumb; Codex sheets are bottom sheets; long-press 420 ms (exists) | e2e |
+| Performance | no per-frame allocation in new render code; new particle emitters pooled; textures all painted at load (< 1.5 s total painting, existing test cap) - re-measure after adding ~60 tiles | `textures.test.ts` cap kept |
+
+---
+
+## 5. New content keys the dossier needs (so the lanes agree on names)
+
+Block / structure keys (owner W in `blocksWorld.ts` + `specRosterWorld.ts`): `ochre_rock`, `ochre_sand`, `mesa_clay`, `pitch_pine_log`, `bitumen_crust`, `standing_stone`, `waymark_cairn`, `barter_cairn`, `slate_cairn`, `rusted_gearbox`, `rusted_shaft`, `slag_brick`, `slag_heap`, `relay_pylon`, `pale_concrete`, `graphite_block`, `star_ring_rib`.
+Texture names (owner U, painter file `src/render/textures/worldAges.ts` + `iconsAges.ts`): the same keys plus `item_slate`, `item_pitch_pine_sap` if distinct, `icon_age_*` (6 small hearth glyphs used by the Codex and furnace ladder), `glyph_*` for the status pills (flame, leaf, bean, bread, cog, drop, bolt, rune).
+Sfx names: section 4.5 table. Flags: section 3.1.
+
+---
+
+## 6. Ordered, dependency-correct task list for three parallel builder sessions
+
+**Gate T0 (not ours):** six-age refactor merged; `AGE_INDEX` updated; tests green. Nothing below starts before T0. After T0, the three lanes run **in parallel** on disjoint files with these *two* ordering contracts (U0, W0) that must be done first inside their lanes:
+- `U0` must land before `W1` commits (painters exist before block specs name them).
+- `W0` must land before anything in W that changes generated terrain.
+Everything else has no cross-lane dependency. Lane O depends on W only for the *ruin flags* and slate keys (O6), which can be written after W1.
+
+### Lane U - textures / audio / UI (owner of: `src/render/textures/**`, `src/audio/**`, `src/ui/**` except `src/ui/hud/goal.ts` and `coach.ts`, `src/core/gameEvents.ts` SfxName union only, settings additions in `src/core/types.ts` Settings only)
+
+| ID | Task | Depends | Acceptance |
+|---|---|---|---|
+| U0 | Contract stubs: add `SfxName`s from 4.5 (append, one commit) with **silent-or-simple** placeholder synths; add painters (recolours) for every key in section 5 so `hasPainter` is true; add `agePalette.ts` with the 7 ramps | T0 | `npx tsc --noEmit` clean; `npx vitest run src/render/textures src/audio` green (extra painters for not-yet-registered names do not fail; if they do, register names in the same commit). Commit message lists the names so W1 copies them. |
+| U1 | Real painters for world/age blocks (mesa, pitch pine, seep, standing/waymark/barter/slate cairns, rusted pieces, slag, relay, concrete, graphite, ring) from the ramps; age rivet on every machine casing; ruin wear variants | U0 | `node scripts/texture-sheet.mjs --out=<dir> --scale=6` reviewed; `readability.test.ts` extended (L* contrast rules in 4.2) passes; no duplicate tiles; paint-all < 1.5 s |
+| U2 | Item icon categories (gear, pipe, jar, slate, cell) and pill/age glyph sets | U0 | icon tests: transparent bg, 1 px outline; glyphs 16x16 legible at 28 px |
+| U3 | Sound: real synths for 4.5 one-shots and layers; hearth motif voices; `ruin_enter_cue` per family | U0 | `sfx.test.ts`, `ambience.test.ts` budget (<= 5 layers, <= 8 voices); each `SfxName` has a recipe (G2 rule) |
+| U4 | HUD: pills row + `+N` sheet, target line status sentence cap (<= 70 chars asserted), goggles ring dial, aura dial, `--hw-age` token, furnace screen hearth-ladder strip | U2 | `hudMath.test.ts` additions; e2e screenshots at 390x844 and 844x390: no overlap with touch controls (existing check) |
+| U5 | Accessibility: UI size, Reduce motion, flash limiter, sound captions, optional haptics; settings screen entries | U3 U4 | unit tests for flash limiter and caption queue; e2e with each setting on |
+| U6 | Phone/GPU review: `HW_GPU=1` screenshots of every age's signature block set (a "wall of every block" harness exists) | U1-U5 | reviewed images in `docs/advice/screens/` (optional) and a short list of fixes |
+
+### Lane W - worldgen and ruins (owner of: `src/world/**` except tests of other lanes, `src/content/{blocksWorld,specRosterWorld,loot,oreVeins,emberbound,automatons,creatures,itemsGround?}.ts` (read before editing), `src/mobs/**`, `scripts/world-map.mjs`, `docs/api/{world,world-features,world-content,emberbound-content}.md`)
+
+| ID | Task | Depends | Acceptance |
+|---|---|---|---|
+| W0 | `genVersion`: add optional `genVersion` to `WorldSnapshot` (absent = 1); `generateChunk(seed, cx, cz, genVersion = CURRENT)`; new features gated by `genVersion >= 2`; fresh worlds get 2; loading an old save keeps 1 | T0 | `world.test.ts`: old snapshot (fixture) loads and regenerates byte-identical chunks vs a recorded hash; new world has `genVersion 2` |
+| W1 | Content keys of section 5: blocks, ruin loot tiers (`gear/row/relay/vault`) with age caps; roster fixture updates; mapping to U0 texture names | U0, W0 | `npx vitest run src/content` green incl. loot age-cap test (no item past its ruin's age); roster fixture updated |
+| W2 | Provinces (noise field, ore multipliers, surface re-skin) + `mesa` biome (append `BIOME_KEYS`, `BIOME_PRECIPITATION`, mob habitat, ore mults); spawn never inside | W1 | `world-map.mjs --prospect` prints distances to each prospect rule (1.1-1.5); a test asserts them over **12 seeds** (copper <= 120, tin <= 160, pitch stand <= 140, stream <= 180, coal+iron <= 220, quartz <= 320, ruin gearhouse <= 220) |
+| W3 | Ruin families (Gearhouse, Blast Row, Relay Hall, Pile Vault, Starhearth Ring) with `RuinStyle`, guards via `ruinGuards.ts`, loot via `ruinCrates.ts`, and entry **flags** (`ruin_entered_*`) + `ruin_enter_cue` sfx | W2, U0 | `features.test.ts` extended: each family places for seeds 1-10; crates exist; chunk-order independence kept; node timing test (<4 ms best of five 12-chunk batches) still passes |
+| W4 | Pitch pine stands, seep mounds, spring stones, waymarks, slate cairns, barter cairn | W3 | determinism tests; `world-map.mjs` legend shows all; a barter cairn e2e (drop 4 bread, receive a gift) |
+| W5 | Guardian scaling and teasers: re-age data for Emberbound per age (Bellows Hound -> Bronze, Wardens at Blast Row), ruin guard counts by family; drops per CONGRUENCE F5 | W3 | `emberbound.test.ts` green; spawn tests per place; first-night Mite spawn still guaranteed near spawn |
+| W6 | Prospect and exploration tests, docs/api notes, handoff: `docs/api/world-features.md` updated | W2-W5 | all W tests green; world map screenshot saved; `npx vitest run src/world src/content` pasted counts |
+
+### Lane O - objectives / Codex / balance (owner of: `src/content/{objectives,objectivesHand,objectivesBrew,objectivesWorkshop,progression}.ts`, new `objectivesBronze.ts`, `objectivesForge.ts`, `objectivesLate.ts`, `lore.ts`, `src/ui/hud/goal.ts`, `src/ui/hud/coach.ts`, `scripts/codex/**`, `src/content/balance.test.ts` (new), `docs/PROGRESSION.md`, `docs/api/hud.md` (goal/coach parts))
+
+| ID | Task | Depends | Acceptance |
+|---|---|---|---|
+| O0 | Single ordered `OBJECTIVES` index per age with `requires`, `opt`, and `hint` fields; renumber `age` to the six ages; keep ids stable; `ageIndexOf` everywhere | T0 | `content.test.ts` objective-chain tests green; every id unique; old-save progress (completed ids) still resolves |
+| O1 | Bronze chain (1.2) with flags; workshop goals moved to `opt`; `place_bell` required | O0 | solver in `progression.ts` proves reachability to Blast hearth; `objectives.test.ts` playthrough extended through Bronze |
+| O2 | Forge/Current/Atomic/Star chains (1.3-1.6); the Star hold objective; casing-count decision applied | O1 | playthrough test to `ignited` with flags stubbed; no goal's reward from a later age |
+| O3 | Hint ladder: per-goal nudge table (<= 60 chars), rungs 1-3 (3.3), world-cue requests (motes column event `goal:hint`) emitted for renderer (U) | O0 | `coach.test.ts`: rung timing with fake clock; suppressed on Peaceful flag; no text > 60 chars |
+| O4 | Codex tree (3.4) in `scripts/codex`; Field Journal page (places + lore + side goals) | O1 O2 | `npm run codex` zero warnings; every required objective once; mobile layout screenshot at 390 px |
+| O5 | `balance.test.ts`: cost model and +-15% bands (2.6); prints table | O1 O2 | prints table to test output; failing when out of band |
+| O6 | Lore slates (2.5) in `lore.ts` + `lore_read_n` flag glue; Field Journal discoveries | W1 (keys), O4 | content test: every slate <= 140 chars; Field Journal lists 10 discoveries |
+
+### Cross-lane sequence (who waits for whom)
+```
+T0 (six-age refactor, exclusive)
+ ├─ U0 ──────────────► U1, U2, U3 ─► U4 ─► U5 ─► U6
+ │     └──────────────► W1 (needs painters) ─► W2 ─► W3 ─► W4 ─► W5 ─► W6
+ ├─ W0 ──► W1 ...
+ └─ O0 ─► O1 ─► O2 ─► O3 (parallel to O4) ─► O4 ─► O5 ─► O6 (needs W1)
+Final: stream G (integration) runs the playtest below after all three lanes merge.
+```
+File-ownership collisions to watch: `src/core/gameEvents.ts` (U0 appends SfxNames; nobody else edits it in this window), `src/core/types.ts` (Settings only for U5; objective fields only for O0 - sequence O0 before U5 or rebase), `src/content/blocksWorld.ts` / `specRosterWorld.ts` (W only), `src/ui/hud/*` (U owns all but goal.ts/coach.ts), `docs/api/*` each lane updates its own notes.
+**Commit rule:** each task one commit on its own files; run `npx tsc --noEmit` and the lane's vitest subset; leave `dist/` and e2e to the `.run-lock` mutex (team.md).
+
+---
+
+## 7. Final playtest checklist (stream G; phone portrait 390x844 first, then 844x390, then desktop; Dev Mode off, fresh world; then once with an old-save fixture)
+
+Global passes (every age): no text wall (any panel > 2 sentences fails), every machine shows a status sentence <= 70 chars, tap targets reachable by thumb, Reduce motion and captions work, sound muted/unmuted correctly, frame time stays smooth (target 30 fps mid-range phone), save/load round-trip mid-goal, `genVersion` old-save unaffected.
+
+**Ember (first 30 minutes of the age)**
+
+| Minute | A phone player should... | Pass if |
+|---|---|---|
+| 0-3 | break wood, split planks at a chopping block | first goal done without asking; hint rung 0 only |
+| 3-10 | flint pickaxe, rubble, clay, place the furnace | spawn resources found within 48 blocks; dark/cold felt (vignette) but not lethal |
+| 10-15 | **first fire** at dusk, charcoal, warmth | moment 1 plays: light disc, Mites stop at the rim, motif note 1; natural stop |
+| 15-25 | clay table, fire a mould, smelt copper, **first pour** | pour moment readable; first tin trip < 160 blocks and found without compass |
+| 25-30 | hammer a plate, grind flour, farm a row | every hand station gives feedback per stroke; hunger bar behaves |
+| (later) | bronze, boil a bucket, **first cup**, visit Old Works, upgrade list | buff pill appears; ruin cue plays; list fits on screen |
+
+**Bronze**
+| 0-5 | place the Bronze Furnace, boil water, see steam | kettle pot vs copper kettle never confused (names + glyph) |
+| 5-12 | hand crank, **first shaft turns**, millstone grinds | goggles readout appears at 3 blocks; cog tick pitch follows rpm |
+| 12-20 | gears, ratio dial, saw bench, heat via thermocouple | status sentences obey the 70-char rule; seize -> bell, never an explosion |
+| 20-30 | boiler multiblock via ghost, raise steam | gauge needle readable; **valve sings** moment plays; 5 s burst warning visible |
+| later | piston power, air tank, vacuum chute, blast nozzle | chute moment; Gearhouse visited by minute ~35 (loot fits the gate) |
+
+**Forge**
+| 0-8 | build the blast hearth around the nozzle | structure ghost lists missing blocks; **the blast** moment |
+| 8-20 | iron smelted, coal/limestone from Coal Ridge, heavy axles | Coal Ridge reachable <= 260 blocks; Blast Row guards beatable with bronze/iron maul |
+| 20-30 | steel, rolling mill, thermocouple upgrades | bar moves visibly; hammer thuds on the shaft beat |
+| later | dynamo, first lamp at dusk, crusher | lamp moment at dusk; 2 kW/1 MJ goals reachable |
+
+**Current**
+| 0-10 | cable run, arc electrode, hearth turns blue | colour change on the mouth is unmistakable; power strip appears at first watt |
+| 10-20 | pump water, circuits, 1900 C | brown-out warning clear; lamp ripple moment |
+| 20-30 | storm with turbines; ward beacon | forecast line mentions storms; flashes <= 3 Hz; Arc Drones only in storm/new moon |
+
+**Atomic**
+| 0-10 | plasma hearth shell, superalloy | shell planner counts; superalloy time matches table |
+| 10-25 | fission pile, 60 kW, coolant | **criticality** is calm; Geiger ticks track output |
+| 25-30 | deuterium, star core; Deepworks trip | colossus heard before seen; flooded gallery air meter works; one superalloy sample in Pile Vault |
+
+**Star**
+| 0-5 | assemble the star shell, place the core | casing count text matches the final decision |
+| 5-15 | feed 300 kW, hold 90 s | countdown ring visible; dips soften, never fail; **ignition** chord uses all voices; afterglow persists |
+| after | continue playing | `ignited` flag set; Field Journal shows %; 1 MW state works |
+
+---
+
+## 8. Decisions for the owner (defaults in parentheses)
+
+1. Star hearth casings: **61** (default recommendation) vs 93.
+2. `mesa` as a real biome (default **yes**) vs province only.
+3. Cosmetic Field Journal rewards (default **yes**: compass, lantern) vs none.
+4. Barter Cairn / lore slates / Waymarks (default **yes, small**; they are the lightest-weight exploration rewards and the first things to cut if usage is tight).
+5. Moving the `thermopile` goal to Bronze (default **yes**).
+6. Reduce-sound default off, captions default off, haptics default off (all opt-in).
+
+## 9. Risks and what I did not verify
+- `genVersion` is the one thing that can corrupt a save if skipped; keep W0 first and test with a recorded old-save fixture.
+- Adding ~17 block keys and ~60 tiles raises the atlas layer count: check the layer limit and memory on phone (`DataArrayTexture` max layers >= 256 on WebGL2 baseline; current 164 + ~60 is fine; verify).
+- `bitumen` and some `itemsDistill` keys, the `ageMap` after refactor, the location of `TEXTURE_NAMES`, and the final `RuinSite` extension points were **not** inspected in code; builders must read them first.
+- Numbers in 2.6 and the ring tables are starting values; the cost model in `balance.test.ts` is the arbiter.
+- Not played: nothing here was judged on-screen. U6 and the playtest exist to correct the art and pacing calls.
+
+<!-- ======================== END docs/advice/world-progression-art.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/phone-ux.md ======================= -->
+# FILE: docs/advice/phone-ux.md
+
+# Phone UX, HUD and onboarding - advisor report
+
+Author: UX/HUD/onboarding advisor (read-only pass, 2026-11-21). Scope: `docs/CONGRUENCE.md` 4.6 and the owner decisions
+(in-world over screens, original names/art, phone first, 44 px targets). Method: read `docs/api/{hud,ui-kit,player,food-ui,
+integration}.md`, `src/player/input/*`, `src/ui/hud/*`, `src/ui/vehicleHud.ts`, `src/app/game.ts` (key bindings, crosshair
+labels), `src/ui/menus/howto.ts`, plus the live game at 390x844 (Dev world, creative menu, goggles). **Limits of the live
+audit:** the browser pane showed the page clipped to a 800x600 frame, so the hotbar and anything below y~600 was not
+visible; pointer lock is unavailable; I did not drive machines. Everything marked *(code)* comes from reading source, not
+from a screenshot. Nothing in src/ was touched.
+
+---
+
+## 1. Live audit
+
+### 1.1 What I saw (screenshots, 390x844 emulation)
+
+| # | Screen | What it showed | Verdict |
+|---|---|---|---|
+| S1 | Title | Wordmark, five age bars, NEW WORLD, seed, Survival/Dev, difficulty, Settings, How to Play. All fills the screen with no scroll. | Good. "Five ages" strip is stale after the six-age refactor (Ember/Forge/Current/Atomic/Star; Steam and Bronze missing) - rewrite from `AGES`. Seed field + difficulty hint text (11 px) is the smallest text on the screen. |
+| S2 | HUD on spawn | Goal tracker top-left (kicker "GOAL 1 OF 75", title, 0/4, chevron), bag + pause top-right (44 px), vitals plate under the goal, clock card under the bag, orange coach bubble "Drag here to look around", DEV Items chip on the left edge, joystick bottom-left, Place/Use/Mine/Jump cluster bottom-right. | Dense but readable. Problems below. |
+| S3 | Creative menu | Full-screen sheet: search, tabs ALL 371 / BLOCKS 38 / MATERIALS 138 / TOOLS... (cut off), 6-column icon grid, item detail line, backpack grid under it. | Works, but five defects (1.2). |
+| S4 | Creative search "goggles" | 3 hits (two crates match on description text), 70% of the sheet empty, detail line still shows the previous hover ("Wolframite..."). | Cosmetic: stale detail, matches on description produce noise. |
+| S5 | HUD after closing | Hotbar not visible in the pane (clipped). Confirmed from `hud.css`: `--hw-hud-reserve: 116px` right padding when touch, hotbar bottom-centre. | Cannot judge hotbar tap size live; see 1.3. |
+
+### 1.2 Findings per screen / HUD element
+
+Format: **problem** -> fix (file owner in section 6).
+
+**Creative menu (Dev Mode)**
+1. Tab strip overflows: "TOOLS" is clipped to "T" and nothing signals it scrolls. -> make the tab strip a horizontally
+   scrolling row with an edge fade and snap, or a 2-row wrap; show a count only on ALL.
+2. A hover tooltip (the "Wolframite" card) stays up after a tap on touch and covers 3 grid rows. Touch has no hover.
+   -> on touch, never show the floating tooltip; show the detail only in the fixed detail line (already exists).
+3. Detail line is stale after a search/filter. -> clear it when the filtered list changes, or show the first hit.
+4. Tap = take what? Nothing says whether a tap gives 1, a stack, or sends to the backpack. -> caption under the grid:
+   "Tap: take 1. Hold: take a stack." and flash the receiving slot.
+5. Backpack grid is below the fold in portrait (only 2 of 4 rows visible at 800x600). -> in portrait put the search and
+   tabs in a collapsed header (tap to expand) so the grid + backpack both fit; or make the backpack a 9-slot hotbar-only strip.
+6. The DEV "Items" chip floats at screen-left mid-height, right where a right thumb on the look area rests in landscape.
+   -> dock it into the bag screen as a tab (Dev only) or at top-right next to bag/pause as one more 44 px button.
+
+**Goal tracker + Hearth Log** *(code + S2)*
+7. Kicker "GOAL 1 OF 75" is a spoiler of scale that dwarfs a new player ("75!"). -> show "Age 1 - goal 1 of 9" (per age).
+8. Tracker is a wide 200 px bar; with a long goal title it ellipsises. -> allow two lines on phone, and put the progress
+   as a thin bar under the title instead of "0 / 4" text.
+9. The coach "Tap the goal for details" is the only pointer to the Log/Codex. -> see onboarding, section 3.
+
+**Coach bubble** *(S2)*
+10. "Drag here to look around" is drawn over the middle of the scene, with its tail pointing at nothing, and persists
+    until 0.4 rad of look. On a phone with a fresh game that is fine, but it sits where the player's thumb must drag.
+    -> anchor it to the right half (the look zone), add a faint animated finger glyph, and auto-dismiss after 8 s.
+
+**Touch control cluster** *(code: `touchStyles.ts`)*
+11. Jump 76 px, Mine 72 px, Use ~72 px, Place ~44 px (small, placed up-left of Use). All >= 44, but **Place is a
+    *toggle* that arms the next Use** - a mode switch hidden as a tiny button. Players will tap it, forget it is armed,
+    and "Use" will place instead of open. -> replace with the context button (section 2.4).
+12. Four captioned buttons for the right thumb plus the look gesture also on the right: the Mine button sits at
+    (right 110 px, bottom 72 px), well off the thumb's arc; one-handed play needs the thumb to travel to three
+    places. -> thumb-arc layout (2.5).
+13. The vehicle HUD rewrites button captions in place (Mine -> Work, Use -> Exit, Jump -> Swap). Re-using a button for
+    "Exit" is dangerous: a player who habitually taps Use to interact taps Exit mid-field. -> keep Use as Use; give the
+    vehicle its own explicit "Get off" button in the bag/pause cluster plus long-press on Use (hold 600 ms, ring fills).
+
+**Vehicle HUD (tractor/skiff)** *(code: `vehicleHud.ts`)*
+14. Panel sits at `bottom: 86px`, centre, exactly above the hotbar; hint text 11 px, `#cdbfae` on `rgba(24,18,14,.78)`
+    (contrast ~9:1, fine) but the **hint line is a sentence of 9 words** read once. -> show the hint for the first
+    20 s of a ride and on the first ride only; afterwards just fuel + tool.
+15. Desktop keys F (work) / R (swap) are registered in `game.ts` with `window` listeners that **bypass the input
+    manager**: they are not in How to Play and not remappable, and F is also the natural "interact" key players expect.
+    -> conflict table 2.3.
+16. No skiff controls are described anywhere in the HUD (the HUD is tractor-only). -> reuse the panel: "Skiff - Use: get off".
+
+**Notebook / Rune desk / Workshop Guide screens** *(code)*
+17. Notebook opens by **Use aimed at the sky** (and Use on a block *scans* it). On touch, "aim at the sky and tap Use"
+    is undiscoverable and fights with Use-in-air = nothing. With goggles held, Use-at-sky opens the Workshop Guide
+    instead. -> the held item decides: notebook = "Scan / open" context button (2.4); Guide = a Guide chip that appears
+    on the goal tracker while goggles are in the pack.
+18. Every research entry unlocks silently; there is no HUD feedback that a scan *discovered* something. -> a "New note"
+    toast with a book glyph and the aspect colour swatch; the notebook button on the bag gets a dot badge until opened.
+19. Notebook, desk, Workshop Guide are three separate full-screen sheets that each re-explain a similar list. They are
+    justified screens (many entries), but the number of taps from "I scanned copper ore" to "what does Vein do?"
+    should be <= 2: scan -> toast -> tap toast opens that note.
+
+**Essentia readouts / goggles / distillery lines** *(code)*
+20. All in-world readouts share **one** channel: the crosshair name line (`ui.setTargetName(label)`), replaced when the
+    label changes. Priority in `game.ts showStationName`: hand-station > magic label > rod reading > goggles inspect >
+    kinetic name. Consequences: (a) the line is one row of ~28 characters of 12 px text centred under the crosshair, so
+    "Quern: grinding wheat, 14 rpm, load 4/24 su" (the 70-char sentences CONGRUENCE 4.6 mandates) will wrap or clip on a
+    390 px screen; (b) a player with goggles in the pack who looks at a block always gets the goggles reading and
+    never the plain name; (c) there is no colour, no icon and no pause between "name" and "state".
+    -> the **target card** (2.6): two lines (name + status), status in 13 px, aspect/state colour dot, 3 s grace so it
+    does not flicker while the hand moves; long statuses wrap to two lines and a tap on the card opens the full reading.
+21. Essentia is only visible on jars/altars via text; no HUD gauge and the owner prefers in-world: use floating motes
+    (already planned in 4.7) and the **same target card** for "Jar: 12 cinder / 16". No new HUD widget.
+22. Stress/speed (workshop) shows only through goggles (rpm, load su/su). A shaft network that stops from overstress gives
+    no feedback unless you look at a part with goggles. -> a world-space "stalled" smoke puff + a one-line toast at
+    most once per 20 s ("Shaft network stalled: 28 of 24 su. Add a crank or remove a part.") and a red mote on the
+    overloaded part.
+
+**Buff pills** *(code: `hud.ts`, `BuffPill`s: burn, warm, fed, sugar, six drinks)*
+23. Up to 10 pills in `.hw-buffs`. Drinks use glyphs `up, home, heart, bolt, pick, hourglass`; **Sugar Rush uses the
+    same `hourglass` glyph as Lasting** - two different buffs, one shape. -> give Sugar its own glyph (cube/crystal) and
+    a distinct tint; text title for screen readers stays.
+24. No cap or stacking rule; 10 pills would wrap into the vitals region (see 4).
+
+**Pause/Settings/How to Play** *(code)*
+25. How to Play lists Place + Use as one control line, Drop (Q) is missing on desktop and on touch (hotbar long-press
+    throws the whole stack - a *destructive* gesture on a 44 px hotbar slot where players also tap to select).
+    -> see conflict table; confirm only for stacks > 1 of valuable items, or move drop to the bag.
+26. UI size Normal/Large exists (`uiScale`, `hw-touch--large`); `docs/WHATS_LEFT.md` section 6 still lists it as a gap -
+    stale; there is no reduced-motion or contrast setting beyond the OS `prefers-reduced-motion` media queries, and no
+    one-handed (left/right swap) setting.
+
+---
+
+## 2. Interaction grammar (one set of rules for the whole game)
+
+### 2.1 Verbs
+
+The game has **five verbs**, each with one meaning everywhere:
+
+| Verb | Meaning | Desktop | Phone | Feedback |
+|---|---|---|---|---|
+| **Mine** | break / hit / dig; also strike a hand station? **no** (see Work) | hold left mouse | hold Mine button, or press-hold the world | ring fills; dig sfx; haptic tick every 4th hit; break = `Haptic.thump` |
+| **Use** | open, operate, eat, scan, light, crank-once | right mouse / `F` (proposed) | tap world, or **Use** button | `ui_click` + swing; haptic light |
+| **Place** | put the held block | `Shift`+Use, or right mouse with a block held | tap world with a block held (context button reads "Place") | ghost preview, `place` sfx, haptic light |
+| **Hold-Use** (Work/Repeat) | repeat the Use while held: crank, hand-station strokes, stirring, tractor work | hold right mouse / hold `F` | hold Use button | the target card shows a progress ring; sfx loop per machine; haptic pulse at 2 Hz |
+| **Drop** | throw the held item/stack | `Q` (stack: `Shift+Q`) | in the Bag: long-press slot -> "Drop" chip; hotbar long-press shows a small "Drop?" chip for 2 s instead of dropping at once | `drop` sfx |
+
+Rule 1: **Use never changes meaning by hidden mode.** The only modal state is "held item", and the button caption shows it.
+Rule 2: **Aim decides the target, held item decides the verb.** The caption on the context button is `verb + noun`
+("Open Furnace", "Place Plank", "Scan Copper Ore", "Eat Stew", "Crank", "Wrench Pipe").
+Rule 3: **Hold = repeat or confirm, tap = once.** Tap-vs-hold threshold stays 280 ms (existing).
+Rule 4: **A modifier never exists on phone.** Every Shift/Ctrl chord has a visible button or a context-button caption.
+Rule 5: **Destructive = two steps** (drop a stack, break a placed machine with contents, empty a tank).
+
+### 2.2 Prompts and the crosshair line
+
+- One *target card* under the crosshair (section 2.6): **line 1 = name (bold)**, **line 2 = status or prompt**.
+- The prompt names the verb the **context button** will do: "Use: open", "Use: scan (new!)", "Hold Use: crank".
+  On desktop the same line says the key: "F: crank (hold)". Same string table; the key glyph differs by platform.
+- Status words are verbs/states: "grinding", "seized", "out of fuel", "stalled: 28/24 su". Failures say the next action.
+- Colour: neutral text white; warn amber; fail red; magic aspect colour only for the dot, never the text (contrast).
+
+### 2.3 Conflict table: buttons now overloaded
+
+| Input | Meanings today | Conflict | Resolution |
+|---|---|---|---|
+| **Use / right mouse** | open screen; place block; eat; till/plant; pail; **scan with notebook**; **open notebook at the sky**; **Workshop Guide at the sky with goggles**; wrench on pipe; crank once; **exit tractor** while driving | one button, 10 outcomes, 3 of them keyed on "aim at nothing" | Context button + caption (2.4). Sky-Use stops opening screens: notebook scan is Use on a block; opening the notebook is the **Notebook chip in the Bag** (and the held-notebook context caption "Open notebook" only when nothing is aimed). Guide: chip in the Bag, not Use-at-sky. Vehicle exit: its own button. |
+| **Mine** | dig; hit mob; **Work** while driving | recaptioned live | Keep Mine = dig/hit only. Work uses Hold-Use (same gesture as crank/hand stations): one grammar "hold Use to work". |
+| **Jump** | jump / swim; **Swap tool** while driving | recaptioned live | Vehicle gets a 44 px "Tool" chip beside its panel; Jump stays Jump (no jumping a tractor, so it may stay hidden). |
+| **Place toggle** | arms next Use to place | hidden mode, forgettable | Remove the toggle on phone. When a block is held and the aimed block has a screen on that face, the caption reads "Place Plank" and the *tap on the world* places; a second smaller chip **"Open"** appears beside it (so both outcomes are one tap, no mode). Desktop keeps Shift+Use. |
+| **Q (drop)** | drop held; drop stack on Shift? not bound | no touch equivalent except hotbar long-press | Phone: Bag slot chip, hotbar long-press = a confirm chip. Desktop: Q one, Shift+Q stack. |
+| **F** | tractor Work (hold); nothing else | F is also the universal "interact" key; undocumented | Make **F = Use alias** on desktop (same as right-click: one-handed keyboard play), and the tractor Work becomes **hold F / hold Use** (same key, no conflict because Use on a driven tractor means Work). Exit moves to **E-long / Esc menu "Get off"** or `X`. R swap stays but is shown in the panel. |
+| **R** | tractor swap tool | free key otherwise; unconfirmed in How to Play | Keep; list in the panel and How to Play. |
+| **E / bag** | inventory; closes any screen | fine | Unchanged. |
+| **L / goal tap** | Hearth Log | fine | Unchanged, plus Codex pointer inside the Log. |
+| **Crank (Use on a hand crank)** | one Use = turn for 3 s (`CRANK_S`), hold repeats | on phone "hold Use" is the same as hold on a block = **mine**! | Aim decides: a crank/lever/hand-station aim switches the hold ring to "Work" mode (the Mine hold-to-dig on a placed machine is a footgun: it destroys the crank). Mining a placed machine needs the wrench/hammer-held rule or a deliberate "hold Mine". Desktop already separates left/right; on touch, **hold on world = mine only when aimed at a block that is not a station/crank/lever**, otherwise it is Work. |
+| **Wrench** | Use on pipe turns the side aimed | cooldown 0.35 s; on touch no hold-to-repeat | Keep; caption "Turn side (N)". |
+| **Goggles** | carried = replaces crosshair name with inspect reading; held + Use-at-sky = Guide | silent override of block names | Goggles show their reading *as line 2*, name stays line 1. Guide = Bag chip. |
+| **Notebook scan** | Use on block scans; lens 1.5x | no feedback of "already scanned" | Caption: "Scan (new)" / "Scan (known)"; sfx `scan_chime` pitch differs; a known block does nothing but toast "Known". |
+
+### 2.4 The context-sensitive action button (design)
+
+Replace the Place toggle + Use with **one Action button** (the Use button, 72 px) plus **at most one secondary chip** (44 px).
+
+State resolver (pure function, DOM-free, `src/player/actionHint.ts`, unit-tested): input = held item, aimed
+block + face (`RayHit`), aimed creature, vehicle state, sim query (`handView`, `magic.useHint`). Output =
+`{ primary: { verb, noun, icon, repeat: boolean } | null; secondary: { verb, noun } | null }`. Priority (highest first):
+
+1. Driving: primary = "Work" (repeat) if an attachment, secondary = "Tool" (swap); Get off is a separate chip.
+2. Creature in reach + edible/tame item: "Feed Goat"; else null (Mine hits it).
+3. Hand station / crank / lever aimed: "Crank" / "Chop" / "Grind" (repeat = true).
+4. Pipe aimed + wrench held: "Turn side". Bucket on fluid port: "Fill"/"Pour".
+5. Notebook held: aimed block -> "Scan <Name> (new)"; nothing aimed -> "Open notebook".
+6. Block with a screen aimed: "Open <Name>" (secondary = "Place <held>" when a block is held).
+7. Block held (nothing special aimed): "Place <held>" (secondary = "Open <Name>" if a screen block is aimed).
+8. Food held, hungry: "Eat <Name>". Hoe/seed aimed at soil: "Till"/"Plant".
+9. Nothing: the button greys to the Bag icon "Bag" (tap = inventory) so it is never dead.
+
+Presentation: the caption lives **inside** the 72 px button (two lines, 11 px, verb on top); the noun also appears on
+the target card. The button pulses once when the primary changes (no pulse when reduced motion). Secondary chip appears
+above-left of Use, auto-hides after 2.5 s without aim. Haptic: light tick on caption change *only* when a repeat/Work
+verb becomes available (so crank/hand stations are discoverable by feel).
+
+### 2.5 Reach zones (one-handed, 390x844)
+
+- **Easy thumb arc (bottom 35 %, both lower corners):** joystick left, Action + Mine + Jump right. Keep everything the
+  player taps *repeatedly* here.
+- **Reach with stretch (middle):** look-drag area (whole screen right of the joystick), target card.
+- **Hard (top 25 %):** goal tracker, bag, pause. These are *glance + occasional tap* only; fine.
+- **Setting "Hand: Right / Left" (default Right):** mirrors the cluster and joystick. Cost: one CSS class + gesture
+  region swap in `gestures.ts`.
+- Hotbar stays bottom-centre; **swipe along the hotbar to scroll slots** is not needed (9 slots x 44 px = 396 px > 390!)
+  -> on 390 px the 9-slot hotbar touches the edges; `--hw-hud-reserve` already pads. Verify slot size is >= 40 px with
+  a 2 px gap on 360 px-wide phones (acceptance A4).
+
+### 2.6 Target card (replaces the one-line crosshair name)
+
+```
+ ┌───────────────────────────┐
+ │ ● Quern                   │   line 1: name (14 px, 600)
+ │ grinding wheat, 14 rpm    │   line 2: status (13 px), wraps to 2 lines, max 70 chars
+ └───────────────────────────┘
+```
+Width <= 280 px, centred 56 px below the crosshair (not on it); dot = aspect/state colour; the card fades in 80 ms,
+holds 3 s after the aim leaves; reduced motion = no fade. Tap on the card = full goggles reading as a bottom sheet
+(only if the block has a longer reading). Data source stays the existing `ui.setTargetName(label)`; extend the
+signature to `(name, status?, tone?)`. Existing `parseTargetName` for creatures is kept.
+
+### 2.7 Haptics and sound cues
+
+Phone: `navigator.vibrate` (Android only; iOS Safari ignores it - treat as best-effort). Respect a Settings toggle
+"Vibration". Patterns: tick 8 ms (selection change, caption change), tap 15 ms (use/place), thump 30 ms (break/land),
+double 15-40-15 ms (error/refused), long 60 ms (goal done, discovery). Sound: existing `SfxName` set; add
+`ui_select_verb` (soft tick), `scan_known` (flat) vs `scan_chime` (bright), `stall` (descending whine) for
+overstress. Never haptics on every dig tick (battery, buzz) - every 4th only.
+
+---
+
+## 3. Onboarding: the first 30 minutes on a phone
+
+### 3.1 Intended path and where it breaks
+
+| Min | Player does | What the game says now | Gap |
+|---|---|---|---|
+| 0-1 | Title -> New World | "Drag here to look around" | Fine. Add "Joystick: walk" to the same bubble family. |
+| 1-4 | Mine tree, collect | goal "Gather wood 0/4"; coach "hold MINE" | Good. No hint that items auto-pickup / drop on the ground now (ground items). |
+| 4-8 | Workbench, tools, furnace | goal chain 1-8 | The Hearth Log is mentioned once (coach); **no mention of Codex, the notebook, hand stations**. |
+| 8-15 | Fire, first smelt | Furnace screen has tabs LOG/GRID/STRUCTURE | Furnace screen is the densest on the phone; first visit needs a 3-step peek ("Fuel here, ore here, wait for the glow"). |
+| 15-25 | Hunger, night, farming | HUD vitals + hunger vignette | Hunger/night are explained only in How to Play (never opened). Night 9 m: the game **starts at "Night 9 m"**? (S2 clock) - first minutes at dusk is hostile; start at morning. |
+| 25-30 | Bronze/steam/belts/research appear | goals | Research/notebook, belts, distillery have **no introduction event**. |
+
+### 3.2 Hint system (event-driven, not text walls)
+
+`src/ui/hud/hints.ts` (new, extends `coach.ts`): a `HintEngine` fed from the bus. Each hint = `{ id, when(event), text,
+anchor, max: 1, cooldownS }`; stored in `localStorage hearthwatt.hints` (best effort); shown as a **hint card**: icon + <=
+12 words + optional "Show me" (opens the right Codex page) + dismiss. At most **one visible**, queue depth 2, none while a
+screen is open, none within 60 s of the previous one, never during hazard (health < 30 %, in lava, mob nearby).
+
+| Trigger (bus event / state) | Hint (<= 12 words) | Anchor |
+|---|---|---|
+| first item on the ground (`ground:spawn`) | "Walk over items to pick them up." | item |
+| first `block:placed` of a machine block | "Use opens a machine. Wrench turns pipes." | target card |
+| first fuel burn in a furnace | "Pump the bellows to get hotter." | furnace |
+| first `inventory:changed` with `field_notebook` | "Use on a block scans it. Notes are in the Bag." | action button |
+| first scan success (`research:*`) | "New note! Tap to read." | notebook chip |
+| first crank/hand station aimed | "Hold Use to keep turning." | action button |
+| first overstress stall | "Too heavy. Add a crank or remove parts." | part |
+| first belt/shaft placed | "Shafts pass spin along. Goggles show rpm." | target card |
+| health low + night | "Stand next to a lit furnace: it is safe ground." | vitals |
+| first distillery part placed | "Boil spirit, collect at the receiver." | target card |
+| first goal complete (existing) | "Tap the goal to see what's next." | goal |
+| 12 min with no furnace | "Goal: build a furnace. Open the Bag, tab 'Hand'." | goal |
+| first vehicle mount | the vehicle hint (shown once, 20 s) | vehicle panel |
+
+### 3.3 Goal tracker wording
+
+- Kicker: "Age 1 - Ember" + step "3/9" instead of "GOAL 1 OF 75".
+- Title: the verb phrase of the next action ("Gather wood", "Build a furnace"), **second line: what/where** ("4 logs: any tree").
+- Tap = Log; **long-press = "Show me"** (points an arrow on the compass to the nearest needed block when known).
+- Done toast: "Goal done: Gather wood. Next: Build a workbench." (<= 3 s).
+- Reward line in the Log only.
+
+### 3.4 How to Play and Codex pointers
+
+- How to Play (`howto.ts`): keep the loop; replace the two big control tables with a **Controls card that matches the
+  actual platform** and adds the new verbs (Hold Use, Notebook scan, drop, vehicle, one-handed). Add "Where do I
+  read about X?" -> Codex and Hearth Log buttons.
+- Pause menu: **How to Play** and **Codex** as two buttons (44 px). Hearth Log gets a "Codex" button on its header.
+- Research discoverability: the Bag gets a **Notebook chip** (book glyph, dot badge when unread), opening the research board;
+  the notebook item's own tooltip says "Use on a block to scan".
+- Belts/distillery: the *goal chain* gets one goal each that places the first part (the hint fires on placing).
+
+### 3.5 Accessibility
+
+| Topic | Today | Change |
+|---|---|---|
+| Text size | `uiScale` normal/large exists | Make **Large** scale HUD plate, target card, hints and menus; min 14 px body (many HUD texts are 11-12 px). Check the vehicle hint (11 px) and difficulty hints (11 px). |
+| Contrast | warm dark panels; light text ~9:1 | Audit amber-on-amber hint bubbles (orange coach bubble with dark text: ok); aspects colours never carry text; buff pills need a text label at Large. Add a **High contrast** option: solid `#000` plates, 2 px outlines. |
+| Reduced motion | CSS `prefers-reduced-motion` in 4 sheets + `prefersReducedMotion()` in kit | Add an in-game **Reduced motion** setting (OR'd with the OS flag): no screen shake/FOV kick, no throb animations, no button pulse, static hint cards. FOV kick (`SPRINT_FOV_KICK`) too. |
+| Colour-blind | state colours (red hunger / green) | Every colour state must also have a glyph or word (buff pills do; power bars: add "!" for overload). |
+| One-handed | right-hand cluster; stretch to Mine | "Hand: Right/Left" + optional **Auto-mine** (hold anywhere on the world with Use-aim, since Mine = hold-on-world already exists). |
+| Screen reader | `aria-label`s on goal, buttons | Add `aria-live=polite` to the target card; hints `role=status`. |
+| Haptics | none | Settings: Vibration On/Off. |
+
+---
+
+## 4. HUD budget
+
+### 4.1 Zones (portrait 390x844)
+
+```
+┌──────────────────────────┐
+│ Z1  goal tracker   bag ‖ │  top 8-52  : persistent, 44 px
+│ Z2  vitals     clock     │  52-112    : persistent, small
+│ Z3  alerts + toasts      │  112-170   : transient, 1 at a time
+│            ·             │
+│       target card  Z4    │  centre-below crosshair: transient
+│            ·             │
+│ Z5 buffs (a row)         │  above hotbar, left-aligned, max 4
+│ Z6 vehicle / hint panel  │  above buffs, centre, one only
+│ stick   hotbar  action   │  bottom: controls + hotbar
+└──────────────────────────┘
+```
+Landscape 844x390: Z1 left, Z2 below it (compact one row), clock top-centre, buffs top-right under bag/pause, vehicle
+panel left of the cluster. Total persistent HUD <= 18 % of screen area.
+
+### 4.2 What shows when (priority 1 = never hidden)
+
+| Element | Shown | Priority | Rule |
+|---|---|---|---|
+| Crosshair, controls, hotbar | always | 1 | never obscured by cards |
+| Vitals plate | always; **collapses** to a single heart+flame+bowl when all > 70 % and no change for 10 s; expands on change | 2 | saves 40 px |
+| Goal tracker | always (collapses to one line in landscape) | 2 | |
+| Clock | tap-to-expand; shows only the phase icon + time | 3 | |
+| Alerts (cold, hunger, power overload, night, low fuel) | transient 3 s, one at a time, queue 2 | 2 | alert > hint > toast |
+| Target card | when aimed at something with status | 2 | |
+| Buff pills | one **compact row max 4**: sorted by remaining time ascending; the rest collapse into "+3"; tap the row = full list sheet; pills show only the glyph, with timer on the pill that expires < 30 s | 3 | Sugar Rush always in the row while active (it has a downside) |
+| Essentia | **not on HUD**; jar/altar via target card; world motes | 4 | |
+| Stress / rpm | **not on HUD**; goggles via target card; stall = toast + smoke | 4 | |
+| Fuel (vehicle) | vehicle panel while driving; low-fuel alert at 12 % | 2 | |
+| Vehicle panel | while driving only; hint line only first 20 s of first ride | 3 | |
+| Hint card | event-driven, one at a time, none if alert is up | 4 | |
+| DEV Items chip | Dev mode only; in the Bag/top row, not left edge | 5 | |
+| Coach bubbles | first 90 s only | 4 | |
+
+### 4.3 Stacking order and collisions
+
+1. Alerts own Z3. If an alert is active, the hint card is queued and the toast waits.
+2. Target card and hint card never coexist: hint anchors to the card slot; when aimed at a status target the hint waits.
+3. Vehicle panel replaces the buff row's vertical slot (buff row slides up 40 px) - not both overlapping the hotbar.
+4. Bag-open and any screen hide the HUD with `[data-screen]` (existing). Keep.
+
+---
+
+## 5. Settings to add (all in `settings.ts`, defaults in `core/context.ts`)
+
+`reducedMotion: 'system' | 'on' | 'off'`, `contrast: 'normal' | 'high'`, `hand: 'right' | 'left'`,
+`vibration: boolean`, `hints: boolean` (turn the hint system off for veterans), `uiScale` extended (normal/large; keep).
+
+---
+
+## 6. Builder task list (two builders, disjoint files)
+
+### Builder UX-1: input grammar, action button, haptics (owns `src/player/**`, `src/ui/vehicleHud.ts`, `src/app/game.ts` key block)
+
+| # | Task | Files | Acceptance |
+|---|---|---|---|
+| U1 | `actionHint.ts` resolver (pure) with priority table 2.4; unit tests for every row | `src/player/actionHint.ts` (+test) | vitest: 14+ cases, e.g. notebook + ore -> "Scan Copper Ore"; goggles + sky -> null (no screen); crank aimed -> repeat |
+| U2 | Remove sky-Use screens: notebook open and Workshop Guide open move to Bag chips/events; `magic.use(null)` returns not-handled | `src/app/game.ts`, `src/magic/magic.ts` (read-only edit of one branch), `src/player/interaction.ts` | unit: Use with nothing aimed never emits `ui:open`; notebook scan on a block still works |
+| U3 | Context action button: caption from U1; Place toggle removed on touch; secondary chip; hold ring "Work" on station/crank aim; hold-on-world mines only for non-stations | `src/player/input/touchOverlay.ts`, `touchStyles.ts`, `core.ts`, `gestures.ts` | e2e phone: aim at a crank, hold Use 1 s -> crank rotates and the block is not mined; aim at plank with plank held -> caption "Place" and tap places |
+| U4 | Vehicle: Get off as its own 44 px button; F becomes Use alias + hold = Work; R swap kept; panel hint shown 20 s on first ride; remove caption rewrite of Use | `src/ui/vehicleHud.ts`, `src/app/game.ts` key handlers, `src/player/input/keys.ts` | e2e: mount tractor on phone, Use does not dismount; "Get off" does; Esc menu also |
+| U5 | Hotbar long-press = "Drop?" chip (2 s) not instant drop; Bag slot menu Drop; desktop Shift+Q stack | `src/ui/hud/hotbar.ts`, `src/player/input/keys.ts`, `intent.ts` | unit: single long-press does not drop; confirm does; vitest `drop.test.ts` updated |
+| U6 | Haptics module + settings toggle; patterns in 2.7; sfx names `scan_known`, `ui_select_verb`, `stall` | `src/player/input/haptics.ts`, `src/audio/sfx*.ts`, settings | unit with fake `navigator.vibrate`; muted when setting off |
+| U7 | Hand setting (mirror cluster/joystick) | `touchOverlay.ts`, `touchStyles.ts`, `gestures.ts` | e2e: hand=left mirrors; all buttons still >= 44 px |
+
+### Builder UX-2: HUD, hints, onboarding, a11y (owns `src/ui/hud/**`, `src/ui/menus/**`, `src/ui/screens/creative/**`, `src/ui/screens/notebook/**` chips, `src/ui/styles.css`, `core/context.ts` settings, `howto.ts`, `title.ts`)
+
+| # | Task | Files | Acceptance |
+|---|---|---|---|
+| H1 | Target card (two lines, 3 s grace, wrapping 70 chars), `setTargetName(name, status?, tone?)`; goggles/hand-station/jar/altar labels send name+status separately | `crosshair.ts`, `hud.ts`, `hud.css`, `game.ts showStationName` (minimal edit coordinated with UX-1) | e2e phone 390x844: aim at a hand station and a quern with goggles: card visible, no clipping, <= 2 status lines, width <= 280 px |
+| H2 | Buff row cap 4 + "+N", own Sugar glyph, tap opens full list; vitals collapse | `hud.ts`, `drinkBuffs.ts`, `vitals.ts`, `hud.css`, kit icons | unit `drinkBuffs`: sort by time; with 7 buffs DOM has <= 5 pills; Sugar glyph != Lasting glyph |
+| H3 | HintEngine + 13 hints (3.2), storage, quiet rules | `src/ui/hud/hints.ts` (+test), `coach.ts` (shared storage) | unit: each trigger fires once, none within 60 s of another, none while a screen is open; e2e: first fuel burn shows the bellows hint |
+| H4 | Goal tracker wording per age, long-press "Show me", progress bar | `goal.ts`, `objectives.ts` (text only) | e2e: kicker reads "Age 1 ..." not "of 75"; text does not overflow at 360 px wide |
+| H5 | Creative menu: tab scroll, no touch tooltip, detail refresh, tap/hold caption, Dev chip into the top row | `src/ui/screens/creative/*`, `hud.ts` dev chip | e2e: tabs scrollable, tooltip absent on touch, search clears detail |
+| H6 | Notebook chip in Bag + dot badge + "New note" toast tap-through; Guide chip while goggles carried | `src/ui/screens/inventory/*`, `notebook/*`, `workshopScreen.ts` entry | e2e: scan -> toast -> tap -> note open in <= 2 taps |
+| H7 | Settings: reducedMotion, contrast, hand, vibration, hints; apply classes on root; FOV-kick/shake off under reduced motion | `settings.ts`, `settingsText.ts`, `core/context.ts`, `uiScale.ts`, css | unit: defaults; e2e: toggling Large changes `.hw-hud` scale; reduced motion disables `hw-hud-throb` |
+| H8 | How to Play/Pause: Codex + How to Play buttons, platform-correct controls (Hold Use, Scan, Drop, vehicle) ; title age strip from `AGES`; game starts in morning | `howto.ts`, `pause.ts`, `title.ts`, spawn clock in the game start code (owner confirmation) | e2e: How to Play shows touch list on phone and includes Hold Use; title lists six ages |
+
+### Phone e2e assertions to add (script `scripts/e2e-phone-ux.mjs`, run `HW_GPU=1`, 390x844, 844x390, 360x740)
+
+1. No element of `.hw-touch-btn`, `.hw-hotbar .hw-slot`, bag, pause, chips smaller than 44x44 CSS px (360 px wide: hotbar slot >= 40).
+2. No horizontal page scroll; no HUD element crosses the viewport edge; no two interactive HUD rects intersect (target card vs
+   buff row vs vehicle panel).
+3. Text min: `getComputedStyle` font-size of every HUD text node >= 12 px at Normal, >= 14 px at Large.
+4. Goal tracker, target card, hint card contrast >= 4.5:1 against the plate (sampled with a canvas readback).
+5. Hold Use on a crank does not mine it; tap with a block held places; notebook scan toast appears; vehicle Use does not dismount.
+6. With 7 buffs active the HUD shows <= 5 pills.
+7. Landscape: vitals + goal + buffs do not overlap the joystick or cluster rects.
+
+---
+
+## 7. Suggested order and sequencing note
+
+The six-age refactor holds `src/` exclusively; start builders only after it lands. UX-1 and UX-2 touch disjoint trees
+except `src/app/game.ts` (UX-1 owns the key block and `showStationName` caller; UX-2 only the `setTargetName`
+signature) - land H1's signature first (a one-line interface change), then UX-1. Order: **U1 -> U2/U3 (the biggest
+phone win) -> H1 -> H2/H3 -> U4/U5 -> H4-H8 -> U6/U7 -> e2e script**. Estimated 2 builder sessions of one working day each.
+
+## 8. Open questions for the owner
+
+1. Is the first minute at "Night 9 m" intended? (HUD clock showed Night at world start; suggest morning start.)
+2. OK to drop Place-as-toggle on phone in favour of the caption-driven context button?
+3. OK that sky-Use no longer opens the notebook/Guide (Bag chips instead)?
+4. Haptics on by default (Android only)?
+
+<!-- ======================== END docs/advice/phone-ux.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/balance-economy.md ======================= -->
+# FILE: docs/advice/balance-economy.md
+
+# Hearthwatt - balance and economy advice
+
+Advisor: balance and economy (read-only pass, 2026-11-21). Numbers are expressed per **age name** and **recipe id**, never per tier index, because the
+six-age refactor is renumbering tiers under this document.
+
+**Method and its limits (read first).** All content numbers were read from the committed tree at `9e3b862` (five furnace tiers, old `age:` fields),
+dumped through the real registry (`ITEMS`, `RECIPES`, `BLOCKS`, `ORE_VEINS`, `MACHINE_SPECS`) with `vite-node`. The Bronze Age parts are NOT in code yet, so
+their costs come from the tables in `docs/BRONZE_PLAN.md` / `docs/STEAM_PLAN.md` (marked *planned*). Nothing was built, run in a browser or played: every
+"minute" below is a **model estimate**, not a measurement. The script is `balance-model.ts` in the shared notes folder
+(`C:\Users\admin\AppData\Roaming\Claude\side-session-notes\local_4bdc7aa5-0ceb-445b-9336-843dec94f1d4\`); it must live in a `src/content/timeModel.ts` +
+test before anyone trusts it (section 5).
+
+---
+
+## 1. Resource-flow model
+
+### 1.1 Formulas (all parameters are assumptions, flagged `A`)
+
+| Quantity | Formula | Source |
+|---|---|---|
+| Mining time of a block | `hardness / toolSpeed` (x3 and no drop below `minTier`; x1/1.25 when Well-Warmed; x1.25 Vigor) | `game/mining.ts` |
+| Tool wear | exactly 1 durability per matching block | `mining.ts:wear` |
+| Gather cost of one raw item | `(mineTime + vein overhead) / (expected drop count x chance)`; vein overhead = `30 s / (veinSize x 0.8)` per ore block `A`, trees 6 s per 4 logs `A` | `oreVeins.ts` |
+| Craft cost (attended) | hand/workbench = 2 s of taps `A`; strokes stations `strokes / strokesPerS` (quern 3/s, anvil 2.5/s x2 with hammer, mortar 2/s, loom 2/s) | `blocksHand.ts` |
+| Smelt | crucible-seconds = `timeS`; wall time = `crucible-s / (crucibles x furnace.speed)`; runs parallel to gathering (counted at 25% attended) `A` | `recipes.ts`, `tech.ts` |
+| Fire-seconds for a job | `crucible-s / (crucibles x speed x 0.7 utilisation)` `A` | |
+| Fuel items | `fire-s / burnS` (charcoal 80 s, coal 100 s, coke 120 s, peat 50 s, log 50 s). Fuel burns at a fixed `energyJ/burnS` while lit whether or not the temperature is capped, so draft shortens the burn by `1+draft` | `sim/furnace.ts:170` |
+| Heat-up | `heatCapacityJ x dT / qFuel` = 150 J/C x 780 C / 5 kW = **23 s** for a Clay Furnace on charcoal | `sim/furnace.ts` |
+| Raw cost of an item | cheapest-route fixed-point over every recipe (cost in expert seconds); containers (pail, beaker, vial, moulds) are reusable and cost 0 | `balance-model.ts` |
+| Expert minutes -> player minutes | `x 2.0` `A` (phone controls, exploring, building the shell, nights, learning). **Unverified: calibrate from the first real playthrough log.** | |
+
+"Expert" = never lost, never dies, optimal tool at each step, one trip per ore. It is a *lower bound*; a first-time phone player lands at ~2x.
+
+### 1.2 Gather costs per raw item (expert seconds per unit, vein overhead included)
+
+| Raw | flint tools | bronze tools | iron tools | steel tools | notes |
+|---|---|---|---|---|---|
+| oak/pine log | 2.5 | 1.6 | | | 4 logs a tree |
+| clay | 2.0 | 1.5 | | | shovel |
+| rubble | 2.5 | | | | stone h4 |
+| flint | 8.0 | | | | gravel drops flint 25% |
+| copper ore | 9.0 | 6.9 | | | h5.5, vein 6 blocks, 4 veins/chunk |
+| tin ore | 10.3 | 7.7 | | | h5.5, vein 5, 2.5 veins/chunk (scarce) |
+| coal | 4.8 | 3.9 | 3.9 | | h5, drops 1-2 |
+| iron ore | - | 11 | 7.8 | | h7, needs a bronze pick (tier 2) |
+| wolframite / spodumene | | | | 9.5 / 9.3 | h12/h11, tier 4, 0.7 / 0.6 veins/chunk |
+| bauxite / quartz | | | | 7.6 / 8.8 | h8, tier 3 |
+| pitchblende | | | | needs `power_drill` | h14 tier 5 |
+
+### 1.3 What it takes to leave each age (expert seconds, raw bill, smelt load)
+
+Bundles are the furnace upgrade list plus the age's own kit, so "to reach the next furnace tier" includes the machines the age exists to teach.
+
+| Age (bundle) | Raw bill | Gather+craft (expert) | Crucible-s | Fire fuel |
+|---|---|---|---|---|
+| **Ember** kit: workbench, flint tool trio, `furnace_clay`, 10 charcoal | 12 rubble, 12 oak_log, 9 fiber, 6 clay, 5 flint | 2.9 min | 80 | 1 charcoal/80 s |
+| **Ember** metal: 15 `bronze_ingot` (13 for cast heads + 2 `bronze_hammer`), 45 clay for 9 moulds/pot/cup/cone, 8 `stone_brick`, cord | 9 copper_ore, 3 tin_ore, 45 clay, 18 fiber, 8 rubble | 5.4 min | 86 | |
+| **Ember -> Bronze gate** (planned: 8 `bronze_ingot`, 4 `firebrick`, 1 `bellows`, 2 `bronze_plate`, 1 `leather` at 700 C) | 7 copper_ore, 3 tin_ore, 12 fiber, 2 clay, 1 hide, 1 log | 3.1 min | 81 | |
+| **Ember total** (plus food, farm, brew, ~3 min not modelled) | ~30 Cu+Sn ore, ~60 clay | **~12-15 min** | ~250 | ~5 charcoal |
+| **Bronze** *planned*: `boiler_plate` x30, gauge glass, heat/water/steam port, `safety_valve`, 2 gauges, 12 `steam_pipe`, `steam_engine_b`, `air_compressor`, `air_tank`, `blast_nozzle`, 8 thermocouples, 24 `brick` | 85 copper_ore, 28 tin_ore, 49 clay, 5 sand | 32 min (+ ~6 min first-half steam kit: saw, millstone, trip hammer, stamp mill, press, wheel, clockwork = ~350 s) = **~38 min** | 1,197 | ~8 charcoal/coal |
+| **Forge** kit: iron/steel pick+axe, `plated_coat`, `steel_cuirass`, `crusher`, `boiler`, `steam_engine`, 2 `tank`, `pump` | 56 iron_ore, 44 fiber, 15 sand, 9 coal, 9 limestone, 7 copper_ore | 19 min | 1,193 | ~7 coal |
+| **Forge -> Current gate** (HEAD): 2 `copper_coil`, 2 `steel_plate`, 24 `refractory_brick`, 1 `electrode` | 48 clay, 19 coal, 7 iron_ore, 4 limestone | 7.8 min (+ dynamo, not in code) | 638 | |
+| **Forge total** | | **~27 min** | ~1,800 | |
+| **Current** kit: `steam_turbine`, `still`, 2 `wind_turbine`, `chainsaw`, `bore_rig`, 2 `battery`, 6 `heavy_cable`, 4 `circuit` (not `ward_beacon`: needs 2 `ember_core`, a drop) | 36 iron_ore, 16 copper_ore, 16 coal, 12 silica, 9 bauxite, 6 sulfur | 18.3 min | 1,126 | |
+| **Current -> Atomic gate** (HEAD): 53 `plasma_casing`, 2 `circuit`, 2 `tungsten_rod`, 2 `power_port` | 57 iron_ore, 55 coal, 53 limestone, 29 wolframite, 27 bauxite | **36 min** | 2,390 | ~8 coke |
+| **Atomic** kit: `fission_pile`, `centrifuge`, `electrolyzer`, `power_drill`, `shield_suit`, `lithium_bank`, 6 `super_cable` | 34 silica, 29 iron_ore, 20 coal, 18 fiber, 13 wolframite, 13 bauxite | 21 min | 1,313 | |
+| **Atomic -> Star gate** (HEAD): 93 `star_casing`, `star_core`, 8 `deuterium_cell`, 4 `power_port` | 216 iron_ore, 148 copper_ore, 113 silica, 107 coal, 107 bauxite, 103 limestone, 103 wolframite, 53 spodumene | **168 min**, 9.7 MJ of machine energy | 10,070 | ~15 coke |
+
+Per-item unit costs that drive the late bills (expert s each): `steel_plate` 24, `tungsten_rod` 15, `aluminum_ingot` 12, `circuit` 20, `superalloy` 25, `fused_quartz` 6,
+`plasma_casing` 38, `magnet_ring` **130**, `star_casing` **94** (the ring is 70% of it).
+
+### 1.4 Findings from the bills
+
+1. **Fuel is never a constraint.** Every gate needs 5-15 fuel items against 80-120 s burn per item; heat-up is 23 s. The real fuel sink is *keeping the furnace lit as the base's heart*:
+   a lit furnace burns `1/burnS` items per second: charcoal 11.3 per 15-minute day, coal 9, coke 7.5, log 18, peat 18; draft doubles it. At 2.5-7 s of labour per fuel item that is **~8% of the day**. Keep it: it is the
+   only thing that makes "the furnace is the heart" a cost. Do not add per-recipe fuel costs.
+2. **Ore bills are mostly multiplicative-yield decisions.** Hand `mortar` gives 1.35 crushed ore per ore (bonus 35%), the Forge `crusher` gives 2.0 (`crushed_*` x2). That is 1.35x and 2x the ingots per ore.
+   The Bronze bill above already uses the mortar; without it the bill is 114 copper + 37 tin. Do not give any Bronze machine a bonus above the mortar's.
+3. **The Star bill is out of band by 4-5x** and Atomic/Current by ~1.4x (section 2). `magnet_ring` (130 s each) dominates because `star_casing` and `star_core` both consume it.
+4. **Ember is cheap as raw work** (12-15 expert minutes). The 30 player-minute target is carried by exploring, learning the stations, farming and brewing waits, not by the resource bill. Do not raise Ember ore counts; add *goals*, not ore.
+5. **Tin is the Bronze choke point**: 2.5 veins/chunk of 5 blocks gives 12.5 ore/chunk vs copper 24. Bronze needs a 3:1 Cu:Sn ratio so this is balanced *on average*, but a spawn without tin within ~30 blocks stalls the player.
+   Add one guaranteed small tin vein (5 blocks) within 48 blocks of spawn (world gen, test: `tinWithin(spawn, 48)` on 20 seeds) - cheaper than raising `veinsPerChunk`.
+
+---
+
+## 2. Time-to-next-age curve
+
+Target is **player minutes per age** (expert x 2.0). The owner's frame: first 30 minutes, then 45-90 per age on a phone.
+
+| Age | Target player min | Target expert min | Model today (expert) | Deviation | Fix (numeric) |
+|---|---|---|---|---|---|
+| Ember | 30 | 12-15 | 12-15 | OK | none; add the new goals (clay table, mould firing, pour, quern, brew) but no ore |
+| Bronze | 70 | 30-38 | 38 | OK (high end) | keep 30 `boiler_plate`, but offer the smaller `3x3x3` vessel (interior 1x1x1, 26 blocks) as legal: saves 8 plates = 16 ingots = ~2.5 expert min; do not let 85 Cu ore grow |
+| Forge | 55 | 24-30 | 27 | OK | the *gate* is only 7.8 min; the age's weight is in its kit (iron/steel tools, crusher, boiler, engine). Keep the Forge gate cheap but make `dynamo` + `crusher` goals required |
+| Current | 55 | 25-30 | 18 kit + 36 gate = **54** | +80% | `plasma_casing` 53 -> **24** (3x3x3 hollow shell, 26 blocks - 2 ports): gate 36 -> 18 min; Current total ~36. Keep `plasma_casing` recipe |
+| Atomic | 60 | 28-32 | 21 kit + 168 gate = **189** | **+500%** | `star_casing` 93 -> **30**; remove `magnet_ring` from `star_casing` (keep only in `star_core`, 6 -> 3 rings); `deuterium_cell` 8 -> 4. Expert: kit 15 (move `shield_suit`, `lithium_bank` to optional goals) + gate ~27 = **~42** (player 84, the top of the range; the Star Age is a finale) |
+| Star | endgame | - | ignition | - | 300 kW for 90 s: see section 3.4 for what that demands |
+
+Gate arithmetic used (so builders can re-derive): `plasma_casing` costs 0.63 expert-minutes each (linear); `star_casing` 1.56 each *with* the ring and 0.47 without; `star_core` + 8 `deuterium_cell` + 4 `power_port` = 22.7 min
+(6 rings = 13 min of it).
+
+Whole game: today ~12 + 38 + 27 + 54 + 189 = **~320 expert min = 10.7 player hours**; target total ~ 12 + 35 + 27 + 30 + 42 = **~146 expert min ~ 4.9 player hours**. Within-age ratio rule: consecutive ages should grow by x0.7-2.5, never x5.
+
+**Waiting time that the model does not see** (add to design, not to bills): wheat 100 s per stage x stages (7 min to ripen, `crop.stageS=100`), sap taps 120 s per log, tea/coffee bushes regrow 360 s, tanning 60 s + drying 120 s, distillery runs 60-260 s.
+Rule: **no age gate may be blocked on a wait longer than 8 minutes** unless the wait has a hand-work alternative.
+
+---
+
+## 3. Energy and stress budgets
+
+### 3.1 One exchange-rate table (decide once, the builders put it in `core/constants.ts`)
+
+| Symbol | Value | Meaning / current source |
+|---|---|---|
+| `W_PER_SU` | **50 W** | 1 stress unit = 50 W of shaft power at the 16-rpm reference. Already implied by `GENERATOR_SHAFT.suPerW = 1/50` in `workshop/workshop.ts:33` |
+| `ETA_STEAM_SHAFT` | **0.25** | heat -> shaft by a piston engine. The Forge electric `steam_engine` already is 1/3 (`heatPerWatt: 3`) |
+| `ETA_DYNAMO` | 0.9 | shaft -> electricity (Forge dynamo, to be built) |
+| `ETA_TURBINE` | 0.5 | heat -> electricity, `steam_turbine` (800 L/s x 20 J/L = 16 kW heat for 8 kW) |
+| `ETA_BURNER` | 0.3 | `burner_generator.efficiency` |
+| `ETA_COMBUSTION` | 0.4 | `combustion_engine.efficiency` |
+| `ETA_ELECTRIC_HEAT` | 1.0 | `electricHeatW`: electricity -> furnace heat |
+| `ETA_BATTERY` | 0.9 round trip max | `BATTERY_EFFICIENCY` |
+| Steam | `STEAM_L_PER_KW_S = 6` (plan) | 6 L/s of steam per kW of heat |
+| Shaft SU from boiler | `SU = heatKW x ETA_STEAM_SHAFT x 1000 / W_PER_SU = 5 x heatKW` | = **5 SU per bar** at 6 L/s per bar-kW |
+
+**Invariant:** the product of efficiencies around any closed conversion cycle must be < 1 (target <= 0.6, so a loop is visibly lossy).
+
+### 3.2 Free-energy loops found (confirmed in code unless marked *plan*) and how to close each
+
+| # | Loop | Evidence | Gain | Close it by |
+|---|---|---|---|---|
+| L1 | **Gearing makes work out of nothing.** Machine throughput is `dt x rpm/16`, but part stress is `base x clamp(16/rpm, 0.25, 4)`, i.e. it FALLS as rpm rises. A crank (16 rpm, 8 SU) into two `ratio_dial` x3 = 144 rpm: stress floor 0.25, throughput x9: work per SU is **x36** | `workshop/kinetics.ts:165-168`; `workshop.ts:592`; `logistics.ts:462` | **up to x36** | Stress must follow power: `stress = base x |rpm|/16` (constant torque per unit of work; power = torque x rpm). Delete the clamp. Then dials, differentials and governors conserve power. Test T3 below |
+| L2 | **Steam engine capacity is 25x the heat that feeds it** *(plan)*. 6 kW heat -> 6 bar -> `capacity = 128 x bar` = 768 SU = 38 kW at 50 W/SU | `BRONZE_PLAN.md` section 5.2 ("96 rpm, capacity 768") | **x6.4 energy** (kW), x25 in SU terms | `capacity = 5 SU per bar` (30 SU at 6 bar = 1.5 kW from 6 kW heat); keep `rpm = min(96, 16 x bar)`. A boiler with two heat ports (12 kW) then runs ~7 saws or ~3 presses at 16 rpm, which is the intended Bronze factory |
+| L3 | **Generators double-dip**: a water wheel / wind turbine / steam engine delivers its full electric watts AND a shaft at `watts/50` SU | `workshop.ts:344-347` | up to x2 | The shaft share is taken out of the electric output: `electricW = ratedW - 50 x SU_used`, or a unit is either shaft-mode or cable-mode (the Create answer). Test T4 |
+| L4 | **Treadwheel is passive power**: 24 SU (= 3 cranks) for standing still on it | `workshop.ts:349` | AFK x3 crank | 12 SU (1.5 cranks), and it must stop if the player does not move/attack for 30 s (anti-AFK). Animals: 12 SU each |
+| L5 | **Clockwork motor** gives 48 SU for 120 s for four taps | `CLOCKWORK` | x6 crank per tap | 24 SU, `windS` 30, `maxS` 120 (keeps one tap per 30 s of 24 SU, i.e. 3 cranks; a flywheel on top should *not* extend it) |
+| L6 | **Fuel conversions create energy**: log 200 kJ -> `charcoal` 400 kJ (x2); `coal` 800 -> `coke` 1,200 (x1.5). Not a cycle (the input is a raw resource) but the "energy out > energy in" invariant fails | `items.ts` fuel table, `recipes.ts` `charcoal`, `coke` | x2 / x1.5 | Accept charcoal x2 (the Ember bootstrap needs it) and **list both as the only allowed exceptions**; set `coke` 1,200 -> 1,000 kJ and keep `flameTempC` 1,550. Test T6 whitelists them |
+| L7 | **Essentia Cinder is free fuel**: one vial (4 units) adds 90 s of fire (= ~1.1 charcoal, 450 kJ at 5 kW). The land recovers 1 unit per 30 s per chunk per aspect, so ~0.5 charcoal/min/chunk forever, automatable with jars + a siphon | `magic.ts:43,49,609` | free fuel | `CINDER_BURN_S` 90 -> **45**, siphon adds `CINDER_BURN_S / VIAL_UNITS` only when below 15 s (already). Since fuel is not a constraint (1.4) this is cosmetic, but keep the cap so magic can never be the *cheapest* heat |
+| L8 | **Oil shale -> `fuel_canister` is a 150:1 energy mine**: 2 `oil_shale` + 40 kJ (still) -> 6 MJ chemical -> 2.4 MJ electric in the `combustion_engine` | `recipes.ts` `fuel_canister`; `combustion_engine.fuelEnergyJ` | x60 vs input energy | Intended (a rock is energy dense) but note labour: 1 canister costs ~16 s of labour against 30 charcoal (~210 s) for the same energy: the still makes fuel 13x cheaper per joule than wood. Keep, but do **not** let the still output also be furnace fuel (it is not today: no `fuel` on canisters; add a test that no distillery item has `fuel`) |
+| L9 | **Wind and solar scale without limit**: `water_wheel` has `shareRadius 3`, wind/solar have none; one `wind_turbine` is 94 expert-s for 1.5 kW | `tech.ts` `wind_turbine`, `solar_panel` | linear | Add `shareRadius` 12 to wind (output / number of turbines in range) and 6 to solar panels; cheap, same code as the wheel |
+| L10 | **Fission and Starhearth are intended gains** (72 MJ rod from 640 kJ of centrifuge; 1 MW ignited from a 27 MJ ignition) | `fission_pile`, `ignitedTempC` | x100 | Intended: they are the endgame. Make sure *cable rating and ignition* are the gate, not free tickling (see 3.4) |
+
+No loop was found in: thermopile (cools the furnace by 4x its output), `blower` (burn and heat both scale with `1+draft`), `space_heater`, arc/plasma heating (a steam-turbine -> arc heater -> boiler loop is 0.5 x 1.0 = 0.5), boiler (`heatPerSteamL 20`).
+
+### 3.3 Power-budget table (so no age is starved or flooded)
+
+Stress is in SU at 16 rpm reference (after fix L1). Electric in W.
+
+| Age | Sources (rated) | Typical peak load | Headroom rule |
+|---|---|---|---|
+| Ember | hand crank 8 SU (attended, `CRANK_S 2.5`), treadwheel 12 SU | none (hand stations only) | **Ember has no stress network** (owner decision). Cranks appear in Bronze |
+| Bronze | crank 8, wheel 8 (400 W), wind 8, clockwork 24, boiler engine **5 SU/bar, <= 30 SU at 6 bar**, 2 heat ports -> 60 | 4-7 machines: saw 4, millstone 4, mortar 4, press 8, hammer 8, mixer 6, drill 6 | one engine (30 SU) runs a 5-machine line; a second port or engine is the first *expansion goal*. Stalled at over-stress, never destroyed |
+| Forge | `steam_engine` 2 kW, `burner_generator` 3 kW (charcoal 400 kJ -> 120 kJ, 33 s per item), water wheel 0.4 kW, thermopile 0.3 kW, dynamo <= 2 kW | `crusher` 1 kW, `blower` 150 W, lamps 10 W | one engine = one crusher; **crusher must be worth it**: 1 kW x 4 s = 4 kJ per ore, 2 ingots per ore |
+| Current | `steam_turbine` 8 kW, `wind_turbine` 1.5 kW, `solar_panel` 0.3 kW, `combustion_engine` 12 kW, `geothermal_tap` 6 kW | `still` 2 kW, `bore_rig` 4 kW, arc heating 8 kW, `ward_beacon` 0.5 kW | ~15 kW peak: turbine + 2 wind + battery. Grid goal "generate 10 kW" fits |
+| Atomic | `fission_pile` 60 kW | `centrifuge` 8, `electrolyzer` 20, plasma 40 | ~68 kW peak: one pile + battery bank **is short by design**; second pile or `lithium_bank` is the goal |
+| Star | ignited Starhearth 1 MW | 300 kW x 90 s ignition = 27 MJ | see 3.4 |
+
+Price of power (expert-seconds to build per kW, from the cost model): thermopile 136, water wheel 183, solar 121, `steam_engine` 84, wind 63, `burner_generator` 37, geothermal 37, `steam_turbine` 29, `combustion_engine` 20 - monotonically falling by age (good), with the water wheel the worst by design (free forever, 400 W).
+
+### 3.4 Starhearth ignition
+
+`IGNITION_POWER_W = 300 kW`, 90 s, needs 95% satisfaction, 2 s grace. One `fission_pile` is 60 kW: **five piles or a charged `lithium_bank`** are required. The rule "hold 300 kW on a line that can carry it" is the real gate; keep it.
+Check before building: the bank's discharge W must not exceed its `capacityJ` / 90 s with 0.9 efficiency (27 MJ / 0.9 = 30 MJ capacity). Test T2c.
+
+### 3.5 Machines vs hand work (stations are 2-5 s per operation; machines must pay back, hand must stay viable)
+
+Hand rates: chopping block 4 strokes/s (axe doubles), quern 3/s, anvil 2.5/s (bronze hammer doubles), mortar 2/s, loom 2/s. Machine rate: `STROKE_S = 0.5` per stroke at 16 rpm, i.e. **2 strokes/s, slower than a hand**: machines win only by running unattended and in parallel (and by rpm, once L1 is fixed). Payback ops = build cost / (hand seconds + 2 s of taps).
+
+| Machine | Build cost (expert s) | Hand s/op | Machine s/op @16 rpm | Payback ops | Verdict | Target |
+|---|---|---|---|---|---|---|
+| `mech_loom` | 16 | 5.0 | 5.0 | 2 | too cheap | 60 s (+2 `bronze_plate`, +1 `bronze_cog`) -> ~9 ops |
+| `mech_millstone` | **10** | 2.0 | 3.0 | 3 | too cheap | 60 s (+2 `bronze_plate`) -> ~15 ops |
+| `mech_mortar` | 29 | 4.0 | 4.0 | 5 | cheap | 60 s |
+| `mech_hammer` | 40 | 1.6 | 4.0 | 11 | ok | keep |
+| `mech_saw` | 54 | 0.75 | 1.5 | 20 | ok | keep |
+| `hand_crank` | 8 | - | - | - | fine | keep |
+
+Rule: **machine build cost = 15-40 x the hand attended seconds of one op**, rising with age; before the first crank the player has already done every op by hand 30+ times, so hand work stays viable and the machine is relief, not a requirement.
+Hand throughput must stay >= machine throughput at 16 rpm (true today) so a machine never makes hand work obsolete; machine value is parallelism (buffer 16 items), idle time and rpm.
+Forge `crusher`: 2 crushed ore per ore (vs mortar 1.35) at 4 kJ - worth it because it doubles ingots, not because it is fast. `still` (2 kW): see 3.6. `bore_rig` 4 kW x 2 s/block (`secondsPerBlock 2`, tier 4): 6x faster than a steel pick on h12, correct.
+
+### 3.6 Distillery, sugar, brewing, essentia (price/yield audit)
+
+**Sap chain (HEAD recipes): `distil_syrup` 4 sap -> 1 syrup; `ferment_wash` 1 syrup -> 5 wash; `distil_low_wines` 16 wash -> 1; `distil_spirit` 8 low wines -> 1; `rectify_spirit` 4 spirit -> 1 `fuel_ethanol_beaker`.**
+Back-multiplying: 1 ethanol beaker = 4 spirit = 32 low wines = 512 wash = 102 syrup = **410 pine sap**, and ~12,300 + 11,300 + 2,240 + 240 + 60 = **~26,000 vessel-seconds** (7 hours on one flask). At one tap per log per 120 s that is 49,000 log-seconds (a 20-log grove for 41 minutes).
+Its worth: `FUEL_GRADES.fuel_ethanol_beaker` saw 0.25 x 420 = 105 units = 15 logs; the tractor 0.2 x 150 s = 30 s. A `fuel_canister` (2 oil shale, ~16 s of labour) gives 420 saw units / 150 tractor-s. **Ethanol is ~100x too expensive for its use.**
+
+| Knob | Now | Proposed | Result (sap per ethanol / vessel-s) |
+|---|---|---|---|
+| `distil_low_wines` ratio | 16 wash : 1 | **8 : 1** | |
+| `distil_spirit` ratio | 8 : 1 | **4 : 1** | |
+| `rectify_spirit` ratio | 4 : 1 | **2 : 1** | **51 sap / ~3,700 vessel-s** (4 vessels ~15 min) |
+| `FUEL_GRADES` ethanol saw / tractor | 0.25 / 0.2 | 0.5 / 0.4 | 1 ethanol = 30 logs; still 3x dearer than oil, which is right: it exists for the Ember/Bronze niche (spirit lamp, antiseptic, potions), not for the saw |
+| Fermenting from sugar | not possible | add `ferment_wash_sugar`: 3 `sugar` + 1 water -> 3 wash (sugar = 0.67 sap) | makes the sugar chain a real input to brewing, the planned tie-in |
+
+**Crude oil:** `refine_crude` 8 crude -> 2 diesel + 1 gasoline + 1 kerosene + 2 residue + 2 empty (260 s); `refine_crude_short` 4 -> 1 diesel + 1 slop + 1 residue (130 s). Residue feeds `LUBE.residue` x1.25 stress capacity for 600 s (vs pine resin x1.1, 300 s).
+Keep the lube bonus at x1.25: with L1 closed it is the only stress *multiplier*, so test it (T3). Oil pools: confirm they are finite or slow to refill (not read; add to playtest list).
+
+**Sugar chain:** `sap` -> `pine_resin` (boil 180 C) -> 2 resin + 1 water + 1 beaker -> 3 `sugar`. **0.67 sap per sugar**, one tap per 120 s per log: 6 logs = 4.5 sugar/min.
+
+**Brewing (per cup, expert):** attended ~19 s (2 cherries or leaves 4 s + taps), passive roast 8 s, boil 12 s, steep 20 s; buff = 180 s (`DRINK_BUFF_S`).
+Break-even test = seconds saved by the buff vs attended seconds spent: Swift (x1.2 walk, ~50% of time walking) saves 15 s; Vigor (x1.25 mining, ~40% mining) 14 s; Lasting (hunger x0.5) ~5 s; Spring/Hearthkept/Mending are situational. **Cups are break-even to slightly negative.** Fix: `DRINK_BUFF_S` 180 -> **300** (saves 25 s; cost unchanged) or brew 2 cups per boil. Do not raise the multipliers: stacking is already high (3.7).
+
+**Essentia gathering:** vis rod 1 unit per use (capacity 16), bronze rod 2/use (32), iron rod 3/use (64), `ROD_INTERVAL_S 0.2`; land recovery 1 unit per 30 s per chunk per aspect, cap `DRAW_CAP 24`. A research-gated Rune Desk recipe costs 12-18 units, an infusion 16-24: **~5-9 minutes of recovery for a chunk's aspect, but the cap of 24 means a 4-unit aspect can be gathered immediately from a chunk with 24 banked**.
+Price check: `steel_infusion` (1 `iron_ingot` + 2 `coal` + 12 essentia -> 1 steel) is *worse* than the forge route (2 iron + coke + limestone -> 2 steel), so magic is a flavour path, not a shortcut: keep.
+Rule for any new arcane/infusion recipe: essentia cost (units) x 30 s of recovery <= 0.7 x the expert seconds of the physical route; test T9b.
+
+### 3.7 Chainsaw, tractor, vacuum
+
+| Item | Rule today | Cost per use | Verdict / numbers |
+|---|---|---|---|
+| `chainsaw` | tank 840 units = 120 logs; `fuelPerLog 7`; canister refills 420 (60 logs); gasoline x1.3 (78 logs), ethanol x0.25 (15 logs), diesel 0 | 0.05-0.07 oil shale per log (a canister = 2 shale ~16 s) | Fuel is nearly free; the saw saves ~0.4 s of axe time per log but removes the tree-by-tree overhead (6 s per 4-log tree -> one cut). Fine. Keep the 48-log cap per cut (a sane felling radius). Do not lower `fuelPerLog` |
+| `tractor` | 600 s tank at burn 1; canister 150 s; idle 0.2, drive 0.8, work 0.6 per s; max 5.5 b/s (a sprinting player is 5.8) | ~0.024 canister per 100 tilled blocks | The tractor *tills a 4-wide swath at 5.5 b/s* (~22 blocks/s vs a hoe's ~2/s). Fuel is trivial; the real cost is the build (2 `chassis`, 4 `steel_plate`, 3 `copper_coil`, circuit, 4 `iron_plate`). Fine. Sprint > tractor is good: it is a work vehicle |
+| Vacuum (`vacuum_collector`, Hand Vacuum Pump) | no fuel; workshop collector radius 4, hand pump 9 blocks; planned air 30 L/s | stress 3 | No new cost needed. The Hand Vacuum Pump recipe (4 `bronze_plate`, 2 leather, bellows, 2 `copper_plate`) ~ 140 expert-s: **fine for Bronze** |
+| Tool wear (1 per block) | flint 64, bronze 192, iron 384, steel 768, `power_drill` 3000 | replace cost / block: flint 0.30 s (11% of mine time), bronze 0.25 (13%), iron 0.06 (5%), steel 0.05 (5%) | Healthy. Bronze Bronze->Forge needs ~500 blocks = 2.6 pickaxes (~8 ingots, 5% of the bill). Hammer 120/400, mould pours limited: keep |
+
+### 3.8 Hunger and buffs
+
+Constants: day 900 s; food 20 max; base drain 1/60 per s; sprint x2.5; per block mined 0.03; per jump 0.03; regen needs >= 12 food at 0.25 per hit point; Well-Fed 360 s (x2 regen, x0.5 drain).
+Need per player-hour (baseline + 800 blocks/age mined + 30% sprint): **~90 hunger/h**: 7.5 `hearth_stew` or 15 `bread`.
+
+| Food | Hunger | Raw labour (expert s) | Hunger per attended s | Note |
+|---|---|---|---|---|
+| `bread` (2 flour = 2 wheat) | 6 | ~7 | ~0.9 | baseline |
+| `cooked_mutton` / `cooked_chop` | 7 / 8 | ~13 | ~0.6 | + Well-Fed none |
+| `hearth_stew` | **12 + Well-Fed 360 s** | ~19 | 0.6 + buff | exactly additive (8+1+3): no free hunger, buff is the reward |
+| `sugar_cookie` x4 (1 flour + 1 sugar) | **12 (3 each)** | ~4.5 | **~2.7** | **3x the best staple, plus Sugar Rush** - the dominant food |
+| `sweet_bun` / `sugar_cake` | 6 / 9 | | | fine |
+
+**Cookie fix:** yield 4 -> 3 and `sugar_cookie` hunger 3 -> 2 (6 per batch = 1.3/s, 1.5x bread), or keep 4 cookies of hunger 2 (8 per batch).
+
+**Buff stacking (verified in `game/buffs.ts` and `core/constants.ts`):**
+
+| Effect | Sources | Max stack | Number |
+|---|---|---|---|
+| Walk/sprint speed | Swift 1.20 x Sugar Rush 1.12 | x1.344 | sprint 5.8 -> 7.8 b/s |
+| Mining speed | Vigor 1.25 x Well-Warmed 1.25 | x1.56 | multiplies the tool speed |
+| Food drain | Well-Fed 0.5 x Lasting 0.5 | **x0.25** | one stew = 48 minutes idle; Lasting + Stew **removes hunger as a pressure** |
+| Regen | Well-Fed 2 x Mending 2 | x4 | |
+| Warmth drain | Hearthkept 0.5 | x0.5 | |
+| Jump | Spring 1.35 | | |
+
+Sugar Rush: 1.12 speed, `SUGAR_WELL_FED_BURN_MULT 2.5` (a 360 s stew lasts 144 s), buff time max-merges (not additive), 45/90/150/240 s for sugar/cookie/bun/cake.
+Trade-off is real only when the player holds Well-Fed: +12% speed vs 60% of the stew wasted. Players without a stew pay nothing, so **sugar rush is free speed for the sugar chain**.
+Rules: (1) cap the *product* of drain multipliers at 0.4 (raise Lasting to 0.7 or Well-Fed to 0.6); (2) Sugar Rush also raises hunger drain x1.25 while active (so the cost applies when not Well-Fed), (3) keep one tea and one coffee at a time (already), (4) `speedMult` <= 1.4 total, `miningMult` <= 1.6 incl. Well-Warmed, asserted by tests T8.
+
+---
+
+## 4. Concrete value changes (summary of every number proposed)
+
+| Id | Change | From -> To |
+|---|---|---|
+| plasma_casing shell | casings in the Current -> Atomic gate | 53 -> 24 |
+| star_casing recipe | drop `magnet_ring` input; keep `2 superalloy, 1 fused_quartz -> 2` | 1 ring per 2 casings -> 0 |
+| Star gate | casings; `star_core` rings; deuterium | 93 -> 30; 6 -> 3; 8 -> 4 |
+| steam engine (plan) | shaft capacity per bar | 128 SU -> **5 SU** (cap 30 at 6 bar) |
+| kinetics `solveNetwork` | part stress vs rpm | `base x clamp(16/rpm,.25,4)` -> `base x \|rpm\|/16` |
+| GENERATOR_SHAFT | electric output when shaft used | full -> `rated - 50 x SU` |
+| treadwheel | SU | 24 -> 12 (+ AFK stop) |
+| clockwork motor | SU | 48 -> 24 |
+| coke | energy | 1,200 -> 1,000 kJ |
+| CINDER_BURN_S | fire s per vial | 90 -> 45 |
+| wind / solar | share radius | none -> 12 / 6 |
+| low wines / spirit / rectify | wash:1, low:1, spirit:1 | 16/8/4 -> 8/4/2 |
+| ethanol grades | saw / tractor | 0.25/0.2 -> 0.5/0.4 |
+| DRINK_BUFF_S | | 180 -> 300 |
+| sugar_cookie | yield x hunger | 4 x 3 -> 3 x 2 |
+| mech_millstone, mech_loom | add bronze plates | 10 s / 16 s -> ~60 s |
+| food-drain product | Well-Fed x Lasting | 0.25 -> >= 0.4 |
+| tin | one guaranteed 5-block vein within 48 blocks of spawn | new |
+
+---
+
+## 5. Balance test plan (automated, to be added by the builders)
+
+Put the model in `src/content/timeModel.ts` (pure, imports `RECIPES`, `ORE_VEINS`, `BLOCKS`, `FURNACE_TIERS`, `MACHINES`; parameters in one exported `TIME_PARAMS`), so tests do not depend on a snapshot. Every threshold below is a **band, not a point**, so content tweaks do not churn tests.
+
+| Id | Test | Implementation | Acceptance threshold |
+|---|---|---|---|
+| T1 | **Time-to-next-age** per age bundle | `expertMinutes(bundle)` via the cost fixed point; bundles are `FURNACE_TIERS[i].upgradeCost` + `hearthMaterials(i)` + a named kit list in content | Ember 8-18; Bronze 28-42; Forge 20-32; Current 24-36; Atomic 28-48 (bundle = kit + gate); each age <= 2.5x the previous and >= 0.6x; total <= 190 expert min |
+| T1b | **Ore bill sanity** | sum raw ore of each bundle | no age needs > 120 ore blocks of one kind; tin >= 25% of copper count in Ember/Bronze |
+| T1c | **Gate has no wait > 8 min** | sum of crop/tap/tanning/dry waits on the critical path | <= 480 s without a hand alternative |
+| T2a | **Energy conversion cycles are lossy** | table `CONVERSIONS: [from, to, efficiency][]` in `core/constants.ts`; find cycles with DFS | product of any cycle <= 0.6 (fails today only if L2/L3 stay) |
+| T2b | **No recipe returns more energy than it costs** | for every recipe, `energy(outputs)` (fuel items' `energyJ`) vs `energy(inputs)` + `energyJ` of the machine | ratio <= 1.0 with whitelist `{charcoal: 2.0, coke: 1.5}`; distillery items must have no `fuel` |
+| T2c | **Ignition feasible** | storage capacity / max discharge of `lithium_bank` | >= 27 MJ / 0.9 and discharge >= 300 kW |
+| T3 | **Gearing conserves work** | for rpm in {4, 8, 16, 32, 64, 96, 144}: `throughput = rpm/16`, `stress(part)` from `solveNetwork` | `stress / throughput` constant within 1%; i.e. `workPerSU(144 rpm) <= 1.01 x workPerSU(16 rpm)` |
+| T4 | **Generators do not double-dip** | water wheel at 2 water blocks with and without a shaft load | `electricW + 50 x shaftSU <= ratedW` |
+| T5 | **Boiler energy** (when built) | sim a 6 kW heat port into the engine | `shaftSU x 50 W <= 0.30 x heatW`, within 5% of `5 SU/bar` |
+| T6 | **Crafting value invariants** | `cost(output) >= 0.5 x sum(cost(inputs)/outCount)` and `<= 3x` | no `output` cheaper than half its inputs; flagged list (crusher x2, mortar x1.35, `sugar` 3 from 2) is an explicit whitelist |
+| T7 | **Food economy** | hunger per attended second from the cost model | no food > 2.0x `bread`; `sugar_cookie` <= 1.6x; starvation sim: a bot eating `bread` only keeps food >= 6 for 60 min with <= 25% of attended time spent on food |
+| T8 | **Buff stacking bounds** | instantiate `PlayerBuffs` with every buff active | `speedMult <= 1.4`, `miningMult x wellWarmed <= 1.6`, `foodDrain x wellFed >= 0.4`, `regenMult <= 4` |
+| T9 | **Distillery yields** | compute sap and vessel-s per `fuel_ethanol_beaker` from `recipesDistill.ts` | sap <= 60, vessel-s <= 5,000; ethanol worth: `sapCost x tap time` <= 40 x oil route |
+| T9b | **Arcane cost vs physical route** | `sum(units) x DRAW_RECOVER_S` vs `expertSeconds(route)` | <= 0.7 |
+| T10 | **Machine payback** | `buildCost / (handSecondsPerOp + 2)` for every `MECH_TWINS` | 8-60 ops; `machineSecondsPerOp(16 rpm) >= handSecondsPerOp` |
+| T11 | **Tool wear economics** | `replaceCost / (durability x mineTime)` per tool set | <= 0.15 |
+| T12 | **Power budget per age** | `sum(sourceRatedW)` of that age's goal kit vs `sum(consumerDrawW)` of its machines | headroom 1.0-3.0x (Forge ~1.3, Current ~1.5, Atomic **< 1.2 by design**) |
+| T13 | **Furnace upkeep** | lit-day fuel items x gather seconds / 900 | <= 10% |
+| T14 | **Spawn fairness** | for 20 seeds, distance to nearest tin, copper, coal, clay, water, pine | tin <= 48 blocks, coal <= 64, clay <= 32, pine log <= 40 |
+| T15 | **Solver-time regression** | extend `playthrough.test.ts` to log the cost-model minutes at each objective | assert monotone, no objective > 12 minutes after its predecessor |
+
+Process: add T1-T4 and T8 first (cheap, pure, cover the two loops that matter most: L1, L3); the rest follow the code they test (T5 after the boiler exists, T9 after the distillery rebalance).
+**After the first real playthrough, replace the `x2.0` expert-to-player factor with the measured ratio** and rerun T1; that one number decides every band.
+
+---
+
+## 6. Open items and honest caveats
+
+- Not measured: nothing ran. The model has no mob fights, nights, deaths, inventory trips, crafting UI time beyond a flat 2 s, or learning curve (factor 2.0 is a guess).
+- The Bronze bundle uses the plan's own numbers, including "30 plates + ports"; some recipe ids (`bronze_gearbox`, `flywheel`, `steam_engine_b`) are assumptions where the plan says only "gearbox".
+- Hearth shell material counts were taken from the committed `hearthMaterials()`; the six-age refactor may change them. T1 reads them live so it self-corrects.
+- Oil pool regeneration, battery capacity/discharge limits and crop yield per plot were not read; T2c and T14 cover them.
+- The Forge -> Current dynamo (shaft -> electricity) does not exist yet: price it with `ETA_DYNAMO 0.9` and `W_PER_SU 50` (a 2 kW dynamo needs 44 SU: one steam engine, i.e. two boiler ports).
+
+<!-- ======================== END docs/advice/balance-economy.md ======================== -->
+
+
+---
+
+<!-- ======================= BEGIN docs/advice/engineering-risk.md ======================= -->
+# FILE: docs/advice/engineering-risk.md
+
+# Engineering-risk dossier - performance, saves, tests, merge safety, architecture debt
+
+Author: engineering-risk advisor (read-only analysis, 2026-11-21). Evidence: `git log --stat`, reading `src/save`, `src/app`, `src/sim`,
+`src/workshop`, `src/magic`, `src/game/groundItems.ts`, `scripts/`, `docs/{SPEC,CONGRUENCE,LOCAL_HANDOFF,team}.md`. Nothing was built or run.
+Numbers marked **(measured)** come from a test or file in the repo; **(estimate)** are my reading of the code and must be confirmed by the
+probes in section 1.5 before they are treated as fact.
+
+## 0. The ten findings that matter most
+
+1. **Voxel ids are positional and persisted** (`BLOCK_SPECS` order = id; edits store raw uint16 voxels, 10-bit id, 220 of 1024 used **(measured)**).
+   Today "append only, last" is a convention. Seven parallel lanes each appending to `blocks.ts` will produce different ids per branch and a
+   silent world scramble for any save made on one branch and opened on another. Fix: an id lock file (section 4, R1).
+2. **Unknown item keys are silently deleted on load** (`sim/sanitize.ts cleanSlot` returns `null` for an item the registry does not know).
+   The six-age refactor and every later rename or removal erases items from crates, furnaces and (probably) inventories without a message.
+   Fix: alias table + a fixture test that every key found in any golden save resolves (section 2.4).
+3. **Workshop, Magic and Vehicles persist only when the browser `Game` class exists** (`app/game.ts` lines 128-186: `world.persist(...)` is
+   registered in `Game`, not `GameState`). Headless `GameState.restore` (the playthrough solver, `oldSave.test.ts`) never exercises them; they pass
+   through as raw `extras`. A module whose `load()` throws or loads empty is then **overwritten by its empty state on the next autosave**
+   (`world.toJSON` spreads `loadedExtras`, then savers override). Fix: wrap + keep a `.bad` copy + move the modules into `GameState` (R3).
+4. **`SAVE_VERSION = 1` and `migrateSave()` returns `null`.** Any envelope with another version is "unusable, held, backed up". The refactor is
+   id-stable, but it renumbers stored integers (furnace `tier`, `objectives.age`, `peaks.tier`, hearth tier). Do not bump the envelope; add an
+   additive `WorldSave.rev` and a migration chain keyed on it (section 2.3). Must land **before** any lane builder starts.
+5. **Workshop `solve()` re-runs a full flood-fill, `Map`/`Set` allocation and string-key generation for every part, every tick**
+   (`workshop.ts:277-345`, keys are `"x,y,z"` strings, `neighbours()` builds 6+ strings per part). At 200 parts that is ~1,500 short strings per
+   tick, 30k/s **(estimate)**: a GC-stutter generator on a phone. Same family: `logistics.intakeGround` allocates a key per ground item per tick,
+   `contraption.tick` copies `[...acts.values()]` per tick, `jarsFor` scans (2r+1)^3 cells per consumer per second.
+6. **Timing assertions live inside the unit suite** (`perf.test`, `hearthPerf`, `transportPerf`, `hostileWorld`, `persistence`, `fingerprint`,
+   `textures`: `< 1 ms`, `< 1.5 ms`, `< 3 ms`, `< 200 ms`, `< 1500 ms`). Their own comments say "wider under the parallel suite". With 5-7 lanes
+   each running `vitest` on 12 threads they will flake. Move them to a serial perf project; keep deterministic call-count budgets in the main one.
+7. **e2e "mutex" is a folder lock for one shared checkout.** With git worktrees most of it is already unnecessary (scripts resolve `root` from
+   their own path, `serve(0)` takes an ephemeral port). What still collides across worktrees: fixed `os.tmpdir()` build dirs
+   (`hearthwatt-e2e-magic`, `-dev`, `-workshop`), `npm run dev` on 5173, the machine's 12 threads / 16 GB, and Playwright living only as an
+   untracked `--no-save` install in `node_modules` (a junction + `npm install` in a lane would delete it).
+8. **Shared registries and index files are the merge-conflict surface** (list in section 3.5). In the last 150 commits: `HANDOFF.md` 19,
+   `app/game.ts` 14, `content/{progression,items,specRoster,recipes,content.test,objectives}.ts` 10-11 each, `core/{types,gameEvents}.ts` 10 each,
+   `render/textures/painters.ts` 11, `package.json` 9, `sim/simulation.ts` 7. Folder-registration plus generated (not committed) indexes removes
+   most of them (R1, R2).
+9. **Line endings are not pinned**: `core.autocrlf=true`, no `.gitattributes`, and git prints "LF will be replaced by CRLF" on the refactor's
+   working copy. Different lanes will round-trip files differently and produce whole-file diffs. Add `.gitattributes` (`* text=auto eol=lf`)
+   in the integration merge of the refactor, once, with a renormalise commit.
+10. **Content tests are a second typed copy of the content** (`specRoster*.ts`, 12 files, 1,148 lines, "a deliberate balance change has to be made
+    here as well"). Every addition touches both. Replace by derived invariants plus one reviewed golden file (R2).
+
+---------------------------------------------------------------------------------------------------------
+
+## 1. Performance budget
+
+### 1.1 Frame model and what the game already enforces
+
+- Fixed 20 Hz simulation (`DT = 0.05`), at most 5 catch-up ticks per frame (`app/loop.ts MAX_CATCH_UP_TICKS`), frame `dt` clamped to 0.1 s.
+  Order per tick (`app/game.ts tickOnce`): `state.tick` (sim, survival, objectives, mobs, ground items, clock) -> `magic.tick` -> `workshop.tick`
+  (+ `verify()` every 200 ticks) -> `world.leaves.tick`. Then `world.update(..., STREAM_BUDGET_MS = 4)` then render.
+- Phone defaults: render distance 4 chunks (`PHONE_RENDER_DISTANCE`, 81 chunks, voxels = 16x16x96 uint16 = 48 KB per chunk, ~4 MB), desktop 6
+  (169 chunks, ~8 MB); the slider allows 12 (625 chunks, ~30 MB voxels alone) - the settings range is a perf risk on phones, cap it by device.
+- The app already draws rarely when paused or when a window covers the view (`shouldDraw`, `STILL_REDRAW_MS`), and the autosave waits for a calm
+  moment (`AUTOSAVE_INTERVAL_S 30`, grace 10).
+- Existing measured budgets (desktop, node): 300 power-grid entities tick `< 1 ms` mean, block edit beside a machine `< 1 ms`, cable rebuild
+  `< 5 ms` (`sim/perf.test.ts`); formed 5x5x5 hearth `< 0.05 ms` per tick, full 7x7x7 scan `< 1 ms` (`hearthPerf.test.ts`); 20 item networks x 200
+  pipes x 48 packets `< 1.5 ms` (loosened from 0.5) and a 1000-pipe rebuild `< 15 ms` (loosened from 5) (`transportPerf.test.ts`); fingerprint of every
+  item `< 200 ms`, texture generation `< 1.5 s` (cold start cost).
+
+### 1.2 Budget table
+
+"Phone factor": a mid phone (Snapdragon 7-class / A13-class) runs this single-threaded JS about **3-4x slower** than the owner's desktop node.
+Budgets below are **desktop-node ms** per tick unless stated; the phone sim budget is therefore 20 ms/tick x (1/3.5) of ~50 ms period would be
+overkill - the real target is: **total simulation <= 1.5 ms desktop per tick (~5 ms phone, 10% of a 50 ms tick)** at the "reference base" below,
+and render CPU <= 6 ms phone per frame. Anything that scales with world size rather than with the player's base is forbidden (SPEC line 348).
+
+Reference base (what a mid-game player has loaded): 6 hearths/furnaces, 40 machines, 300 power entities, 400 pipes with 100 packets, 10 distill
+modules, 150 workshop parts (60 belts), 40 logistics cells, 20 essentia jars + 3 tubes nets, 2 tractors, 60 ground items, 30 animals, 120 signal cells.
+
+| System | Existing cost / measured | Likely cost of the new work | Where it blows up | Budget (desktop ms/tick, reference base) |
+|---|---|---|---|---|
+| Power grid + machines + furnaces (`sim/nodes.ts`, `power.ts`) | 300 entities `< 1 ms` (measured) | steam boilers, bronze furnace, boiler/turbine pairs add machines and heat coupling | adding a per-tick `getBlock` neighbour scan to every machine (`prepare()` hooks), `everySecond` work moved into per-tick | 0.6 total; no machine may do world reads per tick unless its surroundings version changed |
+| Hearth multiblock (`hearthScan`, `hearth.ts`) | scan 7x7x7 `< 1 ms`, formed `< 0.05 ms/tick` (measured) | six tiers: larger/more variants, Bronze "stands alone" | re-scanning on every block change anywhere (must stay shell-local: `shellChanged(min,max)`) | 0.05 per formed hearth, scan only on shell change |
+| Transport pipes (`transport.ts`, `itemNet`, `fluidNet`) | 20 nets x 200 pipes x 48 packets `< 1.5 ms` (measured, 3x the original 0.5 goal) | steam and distillery liquids add a **fluid** layer on the same pipe graph; belts are a separate system (below) | rebuilding on every `setVoxel` of a non-pipe neighbour; per-packet allocation; steam condensation spawning fluids every tick | 0.5; rebuild <= 5 ms per 1000 pipes; packet objects pooled |
+| Distillery (`sim/distill.ts` 460 lines, `distillScan.ts`) | no probe exists | module graph up to `MAX_MODULES 64`, `MAX_SEGMENTS 8`; liquids with mixes (`mix` objects) | `distill.touched()` re-solving the whole rig each tick; reaction table lookups creating objects; scan on every adjacent block edit | 0.3 with 10 rigs; solve only on `touched`; mix math allocation-free |
+| Brewing / crops / hand stations | `crops.tick` per entity; hand stations timed | more crops (sugar), stations with timers | O(world) crop scans for rain/sun each tick (`wetAt`, `rainAt` called per entity) | 0.1 each; weather queries cached per chunk per second |
+| **Workshop kinetics** (`workshop.ts solve/showActive/moveBelts/work`) | no probe; string keys; full `solve()` each tick (`MAX_NET 512` members per net) | contraptions, belts (`moveBelts`), clutches, flywheel coast re-solve (`run()` twice), signals | per part: `neighbours()` = 6 string builds + chain-range scan up to `LINK_RANGE`; 150 parts => ~1,500 allocs/tick; `solveNetwork` closures per net per tick | 0.3 at 150 parts, **<= 0.05 idle**; solve only when topology/source/lube/clutch state changed (dirty flag), numeric keys |
+| **Logistics cells** (`logistics.ts`: funnel, chute, mixer, press, arm, deployer, drill, spout, saw, vacuum, tally) | no probe | belts-with-items, deployers calling `host.actHook`, vacuum collectors scanning radius | `intakeGround` loops **all** ground items every tick and builds a string key each (`k3`); `mover` does `take/accept` with `getBlock` per cell per `MOVE_S`; vacuum radius scans | 0.3 at 40 cells; intake only when a cell with `TAKES_GROUND` exists, spatial hash of items |
+| **Contraptions** (`contraption.ts`: piston, bearing, skiff, rail) | no probe | structure flood-fill (cap 48 blocks) each step; `commit()` does clear + `setVoxel` for every block (`'sim'` source) | each `setVoxel` triggers re-light, re-mesh of its chunk and sim hooks: a 48-block piston step = up to 96 edits in one tick; `[...this.acts.values()]` copy per tick; moving entities relocate | one step <= 2 ms and <= 2 chunk remeshes; batch edits through one `world.batch()`; cap 3 acting contraptions per tick (stagger) |
+| Signals (`signals.ts`) | `tick(clock)` each tick | wires, plates, metronome, lamps, bell, tally | wire propagation recomputed every tick; per-plate player-position checks | 0.05; propagate on change only |
+| **Essentia / aura** (`magic/`) | `tick` trivial; 1 Hz `tickServants` + `tickSiphon`; `draws` map per chunk; `essentiaNet` capped at `MAX_TUBES 256` | aura drawn by machines and rods, wellsprings, infusion, jars as consumers | `jarsFor(blockAt, x,y,z, radius)` scans (2r+1)^3 `getBlock` per consumer per call: r = 6 => 2,197 reads x N consumers per second; `nodesAround` sorting per frame for rendering | 0.2 per **second-tick**; cache jar sets per consumer, invalidate by block-change events inside the region |
+| **Ground items** (`game/groundItems.ts`) | `MAX_GROUND_ITEMS 256`, despawn 300 s, merge every 0.5 s; each item `physics()` per tick: `isLoaded`, `getBlock`, `solidAt` (up to 8 more) | belts and logistics drop/pick items continuously; vehicles/tractors harvest; vacuum | 256 items x ~3-12 `getBlock` per tick = 800-3,000 reads per tick **(estimate)**; item renderer instance updates per frame | 0.25 at 60 items, 0.6 at 256; **resting items sleep** until a block change in their column/neighbours |
+| Vehicles (`vehicles/manager.ts`, `tractor.ts`) | sub-steps `MAX_STEP_S 0.025` (2/tick) with `collide.ts` box sweeps | tractors with PTO, skiffs on rails, riding | collision sweeps against many chunk reads; PTO scan `findPto()` in `workshop.tick` **every tick** over tractors | 0.3 per occupied vehicle, 0.02 per parked one (sleep when still) |
+| Mobs / Emberbound (`mobs/manager.ts`) | caps `MOB_STORED_CAP`, `HOSTILE_CAP`; `hostileWorld` probe `< 3 ms` | larger ruins, more automatons | spawn planning per chunk load; pathing | 0.4 |
+| Weather, survival, clock, objectives | small | objectives get many more conditions | objective checks scanning inventories each tick | 0.1 total; evaluate on events, not per tick |
+| World streaming | `STREAM_BUDGET_MS 4` per frame (main) + worker meshing | six ages add taller/odd shapes (pipes, cups, stations: `meshPipe/meshCup/meshStation/meshQuads`) | mesher cost per chunk with many special shapes (each shape = quads); light updates from `setVoxel` | 4 ms/frame stream budget stays hard; mesh job <= 8 ms desktop per chunk |
+| Autosave (`app.ts`) | `JSON.stringify` of the whole world on the main thread every 30 s | + workshop cells with item maps, pipes with packets, 256 ground items, signals | stringify of a 1-3 MB document = 30-120 ms phone hitch | <= 40 ms desktop / 150 ms phone, only when `calm`; see 2.6 |
+
+### 1.3 Render and memory budgets (phone)
+
+Renderer already exposes `stats` (`drawCalls`, `triangles`, `chunks`, `chunkTriangles`, `particles`, `effectSources`, `cpuMs`, `weatherMs`,
+`machines`, `machinesMs`). No numeric budget is asserted anywhere. Proposed (confirm the baseline by probe first, then freeze with 25% headroom):
+
+| Metric | Phone portrait (render distance 4) | Desktop (distance 6) |
+|---|---|---|
+| Draw calls | <= 350 | <= 700 |
+| Triangles drawn | <= 350k | <= 1.2M |
+| Render CPU (`stats.cpuMs`) | <= 6 ms | <= 3 ms |
+| Particles + effect sources | <= 600 / 24 | <= 1500 / 48 |
+| Workshop instances (`workshopRenderer MAX = 768`) | hard cap stays; overflow culls farthest | same |
+| Cell light cells (`render/tech/cellLight.ts MAX_CELLS 6000`) | keep | keep |
+| Atlas | `MAX_ATLAS_PAGES 2` (16x16 tiles) - new content must fit; textures cap `SPEC.maxTextures` | same |
+| JS heap | <= 250 MB steady, no growth over 30 min idle | <= 600 MB |
+| Per-tick garbage | **zero allocations in idle ticks** of Workshop, Logistics, Signals, Contraptions, Magic, ground items (probe 1.5-D) | same |
+| Entity/part caps | block entities 1,500; workshop parts 400; logistics cells 150; pipes 1,500; ground items 256 (exists); mobs per existing caps; essentia tubes 256 (exists) | x2 |
+
+Policy when a cap is hit: refuse the placement with a toast (never silently drop and never throw), and `diag('<sys>.cap', {...})`.
+
+### 1.4 Where scans and per-tick loops will blow up (ordered by expected damage)
+
+1. `workshop.solve()` (every tick, all parts, string keys, closures) - make it dirty-driven. Mark dirty on: part added/removed (`noteBlock`/`verify`),
+   lube/crank/wound state change, source output change (`generatorWatts` is polled; sample it at 4 Hz and compare), clutch flip from signals,
+   flywheel coast transitions. Otherwise reuse `speed/netOf`.
+2. Item-handling loops that walk all ground items per cell type (`intakeGround`, vacuum, deployer). Replace with: build once per tick a
+   `Map<number,GroundItem[]>` only if any intake cell exists; or let the cell query `ground.near(x,y,z,r)` backed by a 2 m spatial hash that
+   `groundItems` maintains incrementally.
+3. `setVoxel` fan-out from contraptions and bearings (re-mesh and re-light per block). Add a `world.batch(fn)` that defers light/mesh/hook work
+   to once per affected chunk; if one already exists (`host.hold()` is used by `contraption.commit`), put a counter in it and a test.
+4. Essentia `jarsFor`: radius cube scan. Precompute per consumer, cache by `(x,y,z,radius)` with a version stamp from `world.blockVersion(chunk)`
+   or the existing `block:changed` events; invalidate on events inside the cube only.
+5. `groundItems.physics` for resting items. Items with `onGround && vx=vy=vz=0` should skip everything until a `block:changed` event touches their
+   cell column (subscribe once, keep a Set of sleeping ids) - 256 items then cost almost nothing.
+6. Anything that iterates `world` entity map to answer "is there a X near me" (`Survival` heat sources iterates block entities; `SafeZones` is
+   already version-cached - copy that pattern).
+7. Per-frame work in renderers that re-derive views: `magic.nodesAround(...)` (sorts) and `workshop.view(pp.x,pp.z)` are called every drawn frame
+   from `game.ts frame()`; give them a `version` and rebuild only when it changes or the player moved a block.
+8. `Simulation.tick` calling `allNetworks()` for HUD stats: it is cached by `statsTick`, keep it that way for any new aggregate (aura totals,
+   rpm totals, steam totals).
+
+### 1.5 Probes and tests the builders add
+
+**A. Subsystem profiler (always-on, ~free).** `src/app/prof.ts`: `prof.run('workshop.solve', () => ...)` records an EMA and a max per name with two
+`performance.now()` calls; `Simulation.tick` and `Game.tickOnce` wrap each subsystem. Exposed as `window.__hw.prof()` -> `{name: {emaMs, maxMs, calls}}`.
+Cost: ~0.01 ms per tick for 15 subsystems. Off in the node tests (injectable clock) so tests stay deterministic.
+
+**B. `scripts/perf-budget.json`** - the one source of numbers: `{ "sim.total": 1.5, "workshop.solve": 0.3, ... , "render.drawCalls.phone": 350 }`. Read by the
+perf test project and by the e2e perf step. A lane that needs more edits this file in its own PR with a reason.
+
+**C. Deterministic budgets in the normal suite (no wall clock).** A `CountingWorld` wrapper (`src/sim/testKit.ts`) counts `getBlock/getVoxel/isLoaded/setVoxel`
+and a `makeAllocProbe()` counts `Map.set`/`Set.add`/string keys via a tiny instrumented `k3`. Tests assert e.g. "150-part workshop idle tick: <= 0
+setVoxel, <= 200 getBlock, 0 solve() runs after the first", "256 resting ground items: <= 10 getBlock per tick", "jar scan: <= 1 scan per consumer
+per block change". These cannot flake.
+
+**D. Serial perf project (wall clock, run under the cpu lock).** Files named `*.perf.test.ts`, excluded from the default `vitest.config.ts`, run by
+`npm run test:perf` with `fileParallelism: false`, median of 5 batches, budget = `perf-budget.json` x 3 headroom in `--ci` and x 1 for the owner's
+"is it fast" run; results written to `test-results/perf.json` so trends are visible. Move `perf.test.ts`, `hearthPerf.test.ts`, `transportPerf.test.ts`,
+`hostileWorld` (timing case), `persistence` (timing case), `fingerprint` and `textures` timing assertions there. New perf files required:
+`workshopPerf` (150 parts, 60 belts, 40 cells), `contraptionPerf` (one 48-block piston cycle: ms + number of chunk remeshes), `groundItemsPerf` (256 items awake
+and asleep), `essentiaPerf` (20 jars, 10 consumers, radius 6, 1 Hz), `distillPerf` (10 rigs), `signalsPerf`, `savePerf` (2.6), `referenceBasePerf` (the whole
+reference base through `Simulation` + `Workshop` + `Magic` + `GroundItems`, asserting the `sim.total` row).
+
+**E. Browser probe (one e2e step, desktop and phonePortrait, `HW_GPU=1`).** Load a fixture world (the reference base saved as a golden save, 2.5), stand in
+it for 600 ticks, read `__hw.prof()` and `renderer.stats`, assert against `perf-budget.json`, print the table, fail on > budget. Phone portrait runs
+with CPU throttling 4x (`CDP Emulation.setCPUThrottlingRate`) so the "mid phone" number is real. Also a 30-minute idle heap growth check is too slow
+for CI; run 3 minutes with `performance.memory` sampled (Chromium only) and assert < 5 MB growth.
+
+**F. Per-system `diag('<sys>.budget')`** when a tick exceeds its budget (rate limited to once per 5 s per system; section 3.4).
+
+---------------------------------------------------------------------------------------------------------
+
+## 2. Save and migration safety
+
+### 2.1 What exists (all measured by reading `src/save`, `src/world/world.ts`, `src/app`)
+
+| Key / field | Where | Version | Notes |
+|---|---|---|---|
+| `localStorage["hearthwatt.save"]` | `SaveSlot.store` | envelope `{"v":1,"t":ms,"d":SaveDocument}`, `SAVE_VERSION = 1` | one slot; `migrateSave` returns `null` (no old formats yet) |
+| `"hearthwatt.save.bak"` | `BACKUP_KEY` | raw copy | written when the stored save is corrupt / newer / invalid; dropped first on quota |
+| `"hearthwatt.settings"` | `SETTINGS_KEY` | `v:1` | written while a damaged world is "held" so settings are not lost |
+| `SaveDocument` | `{settings, world: WorldSave \| null}` | - | `normalizeDocument`: settings always repaired, a world that fails `isWorldSave` is dropped to a backup, never the settings |
+| `WorldSave` | seed, seedText, `world: WorldSnapshot`, player, clock, survival, objectives, playTimeS, optional `weather`, `mobs`, `mode` | no own version | optional keys = forward-compatible by absence |
+| `WorldSnapshot` | `version: WORLD_SNAPSHOT_VERSION = 1`, seed, `edits` (per chunk base64 uint16 pairs), `entities[]` (live block entities), `water`, `leaves`, `extras` | 1 (a newer one throws, caught -> held) | `extras` = free-form module data, unknown keys are preserved on re-save (good) |
+| `extras.vehicles` / `extras.magic` / `extras.workshop` | `Game` (browser class) via `world.persist(key, fn)` / `world.extra(key)` | none | workshop snapshot nests `logi`, `sig`, `pist`, parts array; magic has research, notebook, jars, servants |
+| Player: `inventory`, `buffs`, `stats`, `combat`, `ground` (ground items), `home`, `spawn` | `PlayerSnapshot` | none | `validPlayer` checks the shape; ground items load tolerant |
+| Block entities in `world.entities` | furnace, machines, crates, crops, hand stations, brew, distill modules, pipes with packets | none; repaired by `sim/sanitize.ts sanitizeEntity` | per-field coercion, `dropped` for unknown kinds |
+| Edits | block voxel values (10-bit id, facing 2, active 1, variant 3) | by position in `BLOCK_SPECS` | **append-only convention** |
+
+Strengths worth keeping: SaveStore never throws, memory fallback, quota hook that frees the backup, "held" mode never overwrites an unreadable save until the
+player starts a new world on purpose, structural validation (`isWorldSave`), sanitising of entities, unknown `extras` preserved, `oldSave.test.ts` with a real fixture.
+
+### 2.2 Risks by system for the overhaul
+
+| System | Persisted shape | Risk when streams land |
+|---|---|---|
+| Six-age refactor | furnace `tier` in entities and hearth `{tier, inner}`, `objectives.age/peaks.tier`, objective ids, `ageMap` | integers renumber (5 tiers -> 6); entity tier is re-derived from the block (`sanitizeEntity(e, blockTier)`) but `objectives.age` and `peaks.tier` are not; completed-objective ids that disappear re-award `pendingRewards` or leave the tracker pointing at nothing |
+| Workshop (parts, logi cells, signals, contraptions) | arrays of tuples `[x,y,z,kind,s]`, cell tuples `[x,y,z,kind,{items},fluid,filter,src,...]`, `pist` | **positional tuples**: adding a field in the middle shifts every later field silently; `verify()` drops entries whose block no longer matches (`logi` line 770, `workshop` line 782) - correct, but a renamed block kind erases the machine state |
+| Essentia / aura | research (scanned, lore), notebook, jar contents, servants, draws | aspect keys come from `aspectTable.ts`; renaming an aspect or an item's fingerprint changes what a jar means; unknown aspect in a jar must be dropped to `void`, not crash |
+| Distillery liquids | `mix` maps `{fluidKey: litres}` per module, `FluidKey` union in `core/types.ts` | a removed or renamed fluid key: `fluidOrNull` handles it in sanitize? Must be checked per new fluid (test) |
+| Ground items | `player.ground` list (item, count, xyz, age) | unknown item -> should be dropped with a count in `diag`, currently the same silent deletion |
+| Vehicles | tractors snapshot | vehicle kinds added; skiff and rails belong to contraptions - keep separate keys |
+| Signals | wire/plate/lamp state in `sig` | signal state is derivable; **never trust a persisted level** - rebuild on load (clutches that start jammed) |
+| Objectives | completed ids + flags + `peaks` | new objectives must default to "not done"; flags are strings, never remove one |
+
+### 2.3 Migration strategy
+
+**Rule set (write into `docs/api/integration.md` and enforce by test):**
+1. **Never bump `SAVE_VERSION` for additive change.** Missing keys load as empty/default (already the convention).
+2. **Block ids: append-only, enforced by the id lock** (R1). Item, fluid, aspect, objective, flag, research and recipe **keys are never renamed or deleted**; a
+   rename adds an alias `OLD_KEYS: Record<string,string>` (one file, `src/content/aliases.ts`) consulted by `cleanSlot`, ground items, jars, objectives and edits
+   decoding. A deletion maps to a replacement item or to `scrap_metal` plus a one-time toast ("N items from an old version were converted").
+3. **Add `WorldSave.rev: number`** (optional, absent = 1). `rev` is the *content/format revision* of the world, independent of the envelope `v`. `GameState.restore`
+   runs `MIGRATIONS[rev] ... MIGRATIONS[CURRENT-1]` in order on the parsed `WorldSave` before validation; each migration is a pure function
+   `(save) => save` with a test and a golden pair (input fixture, expected output). `rev` is written on every save.
+   - `rev 1 -> 2` (six-age refactor): map `objectives.age` (old index -> new index: Ember 0, Bronze 1, Forge 2, Current 3, Atomic 4, Star 5; old 1..4 become 2..5),
+     `peaks.tier` (+1 for tiers >= 2), hearth/furnace `tier` (re-derived from block id; assert agreement), keep completed ids, and recompute
+     `pendingRewards` so no reward is granted twice. If the refactor already made the tracker tolerant of old data, the migration may be a no-op beyond setting `rev`; the
+     point is the hook and the test exist.
+4. **Per-extra versions**: every `extras.<key>` object carries `{v: n, ...}`; each module's `load(raw)` reads `v` (absent = 1) and upgrades itself. Replace positional
+   tuples with objects in any **new** write path (`{x,y,z,kind,s}`) or append fields only at the end with a length check; document the tuple layout in a `// layout v2` comment
+   next to `toJSON`.
+5. **Loading is fail-soft per module.** `Game`/`GameState` use one helper `loadExtra(key, fn)`: try, on failure `diag('save.extra_bad', {key, err})`, keep the raw value
+   in a side table and write it back unchanged under `extras["<key>.bad"]` (and **skip overwriting `<key>` with empty state** until the player acts) - fixes finding 3.
+6. **Fail loud only for the envelope**: unreadable -> held + backup (already so). Add: a save with a *newer* `rev` than the build opens read-only held with the existing message.
+7. **Round-trip idempotence**: `toSave(restore(x))` re-serialised twice must be byte-identical (catches Maps iterated in insertion order vs sorted, floats, NaN).
+
+### 2.4 Fixtures to keep (all under `tests/fixtures/saves/`, one manifest)
+
+- `save-before-bronze.json` (exists; v1, formed Blast hearth, Ember done). **Immutable forever.**
+- `save-sixage-rev2.json` generated right after the refactor merges (formed Bronze and Blast furnaces, objectives mid-Bronze).
+- One golden save per stream wave, added by the stream that introduced persisted state: `workshop-contraptions`, `distillery-liquids`, `magic-essentia`, `ground-and-vehicles`,
+  `signals`, `reference-base` (the perf fixture). Each is produced by `scripts/make-fixture-save.mjs <name>` (drives `GameState` + modules headless, so it is reproducible)
+  and committed with its expected summary JSON (counts of items, entities, parts, cells, research).
+- `saves.test.ts` (single, parametrised over the manifest): loads without `lastProblem`, 200 ticks without throw, round-trip idempotent, every item/block key in the
+  file resolves through `aliases`, summary equals the golden summary. Adding a stream adds a manifest row, not a test file.
+- `corruption.test.ts` (fuzz, seeded): truncate the JSON at 20 random points; flip a type in each `extras` key and in 30 random leaf fields; unknown kind in `entities`;
+  NaN/Infinity; a 5 MB blob; a newer `rev`; storage that throws on `setItem`; quota error with and without a backup present. Expect: never throws, settings survive,
+  `lastProblem` set where the world is lost, the original text is still retrievable from `.bak`.
+- `blockIds.test.ts` (R1): the committed id lock is a prefix of the current block table.
+
+### 2.5 Corruption handling gaps to close
+
+- Silent item loss (finding 2): sanitize reports `dropped/repaired` but the player is told nothing for slots; count and `toast` once, `diag('save.repaired', {...})`.
+- `loadedExtras` overwrite after failed load (finding 3).
+- `world.extra()` JSON-clones on each call (fine) but `Game` calls `load` without a try/catch around the three module loads; one throwing `load` aborts the Game constructor
+  and the player returns to the title with the save untouched (safe but unplayable). Use `loadExtra`.
+- Atomicity: `localStorage.setItem` is atomic per key, so a crash mid-write is not a risk; but the **old text is lost on every successful write** - there is exactly one
+  generation. Keep a rolling `hearthwatt.save.prev` (previous autosave, written only when the new one parsed and is >= 10 minutes newer), dropped first on quota. This
+  turns every future migration bug into a recoverable one.
+- Multi-tab: two tabs overwrite each other's world. Add a `storage` event listener: if the save key changes while a game is running, pause and show "this world was changed
+  in another tab" instead of overwriting (cheap; localStorage events fire only in the other tab).
+
+### 2.6 Autosave and size budget
+
+Current: whole world re-stringified on the main thread every 30 s (+ up to 10 s grace for a calm moment, saved on `visibilitychange` hidden and `pagehide`), one key, ~4 KB for the
+fixture, unknown for a late game. localStorage quota is ~5 MB of UTF-16 text on Chromium/Safari (varies), shared with `.bak`.
+
+| Quantity | Soft budget | Hard budget | Action at hard budget |
+|---|---|---|---|
+| Serialised world text | 1.5 MB | 3 MB | toast "save is large"; stop writing `.prev`; offer IndexedDB path (below) |
+| Stringify + write time (desktop / phone) | 40 ms / 150 ms | 100 ms / 400 ms | `diag('save.slow')`; autosave interval 30 -> 60 s |
+| `edits` | <= 600 KB | 1.5 MB | existing base64 pairs are 5.3 chars per edit; cap not needed before 100k edits |
+| Entities | <= 400 KB | 1 MB | compact `JSON` of pipes (packets are saved: consider dropping packet positions, they re-spawn) |
+| Workshop + logistics + signals + contraption | <= 150 KB | 400 KB | belts' in-transit items re-derive; do not persist per-tick scratch |
+| Ground items | <= 40 KB (256 max) | 80 KB | already capped |
+
+Plan: `savePerf.test.ts` builds the reference base plus a "heavy" base (10x edits, 500 entities, 400 workshop parts, 1,500 pipes with packets), asserts chars and
+stringify ms against the table, and prints the breakdown per top-level key (so a lane that bloats a key is named). `app.ts` already emits `chars` in its diag line; add the per-key
+breakdown behind `HW_DIAG`. If the hard budget is ever hit the fallback is moving the world to IndexedDB with the same envelope (the `SaveStore` interface is already
+storage-agnostic via `StorageLike`; IndexedDB needs an async adapter, hence do it only if the budget is exceeded).
+
+---------------------------------------------------------------------------------------------------------
+
+## 3. Test strategy
+
+### 3.1 Inventory and judgement (173 test files, ~1,950 tests at the last note, 318 commits)
+
+| Group | Verdict |
+|---|---|
+| `content/*.test.ts` + `specRoster*.ts` (typed second copy of content) | **Redundant and noisy.** Replace by derived invariants + one reviewed golden (R2). Keep invariants: every item has a texture and an icon, every recipe reachable (the solver), ages consistent, fuel ladders monotonic, station recipes share ratios (`furnaceRecipes/RECIPES > 0.6`). |
+| `sim/playthrough.test.ts` (877 lines, solver completes the game) | **Keep, the most valuable integration test.** Make it area-pluggable (each stream contributes a "milestone" function) and run it headless including Workshop/Magic/Vehicles after R3. |
+| Timing tests (see finding 6) | Move to serial perf project; keep deterministic counters in the main suite (1.5-C). |
+| `audio/*.test.ts` (engine 410 lines, buffers) | Valuable but synthesised-audio statistics (`rms < 0.3`, roughness) are brittle to any tuning; keep structural checks, drop numeric tuning checks to the golden. |
+| `render/textures/textures.test.ts` (alpha/edge/row-step assertions per texture) | Good guard, but `edge/inner` tuning checks fail on art changes; make the art rules a table of allowed exceptions in one file instead of per-test asserts. |
+| `mobs/*` (behaviour/herd/hostile) | Many thresholds on gameplay constants (`gap < 2.2`, `windup < 0.5`); derive from the constants they test instead of literals. |
+| `app/*.test.ts`, `save/*.test.ts` | Keep; add fixtures (2.4). |
+| Tests using `Date.now`/`setTimeout`/`performance.now` (13 files) | Audit once: inject clocks; timing only in the perf project. |
+
+Make the default `npm test` finish fast: `vitest run --changed <base>` (`related`) for builders, full run at the lane gate. Record each file's duration once (`vitest --reporter=json`)
+and keep the slowest 10 visible; I could not run it here, so the total time is unmeasured - **builder task 0 for the test lane: measure and write the number in this doc.**
+
+### 3.2 Stable e2e architecture
+
+What exists and is good: `scripts/lib/*` (browser launcher with `HW_GPU`, `HW_DIAG`, `Driver`, `Reporter`, sandbox checks), `serve(0)` ephemeral ports, `--no-build`,
+`--dist`, `--shots`, step skipping after a failure with a recent-events trail, JSONL diagnostics, `__hw` for setup only (real input for the thing under test).
+What is wrong: 11 scripts each re-implement arg parsing, build-or-reuse, dist choice (`join(root,'dist')` in six of them, `tmpdir()/hearthwatt-e2e-*` fixed names in four),
+screenshot dir wiping, device loops; `package.json` chains them with `&&` (stops at the first failure, no summary, no parallelism); 69 fixed waits
+(`timeout`/`waitForTimeout`) in the libs; Playwright is an untracked `--no-save` install.
+
+Target design (one builder, ~1 day):
+
+1. `scripts/lib/runner.mjs`: `defineE2E({ name, devices, setup, steps })`. It owns args (`--no-build --dist= --shots= --device= --only=<step substring> --jobs=`), per-lane
+   dir resolution, lock acquisition (3.3), build-once logic, screenshot dir, reporter, diag and exit code, and writes `test-results/<name>/result.json` (`{steps:[{name,ok,ms,error}]}`).
+   Existing scripts shrink to their `steps`. Migrate one script per PR; no flag day.
+2. **Per-lane dirs, derived from the worktree root, never fixed names**: `const cache = join(root, '.cache')`; build dir `.cache/dist-<name>` (or one shared `.cache/dist-e2e` built once per
+   lane per commit hash); screenshots `test-results/` (already per worktree). Delete the `tmpdir()` names. `.gitignore`: `.cache`, `.locks`, `node_modules` (no slash, 3.7).
+3. `scripts/e2e-all.mjs` replaces the `&&` chain: builds once to `.cache/dist-e2e`, runs the scripts as child processes with `--no-build --dist=.cache/dist-e2e`, **`--jobs=2`** at most (ephemeral
+   ports, one Chromium each), runs all of them even after a failure, prints a table, exits 1 if any failed, supports `--only=workshop,distill` and `--affected` (maps changed paths to scripts:
+   `src/workshop/** -> workshop`, `src/magic/** -> magic`, `src/sim/distill* -> distill`, anything under `src/core|app|render` -> full).
+4. **Determinism**: all e2e start worlds from fixed seeds (`SEED` constants exist), set the clock and weather through `__hw` (`__hw.setTime`, `__hw.setWeather` - add if missing), advance
+   with `__hw.runTicks(n)` instead of `waitForTimeout`; `waitFor(page, cond, label, {timeout})` for UI. Rule: a fixed wait is allowed only for CSS transitions and must be < 300 ms and commented.
+   Every step that opens a screen asserts no `console.error` (the reporter already collects `errors`).
+5. **Perf and golden-save steps** (1.5-E, 2.4) are normal steps in the same runner.
+6. Playwright: add to `devDependencies` pinned (the SPEC says "no other dependencies" - treat dev tooling as exempt; owner decision) **or** keep `--no-save` but make the lane setup
+   script verify `require.resolve('playwright')` and fail with the exact install command. Chromium binaries live in the user cache (`%LOCALAPPDATA%\ms-playwright`) and are shared by all worktrees.
+
+### 3.3 Parallel lanes on one machine (12 threads, 16 GB RAM, RTX 3060): cheapest safe setup
+
+Costs per process (estimates): `vitest` full run 4-8 workers x 300-500 MB; `tsc --noEmit` 0.7-1 GB; esbuild build ~0.3 GB for 2-4 s; headless Chromium with GPU ~0.7-1 GB each; `node_modules` is 110 MB
+(`npm install` per worktree = wasted minutes, disk and network).
+
+1. **Git worktrees under one parent** (`E:\Projects\hw-lanes\<lane>`), created by `scripts/lane-new.ps1 <lane>`: `git worktree add -b lane/<lane> ..\hw-lanes\<lane> integration`, then
+   `New-Item -ItemType Junction -Path <wt>\node_modules -Target E:\Projects\game\node_modules`. **No `npm install` in lanes.** Dependencies change only on the main checkout, by the coordinator.
+   - Safe teardown: `cmd /c rmdir <wt>\node_modules` (removes only the link) **before** `git worktree remove`; never `Remove-Item -Recurse` a worktree with a live junction.
+   - `.gitignore` must read `node_modules` (no trailing slash), otherwise a junction/symlink is not ignored and `git status` shows it as a new file.
+   - tsc/esbuild/vitest resolve `three` and `esbuild` through the junction to the shared tree: fine; they must not write into it (they do not; `tsc --incremental` goes to `.cache`).
+2. **Ports**: lanes get `HW_LANE=<n>` (0-6). `serve(0)` stays ephemeral for e2e; `npm run dev` uses `5173 + HW_LANE` (patch `build.mjs` `serve(Number(process.env.HW_PORT ?? 5173 + lane))`).
+3. **A counting semaphore replaces `.run-lock`** (`scripts/lib/lock.mjs`, no dependencies): `withSlot('e2e', 2, fn)`, `withSlot('cpu', 1, fn)`; each slot is a directory under
+   `%TEMP%\hearthwatt-locks\<name>\<i>` created with `mkdir`, containing `owner.json {pid, worktree, since}`; a waiter polls every 2 s, treats a slot as stale when the pid is dead or since > 30 min,
+   prints who holds it. Recommended slots: **cpu = 1** (full vitest, tsc full, perf project; these use all threads), **e2e = 2** (two Chromium + one build is ~3 GB), **build = 4** (cheap).
+   Builders get "fast gate" without any lock: `vitest related`/`--changed`, `tsc --incremental`, targeted e2e (`--only`) under the e2e slot.
+4. **Budgeted parallelism**: `vitest` runs with `--maxWorkers=${HW_VITEST_WORKERS:-4}`; at most 2 lanes in the cpu-heavy gate at once is already impossible with cpu=1, so lanes naturally
+   interleave: the architect lane runs the full gate for a merge while builders run fast gates. The user's usage limit is the tighter constraint: **builders must not run the full e2e chain**; they
+   run their own script (`npm run e2e:<area>`), the integration lane runs the whole chain once per merge.
+5. **Disk**: `test-results/` was 55 MB in the main checkout; set screenshots to be written only for failed steps plus a tiny set of named "look at" shots (`--shots=all` opts in) and prune
+   `test-results` older than 7 days in `lane-new`.
+6. **One shared Chromium cache**, one `HW_GPU=1` GPU: two simultaneous headless GPU contexts are fine on a 3060; four are not (VRAM contention and slow frames make timing steps flake). Hence e2e = 2.
+
+### 3.4 Diagnostics conventions
+
+Existing: `src/app/diag.ts` ring buffer of 4,000 entries, enabled by `?diag=1`, `window.__HW_DIAG__`, `localStorage.hwDiag` (the harness sets it when `HW_DIAG=1`), payloads built lazily;
+20 call sites, **only** in `app`, `state`, `save`, `frame`, `game`. `scripts/lib/diag.mjs` drains it to `test-results/diag/<run>.jsonl` with `node scripts/lib/diag.mjs summary`.
+No simulation system emits anything, which is why e2e failures needed `HW_DIAG` archaeology.
+
+Convention (add to `docs/api/integration.md`): tags are `<system>.<event>` in lower snake case, payload plain JSON, built lazily `diag('workshop.solve', () => ({...}))`; **never in a hot path
+unless guarded by a rate limiter** (`diagEvery(tag, ms, fn)` in `diag.ts`). Required points every system emits:
+
+| Tag | When | Payload |
+|---|---|---|
+| `<sys>.load` | module loaded from a save | `{ms, counts:{...}, repaired, dropped, v}` |
+| `<sys>.save` | module serialised (only when diag on) | `{bytes, counts}` |
+| `<sys>.rebuild` | a graph/solve was rebuilt (pipes, kinetics, distill rig, power net, essentia net) | `{reason, nodes, ms}` (reason = `block|source|clutch|load`) |
+| `<sys>.cap` | a cap was hit and an action refused | `{cap, value}` |
+| `<sys>.budget` | tick/rebuild exceeded `perf-budget.json`, rate limited 1 per 5 s | `{ms, budget, counts}` |
+| `<sys>.refuse` | a player action was rejected with a toast | `{action, reason}` (the same string as the toast) |
+| `<sys>.state` | on a **state change** (jam, brownout, overstress, boil, siphon, aura depleted), never per tick | the new state and the id/pos |
+| `<sys>.error` | caught exception | `{where, message}`; also `console.error` so e2e's error collector sees it |
+
+Systems: `power`, `hearth`, `transport`, `distill`, `brew`, `crops`, `hand`, `workshop`, `logi`, `contra`, `signals`, `magic`, `essentia`, `ground`, `vehicles`, `mobs`, `weather`, `save`,
+`world` (chunk jobs), `render` (1 per 5 s: `stats` + `prof`). `__hw.prof()` and `__hw.state()` are the read side. e2e failure output already prints "recent events"; extend it to print the last
+10 `diag` entries of the failing system's prefix.
+
+### 3.5 Merging lanes in separate worktrees without conflicts
+
+**Files every stream touches** (from the 150-commit churn and `CONGRUENCE.md` 4.5). Merge-conflict score = how often changed x how many lanes will add lines to the same hunk:
+
+| File | Why it collides | Fix |
+|---|---|---|
+| `src/content/blocks.ts` (array spread list at the end), `items.ts` (`ITEM_SPECS = [...]` one long line), `recipes.ts` (`RECIPES` index), `progression.ts`, `objectives.ts` | every area adds an import and a spread; a single long line conflicts on any change | R1: per-area folder + generated index |
+| `src/content/specRoster.ts` + `specRoster<Area>.ts`, `content.test.ts`, `worldContent.test.ts`, `food.test.ts` (counts) | double-entry fixtures and literal counts | R2 |
+| `src/core/types.ts` (1,039 lines: `FluidKey`, `BlockSpec`, `MachineRole`, `ScreenRequest`), `core/gameEvents.ts` (`SfxName`, event map, `ScreenRequest`) | closed unions every system extends | R6: open string brands validated by registry tests; events typed per module |
+| `src/core/registry.ts` (validators list, ~line 556-558) | each area adds a `validateX(...)` call | registry iterates `VALIDATORS` collected from the area folders |
+| `src/app/game.ts` (14 commits/150), `src/app/state.ts`, `src/sim/simulation.ts` (7) | the wiring and tick order | R3 `SystemModule` registry + R5 subsystem list |
+| `src/render/textures/painters.ts` (11), `textures.test.ts` (9), icons files | one painter table | painter registration by folder (`render/textures/areas/<area>.ts`), texture list derived |
+| `src/audio/sfx.ts`, `sfx.test.ts` (expected names list) | closed list of names | names derived from `SFX` table; test checks table consistency instead of a literal |
+| `src/magic/aspectTable.ts` (keyword rules / overrides) | every new item needs a rule | per-area `aspects.ts` merged; fallback by category already exists |
+| `src/ui/screens/*` registration (`registerStationScreens`), `package.json` (e2e chain, 9 commits) | list edits | screens register by folder; `e2e-all.mjs` globs `scripts/e2e-*.mjs`, `package.json` gets one `e2e` script that never changes |
+| `HANDOFF.md` (19 commits!), `docs/SESSION_CONTEXT.md`, `docs/SPEC.md`, `docs/WHATS_LEFT.md` | everybody appends status | lanes write `docs/lanes/<lane>.md` only; the coordinator merges summaries; `.gitattributes`: `HANDOFF.md merge=union` as a stopgap |
+| `src/save/document.ts` | new top-level keys | none needed if modules use `extras` (rule 2.3-5); forbid new `WorldSave` fields without architect sign-off |
+| `src/player/interaction.ts` (10), `src/game/playerState.ts`, `game/crafting.ts` | cross-cutting hooks (`beforeUse`) | a `useHandlers: UseHandler[]` chain registered by systems |
+
+**Merge protocol**:
+1. Branches: `integration` (trunk of the overhaul), `lane/<name>` per lane worktree. The coordinator/architect merges lanes into `integration` **one at a time** (queue by finishing order), `--no-ff`,
+   after the lane rebased on the current `integration` and passed its gate; then re-runs the full gate on `integration` under the cpu lock. Nobody else touches `integration`.
+2. Rebase small and often (daily at least): `git fetch`-free since worktrees share objects - `git rebase integration` inside the lane. A lane that has not rebased in a day gets merged by its architect only.
+3. **Generated files are not merged**: `src/content/_generated/*.ts`, `src/render/textures/_generated.ts`, `scripts/e2e-all` manifest are produced by `scripts/gen-indexes.mjs` (R1) in `prebuild`,
+   `pretest`, `pretypecheck`, gitignored. They cannot conflict.
+4. **`.gitattributes`** (once, at the refactor merge): `* text=auto eol=lf`, `*.json -diff` for fixtures, `docs/lanes/*.md merge=union`, `tests/fixtures/saves/manifest.json merge=union`. Then `git add --renormalize .` in its own commit so no lane carries CRLF noise.
+5. **Ownership by folder**: each lane owns `src/<area>/**`, `src/content/areas/<area>/**`, `src/render/<area>/**`, its docs and its e2e script. A change outside the owned folders goes through a **seam
+   request** in `docs/lanes/<lane>.md` (not an edit) unless the file is in the "everybody" list and the edit is purely additive in a generated-index world (then nothing to edit at all).
+6. **A pre-merge conflict probe**: `scripts/merge-probe.sh lane/a lane/b` runs `git merge-tree --write-tree` and lists conflicting paths; the architect runs it for all pairs of ready lanes before choosing
+   the merge order. It costs seconds and no checkout.
+7. Block ids across lanes: lock file rules (R1); at merge the lock is the only file that can legitimately conflict (`merge=union` and a regenerate step `npm run ids:sync` that re-sorts and fails if two lanes claimed the same id for different keys).
+
+### 3.6 `scripts/local-check.sh` plan
+
+Current: sequential typecheck, tests, build, optional `npm run e2e`, logs to `/tmp/hw-check-<name>.log`, prints one `ok`/`FAIL` per step plus the last 3 lines of the test log, no lock, no timing, no summary
+file. Replace with (one builder, ~2 hours; keep the file name, add `scripts/lib/check.mjs` for Windows-safe logic since the user runs PowerShell and git-bash):
+
+```
+bash scripts/local-check.sh --fast              # tsc --incremental + vitest related (changed vs integration) + gen-indexes check        (no lock; seconds)
+bash scripts/local-check.sh                     # tsc + full vitest + build + saves/corruption + layer check                              (cpu slot)
+bash scripts/local-check.sh --perf              # + serial perf project                                                                    (cpu slot, alone)
+bash scripts/local-check.sh --e2e[=a,b|affected]# + e2e-all with --jobs=2                                                                  (e2e slots)
+bash scripts/local-check.sh --ci                # everything above, JSON to test-results/check.json, exit code, never prompts
+```
+Each step prints `ok|FAIL <name> <seconds>s`, the failing step prints its log path and the first failing test name; the end prints counts (`files`, `tests`, `skipped`), the lane name, the commit
+hash, and writes `test-results/check.json`. `--ci` is what the coordinator runs and pastes (the team agreement already says "reports are leads, not evidence": the JSON is the evidence). Steps:
+`gen-indexes --check` (generated indexes up to date), `typecheck`, `vitest` (default config, excludes `*.perf.test.ts`), `layers` (R8), `build` to `.cache/dist-check`, `saves` (part of vitest), `perf` (optional), `e2e` (optional).
+Exit non-zero on any failure; on a lock wait, print the holder and keep waiting up to 15 minutes.
+
+---------------------------------------------------------------------------------------------------------
+
+## 4. Architecture debts, ordered by value (each sized for one builder)
+
+Ordering logic: (value = conflicts prevented + bugs prevented) / effort. R1-R4 should land **before the lanes start** (they are what makes parallel work safe); R5-R9 can run inside lanes.
+
+### R1. Area folders, generated indexes and a block-id lock (highest value)
+- Files: new `scripts/gen-indexes.mjs`, `src/content/areas/<area>/{blocks,items,recipes,machines,fluids,objectives,roster,aspects}.ts` (move existing `blocksBrew.ts`, `itemsBrew.ts`, `recipesBrew.ts`, `machinesBrew.ts`... one
+  area at a time, git mv), generated gitignored `src/content/_generated/{blocks,items,recipes,machines,fluids,objectives}.ts`, `src/content/blockIds.lock.json` (`{"air":0,"corestone":1,...}`), `blocks.ts`, `items.ts`, `recipes.ts`,
+  `core/registry.ts`, `package.json` (`prebuild`, `pretest`, `pretypecheck`, `ids:sync`), `.gitignore`, `.gitattributes`.
+- Mechanism: the generator globs each area folder (alphabetical, order irrelevant) and emits `export const BLOCKS_BY_AREA = {brew: BREW_BLOCKS, ...}` etc. Registry builds `BLOCK_SPECS` by **sorting by lock id**;
+  keys missing from the lock get the next free ids in alphabetical key order **and** `gen-indexes --check` (CI) fails so the lane must run `ids:sync` (which appends them to the lock). Lock lines are one `"key": id` per line,
+  `merge=union`; `ids:sync` fails on duplicate ids or a key changed id.
+- Acceptance: (a) adding a new area folder with a block, an item, a recipe, a machine and an objective edits **zero** existing files and `npm run typecheck && npm test` pass; (b) `git merge-tree` of two lanes that
+  each added an area reports no conflicts except `blockIds.lock.json`, which `ids:sync` resolves; (c) `blockIds.test.ts` fails if an existing key's id changes or a key disappears; (d) all current tests still green and the
+  `save-before-bronze` fixture still loads with identical voxel decoding (assert a few known ids).
+- Effort: 1 builder, ~1 day. Risk: moving files breaks blame; do it in one pure-move commit.
+
+### R2. Replace the double-entry roster with invariants + a golden snapshot
+- Files: `src/content/specRoster*.ts` (12 files, 1,148 lines), `content.test.ts`, `worldContent.test.ts`, `food.test.ts`, `techContent.test.ts`, `brewing.test.ts`, `emberbound.test.ts`; new `tests/golden/content.json` (key -> `{kind, age, tool, minTier, hardness, stack, power, ...}` for blocks/items/recipes/machines), `scripts/golden-update.mjs`, `npm run golden:update`.
+- Mechanism: the golden is generated from the registry and reviewed in the diff like a lockfile; it **only fails when an existing entry changes or disappears** (additions are reported as "new: N" and
+  pass, listed in the test output so the author sees them). Numbers the SPEC pins (the 68 original blocks, fuel ladder, tier table) stay as a tiny hand-written fixture (<150 lines).
+- Acceptance: adding an item/block/recipe in an area folder needs **no test edit**; changing a balance number fails with a readable diff and passes after `golden:update`; deleting a key fails; test count literals
+  (`toBe(60)`-style) gone (`rg "toHaveLength\([0-9]{2,}\)" src/content` empty).
+- Effort: 1 builder, ~0.5-1 day (delete is the easy half).
+
+### R3. `SystemModule` registry: one lifecycle and one persistence path for every system
+- Files: `src/app/systems/system.ts` (interface `{ id, rev, create(ctx), tick?(dt), persist?(): unknown, load?(raw): void, dispose?(), views?() }`), `src/app/systems/{magic,workshop,vehicles}.ts` (moved out of
+  `game.ts` lines 100-190), `src/app/state.ts` (hosts the **headless** parts of those systems), `app/game.ts` (renderers and UI only), `world/world.ts persist/extra` wrapper (`loadExtra`), `docs/api/integration.md`.
+- Mechanism: `GameState` creates systems from `SYSTEMS` (generated list from folders `src/app/systems/*.ts`), ticks them in a declared order (`after: ['power']`), persists through
+  `loadExtra`/`world.persist` (2.3 rules 4-5), and the browser `Game` only adds the render/UI halves via the same ids. Hooks that currently live in `game.ts` closures (`stokeFurnace`, `purifyFlask`, `crank`, `generatorWatts`, `standingOn`) become typed
+  `SystemContext` queries to `sim` so they can be faked in node.
+- Acceptance: `GameState.restore(save)` + 200 ticks with a workshop/magic/vehicles fixture works in node (new test `systemsHeadless.test.ts`); `game.ts` < 300 lines (from 525); damaged `extras.workshop` loads empty, the
+  raw data is retained under `workshop.bad`, a toast is emitted once, and the next autosave does not delete it; playthrough solver gains a "build a belt and a piston" milestone.
+- Effort: 1 builder, ~1-1.5 days. This unblocks 2.3 and persistence fixtures.
+
+### R4. Save migration scaffolding and alias tables (small, urgent)
+- Files: `src/save/document.ts` (`rev`, `MIGRATIONS`, keep envelope v1), new `src/save/migrations.ts`, `src/content/aliases.ts`, `src/sim/sanitize.ts` (`cleanSlot` -> alias + count lost), `game/groundItems.ts load`, `magic` jar load,
+  `app/state.ts restore`, `tests/fixtures/saves/*`, `src/save/{saves,corruption,migrations}.test.ts`, `scripts/make-fixture-save.mjs`.
+- Acceptance: all of 2.4 passes; renaming an item via `aliases` keeps it in crate, inventory, ground list and jar of `save-before-bronze`; the `rev 1 -> 2` migration test uses the real fixture and asserts `objectives.age`
+  maps and no reward duplication; a removed item yields a toast and a `scrap` replacement, not silence.
+- Effort: 1 builder, ~0.5 day for scaffolding, then each stream adds a row.
+- **Sequencing**: the six-age session is running right now; ask it to add `rev` + the objectives mapping, or run R4 immediately after its merge and before any lane starts.
+
+### R5. `Simulation` subsystem list with declared order and per-subsystem profiling
+- Files: `src/sim/simulation.ts` (825 lines, 40 imports, a 60-line `tick`), new `src/sim/subsystems.ts`, `src/app/prof.ts`.
+- Mechanism: `interface Subsystem { name; tick(dt, ctx); everySecond?(ctx) }`; `tick` becomes `for (const s of this.order) prof.run(s.name, () => s.tick(dt, ctx))`. Existing order stays byte-identical (hearths -> nodes.fresh -> prepare -> furnaces -> networks ->
+  apply -> brewing -> distill -> applyFurnace -> transport -> crops -> hand). Workshop/Magic/Vehicles register here via R3.
+- Acceptance: playthrough solver and all sim tests unchanged; `__hw.prof()` lists >= 12 subsystems; `perf.test` numbers within 10% of before; adding a subsystem needs no edit to `simulation.ts` beyond the list.
+- Effort: 1 builder, ~0.5 day.
+
+### R6. Split `core/types.ts` and open the closed unions
+- Files: `src/core/types.ts` (1,039 lines, 85 exports) -> `types/{voxel,block,item,world,entity,fluid,screen}.ts` + barrel `types.ts` (re-exports, so no import churn); `core/gameEvents.ts` (event map and `SfxName`,
+  `ScreenRequest`), `FluidKey`, `MachineRole`.
+- Mechanism: unions that streams extend become `type FluidKey = string & {readonly __fluid: true}` branded strings validated by registry tests (as `fluidOrNull` already does), `SfxName` derived from the `SFX` table,
+  `ScreenRequest` as `{type: string, ...}` with per-screen payload registered next to the screen. TS exhaustiveness is replaced by a registry test ("every screen type has a factory").
+- Acceptance: a new fluid, sound and screen can be added in an area folder without editing `core/`; `tsc` clean; no behaviour change (the whole suite green); git blame preserved with `git mv`-style split in one commit.
+- Effort: 1 builder, ~1 day (mechanical; avoid mixing with R3).
+
+### R7. Workshop/logistics/ground-item performance refactor (the actual hot spots)
+- Files: `src/workshop/{workshop,logistics,contraption,signals,kinetics}.ts`, `src/game/groundItems.ts`, `src/magic/{essentiaNet,magic}.ts`, shared `src/core/posKey.ts`.
+- Mechanism: numeric packed keys (`((x+2^20)*2^21 + (z+2^20))*256 + y` as a double, `Map<number,...>`); dirty-flag `solve()`; ground-item spatial hash + sleeping; jar-scan cache; contraption `batch`; PTO scan at 4 Hz;
+  `[...acts.values()]` -> index loop. Keep `k3` string keys **only** at the save boundary.
+- Acceptance: the section 1.5-C counters (idle workshop tick: 0 solves, 0 allocations measured by the alloc probe; 256 resting items: <= 10 `getBlock`/tick; jar scan 1 per change) and 1.5-D wall-clock rows green; saves of the old fixture
+  and `workshop-contraptions` golden still load byte-compatible (tuples unchanged); idle 3-minute heap growth < 5 MB in the browser probe.
+- Effort: 1 builder per area (workshop solve + keys; ground items + logistics; essentia) = 3 small tasks, ~0.5 day each. Do after R1-R4, inside the workshop/ground/magic lanes.
+
+### R8. Layer and cycle check as a test
+- Files: new `scripts/check-layers.mjs` (esbuild `metafile` of `src/main.ts` and of each of `core`, `content`, `world`, `game`, `sim` entry barrels), `local-check.sh`, `docs/SPEC.md` layering text.
+- Rules: `core, content, world(except workerPool), game, sim` import no DOM modules and nothing from `app, ui, render, player, audio`; `core` imports nothing from `content` except `registry.ts`; no import cycles
+  among `src/**` (Tarjan on the metafile graph). Today the grep shows no violation of the DOM-free layering; `content/index.ts` and `content/progression.ts` import `core/registry`, which in turn imports the content - a cycle in waiting
+  if `registry` ever imports `progression`. `workshop`, `magic`, `vehicles` are not in the SPEC layer list: assign them to "sim-side, DOM-free" (they already are; R3 needs it).
+- Acceptance: the script runs in < 2 s, fails on a planted violation (test), and `local-check` prints the cycle path.
+- Effort: 1 builder, ~2-3 hours.
+
+### R9. e2e runner, lock and lane scripts (section 3.2-3.3)
+- Files: `scripts/lib/{runner,lock}.mjs`, `scripts/e2e-all.mjs`, `scripts/lane-new.ps1`, `scripts/lane-rm.ps1`, `build.mjs` (port), `package.json`, `.gitignore`, `docs/team.md` (replace the `.run-lock` line), `docs/LOCAL_HANDOFF.md`.
+- Acceptance: two worktrees run `e2e-all --only=workshop` simultaneously without touching each other's `dist`/tmp (assert distinct dirs and ports); a killed run's slot is reclaimed within 30 min or immediately if the pid is dead;
+  `node scripts/e2e.mjs --no-build --dist=<dir>` works for all 11 scripts; `lane-new` creates a lane in < 10 s with no `npm install` and `npm run typecheck` passes there.
+- Effort: 1 builder, ~1 day (migrate scripts incrementally).
+
+### R10. Line endings and repository hygiene (30 minutes, but only the integrator may do it)
+- Files: `.gitattributes`, `.gitignore` (`node_modules`, `dist`, `dist-codex`, `.cache`, `.locks`, `test-results`), one `git add --renormalize .` commit.
+- Acceptance: `git status` clean after a fresh checkout on Windows; no "LF will be replaced" warnings; `git diff` of a one-line edit is one line.
+
+### Other debts (not scheduled; watch list)
+- `magic/magic.ts` 1,087 lines (research, scan, jars, servants, infusion, siphon, rods, nodes in one class) - split by sub-feature after R3.
+- `workshop/workshop.ts` 793 + `logistics.ts` 773 - split `Workshop` into kinetics, belts, actuators once R7 stabilises the keys.
+- `sim/playthrough.test.ts` 877 lines - area milestones as separate modules.
+- `mobs/manager.ts` 499 and `vehicles/manager.ts` 480 - fine for now; revisit if the vehicle lane grows skiffs and PTO coupling.
+- `game/survival.ts` heat-source scan iterating entities - cache per second with the `SafeZones` pattern.
+- Tests that import the whole registry (most of them) pay content-load time per test file (~220 blocks, 372 items, 276 recipes, 49 machines today); if the suite gets slow use vitest `isolate: false` for pure files or a shared setup.
+- Docs: `docs/api/*.md` is 48 files / 12k lines; the lanes' rule "one api doc per area" is right, but `integration.md` (376 lines) is a hotspot - give each area its own integration note.
+
+---------------------------------------------------------------------------------------------------------
+
+## 5. Recommended order of work (what the architect should schedule)
+
+0. **Now (read-only, no conflict with the six-age session)**: nothing here needs `src/` until it finishes. Prepare R4's `rev`/alias/migration design and the `blockIds.lock.json` (can be generated from the **post-refactor** order in one command).
+1. **Immediately after the six-age merge, before any lane starts** (one architect, serial, ~2-3 days total): R10 -> R4 -> R1 -> R2 -> R3 (R9's `lane-new` + junction can be written in parallel because it touches only `scripts/`).
+2. **Lane start**: each lane worktree from `integration`, junction `node_modules`, `HW_LANE=n`, fast gate only; lane docs in `docs/lanes/<lane>.md`.
+3. **Inside lanes**: R7 per area, R5, R6, R8, perf probes (1.5) as each lane adds its first persisted/ticking system - a lane's definition of done includes: perf row in `perf-budget.json`, golden save row, `<sys>.load/.rebuild/.state` diag
+   points, one `*.perf.test.ts` or counter test, one e2e step.
+4. **Integration lane**: merge queue, full `local-check --ci --perf --e2e`, solver green from a fresh world, adversarial review of anything touching `src/save`, `world.persist`, the id lock or `sim/simulation.ts` (the team agreement already requires it).
+
+### Cheapest safe setup in one paragraph
+One main checkout owns `node_modules` (110 MB, Playwright included) and the Chromium cache; every lane is `git worktree add` + a `node_modules` junction (no installs); each lane runs only its fast gate
+(`tsc --incremental`, `vitest related`, `--only=<area>` e2e) with `HW_LANE`-based dev ports and per-worktree `.cache` build dirs; the heavy steps (full vitest, perf project, full e2e) go through a two-line
+semaphore (cpu = 1, e2e = 2) so at most one full-thread job and two Chromium instances run at once (~4-5 GB peak of the 16 GB); the integration lane runs the full chain once per merge. This avoids per-lane
+`npm install`, avoids the `dist/` and tmpdir collisions, and keeps timing tests meaningful.
+
+## 6. Open questions for the owner / coordinator
+
+1. Add `playwright` to `devDependencies` (pinned)? Today an `npm install` silently removes it. (Recommended yes.)
+2. Cap the render-distance slider on phones (4-6) in `Settings`? The current max 12 is 625 chunks.
+3. Accept `rev` + migration chain (vs. bumping `SAVE_VERSION` and writing `migrateSave`)? Recommended: `rev`, because an envelope bump makes every old save "unusable, held".
+4. Is a rolling `hearthwatt.save.prev` acceptable (doubles stored size, but every migration bug becomes recoverable)? Recommended yes while the overhaul is in flight.
+5. Approve `eol=lf` renormalisation commit on `integration` (touches every file once; must be done while no lane is open).
+
+<!-- ======================== END docs/advice/engineering-risk.md ======================== -->
 
 
 ---
@@ -706,8 +4787,9 @@ starting values. Detailed plans: `docs/EMBER_PLAN.md` (the handwork age), `docs/
 Bronze Age: shafts, speed and stress), `docs/BREWING_PLAN.md` (tea and coffee), `docs/BRONZE_PLAN.md` (second half of the Bronze Age), `docs/SPEC.md` (rules of everything built). The Codex page
 shows this progression as a tree.
 
-Note on numbering: the game today has five ages and five furnace tiers. The Bronze Age inserts a new second
-age and a new tier 2 (BRONZE_PLAN work item W0 renumbers everything).
+Note on numbering: **BRONZE_PLAN work item W0 is done** - the game has six ages and six furnace tiers (Ember 0 / Clay 1,
+Bronze 1 / Bronze Furnace 2, Forge 2 / Blast hearth 3, Current 3 / Arc 4, Atomic 4 / Plasma 5, Star 5 / Starhearth 6).
+The gate table, the migration and the constants are in `docs/api/ages.md`.
 
 ## 1. The spine: one furnace, six energy forms
 
@@ -769,9 +4851,10 @@ Every conversion is a block in the world you can watch working.
   ingots, 4 firebricks, 1 bellows, 2 bronze plates, 1 leather at 700 C. From here on every age is opened by the
   furnace's upgrade list. **[planned]**
 
-### Age 1 - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [planned, BRONZE_PLAN]
+### Age 1 - Bronze (Bronze Furnace, to 1100 C) - about 45 minutes  [Furnace, workshop and Essentia pieces built; the rest planned, BRONZE_PLAN]
 
-- **Furnace:** still one block; 1100 C, two crucibles.
+- **Furnace [built, W0]:** still one block; 1100 C, two crucibles; the Clay Furnace upgrades in place (8 bronze ingots, 4 firebrick, a bellows, fire at 700 C), no hearth.
+- **Built here already:** the Bronze workshop (cranks, shafts, belts, machines, contraptions), the Hand Vacuum Pump, and the Rune Desk, Essentia Tube and Arcane Pedestal with the bronze gathering rod and its foci - all forged at the Bronze Furnace.
 - **Steam begins (first half of the age, STEAM_PLAN):** Copper Kettle (not the Ember Kettle Pot, which only boils
   water) + Steam Rotor, Water Wheel, Windmill, wooden axles and cogs; SPEED and STRESS; Millstone, Saw Bench,
   Trip Hammer, Shaft Bellows, Mechanical Pump and Drill; the Millstone, Saw Bench and Trip Hammer automate the
@@ -846,7 +4929,7 @@ at steps 1-3 of the first two ages).
 
 1. Finish the Emberbound (visuals, screens, wiring, e2e) - in progress.
 2. BREWING_PLAN - independent, small; can go first.
-3. BRONZE_PLAN W0 - six tiers and ages (pure refactor, with a save migration).
+3. BRONZE_PLAN W0 - six tiers and ages (pure refactor, with a save migration) **[done]**.
 3b. EMBER_PLAN - hand stations, casting, leather and cloth; move instant recipes onto stations.
 4. STEAM_PLAN waves - open steam and shafts (first half of the Bronze Age; after W0).
 5. BRONZE_PLAN B1-B4 - heat, boiler, pressure, air, vacuum chute.
@@ -2193,7 +6276,13 @@ export interface StructureRules { key: string; controller: string; walls: string
 
 ## 8. Work items, in order, with acceptance checks
 
-**W0 - six tiers and ages (alone in the repo; before anything else, also before STEAM_PLAN's waves)**
+**W0 - six tiers and ages (alone in the repo; before anything else, also before STEAM_PLAN's waves) - DONE (see `docs/api/ages.md`)**
+
+Status: built and tested; the fixture, `migrateSixAges` (save version 2), the Bronze Furnace block (appended last, textures `furnace_bronze_*`),
+the renumbering and the moves of the Bronze-age items onto the Bronze Furnace are in. Differences from the text below: the fixture is
+`tests/fixtures/save-before-bronze.json`; block ids needed no palette (the new block is appended); `hearth` structure rules are keyed by the
+new tier numbers 3-6 and the validator says tiers below `FIRST_HEARTH_TIER` have none; `bronze_furnace` is a new Ember-ending goal and the Blast
+hearth goal opens the Forge Age. Still to do from this plan: `requiredParts: { blast_nozzle: 1 }` (B1) and the Blast hearth's air requirement.
 1. Insert age 'bronze' at index 1 and furnace tier 2 `furnace_bronze` (block + 4 textures + numbers: 1100 C,
    heat capacity 220, loss 2.2, crucibles 2, fuel slots 2, speed 1.1, warmth 7; upgrade 8 bronze_ingot,
    4 firebrick, 1 bellows at 700 C). Renumber tiers 2-5 -> 3-6 and ages 1-4 -> 2-5 everywhere:
@@ -2511,7 +6600,7 @@ blockChanged(x,y,z): for v whose box grown by 1 contains (x,y,z): v.dirty = true
 
 > **Ground items (built):** dropped items are world entities (`docs/api/ground-items.md`). The Bronze Age also gets a handheld
 > **Hand Vacuum Pump** (`hand_vacuum`, wear-powered, radius 9) that pulls ground items to the player. It is not the chute machine
-> `vacuum_pump` below. Until W0 it is made at the tier-1 furnace; after W0 move its recipe to `forge(2, ...)` and give it `age: 1`.
+> `vacuum_pump` below. (Done in W0: `hand_vacuum` is `forge(2, ...)`, age 1.)
 > The Current Age Electromagnet is the same mechanism with an electric power source (`COLLECTORS` in `src/game/collectors.ts`).
 
 <!-- ======================== END docs/BRONZE_PLAN.md ======================== -->
@@ -3020,6 +7109,9 @@ Left, in order:
 
 # Resin, sugar and sweet baking (Sugar Rush)
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Owner's brief: spruce resin can be taken and refined into sugar, then baked into baked goods with wheat in the
 furnace; eating anything with sugar gives a small speed boost, but while it lasts the Well-Fed buff runs out faster
 (hunger itself drains as usual). Everything is done in game with glass beakers and rudimentary chemistry. The only
@@ -3156,6 +7248,9 @@ A new item added to the registry appears in the menu without any change here.
 
 # Glass distillery - API (first playable slice)
 
+> **Numbering note (BRONZE_PLAN W0, done):** furnace tiers and ages below that were written for five tiers are now six: tier 2 is the single-block Bronze Furnace, so the old tiers 2-5 are 3-6 and the old ages 1-4 are 2-5 (`docs/api/ages.md`). A furnace without a formed hearth runs as the Bronze Furnace (tier 2), not the Clay Furnace.
+
+
 Design and the full plan: `docs/DISTILLERY_PLAN.md`. This note is what exists in code and how to use it.
 Tests: `npx vitest run src/core/chem.test.ts src/sim/distill src/render/distill src/game/distillFuel.test.ts`
 (35 tests). Browser: `node scripts/build.mjs --out=<dir>` then `node scripts/e2e-distill.mjs --out=<dir>` (desktop and
@@ -3288,7 +7383,7 @@ with `supply` drawing from the player's battery/grid (a `drawJoules` hook in src
 ## Hand Vacuum Pump (`hand_vacuum`)
 - Item in `src/content/itemsGround.ts` (`GROUND_ITEMS`), icon `item_hand_vacuum` (`src/render/textures/iconsGround.ts`), stack 1, `wear` 480 (new `ItemSpec.wear`: uses of a non-tool item; `fullDurability` reads it, so slots show a wear bar and the card shows "Suction left").
 - Collector: radius 9, pull 11 blocks/s, one Use runs 2.5 s, 1 wear per second of suction, sound `steam_hiss` every 0.55 s plus `machine_on` on start.
-- Recipe: Clay Furnace forge at 800 C: 4 bronze plate, 2 leather, 1 bellows, 2 copper plate. **Gate:** the code still has five tiers and ages; the Bronze Furnace (tier 2 after BRONZE_PLAN W0) does not exist, so the pump is made at the tier-1 furnace from Ember crafts and documented as a Bronze Age tool. After W0 move it to `forge(2, 'hand_vacuum', ...)` and set `age: 1` in `itemsGround.ts`. No objective yet (a "Gather from afar" goal fits after the Bronze Furnace goals).
+- Recipe: Bronze Furnace forge (`forge(2, 'hand_vacuum', ...)`, tier 2) at 800 C: 4 bronze plate, 2 leather, 1 bellows, 2 copper plate; `age: 1` in `itemsGround.ts` (moved by BRONZE_PLAN W0, see `docs/api/ages.md`). No objective yet (a "Gather from afar" goal fits after the Bronze Furnace goals).
 - It is NOT the machine `vacuum_pump` of BRONZE_PLAN 5.4 (the air user on a chute network); the key is `hand_vacuum` so both can exist.
 
 ## src/render/groundItems.ts
@@ -3314,8 +7409,8 @@ above it in one cut; the logs drop as ground items (docs/api/ground-items.md), t
 
 ## Which age, and why
 
-**Current Age** (PROGRESSION "Age 3 - Current"; `age: 2` and forged at furnace tier 3 in today's five-age numbering, the
-six-age renumbering (BRONZE_PLAN W0) bumps both like every other `age:`/`minTier`).
+**Current Age** (PROGRESSION "Age 3 - Current"; `age: 3` and forged at furnace tier 4 since the six-age renumbering, BRONZE_PLAN W0:
+see `docs/api/ages.md`), objective `fell_tree` age 3.
 
 - It needs an *engine*. The only engine in the game that runs on a liquid fuel is the Combustion Engine, forged at the
   Arc Furnace, and the only liquid fuel is the **Fuel Canister** from the Still (Current). A chainsaw is that engine on
@@ -3327,7 +7422,7 @@ six-age renumbering (BRONZE_PLAN W0) bumps both like every other `age:`/`minTier
   one earlier; it would be a second item, not a change to this one.)
 
 Recipe (Arc Furnace, 1300 C): `1 chassis, 2 steel_plate, 1 copper_coil, 1 circuit`. Objective `fell_tree` ("Fell a
-tree", flag `felled_tree`, age 2) sits right after Ward your base.
+tree", flag `felled_tree`, age 3) sits right after Ward your base.
 
 ## Rules
 
@@ -4999,14 +9094,15 @@ engine on top turns more heat into more power, and now the same fire has to choo
 Water wheels, burner generators, wind turbines, solar panels, combustion engines and geothermal taps follow.
 Cables join machines into networks; every cable type has a limit, and batteries cover the gaps.
 
-**The furnace grows with you.** It is upgraded in place four times, and each tier begins an age. Every
-upgrade needs a formed hearth around the furnace first: walls of the right block with enough room inside. The
+**The furnace grows with you.** It is upgraded in place five times, and each tier begins an age (six ages in all). The Bronze Furnace is still one block;
+every upgrade after it needs a formed hearth around the furnace first: walls of the right block with enough room inside. The
 furnace's Structure tab shows the plan, marks every missing block in the world and says what is wrong; then the
 upgrade panel asks for the parts and the heat below.
 
 | Furnace | Age | Reaches | Heated by | Needs |
 |---|---|---|---|---|
 | Clay Furnace | Ember | 800 C | wood, charcoal | built at the workbench |
+| Bronze Furnace | Bronze | 1100 C | wood, charcoal, coal | no hearth; 8 bronze ingots, 4 firebrick, a bellows, fire at 700 C |
 | Blast Furnace | Forge | 1500 C | coal, coke, bellows | Blast hearth (brick); 4 bronze ingots, a bellows, fire at 700 C |
 | Arc Furnace | Current | 2100 C | fuel, or 8 kW of electricity | Arc hearth (refractory brick, a ceiling, an Arc Electrode); 2 copper coils, 2 steel plates, 1200 C |
 | Plasma Furnace | Atomic | 3200 C | 40 kW of electricity | Plasma hearth (plasma casing, 2x2x2 inside, 2 Power Ports); 2 circuits, 2 tungsten rods, 1900 C |
