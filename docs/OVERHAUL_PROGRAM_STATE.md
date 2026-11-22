@@ -35,3 +35,14 @@ This file says exactly how far that program got, so a fresh session can resume i
 `npx tsc --noEmit` clean and the unit suite green at the last commit the coordinator verified (1994 passed after the refactor, 2005 after R4 per the foundation
 session's report). The full e2e chain has NOT been run end to end since the six-age refactor: the main e2e had two flaky steps (mining with ground items,
 sandbox restore), the rest was not run. Run `HW_GPU=1 HW_DIAG=1 npm run e2e` first.
+
+## UPDATE: foundation complete (HEAD `29bd0b4` and later; verified by the coordinator)
+All six foundation steps are done and green: R10 `1a74ab6` line endings, R4 `d71a41f` save `rev` migration chain + alias table + `.prev` backup, R1 `1af5d03` block-id
+lock + folder-registered content areas (`src/content/areas/<name>.ts`, `npm run ids:sync`, generated gitignored indexes), R2 `bff75aa` roster tests as subset checks + golden
+snapshot (`npm run golden:update`), R3 `88bd507` Workshop/Magic/Vehicles persisted in `GameState` with `.bad` copies of damaged modules, R9 `29bd0b4` lane tooling
+(`lane-new/rm`, heavy lock, per-worktree build dirs for every e2e script, `local-check` fast/full/ci, serial perf project `npm run test:perf`, pinned playwright, phone render distance cap 6).
+Read `docs/lanes/FOUNDATION.md` for the exact how-to. Verified: `npx tsc --noEmit` clean; `npx vitest run` 175 files, 2010 passed + 11 skipped (timing tests); `npm run test:perf` 153 passed.
+GitHub: the working branch `ccr-3c8b169f-e78nk2` carries everything (the offline `main` and the Cursor fixture branch were merged in at `f6b0d79`/`385736c`; the Pages workflow is manual-dispatch only).
+`origin/main` was NOT fast-forwarded (a permission prompt blocked it); it still contains only the old history plus the Pages-disable commit and is fully contained in the working branch.
+The seven lane architects are still NOT running (Claude Desktop needs the owner's Trust-repository click for worktree sessions; their session records show `failed`). Foundation is no longer a blocker:
+the next step is simply to start the lanes (see "How to resume" above), now with `lane-new` for worktrees.

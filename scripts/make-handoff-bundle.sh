@@ -3,7 +3,7 @@
 #   bash scripts/make-handoff-bundle.sh [out.md]      (default: docs/HEARTHWATT_COMPLETE_HANDOFF.md)
 cd "$(dirname "$0")/.."
 out="${1:-docs/HEARTHWATT_COMPLETE_HANDOFF.md}"
-files=(docs/OVERHAUL_PROGRAM_STATE.md docs/SESSION_CONTEXT.md docs/WHATS_LEFT.md docs/team.md docs/CONGRUENCE.md docs/lanes/README.md docs/lanes/ROSTER.md docs/advice/tech-spine.md docs/advice/distillery-workshop.md docs/advice/magic-and-food.md docs/advice/world-progression-art.md docs/advice/phone-ux.md docs/advice/balance-economy.md docs/advice/engineering-risk.md docs/LOCAL_HANDOFF.md HANDOFF.md docs/PROGRESSION.md docs/EMBER_PLAN.md docs/BREWING_PLAN.md docs/STEAM_PLAN.md docs/BRONZE_PLAN.md docs/DISTILLERY_PLAN.md docs/api/sugar.md docs/api/dev-mode.md docs/api/distillery.md docs/api/ground-items.md docs/api/chainsaw.md docs/api/handwork-front.md docs/SPEC.md README.md)
+files=(docs/OVERHAUL_PROGRAM_STATE.md docs/SESSION_CONTEXT.md docs/WHATS_LEFT.md docs/team.md docs/CONGRUENCE.md docs/lanes/README.md docs/lanes/ROSTER.md docs/lanes/FOUNDATION.md docs/advice/tech-spine.md docs/advice/distillery-workshop.md docs/advice/magic-and-food.md docs/advice/world-progression-art.md docs/advice/phone-ux.md docs/advice/balance-economy.md docs/advice/engineering-risk.md docs/LOCAL_HANDOFF.md HANDOFF.md docs/PROGRESSION.md docs/EMBER_PLAN.md docs/BREWING_PLAN.md docs/STEAM_PLAN.md docs/BRONZE_PLAN.md docs/DISTILLERY_PLAN.md docs/api/sugar.md docs/api/dev-mode.md docs/api/distillery.md docs/api/ground-items.md docs/api/chainsaw.md docs/api/handwork-front.md docs/SPEC.md README.md)
 {
   echo "# Hearthwatt - complete handoff bundle"
   echo
