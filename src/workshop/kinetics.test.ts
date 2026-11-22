@@ -3,7 +3,8 @@ import { createBus } from '../core/context';
 import { BLOCKS, blockId } from '../core/registry';
 import { Facing, makeVoxel, voxelId, type IWorld, type Voxel } from '../core/types';
 import { GroundItems } from '../game/groundItems';
-import { gearshiftFactor, passOn } from './kinetics';
+import { DIAL_RATIOS, cardProgram, clampCardSeconds, freshCard, gearshiftFactor, passOn, snapRatio, stepFactor } from './kinetics';
+import { cardButtonText } from '../ui/screens/workshop/workshopScreen';
 import { CLOCKWORK, Workshop } from './workshop';
 
 function setup() {
@@ -31,7 +32,7 @@ function setup() {
   };
   const toasts: string[] = [];
   bus.on('toast', (t) => toasts.push(t.text));
-  return { shop, put, use, run, toasts };
+  return { shop, put, use, run, toasts, bus };
 }
 const rpmAt = (t: ReturnType<typeof setup>, x: number) => t.shop.netAt(x, 0, 0) && /(left|right) ([\d.]+) rpm/.exec(t.shop.describe(x, 0, 0) ?? '');
 
@@ -154,6 +155,95 @@ describe('kinetics', () => {
     t.run(0.2, [0, 0, 0]);
     expect(taken).toBe(1);
     expect(t.shop.netAt(1, 0, 0)?.capacity).toBe(10);
+  });
+
+  it('punched-card factor math, clamps and an inserted card override the presets', () => {
+    expect(stepFactor({ ratio: 2, direction: -1, seconds: 4 })).toBe(-2);
+    expect(stepFactor({ ratio: 3, direction: 0, seconds: 9 })).toBe(0);
+    expect(stepFactor({ ratio: 0.5, direction: 1, seconds: 1 })).toBe(0.5);
+    expect(gearshiftFactor(0, 0)).toBe(1);
+    expect(gearshiftFactor(0, 5)).toBe(0);
+    expect(gearshiftFactor(0, 0, cardProgram(freshCard()))).toBe(1);
+    expect(gearshiftFactor(0, 5, [[30, 2]])).toBe(2);
+    expect(passOn({ kind: 'sequence_gearshift', s: 0 }, 16, 5)).toBeNull();
+    expect(passOn({ kind: 'sequence_gearshift', s: 0, card: [[1, 0]] }, 16, 0)).toBeNull();
+    expect(passOn({ kind: 'sequence_gearshift', s: 0, card: [[1, 2]] }, 16, 0)).toBe(32);
+    expect(clampCardSeconds(0)).toBe(1);
+    expect(clampCardSeconds(1)).toBe(1);
+    expect(clampCardSeconds(30)).toBe(30);
+    expect(clampCardSeconds(31)).toBe(30);
+    expect(clampCardSeconds(1.6)).toBe(2);
+    for (const ratio of [0, 0.2, 1.2, 9, -4]) expect(DIAL_RATIOS as readonly number[]).toContain(snapRatio(ratio));
+    expect(cardButtonText({ ratio: 2, direction: -1, seconds: 30 })).toEqual({ ratio: 'x2', direction: 'rev', seconds: '30s' });
+    expect(cardButtonText({ ratio: 1, direction: 0, seconds: 1 })).toEqual({ ratio: 'x1', direction: 'off', seconds: '1s' });
+    expect(cardButtonText({ ratio: 3, direction: 1, seconds: 4 })).toEqual({ ratio: 'x3', direction: 'fwd', seconds: '4s' });
+
+    const bare = setup();
+    bare.put(0, 0, 0, 'hand_crank');
+    bare.put(1, 0, 0, 'sequence_gearshift');
+    bare.put(2, 0, 0, 'drive_shaft');
+    bare.run(5.2, [0, 0, 0]);
+    expect(rpmAt(bare, 2)).toBeNull();
+
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'sequence_gearshift');
+    t.put(2, 0, 0, 'drive_shaft');
+    const pack: string[] = [];
+    t.shop.giveItem = (item, n) => { for (let i = 0; i < n; i++) pack.push(item); };
+    let taken = 0;
+    expect(t.shop.use(1, 0, 0, { item: 'punched_card', count: 1 }, (n) => { taken += n; })).toBe('worked');
+    expect(taken).toBe(1);
+    t.run(5.2, [0, 0, 0]);
+    expect(rpmAt(t, 2)?.[2]).toBe('16');
+    const opened: unknown[] = [];
+    t.bus.on('ui:open', (e) => opened.push(e.screen));
+    expect(t.shop.use(1, 0, 0, null, () => undefined)).toBe('worked');
+    expect(opened).toEqual([{ type: 'workshop' }]);
+    expect(t.shop.cardSteps()).toEqual(freshCard());
+    t.shop.cycleRatio(0);
+    expect(t.shop.cardSteps()?.[0].ratio).toBe(2);
+    for (let i = 0; i < DIAL_RATIOS.length; i++) {
+      expect(DIAL_RATIOS as readonly number[]).toContain(t.shop.cardSteps()?.[0].ratio);
+      t.shop.cycleRatio(0);
+    }
+    expect(t.shop.cardSteps()?.[0].ratio).toBe(2);
+    t.shop.cycleDirection(1);
+    expect(t.shop.cardSteps()?.[1].direction).toBe(0);
+    t.shop.stepSeconds(2, -5);
+    expect(t.shop.cardSteps()?.[2].seconds).toBe(1);
+    t.shop.stepSeconds(2, 40);
+    expect(t.shop.cardSteps()?.[2].seconds).toBe(30);
+    t.shop.stepSeconds(2, 1);
+    expect(t.shop.cardSteps()?.[2].seconds).toBe(30);
+
+    const snap = JSON.parse(JSON.stringify(t.shop.toJSON()));
+    const loaded = setup();
+    loaded.put(0, 0, 0, 'hand_crank');
+    loaded.put(1, 0, 0, 'sequence_gearshift');
+    loaded.put(2, 0, 0, 'drive_shaft');
+    loaded.shop.load(snap);
+    expect(loaded.shop.describe(1, 0, 0)).toContain('Punched card');
+    loaded.shop.use(1, 0, 0, null, () => undefined);
+    expect(loaded.shop.cardSteps()?.[0].ratio).toBe(2);
+    expect(loaded.shop.cardSteps()?.[1].direction).toBe(0);
+    expect(loaded.shop.cardSteps()?.[2].seconds).toBe(30);
+    loaded.run(0.3, [0, 0, 0]);
+    expect(rpmAt(loaded, 2)?.[2]).toBe('32');
+
+    const old = setup();
+    old.put(1, 0, 0, 'sequence_gearshift');
+    old.shop.load({ v: 1, parts: [[1, 0, 0, 'sequence_gearshift', 1]], machines: [] });
+    expect(old.shop.describe(1, 0, 0)).toContain('program 2');
+    old.shop.use(1, 0, 0, null, () => undefined);
+    expect(old.shop.describe(1, 0, 0)).toContain('program 3');
+
+    let replaced = 0;
+    expect(t.shop.use(1, 0, 0, { item: 'punched_card', count: 1 }, (n) => { replaced += n; })).toBe('worked');
+    expect(replaced).toBe(1);
+    expect(pack).toEqual(['punched_card']);
+    t.shop.use(1, 0, 0, null, () => undefined);
+    expect(t.shop.cardSteps()).toEqual(freshCard());
   });
 
   it('settings survive a save', () => {

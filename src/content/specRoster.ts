@@ -392,6 +392,7 @@ SPEC.blocks.push(...WORKSHOP_SPEC.blocks);
 SPEC.items.push(...WORKSHOP_SPEC.items);
 for (const station of Object.keys(WORKSHOP_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...WORKSHOP_SPEC.recipes[station]];
 SPEC.maxTextures += WORKSHOP_SPEC.textures;
+SPEC.worldOnlyItems.push(...WORKSHOP_SPEC.worldOnly);
 
 // Glassware (vials and beakers on the furnace top) comes after the workshop.
 SPEC.blocks.push(...GLASS_SPEC.blocks);
