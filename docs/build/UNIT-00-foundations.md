@@ -698,7 +698,7 @@ All co-located vitest files; fixtures `buildRig`, `feed`, `runUntil`, `litresOf`
 - `conservation fuzz with reactions` - extend the existing fuzz style: 200 random rigs with a vessel, random fake rows, 2000 steps:
   `litres() + vented` constant to 1e-6, no NaN, block states match entity states.
 
-**`src/sim/distillScan.test.ts`** (create if absent, else extend): `heats maps a vessel to the base under it`, `cools lists watered
+**NEW `src/sim/distillScan.test.ts`**: `heats maps a vessel to the base under it`, `cools lists watered
 and unwatered jackets` (the capability check filters water), `the stack walk passes segments and a head condenser and finds the cap
 above` (uses an airlock module as the cap since it exists).
 

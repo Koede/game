@@ -693,3 +693,221 @@ no `PlayerSnapshot` field, no `SAVE_VERSION` change (T10 rule 3).
 - Saves with a steam engine: no stored state is read differently; the shaft simply starts turning when it should.
 
 ---------------------------------------------------------------------------------------------------------------------------
+
+## 8. Implementation plan (ordered; each step leaves `npx tsc --noEmit` and `npx vitest run` green)
+
+**Step 1 - shared support helper.** `src/game/farming.ts`: add `popUnsupportedAt` (7.1) next to `isUnsupported`. Body: `if
+(!isUnsupported(world, x, y, z)) return null; const voxel = world.getVoxel(x, y, z); const def = blockOf(voxel); if
+(!world.setVoxel(x, y, z, AIR, source)) return null; drop(rollDrops(def, rng), { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 }); if (source ===
+'sim') bus.emit('plant:popped', { x, y, z, voxel }); return voxel;`. Imports `rollDrops` from `./mining`, `blockOf` from
+`../core/registry`, `GameBus` type from `../core/context`, `ItemAmount` from core types. Add `'plant:popped'` to
+`GameEvents` in `src/core/gameEvents.ts` (append at the end of the map).
+
+**Step 2 - Interaction uses it.** `src/player/interaction.ts` `popUnsupported(x, y, z)`: replace the body with the helper
+call (source `'player'`, `this.rng`, `(s, at) => this.player.dropAll(s, at)`); when it returns a voxel, emit
+`block:broken` with it (as today). Behaviour identical; existing tests of hand breaks stay green.
+
+**Step 3 - PlantSupport.** New `src/sim/plantSupport.ts` (7.1). `queue` adds `posKey(x, y, z)` (from `./entities`); `flush`
+iterates a snapshot of up to `max` keys, deletes each, parses it, skips unloaded (`world.isLoaded(x, z)`), calls `pop`.
+
+**Step 4 - wire into Simulation** (`src/sim/simulation.ts`):
+- field `private readonly support = new PlantSupport();`
+- constructor, after `this.crops = new CropField(world, bus);`: `this.crops.onBareSoil = (x, y, z) => this.support.queue(x, y, z);`
+- `onBlockChanged`: after `if (from.id === to.id) return;` and the destructuring, add `if (ev.source !== 'load' && y + 1 <
+  WORLD_HEIGHT && blockOf(this.world.getVoxel(x, y + 1, z)).placeOn !== null) this.support.queue(x, y + 1, z);`
+  (import `WORLD_HEIGHT` from core/types).
+- `tick`: after `this.spills.place();`: `if (this.support.size > 0) this.support.flush(this.world, (x, y, z) =>
+  popUnsupportedAt(this.world, this.bus, x, y, z, this.random, (s, at) => this.player.dropAll(s, at), 'sim') !== null,
+  PLANT_POPS_PER_TICK);`
+- `resync`: `this.support.clear()` next to `this.crops.clear()`.
+
+**Step 5 - CropField hook** (`src/sim/crops.ts`): add `onBareSoil` member; in `refresh`, inside `if (d & DIRTY_SOIL) { ... }`
+after computing `c.soil`, `if (!c.soil) this.onBareSoil?.(x, y, z);` (the wild-bush early return above already excludes
+bushes). Update the class doc: "a crop whose soil is gone is reported through `onBareSoil` (the simulation pops it)".
+Change `remove`'s doc comment "Nothing is handed back" to "Nothing is handed back here: the simulation drops a popped
+plant's harvest (src/sim/plantSupport.ts)".
+
+**Step 6 - debris for sim pops.** `src/render/emitters.ts:77` area: add `bus.on('plant:popped', (e) => this.debris(e.x, e.y,
+e.z, e.voxel, 8, 0.8))`. Check the `debris` signature's last parameter meaning (it is passed `1` for breaks) and keep the
+same meaning (smaller burst).
+
+**Step 7 - engine accounting.**
+- `src/sim/entities.ts`: `SimContext.shaftUseW?` optional; `SimNode.shaftW: number`, initialised `0` in the node factory
+  (where `furnaces: []` is set, ~line 193).
+- `src/sim/simulation.ts`: public field `shaftUseW: ((x: number, y: number, z: number) => number) | null = null;` (Simulation
+  implements SimContext / ActionHost: it satisfies the optional member).
+- `src/sim/machines.ts` `heatEngine.apply`: as 5.2 rule 1. Update the doc comment: "...by heatPerWatt times the power
+  actually USED - on the cables (`outW`) and on a shaft (`shaftW`, the workshop's figure via `ctx.shaftUseW`). Idle on
+  both: no heat."
+- `src/sim/gridViews.ts`: `MachineView.shaftW = node.shaftW ?? 0`; generator status: when `e.availW > 0 && view.shaftW >
+  0` return E1; else unchanged.
+- `src/workshop/workshop.ts`: add `private readonly sourceCap = new Map<string, number>();` filled in the network solve:
+  where the sources of a network are collected (`sources.set(key, src)` from `sourceFor`) record `this.sourceCap.set(key,
+  src.capacity)`; clear it at the start of each solve pass. `generatorUseW(x, y, z)`: `const key = k3(x, y, z); const p =
+  this.parts.get(key); const g = p && GENERATOR_SHAFT[p.kind]; if (!g) return 0; const info = <the NetInfo of that part>;
+  const cap = this.sourceCap.get(key) ?? 0; if (!info || info.jammed || info.overstressed || info.rpm <= 0 || cap <= 0 ||
+  info.capacity <= 0) return 0; return (Math.min(info.stress, info.capacity) * cap / info.capacity) / g.suPerW;` The
+  NetInfo per part is whatever the existing `for (const key of members)` loop after `const info: NetInfo = ...` (workshop.ts
+  ~line 425) stores it in; use that map. If the solve multiplies capacity by the `LUBE` factor, multiply `cap` by the same
+  factor (or divide `info.capacity` by it) so the share is computed on like terms; add a test for it (9.2).
+- `src/app/game.ts:162`: `generatorWatts` reads the spare (5.2 rule 5) and the next line sets `this.state.sim.shaftUseW`.
+  Check `GameState` exposes `sim` as used (`this.state.sim.machineView` is already used there).
+
+**Step 8 - UI floors.**
+- `src/ui/hud/hud.css:714`: `font: 600 10px / 1 var(--hw-font-mono);`
+- `src/ui/styles.css:1001`: `font: 600 10px / 1 var(--hw-font-display);`
+- `src/player/input/touchStyles.ts:98`: `.hw-touch-btn--place .hw-touch-label { font-size: 10px; letter-spacing: 0.02em; }`
+- `src/ui/hud/hud.css` after the `.hw-hotbar .hw-slotgrid` rule: `@media (max-width: 445px) { .hw-hotbar .hw-slotgrid {
+  --hw-cols: 5; } }` and in `src/ui/hud/combat.css` with the Large rules: `@media (max-width: 509px) {
+  .hw-root[data-ui-scale='large'] .hw-hotbar .hw-slotgrid { --hw-cols: 5; } }`. Verify the hotbar's `max-width` formula
+  (`--hw-cols x --hw-slot-max + gaps`, styles.css:1065) gives the narrow two-row block and that `.hw-hotbar` centres it
+  (it is `width: min(100%, 520px)` - add `width: fit-content; margin-inline: auto` inside the media query if the plate
+  stretches wider than the grid).
+- Portrait touch cluster (touchStyles.ts): if the e2e overlap assertion fails, raise the portrait `--hw-touch-b` (or the
+  hotbar's bottom offset) by the second row (44 + 3 px, 52 + 2 px Large). Do not move the hotbar above the crosshair band.
+- Add the CSS floor test (9.4).
+
+**Step 9 - structure tab machines.**
+- `src/sim/hearthView.ts`: export `AttachedMachine`, add `attached?` to `StructureView`.
+- `src/sim/simulation.ts` `structureView(x, y, z, target?)`: after building the view, `view.attached = this.attachedTo(node)`.
+  NEW private `attachedTo(furnace: SimNode): AttachedMachine[]`: (1) `for (const n of this.nodes.all) if (n !== furnace &&
+  n.furnaces.includes(furnace.e as FurnaceEntity)) push(n)`; (2) `else if (n.spec.role === 'hearth_part' &&
+  this.hearths.shellOwner(n.key)?.e === furnace.e) push(n)`; (3) `for (const e of this.world.entities()) if
+  ((isChemKind(e.kind) || isBrewKind(e.kind)) && this.furnaceUnder(e.x, e.y, e.z) === furnace.e) push(e)`; `push` reads
+  `blockOf(world.getVoxel(x, y, z))` for `block` and `name`, de-duplicates by position. (Use whatever collection
+  `NodeSet` exposes for all nodes - simulation.ts constructs `new SafeZones(() => this.nodes.all)`, so `nodes.all` exists.
+  Check `furnaceUnder`'s return type and compare entities, not nodes.)
+- `src/ui/screens/furnace/structureText.ts`: `machineGroups`, `machinesLine` (4.4, 6.1.7).
+- `src/ui/screens/furnace/structureTab.ts`: NEW fields `machinesHead: HTMLElement`, `machinesLineEl`, `machinesList`,
+  `machinesHint`, `machinesKey = ''`, `machineRows: { el, note, group, next }[]`; build them in the constructor and insert
+  them after the shift row / rules, before the "In the way" head. NEW `private updateAttached(list: AttachedMachine[] |
+  undefined)` called from `update()` next to `this.updateMachines(t.machines)` (rename nothing). Row click: highlight
+  `group.at[row.next]`, set the note text with `i of N`, advance `row.next = (row.next + 1) % N`, hide other rows' notes,
+  sfx `ui_click`.
+- `src/ui/screens/furnace/structure.css`: `.hw-st__machine { min-height: var(--hw-tap); }` and the muted hint style
+  reusing existing tokens (`--hw-ink-muted`, `--hw-fs-sm`).
+
+**Step 10 - wording.** `src/sim/fluidMachines.ts`: add `litresText`, `WRENCH_PULL`; delete `fmtL`; rewrite the returned
+strings of `pumpFullStatus` and `fluidStatus` per 6.1 (the turbine's `if (heldL(e, 'steam') > 0) return null;` becomes
+the U4/U5 branch: `return e.outW > 0 ? \`Turning, ${formatWatts(e.outW)} of ${formatWatts(e.availW)} in use,
+${Math.round(e.rateL ?? 0)} L/s of steam\` : 'Ready - nothing on the cables uses power';`). Import `formatWatts` from
+`../game/objectives` (gridViews already does; follow its import). Update the file header comment's pump/boiler bullets if
+they quote strings. `src/content/techMachines.ts`: the three `placementHint` strings (6.1.6). `src/content/objectives.ts:125`:
+the last clause.
+
+**Step 11 - fix the tests that quote old strings.** `grep -rn "nowhere to put it\|nothing pulls from it\|connect a pipe that
+pulls\|Holds steam\|Steam is not being used\|Needs water - pipe it in\|Steam line has no end\|No steam coming in\|pipe it in
+through a hot pipe\|Must touch still water\|Must sit on top of a furnace\|of steam a second\|the pool shrinks\|Refining crude
+oil -" src scripts` and update each expectation to the new text (they assert wording, not behaviour). Note:
+`'Must sit on top of a furnace'` is ALSO the steam engine's placement problem in `placementProblem` (machines.ts:44) -
+**leave that one unchanged** (it is the engine's, not the boiler's; out of scope).
+
+**Step 12 - docs** (section 11), then the e2e steps (section 10).
+
+Helpers reused, not rewritten: `isUnsupported`, `rollDrops`, `isRipeCrop`, `PlayerState.dropAll`, `posKey`, `formatWatts`,
+`fluidName`, `heldL`, `HEARTH_HIGHLIGHT_S`, `h`/`setText`/`glyph` of the ui kit as structureTab.ts already imports them.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+## 9. Tests (vitest; exact files, names, assertions)
+
+### 9.1 `src/sim/plantSupport.test.ts` (NEW) - uses `makeKit()` from `src/sim/testKit.ts` (`kit.world.put`, `kit.run`)
+
+1. `it('a crop whose farmland is replaced by a machine pops on the next tick and drops its seeds')` - put `farmland` at
+   (0, 1, 0) and `wheat_0` at (0, 2, 0); `kit.run(0.05)`; set (0, 1, 0) to `dirt` with source `'sim'`; assert the block at
+   (0, 2, 0) is still `wheat_0` immediately (deferred); `kit.run(0.05)`; assert `air`; assert
+   `kit.player.ground.count('wheat_seeds') >= 1` (or the stage-0 drop item read from `block('wheat_0').drops[0].item`, not
+   a literal); assert `kit.sim.cropCount` (the existing count getter at simulation.ts:818, whatever its name) dropped by 1.
+2. `it('a ripe crop pops with its harvest')` - same with the ripe stage key (compute as `wheat_${stages - 1}` via
+   `cropStage` from src/game/farming.ts); assert the ground holds `wheat`.
+3. `it('a sim pop emits plant:popped and not block:broken')` - spy on `kit.bus`: one `plant:popped` with the voxel, zero
+   `block:broken`; one `sfx` named `break` (young) / `harvest` (ripe).
+4. `it('a field moved together with its soil in one pass does not pop')` - in one synchronous block: set (0,1,0) and
+   (0,2,0) to air, then set (1,1,0) farmland and (1,2,0) `wheat_0` (simulating a contraption move); `kit.run(0.1)`; assert
+   (1, 2, 0) is still `wheat_0` and nothing dropped.
+5. `it('a tea bush stays when its farmland becomes dirt')` - `tea_bush_bare` on farmland -> dirt: no pop.
+6. `it('an old save\'s floating crop pops once its chunk is seen')` - build a world where `wheat_0` stands on `stone`
+   (with its crop entity), `kit.sim.resync()`, `kit.run(0.1)`: air, seeds on the ground.
+7. `it('pops at most PLANT_POPS_PER_TICK per tick and finishes the rest after')` - 80 crops on a farmland row, replace all
+   80 farmland with dirt; after one tick 64 are air, after two ticks 80.
+8. `it('a crop in an unloaded chunk is not popped until it loads')` - queue a pop at a position the kit reports unloaded
+   (if the kit cannot unload, test `PlantSupport.flush` directly with a fake `IWorld` whose `isLoaded` returns false:
+   `pop` is not called and `size` is 0 afterwards).
+9. `it('load-sourced block changes never queue a pop')` - emit a `block:changed` with `source: 'load'` under a crop: queue
+   size stays 0 (call through the bus, read `size` via a test-only accessor or by observing no pop after one tick while the
+   crop's own refresh is suppressed - prefer the direct `PlantSupport` unit test if the kit makes this awkward).
+
+### 9.2 `src/sim/power.test.ts` (extend `describe('heat engines')`)
+
+1. `it('a steam engine with nothing to feed takes no heat')` - the 820 C rig of the existing test WITHOUT the battery;
+   `kit.run(60)`; `engine.availW` 2000; `engine.outW` 0; furnace `extractW` (read via the firebox view `furnaceView(...).extractW`
+   or the entity after a run) 0.
+2. `it('a steam engine pays heat for the shaft work it does')` - same rig, no battery; set `kit.sim.shaftUseW = () => 500`;
+   run; furnace drew `3 x 500` = 1500 W (`toBeCloseTo(1500, 6)` on the value sampled after `apply`, before `applyFurnace`
+   clears it - if the entity's `extractW` is cleared by the time the test reads it, read `furnaceView(...).extractW` which
+   is the last tick's draw, as firebox.ts does).
+3. `it('shaft heat never exceeds the spare watts')` - battery taking 1800 W, `shaftUseW = () => 900`: drawn `3 x 2000`
+   (clamped: 1800 + 200), `machineView.shaftW` 200.
+4. `it('the engine status names the shaft share')` - with `shaftUseW = () => 400` and a lamp: status starts `"10 W to the
+   grid, 400 W on the shaft, of "` (use `formatWatts` to build the expectation, not literals).
+
+### 9.3 `src/workshop/kinetics.test.ts` (extend; it already stubs `generatorWatts` at line 136)
+
+1. `it('a generator\'s used watts are its share of the network stress')` - `generatorWatts = (x) => x === 0 ? 400 : 0`
+   (8 su), a millstone on the shaft; tick; `shop.generatorUseW(0, y, z)` equals `stressOfMillstone / (1/50)` within 1e-6
+   (compute stress with the same `BASE_STRESS x clamp(16/|rpm|, 0.25, 4)` rule the test file already uses).
+2. `it('two sources share the load by capacity')` - generator 400 W (8 su) + a turning crank (8 su) on one network, load
+   6 su: generator uses 3 su = 150 W.
+3. `it('a stalled network uses nothing from its generator')` - overload past capacity: `generatorUseW` 0.
+4. `it('oil does not change a generator\'s share')` - same as 1 with the network oiled (`LUBE.residue`): same watts.
+5. `it('a non-generator part reports 0')`.
+
+### 9.4 `src/ui/uiFloors.test.ts` (NEW, node environment, reads files with `node:fs`)
+
+1. `it('no stylesheet sets a caption under 10 px')` - read every `*.css` under `src/ui` (recursive) plus the CSS string
+   exported or embedded by `src/player/input/touchStyles.ts` (import the module's exported style text if it exports one;
+   else read the file as text); regex every `font-size:\s*([\d.]+)px` and every `font:\s*[^;]*?([\d.]+)px` (the FIRST px
+   number of the shorthand = the size); assert each >= 10. Values inside `calc(...)` are checked as their px literal
+   (e.g. `calc(10px * var(--hw-ui-scale, 1))` -> 10). Report the file and line of any failure.
+2. `it('the hotbar minimum slot is the tap size')` - `src/ui/styles.css` contains `--hw-slot-min: var(--hw-tap)` in
+   `.hw-slotgrid`, `--hw-tap: 44px` in `:root` and `52px` under `[data-ui-scale='large']`.
+3. `it('the hotbar switches to five columns where nine do not fit')` - hud.css contains the `max-width: 445px` media rule
+   with `--hw-cols: 5`; combat.css the `509px` Large one. (Layout itself is verified in the browser, 10.3.)
+
+### 9.5 `src/ui/screens/furnace/structureLogic.test.ts` (extend; tests the pure text helpers)
+
+1. `it('machinesLine counts machines and groups kinds')` - list Boiler, Steam Engine, Steam Engine, Item Hatch ->
+   `'Structure - 4 machines: Boiler, Item Hatch, Steam Engine x2'` (alphabetical; note the T8 example's order is
+   illustrative).
+2. `it('machinesLine says when there are none and when there is one')` - `[]` -> `'Structure - no machines yet'`; one
+   Boiler -> `'Structure - 1 machine: Boiler'`.
+3. `it('machinesLine stays within 60 characters')` - 9 distinct long names -> length <= 60 and ends with `+<k> more`
+   where k = kinds left out; the count still says 9.
+4. `it('machineGroups orders instances nearest first')`.
+
+### 9.6 `src/sim/hearth.test.ts` (extend, beside "a steam engine on the ceiling and a thermopile on a wall work the furnace", line 308)
+
+1. `it('the structure view lists the machines working with the hearth')` - same rig; `kit.sim.structureView(...)!.attached`
+   contains the steam engine and the thermopile by block key, length 2; add an item hatch in the shell -> 3; a tank two
+   blocks away connected by nothing -> still 3.
+2. `it('a still base on a furnace top is listed')` - place `still_base` on a single furnace: attached includes it.
+
+### 9.7 `src/sim/fluidMachines.test.ts` (extend; and update existing string expectations per step 11)
+
+1. `it('litresText reads litres below a bucket and buckets above')` - 0 -> `'0 L'`, 250 -> `'250 L'`, 999 -> `'999 L'`,
+   1000 -> `'1 bucket'`, 1500 -> `'1.5 buckets'`, 16000 -> `'16 buckets'`.
+2. `it('every pump, boiler and turbine status is T8 grammar within 60 characters')` - drive each branch of 6.1 (P1-P7,
+   B1-B7, U1-U5) with the existing fixtures (`makeKit`, `pipeKit.ts` for links), collect the strings, and assert for each:
+   length <= 60; no `!`; matches `/^[A-Z]/`; contains no `°`; problems (P1-P5, B1-B6, U1-U3) contain exactly one `' - '`;
+   every one containing "Pull" contains `WRENCH_PULL('<machine>')` or the P5 short form.
+3. `it('the boiler too-cold line names both temperatures')` - furnace at 150 C -> `'Too cold, furnace 150 C - it boils from
+   200 C'` built from `machine('boiler').params.minTempC`.
+4. `it('a turning turbine says how much and from how much steam')` - U4 matches `/^Turning, .+ of .+ in use, \d+ L\/s of steam$/`.
+
+### 9.8 `src/content/techContent.test.ts` (extend)
+
+1. `it('pipe advice uses one wrench phrase')` - for `pump`, `boiler`, `steam_turbine`, `placementHint` contains `wrench the
+   pipe end at the` and does not contain `boiler end` or `with the wrench`.
+
+---------------------------------------------------------------------------------------------------------------------------
