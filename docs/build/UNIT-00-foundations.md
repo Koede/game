@@ -362,9 +362,13 @@ nothing runs:                     state = ran ? 'done' : 'idle'
   go along its edges (`flow()` line 343 is unchanged: a vessel pours only in state `done`).
 - `announce` (generalised): working -> done on a vessel toasts `${rx.done ?? `${rx.name} done`}: ${fluid name}` using `lastRx`
   (fermenting: "Fermenting done: Sugar Wash", unchanged), appends `, ${n} ${Item} in the vessel` for each output stack made in this
-  run when there are any (example "Asphalt mix done: Slop, 8 Asphalt in the vessel"), emits `sfx machine_done` pitch 1.4
+  run when there are any (example with the e2e test row: "Test mix done: Water, 1 Flint in the vessel"), emits `sfx machine_done` pitch 1.4
   (unchanged) and `flagOnce(rx.flag)` when the row has a flag. A vessel `done` with no `lastRx` (old save) toasts "Reaction done".
 - Ruin text needs `ruinC`; rows without `ruinC` never ruin.
+- **Still base under a vessel.** `show()` (line 388-390) sets a base `working` when its flask is working; it now also does so when
+  the vessel on it (`rig.heats`) is `working` with `heated` in its running row's needs. The base crosshair line
+  (`distillActions.ts:103`) ends `, no flask or vessel on it` instead of `, no flask on it` when neither stands on it, and
+  `, warming the Reaction Vessel` when a vessel does.
 
 ### 5.3 Item slots
 
@@ -471,6 +475,9 @@ Bed", "Chem Stirrer"); the text table lives in NEW `src/sim/reactionText.ts` (pu
   `-webkit-line-clamp: 2`, and the progress text from `progressOf(condition).text` when non-empty, e.g. `9 / 16`).
 - Not-done goals first in list order, then done goals in list order. Hidden entirely (`section.hidden = true`) while
   `SIDE_OBJECTIVES` is empty - so in Unit 0 nothing visible changes.
+- Rows come from NEW pure `src/ui/screens/log/sideGoalsText.ts`: `sideGoalRows(side: { spec: ObjectiveSpec; done: boolean }[],
+  progress: (c: ObjectiveCondition) => ObjectiveProgress): { id: string; title: string; text: string; progress: string; done: boolean }[]`
+  (ordering and texts), and `sideHeading(rows): string` -> `Side goals  2 / 11`. The view only maps rows to elements.
 - Rebuilt when the refresh key changes; the key gains the side completed count: `${current}|${completed}|${age}|${sideDone}`.
   Progress texts of not-done side goals refresh with the existing cheap path only when the log is open (`refresh()` already runs
   then).
@@ -585,7 +592,7 @@ main Done count is unchanged. `load()` keeps unknown ids (a side goal of a later
    `specRoster.ts` `worldOnlyItems` += both.
    `techContent.test.ts` requires every pair of fluid colours to be more than 60 apart in RGB (line 33); both colours above were
    checked against all 16 existing fluid colours (min 72 and 68) and against each other (far apart). Also extend the tech roster's
-   two distillery fluid lists (`specRosterTech.ts:64-65`) and its fluid table (line 87 pattern:
+   two distillery fluid lists (`specRosterTech.ts:64-65`, inserting both right after `'residue'`, matching `DISTILL_FLUIDS` order) and its fluid table (line 87 pattern:
    `lube_base: ['Lube Base', false, false, null, 'lube_base_canister']`, `lubricant: ['Lubricant', false, false, null, 'lubricant_canister']`).
 3. **Scan.** `src/sim/distillScan.ts`: build `heats`, `cools`, `stacks` (4.4) after the existing modifier loop; no change to stills,
    edges or problems.
@@ -665,7 +672,8 @@ All co-located vitest files; fixtures `buildRig`, `feed`, `runUntil`, `litresOf`
 
 **`src/sim/distill.test.ts` (extend)**
 - existing `ferments syrup and water under an airlock, refuses syrup alone, and lets the wash go when done` stays unchanged and green.
-- `a fake reaction runs with each capability` - for each of `heated`, `sealed`, `cooled`, `vacuum`, `pressure`, `stirred`,
+- `a fake reaction runs with each capability` (real rigs for heated, sealed, cooled; stubbed `stirredAt`; `pickReaction` with injected
+  sets for vacuum, pressure, catalyst) - for each of `heated`, `sealed`, `cooled`, `vacuum`, `pressure`, `stirred`,
   `catalyst:flint`: set `kit.sim.distill.reactions = [fake(cap)]` (fake: `in {water:1}`, `out {water:0.5, ethanol:0.5}`,
   window `[0, 450]`), build the rig that provides it (vessel on a base on a furnace at 120 C; airlock; watered jacket; a cap module
   and hook - the cap/bed blocks do not exist yet, so the test registers nothing and instead stubs `vacuumAt`/`stirredAt` and, for
@@ -710,6 +718,10 @@ above` (uses an airlock module as the cap since it exists).
 - `side goal rewards go to pendingRewards when the pack is full`.
 - `side completions round-trip through toJSON/load without re-announcing`.
 - `an old snapshot without side ids loads; a side goal already met completes on the next check`.
+
+**NEW `src/ui/screens/log/sideGoalsText.test.ts`**
+- `not-done goals come first in list order, then done goals`; `progress text is empty for one-off conditions`;
+  `sideHeading counts done over total` (`Side goals  1 / 3`); `an empty list gives no rows` (section hidden).
 
 **`src/content/content.test.ts` (extend)**
 - `side goal ids are unique and disjoint from OBJECTIVES` (empty list passes).
@@ -791,7 +803,9 @@ empty, so no phone run is required by Unit 0; Unit 2 (first side goal) adds the 
 - [ ] `REACTIONS` exists with exactly `rx_ferment_wash`; `stepVessel` contains no fermenting constants.
 - [ ] Fermenting a 1000 L syrup + 1000 L water vessel gives the same mix (to 1e-6) after 110 s as before the change (golden test
       recorded from the pre-change code in the same PR).
-- [ ] `capabilitiesOf` returns each of the seven capability kinds under its condition (test per kind).
+- [ ] `capabilitiesOf` derives `heated`, `sealed`, `cooled`, `stirred` (stubbed hook) and the stack/cap walk (airlock as cap) from real
+      rigs; `vacuum`, `pressure`, `catalyst:<item>` are proven through `pickReaction` with injected capability sets (their blocks
+      arrive with Units 8 and 11, whose specs add the scan-level tests).
 - [ ] Vessel temperature: 20 C bare, 5 C jacketed, base temp capped at bubble point (x0.7 / x1.3 with vacuum / pressure) when heated.
 - [ ] Heated reactions draw 2000 W; idle heated vessels draw 0 W.
 - [ ] Use with an accepted solid moves the whole stack into the slots; empty hand takes outputs, then inputs; leftovers dropped, never lost.
@@ -801,7 +815,7 @@ empty, so no phone run is required by Unit 0; Unit 2 (first side goal) adds the 
 - [ ] Six new `CHEM` keys exist; block, machine and texture lists unchanged; a kind without `CHEM_LOOKS` produces no block.
 - [ ] `lube_base`, `lubricant` registered (FluidKey, fluid spec, grades before residue, canisters, items, rosters, worldOnlyItems).
 - [ ] `SIDE_OBJECTIVES` empty and exported; a test goal completes out of order with toast `Side goal: <title>` and `objective:side`;
-      the main track is unaffected; the Hearth Log section is hidden when empty and renders with a test list (unit test of the view).
+      the main track is unaffected; the Hearth Log rows come from the pure `sideGoalRows()` (tested) and the section is hidden when the list is empty.
 - [ ] `WorkshopView.moving` is `[]`; `fluidBlock.draw?/fill?`, `BlockSpec.surface?`, `CoolsSpec.returns?` type-check; `surfaceMult` returns 1.
 - [ ] `node scripts/e2e-distill.mjs --device=desktop` passes including step "a reaction vessel takes a solid into its slots and hands back what it made".
 - [ ] Docs in section 11 updated.
