@@ -11,7 +11,7 @@ import { chemKindOf } from '../../../core/distill';
 import { WORLD_HEIGHT } from '../../../core/types';
 import type { Rig, RigProblem } from '../../../sim/distillScan';
 
-/** Overlay key. One preview; showing it again replaces it. Cleared when the screen closes. */
+/** Overlay key. One preview; showing it again replaces it. It stays after the screen closes. */
 export const DISTILL_GHOST_KEY = 'distill';
 
 /** Seconds a tapped problem block pulses (`highlight:block`). */
@@ -43,9 +43,67 @@ export function ghostPayload(cells: readonly GhostCell[]): { key: typeof DISTILL
   return { key: DISTILL_GHOST_KEY, cells: cells.slice() };
 }
 
-/** The payload the screen emits on `ghost:clear` when it closes. */
+/** The payload of `ghost:clear` for this preview. Closing the screen does not emit it. */
 export function ghostClear(): { key: typeof DISTILL_GHOST_KEY } {
   return { key: DISTILL_GHOST_KEY };
+}
+
+/** The preview that is up, if the player has picked a card that still has cells to place. */
+export interface GhostHold {
+  cardId: string;
+  cells: GhostCell[];
+}
+
+/**
+ * What the overlay should do next.
+ * `stay` leaves whatever is drawn (closing the screen is this: players close it to build).
+ * `show` is the first card, or the same card after the world changed.
+ * `replace` is a different card: clear, then show.
+ * `clear` is the rig finished (no missing or wrong cells).
+ */
+export type GhostStep =
+  | { op: 'stay' }
+  | { op: 'show'; cells: GhostCell[] }
+  | { op: 'replace'; cells: GhostCell[] }
+  | { op: 'clear' };
+
+export type GhostEvent =
+  | { type: 'ghost:clear'; key: typeof DISTILL_GHOST_KEY }
+  | { type: 'ghost:show'; key: typeof DISTILL_GHOST_KEY; cells: GhostCell[] };
+
+/**
+ * `next` null means the screen closed. A finished card (no cells) clears a preview that is up.
+ * A different card replaces it. The same cells stay.
+ */
+export function ghostStep(held: GhostHold | null, next: { cardId: string; cells: readonly GhostCell[] } | null): GhostStep {
+  if (next === null) return { op: 'stay' };
+  if (next.cells.length === 0) return held ? { op: 'clear' } : { op: 'stay' };
+  const cells = next.cells.slice();
+  if (!held) return { op: 'show', cells };
+  if (held.cardId !== next.cardId) return { op: 'replace', cells };
+  if (sameCells(held.cells, cells)) return { op: 'stay' };
+  return { op: 'show', cells };
+}
+
+/** Bus events for one step. Clear uses `ghostClear`; show uses `ghostPayload`. */
+export function ghostEvents(step: GhostStep): GhostEvent[] {
+  switch (step.op) {
+    case 'stay':
+      return [];
+    case 'clear':
+      return [{ type: 'ghost:clear', key: ghostClear().key }];
+    case 'show':
+      return [{ type: 'ghost:show', key: DISTILL_GHOST_KEY, cells: step.cells }];
+    case 'replace':
+      return [
+        { type: 'ghost:clear', key: ghostClear().key },
+        { type: 'ghost:show', key: DISTILL_GHOST_KEY, cells: step.cells },
+      ];
+    default: {
+      const exhaustive: never = step;
+      return exhaustive;
+    }
+  }
 }
 
 /** The payload a problem tap emits on `highlight:block`. */
@@ -103,19 +161,20 @@ export function problemGroups(problems: readonly Pick<RigProblem, 'text' | 'cell
 
 /**
  * What the standing rig can do, in one sentence.
- * A still distils once it has a condenser. Cuts are the taller of its column and its outlets
- * (a pot still is 1 cut; a column of three segments is 3). A capped vessel ferments. A jacket
- * on a condenser cools it.
+ * A still distils once it has a condenser. Cuts are the fewer of its column segments and its
+ * condenser outlets (side draws plus the head). A pot still has no column, so the column does
+ * not limit it and the cut count is its outlets. A capped vessel ferments. A jacket on a
+ * condenser cools it.
  */
 export function capabilityText(rig: Pick<Rig, 'stills' | 'sealed' | 'jackets'>): string {
   const parts: string[] = [];
   let cuts = 0;
   let distil = false;
   for (const still of rig.stills) {
-    const outlets = still.draws.length + (still.head ? 1 : 0);
-    if (outlets <= 0) continue;
+    const n = cutCount(still);
+    if (n <= 0) continue;
     distil = true;
-    cuts = Math.max(cuts, Math.max(still.segments.length, outlets));
+    cuts = Math.max(cuts, n);
   }
   if (distil) {
     parts.push('distil');
@@ -221,6 +280,24 @@ function blockKeyAt(world: BlockReader, x: number, y: number, z: number): string
 /** The plain module kind: `boiling_flask_done` matches `boiling_flask`. */
 function sameKind(worldKey: string, want: string): boolean {
   return chemKindOf(worldKey) === want;
+}
+
+/** Outlets are the side draws plus the head. A column is limited by min(segments, outlets). */
+function cutCount(still: Pick<Rig['stills'][number], 'segments' | 'draws' | 'head'>): number {
+  const outlets = still.draws.length + (still.head ? 1 : 0);
+  if (outlets <= 0) return 0;
+  if (still.segments.length === 0) return outlets;
+  return Math.min(still.segments.length, outlets);
+}
+
+function sameCells(a: readonly GhostCell[], b: readonly GhostCell[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i];
+    const right = b[i];
+    if (left.x !== right.x || left.y !== right.y || left.z !== right.z || left.block !== right.block || left.state !== right.state) return false;
+  }
+  return true;
 }
 
 function parseCell(key: string): { x: number; y: number; z: number } | null {

@@ -4,7 +4,8 @@
  *
  * Opened later by S10 on `{ type: 'distill_rig', x, y, z }` (the type lives in `rigRequest.ts` until C7
  * adds it to `ScreenRequest`). A wrench on glassware is what asks for it; an empty hand stays the
- * crosshair toast. Closing the screen clears the `distill` ghost preview.
+ * crosshair toast. The ghost preview stays after the screen closes, so the player can build against it.
+ * It is replaced when another card is picked, and cleared when that card's rig is complete.
  */
 import { blockOrNull } from '../../../core/registry';
 import { posKey } from '../../../sim/entities';
@@ -20,13 +21,13 @@ import {
   capabilityText,
   cardChoices,
   ghostCells,
-  ghostClear,
-  ghostPayload,
+  ghostEvents,
+  ghostStep,
   ghostSummary,
   highlightPayload,
   problemGroups,
   type CardChoice,
-  type GhostCell,
+  type GhostHold,
   type ProblemGroup,
 } from './rigLogic';
 
@@ -78,7 +79,7 @@ export function createRigScreen(request: DistillRigRequest, ctx: ScreenContext):
   noCards.hidden = choices.length > 0;
   const buttons = new Map<string, HTMLButtonElement>();
   let selected: CardChoice | null = null;
-  let shown: GhostCell[] = [];
+  let held: GhostHold | null = null;
   let hintTimer: ReturnType<typeof setTimeout> | null = null;
 
   for (const choice of choices) {
@@ -93,7 +94,7 @@ export function createRigScreen(request: DistillRigRequest, ctx: ScreenContext):
     button.addEventListener('click', () => {
       selected = choice;
       paintCards();
-      publish(true);
+      publish();
       bus.emit('sfx', { name: 'ui_click' });
     });
     buttons.set(choice.id, button);
@@ -107,7 +108,7 @@ export function createRigScreen(request: DistillRigRequest, ctx: ScreenContext):
     subtitle: 'Structure',
     size: 'sm',
     body,
-    footer: `${tap} a problem to pulse that block. Pick a process to ghost the blocks still missing.`,
+    footer: `${tap} a problem to pulse that block. Pick a process to ghost the blocks still missing. The preview stays after you close this.`,
   });
   window.setAccent('var(--hw-power)');
 
@@ -119,13 +120,30 @@ export function createRigScreen(request: DistillRigRequest, ctx: ScreenContext):
     }
   }
 
-  function publish(force: boolean): void {
+  function publish(): void {
     if (!selected) return;
     const cells = ghostCells(ctx.world, { x, y, z }, selected.rig);
-    if (!force && sameCells(shown, cells)) return;
-    shown = cells;
-    bus.emit('ghost:show', ghostPayload(cells));
-    setText(pickerNote, `${selected.title}: ${ghostSummary(cells)}`);
+    const step = ghostStep(held, { cardId: selected.id, cells });
+    for (const event of ghostEvents(step)) {
+      if (event.type === 'ghost:clear') bus.emit('ghost:clear', { key: event.key });
+      else bus.emit('ghost:show', { key: event.key, cells: event.cells });
+    }
+    switch (step.op) {
+      case 'stay':
+        break;
+      case 'clear':
+        held = null;
+        break;
+      case 'show':
+      case 'replace':
+        held = { cardId: selected.id, cells: step.cells };
+        break;
+      default: {
+        const exhaustive: never = step;
+        return exhaustive;
+      }
+    }
+    if (step.op !== 'stay' || cells.length === 0) setText(pickerNote, `${selected.title}: ${ghostSummary(cells)}`);
   }
 
   function highlight(row: ProblemRow): void {
@@ -187,7 +205,7 @@ export function createRigScreen(request: DistillRigRequest, ctx: ScreenContext):
     }
     setText(caps, capabilityText(rig));
     renderProblems(problemGroups(rig.problems));
-    publish(false);
+    publish();
   }
 
   return {
@@ -195,19 +213,9 @@ export function createRigScreen(request: DistillRigRequest, ctx: ScreenContext):
     refresh,
     dispose: () => {
       if (hintTimer !== null) clearTimeout(hintTimer);
-      bus.emit('ghost:clear', ghostClear());
+      // ghostStep(held, null) is 'stay': closing does not emit ghost:clear.
       rows.length = 0;
       buttons.clear();
     },
   };
-}
-
-function sameCells(a: readonly GhostCell[], b: readonly GhostCell[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const left = a[i];
-    const right = b[i];
-    if (left.x !== right.x || left.y !== right.y || left.z !== right.z || left.block !== right.block || left.state !== right.state) return false;
-  }
-  return true;
 }

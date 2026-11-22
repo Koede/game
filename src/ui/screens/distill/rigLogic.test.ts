@@ -8,7 +8,9 @@ import {
   cardChoices,
   ghostCells,
   ghostClear,
+  ghostEvents,
   ghostPayload,
+  ghostStep,
   ghostSummary,
   highlightPayload,
   problemGroups,
@@ -68,7 +70,31 @@ describe('rig ghost cells', () => {
     kit.world.put(1, 4, 0, 'receiver');
     expect(ghostCells(kit.world, { x: 1, y: 4, z: 0 }, pot.rig)).toEqual([]);
     expect(ghostSummary([])).toBe('Every block of this process is in place.');
+  });
+
+  it('stays up when the screen closes, replaces on another card, and clears when the rig is complete', () => {
+    const missing = [{ x: 1, y: 3, z: 0, block: 'boiling_flask', state: 'missing' as const }];
+    const other = [{ x: 0, y: 4, z: 0, block: 'condenser_coil', state: 'wrong' as const }];
+    const held = { cardId: 'distil_spirit', cells: missing };
+
+    expect(ghostStep(held, null)).toEqual({ op: 'stay' });
+    expect(ghostEvents(ghostStep(held, null))).toEqual([]);
+
+    const replaced = ghostStep(held, { cardId: 'distil_syrup', cells: other });
+    expect(replaced).toEqual({ op: 'replace', cells: other });
+    expect(ghostEvents(replaced)).toEqual([
+      { type: 'ghost:clear', key: 'distill' },
+      { type: 'ghost:show', key: 'distill', cells: other },
+    ]);
+
+    expect(ghostStep(held, { cardId: 'distil_spirit', cells: [] })).toEqual({ op: 'clear' });
+    expect(ghostEvents({ op: 'clear' })).toEqual([{ type: 'ghost:clear', key: ghostClear().key }]);
     expect(ghostClear()).toEqual({ key: 'distill' });
+
+    expect(ghostStep(null, { cardId: 'distil_spirit', cells: missing }).op).toBe('show');
+    expect(ghostEvents(ghostStep(null, { cardId: 'distil_spirit', cells: missing }))).toEqual([
+      { type: 'ghost:show', ...ghostPayload(missing) },
+    ]);
   });
 
   it('offers the cards that use the wrenched block', () => {
@@ -127,12 +153,12 @@ describe('rig problems and capabilities', () => {
       stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0'], draws: [], head: '0,4,0' }],
       sealed: new Set(['1,0,0']),
       jackets: new Map([['0,4,0', ['2,4,0']]]),
-    })).toBe('This rig can: distil, 2 cuts, ferment, cooled.');
+    })).toBe('This rig can: distil, 1 cut, ferment, cooled.');
     expect(capabilityText({
-      stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0', '0,4,0'], draws: [{ h: 1, condenser: '1,2,0' }, { h: 2, condenser: '1,3,0' }], head: '0,5,0' }],
+      stills: [{ flask: '0,1,0', base: '0,0,0', segments: ['0,2,0', '0,3,0', '0,4,0'], draws: [{ h: 1, condenser: '1,2,0' }], head: '0,5,0' }],
       sealed: new Set(),
       jackets: new Map(),
-    })).toBe('This rig can: distil, 3 cuts.');
+    })).toBe('This rig can: distil, 2 cuts.');
     expect(capabilityText({
       stills: [{ flask: '0,1,0', base: null, segments: [], draws: [], head: null }],
       sealed: new Set(),
