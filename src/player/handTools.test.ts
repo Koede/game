@@ -14,16 +14,20 @@ function setup() {
   const world = flatWorld(bus);
   const player = makePlayer(bus);
   const calls: string[] = [];
-  const answers: { stroke: HandResult; ret: HandResult; pour: PourResult; molten: number } = {
+  const answers: { stroke: HandResult; ret: HandResult; pour: PourResult; bench: PourResult | null; pourBench: PourResult | null; molten: number } = {
     stroke: { ok: true, did: 'stroke' },
     ret: { ok: true, did: 'return' },
     pour: { ok: true },
+    bench: { ok: true },
+    pourBench: { ok: true },
     molten: 0,
   };
   const hands: HandHands = {
     stroke: (x, y, z, held) => (calls.push(`stroke ${x},${y},${z} ${held}`), answers.stroke),
     handReturn: (x, y, z) => (calls.push(`return ${x},${y},${z}`), answers.ret),
     pourCrucible: (x, y, z, slot, held) => (calls.push(`pour ${x},${y},${z} #${slot} ${held}`), answers.pour),
+    pourBench: (x, y, z, slot) => (calls.push(`pourBench ${x},${y},${z} #${slot}`), answers.pourBench),
+    useBench: (x, y, z, held) => (calls.push(`bench ${x},${y},${z} ${held}`), answers.bench),
     furnaceView: () => ({ crucibles: [{ index: 0, moltenS: 0 }, { index: 1, moltenS: answers.molten }] }),
   };
   let swings = 0;
@@ -134,6 +138,38 @@ describe('moulds at a furnace', () => {
     expect(calls).toEqual([]);
   });
 
+  it('an empty hand pours at the nearest bench, and a mould in hand still pours that mould', () => {
+    const { world, bus, interaction, aim, hold, calls, answers } = setup();
+    const opened = record(bus, 'ui:open');
+    world.put(0, 10, -2, 'furnace_clay');
+    answers.molten = 10;
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('poured');
+    hold({ item: 'ingot_mould', count: 1, durability: 40 });
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('poured');
+    expect(calls).toEqual(['pourBench 0,10,-2 #1', 'pour 0,10,-2 #1 ingot_mould']);
+    expect(opened).toEqual([]);
+  });
+
+  it('opens the furnace screen when the empty hand has no bench in range', () => {
+    const { world, bus, interaction, aim, calls, answers } = setup();
+    const opened = record(bus, 'ui:open');
+    world.put(0, 10, -2, 'furnace_clay');
+    answers.molten = 8;
+    answers.pourBench = null;
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('screen');
+    expect(opened.length).toBe(1);
+    expect(calls).toEqual(['pourBench 0,10,-2 #1']);
+  });
+
+  it('an empty hand with nothing molten does not ask the bench', () => {
+    const { world, bus, interaction, aim, calls } = setup();
+    const opened = record(bus, 'ui:open');
+    world.put(0, 10, -2, 'furnace_clay');
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('screen');
+    expect(opened.length).toBe(1);
+    expect(calls).toEqual([]);
+  });
+
   it('toasts why a pour was refused', () => {
     const { world, bus, interaction, aim, hold, answers } = setup();
     const toasts = record(bus, 'toast');
@@ -143,6 +179,37 @@ describe('moulds at a furnace', () => {
     hold({ item: 'axe_mould', count: 1 });
     expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('refused');
     expect(toasts.map((t) => t.e.text)).toEqual(['The Axe Mould does not take Copper Ingot']);
+  });
+});
+
+describe('the casting bench', () => {
+  it('a mould in hand is set, and an empty hand takes the last one out', () => {
+    const { world, interaction, aim, hold, calls } = setup();
+    world.put(0, 10, -2, 'casting_bench');
+    hold({ item: 'ingot_mould', count: 1, durability: 12 });
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('worked');
+    hold(null);
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('worked');
+    expect(calls).toEqual(['bench 0,10,-2 ingot_mould', 'bench 0,10,-2 null']);
+  });
+
+  it('any other held item is not consumed, so the block can be placed', () => {
+    const { world, player, interaction, aim, hold, calls } = setup();
+    world.put(0, 10, -2, 'casting_bench');
+    hold({ item: 'stone_brick', count: 4 });
+    expect(interaction.use(aim(0.5, 10.3, -1.5))).toBe('placed');
+    expect(calls).toEqual([]);
+    expect(player.heldStack()?.count).toBe(3);
+  });
+
+  it('toasts why a mould would not fit', () => {
+    const { world, bus, interaction, aim, hold, answers } = setup();
+    const toasts = record(bus, 'toast');
+    world.put(0, 10, -2, 'casting_bench');
+    answers.bench = { ok: false, reason: 'The casting bench holds 4 moulds' };
+    hold({ item: 'ingot_mould', count: 1 });
+    expect(interaction.use(aim(0.5, 10.5, -1.5))).toBe('refused');
+    expect(toasts.map((t) => t.e.text)).toEqual(['The casting bench holds 4 moulds']);
   });
 });
 
