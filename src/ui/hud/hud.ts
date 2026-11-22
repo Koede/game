@@ -98,6 +98,9 @@ export class Hud {
    */
   private heldGoal: string | null = null;
   private heldAge: number | null = null;
+  /** Rod aura line in the status cluster. Hidden until setAura is given a string. */
+  private readonly auraEl: HTMLDivElement;
+  private auraText: string | null = null;
 
   constructor(root: UIRoot, deps: HudDeps) {
     injectCss();
@@ -108,12 +111,14 @@ export class Hud {
     this.hotbar = new Hotbar(deps.player, bus);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
+    this.auraEl = h('div', { class: 'hw-aura hw-hud-plate', attrs: { role: 'status' } });
+    this.auraEl.hidden = true;
     this.top = h(
       'div',
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
       h('div', { class: 'hw-hud__mid' }, this.goal.el),
-      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el),
+      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl),
     );
     const bottom = h('div', { class: 'hw-hud__bottom' }, this.hotbar.el);
     this.cues = new CombatCues(this.top, bottom, () => deps.input.touch);
@@ -228,6 +233,21 @@ export class Hud {
     if (name !== this.nameOverride) this.creature = parseTargetName(name);
     this.nameOverride = name;
     this.showTarget();
+  }
+
+  /**
+   * The rod's aura line (`Magic.rodReading`) in the status cluster. `null` hides it.
+   * The string is shown as given: this adds no figures of its own. Game calls it; the HUD does not read the rod.
+   */
+  setAura(text: string | null): void {
+    if (text === this.auraText) return;
+    this.auraText = text;
+    this.auraEl.hidden = text === null;
+    if (text === null) this.auraEl.setAttribute('hidden', '');
+    else {
+      this.auraEl.removeAttribute('hidden');
+      setText(this.auraEl, text);
+    }
   }
 
   private showTarget(): void {
