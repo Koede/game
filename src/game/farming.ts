@@ -3,8 +3,10 @@
  * seeds (and potatoes / carrots) on farmland, and reading a crop block's stage. Crop GROWTH is the simulation's.
  * The player's "use" calls these; scripted tests can too. DOM-free.
  */
-import { block, blockOfItem, blockOrNull, itemOrNull } from '../core/registry';
-import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, type BlockDef, type IWorld, type Slot } from '../core/types';
+import type { GameBus } from '../core/context';
+import { block, blockOf, blockOfItem, blockOrNull, itemOrNull } from '../core/registry';
+import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, type BlockDef, type ChangeSource, type IWorld, type ItemAmount, type Slot } from '../core/types';
+import { rollDrops } from './mining';
 import type { BlockPos, PlayerState } from './playerState';
 
 /** Blocks a hoe turns into farmland (the same list as the content solver's TILLABLE_BLOCKS). */
@@ -149,4 +151,29 @@ export function isUnsupported(world: IWorld, x: number, y: number, z: number): b
   const def = world.getBlock(x, y, z);
   if (def.placeOn === null || y <= 0) return false;
   return !def.placeOn.includes(world.getBlock(x, y - 1, z).key);
+}
+
+/**
+ * Pops a plant that is left on nothing: it is removed and what it would have dropped is handed to `drop`, the
+ * same as breaking it. Re-checks support first, so a block put back or moved in the meantime pops nothing.
+ * Returns the voxel that was removed, or null. Shared by the player (breaking soil) and the simulation (any
+ * other removal of the soil, found on the next tick).
+ */
+export function popUnsupportedAt(
+  world: IWorld,
+  bus: GameBus,
+  x: number,
+  y: number,
+  z: number,
+  rng: () => number,
+  drop: (items: ItemAmount[], at: { x: number; y: number; z: number }) => void,
+  source: ChangeSource,
+): number | null {
+  if (!isUnsupported(world, x, y, z)) return null;
+  const voxel = world.getVoxel(x, y, z);
+  const def = blockOf(voxel);
+  if (!world.setVoxel(x, y, z, AIR, source)) return null;
+  drop(rollDrops(def, rng), { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+  bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+  return voxel;
 }

@@ -126,20 +126,23 @@ describe('crop growth', () => {
     expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
   });
 
-  it('needs farmland directly below', () => {
+  it('a plant left on nothing pops on the next tick, dropping what it would (UNIT-03 rule 1)', () => {
     const kit = morning();
-    const e = plant(kit, 0, 11, 0, { soil: 'dirt', water: true });
-    live(kit, 2 * STAGE_S);
-    expect(stageAt(kit, 0, 11, 0)).toBe('wheat_0');
-    expect(e.growS).toBe(0);
-    expect(kit.sim.cropView(0, 11, 0)?.status).toBe('Needs farmland');
-    kit.world.put(0, 10, 0, 'farmland');
+    plant(kit, 0, 11, 0, { soil: 'dirt', water: true });
+    live(kit, 0.2);
+    expect(stageAt(kit, 0, 11, 0)).toBe('air');
+    expect(kit.sim.cropView(0, 11, 0)).toBeNull();
+  });
+
+  it('soil removed under a growing crop pops it, and a crop on farmland never pops', () => {
+    const kit = morning();
+    const e = plant(kit, 0, 11, 0, { water: true });
     live(kit, STAGE_S + 0.2);
-    expect(stageAt(kit, 0, 11, 0)).toBe('wheat_1');
+    expect(stageAt(kit, 0, 11, 0)).not.toBe('air');
     kit.world.put(0, 10, 0, 'air');
-    const held = e.growS;
-    live(kit, 30);
-    expect(e.growS).toBe(held);
+    live(kit, 0.2);
+    expect(stageAt(kit, 0, 11, 0)).toBe('air');
+    expect(e).toBeDefined();
   });
 
   it('needs open sky by day: an opaque block anywhere above stops it, glass does not', () => {

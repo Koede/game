@@ -7,6 +7,8 @@ import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
+import { popUnsupportedAt } from '../game/farming';
+import { PlantSupport } from './plantSupport';
 import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
@@ -68,6 +70,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   private readonly nodes: NodeSet;
   private readonly crops: CropField;
+  /** Plants whose soil just changed under them: popped on the next tick (UNIT-03 rule 1). */
+  private readonly support = new PlantSupport();
   /** Hand stations (docs/api/handwork.md): strokes and timed work; entities that are not machine nodes. */
   private readonly hand: HandWork;
   /** Casting benches: four mould sockets, never a power node (docs/api/handwork-content.md section 4). */
@@ -248,6 +252,9 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   tick(dt: number): void {
     this.spills.place();
+    // A plant left on nothing by a removal since the last tick pops here, dropping what it would have dropped.
+    // Only plants: a bucket on a furnace top also rests on a placeOn list, but it belongs to the brewing rules.
+    this.support.flush(this.world, (x, y, z) => isPlantBlock(blockOf(this.world.getVoxel(x, y, z))) && popUnsupportedAt(this.world, this.bus, x, y, z, Math.random, (items, at) => this.player.dropAll(items, at), 'sim') !== null, 64);
     this.tickCount++;
     this.everySecond = this.tickCount % TICK_RATE === 0;
     const { world, nodes } = this;
@@ -317,6 +324,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     const to = blockOf(ev.to);
     if (from.id === to.id) return;
     const { x, y, z } = ev;
+    // Whatever stands on this cell may now be left on nothing: check it on the next tick (plantSupport.ts).
+    if (ev.source !== 'load') this.support.queue(x, y + 1, z);
     // A bench that left spills its moulds here, before a hand station or another machine stores its own entity.
     if (from.machine === CASTING_BENCH && to.machine !== CASTING_BENCH) this.benches.removeAt(x, y, z);
     const key = posKey(x, y, z);

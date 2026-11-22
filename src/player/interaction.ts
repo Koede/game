@@ -20,7 +20,7 @@ import {
   harvest,
   isHoe,
   isRipeCrop,
-  isUnsupported,
+  popUnsupportedAt,
   miningTime,
   placementCell,
   plant,
@@ -364,13 +364,8 @@ export class Interaction {
 
   /** A plant left standing on nothing (its farmland or soil was just broken) pops, dropping what it would. */
   private popUnsupported(x: number, y: number, z: number): void {
-    if (!isUnsupported(this.world, x, y, z)) return;
-    const voxel = this.world.getVoxel(x, y, z);
-    const def = blockOf(voxel);
-    if (!this.world.setVoxel(x, y, z, AIR, 'player')) return;
-    this.player.dropAll(rollDrops(def, this.rng), { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
-    this.bus.emit('block:broken', { x, y, z, voxel });
-    this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    const voxel = popUnsupportedAt(this.world, this.bus, x, y, z, this.rng, (items, at) => this.player.dropAll(items, at), 'player');
+    if (voxel !== null) this.bus.emit('block:broken', { x, y, z, voxel });
   }
 
   private eatHeld(): UseOutcome {
