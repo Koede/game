@@ -5,7 +5,8 @@
  */
 import { expand, nameOf, pour, total, type Mix } from '../core/chem';
 import {
-  CHEM, CHEM_CAPACITY_L, CHEM_CONTAINERS, STILL_SETPOINTS, STILL_DEFAULT_C, filledWith, isEmptyChemContainer, type ChemKind,
+  CHEM, CHEM_CAPACITY_L, CHEM_CONTAINERS, ESSENCE_COUNT, STILL_DEFAULT_C, STILL_SETPOINTS, burnerTemp, drinkOfEssence, essenceDrink, filledWith,
+  isBotanical, isEmptyChemContainer, isFilterMedium, nextReflux, type ChemKind,
 } from '../core/distill';
 import { fluidOrNull, item, itemOrNull } from '../core/registry';
 import type { FluidKey } from '../core/types';
@@ -35,12 +36,54 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
   const e = d.entityAt(x, y, z);
   if (!e) return null;
   if (heldKey === null) {
+    const ready = e.out?.find((s) => s.count > 0);
+    if (ready && e.kind !== CHEM.base) {
+      ready.count -= 1;
+      e.out = e.out!.filter((s) => s.count > 0);
+      return { ok: true, consume: false, give: ready.item, toast: `Took ${itemOrNull(ready.item)?.name ?? ready.item}` };
+    }
     if (e.kind === CHEM.base) {
       const i = STILL_SETPOINTS.indexOf(e.setC ?? STILL_DEFAULT_C);
       e.setC = STILL_SETPOINTS[(i + 1) % STILL_SETPOINTS.length];
       return { ok: true, consume: false, toast: `Still Base set to ${e.setC} C` };
     }
     return { ok: true, consume: false, toast: chemView(d, x, y, z)?.text ?? moduleName(e) };
+  }
+  if (heldKey === 'wrench') {
+    if (e.kind === CHEM.reflux) e.reflux = nextReflux(e.reflux ?? 0);
+    d.bus.emit('ui:open', { screen: { type: 'distill_rig', x: e.x, y: e.y, z: e.z } });
+    const ratio = e.kind === CHEM.reflux ? ` Reflux return ${Math.round((e.reflux ?? 0) * 100)}%.` : '';
+    return { ok: true, consume: false, toast: `Rig screen.${ratio}` };
+  }
+  if (e.kind === CHEM.base && burnerTemp(heldKey) !== null) {
+    if (e.slots?.some((s) => s.count > 0)) return { ok: false, reason: 'The Still Base is already fuelled' };
+    e.slots = [{ item: heldKey, count: 1 }];
+    return { ok: true, consume: true, toast: heldKey === 'charcoal' ? 'Charcoal in the burner: 250 C' : 'Fuel ethanol in the burner: 300 C' };
+  }
+  if (e.kind === CHEM.filter && isFilterMedium(heldKey)) {
+    const have = e.slots?.find((s) => s.item === heldKey);
+    if (have) have.count += 1;
+    else if ((e.slots?.length ?? 0) > 0) return { ok: false, reason: 'The Filter Bed already holds a different medium' };
+    else e.slots = [{ item: heldKey, count: 1 }];
+    e.filtered = false;
+    return { ok: true, consume: true, toast: 'Medium loaded' };
+  }
+  if (e.kind === CHEM.flask && essenceDrink(heldKey)) {
+    const have = e.slots?.find((s) => s.item === heldKey);
+    if (have && have.count >= ESSENCE_COUNT) return { ok: false, reason: 'The flask already holds four drinks' };
+    if (!have && (e.slots?.length ?? 0) > 0) return { ok: false, reason: 'The flask already holds a different drink' };
+    if (have) have.count += 1;
+    else e.slots = [{ item: heldKey, count: 1 }];
+    return { ok: true, consume: true, toast: 'Drink loaded' };
+  }
+  if (e.kind === CHEM.vessel && (isBotanical(heldKey) || heldKey === 'gravel' || heldKey === 'sand' || drinkOfEssence(heldKey))) {
+    const have = e.slots?.find((s) => s.item === heldKey);
+    if (have) have.count += 1;
+    else {
+      if ((e.slots?.length ?? 0) >= 4) return { ok: false, reason: 'The vessel slots are full' };
+      (e.slots ??= []).push({ item: heldKey, count: 1 });
+    }
+    return { ok: true, consume: true, toast: 'Loaded' };
   }
   const full = CHEM_CONTAINERS[heldKey];
   if (full) {
@@ -100,8 +143,18 @@ export function chemView(d: Distillery, x: number, y: number, z: number): ChemVi
       case CHEM.base: {
         const still = rig?.stills.find((s) => s.base === key);
         const t = d.baseTemp(e);
-        text = `${name} - set ${e.setC} C, ${t === null ? 'no hot furnace under it' : `holding ${Math.round(t)} C`}${still ? '' : ', no flask on it'}`;
+        const fuel = e.slots?.find((s) => burnerTemp(s.item) !== null);
+        const how = t === null ? 'no heat' : fuel && t === burnerTemp(fuel.item) ? `burning ${fuel.item === 'charcoal' ? 'charcoal' : 'fuel ethanol'}` : 'furnace';
+        text = `${name} - set ${e.setC} C, ${t === null ? 'no hot furnace under it' : `${how}, holding ${Math.round(t)} C`}${still ? '' : ', no flask on it'}`;
         tempC = t;
+        break;
+      }
+      case CHEM.reflux:
+        text = `${name} - return ${Math.round((e.reflux ?? 0) * 100)}% (wrench cycles 0 / 50 / 75)`;
+        break;
+      case CHEM.filter: {
+        const med = e.slots?.find((s) => s.count > 0);
+        text = `${name} - ${contents}${med ? `, ${med.item} x${med.count}` : ', no medium'}${e.state === 'blocked' ? ', spent' : ''}`;
         break;
       }
       case CHEM.flask: {

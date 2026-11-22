@@ -4,6 +4,7 @@
  * table of what holds what is CHEM_CONTAINERS in src/core/distill.ts. Engine fuels and what they are worth are
  * FUEL_GRADES there (chainsaw and tractor read it).
  */
+import { ELIXIR_STRENGTH_ADD, ELIXIR_TIME_MULT, ESSENCE_DRINKS } from '../core/distill';
 import type { ItemSpec } from '../core/types';
 
 const beaker = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'material', age: 0, stack: 16 });
@@ -20,6 +21,21 @@ export const DISTILL_ITEMS: ItemSpec[] = [
   can('gasoline_canister', 'Gasoline Canister', 'Light, golden gasoline from the top of the column. The best chainsaw fuel; the tractor runs on it too.'),
   can('kerosene_canister', 'Kerosene Canister', 'Pale kerosene, the middle cut of crude oil. Lamp and heater fuel to come.'),
   can('diesel_canister', 'Diesel Canister', 'Heavy amber diesel from the lowest cut. The tractor goes half again as far on it; a chainsaw cannot burn it.'),
-  can('residue_canister', 'Heavy Residue', 'What crude oil leaves in the flask: lube base and bitumen. Vacuum stills will split it later.'),
+  can('residue_canister', 'Heavy Residue', 'What crude oil leaves in the flask: lube base and bitumen. A vacuum cap splits it.'),
   can('slop_canister', 'Slop Canister', 'A canister of mixed-up liquid. Pour it back into a flask and distil it again.'),
+  { ...can('lube_base_canister', 'Lube Base', 'The light end of a vacuum residue run. Filter it through clay to make lubricant.'), age: 2 },
+  { ...can('bitumen_canister', 'Bitumen', 'The hot residue a vacuum still leaves. With gravel and sand in a heated vessel it becomes asphalt.'), age: 2 },
+  { ...can('lubricant_canister', 'Lubricant', 'Clay-filtered lube base. Carried in the pack, it halves chainsaw bar wear.'), age: 2 },
+  beaker('tincture_beaker', 'Tincture', 'Spirit steeped with tea, a glowcap or berries in a heated vessel.'),
+  beaker('clear_tincture_beaker', 'Clear Tincture', 'A tincture run through a charcoal filter bed.'),
+  ...ESSENCE_DRINKS.flatMap((row): ItemSpec[] => [
+    {
+      key: row.essence, name: `Essence of ${row.buff}`, age: 2, stack: 16, category: 'material',
+      desc: `Four cups of the ${row.buff} drink, concentrated on a vacuum still at 60 C. Above 80 C the charge is ruined.`,
+    },
+    {
+      key: row.elixir, name: `Elixir of ${row.buff}`, age: 2, stack: 16, category: 'material',
+      desc: `Essence, clear tincture and syrup, four vials from 1000 L. The ${row.buff} buff lasts ${ELIXIR_TIME_MULT} times as long and is ${ELIXIR_STRENGTH_ADD} strength higher. S10 grants it on drink.`,
+    },
+  ]),
 ];

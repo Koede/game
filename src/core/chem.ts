@@ -18,7 +18,7 @@
 
 export type Component =
   | 'methanol' | 'ethanol' | 'gasoline' | 'water' | 'fusel' | 'turpentine' | 'kerosene' | 'diesel' | 'lube_base'
-  | 'bitumen' | 'sugars' | 'rosin';
+  | 'bitumen' | 'sugars' | 'rosin' | 'lubricant' | 'tincture' | 'clear_tincture';
 
 export interface ComponentSpec {
   key: Component;
@@ -46,6 +46,10 @@ export const COMPONENTS: Readonly<Record<Component, ComponentSpec>> = {
   bitumen: spec('bitumen', 'Bitumen', 520, 0x15120f, 200),
   sugars: spec('sugars', 'Sugars', null, 0xc07a18, 30),
   rosin: spec('rosin', 'Rosin', null, 0x95560f, 30),
+  // Filtered or blended products. No boiling point is given for them, so they stay in the vessel.
+  lubricant: spec('lubricant', 'Lubricant', null, 0x20ff80, 12),
+  tincture: spec('tincture', 'Tincture', null, 0xc02080, 1),
+  clear_tincture: spec('clear_tincture', 'Clear Tincture', null, 0x66ffcc, 1),
 };
 
 export const COMPONENT_KEYS = Object.keys(COMPONENTS) as Component[];
@@ -93,20 +97,23 @@ export function pour(src: Mix, dst: Mix, litres: number): number {
 
 export const share = (m: Mix, c: Component, t = total(m)): number => (t > 0 ? (m[c] ?? 0) / t : 0);
 
-/** Vapour pressure (bar) of a component at T, by the doubling-every-10-C rule; 0 for non-volatiles. */
-export const pressureAt = (c: Component, tempC: number): number => {
+/**
+ * Vapour pressure (bar) of a component at T, by the doubling-every-10-C rule; 0 for non-volatiles.
+ * `bpScale` is 0.7 under a vacuum cap (docs/DISTILLERY_PLAN.md 4, 5.2): every boiling point is multiplied.
+ */
+export const pressureAt = (c: Component, tempC: number, bpScale = 1): number => {
   const bp = COMPONENTS[c].bp;
-  return bp === null ? 0 : Math.pow(2, (tempC - bp) / 10);
+  return bp === null ? 0 : Math.pow(2, (tempC - bp * bpScale) / 10);
 };
 
 /** The temperature a mixture boils at (C), or null when nothing in it is volatile (or it is empty). */
-export function bubblePoint(m: Mix): number | null {
+export function bubblePoint(m: Mix, bpScale = 1): number | null {
   const t = total(m);
   if (t <= 0) return null;
   let s = 0;
   for (const k in m) {
     const bp = COMPONENTS[k as Component].bp;
-    if (bp !== null) s += (m[k as Component]! / t) * Math.pow(2, -bp / 10);
+    if (bp !== null) s += (m[k as Component]! / t) * Math.pow(2, -(bp * bpScale) / 10);
   }
   return s > 0 ? -10 * Math.log2(s) : null;
 }
@@ -116,13 +123,13 @@ export function bubblePoint(m: Mix): number | null {
  * equilibrium stage, a pot still; each column plate adds stages). Written into `out` (cleared first); returns false
  * when nothing boils.
  */
-export function vapourShares(m: Mix, n: number, out: Mix): boolean {
+export function vapourShares(m: Mix, n: number, out: Mix, bpScale = 1): boolean {
   for (const k in out) delete out[k as Component];
-  const tb = bubblePoint(m);
+  const tb = bubblePoint(m, bpScale);
   if (tb === null) return false;
   let sum = 0;
   for (const k in m) {
-    const p = pressureAt(k as Component, tb);
+    const p = pressureAt(k as Component, tb, bpScale);
     if (p <= 0) continue;
     const w = m[k as Component]! * Math.pow(p, n);
     if (w > 0) {
@@ -179,6 +186,13 @@ const SLOP_MIX: Mix = { water: 0.5, fusel: 0.3, diesel: 0.2 };
 
 /** Every grade, best first (the first one a mixture meets names it). */
 export const GRADES: readonly GradeSpec[] = [
+  // Lube grade is 0.70 (plan 5.4). Bitumen's share is the 0.66 of the plan's residue feed, so the atmospheric
+  // residue grade (0.60 bitumen) stays residue and a vacuum residue run can be bottled as bitumen.
+  { fluid: 'lubricant', need: { lubricant: 0.7 }, mix: { lubricant: 0.7, bitumen: 0.3 } },
+  { fluid: 'lube_base', need: { lube_base: 0.7 }, mix: { lube_base: 0.7, bitumen: 0.3 } },
+  { fluid: 'bitumen', need: { bitumen: 0.66 }, mix: { bitumen: 1 } },
+  { fluid: 'clear_tincture', need: { clear_tincture: 0.7 }, mix: { clear_tincture: 0.7, water: 0.3 } },
+  { fluid: 'tincture', need: { tincture: 0.7 }, mix: { tincture: 0.7, water: 0.3 } },
   { fluid: 'fuel_ethanol', need: { ethanol: 0.88 }, mix: { ethanol: 0.9, water: 0.09, methanol: 0.01 } },
   { fluid: 'spirit', need: { ethanol: 0.58 }, mix: { ethanol: 0.65, water: 0.32, fusel: 0.02, methanol: 0.01 } },
   { fluid: 'low_wines', need: { ethanol: 0.25 }, mix: { ethanol: 0.3, water: 0.66, fusel: 0.03, methanol: 0.01 } },
@@ -248,5 +262,8 @@ export function drawIndex(bp: number, drawTrayC: readonly number[]): number {
 /** Share of a cut that leaks one draw up (the column's imperfection); smaller in taller columns. */
 export const leakShare = (segments: number): number => (segments <= 0 ? 0 : 0.25 / segments);
 
-/** Enrichment stages of a stack: one for the pot, one more per column segment. */
-export const stagesOf = (segments: number): number => 1 + segments;
+/**
+ * Enrichment stages of a stack: one for the pot, plus the plates times (1 + 2 r).
+ * r is the reflux return (0, 0.5 or 0.75). With no reflux head, r is 0 and this is 1 + segments.
+ */
+export const stagesOf = (segments: number, reflux = 0): number => 1 + segments * (1 + 2 * reflux);

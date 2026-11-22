@@ -19,9 +19,11 @@ import {
 import { AMBIENT_TEMP_C } from '../core/constants';
 import type { GameBus } from '../core/context';
 import {
-  BOIL_J_PER_L, BOIL_LPS, CHEM, CHEM_CAPACITY_L, CHEM_KINDS, CHEM_STEP_HZ, CONDENSE_LPS, DONE_SUFFIX, FERMENT_LPS, FERMENT_MAX_C,
-  FERMENT_MAX_ETHANOL, FERMENT_MAX_SUGARS, FERMENT_MIN_C, FLOW_LPS, GLASS_MAX_C, HEAD_C, HEAD_JACKET_C, JACKET_MULT, RECEIVE_HOLD_S,
-  STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, chemKindOf, stateLook, type ChemKind, type ChemState,
+  ASPHALT_C, ASPHALT_COUNT, BOIL_J_PER_L, BOIL_LPS, CANISTER_L, CHEM, CHEM_CAPACITY_L, CHEM_KINDS, CHEM_STEP_HZ,
+  CONDENSE_LPS, DONE_SUFFIX, ELIXIR_BATCH_L, ELIXIR_VIALS, ESSENCE_COUNT, ESSENCE_RUIN_C, ESSENCE_SET_C, FERMENT_LPS, FERMENT_MAX_C,
+  FERMENT_MAX_ETHANOL, FERMENT_MAX_SUGARS, FERMENT_MIN_C, FLOW_LPS, GLASS_MAX_C, HEAD_C, HEAD_JACKET_C, JACKET_MULT,
+  CHEM_CONTAINERS, RECEIVE_HOLD_S, STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, TINCTURE_C, VACUUM_BP, burnerTemp, chemKindOf, drinkOfEssence, essenceDrink, fuelGrade,
+  isBotanical, isFilterMedium, isRefluxRatio, stateLook, type ChemKind, type ChemState,
 } from '../core/distill';
 import { blockId, blockOf, fluidOrNull } from '../core/registry';
 import { voxelActive, voxelId, withActive, withId, type BlockDef, type BlockEntity, type IWorld } from '../core/types';
@@ -47,6 +49,14 @@ export interface ChemEntity extends BlockEntity {
   band?: number;
   /** Flask: temperature of its liquid, C. */
   tempC?: number;
+  /** Still base fuel, filter medium, vessel reagents. */
+  slots?: { item: string; count: number }[];
+  /** Solids a reaction handed out (asphalt blocks, essence, elixir vials). */
+  out?: { item: string; count: number }[];
+  /** Reflux head: return fraction, one of 0, 0.5, 0.75. */
+  reflux?: number;
+  /** Filter: the medium already paid for the liquid now in the bed. */
+  filtered?: boolean;
 }
 
 export const isChemKind = (kind: string): boolean => chemKindOf(kind) === kind;
@@ -60,6 +70,41 @@ export interface DistillHost {
 const STEP_S = 1 / CHEM_STEP_HZ;
 const EPS_C = 0.25;
 const finite = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+
+function cleanSlots(v: unknown): { item: string; count: number }[] {
+  if (!Array.isArray(v)) return [];
+  const out: { item: string; count: number }[] = [];
+  for (const s of v) {
+    if (!s || typeof s !== 'object') continue;
+    const item = (s as { item?: unknown }).item;
+    const count = (s as { count?: unknown }).count;
+    if (typeof item === 'string' && typeof count === 'number' && count > 0 && Number.isFinite(count)) out.push({ item, count: Math.floor(count) });
+  }
+  return out;
+}
+
+const slotCount = (e: ChemEntity, item: string): number => e.slots?.find((s) => s.item === item)?.count ?? 0;
+
+function takeItem(e: ChemEntity, item: string, n: number): boolean {
+  const s = e.slots?.find((x) => x.item === item);
+  if (!s || s.count < n) return false;
+  s.count -= n;
+  e.slots = (e.slots ?? []).filter((x) => x.count > 0);
+  return true;
+}
+
+function pushOut(e: ChemEntity, item: string, n: number): void {
+  const have = e.out?.find((s) => s.item === item);
+  if (have) have.count += n;
+  else (e.out ??= []).push({ item, count: n });
+}
+
+/** Replaces the whole mix with the same litres of one component. */
+function asComponent(m: Mix, c: Component): void {
+  const t = total(m);
+  for (const k of Object.keys(m) as Component[]) delete m[k];
+  if (t > 0) m[c] = t;
+}
 
 function cleanMix(v: unknown): Mix {
   const out: Mix = {};
@@ -113,7 +158,11 @@ export class Distillery {
     e.mix = cleanMix(e.mix);
     if (e.state !== 'idle' && e.state !== 'working' && e.state !== 'done' && e.state !== 'blocked') e.state = 'idle';
     if (e.kind === CHEM.base) e.setC = STILL_SETPOINTS.includes(finite(e.setC, -1)) ? e.setC : STILL_DEFAULT_C;
+    e.slots = cleanSlots(e.slots);
+    e.out = cleanSlots(e.out);
+    if (e.kind === CHEM.reflux) e.reflux = isRefluxRatio(finite(e.reflux, -1)) ? e.reflux : 0;
     e.ran = e.ran === true;
+    e.filtered = e.filtered === true;
     e.recvS = Math.max(0, finite(e.recvS, 99));
     this.byKey.set(posKey(e.x, e.y, e.z), e);
     this.dirty = true;
@@ -131,7 +180,11 @@ export class Distillery {
       this.track(stored);
       return;
     }
-    const e: ChemEntity = { kind, x, y, z, mix: {}, state: 'idle', ...(kind === CHEM.base ? { setC: STILL_DEFAULT_C } : {}) };
+    const e: ChemEntity = {
+      kind, x, y, z, mix: {}, state: 'idle',
+      ...(kind === CHEM.base ? { setC: STILL_DEFAULT_C } : {}),
+      ...(kind === CHEM.reflux ? { reflux: 0 } : {}),
+    };
     this.world.setEntity(e);
     this.byKey.set(key, e);
     this.dirty = true;
@@ -188,12 +241,23 @@ export class Distillery {
     return this.byKey.get(key) ?? null;
   }
 
-  /** The temperature a still base holds its flask at right now, or null when it has no hot furnace under it. */
+  /**
+   * The temperature a still base holds its flask at. A hot furnace wins (clamped by the setpoint and the glass
+   * limit). With no hot furnace, charcoal holds 250 C and a fuel-ethanol beaker 300 C.
+   */
   baseTemp(base: ChemEntity | null): number | null {
     if (!base) return null;
     const f = this.host.furnaceUnder(base.x, base.y - 1, base.z);
-    if (!f || f.tempC <= AMBIENT_TEMP_C + 1) return null;
-    return Math.min(finite(base.setC, STILL_DEFAULT_C), f.tempC, GLASS_MAX_C);
+    if (f && f.tempC > AMBIENT_TEMP_C + 1) return Math.min(finite(base.setC, STILL_DEFAULT_C), f.tempC, GLASS_MAX_C);
+    const fuel = base.slots?.find((s) => burnerTemp(s.item) !== null && s.count > 0);
+    const burner = fuel ? burnerTemp(fuel.item) : null;
+    return burner === null ? null : Math.min(burner, GLASS_MAX_C);
+  }
+
+  /** Heat a vessel gets from the still base under it, or null. */
+  private heatUnder(v: ChemEntity): number | null {
+    const below = this.byKey.get(posKey(v.x, v.y - 1, v.z));
+    return below?.kind === CHEM.base ? this.baseTemp(below) : null;
   }
 
   private stepRig(rig: Rig, dt: number): void {
@@ -209,6 +273,7 @@ export class Distillery {
     for (const k of rig.modules.keys()) {
       const e = this.mod(k);
       if (e?.kind === CHEM.vessel) this.stepVessel(e, rig.sealed.has(k), dt);
+      else if (e?.kind === CHEM.filter) this.stepFilter(e);
     }
     this.flow(rig, dt, arrived);
     this.show(rig, arrived, was, dt);
@@ -219,7 +284,11 @@ export class Distillery {
     if (!flask) return;
     const base = still.base ? this.mod(still.base) : null;
     const ts = this.baseTemp(base);
-    const tb = bubblePoint(flask.mix);
+    const bpScale = still.vacuum ? VACUUM_BP : 1;
+    const refluxEnt = still.reflux ? this.mod(still.reflux) : null;
+    const reflux = isRefluxRatio(finite(refluxEnt?.reflux, -1)) ? refluxEnt!.reflux! : 0;
+    if (this.stepEssence(flask, still, ts)) return;
+    const tb = bubblePoint(flask.mix, bpScale);
     flask.tempC = ts === null ? AMBIENT_TEMP_C : tb === null ? ts : Math.min(ts, tb);
     for (const s of still.segments) {
       const seg = this.mod(s);
@@ -250,13 +319,14 @@ export class Distillery {
       return;
     }
     const y: Mix = {};
-    if (!vapourShares(flask.mix, stagesOf(height), y)) return;
-    const want = BOIL_LPS * Math.min(1, (ts - tb) / 2) * dt;
+    if (!vapourShares(flask.mix, stagesOf(height, reflux), y, bpScale)) return;
+    // Returned vapour stays in the flask: only (1 - r) leaves for the condensers.
+    const want = BOIL_LPS * Math.min(1, (ts - tb) / 2) * dt * (1 - reflux);
     const leak = leakShare(height);
     // Litres each target would take per litre of vapour.
     const per = new Array<number>(targets.length).fill(0);
     const route = (c: Component): [number, number, number] => {
-      let i = drawIndex(COMPONENTS[c].bp ?? 0, drawTrays);
+      let i = drawIndex((COMPONENTS[c].bp ?? 0) * bpScale, drawTrays);
       if (i > last) i = last;
       const up = i < last && leak > 0 ? i + 1 : -1;
       return [i, up, up >= 0 ? leak : 0];
@@ -308,7 +378,57 @@ export class Distillery {
     if (f) f.extractW += (moved / dt) * BOIL_J_PER_L;
   }
 
+  /** Four drinks on a vacuum still at 60..80 C become an essence. Hotter than 80 C ruins them. */
+  private stepEssence(flask: ChemEntity, still: Still, ts: number | null): boolean {
+    const slot = flask.slots?.find((s) => essenceDrink(s.item) && s.count >= ESSENCE_COUNT);
+    if (!slot || !still.vacuum || ts === null) return false;
+    const row = essenceDrink(slot.item)!;
+    flask.tempC = ts;
+    if (ts > ESSENCE_RUIN_C) {
+      takeItem(flask, slot.item, ESSENCE_COUNT);
+      flask.ran = true;
+      flask.state = 'blocked';
+      return true;
+    }
+    if (ts < ESSENCE_SET_C) return false;
+    takeItem(flask, slot.item, ESSENCE_COUNT);
+    pushOut(flask, row.essence, 1);
+    flask.ran = true;
+    flask.state = 'done';
+    return true;
+  }
+
+  private stepFilter(bed: ChemEntity): void {
+    const litres = total(bed.mix);
+    if (litres <= 1e-6) {
+      bed.state = 'idle';
+      bed.filtered = false;
+      bed.flow = 0;
+      return;
+    }
+    const medium = bed.slots?.find((s) => isFilterMedium(s.item) && s.count > 0);
+    if (!medium) {
+      bed.state = 'blocked';
+      return;
+    }
+    if (!bed.filtered) {
+      if (medium.item === 'clay') {
+        const lube = take(bed.mix, 'lube_base', Infinity);
+        if (lube > 0) add(bed.mix, 'lubricant', lube);
+      } else if (medium.item === 'charcoal') {
+        const cloudy = take(bed.mix, 'tincture', Infinity);
+        if (cloudy > 0) add(bed.mix, 'clear_tincture', cloudy);
+      }
+      takeItem(bed, medium.item, 1);
+      bed.filtered = true;
+    }
+    const left = bed.slots?.find((s) => isFilterMedium(s.item) && s.count > 0);
+    bed.state = left ? 'working' : 'blocked';
+    bed.ran = true;
+  }
+
   private stepVessel(v: ChemEntity, sealed: boolean, dt: number): void {
+    if (this.stepAsphalt(v) || this.stepElixir(v) || this.stepTincture(v)) return;
     const t = total(v.mix);
     if (t <= 0) {
       v.state = 'idle';
@@ -332,6 +452,48 @@ export class Distillery {
     v.flow = s / dt;
     v.ran = true;
     v.state = 'working';
+  }
+
+  /** Bitumen (one canister) + gravel + sand in a vessel at 150 C or hotter → 8 asphalt. */
+  private stepAsphalt(v: ChemEntity): boolean {
+    if ((v.mix.bitumen ?? 0) < CANISTER_L || slotCount(v, 'gravel') < 1 || slotCount(v, 'sand') < 1) return false;
+    const heat = this.heatUnder(v);
+    if (heat === null || heat < ASPHALT_C) return false;
+    take(v.mix, 'bitumen', CANISTER_L);
+    takeItem(v, 'gravel', 1);
+    takeItem(v, 'sand', 1);
+    pushOut(v, 'asphalt', ASPHALT_COUNT);
+    v.ran = true;
+    v.state = 'done';
+    return true;
+  }
+
+  /** Essence + clear tincture + syrup, 4 vials per 1000 L. */
+  private stepElixir(v: ChemEntity): boolean {
+    const essence = v.slots?.find((s) => drinkOfEssence(s.item) && s.count > 0);
+    if (!essence || (v.mix.clear_tincture ?? 0) <= 0 || (v.mix.sugars ?? 0) <= 0 || total(v.mix) < ELIXIR_BATCH_L) return false;
+    const row = drinkOfEssence(essence.item)!;
+    pour(v.mix, {}, ELIXIR_BATCH_L);
+    takeItem(v, essence.item, 1);
+    pushOut(v, row.elixir, ELIXIR_VIALS);
+    v.ran = true;
+    v.state = 'done';
+    return true;
+  }
+
+  /** Spirit plus a herb, glowcap or berries in a vessel at 50 C or hotter → tincture. */
+  private stepTincture(v: ChemEntity): boolean {
+    const bot = v.slots?.find((s) => isBotanical(s.item) && s.count > 0);
+    if (!bot || total(v.mix) <= 0) return false;
+    const named = nameOf(v.mix);
+    if (named !== 'spirit' && named !== 'fuel_ethanol') return false;
+    const heat = this.heatUnder(v);
+    if (heat === null || heat < TINCTURE_C) return false;
+    asComponent(v.mix, 'tincture');
+    takeItem(v, bot.item, 1);
+    v.ran = true;
+    v.state = 'done';
+    return true;
   }
 
   private flow(rig: Rig, dt: number, arrived: Set<string>): void {
@@ -368,17 +530,23 @@ export class Distillery {
     const flaskOf = new Map<string, ChemEntity | null>();
     for (const still of rig.stills) {
       const flask = this.mod(still.flask);
-      for (const k of [still.base, still.head, ...still.segments, ...still.draws.map((d) => d.condenser)]) if (k) flaskOf.set(k, flask);
+      for (const k of [still.base, still.head, still.reflux, ...still.segments, ...still.draws.map((d) => d.condenser)]) if (k) flaskOf.set(k, flask);
     }
     const anyWorking = rig.stills.some((s) => this.mod(s.flask)?.state === 'working') || [...rig.modules.keys()].some((k) => this.mod(k)?.state === 'working' && this.mod(k)?.kind === CHEM.vessel);
     for (const key of rig.modules.keys()) {
       const e = this.mod(key);
       if (!e) continue;
-      e.recvS = arrived.has(key) ? 0 : Math.min(99, finite(e.recvS, 99) + dt);
+      const quiet = finite(e.recvS, 99) >= 0.5;
+      const got = arrived.has(key);
+      e.recvS = got ? 0 : Math.min(99, finite(e.recvS, 99) + dt);
+      if (got && quiet && (e.kind === CHEM.receiver || e.kind === CHEM.condenser)) {
+        this.bus.emit('sfx', { name: 'distill_drip', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
+      }
       const before = was.get(key) ?? e.state;
       switch (e.kind) {
         case CHEM.flask:
         case CHEM.vessel:
+        case CHEM.filter:
           break;
         case CHEM.receiver: {
           const t = total(e.mix);
@@ -386,30 +554,74 @@ export class Distillery {
           break;
         }
         case CHEM.base:
-          e.state = flaskOf.get(key)?.state === 'working' ? 'working' : 'idle';
+          e.state = flaskOf.get(key)?.state === 'working' || this.burnerLit(e) ? 'working' : 'idle';
           break;
         case CHEM.condenser:
           e.state = e.recvS! < 0.5 || total(e.mix) > 1 ? 'working' : 'idle';
           break;
         case CHEM.segment:
+        case CHEM.reflux:
           e.state = flaskOf.get(key)?.state === 'working' ? 'working' : 'idle';
           break;
         case CHEM.tube:
         case CHEM.jacket:
           e.state = total(e.mix) > 1 ? 'working' : 'idle';
           break;
-        default:
+        case CHEM.vacuum:
+        case CHEM.airlock:
+        case CHEM.port:
           e.state = 'idle';
+          break;
+        default: {
+          const _exhaustive: never = e.kind;
+          return _exhaustive;
+        }
       }
+      if (e.kind === CHEM.flask && e.state === 'done' && before === 'working') this.spendBurner(rig, key);
       if (before !== e.state) this.announce(e, before);
       this.look(e);
     }
   }
 
+  /** Ground burner: the fuel item is used up when the flask's run finishes. A hot furnace is not touched. */
+  private burnerLit(base: ChemEntity): boolean {
+    if (base.kind !== CHEM.base || this.furnaceHot(base)) return false;
+    return base.slots?.some((s) => burnerTemp(s.item) !== null && s.count > 0) ?? false;
+  }
+
+  private furnaceHot(base: ChemEntity): boolean {
+    const f = this.host.furnaceUnder(base.x, base.y - 1, base.z);
+    return !!f && f.tempC > AMBIENT_TEMP_C + 1;
+  }
+
+  private spendBurner(rig: Rig, flaskKey: string): void {
+    const still = rig.stills.find((s) => s.flask === flaskKey);
+    const base = still?.base ? this.mod(still.base) : null;
+    if (!base || this.furnaceHot(base)) return;
+    // Charcoal is used up. A fuel-ethanol beaker comes back empty, the same way a fuel grade hands its canister back.
+    const kept: { item: string; count: number }[] = [];
+    for (const s of base.slots ?? []) {
+      if (burnerTemp(s.item) === null || s.count <= 0) {
+        if (s.count > 0) kept.push(s);
+        continue;
+      }
+      const empty = fuelGrade(s.item)?.empty ?? CHEM_CONTAINERS[s.item]?.empty ?? null;
+      if (!empty) continue;
+      const have = kept.find((k) => k.item === empty);
+      if (have) have.count += s.count;
+      else kept.push({ item: empty, count: s.count });
+    }
+    base.slots = kept;
+  }
+
   private announce(e: ChemEntity, before: ChemState): void {
     const at = { x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 };
-    if (e.state === 'done' && before === 'working' && (e.kind === CHEM.flask || e.kind === CHEM.vessel)) {
-      this.bus.emit('sfx', { name: 'machine_done', ...at, pitch: 1.4 });
+    this.bus.emit('distill:step', { x: e.x, y: e.y, z: e.z, state: e.state });
+    if (e.state === 'working' && before !== 'working' && e.kind === CHEM.flask) {
+      this.bus.emit('sfx', { name: 'distill_bubble', ...at });
+    }
+    if (e.state === 'done' && before !== 'done' && (e.kind === CHEM.flask || e.kind === CHEM.vessel)) {
+      this.bus.emit('sfx', { name: 'distill_chime', ...at });
       const what = e.kind === CHEM.flask ? 'Distilling run finished' : `Fermenting done: ${nameOfFluid(nameOf(e.mix))}`;
       this.bus.emit('toast', { text: what, kind: 'good' });
       this.host.flagOnce(e.kind === CHEM.flask ? 'distilled' : 'fermented');
