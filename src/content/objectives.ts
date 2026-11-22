@@ -9,6 +9,7 @@
 import { FLAG_AUTOMATON_SALVAGED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_PEACEFUL } from '../core/constants';
 import type { ObjectiveCondition, ObjectiveSpec } from '../core/types';
 import { amounts } from './amounts';
+import { withAreaObjectives } from './area';
 import { BREW_OBJECTIVES } from './objectivesBrew';
 import { HAND_OBJECTIVES } from './objectivesHand';
 import { WORKSHOP_OBJECTIVES } from './objectivesWorkshop';
@@ -27,7 +28,7 @@ function objective(age: number, id: string, title: string, condition: ObjectiveC
   return reward ? { id, title, text, condition, age, reward: amounts(reward) } : { id, title, text, condition, age };
 }
 
-export const OBJECTIVES: ObjectiveSpec[] = [
+const BASE_OBJECTIVES: ObjectiveSpec[] = [
   // ---- Ember Age -----------------------------------------------------------------------------
   objective(0, 'gather_logs', 'Gather wood',
     { type: 'any', of: [{ type: 'break', block: 'oak_log', count: 4 }, { type: 'break', block: 'pine_log', count: 4 }] },
@@ -165,3 +166,6 @@ export const OBJECTIVES: ObjectiveSpec[] = [
   objective(5, 'ignite', 'Ignite the Starhearth', flag('ignited'),
     'Ignition needs 300 kW for 90 seconds without a flicker, with the furnace at 3000 C. Lay super cable, fill your lithium banks, and light your star.'),
 ];
+
+/** The goals in order: the lists above plus each area's (content/areas), placed after their `objectivesAfter`. */
+export const OBJECTIVES: ObjectiveSpec[] = withAreaObjectives(BASE_OBJECTIVES);

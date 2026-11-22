@@ -1,12 +1,16 @@
+import { areaAliases } from './area';
+
 /**
  * Renamed or removed item keys. Item, fluid, aspect, objective, flag, research and recipe keys are NEVER deleted or
  * renamed silently: a rename adds `OLD: 'new'` here, a removal maps to a replacement item (or `scrap_metal`). Loads
  * go through `canonicalItemKey` (core/registry) so an old save keeps its items; keys that resolve to nothing are
  * counted (`takeLostItems`) so the player is told once instead of items vanishing in silence.
  */
-export const ITEM_ALIASES: Readonly<Record<string, string>> = {
+const LOCAL_ALIASES: Readonly<Record<string, string>> = {
   // 'old_key': 'new_key',
 };
+/** Aliases of this file plus every area's `itemAliases`. */
+export const ITEM_ALIASES: Readonly<Record<string, string>> = { ...LOCAL_ALIASES, ...areaAliases() };
 
 const lost = new Map<string, number>();
 

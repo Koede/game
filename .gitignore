@@ -8,4 +8,4 @@ dist-codex/
 .locks
 .gate-heavy
 .w0tmp
-src/content/_generated/
+_generated/

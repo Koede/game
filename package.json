@@ -10,7 +10,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "codex": "node scripts/codex/build.mjs",
-    "e2e": "node scripts/e2e.mjs && node scripts/e2e-features.mjs --no-build && node scripts/e2e-tech.mjs --no-build && node scripts/e2e-ember.mjs --no-build && node scripts/e2e-handwork.mjs --no-build && node scripts/e2e-ground.mjs --no-build && node scripts/e2e-vehicles.mjs --no-build && node scripts/e2e-dev.mjs --no-build && node scripts/e2e-distill.mjs --no-build && node scripts/e2e-magic.mjs --no-build && node scripts/e2e-workshop.mjs --no-build"
+    "e2e": "node scripts/e2e.mjs && node scripts/e2e-features.mjs --no-build && node scripts/e2e-tech.mjs --no-build && node scripts/e2e-ember.mjs --no-build && node scripts/e2e-handwork.mjs --no-build && node scripts/e2e-ground.mjs --no-build && node scripts/e2e-vehicles.mjs --no-build && node scripts/e2e-dev.mjs --no-build && node scripts/e2e-distill.mjs --no-build && node scripts/e2e-magic.mjs --no-build && node scripts/e2e-workshop.mjs --no-build",
+    "gen": "node scripts/gen-indexes.mjs",
+    "ids:sync": "node scripts/ids-sync.mjs",
+    "prebuild": "node scripts/gen-indexes.mjs",
+    "pretypecheck": "node scripts/gen-indexes.mjs",
+    "pretest": "node scripts/gen-indexes.mjs",
+    "precodex": "node scripts/gen-indexes.mjs"
   },
   "devDependencies": {
     "@types/three": "0.170.0",

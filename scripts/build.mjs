@@ -9,12 +9,14 @@
 //
 // Also importable:  import { build, serve } from './scripts/build.mjs'
 import * as esbuild from 'esbuild';
+import { generate } from './gen-indexes.mjs';
 import { createServer } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, watch } from 'node:fs';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+generate(); // folder-registration indexes (gitignored), so a fresh checkout or worktree builds
 const argv = process.argv.slice(2);
 const args = new Set(argv);
 const argValue = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);

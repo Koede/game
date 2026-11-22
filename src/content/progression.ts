@@ -27,6 +27,7 @@
  * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
+import { areaNaturalBlocks } from './area';
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
 import { ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
@@ -53,6 +54,7 @@ export const NATURAL_BLOCKS: readonly string[] = [
   'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'glowcap', 'cactus', 'packed_ice', 'ice_spike',
   'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'oil',
   'tea_bush', 'coffee_shrub',
+  ...areaNaturalBlocks(),
 ];
 
 /** Ruin blocks that hold finite salvage (spec 14): bonus finds, left out of the assumed world. */

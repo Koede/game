@@ -16,6 +16,8 @@ import { MAGIC_BLOCKS } from './itemsMagic';
 import { WORKSHOP_BLOCKS } from './itemsWorkshop';
 import { GLASS_BLOCKS } from './itemsGlass';
 import { HAND_BLOCKS } from './blocksHand';
+import { areaBlocks } from './area';
+import LOCK from './blockIds.lock.json';
 
 const FOLIAGE_DROPS: Drop[] = [
   { item: 'fiber', count: 1, chance: 0.3 },
@@ -65,7 +67,7 @@ function cable(key: string, name: string, desc: string, age: number, cableRating
   return { key, name, desc, age, cableRatingW, shape: 'cable', power: 'cable', hardness: 0.4, category: 'machine', textures: { all: key } };
 }
 
-export const BLOCK_SPECS: BlockSpec[] = [
+const LEGACY_BLOCKS: BlockSpec[] = [
   // ---- natural -------------------------------------------------------------------------------
   { key: 'air', name: 'Air', shape: 'none', hardness: -1, drops: 'none', replaceable: true },
   {
@@ -273,3 +275,28 @@ export const BLOCK_SPECS: BlockSpec[] = [
   // Appended last so no saved voxel id moves (BRONZE_PLAN W0): the Bronze Furnace is tier 2 of six.
   furnace('bronze', 'Bronze Furnace', 'Bronze plates round the firebox: 1100 C, two crucibles, and heat enough to carry to machines. It stands alone, no hearth needed.', 1, 11, 7),
 ];
+
+/**
+ * Orders `specs` by the id lock (blockIds.lock.json): a locked key sits at its id, keys the lock does not know yet are
+ * appended after the highest id in registry order (run `npm run ids:sync` to lock them). A locked key that is missing is
+ * an error: block ids are permanent, a block is never deleted (retire it by hiding it, not by removing it).
+ */
+export function orderByLock(specs: readonly BlockSpec[], lock: Readonly<Record<string, number>>): BlockSpec[] {
+  const byKey = new Map(specs.map((b) => [b.key, b]));
+  const out: BlockSpec[] = [];
+  const claimed = new Set<number>();
+  for (const [key, id] of Object.entries(lock)) {
+    if (claimed.has(id)) continue; // a duplicated id: the first key keeps it, ids:sync moves the others
+    const b = byKey.get(key);
+    if (!b) throw new Error(`block "${key}" (id ${id}) is in blockIds.lock.json but no longer defined: block ids are permanent`);
+    out[id] = b;
+    claimed.add(id);
+  }
+  for (let i = 0; i < out.length; i++) if (out[i] === undefined) throw new Error(`blockIds.lock.json has a gap at id ${i}`);
+  for (const b of specs) if (!out.includes(b)) out.push(b);
+  return out;
+}
+
+export const BLOCK_SPECS: BlockSpec[] = orderByLock([...LEGACY_BLOCKS, ...areaBlocks()], LOCK);
+/** Every block key in id order (for scripts/ids-sync.mjs). */
+export const BLOCK_KEYS_IN_ORDER: string[] = BLOCK_SPECS.map((b) => b.key);

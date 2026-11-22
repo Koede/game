@@ -2,6 +2,7 @@
  * The five fluids of spec 16.5. Pipes, tanks and machines move them in litres; a bucket holds 1000 L
  * (LITRES_PER_BUCKET). Colours are what tank and pipe windows and the UI show.
  */
+import { areaFluids } from './area';
 import type { FluidSpec } from '../core/types';
 import { DISTILL_FLUIDS } from './fluidsDistill';
 
@@ -18,4 +19,5 @@ export const FLUID_SPECS: FluidSpec[] = [
   { key: 'fuel', name: 'Refined Fuel', colour: 0xe2bc3a, hot: false, glow: false },
   // The glass distillery's grades (docs/DISTILLERY_PLAN.md).
   ...DISTILL_FLUIDS,
+  ...areaFluids(),
 ];

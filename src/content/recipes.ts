@@ -14,6 +14,7 @@ import { WORKSHOP_RECIPES } from './recipesWorkshop';
 import { GLASS_RECIPES } from './itemsGlass';
 import { HAND_RECIPES } from './recipesHand';
 import { MACHINE_SPECS } from './tech';
+import { areaRecipes } from './area';
 
 const hand = (id: string, output: string, inputs: string): RecipeSpec => ({
   id, station: 'hand', inputs: amounts(inputs), output: amount(output), age: 0,
@@ -228,4 +229,4 @@ const MACHINE: RecipeSpec[] = [
   ...machineRecipes('electrolyzer', 45, [['deuterium_cell', 'empty_cell', 4]]),
 ];
 
-export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...DISTILL_RECIPES, ...MAGIC_RECIPES, ...WORKSHOP_RECIPES, ...GLASS_RECIPES];
+export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...DISTILL_RECIPES, ...MAGIC_RECIPES, ...WORKSHOP_RECIPES, ...GLASS_RECIPES, ...areaRecipes()];
