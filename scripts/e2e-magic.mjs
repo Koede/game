@@ -322,22 +322,23 @@ async function runDevice(device) {
 
     await step('a clay servant fed Spring turns a hand crank', async () => {
       const S = { x: P.yard.x + 4, y: P.gy, z: P.yard.z };
-      await M((s) => {
+      const crank = await M((s) => {
         const hw = window.__hw;
         hw.teleport(s.x - 2.5, s.y, s.z + 3.5);
         hw.setVoxel(s.x, s.y, s.z, 'clay_servant', 2);
         hw.setVoxel(s.x + 1, s.y, s.z, 'hand_crank');
         hw.setVoxel(s.x, s.y, s.z - 1, 'essentia_jar');
         hw.app.game.magic.setJar(s.x, s.y, s.z - 1, 'spring', 8);
-        hw.tick(80);
+        // Servants act once a second and crank once. 20 ticks is that second; read the crank before its 2.5 s window ends.
+        hw.tick(20);
+        return hw.app.game.workshop.describe(s.x + 1, s.y, s.z);
       }, S);
+      assert(/rpm/.test(crank ?? ''), `crank: ${crank}`);
       await d.settle(300);
       await d.hw((s) => window.__hw.lookAt(s.x, s.y, s.z), S);
       await d.settle(600);
       const said = await M((s) => window.__hw.app.game.magic.servantText(s.x, s.y, s.z), S);
       assert(/cranking/.test(said ?? ''), `servant: ${said}`);
-      const crank = await M((s) => window.__hw.app.game.workshop.describe(s.x + 1, s.y, s.z), S);
-      assert(/rpm/.test(crank ?? ''), `crank: ${crank}`);
       await d.shot('10-servant');
     });
 

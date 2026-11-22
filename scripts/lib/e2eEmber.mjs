@@ -278,6 +278,8 @@ export async function emberSteps({ d, step, assert, page }) {
         await d.settle(150);
         await d.shot('04-mite-broken');
       }
+      // Salvage falls on the ground (player.dropAll), same as a hunted animal. Stand on it.
+      await d.collectDrops(4000);
       if ((await d.inventory()).scrap_metal) break;
     }
     const salvaged = await events(d, 'automaton:salvaged');

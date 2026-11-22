@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
-import { BLOCKS, blockId } from '../core/registry';
+import { BLOCKS, blockId, machine } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelId, type IWorld, type Voxel } from '../core/types';
 import { GroundItems } from '../game/groundItems';
-import { CRANK_S, Workshop } from './workshop';
+import { windAt } from '../sim/machines';
+import { BELT_SPEED, CRANK_S, Workshop } from './workshop';
 
 function setup() {
   const bus = createBus();
@@ -119,5 +120,89 @@ describe('workshop', () => {
     u.world.setVoxel(1, 0, 0, 0);
     expect(u.ground.items.some((e) => e.item === 'fiber' && e.count === 7)).toBe(true);
     expect(u.shop.describe(1, 0, 0)).toBeNull();
+  });
+
+  it('a belt shares speed with the belt its exit face touches and passes the item across', () => {
+    const t = setup();
+    expect(BELT_SPEED).toBe(1);
+    t.put(0, 0, 2, 'hand_crank');
+    t.put(0, 0, 1, 'conveyor_belt', Facing.South);
+    t.put(0, 0, 0, 'conveyor_belt', Facing.South);
+    const [item] = t.ground.spawn('flint', 1, 0.5, 0.5, 1.5, { scatter: false });
+    t.run(1.2, [0, 0, 2]);
+    expect(item.z).toBeLessThan(1);
+    expect(t.shop.describe(0, 0, 1)).toMatch(/16 rpm/);
+    expect(t.shop.describe(0, 0, 0)).toMatch(/16 rpm/);
+  });
+
+  it('a piston can move one belt onto another and they still share speed and items', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    for (let x = 1; x <= 4; x++) t.put(x, 0, 0, 'drive_shaft');
+    t.put(5, 0, 0, 'conveyor_belt', Facing.South);
+    t.put(5, 0, 2, 'conveyor_belt', Facing.South);
+    t.put(5, 0, 3, 'piston', Facing.North);
+    t.put(5, 0, 4, 'drive_shaft');
+    t.put(5, 0, 5, 'hand_crank');
+    const spin = (s: number) => {
+      for (let time = 0; time < s; time += 0.05) {
+        if (Math.round(time * 20) % 20 === 0) {
+          t.shop.use(0, 0, 0, null, () => undefined);
+          t.shop.use(5, 0, 5, null, () => undefined);
+        }
+        t.shop.tick(0.05);
+      }
+    };
+    spin(1);
+    expect(t.world.getBlock(5, 0, 1).key).toBe('conveyor_belt');
+    expect(t.world.getBlock(5, 0, 0).key).toBe('conveyor_belt');
+    expect(t.shop.describe(5, 0, 1)).toMatch(/16 rpm/);
+    expect(t.shop.describe(5, 0, 0)).toMatch(/16 rpm/);
+    const [item] = t.ground.spawn('flint', 1, 5.5, 0.5, 1.08, { scatter: false });
+    spin(0.12);
+    expect(item.z).toBeLessThan(1);
+    expect(Math.floor(item.z)).toBe(0);
+    expect(t.world.getBlock(5, 0, 1).key).toBe('conveyor_belt');
+  });
+
+  it('empty Use boards a skiff and the next Use steps off; onRide follows the cell', () => {
+    const t = setup();
+    for (let x = 0; x <= 4; x++) t.put(x, -1, 0, 'rail');
+    t.put(1, 0, 0, 'skiff', Facing.East);
+    t.shop.offer(1, 0, 0, 'flint', 2);
+    expect(t.shop.onRide()).toBeNull();
+    expect(t.shop.use(1, 0, 0, null, () => undefined)).toBe('worked');
+    expect(t.shop.onRide()).toEqual({ x: 1, y: 0, z: 0 });
+    expect(t.shop.describe(1, 0, 0)).toContain('boarded');
+    expect(t.shop.logi.peek(1, 0, 0)[0]).toEqual({ item: 'flint', count: 2 });
+    t.run(0.5);
+    const cell = t.shop.onRide();
+    expect(cell).not.toBeNull();
+    expect(cell!.x).toBeGreaterThan(1);
+    expect(t.world.getBlock(cell!.x, 0, 0).key).toBe('skiff');
+    expect(t.shop.use(cell!.x, cell!.y, cell!.z, null, () => undefined)).toBe('worked');
+    expect(t.shop.onRide()).toBeNull();
+  });
+
+  it('an off signal still brakes a boarded skiff', () => {
+    const t = setup();
+    for (let x = 0; x <= 3; x++) t.put(x, -1, 0, 'rail');
+    t.put(1, 0, 0, 'skiff', Facing.East);
+    t.put(1, 0, 1, 'crank_lever');
+    expect(t.shop.use(1, 0, 0, null, () => undefined)).toBe('worked');
+    t.run(1);
+    expect(t.world.getBlock(1, 0, 0).key).toBe('skiff');
+    expect(t.shop.onRide()).toEqual({ x: 1, y: 0, z: 0 });
+  });
+
+  it('a wind vane reports windAt from the turbine and ignores placement', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'wind_vane');
+    const params = machine('wind_turbine').params ?? {};
+    const read = (): number => Number(/wind ([\d.]+)/.exec(t.shop.describe(0, 0, 0) ?? '')?.[1]);
+    expect(read()).toBeCloseTo(windAt(0, params.windMin, params.windMax), 2);
+    t.run(10);
+    expect(read()).toBeCloseTo(windAt(10, params.windMin, params.windMax), 2);
+    expect(Math.abs(read() - windAt(10, params.windMin, params.windMax) * params.altitudeMin)).toBeGreaterThan(0.05);
   });
 });

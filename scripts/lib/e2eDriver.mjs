@@ -223,30 +223,104 @@ export class Driver {
   /** Aims at pos; when something is in the way or it is out of reach, steps next to it first (a player would walk there). */
   async approach(pos) {
     if (await this.aimAt(pos)) return true;
-    const stand = await this.standBeside(pos);
+    let stand = await this.standSeeing(pos);
+    if (!stand) stand = await this.standBeside(pos);
     hlog('aim.approach', { pos, stand, crosshair: (await this.state()).target });
     if (stand) await this.hw((t) => window.__hw.teleport(t.x, t.y, t.z), stand);
     await this.settle(300);
-    return this.aimAt(pos);
+    if (await this.aimAt(pos)) return true;
+    // A flower or a tuft of grass in front of the block: pull it up, then look again.
+    const cover = (await this.state()).target;
+    if (!cover || (cover.x === pos.x && cover.y === pos.y && cover.z === pos.z)) return false;
+    const replaceable = await this.hw((b) => {
+      const g = window.__hw.getBlock(b.x, b.y, b.z);
+      return g.replaceable === true && g.block !== 'water' && g.block !== 'lava';
+    }, cover);
+    if (!replaceable) return false;
+    const cleared = await this.holdMine(async () => (await this.hw((b) => window.__hw.getBlock(b.x, b.y, b.z).block, cover)) !== cover.block, 8_000);
+    hlog('aim.cleared_cover', { cover, cleared });
+    return cleared ? this.aimAt(pos) : false;
   }
 
   /** A spot to stand on next to `pos`: solid ground, two free cells. Nearest offsets first. */
   async standBeside(pos) {
-    return this.hw((p) => {
+    return this.standNear(pos, false);
+  }
+
+  /** Like standBeside, but only a spot whose eye can see `pos` (the crosshair would land on it). */
+  async standSeeing(pos) {
+    return this.standNear(pos, true);
+  }
+
+  async standNear(pos, mustSee) {
+    return this.hw((arg) => {
       const hw = window.__hw;
-      const free = (x, y, z) => !hw.getBlock(x, y, z).solid && hw.getBlock(x, y, z).block !== 'water';
+      const p = arg.pos;
+      const free = (x, y, z) => {
+        const b = hw.getBlock(x, y, z);
+        return !b.solid && b.block !== 'water';
+      };
+      // Air and liquids do not stop a mining ray; the first other cell within reach does.
+      const sees = (ox, oy, oz, tx, ty, tz) => {
+        let dx = tx - ox;
+        let dy = ty - oy;
+        let dz = tz - oz;
+        const len = Math.hypot(dx, dy, dz);
+        if (!(len > 0) || len > 4.8) return false;
+        dx /= len;
+        dy /= len;
+        dz /= len;
+        let x = Math.floor(ox);
+        let y = Math.floor(oy);
+        let z = Math.floor(oz);
+        const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+        const stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+        const stepZ = dz > 0 ? 1 : dz < 0 ? -1 : 0;
+        const tDeltaX = stepX !== 0 ? Math.abs(1 / dx) : Infinity;
+        const tDeltaY = stepY !== 0 ? Math.abs(1 / dy) : Infinity;
+        const tDeltaZ = stepZ !== 0 ? Math.abs(1 / dz) : Infinity;
+        let tMaxX = stepX > 0 ? (x + 1 - ox) * tDeltaX : stepX < 0 ? (ox - x) * tDeltaX : Infinity;
+        let tMaxY = stepY > 0 ? (y + 1 - oy) * tDeltaY : stepY < 0 ? (oy - y) * tDeltaY : Infinity;
+        let tMaxZ = stepZ > 0 ? (z + 1 - oz) * tDeltaZ : stepZ < 0 ? (oz - z) * tDeltaZ : Infinity;
+        const goalX = Math.floor(tx);
+        const goalY = Math.floor(ty);
+        const goalZ = Math.floor(tz);
+        for (let n = 0; n < 24; n++) {
+          if (tMaxX <= tMaxY && tMaxX <= tMaxZ) {
+            if (tMaxX > 4.8) return false;
+            x += stepX;
+            tMaxX += tDeltaX;
+          } else if (tMaxY <= tMaxZ) {
+            if (tMaxY > 4.8) return false;
+            y += stepY;
+            tMaxY += tDeltaY;
+          } else {
+            if (tMaxZ > 4.8) return false;
+            z += stepZ;
+            tMaxZ += tDeltaZ;
+          }
+          if (y < 0 || y > 96) return false;
+          const b = hw.getBlock(x, y, z);
+          if (b.block === 'air' || b.block === 'water' || b.block === 'lava' || b.block === 'oil') continue;
+          return x === goalX && y === goalY && z === goalZ;
+        }
+        return false;
+      };
       const offsets = [];
       for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) if (dx || dz) offsets.push([dx, dz, Math.hypot(dx, dz)]);
       offsets.sort((a, b) => Math.abs(a[2] - 1.6) - Math.abs(b[2] - 1.6));
       for (const [dx, dz] of offsets) {
-        for (let y = p.y + 1; y >= p.y - 2; y--) {
+        for (let y = p.y + 2; y >= p.y - 2; y--) {
           const x = p.x + dx;
           const z = p.z + dz;
-          if (hw.getBlock(x, y - 1, z).solid && free(x, y, z) && free(x, y + 1, z)) return { x: x + 0.5, y, z: z + 0.5 };
+          if (!hw.getBlock(x, y - 1, z).solid || !free(x, y, z) || !free(x, y + 1, z)) continue;
+          const feet = { x: x + 0.5, y, z: z + 0.5 };
+          if (arg.mustSee && !sees(feet.x, feet.y + 1.62, feet.z, p.x + 0.5, p.y + 0.5, p.z + 0.5)) continue;
+          return feet;
         }
       }
       return null;
-    }, pos);
+    }, { pos, mustSee });
   }
 
   /** Mines `count` oak logs with the real mine control. Returns how many broke. */
@@ -302,18 +376,79 @@ export class Driver {
   }
 
   /**
-   * Picks up what broke blocks left lying (ground items fly to the player only inside ~1.4 blocks): walks to each
-   * (teleport, as the stand-beside setup does) until none are left or `maxMs` passes. Returns how many were left.
+   * A place to stand inside the pickup radius of a ground item (docs/api/ground-items.md: 1.4 blocks of the body,
+   * and an item one block down still counts). Teleporting onto the item's own coordinates puts the player inside
+   * the block it rests on, and physics shoves them back out of range. A fiber that fell into a hole then stays
+   * first in the list and the logs behind it are never visited.
+   */
+  async standForPickup(item) {
+    return this.hw((g) => {
+      const hw = window.__hw;
+      const free = (x, y, z) => {
+        const b = hw.getBlock(x, y, z);
+        return !b.solid && b.block !== 'water';
+      };
+      const reach = 1.15;
+      let best = null;
+      let bestD = Infinity;
+      const ix = Math.floor(g.x);
+      const iy = Math.floor(g.y);
+      const iz = Math.floor(g.z);
+      for (let dy = -2; dy <= 1; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dz = -2; dz <= 2; dz++) {
+            const x = ix + dx;
+            const y = iy + dy;
+            const z = iz + dz;
+            if (!hw.getBlock(x, y - 1, z).solid || !free(x, y, z) || !free(x, y + 1, z)) continue;
+            const feet = y;
+            const gap = g.y < feet - 0.2 ? feet - 0.2 - g.y : g.y > feet + 1.6 ? g.y - feet - 1.6 : 0;
+            const hx = g.x - (x + 0.5);
+            const hz = g.z - (z + 0.5);
+            const d2 = hx * hx + gap * gap + hz * hz;
+            if (d2 > reach * reach || d2 >= bestD) continue;
+            bestD = d2;
+            best = { x: x + 0.5, y: feet, z: z + 0.5 };
+          }
+        }
+      }
+      return best;
+    }, item);
+  }
+
+  /**
+   * Picks up what broke blocks left lying (ground items fly to the player only inside ~1.4 blocks): stands in range
+   * of each (teleport, as the stand-beside setup does) until none are left or `maxMs` passes. An item with nowhere
+   * to stand is skipped so it cannot block the rest. Returns how many were left.
    */
   async collectDrops(maxMs = 12_000) {
     const started = Date.now();
+    const stuck = new Set();
+    const keyOf = (g) => `${g.item}@${g.x.toFixed(2)},${g.y.toFixed(2)},${g.z.toFixed(2)}`;
     let left = [];
     while (Date.now() - started < maxMs) {
       left = await this.hw(() => window.__hw.groundItems());
       if (!left.length) break;
-      const g = left[0];
-      await this.hw((t) => window.__hw.teleport(t.x, Math.floor(t.y), t.z), g);
-      await this.settle(800);
+      const pending = left.filter((g) => !stuck.has(keyOf(g)));
+      if (!pending.length) break;
+      // Logs before scrap fiber: the opening check needs them, and a drop in a hole must not starve the budget.
+      pending.sort((a, b) => Number(b.item.endsWith('_log')) - Number(a.item.endsWith('_log')));
+      const g = pending[0];
+      const id = keyOf(g);
+      const stand = await this.standForPickup(g);
+      // No two-block column in range (a drop in a crack, or still falling): stand on the drop itself.
+      // Physics shoves the player out of a solid, and a drop that is still there afterwards is skipped
+      // so one buried fiber cannot block the logs behind it.
+      const dest = stand ?? { x: g.x, y: Math.floor(g.y), z: g.z };
+      if (!stand) hlog('drops.no_stand', { item: g, fallback: dest });
+      await this.hw((t) => window.__hw.teleport(t.x, t.y, t.z), dest);
+      await this.settle(stand ? 700 : 900);
+      const now = await this.hw(() => window.__hw.groundItems());
+      if (now.some((it) => keyOf(it) === id)) {
+        stuck.add(id);
+        hlog('drops.stuck', { item: g, stand: dest });
+      }
+      left = now;
     }
     hlog('drops.collected', { left: left.length, ms: Date.now() - started, items: left.slice(0, 6), player: (await this.state()).player, inventory: (await this.state()).inventory });
     return left.length;
@@ -468,6 +603,53 @@ export class Driver {
       const fx = Math.floor(p.x);
       const fy = Math.floor(p.y);
       const fz = Math.floor(p.z);
+      const open = (b) => b.block === 'air' || (b.replaceable && b.block !== 'water' && b.block !== 'lava');
+      // Same walk as the game's mining ray: skip air and liquids, stop at the first other cell inside reach.
+      const sees = (ox, oy, oz, tx, ty, tz) => {
+        let dx = tx - ox;
+        let dy = ty - oy;
+        let dz = tz - oz;
+        const len = Math.hypot(dx, dy, dz);
+        if (!(len > 0) || len > 4.8) return false;
+        dx /= len;
+        dy /= len;
+        dz /= len;
+        let x = Math.floor(ox);
+        let y = Math.floor(oy);
+        let z = Math.floor(oz);
+        const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+        const stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
+        const stepZ = dz > 0 ? 1 : dz < 0 ? -1 : 0;
+        const tDeltaX = stepX !== 0 ? Math.abs(1 / dx) : Infinity;
+        const tDeltaY = stepY !== 0 ? Math.abs(1 / dy) : Infinity;
+        const tDeltaZ = stepZ !== 0 ? Math.abs(1 / dz) : Infinity;
+        let tMaxX = stepX > 0 ? (x + 1 - ox) * tDeltaX : stepX < 0 ? (ox - x) * tDeltaX : Infinity;
+        let tMaxY = stepY > 0 ? (y + 1 - oy) * tDeltaY : stepY < 0 ? (oy - y) * tDeltaY : Infinity;
+        let tMaxZ = stepZ > 0 ? (z + 1 - oz) * tDeltaZ : stepZ < 0 ? (oz - z) * tDeltaZ : Infinity;
+        const goalX = Math.floor(tx);
+        const goalY = Math.floor(ty);
+        const goalZ = Math.floor(tz);
+        for (let n = 0; n < 24; n++) {
+          if (tMaxX <= tMaxY && tMaxX <= tMaxZ) {
+            if (tMaxX > 4.8) return false;
+            x += stepX;
+            tMaxX += tDeltaX;
+          } else if (tMaxY <= tMaxZ) {
+            if (tMaxY > 4.8) return false;
+            y += stepY;
+            tMaxY += tDeltaY;
+          } else {
+            if (tMaxZ > 4.8) return false;
+            z += stepZ;
+            tMaxZ += tDeltaZ;
+          }
+          if (y < 0 || y > 96) return false;
+          const b = hw.getBlock(x, y, z);
+          if (b.block === 'air' || b.block === 'water' || b.block === 'lava' || b.block === 'oil') continue;
+          return x === goalX && y === goalY && z === goalZ;
+        }
+        return false;
+      };
       const out = [];
       for (let dx = -5; dx <= 5; dx++) {
         for (let dz = -5; dz <= 5; dz++) {
@@ -476,15 +658,18 @@ export class Driver {
           const x = fx + dx;
           const z = fz + dz;
           if (avoid && Math.max(Math.abs(x - avoid.x), Math.abs(z - avoid.z)) < 2) continue;
-          for (let y = fy; y >= fy - 1; y--) {
+          // Highest legal cell on this column: the surface, including a tuft that placement replaces.
+          // A cell tucked under the hillside (air beside a higher plant) is not a place a player can aim.
+          for (let y = fy + 2; y >= fy - 2; y--) {
             const ground = hw.getBlock(x, y - 1, z);
             const cell = hw.getBlock(x, y, z);
             const above = hw.getBlock(x, y + 1, z);
-            const open = (b) => b.block === 'air' || (b.replaceable && b.block !== 'water' && b.block !== 'lava');
-            if (ground.solid && !ground.replaceable && open(cell) && open(above)) {
-              out.push({ ground: { x, y: y - 1, z }, cell: { x, y, z }, r, replace: cell.block !== 'air' });
-              break;
-            }
+            if (!ground.solid || ground.replaceable || !open(cell) || above.block !== 'air') continue;
+            const replace = cell.block !== 'air';
+            const aim = replace ? { x, y, z } : { x, y: y - 1, z };
+            if (!sees(p.x, p.y + 1.62, p.z, aim.x + 0.5, aim.y + 0.5, aim.z + 0.5)) continue;
+            out.push({ ground: { x, y: y - 1, z }, cell: { x, y, z }, r, replace });
+            break;
           }
         }
       }

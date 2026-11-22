@@ -60,6 +60,18 @@
   gap: 6px;
   min-width: 0;
 }
+/* Rod aura (Magic.rodReading via Hud.setAura). Sits in the status cluster; hidden when there is nothing to read. */
+.hw-aura {
+  flex: 1 1 160px;
+  max-width: 240px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: right;
+}
+.hw-aura[hidden] {
+  display: none;
+}
 
 /* ---- vitals ------------------------------------------------------------------------------- */
 .hw-vitals {

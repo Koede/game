@@ -1,0 +1,47 @@
+/* The distillery rig screen (src/ui/screens/distill). Problem rows reuse the STRUCTURE tab. Tokens only. */
+.hw-rig {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 8px;
+}
+.hw-rig__caps,
+.hw-rig__note,
+.hw-rig__empty {
+  margin: 0;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
+.hw-rig__cards {
+  display: grid;
+  gap: 6px;
+}
+.hw-rig__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: var(--hw-tap);
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--hw-bone);
+  background: var(--hw-soot-1);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+}
+.hw-rig__card[data-on] {
+  border-color: var(--hw-power);
+  background: var(--hw-power-wash);
+}
+.hw-rig__cardtitle {
+  font: 700 14px / 1.2 var(--hw-font-display);
+}
+.hw-rig__carddetail {
+  font-size: var(--hw-fs-xs);
+  color: var(--hw-ash-2);
+}
+.hw-rig__card[data-on] .hw-rig__carddetail {
+  color: var(--hw-power-hi);
+}

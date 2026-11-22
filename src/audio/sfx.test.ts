@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DISTILL_SFX } from './sfxDistill';
 import { MAGIC_SFX } from './sfxMagic';
 import type { SfxName } from '../core/gameEvents';
 import { BufferBank } from './buffers';
@@ -20,8 +21,9 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
-    // 72 before Essentia & Research added six (src/audio/sfxMagic.ts).
-    expect(SFX_NAMES.length).toBe(72 + Object.keys(MAGIC_SFX).length);
+    // 72 before Essentia & Research added six (src/audio/sfxMagic.ts); the distillery adds three (src/audio/sfxDistill.ts).
+    expect(SFX_NAMES.length).toBe(72 + Object.keys(MAGIC_SFX).length + Object.keys(DISTILL_SFX).length);
+    expect(Object.keys(DISTILL_SFX).sort()).toEqual(['distill_bubble', 'distill_chime', 'distill_drip']);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);
   });
@@ -88,7 +90,8 @@ describe('sound definitions', () => {
     under(['steam_hiss'], 1.6);
     under(['pipe_clunk'], 0.2);
     // Brewing: a bubble and a drip are tiny, a sip short, the pour a gentle second.
-    under(['boil_bubble', 'drip'], 0.2);
+    under(['boil_bubble', 'drip', 'distill_bubble', 'distill_drip'], 0.2);
+    under(['distill_chime'], 0.45);
     under(['sip'], 0.45);
     under(['pour'], 0.9);
     under(['hearth_formed'], 2.5);
@@ -112,7 +115,8 @@ describe('sound definitions', () => {
 
   it('gives repeated physical sounds a random pitch spread', () => {
     for (const name of ['step', 'dig_stone', 'dig_dirt', 'dig_wood', 'dig_sand', 'dig_metal', 'eat', 'till', 'plant', 'harvest', 'hen', 'goat', 'boar', 'mob_hurt', 'thunder', 'steam_hiss', 'scoop_lava', 'pipe_clunk',
-      'automaton_step', 'automaton_hurt', 'automaton_attack', 'ember_bolt', 'arc_zap', 'boil_bubble', 'pour', 'drip', 'sip'] as const) {
+      'automaton_step', 'automaton_hurt', 'automaton_attack', 'ember_bolt', 'arc_zap', 'boil_bubble', 'pour', 'drip', 'sip',
+      'distill_bubble', 'distill_drip', 'distill_chime'] as const) {
       expect(SFX[name].jitter ?? 0, name).toBeGreaterThan(0);
     }
   });

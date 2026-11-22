@@ -623,6 +623,11 @@ export interface MachineSpec {
   efficiency?: number;
   /** Number of inventory slots the machine exposes (crates, fuel hoppers, in/out buffers). */
   slots?: number;
+  /**
+   * Set false when those slots are not a pipe buffer. Absent, any machine with slots is an item-pipe endpoint.
+   * The casting bench keeps four mould sockets and is not one.
+   */
+  itemPipes?: false;
   /** Free-form tunables read by the behaviour in src/sim (documented in the content file). */
   params?: Record<string, number>;
   /** One or two sentences for the machine screen and the codex. */
@@ -650,7 +655,8 @@ export interface MachineFluids {
 export type FluidKey =
   | 'water' | 'lava' | 'steam' | 'crude_oil' | 'fuel'
   // The glass distillery (src/content/fluidsDistill.ts).
-  | 'sap' | 'syrup' | 'sugar_wash' | 'low_wines' | 'spirit' | 'fuel_ethanol' | 'gasoline' | 'kerosene' | 'diesel' | 'residue' | 'slop';
+  | 'sap' | 'syrup' | 'sugar_wash' | 'low_wines' | 'spirit' | 'fuel_ethanol' | 'gasoline' | 'kerosene' | 'diesel' | 'residue' | 'slop'
+  | 'lube_base' | 'bitumen' | 'lubricant' | 'tincture' | 'clear_tincture';
 
 export interface FluidSpec {
   key: FluidKey;

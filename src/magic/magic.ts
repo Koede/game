@@ -6,22 +6,23 @@
  *
  * - Notebook: Use on a block = scan it; Use at the sky = open the notebook. A carried Scrying Lens gives 1.5x lore.
  * - Rods (RODS): each Use draws `draw` units - from a wellspring within NODE_REACH (research 'wellsprings', twice as
- *   fast) or else from the richest aspect of the blocks around (primal only until 'compound_draw'). With an empty vial
- *   carried the units fill vials (VIAL_UNITS each); without one they charge the rod, up to its capacity, for foci.
+ *   fast) or else from the richest drawable aspect of the blocks around (primals always, compounds after
+ *   'compound_draw', a late aspect only with that aspect's flag). With an empty vial carried the units fill vials
+ *   (VIAL_UNITS each); without one they charge the rod, up to its capacity, for foci.
  * - Jars (essentia_jar, void_jar): a filled vial pours in, an empty vial fills back. Tubes join jars to consumers.
  * - Rune desk: Use opens the 'rune_desk' screen; arcane recipes pay ingredients and essentia (jars in DESK_REACH or tubed,
  *   then carried vials). Infusion: items on the altar and on pedestals within ALTAR_REACH; Use the altar with a rod.
- * - Foci (FOCI): spend rod charge. Clay servants crank hand cranks they touch while fed Spring.
+ * - Foci (FOCI): spend rod charge. A clay servant fed one Spring walks up to SERVANT_RANGE blocks and does one task.
  * - Furnace: a Vial of Cinder adds CINDER_BURN_S of fire (research 'warm_hearth'); with 'hearth_siphon' a Cinder jar
  *   touching (or tubed to) a burning furnace tops it up. Still: a Vial of Clarity on a flask takes water out ('still_trace').
  */
 import type { GameBus } from '../core/context';
 import { blockOrNull, blockId, itemOrNull } from '../core/registry';
-import { FACE_DIRS, makeVoxel, voxelActive, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
+import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
 import { FOCI, JAR_UNITS, RODS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
 import { ARCANE_RECIPES, INFUSIONS, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
 import type { PlayerState } from '../game/playerState';
-import { ASPECT_LIST, PRIMALS, aspectInfo, aspectsText, isAspect, type Aspect, type Aspects } from './aspects';
+import { ASPECT_LIST, LATE, PRIMALS, aspectInfo, aspectsText, isAspect, type Aspect, type Aspects } from './aspects';
 import type { BoardSpec } from './board';
 import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, shortfall, TUBE } from './essentiaNet';
@@ -56,8 +57,15 @@ export const DESK_REACH = 3;
 export const ALTAR_REACH = 3;
 /** Seconds between two units an infusion draws. */
 export const INFUSE_STEP_S = 0.4;
-/** Seconds of crank one unit of Spring buys a clay servant. */
+/** Seconds of work one unit of Spring buys a clay servant, and how far (Chebyshev) it may walk from where it was placed. */
 export const SERVANT_FEED_S = 30;
+export const SERVANT_RANGE = 8;
+
+/** The workshop calls a clay servant may make (Game.bindWorkshop). Structural: this file does not import the workshop. */
+export interface ServantWorkshop {
+  offer(x: number, y: number, z: number, item: string, count: number): number;
+  act(action: { item: string; target: [number, number, number]; face: Facing; mode: 'auto' | 'use' | 'strike' | 'place' | 'mine' }): false | 'used' | 'consumed';
+}
 /** Lore one studied vial gives. */
 export const STUDY_LORE = 3;
 /** Lens multiplier for scan lore. */
@@ -124,6 +132,31 @@ export interface MagicHooks {
   crank?(x: number, y: number, z: number): boolean;
 }
 
+/** One task a fed servant has chosen. `belt` names the loose item and its ground id. */
+interface ServantJob {
+  kind: 'crank' | 'deployer' | 'belt';
+  x: number;
+  y: number;
+  z: number;
+  item: string;
+  groundId: number;
+}
+
+interface ServantFlood { dist: Map<string, number>; parent: Map<string, string> }
+
+interface ServantState {
+  fed: number;
+  /** The block where the servant was placed. It never walks farther than SERVANT_RANGE from here. */
+  hx: number;
+  hy: number;
+  hz: number;
+  /** The feed's single task is finished. */
+  done: boolean;
+  job: ServantJob | null;
+}
+
+const freshServant = (x: number, y: number, z: number, fed = 0): ServantState => ({ fed, hx: x, hy: y, hz: z, done: false, job: null });
+
 interface Jar { aspect: Aspect | null; n: number }
 interface Draw { n: number; t: number }
 interface Infusion { x: number; y: number; z: number; id: string; paid: Aspects; t: number; waitS: number; step: number }
@@ -137,7 +170,8 @@ export interface MagicSnapshot {
   pedestals?: [number, number, number, string][];
   altars?: [number, number, number, string][];
   infusion?: { x: number; y: number; z: number; id: string; paid: Aspects; t: number } | null;
-  servants?: [number, number, number, number][];
+  /** x,y,z,fed, and when the servant has walked or finished its task: home x,y,z and 1 if that task is done. */
+  servants?: number[][];
   nodes?: Record<string, number>;
   stats?: { infusions: number; casts: number; studied: number; crafted: number };
 }
@@ -153,7 +187,10 @@ export class Magic {
   private readonly nodeDraws = new Map<string, Draw>();
   private readonly pedestals = new Map<string, string>();
   private readonly altars = new Map<string, string>();
-  private readonly servants = new Map<string, number>();
+  private readonly servants = new Map<string, ServantState>();
+  /** Set while a servant block is moved, so the block events do not reset its feed. */
+  private relocating = false;
+  private workshop: ServantWorkshop | null = null;
   private infusion: Infusion | null = null;
   private rod: { aspect: Aspect | null; n: number } = { aspect: null, n: 0 };
   private readonly cooldowns = new Map<string, number>();
@@ -173,6 +210,11 @@ export class Magic {
     this.off = bus.on('block:changed', (e) => this.blockChanged(e.x, e.y, e.z));
   }
 
+  /** Hands a clay servant `workshop.offer` / `workshop.act`. Game calls this once the workshop exists. */
+  bindWorkshop(workshop: ServantWorkshop | null): void {
+    this.workshop = workshop;
+  }
+
   dispose(): void {
     this.off();
     this.player.damageScale = 1;
@@ -185,8 +227,9 @@ export class Magic {
     if (this.pedestals.has(k) && key !== 'arcane_pedestal') this.dropAt(x, y, z, this.pedestals.get(k) as string, () => this.pedestals.delete(k));
     if (this.altars.has(k) && key !== 'infusion_altar') this.dropAt(x, y, z, this.altars.get(k) as string, () => this.altars.delete(k));
     if (this.infusion && k3(this.infusion.x, this.infusion.y, this.infusion.z) === k && key !== 'infusion_altar') this.infusion = null;
+    if (this.relocating) return;
     if (key === 'clay_servant') {
-      if (!this.servants.has(k)) this.servants.set(k, 0);
+      if (!this.servants.has(k)) this.servants.set(k, freshServant(x, y, z));
     } else this.servants.delete(k);
   }
 
@@ -343,6 +386,7 @@ export class Magic {
   }
 
   private drawable(a: Aspect): boolean {
+    if ((LATE as readonly string[]).includes(a)) return hasFlag(this.research, a);
     return (PRIMALS as readonly string[]).includes(a) || hasFlag(this.research, 'compound_draw');
   }
 
@@ -921,30 +965,218 @@ export class Magic {
   // ---- clay servants -------------------------------------------------------------------------------------------------
 
   private tickServants(dt: number): void {
-    for (const [k, fed] of this.servants) {
+    for (const [k, s] of [...this.servants]) {
       const [x, y, z] = parse3(k);
       if (!this.world.isLoaded(x, z)) continue;
       if (this.world.getBlock(x, y, z).key !== 'clay_servant') {
         this.servants.delete(k);
         continue;
       }
-      const cranks = DIRS.map(([dx, dy, dz]) => [x + dx, y + dy, z + dz] as [number, number, number]).filter((c) => this.blockAt(...c) === 'hand_crank');
-      let left = fed;
-      if (cranks.length && left <= 0 && this.take(x, y, z, 1, 'spring', 1, false) > 0) left = SERVANT_FEED_S;
-      const working = cranks.length > 0 && left > 0;
-      if (working) {
-        left -= dt;
-        for (const c of cranks) this.hooks.crank?.(...c);
+      if (s.fed <= 0) {
+        s.done = false;
+        s.job = null;
+        const job = this.chooseJob(s.hx, s.hy, s.hz, x, y, z);
+        if (job && this.take(s.hx, s.hy, s.hz, 1, 'spring', 1, false) > 0) {
+          s.fed = SERVANT_FEED_S;
+          s.job = job;
+        }
       }
-      this.servants.set(k, Math.max(0, left));
-      this.setActive(x, y, z, working);
+      let cx = x;
+      let cy = y;
+      let cz = z;
+      if (s.fed > 0) {
+        // A save restores the feed without the chosen task: pick one, and do not pay Spring again.
+        if (!s.done && !s.job) s.job = this.chooseJob(s.hx, s.hy, s.hz, x, y, z);
+        if (!s.done && s.job) [cx, cy, cz] = this.advanceServant(s, x, y, z);
+        s.fed = Math.max(0, s.fed - dt);
+      }
+      if (this.world.getBlock(cx, cy, cz).key === 'clay_servant') this.setActive(cx, cy, cz, s.fed > 0);
     }
   }
 
+  /** Nearest hand crank in walk range, else a deployer, else a loose item on a belt. */
+  private chooseJob(hx: number, hy: number, hz: number, x: number, y: number, z: number): ServantJob | null {
+    const flood = this.flood(hx, hy, hz, x, y, z);
+    const at: [number, number, number] = [x, y, z];
+    const cranks: ServantJob[] = [];
+    const deployers: ServantJob[] = [];
+    const R = SERVANT_RANGE + 1;
+    for (let dy = -R; dy <= R; dy++)
+      for (let dz = -R; dz <= R; dz++)
+        for (let dx = -R; dx <= R; dx++) {
+          const cx = hx + dx;
+          const cy = hy + dy;
+          const cz = hz + dz;
+          const key = this.blockAt(cx, cy, cz);
+          if (key === 'hand_crank') cranks.push({ kind: 'crank', x: cx, y: cy, z: cz, item: '', groundId: -1 });
+          else if (key === 'deployer') deployers.push({ kind: 'deployer', x: cx, y: cy, z: cz, item: '', groundId: -1 });
+        }
+    const belts: ServantJob[] = [];
+    for (const e of this.player.ground.items) {
+      if (e.homing || e.count <= 0) continue;
+      const bx = Math.floor(e.x);
+      const by = Math.floor(e.y - 0.05);
+      const bz = Math.floor(e.z);
+      if (this.blockAt(bx, by, bz) !== 'conveyor_belt') continue;
+      if (this.cheb(hx, hy, hz, bx, by, bz) > R) continue;
+      belts.push({ kind: 'belt', x: bx, y: by, z: bz, item: e.item, groundId: e.id });
+    }
+    return this.nearestJob(flood, at, cranks) ?? this.nearestJob(flood, at, deployers) ?? this.nearestJob(flood, at, belts);
+  }
+
+  private nearestJob(flood: ServantFlood, at: [number, number, number], jobs: readonly ServantJob[]): ServantJob | null {
+    let best: ServantJob | null = null;
+    let bestCheb = Infinity;
+    let bestSteps = Infinity;
+    for (const job of jobs) {
+      const stand = this.standOf(flood, at[0], at[1], at[2], job.x, job.y, job.z);
+      if (!stand) continue;
+      const cheb = this.cheb(at[0], at[1], at[2], job.x, job.y, job.z);
+      if (cheb < bestCheb || (cheb === bestCheb && stand.d < bestSteps)) {
+        best = job;
+        bestCheb = cheb;
+        bestSteps = stand.d;
+      }
+    }
+    return best;
+  }
+
+  /** Cells a servant can stand on: non-solid, at most SERVANT_RANGE steps, and never farther than that from home. */
+  private flood(hx: number, hy: number, hz: number, x: number, y: number, z: number): ServantFlood {
+    const dist = new Map<string, number>();
+    const parent = new Map<string, string>();
+    const start = k3(x, y, z);
+    const q: [number, number, number][] = [[x, y, z]];
+    dist.set(start, 0);
+    for (let i = 0; i < q.length; i++) {
+      const [cx, cy, cz] = q[i];
+      const d = dist.get(k3(cx, cy, cz)) ?? 0;
+      if (d >= SERVANT_RANGE) continue;
+      for (const [dx, dy, dz] of DIRS) {
+        const nx = cx + dx;
+        const ny = cy + dy;
+        const nz = cz + dz;
+        const key = k3(nx, ny, nz);
+        if (dist.has(key) || this.cheb(hx, hy, hz, nx, ny, nz) > SERVANT_RANGE) continue;
+        if (this.world.getBlock(nx, ny, nz).solid) continue;
+        dist.set(key, d + 1);
+        parent.set(key, k3(cx, cy, cz));
+        q.push([nx, ny, nz]);
+      }
+    }
+    return { dist, parent };
+  }
+
+  /** The closest stand cell beside the target that the flood reached. */
+  private standOf(flood: ServantFlood, x: number, y: number, z: number, tx: number, ty: number, tz: number): { key: string; d: number } | null {
+    let best: { key: string; d: number } | null = null;
+    const consider = (cx: number, cy: number, cz: number): void => {
+      if (!this.beside(cx, cy, cz, tx, ty, tz)) return;
+      const key = k3(cx, cy, cz);
+      const d = flood.dist.get(key);
+      if (d === undefined || (best && d >= best.d)) return;
+      best = { key, d };
+    };
+    consider(x, y, z);
+    for (const [dx, dy, dz] of DIRS) consider(tx + dx, ty + dy, tz + dz);
+    return best;
+  }
+
+  private firstStep(parent: Map<string, string>, goal: string, start: string): string | null {
+    let cur = goal;
+    for (let guard = 0; cur !== start && guard < SERVANT_RANGE + 2; guard++) {
+      const prev = parent.get(cur);
+      if (!prev) return null;
+      if (prev === start) return cur;
+      cur = prev;
+    }
+    return null;
+  }
+
+  /** Walks one non-solid cell toward the job, then does it once the servant is beside the target. */
+  private advanceServant(s: ServantState, x: number, y: number, z: number): [number, number, number] {
+    const job = s.job;
+    if (!job || s.done) return [x, y, z];
+    const finish = (): void => {
+      this.performServant(job);
+      s.done = true;
+    };
+    if (this.beside(x, y, z, job.x, job.y, job.z)) {
+      finish();
+      return [x, y, z];
+    }
+    const flood = this.flood(s.hx, s.hy, s.hz, x, y, z);
+    const stand = this.standOf(flood, x, y, z, job.x, job.y, job.z);
+    if (!stand) return [x, y, z];
+    if (stand.key === k3(x, y, z)) {
+      finish();
+      return [x, y, z];
+    }
+    const next = this.firstStep(flood.parent, stand.key, k3(x, y, z));
+    if (!next) return [x, y, z];
+    const [nx, ny, nz] = parse3(next);
+    if (this.world.getBlock(nx, ny, nz).solid || this.cheb(s.hx, s.hy, s.hz, nx, ny, nz) > SERVANT_RANGE) return [x, y, z];
+    this.moveServant(x, y, z, nx, ny, nz, s);
+    if (this.beside(nx, ny, nz, job.x, job.y, job.z)) finish();
+    return [nx, ny, nz];
+  }
+
+  private moveServant(x: number, y: number, z: number, nx: number, ny: number, nz: number, s: ServantState): void {
+    this.relocating = true;
+    try {
+      const v = this.world.getVoxel(x, y, z);
+      this.world.setVoxel(x, y, z, 0, 'sim');
+      this.world.setVoxel(nx, ny, nz, v, 'sim');
+    } finally {
+      this.relocating = false;
+    }
+    this.servants.delete(k3(x, y, z));
+    this.servants.set(k3(nx, ny, nz), s);
+  }
+
+  private performServant(job: ServantJob): void {
+    switch (job.kind) {
+      case 'crank':
+        this.hooks.crank?.(job.x, job.y, job.z);
+        return;
+      case 'deployer': {
+        const facing = voxelFacing(this.world.getVoxel(job.x, job.y, job.z));
+        const [dx, dy, dz] = FACE_DIRS[FACING_TO_FACE[facing]];
+        this.workshop?.act({ item: '', target: [job.x + dx, job.y + dy, job.z + dz], face: facing, mode: 'auto' });
+        return;
+      }
+      case 'belt': {
+        const pile = this.player.ground.items.find((e) => e.id === job.groundId && e.count > 0)
+          ?? this.player.ground.items.find((e) => e.item === job.item && e.count > 0 && Math.floor(e.x) === job.x && Math.floor(e.z) === job.z);
+        if (!pile || !this.workshop) return;
+        const n = this.workshop.offer(job.x, job.y, job.z, pile.item, 1);
+        if (n <= 0) return;
+        pile.count -= n;
+        if (pile.count <= 0) {
+          const i = this.player.ground.items.indexOf(pile);
+          if (i >= 0) this.player.ground.items.splice(i, 1);
+        }
+        return;
+      }
+      default: {
+        const never: never = job.kind;
+        return never;
+      }
+    }
+  }
+
+  private cheb(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number {
+    return Math.max(Math.abs(ax - bx), Math.abs(ay - by), Math.abs(az - bz));
+  }
+
+  private beside(x: number, y: number, z: number, tx: number, ty: number, tz: number): boolean {
+    return Math.abs(x - tx) + Math.abs(y - ty) + Math.abs(z - tz) === 1;
+  }
+
   servantText(x: number, y: number, z: number): string | null {
-    const fed = this.servants.get(k3(x, y, z));
-    if (fed === undefined) return null;
-    return fed > 0 ? `Clay Servant - cranking, fed for ${Math.ceil(fed)} s` : 'Clay Servant - idle (needs a hand crank and a jar of Spring it touches or tubes to)';
+    const s = this.servants.get(k3(x, y, z));
+    if (!s) return null;
+    return s.fed > 0 ? `Clay Servant - cranking, fed for ${Math.ceil(s.fed)} s` : 'Clay Servant - idle (needs a hand crank and a jar of Spring it touches or tubes to)';
   }
 
   // ---- notebook -------------------------------------------------------------------------------------------------------
@@ -960,7 +1192,7 @@ export class Magic {
       { id: 'arcane_craft', title: 'Make something at the Rune Desk', done: this.stats.crafted > 0 },
       { id: 'infuse', title: 'Infuse something on the altar', done: this.stats.infusions > 0 },
       { id: 'cast', title: 'Cast a focus', done: this.stats.casts > 0 },
-      { id: 'servant', title: 'Set a clay servant to work', done: [...this.servants.values()].some((f) => f > 0) },
+      { id: 'servant', title: 'Set a clay servant to work', done: [...this.servants.values()].some((s) => s.fed > 0) },
       { id: 'all_research', title: `Finish every research (${researched}/${RESEARCH.filter((e) => e.board).length})`, done: RESEARCH.every((e) => done(e.key)) },
     ];
   }
@@ -1027,7 +1259,12 @@ export class Magic {
       pedestals: [...this.pedestals].map(([k, i]) => [...parse3(k), i]),
       altars: [...this.altars].map(([k, i]) => [...parse3(k), i]),
       infusion: f ? { x: f.x, y: f.y, z: f.z, id: f.id, paid: { ...f.paid }, t: f.t } : null,
-      servants: [...this.servants].map(([k, s]) => [...parse3(k), s]),
+      servants: [...this.servants].map(([k, s]) => {
+        const [x, y, z] = parse3(k);
+        const row = [x, y, z, s.fed];
+        if (s.hx !== x || s.hy !== y || s.hz !== z || s.done) row.push(s.hx, s.hy, s.hz, s.done ? 1 : 0);
+        return row;
+      }),
       nodes,
       stats: { ...this.stats },
     };
@@ -1065,7 +1302,11 @@ export class Magic {
     items(s.altars, this.altars);
     this.servants.clear();
     for (const r of Array.isArray(s.servants) ? s.servants : []) {
-      if (Array.isArray(r) && r.length === 4 && cell(r) && num(r[3])) this.servants.set(k3(r[0], r[1], r[2]), Math.max(0, r[3]));
+      if (!Array.isArray(r) || (r.length !== 4 && r.length !== 8) || !cell(r) || !num(r[3])) continue;
+      const home = r.length === 8 && num(r[4]) && num(r[5]) && num(r[6]);
+      const st = freshServant(home ? r[4] : r[0], home ? r[5] : r[1], home ? r[6] : r[2], Math.max(0, r[3]));
+      st.done = home && r[7] === 1;
+      this.servants.set(k3(r[0], r[1], r[2]), st);
     }
     this.nodeDraws.clear();
     if (s.nodes && typeof s.nodes === 'object') for (const [k, n] of Object.entries(s.nodes)) if (num(n)) this.nodeDraws.set(k, { n, t: this.clock });

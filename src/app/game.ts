@@ -23,6 +23,7 @@ import { collectLeafDrops } from '../game/leafDrops';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
 import { VehicleManager, wrapIntentSource } from '../vehicles';
+import { seatOf, type Tractor } from '../vehicles/tractor';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
@@ -34,6 +35,25 @@ import type { UIRoot } from '../ui/kit/root';
 import { registerStationScreens } from '../ui/screens/furnace';
 import type { WorkerPool } from '../world';
 import { AmbienceProbe } from './ambience';
+import {
+  applyStructureHide,
+  blockUnder,
+  drinkElixir,
+  extendRoadMove,
+  followRide,
+  hiddenStructureCells,
+  MagicWorkshopLink,
+  PLAYER_ROAD_HALF,
+  registerDistillRig,
+  PLAYER_ROAD_HEIGHT,
+  showRodAura,
+  tractorRoadFactor,
+  TRACTOR_ROAD_HALF,
+  TRACTOR_ROAD_HEIGHT,
+  treadwheelOccupied,
+  walkRoadFactor,
+  workshopClockAndPack,
+} from './gameWiring';
 import { clampFrameDt, FixedStep } from './loop';
 import { GameState } from './state';
 
@@ -97,6 +117,8 @@ export class Game {
   /** Frames drawn and fixed ticks run since the game started (debug / tests). */
   frames = 0;
   private readonly step = new FixedStep();
+  /** bindWorkshop, then magic.tick. The link refuses a tick that arrives first. */
+  private readonly magicLink = new MagicWorkshopLink();
   private readonly pool: WorkerPool;
   private readonly settings: Settings;
   private readonly readyTarget = chunksInView(READY_RADIUS);
@@ -161,10 +183,11 @@ export class Game {
     this.workshop.load(world.extra('workshop'));
     this.workshop.generatorWatts = (x, y, z) => this.state.sim.machineView(x, y, z)?.outW ?? 0;
     // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
-    this.workshop.standingOn = (x, y, z) => {
-      const p = this.state.player.position;
-      return Math.abs(p.x - (x + 0.5)) < 0.7 && Math.abs(p.z - (z + 0.5)) < 0.7 && p.y > y - 0.2 && p.y < y + 0.4;
-    };
+    this.workshop.standingOn = (x, y, z) => treadwheelOccupied(this.state.player.position, this.state.mobs.all, x, y, z);
+    const pack = workshopClockAndPack(clock, (item, n) => player.inventory.add(item, n));
+    this.workshop.timeS = pack.timeS;
+    this.workshop.giveItem = pack.giveItem;
+    this.magicLink.bind(this.magic, this.workshop);
     this.workshop.tractors = () => this.vehicles.views().map((t) => ({ x: t.x, y: t.y, z: t.z, occupied: t.occupied, fuel: t.fuel }));
     this.workshop.fluidBlock = {
       is: (x, y, z) => isFluidEndpoint(world.getBlock(x, y, z)),
@@ -220,6 +243,7 @@ export class Game {
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
       this.ui.registerScreen('notebook', (_request, ctx) => createNotebookScreen(ctx, this.magic.notebook()));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z)));
+      registerDistillRig(this.ui);
       const renderer = this.renderer;
       const ui = this.ui;
       // The controller draws through IView; the crosshair (HUD) needs the same target as the outline.
@@ -235,6 +259,8 @@ export class Game {
       };
       this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hands: sim });
       this.vehicles.bindPhysics(this.controller.physics);
+      this.armRoadSpeed();
+      this.armElixirDrink();
       this.controller.interaction.beforeUse = (hit) => {
         if (hit) {
           const held = player.heldStack();
@@ -357,7 +383,11 @@ export class Game {
       // Keep the input layer in step (it releases everything while paused) without moving the player.
       this.inputManager.frame(dt);
     } else {
+      const tractor = this.vehicles.driving;
+      const tractorFrom = tractor ? { x: tractor.x, z: tractor.z, y: tractor.y } : null;
       this.controller.update(dt);
+      if (tractor && tractorFrom && this.vehicles.driving === tractor) this.boostTractor(tractor, tractorFrom);
+      if (followRide(state.player, this.workshop.onRide())) this.controller.physics.reset();
       const ticks = this.step.advance(dt);
       for (let i = 0; i < ticks; i++) this.tickOnce();
     }
@@ -368,8 +398,12 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
+    showRodAura(this.ui.hud, this.magic.rodReading());
     this.vehicleHud.update(this.vehicles.status());
     this.ui.frame(dt);
+    const motions = this.workshop.contra.motions();
+    applyStructureHide(this.renderer.scene.getObjectByName('chunks'), hiddenStructureCells(motions, this.workshop.contra.vacating()));
     if (this.shouldDraw(paused, now)) {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
@@ -378,7 +412,7 @@ export class Game {
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
-      this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z));
+      this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
       this.renderer.render(paused ? 0 : dt);
       this.lastDraw = now;
     }
@@ -452,6 +486,68 @@ export class Game {
     this.ui.setTargetName(id !== null ? this.state.mobs.describe(id) || null : null);
   }
 
+  /**
+   * Asphalt speeds up walking (not sprint, swim or flight) and a driven tractor. The physics and the tractor
+   * integrator have no speed hook, so the extra slice of the move they already took is swept here.
+   */
+  private armRoadSpeed(): void {
+    const physics = this.controller.physics;
+    const step = physics.step.bind(physics);
+    physics.step = (dt, input) => {
+      const player = this.state.player;
+      const pos = player.position;
+      const under = blockUnder(this.state.world, pos.x, pos.y, pos.z);
+      const x0 = pos.x;
+      const z0 = pos.z;
+      const result = step(dt, input);
+      const factor = walkRoadFactor(under, {
+        onGround: player.onGround,
+        sprinting: result.sprinting,
+        inLiquid: physics.inLiquid,
+        flying: player.flying && player.dev,
+      });
+      if (factor !== 1) result.walked += extendRoadMove(this.state.world, pos, x0, z0, factor, PLAYER_ROAD_HALF, PLAYER_ROAD_HEIGHT);
+      return result;
+    };
+  }
+
+  /** The tractor already moved at 1x inside the controller. Add the asphalt remainder and put the driver back in the seat. */
+  private boostTractor(tractor: Tractor, from: { x: number; y: number; z: number }): void {
+    const moved = tractor.x !== from.x || tractor.z !== from.z;
+    const factor = tractorRoadFactor(blockUnder(this.state.world, from.x, from.y, from.z), moved);
+    if (factor === 1) return;
+    extendRoadMove(this.state.world, tractor, from.x, from.z, factor, TRACTOR_ROAD_HALF, TRACTOR_ROAD_HEIGHT);
+    const seat = seatOf(tractor);
+    const p = this.state.player.position;
+    p.x = seat.x;
+    p.y = seat.y;
+    p.z = seat.z;
+  }
+
+  /** An elixir is not a drink item. Use that nothing else claimed drinks it through elixirGrant. */
+  private armElixirDrink(): void {
+    const interaction = this.controller.interaction;
+    const use = interaction.use.bind(interaction);
+    interaction.use = (hit, forcePlace) => {
+      const outcome = use(hit, forcePlace);
+      if (outcome !== 'none') return outcome;
+      const drank = drinkElixir(this.state.player);
+      switch (drank.kind) {
+        case 'no':
+          return outcome;
+        case 'refused':
+          return 'refused';
+        case 'drunk':
+          this.renderer.triggerSwing();
+          return 'drank';
+        default: {
+          const never: never = drank;
+          return never;
+        }
+      }
+    };
+  }
+
   /** Runs `n` fixed simulation ticks right now (debug / tests). */
   tick(n: number): void {
     for (let i = 0; i < n; i++) this.tickOnce();
@@ -460,7 +556,7 @@ export class Game {
   /** One fixed step: the game state, then leaf decay (world/leafDecay.ts) beside the water ticks. */
   private tickOnce(): void {
     this.state.tick(DT);
-    this.magic.tick(DT);
+    this.magicLink.tick(this.magic, DT);
     this.workshop.tick(DT);
     if (this.state.ticks % 200 === 0) this.workshop.verify();
     this.state.world.leaves.tick();

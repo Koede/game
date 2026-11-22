@@ -57,6 +57,20 @@ function fillJar(t: ReturnType<typeof setup>, x: number, y: number, z: number, a
   }
 }
 
+describe('late aspects', () => {
+  it('draws spark only when the spark flag is set', () => {
+    const t = setup();
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (let y = -2; y <= 4; y++) t.put(x, y, z, 'furnace_plasma');
+    expect(t.magic.richest(0, 1, 0)).toBeNull();
+    t.learn('compound_draw');
+    expect(t.magic.richest(0, 1, 0)?.aspect).toBe('glow');
+    const only = setup();
+    for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) for (let y = -2; y <= 4; y++) only.put(x, y, z, 'furnace_plasma');
+    only.magic.research.flags = ['spark'];
+    expect(only.magic.richest(0, 1, 0)?.aspect).toBe('spark');
+  });
+});
+
 describe('rods', () => {
   it('without an empty vial the rod charges up to its capacity; a bronze rod draws two', () => {
     const t = setup();
@@ -198,6 +212,73 @@ describe('foci', () => {
 });
 
 describe('servants, siphon, still and study', () => {
+  it('a clay servant three blocks from a crank cranks it once within 30s and never walks past 8', () => {
+    const t = setup();
+    t.put(0, 1, 0, 'clay_servant');
+    t.put(3, 1, 0, 'hand_crank');
+    t.put(0, 1, 1, 'essentia_jar');
+    fillJar(t, 0, 1, 1, 'spring', 1);
+    let farthest = 0;
+    for (let i = 0; i < 30; i++) {
+      t.magic.tick(1);
+      for (let x = -1; x <= 12; x++) for (let y = 0; y <= 3; y++) for (let z = -1; z <= 3; z++) {
+        if (t.world.getBlock(x, y, z).key !== 'clay_servant') continue;
+        farthest = Math.max(farthest, Math.max(Math.abs(x), Math.abs(y - 1), Math.abs(z)));
+      }
+    }
+    expect(t.cranked).toEqual(['3,1,0']);
+    expect(farthest).toBeLessThanOrEqual(8);
+  });
+
+  it('a clay servant does not walk to a crank more than 8 blocks from where it was placed', () => {
+    const t = setup();
+    t.put(0, 1, 0, 'clay_servant');
+    t.put(20, 1, 0, 'hand_crank');
+    t.put(0, 1, 1, 'essentia_jar');
+    fillJar(t, 0, 1, 1, 'spring', 1);
+    for (let i = 0; i < 30; i++) t.magic.tick(1);
+    expect(t.cranked).toEqual([]);
+    expect(t.world.getBlock(0, 1, 0).key).toBe('clay_servant');
+    expect(t.magic.servantText(0, 1, 0)).toMatch(/idle/);
+    for (let x = 1; x <= 20; x++) expect(t.world.getBlock(x, 1, 0).key).not.toBe('clay_servant');
+  });
+
+  it('a fed servant acts once on a deployer, or offers a loose belt item once', () => {
+    const calls: string[] = [];
+    const workshop = {
+      offer: (x: number, y: number, z: number, item: string, count: number) => {
+        calls.push(`offer ${x},${y},${z} ${item} ${count}`);
+        return count;
+      },
+      act: (a: { target: [number, number, number]; mode: string }) => {
+        calls.push(`act ${a.target.join(',')} ${a.mode}`);
+        return 'used' as const;
+      },
+    };
+    const deploy = setup();
+    deploy.magic.bindWorkshop(workshop);
+    deploy.put(0, 1, 0, 'clay_servant');
+    deploy.put(1, 1, 0, 'deployer');
+    deploy.put(0, 1, 1, 'essentia_jar');
+    fillJar(deploy, 0, 1, 1, 'spring', 1);
+    deploy.magic.tick(1);
+    for (let i = 0; i < 10; i++) deploy.magic.tick(1);
+    expect(calls).toEqual(['act 1,1,-1 auto']);
+
+    calls.length = 0;
+    const belt = setup();
+    belt.magic.bindWorkshop(workshop);
+    belt.put(0, 1, 0, 'clay_servant');
+    belt.put(1, 1, 0, 'conveyor_belt');
+    belt.put(0, 1, 1, 'essentia_jar');
+    fillJar(belt, 0, 1, 1, 'spring', 1);
+    const [pile] = belt.player.ground.spawn('flint', 2, 1.5, 1.2, 0.5, { scatter: false, vy: 0 });
+    belt.magic.tick(1);
+    for (let i = 0; i < 10; i++) belt.magic.tick(1);
+    expect(calls).toEqual(['offer 1,1,0 flint 1']);
+    expect(pile.count).toBe(1);
+  });
+
   it('a clay servant fed Spring cranks the crank it touches', () => {
     const t = setup();
     t.put(5, 1, 5, 'clay_servant');

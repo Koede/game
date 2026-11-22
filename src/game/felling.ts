@@ -5,7 +5,7 @@
  * the stack's `durability` is its tank (see ToolSpec.fell), `fuelPerLog` per log, topped up from Fuel Canisters.
  * An empty saw (durability 1) counts as bare hands (mining.ts toolMatches). DOM-free.
  */
-import { fuelGrade } from '../core/distill';
+import { BAR_OIL_WEAR, LUBE_CANISTER, fuelGrade } from '../core/distill';
 import { FLAG_FELLED_TREE } from '../core/constants';
 import { itemOrNull } from '../core/registry';
 import { AIR, WORLD_HEIGHT, type BlockDef, type IWorld, type ItemAmount, type Slot, type ToolSpec } from '../core/types';
@@ -97,7 +97,10 @@ export function fellTree(world: IWorld, player: PlayerState, x: number, y: numbe
   const target = world.getBlock(x, y, z);
   if (!isLog(target)) return null;
   const { maxLogs, fuelPerLog } = saw.fell!;
-  const affordable = Math.max(1, Math.floor(sawFuel(held) / fuelPerLog));
+  // A lubricant canister in the pack is bar oil: the chain wears half as fast. The canister is not used up.
+  const oiled = player.inventory.slots.some((s) => s !== null && s.item === LUBE_CANISTER && s.count > 0);
+  const perLog = fuelPerLog * (oiled ? BAR_OIL_WEAR : 1);
+  const affordable = Math.max(1, Math.floor(sawFuel(held) / perLog));
   const cells = trunkAbove(world, x, y, z, Math.min(maxLogs, affordable));
   const drops: ItemAmount[] = [];
   let logs = 0;
@@ -117,7 +120,7 @@ export function fellTree(world: IWorld, player: PlayerState, x: number, y: numbe
     player.bus.emit('block:broken', { x: c.x, y: c.y, z: c.z, voxel });
   }
   if (logs === 0) return null;
-  const fuel = Math.min(sawFuel(held), logs * fuelPerLog);
+  const fuel = Math.min(sawFuel(held), logs * perLog);
   held.durability = Math.max(1, (held.durability ?? 1) - fuel);
   player.bus.emit('sfx', { name: 'saw_cut', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
   if (logs >= 2) player.bus.emit('sfx', { name: 'tree_fall', x: x + 0.5, y: y + logs / 2, z: z + 0.5 });

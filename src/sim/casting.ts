@@ -28,6 +28,16 @@ export type PourResult = { ok: true; count: number } | { ok: false; reason: stri
 
 const name = (key: string): string => itemOrNull(key)?.name ?? key;
 
+/** The hand path's refusal when the pool is shorter than one pour. */
+export const needsMolten = (units: number, ingot: string, have: number): string =>
+  `Needs ${units} molten ${name(ingot)} - there is ${have}`;
+
+/** A bench whose moulds all refuse this metal (the first mould's reason). */
+export const benchMetalRefusal = (ingot: string): string => `This mould does not take ${name(ingot)}`;
+
+/** Where a pour was taken from. The bench uses 'bench'; a mould in the hand stays 'furnace'. */
+export type PourAt = 'furnace' | 'alloy_pot' | 'bench';
+
 /** The cast metal an ingot key is, or null (iron and up). */
 export const metalOfIngot = (ingot: string): CastMetalSpec | null => castMetalOfIngot(ingot);
 
@@ -156,10 +166,35 @@ function wornestMould(slots: readonly ({ item: string; durability?: number } | n
   return best;
 }
 
+/** Pours left on a mould stack. A fresh stack omits durability and still has `MOULD_POURS`. */
+export const mouldPoursLeft = (stack: { durability?: number }): number => stack.durability ?? MOULD_POURS;
+
+/**
+ * Wears a mould by `n` pours. At 0 pours it has broken: the caller removes the stack and emits `tool:broke`.
+ * Otherwise the stack's durability becomes the pours it has left.
+ */
+export function wearMould(stack: { durability?: number }, n: number): { left: number; broke: boolean } {
+  const left = mouldPoursLeft(stack) - n;
+  if (left <= 0) return { left: 0, broke: true };
+  stack.durability = left;
+  return { left, broke: false };
+}
+
+/** One take's events: `cast:poured`, `item:made` (still the furnace's cast recipe), the pour sound, and `first_pour`. */
+export function emitPour(
+  ctx: SimContext, pos: { x: number; y: number; z: number }, mould: string, metal: string, item: string, count: number, at: PourAt,
+): void {
+  ctx.bus.emit('cast:poured', { ...pos, mould, metal, item, count, at });
+  ctx.bus.emit('item:made', { item, count, station: 'furnace', recipeId: `cast:${mould}` });
+  ctx.bus.emit('sfx', { name: 'pour', ...pos });
+  ctx.flagOnce(FLAG_FIRST_POUR);
+}
+
 /**
  * Pours the molten metal of crucible `slot`. `heldKey` is a fired mould in the pack (every pour the metal covers, up
  * to the pours the mould has left and the room in the pack), or an ingot of copper or tin to pour from the pack into
- * the alloy pot set in this crucible.
+ * the alloy pot set in this crucible. A mould in the hand pours every cast in this one call; the casting bench pours
+ * one cast per mould through `wearMould` and `emitPour` instead.
  */
 export function pourCrucible(ctx: SimContext, e: FurnaceEntity, slot: number, heldKey: string | null, working: number): ActionResult {
   if (!Number.isInteger(slot) || slot < 0 || slot >= Math.min(working, e.crucibleIn.length)) return refuse('There is no such crucible');
@@ -172,14 +207,13 @@ export function pourCrucible(ctx: SimContext, e: FurnaceEntity, slot: number, he
   const metal = metalOfIngot(melt.item);
   const cast = castOf(heldKey, melt.item);
   if (!metal || !cast) return refuse(`The ${name(heldKey)} does not take ${name(melt.item)}`);
-  if (melt.count < cast.units) return refuse(`Needs ${cast.units} molten ${name(melt.item)} - there is ${melt.count}`);
+  if (melt.count < cast.units) return refuse(needsMolten(cast.units, melt.item, melt.count));
   const inv = ctx.player.inventory;
   const at = wornestMould(inv.slots, heldKey);
   if (at < 0) return refuse(`You have no ${name(heldKey)}`);
   const stack = inv.slots[at];
   if (!stack) return refuse(`You have no ${name(heldKey)}`);
-  const poursLeft = stack.durability ?? MOULD_POURS;
-  const n = Math.min(Math.floor(melt.count / cast.units), poursLeft, inv.space(cast.item));
+  const n = Math.min(Math.floor(melt.count / cast.units), mouldPoursLeft(stack), inv.space(cast.item));
   if (n < 1) return refuse('Your pack is full');
   inv.add(cast.item, n);
   melt.count -= n * cast.units;
@@ -187,18 +221,12 @@ export function pourCrucible(ctx: SimContext, e: FurnaceEntity, slot: number, he
     e.crucibleMelt[slot] = null;
     e.crucibleMoltenS[slot] = 0;
   }
-  if (poursLeft - n <= 0) {
+  if (wearMould(stack, n).broke) {
     inv.removeAt(at, 1);
     ctx.bus.emit('tool:broke', { item: heldKey });
-  } else {
-    stack.durability = poursLeft - n;
-    inv.notifyChanged();
-  }
+  } else inv.notifyChanged();
   ctx.touch(e);
-  ctx.bus.emit('cast:poured', { ...pos, mould: heldKey, metal: metal.key, item: cast.item, count: n, at: 'furnace' });
-  ctx.bus.emit('item:made', { item: cast.item, count: n, station: 'furnace', recipeId: `cast:${heldKey}` });
-  ctx.bus.emit('sfx', { name: 'pour', ...pos });
-  ctx.flagOnce(FLAG_FIRST_POUR);
+  emitPour(ctx, pos, heldKey, metal.key, cast.item, n, 'furnace');
   return OK;
 }
 

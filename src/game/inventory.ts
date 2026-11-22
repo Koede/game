@@ -26,10 +26,13 @@ export function stackLimit(item: string): number {
   return def.tool || def.mould ? 1 : def.stack;
 }
 
-/** Uses a fresh tool of this kind has (a mould: its pours; a worn item: its wear), or undefined for anything else. */
+/**
+ * Fresh durability: a tool's uses, a worn item's wear, a mould's pours, or the seconds a cooling container
+ * (a boiling pail) lasts. Undefined for anything that does not wear down.
+ */
 export const fullDurability = (item: string): number | undefined => {
   const def = itemOrNull(item);
-  return def?.tool?.durability ?? def?.wear ?? def?.mould?.pours;
+  return def?.tool?.durability ?? def?.wear ?? def?.mould?.pours ?? def?.cools?.afterS;
 };
 
 export const makeStack = (item: string, count: number, durability?: number): ItemStack =>
@@ -100,7 +103,7 @@ export class Inventory {
 
   /**
    * Adds items, topping up existing stacks before using empty slots, optionally only within slots [start, end).
-   * Tools get full durability unless one is given. Returns how many did NOT fit.
+   * Tools, moulds and cooling containers get full durability unless one is given. Returns how many did NOT fit.
    */
   add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length): number {
     let left = Math.floor(count);
