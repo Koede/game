@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.wav binary
+*.ogg binary
+tests/fixtures/**/*.json -diff
+docs/lanes/*.md merge=union
+HANDOFF.md merge=union
+tests/fixtures/saves/manifest.json merge=union
+src/content/blockIds.lock.json merge=union
