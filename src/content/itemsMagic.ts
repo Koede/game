@@ -96,7 +96,7 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
   {
     key: 'clay_servant', name: 'Clay Servant', category: 'machine', age: FORGE, hardness: 1, tool: 'pickaxe', minTier: 0, oriented: true,
     textures: { side: 'magic_servant_side', top: 'magic_servant_top', front: 'magic_servant_front', frontActive: 'magic_servant_front_on' },
-    desc: 'A clay figure that turns a hand crank it touches, as long as a jar it touches (or tubes to) gives it a unit of Spring every half minute.',
+    desc: 'Fed one Spring from a touching or tubed jar, it walks up to eight blocks and does one task: a crank, a deployer, or a belt item.',
   },
   {
     key: 'magic_light', name: 'Floating Light', category: 'misc', age: BRONZE, hardness: 0, shape: 'torch', solid: false, opaque: false,
