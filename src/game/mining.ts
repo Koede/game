@@ -29,13 +29,15 @@ export function canHarvest(block: BlockDef, held: Slot): boolean {
 
 /**
  * Seconds to break the block. Infinity when it cannot be mined at all. `speedMult` is any other factor on the
- * mining speed, normally `player.buffs.miningMult` (the Vigor drink).
+ * mining speed, normally `player.buffs.miningMult` (the Vigor drink). `strength` is a flat add to that speed,
+ * normally `player.buffs.strength` (an elixir); 0 leaves the old time unchanged.
  */
-export function miningTime(block: BlockDef, held: Slot, wellWarmed: boolean, speedMult = 1): number {
+export function miningTime(block: BlockDef, held: Slot, wellWarmed: boolean, speedMult = 1, strength = 0): number {
   if (!canMine(block)) return Infinity;
   let speed = toolMatches(block, held) ? toolOf(held)?.speed ?? 1 : 1;
   if (wellWarmed) speed *= WELL_WARMED_MINING_BONUS;
   speed *= speedMult;
+  if (strength > 0) speed += strength;
   const time = block.hardness / speed;
   return canHarvest(block, held) ? time : time * UNDER_TIER_SLOWDOWN;
 }

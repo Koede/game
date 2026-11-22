@@ -110,8 +110,9 @@ export type ElixirDrink =
 
 /**
  * Drinks one elixir from the selected slot. Calls `elixirGrant` and applies its buff for `buffS`
- * (three times the source drink). Elixirs are not drink items, so they stay out of `DRINKS`.
- * `strengthAdd` is returned on the grant; drink buffs have no strength field to add it to.
+ * (three times the source drink) and its `strengthAdd` as flat strength for that same time.
+ * Elixirs are not drink items, so they stay out of `DRINKS`. A second elixir keeps the higher
+ * strength and refreshes the timer; it does not add the bonuses together.
  */
 export function drinkElixir(player: PlayerState): ElixirDrink {
   if (player.dead) return { kind: 'no' };
@@ -125,6 +126,7 @@ export function drinkElixir(player: PlayerState): ElixirDrink {
   const grant = elixirGrant(row, source.buffS);
   player.inventory.removeAt(player.selectedSlot, 1);
   const granted = player.buffs.grant(grant.buff, grant.buffS);
+  player.buffs.grantStrength(grant.strengthAdd, grant.buffS);
   player.drinkCooldownS = DRINK_COOLDOWN_S;
   const drunk = (player.stats.drunk ??= {});
   drunk[grant.item] = (drunk[grant.item] ?? 0) + 1;
