@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import {
   DT,
   HOSTILE_CAP,
@@ -251,7 +252,7 @@ describe('save and load', () => {
 });
 
 describe('performance', () => {
-  it('10 automatons + 8 bolts + 40 animals tick in under 0.8 ms (real terrain)', () => {
+  perfIt('10 automatons + 8 bolts + 40 animals tick in under 0.8 ms (real terrain)', () => {
     const seed = 20251121;
     const bus = createBus();
     const world = new World(seed, bus);

@@ -3,10 +3,9 @@
 // Builds to a scratch dir (never dist/, so it can run beside other e2e runs). HW_GPU=1 uses the real GPU, HW_DIAG=1 logs.
 // Real input: mouse / keyboard for mining, use, driving and F. __hw only sets up (give, teleport, voxels, ticks).
 import { mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build } from './build.mjs';
+import { e2eDist, ensureBuilt } from './lib/e2eArgs.mjs';
 import { createReporter, openGame, waitFor } from './lib/browser.mjs';
 import { Driver } from './lib/e2eDriver.mjs';
 
@@ -14,10 +13,10 @@ const root = resolve(fileURLToPath(import.meta.url), '../..');
 const argv = process.argv.slice(2);
 const arg = (n, d) => argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3) ?? d;
 const device = arg('device', 'desktop');
-const out = resolve(arg('out', join(tmpdir(), 'hw-e2e-vehicles')));
+const out = e2eDist(root, argv);
 const shots = resolve(arg('shots', join(root, 'test-results/e2e-vehicles')));
 mkdirSync(shots, { recursive: true });
-await build({ quiet: true, outDir: out });
+await ensureBuilt(argv, out);
 
 const report = createReporter();
 const { assert } = report;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { DT } from '../core/constants';
 import { blockId, machine } from '../core/registry';
 import { makeVoxel, voxelId } from '../core/types';
@@ -329,7 +330,7 @@ describe('crop persistence', () => {
 });
 
 describe('crop speed', () => {
-  it('ticks 500 growing crops in the real world in well under 0.3 ms', () => {
+  perfIt('ticks 500 growing crops in the real world in well under 0.3 ms', () => {
     const bus = createBus();
     const world = new World(1234, bus);
     world.ensureLoadedAround(0, 0, 1);

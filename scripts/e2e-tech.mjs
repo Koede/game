@@ -14,7 +14,7 @@
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build } from './build.mjs';
+import { e2eDist, ensureBuilt } from './lib/e2eArgs.mjs';
 import { createReporter, openGame, waitFor } from './lib/browser.mjs';
 import { Driver } from './lib/e2eDriver.mjs';
 import { techSteps } from './lib/e2eTech.mjs';
@@ -24,12 +24,12 @@ const argv = process.argv.slice(2);
 const flag = (name) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3));
 const devices = flag('device').length ? flag('device') : ['desktop', 'phonePortrait'];
 const shots = resolve(flag('shots')[0] ?? join(root, 'test-results/e2e-tech'));
-const dist = resolve(flag('dist')[0] ?? join(root, 'dist'));
+const dist = e2eDist(root, argv);
 const SEED = 'hearth-e2e';
 
 mkdirSync(shots, { recursive: true });
 for (const file of readdirSync(shots)) if (file.endsWith('.png')) rmSync(join(shots, file));
-if (!argv.includes('--no-build')) await build({ quiet: true, outDir: dist });
+await ensureBuilt(argv, dist);
 
 const report = createReporter();
 for (const device of devices) {

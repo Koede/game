@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { DT } from '../core/constants';
 import { createBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
@@ -275,7 +276,7 @@ describe('timed stations', () => {
 });
 
 describe('perf', () => {
-  it('ticks only the stations with a clock running', () => {
+  perfIt('ticks only the stations with a clock running', () => {
     const t = setup();
     for (let i = 0; i < 400; i++) t.world.put(i, 5, 0, 'stone');
     t.world.put(0, 5, 2, 'gravel');

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { createBus } from '../core/context';
 import { blockId } from '../core/registry';
 import { AIR, makeVoxel, voxelId, type Voxel } from '../core/types';
@@ -287,7 +288,7 @@ describe('flowing water (spec 18.2)', () => {
 });
 
 describe('flow performance', () => {
-  it('a 7-level flood across flat ground costs well under 0.5 ms a tick', () => {
+  perfIt('a 7-level flood across flat ground costs well under 0.5 ms a tick', () => {
     const world = makeWorld();
     fill(world, -30, FLOOR, -30, 30, FLOOR, 30, STONE);
     // Warm up the code paths, then measure a second flood elsewhere.

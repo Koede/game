@@ -6,7 +6,7 @@
  * expects, so a corrupt or hand-edited save is refused here instead of breaking the game half-way through loading.
  */
 import type { GameMode } from '../core/gameMode';
-import { DEFAULT_SETTINGS, DIFFICULTIES, type Difficulty, type Settings } from '../core/context';
+import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
 import type { ClockSnapshot } from '../game/clock';
 import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
@@ -99,6 +99,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     out[key] = Math.min(hi, Math.max(lo, v));
   }
   out.renderDistance = Math.round(out.renderDistance);
+  if (isTouchFirst()) out.renderDistance = Math.min(out.renderDistance, PHONE_MAX_RENDER_DISTANCE);
   out.fov = Math.round(out.fov);
   if (typeof raw.invertY === 'boolean') out.invertY = raw.invertY;
   if (typeof raw.showFps === 'boolean') out.showFps = raw.showFps;

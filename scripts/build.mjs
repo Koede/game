@@ -21,7 +21,11 @@ const argv = process.argv.slice(2);
 const args = new Set(argv);
 const argValue = (name) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const dev = args.has('--dev') || args.has('--watch');
-const dist = resolve(argValue('out') ?? join(root, 'dist'));
+// Lanes (HW_LANE=A..F|U): own build dir and dev port, so nothing collides with the main checkout's dist/ on 5173.
+const lane = process.env.HW_LANE ?? '';
+const LANE_PORT = { A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, U: 6 };
+const devPort = Number(process.env.HW_PORT ?? (lane ? 5180 + (LANE_PORT[lane.toUpperCase()] ?? 7) : 5173));
+const dist = resolve(argValue('out') ?? (lane ? join(root, '.cache', 'dist') : join(root, 'dist')));
 const mainEntry = resolve(argValue('entry') ?? join(root, 'src/main.ts'));
 const WORKER_ENTRY = join(root, 'src/world/worker.ts');
 
@@ -128,8 +132,8 @@ const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(imp
 if (isMain) {
   await buildOnce();
   if (args.has('--serve')) {
-    await serve(5173);
-    console.log('serving dist/ on http://localhost:5173');
+    await serve(devPort);
+    console.log(`serving ${dist} on http://localhost:${devPort}`);
   }
   if (args.has('--watch')) {
     let timer = null;

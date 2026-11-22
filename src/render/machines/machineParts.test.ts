@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { perfIt } from '../../testing/perf';
 import { describe, expect, it } from 'vitest';
 import { Facing } from '../../core/types';
 import { createWorldUniforms } from '../materials';
@@ -197,7 +198,7 @@ describe('MachineParts', () => {
     expect(parts.drawn).toBe(0);
   });
 
-  it('updates 50 animated machines in well under a millisecond per frame', () => {
+  perfIt('updates 50 animated machines in well under a millisecond per frame', () => {
     const { world, parts, camera } = scene();
     camera.position.set(0, 30, 40);
     camera.lookAt(0, 11, -10);

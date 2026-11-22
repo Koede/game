@@ -7,10 +7,9 @@
 // A crank, a shaft, a millstone and a belt are laid by real placing; wheat dropped on the belt with Q rides into the
 // millstone while the crank is held; flour comes out; the goggles name speed and load. `window.__hw` only for set-up.
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build } from './build.mjs';
+import { e2eDist, ensureBuilt } from './lib/e2eArgs.mjs';
 import { createReporter, openGame, waitFor } from './lib/browser.mjs';
 import { Driver } from './lib/e2eDriver.mjs';
 
@@ -19,12 +18,11 @@ const argv = process.argv.slice(2);
 const flag = (name) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3));
 const devices = flag('device').length ? flag('device') : ['desktop', 'phonePortrait'];
 const shots = resolve(flag('shots')[0] ?? join(root, 'test-results/e2e-workshop'));
-const noBuild = argv.includes('--no-build');
-const dist = resolve(flag('dist')[0] ?? (noBuild ? join(root, 'dist') : join(tmpdir(), 'hearthwatt-e2e-workshop')));
+const dist = e2eDist(root, argv);
 
 mkdirSync(shots, { recursive: true });
 for (const file of readdirSync(shots)) if (file.endsWith('.png')) rmSync(join(shots, file));
-if (!noBuild) await build({ quiet: true, outDir: dist });
+await ensureBuilt(argv, dist);
 
 const report = createReporter();
 for (const device of devices) {

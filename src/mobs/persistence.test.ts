@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { DT, MOB_DEATH_S, MOB_LOADED_CAP } from '../core/constants';
 import { createBus } from '../core/context';
 import { creature } from '../core/registry';
@@ -119,7 +120,7 @@ describe('hit damage', () => {
 });
 
 describe('performance', () => {
-  it(`ticks ${MOB_LOADED_CAP} animals on real terrain well under 0.5 ms`, () => {
+  perfIt(`ticks ${MOB_LOADED_CAP} animals on real terrain well under 0.5 ms`, () => {
     const bus = createBus();
     const world = new World(31337, bus);
     const spawn = world.spawnPoint();

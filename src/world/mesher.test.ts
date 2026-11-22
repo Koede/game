@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { seedFromString } from '../core/math';
 import { blockId, textureLayer } from '../core/registry';
 import { Facing, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, makeVoxel, type MeshBatch } from '../core/types';
@@ -212,7 +213,7 @@ describe('meshChunk', () => {
     expect(glowing).toEqual([6, 6, 6, 6]);
   });
 
-  it('meshes generated terrain well within 25 ms', () => {
+  perfIt('meshes generated terrain well within 25 ms', () => {
     const seed = seedFromString('mesher');
     const grid = new Map<string, Uint16Array>();
     for (let cz = -1; cz <= 6; cz++) for (let cx = -1; cx <= 5; cx++) grid.set(`${cx},${cz}`, generateChunk(seed, cx, cz));

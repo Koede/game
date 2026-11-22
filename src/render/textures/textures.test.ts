@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../../testing/perf';
 import { DISTILL_ITEMS } from '../../content/itemsDistill';
 import { MAGIC_ITEMS } from '../../content/itemsMagic';
 import { WORKSHOP_ITEMS } from '../../content/itemsWorkshop';
@@ -319,7 +320,7 @@ describe('texture content', () => {
     }
   });
 
-  it('paints the whole set quickly', () => {
+  perfIt('paints the whole set quickly', () => {
     const t0 = performance.now();
     for (const name of TEXTURE_NAMES) fresh(name);
     expect(performance.now() - t0).toBeLessThan(1500);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { seedFromString } from '../core/math';
 import { BLOCKS, ORE_VEINS, blockId } from '../core/registry';
 import { AIR, CHUNK_SIZE, SEA_LEVEL, WORLD_HEIGHT, voxelId, voxelIndex } from '../core/types';
@@ -112,7 +113,7 @@ describe('generateChunk', () => {
     }
   });
 
-  it('generates a chunk in well under 4 ms', () => {
+  perfIt('generates a chunk in well under 4 ms', () => {
     // Warm up first: the seed's noise tables, spawn point and spawn ruin are built once per seed and thread.
     for (let i = 0; i < 4; i++) generateChunk(SEED + 7, -20 - i, 3);
     // Best of eight batches, so other work on the machine (parallel test files, other processes) does not count.

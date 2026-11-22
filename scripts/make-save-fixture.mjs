@@ -21,12 +21,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { e2eDist } from './lib/e2eArgs.mjs';
 import { openGame, waitFor } from './lib/browser.mjs';
 
 const root = resolve(fileURLToPath(import.meta.url), '../..');
 const argv = process.argv.slice(2);
 const flag = (name) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3));
-const dist = resolve(flag('dist')[0] ?? join(root, 'dist'));
+const dist = e2eDist(root, argv);
 const out = join(root, 'tests/fixtures/save-v-before-bronze.json');
 
 /** Typed on the title screen. Numeric seed is whatever this build's seedFrom makes of it. */

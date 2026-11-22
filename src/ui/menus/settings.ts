@@ -1,5 +1,5 @@
 /** The settings form, bound to the Settings contract. Used inside the title screen's and the pause menu's windows. */
-import type { Settings } from '../../core/context';
+import { PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Settings } from '../../core/context';
 import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
@@ -42,7 +42,7 @@ export class SettingsPanel {
       this.section(
         'View',
         this.choice('uiScale', 'UI size', UI_SCALE_OPTIONS, uiScaleHint),
-        this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', L.renderDistance, (v) => `${v} chunks`),
+        this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', { ...L.renderDistance, max: isTouchFirst() ? PHONE_MAX_RENDER_DISTANCE : L.renderDistance.max }, (v) => `${v} chunks`),
         this.slider('fov', 'Field of view', '', L.fov, (v) => `${v}°`),
         this.toggle('showFps', 'Show frame rate', ''),
       ),

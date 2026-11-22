@@ -36,6 +36,8 @@ export const DIFFICULTIES: readonly Difficulty[] = ['peaceful', 'normal', 'hard'
 /** Render distance by default: phones draw less (about 30% fewer chunks, draw calls and frame time than at 6). */
 export const PHONE_RENDER_DISTANCE = 4;
 export const DESKTOP_RENDER_DISTANCE = 6;
+/** The most a touch-first device may ask for (the settings slider stops here and saved values are clamped): 625 chunks at 12 is too much for a phone. */
+export const PHONE_MAX_RENDER_DISTANCE = 6;
 
 /** A touch-first device (phone, tablet): a coarse primary pointer on a touch screen. False outside a browser. */
 export const isTouchFirst = (): boolean =>

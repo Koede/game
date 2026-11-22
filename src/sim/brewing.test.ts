@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { BOILING_KEEPS_S, BOIL_DRY_SECONDS, BREW_SECONDS, DT, FLAG_BOILED_WATER, FLAG_BREWED } from '../core/constants';
 import { blockId, blockOf } from '../core/registry';
 import { voxelActive } from '../core/types';
@@ -392,7 +393,7 @@ describe('kettle', () => {
 });
 
 describe('perf', () => {
-  it('300 buckets, cups and kettles tick well inside a frame budget', () => {
+  perfIt('300 buckets, cups and kettles tick well inside a frame budget', () => {
     const kit = makeKit();
     kit.world.fill(0, 0, 0, 60, 0, 60, 'stone');
     for (let i = 0; i < 100; i++) {

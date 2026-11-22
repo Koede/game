@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { perfIt } from '../testing/perf';
 import { BLOCKS, ITEMS } from '../core/registry';
 import { ASPECT_LIST, ASPECTS, kin, kinOf, PRIMALS, type Aspect } from './aspects';
 import { aspectsOf, resetFingerprints } from './fingerprint';
@@ -54,7 +55,7 @@ describe('fingerprints', () => {
     const all = new Set(keys.flatMap((k) => Object.keys(aspectsOf(k))));
     for (const p of PRIMALS) expect(all.has(p), p).toBe(true);
   });
-  it('builds the whole table quickly', () => {
+  perfIt('builds the whole table quickly', () => {
     resetFingerprints();
     const t = performance.now();
     for (const k of keys) aspectsOf(k);

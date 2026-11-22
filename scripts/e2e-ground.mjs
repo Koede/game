@@ -8,6 +8,7 @@
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { e2eDist, ensureBuilt } from './lib/e2eArgs.mjs';
 import { createReporter, openGame, waitFor } from './lib/browser.mjs';
 import { Driver } from './lib/e2eDriver.mjs';
 
@@ -15,7 +16,8 @@ const root = resolve(fileURLToPath(import.meta.url), '../..');
 const argv = process.argv.slice(2);
 const flag = (name, fallback) => argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const device = flag('device', 'desktop');
-const dir = resolve(flag('out', join(root, 'dist')));
+const dir = e2eDist(root, argv);
+await ensureBuilt(argv, dir);
 const shots = resolve(flag('shots', join(root, 'test-results/e2e-ground')));
 mkdirSync(shots, { recursive: true });
 
