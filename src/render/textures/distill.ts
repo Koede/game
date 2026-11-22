@@ -127,6 +127,22 @@ const EMBLEMS: Record<ChemKind, (c: Canvas, lit: boolean) => void> = {
     c.rect(6, 6, 4, 4, IRON[0]);
     for (const [x, y] of [[5, 5], [10, 5], [5, 10], [10, 10]] as const) c.set(x, y, IRON[3]);
   },
+  reflux_head(c) {
+    etchRect(c, 4, 3, 8, 10);
+    for (const y of [5, 8, 11]) for (let x = 5; x < 11; x++) etch(c, x, y, 160);
+    etch(c, 8, 2);
+    etch(c, 7, 13);
+  },
+  filter_bed(c) {
+    etchRect(c, 3, 4, 10, 9);
+    for (let y = 6; y < 12; y += 2) for (let x = 4; x < 12; x++) etch(c, x, y, 140);
+  },
+  vacuum_cap(c) {
+    c.rect(3, 8, 10, 5, BRASS[2]);
+    c.rect(3, 8, 10, 1, BRASS[4]);
+    etchRect(c, 6, 3, 4, 5, 180);
+    etch(c, 8, 2);
+  },
 };
 
 function face(kind: ChemKind, state: Lamp): (c: Canvas) => void {
@@ -203,6 +219,50 @@ const ICONS: Record<string, (c: Canvas) => void> = {
   item_diesel_canister: icon((c) => canister(c, ramp(0xc98f2e))),
   item_residue_canister: icon((c) => canister(c, ramp(0x5a4a40))),
   item_slop_canister: icon((c) => canister(c, ramp(0x7a8a50))),
+  item_lube_base_canister: icon((c) => canister(c, ramp(0x6020a0))),
+  item_bitumen_canister: icon((c) => canister(c, ramp(0x103060))),
+  item_lubricant_canister: icon((c) => canister(c, ramp(0x20ff80))),
+  item_tincture_beaker: icon((c) => beaker(c, ramp(0xc02080))),
+  item_clear_tincture_beaker: icon((c) => beaker(c, ramp(0x66ffcc))),
+  asphalt(c) {
+    const dark = P.rgb(0x1a1c20);
+    const mid = P.rgb(0x2c3036);
+    const grit = P.rgb(0x6a624e);
+    const sand = P.rgb(0x8a7a58);
+    const tar = P.rgb(0x0e1014);
+    c.fill(mid);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const n = (x * 13 + y * 7) % 11;
+      if (n === 0) c.set(x, y, grit);
+      else if (n === 1) c.set(x, y, sand);
+      else if (n === 2) c.set(x, y, tar);
+      else if ((x + y) % 5 === 0) c.set(x, y, dark);
+    }
+  },
 };
+
+const BUFFS = ['spring', 'hearthkept', 'mending', 'swift', 'vigor', 'lasting'] as const;
+const ESSENCE_HEX = [0x9ad27a, 0xc46a3a, 0xd24a6a, 0xf0d060, 0x8a4a28, 0x6a8a4a];
+const ELIXIR_HEX = [0x40e0a0, 0xff8844, 0xff6688, 0xffee88, 0xc08040, 0xa0c060];
+
+function vial(c: Canvas, fill: RGB[], mark: number): void {
+  c.rect(6, 1, 4, 2, P.rgb(0x6a3a1a));
+  c.rect(6, 1, 2, 1, P.rgb(0xc08050));
+  c.rect(5, 3, 6, 11, GLASS[1]);
+  c.rect(5, 3, 1, 11, GLASS[4]);
+  c.rect(10, 3, 1, 11, GLASS[0]);
+  c.rect(5, 13, 6, 1, GLASS[0]);
+  c.rect(6, 5, 4, 8, fill[2]);
+  c.rect(6, 5, 4, 1, fill[4]);
+  c.rect(9, 6, 1, 7, fill[1]);
+  c.set(7, 8, fill[3]);
+  c.set(6 + (mark % 4), 6 + Math.floor(mark / 2), fill[0]);
+}
+
+for (let i = 0; i < BUFFS.length; i++) {
+  const b = BUFFS[i];
+  ICONS[`item_essence_${b}`] = icon((c) => vial(c, ramp(ESSENCE_HEX[i]), i));
+  ICONS[`item_elixir_${b}`] = icon((c) => vial(c, ramp(ELIXIR_HEX[i]), i + 3));
+}
 
 export const DISTILL_TEXTURES: PainterSet = { ...tiles, ...ICONS };

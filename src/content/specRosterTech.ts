@@ -50,7 +50,11 @@ export const TECH_SPEC = {
   /** kind -> [accepts, gives, capacityL] of every fluid endpoint (spec 16.2). */
   fluidPorts: {
     pump: [[], ['water', 'lava', 'crude_oil'], 1000],
-    tank: [['water', 'lava', 'steam', 'crude_oil', 'fuel'], ['water', 'lava', 'steam', 'crude_oil', 'fuel'], 16_000],
+    tank: [
+      ['water', 'lava', 'steam', 'crude_oil', 'fuel', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop', 'lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture'],
+      ['water', 'lava', 'steam', 'crude_oil', 'fuel', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop', 'lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture'],
+      16_000,
+    ],
     boiler: [['water'], ['steam'], 1000],
     steam_turbine: [['steam'], [], 1000],
     fluid_hatch: [['lava'], [], 1000],
@@ -61,8 +65,8 @@ export const TECH_SPEC = {
     still: [['crude_oil'], ['fuel'], 4000],
     geothermal_tap: [['lava'], [], 2000],
     chem_port: [
-      ['water', 'crude_oil', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'],
-      ['water', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop'],
+      ['water', 'crude_oil', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop', 'lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture'],
+      ['water', 'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop', 'lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture'],
       1000,
     ],
   } as Record<string, [FluidKey[], FluidKey[], number]>,
@@ -86,6 +90,11 @@ export const TECH_SPEC = {
     diesel: ['Diesel', false, false, null, 'diesel_canister'],
     residue: ['Heavy Residue', false, false, null, 'residue_canister'],
     slop: ['Slop', false, false, null, null],
+    lube_base: ['Lube Base', false, false, null, 'lube_base_canister'],
+    bitumen: ['Bitumen', false, false, null, 'bitumen_canister'],
+    lubricant: ['Lubricant', false, false, null, 'lubricant_canister'],
+    tincture: ['Tincture', false, false, null, null],
+    clear_tincture: ['Clear Tincture', false, false, null, null],
   } as Record<string, [string, boolean, boolean, string | null, string | null]>,
 
   /** tier -> [walls, minInner, maxInner, ceiling, electrodes, powerPorts, maxCrucibles, crucibleBonus] (spec 17.1). */

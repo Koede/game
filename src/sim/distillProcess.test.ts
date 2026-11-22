@@ -13,22 +13,27 @@ describe('process cards', () => {
   for (const card of PROCESS_CARDS) {
     it(`${card.id} makes what its card says`, () => {
       const r = buildRig(card.rig);
-      const still = r.cells.some((c) => c.ch === 'F');
-      const into = still ? r.first('F') : r.first('V');
+      const into = r.cells.some((c) => c.ch === 'F') ? r.first('F') : r.cells.some((c) => c.ch === 'V') ? r.first('V') : r.first('X');
       const k = feed(card, into);
       const before = r.kit.sim.distill.litres();
-      if (still) r.first('B').setC = card.minTempC;
+      if (r.cells.some((c) => c.ch === 'B')) r.first('B').setC = card.minTempC;
+      const fluidOuts = [card.output, ...(card.byproducts ?? [])].filter((o) => CHEM_CONTAINERS[o.item]);
       runUntil(r, 900, () => into.state === 'done' || into.state === 'blocked', 1500);
-      expect(into.state, `${card.id} ended ${into.state}`).toBe('done');
-      // Volume is conserved through the whole run.
-      expect(r.kit.sim.distill.litres()).toBeCloseTo(before, 6);
+      // A filter bed spends its medium and then blocks; every other card finishes.
+      expect(into.state, `${card.id} ended ${into.state}`).toBe(card.station === 'filter_bed' ? 'blocked' : 'done');
+      if (fluidOuts.length === [card.output, ...(card.byproducts ?? [])].length) {
+        expect(r.kit.sim.distill.litres()).toBeCloseTo(before, 6);
+      }
       const modules = [...r.kit.sim.distill.all()];
-      for (const out of [card.output, ...(card.byproducts ?? [])]) {
+      for (const out of fluidOuts) {
         const c = CHEM_CONTAINERS[out.item];
-        if (!c) continue; // an empty container handed back
         const need = out.count * c.litres * k;
         const have = Math.max(...modules.filter((m) => nameOf(m.mix) === c.fluid).map((m) => total(m.mix)), 0);
         expect(have, `${card.id}: ${c.fluid}`).toBeGreaterThanOrEqual(need - 1e-6);
+      }
+      if (fluidOuts.length === 0) {
+        const made = into.out?.find((s) => s.item === card.output.item)?.count ?? 0;
+        expect(made, card.id).toBeGreaterThanOrEqual(card.output.count);
       }
     });
   }

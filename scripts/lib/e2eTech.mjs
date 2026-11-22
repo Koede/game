@@ -231,6 +231,10 @@ export async function techSteps({ d, step, assert, page }) {
       const hw = window.__hw;
       hw.clearInventory();
       hw.setTime(0.3);
+      // The hearth check is not the combat check (that is e2e-ember). On a slow phone frame a Forge Warden
+      // reaches the site and its 3-point hits kill the builder before the floor is down; the death screen
+      // then has no Close button and the next place aborts. Peaceful removes natural automatons.
+      hw.setDifficulty('peaceful');
       hw.give('brick', 15);
       hw.give('furnace_clay', 1);
       hw.give('item_hatch', 1);

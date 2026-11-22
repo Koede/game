@@ -7,7 +7,7 @@
  * voxel's active bit that makes four lamp states - idle (dark), working (amber), done (green), blocked (red). The sim
  * swaps the blocks; a `_done` block is no item and drops its plain twin.
  */
-import { CHEM, DONE_SUFFIX, STATEFUL, type ChemKind } from '../core/distill';
+import { ASPHALT_BLOCK, CHEM, DONE_SUFFIX, ROAD_SPEED, STATEFUL, type ChemKind } from '../core/distill';
 import type { BlockSpec } from '../core/types';
 
 interface Look {
@@ -59,11 +59,23 @@ const LOOKS: Record<ChemKind, Look> = {
     name: 'Chemistry Port', age: 2,
     desc: 'Joins fluid pipes to the glassware: touching a flask or vessel it takes fluid in, touching a receiver it gives fluid out.',
   },
+  reflux_head: {
+    name: 'Reflux Head', age: 2,
+    desc: 'Sits on a column. A wrench cycles how much vapour it sends back down: none, half, or three quarters. More return, sharper cut.',
+  },
+  filter_bed: {
+    name: 'Filter Bed', age: 0, glow: 2,
+    desc: 'Liquid in from above, out below. Load it with charcoal, sand or clay; the medium is used up, and a spent bed shows blocked until you load another.',
+  },
+  vacuum_cap: {
+    name: 'Vacuum Cap', age: 3,
+    desc: 'On a column or a flask it lowers every boiling point. Residue run gently this way gives lube base overhead and bitumen left behind.',
+  },
 };
 
 function module(kind: ChemKind): BlockSpec[] {
   const look = LOOKS[kind];
-  const cap = kind === CHEM.airlock;
+  const cap = kind === CHEM.airlock || kind === CHEM.vacuum;
   const base: BlockSpec = {
     key: kind, name: look.name, desc: look.desc, machine: kind, hardness: 0.6, tool: 'pickaxe', age: look.age,
     shape: cap ? 'slab' : 'cube', opaque: false, translucent: true, category: 'machine', stack: 16,
@@ -80,4 +92,13 @@ function module(kind: ChemKind): BlockSpec[] {
   ];
 }
 
-export const DISTILL_BLOCKS: BlockSpec[] = Object.values(CHEM).flatMap(module);
+const asphalt: BlockSpec = {
+  key: ASPHALT_BLOCK,
+  name: 'Asphalt',
+  age: 3,
+  desc: `Bitumen, gravel and sand heated in a vessel. Walking is ${ROAD_SPEED.walk} times as fast on it, and a tractor ${ROAD_SPEED.tractor} times.`,
+  tool: 'pickaxe',
+  textures: { all: 'asphalt' },
+};
+
+export const DISTILL_BLOCKS: BlockSpec[] = [...Object.values(CHEM).flatMap(module), asphalt];

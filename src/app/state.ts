@@ -24,6 +24,7 @@ import { Workshop } from '../workshop/workshop';
 import { takeLostItems } from '../content/aliases';
 import { World, type WorkerPool } from '../world';
 import { diag, playerBrief } from './diag';
+import { MagicWorkshopLink, treadwheelOccupied, workshopClockAndPack } from './gameWiring';
 
 export interface StateOptions {
   /** Chunk worker pool (the browser passes `new WorkerPool(workerSource)`); omitted = main thread. */
@@ -66,6 +67,8 @@ export class GameState {
   playTimeS = 0;
   /** Number of fixed ticks run since this session started. */
   ticks = 0;
+  /** bindWorkshop, then magic.tick. The link refuses a tick that arrives first. */
+  private readonly magicLink = new MagicWorkshopLink();
   /** The difficulty both halves of combat run on (the automatons and the player's side): never one without the other. */
   private difficultyNow: Difficulty;
 
@@ -165,10 +168,11 @@ export class GameState {
     world.loadExtra('workshop', (raw) => this.workshop.load(raw));
     this.workshop.generatorWatts = (x, y, z) => this.sim.machineView(x, y, z)?.outW ?? 0;
     // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
-    this.workshop.standingOn = (x, y, z) => {
-      const p = this.player.position;
-      return Math.abs(p.x - (x + 0.5)) < 0.7 && Math.abs(p.z - (z + 0.5)) < 0.7 && p.y > y - 0.2 && p.y < y + 0.4;
-    };
+    this.workshop.standingOn = (x, y, z) => treadwheelOccupied(this.player.position, this.mobs.all, x, y, z);
+    const pack = workshopClockAndPack(this.clock, (item, n) => this.player.inventory.add(item, n));
+    this.workshop.timeS = pack.timeS;
+    this.workshop.giveItem = pack.giveItem;
+    this.magicLink.bind(this.magic, this.workshop);
     this.workshop.tractors = () => this.vehicles.views().map((t) => ({ x: t.x, y: t.y, z: t.z, occupied: t.occupied, fuel: t.fuel }));
     this.workshop.fluidBlock = {
       is: (x, y, z) => isFluidEndpoint(world.getBlock(x, y, z)),
@@ -282,7 +286,7 @@ export class GameState {
     this.mobs.tick(dt, this.mobPlayer);
     this.survival.tick(dt);
     this.objectives.tick(dt);
-    this.magic.tick(dt);
+    this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });

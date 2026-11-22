@@ -33,7 +33,9 @@ export type ScreenRequest =
   /** The Workshop Guide: parts, basin recipe cards, rules (docs/api/workshop.md). */
   | { type: 'workshop' }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
-  | { type: 'rune_desk'; x: number; y: number; z: number };
+  | { type: 'rune_desk'; x: number; y: number; z: number }
+  /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */
+  | { type: 'distill_rig'; x: number; y: number; z: number };
 
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
 export type SfxName =
@@ -145,7 +147,14 @@ export type SfxName =
   /** Wet clay worked by the palm: the Clay Table. */
   | 'scrape'
   /** Molten metal poured into a mould: a gurgle and a hiss (not the water 'pour' of brewing). */
-  | 'cast_pour';
+  | 'cast_pour'
+  // ---- the glass distillery (docs/DISTILLERY_PLAN.md 15; src/audio/sfxDistill.ts) ----
+  /** A bubble in heated glass: a short burble. Positioned at the module. */
+  | 'distill_bubble'
+  /** One drop leaving a condenser or coil. Positioned at the module. */
+  | 'distill_drip'
+  /** A glass chime when a distillery step completes. Positioned at the module. */
+  | 'distill_chime';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
@@ -324,4 +333,11 @@ export interface GameEvents {
   'hand:taken': { x: number; y: number; z: number; station: string; item: string; count: number };
   /** Molten metal was poured into a mould (`at`: where it came from; x,y,z = that furnace, alloy pot or bench). */
   'cast:poured': { x: number; y: number; z: number; mould: string; metal: string; item: string; count: number; at: 'furnace' | 'alloy_pot' | 'bench' };
+
+  // ---- the glass distillery (docs/DISTILLERY_PLAN.md 2, 15) ----
+  /**
+   * A distillery module changed state. Objectives listen for `state: 'done'` and the process key
+   * ("Run your first spirit"). `process` is omitted when no process card is running.
+   */
+  'distill:step': { x: number; y: number; z: number; state: string; process?: string };
 }

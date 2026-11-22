@@ -178,7 +178,8 @@ for (const device of devices) {
       await d.selectItem('water_pail');
       await tapTimes(P.col.jacket, 1);
       await d.selectEmptyHand();
-      await tapTimes(P.col.base, 4);
+      // Setpoints gained 150 and 330 (src/core/distill.ts), so 350 is six taps from the 97 C default, not four.
+      await tapTimes(P.col.base, 6);
       assert((await mod(P.col.base)).setC === 350, 'column base at 350 C');
     });
 

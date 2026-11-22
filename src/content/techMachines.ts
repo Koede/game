@@ -5,7 +5,14 @@
  * and core/constants (HEARTH_*).
  */
 import { LITRES_PER_BUCKET } from '../core/constants';
-import type { MachineSpec } from '../core/types';
+import type { FluidKey, MachineSpec } from '../core/types';
+
+/** Fluids a tank holds. The five of spec 16.5, plus every distill FluidKey that already exists (DISTILLERY_PLAN §15). */
+const TANK_FLUIDS: FluidKey[] = [
+  'water', 'lava', 'steam', 'crude_oil', 'fuel',
+  'sap', 'syrup', 'sugar_wash', 'low_wines', 'spirit', 'fuel_ethanol', 'gasoline', 'kerosene', 'diesel', 'residue', 'slop',
+  'lube_base', 'bitumen', 'lubricant', 'tincture', 'clear_tincture',
+];
 
 export const TECH_MACHINES: MachineSpec[] = [
   // pump - a consumer that fills its buffer from the liquid source it touches and gives it to pulling pipes. A water
@@ -24,7 +31,7 @@ export const TECH_MACHINES: MachineSpec[] = [
   // tank - one fluid at a time; vertically stacked tanks share one fluid and one level (their capacities add up).
   {
     kind: 'tank', name: 'Tank', role: 'tank', blocks: ['tank'],
-    fluids: { accepts: ['water', 'lava', 'steam', 'crude_oil', 'fuel'], gives: ['water', 'lava', 'steam', 'crude_oil', 'fuel'], capacityL: 16_000 },
+    fluids: { accepts: TANK_FLUIDS, gives: TANK_FLUIDS, capacityL: 16_000 },
     desc: 'Holds 16 000 litres of any one fluid. Stack tanks to share one level, and fill or empty them with pipes or buckets.',
   },
   // boiler - sits directly on top of a furnace or a hearth's ceiling and turns its heat into steam, drawing heat like a

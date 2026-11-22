@@ -4,9 +4,9 @@ export const WORKSHOP_SPEC = {
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
     'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill',
     'shear_pin', 'flywheel', 'differential', 'treadwheel', 'saw_arm', 'item_vault', 'vacuum_collector',
-    'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface',
+    'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface', 'wind_vane',
     'contraption_frame', 'piston', 'bearing', 'rail', 'skiff'],
-  items: ['engineer_goggles', 'bronze_cog'],
+  items: ['engineer_goggles', 'bronze_cog', 'punched_card'],
   objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1', 'place saw_arm 1', 'place item_vault 1', 'place crank_lever 1', 'place bell 1', 'place piston 1'],
   recipes: {
     furnace: [
@@ -65,8 +65,10 @@ export const WORKSHOP_SPEC = {
       'engineer_goggles: 1 engineer_goggles <- 2 copper_ingot, 1 glass, 1 leather @650 T2',
     ],
   } as Record<string, string[]>,
-  /** 19 faces and one icon, then 20 fronts of the modular parts (two for each running one) and one icon. */
-  textures: 93,
+  /** 19 faces and one icon, then the modular fronts (two for each running one) and icons, plus the vane face and the punched-card icon. */
+  textures: 95,
+  /** No recipe: the docs give the vane none, and there is no paper to punch a card from. Tests place or grant them. */
+  worldOnly: ['wind_vane', 'punched_card'],
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

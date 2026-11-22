@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { BOILING_KEEPS_S, MOULD_POURS } from '../core/constants';
+import { createBus } from '../core/context';
 import type { Slot } from '../core/types';
 import { Inventory, canMerge, makeStack, stackLimit } from './inventory';
+import { PlayerState } from './playerState';
 import { mergeSlots, moveHalf, moveOne, moveStack, quickMove, swapSlots, transfer } from './transfer';
 
 describe('Inventory', () => {
@@ -162,6 +165,38 @@ describe('Inventory', () => {
     const loaded = new Inventory(4);
     loaded.load(dirty);
     expect(loaded.toJSON()).toEqual([null, { item: 'plank', count: 99 }, { item: 'flint_pickaxe', count: 1, durability: 64 }, null]);
+  });
+
+  it('keeps the seconds left on a boiling pail and every other cooling container', () => {
+    expect(BOILING_KEEPS_S).toBe(90);
+    const inv = new Inventory(6);
+    expect(stackLimit('boiling_pail')).toBe(1);
+    expect(inv.add('boiling_pail', 1, 30)).toBe(0);
+    expect(inv.get(0)).toEqual({ item: 'boiling_pail', count: 1, durability: 30 });
+    expect(inv.add('boiling_pail', 1)).toBe(0);
+    expect(inv.get(1)).toEqual({ item: 'boiling_pail', count: 1, durability: 90 });
+    expect(inv.add('boiling_pail', 1, 1000)).toBe(0);
+    expect(inv.get(2)?.durability).toBe(90);
+    expect(inv.add('boiling_beaker', 1, 1000)).toBe(0);
+    expect(inv.get(3)).toEqual({ item: 'boiling_beaker', count: 1, durability: 90 });
+    expect(inv.add('boiling_vial', 1, 0)).toBe(0);
+    expect(inv.get(4)).toEqual({ item: 'boiling_vial', count: 1, durability: 1 });
+    expect(inv.add('flint_pickaxe', 1, 10)).toBe(0);
+    expect(inv.get(5)).toEqual({ item: 'flint_pickaxe', count: 1, durability: 10 });
+
+    const mould = new Inventory(2);
+    expect(mould.add('ingot_mould', 1, 10)).toBe(0);
+    expect(mould.get(0)).toEqual({ item: 'ingot_mould', count: 1, durability: 10 });
+    expect(mould.add('ingot_mould', 1)).toBe(0);
+    expect(mould.get(1)?.durability).toBe(MOULD_POURS);
+
+    const loaded = new Inventory(1);
+    loaded.load([{ item: 'boiling_pail', count: 1, durability: 1000 }]);
+    expect(loaded.get(0)).toEqual({ item: 'boiling_pail', count: 1, durability: 90 });
+
+    const player = new PlayerState(createBus());
+    expect(player.give('boiling_pail', 1, 30)).toBe(0);
+    expect(player.inventory.slots.find((s) => s?.item === 'boiling_pail')).toEqual({ item: 'boiling_pail', count: 1, durability: 30 });
   });
 });
 

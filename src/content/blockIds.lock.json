@@ -218,5 +218,11 @@
   "furnace_vial_boiling": 216,
   "furnace_sap": 217,
   "furnace_sap_resin": 218,
-  "furnace_bronze": 219
+  "furnace_bronze": 219,
+  "reflux_head": 220,
+  "filter_bed": 221,
+  "filter_bed_done": 222,
+  "vacuum_cap": 223,
+  "asphalt": 224,
+  "wind_vane": 225
 }

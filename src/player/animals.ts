@@ -67,7 +67,7 @@ export class AnimalHands {
     if (this.target === null || this.player.dead || !combat.strikeReady) return false;
     const item = this.player.heldStack()?.item ?? null;
     const p = this.player.position;
-    const r = this.animals.hit(this.target, hitDamage(item), p.x, p.z, stunOf(item));
+    const r = this.animals.hit(this.target, hitDamage(item, this.player.buffs.strength), p.x, p.z, stunOf(item));
     if (!r.ok) return false;
     combat.startStrikeCooldown(item);
     this.swing.triggerSwing();

@@ -8,10 +8,86 @@
  * gearshift (between steps) pass nothing. Reaching a part by two routes with different speeds is a jam.
  */
 
-export interface KPart { kind: string; /** per-part setting: ratio index, clutch engaged, gearshift program, governor notch */ s: number }
+export interface KPart {
+  kind: string;
+  /** per-part setting: ratio index, clutch engaged, gearshift program, governor notch */
+  s: number;
+  /** Punched-card steps as [seconds, factor]. Absent: the three preset programs. */
+  card?: readonly (readonly [number, number])[] | null;
+}
 
-/** Ratio dial settings (output speed = input x ratio). */
+/** Ratio dial settings, and the only ratios a punched card may use (output speed = input x ratio). */
 export const DIAL_RATIOS = [0.5, 1, 2, 3] as const;
+/** Steps on a punched card. */
+export const CARD_STEPS = 8;
+/** How long one punched-card step may run, seconds. */
+export const CARD_SECONDS_MIN = 1;
+export const CARD_SECONDS_MAX = 30;
+
+/** One step of a punched card: ratio from DIAL_RATIOS, direction -1/0/+1 (0 = disengaged), seconds 1–30. */
+export interface CardStep {
+  ratio: number;
+  direction: -1 | 0 | 1;
+  seconds: number;
+}
+
+/** Seconds snapped to an integer in 1–30. */
+export function clampCardSeconds(seconds: number): number {
+  if (!Number.isFinite(seconds)) return CARD_SECONDS_MIN;
+  return Math.max(CARD_SECONDS_MIN, Math.min(CARD_SECONDS_MAX, Math.round(seconds)));
+}
+
+/** The DIAL_RATIOS entry nearest `ratio` (ties keep the earlier one). */
+export function snapRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return DIAL_RATIOS[0];
+  let best: number = DIAL_RATIOS[0];
+  let bestDist = Infinity;
+  for (const d of DIAL_RATIOS) {
+    const dist = Math.abs(d - ratio);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = d;
+    }
+  }
+  return best;
+}
+
+/** Direction snapped to -1, 0 or +1. Anything else stays forward. */
+export function snapDirection(direction: number): -1 | 0 | 1 {
+  if (direction === -1 || direction === 0 || direction === 1) return direction;
+  return 1;
+}
+
+/** factor = 0 when disengaged, otherwise direction x ratio. */
+export function stepFactor(step: CardStep): number {
+  const direction = snapDirection(step.direction);
+  return direction === 0 ? 0 : direction * snapRatio(step.ratio);
+}
+
+/** A new card: eight steps of ratio 1, forward, 1 second. */
+export function freshCard(): CardStep[] {
+  const steps: CardStep[] = [];
+  for (let i = 0; i < CARD_STEPS; i++) steps.push({ ratio: 1, direction: 1, seconds: 1 });
+  return steps;
+}
+
+/** Card steps as the [seconds, factor] rows the gearshift solver loops over. */
+export function cardProgram(steps: readonly CardStep[]): (readonly [number, number])[] {
+  return steps.map((s) => [clampCardSeconds(s.seconds), stepFactor(s)] as const);
+}
+
+/** Reads a saved card. A bad shape means no card, so an old save keeps the presets. */
+export function readCard(raw: unknown): CardStep[] | null {
+  if (!Array.isArray(raw) || raw.length !== CARD_STEPS) return null;
+  const steps: CardStep[] = [];
+  for (const row of raw) {
+    if (!Array.isArray(row) || row.length < 3) return null;
+    const [ratio, direction, seconds] = row;
+    if (typeof ratio !== 'number' || typeof direction !== 'number' || typeof seconds !== 'number') return null;
+    steps.push({ ratio: snapRatio(ratio), direction: snapDirection(direction), seconds: clampCardSeconds(seconds) });
+  }
+  return steps;
+}
 /** Pulley sizes: speed goes by the size of the sending pulley over the size of the receiving one. */
 export const PULLEY_SIZES = [1, 2, 3] as const;
 /** Governor notches: the fastest it lets the network run, rpm. */
@@ -32,10 +108,12 @@ export const BASE_STRESS: Record<string, number> = {
   chain_sprocket: 0.5, belt_pulley: 1, differential: 1, flywheel: 0.5, shear_pin: 0, saw_arm: 5, vacuum_collector: 3, treadwheel: 0, bearing: 6, piston: 6
 };
 
-/** The factor the sequenced gearshift of `program` applies at `t` seconds. */
-export function gearshiftFactor(program: number, t: number): number {
-  const steps = GEARSHIFT_PROGRAMS[Math.max(0, Math.min(GEARSHIFT_PROGRAMS.length - 1, program))];
+/** The factor the sequenced gearshift applies at `t` seconds. A punched card replaces the preset program. */
+export function gearshiftFactor(program: number, t: number, card?: readonly (readonly [number, number])[] | null): number {
+  const preset = GEARSHIFT_PROGRAMS[Math.max(0, Math.min(GEARSHIFT_PROGRAMS.length - 1, program))];
+  const steps = card && card.length > 0 ? card : preset;
   const total = steps.reduce((s, st) => s + st[0], 0);
+  if (total <= 0) return 0;
   let at = ((t % total) + total) % total;
   for (const [len, f] of steps) {
     if (at < len) return f;
@@ -51,7 +129,7 @@ export function passOn(part: KPart, rpm: number, t: number): number | null {
     case 'ratio_dial': return rpm * DIAL_RATIOS[Math.max(0, Math.min(DIAL_RATIOS.length - 1, part.s))];
     case 'clutch': return part.s ? rpm : null;
     case 'sequence_gearshift': {
-      const f = gearshiftFactor(part.s, t);
+      const f = gearshiftFactor(part.s, t, part.card);
       return f === 0 ? null : rpm * f;
     }
     case 'governor': {

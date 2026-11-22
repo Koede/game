@@ -40,6 +40,10 @@ export interface Still {
   segments: string[];
   draws: SideDraw[];
   head: string | null;
+  /** Reflux head on top of the column, if any. */
+  reflux: string | null;
+  /** A vacuum cap sits on this stack, so boiling points are scaled. */
+  vacuum: boolean;
 }
 
 export interface LiquidEdge {
@@ -81,10 +85,12 @@ export function moduleAt(world: IWorld, x: number, y: number, z: number): RigMod
 
 /** Whether `kind` pours liquid towards a neighbour in direction d (index into DIRS). */
 const pours = (kind: ChemKind, d: number): boolean =>
-  d !== 1 && (kind === CHEM.condenser || kind === CHEM.receiver || kind === CHEM.tube || kind === CHEM.vessel);
+  (kind === CHEM.filter && d === 0)
+  || (d !== 1 && (kind === CHEM.condenser || kind === CHEM.receiver || kind === CHEM.tube || kind === CHEM.vessel));
 
 /** Whether `kind` takes liquid from a neighbour `from` lying in direction d of it (index into DIRS). */
 function takes(kind: ChemKind, d: number, from: ChemKind): boolean {
+  if (kind === CHEM.filter) return d === 1;
   if (kind === CHEM.receiver || kind === CHEM.tube) return d === 1 || d >= 2;
   if (kind === CHEM.vessel) return d === 1 || (d >= 2 && from === CHEM.tube);
   if (kind === CHEM.flask) return (d === 1 || d >= 2) && from === CHEM.tube;
@@ -142,13 +148,18 @@ export function scanRig(world: IWorld, x: number, y: number, z: number): Rig | n
   for (const m of modules.values()) {
     if (m.kind !== CHEM.flask) continue;
     const below = at(m, 0);
-    const still: Still = { flask: m.key, base: below?.kind === CHEM.base ? below.key : null, segments: [], draws: [], head: null };
+    const still: Still = { flask: m.key, base: below?.kind === CHEM.base ? below.key : null, segments: [], draws: [], head: null, reflux: null, vacuum: false };
     if (!still.base) problem('no_base', 'The Boiling Flask needs a Still Base under it', [m.key]);
     let top: RigModule = m;
     for (let up = at(m, 1); up && up.kind === CHEM.segment; up = at(up, 1)) {
       still.segments.push(up.key);
       inStack.add(up.key);
       top = up;
+    }
+    const aboveColumn = at(top, 1);
+    if (aboveColumn?.kind === CHEM.reflux) {
+      still.reflux = aboveColumn.key;
+      top = aboveColumn;
     }
     if (still.segments.length > MAX_SEGMENTS) problem('too_tall', `A column holds ${MAX_SEGMENTS} segments at most`, still.segments.slice(MAX_SEGMENTS));
     still.segments.forEach((key, i) => {
@@ -163,7 +174,23 @@ export function scanRig(world: IWorld, x: number, y: number, z: number): Rig | n
     });
     const head = at(top, 1);
     if (head?.kind === CHEM.condenser && claim(head, still)) still.head = head.key;
+    if (!still.head && still.reflux) {
+      const reflux = modules.get(still.reflux)!;
+      for (let d = 2; d < 6; d++) {
+        const side = at(reflux, d);
+        if (side?.kind === CHEM.condenser && claim(side, still)) {
+          still.head = side.key;
+          break;
+        }
+      }
+    }
     if (!still.head && still.draws.length === 0) problem('no_condenser', 'The vapour has nowhere to go: put a Condenser Coil on top', [top.key]);
+    const capped = (key: string | null): boolean => {
+      if (!key) return false;
+      const cell = modules.get(key);
+      return !!cell && at(cell, 1)?.kind === CHEM.vacuum;
+    };
+    still.vacuum = capped(still.flask) || still.segments.some((key) => capped(key)) || capped(still.reflux) || capped(still.head);
     stills.push(still);
   }
   for (const m of modules.values()) {

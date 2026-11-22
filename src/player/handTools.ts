@@ -5,7 +5,10 @@
  *   trough) goes to the simulation's `stroke`. One Use is one stroke, an insert or a take, as the sim decides; holding
  *   Use repeats at the station's `strokesPerS` (the controller tells the input layer, `useRepeatFor`);
  * - a fired mould held against a furnace that has molten metal pours the first molten crucible into it, in the world,
- *   without opening the screen (`pourCrucible`).
+ *   without opening the screen (`pourCrucible`);
+ * - a casting bench takes a mould from the hand into its first empty socket, and an empty hand takes the last one
+ *   back. An empty hand on a furnace with molten metal pours into the nearest bench that holds moulds (`pourBench`);
+ *   with no such bench the furnace screen opens as usual.
  * The simulation is reached through the small HandHands interface (src/sim's Simulation fits it structurally).
  */
 import { USE_REPEAT_S } from './input/core';
@@ -25,6 +28,16 @@ export interface HandHands {
   handReturn(x: number, y: number, z: number): HandResult;
   /** Pours crucible `slot` of the furnace at x, y, z into the mould `heldKey` (a pack item). */
   pourCrucible(x: number, y: number, z: number, slot: number, heldKey: string | null): PourResult;
+  /**
+   * Empty hand on a furnace: one cast into each mould of the nearest casting bench. Null when no bench in range
+   * holds a mould (the furnace screen opens).
+   */
+  pourBench(x: number, y: number, z: number, slot: number): PourResult | null;
+  /**
+   * Use on a casting bench. A mould fills the first empty socket; an empty hand takes the last mould out. Null when
+   * `heldKey` is some other item, so Use can place a block.
+   */
+  useBench(x: number, y: number, z: number, heldKey: string | null): PourResult | null;
   /** The furnace's crucibles: which hold molten metal. Null when there is no furnace. */
   furnaceView(x: number, y: number, z: number): { crucibles: readonly { index: number; moltenS: number; mix?: unknown }[] } | null;
 }
@@ -60,9 +73,37 @@ export class HandTools {
     if (!this.hands || hit.block.liquid !== null) return null;
     const held = this.host.player.heldStack()?.item ?? null;
     if (hit.block.handStation) return this.station(hit, held, forceReturn);
+    if (hit.block.machine === 'casting_bench') return this.atBench(hit, held);
+    // A mould in hand pours that mould only. An empty hand uses a bench in range, or opens the screen.
     if (held !== null && itemOrNull(held)?.mould && hit.block.machine === 'furnace') return this.pour(hit, held);
     if (held !== null && POT_INGOTS.includes(held) && hit.block.machine === 'furnace') return this.loadPot(hit, held);
+    if (held === null && hit.block.machine === 'furnace') return this.pourFromBench(hit);
     return null;
+  }
+
+  /** A mould goes into the first empty socket; an empty hand takes the last one out. Anything else is placed. */
+  private atBench(hit: RayHit, held: string | null): HandOutcome | null {
+    if (held !== null && !itemOrNull(held)?.mould) return null;
+    const r = (this.hands as HandHands).useBench(hit.x, hit.y, hit.z, held);
+    if (r === null) return null;
+    return this.finish(r.ok ? { ok: true, did: 'bench' } : r, hit);
+  }
+
+  /** Empty hand against molten metal: the nearest bench's moulds, one cast each. No bench: the screen opens. */
+  private pourFromBench(hit: RayHit): HandOutcome | null {
+    const hands = this.hands as HandHands;
+    const molten = hands.furnaceView(hit.x, hit.y, hit.z)?.crucibles.find((c) => c.moltenS > 0);
+    if (!molten) return null;
+    const r = hands.pourBench(hit.x, hit.y, hit.z, molten.index);
+    if (r === null) return null;
+    const h = this.host;
+    h.stopMining();
+    if (!r.ok) {
+      h.advise(`pour:${r.reason}`, r.reason);
+      return 'refused';
+    }
+    h.swing();
+    return 'poured';
   }
 
   private station(hit: RayHit, held: string | null, forceReturn: boolean): HandOutcome | null {

@@ -94,6 +94,17 @@ export async function sandboxChecks({ report, dir, shotDir }) {
       // The step before may have mined the block underfoot: save only once the player has landed, or the restored
       // player (position AND velocity are saved exactly) just keeps falling and "moves" a few tenths of a block.
       await waitFor(page, () => window.__hw.state().player?.onGround === true, 'the player to stand on the ground', { timeout: 15_000 });
+      // Pause freezes pickup. Seeds from the plant just mined sit out a short delay, and Continue collects
+      // them, so the snapshot has to wait until nothing in reach is still lying there.
+      await waitFor(page, () => {
+        const p = window.__hw.state().player;
+        return window.__hw.groundItems().every((g) => {
+          const dx = g.x - p.x;
+          const dy = g.y - (p.y + 0.8);
+          const dz = g.z - p.z;
+          return dx * dx + dy * dy + dz * dz > 1.4 * 1.4;
+        });
+      }, 'nearby drops to reach the pack', { timeout: 5_000 }).catch(() => undefined);
       await d.pause();
       const before = await d.state();
       await d.press(page.locator('.hw-window button', { hasText: 'Save and quit to title' }));

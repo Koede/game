@@ -3,7 +3,8 @@
  * drink buffs of brewing (BREWING_PLAN 11.1). Well-Warmed and Well-Fed keep their plain `...S` fields so every
  * older reader and save keeps working; the drinks live in one slot per family (tea, coffee), so a new drink of a
  * family replaces the old one. A drink's number is applied at the one place its base rule lives, through the
- * multiplier getters below. DOM-free.
+ * multiplier getters below. Elixir strength is a separate flat bonus on the same melee and mining reads, with its
+ * own timer set to the elixir's buff length. DOM-free.
  */
 import {
   GRAVITY,
@@ -34,6 +35,10 @@ export interface BuffsSnapshot {
   wellFedS?: number;
   /** Seconds of Sugar Rush left. Missing in saves made before it. */
   sugarS?: number;
+  /** Flat elixir bonus. Missing in saves made before elixirs; load those as 0. */
+  strength?: number;
+  /** Seconds of elixir strength left. Missing in the same old saves. */
+  strengthS?: number;
   /** Seconds left per active drink buff. Missing in saves made before brewing. */
   drinks?: Partial<Record<DrinkBuff, number>>;
 }
@@ -69,6 +74,10 @@ export class Buffs {
   wellFedS = 0;
   /** Seconds of Sugar Rush left (0 = not active): faster, but Well-Fed burns off faster too. */
   sugarS = 0;
+  /** Flat bonus from an elixir (0 = none). Melee damage and mining speed add it once. */
+  strength = 0;
+  /** Seconds of elixir strength left. It starts equal to the elixir buff and ends with it. */
+  strengthS = 0;
   private readonly slots: Record<DrinkFamily, DrinkSlot> = { tea: { buff: null, s: 0 }, coffee: { buff: null, s: 0 } };
 
   /** Seconds left of a drink buff (0 = not active). */
@@ -103,12 +112,28 @@ export class Buffs {
     return { replaced: running, refreshed: false };
   }
 
+  /**
+   * Sets elixir strength from `add` for `seconds` (the elixir's buff length, three times the source drink).
+   * The bonus does not stack: a later elixir keeps the higher value. The timer follows `grant`: refreshed,
+   * never shortened.
+   */
+  grantStrength(add: number, seconds: number): void {
+    if (!(add > 0) || !(seconds > 0)) return;
+    if (!(this.strengthS > 0)) this.strength = 0;
+    this.strength = Math.max(this.strength, add);
+    this.strengthS = Math.max(this.strengthS, seconds);
+  }
+
   /** Counts every timer down. */
   tick(dt: number): void {
     if (!(dt > 0)) return;
     // Sugar Rush burns the Well-Fed timer faster (never hunger itself).
     if (this.wellFedS > 0) this.wellFedS = Math.max(0, this.wellFedS - dt * (this.sugarS > 0 ? SUGAR_WELL_FED_BURN_MULT : 1));
     if (this.sugarS > 0) this.sugarS = Math.max(0, this.sugarS - dt);
+    if (this.strengthS > 0) {
+      this.strengthS = Math.max(0, this.strengthS - dt);
+      if (this.strengthS === 0) this.strength = 0;
+    }
     for (const f of FAMILIES) {
       const slot = this.slots[f];
       if (slot.s <= 0) continue;
@@ -122,6 +147,8 @@ export class Buffs {
     this.wellWarmedS = 0;
     this.wellFedS = 0;
     this.sugarS = 0;
+    this.strength = 0;
+    this.strengthS = 0;
     for (const f of FAMILIES) this.slots[f] = { buff: null, s: 0 };
   }
 
@@ -174,7 +201,8 @@ export class Buffs {
       const s = this.timeLeftS(b);
       if (s > 0) drinks[b] = s;
     }
-    return { wellWarmedS: this.wellWarmedS, wellFedS: this.wellFedS, ...(this.sugarS > 0 ? { sugarS: this.sugarS } : {}), drinks };
+    const strength = this.strength > 0 && this.strengthS > 0 ? { strength: this.strength, strengthS: this.strengthS } : {};
+    return { wellWarmedS: this.wellWarmedS, wellFedS: this.wellFedS, ...(this.sugarS > 0 ? { sugarS: this.sugarS } : {}), ...strength, drinks };
   }
 
   load(s: BuffsSnapshot): void {
@@ -182,6 +210,12 @@ export class Buffs {
     this.wellWarmedS = finite(s.wellWarmedS) ? Math.max(0, s.wellWarmedS) : 0;
     this.wellFedS = finite(s.wellFedS) ? Math.max(0, s.wellFedS) : 0;
     this.sugarS = finite(s.sugarS) ? Math.max(0, s.sugarS) : 0;
+    const strength = finite(s.strength) ? Math.max(0, s.strength) : 0;
+    const strengthS = finite(s.strengthS) ? Math.max(0, s.strengthS) : 0;
+    if (strength > 0 && strengthS > 0) {
+      this.strength = strength;
+      this.strengthS = strengthS;
+    }
     const drinks = s.drinks;
     if (typeof drinks !== 'object' || drinks === null) return;
     for (const b of DRINK_BUFF_KEYS) {

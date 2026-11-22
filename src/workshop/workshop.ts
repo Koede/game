@@ -12,15 +12,16 @@
  * it feed speed into these networks without changing anything else here.
  */
 import type { GameBus } from '../core/context';
-import { blockOrNull, canonicalItemKey, itemOrNull, recipesAt } from '../core/registry';
+import { blockOrNull, canonicalItemKey, itemOrNull, machine, recipesAt } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
+import { windAt } from '../sim/machines';
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
 import type { GroundItems } from '../game/groundItems';
 import { Contraptions, CONTRAPTION_KINDS } from './contraption';
 import { SIGNAL_KINDS, Signals } from './signals';
 import { isLogistic, Logistics, POWERED, type ActResult, type MachineActAction } from './logistics';
-import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, solveNetwork, type KPart, type Source } from './kinetics';
+import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, cardProgram, clampCardSeconds, freshCard, readCard, snapDirection, snapRatio, solveNetwork, type CardStep, type KPart, type Source } from './kinetics';
 
 export const CRANK_RPM = 16;
 /** Seconds a crank keeps turning after one Use (holding Use repeats it). */
@@ -59,7 +60,13 @@ const DIRS: [number, number, number][] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 
 /** Facing -> unit vector of the side the block faces (North = -Z). */
 export const FACE_VEC: Record<number, [number, number]> = { [Facing.North]: [0, -1], [Facing.East]: [1, 0], [Facing.South]: [0, 1], [Facing.West]: [-1, 0] };
 
-interface Part { x: number; y: number; z: number; kind: string; /** setting (ratio index, clutch engaged, program, notch) */ s: number }
+interface Part {
+  x: number; y: number; z: number; kind: string;
+  /** setting (ratio index, clutch engaged, program, notch) */
+  s: number;
+  /** Punched card in a sequenced gearshift. Absent on old saves and on every other part. */
+  card?: CardStep[];
+}
 interface MachineState { buffer: Record<string, number>; progress: number; recipe: string | null }
 export interface NetInfo { rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number; jammed?: boolean }
 
@@ -73,6 +80,10 @@ export interface WorkshopSnapshot {
   pist?: unknown;
   lube?: Record<string, number>;
   machines: [number, number, number, Record<string, number>, number, string | null][];
+  /** Punched programs keyed by cell. Absent on old saves, which keep the three presets. */
+  cards?: Record<string, [number, number, number][]>;
+  /** Skiff cell the player boarded. Absent when nobody is aboard. */
+  ride?: [number, number, number];
 }
 
 /** Seconds of clockwork a tick spends. */
@@ -92,6 +103,12 @@ export const FLYWHEEL_COAST_S = 4;
 export const FLYWHEEL_CAPACITY = 12;
 
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
+
+/** The workshop the open screen edits. The game builds one; tests that construct another take its place until dispose. */
+let liveRef: Workshop | null = null;
+export function liveWorkshop(): Workshop | null {
+  return liveRef;
+}
 
 export class Workshop {
   private readonly parts = new Map<string, Part>();
@@ -127,6 +144,15 @@ export class Workshop {
   private holding = false;
   /** Time of day text for the clockface; set by Game. */
   clockText: (() => string) | null = null;
+  /** World time for the wind vane. S10 assigns `() => clock.worldTimeS`. Until then the vane uses time since this workshop loaded. */
+  timeS: (() => number) | null = null;
+  /** Puts a returned punched card in the pack. S10 assigns `(item, n) => player.inventory.add(item, n)`. Until then the card drops. */
+  giveItem: ((item: string, count: number) => void) | null = null;
+  /** Skiff cell while the player is boarded, otherwise null. S10 moves the player; this does not. */
+  readonly onRide: () => { x: number; y: number; z: number } | null = () => this.boardedCell();
+  private boarded: string | null = null;
+  /** Gearshift whose punched card the workshop screen is editing. */
+  private editing: string | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus, private readonly ground: GroundItems, private readonly rng: () => number = Math.random) {
     this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn });
@@ -154,10 +180,12 @@ export class Workshop {
       },
     });
     this.off = bus.on('block:changed', (e) => this.noteBlock(e.x, e.y, e.z));
+    liveRef = this;
   }
 
   dispose(): void {
     this.off();
+    if (liveRef === this) liveRef = null;
   }
 
   /** Blocks a piston or bearing may carry: frames and every workshop part, never generators (sim machines) or the actuators. */
@@ -186,6 +214,8 @@ export class Workshop {
     re(this.lube);
     re(this.lubeFactor);
     re(this.coast);
+    if (this.boarded && map.has(this.boarded)) this.boarded = k3(...(map.get(this.boarded) as [number, number, number]));
+    if (this.editing && map.has(this.editing)) this.editing = k3(...(map.get(this.editing) as [number, number, number]));
     this.logi.relocate(map);
     this.signals.relocate(map);
     this.contra.relocate(map);
@@ -223,6 +253,7 @@ export class Workshop {
   /** Use on a part: crank a crank; put the held item into a machine. Null = not ours. */
   use(x: number, y: number, z: number, held: { item: string; count: number } | null, takeHeld: (n: number) => void): 'worked' | 'refused' | null {
     const key = k3(x, y, z);
+    if (this.world.getBlock(x, y, z).key === 'skiff' && held === null) return this.toggleBoard(key);
     if (!this.logi.cells.has(key) && this.world.getBlock(x, y, z).key !== 'air') this.noteBlock(x, y, z);
     const shopped = this.logi.use(x, y, z, held, takeHeld);
     if (shopped !== null) return shopped;
@@ -251,6 +282,22 @@ export class Workshop {
       takeHeld(1);
       this.bus.emit('toast', { text: `Oiled: this network carries ${Math.round((lube.factor - 1) * 100)}% more for ${Math.round(lube.s / 60)} min`, kind: 'info' });
       return 'worked';
+    }
+    if (part.kind === 'sequence_gearshift' && !(held && blockOrNull(held.item))) {
+      if (held?.item === 'punched_card') {
+        if (part.card) this.returnItem('punched_card', 1, x, y, z);
+        part.card = freshCard();
+        takeHeld(1);
+        this.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.3, volume: 0.45 });
+        this.bus.emit('toast', { text: 'Punched card in: eight steps, each 1 s forward at x1', kind: 'info' });
+        return 'worked';
+      }
+      if (!held && part.card) {
+        this.editing = key;
+        this.bus.emit('ui:open', { screen: { type: 'workshop' } });
+        return 'worked';
+      }
+      if (part.card) return null;
     }
     if (CYCLES[part.kind] && !(held && blockOrNull(held.item))) {
       part.s = (part.s + 1) % CYCLES[part.kind];
@@ -392,7 +439,9 @@ export class Workshop {
         members, sources, t: this.clock, capacityFactor: lube,
         part: (k): KPart => {
           const p = this.parts.get(k) as Part;
-          return p.kind === 'clutch' && this.signals.flips(p.x, p.y, p.z) ? { kind: p.kind, s: p.s ? 0 : 1 } : p;
+          const s = p.kind === 'clutch' && this.signals.flips(p.x, p.y, p.z) ? (p.s ? 0 : 1) : p.s;
+          const card = p.kind === 'sequence_gearshift' && p.card ? cardProgram(p.card) : undefined;
+          return card ? { kind: p.kind, s, card } : { kind: p.kind, s };
         },
         neighbours: (k) => this.neighbours(k),
       });
@@ -446,7 +495,7 @@ export class Workshop {
     switch (p.kind) {
       case 'ratio_dial': return `Ratio dial: speed x${DIAL_RATIOS[p.s]}`;
       case 'governor': return `Governor: at most ${GOVERNOR_NOTCHES[p.s]} rpm`;
-      case 'sequence_gearshift': return `Gearshift program ${p.s + 1} of ${GEARSHIFT_PROGRAMS.length}`;
+      case 'sequence_gearshift': return p.card ? 'Punched card: 8 steps' : `Gearshift program ${p.s + 1} of ${GEARSHIFT_PROGRAMS.length}`;
       case 'belt_pulley': return `Pulley size ${PULLEY_SIZES[p.s]}`;
       case 'clutch': return p.s ? 'Clutch engaged' : 'Clutch released';
       default: return null;
@@ -688,10 +737,12 @@ export class Workshop {
     const p = this.parts.get(key);
     const extra = this.logi.describe(x, y, z);
     if (!p) {
-      if (extra) return extra;
+      const block = this.world.getBlock(x, y, z).key;
+      if (block === 'wind_vane') return this.windLine();
+      if (extra) return block === 'skiff' && this.rideHere(x, y, z) ? `${extra}, boarded` : extra;
       const mv = this.contra.describe(x, y, z);
-      if (mv) return mv;
-      if (this.world.getBlock(x, y, z).key === 'clockface') return `Clockface - ${this.clockText?.() ?? 'no sun to read'}`;
+      if (mv) return block === 'skiff' && this.rideHere(x, y, z) ? `${mv}, boarded` : mv;
+      if (block === 'clockface') return `Clockface - ${this.clockText?.() ?? 'no sun to read'}`;
       return this.signals.describe(x, y, z);
     }
     const name = blockOrNull(p.kind)?.name ?? p.kind;
@@ -733,6 +784,14 @@ export class Workshop {
       if (Object.keys(m.buffer).length || m.progress > 0) machines.push([x, y, z, { ...m.buffer }, m.progress, m.recipe]);
     }
     const out: WorkshopSnapshot = { v: 1, parts, machines };
+    const cards: NonNullable<WorkshopSnapshot['cards']> = {};
+    for (const p of this.parts.values()) {
+      if (p.kind !== 'sequence_gearshift' || !p.card) continue;
+      cards[k3(p.x, p.y, p.z)] = p.card.map((s) => [s.ratio, s.direction, s.seconds]);
+    }
+    if (Object.keys(cards).length) out.cards = cards;
+    const ride = this.boardedCell();
+    if (ride) out.ride = [ride.x, ride.y, ride.z];
     if (this.wound.size) out.wound = Object.fromEntries(this.wound);
     out.logi = this.logi.toJSON();
     out.sig = this.signals.toJSON();
@@ -745,6 +804,8 @@ export class Workshop {
     this.parts.clear();
     this.machines.clear();
     this.wound.clear();
+    this.boarded = null;
+    this.editing = null;
     this.logi.load((raw as { logi?: unknown } | null)?.logi);
     this.signals.load((raw as { sig?: unknown } | null)?.sig);
     if (!raw || typeof raw !== 'object') return;
@@ -757,6 +818,16 @@ export class Workshop {
       this.parts.set(k3(x, y, z), { x, y, z, kind, s: typeof setting === 'number' && setting >= 0 && setting < cap ? Math.floor(setting) : kind === 'clutch' ? 1 : 0 });
       if (TWIN.has(kind)) this.machines.set(k3(x, y, z), { buffer: {}, progress: 0, recipe: null });
     }
+    const cards = (s as { cards?: unknown }).cards;
+    if (cards && typeof cards === 'object') {
+      for (const [key, row] of Object.entries(cards)) {
+        const p = this.parts.get(key);
+        const card = p?.kind === 'sequence_gearshift' ? readCard(row) : null;
+        if (p && card) p.card = card;
+      }
+    }
+    const ride = (s as { ride?: unknown }).ride;
+    if (Array.isArray(ride) && ride.length === 3 && ride.every((n) => Number.isInteger(n))) this.boarded = k3(ride[0], ride[1], ride[2]);
     for (const [k, v] of Object.entries(s.wound ?? {})) if (this.parts.has(k) && typeof v === 'number' && v > 0) this.wound.set(k, Math.min(CLOCKWORK.maxS, v));
     for (const row of Array.isArray(s.machines) ? s.machines : []) {
       if (!Array.isArray(row) || row.length !== 6) continue;
@@ -785,8 +856,111 @@ export class Workshop {
       if (this.world.getBlock(p.x, p.y, p.z).key !== p.kind) {
         this.parts.delete(key);
         this.machines.delete(key);
+        if (this.editing === key) this.editing = null;
       }
     }
+    void this.boardedCell();
+  }
+
+  // ---- Punched card and skiff boarding ----------------------------------------------------------------
+
+  /** Cell of the boarded skiff, or null when the player is on foot (or the skiff is gone). */
+  private boardedCell(): { x: number; y: number; z: number } | null {
+    if (!this.boarded) return null;
+    const [x, y, z] = this.boarded.split(',').map(Number);
+    if (this.world.isLoaded(x, z) && this.world.getBlock(x, y, z).key !== 'skiff') {
+      this.boarded = null;
+      return null;
+    }
+    return { x, y, z };
+  }
+
+  private rideHere(x: number, y: number, z: number): boolean {
+    const cell = this.onRide();
+    return cell !== null && cell.x === x && cell.y === y && cell.z === z;
+  }
+
+  /** Empty-handed Use on a skiff boards it; Use again steps off. A held item still loads the cart. */
+  private toggleBoard(key: string): 'worked' {
+    this.boarded = this.boarded === key ? null : key;
+    const [x, y, z] = key.split(',').map(Number);
+    this.bus.emit('toast', { text: this.boarded ? 'You board the skiff' : 'You step off the skiff', kind: 'info' });
+    this.bus.emit('sfx', { name: 'step', x: x + 0.5, y: y + 0.5, z: z + 0.5, volume: 0.4 });
+    return 'worked';
+  }
+
+  private returnItem(item: string, n: number, x: number, y: number, z: number): void {
+    if (this.giveItem) {
+      this.giveItem(item, n);
+      return;
+    }
+    this.ground.spawn(item, n, x + 0.5, y + 1.1, z + 0.5, { scatter: false, delayS: 0.1 });
+  }
+
+  private windLine(): string {
+    const params = machine('wind_turbine').params ?? {};
+    const w = windAt(this.timeS?.() ?? this.clock, params.windMin ?? 0.25, params.windMax ?? 1);
+    const text = Number.isInteger(w) ? String(w) : w.toFixed(2);
+    return `Wind vane - wind ${text}`;
+  }
+
+  /** Gearshift the workshop screen is editing, or null when the guide should show. */
+  editingAt(): { x: number; y: number; z: number } | null {
+    if (!this.editing) return null;
+    const p = this.parts.get(this.editing);
+    if (!p || p.kind !== 'sequence_gearshift' || !p.card) return null;
+    return { x: p.x, y: p.y, z: p.z };
+  }
+
+  /** A copy of the card being edited. */
+  cardSteps(): CardStep[] | null {
+    const p = this.edited();
+    return p?.card?.map((s) => ({ ratio: s.ratio, direction: s.direction, seconds: s.seconds })) ?? null;
+  }
+
+  /** Cycles one step's ratio through DIAL_RATIOS. */
+  cycleRatio(index: number): void {
+    const step = this.edited()?.card?.[index];
+    if (!step) return;
+    const at = (DIAL_RATIOS as readonly number[]).indexOf(snapRatio(step.ratio));
+    step.ratio = DIAL_RATIOS[(at + 1) % DIAL_RATIOS.length];
+  }
+
+  /** Cycles one step's direction forward, off, reverse. */
+  cycleDirection(index: number): void {
+    const step = this.edited()?.card?.[index];
+    if (!step) return;
+    const order = [1, 0, -1] as const;
+    const at = order.indexOf(snapDirection(step.direction));
+    step.direction = order[(at + 1) % order.length];
+  }
+
+  /** Steps one row's seconds by `delta`, staying inside 1–30. */
+  stepSeconds(index: number, delta: number): void {
+    const step = this.edited()?.card?.[index];
+    if (!step) return;
+    step.seconds = clampCardSeconds(step.seconds + delta);
+  }
+
+  /** Takes the card out of the gearshift being edited and returns it to the pack. */
+  takeCard(): boolean {
+    const p = this.edited();
+    if (!p?.card) return false;
+    p.card = undefined;
+    this.returnItem('punched_card', 1, p.x, p.y, p.z);
+    this.editing = null;
+    return true;
+  }
+
+  clearEditing(): void {
+    this.editing = null;
+  }
+
+  private edited(): Part | null {
+    if (!this.editing) return null;
+    const p = this.parts.get(this.editing);
+    if (!p || p.kind !== 'sequence_gearshift' || !p.card) return null;
+    return p;
   }
 }
 

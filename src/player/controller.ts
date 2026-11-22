@@ -18,6 +18,7 @@ import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
 import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
+import { attachSapSave } from './sapTools';
 
 /** Where the controller gets its per-frame intent (the InputManager, or a script in tests and harnesses). */
 export interface IntentSource {
@@ -123,6 +124,8 @@ export class PlayerController {
       }),
       this.bus.on('ui:closed', () => this.recapture()),
       this.bus.on('player:respawn', () => this.physics.reset()),
+      // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
+      attachSapSave(this.world, this.player),
     );
   }
 

@@ -442,7 +442,9 @@ export const bucketFilledWith = (emptyKey: string, key: FluidKey): string | null
 /** Takes or gives items through a pipe end (spec 16.2): furnaces, item hatches and every machine with slots (crates too). */
 export function isItemEndpoint(def: BlockDef): boolean {
   const m = machineOfBlock(def);
-  return m !== null && (m.role === 'furnace' || (m.slots ?? 0) > 0 || (m.role === 'hearth_part' && m.kind === 'item_hatch'));
+  // `itemPipes: false` keeps a slotted machine (the casting bench) out of the pipe graph.
+  if (!m || m.itemPipes === false) return false;
+  return m.role === 'furnace' || (m.slots ?? 0) > 0 || (m.role === 'hearth_part' && m.kind === 'item_hatch');
 }
 /** Takes or gives a fluid through a pipe end: every machine with fluid ports (MachineSpec.fluids). */
 export const isFluidEndpoint = (def: BlockDef): boolean => machineOfBlock(def)?.fluids !== undefined;
