@@ -552,8 +552,8 @@ Data plumbing (DOM-free): `castView(c, pack, benches?: BenchNear[])` - NEW optio
 gains two reserved values `'@ladle'` and `'@bench'` (a mould or ingot key never starts with `@`). `smeltTab` passes the
 furnace view's `benchesNear` list; its `pour(index, key)` callback (the screen's controller) routes `'@ladle'` to
 `sim.fillLadle(x, y, z, index)` and `'@bench'` to `sim.pourToBench(x, y, z, index)`, every other key to `pourCrucible` as
-today. `FurnaceView` gains an optional `benches?: BenchNear[]` (`{ x, y, z, freeFor: Record<metal, number> }` - free
-moulds per metal key) filled by `Simulation.furnaceView` only when some crucible is molten (cheap: a scan of bench nodes
+today. `FurnaceView` gains an optional `benches?: BenchNear[]` (7.4: free moulds per metal key and the smallest units
+among them; the bench button is enabled when some bench has `freeFor[metal] > 0` and `minUnits[metal] <= melt.count`) filled by `Simulation.furnaceView` only when some crucible is molten (cheap: a scan of bench nodes
 within 4).
 
 Hint sentence under the buttons, when a bench is in range and the player has no mould for the metal: "Pour to bench fills
@@ -651,7 +651,8 @@ export const FLAG_FILLED_BENCH = 'filled_bench';
 ```ts
 export interface BenchFill { casts: { socket: number; mould: string; item: string; units: number }[]; used: number; cracked: string[] }
 export interface BenchView { x: number; y: number; z: number; moulds: (string | null)[]; casts: (string | null)[]; label: string }
-export interface BenchNear { x: number; y: number; z: number; freeFor: Record<string, number> }
+/** freeFor: metal key -> free moulds (cast slot empty) that take it; minUnits: metal key -> the fewest units any of them needs. */
+export interface BenchNear { x: number; y: number; z: number; freeFor: Record<string, number>; minUnits: Record<string, number> }
 export type BenchResult = { ok: true; did: 'set' | 'take' | 'return' | 'pour' } | { ok: false; reason: string };
 ```
 
