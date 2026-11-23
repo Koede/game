@@ -181,7 +181,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'focus_ward', title: 'Warding Focus', age: 'forge', requires: ['focus_kindle'], board: pair('ward', 'rune', [wall(2), cellAt(1, 0)]),
-    unlocks: { recipes: ['focus_ward'] },
+    unlocks: { recipes: ['focus_ward', 'focus_cleanse'] },
     text: 'Loam and Rift held in balance: for a short while every blow you take is softened.',
   },
   {

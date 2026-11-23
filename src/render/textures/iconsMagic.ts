@@ -151,7 +151,12 @@ const runeStone = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((
 });
 
 /** A potion: a round flask in the colour of its draught (the vial's shape, a wider belly). */
-const potion = (fill: number) => icon((c) => vial(c, hex('#' + fill.toString(16).padStart(6, '0'))));
+const potion = (fill: number) => icon((c) => {
+  vial(c, hex('#' + fill.toString(16).padStart(6, '0')));
+  c.rect(6, 0, 4, 1, P.rgb(0xc03030));
+  c.set(7, 0, P.rgb(0xe86060));
+  c.rect(4, 13, 9, 1, P.rgb(0xc03030));
+});
 
 /** A rolled scroll: a sheet curled at both ends with a seal in the colour of its secret. */
 const scroll = (seal: number) => icon((c) => {
@@ -165,6 +170,16 @@ const scroll = (seal: number) => icon((c) => {
 });
 
 export const MAGIC_TEXTURES: PainterSet = {
+  item_focus_cleanse: icon((c) => focus(c, P.rgb(0x6fd8a8), P.rgb(0xe8fff0))),
+  magic_taint: (c) => {
+    c.each((x, y) => {
+      const n = noise(x, y, 91);
+      return n < 0.25 ? P.rgb(0x2a1840) : n < 0.6 ? P.rgb(0x3e2a5c) : n < 0.9 ? P.rgb(0x54397a) : P.rgb(0x8a63c8);
+    });
+    c.set(4, 5, P.rgb(0xd8b8ff));
+    c.set(10, 9, P.rgb(0xd8b8ff));
+    c.set(7, 12, P.rgb(0xb88aff));
+  },
   item_scroll_ledger: scroll(0x8a63c8),
   item_scroll_verses: scroll(0x3fa0d8),
   item_scroll_margin: scroll(0xe8622a),

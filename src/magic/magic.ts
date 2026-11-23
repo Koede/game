@@ -34,6 +34,7 @@ import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
 import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
+import { CELL_AURA, TAINT_BLOCK, TaintField } from './taint';
 import { nearestZone, zoneAt } from './voidZone';
 import { foundFlag, scrollById, scrollOfItem, SCROLLS, type ScrollSpec } from './scrolls';
 import { potionFactors, potionSpec } from './potions';
@@ -254,6 +255,8 @@ export interface MagicSnapshot {
   potions?: Record<string, number>;
   /** Chunk key -> seconds until a void zone chunk gives again. */
   voidWait?: Record<string, number>;
+  /** Tainted cells: x, y, z and the block each replaced. */
+  taint?: [number, number, number, string][];
   plugged?: Record<string, string>;
 }
 
@@ -288,6 +291,9 @@ export class Magic {
   private readonly auraShift = new Map<string, number>();
   private auraT = 0;
   private easeT = 0;
+  private taintT = 0;
+  /** Spreading corruption (src/magic/taint.ts). */
+  readonly taint: TaintField;
   /** Void zone chunks bottled from lately: chunk key -> clock when they open again. */
   private readonly voidUntil = new Map<string, number>();
   private auraSeen: AuraKind = 'plain';
@@ -312,6 +318,7 @@ export class Magic {
     private readonly hooks: MagicHooks = {},
     readonly seed = 0,
   ) {
+    this.taint = new TaintField(world, () => this.rng());
     this.off = bus.on('block:changed', (e) => this.blockChanged(e.x, e.y, e.z));
   }
 
@@ -331,6 +338,7 @@ export class Magic {
   private blockChanged(x: number, y: number, z: number): void {
     const k = k3(x, y, z);
     const key = this.world.getBlock(x, y, z).key;
+    this.taint.changed(x, y, z, key);
     if (this.jars.has(k) && !JAR_BLOCKS.has(key)) this.jars.delete(k);
     if (this.crucibles.has(k) && key !== CRUCIBLE) this.crucibles.delete(k);
     if (this.pedestals.has(k) && key !== 'arcane_pedestal') this.dropAt(x, y, z, this.pedestals.get(k) as string, () => this.pedestals.delete(k));
@@ -419,6 +427,7 @@ export class Magic {
       this.tickSiphon();
       this.tickMirrors();
       this.tickAura(1);
+      this.tickTaint();
     }
   }
 
@@ -692,6 +701,55 @@ export class Magic {
       text += ` · ${aspectInfo(n.aspect).name} well ${d < 3 ? 'here' : `${d} ${compass(p.x, p.z, n.x + 0.5, n.z + 0.5)}`} (${Math.floor(n.left)})`;
     }
     return text;
+  }
+
+  // ---- taint ---------------------------------------------------------------------------------------------------------
+
+  /** Starts up to `n` stained cells round x, y, z (each drags its chunk's aura down); returns how many began. */
+  seedTaint(x: number, y: number, z: number, n: number, radius = 3): number {
+    const before = new Set(this.taint.cells.keys());
+    const made = this.taint.seed(x, y, z, n, radius);
+    if (made > 0) for (const k of this.taint.cells.keys()) if (!before.has(k)) { const [cx, , cz] = k.split(',').map(Number); this.shiftAura(cx, cz, -CELL_AURA); }
+    return made;
+  }
+
+  /** Once a second: the stain creeps, drags the chunk's aura down, and wears at whoever stands on it. */
+  private tickTaint(): void {
+    if (this.taint.size === 0) return;
+    for (const [x, , z] of this.taint.spread()) this.shiftAura(x, z, -CELL_AURA);
+    const p = this.player.position;
+    if (this.blockAt(Math.floor(p.x), Math.floor(p.y - 0.1), Math.floor(p.z)) === TAINT_BLOCK) {
+      this.taintT++;
+      if (this.taintT >= 20) {
+        this.taintT = 0;
+        this.addWarp(1);
+        this.toast('The tainted ground gnaws at your mind', undefined, 'warn');
+      }
+    } else this.taintT = 0;
+  }
+
+  /**
+   * The Cleansing Focus: puts back every tainted cell within reach of the aimed block (2 blocks, +1 per Power level) and lifts
+   * the aura a little for each; with no stain but a tainted aura it lifts the air itself.
+   */
+  private cleanse(target: MagicTarget | null): boolean {
+    const p = this.player.position;
+    const ox = target ? target.x : Math.floor(p.x);
+    const oy = target ? target.y : Math.floor(p.y);
+    const oz = target ? target.z : Math.floor(p.z);
+    const cells = this.taint.cleanse(ox, oy, oz, 2 + this.levelsOf('focus_cleanse').power);
+    if (cells.length) {
+      for (const [x, , z] of cells) this.shiftAura(x, z, CELL_AURA * 2);
+      this.toast(`The stain lifts from ${cells.length} ${cells.length === 1 ? 'block' : 'blocks'}`, undefined, 'good');
+      return true;
+    }
+    if (this.auraKindAt(ox, oz) === 'tainted') {
+      this.shiftAura(ox, oz, 0.25);
+      this.toast('The air steadies', undefined, 'good');
+      return true;
+    }
+    this.advise('Nothing here needs cleansing: aim at tainted ground');
+    return false;
   }
 
   // ---- the void zone -------------------------------------------------------------------------------------------------
@@ -1148,7 +1206,10 @@ export class Magic {
     const spilled = dissolve(c, scaleByAura(fp, this.crucibleAura(t.x, t.z)));
     this.crucibles.set(k, c);
     this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
-    if (spilled > 0) this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
+    if (spilled > 0) {
+      this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
+      if (this.seedTaint(t.x, t.y, t.z, Math.min(3, Math.ceil(spilled / 6))) > 0) this.advise('Flux soaks into the ground: a stain begins to spread. A Cleansing Focus draws it out');
+    }
     return 'worked';
   }
 
@@ -1353,6 +1414,7 @@ export class Magic {
   /** An unstable infusion lashes out: half the time essentia already drawn splashes away, else a pedestal item flies off. */
   private mishap(f: Infusion): void {
     this.addWarp(1);
+    if (this.seedTaint(f.x, f.y, f.z, 1, 4) > 0) this.advise('The unstable infusion leaves a stain on the ground');
     const paid = (Object.keys(f.paid) as Aspect[]).filter((a) => (f.paid[a] ?? 0) > 0);
     this.bus.emit('sfx', { name: 'cast', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 0.5 });
     if (paid.length && this.rng() < 0.5) {
@@ -1512,7 +1574,7 @@ export class Magic {
     }
     const cost = this.focusCost(rawCost, this.heldRod() ?? this.bestRod(), focus);
     const lv = this.levelsOf(focus);
-    if (lv.reach > 0 && (focus === 'focus_kindle' || focus === 'focus_light')) target = this.rayTarget(rayReach(lv.reach)) ?? target;
+    if (lv.reach > 0 && (focus === 'focus_kindle' || focus === 'focus_light' || focus === 'focus_cleanse')) target = this.rayTarget(rayReach(lv.reach)) ?? target;
     const short = visShort(cost, this.vis);
     if (Object.keys(short).length) {
       this.advise(`Not enough vis: needs ${visText(short)} more. Use the rod to draw from the land`);
@@ -1523,6 +1585,7 @@ export class Magic {
     else if (focus === 'focus_light') ok = this.light(target);
     else if (focus === 'focus_ward') ok = this.ward();
     else if (focus === 'focus_blink') ok = this.blink();
+    else if (focus === 'focus_cleanse') ok = this.cleanse(target);
     if (!ok) return 'refused';
     for (const [p, n] of Object.entries(cost) as [Primal, number][]) this.vis[p] -= n;
     this.cooldowns.set(focus, cooldownS);
@@ -2099,6 +2162,7 @@ export class Magic {
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
       aura: Object.fromEntries(this.auraShift),
+      taint: this.taint.toJSON(),
       voidWait: Object.fromEntries([...this.voidUntil].filter(([, t]) => t > this.clock).map(([k, t]) => [k, Math.ceil(t - this.clock)])),
       potions: Object.fromEntries([...this.potions].map(([k, v]) => [k, Math.round(v)])),
       focusMods: Object.fromEntries([...this.focusLevels].map(([k, v]) => [k, [v.reach, v.power, v.cost]])),
@@ -2156,6 +2220,7 @@ export class Magic {
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
     }
+    this.taint.load(s.taint);
     this.voidUntil.clear();
     if (s.voidWait && typeof s.voidWait === 'object') for (const [k, v] of Object.entries(s.voidWait)) if (/^-?\d+,-?\d+$/.test(k) && num(v) && v > 0) this.voidUntil.set(k, this.clock + Math.min(VOID_WAIT_S, v));
     this.potions.clear();

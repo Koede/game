@@ -120,6 +120,10 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 ## Void zones (src/magic/voidZone.ts)
 - Late and optional: in 35% of 8 x 8-chunk cells (never within 6 chunks of the origin) the 3 x 3 chunks round a hashed centre are thin world, `Void` or `Soul`. With The Void Jar learned, Use with an empty vial standing in one bottles `vial_void` / `vial_soul` (not on a jar), +1 / +2 warp, once per chunk per `VOID_WAIT_S` (90 s; saved as `voidWait`). With a rod and 'aura_reading' the reading adds "Void rift 3 N" within six chunks (`Magic.voidReading`). The tech spine never needs it.
 
+## Taint (src/magic/taint.ts)
+- Block `tainted_soil` (item-less, shovel) stands where grass, dirt or sand was; `Magic.taint` (`TaintField`) remembers the block each cell replaced (saved as `taint`). Sources: a crucible that overflows (flux; one cell per 6 units, max 3) and an unstable infusion mishap (`Magic.seedTaint`, nearest open surface first, no randomness). Each second `tickTaint` lets 24 cells roll `SPREAD_CHANCE` (0.25) to eat an open neighbour (up to `MAX_CELLS` 300); every new cell pushes its chunk's aura down by `CELL_AURA`; standing on it for 20 s costs a point of warp. Mining a cell removes it from the field.
+- The Cleansing Focus (`focus_cleanse`, 2 brook + 2 rune, Rune Desk, research 'focus_ward'): puts back every stained cell within 2 blocks (+1 per Power level) of the aimed block and lifts the aura 2 x `CELL_AURA` for each; with no stain but tainted air it lifts the air by 0.25. Reach upgrades extend its aim like Kindling and Light.
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there
@@ -134,4 +138,4 @@ chained in `npm run e2e`; `node scripts/codex/preview.mjs <dir>` covers the Esse
 ## Known limits / next
 - Tubes are glass blocks with their own small network, not the fluid-pipe machinery (21 aspects do not fit the FluidKey union).
 - The rest of a partly used vial at the desk is lost; foci have no hand animation; wellspring crystals are unlit meshes.
-- Not built: spark / soul / void as drawable aspects (only through overrides of late blocks), golems that walk, an aura HUD dial.
+- Not built: spark as a drawable aspect, golems that fight, an aura HUD dial.

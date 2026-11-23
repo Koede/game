@@ -38,6 +38,7 @@ export const FOCI: readonly FocusSpec[] = [
   { key: 'focus_light', vis: { cinder: 1 }, cooldownS: 0.5 },
   { key: 'focus_ward', vis: { loam: 3, rune: 3 }, cooldownS: 20 },
   { key: 'focus_blink', vis: { gale: 2, rift: 2 }, cooldownS: 2 },
+  { key: 'focus_cleanse', vis: { brook: 2, rune: 2 }, cooldownS: 1.5 },
 ];
 
 /** Wands: a core (the plain rod it is made from sets capacity and draw) and a metal cap that favours two primals. */
@@ -79,6 +80,7 @@ export const MAGIC_ITEMS: ItemSpec[] = [
   tool('focus_light', 'Light Focus', BRONZE, 'Use it at a block: a floating light settles on that face. 1 charge each; break the light to take it back.'),
   tool('focus_ward', 'Warding Focus', FORGE, 'Use it: for 30 seconds every blow you take is halved. 6 charge.'),
   tool('focus_blink', 'Blinking Focus', FORGE, 'Use it: you step up to eight blocks to where you look, if there is room to stand. 4 charge.'),
+  tool('focus_cleanse', 'Cleansing Focus', FORGE, 'Use it at tainted ground: the stain within two blocks lifts and the land recovers. Where there is no stain but the air is tainted, it steadies the air. 2 brook, 2 rune.'),
   tool('vein_lens', 'Scrying Lens', BRONZE, 'Carried in the pack, every new thing you note teaches half again as much lore, and a held notebook shows the nature of what you aim at.'),
   ...ASPECTS.map((a): ItemSpec => ({
     key: vialKey(a.key), name: `Vial of ${a.name}`, category: 'material', age: 0, stack: 8,
@@ -152,6 +154,11 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     key: 'clay_servant', name: 'Clay Servant', category: 'machine', age: FORGE, hardness: 1, tool: 'pickaxe', minTier: 0, oriented: true,
     textures: { side: 'magic_servant_side', top: 'magic_servant_top', front: 'magic_servant_front', frontActive: 'magic_servant_front_on' },
     desc: 'Fed one Spring from a touching or tubed jar, it walks up to eight blocks and does one task: a crank, a deployer, or a belt item.',
+  },
+  {
+    key: 'tainted_soil', name: 'Tainted Soil', category: 'misc', age: FORGE, hardness: 0.6, tool: 'shovel', minTier: 0,
+    item: false, drops: 'none', textures: { all: 'magic_taint' },
+    desc: 'Ground gone sour from spilled flux. It creeps over open grass, dirt and sand, drags the air down and wears at the mind. A Cleansing Focus draws it out.',
   },
   {
     key: 'magic_light', name: 'Floating Light', category: 'misc', age: BRONZE, hardness: 0, shape: 'torch', solid: false, opaque: false,
