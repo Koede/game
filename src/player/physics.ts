@@ -11,7 +11,7 @@ import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, springFallAllowance, type PlayerState } from '../game';
 import { currentAt } from '../world/water';
 import { JumpAssist } from './jumpAssist';
-import { EPS, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
+import { EPS, HALF_WIDTH, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
 
 /** What the physics needs from this frame's intent. */
 export interface MoveInput {
@@ -67,6 +67,10 @@ const LIQUID_DRAG = 4;
 const SWIM_UP_SPEED = 3.2;
 const SWIM_UP_RESPONSE = 8;
 const LEDGE_CLIMB_SPEED = 6.5;
+/** Pushing into a climbable bank while swimming lifts you at this speed even without Space (shoreline exit). */
+const BANK_EXIT_SPEED = 5;
+/** How many blocks above the waist a bank's top may be for the shoreline lift. */
+const BANK_SCAN = 3;
 /** Below this the player is out of the world (y < 0 is solid, so this only catches bugs and teleports). */
 const OUT_OF_WORLD_Y = -8;
 /** Height above the feet sampled to decide whether the body is in a liquid (waist) and in water (feet / chest). */
@@ -189,7 +193,7 @@ export class PlayerPhysics {
     }
 
     const wasOnGround = p.onGround;
-    this.integrate(dt, wasOnGround, input.jump);
+    this.integrate(dt, wasOnGround, input.jump, Math.hypot(input.moveX, input.moveZ) > 0.3);
     this.sampleLiquids();
 
     // Fall tracking: the highest point since last standing; water breaks every fall.
@@ -212,7 +216,7 @@ export class PlayerPhysics {
     return r;
   }
 
-  private integrate(dt: number, wasOnGround: boolean, jumpHeld: boolean): void {
+  private integrate(dt: number, wasOnGround: boolean, jumpHeld: boolean, pushing: boolean): void {
     const p = this.player;
     const pos = p.position;
     const v = p.velocity;
@@ -263,7 +267,12 @@ export class PlayerPhysics {
     if (hitX) v.x = 0;
     if (hitZ) v.z = 0;
     // Pushing into a bank while swimming up climbs out onto it.
-    if (this.inLiquid && jumpHeld && (hitX || hitZ)) v.y = Math.max(v.y, LEDGE_CLIMB_SPEED);
+    // Space climbs any bank; merely swimming into one with room to stand on top lifts you out too, so nobody is
+    // stuck at a shoreline on a touch screen. Walking into a bank off the bottom (wading) needs no Space either.
+    if (this.inLiquid && (hitX || hitZ)) {
+      if (jumpHeld) v.y = Math.max(v.y, LEDGE_CLIMB_SPEED);
+      else if (pushing && this.bankAhead(hitX ? Math.sign(dx) : 0, hitZ ? Math.sign(dz) : 0)) v.y = Math.max(v.y, BANK_EXIT_SPEED);
+    }
     p.onGround = grounded;
   }
 
@@ -290,6 +299,24 @@ export class PlayerPhysics {
     pos.y = plainY;
     pos.z = plainZ;
     return 0;
+  }
+
+  /**
+   * A bank you can climb out onto: in the direction (dx, dz) the waist-height cell is solid and the two cells above
+   * it are free (room to stand on top). Pure lookups, no allocation.
+   */
+  bankAhead(dx: number, dz: number): boolean {
+    if (dx === 0 && dz === 0) return false;
+    const pos = this.player.position;
+    const x = Math.floor(pos.x + dx * (HALF_WIDTH + 0.1));
+    const z = Math.floor(pos.z + dz * (HALF_WIDTH + 0.1));
+    const y = Math.floor(pos.y + WAIST);
+    if (this.solidHeight(x, y, z) < 1) return false;
+    // Scan up the wall for the first spot with standing room, at most a few blocks above the waist.
+    for (let k = 1; k <= BANK_SCAN; k++) {
+      if (this.solidHeight(x, y + k, z) === 0) return this.solidHeight(x, y + k + 1, z) === 0;
+    }
+    return false;
   }
 
   /** Whether ground lies within sneaking reach below the feet (a drop of a block or more is an edge). */

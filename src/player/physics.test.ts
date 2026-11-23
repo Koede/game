@@ -265,6 +265,22 @@ describe('swimming', () => {
     expect(player.position.z).toBeLessThan(-2);
     expect(player.position.y).toBeGreaterThanOrEqual(12 - 1e-6);
   });
+
+  it('swimming into a bank climbs out without Space, but never up a wall with no top in reach', () => {
+    const swim = (wallTop: number): { z: number; y: number } => {
+      const world = flatWorld();
+      world.fill(-12, 10, -1, 12, 11, 12, 'water');
+      world.fill(-12, 10, -12, 12, wallTop, -2, 'stone');
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(world, player);
+      run(physics, 4, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+      return { z: player.position.z, y: player.position.y };
+    };
+    const low = swim(11);
+    expect(low.z).toBeLessThan(-2);
+    expect(low.y).toBeGreaterThanOrEqual(12 - 1e-6);
+    expect(swim(20).y).toBeLessThan(13);
+  });
 });
 
 describe('currents (spec 18.4)', () => {
