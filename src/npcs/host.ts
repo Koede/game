@@ -43,6 +43,11 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       return s ? { item: s.item, count: s.count } : null;
     },
     takeHeld: (n) => void d.player.consumeHeld(n),
+    caravanPresent: () => {
+      d.player.caravan.setDay(d.clock.day);
+      return d.player.caravan.present();
+    },
+    openCaravan: () => d.player.bus.emit('ui:open', { screen: { type: 'caravan' } }),
     advice: (role) => {
       if (role === 'witch') {
         const entries = d.magic.notebook().entries();

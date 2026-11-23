@@ -74,6 +74,9 @@ export interface NpcHost {
   advice(role: 'witch' | 'barkeep' | 'artificer'): string | null;
   /** Keeps a hearth in the tavern burning. */
   tendFire?(x: number, y: number, z: number): void;
+  /** Whether the trade caravan is in town today, and a way to open its screen. */
+  caravanPresent?(): boolean;
+  openCaravan?(): void;
   companion: CompanionHost;
 }
 
@@ -429,6 +432,12 @@ export class NpcManager {
   private useHermit(npc: NpcDef): string {
     const held = this.host?.held() ?? null;
     const bank = npc.bank!;
+    if (!held && this.host?.caravanPresent?.() && this.host.openCaravan) {
+      const line = "My cousin's caravan is in the yard today. Rare goods for coin, and they buy your surplus. Go on, look.";
+      this.say(npc, line);
+      this.host.openCaravan();
+      return line;
+    }
     if (!held && this.shelf.length > 0) return this.buyBack(npc);
     if (!held) {
       const line = this.rng() < 0.5 ? this.lines.from('bram-nothing', HERMIT_NOTHING) : this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });

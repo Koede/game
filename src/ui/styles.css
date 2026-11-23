@@ -2835,3 +2835,17 @@ body {
     height: clamp(110px, 40vh, 190px);
   }
 }
+
+/* Experiment row (discovery) */
+.hw-exp { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 6px; }
+.hw-exp summary { cursor: pointer; font-weight: 600; }
+.hw-exp__row { display: flex; gap: 6px; margin: 4px 0; }
+.hw-exp__item { flex: 1; min-width: 0; min-height: 36px; }
+.hw-exp__count { width: 56px; min-height: 36px; }
+.hw-exp__result { margin: 6px 0; font-size: 0.9em; }
+.hw-exp__book { margin: 0; padding-left: 18px; font-size: 0.85em; opacity: 0.85; }
+.hw-exp__book .is-found { opacity: 1; color: #9be39b; }
+
+/* Trade caravan */
+.hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
+.hw-caravan__row span { flex: 1; min-width: 0; }

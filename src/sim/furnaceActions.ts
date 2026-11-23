@@ -92,7 +92,7 @@ export function forge(host: ActionHost, e: FurnaceEntity, recipeId: string, time
       reason = tooCold(r.minTempC, e);
       break;
     }
-    const result = craftByPlayer(host.player, r, { crates, sfx: made === 0 ? 'forge' : null });
+    const result = craftByPlayer(host.player, r, { crates, sfx: made === 0 ? 'forge' : null, heatC: e.tempC });
     if (!result.ok) {
       reason = result.reason;
       break;

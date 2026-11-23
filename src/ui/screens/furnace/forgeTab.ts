@@ -18,10 +18,11 @@ export class ForgeTab {
   /** The recipe the player last touched, or null. */
   selected: RecipeDef | null = null;
   private readonly list: RecipeList;
+  private readonly extra?: { readonly el: HTMLElement; refresh(): void };
   private rows: readonly ForgeRow[] = [];
   private smeltIds = new Set<string>();
 
-  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void; load: (recipeId: string) => void }) {
+  constructor(opts: { sim: ScreenSim; pos: { x: number; y: number; z: number }; bus: GameBus; changed: () => void; load: (recipeId: string) => void; extra?: { readonly el: HTMLElement; refresh(): void } }) {
     const { sim, pos, bus } = opts;
     this.list = new RecipeList({
       label: 'Make',
@@ -47,7 +48,8 @@ export class ForgeTab {
         opts.changed();
       },
     });
-    this.el = h('div', { class: 'hw-forge' }, this.list.el);
+    this.extra = opts.extra;
+    this.el = h('div', { class: 'hw-forge' }, this.list.el, opts.extra?.el);
     const pick = (ev: Event): void => {
       const row = ev.target instanceof Element ? ev.target.closest<HTMLElement>('.hw-recipe[data-id]') : null;
       const id = row?.dataset.id;
@@ -65,6 +67,7 @@ export class ForgeTab {
   }
 
   update(view: FurnaceView, crates: number): void {
+    this.extra?.refresh();
     this.rows = view.forge;
     this.smeltIds = new Set(view.smelt.map((r) => r.recipe.id));
     // One list: what the crucibles take (Load) first, then what the furnace forges (Forge).

@@ -144,6 +144,16 @@ export class RecipeBook {
     return { found: [...this.found], hinted: [...this.hinted], tries: this.tries };
   }
 
+  /** Replaces this book's contents from a save (missing or damaged data leaves it empty). */
+  load(raw: Partial<RecipeBookSave> | null | undefined): void {
+    const b = RecipeBook.fromJSON(raw, this.recipes);
+    this.found.clear();
+    this.hinted.clear();
+    for (const id of b.found) this.found.add(id);
+    for (const id of b.hinted) this.hinted.add(id);
+    this.tries = b.tries;
+  }
+
   static fromJSON(raw: Partial<RecipeBookSave> | null | undefined, recipes: readonly HiddenRecipe[] = HIDDEN_RECIPES): RecipeBook {
     const book = new RecipeBook(recipes);
     const ok = (id: unknown): id is string => typeof id === 'string' && recipes.some((r) => r.id === id);

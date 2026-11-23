@@ -177,6 +177,15 @@ export class Caravan {
     return { surplus: Object.fromEntries(this.surplus), day: this.lastDay, bought: Object.fromEntries(this.bought), visit: this.visit };
   }
 
+  /** Replaces this caravan's state from a save (missing or damaged data leaves it fresh). */
+  load(raw: Partial<CaravanSave> | null | undefined): void {
+    const c = Caravan.fromJSON(raw);
+    this.surplus = c.surplus;
+    this.bought = c.bought;
+    this.lastDay = c.lastDay;
+    this.visit = c.visit;
+  }
+
   static fromJSON(raw: Partial<CaravanSave> | null | undefined): Caravan {
     const c = new Caravan();
     const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;

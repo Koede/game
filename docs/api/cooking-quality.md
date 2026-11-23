@@ -9,3 +9,5 @@
 - Quality stacks never merge with other qualities (`canMerge`, `Inventory.add`) and survive save/load and transfers.
 - `eat()` scales hunger (x1.2 / x1.5) and buff seconds (x1.5 / x2) by `foodStrength`.
 - Left for wiring: the sim's furnace forge outputs (stew, bread) should pass the pot temperature to `dishQuality` and give the stack its quality.
+
+Wired: `sim/furnaceActions.forge` passes the furnace temperature (`heatC: e.tempC`) to `craftByPlayer`, so forged stew and bread get quality.

@@ -10,3 +10,8 @@
   `RecipeBook.fromJSON()` save it (unknown ids dropped).
 - Wiring left for the UI: an "experiment" tab at the workbench/furnace screens that calls `experiment`, and a
   `RecipeBook` on the player save.
+
+## Wiring (done)
+`PlayerState.book` is saved as `PlayerSnapshot.book` (optional). `src/ui/screens/experimentPanel.ts` is the Experiment row
+(three pickers, Try it, result, recipe book), shown under the workbench recipe list (station `workbench`) and in the furnace
+FORGE tab (station `furnace`).

@@ -15,6 +15,7 @@ import { HearthLogView } from '../log/hearthLog';
 import type { QuickTarget } from '../slots';
 import { BagDrawer } from './bagDrawer';
 import { FireboxPanel } from './firebox';
+import { ExperimentPanel } from '../experimentPanel';
 import { ForgeTab } from './forgeTab';
 import { GridTab } from './gridTab';
 import { pretty, type ScreenSim } from './simApi';
@@ -83,7 +84,7 @@ export function createFurnaceScreen(request: { x: number; y: number; z: number }
     changed();
   };
   const smelt = new SmeltTab({ slots: ctx.slots, toBag: TO_BAG, bus, sources, changed, pour });
-  const forge = new ForgeTab({ sim, pos, bus, changed, load: (id) => smelt.load(id) });
+  const forge = new ForgeTab({ sim, pos, bus, changed, load: (id) => smelt.load(id), extra: new ExperimentPanel({ player, bus, station: 'furnace', changed }) });
   const grid = new GridTab({ sim, pos, bus, changed });
   const structure = new StructureTab({ sim, pos, bus, ghost, changed });
   const log = new HearthLogView(ctx.objectives, () => ctx.weather);
