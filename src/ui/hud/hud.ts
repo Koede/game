@@ -16,6 +16,8 @@ import { CombatCues } from './combatCues';
 import { parseTargetName, type TargetInfo } from './combatMath';
 import { Compass } from './compass';
 import { Crosshair } from './crosshair';
+import { ScanFx } from './scanFx';
+import type { ScanDone, ScanProgress } from '../../magic/magic';
 import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
@@ -76,6 +78,7 @@ export class Hud {
   private readonly dial = new DayDial();
   private readonly power = new PowerStrip();
   private readonly crosshair = new Crosshair();
+  private readonly scanFx = new ScanFx();
   private readonly feed = new FeedView();
   private readonly vignettes = new Vignettes();
   private readonly hotbar: Hotbar;
@@ -143,6 +146,7 @@ export class Hud {
       this.cues.el,
       this.top,
       this.crosshair.el,
+      this.scanFx.el,
       bottom,
       this.coach.el,
       this.devBtn,
@@ -276,6 +280,12 @@ export class Hud {
       this.auraEl.removeAttribute('hidden');
       setText(this.auraEl, text);
     }
+  }
+
+  /** The notebook scan over the crosshair (`Magic.scanProgress` / `scanResult`); call every frame, idle it is two comparisons. */
+  setScan(progress: ScanProgress | null, done: ScanDone | null): void {
+    this.scanFx.update(progress, done, performance.now());
+    this.crosshair.el.toggleAttribute('data-scan', progress !== null);
   }
 
   private showTarget(): void {

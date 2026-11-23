@@ -113,6 +113,13 @@ export interface ServantWorkshop {
 export const STUDY_LORE = 3;
 /** Seconds of held Use a scan takes, and the longest gap between Uses before the bar empties. */
 export const SCAN_S = 1.2;
+
+/** A scan filling: how far (`f`, 0..1) and the aspects of the thing, strongest first. */
+export interface ScanProgress { key: string; f: number; aspects: Aspect[] }
+/** A scan that just finished: what it showed and which of those aspects were new to the player. */
+export interface ScanDone { id: number; key: string; aspects: Aspect[]; learned: Aspect[] }
+const scanAspects = (fp: Aspects): Aspect[] =>
+  ASPECT_LIST.filter((a) => (fp[a] ?? 0) > 0).sort((a, b) => (fp[b] ?? 0) - (fp[a] ?? 0)).slice(0, 5);
 export const SCAN_GAP_S = 0.6;
 /** Lens multiplier for scan lore. */
 export const LENS_LORE = 1.5;
@@ -306,6 +313,8 @@ export class Magic {
   private readonly cooldowns = new Map<string, number>();
   private clock = 0;
   private scanning: { key: string; p: number; seen: number } | null = null;
+  private scanDoneFx: ScanDone | null = null;
+  private scanDoneN = 0;
   private lastDraw = -1;
   private slowT = 0;
   private readonly off: () => void;
@@ -552,8 +561,22 @@ export class Magic {
     const need = this.player.inventory.has(LENS) ? SCAN_S / LENS_LORE : SCAN_S;
     if (s.p < need) return 'worked';
     this.scanning = null;
-    this.scanBlock(key);
+    this.scanBlock(key, true);
     return 'worked';
+  }
+
+  /** The live scan for the HUD: `f` 0..1 filled, `aspects` the thing's fingerprint (the glyphs that converge); null when idle. */
+  scanProgress(): ScanProgress | null {
+    const s = this.scanning;
+    if (!s || this.clock - s.seen > SCAN_GAP_S) return null;
+    const need = this.player.inventory.has(LENS) ? SCAN_S / LENS_LORE : SCAN_S;
+    const f = Math.max(0, Math.min(1, s.p / need));
+    return { key: s.key, f, aspects: scanAspects(aspectsOf(s.key)) };
+  }
+
+  /** The last scan a held Use finished (a new `id` each time) with what it taught; the HUD pops the glyphs once per id. */
+  scanResult(): ScanDone | null {
+    return this.scanDoneFx;
   }
 
   /** "Scanning Copper Ore [####....] 50%" while a scan is filling, else null. */
@@ -567,7 +590,7 @@ export class Magic {
     return `Scanning ${name} [${'#'.repeat(bars)}${'.'.repeat(8 - bars)}] ${Math.round(f * 100)}%`;
   }
 
-  scanBlock(key: string): string {
+  scanBlock(key: string, fx = false): string {
     const name = blockOrNull(key)?.name ?? itemOrNull(key)?.name ?? key;
     const fp = aspectsOf(key);
     const mult = this.player.inventory.has(LENS) ? LENS_LORE : 1;
@@ -578,6 +601,7 @@ export class Magic {
       text = `Noted ${name}: +${aspectsText(r.gained)} lore`;
       if (r.learned.length) text += `. New aspect: ${r.learned.map((a) => aspectInfo(a).name).join(', ')}`;
       this.bus.emit('sfx', { name: 'scan_chime' });
+      if (fx) this.scanDoneFx = { id: ++this.scanDoneN, key, aspects: scanAspects(fp), learned: r.learned };
     }
     for (const f of r.finished) {
       const e = RESEARCH.find((x) => x.key === f);

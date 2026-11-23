@@ -19,6 +19,25 @@ describe('active scanning', () => {
     hold(t, 0, SCAN_S);
     expect(t.magic.research.scanned).toEqual(['stone']);
     expect(t.magic.scanLabel()).toBeNull();
+    expect(t.magic.scanProgress()).toBeNull();
+  });
+
+  it('exposes progress and, once finished, a result with the aspects shown and the new ones', () => {
+    const t = setup();
+    t.hold('field_notebook');
+    expect(t.magic.scanProgress()).toBeNull();
+    hold(t, 0, SCAN_S / 2);
+    const p = t.magic.scanProgress();
+    expect(p?.key).toBe('stone');
+    expect(p!.f).toBeGreaterThan(0.3);
+    expect(p!.f).toBeLessThan(0.8);
+    expect(p!.aspects.length).toBeGreaterThan(0);
+    expect(t.magic.scanResult()).toBeNull();
+    hold(t, 0, SCAN_S);
+    const r = t.magic.scanResult();
+    expect(r?.key).toBe('stone');
+    expect(r!.aspects).toEqual(p!.aspects);
+    expect(r!.id).toBe(1);
   });
 
   it('letting go empties the bar; aiming elsewhere restarts it', () => {

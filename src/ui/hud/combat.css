@@ -282,3 +282,175 @@
     width: min(100%, 64vw, 560px);
   }
 }
+
+/* ---- notebook scan: reticle, filling arc, orbiting aspect glyphs, sheen, motes, completion pop (scanFx.ts) ---------- */
+.hw-scan {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  --scan-c: #b8c4ff;
+}
+.hw-scan__box {
+  position: absolute;
+  left: -60px;
+  top: -60px;
+  width: 120px;
+  height: 120px;
+}
+.hw-scan__box[hidden],
+.hw-scan__sheen[hidden],
+.hw-scan__orb[hidden],
+.hw-scan__mote[hidden] {
+  display: none;
+}
+.hw-scan__svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+  overflow: visible;
+  filter: drop-shadow(0 0 4px var(--scan-c));
+}
+.hw-scan__svg circle,
+.hw-scan__svg path {
+  fill: none;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hw-scan__track {
+  stroke: rgba(8, 6, 20, 0.5);
+  stroke-width: 5;
+}
+.hw-scan__arc {
+  stroke: var(--scan-c);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+.hw-scan__head {
+  fill: #fff !important;
+}
+.hw-scan__tickring,
+.hw-scan__innerring {
+  stroke: var(--scan-c);
+  stroke-width: 1.6;
+  opacity: 0.55;
+}
+.hw-scan__innerring {
+  opacity: 0.4;
+  stroke-width: 1.2;
+}
+.hw-scan__ticks,
+.hw-scan__inner,
+.hw-scan__brackets {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hw-scan__bracket {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+.hw-scan__sheen {
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.hw-scan__sheen i {
+  position: absolute;
+  inset: -10px;
+  transform: translateX(var(--sx, 0)) skewX(-20deg);
+  background: linear-gradient(90deg, transparent 38%, rgba(255, 255, 255, 0.5) 50%, transparent 62%);
+  mix-blend-mode: screen;
+}
+.hw-scan__orb,
+.hw-scan__chip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 700 11px/1 var(--hw-font-ui, system-ui, sans-serif);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), var(--g) 55%, rgba(0, 0, 0, 0.35));
+  box-shadow: 0 0 8px 1px var(--g), 0 0 0 1.5px rgba(255, 255, 255, 0.7);
+}
+.hw-scan__mote {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px 1px currentColor;
+  color: var(--scan-c);
+}
+.hw-scan__pop {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.hw-scan__flash {
+  position: absolute;
+  left: -30px;
+  top: -30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 0 18px 4px var(--scan-c), inset 0 0 14px var(--scan-c);
+  animation: hw-scan-flash 620ms cubic-bezier(0.1, 0.7, 0.3, 1) both;
+}
+.hw-scan__flash--2 {
+  border-width: 1.5px;
+  animation-duration: 900ms;
+  animation-delay: 90ms;
+}
+.hw-scan__chip {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  font-size: 13px;
+  opacity: 0;
+  animation: hw-scan-pop 1500ms cubic-bezier(0.2, 0.9, 0.25, 1) var(--d, 0ms) both;
+}
+.hw-scan__chip--new {
+  box-shadow: 0 0 12px 3px var(--g), 0 0 0 2px #fff;
+}
+.hw-scan__chip em {
+  position: absolute;
+  top: 100%;
+  margin-top: 3px;
+  font: 600 10px/1 var(--hw-font-ui, system-ui, sans-serif);
+  font-style: normal;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 0 3px #000, 0 1px 2px #000;
+}
+@keyframes hw-scan-flash {
+  from { transform: scale(0.5); opacity: 1; }
+  to { transform: scale(2.6); opacity: 0; }
+}
+@keyframes hw-scan-pop {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.3); }
+  18% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.25); }
+  32% { transform: translate(var(--dx), var(--dy)) scale(1); }
+  72% { opacity: 1; transform: translate(var(--dx), calc(var(--dy) - 8px)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) - 22px)) scale(0.9); }
+}
+.hw-cross[data-scan] .hw-cross__name {
+  transform: translate(-50%, 40px);
+}

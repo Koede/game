@@ -58,6 +58,10 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
   carried items, rod charge, study vials), Goals (eight optional side goals). Opened from a Research Table (block
   `research_table`, Use; screen `{ type: 'notebook', table: true }`) the begun notes can be written: tap a hex, then an aspect
   chip; Erase, Hint, Combine lore. Each write spends one ink from carried `scribing_tools` (64 ink, stack durability).
+- Aspect icons: every aspect has its own 12x12 pixel glyph (`aspectGlyphs.ts`, pure data; vitest checks completeness and
+  distinct silhouettes). `src/ui/kit/aspectIcon.ts`: `aspectIcon(key, size)` (crisp `<img>`, aspect colour + outline),
+  `aspectLabel(key, text)`, `aspectsRow(aspects)`. Used on the research hex board, palette and combine chips, Aspects tab,
+  Notes (scans, rod vis), cost chips and the Rune Desk. Toasts and crosshair text keep plain names.
 - `deskScreen.ts`: every arcane recipe with ingredient and essentia chips (green = have), reason, Make.
 - `src/render/magic/magicRenderer.ts`: jar fill boxes, wellspring crystals (core + halo, spin, bob, fade as drawn), items on
   pedestals and altars through a second GroundItemRenderer. `stats` for checks.
@@ -90,7 +94,7 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - Plugging: Use a wand on an Arcane Workbench with a focus carried to plug it in (again to take it back; saved as `plugged`). A wand with a focus plugged casts it on Use when its vis and cooldown allow, else it draws vis as usual.
 
 ## Active scanning
-- A held notebook's Use on a thing not yet noted fills a bar: `SCAN_S` (1.2 s of repeated Use; 0.8 s with the lens), emptied after `SCAN_GAP_S` (0.6 s) without Use or on aiming elsewhere. `Magic.scanLabel()` ("Scanning Copper Ore [####....] 50%") replaces the crosshair name (`Game.magicLabel`). A noted thing reads out at once; `NotebookApi.scanItem` (carried items) stays instant. e2e holds Use (`d.holdUse`).
+- A held notebook's Use on a thing not yet noted fills a bar: `SCAN_S` (1.2 s of repeated Use; 0.8 s with the lens), emptied after `SCAN_GAP_S` (0.6 s) without Use or on aiming elsewhere. The HUD draws it as `ScanFx` (`src/ui/hud/scanFx.ts`) over the crosshair from `Magic.scanProgress(): {key, f, aspects} | null` (reticle, filling arc, the thing's aspect glyphs orbiting inward, sheen, drifting motes) and, on finishing, `Magic.scanResult(): {id, key, aspects, learned} | null` (flash ring, aspects pop out, new ones ringed). Reduce motion shows only the smooth ring. `scanLabel()` (text bar) remains for tests. A noted thing reads out at once; `NotebookApi.scanItem` (carried items) stays instant. e2e holds Use (`d.holdUse`).
 
 ## Golems (src/magic/golems.ts)
 - Bodies: `clay_servant`, plus blocks `wood_golem` (swift: 2 steps / s, range 10, hauls 4), `stone_golem` (steady: a Spring feeds 90 s, hauls 8), `iron_golem` (tireless: range 14, swift, hauls 16); made on the altar with a clay servant at the heart and four pieces (plank / stone brick / iron) round it (research 'clay_servant'). `golemBody(key)` gives range, feed seconds, carry, steps and trait; `servantText` names them.

@@ -386,6 +386,7 @@ export class Game {
     this.showStationName();
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
     showRodAura(this.ui.hud, this.magic.rodReading());
+    this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
     this.vehicleHud.update(this.vehicles.status());
     this.ui.frame(dt);
     const motions = this.workshop.contra.motions();
@@ -453,7 +454,7 @@ export class Game {
   /** Magic names under the crosshair: jars, pedestals and the altar, servants, a held rod's reading, the lens. */
   private magicLabel(x: number, y: number, z: number, key: string): string | null {
     const m = this.magic;
-    return m.scanLabel() ?? m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+    return m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
   }
 
   /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
