@@ -604,12 +604,13 @@ describe('friendship', () => {
     npcs.speak(by('rosa'));
     expect(npcs.trustOf('rosa')).toBe(8);
     expect(taken).toEqual([1]);
-    npcs.speak(by('rosa')); // same day
+    npcs.speak(by('rosa')); // same day: no more trust, the rest of the stack goes on her bar (upkeep.ts)
     expect(npcs.trustOf('rosa')).toBe(8);
-    expect(taken).toEqual([1]);
-    state.held = { item: 'iron_ingot', count: 1 }; // not liked by Rosa
+    expect(taken).toEqual([1, 5]);
+    expect(npcs.barStock()).toBe(5);
+    state.held = { item: 'iron_ingot', count: 1 }; // not liked by Rosa, not stock
     npcs.speak(by('rosa'));
-    expect(taken).toEqual([1]);
+    expect(taken).toEqual([1, 5]);
     // Tier 1 at 20 trust.
     (npcs as unknown as { trust: Record<string, number> }).trust.rosa = 16;
     (npcs as unknown as { giftDay: Record<string, number> }).giftDay.rosa = 1;

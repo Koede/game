@@ -22,6 +22,7 @@ import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
 import { FavourBoard, type Favour } from './favours';
+import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
 import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
 import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
@@ -74,6 +75,8 @@ export interface NpcSnapshot {
   favours?: ReturnType<FavourBoard['toJSON']>;
   /** Sparring with Gruk: bouts fought, and the day's tally. */
   spar?: SparState;
+  /** The bar's stock, till and upgrades (upkeep.ts). */
+  upkeep?: ReturnType<Upkeep['toJSON']>;
 }
 
 /** What the manager needs from the game. */
@@ -141,7 +144,8 @@ export class NpcManager {
   private gossipLast = '';
   private gossipSaid: string[] = [];
   private drinkLog: DrinkLog = { day: 0, n: {} };
-  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
+  private readonly bar = new Upkeep();
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
@@ -248,6 +252,15 @@ export class NpcManager {
     this.gossip = { ex, at: 0, left: 4.2 };
   }
 
+  /** The bar sells while the tavern is open (not at night); a turned day sells a night and collects rent. */
+  private tickBar(dt: number): void {
+    const host = this.host;
+    if (!host || !this.at) return;
+    this.bar.tick(dt, this.phase() !== 'night', this.rng);
+    const got = this.bar.dayRoll(host.day(), this.rng);
+    if (got > 0) this.toast(`While you were away the bar took ${got} coin. Ask Rosa for the till (${Math.floor(this.bar.till)} waiting).`);
+  }
+
   /** The conversation running now, for the UI and tests: who speaks and what. */
   overheard(): { id: string; text: string } | null {
     return bubbleOf(this.gossip);
@@ -334,6 +347,8 @@ export class NpcManager {
     if (npc.role === 'jukebox') return this.useJukebox(npc);
     const gift = npc.kind === 'person' ? this.giveGift(npc) : null;
     if (gift !== null) return gift;
+    const stocked = this.stockBar(npc);
+    if (stocked !== null) return stocked;
     if (npc.role === 'hermit') return this.useHermit(npc);
     if (!this.gifted.has(npc.id) && npc.gift.length > 0) {
       this.gifted.add(npc.id);
@@ -367,6 +382,38 @@ export class NpcManager {
   /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
   serviceMenu(id: 'rosa' | 'gruk' = 'rosa'): ServiceMenu {
     return id === 'gruk' ? this.gruk : this.rosa;
+  }
+
+  /** Units on Rosa's bar. */
+  barStock(): number {
+    return this.bar.units();
+  }
+
+  /** Coin in Rosa's till, waiting for the player. */
+  till(): number {
+    return this.bar.till;
+  }
+
+  /** Upgrades built so far ('stage', 'rooms2', 'rooms3'). */
+  upgrades(): string[] {
+    return [...this.bar.built];
+  }
+
+  /** Hands food or a brew to Rosa for the bar. Null when she is not the one spoken to or it is not stock. */
+  private stockBar(npc: NpcDef): string | null {
+    const held = this.host?.held();
+    if (npc.role !== 'barkeep' || !held || stockValue(held.item) <= 0) return null;
+    const took = this.bar.add(held.item, held.count);
+    if (took <= 0) {
+      const line = 'The bar is full to the rafters. Let it sell down first.';
+      this.say(npc, line);
+      return line;
+    }
+    this.host?.takeHeld(took);
+    stockLine(this.port(npc), held.item, took, stockValue(held.item));
+    const line = 'On the bar it goes. I will keep the books.';
+    this.say(npc, line);
+    return line;
   }
 
   /** Sparring skill 0..5 (bouts fought with Gruk). */
@@ -407,6 +454,7 @@ export class NpcManager {
     const day = this.host?.day() ?? 1;
     if (this.giftDay[npc.id] === day) {
       if (npc.role === 'hermit') return null; // sell to him as usual
+      if (npc.role === 'barkeep' && stockValue(held.item) > 0) return null; // the rest goes on her bar
       const line = 'You are kind, but one gift a day is plenty. Thank you.';
       this.say(npc, line);
       return line;
@@ -654,6 +702,7 @@ export class NpcManager {
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
     this.gruk.tick(dt);
+    this.tickBar(dt);
     this.tickGossip(dt);
     if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
@@ -688,7 +737,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar },
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(),
     };
   }
 
@@ -710,6 +759,7 @@ export class NpcManager {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
     }
     this.favours.load(r.favours);
+    this.bar.load(r.upkeep);
     const sp = r.spar;
     this.spar = { xp: 0, day: 0, today: 0 };
     if (sp && typeof sp === 'object') for (const k of ['xp', 'day', 'today'] as const) if (typeof sp[k] === 'number' && Number.isFinite(sp[k])) this.spar[k] = Math.max(0, Math.floor(sp[k]));
