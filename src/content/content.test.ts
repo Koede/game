@@ -179,8 +179,12 @@ describe('4. structural rules', () => {
       expect(it.fuel?.flameTempC, it.key).toBeGreaterThan(200);
     }
     for (const kind of ['pickaxe', 'axe', 'shovel'] satisfies ToolKind[]) {
-      const tools = ITEMS.filter((i) => i.tool?.kind === kind).sort((a, b) => (a.tool?.tier ?? 0) - (b.tool?.tier ?? 0));
+      const tools = ITEMS.filter((i) => i.tool?.kind === kind && !i.key.startsWith('wooden_')).sort((a, b) => (a.tool?.tier ?? 0) - (b.tool?.tier ?? 0));
       expect(tools.slice(0, 4).map((t) => t.tool?.tier), kind).toEqual([1, 2, 3, 4]);
+      // The wooden stopgap reaches flint's tier but is slower and far more fragile.
+      const wood = item(`wooden_${kind}`).tool!;
+      const flint = item(`flint_${kind}`).tool!;
+      expect([wood.tier, wood.speed < flint.speed, wood.durability * 4 <= flint.durability]).toEqual([1, true, true]);
       for (let i = 1; i < tools.length; i++) {
         expect(tools[i].tool?.speed, tools[i].key).toBeGreaterThan(tools[i - 1].tool?.speed ?? 0);
         expect(tools[i].tool?.durability, tools[i].key).toBeGreaterThan(tools[i - 1].tool?.durability ?? 0);

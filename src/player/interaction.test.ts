@@ -73,7 +73,7 @@ describe('mining', () => {
     expect(t).toBeGreaterThan(11.9);
     expect(t).toBeLessThan(12.1);
     expect(player.inventory.count('rubble')).toBe(0);
-    expect(toasts[0].e.text).toMatch(/flint pickaxe/i);
+    expect(toasts[0].e.text).toMatch(/wooden pickaxe/i);
   });
 
   it('a matching tool is faster, harvests, and wears by one', () => {

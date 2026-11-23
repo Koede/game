@@ -10,7 +10,7 @@ import { icon } from './shapes';
 type Kind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
 
 const FLINT: Ramp = [P.rgb(0x2b2c37), P.rgb(0x40424f), P.rgb(0x5a5d70), P.rgb(0x7c8198), P.rgb(0xa9afc6)];
-const HEADS: Record<string, Ramp> = { flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
+const HEADS: Record<string, Ramp> = { wooden: P.WOOD, flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
 
 /** Axe head, hand-drawn: a crescent edge on the left, the neck wrapping the handle on the right. */
 /** Columns the axe sprite is moved right so its body sits on the handle instead of beside it. */
@@ -104,7 +104,7 @@ function tool(c: Canvas, kind: Kind, material: string): void {
   });
   // Binding at the joint: cord lashing for flint, a bright wedge for cast metal.
   const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [11, 5] : kind === 'hoe' ? [10, 4] : [6, 8];
-  if (material === 'flint') {
+  if (material === 'flint' || material === 'wooden') {
     c.set(jx, jy, P.CLOTH[3]);
     c.set(jx + 1, jy + 1, P.CLOTH[1]);
     c.set(jx - 1, jy + 1, P.CLOTH[2]);
@@ -135,6 +135,6 @@ for (const material of Object.keys(HEADS)) {
   for (const kind of ['pickaxe', 'axe', 'shovel'] as const) tools[`item_${material}_${kind}`] = icon((c) => tool(c, kind, material));
 }
 // Hoes (spec 12.4) come in flint, bronze and iron only.
-for (const material of ['flint', 'bronze', 'iron']) tools[`item_${material}_hoe`] = icon((c) => tool(c, 'hoe', material));
+for (const material of ['wooden', 'flint', 'bronze', 'iron']) tools[`item_${material}_hoe`] = icon((c) => tool(c, 'hoe', material));
 
 export const TOOL_ICONS: PainterSet = { ...tools, item_power_drill: icon(powerDrill) };

@@ -54,12 +54,16 @@ function machineRecipes(station: string, timeS: number, rows: Array<[output: str
 
 const HAND: RecipeSpec[] = [
   hand('cord', 'cord', '3 fiber'),
+  hand('wooden_pickaxe', 'wooden_pickaxe', '2 plank, 2 stick'),
+  hand('wooden_axe', 'wooden_axe', '2 plank, 2 stick'),
+  hand('wooden_shovel', 'wooden_shovel', '1 plank, 2 stick'),
   hand('flint_pickaxe', 'flint_pickaxe', '2 flint, 2 stick, 1 cord'),
   hand('flint_axe', 'flint_axe', '2 flint, 2 stick, 1 cord'),
   hand('flint_shovel', 'flint_shovel', '1 flint, 2 stick, 1 cord'),
   hand('workbench', 'workbench', '6 plank'),
   hand('torch', '4 torch', '1 stick, 1 charcoal'),
   hand('torch_coal', '4 torch', '1 stick, 1 coal'),
+  hand('wooden_hoe', 'wooden_hoe', '1 plank, 2 stick'),
   hand('flint_hoe', 'flint_hoe', '1 flint, 2 stick, 1 cord'),
 ];
 

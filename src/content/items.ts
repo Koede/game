@@ -77,6 +77,15 @@ const RAW: ItemSpec[] = [
 ];
 
 const TOOLS: ItemSpec[] = [
+  // Wooden tools: a stopgap before the first flint. They reach what flint reaches (tier 1) but cut slower and wear out in a dozen uses.
+  ...toolSet({
+    material: 'wooden', name: 'Wooden', tier: 1, speed: 1.4, durability: 12, age: 0,
+    desc: [
+      'Fire-hardened wood. It breaks rubble and reaches coal, copper and tin, but snaps after about a dozen swings. Find flint soon.',
+      'A sharpened branch on a haft. It splits logs a little faster than bare hands, and splinters quickly.',
+      'A flat plank blade. It digs dirt and sand a little faster than bare hands, and splinters quickly.',
+    ],
+  }),
   ...toolSet({
     material: 'flint', name: 'Flint', tier: 1, speed: 2, durability: 64, age: 0,
     desc: [
@@ -190,6 +199,7 @@ const GEAR: ItemSpec[] = [
 ];
 
 const HOES: ItemSpec[] = [
+  hoe('wooden', 'Wooden', 1, 12, 0, 'Turns grass or dirt into farmland, a dozen times at most. Use it on the top of the block.'),
   hoe('flint', 'Flint', 1, 64, 0, 'Turns grass or dirt into farmland. Use it on the top of the block.'),
   hoe('bronze', 'Bronze', 2, 192, 0, 'Tills soil three times as long as a flint hoe before it wears out.'),
   hoe('iron', 'Iron', 3, 384, 2, 'A heavy iron blade that will till a whole field and then some.'),

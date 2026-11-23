@@ -360,7 +360,7 @@ export const SPEC = {
    * array texture; the renderer splits the atlas over two arrays past the device's limit (docs/api/render-machines.md),
    * so the hard ceiling is twice that. This cap keeps growth deliberate: 264 are in use after section 19.
    */
-  maxTextures: 404,
+  maxTextures: 408,
 };
 
 // Brewing's recipes come last in their stations' lists (recipesBrew.ts is appended after every older recipe).
