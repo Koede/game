@@ -42,6 +42,8 @@ export interface PlayerControllerOptions {
   rng?: () => number;
   /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
   animals?: AnimalTargets;
+  /** The tavern's people: Use on one talks to them (returns true when someone was spoken to). */
+  talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number) => boolean;
   /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
   transport?: TransportHands;
   /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
@@ -80,6 +82,7 @@ export class PlayerController {
   private readonly bus: GameBus;
   private readonly player: PlayerState;
   private readonly view: IView;
+  private readonly talkTo: PlayerControllerOptions['talk'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
   private readonly state: InputState;
@@ -111,6 +114,7 @@ export class PlayerController {
     this.bus = options.bus;
     this.player = options.player;
     this.view = options.view;
+    this.talkTo = options.talk;
     this.input = options.input;
     this.settings = options.settings;
     this.state = options.state;
@@ -172,6 +176,10 @@ export class PlayerController {
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
+      if (intent.use && this.talkTo) {
+        p.viewDir(this.dir);
+        if (this.talkTo(p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z)) intent.use = false;
+      }
       this.move(dt, intent);
     }
 

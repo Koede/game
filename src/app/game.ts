@@ -29,6 +29,7 @@ import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
 import { GroundItemRenderer } from '../render/groundItems';
 import { MobRenderer } from '../render/mobs';
+import { NpcRenderer } from '../render/npcs/npcRenderer';
 import type { WorldSave } from '../save/document';
 import { GameUI } from '../ui/gameUI';
 import type { UIRoot } from '../ui/kit/root';
@@ -92,6 +93,8 @@ export class Game {
   readonly renderer: Renderer;
   /** The animals' models, drawn into the renderer's scene (updated before every render). */
   readonly mobRenderer: MobRenderer;
+  /** The tavern's people as pixel sprites. */
+  readonly npcRenderer: NpcRenderer;
   /** Items lying in the world, one instanced draw per kind. */
   readonly itemRenderer: GroundItemRenderer;
   /** Jar fills, wellsprings and items on pedestals and altars (src/render/magic). */
@@ -154,6 +157,7 @@ export class Game {
     // Items and fluids in pipes (spec 16): the renderer reads the simulation's transport snapshot every frame.
     this.renderer.setTransport(simTransportFeed(sim));
     this.mobRenderer = new MobRenderer(this.renderer, world);
+    this.npcRenderer = new NpcRenderer(this.renderer);
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.magicRenderer = new MagicRenderer(this.renderer, world);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
@@ -196,7 +200,7 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hands: sim });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, talk: (ox, oy, oz, dx, dy, dz) => state.npcs.talk(ox, oy, oz, dx, dy, dz), transport: sim, brew: sim, hands: sim });
       this.vehicles.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
@@ -221,6 +225,7 @@ export class Game {
       this.magicRenderer.dispose();
       this.workshopRenderer.dispose();
       this.mobRenderer.dispose();
+    this.npcRenderer.dispose();
       this.renderer.dispose();
       throw err;
     }
@@ -347,6 +352,7 @@ export class Game {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
+      this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight());
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       const pp = state.player.position;
@@ -522,6 +528,7 @@ export class Game {
     this.magicRenderer.dispose();
     this.workshopRenderer.dispose();
     this.mobRenderer.dispose();
+    this.npcRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.
     try {
       this.renderer.gl.forceContextLoss();

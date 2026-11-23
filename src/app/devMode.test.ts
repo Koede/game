@@ -123,7 +123,7 @@ describe('switching Dev Mode in a running world', () => {
   it('turns on and off any time: rules, flight and the save follow', () => {
     const state = GameState.create(5, 'five');
     const toasts: string[] = [];
-    state.bus.on('toast', (t) => toasts.push(t.text));
+    state.bus.on('toast', (t) => t.text.startsWith('Dev Mode') && toasts.push(t.text));
     expect(state.mode).toBe('survival');
     expect(state.player.dev).toBe(false);
     expect('mode' in state.toSave()).toBe(false);

@@ -21,6 +21,7 @@ import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
+import { NpcManager } from '../npcs';
 import { takeLostItems } from '../content/aliases';
 import { World, type WorkerPool } from '../world';
 import { diag, playerBrief } from './diag';
@@ -57,6 +58,8 @@ export class GameState {
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
   readonly workshop: Workshop;
+  /** The tavern's people (docs/api/npcs.md). */
+  readonly npcs: NpcManager;
   readonly seedText: string | null;
   /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
   private notices: string[] = [];
@@ -192,6 +195,10 @@ export class GameState {
       return r.did === 'insert' ? 'consumed' : 'used';
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    this.npcs = new NpcManager(bus);
+    this.npcs.bind({ give: (item, n) => this.player.give(item, n), currentGoal: () => this.objectives.current?.id ?? null });
+    world.loadExtra('npcs', (raw) => this.npcs.load(raw));
+    this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
     this.offs.push(() => this.workshop.dispose());
     for (const key of world.failedExtras()) this.notices.push(`Saved ${key} data could not be read. A copy was kept (${key}.bad) and it starts empty.`);
     const lost = takeLostItems();
@@ -219,8 +226,8 @@ export class GameState {
     const bus = options.bus ?? createBus();
     const world = new World(seed >>> 0, bus, { pool: options.pool });
     const state = new GameState(world, bus, seedText, null, options.difficulty ?? 'normal', parseGameMode(options.mode));
-    state.prepareAroundPlayer(1);
-    state.faceOpenView();
+    state.prepareAroundPlayer(2);
+    state.startInTavern();
     return state;
   }
 
@@ -245,6 +252,22 @@ export class GameState {
     this.difficultyNow = d;
     this.mobs.setDifficulty(d);
     this.player.combat.setDifficulty(d);
+  }
+
+  /** A new world opens inside the tavern (docs/api/npcs.md); where it cannot be built (unloaded ground), the old open-view start. */
+  startInTavern(): void {
+    const p = this.player.position;
+    const ground = this.world.surfaceY(Math.floor(p.x), Math.floor(p.z));
+    const start = ground >= 0 ? this.npcs.buildStart(this.world, Math.floor(p.x), ground, Math.floor(p.z)) : null;
+    if (!start) {
+      this.faceOpenView();
+      return;
+    }
+    this.player.position.x = start.x;
+    this.player.position.y = start.y;
+    this.player.position.z = start.z;
+    this.player.yaw = Math.PI; // looking south, into the hall
+    this.player.pitch = 0;
   }
 
   /** Makes sure the voxels under and around the player exist right now (before the first physics step). */
@@ -291,6 +314,8 @@ export class GameState {
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
+    this.npcs.tick(dt);
+    if (!this.npcs.greeted) this.npcs.greet();
     this.playTimeS += dt;
     this.ticks++;
   }
