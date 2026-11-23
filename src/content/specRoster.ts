@@ -428,3 +428,4 @@ SPEC.maxTextures += SYNERGY_ARTIFICER_SPEC.textures;
 
 // World exploration (waypoint stones, ...; src/content/areas/world_*.ts): only the texture budget is pinned.
 SPEC.maxTextures += EXPLORE_SPEC.textures;
+SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);

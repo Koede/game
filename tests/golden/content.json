@@ -499,7 +499,8 @@
     "rune_iron_axe": {"age":2,"category":"tool","key":"rune_iron_axe","stack":1,"tool":{"durability":1152,"kind":"axe","speed":4.5,"tier":3}},
     "gale_iron_axe": {"age":2,"category":"tool","key":"gale_iron_axe","stack":1,"tool":{"durability":384,"kind":"axe","speed":6.75,"tier":3}},
     "rune_iron_shovel": {"age":2,"category":"tool","key":"rune_iron_shovel","stack":1,"tool":{"durability":1152,"kind":"shovel","speed":4.5,"tier":3}},
-    "gale_iron_shovel": {"age":2,"category":"tool","key":"gale_iron_shovel","stack":1,"tool":{"durability":384,"kind":"shovel","speed":6.75,"tier":3}}
+    "gale_iron_shovel": {"age":2,"category":"tool","key":"gale_iron_shovel","stack":1,"tool":{"durability":384,"kind":"shovel","speed":6.75,"tier":3}},
+    "treasure_map": {"age":0,"category":"misc","key":"treasure_map","stack":4}
   },
   "recipes": {
     "cord": {"age":0,"id":"cord","inputs":[{"count":3,"item":"fiber"}],"output":{"count":1,"item":"cord"},"station":"hand"},
