@@ -270,3 +270,12 @@ describe('dig sound pitch', () => {
     expect(pick).toBeLessThan(bare);
   });
 });
+
+describe('place pitch', () => {
+  it('wood is higher than earth, which is higher than stone', async () => {
+    const { placePitch } = await import('./blockRules');
+    const { block } = await import('../core/registry');
+    expect(placePitch(block('stone'))).toBeLessThan(placePitch(block('dirt')));
+    expect(placePitch(block('dirt'))).toBeLessThan(placePitch(block('oak_log')));
+  });
+});

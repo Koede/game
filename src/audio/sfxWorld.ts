@@ -55,6 +55,7 @@ export const WORLD_SFX = {
     layers: [
       tone('triangle', 300, 0.36, 0.07, { freqEnd: 190 }),
       noise('pink', bp(1100, undefined, 0.8), 0.6, 0.035),
+      tone('sine', 150, 0.22, 0.1, { freqEnd: 85 }),
     ],
   },
   step: {

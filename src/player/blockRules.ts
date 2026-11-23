@@ -27,6 +27,14 @@ export function digPitch(def: BlockDef, held: Slot): number {
   return effectiveTier(def, held) >= def.minTier ? 0.94 + Math.min(5, effectiveTier(def, held)) * 0.04 : 0.82;
 }
 
+/** Pitch of the thunk a placed block makes: wood sounds hollow and high, earth soft, stone and metal low and firm. */
+export function placePitch(def: BlockDef): number {
+  if (def.tool === 'axe') return 1.12;
+  if (def.tool === 'shovel') return 0.95;
+  if (def.tool === 'pickaxe' || def.machine || def.power) return 0.82;
+  return 1;
+}
+
 /** The screen that using this block opens, or null (crops, wild bushes, brewing setups and hand stations are machine blocks without a screen). */
 export function screenFor(def: BlockDef, x: number, y: number, z: number): ScreenRequest | null {
   if (def.station === 'workbench') return { type: 'workbench', x, y, z };
