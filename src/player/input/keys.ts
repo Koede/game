@@ -61,6 +61,7 @@ export const CMD_INVENTORY = 9;
 export const CMD_LOG = 10;
 export const CMD_PAUSE = 11;
 export const CMD_DROP = 12;
+export const CMD_EMOTE = 13;
 
 /** The one-shot command bound to a key, or CMD_NONE. */
 export function keyCommand(code: string): number {
@@ -73,6 +74,8 @@ export function keyCommand(code: string): number {
       return CMD_PAUSE;
     case 'KeyQ':
       return CMD_DROP;
+    case 'KeyG':
+      return CMD_EMOTE;
     default: {
       const digit = DIGIT_KEY.exec(code);
       return digit ? Number(digit[1]) - 1 : CMD_NONE;

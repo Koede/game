@@ -3,6 +3,7 @@
  * -> interaction -> camera. It drives whatever draws the world only through IView (spec section 9) and never
  * imports src/render, src/sim or src/ui: screens are requested with 'ui:open' and machines react to world edits.
  */
+import { Emotes } from './emotes';
 import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
 import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
@@ -50,6 +51,8 @@ export interface PlayerControllerOptions {
   brew?: BrewHands;
   /** The simulation's hand work (src/sim's Simulation fits it): strokes at the Ember stations, moulds poured at a furnace. */
   hands?: HandHands;
+  /** The tavern jukebox is playing: the dance emote keeps its beat. */
+  jukeboxOn?: () => boolean;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -82,6 +85,7 @@ export class PlayerController {
   private readonly bus: GameBus;
   private readonly player: PlayerState;
   private readonly view: IView;
+  readonly emotes: Emotes;
   private readonly talkTo: PlayerControllerOptions['talk'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
@@ -114,6 +118,7 @@ export class PlayerController {
     this.bus = options.bus;
     this.player = options.player;
     this.view = options.view;
+    this.emotes = new Emotes(options.jukeboxOn);
     this.talkTo = options.talk;
     this.input = options.input;
     this.settings = options.settings;
@@ -173,6 +178,17 @@ export class PlayerController {
       p.pitch = clamp(p.pitch + intent.lookPitch, -PITCH_LIMIT, PITCH_LIMIT);
       this.hotbar(intent);
       this.menus(intent);
+      if (intent.emote) {
+        const kind = this.emotes.cycle();
+        if (kind) this.bus.emit('emote', { kind });
+      }
+      this.emotes.update(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump);
+      // Sitting holds the body still; looking around still works.
+      if (this.emotes.sitting) {
+        intent.moveX = 0;
+        intent.moveZ = 0;
+        intent.jump = false;
+      }
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
@@ -325,7 +341,8 @@ export class PlayerController {
     const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset, z, p.yaw, p.pitch);
+    const em = this.emotes.view();
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset + em.dy, z, p.yaw + em.dyaw, clamp(p.pitch + em.dpitch, -PITCH_LIMIT, PITCH_LIMIT));
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;

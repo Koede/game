@@ -5,7 +5,7 @@
 import type { Settings } from '../../core/context';
 import { TouchGestures, type LookDelta } from './gestures';
 import { clearIntent, createIntent, type Intent } from './intent';
-import { CMD_DROP, CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyDropHeld, keyJump, keySprint, reduceKeys } from './keys';
+import { CMD_DROP, CMD_EMOTE, CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyDropHeld, keyJump, keySprint, reduceKeys } from './keys';
 import { MouseDrag } from './mouseDrag';
 
 /** View rotation per pixel of mouse travel at sensitivity 1. */
@@ -49,6 +49,7 @@ export class InputCore {
   private hotbarSlot: number | null = null;
   private inventoryEdge = false;
   private logEdge = false;
+  private emoteEdge = false;
   private pauseEdge = false;
   private dropEdge = false;
   private dropAllEdge = false;
@@ -130,6 +131,10 @@ export class InputCore {
     this.command(CMD_INVENTORY);
   }
 
+  requestEmote(): void {
+    this.command(CMD_EMOTE);
+  }
+
   requestLog(): void {
     this.command(CMD_LOG);
   }
@@ -156,6 +161,7 @@ export class InputCore {
     this.hotbarSlot = null;
     this.inventoryEdge = false;
     this.logEdge = false;
+    this.emoteEdge = false;
     this.pauseEdge = false;
     this.dropEdge = false;
     this.dropAllEdge = false;
@@ -207,6 +213,7 @@ export class InputCore {
 
     intent.inventory = this.inventoryEdge;
     intent.log = this.logEdge;
+    intent.emote = this.emoteEdge;
     intent.pause = this.pauseEdge;
     // Q drops one (Shift+Q the stack); holding Q past DROP_HOLD_S drops what is left of the stack, once.
     if (keyDropHeld(this.keys)) {
@@ -220,6 +227,7 @@ export class InputCore {
     this.dropAllEdge = false;
     this.inventoryEdge = false;
     this.logEdge = false;
+    this.emoteEdge = false;
     this.pauseEdge = false;
     return intent;
   }
@@ -272,6 +280,7 @@ export class InputCore {
     if (this.blocked || cmd === CMD_NONE) return;
     if (cmd === CMD_INVENTORY) this.inventoryEdge = true;
     else if (cmd === CMD_LOG) this.logEdge = true;
+    else if (cmd === CMD_EMOTE) this.emoteEdge = true;
     else if (cmd === CMD_PAUSE) this.pauseEdge = true;
     else if (cmd === CMD_DROP) {
       this.dropEdge = true;

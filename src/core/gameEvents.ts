@@ -220,6 +220,8 @@ export interface GameEvents {
   'age:advanced': { age: number };
   /** A named one-off thing happened (objective conditions of type 'flag' listen for these). */
   'flag': { flag: string };
+  /** The player started an emote (wave, sit, cheer, dance). */
+  'emote': { kind: 'wave' | 'sit' | 'cheer' | 'dance' };
   'buff:gained': { buff: BuffName; durationS: number };
   'game:won': Record<string, never>;
 

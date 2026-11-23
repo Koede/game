@@ -32,6 +32,8 @@ export interface Intent {
   /** Edge-triggered: true for exactly one frame per press. */
   inventory: boolean;
   log: boolean;
+  /** Edge: the emote key (G) went down. */
+  emote: boolean;
   pause: boolean;
   /** Edge: the drop key (Q) went down: drop one of the held item. */
   drop: boolean;
@@ -54,6 +56,7 @@ export function createIntent(): Intent {
     hotbarStep: 0,
     inventory: false,
     log: false,
+    emote: false,
     pause: false,
     drop: false,
     dropAll: false,
