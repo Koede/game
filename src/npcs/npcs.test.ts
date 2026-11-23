@@ -7,7 +7,8 @@ import { hasPortrait, paintPortrait, PORTRAIT_PX } from '../render/npcs/portrait
 import { opaqueIn, paintNpc, RES, SPRITE_H, SPRITE_W, spriteSize } from '../render/npcs/sprites';
 import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
-  TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
+  BASEMENT_DEPTH, TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_TOP, TAVERN_W, YARD_D, type NpcHost,
+
 } from './index';
 import { findPath, nearestCell, walkable } from './nav';
 import { DANCE_SPOTS, ROUTINES } from './routines';
@@ -26,9 +27,9 @@ describe('the tavern layout', () => {
 
   it('fits its box (hall and yard) and uses only common blocks', () => {
     for (const b of blocks) {
-      expect(b.x >= 0 && b.x < TAVERN_W && b.y >= 0 && b.y <= TAVERN_H && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
+      expect(b.x >= 0 && b.x < TAVERN_W && b.y >= -BASEMENT_DEPTH && b.y <= TAVERN_TOP && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt'];
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding'];
     for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 
@@ -692,6 +693,86 @@ describe('walking routes', () => {
     for (const [id, [x, , z]] of Object.entries(DANCE_SPOTS)) {
       const v = npcs.views().find((n) => n.id === id)!;
       expect([v.x - 100 - 0.5, v.z - 100 - 0.5], id).toEqual([x, z]);
+    }
+  });
+});
+
+describe('the upper floor, the cellar and the secret rooms', () => {
+  const grid = new Map<string, string>();
+  for (const b of layoutBlocks()) grid.set(`${b.x},${b.y},${b.z}`, b.block); // later placements win
+  const solid = (x: number, y: number, z: number, g: Map<string, string> = grid): boolean => {
+    const k = g.get(`${x},${y},${z}`);
+    return k !== undefined && k !== 'air' && k !== 'torch';
+  };
+  /** Every cell reachable on foot from `from`: floor underfoot, two free blocks, steps up of one block, drops of up to two. */
+  function reach(from: readonly [number, number, number], g = grid): Set<string> {
+    const ok = (x: number, y: number, z: number): boolean => solid(x, y - 1, z, g) && !solid(x, y, z, g) && !solid(x, y + 1, z, g);
+    const seen = new Set<string>([from.join(',')]);
+    const queue: [number, number, number][] = [[...from]];
+    while (queue.length) {
+      const [x, y, z] = queue.pop()!;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        for (const dy of [1, 0, -1, -2]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const nz = z + dz;
+          if (nx < 0 || nx >= TAVERN_W || nz < 0 || nz >= TAVERN_D + YARD_D || seen.has(`${nx},${ny},${nz}`)) continue;
+          // Stepping up needs the head room above the start cell too; drops need the cell above the landing clear.
+          if (dy === 1 && solid(x, y + 2, z, g)) continue;
+          if (dy < 0 && solid(nx, y + 1, nz, g)) continue;
+          if (ok(nx, ny, nz)) {
+            seen.add(`${nx},${ny},${nz}`);
+            queue.push([nx, ny, nz]);
+          }
+        }
+      }
+    }
+    return seen;
+  }
+  const start = reach([6, 1, 2]);
+
+  it('the stairs lead to the corridor and both bedrooms upstairs', () => {
+    for (const cell of ['2,6,1', '2,6,4', '6,6,4', '10,6,4', '3,6,6', '9,6,6']) expect(start.has(cell), cell).toBe(true);
+  });
+
+  it('the balcony overlooks the hall: open air from its rail down to the floor, with a railing along the edge', () => {
+    for (const [x, z] of [[4, 1], [6, 2], [10, 2]] as const) {
+      for (let y = 1; y <= 9; y++) expect(solid(x, y, z), `${x},${y},${z}`).toBe(false);
+    }
+    for (let x = 3; x <= 10; x++) expect(grid.get(`${x},6,3`), `rail ${x}`).toBe('plank');
+    expect(start.has('5,6,4'), 'you can stand at the rail').toBe(true);
+    expect(start.has('5,6,1'), 'but not out over the void').toBe(false);
+  });
+
+  it('has a bed in each bedroom', () => {
+    const beds = [...grid].filter(([, b]) => b === 'wool_bedding').map(([k]) => k.split(',').map(Number));
+    expect(beds.length).toBeGreaterThanOrEqual(4);
+    expect(beds.some(([x]) => x < 6)).toBe(true);
+    expect(beds.some(([x]) => x > 6)).toBe(true);
+  });
+
+  it('the cellar is reached from the yard, down the stairwell, and its vault only through the false wall', () => {
+    expect(start.has('11,-3,7'), 'the cellar floor').toBe(true);
+    expect(start.has('11,-3,9'), 'the bottom of the stairwell').toBe(true);
+    expect(start.has('5,-3,10'), 'the vault is hidden').toBe(false);
+    // Mine out the two brick blocks and the vault opens.
+    const open = new Map(grid);
+    open.set(`6,${-BASEMENT_DEPTH + 1},${TAVERN_D - 1}`, 'air');
+    open.set(`6,${-BASEMENT_DEPTH + 2},${TAVERN_D - 1}`, 'air');
+    expect(reach([6, 1, 2], open).has('5,-3,10')).toBe(true);
+  });
+
+  it('the closet between the bedrooms is sealed by brick until it is mined', () => {
+    expect(start.has('6,6,6')).toBe(false);
+    const open = new Map(grid);
+    open.set('6,6,5', 'air');
+    open.set('6,7,5', 'air');
+    expect(reach([6, 1, 2], open).has('6,6,6')).toBe(true);
+  });
+
+  it('the ground floor routes are still walkable for the regulars', () => {
+    for (const [id, phases] of Object.entries(ROUTINES)) {
+      for (const [phase, [x, y, z]] of Object.entries(phases)) expect(start.has(`${x},${y},${z}`), `${id} ${phase}`).toBe(true);
     }
   });
 });

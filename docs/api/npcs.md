@@ -65,3 +65,17 @@ Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neut
   round the bar through its end gaps and out to the yard through the back door instead of through walls.
 - Old Bram sells back what you sold him (`shelf`, last six sales, saved): Use with an empty hand names the newest and its price (what he
   paid), a second Use within 10 s buys it back.
+
+## The expanded tavern (tavern.ts)
+- Upper floor (`TAVERN_H` 5 up to `TAVERN_TOP` 10): stairs of plank blocks up the west wall (x = 1, z 4 -> 1, the floor above opened
+  along the whole run for head room) reach a walkway along z = 4. The hall ceiling is open over x 4-10, z 1-2 (the balcony
+  overlooks the door, the dance floor and the front of the bar) behind a railing on the ledge at z = 3 and at x = 3. Doors at x 3 and 9 lead
+  to two bedrooms (x 1-4 and 8-11, z 6-7) with wool pallets, chests and torches.
+- Secret closet: a 1 x 2 x 2 closet inside a three-block wall between the bedrooms, sealed by two blocks of red brick in the wall
+  facing the walkway (mine them out).
+- Cellar (`BASEMENT_DEPTH` 4 below the hall floor): reached from the yard by a stairwell of four steps down along x = 11 (z 12 -> 9) and a
+  doorway in the cellar's south wall. Casks, a bench, pillars and torches. A false wall of two brick blocks at x = 6 in the cellar's south wall
+  hides a vault under the yard (crates, a table).
+- Tests in `npcs.test.ts` (`the upper floor, the cellar and the secret rooms`) flood-fill the layout on foot (steps up one block, drops of
+  two) to prove each room is reachable and the two secret rooms are sealed until their brick is mined. `scripts/e2e-tavern-rooms.mjs`
+  takes screenshots of each.
