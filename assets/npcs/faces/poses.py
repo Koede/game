@@ -198,3 +198,37 @@ if __name__ == '__main__':
     for id_ in POSES:
         atlas, frac = build(id_)
         print(id_, atlas.size, 'body fraction', round(frac, 3))
+
+
+def cut_away(id_, face, names):
+    """The blueprint (with a face) with the named parts removed and their gap refilled, and the removed parts on their own (both RGBA)."""
+    base = load(id_, face)
+    W, H = base.size
+    bg = base.getpixel((2, 2))
+    a = np.array(base)
+    parts = PARTS[id_]
+    allm = np.zeros((H, W), bool)
+    for n in names:
+        allm |= np.array(mask_of((W, H), parts[n][0])) > 0
+    mid, half = BODY[id_]
+    out = a.copy()
+    for n in names:
+        m = np.array(mask_of((W, H), parts[n][0])) > 0
+        mode = FILL[n]
+        for y, x in zip(*np.where(m)):
+            src = None
+            toward = 1 if x < mid else -1
+            if mode == 'mirror' and abs(x - mid) < half:
+                mx = int(2 * mid - x)
+                if 0 <= mx < W and not allm[y, mx]:
+                    src = a[y, mx]
+            if src is None and mode in ('mirror', 'row'):
+                xx = x - toward
+                while 0 <= xx < W and allm[y, xx]:
+                    xx -= toward
+                if 0 <= xx < W and not is_bg(a[y, xx], bg):
+                    src = a[y, xx]
+            out[y, x] = bg if src is None or is_bg(src, bg) else src
+    body = key_out(Image.fromarray(out).convert('RGBA'), bg)
+    arms = key_out(Image.fromarray(np.dstack([a, (allm * 255).astype(np.uint8)]), 'RGBA'), bg)
+    return body, arms

@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
 import { danceFrame, dancePose, STILL, type Pose } from '../../npcs/choreo';
-import { DANCE_FRAMES, npcArt, npcDanceBodyFrac, onNpcArt } from './art';
+import { ANIM_FPS, ANIM_FRAMES, DANCE_FRAMES, npcArt, npcDanceBodyFrac, onNpcArt } from './art';
 import { designSize, paintNpc } from './sprites';
 
 /** The parts of the Renderer it draws into. */
@@ -28,12 +28,18 @@ interface Body {
   h: number;
   tex: THREE.Texture;
   /** The dance atlas (assets/npcs/<id>_dance.png): frame 0 standing, then the poses; null when this person has none. */
-  dance: { tex: THREE.Texture; w: number; h: number } | null | undefined;
+  dance: { tex: THREE.Texture; w: number; h: number; frames: number } | null | undefined;
   /** After-images that trail a dancer (a beat behind, tinted and see-through), made on first dance. */
   ghosts?: { mesh: THREE.Mesh; tex: THREE.Texture }[];
 }
 
 /** How far behind the dancer each after-image is (seconds), and how strongly it shows. */
+/** The frame to show: a hand-drawn loop plays straight through at ANIM_FPS; a pose atlas steps on the beat (choreo). */
+function frameAt(frames: number, id: string, danceS: number): number {
+  if (frames === ANIM_FRAMES) return ((Math.floor(danceS * ANIM_FPS) % ANIM_FRAMES) + ANIM_FRAMES) % ANIM_FRAMES;
+  return danceFrame(id, danceS);
+}
+
 const GHOSTS: readonly { lag: number; alpha: number }[] = [{ lag: 0.12, alpha: 0.45 }, { lag: 0.26, alpha: 0.22 }];
 
 export class NpcRenderer {
@@ -122,7 +128,9 @@ export class NpcRenderer {
   /** Places and bends one person: idle bob, or the dance pose when the jukebox plays. */
   private poseBody(b: Body, v: NpcView, eye: { x: number; z: number } | undefined, k: number): void {
     const idle = Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015;
-    const pose: Pose = v.dancing ? dancePose(v.id, v.danceS) : STILL;
+    const art = v.dancing ? this.danceArt(b, v) : null;
+    // A hand-drawn loop carries its own motion: no procedural bend, turn or hop on top of it.
+    const pose: Pose = v.dancing && !(art && art.frames === ANIM_FRAMES) ? dancePose(v.id, v.danceS) : STILL;
     const m = b.mesh;
     m.position.set(v.x, v.y + (v.dancing ? 0 : idle) + pose.hop, v.z);
     m.rotation.y = eye ? Math.atan2(eye.x - v.x, eye.z - v.z) : 0;
@@ -130,11 +138,11 @@ export class NpcRenderer {
     m.translateX(pose.side);
     // Dancers with pose art step through its frames on the beat; everyone else (and Gruk) keeps the standing picture.
     const mat = m.material as THREE.MeshBasicMaterial;
-    const dance = v.dancing ? this.danceArt(b, v) : null;
+    const dance = art;
     let w = b.w;
     let h = b.h;
     if (dance) {
-      dance.tex.offset.x = danceFrame(v.id, v.danceS) / DANCE_FRAMES;
+      dance.tex.offset.x = frameAt(dance.frames, v.id, v.danceS) / dance.frames;
       if (mat.map !== dance.tex) {
         mat.map = dance.tex;
         mat.needsUpdate = true;
@@ -160,7 +168,7 @@ export class NpcRenderer {
   }
 
   /** The after-image trail behind a dancer with pose art: earlier poses, purple-tinted and fading, a hair behind the body. */
-  private trail(b: Body, v: NpcView, dance: { tex: THREE.Texture; w: number; h: number } | null, h: number, eye: { x: number; z: number } | undefined, k: number): void {
+  private trail(b: Body, v: NpcView, dance: { tex: THREE.Texture; w: number; h: number; frames: number } | null, h: number, eye: { x: number; z: number } | undefined, k: number): void {
     if (!dance) {
       for (const g of b.ghosts ?? []) g.mesh.visible = false;
       return;
@@ -179,8 +187,8 @@ export class NpcRenderer {
     }
     b.ghosts.forEach((g, i) => {
       const t = v.danceS - GHOSTS[i].lag;
-      const p = dancePose(v.id, t);
-      g.tex.offset.x = danceFrame(v.id, t) / DANCE_FRAMES;
+      const p = dance.frames === ANIM_FRAMES ? STILL : dancePose(v.id, t);
+      g.tex.offset.x = frameAt(dance.frames, v.id, t) / dance.frames;
       const m = g.mesh;
       m.visible = true;
       m.position.set(v.x, v.y + p.hop, v.z);
@@ -195,20 +203,22 @@ export class NpcRenderer {
   }
 
   /** The dance atlas texture for a person, made on first use (a sub-rectangle of it is one frame). */
-  private danceArt(b: Body, v: NpcView): { tex: THREE.Texture; w: number; h: number } | null {
+  private danceArt(b: Body, v: NpcView): { tex: THREE.Texture; w: number; h: number; frames: number } | null {
     if (b.dance !== undefined) return b.dance;
-    const atlas = npcArt(`${v.id}_dance`);
+    const anim = npcArt(`${v.id}_anim`);
+    const frames = anim ? ANIM_FRAMES : DANCE_FRAMES;
+    const atlas = anim ?? npcArt(`${v.id}_dance`);
     if (!atlas) return (b.dance = null);
     const tex = new THREE.CanvasTexture(atlas);
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
     tex.generateMipmaps = false;
     tex.colorSpace = THREE.SRGBColorSpace;
-    tex.repeat.set(1 / DANCE_FRAMES, 1);
+    tex.repeat.set(1 / frames, 1);
     // The standing body in the cell matches the standing picture's height; the cell is taller by the headroom raised arms need.
-    const cellW = atlas.width / DANCE_FRAMES;
+    const cellW = atlas.width / frames;
     const h = b.h / npcDanceBodyFrac(v.id);
-    return (b.dance = { tex, w: (cellW / atlas.height) * h, h });
+    return (b.dance = { tex, w: (cellW / atlas.height) * h, h, frames });
   }
 
   private makeBody(v: NpcView): Body {

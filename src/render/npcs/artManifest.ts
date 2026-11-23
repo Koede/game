@@ -11,8 +11,9 @@ import art8 from '../../../assets/npcs/orrin.jpg';
 import art9 from '../../../assets/npcs/orrin_dance.png';
 import art10 from '../../../assets/npcs/orrin_faces.jpg';
 import art11 from '../../../assets/npcs/rosa.jpg';
-import art12 from '../../../assets/npcs/rosa_dance.png';
-import art13 from '../../../assets/npcs/rosa_faces.jpg';
+import art12 from '../../../assets/npcs/rosa_anim.png';
+import art13 from '../../../assets/npcs/rosa_dance.png';
+import art14 from '../../../assets/npcs/rosa_faces.jpg';
 
 export const NPC_ART: Readonly<Record<string, string>> = {
   bram: art0,
@@ -27,6 +28,7 @@ export const NPC_ART: Readonly<Record<string, string>> = {
   orrin_dance: art9,
   orrin_faces: art10,
   rosa: art11,
-  rosa_dance: art12,
-  rosa_faces: art13,
+  rosa_anim: art12,
+  rosa_dance: art13,
+  rosa_faces: art14,
 };
