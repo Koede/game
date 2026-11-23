@@ -306,6 +306,22 @@ describe('swimming', () => {
     expect(player.position.z).toBeLessThan(-2);
     expect(player.position.y).toBeGreaterThanOrEqual(12 - 1e-6);
   });
+
+  it('swimming into a bank climbs out without Space, but never up a wall with no top in reach', () => {
+    const swim = (wallTop: number): { z: number; y: number } => {
+      const world = flatWorld();
+      world.fill(-12, 10, -1, 12, 11, 12, 'water');
+      world.fill(-12, 10, -12, 12, wallTop, -2, 'stone');
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(world, player);
+      run(physics, 4, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+      return { z: player.position.z, y: player.position.y };
+    };
+    const low = swim(11);
+    expect(low.z).toBeLessThan(-2);
+    expect(low.y).toBeGreaterThanOrEqual(12 - 1e-6);
+    expect(swim(20).y).toBeLessThan(13);
+  });
 });
 
 describe('currents (spec 18.4)', () => {
@@ -351,5 +367,83 @@ describe('currents (spec 18.4)', () => {
     const y0 = a.position.y;
     run(fall, 1, up);
     expect(a.position.y).toBeGreaterThan(y0 + 0.5);
+  });
+});
+
+describe('jump assist in the physics', () => {
+  it('lets a jump pressed just after walking off an edge work, unless assist is off', () => {
+    for (const assist of [true, false]) {
+      const world = new PatchyWorld(null);
+      world.fill(-4, 9, 0, 4, 9, 4, 'stone');
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(world, player);
+      physics.assist = assist;
+      let jumped = false;
+      for (let i = 0; i < 60 && !jumped; i++) {
+        const stepped = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+        if (!player.onGround && player.position.z < -0.3) {
+          const r = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: true, sprint: false });
+          jumped = r.jumped;
+          break;
+        }
+        void stepped;
+      }
+      expect(jumped).toBe(assist);
+    }
+  });
+});
+
+describe('auto-step', () => {
+  const walkInto = (autoStep: boolean, wallHeight: number): number => {
+    const world = flatWorld(null);
+    world.fill(-3, 10, -9, 3, 9 + wallHeight, -3, 'stone');
+    const player = makePlayer(createBus(), 0.5, 10, 0.5);
+    const physics = new PlayerPhysics(world, player);
+    physics.autoStep = autoStep;
+    for (let i = 0; i < 120; i++) physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+    return player.position.y;
+  };
+
+  it('walks onto a one-block ledge only when on', () => {
+    expect(walkInto(true, 1)).toBeCloseTo(11, 1);
+    expect(walkInto(false, 1)).toBeCloseTo(10, 1);
+  });
+
+  it('never climbs a two-block wall', () => {
+    expect(walkInto(true, 2)).toBeCloseTo(10, 1);
+  });
+});
+
+describe('sneaking', () => {
+  const edgeWorld = () => {
+    const world = new PatchyWorld(null);
+    world.fill(-4, 9, 0, 4, 9, 4, 'stone');
+    return world;
+  };
+
+  it('stops at an edge instead of walking off, where walking falls', () => {
+    for (const sneak of [true, false]) {
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(edgeWorld(), player);
+      for (let i = 0; i < 180; i++) physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false, sneak });
+      if (sneak) {
+        expect(player.onGround).toBe(true);
+        expect(player.position.y).toBeCloseTo(10, 2);
+        expect(player.position.z).toBeGreaterThan(-0.31);
+      } else expect(player.position.y).toBeLessThan(9);
+    }
+  });
+
+  it('is slower than walking, and sprint is ignored while sneaking', () => {
+    const run = (sneak: boolean, sprint: boolean): number => {
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(flatWorld(null), player);
+      let r = physics.step(1 / 60, idle());
+      for (let i = 0; i < 60; i++) r = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint, sneak });
+      expect(r.sprinting).toBe(!sneak && sprint);
+      return Math.abs(player.position.z - 0.5);
+    };
+    expect(run(true, true)).toBeLessThan(run(false, false) * 0.5);
+    expect(run(false, true)).toBeGreaterThan(run(false, false));
   });
 });

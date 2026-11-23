@@ -27,10 +27,16 @@ export interface Settings {
   difficulty: Difficulty;
   /** 'large' scales the HUD, the touch buttons and their captions up for small phone screens (review ui-10). */
   uiScale: 'normal' | 'large';
-  /** Accessibility: stops decorative movement (flashes, pulses, slides) whatever the device says. */
+  /** Forgiving jumps: coyote time and jump buffering. */
+  moveAssist: boolean;
+  /** Walk up one-block ledges without jumping (on by default for touch). */
+  autoStep: boolean;
+  /** No decorative movement: view bob, sprint FOV kick, landing dip, screen shake, UI flashes, pulses and slides (starts on when the device asks for reduced motion). */
   reduceMotion: boolean;
   /** Accessibility: status colours (good / warning / bad, health, food) that stay apart for colour-blind players. */
   colorSafe: boolean;
+  /** Short vibrations on phones for mining, crafting and getting hurt (where the browser can vibrate). */
+  haptics: boolean;
 }
 
 /** Spec 19.3. */
@@ -49,7 +55,10 @@ export const isTouchFirst = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 /** The defaults for a touch-first device or not. Saved choices are merged over them (src/save). */
-export const defaultSettings = (touchFirst: boolean): Settings => ({
+/** The device asks for less motion (the OS accessibility switch). False outside a browser. */
+export const prefersReducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Settings => ({
   renderDistance: touchFirst ? PHONE_RENDER_DISTANCE : DESKTOP_RENDER_DISTANCE,
   fov: 72,
   mouseSensitivity: 1,
@@ -60,12 +69,15 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   showFps: false,
   difficulty: 'normal',
   uiScale: 'normal',
-  reduceMotion: false,
+  moveAssist: true,
+  autoStep: touchFirst,
+  reduceMotion,
   colorSafe: false,
+  haptics: true,
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */
-export const DEFAULT_SETTINGS: Settings = defaultSettings(isTouchFirst());
+export const DEFAULT_SETTINGS: Settings = defaultSettings(isTouchFirst(), prefersReducedMotion());
 
 /** Who currently owns the player's attention. Written by the UI and the controls, read by everybody. */
 export interface InputState {

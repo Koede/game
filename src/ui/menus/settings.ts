@@ -56,13 +56,19 @@ export class SettingsPanel {
         'Controls',
         hasMouse() ? this.slider('mouseSensitivity', 'Mouse look speed', '', L.sensitivity, speed) : null,
         this.slider('touchSensitivity', 'Touch look speed', '', L.sensitivity, speed),
-        this.toggle('invertY', 'Invert vertical look', ''),
+            this.toggle('invertY', 'Invert vertical look', ''),
         this.touchControls(),
       ),
       this.section(
         'Accessibility',
-        this.toggle('reduceMotion', 'Reduce motion', 'Stops flashes, pulses and sliding. Bars and counters still update.'),
+        this.toggle('reduceMotion', 'Reduce motion', 'No view bob, sprint zoom, landing dip, screen shake, flashes, pulses or sliding. Bars and counters still update.'),
         this.toggle('colorSafe', 'Colour-blind-safe colours', 'Good, warning and bad show as blue, yellow and orange instead of green, yellow and red.'),
+      ),
+      this.section(
+        'Feel',
+        this.toggle('moveAssist', 'Forgiving jumps', 'A jump pressed just after leaving a ledge, or just before landing, still counts.'),
+        this.toggle('autoStep', 'Auto-step', 'Walk up one-block ledges without jumping (on by default on phones).'),
+        this.toggle('haptics', 'Vibration', 'Short buzzes on phones for mining, crafting and getting hurt.'),
       ),
       this.section('Sound', this.slider('volume', 'Volume', '', L.volume, formatPercent)),
     );
@@ -136,7 +142,7 @@ export class SettingsPanel {
     return this.row(label, hint, slider.el, true);
   }
 
-  private toggle(key: 'invertY' | 'showFps' | 'reduceMotion' | 'colorSafe', label: string, hint: string): HTMLElement {
+  private toggle(key: 'invertY' | 'showFps' | 'moveAssist' | 'autoStep' | 'reduceMotion' | 'colorSafe' | 'haptics', label: string, hint: string): HTMLElement {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);

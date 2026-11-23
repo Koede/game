@@ -13,7 +13,9 @@ import { useRepeatFor, type HandHands } from './handTools';
 import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
+import { attachHaptics } from './haptics';
 import { Interaction } from './interaction';
+import { SHAKE_BREAK, SHAKE_DIG, SHAKE_HURT, SHAKE_STRIKE, Shake, landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
@@ -64,6 +66,14 @@ const BOB_X = 0.025;
 const BOB_FREQ = 0.62;
 /** Blocks walked on the ground between footstep sounds. */
 const STEP_EVERY = 1.75;
+/** Footstep spacing and loudness while sprinting (quick and firm) and sneaking (rare and hushed). */
+const SPRINT_STEP_EVERY = 1.45;
+const SNEAK_STEP_EVERY = 1.0;
+const STEP_VOLUME = 0.6;
+const SPRINT_STEP_VOLUME = 0.85;
+const SNEAK_STEP_VOLUME = 0.18;
+/** How far the eye sinks while sneaking, in blocks. */
+export const SNEAK_EYE_DROP = 0.22;
 /** A landing from higher than this makes a thud. */
 const LAND_SOUND_FROM = 1.2;
 /** Looking straight up or down stops just short of the pole (so the view direction never degenerates). */
@@ -102,6 +112,11 @@ export class PlayerController {
   /** Camera lag after stepping up onto a slab, so the eye glides instead of snapping. */
   private stepOffset = 0;
   private stepDistance = 0;
+  /** Eye height lost to sneaking, eased in and out. */
+  private sneakDip = 0;
+  /** Eye height lost to a hard landing, easing back. */
+  private landDip = 0;
+  private readonly shake = new Shake();
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
   /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
@@ -128,8 +143,17 @@ export class PlayerController {
       }),
       this.bus.on('ui:closed', () => this.recapture()),
       this.bus.on('player:respawn', () => this.physics.reset()),
+      this.bus.on('sfx', (e) => {
+        if (!e.name.startsWith('dig_') || e.x === undefined || e.z === undefined) return;
+        const q = this.player.position;
+        if (Math.hypot(e.x - q.x, (e.y ?? q.y) - q.y, e.z - q.z) <= REACH + 1) this.addShake(SHAKE_DIG);
+      }),
+      this.bus.on('block:broken', () => this.addShake(SHAKE_BREAK)),
+      this.bus.on('mob:hurt', () => this.addShake(SHAKE_STRIKE)),
+      this.bus.on('player:damage', () => this.addShake(SHAKE_HURT)),
       // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
       attachSapSave(this.world, this.player),
+      attachHaptics(this.bus, () => this.settings.haptics),
     );
   }
 
@@ -229,6 +253,8 @@ export class PlayerController {
     }
     this.sprintWanted = sprintAsked;
     this.devFlight(dt, intent.jump);
+    this.physics.assist = this.settings.moveAssist;
+    this.physics.autoStep = this.settings.autoStep;
     const r = this.physics.step(dt, intent);
     if (r.jumped) {
       this.sfx('jump');
@@ -237,16 +263,19 @@ export class PlayerController {
     if (r.enteredWater) this.sfx('splash');
     else if (r.landedFrom > LAND_SOUND_FROM) this.sfx('land');
     if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;
+    if (r.landedFrom > 0 && !this.settings.reduceMotion) this.landDip = Math.max(this.landDip, landingDip(r.landedFrom));
     if (p.onGround && r.walked > 0) {
       this.stepDistance += r.walked;
-      if (this.stepDistance >= STEP_EVERY) {
-        this.stepDistance -= STEP_EVERY;
-        this.sfx('step', 0.6);
+      const every = r.sneaking ? SNEAK_STEP_EVERY : r.sprinting ? SPRINT_STEP_EVERY : STEP_EVERY;
+      if (this.stepDistance >= every) {
+        this.stepDistance -= every;
+        this.sfx('step', r.sneaking ? SNEAK_STEP_VOLUME : r.sprinting ? SPRINT_STEP_VOLUME : STEP_VOLUME);
       }
     }
+    this.sneakDip += ((r.sneaking ? SNEAK_EYE_DROP : 0) - this.sneakDip) * (1 - Math.exp(-12 * dt));
     // View bob follows the distance walked, fading in and out with ground speed.
     const speed = Math.hypot(p.velocity.x, p.velocity.z);
-    const bobTarget = p.onGround && !this.physics.inLiquid ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
+    const bobTarget = p.onGround && !this.physics.inLiquid && !this.settings.reduceMotion ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
     this.bobAmount += (bobTarget - this.bobAmount) * (1 - Math.exp(-10 * dt));
     if (p.onGround) this.bobPhase += r.walked * BOB_FREQ * Math.PI * 2;
     this.sprintFov(dt, r.sprinting && speed > WALK_SPEED * 0.9);
@@ -271,7 +300,7 @@ export class PlayerController {
   }
 
   private sprintFov(dt: number, sprinting: boolean): void {
-    const target = this.settings.fov + (sprinting ? SPRINT_FOV_KICK : 0);
+    const target = this.settings.fov + (sprinting && !this.settings.reduceMotion ? SPRINT_FOV_KICK : 0);
     let next = this.fov < 0 ? target : this.fov + (target - this.fov) * (1 - Math.exp(-8 * dt));
     if (Math.abs(next - target) < 0.05) next = target;
     if (next !== this.fov) {
@@ -320,12 +349,14 @@ export class PlayerController {
   private updateView(dt: number): void {
     const p = this.player;
     this.stepOffset *= Math.exp(-14 * dt);
+    this.landDip = settle(this.landDip, 9, dt);
     if (Math.abs(this.stepOffset) < 1e-3) this.stepOffset = 0;
     const bobY = Math.abs(Math.sin(this.bobPhase)) * BOB_Y * this.bobAmount;
     const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset, z, p.yaw, p.pitch);
+    this.shake.update(dt);
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip, z, p.yaw + this.shake.yaw, clamp(p.pitch + this.shake.pitch, -PITCH_LIMIT, PITCH_LIMIT));
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;
@@ -344,6 +375,10 @@ export class PlayerController {
       this.heldKey = key;
       this.view.setHeldItem(key);
     }
+  }
+
+  private addShake(amount: number): void {
+    if (!this.settings.reduceMotion) this.shake.add(amount);
   }
 
   private recapture(): void {

@@ -5,7 +5,8 @@
 import type { ScreenRequest, SfxName } from '../core/gameEvents';
 import { ITEMS, block, hearthWallTier, machineOfBlock } from '../core/registry';
 import { FACING_TO_FACE, Facing, voxelFacing, type BlockDef, type Face, type Voxel } from '../core/types';
-import { isCrop } from '../game';
+import type { Slot } from '../core/types';
+import { effectiveTier, isCrop, toolMatches } from '../game';
 
 /** Which dig sound a block makes. Crops are machine blocks but plants: they rustle like any other plant. */
 export function digSound(def: BlockDef): SfxName {
@@ -15,6 +16,23 @@ export function digSound(def: BlockDef): SfxName {
   if (def.tool === 'shovel') return def.key === 'sand' || def.key === 'gravel' || def.key === 'snow' ? 'dig_sand' : 'dig_dirt';
   if (def.tool === 'pickaxe') return 'dig_stone';
   return def.opaque ? 'dig_dirt' : 'dig_sand';
+}
+
+/**
+ * Pitch of a dig sound for what is in hand: the right tool rings fuller the better it is, a bare hand or the wrong
+ * tool taps lightly and high, and a tool too weak for the block thuds dull and low.
+ */
+export function digPitch(def: BlockDef, held: Slot): number {
+  if (!toolMatches(def, held)) return 1.18;
+  return effectiveTier(def, held) >= def.minTier ? 0.94 + Math.min(5, effectiveTier(def, held)) * 0.04 : 0.82;
+}
+
+/** Pitch of the thunk a placed block makes: wood sounds hollow and high, earth soft, stone and metal low and firm. */
+export function placePitch(def: BlockDef): number {
+  if (def.tool === 'axe') return 1.12;
+  if (def.tool === 'shovel') return 0.95;
+  if (def.tool === 'pickaxe' || def.machine || def.power) return 0.82;
+  return 1;
 }
 
 /** The screen that using this block opens, or null (crops, wild bushes, brewing setups and hand stations are machine blocks without a screen). */

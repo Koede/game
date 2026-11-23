@@ -5,7 +5,7 @@
 import type { Settings } from '../../core/context';
 import { TouchGestures, type LookDelta } from './gestures';
 import { clearIntent, createIntent, type Intent } from './intent';
-import { CMD_DROP, CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyDropHeld, keyJump, keySprint, reduceKeys } from './keys';
+import { CMD_DROP, CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyDropHeld, keyJump, keySneak, keySprint, reduceKeys } from './keys';
 import { MouseDrag } from './mouseDrag';
 
 /** View rotation per pixel of mouse travel at sensitivity 1. */
@@ -193,6 +193,7 @@ export class InputCore {
 
     intent.jump = keyJump(this.keys) || this.touch.jumpHeld;
     intent.sprint = keySprint(this.keys) || stick.sprint;
+    intent.sneak = keySneak(this.keys);
     intent.mine = this.lockedMine || this.drag.mineHeld || this.touch.mineHeld;
     intent.use = this.frameUse(dtSeconds);
     // Shift is also sprint: it only means "place" together with a Use, and sprinting needs the walk key anyway.
