@@ -9,5 +9,4 @@ buried near it. Optional: nothing needs it.
   with age). `treasureClue`, `treasureHint(map, px, pz)` (warm/cool/cold) and `nearTreasure` drive the UI.
 - Content: `src/content/areas/world_treasure.ts`, icon in `src/render/textures/areas/world_treasure.ts`.
 - Wired: see docs/api/exploration.md.
-  entity API when the player reaches `nearTreasure`, and adding `treasure_map` to `LOOT_TABLES`.
 - Tests: `src/world/treasure.test.ts`.
