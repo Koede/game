@@ -29,7 +29,7 @@ def happy(e, m):
 
 def laugh(e, m):
     # eyes squeezed shut: skin re-filled, a three-step lash arc, flicks at the outer ends
-    for r, s in ((4, '~~~~~~~'), (5, '~~baa~~'), (6, '~b~~~b~'), (7, 'c~~~~~c')):
+    for r, s in ((4, '>>>>>>>'), (5, '>>baa>>'), (6, '>b>>>b>'), (7, 'c>>>>>c')):
         e.mir(r, 1, s, AX)
     # mouth wide open: dark inside, tongue low
     m.put(4, 1, 'aabbbbbbaa')
@@ -48,9 +48,10 @@ def surprised(e, m):
     e.mir(5, 2, 'lppppl', AX)
     e.mir(6, 2, 'pbaabp', AX)
     e.mir(7, 2, 'mmmmmm', AX)
-    m.put(3, 2, 'NbaaaabN')
-    m.put(4, 3, 'baaaab')
-    m.put(5, 4, 'baab')
+    m.put(3, 2, 'NNbaabNN')
+    m.put(4, 3, 'jbaabj')
+    m.put(5, 3, 'jbuubj')
+    m.put(6, 4, 'jbbj')
 
 
 def annoyed(e, m):

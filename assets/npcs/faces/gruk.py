@@ -29,7 +29,7 @@ def drop(m, rows, cols_from, cols_to):
 
 def happy(e, m):
     # a grin: the jaw drops one cell, the opening is dark with shaded lip corners, the lower teeth stay in view
-    drop(m, 1, 0, 18)
+    drop(m, 1, 5, 13)
     m.put(4, 5, 'FEEEEEEEF')
     m.put(5, 4, 'EBBBBBBBBBE')
     m.put(6, 5, 'EAAAAAAAE')
@@ -37,9 +37,10 @@ def happy(e, m):
 
 def laugh(e, m):
     # eyes shut under the brow: skin socket and a thin lash line; the jaw drops two cells, tongue behind the teeth
-    e.mir(5, 4, '~~~~~~', AX)
-    e.mir(6, 4, 'qBBBBq', AX)
-    drop(m, 2, 0, 18)
+    e.mir(5, 4, 'GGBBGG', AX)
+    e.mir(6, 4, 'BGGGGB', AX)
+    e.mir(7, 5, '.LL.', AX)
+    drop(m, 2, 5, 13)
     m.put(4, 5, 'FEEEEEEEF')
     m.put(5, 4, 'EBBBBBBBBBE')
     m.put(6, 4, 'EAAAAAAAAAE')
@@ -53,7 +54,7 @@ def surprised(e, m):
         e.put(r, 14, '^' * 9)
     e.mir(5, 4, 'NwwwwN', AX)
     e.mir(6, 4, 'wKppKw', AX)
-    drop(m, 2, 0, 18)
+    drop(m, 2, 5, 13)
     m.put(4, 6, 'FEEEEEF')
     m.put(5, 5, 'EBBBBBBBE')
     m.put(6, 5, 'EAAAAAAAE')

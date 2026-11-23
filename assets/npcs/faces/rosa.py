@@ -22,8 +22,11 @@ def happy(e, m):
 
 
 def laugh(e, m):
-    for r, s in ((3, '~~~~~~~'), (4, '~~AAA~~'), (5, '~A~~~A~'), (6, 'B~~~~~B'), (7, '~~~~~~~')):
+    for r, s in ((3, '>>>>>>>'), (4, '>>AAA>>'), (5, '>A>>>A>'), (6, 'B~~~~~B'), (7, '~~~~~~~')):
         e.mir(r, 1, s, AX)
+    for r in (5, 6, 7):
+        e.mir(r, 0, '~', AX)
+        e.mir(r, 8, '~', AX)
     m.put(2, 4, 'TTTTT')
     m.put(3, 3, 'BoooooB')
     m.put(4, 4, 'ogggo')
@@ -45,7 +48,8 @@ def surprised(e, m):
 
 
 def annoyed(e, m):
-    e.mir(5, 1, 'ABBBBBA', AX)
+    e.mir(3, 1, '>>>>>>>', AX)
+    e.mir(4, 1, 'CAAAAAC', AX)
     m.put(2, 2, '~')
     m.put(2, 10, '~')
     m.put(3, 3, 'BDBBBDB')
@@ -54,7 +58,8 @@ def annoyed(e, m):
 
 
 def smirk(e, m):
-    e.put(5, 14, 'ABBBBBA')
+    e.put(3, 14, '<<<<<<<')
+    e.put(4, 14, 'CAAAAAC')
     m.put(2, 2, '~')
     m.put(3, 3, 'BDBBB')
     m.put(3, 8, '~~')

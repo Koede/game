@@ -25,7 +25,7 @@ def happy(e, m):
 
 def laugh(e, m):
     # eyes squeezed shut: a rosy lid, a three-step lash arc with flicks, then the skin lightens down to the cheek
-    for r, s in ((7, 'MMMMMMMMMM'), (8, 'MNNNAAANNM'), (9, 'NNAANNNAAN'), (10, 'NFNNNNNNNF'), (11, 'NNNNNNNNNN'), (12, 'MMMMMMMMMM')):
+    for r, s in ((6, '>>>>>>>>>>'), (7, '>>>>KKK>>>'), (8, '>>>>AAA>>>'), (9, '>>AA>>>AA>'), (10, '~F~~~~~~~F'), (11, '~~~~~~~~~~'), (12, '~~~~~~~~~~')):
         e.mir(r, 2, s, AX)
     m.put(3, 2, 'aabbbbbbaa')
     m.put(4, 3, 'TTTTTTTT')
@@ -50,9 +50,9 @@ def surprised(e, m):
 
 
 def annoyed(e, m):
-    e.mir(7, 3, 'MMMMMMMMM', AX)
-    e.mir(8, 3, 'NNNNNNNNN', AX)
-    e.mir(9, 2, 'FCAAAAAACF', AX)
+    e.mir(7, 3, '>>>>>>>>>', AX)
+    e.mir(8, 3, 'CA>>>>>AC', AX)
+    e.mir(9, 5, 'AAAAA', AX)
     e.mir(1, 3, 'CCC~~~~', AX)
     e.mir(3, 6, 'CCCC', AX)
     m.put(3, 3, '~~~~~~~~')
@@ -65,9 +65,9 @@ def smirk(e, m):
     e.put(1, 3, '#######')
     e.put(2, 3, '~~~~~~~')
     e.put(3, 3, '~~~~~~~')
-    e.put(7, 22, 'MMMMMMMMM')
-    e.put(8, 22, 'NNNNNNNNN')
-    e.put(9, 21, 'FCAAAAAACF')
+    e.put(7, 22, '<<<<<<<<<')
+    e.put(8, 22, 'CA<<<<<AC')
+    e.put(9, 24, 'AAAAA')
     m.put(3, 2, '~~~~~~~~~~')
     m.put(4, 3, 'aaaa~~~')
     m.put(3, 7, 'aaaa')

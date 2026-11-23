@@ -5,6 +5,7 @@ laid over that grid, one character per cell:
   .   keep the original cell
   ~   a skin cell to be re-filled: its colour is smoothed in from the surrounding untouched cells (keeps the shading gradient)
   ^ v # 2   copy the original cell one below / one above / two below / two above (moves brows, stretches eyes)
+  > <       skin taken from the nearest untouched skin cell to the right / left in the same row (a refill that follows the row's shading)
   any other character: a colour from the region's legend (sampled from the original art, or a ramp step hand-picked next to it)
 Nothing is generated: every changed cell is a character in the data files (bram.py, orrin.py, gruk.py, mara.py, rosa.py)."""
 import os
@@ -35,6 +36,8 @@ class Region:
                 continue
             if ch == '~':
                 self.cell[(r, cc)] = '~'
+            elif ch in '<>':
+                self.cell[(r, cc)] = ch
             elif ch in OFFSETS:
                 rr = r + OFFSETS[ch]
                 self.cell[(r, cc)] = tuple(self.base[min(max(rr, 0), self.rows - 1), cc])
@@ -44,7 +47,7 @@ class Region:
     def mir(self, r, c, s, axis_sum):
         """Left-side row plus its mirror image on the right (cell c <-> axis_sum - c)."""
         self.put(r, c, s)
-        self.put(r, axis_sum - (c + len(s) - 1), s[::-1])
+        self.put(r, axis_sum - (c + len(s) - 1), s[::-1].translate(str.maketrans('<>', '><')))
 
     def smooth(self):
         holes = [k for k, v in self.cell.items() if v == '~']
@@ -53,7 +56,7 @@ class Region:
         col = {}
         anchored = lambda rc: (rc not in self.cell and 0 <= rc[0] < self.rows and 0 <= rc[1] < self.cols
                                and self.base[rc].mean() >= self.min_luma
-                               and self.base[rc][0] - self.base[rc][2] >= 20)  # hair, lashes, grey brows are not skin: they never bleed into a refill
+                               and self.base[rc][0] - self.base[rc][2] >= 20 and self.base[rc][0] >= self.base[rc][1])  # hair, lashes, grey brows are not skin: they never bleed into a refill
         for rc in holes:  # start from the mean of the nearest anchored cells
             near = [self.base[r, c] for r in range(rc[0] - 3, rc[0] + 4) for c in range(rc[1] - 3, rc[1] + 4) if anchored((r, c))]
             col[rc] = np.mean(near, axis=0) if near else np.array(self.base[rc])
@@ -70,7 +73,19 @@ class Region:
                     col[rc] = acc / n
         return col
 
+    def row_skin(self, r, c, step):
+        cc = c + step
+        while 0 <= cc < self.cols:
+            if (r, cc) not in self.cell and self.base[r, cc].mean() >= self.min_luma and self.base[r, cc][0] - self.base[r, cc][2] >= 20 and self.base[r, cc][0] >= self.base[r, cc][1]:
+                return self.base[r, cc]
+            cc += step
+        return None
+
     def paint(self, out):
+        for (r, c), v in list(self.cell.items()):
+            if v in ('<', '>'):
+                got = self.row_skin(r, c, 1 if v == '>' else -1)
+                self.cell[(r, c)] = tuple(got) if got is not None else '~'
         sm = self.smooth()
         S = self.S
         for (r, c), v in self.cell.items():
