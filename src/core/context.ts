@@ -27,6 +27,10 @@ export interface Settings {
   difficulty: Difficulty;
   /** 'large' scales the HUD, the touch buttons and their captions up for small phone screens (review ui-10). */
   uiScale: 'normal' | 'large';
+  /** Accessibility: stops decorative movement (flashes, pulses, slides) whatever the device says. */
+  reduceMotion: boolean;
+  /** Accessibility: status colours (good / warning / bad, health, food) that stay apart for colour-blind players. */
+  colorSafe: boolean;
 }
 
 /** Spec 19.3. */
@@ -56,6 +60,8 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   showFps: false,
   difficulty: 'normal',
   uiScale: 'normal',
+  reduceMotion: false,
+  colorSafe: false,
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

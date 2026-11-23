@@ -11,7 +11,7 @@ import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
 import { h, setFlag, setText } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
-import { applyUiScale } from '../kit/uiScale';
+import { applyAccessibility, applyUiScale } from '../kit/uiScale';
 import { CombatCues } from './combatCues';
 import { parseTargetName, type TargetInfo } from './combatMath';
 import { Compass } from './compass';
@@ -164,7 +164,7 @@ export class Hud {
       bus.on('mob:died', ({ id }) => this.cues.forget(id)),
       bus.on('player:death', () => this.cues.clear()),
       bus.on('player:respawn', () => this.cues.clear()),
-      bus.on('settings:changed', () => applyUiScale(root.el, deps.settings.uiScale)),
+      bus.on('settings:changed', () => { applyUiScale(root.el, deps.settings.uiScale); applyAccessibility(root.el, deps.settings); }),
       bus.on('inventory:changed', () => (this.hotbarDirty = true)),
       bus.on('hotbar:selected', () => (this.hotbarDirty = true)),
       bus.on('power:alert', (a) => {
@@ -177,6 +177,7 @@ export class Hud {
     this.observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.placeToasts()) : null;
     this.observer?.observe(this.top);
     applyUiScale(root.el, deps.settings.uiScale);
+    applyAccessibility(root.el, deps.settings);
     this.update();
   }
 
@@ -332,6 +333,7 @@ export class Hud {
     this.cues.setBurning(d.player.combat.burning);
     // Settings are read by reference: a change made anywhere (title, pause menu) shows within a slow tick.
     applyUiScale(this.root.el, d.settings.uiScale);
+    applyAccessibility(this.root.el, d.settings);
     this.feed.tick();
     // The goal tip waits for the first finished goal (the list is built on each read: ask only until then).
     if (!this.goalDone && d.objectives.completed.length > 0) {

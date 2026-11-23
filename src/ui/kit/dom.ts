@@ -118,4 +118,5 @@ let nextId = 0;
 export const uid = (prefix: string): string => `hw-${prefix}-${++nextId}`;
 
 export const prefersReducedMotion = (): boolean =>
-  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  (typeof document !== 'undefined' && document.querySelector('.hw-root[data-reduce-motion]') !== null) ||
+  (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);

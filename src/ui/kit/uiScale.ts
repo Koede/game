@@ -14,6 +14,18 @@ export const UI_SCALE_LARGE = 1.2;
 /** The number `--hw-ui-scale` carries for a setting (anything unknown reads as normal). */
 export const uiScaleFactor = (scale: UiScale | undefined): number => (scale === 'large' ? UI_SCALE_LARGE : 1);
 
+/**
+ * Accessibility switches: `data-reduce-motion` and `data-color-safe` on the UI root. The stylesheet follows them
+ * (motion off like prefers-reduced-motion; colour-blind-safe status colours); script code asks `prefersReducedMotion()`.
+ */
+export function applyAccessibility(root: HTMLElement, s: Pick<Settings, 'reduceMotion' | 'colorSafe'>): void {
+  for (const [attr, on] of [['data-reduce-motion', s.reduceMotion], ['data-color-safe', s.colorSafe]] as const) {
+    if (on === root.hasAttribute(attr)) continue;
+    if (on) root.setAttribute(attr, '');
+    else root.removeAttribute(attr);
+  }
+}
+
 /** Marks the UI root (`UIRoot.el`, class hw-root) with the size. Cheap to call often: writes only on a change. */
 export function applyUiScale(root: HTMLElement, scale: UiScale | undefined): void {
   const value = scale === 'large' ? 'large' : 'normal';

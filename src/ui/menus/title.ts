@@ -5,7 +5,7 @@ import { Button, Segmented, TextField } from '../kit/controls';
 import { h, setText } from '../kit/dom';
 import { heatColor } from '../kit/format';
 import type { UIRoot } from '../kit/root';
-import { applyUiScale } from '../kit/uiScale';
+import { applyAccessibility, applyUiScale } from '../kit/uiScale';
 import { Window } from '../kit/window';
 import { EmberField } from './fire';
 import { HowToPlay, type HowToPlayOptions } from './howto';
@@ -101,6 +101,7 @@ export class TitleScreen {
       },
     });
     applyUiScale(root.el, this.settings.uiScale);
+    applyAccessibility(root.el, this.settings);
     this.menu = h('div', { class: 'hw-title__menu' });
     const ages = opts.ages ?? DEFAULT_AGES;
     this.wordmark = h(
@@ -238,6 +239,7 @@ export class TitleScreen {
       setText(this.difficultyHint, difficultyHint(settings.difficulty));
     }
     applyUiScale(this.root.el, settings.uiScale);
+    applyAccessibility(this.root.el, settings);
     this.opts.onSettingsChange({ ...settings }, key);
   }
 

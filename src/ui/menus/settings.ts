@@ -47,7 +47,7 @@ export class SettingsPanel {
       this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), opts.dev ? this.devSwitch(opts.dev) : null),
       this.section(
         'View',
-        this.choice('uiScale', 'UI size', UI_SCALE_OPTIONS, uiScaleHint),
+        this.choice('uiScale', 'Text and button size', UI_SCALE_OPTIONS, uiScaleHint),
         this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', { ...L.renderDistance, max: isTouchFirst() ? PHONE_MAX_RENDER_DISTANCE : L.renderDistance.max }, (v) => `${v} chunks`),
         this.slider('fov', 'Field of view', '', L.fov, (v) => `${v}°`),
         this.toggle('showFps', 'Show frame rate', ''),
@@ -58,6 +58,11 @@ export class SettingsPanel {
         this.slider('touchSensitivity', 'Touch look speed', '', L.sensitivity, speed),
         this.toggle('invertY', 'Invert vertical look', ''),
         this.touchControls(),
+      ),
+      this.section(
+        'Accessibility',
+        this.toggle('reduceMotion', 'Reduce motion', 'Stops flashes, pulses and sliding. Bars and counters still update.'),
+        this.toggle('colorSafe', 'Colour-blind-safe colours', 'Good, warning and bad show as blue, yellow and orange instead of green, yellow and red.'),
       ),
       this.section('Sound', this.slider('volume', 'Volume', '', L.volume, formatPercent)),
     );
@@ -131,7 +136,7 @@ export class SettingsPanel {
     return this.row(label, hint, slider.el, true);
   }
 
-  private toggle(key: 'invertY' | 'showFps', label: string, hint: string): HTMLElement {
+  private toggle(key: 'invertY' | 'showFps' | 'reduceMotion' | 'colorSafe', label: string, hint: string): HTMLElement {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);

@@ -2855,3 +2855,29 @@ body {
     height: clamp(110px, 40vh, 190px);
   }
 }
+
+/* ---- accessibility switches (Settings > Accessibility; set on .hw-root by applyAccessibility) ---------------------- */
+/* Reduce motion: nothing animates or eases; gauges and progress still update, they just jump. */
+.hw-root[data-reduce-motion] *,
+.hw-root[data-reduce-motion] *::before,
+.hw-root[data-reduce-motion] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+/* Colour-safe: good / warning / bad / health / food sit on a blue - yellow - orange line (Okabe-Ito) instead of green - yellow - red. */
+.hw-root[data-color-safe] {
+  --hw-good: #56b4e9;
+  --hw-good-wash: #0d2230;
+  --hw-warn: #f0e442;
+  --hw-warn-wash: #2b280a;
+  --hw-bad: #e8702a;
+  --hw-bad-hi: #ffb27d;
+  --hw-bad-wash: #331a0c;
+  --hw-food: #56b4e9;
+  --hw-food-hi: #a9d9f5;
+  --hw-food-wash: #0d2230;
+}
+.hw-root[data-color-safe] .hw-vital[data-kind='health'] {
+  --hw-vital-color: #e8702a;
+}
