@@ -172,6 +172,21 @@ export const TOUCH_CSS = `
  * UI size Large (Settings.uiScale, review ui-10): every button grows about a fifth and the captions to 13px, the
  * cluster spreads to keep the gaps between thumbs' targets. The hotbar strip and the top-right corner stay free.
  */
+/* One-handed, left thumb: the cluster is mirrored to the left edge. Right thumb: it stays right and the stick rests beside it. */
+.hw-touch--one-left .hw-touch-btn--jump { right: auto; left: calc(20px + var(--hw-touch-l)); }
+.hw-touch--one-left .hw-touch-btn--mine { right: auto; left: calc(110px + var(--hw-touch-l)); }
+.hw-touch--one-left .hw-touch-btn--use { right: auto; left: calc(26px + var(--hw-touch-l)); }
+.hw-touch--one-left .hw-touch-btn--place { right: auto; left: calc(100px + var(--hw-touch-l)); }
+.hw-touch--one-left .hw-touch-stick { left: calc(190px + var(--hw-touch-l)); }
+.hw-touch--one-right .hw-touch-stick { left: auto; right: calc(190px + var(--hw-touch-r)); }
+@media (orientation: portrait) {
+  .hw-touch--one-left .hw-touch-btn--jump { right: auto; left: calc(16px + var(--hw-touch-l)); }
+  .hw-touch--one-left .hw-touch-btn--mine { right: auto; left: calc(100px + var(--hw-touch-l)); }
+  .hw-touch--one-left .hw-touch-btn--use { right: auto; left: calc(20px + var(--hw-touch-l)); }
+  .hw-touch--one-left .hw-touch-btn--place { right: auto; left: calc(94px + var(--hw-touch-l)); }
+  .hw-touch--one-left .hw-touch-stick { left: calc(180px + var(--hw-touch-l)); }
+  .hw-touch--one-right .hw-touch-stick { left: auto; right: calc(180px + var(--hw-touch-r)); }
+}
 .hw-touch--large .hw-touch-label { font-size: 13px; letter-spacing: 0.06em; }
 .hw-touch--large .hw-touch-btn--place .hw-touch-label { font-size: 10px; }
 .hw-touch--large .hw-touch-btn--jump { --hw-touch-s: 90px; right: calc(16px + var(--hw-touch-r)); bottom: calc(12px + var(--hw-touch-b)); }

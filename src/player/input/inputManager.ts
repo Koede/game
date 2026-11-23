@@ -194,6 +194,8 @@ export class InputManager {
 
   private refreshTouchVisibility(): void {
     this.overlay.setLarge(this.settings.uiScale === 'large');
+    this.overlay.setHanded(this.settings.oneHanded);
+    this.core.touch.handed = this.settings.oneHanded;
     this.state.touch = this.touchEnabled;
     if (!this.state.touch) this.overlay.setVisible(false);
   }

@@ -12,6 +12,9 @@ import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { Survival } from '../game/survival';
+import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
+import { StoryDirector } from '../game/storyBeats';
+import { Journal, isJournalSnapshot } from '../game/journal';
 import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
@@ -51,6 +54,11 @@ export class GameState {
   readonly weather: Weather;
   /** The animals (spec 12.5), ticked after the simulation; their drops fall as ground items. */
   readonly mobs: MobManager;
+  readonly journal: Journal;
+  /** The world was picked up from a save (the game shows a welcome-back line). */
+  readonly resumed: boolean;
+  readonly achievements: Achievements;
+  readonly story: StoryDirector;
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
   /** Tractors (docs/api/tractor.md). Headless: the browser Game binds the physics and draws them. */
@@ -103,6 +111,12 @@ export class GameState {
     this.survival = new Survival(world, this.player, this.clock, biomeAt);
     this.survival.weather = this.weather.state;
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
+    this.resumed = save !== null;
+    this.journal = new Journal(() => this.clock.day, bus);
+    if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
+    this.achievements = new Achievements(bus, () => this.progressFacts());
+    if (save?.achievements && isAchievementsSnapshot(save.achievements)) this.achievements.load(save.achievements);
+    this.story = new StoryDirector(bus, this.journal, () => this.clock.phase, save?.objectives?.age ?? 0);
     this.mobs = new MobManager(world, bus, this.clock, world.seed, { difficulty });
     // The Emberbound (spec 19): ONE damage path. The automatons scale by the difficulty and emit 'player:attacked'
     // themselves, so the player's side only takes the hit (armour, burning, death cause) - never damagePlayer, which
@@ -310,6 +324,9 @@ export class GameState {
     this.mobs.tick(dt, this.mobPlayer);
     this.survival.tick(dt);
     this.objectives.tick(dt);
+    this.journal.explore(this.player.position.x, this.player.position.z);
+    this.achievements.tick(dt);
+    this.story.tick(dt);
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
@@ -329,6 +346,24 @@ export class GameState {
     p.warmth = MAX_WARMTH;
     p.air = MAX_AIR_S;
     if (p.dead) p.dead = false;
+  }
+
+  /** What the achievements read. */
+  private progressFacts(): ProgressFacts {
+    const st = this.player.stats;
+    const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
+    return {
+      age: this.objectives.age,
+      goalsDone: this.objectives.toJSON().completed.length,
+      made: sum(st.made),
+      placed: sum(st.placed),
+      broken: sum(st.broken),
+      deaths: st.deaths,
+      day: this.clock.day,
+      blocksSeen: this.journal.seenBlocks,
+      playTimeS: this.playTimeS,
+      drinks: Object.keys(st.drunk ?? {}).length,
+    };
   }
 
   get mode(): GameMode {
@@ -378,12 +413,16 @@ export class GameState {
       playTimeS: this.playTimeS,
       weather: this.weather.toJSON(),
       mobs: this.mobs.toJSON(),
+      journal: this.journal.toJSON(),
+      achievements: this.achievements.toJSON(),
     };
   }
 
   dispose(): void {
     for (const off of this.offs.splice(0)) off();
     this.objectives.dispose();
+    this.journal.dispose();
+    this.story.dispose();
     this.mobs.dispose();
     this.sim.dispose();
     this.player.dispose();

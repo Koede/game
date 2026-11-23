@@ -7,7 +7,9 @@
  */
 import type { GameMode } from '../core/gameMode';
 import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
+import type { AchievementsSnapshot } from '../game/achievements';
 import type { ClockSnapshot } from '../game/clock';
+import type { JournalSnapshot } from '../game/journal';
 import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
 import type { SurvivalSnapshot } from '../game/survival';
@@ -58,6 +60,10 @@ export interface WorldSave {
    * MobManager.load refuses is ignored the same way, never a reason to drop the world.
    */
   mobs?: MobsSnapshot;
+  /** The journal and the explored map (docs/api/journal.md). Optional: older saves start an empty one; a damaged one is ignored. */
+  journal?: JournalSnapshot;
+  /** Achievements earned (src/game/achievements.ts). Optional, ignored when damaged. */
+  achievements?: AchievementsSnapshot;
   /**
    * 'dev' for a Dev Mode world (docs/api/dev-mode.md). Optional: absent means survival, and survival saves never write it,
    * so they stay exactly as before.
@@ -84,6 +90,7 @@ export const SETTINGS_BOUNDS = {
 
 const TOUCH_MODES: readonly Settings['touchControls'][] = ['auto', 'on', 'off'];
 const GRAPHICS: readonly NonNullable<Settings['graphics']>[] = ['low', 'normal', 'high'];
+const HANDEDNESS: readonly Settings['oneHanded'][] = ['off', 'left', 'right'];
 const UI_SCALES: readonly Settings['uiScale'][] = ['normal', 'large'];
 const ITEM_MAGNETS: readonly Settings['itemMagnet'][] = ['off', 'small', 'large'];
 
@@ -108,6 +115,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (TOUCH_MODES.includes(raw.touchControls as Settings['touchControls'])) out.touchControls = raw.touchControls as Settings['touchControls'];
   // Settings saved before spec 19 have neither: they keep the defaults (Normal, normal size).
   if (DIFFICULTIES.includes(raw.difficulty as Difficulty)) out.difficulty = raw.difficulty as Difficulty;
+  if (HANDEDNESS.includes(raw.oneHanded as Settings['oneHanded'])) out.oneHanded = raw.oneHanded as Settings['oneHanded'];
   if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
   if (typeof raw.haptics === 'boolean') out.haptics = raw.haptics;
   if (typeof raw.reduceMotion === 'boolean') out.reduceMotion = raw.reduceMotion;

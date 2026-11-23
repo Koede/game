@@ -3,6 +3,10 @@
  * -> interaction -> camera. It drives whatever draws the world only through IView (spec section 9) and never
  * imports src/render, src/sim or src/ui: screens are requested with 'ui:open' and machines react to world edits.
  */
+import { Emotes } from './emotes';
+import { PhotoCamera } from './photoCam';
+import { stepSound } from './blockRules';
+import type { SfxName } from '../core/gameEvents';
 import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
 import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
@@ -52,6 +56,8 @@ export interface PlayerControllerOptions {
   brew?: BrewHands;
   /** The simulation's hand work (src/sim's Simulation fits it): strokes at the Ember stations, moulds poured at a furnace. */
   hands?: HandHands;
+  /** The tavern jukebox is playing: the dance emote keeps its beat. */
+  jukeboxOn?: () => boolean;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -92,6 +98,8 @@ export class PlayerController {
   private readonly bus: GameBus;
   private readonly player: PlayerState;
   private readonly view: IView;
+  readonly emotes: Emotes;
+  readonly photo = new PhotoCamera();
   private readonly talkTo: PlayerControllerOptions['talk'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
@@ -129,6 +137,7 @@ export class PlayerController {
     this.bus = options.bus;
     this.player = options.player;
     this.view = options.view;
+    this.emotes = new Emotes(options.jukeboxOn);
     this.talkTo = options.talk;
     this.input = options.input;
     this.settings = options.settings;
@@ -190,6 +199,15 @@ export class PlayerController {
     if (this.state.pointerLocked) this.wantsLock = true;
     p.combat.coolStrike(dt);
 
+    if (!p.dead && (intent.photo || (this.photo.active && intent.pause))) {
+      this.togglePhoto(!this.photo.active);
+      if (!this.photo.active) intent.pause = false;
+    }
+    if (this.photo.active) {
+      this.updatePhoto(dt, intent);
+      return;
+    }
+
     if (!p.dead) {
       p.yaw -= intent.lookYaw;
       if (p.yaw > Math.PI) p.yaw -= Math.PI * 2;
@@ -197,6 +215,17 @@ export class PlayerController {
       p.pitch = clamp(p.pitch + intent.lookPitch, -PITCH_LIMIT, PITCH_LIMIT);
       this.hotbar(intent);
       this.menus(intent);
+      if (intent.emote) {
+        const kind = this.emotes.cycle();
+        if (kind) this.bus.emit('emote', { kind });
+      }
+      this.emotes.update(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump);
+      // Sitting holds the body still; looking around still works.
+      if (this.emotes.sitting) {
+        intent.moveX = 0;
+        intent.moveZ = 0;
+        intent.jump = false;
+      }
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
@@ -269,7 +298,8 @@ export class PlayerController {
       const every = r.sneaking ? SNEAK_STEP_EVERY : r.sprinting ? SPRINT_STEP_EVERY : STEP_EVERY;
       if (this.stepDistance >= every) {
         this.stepDistance -= every;
-        this.sfx('step', r.sneaking ? SNEAK_STEP_VOLUME : r.sprinting ? SPRINT_STEP_VOLUME : STEP_VOLUME);
+        const feet = this.world.getBlock(Math.floor(p.position.x), Math.floor(p.position.y - 0.02), Math.floor(p.position.z));
+        this.sfx(feet.opaque || feet.solid ? stepSound(feet) : 'step', r.sneaking ? SNEAK_STEP_VOLUME : r.sprinting ? SPRINT_STEP_VOLUME : STEP_VOLUME);
       }
     }
     this.sneakDip += ((r.sneaking ? SNEAK_EYE_DROP : 0) - this.sneakDip) * (1 - Math.exp(-12 * dt));
@@ -346,6 +376,23 @@ export class PlayerController {
     if (intent.mine) hands.strike();
   }
 
+  /** Photo mode: the body stays put, the eye detaches and flies; Use takes the picture. */
+  private togglePhoto(on: boolean): void {
+    const p = this.player;
+    if (on) this.photo.enter(p.position.x, p.eyeY, p.position.z, p.yaw, p.pitch);
+    else this.photo.exit();
+    this.interaction.stopMining();
+    this.emotes.cancel();
+    this.bus.emit('photo:mode', { on });
+  }
+
+  private updatePhoto(dt: number, intent: Intent): void {
+    const c = this.photo;
+    c.update(dt, { moveX: intent.moveX, moveZ: intent.moveZ, up: intent.jump, fast: intent.sprint, lookYaw: intent.lookYaw, lookPitch: intent.lookPitch });
+    if (intent.use) this.bus.emit('photo:snap', {});
+    this.view.setView(c.x, c.y, c.z, c.yaw, c.pitch);
+  }
+
   private updateView(dt: number): void {
     const p = this.player;
     this.stepOffset *= Math.exp(-14 * dt);
@@ -356,7 +403,8 @@ export class PlayerController {
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
     this.shake.update(dt);
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip, z, p.yaw + this.shake.yaw, clamp(p.pitch + this.shake.pitch, -PITCH_LIMIT, PITCH_LIMIT));
+    const em = this.emotes.view();
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip + em.dy, z, p.yaw + this.shake.yaw + em.dyaw, clamp(p.pitch + this.shake.pitch + em.dpitch, -PITCH_LIMIT, PITCH_LIMIT));
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;
@@ -389,7 +437,7 @@ export class PlayerController {
     });
   }
 
-  private sfx(name: 'jump' | 'splash' | 'land' | 'step', volume?: number): void {
+  private sfx(name: SfxName, volume?: number): void {
     const p = this.player.position;
     this.bus.emit('sfx', { name, x: p.x, y: p.y, z: p.z, volume });
   }

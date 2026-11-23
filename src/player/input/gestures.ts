@@ -129,8 +129,15 @@ export class TouchGestures {
     this.stick.radius = clamp(Math.min(width, height) * 0.16, 48, 66);
   }
 
+  /** One-handed: the joystick starts in the lower part of that side's half (buttons win first), looking uses the rest. */
+  handed: 'off' | 'left' | 'right' = 'off';
+
   /** The joystick may start anywhere in the lower-left region: left half, below the HUD band. */
   inStickRegion(x: number, y: number): boolean {
+    if (this.handed !== 'off') {
+      const onSide = this.handed === 'left' ? x < this.width * 0.5 : x >= this.width * 0.5;
+      return onSide && y > this.height * 0.55;
+    }
     const top = this.width > this.height ? 0.22 : 0.4;
     return x < this.width * 0.5 && y > this.height * top;
   }

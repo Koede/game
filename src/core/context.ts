@@ -44,6 +44,8 @@ export interface Settings {
   graphics?: 'low' | 'normal' | 'high';
   /** Item magnet: how far dropped items fly to the player (src/game/magnet.ts). Older saved settings lack it and read as 'off'. */
   itemMagnet: 'off' | 'small' | 'large';
+  /** One-handed touch layout: the whole control cluster and the joystick sit under the thumb of this side. Older saves read as 'off'. */
+  oneHanded: 'off' | 'left' | 'right';
 }
 
 /** Spec 19.3. */
@@ -83,6 +85,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   haptics: true,
   graphics: 'normal',
   itemMagnet: 'off',
+  oneHanded: 'off',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

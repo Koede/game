@@ -6,6 +6,8 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import { saveShot } from './photo';
+import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
 import { setCraftGate } from '../game/crafting';
@@ -138,6 +140,8 @@ export class Game {
   private lastDraw = 0;
   /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
   private covered = false;
+  /** Photo mode asked for a shot: saved from the next rendered frame. */
+  private shotPending = false;
   private coverCheckedAt = -Infinity;
   private readonly offs: (() => void)[] = [];
   constructor(opts: GameOptions) {
@@ -177,6 +181,8 @@ export class Game {
         clock,
         objectives,
         survival,
+        journal: state.journal,
+        achievements: state.achievements,
         sim,
         weather: () => state.weather.state,
         releasePointer: () => this.inputManager.releasePointerCapture(),
@@ -205,7 +211,7 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, talk: (ox, oy, oz, dx, dy, dz) => state.npcs.talk(ox, oy, oz, dx, dy, dz), transport: sim, brew: sim, hands: sim });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, talk: (ox, oy, oz, dx, dy, dz) => state.npcs.talk(ox, oy, oz, dx, dy, dz), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn });
       this.vehicles.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
@@ -234,6 +240,14 @@ export class Game {
       this.renderer.dispose();
       throw err;
     }
+    if (state.resumed) {
+      const last = [...state.journal.entries].reverse().find((e) => e.kind !== 'death');
+      bus.emit('toast', { text: resumeLine(state.clock.day, state.objectives.current?.title ?? null, last), kind: 'info' });
+    }
+    this.offs.push(
+      bus.on('photo:snap', () => (this.shotPending = true)),
+      bus.on('photo:mode', ({ on }) => root.el.classList.toggle('hw-root--photo', on)),
+    );
     const onKey = (down: boolean) => (e: KeyboardEvent): void => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -365,6 +379,13 @@ export class Game {
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
       this.renderer.render(paused ? 0 : dt);
+      if (this.shotPending) {
+        this.shotPending = false;
+        const canvas = this.renderer.canvas;
+        void saveShot(canvas, state.clock.day, state.clock.phase).then((ok) => {
+          if (ok) this.state.bus.emit('toast', { text: 'Photo saved', kind: 'good' });
+        });
+      }
       this.lastDraw = now;
     }
     this.frames++;
