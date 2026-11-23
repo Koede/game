@@ -128,3 +128,7 @@ export class GainFeed {
     return this.entries.length !== before;
   }
 }
+
+/** A vital bar this full needs no attention: the HUD dims it until it drops (rarely-used meters stay out of the way). */
+export const VITAL_CALM_AT = 0.85;
+export const isVitalCalm = (fraction: number): boolean => fraction >= VITAL_CALM_AT;

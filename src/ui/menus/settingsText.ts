@@ -25,6 +25,6 @@ export const UI_SCALE_OPTIONS: readonly { value: Settings['uiScale']; label: str
 
 export function uiScaleHint(scale: Settings['uiScale']): string {
   return scale === 'large'
-    ? 'Bigger HUD, text and touch buttons - easier to read and hit on a small phone.'
-    : 'Large makes the HUD, text and touch buttons bigger for small screens.';
+    ? 'Bigger text and touch buttons: easier to read and hit on a small phone.'
+    : 'Large makes text and touch buttons bigger for small screens.';
 }

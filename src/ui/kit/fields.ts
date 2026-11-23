@@ -119,10 +119,14 @@ export class Segmented<T extends string> {
   }
 
   private render(): void {
+    const none = !this.buttons.has(this.current);
+    let first = true;
     for (const [value, button] of this.buttons) {
       const selected = value === this.current;
       button.setAttribute('aria-checked', String(selected));
-      button.tabIndex = selected ? 0 : -1;
+      // With nothing picked (a "custom" state) the first option stays reachable by keyboard.
+      button.tabIndex = selected || (none && first) ? 0 : -1;
+      first = false;
     }
   }
 }

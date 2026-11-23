@@ -69,9 +69,15 @@ describe('settings', () => {
     expect(sanitizeSettings({ renderDistance: 7.6 }).renderDistance).toBe(8);
   });
 
+  it('keeps the accessibility switches and reads their absence as off', () => {
+    const back = sanitizeSettings({ reduceMotion: true, colorSafe: true });
+    expect([back.reduceMotion, back.colorSafe]).toEqual([true, true]);
+    expect(sanitizeSettings({ reduceMotion: 'yes' }).reduceMotion).toBe(false);
+  });
+
   it('keeps difficulty and UI size, and reads settings saved before them as Normal and normal', () => {
     const old = { renderDistance: 6, fov: 72, mouseSensitivity: 1, touchSensitivity: 1, invertY: false, volume: 0.8, touchControls: 'auto', showFps: false };
-    expect(sanitizeSettings(old)).toEqual({ ...old, difficulty: 'normal', uiScale: 'normal' });
+    expect(sanitizeSettings(old)).toEqual({ ...old, difficulty: 'normal', uiScale: 'normal', reduceMotion: false, colorSafe: false });
     const back = sanitizeSettings(JSON.parse(JSON.stringify({ ...DEFAULT_SETTINGS, difficulty: 'hard', uiScale: 'large' })));
     expect([back.difficulty, back.uiScale]).toEqual(['hard', 'large']);
     expect(sanitizeSettings({ difficulty: 'nightmare', uiScale: 3 })).toEqual(DEFAULT_SETTINGS);

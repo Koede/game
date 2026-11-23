@@ -105,3 +105,12 @@ describe('GainFeed', () => {
     expect(feed.expire(FEED_LINGER_MS + 3)).toBe(false);
   });
 });
+
+import { isVitalCalm } from './hudMath';
+describe('vital calm', () => {
+  it('dims only nearly full bars', () => {
+    expect(isVitalCalm(1)).toBe(true);
+    expect(isVitalCalm(0.85)).toBe(true);
+    expect(isVitalCalm(0.6)).toBe(false);
+  });
+});

@@ -175,7 +175,8 @@ export class RecipeRow {
     const reason = ready ? '' : view.reason ?? '';
     setText(this.reasonEl, reason);
     this.reasonEl.hidden = reason === '';
-    setText(this.lineEl, ready ? view.summary ?? '' : reason || view.summary || '');
+    // The reason has its own line under the ingredients; say it once, not twice (the compact rows keep it up here).
+    setText(this.lineEl, ready ? view.summary ?? '' : this.simple ? reason || view.summary || '' : view.summary ?? '');
     this.makeBtn.setLabel(view.action ?? 'Make');
     const available = ready ? view.available : 0;
     if (available !== this.available) {

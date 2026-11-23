@@ -1,4 +1,5 @@
 /** The player's 36 slots: the backpack above the marked hotbar row. Every screen that shows the bag uses this. */
+import { EMPTY_BACKPACK, rangeIsEmpty } from './emptyState';
 import { HOTBAR_SIZE, INVENTORY_SIZE } from '../../../core/constants';
 import type { Inventory } from '../../../game/inventory';
 import { sortRange } from '../../../game/inventoryTools';
@@ -30,10 +31,13 @@ export class InventoryPanel {
   readonly el: HTMLDivElement;
   readonly pack: SlotGrid;
   readonly hotbar: SlotGrid;
+  private readonly emptyNote: HTMLParagraphElement;
   private readonly bindings: SlotBinding[];
+  private readonly offChange: () => void;
 
   constructor(slots: SlotController, inventory: Inventory, opts: InventoryPanelOptions = {}) {
     const id = opts.id ?? 'bag';
+    this.emptyNote = h('p', { class: 'hw-bag__empty', text: EMPTY_BACKPACK });
     const packCount = Math.min(INVENTORY_SIZE, inventory.size) - HOTBAR_SIZE;
     this.pack = new SlotGrid({ count: packCount, columns: 9, label: opts.label ?? 'Backpack', minSlotPx: touchFirst() ? undefined : MIN_SLOT_PX });
     this.hotbar = new SlotGrid({ count: HOTBAR_SIZE, columns: 9, label: 'Hotbar', minSlotPx: MIN_SLOT_PX });
@@ -42,9 +46,16 @@ export class InventoryPanel {
       { class: 'hw-bag' },
       h('div', { class: 'hw-bag__headrow' }, h('h3', { class: 'hw-heading hw-bag__head', text: opts.label ?? 'Backpack' }), opts.sortable === false ? h('span') : new Button({ label: 'Sort', size: 'sm', kind: 'quiet', onClick: () => void sortRange(inventory, HOTBAR_SIZE) }).el),
       this.pack.el,
+      this.emptyNote,
       h('h3', { class: 'hw-heading hw-bag__head hw-bag__head--hotbar', text: 'Hotbar' }),
       h('div', { class: 'hw-bag__hotbar' }, this.hotbar.el),
     );
+    // Only the player's own pack says it is empty; a crate or machine panel passes its own label.
+    const syncEmpty = (): void => {
+      this.emptyNote.hidden = opts.label !== undefined || !rangeIsEmpty(inventory.slots, HOTBAR_SIZE, packCount);
+    };
+    syncEmpty();
+    this.offChange = inventory.onChange(syncEmpty);
     this.bindings = [
       slots.bind({ id: `${id}-pack`, label: opts.label ?? 'Backpack', inventory, views: this.pack.slots, start: HOTBAR_SIZE, quickTo: opts.quickTo }),
       slots.bind({ id: `${id}-hotbar`, label: 'Hotbar', inventory, views: this.hotbar.slots, start: 0, quickTo: opts.quickTo }),
@@ -52,6 +63,7 @@ export class InventoryPanel {
   }
 
   dispose(): void {
+    this.offChange();
     for (const b of this.bindings) b.unbind();
     this.pack.dispose();
     this.hotbar.dispose();
