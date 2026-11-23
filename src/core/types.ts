@@ -801,6 +801,8 @@ export interface CreatureSpec {
   group: readonly [number, number];
   /** Box model of an adult (see CreaturePart for units and orientation). */
   model: CreaturePart[];
+  /** A tameable companion (src/content/pets.ts): never breeds; once tame it follows the player and carries a little. */
+  pet?: boolean;
   /**
    * Hostile automatons only (spec 19): how it fights and where it lives. Automatons never breed or grow (`likes` is
    * empty), are authored in src/content/automatons.ts and listed in the registry's AUTOMATONS, never in CREATURES.

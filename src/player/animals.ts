@@ -27,6 +27,8 @@ export interface AnimalTargets {
   harvest?(id: number, kind: YieldKind): { ok: true } | { ok: false; reason: string };
   /** Feeds a liked item (the caller takes the item); refused with a reason the player can read. */
   feed(id: number, itemKey: string): { ok: true } | { ok: false; reason: string };
+  /** A tame pet under Use with something it does not eat (pack): null when the animal is not a tame pet. */
+  pet?(id: number, held: { item: string; count: number; durability?: number } | null): 'worked' | 'refused' | null;
 }
 
 /** Advisory toasts, at most once per subject in a while (Interaction.advise). */
@@ -92,6 +94,13 @@ export class AnimalHands {
     if (this.target === null || this.player.dead) return 'pass';
     const held = this.player.heldStack();
     if (held && this.animals.harvest && (held.item in MILK_CONTAINERS || SHEARS.has(held.item))) return this.harvest(held.item);
+    if (this.animals.pet && !(held && likedByAnimals(held.item))) {
+      const pet = this.animals.pet(this.target, held);
+      if (pet !== null) {
+        this.swing.triggerSwing();
+        return pet === 'worked' ? 'fed' : 'refused';
+      }
+    }
     if (!held || !likedByAnimals(held.item)) return 'pass';
     const r = this.animals.feed(this.target, held.item);
     if (r.ok) {

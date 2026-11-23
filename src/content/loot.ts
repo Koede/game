@@ -28,6 +28,7 @@ export const LOOT_TABLES: LootTableSpec[] = [
       { item: 'flint_pickaxe', count: 1, weight: 2 },
       { item: 'flint_axe', count: 1, weight: 2 },
       { item: 'flint_shovel', count: 1, weight: 2 },
+      { item: 'treasure_map', count: 1, weight: 2 },
     ],
   },
   {
@@ -38,6 +39,7 @@ export const LOOT_TABLES: LootTableSpec[] = [
       { item: 'iron_ore', count: [2, 5], weight: 10 },
       { item: 'copper_ingot', count: [2, 4], weight: 8 },
       { item: 'iron_ingot', count: [1, 3], weight: 6 },
+      { item: 'treasure_map', count: 1, weight: 3 },
       { item: 'tin_ingot', count: [1, 3], weight: 6 },
       { item: 'copper_wire', count: [3, 6], weight: 6 },
       { item: 'copper_cable', count: [3, 6], weight: 6 },

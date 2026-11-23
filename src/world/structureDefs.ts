@@ -51,6 +51,8 @@ const B = {
   jar: blockId('essentia_jar'), workbench: blockId('workbench'), tallGrass: blockId('tall_grass'), furnace: blockId('collapsed_furnace'), crystal: blockId('crystal_cluster'), berry: blockId('berry_bush'),
 };
 export { B as STRUCTURE_BLOCKS };
+/** The rusted old-age machine a player can repair (src/game/restoration.ts). */
+const RUINED_MACHINE = blockId('ruined_machine');
 
 /** Where a structure writes: local coordinates clipped to the chunk being generated. */
 export class Canvas {
@@ -425,6 +427,7 @@ const OLD_FACTORY: StructureDef = {
     // Fallen drive line: shaft sections, a flywheel ring and a stack of crates of scrap lying in the hall.
     c.box(2, 0, 7, 7, 0, 7, B.rusted); c.set(4, 0, 6, B.rubble); c.ring(9, 0, 11, 2, 0, 1, ruin);
     c.ring(5, 7, 7, 9, 0, 1, ruin);
+    c.set(6, 0, 8, RUINED_MACHINE);
     // The collapsed roof: scattered beams and fallen rubble.
     c.fill(1, 4, 1, 13, 4, 9, (x, y, z) => (c.roll(x, 4, z) < 50 ? B.rusted : -1));
     c.fill(1, 0, 1, 13, 0, 9, (x, y, z) => (c.roll(x, 5, z) < 25 ? B.rubble : -1));
@@ -446,6 +449,57 @@ const CHEM_LAB: StructureDef = {
     // Broken glass and reagent stains on the floor.
     c.fill(1, 0, 2, 9, 0, 7, (x, y, z) => (c.roll(x, 8, z) < 20 ? B.glass : c.roll(x, 9, z) < 20 ? B.clay : -1));
     c.set(1, 0, 6, B.shrub); c.set(9, 0, 6, B.sand);
+    c.set(5, 0, 6, RUINED_MACHINE);
+  },
+};
+
+
+// ---------------------------------------------------------------------------------------------------- landmarks
+// Hand-placed landmarks (docs/api/landmarks.md): tall, distinctive silhouettes you can see from far off, each guarding one notable item.
+
+const STANDING_CIRCLE: StructureDef = {
+  key: 'standing_circle', name: 'Standing Circle', desc: 'Eight mossy pillars in a ring round a plinth, a pale light hanging over it. The old artificers taught the first fire here and left a rod on the stone.',
+  biomes: [WOODLAND], w: 11, d: 11, age: 1, crate: [5, 5], guards: [], floor: 'biome',
+  build(c) {
+    c.floor(4, 4, 6, 6, () => B.stoneBrick);
+    const spots: Array<[number, number]> = [[1, 5], [9, 5], [5, 1], [5, 9], [2, 2], [8, 2], [2, 8], [8, 8]];
+    spots.forEach(([x, z], i) => {
+      const h = 3 + (c.roll(x, 3, z) % 3);
+      for (let y = 0; y < h; y++) c.set(x, y, z, c.mix(x, y, z, B.mossy, B.mossy, B.stoneBrick, B.cracked));
+      if (i % 2 === 0) c.set(x, 0, z + (z < 5 ? 1 : -1), B.glowcap);
+    });
+    // Two lintels still lie across the north and south pairs; the rest have fallen.
+    c.box(1, 4, 5, 1, 4, 5, B.mossy); c.box(9, 4, 5, 9, 4, 5, B.mossy);
+    c.set(5, 4, 5, B.light);
+    c.fill(0, 0, 0, 10, 0, 10, (x, y, z) => (c.roll(x, 6, z) < 18 ? B.fern : -1));
+  },
+};
+
+const FROST_WATCHTOWER: StructureDef = {
+  key: 'frost_watchtower', name: 'Frost Watchtower', desc: 'A narrow tower of ice-glazed brick, taller than the pines, a torch still burning on its crown. The watch left a plated coat against the cold.',
+  biomes: [FROSTFELL], w: 7, d: 7, age: 1, crate: [3, 3], guards: [], floor: 'biome',
+  build(c) {
+    c.ring(1, 1, 5, 5, 0, 9, (x, y, z) => (y > 5 ? c.mix(x, y, z, B.packedIce, B.stoneBrick, B.packedIce) : c.mix(x, y, z, B.stoneBrick, B.cracked, B.packedIce)), 70);
+    c.gap(3, 5, 0, 2);
+    c.gap(5, 3, 4, 5); c.gap(1, 3, 6, 7);
+    c.box(2, 4, 2, 4, 4, 4, B.plank);
+    c.box(1, 9, 1, 5, 9, 1, B.stoneBrick); c.box(1, 9, 5, 5, 9, 5, B.stoneBrick);
+    c.set(1, 10, 1, B.torch); c.set(5, 10, 5, B.torch);
+    for (const [x, z] of [[0, 0], [6, 0], [0, 6], [6, 6], [0, 3], [6, 3]] as const) c.set(x, 0, z, B.iceSpike);
+  },
+};
+
+const BURIED_COLOSSUS: StructureDef = {
+  key: 'buried_colossus', name: 'Buried Colossus', desc: 'The head of a giant limestone statue, the rest drowned in dunes. Glass eyes catch the sun; the open mouth leads in to where its keepers hid a map.',
+  biomes: [DUNES], w: 13, d: 9, age: 1, crate: [6, 4], guards: [], floor: 'biome',
+  build(c) {
+    c.box(3, 0, 1, 9, 4, 7, B.limestone);
+    c.box(4, 5, 2, 8, 5, 6, B.limestone);
+    c.box(4, 0, 2, 8, 2, 6, B.air);
+    c.gap(6, 1, 0, 1);
+    c.set(6, 2, 1, B.brick); c.set(4, 3, 1, B.glass); c.set(8, 3, 1, B.glass);
+    c.box(3, 2, 1, 3, 2, 1, B.brick); c.box(9, 2, 1, 9, 2, 1, B.brick);
+    c.fill(0, 0, 0, 12, 0, 8, (x, y, z) => (c.roll(x, 7, z) < 70 && (x < 3 || x > 9 || z < 1 || z > 7) ? B.sand : -1));
   },
 };
 
@@ -453,4 +507,6 @@ export const STRUCTURE_DEFS: readonly StructureDef[] = [
   CHARCOAL_CAMP, HOLLOW_OAK_SHRINE, LUMBER_MILL, GLASSBLOWER_KILN, CARAVAN_WELL, OIL_DERRICK, HUNTERS_LODGE, FROST_CAIRN,
   FROZEN_FOUNDRY, BASALT_FORGE_PIT, EMBER_ALTAR, SLAG_DEPOT, PEAT_STILT_HUT, ALCHEMIST_TOWER, PUMP_HOUSE, WAYSTONE,
   OLD_HOME, OLD_FACTORY, CHEM_LAB,
+  // Landmarks (docs/api/landmarks.md), appended after every older type.
+  STANDING_CIRCLE, FROST_WATCHTOWER, BURIED_COLOSSUS,
 ];

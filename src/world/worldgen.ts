@@ -11,6 +11,7 @@ import { placeTrees } from './flora';
 import { ID } from './ids';
 import { placeOutcrops, placeVeins } from './ores';
 import { placeSurfaceLife } from './plants';
+import { placeHotSprings } from './springs';
 import { drawRuin, ruinsNear } from './ruins';
 import { drawStructure, structuresNear } from './structures';
 import {
@@ -137,6 +138,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
   placeCaveGlowcaps(t, voxels, x0, z0, cols);
   for (const ruin of ruinsNear(seed, cx, cz)) drawRuin(voxels, x0, z0, ruin);
   for (const s of structuresNear(seed, cx, cz)) drawStructure(voxels, x0, z0, s);
+  placeHotSprings(t, voxels, cx, cz, cols);
   return voxels;
 }
 

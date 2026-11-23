@@ -258,5 +258,8 @@
   "white_stained_plank": 256,
   "dining_table": 257,
   "plank_bench": 258,
-  "bookshelf": 259
+  "bookshelf": 259,
+  "ruined_machine": 260,
+  "repaired_machine": 261,
+  "waypoint_stone": 262
 }

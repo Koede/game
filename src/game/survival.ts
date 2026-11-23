@@ -31,6 +31,7 @@ import { clamp, type Vec3 } from '../core/math';
 import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { heldWarms } from './heldWarmth';
+import { peakDrain } from './peaks';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
 import type { GameClock } from './clock';
@@ -372,10 +373,11 @@ export class Survival {
       const wet = this.soaked ? WARMTH_DRAIN_WET : 0;
       const frost = this.frost ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
       const dark = night ? WARMTH_DRAIN_NIGHT : 0;
-      let drain = water + wet + frost + dark;
+      const peak = peakDrain(player.position.y);
+      let drain = water + wet + frost + dark + peak;
       if (drain > 0) {
-        const top = Math.max(water, wet, frost, dark);
-        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top ? 'frost' : 'night';
+        const top = Math.max(water, wet, frost, dark, peak);
+        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top ? 'frost' : 'night';
       }
       drain *= this.coatMult;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;

@@ -44,7 +44,7 @@ export class CropField {
   private readonly awake: CropNode[] = [];
   /** Positions of every lamp that is lit (powered and running). */
   private readonly lamps = new Map<string, readonly [number, number, number]>();
-  private readonly ctx: CropContext = { sunUp: false, wetAt: null };
+  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null };
   private sunWasUp: boolean | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus) {}
@@ -161,7 +161,7 @@ export class CropField {
    * Advances every crop that can grow. `sunlight` is the clock's sunlight factor of this tick; `wetAt` says where
    * rain soaks exposed crops this tick (null: nowhere).
    */
-  tick(dt: number, sunlight: number, wetAt: CropContext['wetAt'] = null): void {
+  tick(dt: number, sunlight: number, wetAt: CropContext['wetAt'] = null, scale: CropContext['scale'] = null): void {
     const up = sunlight >= MIN_SUNLIGHT;
     if (up && this.sunWasUp === false) {
       // Sunrise: crops that slept through the dark under open sky look again.
@@ -170,6 +170,7 @@ export class CropField {
     this.sunWasUp = up;
     this.ctx.sunUp = up;
     this.ctx.wetAt = wetAt;
+    this.ctx.scale = scale;
     const { awake, ctx } = this;
     let budget = REFRESH_READS_PER_TICK;
     // Backwards: a crop going to sleep swaps the last (already visited) crop into its place.
@@ -195,13 +196,13 @@ export class CropField {
   }
 
   /** What the crop at x,y,z is doing, or null when there is none (or its chunk has not been seen yet). */
-  view(x: number, y: number, z: number, sunlight: number, wetAt: CropContext['wetAt'] = null): CropView | null {
+  view(x: number, y: number, z: number, sunlight: number, wetAt: CropContext['wetAt'] = null, scale: CropContext['scale'] = null): CropView | null {
     const c = this.byKey.get(posKey(x, y, z));
     if (!c) return null;
     if (c.dirty !== 0 && this.world.isLoaded(x, z)) this.refresh(c);
     const info = c.info;
     if (info === null) return null;
-    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt };
+    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale };
     const ripe = info.next < 0;
     const lit = info.wild || isLit(c, ctx);
     const hydrated = info.wild || isHydrated(c, ctx);

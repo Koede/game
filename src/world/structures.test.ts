@@ -37,10 +37,10 @@ function drawn(def: (typeof STRUCTURE_DEFS)[number], biome: number): { voxels: U
   return { voxels, site };
 }
 
-describe('the nineteen structure types', () => {
-  it('has nineteen distinct types, each with a crate table, a codex line and loot no more than one age ahead', () => {
-    expect(STRUCTURE_DEFS).toHaveLength(19);
-    expect(new Set(STRUCTURE_DEFS.map((d) => d.key)).size).toBe(19);
+describe('the structure types', () => {
+  it('has twenty-two distinct types, each with a crate table, a codex line and loot no more than one age ahead', () => {
+    expect(STRUCTURE_DEFS).toHaveLength(22);
+    expect(new Set(STRUCTURE_DEFS.map((d) => d.key)).size).toBe(22);
     for (const d of STRUCTURE_DEFS) {
       expect(d.desc.length, d.key).toBeGreaterThan(30);
       const table = STRUCTURE_LOOT[d.key];
@@ -66,7 +66,7 @@ describe('the nineteen structure types', () => {
     it(`${def.key}: built only from its biome's blocks, crate cell free on solid ground, guards can stand`, () => {
       for (const biome of def.biomes) {
         const { voxels, site } = drawn(def, biome);
-        const allowed = new Set([...PALETTE[biome], ...(def.biomes.length > 1 ? keys('stone_brick', 'mossy_stone_brick', 'grass', 'sand', 'snow', 'peat') : [])]);
+        const allowed = new Set([...PALETTE[biome], ...keys('ruined_machine'), ...(def.biomes.length > 1 ? keys('stone_brick', 'mossy_stone_brick', 'grass', 'sand', 'snow', 'peat') : [])]);
         const used = new Set<number>();
         let placed = 0;
         for (let z = 0; z < CHUNK_SIZE; z++) {

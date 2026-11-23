@@ -583,7 +583,7 @@ export function validateCreature(c: CreatureSpec): string[] {
   const knownItem = (key: string): boolean => itemsByKey.has(key);
   const problems: string[] = [];
   const at = `creature ${c.key}`;
-  if (c.biomes.length === 0) problems.push(`${at}: no biomes`);
+  if (c.biomes.length === 0 && c.pet !== true) problems.push(`${at}: no biomes`);
   for (const b of c.biomes) if (!BIOMES.has(b)) problems.push(`${at}: unknown biome "${b}"`);
   if (!(c.health > 0) || !(c.speed > 0) || !(c.size.w > 0) || !(c.size.h > 0)) problems.push(`${at}: health, speed and size must be > 0`);
   if (!(c.group[0] >= 1) || c.group[1] < c.group[0]) problems.push(`${at}: group must be [min >= 1, max >= min]`);

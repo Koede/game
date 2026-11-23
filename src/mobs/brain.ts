@@ -19,6 +19,9 @@ import { HOP_VELOCITY, SWIM_CLIMB_VELOCITY } from './physics';
 import { clearanceOf, findShore, standCell, walkable } from './terrain';
 import type { Mob, MobPlayer } from './types';
 
+/** A tame pet keeps this far from the player (blocks) and sprints when more than PET_RUN_AT away. */
+const PET_STOP = 2.2;
+const PET_RUN_AT = 9;
 /** Fraction of the species speed used while wandering (following and breeding use the full speed). */
 export const WANDER_SPEED = 0.55;
 export const SWIM_SPEED = 0.6;
@@ -294,6 +297,20 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
     }
   }
   if (m.state === 'breed') setState(m, 'idle', 1);
+
+  // 3b. A tame companion always follows, running to catch up when it falls behind.
+  if (m.tame && m.spec.pet) {
+    const dx = ctx.player.x - m.x;
+    const dz = ctx.player.z - m.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    const stop = PET_STOP + halfWidth(m) + PLAYER_WIDTH / 2;
+    if (d > stop && Math.abs(ctx.player.y - m.y) < 12) {
+      if (m.state !== 'follow') setState(m, 'follow', 0);
+      steer(ctx, m, ctx.player.x, ctx.player.z, d > PET_RUN_AT ? speed * 1.5 : speed, stop, dt);
+      return;
+    }
+    if (m.state === 'follow') setState(m, 'idle', 0.5 + ctx.rng());
+  }
 
   // 4. The player holds something it likes: follow to a polite distance, body to body (big animals stay as far
   // off as small ones).

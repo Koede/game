@@ -24,6 +24,11 @@ import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
+import { Exploration } from '../game/exploration';
+import { Weathering } from '../game/weathering';
+import { Pets } from '../game/pets';
+import { Restoration } from '../game/restoration';
+import { clearanceOf, spawnCell } from '../mobs/terrain';
 import { NpcManager } from '../npcs';
 import { makeNpcHost } from '../npcs/host';
 import { takeLostItems } from '../content/aliases';
@@ -67,6 +72,14 @@ export class GameState {
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
   readonly workshop: Workshop;
+  /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
+  readonly exploration: Exploration;
+  /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
+  readonly weathering: Weathering;
+  /** Repairable old-age machines (docs/api/restoration.md). */
+  readonly restoration: Restoration;
+  /** Companion dog and cat (docs/api/pets.md). */
+  readonly pets: Pets;
   /** The tavern's people (docs/api/npcs.md). */
   readonly npcs: NpcManager;
   readonly seedText: string | null;
@@ -210,6 +223,24 @@ export class GameState {
       return r.did === 'insert' ? 'consumed' : 'used';
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    this.exploration = new Exploration({
+      world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight,
+      raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
+      biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
+    });
+    this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
+    this.pets = new Pets({
+      bus, player: this.player, mobs: this.mobs, isDusk: () => this.clock.phase === 'dusk' || this.clock.phase === 'dawn',
+      standAt: (x, z) => { const y = spawnCell(world, x, z, clearanceOf(1.0)); return y < 0 ? null : y; }, rng: () => Math.random(),
+    });
+    this.mobs.petUse = (id, held) => this.pets.useOn(id, held);
+    this.restoration = new Restoration(world, bus, this.player);
+    world.loadExtra('restoration', (raw) => this.restoration.load(raw));
+    this.offs.push(world.persist('restoration', () => this.restoration.toJSON()));
+    world.loadExtra('pets', (raw) => this.pets.load(raw));
+    this.offs.push(world.persist('pets', () => this.pets.toJSON()));
+    world.loadExtra('exploration', (raw) => this.exploration.load(raw));
+    this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
     this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
@@ -330,6 +361,9 @@ export class GameState {
     this.story.tick(dt);
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
+    this.exploration.tick(dt);
+    this.weathering.tick(dt);
+    this.pets.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
