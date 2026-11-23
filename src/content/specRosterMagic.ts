@@ -17,6 +17,7 @@ export const MAGIC_SPEC = {
     ...ASPECT_NAMES.map((a) => `vial_${a}`),
     'charm_ward', 'charm_speed', 'charm_hunger', 'focus_mod_reach', 'focus_mod_power', 'focus_mod_cost',
     'potion_haste', 'potion_stoneskin', 'potion_mending', 'potion_clarity',
+    'scroll_ledger', 'scroll_verses', 'scroll_margin',
     ...['reed', 'bronze', 'iron'].flatMap((c) => ['copper', 'tin', 'bronze'].map((p) => `wand_${c}_${p}`)),
   ],
   recipes: {
@@ -38,8 +39,10 @@ export const MAGIC_SPEC = {
       'arcane_pedestal: 1 arcane_pedestal <- 3 stone_brick, 1 copper_ingot @500 T2',
     ],
   } as Record<string, string[]>,
+  /** Found only in the deep ruins' crates, never made. */
+  worldOnly: ['scroll_ledger', 'scroll_verses', 'scroll_margin'],
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */
-  textures: 86,
+  textures: 89,
 };
 
 export const MAGIC_RECIPE_COUNT = Object.values(MAGIC_SPEC.recipes).reduce((n, l) => n + l.length, 0);

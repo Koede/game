@@ -11,6 +11,7 @@ import { ageIndexOf } from '../magic/ageMap';
 import { CHARMS } from '../magic/charms';
 import { MODS } from '../magic/focusMods';
 import { POTIONS } from '../magic/potions';
+import { SCROLLS } from '../magic/scrolls';
 import { GOLEMS, MARKER_DROP, MARKER_PULL } from '../magic/golems';
 
 /** Units of essentia in one filled vial. */
@@ -96,6 +97,8 @@ MAGIC_ITEMS.push(...CHARMS.map((c): ItemSpec => ({ key: c.key, name: c.name, cat
 MAGIC_ITEMS.push(...MODS.map((m): ItemSpec => ({ key: m.key, name: m.name, category: 'misc', age: BRONZE, stack: 16, desc: `${m.text} Use it at a bench or desk with a focus carried.` })));
 
 MAGIC_ITEMS.push(...POTIONS.map((p): ItemSpec => ({ key: p.key, name: p.name, category: 'misc', age: 0, stack: 8, desc: `${p.text} Brewed at a crucible; Use it to drink.` })));
+
+MAGIC_ITEMS.push(...SCROLLS.map((s): ItemSpec => ({ key: s.item, name: s.title, category: 'misc', age: BRONZE, stack: 1, desc: 'Hidden research on a brittle sheet, found in the deep ruins. Use it to read it; some things hold the same secret in their margins.' })));
 
 const glassBlock = { opaque: false, translucent: true } as const;
 

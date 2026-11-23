@@ -153,7 +153,21 @@ const runeStone = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((
 /** A potion: a round flask in the colour of its draught (the vial's shape, a wider belly). */
 const potion = (fill: number) => icon((c) => vial(c, hex('#' + fill.toString(16).padStart(6, '0'))));
 
+/** A rolled scroll: a sheet curled at both ends with a seal in the colour of its secret. */
+const scroll = (seal: number) => icon((c) => {
+  c.rect(3, 5, 10, 7, PAGE[1]);
+  c.rect(3, 5, 10, 1, PAGE[2]);
+  c.rect(3, 11, 10, 1, PAGE[0]);
+  c.rect(2, 4, 2, 9, PAGE[0]);
+  c.rect(12, 4, 2, 9, PAGE[0]);
+  for (const y of [7, 9]) c.rect(5, y, 6, 1, PAGE[0]);
+  c.rect(7, 7, 2, 3, hex('#' + seal.toString(16).padStart(6, '0')));
+});
+
 export const MAGIC_TEXTURES: PainterSet = {
+  item_scroll_ledger: scroll(0x8a63c8),
+  item_scroll_verses: scroll(0x3fa0d8),
+  item_scroll_margin: scroll(0xe8622a),
   item_potion_haste: potion(0xffe060),
   item_potion_stoneskin: potion(0x9a9a9a),
   item_potion_mending: potion(0xe8507a),

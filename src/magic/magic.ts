@@ -34,6 +34,7 @@ import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
 import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
+import { foundFlag, scrollById, scrollOfItem, SCROLLS, type ScrollSpec } from './scrolls';
 import { potionFactors, potionSpec } from './potions';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
@@ -157,6 +158,8 @@ export interface NotebookApi {
   vis(): { vis: Vis; capacity: number };
   /** A vague sentence about your warp, or null when you carry none. */
   unease(): string | null;
+  /** Hidden research found by scroll or scan. */
+  hidden(): { id: string; title: string; text: string }[];
 }
 
 export interface DeskRow {
@@ -279,6 +282,7 @@ export class Magic {
   /** Per-chunk push on the aura (taint down, cleansing up), saved. */
   private readonly auraShift = new Map<string, number>();
   private auraT = 0;
+  private easeT = 0;
   private auraSeen: AuraKind = 'plain';
   /** wand item -> focus plugged into it. */
   private readonly plugged = new Map<string, string>();
@@ -460,6 +464,8 @@ export class Magic {
     }
     const key = target?.block.key;
     if (held === SANITY_SOAP) return this.useSoap();
+    const scroll = scrollOfItem(held);
+    if (scroll) return this.readScroll(scroll);
     const potion = potionSpec(held);
     if (potion) return this.drink(potion.key);
     const rod = this.heldRod();
@@ -557,6 +563,7 @@ export class Magic {
       const e = RESEARCH.find((x) => x.key === f);
       if (e) this.toast(`Research done: ${e.title}`, undefined, 'good');
     }
+    if (r.first) for (const sc of SCROLLS) if (sc.scan.includes(key)) this.uncover(sc, 'scan');
     this.toast(text, NOTEBOOK);
     return text;
   }
@@ -665,13 +672,48 @@ export class Magic {
       .map(([a, n]) => `${aspectInfo(a).name} ${n}`);
     let text = land.length ? land.join(', ') : 'Land drained';
     text += ` · ${auraText(this.auraKindAt(p.x, p.z))}`;
-    const nodes = this.nodesAround(p.x, p.z, 3);
+    const nodes = this.nodesAround(p.x, p.z, hasFlag(this.research, 'long_sight') ? 5 : 3);
     if (nodes.length) {
       const n = nodes.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
       const d = Math.round(Math.hypot(n.x + 0.5 - p.x, n.z + 0.5 - p.z));
       text += ` · ${aspectInfo(n.aspect).name} well ${d < 3 ? 'here' : `${d} ${compass(p.x, p.z, n.x + 0.5, n.z + 0.5)}`} (${Math.floor(n.left)})`;
     }
     return text;
+  }
+
+  // ---- research scrolls ----------------------------------------------------------------------------------------------
+
+  isFound(id: string): boolean {
+    return this.research.flags?.includes(foundFlag(id)) ?? false;
+  }
+
+  /** The hidden research found so far, for the notebook. */
+  hiddenFound(): { id: string; title: string; text: string }[] {
+    return SCROLLS.filter((s) => this.isFound(s.id)).map((s) => ({ id: s.id, title: s.title, text: s.text }));
+  }
+
+  /** Records a hidden research as found; false when it already was. */
+  private uncover(sc: ScrollSpec, how: 'scan' | 'read'): boolean {
+    if (this.isFound(sc.id)) return false;
+    const flags = (this.research.flags ??= []);
+    flags.push(foundFlag(sc.id), sc.flag);
+    for (const [a, n] of Object.entries(sc.lore) as [Aspect, number][]) {
+      this.research.lore[a] = (this.research.lore[a] ?? 0) + n;
+      if (!this.research.known.includes(a)) this.research.known.push(a);
+    }
+    this.toast(`Hidden research ${how === 'scan' ? 'uncovered in a margin note' : 'read'}: ${sc.title}`, sc.item, 'good');
+    this.bus.emit('sfx', { name: 'research_solve' });
+    return true;
+  }
+
+  private readScroll(sc: ScrollSpec): MagicOutcome {
+    if (this.isFound(sc.id)) {
+      this.advise(`You already know ${sc.title}`);
+      return 'refused';
+    }
+    this.player.consumeHeld(1);
+    this.uncover(sc, 'read');
+    return 'worked';
   }
 
   // ---- aura ------------------------------------------------------------------------------------------------------------
@@ -681,6 +723,12 @@ export class Magic {
     const cx = Math.floor(x / 16);
     const cz = Math.floor(z / 16);
     return Math.max(-1, Math.min(1, baseAura(this.seed, cx, cz) + (this.auraShift.get(`${cx},${cz}`) ?? 0)));
+  }
+
+  /** The aura a crucible works in: the Alchemist's Margin spares it the sour air. */
+  private crucibleAura(x: number, z: number): AuraKind {
+    const k = this.auraKindAt(x, z);
+    return k === 'tainted' && hasFlag(this.research, 'sound_pot') ? 'plain' : k;
   }
 
   auraKindAt(x: number, z: number): AuraKind {
@@ -1045,7 +1093,7 @@ export class Magic {
       return 'refused';
     }
     this.player.consumeHeld(1);
-    const spilled = dissolve(c, scaleByAura(fp, this.auraKindAt(t.x, t.z)));
+    const spilled = dissolve(c, scaleByAura(fp, this.crucibleAura(t.x, t.z)));
     this.crucibles.set(k, c);
     this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
     if (spilled > 0) this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
@@ -1216,6 +1264,14 @@ export class Magic {
   }
 
   private tickWarp(dt: number): void {
+    if (this.warp > 0 && hasFlag(this.research, 'warp_ease')) {
+      this.easeT += dt;
+      if (this.easeT >= 120) {
+        this.easeT = 0;
+        this.warp = Math.max(0, this.warp - 1);
+        this.toast('A whisper fades, and does not come back', undefined, 'good');
+      }
+    }
     if (this.warp < 2) return;
     this.warpT += dt;
     if (this.warpT < WARP_ROLL_S) return;
@@ -1946,6 +2002,7 @@ export class Magic {
       goals: () => this.goals(),
       vis: () => ({ vis: { ...this.vis }, capacity: this.bestRod()?.capacity ?? 0 }),
       unease: () => this.uneaseText(),
+      hidden: () => this.hiddenFound(),
     };
   }
 

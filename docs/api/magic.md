@@ -114,6 +114,9 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - Four draughts: `potion_haste` (speed x1.25, 120 s), `potion_stoneskin` (damage x0.7, 120 s), `potion_mending` (regen x1.6, 180 s), `potion_clarity` (warp -2 at once). Brewed at the crucible: ALCHEMY rows `brew_*` (catalyst sugar / leather / wheat / fiber with the essentia present, research 'warm_hearth'); the solver counts those rows (`progression.ts`).
 - Use drinks one (returns a vial); timers are `Magic.potions` (saved, `activePotions()`), a repeat draught refreshes; `applyBody` folds them with the charms into `damageScale`, `Buffs.magicSpeed` and new `Buffs.magicRegen`.
 
+## Research scrolls (src/magic/scrolls.ts)
+- Three hidden researches that no map shows: `ledger` (warp drains 1 per 2 min, flag `warp_ease`), `verses` (rod reading sees wellsprings 5 chunks off, `long_sight`), `margin` (a tainted-air crucible yields as calm, `sound_pot`). Found two ways: a `scroll_<id>` item (rare in the deep ruin crates; Use reads it, `readScroll`) or the first scan of a particular thing (rubble, glass, crucible; `scanBlock`). Found state lives in `research.flags` (`found:<id>` plus the effect flag); `Magic.hiddenFound()` / `NotebookApi.hidden()` list them. The scroll items are `worldOnly` in the content roster (found, never made; the solver does not count loot).
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there
