@@ -21,6 +21,8 @@ export interface MeshJob {
   cz: number;
   /** The chunk's 3x3 neighbourhood (see ChunkNeighborhood); copied, never transferred, when sent to a worker. */
   chunks: (Uint16Array | null)[];
+  /** Hidden multiblock shells touching the chunk (shellHide.ts), if any. */
+  hidden?: number[];
 }
 
 export type Job = GenerateJob | MeshJob;
@@ -57,7 +59,7 @@ export function runJob(job: Job): JobResult {
     return { type: 'generate', cx: job.cx, cz: job.cz, voxels, ms: performance.now() - start };
   }
   const light = computeLight(job.chunks, hue);
-  const mesh = meshChunk({ cx: job.cx, cz: job.cz, chunks: job.chunks, light, hue });
+  const mesh = meshChunk({ cx: job.cx, cz: job.cz, chunks: job.chunks, light, hue, hidden: job.hidden });
   return { type: 'mesh', mesh, borders: borderHashes(light), ms: performance.now() - start };
 }
 

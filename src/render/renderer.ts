@@ -83,7 +83,7 @@ export class Renderer implements IView {
   readonly camera: THREE.PerspectiveCamera;
   readonly stats: RenderStats = {
     drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1, precipitation: 0, weatherMs: 0, machines: 0, machinesMs: 0,
-    tech: { packets: 0, pipePieces: 0, hearths: 0, ghosts: 0 }, techMs: 0,
+    tech: { packets: 0, pipePieces: 0, hearths: 0, ghosts: 0, formed: 0 }, techMs: 0,
   };
   /** True while the WebGL context is lost (render() does nothing until it is restored). */
   contextLost = false;

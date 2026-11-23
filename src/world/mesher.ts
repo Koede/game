@@ -21,6 +21,7 @@ import {
 import { LIQ, liquidShape } from './meshLiquid';
 import { bucket, cup } from './meshCup';
 import { pipe } from './meshPipe';
+import { isHiddenShellCell } from './shellHide';
 import { stationShape } from './meshStation';
 
 export { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from './meshQuads';
@@ -34,6 +35,8 @@ export interface MeshInput {
   light?: Uint8Array;
   /** The light colour computeLight wrote alongside `light` (its hueOut); all firelight when missing. */
   hue?: Uint8Array;
+  /** Hidden multiblock shells touching this chunk (shellHide.ts flat boxes): their shell cells emit no faces. */
+  hidden?: number[];
 }
 
 export { LIQUID_SURFACE } from './meshLiquid';
@@ -235,12 +238,16 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
   if (lit.light.length !== LIGHT_VOLUME || lit.hue.length !== LIGHT_VOLUME || LIGHT_H !== WORLD_HEIGHT + 2) {
     throw new Error('meshChunk: light volume has the wrong size');
   }
+  const hidden = input.hidden && input.hidden.length > 0 ? input.hidden : null;
+  const wx = input.cx * CHUNK_SIZE;
+  const wz = input.cz * CHUNK_SIZE;
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
       let p = lightIndex(0, y, z);
       for (let x = 0; x < CHUNK_SIZE; x++, p++) {
         const v = vol[p];
         if (v === 0) continue;
+        if (hidden && isHiddenShellCell(hidden, wx + x, y, wz + z)) continue;
         const id = v & VOXEL_ID_MASK;
         switch (SHAPE[id]) {
           case SHAPE_CUBE:

@@ -10,6 +10,7 @@ import { Chunk, SIDE_DX, SIDE_DZ, SIDE_OPPOSITE, chunkCoord, chunkKey, keyChunkX
 import type { EditLog } from './edits';
 import type { EntityStore } from './entities';
 import { runJob, type MeshResult } from './jobs';
+import { shellHiding } from './shellHide';
 import type { WorkerPool } from './workerPool';
 import { inData, inView, planFor, shown, type ViewPlan } from './view';
 import { generateChunk } from './worldgen';
@@ -62,7 +63,16 @@ export class ChunkStreamer {
   private meshMs = 0;
   private alive = true;
 
-  constructor(private readonly host: StreamHost) {}
+  private readonly offHide: () => void;
+
+  constructor(private readonly host: StreamHost) {
+    // A shell shown or hidden changes the meshes of every chunk it touches (and one chunk of border for the light).
+    this.offHide = shellHiding.onChange((min, max) => {
+      for (let cz = chunkCoord(min[2] - 1); cz <= chunkCoord(max[2] + 1); cz++) {
+        for (let cx = chunkCoord(min[0] - 1); cx <= chunkCoord(max[0] + 1); cx++) this.touchAt(cx, cz, false);
+      }
+    });
+  }
 
   update(playerX: number, playerZ: number, renderDistance: number, budgetMs: number): void {
     const start = performance.now();
@@ -153,6 +163,7 @@ export class ChunkStreamer {
   /** Stops reacting to job results (the World loaded a save and started a new streamer). */
   dispose(): void {
     this.alive = false;
+    this.offHide();
   }
 
   /** Hides every drawn chunk and forgets all voxel data. */
@@ -239,7 +250,7 @@ export class ChunkStreamer {
       if (this.wantsMesh(chunk) && this.neighboursLoaded(chunk)) {
         chunk.dirty = false;
         chunk.epoch++;
-        const result = runJob({ type: 'mesh', cx: chunk.cx, cz: chunk.cz, chunks: this.neighbourhood(chunk) });
+        const result = runJob({ type: 'mesh', cx: chunk.cx, cz: chunk.cz, chunks: this.neighbourhood(chunk), hidden: shellHiding.forChunk(chunk.cx, chunk.cz) });
         this.meshMs = average(this.meshMs, result.ms);
         this.publish(chunk, result);
       } else {
@@ -320,7 +331,7 @@ export class ChunkStreamer {
     chunk.meshing = true;
     const epoch = ++chunk.epoch;
     this.meshJobs++;
-    const job = { type: 'mesh', cx: chunk.cx, cz: chunk.cz, chunks: this.neighbourhood(chunk) } as const;
+    const job = { type: 'mesh', cx: chunk.cx, cz: chunk.cz, chunks: this.neighbourhood(chunk), hidden: shellHiding.forChunk(chunk.cx, chunk.cz) } as const;
     const current = (): boolean => this.alive && this.host.chunks.get(chunk.key) === chunk;
     this.host.pool.run(job, () => current() && this.wantsMesh(chunk)).then(
       (result) => {
