@@ -86,7 +86,7 @@ try {
       await box(-27, y - 1, 7, -23, y - 1, 7, 'lava');
       await set([[-29, y, 5, 'stone']]);
       await d.hw(() => window.__hw.setTime(0.8));
-      await watch(-28, y - 1, 6);
+      await watch(-28, y - 1, 5);
       await d.settle(1500);
       await d.shot('water-lava');
     });
