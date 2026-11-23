@@ -81,8 +81,12 @@ async function runDevice(device) {
         await d.shot(`2-${id}`);
         await d.holdUse(250);
         await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 5000, interval: 100, arg: gift });
-        const toasts = await page.locator('.hw-toasts .hw-toast').allTextContents();
-        assert(toasts.some((t) => t.includes(word)), `no toast with "${word}": ${toasts.slice(-3).join(' | ')}`);
+        await waitFor(page, () => document.querySelector('.hw-npcsay:not([hidden])') !== null, 'the dialogue box', { timeout: 4000, interval: 100 });
+        await d.settle(1800);
+        const said = await page.locator('.hw-npcsay__text').textContent();
+        const nm = await page.locator('.hw-npcsay__name').textContent();
+        assert(said.includes(word), `${nm} said "${said}", not "${word}"`);
+        await d.shot(`2b-${id}-said`);
       });
     }
 
@@ -98,9 +102,9 @@ async function runDevice(device) {
         await d.shot(`3-${id}`);
         await d.holdUse(250);
         await d.settle(400);
-        const toasts = await page.locator('.hw-toasts .hw-toast').allTextContents();
+        const toasts = (await page.locator('.hw-toasts .hw-toast').allTextContents()).concat(await page.locator('.hw-npcsay__text').allTextContents());
         const re = new RegExp(word, 'i');
-        assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: no toast matching ${word}: ${toasts.slice(-3).join(' | ')}`);
+        assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: nothing matching ${word}: ${toasts.slice(-3).join(' | ')}`);
       });
     }
   } finally {

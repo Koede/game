@@ -1044,3 +1044,115 @@
     bottom: 38%;
   }
 }
+
+/* ---- the conversation box (Stardew-style: portrait, name tab, typed text) ---------------------------------------------------- */
+.hw-npcsay {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--hw-safe-b, 0px) + 84px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  width: min(720px, calc(100% - 24px));
+  z-index: 20;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hw-npcsay[hidden] {
+  display: none;
+}
+.hw-npcsay__frame {
+  flex: none;
+  width: 112px;
+  height: 112px;
+  padding: 5px;
+  border-radius: 10px;
+  background: linear-gradient(#8a5a34, #5f3b20);
+  box-shadow: 0 0 0 2px #3a2314, inset 0 0 0 2px #c79a5e, 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+.hw-npcsay__portrait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  image-rendering: auto;
+  background: #e3c898;
+}
+.hw-npcsay__card {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 96px;
+  padding: 24px 16px 16px;
+  border-radius: 12px;
+  background: linear-gradient(#f7e6bd, #ecd29a);
+  color: #3a2616;
+  box-shadow: 0 0 0 3px #6b4425, 0 0 0 5px #b98a52, 0 0 0 7px #3a2314, 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.hw-npcsay__tab {
+  position: absolute;
+  left: 14px;
+  top: -16px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 12px 4px;
+  border-radius: 8px;
+  background: linear-gradient(#8a5a34, #6b4425);
+  color: #fff3d6;
+  box-shadow: 0 0 0 2px #3a2314, inset 0 0 0 1px #c79a5e;
+}
+.hw-npcsay__name {
+  font: 700 15px / 1.2 var(--hw-font-display, inherit);
+  letter-spacing: 0.04em;
+}
+.hw-npcsay__title {
+  font: 500 11px / 1.2 var(--hw-font-body, inherit);
+  opacity: 0.8;
+  text-transform: lowercase;
+}
+.hw-npcsay__text {
+  margin: 0;
+  font: 500 16px / 1.45 var(--hw-font-body, inherit);
+  min-height: 3.2em;
+  white-space: pre-wrap;
+}
+.hw-npcsay__more {
+  position: absolute;
+  right: 14px;
+  bottom: 6px;
+  font-size: 12px;
+  color: #8a5a34;
+  animation: hw-npcsay-bob 0.9s ease-in-out infinite;
+}
+.hw-npcsay__more[hidden] {
+  display: none;
+}
+@keyframes hw-npcsay-bob {
+  50% {
+    transform: translateY(3px);
+  }
+}
+@media (max-width: 520px) {
+  .hw-npcsay {
+    bottom: calc(var(--hw-safe-b, 0px) + 96px);
+    gap: 6px;
+  }
+  .hw-npcsay__frame {
+    width: 76px;
+    height: 76px;
+    padding: 3px;
+  }
+  .hw-npcsay__card {
+    padding: 22px 12px 14px;
+  }
+  .hw-npcsay__text {
+    font-size: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-npcsay__more {
+    animation: none;
+  }
+}

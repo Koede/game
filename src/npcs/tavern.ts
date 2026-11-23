@@ -69,7 +69,6 @@ export function layoutBlocks(): Placement[] {
   put(W - 1, 1, 2, 'furnace_clay', Facing.West);
   put(W - 1, 2, 2, 'brick');
   put(W - 1, 3, 2, 'brick');
-  put(W - 2, 2, 2, 'torch');
   put(W - 1, 1, 7, 'workbench');
   put(W - 2, 1, 7, 'crate');
   // Tables: planks on a log, one in the witch's corner and one in the smith's.

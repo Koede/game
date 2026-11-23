@@ -3,6 +3,7 @@ import { GameState } from '../app/state';
 import { createBus } from '../core/context';
 import { blockOf } from '../core/registry';
 import { FakeWorld } from '../game/fakeWorld';
+import { hasPortrait, paintPortrait, PORTRAIT_PX } from '../render/npcs/portraits';
 import { opaqueIn, paintNpc, RES, SPRITE_H, SPRITE_W, spriteSize } from '../render/npcs/sprites';
 import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
@@ -66,6 +67,7 @@ function rig(opts: { coins?: number; held?: { item: string; count: number } | nu
   const toasts: string[] = [];
   const taken: number[] = [];
   bus.on('toast', (t) => toasts.push(t.text));
+  bus.on('npc:say', (e) => toasts.push(`${e.name}, ${e.title.toLowerCase()}: "${e.text}"`));
   let seed = 7;
   const rng = (): number => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const npcs = new NpcManager(bus, rng);
@@ -373,6 +375,37 @@ describe('the sprites', () => {
     }
     const o = paintNpc('orc');
     expect(rows(o, 24)).toBeGreaterThan(rows(paintNpc('witch'), 24) + 6);
+  });
+});
+
+describe('the portraits', () => {
+  it('paint a distinct 128 px bust for every person, none for the props', () => {
+    const roles = ['witch', 'barkeep', 'orc', 'artificer', 'hermit'] as const;
+    const imgs = roles.map((r) => paintPortrait(r));
+    for (const img of imgs) {
+      expect([img.w, img.h, img.data.length]).toEqual([PORTRAIT_PX, PORTRAIT_PX, PORTRAIT_PX * PORTRAIT_PX * 4]);
+      let opaque = 0;
+      for (let i = 3; i < img.data.length; i += 4) if (img.data[i] === 255) opaque++;
+      expect(opaque).toBe(PORTRAIT_PX * PORTRAIT_PX); // the backdrop fills the card
+    }
+    for (let i = 0; i < imgs.length; i++) for (let j = i + 1; j < imgs.length; j++) expect(imgs[i].data).not.toEqual(imgs[j].data);
+    expect(roles.every(hasPortrait)).toBe(true);
+    expect(hasPortrait('board')).toBe(false);
+    expect(hasPortrait('clock')).toBe(false);
+  });
+
+  it('give the witch green eyes and the orc green skin', () => {
+    const at = (img: ReturnType<typeof paintPortrait>, gx: number, gy: number): number[] => {
+      const x = Math.round(gx * 2);
+      const y = Math.round(gy * 2);
+      const i = (y * img.w + x) * 4;
+      return [img.data[i], img.data[i + 1], img.data[i + 2]];
+    };
+    const iris = at(paintPortrait('witch'), 27.6, 30.2);
+    expect(iris[1]).toBeGreaterThan(iris[0]);
+    const skin = at(paintPortrait('orc'), 32, 21);
+    expect(skin[1]).toBeGreaterThan(skin[0]);
+    expect(skin[1]).toBeGreaterThan(skin[2]);
   });
 });
 

@@ -145,7 +145,7 @@ export class NpcManager {
   }
 
   private say(npc: NpcDef, line: string): void {
-    this.bus.emit('toast', { text: `${npc.name}, ${npc.title.toLowerCase()}: "${line}"`, kind: 'good' });
+    this.bus.emit('npc:say', { id: npc.id, role: npc.role, name: npc.name, title: npc.title, text: line });
   }
 
   private toast(text: string): void {

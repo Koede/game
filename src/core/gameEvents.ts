@@ -235,6 +235,8 @@ export interface GameEvents {
   'ui:closed': Record<string, never>;
   /** Short message on the HUD. `item` shows that item's icon next to it. */
   'toast': { text: string; kind?: ToastKind; item?: string };
+  /** Someone in the tavern speaks: the dialogue box shows their portrait, name and the text (src/ui/hud/npcDialogue.ts). */
+  'npc:say': { id: string; role: string; name: string; title: string; text: string };
 
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */

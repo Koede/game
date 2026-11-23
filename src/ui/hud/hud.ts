@@ -27,6 +27,7 @@ import { cropLabel } from './cropText';
 import type { UISimQuery } from './query';
 import { DayDial, PowerStrip } from './status';
 import { Vitals } from './vitals';
+import { NpcDialogue } from './npcDialogue';
 
 export interface HudDeps {
   bus: GameBus;
@@ -62,6 +63,7 @@ export class Hud {
   private readonly root: UIRoot;
   private readonly top: HTMLDivElement;
   private readonly devBtn: HTMLButtonElement;
+  private readonly dialogue: NpcDialogue;
   private readonly vitals = new Vitals();
   private readonly goal: GoalTracker;
   private readonly compass = new Compass();
@@ -137,6 +139,7 @@ export class Hud {
       this.devBtn,
     );
     root.layers.hud.appendChild(this.el);
+    this.dialogue = new NpcDialogue(bus, this.el);
     // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
     root.layers.toasts.appendChild(this.feed.el);
 
@@ -307,6 +310,7 @@ export class Hud {
     this.offs.length = 0;
     this.observer?.disconnect();
     this.hotbar.dispose();
+    this.dialogue.dispose();
     this.feed.el.remove();
     this.el.remove();
   }
