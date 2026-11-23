@@ -5,10 +5,23 @@
  * it is signalled (when it touches no signal cell at all it just works). Not redstone: no logic, no memory, no big circuits.
  */
 import type { GameBus } from '../core/context';
-import type { IWorld } from '../core/types';
+import { Facing, voxelFacing, type IWorld } from '../core/types';
+import { LogicNet, type LogicKind } from './mech/logic';
 import type { GroundItems } from '../game/groundItems';
 
-export const SIGNAL_KINDS = new Set(['signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell']);
+export const SIGNAL_KINDS = new Set(['signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'logic_gate']);
+/** Modes of the logic gate (Use cycles them). The gate reads the cells on its left (A) and right (B) and drives the cell in front (src/workshop/mech/logic.ts). */
+export const GATE_MODES: readonly { name: string; kind: LogicKind; arg?: number }[] = [
+  { name: 'AND (both sides lit)', kind: 'and' },
+  { name: 'OR (either side lit)', kind: 'or' },
+  { name: 'XOR (exactly one side lit)', kind: 'xor' },
+  { name: 'NOT (left lit turns it off)', kind: 'not' },
+  { name: 'Latch (left sets, right resets)', kind: 'latch' },
+  { name: 'Counter of 4 (left counts, right resets)', kind: 'counter', arg: 4 },
+  { name: 'Counter of 8 (left counts, right resets)', kind: 'counter', arg: 8 },
+  { name: 'Compare (left at least right)', kind: 'cmp' },
+  { name: 'Delay (left, one second later)', kind: 'delay', arg: 20 },
+];
 const SOURCES = new Set(['crank_lever', 'pressure_plate', 'metronome']);
 export const SIGNAL_RANGE = 15;
 /** Metronome: one pulse every PERIOD seconds, on for PULSE of them. */
@@ -37,6 +50,10 @@ export class Signals {
   private readonly level = new Map<string, number>();
   private readonly litCells = new Set<string>();
   private readonly rung = new Set<string>();
+  /** Cells a drum or other part holds lit this tick (set by `drive`, cleared by `clearDriven`). */
+  private readonly driven = new Set<string>();
+  private readonly gateNet = new LogicNet();
+  private readonly gateKnown = new Map<string, number>();
 
   constructor(private readonly host: SignalHost) {}
 
@@ -68,6 +85,61 @@ export class Signals {
     return 'worked';
   }
 
+  /** Use on a logic gate cycles its mode. Returns the toast text, or null when it is not a gate. */
+  cycleGate(x: number, y: number, z: number): string | null {
+    const c = this.cells.get(k3(x, y, z));
+    if (!c || c.kind !== 'logic_gate') return null;
+    c.s = (c.s + 1) % GATE_MODES.length;
+    this.host.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.2 + c.s * 0.05, volume: 0.4 });
+    return `Logic gate: ${GATE_MODES[c.s].name}`;
+  }
+
+  /** Hold a cell lit for this tick (a cam drum track). */
+  drive(x: number, y: number, z: number): void {
+    this.driven.add(k3(x, y, z));
+  }
+
+  clearDriven(): void {
+    this.driven.clear();
+  }
+
+  private sideCells(c: Cell): { a: string; b: string; front: string } {
+    const f = voxelFacing(this.host.world.getVoxel(c.x, c.y, c.z));
+    const [dx, dz] = f === Facing.North ? [0, -1] : f === Facing.East ? [1, 0] : f === Facing.South ? [0, 1] : [-1, 0];
+    return { a: k3(c.x + dz, c.y, c.z - dx), b: k3(c.x - dz, c.y, c.z + dx), front: k3(c.x + dx, c.y, c.z + dz) };
+  }
+
+  /** Keeps one logic net node trio per gate cell in step with the cells; returns the output level of each gate after a tick on last tick's levels. */
+  private runGates(): Map<string, number> {
+    for (const key of [...this.gateKnown.keys()]) {
+      if (this.cells.get(key)?.kind !== 'logic_gate') {
+        this.gateNet.remove(`${key}#a`);
+        this.gateNet.remove(`${key}#b`);
+        this.gateNet.remove(key);
+        this.gateKnown.delete(key);
+      }
+    }
+    const out = new Map<string, number>();
+    for (const [key, c] of this.cells) {
+      if (c.kind !== 'logic_gate') continue;
+      const mode = Math.min(c.s, GATE_MODES.length - 1);
+      if (this.gateKnown.get(key) !== mode) {
+        const m = GATE_MODES[mode];
+        this.gateNet.add({ id: `${key}#a`, kind: 'source', ins: [] });
+        this.gateNet.add({ id: `${key}#b`, kind: 'source', ins: [] });
+        this.gateNet.add({ id: key, kind: m.kind, ins: m.kind === 'not' ? [`${key}#a`] : [`${key}#a`, `${key}#b`], arg: m.arg });
+        this.gateKnown.set(key, mode);
+      }
+      const side = this.sideCells(c);
+      this.gateNet.set(`${key}#a`, this.level.get(side.a) ?? 0);
+      this.gateNet.set(`${key}#b`, this.level.get(side.b) ?? 0);
+    }
+    if (this.gateKnown.size === 0) return out;
+    this.gateNet.tick();
+    for (const key of this.gateKnown.keys()) out.set(key, this.gateNet.level(key));
+    return out;
+  }
+
   setExternal(x: number, y: number, z: number, on: boolean): void {
     if (on) this.external.add(k3(x, y, z));
     else this.external.delete(k3(x, y, z));
@@ -82,6 +154,7 @@ export class Signals {
   }
 
   tick(t: number): void {
+    const gateOut = this.runGates();
     this.level.clear();
     this.litCells.clear();
     const queue: string[] = [];
@@ -100,6 +173,24 @@ export class Signals {
       }
     }
     for (const key of this.external) seed(key);
+    for (const key of this.driven) {
+      if (!this.cells.has(key)) continue;
+      seed(key);
+      this.litCells.add(key);
+    }
+    // Logic gates drive the cell in front of them (and read as lit to machines that touch them).
+    for (const [key, out] of gateOut) {
+      if (out <= 0) continue;
+      this.level.set(key, out);
+      this.litCells.add(key);
+      const c = this.cells.get(key) as Cell;
+      const front = this.sideCells(c).front;
+      if (this.cells.get(front)?.kind === 'signal_wire' && (this.level.get(front) ?? 0) < out) {
+        this.level.set(front, out);
+        this.litCells.add(front);
+        queue.push(front);
+      }
+    }
     for (let i = 0; i < queue.length; i++) {
       const [x, y, z] = queue[i].split(',').map(Number);
       const lv = this.level.get(queue[i]) as number;
@@ -180,6 +271,11 @@ export class Signals {
   describe(x: number, y: number, z: number): string | null {
     const c = this.cells.get(k3(x, y, z));
     if (!c) return null;
+    if (c.kind === 'logic_gate') {
+      const m = GATE_MODES[Math.min(c.s, GATE_MODES.length - 1)];
+      const n = m.kind === 'counter' ? `, count ${this.gateNet.count(k3(x, y, z))}/${m.arg}` : '';
+      return `Logic Gate - ${m.name}, ${this.lit(k3(x, y, z)) ? 'on' : 'off'}${n}`;
+    }
     const names: Record<string, string> = { signal_wire: 'Signal Wire', crank_lever: 'Crank Lever', pressure_plate: 'Pressure Plate', metronome: 'Metronome', signal_lamp: 'Signal Lamp', bell: 'Bell' };
     const state = c.kind === 'bell' ? (this.near(x, y, z) ? 'ringing' : 'quiet, rings when a machine seizes within 12 blocks')
       : c.kind === 'signal_wire' ? `strength ${this.level.get(k3(x, y, z)) ?? 0}`
@@ -195,7 +291,7 @@ export class Signals {
     this.cells.clear();
     for (const row of Array.isArray(raw) ? raw : []) {
       if (!Array.isArray(row) || row.length !== 5 || ![row[0], row[1], row[2]].every(Number.isInteger) || !SIGNAL_KINDS.has(row[3])) continue;
-      this.cells.set(k3(row[0], row[1], row[2]), { kind: row[3], x: row[0], y: row[1], z: row[2], s: row[4] ? 1 : 0 });
+      this.cells.set(k3(row[0], row[1], row[2]), { kind: row[3], x: row[0], y: row[1], z: row[2], s: row[3] === 'logic_gate' ? (Number.isInteger(row[4]) && row[4] >= 0 && row[4] < GATE_MODES.length ? row[4] : 0) : row[4] ? 1 : 0 });
     }
   }
 

@@ -239,5 +239,7 @@
   "rivet_plate_block": 237,
   "brake": 238,
   "pillow_block": 239,
-  "wool_bedding": 240
+  "wool_bedding": 240,
+  "cam_drum": 241,
+  "logic_gate": 242
 }

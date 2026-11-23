@@ -23,6 +23,7 @@ import { SIGNAL_KINDS, Signals } from './signals';
 import { isLogistic, Logistics, POWERED, type ActResult, type MachineActAction } from './logistics';
 import { IDLE_DRAG, IDLE_DRAG_PER_PART, FUSE_NAMES, FUSE_RATINGS, HEAT_SEIZE, STALL_W, brakePower, diagnose, engineKindOf, fresh as mechFresh, networkMomentum, shaftRuns, stepDrive, stepFuse, stepHeat, throughTorque, worstWhip, type DriveState, type Engine, type Finding, type FuseState } from './mech/drive';
 import { strokeLoad } from './mech/linkage';
+import { advanceDrum, drumFromRows, outputs as drumOutputs, type Drum } from './mech/drum';
 import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, cardProgram, clampCardSeconds, freshCard, readCard, snapDirection, snapRatio, solveNetwork, type CardStep, type KPart, type Source } from './kinetics';
 
 export const CRANK_RPM = 16;
@@ -43,7 +44,7 @@ export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1
 /** Furthest a chain / belt link reaches along a line, blocks. */
 export const LINK_RANGE: Record<string, number> = { chain_sprocket: 16, belt_pulley: 9 };
 /** Settings that Use cycles: how many states each part has. */
-const CYCLES: Record<string, number> = { ratio_dial: DIAL_RATIOS.length, governor: GOVERNOR_NOTCHES.length, sequence_gearshift: GEARSHIFT_PROGRAMS.length, belt_pulley: PULLEY_SIZES.length, clutch: 2, shear_pin: FUSE_RATINGS.length, brake: 2 };
+const CYCLES: Record<string, number> = { ratio_dial: DIAL_RATIOS.length, governor: GOVERNOR_NOTCHES.length, sequence_gearshift: GEARSHIFT_PROGRAMS.length, belt_pulley: PULLEY_SIZES.length, clutch: 2, shear_pin: FUSE_RATINGS.length, brake: 2, cam_drum: 6 };
 /** Seconds per recipe stroke at 16 rpm. */
 export const STROKE_S = 0.5;
 /** Blocks per second a belt moves items at 16 rpm. */
@@ -80,6 +81,16 @@ interface NetDyn { st: DriveState; nominal: Map<string, number>; stress: number;
 /** A press or hammer ram: crank 0.5, rod 1.6 (src/workshop/mech/linkage.ts), and how much of its torque curve shows up as a pulse. */
 const RAM = { crank: 0.5, rod: 1.6 };
 const PULSE_GAIN = 0.3;
+/** Cam drum programs, four tracks of sixteen steps each (src/workshop/mech/drum.ts); the tracks light the north, east, south and west neighbours. */
+export const DRUM_PRESETS: readonly { name: string; rows: readonly string[] }[] = [
+  { name: 'Beat', rows: ['x.......x.......', '....x.......x...', 'x...x...x...x...', 'xxxxxxxx........'] },
+  { name: 'Sweep', rows: ['xxxx............', '....xxxx........', '........xxxx....', '............xxxx'] },
+  { name: 'Waltz', rows: ['x..x..x..x..x..x', '.x..x..x..x..x..', '..x..x..x..x..x.', 'xx..xx..xx..xx..'] },
+  { name: 'Single shots', rows: ['x...............', '..x.............', '....x...........', '......x........ '] },
+  { name: 'Square', rows: ['xxxxxxxx........', '..xxxxxxxx......', '....xxxxxxxx....', '........xxxxxxxx'] },
+  { name: 'Morse', rows: ['x.xxx.x.x.......', '.x.x.xxx.x......', 'xxx.x.xxx.x.....', 'x...x...x...x...'] },
+];
+const DRUM_SIDES: [number, number][] = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
 export interface WorkshopSnapshot {
   v: 1;
@@ -144,6 +155,7 @@ export class Workshop {
   /** Fluid blocks of the pipe network for spouts and drains (bucket use); set by Game. */
   fluidBlock: { is(x: number, y: number, z: number): boolean; use(x: number, y: number, z: number, item: string): string | null } | null = null;
   private readonly dyn = new Map<string, NetDyn>();
+  private readonly drums = new Map<string, { preset: number; drum: Drum }>();
   private readonly heat = new Map<string, number>();
   private readonly fuses = new Map<string, FuseState>();
   private readonly pto = new Set<string>();
@@ -271,6 +283,13 @@ export class Workshop {
     const shopped = this.logi.use(x, y, z, held, takeHeld);
     if (shopped !== null) return shopped;
     if (!(held && blockOrNull(held.item)) && this.signals.use(x, y, z)) return 'worked';
+    if (!(held && blockOrNull(held.item))) {
+      const gate = this.signals.cycleGate(x, y, z);
+      if (gate) {
+        this.bus.emit('toast', { text: gate, kind: 'info' });
+        return 'worked';
+      }
+    }
     const part = this.parts.get(key) ?? (KINETIC.has(this.world.getBlock(x, y, z).key) ? (this.noteBlock(x, y, z), this.parts.get(key)) : undefined);
     if (!part) return null;
     if (part.kind === 'hand_crank') {
@@ -350,6 +369,7 @@ export class Workshop {
       else this.cranks.set(k, s - dt);
     }
     this.solve();
+    this.runDrums(dt);
     this.showActive();
     this.moveBelts(dt);
     this.work(dt);
@@ -571,6 +591,25 @@ export class Workshop {
     for (const k of this.dyn.keys()) if (!liveNets.has(k)) this.dyn.delete(k);
   }
 
+  /** Each turning cam drum advances its program and lights the signal cells on its sides while a peg is under the track. */
+  private runDrums(dt: number): void {
+    this.signals.clearDriven();
+    for (const [key, p] of this.parts) {
+      if (p.kind !== 'cam_drum') continue;
+      let d = this.drums.get(key);
+      if (!d || d.preset !== p.s) {
+        d = { preset: p.s, drum: drumFromRows(DRUM_PRESETS[Math.min(p.s, DRUM_PRESETS.length - 1)].rows) };
+        this.drums.set(key, d);
+      }
+      advanceDrum(d.drum, this.speed.get(key) ?? 0, dt);
+      const on = drumOutputs(d.drum);
+      DRUM_SIDES.forEach(([dx, dz], t) => {
+        if (on[t]) this.signals.drive(p.x + dx, p.y, p.z + dz);
+      });
+    }
+    for (const k of this.drums.keys()) if (!this.parts.has(k)) this.drums.delete(k);
+  }
+
   /** Extra load fraction right now from striking machines (press, hammer): their ram's slider-crank torque curve over the steady load. */
   private pulseOf(members: readonly string[], ref: number): number {
     let extra = 0;
@@ -596,6 +635,7 @@ export class Workshop {
       case 'sequence_gearshift': return p.card ? 'Punched card: 8 steps' : `Gearshift program ${p.s + 1} of ${GEARSHIFT_PROGRAMS.length}`;
       case 'belt_pulley': return `Pulley size ${PULLEY_SIZES[p.s]}`;
       case 'clutch': return p.s ? 'Clutch engaged' : 'Clutch released';
+      case 'cam_drum': return `Drum program ${p.s + 1}: ${DRUM_PRESETS[Math.min(p.s, DRUM_PRESETS.length - 1)].name}`;
       case 'brake': return p.s ? 'Brake engaged' : 'Brake free';
       case 'shear_pin': return p.s ? `${FUSE_NAMES[p.s]} pin: snaps over ${FUSE_RATINGS[p.s]} su` : 'Plain pin: snaps when the line is overloaded';
       default: return null;

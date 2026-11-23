@@ -37,6 +37,8 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'flywheel', name: 'Flywheel', anim: true, desc: 'A heavy wheel with real momentum: slow to spin up, slow to stop. It rides pulsing loads (press, hammer) through their peaks and keeps the line coasting when power stops.' },
   { key: 'brake', name: 'Brake', anim: true, desc: 'Use to engage: takes 24 su and stops a coasting flywheel fast. A lit signal cell beside it flips it. Held hard it heats and fades.' },
   { key: 'pillow_block', name: 'Pillow Block', anim: false, desc: 'A bearing in a shaft line. A long unsupported run whips near 160 / length rpm; a pillow block in the run splits it.' },
+  { key: 'cam_drum', name: 'Cam Drum', anim: true, desc: 'A pegged drum, a music box for machines. Turning, it lights signal wire on its four sides in a pattern. Use it to pick one of six programs.' },
+  { key: 'logic_gate', name: 'Logic Gate', anim: true, desc: 'Reads the signal cells on its left and right and drives the cell in front: AND, OR, XOR, NOT, latch, counters, compare, delay. Use it to cycle modes.' },
   { key: 'differential', name: 'Differential', anim: true, desc: 'Two shafts meet here and it turns at their mean speed, even when they turn opposite ways. It hands that on to the sides they did not come from.' },
   { key: 'treadwheel', name: 'Treadwheel', anim: true, desc: 'A big wheel to walk in. It turns at 12 rpm and carries 24 stress units while you or a tame animal stand on top of it.' },
   { key: 'saw_arm', name: 'Saw Arm', anim: true, desc: 'A deployer with a blade. Every three seconds it fells the whole tree in front of it, log by log, and the logs fall as items. It needs no fuel.' },
@@ -59,7 +61,7 @@ export const PART_DEFS: readonly PartDef[] = [
 ];
 
 /** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
-export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'contraption_frame', 'rail', 'skiff']);
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },

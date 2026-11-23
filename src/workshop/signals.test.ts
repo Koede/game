@@ -113,3 +113,50 @@ describe('signals', () => {
     expect(u.shop.describe(1, 0, 0)).toContain('on');
   });
 });
+
+describe('logic gates and cam drums', () => {
+  it('an AND gate lights the wire in front only while both sides are lit; a latch holds; a counter fires on the third pulse', () => {
+    const t = setup();
+    // Gate at (5,0,5) facing north: left (A) = west x=4, right (B) = east x=6, front = north z=4.
+    t.put(5, 0, 5, 'logic_gate', Facing.North);
+    t.put(4, 0, 5, 'crank_lever');
+    t.put(6, 0, 5, 'crank_lever');
+    t.put(5, 0, 4, 'signal_wire');
+    t.run(0.2);
+    expect(t.shop.signals.lit('5,0,4')).toBe(false);
+    t.shop.use(4, 0, 5, null, () => undefined);
+    t.run(0.2);
+    expect(t.shop.signals.lit('5,0,4')).toBe(false);
+    t.shop.use(6, 0, 5, null, () => undefined);
+    t.run(0.2);
+    expect(t.shop.signals.lit('5,0,4')).toBe(true);
+    // OR: one side is enough.
+    t.shop.signals.cycleGate(5, 0, 5);
+    t.shop.use(6, 0, 5, null, () => undefined);
+    t.run(0.2);
+    expect(t.shop.signals.lit('5,0,4')).toBe(true);
+    expect(t.shop.describe(5, 0, 5)).toMatch(/OR/);
+  });
+
+  it('a turning cam drum lights wire on the sides its pegs reach, and a stopped one does not', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'cam_drum');
+    t.put(1, 0, 1, 'signal_wire'); // south side = track 2
+    t.put(2, 0, 0, 'signal_wire'); // east side = track 1
+    t.run(0.3); // a stopped drum holds whatever its pegs show at rest: nothing moves
+    const rest = t.shop.signals.lit('2,0,0');
+    t.run(3);
+    expect(t.shop.signals.lit('2,0,0')).toBe(rest);
+    const seen = { south: false, east: false };
+    for (let i = 0; i < 400; i++) {
+      if (i % 20 === 0) t.shop.use(0, 0, 0, null, () => undefined);
+      t.shop.tick(0.05);
+      seen.south ||= t.shop.signals.lit('1,0,1');
+      seen.east ||= t.shop.signals.lit('2,0,0');
+    }
+    expect(seen.south).toBe(true);
+    expect(seen.east).toBe(true);
+    expect(t.shop.describe(1, 0, 0)).toMatch(/Drum program 1: Beat/);
+  });
+});
