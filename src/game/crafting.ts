@@ -229,6 +229,7 @@ export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: P
   }
   const sfx = options.sfx === undefined ? 'craft' : options.sfx;
   if (sfx) player.bus.emit('sfx', { name: sfx });
+  if (recipe.station === 'hand') player.assist.lastHand = recipe.id;
   bringToHotbar(player, recipe.output.item);
   return result;
 }

@@ -17,6 +17,7 @@ import { Collectors } from './collectors';
 import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundItems';
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
+import { PlayAssist, type AssistSnapshot } from './assist';
 import { favouritesOf, setFavourites } from './inventoryTools';
 import { wear } from './mining';
 
@@ -55,6 +56,8 @@ export interface PlayerSnapshot {
   inventory: Slot[];
   /** Favourite inventory slots (sort and move-all leave them); missing in older saves. */
   favourites?: number[];
+  /** Play-assist state (pinned recipe...); missing in older saves. */
+  assist?: AssistSnapshot;
   selectedSlot: number;
   home: BlockPos | null;
   spawn: Vec3;
@@ -151,6 +154,8 @@ export class PlayerState {
   readonly combat: PlayerCombat;
   /** Items lying in the world: everything that gives items spawns them here (see `drop`, `dropHeld`). */
   readonly ground: GroundItems;
+  /** Pinned recipe, last hand recipe, undo and the like (./assist). */
+  readonly assist = new PlayAssist();
   /** Handheld collectors (vacuum pump, later the electromagnet). */
   readonly collectors: Collectors;
   private readonly unsubscribe: Array<() => void>;
@@ -413,6 +418,7 @@ export class PlayerState {
       food: this.food,
       inventory: this.inventory.toJSON(),
       favourites: [...favouritesOf(this.inventory)].sort((a, b) => a - b),
+      assist: this.assist.toJSON(),
       selectedSlot: this.selectedSlot,
       home: this.home ? { ...this.home } : null,
       spawn: { ...this.spawn },
@@ -452,6 +458,7 @@ export class PlayerState {
     this.sprinting = false;
     this.inventory.load(s.inventory);
     setFavourites(this.inventory, s.favourites);
+    this.assist.load(s.assist);
     this.selectedSlot = clamp(Math.floor(s.selectedSlot), 0, HOTBAR_SIZE - 1);
     this.home = s.home ? { ...s.home } : null;
     this.buffs.load(s.buffs);

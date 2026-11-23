@@ -85,6 +85,7 @@ export const SETTINGS_BOUNDS = {
 const TOUCH_MODES: readonly Settings['touchControls'][] = ['auto', 'on', 'off'];
 const GRAPHICS: readonly NonNullable<Settings['graphics']>[] = ['low', 'normal', 'high'];
 const UI_SCALES: readonly Settings['uiScale'][] = ['normal', 'large'];
+const ITEM_MAGNETS: readonly Settings['itemMagnet'][] = ['off', 'small', 'large'];
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -114,6 +115,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (typeof raw.autoStep === 'boolean') out.autoStep = raw.autoStep;
   if (typeof raw.moveAssist === 'boolean') out.moveAssist = raw.moveAssist;
   if (GRAPHICS.includes(raw.graphics as NonNullable<Settings['graphics']>)) out.graphics = raw.graphics as Settings['graphics'];
+  if (ITEM_MAGNETS.includes(raw.itemMagnet as Settings['itemMagnet'])) out.itemMagnet = raw.itemMagnet as Settings['itemMagnet'];
   return out;
 }
 

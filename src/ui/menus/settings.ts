@@ -4,7 +4,7 @@ import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
 import { PRESETS, applyPreset, detectPreset, presetById, type PresetId } from './settingsPresets';
-import { DIFFICULTY_OPTIONS, difficultyHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
+import { DIFFICULTY_OPTIONS, ITEM_MAGNET_OPTIONS, difficultyHint, itemMagnetHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
 export const SETTINGS_LIMITS = {
@@ -44,7 +44,7 @@ export class SettingsPanel {
       'div',
       { class: 'hw-settings' },
       this.section('Quick setup', this.presets()),
-      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), opts.dev ? this.devSwitch(opts.dev) : null),
+      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), this.choice('itemMagnet', 'Item magnet', ITEM_MAGNET_OPTIONS, itemMagnetHint), opts.dev ? this.devSwitch(opts.dev) : null),
       this.section(
         'View',
         this.choice('uiScale', 'Text and button size', UI_SCALE_OPTIONS, uiScaleHint),
@@ -107,7 +107,7 @@ export class SettingsPanel {
   }
 
   /** A segmented choice whose hint says what the picked value means (Difficulty, UI size). */
-  private choice<K extends 'difficulty' | 'uiScale'>(
+  private choice<K extends 'difficulty' | 'uiScale' | 'itemMagnet'>(
     key: K,
     label: string,
     options: readonly { value: Settings[K]; label: string }[],

@@ -42,6 +42,8 @@ export interface Settings {
    * Optional: older saves lack it and read as 'normal'.
    */
   graphics?: 'low' | 'normal' | 'high';
+  /** Item magnet: how far dropped items fly to the player (src/game/magnet.ts). Older saved settings lack it and read as 'off'. */
+  itemMagnet: 'off' | 'small' | 'large';
 }
 
 /** Spec 19.3. */
@@ -80,6 +82,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   colorSafe: false,
   haptics: true,
   graphics: 'normal',
+  itemMagnet: 'off',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */
