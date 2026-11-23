@@ -11,6 +11,8 @@ export interface RgbaImage {
 
 /** Colour distance (sum of channel differences) under which a pixel counts as the background. */
 const KEY_TOLERANCE = 54;
+/** Target height (px) of a sprite from big source art. */
+export const SPRITE_PX = 176;
 
 /**
  * Removes a plain background: the most common colour of the four corners is the key; every pixel connected to the border whose colour is
@@ -121,10 +123,20 @@ export async function loadNpcArt(manifest: Readonly<Record<string, string>>): Pr
         const px = ctx.getImageData(0, 0, c.width, c.height);
         const cut = cutOut({ w: px.width, h: px.height, data: px.data });
         if (!cut) return;
+        const full = document.createElement('canvas');
+        full.width = cut.w;
+        full.height = cut.h;
+        full.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(cut.data), cut.w, cut.h), 0, 0);
+        // Large images (generated art is ~1200 px) are brought down to about SPRITE_PX tall with smoothing, so the pixel look survives
+        // the renderer's nearest-neighbour filtering instead of shimmering.
+        const k = cut.h > SPRITE_PX * 1.25 ? SPRITE_PX / cut.h : 1;
         const o = document.createElement('canvas');
-        o.width = cut.w;
-        o.height = cut.h;
-        o.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(cut.data), cut.w, cut.h), 0, 0);
+        o.width = Math.max(1, Math.round(cut.w * k));
+        o.height = Math.max(1, Math.round(cut.h * k));
+        const octx = o.getContext('2d')!;
+        octx.imageSmoothingEnabled = true;
+        octx.imageSmoothingQuality = 'high';
+        octx.drawImage(full, 0, 0, o.width, o.height);
         store.set(key, o);
         n++;
       } catch (err) {

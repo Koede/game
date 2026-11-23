@@ -60,8 +60,10 @@ export class NpcDialogue {
     this.nameEl.textContent = name;
     this.titleEl.textContent = title;
     const art = id ? npcArt(`${id}_portrait`) : undefined;
-    this.frame.hidden = !art && !hasPortrait(role);
+    const sprite = id ? npcArt(id) : undefined;
+    this.frame.hidden = !art && !sprite && !hasPortrait(role);
     if (art) this.drawArt(art);
+    else if (sprite) this.drawHead(sprite);
     else if (hasPortrait(role)) this.drawPortrait(role);
     this.text = text;
     this.shown = 0;
@@ -94,6 +96,18 @@ export class NpcDialogue {
   /** What is typed so far (for tests and screen readers). */
   get typed(): string {
     return this.textEl.textContent ?? '';
+  }
+
+  /** No portrait art but a sprite: the head and shoulders of the sprite, cropped square, fill the frame. */
+  private drawHead(sprite: HTMLCanvasElement): void {
+    const ctx = this.portrait.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.fillStyle = '#e3c898';
+    ctx.fillRect(0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.imageSmoothingEnabled = false;
+    const side = Math.min(sprite.width, sprite.height * 0.34);
+    ctx.drawImage(sprite, (sprite.width - side) / 2, sprite.height * 0.04, side, side, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
   }
 
   /** Drop-in portrait art, scaled to cover the frame. */
