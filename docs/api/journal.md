@@ -17,3 +17,7 @@
 - Resume prompt: `GameState.resumed`; `Game` toasts `resumeLine(day, current goal, last diary line)` when a saved world is picked up.
 - One-handed layout: `Settings.oneHanded` ('off' | 'left' | 'right', Settings > Controls). `TouchGestures.handed` moves the stick region to the lower part of that side (buttons still win the hit test, everything else looks); `TouchOverlay.setHanded` mirrors the cluster for the left thumb (CSS `hw-touch--one-left/right`).
 - Auto-build assist was not built.
+
+## Story beats
+
+`src/game/storyBeats.ts`: `STORY_BEATS` (one per age from the second on) and `StoryDirector(bus, journal, phase, savedAge)`. When an age is reached, the first night after brings its lines as timed toasts and a journal entry keyed `story:<age>`. The journal is the only memory: on load, reached ages whose key is missing re-arm. `GameState.story.tick` runs each fixed step.

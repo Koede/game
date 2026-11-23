@@ -102,6 +102,11 @@ export class Journal {
     if (text) this.add('first', text, `first:made:${item}`);
   }
 
+  /** True when an entry with this key was written. */
+  has(key: string): boolean {
+    return this.keys.has(key);
+  }
+
   /** Writes an entry unless its key was already used. Returns true when written. */
   add(kind: JournalKind, text: string, key?: string): boolean {
     if (key !== undefined) {
