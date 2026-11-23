@@ -6,7 +6,8 @@
  */
 import type { GameBus } from '../../core/context';
 import type { NpcRole } from '../../npcs/data';
-import { npcArt } from '../../render/npcs/art';
+import { FACE_CELLS, npcArt } from '../../render/npcs/art';
+import { faceOf } from '../../npcs/mood';
 import { hasPortrait, paintPortrait, PORTRAIT_PX } from '../../render/npcs/portraits';
 import { h } from '../kit/dom';
 
@@ -60,9 +61,11 @@ export class NpcDialogue {
     this.nameEl.textContent = name;
     this.titleEl.textContent = title;
     const art = id ? npcArt(`${id}_portrait`) : undefined;
+    const faces = id ? npcArt(`${id}_faces`) : undefined;
     const sprite = id ? npcArt(id) : undefined;
-    this.frame.hidden = !art && !sprite && !hasPortrait(role);
-    if (art) this.drawArt(art);
+    this.frame.hidden = !art && !faces && !sprite && !hasPortrait(role);
+    if (faces) this.drawFace(faces, faceOf(text));
+    else if (art) this.drawArt(art);
     else if (sprite) this.drawHead(sprite);
     else if (hasPortrait(role)) this.drawPortrait(role);
     this.text = text;
@@ -108,6 +111,16 @@ export class NpcDialogue {
     ctx.imageSmoothingEnabled = false;
     const side = Math.min(sprite.width, sprite.height * 0.34);
     ctx.drawImage(sprite, (sprite.width - side) / 2, sprite.height * 0.04, side, side, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
+  }
+
+  /** One cell of the expression sheet, scaled to cover the frame. */
+  private drawFace(sheet: HTMLCanvasElement, cell: number): void {
+    const ctx = this.portrait.getContext('2d');
+    if (!ctx) return;
+    const w = sheet.width / FACE_CELLS;
+    ctx.clearRect(0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sheet, Math.min(FACE_CELLS - 1, Math.max(0, cell)) * w, 0, w, sheet.height, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
   }
 
   /** Drop-in portrait art, scaled to cover the frame. */

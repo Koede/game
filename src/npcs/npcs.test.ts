@@ -11,6 +11,7 @@ import {
 } from './index';
 import { dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
+import { FACES, faceOf } from './mood';
 import { ARTIFICER } from './scripts/artificer';
 import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
@@ -88,6 +89,29 @@ describe('the jukebox', () => {
     expect(notesAt(1).some((n) => n.bass)).toBe(false);
     expect(notesAt(TUNE.length)).toEqual(notesAt(0));
     expect(notesAt(15)).toEqual([]);
+  });
+});
+
+describe('faces', () => {
+  it('picks a face from the words of a line', () => {
+    const face = (t: string): string => FACES[faceOf(t)];
+    expect(face('Bet you wonder how I am still a bum with all this coin. Anyways.')).toBe('laughing');
+    expect(face('Do not break them on anything good.')).toBe('annoyed');
+    expect(face('Whoa, what?')).toBe('surprised');
+    expect(face('Heh. That is a fair price.')).toBe('sly');
+    expect(face('Welcome back, friend!')).toBe('happy');
+    expect(face('The kiln wants more fuel.')).toBe('neutral');
+  });
+
+  it('gives every line a valid cell and every shipped person a six-cell sheet', () => {
+    for (const bank of [WITCH, BARKEEP, ORC, ARTIFICER, HERMIT]) {
+      for (const line of Object.values(bank).flat().flat().filter((l): l is string => typeof l === 'string').slice(0, 200)) {
+        const i = faceOf(line);
+        expect(i).toBeGreaterThanOrEqual(0);
+        expect(i).toBeLessThan(FACES.length);
+      }
+    }
+    expect(FACES).toHaveLength(6);
   });
 });
 

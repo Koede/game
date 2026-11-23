@@ -44,3 +44,7 @@ A `jukebox` prop (tavern-local 8.5, 1, 1.6) toggles with Use. While on, `NpcMana
 ## Art density
 
 `loadNpcArt(manifest, scales)` brings every generated image to `SPRITE_PX` (96) rows per 2 blocks times the character's scale, so all characters have the same pixels per block (Gruk, scale 1.35, gets 130 rows).
+
+## Expressions (talking faces)
+
+Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neutral, happy, laughing, surprised, annoyed, sly). They are the owner's blueprint art with the changes placed by hand: `assets/npcs/faces/<id>_px.py` holds each character's edits as blocks in the art's own pixel size (Rosa's script uses inpainting; the others place blocks directly), `px.py` is the tiny block-drawing helper, and `build.py` crops and packs the sheets (`python assets/npcs/faces/build.py`, then `node scripts/npc-art.mjs`). `src/npcs/mood.ts` `faceOf(text)` reads a line's words and the dialogue box (`src/ui/hud/npcDialogue.ts`) shows that cell; with no sheet it falls back to the sprite crop or the code-drawn portrait.

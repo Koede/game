@@ -94,6 +94,9 @@ const store = new Map<string, HTMLCanvasElement>();
 const listeners = new Set<() => void>();
 
 export const npcArt = (key: string): HTMLCanvasElement | undefined => store.get(key);
+
+/** Cells in a `<id>_faces` sheet, left to right: neutral, happy, laughing, surprised, annoyed, sly (src/npcs/mood.ts picks one per line). */
+export const FACE_CELLS = 6;
 export const onNpcArt = (fn: () => void): (() => void) => {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -115,7 +118,7 @@ export async function loadNpcArt(manifest: Readonly<Record<string, string>>, sca
         const ctx = c.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         ctx.drawImage(img, 0, 0);
-        if (key.endsWith('_portrait')) {
+        if (key.endsWith('_portrait') || key.endsWith('_faces')) {
           store.set(key, c);
           n++;
           return;
