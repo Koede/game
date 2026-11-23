@@ -62,7 +62,7 @@ export class SettingsPanel {
       ),
       this.section(
         'Accessibility',
-        this.toggle('reduceMotion', 'Reduce motion', 'No view bob, sprint zoom, landing dip, screen shake, flashes, pulses or sliding. Bars and counters still update.'),
+        this.toggle('reduceMotion', 'Reduce motion', 'No view bob, sprint zoom, landing dip, flashes, pulses or sliding. Bars and counters still update.'),
         this.toggle('colorSafe', 'Colour-blind-safe colours', 'Good, warning and bad show as blue, yellow and orange instead of green, yellow and red.'),
       ),
       this.section(

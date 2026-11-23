@@ -31,7 +31,7 @@ export interface Settings {
   moveAssist: boolean;
   /** Walk up one-block ledges without jumping (on by default for touch). */
   autoStep: boolean;
-  /** No decorative movement: view bob, sprint FOV kick, landing dip, screen shake, UI flashes, pulses and slides (starts on when the device asks for reduced motion). */
+  /** No decorative movement: view bob, sprint FOV kick, landing dip, UI flashes, pulses and slides (starts on when the device asks for reduced motion). */
   reduceMotion: boolean;
   /** Accessibility: status colours (good / warning / bad, health, food) that stay apart for colour-blind players. */
   colorSafe: boolean;

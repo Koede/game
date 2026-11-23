@@ -19,7 +19,7 @@ import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
 import { attachHaptics } from './haptics';
 import { Interaction } from './interaction';
-import { SHAKE_BREAK, SHAKE_DIG, SHAKE_HURT, SHAKE_STRIKE, Shake, landingDip, settle } from './cameraFx';
+import { landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
@@ -124,7 +124,6 @@ export class PlayerController {
   private sneakDip = 0;
   /** Eye height lost to a hard landing, easing back. */
   private landDip = 0;
-  private readonly shake = new Shake();
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
   /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
@@ -152,14 +151,6 @@ export class PlayerController {
       }),
       this.bus.on('ui:closed', () => this.recapture()),
       this.bus.on('player:respawn', () => this.physics.reset()),
-      this.bus.on('sfx', (e) => {
-        if (!e.name.startsWith('dig_') || e.x === undefined || e.z === undefined) return;
-        const q = this.player.position;
-        if (Math.hypot(e.x - q.x, (e.y ?? q.y) - q.y, e.z - q.z) <= REACH + 1) this.addShake(SHAKE_DIG);
-      }),
-      this.bus.on('block:broken', () => this.addShake(SHAKE_BREAK)),
-      this.bus.on('mob:hurt', () => this.addShake(SHAKE_STRIKE)),
-      this.bus.on('player:damage', () => this.addShake(SHAKE_HURT)),
       // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
       attachSapSave(this.world, this.player),
       attachHaptics(this.bus, () => this.settings.haptics),
@@ -402,9 +393,8 @@ export class PlayerController {
     const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
-    this.shake.update(dt);
     const em = this.emotes.view();
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip + em.dy, z, p.yaw + this.shake.yaw + em.dyaw, clamp(p.pitch + this.shake.pitch + em.dpitch, -PITCH_LIMIT, PITCH_LIMIT));
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip + em.dy, z, p.yaw + em.dyaw, clamp(p.pitch + em.dpitch, -PITCH_LIMIT, PITCH_LIMIT));
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;
@@ -423,10 +413,6 @@ export class PlayerController {
       this.heldKey = key;
       this.view.setHeldItem(key);
     }
-  }
-
-  private addShake(amount: number): void {
-    if (!this.settings.reduceMotion) this.shake.add(amount);
   }
 
   private recapture(): void {

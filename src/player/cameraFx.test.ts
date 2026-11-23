@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LAND_DIP_FROM, LAND_DIP_MAX, SHAKE_HURT, SHAKE_MAX, Shake, landingDip, settle } from './cameraFx';
+import { LAND_DIP_FROM, LAND_DIP_MAX, landingDip, settle } from './cameraFx';
 
 describe('camera effects', () => {
   it('dips only for real falls and never more than the cap', () => {
@@ -14,17 +14,5 @@ describe('camera effects', () => {
     let v = 0.1;
     for (let i = 0; i < 200; i++) v = settle(v, 9, 1 / 60);
     expect(v).toBe(0);
-  });
-
-  it('shakes on events, is capped, and dies away to stillness', () => {
-    const s = new Shake();
-    s.update(1 / 60);
-    expect(Math.abs(s.yaw) + Math.abs(s.pitch)).toBe(0);
-    for (let i = 0; i < 10; i++) s.add(SHAKE_HURT);
-    expect(s.amount).toBe(SHAKE_MAX);
-    s.update(1 / 60);
-    expect(Math.abs(s.yaw) + Math.abs(s.pitch)).toBeGreaterThan(0);
-    for (let i = 0; i < 300; i++) s.update(1 / 60);
-    expect(Math.abs(s.yaw) + Math.abs(s.pitch)).toBe(0);
   });
 });

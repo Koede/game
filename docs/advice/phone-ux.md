@@ -278,7 +278,7 @@ screen is open, none within 60 s of the previous one, never during hazard (healt
 |---|---|---|
 | Text size | `uiScale` normal/large exists | Make **Large** scale HUD plate, target card, hints and menus; min 14 px body (many HUD texts are 11-12 px). Check the vehicle hint (11 px) and difficulty hints (11 px). |
 | Contrast | warm dark panels; light text ~9:1 | Audit amber-on-amber hint bubbles (orange coach bubble with dark text: ok); aspects colours never carry text; buff pills need a text label at Large. Add a **High contrast** option: solid `#000` plates, 2 px outlines. |
-| Reduced motion | CSS `prefers-reduced-motion` in 4 sheets + `prefersReducedMotion()` in kit | Add an in-game **Reduced motion** setting (OR'd with the OS flag): no screen shake/FOV kick, no throb animations, no button pulse, static hint cards. FOV kick (`SPRINT_FOV_KICK`) too. |
+| Reduced motion | CSS `prefers-reduced-motion` in 4 sheets + `prefersReducedMotion()` in kit | Add an in-game **Reduced motion** setting (OR'd with the OS flag): no FOV kick, no throb animations, no button pulse, static hint cards. FOV kick (`SPRINT_FOV_KICK`) too. |
 | Colour-blind | state colours (red hunger / green) | Every colour state must also have a glyph or word (buff pills do; power bars: add "!" for overload). |
 | One-handed | right-hand cluster; stretch to Mine | "Hand: Right/Left" + optional **Auto-mine** (hold anywhere on the world with Use-aim, since Mine = hold-on-world already exists). |
 | Screen reader | `aria-label`s on goal, buttons | Add `aria-live=polite` to the target card; hints `role=status`. |
