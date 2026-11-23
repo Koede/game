@@ -7,7 +7,7 @@
 import { itemOrNull } from '../../../core/registry';
 import { aspectIcon, aspectLabel, aspectsRow } from '../../kit/aspectIcon';
 import { ASPECT_LIST, aspectInfo, aspectsText, linkable, type Aspect } from '../../../magic/aspects';
-import { cellCount, hexCoord, linkedFrom, neighbours, type BoardSpec } from '../../../magic/board';
+import { cellCount, hexCoord, linkedFrom, neighbours, type BoardSpec, type BoardTokens } from '../../../magic/board';
 import { aspectsOf } from '../../../magic/fingerprint';
 import type { NotebookApi } from '../../../magic/magic';
 import type { GameScreen, ScreenContext } from '../../gameUI';
@@ -68,6 +68,16 @@ const CSS = `
 .hw-nb__ok{color:#8fe08f;font-size:12px}
 .hw-nb__goal{display:flex;gap:8px;align-items:center;min-height:32px}
 `;
+
+
+/** The next hex to write on after `from`: an open neighbour first, else the next open hex in order, else none. */
+function nextOpenHex(board: BoardSpec, tokens: BoardTokens, from: number): number | null {
+  const open = (c: number): boolean => !board.anchors.some((a) => a.cell === c) && !(board.blocked ?? []).includes(c) && !tokens[c];
+  const near = neighbours(board, from).find(open);
+  if (near !== undefined) return near;
+  for (let c = from + 1; c < cellCount(board.radius); c++) if (open(c)) return c;
+  return null;
+}
 
 export function injectNotebookCss(): void {
   if (document.getElementById('hw-notebook-css')) return;
@@ -276,6 +286,13 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       } else cell.setAttribute('aria-label', blocked ? 'Ink blot' : 'Empty');
       if (selected === c) cell.dataset.sel = 'true';
       if (writable && !anchor && !blocked) cell.addEventListener('click', () => {
+        // Tapping the selected hex again clears what is written on it (no lore comes back).
+        if (selected === c && tokens[c]) {
+          api.remove(e.key, c);
+          selected = null;
+          say('Erased. The lore it took is gone.');
+          return;
+        }
         selected = selected === c ? null : c;
         render();
       });
@@ -360,8 +377,10 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       const lore = research.lore[a] ?? 0;
       const chip = button(`${aspectInfo(a).name} ${lore}`, () => {
         if (selected === null) return say('Tap an empty hex on the notes first.');
-        const r = api.place(e.key, selected, a);
-        selected = null;
+        const at0 = selected;
+        const r = api.place(e.key, at0, a);
+        // Keep going: the selection walks to the next open hex (a free neighbour first, so a chain grows as you tap).
+        selected = r.ok ? nextOpenHex(e.board!, tokens, at0 as number) : null;
         say(r.ok ? (r.solved ? 'Research complete!' : '') : r.reason ?? '');
       }, 'hw-nb__chip');
       chip.style.background = aspectInfo(a).color;
