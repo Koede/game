@@ -27,6 +27,8 @@ export interface Settings {
   difficulty: Difficulty;
   /** 'large' scales the HUD, the touch buttons and their captions up for small phone screens (review ui-10). */
   uiScale: 'normal' | 'large';
+  /** Item magnet: how far dropped items fly to the player (src/game/magnet.ts). Older saved settings lack it and read as 'off'. */
+  itemMagnet: 'off' | 'small' | 'large';
 }
 
 /** Spec 19.3. */
@@ -56,6 +58,7 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   showFps: false,
   difficulty: 'normal',
   uiScale: 'normal',
+  itemMagnet: 'off',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

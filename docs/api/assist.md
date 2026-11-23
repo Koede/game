@@ -18,3 +18,9 @@ older saves = defaults).
   `quickList(player, limit?)`: hand recipes the pack can make now, last made first, one per product.
 - HUD: a chip in the top-right cluster, hidden until something can be made. The name button repeats the last recipe; the arrow opens
   the list. A refused craft toasts the reason. No screen opens.
+
+## Item magnet (src/game/magnet.ts)
+- Setting `Settings.itemMagnet`: `'off' | 'small' | 'large'` (default off; older saved settings read as off), in Settings > Game.
+  Small pulls dropped items within 3 blocks, large within 6 (speed 8 / 10 blocks/s). Off is the normal 1.4 block pickup.
+- The app copies the setting to `player.assist.magnet` (runtime only); `Survival.tick` adds `magnetCollector(mode)` to the collectors
+  `GroundItems.tick` already takes, so it follows the same rules (pickup delay, full pack = no pull).

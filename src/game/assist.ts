@@ -3,6 +3,7 @@
  * the pickup magnet choice, build undo. Saved in the player snapshot as `assist`; missing in older saves.
  */
 import { recipe as recipeById } from '../core/registry';
+import type { MagnetMode } from './magnet';
 
 export interface AssistSnapshot {
   pinned?: string | null;
@@ -15,6 +16,9 @@ export class PlayAssist {
 
   /** The last hand recipe made by the player (any route); one tap on the HUD chip repeats it. */
   lastHand: string | null = null;
+
+  /** The item magnet choice (Settings.itemMagnet, copied in by the app; not saved with the world). */
+  magnet: MagnetMode = 'off';
 
   /** Pins a recipe; pinning the one already pinned unpins it. Unknown ids are ignored. Returns the new pin. */
   togglePin(id: string): string | null {

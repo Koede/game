@@ -142,6 +142,7 @@ export class Game {
   private readonly offs: (() => void)[] = [];
   constructor(opts: GameOptions) {
     const { state, settings, root } = opts;
+    state.player.assist.magnet = settings.itemMagnet;
     this.state = state;
     this.settings = settings;
     this.pool = opts.pool;
@@ -251,6 +252,7 @@ export class Game {
       bus.on('settings:changed', () => {
         // Spec 19.3: the difficulty applies to the automatons and the player's side together, at once.
         state.setDifficulty(settings.difficulty);
+        state.player.assist.magnet = settings.itemMagnet;
         invalidate();
       }),
       bus.on('ui:opened', () => {

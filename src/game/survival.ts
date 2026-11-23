@@ -37,6 +37,7 @@ import type { GameClock } from './clock';
 import { ColdWatch, FIRST_DAY_WARMTH_FLOOR, type ColdCause } from './cold';
 import { coolCarried } from './drink';
 import { Hunger } from './hunger';
+import { magnetCollector } from './magnet';
 import type { BlockPos, PlayerState } from './playerState';
 import { openSkyAbove } from './weather';
 
@@ -206,7 +207,11 @@ export class Survival {
 
   tick(dt: number): void {
     const player = this.player;
-    if (dt > 0) player.ground.tick(dt, this.world, player, player.collectors.tick(dt));
+    if (dt > 0) {
+      const pulls = player.collectors.tick(dt);
+      const magnet = magnetCollector(player.assist.magnet);
+      player.ground.tick(dt, this.world, player, magnet ? [...pulls, magnet] : pulls);
+    }
     if (player.dead || dt <= 0) return;
     this.scanIn -= dt;
     if (this.scanIn <= 0) {

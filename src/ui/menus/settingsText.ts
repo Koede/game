@@ -23,6 +23,20 @@ export const UI_SCALE_OPTIONS: readonly { value: Settings['uiScale']; label: str
   { value: 'large', label: 'Large' },
 ];
 
+export const ITEM_MAGNET_OPTIONS: readonly { value: Settings['itemMagnet']; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'small', label: 'Small' },
+  { value: 'large', label: 'Large' },
+];
+
+export function itemMagnetHint(m: Settings['itemMagnet']): string {
+  return m === 'off'
+    ? 'Dropped items fly to you only when you are close. Small and Large pull them in from further away.'
+    : m === 'small'
+      ? 'Dropped items within about 3 blocks fly to you.'
+      : 'Dropped items within about 6 blocks fly to you.';
+}
+
 export function uiScaleHint(scale: Settings['uiScale']): string {
   return scale === 'large'
     ? 'Bigger HUD, text and touch buttons - easier to read and hit on a small phone.'

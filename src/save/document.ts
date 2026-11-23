@@ -84,6 +84,7 @@ export const SETTINGS_BOUNDS = {
 
 const TOUCH_MODES: readonly Settings['touchControls'][] = ['auto', 'on', 'off'];
 const UI_SCALES: readonly Settings['uiScale'][] = ['normal', 'large'];
+const ITEM_MAGNETS: readonly Settings['itemMagnet'][] = ['off', 'small', 'large'];
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -107,6 +108,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   // Settings saved before spec 19 have neither: they keep the defaults (Normal, normal size).
   if (DIFFICULTIES.includes(raw.difficulty as Difficulty)) out.difficulty = raw.difficulty as Difficulty;
   if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
+  if (ITEM_MAGNETS.includes(raw.itemMagnet as Settings['itemMagnet'])) out.itemMagnet = raw.itemMagnet as Settings['itemMagnet'];
   return out;
 }
 

@@ -3,7 +3,7 @@ import { PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Settings } from '../../co
 import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
-import { DIFFICULTY_OPTIONS, difficultyHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
+import { DIFFICULTY_OPTIONS, ITEM_MAGNET_OPTIONS, difficultyHint, itemMagnetHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
 export const SETTINGS_LIMITS = {
@@ -40,7 +40,7 @@ export class SettingsPanel {
     this.el = h(
       'div',
       { class: 'hw-settings' },
-      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), opts.dev ? this.devSwitch(opts.dev) : null),
+      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), this.choice('itemMagnet', 'Item magnet', ITEM_MAGNET_OPTIONS, itemMagnetHint), opts.dev ? this.devSwitch(opts.dev) : null),
       this.section(
         'View',
         this.choice('uiScale', 'UI size', UI_SCALE_OPTIONS, uiScaleHint),
@@ -91,7 +91,7 @@ export class SettingsPanel {
   }
 
   /** A segmented choice whose hint says what the picked value means (Difficulty, UI size). */
-  private choice<K extends 'difficulty' | 'uiScale'>(
+  private choice<K extends 'difficulty' | 'uiScale' | 'itemMagnet'>(
     key: K,
     label: string,
     options: readonly { value: Settings[K]; label: string }[],
