@@ -110,6 +110,10 @@ try {
       await d.hw(() => window.__hw.setTime(0.3));
       await d.settle(2500);
       await d.shot('fog-distance');
+      await d.hw(() => { window.__hw.app.game.renderer.settings.graphics = 'low'; });
+      await d.settle(800);
+      await d.shot('fog-distance-low');
+      await d.hw(() => { window.__hw.app.game.renderer.settings.graphics = 'normal'; });
     });
   }
 

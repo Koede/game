@@ -83,6 +83,7 @@ export const SETTINGS_BOUNDS = {
 } as const satisfies Partial<Record<keyof Settings, readonly [number, number]>>;
 
 const TOUCH_MODES: readonly Settings['touchControls'][] = ['auto', 'on', 'off'];
+const GRAPHICS: readonly NonNullable<Settings['graphics']>[] = ['low', 'normal', 'high'];
 const UI_SCALES: readonly Settings['uiScale'][] = ['normal', 'large'];
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -107,6 +108,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   // Settings saved before spec 19 have neither: they keep the defaults (Normal, normal size).
   if (DIFFICULTIES.includes(raw.difficulty as Difficulty)) out.difficulty = raw.difficulty as Difficulty;
   if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
+  if (GRAPHICS.includes(raw.graphics as NonNullable<Settings['graphics']>)) out.graphics = raw.graphics as Settings['graphics'];
   return out;
 }
 

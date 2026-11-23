@@ -22,6 +22,7 @@ import { createChunkMaterials, createWorldUniforms, type ChunkMaterials, type Wo
 import { Particles } from './particles';
 import { PRECIP_MAX_DESKTOP, PRECIP_MAX_TOUCH, PrecipitationLayer } from './precipitation';
 import { RainMask } from './rainMask';
+import { graphicsProfile } from './quality';
 import { Sky, type SkyExtras } from './sky';
 import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
 import { TargetBox } from './target';
@@ -280,6 +281,7 @@ export class Renderer implements IView {
     const sky = computeSky(this.clock.timeOfDay, this.clock.sunlight(), this.skyState, fx.nightLevel);
     applyWeather(sky, fx.sky);
     const u = this.uniforms;
+    u.uFx.value = graphicsProfile(this.settings.graphics).fx;
     u.uWet.value = fx.wet;
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);
@@ -436,10 +438,11 @@ export class Renderer implements IView {
     } else {
       const fx = this.fx;
       const close = fx.precipitation === 'dust' ? DUST_FOG : fx.precipitation === 'none' ? 0 : WET_FOG;
-      const edge = ((this.renderDistance + 0.5) * CHUNK_SIZE - 6) * (1 - close * fx.amount);
+      const g = graphicsProfile(this.settings.graphics);
+      const edge = ((this.renderDistance + 0.5) * CHUNK_SIZE - 6) * g.fogEnd * (1 - close * fx.amount);
       u.uFogColor.value.fromArray(sky.horizon);
       u.uFogGlow.value.fromArray(sky.glow);
-      u.uFog.value.set(edge * (0.62 - 0.35 * close * fx.amount), edge);
+      u.uFog.value.set(edge * (g.fogStart - 0.35 * close * fx.amount), edge);
     }
     return false;
   }

@@ -27,6 +27,11 @@ export interface Settings {
   difficulty: Difficulty;
   /** 'large' scales the HUD, the touch buttons and their captions up for small phone screens (review ui-10). */
   uiScale: 'normal' | 'large';
+  /**
+   * 'low' drops water waves, foam and loot beams and closes the fog in; 'high' keeps the fog clearer (src/render/quality.ts).
+   * Optional: older saves lack it and read as 'normal'.
+   */
+  graphics?: 'low' | 'normal' | 'high';
 }
 
 /** Spec 19.3. */
@@ -56,6 +61,7 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   showFps: false,
   difficulty: 'normal',
   uiScale: 'normal',
+  graphics: 'normal',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

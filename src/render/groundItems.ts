@@ -104,7 +104,7 @@ void main() {
 }
 `;
 
-/** Items of this rarity and above also stand in a light beam (when beams are on), so loot reads from far away. */
+/** Items of this rarity and above also stand in a light beam (when beams are on and the graphics setting is not low), so loot reads from far away. */
 const BEAM_MIN_RARITY = 2;
 const BEAM_CAPACITY = 64;
 
@@ -227,6 +227,7 @@ export class GroundItemRenderer {
     used.clear();
     for (const kind of this.kinds.values()) kind.mesh.count = 0;
     let beams = 0;
+    const beamsOn = this.beamsOn && this.view.uniforms.uFx.value > 0;
     let probes = 0;
     for (let n = 0; n < items.length; n++) {
       const e = items[n];
@@ -254,7 +255,7 @@ export class GroundItemRenderer {
         used.set(kind, i + 1);
         this.place(kind, i, e, c, copies, lit);
       }
-      if (this.beamsOn && kind.rarity >= BEAM_MIN_RARITY && beams < BEAM_CAPACITY) {
+      if (beamsOn && kind.rarity >= BEAM_MIN_RARITY && beams < BEAM_CAPACITY) {
         this.tmp.position.set(e.x, e.y + 0.05, e.z);
         this.tmp.rotation.set(0, 0, 0);
         this.tmp.scale.setScalar(1);
