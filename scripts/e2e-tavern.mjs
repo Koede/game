@@ -119,7 +119,8 @@ async function runDevice(device) {
       const after = await npcs();
       const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');
       assert(dancing === 'bram,mara,orrin,rosa', `dancers: ${dancing}`);
-      const mara = after.views.find((x) => x.id === 'mara');
+      await d.settle(9000); // they walk over to the dance floor
+      const mara = (await npcs()).views.find((x) => x.id === 'mara');
       await d.hw((p) => window.__hw.teleport(p.x - 1.5, p.y, p.z + 3.5), { x: mara.x, y: mara.y, z: mara.z });
       await d.settle(200);
       await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: mara.x, y: mara.y, z: mara.z });
@@ -131,9 +132,9 @@ async function runDevice(device) {
       }
       const ds = (await npcs()).views.filter((x) => x.dancing);
       const c = { x: ds.reduce((t, x) => t + x.x, 0) / ds.length, y: ds[0].y, z: ds.reduce((t, x) => t + x.z, 0) / ds.length };
-      await d.hw((p) => window.__hw.teleport(p.x - 0.5, p.y, p.z - 3.2), c);
+      await d.hw((p) => window.__hw.teleport(p.x - 0.5, p.y, p.z + 4.2), c);
       await d.settle(200);
-      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1, p.z + 1.5), c);
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1, p.z), c);
       for (const i of [1, 2]) {
         await d.settle(1100);
         await d.shot(`4-dance-wide-${i}`);

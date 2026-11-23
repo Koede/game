@@ -17,7 +17,7 @@ import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
 import { ORC_HIRE } from './scripts/orc';
 import { FIRE_SPOTS, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
-import { WALK_SPEED, spotFor, walk } from './routines';
+import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 
 export interface NpcView {
   id: string;
@@ -138,6 +138,8 @@ export class NpcManager {
 
   /** Where a person is heading now (their routine spot for this part of the day). */
   target(n: NpcDef): [number, number] {
+    const d = this.jukeboxOn ? DANCE_SPOTS[n.id] : undefined;
+    if (d) return [d[0], d[2]];
     const s = spotFor(n.id, this.phase());
     return s ? [s[0], s[2]] : [n.at[0], n.at[2]];
   }
@@ -420,7 +422,7 @@ export class NpcManager {
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);
-    else for (const n of NPCS) {
+    for (const n of NPCS) {
       if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
       this.pos.set(n.id, walk(this.where(n), this.target(n), WALK_SPEED * dt));
     }

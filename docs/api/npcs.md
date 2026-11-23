@@ -56,7 +56,7 @@ Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neut
 ## Routines and friendship
 - `routines.ts`: `ROUTINES` (per person, a tavern-local spot for morning / day / evening / night, all free air over plank or dirt,
   checked by tests), `spotFor`, `walk`. The manager walks everyone toward the spot for the part of the day at `WALK_SPEED` (1.1 b/s);
-  the jukebox freezes them where they stand to dance, and the hired orc follows you.
+  with the jukebox on the dancers walk to `DANCE_SPOTS` in front of it (Gruk stays), and the hired orc follows you.
 - `friendship.ts`: trust 0..100 per person (`NpcManager.trustOf`), saved. Use with a `LIKES` item in hand gives one (a gift a day per
   person, +`GIFT_TRUST` 8; Old Bram still buys on a second gift). Tiers at `TIERS` (20, 50, 80) pay `REWARDS` once and open
   `FRIEND_LINES` (one visit in three). At trust 50 Gruk's hire fee is a quarter less (`hireCost()`).

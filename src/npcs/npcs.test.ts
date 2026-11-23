@@ -9,7 +9,7 @@ import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
 } from './index';
-import { ROUTINES } from './routines';
+import { DANCE_SPOTS, ROUTINES } from './routines';
 import { danceFrame, dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
 import { FACES, faceOf } from './mood';
@@ -554,6 +554,22 @@ describe('routines', () => {
         }
         expect(['plank', 'dirt'], `${id} ${phase} has a floor`).toContain(at(x, y - 1, z));
       }
+    }
+  });
+
+  it('dancers gather in front of the jukebox, free floor, and Gruk stays out', () => {
+    for (const [id, [x, y, z]] of Object.entries(DANCE_SPOTS)) {
+      const b = at(x, y, z);
+      expect(b === undefined || b === 'air', `${id} dances in ${b}`).toBe(true);
+      expect(at(x, y - 1, z), id).toBe('plank');
+    }
+    expect(DANCE_SPOTS.gruk).toBeUndefined();
+    const { npcs } = rig();
+    npcs.jukeboxOn = true;
+    for (let i = 0; i < 80; i++) npcs.tick(0.5);
+    for (const [id, [x, , z]] of Object.entries(DANCE_SPOTS)) {
+      const v = npcs.views().find((n) => n.id === id)!;
+      expect([v.x - 100 - 0.5, v.z - 100 - 0.5], id).toEqual([x, z]);
     }
   });
 

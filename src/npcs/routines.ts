@@ -16,6 +16,11 @@ export const ROUTINES: Readonly<Record<string, Readonly<Record<Phase, Spot>>>> =
   bram: { morning: [7, 1, 11], day: [4, 1, 11], evening: [7, 1, 12], night: [7, 1, 11] },
 };
 
+/** Where the dancers gather while the jukebox plays: the floor in front of it (Gruk does not dance). */
+export const DANCE_SPOTS: Readonly<Record<string, Spot>> = {
+  mara: [6, 1, 3], rosa: [8, 1, 3], orrin: [10, 1, 3], bram: [7, 1, 4],
+};
+
 /** Where `id` should stand in `phase`, or null for someone without a routine (props). */
 export const spotFor = (id: string, phase: Phase): Spot | null => ROUTINES[id]?.[phase] ?? null;
 
