@@ -130,7 +130,21 @@ const marker = (arrow: P.RGB, out: boolean) => (c: Canvas): void => {
   c.set(7, out ? 4 : 11, P.rgb(0xffffff));
 };
 
+/** A round charm: a leather cord, a disc, one rune glyph in the colour of its power. */
+const charm = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((c) => {
+  c.rect(7, 1, 2, 3, LEATHER[1]);
+  c.each((x, y) => {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9);
+    if (d < 5.5) return d > 4.3 ? COPPER[0] : d > 3.4 ? COPPER[1] : STONE[3];
+    return null;
+  });
+  shape(c, glyph);
+});
+
 export const MAGIC_TEXTURES: PainterSet = {
+  item_charm_ward: charm(P.rgb(0x6fb0ff), (c, g) => { c.rect(6, 7, 4, 1, g); c.rect(7, 8, 2, 3, g); c.set(7, 11, g); c.set(8, 11, g); }),
+  item_charm_speed: charm(P.rgb(0xffe060), (c, g) => { c.rect(6, 7, 3, 1, g); c.rect(7, 8, 3, 1, g); c.rect(6, 9, 3, 1, g); c.rect(7, 10, 3, 1, g); }),
+  item_charm_hunger: charm(P.rgb(0xe8622a), (c, g) => { c.rect(6, 8, 4, 3, g); c.rect(7, 7, 2, 1, g); c.set(7, 6, g); }),
   magic_mirror: (c) => {
     c.rect(0, 0, 16, 16, WOOD[0]);
     c.rect(1, 1, 14, 14, WOOD[2]);

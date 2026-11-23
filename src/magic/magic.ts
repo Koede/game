@@ -31,6 +31,7 @@ import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
 import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
+import { charmFactors } from './charms';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
@@ -293,6 +294,8 @@ export class Magic {
   dispose(): void {
     this.off();
     this.player.damageScale = 1;
+    this.player.buffs.magicSpeed = 1;
+    this.player.buffs.magicFoodDrain = 1;
   }
 
   private blockChanged(x: number, y: number, z: number): void {
@@ -365,9 +368,9 @@ export class Magic {
     for (const [k, s] of this.cooldowns) if (s - dt <= 0) this.cooldowns.delete(k); else this.cooldowns.set(k, s - dt);
     if (this.wardS > 0) {
       this.wardS = Math.max(0, this.wardS - dt);
-      this.player.damageScale = this.wardS > 0 ? WARD_SCALE : 1;
       if (this.wardS === 0) this.toast('The ward fades');
     }
+    this.applyBody();
     const cap = this.bestRod()?.capacity ?? 0;
     for (const p of Object.keys(this.vis) as Primal[]) if (this.vis[p] > cap) this.vis[p] = cap;
     this.tickInfusion(dt);
@@ -379,6 +382,14 @@ export class Magic {
       this.tickSiphon();
       this.tickMirrors();
     }
+  }
+
+  /** What magic does to the body each tick: the ward focus and carried charms scale damage, speed and food drain. */
+  private applyBody(): void {
+    const f = charmFactors((k) => this.player.inventory.has(k));
+    this.player.damageScale = (this.wardS > 0 ? WARD_SCALE : 1) * f.damage;
+    this.player.buffs.magicSpeed = f.speed;
+    this.player.buffs.magicFoodDrain = f.food;
   }
 
   // ---- Use -----------------------------------------------------------------------------------------------------------

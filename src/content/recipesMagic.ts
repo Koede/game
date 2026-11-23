@@ -51,6 +51,10 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
   arcane('focus_ward', 'focus_ward', '1 glass, 2 leather, 1 iron_ingot', { loam: 6, rift: 4, rune: 4 }),
   arcane('focus_blink', 'focus_blink', '1 glass, 1 cord, 1 iron_ingot', { gale: 8, mind: 4, rift: 4 }),
   arcane('linked_mirror', '2 linked_mirror', '2 glass, 1 tin_ingot, 1 vial_rift', { rift: 4, gale: 2, rune: 2 }),
+  // Rune-etched charms (Arcane Workbench): carried, they work without charge.
+  arcane('charm_ward', 'charm_ward', '1 leather, 1 bronze_ingot, 1 vial_ward', { rune: 4, loam: 3 }, true),
+  arcane('charm_speed', 'charm_speed', '1 leather, 1 copper_ingot, 1 vial_gale', { gale: 4, rune: 3 }, true),
+  arcane('charm_hunger', 'charm_hunger', '1 leather, 1 tin_ingot, 1 vial_loam', { cinder: 3, rune: 3, brook: 2 }, true),
   // Golem markers (Arcane Workbench): set against a container.
   arcane('golem_pull_marker', 'golem_pull_marker', '1 plank, 1 clay, 1 copper_ingot', { mind: 2, drive: 2 }, true),
   arcane('golem_drop_marker', 'golem_drop_marker', '1 plank, 1 clay, 1 tin_ingot', { mind: 2, drive: 2 }, true),

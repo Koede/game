@@ -170,7 +170,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'attunement', title: 'Attunement', age: 'bronze', requires: ['infusion'], board: triple('rune', 'gale', 'craft'),
-    unlocks: { recipes: ATTUNE_RECIPES.bronze },
+    unlocks: { recipes: [...ATTUNE_RECIPES.bronze, 'charm_ward', 'charm_speed', 'charm_hunger'] },
     text: 'The first lesson in tempering: set a plain bronze tool at the heart of the altar with two vials of Rune or of Gale around it. Rune keeps the edge, Gale sharpens it.',
   },
   // ---- Forge -------------------------------------------------------------------------------------------------------

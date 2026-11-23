@@ -170,9 +170,13 @@ export class Buffs {
     return this.has('spring') ? SPRING_JUMP_MULT : 1;
   }
 
+  /** Set every tick by src/magic (charms, potions): factors on speed and on food drain. Not saved. */
+  magicSpeed = 1;
+  magicFoodDrain = 1;
+
   /** Factor on walk, sprint and swim speed (Swift). */
   get speedMult(): number {
-    return (this.has('swift') ? SWIFT_SPEED_MULT : 1) * (this.sugarS > 0 ? SUGAR_SPEED_MULT : 1);
+    return (this.has('swift') ? SWIFT_SPEED_MULT : 1) * (this.sugarS > 0 ? SUGAR_SPEED_MULT : 1) * this.magicSpeed;
   }
 
   /** Factor on mining speed (Vigor). */
@@ -192,7 +196,7 @@ export class Buffs {
 
   /** Factor on food drain (Lasting). */
   get foodDrainMult(): number {
-    return this.has('lasting') ? LASTING_DRAIN_MULT : 1;
+    return (this.has('lasting') ? LASTING_DRAIN_MULT : 1) * this.magicFoodDrain;
   }
 
   toJSON(): BuffsSnapshot {

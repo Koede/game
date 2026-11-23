@@ -99,6 +99,9 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 ## Linked mirrors
 - Block `linked_mirror` (made two at a time at the Rune Desk, research 'essentia_tubes'). Use one, then another (within `MIRROR_RANGE` 128): they link; Use on a linked mirror breaks it and marks it again; breaking a mirror breaks the link (saved as `mirrors`). `jarsFor(..., link)` treats a mirror like a tube and hops to its partner, so jars, desks and altars touching either end share one essentia line (`Magic.mirrorLink`). The first-used mirror also sends `MIRROR_ITEMS` (4) items a second from the crate / vault / depot it touches into the container the second touches (workshop `peek` / `take` / `offer`). `mirrorText` names the link under the crosshair.
 
+## Charms (src/magic/charms.ts)
+- `charm_ward` (blows x0.85), `charm_speed` (speed x1.1), `charm_hunger` (food drain x0.75): Arcane Workbench recipes (leather, an ingot, a vial; research 'attunement'). Carried anywhere in the pack, one of each kind counts. `Magic.applyBody()` folds them every tick into `player.damageScale` (with the ward focus), and new `Buffs.magicSpeed` / `Buffs.magicFoodDrain` (not saved; multiplied into `speedMult` / `foodDrainMult`).
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

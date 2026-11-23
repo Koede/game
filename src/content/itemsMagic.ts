@@ -8,6 +8,7 @@
 import type { BlockSpec, ItemSpec } from '../core/types';
 import { ASPECTS } from '../magic/aspects';
 import { ageIndexOf } from '../magic/ageMap';
+import { CHARMS } from '../magic/charms';
 import { GOLEMS, MARKER_DROP, MARKER_PULL } from '../magic/golems';
 
 /** Units of essentia in one filled vial. */
@@ -87,6 +88,8 @@ export const MAGIC_ITEMS: ItemSpec[] = [
       `${w.capacity} vis a primal, ${w.draw} a Use. ${cap.name} caps: ${cap.favour.join(' and ')} drawn a half more, a quarter cheaper in foci. Plug a focus in at an Arcane Workbench.`);
   }),
 ];
+
+MAGIC_ITEMS.push(...CHARMS.map((c): ItemSpec => ({ key: c.key, name: c.name, category: 'misc', age: BRONZE, stack: 1, desc: `${c.text} Etched with a rune at an Arcane Workbench.` })));
 
 const glassBlock = { opaque: false, translucent: true } as const;
 
