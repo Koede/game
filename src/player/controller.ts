@@ -64,6 +64,14 @@ const BOB_X = 0.025;
 const BOB_FREQ = 0.62;
 /** Blocks walked on the ground between footstep sounds. */
 const STEP_EVERY = 1.75;
+/** Footstep spacing and loudness while sprinting (quick and firm) and sneaking (rare and hushed). */
+const SPRINT_STEP_EVERY = 1.45;
+const SNEAK_STEP_EVERY = 1.0;
+const STEP_VOLUME = 0.6;
+const SPRINT_STEP_VOLUME = 0.85;
+const SNEAK_STEP_VOLUME = 0.18;
+/** How far the eye sinks while sneaking, in blocks. */
+export const SNEAK_EYE_DROP = 0.22;
 /** A landing from higher than this makes a thud. */
 const LAND_SOUND_FROM = 1.2;
 /** Looking straight up or down stops just short of the pole (so the view direction never degenerates). */
@@ -102,6 +110,8 @@ export class PlayerController {
   /** Camera lag after stepping up onto a slab, so the eye glides instead of snapping. */
   private stepOffset = 0;
   private stepDistance = 0;
+  /** Eye height lost to sneaking, eased in and out. */
+  private sneakDip = 0;
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
   /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
@@ -241,11 +251,13 @@ export class PlayerController {
     if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;
     if (p.onGround && r.walked > 0) {
       this.stepDistance += r.walked;
-      if (this.stepDistance >= STEP_EVERY) {
-        this.stepDistance -= STEP_EVERY;
-        this.sfx('step', 0.6);
+      const every = r.sneaking ? SNEAK_STEP_EVERY : r.sprinting ? SPRINT_STEP_EVERY : STEP_EVERY;
+      if (this.stepDistance >= every) {
+        this.stepDistance -= every;
+        this.sfx('step', r.sneaking ? SNEAK_STEP_VOLUME : r.sprinting ? SPRINT_STEP_VOLUME : STEP_VOLUME);
       }
     }
+    this.sneakDip += ((r.sneaking ? SNEAK_EYE_DROP : 0) - this.sneakDip) * (1 - Math.exp(-12 * dt));
     // View bob follows the distance walked, fading in and out with ground speed.
     const speed = Math.hypot(p.velocity.x, p.velocity.z);
     const bobTarget = p.onGround && !this.physics.inLiquid ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
@@ -327,7 +339,7 @@ export class PlayerController {
     const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset, z, p.yaw, p.pitch);
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip, z, p.yaw, p.pitch);
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;

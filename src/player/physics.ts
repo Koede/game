@@ -5,7 +5,7 @@
  * chunks count as solid walls, so the player never falls through terrain that is not there yet. DOM-free and
  * allocation-free per step.
  */
-import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
+import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SNEAK_SPEED_MULT, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
 import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, springFallAllowance, type PlayerState } from '../game';
@@ -20,6 +20,8 @@ export interface MoveInput {
   moveZ: number;
   jump: boolean;
   sprint: boolean;
+  /** Creep: slow, and never walk off an edge. Optional (absent = not sneaking). */
+  sneak?: boolean;
 }
 
 /** What happened during one step (the same object is reused by every call). */
@@ -36,6 +38,7 @@ export interface StepResult {
   /** The player was out of the world and was put back at the spawn. */
   fellOut: boolean;
   sprinting: boolean;
+  sneaking: boolean;
 }
 
 /** Largest distance moved in one sub-step along any axis. */
@@ -52,6 +55,8 @@ export const STEP_HEIGHT = 0.5 + 0.02;
 export const AUTO_STEP_HEIGHT = 1 + 0.02;
 /** How high the player steps up onto a ledge without jumping. */
 export const stepLift = (autoStep: boolean): number => (autoStep ? AUTO_STEP_HEIGHT : STEP_HEIGHT);
+/** Sneaking stops at an edge with a drop of at least this many blocks below (a slab is walked down). */
+export const SNEAK_DROP = 0.6;
 /** How quickly horizontal velocity follows the intent (1/s) on the ground, in the air and in liquids. */
 const GROUND_RESPONSE = 14;
 const AIR_RESPONSE = 2.5;
@@ -74,7 +79,7 @@ const FALLING_WATER_PUSH = 10;
 const CURRENT_SAMPLES = [0.1, WAIST] as const;
 
 export class PlayerPhysics {
-  readonly result: StepResult = { landedFrom: 0, jumped: false, enteredWater: false, walked: 0, steppedUp: 0, fellOut: false, sprinting: false };
+  readonly result: StepResult = { landedFrom: 0, jumped: false, enteredWater: false, walked: 0, steppedUp: 0, fellOut: false, sprinting: false, sneaking: false };
   /** The body is in any liquid (water or lava): swimming rules apply. */
   inLiquid = false;
   /** Highest feet position since the player last stood on something (for fall damage). */
@@ -88,6 +93,9 @@ export class PlayerPhysics {
   assist = true;
   /** Walk onto one-block ledges without jumping (the Auto-step setting). */
   autoStep = false;
+  /** Sneaking this step (set by step): moves that would drop off an edge are cut off. */
+  private sneaking = false;
+  private readonly probe = { x: 0, y: 0, z: 0 };
   /** The current where the body is this step (m/s; y -1 = under a waterfall). */
   readonly current = { x: 0, y: 0, z: 0 };
 
@@ -126,6 +134,7 @@ export class PlayerPhysics {
     r.steppedUp = 0;
     r.fellOut = false;
     r.sprinting = false;
+    r.sneaking = false;
     const p = this.player;
     const pos = p.position;
     const v = p.velocity;
@@ -147,9 +156,11 @@ export class PlayerPhysics {
     const wishX = cos * input.moveX - sin * input.moveZ;
     const wishZ = -sin * input.moveX - cos * input.moveZ;
     // A Hungry player cannot sprint (spec 12.1).
-    r.sprinting = input.sprint && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
+    r.sneaking = !!input.sneak && !this.inLiquid && !(p.flying && p.dev);
+    this.sneaking = r.sneaking;
+    r.sprinting = input.sprint && !r.sneaking && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
     p.sprinting = r.sprinting;
-    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED) * p.buffs.speedMult * (p.flying && p.dev ? FLY_SPEED_MULT : 1);
+    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : r.sneaking ? WALK_SPEED * SNEAK_SPEED_MULT : WALK_SPEED) * p.buffs.speedMult * (p.flying && p.dev ? FLY_SPEED_MULT : 1);
     const response = this.inLiquid ? LIQUID_RESPONSE : p.onGround ? GROUND_RESPONSE : AIR_RESPONSE;
     const blend = 1 - Math.exp(-response * dt);
     // Flowing water at the feet or the waist carries the body along (what it would do with no input).
@@ -224,9 +235,18 @@ export class PlayerPhysics {
       const beforeX = pos.x;
       const beforeZ = pos.z;
       const beforeY = pos.y;
+      const guard = this.sneaking && (wasOnGround || grounded) && this.supported();
       this.moveAxis(0, sx);
+      if (guard && !this.supported()) {
+        pos.x = beforeX;
+        v.x = 0;
+      }
       let blockedX = this.blocked;
       this.moveAxis(2, sz);
+      if (guard && !this.supported()) {
+        pos.z = beforeZ;
+        v.z = 0;
+      }
       let blockedZ = this.blocked;
       if ((blockedX || blockedZ) && (wasOnGround || grounded) && !this.inLiquid) {
         const climbed = this.tryStep(beforeX, beforeY, beforeZ, sx, sz);
@@ -270,6 +290,16 @@ export class PlayerPhysics {
     pos.y = plainY;
     pos.z = plainZ;
     return 0;
+  }
+
+  /** Whether ground lies within sneaking reach below the feet (a drop of a block or more is an edge). */
+  private supported(): boolean {
+    const pos = this.player.position;
+    const q = this.probe;
+    q.x = pos.x;
+    q.y = pos.y;
+    q.z = pos.z;
+    return sweepAxis(this.world, q, 1, -SNEAK_DROP) !== -SNEAK_DROP;
   }
 
   /** Sweeps the box along one axis; sets `blocked` when the move was cut short. */

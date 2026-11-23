@@ -356,3 +356,37 @@ describe('auto-step', () => {
     expect(walkInto(true, 2)).toBeCloseTo(10, 1);
   });
 });
+
+describe('sneaking', () => {
+  const edgeWorld = () => {
+    const world = new PatchyWorld(null);
+    world.fill(-4, 9, 0, 4, 9, 4, 'stone');
+    return world;
+  };
+
+  it('stops at an edge instead of walking off, where walking falls', () => {
+    for (const sneak of [true, false]) {
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(edgeWorld(), player);
+      for (let i = 0; i < 180; i++) physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false, sneak });
+      if (sneak) {
+        expect(player.onGround).toBe(true);
+        expect(player.position.y).toBeCloseTo(10, 2);
+        expect(player.position.z).toBeGreaterThan(-0.31);
+      } else expect(player.position.y).toBeLessThan(9);
+    }
+  });
+
+  it('is slower than walking, and sprint is ignored while sneaking', () => {
+    const run = (sneak: boolean, sprint: boolean): number => {
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(flatWorld(null), player);
+      let r = physics.step(1 / 60, idle());
+      for (let i = 0; i < 60; i++) r = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint, sneak });
+      expect(r.sprinting).toBe(!sneak && sprint);
+      return Math.abs(player.position.z - 0.5);
+    };
+    expect(run(true, true)).toBeLessThan(run(false, false) * 0.5);
+    expect(run(false, true)).toBeGreaterThan(run(false, false));
+  });
+});

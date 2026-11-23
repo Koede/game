@@ -40,6 +40,8 @@ export const REACH = 5;
 export const WALK_SPEED = 4.3;
 export const SPRINT_SPEED = 5.8;
 export const SWIM_SPEED = 2.6;
+/** Sneaking: a fraction of walking speed. */
+export const SNEAK_SPEED_MULT = 0.3;
 export const JUMP_VELOCITY = 8.2;
 export const GRAVITY = 26;
 export const MAX_HEALTH = 20;

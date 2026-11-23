@@ -16,6 +16,8 @@ export interface Intent {
   jump: boolean;
   /** Held. */
   sprint: boolean;
+  /** Held: creep slowly and never step off an edge. */
+  sneak: boolean;
   /** Held. */
   mine: boolean;
   /** True on the frame the use control was pressed, and again every USE_REPEAT_S while it stays held. */
@@ -47,6 +49,7 @@ export function createIntent(): Intent {
     lookPitch: 0,
     jump: false,
     sprint: false,
+    sneak: false,
     mine: false,
     use: false,
     place: false,
@@ -68,6 +71,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.lookPitch = 0;
   intent.jump = false;
   intent.sprint = false;
+  intent.sneak = false;
   intent.mine = false;
   intent.use = false;
   intent.place = false;
