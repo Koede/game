@@ -88,6 +88,9 @@ to (`lootMaxAge` +1 at most).
 - Crates in structures are the same crates players build; loot never needs a machine the player does not own.
 
 ## 6. Slices (each tested, committed)
+Status: 1, 2 and 3 are built (see `docs/api/structures.md`); 4 is shared with the tool-and-block pass of `docs/SYNERGY_TOOLS.md`; 5 is this note.
+Not built yet: servant golems of local materials on the crank, steam-essentia boiler, `cinder` kettle and `drive` crank infusions (section 2), notebook lore lines for structure blocks, objective text naming a structure.
+
 1. Structure framework + all 16 types + loot + guards + tests (`src/world/structures*.ts`, `src/content/loot.ts`).
 2. Biome mobs: 5 fauna + 5 feral servants, 4 new spawn places, tests.
 3. Artificer attunements (infusion table) + notebook lore.
