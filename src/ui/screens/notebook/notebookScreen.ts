@@ -412,8 +412,16 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       row.appendChild(b);
     }
     if (fresh.length) out.push(row);
-    const c = api.charge();
-    if (c.capacity > 0) out.push(h('p', { class: 'hw-nb__text', text: `Rod charge: ${c.charge}/${c.capacity}` }));
+    const v = api.vis();
+    if (v.capacity > 0) {
+      const pools = h('div', { class: 'hw-nb__needs', attrs: { 'aria-label': 'Rod vis' } });
+      for (const [p, n] of Object.entries(v.vis) as [Aspect, number][]) {
+        const chip = h('span', { class: 'hw-nb__need', text: `${aspectInfo(p).name} ${Math.floor(n)}/${v.capacity}` });
+        chip.style.borderColor = aspectInfo(p).color;
+        pools.appendChild(chip);
+      }
+      out.push(h('p', { class: 'hw-nb__muted', text: 'Rod vis, one pool per primal. Arcane work and foci spend it.' }), pools);
+    }
     if (api.canStudy()) {
       const vials = [...carried].filter((k) => k.startsWith('vial_'));
       const study = h('div', { class: 'hw-nb__row' });

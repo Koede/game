@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { emptyVis, primalsOf, type Vis } from './vis';
 import { createBus } from '../core/context';
 import { BLOCKS, block, blockId } from '../core/registry';
 import { Face, makeVoxel, voxelActive, voxelId, type IWorld, type Voxel } from '../core/types';
@@ -72,19 +73,21 @@ describe('late aspects', () => {
 });
 
 describe('rods', () => {
-  it('without an empty vial the rod charges up to its capacity; a bronze rod draws two', () => {
+  it('the rod fills primal vis pools up to its capacity; a bronze rod draws two', () => {
     const t = setup();
     t.hold('vis_rod');
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 80; i++) {
       t.magic.tick(0.25);
       t.magic.use(null);
     }
-    expect(t.magic.charge).toBe(16);
-    t.magic.charge = 0;
+    const pools = Object.values(t.magic.vis);
+    expect(Math.max(...pools)).toBe(16);
+    expect(pools.every((n) => n <= 16)).toBe(true);
+    t.magic.vis = emptyVis();
     t.hold('bronze_rod');
     t.magic.tick(1);
     t.magic.use(null);
-    expect(t.magic.charge).toBe(2);
+    expect(Math.max(...Object.values(t.magic.vis))).toBe(2);
   });
 
   it('draws only primal aspects until compound draw is researched', () => {
@@ -114,9 +117,9 @@ describe('wellsprings', () => {
     expect(t.magic.nodeLeft(node.key)).toBe(NODE_POOL); // not researched: the land, not the node
     t.learn('wellsprings');
     t.magic.tick(1);
-    t.magic.charge = 0;
+    t.magic.vis = emptyVis();
     t.magic.use(null);
-    expect(t.magic.charge).toBe(2);
+    for (const p of Object.keys(primalsOf({ [node.aspect]: 1 })) as (keyof Vis)[]) expect(t.magic.vis[p]).toBe(2);
     expect(t.magic.nodeLeft(node.key)).toBe(NODE_POOL - 2);
     t.magic.tick(60);
     expect(t.magic.nodeLeft(node.key)).toBe(NODE_POOL);
@@ -133,13 +136,9 @@ describe('tubes, desk and altar', () => {
     expect(jarsFor(blockAt, 0, 1, 5, 3)).toEqual([]);
   });
 
-  it('the rune desk makes a bronze rod from ingredients and essentia, after the research', () => {
+  it('the rune desk makes a bronze rod from ingredients and rod vis, after the research', () => {
     const t = setup();
     t.put(2, 1, 0, 'rune_desk');
-    t.put(3, 1, 0, 'essentia_jar');
-    t.put(3, 1, 1, 'essentia_jar');
-    fillJar(t, 3, 1, 0, 'gale', 1);
-    fillJar(t, 3, 1, 1, 'loam', 1);
     const desk = t.magic.desk(2, 1, 0);
     const row = () => desk.rows().find((r) => r.id === 'bronze_rod')!;
     expect(row().problem).toMatch(/Research/);
@@ -147,13 +146,83 @@ describe('tubes, desk and altar', () => {
     t.player.inventory.clear();
     t.player.inventory.add('vis_rod', 1);
     t.player.inventory.add('bronze_ingot', 2);
-    expect(row().problem).toMatch(/Not enough essentia: Rune 2/);
-    t.player.inventory.add('vial_rune', 1);
+    t.magic.vis = { ...emptyVis(), gale: 4, loam: 4 };
+    expect(row().problem).toMatch(/Not enough vis in your rod: Rune 2/);
+    t.magic.vis.rune = 3;
     expect(row().problem).toBeNull();
     expect(desk.make('bronze_rod')).toMatch(/Made/);
     expect(t.player.inventory.count('bronze_rod')).toBe(1);
-    expect(t.player.inventory.count('vial_rune')).toBe(0);
-    expect(t.magic.jarText(3, 1, 0)).toMatch(/empty/);
+    expect(t.magic.vis).toEqual({ ...emptyVis(), rune: 1 });
+  });
+
+  it('a hot crucible of water dissolves items into essentia, bottles vials and turns catalysts', () => {
+    const t = setup();
+    t.put(4, 1, 4, 'crucible');
+    t.hold('copper_ore', 4);
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('refused'); // research first
+    t.learn('crucible');
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('refused'); // no water
+    t.hold('water_vial');
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('worked');
+    expect(t.player.inventory.count('glass_vial')).toBe(1);
+    t.hold('copper_ore', 3);
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('worked');
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('worked');
+    const before = { ...t.magic.crucibleAt(4, 1, 4)!.ess };
+    expect(before.vein).toBeGreaterThanOrEqual(3);
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('worked'); // the third ore is the catalyst
+    expect(t.player.inventory.count('copper_ingot')).toBe(2);
+    expect(t.magic.crucibleAt(4, 1, 4)!.ess.vein).toBe((before.vein ?? 0) - 3);
+    t.hold('glass_vial');
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('worked');
+    expect(t.player.inventory.toJSON().some((s) => s?.item.startsWith('vial_'))).toBe(true);
+    t.setFire(0);
+    t.hold('sand');
+    expect(t.magic.use(t.at(4, 1, 4))).toBe('refused'); // cold
+    const snap = JSON.parse(JSON.stringify(t.magic.toJSON()));
+    const u = setup();
+    u.put(4, 1, 4, 'crucible');
+    u.magic.load(snap);
+    expect(u.magic.crucibleAt(4, 1, 4)).toEqual(t.magic.crucibleAt(4, 1, 4));
+  });
+
+  it('unmirrored pedestals make an infusion unstable, and mishaps throw items off', () => {
+    const t = setup();
+    t.learnAll();
+    t.put(0, 1, 0, 'infusion_altar');
+    t.put(2, 1, 0, 'arcane_pedestal');
+    t.put(-2, 1, 0, 'arcane_pedestal');
+    t.hold('glass');
+    t.magic.use(t.at(0, 1, 0));
+    t.hold('copper_ingot');
+    t.magic.use(t.at(2, 1, 0));
+    expect(t.magic.instabilityAt(0, 1, 0)).toBe(2);
+    t.hold('copper_ingot');
+    t.magic.use(t.at(-2, 1, 0));
+    expect(t.magic.instabilityAt(0, 1, 0)).toBe(0);
+    t.put(0, 1, 2, 'arcane_pedestal');
+    t.hold('copper_ingot');
+    t.magic.use(t.at(0, 1, 2));
+    expect(t.magic.instabilityAt(0, 1, 0)).toBe(3);
+    // A lens with its two ingots set crooked (east and south): unstable 4; a mishap throws one off and the infusion breaks.
+    const u = setup();
+    u.learnAll();
+    u.put(0, 1, 0, 'infusion_altar');
+    for (const [x, z] of [[2, 0], [0, 2]] as const) {
+      u.put(x, 1, z, 'arcane_pedestal');
+      u.hold('copper_ingot');
+      u.magic.use(u.at(x, 1, z));
+    }
+    u.hold('glass');
+    u.magic.use(u.at(0, 1, 0));
+    expect(u.magic.instabilityAt(0, 1, 0)).toBe(4);
+    u.hold('vis_rod');
+    expect(u.magic.use(u.at(0, 1, 0))).toBe('worked');
+    u.magic.rng = () => 0;
+    u.magic.tick(1);
+    u.magic.tick(0.1);
+    expect(u.magic.displays().length).toBe(2); // the glass and one ingot are left
+    expect(u.magic.infusionAt(0, 1, 0)).toBeNull();
   });
 
   it('an altar with pedestals infuses a scrying lens from nearby jars', () => {
@@ -185,14 +254,15 @@ describe('tubes, desk and altar', () => {
 });
 
 describe('foci', () => {
-  it('cost charge; ward halves damage; light sets a light; blink moves you', () => {
+  it('cost primal vis; ward halves damage; light sets a light; blink moves you', () => {
     const t = setup();
     t.hold('focus_ward');
     t.player.inventory.add('vis_rod', 1);
     expect(t.magic.use(null)).toBe('refused');
-    t.magic.charge = 16;
+    t.magic.vis = { ...emptyVis(), loam: 16, rune: 16, cinder: 16, gale: 16, rift: 16 };
     expect(t.magic.use(null)).toBe('worked');
-    expect(t.magic.charge).toBe(10);
+    expect(t.magic.vis.loam).toBe(13);
+    expect(t.magic.vis.rune).toBe(13);
     t.player.damage(4, 'fall');
     expect(t.player.health).toBe(20 - 4 * WARD_SCALE);
     for (let i = 0; i < 40; i++) t.magic.tick(1);
@@ -325,7 +395,7 @@ describe('servants, siphon, still and study', () => {
     t.hold('copper_ingot');
     t.magic.use(t.at(2, 1, 0));
     t.put(5, 1, 5, 'clay_servant');
-    t.magic.charge = 7;
+    t.magic.vis.cinder = 7;
     const snap = JSON.parse(JSON.stringify(t.magic.toJSON()));
     const u = setup();
     u.magic.load(snap);

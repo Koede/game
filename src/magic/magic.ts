@@ -1,18 +1,22 @@
 /**
  * Essentia & Research at runtime (docs/api/magic.md). One object per world, owned by Game: the player's research, the
- * rod's charge, jars, pedestals and altars, the infusion in progress, clay servants, how much the land and the wellsprings
+ * rod's vis, crucibles, jars, pedestals and altars, the infusion in progress, clay servants, how much the land and the wellsprings
  * have been drawn, and the warding buff. Everything in-world goes through `use(target)`, called by the player's Use before
  * any placing or screen; the notebook and rune desk screens talk to it through NotebookApi / DeskApi.
  *
  * - Notebook: Use on a block = scan it; Use at the sky = open the notebook. A carried Scrying Lens gives 1.5x lore.
  * - Rods (RODS): each Use draws `draw` units - from a wellspring within NODE_REACH (research 'wellsprings', twice as
  *   fast) or else from the richest drawable aspect of the blocks around (primals always, compounds after
- *   'compound_draw', a late aspect only with that aspect's flag). With an empty vial carried the units fill vials
- *   (VIAL_UNITS each); without one they charge the rod, up to its capacity, for foci.
+ *   'compound_draw', a late aspect only with that aspect's flag). What it draws is VIS (src/magic/vis.ts): one pool per
+ *   primal, each up to the best carried rod's capacity; a compound splits into its primals.
+ * - Crucible (src/magic/crucible.ts): water over a burning furnace or lava. Items Used on it dissolve into essentia; an
+ *   empty vial bottles VIAL_UNITS of the richest aspect; a catalyst with its ALCHEMY essentia present turns into the output.
  * - Jars (essentia_jar, void_jar): a filled vial pours in, an empty vial fills back. Tubes join jars to consumers.
- * - Rune desk: Use opens the 'rune_desk' screen; arcane recipes pay ingredients and essentia (jars in DESK_REACH or tubed,
- *   then carried vials). Infusion: items on the altar and on pedestals within ALTAR_REACH; Use the altar with a rod.
- * - Foci (FOCI): spend rod charge. A clay servant fed one Spring walks up to SERVANT_RANGE blocks and does one task.
+ * - Rune desk: Use opens the 'rune_desk' screen; arcane recipes pay ingredients and VIS from the rod (their aspect cost
+ *   broken into primals). Infusion: items on the altar and on pedestals within ALTAR_REACH; Use the altar with a rod; it
+ *   draws essentia from jars. Pedestals without a twin mirrored across the altar make it unstable: mishaps spill essentia
+ *   or throw an item off (`instabilityAt`).
+ * - Foci (FOCI): spend primal vis. A clay servant fed one Spring walks up to SERVANT_RANGE blocks and does one task.
  * - Furnace: a Vial of Cinder adds CINDER_BURN_S of fire (research 'warm_hearth'); with 'hearth_siphon' a Cinder jar
  *   touching (or tubed to) a burning furnace tops it up. Still: a Vial of Clarity on a flask takes water out ('still_trace').
  */
@@ -20,10 +24,11 @@ import type { GameBus } from '../core/context';
 import { blockOrNull, blockId, itemOrNull } from '../core/registry';
 import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
 import { FOCI, JAR_UNITS, RODS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
-import { ARCANE_RECIPES, INFUSIONS, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
+import { ALCHEMY, ARCANE_RECIPES, INFUSIONS, alchemyFor, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
 import type { PlayerState } from '../game/playerState';
 import { ASPECT_LIST, LATE, PRIMALS, aspectInfo, aspectsText, isAspect, type Aspect, type Aspects } from './aspects';
 import type { BoardSpec } from './board';
+import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
 import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, shortfall, TUBE } from './essentiaNet';
 import { aspectsOf } from './fingerprint';
@@ -34,6 +39,7 @@ import {
   sanitizeResearch, scanObject,
   type EntryStatus, type PlaceResult, type ResearchState,
 } from './research';
+import { emptyVis, isPrimal, primalsOf, visShort, visText, type Primal, type Vis } from './vis';
 
 export const NOTEBOOK = 'field_notebook';
 export const EMPTY_VIAL = 'glass_vial';
@@ -41,6 +47,11 @@ export const JAR_BLOCK = 'essentia_jar';
 export const LENS = 'vein_lens';
 export const SCRIBING_TOOLS = 'scribing_tools';
 export const RESEARCH_TABLE = 'research_table';
+export const CRUCIBLE = 'crucible';
+/** Water items a crucible takes, and what each leaves in the hand. */
+export const WATER_FOR_CRUCIBLE: Record<string, string> = { water_vial: 'glass_vial', water_beaker: 'glass_beaker', water_pail: 'pail' };
+/** Infusion mishap chance per second for each point of instability. */
+export const MISHAP_PER_S = 0.02;
 /** Cube radius the rod reads the land in. */
 export const GATHER_RADIUS = 3;
 /** Seconds the land needs to recover one drawn unit (per chunk and aspect). */
@@ -115,7 +126,8 @@ export interface NotebookApi {
   study(vial: string): string;
   canStudy(): boolean;
   goals(): MagicGoal[];
-  charge(): { charge: number; capacity: number };
+  /** Rod vis per primal and the best carried rod's capacity per pool. */
+  vis(): { vis: Vis; capacity: number };
 }
 
 export interface DeskRow {
@@ -179,7 +191,10 @@ export interface MagicSnapshot {
   research: ResearchState;
   jars: [number, number, number, string, number][];
   draws: Record<string, Record<string, [number, number]>>;
+  /** Legacy single rod charge (v1 saves); dropped on load. */
   charge?: number;
+  vis?: Partial<Vis>;
+  crucibles?: [number, number, number, number, Aspects][];
   pedestals?: [number, number, number, string][];
   altars?: [number, number, number, string][];
   infusion?: { x: number; y: number; z: number; id: string; paid: Aspects; t: number } | null;
@@ -191,8 +206,10 @@ export interface MagicSnapshot {
 
 export class Magic {
   research: ResearchState = freshResearch();
-  /** Rod charge for foci (one pool, capped by the best rod carried). */
-  charge = 0;
+  /** Rod vis, one pool per primal, each capped by the best rod carried. */
+  vis: Vis = emptyVis();
+  /** Rolls for infusion mishaps (tests replace it). */
+  rng: () => number = Math.random;
   wardS = 0;
   readonly stats = { infusions: 0, casts: 0, studied: 0, crafted: 0 };
   private readonly jars = new Map<string, Jar>();
@@ -200,12 +217,12 @@ export class Magic {
   private readonly nodeDraws = new Map<string, Draw>();
   private readonly pedestals = new Map<string, string>();
   private readonly altars = new Map<string, string>();
+  private readonly crucibles = new Map<string, CrucibleState>();
   private readonly servants = new Map<string, ServantState>();
   /** Set while a servant block is moved, so the block events do not reset its feed. */
   private relocating = false;
   private workshop: ServantWorkshop | null = null;
   private infusion: Infusion | null = null;
-  private rod: { aspect: Aspect | null; n: number } = { aspect: null, n: 0 };
   private readonly cooldowns = new Map<string, number>();
   private clock = 0;
   private lastDraw = -1;
@@ -237,6 +254,7 @@ export class Magic {
     const k = k3(x, y, z);
     const key = this.world.getBlock(x, y, z).key;
     if (this.jars.has(k) && !JAR_BLOCKS.has(key)) this.jars.delete(k);
+    if (this.crucibles.has(k) && key !== CRUCIBLE) this.crucibles.delete(k);
     if (this.pedestals.has(k) && key !== 'arcane_pedestal') this.dropAt(x, y, z, this.pedestals.get(k) as string, () => this.pedestals.delete(k));
     if (this.altars.has(k) && key !== 'infusion_altar') this.dropAt(x, y, z, this.altars.get(k) as string, () => this.altars.delete(k));
     if (this.infusion && k3(this.infusion.x, this.infusion.y, this.infusion.z) === k && key !== 'infusion_altar') this.infusion = null;
@@ -294,7 +312,7 @@ export class Magic {
       if (this.wardS === 0) this.toast('The ward fades');
     }
     const cap = this.bestRod()?.capacity ?? 0;
-    if (this.charge > cap) this.charge = cap;
+    for (const p of Object.keys(this.vis) as Primal[]) if (this.vis[p] > cap) this.vis[p] = cap;
     this.tickInfusion(dt);
     this.slowT += dt;
     if (this.slowT >= 1) {
@@ -323,11 +341,12 @@ export class Magic {
       return this.gather(rod);
     }
     const focus = FOCI.find((f) => f.key === held);
-    if (focus) return this.cast(focus.key, focus.cost, focus.cooldownS, target);
+    if (focus) return this.cast(focus.key, focus.vis, focus.cooldownS, target);
     if (!target) return null;
     if (key && JAR_BLOCKS.has(key) && (held === EMPTY_VIAL || vialAspect(held))) return this.useJar(target, held as string);
     if (key === 'arcane_pedestal') return this.usePedestal(target, held);
     if (key === 'infusion_altar') return this.useAltar(target, held);
+    if (key === CRUCIBLE) return this.useCrucible(target, held);
     if (key === RESEARCH_TABLE) {
       this.bus.emit('ui:open', { screen: { type: 'notebook', table: true } });
       return 'screen';
@@ -485,49 +504,48 @@ export class Magic {
     return text;
   }
 
+  /** Primal pools an aspect fills (itself, or a compound's parts). */
+  private partsOf(a: Aspect): Primal[] {
+    return Object.keys(primalsOf({ [a]: 1 })) as Primal[];
+  }
+
   private gather(rod: RodTier): MagicOutcome {
     if (this.clock - this.lastDraw < ROD_INTERVAL_S && this.lastDraw >= 0) return 'worked';
     const p = this.player;
-    const toVial = p.inventory.has(EMPTY_VIAL);
-    if (!toVial && this.charge >= rod.capacity) {
-      this.advise(`The rod is full (${rod.capacity} charge). Carry an empty vial to bottle what it draws`);
-      return 'refused';
-    }
+    const roomFor = (a: Aspect): boolean => this.partsOf(a).some((x) => this.vis[x] < rod.capacity);
     const node = this.nearNode();
     let aspect: Aspect;
     let units = rod.draw;
     const px = Math.floor(p.position.x);
     const pz = Math.floor(p.position.z);
-    if (node) {
+    if (node && roomFor(node.aspect)) {
       aspect = node.aspect;
       units = Math.min(rod.draw * 2, Math.floor(node.left));
       this.takeNode(node.key, units);
     } else {
-      const r = this.richest(px, Math.floor(p.position.y + 0.5), pz);
-      if (!r) {
-        this.advise('The land here is drained. Move on, or wait for it to recover');
+      const land = [...this.landAspects(px, Math.floor(p.position.y + 0.5), pz)]
+        .filter(([a]) => this.drawable(a) && roomFor(a))
+        .map(([a]) => [a, this.leftOf(a)] as [Aspect, number])
+        .filter(([, n]) => n >= 1)
+        .sort((x, y) => y[1] - x[1]);
+      if (!land.length) {
+        const full = (Object.keys(this.vis) as Primal[]).every((x) => this.vis[x] >= rod.capacity);
+        this.advise(full ? `The rod is full (${rod.capacity} vis of each primal)` : 'The land here is drained of what the rod can still hold. Move on, or wait for it to recover');
         return 'refused';
       }
-      aspect = this.rod.aspect && toVial && this.leftOf(this.rod.aspect) >= 1 ? this.rod.aspect : r.aspect;
-      units = Math.min(units, Math.floor(this.leftOf(aspect)));
+      aspect = land[0][0];
+      units = Math.min(units, Math.floor(land[0][1]));
       for (let i = 0; i < units; i++) this.markDrawn(px, pz, aspect);
     }
     this.lastDraw = this.clock;
     if (units <= 0) return 'refused';
-    this.bus.emit('sfx', { name: 'rod_hum', pitch: 0.8 + this.rod.n * 0.1 });
-    if (!toVial) {
-      this.charge = Math.min(rod.capacity, this.charge + units);
-      return 'worked';
-    }
-    if (this.rod.aspect !== aspect) this.rod = { aspect, n: 0 };
-    this.rod.n += units;
-    while (this.rod.n >= VIAL_UNITS && p.inventory.has(EMPTY_VIAL)) {
-      p.inventory.remove(EMPTY_VIAL, 1);
-      p.give(vialKey(aspect), 1);
-      this.rod.n -= VIAL_UNITS;
-      this.toast(`Filled a Vial of ${aspectInfo(aspect).name}`, vialKey(aspect));
-    }
+    for (const x of this.partsOf(aspect)) this.vis[x] = Math.min(rod.capacity, this.vis[x] + units);
+    this.bus.emit('sfx', { name: 'rod_hum', pitch: 0.8 + Math.min(1, this.visTotal() / (rod.capacity * 6)) });
     return 'worked';
+  }
+
+  visTotal(): number {
+    return (Object.values(this.vis) as number[]).reduce((t, n) => t + n, 0);
   }
 
   private leftOf(a: Aspect): number {
@@ -705,13 +723,15 @@ export class Magic {
     };
   }
 
-  private deskRow(r: ArcaneRecipe, x: number, y: number, z: number): DeskRow {
-    const have = this.available(x, y, z, DESK_REACH, true);
+  private deskRow(r: ArcaneRecipe, _x: number, _y: number, _z: number): DeskRow {
     const inputs = r.inputs.map((i) => ({ item: i.item, count: i.count, have: this.player.inventory.count(i.item) }));
-    const cost = (Object.entries(r.cost) as [Aspect, number][]).map(([aspect, n]) => ({ aspect, n, have: have[aspect] ?? 0 }));
+    const vis = primalsOf(r.cost);
+    const cost = (Object.entries(vis) as [Primal, number][]).map(([aspect, n]) => ({ aspect: aspect as Aspect, n, have: Math.floor(this.vis[aspect]) }));
     let problem = this.craftGate(r.id);
     if (!problem && inputs.some((i) => i.have < i.count)) problem = 'Missing ingredients';
-    if (!problem && Object.keys(shortfall(r.cost, have)).length) problem = `Not enough essentia: ${aspectsText(shortfall(r.cost, have))}`;
+    if (!problem && !this.bestRod()) problem = 'Carry a gathering rod: arcane work is paid in its vis';
+    const short = visShort(vis, this.vis);
+    if (!problem && Object.keys(short).length) problem = `Not enough vis in your rod: ${visText(short)}`;
     return { id: r.id, output: r.output.item, count: r.output.count, inputs, cost, problem };
   }
 
@@ -721,7 +741,7 @@ export class Magic {
     const row = this.deskRow(r, x, y, z);
     if (row.problem) return row.problem;
     for (const i of r.inputs) this.player.inventory.remove(i.item, i.count);
-    for (const [a, n] of Object.entries(r.cost) as [Aspect, number][]) this.take(x, y, z, DESK_REACH, a, n, true);
+    for (const [a, n] of Object.entries(primalsOf(r.cost)) as [Primal, number][]) this.vis[a] -= n;
     this.player.give(r.output.item, r.output.count);
     this.stats.crafted++;
     this.bus.emit('item:made', { item: r.output.item, count: r.output.count, station: 'rune_desk', recipeId: r.id });
@@ -729,6 +749,96 @@ export class Magic {
     const name = itemOrNull(r.output.item)?.name ?? r.output.item;
     this.toast(`Made ${name}`, r.output.item, 'good');
     return `Made ${name}`;
+  }
+
+  // ---- crucible -----------------------------------------------------------------------------------------------------
+
+  crucibleAt(x: number, y: number, z: number): CrucibleState | null {
+    if (this.world.getBlock(x, y, z).key !== CRUCIBLE) return null;
+    return this.crucibles.get(k3(x, y, z)) ?? freshCrucible();
+  }
+
+  /** Whether something under the crucible boils it: a burning furnace or lava. */
+  crucibleHot(x: number, y: number, z: number): boolean {
+    const below = this.world.getBlock(x, y - 1, z).key;
+    if (below === 'lava') return true;
+    return (this.hooks.furnaceFire?.(x, y - 1, z) ?? 0) > 0;
+  }
+
+  crucibleText(x: number, y: number, z: number): string | null {
+    const c = this.crucibleAt(x, y, z);
+    if (!c) return null;
+    if (!c.water) return 'Crucible - empty: pour in water';
+    const hot = this.crucibleHot(x, y, z);
+    const what = aspectsText(c.ess);
+    return `Crucible - ${hot ? 'boiling' : 'cold: light a fire under it'}${what ? ` - ${what}` : ''} (${crucibleTotal(c)}/64)`;
+  }
+
+  private useCrucible(t: MagicTarget, held: string | null): MagicOutcome {
+    const k = k3(t.x, t.y, t.z);
+    const c = this.crucibles.get(k) ?? freshCrucible();
+    const gate = this.craftGate(CRUCIBLE);
+    if (gate) {
+      this.advise(gate);
+      return 'refused';
+    }
+    if (held && WATER_FOR_CRUCIBLE[held]) {
+      if (c.water) {
+        this.advise('The crucible is already full of water');
+        return 'refused';
+      }
+      this.player.consumeHeld(1);
+      this.player.give(WATER_FOR_CRUCIBLE[held], 1);
+      c.water = true;
+      this.crucibles.set(k, c);
+      this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5 });
+      return 'worked';
+    }
+    if (!held) {
+      this.advise(this.crucibleText(t.x, t.y, t.z) ?? '');
+      return 'refused';
+    }
+    if (!c.water) {
+      this.advise('Pour water in first: Use a vial, beaker or bucket of water on it');
+      return 'refused';
+    }
+    if (held === EMPTY_VIAL) {
+      const a = bottle(c, VIAL_UNITS);
+      if (!a) {
+        this.advise(`No aspect in the crucible has ${VIAL_UNITS} units to bottle yet`);
+        return 'refused';
+      }
+      this.player.consumeHeld(1);
+      this.player.give(vialKey(a), 1);
+      this.toast(`Bottled a Vial of ${aspectInfo(a).name}`, vialKey(a));
+      return 'worked';
+    }
+    if (!this.crucibleHot(t.x, t.y, t.z)) {
+      this.advise('The water is cold: the crucible needs a burning furnace or lava under it');
+      return 'refused';
+    }
+    const recipe = alchemyFor(held).find((r) => !this.craftGate(r.id) && canPay(c, r.cost));
+    if (recipe) {
+      takeEssence(c, recipe.cost);
+      this.player.consumeHeld(1);
+      this.player.give(recipe.output.item, recipe.output.count);
+      this.stats.crafted++;
+      this.bus.emit('item:made', { item: recipe.output.item, count: recipe.output.count, station: 'crucible', recipeId: recipe.id });
+      this.bus.emit('sfx', { name: 'infuse', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 1.2 });
+      this.toast(`The crucible gives ${recipe.output.count} ${itemOrNull(recipe.output.item)?.name ?? recipe.output.item}`, recipe.output.item, 'good');
+      return 'worked';
+    }
+    const fp = aspectsOf(held);
+    if (!Object.keys(fp).length) {
+      this.advise('That has no nature to melt down');
+      return 'refused';
+    }
+    this.player.consumeHeld(1);
+    const spilled = dissolve(c, fp);
+    this.crucibles.set(k, c);
+    this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
+    if (spilled > 0) this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
+    return 'worked';
   }
 
   // ---- pedestals and the infusion altar ----------------------------------------------------------------------------
@@ -778,6 +888,24 @@ export class Magic {
     return out;
   }
 
+  /**
+   * How unstable an infusion at this altar would be: 2 for every loaded pedestal without a loaded twin mirrored across the
+   * altar, plus 1 for every pedestal past the second.
+   */
+  instabilityAt(x: number, y: number, z: number): number {
+    const peds = this.pedestalsOf(x, y, z);
+    const at = new Set(peds.map(([k]) => {
+      const [px, , pz] = parse3(k);
+      return `${px},${pz}`;
+    }));
+    let n = Math.max(0, peds.length - 2);
+    for (const [k] of peds) {
+      const [px, , pz] = parse3(k);
+      if (!at.has(`${2 * x - px},${2 * z - pz}`)) n += 2;
+    }
+    return n;
+  }
+
   /** The infusion the items on and around an altar make, or null. */
   matchInfusion(x: number, y: number, z: number): InfusionRecipe | null {
     const center = this.altars.get(k3(x, y, z));
@@ -803,7 +931,8 @@ export class Magic {
     }
     this.infusion = { x: t.x, y: t.y, z: t.z, id: r.id, paid: {}, t: 0, waitS: 0, step: 0 };
     this.setActive(t.x, t.y, t.z, true);
-    this.toast(`Infusing: needs ${aspectsText(r.cost)}`);
+    const inst = this.instabilityAt(t.x, t.y, t.z);
+    this.toast(`Infusing: needs ${aspectsText(r.cost)}${inst ? `. Unstable (${inst}): set pedestals in mirrored pairs` : ''}`, undefined, inst ? 'warn' : 'info');
     this.bus.emit('sfx', { name: 'infuse', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
     return 'worked';
   }
@@ -830,6 +959,9 @@ export class Magic {
     }
     f.t += dt;
     f.step += dt;
+    const inst = this.instabilityAt(f.x, f.y, f.z);
+    if (inst > 0 && this.rng() < inst * MISHAP_PER_S * dt) this.mishap(f);
+    if (!this.infusion) return;
     const missing = shortfall(r.cost, f.paid);
     if (f.step >= INFUSE_STEP_S && Object.keys(missing).length) {
       f.step = 0;
@@ -854,6 +986,24 @@ export class Magic {
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.bus.emit('item:made', { item: r.output.item, count: 1, station: 'infusion_altar', recipeId: r.id });
     this.toast(`Infused: ${itemOrNull(r.output.item)?.name ?? r.output.item} - take it from the altar`, r.output.item, 'good');
+  }
+
+  /** An unstable infusion lashes out: half the time essentia already drawn splashes away, else a pedestal item flies off. */
+  private mishap(f: Infusion): void {
+    const paid = (Object.keys(f.paid) as Aspect[]).filter((a) => (f.paid[a] ?? 0) > 0);
+    this.bus.emit('sfx', { name: 'cast', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 0.5 });
+    if (paid.length && this.rng() < 0.5) {
+      const a = paid[Math.floor(this.rng() * paid.length)];
+      f.paid[a] = (f.paid[a] ?? 0) - 1;
+      this.toast(`The infusion wavers: ${aspectInfo(a).name} splashes away`, undefined, 'warn');
+      return;
+    }
+    const peds = this.pedestalsOf(f.x, f.y, f.z);
+    if (!peds.length) return;
+    const [k, item] = peds[Math.floor(this.rng() * peds.length)];
+    const [px, py, pz] = parse3(k);
+    this.dropAt(px, py, pz, item, () => this.pedestals.delete(k));
+    this.toast(`The infusion lashes out: ${itemOrNull(item)?.name ?? item} is thrown off its pedestal`, undefined, 'warn');
   }
 
   private setActive(x: number, y: number, z: number, on: boolean): void {
@@ -883,24 +1033,29 @@ export class Magic {
     const f = this.infusionAt(x, y, z);
     if (f) {
       const left = aspectsText(f.missing);
-      return `Infusing ${Math.round(f.progress * 100)}%${left ? ` - needs ${left}` : ''}`;
+      const inst = this.instabilityAt(x, y, z);
+      return `Infusing ${Math.round(f.progress * 100)}%${left ? ` - needs ${left}` : ''}${inst ? ` - unstable ${inst}` : ''}`;
     }
     const on = this.altars.get(k);
     const r = this.matchInfusion(x, y, z);
-    if (r) return `Infusion Altar - ready: ${itemOrNull(r.output.item)?.name} (Use with a rod)`;
+    if (r) {
+      const inst = this.instabilityAt(x, y, z);
+      return `Infusion Altar - ready: ${itemOrNull(r.output.item)?.name} (Use with a rod)${inst ? ` - unstable ${inst}` : ' - stable'}`;
+    }
     return `Infusion Altar - ${on ? itemOrNull(on)?.name : 'empty'}`;
   }
 
   // ---- foci ----------------------------------------------------------------------------------------------------------
 
-  private cast(focus: string, cost: number, cooldownS: number, target: MagicTarget | null): MagicOutcome {
+  private cast(focus: string, cost: Partial<Vis>, cooldownS: number, target: MagicTarget | null): MagicOutcome {
     if (this.cooldowns.has(focus)) return 'refused';
     if (!this.bestRod()) {
       this.advise('A focus needs a gathering rod in your pack');
       return 'refused';
     }
-    if (this.charge < cost) {
-      this.advise(`Not enough charge (${Math.floor(this.charge)}/${cost}): Use the rod without an empty vial to charge it`);
+    const short = visShort(cost, this.vis);
+    if (Object.keys(short).length) {
+      this.advise(`Not enough vis: needs ${visText(short)} more. Use the rod to draw from the land`);
       return 'refused';
     }
     let ok = false;
@@ -909,7 +1064,7 @@ export class Magic {
     else if (focus === 'focus_ward') ok = this.ward();
     else if (focus === 'focus_blink') ok = this.blink();
     if (!ok) return 'refused';
-    this.charge -= cost;
+    for (const [p, n] of Object.entries(cost) as [Primal, number][]) this.vis[p] -= n;
     this.cooldowns.set(focus, cooldownS);
     this.stats.casts++;
     this.bus.emit('sfx', { name: 'cast' });
@@ -1279,7 +1434,7 @@ export class Magic {
         return `Studied a Vial of ${aspectInfo(a).name}: +${STUDY_LORE} lore`;
       },
       goals: () => this.goals(),
-      charge: () => ({ charge: Math.floor(this.charge), capacity: this.bestRod()?.capacity ?? 0 }),
+      vis: () => ({ vis: { ...this.vis }, capacity: this.bestRod()?.capacity ?? 0 }),
     };
   }
 
@@ -1308,7 +1463,8 @@ export class Magic {
     const f = this.infusion;
     return {
       v: 1, research: this.research, jars, draws,
-      charge: this.charge,
+      vis: { ...this.vis },
+      crucibles: [...this.crucibles].filter(([, c]) => c.water || crucibleTotal(c) > 0).map(([k, c]) => [...parse3(k), c.water ? 1 : 0, { ...c.ess }]),
       pedestals: [...this.pedestals].map(([k, i]) => [...parse3(k), i]),
       altars: [...this.altars].map(([k, i]) => [...parse3(k), i]),
       infusion: f ? { x: f.x, y: f.y, z: f.z, id: f.id, paid: { ...f.paid }, t: f.t } : null,
@@ -1344,7 +1500,17 @@ export class Magic {
         for (const [a, v] of Object.entries(row ?? {})) if (isAspect(a) && Array.isArray(v) && num(v[0])) m.set(a, { n: v[0], t: this.clock });
         if (m.size) this.draws.set(k, m);
       }
-    this.charge = num(s.charge) ? Math.max(0, Math.min(64, s.charge)) : 0;
+    this.vis = emptyVis();
+    if (s.vis && typeof s.vis === 'object') {
+      for (const [p, n] of Object.entries(s.vis)) if (isAspect(p) && isPrimal(p) && num(n)) this.vis[p] = Math.max(0, Math.min(64, n));
+    }
+    this.crucibles.clear();
+    for (const r of Array.isArray(s.crucibles) ? s.crucibles : []) {
+      if (!Array.isArray(r) || r.length !== 5 || !cell(r) || !r[4] || typeof r[4] !== 'object') continue;
+      const ess: Aspects = {};
+      for (const [a, n] of Object.entries(r[4] as Record<string, unknown>)) if (isAspect(a) && num(n) && n > 0) ess[a] = Math.min(64, Math.floor(n));
+      this.crucibles.set(k3(r[0], r[1], r[2]), { water: r[3] === 1, ess });
+    }
     const items = (rows: unknown, into: Map<string, string>): void => {
       into.clear();
       for (const r of Array.isArray(rows) ? rows : []) {

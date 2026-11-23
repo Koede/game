@@ -63,6 +63,20 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
   pedestals and altars through a second GroundItemRenderer. `stats` for checks.
 - Codex: the Essentia tab (`scripts/codex`), aspects in the item drawer, magic branches in the progression tree.
 
+## Thaumcraft-4 model (vis, crucible, instability)
+- **Vis** (`vis.ts`): a rod holds one pool per primal (cinder, loam, brook, gale, rune, rift), each up to the best carried rod's
+  capacity (16 / 32 / 64). Use draws from the land or a wellspring; a compound splits into its primals. `Magic.vis`,
+  `visTotal()`, `primalsOf(cost)`. Rune Desk recipes and every focus (`FOCI[].vis`) spend vis; the desk needs a rod carried.
+- **Crucible** (`crucible.ts`, block `crucible`, research 'crucible', 4 stone brick + bucket): water in (vial / beaker / bucket
+  of water), a burning furnace or lava under it. Items Used on it dissolve into essentia (cap 64, the rest is flux); an empty
+  vial bottles `VIAL_UNITS` of the richest aspect; a catalyst with its `ALCHEMY` essentia present (copper/tin ore, sand,
+  charcoal, dirt) comes out as the output. Vials still go to jars, tubes and the altar: essentia is for infusion, vis for arcane.
+- **Infusion instability** (`instabilityAt`): 2 per pedestal without a mirrored twin across the altar, +1 per pedestal past two.
+  Each second an infusion rolls `instability * MISHAP_PER_S`: half the time a drawn essentia splashes away, otherwise a pedestal
+  item is thrown off and the infusion breaks. Altar text shows stable / unstable.
+- Research map: 'crucible' now follows 'glassware'; 'warm_hearth' and 'still_trace' follow 'crucible'.
+- Saves: `vis` (primal map) and `crucibles` replace the old single `charge`, which is dropped on load.
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

@@ -126,6 +126,20 @@ export const MAGIC_TEXTURES: PainterSet = {
   },
   magic_tube: tube,
   magic_desk_top: deskTop,
+  magic_crucible_side: (c) => {
+    c.rect(0, 0, 16, 16, P.rgb(0x3a3438));
+    c.rect(0, 0, 16, 2, P.rgb(0x5a5258));
+    c.rect(0, 14, 16, 2, P.rgb(0x241f22));
+    c.rect(3, 5, 10, 6, P.rgb(0x4a4045));
+    c.rect(5, 6, 6, 1, P.rgb(0x8a63c8));
+  },
+  magic_crucible_top: (c) => {
+    c.rect(0, 0, 16, 16, P.rgb(0x5a5258));
+    c.rect(2, 2, 12, 12, P.rgb(0x241f22));
+    c.rect(3, 3, 10, 10, P.rgb(0x3f8fd8));
+    c.rect(5, 5, 4, 3, P.rgb(0x86b8e8));
+    c.set(10, 9, P.rgb(0xbff2f0));
+  },
   magic_desk_side: deskSide,
   magic_altar_top: (c) => altarTop(c, false),
   magic_altar_top_on: (c) => altarTop(c, true),

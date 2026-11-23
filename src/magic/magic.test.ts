@@ -40,7 +40,7 @@ describe('magic runtime', () => {
     expect(opened).toEqual([{ type: 'notebook' }]);
   });
 
-  it('the rod fills an empty vial from the land and the land runs dry', () => {
+  it('the rod draws loam vis from stone, never fills vials, and stops when the pool is full', () => {
     const t = setup();
     t.hold('vis_rod');
     t.player.inventory.add('glass_vial', 2);
@@ -48,16 +48,15 @@ describe('magic runtime', () => {
       t.magic.tick(1);
       expect(t.magic.use(null)).toBe('worked');
     }
-    expect(t.player.inventory.count('glass_vial')).toBe(1);
-    expect(t.player.inventory.count('vial_loam')).toBe(1);
-    // Stone gives about 147 blocks x 4 loam / 8 => capped; keep drawing until drained.
+    expect(t.magic.vis.loam).toBe(VIAL_UNITS);
+    expect(t.player.inventory.count('glass_vial')).toBe(2);
     let refused = false;
     for (let i = 0; i < 200 && !refused; i++) {
       t.magic.tick(0.25);
-      if (!t.player.inventory.has('glass_vial')) t.player.inventory.add('glass_vial', 1);
       refused = t.magic.use(null) === 'refused';
     }
     expect(refused).toBe(true);
+    expect(t.magic.vis.loam).toBe(16);
   });
 
   it('jars take and give vials of one aspect, and survive a save', () => {

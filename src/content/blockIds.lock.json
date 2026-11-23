@@ -242,5 +242,6 @@
   "wool_bedding": 240,
   "cam_drum": 241,
   "logic_gate": 242,
-  "research_table": 243
+  "research_table": 243,
+  "crucible": 244
 }

@@ -80,9 +80,14 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
     text: 'Clear glass holds what it is shown. Link Clarity to Craft and you will know how to blow a vial that keeps essentia.',
   },
   {
+    key: 'crucible', title: 'The Crucible', age: 'ember', requires: ['glassware'], board: pair('steam', 'craft'),
+    unlocks: { recipes: ['crucible', 'alch_copper', 'alch_tin', 'alch_glass', 'alch_coal', 'alch_clay'] },
+    text: 'Water over fire unmakes what falls into it. Things dropped in a hot crucible melt into essentia; a vial dipped in takes some out; the right catalyst comes out as something new. Link Steam to Craft.',
+  },
+  {
     key: 'gathering_rod', title: 'The Gathering Rod', age: 'ember', requires: ['glassware'], board: pair('mind', 'spring', [cellAt(2, 2)]),
     unlocks: { recipes: ['vis_rod'] },
-    text: 'The land breathes out its nature. A rod with a vial at its tip, held still, drinks it in. Link Mind to Spring.',
+    text: 'The land breathes out raw vis. A rod held still drinks it in, one pool for each primal; compounds split into their parts. Arcane work and foci spend it. Link Mind to Spring.',
   },
   {
     key: 'essence_jar', title: 'A Jar to Keep It', age: 'ember', requires: ['glassware'], board: pair('clarity', 'ward'),
@@ -95,12 +100,12 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
     text: 'Essentia read slowly teaches as much as the thing it came from. In the notebook, study a filled vial: it gives lore of its aspect and the vial back.',
   },
   {
-    key: 'warm_hearth', title: 'Cinder for the Hearth', age: 'ember', requires: ['gathering_rod'], board: pair('cinder', 'craft', [cellAt(1, 2), cellAt(3, 2)]),
+    key: 'warm_hearth', title: 'Cinder for the Hearth', age: 'ember', requires: ['crucible'], board: pair('cinder', 'craft', [cellAt(1, 2), cellAt(3, 2)]),
     unlocks: { flags: ['hearth_cinder'] },
     text: 'A vial of Cinder tipped into a furnace fire makes the fuel last longer. Link Cinder to Craft around the stones.',
   },
   {
-    key: 'still_trace', title: 'Essence in the Still', age: 'ember', requires: ['gathering_rod'], board: triple('steam', 'mind', 'clarity'),
+    key: 'still_trace', title: 'Essence in the Still', age: 'ember', requires: ['crucible'], board: triple('steam', 'mind', 'clarity'),
     unlocks: { flags: ['still_clarity'] },
     text: 'A vial poured into a still bends the brew. Clarity draws the water out of what sits in a flask. Link Steam, Mind and Clarity.',
   },
@@ -113,7 +118,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   {
     key: 'rune_desk', title: 'The Rune Desk', age: 'bronze', requires: ['essence_jar'], board: corners('rune', 'craft', [cellAt(1, 1), cellAt(3, 3)]),
     unlocks: { recipes: ['rune_desk'] },
-    text: 'A desk scored with signs pays for its work in essentia from the jars around it and the vials you carry. Link Rune to Craft.',
+    text: 'A desk scored with signs pays for its work in vis from the rods you carry. Link Rune to Craft.',
   },
   {
     key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', [wall(1)]),

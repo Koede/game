@@ -19,6 +19,7 @@ export const MAGIC_RECIPES: RecipeSpec[] = [
   { id: 'field_notebook', station: 'hand', inputs: amounts('1 plank, 3 fiber, 1 charcoal'), output: amount('field_notebook'), age: 0 },
   { id: 'scribing_tools', station: 'hand', inputs: amounts('1 stick, 1 charcoal, 1 fiber'), output: amount('scribing_tools'), age: 0 },
   { id: 'research_table', station: 'workbench', inputs: amounts('4 plank, 2 stick'), output: amount('research_table'), age: 0 },
+  { id: 'crucible', station: 'workbench', inputs: amounts('4 stone_brick, 1 pail'), output: amount('crucible'), age: 0 },
   { id: 'vis_rod', station: 'workbench', inputs: amounts('2 stick, 1 glass_vial, 1 copper_ingot'), output: amount('vis_rod'), age: 0 },
   { id: 'essentia_jar', station: 'workbench', inputs: amounts('3 glass, 1 plank'), output: amount('essentia_jar'), age: 0 },
   forge('glass_vial', '2 glass_vial', '1 glass', 650),
@@ -57,6 +58,19 @@ export const INFUSIONS: InfusionRecipe[] = [
     infuse(`gale_${metal}_${kind}`, `gale_${metal}_${kind}`, `${metal}_${kind}`, ['vial_gale', 'vial_gale'], metal === 'bronze' ? { gale: 6, mind: 2 } : { gale: 8, mind: 4 }, metal === 'bronze' ? 15 : 20),
   ])),
 ];
+
+/** Crucible alchemy: drop `catalyst` in while the pot holds `cost` essentia; it comes out as `output`. */
+export interface AlchemyRecipe { id: string; output: ItemAmount; catalyst: string; cost: Aspects }
+const alchemy = (id: string, output: string, catalyst: string, cost: Aspects): AlchemyRecipe => ({ id, output: amount(output), catalyst, cost });
+
+export const ALCHEMY: AlchemyRecipe[] = [
+  alchemy('alch_copper', '2 copper_ingot', 'copper_ore', { vein: 3, cinder: 2 }),
+  alchemy('alch_tin', '2 tin_ingot', 'tin_ore', { vein: 3, cinder: 2 }),
+  alchemy('alch_glass', '2 glass', 'sand', { clarity: 2, cinder: 2 }),
+  alchemy('alch_coal', '1 coal', 'charcoal', { cinder: 4, loam: 2 }),
+  alchemy('alch_clay', '2 clay', 'dirt', { brook: 3, loam: 2 }),
+];
+export const alchemyFor = (catalyst: string): AlchemyRecipe[] => ALCHEMY.filter((r) => r.catalyst === catalyst);
 
 export const arcaneRecipe = (id: string): ArcaneRecipe | null => ARCANE_RECIPES.find((r) => r.id === id) ?? null;
 export const infusionRecipe = (id: string): InfusionRecipe | null => INFUSIONS.find((r) => r.id === id) ?? null;

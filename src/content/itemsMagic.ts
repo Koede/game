@@ -17,7 +17,7 @@ export const VOID_JAR_UNITS = 128;
 
 export const vialKey = (aspect: string): string => `vial_${aspect}`;
 
-/** Gathering rods: units of charge they hold and units each Use draws. */
+/** Gathering rods: vis each primal pool holds and units each Use draws (src/magic/vis.ts). */
 export interface RodTier { key: string; capacity: number; draw: number }
 export const RODS: readonly RodTier[] = [
   { key: 'vis_rod', capacity: 16, draw: 1 },
@@ -25,13 +25,13 @@ export const RODS: readonly RodTier[] = [
   { key: 'iron_rod', capacity: 64, draw: 3 },
 ];
 
-/** Foci: rod charge each cast costs, and seconds before the next cast. */
-export interface FocusSpec { key: string; cost: number; cooldownS: number }
+/** Foci: primal vis each cast takes from the rod, and seconds before the next cast. */
+export interface FocusSpec { key: string; vis: Partial<Record<'cinder' | 'loam' | 'brook' | 'gale' | 'rune' | 'rift', number>>; cooldownS: number }
 export const FOCI: readonly FocusSpec[] = [
-  { key: 'focus_kindle', cost: 2, cooldownS: 1 },
-  { key: 'focus_light', cost: 1, cooldownS: 0.5 },
-  { key: 'focus_ward', cost: 6, cooldownS: 20 },
-  { key: 'focus_blink', cost: 4, cooldownS: 2 },
+  { key: 'focus_kindle', vis: { cinder: 2 }, cooldownS: 1 },
+  { key: 'focus_light', vis: { cinder: 1 }, cooldownS: 0.5 },
+  { key: 'focus_ward', vis: { loam: 3, rune: 3 }, cooldownS: 20 },
+  { key: 'focus_blink', vis: { gale: 2, rift: 2 }, cooldownS: 2 },
 ];
 
 const BRONZE = ageIndexOf('bronze');
@@ -89,6 +89,11 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     key: 'rune_desk', name: 'Rune Desk', category: 'machine', age: BRONZE, hardness: 1.2, tool: 'axe', minTier: 0,
     textures: { top: 'magic_desk_top', side: 'magic_desk_side', bottom: 'magic_desk_side' },
     desc: 'Use it to make arcane things. Each pays in essentia from the jars within three blocks (or tubed to it) and the vials you carry.',
+  },
+  {
+    key: 'crucible', name: 'Crucible', category: 'machine', age: 0, hardness: 2, tool: 'pickaxe', minTier: 0,
+    textures: { top: 'magic_crucible_top', side: 'magic_crucible_side', bottom: 'magic_crucible_side' },
+    desc: 'Pour in water over a burning furnace. Items Used on it melt into essentia, an empty vial bottles it, a catalyst turns into something new.',
   },
   {
     key: 'infusion_altar', name: 'Infusion Altar', category: 'machine', age: BRONZE, hardness: 2, tool: 'pickaxe', minTier: 0,
