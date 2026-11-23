@@ -98,7 +98,7 @@ describe('14. a richer world', () => {
   it('adds the marsh to the biomes, its ores and its animals', () => {
     expect(ALL_BIOMES).toEqual(['woodland', 'dunes', 'frostfell', 'scar', 'marsh']);
     expect(ORE_VEINS.filter((v) => v.biomes?.marsh).map((v) => v.block).sort()).toEqual(['coal_ore', 'iron_ore']);
-    expect(CREATURES.filter((c) => c.biomes.includes('marsh')).map((c) => c.key)).toEqual(['hen', 'boar']);
+    expect(CREATURES.filter((c) => c.biomes.includes('marsh')).map((c) => c.key)).toEqual(['hen', 'boar', 'marsh_heron']);
     expect(Object.keys(BIOME_ONLY_BLOCKS).sort()).toEqual([...ALL_BIOMES].sort());
   });
 

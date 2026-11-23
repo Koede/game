@@ -16,8 +16,8 @@ describe('spawn places', () => {
     expect(at(false, HOSTILE_DEEP_Y, false)).toEqual(['cave']);
     expect(at(false, HOSTILE_DEEP_Y - 1, true)).toEqual(['deep']);
     expect(at(true, 40, false)).toEqual([]); // a sunlit surface never spawns anything
-    expect(at(true, 40, true)).toEqual(['surface']);
-    expect(at(true, HOSTILE_PEAK_Y, true)).toEqual(['surface', 'peak']);
+    expect(at(true, 40, true)).toEqual(['surface', 'wood_night']);
+    expect(at(true, HOSTILE_PEAK_Y, true)).toEqual(['surface', 'peak', 'wood_night']);
     expect(at(false, 30, false, 'scar')).toEqual(['cave', 'scar']);
     expect(at(true, 40, true, 'scar')).toEqual(['surface', 'scar', 'scar_night']);
   });

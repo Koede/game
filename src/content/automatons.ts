@@ -8,6 +8,7 @@
  * shield-and-hammer soldier, a squat kiln on a tripod, a long low hound with glowing ribs, a drum with a coil, a hulk.
  */
 import { ALL_BIOMES, type CreatureAnim, type CreaturePart, type CreatureSpec } from '../core/types';
+import { BIOME_SERVANTS } from './biomeMobs';
 
 type V3 = readonly [number, number, number];
 
@@ -282,3 +283,6 @@ export const AUTOMATON_SPECS: CreatureSpec[] = [
     },
   },
 ];
+
+// The feral servants of the five biomes (docs/SYNERGY_PLAN.md section 3): walk their own biome at night.
+AUTOMATON_SPECS.push(...BIOME_SERVANTS);

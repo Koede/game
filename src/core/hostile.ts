@@ -21,6 +21,9 @@ export interface SpotFacts {
   biome: BiomeKey;
 }
 
+/** The surface-at-night place of each biome whose own feral servants walk it (the scar uses 'scar_night' above). */
+const NIGHT_PLACE: Partial<Record<BiomeKey, SpawnPlace>> = { woodland: 'wood_night', dunes: 'dunes_night', frostfell: 'frost_night', marsh: 'marsh_night' };
+
 /** Every SpawnPlace a spot matches (see SpawnPlace in types.ts for the tests). */
 export function spawnPlacesAt(f: SpotFacts): SpawnPlace[] {
   const out: SpawnPlace[] = [];
@@ -31,6 +34,10 @@ export function spawnPlacesAt(f: SpotFacts): SpawnPlace[] {
     if (f.night) out.push('scar_night');
   }
   if (f.skyOpen && f.night && f.y >= HOSTILE_PEAK_Y) out.push('peak');
+  if (f.skyOpen && f.night) {
+    const own = NIGHT_PLACE[f.biome];
+    if (own) out.push(own);
+  }
   return out;
 }
 

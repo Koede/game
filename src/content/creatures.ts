@@ -7,6 +7,7 @@
  * one pivot.
  */
 import type { CreaturePart, CreatureSpec } from '../core/types';
+import { BIOME_ANIMALS } from './biomeMobs';
 
 type V3 = readonly [number, number, number];
 
@@ -115,3 +116,6 @@ export const CREATURE_SPECS: CreatureSpec[] = [
     drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }], likes: ['potato', 'carrot'], group: [2, 3], model: BOAR,
   },
 ];
+
+// Each biome's own wild animal (docs/SYNERGY_PLAN.md section 3).
+CREATURE_SPECS.push(...BIOME_ANIMALS);

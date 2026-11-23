@@ -830,8 +830,9 @@ export type HostileAttack = 'melee' | 'dash' | 'bolt' | 'zap' | 'slam';
  *  scar       - in the scar biome, any time it is dark there (night, or a cave or overhang by day)
  *  scar_night - in the scar biome, at night (open sky or not)
  *  peak       - open sky above, y >= HOSTILE_PEAK_Y, at night
+ *  wood_night, dunes_night, frost_night, marsh_night - open sky above in that biome, at night (the biome's own feral servants)
  */
-export type SpawnPlace = 'cave' | 'deep' | 'surface' | 'scar' | 'scar_night' | 'peak';
+export type SpawnPlace = 'cave' | 'deep' | 'surface' | 'scar' | 'scar_night' | 'peak' | 'wood_night' | 'dunes_night' | 'frost_night' | 'marsh_night';
 
 export interface HostileHabitat {
   /**

@@ -160,7 +160,7 @@ const CHARCOAL_CAMP: StructureDef = {
 
 const HOLLOW_OAK_SHRINE: StructureDef = {
   key: 'hollow_oak_shrine', name: 'Hollow Oak Shrine', desc: 'A giant oak, hollow to the root, ringed with moss-covered stones and glowcaps. The first artificers left offerings here to teach the fire.',
-  biomes: [WOODLAND], w: 9, d: 9, age: 0, crate: [4, 4], guards: [{ species: 'forge_warden', x: 2, z: 6 }], floor: 'biome',
+  biomes: [WOODLAND], w: 9, d: 9, age: 0, crate: [4, 4], guards: [{ species: 'barkwright', x: 2, z: 6 }], floor: 'biome',
   build(c) {
     c.floor(3, 3, 5, 5, () => B.mossy);
     c.fill(3, 0, 3, 5, 4, 5, (x, y, z) => (x === 4 && z === 4) || (x === 4 && z === 5 && y < 2) ? B.air : B.oakLog);
@@ -174,7 +174,7 @@ const HOLLOW_OAK_SHRINE: StructureDef = {
 
 const LUMBER_MILL: StructureDef = {
   key: 'lumber_mill', name: 'Lumber Mill', desc: 'A plank-walled mill with its saw bench still standing. Whoever worked here turned logs to boards by the hundred before the shafts stopped.',
-  biomes: [WOODLAND], w: 11, d: 9, age: 1, crate: [9, 2], guards: [{ species: 'forge_warden', x: 4, z: 4 }, { species: 'cinder_mite', x: 7, z: 6 }], floor: 'biome',
+  biomes: [WOODLAND], w: 11, d: 9, age: 1, crate: [9, 2], guards: [{ species: 'barkwright', x: 4, z: 4 }, { species: 'barkwright', x: 7, z: 6 }], floor: 'biome',
   build(c) {
     c.floor(0, 0, 10, 8, (x, z) => c.mix(x, 0, z, B.plank, B.plank, B.stoneBrick));
     c.ring(0, 0, 10, 8, 0, 4, (x, y, z) => (y === 0 ? B.stoneBrick : (x === 0 || x === 10) && (z === 0 || z === 8) ? B.oakLog : B.plank), 90);
@@ -191,7 +191,7 @@ const LUMBER_MILL: StructureDef = {
 
 const GLASSBLOWER_KILN: StructureDef = {
   key: 'glassblower_kiln', name: "Glassblower's Kiln", desc: 'A brick kiln half-buried in drifted sand, its roof set with panes of glass the wind has not found yet.',
-  biomes: [DUNES], w: 9, d: 9, age: 1, crate: [1, 7], guards: [{ species: 'cinder_mite', x: 6, z: 6 }, { species: 'cinder_mite', x: 7, z: 5 }], floor: 'biome',
+  biomes: [DUNES], w: 9, d: 9, age: 1, crate: [1, 7], guards: [{ species: 'glass_scarab', x: 6, z: 6 }, { species: 'glass_scarab', x: 7, z: 5 }], floor: 'biome',
   build(c) {
     c.floor(0, 0, 8, 8, (x, z) => (c.roll(x, 0, z) < 70 ? B.brick : B.sand));
     c.ring(0, 0, 8, 8, 0, 3, (x, y, z) => (y === 1 && c.roll(x, y, z) < 100 ? B.glass : B.brick), 70);
@@ -253,7 +253,7 @@ const HUNTERS_LODGE: StructureDef = {
 
 const FROST_CAIRN: StructureDef = {
   key: 'frost_cairn', name: 'Frost Cairn', desc: 'A ring of packed ice around a stone cairn. The artificers of the cold hills kept a vial of frost here, and the ice itself remembers them.',
-  biomes: [FROSTFELL], w: 9, d: 9, age: 1, crate: [4, 4], guards: [{ species: 'forge_warden', x: 2, z: 2 }, { species: 'cinder_mite', x: 6, z: 6 }], floor: 'biome',
+  biomes: [FROSTFELL], w: 9, d: 9, age: 1, crate: [4, 4], guards: [{ species: 'rime_husk', x: 2, z: 2 }, { species: 'rime_husk', x: 6, z: 6 }], floor: 'biome',
   build(c) {
     c.floor(1, 1, 7, 7, (x, z) => c.mix(x, 0, z, B.stoneBrick, B.packedIce));
     c.ring(1, 1, 7, 7, 0, 3, (x, y, z) => (y === 2 ? B.ice : B.packedIce), 80);
@@ -301,7 +301,7 @@ const BASALT_FORGE_PIT: StructureDef = {
 
 const EMBER_ALTAR: StructureDef = {
   key: 'ember_altar', name: 'Ember Altar', desc: 'A stepped basalt dais crowned with a column and a steady light that has not gone out in an age. The artificers came here to be taught by fire.',
-  biomes: [SCAR], w: 9, d: 9, age: 1, crate: [4, 2], guards: [{ species: 'cinder_mite', x: 2, z: 6 }, { species: 'cinder_mite', x: 6, z: 6 }], floor: B.basalt,
+  biomes: [SCAR], w: 9, d: 9, age: 1, crate: [4, 2], guards: [{ species: 'magma_crawler', x: 2, z: 6 }, { species: 'magma_crawler', x: 6, z: 6 }], floor: B.basalt,
   build(c) {
     c.floor(0, 0, 8, 8, () => B.basalt);
     c.box(2, 0, 3, 6, 0, 7, B.basalt); c.box(3, 1, 4, 5, 1, 6, B.basalt); c.set(4, 2, 5, B.column); c.set(4, 3, 5, B.light);
@@ -342,7 +342,7 @@ const PEAT_STILT_HUT: StructureDef = {
 
 const ALCHEMIST_TOWER: StructureDef = {
   key: 'sunken_alchemist_tower', name: "Sunken Alchemist's Tower", desc: 'A mossy tower leaning into the marsh, glowcaps in every crack and a jar still standing on its shelf. Someone studied what the water remembered.',
-  biomes: [MARSH], w: 7, d: 7, age: 1, crate: [2, 2], guards: [{ species: 'cinder_mite', x: 4, z: 4 }, { species: 'cinder_mite', x: 3, z: 4 }], floor: 'biome',
+  biomes: [MARSH], w: 7, d: 7, age: 1, crate: [2, 2], guards: [{ species: 'bog_lantern', x: 4, z: 4 }, { species: 'bog_lantern', x: 3, z: 4 }], floor: 'biome',
   build(c) {
     c.floor(0, 0, 6, 6, (x, z) => c.mix(x, 0, z, B.mossy, B.stoneBrick, B.clay));
     c.ring(0, 0, 6, 6, 0, 8, mossyBrick(c), 140);
