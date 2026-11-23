@@ -164,7 +164,7 @@ function rig(opts: { coins?: number; held?: { item: string; count: number } | nu
   const toasts: string[] = [];
   const taken: number[] = [];
   bus.on('toast', (t) => toasts.push(t.text));
-  bus.on('npc:say', (e) => toasts.push(`${e.name}, ${e.title.toLowerCase()}: "${e.text}"`));
+  bus.on('npc:say', (e) => void (e.name === 'Rosa' && e.text.includes('Use me again') || toasts.push(`${e.name}, ${e.title.toLowerCase()}: "${e.text}"`)));
   let seed = 7;
   const rng = (): number => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const npcs = new NpcManager(bus, rng);
@@ -219,16 +219,22 @@ describe('talking', () => {
     const r = rig();
     const rosa = r.by('rosa');
     r.npcs.speak(rosa);
+    r.npcs.tick(11); // an unanswered pitch lapses
     expect(r.given).toEqual([['hearth_stew', 1]]);
-    r.npcs.speak(rosa); // odd visit: no hint for gather_logs, so the barkeep's advice
+    r.npcs.speak(rosa);
+    r.npcs.tick(11); // an unanswered pitch lapses // odd visit: no hint for gather_logs, so the barkeep's advice
     expect(r.toasts[1]).toContain('ADVICE-barkeep');
-    r.npcs.speak(rosa); // even: banter
+    r.npcs.speak(rosa);
+    r.npcs.tick(11); // an unanswered pitch lapses // even: banter
     expect(r.toasts[2]).not.toContain('ADVICE');
     r.state.goal = 'get_warm';
-    r.npcs.speak(rosa); // odd: the goal's hint, once
+    r.npcs.speak(rosa);
+    r.npcs.tick(11); // an unanswered pitch lapses // odd: the goal's hint, once
     expect(r.toasts[3]).toContain('Warmth sticks');
     r.npcs.speak(rosa);
+    r.npcs.tick(11); // an unanswered pitch lapses
     r.npcs.speak(rosa);
+    r.npcs.tick(11); // an unanswered pitch lapses
     expect(r.toasts[5]).toContain('ADVICE-barkeep');
     expect(r.given).toHaveLength(1);
   });

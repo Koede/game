@@ -63,6 +63,13 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       d.clock.skipToDawn();
       d.player.bus.emit('flag', { flag: 'rested' });
     },
+    grantBuff: (buff, s) => {
+      const b = d.player.buffs;
+      if (buff === 'well_warmed') b.wellWarmedS = Math.max(b.wellWarmedS, s);
+      else if (buff === 'strength') b.grantStrength(1, s);
+      else b.grant(buff, s);
+      if (buff !== 'strength') d.player.bus.emit('buff:gained', { buff, durationS: s });
+    },
     tendFire: (x, y, z) => {
       const e = d.sim.furnaceAt(x, y, z);
       if (!e) return;

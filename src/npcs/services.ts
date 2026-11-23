@@ -76,6 +76,9 @@ export class ServiceMenu {
   /** Direct purchase by id (a UI or a test): accepts the offer if it is on offer. */
   buy(id: string, p: TavernPort): string | null {
     const o = this.offers.find((s) => s.id === id);
-    return o && o.pitch(p) !== null ? o.accept(p) : null;
+    if (!o || o.pitch(p) === null) return null;
+    const line = o.accept(p);
+    p.say(line);
+    return line;
   }
 }

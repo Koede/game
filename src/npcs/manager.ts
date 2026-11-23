@@ -21,6 +21,7 @@ import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
+import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 
 export interface NpcView {
   id: string;
@@ -60,6 +61,8 @@ export interface NpcSnapshot {
   /** What Old Bram has bought, newest last: item, count, coin he paid. */
   shelf?: [string, number, number][];
   giftDay?: Record<string, number>;
+  /** Rosa's drinks served on `day`. */
+  drinks?: { day: number; n: Record<string, number> };
 }
 
 /** What the manager needs from the game. */
@@ -78,6 +81,8 @@ export interface NpcHost {
   tendFire?(x: number, y: number, z: number): void;
   /** Skips the night to dawn: rested, warm (a paid bed). */
   sleepToDawn?(): void;
+  /** Gives the player a timed buff (Rosa's drinks). */
+  grantBuff?(buff: TavernBuff, seconds: number): void;
   companion: CompanionHost;
 }
 
@@ -117,7 +122,8 @@ export class NpcManager {
   private readonly greetedAt = new Map<string, number>();
   private readonly lines: LinePicker;
   /** What Rosa sells (rooms, drinks, ...): see services.ts. */
-  private readonly rosa = new ServiceMenu([ROOM_SERVICE]);
+  private drinkLog: DrinkLog = { day: 0, n: {} };
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
@@ -568,7 +574,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]),
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } },
     };
   }
 
@@ -588,6 +594,12 @@ export class NpcManager {
     this.giftDay = {};
     for (const [src, dst] of [[r.trust, this.trust], [r.giftDay, this.giftDay]] as const) {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
+    }
+    this.drinkLog = { day: 0, n: {} };
+    const dl = r.drinks;
+    if (dl && typeof dl === 'object' && Number.isFinite(dl.day) && dl.n && typeof dl.n === 'object') {
+      this.drinkLog.day = dl.day;
+      for (const [k, v] of Object.entries(dl.n)) if (typeof v === 'number' && Number.isFinite(v) && v > 0) this.drinkLog.n[k] = Math.floor(v);
     }
     this.pos.clear();
     this.routes.clear();
