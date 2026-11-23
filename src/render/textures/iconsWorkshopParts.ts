@@ -98,6 +98,8 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   clockface: { tint: 0xf0e0b0, draw: (c) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5.5 ? (d > 4.5 ? BRONZE[3] : P.rgb(0xf4ecd0)) : null; }); c.rect(8, 5, 1, 5, IRON[0]); c.rect(8, 9, 3, 1, IRON[0]); } },
   wind_vane: { tint: 0x88c8e8, draw: (c) => { c.rect(7, 6, 2, 8, IRON[2]); c.rect(5, 13, 6, 2, BRONZE[2]); arrow(c, 8, 4, 1, BRONZE[4]); c.rect(3, 5, 5, 1, BRONZE[3]); } },
   contraption_frame: { tint: 0xc8a060, draw: (c) => { c.rect(1, 3, 14, 12, WOOD[0]); c.rect(3, 5, 10, 8, WOOD[3]); c.rect(3, 5, 10, 1, WOOD[4]); c.rect(3, 5, 10, 8, WOOD[3]); c.rect(4, 6, 8, 6, WOOD[1]); c.rect(1, 3, 3, 3, BRONZE[3]); c.rect(12, 3, 3, 3, BRONZE[3]); } },
+  brake: { tint: 0xa05040, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5 ? IRON[on ? 3 : 1] : null; }); c.rect(2, 3, 12, 2, on ? BRONZE[3] : BRONZE[1]); c.rect(2, 13, 12, 2, on ? BRONZE[3] : BRONZE[1]); } },
+  pillow_block: { tint: 0x8090a0, draw: (c) => { c.rect(2, 9, 12, 5, IRON[1]); c.rect(2, 9, 12, 1, IRON[3]); c.each((x, y) => (Math.hypot(x + 0.5 - 8, y + 0.5 - 8) < 4 ? IRON[0] : null)); c.rect(6, 7, 4, 2, BRONZE[3]); c.set(3, 11, IRON[0]); c.set(12, 11, IRON[0]); } },
   piston: { tint: 0x6080d0, draw: (c, on) => { c.rect(3, 8, 10, 6, IRON[1]); c.rect(3, 8, 10, 1, IRON[3]); c.rect(7, on ? 2 : 5, 2, on ? 7 : 4, IRON[2]); c.rect(4, on ? 1 : 4, 8, 2, BRONZE[3]); } },
   bearing: { tint: 0x40b0b0, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5.5 && d > 3 ? (Math.floor((Math.atan2(y - 9, x - 8) + (on ? 0.5 : 0)) * 2) % 2 === 0 ? IRON[3] : IRON[2]) : d <= 3 ? IRON[0] : null; }); } },
   rail: { tint: 0x907050, draw: (c) => { c.rect(0, 0, 16, 16, WOOD[1]); c.rect(2, 0, 2, 16, IRON[2]); c.rect(12, 0, 2, 16, IRON[2]); for (let y = 1; y < 16; y += 4) { c.rect(1, y, 14, 2, WOOD[3]); c.rect(1, y, 14, 1, WOOD[4]); c.set(2, y, IRON[0]); c.set(13, y, IRON[0]); } c.rect(2, 0, 1, 16, IRON[3]); } },
@@ -107,7 +109,7 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
 
 export const registerGlyph = (key: string, tint: number, draw: Glyph): void => { GLYPHS[key] = { tint, draw }; };
 
-const STATIC = new Set(['contraption_frame', 'rail', 'skiff', 'bell', 'tally_board', 'clockface', 'wind_vane', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'shear_pin', 'item_vault']);
+const STATIC = new Set(['contraption_frame', 'rail', 'skiff', 'bell', 'tally_board', 'clockface', 'wind_vane', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'shear_pin', 'item_vault', 'pillow_block']);
 const set: Record<string, PainterSet[string]> = {};
 for (const [key, g] of Object.entries(GLYPHS)) {
   const seed = [...key].reduce((s, ch) => s + ch.charCodeAt(0), 0);

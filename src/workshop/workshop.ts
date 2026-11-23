@@ -21,6 +21,8 @@ import type { GroundItems } from '../game/groundItems';
 import { Contraptions, CONTRAPTION_KINDS } from './contraption';
 import { SIGNAL_KINDS, Signals } from './signals';
 import { isLogistic, Logistics, POWERED, type ActResult, type MachineActAction } from './logistics';
+import { IDLE_DRAG, IDLE_DRAG_PER_PART, FUSE_NAMES, FUSE_RATINGS, HEAT_SEIZE, STALL_W, brakePower, diagnose, engineKindOf, fresh as mechFresh, networkMomentum, shaftRuns, stepDrive, stepFuse, stepHeat, throughTorque, worstWhip, type DriveState, type Engine, type Finding, type FuseState } from './mech/drive';
+import { strokeLoad } from './mech/linkage';
 import { BASE_STRESS, DIAL_RATIOS, GEARSHIFT_PROGRAMS, GOVERNOR_NOTCHES, PULLEY_SIZES, cardProgram, clampCardSeconds, freshCard, readCard, snapDirection, snapRatio, solveNetwork, type CardStep, type KPart, type Source } from './kinetics';
 
 export const CRANK_RPM = 16;
@@ -41,7 +43,7 @@ export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1
 /** Furthest a chain / belt link reaches along a line, blocks. */
 export const LINK_RANGE: Record<string, number> = { chain_sprocket: 16, belt_pulley: 9 };
 /** Settings that Use cycles: how many states each part has. */
-const CYCLES: Record<string, number> = { ratio_dial: DIAL_RATIOS.length, governor: GOVERNOR_NOTCHES.length, sequence_gearshift: GEARSHIFT_PROGRAMS.length, belt_pulley: PULLEY_SIZES.length, clutch: 2 };
+const CYCLES: Record<string, number> = { ratio_dial: DIAL_RATIOS.length, governor: GOVERNOR_NOTCHES.length, sequence_gearshift: GEARSHIFT_PROGRAMS.length, belt_pulley: PULLEY_SIZES.length, clutch: 2, shear_pin: FUSE_RATINGS.length, brake: 2 };
 /** Seconds per recipe stroke at 16 rpm. */
 export const STROKE_S = 0.5;
 /** Blocks per second a belt moves items at 16 rpm. */
@@ -68,7 +70,16 @@ interface Part {
   card?: CardStep[];
 }
 interface MachineState { buffer: Record<string, number>; progress: number; recipe: string | null }
-export interface NetInfo { rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number; jammed?: boolean }
+export interface NetInfo {
+  rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number; jammed?: boolean;
+  /** Speed factor of the dynamics (1 = as solved), momentum su*s, a long shaft whipping, the load pulse now, and what the goggles tell the player. */
+  w?: number; momentum?: number; whip?: boolean; pulse?: number; findings?: Finding[];
+}
+/** Dynamic state of one network (src/workshop/mech/drive.ts), kept between ticks by its smallest member key. Not saved: it rebuilds in a tick. */
+interface NetDyn { st: DriveState; nominal: Map<string, number>; stress: number; capacity: number }
+/** A press or hammer ram: crank 0.5, rod 1.6 (src/workshop/mech/linkage.ts), and how much of its torque curve shows up as a pulse. */
+const RAM = { crank: 0.5, rod: 1.6 };
+const PULSE_GAIN = 0.3;
 
 export interface WorkshopSnapshot {
   v: 1;
@@ -99,8 +110,6 @@ const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_cran
 /** Seconds a recipe takes at 16 rpm: strokes x STROKE_S, or half the drying / soaking time of a timed recipe. */
 const needS = (r: RecipeDef): number => ((r.strokes ?? 0) > 0 ? (r.strokes as number) * STROKE_S : (r.timeS ?? 2) * 0.5);
 
-export const FLYWHEEL_COAST_S = 4;
-export const FLYWHEEL_CAPACITY = 12;
 
 const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
@@ -134,7 +143,9 @@ export class Workshop {
   tractors: (() => { x: number; y: number; z: number; occupied: boolean; fuel: number }[]) | null = null;
   /** Fluid blocks of the pipe network for spouts and drains (bucket use); set by Game. */
   fluidBlock: { is(x: number, y: number, z: number): boolean; use(x: number, y: number, z: number, item: string): string | null } | null = null;
-  private readonly coast = new Map<string, { s: number; rpm: number }>();
+  private readonly dyn = new Map<string, NetDyn>();
+  private readonly heat = new Map<string, number>();
+  private readonly fuses = new Map<string, FuseState>();
   private readonly pto = new Set<string>();
   private dt = 0.05;
   actHook: ((a: MachineActAction) => ActResult | null | undefined) | null = null;
@@ -213,7 +224,9 @@ export class Workshop {
     re(this.wound);
     re(this.lube);
     re(this.lubeFactor);
-    re(this.coast);
+    re(this.heat);
+    re(this.fuses);
+    this.dyn.clear();
     if (this.boarded && map.has(this.boarded)) this.boarded = k3(...(map.get(this.boarded) as [number, number, number]));
     if (this.editing && map.has(this.editing)) this.editing = k3(...(map.get(this.editing) as [number, number, number]));
     this.logi.relocate(map);
@@ -422,10 +435,16 @@ export class Workshop {
     this.speed.clear();
     this.netOf.clear();
     const seen = new Set<string>();
+    const liveNets = new Set<string>();
     for (const [start, part] of this.parts) {
       if (seen.has(start)) continue;
       const members = this.netMembers(start);
-      for (const m of members) seen.add(m);
+      let id = start;
+      for (const m of members) {
+        seen.add(m);
+        if (m < id) id = m;
+      }
+      liveNets.add(id);
       const sources = new Map<string, Source>();
       let lube = 1;
       for (const key of members) {
@@ -435,7 +454,7 @@ export class Workshop {
         lube = Math.max(lube, this.lubeFactor.get(key) ?? 1);
         if (p.kind === 'clockwork_motor' && src) this.wound.set(key, Math.max(0, (this.wound.get(key) ?? 0) - DT_WIND));
       }
-      const run = (): ReturnType<typeof solveNetwork> => solveNetwork({
+      const solved = solveNetwork({
         members, sources, t: this.clock, capacityFactor: lube,
         part: (k): KPart => {
           const p = this.parts.get(k) as Part;
@@ -445,49 +464,128 @@ export class Workshop {
         },
         neighbours: (k) => this.neighbours(k),
       });
-      let solved = run();
-      // Flywheels: charged while their line turns, then they carry it on for a few seconds.
-      let coasting = false;
-      for (const key of members) {
-        if ((this.parts.get(key) as Part).kind !== 'flywheel') continue;
-        const r = solved.rpm.get(key);
-        if (r !== undefined && r !== 0) this.coast.set(key, { s: FLYWHEEL_COAST_S, rpm: r });
-        else {
-          const c = this.coast.get(key);
-          if (c && c.s > 0) {
-            c.s -= this.dt;
-            sources.set(key, { rpm: c.rpm, capacity: FLYWHEEL_CAPACITY * (c.s / FLYWHEEL_COAST_S) });
-            coasting = true;
+      // Dynamics (src/workshop/mech/drive.ts): the solve above is the steady state at w = 1; this layer moves w.
+      let dyn = this.dyn.get(id);
+      const nominal = sources.size > 0 && !solved.jam && solved.rpm.size > 0 ? solved.rpm : null;
+      if (nominal) {
+        if (!dyn) {
+          dyn = { st: mechFresh(0), nominal, stress: 0, capacity: 0 };
+          this.dyn.set(id, dyn);
+        }
+        dyn.nominal = nominal;
+        dyn.stress = solved.stress;
+        dyn.capacity = solved.capacity;
+      } else if (solved.jam) {
+        this.dyn.delete(id);
+        dyn = undefined;
+      }
+      let w = 0;
+      let momentum = 0;
+      let whip = false;
+      let findings: Finding[] = [];
+      let pulse = 0;
+      if (dyn) {
+        const rpmOf = dyn.nominal;
+        let ref = 0;
+        for (const r of rpmOf.values()) ref = Math.max(ref, Math.abs(r));
+        const ratios: { kind: string; ratio: number }[] = [];
+        let brake = 0;
+        let hasFly = false;
+        let hasFuse = false;
+        const shafts: [number, number, number][] = [];
+        const supports = new Set<string>();
+        const heat = (k: string, add: number): number => {
+          const h = stepHeat(this.heat.get(k) ?? 0, add, this.dt);
+          if (h > 0.01) this.heat.set(k, h);
+          else this.heat.delete(k);
+          return h;
+        };
+        for (const key of members) {
+          const p = this.parts.get(key) as Part;
+          const r = rpmOf.get(key);
+          if (r !== undefined && ref > 0) ratios.push({ kind: p.kind, ratio: Math.abs(r) / ref });
+          if (p.kind === 'flywheel') hasFly = true;
+          else if (p.kind === 'shear_pin') hasFuse = true;
+          else if (p.kind === 'drive_shaft') shafts.push([p.x, p.y, p.z]);
+          else if (p.kind === 'pillow_block') supports.add(key);
+          else if (p.kind === 'brake') {
+            const on = this.signals.flips(p.x, p.y, p.z) ? !p.s : !!p.s;
+            const h = heat(key, on ? brakePower(1, dyn.st.w, ref) : 0);
+            if (on) brake += h >= HEAT_SEIZE * 0.7 ? 0.4 : 1;
           }
         }
-      }
-      if (coasting) solved = run();
-      // A shear pin gives way before the line seizes.
-      if (sources.size > 0 && !solved.jam && solved.stress > solved.capacity) {
-        const pin = members.find((k) => (this.parts.get(k) as Part).kind === 'shear_pin');
-        if (pin) {
-          const pp = this.parts.get(pin) as Part;
-          this.world.setVoxel(pp.x, pp.y, pp.z, 0, 'sim');
-          this.ground.spawn('scrap_metal', 1, pp.x + 0.5, pp.y + 0.5, pp.z + 0.5);
-          this.bus.emit('sfx', { name: 'tool_break', x: pp.x + 0.5, y: pp.y + 0.5, z: pp.z + 0.5 });
-          this.bus.emit('toast', { text: 'A shear pin snapped: the load was too much', kind: 'warn' });
+        momentum = networkMomentum(ratios);
+        pulse = this.pulseOf(members, ref);
+        const runs = shaftRuns(shafts, supports);
+        const wh = runs.length ? worstWhip(runs, ref * Math.max(dyn.st.w, 0.01)) : 1;
+        whip = wh < 1 && sources.size > 0;
+        const engines: Engine[] = [];
+        for (const [key, s] of sources) engines.push({ rated: s.capacity * lube * (whip ? wh : 1), curve: engineKindOf((this.parts.get(key) as Part).kind) });
+        const out = stepDrive(dyn.st, { engines, load: dyn.stress, pulse, momentum, brake, drag: engines.length === 0 ? IDLE_DRAG + IDLE_DRAG_PER_PART * members.length : 0 }, this.dt);
+        w = out.w;
+        // Fuses watch the torque through their own position; an unrated (legacy) pin gives way when the whole line is overloaded.
+        const through = throughTorque(solved.order, solved.parent, solved.partStress);
+        for (const key of members) {
+          const p = this.parts.get(key) as Part;
+          if (p.kind !== 'shear_pin') continue;
+          let snap = false;
+          if (p.s > 0) {
+            const f = this.fuses.get(key) ?? { over: 0 };
+            this.fuses.set(key, f);
+            snap = stepFuse(f, FUSE_RATINGS[p.s], (through.get(key) ?? 0) * (1 + pulse), this.dt);
+          } else snap = sources.size > 0 && !solved.jam && solved.stress > solved.capacity;
+          if (snap) {
+            this.world.setVoxel(p.x, p.y, p.z, 0, 'sim');
+            this.ground.spawn('scrap_metal', 1, p.x + 0.5, p.y + 0.5, p.z + 0.5);
+            this.fuses.delete(key);
+            this.bus.emit('sfx', { name: 'tool_break', x: p.x + 0.5, y: p.y + 0.5, z: p.z + 0.5 });
+            this.bus.emit('toast', { text: p.s > 0 ? `A ${FUSE_NAMES[p.s].toLowerCase()} shear pin snapped: ${fmt(through.get(key) ?? 0)} su is more than its ${FUSE_RATINGS[p.s]}` : 'A shear pin snapped: the load was too much', kind: 'warn' });
+          }
+        }
+        findings = diagnose({ rated: dyn.capacity * (whip ? wh : 1), load: dyn.stress, pulse, momentum, w, whip, hasFlywheel: hasFly, brake, hasFuse });
+        if (w < STALL_W && sources.size === 0) {
+          this.dyn.delete(id);
+          dyn = undefined;
+          w = 0;
         }
       }
-      const maxRpm = [...solved.rpm.values()].reduce((m, r) => Math.max(m, Math.abs(r)), 0);
-      const overstressed = sources.size > 0 && !solved.jam && solved.stress > solved.capacity;
-      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm, stress: solved.stress, capacity: solved.capacity, overstressed, parts: members.length, jammed: solved.jam };
+      const rpmNow = dyn && w >= STALL_W ? dyn.nominal : null;
+      let maxRpm = 0;
+      if (rpmNow) for (const r of rpmNow.values()) maxRpm = Math.max(maxRpm, Math.abs(r));
+      const capacity = dyn ? dyn.capacity : solved.capacity;
+      const stress = dyn ? dyn.stress : solved.stress;
+      const overstressed = sources.size > 0 && !solved.jam && stress > capacity && w < 0.5;
+      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm * w, stress, capacity, overstressed, parts: members.length, jammed: solved.jam, w, whip, momentum, findings, pulse };
       for (const key of members) {
         this.netOf.set(key, info);
-        const r = solved.rpm.get(key);
-        if (!overstressed && r !== undefined && r !== 0) this.speed.set(key, r);
+        const r = rpmNow?.get(key);
+        if (!overstressed && r !== undefined && r !== 0) this.speed.set(key, r * w);
       }
       if ((overstressed || solved.jam) && !this.seizedWarned.has(start)) {
         this.seizedWarned.add(start);
-        this.bus.emit('toast', { text: solved.jam ? 'The gears fight each other: two sources or routes turn one part differently' : `Too much load: ${fmt(solved.stress)} on ${fmt(solved.capacity)} stress units. Add a source or take a machine off`, kind: 'warn' });
+        this.bus.emit('toast', { text: solved.jam ? 'The gears fight each other: two sources or routes turn one part differently' : `Too much load: ${fmt(stress)} on ${fmt(capacity)} stress units. Add a source or take a machine off`, kind: 'warn' });
         this.bus.emit('sfx', { name: 'error', x: part.x + 0.5, y: part.y + 0.5, z: part.z + 0.5 });
         this.signals.ringNear(part.x, part.y, part.z);
       } else if (!overstressed && !solved.jam) this.seizedWarned.delete(start);
     }
+    for (const k of this.dyn.keys()) if (!liveNets.has(k)) this.dyn.delete(k);
+  }
+
+  /** Extra load fraction right now from striking machines (press, hammer): their ram's slider-crank torque curve over the steady load. */
+  private pulseOf(members: readonly string[], ref: number): number {
+    let extra = 0;
+    let base = 0;
+    for (const key of members) {
+      const p = this.parts.get(key) as Part;
+      const b = BASE_STRESS[p.kind] ?? 0;
+      base += b;
+      if (p.kind !== 'mech_press' && p.kind !== 'mech_hammer') continue;
+      const m = this.machines.get(key);
+      if (!m || !m.recipe) continue;
+      const phase = (m.progress / STROKE_S) % 1;
+      extra += b * PULSE_GAIN * (strokeLoad(RAM, phase) - 1) * Math.max(0.25, Math.min(4, 16 / Math.max(1, ref)));
+    }
+    return base > 0 ? Math.max(0, extra / base) : 0;
   }
 
   /** One-line reading of a part's setting, for the toast and the goggles. */
@@ -498,6 +596,8 @@ export class Workshop {
       case 'sequence_gearshift': return p.card ? 'Punched card: 8 steps' : `Gearshift program ${p.s + 1} of ${GEARSHIFT_PROGRAMS.length}`;
       case 'belt_pulley': return `Pulley size ${PULLEY_SIZES[p.s]}`;
       case 'clutch': return p.s ? 'Clutch engaged' : 'Clutch released';
+      case 'brake': return p.s ? 'Brake engaged' : 'Brake free';
+      case 'shear_pin': return p.s ? `${FUSE_NAMES[p.s]} pin: snaps over ${FUSE_RATINGS[p.s]} su` : 'Plain pin: snaps when the line is overloaded';
       default: return null;
     }
   }
@@ -755,6 +855,9 @@ export class Workshop {
       parts.push(r === 0 ? 'idle' : `${r < 0 ? 'left' : 'right'} ${Math.round(Math.abs(r) * 10) / 10} rpm, load ${fmt(net.stress)}/${fmt(net.capacity)} su${(this.lubeFactor.get(key) ?? 1) > 1 ? ', oiled' : ''}`);
     }
     if (net?.jammed) parts[0] = 'jammed: the gears fight each other';
+    if (net && net.w !== undefined && net.w > 0 && net.w < 0.98 && !net.overstressed) parts.push(`at ${Math.round(net.w * 100)}% speed`);
+    if (net?.whip) parts.push('whipping: add a pillow block');
+    if ((this.heat.get(key) ?? 0) >= HEAT_SEIZE * 0.7) parts.push('hot: it fades');
     const set = this.setting(p);
     if (set) parts.push(set);
     const mv = p.kind === 'piston' ? this.contra.describe(x, y, z) : null;

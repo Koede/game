@@ -9,6 +9,9 @@
 
 /** Smallest momentum any network has (keeps the integrator well posed). */
 export const M_BASE = 0.05;
+/** Idle friction of a line with no engine (su at w = 1) plus this much per part: a coasting flywheel does not turn for ever. */
+export const IDLE_DRAG = 1;
+export const IDLE_DRAG_PER_PART = 0.02;
 /** Torque a fully engaged brake takes, su. */
 export const BRAKE_TORQUE = 24;
 /** A network below this speed factor with a load on it counts as stalled. */
@@ -23,21 +26,23 @@ export const WHIP_BAND = 0.15;
 export const HEAT_SEIZE = 100;
 
 /** Engine torque as a multiple of the rated torque at speed factor w. All are speed regulated: they never push w above 1 on their own. */
-export type EngineKind = 'flat' | 'steam' | 'spring';
+export type EngineKind = 'flat' | 'steam' | 'human' | 'spring';
 export const ENGINE_CURVES: Record<EngineKind, (w: number) => number> = {
   /** Cranks, wheels, motors: the same torque at any speed up to rated. */
   flat: (w) => (w <= 1 ? 1 : Math.max(0, 1 - (w - 1) * 4)),
   /** A piston engine: strong when it lugs (x1.5 stalled), so it starts loads a crank could not. */
   steam: (w) => (w <= 1 ? 1 + 0.5 * (1 - Math.max(0, w)) : Math.max(0, 1 - (w - 1) * 4)),
+  /** A person or animal pushes harder when it sticks (x1.5 stalled): a cranked press lurches through its stroke instead of jamming. */
+  human: (w) => (w <= 1 ? 1 + 0.5 * (1 - Math.max(0, w)) : Math.max(0, 1 - (w - 1) * 4)),
   /** A spring: flat in speed (its unwinding is the wind state). */
   spring: (w) => (w <= 1 ? 1 : 0),
 };
-export const ENGINE_KIND_OF: Record<string, EngineKind> = { steam_engine: 'steam', clockwork_motor: 'spring' };
+export const ENGINE_KIND_OF: Record<string, EngineKind> = { steam_engine: 'steam', clockwork_motor: 'spring', hand_crank: 'human', treadwheel: 'human' };
 export const engineKindOf = (partKind: string): EngineKind => ENGINE_KIND_OF[partKind] ?? 'flat';
 
 /** Momentum each part kind adds at its own speed (su*s), scaled by the square of its speed ratio to the network. */
 export const PART_MOMENTUM: Record<string, number> = {
-  flywheel: 40, mech_millstone: 3, treadwheel: 6, clockwork_motor: 2, bearing: 4, mech_press: 1.5, mech_hammer: 1.5, differential: 0.5,
+  flywheel: 16, mech_millstone: 0.4, treadwheel: 1, clockwork_motor: 0.3, bearing: 2, mech_press: 0.5, mech_hammer: 0.5, differential: 0.2,
 };
 /** Momentum of one part kind. */
 export const partMomentum = (kind: string): number => PART_MOMENTUM[kind] ?? 0.02;
@@ -111,6 +116,8 @@ export function stepDrive(state: DriveState, input: DriveInput, dt: number): Dri
     }
     w = (lo + hi) / 2;
   }
+  // A line that can hold full speed reaches it (the root only approaches 1 when drive equals demand there).
+  if (w > 0.995 && driveTorque(input.engines, 1) >= demandTorque(input, 1)) w = 1;
   state.w = w;
   const drive = driveTorque(input.engines, w);
   const demand = demandTorque(input, w);

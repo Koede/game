@@ -22,7 +22,7 @@ describe('drive dynamics', () => {
   it('a flywheel coasts after the engine stops, for about M / load seconds', () => {
     const M = networkMomentum([{ kind: 'flywheel', ratio: 1 }]);
     const t = coastSeconds(M, 4);
-    expect(t).toBeGreaterThan(8);
+    expect(t).toBeGreaterThan(3);
     const s = fresh(1);
     let n = 0;
     while (s.w > 0.05 && n < 4000) {
@@ -45,7 +45,7 @@ describe('drive dynamics', () => {
       return low;
     };
     expect(peaks(0.1)).toBeLessThan(0.2);
-    expect(peaks(40)).toBeGreaterThan(0.85);
+    expect(peaks(16)).toBeGreaterThan(0.6);
   });
 
   it('a steam engine lugs down instead of stalling a load a crank could not start', () => {
@@ -57,7 +57,7 @@ describe('drive dynamics', () => {
   });
 
   it('a brake stops a flywheel and costs more load than a lit line', () => {
-    const M = 40;
+    const M = 16;
     const free = run({ engines: [], load: 1, momentum: M }, 3, 1);
     const braked = run({ engines: [], load: 1, momentum: M, brake: 1 }, 3, 1);
     expect(braked).toBeLessThan(free);
@@ -73,7 +73,7 @@ describe('drive dynamics', () => {
   });
 
   it('rideThrough grows with momentum', () => {
-    expect(rideThrough(40, 8, 4, 0.2)).toBeGreaterThan(rideThrough(0.1, 8, 4, 0.2));
+    expect(rideThrough(16, 8, 4, 0.2)).toBeGreaterThan(rideThrough(0.1, 8, 4, 0.2));
   });
 });
 

@@ -236,5 +236,8 @@
   "brick_lintel": 234,
   "brick_chimney": 235,
   "bronze_plate_block": 236,
-  "rivet_plate_block": 237
+  "rivet_plate_block": 237,
+  "brake": 238,
+  "pillow_block": 239,
+  "wool_bedding": 240
 }
