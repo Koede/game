@@ -21,6 +21,7 @@ import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
+import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
 import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 
 export interface NpcView {
@@ -41,6 +42,8 @@ export interface NpcView {
   dancing: boolean;
   /** Seconds since the jukebox started (the dance is a pure function of this). */
   danceS: number;
+  /** A speech bubble over their head (overheard gossip), or null. */
+  bubble: string | null;
 }
 
 export interface NpcSnapshot {
@@ -63,6 +66,8 @@ export interface NpcSnapshot {
   giftDay?: Record<string, number>;
   /** Rosa's drinks served on `day`. */
   drinks?: { day: number; n: Record<string, number> };
+  /** Gossip: the slot last held (`day:slot`) and the exchanges heard, newest last. */
+  gossip?: { last: string; said: string[] };
 }
 
 /** What the manager needs from the game. */
@@ -122,6 +127,9 @@ export class NpcManager {
   private readonly greetedAt = new Map<string, number>();
   private readonly lines: LinePicker;
   /** What Rosa sells (rooms, drinks, ...): see services.ts. */
+  private gossip: Running | null = null;
+  private gossipLast = '';
+  private gossipSaid: string[] = [];
   private drinkLog: DrinkLog = { day: 0, n: {} };
   private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
@@ -192,6 +200,49 @@ export class NpcManager {
     return p;
   }
 
+  /** Distance in blocks between two people right now. */
+  private apart(a: string, b: string): number {
+    const na = NPCS.find((n) => n.id === a);
+    const nb = NPCS.find((n) => n.id === b);
+    if (!na || !nb) return Infinity;
+    const [ax, az] = this.where(na);
+    const [bx, bz] = this.where(nb);
+    return Math.hypot(ax - bx, az - bz);
+  }
+
+  /** Starts the day's gossip when its slot is open, two regulars are close and the player is near enough to hear. */
+  private tickGossip(dt: number): void {
+    const host = this.host;
+    const o = this.at;
+    if (!host || !o) return;
+    if (this.gossip) {
+      this.gossip = advance(this.gossip, dt);
+      return;
+    }
+    const tod = host.timeOfDay();
+    const slot = slotAt(tod);
+    const key = `${host.day()}:${slot}`;
+    if (slot < 0 || key === this.gossipLast) return;
+    const p = host.companion.player();
+    const near = (id: string): boolean => {
+      const n = NPCS.find((x) => x.id === id)!;
+      const [x, z] = this.where(n);
+      return Math.hypot(o[0] + x - p.x, o[2] + z - p.z) <= HEAR_RANGE;
+    };
+    const pool = eligible(tod, (a, b) => this.apart(a, b), new Set(this.gossipSaid)).filter((e) => near(e.a) && near(e.b));
+    if (pool.length === 0) return;
+    const ex = pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))];
+    this.gossipLast = key;
+    this.gossipSaid.push(ex.id);
+    this.gossipSaid = this.gossipSaid.slice(-6);
+    this.gossip = { ex, at: 0, left: 4.2 };
+  }
+
+  /** The conversation running now, for the UI and tests: who speaks and what. */
+  overheard(): { id: string; text: string } | null {
+    return bubbleOf(this.gossip);
+  }
+
   /** Current trust of a person 0..100. */
   trustOf(id: string): number {
     return this.trust[id] ?? 0;
@@ -206,6 +257,7 @@ export class NpcManager {
     const o = this.at;
     if (!o) return [];
     const { h, m } = clockHM(this.host?.timeOfDay() ?? 0);
+    const bubble = bubbleOf(this.gossip);
     return NPCS.map((n) => {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
@@ -216,6 +268,7 @@ export class NpcManager {
         y: hired ? this.companion.y : o[1] + n.at[1],
         z: hired ? this.companion.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
+        bubble: bubble?.id === n.id ? bubble.text : null,
       };
     });
   }
@@ -542,6 +595,7 @@ export class NpcManager {
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
+    this.tickGossip(dt);
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);
@@ -574,7 +628,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } },
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] },
     };
   }
 
@@ -595,6 +649,9 @@ export class NpcManager {
     for (const [src, dst] of [[r.trust, this.trust], [r.giftDay, this.giftDay]] as const) {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
     }
+    this.gossip = null;
+    this.gossipLast = typeof r.gossip?.last === 'string' ? r.gossip.last : '';
+    this.gossipSaid = strings(r.gossip?.said).slice(-6);
     this.drinkLog = { day: 0, n: {} };
     const dl = r.drinks;
     if (dl && typeof dl === 'object' && Number.isFinite(dl.day) && dl.n && typeof dl.n === 'object') {

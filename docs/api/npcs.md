@@ -76,3 +76,6 @@ Seven small systems built on the tavern's people. Each is a pure module in `src/
 
 ### Drinks with effects
 `drinks.ts`: `DRINKS` are three Rosa offers on the same menu: **warming ale** (6 coin, Well-Warmed 4 min), **bracing tea** (5 coin, Mending 2.5 min) and a **strong brew** (14 coin, Vigor and +1 flat strength for 2 min, two a day then she cuts you off). `NpcHost.grantBuff(buff, seconds)` applies them through the game's own `Buffs` (`wellWarmedS`, `grant`, `grantStrength`) and fires `buff:gained`. The day's tally is saved as `drinks` in the npcs snapshot.
+
+### Overheard gossip
+`gossip.ts`: five slots a day (`GOSSIP_SLOTS`, time of day 0 = dawn, each open for 0.05 of a day). In an open slot, if two regulars who suit the phase stand within 7.5 blocks of each other (on their routine spots) and the player is within 16 blocks of both, one of ten `EXCHANGES` starts (one the manager has not used in its last six when it can). Each line is a speech bubble over the speaker for 4.2 s with a 0.8 s gap; nothing blocks or asks anything. `NpcView.bubble` carries the text, `NpcManager.overheard()` the current speaker for tests, and `src/render/npcs/bubbles.ts` (`BubbleLayer`, owned by `NpcRenderer`) draws it as a camera-facing sprite. Saved as `gossip` (`last` slot key, `said` ids).
