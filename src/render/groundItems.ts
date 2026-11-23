@@ -13,6 +13,7 @@ import { cubeGeometry, spriteGeometry } from './heldItem';
 import { LightProbe } from './lightProbe';
 import type { WorldUniforms } from './materials';
 import { LIGHT_GLSL } from './shaders/chunk';
+import { itemRarity, RARITY_COLOUR } from './rarity';
 import { paintTile } from './tiles';
 
 /** The parts of the Renderer it draws into (the Renderer satisfies it, as it does MobScene). */
@@ -22,17 +23,22 @@ export interface GroundScene {
   readonly uniforms: WorldUniforms;
 }
 
+const BEAM_HEIGHT = 2.6;
+
 const VERTEX = /* glsl */ `
 precision highp float;
 in float layer;
 in float shade;
 in vec3 aLight; // x sky 0..1, y block 0..1, z glow 0..1
+in vec3 aRarity; // glow colour of the item's rarity (black for common)
+uniform float uTime;
 ${LIGHT_GLSL}
 out vec2 vUv;
 flat out float vLayer;
 out vec3 vColor;
 out vec4 vFog;
 out float vGlow;
+out vec3 vRare;
 void main() {
   vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vColor = lightColor(aLight.x, aLight.y) * shade;
@@ -42,6 +48,8 @@ void main() {
   vUv = uv;
   vLayer = layer;
   vGlow = aLight.z;
+  // Rarity glow breathes slowly, each instance on its own beat.
+  vRare = aRarity * (0.5 + 0.2 * sin(uTime * 3.0 + instanceMatrix[3].x * 1.7 + instanceMatrix[3].z * 2.3));
   gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;
@@ -54,14 +62,51 @@ flat in float vLayer;
 in vec3 vColor;
 in vec4 vFog;
 in float vGlow;
+in vec3 vRare;
 out vec4 fragColor;
 void main() {
   vec4 t = atlasTexel(vUv, vLayer);
   if (t.a < 0.5) discard;
-  vec3 c = t.rgb * vColor + vGlow * vec3(0.16, 0.34, 0.38);
+  vec3 c = t.rgb * vColor + vGlow * vec3(0.16, 0.34, 0.38) + vRare * (0.4 + 0.6 * t.rgb);
   fragColor = vec4(mix(c, vFog.rgb, vFog.a), 1.0);
 }
 `;
+
+const BEAM_VERTEX = /* glsl */ `
+precision highp float;
+in vec3 aBeam;
+${LIGHT_GLSL}
+out vec3 vBeam;
+out float vFade;
+out vec2 vQ;
+void main() {
+  vec3 base = instanceMatrix[3].xyz;
+  vec3 toCam = cameraPosition - base;
+  vec3 right = normalize(vec3(toCam.z, 0.0, -toCam.x) + vec3(0.0001, 0.0, 0.0));
+  float h = position.y + 0.5;
+  vec3 world = base + right * position.x * 0.22 * (1.0 - 0.6 * h) + vec3(0.0, h * ${BEAM_HEIGHT.toFixed(1)}, 0.0);
+  vBeam = aBeam;
+  // Fades up the beam and into the distance fog, so it never outlines the fog edge.
+  vFade = 1.0 - fogFactor(length(world - cameraPosition));
+  vQ = vec2(position.x * 2.0, h);
+  gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
+}
+`;
+const BEAM_FRAGMENT = /* glsl */ `
+precision mediump float;
+in vec3 vBeam;
+in float vFade;
+in vec2 vQ;
+out vec4 fragColor;
+void main() {
+  float a = (1.0 - vQ.y) * (1.0 - abs(vQ.x)) * (1.0 - abs(vQ.x)) * vFade;
+  fragColor = vec4(mix(vBeam, vec3(1.0), 0.4 * a), a * 0.75);
+}
+`;
+
+/** Items of this rarity and above also stand in a light beam (when beams are on), so loot reads from far away. */
+const BEAM_MIN_RARITY = 2;
+const BEAM_CAPACITY = 64;
 
 /** Edge of a block item and width of a sprite item, in blocks. */
 const BLOCK_SIZE = 0.3;
@@ -75,6 +120,7 @@ const RINGS = 3;
 const RING_PERIOD_S = 0.7;
 
 interface Kind {
+  rarity: number;
   mesh: THREE.InstancedMesh;
   light: THREE.InstancedBufferAttribute;
   capacity: number;
@@ -100,6 +146,11 @@ export class GroundItemRenderer {
   private readonly ringGeometry: THREE.RingGeometry;
   private readonly tmp = new THREE.Object3D();
   private readonly used = new Map<Kind, number>();
+  private readonly beams: THREE.InstancedMesh;
+  private readonly beamColour: THREE.InstancedBufferAttribute;
+  private readonly beamMaterial: THREE.ShaderMaterial;
+  /** Light beams over rare drops: a few extra triangles, so cheap, but a quality setting can switch them off. */
+  beamsOn = true;
   private time = 0;
   private frame = 0;
   private probeCursor = 0;
@@ -136,6 +187,26 @@ export class GroundItemRenderer {
       this.rings.push(ring);
       this.group.add(ring);
     }
+    const quad = new THREE.PlaneGeometry(1, 1);
+    this.beamColour = new THREE.InstancedBufferAttribute(new Float32Array(BEAM_CAPACITY * 3), 3);
+    this.beamColour.setUsage(THREE.DynamicDrawUsage);
+    quad.setAttribute('aBeam', this.beamColour);
+    this.beamMaterial = new THREE.ShaderMaterial({
+      name: 'ground-beams',
+      glslVersion: THREE.GLSL3,
+      uniforms: { ...view.uniforms },
+      vertexShader: BEAM_VERTEX,
+      fragmentShader: BEAM_FRAGMENT,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    this.beams = new THREE.InstancedMesh(quad, this.beamMaterial, BEAM_CAPACITY);
+    this.beams.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.beams.frustumCulled = false;
+    this.beams.count = 0;
+    this.beams.renderOrder = 5;
+    this.group.add(this.beams);
     this.group.frustumCulled = false;
     view.scene.add(this.group);
   }
@@ -155,6 +226,7 @@ export class GroundItemRenderer {
     const used = this.used;
     used.clear();
     for (const kind of this.kinds.values()) kind.mesh.count = 0;
+    let beams = 0;
     let probes = 0;
     for (let n = 0; n < items.length; n++) {
       const e = items[n];
@@ -182,7 +254,19 @@ export class GroundItemRenderer {
         used.set(kind, i + 1);
         this.place(kind, i, e, c, copies, lit);
       }
+      if (this.beamsOn && kind.rarity >= BEAM_MIN_RARITY && beams < BEAM_CAPACITY) {
+        this.tmp.position.set(e.x, e.y + 0.05, e.z);
+        this.tmp.rotation.set(0, 0, 0);
+        this.tmp.scale.setScalar(1);
+        this.tmp.updateMatrix();
+        this.beams.setMatrixAt(beams, this.tmp.matrix);
+        this.beamColour.setXYZ(beams, ...RARITY_COLOUR[kind.rarity]);
+        beams++;
+      }
     }
+    this.beams.count = beams;
+    this.beams.instanceMatrix.needsUpdate = true;
+    this.beamColour.needsUpdate = true;
     this.probeCursor++;
     for (const [kind, n] of used) {
       kind.mesh.count = n;
@@ -202,6 +286,9 @@ export class GroundItemRenderer {
       k.mesh.dispose();
     }
     this.kinds.clear();
+    this.beams.geometry.dispose();
+    this.beams.dispose();
+    this.beamMaterial.dispose();
     this.material.dispose();
     this.ringGeometry.dispose();
     this.ringMaterial.dispose();
@@ -249,7 +336,13 @@ export class GroundItemRenderer {
       geometry = spriteGeometry(layer, paintTile(TEXTURE_NAMES[layer]));
       scale = SPRITE_SIZE;
     }
+    const rare = RARITY_COLOUR[itemRarity(def)];
+    const n = geometry.getAttribute('position').count;
+    const rarity = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) rarity.set(rare, i * 3);
+    geometry.setAttribute('aRarity', new THREE.BufferAttribute(rarity, 3));
     kind = this.makeKind(geometry, scale, START_CAPACITY, placed && def.iconLayer < 0 && placed.shape === 'slab' ? 0.25 : 0.5);
+    kind.rarity = itemRarity(def);
     this.kinds.set(item, kind);
     this.group.add(kind.mesh);
     return kind;
@@ -263,7 +356,7 @@ export class GroundItemRenderer {
     const light = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
     light.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('aLight', light);
-    return { mesh, light, capacity, lift: halfHeight * scale, scale };
+    return { rarity: 0, mesh, light, capacity, lift: halfHeight * scale, scale };
   }
 
   /** More instances of one kind than fit: doubles the buffers (rare; copies what is there). */
