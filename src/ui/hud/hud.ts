@@ -19,6 +19,7 @@ import { Crosshair } from './crosshair';
 import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
+import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
 import combatCss from './combat.css';
 import { summarizeGrid } from './hudMath';
@@ -67,6 +68,7 @@ export class Hud {
   private readonly vitals = new Vitals();
   private readonly goal: GoalTracker;
   private readonly compass = new Compass();
+  private readonly quick: QuickCraft;
   private readonly dial = new DayDial();
   private readonly power = new PowerStrip();
   private readonly crosshair = new Crosshair();
@@ -112,6 +114,7 @@ export class Hud {
     const bus = deps.bus;
     this.goal = new GoalTracker(bus);
     this.hotbar = new Hotbar(deps.player, bus);
+    this.quick = new QuickCraft(deps.player, bus);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
     this.auraEl = h('div', { class: 'hw-aura hw-hud-plate', attrs: { role: 'status' } });
@@ -121,7 +124,7 @@ export class Hud {
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
       h('div', { class: 'hw-hud__mid' }, this.goal.el),
-      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl),
+      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el),
     );
     this.devBtn = this.devButton(bus);
     this.devBtn.hidden = !deps.player.dev;
@@ -321,6 +324,7 @@ export class Hud {
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
     this.goal.update(d.objectives);
+    this.quick.update();
     const home = d.player.home;
     this.compass.update(d.player, home ? d.sim().furnaceAt(home.x, home.y, home.z) : null);
     this.dial.update(d.clock.timeOfDay, d.clock.day, d.weather?.() ?? null);

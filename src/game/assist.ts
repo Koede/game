@@ -13,6 +13,9 @@ export class PlayAssist {
   /** Recipe id the player pinned in a crafting screen (its missing ingredients stay highlighted), or null. */
   pinned: string | null = null;
 
+  /** The last hand recipe made by the player (any route); one tap on the HUD chip repeats it. */
+  lastHand: string | null = null;
+
   /** Pins a recipe; pinning the one already pinned unpins it. Unknown ids are ignored. Returns the new pin. */
   togglePin(id: string): string | null {
     if (this.pinned === id) this.pinned = null;
@@ -21,10 +24,11 @@ export class PlayAssist {
   }
 
   toJSON(): AssistSnapshot {
-    return { pinned: this.pinned };
+    return { pinned: this.pinned, lastHand: this.lastHand };
   }
 
   load(s: AssistSnapshot | undefined): void {
+    this.lastHand = typeof s?.lastHand === 'string' && recipeById(s.lastHand)?.station === 'hand' ? s.lastHand : null;
     this.pinned = typeof s?.pinned === 'string' && recipeById(s.pinned) ? s.pinned : null;
   }
 }

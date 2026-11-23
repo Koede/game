@@ -1156,3 +1156,68 @@
     animation: none;
   }
 }
+
+/* ---- quick-craft chip (src/ui/hud/quickCraft.ts): repeat the last hand recipe, or pick from what the pack can make ----------- */
+.hw-quick {
+  position: relative;
+  pointer-events: auto;
+  min-width: 0;
+}
+.hw-quick[hidden],
+.hw-quick__list[hidden] {
+  display: none;
+}
+.hw-quick__bar {
+  display: flex;
+  align-items: stretch;
+}
+.hw-quick__main,
+.hw-quick__more,
+.hw-quick__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.hw-quick__main[data-short] {
+  opacity: 0.55;
+}
+.hw-quick__more {
+  min-width: 36px;
+  justify-content: center;
+  border-left: 1px solid var(--hw-plate-edge);
+}
+.hw-quick__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 190px;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: var(--hw-plate);
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+}
+.hw-quick__item {
+  justify-content: flex-start;
+  text-align: left;
+}
+.hw-quick__n {
+  margin-left: auto;
+  opacity: 0.7;
+  font-size: 11px;
+}
+.hw-quick__empty {
+  margin: 0;
+  padding: 8px;
+  font-size: 12px;
+}

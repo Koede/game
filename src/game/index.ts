@@ -21,3 +21,4 @@ export * from './collectors';
 export * from './heldWarmth';
 export * from './assist';
 export * from './recipeHelper';
+export * from './quickCraft';
