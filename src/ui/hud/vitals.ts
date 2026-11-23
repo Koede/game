@@ -11,6 +11,7 @@ import { glyph, type GlyphName } from '../kit/icons';
 import { DRINK_GLYPHS, chipDensity, drinkChips } from './drinkBuffs';
 import { DRINK_BUFF_KEYS } from '../../core/brewing';
 import type { DrinkBuff } from '../../core/types';
+import { isVitalCalm } from './hudMath';
 import { clockTime, hungerState, type HungerState } from '../screens/food';
 
 class VitalBar {
@@ -48,6 +49,7 @@ class VitalBar {
       setAttr(this.el, 'aria-valuemax', max);
     }
     setFlag(this.el, 'low', fraction <= 0.25);
+    setFlag(this.el, 'calm', isVitalCalm(fraction));
   }
 }
 

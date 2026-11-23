@@ -118,6 +118,14 @@
   line-height: 1;
   text-align: right;
 }
+/* Full bars fade back; the moment one drops it is at full strength again. */
+.hw-vital[data-calm] {
+  opacity: 0.55;
+  transition: opacity 400ms ease;
+}
+.hw-vital[data-hunger] {
+  opacity: 1;
+}
 .hw-vital[data-kind='health'] {
   --hw-vital-color: #e8475a;
 }
