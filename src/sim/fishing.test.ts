@@ -12,7 +12,7 @@ describe('fishing content', () => {
     const keys = new Set(ITEMS.map((i) => i.key));
     for (const k of [FISHING_ROD, ...FISH_ITEMS, ...COOKED_FISH_ITEMS, ...JUNK.map((j) => j.item)]) expect(keys.has(k), k).toBe(true);
     for (const f of FISH) {
-      const r = RECIPES.find((x) => x.inputs.length === 1 && x.inputs[0].item === f.item);
+      const r = RECIPES.find((x) => x.inputs.length === 1 && x.inputs[0].item === f.item && x.output.item === f.cooked);
       expect(r?.output.item, f.item).toBe(f.cooked);
     }
     expect(RECIPES.some((r) => r.output.item === FISHING_ROD)).toBe(true);

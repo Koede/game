@@ -8,6 +8,6 @@ A rod, four fish and the furnace dishes that cook them. Optional: the solver cou
   raw perch / trout / eel / glowfin; furnace smelt recipes to fried perch, baked trout, smoked eel, roast glowfin).
 - Rules: `src/sim/fishing.ts`: `waterKind(spot)`, `rollCatch(kind, {night, raining}, rng)`, `biteDelayS`, `missChance`,
   `junkChance`, `fishIn(kind)`. Randomness is injected.
-- Not wired yet: the Use handler on water (cast, bobber, bite window, rod wear `FISHING_ROD_WEAR`), measuring the
+- Wired: see docs/api/exploration.md.
   `WaterSpot` (depth, pool area, flow) from the world, and brewing: fish are cooking-only so far.
 - Tests: `src/sim/fishing.test.ts`.

@@ -218,8 +218,11 @@ export class Game {
           bus.emit('ui:open', { screen: { type: 'workshop' } });
           return 'screen';
         }
+        const explored = state.exploration.use(hit, player.heldStack());
+        if (explored !== null) return explored;
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
+      state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);

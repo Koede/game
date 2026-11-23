@@ -9,8 +9,8 @@ import { FISHING_ROD, FISHING_ROD_WEAR } from '../fishing';
 
 const raw = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'food', age: 0, food: { hunger: 2 } });
 const cooked = (key: string, name: string, desc: string, hunger: number): ItemSpec => ({ key, name, desc, category: 'food', age: 0, food: { hunger } });
-const cook = (fish: string, out: string, tempC: number, timeS: number): RecipeSpec => ({
-  id: out, station: 'furnace', kind: 'smelt', inputs: [amount(fish)], output: amount(out), minTempC: tempC, timeS, minTier: 1, age: 0,
+const cook = (fish: string, out: string, tempC: number, timeS: number, id = out): RecipeSpec => ({
+  id, station: 'furnace', kind: 'smelt', inputs: [amount(fish)], output: amount(out), minTempC: tempC, timeS, minTier: 1, age: 0,
 });
 
 export default {

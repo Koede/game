@@ -21,6 +21,7 @@ import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
+import { Exploration } from '../game/exploration';
 import { NpcManager } from '../npcs';
 import { makeNpcHost } from '../npcs/host';
 import { takeLostItems } from '../content/aliases';
@@ -59,6 +60,8 @@ export class GameState {
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
   readonly workshop: Workshop;
+  /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
+  readonly exploration: Exploration;
   /** The tavern's people (docs/api/npcs.md). */
   readonly npcs: NpcManager;
   readonly seedText: string | null;
@@ -196,6 +199,13 @@ export class GameState {
       return r.did === 'insert' ? 'consumed' : 'used';
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    this.exploration = new Exploration({
+      world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight,
+      raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
+      biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
+    });
+    world.loadExtra('exploration', (raw) => this.exploration.load(raw));
+    this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
     this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
@@ -312,6 +322,7 @@ export class GameState {
     this.objectives.tick(dt);
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
+    this.exploration.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();

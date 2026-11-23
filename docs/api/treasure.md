@@ -8,6 +8,6 @@ buried near it. Optional: nothing needs it.
   the caller finds y with `surfaceY`), a compass word, the loot (pools per age in `TREASURE_POOLS`, 2-4 kinds, richer
   with age). `treasureClue`, `treasureHint(map, px, pz)` (warm/cool/cold) and `nearTreasure` drive the UI.
 - Content: `src/content/areas/world_treasure.ts`, icon in `src/render/textures/areas/world_treasure.ts`.
-- Not wired yet: landmark list (ruins from `src/world/ruins.ts`), the Use handler that places the chest through the
+- Wired: see docs/api/exploration.md.
   entity API when the player reaches `nearTreasure`, and adding `treasure_map` to `LOOT_TABLES`.
 - Tests: `src/world/treasure.test.ts`.
