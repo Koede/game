@@ -31,6 +31,7 @@ import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
 import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, shortfall, TUBE } from './essentiaNet';
+import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
 import { compass, NODE_HEIGHT, NODE_POOL, NODE_REACH, NODE_REGEN_S, nodesNear, type NodeSite } from './nodes';
@@ -91,6 +92,10 @@ export const SERVANT_RANGE = 8;
 export interface ServantWorkshop {
   offer(x: number, y: number, z: number, item: string, count: number): number;
   act(action: { item: string; target: [number, number, number]; face: Facing; mode: 'auto' | 'use' | 'strike' | 'place' | 'mine' }): false | 'used' | 'consumed';
+  /** What a container holds that can be pulled out (golem hauling). */
+  peek?(x: number, y: number, z: number): { item: string; count: number }[];
+  /** Pulls up to `max` items out of a container. */
+  take?(x: number, y: number, z: number, filter: string | null, max: number): { item: string; count: number } | null;
 }
 /** Lore one studied vial gives. */
 export const STUDY_LORE = 3;
@@ -176,7 +181,9 @@ export interface MagicHooks {
 
 /** One task a fed servant has chosen. `belt` names the loose item and its ground id. */
 interface ServantJob {
-  kind: 'crank' | 'deployer' | 'belt';
+  kind: 'crank' | 'deployer' | 'belt' | 'haul';
+  /** Haul: pull from the container at x, y, z, or drop into it. */
+  phase?: 'pull' | 'drop';
   x: number;
   y: number;
   z: number;
@@ -195,9 +202,11 @@ interface ServantState {
   /** The feed's single task is finished. */
   done: boolean;
   job: ServantJob | null;
+  /** What a hauling body carries between containers. */
+  carry: { item: string; count: number } | null;
 }
 
-const freshServant = (x: number, y: number, z: number, fed = 0): ServantState => ({ fed, hx: x, hy: y, hz: z, done: false, job: null });
+const freshServant = (x: number, y: number, z: number, fed = 0): ServantState => ({ fed, hx: x, hy: y, hz: z, done: false, job: null, carry: null });
 
 interface Jar { aspect: Aspect | null; n: number }
 interface Draw { n: number; t: number }
@@ -220,6 +229,8 @@ export interface MagicSnapshot {
   servants?: number[][];
   nodes?: Record<string, number>;
   stats?: { infusions: number; casts: number; studied: number; crafted: number };
+  /** Haul loads: x, y, z, item, count. */
+  carries?: [number, number, number, string, number][];
   plugged?: Record<string, string>;
 }
 
@@ -284,9 +295,16 @@ export class Magic {
     if (this.altars.has(k) && key !== 'infusion_altar') this.dropAt(x, y, z, this.altars.get(k) as string, () => this.altars.delete(k));
     if (this.infusion && k3(this.infusion.x, this.infusion.y, this.infusion.z) === k && key !== 'infusion_altar') this.infusion = null;
     if (this.relocating) return;
-    if (key === 'clay_servant') {
+    if (golemBody(key)) {
       if (!this.servants.has(k)) this.servants.set(k, freshServant(x, y, z));
-    } else this.servants.delete(k);
+    } else this.dropServant(k, x, y, z);
+  }
+
+  /** A servant block is gone: forget it, and let what it carried fall. */
+  private dropServant(k: string, x: number, y: number, z: number): void {
+    const s = this.servants.get(k);
+    if (s?.carry) this.player.ground.spawn(s.carry.item, s.carry.count, x + 0.5, y + 0.6, z + 0.5);
+    this.servants.delete(k);
   }
 
   private dropAt(x: number, y: number, z: number, item: string, after: () => void): void {
@@ -1052,7 +1070,7 @@ export class Magic {
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
-    this.addWarp(r.id === 'clay_servant' || r.id === 'void_jar' ? 2 : 1);
+    this.addWarp(golemBody(r.id) || r.id === 'void_jar' ? 2 : 1);
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.bus.emit('item:made', { item: r.output.item, count: 1, station: 'infusion_altar', recipeId: r.id });
     this.toast(`Infused: ${itemOrNull(r.output.item)?.name ?? r.output.item} - take it from the altar`, r.output.item, 'good');
@@ -1287,16 +1305,17 @@ export class Magic {
     for (const [k, s] of [...this.servants]) {
       const [x, y, z] = parse3(k);
       if (!this.world.isLoaded(x, z)) continue;
-      if (this.world.getBlock(x, y, z).key !== 'clay_servant') {
-        this.servants.delete(k);
+      const body = golemBody(this.world.getBlock(x, y, z).key);
+      if (!body) {
+        this.dropServant(k, x, y, z);
         continue;
       }
       if (s.fed <= 0) {
         s.done = false;
         s.job = null;
-        const job = this.chooseJob(s.hx, s.hy, s.hz, x, y, z);
+        const job = this.chooseJob(s, x, y, z, body);
         if (job && this.take(s.hx, s.hy, s.hz, 1, 'spring', 1, false) > 0) {
-          s.fed = SERVANT_FEED_S;
+          s.fed = body.feedS;
           s.job = job;
         }
       }
@@ -1305,21 +1324,24 @@ export class Magic {
       let cz = z;
       if (s.fed > 0) {
         // A save restores the feed without the chosen task: pick one, and do not pay Spring again.
-        if (!s.done && !s.job) s.job = this.chooseJob(s.hx, s.hy, s.hz, x, y, z);
-        if (!s.done && s.job) [cx, cy, cz] = this.advanceServant(s, x, y, z);
+        if (!s.done && !s.job) s.job = this.chooseJob(s, x, y, z, body);
+        for (let step = 0; step < body.steps && !s.done && s.job; step++) [cx, cy, cz] = this.advanceServant(s, cx, cy, cz, body);
         s.fed = Math.max(0, s.fed - dt);
+        // A body that is out of feed with a load sets it down.
+        if (s.fed <= 0 && s.carry) this.setDownLoad(s, cx, cy, cz);
       }
-      if (this.world.getBlock(cx, cy, cz).key === 'clay_servant') this.setActive(cx, cy, cz, s.fed > 0);
+      if (golemBody(this.world.getBlock(cx, cy, cz).key)) this.setActive(cx, cy, cz, s.fed > 0);
     }
   }
 
   /** Nearest hand crank in walk range, else a deployer, else a loose item on a belt. */
-  private chooseJob(hx: number, hy: number, hz: number, x: number, y: number, z: number): ServantJob | null {
-    const flood = this.flood(hx, hy, hz, x, y, z);
+  private chooseJob(s: ServantState, x: number, y: number, z: number, body: GolemBody): ServantJob | null {
+    const { hx, hy, hz } = s;
+    const flood = this.flood(hx, hy, hz, x, y, z, body.range);
     const at: [number, number, number] = [x, y, z];
     const cranks: ServantJob[] = [];
     const deployers: ServantJob[] = [];
-    const R = SERVANT_RANGE + 1;
+    const R = body.range + 1;
     for (let dy = -R; dy <= R; dy++)
       for (let dz = -R; dz <= R; dz++)
         for (let dx = -R; dx <= R; dx++) {
@@ -1340,7 +1362,48 @@ export class Magic {
       if (this.cheb(hx, hy, hz, bx, by, bz) > R) continue;
       belts.push({ kind: 'belt', x: bx, y: by, z: bz, item: e.item, groundId: e.id });
     }
-    return this.nearestJob(flood, at, cranks) ?? this.nearestJob(flood, at, deployers) ?? this.nearestJob(flood, at, belts);
+    const hauls = body.carry > 0 ? this.haulJobs(s, R) : [];
+    return (s.carry ? this.nearestJob(flood, at, hauls) : null) ?? this.nearestJob(flood, at, cranks) ?? this.nearestJob(flood, at, deployers)
+      ?? this.nearestJob(flood, at, belts) ?? this.nearestJob(flood, at, hauls);
+  }
+
+  /** The container a marker at x, y, z touches, or null. */
+  private markedContainer(x: number, y: number, z: number): [number, number, number] | null {
+    for (const [dx, dy, dz] of DIRS) if (HAUL_CONTAINERS.has(this.blockAt(x + dx, y + dy, z + dz))) return [x + dx, y + dy, z + dz];
+    return null;
+  }
+
+  /**
+   * Haul jobs near home: empty-handed, pull from a Pull marker's container that holds something (needs a Drop marker too);
+   * loaded, deliver to a Drop marker's container.
+   */
+  private haulJobs(s: ServantState, R: number): ServantJob[] {
+    const w = this.workshop;
+    if (!w) return [];
+    const pulls: [number, number, number][] = [];
+    const drops: [number, number, number][] = [];
+    for (let dy = -R; dy <= R; dy++)
+      for (let dz = -R; dz <= R; dz++)
+        for (let dx = -R; dx <= R; dx++) {
+          const x = s.hx + dx;
+          const y = s.hy + dy;
+          const z = s.hz + dz;
+          const key = this.blockAt(x, y, z);
+          if (key !== MARKER_PULL && key !== MARKER_DROP) continue;
+          const c = this.markedContainer(x, y, z);
+          if (c) (key === MARKER_PULL ? pulls : drops).push(c);
+        }
+    const job = (c: [number, number, number], phase: 'pull' | 'drop'): ServantJob => ({ kind: 'haul', phase, x: c[0], y: c[1], z: c[2], item: '', groundId: -1 });
+    if (s.carry) return drops.map((c) => job(c, 'drop'));
+    if (!drops.length || !w.peek || !w.take) return [];
+    return pulls.filter((c) => (w.peek?.(c[0], c[1], c[2]) ?? []).length > 0).map((c) => job(c, 'pull'));
+  }
+
+  /** Out of feed with a load: the load goes on the ground where the golem stands. */
+  private setDownLoad(s: ServantState, x: number, y: number, z: number): void {
+    if (!s.carry) return;
+    this.player.ground.spawn(s.carry.item, s.carry.count, x + 0.5, y + 0.6, z + 0.5);
+    s.carry = null;
   }
 
   private nearestJob(flood: ServantFlood, at: [number, number, number], jobs: readonly ServantJob[]): ServantJob | null {
@@ -1361,7 +1424,7 @@ export class Magic {
   }
 
   /** Cells a servant can stand on: non-solid, at most SERVANT_RANGE steps, and never farther than that from home. */
-  private flood(hx: number, hy: number, hz: number, x: number, y: number, z: number): ServantFlood {
+  private flood(hx: number, hy: number, hz: number, x: number, y: number, z: number, range = SERVANT_RANGE): ServantFlood {
     const dist = new Map<string, number>();
     const parent = new Map<string, string>();
     const start = k3(x, y, z);
@@ -1370,13 +1433,13 @@ export class Magic {
     for (let i = 0; i < q.length; i++) {
       const [cx, cy, cz] = q[i];
       const d = dist.get(k3(cx, cy, cz)) ?? 0;
-      if (d >= SERVANT_RANGE) continue;
+      if (d >= range) continue;
       for (const [dx, dy, dz] of DIRS) {
         const nx = cx + dx;
         const ny = cy + dy;
         const nz = cz + dz;
         const key = k3(nx, ny, nz);
-        if (dist.has(key) || this.cheb(hx, hy, hz, nx, ny, nz) > SERVANT_RANGE) continue;
+        if (dist.has(key) || this.cheb(hx, hy, hz, nx, ny, nz) > range) continue;
         if (this.world.getBlock(nx, ny, nz).solid) continue;
         dist.set(key, d + 1);
         parent.set(key, k3(cx, cy, cz));
@@ -1403,7 +1466,7 @@ export class Magic {
 
   private firstStep(parent: Map<string, string>, goal: string, start: string): string | null {
     let cur = goal;
-    for (let guard = 0; cur !== start && guard < SERVANT_RANGE + 2; guard++) {
+    for (let guard = 0; cur !== start && guard < 40; guard++) {
       const prev = parent.get(cur);
       if (!prev) return null;
       if (prev === start) return cur;
@@ -1413,18 +1476,23 @@ export class Magic {
   }
 
   /** Walks one non-solid cell toward the job, then does it once the servant is beside the target. */
-  private advanceServant(s: ServantState, x: number, y: number, z: number): [number, number, number] {
+  private advanceServant(s: ServantState, x: number, y: number, z: number, body: GolemBody): [number, number, number] {
     const job = s.job;
     if (!job || s.done) return [x, y, z];
+    let at: [number, number, number] = [x, y, z];
     const finish = (): void => {
-      this.performServant(job);
-      s.done = true;
+      this.performServant(job, s, body);
+      if (job.kind === 'haul') {
+        // A haul goes on: the next leg (deliver the load, or fetch another) while the feed lasts.
+        s.job = this.chooseJob(s, at[0], at[1], at[2], body);
+        if (!s.job) s.done = true;
+      } else s.done = true;
     };
     if (this.beside(x, y, z, job.x, job.y, job.z)) {
       finish();
       return [x, y, z];
     }
-    const flood = this.flood(s.hx, s.hy, s.hz, x, y, z);
+    const flood = this.flood(s.hx, s.hy, s.hz, x, y, z, body.range);
     const stand = this.standOf(flood, x, y, z, job.x, job.y, job.z);
     if (!stand) return [x, y, z];
     if (stand.key === k3(x, y, z)) {
@@ -1434,10 +1502,11 @@ export class Magic {
     const next = this.firstStep(flood.parent, stand.key, k3(x, y, z));
     if (!next) return [x, y, z];
     const [nx, ny, nz] = parse3(next);
-    if (this.world.getBlock(nx, ny, nz).solid || this.cheb(s.hx, s.hy, s.hz, nx, ny, nz) > SERVANT_RANGE) return [x, y, z];
+    if (this.world.getBlock(nx, ny, nz).solid || this.cheb(s.hx, s.hy, s.hz, nx, ny, nz) > body.range) return [x, y, z];
     this.moveServant(x, y, z, nx, ny, nz, s);
+    at = [nx, ny, nz];
     if (this.beside(nx, ny, nz, job.x, job.y, job.z)) finish();
-    return [nx, ny, nz];
+    return at;
   }
 
   private moveServant(x: number, y: number, z: number, nx: number, ny: number, nz: number, s: ServantState): void {
@@ -1453,8 +1522,23 @@ export class Magic {
     this.servants.set(k3(nx, ny, nz), s);
   }
 
-  private performServant(job: ServantJob): void {
+  private performServant(job: ServantJob, s: ServantState, body: GolemBody): void {
     switch (job.kind) {
+      case 'haul': {
+        const w = this.workshop;
+        if (!w) return;
+        if (job.phase === 'pull') {
+          if (s.carry || !w.take) return;
+          const got = w.take(job.x, job.y, job.z, null, body.carry);
+          if (got && got.count > 0) s.carry = got;
+        } else if (s.carry) {
+          const n = w.offer(job.x, job.y, job.z, s.carry.item, s.carry.count);
+          s.carry.count -= n;
+          if (s.carry.count > 0) this.player.ground.spawn(s.carry.item, s.carry.count, job.x + 0.5, job.y + 1.1, job.z + 0.5);
+          s.carry = null;
+        }
+        return;
+      }
       case 'crank':
         this.hooks.crank?.(job.x, job.y, job.z);
         return;
@@ -1495,7 +1579,13 @@ export class Magic {
   servantText(x: number, y: number, z: number): string | null {
     const s = this.servants.get(k3(x, y, z));
     if (!s) return null;
-    return s.fed > 0 ? `Clay Servant - cranking, fed for ${Math.ceil(s.fed)} s` : 'Clay Servant - idle (needs a hand crank and a jar of Spring it touches or tubes to)';
+    const body = golemBody(this.world.getBlock(x, y, z).key);
+    const name = body?.name ?? 'Clay Servant';
+    const trait = body && body.trait !== 'plain' ? ` (${body.traitText})` : '';
+    const load = s.carry ? `, carrying ${s.carry.count} ${itemOrNull(s.carry.item)?.name ?? s.carry.item}` : '';
+    const doing = s.job?.kind === 'crank' ? 'cranking' : s.job?.kind === 'haul' ? 'hauling' : s.job?.kind === 'belt' ? 'loading a belt' : s.job?.kind === 'deployer' ? 'working a deployer' : 'at work';
+    if (s.fed > 0) return `${name} - ${doing}, fed for ${Math.ceil(s.fed)} s${load}${trait}`;
+    return `${name} - idle${trait} (needs work in reach and a jar of Spring it touches or tubes to)`;
   }
 
   // ---- notebook -------------------------------------------------------------------------------------------------------
@@ -1627,6 +1717,7 @@ export class Magic {
       nodes,
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
+      carries: [...this.servants].filter(([, v]) => v.carry).map(([k, v]) => [...parse3(k), v.carry!.item, v.carry!.count] as [number, number, number, string, number]),
     };
   }
 
@@ -1678,6 +1769,10 @@ export class Magic {
       const st = freshServant(home ? r[4] : r[0], home ? r[5] : r[1], home ? r[6] : r[2], Math.max(0, r[3]));
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
+    }
+    for (const c of Array.isArray(s.carries) ? s.carries : []) {
+      const st = Array.isArray(c) && c.length === 5 && cell(c) ? this.servants.get(k3(c[0], c[1], c[2])) : undefined;
+      if (st && typeof c[3] === 'string' && itemOrNull(c[3]) && num(c[4]) && c[4] > 0) st.carry = { item: c[3], count: Math.floor(c[4]) };
     }
     this.nodeDraws.clear();
     if (s.nodes && typeof s.nodes === 'object') for (const [k, n] of Object.entries(s.nodes)) if (num(n)) this.nodeDraws.set(k, { n, t: this.clock });

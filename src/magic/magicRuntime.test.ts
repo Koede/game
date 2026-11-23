@@ -161,7 +161,7 @@ describe('tubes, desk and altar', () => {
     expect(t.magic.use(t.at(2, 1, 0))).toBe('screen');
     const bench = t.magic.desk(2, 1, 0, true);
     const desk = t.magic.desk(2, 1, 0);
-    expect(bench.rows().map((r) => r.id)).toEqual(['sanity_soap']);
+    expect(bench.rows().map((r) => r.id)).toEqual(['sanity_soap', 'golem_pull_marker', 'golem_drop_marker']);
     expect(desk.rows().some((r) => r.id === 'sanity_soap')).toBe(false);
     t.learn('arcane_bench');
     t.player.inventory.clear();

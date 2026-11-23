@@ -244,5 +244,10 @@
   "logic_gate": 242,
   "research_table": 243,
   "crucible": 244,
-  "arcane_workbench": 245
+  "arcane_workbench": 245,
+  "wood_golem": 246,
+  "stone_golem": 247,
+  "iron_golem": 248,
+  "golem_pull_marker": 249,
+  "golem_drop_marker": 250
 }

@@ -92,6 +92,10 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 ## Active scanning
 - A held notebook's Use on a thing not yet noted fills a bar: `SCAN_S` (1.2 s of repeated Use; 0.8 s with the lens), emptied after `SCAN_GAP_S` (0.6 s) without Use or on aiming elsewhere. `Magic.scanLabel()` ("Scanning Copper Ore [####....] 50%") replaces the crosshair name (`Game.magicLabel`). A noted thing reads out at once; `NotebookApi.scanItem` (carried items) stays instant. e2e holds Use (`d.holdUse`).
 
+## Golems (src/magic/golems.ts)
+- Bodies: `clay_servant`, plus blocks `wood_golem` (swift: 2 steps / s, range 10, hauls 4), `stone_golem` (steady: a Spring feeds 90 s, hauls 8), `iron_golem` (tireless: range 14, swift, hauls 16); made on the altar with a clay servant at the heart and four pieces (plank / stone brick / iron) round it (research 'clay_servant'). `golemBody(key)` gives range, feed seconds, carry, steps and trait; `servantText` names them.
+- Markers: `golem_pull_marker` and `golem_drop_marker` (Arcane Workbench) set against a `crate`, `item_vault` or `depot`. A body that carries (not the clay servant) with a Drop marker in reach walks to a Pull marker's container that holds something, takes up to its carry, delivers to a Drop container, and repeats while the feed lasts. Out of feed, or its block broken, the load falls to the ground. Loads are saved (`carries`). `ServantWorkshop` gained optional `peek` and `take` (`Workshop.peek` added).
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

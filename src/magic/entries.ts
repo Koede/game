@@ -191,7 +191,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'clay_servant', title: 'The Clay Servant', age: 'forge', requires: ['infusion', 'wellsprings'], board: triple('spring', 'mind', 'craft', [wall(2)]),
-    unlocks: { recipes: ['clay_servant'] },
+    unlocks: { recipes: ['clay_servant', 'wood_golem', 'stone_golem', 'iron_golem', 'golem_pull_marker', 'golem_drop_marker'] },
     text: 'A clay figure given Spring and Mind turns a crank beside it for as long as a jar it touches feeds it.',
   },
   {

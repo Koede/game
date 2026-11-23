@@ -50,6 +50,9 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
   arcane('focus_light', 'focus_light', '1 glass, 1 torch', { cinder: 4, gale: 4 }),
   arcane('focus_ward', 'focus_ward', '1 glass, 2 leather, 1 iron_ingot', { loam: 6, rift: 4, rune: 4 }),
   arcane('focus_blink', 'focus_blink', '1 glass, 1 cord, 1 iron_ingot', { gale: 8, mind: 4, rift: 4 }),
+  // Golem markers (Arcane Workbench): set against a container.
+  arcane('golem_pull_marker', 'golem_pull_marker', '1 plank, 1 clay, 1 copper_ingot', { mind: 2, drive: 2 }, true),
+  arcane('golem_drop_marker', 'golem_drop_marker', '1 plank, 1 clay, 1 tin_ingot', { mind: 2, drive: 2 }, true),
   // Wands: a plain rod for the core, two ingots for the caps; the caps' primals go into the cost.
   ...WAND_CORES.flatMap((core) => WAND_CAPS.map((cap) => arcane(wandKey(core.key, cap.key), wandKey(core.key, cap.key),
     `1 ${core.rod}, 2 ${cap.ingot}`, { rune: 2 + core.draw * 2, [cap.favour[0]]: 2 + core.draw, [cap.favour[1]]: 2 + core.draw } as Aspects))),
@@ -58,6 +61,10 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
 export const INFUSIONS: InfusionRecipe[] = [
   infuse('vein_lens', 'vein_lens', 'glass', ['copper_ingot', 'copper_ingot'], { vein: 6, mind: 4, clarity: 4 }, 10),
   infuse('clay_servant', 'clay_servant', 'clay', ['clay', 'clay', 'iron_ingot', 'glass_vial'], { spring: 8, mind: 8, loam: 8 }, 20),
+  // Golem bodies: a clay servant at the heart, four pieces of the body around it.
+  infuse('wood_golem', 'wood_golem', 'clay_servant', ['plank', 'plank', 'plank', 'plank'], { spring: 6, mind: 6, loam: 4 }, 15),
+  infuse('stone_golem', 'stone_golem', 'clay_servant', ['stone_brick', 'stone_brick', 'stone_brick', 'stone_brick'], { spring: 8, mind: 6, loam: 8 }, 20),
+  infuse('iron_golem', 'iron_golem', 'clay_servant', ['iron_ingot', 'iron_ingot', 'iron_ingot', 'iron_ingot'], { spring: 10, mind: 10, vein: 8 }, 25),
   infuse('void_jar', 'void_jar', 'essentia_jar', ['iron_ingot', 'iron_ingot', 'glass', 'glass'], { ward: 8, rift: 8, brook: 8 }, 20),
   infuse('steel_infusion', 'steel_ingot', 'iron_ingot', ['coal', 'coal'], { cinder: 6, vein: 4, rune: 2 }, 15),
   // The artificer's attunement: a plain tool on the altar, two vials of the aspect around it (research 'attunement').

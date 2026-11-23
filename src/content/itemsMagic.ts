@@ -8,6 +8,7 @@
 import type { BlockSpec, ItemSpec } from '../core/types';
 import { ASPECTS } from '../magic/aspects';
 import { ageIndexOf } from '../magic/ageMap';
+import { GOLEMS, MARKER_DROP, MARKER_PULL } from '../magic/golems';
 
 /** Units of essentia in one filled vial. */
 export const VIAL_UNITS = 4;
@@ -144,5 +145,20 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     key: 'magic_light', name: 'Floating Light', category: 'misc', age: BRONZE, hardness: 0, shape: 'torch', solid: false, opaque: false,
     light: 14, item: false, drops: 'none', textures: { all: 'magic_light' },
     desc: 'A small light set by a Light Focus. Break it and it is gone.',
+  },
+  ...GOLEMS.filter((g) => g.key !== 'clay_servant').map((g): BlockSpec => ({
+    key: g.key, name: g.name, category: 'machine', age: FORGE, hardness: 1.5, tool: 'pickaxe', minTier: 0, oriented: true,
+    textures: { side: `magic_${g.key}_side`, top: `magic_${g.key}_top`, front: `magic_${g.key}_front`, frontActive: `magic_${g.key}_front_on` },
+    desc: `A servant with a ${g.key.split('_')[0]} body: ${g.traitText}. Fed Spring like a clay servant; carries between marked containers.`,
+  })),
+  {
+    key: MARKER_PULL, name: 'Pull Marker', category: 'machine', age: BRONZE, hardness: 0.5, tool: 'axe', minTier: 0,
+    textures: { all: 'magic_marker_pull' },
+    desc: 'Set it against a crate, vault or depot: a golem that carries takes items out of that container.',
+  },
+  {
+    key: MARKER_DROP, name: 'Drop Marker', category: 'machine', age: BRONZE, hardness: 0.5, tool: 'axe', minTier: 0,
+    textures: { all: 'magic_marker_drop' },
+    desc: 'Set it against a crate, vault or depot: a hauling golem delivers what it carries into that container.',
   },
 ];

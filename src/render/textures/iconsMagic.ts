@@ -110,7 +110,30 @@ const wands: PainterSet = Object.fromEntries(WAND_CORES.flatMap((core) => WAND_C
   c.rect(10, 5, 1, 4, m);
 })])));
 
+/** Golem bodies: the servant's four faces in wood, stone and iron. */
+const BODY_PAL: Record<string, readonly P.RGB[]> = {
+  wood_golem: [P.rgb(0x4e3418), P.rgb(0x74502a), P.rgb(0x9a7040), P.rgb(0xb88a50)],
+  stone_golem: [P.rgb(0x4a4a4e), P.rgb(0x6a6a70), P.rgb(0x8a8a90), P.rgb(0xaaaab0)],
+  iron_golem: [P.rgb(0x555c66), P.rgb(0x7a828e), P.rgb(0xa0a8b4), P.rgb(0xc8d0dc)],
+};
+const golems: PainterSet = Object.fromEntries(Object.entries(BODY_PAL).flatMap(([key, pal]) => [
+  [`magic_${key}_side`, (c: Canvas) => clay(c, 41, pal)],
+  [`magic_${key}_top`, (c: Canvas) => { clay(c, 43, pal); c.rect(5, 5, 6, 6, pal[3]); }],
+  [`magic_${key}_front`, (c: Canvas) => servantFace(c, false, pal)],
+  [`magic_${key}_front_on`, (c: Canvas) => servantFace(c, true, pal)],
+]));
+const marker = (arrow: P.RGB, out: boolean) => (c: Canvas): void => {
+  c.each((x, y) => (x < 1 || x > 14 || y < 1 || y > 14 ? WOOD[0] : WOOD[noise(x, y, 81) < 0.4 ? 1 : 2]));
+  c.rect(7, 4, 2, 8, arrow);
+  c.rect(5, out ? 5 : 10, 6, 1, arrow);
+  c.rect(6, out ? 4 : 11, 4, 1, arrow);
+  c.set(7, out ? 4 : 11, P.rgb(0xffffff));
+};
+
 export const MAGIC_TEXTURES: PainterSet = {
+  ...golems,
+  magic_marker_pull: marker(P.rgb(0x3fa0d8), false),
+  magic_marker_drop: marker(P.rgb(0xe8a020), true),
   ...wands,
   item_field_notebook: icon(notebook),
   item_scribing_tools: icon(scribing),
@@ -283,19 +306,19 @@ function pedestalSide(c: Canvas): void {
   c.rect(4, 7, 8, 1, RUNE);
 }
 
-function clay(c: Canvas, seed: number): void {
-  c.each((x, y) => CLAY[noise(x >> 1, y >> 1, seed) < 0.2 ? 0 : noise(x, y, seed + 1) < 0.45 ? 1 : noise(x, y, seed + 2) < 0.8 ? 2 : 3]);
+function clay(c: Canvas, seed: number, pal: readonly P.RGB[] = CLAY): void {
+  c.each((x, y) => pal[noise(x >> 1, y >> 1, seed) < 0.2 ? 0 : noise(x, y, seed + 1) < 0.45 ? 1 : noise(x, y, seed + 2) < 0.8 ? 2 : 3]);
   c.set(3, 12, P.rgb(0x5a3422));
   c.set(11, 4, P.rgb(0xe8b088));
 }
 
-function servantFace(c: Canvas, on: boolean): void {
-  clay(c, 47);
+function servantFace(c: Canvas, on: boolean, pal: readonly P.RGB[] = CLAY): void {
+  clay(c, 47, pal);
   const eye = on ? P.rgb(0xffd95a) : P.rgb(0x3a2212);
   c.rect(4, 5, 2, 2, eye);
   c.rect(10, 5, 2, 2, eye);
-  c.rect(6, 10, 4, 1, CLAY[0]);
-  c.rect(3, 2, 10, 1, CLAY[3]);
+  c.rect(6, 10, 4, 1, pal[0]);
+  c.rect(3, 2, 10, 1, pal[3]);
 }
 
 function lightMote(c: Canvas): void {
