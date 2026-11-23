@@ -87,7 +87,7 @@ async function runDevice(device) {
       await d.selectItem('field_notebook');
       for (const dx of [-1, 0, 1]) {
         assert(await d.approach({ x: P.x0 + dx, y: P.gy, z: P.z0 }), `aims at block ${dx}`);
-        await d.holdUse(1800);
+        await d.holdUse(2800);
         await d.settle(400);
       }
       const r = await magic(() => window.__hw.app.game.magic.research);
