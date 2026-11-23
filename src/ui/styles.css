@@ -2855,3 +2855,29 @@ body {
     height: clamp(110px, 40vh, 190px);
   }
 }
+
+/* Recipe helper strip (src/ui/screens/inventory/recipeHelperPanel.ts) */
+.hw-helper {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.hw-helper__bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.hw-helper__select {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  font: inherit;
+  color: inherit;
+  background: var(--hw-surface-2, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--hw-line, rgba(255, 255, 255, 0.2));
+  border-radius: 8px;
+  padding: 0 8px;
+}
+.hw-helper__pinned .hw-ingr[data-short] {
+  outline: 1px solid var(--hw-warn, #e0a040);
+}
