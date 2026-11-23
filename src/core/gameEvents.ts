@@ -60,6 +60,7 @@ export type SfxName =
   | 'fire_out'
   | 'upgrade'
   | 'objective'
+  | 'jukebox_note'
   | 'age'
   | 'ui_click'
   | 'ui_open'

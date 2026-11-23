@@ -34,3 +34,11 @@ artificer's road. Lines show as toasts (`Name, title: "..."`). Old worlds are no
 ## Ideas for later
 Shop/trade with Rosa, a quest board, recruiting Gruk as a smith at the Bronze Furnace, Mara teaching research entries, walking schedules and
 night-time seating, more people in the structures session's outposts.
+
+## Jukebox and dancing
+
+A `jukebox` prop (tavern-local 8.5, 1, 1.6) toggles with Use. While on, `NpcManager.tick` plays `src/npcs/jukebox.ts`'s 32-beat tune as pitched `jukebox_note` sfx (positional, bass every 4th beat); `NpcView.dancing` is true for Mara, Rosa, Orrin and Bram (never Gruk, whatever he is doing) and `NpcRenderer` makes each hop, side-step and sway on their own phase (women wider). Saved as `juke` in the npcs snapshot.
+
+## Art density
+
+`loadNpcArt(manifest, scales)` brings every generated image to `SPRITE_PX` (96) rows per 2 blocks times the character's scale, so all characters have the same pixels per block (Gruk, scale 1.35, gets 130 rows).

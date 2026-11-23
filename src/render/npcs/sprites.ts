@@ -436,6 +436,23 @@ function clock(p: Pixels, minutes: number): void {
   p.rect(7, 7, 2, 2, hex(0xcaa23a));
 }
 
+/** A tavern jukebox: arched wooden cabinet, glowing amber window with a record, brass speaker grille and coin slot. */
+function jukebox(p: Pixels): void {
+  const wood = hex(0x7a4a2a);
+  const dark = hex(0x4a2c18);
+  p.rect(1, 3, 14, p.h - 3, dark);
+  p.rect(2, 3, 12, p.h - 4, wood);
+  p.disc(8, 5, 6, 3.5, wood);
+  p.disc(8, 5, 4.5, 2.4, hex(0xe8a43a));
+  p.rect(4, 8, 8, 8, hex(0xf3c45a));
+  p.disc(8, 12, 3, 3, hex(0x2a1c14));
+  p.disc(8, 12, 1, 1, hex(0xc43c3c));
+  p.rect(4, 18, 8, 5, hex(0xcaa23a));
+  for (let x = 5; x < 12; x += 2) p.rect(x, 19, 1, 3, hex(0x6a4a1a));
+  p.rect(7, 24, 2, 2, hex(0x2a1c14));
+  p.rect(2, p.h - 2, 12, 2, dark);
+}
+
 const PERSON: Partial<Record<NpcSprite, (p: Pixels) => void>> = { witch, barkeep, orc, artificer, hermit };
 
 export interface SpriteImage {
@@ -448,6 +465,7 @@ export interface SpriteImage {
 export function spriteSize(sprite: NpcSprite): { w: number; h: number } {
   if (sprite === 'board') return { w: 24 * RES, h: 32 * RES };
   if (sprite === 'clock') return { w: 16 * RES, h: 16 * RES };
+  if (sprite === 'jukebox') return { w: 16 * RES, h: 28 * RES };
   return { w: SPRITE_W * RES, h: SPRITE_H * RES };
 }
 
@@ -462,6 +480,7 @@ export function paintNpc(sprite: NpcSprite, minutes = 0): SpriteImage {
   const p = new Pixels(d.w, d.h);
   if (sprite === 'board') board(p);
   else if (sprite === 'clock') clock(p, minutes);
+  else if (sprite === 'jukebox') jukebox(p);
   else PERSON[sprite]!(p);
   p.round();
   p.shade();

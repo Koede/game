@@ -29,6 +29,7 @@ import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
 import { GroundItemRenderer } from '../render/groundItems';
 import { MobRenderer } from '../render/mobs';
+import { NPCS } from '../npcs/data';
 import { loadNpcArt } from '../render/npcs/art';
 import { NPC_ART } from '../render/npcs/artManifest';
 import { NpcRenderer } from '../render/npcs/npcRenderer';
@@ -160,7 +161,7 @@ export class Game {
     this.renderer.setTransport(simTransportFeed(sim));
     this.mobRenderer = new MobRenderer(this.renderer, world);
     this.npcRenderer = new NpcRenderer(this.renderer);
-    void loadNpcArt(NPC_ART);
+    void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.magicRenderer = new MagicRenderer(this.renderer, world);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);

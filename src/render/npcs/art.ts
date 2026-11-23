@@ -12,7 +12,7 @@ export interface RgbaImage {
 /** Colour distance (sum of channel differences) under which a pixel counts as the background. */
 const KEY_TOLERANCE = 54;
 /** Target height (px) of a sprite from big source art. */
-export const SPRITE_PX = 176;
+export const SPRITE_PX = 96;
 
 /**
  * Removes a plain background: the most common colour of the four corners is the key; every pixel connected to the border whose colour is
@@ -100,7 +100,7 @@ export const onNpcArt = (fn: () => void): (() => void) => {
 };
 
 /** Decodes every manifest entry (data URLs) in the browser, cuts out the sprites, fills the store and tells the listeners. */
-export async function loadNpcArt(manifest: Readonly<Record<string, string>>): Promise<number> {
+export async function loadNpcArt(manifest: Readonly<Record<string, string>>, scales: Readonly<Record<string, number>> = {}): Promise<number> {
   if (typeof document === 'undefined') return 0;
   let n = 0;
   await Promise.all(
@@ -129,7 +129,9 @@ export async function loadNpcArt(manifest: Readonly<Record<string, string>>): Pr
         full.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(cut.data), cut.w, cut.h), 0, 0);
         // Large images (generated art is ~1200 px) are brought down to about SPRITE_PX tall with smoothing, so the pixel look survives
         // the renderer's nearest-neighbour filtering instead of shimmering.
-        const k = cut.h > SPRITE_PX * 1.25 ? SPRITE_PX / cut.h : 1;
+        // Same pixels per block for everyone: a character drawn bigger in the world (scale) gets proportionally more rows.
+        const target = SPRITE_PX * (scales[key.replace(/_portrait$/, '')] ?? 1);
+        const k = cut.h > target * 1.25 ? target / cut.h : 1;
         const o = document.createElement('canvas');
         o.width = Math.max(1, Math.round(cut.w * k));
         o.height = Math.max(1, Math.round(cut.h * k));

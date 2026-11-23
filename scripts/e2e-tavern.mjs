@@ -62,7 +62,7 @@ async function runDevice(device) {
       await d.settle(2500);
       const s = await npcs();
       assert(s.at, 'no tavern was built');
-      assert(s.views.length === 7, `${s.views.length} people and props`);
+      assert(s.views.length === 8, `${s.views.length} people and props`);
       const inside = s.pos.x > s.at[0] && s.pos.x < s.at[0] + 12 && s.pos.z > s.at[2] && s.pos.z < s.at[2] + 8;
       assert(inside, `the player is at ${s.pos.x},${s.pos.z}, outside the hall at ${s.at}`);
       assert(errors.length === 0, `console errors: ${errors.join(' | ')}`);
@@ -107,6 +107,25 @@ async function runDevice(device) {
         assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: nothing matching ${word}: ${toasts.slice(-3).join(' | ')}`);
       });
     }
+    await step('the jukebox makes everyone but Gruk dance', async () => {
+      const s = await npcs();
+      const v = s.views.find((x) => x.id === 'jukebox');
+      await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z + 2.2), { x: v.x, y: v.y, z: v.z });
+      await d.settle(300);
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 0.7, p.z), { x: v.x, y: v.y, z: v.z });
+      await d.settle(200);
+      await d.holdUse(250);
+      await d.settle(600);
+      const after = await npcs();
+      const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');
+      assert(dancing === 'bram,mara,orrin,rosa', `dancers: ${dancing}`);
+      const mara = after.views.find((x) => x.id === 'mara');
+      await d.hw((p) => window.__hw.teleport(p.x - 1.5, p.y, p.z + 3.5), { x: mara.x, y: mara.y, z: mara.z });
+      await d.settle(200);
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: mara.x, y: mara.y, z: mara.z });
+      await d.settle(250);
+      await d.shot('4-dance');
+    });
   } finally {
     await session.close();
   }

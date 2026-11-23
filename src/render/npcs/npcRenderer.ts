@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
+import { BEAT_S } from '../../npcs/jukebox';
 import { npcArt, onNpcArt } from './art';
 import { designSize, paintNpc } from './sprites';
 
@@ -54,7 +55,20 @@ export class NpcRenderer {
       }
       if (v.sprite === 'clock' && this.clockMinute.get(v.id) !== v.extra) this.repaint(v);
       const bob = v.kind === 'person' ? Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015 : 0;
-      s.position.set(v.x, v.y + bob, v.z);
+      // Dancers (the jukebox is on): every one of them keeps the beat on their own phase, hopping, shuffling side to side and swaying.
+      // Women swing wider and higher than the men.
+      let hop = 0;
+      let side = 0;
+      let tilt = 0;
+      if (v.dancing) {
+        const wide = v.role === 'witch' || v.role === 'barkeep' ? 1 : 0.65;
+        const beat = this.time * ((Math.PI * 2) / (BEAT_S * 4)) + v.x * 1.9;
+        hop = Math.abs(Math.sin(beat)) * 0.16 * wide;
+        side = Math.sin(beat * 0.5) * 0.22 * wide;
+        tilt = Math.sin(beat) * 0.14 * wide;
+      }
+      s.position.set(v.x + side, v.y + bob + hop, v.z);
+      (s.material as THREE.SpriteMaterial).rotation = tilt;
       const k = 0.35 + 0.65 * Math.max(0, Math.min(1, brightness));
       (s.material as THREE.SpriteMaterial).color.setRGB(k, k, k);
     }

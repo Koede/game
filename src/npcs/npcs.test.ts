@@ -9,6 +9,7 @@ import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
 } from './index';
+import { notesAt, TUNE } from './jukebox';
 import { ARTIFICER } from './scripts/artificer';
 import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
@@ -58,6 +59,34 @@ describe('the tavern layout', () => {
       expect(p.at[0]).toBeGreaterThan(1);
       expect(p.at[0]).toBeLessThan(TAVERN_W - 1);
     }
+  });
+});
+
+describe('the jukebox', () => {
+  it('toggles, plays a pitched tune on the beat and makes everyone but Gruk dance', () => {
+    const { npcs, by } = rig();
+    const bus = (npcs as unknown as { bus: { on: (n: string, f: (e: { pitch?: number }) => void) => void } }).bus;
+    const notes: number[] = [];
+    bus.on('sfx', (e) => void (e.pitch !== undefined && notes.push(e.pitch)));
+    expect(npcs.views().some((v) => v.dancing)).toBe(false);
+    npcs.speak(by('jukebox'));
+    expect(npcs.jukeboxOn).toBe(true);
+    for (let i = 0; i < 40; i++) npcs.tick(0.1);
+    expect(notes.length).toBeGreaterThan(8);
+    expect(new Set(notes).size).toBeGreaterThan(3);
+    const dancers = npcs.views().filter((v) => v.dancing).map((v) => v.id).sort();
+    expect(dancers).toEqual(['bram', 'mara', 'orrin', 'rosa']);
+    const saved = npcs.toJSON();
+    expect(saved.juke).toBe(true);
+    npcs.speak(by('jukebox'));
+    expect(npcs.views().some((v) => v.dancing)).toBe(false);
+  });
+
+  it('has a looping tune with rests and a bass on every fourth beat', () => {
+    expect(notesAt(0).some((n) => n.bass)).toBe(true);
+    expect(notesAt(1).some((n) => n.bass)).toBe(false);
+    expect(notesAt(TUNE.length)).toEqual(notesAt(0));
+    expect(notesAt(15)).toEqual([]);
   });
 });
 
@@ -421,7 +450,7 @@ describe('a new world opens in the tavern', () => {
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 2)).key).toBe('air');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + TAVERN_H, o[2] + 4)).key).toBe('plank');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 13)).key).toBe('furnace_clay'); // the hermit's fire
-    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Old Bram', 'Quest board', 'Wall clock']);
+    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Old Bram', 'Quest board', 'Wall clock', 'Jukebox']);
     const save = state.toSave();
     expect((save.world.extras as { npcs?: { at: number[] } }).npcs?.at).toEqual(o);
     const again = GameState.restore(JSON.parse(JSON.stringify(save)));

@@ -9,8 +9,8 @@ import { ORC } from './scripts/orc';
 import type { PhraseBank } from './scripts/types';
 import { WITCH } from './scripts/witch';
 
-export type NpcSprite = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'hermit' | 'board' | 'clock';
-export type NpcRole = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'hermit' | 'board' | 'clock';
+export type NpcSprite = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'hermit' | 'board' | 'clock' | 'jukebox';
+export type NpcRole = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'hermit' | 'board' | 'clock' | 'jukebox';
 
 export interface NpcDef {
   id: string;
@@ -67,6 +67,10 @@ export const NPCS: readonly NpcDef[] = [
   },
   {
     id: 'clock', name: 'Wall clock', title: 'Clock', role: 'clock', sprite: 'clock', kind: 'prop', at: [6.5, 3.1, 1.15], scale: 1,
+    gift: [], giftLine: '', bank: null,
+  },
+  {
+    id: 'jukebox', name: 'Jukebox', title: 'Music', role: 'jukebox', sprite: 'jukebox', kind: 'prop', at: [8.5, 1, 1.6], scale: 1,
     gift: [], giftLine: '', bank: null,
   },
 ];

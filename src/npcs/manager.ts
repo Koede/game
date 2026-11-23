@@ -10,6 +10,7 @@ import type { IWorld } from '../core/types';
 import { phaseAt } from '../game/clock';
 import { Companion, HIRE_COST, HIRE_SECONDS, type CompanionHost } from './companion';
 import { NPCS, type NpcDef, type NpcRole, type NpcSprite } from './data';
+import { BEAT_S, DANCES, notesAt } from './jukebox';
 import { LinePicker, clockHM, clockText, type Phase } from './dialogue';
 import { BOUNTIES, stackPrice } from './economy';
 import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
@@ -30,6 +31,8 @@ export interface NpcView {
   extra: number;
   /** The hired orc is out and about. */
   hired: boolean;
+  /** The jukebox is playing and this person dances to it. */
+  dancing: boolean;
 }
 
 export interface NpcSnapshot {
@@ -44,6 +47,7 @@ export interface NpcSnapshot {
   claimed?: string[];
   hiredS?: number;
   comp?: [number, number, number];
+  juke?: boolean;
 }
 
 /** What the manager needs from the game. */
@@ -71,6 +75,10 @@ export class NpcManager {
   at: [number, number, number] | null = null;
   greeted = false;
   coins = 0;
+  /** The tavern jukebox is playing. */
+  jukeboxOn = false;
+  private beatS = 0;
+  private beat = 0;
   readonly companion = new Companion();
   private gifted = new Set<string>();
   private spoken: Record<string, number> = {};
@@ -113,7 +121,7 @@ export class NpcManager {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
       return {
-        id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired,
+        id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired,
         x: hired ? this.companion.x : o[0] + n.at[0] + cell,
         y: hired ? this.companion.y : o[1] + n.at[1],
         z: hired ? this.companion.z : o[2] + n.at[2] + cell,
@@ -169,6 +177,7 @@ export class NpcManager {
   speak(npc: NpcDef): string {
     if (npc.role === 'board') return this.useBoard(npc);
     if (npc.role === 'clock') return this.useClock(npc);
+    if (npc.role === 'jukebox') return this.useJukebox(npc);
     if (npc.role === 'hermit') return this.useHermit(npc);
     if (!this.gifted.has(npc.id) && npc.gift.length > 0) {
       this.gifted.add(npc.id);
@@ -264,6 +273,30 @@ export class NpcManager {
     return npc.name;
   }
 
+  /** Switches the jukebox: the girls and the other guys dance to it, Gruk does not. */
+  private useJukebox(npc: NpcDef): string {
+    this.jukeboxOn = !this.jukeboxOn;
+    this.beatS = 0;
+    this.beat = 0;
+    const text = this.jukeboxOn ? 'The jukebox starts up. Everyone but Gruk is on their feet.' : 'The jukebox winds down.';
+    this.toast(`${npc.name}: ${text}`);
+    return text;
+  }
+
+  private playJukebox(dt: number): void {
+    const o = this.at;
+    const j = NPCS.find((n) => n.role === 'jukebox');
+    if (!o || !j) return;
+    this.beatS -= dt;
+    let guard = 4;
+    while (this.beatS <= 0 && guard-- > 0) {
+      this.beatS += BEAT_S;
+      for (const n of notesAt(this.beat)) this.bus.emit('sfx', { name: 'jukebox_note', x: o[0] + j.at[0], y: o[1] + j.at[1] + 0.8, z: o[2] + j.at[2], pitch: n.pitch, volume: n.bass ? 0.7 : 1 });
+      this.beat++;
+    }
+    if (guard <= 0) this.beatS = 0;
+  }
+
   private useClock(npc: NpcDef): string {
     const text = `It is ${clockText(this.host?.timeOfDay() ?? 0)}, day ${this.host?.day() ?? 1}.`;
     this.toast(`${npc.name}: ${text}`);
@@ -303,6 +336,7 @@ export class NpcManager {
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     const host = this.host;
     if (!host || !this.at) return;
+    if (this.jukeboxOn) this.playJukebox(dt);
     if (this.companion.active) {
       const shout = this.companion.update(dt, host.companion);
       if (shout) this.toast(`Gruk, orc smith: "${this.lines.from('orc-fight', ORC_HIRE.fight)}"`);
@@ -327,7 +361,7 @@ export class NpcManager {
     return {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
-      comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)],
+      comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
     };
   }
 
@@ -337,6 +371,7 @@ export class NpcManager {
     const at = r.at;
     this.at = Array.isArray(at) && at.length === 3 && at.every((n) => Number.isFinite(n)) ? ([at[0], at[1], at[2]] as [number, number, number]) : null;
     this.greeted = r.greeted === true;
+    this.jukeboxOn = r.juke === true;
     const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
     this.gifted = new Set(strings(r.gifted));
     this.heard = new Set(strings(r.heard));
