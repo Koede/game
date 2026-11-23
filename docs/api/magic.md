@@ -89,6 +89,9 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - A cap's favoured primals are drawn `ceil(units * 1.5)` and cost `floor(n * 0.75)` (min 1) in foci (`Magic.focusCost`).
 - Plugging: Use a wand on an Arcane Workbench with a focus carried to plug it in (again to take it back; saved as `plugged`). A wand with a focus plugged casts it on Use when its vis and cooldown allow, else it draws vis as usual.
 
+## Active scanning
+- A held notebook's Use on a thing not yet noted fills a bar: `SCAN_S` (1.2 s of repeated Use; 0.8 s with the lens), emptied after `SCAN_GAP_S` (0.6 s) without Use or on aiming elsewhere. `Magic.scanLabel()` ("Scanning Copper Ore [####....] 50%") replaces the crosshair name (`Game.magicLabel`). A noted thing reads out at once; `NotebookApi.scanItem` (carried items) stays instant. e2e holds Use (`d.holdUse`).
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

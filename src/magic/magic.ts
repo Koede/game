@@ -94,6 +94,9 @@ export interface ServantWorkshop {
 }
 /** Lore one studied vial gives. */
 export const STUDY_LORE = 3;
+/** Seconds of held Use a scan takes, and the longest gap between Uses before the bar empties. */
+export const SCAN_S = 1.2;
+export const SCAN_GAP_S = 0.6;
 /** Lens multiplier for scan lore. */
 export const LENS_LORE = 1.5;
 export const WARD_S = 30;
@@ -246,6 +249,7 @@ export class Magic {
   private infusion: Infusion | null = null;
   private readonly cooldowns = new Map<string, number>();
   private clock = 0;
+  private scanning: { key: string; p: number; seen: number } | null = null;
   private lastDraw = -1;
   private slowT = 0;
   private readonly off: () => void;
@@ -356,8 +360,7 @@ export class Magic {
         this.bus.emit('ui:open', { screen: { type: 'notebook' } });
         return 'screen';
       }
-      this.scanBlock(target.block.key);
-      return 'worked';
+      return this.scanHold(target.block.key);
     }
     const key = target?.block.key;
     if (held === SANITY_SOAP) return this.useSoap();
@@ -404,6 +407,39 @@ export class Magic {
   }
 
   // ---- scanning ------------------------------------------------------------------------------------------------------
+
+  /**
+   * Active scanning: Use held on a thing fills a bar (`SCAN_S`, a third quicker with the lens carried) and only then gives
+   * its lore. Letting go for more than `SCAN_GAP_S` starts over; a thing already in the notes reads out at once.
+   */
+  private scanHold(key: string): MagicOutcome {
+    if (this.research.scanned.includes(key)) {
+      this.scanning = null;
+      this.scanBlock(key);
+      return 'worked';
+    }
+    let s = this.scanning;
+    if (s && s.key === key && this.clock - s.seen <= SCAN_GAP_S) {
+      s.p += this.clock - s.seen;
+      s.seen = this.clock;
+    } else s = this.scanning = { key, p: 0, seen: this.clock };
+    const need = this.player.inventory.has(LENS) ? SCAN_S / LENS_LORE : SCAN_S;
+    if (s.p < need) return 'worked';
+    this.scanning = null;
+    this.scanBlock(key);
+    return 'worked';
+  }
+
+  /** "Scanning Copper Ore [####....] 50%" while a scan is filling, else null. */
+  scanLabel(): string | null {
+    const s = this.scanning;
+    if (!s || this.clock - s.seen > SCAN_GAP_S) return null;
+    const need = this.player.inventory.has(LENS) ? SCAN_S / LENS_LORE : SCAN_S;
+    const f = Math.max(0, Math.min(1, s.p / need));
+    const bars = Math.round(f * 8);
+    const name = blockOrNull(s.key)?.name ?? s.key;
+    return `Scanning ${name} [${'#'.repeat(bars)}${'.'.repeat(8 - bars)}] ${Math.round(f * 100)}%`;
+  }
 
   scanBlock(key: string): string {
     const name = blockOrNull(key)?.name ?? itemOrNull(key)?.name ?? key;

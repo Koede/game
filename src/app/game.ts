@@ -407,7 +407,7 @@ export class Game {
   /** Magic names under the crosshair: jars, pedestals and the altar, servants, a held rod's reading, the lens. */
   private magicLabel(x: number, y: number, z: number, key: string): string | null {
     const m = this.magic;
-    return m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+    return m.scanLabel() ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
   }
 
   /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
