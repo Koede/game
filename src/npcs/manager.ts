@@ -17,6 +17,7 @@ import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
 import { ORC_HIRE } from './scripts/orc';
 import { FIRE_SPOTS, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
+import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 
 export interface NpcView {
@@ -54,6 +55,8 @@ export interface NpcSnapshot {
   juke?: boolean;
   /** Trust 0..100 per person, and the day of each person's last gift. */
   trust?: Record<string, number>;
+  /** What Old Bram has bought, newest last: item, count, coin he paid. */
+  shelf?: [string, number, number][];
   giftDay?: Record<string, number>;
 }
 
@@ -76,6 +79,7 @@ export interface NpcHost {
 
 const REACH = 3.4;
 const OFFER_WINDOW_S = 10;
+const SHELF_MAX = 6;
 const GREET_AFTER_S = 90;
 
 export class NpcManager {
@@ -93,9 +97,14 @@ export class NpcManager {
   private heard = new Set<string>();
   private claimed = new Set<string>();
   private trust: Record<string, number> = {};
+  /** Sales Bram still holds and will sell back at the price he paid (newest last). */
+  private shelf: { item: string; count: number; coin: number }[] = [];
+  private buybackS = 0;
   private giftDay: Record<string, number> = {};
   /** Where each walking person is now (tavern-local x, z); filled from the routine on first use. */
   private readonly pos = new Map<string, [number, number]>();
+  /** The route each walking person follows: the goal it was planned for and the cells still to cross. */
+  private readonly routes = new Map<string, { goal: string; cells: Cell[] }>();
   private host: NpcHost | null = null;
   private cooldownS = 0;
   private offerS = 0;
@@ -142,6 +151,33 @@ export class NpcManager {
     if (d) return [d[0], d[2]];
     const s = spotFor(n.id, this.phase());
     return s ? [s[0], s[2]] : [n.at[0], n.at[2]];
+  }
+
+  /** One walking step along the planned route (replanned when the goal changes); straight when no route exists. */
+  private step(n: NpcDef, dt: number): [number, number] {
+    const here = this.where(n);
+    const goal = this.target(n);
+    const gk = `${goal[0]},${goal[1]}`;
+    let route = this.routes.get(n.id);
+    if (!route || route.goal !== gk) {
+      const from = nearestCell(here[0], here[1]);
+      const path = from ? findPath(from, goal) : null;
+      route = { goal: gk, cells: path ? [...path] : [[goal[0], goal[1]]] };
+      if (from && path && (Math.abs(from[0] - here[0]) > 0.01 || Math.abs(from[1] - here[1]) > 0.01)) route.cells.unshift(from);
+      this.routes.set(n.id, route);
+    }
+    let budget = WALK_SPEED * dt;
+    let p: [number, number] = here;
+    while (budget > 1e-9 && route.cells.length) {
+      const wp = route.cells[0];
+      const d = Math.hypot(wp[0] - p[0], wp[1] - p[1]);
+      p = walk(p, [wp[0], wp[1]], budget);
+      if (d <= budget) {
+        route.cells.shift();
+        budget -= d;
+      } else budget = 0;
+    }
+    return p;
   }
 
   /** Current trust of a person 0..100. */
@@ -393,6 +429,7 @@ export class NpcManager {
   private useHermit(npc: NpcDef): string {
     const held = this.host?.held() ?? null;
     const bank = npc.bank!;
+    if (!held && this.shelf.length > 0) return this.buyBack(npc);
     if (!held) {
       const line = this.rng() < 0.5 ? this.lines.from('bram-nothing', HERMIT_NOTHING) : this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
       this.say(npc, line);
@@ -407,9 +444,47 @@ export class NpcManager {
     }
     this.host!.takeHeld(held.count);
     this.coins += coin;
+    this.shelf.push({ item: held.item, count: held.count, coin });
+    if (this.shelf.length > SHELF_MAX) this.shelf.shift();
+    this.buybackS = 0;
     const line = this.lines.from('bram-sale', HERMIT_SALE).replace('{count}', String(held.count)).replace('{item}', held.item.replace(/_/g, ' ')).replace('{coin}', String(coin));
     this.say(npc, line);
     if (this.rng() < 0.08) this.say(npc, this.lines.from('bram-joke', bank.rare.slice(0, 3)));
+    return line;
+  }
+
+  /** Empty hand with something on his shelf: the first Use names the last sale and its price, the second buys it back. */
+  private buyBack(npc: NpcDef): string {
+    const top = this.shelf[this.shelf.length - 1];
+    const name = top.item.replace(/_/g, ' ');
+    if (this.buybackS <= 0) {
+      this.buybackS = OFFER_WINDOW_S;
+      const line = `I still have your ${top.count} ${name}. ${top.coin} coin and it is yours again. Use me once more to say yes.`;
+      this.say(npc, line);
+      return line;
+    }
+    this.buybackS = 0;
+    if (this.coins < top.coin) {
+      const line = `${top.coin} coin, friend, and you carry ${this.coins}. Come back when you have it.`;
+      this.say(npc, line);
+      return line;
+    }
+    const left = this.host?.give(top.item, top.count) ?? top.count;
+    const took = top.count - left;
+    if (took <= 0) {
+      const line = 'Your hands are full. Make room and ask me again.';
+      this.say(npc, line);
+      return line;
+    }
+    const paid = Math.round((top.coin * took) / top.count);
+    this.coins -= paid;
+    if (left > 0) {
+      top.count = left;
+      top.coin -= paid;
+    } else this.shelf.pop();
+    const line = `There. Back where it belongs. Do not let me catch you selling it twice.`;
+    this.say(npc, line);
+    this.toast(`Bought back ${took} ${name} for ${paid} coin (${this.coins} left)`);
     return line;
   }
 
@@ -419,12 +494,13 @@ export class NpcManager {
     this.clockS += dt;
     if (this.cooldownS > 0) this.cooldownS = Math.max(0, this.cooldownS - dt);
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
+    if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);
     for (const n of NPCS) {
       if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
-      this.pos.set(n.id, walk(this.where(n), this.target(n), WALK_SPEED * dt));
+      this.pos.set(n.id, this.step(n, dt));
     }
     if (this.companion.active) {
       const shout = this.companion.update(dt, host.companion);
@@ -451,7 +527,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay },
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]),
     };
   }
 
@@ -473,6 +549,12 @@ export class NpcManager {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
     }
     this.pos.clear();
+    this.routes.clear();
+    this.shelf = [];
+    for (const e of Array.isArray(r.shelf) ? r.shelf : []) {
+      if (Array.isArray(e) && typeof e[0] === 'string' && Number.isFinite(e[1]) && Number.isFinite(e[2]) && e[1] > 0 && e[2] >= 0) this.shelf.push({ item: e[0], count: Math.floor(e[1]), coin: Math.floor(e[2]) });
+    }
+    this.shelf = this.shelf.slice(-SHELF_MAX);
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;

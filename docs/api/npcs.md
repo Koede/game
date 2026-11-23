@@ -60,3 +60,8 @@ Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neut
 - `friendship.ts`: trust 0..100 per person (`NpcManager.trustOf`), saved. Use with a `LIKES` item in hand gives one (a gift a day per
   person, +`GIFT_TRUST` 8; Old Bram still buys on a second gift). Tiers at `TIERS` (20, 50, 80) pay `REWARDS` once and open
   `FRIEND_LINES` (one visit in three). At trust 50 Gruk's hire fee is a quarter less (`hireCost()`).
+- `nav.ts`: `walkable(x, z)` (floor and two free blocks, read from the layout), `nearestCell`, `findPath(from, to)` (BFS over cells,
+  diagonals never cut a corner). The manager plans a route whenever a person's goal changes and walks it cell to cell, so they go
+  round the bar through its end gaps and out to the yard through the back door instead of through walls.
+- Old Bram sells back what you sold him (`shelf`, last six sales, saved): Use with an empty hand names the newest and its price (what he
+  paid), a second Use within 10 s buys it back.

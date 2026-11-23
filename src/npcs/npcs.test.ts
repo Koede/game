@@ -9,6 +9,7 @@ import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
 } from './index';
+import { findPath, nearestCell, walkable } from './nav';
 import { DANCE_SPOTS, ROUTINES } from './routines';
 import { danceFrame, dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
@@ -171,7 +172,7 @@ function rig(opts: { coins?: number; held?: { item: string; count: number } | nu
   const hits: Array<[number, number]> = [];
   const world = new FakeWorld(bus);
   const host: NpcHost = {
-    give: (item, n) => (given.push([item, n]), n),
+    give: (item, n) => (given.push([item, n]), 0),
     currentGoal: () => state.goal,
     completed: () => state.done,
     timeOfDay: () => state.tod,
@@ -621,5 +622,76 @@ describe('friendship', () => {
     expect(npcs.hireCost()).toBe(HIRE_COST);
     (npcs as unknown as { trust: Record<string, number> }).trust.gruk = 50;
     expect(npcs.hireCost()).toBe(Math.round(HIRE_COST * 0.75));
+  });
+});
+
+describe('buying back from Bram', () => {
+  it('names the last sale, then sells it back at the price he paid; saved', () => {
+    const { npcs, state, by, given, taken } = rig({ coins: 0 });
+    state.held = { item: 'iron_ingot', count: 3 };
+    npcs.speak(by('bram'));
+    const got = npcs.coins;
+    expect(got).toBeGreaterThan(0);
+    expect(taken).toEqual([3]);
+    state.held = null;
+    given.length = 0;
+    const offer = npcs.speak(by('bram'));
+    expect(offer).toMatch(/3 iron ingot/);
+    expect(given).toEqual([]);
+    const snap = JSON.parse(JSON.stringify(npcs.toJSON()));
+    npcs.speak(by('bram')); // confirm
+    expect(given).toEqual([['iron_ingot', 3]]);
+    expect(npcs.coins).toBe(0);
+    npcs.speak(by('bram')); // shelf empty: ordinary talk, no purchase
+    expect(given.length).toBe(1);
+    const { npcs: other } = rig();
+    other.load(snap);
+    expect(other.toJSON().shelf).toEqual([['iron_ingot', 3, got]]);
+  });
+
+  it('refuses when you cannot pay, and a confirmation needs the second Use in time', () => {
+    const { npcs, state, by, given } = rig({ coins: 0 });
+    state.held = { item: 'iron_ingot', count: 2 };
+    npcs.speak(by('bram'));
+    npcs.coins = 0;
+    state.held = null;
+    npcs.speak(by('bram'));
+    expect(npcs.speak(by('bram'))).toMatch(/Come back/);
+    expect(given).toEqual([]);
+    npcs.speak(by('bram')); // offer again
+    npcs.tick(11);
+    npcs.coins = 999;
+    npcs.speak(by('bram')); // too late: a fresh offer, no sale yet
+    expect(given).toEqual([]);
+  });
+});
+
+describe('walking routes', () => {
+  it('finds a way through the bar gap and the back door, never through walls', () => {
+    expect(walkable(6, 5)).toBe(false); // the bar
+    const bar = findPath([10, 6], [10, 3])!;
+    expect(bar.some(([x, z]) => x === 11 && z === 5)).toBe(true); // round the end of the bar
+    const yard = findPath([7, 11], [6, 3])!;
+    expect(yard.some(([x, z]) => x === 1 && z === 8)).toBe(true); // the back door
+    for (const [x, z] of [...bar, ...yard]) expect(walkable(x, z), `${x},${z}`).toBe(true);
+    expect(findPath([6, 0], [6, 3])).not.toBeNull(); // the front door
+  });
+
+  it('a walker only ever stands on free floor on the way to the jukebox', () => {
+    const { npcs } = rig();
+    for (let i = 0; i < 400; i++) npcs.tick(0.1); // settle at the day spots
+    npcs.jukeboxOn = true;
+    for (let i = 0; i < 400; i++) {
+      npcs.tick(0.1);
+      for (const v of npcs.views().filter((x) => x.kind === 'person')) {
+        const near = nearestCell(v.x - 100 - 0.5, v.z - 100 - 0.5)!;
+        // Between two cells of a legal segment the nearest cell is one of the two ends: always free.
+        expect(walkable(near[0], near[1]), `${v.id} at ${v.x - 100},${v.z - 100}`).toBe(true);
+      }
+    }
+    for (const [id, [x, , z]] of Object.entries(DANCE_SPOTS)) {
+      const v = npcs.views().find((n) => n.id === id)!;
+      expect([v.x - 100 - 0.5, v.z - 100 - 0.5], id).toEqual([x, z]);
+    }
   });
 });

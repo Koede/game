@@ -119,7 +119,7 @@ async function runDevice(device) {
       const after = await npcs();
       const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');
       assert(dancing === 'bram,mara,orrin,rosa', `dancers: ${dancing}`);
-      await d.settle(9000); // they walk over to the dance floor
+      await d.settle(15000); // they walk over to the dance floor, round the bar and through the doors
       const mara = (await npcs()).views.find((x) => x.id === 'mara');
       await d.hw((p) => window.__hw.teleport(p.x - 1.5, p.y, p.z + 3.5), { x: mara.x, y: mara.y, z: mara.z });
       await d.settle(200);
