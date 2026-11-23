@@ -29,6 +29,7 @@
  */
 import { ANIMAL_YIELDS } from './animalYields';
 import { areaNaturalBlocks } from './area';
+import { FISHING_ROD, FISH_ITEMS } from './fishing';
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
 import { ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
@@ -299,6 +300,8 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
       for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;
       for (const key of ANIMAL_YIELDS[c.key] ?? []) if (gain(key, `animal:${c.key}`)) changed = true;
     }
+    // Fishing (optional): a rod at any water brings in every fish. Source 'fish'.
+    if (items.has(FISHING_ROD)) for (const key of FISH_ITEMS) if (gain(key, 'fish')) changed = true;
     // So do the automatons (not on Peaceful). Only what one always carries counts: chance drops and relics are luck.
     for (const c of hostiles ? AUTOMATONS : []) {
       for (const drop of c.drops) if ((drop.chance ?? 1) >= 1 && !isRelic(drop) && gain(drop.item, `automaton:${c.key}`)) changed = true;
