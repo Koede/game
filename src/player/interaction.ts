@@ -32,7 +32,7 @@ import {
   till,
   type PlayerState,
 } from '../game';
-import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
+import { buildsOnto, digPitch, digSound, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import { Buckets } from './buckets';
 import { BrewTools, type BrewHands } from './brewTools';
 import { HandTools, type HandHands } from './handTools';
@@ -185,7 +185,7 @@ export class Interaction {
     this.digTimer -= dt;
     if (this.digTimer <= 0) {
       this.digTimer += DIG_INTERVAL_S;
-      this.bus.emit('sfx', { name: digSound(def), x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
+      this.bus.emit('sfx', { name: digSound(def), x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5, pitch: digPitch(def, this.player.heldStack()) });
       this.swing.triggerSwing();
     }
     if (this.progress >= 1) {

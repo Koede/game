@@ -258,3 +258,15 @@ describe('use: pail', () => {
     expect(toasts).toHaveLength(1);
   });
 });
+
+describe('dig sound pitch', () => {
+  it('rings fuller with the right tool, light with a bare hand', async () => {
+    const { digPitch } = await import('./blockRules');
+    const { block } = await import('../core/registry');
+    const stone = block('stone');
+    const bare = digPitch(stone, null);
+    expect(bare).toBeGreaterThan(1);
+    const pick = digPitch(stone, { item: 'flint_pickaxe', count: 1, durability: 100 } as never);
+    expect(pick).toBeLessThan(bare);
+  });
+});
