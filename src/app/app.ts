@@ -40,6 +40,7 @@ export class App {
   private worldText: string | null;
   /** Mode of the world in the slot (named on the title's Continue button). */
   private savedMode: GameMode;
+  private savedAge: number | undefined;
   private title: TitleScreen | null = null;
   private readonly loading = new LoadingScreen();
   private rafId = 0;
@@ -62,6 +63,7 @@ export class App {
     this.settings = { ...doc.settings };
     this.worldText = doc.world ? JSON.stringify(doc.world) : null;
     this.savedMode = parseGameMode(doc.world?.mode);
+    this.savedAge = doc.world?.objectives?.age;
     diag('app.boot', () => ({
       persistent: this.slot.persistent,
       slotProblem: this.slot.lastProblem ?? null,
@@ -118,6 +120,7 @@ export class App {
       this.title = new TitleScreen(this.root, {
         hasSave: this.slotTaken,
         savedMode: this.savedMode,
+        stage: this.savedAge,
         settings: this.settings,
         version: VERSION,
         onNewWorld: (seed, mode) => this.newWorld(seed, mode),
@@ -125,6 +128,7 @@ export class App {
         onSettingsChange: (s, key) => this.changeSettings(s, key),
       });
     }
+    this.title.setStage(this.slotTaken ? this.savedAge : 0);
     this.title.setHasSave(this.slotTaken, this.savedMode);
     this.title.show();
   }
@@ -286,6 +290,7 @@ export class App {
       try {
         this.worldText = game.toSaveJson();
         this.savedMode = game.state.mode;
+        this.savedAge = game.state.objectives.age;
       } catch (err) {
         console.error('[app] could not snapshot the world', err);
         diag('save.snapshot_failed', { error: String(err), phase: this.phase });
@@ -344,6 +349,7 @@ export class App {
   deleteSave(): void {
     this.worldText = null;
     this.savedMode = 'survival';
+    this.savedAge = undefined;
     this.slot.writeText({ ...this.settings }, null);
     this.title?.setHasSave(this.slotTaken, this.savedMode);
   }

@@ -2846,3 +2846,12 @@ body {
 .hw-journal__day { flex: none; opacity: 0.6; min-width: 3.6em; }
 .hw-journal__entry--age { font-weight: 600; }
 .hw-journal__entry--death { opacity: 0.75; }
+
+/* Title backdrop follows how far the saved world has got (data-stage = age 0..5). */
+.hw-title::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.6s; background: radial-gradient(120% 70% at 50% 100%, var(--hw-stage-glow, transparent), transparent 70%); }
+.hw-title[data-stage='1'] { --hw-stage-glow: rgba(255, 140, 50, 0.22); }
+.hw-title[data-stage='2'] { --hw-stage-glow: rgba(255, 190, 90, 0.26); }
+.hw-title[data-stage='3'] { --hw-stage-glow: rgba(120, 200, 255, 0.24); }
+.hw-title[data-stage='4'] { --hw-stage-glow: rgba(140, 230, 255, 0.3); }
+.hw-title[data-stage='5'] { --hw-stage-glow: rgba(255, 245, 210, 0.36); }
+.hw-title:not([data-stage='0'])::before { opacity: 1; }

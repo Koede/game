@@ -12,6 +12,7 @@ import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { Survival } from '../game/survival';
+import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
 import { Journal, isJournalSnapshot } from '../game/journal';
 import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
@@ -53,6 +54,7 @@ export class GameState {
   /** The animals (spec 12.5), ticked after the simulation; their drops fall as ground items. */
   readonly mobs: MobManager;
   readonly journal: Journal;
+  readonly achievements: Achievements;
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
   /** Tractors (docs/api/tractor.md). Headless: the browser Game binds the physics and draws them. */
@@ -107,6 +109,8 @@ export class GameState {
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
     this.journal = new Journal(() => this.clock.day, bus);
     if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
+    this.achievements = new Achievements(bus, () => this.progressFacts());
+    if (save?.achievements && isAchievementsSnapshot(save.achievements)) this.achievements.load(save.achievements);
     this.mobs = new MobManager(world, bus, this.clock, world.seed, { difficulty });
     // The Emberbound (spec 19): ONE damage path. The automatons scale by the difficulty and emit 'player:attacked'
     // themselves, so the player's side only takes the hit (armour, burning, death cause) - never damagePlayer, which
@@ -315,6 +319,7 @@ export class GameState {
     this.survival.tick(dt);
     this.objectives.tick(dt);
     this.journal.explore(this.player.position.x, this.player.position.z);
+    this.achievements.tick(dt);
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
@@ -334,6 +339,24 @@ export class GameState {
     p.warmth = MAX_WARMTH;
     p.air = MAX_AIR_S;
     if (p.dead) p.dead = false;
+  }
+
+  /** What the achievements read. */
+  private progressFacts(): ProgressFacts {
+    const st = this.player.stats;
+    const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
+    return {
+      age: this.objectives.age,
+      goalsDone: this.objectives.toJSON().completed.length,
+      made: sum(st.made),
+      placed: sum(st.placed),
+      broken: sum(st.broken),
+      deaths: st.deaths,
+      day: this.clock.day,
+      blocksSeen: this.journal.seenBlocks,
+      playTimeS: this.playTimeS,
+      drinks: Object.keys(st.drunk ?? {}).length,
+    };
   }
 
   get mode(): GameMode {
@@ -384,6 +407,7 @@ export class GameState {
       weather: this.weather.toJSON(),
       mobs: this.mobs.toJSON(),
       journal: this.journal.toJSON(),
+      achievements: this.achievements.toJSON(),
     };
   }
 

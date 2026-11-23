@@ -1,6 +1,7 @@
 /** The front door: wordmark, one line of promise, and the way into a world. */
 import type { Difficulty, Settings } from '../../core/context';
 import { modeLabel, type GameMode } from '../../core/gameMode';
+import { titleStage } from '../../game/achievements';
 import { Button, Segmented, TextField } from '../kit/controls';
 import { h, setText } from '../kit/dom';
 import { heatColor } from '../kit/format';
@@ -33,6 +34,8 @@ export interface TitleScreenOptions {
   version?: string;
   /** Names of the six ages for the strip under the promise. Default: the ages of the spec. */
   ages?: readonly string[];
+  /** How far the saved world has got (its age, 0..5): the backdrop warms and brightens with it. */
+  stage?: number;
 }
 
 const WORD_HEAT = 'HEARTH';
@@ -126,7 +129,7 @@ export class TitleScreen {
     );
     this.el = h(
       'main',
-      { class: 'hw-title' },
+      { class: 'hw-title', attrs: { 'data-stage': String(titleStage(opts.stage)) } },
       this.fire.el,
       h(
         'div',
@@ -164,6 +167,11 @@ export class TitleScreen {
   }
 
   /** Call after a save was written or deleted while the title is alive. */
+  /** Changes the backdrop for a world that has got this far (its age). */
+  setStage(stage: number | undefined): void {
+    this.el.dataset.stage = String(titleStage(stage));
+  }
+
   setHasSave(hasSave: boolean, savedMode: GameMode = this.savedMode): void {
     if (hasSave === this.hasSave && savedMode === this.savedMode) return;
     this.hasSave = hasSave;

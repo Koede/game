@@ -7,6 +7,7 @@
  */
 import type { GameMode } from '../core/gameMode';
 import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
+import type { AchievementsSnapshot } from '../game/achievements';
 import type { ClockSnapshot } from '../game/clock';
 import type { JournalSnapshot } from '../game/journal';
 import type { ObjectivesSnapshot } from '../game/objectives';
@@ -61,6 +62,8 @@ export interface WorldSave {
   mobs?: MobsSnapshot;
   /** The journal and the explored map (docs/api/journal.md). Optional: older saves start an empty one; a damaged one is ignored. */
   journal?: JournalSnapshot;
+  /** Achievements earned (src/game/achievements.ts). Optional, ignored when damaged. */
+  achievements?: AchievementsSnapshot;
   /**
    * 'dev' for a Dev Mode world (docs/api/dev-mode.md). Optional: absent means survival, and survival saves never write it,
    * so they stay exactly as before.
