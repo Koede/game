@@ -33,6 +33,7 @@ import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
+import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
@@ -240,6 +241,8 @@ export interface MagicSnapshot {
   mirrors?: number[][];
   /** Chunk key -> aura shift. */
   aura?: Record<string, number>;
+  /** Focus item -> [reach, power, cost] levels. */
+  focusMods?: Record<string, number[]>;
   plugged?: Record<string, string>;
 }
 
@@ -265,6 +268,9 @@ export class Magic {
   private readonly mirrors = new Map<string, string>();
   private readonly mirrorSends = new Set<string>();
   private pendingMirror: string | null = null;
+  /** Upgrade levels per focus item. */
+  private readonly focusLevels = new Map<string, FocusLevels>();
+  private wardScale = WARD_SCALE;
   /** Per-chunk push on the aura (taint down, cleansing up), saved. */
   private readonly auraShift = new Map<string, number>();
   private auraT = 0;
@@ -395,7 +401,7 @@ export class Magic {
   /** What magic does to the body each tick: the ward focus and carried charms scale damage, speed and food drain. */
   private applyBody(): void {
     const f = charmFactors((k) => this.player.inventory.has(k));
-    this.player.damageScale = (this.wardS > 0 ? WARD_SCALE : 1) * f.damage;
+    this.player.damageScale = (this.wardS > 0 ? this.wardScale : 1) * f.damage;
     this.player.buffs.magicSpeed = f.speed;
     this.player.buffs.magicFoodDrain = f.food;
   }
@@ -418,10 +424,11 @@ export class Magic {
       if (target && key === 'infusion_altar') return this.startInfusion(target);
       if (target && key === ARCANE_BENCH) return this.plugFocus(rod);
       const plug = FOCI.find((f) => f.key === this.plugged.get(rod.key));
-      if (plug && !this.cooldowns.has(plug.key) && !Object.keys(visShort(this.focusCost(plug.vis, rod), this.vis)).length) return this.cast(plug.key, plug.vis, plug.cooldownS, target);
+      if (plug && !this.cooldowns.has(plug.key) && !Object.keys(visShort(this.focusCost(plug.vis, rod, plug.key), this.vis)).length) return this.cast(plug.key, plug.vis, plug.cooldownS, target);
       return this.gather(rod);
     }
     const focus = FOCI.find((f) => f.key === held);
+    if (held && modKind(held) && (key === ARCANE_BENCH || key === 'rune_desk')) return this.applyMod(held);
     if (focus) return this.cast(focus.key, focus.vis, focus.cooldownS, target);
     if (!target) return null;
     if (key && JAR_BLOCKS.has(key) && (held === EMPTY_VIAL || vialAspect(held))) return this.useJar(target, held as string);
@@ -1252,12 +1259,73 @@ export class Magic {
 
   // ---- foci ----------------------------------------------------------------------------------------------------------
 
-  /** A cap's favoured primals cost a quarter less (at least 1) in foci. */
-  focusCost(cost: Partial<Vis>, rod: RodTier | null): Partial<Vis> {
-    if (!rod?.favour) return cost;
+  /** A cap's favoured primals cost a quarter less (at least 1) in foci; Thrift levels of the focus lower every primal. */
+  focusCost(cost: Partial<Vis>, rod: RodTier | null, focus?: string): Partial<Vis> {
+    const thrift = focus ? this.levelsOf(focus).cost : 0;
+    if (!rod?.favour && !thrift) return cost;
     const out: Partial<Vis> = {};
-    for (const [p, n] of Object.entries(cost) as [Primal, number][]) out[p] = rod.favour.includes(p) ? Math.max(1, Math.floor(n * 0.75)) : n;
+    for (const [p, n] of Object.entries(cost) as [Primal, number][]) {
+      let c = rod?.favour?.includes(p) ? Math.max(1, Math.floor(n * 0.75)) : n;
+      if (thrift) c = thriftCost(c, thrift);
+      out[p] = c;
+    }
     return out;
+  }
+
+  levelsOf(focus: string): FocusLevels {
+    return this.focusLevels.get(focus) ?? freshLevels();
+  }
+
+  /** Use a rune on an Arcane Workbench or Rune Desk: raises that kind on the first carried focus still below MOD_MAX. */
+  private applyMod(item: string): MagicOutcome {
+    const kind = modKind(item) as ModKind;
+    const f = FOCI.find((x) => this.player.inventory.has(x.key) && this.levelsOf(x.key)[kind] < MOD_MAX);
+    if (!f) {
+      this.advise(`Carry a focus that can still take ${MODS.find((m) => m.key === item)?.name ?? 'this rune'} (${MOD_MAX} levels each)`);
+      return 'refused';
+    }
+    this.player.consumeHeld(1);
+    const lv = { ...this.levelsOf(f.key) };
+    lv[kind]++;
+    this.focusLevels.set(f.key, lv);
+    this.toast(`${itemOrNull(f.key)?.name}: ${kind} ${lv[kind]}/${MOD_MAX}`, f.key, 'good');
+    this.bus.emit('sfx', { name: 'research_solve', pitch: 1.1 });
+    return 'worked';
+  }
+
+  /** The solid block along the view within `max` blocks, as a Use target with the face that was struck; null when none. */
+  private rayTarget(max: number): MagicTarget | null {
+    const p = this.player;
+    const dx = -Math.sin(p.yaw) * Math.cos(p.pitch);
+    const dy = Math.sin(p.pitch);
+    const dz = -Math.cos(p.yaw) * Math.cos(p.pitch);
+    let px = p.position.x;
+    let py = p.eyeY;
+    let pz = p.position.z;
+    for (let d = 0.1; d <= max; d += 0.1) {
+      const x = p.position.x + dx * d;
+      const y = p.eyeY + dy * d;
+      const z = p.position.z + dz * d;
+      const b = this.world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
+      if (b.solid) {
+        const bx = Math.floor(x);
+        const by = Math.floor(y);
+        const bz = Math.floor(z);
+        const rx = px - (bx + 0.5);
+        const ry = py - (by + 0.5);
+        const rz = pz - (bz + 0.5);
+        const ax = Math.abs(rx);
+        const ay = Math.abs(ry);
+        const az = Math.abs(rz);
+        const dir: [number, number, number] = ax >= ay && ax >= az ? [Math.sign(rx), 0, 0] : ay >= az ? [0, Math.sign(ry), 0] : [0, 0, Math.sign(rz)];
+        const face = FACE_DIRS.findIndex((f) => f[0] === dir[0] && f[1] === dir[1] && f[2] === dir[2]);
+        return { x: bx, y: by, z: bz, block: b, face: (face < 0 ? undefined : face) as Face | undefined };
+      }
+      px = x;
+      py = y;
+      pz = z;
+    }
+    return null;
   }
 
   /** Use a wand on an Arcane Workbench: plugs the first focus carried (not yet plugged elsewhere), or takes the plugged one back. */
@@ -1291,7 +1359,9 @@ export class Magic {
       this.advise('A focus needs a gathering rod in your pack');
       return 'refused';
     }
-    const cost = this.focusCost(rawCost, this.heldRod() ?? this.bestRod());
+    const cost = this.focusCost(rawCost, this.heldRod() ?? this.bestRod(), focus);
+    const lv = this.levelsOf(focus);
+    if (lv.reach > 0 && (focus === 'focus_kindle' || focus === 'focus_light')) target = this.rayTarget(rayReach(lv.reach)) ?? target;
     const short = visShort(cost, this.vis);
     if (Object.keys(short).length) {
       this.advise(`Not enough vis: needs ${visText(short)} more. Use the rod to draw from the land`);
@@ -1320,6 +1390,8 @@ export class Magic {
       this.advise(why);
       return false;
     }
+    const bonus = kindleBurnS(this.levelsOf('focus_kindle').power);
+    if (bonus > 0) this.hooks.stokeFurnace?.(target.x, target.y, target.z, bonus);
     this.toast('The furnace catches', undefined, 'good');
     return true;
   }
@@ -1341,9 +1413,11 @@ export class Magic {
   }
 
   private ward(): boolean {
-    this.wardS = WARD_S;
-    this.player.damageScale = WARD_SCALE;
-    this.toast(`Warded for ${WARD_S} s: blows are halved`, undefined, 'good');
+    const w = wardTuning(WARD_SCALE, WARD_S, this.levelsOf('focus_ward').power);
+    this.wardS = w.seconds;
+    this.wardScale = w.scale;
+    this.player.damageScale = w.scale;
+    this.toast(`Warded for ${w.seconds} s: blows are ${w.scale <= 0.5 ? 'halved' : 'softened'}${w.scale < 0.5 ? ' and more' : ''}`, undefined, 'good');
     return true;
   }
 
@@ -1355,7 +1429,8 @@ export class Magic {
     const free = (x: number, y: number, z: number): boolean =>
       !this.world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z)).solid && !this.world.getBlock(Math.floor(x), Math.floor(y) + 1, Math.floor(z)).solid;
     let best: [number, number, number] | null = null;
-    for (let d = 1; d <= BLINK_RANGE; d += 0.5) {
+    const range = blinkRange(BLINK_RANGE, this.levelsOf('focus_blink').reach);
+    for (let d = 1; d <= range; d += 0.5) {
       const x = p.position.x + dx * d;
       const y = p.position.y + 0.1 + dy * d;
       const z = p.position.z + dz * d;
@@ -1872,6 +1947,7 @@ export class Magic {
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
       aura: Object.fromEntries(this.auraShift),
+      focusMods: Object.fromEntries([...this.focusLevels].map(([k, v]) => [k, [v.reach, v.power, v.cost]])),
       mirrors: [...this.mirrorSends].filter((a) => this.mirrors.has(a)).map((a) => [...parse3(a), ...parse3(this.mirrors.get(a) as string)]),
       carries: [...this.servants].filter(([, v]) => v.carry).map(([k, v]) => [...parse3(k), v.carry!.item, v.carry!.count] as [number, number, number, string, number]),
     };
@@ -1926,6 +2002,10 @@ export class Magic {
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
     }
+    this.focusLevels.clear();
+    if (s.focusMods && typeof s.focusMods === 'object')
+      for (const [k, v] of Object.entries(s.focusMods)) if (FOCI.some((f) => f.key === k) && Array.isArray(v) && v.length === 3 && v.every((n) => num(n)))
+        this.focusLevels.set(k, { reach: Math.max(0, Math.min(MOD_MAX, Math.floor(v[0]))), power: Math.max(0, Math.min(MOD_MAX, Math.floor(v[1]))), cost: Math.max(0, Math.min(MOD_MAX, Math.floor(v[2]))) });
     this.auraShift.clear();
     if (s.aura && typeof s.aura === 'object') for (const [k, v] of Object.entries(s.aura)) if (/^-?\d+,-?\d+$/.test(k) && num(v) && Math.abs(v) >= 0.01) this.auraShift.set(k, Math.max(-1.5, Math.min(1.5, v)));
     this.mirrors.clear();

@@ -55,6 +55,10 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
   arcane('charm_ward', 'charm_ward', '1 leather, 1 bronze_ingot, 1 vial_ward', { rune: 4, loam: 3 }, true),
   arcane('charm_speed', 'charm_speed', '1 leather, 1 copper_ingot, 1 vial_gale', { gale: 4, rune: 3 }, true),
   arcane('charm_hunger', 'charm_hunger', '1 leather, 1 tin_ingot, 1 vial_loam', { cinder: 3, rune: 3, brook: 2 }, true),
+  // Focus upgrade runes (Rune Desk).
+  arcane('focus_mod_reach', 'focus_mod_reach', '1 glass, 1 copper_ingot, 1 vial_gale', { gale: 4, rune: 3 }),
+  arcane('focus_mod_power', 'focus_mod_power', '1 glass, 1 copper_ingot, 1 vial_cinder', { cinder: 4, rune: 3 }),
+  arcane('focus_mod_cost', 'focus_mod_cost', '1 glass, 1 copper_ingot, 1 vial_clarity', { mind: 3, rune: 3 }),
   // Golem markers (Arcane Workbench): set against a container.
   arcane('golem_pull_marker', 'golem_pull_marker', '1 plank, 1 clay, 1 copper_ingot', { mind: 2, drive: 2 }, true),
   arcane('golem_drop_marker', 'golem_drop_marker', '1 plank, 1 clay, 1 tin_ingot', { mind: 2, drive: 2 }, true),

@@ -141,7 +141,19 @@ const charm = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((c) =
   shape(c, glyph);
 });
 
+/** A rune stone: a small slab with a glyph in the colour of what it upgrades. */
+const runeStone = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((c) => {
+  c.rect(3, 3, 10, 10, STONE[1]);
+  c.rect(3, 3, 10, 1, STONE[3]);
+  c.rect(3, 12, 10, 1, STONE[0]);
+  c.rect(4, 4, 8, 8, STONE[2]);
+  shape(c, glyph);
+});
+
 export const MAGIC_TEXTURES: PainterSet = {
+  item_focus_mod_reach: runeStone(P.rgb(0xaee8ff), (c, g) => { c.rect(5, 7, 6, 1, g); c.set(10, 6, g); c.set(10, 8, g); c.set(9, 5, g); c.set(9, 9, g); }),
+  item_focus_mod_power: runeStone(P.rgb(0xffa040), (c, g) => { c.rect(7, 5, 2, 6, g); c.rect(5, 7, 6, 2, g); }),
+  item_focus_mod_cost: runeStone(P.rgb(0xa0f0a0), (c, g) => { c.rect(6, 5, 4, 1, g); c.rect(6, 5, 1, 3, g); c.rect(6, 7, 4, 1, g); c.rect(9, 7, 1, 3, g); c.rect(6, 10, 4, 1, g); }),
   item_charm_ward: charm(P.rgb(0x6fb0ff), (c, g) => { c.rect(6, 7, 4, 1, g); c.rect(7, 8, 2, 3, g); c.set(7, 11, g); c.set(8, 11, g); }),
   item_charm_speed: charm(P.rgb(0xffe060), (c, g) => { c.rect(6, 7, 3, 1, g); c.rect(7, 8, 3, 1, g); c.rect(6, 9, 3, 1, g); c.rect(7, 10, 3, 1, g); }),
   item_charm_hunger: charm(P.rgb(0xe8622a), (c, g) => { c.rect(6, 8, 4, 3, g); c.rect(7, 7, 2, 1, g); c.set(7, 6, g); }),

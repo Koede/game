@@ -155,7 +155,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'focus_kindle', title: 'Kindling Focus', age: 'bronze', requires: ['bronze_rod'], board: pair('cinder', 'mind', [cellAt(1, 1), cellAt(1, 3), cellAt(3, 1), cellAt(3, 3)]),
-    unlocks: { recipes: ['focus_kindle'] },
+    unlocks: { recipes: ['focus_kindle', 'focus_mod_reach', 'focus_mod_power', 'focus_mod_cost'] },
     text: 'A focus shapes the rod\'s charge. Kindling lights a furnace from a distance and sets fires going.',
   },
   {
