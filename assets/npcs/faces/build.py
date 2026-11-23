@@ -1,10 +1,11 @@
 """Builds assets/npcs/<id>_faces.jpg: six portrait cells (neutral, happy, laughing, surprised, annoyed, sly) per character, each a head-and-shoulders
-crop of an expression painted on the blueprint art by the character's own script here (bram_px.py, ...; rosa_px.py).
+crop of an expression edited onto the blueprint art, cell by cell, by the character's own file here (bram.py, orrin.py, gruk.py, mara.py, rosa.py
+over the cell engine in cells.py: each changed cell is a character in a hand-written grid).
   python assets/npcs/faces/build.py   then   node scripts/npc-art.mjs"""
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from PIL import Image
-import bram_px, orrin_px, gruk_px, mara_px, rosa_px
+import bram, orrin, gruk, mara, rosa
 
 CELL = 160
 # head-and-shoulders crop windows (square) on each blueprint
@@ -12,10 +13,8 @@ CROPS = {'mara': (300, 25, 600, 325), 'rosa': (285, 45, 575, 335), 'gruk': (345,
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 
 def frames(id_):
-    if id_ == 'rosa':
-        return rosa_px.faces()
-    mod = {'mara': mara_px, 'gruk': gruk_px, 'orrin': orrin_px, 'bram': bram_px}[id_]
-    return [f() for f in mod.KINDS]
+    mod = {'mara': mara, 'rosa': rosa, 'gruk': gruk, 'orrin': orrin, 'bram': bram}[id_]
+    return [f() for f in mod.FACES]
 
 if __name__ == '__main__':
     for id_, box in CROPS.items():
