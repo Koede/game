@@ -3,6 +3,7 @@ import { PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Settings } from '../../co
 import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
+import { PRESETS, applyPreset, detectPreset, presetById, type PresetId } from './settingsPresets';
 import { DIFFICULTY_OPTIONS, difficultyHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
@@ -32,6 +33,8 @@ export class SettingsPanel {
   private current: Settings;
   private readonly onChange: (settings: Settings, key: keyof Settings) => void;
   private readonly sync: (() => void)[] = [];
+  /** Keeps the Quick setup row honest when a single value is changed by hand. */
+  private refreshPresets: (() => void) | null = null;
 
   constructor(opts: SettingsPanelOptions) {
     this.current = { ...opts.settings };
@@ -40,6 +43,7 @@ export class SettingsPanel {
     this.el = h(
       'div',
       { class: 'hw-settings' },
+      this.section('Quick setup', this.presets()),
       this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), opts.dev ? this.devSwitch(opts.dev) : null),
       this.section(
         'View',
@@ -74,6 +78,7 @@ export class SettingsPanel {
     if (this.current[key] === value) return;
     this.current = { ...this.current, [key]: value };
     this.onChange({ ...this.current }, key);
+    this.refreshPresets?.();
   }
 
   private section(title: string, ...rows: (HTMLElement | null)[]): HTMLElement {
@@ -130,6 +135,31 @@ export class SettingsPanel {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);
+  }
+
+  /** Phone: light / Phone: pretty / Desktop in one tap; shows none picked once a slider has been moved by hand. */
+  private presets(): HTMLElement {
+    const label = 'Quick setup';
+    const touch = isTouchFirst();
+    const pick = (): PresetId => (detectPreset(this.current, touch) ?? 'custom') as PresetId;
+    const hintOf = (id: PresetId | 'custom'): string => (id === 'custom' ? 'Pick one to set the view distance and picture width. You can still fine-tune below.' : presetById(id).hint);
+    const hint = h('div', { class: 'hw-setting__hint', text: hintOf(pick()) });
+    const seg = new Segmented<PresetId>({
+      label,
+      options: PRESETS.map((p) => ({ value: p.id, label: p.label })),
+      value: pick(),
+      onChange: (id) => {
+        const next = applyPreset(this.current, id, touch);
+        for (const key of ['renderDistance', 'fov', 'showFps'] as const) this.change(key, next[key]);
+        for (const fn of this.sync) fn();
+      },
+    });
+    this.refreshPresets = () => {
+      seg.set(pick());
+      hint.textContent = hintOf(pick());
+    };
+    this.sync.push(this.refreshPresets);
+    return this.row(label, hint, seg.el, true);
   }
 
   /** Dev Mode: creative items, no damage or hunger, free building, flight. Off again with the same switch. */
