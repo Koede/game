@@ -32,6 +32,9 @@ function tableTile(c: Canvas): void {
   c.rect(0, 0, 16, 2, P.WOOD[4]);
   c.rect(0, 14, 16, 2, P.WOOD[0]);
   for (const x of [5, 10]) c.line(x, 2, x, 13, P.WOOD[1]);
+  c.rect(0, 2, 16, 1, P.WOOD[3]);
+  c.rect(0, 13, 16, 1, P.WOOD[0]);
+  c.rect(2, 7, 2, 2, P.WOOD[4]);
 }
 
 function benchTile(c: Canvas): void {
@@ -40,6 +43,8 @@ function benchTile(c: Canvas): void {
   c.rect(0, 13, 16, 3, P.WOOD[1]);
   c.rect(1, 3, 2, 10, P.WOOD[0]);
   c.rect(13, 3, 2, 10, P.WOOD[0]);
+  c.rect(3, 6, 10, 2, P.WOOD[2]);
+  c.rect(3, 6, 10, 1, P.WOOD[4]);
 }
 
 function bookshelfTile(c: Canvas): void {
