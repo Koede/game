@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { REACH } from '../core/constants';
 import { createBus } from '../core/context';
@@ -72,6 +73,10 @@ const CASES: Case[] = [
   { id: 'sugar_sweetens_bush', held: 'sugar', target: 'berry_bush_bare', becomes: 'berry_bush', count: 2 },
   { id: 'pail_waters_bush', held: 'water_pail', target: 'tea_bush_bare', becomes: 'tea_bush', heldAfter: 'pail' },
   { id: 'pick_dress_brick', held: 'flint_pickaxe', target: 'cracked_stone_brick', becomes: 'stone_brick' },
+  { id: 'pick_dress_limestone', held: 'flint_pickaxe', target: 'limestone', becomes: 'stone_brick' },
+  { id: 'maul_cracks_brick', held: 'bronze_maul', target: 'stone_brick', becomes: 'cracked_stone_brick' },
+  { id: 'torch_melts_snow', held: 'torch', target: 'snow', becomes: 'air' },
+  { id: 'pail_chips_ice', held: 'pail', target: 'ice', becomes: 'air', heldAfter: 'water_pail' },
   { id: 'hammer_stone_to_rubble', held: 'flint_hammer', target: 'stone', becomes: 'rubble' },
   { id: 'hammer_rubble_to_gravel', held: 'bronze_hammer', target: 'rubble', becomes: 'gravel' },
   { id: 'hammer_gravel_to_sand', held: 'bronze_hammer', target: 'gravel', becomes: 'sand' },
@@ -104,6 +109,13 @@ describe('tool uses: every row of the table', () => {
       expect(t.swings()).toBe(1);
     });
   }
+});
+
+describe('docs/SYNERGY_TOOLS.md', () => {
+  it('lists every row of the table', () => {
+    const doc = readFileSync('docs/SYNERGY_TOOLS.md', 'utf8');
+    expect(TOOL_USES.map((r) => r.id).filter((id) => !doc.includes(`\`${id}\``))).toEqual([]);
+  });
 });
 
 describe('tool uses: wear, fuel and refusals', () => {

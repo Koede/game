@@ -215,6 +215,26 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     run: (c) => (replace(c, 'stone_brick') ? (wearTool(c), sfx(c, 'dig_stone'), true) : false),
   },
   {
+    id: 'pick_dress_limestone', system: 'masonry', summary: 'A pickaxe dresses a limestone block straight into stone brick (two uses of the pick)',
+    applies: (c) => kindOf(c) === 'pickaxe' && is(c, 'limestone') && (c.stack.durability ?? 2) >= 2,
+    run: (c) => (replace(c, 'stone_brick') ? (wearTool(c, 2), sfx(c, 'dig_stone'), true) : false),
+  },
+  {
+    id: 'maul_cracks_brick', system: 'masonry', summary: 'A maul cracks stone brick into cracked brick (the pickaxe dresses it back)',
+    applies: (c) => kindOf(c) === 'maul' && is(c, 'stone_brick'),
+    run: (c) => (replace(c, 'cracked_stone_brick') ? (wearTool(c), sfx(c, 'dig_stone'), true) : false),
+  },
+  {
+    id: 'torch_melts_snow', system: 'survival', summary: 'A torch held to a snow block melts it away (the torch is kept)',
+    applies: (c) => heldIs(c, 'torch') && is(c, 'snow'),
+    run: (c) => (remove(c) ? (sfx(c, 'splash'), true) : false),
+  },
+  {
+    id: 'pail_chips_ice', system: 'fluids', summary: 'An empty pail chips a block of ice into a water pail',
+    applies: (c) => heldIs(c, 'pail') && is(c, 'ice'),
+    run: (c) => (remove(c) ? (swapHeldItem(c.player, 'water_pail'), sfx(c, 'splash'), true) : false),
+  },
+  {
     id: 'hammer_stone_to_rubble', system: 'masonry', summary: 'A hammer knocks stone, limestone or basalt apart into rubble',
     applies: (c) => kindOf(c) === 'hammer' && is(c, 'stone', 'limestone', 'basalt'),
     run: (c) => (replace(c, 'rubble') ? (wearTool(c), sfx(c, 'dig_stone'), true) : false),
