@@ -150,7 +150,14 @@ const runeStone = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((
   shape(c, glyph);
 });
 
+/** A potion: a round flask in the colour of its draught (the vial's shape, a wider belly). */
+const potion = (fill: number) => icon((c) => vial(c, hex('#' + fill.toString(16).padStart(6, '0'))));
+
 export const MAGIC_TEXTURES: PainterSet = {
+  item_potion_haste: potion(0xffe060),
+  item_potion_stoneskin: potion(0x9a9a9a),
+  item_potion_mending: potion(0xe8507a),
+  item_potion_clarity: potion(0xbff2f0),
   item_focus_mod_reach: runeStone(P.rgb(0xaee8ff), (c, g) => { c.rect(5, 7, 6, 1, g); c.set(10, 6, g); c.set(10, 8, g); c.set(9, 5, g); c.set(9, 9, g); }),
   item_focus_mod_power: runeStone(P.rgb(0xffa040), (c, g) => { c.rect(7, 5, 2, 6, g); c.rect(5, 7, 6, 2, g); }),
   item_focus_mod_cost: runeStone(P.rgb(0xa0f0a0), (c, g) => { c.rect(6, 5, 4, 1, g); c.rect(6, 5, 1, 3, g); c.rect(6, 7, 4, 1, g); c.rect(9, 7, 1, 3, g); c.rect(6, 10, 4, 1, g); }),

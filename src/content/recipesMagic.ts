@@ -93,6 +93,11 @@ export const ALCHEMY: AlchemyRecipe[] = [
   alchemy('alch_glass', '2 glass', 'sand', { clarity: 2, cinder: 2 }),
   alchemy('alch_coal', '1 coal', 'charcoal', { cinder: 4, loam: 2 }),
   alchemy('alch_clay', '2 clay', 'dirt', { brook: 3, loam: 2 }),
+  // Potions: the catalyst turns into a draught. Drink with Use (src/magic/potions.ts).
+  alchemy('brew_haste', 'potion_haste', 'sugar', { gale: 3, drive: 2 }),
+  alchemy('brew_stoneskin', 'potion_stoneskin', 'leather', { loam: 3, ward: 2 }),
+  alchemy('brew_mending', 'potion_mending', 'wheat', { brook: 2, glow: 2, spring: 2 }),
+  alchemy('brew_clarity', 'potion_clarity', 'fiber', { clarity: 3, mind: 2 }),
 ];
 export const alchemyFor = (catalyst: string): AlchemyRecipe[] => ALCHEMY.filter((r) => r.catalyst === catalyst);
 

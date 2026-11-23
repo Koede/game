@@ -34,6 +34,7 @@ import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
 import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
+import { potionFactors, potionSpec } from './potions';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
@@ -243,6 +244,8 @@ export interface MagicSnapshot {
   aura?: Record<string, number>;
   /** Focus item -> [reach, power, cost] levels. */
   focusMods?: Record<string, number[]>;
+  /** Potion item -> seconds left. */
+  potions?: Record<string, number>;
   plugged?: Record<string, string>;
 }
 
@@ -268,6 +271,8 @@ export class Magic {
   private readonly mirrors = new Map<string, string>();
   private readonly mirrorSends = new Set<string>();
   private pendingMirror: string | null = null;
+  /** Draughts running: potion item -> seconds left. */
+  private readonly potions = new Map<string, number>();
   /** Upgrade levels per focus item. */
   private readonly focusLevels = new Map<string, FocusLevels>();
   private wardScale = WARD_SCALE;
@@ -309,6 +314,7 @@ export class Magic {
     this.player.damageScale = 1;
     this.player.buffs.magicSpeed = 1;
     this.player.buffs.magicFoodDrain = 1;
+    this.player.buffs.magicRegen = 1;
   }
 
   private blockChanged(x: number, y: number, z: number): void {
@@ -383,6 +389,13 @@ export class Magic {
       this.wardS = Math.max(0, this.wardS - dt);
       if (this.wardS === 0) this.toast('The ward fades');
     }
+    for (const [k, s] of this.potions) {
+      if (s - dt > 0) this.potions.set(k, s - dt);
+      else {
+        this.potions.delete(k);
+        this.toast(`${itemOrNull(k)?.name ?? 'The draught'} wears off`);
+      }
+    }
     this.applyBody();
     const cap = this.bestRod()?.capacity ?? 0;
     for (const p of Object.keys(this.vis) as Primal[]) if (this.vis[p] > cap) this.vis[p] = cap;
@@ -398,11 +411,39 @@ export class Magic {
     }
   }
 
+  /** Drinks a magic potion from the hand: its draught runs (a second one refreshes it); Clarity lifts warp at once. */
+  private drink(key: string): MagicOutcome {
+    const p = potionSpec(key);
+    if (!p) return 'refused';
+    if (p.effect === 'warp' && this.warp <= 0) {
+      this.advise('Your mind is already clear');
+      return 'refused';
+    }
+    this.player.consumeHeld(1);
+    this.player.give(EMPTY_VIAL, 1);
+    if (p.effect === 'warp') {
+      this.warp = Math.max(0, this.warp - p.factor);
+      this.toast('Your thoughts settle and the edge of the world stops whispering', key, 'good');
+    } else {
+      this.potions.set(key, p.seconds);
+      this.toast(`${p.name}: ${p.text}`, key, 'good');
+    }
+    this.bus.emit('sfx', { name: 'pour', pitch: 1.2 });
+    return 'worked';
+  }
+
+  /** Seconds left of each magic draught running. */
+  activePotions(): { item: string; name: string; left: number }[] {
+    return [...this.potions].map(([item, left]) => ({ item, name: itemOrNull(item)?.name ?? item, left: Math.ceil(left) }));
+  }
+
   /** What magic does to the body each tick: the ward focus and carried charms scale damage, speed and food drain. */
   private applyBody(): void {
     const f = charmFactors((k) => this.player.inventory.has(k));
-    this.player.damageScale = (this.wardS > 0 ? this.wardScale : 1) * f.damage;
-    this.player.buffs.magicSpeed = f.speed;
+    const pf = potionFactors(Object.fromEntries(this.potions));
+    this.player.damageScale = (this.wardS > 0 ? this.wardScale : 1) * f.damage * pf.damage;
+    this.player.buffs.magicSpeed = f.speed * pf.speed;
+    this.player.buffs.magicRegen = pf.regen;
     this.player.buffs.magicFoodDrain = f.food;
   }
 
@@ -419,6 +460,8 @@ export class Magic {
     }
     const key = target?.block.key;
     if (held === SANITY_SOAP) return this.useSoap();
+    const potion = potionSpec(held);
+    if (potion) return this.drink(potion.key);
     const rod = this.heldRod();
     if (rod) {
       if (target && key === 'infusion_altar') return this.startInfusion(target);
@@ -1947,6 +1990,7 @@ export class Magic {
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
       aura: Object.fromEntries(this.auraShift),
+      potions: Object.fromEntries([...this.potions].map(([k, v]) => [k, Math.round(v)])),
       focusMods: Object.fromEntries([...this.focusLevels].map(([k, v]) => [k, [v.reach, v.power, v.cost]])),
       mirrors: [...this.mirrorSends].filter((a) => this.mirrors.has(a)).map((a) => [...parse3(a), ...parse3(this.mirrors.get(a) as string)]),
       carries: [...this.servants].filter(([, v]) => v.carry).map(([k, v]) => [...parse3(k), v.carry!.item, v.carry!.count] as [number, number, number, string, number]),
@@ -2002,6 +2046,8 @@ export class Magic {
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
     }
+    this.potions.clear();
+    if (s.potions && typeof s.potions === 'object') for (const [k, v] of Object.entries(s.potions)) if (potionSpec(k) && num(v) && v > 0) this.potions.set(k, Math.min(600, v));
     this.focusLevels.clear();
     if (s.focusMods && typeof s.focusMods === 'object')
       for (const [k, v] of Object.entries(s.focusMods)) if (FOCI.some((f) => f.key === k) && Array.isArray(v) && v.length === 3 && v.every((n) => num(n)))

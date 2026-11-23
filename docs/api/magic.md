@@ -110,6 +110,10 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - Runes `focus_mod_reach` / `focus_mod_power` / `focus_mod_cost` (Rune Desk, research 'focus_kindle'). Use one at an Arcane Workbench or Rune Desk: it raises that kind on the first carried focus still below `MOD_MAX` (3), saved per focus item as `focusMods` (`Magic.levelsOf`).
 - Reach: Kindling and Light cast on the solid block along the view up to `rayReach` (5 + 4 per level) blocks (`rayTarget`); Blinking +2 blocks a level. Power: Kindling adds 30 s of fire a level; Warding is `0.07` stronger (never past 0.3) and 10 s longer a level. Thrift: every primal of the cost x(1 - level/7), at least 1, after the wand cap's discount.
 
+## Potions (src/magic/potions.ts)
+- Four draughts: `potion_haste` (speed x1.25, 120 s), `potion_stoneskin` (damage x0.7, 120 s), `potion_mending` (regen x1.6, 180 s), `potion_clarity` (warp -2 at once). Brewed at the crucible: ALCHEMY rows `brew_*` (catalyst sugar / leather / wheat / fiber with the essentia present, research 'warm_hearth'); the solver counts those rows (`progression.ts`).
+- Use drinks one (returns a vial); timers are `Magic.potions` (saved, `activePotions()`), a repeat draught refreshes; `applyBody` folds them with the charms into `damageScale`, `Buffs.magicSpeed` and new `Buffs.magicRegen`.
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

@@ -104,7 +104,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'warm_hearth', title: 'Cinder for the Hearth', age: 'ember', requires: ['crucible'], board: pair('cinder', 'craft', [cellAt(1, 2), cellAt(3, 2)]),
-    unlocks: { flags: ['hearth_cinder'] },
+    unlocks: { recipes: ['brew_haste', 'brew_stoneskin', 'brew_mending', 'brew_clarity'], flags: ['hearth_cinder'] },
     text: 'A vial of Cinder tipped into a furnace fire makes the fuel last longer. Link Cinder to Craft around the stones.',
   },
   {

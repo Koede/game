@@ -16,6 +16,7 @@ export const MAGIC_SPEC = {
     'focus_kindle', 'focus_light', 'focus_ward', 'focus_blink', 'vein_lens',
     ...ASPECT_NAMES.map((a) => `vial_${a}`),
     'charm_ward', 'charm_speed', 'charm_hunger', 'focus_mod_reach', 'focus_mod_power', 'focus_mod_cost',
+    'potion_haste', 'potion_stoneskin', 'potion_mending', 'potion_clarity',
     ...['reed', 'bronze', 'iron'].flatMap((c) => ['copper', 'tin', 'bronze'].map((p) => `wand_${c}_${p}`)),
   ],
   recipes: {
@@ -38,7 +39,7 @@ export const MAGIC_SPEC = {
     ],
   } as Record<string, string[]>,
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */
-  textures: 82,
+  textures: 86,
 };
 
 export const MAGIC_RECIPE_COUNT = Object.values(MAGIC_SPEC.recipes).reduce((n, l) => n + l.length, 0);

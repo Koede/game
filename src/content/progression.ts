@@ -31,7 +31,7 @@ import { ANIMAL_YIELDS } from './animalYields';
 import { areaNaturalBlocks } from './area';
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
-import { ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
+import { ALCHEMY, ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
 import {
   AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS,
   FURNACE_BUFF_C,
@@ -319,6 +319,8 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     if (items.has('vis_rod') && items.has('rune_desk')) {
       for (const r of ARCANE_RECIPES) if (r.inputs.every((i) => items.has(i.item)) && gain(r.output.item, `arcane:${r.id}`)) changed = true;
     }
+    // The crucible turns a catalyst into its output once the pot holds the essentia (the metal rows are not counted: ore has its own route).
+    if (items.has('crucible')) for (const r of ALCHEMY) if (r.id.startsWith('brew_') && items.has(r.catalyst) && gain(r.output.item, `alchemy:${r.id}`)) changed = true;
     if (items.has('vis_rod') && items.has('infusion_altar') && items.has('arcane_pedestal')) {
       for (const r of INFUSIONS) if (items.has(r.center) && r.around.every((i) => items.has(i)) && gain(r.output.item, `infusion:${r.id}`)) changed = true;
     }

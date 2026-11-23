@@ -173,6 +173,7 @@ export class Buffs {
   /** Set every tick by src/magic (charms, potions): factors on speed and on food drain. Not saved. */
   magicSpeed = 1;
   magicFoodDrain = 1;
+  magicRegen = 1;
 
   /** Factor on walk, sprint and swim speed (Swift). */
   get speedMult(): number {
@@ -191,7 +192,7 @@ export class Buffs {
 
   /** Factor on how fast health regenerates (Mending). */
   get regenMult(): number {
-    return this.has('mending') ? MENDING_REGEN_MULT : 1;
+    return (this.has('mending') ? MENDING_REGEN_MULT : 1) * this.magicRegen;
   }
 
   /** Factor on food drain (Lasting). */
