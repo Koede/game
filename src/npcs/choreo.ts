@@ -85,3 +85,17 @@ export function dancePose(id: string, danceS: number): Pose {
 }
 
 export const STILL: Pose = still;
+
+/**
+ * Which pose frame of the dancer's atlas to show (0 standing, 1-4 poses; assets/npcs/faces/poses.py), stepping on the beat with each move's
+ * own pattern. Like dancePose it is a pure function of the time since the music started and repeats every LOOP_S.
+ */
+const FRAME_PATTERN: readonly (readonly number[])[] = [
+  [1, 2], [1, 1, 2, 2], [3, 4], [1, 2], [0, 1, 0, 2], [3, 4], [1, 0], [0, 3, 0, 4], [3, 4], [1, 2], [3, 0, 4, 0], [1, 1, 2, 2], [3, 4, 3, 4], [1, 2], [1, 2, 1, 0],
+];
+
+export function danceFrame(id: string, danceS: number): number {
+  const beat = (((danceS / BEAT_S) % LOOP_BEATS) + LOOP_BEATS) % LOOP_BEATS;
+  const pattern = FRAME_PATTERN[danceMoveIndex(id, danceS)];
+  return pattern[Math.floor(beat) % pattern.length];
+}

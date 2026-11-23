@@ -5,8 +5,8 @@
  */
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
-import { dancePose, STILL, type Pose } from '../../npcs/choreo';
-import { npcArt, onNpcArt } from './art';
+import { danceFrame, dancePose, STILL, type Pose } from '../../npcs/choreo';
+import { DANCE_FRAMES, npcArt, npcDanceBodyFrac, onNpcArt } from './art';
 import { designSize, paintNpc } from './sprites';
 
 /** The parts of the Renderer it draws into. */
@@ -26,7 +26,15 @@ interface Body {
   base: Float32Array;
   w: number;
   h: number;
+  tex: THREE.Texture;
+  /** The dance atlas (assets/npcs/<id>_dance.png): frame 0 standing, then the poses; null when this person has none. */
+  dance: { tex: THREE.Texture; w: number; h: number } | null | undefined;
+  /** After-images that trail a dancer (a beat behind, tinted and see-through), made on first dance. */
+  ghosts?: { mesh: THREE.Mesh; tex: THREE.Texture }[];
 }
+
+/** How far behind the dancer each after-image is (seconds), and how strongly it shows. */
+const GHOSTS: readonly { lag: number; alpha: number }[] = [{ lag: 0.12, alpha: 0.45 }, { lag: 0.26, alpha: 0.22 }];
 
 export class NpcRenderer {
   private readonly sprites = new Map<string, THREE.Sprite>();
@@ -59,6 +67,12 @@ export class NpcRenderer {
     this.host.scene.remove(b.mesh);
     b.mesh.geometry.dispose();
     (b.mesh.material as THREE.Material).dispose();
+    b.dance?.tex.dispose();
+    for (const g of b.ghosts ?? []) {
+      this.host.scene.remove(g.mesh);
+      (g.mesh.material as THREE.Material).dispose();
+      g.tex.dispose();
+    }
   }
 
   /** Call every frame with the views, a 0..1 brightness (the sky) and where the camera is (people turn to face it). */
@@ -114,17 +128,87 @@ export class NpcRenderer {
     m.rotation.y = eye ? Math.atan2(eye.x - v.x, eye.z - v.z) : 0;
     // Sideways moves go along the screen's right-hand axis, which is the plane's local x.
     m.translateX(pose.side);
+    // Dancers with pose art step through its frames on the beat; everyone else (and Gruk) keeps the standing picture.
+    const mat = m.material as THREE.MeshBasicMaterial;
+    const dance = v.dancing ? this.danceArt(b, v) : null;
+    let w = b.w;
+    let h = b.h;
+    if (dance) {
+      dance.tex.offset.x = danceFrame(v.id, v.danceS) / DANCE_FRAMES;
+      if (mat.map !== dance.tex) {
+        mat.map = dance.tex;
+        mat.needsUpdate = true;
+      }
+      w = dance.w;
+      h = dance.h;
+    } else if (mat.map !== b.tex) {
+      mat.map = b.tex;
+      mat.needsUpdate = true;
+    }
     const squash = Math.max(0.5, pose.squash);
     const sx = Math.abs(pose.turn) < 0.06 ? 0.06 * Math.sign(pose.turn || 1) : pose.turn;
-    m.scale.set((b.w * sx) / Math.sqrt(squash), b.h * squash, 1);
+    m.scale.set((w * sx) / Math.sqrt(squash), h * squash, 1);
     const pos = m.geometry.getAttribute('position') as THREE.BufferAttribute;
-    const aspect = b.h / b.w;
+    const aspect = h / w;
     for (let i = 0; i < pos.count; i++) {
       const t = b.base[i * 3 + 1]; // 0 at the feet .. 1 at the top
       pos.setX(i, b.base[i * 3] + (pose.lean * t + pose.curve * Math.sin(t * Math.PI)) * aspect);
     }
     pos.needsUpdate = true;
-    (m.material as THREE.MeshBasicMaterial).color.setRGB(k, k, k);
+    mat.color.setRGB(k, k, k);
+    this.trail(b, v, dance, h, eye, k);
+  }
+
+  /** The after-image trail behind a dancer with pose art: earlier poses, purple-tinted and fading, a hair behind the body. */
+  private trail(b: Body, v: NpcView, dance: { tex: THREE.Texture; w: number; h: number } | null, h: number, eye: { x: number; z: number } | undefined, k: number): void {
+    if (!dance) {
+      for (const g of b.ghosts ?? []) g.mesh.visible = false;
+      return;
+    }
+    if (!b.ghosts) {
+      b.ghosts = GHOSTS.map((spec) => {
+        const tex = dance.tex.clone();
+        tex.needsUpdate = true;
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: spec.alpha, alphaTest: 0.05, depthWrite: false, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(b.mesh.geometry, mat);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = -1;
+        this.host.scene.add(mesh);
+        return { mesh, tex };
+      });
+    }
+    b.ghosts.forEach((g, i) => {
+      const t = v.danceS - GHOSTS[i].lag;
+      const p = dancePose(v.id, t);
+      g.tex.offset.x = danceFrame(v.id, t) / DANCE_FRAMES;
+      const m = g.mesh;
+      m.visible = true;
+      m.position.set(v.x, v.y + p.hop, v.z);
+      m.rotation.y = eye ? Math.atan2(eye.x - v.x, eye.z - v.z) : 0;
+      m.translateX(p.side);
+      m.translateZ(-0.03 * (i + 1));
+      const squash = Math.max(0.5, p.squash);
+      const sx = Math.abs(p.turn) < 0.06 ? 0.06 * Math.sign(p.turn || 1) : p.turn;
+      m.scale.set((dance.w * sx) / Math.sqrt(squash), h * squash, 1);
+      (m.material as THREE.MeshBasicMaterial).color.setRGB(0.55 * k, 0.4 * k, 0.9 * k);
+    });
+  }
+
+  /** The dance atlas texture for a person, made on first use (a sub-rectangle of it is one frame). */
+  private danceArt(b: Body, v: NpcView): { tex: THREE.Texture; w: number; h: number } | null {
+    if (b.dance !== undefined) return b.dance;
+    const atlas = npcArt(`${v.id}_dance`);
+    if (!atlas) return (b.dance = null);
+    const tex = new THREE.CanvasTexture(atlas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.repeat.set(1 / DANCE_FRAMES, 1);
+    // The standing body in the cell matches the standing picture's height; the cell is taller by the headroom raised arms need.
+    const cellW = atlas.width / DANCE_FRAMES;
+    const h = b.h / npcDanceBodyFrac(v.id);
+    return (b.dance = { tex, w: (cellW / atlas.height) * h, h });
   }
 
   private makeBody(v: NpcView): Body {
@@ -148,7 +232,7 @@ export class NpcRenderer {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.scale.set(w, h, 1);
     mesh.frustumCulled = false;
-    return { mesh, base: new Float32Array((geo.getAttribute('position') as THREE.BufferAttribute).array), w, h };
+    return { mesh, base: new Float32Array((geo.getAttribute('position') as THREE.BufferAttribute).array), w, h, tex, dance: undefined };
   }
 
   /** Drop-in art for a person, if there is one. */

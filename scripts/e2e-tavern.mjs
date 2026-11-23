@@ -129,6 +129,15 @@ async function runDevice(device) {
         await d.settle(4300);
         await d.shot(`4-dance-${i}`);
       }
+      const ds = (await npcs()).views.filter((x) => x.dancing);
+      const c = { x: ds.reduce((t, x) => t + x.x, 0) / ds.length, y: ds[0].y, z: ds.reduce((t, x) => t + x.z, 0) / ds.length };
+      await d.hw((p) => window.__hw.teleport(p.x - 0.5, p.y, p.z - 3.2), c);
+      await d.settle(200);
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1, p.z + 1.5), c);
+      for (const i of [1, 2]) {
+        await d.settle(1100);
+        await d.shot(`4-dance-wide-${i}`);
+      }
     });
   } finally {
     await session.close();

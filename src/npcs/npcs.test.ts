@@ -9,7 +9,7 @@ import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
 } from './index';
-import { dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
+import { danceFrame, dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
 import { FACES, faceOf } from './mood';
 import { ARTIFICER } from './scripts/artificer';
@@ -131,6 +131,18 @@ describe('the dance', () => {
         expect(Math.abs(a.side)).toBeLessThan(0.6);
       }
     }
+  });
+
+  it('steps through pose frames on the beat, looping with the dance', () => {
+    const seen = new Set<number>();
+    for (let t = 0; t < LOOP_S; t += BEAT_S) {
+      const f = danceFrame('rosa', t);
+      expect(f).toBeGreaterThanOrEqual(0);
+      expect(f).toBeLessThan(5);
+      expect(danceFrame('rosa', t + LOOP_S)).toBe(f);
+      seen.add(f);
+    }
+    expect(seen.size).toBe(5);
   });
 
   it('runs through fifteen different moves, and the dancers are never all doing the same one', () => {

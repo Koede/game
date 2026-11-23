@@ -97,6 +97,13 @@ export const npcArt = (key: string): HTMLCanvasElement | undefined => store.get(
 
 /** Cells in a `<id>_faces` sheet, left to right: neutral, happy, laughing, surprised, annoyed, sly (src/npcs/mood.ts picks one per line). */
 export const FACE_CELLS = 6;
+
+/** Cells in a `<id>_dance` atlas (assets/npcs/faces/poses.py): 0 standing, 1-4 the dancer's poses. Transparent already, so never cut out. */
+export const DANCE_FRAMES = 5;
+
+/** Per dance atlas: the standing body's height as a fraction of the cell (raised arms can reach above the head). */
+const danceFrac = new Map<string, number>();
+export const npcDanceBodyFrac = (id: string): number => danceFrac.get(id) ?? 1;
 export const onNpcArt = (fn: () => void): (() => void) => {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -118,7 +125,15 @@ export async function loadNpcArt(manifest: Readonly<Record<string, string>>, sca
         const ctx = c.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         ctx.drawImage(img, 0, 0);
-        if (key.endsWith('_portrait') || key.endsWith('_faces')) {
+        if (key.endsWith('_dance')) {
+          // frame 0 is the standing figure: its first opaque row tells how much headroom the cell has above the head
+          const cw = Math.floor(c.width / DANCE_FRAMES);
+          const a = ctx.getImageData(0, 0, cw, c.height).data;
+          let top = 0;
+          scan: for (let y = 0; y < c.height; y++) for (let x = 0; x < cw; x++) if (a[(y * cw + x) * 4 + 3] > 8) { top = y; break scan; }
+          danceFrac.set(key.slice(0, -'_dance'.length), (c.height - top) / c.height);
+        }
+        if (key.endsWith('_portrait') || key.endsWith('_faces') || key.endsWith('_dance')) {
           store.set(key, c);
           n++;
           return;
