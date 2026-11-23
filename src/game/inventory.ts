@@ -46,7 +46,7 @@ export const maxDurabilityOf = (item: string, quality?: 1 | 2): number | undefin
 
 export const makeStack = (item: string, count: number, durability?: number, quality?: 1 | 2): ItemStack => {
   const s: ItemStack = durability === undefined ? { item, count } : { item, count, durability };
-  if (quality && durability !== undefined) s.quality = quality;
+  if (quality) s.quality = quality;
   return s;
 };
 
@@ -54,7 +54,7 @@ export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item,
 
 /** True when items from `b` may be added onto stack `a`. */
 export const canMerge = (a: ItemStack, b: ItemStack): boolean =>
-  a.item === b.item && a.durability === undefined && b.durability === undefined && stackLimit(a.item) > 1;
+  a.item === b.item && a.durability === undefined && b.durability === undefined && a.quality === b.quality && stackLimit(a.item) > 1;
 
 /** A slot as it may be stored: unknown items and broken data become empty, counts and durability are clamped. */
 function sanitize(raw: Slot | undefined): Slot {
@@ -64,8 +64,9 @@ function sanitize(raw: Slot | undefined): Slot {
   const count = Math.min(Math.floor(raw.count), stackLimit(item));
   if (!(count > 0)) return null;
   const full = fullDurability(item);
-  if (full === undefined) return { item, count };
-  const quality = (raw.quality === 1 || raw.quality === 2) && itemOrNull(item)?.tool ? raw.quality : undefined;
+  const def = itemOrNull(item);
+  const quality = (raw.quality === 1 || raw.quality === 2) && (def?.tool || def?.food) ? raw.quality : undefined;
+  if (full === undefined) return quality ? { item, count, quality } : { item, count };
   const max = maxDurabilityOf(item, quality) ?? full;
   const durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), max) : max;
   return quality ? { item, count, durability, quality } : { item, count, durability };
@@ -128,7 +129,8 @@ export class Inventory {
     const slots = this.slots;
     const limit = stackLimit(item);
     const full = fullDurability(item);
-    const q = itemOrNull(item)?.tool ? quality : undefined;
+    const qdef = itemOrNull(item);
+    const q = qdef?.tool || qdef?.food ? quality : undefined;
     const top = full === undefined ? undefined : maxDurabilityOf(item, q)!;
     const dur = top === undefined ? undefined : Math.min(Math.max(durability ?? top, 1), top);
     const from = Math.max(0, start);
@@ -137,7 +139,7 @@ export class Inventory {
     if (dur === undefined && limit > 1) {
       for (let i = from; i < to && left > 0; i++) {
         const s = slots[i];
-        if (!s || s.item !== item || s.durability !== undefined || s.count >= limit || !this.accepts(item, i)) continue;
+        if (!s || s.item !== item || s.durability !== undefined || s.quality !== q || s.count >= limit || !this.accepts(item, i)) continue;
         const n = Math.min(limit - s.count, left);
         s.count += n;
         left -= n;
