@@ -244,5 +244,14 @@
   "logic_gate": 242,
   "research_table": 243,
   "crucible": 244,
-  "arcane_workbench": 245
+  "arcane_workbench": 245,
+  "red_stained_plank": 246,
+  "yellow_stained_plank": 247,
+  "blue_stained_plank": 248,
+  "green_stained_plank": 249,
+  "black_stained_plank": 250,
+  "white_stained_plank": 251,
+  "dining_table": 252,
+  "plank_bench": 253,
+  "bookshelf": 254
 }
