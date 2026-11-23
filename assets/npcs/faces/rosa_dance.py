@@ -82,14 +82,14 @@ def forearm(canvas, x0, y0, x1, y1, width=3.0, hand=True):
 import math
 
 
-def limb(canvas, x0, y0, x1, y1, width=3.0):
+def limb(canvas, x0, y0, x1, y1, width=3.9):
     forearm(canvas, x0, y0, x1, y1, width, hand=False)
 
 
 PUFF = dict(L=(148, 104, 92), z=(206, 180, 160), s=(232, 214, 190), S=(246, 236, 222))
 
 
-def puff(canvas, sx, sy, ex, ey, length=7.0, r=3.4):
+def puff(canvas, sx, sy, ex, ey, length=3.0, r=3.8):
     """Her puffed sleeve, drawn: a rounded capsule from the shoulder along the upper arm, outlined, lit from the upper left."""
     d = math.hypot(ex - sx, ey - sy)
     ux, uy = (ex - sx) / d, (ey - sy) / d
@@ -125,12 +125,12 @@ SHOULDER_L, SHOULDER_R = (28, 31), (47, 29)
 POSES = {
     'rest':  None,
     'chest': dict(L=((24, 43), (34, 38)), R=((51, 43), (43, 37)), mug=(36, 27)),
-    'cheek': dict(L=((19, 37), (30, 26)), R=((57, 35), (65, 31)), mug=(62, 21)),
+    'cheek': dict(L=((21, 41), (33, 29)), R=((57, 35), (65, 31)), mug=(62, 21)),
     'hips':  dict(L=((18, 41), (28, 47)), R=((58, 41), (49, 47)), mug=(48, 45)),
     'up':    dict(L=((21, 21), (24, 8)), R=((51, 43), (43, 37)), mug=(36, 27)),
 }
 SLEEVE_ATTACH_L, SLEEVE_ATTACH_R = (6, 1), (4, 3)
-SLEEVE_LEN = 9
+SLEEVE_LEN = 6
 
 # 30 frames at 15 fps: pose, bounce (px down), sway (px right), legs ('stand', 'kick' right foot back up, 'knee' right knee up)
 FRAMES = (
@@ -169,8 +169,9 @@ def frame(body, sleeve_l, sleeve_r, mug, spec):
         # upper arm skin shows from the end of the sleeve to the elbow
         ux, uy = sx + (ex - sx) * SLEEVE_LEN / d, sy + (ey - sy) * SLEEVE_LEN / d
         limb(c, ux, uy, ex, ey)
-        forearm(c, ex, ey, hx, hy, 3.0)
         puff(c, sx, sy, ex, ey)
+        # the forearm goes on top, so a hand brought back to the face or chest crosses in front of the sleeve
+        forearm(c, ex, ey, hx, hy, 3.9)
     mx, my = P['mug']
     paste(c, mug, mx + sway, my + bob)
     return c
