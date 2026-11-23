@@ -10,6 +10,12 @@ import { STRUCTURE_DEFS } from './structureDefs';
 import { drawStructure, squareStructure, structureCrateCells, structureGuardPlan, type StructureSite } from './structures';
 import { DUNES, FROSTFELL, MARSH, SCAR, WOODLAND } from './terrain';
 import { generateChunk } from './worldgen';
+import { World } from './world';
+import { createBus } from '../core/context';
+import { DT } from '../core/constants';
+import { MobManager } from '../mobs/manager';
+import { TestClock, testPlayer } from '../mobs/testKit';
+import type { MobsSnapshot } from '../mobs/types';
 
 const keys = (...k: string[]): number[] => k.map((x) => blockId(x));
 /** What each biome's structures may be made of (plus the dirt and stone the levelling lays). */
@@ -138,5 +144,55 @@ describe('structures in the world', () => {
       expect(structureCrateCells(seed, cx, cz).some((c) => c.x === s.crateX && c.z === s.crateZ && c.key === s.def.key)).toBe(true);
     }
     void chunkKey;
+  });
+});
+
+describe('structures with a real world and mob manager', () => {
+  const find = (want: (d: (typeof STRUCTURE_DEFS)[number]) => boolean): { seed: number; site: StructureSite } => {
+    for (const name of ['hearth', 'ember', 'bronze', 'alpha', 'forge', 'lantern', 'delta', 'omega']) {
+      const seed = seedFromString(name);
+      for (let sz = -8; sz <= 8; sz++) for (let sx = -8; sx <= 8; sx++) {
+        const site = squareStructure(seed, sx, sz);
+        if (site && want(site.def)) return { seed, site };
+      }
+    }
+    throw new Error('no such structure in the sample worlds');
+  };
+
+  it('puts a rolled crate in the world when the chunk loads, once', () => {
+    const { seed, site } = find((d) => d.guards.length === 0);
+    const bus = createBus();
+    const world = new World(seed, bus);
+    world.ensureLoadedAround(site.crateX, site.crateZ, 2);
+    const y = site.floor + 1;
+    expect(world.getVoxel(site.crateX, y, site.crateZ)).not.toBe(0);
+    const crate = world.getEntity(site.crateX, y, site.crateZ);
+    expect(crate?.kind).toBe('crate');
+    expect((crate?.slots ?? []).some((s) => s !== null)).toBe(true);
+  });
+
+  it('creates its guardians once, from its own biome, saved and never respawned', () => {
+    const { seed, site } = find((d) => d.key === 'glassblower_kiln' || d.key === 'frost_cairn' || d.key === 'ember_altar');
+    const bus = createBus();
+    const world = new World(seed, bus);
+    world.ensureLoadedAround(site.x0, site.z0, 3);
+    const clock = new TestClock(0.5, 1);
+    const mobs = new MobManager(world, bus, clock, seed, { naturalSpawning: false, spawn: null });
+    const player = testPlayer(site.x0 + 0.5, site.floor + 1, site.z0 - 30);
+    mobs.tick(DT, player);
+    const guards = mobs.hostiles.all.filter((m) => m.hostile!.ruin.startsWith('s:'));
+    expect(guards.length).toBe(site.def.guards.length);
+    for (const g of guards) {
+      expect(site.def.guards.map((x) => x.species)).toContain(g.spec.key);
+      expect(g.x).toBeGreaterThan(site.x0);
+      expect(g.x).toBeLessThan(site.x0 + site.def.w);
+      expect(g.hostile!.ruin).toBe(`s:${site.x0},${site.z0}`);
+    }
+    const saved = JSON.parse(JSON.stringify(mobs.toJSON())) as MobsSnapshot;
+    const again = new MobManager(world, bus, clock, seed, { naturalSpawning: false, spawn: null });
+    again.load(saved);
+    again.tick(DT, player);
+    again.tick(DT, player);
+    expect(again.hostiles.all.filter((m) => m.hostile!.ruin.startsWith('s:')).length).toBe(guards.length);
   });
 });
