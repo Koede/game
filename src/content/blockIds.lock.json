@@ -249,5 +249,14 @@
   "plank_stairs": 247,
   "stone_brick_stairs": 248,
   "plank_roof": 249,
-  "stone_brick_roof": 250
+  "stone_brick_roof": 250,
+  "red_stained_plank": 251,
+  "yellow_stained_plank": 252,
+  "blue_stained_plank": 253,
+  "green_stained_plank": 254,
+  "black_stained_plank": 255,
+  "white_stained_plank": 256,
+  "dining_table": 257,
+  "plank_bench": 258,
+  "bookshelf": 259
 }

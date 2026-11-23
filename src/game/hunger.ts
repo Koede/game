@@ -19,6 +19,7 @@ import {
 import type { BuffName } from '../core/gameEvents';
 import { itemOrNull } from '../core/registry';
 import type { FoodSpec } from '../core/types';
+import { foodStrength } from './cookingQuality';
 import type { PlayerState } from './playerState';
 
 /**
@@ -93,26 +94,29 @@ export function eat(player: PlayerState, slot = player.selectedSlot): EatResult 
     return { ok: false, reason: why, message: REFUSAL_TEXT[why] };
   }
   const item = stack.item;
+  const strength = foodStrength(stack); // a Tasty or Exquisite dish (src/game/cookingQuality.ts) gives more
+  const hunger = food.hunger * strength.hunger;
+  const buffS = (food.buffS ?? 0) * strength.buff;
   player.inventory.removeAt(slot, 1);
-  player.feed(food.hunger);
+  player.feed(hunger);
   player.eatCooldownS = EAT_COOLDOWN_S;
   const { bus, position: p } = player;
-  bus.emit('player:ate', { item, hunger: food.hunger });
+  bus.emit('player:ate', { item, hunger });
   bus.emit('flag', { flag: 'ate' });
   bus.emit('sfx', { name: 'eat', x: p.x, y: p.y + 1.5, z: p.z });
   let buff: BuffName | null = null;
-  if (food.buff === 'well_fed' && food.buffS && food.buffS > 0) {
+  if (food.buff === 'well_fed' && buffS > 0) {
     buff = 'well_fed';
-    player.buffs.wellFedS = Math.max(player.buffs.wellFedS, food.buffS);
-    bus.emit('buff:gained', { buff, durationS: food.buffS });
+    player.buffs.wellFedS = Math.max(player.buffs.wellFedS, buffS);
+    bus.emit('buff:gained', { buff, durationS: buffS });
     bus.emit('toast', { text: 'Well-Fed: you heal twice as fast and get hungry half as quickly', kind: 'good', item });
-  } else if (food.buff === 'sugar_rush' && food.buffS && food.buffS > 0) {
+  } else if (food.buff === 'sugar_rush' && buffS > 0) {
     buff = 'sugar_rush';
-    player.buffs.sugarS = Math.max(player.buffs.sugarS, food.buffS);
-    bus.emit('buff:gained', { buff, durationS: food.buffS });
+    player.buffs.sugarS = Math.max(player.buffs.sugarS, buffS);
+    bus.emit('buff:gained', { buff, durationS: buffS });
     bus.emit('toast', { text: 'Sugar Rush: you move faster, but Well-Fed wears off quicker', kind: 'good', item });
   }
-  return { ok: true, item, hunger: food.hunger, buff };
+  return { ok: true, item, hunger, buff };
 }
 
 /**

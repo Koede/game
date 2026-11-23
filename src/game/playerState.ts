@@ -20,6 +20,8 @@ import { Inventory } from './inventory';
 import { PlayAssist, type AssistSnapshot } from './assist';
 import { favouritesOf, setFavourites } from './inventoryTools';
 import { wear } from './mining';
+import { Caravan, type CaravanSave } from './caravan';
+import { RecipeBook, type RecipeBookSave } from './discovery';
 
 export interface BlockPos {
   x: number;
@@ -75,6 +77,9 @@ export interface PlayerSnapshot {
   killedBy?: string | null;
   /** Items lying in the world (docs/api/ground-items.md). Missing in saves made before ground items: none. */
   ground?: GroundItemSnapshot[];
+  /** Recipe book and caravan (docs/api/discovery.md, caravan.md). Missing in older saves: empty. */
+  book?: RecipeBookSave;
+  caravan?: CaravanSave;
 }
 
 /** Upper bound of the "seconds since the last damage" counter, so it stays a small finite number in saves. */
@@ -156,6 +161,10 @@ export class PlayerState {
   readonly ground: GroundItems;
   /** Pinned recipe, last hand recipe, undo and the like (./assist). */
   readonly assist = new PlayAssist();
+  /** Hidden recipes found by experiment (src/game/discovery.ts). */
+  readonly book = new RecipeBook();
+  /** The trade caravan's prices and visit (src/game/caravan.ts). */
+  readonly caravan = new Caravan();
   /** Handheld collectors (vacuum pump, later the electromagnet). */
   readonly collectors: Collectors;
   private readonly unsubscribe: Array<() => void>;
@@ -437,6 +446,8 @@ export class PlayerState {
       combat: this.combat.toJSON(),
       killedBy: this.killedBy,
       ground: this.ground.toJSON(),
+      book: this.book.toJSON(),
+      caravan: this.caravan.toJSON(),
     };
   }
 
@@ -476,5 +487,7 @@ export class PlayerState {
     this.killedBy = this.dead && typeof s.killedBy === 'string' ? s.killedBy : null;
     this.collectors.stop();
     this.ground.load(s.ground);
+    this.book.load(s.book);
+    this.caravan.load(s.caravan);
   }
 }

@@ -22,6 +22,7 @@ import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
 import type { Achievements } from '../game/achievements';
 import type { Journal } from '../game/journal';
+import { createCaravanScreen } from './screens/caravan/caravanScreen';
 import { createLogScreen } from './screens/log/logScreen';
 import { SlotController } from './screens/slots';
 import { createWinScreen } from './screens/win/winScreen';
@@ -158,6 +159,7 @@ export class GameUI {
     this.registerScreen('inventory', createInventoryScreen);
     this.registerScreen('workbench', createWorkbenchScreen);
     this.registerScreen('log', createLogScreen);
+    this.registerScreen('caravan', createCaravanScreen);
     this.registerScreen('creative', (_request, ctx) => createCreativeScreen(ctx));
     const pause = deps.pause;
     if (pause) {

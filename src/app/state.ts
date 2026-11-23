@@ -317,6 +317,7 @@ export class GameState {
   /** One fixed simulation step (spec section 4: clock, weather, simulation, flowing water, animals, survival, objectives). */
   tick(dt: number = DT): void {
     this.clock.tick(dt);
+    this.player.caravan.setDay(this.clock.day);
     this.weather.update(dt, this.clock.worldTimeS, this.clock.day, this.player.position);
     this.sim.tick(dt);
     // Flowing water (spec 18.2): one step of the world's scheduled water updates per fixed tick.

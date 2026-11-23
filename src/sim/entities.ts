@@ -63,6 +63,8 @@ export interface FurnaceEntity extends BlockEntity {
 /** Every other machine shares one shape; a kind only uses the fields that concern it. */
 export interface MachineEntity extends BlockEntity {
   on: boolean;
+  /** Crates: the storage-network label (docs/api/storage.md). Absent or '' = unlabelled. */
+  label?: string;
   slots: Slot[];
   /** Processors: seconds into the current job. Bore rig: seconds into the current block. */
   progress: number;

@@ -7,6 +7,8 @@ import type { SfxName } from '../core/gameEvents';
 import { itemOrNull, recipesAt } from '../core/registry';
 import type { ItemAmount, RecipeDef } from '../core/types';
 import { bringToHotbar } from './handy';
+import { dishQuality, ingredientQuality } from './cookingQuality';
+import { rollQuality } from './toolQuality';
 import type { Inventory } from './inventory';
 import type { PlayerState } from './playerState';
 
@@ -141,7 +143,13 @@ function describe(list: readonly ItemAmount[]): string {
  * Makes a recipe `times` over. Atomic: either every ingredient is taken (sources in order) and every output is
  * added to the destination, or nothing changes and the result says why.
  */
-export function craft(recipe: CraftRecipe, sources: readonly Inventory[], destination: Inventory, times = 1): CraftResult {
+export function craft(
+  recipe: CraftRecipe,
+  sources: readonly Inventory[],
+  destination: Inventory,
+  times = 1,
+  quality?: 1 | 2,
+): CraftResult {
   const n = Math.floor(times);
   if (!(n >= 1)) return { ok: false, reason: 'Nothing to make', missing: [] };
   const unique = [...new Set(sources)];
@@ -157,7 +165,7 @@ export function craft(recipe: CraftRecipe, sources: readonly Inventory[], destin
   }
   batched([...unique, destination], () => {
     removeAll(need, unique);
-    for (const m of made) destination.add(m.item, m.count);
+    for (const m of made) destination.add(m.item, m.count, undefined, 0, destination.size, quality);
   });
   return { ok: true, made };
 }
@@ -199,6 +207,8 @@ export interface PlayerCraftOptions {
   /** Further ingredient sources after the player's own inventory (crates near the station). */
   crates?: readonly Inventory[];
   times?: number;
+  /** Temperature of the pot or oven the dish is cooked at, when the station has one (cooking quality). */
+  heatC?: number;
   /** Sound to request on success. Default 'craft'; null for none. */
   sfx?: SfxName | null;
 }
@@ -222,7 +232,21 @@ export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: P
   const gated = craftGateFor(recipe.id);
   if (gated) return { ok: false, reason: gated, missing: [] };
   const sources = [player.inventory, ...(options.crates ?? [])];
-  const result = craft(recipe, sources, player.inventory, options.times ?? 1);
+  const times = options.times ?? 1;
+  // A single tool craft may come out fine or masterwork (src/game/toolQuality.ts).
+  let quality: 1 | 2 | undefined;
+  if (times === 1 && itemOrNull(recipe.output.item)?.tool) quality = rollQuality(Math.random()) || undefined;
+  // A dish's quality comes from its ingredients and the heat it was cooked at (src/game/cookingQuality.ts).
+  else if (times === 1 && itemOrNull(recipe.output.item)?.food) {
+    quality =
+      dishQuality({
+        output: recipe.output.item,
+        inputs: recipe.inputs,
+        heatC: options.heatC,
+        ingredientQuality: ingredientQuality(recipe.inputs, sources),
+      }) || undefined;
+  }
+  const result = craft(recipe, sources, player.inventory, times, quality);
   if (!result.ok) return result;
   for (const m of result.made) {
     player.bus.emit('item:made', { item: m.item, count: m.count, station: recipe.station, recipeId: recipe.id });

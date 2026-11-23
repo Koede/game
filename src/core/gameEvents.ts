@@ -23,6 +23,8 @@ export type ScreenRequest =
   | { type: 'machine'; x: number; y: number; z: number }
   | { type: 'crate'; x: number; y: number; z: number }
   | { type: 'log' }
+  /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
+  | { type: 'caravan' }
   | { type: 'pause' }
   /** Dev Mode's item browser (docs/api/dev-mode.md). */
   | { type: 'creative' }

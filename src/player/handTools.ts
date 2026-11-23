@@ -15,6 +15,7 @@ import { USE_REPEAT_S } from './input/core';
 import { blockOfItem, itemOrNull, recipesAt } from '../core/registry';
 import type { BlockDef } from '../core/types';
 import type { PlayerState } from '../game';
+import { repairMaterial, repairTool, wearFraction } from '../game/toolQuality';
 import type { RayHit } from './raycast';
 
 export type HandResult = { ok: true; did: string; done?: boolean } | { ok: false; reason: string };
@@ -110,11 +111,36 @@ export class HandTools {
     const hands = this.hands as HandHands;
     const spec = hit.block.handStation;
     if (held === null && forceReturn) return this.finish(hands.handReturn(hit.x, hit.y, hit.z), hit);
+    if (held !== null && hit.block.key.endsWith('anvil')) {
+      const mended = this.repair(hit);
+      if (mended) return mended;
+    }
     // A held item the station can use (an ingredient, its tool) goes to the sim as is. A block that is not an ingredient
     // is meant to be placed next to the station; anything else is just a bare hand.
     const useful = held !== null && (this.takes(hit.block.key, held) || (spec?.tool !== undefined && itemOrNull(held)?.tool?.kind === spec.tool));
     if (held !== null && !useful && blockOfItem(held) !== null) return null;
     return this.finish(hands.stroke(hit.x, hit.y, hit.z, useful ? held : null), hit);
+  }
+
+  /** A worn tool in hand on an anvil: mend it with its own material (src/game/toolQuality.ts). Null: not a repair. */
+  private repair(hit: RayHit): HandOutcome | null {
+    const p = this.host.player;
+    const stack = p.heldStack();
+    const mat = stack ? repairMaterial(stack.item) : null;
+    if (!stack || !mat || !((wearFraction(stack) ?? 0) > 0)) return null;
+    // With none of its material in the pack the tool just strikes (or is a bare hand) as before.
+    if (p.inventory.count(mat) === 0) return null;
+    const r = repairTool(stack, [p.inventory]);
+    this.host.stopMining();
+    if (!r.ok) {
+      this.host.advise(`repair:${hit.block.key}:${stack.item}`, r.reason);
+      return 'refused';
+    }
+    p.inventory.notifyChanged();
+    p.bus.emit('sfx', { name: 'craft' });
+    p.bus.emit('toast', { text: `Repaired ${itemOrNull(stack.item)?.name ?? stack.item}`, kind: 'info', item: stack.item });
+    this.host.swing();
+    return 'worked';
   }
 
   /** Whether a recipe of the station takes the item as its first input (the sim's own rule for loading it). */

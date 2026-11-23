@@ -427,3 +427,6 @@ SPEC.maxTextures += SYNERGY_ANIMALS_SPEC.textures;
 // The artificer's attuned tools (docs/SYNERGY_PLAN.md section 2) come last.
 SPEC.items.push(...SYNERGY_ARTIFICER_SPEC.items);
 SPEC.maxTextures += SYNERGY_ARTIFICER_SPEC.textures;
+
+// Dyes, stained planks and furniture (content/areas/decor.ts): 6 dye icons + 6 plank tiles + 3 furniture tiles.
+SPEC.maxTextures += 15;
