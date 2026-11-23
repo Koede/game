@@ -17,11 +17,14 @@ import { CHUNK_SIZE, makeVoxel, voxelId, type BlockEntity, type ItemStack, type 
 import { FISHING_ROD } from '../content/fishing';
 import { isFlowingWater } from '../world/water';
 import { squareRuin, spawnRuin } from '../world/ruins';
+import { STRUCTURE_GRID_CHUNKS, squareStructure } from '../world/structures';
 import { makeTreasureMap, treasureClue, treasureHint, type Landmark, type TreasureMap } from '../world/treasure';
 import { biteDelayS, rollCatch, waterKind, type CastContext, type WaterSpot } from '../sim/fishing';
 import { WAYPOINT_FUEL_ITEM, WaypointNetwork, type Waypoint, type WaypointSave } from '../sim/waypoints';
 import type { PlayerState } from './playerState';
 
+/** Structure types that count as landmarks for treasure maps. */
+export const LANDMARK_KEYS: ReadonlySet<string> = new Set(['standing_circle', 'frost_watchtower', 'buried_colossus']);
 export const WAYPOINT_BLOCK = 'waypoint_stone';
 export const MAP_ITEM = 'treasure_map';
 /** Seconds the fish is on the hook before it gets away. */
@@ -161,6 +164,14 @@ export class Exploration {
     const SQ = RUIN_GRID_CHUNKS * CHUNK_SIZE;
     for (let sx = Math.floor(px / SQ) - 3; sx <= Math.floor(px / SQ) + 3; sx++) {
       for (let sz = Math.floor(pz / SQ) - 3; sz <= Math.floor(pz / SQ) + 3; sz++) add(squareRuin(seed, sx, sz));
+    }
+    // The hand-placed landmarks (docs/api/landmarks.md) are the best things to circle on a map.
+    const SS = STRUCTURE_GRID_CHUNKS * CHUNK_SIZE;
+    for (let sx = Math.floor(px / SS) - 3; sx <= Math.floor(px / SS) + 3; sx++) {
+      for (let sz = Math.floor(pz / SS) - 3; sz <= Math.floor(pz / SS) + 3; sz++) {
+        const st = squareStructure(seed, sx, sz);
+        if (st && LANDMARK_KEYS.has(st.def.key)) out.push({ id: st.def.key + ':' + st.x0 + ',' + st.z0, name: 'the ' + st.def.name, x: st.x0 + (st.def.w >> 1), z: st.z0 + (st.def.d >> 1) });
+      }
     }
     return out;
   }
