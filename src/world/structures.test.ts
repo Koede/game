@@ -21,7 +21,7 @@ const keys = (...k: string[]): number[] => k.map((x) => blockId(x));
 /** What each biome's structures may be made of (plus the dirt and stone the levelling lays). */
 const COMMON = keys('dirt', 'stone', 'rubble', 'torch', 'magic_light');
 const PALETTE: Record<number, number[]> = {
-  [WOODLAND]: [...COMMON, ...keys('grass', 'oak_log', 'oak_leaves', 'plank', 'stone_brick', 'brick', 'mossy_stone_brick', 'cracked_stone_brick', 'ember_poppy', 'fern', 'skybell', 'glowcap')],
+  [WOODLAND]: [...COMMON, ...keys('grass', 'oak_log', 'oak_leaves', 'plank', 'stone_brick', 'brick', 'mossy_stone_brick', 'cracked_stone_brick', 'ember_poppy', 'fern', 'skybell', 'glowcap', 'glass', 'workbench', 'collapsed_furnace', 'tall_grass')],
   [DUNES]: [...COMMON, ...keys('sand', 'brick', 'clay', 'limestone', 'glass', 'cactus', 'dry_shrub', 'water', 'rusted_shell', 'asphalt', 'corestone')],
   [FROSTFELL]: [...COMMON, ...keys('snow', 'ice', 'packed_ice', 'ice_spike', 'pine_log', 'plank', 'stone_brick', 'cracked_stone_brick', 'frost_lily', 'collapsed_furnace', 'rusted_shell')],
   [SCAR]: [...COMMON, ...keys('basalt', 'basalt_column', 'steam_vent', 'lava', 'corestone', 'rusted_shell', 'coal_ore')],
@@ -32,15 +32,15 @@ const PALETTE: Record<number, number[]> = {
 function drawn(def: (typeof STRUCTURE_DEFS)[number], biome: number): { voxels: Uint16Array; site: StructureSite } {
   const voxels = new Uint16Array(CHUNK_VOLUME);
   for (let z = 0; z < CHUNK_SIZE; z++) for (let x = 0; x < CHUNK_SIZE; x++) for (let y = 1; y <= 40; y++) voxels[voxelIndex(x, y, z)] = ID.stone;
-  const site: StructureSite = { def, x0: 2, z0: 2, floor: 40, biome, bits: 0x5a5a5a, crateX: 2 + def.crate[0], crateZ: 2 + def.crate[1] };
+  const site: StructureSite = { def, x0: 0, z0: 0, floor: 40, biome, bits: 0x5a5a5a, crateX: def.crate[0], crateZ: def.crate[1] };
   drawStructure(voxels, 0, 0, site);
   return { voxels, site };
 }
 
-describe('the sixteen structure types', () => {
-  it('has sixteen distinct types, each with a crate table, a codex line and loot no more than one age ahead', () => {
-    expect(STRUCTURE_DEFS).toHaveLength(16);
-    expect(new Set(STRUCTURE_DEFS.map((d) => d.key)).size).toBe(16);
+describe('the nineteen structure types', () => {
+  it('has nineteen distinct types, each with a crate table, a codex line and loot no more than one age ahead', () => {
+    expect(STRUCTURE_DEFS).toHaveLength(19);
+    expect(new Set(STRUCTURE_DEFS.map((d) => d.key)).size).toBe(19);
     for (const d of STRUCTURE_DEFS) {
       expect(d.desc.length, d.key).toBeGreaterThan(30);
       const table = STRUCTURE_LOOT[d.key];

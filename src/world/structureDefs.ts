@@ -48,7 +48,7 @@ const B = {
   column: blockId('basalt_column'), vent: blockId('steam_vent'), rusted: blockId('rusted_shell'), corestone: blockId('corestone'),
   coalOre: blockId('coal_ore'), asphalt: blockId('asphalt'), poppy: blockId('ember_poppy'), skybell: blockId('skybell'),
   fern: blockId('fern'), lily: blockId('frost_lily'), shrub: blockId('dry_shrub'), light: blockId('magic_light'),
-  jar: blockId('essentia_jar'), furnace: blockId('collapsed_furnace'), crystal: blockId('crystal_cluster'), berry: blockId('berry_bush'),
+  jar: blockId('essentia_jar'), workbench: blockId('workbench'), tallGrass: blockId('tall_grass'), furnace: blockId('collapsed_furnace'), crystal: blockId('crystal_cluster'), berry: blockId('berry_bush'),
 };
 export { B as STRUCTURE_BLOCKS };
 
@@ -382,7 +382,75 @@ const WAYSTONE: StructureDef = {
   },
 };
 
+// ------------------------------------------------------------------------------------- homes, factories, labs
+
+const OLD_HOME: StructureDef = {
+  key: 'old_home', name: 'Old Home', desc: 'A furnished house, a little decayed: patched walls, a workbench still square, a cold hearth and a crate someone packed before leaving. It would make a fine home again.',
+  biomes: [WOODLAND], w: 9, d: 7, age: 0, crate: [7, 1], guards: [], floor: 'biome',
+  build(c) {
+    c.floor(0, 0, 8, 6, (x, z) => c.mix(x, 0, z, B.plank, B.plank, B.stoneBrick));
+    c.ring(0, 0, 8, 6, 0, 3, (x, y, z) => ((x === 0 || x === 8) && (z === 0 || z === 6) ? B.oakLog : c.mix(x, y, z, B.plank, B.plank, B.stoneBrick, B.mossy)), 70);
+    c.gap(4, 6, 0, 1);
+    for (const [x, z] of [[0, 3], [8, 3], [3, 0], [6, 0]]) c.set(x, 1, z, c.roll(x, 1, z) < 120 ? B.glass : B.air);
+    c.box(0, 3, 0, 8, 3, 6, B.plank);
+    for (const [x, z] of [[2, 2], [5, 3], [7, 5]]) c.set(x, 3, z, B.air);
+    // Hearth with its cold furnace in the back wall, a workbench, a plank table, torches, overgrowth.
+    c.set(4, 0, 0, B.furnace); c.box(3, 0, 0, 3, 1, 0, B.stoneBrick); c.box(5, 0, 0, 5, 1, 0, B.stoneBrick);
+    c.set(1, 0, 1, B.workbench); c.box(1, 0, 4, 2, 0, 4, B.plank); c.set(1, 0, 5, B.plank);
+    c.set(7, 0, 5, B.torch); c.set(1, 0, 2, B.torch);
+    c.set(2, 0, 7, B.fern); c.set(6, 0, 7, B.tallGrass); c.set(7, 0, 3, B.fern); c.set(3, 0, 3, B.tallGrass);
+  },
+};
+
+const OLD_FACTORY: StructureDef = {
+  key: 'old_factory', name: 'Old Factory', desc: 'A dilapidated industrial hall: boiler rigs gone to rust, a tall chimney, shafts and a flywheel lying where the roof fell. Wardens still walk the floor.',
+  biomes: [DUNES, SCAR], w: 15, d: 11, age: 2, crate: [13, 2],
+  guards: [{ species: 'forge_warden', x: 5, z: 6 }, { species: 'forge_warden', x: 10, z: 6 }, { species: 'kiln_sentry', x: 0, z: 0, up: 4, role: 'turret' }, { species: 'cinder_mite', x: 8, z: 8 }],
+  floor: 'biome',
+  build(c) {
+    const ruin = (x: number, y: number, z: number): number => c.mix(x, y, z, B.rusted, B.corestone, B.rusted);
+    c.floor(0, 0, 14, 10, (x, z) => c.mix(x, 0, z, B.corestone, B.rubble, B.corestone));
+    c.ring(0, 0, 14, 10, 0, 4, ruin, 130);
+    c.gap(7, 10, 0, 2); c.gap(0, 5, 0, 2); c.pillar(0, 0, 0, 4, B.rusted);
+    // Boiler rigs: two fat drums on corestone plinths with a hollowed gauge room and a feed pipe; the second one is split open.
+    for (const bx of [3, 8]) {
+      c.box(bx, 0, 2, bx + 2, 0, 4, B.corestone);
+      c.box(bx, 1, 2, bx + 2, 3, 4, B.rusted);
+      c.box(bx + 1, 1, 3, bx + 1, 2, 3, B.air);
+      c.set(bx + 1, 4, 3, B.rusted); c.box(bx, 1, 5, bx, 2, 5, B.rusted);
+    }
+    c.box(8, 3, 2, 10, 3, 4, B.air);
+    // The chimney: a tall rusted stack at the back, a hole in its mouth.
+    c.box(12, 0, 6, 13, 9, 7, B.rusted); c.box(12, 5, 6, 13, 9, 7, B.air); c.ring(12, 6, 13, 7, 5, 5, ruin, 90);
+    // Fallen drive line: shaft sections, a flywheel ring and a stack of crates of scrap lying in the hall.
+    c.box(2, 0, 7, 7, 0, 7, B.rusted); c.set(4, 0, 6, B.rubble); c.ring(9, 0, 11, 2, 0, 1, ruin);
+    c.ring(5, 7, 7, 9, 0, 1, ruin);
+    // The collapsed roof: scattered beams and fallen rubble.
+    c.fill(1, 4, 1, 13, 4, 9, (x, y, z) => (c.roll(x, 4, z) < 50 ? B.rusted : -1));
+    c.fill(1, 0, 1, 13, 0, 9, (x, y, z) => (c.roll(x, 5, z) < 25 ? B.rubble : -1));
+  },
+};
+
+const CHEM_LAB: StructureDef = {
+  key: 'chem_lab', name: 'Chem Lab', desc: 'An abandoned laboratory of brick and glass: benches of cracked panes, residue-stained floors and the glassware of someone who distilled in earnest. Handle with care.',
+  biomes: [DUNES], w: 11, d: 9, age: 1, crate: [9, 1],
+  guards: [{ species: 'cinder_mite', x: 4, z: 4 }, { species: 'cinder_mite', x: 6, z: 5 }, { species: 'forge_warden', x: 5, z: 6 }], floor: 'biome',
+  build(c) {
+    c.floor(0, 0, 10, 8, (x, z) => (c.roll(x, 0, z) < 60 ? B.clay : c.roll(x, 0, z) < 140 ? B.limestone : B.brick));
+    c.ring(0, 0, 10, 8, 0, 3, (x, y, z) => (y === 1 && c.roll(x, y, z) < 110 ? B.glass : c.mix(x, y, z, B.brick, B.limestone, B.brick)), 80);
+    c.gap(5, 8, 0, 1);
+    // Benches along the north wall with glass apparatus on them; a free-standing bench in the middle.
+    c.box(2, 0, 1, 8, 0, 1, B.limestone);
+    for (const x of [2, 4, 6, 8]) if (c.roll(x, 7, 1) < 200) c.set(x, 1, 1, B.glass);
+    c.box(4, 0, 4, 6, 0, 4, B.limestone); c.set(5, 1, 4, B.glass); c.set(4, 1, 4, B.glass);
+    // Broken glass and reagent stains on the floor.
+    c.fill(1, 0, 2, 9, 0, 7, (x, y, z) => (c.roll(x, 8, z) < 20 ? B.glass : c.roll(x, 9, z) < 20 ? B.clay : -1));
+    c.set(1, 0, 6, B.shrub); c.set(9, 0, 6, B.sand);
+  },
+};
+
 export const STRUCTURE_DEFS: readonly StructureDef[] = [
   CHARCOAL_CAMP, HOLLOW_OAK_SHRINE, LUMBER_MILL, GLASSBLOWER_KILN, CARAVAN_WELL, OIL_DERRICK, HUNTERS_LODGE, FROST_CAIRN,
   FROZEN_FOUNDRY, BASALT_FORGE_PIT, EMBER_ALTAR, SLAG_DEPOT, PEAT_STILT_HUT, ALCHEMIST_TOWER, PUMP_HOUSE, WAYSTONE,
+  OLD_HOME, OLD_FACTORY, CHEM_LAB,
 ];
