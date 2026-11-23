@@ -21,6 +21,7 @@ import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
+import { FavourBoard, type Favour } from './favours';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
 import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 
@@ -68,6 +69,8 @@ export interface NpcSnapshot {
   drinks?: { day: number; n: Record<string, number> };
   /** Gossip: the slot last held (`day:slot`) and the exchanges heard, newest last. */
   gossip?: { last: string; said: string[] };
+  /** Favours pinned to the quest board (favours.ts). */
+  favours?: ReturnType<FavourBoard['toJSON']>;
 }
 
 /** What the manager needs from the game. */
@@ -127,6 +130,7 @@ export class NpcManager {
   private readonly greetedAt = new Map<string, number>();
   private readonly lines: LinePicker;
   /** What Rosa sells (rooms, drinks, ...): see services.ts. */
+  private readonly favours = new FavourBoard();
   private gossip: Running | null = null;
   private gossipLast = '';
   private gossipSaid: string[] = [];
@@ -398,12 +402,18 @@ export class NpcManager {
     }
     this.giftDay[npc.id] = day;
     this.host?.takeHeld(1);
-    const before = this.trustOf(npc.id);
-    const after = Math.min(TRUST_MAX, before + GIFT_TRUST);
-    this.trust[npc.id] = after;
     const line = 'Oh, that is just what I wanted. Thank you.';
     this.say(npc, line);
-    this.toast(`${npc.name} likes it (trust ${after}/${TRUST_MAX})`);
+    this.raiseTrust(npc, GIFT_TRUST, (after) => this.toast(`${npc.name} likes it (trust ${after}/${TRUST_MAX})`));
+    return line;
+  }
+
+  /** Adds trust (capped) and pays each tier reward newly reached; `between` runs after the trust is set and before the rewards. */
+  private raiseTrust(npc: NpcDef, n: number, between?: (after: number) => void): number {
+    const before = this.trustOf(npc.id);
+    const after = Math.min(TRUST_MAX, before + n);
+    this.trust[npc.id] = after;
+    between?.(after);
     TIERS.forEach((t, i) => {
       if (before >= t || after < t) return;
       const r = REWARDS[npc.id]?.[i];
@@ -412,7 +422,32 @@ export class NpcManager {
       this.say(npc, r.line);
       this.toast(`${npc.name} gives you ${r.count} ${r.item.replace(/_/g, ' ')}`);
     });
-    return line;
+    return after;
+  }
+
+  /** The favours pinned to the board now. */
+  pinnedFavours(): Favour[] {
+    return this.favours.list();
+  }
+
+  /** Hands in a favour held in the player's stack. Null when the board wants nothing they hold. */
+  private deliverFavour(npc: NpcDef): string | null {
+    const held = this.host?.held();
+    if (!held) return null;
+    const f = this.favours.matching(held.item, held.count);
+    if (!f) {
+      const w = this.favours.wanting(held.item);
+      if (!w) return null;
+      this.toast(`Favour: ${w.ask} You hold ${held.count}, it needs ${w.count}.`);
+      return npc.name;
+    }
+    const who = NPCS.find((n) => n.id === f.who);
+    this.host?.takeHeld(f.count);
+    this.coins += f.coin;
+    this.favours.complete(f.id, this.host?.day() ?? 1);
+    if (who) this.raiseTrust(who, f.trust);
+    this.toast(`Favour done for ${who?.name ?? f.who}${f.coin ? `: +${f.coin} coin` : ''}${f.trust ? `, +${f.trust} trust` : ''}. ${f.thanks}`);
+    return npc.name;
   }
 
   /** The bank's hint for the current goal, once. */
@@ -478,6 +513,8 @@ export class NpcManager {
   }
 
   private useBoard(npc: NpcDef): string {
+    const handed = this.deliverFavour(npc);
+    if (handed !== null) return handed;
     const owed = this.pendingBounties();
     if (owed.length > 0) {
       const total = owed.reduce((s, b) => s + b.coin, 0);
@@ -488,6 +525,8 @@ export class NpcManager {
     } else this.toast(`Quest board: no bounty to redeem. You have ${this.coins} coin.`);
     const open = this.openBounties(3);
     if (open.length > 0) this.toast(`Open bounties: ${open.map((b) => `${b.title} (${b.coin})`).join('; ')}`);
+    const favs = this.favours.list();
+    if (favs.length > 0) this.toast(`Favours pinned (hold the item and use the board): ${favs.map((f) => f.ask).join(' ')}`);
     return npc.name;
   }
 
@@ -596,6 +635,7 @@ export class NpcManager {
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
     this.tickGossip(dt);
+    if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);
@@ -628,7 +668,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] },
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(),
     };
   }
 
@@ -649,6 +689,7 @@ export class NpcManager {
     for (const [src, dst] of [[r.trust, this.trust], [r.giftDay, this.giftDay]] as const) {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
     }
+    this.favours.load(r.favours);
     this.gossip = null;
     this.gossipLast = typeof r.gossip?.last === 'string' ? r.gossip.last : '';
     this.gossipSaid = strings(r.gossip?.said).slice(-6);
