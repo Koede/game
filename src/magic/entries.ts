@@ -10,6 +10,9 @@
 import type { Aspect, Aspects } from './aspects';
 import { corner, hexCell, type BoardSpec } from './board';
 import type { AgeName } from './ageMap';
+import { WAND_CAPS, WAND_CORES, wandKey } from '../content/itemsMagic';
+
+const WAND_RECIPES = WAND_CORES.flatMap((c) => WAND_CAPS.map((p) => wandKey(c.key, p.key)));
 
 export interface ResearchEntry {
   key: string;
@@ -101,7 +104,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'warm_hearth', title: 'Cinder for the Hearth', age: 'ember', requires: ['crucible'], board: pair('cinder', 'craft', [cellAt(1, 2), cellAt(3, 2)]),
-    unlocks: { flags: ['hearth_cinder'] },
+    unlocks: { recipes: ['brew_haste', 'brew_stoneskin', 'brew_mending', 'brew_clarity'], flags: ['hearth_cinder'] },
     text: 'A vial of Cinder tipped into a furnace fire makes the fuel last longer. Link Cinder to Craft around the stones.',
   },
   {
@@ -127,7 +130,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', [wall(1)]),
-    unlocks: { recipes: ['bronze_rod'] },
+    unlocks: { recipes: ['bronze_rod', ...WAND_RECIPES.filter((r) => !r.startsWith('wand_iron')), ] },
     text: 'Bronze holds more and drinks faster. Made at the Rune Desk from the wooden rod. Link Vein to Gale past the wall.',
   },
   {
@@ -137,7 +140,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'essentia_tubes', title: 'Glass Tubes', age: 'bronze', requires: ['essence_jar', 'rune_desk'], board: pair('clarity', 'brook', [wall(3)]),
-    unlocks: { recipes: ['essentia_tube'] },
+    unlocks: { recipes: ['essentia_tube', 'linked_mirror'] },
     text: 'Tubes join jars to the desk, the altar and the furnace: anything that needs essentia draws it through them from any jar on the line.',
   },
   {
@@ -152,7 +155,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'focus_kindle', title: 'Kindling Focus', age: 'bronze', requires: ['bronze_rod'], board: pair('cinder', 'mind', [cellAt(1, 1), cellAt(1, 3), cellAt(3, 1), cellAt(3, 3)]),
-    unlocks: { recipes: ['focus_kindle'] },
+    unlocks: { recipes: ['focus_kindle', 'focus_mod_reach', 'focus_mod_power', 'focus_mod_cost'] },
     text: 'A focus shapes the rod\'s charge. Kindling lights a furnace from a distance and sets fires going.',
   },
   {
@@ -167,18 +170,18 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'attunement', title: 'Attunement', age: 'bronze', requires: ['infusion'], board: triple('rune', 'gale', 'craft'),
-    unlocks: { recipes: ATTUNE_RECIPES.bronze },
+    unlocks: { recipes: [...ATTUNE_RECIPES.bronze, 'charm_ward', 'charm_speed', 'charm_hunger'] },
     text: 'The first lesson in tempering: set a plain bronze tool at the heart of the altar with two vials of Rune or of Gale around it. Rune keeps the edge, Gale sharpens it.',
   },
   // ---- Forge -------------------------------------------------------------------------------------------------------
   {
     key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', [wall(0)]),
-    unlocks: { recipes: ['iron_rod'] },
+    unlocks: { recipes: ['iron_rod', ...WAND_RECIPES.filter((r) => r.startsWith('wand_iron'))] },
     text: 'Iron is patient: the iron rod holds twice the bronze one and draws three units at a time.',
   },
   {
     key: 'focus_ward', title: 'Warding Focus', age: 'forge', requires: ['focus_kindle'], board: pair('ward', 'rune', [wall(2), cellAt(1, 0)]),
-    unlocks: { recipes: ['focus_ward'] },
+    unlocks: { recipes: ['focus_ward', 'focus_cleanse'] },
     text: 'Loam and Rift held in balance: for a short while every blow you take is softened.',
   },
   {
@@ -188,7 +191,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'clay_servant', title: 'The Clay Servant', age: 'forge', requires: ['infusion', 'wellsprings'], board: triple('spring', 'mind', 'craft', [wall(2)]),
-    unlocks: { recipes: ['clay_servant'] },
+    unlocks: { recipes: ['clay_servant', 'wood_golem', 'stone_golem', 'iron_golem', 'golem_pull_marker', 'golem_drop_marker'] },
     text: 'A clay figure given Spring and Mind turns a crank beside it for as long as a jar it touches feeds it.',
   },
   {

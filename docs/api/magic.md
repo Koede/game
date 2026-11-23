@@ -84,6 +84,46 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - Research map: 'crucible' now follows 'glassware'; 'warm_hearth' and 'still_trace' follow 'crucible'.
 - Saves: `vis` (primal map) and `crucibles` replace the old single `charge`, which is dropped on load.
 
+## Wands (cores, caps, plugged foci)
+- `WAND_CORES` (reed 16 / bronze 32 / iron 64, the plain rod each is made from) x `WAND_CAPS` (copper: cinder+loam, tin: brook+gale, bronze: rune+rift) = nine `wand_<core>_<cap>` items (`WANDS`; `ROD_TIERS` = plain rods + wands, `RodTier.favour`). Made at the Rune Desk from the core rod and two ingots (gated with the bronze / iron rod research). The best tier carried sets pool capacity (ties: more draw, then a cap).
+- A cap's favoured primals are drawn `ceil(units * 1.5)` and cost `floor(n * 0.75)` (min 1) in foci (`Magic.focusCost`).
+- Plugging: Use a wand on an Arcane Workbench with a focus carried to plug it in (again to take it back; saved as `plugged`). A wand with a focus plugged casts it on Use when its vis and cooldown allow, else it draws vis as usual.
+
+## Active scanning
+- A held notebook's Use on a thing not yet noted fills a bar: `SCAN_S` (1.2 s of repeated Use; 0.8 s with the lens), emptied after `SCAN_GAP_S` (0.6 s) without Use or on aiming elsewhere. `Magic.scanLabel()` ("Scanning Copper Ore [####....] 50%") replaces the crosshair name (`Game.magicLabel`). A noted thing reads out at once; `NotebookApi.scanItem` (carried items) stays instant. e2e holds Use (`d.holdUse`).
+
+## Golems (src/magic/golems.ts)
+- Bodies: `clay_servant`, plus blocks `wood_golem` (swift: 2 steps / s, range 10, hauls 4), `stone_golem` (steady: a Spring feeds 90 s, hauls 8), `iron_golem` (tireless: range 14, swift, hauls 16); made on the altar with a clay servant at the heart and four pieces (plank / stone brick / iron) round it (research 'clay_servant'). `golemBody(key)` gives range, feed seconds, carry, steps and trait; `servantText` names them.
+- Markers: `golem_pull_marker` and `golem_drop_marker` (Arcane Workbench) set against a `crate`, `item_vault` or `depot`. A body that carries (not the clay servant) with a Drop marker in reach walks to a Pull marker's container that holds something, takes up to its carry, delivers to a Drop container, and repeats while the feed lasts. Out of feed, or its block broken, the load falls to the ground. Loads are saved (`carries`). `ServantWorkshop` gained optional `peek` and `take` (`Workshop.peek` added).
+
+## Linked mirrors
+- Block `linked_mirror` (made two at a time at the Rune Desk, research 'essentia_tubes'). Use one, then another (within `MIRROR_RANGE` 128): they link; Use on a linked mirror breaks it and marks it again; breaking a mirror breaks the link (saved as `mirrors`). `jarsFor(..., link)` treats a mirror like a tube and hops to its partner, so jars, desks and altars touching either end share one essentia line (`Magic.mirrorLink`). The first-used mirror also sends `MIRROR_ITEMS` (4) items a second from the crate / vault / depot it touches into the container the second touches (workshop `peek` / `take` / `offer`). `mirrorText` names the link under the crosshair.
+
+## Charms (src/magic/charms.ts)
+- `charm_ward` (blows x0.85), `charm_speed` (speed x1.1), `charm_hunger` (food drain x0.75): Arcane Workbench recipes (leather, an ingot, a vial; research 'attunement'). Carried anywhere in the pack, one of each kind counts. `Magic.applyBody()` folds them every tick into `player.damageScale` (with the ward focus), and new `Buffs.magicSpeed` / `Buffs.magicFoodDrain` (not saved; multiplied into `speedMult` / `foodDrainMult`).
+
+## Aura (src/magic/aura.ts)
+- A smooth hashed field over chunks (`baseAura`, -1..1, always calm within `CALM_RADIUS` 3 chunks of the centre) plus a saved per-chunk `shift` (`Magic.shiftAura`; taint pushes down, cleansing up). `auraKind`: rich >= 0.4, tainted <= -0.45, else plain; `Magic.auraAt` / `auraKindAt`.
+- Rich: crucible dissolves x1.25 (rounded up), and a carried rod gains 1 vis of the chunk's favoured primal every `RICH_VIS_S` (12 s). Tainted: x0.75 (at least 1), and +1 warp every `TAINT_WARP_S` (60 s) in it. A toast on entering either; the rod reading (research 'aura_reading') ends with "rich / tainted / calm aura".
+
+## Focus modifiers (src/magic/focusMods.ts)
+- Runes `focus_mod_reach` / `focus_mod_power` / `focus_mod_cost` (Rune Desk, research 'focus_kindle'). Use one at an Arcane Workbench or Rune Desk: it raises that kind on the first carried focus still below `MOD_MAX` (3), saved per focus item as `focusMods` (`Magic.levelsOf`).
+- Reach: Kindling and Light cast on the solid block along the view up to `rayReach` (5 + 4 per level) blocks (`rayTarget`); Blinking +2 blocks a level. Power: Kindling adds 30 s of fire a level; Warding is `0.07` stronger (never past 0.3) and 10 s longer a level. Thrift: every primal of the cost x(1 - level/7), at least 1, after the wand cap's discount.
+
+## Potions (src/magic/potions.ts)
+- Four draughts: `potion_haste` (speed x1.25, 120 s), `potion_stoneskin` (damage x0.7, 120 s), `potion_mending` (regen x1.6, 180 s), `potion_clarity` (warp -2 at once). Brewed at the crucible: ALCHEMY rows `brew_*` (catalyst sugar / leather / wheat / fiber with the essentia present, research 'warm_hearth'); the solver counts those rows (`progression.ts`).
+- Use drinks one (returns a vial); timers are `Magic.potions` (saved, `activePotions()`), a repeat draught refreshes; `applyBody` folds them with the charms into `damageScale`, `Buffs.magicSpeed` and new `Buffs.magicRegen`.
+
+## Research scrolls (src/magic/scrolls.ts)
+- Three hidden researches that no map shows: `ledger` (warp drains 1 per 2 min, flag `warp_ease`), `verses` (rod reading sees wellsprings 5 chunks off, `long_sight`), `margin` (a tainted-air crucible yields as calm, `sound_pot`). Found two ways: a `scroll_<id>` item (rare in the deep ruin crates; Use reads it, `readScroll`) or the first scan of a particular thing (rubble, glass, crucible; `scanBlock`). Found state lives in `research.flags` (`found:<id>` plus the effect flag); `Magic.hiddenFound()` / `NotebookApi.hidden()` list them. The scroll items are `worldOnly` in the content roster (found, never made; the solver does not count loot).
+
+## Void zones (src/magic/voidZone.ts)
+- Late and optional: in 35% of 8 x 8-chunk cells (never within 6 chunks of the origin) the 3 x 3 chunks round a hashed centre are thin world, `Void` or `Soul`. With The Void Jar learned, Use with an empty vial standing in one bottles `vial_void` / `vial_soul` (not on a jar), +1 / +2 warp, once per chunk per `VOID_WAIT_S` (90 s; saved as `voidWait`). With a rod and 'aura_reading' the reading adds "Void rift 3 N" within six chunks (`Magic.voidReading`). The tech spine never needs it.
+
+## Taint (src/magic/taint.ts)
+- Block `tainted_soil` (item-less, shovel) stands where grass, dirt or sand was; `Magic.taint` (`TaintField`) remembers the block each cell replaced (saved as `taint`). Sources: a crucible that overflows (flux; one cell per 6 units, max 3) and an unstable infusion mishap (`Magic.seedTaint`, nearest open surface first, no randomness). Each second `tickTaint` lets 24 cells roll `SPREAD_CHANCE` (0.25) to eat an open neighbour (up to `MAX_CELLS` 300); every new cell pushes its chunk's aura down by `CELL_AURA`; standing on it for 20 s costs a point of warp. Mining a cell removes it from the field.
+- The Cleansing Focus (`focus_cleanse`, 2 brook + 2 rune, Rune Desk, research 'focus_ward'): puts back every stained cell within 2 blocks (+1 per Power level) of the aimed block and lifts the aura 2 x `CELL_AURA` for each; with no stain but tainted air it lifts the air by 0.25. Reach upgrades extend its aim like Kindling and Light.
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there
@@ -98,4 +138,4 @@ chained in `npm run e2e`; `node scripts/codex/preview.mjs <dir>` covers the Esse
 ## Known limits / next
 - Tubes are glass blocks with their own small network, not the fluid-pipe machinery (21 aspects do not fit the FluidKey union).
 - The rest of a partly used vial at the desk is lost; foci have no hand animation; wellspring crystals are unlit meshes.
-- Not built: spark / soul / void as drawable aspects (only through overrides of late blocks), golems that walk, an aura HUD dial.
+- Not built: spark as a drawable aspect, golems that fight, an aura HUD dial.

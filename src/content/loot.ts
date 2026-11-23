@@ -50,6 +50,10 @@ export const LOOT_TABLES: LootTableSpec[] = [
       { item: 'thermopile', count: 1, weight: 2 },
       { item: 'bronze_bucket', count: 1, weight: 2 },
       { item: 'bronze_pickaxe', count: 1, weight: 2 },
+      // Hidden research (src/magic/scrolls.ts): rare, and optional like all magic.
+      { item: 'scroll_ledger', count: 1, weight: 1 },
+      { item: 'scroll_verses', count: 1, weight: 1 },
+      { item: 'scroll_margin', count: 1, weight: 1 },
     ],
   },
 ];

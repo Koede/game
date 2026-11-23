@@ -8,6 +8,11 @@
 import type { BlockSpec, ItemSpec } from '../core/types';
 import { ASPECTS } from '../magic/aspects';
 import { ageIndexOf } from '../magic/ageMap';
+import { CHARMS } from '../magic/charms';
+import { MODS } from '../magic/focusMods';
+import { POTIONS } from '../magic/potions';
+import { SCROLLS } from '../magic/scrolls';
+import { GOLEMS, MARKER_DROP, MARKER_PULL } from '../magic/golems';
 
 /** Units of essentia in one filled vial. */
 export const VIAL_UNITS = 4;
@@ -18,7 +23,8 @@ export const VOID_JAR_UNITS = 128;
 export const vialKey = (aspect: string): string => `vial_${aspect}`;
 
 /** Gathering rods: vis each primal pool holds and units each Use draws (src/magic/vis.ts). */
-export interface RodTier { key: string; capacity: number; draw: number }
+export interface RodTier { key: string; capacity: number; draw: number; /** Primals a cap favours: drawn a half more, cost a quarter less in foci. */ favour?: readonly PrimalKey[] }
+export type PrimalKey = 'cinder' | 'loam' | 'brook' | 'gale' | 'rune' | 'rift';
 export const RODS: readonly RodTier[] = [
   { key: 'vis_rod', capacity: 16, draw: 1 },
   { key: 'bronze_rod', capacity: 32, draw: 2 },
@@ -32,7 +38,25 @@ export const FOCI: readonly FocusSpec[] = [
   { key: 'focus_light', vis: { cinder: 1 }, cooldownS: 0.5 },
   { key: 'focus_ward', vis: { loam: 3, rune: 3 }, cooldownS: 20 },
   { key: 'focus_blink', vis: { gale: 2, rift: 2 }, cooldownS: 2 },
+  { key: 'focus_cleanse', vis: { brook: 2, rune: 2 }, cooldownS: 1.5 },
 ];
+
+/** Wands: a core (the plain rod it is made from sets capacity and draw) and a metal cap that favours two primals. */
+export const WAND_CORES = [
+  { key: 'reed', name: 'Reed', rod: 'vis_rod', capacity: 16, draw: 1, age: 'bronze' },
+  { key: 'bronze', name: 'Bronze', rod: 'bronze_rod', capacity: 32, draw: 2, age: 'bronze' },
+  { key: 'iron', name: 'Iron', rod: 'iron_rod', capacity: 64, draw: 3, age: 'forge' },
+] as const;
+export const WAND_CAPS = [
+  { key: 'copper', name: 'Copper', ingot: 'copper_ingot', favour: ['cinder', 'loam'], color: 0xc0703a },
+  { key: 'tin', name: 'Tin', ingot: 'tin_ingot', favour: ['brook', 'gale'], color: 0xb8c4cc },
+  { key: 'bronze', name: 'Bronze', ingot: 'bronze_ingot', favour: ['rune', 'rift'], color: 0xe0a060 },
+] as const;
+export const wandKey = (core: string, cap: string): string => `wand_${core}_${cap}`;
+export const WANDS: readonly (RodTier & { core: string; cap: string })[] = WAND_CORES.flatMap((c) =>
+  WAND_CAPS.map((p) => ({ key: wandKey(c.key, p.key), capacity: c.capacity, draw: c.draw, favour: p.favour as readonly PrimalKey[], core: c.key, cap: p.key })));
+/** Every item that works as a gathering rod, plain rods first. */
+export const ROD_TIERS: readonly RodTier[] = [...RODS, ...WANDS];
 
 const BRONZE = ageIndexOf('bronze');
 const FORGE = ageIndexOf('forge');
@@ -56,12 +80,27 @@ export const MAGIC_ITEMS: ItemSpec[] = [
   tool('focus_light', 'Light Focus', BRONZE, 'Use it at a block: a floating light settles on that face. 1 charge each; break the light to take it back.'),
   tool('focus_ward', 'Warding Focus', FORGE, 'Use it: for 30 seconds every blow you take is halved. 6 charge.'),
   tool('focus_blink', 'Blinking Focus', FORGE, 'Use it: you step up to eight blocks to where you look, if there is room to stand. 4 charge.'),
+  tool('focus_cleanse', 'Cleansing Focus', FORGE, 'Use it at tainted ground: the stain within two blocks lifts and the land recovers. Where there is no stain but the air is tainted, it steadies the air. 2 brook, 2 rune.'),
   tool('vein_lens', 'Scrying Lens', BRONZE, 'Carried in the pack, every new thing you note teaches half again as much lore, and a held notebook shows the nature of what you aim at.'),
   ...ASPECTS.map((a): ItemSpec => ({
     key: vialKey(a.key), name: `Vial of ${a.name}`, category: 'material', age: 0, stack: 8,
     desc: `${VIAL_UNITS} units of ${a.name} essentia (${a.meaning}). Use it on an essentia jar to pour it in.`,
   })),
+  ...WANDS.map((w): ItemSpec => {
+    const core = WAND_CORES.find((c) => c.key === w.core)!;
+    const cap = WAND_CAPS.find((c) => c.key === w.cap)!;
+    return tool(w.key, `${core.name} Wand, ${cap.name}-capped`, core.age === 'forge' ? FORGE : BRONZE,
+      `${w.capacity} vis a primal, ${w.draw} a Use. ${cap.name} caps: ${cap.favour.join(' and ')} drawn a half more, a quarter cheaper in foci. Plug a focus in at an Arcane Workbench.`);
+  }),
 ];
+
+MAGIC_ITEMS.push(...CHARMS.map((c): ItemSpec => ({ key: c.key, name: c.name, category: 'misc', age: BRONZE, stack: 1, desc: `${c.text} Etched with a rune at an Arcane Workbench.` })));
+
+MAGIC_ITEMS.push(...MODS.map((m): ItemSpec => ({ key: m.key, name: m.name, category: 'misc', age: BRONZE, stack: 16, desc: `${m.text} Use it at a bench or desk with a focus carried.` })));
+
+MAGIC_ITEMS.push(...POTIONS.map((p): ItemSpec => ({ key: p.key, name: p.name, category: 'misc', age: 0, stack: 8, desc: `${p.text} Brewed at a crucible; Use it to drink.` })));
+
+MAGIC_ITEMS.push(...SCROLLS.map((s): ItemSpec => ({ key: s.item, name: s.title, category: 'misc', age: BRONZE, stack: 1, desc: 'Hidden research on a brittle sheet, found in the deep ruins. Use it to read it; some things hold the same secret in their margins.' })));
 
 const glassBlock = { opaque: false, translucent: true } as const;
 
@@ -117,8 +156,33 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     desc: 'Fed one Spring from a touching or tubed jar, it walks up to eight blocks and does one task: a crank, a deployer, or a belt item.',
   },
   {
+    key: 'tainted_soil', name: 'Tainted Soil', category: 'misc', age: FORGE, hardness: 0.6, tool: 'shovel', minTier: 0,
+    item: false, drops: 'none', textures: { all: 'magic_taint' },
+    desc: 'Ground gone sour from spilled flux. It creeps over open grass, dirt and sand, drags the air down and wears at the mind. A Cleansing Focus draws it out.',
+  },
+  {
     key: 'magic_light', name: 'Floating Light', category: 'misc', age: BRONZE, hardness: 0, shape: 'torch', solid: false, opaque: false,
     light: 14, item: false, drops: 'none', textures: { all: 'magic_light' },
     desc: 'A small light set by a Light Focus. Break it and it is gone.',
+  },
+  {
+    key: 'linked_mirror', name: 'Linked Mirror', category: 'machine', age: BRONZE, hardness: 0.6, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    textures: { all: 'magic_mirror' },
+    desc: "Made in pairs; Use one, then the other, to link them. Essentia lines they touch join; the first sends items from its crate into the second's.",
+  },
+  ...GOLEMS.filter((g) => g.key !== 'clay_servant').map((g): BlockSpec => ({
+    key: g.key, name: g.name, category: 'machine', age: FORGE, hardness: 1.5, tool: 'pickaxe', minTier: 0, oriented: true,
+    textures: { side: `magic_${g.key}_side`, top: `magic_${g.key}_top`, front: `magic_${g.key}_front`, frontActive: `magic_${g.key}_front_on` },
+    desc: `A servant with a ${g.key.split('_')[0]} body: ${g.traitText}. Fed Spring like a clay servant; carries between marked containers.`,
+  })),
+  {
+    key: MARKER_PULL, name: 'Pull Marker', category: 'machine', age: BRONZE, hardness: 0.5, tool: 'axe', minTier: 0,
+    textures: { all: 'magic_marker_pull' },
+    desc: 'Set it against a crate, vault or depot: a golem that carries takes items out of that container.',
+  },
+  {
+    key: MARKER_DROP, name: 'Drop Marker', category: 'machine', age: BRONZE, hardness: 0.5, tool: 'axe', minTier: 0,
+    textures: { all: 'magic_marker_drop' },
+    desc: 'Set it against a crate, vault or depot: a hauling golem delivers what it carries into that container.',
   },
 ];

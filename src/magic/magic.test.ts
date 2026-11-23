@@ -34,6 +34,12 @@ describe('magic runtime', () => {
     const opened: unknown[] = [];
     t.bus.on('ui:open', (e) => opened.push(e.screen));
     expect(t.magic.use(t.at('copper_ore', 0, 0, 0))).toBe('worked');
+    // Active scanning: a single press fills nothing; holding Use (repeats every 0.25 s) fills the bar.
+    expect(t.magic.research.scanned).toEqual([]);
+    for (let i = 0; i < 8; i++) {
+      t.magic.tick(0.25);
+      t.magic.use(t.at('copper_ore', 0, 0, 0));
+    }
     expect(t.magic.research.scanned).toEqual(['copper_ore']);
     expect(t.magic.research.known).toContain('vein');
     expect(t.magic.use(null)).toBe('screen');

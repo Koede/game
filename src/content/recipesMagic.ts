@@ -9,6 +9,7 @@
 import type { ItemAmount, RecipeSpec } from '../core/types';
 import type { Aspects } from '../magic/aspects';
 import { amount, amounts } from './amounts';
+import { WAND_CAPS, WAND_CORES, wandKey } from './itemsMagic';
 
 /** `minTier` 2 (the Bronze Furnace) for the Bronze-age pieces, 1 for what the Clay Furnace still makes. */
 const forge = (id: string, output: string, inputs: string, minTempC: number, minTier = 1): RecipeSpec => ({
@@ -49,11 +50,31 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
   arcane('focus_light', 'focus_light', '1 glass, 1 torch', { cinder: 4, gale: 4 }),
   arcane('focus_ward', 'focus_ward', '1 glass, 2 leather, 1 iron_ingot', { loam: 6, rift: 4, rune: 4 }),
   arcane('focus_blink', 'focus_blink', '1 glass, 1 cord, 1 iron_ingot', { gale: 8, mind: 4, rift: 4 }),
+  arcane('focus_cleanse', 'focus_cleanse', '1 glass, 1 iron_ingot, 1 vial_clarity', { brook: 6, rune: 4, ward: 4 }),
+  arcane('linked_mirror', '2 linked_mirror', '2 glass, 1 tin_ingot, 1 vial_rift', { rift: 4, gale: 2, rune: 2 }),
+  // Rune-etched charms (Arcane Workbench): carried, they work without charge.
+  arcane('charm_ward', 'charm_ward', '1 leather, 1 bronze_ingot, 1 vial_ward', { rune: 4, loam: 3 }, true),
+  arcane('charm_speed', 'charm_speed', '1 leather, 1 copper_ingot, 1 vial_gale', { gale: 4, rune: 3 }, true),
+  arcane('charm_hunger', 'charm_hunger', '1 leather, 1 tin_ingot, 1 vial_loam', { cinder: 3, rune: 3, brook: 2 }, true),
+  // Focus upgrade runes (Rune Desk).
+  arcane('focus_mod_reach', 'focus_mod_reach', '1 glass, 1 copper_ingot, 1 vial_gale', { gale: 4, rune: 3 }),
+  arcane('focus_mod_power', 'focus_mod_power', '1 glass, 1 copper_ingot, 1 vial_cinder', { cinder: 4, rune: 3 }),
+  arcane('focus_mod_cost', 'focus_mod_cost', '1 glass, 1 copper_ingot, 1 vial_clarity', { mind: 3, rune: 3 }),
+  // Golem markers (Arcane Workbench): set against a container.
+  arcane('golem_pull_marker', 'golem_pull_marker', '1 plank, 1 clay, 1 copper_ingot', { mind: 2, drive: 2 }, true),
+  arcane('golem_drop_marker', 'golem_drop_marker', '1 plank, 1 clay, 1 tin_ingot', { mind: 2, drive: 2 }, true),
+  // Wands: a plain rod for the core, two ingots for the caps; the caps' primals go into the cost.
+  ...WAND_CORES.flatMap((core) => WAND_CAPS.map((cap) => arcane(wandKey(core.key, cap.key), wandKey(core.key, cap.key),
+    `1 ${core.rod}, 2 ${cap.ingot}`, { rune: 2 + core.draw * 2, [cap.favour[0]]: 2 + core.draw, [cap.favour[1]]: 2 + core.draw } as Aspects))),
 ];
 
 export const INFUSIONS: InfusionRecipe[] = [
   infuse('vein_lens', 'vein_lens', 'glass', ['copper_ingot', 'copper_ingot'], { vein: 6, mind: 4, clarity: 4 }, 10),
   infuse('clay_servant', 'clay_servant', 'clay', ['clay', 'clay', 'iron_ingot', 'glass_vial'], { spring: 8, mind: 8, loam: 8 }, 20),
+  // Golem bodies: a clay servant at the heart, four pieces of the body around it.
+  infuse('wood_golem', 'wood_golem', 'clay_servant', ['plank', 'plank', 'plank', 'plank'], { spring: 6, mind: 6, loam: 4 }, 15),
+  infuse('stone_golem', 'stone_golem', 'clay_servant', ['stone_brick', 'stone_brick', 'stone_brick', 'stone_brick'], { spring: 8, mind: 6, loam: 8 }, 20),
+  infuse('iron_golem', 'iron_golem', 'clay_servant', ['iron_ingot', 'iron_ingot', 'iron_ingot', 'iron_ingot'], { spring: 10, mind: 10, vein: 8 }, 25),
   infuse('void_jar', 'void_jar', 'essentia_jar', ['iron_ingot', 'iron_ingot', 'glass', 'glass'], { ward: 8, rift: 8, brook: 8 }, 20),
   infuse('steel_infusion', 'steel_ingot', 'iron_ingot', ['coal', 'coal'], { cinder: 6, vein: 4, rune: 2 }, 15),
   // The artificer's attunement: a plain tool on the altar, two vials of the aspect around it (research 'attunement').
@@ -73,6 +94,11 @@ export const ALCHEMY: AlchemyRecipe[] = [
   alchemy('alch_glass', '2 glass', 'sand', { clarity: 2, cinder: 2 }),
   alchemy('alch_coal', '1 coal', 'charcoal', { cinder: 4, loam: 2 }),
   alchemy('alch_clay', '2 clay', 'dirt', { brook: 3, loam: 2 }),
+  // Potions: the catalyst turns into a draught. Drink with Use (src/magic/potions.ts).
+  alchemy('brew_haste', 'potion_haste', 'sugar', { gale: 3, drive: 2 }),
+  alchemy('brew_stoneskin', 'potion_stoneskin', 'leather', { loam: 3, ward: 2 }),
+  alchemy('brew_mending', 'potion_mending', 'wheat', { brook: 2, glow: 2, spring: 2 }),
+  alchemy('brew_clarity', 'potion_clarity', 'fiber', { clarity: 3, mind: 2 }),
 ];
 export const alchemyFor = (catalyst: string): AlchemyRecipe[] => ALCHEMY.filter((r) => r.catalyst === catalyst);
 

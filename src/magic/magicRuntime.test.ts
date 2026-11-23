@@ -8,6 +8,7 @@ import { jarsFor } from './essentiaNet';
 import { Magic, STUDY_LORE, WARD_SCALE, type MagicTarget } from './magic';
 import { NODE_POOL, nodeInChunk, nodesNear } from './nodes';
 import { RESEARCH } from './entries';
+import { ARCANE_RECIPES } from '../content/recipesMagic';
 
 /** A stone floor at y=0, air above; cells set by `put`. */
 function setup() {
@@ -161,7 +162,8 @@ describe('tubes, desk and altar', () => {
     expect(t.magic.use(t.at(2, 1, 0))).toBe('screen');
     const bench = t.magic.desk(2, 1, 0, true);
     const desk = t.magic.desk(2, 1, 0);
-    expect(bench.rows().map((r) => r.id)).toEqual(['sanity_soap']);
+    expect(bench.rows().map((r) => r.id)).toEqual(ARCANE_RECIPES.filter((r) => r.bench).map((r) => r.id));
+    expect(bench.rows().map((r) => r.id)).toContain('sanity_soap');
     expect(desk.rows().some((r) => r.id === 'sanity_soap')).toBe(false);
     t.learn('arcane_bench');
     t.player.inventory.clear();

@@ -262,4 +262,11 @@
   "ruined_machine": 260,
   "repaired_machine": 261,
   "waypoint_stone": 262
+  "wood_golem": 246,
+  "stone_golem": 247,
+  "iron_golem": 248,
+  "golem_pull_marker": 249,
+  "golem_drop_marker": 250,
+  "linked_mirror": 251,
+  "tainted_soil": 252
 }
