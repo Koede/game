@@ -15,6 +15,7 @@ import { FOOD_SPEC } from './specRosterFood';
 import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
+import { SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 
 type Numbers = Record<string, number>;
 
@@ -410,3 +411,8 @@ SPEC.blocks.push(...GLASS_SPEC.blocks);
 SPEC.items.push(...GLASS_SPEC.items);
 for (const station of Object.keys(GLASS_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...GLASS_SPEC.recipes[station]];
 SPEC.maxTextures += GLASS_SPEC.textures;
+
+// The tool-and-block synergy pass (docs/SYNERGY_TOOLS.md) adds building variants after everything else.
+SPEC.blocks.push(...SYNERGY_TOOLS_SPEC.blocks);
+SPEC.maxTextures += SYNERGY_TOOLS_SPEC.textures;
+SPEC.worldOnlyItems.push(...SYNERGY_TOOLS_SPEC.worldOnly);

@@ -224,5 +224,17 @@
   "filter_bed_done": 222,
   "vacuum_cap": 223,
   "asphalt": 224,
-  "wind_vane": 225
+  "wind_vane": 225,
+  "stripped_oak_log": 226,
+  "stripped_pine_log": 227,
+  "plank_slab": 228,
+  "stone_slab": 229,
+  "brick_slab": 230,
+  "stone_brick_slab": 231,
+  "stone_pillar": 232,
+  "brick_pillar": 233,
+  "brick_lintel": 234,
+  "brick_chimney": 235,
+  "bronze_plate_block": 236,
+  "rivet_plate_block": 237
 }
