@@ -59,6 +59,10 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       const cur = d.objectives.current;
       return cur ? `Your next job: "${cur.title}". ${brief(cur.text, 180)}` : 'You have done everything on the ladder. Go and build something I have not thought of.';
     },
+    sleepToDawn: () => {
+      d.clock.skipToDawn();
+      d.player.bus.emit('flag', { flag: 'rested' });
+    },
     tendFire: (x, y, z) => {
       const e = d.sim.furnaceAt(x, y, z);
       if (!e) return;

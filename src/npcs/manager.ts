@@ -19,6 +19,8 @@ import { FIRE_SPOTS, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
+import { ServiceMenu, type TavernPort } from './services';
+import { ROOM_SERVICE } from './rooms';
 
 export interface NpcView {
   id: string;
@@ -74,6 +76,8 @@ export interface NpcHost {
   advice(role: 'witch' | 'barkeep' | 'artificer'): string | null;
   /** Keeps a hearth in the tavern burning. */
   tendFire?(x: number, y: number, z: number): void;
+  /** Skips the night to dawn: rested, warm (a paid bed). */
+  sleepToDawn?(): void;
   companion: CompanionHost;
 }
 
@@ -112,6 +116,8 @@ export class NpcManager {
   private clockS = 0;
   private readonly greetedAt = new Map<string, number>();
   private readonly lines: LinePicker;
+  /** What Rosa sells (rooms, drinks, ...): see services.ts. */
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
@@ -267,6 +273,13 @@ export class NpcManager {
       return npc.giftLine;
     }
     if (npc.role === 'orc') return this.useOrc(npc);
+    if (npc.role === 'barkeep') {
+      const taken = this.rosa.take(this.port(npc));
+      if (taken !== null) {
+        this.say(npc, taken);
+        return taken;
+      }
+    }
     const n = (this.spoken[npc.id] ?? 0) + 1;
     this.spoken[npc.id] = n;
     const bank = npc.bank!;
@@ -275,7 +288,34 @@ export class NpcManager {
     if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' ? this.host?.advice(npc.role) ?? null : null);
     if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, line);
+    if (npc.role === 'barkeep') {
+      const pitch = this.rosa.pitch(this.port(npc));
+      if (pitch !== null) this.say(npc, pitch);
+    }
     return line;
+  }
+
+  /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
+  serviceMenu(): ServiceMenu {
+    return this.rosa;
+  }
+
+  servicePort(id: string): TavernPort {
+    return this.port(NPCS.find((n) => n.id === id)!);
+  }
+
+  /** What a service may touch (services.ts), speaking as `npc`. */
+  private port(npc: NpcDef): TavernPort {
+    return {
+      host: this.host, rng: this.rng, phase: () => this.phase(), day: () => this.host?.day() ?? 1,
+      coins: () => this.coins,
+      spend: (n) => (this.coins >= n ? ((this.coins -= n), true) : false),
+      earn: (n) => void (this.coins += n),
+      trust: (id) => this.trustOf(id),
+      addTrust: (id, n) => void (this.trust[id] = Math.max(0, Math.min(TRUST_MAX, this.trustOf(id) + n))),
+      say: (line) => this.say(npc, line),
+      toast: (text) => this.toast(text),
+    };
   }
 
   /** A warmer line when you are friends (one visit in three), or null. */
@@ -495,6 +535,7 @@ export class NpcManager {
     if (this.cooldownS > 0) this.cooldownS = Math.max(0, this.cooldownS - dt);
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
+    this.rosa.tick(dt);
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);

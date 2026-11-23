@@ -65,3 +65,11 @@ Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neut
   round the bar through its end gaps and out to the yard through the back door instead of through walls.
 - Old Bram sells back what you sold him (`shelf`, last six sales, saved): Use with an empty hand names the newest and its price (what he
   paid), a second Use within 10 s buys it back.
+
+## Tavern life (rooms, drinks, gossip, favours, sparring, upkeep, festival)
+
+Seven small systems built on the tavern's people. Each is a pure module in `src/npcs/` with a unit test; `NpcManager` owns the state and saves it in the npcs snapshot (every field optional, old saves load).
+
+### Services and rooms to rent
+- `services.ts`: `ServiceMenu` is one person's list of paid offers (`Service`: `cost`, `pitch`, `accept`) over a narrow `TavernPort` (coin, trust, host, say, toast). Use on Rosa answers with her chatter then pitches the next open offer and opens a 10 s window; Use again inside it takes the offer; an unanswered pitch lapses and the next Use pitches the next offer. `NpcManager.serviceMenu()` / `servicePort(id)` let a UI or test buy by id (`menu.buy(id, port)`).
+- `rooms.ts`: Rosa's bed. Offered in the evening and at night only: `ROOM_COST` 14 coin (10 once Rosa's trust is 20+, `roomCost`). Paying calls `NpcHost.sleepToDawn()` (the clock jumps to dawn and the `rested` flag fires), adds 1 trust, and shows three notes, one each from three different regulars (`NOTES`, `wakeNotes`).
