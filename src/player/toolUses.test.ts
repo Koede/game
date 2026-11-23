@@ -1,3 +1,4 @@
+// @ts-expect-error the game's tsconfig carries no node types; vitest runs on node
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { REACH } from '../core/constants';
