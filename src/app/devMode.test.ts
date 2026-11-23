@@ -118,3 +118,33 @@ describe('dev rules', () => {
     expect(run(false)).toBe(4);
   });
 });
+
+describe('switching Dev Mode in a running world', () => {
+  it('turns on and off any time: rules, flight and the save follow', () => {
+    const state = GameState.create(5, 'five');
+    const toasts: string[] = [];
+    state.bus.on('toast', (t) => toasts.push(t.text));
+    expect(state.mode).toBe('survival');
+    expect(state.player.dev).toBe(false);
+    expect('mode' in state.toSave()).toBe(false);
+    state.setMode('dev');
+    expect(state.mode).toBe('dev');
+    expect(state.player.dev).toBe(true);
+    expect(state.toSave().mode).toBe('dev');
+    state.player.flying = true;
+    state.player.devFreePlace = false;
+    state.player.health = 3;
+    state.tick();
+    expect(state.player.health).toBe(MAX_HEALTH);
+    state.setMode('survival');
+    expect(state.player.dev).toBe(false);
+    expect(state.player.flying).toBe(false);
+    expect(state.player.devFreePlace).toBe(true);
+    expect('mode' in state.toSave()).toBe(false);
+    state.player.health = 3;
+    state.tick();
+    expect(state.player.health).toBeLessThanOrEqual(3.01);
+    expect(toasts).toEqual(['Dev Mode on', 'Dev Mode off - back to survival']);
+    state.dispose();
+  });
+});

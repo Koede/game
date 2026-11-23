@@ -61,6 +61,7 @@ export class Hud {
   private readonly deps: HudDeps;
   private readonly root: UIRoot;
   private readonly top: HTMLDivElement;
+  private readonly devBtn: HTMLButtonElement;
   private readonly vitals = new Vitals();
   private readonly goal: GoalTracker;
   private readonly compass = new Compass();
@@ -120,6 +121,8 @@ export class Hud {
       h('div', { class: 'hw-hud__mid' }, this.goal.el),
       h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl),
     );
+    this.devBtn = this.devButton(bus);
+    this.devBtn.hidden = !deps.player.dev;
     const bottom = h('div', { class: 'hw-hud__bottom' }, this.hotbar.el);
     this.cues = new CombatCues(this.top, bottom, () => deps.input.touch);
     this.el = h(
@@ -131,7 +134,7 @@ export class Hud {
       this.crosshair.el,
       bottom,
       this.coach.el,
-      deps.player.dev ? this.devButton(bus) : null,
+      this.devBtn,
     );
     root.layers.hud.appendChild(this.el);
     // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
@@ -310,6 +313,7 @@ export class Hud {
 
   private update(): void {
     const d = this.deps;
+    this.devBtn.hidden = !d.player.dev;
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
     this.goal.update(d.objectives);

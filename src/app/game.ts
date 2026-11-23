@@ -171,7 +171,11 @@ export class Game {
         sim,
         weather: () => state.weather.state,
         releasePointer: () => this.inputManager.releasePointerCapture(),
-        pause: { onSettingsChange: opts.onSettingsChange, onQuit: opts.onQuit },
+        pause: {
+          onSettingsChange: opts.onSettingsChange,
+          onQuit: opts.onQuit,
+          dev: { get: () => state.mode === 'dev', set: (on) => state.setMode(on ? 'dev' : 'survival') },
+        },
       });
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);

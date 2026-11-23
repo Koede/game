@@ -15,6 +15,8 @@ export interface PauseMenuOptions {
   onResume: () => void;
   /** "Save and quit to title" was chosen. The menu has already closed; `onResume` is not called. */
   onQuit: () => void;
+  /** The Dev Mode switch shown in Settings (see SettingsPanelOptions.dev). */
+  dev?: { get(): boolean; set(on: boolean): void };
   /** Control lists for How to Play, when the real bindings differ from the defaults. */
   controls?: HowToPlayOptions;
 }
@@ -93,6 +95,7 @@ export class PauseMenu {
       win.setBody(
         new SettingsPanel({
           settings: this.settings,
+          dev: this.opts.dev,
           onChange: (settings, key) => {
             this.settings = settings;
             this.opts.onSettingsChange(settings, key);

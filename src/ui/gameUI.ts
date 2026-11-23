@@ -76,7 +76,7 @@ export interface GameUIDeps {
   /** Lets the mouse go when a screen opens (normally InputManager.releasePointerCapture). GameUI never touches pointer lock itself. */
   releasePointer?: () => void;
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
-  pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void };
+  pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
 
 interface Active {
@@ -155,7 +155,7 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, onResume: () => undefined, onQuit: pause.onQuit });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });

@@ -18,6 +18,8 @@ export interface SettingsPanelOptions {
   settings: Settings;
   /** Called on EVERY change (also while a slider is dragged) with a fresh copy and the key that changed. */
   onChange: (settings: Settings, key: keyof Settings) => void;
+  /** With a world open: the Dev Mode switch (on, off, any time). Absent on the title screen, where the mode is chosen for a new world. */
+  dev?: { get(): boolean; set(on: boolean): void };
 }
 
 const speed = (v: number): string => `${v.toFixed(1)}×`;
@@ -38,7 +40,7 @@ export class SettingsPanel {
     this.el = h(
       'div',
       { class: 'hw-settings' },
-      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint)),
+      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), opts.dev ? this.devSwitch(opts.dev) : null),
       this.section(
         'View',
         this.choice('uiScale', 'UI size', UI_SCALE_OPTIONS, uiScaleHint),
@@ -128,6 +130,14 @@ export class SettingsPanel {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);
+  }
+
+  /** Dev Mode: creative items, no damage or hunger, free building, flight. Off again with the same switch. */
+  private devSwitch(dev: { get(): boolean; set(on: boolean): void }): HTMLElement {
+    const label = 'Dev Mode';
+    const toggle = new Toggle({ label, value: dev.get(), onChange: (v) => dev.set(v) });
+    this.sync.push(() => toggle.set(dev.get()));
+    return this.row(label, 'Creative item menu, no damage or hunger, free building and flight. Switch it off again here to play as survival.', toggle.el, false);
   }
 
   private touchControls(): HTMLElement {

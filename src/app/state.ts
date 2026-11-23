@@ -61,8 +61,8 @@ export class GameState {
   /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
   private notices: string[] = [];
   private readonly offs: (() => void)[] = [];
-  /** 'dev' for a Dev Mode world: the player is invulnerable and free (docs/api/dev-mode.md). */
-  readonly mode: GameMode;
+  /** 'dev' while Dev Mode is on: the player is invulnerable and free (docs/api/dev-mode.md). Switch with `setMode`. */
+  private modeNow: GameMode;
   /** Seconds of simulated play in this world, across sessions. */
   playTimeS = 0;
   /** Number of fixed ticks run since this session started. */
@@ -74,7 +74,7 @@ export class GameState {
 
   private constructor(world: World, bus: GameBus, seedText: string | null, save: WorldSave | null, difficulty: Difficulty, mode: GameMode) {
     this.difficultyNow = difficulty;
-    this.mode = mode;
+    this.modeNow = mode;
     this.bus = bus;
     this.world = world;
     this.seedText = seedText;
@@ -290,7 +290,7 @@ export class GameState {
     this.workshop.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
-    if (this.mode === 'dev') this.devUpkeep();
+    if (this.modeNow === 'dev') this.devUpkeep();
     this.playTimeS += dt;
     this.ticks++;
   }
@@ -303,6 +303,25 @@ export class GameState {
     p.warmth = MAX_WARMTH;
     p.air = MAX_AIR_S;
     if (p.dead) p.dead = false;
+  }
+
+  get mode(): GameMode {
+    return this.modeNow;
+  }
+
+  /**
+   * Turns Dev Mode on or off in a running world (the Dev Mode switch in Settings, either way, any time). Off puts the player back
+   * under the survival rules at once: flight ends, free placing resets to on for the next time, and the bars simply start to move again.
+   */
+  setMode(mode: GameMode): void {
+    if (mode === this.modeNow) return;
+    this.modeNow = mode;
+    this.player.dev = mode === 'dev';
+    if (mode !== 'dev') {
+      this.player.flying = false;
+      this.player.devFreePlace = true;
+    }
+    this.bus.emit('toast', { text: mode === 'dev' ? 'Dev Mode on' : 'Dev Mode off - back to survival', kind: 'good' });
   }
 
   /** Everything needed to continue this world later, as plain JSON-safe data (independent of the live world). */
@@ -321,7 +340,7 @@ export class GameState {
   private snapshot(shared: boolean): WorldSave {
     diag('state.snapshot', () => ({ shared, player: playerBrief(this.player), ticks: this.ticks, playTimeS: this.playTimeS }));
     return {
-      ...(this.mode === 'dev' ? { mode: this.mode } : {}),
+      ...(this.modeNow === 'dev' ? { mode: this.modeNow } : {}),
       rev: SAVE_REV,
       seed: this.world.seed,
       seedText: this.seedText,
