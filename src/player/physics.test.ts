@@ -312,3 +312,26 @@ describe('currents (spec 18.4)', () => {
     expect(a.position.y).toBeGreaterThan(y0 + 0.5);
   });
 });
+
+describe('jump assist in the physics', () => {
+  it('lets a jump pressed just after walking off an edge work, unless assist is off', () => {
+    for (const assist of [true, false]) {
+      const world = new PatchyWorld(null);
+      world.fill(-4, 9, 0, 4, 9, 4, 'stone');
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(world, player);
+      physics.assist = assist;
+      let jumped = false;
+      for (let i = 0; i < 60 && !jumped; i++) {
+        const stepped = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+        if (!player.onGround && player.position.z < -0.3) {
+          const r = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: true, sprint: false });
+          jumped = r.jumped;
+          break;
+        }
+        void stepped;
+      }
+      expect(jumped).toBe(assist);
+    }
+  });
+});

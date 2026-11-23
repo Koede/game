@@ -10,6 +10,7 @@ import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, springFallAllowance, type PlayerState } from '../game';
 import { currentAt } from '../world/water';
+import { JumpAssist } from './jumpAssist';
 import { EPS, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
 
 /** What the physics needs from this frame's intent. */
@@ -78,6 +79,9 @@ export class PlayerPhysics {
   private blocked = false;
   /** Extra safe fall height earned in this fall from a boosted (Spring) jump; spent on landing. */
   private fallAllowance = 0;
+  /** Coyote time and jump buffering (the Movement assist setting). */
+  readonly jumpAssist = new JumpAssist();
+  assist = true;
   /** The current where the body is this step (m/s; y -1 = under a waterfall). */
   readonly current = { x: 0, y: 0, z: 0 };
 
@@ -92,6 +96,7 @@ export class PlayerPhysics {
   reset(): void {
     this.fallTop = this.player.position.y;
     this.fallAllowance = 0;
+    this.jumpAssist.reset();
     this.player.velocity.x = this.player.velocity.y = this.player.velocity.z = 0;
   }
 
@@ -146,6 +151,8 @@ export class PlayerPhysics {
     v.x += (wishX * speed + c.x - v.x) * blend;
     v.z += (wishZ * speed + c.z - v.z) * blend;
 
+    const jumpNow = this.jumpAssist.update(dt, input.jump, p.onGround, this.assist);
+
     // Vertical.
     if (p.flying && p.dev) {
       // Dev Mode flight: no gravity; Jump rises, sprint (shift) descends.
@@ -157,7 +164,7 @@ export class PlayerPhysics {
       else v.y = (v.y - LIQUID_SINK * dt) * Math.exp(-LIQUID_DRAG * dt);
       if (c.y < 0) v.y -= FALLING_WATER_PUSH * dt;
     } else {
-      if (input.jump && p.onGround) {
+      if (jumpNow) {
         v.y = JUMP_VELOCITY * p.buffs.jumpMult;
         r.jumped = true;
       }
