@@ -3,6 +3,7 @@
  * the reason it cannot be made yet, and a Make button. Talks to the game only through DeskApi (type import).
  */
 import { itemOrNull } from '../../../core/registry';
+import { aspectLabel } from '../../kit/aspectIcon';
 import { aspectInfo } from '../../../magic/aspects';
 import type { DeskApi } from '../../../magic/magic';
 import type { GameScreen, ScreenContext } from '../../gameUI';
@@ -29,7 +30,8 @@ export function createDeskScreen(ctx: ScreenContext, api: DeskApi, bench = false
       slot.set({ item: r.output, name: name(r.output), count: r.count });
       const inputs = r.inputs.map((i) => h('span', { class: ['hw-nb__need', i.have >= i.count ? 'is-ok' : 'is-short'], text: `${i.count} ${name(i.item)}` }));
       const cost = r.cost.map((c) => {
-        const chip = h('span', { class: ['hw-nb__need', c.have >= c.n ? 'is-ok' : 'is-short'], text: `${aspectInfo(c.aspect).name} ${c.n}` });
+        const chip = h('span', { class: ['hw-nb__need', c.have >= c.n ? 'is-ok' : 'is-short'], });
+        chip.append(aspectLabel(c.aspect, `${aspectInfo(c.aspect).name} ${c.n}`));
         chip.style.borderColor = aspectInfo(c.aspect).color;
         return chip;
       });

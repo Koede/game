@@ -5,6 +5,7 @@
  * Talks to the game only through NotebookApi (src/magic/magic.ts, type import).
  */
 import { itemOrNull } from '../../../core/registry';
+import { aspectIcon, aspectLabel, aspectsRow } from '../../kit/aspectIcon';
 import { ASPECT_LIST, aspectInfo, aspectsText, linkable, type Aspect } from '../../../magic/aspects';
 import { cellCount, hexCoord, linkedFrom, neighbours, type BoardSpec } from '../../../magic/board';
 import { aspectsOf } from '../../../magic/fingerprint';
@@ -49,7 +50,7 @@ const CSS = `
 .hw-nb__cell[data-sel=true]{outline:3px solid #ffd95a}
 .hw-nb__cell[data-linked=true]{box-shadow:0 0 10px 2px rgba(255,217,90,.7)}
 .hw-nb__palette{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-.hw-nb__chip{min-width:44px;min-height:44px;border-radius:22px;border:1px solid rgba(0,0,0,.4);color:#111;font:600 12px/1.1 sans-serif;padding:4px 10px}
+.hw-nb__chip{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:44px;min-height:44px;border-radius:22px;border:1px solid rgba(0,0,0,.4);color:#111;font:600 12px/1.1 sans-serif;padding:4px 10px}
 .hw-nb__chip:disabled{opacity:.35}
 .hw-nb__row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .hw-nb__btn{min-height:44px;padding:0 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:inherit;font:inherit}
@@ -264,8 +265,12 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       cell.dataset.kind = anchor ? 'anchor' : blocked ? 'blocked' : aspect ? 'token' : 'free';
       if (aspect) {
         const info = aspectInfo(aspect);
-        cell.style.background = info.color;
-        cell.textContent = info.name.slice(0, D < 44 ? 3 : 6);
+        cell.style.background = 'radial-gradient(circle,#3a2f46 0%,#1f1826 100%)';
+        cell.style.border = `3px solid ${info.color}`;
+        cell.style.display = 'flex';
+        cell.style.alignItems = 'center';
+        cell.style.justifyContent = 'center';
+        cell.appendChild(aspectIcon(aspect, Math.max(16, Math.min(32, D - 12))));
         cell.setAttribute('aria-label', info.name);
         if (linked.has(c)) cell.dataset.linked = 'true';
       } else cell.setAttribute('aria-label', blocked ? 'Ink blot' : 'Empty');
@@ -291,6 +296,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
         say(res.ok ? `Made 1 ${aspectInfo(res.made as Aspect).name} lore.` : res.reason ?? '');
       }, 'hw-nb__chip');
       b.style.background = `linear-gradient(90deg, ${aspectInfo(p).color}, ${aspectInfo(q).color})`;
+      b.prepend(aspectIcon(p, 16), aspectIcon(q, 16));
       b.dataset.combine = a;
       b.disabled = (r.lore[p] ?? 0) < 1 || (r.lore[q] ?? 0) < 1;
       rows.push(b);
@@ -323,7 +329,9 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       for (const [a, n] of Object.entries(e.cost) as [Aspect, number][]) {
         const known = research.known.includes(a);
         const ok = known && (research.lore[a] ?? 0) >= n;
-        needs.appendChild(h('span', { class: ['hw-nb__need', ok ? 'is-ok' : 'is-short'], text: `${known ? aspectInfo(a).name : '?'} ${n} (have ${research.lore[a] ?? 0})` }));
+        const need = h('span', { class: ['hw-nb__need', ok ? 'is-ok' : 'is-short'] });
+        need.append(known ? aspectLabel(a, `${aspectInfo(a).name} ${n} (have ${research.lore[a] ?? 0})`) : `? ${n} (have ${research.lore[a] ?? 0})`);
+        needs.appendChild(need);
       }
       out.push(h('p', { class: 'hw-nb__muted', text: 'Starting the notes costs lore:' }), needs);
       const begin = button('Begin research', () => {
@@ -357,6 +365,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
         say(r.ok ? (r.solved ? 'Research complete!' : '') : r.reason ?? '');
       }, 'hw-nb__chip');
       chip.style.background = aspectInfo(a).color;
+      chip.prepend(aspectIcon(a, 22));
       chip.dataset.aspect = a;
       chip.disabled = lore < 1 || ink < 1;
       palette.appendChild(chip);
@@ -391,8 +400,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       const info = aspectInfo(a);
       const known = r.known.includes(a);
       const parts = info.parts ? ` = ${aspectInfo(info.parts[0]).name} + ${aspectInfo(info.parts[1]).name}` : ' (primal)';
-      const dot = h('span', { class: 'hw-nb__dot' });
-      dot.style.background = known ? info.color : 'transparent';
+      const dot = known ? aspectIcon(a, 24) : h('span', { class: 'hw-nb__dot' });
       out.push(h('div', { class: ['hw-nb__aspect', known ? '' : 'hw-nb__muted'] }, dot,
         h('span', { text: known ? `${info.name}${parts}: ${info.meaning}. Lore ${r.lore[a] ?? 0}` : 'Unknown aspect' })));
     }
@@ -418,7 +426,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
     if (v.capacity > 0) {
       const pools = h('div', { class: 'hw-nb__needs', attrs: { 'aria-label': 'Rod vis' } });
       for (const [p, n] of Object.entries(v.vis) as [Aspect, number][]) {
-        const chip = h('span', { class: 'hw-nb__need', text: `${aspectInfo(p).name} ${Math.floor(n)}/${v.capacity}` });
+        const chip = h('span', { class: 'hw-nb__need' }, aspectLabel(p, `${aspectInfo(p).name} ${Math.floor(n)}/${v.capacity}`));
         chip.style.borderColor = aspectInfo(p).color;
         pools.appendChild(chip);
       }
@@ -435,7 +443,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       if (vials.length) out.push(h('p', { class: 'hw-nb__muted', text: 'Studying a vial turns its essentia into lore and gives the vial back.' }), study);
     }
     for (const k of [...r.scanned].reverse().slice(0, 60)) {
-      out.push(h('div', { class: 'hw-nb__aspect' }, h('span', { text: `${itemOrNull(k)?.name ?? k}: ${aspectsText(aspectsOf(k))}` })));
+      out.push(h('div', { class: 'hw-nb__aspect' }, h('span', { text: `${itemOrNull(k)?.name ?? k}:` }), aspectsRow(aspectsOf(k))));
     }
     return out;
   }
