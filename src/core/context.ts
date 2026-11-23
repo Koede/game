@@ -29,6 +29,8 @@ export interface Settings {
   uiScale: 'normal' | 'large';
   /** Forgiving jumps: coyote time and jump buffering. */
   moveAssist: boolean;
+  /** Walk up one-block ledges without jumping (on by default for touch). */
+  autoStep: boolean;
 }
 
 /** Spec 19.3. */
@@ -59,6 +61,7 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   difficulty: 'normal',
   uiScale: 'normal',
   moveAssist: true,
+  autoStep: touchFirst,
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

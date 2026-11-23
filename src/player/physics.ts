@@ -48,6 +48,10 @@ export const FLY_RESPONSE = 10;
 export const FLY_SPEED_MULT = 1.8;
 /** Highest ledge (in blocks) walked onto without jumping: a slab. */
 export const STEP_HEIGHT = 0.5 + 0.02;
+/** Highest ledge walked onto with Auto-step on: one full block. */
+export const AUTO_STEP_HEIGHT = 1 + 0.02;
+/** How high the player steps up onto a ledge without jumping. */
+export const stepLift = (autoStep: boolean): number => (autoStep ? AUTO_STEP_HEIGHT : STEP_HEIGHT);
 /** How quickly horizontal velocity follows the intent (1/s) on the ground, in the air and in liquids. */
 const GROUND_RESPONSE = 14;
 const AIR_RESPONSE = 2.5;
@@ -82,6 +86,8 @@ export class PlayerPhysics {
   /** Coyote time and jump buffering (the Movement assist setting). */
   readonly jumpAssist = new JumpAssist();
   assist = true;
+  /** Walk onto one-block ledges without jumping (the Auto-step setting). */
+  autoStep = false;
   /** The current where the body is this step (m/s; y -1 = under a waterfall). */
   readonly current = { x: 0, y: 0, z: 0 };
 
@@ -254,7 +260,7 @@ export class PlayerPhysics {
     pos.x = x0;
     pos.y = y0;
     pos.z = z0;
-    const lifted = this.moveAxis(1, STEP_HEIGHT);
+    const lifted = this.moveAxis(1, stepLift(this.autoStep));
     this.moveAxis(0, sx);
     this.moveAxis(2, sz);
     this.moveAxis(1, -lifted);

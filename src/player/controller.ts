@@ -230,6 +230,7 @@ export class PlayerController {
     this.sprintWanted = sprintAsked;
     this.devFlight(dt, intent.jump);
     this.physics.assist = this.settings.moveAssist;
+    this.physics.autoStep = this.settings.autoStep;
     const r = this.physics.step(dt, intent);
     if (r.jumped) {
       this.sfx('jump');

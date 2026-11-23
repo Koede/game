@@ -335,3 +335,24 @@ describe('jump assist in the physics', () => {
     }
   });
 });
+
+describe('auto-step', () => {
+  const walkInto = (autoStep: boolean, wallHeight: number): number => {
+    const world = flatWorld(null);
+    world.fill(-3, 10, -9, 3, 9 + wallHeight, -3, 'stone');
+    const player = makePlayer(createBus(), 0.5, 10, 0.5);
+    const physics = new PlayerPhysics(world, player);
+    physics.autoStep = autoStep;
+    for (let i = 0; i < 120; i++) physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+    return player.position.y;
+  };
+
+  it('walks onto a one-block ledge only when on', () => {
+    expect(walkInto(true, 1)).toBeCloseTo(11, 1);
+    expect(walkInto(false, 1)).toBeCloseTo(10, 1);
+  });
+
+  it('never climbs a two-block wall', () => {
+    expect(walkInto(true, 2)).toBeCloseTo(10, 1);
+  });
+});

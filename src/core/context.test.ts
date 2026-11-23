@@ -17,7 +17,9 @@ describe('default settings', () => {
     const desk = defaultSettings(false);
     expect(phone.renderDistance).toBe(PHONE_RENDER_DISTANCE);
     expect(desk.renderDistance).toBe(DESKTOP_RENDER_DISTANCE);
-    expect({ ...phone, renderDistance: 0 }).toEqual({ ...desk, renderDistance: 0 });
+    expect(phone.autoStep).toBe(true);
+    expect(desk.autoStep).toBe(false);
+    expect({ ...phone, renderDistance: 0, autoStep: false }).toEqual({ ...desk, renderDistance: 0 });
   });
 
   it('treats only a touch screen with a coarse pointer as touch-first (not a touch laptop, not node)', () => {
