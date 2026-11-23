@@ -30,7 +30,7 @@ import { ASPECT_LIST, LATE, PRIMALS, aspectInfo, aspectsText, isAspect, type Asp
 import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
 import { RESEARCH } from './entries';
-import { JAR_BLOCKS, jarsFor, shortfall, TUBE } from './essentiaNet';
+import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
@@ -87,6 +87,9 @@ export const INFUSE_STEP_S = 0.4;
 /** Seconds of work one unit of Spring buys a clay servant, and how far (Chebyshev) it may walk from where it was placed. */
 export const SERVANT_FEED_S = 30;
 export const SERVANT_RANGE = 8;
+/** How far apart (blocks, Chebyshev) two mirrors may be linked, and items moved a second. */
+export const MIRROR_RANGE = 128;
+export const MIRROR_ITEMS = 4;
 
 /** The workshop calls a clay servant may make (Game.bindWorkshop). Structural: this file does not import the workshop. */
 export interface ServantWorkshop {
@@ -231,6 +234,8 @@ export interface MagicSnapshot {
   stats?: { infusions: number; casts: number; studied: number; crafted: number };
   /** Haul loads: x, y, z, item, count. */
   carries?: [number, number, number, string, number][];
+  /** Mirror links: x, y, z, x, y, z of the sending end and its partner. */
+  mirrors?: number[][];
   plugged?: Record<string, string>;
 }
 
@@ -252,6 +257,10 @@ export class Magic {
   private readonly altars = new Map<string, string>();
   private readonly crucibles = new Map<string, CrucibleState>();
   private readonly servants = new Map<string, ServantState>();
+  /** Linked mirrors: cell -> the cell it is linked to. `mirrorSends` holds the cells that send items to their partner. */
+  private readonly mirrors = new Map<string, string>();
+  private readonly mirrorSends = new Set<string>();
+  private pendingMirror: string | null = null;
   /** wand item -> focus plugged into it. */
   private readonly plugged = new Map<string, string>();
   /** Set while a servant block is moved, so the block events do not reset its feed. */
@@ -294,6 +303,8 @@ export class Magic {
     if (this.pedestals.has(k) && key !== 'arcane_pedestal') this.dropAt(x, y, z, this.pedestals.get(k) as string, () => this.pedestals.delete(k));
     if (this.altars.has(k) && key !== 'infusion_altar') this.dropAt(x, y, z, this.altars.get(k) as string, () => this.altars.delete(k));
     if (this.infusion && k3(this.infusion.x, this.infusion.y, this.infusion.z) === k && key !== 'infusion_altar') this.infusion = null;
+    if (this.mirrors.has(k) && key !== MIRROR) this.unlinkMirror(k);
+    if (this.pendingMirror === k && key !== MIRROR) this.pendingMirror = null;
     if (this.relocating) return;
     if (golemBody(key)) {
       if (!this.servants.has(k)) this.servants.set(k, freshServant(x, y, z));
@@ -366,6 +377,7 @@ export class Magic {
       this.slowT -= 1;
       this.tickServants(1);
       this.tickSiphon();
+      this.tickMirrors();
     }
   }
 
@@ -397,6 +409,7 @@ export class Magic {
     if (key === 'arcane_pedestal') return this.usePedestal(target, held);
     if (key === 'infusion_altar') return this.useAltar(target, held);
     if (key === CRUCIBLE) return this.useCrucible(target, held);
+    if (key === MIRROR) return this.useMirror(target);
     if (key === ARCANE_BENCH) {
       this.bus.emit('ui:open', { screen: { type: 'rune_desk', x: target.x, y: target.y, z: target.z, bench: true } });
       return 'screen';
@@ -717,7 +730,7 @@ export class Magic {
   /** Essentia the jars in reach of x, y, z hold, per aspect. */
   private available(x: number, y: number, z: number, radius: number, withVials: boolean): Aspects {
     const have: Aspects = {};
-    for (const [jx, jy, jz] of jarsFor(this.blockAt, x, y, z, radius)) {
+    for (const [jx, jy, jz] of jarsFor(this.blockAt, x, y, z, radius, this.mirrorLink)) {
       const j = this.jarAt(jx, jy, jz);
       if (j?.aspect && j.n > 0) have[j.aspect] = (have[j.aspect] ?? 0) + j.n;
     }
@@ -731,7 +744,7 @@ export class Magic {
   /** Takes `n` units of `aspect` from the jars in reach (then whole carried vials when allowed). Returns units taken. */
   private take(x: number, y: number, z: number, radius: number, aspect: Aspect, n: number, withVials: boolean): number {
     let need = n;
-    for (const [jx, jy, jz] of jarsFor(this.blockAt, x, y, z, radius)) {
+    for (const [jx, jy, jz] of jarsFor(this.blockAt, x, y, z, radius, this.mirrorLink)) {
       if (need <= 0) break;
       const j = this.jarAt(jx, jy, jz);
       if (!j || j.aspect !== aspect || j.n <= 0) continue;
@@ -1299,6 +1312,86 @@ export class Magic {
     return true;
   }
 
+  // ---- linked mirrors ------------------------------------------------------------------------------------------------
+
+  /** The partner of the linked mirror at x, y, z (also what the essentia network follows). */
+  readonly mirrorLink = (x: number, y: number, z: number): [number, number, number] | null => {
+    const to = this.mirrors.get(k3(x, y, z));
+    return to ? parse3(to) : null;
+  };
+
+  private unlinkMirror(k: string): void {
+    const to = this.mirrors.get(k);
+    this.mirrors.delete(k);
+    this.mirrorSends.delete(k);
+    if (to) {
+      this.mirrors.delete(to);
+      this.mirrorSends.delete(to);
+    }
+  }
+
+  /**
+   * Use a mirror: the first Use marks it, a Use on a second mirror links the two (the first sends items to the second;
+   * essentia is shared both ways). Use on a linked mirror breaks the link and marks it again.
+   */
+  private useMirror(t: MagicTarget): MagicOutcome {
+    const k = k3(t.x, t.y, t.z);
+    if (this.mirrors.has(k)) {
+      this.unlinkMirror(k);
+      this.pendingMirror = k;
+      this.toast('The link is broken; this mirror is marked. Use another mirror to link it', undefined, 'info');
+      return 'worked';
+    }
+    const p = this.pendingMirror;
+    if (!p || p === k || this.blockAt(...parse3(p)) !== MIRROR) {
+      this.pendingMirror = k;
+      this.toast('Mirror marked. Use another mirror to link the two');
+      return 'worked';
+    }
+    const [px, py, pz] = parse3(p);
+    if (this.cheb(px, py, pz, t.x, t.y, t.z) > MIRROR_RANGE) {
+      this.advise(`The mirrors are more than ${MIRROR_RANGE} blocks apart`);
+      return 'refused';
+    }
+    this.pendingMirror = null;
+    this.mirrors.set(p, k);
+    this.mirrors.set(k, p);
+    this.mirrorSends.add(p);
+    this.bus.emit('sfx', { name: 'research_solve', pitch: 1.3 });
+    this.toast('The mirrors are linked: essentia flows both ways, items go from the first to the second', undefined, 'good');
+    return 'worked';
+  }
+
+  mirrorText(x: number, y: number, z: number): string | null {
+    const k = k3(x, y, z);
+    const to = this.mirrors.get(k);
+    if (to) {
+      const [tx, ty, tz] = parse3(to);
+      return `Linked Mirror - ${this.mirrorSends.has(k) ? 'sends items to' : 'receives from'} ${tx}, ${ty}, ${tz}`;
+    }
+    return k === this.pendingMirror ? 'Linked Mirror - marked, Use another to link' : this.blockAt(x, y, z) === MIRROR ? 'Linked Mirror - unlinked (Use it, then another mirror)' : null;
+  }
+
+  /** Every second a sending mirror moves up to MIRROR_ITEMS items from the container it touches to the one its partner touches. */
+  private tickMirrors(): void {
+    const w = this.workshop;
+    if (!w?.peek || !w.take) return;
+    for (const a of this.mirrorSends) {
+      const b = this.mirrors.get(a);
+      if (!b) continue;
+      const [ax, ay, az] = parse3(a);
+      const [bx, by, bz] = parse3(b);
+      if (!this.world.isLoaded(ax, az) || !this.world.isLoaded(bx, bz)) continue;
+      const from = this.markedContainer(ax, ay, az);
+      const to = this.markedContainer(bx, by, bz);
+      if (!from || !to || !(w.peek(...from).length > 0)) continue;
+      const got = w.take(from[0], from[1], from[2], null, MIRROR_ITEMS);
+      if (!got || got.count <= 0) continue;
+      const n = w.offer(to[0], to[1], to[2], got.item, got.count);
+      if (n < got.count) w.offer(from[0], from[1], from[2], got.item, got.count - n);
+    }
+  }
+
   // ---- clay servants -------------------------------------------------------------------------------------------------
 
   private tickServants(dt: number): void {
@@ -1717,6 +1810,7 @@ export class Magic {
       nodes,
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
+      mirrors: [...this.mirrorSends].filter((a) => this.mirrors.has(a)).map((a) => [...parse3(a), ...parse3(this.mirrors.get(a) as string)]),
       carries: [...this.servants].filter(([, v]) => v.carry).map(([k, v]) => [...parse3(k), v.carry!.item, v.carry!.count] as [number, number, number, string, number]),
     };
   }
@@ -1769,6 +1863,17 @@ export class Magic {
       const st = freshServant(home ? r[4] : r[0], home ? r[5] : r[1], home ? r[6] : r[2], Math.max(0, r[3]));
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
+    }
+    this.mirrors.clear();
+    this.mirrorSends.clear();
+    for (const r of Array.isArray(s.mirrors) ? s.mirrors : []) {
+      if (!Array.isArray(r) || r.length !== 6 || !r.every((n) => num(n))) continue;
+      const a = k3(r[0], r[1], r[2]);
+      const b = k3(r[3], r[4], r[5]);
+      if (this.mirrors.has(a) || this.mirrors.has(b)) continue;
+      this.mirrors.set(a, b);
+      this.mirrors.set(b, a);
+      this.mirrorSends.add(a);
     }
     for (const c of Array.isArray(s.carries) ? s.carries : []) {
       const st = Array.isArray(c) && c.length === 5 && cell(c) ? this.servants.get(k3(c[0], c[1], c[2])) : undefined;

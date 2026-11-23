@@ -140,7 +140,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'essentia_tubes', title: 'Glass Tubes', age: 'bronze', requires: ['essence_jar', 'rune_desk'], board: pair('clarity', 'brook', [wall(3)]),
-    unlocks: { recipes: ['essentia_tube'] },
+    unlocks: { recipes: ['essentia_tube', 'linked_mirror'] },
     text: 'Tubes join jars to the desk, the altar and the furnace: anything that needs essentia draws it through them from any jar on the line.',
   },
   {

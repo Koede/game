@@ -131,6 +131,16 @@ const marker = (arrow: P.RGB, out: boolean) => (c: Canvas): void => {
 };
 
 export const MAGIC_TEXTURES: PainterSet = {
+  magic_mirror: (c) => {
+    c.rect(0, 0, 16, 16, WOOD[0]);
+    c.rect(1, 1, 14, 14, WOOD[2]);
+    c.rect(2, 2, 12, 12, GLASS[2]);
+    c.rect(3, 3, 10, 10, GLASS[3]);
+    c.rect(4, 4, 3, 1, GLASS[4]);
+    c.rect(4, 5, 1, 3, GLASS[4]);
+    c.rect(9, 9, 3, 3, P.rgb(0xa77fe0), 140);
+    c.set(10, 10, P.rgb(0xe8d8ff));
+  },
   ...golems,
   magic_marker_pull: marker(P.rgb(0x3fa0d8), false),
   magic_marker_drop: marker(P.rgb(0xe8a020), true),

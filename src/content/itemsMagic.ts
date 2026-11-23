@@ -146,6 +146,11 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     light: 14, item: false, drops: 'none', textures: { all: 'magic_light' },
     desc: 'A small light set by a Light Focus. Break it and it is gone.',
   },
+  {
+    key: 'linked_mirror', name: 'Linked Mirror', category: 'machine', age: BRONZE, hardness: 0.6, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    textures: { all: 'magic_mirror' },
+    desc: "Made in pairs; Use one, then the other, to link them. Essentia lines they touch join; the first sends items from its crate into the second's.",
+  },
   ...GOLEMS.filter((g) => g.key !== 'clay_servant').map((g): BlockSpec => ({
     key: g.key, name: g.name, category: 'machine', age: FORGE, hardness: 1.5, tool: 'pickaxe', minTier: 0, oriented: true,
     textures: { side: `magic_${g.key}_side`, top: `magic_${g.key}_top`, front: `magic_${g.key}_front`, frontActive: `magic_${g.key}_front_on` },

@@ -50,6 +50,7 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
   arcane('focus_light', 'focus_light', '1 glass, 1 torch', { cinder: 4, gale: 4 }),
   arcane('focus_ward', 'focus_ward', '1 glass, 2 leather, 1 iron_ingot', { loam: 6, rift: 4, rune: 4 }),
   arcane('focus_blink', 'focus_blink', '1 glass, 1 cord, 1 iron_ingot', { gale: 8, mind: 4, rift: 4 }),
+  arcane('linked_mirror', '2 linked_mirror', '2 glass, 1 tin_ingot, 1 vial_rift', { rift: 4, gale: 2, rune: 2 }),
   // Golem markers (Arcane Workbench): set against a container.
   arcane('golem_pull_marker', 'golem_pull_marker', '1 plank, 1 clay, 1 copper_ingot', { mind: 2, drive: 2 }, true),
   arcane('golem_drop_marker', 'golem_drop_marker', '1 plank, 1 clay, 1 tin_ingot', { mind: 2, drive: 2 }, true),

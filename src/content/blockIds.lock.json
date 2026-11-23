@@ -249,5 +249,6 @@
   "stone_golem": 247,
   "iron_golem": 248,
   "golem_pull_marker": 249,
-  "golem_drop_marker": 250
+  "golem_drop_marker": 250,
+  "linked_mirror": 251
 }
