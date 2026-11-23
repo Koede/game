@@ -13,6 +13,7 @@ import { useRepeatFor, type HandHands } from './handTools';
 import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
+import { attachHaptics } from './haptics';
 import { Interaction } from './interaction';
 import { SHAKE_BREAK, SHAKE_DIG, SHAKE_HURT, SHAKE_STRIKE, Shake, landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
@@ -152,6 +153,7 @@ export class PlayerController {
       this.bus.on('player:damage', () => this.addShake(SHAKE_HURT)),
       // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
       attachSapSave(this.world, this.player),
+      attachHaptics(this.bus, () => this.settings.haptics),
     );
   }
 

@@ -33,6 +33,8 @@ export interface Settings {
   autoStep: boolean;
   /** No view bob, sprint FOV kick, landing dip or screen shake (starts on when the device asks for reduced motion). */
   reduceMotion: boolean;
+  /** Short vibrations on phones for mining, crafting and getting hurt (where the browser can vibrate). */
+  haptics: boolean;
 }
 
 /** Spec 19.3. */
@@ -68,6 +70,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   moveAssist: true,
   autoStep: touchFirst,
   reduceMotion,
+  haptics: true,
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */
