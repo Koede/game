@@ -157,6 +157,13 @@ export class MobManager {
   get loaded(): readonly Mob[] {
     return this.active;
   }
+  /** Set by the game: handles Use on a tame pet with something it does not eat (src/game/pets.ts). */
+  petUse: ((id: number, held: { item: string; count: number; durability?: number } | null) => 'worked' | 'refused' | null) | null = null;
+
+  pet(id: number, held: { item: string; count: number; durability?: number } | null): 'worked' | 'refused' | null {
+    return this.petUse ? this.petUse(id, held) : null;
+  }
+
   get(id: number): Mob | undefined {
     return this.byId.get(id);
   }
@@ -221,6 +228,13 @@ export class MobManager {
     const m = this.byId.get(id);
     const refused = feedRefusal(m, itemKey);
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing to feed' };
+    if (m.spec.pet) {
+      // A companion: the first gift makes it yours (no breeding).
+      if (!m.tame) this.bus.emit('toast', { text: `The ${m.spec.name.toLowerCase()} trusts you now. It will follow you.`, kind: 'good' });
+      m.tame = true;
+      this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
+      return { ok: true };
+    }
     if (!this.birthRoom()) return { ok: false, reason: NO_ROOM };
     m.eagerS = MOB_EAGER_S;
     m.tame = true;

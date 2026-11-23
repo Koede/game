@@ -8,6 +8,7 @@
  */
 import type { CreaturePart, CreatureSpec } from '../core/types';
 import { BIOME_ANIMALS } from './biomeMobs';
+import { PET_SPECS } from './pets';
 
 type V3 = readonly [number, number, number];
 
@@ -119,3 +120,6 @@ export const CREATURE_SPECS: CreatureSpec[] = [
 
 // Each biome's own wild animal (docs/SYNERGY_PLAN.md section 3).
 CREATURE_SPECS.push(...BIOME_ANIMALS);
+
+// Tameable companions (docs/api/pets.md): they spawn only as strays (src/game/pets.ts), never from a biome roll.
+CREATURE_SPECS.push(...PET_SPECS);

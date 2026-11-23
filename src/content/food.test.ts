@@ -119,7 +119,7 @@ describe('animals', () => {
     for (const [key, numbers] of Object.entries(FOOD_SPEC.creatures)) expect(creature(key), key).toMatchObject(numbers);
     for (const c of CREATURES) {
       expect(c.desc.length, c.key).toBeGreaterThan(20);
-      expect(c.group[0], c.key).toBeGreaterThanOrEqual(2); // a group can always breed
+      if (!c.pet) expect(c.group[0], c.key).toBeGreaterThanOrEqual(2); // a group can always breed (a pet never breeds)
     }
     expect(() => creature('dragon')).toThrow();
   });
