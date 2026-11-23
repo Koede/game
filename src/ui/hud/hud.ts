@@ -19,6 +19,7 @@ import { Crosshair } from './crosshair';
 import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
+import { BuildChip } from './buildChip';
 import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
 import combatCss from './combat.css';
@@ -69,6 +70,7 @@ export class Hud {
   private readonly goal: GoalTracker;
   private readonly compass = new Compass();
   private readonly quick: QuickCraft;
+  private readonly build: BuildChip;
   private readonly dial = new DayDial();
   private readonly power = new PowerStrip();
   private readonly crosshair = new Crosshair();
@@ -115,6 +117,7 @@ export class Hud {
     this.goal = new GoalTracker(bus);
     this.hotbar = new Hotbar(deps.player, bus);
     this.quick = new QuickCraft(deps.player, bus);
+    this.build = new BuildChip(deps.world, deps.player, bus);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
     this.auraEl = h('div', { class: 'hw-aura hw-hud-plate', attrs: { role: 'status' } });
@@ -124,7 +127,7 @@ export class Hud {
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
       h('div', { class: 'hw-hud__mid' }, this.goal.el),
-      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el),
+      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el),
     );
     this.devBtn = this.devButton(bus);
     this.devBtn.hidden = !deps.player.dev;
@@ -176,12 +179,22 @@ export class Hud {
         if (a.kind !== 'meltdown_warning') this.toast(a.message, a.kind === 'recovered' ? 'good' : a.kind === 'overload' ? 'bad' : 'warn');
       }),
     );
+    if (typeof window !== 'undefined') window.addEventListener('keydown', this.onKey);
     // Toasts and banners start below whatever the HUD keeps along the top edge.
     this.observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.placeToasts()) : null;
     this.observer?.observe(this.top);
     applyUiScale(root.el, deps.settings.uiScale);
     this.update();
   }
+
+  /** Build / quick-craft shortcuts (Z undo, C mark, V paste, X repeat the last hand recipe) while no screen is open. */
+  private readonly onKey = (e: KeyboardEvent): void => {
+    const tag = (e.target as HTMLElement | null)?.tagName;
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (this.screenOpen || this.deps.input.paused || this.deps.player.dead) return;
+    if (e.code === 'KeyX') this.quick.repeat();
+    else this.build.key(e.code);
+  };
 
   frame(dt: number): void {
     const d = this.deps;
@@ -312,6 +325,8 @@ export class Hud {
     for (const off of this.offs) off();
     this.offs.length = 0;
     this.observer?.disconnect();
+    if (typeof window !== 'undefined') window.removeEventListener('keydown', this.onKey);
+    this.build.dispose();
     this.hotbar.dispose();
     this.dialogue.dispose();
     this.feed.el.remove();
@@ -325,6 +340,7 @@ export class Hud {
     this.vitals.update(d.player, d.survival);
     this.goal.update(d.objectives);
     this.quick.update();
+    this.build.update();
     const home = d.player.home;
     this.compass.update(d.player, home ? d.sim().furnaceAt(home.x, home.y, home.z) : null);
     this.dial.update(d.clock.timeOfDay, d.clock.day, d.weather?.() ?? null);

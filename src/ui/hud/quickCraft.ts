@@ -37,6 +37,12 @@ export class QuickCraft {
     this.update();
   }
 
+  /** The X key: repeat the last hand recipe. */
+  repeat(): void {
+    const result = repeatLastHand(this.player);
+    if (result) this.report(result);
+  }
+
   private report(result: { ok: boolean; reason?: string }): void {
     if (!result.ok) {
       this.bus.emit('toast', { text: result.reason ?? 'Cannot make that', kind: 'warn' });

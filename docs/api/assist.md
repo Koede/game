@@ -24,3 +24,15 @@ older saves = defaults).
   Small pulls dropped items within 3 blocks, large within 6 (speed 8 / 10 blocks/s). Off is the normal 1.4 block pickup.
 - The app copies the setting to `player.assist.magnet` (runtime only); `Survival.tick` adds `magnetCollector(mode)` to the collectors
   `GroundItems.tick` already takes, so it follows the same rules (pickup delay, full pack = no pull).
+
+## Undo and copy-paste (src/game/buildTools.ts, src/ui/hud/buildChip.ts)
+- `BuildTools(world, player, bus)` logs every `block:placed` whose block has an item (not liquids or crops), the last `UNDO_LIMIT` = 10.
+  `undo()` takes the newest still-standing one out with `setVoxel(AIR, 'player')` (the sim spills machine contents as for a break) and
+  returns the item (nothing in Dev Mode free placing). Blocks broken or replaced since are skipped.
+- Copy: `markCorner(x, y, z)` twice; the box must be at most `CLIP_MAX` = 8 per side. Blocks without an item (water, crops) are not
+  copied; entity contents are not copied; machines get fresh entities from the sim on paste. `paste(x, y, z)` puts the clip's low
+  corner there, fills only replaceable cells (never into the player), costs one item per block from the pack (free in Dev Mode),
+  skips what it cannot pay for and says so. A paste is not logged for undo and does not emit `block:placed` (no stats or goals).
+- HUD chip (top-right cluster): "Undo xN", an arrow menu with Mark corner / Paste at aim / Cancel copy; shown while there is something
+  to undo, a copy in progress, or a block in hand. Keys: Z undo, C mark corner, V paste, X repeat the last hand recipe (no screen open).
+  Mark and Paste use the block under the crosshair (paste goes on the aimed face).
