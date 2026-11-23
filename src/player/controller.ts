@@ -4,6 +4,8 @@
  * imports src/render, src/sim or src/ui: screens are requested with 'ui:open' and machines react to world edits.
  */
 import { Emotes } from './emotes';
+import { stepSound } from './blockRules';
+import type { SfxName } from '../core/gameEvents';
 import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
 import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
@@ -257,7 +259,8 @@ export class PlayerController {
       this.stepDistance += r.walked;
       if (this.stepDistance >= STEP_EVERY) {
         this.stepDistance -= STEP_EVERY;
-        this.sfx('step', 0.6);
+        const feet = this.world.getBlock(Math.floor(p.position.x), Math.floor(p.position.y - 0.02), Math.floor(p.position.z));
+        this.sfx(feet.opaque || feet.solid ? stepSound(feet) : 'step', 0.6);
       }
     }
     // View bob follows the distance walked, fading in and out with ground speed.
@@ -371,7 +374,7 @@ export class PlayerController {
     });
   }
 
-  private sfx(name: 'jump' | 'splash' | 'land' | 'step', volume?: number): void {
+  private sfx(name: SfxName, volume?: number): void {
     const p = this.player.position;
     this.bus.emit('sfx', { name, x: p.x, y: p.y, z: p.z, volume });
   }

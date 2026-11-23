@@ -17,6 +17,23 @@ export function digSound(def: BlockDef): SfxName {
   return def.opaque ? 'dig_dirt' : 'dig_sand';
 }
 
+/** The footstep a block makes underfoot: stone, wood, sand, snow and metal ring differently; earth and plants keep the plain step. */
+export function stepSound(def: BlockDef): SfxName {
+  switch (digSound(def)) {
+    case 'dig_stone':
+      return 'step_stone';
+    case 'dig_wood':
+      return 'step_wood';
+    case 'dig_metal':
+      return 'step_metal';
+    case 'dig_sand':
+      if (def.key === 'snow') return 'step_snow';
+      return def.shape === 'cross' ? 'step' : 'step_sand';
+    default:
+      return 'step';
+  }
+}
+
 /** The screen that using this block opens, or null (crops, wild bushes, brewing setups and hand stations are machine blocks without a screen). */
 export function screenFor(def: BlockDef, x: number, y: number, z: number): ScreenRequest | null {
   if (def.station === 'workbench') return { type: 'workbench', x, y, z };

@@ -89,3 +89,7 @@ Spec sections 13-15 (buckets and lava, the richer world, weather) added keys, so
 
 ## The Emberbound (spec 19)
 Eight automaton sounds (`src/audio/sfxEmber.ts`), measured against the existing ones: see `docs/api/emberbound-content.md` section 6.
+
+## Footsteps by surface
+
+`stepSound(def)` (src/player/blockRules.ts) maps the block under the feet to `step_stone`, `step_wood`, `step_sand`, `step_snow` or `step_metal` (plain `step` for earth and plants); `PlayerController` emits it every `STEP_EVERY` metres. Rain and wind beds already follow the weather (ambienceWeather.ts).
