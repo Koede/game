@@ -81,6 +81,8 @@ describe('settings', () => {
     const back = sanitizeSettings(JSON.parse(JSON.stringify({ ...DEFAULT_SETTINGS, difficulty: 'hard', uiScale: 'large' })));
     expect([back.difficulty, back.uiScale]).toEqual(['hard', 'large']);
     expect(sanitizeSettings({ difficulty: 'nightmare', uiScale: 3 })).toEqual(DEFAULT_SETTINGS);
+    expect(sanitizeSettings({ graphics: 'low' }).graphics).toBe('low');
+    expect(sanitizeSettings({ graphics: 'ultra' }).graphics).toBe('normal');
     expect(sanitizeSettings({ difficulty: 'peaceful' }).difficulty).toBe('peaceful');
   });
 });

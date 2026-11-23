@@ -37,6 +37,11 @@ export interface Settings {
   colorSafe: boolean;
   /** Short vibrations on phones for mining, crafting and getting hurt (where the browser can vibrate). */
   haptics: boolean;
+  /**
+   * 'low' drops water waves, foam and loot beams and closes the fog in; 'high' keeps the fog clearer (src/render/quality.ts).
+   * Optional: older saves lack it and read as 'normal'.
+   */
+  graphics?: 'low' | 'normal' | 'high';
 }
 
 /** Spec 19.3. */
@@ -74,6 +79,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   reduceMotion,
   colorSafe: false,
   haptics: true,
+  graphics: 'normal',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

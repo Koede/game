@@ -27,6 +27,8 @@ export interface WorldUniforms {
   uFog: THREE.IUniform<THREE.Vector2>;
   /** How soaked sky-exposed surfaces look, 0..1 (weather). */
   uWet: THREE.IUniform<number>;
+  /** Share of the optional surface effects drawn, 0..1 (water waves and foam; the graphics setting). */
+  uFx: THREE.IUniform<number>;
 }
 
 export function createWorldUniforms(atlas: THREE.Texture | null, atlas2: THREE.Texture | null = null, split = 0): WorldUniforms {
@@ -43,6 +45,7 @@ export function createWorldUniforms(atlas: THREE.Texture | null, atlas2: THREE.T
     uSunDir: { value: new THREE.Vector3(0, 1, 0) },
     uFog: { value: new THREE.Vector2(40, 90) },
     uWet: { value: 0 },
+    uFx: { value: 1 },
   };
 }
 
