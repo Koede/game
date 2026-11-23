@@ -8,6 +8,7 @@ import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
 import { popUnsupportedAt } from '../game/farming';
+import { NETWORK_RADIUS, validLabel, type Chest } from '../game/storage';
 import { PlantSupport } from './plantSupport';
 import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
@@ -515,6 +516,32 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   machineSlots(x: number, y: number, z: number): Inventory | null {
     const e = this.machineAt(x, y, z);
     return e ? this.slots.machine(e) : null;
+  }
+
+  /** Chests (crates) within NETWORK_RADIUS of a crate, nearest first, as network members (docs/api/storage.md). */
+  storageNetwork(x: number, y: number, z: number): Chest[] {
+    const near: Array<{ d: number; e: MachineEntity }> = [];
+    for (const n of this.nodes.all) {
+      if (n.e.kind !== 'crate') continue;
+      const d = Math.max(Math.abs(n.e.x - x), Math.abs(n.e.y - y), Math.abs(n.e.z - z));
+      if (d <= NETWORK_RADIUS) near.push({ d, e: n.e as MachineEntity });
+    }
+    near.sort((a, b) => a.d - b.d);
+    return near.map(({ e }) => ({ id: `${e.x},${e.y},${e.z}`, label: e.label ?? '', inv: this.slots.machine(e) }));
+  }
+
+  crateLabel(x: number, y: number, z: number): string {
+    const e = this.machineAt(x, y, z);
+    return e?.kind === 'crate' ? e.label ?? '' : '';
+  }
+
+  /** Labels a crate (a category, an item key, or '' to clear). */
+  setCrateLabel(x: number, y: number, z: number, label: string): ActionResult {
+    const e = this.machineAt(x, y, z);
+    if (!e || e.kind !== 'crate') return refuse('There is no chest here');
+    if (!validLabel(label)) return refuse('Unknown label');
+    e.label = label || undefined;
+    return OK;
   }
 
   // ---- player actions -------------------------------------------------------------------------------------------
