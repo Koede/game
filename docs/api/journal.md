@@ -21,3 +21,5 @@
 ## Story beats
 
 `src/game/storyBeats.ts`: `STORY_BEATS` (one per age from the second on) and `StoryDirector(bus, journal, phase, savedAge)`. When an age is reached, the first night after brings its lines as timed toasts and a journal entry keyed `story:<age>`. The journal is the only memory: on load, reached ages whose key is missing re-arm. `GameState.story.tick` runs each fixed step.
+
+The Hearth Log (L) also lists every achievement (`AchievementsView`, src/ui/screens/log): earned ones with their day, the rest dim with what to do.

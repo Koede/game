@@ -181,6 +181,7 @@ export class Game {
         objectives,
         survival,
         journal: state.journal,
+        achievements: state.achievements,
         sim,
         weather: () => state.weather.state,
         releasePointer: () => this.inputManager.releasePointerCapture(),

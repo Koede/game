@@ -2838,6 +2838,11 @@ body {
 
 /* The Journal section of the Hearth Log (docs/api/journal.md). */
 .hw-journal { margin-top: 14px; display: grid; gap: 8px; }
+.hw-medals { margin-top: 14px; display: grid; gap: 4px; }
+.hw-medals__title { margin: 0; font-size: 1rem; }
+.hw-medals__item { font-size: 0.9rem; opacity: 0.45; }
+.hw-medals__item--got { opacity: 1; font-weight: 600; }
+.hw-medals__item small { display: block; font-weight: 400; opacity: 0.75; }
 .hw-journal__title { margin: 0; font-size: 1rem; }
 .hw-journal__map { width: 100%; max-width: 288px; aspect-ratio: 1; image-rendering: pixelated; border: 2px solid rgba(255, 255, 255, 0.18); border-radius: 6px; justify-self: center; }
 .hw-journal__summary { margin: 0; opacity: 0.8; font-size: 0.85rem; text-align: center; }
