@@ -22,6 +22,7 @@ import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
 import { NpcManager } from '../npcs';
+import { makeNpcHost } from '../npcs/host';
 import { takeLostItems } from '../content/aliases';
 import { World, type WorkerPool } from '../world';
 import { diag, playerBrief } from './diag';
@@ -196,7 +197,7 @@ export class GameState {
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
     this.npcs = new NpcManager(bus);
-    this.npcs.bind({ give: (item, n) => this.player.give(item, n), currentGoal: () => this.objectives.current?.id ?? null });
+    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
     this.offs.push(() => this.workshop.dispose());

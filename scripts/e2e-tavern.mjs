@@ -62,7 +62,7 @@ async function runDevice(device) {
       await d.settle(2500);
       const s = await npcs();
       assert(s.at, 'no tavern was built');
-      assert(s.views.length === 3, `${s.views.length} people`);
+      assert(s.views.length === 7, `${s.views.length} people and props`);
       const inside = s.pos.x > s.at[0] && s.pos.x < s.at[0] + 12 && s.pos.z > s.at[2] && s.pos.z < s.at[2] + 8;
       assert(inside, `the player is at ${s.pos.x},${s.pos.z}, outside the hall at ${s.at}`);
       assert(errors.length === 0, `console errors: ${errors.join(' | ')}`);
@@ -83,6 +83,24 @@ async function runDevice(device) {
         await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 5000, interval: 100, arg: gift });
         const toasts = await page.locator('.hw-toasts .hw-toast').allTextContents();
         assert(toasts.some((t) => t.includes(word)), `no toast with "${word}": ${toasts.slice(-3).join(' | ')}`);
+      });
+    }
+
+    for (const [id, word] of [['board', 'Quest board'], ['clock', 'It is'], ['orrin', 'wrench'], ['bram', 'Hold|hold|show|Show|Pick|What are you|Welcome|customer|Mind|sign|Come|goat|buy']]) {
+      await step(`using ${id} answers`, async () => {
+        const s = await npcs();
+        const v = s.views.find((x) => x.id === id);
+        const prop = v.kind === 'prop';
+        await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z + p.back), { x: v.x, y: v.y, z: v.z, back: prop ? 2.2 : -2 });
+        await d.settle(300);
+        await d.hw((p) => window.__hw.lookAt(p.x, p.y + p.h, p.z), { x: v.x, y: v.y, z: v.z, h: prop ? 0.7 : 1.2 });
+        await d.settle(200);
+        await d.shot(`3-${id}`);
+        await d.holdUse(250);
+        await d.settle(400);
+        const toasts = await page.locator('.hw-toasts .hw-toast').allTextContents();
+        const re = new RegExp(word, 'i');
+        assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: no toast matching ${word}: ${toasts.slice(-3).join(' | ')}`);
       });
     }
   } finally {

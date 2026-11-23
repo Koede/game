@@ -1,65 +1,107 @@
 import { describe, expect, it } from 'vitest';
+import { GameState } from '../app/state';
 import { createBus } from '../core/context';
 import { blockOf } from '../core/registry';
-import { GameState } from '../app/state';
-import { paintNpc, SPRITE_H, SPRITE_W } from '../render/npcs/sprites';
-import { NPCS, TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, layoutBlocks, NpcManager } from './index';
+import { FakeWorld } from '../game/fakeWorld';
+import { opaqueIn, paintNpc, SPRITE_H, SPRITE_W, spriteSize } from '../render/npcs/sprites';
+import {
+  BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
+  TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
+} from './index';
+import { ARTIFICER } from './scripts/artificer';
+import { BARKEEP } from './scripts/barkeep';
+import { HERMIT } from './scripts/hermit';
+import { ORC } from './scripts/orc';
+import { WITCH } from './scripts/witch';
 
 describe('the tavern layout', () => {
   const blocks = layoutBlocks();
   const at = (x: number, y: number, z: number): string | undefined => [...blocks].reverse().find((b) => b.x === x && b.y === y && b.z === z)?.block;
 
-  it('fits its box and uses only real blocks', () => {
+  it('fits its box (hall and yard) and uses only common blocks', () => {
     for (const b of blocks) {
-      expect(b.x >= 0 && b.x < TAVERN_W && b.y >= 0 && b.y <= TAVERN_H && b.z >= 0 && b.z < TAVERN_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
+      expect(b.x >= 0 && b.x < TAVERN_W && b.y >= 0 && b.y <= TAVERN_H && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const keys = new Set(blocks.map((b) => b.block));
-    for (const k of keys) expect(['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench']).toContain(k);
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt'];
+    for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 
-  it('leaves the start cell, the door and every person free to stand in', () => {
+  it('leaves the start cell, both doors and every person free to stand in', () => {
     const [sx, sy, sz] = TAVERN_START;
-    for (const [x, y, z] of [[sx, sy, sz], [sx, sy + 1, sz], [6, 1, 0], [6, 2, 0], [6, 1, 1]]) {
+    for (const [x, y, z] of [[sx, sy, sz], [sx, sy + 1, sz], [6, 1, 0], [6, 2, 0], [6, 1, 1], [1, 1, TAVERN_D - 1], [1, 2, TAVERN_D - 1]]) {
       const b = at(x, y, z);
       expect(b === undefined || b === 'air', `${x},${y},${z} is ${b}`).toBe(true);
     }
-    for (const n of NPCS) {
+    for (const n of NPCS.filter((p) => p.kind === 'person')) {
       for (const dy of [0, 1]) {
         const b = at(n.at[0], n.at[1] + dy, n.at[2]);
         expect(b === undefined || b === 'air', `${n.name} stands in ${b}`).toBe(true);
       }
-      expect(at(n.at[0], n.at[1] - 1, n.at[2]), `${n.name} has a floor`).toBe('plank');
+      const floor = at(n.at[0], n.at[1] - 1, n.at[2]);
+      expect(['plank', 'dirt'], `${n.name} has a floor`).toContain(floor);
     }
   });
 
-  it('has a roof, a floor, a bar, a fireplace and windows', () => {
+  it('has a roof, a bar, two fires and windows', () => {
     expect(at(6, TAVERN_H, 4)).toBe('plank');
-    expect(at(6, 0, 4)).toBe('plank');
     expect(at(5, 1, 5)).toBe('plank');
-    expect(at(11, 1, 2)).toBe('furnace_clay');
+    for (const [x, y, z] of FIRE_SPOTS) expect(at(x, y, z)).toBe('furnace_clay');
     expect(blocks.filter((b) => b.block === 'glass').length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('puts the quest board and the clock on the wall by the door, inside the hall', () => {
+    for (const id of ['board', 'clock']) {
+      const p = NPCS.find((n) => n.id === id)!;
+      expect(p.kind).toBe('prop');
+      expect(p.at[2]).toBeLessThan(1.5);
+      expect(p.at[0]).toBeGreaterThan(1);
+      expect(p.at[0]).toBeLessThan(TAVERN_W - 1);
+    }
   });
 });
 
-describe('talking', () => {
-  function rig() {
-    const bus = createBus();
-    const given: Array<[string, number]> = [];
-    const toasts: string[] = [];
-    bus.on('toast', (t) => toasts.push(t.text));
-    const npcs = new NpcManager(bus);
-    let goal: string | null = 'gather_logs';
-    npcs.bind({ give: (item, n) => (given.push([item, n]), n), currentGoal: () => goal });
-    npcs.at = [100, 40, 100];
-    return { npcs, given, toasts, setGoal: (g: string | null) => (goal = g) };
-  }
+function rig(opts: { coins?: number; held?: { item: string; count: number } | null; completed?: string[]; goal?: string | null; tod?: number } = {}) {
+  const bus = createBus();
+  const given: Array<[string, number]> = [];
+  const toasts: string[] = [];
+  const taken: number[] = [];
+  bus.on('toast', (t) => toasts.push(t.text));
+  let seed = 7;
+  const rng = (): number => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  const npcs = new NpcManager(bus, rng);
+  const state = { goal: opts.goal ?? 'gather_logs', done: new Set(opts.completed ?? []), held: opts.held ?? null, tod: opts.tod ?? 0.3, dead: false, hostiles: [] as { id: number; x: number; y: number; z: number }[] };
+  const hits: Array<[number, number]> = [];
+  const world = new FakeWorld(bus);
+  const host: NpcHost = {
+    give: (item, n) => (given.push([item, n]), n),
+    currentGoal: () => state.goal,
+    completed: () => state.done,
+    timeOfDay: () => state.tod,
+    day: () => 3,
+    held: () => state.held,
+    takeHeld: (n) => void taken.push(n),
+    advice: (role) => `ADVICE-${role}`,
+    companion: {
+      world,
+      player: () => ({ x: 100, y: 41, z: 100, dead: state.dead }),
+      hostiles: () => state.hostiles,
+      hit: (id, dmg) => void hits.push([id, dmg]),
+    },
+  };
+  npcs.bind(host);
+  npcs.at = [100, 40, 100];
+  npcs.coins = opts.coins ?? 0;
+  const by = (id: string) => NPCS.find((n) => n.id === id)!;
+  return { npcs, given, toasts, taken, state, hits, by };
+}
 
-  it('finds a person under the crosshair and nobody behind a wall of air', () => {
+describe('talking', () => {
+  it('finds a person under the crosshair and nobody out of reach or behind', () => {
     const { npcs } = rig();
     const mara = npcs.views().find((v) => v.id === 'mara')!;
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 3, 0, 0, 1)?.npc.id).toBe('mara');
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 3, 0, 0, -1)).toBeNull();
-    expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 8, 0, 0, 1)).toBeNull(); // out of reach
+    expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 8, 0, 0, 1)).toBeNull();
   });
 
   it('does not read the whole script while Use is held', () => {
@@ -72,54 +114,269 @@ describe('talking', () => {
     expect(toasts).toHaveLength(2);
   });
 
-  it('gives each gift once, then goal hints and rotating lines', () => {
-    const { npcs, given, toasts, setGoal } = rig();
-    const gruk = NPCS.find((n) => n.id === 'gruk')!;
-    npcs.speak(gruk);
-    expect(given).toEqual([['wooden_pickaxe', 1], ['wooden_axe', 1]]);
-    npcs.speak(gruk);
-    expect(given).toHaveLength(2);
-    expect(toasts[0]).toContain('Wooden tools');
-    setGoal('make_bronze');
-    npcs.speak(gruk);
-    expect(toasts[2]).toContain('Copper and tin');
-    npcs.speak(gruk);
-    expect(toasts[3]).not.toContain('Copper and tin');
+  it('gives each welcome gift once, then goal hints, specialist advice and banter', () => {
+    const r = rig();
+    const rosa = r.by('rosa');
+    r.npcs.speak(rosa);
+    expect(r.given).toEqual([['hearth_stew', 1]]);
+    r.npcs.speak(rosa); // odd visit: no hint for gather_logs, so the barkeep's advice
+    expect(r.toasts[1]).toContain('ADVICE-barkeep');
+    r.npcs.speak(rosa); // even: banter
+    expect(r.toasts[2]).not.toContain('ADVICE');
+    r.state.goal = 'get_warm';
+    r.npcs.speak(rosa); // odd: the goal's hint, once
+    expect(r.toasts[3]).toContain('Warmth sticks');
+    r.npcs.speak(rosa);
+    r.npcs.speak(rosa);
+    expect(r.toasts[5]).toContain('ADVICE-barkeep');
+    expect(r.given).toHaveLength(1);
   });
 
-  it('greets once and round-trips through the save', () => {
-    const { npcs, toasts } = rig();
-    npcs.greet();
-    npcs.greet();
-    expect(toasts.filter((t) => t.includes('tavern'))).toHaveLength(1);
-    npcs.speak(NPCS[0]);
+  it('gives the artificer\'s wrench and the witch\'s notebook', () => {
+    const r = rig({ goal: 'nothing' });
+    r.npcs.speak(r.by('orrin'));
+    r.npcs.speak(r.by('mara'));
+    expect(r.given).toEqual([['wrench', 1], ['field_notebook', 1]]);
+    r.npcs.speak(r.by('orrin'));
+    r.npcs.speak(r.by('mara'));
+    expect(r.toasts.slice(-2).every((t) => t.includes('ADVICE'))).toBe(true);
+  });
+
+  it('greets, then round-trips through the save', () => {
+    const r = rig({ coins: 12 });
+    r.npcs.greet();
+    r.npcs.greet();
+    expect(r.toasts.filter((t) => t.includes('Hearth & Anvil'))).toHaveLength(1);
+    r.npcs.speak(NPCS[0]);
     const back = rig().npcs;
-    back.load(JSON.parse(JSON.stringify(npcs.toJSON())));
+    back.load(JSON.parse(JSON.stringify(r.npcs.toJSON())));
     expect(back.at).toEqual([100, 40, 100]);
     expect(back.greeted).toBe(true);
+    expect(back.coins).toBe(12);
     expect(back.toJSON().gifted).toEqual(['mara']);
-    back.load({ at: 'bad', gifted: 5, spoken: { x: 'y' } });
+    back.load({ at: 'bad', gifted: 5, spoken: { x: 'y' }, coins: 'many' });
     expect(back.at).toBeNull();
-    expect(back.toJSON().gifted).toEqual([]);
+    expect(back.coins).toBe(0);
+  });
+});
+
+describe('the quest board', () => {
+  it('pays a bounty for each finished goal, only at the board, and only once', () => {
+    const r = rig({ completed: ['gather_logs', 'place_chopping_block', 'make_planks'] });
+    const board = r.by('board');
+    expect(r.npcs.pendingBounties().map((b) => b.id)).toEqual(['gather_logs', 'place_chopping_block', 'make_planks']);
+    expect(r.npcs.coins).toBe(0); // nothing is paid until the board is used
+    r.npcs.speak(board);
+    const total = BOUNTIES.filter((b) => ['gather_logs', 'place_chopping_block', 'make_planks'].includes(b.id)).reduce((s, b) => s + b.coin, 0);
+    expect(r.npcs.coins).toBe(total);
+    expect(r.toasts[0]).toContain(`+${total} coin`);
+    expect(r.toasts[1]).toContain('Open bounties');
+    r.npcs.speak(board);
+    expect(r.npcs.coins).toBe(total);
+    expect(r.toasts.at(-2)).toContain('no bounty to redeem');
+    r.state.done.add('place_workbench');
+    r.npcs.speak(board);
+    expect(r.npcs.coins).toBeGreaterThan(total);
+  });
+
+  it('has a bounty for every goal and pays more in later ages and for furnace milestones', () => {
+    expect(BOUNTIES.length).toBeGreaterThan(70);
+    const by = (id: string) => BOUNTIES.find((b) => b.id === id)!.coin;
+    expect(by('bronze_furnace')).toBeGreaterThan(by('gather_logs'));
+    expect(by('starhearth')).toBeGreaterThan(by('blast_furnace'));
+    expect(BOUNTIES.every((b) => b.coin >= 8)).toBe(true);
+  });
+
+  it('keeps claimed bounties in the save', () => {
+    const r = rig({ completed: ['gather_logs'] });
+    r.npcs.speak(r.by('board'));
+    const back = rig({ completed: ['gather_logs'] }).npcs;
+    back.load(JSON.parse(JSON.stringify(r.npcs.toJSON())));
+    expect(back.pendingBounties()).toEqual([]);
+    expect(back.coins).toBe(r.npcs.coins);
+  });
+});
+
+describe('the clock', () => {
+  it('reads the day clock: dawn is 06:00', () => {
+    expect(clockText(0)).toBe('06:00');
+    expect(clockText(0.5)).toBe('18:00');
+    expect(clockText(0.75)).toBe('00:00');
+    const r = rig({ tod: 0.5 });
+    r.npcs.speak(r.by('clock'));
+    expect(r.toasts[0]).toBe('Wall clock: It is 18:00, day 3.');
+    expect(r.npcs.views().find((v) => v.id === 'clock')!.extra).toBe(18 * 60);
+  });
+
+  it('draws different hands for different times', () => {
+    expect(paintNpc('clock', 0).data).not.toEqual(paintNpc('clock', 180).data);
+    expect(paintNpc('clock', 180).data).not.toEqual(paintNpc('clock', 190).data);
+  });
+});
+
+describe('Old Bram the hermit', () => {
+  it('buys the held stack at a mood-dependent price and never runs out of coin', () => {
+    const r = rig({ held: { item: 'flint', count: 12 } });
+    r.npcs.speak(r.by('bram'));
+    expect(r.taken).toEqual([12]);
+    expect(r.npcs.coins).toBeGreaterThan(0);
+    const first = r.npcs.coins;
+    r.npcs.tick(1);
+    r.npcs.speak(r.by('bram'));
+    expect(r.npcs.coins).toBeGreaterThan(first);
+    expect(r.toasts[0]).toMatch(/12 flint/);
+  });
+
+  it('asks you to hold something when your hand is empty', () => {
+    const r = rig({ held: null });
+    r.npcs.speak(r.by('bram'));
+    expect(r.taken).toEqual([]);
+    expect(r.toasts).toHaveLength(1);
+  });
+
+  it('prices tools and machines above raw materials, later ages above earlier', () => {
+    expect(priceOf('bronze_pickaxe')).toBeGreaterThan(priceOf('flint'));
+    expect(priceOf('hand_crank')).toBeGreaterThan(priceOf('copper_ingot'));
+    expect(stackPrice('flint', 10)).toBe(priceOf('flint') * 10);
+    expect(priceOf('not_an_item')).toBe(0);
+  });
+
+  it('has the running joke in his rare lines', () => {
+    expect(HERMIT.rare.filter((l) => l.startsWith("Bet you wonder how I'm still a bum with all this coin.... Anyways...")).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('Gruk for hire', () => {
+  it('offers, takes coin on the second Use, and follows and fights', () => {
+    const r = rig({ coins: HIRE_COST + 5 });
+    const gruk = r.by('gruk');
+    r.npcs.speak(gruk); // gift
+    r.npcs.speak(gruk); // talk + offer
+    expect(r.toasts.at(-1)).toMatch(/40 coin/);
+    r.npcs.speak(gruk); // yes
+    expect(r.npcs.coins).toBe(5);
+    expect(r.npcs.companion.active).toBe(true);
+    expect(r.npcs.views().find((v) => v.id === 'gruk')!.hired).toBe(true);
+    r.state.hostiles = [{ id: 9, x: 102, y: 41, z: 100 }];
+    for (let i = 0; i < 40; i++) r.npcs.tick(0.1);
+    expect(r.hits.length).toBeGreaterThan(0);
+    expect(r.hits[0][0]).toBe(9);
+  });
+
+  it('refuses without coin and lets the offer lapse', () => {
+    const r = rig({ coins: 3 });
+    const gruk = r.by('gruk');
+    r.npcs.speak(gruk);
+    r.npcs.speak(gruk);
+    expect(r.toasts.at(-1)).toMatch(/40 coin|Coin first|Not enough/);
+    expect(r.npcs.companion.active).toBe(false);
+  });
+
+  it('leaves when the time is up or the player dies', () => {
+    const r = rig({ coins: 100 });
+    r.npcs.speak(r.by('gruk'));
+    r.npcs.speak(r.by('gruk'));
+    r.npcs.speak(r.by('gruk'));
+    expect(r.npcs.companion.active).toBe(true);
+    r.state.dead = true;
+    r.npcs.tick(0.1);
+    expect(r.npcs.companion.active).toBe(false);
+    const c = new Companion();
+    c.hire(1, 1, 1);
+    c.hiredS = 0.05;
+    c.update(0.1, { world: new FakeWorld(createBus()), player: () => ({ x: 1, y: 1, z: 1, dead: false }), hostiles: () => [], hit: () => undefined });
+    expect(c.active).toBe(false);
+  });
+
+  it('is big and is saved with his hire', () => {
+    expect(NPCS.find((n) => n.id === 'gruk')!.scale).toBeGreaterThan(1.2);
+    const r = rig({ coins: 100 });
+    r.npcs.speak(r.by('gruk'));
+    r.npcs.speak(r.by('gruk'));
+    r.npcs.speak(r.by('gruk'));
+    const back = rig().npcs;
+    back.load(JSON.parse(JSON.stringify(r.npcs.toJSON())));
+    expect(back.companion.active).toBe(true);
+  });
+});
+
+describe('the scripts', () => {
+  const banks = { witch: WITCH, barkeep: BARKEEP, orc: ORC, artificer: ARTIFICER, hermit: HERMIT };
+  const every = (b: typeof WITCH): string[] => [...b.greet, ...b.idle, ...b.morning, ...b.evening, ...b.night, ...b.rare, ...b.farewell, ...Object.values(b.hints)];
+
+  it('hold hundreds of different phrases, none repeated within a person', () => {
+    let total = 0;
+    for (const [name, b] of Object.entries(banks)) {
+      const all = every(b);
+      const dupes = all.length - new Set(all).size;
+      expect(dupes, `${name} repeats ${dupes} lines`).toBeLessThanOrEqual(name === 'hermit' ? 3 : 0); // the hermit's joke is repeated on purpose
+      expect(bankSize(b), name).toBe(all.length);
+      total += new Set(all).size;
+    }
+    expect(total).toBeGreaterThan(400);
+    for (const b of Object.values(banks)) expect(b.idle.length).toBeGreaterThanOrEqual(50);
+  });
+
+  it('keep the voice: no empty lines, sensible length, no placeholders left in the plain banks', () => {
+    for (const [name, b] of Object.entries(banks)) {
+      for (const l of every(b)) {
+        expect(l.trim().length, `${name}: "${l}"`).toBeGreaterThan(10);
+        expect(l.length, `${name}: "${l}"`).toBeLessThan(260);
+        expect(l, name).not.toMatch(/[{}]/);
+      }
+    }
+  });
+
+  it('are drawn from without repeating lately, by time of day, and rarely rare', () => {
+    let seed = 3;
+    const rng = (): number => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    const picker = new LinePicker(rng);
+    const said: string[] = [];
+    for (let i = 0; i < 40; i++) said.push(picker.pick('mara', WITCH, 'day'));
+    for (let i = 14; i < said.length; i++) expect(said.slice(i - 14, i), `line ${i}`).not.toContain(said[i]);
+    expect(new Set(said).size).toBeGreaterThan(25);
+    const night = Array.from({ length: 200 }, () => new LinePicker(rng).pick('x', WITCH, 'night')).filter((l) => WITCH.night.includes(l)).length;
+    expect(night).toBeGreaterThan(50);
+  });
+
+  it('give the guidance roles real advice', () => {
+    for (const [role, id] of [['witch', 'mara'], ['barkeep', 'rosa'], ['artificer', 'orrin']] as const) {
+      const r = rig({ goal: 'nothing' });
+      r.npcs.speak(r.by(id));
+      r.npcs.speak(r.by(id));
+      expect(r.toasts[1]).toContain(`ADVICE-${role}`);
+    }
   });
 });
 
 describe('the sprites', () => {
-  it('draw an outlined, mostly transparent figure for each person', () => {
-    for (const kind of ['witch', 'barkeep', 'orc'] as const) {
+  it('draw an outlined, mostly transparent figure for each person and prop', () => {
+    for (const kind of ['witch', 'barkeep', 'orc', 'artificer', 'hermit', 'board', 'clock'] as const) {
       const img = paintNpc(kind);
-      expect([img.w, img.h, img.data.length]).toEqual([SPRITE_W, SPRITE_H, SPRITE_W * SPRITE_H * 4]);
+      const size = spriteSize(kind);
+      expect([img.w, img.h, img.data.length]).toEqual([size.w, size.h, size.w * size.h * 4]);
       let opaque = 0;
       for (let i = 3; i < img.data.length; i += 4) if (img.data[i] > 0) opaque++;
-      expect(opaque, kind).toBeGreaterThan(250);
-      expect(opaque, kind).toBeLessThan(SPRITE_W * SPRITE_H * 0.75);
+      expect(opaque, kind).toBeGreaterThan(120);
+      expect(opaque, kind).toBeLessThanOrEqual(img.w * img.h * (kind === 'board' || kind === 'clock' ? 1 : 0.8));
     }
+    expect([SPRITE_W, SPRITE_H]).toEqual([24, 40]);
     expect(paintNpc('witch').data).not.toEqual(paintNpc('orc').data);
+  });
+
+  it('give the women a narrower waist than hips, and the orc broad shoulders', () => {
+    const rows = (img: ReturnType<typeof paintNpc>, y: number): number => opaqueIn(img, y, y + 1);
+    for (const k of ['witch', 'barkeep'] as const) {
+      const img = paintNpc(k);
+      expect(rows(img, 25), `${k} waist`).toBeLessThan(rows(img, k === 'witch' ? 34 : 35));
+    }
+    const o = paintNpc('orc');
+    expect(rows(o, 24)).toBeGreaterThan(rows(paintNpc('witch'), 24) + 6);
   });
 });
 
 describe('a new world opens in the tavern', () => {
-  it('builds the hall round the spawn, stands the player inside facing the bar, and saves it', () => {
+  it('builds the hall and yard round the spawn, stands the player inside facing the bar, and saves it', () => {
     const state = GameState.create(21, 'tavern');
     const o = state.npcs.at!;
     expect(o).not.toBeNull();
@@ -129,12 +386,25 @@ describe('a new world opens in the tavern', () => {
     expect(blockOf(state.world.getVoxel(o[0] + 5, o[1] + 1, o[2] + 5)).key).toBe('plank');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 2)).key).toBe('air');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + TAVERN_H, o[2] + 4)).key).toBe('plank');
-    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk']);
+    expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 13)).key).toBe('furnace_clay'); // the hermit's fire
+    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Old Bram', 'Quest board', 'Wall clock']);
     const save = state.toSave();
     expect((save.world.extras as { npcs?: { at: number[] } }).npcs?.at).toEqual(o);
     const again = GameState.restore(JSON.parse(JSON.stringify(save)));
     expect(again.npcs.at).toEqual(o);
     again.dispose();
+    state.dispose();
+  });
+
+  it('keeps both hearths lit', () => {
+    const state = GameState.create(22, 'fires');
+    for (let i = 0; i < 200; i++) state.tick();
+    const o = state.npcs.at!;
+    for (const [x, y, z] of FIRE_SPOTS) {
+      const e = state.sim.furnaceAt(o[0] + x, o[1] + y, o[2] + z);
+      expect(e?.lit, `fire at ${x},${y},${z}`).toBe(true);
+    }
+    expect(state.npcs.pendingBounties()).toEqual([]);
     state.dispose();
   });
 });

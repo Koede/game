@@ -1,28 +1,29 @@
 /**
- * NpcRenderer: the tavern's people as camera-facing pixel sprites (docs/api/npcs.md), standing on their block with a gentle idle bob.
- * One THREE.Sprite per person, nearest-neighbour textures from `paintNpc`; the sprite is dimmed with the sky so they sit in the
- * night like everything else.
+ * NpcRenderer: the tavern's people and props as camera-facing pixel sprites (docs/api/npcs.md), standing on their block with a gentle
+ * idle bob. One THREE.Sprite per person, nearest-neighbour textures from `paintNpc`; the clock's texture is repainted when its minute
+ * changes; sprites are dimmed with the sky so they sit in the night like everything else.
  */
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
-import { SPRITE_H, SPRITE_W, paintNpc } from './sprites';
+import { paintNpc, spriteSize } from './sprites';
 
 /** The parts of the Renderer it draws into. */
 export interface NpcScene {
   readonly scene: THREE.Scene;
 }
 
-/** World size of one sprite pixel: 40 px = 2 blocks tall. */
+/** World size of one sprite pixel: a 40 px person is 2 blocks tall. */
 const PIXEL = 0.05;
 
 export class NpcRenderer {
   private readonly sprites = new Map<string, THREE.Sprite>();
   private readonly textures = new Map<string, THREE.DataTexture>();
+  private readonly clockMinute = new Map<string, number>();
   private time = 0;
 
   constructor(private readonly host: NpcScene) {}
 
-  /** Call every frame with the people's views and a 0..1 brightness (the sky). */
+  /** Call every frame with the views and a 0..1 brightness (the sky). */
   update(dt: number, views: readonly NpcView[], brightness = 1): void {
     this.time += dt;
     const seen = new Set<string>();
@@ -34,7 +35,8 @@ export class NpcRenderer {
         this.sprites.set(v.id, s);
         this.host.scene.add(s);
       }
-      const bob = Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015;
+      if (v.sprite === 'clock' && this.clockMinute.get(v.id) !== v.extra) this.repaint(v);
+      const bob = v.kind === 'person' ? Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015 : 0;
       s.position.set(v.x, v.y + bob, v.z);
       const k = 0.35 + 0.65 * Math.max(0, Math.min(1, brightness));
       (s.material as THREE.SpriteMaterial).color.setRGB(k, k, k);
@@ -44,26 +46,45 @@ export class NpcRenderer {
       this.host.scene.remove(s);
       (s.material as THREE.SpriteMaterial).dispose();
       this.sprites.delete(id);
+      this.textures.get(id)?.dispose();
+      this.textures.delete(id);
     }
   }
 
+  private texture(v: NpcView): THREE.DataTexture {
+    const img = paintNpc(v.sprite, v.extra);
+    const tex = new THREE.DataTexture(img.data, img.w, img.h, THREE.RGBAFormat);
+    tex.flipY = true;
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  private repaint(v: NpcView): void {
+    const s = this.sprites.get(v.id);
+    if (!s) return;
+    const old = this.textures.get(v.id);
+    const tex = this.texture(v);
+    this.textures.set(v.id, tex);
+    const mat = s.material as THREE.SpriteMaterial;
+    mat.map = tex;
+    mat.needsUpdate = true;
+    old?.dispose();
+    this.clockMinute.set(v.id, v.extra);
+  }
+
   private make(v: NpcView): THREE.Sprite {
-    let tex = this.textures.get(v.sprite);
-    if (!tex) {
-      const img = paintNpc(v.sprite);
-      tex = new THREE.DataTexture(img.data, img.w, img.h, THREE.RGBAFormat);
-      tex.flipY = true;
-      tex.magFilter = THREE.NearestFilter;
-      tex.minFilter = THREE.NearestFilter;
-      tex.generateMipmaps = false;
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.needsUpdate = true;
-      this.textures.set(v.sprite, tex);
-    }
+    const tex = this.texture(v);
+    this.textures.set(v.id, tex);
+    if (v.sprite === 'clock') this.clockMinute.set(v.id, v.extra);
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthWrite: true });
     const s = new THREE.Sprite(mat);
+    const size = spriteSize(v.sprite);
     s.center.set(0.5, 0);
-    s.scale.set(SPRITE_W * PIXEL, SPRITE_H * PIXEL, 1);
+    s.scale.set(size.w * PIXEL * v.scale, size.h * PIXEL * v.scale, 1);
     return s;
   }
 

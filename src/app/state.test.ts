@@ -70,8 +70,8 @@ describe('GameState', () => {
     expect(b.crucibleOut).toEqual(a.crucibleOut);
     expect(b.fuel).toEqual(a.fuel);
     expect(copy.player.warmth).toBeCloseTo(state.player.warmth, 6);
-    // The test's furnace and the tavern's fireplace.
-    expect([...copy.world.entities()].filter(isFurnace)).toHaveLength(2);
+    // The test's furnace, the tavern's fireplace and the hermit's fire.
+    expect([...copy.world.entities()].filter(isFurnace)).toHaveLength(3);
     state.dispose();
     copy.dispose();
   });
