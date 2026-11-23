@@ -36,3 +36,14 @@ older saves = defaults).
 - HUD chip (top-right cluster): "Undo xN", an arrow menu with Mark corner / Paste at aim / Cancel copy; shown while there is something
   to undo, a copy in progress, or a block in hand. Keys: Z undo, C mark corner, V paste, X repeat the last hand recipe (no screen open).
   Mark and Paste use the block under the crosshair (paste goes on the aimed face).
+
+## What next (src/game/nextStep.ts, src/ui/hud/nudge.ts)
+- `nudgeFor(player, objective)` -> `{ text, target }`: the current goal as one short hint. `have`/`make` goals walk the recipe down
+  the first missing ingredient (to a block that drops it, or the station that makes it); `place` says where the item is or how to
+  get it; `break` and furnace goals point at the block / home furnace; anything unreadable falls back to the goal title.
+- `findNearestBlock(world, from, keys, radius = 24, vertical = 20)`: one scan (about 100k cells) for the arrow's target; `stillThere`
+  tells when it was mined. Only run on demand.
+- HUD: a "What next?" button under the goal bar (key N). It opens a panel with the hint, an arrow that follows the view and the
+  distance; it re-reads the goal every second and closes itself after 30 s.
+- Check: `node scripts/with-lock.mjs assist -- node scripts/e2e-assist.mjs --dist=<tmp dir>` (recipe helper, quick-craft, magnet,
+  undo, copy-paste, nudge; keys on desktop, taps on phones).

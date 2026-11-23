@@ -2878,6 +2878,9 @@ body {
   border-radius: 8px;
   padding: 0 8px;
 }
+.hw-helper__pinned {
+  justify-content: flex-start;
+}
 .hw-helper__pinned .hw-ingr[data-short] {
   outline: 1px solid var(--hw-warn, #e0a040);
 }
