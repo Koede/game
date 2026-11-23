@@ -65,7 +65,7 @@ describe('favours on the quest board', () => {
     expect(f).toBeTruthy();
     r.state.held = { item: f.item, count: f.count + 2 };
     const t0 = r.npcs.trustOf(f.who);
-    r.npcs.speak(r.by('board'));
+    r.npcs.useFixture('board');
     expect(r.npcs.coins).toBe(f.coin);
     expect(r.npcs.trustOf(f.who)).toBe(t0 + f.trust);
     expect(r.state.held?.count).toBe(2);
@@ -79,13 +79,13 @@ describe('favours on the quest board', () => {
     const f = r.npcs.pinnedFavours()[0];
     r.state.held = { item: f.item, count: f.count - 1 };
     if (f.count > 1) {
-      r.npcs.speak(r.by('board'));
+      r.npcs.useFixture('board');
       expect(r.npcs.coins).toBe(0);
       expect(r.toasts.join('|')).toContain(`${f.count}`);
     }
     r.state.held = null;
     r.toasts.length = 0;
-    r.npcs.speak(r.by('board'));
+    r.npcs.useFixture('board');
     expect(r.toasts.join('|')).toContain('Favours pinned');
   });
 

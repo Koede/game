@@ -29,7 +29,7 @@ describe('the tavern layout', () => {
     for (const b of blocks) {
       expect(b.x >= 0 && b.x < TAVERN_W && b.y >= -BASEMENT_DEPTH && b.y <= TAVERN_TOP && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof'];
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock'];
     for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 
@@ -56,14 +56,10 @@ describe('the tavern layout', () => {
     expect(blocks.filter((b) => b.block === 'glass').length).toBeGreaterThanOrEqual(8);
   });
 
-  it('puts the quest board and the clock on the wall by the door, inside the hall', () => {
-    for (const id of ['board', 'clock']) {
-      const p = NPCS.find((n) => n.id === id)!;
-      expect(p.kind).toBe('prop');
-      expect(p.at[2]).toBeLessThan(1.5);
-      expect(p.at[0]).toBeGreaterThan(1);
-      expect(p.at[0]).toBeLessThan(TAVERN_W - 1);
-    }
+  it('builds the quest board and the wall clock as blocks on the north wall, inside the hall', () => {
+    expect(at(3, 2, 0)).toBe('quest_board');
+    expect(at(5, 3, 0)).toBe('wall_clock');
+    expect(NPCS.some((n) => n.id === 'board' || n.id === 'clock')).toBe(false);
   });
 });
 
@@ -271,19 +267,18 @@ describe('talking', () => {
 describe('the quest board', () => {
   it('pays a bounty for each finished goal, only at the board, and only once', () => {
     const r = rig({ completed: ['gather_logs', 'place_chopping_block', 'make_planks'] });
-    const board = r.by('board');
     expect(r.npcs.pendingBounties().map((b) => b.id)).toEqual(['gather_logs', 'place_chopping_block', 'make_planks']);
     expect(r.npcs.coins).toBe(0); // nothing is paid until the board is used
-    r.npcs.speak(board);
+    r.npcs.useFixture('board');
     const total = BOUNTIES.filter((b) => ['gather_logs', 'place_chopping_block', 'make_planks'].includes(b.id)).reduce((s, b) => s + b.coin, 0);
     expect(r.npcs.coins).toBe(total);
     expect(r.toasts[0]).toContain(`+${total} coin`);
     expect(r.toasts[1]).toContain('Open bounties');
-    r.npcs.speak(board);
+    r.npcs.useFixture('board');
     expect(r.npcs.coins).toBe(total);
     expect(r.toasts.at(-2)).toContain('no bounty to redeem');
     r.state.done.add('place_workbench');
-    r.npcs.speak(board);
+    r.npcs.useFixture('board');
     expect(r.npcs.coins).toBeGreaterThan(total);
   });
 
@@ -297,7 +292,7 @@ describe('the quest board', () => {
 
   it('keeps claimed bounties in the save', () => {
     const r = rig({ completed: ['gather_logs'] });
-    r.npcs.speak(r.by('board'));
+    r.npcs.useFixture('board');
     const back = rig({ completed: ['gather_logs'] }).npcs;
     back.load(JSON.parse(JSON.stringify(r.npcs.toJSON())));
     expect(back.pendingBounties()).toEqual([]);
@@ -311,9 +306,8 @@ describe('the clock', () => {
     expect(clockText(0.5)).toBe('18:00');
     expect(clockText(0.75)).toBe('00:00');
     const r = rig({ tod: 0.5 });
-    r.npcs.speak(r.by('clock'));
+    r.npcs.useFixture('clock');
     expect(r.toasts[0]).toBe('Wall clock: It is 18:00, day 3.');
-    expect(r.npcs.views().find((v) => v.id === 'clock')!.extra).toBe(18 * 60);
   });
 
   it('draws different hands for different times', () => {
@@ -527,7 +521,7 @@ describe('a new world opens in the tavern', () => {
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 2)).key).toBe('air');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + TAVERN_H, o[2] + 4)).key).toBe('plank');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 13)).key).toBe('furnace_clay'); // the hermit's fire
-    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Old Bram', 'Quest board', 'Wall clock', 'Jukebox']);
+    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Old Bram', 'Jukebox']);
     const save = state.toSave();
     expect((save.world.extras as { npcs?: { at: number[] } }).npcs?.at).toEqual(o);
     const again = GameState.restore(JSON.parse(JSON.stringify(save)));

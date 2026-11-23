@@ -5,6 +5,7 @@
 import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
+import { glassModelIndex } from './glassModels';
 import { isStationShape, stationIndex } from './stationShapes';
 
 const SIZE = VOXEL_ID_MASK + 1;
@@ -22,10 +23,11 @@ export const SHAPE_BUCKET = 9;
 export const SHAPE_FENCE = 10;
 export const SHAPE_STAIRS = 11;
 export const SHAPE_SLOPE = 12;
+export const SHAPE_GLASS = 13;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
   pipe: SHAPE_PIPE,
-  cup: SHAPE_CUP, bucket: SHAPE_BUCKET, fence: SHAPE_FENCE, stairs: SHAPE_STAIRS, slope: SHAPE_SLOPE,
+  cup: SHAPE_CUP, bucket: SHAPE_BUCKET, fence: SHAPE_FENCE, stairs: SHAPE_STAIRS, slope: SHAPE_SLOPE, glass: SHAPE_GLASS,
 };
 
 export const BATCH_OPAQUE = 0;
@@ -67,6 +69,9 @@ export const PIPE_JOINS = new Uint8Array(SIZE);
 export const PIPE_ENDPOINT = new Uint8Array(SIZE);
 /** 1 for blocks a fence grows an arm towards: other fences and every opaque cube. */
 export const FENCE_JOINS = new Uint8Array(SIZE);
+/** Glassware (meshGlass.ts): a tube arm towards every neighbour with GLASS_JOINS set; GLASS_MODEL is its model index (glassModels.ts). */
+export const GLASS_JOINS = new Uint8Array(SIZE);
+export const GLASS_MODEL = new Uint8Array(SIZE);
 /** Colour of the light a block emits: 0 warm firelight, 1 cyan, 2 violet (cool glows of caves, spec 14). */
 export const LIGHT_HUE = new Uint8Array(SIZE);
 export const HUE_CYAN = 1;
@@ -108,6 +113,8 @@ for (const def of BLOCKS) {
   BATCH[id] = def.translucent || glassPipe ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' || def.shape === 'cup' || def.shape === 'bucket' ? BATCH_CUTOUT : BATCH_OPAQUE;
   POWERED[id] = def.power ? 1 : 0;
   FENCE_JOINS[id] = def.shape === 'fence' || def.opaque ? 1 : 0;
+  GLASS_JOINS[id] = def.shape === 'glass' ? 1 : 0;
+  GLASS_MODEL[id] = def.shape === 'glass' ? glassModelIndex(def.key) : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
   else {

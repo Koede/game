@@ -66,6 +66,9 @@ export function layoutBlocks(): Placement[] {
     put(x, 2, z, 'glass');
     put(x, 3, z, 'glass');
   }
+  // The quest board and the wall clock are set into the north wall, faces to the room (out of the way of the doors and paths).
+  put(3, 2, 0, 'quest_board', Facing.South);
+  put(5, 3, 0, 'wall_clock', Facing.South);
   // The bar: a counter of planks across the room with stools (chopping blocks) on the customers' side.
   for (let x = 3; x <= 9; x++) put(x, 1, 5, 'plank');
   for (const x of [4, 6, 8]) put(x, 1, 4, 'chopping_block');

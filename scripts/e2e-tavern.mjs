@@ -62,7 +62,7 @@ async function runDevice(device) {
       await d.settle(2500);
       const s = await npcs();
       assert(s.at, 'no tavern was built');
-      assert(s.views.length === 8, `${s.views.length} people and props`);
+      assert(s.views.length === 6, `${s.views.length} people and props`);
       const inside = s.pos.x > s.at[0] && s.pos.x < s.at[0] + 12 && s.pos.z > s.at[2] && s.pos.z < s.at[2] + 8;
       assert(inside, `the player is at ${s.pos.x},${s.pos.z}, outside the hall at ${s.at}`);
       assert(errors.length === 0, `console errors: ${errors.join(' | ')}`);
@@ -90,15 +90,24 @@ async function runDevice(device) {
       });
     }
 
+    // The quest board and the wall clock are blocks in the north wall: stand two blocks south of each, face its centre.
+    const FIXTURE = { board: { lx: 3, ly: 2, lz: 0 }, clock: { lx: 5, ly: 3, lz: 0 } };
     for (const [id, word] of [['board', 'Quest board'], ['clock', 'It is'], ['orrin', 'wrench'], ['bram', 'Hold|hold|show|Show|Pick|What are you|Welcome|customer|Mind|sign|Come|goat|buy']]) {
       await step(`using ${id} answers`, async () => {
         const s = await npcs();
-        const v = s.views.find((x) => x.id === id);
-        const prop = v.kind === 'prop';
-        await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z + p.back), { x: v.x, y: v.y, z: v.z, back: prop ? 2.2 : -2 });
-        await d.settle(300);
-        await d.hw((p) => window.__hw.lookAt(p.x, p.y + p.h, p.z), { x: v.x, y: v.y, z: v.z, h: prop ? 0.7 : 1.2 });
-        await d.settle(200);
+        const fx = FIXTURE[id];
+        const v = fx ? { x: s.at[0] + fx.lx + 0.5, y: s.at[1] + 1, z: s.at[2] + fx.lz + 0.5 } : s.views.find((x) => x.id === id);
+        const prop = !!fx || s.views.find((x) => x.id === id).kind === 'prop';
+        if (fx) {
+          // A block in the wall: the same aim as any block (approach finds a stand that sees it).
+          assert(await d.approach({ x: s.at[0] + fx.lx, y: s.at[1] + fx.ly, z: s.at[2] + fx.lz }), `aims at the ${id} block`);
+          await d.settle(200);
+        } else {
+          await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z + p.back), { x: v.x, y: v.y, z: v.z, back: prop ? 2.2 : -2 });
+          await d.settle(300);
+          await d.hw((p) => window.__hw.lookAt(p.x, p.y + p.h, p.z), { x: v.x, y: v.y, z: v.z, h: prop ? 0.7 : 1.2 });
+          await d.settle(200);
+        }
         await d.shot(`3-${id}`);
         await d.holdUse(250);
         await d.settle(400);

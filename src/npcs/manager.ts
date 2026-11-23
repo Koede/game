@@ -9,7 +9,7 @@ import type { GameBus } from '../core/context';
 import type { IWorld } from '../core/types';
 import { phaseAt } from '../game/clock';
 import { Companion, HIRE_COST, HIRE_SECONDS, type CompanionHost } from './companion';
-import { NPCS, type NpcDef, type NpcRole, type NpcSprite } from './data';
+import { FIXTURES, NPCS, type NpcDef, type NpcRole, type NpcSprite } from './data';
 import { BEAT_S, DANCES, notesAt } from './jukebox';
 import { LinePicker, clockHM, clockText, type Phase } from './dialogue';
 import { BOUNTIES, stackPrice } from './economy';
@@ -346,6 +346,12 @@ export class NpcManager {
     if (this.clockS - last <= GREET_AFTER_S) return false;
     this.greetedAt.set(npc.id, this.clockS);
     return true;
+  }
+
+  /** Use on a fixture block (the quest board or the wall clock, placed by the tavern). Null when there is no such fixture. */
+  useFixture(role: 'board' | 'clock'): string | null {
+    const npc = FIXTURES.find((n) => n.role === role);
+    return npc ? this.speak(npc) : null;
   }
 
   /** What the person says or does when used. Returns the main line. */

@@ -94,6 +94,9 @@ export function chunksInView(r: number): number {
   return n;
 }
 
+/** Fixture blocks (src/content/areas/tavern_fixtures.ts) and the NPC role each one speaks as. */
+const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock'>> = { quest_board: 'board', wall_clock: 'clock' };
+
 export class Game {
   readonly state: GameState;
   readonly input: InputState = createInputState();
@@ -230,6 +233,9 @@ export class Game {
           bus.emit('ui:open', { screen: { type: 'workshop' } });
           return 'screen';
         }
+        // The tavern's fixtures are blocks: the quest board and the wall clock talk when used.
+        const fixture = hit ? FIXTURE_ROLES[hit.block.key] : undefined;
+        if (fixture && state.npcs.useFixture(fixture) !== null) return 'worked';
         const repaired = state.restoration.use(hit);
         if (repaired !== null) return repaired;
         const explored = state.exploration.use(hit, player.heldStack());

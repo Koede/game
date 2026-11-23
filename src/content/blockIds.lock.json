@@ -268,5 +268,7 @@
   "stone_golem": 266,
   "iron_golem": 267,
   "golem_pull_marker": 268,
-  "golem_drop_marker": 269
+  "golem_drop_marker": 269,
+  "quest_board": 270,
+  "wall_clock": 271
 }

@@ -78,7 +78,7 @@ function module(kind: ChemKind): BlockSpec[] {
   const cap = kind === CHEM.airlock || kind === CHEM.vacuum;
   const base: BlockSpec = {
     key: kind, name: look.name, desc: look.desc, machine: kind, hardness: 0.6, tool: 'pickaxe', age: look.age,
-    shape: cap ? 'slab' : 'cube', opaque: false, translucent: true, category: 'machine', stack: 16,
+    shape: 'glass', solid: true, opaque: false, translucent: true, category: 'machine', stack: 16,
     lightActive: look.glow ?? 0,
     textures: { side: `chem_${kind}`, top: cap ? `chem_${kind}` : 'chem_top', sideActive: `chem_${kind}_on`, topActive: cap ? `chem_${kind}_on` : 'chem_top' },
   };

@@ -62,15 +62,19 @@ export const NPCS: readonly NpcDef[] = [
     bank: HERMIT,
   },
   {
+    id: 'jukebox', name: 'Jukebox', title: 'Music', role: 'jukebox', sprite: 'jukebox', kind: 'prop', at: [8.5, 1, 1.6], scale: 1,
+    gift: [], giftLine: '', bank: null,
+  },
+];
+
+/** The tavern's fixtures: the quest board and the wall clock are blocks (src/content/areas/tavern_fixtures.ts); these are what they say. */
+export const FIXTURES: readonly NpcDef[] = [
+  {
     id: 'board', name: 'Quest board', title: 'Bounties', role: 'board', sprite: 'board', kind: 'prop', at: [3.5, 1.2, 1.15], scale: 1,
     gift: [], giftLine: '', bank: null,
   },
   {
     id: 'clock', name: 'Wall clock', title: 'Clock', role: 'clock', sprite: 'clock', kind: 'prop', at: [6.5, 3.1, 1.15], scale: 1,
-    gift: [], giftLine: '', bank: null,
-  },
-  {
-    id: 'jukebox', name: 'Jukebox', title: 'Music', role: 'jukebox', sprite: 'jukebox', kind: 'prop', at: [8.5, 1, 1.6], scale: 1,
     gift: [], giftLine: '', bank: null,
   },
 ];
