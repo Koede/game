@@ -19,7 +19,7 @@ import { Glows } from './glows';
 import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
 import { createChunkMaterials, createWorldUniforms, type ChunkMaterials, type WorldUniforms } from './materials';
-import { Particles } from './particles';
+import { Particles, type ParticleSpec } from './particles';
 import { PRECIP_MAX_DESKTOP, PRECIP_MAX_TOUCH, PrecipitationLayer } from './precipitation';
 import { RainMask } from './rainMask';
 import { Sky, type SkyExtras } from './sky';
@@ -100,6 +100,10 @@ export class Renderer implements IView {
   private readonly skyState: SkyState = createSkyState();
   private readonly target = new TargetBox();
   private readonly particles: Particles;
+  /** Adds one particle (the ambient night critters use it). */
+  spawnParticle(p: ParticleSpec): void {
+    this.particles.spawn(p);
+  }
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
   private readonly brewFx: BrewFx;

@@ -29,6 +29,8 @@ import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
 import { GroundItemRenderer } from '../render/groundItems';
 import { MobRenderer } from '../render/mobs';
+import { NightlifeFx } from '../render/nightlifeFx';
+import { critters, darkOf, type Critter, type NightEnv } from '../sim/nightlife';
 import { NPCS } from '../npcs/data';
 import { loadNpcArt } from '../render/npcs/art';
 import { NPC_ART } from '../render/npcs/artManifest';
@@ -136,6 +138,9 @@ export class Game {
   private dirtyFrames = DIRTY_FRAMES;
   private wasStill = false;
   private lastDraw = 0;
+  private nightlifeFx!: NightlifeFx;
+  private readonly nightList: Critter[] = [];
+  private nightEnv!: NightEnv;
   /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
   private covered = false;
   private coverCheckedAt = -Infinity;
@@ -223,6 +228,8 @@ export class Game {
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
+      this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
+      this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);
@@ -295,6 +302,16 @@ export class Game {
     this.ambience.invalidate();
   }
 
+  /** Fireflies, bats and owls (src/sim/nightlife.ts) around the player, drawn as particles. */
+  private drawNightlife(dt: number): void {
+    if (dt <= 0) return;
+    const { world, clock, weather, player } = this.state;
+    this.nightEnv.dark = darkOf(clock.sunlight());
+    this.nightEnv.timeS = clock.worldTimeS;
+    this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;
+    this.nightlifeFx.update(dt, this.nightEnv.dark < 0.15 ? [] : critters(this.nightEnv, player.position.x, player.position.z, this.nightList));
+  }
+
   /** A frame while the loading screen is up: stream chunks and draw behind it, nothing moves. */
   loadingFrame(rawDt: number): void {
     if (this.disposed) return;
@@ -365,6 +382,7 @@ export class Game {
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
+      this.drawNightlife(paused ? 0 : dt);
       this.renderer.render(paused ? 0 : dt);
       this.lastDraw = now;
     }
