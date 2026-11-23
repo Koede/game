@@ -1,6 +1,6 @@
 /**
  * Draws Essentia & Research in the world (docs/api/magic.md): the coloured fill inside essentia jars, the floating
- * wellspring crystals (spinning, bobbing, fainter as they are drawn), and the items resting on pedestals and altars
+ * wellsprings (soft breathing orbs of light that rise and sink, fainter as they are drawn), and the items resting on pedestals and altars
  * (through a second GroundItemRenderer, so they look exactly like dropped items). Simple unlit materials: glowing glass.
  * Meshes are pooled; nothing is allocated per frame once the pools are warm.
  */
@@ -21,8 +21,9 @@ export const NODE_DRAW_DIST = 64;
 export class MagicRenderer {
   readonly group = new THREE.Group();
   private readonly jarGeo = new THREE.BoxGeometry(0.62, 1, 0.62);
-  private readonly nodeGeo = new THREE.OctahedronGeometry(0.42, 0);
-  private readonly haloGeo = new THREE.OctahedronGeometry(0.62, 0);
+  // Round, not faceted: a wellspring is welling light, not a cut gem.
+  private readonly nodeGeo = new THREE.SphereGeometry(0.36, 14, 10);
+  private readonly haloGeo = new THREE.SphereGeometry(0.6, 14, 10);
   private readonly jarMeshes: THREE.Mesh[] = [];
   private readonly nodeMeshes: { core: THREE.Mesh; halo: THREE.Mesh }[] = [];
   private readonly materials = new Map<string, THREE.MeshBasicMaterial>();
@@ -65,7 +66,7 @@ export class MagicRenderer {
       mesh.position.set(j.x + 0.5, j.y + 0.04 + h / 2, j.z + 0.5);
     }
     for (let i = jars.length; i < this.jarMeshes.length; i++) this.jarMeshes[i].visible = false;
-    // Wellsprings: a bright core in a faint halo, turning and bobbing.
+    // Wellsprings: a bright orb in a faint halo that breathes and rises and sinks slowly, never spins.
     let n = 0;
     for (const node of nodes) {
       if (Math.hypot(node.x - eye.x, node.z - eye.z) > NODE_DRAW_DIST) continue;
@@ -80,13 +81,14 @@ export class MagicRenderer {
       m.core.material = this.material(color, Math.round(strength * 20) / 20);
       m.halo.material = this.material(color, 0.18);
       const phase = (node.x * 13 + node.z * 7) % 6;
-      const y = node.y + Math.sin(this.time * 1.4 + phase) * 0.15;
-      for (const mesh of [m.core, m.halo]) {
-        mesh.visible = true;
-        mesh.position.set(node.x + 0.5, y, node.z + 0.5);
-        mesh.rotation.y = this.time * 0.8 + phase;
-      }
-      m.halo.rotation.y = -this.time * 0.5 + phase;
+      const y = node.y + Math.sin(this.time * 0.9 + phase) * 0.18;
+      const breath = 1 + 0.08 * Math.sin(this.time * 2 + phase);
+      m.core.visible = true;
+      m.core.position.set(node.x + 0.5, y, node.z + 0.5);
+      m.core.scale.setScalar(1);
+      m.halo.visible = true;
+      m.halo.position.set(node.x + 0.5, y, node.z + 0.5);
+      m.halo.scale.setScalar(breath);
       n++;
     }
     for (let i = n; i < this.nodeMeshes.length; i++) {
