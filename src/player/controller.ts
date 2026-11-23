@@ -4,6 +4,7 @@
  * imports src/render, src/sim or src/ui: screens are requested with 'ui:open' and machines react to world edits.
  */
 import { Emotes } from './emotes';
+import { PhotoCamera } from './photoCam';
 import { stepSound } from './blockRules';
 import type { SfxName } from '../core/gameEvents';
 import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
@@ -88,6 +89,7 @@ export class PlayerController {
   private readonly player: PlayerState;
   private readonly view: IView;
   readonly emotes: Emotes;
+  readonly photo = new PhotoCamera();
   private readonly talkTo: PlayerControllerOptions['talk'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
@@ -172,6 +174,15 @@ export class PlayerController {
     const p = this.player;
     if (this.state.pointerLocked) this.wantsLock = true;
     p.combat.coolStrike(dt);
+
+    if (!p.dead && (intent.photo || (this.photo.active && intent.pause))) {
+      this.togglePhoto(!this.photo.active);
+      if (!this.photo.active) intent.pause = false;
+    }
+    if (this.photo.active) {
+      this.updatePhoto(dt, intent);
+      return;
+    }
 
     if (!p.dead) {
       p.yaw -= intent.lookYaw;
@@ -334,6 +345,23 @@ export class PlayerController {
     this.interaction.updateMining(dt, false, null);
     if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
+  }
+
+  /** Photo mode: the body stays put, the eye detaches and flies; Use takes the picture. */
+  private togglePhoto(on: boolean): void {
+    const p = this.player;
+    if (on) this.photo.enter(p.position.x, p.eyeY, p.position.z, p.yaw, p.pitch);
+    else this.photo.exit();
+    this.interaction.stopMining();
+    this.emotes.cancel();
+    this.bus.emit('photo:mode', { on });
+  }
+
+  private updatePhoto(dt: number, intent: Intent): void {
+    const c = this.photo;
+    c.update(dt, { moveX: intent.moveX, moveZ: intent.moveZ, up: intent.jump, fast: intent.sprint, lookYaw: intent.lookYaw, lookPitch: intent.lookPitch });
+    if (intent.use) this.bus.emit('photo:snap', {});
+    this.view.setView(c.x, c.y, c.z, c.yaw, c.pitch);
   }
 
   private updateView(dt: number): void {

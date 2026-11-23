@@ -226,6 +226,10 @@ export interface GameEvents {
   /** A named one-off thing happened (objective conditions of type 'flag' listen for these). */
   'flag': { flag: string };
   /** The player started an emote (wave, sit, cheer, dance). */
+  /** Photo mode switched on or off (the HUD hides while it is on). */
+  'photo:mode': { on: boolean };
+  /** The player took a picture: the game saves the next frame as a framed shot. */
+  'photo:snap': Record<string, never>;
   'emote': { kind: 'wave' | 'sit' | 'cheer' | 'dance' };
   'buff:gained': { buff: BuffName; durationS: number };
   'game:won': Record<string, never>;

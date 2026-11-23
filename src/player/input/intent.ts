@@ -34,6 +34,8 @@ export interface Intent {
   log: boolean;
   /** Edge: the emote key (G) went down. */
   emote: boolean;
+  /** Edge: the photo mode key (P) went down. */
+  photo: boolean;
   pause: boolean;
   /** Edge: the drop key (Q) went down: drop one of the held item. */
   drop: boolean;
@@ -57,6 +59,7 @@ export function createIntent(): Intent {
     inventory: false,
     log: false,
     emote: false,
+    photo: false,
     pause: false,
     drop: false,
     dropAll: false,

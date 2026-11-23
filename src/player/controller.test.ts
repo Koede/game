@@ -21,6 +21,43 @@ function setup() {
   return { bus, world, player, view, input, state, settings, controller, run };
 }
 
+describe('photo mode and emotes', () => {
+  it('photo mode detaches the eye: the body stays, the camera flies, Use snaps, P leaves', () => {
+    const { bus, player, view, input, controller } = setup();
+    const events: string[] = [];
+    bus.on('photo:mode', (e) => events.push(e.on ? 'on' : 'off'));
+    bus.on('photo:snap', () => events.push('snap'));
+    controller.update(DT);
+    const z0 = player.position.z;
+    input.next.photo = true;
+    controller.update(DT);
+    input.next.photo = false;
+    input.next.moveZ = 1;
+    for (let i = 0; i < 30; i++) controller.update(DT);
+    expect(controller.photo.active).toBe(true);
+    expect(player.position.z).toBe(z0);
+    expect(view.view.z).not.toBeCloseTo(z0, 1);
+    input.next.use = true;
+    controller.update(DT);
+    input.next.use = false;
+    input.next.photo = true;
+    controller.update(DT);
+    expect(controller.photo.active).toBe(false);
+    expect(events).toEqual(['on', 'snap', 'off']);
+  });
+
+  it('the emote key plays an emote and announces it', () => {
+    const { bus, input, controller } = setup();
+    const kinds: string[] = [];
+    bus.on('emote', (e) => kinds.push(e.kind));
+    input.next.emote = true;
+    controller.update(DT);
+    input.next.emote = false;
+    expect(controller.emotes.kind).toBe('wave');
+    expect(kinds).toEqual(['wave']);
+  });
+});
+
 describe('PlayerController', () => {
   it('places the camera at the eye and turns with the look deltas (positive yaw delta = right)', () => {
     const { player, view, input, controller } = setup();

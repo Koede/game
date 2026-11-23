@@ -2855,3 +2855,7 @@ body {
 .hw-title[data-stage='4'] { --hw-stage-glow: rgba(140, 230, 255, 0.3); }
 .hw-title[data-stage='5'] { --hw-stage-glow: rgba(255, 245, 210, 0.36); }
 .hw-title:not([data-stage='0'])::before { opacity: 1; }
+
+/* Photo mode (P): the HUD and the touch controls step aside; toasts stay so "Photo saved" shows. */
+.hw-root--photo .hw-layer[data-layer='hud'],
+.hw-root--photo .hw-layer[data-layer='touch'] { visibility: hidden; }
