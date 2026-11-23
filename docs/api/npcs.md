@@ -37,7 +37,9 @@ night-time seating, more people in the structures session's outposts.
 
 ## Jukebox and dancing
 
-A `jukebox` prop (tavern-local 8.5, 1, 1.6) toggles with Use. While on, `NpcManager.tick` plays `src/npcs/jukebox.ts`'s 32-beat tune as pitched `jukebox_note` sfx (positional, bass every 4th beat); `NpcView.dancing` is true for Mara, Rosa, Orrin and Bram (never Gruk, whatever he is doing) and `NpcRenderer` makes each hop, side-step and sway on their own phase (women wider). Saved as `juke` in the npcs snapshot.
+A `jukebox` prop (tavern-local 8.5, 1, 1.6) toggles with Use. While on, `NpcManager.tick` plays `src/npcs/jukebox.ts`'s 48-beat tune (0.25 s a beat) as pitched `jukebox_note` sfx (positional, bass every 4th beat). `NpcView.dancing` is true for Mara, Rosa, Orrin and Bram (never Gruk) and `NpcView.danceS` is the seconds since the music started.
+
+`src/npcs/choreo.ts` turns that into a 60-second choreography of 15 moves (bounce, sway, hip swing, shimmy, twirl, slide, jump, dip, step touch, pop, conga, wave, stomp, spin pop, finale) that loops seamlessly (`dancePose(id, danceS)` repeats exactly every 60 s, five loops of the tune). Each dancer starts at a different move and has their own size and hip swing. The pictures are the owner's blueprint art, never redrawn: `NpcRenderer` draws every person as a camera-facing plane cut into 12 rows and bends it (lean, S-curve), squashes, hops, slides and turns it by the pose. Props stay plain sprites. Saved as `juke` in the npcs snapshot.
 
 ## Art density
 

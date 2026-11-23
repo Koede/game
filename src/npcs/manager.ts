@@ -33,6 +33,8 @@ export interface NpcView {
   hired: boolean;
   /** The jukebox is playing and this person dances to it. */
   dancing: boolean;
+  /** Seconds since the jukebox started (the dance is a pure function of this). */
+  danceS: number;
 }
 
 export interface NpcSnapshot {
@@ -78,6 +80,7 @@ export class NpcManager {
   /** The tavern jukebox is playing. */
   jukeboxOn = false;
   private beatS = 0;
+  private danceS = 0;
   private beat = 0;
   readonly companion = new Companion();
   private gifted = new Set<string>();
@@ -121,7 +124,7 @@ export class NpcManager {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
       return {
-        id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired,
+        id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired, danceS: this.danceS,
         x: hired ? this.companion.x : o[0] + n.at[0] + cell,
         y: hired ? this.companion.y : o[1] + n.at[1],
         z: hired ? this.companion.z : o[2] + n.at[2] + cell,
@@ -278,6 +281,7 @@ export class NpcManager {
     this.jukeboxOn = !this.jukeboxOn;
     this.beatS = 0;
     this.beat = 0;
+    this.danceS = 0;
     const text = this.jukeboxOn ? 'The jukebox starts up. Everyone but Gruk is on their feet.' : 'The jukebox winds down.';
     this.toast(`${npc.name}: ${text}`);
     return text;
@@ -287,6 +291,7 @@ export class NpcManager {
     const o = this.at;
     const j = NPCS.find((n) => n.role === 'jukebox');
     if (!o || !j) return;
+    this.danceS += dt;
     this.beatS -= dt;
     let guard = 4;
     while (this.beatS <= 0 && guard-- > 0) {

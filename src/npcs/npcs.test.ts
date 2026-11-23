@@ -9,7 +9,8 @@ import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
 } from './index';
-import { notesAt, TUNE } from './jukebox';
+import { dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
+import { BEAT_S, notesAt, TUNE } from './jukebox';
 import { ARTIFICER } from './scripts/artificer';
 import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
@@ -87,6 +88,35 @@ describe('the jukebox', () => {
     expect(notesAt(1).some((n) => n.bass)).toBe(false);
     expect(notesAt(TUNE.length)).toEqual(notesAt(0));
     expect(notesAt(15)).toEqual([]);
+  });
+});
+
+describe('the dance', () => {
+  it('lasts a minute and loops seamlessly, to the music', () => {
+    expect(LOOP_S).toBe(60);
+    expect(TUNE.length * BEAT_S * 5).toBe(LOOP_S);
+    expect(MOVES.length * SECTION_BEATS).toBe(LOOP_BEATS);
+    for (const id of ['mara', 'rosa', 'orrin', 'bram']) {
+      for (let t = 0; t < LOOP_S; t += 0.37) {
+        const a = dancePose(id, t);
+        const b = dancePose(id, t + LOOP_S);
+        for (const key of Object.keys(a) as (keyof typeof a)[]) expect(b[key], `${id} ${key} @${t}`).toBeCloseTo(a[key], 6);
+        expect(a.squash).toBeGreaterThan(0.8);
+        expect(a.hop).toBeGreaterThanOrEqual(0);
+        expect(a.hop).toBeLessThan(0.5);
+        expect(Math.abs(a.side)).toBeLessThan(0.6);
+      }
+    }
+  });
+
+  it('runs through fifteen different moves, and the dancers are never all doing the same one', () => {
+    const seen = new Set<number>();
+    for (let t = 0; t < LOOP_S; t += SECTION_BEATS * BEAT_S) seen.add(danceMoveIndex('mara', t));
+    expect(seen.size).toBe(15);
+    for (let t = 0; t < LOOP_S; t += SECTION_BEATS * BEAT_S) {
+      const at = new Set(['mara', 'rosa', 'orrin', 'bram'].map((id) => danceMoveIndex(id, t)));
+      expect(at.size).toBe(4);
+    }
   });
 });
 

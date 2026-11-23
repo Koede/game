@@ -2,12 +2,13 @@
  * The tavern jukebox's tune (docs/api/npcs.md): a looping folk melody played note by note through the 'jukebox_note' sfx, pitched by
  * semitones from middle C, with a bass note on every fourth beat. Pure data and two helpers, so it is testable without audio.
  */
-export const BEAT_S = 0.28;
+export const BEAT_S = 0.25;
 
-/** Semitones above the base note per beat; null is a rest. Two eight-beat phrases and their answer, 32 beats in all. */
+/** Semitones above the base note per beat; null is a rest. Three phrases and their answer, 48 beats (12 s): five loops make the dance's minute (src/npcs/choreo.ts). */
 export const TUNE: readonly (number | null)[] = [
   0, 4, 7, 4, 9, 7, 4, 2, 0, 4, 7, 12, 9, 7, 4, null,
   5, 9, 12, 9, 7, 4, 2, 4, 0, 2, 4, 7, 4, 2, 0, null,
+  7, 7, 9, 7, 12, 11, 9, null, 9, 9, 11, 9, 14, 12, 11, null,
 ];
 
 export interface Note {

@@ -125,6 +125,10 @@ async function runDevice(device) {
       await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: mara.x, y: mara.y, z: mara.z });
       await d.settle(250);
       await d.shot('4-dance');
+      for (const i of [1, 2, 3]) {
+        await d.settle(4300);
+        await d.shot(`4-dance-${i}`);
+      }
     });
   } finally {
     await session.close();

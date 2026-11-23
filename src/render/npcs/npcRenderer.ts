@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
-import { BEAT_S } from '../../npcs/jukebox';
+import { dancePose, STILL, type Pose } from '../../npcs/choreo';
 import { npcArt, onNpcArt } from './art';
 import { designSize, paintNpc } from './sprites';
 
@@ -17,8 +17,20 @@ export interface NpcScene {
 /** World size of one sprite pixel: a 40 px person is 2 blocks tall. */
 const PIXEL = 0.05;
 
+/** Rows the picture of a person is cut into, so it can bend (lean and S-curve) when they dance. */
+const BEND_ROWS = 12;
+
+/** A person: a camera-facing plane cut into rows, bent by the dance pose; props are plain sprites. */
+interface Body {
+  mesh: THREE.Mesh;
+  base: Float32Array;
+  w: number;
+  h: number;
+}
+
 export class NpcRenderer {
   private readonly sprites = new Map<string, THREE.Sprite>();
+  private readonly bodies = new Map<string, Body>();
   private readonly textures = new Map<string, THREE.Texture>();
   private readonly clockMinute = new Map<string, number>();
   private time = 0;
@@ -36,17 +48,36 @@ export class NpcRenderer {
       (s.material as THREE.SpriteMaterial).dispose();
     }
     this.sprites.clear();
+    for (const b of this.bodies.values()) this.dropBody(b);
+    this.bodies.clear();
     for (const t of this.textures.values()) t.dispose();
     this.textures.clear();
     this.clockMinute.clear();
   }
 
-  /** Call every frame with the views and a 0..1 brightness (the sky). */
-  update(dt: number, views: readonly NpcView[], brightness = 1): void {
+  private dropBody(b: Body): void {
+    this.host.scene.remove(b.mesh);
+    b.mesh.geometry.dispose();
+    (b.mesh.material as THREE.Material).dispose();
+  }
+
+  /** Call every frame with the views, a 0..1 brightness (the sky) and where the camera is (people turn to face it). */
+  update(dt: number, views: readonly NpcView[], brightness = 1, eye?: { x: number; z: number }): void {
     this.time += dt;
     const seen = new Set<string>();
+    const k = 0.35 + 0.65 * Math.max(0, Math.min(1, brightness));
     for (const v of views) {
       seen.add(v.id);
+      if (v.kind === 'person') {
+        let body = this.bodies.get(v.id);
+        if (!body) {
+          body = this.makeBody(v);
+          this.bodies.set(v.id, body);
+          this.host.scene.add(body.mesh);
+        }
+        this.poseBody(body, v, eye, k);
+        continue;
+      }
       let s = this.sprites.get(v.id);
       if (!s) {
         s = this.make(v);
@@ -54,22 +85,7 @@ export class NpcRenderer {
         this.host.scene.add(s);
       }
       if (v.sprite === 'clock' && this.clockMinute.get(v.id) !== v.extra) this.repaint(v);
-      const bob = v.kind === 'person' ? Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015 : 0;
-      // Dancers (the jukebox is on): every one of them keeps the beat on their own phase, hopping, shuffling side to side and swaying.
-      // Women swing wider and higher than the men.
-      let hop = 0;
-      let side = 0;
-      let tilt = 0;
-      if (v.dancing) {
-        const wide = v.role === 'witch' || v.role === 'barkeep' ? 1 : 0.65;
-        const beat = this.time * ((Math.PI * 2) / (BEAT_S * 4)) + v.x * 1.9;
-        hop = Math.abs(Math.sin(beat)) * 0.16 * wide;
-        side = Math.sin(beat * 0.5) * 0.22 * wide;
-        tilt = Math.sin(beat) * 0.14 * wide;
-      }
-      s.position.set(v.x + side, v.y + bob + hop, v.z);
-      (s.material as THREE.SpriteMaterial).rotation = tilt;
-      const k = 0.35 + 0.65 * Math.max(0, Math.min(1, brightness));
+      s.position.set(v.x, v.y, v.z);
       (s.material as THREE.SpriteMaterial).color.setRGB(k, k, k);
     }
     for (const [id, s] of this.sprites) {
@@ -80,6 +96,59 @@ export class NpcRenderer {
       this.textures.get(id)?.dispose();
       this.textures.delete(id);
     }
+    for (const [id, b] of this.bodies) {
+      if (seen.has(id)) continue;
+      this.dropBody(b);
+      this.bodies.delete(id);
+      this.textures.get(id)?.dispose();
+      this.textures.delete(id);
+    }
+  }
+
+  /** Places and bends one person: idle bob, or the dance pose when the jukebox plays. */
+  private poseBody(b: Body, v: NpcView, eye: { x: number; z: number } | undefined, k: number): void {
+    const idle = Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015;
+    const pose: Pose = v.dancing ? dancePose(v.id, v.danceS) : STILL;
+    const m = b.mesh;
+    m.position.set(v.x, v.y + (v.dancing ? 0 : idle) + pose.hop, v.z);
+    m.rotation.y = eye ? Math.atan2(eye.x - v.x, eye.z - v.z) : 0;
+    // Sideways moves go along the screen's right-hand axis, which is the plane's local x.
+    m.translateX(pose.side);
+    const squash = Math.max(0.5, pose.squash);
+    const sx = Math.abs(pose.turn) < 0.06 ? 0.06 * Math.sign(pose.turn || 1) : pose.turn;
+    m.scale.set((b.w * sx) / Math.sqrt(squash), b.h * squash, 1);
+    const pos = m.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const aspect = b.h / b.w;
+    for (let i = 0; i < pos.count; i++) {
+      const t = b.base[i * 3 + 1]; // 0 at the feet .. 1 at the top
+      pos.setX(i, b.base[i * 3] + (pose.lean * t + pose.curve * Math.sin(t * Math.PI)) * aspect);
+    }
+    pos.needsUpdate = true;
+    (m.material as THREE.MeshBasicMaterial).color.setRGB(k, k, k);
+  }
+
+  private makeBody(v: NpcView): Body {
+    const tex = this.texture(v);
+    this.textures.set(v.id, tex);
+    const geo = new THREE.PlaneGeometry(1, 1, 1, BEND_ROWS);
+    geo.translate(0, 0.5, 0);
+    const art = this.art(v);
+    let w: number;
+    let h: number;
+    if (art) {
+      // Art keeps its own proportions: two blocks tall (times the person's scale).
+      h = 2 * v.scale;
+      w = (art.width / art.height) * h;
+    } else {
+      const size = designSize(v.sprite);
+      w = size.w * PIXEL * v.scale;
+      h = size.h * PIXEL * v.scale;
+    }
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthWrite: true, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.scale.set(w, h, 1);
+    mesh.frustumCulled = false;
+    return { mesh, base: new Float32Array((geo.getAttribute('position') as THREE.BufferAttribute).array), w, h };
   }
 
   /** Drop-in art for a person, if there is one. */
@@ -121,6 +190,7 @@ export class NpcRenderer {
     this.clockMinute.set(v.id, v.extra);
   }
 
+  /** A prop (board, clock, jukebox): a plain sprite standing on its spot. */
   private make(v: NpcView): THREE.Sprite {
     const tex = this.texture(v);
     this.textures.set(v.id, tex);
@@ -128,13 +198,6 @@ export class NpcRenderer {
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthWrite: true });
     const s = new THREE.Sprite(mat);
     const size = designSize(v.sprite);
-    const art = this.art(v);
-    if (art) {
-      // Art keeps its own proportions: two blocks tall (times the person's scale).
-      s.center.set(0.5, 0);
-      s.scale.set((art.width / art.height) * 2 * v.scale, 2 * v.scale, 1);
-      return s;
-    }
     s.center.set(0.5, 0);
     s.scale.set(size.w * PIXEL * v.scale, size.h * PIXEL * v.scale, 1);
     return s;
@@ -147,6 +210,8 @@ export class NpcRenderer {
       (s.material as THREE.SpriteMaterial).dispose();
     }
     this.sprites.clear();
+    for (const b of this.bodies.values()) this.dropBody(b);
+    this.bodies.clear();
     for (const t of this.textures.values()) t.dispose();
     this.textures.clear();
   }

@@ -356,7 +356,7 @@ export class Game {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
-      this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight());
+      this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       const pp = state.player.position;
