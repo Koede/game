@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { REACH } from '../core/constants';
 import { createBus } from '../core/context';
-import { Face, type Slot } from '../core/types';
+import { block } from '../core/registry';
+import { Face, Facing, makeVoxel, voxelFacing, type Slot } from '../core/types';
 import { Interaction } from './interaction';
 import { PlayerPhysics } from './physics';
 import { WRENCH_COOLDOWN_S, type TransportHands } from './pipeTools';
@@ -86,9 +87,12 @@ describe('the wrench on a pipe', () => {
     expect(transport.wrenches).toHaveLength(2);
   });
 
-  it('elsewhere it is an ordinary item: the furnace screen still opens', () => {
-    const { interaction, transport, aim, hold, events } = setup();
+  it('aimed at a furnace side it turns the block (toolUses.ts); aimed at its front the furnace screen still opens', () => {
+    const { interaction, transport, aim, hold, events, world } = setup();
     hold({ item: 'wrench', count: 1 });
+    expect(interaction.use(aim(-1.5, 10.5, -1.5))).toBe('worked'); // a side face (the furnace faces north)
+    expect(voxelFacing(world.getVoxel(-2, 10, -2))).toBe(Facing.East);
+    world.setVoxel(-2, 10, -2, makeVoxel(block('furnace_clay').id, Facing.South), 'sim'); // front toward the player
     expect(interaction.use(aim(-1.5, 10.5, -1.5))).toBe('screen');
     expect(events.find((e) => e.type === 'ui:open')!.e).toEqual({ screen: { type: 'furnace', x: -2, y: 10, z: -2 } });
     expect(transport.wrenches).toHaveLength(0);

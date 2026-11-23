@@ -36,6 +36,7 @@ import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFo
 import { Buckets } from './buckets';
 import { BrewTools, type BrewHands } from './brewTools';
 import { HandTools, type HandHands } from './handTools';
+import { ToolUses } from './toolUses';
 import { SapTools } from './sapTools';
 import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
@@ -87,6 +88,7 @@ export class Interaction {
   private readonly brewing: BrewTools;
   private readonly handwork: HandTools;
   private readonly sap: SapTools;
+  private readonly toolUses: ToolUses;
 
   constructor(
     private readonly world: IWorld,
@@ -132,6 +134,15 @@ export class Interaction {
     this.sap = new SapTools({
       player, bus,
       advise: (key, text) => this.advise(key, text),
+      swing: () => swing.triggerSwing(),
+      stopMining: () => this.stopMining(),
+    });
+    this.toolUses = new ToolUses({
+      world, player, bus, rng,
+      get cooldown() {
+        return self.placeCooldown;
+      },
+      startCooldown: () => (this.placeCooldown = PLACE_COOLDOWN_S),
       swing: () => swing.triggerSwing(),
       stopMining: () => this.stopMining(),
     });
@@ -240,6 +251,9 @@ export class Interaction {
       if (worked !== null) return worked;
       const piped = this.pipes.use(hit, this.player.heldStack()?.item ?? null);
       if (piped !== null) return piped;
+      // Tools and items on existing blocks (toolUses.ts): strip, reap, rivet, turn with the wrench...
+      const used = this.toolUses.use(hit);
+      if (used !== null) return used;
     }
     const screen = hit && hit.block.liquid === null ? screenFor(hit.block, hit.x, hit.y, hit.z) : null;
     if (screen) {

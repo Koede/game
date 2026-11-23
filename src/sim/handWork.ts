@@ -6,8 +6,8 @@
  */
 import type { GameBus } from '../core/context';
 import { HAND_STROKE_FOOD, HOT_WORK_WINDOW_S, STROKE_HOT_MULT, STROKE_TOOL_MULT } from '../core/constants';
-import { WORLD_HEIGHT, voxelId, type BlockDef, type IWorld, type Slot } from '../core/types';
-import { blockOf } from '../core/registry';
+import { AIR, WORLD_HEIGHT, voxelId, type BlockDef, type IWorld, type Slot } from '../core/types';
+import { blockOf, voxelWarmth } from '../core/registry';
 import type { PlayerState } from '../game/playerState';
 import { posKey } from './entities';
 import type { HandEntity, HandRecipe, HandRules, HandStationDef, HandView, StrokeResult } from './handTypes';
@@ -35,9 +35,17 @@ export interface HandNode {
   sky: boolean;
   rain: boolean;
   skyDirty: boolean;
+  /** A warm block (torch, furnace, lava...) sits within its own warmth radius of the station, as of `warmCheckS`. */
+  warm: boolean;
+  warmCheckS: number;
   /** Index in the active list, -1 while idle. */
   slot: number;
 }
+
+/** Blocks warmer than this (a torch is 2) dry a rack within WARM_DRY_RANGE blocks, whatever the sky is doing. */
+export const WARM_DRY_MIN = 2;
+export const WARM_DRY_RANGE = 3;
+const WARM_RECHECK_S = 2;
 
 const colKey = (x: number, z: number): number => x * 4194304 + z;
 const clampCount = (n: number): number => (Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
@@ -48,6 +56,7 @@ export class HandWork {
   private readonly active: HandNode[] = [];
   /** The weather of the last tick, for views. */
   private sunUp = true;
+  private clockS = 0;
   private wetAt: ((x: number, y: number, z: number) => boolean) | null = null;
 
   constructor(private readonly d: HandDeps) {}
@@ -78,7 +87,7 @@ export class HandWork {
     if (typeof e.progress !== 'number' || !Number.isFinite(e.progress) || e.progress < 0) e.progress = 0;
     if (typeof e.hotS !== 'number' || !Number.isFinite(e.hotS) || e.hotS < 0) e.hotS = 0;
     if (e.recipe !== null && typeof e.recipe !== 'string') e.recipe = null;
-    const node: HandNode = { e, key: posKey(e.x, e.y, e.z), def, sky: false, rain: false, skyDirty: true, slot: -1 };
+    const node: HandNode = { e, key: posKey(e.x, e.y, e.z), def, sky: false, rain: false, skyDirty: true, warm: false, warmCheckS: -Infinity, slot: -1 };
     this.byKey.set(node.key, node);
     if (def.timed && def.needsSky) {
       const ck = colKey(e.x, e.z);
@@ -285,6 +294,7 @@ export class HandWork {
   /** Advances the stations with a clock running: timed work, and hot-work windows closing. */
   tick(dt: number, sunUp: boolean, wetAt: ((x: number, y: number, z: number) => boolean) | null): void {
     this.sunUp = sunUp;
+    this.clockS += dt;
     this.wetAt = wetAt;
     const { active } = this;
     for (let i = active.length - 1; i >= 0; i--) {
@@ -300,6 +310,8 @@ export class HandWork {
   waitReason(node: HandNode): string | null {
     const def = node.def;
     if (!def.needsSky) return null;
+    // A heat source close by dries the work indoors, at night and out of the rain (docs/SYNERGY_TOOLS.md).
+    if (this.warmNear(node)) return null;
     this.refreshSky(node);
     if (node.rain && this.wetAt?.(node.e.x, node.e.y, node.e.z)) return def.rainResets ? 'Rain - drying starts over' : 'Raining';
     if (!node.sky) return 'Needs open sky';
@@ -322,6 +334,25 @@ export class HandWork {
       this.finish(n, r, r.output, batches);
     }
     return true;
+  }
+
+  /** True when a block whose warmth radius reaches the station stands within WARM_DRY_RANGE of it. Re-checked every 2 s. */
+  private warmNear(n: HandNode): boolean {
+    if (this.clockS - n.warmCheckS < WARM_RECHECK_S) return n.warm;
+    n.warmCheckS = this.clockS;
+    n.warm = false;
+    const { world } = this.d;
+    const R = WARM_DRY_RANGE;
+    for (let dy = -R; dy <= R && !n.warm; dy++) for (let dz = -R; dz <= R && !n.warm; dz++) for (let dx = -R; dx <= R; dx++) {
+      const v = world.getVoxel(n.e.x + dx, n.e.y + dy, n.e.z + dz);
+      if (v === AIR) continue;
+      const radius = voxelWarmth(v);
+      if (radius >= WARM_DRY_MIN && Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz)) <= Math.min(R, radius)) {
+        n.warm = true;
+        break;
+      }
+    }
+    return n.warm;
   }
 
   private refreshSky(n: HandNode): void {

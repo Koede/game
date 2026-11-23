@@ -30,6 +30,7 @@ import type { DamageCause } from '../core/gameEvents';
 import { clamp, type Vec3 } from '../core/math';
 import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
+import { heldWarms } from './heldWarmth';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
 import type { GameClock } from './clock';
@@ -231,6 +232,8 @@ export class Survival {
       heated = true;
       if (s.buff) nearBuff = true;
     }
+    // A torch or a boiling vessel in the hand warms like a small fire (heldWarmth.ts).
+    if (heldWarms(player.heldStack())) heated = true;
     this.heated = heated;
 
     this.tickBuff(dt, nearBuff);
