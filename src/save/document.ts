@@ -8,6 +8,7 @@
 import type { GameMode } from '../core/gameMode';
 import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
 import type { ClockSnapshot } from '../game/clock';
+import type { JournalSnapshot } from '../game/journal';
 import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
 import type { SurvivalSnapshot } from '../game/survival';
@@ -58,6 +59,8 @@ export interface WorldSave {
    * MobManager.load refuses is ignored the same way, never a reason to drop the world.
    */
   mobs?: MobsSnapshot;
+  /** The journal and the explored map (docs/api/journal.md). Optional: older saves start an empty one; a damaged one is ignored. */
+  journal?: JournalSnapshot;
   /**
    * 'dev' for a Dev Mode world (docs/api/dev-mode.md). Optional: absent means survival, and survival saves never write it,
    * so they stay exactly as before.

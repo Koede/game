@@ -2835,3 +2835,14 @@ body {
     height: clamp(110px, 40vh, 190px);
   }
 }
+
+/* The Journal section of the Hearth Log (docs/api/journal.md). */
+.hw-journal { margin-top: 14px; display: grid; gap: 8px; }
+.hw-journal__title { margin: 0; font-size: 1rem; }
+.hw-journal__map { width: 100%; max-width: 288px; aspect-ratio: 1; image-rendering: pixelated; border: 2px solid rgba(255, 255, 255, 0.18); border-radius: 6px; justify-self: center; }
+.hw-journal__summary { margin: 0; opacity: 0.8; font-size: 0.85rem; text-align: center; }
+.hw-journal__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.hw-journal__entry { display: flex; gap: 8px; font-size: 0.9rem; }
+.hw-journal__day { flex: none; opacity: 0.6; min-width: 3.6em; }
+.hw-journal__entry--age { font-weight: 600; }
+.hw-journal__entry--death { opacity: 0.75; }

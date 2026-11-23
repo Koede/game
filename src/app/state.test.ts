@@ -56,6 +56,8 @@ describe('GameState', () => {
     expect(copy.clock.toJSON()).toEqual(state.clock.toJSON());
     expect(copy.objectives.toJSON()).toEqual(state.objectives.toJSON());
     expect(copy.playTimeS).toBeCloseTo(state.playTimeS, 9);
+    expect(state.journal.seenCells).toBeGreaterThan(0);
+    expect(copy.journal.seenCells).toBe(state.journal.seenCells);
     expect(copy.world.getVoxel(fx, fy, fz)).toBe(state.world.getVoxel(fx, fy, fz));
     const restored = copy.sim.furnaceAt(fx, fy, fz)!;
     expect(JSON.parse(JSON.stringify(restored))).toEqual(JSON.parse(JSON.stringify(furnace)));
