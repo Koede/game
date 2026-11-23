@@ -156,7 +156,7 @@ export class Game {
     this.vehicles = state.vehicles;
     this.magic = state.magic;
     this.workshop = state.workshop;
-    setCraftGate((id) => this.magic.craftGate(id));
+    setCraftGate(state.restoration.gate((id) => this.magic.craftGate(id)));
     this.offs.push(() => setCraftGate(null));
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
@@ -223,6 +223,8 @@ export class Game {
           bus.emit('ui:open', { screen: { type: 'workshop' } });
           return 'screen';
         }
+        const repaired = state.restoration.use(hit);
+        if (repaired !== null) return repaired;
         const explored = state.exploration.use(hit, player.heldStack());
         if (explored !== null) return explored;
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);

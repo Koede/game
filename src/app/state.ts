@@ -24,6 +24,7 @@ import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Pets } from '../game/pets';
+import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
 import { NpcManager } from '../npcs';
 import { makeNpcHost } from '../npcs/host';
@@ -67,6 +68,8 @@ export class GameState {
   readonly exploration: Exploration;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Repairable old-age machines (docs/api/restoration.md). */
+  readonly restoration: Restoration;
   /** Companion dog and cat (docs/api/pets.md). */
   readonly pets: Pets;
   /** The tavern's people (docs/api/npcs.md). */
@@ -217,6 +220,9 @@ export class GameState {
       standAt: (x, z) => { const y = spawnCell(world, x, z, clearanceOf(1.0)); return y < 0 ? null : y; }, rng: () => Math.random(),
     });
     this.mobs.petUse = (id, held) => this.pets.useOn(id, held);
+    this.restoration = new Restoration(world, bus, this.player);
+    world.loadExtra('restoration', (raw) => this.restoration.load(raw));
+    this.offs.push(world.persist('restoration', () => this.restoration.toJSON()));
     world.loadExtra('pets', (raw) => this.pets.load(raw));
     this.offs.push(world.persist('pets', () => this.pets.toJSON()));
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));

@@ -66,7 +66,7 @@ describe('the nineteen structure types', () => {
     it(`${def.key}: built only from its biome's blocks, crate cell free on solid ground, guards can stand`, () => {
       for (const biome of def.biomes) {
         const { voxels, site } = drawn(def, biome);
-        const allowed = new Set([...PALETTE[biome], ...(def.biomes.length > 1 ? keys('stone_brick', 'mossy_stone_brick', 'grass', 'sand', 'snow', 'peat') : [])]);
+        const allowed = new Set([...PALETTE[biome], ...keys('ruined_machine'), ...(def.biomes.length > 1 ? keys('stone_brick', 'mossy_stone_brick', 'grass', 'sand', 'snow', 'peat') : [])]);
         const used = new Set<number>();
         let placed = 0;
         for (let z = 0; z < CHUNK_SIZE; z++) {

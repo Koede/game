@@ -245,5 +245,7 @@
   "research_table": 243,
   "crucible": 244,
   "arcane_workbench": 245,
-  "waypoint_stone": 246
+  "waypoint_stone": 246,
+  "ruined_machine": 247,
+  "repaired_machine": 248
 }

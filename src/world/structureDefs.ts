@@ -51,6 +51,8 @@ const B = {
   jar: blockId('essentia_jar'), workbench: blockId('workbench'), tallGrass: blockId('tall_grass'), furnace: blockId('collapsed_furnace'), crystal: blockId('crystal_cluster'), berry: blockId('berry_bush'),
 };
 export { B as STRUCTURE_BLOCKS };
+/** The rusted old-age machine a player can repair (src/game/restoration.ts). */
+const RUINED_MACHINE = blockId('ruined_machine');
 
 /** Where a structure writes: local coordinates clipped to the chunk being generated. */
 export class Canvas {
@@ -425,6 +427,7 @@ const OLD_FACTORY: StructureDef = {
     // Fallen drive line: shaft sections, a flywheel ring and a stack of crates of scrap lying in the hall.
     c.box(2, 0, 7, 7, 0, 7, B.rusted); c.set(4, 0, 6, B.rubble); c.ring(9, 0, 11, 2, 0, 1, ruin);
     c.ring(5, 7, 7, 9, 0, 1, ruin);
+    c.set(6, 0, 8, RUINED_MACHINE);
     // The collapsed roof: scattered beams and fallen rubble.
     c.fill(1, 4, 1, 13, 4, 9, (x, y, z) => (c.roll(x, 4, z) < 50 ? B.rusted : -1));
     c.fill(1, 0, 1, 13, 0, 9, (x, y, z) => (c.roll(x, 5, z) < 25 ? B.rubble : -1));
@@ -446,6 +449,7 @@ const CHEM_LAB: StructureDef = {
     // Broken glass and reagent stains on the floor.
     c.fill(1, 0, 2, 9, 0, 7, (x, y, z) => (c.roll(x, 8, z) < 20 ? B.glass : c.roll(x, 9, z) < 20 ? B.clay : -1));
     c.set(1, 0, 6, B.shrub); c.set(9, 0, 6, B.sand);
+    c.set(5, 0, 6, RUINED_MACHINE);
   },
 };
 
