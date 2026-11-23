@@ -3,7 +3,7 @@ import { GameState } from '../app/state';
 import { createBus } from '../core/context';
 import { blockOf } from '../core/registry';
 import { FakeWorld } from '../game/fakeWorld';
-import { opaqueIn, paintNpc, SPRITE_H, SPRITE_W, spriteSize } from '../render/npcs/sprites';
+import { opaqueIn, paintNpc, RES, SPRITE_H, SPRITE_W, spriteSize } from '../render/npcs/sprites';
 import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
@@ -357,10 +357,11 @@ describe('the sprites', () => {
       expect([img.w, img.h, img.data.length]).toEqual([size.w, size.h, size.w * size.h * 4]);
       let opaque = 0;
       for (let i = 3; i < img.data.length; i += 4) if (img.data[i] > 0) opaque++;
-      expect(opaque, kind).toBeGreaterThan(120);
+      expect(opaque / (RES * RES), kind).toBeGreaterThan(120);
       expect(opaque, kind).toBeLessThanOrEqual(img.w * img.h * (kind === 'board' || kind === 'clock' ? 1 : 0.8));
     }
-    expect([SPRITE_W, SPRITE_H]).toEqual([24, 40]);
+    expect([SPRITE_W, SPRITE_H, RES]).toEqual([24, 40, 3]);
+    expect(spriteSize('witch')).toEqual({ w: 72, h: 120 });
     expect(paintNpc('witch').data).not.toEqual(paintNpc('orc').data);
   });
 

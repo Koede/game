@@ -4,7 +4,14 @@
  * painted lips, earrings, hair with volume, a cinched waist over a flared skirt), Gruk the orc smith is broad and big, Orrin the
  * artificer wears goggles and an apron, Old Bram is a hooded, bearded hermit. The quest board and the wall clock are props; the clock's
  * hands are drawn for the minute of the day it is given.
+ *
+ * Resolution: the figures are DESIGNED on the 24 x 40 grid and rendered at RES (3) times that, so every texture is 72 x 120: thin outlines,
+ * rounded silhouette corners and a light-from-the-left shading pass (rim light, darker right side, soft top-to-bottom falloff) give them
+ * the finer detail of a higher-resolution sprite while the drawing code stays in base units.
  */
+
+/** Render scale over the 24 x 40 design grid. */
+export const RES = 3;
 import type { NpcSprite } from '../../npcs/data';
 
 export const SPRITE_W = 24;
@@ -16,17 +23,30 @@ const dark = (c: Rgb, k: number): Rgb => [Math.round(c[0] * k), Math.round(c[1] 
 const light = (c: Rgb, k: number): Rgb => [Math.min(255, Math.round(c[0] + (255 - c[0]) * k)), Math.min(255, Math.round(c[1] + (255 - c[1]) * k)), Math.min(255, Math.round(c[2] + (255 - c[2]) * k))];
 
 class Pixels {
+  /** Hi-res buffer (w * RES x h * RES). */
   readonly data: Uint8Array;
   constructor(readonly w = SPRITE_W, readonly h = SPRITE_H) {
-    this.data = new Uint8Array(w * h * 4);
+    this.data = new Uint8Array(w * RES * h * RES * 4);
   }
-  px(x: number, y: number, c: Rgb): void {
-    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
-    const i = (y * this.w + x) * 4;
+  private hw(): number {
+    return this.w * RES;
+  }
+  private hh(): number {
+    return this.h * RES;
+  }
+  /** One hi-res pixel. */
+  hpx(x: number, y: number, c: Rgb): void {
+    if (x < 0 || y < 0 || x >= this.hw() || y >= this.hh()) return;
+    const i = (y * this.hw() + x) * 4;
     this.data[i] = c[0];
     this.data[i + 1] = c[1];
     this.data[i + 2] = c[2];
     this.data[i + 3] = 255;
+  }
+  /** One design-grid pixel (a RES x RES block). */
+  px(x: number, y: number, c: Rgb): void {
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    for (let j = 0; j < RES; j++) for (let i = 0; i < RES; i++) this.hpx(x * RES + i, y * RES + j, c);
   }
   rect(x: number, y: number, w: number, h: number, c: Rgb): void {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, c);
@@ -36,25 +56,65 @@ class Pixels {
     this.rect(x, y, w, h, c);
     this.rect(this.w - x - w, y, w, h, c);
   }
-  /** A filled ellipse. */
+  /** A filled ellipse on the design grid, with hi-res edges: round things come out round. */
   disc(cx: number, cy: number, rx: number, ry: number, c: Rgb): void {
-    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1) this.px(x, y, c);
-  }
-  /** Dark outline round every opaque pixel that touches a transparent one. */
-  outline(c: Rgb): void {
-    const mask = new Uint8Array(this.w * this.h);
-    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) mask[y * this.w + x] = this.data[(y * this.w + x) * 4 + 3] > 0 ? 1 : 0;
-    for (let y = 0; y < this.h; y++) {
-      for (let x = 0; x < this.w; x++) {
-        if (mask[y * this.w + x]) continue;
-        const near = (dx: number, dy: number): boolean => {
-          const nx = x + dx;
-          const ny = y + dy;
-          return nx >= 0 && ny >= 0 && nx < this.w && ny < this.h && mask[ny * this.w + nx] === 1;
-        };
-        if (near(1, 0) || near(-1, 0) || near(0, 1) || near(0, -1)) this.px(x, y, c);
+    for (let y = Math.floor((cy - ry) * RES); y <= Math.ceil((cy + ry) * RES); y++) {
+      for (let x = Math.floor((cx - rx) * RES); x <= Math.ceil((cx + rx) * RES); x++) {
+        if (((x / RES - cx) / rx) ** 2 + ((y / RES - cy) / ry) ** 2 <= 1) this.hpx(x, y, c);
       }
     }
+  }
+  private alpha(x: number, y: number): number {
+    if (x < 0 || y < 0 || x >= this.hw() || y >= this.hh()) return 0;
+    return this.data[(y * this.hw() + x) * 4 + 3];
+  }
+  /** Rounds convex corners of the silhouette: a pixel with two touching empty sides (a stair step) is dropped. */
+  round(): void {
+    const w = this.hw();
+    const drop: number[] = [];
+    for (let y = 0; y < this.hh(); y++) {
+      for (let x = 0; x < w; x++) {
+        if (!this.alpha(x, y)) continue;
+        const up = !this.alpha(x, y - 1);
+        const down = !this.alpha(x, y + 1);
+        const left = !this.alpha(x - 1, y);
+        const right = !this.alpha(x + 1, y);
+        if ((up || down) && (left || right) && this.alpha(x + (left ? 1 : -1), y + (up ? 1 : -1))) drop.push(y * w + x);
+      }
+    }
+    for (const i of drop) this.data[i * 4 + 3] = 0;
+  }
+  /** Light from the upper left: a lit left rim, a darker right edge, a soft falloff down the figure. */
+  shade(): void {
+    const w = this.hw();
+    const h = this.hh();
+    const out = new Uint8Array(this.data);
+    const rim = RES * 2;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (!this.data[i + 3]) continue;
+        let k = 1.06 - 0.16 * (y / h);
+        if (!this.alpha(x - rim, y)) k += 0.1;
+        if (!this.alpha(x + rim, y)) k -= 0.14;
+        if (!this.alpha(x, y - rim)) k += 0.06;
+        for (let ch = 0; ch < 3; ch++) out[i + ch] = Math.max(0, Math.min(255, Math.round(this.data[i + ch] * k)));
+      }
+    }
+    this.data.set(out);
+  }
+  /** A one-hi-res-pixel dark outline round the silhouette. */
+  outline(c: Rgb): void {
+    const w = this.hw();
+    const h = this.hh();
+    const add: number[] = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (this.alpha(x, y)) continue;
+        if (this.alpha(x + 1, y) || this.alpha(x - 1, y) || this.alpha(x, y + 1) || this.alpha(x, y - 1)) add.push(y * w + x);
+      }
+    }
+    for (const i of add) this.hpx(i % w, Math.floor(i / w), c);
   }
 }
 
@@ -386,26 +446,34 @@ export interface SpriteImage {
 
 /** Pixel size of each kind of sprite. */
 export function spriteSize(sprite: NpcSprite): { w: number; h: number } {
-  if (sprite === 'board') return { w: 24, h: 32 };
-  if (sprite === 'clock') return { w: 16, h: 16 };
-  return { w: SPRITE_W, h: SPRITE_H };
+  if (sprite === 'board') return { w: 24 * RES, h: 32 * RES };
+  if (sprite === 'clock') return { w: 16 * RES, h: 16 * RES };
+  return { w: SPRITE_W * RES, h: SPRITE_H * RES };
+}
+
+/** Design-grid size (24 x 40 for people): what the world size of a sprite is measured in. */
+export function designSize(sprite: NpcSprite): { w: number; h: number } {
+  const s = spriteSize(sprite);
+  return { w: s.w / RES, h: s.h / RES };
 }
 
 export function paintNpc(sprite: NpcSprite, minutes = 0): SpriteImage {
-  const { w, h } = spriteSize(sprite);
-  const p = new Pixels(w, h);
+  const d = designSize(sprite);
+  const p = new Pixels(d.w, d.h);
   if (sprite === 'board') board(p);
   else if (sprite === 'clock') clock(p, minutes);
   else PERSON[sprite]!(p);
+  p.round();
+  p.shade();
   p.outline(OUTLINE);
-  return { w, h, data: p.data };
+  return { w: d.w * RES, h: d.h * RES, data: p.data };
 }
 
 /** Used by the tests to compare a figure's softness: the share of lit pixels in the rows of a given band. */
 export function opaqueIn(img: SpriteImage, y0: number, y1: number): number {
   let n = 0;
-  for (let y = y0; y < y1; y++) for (let x = 0; x < img.w; x++) if (img.data[(y * img.w + x) * 4 + 3] > 0) n++;
-  return n;
+  for (let y = y0 * RES; y < y1 * RES; y++) for (let x = 0; x < img.w; x++) if (img.data[(y * img.w + x) * 4 + 3] > 0) n++;
+  return Math.round(n / (RES * RES));
 }
 
 export { light };

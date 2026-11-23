@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
-import { paintNpc, spriteSize } from './sprites';
+import { designSize, paintNpc } from './sprites';
 
 /** The parts of the Renderer it draws into. */
 export interface NpcScene {
@@ -82,7 +82,7 @@ export class NpcRenderer {
     if (v.sprite === 'clock') this.clockMinute.set(v.id, v.extra);
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthWrite: true });
     const s = new THREE.Sprite(mat);
-    const size = spriteSize(v.sprite);
+    const size = designSize(v.sprite);
     s.center.set(0.5, 0);
     s.scale.set(size.w * PIXEL * v.scale, size.h * PIXEL * v.scale, 1);
     return s;
