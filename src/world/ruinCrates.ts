@@ -6,7 +6,7 @@
  */
 import { AMBIENT_TEMP_C, CRATE_SIZE, RUIN_DEEP_BELOW_SEA, RUIN_DEEP_DISTANCE } from '../core/constants';
 import { hash32, mulberry32 } from '../core/math';
-import { blockId, lootTable, rollLoot } from '../core/registry';
+import { STRUCTURE_LOOT, blockId, lootTable, rollLoot } from '../core/registry';
 import { SEA_LEVEL, makeVoxel, type BlockEntity, type LootTier, type Slot, type Voxel } from '../core/types';
 
 export const CRATE_VOXEL: Voxel = makeVoxel(blockId('crate'));
@@ -30,6 +30,17 @@ export function ruinCrateSlots(seed: number, x: number, y: number, z: number, ti
 export function ruinCrateEntity(seed: number, x: number, y: number, z: number, spawn: { x: number; z: number }): BlockEntity {
   return {
     kind: 'crate', x, y, z, on: true, slots: ruinCrateSlots(seed, x, y, z, ruinLootTier(x, y, z, spawn)),
+    progress: 0, recipe: null, fuelJ: 0, storedJ: 0, coreC: AMBIENT_TEMP_C, hotS: 0, warned: false, alarmS: 0,
+    depthY: y, halted: '', availW: 0, outW: 0, demandW: 0, f: 0,
+  };
+}
+
+/** A generated structure's crate: the same entity, rolled from the structure's own table (docs/SYNERGY_PLAN.md). */
+export function structureCrateEntity(seed: number, x: number, y: number, z: number, key: string): BlockEntity {
+  const slots: Slot[] = rollLoot(STRUCTURE_LOOT[key], mulberry32(hash32(seed, x, y, z)));
+  while (slots.length < CRATE_SIZE) slots.push(null);
+  return {
+    kind: 'crate', x, y, z, on: true, slots: slots.slice(0, CRATE_SIZE),
     progress: 0, recipe: null, fuelJ: 0, storedJ: 0, coreC: AMBIENT_TEMP_C, hotS: 0, warned: false, alarmS: 0,
     depthY: y, halted: '', availW: 0, outW: 0, demandW: 0, f: 0,
   };

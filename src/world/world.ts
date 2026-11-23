@@ -15,7 +15,8 @@ import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
 import { WaterFlow, checkWaterSnapshot, type WaterSnapshot } from './flow';
 import { LeafDecay, checkLeafSnapshot, rollLeafDrops, type LeafSnapshot } from './leafDecay';
-import { CRATE_VOXEL, ruinCrateEntity } from './ruinCrates';
+import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity } from './ruinCrates';
+import { structureCrateCells } from './structures';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
 import { WorkerPool, type PoolMode } from './workerPool';
@@ -346,6 +347,12 @@ export class World implements IWorld {
       if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z))) || this.entityStore.get(x, y, z)) continue;
       if (this.getVoxel(x, y, z) !== AIR) continue;
       this.setEntity(ruinCrateEntity(this.currentSeed, x, y, z, this.spawnPoint()));
+      this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
+    }
+    for (const { x, y, z, key } of structureCrateCells(this.currentSeed, cx, cz)) {
+      if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z))) || this.entityStore.get(x, y, z)) continue;
+      if (this.getVoxel(x, y, z) !== AIR) continue;
+      this.setEntity(structureCrateEntity(this.currentSeed, x, y, z, key));
       this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
     }
   }

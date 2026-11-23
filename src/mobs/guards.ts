@@ -6,6 +6,7 @@
 import { creature } from '../core/registry';
 import { CHUNK_SIZE, type CreatureSpec, type IWorld } from '../core/types';
 import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
+import { structureGuardPlans, type StructureGuardPlan } from '../world/structures';
 import { floorAt } from './hostileSpawner';
 import { clearanceOf } from './terrain';
 
@@ -14,11 +15,14 @@ export const GUARD_SWEEP_RADIUS = 4;
 /** A sentry stands on a wall at least this many blocks above the ruin floor. */
 const SENTRY_MIN_WALL = 2;
 
+/** What a guard needs to know of the place it keeps: an id, a centre and the floor (ruins and structures both fit). */
+export type GuardHome = Pick<RuinGuardPlan, 'key' | 'x' | 'z' | 'floor'>;
+
 export interface GuardHost {
   readonly world: IWorld;
   readonly seed: number;
   readonly guarded: Set<string>;
-  addGuard(spec: CreatureSpec, x: number, y: number, z: number, yaw: number, role: 'guard' | 'turret', ruin: RuinGuardPlan): void;
+  addGuard(spec: CreatureSpec, x: number, y: number, z: number, yaw: number, role: 'guard' | 'turret', ruin: GuardHome): void;
 }
 
 /** Feet height for a body of `clearance` cells standing in column (x, z) at or just above `from`, or -1. */
@@ -27,7 +31,7 @@ function standY(world: IWorld, x: number, z: number, from: number, to: number, c
   return -1;
 }
 
-function loaded(world: IWorld, p: RuinGuardPlan): boolean {
+function loaded(world: IWorld, p: Pick<RuinGuardPlan, 'x0' | 'z0' | 'x1' | 'z1'>): boolean {
   for (let cz = Math.floor(p.z0 / CHUNK_SIZE); cz <= Math.floor(p.z1 / CHUNK_SIZE); cz++) {
     for (let cx = Math.floor(p.x0 / CHUNK_SIZE); cx <= Math.floor(p.x1 / CHUNK_SIZE); cx++) {
       if (!world.isLoaded(cx * CHUNK_SIZE, cz * CHUNK_SIZE)) return false;
@@ -64,6 +68,21 @@ export function guardRuin(host: GuardHost, p: RuinGuardPlan): boolean {
   return true;
 }
 
+/** Creates the guardians of one generated structure once, when all of it has loaded. True when it did. */
+export function guardStructure(host: GuardHost, p: StructureGuardPlan): boolean {
+  if (host.guarded.has(p.key) || !loaded(host.world, p)) return false;
+  host.guarded.add(p.key);
+  for (const g of p.slots) {
+    const spec = creature(g.species);
+    const room = clearanceOf(spec.size.h);
+    const y = standY(host.world, g.x, g.z, p.floor + 1 + g.up, p.floor + 1 + g.up + 6, room);
+    if (y < 0) continue;
+    const yaw = Math.atan2(-(p.x - g.x - 0.5), -(p.z - g.z - 0.5));
+    host.addGuard(spec, g.x + 0.5, y, g.z + 0.5, g.role === 'turret' ? yaw + Math.PI : yaw, g.role, p);
+  }
+  return true;
+}
+
 /** Guards every not-yet-guarded ruin touching the chunks around (x, z) that has fully loaded. */
 export function sweepRuins(host: GuardHost, x: number, z: number): void {
   const pcx = Math.floor(x / CHUNK_SIZE);
@@ -74,6 +93,7 @@ export function sweepRuins(host: GuardHost, x: number, z: number): void {
       const cz = pcz + dz;
       if (!host.world.isLoaded(cx * CHUNK_SIZE, cz * CHUNK_SIZE)) continue;
       for (const p of ruinGuardPlans(host.seed, cx, cz)) guardRuin(host, p);
+      for (const p of structureGuardPlans(host.seed, cx, cz)) guardStructure(host, p);
     }
   }
 }

@@ -12,6 +12,7 @@ import { ID } from './ids';
 import { placeOutcrops, placeVeins } from './ores';
 import { placeSurfaceLife } from './plants';
 import { drawRuin, ruinsNear } from './ruins';
+import { drawStructure, structuresNear } from './structures';
 import {
   BIOME_KEYS, Column, DUNES, FROSTFELL, LIQUID_LAVA, LIQUID_NONE, LIQUID_OIL, LIQUID_WATER, MARSH, SCAR,
   SURFACE_CLAY, SURFACE_DIRT, SURFACE_GRASS, SURFACE_GRAVEL, SURFACE_PEAT, SURFACE_SAND, SURFACE_SNOW, TREE_LINE,
@@ -135,6 +136,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
   placeSurfaceLife(t, voxels, x0, z0, cols);
   placeCaveGlowcaps(t, voxels, x0, z0, cols);
   for (const ruin of ruinsNear(seed, cx, cz)) drawRuin(voxels, x0, z0, ruin);
+  for (const s of structuresNear(seed, cx, cz)) drawStructure(voxels, x0, z0, s);
   return voxels;
 }
 

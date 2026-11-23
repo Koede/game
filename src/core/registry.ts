@@ -15,6 +15,7 @@ import {
   FURNACE_TIERS as FURNACE_TIER_SPECS,
   ITEM_SPECS,
   LOOT_TABLES as LOOT_TABLE_SPECS,
+  STRUCTURE_LOOT as STRUCTURE_LOOT_SPECS,
   MACHINE_SPECS,
   MOULD_SPECS,
   OBJECTIVES as OBJECTIVE_SPECS,
@@ -373,6 +374,8 @@ export const creatureOrNull = (key: string): CreatureSpec | null => creaturesByK
 
 /** The loot tables of ruin crates, one per tier. */
 export const LOOT_TABLES: readonly LootTableSpec[] = LOOT_TABLE_SPECS;
+/** The crate tables of the generated structures, by structure key (docs/SYNERGY_PLAN.md). */
+export const STRUCTURE_LOOT: Readonly<Record<string, LootTableSpec>> = STRUCTURE_LOOT_SPECS;
 /** The table of a tier. Throws when the content has none. */
 export function lootTable(tier: LootTier): LootTableSpec {
   const table = LOOT_TABLES.find((t) => t.tier === tier);

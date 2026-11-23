@@ -21,7 +21,7 @@ import { bodyHeight, halfWidth } from './brain';
 import { knockVector, voicePitch } from './attacks';
 import { CORPSE_FADE_S, VOID_Y } from './constants';
 import { separate } from './crowd';
-import { guardRuin, sweepRuins, type GuardHost } from './guards';
+import { guardRuin, guardStructure, sweepRuins, type GuardHome, type GuardHost } from './guards';
 import { thinkHostile } from './hostileBrain';
 import { hitHostile, hurtHostile, type HurtEnv } from './hostileHurt';
 import type { HostileCtx } from './hostileCtx';
@@ -34,6 +34,7 @@ import { Projectiles, type BoltHost } from './projectiles';
 import { liquidAt } from './terrain';
 import type { BiomeLookup, DeathCause, HitResult, Mob, MobClock, MobDeath, MobPlayer } from './types';
 import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
+import { structureGuardPlans } from '../world/structures';
 
 /** Footsteps are voiced within this many blocks of the player. */
 const STEP_RANGE = 24;
@@ -173,7 +174,7 @@ export class HostileLayer {
     return m;
   }
 
-  private addGuard(spec: CreatureSpec, x: number, y: number, z: number, yaw: number, role: 'guard' | 'turret', ruin: RuinGuardPlan): void {
+  private addGuard(spec: CreatureSpec, x: number, y: number, z: number, yaw: number, role: 'guard' | 'turret', ruin: GuardHome): void {
     this.add(spec, x, y, z, yaw, role, ruin.key, { x: ruin.x, y: ruin.floor + 1, z: ruin.z });
   }
 
@@ -197,6 +198,7 @@ export class HostileLayer {
     const world = this.host.world;
     for (let i = 0; i < this.freshChunks.length; i += 2) {
       for (const p of ruinGuardPlans(this.host.seed, this.freshChunks[i], this.freshChunks[i + 1])) guardRuin(this.guardHost, p);
+      for (const p of structureGuardPlans(this.host.seed, this.freshChunks[i], this.freshChunks[i + 1])) guardStructure(this.guardHost, p);
     }
     this.freshChunks.length = 0;
     this.sweepS -= dt;
