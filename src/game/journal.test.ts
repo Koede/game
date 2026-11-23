@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
 import { AGES, OBJECTIVES } from '../core/registry';
-import { CELL, Journal, MAX_ENTRIES, isJournalSnapshot } from './journal';
+import { CELL, Journal, resumeLine, MAX_ENTRIES, isJournalSnapshot } from './journal';
+
+describe('resumeLine', () => {
+  it('says where you are and what is next', () => {
+    expect(resumeLine(5, 'Light the furnace', { day: 4, kind: 'goal', text: 'Done: Gather logs.' })).toBe('Welcome back - day 5. Last: Done: Gather logs. Next: Light the furnace.');
+    expect(resumeLine(1, null, undefined)).toBe('Welcome back - day 1.');
+  });
+});
 
 describe('Journal', () => {
   it('writes a line when a goal is done and an age begins, once each', () => {

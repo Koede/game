@@ -27,6 +27,8 @@ export interface Settings {
   difficulty: Difficulty;
   /** 'large' scales the HUD, the touch buttons and their captions up for small phone screens (review ui-10). */
   uiScale: 'normal' | 'large';
+  /** One-handed touch layout: the whole control cluster and the joystick sit under the thumb of this side. Older saves read as 'off'. */
+  oneHanded: 'off' | 'left' | 'right';
 }
 
 /** Spec 19.3. */
@@ -56,6 +58,7 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   showFps: false,
   difficulty: 'normal',
   uiScale: 'normal',
+  oneHanded: 'off',
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */

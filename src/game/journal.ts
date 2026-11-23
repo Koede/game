@@ -230,6 +230,14 @@ export class Journal {
   }
 }
 
+/** The welcome-back line when a saved world is picked up again: where you are in the story and the last thing done. */
+export function resumeLine(day: number, goalTitle: string | null, last: JournalEntry | undefined): string {
+  const parts = [`Welcome back - day ${day}.`];
+  if (last) parts.push(`Last: ${last.text}`);
+  if (goalTitle) parts.push(`Next: ${goalTitle}.`);
+  return parts.join(' ');
+}
+
 /** A one-line summary for the pause menu or title: "Day 12 - 4 goals - 38,000 blocks explored". */
 export function journalSummary(j: Journal): string {
   const goals = j.entries.filter((e) => e.kind === 'goal').length;

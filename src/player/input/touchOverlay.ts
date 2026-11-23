@@ -112,6 +112,12 @@ export class TouchOverlay {
   }
 
   /** Settings.uiScale 'large': bigger buttons and captions (`.hw-touch--large`). */
+  /** One-handed layout (Settings.oneHanded): mirrors or recentres the cluster under that thumb. */
+  setHanded(handed: 'off' | 'left' | 'right'): void {
+    this.root.classList.toggle('hw-touch--one-left', handed === 'left');
+    this.root.classList.toggle('hw-touch--one-right', handed === 'right');
+  }
+
   setLarge(large: boolean): void {
     if (large === this.large) return;
     this.large = large;

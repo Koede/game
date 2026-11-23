@@ -263,6 +263,18 @@ describe('buttons and simultaneous pointers', () => {
     expect(g.jumpHeld).toBe(false);
   });
 
+  it('one-handed mode puts the stick in the lower part of the chosen side', () => {
+    const g = new TouchGestures();
+    g.setViewport(390, 844);
+    g.handed = 'right';
+    expect(g.inStickRegion(300, 700)).toBe(true);
+    expect(g.inStickRegion(100, 700)).toBe(false);
+    expect(g.inStickRegion(300, 300)).toBe(false);
+    g.handed = 'left';
+    expect(g.inStickRegion(100, 700)).toBe(true);
+    expect(g.inStickRegion(300, 700)).toBe(false);
+  });
+
   it('a landscape viewport moves the stick region up and sizes the stick', () => {
     const g = new TouchGestures();
     g.setViewport(844, 390);

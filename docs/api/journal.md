@@ -11,3 +11,9 @@
 
 `src/game/achievements.ts`: `ACHIEVEMENTS` (id, name, text, `test(ProgressFacts)`), `Achievements(bus, facts)`; `GameState.tick` calls `tick(dt)` (re-checks once a second, toasts "Achievement: Name"). Saved as optional `achievements: { unlocked: { id: day } }`.
 `titleStage(age)` (0..5) sets `data-stage` on the title screen; `styles.css` warms/brightens the backdrop glow per age. `TitleScreen` takes `stage` and has `setStage()`; `App` keeps `savedAge` from the save.
+
+## Phone quality of life
+
+- Resume prompt: `GameState.resumed`; `Game` toasts `resumeLine(day, current goal, last diary line)` when a saved world is picked up.
+- One-handed layout: `Settings.oneHanded` ('off' | 'left' | 'right', Settings > Controls). `TouchGestures.handed` moves the stick region to the lower part of that side (buttons still win the hit test, everything else looks); `TouchOverlay.setHanded` mirrors the cluster for the left thumb (CSS `hw-touch--one-left/right`).
+- Auto-build assist was not built.

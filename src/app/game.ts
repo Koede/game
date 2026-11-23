@@ -6,6 +6,7 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
 import { setCraftGate } from '../game/crafting';
@@ -233,6 +234,10 @@ export class Game {
     this.npcRenderer.dispose();
       this.renderer.dispose();
       throw err;
+    }
+    if (state.resumed) {
+      const last = [...state.journal.entries].reverse().find((e) => e.kind !== 'death');
+      bus.emit('toast', { text: resumeLine(state.clock.day, state.objectives.current?.title ?? null, last), kind: 'info' });
     }
     const onKey = (down: boolean) => (e: KeyboardEvent): void => {
       const tag = (e.target as HTMLElement | null)?.tagName;

@@ -54,6 +54,7 @@ export class SettingsPanel {
         this.slider('touchSensitivity', 'Touch look speed', '', L.sensitivity, speed),
         this.toggle('invertY', 'Invert vertical look', ''),
         this.touchControls(),
+        this.oneHanded(),
       ),
       this.section('Sound', this.slider('volume', 'Volume', '', L.volume, formatPercent)),
     );
@@ -138,6 +139,22 @@ export class SettingsPanel {
     const toggle = new Toggle({ label, value: dev.get(), onChange: (v) => dev.set(v) });
     this.sync.push(() => toggle.set(dev.get()));
     return this.row(label, 'Creative item menu, no damage or hunger, free building and flight. Switch it off again here to play as survival.', toggle.el, false);
+  }
+
+  private oneHanded(): HTMLElement {
+    const label = 'One-handed layout';
+    const seg = new Segmented<Settings['oneHanded']>({
+      label,
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'left', label: 'Left' },
+        { value: 'right', label: 'Right' },
+      ],
+      value: this.current.oneHanded,
+      onChange: (v) => this.change('oneHanded', v),
+    });
+    this.sync.push(() => seg.set(this.current.oneHanded));
+    return this.row(label, 'Puts the stick and the buttons under one thumb. Look by dragging the upper screen.', seg.el, true);
   }
 
   private touchControls(): HTMLElement {

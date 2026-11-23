@@ -54,6 +54,8 @@ export class GameState {
   /** The animals (spec 12.5), ticked after the simulation; their drops fall as ground items. */
   readonly mobs: MobManager;
   readonly journal: Journal;
+  /** The world was picked up from a save (the game shows a welcome-back line). */
+  readonly resumed: boolean;
   readonly achievements: Achievements;
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
@@ -107,6 +109,7 @@ export class GameState {
     this.survival = new Survival(world, this.player, this.clock, biomeAt);
     this.survival.weather = this.weather.state;
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
+    this.resumed = save !== null;
     this.journal = new Journal(() => this.clock.day, bus);
     if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
     this.achievements = new Achievements(bus, () => this.progressFacts());
