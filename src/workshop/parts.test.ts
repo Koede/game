@@ -215,3 +215,34 @@ describe('vault, vacuum, saw arm, tanks', () => {
     expect(u.shop.logi.peek(0, 1, 0).find((e) => e.item === 'empty_canister')?.count).toBe(1);
   });
 });
+
+describe('mechanics saves', () => {
+  it('an old save without a mech key loads, a brake keeps its heat and its engaged setting, and bad mech data is ignored', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'flywheel');
+    t.put(2, 0, 0, 'brake');
+    t.put(3, 0, 0, 'shear_pin');
+    t.put(4, 0, 0, 'cam_drum');
+    t.run(7, [[0, 0, 0]]);
+    t.shop.use(2, 0, 0, null, () => undefined); // engage the brake
+    t.shop.use(3, 0, 0, null, () => undefined); // copper fuse
+    t.shop.use(4, 0, 0, null, () => undefined); // drum program 2
+    t.run(0.3);
+    const saved = JSON.parse(JSON.stringify(t.shop.toJSON()));
+    expect(saved.mech?.v).toBe(1);
+    const u = setup();
+    for (const [x, , , k] of saved.parts as [number, number, number, string][]) u.put(x, 0, 0, k);
+    u.shop.load(saved);
+    expect(u.shop.describe(2, 0, 0)).toMatch(/Brake engaged/);
+    expect(u.shop.describe(3, 0, 0)).toMatch(/Copper pin/);
+    expect(u.shop.describe(4, 0, 0)).toMatch(/Drum program 2: Sweep/);
+    const old = { ...saved };
+    delete old.mech;
+    const v = setup();
+    v.shop.load(old);
+    v.shop.load({ ...saved, mech: { v: 1, heat: { x: 'hot', '2,0,0': -4 } } });
+    v.shop.load({ ...saved, mech: 'junk' });
+    expect(() => v.run(1)).not.toThrow();
+  });
+});

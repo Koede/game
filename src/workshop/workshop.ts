@@ -104,6 +104,8 @@ export interface WorkshopSnapshot {
   machines: [number, number, number, Record<string, number>, number, string | null][];
   /** Punched programs keyed by cell. Absent on old saves, which keep the three presets. */
   cards?: Record<string, [number, number, number][]>;
+  /** Brake heat per cell (src/workshop/mech/drive.ts). Absent on old saves: everything starts cool. */
+  mech?: { v: 1; heat: Record<string, number> };
   /** Skiff cell the player boarded. Absent when nobody is aboard. */
   ride?: [number, number, number];
 }
@@ -939,6 +941,7 @@ export class Workshop {
     out.logi = this.logi.toJSON();
     out.sig = this.signals.toJSON();
     out.pist = this.contra.toJSON();
+    if (this.heat.size) out.mech = { v: 1, heat: Object.fromEntries([...this.heat].map(([k, h]) => [k, Math.round(h * 10) / 10])) };
     return out;
   }
 
@@ -988,6 +991,16 @@ export class Workshop {
     for (const p of this.parts.values()) if (CONTRAPTION_KINDS.includes(p.kind as 'piston')) this.contra.noteBlock(p.x, p.y, p.z, p.kind);
     for (const c of this.logi.cells.values()) if (CONTRAPTION_KINDS.includes(c.kind as 'piston')) this.contra.noteBlock(c.x, c.y, c.z, c.kind);
     this.contra.load((raw as { pist?: unknown }).pist);
+    this.heat.clear();
+    this.fuses.clear();
+    this.dyn.clear();
+    this.drums.clear();
+    const mech = (raw as { mech?: { heat?: unknown } }).mech;
+    if (mech && typeof mech === 'object' && mech.heat && typeof mech.heat === 'object') {
+      for (const [k, h] of Object.entries(mech.heat as Record<string, unknown>)) {
+        if (this.parts.has(k) && typeof h === 'number' && Number.isFinite(h) && h > 0) this.heat.set(k, Math.min(h, 150));
+      }
+    }
   }
 
   /** Re-checks every saved part against the world once chunks are in (a part whose block is gone is dropped). */

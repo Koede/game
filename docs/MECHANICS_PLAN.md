@@ -33,8 +33,9 @@ T_load  = steady load x (1 + pulse(t))                     (pulse from cams / st
 ```
 - With default parts `M` is tiny, so `w` snaps to its steady value in one tick: **a network of today's parts behaves exactly as it does today**
   (load over capacity -> stalls and toasts). Add momentum and the same network now ripples, coasts and rides through pulses.
-- Kinetic energy `E = 1/2 M w^2` is the **flywheel store**: charged by a surplus (engine overspeed allowed only up to `W_MAX` 1.25, then a governor or
-  the fuse intervenes), spent on pulses and coasts. `Flywheel.coastSeconds(load)` is the number the goggles show.
+- Kinetic energy `E = 1/2 M w^2` is the **flywheel store**: engines are speed regulated (w never exceeds 1), so the store is full whenever the line is at speed
+  and is spent on pulses and coasts (a line with no engine coasts against its load plus idle drag). `coastSeconds` is the number the goggles show.
+  Runaway (an unregulated steam engine with no governor) stays a plan item.
 - **Brake**: engaged (Use, or a lit signal cell) it takes `BRAKE_TORQUE` 24 su: stops a coasting flywheel in a second, holds a lift. Wears (see 2.3).
 - **Torque fuse** (generalises the Shear Pin): material by Use - copper 6, bronze 12, iron 24 su. It watches the **torque through its own position**
   (the sum of loads downstream of it in the solve tree). Over rating for 0.4 s it snaps (scrap drops, one toast), and the line downstream stops while the
@@ -122,13 +123,18 @@ with fixes. A rolling `LoadGraph` (pure ring buffer, 120 samples of load/capacit
 - **Current**: dynamo bridge, electric servo, tractor PTO, analogue sensors that feed wires. The rotational layer stays; electricity is a different system with a **bridge** (generator/motor blocks).
 
 ## 6. Slices and status
-1. `[done]` Pure core with tests: `mech/drive.ts` (momentum dynamics, engines, brake, fuse, whip, diagnose, perf), `mech/gearMath.ts`.
+1. `[done]` Pure core with tests: `mech/drive.ts` (momentum dynamics, engines, brake, fuse, whip, diagnose, load graph), `mech/gearMath.ts`.
 2. `[done]` `mech/drum.ts`, `mech/logic.ts`, `mech/linkage.ts`, `mech/hydraulics.ts` with tests; perf test for 200 parts.
-3. `[next]` Wire `drive.ts` into `Workshop.solve` (momentum, brake, fuse ratings, whip), persist `mech` extras with migration; flywheel real energy; content blocks
-   `brake`, `pillow_block`, `cam_drum`; goggles lines.
-4. `[next]` Logic cells in `signals.ts`; hydraulic blocks; tool-head frames; sorters.
-5. `[next]` Goggles overlay + load graph UI; render consumption of `linkage.ts` poses through the shared part-and-track system in `src/render` (owned by the render session).
-6. `[next]` Dev Mode bench structure (a test hall: every engine, a flywheel press line, a cam-drum sorter, a hydraulic lift).
+3. `[done]` `drive.ts` wired into `Workshop.solve` (momentum, brake with heat and fade, rated fuses on through-torque, whip + `pillow_block`, press/hammer pulses from the
+   slider-crank curve, real flywheel coast), `mech` save extras with migration safety; blocks `brake`, `pillow_block`; goggles lines. Legacy numbers unchanged for
+   parts without momentum; five tests rewritten (flywheel) or extended.
+4. `[done, first cut]` `cam_drum` (six preset programs, four signal tracks) and `logic_gate` (AND/OR/XOR/NOT/latch/counter 4 and 8/compare/delay) in `signals.ts`.
+   `[next]` custom peg editing UI and punched-card loading for drums, an analogue `tachometer` / `torque_gauge` that feeds gates, `slip_clutch`, `planetary_set`, `cvt_cone`.
+5. `[done]` Dev Mode bench: creative menu button **Mech bench** (`mech/bench.ts`).
+6. `[next]` Hydraulic blocks (the `Circuit` solver is done and tested but unwired: pump, accumulator, valve, cylinder blocks and their render), tool-head frames, sorters,
+   water wheel / windmill modules as blocks, essentia servo.
+7. `[next]` Goggles overlay + load graph UI; Codex entries and sounds for the new parts; render: consume `linkage.ts` poses (`sliderPose`, `follower`, `sliderPhase`) through the
+   shared part-and-track animation system in `src/render` (owned by the render session) so the press ram, drum pegs and piston rods animate as parts on tracks.
 
 ## 7. Saves
 `world.persist('workshop')` extras get one new optional key `mech` (`v: 1`): per-part `{ heat, setting }` and per-network momentum is **not saved** (rebuilt from parts; w starts at 1
