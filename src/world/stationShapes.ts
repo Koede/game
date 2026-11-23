@@ -11,6 +11,7 @@
  * not here: src/render/handwork draws them on top, driven by the stroke events.
  */
 import type { Facing } from '../core/types';
+import { miniBounds, miniKeys, MINI_MODELS } from './miniModel';
 
 /** [minX, minY, minZ, maxX, maxY, maxZ] in sixteenths. */
 export type Box16 = readonly [number, number, number, number, number, number];
@@ -51,21 +52,29 @@ export const STATION_BOXES: Readonly<Record<string, readonly Box16[]>> = {
   ],
   // A low bench with a top and four legs; moulds stand on it.
   casting_bench: [[0, 9, 0, 16, 12, 16], post(1, 1, 9, 3), post(12, 1, 9, 3), post(1, 12, 9, 3), post(12, 12, 9, 3)],
-  alloy_pot: bowl(3, 13, 2, 8, 2),
 };
 
 /** Stations whose moving parts stand above the static boxes: the target outline reaches the top of the part (sixteenths). */
 const PART_TOP: Readonly<Record<string, number>> = { hand_quern: 12, mortar: 14 };
 
 const keys = Object.keys(STATION_BOXES);
-/** Whether a block key is drawn from the table. */
-export const isStationShape = (key: string): boolean => key in STATION_BOXES;
+/** Indices above this belong to the miniblock models (miniModel.ts): index - MINI_BASE is the model's own index. */
+export const MINI_BASE = keys.length;
+/** Whether a block key is drawn from the table (or from a miniblock model). */
+export const isStationShape = (key: string): boolean => key in STATION_BOXES || key in MINI_MODELS;
 /** Table index + 1 of a key (0 = not a station), the value blockTables stores per block id. */
-export const stationIndex = (key: string): number => keys.indexOf(key) + 1;
+export const stationIndex = (key: string): number => {
+  const i = keys.indexOf(key);
+  if (i >= 0) return i + 1;
+  const m = miniKeys().indexOf(key);
+  return m >= 0 ? MINI_BASE + m + 1 : 0;
+};
 export const stationBoxesByIndex = (index: number): readonly Box16[] => STATION_BOXES[keys[index - 1]];
 
 /** The part of the cell the shape fills, in 0..1: for the target outline. Null for keys not in the table. */
 export function stationBounds(key: string): readonly [number, number, number, number, number, number] | null {
+  const mini = MINI_MODELS[key];
+  if (mini) return miniBounds(mini);
   const boxes = STATION_BOXES[key];
   if (!boxes) return null;
   const out = [16, 16, 16, 0, 0, 0];
