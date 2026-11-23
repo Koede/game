@@ -43,3 +43,17 @@ Characters (add to the style paragraph):
   a walking stick, worn boots. Amused, mischievous.
 
 Keep the characters adult and tasteful.
+
+## Style notes taken from the owner's reference images
+
+What the references have in common, to put in every prompt (or to describe next to an uploaded reference):
+- **Proportions:** slim, long-legged adults, small heads relative to the body (about 1 : 6 or 1 : 7), graceful, slightly exaggerated silhouettes; hair is a major shape (long, flowing, with volume and a few bright highlight strands, twin tails or braids that sweep out).
+- **Faces:** a few pixels each, but large expressive eyes with a bright highlight, tiny nose, small mouth, rosy cheeks; a soft, friendly or calm expression.
+- **Shading:** hard-edged cel shading in three to four tones per material, a thin dark outline in a darker shade of the surrounding colour (not pure black), rim light on the lit side, soft gradients only on skirts and capes.
+- **Clothing:** layered and detailed: wide-brim witch hats with bows or bands, capes with trim, frilled skirts with a flare, belts, cuffed boots, stockings in mismatched colours, hoods; small gold or coloured accents; fabric that catches wind.
+- **Props and mood:** a staff or a held object, a few floating sparkles or motes, a restrained palette of two or three hues per character.
+- **Canvas:** front-facing and standing for the in-world sprite; a separate bust for the portrait.
+
+In Leonardo.ai: open the image generator, use the **Image Guidance / Style Reference** (or "Content Reference") panel, upload your reference
+images there, pick the Pixel Art model, and add the character line from above. The tools I have can only take text, so I cannot pass your
+reference images to a generator myself; uploading them in the site is how they get used.
