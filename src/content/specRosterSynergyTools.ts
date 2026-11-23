@@ -12,6 +12,12 @@ export const SYNERGY_TOOLS_SPEC = {
   textures: 9,
 };
 
+/** The fence (src/content/areas/fence.ts): a connecting post for railings and rafters; no new texture (it wears the plank tile). */
+export const FENCE_SPEC = {
+  blocks: ['fence'],
+  recipes: { hand: ['fence: 4 fence <- 2 plank, 2 stick'] },
+};
+
 /** Goat milk and wool (src/content/areas/synergy_animals.ts). */
 export const SYNERGY_ANIMALS_SPEC = {
   blocks: ['wool_bedding'],

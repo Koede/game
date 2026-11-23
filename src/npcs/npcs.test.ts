@@ -29,7 +29,7 @@ describe('the tavern layout', () => {
     for (const b of blocks) {
       expect(b.x >= 0 && b.x < TAVERN_W && b.y >= -BASEMENT_DEPTH && b.y <= TAVERN_TOP && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding'];
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence'];
     for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 
@@ -737,11 +737,17 @@ describe('the upper floor, the cellar and the secret rooms', () => {
 
   it('the balcony overlooks the hall: open air from its rail down to the floor, with a railing along the edge', () => {
     for (const [x, z] of [[4, 1], [6, 2], [10, 2]] as const) {
-      for (let y = 1; y <= 9; y++) expect(solid(x, y, z), `${x},${y},${z}`).toBe(false);
+      for (let y = 1; y <= 8; y++) expect(solid(x, y, z), `${x},${y},${z}`).toBe(false); // the rafters are at y 9
     }
-    for (let x = 3; x <= 10; x++) expect(grid.get(`${x},6,3`), `rail ${x}`).toBe('plank');
+    for (let x = 3; x <= 10; x++) expect(grid.get(`${x},6,3`), `rail ${x}`).toBe('fence');
     expect(start.has('5,6,4'), 'you can stand at the rail').toBe(true);
     expect(start.has('5,6,1'), 'but not out over the void').toBe(false);
+  });
+
+  it('has fence rafters under the roof and across the hall, clear of the stairs', () => {
+    for (const x of [1, 6, 11]) expect(grid.get(`${x},9,4`), `roof rafter ${x}`).toBe('fence');
+    for (const x of [3, 7, 11]) expect(grid.get(`${x},4,3`), `hall rafter ${x}`).toBe('fence');
+    for (const z of [1, 2, 3, 4]) expect(grid.get(`1,4,${z}`), `stairs ${z}`).not.toBe('fence');
   });
 
   it('has a bed in each bedroom', () => {

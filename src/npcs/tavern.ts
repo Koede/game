@@ -141,9 +141,9 @@ function upstairs(put: Put, W: number, D: number): void {
   // The balcony: the hall ceiling is open over x 4-10, z 1-2 (the front of the room: door, dance floor, the bar beyond). It is
   // fenced by a railing on the ledge at z 3 and at x 3; the walkway is the row z 4, with the stairs arriving at the west end.
   box(put, 4, TAVERN_H, 1, W - 2, TAVERN_H, 2, 'air');
-  for (let x = 3; x <= W - 2; x++) put(x, 6, 3, 'plank');
-  put(3, 6, 1, 'plank');
-  put(3, 6, 2, 'plank');
+  for (let x = 3; x <= W - 2; x++) put(x, 6, 3, 'fence');
+  put(3, 6, 1, 'fence');
+  put(3, 6, 2, 'fence');
   // A wall splits the walkway from the two bedrooms (z 6-7); doors at x 3 and 9. Another splits the two rooms.
   box(put, 1, 6, 5, W - 1, 9, 5, 'plank');
   for (const x of [3, 9]) box(put, x, 6, 5, x, 7, 5, 'air');
@@ -168,6 +168,20 @@ function upstairs(put: Put, W: number, D: number): void {
   put(6, 7, 5, 'brick');
   put(6, 6, 7, 'crate');
   put(6, 7, 6, 'torch');
+  rafters(put, W);
+}
+
+/** Fence rafters: beams across the upper floor just under the roof (they tie into the log walls and the roof boards), and across
+ * the hall below the upper floor, clear of the stairs. */
+function rafters(put: Put, W: number): void {
+  for (const z of [2, 4, 7]) {
+    for (let x = 1; x <= W - 1; x++) {
+      if (z === 7 && x >= 5 && x <= 7) continue; // the thick wall is there already
+      if (z === 2 && x === W - 1) continue; // the chimney
+      put(x, TAVERN_TOP - 1, z, 'fence');
+    }
+  }
+  for (const z of [3, 6]) for (let x = z === 3 ? 3 : 1; x <= W - 1; x++) put(x, TAVERN_H - 1, z, 'fence');
 }
 
 /** The cellar under the hall, the stairwell down from the yard, and a vault behind a false wall. */

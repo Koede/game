@@ -19,10 +19,11 @@ export const SHAPE_SLAB = 6;
 export const SHAPE_PIPE = 7;
 export const SHAPE_CUP = 8;
 export const SHAPE_BUCKET = 9;
+export const SHAPE_FENCE = 10;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
   pipe: SHAPE_PIPE,
-  cup: SHAPE_CUP, bucket: SHAPE_BUCKET,
+  cup: SHAPE_CUP, bucket: SHAPE_BUCKET, fence: SHAPE_FENCE,
 };
 
 export const BATCH_OPAQUE = 0;
@@ -62,6 +63,8 @@ export const PIPE_FAMILY = new Uint8Array(SIZE);
 export const PIPE_JOINS = new Uint8Array(SIZE);
 /** 1 for pipe endpoints (not pipes): an arm meeting one gets a collar. */
 export const PIPE_ENDPOINT = new Uint8Array(SIZE);
+/** 1 for blocks a fence grows an arm towards: other fences and every opaque cube. */
+export const FENCE_JOINS = new Uint8Array(SIZE);
 /** Colour of the light a block emits: 0 warm firelight, 1 cyan, 2 violet (cool glows of caves, spec 14). */
 export const LIGHT_HUE = new Uint8Array(SIZE);
 export const HUE_CYAN = 1;
@@ -102,6 +105,7 @@ for (const def of BLOCKS) {
   const glassPipe = def.pipe?.family === 'item';
   BATCH[id] = def.translucent || glassPipe ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' || def.shape === 'cup' || def.shape === 'bucket' ? BATCH_CUTOUT : BATCH_OPAQUE;
   POWERED[id] = def.power ? 1 : 0;
+  FENCE_JOINS[id] = def.shape === 'fence' || def.opaque ? 1 : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
   else {

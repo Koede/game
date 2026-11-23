@@ -267,7 +267,7 @@ export interface ItemDef extends ItemSpec {
  *  bucket - a small round-ish pot box standing on the floor of the cell, not solid (brewing): a bucket on a furnace
  *           top and the kettle pot, 10/16 wide and 8/16 tall.
  */
-export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe' | 'cup' | 'bucket';
+export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe' | 'cup' | 'bucket' | 'fence';
 
 /**
  * Names of procedural 16x16 textures. Fallbacks for unlisted faces:

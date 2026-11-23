@@ -15,7 +15,7 @@ import { FOOD_SPEC } from './specRosterFood';
 import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
-import { SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
+import { FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 
 type Numbers = Record<string, number>;
@@ -415,6 +415,9 @@ SPEC.maxTextures += GLASS_SPEC.textures;
 
 // The tool-and-block synergy pass (docs/SYNERGY_TOOLS.md) adds building variants after everything else.
 SPEC.blocks.push(...SYNERGY_TOOLS_SPEC.blocks);
+// The fence comes last of all: a block and one hand recipe, no new texture.
+SPEC.blocks.push(...FENCE_SPEC.blocks);
+SPEC.recipes.hand = [...(SPEC.recipes.hand ?? []), ...FENCE_SPEC.recipes.hand];
 SPEC.maxTextures += SYNERGY_TOOLS_SPEC.textures;
 SPEC.worldOnlyItems.push(...SYNERGY_TOOLS_SPEC.worldOnly);
 SPEC.blocks.push(...SYNERGY_ANIMALS_SPEC.blocks);

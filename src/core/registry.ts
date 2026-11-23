@@ -121,7 +121,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     name: spec.name,
     desc: spec.desc ?? '',
     shape,
-    solid: spec.solid ?? (shape === 'cube' || shape === 'slab'),
+    solid: spec.solid ?? (shape === 'cube' || shape === 'slab' || shape === 'fence'),
     opaque: spec.opaque ?? shape === 'cube',
     translucent: spec.translucent ?? false,
     hardness: spec.hardness ?? 1,
@@ -233,7 +233,7 @@ function resolveItems(): ItemDef[] {
     let iconLayer: number;
     if (spec.icon) iconLayer = layerOf(spec.icon);
     else if (placed) {
-      const cubeLike = placed.shape === 'cube' || placed.shape === 'slab' || placed.shape === 'liquid';
+      const cubeLike = placed.shape === 'cube' || placed.shape === 'slab' || placed.shape === 'liquid' || placed.shape === 'fence';
       iconLayer = cubeLike ? -1 : placed.layers[Face.PX];
     } else iconLayer = layerOf(`item_${spec.key}`);
     return {
