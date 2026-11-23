@@ -6,6 +6,7 @@
  */
 import type { GameBus } from '../../core/context';
 import type { NpcRole } from '../../npcs/data';
+import { npcArt } from '../../render/npcs/art';
 import { hasPortrait, paintPortrait, PORTRAIT_PX } from '../../render/npcs/portraits';
 import { h } from '../kit/dom';
 
@@ -51,15 +52,17 @@ export class NpcDialogue {
       this.advance();
     });
     parent.appendChild(this.el);
-    this.off = bus.on('npc:say', (e) => this.say(e.role as NpcRole, e.name, e.title, e.text));
+    this.off = bus.on('npc:say', (e) => this.say(e.role as NpcRole, e.name, e.title, e.text, e.id));
   }
 
   /** Shows a line (replacing any being shown). */
-  say(role: NpcRole, name: string, title: string, text: string): void {
+  say(role: NpcRole, name: string, title: string, text: string, id = ''): void {
     this.nameEl.textContent = name;
     this.titleEl.textContent = title;
-    this.frame.hidden = !hasPortrait(role);
-    if (hasPortrait(role)) this.drawPortrait(role);
+    const art = id ? npcArt(`${id}_portrait`) : undefined;
+    this.frame.hidden = !art && !hasPortrait(role);
+    if (art) this.drawArt(art);
+    else if (hasPortrait(role)) this.drawPortrait(role);
     this.text = text;
     this.shown = 0;
     this.holdS = Math.max(READ_S_MIN, text.length * READ_S_PER_CHAR);
@@ -91,6 +94,18 @@ export class NpcDialogue {
   /** What is typed so far (for tests and screen readers). */
   get typed(): string {
     return this.textEl.textContent ?? '';
+  }
+
+  /** Drop-in portrait art, scaled to cover the frame. */
+  private drawArt(art: HTMLCanvasElement): void {
+    const ctx = this.portrait.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.imageSmoothingEnabled = false;
+    const k = Math.max(PORTRAIT_PX / art.width, PORTRAIT_PX / art.height);
+    const w = art.width * k;
+    const h = art.height * k;
+    ctx.drawImage(art, (PORTRAIT_PX - w) / 2, (PORTRAIT_PX - h) / 2, w, h);
   }
 
   private drawPortrait(role: NpcRole): void {

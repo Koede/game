@@ -90,7 +90,7 @@ export async function build({ entry = mainEntry, outDir = dist, minify = !dev, q
     target: 'es2020',
     minify,
     sourcemap: minify ? false : 'inline',
-    loader: { '.css': 'text' },
+    loader: { '.css': 'text', '.png': 'dataurl' },
     plugins: [workerPlugin],
     logLevel: 'warning',
     absWorkingDir: root,

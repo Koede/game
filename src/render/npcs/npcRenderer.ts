@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
+import { npcArt, onNpcArt } from './art';
 import { designSize, paintNpc } from './sprites';
 
 /** The parts of the Renderer it draws into. */
@@ -17,11 +18,27 @@ const PIXEL = 0.05;
 
 export class NpcRenderer {
   private readonly sprites = new Map<string, THREE.Sprite>();
-  private readonly textures = new Map<string, THREE.DataTexture>();
+  private readonly textures = new Map<string, THREE.Texture>();
   private readonly clockMinute = new Map<string, number>();
   private time = 0;
 
-  constructor(private readonly host: NpcScene) {}
+  private readonly offArt: () => void;
+
+  constructor(private readonly host: NpcScene) {
+    // Drop-in art (assets/npcs) arrives after the first frames: rebuild every sprite from it.
+    this.offArt = onNpcArt(() => this.reset());
+  }
+
+  private reset(): void {
+    for (const s of this.sprites.values()) {
+      this.host.scene.remove(s);
+      (s.material as THREE.SpriteMaterial).dispose();
+    }
+    this.sprites.clear();
+    for (const t of this.textures.values()) t.dispose();
+    this.textures.clear();
+    this.clockMinute.clear();
+  }
 
   /** Call every frame with the views and a 0..1 brightness (the sky). */
   update(dt: number, views: readonly NpcView[], brightness = 1): void {
@@ -51,7 +68,21 @@ export class NpcRenderer {
     }
   }
 
-  private texture(v: NpcView): THREE.DataTexture {
+  /** Drop-in art for a person, if there is one. */
+  private art(v: NpcView): HTMLCanvasElement | undefined {
+    return v.kind === 'person' ? npcArt(v.id) : undefined;
+  }
+
+  private texture(v: NpcView): THREE.Texture {
+    const art = this.art(v);
+    if (art) {
+      const t = new THREE.CanvasTexture(art);
+      t.magFilter = THREE.NearestFilter;
+      t.minFilter = THREE.NearestFilter;
+      t.generateMipmaps = false;
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
     const img = paintNpc(v.sprite, v.extra);
     const tex = new THREE.DataTexture(img.data, img.w, img.h, THREE.RGBAFormat);
     tex.flipY = true;
@@ -83,12 +114,20 @@ export class NpcRenderer {
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthWrite: true });
     const s = new THREE.Sprite(mat);
     const size = designSize(v.sprite);
+    const art = this.art(v);
+    if (art) {
+      // Art keeps its own proportions: two blocks tall (times the person's scale).
+      s.center.set(0.5, 0);
+      s.scale.set((art.width / art.height) * 2 * v.scale, 2 * v.scale, 1);
+      return s;
+    }
     s.center.set(0.5, 0);
     s.scale.set(size.w * PIXEL * v.scale, size.h * PIXEL * v.scale, 1);
     return s;
   }
 
   dispose(): void {
+    this.offArt();
     for (const s of this.sprites.values()) {
       this.host.scene.remove(s);
       (s.material as THREE.SpriteMaterial).dispose();
