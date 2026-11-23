@@ -17,6 +17,8 @@ const forge = (id: string, output: string, inputs: string, minTempC: number, min
 
 export const MAGIC_RECIPES: RecipeSpec[] = [
   { id: 'field_notebook', station: 'hand', inputs: amounts('1 plank, 3 fiber, 1 charcoal'), output: amount('field_notebook'), age: 0 },
+  { id: 'scribing_tools', station: 'hand', inputs: amounts('1 stick, 1 charcoal, 1 fiber'), output: amount('scribing_tools'), age: 0 },
+  { id: 'research_table', station: 'workbench', inputs: amounts('4 plank, 2 stick'), output: amount('research_table'), age: 0 },
   { id: 'vis_rod', station: 'workbench', inputs: amounts('2 stick, 1 glass_vial, 1 copper_ingot'), output: amount('vis_rod'), age: 0 },
   { id: 'essentia_jar', station: 'workbench', inputs: amounts('3 glass, 1 plank'), output: amount('essentia_jar'), age: 0 },
   forge('glass_vial', '2 glass_vial', '1 glass', 650),

@@ -30,7 +30,8 @@ import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
 import { compass, NODE_HEIGHT, NODE_POOL, NODE_REACH, NODE_REGEN_S, nodesNear, type NodeSite } from './nodes';
 import {
-  entryStatus, freshResearch, hasFlag, hintFor, placeToken, removeToken, sanitizeResearch, scanObject,
+  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, placeToken, removeToken,
+  sanitizeResearch, scanObject,
   type EntryStatus, type PlaceResult, type ResearchState,
 } from './research';
 
@@ -38,6 +39,8 @@ export const NOTEBOOK = 'field_notebook';
 export const EMPTY_VIAL = 'glass_vial';
 export const JAR_BLOCK = 'essentia_jar';
 export const LENS = 'vein_lens';
+export const SCRIBING_TOOLS = 'scribing_tools';
+export const RESEARCH_TABLE = 'research_table';
 /** Cube radius the rod reads the land in. */
 export const GATHER_RADIUS = 3;
 /** Seconds the land needs to recover one drawn unit (per chunk and aspect). */
@@ -92,7 +95,17 @@ export interface MagicGoal { id: string; title: string; done: boolean }
 /** What the notebook screen needs (the UI never imports this file's values). */
 export interface NotebookApi {
   research(): ResearchState;
-  entries(): { key: string; title: string; text: string; status: EntryStatus; board: BoardSpec | null; age: string }[];
+  entries(): {
+    key: string; title: string; text: string; status: EntryStatus; board: BoardSpec | null; age: string;
+    requires: readonly string[]; cost: Aspects; short: Aspect[];
+  }[];
+  /** Starts an entry's research notes (pays its cost in lore). */
+  begin(entry: string): PlaceResult;
+  /** Combines one lore of each into their compound. */
+  combine(a: Aspect, b: Aspect): PlaceResult & { made?: Aspect };
+  /** Ink strokes left in carried scribing tools. */
+  ink(): number;
+  /** Writes an aspect (at a research table; spends one lore and one stroke of ink). */
   place(entry: string, cell: number, aspect: Aspect): PlaceResult;
   remove(entry: string, cell: number): boolean;
   hint(entry: string): { cell: number; aspect: Aspect } | null;
@@ -315,6 +328,10 @@ export class Magic {
     if (key && JAR_BLOCKS.has(key) && (held === EMPTY_VIAL || vialAspect(held))) return this.useJar(target, held as string);
     if (key === 'arcane_pedestal') return this.usePedestal(target, held);
     if (key === 'infusion_altar') return this.useAltar(target, held);
+    if (key === RESEARCH_TABLE) {
+      this.bus.emit('ui:open', { screen: { type: 'notebook', table: true } });
+      return 'screen';
+    }
     if (key === 'rune_desk') {
       this.bus.emit('ui:open', { screen: { type: 'rune_desk', x: target.x, y: target.y, z: target.z } });
       return 'screen';
@@ -1197,12 +1214,48 @@ export class Magic {
     ];
   }
 
+  /** Ink strokes in every carried set of scribing tools. */
+  private ink(): number {
+    const inv = this.player.inventory;
+    let n = 0;
+    for (let i = 0; i < inv.size; i++) {
+      const s = inv.get(i);
+      if (s?.item === SCRIBING_TOOLS) n += s.durability ?? 0;
+    }
+    return n;
+  }
+
+  private spendInk(): void {
+    const inv = this.player.inventory;
+    for (let i = 0; i < inv.size; i++) {
+      const s = inv.get(i);
+      if (s?.item !== SCRIBING_TOOLS || !s.durability) continue;
+      if (s.durability <= 1) {
+        inv.set(i, null);
+        this.toast('Your scribing tools ran dry');
+      } else inv.set(i, { ...s, durability: s.durability - 1 });
+      return;
+    }
+  }
+
   notebook(): NotebookApi {
     return {
       research: () => this.research,
-      entries: () => RESEARCH.map((e) => ({ key: e.key, title: e.title, text: e.text, status: entryStatus(this.research, e), board: e.board, age: e.age })),
+      entries: () => RESEARCH.map((e) => ({
+        key: e.key, title: e.title, text: e.text, status: entryStatus(this.research, e), board: e.board, age: e.age,
+        requires: e.requires, cost: e.cost, short: beginShortfall(this.research, e),
+      })),
+      begin: (entry) => {
+        const r = beginResearch(this.research, entry);
+        if (r.ok) this.bus.emit('sfx', { name: 'scan_chime' });
+        return r;
+      },
+      combine: (a, b) => combineAspects(this.research, a, b),
+      ink: () => this.ink(),
       place: (entry, cell, aspect) => {
+        if (this.ink() <= 0) return { ok: false, reason: 'Your scribing tools are dry: make new ones' };
         const r = placeToken(this.research, entry, cell, aspect);
+        if (r.ok) this.spendInk();
         if (r.solved) {
           const e = RESEARCH.find((x) => x.key === entry);
           this.toast(`Research done: ${e?.title ?? entry}`, undefined, 'good');

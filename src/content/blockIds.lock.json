@@ -241,5 +241,6 @@
   "pillow_block": 239,
   "wool_bedding": 240,
   "cam_drum": 241,
-  "logic_gate": 242
+  "logic_gate": 242,
+  "research_table": 243
 }

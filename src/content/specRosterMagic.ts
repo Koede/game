@@ -10,15 +10,19 @@ const ASPECT_NAMES = [
 ];
 
 export const MAGIC_SPEC = {
-  blocks: ['essentia_jar', 'void_jar', 'essentia_tube', 'rune_desk', 'infusion_altar', 'arcane_pedestal', 'clay_servant', 'magic_light'],
+  blocks: ['research_table', 'essentia_jar', 'void_jar', 'essentia_tube', 'rune_desk', 'infusion_altar', 'arcane_pedestal', 'clay_servant', 'magic_light'],
   items: [
-    'field_notebook', 'glass_vial', 'vis_rod', 'bronze_rod', 'iron_rod',
+    'field_notebook', 'scribing_tools', 'glass_vial', 'vis_rod', 'bronze_rod', 'iron_rod',
     'focus_kindle', 'focus_light', 'focus_ward', 'focus_blink', 'vein_lens',
     ...ASPECT_NAMES.map((a) => `vial_${a}`),
   ],
   recipes: {
-    hand: ['field_notebook: 1 field_notebook <- 1 plank, 3 fiber, 1 charcoal'],
+    hand: [
+      'field_notebook: 1 field_notebook <- 1 plank, 3 fiber, 1 charcoal',
+      'scribing_tools: 1 scribing_tools <- 1 stick, 1 charcoal, 1 fiber',
+    ],
     workbench: [
+      'research_table: 1 research_table <- 4 plank, 2 stick',
       'vis_rod: 1 vis_rod <- 2 stick, 1 glass_vial, 1 copper_ingot',
       'essentia_jar: 1 essentia_jar <- 3 glass, 1 plank',
     ],
@@ -30,7 +34,7 @@ export const MAGIC_SPEC = {
     ],
   } as Record<string, string[]>,
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */
-  textures: 48,
+  textures: 49,
 };
 
 export const MAGIC_RECIPE_COUNT = Object.values(MAGIC_SPEC.recipes).reduce((n, l) => n + l.length, 0);

@@ -188,7 +188,7 @@ export class Game {
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
-      this.ui.registerScreen('notebook', (_request, ctx) => createNotebookScreen(ctx, this.magic.notebook()));
+      this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z)));
       registerDistillRig(this.ui);
       const renderer = this.renderer;

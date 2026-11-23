@@ -140,7 +140,8 @@ export class NpcManager {
       const half = v.kind === 'prop' ? 0.55 : 0.38 * v.scale;
       const height = v.kind === 'prop' ? 1.4 : 2.0 * v.scale;
       const t = rayBox(ox, oy, oz, dx, dy, dz, v.x - half, v.y, v.z - half, v.x + half, v.y + height, v.z + half);
-      if (t !== null && t <= maxDist && (!best || t < best.distance)) best = { npc: NPCS.find((n) => n.id === v.id)!, distance: t };
+      // t = 0: the eye is inside them (someone walking through the player) - they are not what the player aims at.
+      if (t !== null && t > 1e-6 && t <= maxDist && (!best || t < best.distance)) best = { npc: NPCS.find((n) => n.id === v.id)!, distance: t };
     }
     return best;
   }

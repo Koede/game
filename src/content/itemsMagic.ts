@@ -41,6 +41,8 @@ const tool = (key: string, name: string, age: number, desc: string): ItemSpec =>
 export const MAGIC_ITEMS: ItemSpec[] = [
   tool('field_notebook', 'Field Notebook', 0,
     'Aim it at anything and press Use to note its nature: you learn its aspects and gain lore. Use it at the sky to open the notes and the research boards.'),
+  { ...tool('scribing_tools', 'Scribing Tools', 0,
+    'A quill and a pot of ink. Every aspect you write onto research notes at a research table spends one stroke of ink; 64 strokes, then make new ones.'), wear: 64 },
   {
     key: 'glass_vial', name: 'Glass Vial', category: 'material', age: 0, stack: 16,
     desc: 'A small stoppered vial. A gathering rod fills it with one aspect of essentia; it also serves as a beaker.',
@@ -63,6 +65,11 @@ export const MAGIC_ITEMS: ItemSpec[] = [
 const glassBlock = { opaque: false, translucent: true } as const;
 
 export const MAGIC_BLOCKS: BlockSpec[] = [
+  {
+    key: 'research_table', name: 'Research Table', category: 'machine', age: 0, hardness: 1, tool: 'axe', minTier: 0,
+    textures: { top: 'magic_desk_top', side: 'magic_desk_side', bottom: 'magic_desk_side' },
+    desc: 'Use it to work on research notes: write aspects onto the hexagon with scribing tools until every anchor is joined, and combine aspects into compounds.',
+  },
   {
     key: 'essentia_jar', name: 'Essentia Jar', category: 'machine', age: 0, hardness: 0.5, tool: 'pickaxe', minTier: 0, ...glassBlock,
     stack: 16, textures: { side: 'magic_jar_side', top: 'magic_jar_top' },

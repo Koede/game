@@ -29,7 +29,7 @@ export type ScreenRequest =
   /** The pipe screen for the pipe (network segment) at this position. */
   | { type: 'pipe'; x: number; y: number; z: number }
   /** The field notebook: scanned things, aspects, research boards (docs/api/magic.md). */
-  | { type: 'notebook' }
+  | { type: 'notebook'; /** Opened at a Research Table: the notes can be written on. */ table?: boolean }
   /** The Workshop Guide: parts, basin recipe cards, rules (docs/api/workshop.md). */
   | { type: 'workshop' }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */

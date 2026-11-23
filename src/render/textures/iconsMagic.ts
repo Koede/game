@@ -46,6 +46,21 @@ function notebook(c: Canvas): void {
   c.set(6, 6, PAGE[2]);
 }
 
+function scribing(c: Canvas): void {
+  // An ink pot (dark glass, ink at the lip) with a quill leaning out of it to the top right.
+  c.rect(2, 9, 7, 5, GLASS[0]);
+  c.rect(3, 8, 5, 1, GLASS[1]);
+  c.rect(3, 10, 1, 3, GLASS[2]);
+  c.rect(4, 7, 3, 1, P.rgb(0x1a1424));
+  c.rect(3, 13, 5, 1, P.rgb(0x2a3a44));
+  for (let i = 0; i < 8; i++) {
+    c.set(6 + i, 9 - i, PAGE[1]);
+    if (i > 1) c.set(7 + i, 9 - i, PAGE[2]);
+    if (i > 2) c.set(6 + i, 8 - i, PAGE[0]);
+  }
+  c.set(5, 10, P.rgb(0x1a1424));
+}
+
 function rod(c: Canvas): void {
   for (let i = 0; i < 9; i++) {
     c.set(3 + i, 13 - i, WOOD[1]);
@@ -85,6 +100,7 @@ const vials: PainterSet = Object.fromEntries(ASPECTS.map((a) => [`item_vial_${a.
 
 export const MAGIC_TEXTURES: PainterSet = {
   item_field_notebook: icon(notebook),
+  item_scribing_tools: icon(scribing),
   item_glass_vial: icon((c) => vial(c, null)),
   item_vis_rod: icon(rod),
   ...vials,

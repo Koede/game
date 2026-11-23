@@ -10,12 +10,16 @@ desk and altar rows from `recipesMagic.ts` so their outputs count as obtainable)
 - `aspectTable.ts`: THE fingerprint table (`KEYWORD_RULES`, `CATEGORY_BASE`, `AGE_BONUS_PER_AGE`, `OVERRIDES`, caps).
 - `fingerprint.ts`: `aspectsOf(key)` for every block and item: override, else first recipe (inputs / output count, +craft, +own
   words), else keywords + category + age; four strongest, 1..8. Deterministic, memoised.
-- `board.ts`: 5 x 5 board, `boardSolved`, `solveBoard(spec, aspects)` (joins anchors one by one, may pass through anchors not
-  yet joined), `boardHint`.
+- `board.ts` (Thaumcraft 4 style): a hexagon of hex cells, axial coords, radius by complexity (Ember 2, Bronze 3, Forge 4);
+  `BoardSpec { radius, anchors, blocked }` (blocked = ink blots). Neighbours LINK only when one aspect is a direct component
+  of the other (`linkable` in aspects.ts; never the same aspect). `boardSolved` (every anchor joined), `solveBoard(spec,
+  aspects, keep)` (fewest tokens over every anchor order), `boardHint`.
 - `entries.ts`: `RESEARCH`, 24 entries (Ember 7, Bronze 10, Forge 7) with `requires`, `board`, `unlocks { recipes, flags }`.
   Flags: vial_study, hearth_cinder, still_clarity, aura_reading, node_tap, hearth_siphon, compound_draw.
-- `research.ts`: `ResearchState { v, scanned, known, lore, entries }`, `scanObject(state, key, fp, mult)`, `placeToken`,
-  `removeToken`, `hintFor`, `unlockedRecipes`, `hasFlag`, `sanitizeResearch`. `gates.ts`: `RESEARCH_GATES`, `craftGateReason`.
+- `research.ts`: `ResearchState { v: 2, scanned, known, lore, entries { done, begun, tokens } }`, `scanObject(state, key, fp,
+  mult)`, `beginResearch` (starting notes costs 1 lore of each anchor aspect: `entry.cost`), `combineAspects` (1 + 1 lore ->
+  1 of the compound, learning it), `placeToken` (needs begun notes, spends 1 lore; overwriting loses the old one),
+  `removeToken` (erasing refunds nothing), `hintFor`, `unlockedRecipes`, `hasFlag`, `sanitizeResearch`. `gates.ts`: `RESEARCH_GATES`, `craftGateReason`.
 - `nodes.ts`: wellsprings from the seed (`nodeInChunk`, `nodesNear`; 1 in 10 chunks; 70% primal), `NODE_POOL` 32, refill 1 / 15 s,
   `NODE_REACH` 6, `compass`.
 - `essentiaNet.ts`: `jarsFor(blockAt, x, y, z, radius)` (jars in reach + every jar joined by `essentia_tube`s), `shortfall`.
@@ -49,8 +53,11 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - Save: research, jars, land draws, charge, pedestals, altars, infusion, servants, wellspring draws, stats; damaged data dropped.
 
 ## UI and render
-- `src/ui/screens/notebook/notebookScreen.ts`: tabs Research (entries grouped by age, 44 px board, aspect chips with lore, Take
-  back, Hint), Aspects, Notes (scan carried items, rod charge, study vials), Goals (eight optional side goals).
+- `src/ui/screens/notebook/notebookScreen.ts`: tabs Research (Thaumonomicon-style map per age: nodes joined to what they need,
+  unknown ones shown as ?; the selected entry's cost and Begin research; begun notes as a hex board), Aspects, Notes (scan
+  carried items, rod charge, study vials), Goals (eight optional side goals). Opened from a Research Table (block
+  `research_table`, Use; screen `{ type: 'notebook', table: true }`) the begun notes can be written: tap a hex, then an aspect
+  chip; Erase, Hint, Combine lore. Each write spends one ink from carried `scribing_tools` (64 ink, stack durability).
 - `deskScreen.ts`: every arcane recipe with ingredient and essentia chips (green = have), reason, Make.
 - `src/render/magic/magicRenderer.ts`: jar fill boxes, wellspring crystals (core + halo, spin, bob, fade as drawn), items on
   pedestals and altars through a second GroundItemRenderer. `stats` for checks.
@@ -64,7 +71,7 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 ## Tests and checks
 `src/magic/*.test.ts` (fingerprints, boards solvable with each age's aspects, state, runtime: rods, wellsprings, tubes, desk,
 altar, foci, servants, siphon, still, study, save); `node scripts/e2e-magic.mjs [--no-build] [--device=desktop|phonePortrait]`
-(scan, notebook board by taps, gated vial, rod, jar, boiling vial, desk screen, infusion, Light focus, wellspring, servant),
+(scan, begin research from the map, research table hex board by taps, gated vial, rod, jar, boiling vial, desk screen, infusion, Light focus, wellspring, servant),
 chained in `npm run e2e`; `node scripts/codex/preview.mjs <dir>` covers the Essentia tab.
 
 ## Known limits / next

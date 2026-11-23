@@ -7,8 +7,8 @@
  * wellsprings, the rune desk, tubes, the altar and the first foci; Forge the iron rod, warding and blinking, the clay
  * servant, the void jar, alchemical steel and drawing compound aspects. The tech spine never needs any of it.
  */
-import type { Aspect } from './aspects';
-import { cellAt, type BoardSpec } from './board';
+import type { Aspect, Aspects } from './aspects';
+import { corner, hexCell, type BoardSpec } from './board';
 import type { AgeName } from './ageMap';
 
 export interface ResearchEntry {
@@ -19,29 +19,48 @@ export interface ResearchEntry {
   requires: readonly string[];
   /** null = done on the first scan (the opening note). */
   board: BoardSpec | null;
+  /** Lore spent to start the research notes, Thaumcraft style: one of each anchor's aspect. */
+  cost: Aspects;
   unlocks: { recipes?: readonly string[]; flags?: readonly string[] };
 }
 
-/** Two anchors across the middle row, optional blocked cells. */
-const pair = (a: Aspect, b: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 2), aspect: a }, { cell: cellAt(4, 2), aspect: b }],
-  blocked,
-});
-/** Two anchors in opposite corners. */
-const corners = (a: Aspect, b: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 0), aspect: a }, { cell: cellAt(4, 4), aspect: b }],
-  blocked,
-});
-const triple = (a: Aspect, b: Aspect, c: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 0), aspect: a }, { cell: cellAt(4, 0), aspect: b }, { cell: cellAt(2, 4), aspect: c }],
-  blocked,
-});
-const quad = (a: Aspect, b: Aspect, c: Aspect, d: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 0), aspect: a }, { cell: cellAt(4, 0), aspect: b }, { cell: cellAt(0, 4), aspect: c }, { cell: cellAt(4, 4), aspect: d }],
-  blocked,
-});
-/** A wall down the middle column with one gap at row `gap`. */
-const wall = (gap: number): number[] => [0, 1, 2, 3, 4].filter((y) => y !== gap).map((y) => cellAt(2, y));
+/**
+ * A board drawn for a radius: research complexity grows with the age (Ember 2, Bronze 3, Forge 4), so the same layout is
+ * a bigger hexagon later on. Anchors sit on the hexagon's corners; `blots` are ink blots placed on a 5 x 5 sketch of the
+ * board (x, y in 0..4, centre 2, 2) and scaled onto the hexagon.
+ */
+type Draft = (radius: number) => BoardSpec;
+type Blot = (radius: number) => number[];
+
+/** A blot at sketch position (x, y). */
+const cellAt = (x: number, y: number): Blot => (R) => {
+  const r = Math.round(((y - 2) * R) / 2);
+  const q = Math.round(((x - 2) * R) / 2 - r / 2);
+  const c = hexCell(R, q, r);
+  return c >= 0 ? [c] : [];
+};
+/** A wall of ink down the middle with one gap at sketch row `gap`. */
+const wall = (gap: number): Blot => (R) => {
+  const gr = Math.round(((gap - 2) * R) / 2);
+  const out: number[] = [];
+  for (let r = -R; r <= R; r++) if (r !== gr) { const c = hexCell(R, Math.round(-r / 2), r); if (c >= 0) out.push(c); }
+  return out;
+};
+const draft = (corners: number[], aspects: Aspect[], blots: Blot[]): Draft => (R) => {
+  const anchors = corners.map((i, k) => ({ cell: corner(R, i), aspect: aspects[k] }));
+  const taken = new Set(anchors.map((a) => a.cell));
+  const blocked = [...new Set(blots.flatMap((b) => b(R)))].filter((c) => !taken.has(c));
+  return { radius: R, anchors, blocked };
+};
+/** Two anchors at the left and right corners. */
+const pair = (a: Aspect, b: Aspect, blots: Blot[] = []): Draft => draft([0, 3], [a, b], blots);
+/** Two anchors at opposite corners (top left, bottom right). */
+const corners = (a: Aspect, b: Aspect, blots: Blot[] = []): Draft => draft([1, 4], [a, b], blots);
+const triple = (a: Aspect, b: Aspect, c: Aspect, blots: Blot[] = []): Draft => draft([1, 3, 5], [a, b, c], blots);
+const quad = (a: Aspect, b: Aspect, c: Aspect, d: Aspect, blots: Blot[] = []): Draft => draft([1, 2, 5, 4], [a, b, c, d], blots);
+
+/** Research complexity: the board's radius by age. */
+export const BOARD_RADIUS: Record<string, number> = { ember: 2, bronze: 3, forge: 4 };
 
 /** Recipe ids of the attuned tools (src/content/recipesMagic.ts), by the metal of the plain tool. */
 const ATTUNE_RECIPES: Record<'bronze' | 'iron', string[]> = { bronze: [], iron: [] };
@@ -49,7 +68,7 @@ for (const metal of ['bronze', 'iron'] as const) {
   for (const kind of ['pickaxe', 'axe', 'shovel']) for (const aspect of ['rune', 'gale']) ATTUNE_RECIPES[metal].push(`${aspect}_${metal}_${kind}`);
 }
 
-export const RESEARCH: readonly ResearchEntry[] = [
+const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft | null })[] = [
   // ---- Ember -------------------------------------------------------------------------------------------------------
   {
     key: 'field_notes', title: 'Field Notes', age: 'ember', requires: [], board: null, unlocks: {},
@@ -97,7 +116,7 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'A desk scored with signs pays for its work in essentia from the jars around it and the vials you carry. Link Rune to Craft.',
   },
   {
-    key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', wall(1)),
+    key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', [wall(1)]),
     unlocks: { recipes: ['bronze_rod'] },
     text: 'Bronze holds more and drinks faster. Made at the Rune Desk from the wooden rod. Link Vein to Gale past the wall.',
   },
@@ -107,12 +126,12 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Here and there the land wells up as a floating crystal. A rod held near one draws its aspect twice as fast, and it fills again.',
   },
   {
-    key: 'essentia_tubes', title: 'Glass Tubes', age: 'bronze', requires: ['essence_jar', 'rune_desk'], board: pair('clarity', 'brook', wall(3)),
+    key: 'essentia_tubes', title: 'Glass Tubes', age: 'bronze', requires: ['essence_jar', 'rune_desk'], board: pair('clarity', 'brook', [wall(3)]),
     unlocks: { recipes: ['essentia_tube'] },
     text: 'Tubes join jars to the desk, the altar and the furnace: anything that needs essentia draws it through them from any jar on the line.',
   },
   {
-    key: 'hearth_siphon', title: 'The Hearth Siphon', age: 'bronze', requires: ['warm_hearth', 'essentia_tubes'], board: corners('cinder', 'brook', wall(2)),
+    key: 'hearth_siphon', title: 'The Hearth Siphon', age: 'bronze', requires: ['warm_hearth', 'essentia_tubes'], board: corners('cinder', 'brook', [wall(2)]),
     unlocks: { flags: ['hearth_siphon'] },
     text: 'A jar of Cinder touching a burning furnace, or tubed to it, feeds the fire by itself whenever it runs low.',
   },
@@ -132,7 +151,7 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Gale and Cinder together make a light that stays where you point. Each costs the rod a little charge.',
   },
   {
-    key: 'scrying_lens', title: 'The Scrying Lens', age: 'bronze', requires: ['infusion'], board: triple('vein', 'mind', 'clarity', wall(4)),
+    key: 'scrying_lens', title: 'The Scrying Lens', age: 'bronze', requires: ['infusion'], board: triple('vein', 'mind', 'clarity', [wall(4)]),
     unlocks: { recipes: ['vein_lens'] },
     text: 'A lens infused with Vein and Mind: carried, every new thing you note teaches half again as much lore.',
   },
@@ -143,12 +162,12 @@ export const RESEARCH: readonly ResearchEntry[] = [
   },
   // ---- Forge -------------------------------------------------------------------------------------------------------
   {
-    key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', wall(0)),
+    key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', [wall(0)]),
     unlocks: { recipes: ['iron_rod'] },
     text: 'Iron is patient: the iron rod holds twice the bronze one and draws three units at a time.',
   },
   {
-    key: 'focus_ward', title: 'Warding Focus', age: 'forge', requires: ['focus_kindle'], board: pair('ward', 'rune', wall(2).concat([cellAt(1, 0)])),
+    key: 'focus_ward', title: 'Warding Focus', age: 'forge', requires: ['focus_kindle'], board: pair('ward', 'rune', [wall(2), cellAt(1, 0)]),
     unlocks: { recipes: ['focus_ward'] },
     text: 'Loam and Rift held in balance: for a short while every blow you take is softened.',
   },
@@ -158,7 +177,7 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Drive the body through the air in an eye-blink: a short step to where you look.',
   },
   {
-    key: 'clay_servant', title: 'The Clay Servant', age: 'forge', requires: ['infusion', 'wellsprings'], board: triple('spring', 'mind', 'craft', wall(2)),
+    key: 'clay_servant', title: 'The Clay Servant', age: 'forge', requires: ['infusion', 'wellsprings'], board: triple('spring', 'mind', 'craft', [wall(2)]),
     unlocks: { recipes: ['clay_servant'] },
     text: 'A clay figure given Spring and Mind turns a crank beside it for as long as a jar it touches feeds it.',
   },
@@ -173,7 +192,7 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Iron and coal on the altar, fed Cinder and Vein, come out as steel without a blast furnace. Slow and costly, but it works.',
   },
   {
-    key: 'master_attunement', title: 'Master Attunement', age: 'forge', requires: ['attunement', 'alchemical_steel'], board: triple('rune', 'vein', 'gale', wall(2)),
+    key: 'master_attunement', title: 'Master Attunement', age: 'forge', requires: ['attunement', 'alchemical_steel'], board: triple('rune', 'vein', 'gale', [wall(2)]),
     unlocks: { recipes: ATTUNE_RECIPES.iron },
     text: 'What the altar did for bronze it does for iron, deeper: tempered iron tools outlast and outcut every plain one until steel.',
   },
@@ -183,6 +202,14 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'A practised hand draws Vein, Glow or Steam straight from the land, not only the six primal aspects.',
   },
 ];
+
+/** Every entry with its board drawn at its age's complexity, and what starting its notes costs. */
+export const RESEARCH: readonly ResearchEntry[] = DRAFTS.map((d) => {
+  const board = d.board ? d.board(BOARD_RADIUS[d.age] ?? 3) : null;
+  const cost: Aspects = {};
+  for (const a of board?.anchors ?? []) cost[a.aspect] = 1;
+  return { ...d, board, cost };
+});
 
 const BY_KEY = new Map(RESEARCH.map((e) => [e.key, e]));
 export const researchEntry = (key: string): ResearchEntry | null => BY_KEY.get(key) ?? null;

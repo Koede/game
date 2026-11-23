@@ -199,6 +199,8 @@ describe('talking', () => {
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 3, 0, 0, 1)?.npc.id).toBe('mara');
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 3, 0, 0, -1)).toBeNull();
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z - 8, 0, 0, 1)).toBeNull();
+    // Someone standing inside the player (walking through) is not aimed at.
+    expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z, 0, 1, 0)).toBeNull();
   });
 
   it('does not read the whole script while Use is held', () => {

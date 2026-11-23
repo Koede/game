@@ -119,15 +119,32 @@ async function runDevice(device) {
       await d.shot('2-notebook');
     });
 
-    await step('the board is solved by tapping cells and aspect chips', async () => {
+    await step('research is begun from the map, then written at a research table', async () => {
       // Lore is set-up: three scans do not always give enough of every aspect the solution wants.
       await d.hw(() => {
         const r = window.__hw.app.game.magic.research;
-        for (const a of ['clarity', 'rune', 'craft', 'cinder', 'brook']) r.lore[a] = (r.lore[a] ?? 0) + 4;
-        if (!r.known.includes('cinder')) r.known.push('cinder');
+        for (const a of ['clarity', 'rune', 'craft', 'cinder', 'brook', 'loam', 'gale']) r.lore[a] = (r.lore[a] ?? 0) + 6;
+        for (const a of ['cinder', 'loam', 'gale']) if (!r.known.includes(a)) r.known.push(a);
       });
-      await d.press(page.locator('.hw-nb__entry[data-entry="glassware"]'));
-      for (let i = 0; i < 10; i++) {
+      await d.press(page.locator('.hw-nb__node[data-entry="glassware"]'));
+      await d.settle(200);
+      await d.shot('3a-research-map');
+      await d.press(page.locator('[data-begin="glassware"]'));
+      await d.settle(200);
+      assert(await d.hw(() => window.__hw.app.game.magic.research.entries.glassware?.begun === true), 'glassware begun');
+      await page.keyboard.press('Escape');
+      await d.settle(300);
+      const table = { x: P.x0 + 2, y: P.gy, z: P.z0 };
+      await d.hw((p) => {
+        window.__hw.setVoxel(p.x, p.y, p.z, 'research_table');
+        window.__hw.give('scribing_tools', 1);
+      }, table);
+      await d.selectEmptyHand();
+      assert(await d.approach(table), 'aims at the research table');
+      await d.use();
+      await page.waitForSelector('.hw-nb__node', { timeout: 5000 });
+      await d.press(page.locator('.hw-nb__node[data-entry="glassware"]'));
+      for (let i = 0; i < 16; i++) {
         const hint = await d.hw(() => window.__hw.app.game.magic.notebook().hint('glassware'));
         if (!hint) break;
         await d.press(page.locator(`.hw-nb__cell[data-cell="${hint.cell}"]`));
@@ -136,6 +153,7 @@ async function runDevice(device) {
         if (await d.hw(() => window.__hw.app.game.magic.research.entries.glassware?.done === true)) break;
       }
       assert(await d.hw(() => window.__hw.app.game.magic.research.entries.glassware?.done === true), 'glassware done');
+      assert(await d.hw(() => window.__hw.app.game.magic.notebook().ink() < 64), 'writing spent ink');
       const fits = await page.evaluate(() => [...document.querySelectorAll('.hw-nb__cell')].every((el) => el.getBoundingClientRect().right <= innerWidth + 1));
       assert(fits, 'the board fits the screen');
       await d.shot('3-board-solved');
@@ -276,7 +294,13 @@ async function runDevice(device) {
       await M(() => window.__hw.tick(600));
       const text = await M((a) => window.__hw.app.game.magic.altarText(a.x, a.y, a.z), A);
       assert(/Scrying Lens/.test(text ?? ''), `altar says ${text}`);
-      await useWith(null, A);
+      // Stand right at the altar: a tavern regular wandering through the yard must not take the Use.
+      await d.selectEmptyHand();
+      await d.hw((a) => window.__hw.teleport(a.x + 0.5, a.y, a.z + 2.2), A);
+      await d.hw((a) => window.__hw.lookAt(a.x, a.y, a.z), A);
+      await d.settle(250);
+      await d.use();
+      await d.settle(350);
       assert(await M(() => window.__hw.app.game.state.player.inventory.count('vein_lens') === 1), 'the lens in the pack');
     });
 
