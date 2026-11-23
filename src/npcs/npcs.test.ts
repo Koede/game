@@ -9,6 +9,7 @@ import {
   BOUNTIES, bankSize, clockText, Companion, FIRE_SPOTS, HIRE_COST, layoutBlocks, LinePicker, NPCS, NpcManager, priceOf, stackPrice,
   TAVERN_D, TAVERN_H, TAVERN_START, TAVERN_W, YARD_D, type NpcHost,
 } from './index';
+import { ROUTINES } from './routines';
 import { danceFrame, dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
 import { FACES, faceOf } from './mood';
@@ -537,5 +538,72 @@ describe('a new world opens in the tavern', () => {
     }
     expect(state.npcs.pendingBounties()).toEqual([]);
     state.dispose();
+  });
+});
+
+describe('routines', () => {
+  const blocks = layoutBlocks();
+  const at = (x: number, y: number, z: number): string | undefined => [...blocks].reverse().find((b) => b.x === x && b.y === y && b.z === z)?.block;
+
+  it('every routine spot is free to stand in, on a floor', () => {
+    for (const [id, phases] of Object.entries(ROUTINES)) {
+      for (const [phase, [x, y, z]] of Object.entries(phases)) {
+        for (const dy of [0, 1]) {
+          const b = at(x, y + dy, z);
+          expect(b === undefined || b === 'air', `${id} ${phase} stands in ${b}`).toBe(true);
+        }
+        expect(['plank', 'dirt'], `${id} ${phase} has a floor`).toContain(at(x, y - 1, z));
+      }
+    }
+  });
+
+  it('people walk to the spot for the part of the day, and stop there', () => {
+    const { npcs, state, by } = rig();
+    state.tod = 0.3; // day
+    const rosa = by('rosa');
+    const first = npcs.views().find((v) => v.id === 'rosa')!;
+    state.tod = 0.9; // night
+    const goal = npcs.target(rosa);
+    expect(goal).not.toEqual([first.x - 100 - 0.5, first.z - 100 - 0.5]);
+    for (let i = 0; i < 100; i++) npcs.tick(0.5);
+    const v = npcs.views().find((x) => x.id === 'rosa')!;
+    expect(v.x - 100).toBeCloseTo(goal[0] + 0.5, 3);
+    expect(v.z - 100).toBeCloseTo(goal[1] + 0.5, 3);
+  });
+});
+
+describe('friendship', () => {
+  it('a liked gift raises trust once a day, pays tier rewards, and is saved', () => {
+    const { npcs, state, by, given, taken } = rig();
+    npcs.speak(by('rosa')); // her first-visit gift
+    given.length = 0;
+    state.held = { item: 'bread', count: 5 };
+    npcs.speak(by('rosa'));
+    expect(npcs.trustOf('rosa')).toBe(8);
+    expect(taken).toEqual([1]);
+    npcs.speak(by('rosa')); // same day
+    expect(npcs.trustOf('rosa')).toBe(8);
+    expect(taken).toEqual([1]);
+    state.held = { item: 'iron_ingot', count: 1 }; // not liked by Rosa
+    npcs.speak(by('rosa'));
+    expect(taken).toEqual([1]);
+    // Tier 1 at 20 trust.
+    (npcs as unknown as { trust: Record<string, number> }).trust.rosa = 16;
+    (npcs as unknown as { giftDay: Record<string, number> }).giftDay.rosa = 1;
+    state.held = { item: 'apple', count: 1 };
+    npcs.speak(by('rosa'));
+    expect(npcs.trustOf('rosa')).toBe(24);
+    expect(given).toContainEqual(['hearth_stew', 2]);
+    const snap = JSON.parse(JSON.stringify(npcs.toJSON()));
+    const { npcs: other } = rig();
+    other.load(snap);
+    expect(other.trustOf('rosa')).toBe(24);
+  });
+
+  it('a close friend of Gruk hires him for a quarter less', () => {
+    const { npcs } = rig();
+    expect(npcs.hireCost()).toBe(HIRE_COST);
+    (npcs as unknown as { trust: Record<string, number> }).trust.gruk = 50;
+    expect(npcs.hireCost()).toBe(Math.round(HIRE_COST * 0.75));
   });
 });

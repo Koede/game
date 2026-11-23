@@ -52,3 +52,11 @@ Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neut
 ## Dance poses and after-images
 
 `assets/npcs/<id>_dance.png` (Mara, Rosa, Orrin, Bram; Gruk does not dance) holds five frames: 0 standing, 1-4 poses. `assets/npcs/faces/poses.py` makes them from the blueprint with a dancing face (happy or laughing, eyes closed), cuts limbs, props, skirts and hair along hand-placed outlines and swings or shears them about their joints (Orrin's arms up, Rosa's cheers and flung arm, kicks, swinging skirts, braids and ponytail, Bram's staff, purse and jig); what a moved part uncovers is refilled from the torso's mirror side, the cloth it hung over, or background. `src/npcs/choreo.ts` `danceFrame(id, danceS)` picks the frame per beat (a pattern per move, looping with the minute), and `NpcRenderer` swaps the body's texture to the atlas while dancing, scaling it by the standing body's share of the cell (`npcDanceBodyFrac`). Two purple, fading after-images trail each dancer a beat behind (earlier pose and frame, drawn just behind the body).
+
+## Routines and friendship
+- `routines.ts`: `ROUTINES` (per person, a tavern-local spot for morning / day / evening / night, all free air over plank or dirt,
+  checked by tests), `spotFor`, `walk`. The manager walks everyone toward the spot for the part of the day at `WALK_SPEED` (1.1 b/s);
+  the jukebox freezes them where they stand to dance, and the hired orc follows you.
+- `friendship.ts`: trust 0..100 per person (`NpcManager.trustOf`), saved. Use with a `LIKES` item in hand gives one (a gift a day per
+  person, +`GIFT_TRUST` 8; Old Bram still buys on a second gift). Tiers at `TIERS` (20, 50, 80) pay `REWARDS` once and open
+  `FRIEND_LINES` (one visit in three). At trust 50 Gruk's hire fee is a quarter less (`hireCost()`).

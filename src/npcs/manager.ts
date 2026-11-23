@@ -16,6 +16,8 @@ import { BOUNTIES, stackPrice } from './economy';
 import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
 import { ORC_HIRE } from './scripts/orc';
 import { FIRE_SPOTS, TAVERN_START, buildTavern } from './tavern';
+import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
+import { WALK_SPEED, spotFor, walk } from './routines';
 
 export interface NpcView {
   id: string;
@@ -50,6 +52,9 @@ export interface NpcSnapshot {
   hiredS?: number;
   comp?: [number, number, number];
   juke?: boolean;
+  /** Trust 0..100 per person, and the day of each person's last gift. */
+  trust?: Record<string, number>;
+  giftDay?: Record<string, number>;
 }
 
 /** What the manager needs from the game. */
@@ -87,6 +92,10 @@ export class NpcManager {
   private spoken: Record<string, number> = {};
   private heard = new Set<string>();
   private claimed = new Set<string>();
+  private trust: Record<string, number> = {};
+  private giftDay: Record<string, number> = {};
+  /** Where each walking person is now (tavern-local x, z); filled from the routine on first use. */
+  private readonly pos = new Map<string, [number, number]>();
   private host: NpcHost | null = null;
   private cooldownS = 0;
   private offerS = 0;
@@ -116,6 +125,33 @@ export class NpcManager {
     return { x: ox + TAVERN_START[0] + 0.5, y: groundY + TAVERN_START[1], z: oz + TAVERN_START[2] + 0.5 };
   }
 
+  /** Tavern-local x, z of a person or prop right now: walking their routine, or fixed. */
+  private where(n: NpcDef): [number, number] {
+    if (n.kind !== 'person') return [n.at[0], n.at[2]];
+    const have = this.pos.get(n.id);
+    if (have) return have;
+    const s = spotFor(n.id, this.phase());
+    const start: [number, number] = s ? [s[0], s[2]] : [n.at[0], n.at[2]];
+    this.pos.set(n.id, start);
+    return start;
+  }
+
+  /** Where a person is heading now (their routine spot for this part of the day). */
+  target(n: NpcDef): [number, number] {
+    const s = spotFor(n.id, this.phase());
+    return s ? [s[0], s[2]] : [n.at[0], n.at[2]];
+  }
+
+  /** Current trust of a person 0..100. */
+  trustOf(id: string): number {
+    return this.trust[id] ?? 0;
+  }
+
+  /** Where the hire fee stands: a close friend of Gruk pays a quarter less. */
+  hireCost(): number {
+    return this.trustOf('gruk') >= TIERS[1] ? Math.round(HIRE_COST * 0.75) : HIRE_COST;
+  }
+
   views(): NpcView[] {
     const o = this.at;
     if (!o) return [];
@@ -123,11 +159,12 @@ export class NpcManager {
     return NPCS.map((n) => {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
+      const here = this.where(n);
       return {
         id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired, danceS: this.danceS,
-        x: hired ? this.companion.x : o[0] + n.at[0] + cell,
+        x: hired ? this.companion.x : o[0] + here[0] + cell,
         y: hired ? this.companion.y : o[1] + n.at[1],
-        z: hired ? this.companion.z : o[2] + n.at[2] + cell,
+        z: hired ? this.companion.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
       };
     });
@@ -182,6 +219,8 @@ export class NpcManager {
     if (npc.role === 'board') return this.useBoard(npc);
     if (npc.role === 'clock') return this.useClock(npc);
     if (npc.role === 'jukebox') return this.useJukebox(npc);
+    const gift = npc.kind === 'person' ? this.giveGift(npc) : null;
+    if (gift !== null) return gift;
     if (npc.role === 'hermit') return this.useHermit(npc);
     if (!this.gifted.has(npc.id) && npc.gift.length > 0) {
       this.gifted.add(npc.id);
@@ -196,8 +235,46 @@ export class NpcManager {
     let line: string | null = null;
     // Odd visits: a hint for the goal (once) or the specialist's advice about what to do next; even visits: talk.
     if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' ? this.host?.advice(npc.role) ?? null : null);
-    if (line === null) line = this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
+    if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, line);
+    return line;
+  }
+
+  /** A warmer line when you are friends (one visit in three), or null. */
+  private friendLine(npc: NpcDef): string | null {
+    const tier = tierOf(this.trustOf(npc.id));
+    if (tier === 0 || this.rng() > 0.34) return null;
+    const lines = FRIEND_LINES[npc.id]?.[tier - 1];
+    return lines?.length ? lines[Math.floor(this.rng() * lines.length) % lines.length] : null;
+  }
+
+  /** Using a person with something they like in hand: one gift a day. Null when it is not a gift. */
+  private giveGift(npc: NpcDef): string | null {
+    const held = this.host?.held();
+    if (!held || !likes(npc.id, held.item)) return null;
+    const day = this.host?.day() ?? 1;
+    if (this.giftDay[npc.id] === day) {
+      if (npc.role === 'hermit') return null; // sell to him as usual
+      const line = 'You are kind, but one gift a day is plenty. Thank you.';
+      this.say(npc, line);
+      return line;
+    }
+    this.giftDay[npc.id] = day;
+    this.host?.takeHeld(1);
+    const before = this.trustOf(npc.id);
+    const after = Math.min(TRUST_MAX, before + GIFT_TRUST);
+    this.trust[npc.id] = after;
+    const line = 'Oh, that is just what I wanted. Thank you.';
+    this.say(npc, line);
+    this.toast(`${npc.name} likes it (trust ${after}/${TRUST_MAX})`);
+    TIERS.forEach((t, i) => {
+      if (before >= t || after < t) return;
+      const r = REWARDS[npc.id]?.[i];
+      if (!r) return;
+      this.host?.give(r.item, r.count);
+      this.say(npc, r.line);
+      this.toast(`${npc.name} gives you ${r.count} ${r.item.replace(/_/g, ' ')}`);
+    });
     return line;
   }
 
@@ -215,7 +292,7 @@ export class NpcManager {
   // ---- the orc: hire him for coin ------------------------------------------------------------------------------
 
   private useOrc(npc: NpcDef): string {
-    const fill = (s: string): string => s.replace('{cost}', String(HIRE_COST)).replace('{minutes}', String(Math.round(HIRE_SECONDS / 60)));
+    const fill = (s: string): string => s.replace('{cost}', String(this.hireCost())).replace('{minutes}', String(Math.round(HIRE_SECONDS / 60)));
     if (this.companion.active) {
       const line = this.lines.from('orc-busy', ORC_HIRE.busy);
       this.say(npc, line);
@@ -223,25 +300,25 @@ export class NpcManager {
     }
     if (this.offerS > 0) {
       this.offerS = 0;
-      if (this.coins < HIRE_COST) {
+      if (this.coins < this.hireCost()) {
         const line = fill(this.lines.from('orc-poor', ORC_HIRE.poor));
         this.say(npc, line);
         return line;
       }
-      this.coins -= HIRE_COST;
+      this.coins -= this.hireCost();
       const p = this.host?.companion.player();
       this.companion.hire(p?.x ?? 0, p?.y ?? 0, p?.z ?? 0);
       if (p && this.host) this.companion.placeNear(this.host.companion.world, p);
       const line = this.lines.from('orc-yes', ORC_HIRE.yes);
       this.say(npc, line);
-      this.toast(`Gruk will fight beside you for ${Math.round(HIRE_SECONDS / 60)} minutes (-${HIRE_COST} coin, ${this.coins} left)`);
+      this.toast(`Gruk will fight beside you for ${Math.round(HIRE_SECONDS / 60)} minutes (-${this.hireCost()} coin, ${this.coins} left)`);
       return line;
     }
     const n = (this.spoken[npc.id] ?? 0) + 1;
     this.spoken[npc.id] = n;
     const talk = (n % 2 === 1 ? this.hint(npc) : null) ?? this.lines.pick(npc.id, npc.bank!, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, talk);
-    if (this.coins >= HIRE_COST) {
+    if (this.coins >= this.hireCost()) {
       this.say(npc, fill(this.lines.from('orc-offer', ORC_HIRE.offer)));
       this.offerS = OFFER_WINDOW_S;
     } else this.say(npc, fill(this.lines.from('orc-poor', ORC_HIRE.poor)));
@@ -343,6 +420,10 @@ export class NpcManager {
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);
+    else for (const n of NPCS) {
+      if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
+      this.pos.set(n.id, walk(this.where(n), this.target(n), WALK_SPEED * dt));
+    }
     if (this.companion.active) {
       const shout = this.companion.update(dt, host.companion);
       if (shout) this.toast(`Gruk, orc smith: "${this.lines.from('orc-fight', ORC_HIRE.fight)}"`);
@@ -368,6 +449,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
+      trust: { ...this.trust }, giftDay: { ...this.giftDay },
     };
   }
 
@@ -383,6 +465,12 @@ export class NpcManager {
     this.heard = new Set(strings(r.heard));
     this.claimed = new Set(strings(r.claimed));
     this.coins = typeof r.coins === 'number' && Number.isFinite(r.coins) ? Math.max(0, Math.floor(r.coins)) : 0;
+    this.trust = {};
+    this.giftDay = {};
+    for (const [src, dst] of [[r.trust, this.trust], [r.giftDay, this.giftDay]] as const) {
+      if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
+    }
+    this.pos.clear();
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;
