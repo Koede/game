@@ -80,6 +80,8 @@ export interface ItemStack {
   item: string;
   count: number;
   durability?: number;
+  /** Workmanship of a tool: 1 fine, 2 masterwork (absent = plain). Raises the most durability it can hold. */
+  quality?: 1 | 2;
 }
 export type Slot = ItemStack | null;
 

@@ -7,6 +7,7 @@ import type { SfxName } from '../core/gameEvents';
 import { itemOrNull, recipesAt } from '../core/registry';
 import type { ItemAmount, RecipeDef } from '../core/types';
 import { bringToHotbar } from './handy';
+import { rollQuality } from './toolQuality';
 import type { Inventory } from './inventory';
 import type { PlayerState } from './playerState';
 
@@ -141,7 +142,13 @@ function describe(list: readonly ItemAmount[]): string {
  * Makes a recipe `times` over. Atomic: either every ingredient is taken (sources in order) and every output is
  * added to the destination, or nothing changes and the result says why.
  */
-export function craft(recipe: CraftRecipe, sources: readonly Inventory[], destination: Inventory, times = 1): CraftResult {
+export function craft(
+  recipe: CraftRecipe,
+  sources: readonly Inventory[],
+  destination: Inventory,
+  times = 1,
+  quality?: 1 | 2,
+): CraftResult {
   const n = Math.floor(times);
   if (!(n >= 1)) return { ok: false, reason: 'Nothing to make', missing: [] };
   const unique = [...new Set(sources)];
@@ -157,7 +164,7 @@ export function craft(recipe: CraftRecipe, sources: readonly Inventory[], destin
   }
   batched([...unique, destination], () => {
     removeAll(need, unique);
-    for (const m of made) destination.add(m.item, m.count);
+    for (const m of made) destination.add(m.item, m.count, undefined, 0, destination.size, quality);
   });
   return { ok: true, made };
 }
@@ -222,7 +229,10 @@ export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: P
   const gated = craftGateFor(recipe.id);
   if (gated) return { ok: false, reason: gated, missing: [] };
   const sources = [player.inventory, ...(options.crates ?? [])];
-  const result = craft(recipe, sources, player.inventory, options.times ?? 1);
+  const times = options.times ?? 1;
+  // A single tool craft may come out fine or masterwork (src/game/toolQuality.ts).
+  const quality = times === 1 && itemOrNull(recipe.output.item)?.tool ? rollQuality(Math.random()) || undefined : undefined;
+  const result = craft(recipe, sources, player.inventory, times, quality);
   if (!result.ok) return result;
   for (const m of result.made) {
     player.bus.emit('item:made', { item: m.item, count: m.count, station: recipe.station, recipeId: recipe.id });

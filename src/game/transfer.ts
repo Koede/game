@@ -24,7 +24,7 @@ export function transfer(from: Inventory, fromSlot: number, to: Inventory, toSlo
   else return 0;
   if (n <= 0) return 0;
   if (dst) dst.count += n;
-  else to.slots[toSlot] = makeStack(src.item, n, src.durability);
+  else to.slots[toSlot] = makeStack(src.item, n, src.durability, src.quality);
   src.count -= n;
   if (src.count <= 0) from.slots[fromSlot] = null;
   notify(from, to);
@@ -86,7 +86,7 @@ export function quickMove(from: Inventory, fromSlot: number, to: Inventory, star
   const count = src.count;
   return from.batch(() =>
     to.batch(() => {
-      const moved = count - to.add(src.item, count, src.durability, start, end);
+      const moved = count - to.add(src.item, count, src.durability, start, end, src.quality);
       if (moved > 0) from.removeAt(fromSlot, moved);
       return moved;
     }),

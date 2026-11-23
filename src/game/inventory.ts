@@ -35,10 +35,22 @@ export const fullDurability = (item: string): number | undefined => {
   return def?.tool?.durability ?? def?.wear ?? def?.mould?.pours ?? def?.cools?.afterS;
 };
 
-export const makeStack = (item: string, count: number, durability?: number): ItemStack =>
-  durability === undefined ? { item, count } : { item, count, durability };
+/** Durability a well-made tool holds over a plain one (docs/api/tool-quality.md). */
+export const QUALITY_DURABILITY_MULT: Readonly<Record<1 | 2, number>> = { 1: 1.25, 2: 1.6 };
 
-export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item, stack.count, stack.durability);
+/** Most durability this item can hold at this workmanship. */
+export const maxDurabilityOf = (item: string, quality?: 1 | 2): number | undefined => {
+  const full = fullDurability(item);
+  return full === undefined ? undefined : Math.round(full * (quality ? QUALITY_DURABILITY_MULT[quality] : 1));
+};
+
+export const makeStack = (item: string, count: number, durability?: number, quality?: 1 | 2): ItemStack => {
+  const s: ItemStack = durability === undefined ? { item, count } : { item, count, durability };
+  if (quality && durability !== undefined) s.quality = quality;
+  return s;
+};
+
+export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item, stack.count, stack.durability, stack.quality);
 
 /** True when items from `b` may be added onto stack `a`. */
 export const canMerge = (a: ItemStack, b: ItemStack): boolean =>
@@ -53,8 +65,10 @@ function sanitize(raw: Slot | undefined): Slot {
   if (!(count > 0)) return null;
   const full = fullDurability(item);
   if (full === undefined) return { item, count };
-  const durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), full) : full;
-  return { item, count, durability };
+  const quality = (raw.quality === 1 || raw.quality === 2) && itemOrNull(item)?.tool ? raw.quality : undefined;
+  const max = maxDurabilityOf(item, quality) ?? full;
+  const durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), max) : max;
+  return quality ? { item, count, durability, quality } : { item, count, durability };
 }
 
 export class Inventory {
@@ -107,14 +121,16 @@ export class Inventory {
    * Adds items, topping up existing stacks before using empty slots, optionally only within slots [start, end).
    * Tools, moulds and cooling containers get full durability unless one is given. Returns how many did NOT fit.
    */
-  add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length): number {
+  add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length, quality?: 1 | 2): number {
     let left = Math.floor(count);
     if (left <= 0) return 0;
     if (this.takeOnly) return left;
     const slots = this.slots;
     const limit = stackLimit(item);
     const full = fullDurability(item);
-    const dur = full === undefined ? undefined : Math.min(Math.max(durability ?? full, 1), full);
+    const q = itemOrNull(item)?.tool ? quality : undefined;
+    const top = full === undefined ? undefined : maxDurabilityOf(item, q)!;
+    const dur = top === undefined ? undefined : Math.min(Math.max(durability ?? top, 1), top);
     const from = Math.max(0, start);
     const to = Math.min(slots.length, end);
     const before = left;
@@ -130,7 +146,7 @@ export class Inventory {
     for (let i = from; i < to && left > 0; i++) {
       if (slots[i] || !this.accepts(item, i)) continue;
       const n = Math.min(limit, left);
-      slots[i] = makeStack(item, n, dur);
+      slots[i] = makeStack(item, n, dur, q);
       left -= n;
     }
     if (left !== before) this.notifyChanged();
@@ -163,7 +179,7 @@ export class Inventory {
     s.count -= n;
     if (s.count <= 0) this.slots[slot] = null;
     this.notifyChanged();
-    return makeStack(s.item, n, s.durability);
+    return makeStack(s.item, n, s.durability, s.quality);
   }
 
   count(item: string): number {
