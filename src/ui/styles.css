@@ -2357,6 +2357,26 @@ body {
   gap: 6px;
   min-width: 0;
 }
+.hw-bag__headrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hw-bag__headrow .hw-btn {
+  min-height: 32px;
+}
+.hw-slot[data-favourite]::after {
+  content: '°5';
+  position: absolute;
+  left: 3px;
+  top: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--hw-warn);
+  text-shadow: 0 0 2px var(--hw-soot-0), 0 1px 0 var(--hw-soot-0);
+  pointer-events: none;
+}
 .hw-bag__head--hotbar {
   margin-top: 4px;
   color: var(--hw-heat-hi);

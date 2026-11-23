@@ -9,6 +9,7 @@
 import type { GameBus } from '../../core/context';
 import { itemOrNull } from '../../core/registry';
 import { canMerge, type Inventory } from '../../game/inventory';
+import { isFavourite, moveAllOf, toggleFavourite } from '../../game/inventoryTools';
 import { moveHalf, moveOne, moveStack, quickMove } from '../../game/transfer';
 import { Disposer, h, listen, setText, type Dispose } from '../kit/dom';
 import type { Tooltip, TooltipCard } from '../kit/feedback';
@@ -338,6 +339,7 @@ export class SlotController {
         view.set(slotView(slots[i]));
         view.setSelected(pick !== null && pick.group === spec.id && pick.index === i);
         view.setHighlight(pick !== null && this.logic.canDrop(spec.id, i));
+        view.setFavourite(isFavourite(spec.inventory, i));
       });
     }
     this.renderBar();
@@ -440,7 +442,8 @@ export class SlotController {
     this.ghostIcon.set(stack.item);
     const targets = this.logic.quickTargets(group).filter((t) => t.group !== group || t.start !== group.start);
     const canDrop = this.dropper !== null && group.inventory === this.dropper.inventory;
-    const key = `${pick.group}|${pick.index}|${stack.item}|${targets.map((t) => t.group.id).join(',')}|${canDrop ? (stack.count > 1 ? 2 : 1) : 0}`;
+    const fav = isFavourite(group.inventory, pick.index);
+    const key = `${pick.group}|${pick.index}|${stack.item}|${targets.map((t) => t.group.id).join(',')}|${canDrop ? (stack.count > 1 ? 2 : 1) : 0}|${fav ? 1 : 0}`;
     if (key === this.barKey) return;
     this.barKey = key;
     const seen = new Set<string>();
@@ -453,6 +456,22 @@ export class SlotController {
       if (!accepts) continue;
       const id = t.group.id;
       buttons.push(new Button({ label: `To ${t.group.label}`, size: 'sm', onClick: () => this.after(this.logic.sendPicked(id)) }).el);
+    }
+    if (buttons.length > 0 && group.inventory.count(stack.item) > stack.count) {
+      const item = stack.item;
+      buttons.push(new Button({
+        label: 'Move all like this',
+        size: 'sm',
+        onClick: () => {
+          const moved = moveAllOf(group.inventory, item, targets.map((t) => ({ inventory: t.inventory, start: t.start, end: t.end })));
+          if (!group.inventory.slots[pick.index]) this.logic.picked = null;
+          this.after(moved > 0 ? 'moved' : 'refused');
+        },
+      }).el);
+    }
+    {
+      const { index: favIndex } = pick;
+      buttons.push(new Button({ label: fav ? 'Unfavourite' : 'Favourite', size: 'sm', onClick: () => { toggleFavourite(group.inventory, favIndex); this.barKey = ''; this.refresh(); this.onChange?.(); } }).el);
     }
     if (canDrop) {
       const { group: gid, index } = pick;

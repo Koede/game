@@ -1,6 +1,8 @@
 /** The player's 36 slots: the backpack above the marked hotbar row. Every screen that shows the bag uses this. */
 import { HOTBAR_SIZE, INVENTORY_SIZE } from '../../../core/constants';
 import type { Inventory } from '../../../game/inventory';
+import { sortRange } from '../../../game/inventoryTools';
+import { Button } from '../../kit/controls';
 import { h } from '../../kit/dom';
 import { SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
@@ -12,6 +14,8 @@ export interface InventoryPanelOptions {
   label?: string;
   /** Quick-move destinations for both groups. Default: the screen's other inventories, else hotbar <-> backpack. */
   quickTo?: readonly QuickTarget[];
+  /** Show the Sort button (default true; the player's own pack only). */
+  sortable?: boolean;
 }
 
 /**
@@ -36,7 +40,7 @@ export class InventoryPanel {
     this.el = h(
       'div',
       { class: 'hw-bag' },
-      h('h3', { class: 'hw-heading hw-bag__head', text: opts.label ?? 'Backpack' }),
+      h('div', { class: 'hw-bag__headrow' }, h('h3', { class: 'hw-heading hw-bag__head', text: opts.label ?? 'Backpack' }), opts.sortable === false ? h('span') : new Button({ label: 'Sort', size: 'sm', kind: 'quiet', onClick: () => void sortRange(inventory, HOTBAR_SIZE) }).el),
       this.pack.el,
       h('h3', { class: 'hw-heading hw-bag__head hw-bag__head--hotbar', text: 'Hotbar' }),
       h('div', { class: 'hw-bag__hotbar' }, this.hotbar.el),

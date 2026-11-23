@@ -111,6 +111,11 @@ export class ItemSlot {
     setFlag(this.el, 'highlight', on);
   }
 
+  /** Marks the slot as a favourite (a small star: sort and move-all leave it alone). */
+  setFavourite(on: boolean): void {
+    setFlag(this.el, 'favourite', on);
+  }
+
   setDisabled(on: boolean): void {
     setAttr(this.el, 'aria-disabled', on ? 'true' : null);
   }

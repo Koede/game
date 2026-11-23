@@ -17,6 +17,7 @@ import { Collectors } from './collectors';
 import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundItems';
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
+import { favouritesOf, setFavourites } from './inventoryTools';
 import { wear } from './mining';
 
 export interface BlockPos {
@@ -52,6 +53,8 @@ export interface PlayerSnapshot {
   /** Food 0..MAX_FOOD (spec 12.1). Missing in saves made before hunger existed: a full bar. */
   food?: number;
   inventory: Slot[];
+  /** Favourite inventory slots (sort and move-all leave them); missing in older saves. */
+  favourites?: number[];
   selectedSlot: number;
   home: BlockPos | null;
   spawn: Vec3;
@@ -409,6 +412,7 @@ export class PlayerState {
       air: this.air,
       food: this.food,
       inventory: this.inventory.toJSON(),
+      favourites: [...favouritesOf(this.inventory)].sort((a, b) => a - b),
       selectedSlot: this.selectedSlot,
       home: this.home ? { ...this.home } : null,
       spawn: { ...this.spawn },
@@ -447,6 +451,7 @@ export class PlayerState {
     this.drinkCooldownS = 0;
     this.sprinting = false;
     this.inventory.load(s.inventory);
+    setFavourites(this.inventory, s.favourites);
     this.selectedSlot = clamp(Math.floor(s.selectedSlot), 0, HOTBAR_SIZE - 1);
     this.home = s.home ? { ...s.home } : null;
     this.buffs.load(s.buffs);
