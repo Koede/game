@@ -14,6 +14,8 @@ describe('pose styles', () => {
     const styles = Object.fromEntries(AUTOMATONS.map((s) => [s.key, poseStyle(s)]));
     expect(styles).toEqual({
       cinder_mite: 'bite', forge_warden: 'hammer', kiln_sentry: 'turret', bellows_hound: 'dash', arc_drone: 'hover', slag_colossus: 'slam',
+      // The feral servants of the five biomes (src/content/biomeMobs.ts).
+      barkwright: 'hammer', glass_scarab: 'dash', rime_husk: 'hammer', magma_crawler: 'bite', bog_lantern: 'hover',
     });
   });
 });

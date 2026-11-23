@@ -79,7 +79,7 @@ const NEWT_HEAD = group('head', [0, 3, -7]);
 const SLAG_NEWT: CreaturePart[] = [
   box('body', [-3, 1.5, -7], [3, 4, 6], 0x3a3330),
   glow('stripe', [-1, 4, -5], [1, 5, 4], 0xd9531e),
-  box('tail', [-1.5, 1.5, 6], [1.5, 3.5, 12], 0x2e2826),
+  box('tail', [-1.5, 1.5, 6], [1.5, 3.5, 9], 0x2e2826),
   NEWT_HEAD('head', [-2.5, 1.5, -11], [2.5, 4.5, -7], 0x4a403a),
   NEWT_HEAD('eyeL', [-2.7, 3.5, -10], [-2.5, 4.5, -9], 0xffb04a),
   NEWT_HEAD('eyeR', [2.5, 3.5, -10], [2.7, 4.5, -9], 0xffb04a),

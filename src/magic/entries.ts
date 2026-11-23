@@ -43,6 +43,12 @@ const quad = (a: Aspect, b: Aspect, c: Aspect, d: Aspect, blocked: number[] = []
 /** A wall down the middle column with one gap at row `gap`. */
 const wall = (gap: number): number[] => [0, 1, 2, 3, 4].filter((y) => y !== gap).map((y) => cellAt(2, y));
 
+/** Recipe ids of the attuned tools (src/content/recipesMagic.ts), by the metal of the plain tool. */
+const ATTUNE_RECIPES: Record<'bronze' | 'iron', string[]> = { bronze: [], iron: [] };
+for (const metal of ['bronze', 'iron'] as const) {
+  for (const kind of ['pickaxe', 'axe', 'shovel']) for (const aspect of ['rune', 'gale']) ATTUNE_RECIPES[metal].push(`${aspect}_${metal}_${kind}`);
+}
+
 export const RESEARCH: readonly ResearchEntry[] = [
   // ---- Ember -------------------------------------------------------------------------------------------------------
   {
@@ -130,6 +136,11 @@ export const RESEARCH: readonly ResearchEntry[] = [
     unlocks: { recipes: ['vein_lens'] },
     text: 'A lens infused with Vein and Mind: carried, every new thing you note teaches half again as much lore.',
   },
+  {
+    key: 'attunement', title: 'Attunement', age: 'bronze', requires: ['infusion'], board: triple('rune', 'gale', 'craft'),
+    unlocks: { recipes: ATTUNE_RECIPES.bronze },
+    text: 'The first lesson in tempering: set a plain bronze tool at the heart of the altar with two vials of Rune or of Gale around it. Rune keeps the edge, Gale sharpens it.',
+  },
   // ---- Forge -------------------------------------------------------------------------------------------------------
   {
     key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', wall(0)),
@@ -160,6 +171,11 @@ export const RESEARCH: readonly ResearchEntry[] = [
     key: 'alchemical_steel', title: 'Alchemical Steel', age: 'forge', requires: ['infusion'], board: triple('vein', 'cinder', 'rune'),
     unlocks: { recipes: ['steel_infusion'] },
     text: 'Iron and coal on the altar, fed Cinder and Vein, come out as steel without a blast furnace. Slow and costly, but it works.',
+  },
+  {
+    key: 'master_attunement', title: 'Master Attunement', age: 'forge', requires: ['attunement', 'alchemical_steel'], board: triple('rune', 'vein', 'gale', wall(2)),
+    unlocks: { recipes: ATTUNE_RECIPES.iron },
+    text: 'What the altar did for bronze it does for iron, deeper: tempered iron tools outlast and outcut every plain one until steel.',
   },
   {
     key: 'compound_draw', title: 'Drawing the Compounds', age: 'forge', requires: ['wellsprings', 'iron_rod'], board: quad('steam', 'vein', 'glow', 'spring'),

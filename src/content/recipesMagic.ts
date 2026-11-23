@@ -49,6 +49,11 @@ export const INFUSIONS: InfusionRecipe[] = [
   infuse('clay_servant', 'clay_servant', 'clay', ['clay', 'clay', 'iron_ingot', 'glass_vial'], { spring: 8, mind: 8, loam: 8 }, 20),
   infuse('void_jar', 'void_jar', 'essentia_jar', ['iron_ingot', 'iron_ingot', 'glass', 'glass'], { ward: 8, rift: 8, brook: 8 }, 20),
   infuse('steel_infusion', 'steel_ingot', 'iron_ingot', ['coal', 'coal'], { cinder: 6, vein: 4, rune: 2 }, 15),
+  // The artificer's attunement: a plain tool on the altar, two vials of the aspect around it (research 'attunement').
+  ...(['bronze', 'iron'] as const).flatMap((metal) => (['pickaxe', 'axe', 'shovel'] as const).flatMap((kind) => [
+    infuse(`rune_${metal}_${kind}`, `rune_${metal}_${kind}`, `${metal}_${kind}`, ['vial_rune', 'vial_rune'], metal === 'bronze' ? { rune: 6, loam: 4 } : { rune: 8, vein: 6 }, metal === 'bronze' ? 15 : 20),
+    infuse(`gale_${metal}_${kind}`, `gale_${metal}_${kind}`, `${metal}_${kind}`, ['vial_gale', 'vial_gale'], metal === 'bronze' ? { gale: 6, mind: 2 } : { gale: 8, mind: 4 }, metal === 'bronze' ? 15 : 20),
+  ])),
 ];
 
 export const arcaneRecipe = (id: string): ArcaneRecipe | null => ARCANE_RECIPES.find((r) => r.id === id) ?? null;

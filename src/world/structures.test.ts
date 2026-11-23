@@ -168,7 +168,7 @@ describe('structures with a real world and mob manager', () => {
     expect(world.getVoxel(site.crateX, y, site.crateZ)).not.toBe(0);
     const crate = world.getEntity(site.crateX, y, site.crateZ);
     expect(crate?.kind).toBe('crate');
-    expect((crate?.slots ?? []).some((s) => s !== null)).toBe(true);
+    expect(((crate as { slots?: unknown[] } | undefined)?.slots ?? []).some((s) => s !== null)).toBe(true);
   });
 
   it('creates its guardians once, from its own biome, saved and never respawned', () => {

@@ -16,6 +16,7 @@ import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
 import { SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
+import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 
 type Numbers = Record<string, number>;
 
@@ -416,3 +417,7 @@ SPEC.maxTextures += GLASS_SPEC.textures;
 SPEC.blocks.push(...SYNERGY_TOOLS_SPEC.blocks);
 SPEC.maxTextures += SYNERGY_TOOLS_SPEC.textures;
 SPEC.worldOnlyItems.push(...SYNERGY_TOOLS_SPEC.worldOnly);
+
+// The artificer's attuned tools (docs/SYNERGY_PLAN.md section 2) come last.
+SPEC.items.push(...SYNERGY_ARTIFICER_SPEC.items);
+SPEC.maxTextures += SYNERGY_ARTIFICER_SPEC.textures;
