@@ -84,6 +84,11 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - Research map: 'crucible' now follows 'glassware'; 'warm_hearth' and 'still_trace' follow 'crucible'.
 - Saves: `vis` (primal map) and `crucibles` replace the old single `charge`, which is dropped on load.
 
+## Wands (cores, caps, plugged foci)
+- `WAND_CORES` (reed 16 / bronze 32 / iron 64, the plain rod each is made from) x `WAND_CAPS` (copper: cinder+loam, tin: brook+gale, bronze: rune+rift) = nine `wand_<core>_<cap>` items (`WANDS`; `ROD_TIERS` = plain rods + wands, `RodTier.favour`). Made at the Rune Desk from the core rod and two ingots (gated with the bronze / iron rod research). The best tier carried sets pool capacity (ties: more draw, then a cap).
+- A cap's favoured primals are drawn `ceil(units * 1.5)` and cost `floor(n * 0.75)` (min 1) in foci (`Magic.focusCost`).
+- Plugging: Use a wand on an Arcane Workbench with a focus carried to plug it in (again to take it back; saved as `plugged`). A wand with a focus plugged casts it on Use when its vis and cooldown allow, else it draws vis as usual.
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

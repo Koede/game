@@ -23,7 +23,7 @@
 import type { GameBus } from '../core/context';
 import { blockOrNull, blockId, itemOrNull } from '../core/registry';
 import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
-import { FOCI, JAR_UNITS, RODS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
+import { FOCI, JAR_UNITS, ROD_TIERS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
 import { ALCHEMY, ARCANE_RECIPES, INFUSIONS, alchemyFor, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
 import type { PlayerState } from '../game/playerState';
 import { ASPECT_LIST, LATE, PRIMALS, aspectInfo, aspectsText, isAspect, type Aspect, type Aspects } from './aspects';
@@ -217,6 +217,7 @@ export interface MagicSnapshot {
   servants?: number[][];
   nodes?: Record<string, number>;
   stats?: { infusions: number; casts: number; studied: number; crafted: number };
+  plugged?: Record<string, string>;
 }
 
 export class Magic {
@@ -237,6 +238,8 @@ export class Magic {
   private readonly altars = new Map<string, string>();
   private readonly crucibles = new Map<string, CrucibleState>();
   private readonly servants = new Map<string, ServantState>();
+  /** wand item -> focus plugged into it. */
+  private readonly plugged = new Map<string, string>();
   /** Set while a servant block is moved, so the block events do not reset its feed. */
   private relocating = false;
   private workshop: ServantWorkshop | null = null;
@@ -305,13 +308,16 @@ export class Magic {
   /** The best rod carried, or null. */
   bestRod(): RodTier | null {
     let best: RodTier | null = null;
-    for (const r of RODS) if (this.player.inventory.has(r.key)) best = r;
+    for (const r of ROD_TIERS) {
+      if (!this.player.inventory.has(r.key)) continue;
+      if (!best || r.capacity > best.capacity || (r.capacity === best.capacity && (r.draw > best.draw || (r.draw === best.draw && (r.favour ? 1 : 0) > (best.favour ? 1 : 0))))) best = r;
+    }
     return best;
   }
 
   private heldRod(): RodTier | null {
     const held = this.player.heldStack()?.item;
-    return RODS.find((r) => r.key === held) ?? null;
+    return ROD_TIERS.find((r) => r.key === held) ?? null;
   }
 
   /** Why the player cannot craft this recipe yet, or null. */
@@ -358,6 +364,9 @@ export class Magic {
     const rod = this.heldRod();
     if (rod) {
       if (target && key === 'infusion_altar') return this.startInfusion(target);
+      if (target && key === ARCANE_BENCH) return this.plugFocus(rod);
+      const plug = FOCI.find((f) => f.key === this.plugged.get(rod.key));
+      if (plug && !this.cooldowns.has(plug.key) && !Object.keys(visShort(this.focusCost(plug.vis, rod), this.vis)).length) return this.cast(plug.key, plug.vis, plug.cooldownS, target);
       return this.gather(rod);
     }
     const focus = FOCI.find((f) => f.key === held);
@@ -563,7 +572,7 @@ export class Magic {
     }
     this.lastDraw = this.clock;
     if (units <= 0) return 'refused';
-    for (const x of this.partsOf(aspect)) this.vis[x] = Math.min(rod.capacity, this.vis[x] + units);
+    for (const x of this.partsOf(aspect)) this.vis[x] = Math.min(rod.capacity, this.vis[x] + (rod.favour?.includes(x) ? Math.ceil(units * 1.5) : units));
     this.bus.emit('sfx', { name: 'rod_hum', pitch: 0.8 + Math.min(1, this.visTotal() / (rod.capacity * 6)) });
     return 'worked';
   }
@@ -1115,12 +1124,46 @@ export class Magic {
 
   // ---- foci ----------------------------------------------------------------------------------------------------------
 
-  private cast(focus: string, cost: Partial<Vis>, cooldownS: number, target: MagicTarget | null): MagicOutcome {
+  /** A cap's favoured primals cost a quarter less (at least 1) in foci. */
+  focusCost(cost: Partial<Vis>, rod: RodTier | null): Partial<Vis> {
+    if (!rod?.favour) return cost;
+    const out: Partial<Vis> = {};
+    for (const [p, n] of Object.entries(cost) as [Primal, number][]) out[p] = rod.favour.includes(p) ? Math.max(1, Math.floor(n * 0.75)) : n;
+    return out;
+  }
+
+  /** Use a wand on an Arcane Workbench: plugs the first focus carried (not yet plugged elsewhere), or takes the plugged one back. */
+  private plugFocus(rod: RodTier): MagicOutcome {
+    const have = this.plugged.get(rod.key);
+    if (have) {
+      this.plugged.delete(rod.key);
+      this.player.give(have, 1);
+      this.toast(`${itemOrNull(have)?.name ?? have} comes out of the wand`);
+      return 'worked';
+    }
+    const f = FOCI.find((x) => this.player.inventory.has(x.key));
+    if (!f) {
+      this.advise('Carry a focus to plug into the wand');
+      return 'refused';
+    }
+    this.player.inventory.remove(f.key, 1);
+    this.plugged.set(rod.key, f.key);
+    this.toast(`${itemOrNull(f.key)?.name} is plugged into the wand: Use the wand to cast it, or to draw vis when it cannot`, f.key, 'good');
+    return 'worked';
+  }
+
+  /** The focus plugged into a wand item, or null. */
+  pluggedFocus(wand: string): string | null {
+    return this.plugged.get(wand) ?? null;
+  }
+
+  private cast(focus: string, rawCost: Partial<Vis>, cooldownS: number, target: MagicTarget | null): MagicOutcome {
     if (this.cooldowns.has(focus)) return 'refused';
     if (!this.bestRod()) {
       this.advise('A focus needs a gathering rod in your pack');
       return 'refused';
     }
+    const cost = this.focusCost(rawCost, this.heldRod() ?? this.bestRod());
     const short = visShort(cost, this.vis);
     if (Object.keys(short).length) {
       this.advise(`Not enough vis: needs ${visText(short)} more. Use the rod to draw from the land`);
@@ -1547,6 +1590,7 @@ export class Magic {
       }),
       nodes,
       stats: { ...this.stats },
+      plugged: Object.fromEntries(this.plugged),
     };
   }
 
@@ -1605,6 +1649,9 @@ export class Magic {
     this.infusion = f && num(f.x) && num(f.y) && num(f.z) && typeof f.id === 'string' && INFUSIONS.some((i) => i.id === f.id)
       ? { x: f.x, y: f.y, z: f.z, id: f.id, paid: sanitizeAspects(f.paid), t: num(f.t) ? f.t : 0, waitS: 0, step: 0 }
       : null;
+    this.plugged.clear();
+    if (s.plugged && typeof s.plugged === 'object')
+      for (const [w, f] of Object.entries(s.plugged)) if (ROD_TIERS.some((r) => r.key === w) && FOCI.some((x) => x.key === f)) this.plugged.set(w, f);
     if (s.stats && typeof s.stats === 'object')
       for (const k of ['infusions', 'casts', 'studied', 'crafted'] as const) if (num(s.stats[k])) this.stats[k] = Math.max(0, Math.floor(s.stats[k]));
   }

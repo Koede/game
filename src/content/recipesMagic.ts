@@ -9,6 +9,7 @@
 import type { ItemAmount, RecipeSpec } from '../core/types';
 import type { Aspects } from '../magic/aspects';
 import { amount, amounts } from './amounts';
+import { WAND_CAPS, WAND_CORES, wandKey } from './itemsMagic';
 
 /** `minTier` 2 (the Bronze Furnace) for the Bronze-age pieces, 1 for what the Clay Furnace still makes. */
 const forge = (id: string, output: string, inputs: string, minTempC: number, minTier = 1): RecipeSpec => ({
@@ -49,6 +50,9 @@ export const ARCANE_RECIPES: ArcaneRecipe[] = [
   arcane('focus_light', 'focus_light', '1 glass, 1 torch', { cinder: 4, gale: 4 }),
   arcane('focus_ward', 'focus_ward', '1 glass, 2 leather, 1 iron_ingot', { loam: 6, rift: 4, rune: 4 }),
   arcane('focus_blink', 'focus_blink', '1 glass, 1 cord, 1 iron_ingot', { gale: 8, mind: 4, rift: 4 }),
+  // Wands: a plain rod for the core, two ingots for the caps; the caps' primals go into the cost.
+  ...WAND_CORES.flatMap((core) => WAND_CAPS.map((cap) => arcane(wandKey(core.key, cap.key), wandKey(core.key, cap.key),
+    `1 ${core.rod}, 2 ${cap.ingot}`, { rune: 2 + core.draw * 2, [cap.favour[0]]: 2 + core.draw, [cap.favour[1]]: 2 + core.draw } as Aspects))),
 ];
 
 export const INFUSIONS: InfusionRecipe[] = [

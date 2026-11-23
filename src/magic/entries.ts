@@ -10,6 +10,9 @@
 import type { Aspect, Aspects } from './aspects';
 import { corner, hexCell, type BoardSpec } from './board';
 import type { AgeName } from './ageMap';
+import { WAND_CAPS, WAND_CORES, wandKey } from '../content/itemsMagic';
+
+const WAND_RECIPES = WAND_CORES.flatMap((c) => WAND_CAPS.map((p) => wandKey(c.key, p.key)));
 
 export interface ResearchEntry {
   key: string;
@@ -127,7 +130,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
   {
     key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', [wall(1)]),
-    unlocks: { recipes: ['bronze_rod'] },
+    unlocks: { recipes: ['bronze_rod', ...WAND_RECIPES.filter((r) => !r.startsWith('wand_iron')), ] },
     text: 'Bronze holds more and drinks faster. Made at the Rune Desk from the wooden rod. Link Vein to Gale past the wall.',
   },
   {
@@ -173,7 +176,7 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   // ---- Forge -------------------------------------------------------------------------------------------------------
   {
     key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', [wall(0)]),
-    unlocks: { recipes: ['iron_rod'] },
+    unlocks: { recipes: ['iron_rod', ...WAND_RECIPES.filter((r) => r.startsWith('wand_iron'))] },
     text: 'Iron is patient: the iron rod holds twice the bronze one and draws three units at a time.',
   },
   {

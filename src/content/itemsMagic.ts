@@ -18,7 +18,8 @@ export const VOID_JAR_UNITS = 128;
 export const vialKey = (aspect: string): string => `vial_${aspect}`;
 
 /** Gathering rods: vis each primal pool holds and units each Use draws (src/magic/vis.ts). */
-export interface RodTier { key: string; capacity: number; draw: number }
+export interface RodTier { key: string; capacity: number; draw: number; /** Primals a cap favours: drawn a half more, cost a quarter less in foci. */ favour?: readonly PrimalKey[] }
+export type PrimalKey = 'cinder' | 'loam' | 'brook' | 'gale' | 'rune' | 'rift';
 export const RODS: readonly RodTier[] = [
   { key: 'vis_rod', capacity: 16, draw: 1 },
   { key: 'bronze_rod', capacity: 32, draw: 2 },
@@ -33,6 +34,23 @@ export const FOCI: readonly FocusSpec[] = [
   { key: 'focus_ward', vis: { loam: 3, rune: 3 }, cooldownS: 20 },
   { key: 'focus_blink', vis: { gale: 2, rift: 2 }, cooldownS: 2 },
 ];
+
+/** Wands: a core (the plain rod it is made from sets capacity and draw) and a metal cap that favours two primals. */
+export const WAND_CORES = [
+  { key: 'reed', name: 'Reed', rod: 'vis_rod', capacity: 16, draw: 1, age: 'bronze' },
+  { key: 'bronze', name: 'Bronze', rod: 'bronze_rod', capacity: 32, draw: 2, age: 'bronze' },
+  { key: 'iron', name: 'Iron', rod: 'iron_rod', capacity: 64, draw: 3, age: 'forge' },
+] as const;
+export const WAND_CAPS = [
+  { key: 'copper', name: 'Copper', ingot: 'copper_ingot', favour: ['cinder', 'loam'], color: 0xc0703a },
+  { key: 'tin', name: 'Tin', ingot: 'tin_ingot', favour: ['brook', 'gale'], color: 0xb8c4cc },
+  { key: 'bronze', name: 'Bronze', ingot: 'bronze_ingot', favour: ['rune', 'rift'], color: 0xe0a060 },
+] as const;
+export const wandKey = (core: string, cap: string): string => `wand_${core}_${cap}`;
+export const WANDS: readonly (RodTier & { core: string; cap: string })[] = WAND_CORES.flatMap((c) =>
+  WAND_CAPS.map((p) => ({ key: wandKey(c.key, p.key), capacity: c.capacity, draw: c.draw, favour: p.favour as readonly PrimalKey[], core: c.key, cap: p.key })));
+/** Every item that works as a gathering rod, plain rods first. */
+export const ROD_TIERS: readonly RodTier[] = [...RODS, ...WANDS];
 
 const BRONZE = ageIndexOf('bronze');
 const FORGE = ageIndexOf('forge');
@@ -61,6 +79,12 @@ export const MAGIC_ITEMS: ItemSpec[] = [
     key: vialKey(a.key), name: `Vial of ${a.name}`, category: 'material', age: 0, stack: 8,
     desc: `${VIAL_UNITS} units of ${a.name} essentia (${a.meaning}). Use it on an essentia jar to pour it in.`,
   })),
+  ...WANDS.map((w): ItemSpec => {
+    const core = WAND_CORES.find((c) => c.key === w.core)!;
+    const cap = WAND_CAPS.find((c) => c.key === w.cap)!;
+    return tool(w.key, `${core.name} Wand, ${cap.name}-capped`, core.age === 'forge' ? FORGE : BRONZE,
+      `${w.capacity} vis a primal, ${w.draw} a Use. ${cap.name} caps: ${cap.favour.join(' and ')} drawn a half more, a quarter cheaper in foci. Plug a focus in at an Arcane Workbench.`);
+  }),
 ];
 
 const glassBlock = { opaque: false, translucent: true } as const;

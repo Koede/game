@@ -1,4 +1,5 @@
 /** Icons and jar faces of Essentia & Research (src/content/itemsMagic.ts), 16x16, light from the top left. */
+import { WAND_CAPS, WAND_CORES, wandKey } from '../../content/itemsMagic';
 import { ASPECTS } from '../../magic/aspects';
 import type { Canvas, PainterSet } from './canvas';
 import * as P from './palette';
@@ -98,7 +99,19 @@ function jarTop(c: Canvas): void {
 
 const vials: PainterSet = Object.fromEntries(ASPECTS.map((a) => [`item_vial_${a.key}`, icon((c) => vial(c, hex(a.color)))]));
 
+/** A wand: the core's rod with a metal cap at the grip and at the tip. */
+const REED_R = [WOOD[0], WOOD[1], WOOD[2], P.rgb(0xc4a064)];
+const wands: PainterSet = Object.fromEntries(WAND_CORES.flatMap((core) => WAND_CAPS.map((cap) => [`item_${wandKey(core.key, cap.key)}`, icon((c) => {
+  rodOf(c, core.key === 'reed' ? REED_R : core.key === 'bronze' ? BRONZE_R : IRON_R, P.rgb(cap.color));
+  const m = P.rgb(cap.color);
+  c.rect(2, 12, 3, 3, m);
+  c.set(2, 12, shade(m, 1.4));
+  c.rect(10, 5, 4, 1, m);
+  c.rect(10, 5, 1, 4, m);
+})])));
+
 export const MAGIC_TEXTURES: PainterSet = {
+  ...wands,
   item_field_notebook: icon(notebook),
   item_scribing_tools: icon(scribing),
   item_sanity_soap: icon((c) => {
