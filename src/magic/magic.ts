@@ -31,6 +31,7 @@ import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
 import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
+import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
@@ -237,6 +238,8 @@ export interface MagicSnapshot {
   carries?: [number, number, number, string, number][];
   /** Mirror links: x, y, z, x, y, z of the sending end and its partner. */
   mirrors?: number[][];
+  /** Chunk key -> aura shift. */
+  aura?: Record<string, number>;
   plugged?: Record<string, string>;
 }
 
@@ -262,6 +265,10 @@ export class Magic {
   private readonly mirrors = new Map<string, string>();
   private readonly mirrorSends = new Set<string>();
   private pendingMirror: string | null = null;
+  /** Per-chunk push on the aura (taint down, cleansing up), saved. */
+  private readonly auraShift = new Map<string, number>();
+  private auraT = 0;
+  private auraSeen: AuraKind = 'plain';
   /** wand item -> focus plugged into it. */
   private readonly plugged = new Map<string, string>();
   /** Set while a servant block is moved, so the block events do not reset its feed. */
@@ -381,6 +388,7 @@ export class Magic {
       this.tickServants(1);
       this.tickSiphon();
       this.tickMirrors();
+      this.tickAura(1);
     }
   }
 
@@ -606,6 +614,7 @@ export class Magic {
       .slice(0, 3)
       .map(([a, n]) => `${aspectInfo(a).name} ${n}`);
     let text = land.length ? land.join(', ') : 'Land drained';
+    text += ` · ${auraText(this.auraKindAt(p.x, p.z))}`;
     const nodes = this.nodesAround(p.x, p.z, 3);
     if (nodes.length) {
       const n = nodes.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
@@ -613,6 +622,47 @@ export class Magic {
       text += ` · ${aspectInfo(n.aspect).name} well ${d < 3 ? 'here' : `${d} ${compass(p.x, p.z, n.x + 0.5, n.z + 0.5)}`} (${Math.floor(n.left)})`;
     }
     return text;
+  }
+
+  // ---- aura ------------------------------------------------------------------------------------------------------------
+
+  /** The aura of the chunk holding x, z: the land's own field plus what has been done to it. -1 .. 1. */
+  auraAt(x: number, z: number): number {
+    const cx = Math.floor(x / 16);
+    const cz = Math.floor(z / 16);
+    return Math.max(-1, Math.min(1, baseAura(this.seed, cx, cz) + (this.auraShift.get(`${cx},${cz}`) ?? 0)));
+  }
+
+  auraKindAt(x: number, z: number): AuraKind {
+    return auraKind(this.auraAt(x, z));
+  }
+
+  /** Pushes a chunk's aura (negative = taint, positive = cleansing). */
+  shiftAura(x: number, z: number, d: number): void {
+    const k = `${Math.floor(x / 16)},${Math.floor(z / 16)}`;
+    const v = Math.max(-1.5, Math.min(1.5, (this.auraShift.get(k) ?? 0) + d));
+    if (Math.abs(v) < 0.01) this.auraShift.delete(k); else this.auraShift.set(k, v);
+  }
+
+  /** The player's air: a rich chunk trickles vis into a carried rod, a tainted one wears at the mind. Once a second. */
+  private tickAura(dt: number): void {
+    const p = this.player.position;
+    const kind = this.auraKindAt(p.x, p.z);
+    if (kind !== this.auraSeen) {
+      this.auraSeen = kind;
+      if (kind === 'rich') this.toast('The air here is rich: a rod drinks it, and the crucible gives more', undefined, 'good');
+      else if (kind === 'tainted') this.toast('The air here is sour and wrong', undefined, 'warn');
+    }
+    this.auraT += dt;
+    if (kind === 'rich' && this.auraT >= RICH_VIS_S) {
+      this.auraT = 0;
+      const cap = this.bestRod()?.capacity ?? 0;
+      const pr = auraPrimal(this.seed, Math.floor(p.x / 16), Math.floor(p.z / 16));
+      if (cap > 0 && this.vis[pr] < cap) this.vis[pr] = Math.min(cap, this.vis[pr] + 1);
+    } else if (kind === 'tainted' && this.auraT >= TAINT_WARP_S) {
+      this.auraT = 0;
+      this.addWarp(1);
+    } else if (kind === 'plain') this.auraT = 0;
   }
 
   /** Primal pools an aspect fills (itself, or a compound's parts). */
@@ -945,7 +995,7 @@ export class Magic {
       return 'refused';
     }
     this.player.consumeHeld(1);
-    const spilled = dissolve(c, fp);
+    const spilled = dissolve(c, scaleByAura(fp, this.auraKindAt(t.x, t.z)));
     this.crucibles.set(k, c);
     this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
     if (spilled > 0) this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
@@ -1821,6 +1871,7 @@ export class Magic {
       nodes,
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
+      aura: Object.fromEntries(this.auraShift),
       mirrors: [...this.mirrorSends].filter((a) => this.mirrors.has(a)).map((a) => [...parse3(a), ...parse3(this.mirrors.get(a) as string)]),
       carries: [...this.servants].filter(([, v]) => v.carry).map(([k, v]) => [...parse3(k), v.carry!.item, v.carry!.count] as [number, number, number, string, number]),
     };
@@ -1875,6 +1926,8 @@ export class Magic {
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
     }
+    this.auraShift.clear();
+    if (s.aura && typeof s.aura === 'object') for (const [k, v] of Object.entries(s.aura)) if (/^-?\d+,-?\d+$/.test(k) && num(v) && Math.abs(v) >= 0.01) this.auraShift.set(k, Math.max(-1.5, Math.min(1.5, v)));
     this.mirrors.clear();
     this.mirrorSends.clear();
     for (const r of Array.isArray(s.mirrors) ? s.mirrors : []) {

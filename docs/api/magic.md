@@ -102,6 +102,10 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 ## Charms (src/magic/charms.ts)
 - `charm_ward` (blows x0.85), `charm_speed` (speed x1.1), `charm_hunger` (food drain x0.75): Arcane Workbench recipes (leather, an ingot, a vial; research 'attunement'). Carried anywhere in the pack, one of each kind counts. `Magic.applyBody()` folds them every tick into `player.damageScale` (with the ward focus), and new `Buffs.magicSpeed` / `Buffs.magicFoodDrain` (not saved; multiplied into `speedMult` / `foodDrainMult`).
 
+## Aura (src/magic/aura.ts)
+- A smooth hashed field over chunks (`baseAura`, -1..1, always calm within `CALM_RADIUS` 3 chunks of the centre) plus a saved per-chunk `shift` (`Magic.shiftAura`; taint pushes down, cleansing up). `auraKind`: rich >= 0.4, tainted <= -0.45, else plain; `Magic.auraAt` / `auraKindAt`.
+- Rich: crucible dissolves x1.25 (rounded up), and a carried rod gains 1 vis of the chunk's favoured primal every `RICH_VIS_S` (12 s). Tainted: x0.75 (at least 1), and +1 warp every `TAINT_WARP_S` (60 s) in it. A toast on entering either; the rod reading (research 'aura_reading') ends with "rich / tainted / calm aura".
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there
