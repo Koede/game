@@ -24,20 +24,24 @@ export const MAGIC_RECIPES: RecipeSpec[] = [
   { id: 'essentia_jar', station: 'workbench', inputs: amounts('3 glass, 1 plank'), output: amount('essentia_jar'), age: 0 },
   forge('glass_vial', '2 glass_vial', '1 glass', 650),
   forge('rune_desk', 'rune_desk', '4 plank, 2 copper_ingot, 1 glass', 500, 2),
+  forge('arcane_workbench', 'arcane_workbench', '4 plank, 1 copper_ingot, 1 glass', 500, 2),
   forge('essentia_tube', '4 essentia_tube', '2 glass, 1 copper_ingot', 650, 2),
   forge('arcane_pedestal', 'arcane_pedestal', '3 stone_brick, 1 copper_ingot', 500, 2),
 ];
 
 /** A recipe at the Rune Desk: ingredients from the pack, plus essentia. */
-export interface ArcaneRecipe { id: string; output: ItemAmount; inputs: ItemAmount[]; cost: Aspects }
+export interface ArcaneRecipe { id: string; output: ItemAmount; inputs: ItemAmount[]; cost: Aspects; /** Made at the Arcane Workbench, not the Rune Desk. */ bench?: boolean }
 /** An infusion: the heart item on the altar, one item on each of up to four pedestals, essentia drawn over `seconds`. */
 export interface InfusionRecipe { id: string; output: ItemAmount; center: string; around: string[]; cost: Aspects; seconds: number }
 
-const arcane = (id: string, output: string, inputs: string, cost: Aspects): ArcaneRecipe => ({ id, output: amount(output), inputs: amounts(inputs), cost });
+const arcane = (id: string, output: string, inputs: string, cost: Aspects, bench = false): ArcaneRecipe =>
+  bench ? { id, output: amount(output), inputs: amounts(inputs), cost, bench } : { id, output: amount(output), inputs: amounts(inputs), cost };
 const infuse = (id: string, output: string, center: string, around: string[], cost: Aspects, seconds: number): InfusionRecipe =>
   ({ id, output: amount(output), center, around, cost, seconds });
 
 export const ARCANE_RECIPES: ArcaneRecipe[] = [
+  // Arcane Workbench: ordinary things made with a little vis.
+  arcane('sanity_soap', 'sanity_soap', '1 charcoal, 1 clay', { clarity: 2, ward: 2 }, true),
   arcane('bronze_rod', 'bronze_rod', '1 vis_rod, 2 bronze_ingot', { gale: 4, loam: 4, rune: 2 }),
   arcane('iron_rod', 'iron_rod', '1 bronze_rod, 2 iron_ingot, 1 glass_vial', { mind: 6, vein: 6, rune: 4 }),
   arcane('infusion_altar', 'infusion_altar', '4 stone_brick, 2 copper_ingot, 1 glass_vial', { rune: 6, clarity: 4 }),

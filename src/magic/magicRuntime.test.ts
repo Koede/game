@@ -155,6 +155,46 @@ describe('tubes, desk and altar', () => {
     expect(t.magic.vis).toEqual({ ...emptyVis(), rune: 1 });
   });
 
+  it('the arcane workbench shows only its own recipes; sanity soap is made there with vis and lifts warp', () => {
+    const t = setup();
+    t.put(2, 1, 0, 'arcane_workbench');
+    expect(t.magic.use(t.at(2, 1, 0))).toBe('screen');
+    const bench = t.magic.desk(2, 1, 0, true);
+    const desk = t.magic.desk(2, 1, 0);
+    expect(bench.rows().map((r) => r.id)).toEqual(['sanity_soap']);
+    expect(desk.rows().some((r) => r.id === 'sanity_soap')).toBe(false);
+    t.learn('arcane_bench');
+    t.player.inventory.clear();
+    t.player.inventory.add('vis_rod', 1);
+    t.player.inventory.add('charcoal', 1);
+    t.player.inventory.add('clay', 1);
+    t.magic.vis = { ...emptyVis(), brook: 8, rune: 8, loam: 8, rift: 8 };
+    expect(bench.make('sanity_soap')).toMatch(/Made/);
+    expect(t.player.inventory.count('sanity_soap')).toBe(1);
+    t.hold('sanity_soap');
+    expect(t.magic.use(null)).toBe('refused'); // no warp to scrub
+    t.magic.addWarp(5);
+    expect(t.magic.use(null)).toBe('worked');
+    expect(t.magic.warp).toBe(2);
+    expect(t.player.inventory.count('sanity_soap')).toBe(0);
+  });
+
+  it('warp grows from infusions and mishaps, whispers at high levels, and survives a save', () => {
+    const t = setup();
+    t.learnAll();
+    t.magic.warp = 10;
+    t.magic.rng = () => 0;
+    t.player.food = 20;
+    t.magic.tick(46);
+    expect(t.player.food).toBeLessThan(20); // hollowness
+    expect(t.magic.uneaseText()).toMatch(/air hums/);
+    const u = setup();
+    u.magic.load(JSON.parse(JSON.stringify(t.magic.toJSON())));
+    expect(u.magic.warp).toBe(10);
+    u.magic.load({});
+    expect(u.magic.warp).toBe(0);
+  });
+
   it('a hot crucible of water dissolves items into essentia, bottles vials and turns catalysts', () => {
     const t = setup();
     t.put(4, 1, 4, 'crucible');

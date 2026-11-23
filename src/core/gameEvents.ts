@@ -33,7 +33,7 @@ export type ScreenRequest =
   /** The Workshop Guide: parts, basin recipe cards, rules (docs/api/workshop.md). */
   | { type: 'workshop' }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
-  | { type: 'rune_desk'; x: number; y: number; z: number }
+  | { type: 'rune_desk'; x: number; y: number; z: number; /** The Arcane Workbench: the bench's recipes instead of the desk's. */ bench?: boolean }
   /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */
   | { type: 'distill_rig'; x: number; y: number; z: number };
 

@@ -10,9 +10,9 @@ const ASPECT_NAMES = [
 ];
 
 export const MAGIC_SPEC = {
-  blocks: ['research_table', 'crucible', 'essentia_jar', 'void_jar', 'essentia_tube', 'rune_desk', 'infusion_altar', 'arcane_pedestal', 'clay_servant', 'magic_light'],
+  blocks: ['research_table', 'arcane_workbench', 'crucible', 'essentia_jar', 'void_jar', 'essentia_tube', 'rune_desk', 'infusion_altar', 'arcane_pedestal', 'clay_servant', 'magic_light'],
   items: [
-    'field_notebook', 'scribing_tools', 'glass_vial', 'vis_rod', 'bronze_rod', 'iron_rod',
+    'field_notebook', 'scribing_tools', 'sanity_soap', 'glass_vial', 'vis_rod', 'bronze_rod', 'iron_rod',
     'focus_kindle', 'focus_light', 'focus_ward', 'focus_blink', 'vein_lens',
     ...ASPECT_NAMES.map((a) => `vial_${a}`),
   ],
@@ -30,12 +30,13 @@ export const MAGIC_SPEC = {
     furnace: [
       'glass_vial: 2 glass_vial <- 1 glass @650 T1',
       'rune_desk: 1 rune_desk <- 4 plank, 2 copper_ingot, 1 glass @500 T2',
+      'arcane_workbench: 1 arcane_workbench <- 4 plank, 1 copper_ingot, 1 glass @500 T2',
       'essentia_tube: 4 essentia_tube <- 2 glass, 1 copper_ingot @650 T2',
       'arcane_pedestal: 1 arcane_pedestal <- 3 stone_brick, 1 copper_ingot @500 T2',
     ],
   } as Record<string, string[]>,
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */
-  textures: 51,
+  textures: 52,
 };
 
 export const MAGIC_RECIPE_COUNT = Object.values(MAGIC_SPEC.recipes).reduce((n, l) => n + l.length, 0);

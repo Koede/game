@@ -121,6 +121,11 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
     text: 'A desk scored with signs pays for its work in vis from the rods you carry. Link Rune to Craft.',
   },
   {
+    key: 'arcane_bench', title: 'The Arcane Workbench', age: 'bronze', requires: ['rune_desk'], board: pair('rune', 'vein'),
+    unlocks: { recipes: ['arcane_workbench', 'sanity_soap'] },
+    text: 'Small work does not need a whole desk. A bench scored with the same signs makes ordinary things for a little vis, such as the soap that scrubs warp away. Link Rune to Vein.',
+  },
+  {
     key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', [wall(1)]),
     unlocks: { recipes: ['bronze_rod'] },
     text: 'Bronze holds more and drinks faster. Made at the Rune Desk from the wooden rod. Link Vein to Gale past the wall.',

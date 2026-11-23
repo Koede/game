@@ -74,6 +74,13 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 - **Infusion instability** (`instabilityAt`): 2 per pedestal without a mirrored twin across the altar, +1 per pedestal past two.
   Each second an infusion rolls `instability * MISHAP_PER_S`: half the time a drawn essentia splashes away, otherwise a pedestal
   item is thrown off and the infusion breaks. Altar text shows stable / unstable.
+- **Warp** (`Magic.warp`, 0..40, saved, never shown as a number): +1 for each infusion (+2 clay servant, void jar), +1 per infusion
+  mishap, +1 for each Forge-age research finished. Every `WARP_ROLL_S` (45 s) at warp >= 2 it rolls `warp * 8%`: a whisper toast,
+  or from warp 6 a hollowness that takes 2 food. `uneaseText()` words it in the notebook's Notes tab. **Sanity Soap**
+  (`sanity_soap`, Use anywhere) lifts `SOAP_WARP` (3).
+- **Arcane Workbench** (block `arcane_workbench`, research 'arcane_bench', Bronze Furnace like the desk): opens the desk screen
+  with `bench: true`, listing only `ArcaneRecipe.bench` recipes (`desk(x, y, z, bench)`); today Sanity Soap (charcoal + clay + vis).
+  The Rune Desk lists the rest.
 - Research map: 'crucible' now follows 'glassware'; 'warm_hearth' and 'still_trace' follow 'crucible'.
 - Saves: `vis` (primal map) and `crucibles` replace the old single `charge`, which is dropped on load.
 

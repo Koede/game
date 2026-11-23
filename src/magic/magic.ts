@@ -48,6 +48,18 @@ export const LENS = 'vein_lens';
 export const SCRIBING_TOOLS = 'scribing_tools';
 export const RESEARCH_TABLE = 'research_table';
 export const CRUCIBLE = 'crucible';
+export const ARCANE_BENCH = 'arcane_workbench';
+export const SANITY_SOAP = 'sanity_soap';
+/** Warp (docs/api/magic.md): unseen strain from strong magic. Soap lifts SOAP_WARP of it. */
+export const SOAP_WARP = 3;
+/** Seconds between two rolls for a warp effect. */
+export const WARP_ROLL_S = 45;
+export const WARP_WHISPERS = [
+  'You hear your own name, very softly, from behind you',
+  'The shadows at the edge of sight lean closer for a moment',
+  'Something taps twice inside the wall, and stops',
+  'For a heartbeat every sound in the world is a little late',
+];
 /** Water items a crucible takes, and what each leaves in the hand. */
 export const WATER_FOR_CRUCIBLE: Record<string, string> = { water_vial: 'glass_vial', water_beaker: 'glass_beaker', water_pail: 'pail' };
 /** Infusion mishap chance per second for each point of instability. */
@@ -128,6 +140,8 @@ export interface NotebookApi {
   goals(): MagicGoal[];
   /** Rod vis per primal and the best carried rod's capacity per pool. */
   vis(): { vis: Vis; capacity: number };
+  /** A vague sentence about your warp, or null when you carry none. */
+  unease(): string | null;
 }
 
 export interface DeskRow {
@@ -194,6 +208,7 @@ export interface MagicSnapshot {
   /** Legacy single rod charge (v1 saves); dropped on load. */
   charge?: number;
   vis?: Partial<Vis>;
+  warp?: number;
   crucibles?: [number, number, number, number, Aspects][];
   pedestals?: [number, number, number, string][];
   altars?: [number, number, number, string][];
@@ -208,6 +223,9 @@ export class Magic {
   research: ResearchState = freshResearch();
   /** Rod vis, one pool per primal, each capped by the best rod carried. */
   vis: Vis = emptyVis();
+  /** Warp: grows with strong infusions, mishaps and deep research; whispers and hunger at high levels. */
+  warp = 0;
+  private warpT = 0;
   /** Rolls for infusion mishaps (tests replace it). */
   rng: () => number = Math.random;
   wardS = 0;
@@ -314,6 +332,7 @@ export class Magic {
     const cap = this.bestRod()?.capacity ?? 0;
     for (const p of Object.keys(this.vis) as Primal[]) if (this.vis[p] > cap) this.vis[p] = cap;
     this.tickInfusion(dt);
+    this.tickWarp(dt);
     this.slowT += dt;
     if (this.slowT >= 1) {
       this.slowT -= 1;
@@ -335,6 +354,7 @@ export class Magic {
       return 'worked';
     }
     const key = target?.block.key;
+    if (held === SANITY_SOAP) return this.useSoap();
     const rod = this.heldRod();
     if (rod) {
       if (target && key === 'infusion_altar') return this.startInfusion(target);
@@ -347,6 +367,10 @@ export class Magic {
     if (key === 'arcane_pedestal') return this.usePedestal(target, held);
     if (key === 'infusion_altar') return this.useAltar(target, held);
     if (key === CRUCIBLE) return this.useCrucible(target, held);
+    if (key === ARCANE_BENCH) {
+      this.bus.emit('ui:open', { screen: { type: 'rune_desk', x: target.x, y: target.y, z: target.z, bench: true } });
+      return 'screen';
+    }
     if (key === RESEARCH_TABLE) {
       this.bus.emit('ui:open', { screen: { type: 'notebook', table: true } });
       return 'screen';
@@ -716,9 +740,9 @@ export class Magic {
 
   // ---- rune desk -----------------------------------------------------------------------------------------------------
 
-  desk(x: number, y: number, z: number): DeskApi {
+  desk(x: number, y: number, z: number, bench = false): DeskApi {
     return {
-      rows: () => ARCANE_RECIPES.map((r) => this.deskRow(r, x, y, z)),
+      rows: () => ARCANE_RECIPES.filter((r) => (r.bench === true) === bench).map((r) => this.deskRow(r, x, y, z)),
       make: (id) => this.deskMake(id, x, y, z),
     };
   }
@@ -744,7 +768,7 @@ export class Magic {
     for (const [a, n] of Object.entries(primalsOf(r.cost)) as [Primal, number][]) this.vis[a] -= n;
     this.player.give(r.output.item, r.output.count);
     this.stats.crafted++;
-    this.bus.emit('item:made', { item: r.output.item, count: r.output.count, station: 'rune_desk', recipeId: r.id });
+    this.bus.emit('item:made', { item: r.output.item, count: r.output.count, station: r.bench ? ARCANE_BENCH : 'rune_desk', recipeId: r.id });
     this.bus.emit('sfx', { name: 'infuse', x: x + 0.5, y: y + 1, z: z + 0.5 });
     const name = itemOrNull(r.output.item)?.name ?? r.output.item;
     this.toast(`Made ${name}`, r.output.item, 'good');
@@ -983,13 +1007,57 @@ export class Magic {
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
+    this.addWarp(r.id === 'clay_servant' || r.id === 'void_jar' ? 2 : 1);
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.bus.emit('item:made', { item: r.output.item, count: 1, station: 'infusion_altar', recipeId: r.id });
     this.toast(`Infused: ${itemOrNull(r.output.item)?.name ?? r.output.item} - take it from the altar`, r.output.item, 'good');
   }
 
+  // ---- warp ----------------------------------------------------------------------------------------------------------
+
+  addWarp(n: number): void {
+    this.warp = Math.max(0, Math.min(40, this.warp + n));
+  }
+
+  /** How the notebook words your warp (it never shows the number). */
+  uneaseText(): string | null {
+    if (this.warp < 1) return null;
+    if (this.warp < 4) return 'A faint unease follows you';
+    if (this.warp < 8) return 'Something watches from the corner of your eye';
+    if (this.warp < 14) return 'The air hums with attention, and you are not alone in it';
+    return 'Your thoughts echo back changed';
+  }
+
+  private tickWarp(dt: number): void {
+    if (this.warp < 2) return;
+    this.warpT += dt;
+    if (this.warpT < WARP_ROLL_S) return;
+    this.warpT = 0;
+    if (this.rng() >= Math.min(0.9, this.warp * 0.08)) return;
+    this.bus.emit('sfx', { name: 'cast', pitch: 0.4 });
+    if (this.warp >= 6 && this.rng() < 0.5) {
+      this.player.food = Math.max(0, (this.player.food ?? 0) - 2);
+      this.toast('A cold hollowness takes the warmth from your meal', undefined, 'warn');
+      return;
+    }
+    this.toast(WARP_WHISPERS[Math.floor(this.rng() * WARP_WHISPERS.length) % WARP_WHISPERS.length], undefined, 'warn');
+  }
+
+  private useSoap(): MagicOutcome {
+    if (this.warp <= 0) {
+      this.advise('You feel perfectly clear already');
+      return 'refused';
+    }
+    this.player.consumeHeld(1);
+    this.addWarp(-SOAP_WARP);
+    this.bus.emit('sfx', { name: 'essentia_pour' });
+    this.toast(this.warp > 0 ? 'You scrub at your thoughts; some of the strain lifts' : 'You feel perfectly clear', undefined, 'good');
+    return 'worked';
+  }
+
   /** An unstable infusion lashes out: half the time essentia already drawn splashes away, else a pedestal item flies off. */
   private mishap(f: Infusion): void {
+    this.addWarp(1);
     const paid = (Object.keys(f.paid) as Aspect[]).filter((a) => (f.paid[a] ?? 0) > 0);
     this.bus.emit('sfx', { name: 'cast', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 0.5 });
     if (paid.length && this.rng() < 0.5) {
@@ -1413,6 +1481,7 @@ export class Magic {
         if (r.ok) this.spendInk();
         if (r.solved) {
           const e = RESEARCH.find((x) => x.key === entry);
+          if (e?.age === 'forge') this.addWarp(1);
           this.toast(`Research done: ${e?.title ?? entry}`, undefined, 'good');
           this.bus.emit('sfx', { name: 'research_solve' });
         }
@@ -1435,6 +1504,7 @@ export class Magic {
       },
       goals: () => this.goals(),
       vis: () => ({ vis: { ...this.vis }, capacity: this.bestRod()?.capacity ?? 0 }),
+      unease: () => this.uneaseText(),
     };
   }
 
@@ -1464,6 +1534,7 @@ export class Magic {
     return {
       v: 1, research: this.research, jars, draws,
       vis: { ...this.vis },
+      warp: this.warp,
       crucibles: [...this.crucibles].filter(([, c]) => c.water || crucibleTotal(c) > 0).map(([k, c]) => [...parse3(k), c.water ? 1 : 0, { ...c.ess }]),
       pedestals: [...this.pedestals].map(([k, i]) => [...parse3(k), i]),
       altars: [...this.altars].map(([k, i]) => [...parse3(k), i]),
@@ -1500,6 +1571,7 @@ export class Magic {
         for (const [a, v] of Object.entries(row ?? {})) if (isAspect(a) && Array.isArray(v) && num(v[0])) m.set(a, { n: v[0], t: this.clock });
         if (m.size) this.draws.set(k, m);
       }
+    this.warp = num(s.warp) ? Math.max(0, Math.min(40, s.warp)) : 0;
     this.vis = emptyVis();
     if (s.vis && typeof s.vis === 'object') {
       for (const [p, n] of Object.entries(s.vis)) if (isAspect(p) && isPrimal(p) && num(n)) this.vis[p] = Math.max(0, Math.min(64, n));

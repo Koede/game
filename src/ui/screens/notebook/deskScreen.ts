@@ -13,11 +13,11 @@ import { injectNotebookCss } from './notebookScreen';
 
 const name = (item: string): string => itemOrNull(item)?.name ?? item;
 
-export function createDeskScreen(ctx: ScreenContext, api: DeskApi): GameScreen {
+export function createDeskScreen(ctx: ScreenContext, api: DeskApi, bench = false): GameScreen {
   injectNotebookCss();
   const body = h('div', { class: 'hw-nb' });
   const status = h('p', { class: 'hw-nb__text', attrs: { role: 'status' } });
-  const window = new Window({ title: 'Rune Desk', subtitle: 'Arcane work, paid in vis', size: 'md', fit: 'tall', body });
+  const window = new Window({ title: bench ? 'Arcane Workbench' : 'Rune Desk', subtitle: 'Arcane work, paid in vis', size: 'md', fit: 'tall', body });
   let signature = '';
 
   function render(): void {

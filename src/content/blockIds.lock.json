@@ -243,5 +243,6 @@
   "cam_drum": 241,
   "logic_gate": 242,
   "research_table": 243,
-  "crucible": 244
+  "crucible": 244,
+  "arcane_workbench": 245
 }

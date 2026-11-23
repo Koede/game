@@ -412,6 +412,8 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       row.appendChild(b);
     }
     if (fresh.length) out.push(row);
+    const unease = api.unease();
+    if (unease) out.push(h('p', { class: 'hw-nb__muted', text: unease }));
     const v = api.vis();
     if (v.capacity > 0) {
       const pools = h('div', { class: 'hw-nb__needs', attrs: { 'aria-label': 'Rod vis' } });

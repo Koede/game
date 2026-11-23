@@ -41,6 +41,7 @@ const tool = (key: string, name: string, age: number, desc: string): ItemSpec =>
 export const MAGIC_ITEMS: ItemSpec[] = [
   tool('field_notebook', 'Field Notebook', 0,
     'Aim it at anything and press Use to note its nature: you learn its aspects and gain lore. Use it at the sky to open the notes and the research boards.'),
+  { key: 'sanity_soap', name: 'Sanity Soap', category: 'misc', age: BRONZE, stack: 16, desc: 'A rough bar that smells of lye and clear water. Use it to scrub warp from your mind: it lifts three points.' },
   { ...tool('scribing_tools', 'Scribing Tools', 0,
     'A quill and a pot of ink. Every aspect you write onto research notes at a research table spends one stroke of ink; 64 strokes, then make new ones.'), wear: 64 },
   {
@@ -89,6 +90,11 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     key: 'rune_desk', name: 'Rune Desk', category: 'machine', age: BRONZE, hardness: 1.2, tool: 'axe', minTier: 0,
     textures: { top: 'magic_desk_top', side: 'magic_desk_side', bottom: 'magic_desk_side' },
     desc: 'Use it to make arcane things. Each pays in essentia from the jars within three blocks (or tubed to it) and the vials you carry.',
+  },
+  {
+    key: 'arcane_workbench', name: 'Arcane Workbench', category: 'machine', age: BRONZE, hardness: 1, tool: 'axe', minTier: 0,
+    textures: { top: 'magic_desk_top', side: 'magic_desk_side', bottom: 'magic_desk_side' },
+    desc: 'A bench for small arcane work: ordinary things made with a little vis from your rod. Use it to see what it can make.',
   },
   {
     key: 'crucible', name: 'Crucible', category: 'machine', age: 0, hardness: 2, tool: 'pickaxe', minTier: 0,

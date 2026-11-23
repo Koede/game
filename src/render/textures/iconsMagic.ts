@@ -101,6 +101,15 @@ const vials: PainterSet = Object.fromEntries(ASPECTS.map((a) => [`item_vial_${a.
 export const MAGIC_TEXTURES: PainterSet = {
   item_field_notebook: icon(notebook),
   item_scribing_tools: icon(scribing),
+  item_sanity_soap: icon((c) => {
+    c.rect(3, 6, 10, 6, P.rgb(0xd8e6ea));
+    c.rect(3, 6, 10, 1, P.rgb(0xf4fbfc));
+    c.rect(3, 11, 10, 1, P.rgb(0x9db7bf));
+    c.rect(5, 8, 6, 2, P.rgb(0xbff2f0));
+    c.set(4, 3, P.rgb(0xf4fbfc));
+    c.set(7, 2, P.rgb(0xbff2f0));
+    c.set(10, 4, P.rgb(0xf4fbfc));
+  }),
   item_glass_vial: icon((c) => vial(c, null)),
   item_vis_rod: icon(rod),
   ...vials,
