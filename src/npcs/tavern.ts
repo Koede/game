@@ -99,7 +99,9 @@ export function layoutBlocks(): Placement[] {
     put(x, 2, z, 'oak_log');
   }
   for (let x = 3; x <= 9; x++) {
-    for (let z = 10; z <= 13; z++) put(x, 3, z, 'plank');
+    // The front row is a slanted roof block, sloping down to the front like an eave; the rest are planks.
+    put(x, 3, 10, 'plank_roof', Facing.North);
+    for (let z = 11; z <= 13; z++) put(x, 3, z, 'plank');
     put(x, 1, 14, 'plank');
     put(x, 2, 14, 'plank');
   }
@@ -124,11 +126,13 @@ function box(put: Put, x0: number, y0: number, z0: number, x1: number, y1: numbe
 
 /** The staircase, the upper walls and roof, a balcony over the hall, two bedrooms and the sealed closet between them. */
 function upstairs(put: Put, W: number, D: number): void {
-  // Steps up the west wall: one block higher each, the top two cells open in the floor above.
-  put(1, 1, 4, 'plank');
-  box(put, 1, 1, 3, 1, 2, 3, 'plank');
-  box(put, 1, 1, 2, 1, 3, 2, 'plank');
-  box(put, 1, 1, 1, 1, 4, 1, 'plank');
+  // A staircase up the west wall, rising north over five cells (z 5 -> 1): each is a stair block on a column of planks, so
+  // the climb is two half-steps per cell and the top tread is level with the upper floor.
+  for (let i = 0; i < 5; i++) {
+    const z = 5 - i;
+    if (i > 0) box(put, 1, 1, z, 1, i, z, 'plank');
+    put(1, i + 1, z, 'plank_stairs', Facing.South);
+  }
   // Walls (corner logs, a log beam under the roof) and the new roof.
   for (let x = 0; x <= W; x++) {
     for (let z = 0; z <= D; z++) {
@@ -154,8 +158,8 @@ function upstairs(put: Put, W: number, D: number): void {
   box(put, 1, 6, 5, W - 1, 9, 5, 'plank');
   for (const x of [3, 9]) box(put, x, 6, 5, x, 7, 5, 'air');
   box(put, 5, 6, 6, 7, 9, 7, 'plank');
-  // The hole in the floor over the whole stair, so there is head room to climb it.
-  box(put, 1, TAVERN_H, 1, 1, TAVERN_H, 4, 'air');
+  // The hole in the floor over the upper part of the stair (z 2-4), so there is head room to climb it.
+  box(put, 1, TAVERN_H, 2, 1, TAVERN_H, 4, 'air');
   // Bedroom west: two pallets along the wall, a chest and a nightstand with a torch on each; bedroom east the same.
   for (const z of [6, 7]) {
     put(1, 6, z, 'wool_bedding');

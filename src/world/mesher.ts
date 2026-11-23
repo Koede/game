@@ -9,7 +9,7 @@
 import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelFacing, type ChunkMeshData } from '../core/types';
 import {
   BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, GLOWS, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
-  SHAPE_BUCKET, SHAPE_CUBE, SHAPE_FENCE, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
+  SHAPE_BUCKET, SHAPE_CUBE, SHAPE_FENCE, SHAPE_SLOPE, SHAPE_STAIRS, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
 } from './blockTables';
 import type { ChunkNeighborhood } from './chunk';
 import { ID } from './ids';
@@ -21,6 +21,7 @@ import {
 import { LIQ, liquidShape } from './meshLiquid';
 import { bucket, cup } from './meshCup';
 import { fence } from './meshFence';
+import { slope, stairs } from './meshStairs';
 import { pipe } from './meshPipe';
 import { isHiddenShellCell } from './shellHide';
 import { stationShape } from './meshStation';
@@ -263,6 +264,8 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
             if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
             else slab(builders[BATCH[id]], faceSlot(v), p, x, y, z);
             break;
+          case SHAPE_STAIRS: stairs(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
+          case SHAPE_SLOPE: slope(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
           case SHAPE_FENCE: fence(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
           case SHAPE_PIPE: pipe(builders[BATCH[id]], faceSlot(v), id, p, x, y, z); break;
           case SHAPE_CUP: cup(builders[BATCH_CUTOUT], faceSlot(v), id, p, x, y, z); break;

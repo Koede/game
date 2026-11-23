@@ -245,5 +245,9 @@
   "research_table": 243,
   "crucible": 244,
   "arcane_workbench": 245,
-  "fence": 246
+  "fence": 246,
+  "plank_stairs": 247,
+  "stone_brick_stairs": 248,
+  "plank_roof": 249,
+  "stone_brick_roof": 250
 }

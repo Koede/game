@@ -46,6 +46,9 @@ for (const device of devices) {
       ['5-cellar', [6, -3, 6], [6, -3, 1]],
       ['6-cellar-false-wall', [6, -3, 6], [6, -2, 8]],
       ['7-stairwell-from-yard', [11, 1, 13], [11, -3, 9]],
+      ['8-stairs-up', [1, 1, 7], [1, 6, 1]],
+      ['9-yard-eave', [6, 1, 9], [6, 3, 10]],
+      ['9b-yard-eave-side', [1, 1, 11], [6, 3, 10]],
     ];
     for (const [name, p, l] of spots) {
       await report.step(name, async () => {

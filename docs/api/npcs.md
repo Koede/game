@@ -67,8 +67,8 @@ Each person has `assets/npcs/<id>_faces.jpg`: six head-and-shoulders cells (neut
   paid), a second Use within 10 s buys it back.
 
 ## The expanded tavern (tavern.ts)
-- Upper floor (`TAVERN_H` 5 up to `TAVERN_TOP` 10): stairs of plank blocks up the west wall (x = 1, z 4 -> 1, the floor above opened
-  along the whole run for head room) reach a walkway along z = 4. The hall ceiling is open over x 4-10, z 1-2 (the balcony
+- Upper floor (`TAVERN_H` 5 up to `TAVERN_TOP` 10): stair blocks on plank columns up the west wall (x = 1, five cells, z 5 -> 1, ending level with the
+  upper floor; the floor above is opened over z 2-4 for head room) reach a walkway along z = 4. The hall ceiling is open over x 4-10, z 1-2 (the balcony
   overlooks the door, the dance floor and the front of the bar) behind a railing on the ledge at z = 3 and at x = 3. Doors at x 3 and 9 lead
   to two bedrooms (x 1-4 and 8-11, z 6-7) with wool pallets, chests and torches.
 - Secret closet: a 1 x 2 x 2 closet inside a three-block wall between the bedrooms, sealed by two blocks of red brick in the wall

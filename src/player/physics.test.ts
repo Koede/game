@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GRAVITY, JUMP_VELOCITY, MAX_HEALTH, SPRINT_SPEED, WALK_SPEED } from '../core/constants';
 import { createBus } from '../core/context';
+import { blockId, blockOf } from '../core/registry';
+import { Facing, makeVoxel } from '../core/types';
 import { PlayerPhysics, STEP_HEIGHT } from './physics';
 import { flatWorld, idle, makePlayer, PatchyWorld } from './testKit';
 import { WATER_FALLING, WATER_SOURCE, flowingWater } from '../world/water';
@@ -137,6 +139,45 @@ describe('walls and ceilings', () => {
     expect(player.position.z).toBeLessThan(-3);
     expect(climbed).toBeCloseTo(0.5, 2);
     expect(STEP_HEIGHT).toBeLessThan(1);
+  });
+});
+
+describe('stairs', () => {
+  const stair = (world: ReturnType<typeof flatWorld>, x: number, y: number, z: number, facing: Facing): void =>
+    void world.setVoxel(x, y, z, makeVoxel(blockId('plank_stairs'), facing), 'sim');
+
+  it('walks up a flight of stairs without jumping, half a block at a time', () => {
+    const world = flatWorld();
+    // Walking north (-Z) the stairs must be placed facing south: low at the front (south), rising away.
+    stair(world, 0, 10, -4, Facing.South);
+    world.fill(0, 10, -5, 0, 10, -5, 'plank');
+    stair(world, 0, 11, -5, Facing.South);
+    world.fill(0, 10, -6, 0, 11, -6, 'plank');
+    stair(world, 0, 12, -6, Facing.South);
+    const def = blockOf(world.getVoxel(0, 10, -4));
+    expect([def.key, def.shape, def.solid]).toEqual(['plank_stairs', 'stairs', true]);
+    const player = makePlayer();
+    const physics = new PlayerPhysics(world, player);
+    world.fill(-1, 12, -9, 1, 12, -7, 'plank'); // a landing at the top
+    let top = 0;
+    let atLanding = 0;
+    for (let i = 0; i < 60 * 3; i++) {
+      physics.step(DT, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+      top = Math.max(top, player.position.y);
+      if (player.position.z > -7.5) atLanding = player.position.y;
+    }
+    expect(top).toBeGreaterThanOrEqual(12.99); // up to the level of the landing (its top is at y 13)
+    expect(atLanding).toBeGreaterThanOrEqual(12.99);
+  });
+
+  it('a stair placed facing away is a riser: it blocks a walker at the half-block step above it', () => {
+    const world = flatWorld();
+    stair(world, 0, 10, -4, Facing.North); // front towards -Z, high side towards the walker (+Z)
+    const player = makePlayer();
+    const physics = new PlayerPhysics(world, player);
+    for (let i = 0; i < 60 * 2; i++) physics.step(DT, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+    // The riser is a full block high on the walker's side: with the auto-step of half a block it cannot be climbed.
+    expect(player.position.z).toBeGreaterThan(-3.6);
   });
 });
 

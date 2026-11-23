@@ -6,7 +6,8 @@
 import { PLAYER_HEIGHT, PLAYER_WIDTH } from '../core/constants';
 import type { Vec3 } from '../core/math';
 import { blockOf } from '../core/registry';
-import { WORLD_HEIGHT, type IWorld } from '../core/types';
+import { STAIR_BOXES } from '../core/stairShape';
+import { WORLD_HEIGHT, voxelFacing, type IWorld } from '../core/types';
 
 export const HALF_WIDTH = PLAYER_WIDTH / 2;
 /** Contact tolerance: touching is not overlapping. */
@@ -19,7 +20,33 @@ export function solidHeight(world: IWorld, x: number, y: number, z: number): num
   if (!world.isLoaded(x, z)) return 1;
   const def = blockOf(world.getVoxel(x, y, z));
   if (!def.solid) return 0;
-  return def.shape === 'slab' ? 0.5 : 1;
+  return def.shape === 'slab' || def.shape === 'stairs' || def.shape === 'slope' ? 0.5 : 1;
+}
+
+// The boxes of one cell for sweepAxis: normally the whole cell (up to `solidHeight`), but stairs and slopes are two boxes.
+const BX0 = [0, 0];
+const BZ0 = [0, 0];
+const BX1 = [1, 1];
+const BZ1 = [1, 1];
+const BH = [0, 0];
+
+function boxesAt(world: IWorld, x: number, y: number, z: number): number {
+  if (y >= 0 && y < WORLD_HEIGHT && world.isLoaded(x, z)) {
+    const v = world.getVoxel(x, y, z);
+    const def = blockOf(v);
+    if (def.solid && (def.shape === 'stairs' || def.shape === 'slope')) {
+      const boxes = STAIR_BOXES[voxelFacing(v)];
+      for (let i = 0; i < 2; i++) {
+        [BX0[i], BZ0[i], BX1[i], BZ1[i], BH[i]] = boxes[i];
+      }
+      return 2;
+    }
+  }
+  const h = solidHeight(world, x, y, z);
+  BX0[0] = BZ0[0] = 0;
+  BX1[0] = BZ1[0] = 1;
+  BH[0] = h;
+  return h === 0 ? 0 : 1;
 }
 
 /** Whether a box of the given height in cell (x, y, z) intersects the player's box at feet position `pos`. */
@@ -58,21 +85,26 @@ export function sweepAxis(world: IWorld, pos: Vec3, axis: 0 | 1 | 2, d: number):
   for (let y = cy0; y <= cy1; y++) {
     for (let z = cz0; z <= cz1; z++) {
       for (let x = cx0; x <= cx1; x++) {
-        const h = solidHeight(world, x, y, z);
-        if (h === 0) continue;
-        const top = y + h;
-        if (axis === 0) {
-          if (!(top > minY + EPS && y < maxY - EPS && z + 1 > minZ + EPS && z < maxZ - EPS)) continue;
-          if (d > 0 && x >= maxX - EPS) allowed = Math.min(allowed, Math.max(0, x - maxX));
-          else if (d < 0 && x + 1 <= minX + EPS) allowed = Math.max(allowed, Math.min(0, x + 1 - minX));
-        } else if (axis === 1) {
-          if (!(x + 1 > minX + EPS && x < maxX - EPS && z + 1 > minZ + EPS && z < maxZ - EPS)) continue;
-          if (d > 0 && y >= maxY - EPS) allowed = Math.min(allowed, Math.max(0, y - maxY));
-          else if (d < 0 && top <= minY + EPS) allowed = Math.max(allowed, Math.min(0, top - minY));
-        } else {
-          if (!(top > minY + EPS && y < maxY - EPS && x + 1 > minX + EPS && x < maxX - EPS)) continue;
-          if (d > 0 && z >= maxZ - EPS) allowed = Math.min(allowed, Math.max(0, z - maxZ));
-          else if (d < 0 && z + 1 <= minZ + EPS) allowed = Math.max(allowed, Math.min(0, z + 1 - minZ));
+        const n = boxesAt(world, x, y, z);
+        for (let i = 0; i < n; i++) {
+          const x0 = x + BX0[i];
+          const x1 = x + BX1[i];
+          const z0 = z + BZ0[i];
+          const z1 = z + BZ1[i];
+          const top = y + BH[i];
+          if (axis === 0) {
+            if (!(top > minY + EPS && y < maxY - EPS && z1 > minZ + EPS && z0 < maxZ - EPS)) continue;
+            if (d > 0 && x0 >= maxX - EPS) allowed = Math.min(allowed, Math.max(0, x0 - maxX));
+            else if (d < 0 && x1 <= minX + EPS) allowed = Math.max(allowed, Math.min(0, x1 - minX));
+          } else if (axis === 1) {
+            if (!(x1 > minX + EPS && x0 < maxX - EPS && z1 > minZ + EPS && z0 < maxZ - EPS)) continue;
+            if (d > 0 && y >= maxY - EPS) allowed = Math.min(allowed, Math.max(0, y - maxY));
+            else if (d < 0 && top <= minY + EPS) allowed = Math.max(allowed, Math.min(0, top - minY));
+          } else {
+            if (!(top > minY + EPS && y < maxY - EPS && x1 > minX + EPS && x0 < maxX - EPS)) continue;
+            if (d > 0 && z0 >= maxZ - EPS) allowed = Math.min(allowed, Math.max(0, z0 - maxZ));
+            else if (d < 0 && z1 <= minZ + EPS) allowed = Math.max(allowed, Math.min(0, z1 - minZ));
+          }
         }
       }
     }

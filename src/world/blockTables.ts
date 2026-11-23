@@ -20,10 +20,12 @@ export const SHAPE_PIPE = 7;
 export const SHAPE_CUP = 8;
 export const SHAPE_BUCKET = 9;
 export const SHAPE_FENCE = 10;
+export const SHAPE_STAIRS = 11;
+export const SHAPE_SLOPE = 12;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
   pipe: SHAPE_PIPE,
-  cup: SHAPE_CUP, bucket: SHAPE_BUCKET, fence: SHAPE_FENCE,
+  cup: SHAPE_CUP, bucket: SHAPE_BUCKET, fence: SHAPE_FENCE, stairs: SHAPE_STAIRS, slope: SHAPE_SLOPE,
 };
 
 export const BATCH_OPAQUE = 0;
