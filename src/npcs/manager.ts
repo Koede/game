@@ -22,6 +22,7 @@ import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
 import { FavourBoard, type Favour } from './favours';
+import { festivalOn, festivalServices, newFestivalState, type FestivalState } from './festival';
 import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
 import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
@@ -77,6 +78,8 @@ export interface NpcSnapshot {
   spar?: SparState;
   /** The bar's stock, till and upgrades (upkeep.ts). */
   upkeep?: ReturnType<Upkeep['toJSON']>;
+  /** The seasonal festival: contests entered (by festival day), medals won, and whether it switched the jukebox on. */
+  festival?: FestivalState;
 }
 
 /** What the manager needs from the game. */
@@ -145,7 +148,9 @@ export class NpcManager {
   private gossipSaid: string[] = [];
   private drinkLog: DrinkLog = { day: 0, n: {} };
   private readonly bar = new Upkeep();
-  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
+  private fest: FestivalState = newFestivalState();
+  private festNow = false;
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, () => this.bar.built.has('stage')), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
@@ -382,6 +387,39 @@ export class NpcManager {
   /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
   serviceMenu(id: 'rosa' | 'gruk' = 'rosa'): ServiceMenu {
     return id === 'gruk' ? this.gruk : this.rosa;
+  }
+
+  /** The festival night is on right now. */
+  festivalNow(): boolean {
+    return this.festNow;
+  }
+
+  /** Medals won at the festival contests, all time. */
+  festivalRecord(): { gold: number; silver: number; bronze: number } {
+    return { gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze };
+  }
+
+  /** From dusk to dawn of a festival day the jukebox plays and the dancers dance (unless the player had it on already). */
+  private tickFestival(): void {
+    const host = this.host;
+    if (!host || !this.at) return;
+    const on = festivalOn(host.day(), this.phase());
+    if (on === this.festNow) return;
+    this.festNow = on;
+    if (on) {
+      this.toast('The festival night begins at the Hearth & Anvil: music, dancing and three contests. Ask Rosa to enter.');
+      if (!this.jukeboxOn) {
+        this.jukeboxOn = true;
+        this.beatS = 0;
+        this.beat = 0;
+        this.danceS = 0;
+        this.fest.juke = true;
+      }
+    } else {
+      this.toast('The festival is over. The hall is quiet again.');
+      if (this.fest.juke) this.jukeboxOn = false;
+      this.fest.juke = false;
+    }
   }
 
   /** Units on Rosa's bar. */
@@ -703,6 +741,7 @@ export class NpcManager {
     this.rosa.tick(dt);
     this.gruk.tick(dt);
     this.tickBar(dt);
+    this.tickFestival();
     this.tickGossip(dt);
     if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
@@ -737,7 +776,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(),
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
     };
   }
 
@@ -760,6 +799,14 @@ export class NpcManager {
     }
     this.favours.load(r.favours);
     this.bar.load(r.upkeep);
+    this.fest = newFestivalState();
+    this.festNow = false;
+    const fe = r.festival;
+    if (fe && typeof fe === 'object') {
+      for (const [k, v] of Object.entries(fe.entered ?? {})) if ((k === 'dance' || k === 'cook' || k === 'brew') && typeof v === 'number' && Number.isFinite(v)) this.fest.entered[k] = v;
+      for (const k of ['gold', 'silver', 'bronze'] as const) if (typeof fe[k] === 'number' && Number.isFinite(fe[k])) this.fest[k] = Math.max(0, Math.floor(fe[k]));
+      this.fest.juke = fe.juke === true;
+    }
     const sp = r.spar;
     this.spar = { xp: 0, day: 0, today: 0 };
     if (sp && typeof sp === 'object') for (const k of ['xp', 'day', 'today'] as const) if (typeof sp[k] === 'number' && Number.isFinite(sp[k])) this.spar[k] = Math.max(0, Math.floor(sp[k]));
