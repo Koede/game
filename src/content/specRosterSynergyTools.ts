@@ -11,3 +11,11 @@ export const SYNERGY_TOOLS_SPEC = {
   worldOnly: ['stripped_oak_log', 'stripped_pine_log', 'rivet_plate_block'],
   textures: 9,
 };
+
+/** Goat milk and wool (src/content/areas/synergy_animals.ts). */
+export const SYNERGY_ANIMALS_SPEC = {
+  blocks: ['wool_bedding'],
+  items: ['milk_pail', 'milk_beaker', 'wool', 'shears', 'cheese', 'butter', 'milk_tea', 'milk_coffee'],
+  /** Eight icons and the bedding tile. */
+  textures: 9,
+};

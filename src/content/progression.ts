@@ -27,6 +27,7 @@
  * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
+import { ANIMAL_YIELDS } from './animalYields';
 import { areaNaturalBlocks } from './area';
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
@@ -296,6 +297,7 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     // Animals live in the world from the start and can be hunted by hand.
     for (const c of CREATURES) {
       for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;
+      for (const key of ANIMAL_YIELDS[c.key] ?? []) if (gain(key, `animal:${c.key}`)) changed = true;
     }
     // So do the automatons (not on Peaceful). Only what one always carries counts: chance drops and relics are luck.
     for (const c of hostiles ? AUTOMATONS : []) {

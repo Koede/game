@@ -37,6 +37,7 @@ import {
 } from './constants';
 import { separate } from './crowd';
 import { createMob, feedRefusal, rollDrops } from './mob';
+import { YIELD_COOLDOWN_S, yieldRefusal, type YieldKind } from './yields';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
 import { advanceTimers, growUp } from './life';
 import { eagerPartnerNear, farthestWild, retireFar } from './population';
@@ -228,6 +229,20 @@ export class MobManager {
       const name = m.spec.name.toLowerCase();
       this.bus.emit('toast', { text: `This ${name} is eager: feed another ${name} nearby`, kind: 'info' });
     }
+    return { ok: true };
+  }
+
+  /**
+   * Milk or shear an animal (yields.ts): refused with a reason for a toast while it is not ready; otherwise its timer
+   * starts and the caller hands over the item. Does not make the animal tame.
+   */
+  harvest(id: number, kind: YieldKind): FeedResult {
+    const m = this.byId.get(id);
+    const refused = yieldRefusal(m, kind);
+    if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing there' };
+    if (kind === 'milk') m.milkS = YIELD_COOLDOWN_S.milk;
+    else m.woolS = YIELD_COOLDOWN_S.wool;
+    this.bus.emit('sfx', { name: kind === 'milk' ? 'splash' : 'harvest', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     return { ok: true };
   }
 

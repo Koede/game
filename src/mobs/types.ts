@@ -38,6 +38,9 @@ export interface Mob {
   eagerS: number;
   /** Seconds before it can breed again. */
   cooldownS: number;
+  /** Seconds before it gives milk again, and wool again (0 = ready; see yields.ts). */
+  milkS: number;
+  woolS: number;
   /** Fed or born to fed parents: the player's animal, never retired to make room. */
   tame: boolean;
   /** Natural healing clock: negative right after a hurt, +1 health each time it reaches HEAL_EVERY_S. */
@@ -180,6 +183,9 @@ export interface SavedMob {
   ageS: number;
   eagerS: number;
   cooldownS: number;
+  /** Seconds left until it gives again; absent in old saves (ready). */
+  milkS?: number;
+  woolS?: number;
   /** Absent in old saves (then guessed from eagerS / cooldownS). */
   tame?: boolean;
   /**

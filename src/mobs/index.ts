@@ -5,6 +5,7 @@
 export { MobManager, type MobManagerOptions } from './manager';
 export { mobPlayerOf } from './adapter';
 export { hitDamage, rollDrops } from './mob';
+export { YIELD_COOLDOWN_S, YIELDING_SPECIES, isShorn, yieldRefusal, yields, type YieldKind } from './yields';
 export { MOBS_SNAPSHOT_VERSION } from './persistence';
 export { CALL_RANGE, CORPSE_FADE_S, FLASH_S, KNOCK_H, KNOCK_V, VOID_Y } from './constants';
 export { TARGET_MARGIN } from './targets';

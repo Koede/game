@@ -64,6 +64,34 @@ stone slab, `brick`/`stone_brick` -> slabs, pillars, lintels and chimneys, `bron
 fertiliser (it was a dead end), `sugar` and `water_pail` -> bush regrowth, `lava_bucket` -> glass and brick, `hand_vacuum` ->
 piles, `wrench` -> turning, `torch`/boiling vessels -> hand warmth. Tests: `content.test.ts` (roster, solver), `crafting.test.ts`.
 
+## Goat milk and wool (owner addition)
+
+Goats can be milked and sheared without dying. Hooks only: `src/mobs/yields.ts` (timers, refusal text), `MobManager.harvest`,
+two `Mob` fields (`milkS`, `woolS`, seconds left; saved with the animal, absent in old saves = ready; they tick in `life.ts`),
+and `AnimalHands.use` in `src/player/animals.ts`. Content: `src/content/areas/synergy_animals.ts`, icons and tile in
+`src/render/textures/areas/synergy_animals.ts`, solver source `src/content/animalYields.ts`. Tests: `src/player/milking.test.ts`
+(12 cases: pail and beaker, cooldown and refusal toasts, kid and non-goat pass-through, save/restore, old saves, shears, flint
+and bronze axe blades, separate timers, and the recipe ties).
+
+| Use | Result |
+|---|---|
+| empty pail on a goat | Bucket of Goat Milk (`milk_pail`), 300 s cooldown per goat |
+| empty glass beaker on a goat | Beaker of Goat Milk (`milk_beaker`), same timer |
+| shears, flint axe or bronze axe on a goat | 2 wool, 1 use of the tool, 600 s regrowth per goat |
+
+| Chain | Recipe |
+|---|---|
+| brewing | Milk Tea / Milk Coffee (dried tea or ground coffee + milk beaker + clay cup, bench): a food mug, 5 food and 2 min Well Fed. Not a seventh brewed drink: the six drink buffs and `six_cups` stay fixed |
+| baking | `dough_milk` (flour + milk beaker -> 2 dough), `bread_butter` (dough + butter -> 2 bread) |
+| cooking | `hearth_stew_milk` (2 stews, bucket comes back) |
+| sugar chain | `sugar_cake_milk` (2 cakes, bucket comes back) |
+| hand stations | Cheese (2 milk beakers cured 180 s on the drying rack: heat dries it too), Butter (2 milk beakers, 8 mortar strokes) |
+| wool | `cloth_wool` at the loom, `padded_coat_wool`, `bellows_wool`, Wool Bedding (block, warmth radius 1), Shears (bench: 2 bronze plate) |
+
+Notes: the bronze bucket is not a milk container (it is kept for lava). Hand-station recipes eat their beakers. A shorn goat is
+not drawn differently (the renderer is not touched). Wool Bedding does not set a spawn point. The Codex lists the new items by
+itself from the registries; the solver counts milk and wool as animal sources.
+
 ## Not done (ideas left)
 
 Lenses and windows for essentia jars, heat-carrying vents, chimney draught on furnaces, hand-station and crate secondary
