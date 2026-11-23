@@ -127,6 +127,15 @@ export function buildHearthModel(spec: FormedSpec): ModelData {
     }
   });
 
+  // ---- accent strip under the cornice (the tier's colour, lit when running) ---------------------------------------
+  faces.slice(0, 4).forEach((f, fi) => {
+    for (let ia = 0; ia < f.A; ia++) {
+      const key = `${fi}:${cellKey(f.cell(ia, H - 1))}`;
+      if (special.has(key) || key === mouth) continue;
+      faceBox(b, f, ia === 0 ? c : ia, H - 0.3, ia === f.A - 1 ? f.A - c : ia + 1, H - 0.2, 0, 0.035, MAT.strip, st.accent);
+    }
+  });
+
   // ---- the furnace mouth: a frame round the controller cell -------------------------------------------------------
   if (spec.controller) {
     const f = faces[faceIndex(spec.controller.normal)];
@@ -139,6 +148,12 @@ export function buildHearthModel(spec: FormedSpec): ModelData {
     faceBox(b, f, ia + 1, ib - w, ia + 1 + w, ib + 1 + w, 0, p, MAT.trim, T);
     faceBox(b, f, ia, ib + 1, ia + 1, ib + 1 + w, 0, p, MAT.trim, T);
     faceBox(b, f, ia, ib - w, ia + 1, ib, 0, p, MAT.trim, T);
+    // The controller's display face: a bright panel on the wall just above the mouth.
+    const above = `${faceIndex(spec.controller.normal)}:${cellKey(f.cell(ia, ib + 1))}`;
+    if (ib + 1 < f.B - 1 && !special.has(above)) {
+      faceBox(b, f, ia + 0.18, ib + 1.3, ia + 0.82, ib + 1.7, 0, 0.04, MAT.trim, [0.08, 0.08, 0.1]);
+      faceBox(b, f, ia + 0.24, ib + 1.35, ia + 0.76, ib + 1.65, 0, 0.05, MAT.display, st.accent);
+    }
   }
 
   // ---- roof, or open-top hood -----------------------------------------------------------------------------------
@@ -154,6 +169,8 @@ export function buildHearthModel(spec: FormedSpec): ModelData {
       b.box(W - 0.34 - k, H + 0.13, 0.34 + k, W - 0.34, y1, D - 0.34 - k, MAT.metal, st.accent, FACE.ny);
     }
     if (spec.tier >= 6) b.box(0.5, H + 0.13, 0.5, W - 0.5, H + 0.2, D - 0.5, MAT.gold, st.accent, FACE.ny);
+    if (spec.tier === 5) roofRing(b, W, H, D, 'coil', 1.6, -1, MAT.conduit, st.accent, false);
+    if (spec.tier >= 6) roofRing(b, W, H, D, 'ring', 1.2, 1, MAT.gold, st.accent, true);
     for (const p of spec.parts) if (p.kind === 'electrode') electrode(b, p.cell, st);
   } else {
     hood(b, W, H, D, st);
@@ -242,14 +259,53 @@ function bay(b: MeshBuilder, f: Face, kind: PartKind, st: Style, a0: number, a1:
     case 'blower':
       back(MAT.trim, [0.17, 0.17, 0.19]);
       faceBox(b, f, x0 + 0.04, y0 + 0.04, x1 - 0.04, y1 - 0.04, -d, 0.12, MAT.metal, [0.44, 0.44, 0.48]);
-      for (let k = 0; k < 4; k++) {
-        const y = y0 + 0.12 + k * ((y1 - y0 - 0.24) / 3);
-        b.quad(at(x0 + 0.1, y - 0.02, 0.122), at(x1 - 0.1, y - 0.02, 0.122), at(x1 - 0.1, y + 0.02, 0.122), at(x0 + 0.1, y + 0.02, 0.122), n, MAT.slot, [0.04, 0.04, 0.05]);
-      }
+      // The tuyere: a bellows plate that pumps in and out, and a fan that spins up with the fire.
+      b.part('bellows', at(cx, cy, 0.12), [{ type: 'osc', dir: n, amp: 0.045, hz: 1.4, floor: 0 }]);
+      faceBox(b, f, x0 + 0.12, y0 + 0.12, x1 - 0.12, y1 - 0.12, 0.12, 0.16, MAT.trim, [0.3, 0.3, 0.34]);
+      b.endPart();
+      b.part('fan', at(cx, cy, 0.17), [{ type: 'spin', axis: n, rate: 18 }]);
+      faceBox(b, f, cx - 0.24, cy - 0.035, cx + 0.24, cy + 0.035, 0.16, 0.2, MAT.metal, [0.75, 0.75, 0.8]);
+      faceBox(b, f, cx - 0.035, cy - 0.24, cx + 0.035, cy + 0.24, 0.16, 0.2, MAT.metal, [0.75, 0.75, 0.8]);
+      b.prism(at(cx, cy, 0.16), n, 0.07, 0.07, 6, MAT.gold, [0.9, 0.75, 0.3]);
+      b.endPart();
       break;
     default:
       back(MAT.trim, [0.2, 0.2, 0.22]);
   }
+}
+
+/** A box turned by `ang` about the vertical through (cx, cz): the segments of the roof rings. */
+function turnedBox(b: MeshBuilder, cx: number, cz: number, y0: number, y1: number, len: number, thick: number, ang: number, mat: Mat, color: V3): void {
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const pt = (u: number, v: number, y: number): V3 => [cx + u * c - v * s, y, cz + u * s + v * c];
+  const hl = len / 2, ht = thick / 2;
+  const ring: [number, number][] = [[-hl, -ht], [hl, -ht], [hl, ht], [-hl, ht]];
+  b.poly(ring.map(([u, v]) => pt(u, v, y1)), [0, 1, 0], mat, color);
+  for (let i = 0; i < 4; i++) {
+    const [u0, v0] = ring[i];
+    const [u1, v1] = ring[(i + 1) % 4];
+    const nu = v1 - v0, nv = -(u1 - u0);
+    b.quad(pt(u0, v0, y0), pt(u1, v1, y0), pt(u1, v1, y1), pt(u0, v0, y1), [nu * c - nv * s, 0, nu * s + nv * c], mat, color);
+  }
+}
+
+/** A ring of segments on the roof that spins with the machine (the Starhearth's gold ring, the Plasma furnace's coil). */
+function roofRing(b: MeshBuilder, W: number, H: number, D: number, name: string, rate: number, dir: number, mat: Mat, color: V3, orbs: boolean): void {
+  const cx = W / 2, cz = D / 2;
+  const r = Math.max(0.6, Math.min(W, D) / 2 - 0.75);
+  const y0 = H + 0.2;
+  b.part(name, [cx, y0, cz], [{ type: 'spin', axis: [0, 1, 0], rate: rate * dir }]);
+  const seg = 8;
+  for (let i = 0; i < seg; i++) {
+    const a = (i / seg) * Math.PI * 2;
+    const chord = 2 * r * Math.sin(Math.PI / seg) + 0.03;
+    turnedBox(b, cx + Math.cos(a + Math.PI / seg) * r, cz + Math.sin(a + Math.PI / seg) * r, y0, y0 + 0.14, chord, 0.2, a + Math.PI / seg + Math.PI / 2, mat, color);
+  }
+  if (orbs) for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    turnedBox(b, cx + Math.cos(a) * r, cz + Math.sin(a) * r, y0 + 0.14, y0 + 0.34, 0.2, 0.2, a, MAT.glow, [1, 0.85, 0.5]);
+  }
+  b.endPart();
 }
 
 /** An electrode rod standing on the roof in its ceiling cell: graphite shaft, collar and a hot tip. */
@@ -258,7 +314,10 @@ function electrode(b: MeshBuilder, cell: Cell, st: Style): void {
   const cz = cell[2] + 0.5;
   const y = cell[1] + 1.13;
   b.prism([cx, y, cz], [0, 1, 0], 0.2, 0.1, 8, MAT.metal, st.accent);
+  // The rod lowers into the chamber while the arc is on.
+  b.part('electrode', [cx, y, cz], [{ type: 'ramp', dir: [0, -1, 0], amount: 0.45, ease: 'inOut' }]);
   b.prism([cx, y + 0.1, cz], [0, 1, 0], 0.11, 0.9, 8, MAT.slot, [0.1, 0.1, 0.12], MAT.glow, [1, 0.8, 0.5]);
+  b.endPart();
 }
 
 /** The open top: a tapering collar over the rim with the opening lined and lit, like a chimney hood. */
@@ -277,6 +336,10 @@ function hood(b: MeshBuilder, W: number, H: number, D: number, st: Style): void 
   lip(k1, D - k2, W - k1, D - k1);
   lip(k1, k2, k2, D - k2);
   lip(W - k2, k2, W - k1, D - k2);
+  // A damper over the opening that swings up while the fire burns.
+  b.part('damper', [W / 2, y1 + 0.03, k2], [{ type: 'swing', axis: [1, 0, 0], amount: -1.35, ease: 'back' }]);
+  b.box(k2 - 0.05, y1, k2 - 0.05, W - k2 + 0.05, y1 + 0.06, D - k2 + 0.05, MAT.metal, [0.35, 0.33, 0.32], FACE.ny);
+  b.endPart();
   const lo = H - 0.3;
   b.quad([k2, y1, k2], [W - k2, y1, k2], [W - k2, lo, k2], [k2, lo, k2], [0, 0, 1], MAT.lining, st.lining);
   b.quad([W - k2, y1, D - k2], [k2, y1, D - k2], [k2, lo, D - k2], [W - k2, lo, D - k2], [0, 0, -1], MAT.lining, st.lining);
@@ -347,6 +410,7 @@ export const hearthKind: FormedKind = {
         controller: [e.x, e.y, e.z],
         tempC: typeof e.tempC === 'number' ? e.tempC : 0,
         gold: e.ignited === true,
+        active: e.lit === true || e.ignited === true,
       });
     }
   },

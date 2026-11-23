@@ -49,6 +49,8 @@ export interface FormedInstance {
   tempC: number;
   /** True for a structure that burns gold whatever its temperature reads (the lit Starhearth). */
   gold: boolean;
+  /** Running (fire lit / powered): energy lines and the display run brighter than when idle. */
+  active: boolean;
 }
 
 export interface FormedKind {

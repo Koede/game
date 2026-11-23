@@ -3,6 +3,8 @@
  * a material id and a colour per vertex. Winding is fixed up from the expected outward normal, so callers list a
  * quad's corners in any order. Pure and node-testable.
  */
+import { MAX_PARTS, type PartDef, type Track } from '../parts/track';
+
 export type V3 = readonly [number, number, number];
 
 /** Material ids (read by the shader as aData.w). */
@@ -18,6 +20,10 @@ export const MAT = {
   slot: 8,
   lining: 9,
   conduit: 10,
+  /** Bright display face above the furnace mouth. */
+  display: 11,
+  /** Emissive accent strip of the tier's colour. */
+  strip: 12,
 } as const;
 export type Mat = (typeof MAT)[keyof typeof MAT];
 
@@ -28,6 +34,10 @@ export interface ModelData {
   /** r, g, b (0..1) and the material id, per vertex. */
   data: Float32Array;
   indices: Uint16Array | Uint32Array;
+  /** Part slot per vertex: 0 static, i + 1 for `parts[i]` (the shader skins by it). */
+  partIds: Float32Array;
+  /** The moving parts of the model (empty for a static one). */
+  parts: PartDef[];
   /** Box size in blocks (the model's own extent is a little larger: plinth, hood, electrodes). */
   size: V3;
   vertexCount: number;
@@ -45,6 +55,25 @@ export class MeshBuilder {
   private nrm: number[] = [];
   private dat: number[] = [];
   private idx: number[] = [];
+  private prt: number[] = [];
+  private current = 0;
+  private readonly defs: PartDef[] = [];
+
+  /**
+   * Starts a moving part: everything added until `endPart()` belongs to it and follows its tracks about `pivot`.
+   * `parent` is another part's index (from an earlier `part()`), or -1. Returns this part's index.
+   */
+  part(name: string, pivot: V3, tracks: Track[], parent = -1): number {
+    if (this.defs.length >= MAX_PARTS) throw new Error(`MeshBuilder: more than ${MAX_PARTS} parts`);
+    this.defs.push({ name, parent, pivot, tracks });
+    this.current = this.defs.length;
+    return this.defs.length - 1;
+  }
+
+  /** Back to the static model. */
+  endPart(): void {
+    this.current = 0;
+  }
 
   /** One flat polygon of 3 or 4 corners facing `n`. */
   poly(pts: readonly V3[], n: V3, mat: Mat, color: V3): void {
@@ -61,6 +90,7 @@ export class MeshBuilder {
       this.pos.push(p[0], p[1], p[2]);
       this.nrm.push(nx, ny, nz);
       this.dat.push(color[0], color[1], color[2], mat);
+      this.prt.push(this.current);
     }
     for (let i = 1; i + 1 < pts.length; i++) {
       if (dot >= 0) this.idx.push(base, base + i, base + i + 1);
@@ -131,6 +161,8 @@ export class MeshBuilder {
       positions,
       normals: Float32Array.from(this.nrm),
       data: Float32Array.from(this.dat),
+      partIds: Float32Array.from(this.prt),
+      parts: this.defs.map((d) => ({ ...d })),
       indices: n <= 0xffff ? Uint16Array.from(this.idx) : Uint32Array.from(this.idx),
       size,
       vertexCount: n,

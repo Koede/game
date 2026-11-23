@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { GameBus } from '../../core/context';
 import type { IWorld } from '../../core/types';
 import type { WorldUniforms } from '../materials';
+import { evalParts, MAX_PARTS, newMotion, stepMotion, type Motion } from '../parts/track';
 import { heatColor, heatGlow } from '../tech/heat';
 import { hearthKind } from './hearthModel';
 import type { ModelData } from './meshBuilder';
@@ -31,6 +32,7 @@ export function modelGeometry(m: ModelData): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.BufferAttribute(m.positions, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(m.normals, 3));
   g.setAttribute('aData', new THREE.BufferAttribute(m.data, 4));
+  g.setAttribute('aPart', new THREE.BufferAttribute(m.partIds, 1));
   g.setIndex(new THREE.BufferAttribute(m.indices, 1));
   const b = m.bounds;
   // The snap throws pieces out ~1.4 blocks: pad the bounds so a model is never culled mid-animation.
@@ -42,6 +44,8 @@ export function modelGeometry(m: ModelData): THREE.BufferGeometry {
 interface Drawn {
   mesh: THREE.Mesh;
   material: THREE.ShaderMaterial;
+  motion: Motion;
+  parts: Float32Array;
 }
 
 export class FormedLayer {
@@ -71,6 +75,8 @@ export class FormedLayer {
         uHeat: { value: 0 },
         uHeatCol: { value: new THREE.Vector3(1, 0.5, 0.2) },
         uFlash: { value: 0 },
+        uActive: { value: 0 },
+        uParts: { value: new Float32Array(16 * (MAX_PARTS + 1)) },
       },
     });
     this.tracker = new FormedTracker(world, bus, {
@@ -96,9 +102,18 @@ export class FormedLayer {
       if (inst.gold) this.heat.set(STAR_GOLD);
       else heatColor(inst.tempC, this.heat);
       (u.uHeatCol.value as THREE.Vector3).set(this.heat[0], this.heat[1], this.heat[2]);
-      u.uHeat.value = inst.gold ? 1 : heatGlow(inst.tempC);
+      const k = inst.gold ? 1 : heatGlow(inst.tempC);
+      u.uHeat.value = k;
       u.uSnap.value = snap;
       u.uFlash.value = flash;
+      // Idle <-> running eases over about a third of a second.
+      u.uActive.value += ((inst.active ? 1 : 0) - u.uActive.value) * Math.min(1, dt * 4);
+      // Parts move with the machine's real state: speed follows the fire / power, spinning up and coasting down.
+      if (t.model.parts.length > 0) {
+        stepMotion(d.motion, dt, inst.active ? Math.max(0.35, k) : 0);
+        evalParts(t.model.parts, d.motion, d.parts);
+        u.uParts.value = d.parts;
+      }
       tris += t.model.triangles;
     }
     this.stats.models = this.drawn.size;
@@ -122,7 +137,10 @@ export class FormedLayer {
     mesh.updateMatrix();
     mesh.updateMatrixWorld(true);
     this.group.add(mesh);
-    this.drawn.set(t.id, { mesh, material });
+    const parts = new Float32Array(16 * (MAX_PARTS + 1));
+    for (let i = 0; i < parts.length; i += 16) for (let j = 0; j < 4; j++) parts[i + j * 5] = 1;
+    material.uniforms.uParts = { value: parts };
+    this.drawn.set(t.id, { mesh, material, motion: newMotion(), parts });
   }
 
   private rebuild(t: TrackedModel): void {

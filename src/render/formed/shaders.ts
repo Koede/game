@@ -4,8 +4,11 @@
  * the furnace temperature, and the formation snap (each cell slides in from outside, staggered, ending in a flash).
  * Material ids are MAT in meshBuilder.ts.
  */
+import { PARTS_GLSL } from '../parts/track';
+
 export const FORMED_VERTEX = /* glsl */ `
 precision highp float;
+${PARTS_GLSL}
 in vec4 aData;       // rgb colour, w material id
 uniform float uSnap; // 0 pieces apart .. 1 settled
 uniform vec2 uFog;
@@ -15,18 +18,20 @@ out vec3 vN;
 flat out vec4 vData;
 out float vFog;
 void main() {
-  vec3 p = position;
+  mat4 pm = partMatrix();
+  vec3 p = (pm * vec4(position, 1.0)).xyz;
+  vec3 nrm = mat3(pm) * normal;
   if (uSnap < 1.0) {
     vec3 cell = floor(position - normal * 0.02);
     float h = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
     float k = clamp(uSnap * 1.3 - h * 0.3, 0.0, 1.0);
     k = 1.0 - pow(1.0 - k, 3.0);
-    p += normal * (1.0 - k) * (0.5 + h * 0.9);
+    p += nrm * (1.0 - k) * (0.5 + h * 0.9);
   }
   vec4 world = modelMatrix * vec4(p, 1.0);
   vLocal = position;
   vWorld = world.xyz;
-  vN = normal;
+  vN = nrm;
   vData = aData;
   vFog = smoothstep(uFog.x, uFog.y, length(world.xyz - cameraPosition));
   gl_Position = projectionMatrix * viewMatrix * world;
@@ -39,6 +44,7 @@ uniform float uTime;
 uniform float uHeat;      // 0..1 how hot the structure glows
 uniform vec3 uHeatCol;
 uniform float uFlash;     // the snap's flash, 0..1
+uniform float uActive;    // 0 idle .. 1 running (eased)
 uniform vec3 uSkyLight;
 uniform vec3 uSunDir;
 uniform vec3 uBlockLight;
@@ -91,7 +97,7 @@ void main() {
       // Casing: an inlaid line across the middle of each block that pulses with the heat.
       float line = 1.0 - smoothstep(0.0, 0.03, abs(f.y - 0.5));
       float pulse = 0.55 + 0.45 * sin(uTime * 2.0 + (vLocal.x + vLocal.z) * 2.5);
-      emit = line * (0.25 + 0.75 * uHeat) * pulse * 0.55;
+      emit = line * (0.2 + 0.8 * uHeat) * (0.35 + 0.65 * uActive) * pulse * 0.55;
       emitCol = mix(vec3(0.3, 0.75, 0.95), uHeatCol, 0.35);
     }
   } else if (mat == 3) {
@@ -121,8 +127,21 @@ void main() {
   } else if (mat == 10) {
     float pulse = 0.55 + 0.45 * sin(uTime * 3.0 + (vLocal.x + vLocal.z) * 3.0);
     col = vec3(0.1, 0.3, 0.35);
-    emit = (0.35 + 0.65 * uHeat) * pulse;
+    emit = (0.3 + 0.7 * uHeat) * (0.3 + 0.7 * uActive) * pulse;
     emitCol = vec3(0.35, 0.9, 1.0);
+  } else if (mat == 11) {
+    // Display face: scanlines, running a bright heat-coloured readout, idle a dim standby glow.
+    float scan = 0.75 + 0.25 * sin(vLocal.y * 90.0 + uTime * 6.0 * uActive);
+    float bars = step(0.5, fract(vLocal.x * 4.0 + vLocal.z * 4.0 + floor(uTime * 2.0) * 0.37 * uActive));
+    col = vec3(0.02);
+    emit = (0.25 + 0.75 * uActive) * scan * (0.7 + 0.3 * bars);
+    emitCol = mix(vData.rgb, uHeatCol, 0.5 * uActive);
+  } else if (mat == 12) {
+    // Accent strip: the tier colour, a light chasing along it while running.
+    float run = 0.5 + 0.5 * sin(uTime * 4.0 - (vLocal.x + vLocal.z) * 3.0);
+    emit = 0.22 + uActive * (0.35 + 0.5 * run);
+    emitCol = vData.rgb;
+    col = vData.rgb * 0.4;
   }
   vec3 L = uSkyLight * (0.36 + 0.64 * sun) + uBlockLight * uHeat * 0.35 + uAmbient;
   vec3 lit = col * L + uHeatCol * uHeat * glow + emitCol * emit + vec3(1.0, 0.82, 0.55) * uFlash;

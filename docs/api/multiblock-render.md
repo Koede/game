@@ -68,3 +68,45 @@ uniforms). Chunk meshes get *cheaper*: hidden shell cells emit nothing. `formed.
 skip, the lifecycle and a ten-hearth budget (all ten built within 300 ms, a steady scan under 25 ms).
 
 Stats: `RenderStats.tech.formed` = models drawn.
+
+## Part-and-track animation (`src/render/parts`, shared)
+
+Oritech/Create-style moving parts, data-driven and renderer-agnostic. A model is static geometry plus a tree of named rigid
+**parts**; each part has a `pivot` and **tracks**. All parts of a model are skinned by index in one draw call
+(`aPart` attribute + `uParts[]` mat4 uniform, `PARTS_GLSL` in `parts/track.ts`).
+
+```ts
+const b = new MeshBuilder();
+b.box(...);                                         // static
+const i = b.part('fan', pivot, [{ type: 'spin', axis: [0, 0, 1], rate: 18 }]);   // parent = 4th arg (a part index)
+b.box(...); b.endPart();                            // everything between part() and endPart() belongs to the part
+const model = b.build(size);                        // model.parts (PartDef[]) + model.partIds (per vertex)
+```
+
+| Track | Effect (about the part's pivot) |
+|---|---|
+| `spin {axis, rate, phase?}` | rotates `rate` rad/s x speed (angle integrated: smooth spin-up, coast-down) |
+| `osc {dir, amp, hz, phase?, floor?}` | pistons / pumping arms / bellows; stroke scales with speed (`floor` keeps a minimum) |
+| `ramp {dir, amount, ease?}` | slides by `amount` x ease(level): electrodes lowering, arms extending |
+| `swing {axis, amount, ease?}` | rotates by `amount` rad x ease(level): lids, doors, levers (`ease: 'back'` clunks open) |
+| `scale {axis, amount, ease?}` | stretches about the pivot |
+
+Eases: `linear in out inOut sine back`. Child parts compose on their parent. At most `MAX_PARTS` (24) per model.
+
+**Motion**: `Motion {speed, level, angle, cycles, phase}`; `stepMotion(m, dt, target, timing?)` eases `speed` towards `target`
+(0..1: drive it from the machine's real state: rpm / max, temperature, load) with `spinUp` / `coast` time constants
+(a flywheel passes a long `coast`), and `level` with `settle`. `phase` is `Phase.Idle / Starting / Running / Stopping`.
+`evalParts(parts, motion | motion[], out)` writes slot 0 = identity (static) and slot i + 1 = part i. Pure and node-testable.
+
+To use it outside formed models: build geometry with `MeshBuilder` (or fill `aPart` yourself), add `PARTS_GLSL` to your
+vertex shader (`vec3 p = (partMatrix() * vec4(position, 1.0)).xyz;`, rotate the normal with `mat3(partMatrix())`), keep one
+`Float32Array(16 * (MAX_PARTS + 1))` per instance as `uParts`, and per frame call `stepMotion` + `evalParts`. See `formed/layer.ts`.
+
+### Hearth parts
+Blower: bellows plate pumping + a spinning fan (speed follows the fire); electrode rod lowers while the arc runs; open-top hood has
+a damper that swings up when lit; Plasma roof coil and Starhearth gold ring spin (opposite ways); the hearth also has accent strips
+under the cornice and a display face above the mouth that go from standby to a running readout (`FormedInstance.active`).
+Target speed = `max(0.35, heat glow)` while active (the fire lit / ignited), 0 otherwise.
+
+Not yet converted: the existing workshop / machine renderers (`src/render/workshop`, `src/render/machines`) - they can move onto this
+system family by family.
