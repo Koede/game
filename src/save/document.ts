@@ -107,6 +107,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   // Settings saved before spec 19 have neither: they keep the defaults (Normal, normal size).
   if (DIFFICULTIES.includes(raw.difficulty as Difficulty)) out.difficulty = raw.difficulty as Difficulty;
   if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
+  if (typeof raw.reduceMotion === 'boolean') out.reduceMotion = raw.reduceMotion;
   if (typeof raw.autoStep === 'boolean') out.autoStep = raw.autoStep;
   if (typeof raw.moveAssist === 'boolean') out.moveAssist = raw.moveAssist;
   return out;

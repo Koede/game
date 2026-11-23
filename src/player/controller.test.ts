@@ -178,4 +178,34 @@ describe('PlayerController', () => {
     run(0.5);
     expect(player.health).toBe(20);
   });
+
+  it('Reduce motion: no sprint FOV kick, no view bob, no landing dip', () => {
+    const { view, input, settings, run } = setup();
+    settings.reduceMotion = true;
+    input.next.moveZ = 1;
+    input.next.sprint = true;
+    run(1.5);
+    expect(view.fov).toBeCloseTo(settings.fov, 1);
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < 40; i++) {
+      run(DT);
+      minY = Math.min(minY, view.view.y);
+      maxY = Math.max(maxY, view.view.y);
+    }
+    expect(maxY - minY).toBeLessThan(1e-6);
+  });
+
+  it('dips the eye on a hard landing and recovers', () => {
+    const { player, view, controller, run } = setup();
+    controller.teleport(0.5, 16, 0.5);
+    let lowest = Infinity;
+    for (let i = 0; i < 90; i++) {
+      controller.update(DT);
+      if (player.onGround) lowest = Math.min(lowest, view.view.y);
+    }
+    expect(lowest).toBeLessThan(10 + PLAYER_EYE - 0.05);
+    run(1);
+    expect(view.view.y).toBeCloseTo(10 + PLAYER_EYE, 3);
+  });
 });

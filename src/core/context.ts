@@ -31,6 +31,8 @@ export interface Settings {
   moveAssist: boolean;
   /** Walk up one-block ledges without jumping (on by default for touch). */
   autoStep: boolean;
+  /** No view bob, sprint FOV kick, landing dip or screen shake (starts on when the device asks for reduced motion). */
+  reduceMotion: boolean;
 }
 
 /** Spec 19.3. */
@@ -49,7 +51,10 @@ export const isTouchFirst = (): boolean =>
   typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 /** The defaults for a touch-first device or not. Saved choices are merged over them (src/save). */
-export const defaultSettings = (touchFirst: boolean): Settings => ({
+/** The device asks for less motion (the OS accessibility switch). False outside a browser. */
+export const prefersReducedMotion = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Settings => ({
   renderDistance: touchFirst ? PHONE_RENDER_DISTANCE : DESKTOP_RENDER_DISTANCE,
   fov: 72,
   mouseSensitivity: 1,
@@ -62,10 +67,11 @@ export const defaultSettings = (touchFirst: boolean): Settings => ({
   uiScale: 'normal',
   moveAssist: true,
   autoStep: touchFirst,
+  reduceMotion,
 });
 
 /** This device's defaults, fixed when the module loads (in node: the desktop ones). */
-export const DEFAULT_SETTINGS: Settings = defaultSettings(isTouchFirst());
+export const DEFAULT_SETTINGS: Settings = defaultSettings(isTouchFirst(), prefersReducedMotion());
 
 /** Who currently owns the player's attention. Written by the UI and the controls, read by everybody. */
 export interface InputState {

@@ -14,6 +14,7 @@ import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
 import { Interaction } from './interaction';
+import { landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
@@ -112,6 +113,8 @@ export class PlayerController {
   private stepDistance = 0;
   /** Eye height lost to sneaking, eased in and out. */
   private sneakDip = 0;
+  /** Eye height lost to a hard landing, easing back. */
+  private landDip = 0;
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
   /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
@@ -249,6 +252,7 @@ export class PlayerController {
     if (r.enteredWater) this.sfx('splash');
     else if (r.landedFrom > LAND_SOUND_FROM) this.sfx('land');
     if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;
+    if (r.landedFrom > 0 && !this.settings.reduceMotion) this.landDip = Math.max(this.landDip, landingDip(r.landedFrom));
     if (p.onGround && r.walked > 0) {
       this.stepDistance += r.walked;
       const every = r.sneaking ? SNEAK_STEP_EVERY : r.sprinting ? SPRINT_STEP_EVERY : STEP_EVERY;
@@ -260,7 +264,7 @@ export class PlayerController {
     this.sneakDip += ((r.sneaking ? SNEAK_EYE_DROP : 0) - this.sneakDip) * (1 - Math.exp(-12 * dt));
     // View bob follows the distance walked, fading in and out with ground speed.
     const speed = Math.hypot(p.velocity.x, p.velocity.z);
-    const bobTarget = p.onGround && !this.physics.inLiquid ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
+    const bobTarget = p.onGround && !this.physics.inLiquid && !this.settings.reduceMotion ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
     this.bobAmount += (bobTarget - this.bobAmount) * (1 - Math.exp(-10 * dt));
     if (p.onGround) this.bobPhase += r.walked * BOB_FREQ * Math.PI * 2;
     this.sprintFov(dt, r.sprinting && speed > WALK_SPEED * 0.9);
@@ -285,7 +289,7 @@ export class PlayerController {
   }
 
   private sprintFov(dt: number, sprinting: boolean): void {
-    const target = this.settings.fov + (sprinting ? SPRINT_FOV_KICK : 0);
+    const target = this.settings.fov + (sprinting && !this.settings.reduceMotion ? SPRINT_FOV_KICK : 0);
     let next = this.fov < 0 ? target : this.fov + (target - this.fov) * (1 - Math.exp(-8 * dt));
     if (Math.abs(next - target) < 0.05) next = target;
     if (next !== this.fov) {
@@ -334,12 +338,13 @@ export class PlayerController {
   private updateView(dt: number): void {
     const p = this.player;
     this.stepOffset *= Math.exp(-14 * dt);
+    this.landDip = settle(this.landDip, 9, dt);
     if (Math.abs(this.stepOffset) < 1e-3) this.stepOffset = 0;
     const bobY = Math.abs(Math.sin(this.bobPhase)) * BOB_Y * this.bobAmount;
     const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip, z, p.yaw, p.pitch);
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip, z, p.yaw, p.pitch);
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;
