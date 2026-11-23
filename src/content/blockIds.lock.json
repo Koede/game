@@ -244,5 +244,6 @@
   "logic_gate": 242,
   "research_table": 243,
   "crucible": 244,
-  "arcane_workbench": 245
+  "arcane_workbench": 245,
+  "waypoint_stone": 246
 }

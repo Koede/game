@@ -17,6 +17,7 @@ import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
 import { SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
+import { EXPLORE_SPEC } from './specRosterExplore';
 
 type Numbers = Record<string, number>;
 
@@ -424,3 +425,6 @@ SPEC.maxTextures += SYNERGY_ANIMALS_SPEC.textures;
 // The artificer's attuned tools (docs/SYNERGY_PLAN.md section 2) come last.
 SPEC.items.push(...SYNERGY_ARTIFICER_SPEC.items);
 SPEC.maxTextures += SYNERGY_ARTIFICER_SPEC.textures;
+
+// World exploration (waypoint stones, ...; src/content/areas/world_*.ts): only the texture budget is pinned.
+SPEC.maxTextures += EXPLORE_SPEC.textures;
