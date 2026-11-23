@@ -59,9 +59,14 @@ CHARS = {
             'hips': dict(Lua=-42, Lfa=60, Rua=42, Rfa=-60),
             'up': dict(Lua=-42, Lfa=60, Rua=160, Rfa=176),               # wrench up, other hand on the hip
             'wide': dict(Lua=-95, Lfa=-95, Rua=95, Rfa=95),
+            'think': dict(Lua=-10, Lfa=150, Rua=42, Rfa=-60),
         },
         leg=(468, 892, 612, 1182),
         script=['chest', 'cheek', 'hips', 'up'],
+        # clip 3: hand to the chin with the other hand on the hip and a sway, hands clasped at the chest swaying side to side, a little bow
+        frames=[('think', 0, s, 'stand') for s in (0, 0, -1, -1, 0, 0)] + [('think', b, 0, 'stand') for b in (0, 1, 1, 0, 1, 0)] +
+               [('chest', 0, s, 'stand') for s in (0, -1, -1, 0, 1, 1, 0, 0)] + [('chest', b, 0, 'stand') for b in (1, 2, 2, 1, 0)] +
+               [('think', 0, s, 'stand') for s in (0, 1, 1, 0, 0)],
     ),
     'mara': dict(
         cut=['larm', 'lbraid', 'rbraid'],
@@ -80,6 +85,11 @@ CHARS = {
         },
         leg=(484, 900, 548, 1180),
         script=['chest', 'cheek', 'hips', 'up'],
+        # clip 2: hand up by the hat with a bounce, a cross-step sway with knees in, the arm out, the same to the other side
+        frames=[('up', b, 0, 'stand') for b in (0, 1, 1)] + [('up', 0, -1, 'knee'), ('up', 1, -1, 'knee')] +
+               [('hips', b, 0, 'stand') for b in (0, 1, 2, 1, 0)] + [('cheek', 0, s, 'stand') for s in (0, 1, 1, 1, 0)] +
+               [('up', 0, s, 'stand') for s in (0, 1, 1, 0, 0)] + [('cheek', 0, 1, 'knee'), ('cheek', 1, 1, 'knee'), ('cheek', 1, 0, 'stand'), ('chest', 0, 0, 'stand'), ('chest', 1, 0, 'stand')] +
+               [('chest', b, 0, 'stand') for b in (0, 1, 2, 1, 0)],
     ),
     'bram': dict(
         cut=['staff', 'purse'],
@@ -98,6 +108,11 @@ CHARS = {
         },
         leg=(250, 1040, 406, 1178),
         script=['chest', 'cheek', 'hips', 'up'],
+        # clip 4: bounce and sway on the spot, the staff raised high like a pointed finger, a lean with the purse jingling, a jig to finish
+        frames=[('chest', b, s, 'stand') for b, s in ((0, 0), (1, 0), (1, -1), (0, -1), (1, 0), (0, 0))] +
+               [('cheek', b, 0, 'stand') for b in (0, 1, 1, 0, 1, 0)] + [('up', 0, s, 'stand') for s in (0, 1, 1, 1, 0, 0)] +
+               [('hips', b, -1, 'stand') for b in (0, 1, 0, 1, 0, 0)] + [('chest', 0, 0, 'kick'), ('chest', 1, 0, 'kick'), ('chest', 0, 0, 'stand'),
+                                                                        ('chest', 0, 0, 'knee'), ('chest', 1, 0, 'knee'), ('chest', 0, 0, 'stand')],
     ),
 }
 
@@ -215,7 +230,9 @@ def build(id_):
     lx0, ly0, lx1, ly1 = cfg['leg']
     leg_box = (int(lx0 * k), int((ly0 - top) * k), int(math.ceil(lx1 * k)) + 1, H)
     legs_top = leg_box[1]
-    frames = [frame(posed[f[0]], f, leg_box, legs_top) for f in frames_for(cfg['script'])]
+    script = cfg.get('frames') or frames_for(cfg['script'])
+    assert len(script) == 30, f'{id_}: {len(script)} frames, the game plays 30'
+    frames = [frame(posed[f[0]], f, leg_box, legs_top) for f in script]
     Image.fromarray(np.concatenate(frames, axis=1), 'RGBA').save(os.path.join(HERE, '..', f'{id_}_anim.png'), optimize=True)
     return frames
 

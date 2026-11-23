@@ -218,6 +218,12 @@ def cut_away(id_, face, names):
         for y, x in zip(*np.where(m)):
             src = None
             toward = 1 if x < mid else -1
+            if mode == 'down':
+                yy = y + 1
+                while yy < H and allm[yy, x]:
+                    yy += 1
+                if yy < H:
+                    src = a[yy, x]
             if mode == 'mirror' and abs(x - mid) < half:
                 mx = int(2 * mid - x)
                 if 0 <= mx < W and not allm[y, mx]:
