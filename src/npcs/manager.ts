@@ -15,10 +15,18 @@ import { LinePicker, clockHM, clockText, type Phase } from './dialogue';
 import { BOUNTIES, stackPrice } from './economy';
 import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
 import { ORC_HIRE } from './scripts/orc';
-import { FIRE_SPOTS, TAVERN_START, buildTavern } from './tavern';
+import { FIRE_SPOTS, GUEST_BEDS, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
+import { ServiceMenu, type TavernPort } from './services';
+import { ROOM_SERVICE } from './rooms';
+import { FavourBoard, type Favour } from './favours';
+import { festivalOn, festivalServices, newFestivalState, type FestivalState } from './festival';
+import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
+import { sparLevel, sparService, type SparState } from './sparring';
+import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
+import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 
 export interface NpcView {
   id: string;
@@ -38,6 +46,8 @@ export interface NpcView {
   dancing: boolean;
   /** Seconds since the jukebox started (the dance is a pure function of this). */
   danceS: number;
+  /** A speech bubble over their head (overheard gossip), or null. */
+  bubble: string | null;
 }
 
 export interface NpcSnapshot {
@@ -58,6 +68,18 @@ export interface NpcSnapshot {
   /** What Old Bram has bought, newest last: item, count, coin he paid. */
   shelf?: [string, number, number][];
   giftDay?: Record<string, number>;
+  /** Rosa's drinks served on `day`. */
+  drinks?: { day: number; n: Record<string, number> };
+  /** Gossip: the slot last held (`day:slot`) and the exchanges heard, newest last. */
+  gossip?: { last: string; said: string[] };
+  /** Favours pinned to the quest board (favours.ts). */
+  favours?: ReturnType<FavourBoard['toJSON']>;
+  /** Sparring with Gruk: bouts fought, and the day's tally. */
+  spar?: SparState;
+  /** The bar's stock, till and upgrades (upkeep.ts). */
+  upkeep?: ReturnType<Upkeep['toJSON']>;
+  /** The seasonal festival: contests entered (by festival day), medals won, and whether it switched the jukebox on. */
+  festival?: FestivalState;
 }
 
 /** What the manager needs from the game. */
@@ -74,6 +96,10 @@ export interface NpcHost {
   advice(role: 'witch' | 'barkeep' | 'artificer'): string | null;
   /** Keeps a hearth in the tavern burning. */
   tendFire?(x: number, y: number, z: number): void;
+  /** Skips the night to dawn: rested, warm (a paid bed). */
+  sleepToDawn?(bed?: { x: number; y: number; z: number }): void;
+  /** Gives the player a timed buff (Rosa's drinks). */
+  grantBuff?(buff: TavernBuff, seconds: number): void;
   companion: CompanionHost;
 }
 
@@ -112,6 +138,19 @@ export class NpcManager {
   private clockS = 0;
   private readonly greetedAt = new Map<string, number>();
   private readonly lines: LinePicker;
+  /** What Rosa sells (rooms, drinks, ...): see services.ts. */
+  private readonly favours = new FavourBoard();
+  private spar: SparState = { xp: 0, day: 0, today: 0 };
+  /** What Gruk sells besides his arm: a bout in the hall. */
+  private readonly gruk = new ServiceMenu([sparService(() => this.spar)]);
+  private gossip: Running | null = null;
+  private gossipLast = '';
+  private gossipSaid: string[] = [];
+  private drinkLog: DrinkLog = { day: 0, n: {} };
+  private readonly bar = new Upkeep();
+  private fest: FestivalState = newFestivalState();
+  private festNow = false;
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, () => this.bar.built.has('stage')), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
@@ -180,6 +219,58 @@ export class NpcManager {
     return p;
   }
 
+  /** Distance in blocks between two people right now. */
+  private apart(a: string, b: string): number {
+    const na = NPCS.find((n) => n.id === a);
+    const nb = NPCS.find((n) => n.id === b);
+    if (!na || !nb) return Infinity;
+    const [ax, az] = this.where(na);
+    const [bx, bz] = this.where(nb);
+    return Math.hypot(ax - bx, az - bz);
+  }
+
+  /** Starts the day's gossip when its slot is open, two regulars are close and the player is near enough to hear. */
+  private tickGossip(dt: number): void {
+    const host = this.host;
+    const o = this.at;
+    if (!host || !o) return;
+    if (this.gossip) {
+      this.gossip = advance(this.gossip, dt);
+      return;
+    }
+    const tod = host.timeOfDay();
+    const slot = slotAt(tod);
+    const key = `${host.day()}:${slot}`;
+    if (slot < 0 || key === this.gossipLast) return;
+    const p = host.companion.player();
+    const near = (id: string): boolean => {
+      const n = NPCS.find((x) => x.id === id)!;
+      const [x, z] = this.where(n);
+      return Math.hypot(o[0] + x - p.x, o[2] + z - p.z) <= HEAR_RANGE;
+    };
+    const pool = eligible(tod, (a, b) => this.apart(a, b), new Set(this.gossipSaid)).filter((e) => near(e.a) && near(e.b));
+    if (pool.length === 0) return;
+    const ex = pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))];
+    this.gossipLast = key;
+    this.gossipSaid.push(ex.id);
+    this.gossipSaid = this.gossipSaid.slice(-6);
+    this.gossip = { ex, at: 0, left: 4.2 };
+  }
+
+  /** The bar sells while the tavern is open (not at night); a turned day sells a night and collects rent. */
+  private tickBar(dt: number): void {
+    const host = this.host;
+    if (!host || !this.at) return;
+    this.bar.tick(dt, this.phase() !== 'night', this.rng);
+    const got = this.bar.dayRoll(host.day(), this.rng);
+    if (got > 0) this.toast(`While you were away the bar took ${got} coin. Ask Rosa for the till (${Math.floor(this.bar.till)} waiting).`);
+  }
+
+  /** The conversation running now, for the UI and tests: who speaks and what. */
+  overheard(): { id: string; text: string } | null {
+    return bubbleOf(this.gossip);
+  }
+
   /** Current trust of a person 0..100. */
   trustOf(id: string): number {
     return this.trust[id] ?? 0;
@@ -194,6 +285,7 @@ export class NpcManager {
     const o = this.at;
     if (!o) return [];
     const { h, m } = clockHM(this.host?.timeOfDay() ?? 0);
+    const bubble = bubbleOf(this.gossip);
     return NPCS.map((n) => {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
@@ -204,6 +296,7 @@ export class NpcManager {
         y: hired ? this.companion.y : o[1] + n.at[1],
         z: hired ? this.companion.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
+        bubble: bubble?.id === n.id ? bubble.text : null,
       };
     });
   }
@@ -259,6 +352,8 @@ export class NpcManager {
     if (npc.role === 'jukebox') return this.useJukebox(npc);
     const gift = npc.kind === 'person' ? this.giveGift(npc) : null;
     if (gift !== null) return gift;
+    const stocked = this.stockBar(npc);
+    if (stocked !== null) return stocked;
     if (npc.role === 'hermit') return this.useHermit(npc);
     if (!this.gifted.has(npc.id) && npc.gift.length > 0) {
       this.gifted.add(npc.id);
@@ -267,6 +362,13 @@ export class NpcManager {
       return npc.giftLine;
     }
     if (npc.role === 'orc') return this.useOrc(npc);
+    if (npc.role === 'barkeep') {
+      const taken = this.rosa.take(this.port(npc));
+      if (taken !== null) {
+        this.say(npc, taken);
+        return taken;
+      }
+    }
     const n = (this.spoken[npc.id] ?? 0) + 1;
     this.spoken[npc.id] = n;
     const bank = npc.bank!;
@@ -275,7 +377,110 @@ export class NpcManager {
     if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' ? this.host?.advice(npc.role) ?? null : null);
     if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, line);
+    if (npc.role === 'barkeep') {
+      const pitch = this.rosa.pitch(this.port(npc));
+      if (pitch !== null) this.say(npc, pitch);
+    }
     return line;
+  }
+
+  /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
+  serviceMenu(id: 'rosa' | 'gruk' = 'rosa'): ServiceMenu {
+    return id === 'gruk' ? this.gruk : this.rosa;
+  }
+
+  /** The festival night is on right now. */
+  festivalNow(): boolean {
+    return this.festNow;
+  }
+
+  /** Medals won at the festival contests, all time. */
+  festivalRecord(): { gold: number; silver: number; bronze: number } {
+    return { gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze };
+  }
+
+  /** From dusk to dawn of a festival day the jukebox plays and the dancers dance (unless the player had it on already). */
+  private tickFestival(): void {
+    const host = this.host;
+    if (!host || !this.at) return;
+    const on = festivalOn(host.day(), this.phase());
+    if (on === this.festNow) return;
+    this.festNow = on;
+    if (on) {
+      this.toast('The festival night begins at the Hearth & Anvil: music, dancing and three contests. Ask Rosa to enter.');
+      if (!this.jukeboxOn) {
+        this.jukeboxOn = true;
+        this.beatS = 0;
+        this.beat = 0;
+        this.danceS = 0;
+        this.fest.juke = true;
+      }
+    } else {
+      this.toast('The festival is over. The hall is quiet again.');
+      if (this.fest.juke) this.jukeboxOn = false;
+      this.fest.juke = false;
+    }
+  }
+
+  /** Units on Rosa's bar. */
+  barStock(): number {
+    return this.bar.units();
+  }
+
+  /** Coin in Rosa's till, waiting for the player. */
+  till(): number {
+    return this.bar.till;
+  }
+
+  /** Upgrades built so far ('stage', 'rooms2', 'rooms3'). */
+  upgrades(): string[] {
+    return [...this.bar.built];
+  }
+
+  /** Hands food or a brew to Rosa for the bar. Null when she is not the one spoken to or it is not stock. */
+  private stockBar(npc: NpcDef): string | null {
+    const held = this.host?.held();
+    if (npc.role !== 'barkeep' || !held || stockValue(held.item) <= 0) return null;
+    const took = this.bar.add(held.item, held.count);
+    if (took <= 0) {
+      const line = 'The bar is full to the rafters. Let it sell down first.';
+      this.say(npc, line);
+      return line;
+    }
+    this.host?.takeHeld(took);
+    stockLine(this.port(npc), held.item, took, stockValue(held.item));
+    const line = 'On the bar it goes. I will keep the books.';
+    this.say(npc, line);
+    return line;
+  }
+
+  /** Sparring skill 0..5 (bouts fought with Gruk). */
+  sparSkill(): number {
+    return sparLevel(this.spar.xp);
+  }
+
+  servicePort(id: string): TavernPort {
+    return this.port(NPCS.find((n) => n.id === id)!);
+  }
+
+  /** What a service may touch (services.ts), speaking as `npc`. */
+  private port(npc: NpcDef): TavernPort {
+    return {
+      host: this.host, rng: this.rng, phase: () => this.phase(), day: () => this.host?.day() ?? 1,
+      coins: () => this.coins,
+      spend: (n) => (this.coins >= n ? ((this.coins -= n), true) : false),
+      earn: (n) => void (this.coins += n),
+      trust: (id) => this.trustOf(id),
+      addTrust: (id, n) => void (this.trust[id] = Math.max(0, Math.min(TRUST_MAX, this.trustOf(id) + n))),
+      say: (line) => this.say(npc, line),
+      toast: (text) => this.toast(text),
+      bed: (nth) => {
+        const o = this.at;
+        const free = this.bar.built.has('rooms2') ? GUEST_BEDS.length : 1;
+        const b = o ? GUEST_BEDS[nth % free] : undefined;
+        return b && o ? { x: o[0] + b[0], y: o[1] + b[1], z: o[2] + b[2] } : null;
+      },
+    };
   }
 
   /** A warmer line when you are friends (one visit in three), or null. */
@@ -293,18 +498,25 @@ export class NpcManager {
     const day = this.host?.day() ?? 1;
     if (this.giftDay[npc.id] === day) {
       if (npc.role === 'hermit') return null; // sell to him as usual
+      if (npc.role === 'barkeep' && stockValue(held.item) > 0) return null; // the rest goes on her bar
       const line = 'You are kind, but one gift a day is plenty. Thank you.';
       this.say(npc, line);
       return line;
     }
     this.giftDay[npc.id] = day;
     this.host?.takeHeld(1);
-    const before = this.trustOf(npc.id);
-    const after = Math.min(TRUST_MAX, before + GIFT_TRUST);
-    this.trust[npc.id] = after;
     const line = 'Oh, that is just what I wanted. Thank you.';
     this.say(npc, line);
-    this.toast(`${npc.name} likes it (trust ${after}/${TRUST_MAX})`);
+    this.raiseTrust(npc, GIFT_TRUST, (after) => this.toast(`${npc.name} likes it (trust ${after}/${TRUST_MAX})`));
+    return line;
+  }
+
+  /** Adds trust (capped) and pays each tier reward newly reached; `between` runs after the trust is set and before the rewards. */
+  private raiseTrust(npc: NpcDef, n: number, between?: (after: number) => void): number {
+    const before = this.trustOf(npc.id);
+    const after = Math.min(TRUST_MAX, before + n);
+    this.trust[npc.id] = after;
+    between?.(after);
     TIERS.forEach((t, i) => {
       if (before >= t || after < t) return;
       const r = REWARDS[npc.id]?.[i];
@@ -313,7 +525,32 @@ export class NpcManager {
       this.say(npc, r.line);
       this.toast(`${npc.name} gives you ${r.count} ${r.item.replace(/_/g, ' ')}`);
     });
-    return line;
+    return after;
+  }
+
+  /** The favours pinned to the board now. */
+  pinnedFavours(): Favour[] {
+    return this.favours.list();
+  }
+
+  /** Hands in a favour held in the player's stack. Null when the board wants nothing they hold. */
+  private deliverFavour(npc: NpcDef): string | null {
+    const held = this.host?.held();
+    if (!held) return null;
+    const f = this.favours.matching(held.item, held.count);
+    if (!f) {
+      const w = this.favours.wanting(held.item);
+      if (!w) return null;
+      this.toast(`Favour: ${w.ask} You hold ${held.count}, it needs ${w.count}.`);
+      return npc.name;
+    }
+    const who = NPCS.find((n) => n.id === f.who);
+    this.host?.takeHeld(f.count);
+    this.coins += f.coin;
+    this.favours.complete(f.id, this.host?.day() ?? 1);
+    if (who) this.raiseTrust(who, f.trust);
+    this.toast(`Favour done for ${who?.name ?? f.who}${f.coin ? `: +${f.coin} coin` : ''}${f.trust ? `, +${f.trust} trust` : ''}. ${f.thanks}`);
+    return npc.name;
   }
 
   /** The bank's hint for the current goal, once. */
@@ -336,6 +573,11 @@ export class NpcManager {
       this.say(npc, line);
       return line;
     }
+    const bout = this.gruk.take(this.port(npc));
+    if (bout !== null) {
+      this.say(npc, bout);
+      return bout;
+    }
     if (this.offerS > 0) {
       this.offerS = 0;
       if (this.coins < this.hireCost()) {
@@ -356,7 +598,10 @@ export class NpcManager {
     this.spoken[npc.id] = n;
     const talk = (n % 2 === 1 ? this.hint(npc) : null) ?? this.lines.pick(npc.id, npc.bank!, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, talk);
-    if (this.coins >= this.hireCost()) {
+    // Odd visits offer his arm for hire; even visits offer a bout in the hall.
+    const bout2 = n % 2 === 0 ? this.gruk.pitch(this.port(npc)) : null;
+    if (bout2 !== null) this.say(npc, bout2);
+    else if (this.coins >= this.hireCost()) {
       this.say(npc, fill(this.lines.from('orc-offer', ORC_HIRE.offer)));
       this.offerS = OFFER_WINDOW_S;
     } else this.say(npc, fill(this.lines.from('orc-poor', ORC_HIRE.poor)));
@@ -379,6 +624,8 @@ export class NpcManager {
   }
 
   private useBoard(npc: NpcDef): string {
+    const handed = this.deliverFavour(npc);
+    if (handed !== null) return handed;
     const owed = this.pendingBounties();
     if (owed.length > 0) {
       const total = owed.reduce((s, b) => s + b.coin, 0);
@@ -389,6 +636,8 @@ export class NpcManager {
     } else this.toast(`Quest board: no bounty to redeem. You have ${this.coins} coin.`);
     const open = this.openBounties(3);
     if (open.length > 0) this.toast(`Open bounties: ${open.map((b) => `${b.title} (${b.coin})`).join('; ')}`);
+    const favs = this.favours.list();
+    if (favs.length > 0) this.toast(`Favours pinned (hold the item and use the board): ${favs.map((f) => f.ask).join(' ')}`);
     return npc.name;
   }
 
@@ -495,6 +744,12 @@ export class NpcManager {
     if (this.cooldownS > 0) this.cooldownS = Math.max(0, this.cooldownS - dt);
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
+    this.rosa.tick(dt);
+    this.gruk.tick(dt);
+    this.tickBar(dt);
+    this.tickFestival();
+    this.tickGossip(dt);
+    if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
     if (!host || !this.at) return;
     if (this.jukeboxOn) this.playJukebox(dt);
@@ -527,7 +782,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]),
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
     };
   }
 
@@ -547,6 +802,28 @@ export class NpcManager {
     this.giftDay = {};
     for (const [src, dst] of [[r.trust, this.trust], [r.giftDay, this.giftDay]] as const) {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
+    }
+    this.favours.load(r.favours);
+    this.bar.load(r.upkeep);
+    this.fest = newFestivalState();
+    this.festNow = false;
+    const fe = r.festival;
+    if (fe && typeof fe === 'object') {
+      for (const [k, v] of Object.entries(fe.entered ?? {})) if ((k === 'dance' || k === 'cook' || k === 'brew') && typeof v === 'number' && Number.isFinite(v)) this.fest.entered[k] = v;
+      for (const k of ['gold', 'silver', 'bronze'] as const) if (typeof fe[k] === 'number' && Number.isFinite(fe[k])) this.fest[k] = Math.max(0, Math.floor(fe[k]));
+      this.fest.juke = fe.juke === true;
+    }
+    const sp = r.spar;
+    this.spar = { xp: 0, day: 0, today: 0 };
+    if (sp && typeof sp === 'object') for (const k of ['xp', 'day', 'today'] as const) if (typeof sp[k] === 'number' && Number.isFinite(sp[k])) this.spar[k] = Math.max(0, Math.floor(sp[k]));
+    this.gossip = null;
+    this.gossipLast = typeof r.gossip?.last === 'string' ? r.gossip.last : '';
+    this.gossipSaid = strings(r.gossip?.said).slice(-6);
+    this.drinkLog = { day: 0, n: {} };
+    const dl = r.drinks;
+    if (dl && typeof dl === 'object' && Number.isFinite(dl.day) && dl.n && typeof dl.n === 'object') {
+      this.drinkLog.day = dl.day;
+      for (const [k, v] of Object.entries(dl.n)) if (typeof v === 'number' && Number.isFinite(v) && v > 0) this.drinkLog.n[k] = Math.floor(v);
     }
     this.pos.clear();
     this.routes.clear();

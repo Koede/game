@@ -21,6 +21,12 @@ export const TAVERN_START: readonly [number, number, number] = [6, 1, 2];
 /** Hearths the tavern keeps burning: the fireplace in the hall and the hermit's cooking fire. */
 export const FIRE_SPOTS: readonly (readonly [number, number, number])[] = [[11, 1, 2], [6, 1, 13]];
 
+/**
+ * The guest beds upstairs (wool pallets), tavern-local: where a paid sleep puts the player (standing on the pallet, the room's own
+ * bedroom), west bedroom first. The east bedroom opens with Rosa's first room upgrade.
+ */
+export const GUEST_BEDS: readonly (readonly [number, number, number])[] = [[1.5, 6.5, 6.5], [11.5, 6.5, 6.5]];
+
 export interface Placement {
   x: number;
   y: number;

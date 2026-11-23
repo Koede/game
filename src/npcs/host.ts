@@ -59,6 +59,23 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       const cur = d.objectives.current;
       return cur ? `Your next job: "${cur.title}". ${brief(cur.text, 180)}` : 'You have done everything on the ladder. Go and build something I have not thought of.';
     },
+    sleepToDawn: (bed) => {
+      if (bed) {
+        d.player.position.x = bed.x;
+        d.player.position.y = bed.y;
+        d.player.position.z = bed.z;
+        d.player.velocity.x = d.player.velocity.y = d.player.velocity.z = 0;
+      }
+      d.clock.skipToDawn();
+      d.player.bus.emit('flag', { flag: 'rested' });
+    },
+    grantBuff: (buff, s) => {
+      const b = d.player.buffs;
+      if (buff === 'well_warmed') b.wellWarmedS = Math.max(b.wellWarmedS, s);
+      else if (buff === 'strength') b.grantStrength(1, s);
+      else b.grant(buff, s);
+      if (buff !== 'strength') d.player.bus.emit('buff:gained', { buff, durationS: s });
+    },
     tendFire: (x, y, z) => {
       const e = d.sim.furnaceAt(x, y, z);
       if (!e) return;

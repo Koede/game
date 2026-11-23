@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
 import { danceFrame, dancePose, STILL, type Pose } from '../../npcs/choreo';
 import { ANIM_FPS, ANIM_FRAMES, DANCE_FRAMES, npcArt, npcDanceBodyFrac, onNpcArt } from './art';
+import { BubbleLayer } from './bubbles';
 import { designSize, paintNpc } from './sprites';
 
 /** The parts of the Renderer it draws into. */
@@ -48,11 +49,13 @@ export class NpcRenderer {
   private readonly textures = new Map<string, THREE.Texture>();
   private readonly clockMinute = new Map<string, number>();
   private time = 0;
+  private readonly bubbles: BubbleLayer;
 
   private readonly offArt: () => void;
 
   constructor(private readonly host: NpcScene) {
     // Drop-in art (assets/npcs) arrives after the first frames: rebuild every sprite from it.
+    this.bubbles = new BubbleLayer(host.scene);
     this.offArt = onNpcArt(() => this.reset());
   }
 
@@ -84,6 +87,7 @@ export class NpcRenderer {
   /** Call every frame with the views, a 0..1 brightness (the sky) and where the camera is (people turn to face it). */
   update(dt: number, views: readonly NpcView[], brightness = 1, eye?: { x: number; z: number }): void {
     this.time += dt;
+    this.bubbles.update(views);
     const seen = new Set<string>();
     const k = 0.35 + 0.65 * Math.max(0, Math.min(1, brightness));
     for (const v of views) {
@@ -299,6 +303,7 @@ export class NpcRenderer {
 
   dispose(): void {
     this.offArt();
+    this.bubbles.dispose();
     for (const s of this.sprites.values()) {
       this.host.scene.remove(s);
       (s.material as THREE.SpriteMaterial).dispose();
