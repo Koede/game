@@ -117,6 +117,9 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
 ## Research scrolls (src/magic/scrolls.ts)
 - Three hidden researches that no map shows: `ledger` (warp drains 1 per 2 min, flag `warp_ease`), `verses` (rod reading sees wellsprings 5 chunks off, `long_sight`), `margin` (a tainted-air crucible yields as calm, `sound_pot`). Found two ways: a `scroll_<id>` item (rare in the deep ruin crates; Use reads it, `readScroll`) or the first scan of a particular thing (rubble, glass, crucible; `scanBlock`). Found state lives in `research.flags` (`found:<id>` plus the effect flag); `Magic.hiddenFound()` / `NotebookApi.hidden()` list them. The scroll items are `worldOnly` in the content roster (found, never made; the solver does not count loot).
 
+## Void zones (src/magic/voidZone.ts)
+- Late and optional: in 35% of 8 x 8-chunk cells (never within 6 chunks of the origin) the 3 x 3 chunks round a hashed centre are thin world, `Void` or `Soul`. With The Void Jar learned, Use with an empty vial standing in one bottles `vial_void` / `vial_soul` (not on a jar), +1 / +2 warp, once per chunk per `VOID_WAIT_S` (90 s; saved as `voidWait`). With a rod and 'aura_reading' the reading adds "Void rift 3 N" within six chunks (`Magic.voidReading`). The tech spine never needs it.
+
 ## Glassware (src/content/itemsGlass.ts) - vials in the chemistry
 - A Glass Vial works wherever an empty Glass Beaker is taken (sap tap, distillery); sugar has a vial row. 1 glass -> 2 of either.
 - Water in a beaker or vial boils on its own on a furnace top (`ContainerSpec.boilScale`); sap cooks to resin there

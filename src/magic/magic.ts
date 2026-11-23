@@ -34,6 +34,7 @@ import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
 import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
+import { nearestZone, zoneAt } from './voidZone';
 import { foundFlag, scrollById, scrollOfItem, SCROLLS, type ScrollSpec } from './scrolls';
 import { potionFactors, potionSpec } from './potions';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
@@ -92,6 +93,8 @@ export const INFUSE_STEP_S = 0.4;
 /** Seconds of work one unit of Spring buys a clay servant, and how far (Chebyshev) it may walk from where it was placed. */
 export const SERVANT_FEED_S = 30;
 export const SERVANT_RANGE = 8;
+/** Seconds a void zone chunk needs between two bottlings. */
+export const VOID_WAIT_S = 90;
 /** How far apart (blocks, Chebyshev) two mirrors may be linked, and items moved a second. */
 export const MIRROR_RANGE = 128;
 export const MIRROR_ITEMS = 4;
@@ -249,6 +252,8 @@ export interface MagicSnapshot {
   focusMods?: Record<string, number[]>;
   /** Potion item -> seconds left. */
   potions?: Record<string, number>;
+  /** Chunk key -> seconds until a void zone chunk gives again. */
+  voidWait?: Record<string, number>;
   plugged?: Record<string, string>;
 }
 
@@ -283,6 +288,8 @@ export class Magic {
   private readonly auraShift = new Map<string, number>();
   private auraT = 0;
   private easeT = 0;
+  /** Void zone chunks bottled from lately: chunk key -> clock when they open again. */
+  private readonly voidUntil = new Map<string, number>();
   private auraSeen: AuraKind = 'plain';
   /** wand item -> focus plugged into it. */
   private readonly plugged = new Map<string, string>();
@@ -479,6 +486,10 @@ export class Magic {
     const focus = FOCI.find((f) => f.key === held);
     if (held && modKind(held) && (key === ARCANE_BENCH || key === 'rune_desk')) return this.applyMod(held);
     if (focus) return this.cast(focus.key, focus.vis, focus.cooldownS, target);
+    if (held === EMPTY_VIAL && (!target || !JAR_BLOCKS.has(target.block.key))) {
+      const bottled = this.bottleVoid();
+      if (bottled) return bottled;
+    }
     if (!target) return null;
     if (key && JAR_BLOCKS.has(key) && (held === EMPTY_VIAL || vialAspect(held))) return this.useJar(target, held as string);
     if (key === 'arcane_pedestal') return this.usePedestal(target, held);
@@ -672,6 +683,8 @@ export class Magic {
       .map(([a, n]) => `${aspectInfo(a).name} ${n}`);
     let text = land.length ? land.join(', ') : 'Land drained';
     text += ` · ${auraText(this.auraKindAt(p.x, p.z))}`;
+    const rift = this.voidReading();
+    if (rift) text += ` · ${rift}`;
     const nodes = this.nodesAround(p.x, p.z, hasFlag(this.research, 'long_sight') ? 5 : 3);
     if (nodes.length) {
       const n = nodes.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
@@ -679,6 +692,45 @@ export class Magic {
       text += ` · ${aspectInfo(n.aspect).name} well ${d < 3 ? 'here' : `${d} ${compass(p.x, p.z, n.x + 0.5, n.z + 0.5)}`} (${Math.floor(n.left)})`;
     }
     return text;
+  }
+
+  // ---- the void zone -------------------------------------------------------------------------------------------------
+
+  /** True once the player has learned The Void Jar: the late aspects may be bottled. */
+  voidOpen(): boolean {
+    return this.research.entries.void_jar?.done === true;
+  }
+
+  /** An empty vial in a void zone bottles Void or Soul (once a VOID_WAIT_S per chunk); the thin world costs warp. */
+  private bottleVoid(): MagicOutcome | null {
+    const p = this.player.position;
+    const cx = Math.floor(p.x / 16);
+    const cz = Math.floor(p.z / 16);
+    const zone = zoneAt(this.seed, cx, cz);
+    if (!zone || !this.voidOpen()) return null;
+    const k = `${cx},${cz}`;
+    const until = this.voidUntil.get(k) ?? 0;
+    if (until > this.clock) {
+      this.advise('The thin place is spent for now: give it a minute');
+      return 'refused';
+    }
+    this.voidUntil.set(k, this.clock + VOID_WAIT_S);
+    this.player.consumeHeld(1);
+    this.player.give(vialKey(zone.aspect), 1);
+    this.addWarp(zone.aspect === 'soul' ? 2 : 1);
+    this.toast(`The world is thin here: a Vial of ${aspectInfo(zone.aspect).name} fills`, vialKey(zone.aspect), 'warn');
+    this.bus.emit('sfx', { name: 'cast', pitch: 0.35 });
+    return 'worked';
+  }
+
+  /** "Void rift 3 chunks north" for the rod reading, once The Void Jar is learned; null when none is near. */
+  voidReading(): string | null {
+    if (!this.voidOpen()) return null;
+    const p = this.player.position;
+    const near = nearestZone(this.seed, Math.floor(p.x / 16), Math.floor(p.z / 16), 6);
+    if (!near) return null;
+    if (near.chunks <= 1.5) return `${aspectInfo(near.zone.aspect).name} rift here`;
+    return `${aspectInfo(near.zone.aspect).name} rift ${Math.round(near.chunks)} ${compass(p.x, p.z, near.zone.cx * 16 + 8, near.zone.cz * 16 + 8)}`;
   }
 
   // ---- research scrolls ----------------------------------------------------------------------------------------------
@@ -2047,6 +2099,7 @@ export class Magic {
       stats: { ...this.stats },
       plugged: Object.fromEntries(this.plugged),
       aura: Object.fromEntries(this.auraShift),
+      voidWait: Object.fromEntries([...this.voidUntil].filter(([, t]) => t > this.clock).map(([k, t]) => [k, Math.ceil(t - this.clock)])),
       potions: Object.fromEntries([...this.potions].map(([k, v]) => [k, Math.round(v)])),
       focusMods: Object.fromEntries([...this.focusLevels].map(([k, v]) => [k, [v.reach, v.power, v.cost]])),
       mirrors: [...this.mirrorSends].filter((a) => this.mirrors.has(a)).map((a) => [...parse3(a), ...parse3(this.mirrors.get(a) as string)]),
@@ -2103,6 +2156,8 @@ export class Magic {
       st.done = home && r[7] === 1;
       this.servants.set(k3(r[0], r[1], r[2]), st);
     }
+    this.voidUntil.clear();
+    if (s.voidWait && typeof s.voidWait === 'object') for (const [k, v] of Object.entries(s.voidWait)) if (/^-?\d+,-?\d+$/.test(k) && num(v) && v > 0) this.voidUntil.set(k, this.clock + Math.min(VOID_WAIT_S, v));
     this.potions.clear();
     if (s.potions && typeof s.potions === 'object') for (const [k, v] of Object.entries(s.potions)) if (potionSpec(k) && num(v) && v > 0) this.potions.set(k, Math.min(600, v));
     this.focusLevels.clear();
