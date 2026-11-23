@@ -1,11 +1,14 @@
-"""Rosa's dance, drawn at her in-game size (77 x 96 px) frame by frame: 30 frames at 15 fps, the moves copied from the reference clip
-(hands to chest and bounce, a kick back, hand to cheek with the mug arm out and a knee up, hands on hips with a hip sway, fist up).
+"""Rosa's dance at her in-game size (77 x 96 px): 30 frames at 15 fps, the moves copied from the reference clip (hands to chest and bounce, a
+kick back, hand to cheek with the mug arm out and a knee up, hands on hips with a hip sway, fist up, back to the chest).
 
-The base is her blueprint at sprite size with both arms taken off (poses.cut_away). Her puffed sleeves and her mug are her own pixels, copied
-back at the shoulders and into her right hand. The forearms are drawn here per pose: a 3-4 px limb with a dark outline, a light and a mid skin
-tone and a shaded underside, ending in a small hand. Each frame lists its pose, its bounce (px down), its sway (px sideways) and its legs.
+Every pixel is hers. Her arms are cut from her full-size art in four pieces along hand-placed outlines (each upper arm with its puffed sleeve,
+each forearm with its hand) plus the mug; for a pose each upper arm turns at the shoulder, its forearm turns at the elbow and rides along, and the
+mug stays upright in her right hand. The torso is her art with the arms taken off and refilled (poses.cut_away). Each pose is put together at
+full size and shrunk to sprite size exactly like her body, so arms and body share one pixel grid. Frames then add the bounce, sway and leg lifts.
 Output: assets/npcs/rosa_anim.png, 30 frames in a row (src/render/npcs/art.ts ANIM_FRAMES)."""
-import os, sys
+import math
+import os
+import sys
 import numpy as np
 from PIL import Image
 
@@ -14,123 +17,31 @@ sys.path.insert(0, HERE)
 import poses
 
 W, H = 77, 96
-SKIN = dict(J=(150, 92, 72), M=(192, 138, 110), O=(219, 170, 138), P=(234, 196, 164))
+FACE = 1
 
-
-def base_parts():
-    body, arms = poses.cut_away('rosa', 1, ['mug', 'free'])
-    al = np.array(body)[:, :, 3] > 8
-    ys = np.where(al.any(1))[0]
-    top, bot = ys[0], ys[-1] + 1
-    k = H / (bot - top)
-
-    def small(img):
-        c = img.crop((0, top, img.width, bot))
-        return c.resize((round(c.width * k), H), Image.BOX)
-
-    b, a = small(body), small(arms)
-    full = np.array(Image.alpha_composite(b, a))
-    # her own pieces, cut from the sprite-size arms: the two puffed sleeves and the mug (with the hand that holds it)
-    sleeve_l = full[29:41, 22:33].copy(); sleeve_l[:, :, 3] = np.where(np.array(a)[29:41, 22:33, 3] > 100, 255, 0)
-    sleeve_r = full[25:41, 43:52].copy(); sleeve_r[:, :, 3] = np.where(np.array(a)[25:41, 43:52, 3] > 100, 255, 0)
-    mug = full[25:39, 52:64].copy(); mug[:, :, 3] = np.where(np.array(a)[25:39, 52:64, 3] > 100, 255, 0)
-    return np.array(b), sleeve_l, sleeve_r, mug
-
-
-def paste(canvas, piece, x, y):
-    h, w = piece.shape[:2]
-    for yy in range(h):
-        for xx in range(w):
-            if piece[yy, xx, 3] > 100 and 0 <= y + yy < canvas.shape[0] and 0 <= x + xx < canvas.shape[1]:
-                canvas[y + yy, x + xx] = piece[yy, xx]
-
-
-def forearm(canvas, x0, y0, x1, y1, width=3.0, hand=True):
-    """A forearm from the elbow (x0,y0) to the hand (x1,y1): outline on the edge, light on the upper/left side, shade under, then the hand."""
-    dx, dy = x1 - x0, y1 - y0
-    n = max(1e-6, (dx * dx + dy * dy) ** 0.5)
-    nx, ny = -dy / n, dx / n                      # across the limb
-    for y in range(int(min(y0, y1) - 4), int(max(y0, y1) + 5)):
-        for x in range(int(min(x0, x1) - 4), int(max(x0, x1) + 5)):
-            t = ((x - x0) * dx + (y - y0) * dy) / (n * n)
-            if t < 0 or t > 1:
-                continue
-            d = (x - x0) * nx + (y - y0) * ny       # signed distance across
-            if abs(d) > width / 2 + 0.5:
-                continue
-            if abs(d) > width / 2 - 0.5:
-                c = SKIN['J']
-            elif d < -0.3:
-                c = SKIN['P'] if ny < 0 or nx < 0 else SKIN['M']
-            elif d > 0.3:
-                c = SKIN['M'] if ny < 0 or nx < 0 else SKIN['P']
-            else:
-                c = SKIN['O']
-            if 0 <= y < H and 0 <= x < W:
-                canvas[y, x] = (*c, 255)
-    if not hand:
-        return
-    # the hand: a small rounded block of skin with an outline
-    for yy, row in enumerate(['.JJ.', 'JPOJ', 'JOMJ', '.JJ.']):
-        for xx, ch in enumerate(row):
-            if ch != '.':
-                X, Y = int(round(x1)) - 2 + xx, int(round(y1)) - 2 + yy
-                if 0 <= Y < H and 0 <= X < W:
-                    canvas[Y, X] = (*SKIN[ch], 255)
-
-
-import math
-
-
-def limb(canvas, x0, y0, x1, y1, width=3.9):
-    forearm(canvas, x0, y0, x1, y1, width, hand=False)
-
-
-PUFF = dict(L=(148, 104, 92), z=(206, 180, 160), s=(232, 214, 190), S=(246, 236, 222))
-
-
-def puff(canvas, sx, sy, ex, ey, length=3.0, r=3.8):
-    """Her puffed sleeve, drawn: a rounded capsule from the shoulder along the upper arm, outlined, lit from the upper left."""
-    d = math.hypot(ex - sx, ey - sy)
-    ux, uy = (ex - sx) / d, (ey - sy) / d
-    x1, y1 = sx + ux * length, sy + uy * length
-    for y in range(int(min(sy, y1) - r - 1), int(max(sy, y1) + r + 2)):
-        for x in range(int(min(sx, x1) - r - 1), int(max(sx, x1) + r + 2)):
-            t = max(0.0, min(1.0, ((x - sx) * ux + (y - sy) * uy) / length))
-            px, py = sx + ux * length * t, sy + uy * length * t
-            dist = math.hypot(x - px, y - py)
-            if dist > r:
-                continue
-            if dist > r - 1.0:
-                c = PUFF['L']
-            else:
-                lit = ((x - px) * -0.6 + (y - py) * -0.8) / max(dist, 0.5)
-                c = PUFF['S'] if lit > 0.35 else PUFF['s'] if lit > -0.35 else PUFF['z']
-            if 0 <= y < H and 0 <= x < W:
-                canvas[y, x] = (*c, 255)
-
-
-def sleeve_at(canvas, sleeve, attach, sx, sy, ex, ey):
-    """Her own puffed sleeve, turned to point from the shoulder (sx,sy) towards the elbow; attach = the sleeve's shoulder point."""
-    ang = math.degrees(math.atan2(ex - sx, ey - sy))   # 0 = hanging straight down
-    img = Image.fromarray(sleeve, 'RGBA')
-    big = Image.new('RGBA', (40, 40), (0, 0, 0, 0))
-    big.paste(img, (20 - attach[0], 20 - attach[1]), img)
-    rot = np.array(big.rotate(ang, resample=Image.NEAREST, center=(20, 20)))
-    paste(canvas, rot, int(sx) - 20, int(sy) - 20)
-
-
-# joints per pose, by hand (sprite pixels): shoulder fixed, elbow and hand placed; the mug's top-left goes where her right hand holds it
-SHOULDER_L, SHOULDER_R = (28, 31), (47, 29)
-POSES = {
-    'rest':  None,
-    'chest': dict(L=((24, 43), (34, 38)), R=((51, 43), (43, 37)), mug=(36, 27)),
-    'cheek': dict(L=((21, 41), (33, 29)), R=((57, 35), (65, 31)), mug=(62, 21)),
-    'hips':  dict(L=((18, 41), (28, 47)), R=((58, 41), (49, 47)), mug=(48, 45)),
-    'up':    dict(L=((21, 21), (24, 8)), R=((51, 43), (43, 37)), mug=(36, 27)),
+# her arm pieces in full-size blueprint pixels: outline, joint; and the rest direction of each segment (degrees from straight down, + to the right)
+PIECES = {
+    'Lua': ([(294, 392), (380, 392), (390, 470), (354, 530), (294, 530), (284, 470)], (346, 418)),
+    'Lfa': ([(292, 518), (356, 518), (332, 600), (324, 710), (252, 710), (256, 600), (280, 540)], (322, 526)),
+    'Rua': ([(516, 396), (574, 396), (588, 470), (586, 534), (538, 534), (520, 470)], (542, 420)),
+    'Rfa': ([(550, 474), (596, 430), (614, 430), (614, 504), (588, 534), (552, 532)], (566, 516)),
+    'mug': ([(614, 344), (728, 344), (728, 504), (614, 504)], None),
 }
-SLEEVE_ATTACH_L, SLEEVE_ATTACH_R = (6, 1), (4, 3)
-SLEEVE_LEN = 6
+ELBOW = {'L': (322, 526), 'R': (566, 516)}
+HAND = {'L': (288, 692), 'R': (606, 446)}
+SHOULDER = {'L': (346, 418), 'R': (542, 420)}
+REST = {k: math.degrees(math.atan2(e[0] - s[0], e[1] - s[1])) for k, s, e in (('Lua', SHOULDER['L'], ELBOW['L']), ('Rua', SHOULDER['R'], ELBOW['R']))}
+REST.update({k: math.degrees(math.atan2(h[0] - e[0], h[1] - e[1])) for k, e, h in (('Lfa', ELBOW['L'], HAND['L']), ('Rfa', ELBOW['R'], HAND['R']))})
+MUG_FROM_HAND = (614 - HAND['R'][0], 344 - HAND['R'][1])
+
+# poses: direction of each segment (degrees from straight down, + to the viewer's right), copied from the reference poses
+POSES = {
+    'rest': None,
+    'chest': dict(Lua=-15, Lfa=117, Rua=15, Rfa=-127),
+    'cheek': dict(Lua=-35, Lfa=135, Rua=59, Rfa=117),
+    'hips': dict(Lua=-45, Lfa=59, Rua=43, Rfa=-56),
+    'up': dict(Lua=-145, Lfa=167, Rua=15, Rfa=-127),
+}
 
 # 30 frames at 15 fps: pose, bounce (px down), sway (px right), legs ('stand', 'kick' right foot back up, 'knee' right knee up)
 FRAMES = (
@@ -143,48 +54,100 @@ FRAMES = (
 )
 
 
-def frame(body, sleeve_l, sleeve_r, mug, spec):
+def turn(v, deg):
+    """Turn a screen vector (y down) by deg, positive the way PIL's rotate turns a picture (a downward vector swings to the right)."""
+    r = math.radians(deg)
+    return (v[0] * math.cos(r) + v[1] * math.sin(r), -v[0] * math.sin(r) + v[1] * math.cos(r))
+
+
+def load_pieces():
+    img = poses.load('rosa', FACE)
+    Wf, Hf = img.size
+    bg = img.getpixel((2, 2))
+    a = np.array(img)
+    out = {}
+    for name, (pts, _) in PIECES.items():
+        m = np.array(poses.mask_of((Wf, Hf), pts)) > 0
+        if name != 'mug':
+            # an arm piece keeps arm and sleeve only: the red of her skirt and bodice, and her pouch, stay on the body
+            rgb = a.astype(int)
+            m &= ~(((rgb[:, :, 0] - rgb[:, :, 1]) > 80) & (rgb[:, :, 2] < 90))
+            m &= rgb[:, :, 1] >= 82  # her belt pouch and strap are darker than any arm pixel (skin outline included)
+        piece = Image.fromarray(np.dstack([a, (m * 255).astype(np.uint8)]), 'RGBA')
+        out[name] = poses.key_out(piece, bg)
+    torso, _ = poses.cut_away('rosa', FACE, ['mug', 'free'])
+    return torso, out
+
+
+def compose(torso, pieces, pose):
+    """Her full-size picture in a pose: torso, then each arm (upper arm turned at the shoulder, forearm turned at the elbow and carried), then the mug."""
+    canvas = torso.copy()
+    P = POSES[pose]
+    if P is None:
+        for k in ('Lua', 'Lfa', 'Rua', 'Rfa', 'mug'):
+            canvas.alpha_composite(pieces[k])
+        return canvas
+    hands = {}
+    for side in ('L', 'R'):
+        ua, fa = side + 'ua', side + 'fa'
+        su = P[ua] - REST[ua]
+        sx, sy = SHOULDER[side]
+        ex, ey = ELBOW[side]
+        nx, ny = turn((ex - sx, ey - sy), su)
+        elbow = (sx + nx, sy + ny)
+        canvas.alpha_composite(pieces[ua].rotate(su, resample=Image.BICUBIC, center=(sx, sy)))
+        sf = P[fa] - REST[fa]
+        hx, hy = HAND[side]
+        hv = turn((hx - ex, hy - ey), sf)
+        hands[side] = (elbow[0] + hv[0], elbow[1] + hv[1])
+        moved = pieces[fa].rotate(sf, resample=Image.BICUBIC, center=(ex, ey), translate=(elbow[0] - ex, elbow[1] - ey))
+        canvas.alpha_composite(moved)
+    mug = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
+    hx, hy = hands['R']
+    mug.paste(pieces['mug'], (int(round(hx + MUG_FROM_HAND[0] - 614)), int(round(hy + MUG_FROM_HAND[1] - 344))), pieces['mug'])
+    canvas.alpha_composite(mug)
+    return canvas
+
+
+def to_sprite(img, top, bot):
+    k = H / (bot - top)
+    c = img.crop((0, top, img.width, bot))
+    small = c.resize((round(c.width * k), H), Image.BOX)
+    a = np.array(small)
+    a[:, :, 3] = np.where(a[:, :, 3] > 110, 255, 0)  # crisp edges: a pixel is in or out
+    return a
+
+
+def frame(pose_img, spec):
     pose, bob, sway, legs = spec
-    c = np.zeros((H, W, 4), np.uint8)
-    b = body.copy()
+    b = pose_img.copy()
     if legs != 'stand':
         leg = b[70:96, 40:49].copy()
         b[70:96, 40:49] = 0
         lift = 6 if legs == 'kick' else 8
         shift = 2 if legs == 'kick' else -1
-        paste(b, leg, 40 + shift, 70 - lift)
-    sh = np.zeros_like(b)
+        for yy in range(leg.shape[0]):
+            for xx in range(leg.shape[1]):
+                if leg[yy, xx, 3] and 0 <= 70 - lift + yy < H:
+                    b[70 - lift + yy, 40 + shift + xx] = leg[yy, xx]
+    out = np.zeros_like(b)
     for y in range(H):
         src = y - bob if y < 70 else y
         if 0 <= src < H:
-            sh[y] = np.roll(b[src], sway, axis=0) if sway else b[src]
-    c[:] = sh
-    P = POSES[pose]
-    if P is None:
-        return c
-    for side, sleeve, attach, (sx, sy) in (('L', sleeve_l, SLEEVE_ATTACH_L, SHOULDER_L), ('R', sleeve_r, SLEEVE_ATTACH_R, SHOULDER_R)):
-        (ex, ey), (hx, hy) = P[side]
-        sx, sy, ex, ey, hx, hy = sx + sway, sy + bob, ex + sway, ey + bob, hx + sway, hy + bob
-        d = math.hypot(ex - sx, ey - sy)
-        # upper arm skin shows from the end of the sleeve to the elbow
-        ux, uy = sx + (ex - sx) * SLEEVE_LEN / d, sy + (ey - sy) * SLEEVE_LEN / d
-        limb(c, ux, uy, ex, ey)
-        puff(c, sx, sy, ex, ey)
-        # the forearm goes on top, so a hand brought back to the face or chest crosses in front of the sleeve
-        forearm(c, ex, ey, hx, hy, 3.9)
-    mx, my = P['mug']
-    paste(c, mug, mx + sway, my + bob)
-    return c
+            out[y] = np.roll(b[src], sway, axis=0) if sway else b[src]
+    return out
 
 
 def build():
-    body, sl, sr, mug = base_parts()
-    frames = [frame(body, sl, sr, mug, f) for f in FRAMES]
-    atlas = np.concatenate(frames, axis=1)
-    Image.fromarray(atlas, 'RGBA').save(os.path.join(HERE, '..', 'rosa_anim.png'), optimize=True)
+    torso, pieces = load_pieces()
+    al = np.array(torso)[:, :, 3] > 8
+    ys = np.where(al.any(1))[0]
+    top, bot = ys[0], ys[-1] + 1
+    posed = {p: to_sprite(compose(torso, pieces, p), top, bot) for p in POSES}
+    frames = [frame(posed[f[0]], f) for f in FRAMES]
+    Image.fromarray(np.concatenate(frames, axis=1), 'RGBA').save(os.path.join(HERE, '..', 'rosa_anim.png'), optimize=True)
     return frames
 
 
 if __name__ == '__main__':
-    fr = build()
-    print(len(fr), 'frames')
+    print(len(build()), 'frames')
