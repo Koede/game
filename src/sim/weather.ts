@@ -61,6 +61,11 @@ export class SimWeather {
     return isWet(precipitationFor(this.kind, this.biome(x, z), y), this.intensity);
   }
 
+  /** Snow (not rain) soaks an exposed block at x, y, z right now. */
+  snowAt(x: number, y: number, z: number): boolean {
+    return this.soaking && precipitationFor(this.kind, this.biome(x, z), y) === 'snow' && this.intensity > 0;
+  }
+
   /** Heat-loss multiplier of a furnace node this tick: FURNACE_WET_LOSS_MULT when rain or snow falls on it. */
   furnaceLoss(node: SimNode): number {
     return this.soaking && isFurnace(node.e) && node.openSky && this.wetAt(node.e.x, node.e.y, node.e.z) ? FURNACE_WET_LOSS_MULT : 1;

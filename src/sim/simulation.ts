@@ -51,6 +51,7 @@ import { repairToast, sanitizeEntity } from './sanitize';
 import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
+import { cropScale, seasonOf } from './seasons';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
 const WIND = machine('wind_turbine').params ?? {};
@@ -63,6 +64,9 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   solar = 1;
   /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
   readonly weather = new SimWeather();
+  /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
+  private readonly cropScaleAt = (crop: string, x: number, y: number, z: number, exposed: boolean): number =>
+    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z));
   private readonly rainAt = (x: number, y: number, z: number): boolean => this.weather.wetAt(x, y, z);
   /** True on one tick per second. */
   everySecond = false;
@@ -295,7 +299,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.distill.tick(dt);
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
-    this.crops.tick(dt, this.sunlight, this.wetAt);
+    this.crops.tick(dt, this.sunlight, this.wetAt, this.cropScaleAt);
     this.hand.tick(dt, this.sunlight >= MIN_SUNLIGHT, this.wetAt);
 
     if (this.meltdowns.length > 0) {
@@ -848,7 +852,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** What the crop at a position is doing (stage, light, water, status), or null. Crops have no machine view. */
   cropView(x: number, y: number, z: number): CropView | null {
     this.weather.update();
-    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt);
+    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt);
   }
 
   /** Furnaces, machines and crates (crops are counted by `cropCount`). */

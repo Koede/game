@@ -22,6 +22,7 @@ import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
+import { Weathering } from '../game/weathering';
 import { NpcManager } from '../npcs';
 import { makeNpcHost } from '../npcs/host';
 import { takeLostItems } from '../content/aliases';
@@ -62,6 +63,8 @@ export class GameState {
   readonly workshop: Workshop;
   /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
   readonly exploration: Exploration;
+  /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
+  readonly weathering: Weathering;
   /** The tavern's people (docs/api/npcs.md). */
   readonly npcs: NpcManager;
   readonly seedText: string | null;
@@ -204,6 +207,7 @@ export class GameState {
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });
+    this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
@@ -323,6 +327,7 @@ export class GameState {
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
     this.exploration.tick(dt);
+    this.weathering.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
