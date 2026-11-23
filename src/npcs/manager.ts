@@ -22,6 +22,7 @@ import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
 import { FavourBoard, type Favour } from './favours';
+import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
 import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 
@@ -71,6 +72,8 @@ export interface NpcSnapshot {
   gossip?: { last: string; said: string[] };
   /** Favours pinned to the quest board (favours.ts). */
   favours?: ReturnType<FavourBoard['toJSON']>;
+  /** Sparring with Gruk: bouts fought, and the day's tally. */
+  spar?: SparState;
 }
 
 /** What the manager needs from the game. */
@@ -131,6 +134,9 @@ export class NpcManager {
   private readonly lines: LinePicker;
   /** What Rosa sells (rooms, drinks, ...): see services.ts. */
   private readonly favours = new FavourBoard();
+  private spar: SparState = { xp: 0, day: 0, today: 0 };
+  /** What Gruk sells besides his arm: a bout in the hall. */
+  private readonly gruk = new ServiceMenu([sparService(() => this.spar)]);
   private gossip: Running | null = null;
   private gossipLast = '';
   private gossipSaid: string[] = [];
@@ -359,8 +365,13 @@ export class NpcManager {
   }
 
   /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
-  serviceMenu(): ServiceMenu {
-    return this.rosa;
+  serviceMenu(id: 'rosa' | 'gruk' = 'rosa'): ServiceMenu {
+    return id === 'gruk' ? this.gruk : this.rosa;
+  }
+
+  /** Sparring skill 0..5 (bouts fought with Gruk). */
+  sparSkill(): number {
+    return sparLevel(this.spar.xp);
   }
 
   servicePort(id: string): TavernPort {
@@ -470,6 +481,11 @@ export class NpcManager {
       this.say(npc, line);
       return line;
     }
+    const bout = this.gruk.take(this.port(npc));
+    if (bout !== null) {
+      this.say(npc, bout);
+      return bout;
+    }
     if (this.offerS > 0) {
       this.offerS = 0;
       if (this.coins < this.hireCost()) {
@@ -490,7 +506,10 @@ export class NpcManager {
     this.spoken[npc.id] = n;
     const talk = (n % 2 === 1 ? this.hint(npc) : null) ?? this.lines.pick(npc.id, npc.bank!, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, talk);
-    if (this.coins >= this.hireCost()) {
+    // Odd visits offer his arm for hire; even visits offer a bout in the hall.
+    const bout2 = n % 2 === 0 ? this.gruk.pitch(this.port(npc)) : null;
+    if (bout2 !== null) this.say(npc, bout2);
+    else if (this.coins >= this.hireCost()) {
       this.say(npc, fill(this.lines.from('orc-offer', ORC_HIRE.offer)));
       this.offerS = OFFER_WINDOW_S;
     } else this.say(npc, fill(this.lines.from('orc-poor', ORC_HIRE.poor)));
@@ -634,6 +653,7 @@ export class NpcManager {
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
+    this.gruk.tick(dt);
     this.tickGossip(dt);
     if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
@@ -668,7 +688,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(),
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar },
     };
   }
 
@@ -690,6 +710,9 @@ export class NpcManager {
       if (src && typeof src === 'object') for (const [k, v] of Object.entries(src)) if (typeof v === 'number' && Number.isFinite(v)) dst[k] = Math.max(0, Math.min(src === r.trust ? TRUST_MAX : 1e6, v));
     }
     this.favours.load(r.favours);
+    const sp = r.spar;
+    this.spar = { xp: 0, day: 0, today: 0 };
+    if (sp && typeof sp === 'object') for (const k of ['xp', 'day', 'today'] as const) if (typeof sp[k] === 'number' && Number.isFinite(sp[k])) this.spar[k] = Math.max(0, Math.floor(sp[k]));
     this.gossip = null;
     this.gossipLast = typeof r.gossip?.last === 'string' ? r.gossip.last : '';
     this.gossipSaid = strings(r.gossip?.said).slice(-6);
