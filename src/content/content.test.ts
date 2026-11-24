@@ -386,3 +386,11 @@ describe('5. summary', () => {
     expect(lines.length).toBe(4 + FURNACE_TIERS.length);
   });
 });
+
+describe('named finds', () => {
+  it("Orrin's Spare Pick carries Veinseeker when rolled", async () => {
+    const { applyNamedFind } = await import('./loot');
+    const stack = applyNamedFind({ item: 'orrins_spare_pick', count: 1, durability: 256 });
+    expect(stack.enchants).toEqual({ veinseeker: 1 });
+  });
+});

@@ -84,7 +84,7 @@ export interface NamedFind {
   enchants?: Record<string, number>;
 }
 export const NAMED_FINDS: readonly NamedFind[] = [
-  { item: 'orrins_spare_pick', table: 'tavern_vault' /* , enchants: { veinseeker: 1 } (the enchantment agent) */ },
+  { item: 'orrins_spare_pick', table: 'tavern_vault', enchants: { veinseeker: 1 } },
 ];
 
 /** A named find's fixed extras by item key (enchants), if any. */
