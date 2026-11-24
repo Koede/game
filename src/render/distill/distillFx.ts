@@ -119,8 +119,11 @@ export class DistillFx {
 
   private lit(hex: number, x: number, y: number, z: number, glow = 0): THREE.Color {
     const l = this.probe(x, y, z, light);
-    col.setHex(hex);
-    return col.setRGB(col.r * Math.min(1, l[0] + glow), col.g * Math.min(1, l[1] + glow), col.b * Math.min(1, l[2] + glow));
+    // Raw RGB (no sRGB-to-linear step): the liquid and motion shaders write colour straight out.
+    const r = ((hex >> 16) & 255) / 255;
+    const g = ((hex >> 8) & 255) / 255;
+    const b = (hex & 255) / 255;
+    return col.setRGB(r * Math.min(1, l[0] + glow), g * Math.min(1, l[1] + glow), b * Math.min(1, l[2] + glow));
   }
 
   private box(x: number, y: number, z: number, sx: number, sy: number, sz: number, hex: number, glow = 0, style: LiquidStyle = {}): void {

@@ -140,7 +140,8 @@ export class LiquidBoxes {
     const i = this.n++;
     tmp.makeScale(sx, sy, sz).setPosition(x, y + sy / 2, z);
     this.mesh.setMatrixAt(i, tmp);
-    this.mesh.setColorAt(i, typeof lit === 'number' ? colour.setHex(lit) : lit);
+    // Raw RGB: the shader writes its colour straight out, so a hex must not be converted from sRGB to linear.
+    this.mesh.setColorAt(i, typeof lit === 'number' ? colour.setRGB(((lit >> 16) & 255) / 255, ((lit >> 8) & 255) / 255, (lit & 255) / 255) : lit);
     const f = style.flow ?? [0, 0, 0];
     this.flow.setXYZW(i, f[0], f[1], f[2], style.speed ?? 0);
     this.fx.setXYZW(i, style.boil ?? 0, style.surface ? 1 : 0, ((x * 7.3 + z * 3.1 + y) % 1 + 1) % 1, style.glow ?? 0);
