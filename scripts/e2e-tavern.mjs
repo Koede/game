@@ -74,7 +74,7 @@ async function runDevice(device) {
         const s = await npcs();
         const v = s.views.find((x) => x.id === id);
         // Stand north of the person (the customers' side; Rosa is behind the bar, so three blocks off), then aim at their chest.
-        await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z - p.back), { x: v.x, y: v.y, z: v.z, back: id === 'rosa' ? 3 : 2 });
+        await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z - p.back), { x: v.x, y: v.y, z: v.z, back: id === 'rosa' ? 3 : id === 'veyra' ? -2 : 2 });
         await d.settle(300);
         await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: v.x, y: v.y, z: v.z });
         await d.settle(200);
@@ -92,7 +92,7 @@ async function runDevice(device) {
 
     // The quest board and the wall clock are blocks in the north wall: stand two blocks south of each, face its centre.
     const FIXTURE = { board: { lx: 3, ly: 2, lz: 0 }, clock: { lx: 5, ly: 3, lz: 0 } };
-    for (const [id, word] of [['board', 'Quest board'], ['clock', 'It is'], ['orrin', 'wrench'], ['bram', 'Hold|hold|show|Show|Pick|What are you|Welcome|customer|Mind|sign|Come|goat|buy']]) {
+    for (const [id, word] of [['board', 'Quest board|Favour|bounty'], ['clock', 'It is'], ['orrin', 'wrench'], ['bram', 'Hold|hold|show|Show|Pick|What are you|Welcome|customer|Mind|sign|Come|goat|buy|Take|coin']]) {
       await step(`using ${id} answers`, async () => {
         const s = await npcs();
         const fx = FIXTURE[id];
