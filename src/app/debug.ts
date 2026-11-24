@@ -183,6 +183,10 @@ export function createDebugHandle(app: App): DebugHandle {
       }
       return count - game().state.player.give(item, count);
     },
+    /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
+    fallenLogs() {
+      return game().trees.logs().map((l) => ({ id: l.id, length: l.length, ox: l.ox, oy: l.oy, oz: l.oz, dx: l.dx, dz: l.dz, theta: l.theta }));
+    },
     groundItems() {
       return game().state.player.ground.items.map((g) => ({ item: g.item, count: g.count, x: g.x, y: g.y, z: g.z }));
     },

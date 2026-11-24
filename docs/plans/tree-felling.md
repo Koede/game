@@ -82,3 +82,16 @@ chainsaw still fells in one pass; e2e: chop a tree down, watch it land, cut the 
    with a shout so you can steer it by the side you hit from.
 2. Damage to the player on by default? (I'd say yes, but light, and off in a relaxed mode.)
 3. Do you want the quick mode (auto-buck on landing) at launch or only the chainsaw?
+
+## Shipped
+
+All five phases are in (commits 4527147 to ee9110a). The behaviour and the numbers are in `docs/api/felling.md`.
+
+- Phase 1, the fall: axe health on the base, a warning, then a rigid body that pivots on the stump, falls under gravity,
+  bounces and rests. Changed to this from the scripted hinge, at the owner's request.
+- Phase 2, the fallen log: a saved entity, cut one piece per axe cut, rotting after a day of loaded time.
+- Phase 3, damage: a sweep along the moving body, the 0.4 s wait rule, and the "Tree damage to me" setting.
+- Phase 4, canopy and stumps: branch wood and leaves on landing, a stump block left behind. Not done: sapling replanting
+  and forest regrowth (there is no sapling item).
+- Phase 5, polish: creak, chop and crash sounds, landing dust, a double buzz on phones, reduce motion (double speed).
+- Also: Auto-buck (default off) and the wood yield (trunk logs plus a bonus per canopy level).
