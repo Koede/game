@@ -82,6 +82,8 @@ export interface ItemStack {
   durability?: number;
   /** Workmanship of a tool: 1 fine, 2 masterwork (absent = plain). Raises the most durability it can hold. */
   quality?: 1 | 2;
+  /** Enchantments by key to level (src/core/enchant.ts). Absent = plain; sanitised on load; never merges. */
+  enchants?: Record<string, number>;
 }
 export type Slot = ItemStack | null;
 

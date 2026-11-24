@@ -67,3 +67,16 @@ See rpg-inspirations.md. For this plan: learn an effect by breaking an enchanted
 and look (Dark Souls), elemental reactions between two enchants (Genshin), a charge that the effect drains and a jar refills (Elder
 Scrolls), temporary fusion of a part onto a weapon (Zelda), boon-style shrine offers where you pick one of three (Hades), and socket-like
 essentia slots later (Path of Exile).
+
+## Shipped (phases 1-2, no altar yet)
+
+- Data: `ItemStack.enchants?: Record<string, number>`; registry and helpers in `src/core/enchant.ts` (`enchantLevel`, `addEnchant`, `enchantStack(stack, key, level)`,
+  `sanitizeEnchants`, `enchantLines`). `src/game/inventory.ts` carries it through `makeStack`/`cloneStack`/`sanitize`/`add`/`removeAt`, transfers, storage sort, ground
+  items and spills; enchanted stacks never merge; old saves load unchanged; unknown keys dropped, levels clamped.
+- Loot hook: `makeEnchantedStack(item, { veinseeker: 1 })` (src/game/inventory.ts) gives a full-durability stack, or call `enchantStack` on one you hold.
+- Effects live in `src/game/enchantEffects.ts`, called from the break code (`src/player/interaction.ts`) and the mob-death drop (`src/app/state.ts`):
+  Veinseeker (3/6/10 extra ore blocks, same kind, tier-gated, 1 durability each, never wears the tool out) and Magnet (3/5/7 blocks, line of sight via
+  `clearLine` in groundItems; drops carry `magnet`).
+- UI: coloured "Veinseeker II" lines with the aspect icon in item tooltips and the hotbar name flash; CSS shimmer on enchanted slots (off under reduce motion).
+- Debug: `__hw.give(item, 1, { veinseeker: 2 })`.
+- Still to do: altar discovery (phase 3), the other four enchants (phase 4).

@@ -10,6 +10,7 @@
 import { canonicalItemKey, itemOrNull } from '../core/registry';
 import type { IWorld, Slot } from '../core/types';
 import type { GameBus } from '../core/context';
+import { copyEnchants, sanitizeEnchants } from '../core/enchant';
 import { stackLimit } from './inventory';
 
 /** Entities in the world at most; past it the oldest is merged into a neighbour or removed. */
@@ -33,6 +34,29 @@ export const TERMINAL_SPEED = 24;
 /** Height of the body centre above the feet, the point items fly to. */
 const BODY_CENTRE = 0.8;
 const HALF = 0.12;
+/** Speed (blocks/s) a Magnet-enchanted drop flies at. */
+export const MAGNET_ENCHANT_PULL = 10;
+
+/**
+ * True when no solid, non-liquid block lies on the straight line between two points (sampled every quarter block).
+ * Unloaded columns count as blocked. Used by the Magnet enchant so drops never fly through walls.
+ */
+export function clearLine(world: IWorld, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const dz = z1 - z0;
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy, dz) / 0.25));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const cx = Math.floor(x0 + dx * t);
+    const cy = Math.floor(y0 + dy * t);
+    const cz = Math.floor(z0 + dz * t);
+    if (!world.isLoaded(cx, cz)) return false;
+    const b = world.getBlock(cx, cy, cz);
+    if (b.solid && b.liquid === null) return false;
+  }
+  return true;
+}
 const MERGE_EVERY_S = 0.5;
 const TICK_CAP_S = 0.25;
 const SINK_SPEED = 1.2;
@@ -43,6 +67,10 @@ export interface GroundItem {
   count: number;
   /** Tools and other worn items carry their wear along (never merged). */
   durability?: number;
+  /** Enchants of a tool lying here (saved; handed back when picked up). */
+  enchants?: Record<string, number>;
+  /** Magnet enchant: radius (blocks) from which this drop flies to the player, only along a clear line. Not saved. */
+  magnet?: number;
   x: number;
   y: number;
   z: number;
@@ -64,6 +92,9 @@ export interface GroundItem {
 
 export interface SpawnOptions {
   durability?: number;
+  enchants?: Record<string, number>;
+  /** Magnet enchant radius the drop carries (see GroundItem.magnet). */
+  magnet?: number;
   vx?: number;
   vy?: number;
   vz?: number;
@@ -79,7 +110,7 @@ export interface PickupTarget {
   position: { x: number; y: number; z: number };
   dead: boolean;
   inventory: { space(item: string): number };
-  give(item: string, count?: number, durability?: number): number;
+  give(item: string, count?: number, durability?: number, enchants?: Record<string, number>): number;
 }
 
 /** Pulls items towards the player (the vacuum pump now, the electromagnet later). See ./collectors. */
@@ -94,6 +125,7 @@ export interface GroundItemSnapshot {
   item: string;
   count: number;
   durability?: number;
+  enchants?: Record<string, number>;
   x: number;
   y: number;
   z: number;
@@ -150,6 +182,9 @@ export class GroundItems {
         phase: this.rng() * Math.PI * 2,
       };
       if (opts.durability !== undefined) e.durability = opts.durability;
+      const ench = copyEnchants(opts.enchants);
+      if (ench) e.enchants = ench;
+      if (opts.magnet && opts.magnet > 0) e.magnet = opts.magnet;
       this.items.push(e);
       made.push(e);
     }
@@ -160,7 +195,7 @@ export class GroundItems {
 
   /** Spawns what a slot holds (a spill, a drop). */
   spawnSlot(slot: Slot, x: number, y: number, z: number, opts: SpawnOptions = {}): GroundItem[] {
-    return slot ? this.spawn(slot.item, slot.count, x, y, z, { durability: slot.durability, ...opts }) : [];
+    return slot ? this.spawn(slot.item, slot.count, x, y, z, { durability: slot.durability, enchants: slot.enchants, ...opts }) : [];
   }
 
   /** Items within `radius` of a point (cheap scan; the list is short). */
@@ -183,7 +218,7 @@ export class GroundItems {
       const e = this.items[i];
       const fit = Math.min(e.count, player.inventory.space(e.item));
       if (fit <= 0) continue;
-      player.give(e.item, fit, e.durability);
+      player.give(e.item, fit, e.durability, e.enchants);
       n += fit;
       e.count -= fit;
       if (e.count <= 0) this.items.splice(i, 1);
@@ -231,13 +266,16 @@ export class GroundItems {
         const feet = player.position.y;
         const gap = e.y < feet - 0.2 ? feet - 0.2 - e.y : e.y > feet + 1.6 ? e.y - feet - 1.6 : 0;
         const d2 = dx * dx + gap * gap + dz * dz;
-        if (d2 <= reach * reach && player.inventory.space(e.item) > 0) {
+        const own = e.magnet ?? 0;
+        if (d2 <= Math.max(reach, own) ** 2 && player.inventory.space(e.item) > 0) {
           let speed = 0;
           if (d2 <= PICKUP_RADIUS * PICKUP_RADIUS) speed = HOMING_SPEED;
           else {
             for (const c of collectors) {
               if (d2 <= c.radius * c.radius && c.pull > speed) speed = c.pull;
             }
+            // A Magnet tool's drop pulls like a collector of its own radius, but never through a wall.
+            if (own > 0 && d2 <= own * own && MAGNET_ENCHANT_PULL > speed && clearLine(world, e.x, e.y + 0.2, e.z, px, py, pz)) speed = MAGNET_ENCHANT_PULL;
             if (speed > 0) e.pulled = true;
           }
           if (speed > 0) {
@@ -282,7 +320,7 @@ export class GroundItems {
   private deliver(e: GroundItem, player: PickupTarget): boolean {
     const fit = Math.min(e.count, player.inventory.space(e.item));
     if (fit <= 0) return false;
-    player.give(e.item, fit, e.durability);
+    player.give(e.item, fit, e.durability, e.enchants);
     this.bus?.emit('sfx', { name: 'pickup', x: e.x, y: e.y, z: e.z, volume: 0.6, pitch: 0.9 + this.rng() * 0.3 });
     e.count -= fit;
     return e.count <= 0;
@@ -380,12 +418,12 @@ export class GroundItems {
     const items = this.items;
     for (let i = 0; i < items.length; i++) {
       const a = items[i];
-      if (a.durability !== undefined || a.homing || a.vx * a.vx + a.vz * a.vz > 0.01) continue;
+      if (a.durability !== undefined || a.enchants || a.homing || a.vx * a.vx + a.vz * a.vz > 0.01) continue;
       const limit = stackLimit(a.item);
       if (a.count >= limit) continue;
       for (let j = i + 1; j < items.length && a.count < limit; j++) {
         const b = items[j];
-        if (b.item !== a.item || b.durability !== undefined || b.homing) continue;
+        if (b.item !== a.item || b.durability !== undefined || b.enchants || b.homing || (a.magnet ?? 0) !== (b.magnet ?? 0)) continue;
         if ((b.x - a.x) ** 2 + (b.y - a.y) ** 2 + (b.z - a.z) ** 2 > MERGE_RADIUS * MERGE_RADIUS) continue;
         if (b.vx * b.vx + b.vz * b.vz > 0.01) continue;
         const n = Math.min(limit - a.count, b.count);
@@ -435,6 +473,7 @@ export class GroundItems {
     return this.items.map((e) => {
       const s: GroundItemSnapshot = { item: e.item, count: e.count, x: round(e.x), y: round(e.y), z: round(e.z), age: round(e.age) };
       if (e.durability !== undefined) s.durability = e.durability;
+      if (e.enchants) s.enchants = { ...e.enchants };
       if (e.delayS > 0) s.delayS = round(e.delayS);
       return s;
     });
@@ -459,6 +498,7 @@ export class GroundItems {
         delayS: finite(s.delayS) ? Math.max(0, s.delayS) : 0,
         age: finite(s.age) ? Math.max(0, Math.min(s.age, DESPAWN_S - 1)) : 0,
         durability: finite(s.durability) ? s.durability : undefined,
+        enchants: sanitizeEnchants(s.enchants),
       });
       if (e && e.durability === undefined) delete e.durability;
     }

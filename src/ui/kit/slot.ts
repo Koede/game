@@ -16,6 +16,10 @@ export interface SlotView {
   durability?: number;
   /** Display name for the accessible label. Default: derived from the key. */
   name?: string;
+  /** Loot rarity of the item ('fine' | 'rare' | 'legendary'): tints the slot edge. Data about the item, not the stack. */
+  rarity?: string;
+  /** Carries enchantments: draws a faint shimmer over the icon (CSS; off under reduce motion). */
+  enchanted?: boolean;
 }
 
 export type SlotSize = 'sm' | 'md' | 'lg';
@@ -93,7 +97,7 @@ export class ItemSlot {
     const next = view && view.item ? view : null;
     const prev = this.current;
     if (next === null && prev === null) return;
-    if (next && prev && next.item === prev.item && next.count === prev.count && next.durability === prev.durability && next.name === prev.name) {
+    if (next && prev && next.item === prev.item && next.count === prev.count && next.durability === prev.durability && next.name === prev.name && !next.enchanted === !prev.enchanted) {
       // Still refresh the icon: a provider installed later replaces the placeholder tile.
       this.icon.set(next.item);
       return;
@@ -129,6 +133,8 @@ export class ItemSlot {
     this.current = view ? { ...view } : null;
     this.icon.set(view ? view.item : null);
     setFlag(this.el, 'empty', view === null);
+    setAttr(this.el, 'data-rarity', view?.rarity && view.rarity !== 'common' ? view.rarity : null);
+    setFlag(this.el, 'enchanted', !!view?.enchanted);
     const count = view?.count ?? 1;
     const countText = view && count > 1 ? formatCount(count) : '';
     if (countText !== this.shownCount) {

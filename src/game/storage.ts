@@ -80,7 +80,7 @@ export function sortPack(source: Inventory, chests: readonly Chest[], from = 0, 
     for (const c of chestsFor(chests, s.item)) {
       const cur = source.get(i);
       if (!cur) break;
-      const left = c.inv.add(cur.item, cur.count, cur.durability, 0, c.inv.size, cur.quality);
+      const left = c.inv.add(cur.item, cur.count, cur.durability, 0, c.inv.size, cur.quality, cur.enchants);
       const took = cur.count - left;
       if (took > 0) {
         moved += took;

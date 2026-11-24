@@ -11,6 +11,7 @@ import { seedFromString } from '../core/math';
 import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
+import { magnetRadius } from '../game/enchantEffects';
 import { Survival } from '../game/survival';
 import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
 import { StoryDirector } from '../game/storyBeats';
@@ -145,7 +146,7 @@ export class GameState {
     });
     this.mobPlayer = mobPlayerOf(this.player);
     this.mobs.onDeath((d) => {
-      this.player.dropAll(d.drops, { x: d.x, y: d.y + 0.4, z: d.z });
+      this.player.dropAll(d.drops, { x: d.x, y: d.y + 0.4, z: d.z }, magnetRadius(this.player.heldStack()));
     });
     if (save?.mobs) {
       try {

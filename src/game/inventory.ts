@@ -5,6 +5,7 @@
  *
  * Operations between two slots (the click / tap interactions of the UI) are in ./transfer.
  */
+import { copyEnchants, enchantStack, sanitizeEnchants } from '../core/enchant';
 import { canonicalItemKey, itemOrNull } from '../core/registry';
 import type { ItemAmount, ItemStack, Slot } from '../core/types';
 
@@ -44,17 +45,29 @@ export const maxDurabilityOf = (item: string, quality?: 1 | 2): number | undefin
   return full === undefined ? undefined : Math.round(full * (quality ? QUALITY_DURABILITY_MULT[quality] : 1));
 };
 
-export const makeStack = (item: string, count: number, durability?: number, quality?: 1 | 2): ItemStack => {
+export const makeStack = (item: string, count: number, durability?: number, quality?: 1 | 2, enchants?: Record<string, number>): ItemStack => {
   const s: ItemStack = durability === undefined ? { item, count } : { item, count, durability };
   if (quality) s.quality = quality;
+  const e = copyEnchants(enchants);
+  if (e) s.enchants = e;
   return s;
 };
 
-export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item, stack.count, stack.durability, stack.quality);
+export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item, stack.count, stack.durability, stack.quality, stack.enchants);
+
+/**
+ * A fresh stack of `item` carrying enchants, e.g. loot's Orrin's Spare Pick: `makeEnchantedStack('iron_pickaxe', { veinseeker: 1 })`.
+ * Full durability, sanitised (unknown keys dropped, levels clamped) and only the enchants the item can take (enchantStack's rule).
+ */
+export const makeEnchantedStack = (item: string, enchants: Record<string, number>, count = 1): ItemStack => {
+  const s = makeStack(item, count, fullDurability(item));
+  for (const [key, level] of Object.entries(sanitizeEnchants(enchants) ?? {})) enchantStack(s, key, level);
+  return s;
+};
 
 /** True when items from `b` may be added onto stack `a`. */
 export const canMerge = (a: ItemStack, b: ItemStack): boolean =>
-  a.item === b.item && a.durability === undefined && b.durability === undefined && a.quality === b.quality && stackLimit(a.item) > 1;
+  a.item === b.item && a.durability === undefined && b.durability === undefined && a.quality === b.quality && !a.enchants && !b.enchants && stackLimit(a.item) > 1;
 
 /** A slot as it may be stored: unknown items and broken data become empty, counts and durability are clamped. */
 function sanitize(raw: Slot | undefined): Slot {
@@ -66,10 +79,16 @@ function sanitize(raw: Slot | undefined): Slot {
   const full = fullDurability(item);
   const def = itemOrNull(item);
   const quality = (raw.quality === 1 || raw.quality === 2) && (def?.tool || def?.food) ? raw.quality : undefined;
-  if (full === undefined) return quality ? { item, count, quality } : { item, count };
-  const max = maxDurabilityOf(item, quality) ?? full;
-  const durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), max) : max;
-  return quality ? { item, count, durability, quality } : { item, count, durability };
+  // Enchants only on items that can hold them; unknown keys dropped, levels clamped (src/core/enchant.ts).
+  const enchants = sanitizeEnchants(raw.enchants);
+  const out: NonNullable<Slot> = { item, count };
+  if (full !== undefined) {
+    const max = maxDurabilityOf(item, quality) ?? full;
+    out.durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), max) : max;
+  }
+  if (quality) out.quality = quality;
+  if (enchants) out.enchants = enchants;
+  return out;
 }
 
 export class Inventory {
@@ -122,12 +141,13 @@ export class Inventory {
    * Adds items, topping up existing stacks before using empty slots, optionally only within slots [start, end).
    * Tools, moulds and cooling containers get full durability unless one is given. Returns how many did NOT fit.
    */
-  add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length, quality?: 1 | 2): number {
+  add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length, quality?: 1 | 2, enchants?: Record<string, number>): number {
     let left = Math.floor(count);
     if (left <= 0) return 0;
     if (this.takeOnly) return left;
     const slots = this.slots;
-    const limit = stackLimit(item);
+    const ench = copyEnchants(enchants);
+    const limit = ench ? 1 : stackLimit(item);
     const full = fullDurability(item);
     const qdef = itemOrNull(item);
     const q = qdef?.tool || qdef?.food ? quality : undefined;
@@ -139,7 +159,7 @@ export class Inventory {
     if (dur === undefined && limit > 1) {
       for (let i = from; i < to && left > 0; i++) {
         const s = slots[i];
-        if (!s || s.item !== item || s.durability !== undefined || s.quality !== q || s.count >= limit || !this.accepts(item, i)) continue;
+        if (!s || s.item !== item || s.durability !== undefined || s.quality !== q || s.enchants || s.count >= limit || !this.accepts(item, i)) continue;
         const n = Math.min(limit - s.count, left);
         s.count += n;
         left -= n;
@@ -148,7 +168,7 @@ export class Inventory {
     for (let i = from; i < to && left > 0; i++) {
       if (slots[i] || !this.accepts(item, i)) continue;
       const n = Math.min(limit, left);
-      slots[i] = makeStack(item, n, dur, q);
+      slots[i] = makeStack(item, n, dur, q, ench);
       left -= n;
     }
     if (left !== before) this.notifyChanged();
@@ -181,7 +201,7 @@ export class Inventory {
     s.count -= n;
     if (s.count <= 0) this.slots[slot] = null;
     this.notifyChanged();
-    return makeStack(s.item, n, s.durability, s.quality);
+    return makeStack(s.item, n, s.durability, s.quality, s.enchants);
   }
 
   count(item: string): number {
@@ -204,7 +224,7 @@ export class Inventory {
       const s = this.slots[i];
       if (!s) {
         if (this.accepts(item, i)) room += limit;
-      } else if (stackable && s.item === item && s.durability === undefined && s.count < limit && this.accepts(item, i)) {
+      } else if (stackable && s.item === item && s.durability === undefined && !s.enchants && s.count < limit && this.accepts(item, i)) {
         room += limit - s.count;
       }
     }

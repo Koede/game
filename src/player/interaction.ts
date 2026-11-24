@@ -10,8 +10,11 @@ import { blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/r
 import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, withId, type BlockDef, type IWorld, type Voxel } from '../core/types';
 import {
   TILLABLE,
+  breakVein,
   canHarvest,
   canMine,
+  magnetRadius,
+  planVein,
   canTill,
   drink,
   eat,
@@ -345,15 +348,19 @@ export class Interaction {
     const held = this.player.heldStack();
     const drops = harvest(def, held, this.rng);
     const { x, y, z, voxel } = hit;
+    // Enchants (src/game/enchantEffects.ts): read before the break, since the tool can wear out on it.
+    const magnet = magnetRadius(held);
+    const vein = canHarvest(def, held) ? planVein(this.world, this.player, x, y, z) : [];
     this.progress = -1;
     this.breakCooldown = BREAK_COOLDOWN_S;
     // A fruiting bush gives its fruit and stays, picked (spec 14: harvestLeaves is a block rule).
     const left = leftBehind(def, voxel);
     if (!this.world.setVoxel(x, y, z, left, 'player')) return;
     this.edits++;
-    this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
-    this.player.wearHeld(def);
+    this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 }, magnet);
+    const broke = this.player.wearHeld(def);
     exertMining(this.player);
+    if (vein.length > 0 && !broke && left === AIR) this.edits += breakVein(this.world, this.player, vein, this.rng, rollDrops);
     if (left !== AIR) {
       this.bus.emit('sfx', { name: 'harvest', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
       return;

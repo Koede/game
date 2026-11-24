@@ -8,6 +8,7 @@ import type { Difficulty } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelActive, voxelFacing, type Facing, type WeatherKind, type WeatherState } from '../core/types';
+import { makeEnchantedStack } from '../game/inventory';
 import { isFurnace } from '../sim';
 import type { App } from './app';
 
@@ -27,7 +28,7 @@ export interface DebugSummary {
     health: number; warmth: number; food: number; dead: boolean; onGround: boolean; selectedSlot: number;
     home: { x: number; y: number; z: number } | null;
   } | null;
-  inventory: { slot: number; item: string; count: number; durability?: number }[];
+  inventory: { slot: number; item: string; count: number; durability?: number; enchants?: Record<string, number> }[];
   time: { timeOfDay: number; day: number; phase: string } | null;
   objective: { id: string | null; completed: string[]; age: number } | null;
   furnaces: { x: number; y: number; z: number; tier: number; tempC: number; lit: boolean; draft: number; ignited: boolean;
@@ -54,7 +55,8 @@ export interface DebugSummary {
 export interface DebugHandle {
   readonly app: App;
   state(): DebugSummary;
-  give(item: string, count?: number): number;
+  /** `enchants` (e.g. { veinseeker: 2 }) gives one enchanted stack; tests only. */
+  give(item: string, count?: number, enchants?: Record<string, number>): number;
   teleport(x: number, y: number, z: number): void;
   /** Items lying in the world (drops waiting to be picked up), for the e2e driver. */
   groundItems(): { item: string; count: number; x: number; y: number; z: number }[];
@@ -131,7 +133,7 @@ export function createDebugHandle(app: App): DebugHandle {
             }
           : null,
         inventory: p
-          ? p.inventory.slots.flatMap((st, slot) => (st ? [{ slot, item: st.item, count: st.count, ...(st.durability !== undefined ? { durability: st.durability } : {}) }] : []))
+          ? p.inventory.slots.flatMap((st, slot) => (st ? [{ slot, item: st.item, count: st.count, ...(st.durability !== undefined ? { durability: st.durability } : {}), ...(st.enchants ? { enchants: st.enchants } : {}) }] : []))
           : [],
         time: s ? { timeOfDay: round(s.clock.timeOfDay, 4), day: s.clock.day, phase: s.clock.phase } : null,
         objective: s ? { id: s.objectives.current?.id ?? null, completed: s.objectives.completed.map((o) => o.id), age: s.objectives.age } : null,
@@ -173,8 +175,12 @@ export function createDebugHandle(app: App): DebugHandle {
         weather: s ? { ...s.weather.state, blend: round(s.weather.state.blend), intensity: round(s.weather.state.intensity), cloudCover: round(s.weather.state.cloudCover), nextInS: round(s.weather.state.nextInS, 1), forced: s.weather.override !== null } : null,
       };
     },
-    give(item, count = 1) {
+    give(item, count = 1, enchants) {
       if (!itemOrNull(item)) throw new Error(`unknown item "${item}"`);
+      if (enchants) {
+        const s = makeEnchantedStack(item, enchants, 1);
+        return 1 - game().state.player.give(item, 1, s.durability, s.enchants);
+      }
       return count - game().state.player.give(item, count);
     },
     groundItems() {

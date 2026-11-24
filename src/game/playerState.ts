@@ -282,8 +282,8 @@ export class PlayerState {
    * Puts items into the inventory. Emits 'item:gained' for what arrived (and 'inventory:changed'); what does
    * not fit is returned as a count after a warning toast.
    */
-  give(item: string, count = 1, durability?: number): number {
-    const left = this.inventory.add(item, count, durability);
+  give(item: string, count = 1, durability?: number, enchants?: Record<string, number>): number {
+    const left = this.inventory.add(item, count, durability, 0, this.inventory.size, undefined, enchants);
     const gained = Math.floor(count) - left;
     if (gained > 0) this.bus.emit('item:gained', { item, count: gained });
     if (left > 0) {
@@ -298,14 +298,18 @@ export class PlayerState {
    * THE call for "something gave items": broken blocks, animals, spills. Returns nothing; they are picked up again
    * by walking close (a collector pulls from further).
    */
-  drop(item: string, count = 1, durability?: number, at?: { x: number; y: number; z: number }): void {
+  drop(item: string, count = 1, durability?: number, at?: { x: number; y: number; z: number }, magnet?: number): void {
     const p = at ?? { x: this.position.x, y: this.position.y + 0.5, z: this.position.z };
-    this.ground.spawn(item, count, p.x, p.y, p.z, { durability });
+    this.ground.spawn(item, count, p.x, p.y, p.z, { durability, magnet });
   }
 
   /** Drops several stacks at one point (a spill, an animal's drops). */
-  dropAll(stacks: ReadonlyArray<{ item: string; count: number; durability?: number } | null>, at?: { x: number; y: number; z: number }): void {
-    for (const s of stacks) if (s) this.drop(s.item, s.count, s.durability, at);
+  dropAll(
+    stacks: ReadonlyArray<{ item: string; count: number; durability?: number } | null>,
+    at?: { x: number; y: number; z: number },
+    magnet?: number,
+  ): void {
+    for (const s of stacks) if (s) this.drop(s.item, s.count, s.durability, at, magnet);
   }
 
   /** Throws `count` out of `slot` in front of the player (the drop key). Returns how many left the pack. */
@@ -320,6 +324,7 @@ export class PlayerState {
     const hz = this.position.z + dir.z * 0.5;
     this.ground.spawn(taken.item, taken.count, hx, this.eyeY - 0.35, hz, {
       durability: taken.durability,
+      enchants: taken.enchants,
       scatter: false,
       vx: dir.x * 4.2,
       vy: 2 + dir.y * 3,

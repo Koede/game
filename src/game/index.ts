@@ -18,6 +18,7 @@ export * from './leafDrops';
 export * from './felling';
 export * from './groundItems';
 export * from './collectors';
+export * from './enchantEffects';
 export * from './heldWarmth';
 export * from './assist';
 export * from './recipeHelper';
