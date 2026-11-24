@@ -39,6 +39,8 @@ export interface Settings {
   haptics: boolean;
   /** 'Auto-buck felled trees': a tree's log is cut into pieces as soon as it lands (game/fallingTrees.ts). Off: the axe cuts it piece by piece. */
   autoBuck: boolean;
+  /** Falling trees hurt what they land on: the player and animals (on by default; off for a relaxed game). Trees still fall. */
+  treeDamage: boolean;
   /**
    * 'low' drops water waves, foam and loot beams and closes the fog in; 'high' keeps the fog clearer (src/render/quality.ts).
    * Optional: older saves lack it and read as 'normal'.
@@ -88,6 +90,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   colorSafe: false,
   haptics: true,
   autoBuck: false,
+  treeDamage: true,
   graphics: 'normal',
   itemMagnet: 'off',
   lootFilter: 'all',

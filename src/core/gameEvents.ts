@@ -11,7 +11,7 @@ import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack
  * 'automaton': a landed automaton attack, ember bolts included (spec 19.2; armour counts). 'ember': the burning an
  * ember bolt leaves (spec 19.1). The automaton behind either is the species of the last 'player:attacked'.
  */
-export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember';
+export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember' | 'felled';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type ToastKind = 'info' | 'good' | 'warn' | 'bad';
 

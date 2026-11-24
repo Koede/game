@@ -120,6 +120,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
   if (typeof raw.haptics === 'boolean') out.haptics = raw.haptics;
   if (typeof raw.autoBuck === 'boolean') out.autoBuck = raw.autoBuck;
+  if (typeof raw.treeDamage === 'boolean') out.treeDamage = raw.treeDamage;
   if (typeof raw.reduceMotion === 'boolean') out.reduceMotion = raw.reduceMotion;
   if (typeof raw.colorSafe === 'boolean') out.colorSafe = raw.colorSafe;
   if (typeof raw.autoStep === 'boolean') out.autoStep = raw.autoStep;

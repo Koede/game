@@ -184,7 +184,7 @@ export class Game {
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.treeRenderer = new FallingTreeRenderer(this.renderer);
-    this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck });
+    this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
@@ -261,7 +261,9 @@ export class Game {
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
-      this.itemRenderer.dispose();
+      this.trees.dispose();
+    this.treeRenderer.dispose();
+    this.itemRenderer.dispose();
       this.magicRenderer.dispose();
       this.workshopRenderer.dispose();
       this.mobRenderer.dispose();
@@ -622,6 +624,8 @@ export class Game {
     this.controller.dispose();
     this.inputManager.dispose();
     this.audio.dispose();
+    this.trees.dispose();
+    this.treeRenderer.dispose();
     this.itemRenderer.dispose();
     this.magicRenderer.dispose();
     this.workshopRenderer.dispose();

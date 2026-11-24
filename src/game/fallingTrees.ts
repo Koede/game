@@ -19,7 +19,9 @@ import { FallenLogs, aimFallen, dropCut, mergeDrops, fallenTip, type FallenAim, 
 import {
   poseOf,
   toWorld,
+  worldPointOf,
   pointOf,
+  ROD_RADIUS,
   BodyState,
   Pivot,
   RodInertia,
@@ -38,6 +40,7 @@ import {
   axePower,
   canopyLevelsOf,
   fallDirection,
+  impactDamage,
   inFallZone,
   treeHealth,
   woodYield,
@@ -50,6 +53,11 @@ const MAX_CANOPY_SEGS = 6;
 /** Most leaves gathered into one falling crown. */
 const MAX_LEAVES = 600;
 const LEAF_REACH = 7;
+/** Body sizes for the damage sweep, blocks: a player, an animal. */
+const PLAYER_HEIGHT = 1.8;
+const PLAYER_RADIUS = 0.3;
+const MOB_HEIGHT = 1.0;
+const MOB_RADIUS = 0.4;
 /** Tip spin a blow gives: a base value plus a little per axe tier (rad/s). */
 const TIP_OMEGA_BASE = 0.25;
 const TIP_OMEGA_PER_POWER = 0.05;
@@ -86,6 +94,8 @@ export interface FallingTree {
   acc: number;
   /** Tip spin the last blow gave, rad/s. */
   tipOmega: number;
+  /** Who the falling body has already hit: the player's key, or a creature's id. One hit each. */
+  hit: Set<string | number>;
 }
 
 /** Cell position relative to the pivot, in the falling body's own frame: lat (across), a (up the trunk), s (along the fall). */
@@ -117,6 +127,16 @@ export interface FallingTreesOptions {
   persist?: PersistHost;
   /** The 'Auto-buck felled trees' setting: a landed log is cut into pieces at once. */
   autoBuck?: () => boolean;
+  /** The 'Tree damage to me' setting (on by default). */
+  treeDamage?: () => boolean;
+  /** Creatures a falling tree can hurt (MobManager satisfies it). */
+  victims?: TreeVictims;
+}
+
+/** What a falling tree hurts: animals (MobManager.all and its hit). */
+export interface TreeVictims {
+  readonly all: readonly { readonly id: number; readonly x: number; readonly y: number; readonly z: number }[];
+  hit(id: number, damage: number, fromX: number, fromZ: number): unknown;
 }
 
 export class FallingTrees {
@@ -128,6 +148,8 @@ export class FallingTrees {
   private readonly autoBuck: () => boolean;
   private readonly fallen: FallenLogs;
   private readonly unpersist: (() => void) | null;
+  private readonly treeDamage: () => boolean;
+  private readonly victims: TreeVictims | null;
 
   constructor(
     private readonly world: IWorld,
@@ -137,6 +159,8 @@ export class FallingTrees {
   ) {
     this.rng = options.rng ?? Math.random;
     this.autoBuck = options.autoBuck ?? (() => false);
+    this.treeDamage = options.treeDamage ?? (() => true);
+    this.victims = options.victims ?? null;
     this.fallen = new FallenLogs(world);
     if (options.persist) {
       options.persist.loadExtra('fallenLogs', (raw) => this.fallen.load(raw));
@@ -261,6 +285,7 @@ export class FallingTrees {
       clock: 0,
       acc: 0,
       tipOmega,
+      hit: new Set<string | number>(),
     };
     this.active.push(tree);
     this.bus.emit('sfx', { name: 'tree_fall', x: base.x + 0.5, y: base.y + 0.5, z: base.z + 0.5, volume: 0.5 });
@@ -313,7 +338,38 @@ export class FallingTrees {
       while (tree.acc >= STEP_S && tree.phase === 'falling') {
         tree.acc -= STEP_S;
         tree.body = stepBody(tree.body, tree.segs, tree.inertia, tree.pivot, this.terrain());
+        this.sweep(tree);
         if (tree.body.rest) this.land(i, tree);
+      }
+    }
+  }
+
+  /**
+   * The damage sweep: every point of the falling rod hurts what it passes, once per creature per tree. The damage
+   * scales with the trunk and with the speed of that point. Trees never damage blocks.
+   */
+  private sweep(tree: FallingTree): void {
+    const trunkLen = tree.trunk.length;
+    const reach = tree.segs.length ? tree.segs[tree.segs.length - 1].r : 0;
+    if (!this.treeDamage()) return;
+    for (const seg of tree.segs) {
+      const p = worldPointOf(tree.body, tree.inertia, tree.pivot, seg.r);
+      if (!tree.hit.has('player') && !this.player.dead) {
+        const pl = this.player.position;
+        if (p.y >= pl.y - 0.1 && p.y <= pl.y + PLAYER_HEIGHT && Math.hypot(p.x - pl.x, p.z - pl.z) <= PLAYER_RADIUS + ROD_RADIUS) {
+          tree.hit.add('player');
+          this.player.damage(impactDamage(trunkLen, p.speed), 'felled');
+        }
+      }
+      if (this.victims) {
+        for (const m of this.victims.all) {
+          if (tree.hit.has(m.id)) continue;
+          if (Math.hypot(m.x - tree.pivot.px, m.z - tree.pivot.pz) > reach + 2) continue;
+          if (Math.hypot(p.x - m.x, p.z - m.z) > MOB_RADIUS + ROD_RADIUS) continue;
+          if (p.y < m.y - 0.1 || p.y > m.y + MOB_HEIGHT) continue;
+          tree.hit.add(m.id);
+          this.victims.hit(m.id, impactDamage(trunkLen, p.speed), tree.pivot.px, tree.pivot.pz);
+        }
       }
     }
   }
