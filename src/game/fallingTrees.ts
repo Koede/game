@@ -9,12 +9,15 @@
 import type { GameBus } from '../core/context';
 import { FLAG_FELLED_TREE } from '../core/constants';
 import { block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, type BlockDef, type IWorld, type ItemAmount, type Slot } from '../core/types';
+import { AIR, Face, type BlockDef, type IWorld, type ItemAmount, type Slot } from '../core/types';
+import type { RayHit } from '../player/raycast';
 import { exertMining } from './hunger';
 import { rollDrops } from './mining';
 import type { PlayerState } from './playerState';
 import { trunkAbove } from './felling';
+import { FallenLogs, aimFallen, dropCut, mergeDrops, fallenTip, type FallenAim, type FallenEvent, PROTECT_RADIUS } from './fallenLogs';
 import {
+  poseOf,
   toWorld,
   pointOf,
   BodyState,
@@ -29,6 +32,7 @@ import {
   STEP_S,
 } from './treeBody';
 import {
+  CANOPY_LOG_BONUS,
   TREE_MIN_TRUNK,
   advanceWait,
   axePower,
@@ -101,10 +105,18 @@ export function treeBaseOf(world: IWorld, x: number, y: number, z: number, key: 
 /** The leaf kind a log grows: oak_log -> oak_leaves. */
 export const leafKeyOf = (logKey: string): string => logKey.replace(/_log$/, '_leaves');
 
+/** What saves the fallen logs with the world (World.persist / World.loadExtra). */
+export interface PersistHost {
+  persist(key: string, save: () => unknown): () => void;
+  loadExtra(key: string, fn: (raw: unknown) => void): boolean;
+}
+
 export interface FallingTreesOptions {
   rng?: () => number;
-  /** Turn trunk and crown into drops on landing (phase 1); phase 2 keeps the log as an entity instead. */
-  dropsOnLanding?: boolean;
+  /** The world's save hooks: the fallen logs are kept in the world save under 'fallenLogs'. */
+  persist?: PersistHost;
+  /** The 'Auto-buck felled trees' setting: a landed log is cut into pieces at once. */
+  autoBuck?: () => boolean;
 }
 
 export class FallingTrees {
@@ -113,6 +125,9 @@ export class FallingTrees {
   /** Axe health of standing trees, by base cell key. */
   private readonly health = new Map<string, number>();
   private readonly rng: () => number;
+  private readonly autoBuck: () => boolean;
+  private readonly fallen: FallenLogs;
+  private readonly unpersist: (() => void) | null;
 
   constructor(
     private readonly world: IWorld,
@@ -121,6 +136,14 @@ export class FallingTrees {
     options: FallingTreesOptions = {},
   ) {
     this.rng = options.rng ?? Math.random;
+    this.autoBuck = options.autoBuck ?? (() => false);
+    this.fallen = new FallenLogs(world);
+    if (options.persist) {
+      options.persist.loadExtra('fallenLogs', (raw) => this.fallen.load(raw));
+      this.unpersist = options.persist.persist('fallenLogs', () => this.fallen.toJSON());
+    } else {
+      this.unpersist = null;
+    }
   }
 
   /** The trees on their way down, for drawing. */
@@ -128,13 +151,50 @@ export class FallingTrees {
     return this.active;
   }
 
+  /** The logs lying on the ground, for drawing and aiming. */
+  logs(): ReturnType<FallenLogs['list']> {
+    return this.fallen.list();
+  }
+
+  /** The fallen log the ray meets first (within `maxDist`), as a target for mining; null when none. */
+  aimFallen(o: { x: number; y: number; z: number }, d: { x: number; y: number; z: number }, maxDist: number): FallenAim | null {
+    return aimFallen(this.fallen.list(), o, d, maxDist);
+  }
+
+  dispose(): void {
+    this.unpersist?.();
+  }
+
+  /**
+   * The fallen log on the aim ray as a mining target: its tip cell, with a negative voxel (-1 - id) so the chop path
+   * knows it is a log lying on the ground and not a block in the world. Null when no log is within `maxDist`.
+   */
+  aimHit(o: { x: number; y: number; z: number }, d: { x: number; y: number; z: number }, maxDist: number): RayHit | null {
+    const a = aimFallen(this.fallen.list(), o, d, maxDist);
+    if (!a) return null;
+    return {
+      x: a.x,
+      y: a.y,
+      z: a.z,
+      face: Face.PY,
+      px: a.x,
+      py: a.y + 1,
+      pz: a.z,
+      voxel: -1 - a.log.id,
+      block: blockByKey(a.log.logKey),
+      distance: a.distance,
+    } as RayHit;
+  }
+
   /**
    * An axe blow on a log (interaction.ts, before the normal break). Returns true when the blow is taken by the tree
    * (the log stays until the tree falls), false when the log should break the normal way (no axe, or a tree too small).
    */
-  chop(hit: { x: number; y: number; z: number; block: BlockDef }): boolean {
+  chop(hit: { x: number; y: number; z: number; block: BlockDef; voxel: number }): boolean {
     const held = this.player.heldStack();
     const tool = heldAxe(held);
+    // A negative voxel marks a fallen log (controller aim, see fallenLogs.ts): its id is -1 - voxel.
+    if (hit.voxel < 0) return this.cutFallen(-1 - hit.voxel, tool, hit.x, hit.y, hit.z);
     if (!tool || this.player.dead) return false;
     const key = hit.block.key;
     if (!key.endsWith('_log')) return false;
@@ -153,6 +213,21 @@ export class FallingTrees {
     }
     this.health.delete(k);
     this.start(key, base, tool.tier, trunkLen);
+    return true;
+  }
+
+  /** One axe cut on a fallen log (its piece drops as log items); true, the blow is taken. */
+  private cutFallen(id: number, tool: { tier: number } | null, x: number, y: number, z: number): boolean {
+    if (!tool || this.player.dead) {
+      this.bus.emit('toast', { text: 'A fallen log needs an axe to cut it up.', kind: 'info' });
+      return true;
+    }
+    const cut = this.fallen.cut(id, this.rng);
+    if (!cut) return true;
+    dropCut(this.player, cut);
+    this.player.wearHeld(cut.logDef);
+    exertMining(this.player);
+    this.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     return true;
   }
 
@@ -221,6 +296,7 @@ export class FallingTrees {
 
   /** Advances every tree: warnings count down, falling trees step their body, landings give their drops. */
   tick(dt: number): void {
+    for (const e of this.fallen.tick(dt, (x, z) => this.protectedAt(x, z))) this.onFallenEvent(e);
     for (let i = this.active.length - 1; i >= 0; i--) {
       const tree = this.active[i];
       if (tree.phase === 'warning') {
@@ -251,18 +327,56 @@ export class FallingTrees {
     this.bus.emit('sfx', { name: 'tree_fall', x: tree.base.x + 0.5, y: tree.base.y + 0.5, z: tree.base.z + 0.5 });
   }
 
-  /** The tree came to rest: its wood and leaves drop where it lies (phase 1; phase 2 keeps the log). */
+  /**
+   * The tree came to rest: the trunk becomes a fallen log (saved; cut up with the axe), the branch wood of the crown and
+   * the leaves drop at its tip. With Auto-buck on the log is cut into pieces at once.
+   */
   private land(index: number, tree: FallingTree): void {
     tree.phase = 'landed';
     this.active.splice(index, 1);
     const logDef = blockByKey(tree.logKey);
     const leafDef = blockByKey(leafKeyOf(tree.logKey));
-    const log = treeLogYield(logDef, tree, this.rng);
+    const pose = poseOf(tree.body, tree.inertia, tree.pivot);
+    const log = this.fallen.add({
+      logKey: tree.logKey,
+      length: tree.trunk.length,
+      original: tree.trunk.length,
+      ox: pose.ox,
+      oy: pose.oy,
+      oz: pose.oz,
+      dx: tree.pivot.dx,
+      dz: tree.pivot.dz,
+      theta: pose.theta,
+    });
+    const tip = fallenTip(log);
+    const branch: ItemAmount[] = [];
+    for (let i = 0; i < tree.canopyLevels * CANOPY_LOG_BONUS; i++) mergeDrops(branch, rollDrops(logDef, this.rng));
     const leaves: ItemAmount[] = [];
-    for (let i = 0; i < tree.leaves.length; i++) mergeInto(leaves, rollDrops(leafDef, this.rng));
-    const tip = tipPoint(tree);
-    this.player.dropAll([...log, ...leaves], tip);
+    for (let i = 0; i < tree.leaves.length; i++) mergeDrops(leaves, rollDrops(leafDef, this.rng));
+    this.player.dropAll([...branch, ...leaves], tip);
     this.bus.emit('flag', { flag: FLAG_FELLED_TREE });
+    if (this.autoBuck()) {
+      for (let guard = 0; guard < 64; guard++) {
+        const cut = this.fallen.cut(log.id, this.rng);
+        if (!cut) break;
+        dropCut(this.player, cut);
+        if (cut.gone) break;
+      }
+    }
+  }
+
+  /** Nothing with a block entity within PROTECT_RADIUS (a machine, a crate) is aged. */
+  private protectedAt(x: number, z: number): boolean {
+    for (const e of this.world.entities()) {
+      if (Math.hypot(e.x - x, e.z - z) < PROTECT_RADIUS) return true;
+    }
+    return false;
+  }
+
+  private onFallenEvent(e: FallenEvent): void {
+    const t = fallenTip(e.log);
+    if (e.kind === 'warn') this.bus.emit('toast', { text: 'A fallen log is rotting away. Cut it up or carry it off before it goes.', kind: 'warn' });
+    else this.bus.emit('sfx', { name: 'dig_wood', x: t.x, y: t.y, z: t.z, volume: 0.3 });
   }
 
   private terrain(): Terrain {
@@ -277,22 +391,8 @@ export function heldAxe(held: Slot): { tier: number } | null {
   return { tier: tool.tier };
 }
 
-/** Drops of a felled tree: each trunk log its normal drops, plus the branch logs of the canopy (woodYield). */
-export function treeLogYield(logDef: BlockDef, tree: FallingTree, rng: () => number): ItemAmount[] {
-  const total = woodYield(tree.trunk.length, tree.canopyLevels);
-  const out: ItemAmount[] = [];
-  for (let i = 0; i < total; i++) mergeInto(out, rollDrops(logDef, rng));
-  return out;
-}
-
-/** Adds `drops` into `into`, summing the same items. */
-export function mergeInto(into: ItemAmount[], drops: ItemAmount[]): void {
-  for (const d of drops) {
-    const known = into.find((x) => x.item === d.item);
-    if (known) known.count += d.count;
-    else into.push({ item: d.item, count: d.count });
-  }
-}
+/** Adds `drops` into `into` (the same as fallenLogs' mergeDrops). */
+export const mergeInto = mergeDrops;
 
 /** Where a landed tree's tip is, in world coordinates, for the drops. */
 export function tipPoint(tree: FallingTree): { x: number; y: number; z: number } {

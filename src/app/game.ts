@@ -184,7 +184,7 @@ export class Game {
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.treeRenderer = new FallingTreeRenderer(this.renderer);
-    this.trees = new FallingTrees(world, player, bus);
+    this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
@@ -233,6 +233,7 @@ export class Game {
       this.armRoadSpeed();
       this.armElixirDrink();
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
+      this.controller.fallenAim = (o, d, maxDist) => this.trees.aimHit(o, d, maxDist);
       this.controller.interaction.beforeUse = (hit) => {
         if (hit) {
           const held = player.heldStack();
@@ -416,7 +417,7 @@ export class Game {
       this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
-      this.treeRenderer.update(this.trees.trees());
+      this.treeRenderer.update(this.trees.trees(), this.trees.logs());
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);

@@ -330,6 +330,9 @@ export class PlayerController {
     }
   }
 
+  /** The fallen log on the aim ray within `maxDist`, as a target (set by the app; game/fallingTrees.ts). */
+  fallenAim: ((o: { x: number; y: number; z: number }, d: { x: number; y: number; z: number }, maxDist: number) => RayHit | null) | null = null;
+
   /**
    * The block under the crosshair, or null when nothing is in reach or an animal stands in front of it (then the
    * block is kept in `blockBehind` and the animal in `animals.target`).
@@ -341,6 +344,9 @@ export class PlayerController {
     const d = this.dir;
     const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, liquidAim(held?.item), this.hit);
     this.blockBehind = hit;
+    // A fallen log lying nearer than the block behind it is the target (game/fallingTrees.ts aimHit).
+    const fallen = this.fallenAim?.({ x: p.position.x, y: p.eyeY, z: p.position.z }, { x: d.x, y: d.y, z: d.z }, hit ? hit.distance : REACH) ?? null;
+    if (fallen !== null) return fallen;
     if (!this.animals || p.dead) return hit;
     const animal = this.animals.aim(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, hit ? hit.distance : Infinity);
     return animal === null ? hit : null;
@@ -351,7 +357,8 @@ export class PlayerController {
    * (a cable in a furnace mouth) that the ray passes beside, or that nothing held could be placed against.
    */
   private useTarget(hit: RayHit | null): RayHit | null {
-    if (!hit) return null;
+    // A fallen log is cut with the mining hold only; Use does not act on it (its target has a negative voxel).
+    if (!hit || hit.voxel < 0) return null;
     const p = this.player;
     const held = p.heldStack()?.item;
     const d = this.dir;

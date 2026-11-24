@@ -37,6 +37,8 @@ export interface Settings {
   colorSafe: boolean;
   /** Short vibrations on phones for mining, crafting and getting hurt (where the browser can vibrate). */
   haptics: boolean;
+  /** 'Auto-buck felled trees': a tree's log is cut into pieces as soon as it lands (game/fallingTrees.ts). Off: the axe cuts it piece by piece. */
+  autoBuck: boolean;
   /**
    * 'low' drops water waves, foam and loot beams and closes the fog in; 'high' keeps the fog clearer (src/render/quality.ts).
    * Optional: older saves lack it and read as 'normal'.
@@ -85,6 +87,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   reduceMotion,
   colorSafe: false,
   haptics: true,
+  autoBuck: false,
   graphics: 'normal',
   itemMagnet: 'off',
   lootFilter: 'all',
