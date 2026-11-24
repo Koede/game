@@ -55,17 +55,33 @@ describe('glassware models', () => {
     expect(GLASS_JOINS[blockId('plank')]).toBe(0);
   });
 
-  it('a glass piece with a glass neighbour grows a tube arm towards it', () => {
-    const alone = quads(meshOf([[5, 40, 5, CHEM.tube]]));
-    const joined = quads(meshOf([[5, 40, 5, CHEM.tube], [6, 40, 5, CHEM.tube]]));
-    // Two pieces: their bodies, plus one tube arm each towards the other (four side faces apiece; the faces that touch are hidden).
-    expect(joined).toBe(2 * alone + 2 * 4);
+  it('shows a joint only where two pieces have ports facing each other', () => {
+    const base = quads(meshOf([[5, 40, 5, CHEM.base]]));
+    const flask = quads(meshOf([[5, 41, 5, CHEM.flask]]));
+    // A flask stands on the burner plate: plate port up meets flask port down, so both grow a joint.
+    const stacked = quads(meshOf([[5, 40, 5, CHEM.base], [5, 41, 5, CHEM.flask]]));
+    expect(stacked).toBeGreaterThan(base + flask);
+    // Side by side the plate has no side ports: no joint, just the two bodies.
+    const beside = quads(meshOf([[5, 40, 5, CHEM.base], [6, 40, 5, CHEM.flask]]));
+    expect(beside).toBe(base + flask);
   });
 
-  it('a glass piece beside stone grows no arm', () => {
+  it('two all-port pieces join on every touching side, and loose pieces stay clean', () => {
+    const alone = quads(meshOf([[5, 40, 5, CHEM.tube]]));
+    const pair = quads(meshOf([[5, 40, 5, CHEM.tube], [6, 40, 5, CHEM.tube]]));
+    expect(pair).toBeGreaterThan(2 * alone);
+    const far = quads(meshOf([[5, 40, 5, CHEM.tube], [9, 40, 5, CHEM.tube]]));
+    expect(far).toBe(2 * alone);
+  });
+
+  it('a glass piece beside stone grows no joint', () => {
     const alone = quads(meshOf([[5, 40, 5, CHEM.tube]]));
     const beside = quads(meshOf([[5, 40, 5, CHEM.tube], [6, 40, 5, 'stone']]));
-    // The stone is opaque (drawn in another batch); the glass alone keeps its own quads.
     expect(beside).toBe(alone);
+  });
+
+  it('gives the pieces different shapes (no two models share a body)', () => {
+    const bodies = Object.values(GLASS_MODELS).map((m) => JSON.stringify(m.body));
+    expect(new Set(bodies).size).toBe(bodies.length);
   });
 });

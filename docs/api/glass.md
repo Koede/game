@@ -12,14 +12,16 @@ Every piece of glassware is a block of shape `glass` (src/core/types.ts `BlockSh
 
 ## Joining
 
-Every glass piece sends a tube arm (`TUBE_HALF` = 2/16 either side of the centre, so 4/16 wide) towards each of its six neighbours
-that is glass (`GLASS_JOINS`). Arms run from the middle of the cell to the face, so two touching pieces share one tube, and any
-glass piece fits any other without a table of pairs.
+Each model names its `ports`: the faces where it can join another piece (a flask has a port down for its burner plate, up for a
+column or condenser, and on every side for tubes; a burner plate has only one, up). A joint, a tube with a brass flange ring at the
+cell face, appears on a face only when this piece has a port there and the neighbour is glass with a port looking back
+(`GLASS_PORTS`). So pieces join where real glass joins, loose pieces stay clean, and a new piece fits the rest as soon as its ports
+line up. The tube is 4/16 wide (`TUBE_HALF`) and the flange 6/16 (`FLANGE_HALF`).
 
 ## Adding a piece
 
 1. Give the block `shape: 'glass'`, `solid: true` (or `false` for a furnace-top piece) and `translucent: true`.
-2. Add a model to `GLASS_MODELS` under its key, and map any extra keys (done twins, boiling forms) in `MODEL_OF_KEY`.
+2. Add a model (boxes and `ports`) to `GLASS_MODELS` under its key, and map any extra keys (done twins, boiling forms) in `MODEL_OF_KEY`.
 3. `npm run ids:sync` and `npm run golden:update`.
 
 `src/world/meshGlass.test.ts` checks that every glass-shaped block has a model, every model fits its cell, and arms join glass only.

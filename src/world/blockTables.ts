@@ -5,7 +5,7 @@
 import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
-import { glassModelIndex } from './glassModels';
+import { glassModelIndex, glassPorts } from './glassModels';
 import { isStationShape, stationIndex } from './stationShapes';
 
 const SIZE = VOXEL_ID_MASK + 1;
@@ -72,6 +72,8 @@ export const FENCE_JOINS = new Uint8Array(SIZE);
 /** Glassware (meshGlass.ts): a tube arm towards every neighbour with GLASS_JOINS set; GLASS_MODEL is its model index (glassModels.ts). */
 export const GLASS_JOINS = new Uint8Array(SIZE);
 export const GLASS_MODEL = new Uint8Array(SIZE);
+/** Port bits of a glass piece's model (glassModels.ts): a joint shows on a face only where both pieces have a port facing each other. */
+export const GLASS_PORTS = new Uint8Array(SIZE);
 /** Colour of the light a block emits: 0 warm firelight, 1 cyan, 2 violet (cool glows of caves, spec 14). */
 export const LIGHT_HUE = new Uint8Array(SIZE);
 export const HUE_CYAN = 1;
@@ -115,6 +117,7 @@ for (const def of BLOCKS) {
   FENCE_JOINS[id] = def.shape === 'fence' || def.opaque ? 1 : 0;
   GLASS_JOINS[id] = def.shape === 'glass' ? 1 : 0;
   GLASS_MODEL[id] = def.shape === 'glass' ? glassModelIndex(def.key) : 0;
+  GLASS_PORTS[id] = def.shape === 'glass' ? glassPorts(def.key) : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
   else {
