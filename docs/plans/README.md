@@ -23,3 +23,14 @@ yet. Order is a suggestion, not a promise.
 Rules for every plan: the base progression never needs it (optional like magic), saves stay valid (new fields optional and sanitised),
 content tests keep the one-age-ahead cap, and each phase ends with `tsc`, the full vitest run, the golden update where content changed,
 and an e2e run on desktop and phone.
+
+## New plans (queued after the current batch)
+
+| Plan | One line | Suggested order |
+| --- | --- | --- |
+| [weather-that-matters.md](weather-that-matters.md) | Rain gauges, barrels, turbines, storms, snow and thaw | after the current batch |
+| [animals-with-routines.md](animals-with-routines.md) | Daily spots, home ranges, wolves at night, luring and pens | after weather |
+| [decor-that-does-something.md](decor-that-does-something.md) | Comfort, hearth heat, bed rest, tavern social effects, plants and mementos | after animals |
+| [noise-and-light.md](noise-and-light.md) | Positional sound with walls, echo in caves, light colour, lit windows | with weather (shared audio and light code) |
+| [message-bottles.md](message-bottles.md) | Notes on beaches, clues to real places, phrase-only share codes | after noise and light |
+| [enemy-camp-grows.md](enemy-camp-grows.md) | A camp that grows per visit, opens new zones, repopulates cleared ground | after the caves plan |
