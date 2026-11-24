@@ -30,7 +30,7 @@ describe('the tavern layout', () => {
     for (const b of blocks) {
       expect(b.x >= 0 && b.x < TAVERN_W && b.y >= -BASEMENT_DEPTH && b.y <= TAVERN_TOP && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock', 'jukebox'];
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock', 'jukebox', 'water'];
     for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 

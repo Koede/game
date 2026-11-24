@@ -70,3 +70,9 @@ reference images to a generator myself; uploading them in the site is how they g
   red eyes. The coat is white and long with a ragged hem over teal and gold, so the silhouette reads as a tall white column against a
   purple figure. Hard-edged three or four tone cel shading, dark coloured outline, rim light on the left, a few floating green motes. Reference
   pose: `docs/art-refs/veyra_pose_ref.png` (the outfit there is bare; keep ours: coat, teal, gold, glasses, vial bandolier, skull charm).
+
+## Outfits (sleepwear and swimwear)
+
+`<id>_sleep.jpg` (worn from late evening to dawn) and `<id>_swim.jpg` (worn in the yard pool; hot Bloom middays the regulars cool off there) are
+built by `python assets/npcs/faces/outfits.py`: a generated body in the new outfit with the ORIGINAL head pasted back (face, hair, hat, beard),
+so faces never drift; the script asserts the head pixels are identical. Generated bodies live in `assets/npcs/faces/gen/`. Then `node scripts/npc-art.mjs`.

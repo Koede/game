@@ -152,7 +152,7 @@ export async function loadNpcArt(manifest: Readonly<Record<string, string>>, sca
         // Large images (generated art is ~1200 px) are brought down to about SPRITE_PX tall with smoothing, so the pixel look survives
         // the renderer's nearest-neighbour filtering instead of shimmering.
         // Same pixels per block for everyone: a character drawn bigger in the world (scale) gets proportionally more rows.
-        const target = SPRITE_PX * (scales[key.replace(/_portrait$/, '')] ?? 1);
+        const target = SPRITE_PX * (scales[key.replace(/_(portrait|sleep|swim)$/, '')] ?? 1);
         const k = cut.h > target * 1.25 ? target / cut.h : 1;
         const o = document.createElement('canvas');
         o.width = Math.max(1, Math.round(cut.w * k));

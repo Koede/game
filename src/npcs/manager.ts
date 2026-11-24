@@ -19,6 +19,7 @@ import { FIRE_SPOTS, GUEST_BEDS, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
+import { SWIM_SPOTS, chooseOutfit, coolOffAt, inPool, type Outfit } from './outfits';
 import { ServiceMenu, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
 import { FavourBoard, type Favour } from './favours';
@@ -48,6 +49,8 @@ export interface NpcView {
   danceS: number;
   /** A speech bubble over their head (overheard gossip), or null. */
   bubble: string | null;
+  /** What they wear: day clothes, sleepwear (at night) or swimwear (in the pool). Derived, never saved. */
+  outfit: Outfit;
 }
 
 export interface NpcSnapshot {
@@ -197,8 +200,16 @@ export class NpcManager {
   target(n: NpcDef): [number, number] {
     const d = this.jukeboxOn ? DANCE_SPOTS[n.id] : undefined;
     if (d) return [d[0], d[2]];
+    const sw = this.coolOff() ? SWIM_SPOTS[n.id] : undefined;
+    if (sw) return [sw[0], sw[2]];
     const s = spotFor(n.id, this.phase());
     return s ? [s[0], s[2]] : [n.at[0], n.at[2]];
+  }
+
+  /** A hot midday (the warm season, outside the festival): the regulars cool off in the yard pool. */
+  private coolOff(): boolean {
+    const h = this.host;
+    return !!h && coolOffAt(h.day(), h.timeOfDay());
   }
 
   /** One walking step along the planned route (replanned when the goal changes); straight when no route exists. */
@@ -306,6 +317,7 @@ export class NpcManager {
         z: hired ? this.companion.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
         bubble: bubble?.id === n.id ? bubble.text : null,
+        outfit: n.kind === 'person' ? chooseOutfit({ phase: this.phase(), inWater: inPool(here[0], here[1]), dancing: this.jukeboxOn && DANCES(n.role), hired }) : 'day',
       };
     });
   }

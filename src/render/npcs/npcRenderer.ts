@@ -34,6 +34,8 @@ interface Body {
   dance: { tex: THREE.Texture; w: number; h: number; frames: number } | null | undefined;
   /** After-images that trail a dancer (a beat behind, tinted and see-through), made on first dance. */
   ghosts?: { mesh: THREE.Mesh; tex: THREE.Texture }[];
+  /** Standing pictures of the sleep and swim outfits (assets/npcs/<id>_sleep|_swim.jpg), made on first use; null when there is none. */
+  outfits?: Map<string, { tex: THREE.Texture; w: number } | null>;
 }
 
 /** How far behind the dancer each after-image is (seconds), and how strongly it shows. */
@@ -85,6 +87,7 @@ export class NpcRenderer {
     b.mesh.geometry.dispose();
     (b.mesh.material as THREE.Material).dispose();
     b.dance?.tex.dispose();
+    for (const o of b.outfits?.values() ?? []) o?.tex.dispose();
     for (const g of b.ghosts ?? []) {
       this.host.scene.remove(g.mesh);
       (g.mesh.material as THREE.Material).dispose();
@@ -148,7 +151,9 @@ export class NpcRenderer {
   /** Places and bends one person: idle bob, or the dance pose when the jukebox plays. */
   private poseBody(b: Body, v: NpcView, eye: { x: number; z: number } | undefined, k: number): void {
     const idle = Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015;
-    const art = v.dancing ? this.danceArt(b, v) : null;
+    // Swimwear has no dance loop: a dancer in it sways and hops its standing picture (the procedural pose below).
+    const dressed = v.outfit !== 'day' ? this.outfitArt(b, v) : null;
+    const art = v.dancing && !(dressed && v.outfit === 'swim') ? this.danceArt(b, v) : null;
     // A hand-drawn loop carries its own motion: no procedural bend, turn or hop on top of it.
     const pose: Pose = v.dancing && !(art && art.frames === ANIM_FRAMES) ? dancePose(v.id, v.danceS) : STILL;
     const m = b.mesh;
@@ -159,7 +164,7 @@ export class NpcRenderer {
     // Dancers with pose art step through its frames on the beat; everyone else (and Gruk) keeps the standing picture.
     const mat = m.material as THREE.MeshBasicMaterial;
     const dance = art;
-    let w = b.w;
+    let w = dressed?.w ?? b.w;
     let h = b.h;
     if (dance) {
       dance.tex.offset.x = frameAt(dance.frames, v.id, v.danceS) / dance.frames;
@@ -169,8 +174,8 @@ export class NpcRenderer {
       }
       w = dance.w;
       h = dance.h;
-    } else if (mat.map !== b.tex) {
-      mat.map = b.tex;
+    } else if (mat.map !== (dressed?.tex ?? b.tex)) {
+      mat.map = dressed?.tex ?? b.tex;
       mat.needsUpdate = true;
     }
     const squash = Math.max(0.5, pose.squash);
@@ -220,6 +225,26 @@ export class NpcRenderer {
       m.scale.set((dance.w * sx) / Math.sqrt(squash), h * squash, 1);
       (m.material as THREE.MeshBasicMaterial).color.setRGB(0.55 * k, 0.4 * k, 0.9 * k);
     });
+  }
+
+  /** The picture of this person's current outfit (sleep or swim), or null to keep the day sprite. */
+  private outfitArt(b: Body, v: NpcView): { tex: THREE.Texture; w: number } | null {
+    const map = (b.outfits ??= new Map());
+    const have = map.get(v.outfit);
+    if (have !== undefined) return have;
+    const art = npcArt(`${v.id}_${v.outfit}`);
+    if (!art) {
+      map.set(v.outfit, null);
+      return null;
+    }
+    const tex = new THREE.CanvasTexture(art);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const made = { tex, w: (art.width / art.height) * b.h };
+    map.set(v.outfit, made);
+    return made;
   }
 
   /** The dance atlas texture for a person, made on first use (a sub-rectangle of it is one frame). */

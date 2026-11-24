@@ -16,6 +16,8 @@ export const TAVERN_TOP = 10;
 export const BASEMENT_DEPTH = 4;
 /** The yard behind the hall (z from TAVERN_D to TAVERN_D + YARD_D - 1), where the hermit lives. */
 export const YARD_D = 6;
+/** The yard's bathing pool (tavern-local cells, inclusive): 3 x 3 of water one block deep (the floor layer), stone brick all round. */
+export const POOL = { x0: 0, z0: 11, x1: 2, z1: 13 } as const;
 /** Where the player stands when the world opens, tavern-local, facing the bar (south). */
 export const TAVERN_START: readonly [number, number, number] = [6, 1, 2];
 /** Hearths the tavern keeps burning: the fireplace in the hall and the hermit's cooking fire. */
@@ -97,6 +99,11 @@ export function layoutBlocks(): Placement[] {
 
   // ---- the yard and Old Bram's lean-to --------------------------------------------------------------------------
   for (let x = 0; x <= W; x++) for (let z = D + 1; z < D + YARD_D; z++) put(x, 0, z, 'dirt');
+  // The pool in the yard's west corner, beside the lean-to (the stairwell takes the east side): water in the floor layer, a stone brick kerb on its other sides.
+  for (let x = POOL.x0; x <= POOL.x1 + 1; x++) for (let z = POOL.z0 - 1; z <= POOL.z1 + 1; z++) {
+    const inside = x <= POOL.x1 && z >= POOL.z0 && z <= POOL.z1;
+    put(x, 0, z, inside ? 'water' : 'stone_brick');
+  }
   // Posts, a plank roof, a back wall, crates, a stool and a cooking fire.
   for (const [x, z] of [[3, 10], [9, 10], [3, 13], [9, 13]] as const) {
     put(x, 1, z, 'oak_log');
