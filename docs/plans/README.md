@@ -7,6 +7,7 @@ yet. Order is a suggestion, not a promise.
 | --- | --- | --- |
 | [rpg-inspirations.md](rpg-inspirations.md) | What to borrow from Diablo, Zelda, Souls, Skyrim, Monster Hunter and others | read first |
 | [mod-inspirations.md](mod-inspirations.md) | What to borrow from mods: Apotheosis, Tinkers, Create, AE2, Farmer's Delight, Jade and more | read first |
+| [ui-inventory-ground-items.md](ui-inventory-ground-items.md) | Ground-item smoothing (done), inventory and UI quality of life | any time |
 | [improvements-to-existing.md](improvements-to-existing.md) | Concrete improvements to what already exists, system by system | any time |
 | [modular-tools.md](modular-tools.md) | Every tool built from head, handle and binding with material traits, swap and repair by part | 2 |
 | [loot-and-containers.md](loot-and-containers.md) | Rarity, nested tables, named finds, tavern vault and closet | 1 |
