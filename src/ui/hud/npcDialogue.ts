@@ -13,6 +13,8 @@ import { h } from '../kit/dom';
 
 /** Characters typed per second. */
 const TYPE_CPS = 55;
+/** Seconds a change of expression takes to blend from the old face to the new one (a crossfade, not a jump). */
+export const FACE_FADE_S = 0.2;
 /** Seconds the finished line stays up per character, plus a floor. */
 const READ_S_PER_CHAR = 0.045;
 const READ_S_MIN = 2.8;
@@ -32,6 +34,12 @@ export class NpcDialogue {
   private timer: number | null = null;
   private last = 0;
   private portraits = new Map<string, HTMLCanvasElement>();
+  /** The expression sheet on screen, the cell showing, and the cell the blend started from (-1: none). */
+  private faceSheet: HTMLCanvasElement | null = null;
+  private faceCell = -1;
+  private fromCell = -1;
+  /** Seconds since the blend started; at FACE_FADE_S the new face is fully shown. */
+  private faceFadeS = FACE_FADE_S;
 
   constructor(bus: GameBus, parent: HTMLElement) {
     this.portrait = h('canvas', { class: 'hw-npcsay__portrait', attrs: { width: String(PORTRAIT_PX), height: String(PORTRAIT_PX), 'aria-hidden': 'true' } });
@@ -113,14 +121,57 @@ export class NpcDialogue {
     ctx.drawImage(sprite, (sprite.width - side) / 2, sprite.height * 0.04, side, side, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
   }
 
-  /** One cell of the expression sheet, scaled to cover the frame. */
+  /**
+   * One cell of the expression sheet, scaled to cover the frame. A change of expression blends from the face on screen over
+   * FACE_FADE_S (per-frame in `stepFace`); the first face, a new speaker, or reduced motion shows at once.
+   */
   private drawFace(sheet: HTMLCanvasElement, cell: number): void {
+    const c = Math.min(FACE_CELLS - 1, Math.max(0, cell));
+    const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (sheet !== this.faceSheet || this.faceCell < 0 || reduce) {
+      this.faceSheet = sheet;
+      this.faceCell = c;
+      this.fromCell = -1;
+      this.faceFadeS = FACE_FADE_S;
+      this.paintFace(sheet, c, 1);
+      return;
+    }
+    if (c === this.faceCell) return;
+    this.fromCell = this.faceCell;
+    this.faceCell = c;
+    this.faceFadeS = 0;
+    this.stepFace(0);
+  }
+
+  /** Paints one cell at an opacity, clearing the frame first. */
+  private paintFace(sheet: HTMLCanvasElement, cell: number, alpha: number): void {
     const ctx = this.portrait.getContext('2d');
     if (!ctx) return;
     const w = sheet.width / FACE_CELLS;
     ctx.clearRect(0, 0, PORTRAIT_PX, PORTRAIT_PX);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(sheet, Math.min(FACE_CELLS - 1, Math.max(0, cell)) * w, 0, w, sheet.height, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sheet, cell * w, 0, w, sheet.height, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.globalAlpha = 1;
+  }
+
+  /** Advances the blend between two expressions by `dt` seconds (only paints while one is in progress). */
+  private stepFace(dt: number): void {
+    if (!this.faceSheet || this.faceFadeS >= FACE_FADE_S) return;
+    this.faceFadeS = Math.min(FACE_FADE_S, this.faceFadeS + dt);
+    const t = this.faceFadeS / FACE_FADE_S;
+    const ctx = this.portrait.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.imageSmoothingEnabled = false;
+    const w = this.faceSheet.width / FACE_CELLS;
+    if (this.fromCell >= 0) {
+      ctx.globalAlpha = 1 - t;
+      ctx.drawImage(this.faceSheet, this.fromCell * w, 0, w, this.faceSheet.height, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    }
+    ctx.globalAlpha = t;
+    ctx.drawImage(this.faceSheet, this.faceCell * w, 0, w, this.faceSheet.height, 0, 0, PORTRAIT_PX, PORTRAIT_PX);
+    ctx.globalAlpha = 1;
   }
 
   /** Drop-in portrait art, scaled to cover the frame. */
@@ -160,6 +211,7 @@ export class NpcDialogue {
     const tick = (now: number): void => {
       const dt = Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
+      this.stepFace(dt);
       if (this.shown < this.text.length) {
         this.shown = Math.min(this.text.length, this.shown + dt * TYPE_CPS);
         this.textEl.textContent = this.text.slice(0, Math.floor(this.shown));
