@@ -10,6 +10,7 @@ yet. Order is a suggestion, not a promise.
 | [ui-inventory-ground-items.md](ui-inventory-ground-items.md) | Ground-item smoothing (done), inventory and UI quality of life | any time |
 | [improvements-to-existing.md](improvements-to-existing.md) | Concrete improvements to what already exists, system by system | any time |
 | [modular-tools.md](modular-tools.md) | Every tool built from head, handle and binding with material traits, swap and repair by part | 2 |
+| [tree-felling.md](tree-felling.md) | Valheim-style trees: tip over, can hurt, lie as logs you cut into pieces | any time |
 | [loot-and-containers.md](loot-and-containers.md) | Rarity, nested tables, named finds, tavern vault and closet | 1 |
 | [enchantments.md](enchantments.md) | A few bold, behaviour-changing enchants, found by experiment at the altar | 2 |
 | [legendary-weapons.md](legendary-weapons.md) | Named weapons with legendary effects, utilities and visuals | 3 |
