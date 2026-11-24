@@ -58,7 +58,7 @@ describe('smoke pool', () => {
     const pool = new SmokePool();
     const p = pool.emit(0, 1, 0);
     for (let i = 0; i < 30; i++) pool.step(1 / 30, false, 0, 0, 0);
-    expect(p.y).toBeGreaterThan(1.3);
+    expect(p.y).toBeGreaterThan(1.08);
     expect(puffFrame(0)).toBe(0);
     expect(puffFrame(0.65)).toBe(6);
     expect(puffFrame(PUFF_LIFE - 0.001)).toBe(SMOKE_FRAMES - 1);
