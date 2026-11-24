@@ -496,6 +496,46 @@ function hermit(p: Pixels): void {
   p.px(17, 26, hex(0xfff0a0));
 }
 
+/** Pell the trader (code-drawn fallback until the drop-in art lands): a wide-brimmed hat, a long green coat, a pack and a lit lantern. */
+function trader(p: Pixels): void {
+  const skin = hex(0xd8aa86);
+  const hat = hex(0x7a5232);
+  const hatDark = hex(0x4e3320);
+  const coat = hex(0x3d6b4a);
+  const coatDark = hex(0x2a4a33);
+  const pack = hex(0x8a6a38);
+  const iron = hex(0x4a4a4a);
+  // The pack sits behind the right shoulder.
+  p.rect(17, 14, 4, 9, pack);
+  p.rect(17, 14, 4, 1, hex(0x5e4a28));
+  // A tall crown, a band and a wide brim.
+  p.rect(7, 3, 10, 4, hat);
+  p.rect(7, 6, 10, 1, hex(0x9a3a2a));
+  p.rect(3, 7, 18, 2, hatDark);
+  face(p, skin, 8, 9, 8, 7);
+  p.rect(9, 11, 2, 1, hex(0x241c1a));
+  p.rect(13, 11, 2, 1, hex(0x241c1a));
+  p.rect(9, 13, 6, 1, hex(0x8a8478)); // a moustache
+  p.rect(10, 14, 4, 1, hex(0xa85a4a)); // a small smile
+  // A long coat with a belt and buckle, flaring at the hem.
+  p.rect(6, 17, 12, 15, coat);
+  p.rect(4, 17, 2, 10, coat);
+  p.rect(18, 17, 2, 10, coat);
+  p.rect(5, 30, 14, 3, coatDark);
+  p.rect(6, 21, 12, 1, coatDark);
+  p.rect(11, 21, 2, 1, hex(0xcaa23a));
+  // A lantern hanging from the left hand, lit.
+  p.rect(2, 24, 1, 3, iron);
+  p.rect(1, 27, 4, 4, iron);
+  p.rect(2, 28, 2, 2, hex(0xffd65a));
+  p.px(2, 27, hex(0xfff0a0));
+  // Trousers and boots.
+  p.rect(8, 33, 3, 4, hex(0x3b2a1e));
+  p.rect(13, 33, 3, 4, hex(0x3b2a1e));
+  p.rect(7, 37, 5, 3, hex(0x2a1c14));
+  p.rect(12, 37, 5, 3, hex(0x2a1c14));
+}
+
 function board(p: Pixels): void {
   const wood = hex(0x7a5232);
   const woodDark = hex(0x4a3020);
@@ -554,7 +594,7 @@ function jukebox(p: Pixels): void {
   p.rect(2, p.h - 2, 12, 2, dark);
 }
 
-const PERSON: Partial<Record<NpcSprite, (p: Pixels) => void>> = { witch, barkeep, orc, artificer, alchemist, hermit };
+const PERSON: Partial<Record<NpcSprite, (p: Pixels) => void>> = { witch, barkeep, orc, artificer, alchemist, hermit, trader };
 
 export interface SpriteImage {
   w: number;

@@ -7,11 +7,13 @@ import { ARTIFICER } from './scripts/artificer';
 import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
 import { ORC } from './scripts/orc';
+import { TRADER } from './scripts/trader';
 import type { PhraseBank } from './scripts/types';
 import { WITCH } from './scripts/witch';
+import { TRADER_SETTLE } from './routines';
 
-export type NpcSprite = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'alchemist' | 'hermit' | 'board' | 'clock' | 'jukebox';
-export type NpcRole = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'alchemist' | 'hermit' | 'board' | 'clock' | 'jukebox';
+export type NpcSprite = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'alchemist' | 'hermit' | 'trader' | 'board' | 'clock' | 'jukebox';
+export type NpcRole = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'alchemist' | 'hermit' | 'trader' | 'board' | 'clock' | 'jukebox';
 
 export interface NpcDef {
   id: string;
@@ -70,6 +72,19 @@ export const NPCS: readonly NpcDef[] = [
   },
 ];
 
+/**
+ * Visitors: people who come and go rather than living in the tavern (the wandering trader, trader.ts). Not in NPCS, so the tavern's
+ * own people and their tests are unchanged. The manager shows them only while their visit lasts and walks them in and out.
+ */
+export const VISITORS: readonly NpcDef[] = [
+  {
+    id: 'pell', name: 'Pell', title: 'Travelling trader', role: 'trader', sprite: 'trader', kind: 'person', at: TRADER_SETTLE, scale: 1,
+    gift: [],
+    giftLine: '',
+    bank: TRADER,
+  },
+];
+
 /** The tavern's fixtures: the quest board and the wall clock are blocks (src/content/areas/tavern_fixtures.ts); these are what they say. */
 export const FIXTURES: readonly NpcDef[] = [
   {
@@ -86,4 +101,4 @@ export const FIXTURES: readonly NpcDef[] = [
   },
 ];
 
-export const npcById = (id: string): NpcDef | undefined => NPCS.find((n) => n.id === id);
+export const npcById = (id: string): NpcDef | undefined => [...NPCS, ...VISITORS].find((n) => n.id === id);

@@ -9,18 +9,21 @@ import type { GameBus } from '../core/context';
 import type { IWorld } from '../core/types';
 import { phaseAt } from '../game/clock';
 import { Companion, HIRE_COST, HIRE_SECONDS, type CompanionHost } from './companion';
-import { FIXTURES, NPCS, type NpcDef, type NpcRole, type NpcSprite } from './data';
+import { FIXTURES, NPCS, VISITORS, type NpcDef, type NpcRole, type NpcSprite } from './data';
 import { BEAT_S, DANCES, notesAt } from './jukebox';
 import { LinePicker, clockHM, clockText, type Phase } from './dialogue';
 import { BOUNTIES, stackPrice } from './economy';
 import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
 import { ORC_HIRE } from './scripts/orc';
+import { TRADER_FULL, TRADER_WANT_SHORT, TRADER_WANT_THANKS } from './scripts/trader';
+import type { PhraseBank } from './scripts/types';
+import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
-import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
+import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
 import { SWIM_SPOTS, chooseOutfit, coolOffAt, inPool, type Outfit } from './outfits';
-import { ServiceMenu, type TavernPort } from './services';
+import { ServiceMenu, type Service, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
 import { FavourBoard, type Favour } from './favours';
 import { festivalOn, festivalServices, newFestivalState, type FestivalState } from './festival';
@@ -88,6 +91,8 @@ export interface NpcSnapshot {
   upkeep?: ReturnType<Upkeep['toJSON']>;
   /** The seasonal festival: contests entered (by festival day), medals won, and whether it switched the jukebox on. */
   festival?: FestivalState;
+  /** The wandering trader's visit under way (trader.ts): its start day, the units left per stock line, and whether the wanted favour is done. */
+  trader?: { visit: number; left: number[]; wantDone: boolean };
 }
 
 /** What the manager needs from the game. */
@@ -99,6 +104,8 @@ export interface NpcHost {
   completed(): ReadonlySet<string>;
   timeOfDay(): number;
   day(): number;
+  /** The world's seed (the trader's visits and stock are drawn from it). */
+  worldSeed?(): number;
   /** The stack in the player's hand, or null. */
   held(): { item: string; count: number } | null;
   takeHeld(count: number): void;
@@ -120,6 +127,21 @@ const REACH = 3.4;
 const OFFER_WINDOW_S = 10;
 const SHELF_MAX = 6;
 const GREET_AFTER_S = 90;
+const TRADER_ID = 'pell';
+
+/** The trader right now, for the UI and the tests (see NpcManager.trader). */
+export interface TraderStatus {
+  start: number;
+  leave: number;
+  here: boolean;
+  stock: { item: string; left: number; price: number; rare: boolean }[];
+  want: TraderWant;
+  wantDone: boolean;
+}
+
+/** `{key}` placeholders filled in from `v`. */
+const fillIn = (s: string, v: Record<string, string | number>): string => Object.entries(v).reduce((acc, [k, x]) => acc.replace(`{${k}}`, String(x)), s);
+const nameOf = (item: string): string => item.replace(/_/g, ' ');
 
 export class NpcManager {
   at: [number, number, number] | null = null;
@@ -146,6 +168,14 @@ export class NpcManager {
   private shelf: { item: string; count: number; coin: number }[] = [];
   private buybackS = 0;
   private giftDay: Record<string, number> = {};
+  /** The trader's visit under way: its start day, the units left per stock line, and whether the wanted favour is done. */
+  private trade: { visit: number; left: number[]; wantDone: boolean } | null = null;
+  /** The visit's stock, want and phrase bank, drawn from the seed (rebuilt when the visit changes). */
+  private traderCache: { visit: number; lines: TraderLine[]; want: TraderWant; bank: PhraseBank } | null = null;
+  /** The stall: one service per stock line (a Use pitches it, a second Use inside the window buys one unit). */
+  private traderMenu: ServiceMenu | null = null;
+  /** Whether the trader was in the yard at the last tick (null: not yet known this session, so no arrival is announced). */
+  private traderWas: boolean | null = null;
   /** Where each walking person is now (tavern-local x, z); filled from the routine on first use. */
   private readonly pos = new Map<string, [number, number]>();
   /** The route each walking person follows: the goal it was planned for and the cells still to cross. */
@@ -199,7 +229,7 @@ export class NpcManager {
     if (n.kind !== 'person') return [n.at[0], n.at[2]];
     const have = this.pos.get(n.id);
     if (have) return have;
-    const s = spotFor(n.id, this.phase());
+    const s = n.role === 'trader' ? (this.traderHereNow() ? TRADER_SETTLE : TRADER_GATE) : spotFor(n.id, this.phase());
     const start: [number, number] = s ? [s[0], s[2]] : [n.at[0], n.at[2]];
     this.pos.set(n.id, start);
     return start;
@@ -207,6 +237,10 @@ export class NpcManager {
 
   /** Where a person is heading now (their routine spot for this part of the day). */
   target(n: NpcDef): [number, number] {
+    if (n.role === 'trader') {
+      const g = this.traderHereNow() ? TRADER_SETTLE : TRADER_GATE;
+      return [g[0], g[2]];
+    }
     const d = this.jukeboxOn ? DANCE_SPOTS[n.id] : undefined;
     if (d) return [d[0], d[2]];
     const sw = this.coolOff() ? SWIM_SPOTS[n.id] : undefined;
@@ -315,7 +349,7 @@ export class NpcManager {
     if (!o) return [];
     const { h, m } = clockHM(this.host?.timeOfDay() ?? 0);
     const bubble = bubbleOf(this.gossip);
-    return NPCS.map((n) => {
+    return [...NPCS, ...VISITORS].filter((n) => n.role !== 'trader' || this.traderShown()).map((n) => {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
       const here = this.where(n);
@@ -339,7 +373,7 @@ export class NpcManager {
       const height = v.kind === 'prop' ? 1.4 : 2.0 * v.scale;
       const t = rayBox(ox, oy, oz, dx, dy, dz, v.x - half, v.y, v.z - half, v.x + half, v.y + height, v.z + half);
       // t = 0: the eye is inside them (someone walking through the player) - they are not what the player aims at.
-      if (t !== null && t > 1e-6 && t <= maxDist && (!best || t < best.distance)) best = { npc: NPCS.find((n) => n.id === v.id)!, distance: t };
+      if (t !== null && t > 1e-6 && t <= maxDist && (!best || t < best.distance)) best = { npc: [...NPCS, ...VISITORS].find((n) => n.id === v.id)!, distance: t };
     }
     return best;
   }
@@ -387,6 +421,7 @@ export class NpcManager {
     if (npc.role === 'board') return this.useBoard(npc);
     if (npc.role === 'clock') return this.useClock(npc);
     if (npc.role === 'jukebox') return this.useJukebox(npc);
+    if (npc.role === 'trader') return this.useTrader(npc);
     const gift = npc.kind === 'person' ? this.giveGift(npc) : null;
     if (gift !== null) return gift;
     const stocked = this.stockBar(npc);
@@ -820,6 +855,151 @@ export class NpcManager {
     return line;
   }
 
+  // ---- the wandering trader (trader.ts): a visit every few days; stock to buy, and one favour they want --------------
+
+  private traderSeed(): number {
+    return this.host?.worldSeed?.() ?? 0;
+  }
+
+  /** The visit covering today (null between visits) and whether the trader is standing in the yard now. */
+  private traderInfo(): { visit: TraderVisit; here: boolean } | null {
+    const host = this.host;
+    if (!host || !this.at) return null;
+    const day = host.day();
+    const visit = traderVisitOn(this.traderSeed(), day);
+    return visit ? { visit, here: traderHere(visit, day, this.phase()) } : null;
+  }
+
+  private traderHereNow(): boolean {
+    return this.traderInfo()?.here ?? false;
+  }
+
+  /** Shown while in the yard, and while walking out of it (until they reach the gate). */
+  private traderShown(): boolean {
+    if (!this.traderInfo()) return false;
+    if (this.traderHereNow()) return true;
+    const p = this.pos.get(TRADER_ID);
+    return !!p && Math.hypot(p[0] - TRADER_GATE[0], p[1] - TRADER_GATE[2]) > 0.05;
+  }
+
+  /** Makes sure the stock, want, phrase bank and stall are those of `visit`. A saved visit keeps the units left. */
+  private syncTrader(visit: TraderVisit): void {
+    if (this.traderCache?.visit === visit.start) return;
+    const seed = this.traderSeed();
+    const lines = traderStock(seed, visit.start);
+    this.traderCache = { visit: visit.start, lines, want: traderWant(seed, visit.start, lines.map((l) => l.item)), bank: traderBank(seed, visit.start) };
+    if (!(this.trade?.visit === visit.start && this.trade.left.length === lines.length)) {
+      this.trade = { visit: visit.start, left: lines.map((l) => l.count), wantDone: false };
+    }
+    this.traderMenu = new ServiceMenu(lines.map((_, i) => this.traderService(i)));
+  }
+
+  /** One stock line as a service: pitched while units are left; the Use inside the window buys one unit. */
+  private traderService(i: number): Service {
+    const line = (): TraderLine | undefined => this.traderCache?.lines[i];
+    return {
+      id: `trader-${i}`,
+      cost: () => line()?.price ?? 0,
+      pitch: () => {
+        const l = line();
+        if (!l || !this.trade || this.trade.left[i] <= 0) return null;
+        return `${nameOf(l.item)}: ${this.trade.left[i]} left at ${l.price} coin. Use me again to buy one.`;
+      },
+      accept: (p) => {
+        const l = line();
+        if (!l || !this.trade || this.trade.left[i] <= 0) return 'That one is sold out. Ask what else I have.';
+        if (!p.spend(l.price)) return `That is ${l.price} coin, friend, and you carry ${p.coins()}. Come back with it.`;
+        if ((this.host?.give(l.item, 1) ?? 1) > 0) {
+          p.earn(l.price);
+          return TRADER_FULL;
+        }
+        this.trade.left[i]--;
+        this.toast(`Bought 1 ${nameOf(l.item)} from Pell for ${l.price} coin (${this.coins} left)`);
+        return `There you go. One ${nameOf(l.item)}. Do not wear it out on the road.`;
+      },
+    };
+  }
+
+  /** Each tick: the stall's windows run down, the visit is synced, and an arrival or a departure is announced once. */
+  private tickTrader(dt: number): void {
+    this.traderMenu?.tick(dt);
+    const info = this.traderInfo();
+    if (!info) {
+      this.trade = null;
+      this.traderCache = null;
+      this.traderMenu = null;
+      this.traderWas = false;
+      return;
+    }
+    this.syncTrader(info.visit);
+    if (this.traderWas === null) this.traderWas = info.here;
+    else if (info.here !== this.traderWas) {
+      this.traderWas = info.here;
+      this.toast(info.here
+        ? 'A trader comes up the road at dusk with a lantern and a goat. Pell will set up in the yard for three nights.'
+        : 'Pell packs the stall and walks the goat back down the road.');
+    }
+  }
+
+  /**
+   * Use on Pell: a favour they want (if the item is in hand in full) is handed over for its bonus; otherwise the stall pitches its
+   * next line and a second Use buys one unit; otherwise they talk (and say what they want, now and then).
+   */
+  private useTrader(npc: NpcDef): string {
+    const info = this.traderInfo();
+    if (!info || !info.here) {
+      const line = 'No trader in the yard. Look up the road at dusk.';
+      this.say(npc, line);
+      return line;
+    }
+    this.syncTrader(info.visit);
+    const c = this.traderCache!;
+    const t = this.trade!;
+    const want = c.want;
+    const held = this.host?.held() ?? null;
+    if (held && !t.wantDone && held.item === want.item) {
+      if (held.count < want.count) {
+        const line = fillIn(this.lines.from(`${npc.id}-short`, TRADER_WANT_SHORT), { count: want.count, item: nameOf(want.item), have: held.count });
+        this.say(npc, line);
+        return line;
+      }
+      this.host!.takeHeld(want.count);
+      this.coins += want.coin;
+      t.wantDone = true;
+      const line = fillIn(this.lines.from(`${npc.id}-thanks`, TRADER_WANT_THANKS), { count: want.count, item: nameOf(want.item), coin: want.coin });
+      this.say(npc, line);
+      this.toast(`Pell takes ${want.count} ${nameOf(want.item)} for ${want.coin} coin. The favour is done.`);
+      return line;
+    }
+    const menu = this.traderMenu!;
+    const taken = menu.take(this.port(npc));
+    if (taken !== null) {
+      this.say(npc, taken);
+      return taken;
+    }
+    const n = (this.spoken[npc.id] ?? 0) + 1;
+    this.spoken[npc.id] = n;
+    const line = n % 2 === 1 && !t.wantDone ? want.ask : this.lines.pick(npc.id, c.bank, this.phase(), { greeting: this.greeting(npc) });
+    this.say(npc, line);
+    const pitch = menu.pitch(this.port(npc));
+    if (pitch !== null) this.say(npc, pitch);
+    return line;
+  }
+
+  /** The trader's visit as it stands (null between visits): dates, whether they are in the yard, the stock left, and the want. */
+  trader(): TraderStatus | null {
+    const info = this.traderInfo();
+    if (!info) return null;
+    this.syncTrader(info.visit);
+    const c = this.traderCache!;
+    const t = this.trade!;
+    return {
+      start: info.visit.start, leave: info.visit.leave, here: info.here,
+      stock: c.lines.map((l, i) => ({ item: l.item, left: t.left[i], price: l.price, rare: l.rare })),
+      want: c.want, wantDone: t.wantDone,
+    };
+  }
+
   // ---- time -----------------------------------------------------------------------------------------------------
 
   tick(dt: number): void {
@@ -831,6 +1011,7 @@ export class NpcManager {
     this.gruk.tick(dt);
     this.tickBar(dt);
     this.tickFestival();
+    this.tickTrader(dt);
     this.tickGossip(dt);
     if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
@@ -838,7 +1019,7 @@ export class NpcManager {
     this.syncJukeboxLamp();
     this.syncPartyLamp();
     if (this.jukeboxOn) this.playJukebox(dt);
-    for (const n of NPCS) {
+    for (const n of [...NPCS, ...VISITORS]) {
       if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
       this.pos.set(n.id, this.step(n, dt));
     }
@@ -868,6 +1049,7 @@ export class NpcManager {
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
+      trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
     };
   }
 
@@ -921,6 +1103,14 @@ export class NpcManager {
       if (Array.isArray(e) && typeof e[0] === 'string' && Number.isFinite(e[1]) && Number.isFinite(e[2]) && e[1] > 0 && e[2] >= 0) this.shelf.push({ item: e[0], count: Math.floor(e[1]), coin: Math.floor(e[2]) });
     }
     this.shelf = this.shelf.slice(-SHELF_MAX);
+    this.trade = null;
+    this.traderCache = null;
+    this.traderMenu = null;
+    this.traderWas = null;
+    const tr = r.trader;
+    if (tr && typeof tr === 'object' && Number.isFinite(tr.visit) && Array.isArray(tr.left)) {
+      this.trade = { visit: Math.floor(tr.visit), left: tr.left.map((n) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0)), wantDone: tr.wantDone === true };
+    }
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;

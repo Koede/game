@@ -46,6 +46,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     completed: () => new Set(d.objectives.completed.map((o) => o.id)),
     timeOfDay: () => d.clock.timeOfDay,
     day: () => d.clock.day,
+    worldSeed: () => d.world.seed,
     held: () => {
       const s = d.player.heldStack();
       return s ? { item: s.item, count: s.count } : null;

@@ -127,6 +127,35 @@ export const NAMED_TABLES: LootTableSpec[] = [
       { item: 'bread', count: [2, 4], weight: 6 },
     ],
   },
+  // The wandering trader's stock (src/npcs/trader.ts): the everyday goods of a visit, then one rare line. Both stay one age ahead of Ember.
+  {
+    id: 'trader_common', tier: 'near', rolls: [4, 6],
+    entries: [
+      { item: 'bread', count: [2, 4], weight: 8 },
+      { item: 'wheat_seeds', count: [3, 6], weight: 6 },
+      { item: 'potato', count: [2, 4], weight: 6 },
+      { item: 'cord', count: [2, 5], weight: 6 },
+      { item: 'flint', count: [2, 4], weight: 6 },
+      { item: 'torch', count: [3, 6], weight: 6 },
+      { item: 'glass_vial', count: [1, 3], weight: 5 },
+      { item: 'charcoal', count: [3, 6], weight: 5 },
+      { item: 'hide', count: [1, 3], weight: 5 },
+      { item: 'tin_ingot', count: [1, 3], weight: 4 },
+      { item: 'copper_ingot', count: [2, 4], weight: 4 },
+      { item: 'bronze_ingot', count: [1, 2], weight: 3 },
+    ],
+  },
+  {
+    id: 'trader_rare', tier: 'near', rolls: [1, 1],
+    entries: [
+      { item: 'treasure_map', count: 1, weight: 5, rarity: 'rare' },
+      { item: 'field_notebook', count: 1, weight: 3, rarity: 'rare' },
+      { item: 'bronze_pickaxe', count: 1, weight: 3, rarity: 'fine' },
+      { item: 'bronze_axe', count: 1, weight: 3, rarity: 'fine' },
+      { item: 'essentia_jar', count: 1, weight: 2, rarity: 'rare' },
+      { item: 'glass_beaker', count: [1, 2], weight: 3, rarity: 'fine' },
+    ],
+  },
 ];
 
 /** A stack's fixed extras from its named find, applied by `rollLoot`. */

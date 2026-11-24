@@ -17,6 +17,14 @@ export const ROUTINES: Readonly<Record<string, Readonly<Record<Phase, Spot>>>> =
   bram: { morning: [7, 1, 11], day: [4, 1, 11], evening: [7, 1, 12], night: [7, 1, 11] },
 };
 
+/**
+ * The wandering trader (trader.ts): the road comes in at the yard's south-east corner (the gate, where they arrive and leave) and
+ * the stall stands in the yard's east half, clear of Old Bram's lean-to and the stairwell. Not in ROUTINES: the manager walks them
+ * between these two spots as they come and go.
+ */
+export const TRADER_GATE: Spot = [12, 1, 13];
+export const TRADER_SETTLE: Spot = [10, 1, 12];
+
 /** Where the dancers gather while the jukebox plays: the floor in front of it (Gruk does not dance). */
 export const DANCE_SPOTS: Readonly<Record<string, Spot>> = {
   mara: [6, 1, 3], rosa: [8, 1, 3], orrin: [10, 1, 3], veyra: [4, 1, 3], bram: [7, 1, 4],
