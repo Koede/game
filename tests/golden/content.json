@@ -275,7 +275,8 @@
     "glassware_glass": {"category":"block","drops":"none","hardness":-1,"item":false,"key":"glassware_glass","opaque":false,"translucent":true},
     "glassware_brass": {"category":"block","drops":"none","hardness":-1,"item":false,"key":"glassware_brass","opaque":false,"translucent":true},
     "separatory_funnel": {"age":0,"category":"machine","hardness":0.6,"key":"separatory_funnel","lightActive":0,"machine":"separatory_funnel","opaque":false,"shape":"glass","solid":true,"stack":16,"tool":"pickaxe","translucent":true},
-    "separatory_funnel_done": {"age":0,"category":"machine","drops":[{"count":1,"item":"separatory_funnel"}],"hardness":0.6,"item":false,"key":"separatory_funnel_done","lightActive":0,"machine":"separatory_funnel","opaque":false,"shape":"glass","solid":true,"stack":16,"tool":"pickaxe","translucent":true}
+    "separatory_funnel_done": {"age":0,"category":"machine","drops":[{"count":1,"item":"separatory_funnel"}],"hardness":0.6,"item":false,"key":"separatory_funnel_done","lightActive":0,"machine":"separatory_funnel","opaque":false,"shape":"glass","solid":true,"stack":16,"tool":"pickaxe","translucent":true},
+    "jukebox": {"category":"block","hardness":1.2,"key":"jukebox","lightActive":6,"oriented":true,"tool":"axe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},

@@ -30,7 +30,7 @@ describe('the tavern layout', () => {
     for (const b of blocks) {
       expect(b.x >= 0 && b.x < TAVERN_W && b.y >= -BASEMENT_DEPTH && b.y <= TAVERN_TOP && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock'];
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock', 'jukebox'];
     for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 
@@ -71,7 +71,7 @@ describe('the jukebox', () => {
     const notes: number[] = [];
     bus.on('sfx', (e) => void (e.pitch !== undefined && notes.push(e.pitch)));
     expect(npcs.views().some((v) => v.dancing)).toBe(false);
-    npcs.speak(by('jukebox'));
+    npcs.useFixture('jukebox');
     expect(npcs.jukeboxOn).toBe(true);
     for (let i = 0; i < 40; i++) npcs.tick(0.1);
     expect(notes.length).toBeGreaterThan(8);
@@ -80,7 +80,7 @@ describe('the jukebox', () => {
     expect(dancers).toEqual(['bram', 'mara', 'orrin', 'rosa', 'veyra']);
     const saved = npcs.toJSON();
     expect(saved.juke).toBe(true);
-    npcs.speak(by('jukebox'));
+    npcs.useFixture('jukebox');
     expect(npcs.views().some((v) => v.dancing)).toBe(false);
   });
 
@@ -522,7 +522,7 @@ describe('a new world opens in the tavern', () => {
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 2)).key).toBe('air');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + TAVERN_H, o[2] + 4)).key).toBe('plank');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 13)).key).toBe('furnace_clay'); // the hermit's fire
-    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Veyra', 'Old Bram', 'Jukebox']);
+    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Veyra', 'Old Bram']);
     const save = state.toSave();
     expect((save.world.extras as { npcs?: { at: number[] } }).npcs?.at).toEqual(o);
     const again = GameState.restore(JSON.parse(JSON.stringify(save)));

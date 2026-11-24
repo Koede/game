@@ -62,7 +62,7 @@ async function runDevice(device) {
       await d.settle(2500);
       const s = await npcs();
       assert(s.at, 'no tavern was built');
-      assert(s.views.length === 7, `${s.views.length} people and props`);
+      assert(s.views.length === 6, `${s.views.length} people and props`);
       const inside = s.pos.x > s.at[0] && s.pos.x < s.at[0] + 12 && s.pos.z > s.at[2] && s.pos.z < s.at[2] + 8;
       assert(inside, `the player is at ${s.pos.x},${s.pos.z}, outside the hall at ${s.at}`);
       assert(errors.length === 0, `console errors: ${errors.join(' | ')}`);
@@ -118,10 +118,8 @@ async function runDevice(device) {
     }
     await step('the jukebox makes everyone but Gruk dance', async () => {
       const s = await npcs();
-      const v = s.views.find((x) => x.id === 'jukebox');
-      await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z + 2.2), { x: v.x, y: v.y, z: v.z });
-      await d.settle(300);
-      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 0.7, p.z), { x: v.x, y: v.y, z: v.z });
+      // The jukebox is a block against the north wall now: aim at it like any block.
+      assert(await d.approach({ x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 }), 'aims at the jukebox block');
       await d.settle(200);
       await d.holdUse(250);
       await d.settle(600);

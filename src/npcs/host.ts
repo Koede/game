@@ -4,8 +4,8 @@ import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
 import type { Magic } from '../magic/magic';
 import type { MobManager } from '../mobs';
-import type { IWorld } from '../core/types';
-import { OBJECTIVES } from '../core/registry';
+import { voxelActive, voxelId, withActive, type IWorld } from '../core/types';
+import { OBJECTIVES, blockId } from '../core/registry';
 import type { Simulation } from '../sim';
 import { alchemyAdvice } from './alchemy';
 import type { NpcHost } from './manager';
@@ -34,6 +34,13 @@ const BREW_GOALS = ['boil_bucket', 'first_brew', 'six_cups'];
 export function makeNpcHost(d: NpcHostDeps): NpcHost {
   const goal = (id: string) => OBJECTIVES.find((o) => o.id === id);
   return {
+    setBlockActive: (x, y, z, on) => {
+      if (!d.world.isLoaded(x, z)) return false;
+      const v = d.world.getVoxel(x, y, z);
+      if (voxelId(v) !== blockId('jukebox')) return false;
+      if (voxelActive(v) !== on) d.world.setVoxel(x, y, z, withActive(v, on), 'sim');
+      return true;
+    },
     give: (item, n) => d.player.give(item, n),
     currentGoal: () => d.objectives.current?.id ?? null,
     completed: () => new Set(d.objectives.completed.map((o) => o.id)),

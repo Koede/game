@@ -95,7 +95,7 @@ export function chunksInView(r: number): number {
 }
 
 /** Fixture blocks (src/content/areas/tavern_fixtures.ts) and the NPC role each one speaks as. */
-const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock'>> = { quest_board: 'board', wall_clock: 'clock' };
+const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox'>> = { quest_board: 'board', wall_clock: 'clock', jukebox: 'jukebox' };
 
 export class Game {
   readonly state: GameState;
@@ -401,6 +401,7 @@ export class Game {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
+      this.npcRenderer.reduceMotion = this.settings.reduceMotion;
       this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);

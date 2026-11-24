@@ -39,7 +39,34 @@ function wallClock(c: Canvas): void {
   c.rect(8, 8, 1, 1, PIN);
 }
 
+const AMBER = [P.rgb(0x7a3b10), P.rgb(0xb8651c), P.rgb(0xe8a23a), P.rgb(0xffd877)];
+
+/** A jukebox front: an arched wooden cabinet, a window with a record (glowing when it plays), a brass grille and a coin slot. */
+function jukeboxFront(lit: boolean): (c: Canvas) => void {
+  return (c) => {
+    c.rect(0, 0, 16, 16, P.WOOD[1]);
+    c.rect(1, 1, 14, 14, P.WOOD[2]);
+    // The arch: round the top corners off in the cabinet colour of the backing.
+    for (const [x, y] of [[1, 1], [2, 1], [1, 2], [13, 1], [14, 1], [14, 2]] as const) c.set(x, y, P.WOOD[0], 255);
+    // The window: dark when idle, amber and bright when playing.
+    for (let y = 3; y < 9; y++) for (let x = 4; x < 12; x++) {
+      const d = Math.hypot(x - 7.5, y - 5.5);
+      c.set(x, y, d < 3.2 ? (lit ? AMBER[3] : P.rgb(0x2a2630)) : lit ? AMBER[2] : P.rgb(0x1b1820), 255);
+    }
+    c.set(7, 5, lit ? P.rgb(0xfff4c0) : P.rgb(0x5a5566), 255);
+    c.rect(4, 3, 8, 1, P.GOLD[3], 255);
+    c.rect(4, 9, 8, 1, P.GOLD[2], 255);
+    // The speaker grille and the coin slot.
+    for (let x = 4; x < 12; x += 2) c.rect(x, 10, 1, 3, P.GOLD[1], 255);
+    c.rect(6, 13, 4, 1, P.GOLD[3], 255);
+    c.rect(7, 14, 2, 1, P.IRON[0], 255);
+    if (lit) for (const [x, y] of [[2, 4], [13, 5], [2, 8], [13, 9]] as const) c.set(x, y, AMBER[3], 255);
+  };
+}
+
 export default {
+  jukebox_front: jukeboxFront(false),
+  jukebox_front_on: jukeboxFront(true),
   quest_board_front: questBoard,
   wall_clock_front: wallClock,
 } satisfies PainterSet;

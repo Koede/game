@@ -88,7 +88,7 @@ describe('the festival night', () => {
 
   it('does not touch a jukebox the player already switched on', () => {
     const r = fest();
-    r.npcs.speak(r.by('jukebox'));
+    r.npcs.useFixture('jukebox');
     r.npcs.tick(0.1);
     r.state.tod = 0.05;
     r.state.day++;

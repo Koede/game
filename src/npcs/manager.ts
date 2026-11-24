@@ -84,6 +84,8 @@ export interface NpcSnapshot {
 
 /** What the manager needs from the game. */
 export interface NpcHost {
+  /** Lights or darkens the jukebox block's lamp (its active bit). False when the chunk is not loaded or the block is not there. */
+  setBlockActive?(x: number, y: number, z: number, on: boolean): boolean;
   give(item: string, count: number): number;
   currentGoal(): string | null;
   completed(): ReadonlySet<string>;
@@ -117,6 +119,8 @@ export class NpcManager {
   coins = 0;
   /** The tavern jukebox is playing. */
   jukeboxOn = false;
+  /** What the jukebox block's lamp last showed (null: not yet set this session). */
+  private lamp: boolean | null = null;
   private beatS = 0;
   private danceS = 0;
   private beat = 0;
@@ -351,7 +355,7 @@ export class NpcManager {
   }
 
   /** Use on a fixture block (the quest board or the wall clock, placed by the tavern). Null when there is no such fixture. */
-  useFixture(role: 'board' | 'clock'): string | null {
+  useFixture(role: 'board' | 'clock' | 'jukebox'): string | null {
     const npc = FIXTURES.find((n) => n.role === role);
     return npc ? this.speak(npc) : null;
   }
@@ -663,9 +667,18 @@ export class NpcManager {
     return text;
   }
 
+  /** The cabinet glows amber while it plays: the block's active bit follows `jukeboxOn` (retried until the chunk is there). */
+  private syncJukeboxLamp(): void {
+    const o = this.at;
+    if (!o || !this.host?.setBlockActive || this.lamp === this.jukeboxOn) return;
+    const j = FIXTURES.find((n) => n.role === 'jukebox');
+    if (!j) return;
+    if (this.host.setBlockActive(o[0] + Math.floor(j.at[0]), o[1] + Math.floor(j.at[1]), o[2] + Math.floor(j.at[2]), this.jukeboxOn)) this.lamp = this.jukeboxOn;
+  }
+
   private playJukebox(dt: number): void {
     const o = this.at;
-    const j = NPCS.find((n) => n.role === 'jukebox');
+    const j = FIXTURES.find((n) => n.role === 'jukebox');
     if (!o || !j) return;
     this.danceS += dt;
     this.beatS -= dt;
@@ -769,6 +782,7 @@ export class NpcManager {
     if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
     if (!host || !this.at) return;
+    this.syncJukeboxLamp();
     if (this.jukeboxOn) this.playJukebox(dt);
     for (const n of NPCS) {
       if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
