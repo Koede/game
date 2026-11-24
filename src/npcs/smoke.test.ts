@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOT_SMOKING, PUFF_LIFE, SMOKE_DURATION, SMOKE_MAX, SmokePool, puffAlpha, puffFrame, smokeAt, smokeStart } from './smoke';
+import { NOT_SMOKING, PUFF_FPS, PUFF_LIFE, SMOKE_DURATION, SMOKE_FRAMES, SMOKE_MAX, SmokePool, puffFrame, smokeAt, smokeStart } from './smoke';
 
 describe('smoke schedule', () => {
   it('is deterministic', () => {
@@ -37,15 +37,15 @@ describe('smoke schedule', () => {
 });
 
 describe('smoke pool', () => {
-  it('never exceeds its size and recycles', () => {
+  it('never exceeds its size, with two or three puffs overlapping at different ages', () => {
     const pool = new SmokePool();
     let max = 0;
     for (let i = 0; i < 600; i++) {
       pool.step(1 / 30, true, 0, 1, 0);
-      max = Math.max(max, pool.alive);
+      if (i > 60) max = Math.max(max, pool.alive);
     }
     expect(max).toBeLessThanOrEqual(SMOKE_MAX);
-    expect(max).toBeGreaterThanOrEqual(5);
+    expect(max).toBeGreaterThanOrEqual(2);
     expect(pool.puffs.length).toBe(SMOKE_MAX);
   });
   it('lets the smoke finish after she stops, then empties', () => {
@@ -54,16 +54,14 @@ describe('smoke pool', () => {
     for (let i = 0; i < 30 * (PUFF_LIFE + 1); i++) pool.step(1 / 30, false, 0, 1, 0);
     expect(pool.alive).toBe(0);
   });
-  it('puffs rise and a skull puff resolves into the skull frame', () => {
+  it('puffs rise and play a fixed frame timeline', () => {
     const pool = new SmokePool();
-    const p = pool.emit(true, 0, 1, 0);
-    for (let i = 0; i < 60; i++) pool.step(1 / 30, false, 0, 0, 0);
+    const p = pool.emit(0, 1, 0);
+    for (let i = 0; i < 30; i++) pool.step(1 / 30, false, 0, 0, 0);
     expect(p.y).toBeGreaterThan(1.3);
-    expect(puffFrame(true, 0.05)).toBe(1);
-    expect(puffFrame(true, 0.9)).toBe(4);
-    expect(puffFrame(false, 0.9)).toBe(0);
-    expect(puffAlpha(0)).toBe(0);
-    expect(puffAlpha(0.5)).toBe(1);
-    expect(puffAlpha(1)).toBe(0);
+    expect(puffFrame(0)).toBe(0);
+    expect(puffFrame(0.65)).toBe(6);
+    expect(puffFrame(PUFF_LIFE - 0.001)).toBe(SMOKE_FRAMES - 1);
+    expect(PUFF_LIFE * PUFF_FPS).toBe(SMOKE_FRAMES);
   });
 });

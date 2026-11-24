@@ -1,6 +1,6 @@
 /**
  * Veyra's cigar (docs/api/npcs.md): pure schedule and particle pool for her signature idle flourish. She lights up for ~10 s about every
- * 46-70 s of idle time; the smoke she breathes curls up and resolves into a small skull before it fades. The renderer
+ * 46-70 s of idle time; the smoke she breathes is a pixel-art puff that curls up, gathers into a small skull and crumbles to dust. The renderer
  * (src/render/npcs/smoke.ts) draws it; everything here is deterministic from time so it is testable without a canvas.
  */
 
@@ -62,57 +62,39 @@ export function smokeAt(t: number, seed = 0, ctx: SmokeContext = {}): SmokeState
 
 /** Most smoke sprites alive at once. */
 export const SMOKE_MAX = 8;
-/** Seconds a puff lives. */
-export const PUFF_LIFE = 3;
-/** Seconds between skulls while smoking, and between plain curls (offset half a beat from the skulls). */
-export const SKULL_EVERY = 0.6;
-export const CURL_EVERY = 1.2;
-
-/** Frames in the shared smoke atlas: 0 a plain curl, 1..4 a wisp that progressively reads as a skull (4 is the full skull). */
-export const SMOKE_FRAMES = 5;
+/** Frames in one puff's pixel animation (src/render/npcs/smoke.ts has the art) and how fast it plays. */
+export const SMOKE_FRAMES = 16;
+export const PUFF_FPS = 10;
+/** Seconds a puff lives: exactly its animation. */
+export const PUFF_LIFE = SMOKE_FRAMES / PUFF_FPS;
+/** Seconds between puffs while smoking (two or three overlap at different ages). */
+export const PUFF_EVERY = 0.55;
 
 export interface Puff {
   alive: boolean;
-  /** Skull puffs resolve through the atlas; curl puffs stay a plain curl. */
-  skull: boolean;
   age: number;
-  life: number;
   x: number;
   y: number;
   z: number;
-  vx: number;
+  /** Rise speed (blocks per second), sideways drift, and the sway's rate and phase. */
   vy: number;
+  vx: number;
   vz: number;
-  /** Radians per second the wisp sways at, and its phase. */
   sway: number;
   phase: number;
 }
 
-/** Atlas frame for a puff at 0..1 of its life. */
-export function puffFrame(skull: boolean, u: number): number {
-  if (!skull) return 0;
-  return u < 0.18 ? 1 : u < 0.4 ? 2 : u < 0.6 ? 3 : 4;
-}
-
-/** Opacity (0..1 of the sprite's full ~0.6) at 0..1 of life: a quick fade in, a long hold, a fade out. */
-export function puffAlpha(u: number): number {
-  return Math.max(0, Math.min(1, u / 0.12, (1 - u) / 0.35));
-}
-
-/** World size of a puff at 0..1 of life: it grows as it rises. */
-export function puffSize(u: number): number {
-  return 0.16 + 0.34 * Math.sqrt(Math.max(0, Math.min(1, u)));
-}
+/** The animation frame of a puff at `age` seconds: a fixed timeline, curl -> skull -> dust. */
+export const puffFrame = (age: number): number => Math.max(0, Math.min(SMOKE_FRAMES - 1, Math.floor(age * PUFF_FPS)));
 
 /** A fixed set of puffs, recycled (no allocation after construction). */
 export class SmokePool {
   readonly puffs: Puff[] = [];
-  private skullClock = 0;
-  private curlClock = CURL_EVERY / 2;
+  private clock = 0;
   private n = 0;
 
   constructor(readonly max = SMOKE_MAX) {
-    for (let i = 0; i < max; i++) this.puffs.push({ alive: false, skull: false, age: 0, life: PUFF_LIFE, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, sway: 0, phase: 0 });
+    for (let i = 0; i < max; i++) this.puffs.push({ alive: false, age: 0, x: 0, y: 0, z: 0, vy: 0, vx: 0, vz: 0, sway: 0, phase: 0 });
   }
 
   get alive(): number {
@@ -121,8 +103,8 @@ export class SmokePool {
     return c;
   }
 
-  /** Starts one puff at the mouth; the oldest is recycled when the pool is full. */
-  emit(skull: boolean, x: number, y: number, z: number, seed = 0): Puff {
+  /** Starts one puff at the cigar tip; the oldest is recycled when the pool is full. */
+  emit(x: number, y: number, z: number, seed = 0): Puff {
     let slot: Puff | null = null;
     for (const p of this.puffs) {
       if (!p.alive) {
@@ -135,54 +117,45 @@ export class SmokePool {
     const r = hash01(this.n++, seed);
     const r2 = hash01(this.n, seed + 7);
     p.alive = true;
-    p.skull = skull;
     p.age = 0;
-    p.life = PUFF_LIFE * (0.9 + 0.2 * r);
     p.x = x;
     p.y = y;
     p.z = z;
-    p.vx = (r - 0.5) * 0.12;
-    p.vz = (r2 - 0.5) * 0.12;
-    p.vy = 0.3 + 0.08 * r2;
-    p.sway = 1.2 + r;
+    p.vy = 0.1 + 0.04 * r2;
+    p.vx = (r - 0.5) * 0.06;
+    p.vz = (r2 - 0.5) * 0.06;
+    p.sway = 1.5 + r;
     p.phase = r2 * 6.28;
     return p;
   }
 
-  /** Advances every puff; while `smoking`, breathes out skulls and curls at the mouth. Not smoking: the rest drift away and fade. */
+  /** Advances every puff; while `smoking`, breathes out a puff every PUFF_EVERY at the tip. Not smoking: the rest finish and vanish. */
   step(dt: number, smoking: boolean, mx: number, my: number, mz: number, seed = 0): void {
     for (const p of this.puffs) {
       if (!p.alive) continue;
       p.age += dt;
-      if (p.age >= p.life) {
+      if (p.age >= PUFF_LIFE) {
         p.alive = false;
         continue;
       }
-      p.x += (p.vx + Math.sin(p.age * p.sway + p.phase) * 0.05) * dt;
+      p.x += (p.vx + Math.sin(p.age * p.sway + p.phase) * 0.04) * dt;
       p.y += p.vy * dt;
       p.z += p.vz * dt;
     }
     if (!smoking) {
-      this.skullClock = 0;
-      this.curlClock = CURL_EVERY / 2;
+      this.clock = 0;
       return;
     }
-    this.skullClock -= dt;
-    this.curlClock -= dt;
-    // At most one puff of each kind per call, so a long frame cannot burst the pool.
-    if (this.skullClock <= 0) {
-      this.skullClock = Math.max(this.skullClock + SKULL_EVERY, 0.05);
-      this.emit(true, mx, my, mz, seed);
-    }
-    if (this.curlClock <= 0) {
-      this.curlClock = Math.max(this.curlClock + CURL_EVERY, 0.05);
-      this.emit(false, mx, my, mz, seed + 1);
+    this.clock -= dt;
+    // At most one puff per call, so a long frame cannot burst the pool.
+    if (this.clock <= 0) {
+      this.clock = Math.max(this.clock + PUFF_EVERY, 0.05);
+      this.emit(mx, my, mz, seed);
     }
   }
 
   clear(): void {
     for (const p of this.puffs) p.alive = false;
-    this.skullClock = 0;
-    this.curlClock = CURL_EVERY / 2;
+    this.clock = 0;
   }
 }
