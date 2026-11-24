@@ -183,8 +183,8 @@ export class Game {
     this.npcRenderer = new NpcRenderer(this.renderer);
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
-    this.treeRenderer = new FallingTreeRenderer(this.renderer);
-    this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs });
+    this.treeRenderer = new FallingTreeRenderer(this.renderer, (p) => this.renderer.spawnParticle(p));
+    this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs, reduceMotion: () => this.settings.reduceMotion });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {

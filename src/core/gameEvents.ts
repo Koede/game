@@ -96,6 +96,10 @@ export type SfxName =
   // ---- Current Age engines: chainsaw and tractor ----
   | 'saw_cut'
   | 'tree_fall'
+  /** A felled tree's warning creak, before it goes. */
+  | 'tree_creak'
+  /** One axe blow on a tree or a fallen log. */
+  | 'tree_chop'
   | 'engine'
   | 'engine_start'
   // ---- buckets, a richer world, weather (spec 13-15) ----

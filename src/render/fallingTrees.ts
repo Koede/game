@@ -5,7 +5,9 @@
  * with the cut end rounded (a smaller, paler end block) so the player sees how much is left. One draw call per body.
  */
 import * as THREE from 'three';
-import { cellLocal, type FallingTree } from '../game/fallingTrees';
+import { cellLocal, tipPoint, type FallingTree } from '../game/fallingTrees';
+import type { ParticleSpec } from './particles';
+import { ParticleLook } from './particles';
 import type { FallenLog } from '../game/fallenLogs';
 import { poseOf } from '../game/treeBody';
 
@@ -26,6 +28,8 @@ interface Body {
   mesh: THREE.InstancedMesh;
   /** What the mesh was built from: a change rebuilds it (a log's length changes when it is cut). */
   sig: string;
+  /** Where a falling tree's tip was last frame: the dust puff goes there when it lands. */
+  tip?: { x: number; y: number; z: number };
 }
 
 export class FallingTreeRenderer {
@@ -39,7 +43,8 @@ export class FallingTreeRenderer {
   private readonly scale = new THREE.Matrix4();
   private readonly colour = new THREE.Color();
 
-  constructor(target: TreeScene) {
+  /** `spawn` draws a particle (the Renderer's spawnParticle); the dust of a landing is spawned through it. */
+  constructor(target: TreeScene, private readonly spawn?: (p: ParticleSpec) => void) {
     target.scene.add(this.group);
   }
 
@@ -57,7 +62,10 @@ export class FallingTreeRenderer {
       const pose = poseOf(tree.body, tree.inertia, tree.pivot);
       setBasis(this.basis, tree.pivot.dx, tree.pivot.dz, pose.theta, pose.ox, pose.oy, pose.oz);
       body.group.matrix.copy(this.basis);
+      body.tip = tipPoint(tree);
     }
+    // A tree that is no longer falling has landed: a puff of dust where its tip was.
+    for (const [id, body] of this.trees) if (!liveTrees.has(id) && body.tip) this.dust(body.tip);
     this.prune(this.trees, liveTrees);
 
     const liveLogs = new Set<number>();
@@ -85,6 +93,37 @@ export class FallingTreeRenderer {
     this.geometry.dispose();
     this.material.dispose();
     this.group.removeFromParent();
+  }
+
+  /** A puff of dust and small chips where a felled tree hits the ground. */
+  private dust(at: { x: number; y: number; z: number }): void {
+    if (!this.spawn) return;
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2 + (i % 3) * 0.4;
+      const speed = 1.2 + (i % 4) * 0.45;
+      this.spawn({
+        x: at.x + Math.cos(a) * 0.4,
+        y: at.y + 0.2,
+        z: at.z + Math.sin(a) * 0.4,
+        vx: Math.cos(a) * speed,
+        vy: 0.9 + (i % 3) * 0.5,
+        vz: Math.sin(a) * speed,
+        life: 0.9,
+        size: 0.28,
+        sizeEnd: 1.1,
+        r: 0.74,
+        g: 0.68,
+        b: 0.56,
+        r2: 0.6,
+        g2: 0.55,
+        b2: 0.48,
+        alpha: 0.55,
+        gravity: 2,
+        drag: 1.4,
+        look: ParticleLook.Puff,
+        fog: 0.6,
+      });
+    }
   }
 
   private prune(map: Map<number, Body>, live: Set<number>): void {

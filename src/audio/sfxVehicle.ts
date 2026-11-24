@@ -12,6 +12,22 @@ export const VEHICLE_SFX = {
       tone('triangle', 95, 0.22, 0.3, { a: 0.03, freqEnd: 120 }),
     ],
   },
+  // The warning creak: a wood groaning under load, wavering slowly.
+  tree_creak: {
+    jitter: 2,
+    layers: [
+      tone('sawtooth', 110, 0.22, 0.9, { a: 0.12, freqEnd: 74, trem: { rate: 5, depth: 0.5 }, filter: lp(620) }),
+      noise('pink', bp(520, 300, 1), 0.2, 0.8, { a: 0.1, trem: { rate: 4, depth: 0.6 } }),
+    ],
+  },
+  // An axe biting wood: a short thwack and its ring.
+  tree_chop: {
+    jitter: 3,
+    layers: [
+      noise('white', bp(1800, 900, 1.2), 0.5, 0.08, { a: 0.002 }),
+      tone('triangle', 180, 0.3, 0.07, { a: 0.002, freqEnd: 110 }),
+    ],
+  },
   // A trunk coming down: the crack of the last fibres, a rush of branches and a heavy thud.
   tree_fall: {
     jitter: 2,

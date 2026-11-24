@@ -127,6 +127,8 @@ export interface FallingTreesOptions {
   persist?: PersistHost;
   /** The 'Auto-buck felled trees' setting: a landed log is cut into pieces at once. */
   autoBuck?: () => boolean;
+  /** Reduce motion: the fall runs twice as fast (no shaking either way). */
+  reduceMotion?: () => boolean;
   /** The 'Tree damage to me' setting (on by default). */
   treeDamage?: () => boolean;
   /** Creatures a falling tree can hurt (MobManager satisfies it). */
@@ -149,6 +151,7 @@ export class FallingTrees {
   private readonly fallen: FallenLogs;
   private readonly unpersist: (() => void) | null;
   private readonly treeDamage: () => boolean;
+  private readonly reduceMotion: () => boolean;
   private readonly victims: TreeVictims | null;
 
   constructor(
@@ -160,6 +163,7 @@ export class FallingTrees {
     this.rng = options.rng ?? Math.random;
     this.autoBuck = options.autoBuck ?? (() => false);
     this.treeDamage = options.treeDamage ?? (() => true);
+    this.reduceMotion = options.reduceMotion ?? (() => false);
     this.victims = options.victims ?? null;
     this.fallen = new FallenLogs(world);
     if (options.persist) {
@@ -230,7 +234,7 @@ export class FallingTrees {
     const left = (this.health.get(k) ?? treeHealth(trunkLen)) - axePower(tool.tier);
     this.player.wearHeld(hit.block);
     exertMining(this.player);
-    this.bus.emit('sfx', { name: 'dig_wood', x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
+    this.bus.emit('sfx', { name: 'tree_chop', x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
     if (left > 0) {
       this.health.set(k, left);
       return true;
@@ -251,7 +255,7 @@ export class FallingTrees {
     dropCut(this.player, cut);
     this.player.wearHeld(cut.logDef);
     exertMining(this.player);
-    this.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    this.bus.emit('sfx', { name: 'tree_chop', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     return true;
   }
 
@@ -288,7 +292,7 @@ export class FallingTrees {
       hit: new Set<string | number>(),
     };
     this.active.push(tree);
-    this.bus.emit('sfx', { name: 'tree_fall', x: base.x + 0.5, y: base.y + 0.5, z: base.z + 0.5, volume: 0.5 });
+    this.bus.emit('sfx', { name: 'tree_creak', x: base.x + 0.5, y: base.y + 0.5, z: base.z + 0.5 });
     this.bus.emit('toast', { text: 'Timber!', kind: 'warn' });
   }
 
@@ -333,7 +337,8 @@ export class FallingTrees {
       const p = this.player.position;
       const inZone = inFallZone(p.x, p.z, tree.pivot.px, tree.pivot.pz, tree.pivot.dx, tree.pivot.dz, tree.segs.length ? tree.segs[tree.segs.length - 1].r : 0);
       const next = advanceWait(tree.clock, dt, inZone);
-      tree.acc += next - tree.clock;
+      // Reduce motion: the body falls twice as fast (the wait clock itself runs at the normal rate).
+      tree.acc += (next - tree.clock) * (this.reduceMotion() ? 2 : 1);
       tree.clock = next;
       while (tree.acc >= STEP_S && tree.phase === 'falling') {
         tree.acc -= STEP_S;
@@ -382,7 +387,6 @@ export class FallingTrees {
     this.world.setVoxel(tree.base.x, tree.base.y, tree.base.z, makeVoxel(stump.id, Facing.North), 'player');
     for (const c of tree.trunk) this.world.setVoxel(c.x, c.y, c.z, AIR, 'player');
     for (const c of tree.leaves) this.world.setVoxel(c.x, c.y, c.z, AIR, 'player');
-    this.bus.emit('sfx', { name: 'tree_fall', x: tree.base.x + 0.5, y: tree.base.y + 0.5, z: tree.base.z + 0.5 });
   }
 
   /**
@@ -412,6 +416,7 @@ export class FallingTrees {
     const leaves: ItemAmount[] = [];
     for (let i = 0; i < tree.leaves.length; i++) mergeDrops(leaves, rollDrops(leafDef, this.rng));
     this.player.dropAll([...branch, ...leaves], tip);
+    this.bus.emit('sfx', { name: 'tree_fall', x: tip.x, y: tip.y, z: tip.z });
     this.bus.emit('flag', { flag: FLAG_FELLED_TREE });
     if (this.autoBuck()) {
       for (let guard = 0; guard < 64; guard++) {

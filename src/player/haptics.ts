@@ -16,6 +16,8 @@ export const HAPTIC = {
   break: 18,
   place: 10,
   craft: [10, 40, 10] as number[],
+  /** A tree hitting the ground: a long double buzz. */
+  fell: [30, 40, 60] as number[],
   hurt: (amount: number): number => Math.round(Math.min(90, 25 + amount * 8)),
 } as const;
 
@@ -51,6 +53,7 @@ export function attachHaptics(
       if (e.name.startsWith('dig_')) buzz(HAPTIC.dig);
       else if (e.name === 'place') buzz(HAPTIC.place);
       else if (e.name === 'craft') buzz(HAPTIC.craft);
+      else if (e.name === 'tree_fall') buzz(HAPTIC.fell);
     }),
     bus.on('block:broken', () => buzz(HAPTIC.break)),
     bus.on('player:damage', (e) => buzz(HAPTIC.hurt(e.amount), true)),
