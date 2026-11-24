@@ -7,7 +7,9 @@ import * as THREE from 'three';
 import type { NpcView } from '../../npcs';
 import { danceFrame, dancePose, STILL, type Pose } from '../../npcs/choreo';
 import { ANIM_FPS, ANIM_FRAMES, DANCE_FRAMES, npcArt, npcDanceBodyFrac, onNpcArt } from './art';
+import { smokeAt, SMOKER } from '../../npcs/smoke';
 import { BubbleLayer } from './bubbles';
+import { SmokeLayer } from './smoke';
 import { designSize, paintNpc } from './sprites';
 
 /** The parts of the Renderer it draws into. */
@@ -50,12 +52,18 @@ export class NpcRenderer {
   private readonly clockMinute = new Map<string, number>();
   private time = 0;
   private readonly bubbles: BubbleLayer;
+  private readonly smoke: SmokeLayer;
+  /** Veyra's cigar: reduced motion shows only the cigar and a still curl (the app sets this from the settings). */
+  reduceMotion = false;
+  /** Seconds added to the clock the smoke schedule reads (debug and tests: jump into a smoke). */
+  smokeOffset = 0;
 
   private readonly offArt: () => void;
 
   constructor(private readonly host: NpcScene) {
     // Drop-in art (assets/npcs) arrives after the first frames: rebuild every sprite from it.
     this.bubbles = new BubbleLayer(host.scene);
+    this.smoke = new SmokeLayer(host.scene);
     this.offArt = onNpcArt(() => this.reset());
   }
 
@@ -100,6 +108,7 @@ export class NpcRenderer {
           this.host.scene.add(body.mesh);
         }
         this.poseBody(body, v, eye, k);
+        if (v.id === SMOKER) this.puff(dt, v, body, eye, k);
         continue;
       }
       let s = this.sprites.get(v.id);
@@ -127,6 +136,13 @@ export class NpcRenderer {
       this.textures.get(id)?.dispose();
       this.textures.delete(id);
     }
+  }
+
+  /** Veyra's cigar and skull smoke, attached to her standing picture (never while she dances or is hired out). */
+  private puff(dt: number, v: NpcView, b: Body, eye: { x: number; z: number } | undefined, k: number): void {
+    const state = smokeAt(this.time + this.smokeOffset, 0, { dancing: v.dancing, hired: v.hired });
+    const m = b.mesh;
+    this.smoke.update(dt, this.time, state, { x: m.position.x, y: m.position.y, z: m.position.z, rotY: m.rotation.y, w: b.w, h: b.h, k }, eye, this.reduceMotion);
   }
 
   /** Places and bends one person: idle bob, or the dance pose when the jukebox plays. */
@@ -304,6 +320,7 @@ export class NpcRenderer {
   dispose(): void {
     this.offArt();
     this.bubbles.dispose();
+    this.smoke.dispose();
     for (const s of this.sprites.values()) {
       this.host.scene.remove(s);
       (s.material as THREE.SpriteMaterial).dispose();
