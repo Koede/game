@@ -267,6 +267,107 @@ function barkeep(p: Pixels): void {
   p.rect(13, 36, 3, 4, hex(0x3b2a1e));
 }
 
+/**
+ * Veyra the dark elf alchemist (owner references: docs/art-refs/veyra_pose_ref.png and the lab-coat elf): deep magenta skin, long near-black
+ * navy hair with a fringe over one eye, red eyes behind round gold glasses, pointed ears, a long white coat with a ragged hem over a deep
+ * teal outfit with gold shoulders, a vial bandolier and a skull charm, white gloves, mismatched gold-toed boots. One hand is on her hip
+ * (a small silver flask at it); the other is raised holding a lime flask with a curl of pale mint vapour rising from it.
+ */
+function alchemist(p: Pixels): void {
+  const skin = hex(0x6a1a5a);
+  const hair = hex(0x12142a);
+  const hairHi = hex(0x3a3f6e);
+  const teal = hex(0x2f6f6b);
+  const tealDark = hex(0x1e4a4c);
+  const gold = hex(0xd9b23a);
+  const coat = hex(0xe8e6ee);
+  const coatShade = hex(0xb4acd0);
+  const lime = hex(0xb8e04a);
+  const mint = hex(0xa8dcc0);
+  const mintDark = hex(0x7fc9a0);
+  // Long straight hair behind the shoulders, a cap on the crown and a long fringe sweeping over her left (viewer's left) eye.
+  p.rect(8, 3, 8, 3, hair);
+  p.rect(7, 5, 2, 22, hair);
+  p.rect(15, 5, 2, 20, hair);
+  p.rect(6, 12, 2, 16, hair);
+  p.rect(9, 3, 3, 1, hairHi);
+  p.rect(7, 8, 1, 14, hairHi);
+  // Long pointed ears.
+  p.px(6, 9, skin);
+  p.px(5, 8, skin);
+  p.px(4, 7, skin);
+  p.px(17, 9, skin);
+  p.px(18, 8, skin);
+  p.px(19, 7, skin);
+  face(p, skin, 8, 6, 8, 11);
+  p.rect(9, 17, 6, 1, skin);
+  p.rect(8, 6, 6, 2, hair);
+  p.rect(8, 8, 3, 3, hair); // the fringe over one eye
+  p.px(11, 10, hair);
+  p.rect(13, 6, 3, 1, hair);
+  // Round gold glasses; red eyes behind them; blue-grey lips.
+  p.rect(12, 10, 4, 3, gold);
+  p.rect(13, 11, 2, 1, hex(0xe83a3a));
+  p.px(13, 11, hex(0xffe0e0));
+  p.px(14, 11, hex(0xc01c2c));
+  p.px(11, 11, gold);
+  p.rect(8, 11, 1, 1, gold);
+  p.px(9, 11, hex(0xe83a3a));
+  p.rect(10, 15, 4, 1, hex(0x5a5a80));
+  p.px(11, 14, dark(skin, 0.7));
+  p.rect(11, 18, 2, 2, dark(skin, 0.9));
+  // The deep teal outfit under a long white coat with big pockets, a ragged hem and gold shoulder pieces.
+  p.rect(8, 20, 8, 10, teal);
+  p.rect(8, 20, 8, 1, tealDark);
+  p.rect(10, 20, 4, 1, skin);
+  p.rect(6, 20, 3, 17, coat);
+  p.rect(15, 20, 3, 17, coat);
+  p.rect(6, 28, 1, 9, coatShade);
+  p.rect(17, 20, 1, 17, coatShade);
+  p.rect(5, 31, 14, 5, coat);
+  p.rect(5, 35, 14, 1, coatShade);
+  for (const x of [5, 7, 10, 13, 16, 18]) p.rect(x, 36, 1, 2, coat); // the ragged hem
+  p.rect(7, 31, 3, 3, coatShade); // pockets
+  p.rect(14, 31, 3, 3, coatShade);
+  p.rect(8, 30, 8, 5, tealDark);
+  p.rect(11, 30, 2, 7, tealDark);
+  p.rect(6, 20, 2, 1, gold);
+  p.rect(16, 20, 2, 1, gold);
+  // A bandolier of glowing lime vials across the chest, a gold belt and a little skull charm.
+  for (let i = 0; i < 7; i++) {
+    p.px(8 + i, 21 + i, hex(0x4a3020));
+    if (i % 2 === 1) p.px(8 + i, 22 + i, lime);
+  }
+  p.rect(8, 29, 8, 1, gold);
+  p.px(10, 30, hex(0xf2eee0));
+  p.px(10, 31, hex(0xf2eee0));
+  p.px(9, 30, dark(skin, 0.5));
+  // Left arm (viewer's left): a hand on her hip and a small silver flask at it.
+  p.rect(4, 21, 2, 4, coat);
+  p.rect(3, 24, 2, 4, coat);
+  p.rect(4, 27, 2, 2, hex(0xf6f4fa));
+  p.px(6, 29, hex(0xc7c9d1));
+  p.px(6, 30, hex(0xeef0f6));
+  // Right arm raised out and up, a white glove, a round flask of bright lime liquid, and a curl of pale mint vapour rising from it.
+  p.rect(18, 20, 2, 2, coat);
+  p.rect(19, 18, 2, 2, coat);
+  p.rect(20, 16, 2, 2, hex(0xf6f4fa));
+  p.disc(21.5, 14, 1.6, 1.4, lime);
+  p.rect(21, 12, 1, 1, hex(0xd8d4e4));
+  for (let k = 0; k < 11; k++) {
+    const x = 21 + Math.round(Math.sin(k * 0.95) * 1.8);
+    const y = 11 - k;
+    if (y < 0) break;
+    p.px(x, y, k % 2 ? mint : mintDark);
+    if (k % 3 === 1) p.px(x + 1, y, mintDark);
+  }
+  // Mismatched ankle boots with gold toes.
+  p.rect(8, 37, 3, 3, hex(0x2a2030));
+  p.px(8, 39, gold);
+  p.rect(13, 37, 3, 3, hex(0x4a2a58));
+  p.px(15, 39, gold);
+}
+
 function orc(p: Pixels): void {
   const skin = hex(0x6fa04a);
   const skinDark = hex(0x4e7a35);
@@ -453,7 +554,7 @@ function jukebox(p: Pixels): void {
   p.rect(2, p.h - 2, 12, 2, dark);
 }
 
-const PERSON: Partial<Record<NpcSprite, (p: Pixels) => void>> = { witch, barkeep, orc, artificer, hermit };
+const PERSON: Partial<Record<NpcSprite, (p: Pixels) => void>> = { witch, barkeep, orc, artificer, alchemist, hermit };
 
 export interface SpriteImage {
   w: number;

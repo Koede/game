@@ -12,7 +12,7 @@ describe('rooms to rent', () => {
     npcs.speak(by('rosa'));
     expect(state.slept).toBe(1);
     expect(npcs.coins).toBe(30 - ROOM_COST);
-    const notes = toasts.filter((t) => /^(Mara|Gruk|Orrin|Bram):/.test(t));
+    const notes = toasts.filter((t) => /^(Mara|Gruk|Orrin|Veyra|Bram):/.test(t));
     expect(notes).toHaveLength(3);
     expect(new Set(notes.map((n) => n.split(':')[0])).size).toBe(3);
   });

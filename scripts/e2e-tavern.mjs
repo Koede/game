@@ -4,7 +4,7 @@
 //   node scripts/e2e-tavern.mjs --no-build         use the existing build (--dist=<dir>, default dist/)
 //   node scripts/e2e-tavern.mjs --shots=<dir>      screenshots (default test-results/e2e-tavern)
 //
-// New World (survival) -> the player stands inside the tavern, the welcome toast shows, the three people stand where the layout says ->
+// New World (survival) -> the player stands inside the tavern, the welcome toast shows, the people stand where the layout says ->
 // aim at Rosa and Use: her gift (a hearth stew) arrives and her line shows as a toast -> the same for Gruk's wooden tools and Mara's
 // notebook -> Continue after Save and quit still has the tavern. Real input for the Use; window.__hw only reads state and aims.
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
@@ -62,14 +62,14 @@ async function runDevice(device) {
       await d.settle(2500);
       const s = await npcs();
       assert(s.at, 'no tavern was built');
-      assert(s.views.length === 6, `${s.views.length} people and props`);
+      assert(s.views.length === 7, `${s.views.length} people and props`);
       const inside = s.pos.x > s.at[0] && s.pos.x < s.at[0] + 12 && s.pos.z > s.at[2] && s.pos.z < s.at[2] + 8;
       assert(inside, `the player is at ${s.pos.x},${s.pos.z}, outside the hall at ${s.at}`);
       assert(errors.length === 0, `console errors: ${errors.join(' | ')}`);
       await d.shot('1-start');
     });
 
-    for (const [id, gift, word] of [['rosa', 'hearth_stew', 'On the house'], ['gruk', 'wooden_pickaxe', 'Wooden tools'], ['mara', 'field_notebook', 'notebook']]) {
+    for (const [id, gift, word] of [['rosa', 'hearth_stew', 'On the house'], ['gruk', 'wooden_pickaxe', 'Wooden tools'], ['mara', 'field_notebook', 'notebook'], ['veyra', 'glass_vial', 'Glass. Clean']]) {
       await step(`using ${id} gives the welcome gift and a line`, async () => {
         const s = await npcs();
         const v = s.views.find((x) => x.id === id);
@@ -127,7 +127,7 @@ async function runDevice(device) {
       await d.settle(600);
       const after = await npcs();
       const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');
-      assert(dancing === 'bram,mara,orrin,rosa', `dancers: ${dancing}`);
+      assert(dancing === 'bram,mara,orrin,rosa,veyra', `dancers: ${dancing}`);
       await d.settle(15000); // they walk over to the dance floor, round the bar and through the doors
       const mara = (await npcs()).views.find((x) => x.id === 'mara');
       await d.hw((p) => window.__hw.teleport(p.x - 1.5, p.y, p.z + 3.5), { x: mara.x, y: mara.y, z: mara.z });

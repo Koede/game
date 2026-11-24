@@ -11,13 +11,14 @@ falls back to the code-drawn sprite or portrait, so you can add one character at
 | `gruk.png`, `gruk_portrait.png` | orc smith (drawn big; the game scales him 1.35x) | |
 | `orrin.png`, `orrin_portrait.png` | artificer | |
 | `bram.png`, `bram_portrait.png` | hermit | |
+| `veyra.png`, `veyra_portrait.png` | dark elf alchemist (also `veyra_anim.png`, `veyra_dance.png`, `veyra_faces.jpg` like the others) | owner's reference: `docs/art-refs/veyra_pose_ref.png` |
 
 Sprites are drawn 2 blocks tall (times the character's scale) and shown with nearest-neighbour filtering, so a clean 64-128 px tall
 pixel-art image looks best. The cleanup trims the background, crops to the figure and keeps the pixels as they are.
 
 ## Prompts (Leonardo.ai, Pixel Art style, or any generator)
 
-Use one style paragraph for all five so they match, then the character line. Ask for a PLAIN FLAT SINGLE-COLOUR background (light grey is
+Use one style paragraph for all six so they match, then the character line. Ask for a PLAIN FLAT SINGLE-COLOUR background (light grey is
 fine) so it can be cut out. Generate a few and keep the best; keep the same seed or the same "style paragraph" for consistency.
 
 Style paragraph (sprites):
@@ -41,6 +42,14 @@ Characters (add to the style paragraph):
   with rolled sleeves, leather apron with tools in the pocket, big wrench in one hand, boots.
 - **Bram, hermit:** old man in a patched olive-green hooded robe, long grey beard, bushy white eyebrows, rope belt, a bulging coin purse,
   a walking stick, worn boots. Amused, mischievous.
+- **Veyra, alchemist (dark elf):** tall, slim adult woman (small head, long legs), DEEP MAGENTA-PURPLE skin (about #6a1a5a, shadows #3a0a35),
+  long straight near-black navy hair (#12142a) falling past the shoulders with a long fringe over one eye, small glowing red eyes behind round
+  gold glasses, long pointed ears, blue-grey lips. A long white lab coat (#e8e6ee, lilac shadows) with big pockets and a ragged hem over a
+  deep teal (#2f6f6b) fitted outfit with gold (#d9b23a) trim and gold shoulder pieces, a bandolier of small vials of glowing lime liquid
+  (#b8e04a), a tiny skull charm on a gold belt, white gloves, mismatched gold-toed ankle boots. Pose (from the reference): one hand on the hip with
+  a small silver flask at it, the other arm raised and held out with a round flask of bright lime liquid and a swirl of pale mint vapour
+  (#7fc9a0 / #a8dcc0) curling up from it; in her idle loop the vapour now and then forms a small skull (stylised alchemical fumes from a glass
+  vapour tube, no smoking). Calm, dry, precise, a little vain about her work.
 
 Keep the characters adult and tasteful.
 
@@ -57,3 +66,7 @@ What the references have in common, to put in every prompt (or to describe next 
 In Leonardo.ai: open the image generator, use the **Image Guidance / Style Reference** (or "Content Reference") panel, upload your reference
 images there, pick the Pixel Art model, and add the character line from above. The tools I have can only take text, so I cannot pass your
 reference images to a generator myself; uploading them in the site is how they get used.
+- **Veyra (alchemist):** a pale-mint vapour swirl rising from a raised hand is her signature; skin deep magenta-purple, hair near-black navy,
+  red eyes. The coat is white and long with a ragged hem over teal and gold, so the silhouette reads as a tall white column against a
+  purple figure. Hard-edged three or four tone cel shading, dark coloured outline, rim light on the left, a few floating green motes. Reference
+  pose: `docs/art-refs/veyra_pose_ref.png` (the outfit there is bare; keep ours: coat, teal, gold, glasses, vial bandolier, skull charm).

@@ -58,6 +58,7 @@ const STYLE: Readonly<Record<string, { start: number; size: number; hips: number
   mara: { start: 0, size: 1.05, hips: 1.3 },
   rosa: { start: 5, size: 1, hips: 1.3 },
   orrin: { start: 10, size: 0.9, hips: 0.8 },
+  veyra: { start: 7, size: 0.95, hips: 1.1 },
   bram: { start: 3, size: 0.75, hips: 0.7 },
 };
 

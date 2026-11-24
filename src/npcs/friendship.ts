@@ -14,6 +14,7 @@ export const LIKES: Readonly<Record<string, readonly string[]>> = {
   rosa: ['bread', 'apple', 'berries', 'hearth_stew', 'honey', 'mushroom'],
   gruk: ['coal', 'iron_ingot', 'bronze_ingot', 'bone', 'copper_ingot'],
   orrin: ['copper_ingot', 'glass', 'bronze_ingot', 'iron_ingot', 'tin_ingot'],
+  veyra: ['glass_vial', 'glass_beaker', 'charcoal', 'sulfur', 'tincture_beaker', 'clear_tincture_beaker', 'spirit_beaker'],
   bram: ['bone', 'mushroom', 'berries', 'feather', 'apple'],
 };
 
@@ -24,6 +25,7 @@ export const REWARDS: Readonly<Record<string, readonly (TierReward | null)[]>> =
   rosa: [{ item: 'hearth_stew', count: 2, line: 'Eat. You look thin. Do not argue.' }, { item: 'hearth_stew', count: 4, line: 'A proper meal for a proper regular.' }, null],
   gruk: [{ item: 'coal', count: 6, line: 'Fuel. For the good fire.' }, null, null],
   orrin: [{ item: 'copper_ingot', count: 3, line: 'Spares from the bench. Make something clever.' }, { item: 'iron_ingot', count: 3, line: 'Do not tell the others I was this generous.' }, null],
+  veyra: [{ item: 'glass_beaker', count: 4, line: 'Spare glass. Do not drop it; I count my beakers.' }, { item: 'charcoal', count: 6, line: 'Activated, more or less. It will clean a tincture nicely.' }, null],
   bram: [{ item: 'mushroom', count: 4, line: 'Found these. Too many for me.' }, null, null],
 };
 
@@ -48,6 +50,11 @@ export const FRIEND_LINES: Readonly<Record<string, readonly (readonly string[])[
     ['Your ideas are less bad than I feared.', 'Come and see the bench. I rarely say that.'],
     ['I have drawn a few diagrams with you in mind.', 'Between us, the Rune Desk was nearly your idea.'],
     ['Finally, someone who reads the margins.'],
+  ],
+  veyra: [
+    ['Your glass is cleaner than it was. I am noting it, not praising it.', 'You listen to the end of an explanation. Rarer than you would think.'],
+    ['I would let you hold a flask at full boil. That is not a small thing.', 'Sit. I will show you the good bench, the one with the level top.'],
+    ['I have written your name in the margin of my best recipe. In ink.'],
   ],
   bram: [
     ['You are quieter than most. Good.', 'The moss on the north wall tells me you are all right.'],

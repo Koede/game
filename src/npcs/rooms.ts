@@ -29,6 +29,11 @@ export const NOTES: Readonly<Record<string, readonly string[]>> = {
     'Orrin: The bench hums at night. I think it has opinions about your last design.',
     'Orrin: Borrowed your wrench for an hour. Returned it. Mostly.',
   ],
+  veyra: [
+    'Veyra: I left a mending draught on the sill. If it is green when you wake, drink it. If it is blue, do not.',
+    'Veyra: A clean line between two layers formed at three in the morning. I watched all of it. You missed nothing; you were very loud.',
+    'Veyra: Your boots were not clean. I cleaned them. Do not mention it.',
+  ],
   bram: [
     'Bram: The owl came by again. It looked at your window, then at me. Nothing else.',
     'Bram: Frost on the north moss. A hard day tomorrow, or a gentle one. I forget which.',

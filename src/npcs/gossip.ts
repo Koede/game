@@ -37,6 +37,10 @@ export const EXCHANGES: readonly Exchange[] = [
   { id: 'night-watch', a: 'gruk', b: 'rosa', when: ['night'], lines: [['a', 'Gruk heard the mites on the roof again.'], ['b', 'They sniff, they leave. They fear the ladle.'], ['a', 'Gruk fears the ladle.'], ['b', 'Good. Keep it that way.']] },
   { id: 'dream', a: 'rosa', b: 'bram', when: ['night', 'morning'], lines: [['a', 'I dreamed the well under the yard was singing.'], ['b', 'It does. Quietly. Only when the moss is damp.'], ['a', 'You could have told me.'], ['b', 'You could have listened sooner.']] },
   { id: 'festival', a: 'rosa', b: 'orrin', when: ['day', 'evening'], lines: [['a', 'When the season turns, I want the whole hall decked out.'], ['b', 'I can rig lanterns on a pulley.'], ['a', 'No pulleys. Lanterns on strings, like decent people.'], ['b', 'Strings can be on pulleys.']] },
+  { id: 'layers', a: 'veyra', b: 'mara', when: ['morning', 'day'], lines: [['a', 'Mara, your tincture has separated again. Two layers, a clear line between.'], ['b', 'It is thinking. That is what the layers are.'], ['a', 'It is oil and water. Nothing is thinking.'], ['b', 'Then why does it look so smug?']] },
+  { id: 'proof', a: 'rosa', b: 'veyra', when: ['day', 'evening'], lines: [['a', 'Veyra, whatever you did to the cooking wine, undo it.'], ['b', 'I rectified it. It is excellent now.'], ['a', 'Gruk set his sleeve alight tasting it.'], ['b', 'Then it is exactly as excellent as I said.']] },
+  { id: 'glassware', a: 'orrin', b: 'veyra', when: ['day', 'evening'], lines: [['a', 'Could your flasks take a little pressure? A very little.'], ['b', 'Define a very little.'], ['a', 'Whatever the last one took, minus a bit.'], ['b', 'The last one took the ceiling. Decline.']] },
+  { id: 'fumes', a: 'gruk', b: 'veyra', when: ['evening', 'night'], lines: [['a', 'Green smoke over your head again. Looks like a skull.'], ['b', 'It is vapour. It has no opinions.'], ['a', 'Skull has opinions. Gruk can tell.'], ['b', 'Do not stare at it. It is a draught.']] },
 ];
 
 /** The slot whose window holds `tod` (0..1), or -1. */

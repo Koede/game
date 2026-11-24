@@ -15,6 +15,7 @@ import { DANCE_SPOTS, ROUTINES } from './routines';
 import { danceFrame, dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
 import { FACES, faceOf } from './mood';
+import { ALCHEMIST } from './scripts/alchemist';
 import { ARTIFICER } from './scripts/artificer';
 import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
@@ -76,7 +77,7 @@ describe('the jukebox', () => {
     expect(notes.length).toBeGreaterThan(8);
     expect(new Set(notes).size).toBeGreaterThan(3);
     const dancers = npcs.views().filter((v) => v.dancing).map((v) => v.id).sort();
-    expect(dancers).toEqual(['bram', 'mara', 'orrin', 'rosa']);
+    expect(dancers).toEqual(['bram', 'mara', 'orrin', 'rosa', 'veyra']);
     const saved = npcs.toJSON();
     expect(saved.juke).toBe(true);
     npcs.speak(by('jukebox'));
@@ -119,7 +120,7 @@ describe('the dance', () => {
     expect(LOOP_S).toBe(60);
     expect(TUNE.length * BEAT_S * 5).toBe(LOOP_S);
     expect(MOVES.length * SECTION_BEATS).toBe(LOOP_BEATS);
-    for (const id of ['mara', 'rosa', 'orrin', 'bram']) {
+    for (const id of ['mara', 'rosa', 'orrin', 'veyra', 'bram']) {
       for (let t = 0; t < LOOP_S; t += 0.37) {
         const a = dancePose(id, t);
         const b = dancePose(id, t + LOOP_S);
@@ -149,8 +150,8 @@ describe('the dance', () => {
     for (let t = 0; t < LOOP_S; t += SECTION_BEATS * BEAT_S) seen.add(danceMoveIndex('mara', t));
     expect(seen.size).toBe(15);
     for (let t = 0; t < LOOP_S; t += SECTION_BEATS * BEAT_S) {
-      const at = new Set(['mara', 'rosa', 'orrin', 'bram'].map((id) => danceMoveIndex(id, t)));
-      expect(at.size).toBe(4);
+      const at = new Set(['mara', 'rosa', 'orrin', 'veyra', 'bram'].map((id) => danceMoveIndex(id, t)));
+      expect(at.size).toBe(5);
     }
   });
 });
@@ -403,7 +404,7 @@ describe('Gruk for hire', () => {
 });
 
 describe('the scripts', () => {
-  const banks = { witch: WITCH, barkeep: BARKEEP, orc: ORC, artificer: ARTIFICER, hermit: HERMIT };
+  const banks = { witch: WITCH, barkeep: BARKEEP, orc: ORC, artificer: ARTIFICER, alchemist: ALCHEMIST, hermit: HERMIT };
   const every = (b: typeof WITCH): string[] => [...b.greet, ...b.idle, ...b.morning, ...b.evening, ...b.night, ...b.rare, ...b.farewell, ...Object.values(b.hints)];
 
   it('hold hundreds of different phrases, none repeated within a person', () => {
@@ -442,7 +443,7 @@ describe('the scripts', () => {
   });
 
   it('give the guidance roles real advice', () => {
-    for (const [role, id] of [['witch', 'mara'], ['barkeep', 'rosa'], ['artificer', 'orrin']] as const) {
+    for (const [role, id] of [['witch', 'mara'], ['barkeep', 'rosa'], ['artificer', 'orrin'], ['alchemist', 'veyra']] as const) {
       const r = rig({ goal: 'nothing' });
       r.npcs.speak(r.by(id));
       r.npcs.speak(r.by(id));
@@ -453,7 +454,7 @@ describe('the scripts', () => {
 
 describe('the sprites', () => {
   it('draw an outlined, mostly transparent figure for each person and prop', () => {
-    for (const kind of ['witch', 'barkeep', 'orc', 'artificer', 'hermit', 'board', 'clock'] as const) {
+    for (const kind of ['witch', 'barkeep', 'orc', 'artificer', 'alchemist', 'hermit', 'board', 'clock'] as const) {
       const img = paintNpc(kind);
       const size = spriteSize(kind);
       expect([img.w, img.h, img.data.length]).toEqual([size.w, size.h, size.w * size.h * 4]);
@@ -480,7 +481,7 @@ describe('the sprites', () => {
 
 describe('the portraits', () => {
   it('paint a distinct 128 px bust for every person, none for the props', () => {
-    const roles = ['witch', 'barkeep', 'orc', 'artificer', 'hermit'] as const;
+    const roles = ['witch', 'barkeep', 'orc', 'artificer', 'alchemist', 'hermit'] as const;
     const imgs = roles.map((r) => paintPortrait(r));
     for (const img of imgs) {
       expect([img.w, img.h, img.data.length]).toEqual([PORTRAIT_PX, PORTRAIT_PX, PORTRAIT_PX * PORTRAIT_PX * 4]);
@@ -521,7 +522,7 @@ describe('a new world opens in the tavern', () => {
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 2)).key).toBe('air');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + TAVERN_H, o[2] + 4)).key).toBe('plank');
     expect(blockOf(state.world.getVoxel(o[0] + 6, o[1] + 1, o[2] + 13)).key).toBe('furnace_clay'); // the hermit's fire
-    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Old Bram', 'Jukebox']);
+    expect(state.npcs.views().map((v) => v.name)).toEqual(['Mara', 'Rosa', 'Gruk', 'Orrin', 'Veyra', 'Old Bram', 'Jukebox']);
     const save = state.toSave();
     expect((save.world.extras as { npcs?: { at: number[] } }).npcs?.at).toEqual(o);
     const again = GameState.restore(JSON.parse(JSON.stringify(save)));

@@ -26,7 +26,7 @@ import { festivalOn, festivalServices, newFestivalState, type FestivalState } fr
 import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
 import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
-import { DRINKS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
+import { DRINKS, TONICS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 
 export interface NpcView {
   id: string;
@@ -93,7 +93,7 @@ export interface NpcHost {
   held(): { item: string; count: number } | null;
   takeHeld(count: number): void;
   /** Progression advice for a specialist (magic, brewing, tech), or null when there is none. */
-  advice(role: 'witch' | 'barkeep' | 'artificer'): string | null;
+  advice(role: 'witch' | 'barkeep' | 'artificer' | 'alchemist'): string | null;
   /** Keeps a hearth in the tavern burning. */
   tendFire?(x: number, y: number, z: number): void;
   /** Skips the night to dawn: rested, warm (a paid bed). */
@@ -153,6 +153,8 @@ export class NpcManager {
   private readonly bar = new Upkeep();
   private fest: FestivalState = newFestivalState();
   private festNow = false;
+  /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
+  private readonly veyra = new ServiceMenu(TONICS.map((d) => drinkService(d, () => this.drinkLog)));
   private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, () => this.bar.built.has('stage')), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
@@ -371,8 +373,8 @@ export class NpcManager {
       return npc.giftLine;
     }
     if (npc.role === 'orc') return this.useOrc(npc);
-    if (npc.role === 'barkeep') {
-      const taken = this.rosa.take(this.port(npc));
+    if (npc.role === 'barkeep' || npc.role === 'alchemist') {
+      const taken = (npc.role === 'barkeep' ? this.rosa : this.veyra).take(this.port(npc));
       if (taken !== null) {
         this.say(npc, taken);
         return taken;
@@ -383,19 +385,19 @@ export class NpcManager {
     const bank = npc.bank!;
     let line: string | null = null;
     // Odd visits: a hint for the goal (once) or the specialist's advice about what to do next; even visits: talk.
-    if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' ? this.host?.advice(npc.role) ?? null : null);
+    if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.host?.advice(npc.role) ?? null : null);
     if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, line);
-    if (npc.role === 'barkeep') {
-      const pitch = this.rosa.pitch(this.port(npc));
+    if (npc.role === 'barkeep' || npc.role === 'alchemist') {
+      const pitch = (npc.role === 'barkeep' ? this.rosa : this.veyra).pitch(this.port(npc));
       if (pitch !== null) this.say(npc, pitch);
     }
     return line;
   }
 
   /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
-  serviceMenu(id: 'rosa' | 'gruk' = 'rosa'): ServiceMenu {
-    return id === 'gruk' ? this.gruk : this.rosa;
+  serviceMenu(id: 'rosa' | 'gruk' | 'veyra' = 'rosa'): ServiceMenu {
+    return id === 'gruk' ? this.gruk : id === 'veyra' ? this.veyra : this.rosa;
   }
 
   /** The festival night is on right now. */

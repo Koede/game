@@ -31,6 +31,8 @@ export const FAVOURS: readonly Favour[] = [
   { id: 'orrin-copper', who: 'orrin', item: 'copper_ingot', count: 3, coin: 10, trust: 3, ask: 'Orrin seeks 3 copper ingots for a small experiment.', thanks: 'Splendid. Do not stand too close to the experiment.' },
   { id: 'orrin-glass', who: 'orrin', item: 'glass', count: 4, coin: 9, trust: 2, ask: 'Orrin: 4 glass, any clarity, for lenses.', thanks: 'Cloudy, but I can polish it. Thank you.' },
   { id: 'mara-vial', who: 'mara', item: 'glass_vial', count: 2, coin: 8, trust: 4, ask: 'Mara asks for 2 glass vials. She blew too few.', thanks: 'Thank you. They are never quite round enough, and that is perfect.' },
+  { id: 'veyra-charcoal', who: 'veyra', item: 'charcoal', count: 5, coin: 7, trust: 3, ask: 'Veyra needs 5 charcoal to clear a tincture.', thanks: 'Dry and finely grained. You can be trusted with fuel, apparently.' },
+  { id: 'veyra-vial', who: 'veyra', item: 'glass_vial', count: 3, coin: 9, trust: 3, ask: 'Veyra: 3 empty glass vials, spotless.', thanks: 'Spotless. Almost. I will pretend that was the light.' },
   { id: 'bram-log', who: 'bram', item: 'oak_log', count: 4, coin: 6, trust: 4, ask: 'Old Bram: 4 oak logs for the lean-to fire.', thanks: 'The fire will last till spring now. Mostly.' },
   { id: 'bram-stick', who: 'bram', item: 'stick', count: 8, coin: 4, trust: 3, ask: 'Old Bram would like 8 sticks. For kindling, he says.', thanks: 'Kindling. Yes. That is what they are for.' },
 ];

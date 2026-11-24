@@ -1,7 +1,8 @@
 /**
- * The people and props of the starting tavern (docs/api/npcs.md): five adults, a quest board and a wall clock. Positions are
+ * The people and props of the starting tavern (docs/api/npcs.md): six adults, a quest board and a wall clock. Positions are
  * tavern-local block coordinates (see tavern.ts). Phrase banks live in ./scripts.
  */
+import { ALCHEMIST } from './scripts/alchemist';
 import { ARTIFICER } from './scripts/artificer';
 import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
@@ -9,8 +10,8 @@ import { ORC } from './scripts/orc';
 import type { PhraseBank } from './scripts/types';
 import { WITCH } from './scripts/witch';
 
-export type NpcSprite = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'hermit' | 'board' | 'clock' | 'jukebox';
-export type NpcRole = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'hermit' | 'board' | 'clock' | 'jukebox';
+export type NpcSprite = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'alchemist' | 'hermit' | 'board' | 'clock' | 'jukebox';
+export type NpcRole = 'witch' | 'barkeep' | 'orc' | 'artificer' | 'alchemist' | 'hermit' | 'board' | 'clock' | 'jukebox';
 
 export interface NpcDef {
   id: string;
@@ -54,6 +55,12 @@ export const NPCS: readonly NpcDef[] = [
     gift: [{ item: 'wrench', count: 1 }],
     giftLine: 'A wrench! Every artificer needs one. Ask me what to build next and I will point at the next rung of the ladder.',
     bank: ARTIFICER,
+  },
+  {
+    id: 'veyra', name: 'Veyra', title: 'Alchemist', role: 'alchemist', sprite: 'alchemist', kind: 'person', at: [4, 1, 2], scale: 1,
+    gift: [{ item: 'glass_vial', count: 3 }, { item: 'glass_beaker', count: 2 }],
+    giftLine: 'Glass. Clean, I promise; I scrubbed it myself. Vials for essence, beakers for everything else. Ask me about distilling and I will tell you which layer to keep.',
+    bank: ALCHEMIST,
   },
   {
     id: 'bram', name: 'Old Bram', title: 'Hermit', role: 'hermit', sprite: 'hermit', kind: 'person', at: [7, 1, 11], scale: 1,

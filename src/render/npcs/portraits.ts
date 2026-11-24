@@ -116,6 +116,60 @@ function rosa(c: Canvas): void {
   }
 }
 
+function veyra(c: Canvas): void {
+  const skin = hex(0x6a1a5a);
+  const hair = hex(0x12142a);
+  const gold = hex(0xd9b23a);
+  const coat = hex(0xe8e6ee);
+  const teal = hex(0x2f6f6b);
+  const mint = hex(0xa8dcc0);
+  // Long straight near-black hair behind, a vapour curl with a small skull beside her, long pointed ears, then the head.
+  c.rrect(11, 12, 42, 54, 15, hair);
+  c.poly([[50, 40], [54, 30], [50, 22], [56, 12], [52, 6], [58, 6], [60, 14], [55, 24], [58, 32], [54, 42]], mint, { line: hex(0x5a9a80) });
+  c.ellipse(53, 8, 3.2, 3, hex(0xd8f0e2), { line: hex(0x5a9a80) });
+  c.dot(52, 7.8, 0.7, 0.8, hex(0x2a4a40));
+  c.dot(54.2, 7.8, 0.7, 0.8, hex(0x2a4a40));
+  c.poly([[19, 27], [8, 18], [20, 34]], skin);
+  c.poly([[45, 27], [56, 18], [44, 34]], skin);
+  head(c, skin);
+  // A long fringe over her left eye, sweeping across the brow; hair falls in front of both shoulders.
+  c.poly([[18.5, 24], [30, 11.5], [45.5, 18], [45, 23], [37, 17.5], [31, 19], [27, 26], [24, 32], [19, 30]], hair);
+  c.rrect(12.5, 26, 6, 38, 3, hair);
+  c.rrect(45.5, 26, 6, 38, 3, hair);
+  c.gradient(11, 10, 53, 66, 1.12, 0.9);
+  // Shoulders: a white lab coat with a wide collar over a deep teal top, a gold shoulder piece, a bandolier of lime vials.
+  c.ellipse(32, 68, 26, 19, coat);
+  c.poly([[24, 47], [40, 47], [36, 66], [28, 66]], teal);
+  c.poly([[24, 46], [28, 46], [30, 58], [20, 64]], hex(0xb4acd0), { shade: false });
+  c.poly([[40, 46], [36, 46], [34, 58], [44, 64]], hex(0xb4acd0), { shade: false });
+  c.rrect(9, 52, 9, 4, 2, gold);
+  c.line(46, 48, 24, 66, 1.4, hex(0x4a3020));
+  for (const [x, y] of [[41, 51], [36, 56], [31, 61]] as const) {
+    c.rrect(x - 1.1, y - 2, 2.2, 4, 1, hex(0xb8e04a), { line: hex(0x5a7a20) });
+    c.dot(x - 0.3, y - 1, 0.35, 0.8, [255, 255, 230]);
+  }
+  c.dot(26, 52, 1.5, 1.4, hex(0xf2eee0));
+  c.dot(25.4, 51.8, 0.35, 0.4, hex(0x3a2a2a));
+  c.dot(26.6, 51.8, 0.35, 0.4, hex(0x3a2a2a));
+  // Face: glowing red eyes behind round gold glasses, arched brows, a small nose, blue-grey lips.
+  c.eye(26, 29.8, 3.1, 3.5, hex(0xe03040), hex(0x0a0a18));
+  c.eye(38, 29.8, 3.1, 3.5, hex(0xe03040), hex(0x0a0a18), true);
+  for (const x of [26, 38]) {
+    for (let a = 0; a < 24; a++) {
+      const t = (a / 24) * Math.PI * 2;
+      c.dot(x + Math.cos(t) * 5.4, 29.8 + Math.sin(t) * 5.4, 0.4, 0.4, gold);
+    }
+    c.dot(x - 2, 27.4, 0.9, 0.5, [255, 255, 255]);
+  }
+  c.line(31.4, 28.6, 32.6, 28.6, 0.5, gold);
+  brow(c, 22, 24.6, 28.5, 23.8, 0.8, hair);
+  brow(c, 35.5, 23.8, 42, 24.6, 0.8, hair);
+  c.dot(32, 34.4, 1, 0.7, mix(skin, [20, 0, 20], 0.35));
+  c.rrect(29.4, 37.4, 5.2, 1.8, 0.9, hex(0x6a6a90), { shade: false, line: hex(0x2a2a48) });
+  c.blush(22.5, 34.5, 4, 2.4, [200, 60, 150], 0.25);
+  c.blush(41.5, 34.5, 4, 2.4, [200, 60, 150], 0.25);
+}
+
 function gruk(c: Canvas): void {
   const skin = hex(0x74a84d);
   const leather = hex(0x6b4426);
@@ -215,7 +269,7 @@ function bram(c: Canvas): void {
   c.line(43.5, 55.5, 48.5, 55.5, 0.3, hex(0x8a6a20));
 }
 
-const PAINTERS: Partial<Record<NpcRole, (c: Canvas) => void>> = { witch: mara, barkeep: rosa, orc: gruk, artificer: orrin, hermit: bram };
+const PAINTERS: Partial<Record<NpcRole, (c: Canvas) => void>> = { witch: mara, barkeep: rosa, orc: gruk, artificer: orrin, alchemist: veyra, hermit: bram };
 
 /** True for the roles that have a portrait (people, not the board or the clock). */
 export const hasPortrait = (role: NpcRole): boolean => PAINTERS[role] !== undefined;

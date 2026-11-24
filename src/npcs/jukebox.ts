@@ -28,4 +28,4 @@ export function notesAt(i: number): Note[] {
 }
 
 /** Roles that dance when the jukebox plays: everyone but the orc, who stands there with his arms folded. */
-export const DANCES = (role: string): boolean => role === 'witch' || role === 'barkeep' || role === 'artificer' || role === 'hermit';
+export const DANCES = (role: string): boolean => role === 'witch' || role === 'barkeep' || role === 'artificer' || role === 'alchemist' || role === 'hermit';

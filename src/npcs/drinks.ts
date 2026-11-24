@@ -28,7 +28,13 @@ export const DRINKS: readonly DrinkSpec[] = [
   { id: 'brew', name: 'Strong brew', cost: 14, buffs: [{ buff: 'vigor', s: 120 }, { buff: 'strength', s: 120 }], blurb: 'a strong brew (you hit harder and mine faster, for two minutes)', serve: 'That one bites back. Mind your elbows.', perDay: 2 },
 ];
 
-export const drinkById = (id: string): DrinkSpec | undefined => DRINKS.find((d) => d.id === id);
+/** Veyra's tonics: the same buffs as the coffee and tea families, in a vial. */
+export const TONICS: readonly DrinkSpec[] = [
+  { id: 'tonic-swift', name: 'Swift tonic', cost: 9, buffs: [{ buff: 'swift', s: 150 }], blurb: 'a vial of swift tonic (you move quicker for a couple of minutes)', serve: 'Shake it once. Not twice. Twice is a different tonic.', perDay: 3 },
+  { id: 'tonic-mending', name: 'Mending draught', cost: 8, buffs: [{ buff: 'mending', s: 180 }], blurb: 'a mending draught (cuts and bruises knit faster)', serve: 'It tastes of pine and regret. It works. Drink it fast.', perDay: 3 },
+];
+
+export const drinkById = (id: string): DrinkSpec | undefined => [...DRINKS, ...TONICS].find((d) => d.id === id);
 
 /** Drinks served today, per id; resets when the day changes. */
 export interface DrinkLog {
