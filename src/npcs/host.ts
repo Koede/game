@@ -37,7 +37,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     setBlockActive: (x, y, z, on) => {
       if (!d.world.isLoaded(x, z)) return false;
       const v = d.world.getVoxel(x, y, z);
-      if (voxelId(v) !== blockId('jukebox')) return false;
+      if (voxelId(v) !== blockId('jukebox') && voxelId(v) !== blockId('party_button')) return false;
       if (voxelActive(v) !== on) d.world.setVoxel(x, y, z, withActive(v, on), 'sim');
       return true;
     },

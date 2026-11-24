@@ -18,6 +18,8 @@ export const BASEMENT_DEPTH = 4;
 export const YARD_D = 6;
 /** The yard's bathing pool (tavern-local cells, inclusive): 3 x 3 of water one block deep (the floor layer), stone brick all round. */
 export const POOL = { x0: 0, z0: 11, x1: 2, z1: 13 } as const;
+/** The party button block (tavern-local), set into the back wall above the crates behind the bar, its face toward the room. */
+export const PARTY_BUTTON: readonly [number, number, number] = [8, 2, 8];
 /** Where the player stands when the world opens, tavern-local, facing the bar (south). */
 export const TAVERN_START: readonly [number, number, number] = [6, 1, 2];
 /** Hearths the tavern keeps burning: the fireplace in the hall and the hermit's cooking fire. */
@@ -72,6 +74,7 @@ export function layoutBlocks(): Placement[] {
   put(3, 2, 0, 'quest_board', Facing.South);
   put(5, 3, 0, 'wall_clock', Facing.South);
   put(8, 1, 1, 'jukebox', Facing.South);
+  put(PARTY_BUTTON[0], PARTY_BUTTON[1], PARTY_BUTTON[2], 'party_button', Facing.North); // on the back wall over the crates behind the bar
   // The bar: a counter of planks across the room with stools (chopping blocks) on the customers' side.
   for (let x = 3; x <= 9; x++) put(x, 1, 5, 'plank');
   for (const x of [4, 6, 8]) put(x, 1, 4, 'chopping_block');

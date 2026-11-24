@@ -150,7 +150,8 @@ export class NpcRenderer {
 
   /** Places and bends one person: idle bob, or the dance pose when the jukebox plays. */
   private poseBody(b: Body, v: NpcView, eye: { x: number; z: number } | undefined, k: number): void {
-    const idle = Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015;
+    // At a party the people who have no dance (Gruk) stomp and bounce on the spot.
+    const idle = v.party && !v.dancing ? Math.abs(Math.sin(this.time * 6 + v.x)) * 0.14 : Math.sin(this.time * 1.6 + v.x * 0.7) * 0.015;
     // Swimwear has no dance loop: a dancer in it sways and hops its standing picture (the procedural pose below).
     const dressed = v.outfit !== 'day' ? this.outfitArt(b, v) : null;
     const art = v.dancing && !(dressed && v.outfit === 'swim') ? this.danceArt(b, v) : null;

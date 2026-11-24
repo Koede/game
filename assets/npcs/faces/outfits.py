@@ -24,21 +24,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 GEN = os.path.join(HERE, 'gen')
 TOL = 54
+FEATHER = 9  # rows of soft seam at the neck
 
 # Per character: CUT = original neck line (px, original sprite coords), HEAD = polygon of the original that is kept (face, hair, hat),
 # EXTRA = further original polygons kept on top (Bram's beard), GEN_CUT = neck line in each generated body, DX = fine horizontal nudge.
 CFG = {
-    'mara': dict(cut=292, head=[(232, 25), (668, 25), (668, 215), (582, 215), (582, 292), (325, 292), (325, 215), (232, 215)],
-                 gen_cut={'sleep': 252, 'swim': 252}),
-    'rosa': dict(cut=300, head=[(240, 30), (640, 30), (640, 300), (240, 300)],
-                 gen_cut={'sleep': 264, 'swim': 268}),
-    'gruk': dict(cut=268, head=[(415, 5), (583, 5), (583, 232), (565, 268), (440, 268), (415, 232)], top={'sleep': 222, 'swim': 222}, hw=88,
-                 gen_cut={'sleep': 322, 'swim': 322}),
-    'orrin': dict(cut=292, head=[(330, 50), (595, 50), (595, 256), (530, 256), (530, 292), (420, 292), (420, 256), (330, 256)],
-                  top={'swim': 95}, htop={'swim': 165}, hw=125, gen_cut={'sleep': 260, 'swim': 395}),
-    'bram': dict(cut=300, head=[(250, 60), (545, 60), (545, 300), (250, 300)], beard=(360, 300, 540, 700),
-                 gen_cut={'sleep': 268, 'swim': 300}),
-    'veyra': dict(cut=205, head=[(345, 15), (655, 15), (655, 205), (345, 205)], gen_cut={'sleep': 168, 'swim': 195}),
+    'mara': dict(cut=284, chin=268, head=[(232, 25), (668, 25), (668, 215), (582, 215), (582, 284), (325, 284), (325, 215), (232, 215)],
+                 gen_cut={'sleep': 248, 'swim': 248}),
+    'rosa': dict(cut=290, chin=277, head=[(240, 30), (640, 30), (640, 290), (240, 290)], gen_cut={'sleep': 256, 'swim': 260}),
+    'gruk': dict(cut=276, chin=262, head=[(415, 5), (583, 5), (583, 232), (565, 276), (440, 276), (415, 232)], top={'sleep': 222, 'swim': 222}, hw=88,
+                 gen_cut={'sleep': 328, 'swim': 328}),
+    'orrin': dict(cut=278, chin=262, head=[(330, 50), (595, 50), (595, 278), (330, 278)],
+                  top={'swim': 95}, htop={'swim': 165}, hw=125, gen_cut={'sleep': 248, 'swim': 395}),
+    'bram': dict(cut=292, chin=262, head=[(250, 60), (545, 60), (545, 292), (250, 292)], beard=(360, 292, 540, 700),
+                 gen_cut={'sleep': 262, 'swim': 270}),
+    'veyra': dict(cut=205, chin=190, head=[(345, 15), (655, 15), (655, 205), (345, 205)], gen_cut={'sleep': 168, 'swim': 195}),
 }
 
 
@@ -115,9 +115,16 @@ def build(cid, outfit):
     body = Image.fromarray(np.dstack([gen, (galpha * 255).astype(np.uint8)]), 'RGBA').crop((0, top, gen.shape[1], feet_g + 2))
     nw, nh = round(body.width * s), round(body.height * s)
     body = body.resize((nw, nh), Image.LANCZOS)
+    # the seam fades the head into the body over FEATHER rows: give the body that many extra rows on top (its first row repeated)
+    padded = Image.new('RGBA', (nw, nh + FEATHER), (0, 0, 0, 0))
+    padded.paste(body, (0, FEATHER))
+    first = body.crop((0, 0, nw, 1))
+    for i in range(FEATHER):
+        padded.paste(first, (0, i))
+    body = padded
     canvas = Image.new('RGBA', (W, H), bg + (255,))
     px = round(ocx - gcx * s)
-    canvas.paste(body, (px, cut + round((top - gcut) * s)), body)
+    canvas.paste(body, (px, cut + round((top - gcut) * s) - FEATHER), body)
     out = np.array(canvas.convert('RGB'))
     keep = ofg & head
     if 'beard' in c:  # Bram's beard hangs over the chest: keep the grey pixels connected to the head, so no robe comes along
@@ -149,7 +156,18 @@ def build(cid, outfit):
     # nothing may stand above the original's head (a parasol, a hat brim): the in-game cut-out scales by figure height, so the figure
     # must be exactly as tall as the original sprite
     out[:oy.min()][~keepi[:oy.min()]] = bg
-    out = np.where(keepi[..., None], orig, out).astype(np.uint8)
+    # soft seam: the last FEATHER rows above the neck line fade into the new body (the face lies above them, so its pixels stay identical)
+    alpha = keepi.astype(float)
+    ramp = np.clip((cut - np.arange(H)) / FEATHER, 0, 1)[:, None]
+    alpha = np.where(np.arange(H)[:, None] >= cut - FEATHER, keepi * ramp, alpha)
+    if 'beard' in c:  # the beard continues below the neck line: never fade it
+        alpha = np.where(keepi & (np.arange(H)[:, None] >= cut), 1.0, alpha)
+    out = (orig * alpha[..., None] + out * (1 - alpha[..., None])).round().astype(np.uint8)
+    keepi = alpha >= 1.0
+    chin = c.get('chin', cut - FEATHER)
+    face = ofg & head
+    face[chin:] = False
+    assert keepi[face].all(), f'{cid} {outfit}: the seam reaches the face (chin {chin}, cut {cut})'
     return out, keepi, orig, (s, px, cut)
 
 

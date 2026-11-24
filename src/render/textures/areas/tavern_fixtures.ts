@@ -150,7 +150,26 @@ function jukeBubble(lit: boolean): (c: Canvas) => void {
   };
 }
 
+/** The party button: a brass plate on a plank backing with a big red dome button (bright and glowing when the party is on), and two rivets. */
+function partyButtonFront(lit: boolean): (c: Canvas) => void {
+  return (c) => {
+    c.rect(0, 0, 16, 16, P.WOOD[1]);
+    c.rect(2, 2, 12, 12, P.GOLD[1], 255);
+    c.rect(3, 3, 10, 10, P.GOLD[2], 255);
+    for (const [x, y] of [[3, 3], [12, 3], [3, 12], [12, 12]] as const) c.set(x, y, P.GOLD[3], 255);
+    c.each((x, y) => {
+      const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+      if (d > 3.6) return null;
+      if (d > 3) return P.IRON[0];
+      return lit ? (d < 1.6 ? P.rgb(0xffd0c0) : P.rgb(0xff4a3a)) : d < 1.6 ? P.rgb(0xd04a3a) : P.rgb(0x9a2a24);
+    });
+    if (lit) for (const [x, y] of [[1, 1], [14, 1], [1, 14], [14, 14]] as const) c.set(x, y, P.rgb(0xffe27a), 255);
+  };
+}
+
 export default {
+  party_button_front: partyButtonFront(false),
+  party_button_front_on: partyButtonFront(true),
   jukebox_front: jukeboxFront(false),
   jukebox_front_on: jukeboxFront(true),
   jukebox_wood: jukeWood,

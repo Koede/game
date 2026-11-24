@@ -15,7 +15,7 @@ import { LinePicker, clockHM, clockText, type Phase } from './dialogue';
 import { BOUNTIES, stackPrice } from './economy';
 import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
 import { ORC_HIRE } from './scripts/orc';
-import { FIRE_SPOTS, GUEST_BEDS, TAVERN_START, buildTavern } from './tavern';
+import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_START, buildTavern } from './tavern';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, WALK_SPEED, spotFor, walk } from './routines';
@@ -51,6 +51,8 @@ export interface NpcView {
   bubble: string | null;
   /** What they wear: day clothes, sleepwear (at night) or swimwear (in the pool). Derived, never saved. */
   outfit: Outfit;
+  /** The party is on (everyone in swimwear; people without a dance bounce on the spot). */
+  party: boolean;
 }
 
 export interface NpcSnapshot {
@@ -66,6 +68,9 @@ export interface NpcSnapshot {
   hiredS?: number;
   comp?: [number, number, number];
   juke?: boolean;
+  /** The party switch behind the bar, and whether the jukebox was already on before it. */
+  party?: boolean;
+  partyJuke?: boolean;
   /** Trust 0..100 per person, and the day of each person's last gift. */
   trust?: Record<string, number>;
   /** What Old Bram has bought, newest last: item, count, coin he paid. */
@@ -122,6 +127,10 @@ export class NpcManager {
   coins = 0;
   /** The tavern jukebox is playing. */
   jukeboxOn = false;
+  /** The party button behind the bar is on: everyone in swimwear and dancing. */
+  partyOn = false;
+  private jukeBeforeParty = false;
+  private partyLamp: boolean | null = null;
   /** What the jukebox block's lamp last showed (null: not yet set this session). */
   private lamp: boolean | null = null;
   private beatS = 0;
@@ -311,13 +320,13 @@ export class NpcManager {
       const cell = n.kind === 'person' ? 0.5 : 0;
       const here = this.where(n);
       return {
-        id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired, danceS: this.danceS,
+        id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, party: this.partyOn && n.kind === 'person', dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired, danceS: this.danceS,
         x: hired ? this.companion.x : o[0] + here[0] + cell,
         y: hired ? this.companion.y : o[1] + n.at[1],
         z: hired ? this.companion.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
         bubble: bubble?.id === n.id ? bubble.text : null,
-        outfit: n.kind === 'person' ? chooseOutfit({ phase: this.phase(), inWater: inPool(here[0], here[1]), dancing: this.jukeboxOn && DANCES(n.role), hired }) : 'day',
+        outfit: n.kind === 'person' ? chooseOutfit({ phase: this.phase(), inWater: this.coolOff() && inPool(here[0], here[1]), dancing: this.jukeboxOn && DANCES(n.role), hired, party: this.partyOn && n.kind === 'person' }) : 'day',
       };
     });
   }
@@ -367,7 +376,8 @@ export class NpcManager {
   }
 
   /** Use on a fixture block (the quest board or the wall clock, placed by the tavern). Null when there is no such fixture. */
-  useFixture(role: 'board' | 'clock' | 'jukebox'): string | null {
+  useFixture(role: 'board' | 'clock' | 'jukebox' | 'party'): string | null {
+    if (role === 'party') return this.useParty();
     const npc = FIXTURES.find((n) => n.role === role);
     return npc ? this.speak(npc) : null;
   }
@@ -444,7 +454,7 @@ export class NpcManager {
       }
     } else {
       this.toast('The festival is over. The hall is quiet again.');
-      if (this.fest.juke) this.jukeboxOn = false;
+      if (this.fest.juke && !this.partyOn) this.jukeboxOn = false;
       this.fest.juke = false;
     }
   }
@@ -670,6 +680,11 @@ export class NpcManager {
 
   /** Switches the jukebox: the girls and the other guys dance to it, Gruk does not. */
   private useJukebox(npc: NpcDef): string {
+    if (this.partyOn) {
+      const t = 'The party is on. Press the party button behind the bar to end it.';
+      this.toast(`${npc.name}: ${t}`);
+      return t;
+    }
     this.jukeboxOn = !this.jukeboxOn;
     this.beatS = 0;
     this.beat = 0;
@@ -677,6 +692,32 @@ export class NpcManager {
     const text = this.jukeboxOn ? 'The jukebox starts up. Everyone but Gruk is on their feet.' : 'The jukebox winds down.';
     this.toast(`${npc.name}: ${text}`);
     return text;
+  }
+
+  /** The party button behind the bar: on, everyone changes into swimwear and dances (Gruk stomps); off, outfits and routines return. */
+  private useParty(): string {
+    const rosa = NPCS.find((n) => n.role === 'barkeep');
+    this.partyOn = !this.partyOn;
+    this.beatS = 0;
+    this.beat = 0;
+    this.danceS = 0;
+    if (this.partyOn) {
+      this.jukeBeforeParty = this.jukeboxOn;
+      this.jukeboxOn = true;
+    } else {
+      this.jukeboxOn = this.jukeBeforeParty;
+    }
+    const text = this.partyOn ? 'Party time! Swimwear on, everyone!' : 'Party is over. Back to normal, folks.';
+    this.toast(`${rosa?.name ?? 'Rosa'}: ${text}`);
+    if (this.partyOn) this.toast('Gruk: Hmph. Stomp stomp.');
+    return text;
+  }
+
+  /** The button glows while the party is on: its block's active bit follows `partyOn` (retried until the chunk is there). */
+  private syncPartyLamp(): void {
+    const o = this.at;
+    if (!o || !this.host?.setBlockActive || this.partyLamp === this.partyOn) return;
+    if (this.host.setBlockActive(o[0] + PARTY_BUTTON[0], o[1] + PARTY_BUTTON[1], o[2] + PARTY_BUTTON[2], this.partyOn)) this.partyLamp = this.partyOn;
   }
 
   /** The cabinet glows amber while it plays: the block's active bit follows `jukeboxOn` (retried until the chunk is there). */
@@ -795,6 +836,7 @@ export class NpcManager {
     const host = this.host;
     if (!host || !this.at) return;
     this.syncJukeboxLamp();
+    this.syncPartyLamp();
     if (this.jukeboxOn) this.playJukebox(dt);
     for (const n of NPCS) {
       if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
@@ -824,7 +866,7 @@ export class NpcManager {
     return {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
-      comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn,
+      comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
     };
   }
@@ -836,6 +878,10 @@ export class NpcManager {
     this.at = Array.isArray(at) && at.length === 3 && at.every((n) => Number.isFinite(n)) ? ([at[0], at[1], at[2]] as [number, number, number]) : null;
     this.greeted = r.greeted === true;
     this.jukeboxOn = r.juke === true;
+    this.partyOn = r.party === true;
+    this.jukeBeforeParty = r.partyJuke === true;
+    if (this.partyOn) this.jukeboxOn = true;
+    this.partyLamp = null;
     const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
     this.gifted = new Set(strings(r.gifted));
     this.heard = new Set(strings(r.heard));

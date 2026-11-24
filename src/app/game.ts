@@ -95,7 +95,7 @@ export function chunksInView(r: number): number {
 }
 
 /** Fixture blocks (src/content/areas/tavern_fixtures.ts) and the NPC role each one speaks as. */
-const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox'>> = { quest_board: 'board', wall_clock: 'clock', jukebox: 'jukebox' };
+const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox' | 'party'>> = { quest_board: 'board', wall_clock: 'clock', jukebox: 'jukebox', party_button: 'party' };
 
 export class Game {
   readonly state: GameState;

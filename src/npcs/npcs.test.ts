@@ -1,3 +1,5 @@
+import { Facing } from '../core/types';
+import { inPool } from './outfits';
 import { describe, expect, it } from 'vitest';
 import { GameState } from '../app/state';
 import { createBus } from '../core/context';
@@ -30,7 +32,7 @@ describe('the tavern layout', () => {
     for (const b of blocks) {
       expect(b.x >= 0 && b.x < TAVERN_W && b.y >= -BASEMENT_DEPTH && b.y <= TAVERN_TOP && b.z >= 0 && b.z < TAVERN_D + YARD_D, `${b.block} ${b.x},${b.y},${b.z}`).toBe(true);
     }
-    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock', 'jukebox', 'water'];
+    const allowed = ['air', 'plank', 'stone_brick', 'oak_log', 'glass', 'crate', 'torch', 'chopping_block', 'furnace_clay', 'brick', 'workbench', 'dirt', 'wool_bedding', 'fence', 'plank_stairs', 'plank_roof', 'quest_board', 'wall_clock', 'jukebox', 'water', 'party_button'];
     for (const k of new Set(blocks.map((b) => b.block))) expect(allowed).toContain(k);
   });
 
@@ -89,6 +91,59 @@ describe('the jukebox', () => {
     expect(notesAt(1).some((n) => n.bass)).toBe(false);
     expect(notesAt(TUNE.length)).toEqual(notesAt(0));
     expect(notesAt(15)).toEqual([]);
+  });
+});
+
+describe('the party button', () => {
+  it('sits on the back wall above the crates, facing the room', () => {
+    const b = layoutBlocks().filter((p) => p.x === 8 && p.y === 2 && p.z === 8).pop();
+    expect(b?.block).toBe('party_button');
+    expect(b?.facing).toBe(Facing.North);
+  });
+
+  it('toggles swimwear and dancing for everyone, ends cleanly and saves and loads', () => {
+    const { npcs } = rig();
+    expect(npcs.views().every((v) => v.outfit !== 'swim')).toBe(true);
+    npcs.useFixture('party');
+    expect(npcs.partyOn).toBe(true);
+    expect(npcs.jukeboxOn).toBe(true);
+    for (let i = 0; i < 10; i++) npcs.tick(0.1);
+    const people = npcs.views().filter((v) => v.kind === 'person');
+    expect(people.every((v) => v.outfit === 'swim' && v.party)).toBe(true);
+    expect(people.filter((v) => v.dancing).map((v) => v.id).sort()).toEqual(['bram', 'mara', 'orrin', 'rosa', 'veyra']);
+    const saved = npcs.toJSON();
+    expect(saved.party).toBe(true);
+    npcs.useFixture('jukebox'); // the jukebox cannot end a party
+    expect(npcs.jukeboxOn).toBe(true);
+    const { npcs: loaded } = rig();
+    loaded.load(JSON.parse(JSON.stringify(saved)));
+    expect(loaded.partyOn).toBe(true);
+    expect(loaded.jukeboxOn).toBe(true);
+    npcs.useFixture('party');
+    expect(npcs.partyOn).toBe(false);
+    expect(npcs.jukeboxOn).toBe(false); // it was off before the party
+    expect(npcs.views().every((v) => v.outfit !== 'swim' && !v.party && !v.dancing)).toBe(true);
+  });
+
+  it('leaves the jukebox on after the party when the player had it on', () => {
+    const { npcs } = rig();
+    npcs.useFixture('jukebox');
+    npcs.useFixture('party');
+    npcs.useFixture('party');
+    expect(npcs.jukeboxOn).toBe(true);
+  });
+});
+
+describe('cooling off in the yard pool', () => {
+  it('on a hot midday everyone walks to the pool and swims', () => {
+    const { npcs } = rig({ day: 11, tod: 0.24 });
+    for (let i = 0; i < 1200; i++) npcs.tick(0.1);
+    const at = npcs.at ?? [0, 0, 0];
+    const people = npcs.views().filter((v) => v.kind === 'person');
+    for (const v of people) {
+      expect(v.outfit, v.id).toBe('swim');
+      expect(inPool(v.x - at[0], v.z - at[2]), v.id).toBe(true);
+    }
   });
 });
 
@@ -156,7 +211,7 @@ describe('the dance', () => {
   });
 });
 
-function rig(opts: { coins?: number; held?: { item: string; count: number } | null; completed?: string[]; goal?: string | null; tod?: number } = {}) {
+function rig(opts: { coins?: number; held?: { item: string; count: number } | null; completed?: string[]; goal?: string | null; tod?: number; day?: number } = {}) {
   const bus = createBus();
   const given: Array<[string, number]> = [];
   const toasts: string[] = [];
@@ -174,7 +229,7 @@ function rig(opts: { coins?: number; held?: { item: string; count: number } | nu
     currentGoal: () => state.goal,
     completed: () => state.done,
     timeOfDay: () => state.tod,
-    day: () => 3,
+    day: () => opts.day ?? 3,
     held: () => state.held,
     takeHeld: (n) => void taken.push(n),
     advice: (role) => `ADVICE-${role}`,

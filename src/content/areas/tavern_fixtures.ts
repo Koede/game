@@ -21,9 +21,17 @@ const jukebox: BlockSpec = {
   },
 };
 
+/** The party button behind the bar: a small brass-and-red panel. Use it to start the party (everyone in swimwear, dancing); lit while it is on. */
+const partyButton: BlockSpec = {
+  key: 'party_button', name: 'Party Button', desc: 'A brass panel with a big red button behind the bar. Use it to start the party: everyone puts on swimwear and dances. Again to stop.',
+  hardness: 1.2, tool: 'axe', category: 'block', oriented: true, lightActive: 4,
+  textures: { side: 'plank', top: 'plank', bottom: 'plank', front: 'party_button_front', frontActive: 'party_button_front_on' },
+};
+
 export default {
   blocks: [
     jukebox,
+    partyButton,
     fixture('quest_board', 'Quest Board', 'A cork board of pinned bounties and favours. Use it with coin or the item it asks for.'),
     fixture('wall_clock', 'Wall Clock', 'A round clock on a plank backing. Use it to hear the time of day.'),
   ],
