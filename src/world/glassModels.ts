@@ -3,7 +3,8 @@
  * boxes (`body`), brass boxes (`metal`: plates, flanges, clamps, stoppers) and, on the pieces whose work has steps, a small status
  * lamp (`lamp`) that shows the block's own lamp colour (idle, working, done, blocked). Each model also names its `ports`: the
  * faces where it can join another piece. A joint (a glass tube and a brass flange ring) appears only on a face where both pieces
- * have a port facing each other (meshGlass.ts), so pieces join where glass really joins and a loose piece stays clean.
+ * have a port facing each other and belong to one family (meshGlass.ts), so pieces join where glass really joins and a loose
+ * piece stays clean.
  * Pure data: no imports.
  */
 export type Box = readonly [number, number, number, number, number, number];
@@ -27,7 +28,12 @@ export interface GlassModel {
   readonly lamp?: Box;
   /** Faces where this piece joins a neighbour that has a port on the face looking back at it. */
   readonly ports: number;
+  /** Pieces join only within one family: the distillery's glass and the essentia line never share a joint. Default `chem`. */
+  readonly family?: 'chem' | 'essentia';
 }
+
+/** Family numbers for the mesher's tables (0: not glassware). */
+export const FAMILY_CODE: Readonly<Record<'chem' | 'essentia', number>> = { chem: 1, essentia: 2 };
 
 /** Half the width of a joint's tube (the tube is 2 * TUBE_HALF / 16 wide), centred on the cell. */
 export const TUBE_HALF = 2;
@@ -104,6 +110,18 @@ export const GLASS_MODELS: Readonly<Record<string, GlassModel>> = {
   },
   // A glass dome on a brass base, with a brass nipple for the pump.
   vacuum_cap: { ports: NY, body: [[4, 2, 4, 12, 5, 12], [5, 5, 5, 11, 7, 11]], metal: [[3, 0, 3, 13, 2, 13], [7, 7, 7, 9, 10, 9]] },
+  // Essentia (src/content/itemsMagic.ts): a stoppered jar, its folded void twin, and the tube that joins them.
+  essentia_jar: {
+    family: 'essentia', ports: SIDES | PY | NY,
+    body: [[3, 0, 3, 13, 1, 13], ...walls(3, 3, 13, 13, 1, 11), ...walls(5, 5, 11, 11, 11, 12)],
+    metal: [[5, 12, 5, 11, 14, 11], [7, 14, 7, 9, 15, 9]],
+  },
+  void_jar: {
+    family: 'essentia', ports: SIDES | PY | NY,
+    body: [[3, 0, 3, 13, 1, 13], ...walls(3, 3, 13, 13, 1, 11), ...walls(5, 5, 11, 11, 11, 12)],
+    metal: [...walls(3, 3, 13, 13, 4, 5), ...walls(3, 3, 13, 13, 8, 9), [5, 12, 5, 11, 14, 11], [6, 14, 6, 10, 15, 10]],
+  },
+  essentia_tube: { family: 'essentia', ports: ALL, body: [[6, 6, 6, 10, 10, 10]], metal: [[6, 7, 5, 10, 9, 11], [5, 7, 6, 11, 9, 10]] },
   // The furnace-top glass (src/content/itemsGlass.ts): a hollow beaker with a pouring lip and a thin vial. They stand alone.
   beaker: { ports: 0, body: [[4, 0, 4, 12, 1, 12], ...walls(3, 3, 13, 13, 0, 10), [6, 10, 2, 10, 11, 3]] },
   vial: { ports: 0, body: [[6, 0, 6, 10, 1, 10], ...walls(6, 6, 10, 10, 0, 14), [5, 14, 5, 11, 15, 11]] },
@@ -130,6 +148,12 @@ export const GLASS_MODEL_NAMES: readonly string[] = Object.keys(GLASS_MODELS);
 export function glassModelIndex(key: string): number {
   const name = glassModelName(key);
   return name === null ? 0 : GLASS_MODEL_NAMES.indexOf(name) + 1;
+}
+
+/** The family code of a block key's model (0 when it is not glassware). */
+export function glassFamily(key: string): number {
+  const name = glassModelName(key);
+  return name === null ? 0 : FAMILY_CODE[GLASS_MODELS[name].family ?? 'chem'];
 }
 
 /** The ports of a block key's model (0 when it has none or is not glassware). */

@@ -403,6 +403,8 @@ SPEC.maxTextures += MAGIC_SPEC.textures;
 SPEC.worldOnlyItems.push(...MAGIC_SPEC.worldOnly, 'quest_board', 'wall_clock');
 // The tavern's fixture faces (src/render/textures/areas/tavern_fixtures.ts): quest_board_front, wall_clock_front.
 SPEC.maxTextures += 2;
+// The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
+SPEC.maxTextures += 2;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

@@ -5,7 +5,7 @@
 import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
-import { glassModelIndex, glassPorts } from './glassModels';
+import { glassFamily, glassModelIndex, glassPorts } from './glassModels';
 import { isStationShape, stationIndex } from './stationShapes';
 
 const SIZE = VOXEL_ID_MASK + 1;
@@ -74,6 +74,8 @@ export const GLASS_JOINS = new Uint8Array(SIZE);
 export const GLASS_MODEL = new Uint8Array(SIZE);
 /** Port bits of a glass piece's model (glassModels.ts): a joint shows on a face only where both pieces have a port facing each other. */
 export const GLASS_PORTS = new Uint8Array(SIZE);
+/** Glass family code (glassModels.ts FAMILY_CODE): joints form only between pieces of one family. */
+export const GLASS_FAMILY = new Uint8Array(SIZE);
 /** Colour of the light a block emits: 0 warm firelight, 1 cyan, 2 violet (cool glows of caves, spec 14). */
 export const LIGHT_HUE = new Uint8Array(SIZE);
 export const HUE_CYAN = 1;
@@ -118,6 +120,7 @@ for (const def of BLOCKS) {
   GLASS_JOINS[id] = def.shape === 'glass' ? 1 : 0;
   GLASS_MODEL[id] = def.shape === 'glass' ? glassModelIndex(def.key) : 0;
   GLASS_PORTS[id] = def.shape === 'glass' ? glassPorts(def.key) : 0;
+  GLASS_FAMILY[id] = def.shape === 'glass' ? glassFamily(def.key) : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
   else {
@@ -147,8 +150,8 @@ for (const def of BLOCKS) {
 }
 /** Texture slots the glassware meshes borrow for their parts (meshGlass.ts): clear glass and brass. */
 const slotOfKey = (key: string): number => (blockOrNull(key)?.id ?? 0) * STATES * 6;
-export const GLASSWARE_GLASS_SLOT = slotOfKey('glass');
-export const GLASSWARE_METAL_SLOT = slotOfKey('bronze_plate_block');
+export const GLASSWARE_GLASS_SLOT = slotOfKey('glassware_glass');
+export const GLASSWARE_METAL_SLOT = slotOfKey('glassware_brass');
 for (const [key, hue] of Object.entries(COOL_EMITTERS)) {
   const def = blockOrNull(key);
   if (def) LIGHT_HUE[def.id] = hue;

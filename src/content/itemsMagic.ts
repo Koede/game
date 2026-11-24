@@ -103,6 +103,8 @@ MAGIC_ITEMS.push(...POTIONS.map((p): ItemSpec => ({ key: p.key, name: p.name, ca
 MAGIC_ITEMS.push(...SCROLLS.map((s): ItemSpec => ({ key: s.item, name: s.title, category: 'misc', age: BRONZE, stack: 1, desc: 'Hidden research on a brittle sheet, found in the deep ruins. Use it to read it; some things hold the same secret in their margins.' })));
 
 const glassBlock = { opaque: false, translucent: true } as const;
+/** Glassware drawn from a model (src/world/glassModels.ts): jars and essentia tubes. */
+const glassware = { shape: 'glass', solid: true, opaque: false, translucent: true } as const;
 
 export const MAGIC_BLOCKS: BlockSpec[] = [
   {
@@ -111,17 +113,17 @@ export const MAGIC_BLOCKS: BlockSpec[] = [
     desc: 'Use it to work on research notes: write aspects onto the hexagon with scribing tools until every anchor is joined, and combine aspects into compounds.',
   },
   {
-    key: 'essentia_jar', name: 'Essentia Jar', category: 'machine', age: 0, hardness: 0.5, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    key: 'essentia_jar', name: 'Essentia Jar', category: 'machine', age: 0, hardness: 0.5, tool: 'pickaxe', minTier: 0, ...glassware,
     stack: 16, textures: { side: 'magic_jar_side', top: 'magic_jar_top' },
     desc: `Holds up to ${JAR_UNITS} units of one aspect. Use a filled vial on it to pour in; Use an empty vial to fill it back.`,
   },
   {
-    key: 'void_jar', name: 'Void Jar', category: 'machine', age: FORGE, hardness: 0.8, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    key: 'void_jar', name: 'Void Jar', category: 'machine', age: FORGE, hardness: 0.8, tool: 'pickaxe', minTier: 0, ...glassware,
     stack: 16, textures: { side: 'magic_void_jar_side', top: 'magic_void_jar_top' },
     desc: `A jar folded inside itself: up to ${VOID_JAR_UNITS} units of one aspect. Vials and tubes use it like any jar.`,
   },
   {
-    key: 'essentia_tube', name: 'Essentia Tube', category: 'machine', age: BRONZE, hardness: 0.4, tool: 'pickaxe', minTier: 0, ...glassBlock,
+    key: 'essentia_tube', name: 'Essentia Tube', category: 'machine', age: BRONZE, hardness: 0.4, tool: 'pickaxe', minTier: 0, ...glassware,
     stack: 64, textures: { all: 'magic_tube' },
     desc: 'A glass tube. Jars, the rune desk, the infusion altar and a furnace joined by tubes share every jar on the line.',
   },

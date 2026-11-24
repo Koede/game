@@ -1,12 +1,12 @@
 /**
- * The glass shape (docs/api/glass.md): a piece of glassware drawn from its model (glassModels.ts). Glass parts borrow the clear
- * glass tile and brass parts the bronze plate tile (GLASSWARE_GLASS_SLOT, GLASSWARE_METAL_SLOT); the status lamp samples the lamp
+ * The glass shape (docs/api/glass.md): a piece of glassware drawn from its model (glassModels.ts). Glass parts use the smooth
+ * glassware glass tile and brass parts the polished brass tile (GLASSWARE_GLASS_SLOT, GLASSWARE_METAL_SLOT); the status lamp samples the lamp
  * corner of the block's own tile, so it still reads idle, working, done or blocked. A joint, a glass tube with a brass flange ring
  * at the cell face, appears on a face only when this piece has a port there and the neighbour is glass with a port looking back
  * (GLASS_PORTS). Translucent, like the cube it replaces.
  */
 import { VOXEL_ID_MASK } from '../core/types';
-import { GLASS_PORTS, GLASSWARE_GLASS_SLOT, GLASSWARE_METAL_SLOT } from './blockTables';
+import { GLASS_FAMILY, GLASS_PORTS, GLASSWARE_GLASS_SLOT, GLASSWARE_METAL_SLOT } from './blockTables';
 import { FLANGE_HALF, GLASS_MODEL_NAMES, GLASS_MODELS, TUBE_HALF, type Box } from './glassModels';
 import { box, D_FRONT, vol, type Builder } from './meshQuads';
 
@@ -20,10 +20,12 @@ const LAMP_UV_HI = [14 / 16, 14 / 16, 14 / 16];
 /** Bit mask of the faces (Face order) where the glass at volume index `p`, with ports `mine`, is joined to a neighbour. */
 export function glassJoints(p: number, mine: number): number {
   let joints = 0;
+  const family = GLASS_FAMILY[vol[p] & VOXEL_ID_MASK];
   for (let f = 0; f < 6; f++) {
     if (((mine >> f) & 1) === 0) continue;
-    // The neighbour must have a port on the face looking back: the opposite face is f ^ 1 in Face order.
-    if (((GLASS_PORTS[vol[p + D_FRONT[f]] & VOXEL_ID_MASK] >> (f ^ 1)) & 1) === 1) joints |= 1 << f;
+    const n = vol[p + D_FRONT[f]] & VOXEL_ID_MASK;
+    // The neighbour must be of the same family, with a port on the face looking back (the opposite face is f ^ 1).
+    if (GLASS_FAMILY[n] === family && ((GLASS_PORTS[n] >> (f ^ 1)) & 1) === 1) joints |= 1 << f;
   }
   return joints;
 }
