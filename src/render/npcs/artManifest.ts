@@ -18,7 +18,8 @@ import art15 from '../../../assets/npcs/rosa_anim.png';
 import art16 from '../../../assets/npcs/rosa_dance.png';
 import art17 from '../../../assets/npcs/rosa_faces.jpg';
 import art18 from '../../../assets/npcs/veyra.jpg';
-import art19 from '../../../assets/npcs/veyra_faces.jpg';
+import art19 from '../../../assets/npcs/veyra_anim.png';
+import art20 from '../../../assets/npcs/veyra_faces.jpg';
 
 export const NPC_ART: Readonly<Record<string, string>> = {
   bram: art0,
@@ -40,5 +41,6 @@ export const NPC_ART: Readonly<Record<string, string>> = {
   rosa_dance: art16,
   rosa_faces: art17,
   veyra: art18,
-  veyra_faces: art19,
+  veyra_anim: art19,
+  veyra_faces: art20,
 };

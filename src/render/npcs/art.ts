@@ -12,7 +12,7 @@ export interface RgbaImage {
 /** Colour distance (sum of channel differences) under which a pixel counts as the background. */
 const KEY_TOLERANCE = 54;
 /** Target height (px) of a sprite from big source art. */
-export const SPRITE_PX = 96;
+export const SPRITE_PX = 128;
 
 /**
  * Removes a plain background: the most common colour of the four corners is the key; every pixel connected to the border whose colour is

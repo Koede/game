@@ -17,7 +17,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import poses
 
-H = 96
+H = 128
+# The moves below are written in pixels of a 96-tall sprite; they scale with H.
+S = H / 96
 FACE = 1
 
 # piece: outline, joint, tip (the far end: elbow for an upper arm, hand for a forearm), parent piece or None
@@ -190,13 +192,15 @@ def frames_for(script):
 
 def frame(img, spec, leg_box, legs_top):
     pose, bob, sway, legs = spec
+    bob = round(bob * S)
+    sway = round(sway * S)
     b = img.copy()
     if legs != 'stand':
         x0, y0, x1, y1 = leg_box
         leg = b[y0:y1, x0:x1].copy()
         b[y0:y1, x0:x1] = 0
-        lift = 6 if legs == 'kick' else 8
-        shift = 2 if legs == 'kick' else -1
+        lift = round((6 if legs == 'kick' else 8) * S)
+        shift = round((2 if legs == 'kick' else -1) * S)
         for yy in range(leg.shape[0]):
             for xx in range(leg.shape[1]):
                 Y, X = y0 - lift + yy, x0 + shift + xx
