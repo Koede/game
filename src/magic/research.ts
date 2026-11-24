@@ -6,6 +6,7 @@
  */
 import { ASPECT_LIST, ASPECTS, aspectInfo, isAspect, type Aspect, type Aspects } from './aspects';
 import { boardHint, boardSolved, cellFree, type BoardTokens } from './board';
+import { enchantEntryKey } from '../core/enchant';
 import { RESEARCH, researchEntry, type ResearchEntry } from './entries';
 
 /** Lore gained per aspect from one first scan, at most. */
@@ -55,7 +56,7 @@ export function scanObject(s: ResearchState, key: string, fingerprint: Aspects, 
   }
   const finished: string[] = [];
   for (const e of RESEARCH) {
-    if (e.board === null && isOpen(s, e) && !isDone(s, e.key)) { entryState(s, e.key).done = true; finished.push(e.key); }
+    if (e.board === null && !e.learn && isOpen(s, e) && !isDone(s, e.key)) { entryState(s, e.key).done = true; finished.push(e.key); }
   }
   return { first: true, gained, learned, finished };
 }
@@ -89,6 +90,17 @@ export function beginResearch(s: ResearchState, key: string): PlaceResult {
   for (const [a, n] of Object.entries(e.cost) as [Aspect, number][]) s.lore[a] = (s.lore[a] ?? 0) - n;
   entryState(s, key).begun = true;
   return { ok: true };
+}
+
+/**
+ * The Infusion Altar taught an enchant (its first successful write): its enchant note is written. True when this was new,
+ * so the caller tells the player once.
+ */
+export function learnEnchant(s: ResearchState, enchant: string): boolean {
+  const key = enchantEntryKey(enchant);
+  if (!researchEntry(key) || isDone(s, key)) return false;
+  entryState(s, key).done = true;
+  return true;
 }
 
 /** The compound two aspects make, or null. */

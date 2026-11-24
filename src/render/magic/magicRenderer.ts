@@ -25,7 +25,8 @@ import { LightProbe, lightColor } from '../lightProbe';
 
 export interface JarFill { x: number; y: number; z: number; aspect: Aspect; fill: number }
 export interface NodeView { key: string; x: number; y: number; z: number; aspect: Aspect; left: number }
-export interface DisplayItem { item: string; x: number; y: number; z: number }
+/** `glow`: an altar humming for this aspect in the jars near it (docs/plans/enchantments.md). */
+export interface DisplayItem { item: string; x: number; y: number; z: number; glow?: Aspect }
 export interface CrucibleView { x: number; y: number; z: number; hot: boolean; ess: Aspects; potion: number | null }
 /** Where the liquids come from (the Magic system): crucibles, essentia on the move, mirror links for tube paths. */
 export interface LiquidSource {
@@ -69,6 +70,9 @@ export class MagicRenderer {
   private readonly nodeGeo = new THREE.SphereGeometry(0.36, 14, 10);
   private readonly haloGeo = new THREE.SphereGeometry(0.6, 14, 10);
   private readonly nodeMeshes: { core: THREE.Mesh; halo: THREE.Mesh }[] = [];
+  // A humming altar's aspect: a small pulsing orb above the heart item (the aspect icon "glows").
+  private readonly humGeo = new THREE.SphereGeometry(0.11, 10, 8);
+  private readonly humMeshes: THREE.Mesh[] = [];
   private readonly materials = new Map<string, THREE.MeshBasicMaterial>();
   private readonly items: GroundItemRenderer;
   private readonly fake: GroundItem[] = [];
@@ -153,6 +157,23 @@ export class MagicRenderer {
       });
     });
     this.items.update(dt, this.fake, false);
+    let hum = 0;
+    for (const d of displays) {
+      if (!d.glow || Math.hypot(d.x - eye.x, d.z - eye.z) > NODE_DRAW_DIST) continue;
+      let m = this.humMeshes[hum];
+      if (!m) {
+        m = new THREE.Mesh(this.humGeo);
+        this.humMeshes.push(m);
+        this.group.add(m);
+      }
+      m.material = this.material(aspectInfo(d.glow).color, 0.7);
+      const pulse = 1 + 0.25 * Math.sin(this.time * 4 + d.x * 3 + d.z);
+      m.position.set(d.x, d.y + 0.45, d.z);
+      m.scale.setScalar(pulse);
+      m.visible = true;
+      hum++;
+    }
+    for (let i = hum; i < this.humMeshes.length; i++) this.humMeshes[i].visible = false;
     this.stats.jars = jars.length;
     this.stats.nodes = n;
     this.stats.items = displays.length;
@@ -293,6 +314,7 @@ export class MagicRenderer {
     this.liquids.dispose();
     this.nodeGeo.dispose();
     this.haloGeo.dispose();
+    this.humGeo.dispose();
     for (const m of this.materials.values()) m.dispose();
   }
 }

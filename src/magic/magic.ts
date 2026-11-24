@@ -22,6 +22,7 @@
  */
 import type { GameBus } from '../core/context';
 import { blockOrNull, blockId, itemOrNull } from '../core/registry';
+import { ENCHANTS, addEnchant, canEnchant, copyEnchants, enchantCost, enchantDef, enchantInstability, isEnchantKey, levelName, nextEnchantLevel, sanitizeEnchants } from '../core/enchant';
 import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
 import { FOCI, JAR_UNITS, ROD_TIERS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
 import { ALCHEMY, ARCANE_RECIPES, INFUSIONS, alchemyFor, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
@@ -44,7 +45,7 @@ import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
 import { compass, NODE_HEIGHT, NODE_POOL, NODE_REACH, NODE_REGEN_S, nodesNear, type NodeSite } from './nodes';
 import {
-  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, placeToken, removeToken,
+  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, learnEnchant, placeToken, removeToken,
   sanitizeResearch, scanObject,
   type EntryStatus, type PlaceResult, type ResearchState,
 } from './research';
@@ -73,6 +74,8 @@ export const WARP_WHISPERS = [
 export const WATER_FOR_CRUCIBLE: Record<string, string> = { water_vial: 'glass_vial', water_beaker: 'glass_beaker', water_pail: 'pail' };
 /** Infusion mishap chance per second for each point of instability. */
 export const MISHAP_PER_S = 0.02;
+/** Seconds an altar takes to write one level of an enchant (the essentia is drawn over this time, as for recipes). */
+export const ENCHANT_INFUSE_S = 12;
 /** Cube radius the rod reads the land in. */
 export const GATHER_RADIUS = 3;
 /** Seconds the land needs to recover one drawn unit (per chunk and aspect). */
@@ -150,7 +153,7 @@ export interface NotebookApi {
   research(): ResearchState;
   entries(): {
     key: string; title: string; text: string; status: EntryStatus; board: BoardSpec | null; age: string;
-    requires: readonly string[]; cost: Aspects; short: Aspect[];
+    requires: readonly string[]; cost: Aspects; short: Aspect[]; learn?: { enchant: string };
   }[];
   /** Starts an entry's research notes (pays its cost in lore). */
   begin(entry: string): PlaceResult;
@@ -234,7 +237,10 @@ const freshServant = (x: number, y: number, z: number, fed = 0): ServantState =>
 
 interface Jar { aspect: Aspect | null; n: number }
 interface Draw { n: number; t: number }
-interface Infusion { x: number; y: number; z: number; id: string; paid: Aspects; t: number; waitS: number; step: number }
+/** An enchant write in progress: the altar is drawing essentia for `level` of `key` onto the item at its heart. */
+interface Infusion { x: number; y: number; z: number; id: string; paid: Aspects; t: number; waitS: number; step: number; enchant?: { key: string; level: number } }
+/** What the heart item carries while it sits on the altar: its durability and enchants (the item id is in `altars`). */
+interface AltarKit { durability?: number; enchants?: Record<string, number> }
 
 export interface MagicSnapshot {
   v: 1;
@@ -248,7 +254,9 @@ export interface MagicSnapshot {
   crucibles?: [number, number, number, number, Aspects][];
   pedestals?: [number, number, number, string][];
   altars?: [number, number, number, string][];
-  infusion?: { x: number; y: number; z: number; id: string; paid: Aspects; t: number } | null;
+  /** Durability and enchants of the heart items on altars (only where they carry any). */
+  altarKit?: [number, number, number, AltarKit][];
+  infusion?: { x: number; y: number; z: number; id: string; paid: Aspects; t: number; enchant?: { key: string; level: number } } | null;
   /** x,y,z,fed, and when the servant has walked or finished its task: home x,y,z and 1 if that task is done. */
   servants?: number[][];
   nodes?: Record<string, number>;
@@ -286,6 +294,8 @@ export class Magic {
   private readonly nodeDraws = new Map<string, Draw>();
   private readonly pedestals = new Map<string, string>();
   private readonly altars = new Map<string, string>();
+  /** Heart items' durability and enchants while they sit on an altar (keyed like `altars`). */
+  private readonly altarKit = new Map<string, AltarKit>();
   private readonly crucibles = new Map<string, CrucibleState>();
   private readonly servants = new Map<string, ServantState>();
   /** Linked mirrors: cell -> the cell it is linked to. `mirrorSends` holds the cells that send items to their partner. */
@@ -358,7 +368,10 @@ export class Magic {
     if (this.jars.has(k) && !JAR_BLOCKS.has(key)) this.jars.delete(k);
     if (this.crucibles.has(k) && key !== CRUCIBLE) this.crucibles.delete(k);
     if (this.pedestals.has(k) && key !== 'arcane_pedestal') this.dropAt(x, y, z, this.pedestals.get(k) as string, () => this.pedestals.delete(k));
-    if (this.altars.has(k) && key !== 'infusion_altar') this.dropAt(x, y, z, this.altars.get(k) as string, () => this.altars.delete(k));
+    if (this.altars.has(k) && key !== 'infusion_altar') {
+      const kit = this.altarKit.get(k);
+      this.dropAt(x, y, z, this.altars.get(k) as string, () => (this.altars.delete(k), this.altarKit.delete(k)), kit);
+    }
     if (this.infusion && k3(this.infusion.x, this.infusion.y, this.infusion.z) === k && key !== 'infusion_altar') this.infusion = null;
     if (this.mirrors.has(k) && key !== MIRROR) this.unlinkMirror(k);
     if (this.pendingMirror === k && key !== MIRROR) this.pendingMirror = null;
@@ -375,8 +388,8 @@ export class Magic {
     this.servants.delete(k);
   }
 
-  private dropAt(x: number, y: number, z: number, item: string, after: () => void): void {
-    this.player.ground.spawn(item, 1, x + 0.5, y + 0.6, z + 0.5);
+  private dropAt(x: number, y: number, z: number, item: string, after: () => void, kit?: AltarKit): void {
+    this.player.ground.spawn(item, 1, x + 0.5, y + 0.6, z + 0.5, { durability: kit?.durability, enchants: kit?.enchants });
     after();
   }
 
@@ -1298,16 +1311,20 @@ export class Magic {
       return 'refused';
     }
     if (on) {
+      const kit = this.altarKit.get(k);
       this.altars.delete(k);
-      this.player.give(on, 1);
+      this.altarKit.delete(k);
+      this.player.give(on, 1, kit?.durability, kit?.enchants);
       return 'worked';
     }
     if (!held) {
       this.advise('Set the heart item on the altar, the rest on pedestals, then Use the altar with a rod');
       return 'refused';
     }
-    this.player.consumeHeld(1);
+    // The heart keeps what it carries (durability, enchants) for as long as it sits here.
+    const took = this.player.consumeHeld(1);
     this.altars.set(k, held);
+    if (took && (took.durability !== undefined || took.enchants)) this.altarKit.set(k, { durability: took.durability, enchants: copyEnchants(took.enchants) });
     return 'worked';
   }
 
@@ -1354,7 +1371,12 @@ export class Magic {
     }
     const r = this.matchInfusion(t.x, t.y, t.z);
     if (!r) {
-      this.advise(this.altars.has(k3(t.x, t.y, t.z)) ? 'Nothing comes of these items together' : 'Set the heart item on the altar first');
+      // No recipe: the heart may still take an enchant that the essentia nearby answers (src/core/enchant.ts).
+      if (this.altars.has(k3(t.x, t.y, t.z))) {
+        const hum = this.enchantHum(t.x, t.y, t.z);
+        if (hum) return this.startEnchant(t, hum);
+        this.advise(this.enchantable(t.x, t.y, t.z) ? 'The altar is silent: no essentia nearby suits this item' : 'Nothing comes of these items together');
+      } else this.advise('Set the heart item on the altar first');
       return 'refused';
     }
     const gate = this.craftGate(r.id);
@@ -1374,17 +1396,37 @@ export class Magic {
   infusionAt(x: number, y: number, z: number): { id: string; progress: number; missing: Aspects } | null {
     const f = this.infusion;
     if (!f || f.x !== x || f.y !== y || f.z !== z) return null;
-    const r = INFUSIONS.find((i) => i.id === f.id) as InfusionRecipe;
-    const total = Object.values(r.cost).reduce((s, n) => s + (n ?? 0), 0);
+    const plan = this.planOf(f) as { cost: Aspects; seconds: number };
+    const total = Object.values(plan.cost).reduce((s, n) => s + (n ?? 0), 0);
     const paid = Object.values(f.paid).reduce((s, n) => s + (n ?? 0), 0);
-    return { id: f.id, progress: Math.min(1, Math.min(paid / total, f.t / r.seconds)), missing: shortfall(r.cost, f.paid) };
+    return { id: f.id, progress: Math.min(1, Math.min(paid / total, f.t / plan.seconds)), missing: shortfall(plan.cost, f.paid) };
+  }
+
+  /** What a running infusion draws and how long it takes: a recipe's, or an enchant level's. */
+  private planOf(f: Infusion): { cost: Aspects; seconds: number } | null {
+    if (f.enchant) return { cost: enchantCost(f.enchant.key, f.enchant.level), seconds: ENCHANT_INFUSE_S };
+    const r = INFUSIONS.find((i) => i.id === f.id);
+    return r ? { cost: r.cost, seconds: r.seconds } : null;
+  }
+
+  /** Whether a running infusion still has what it was started with (the heart, the pedestals it needs, the level it writes). */
+  private stillValid(f: Infusion): boolean {
+    if (!f.enchant) return this.matchInfusion(f.x, f.y, f.z)?.id === f.id;
+    const k = k3(f.x, f.y, f.z);
+    return this.altars.has(k) && this.pedestalsOf(f.x, f.y, f.z).length === 0 && nextEnchantLevel(this.altarKit.get(k)?.enchants, f.enchant.key) === f.enchant.level;
+  }
+
+  /** Instability of the running infusion: a recipe's pedestal count, or what the enchant level adds to the item. */
+  private infusionInstability(f: Infusion): number {
+    if (f.enchant) return enchantInstability(this.altarKit.get(k3(f.x, f.y, f.z))?.enchants, f.enchant.level);
+    return this.instabilityAt(f.x, f.y, f.z);
   }
 
   private tickInfusion(dt: number): void {
     const f = this.infusion;
     if (!f) return;
-    const r = INFUSIONS.find((i) => i.id === f.id);
-    if (!r || this.matchInfusion(f.x, f.y, f.z)?.id !== f.id) {
+    const plan = this.planOf(f);
+    if (!plan || !this.stillValid(f)) {
       this.infusion = null;
       this.setActive(f.x, f.y, f.z, false);
       this.advise('The infusion broke off: an item was taken away');
@@ -1392,10 +1434,10 @@ export class Magic {
     }
     f.t += dt;
     f.step += dt;
-    const inst = this.instabilityAt(f.x, f.y, f.z);
+    const inst = this.infusionInstability(f);
     if (inst > 0 && this.rng() < inst * MISHAP_PER_S * dt) this.mishap(f);
     if (!this.infusion) return;
-    const missing = shortfall(r.cost, f.paid);
+    const missing = shortfall(plan.cost, f.paid);
     if (f.step >= INFUSE_STEP_S && Object.keys(missing).length) {
       f.step = 0;
       let got = false;
@@ -1409,10 +1451,13 @@ export class Magic {
       f.waitS = got ? 0 : f.waitS + INFUSE_STEP_S;
       if (f.waitS >= 6 && f.waitS - INFUSE_STEP_S < 6) this.advise(`The altar needs ${aspectsText(missing)}: fill a jar near it`);
     }
-    if (Object.keys(shortfall(r.cost, f.paid)).length || f.t < r.seconds) return;
-    // Done: the heart becomes the result, the pedestals are emptied.
+    if (Object.keys(shortfall(plan.cost, f.paid)).length || f.t < plan.seconds) return;
+    if (f.enchant) return this.finishEnchant(f);
+    const r = INFUSIONS.find((i) => i.id === f.id) as InfusionRecipe;
+    // Done: the heart becomes the result (its enchants go with it: the kit is cleared), the pedestals are emptied.
     for (const [k] of this.pedestalsOf(f.x, f.y, f.z)) this.pedestals.delete(k);
     this.altars.set(k3(f.x, f.y, f.z), r.output.item);
+    this.altarKit.delete(k3(f.x, f.y, f.z));
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
@@ -1420,6 +1465,90 @@ export class Magic {
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.bus.emit('item:made', { item: r.output.item, count: 1, station: 'infusion_altar', recipeId: r.id });
     this.toast(`Infused: ${itemOrNull(r.output.item)?.name ?? r.output.item} - take it from the altar`, r.output.item, 'good');
+  }
+
+  // ---- enchanting at the altar (docs/plans/enchantments.md) ----------------------------------------------------------
+
+  /** Essentia in the jars within reach of an altar, by aspect: what its hum listens to. */
+  private stockNear(x: number, y: number, z: number): Aspects {
+    const out: Aspects = {};
+    for (const [jx, jy, jz] of jarsFor(this.blockAt, x, y, z, ALTAR_REACH + 1, this.mirrorLink)) {
+      const j = this.jarAt(jx, jy, jz);
+      if (j?.aspect && j.n > 0) out[j.aspect] = (out[j.aspect] ?? 0) + j.n;
+    }
+    return out;
+  }
+
+  /** Whether the heart item on an altar can take any enchant it is not yet at the top of (whatever the essentia). */
+  private enchantable(x: number, y: number, z: number): boolean {
+    const k = k3(x, y, z);
+    const item = this.altars.get(k);
+    if (!item) return false;
+    const def = itemOrNull(item);
+    const enchants = this.altarKit.get(k)?.enchants;
+    return ENCHANTS.some((e) => canEnchant(def, e.key) && nextEnchantLevel(enchants, e.key) !== null);
+  }
+
+  /**
+   * The enchant an altar hums for: the first (registry order) that the heart item can take one level more of, whose aspect
+   * is in the jars within reach. Null when nothing matches, or pedestals are loaded (that is a recipe's business).
+   */
+  enchantHum(x: number, y: number, z: number): { key: string; level: number; aspect: Aspect } | null {
+    const k = k3(x, y, z);
+    const item = this.altars.get(k);
+    if (!item || this.pedestalsOf(x, y, z).length > 0) return null;
+    const def = itemOrNull(item);
+    const enchants = this.altarKit.get(k)?.enchants;
+    const stock = this.stockNear(x, y, z);
+    for (const e of ENCHANTS) {
+      const level = nextEnchantLevel(enchants, e.key);
+      if (level !== null && canEnchant(def, e.key) && (stock[e.cost.aspect] ?? 0) > 0) return { key: e.key, level, aspect: e.cost.aspect };
+    }
+    return null;
+  }
+
+  /** Starts writing an enchant onto the heart. The name stays unsaid: the player learns it by the result. */
+  private startEnchant(t: MagicTarget, hum: { key: string; level: number; aspect: Aspect }): MagicOutcome {
+    this.infusion = { x: t.x, y: t.y, z: t.z, id: `enchant:${hum.key}`, paid: {}, t: 0, waitS: 0, step: 0, enchant: { key: hum.key, level: hum.level } };
+    this.setActive(t.x, t.y, t.z, true);
+    const inst = this.infusionInstability(this.infusion);
+    this.toast(`The altar answers the ${aspectInfo(hum.aspect).name} in the jars${inst ? `. Unstable (${inst})` : ''}`, undefined, inst ? 'warn' : 'info');
+    this.bus.emit('sfx', { name: 'infuse', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.9 });
+    return 'worked';
+  }
+
+  /** The write is done: the heart carries the level now, and the altar's notebook note is written (once per enchant). */
+  private finishEnchant(f: Infusion): void {
+    const e = f.enchant as { key: string; level: number };
+    const k = k3(f.x, f.y, f.z);
+    const kit: AltarKit = this.altarKit.get(k) ?? {};
+    kit.enchants = addEnchant(kit.enchants, e.key, e.level);
+    this.altarKit.set(k, kit);
+    this.infusion = null;
+    this.setActive(f.x, f.y, f.z, false);
+    this.stats.infusions++;
+    this.addWarp(1);
+    const item = this.altars.get(k) ?? '';
+    const name = enchantDef(e.key)?.name ?? e.key;
+    this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
+    this.toast(`Enchanted: ${itemOrNull(item)?.name ?? item} gains ${name} ${levelName(e.level)}`, item, 'good');
+    if (learnEnchant(this.research, e.key)) this.toast(`Noted in your notebook: ${name}`, undefined, 'good');
+  }
+
+  /** A failed write: a durable item drops to durability 1 (half the time), otherwise the strain adds warp. Nothing is lost. */
+  private enchantMishap(f: Infusion): void {
+    const k = k3(f.x, f.y, f.z);
+    const kit = this.altarKit.get(k);
+    const item = this.altars.get(k) ?? '';
+    const name = itemOrNull(item)?.name ?? item;
+    this.bus.emit('sfx', { name: 'cast', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 0.5 });
+    if (kit?.durability !== undefined && kit.durability > 1 && this.rng() < 0.5) {
+      kit.durability = 1;
+      this.toast(`The enchanting wrenches the ${name}: it is down to 1 durability`, item, 'warn');
+      return;
+    }
+    this.addWarp(2);
+    this.toast('The enchanting lashes out, and something of it settles on you', undefined, 'warn');
   }
 
   // ---- warp ----------------------------------------------------------------------------------------------------------
@@ -1474,6 +1603,7 @@ export class Magic {
 
   /** An unstable infusion lashes out: half the time essentia already drawn splashes away, else a pedestal item flies off. */
   private mishap(f: Infusion): void {
+    if (f.enchant) return this.enchantMishap(f);
     this.addWarp(1);
     if (this.seedTaint(f.x, f.y, f.z, 1, 4) > 0) this.advise('The unstable infusion leaves a stain on the ground');
     const paid = (Object.keys(f.paid) as Aspect[]).filter((a) => (f.paid[a] ?? 0) > 0);
@@ -1498,15 +1628,18 @@ export class Magic {
   }
 
   /** Items resting on pedestals and altars, for the renderer. */
-  displays(): { item: string; x: number; y: number; z: number }[] {
-    const out: { item: string; x: number; y: number; z: number }[] = [];
+  /** `glow` is set on an altar whose heart is humming for an aspect in the jars (its aspect icon lights). */
+  displays(): { item: string; x: number; y: number; z: number; glow?: Aspect }[] {
+    const out: { item: string; x: number; y: number; z: number; glow?: Aspect }[] = [];
     for (const [k, item] of this.pedestals) {
       const [x, y, z] = parse3(k);
       out.push({ item, x: x + 0.5, y: y + 1.25, z: z + 0.5 });
     }
     for (const [k, item] of this.altars) {
       const [x, y, z] = parse3(k);
-      out.push({ item, x: x + 0.5, y: y + 1.35, z: z + 0.5 });
+      const busy = !!this.infusion && k3(this.infusion.x, this.infusion.y, this.infusion.z) === k;
+      const hum = busy ? null : this.enchantHum(x, y, z);
+      out.push({ item, x: x + 0.5, y: y + 1.35, z: z + 0.5, ...(hum ? { glow: hum.aspect } : {}) });
     }
     return out;
   }
@@ -1528,6 +1661,8 @@ export class Magic {
       const inst = this.instabilityAt(x, y, z);
       return `Infusion Altar - ready: ${itemOrNull(r.output.item)?.name} (Use with a rod)${inst ? ` - unstable ${inst}` : ' - stable'}`;
     }
+    const hum = this.enchantHum(x, y, z);
+    if (hum) return `Infusion Altar - ${itemOrNull(on ?? '')?.name ?? on} hums toward ${aspectInfo(hum.aspect).name} (Use with a rod)`;
     return `Infusion Altar - ${on ? itemOrNull(on)?.name : 'empty'}`;
   }
 
@@ -2139,7 +2274,7 @@ export class Magic {
       research: () => this.research,
       entries: () => RESEARCH.map((e) => ({
         key: e.key, title: e.title, text: e.text, status: entryStatus(this.research, e), board: e.board, age: e.age,
-        requires: e.requires, cost: e.cost, short: beginShortfall(this.research, e),
+        requires: e.requires, cost: e.cost, short: beginShortfall(this.research, e), learn: e.learn,
       })),
       begin: (entry) => {
         const r = beginResearch(this.research, entry);
@@ -2212,7 +2347,8 @@ export class Magic {
       crucibles: [...this.crucibles].filter(([, c]) => c.water || crucibleTotal(c) > 0).map(([k, c]) => [...parse3(k), c.water ? 1 : 0, { ...c.ess }]),
       pedestals: [...this.pedestals].map(([k, i]) => [...parse3(k), i]),
       altars: [...this.altars].map(([k, i]) => [...parse3(k), i]),
-      infusion: f ? { x: f.x, y: f.y, z: f.z, id: f.id, paid: { ...f.paid }, t: f.t } : null,
+      ...(this.altarKit.size ? { altarKit: [...this.altarKit].filter(([k]) => this.altars.has(k)).map(([k, v]) => [...parse3(k), { ...v }] as [number, number, number, AltarKit]) } : {}),
+      infusion: f ? { x: f.x, y: f.y, z: f.z, id: f.id, paid: { ...f.paid }, t: f.t, ...(f.enchant ? { enchant: { ...f.enchant } } : {}) } : null,
       servants: [...this.servants].map(([k, s]) => {
         const [x, y, z] = parse3(k);
         const row = [x, y, z, s.fed];
@@ -2273,6 +2409,14 @@ export class Magic {
     };
     items(s.pedestals, this.pedestals);
     items(s.altars, this.altars);
+    this.altarKit.clear();
+    for (const r of Array.isArray(s.altarKit) ? s.altarKit : []) {
+      if (!Array.isArray(r) || r.length !== 4 || !cell(r) || !this.altars.has(k3(r[0], r[1], r[2])) || !r[3] || typeof r[3] !== 'object') continue;
+      const kit = r[3] as AltarKit;
+      const durability = num(kit.durability) ? Math.max(0, Math.floor(kit.durability)) : undefined;
+      const enchants = sanitizeEnchants(kit.enchants);
+      if (durability !== undefined || enchants) this.altarKit.set(k3(r[0], r[1], r[2]), { durability, enchants });
+    }
     this.servants.clear();
     for (const r of Array.isArray(s.servants) ? s.servants : []) {
       if (!Array.isArray(r) || (r.length !== 4 && r.length !== 8) || !cell(r) || !num(r[3])) continue;
@@ -2310,8 +2454,11 @@ export class Magic {
     this.nodeDraws.clear();
     if (s.nodes && typeof s.nodes === 'object') for (const [k, n] of Object.entries(s.nodes)) if (num(n)) this.nodeDraws.set(k, { n, t: this.clock });
     const f = s.infusion;
-    this.infusion = f && num(f.x) && num(f.y) && num(f.z) && typeof f.id === 'string' && INFUSIONS.some((i) => i.id === f.id)
-      ? { x: f.x, y: f.y, z: f.z, id: f.id, paid: sanitizeAspects(f.paid), t: num(f.t) ? f.t : 0, waitS: 0, step: 0 }
+    const en = f?.enchant && typeof f.enchant.key === 'string' && isEnchantKey(f.enchant.key) && num(f.enchant.level)
+      ? { key: f.enchant.key, level: Math.max(1, Math.min(enchantDef(f.enchant.key)?.max ?? 1, Math.floor(f.enchant.level))) }
+      : undefined;
+    this.infusion = f && num(f.x) && num(f.y) && num(f.z) && (en || (typeof f.id === 'string' && INFUSIONS.some((i) => i.id === f.id)))
+      ? { x: f.x, y: f.y, z: f.z, id: en ? `enchant:${en.key}` : (f.id as string), paid: sanitizeAspects(f.paid), t: num(f.t) ? f.t : 0, waitS: 0, step: 0, ...(en ? { enchant: en } : {}) }
       : null;
     this.plugged.clear();
     if (s.plugged && typeof s.plugged === 'object')

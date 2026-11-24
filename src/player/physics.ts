@@ -9,6 +9,7 @@ import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SNEAK_SPEED_MULT, SPRINT_SPEED, SWI
 import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, springFallAllowance, type PlayerState } from '../game';
+import { GLIDE_FALL_SPEED, GLIDE_S, LightTrail, featherfallNegates, glides } from '../game/enchantEffects';
 import { currentAt } from '../world/water';
 import { JumpAssist } from './jumpAssist';
 import { EPS, HALF_WIDTH, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
@@ -92,6 +93,10 @@ export class PlayerPhysics {
   private blocked = false;
   /** Extra safe fall height earned in this fall from a boosted (Spring) jump; spent on landing. */
   private fallAllowance = 0;
+  /** Featherfall II: seconds of glide left in this airtime (refilled on landing). */
+  private glideLeft = GLIDE_S;
+  /** Lightstep: the lit trail behind the player (src/game/enchantEffects.ts). */
+  private readonly trail: LightTrail;
   /** Coyote time and jump buffering (the Movement assist setting). */
   readonly jumpAssist = new JumpAssist();
   assist = true;
@@ -108,12 +113,14 @@ export class PlayerPhysics {
     private readonly player: PlayerState,
   ) {
     this.fallTop = player.position.y;
+    this.trail = new LightTrail(world);
   }
 
   /** Forget the fall in progress (after a teleport or respawn). */
   reset(): void {
     this.fallTop = this.player.position.y;
     this.fallAllowance = 0;
+    this.glideLeft = GLIDE_S;
     this.jumpAssist.reset();
     this.player.velocity.x = this.player.velocity.y = this.player.velocity.z = 0;
   }
@@ -190,11 +197,17 @@ export class PlayerPhysics {
         r.jumped = true;
       }
       v.y = Math.max(v.y - GRAVITY * dt, -MAX_FALL_SPEED);
+      // Featherfall II: holding Jump on the way down slows the fall, for GLIDE_S per airtime.
+      if (glides(p.heldStack()) && input.jump && !p.onGround && v.y < 0 && this.glideLeft > 0) {
+        v.y = Math.max(v.y, -GLIDE_FALL_SPEED);
+        this.glideLeft -= dt;
+      }
     }
 
     const wasOnGround = p.onGround;
     this.integrate(dt, wasOnGround, input.jump, Math.hypot(input.moveX, input.moveZ) > 0.3);
     this.sampleLiquids();
+    this.trail.step(dt, pos, p.heldStack());
 
     // Fall tracking: the highest point since last standing; water breaks every fall.
     if (this.inLiquid) {
@@ -207,11 +220,13 @@ export class PlayerPhysics {
     } else {
       if (!wasOnGround) {
         r.landedFrom = Math.max(0, this.fallTop - pos.y);
-        const damage = fallDamage(r.landedFrom, this.fallAllowance);
+        // Featherfall: the held tool takes the fall (no health lost); the landing is still counted for the camera.
+        const damage = featherfallNegates(p.heldStack()) ? 0 : fallDamage(r.landedFrom, this.fallAllowance);
         if (damage > 0) p.damage(damage, 'fall');
       }
       this.fallTop = pos.y;
       this.fallAllowance = 0;
+      this.glideLeft = GLIDE_S;
     }
     return r;
   }

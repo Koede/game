@@ -15,6 +15,7 @@ import {
   canMine,
   magnetRadius,
   planVein,
+  shapeDrops,
   canTill,
   drink,
   eat,
@@ -354,7 +355,8 @@ export class Interaction {
     }
     const def = hit.block;
     const held = this.player.heldStack();
-    const drops = harvest(def, held, this.rng);
+    const shaped = shapeDrops(harvest(def, held, this.rng), held, this.rng);
+    const drops = shaped.drops;
     const { x, y, z, voxel } = hit;
     // Enchants (src/game/enchantEffects.ts): read before the break, since the tool can wear out on it.
     const magnet = magnetRadius(held);
@@ -366,6 +368,7 @@ export class Interaction {
     if (!this.world.setVoxel(x, y, z, left, 'player')) return;
     this.edits++;
     this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 }, magnet);
+    if (shaped.bonus) this.bus.emit('sfx', { name: 'pickup', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.6 });
     const broke = this.player.wearHeld(def);
     exertMining(this.player);
     if (vein.length > 0 && !broke && left === AIR) this.edits += breakVein(this.world, this.player, vein, this.rng, rollDrops);

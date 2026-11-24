@@ -4,6 +4,7 @@
  * one lore and one ink). Aspects (what you know and your lore), Notes (scan what you carry), Goals.
  * Talks to the game only through NotebookApi (src/magic/magic.ts, type import).
  */
+import { enchantDef } from '../../../core/enchant';
 import { itemOrNull } from '../../../core/registry';
 import { aspectIcon, aspectLabel, aspectsRow } from '../../kit/aspectIcon';
 import { ASPECT_LIST, aspectInfo, aspectsText, linkable, type Aspect } from '../../../magic/aspects';
@@ -334,6 +335,13 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
     if (e.status === 'locked') {
       const names = e.requires.map((k) => entries.find((x) => x.key === k)?.title ?? k);
       out.push(h('p', { class: 'hw-nb__muted', text: `Needs first: ${names.join(', ')}.` }));
+      return out;
+    }
+    if (e.learn) {
+      // An enchant note (src/magic/entries.ts): the altar writes it on the first success, and only then names the aspect.
+      const def = enchantDef(e.learn.enchant);
+      if (e.status === 'done' && def) out.push(h('p', { class: 'hw-nb__text', text: `${def.description} It wants ${aspectInfo(def.aspect).name} (${def.cost.perLevel} per level).` }));
+      else out.push(h('p', { class: 'hw-nb__muted', text: 'Not written yet. Put a tool on the altar with no recipe and the essentia it wants near it.' }));
       return out;
     }
     if (!e.board) {

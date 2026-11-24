@@ -80,3 +80,25 @@ essentia slots later (Path of Exile).
 - UI: coloured "Veinseeker II" lines with the aspect icon in item tooltips and the hotbar name flash; CSS shimmer on enchanted slots (off under reduce motion).
 - Debug: `__hw.give(item, 1, { veinseeker: 2 })`.
 - Still to do: altar discovery (phase 3), the other four enchants (phase 4).
+
+## Shipped (phases 3-4)
+
+- Altar discovery (`src/magic/magic.ts`): a heart item with no recipe and no pedestals hums when the jars within reach hold an aspect
+  an enchant it can take wants (first in registry order; one aspect per enchant, so the hum names one). The altar text says
+  "hums toward Vein", the heart's aspect icon gets a pulsing orb (`displays()` `glow`, `src/render/magic/magicRenderer.ts`).
+  A rod Use starts the write: the essentia is drawn over ENCHANT_INFUSE_S = 12 s through the same `take` as recipes. The toast
+  does not name the enchant; the first success writes its notebook note.
+- Costs and instability: `enchantCost(key, level)` = perLevel x level; `enchantInstability` = levels already on the item + (level - 1),
+  so a first enchant on a bare tool is steady. A mishap (`MISHAP_PER_S` per point, as for recipes) drops a durable tool to durability
+  1 half the time, else adds 2 warp. The item is never deleted; the write carries on.
+- The altar keeps the heart's durability and enchants while it sits there (`altarKit`, saved as `altarKit`). Taking a tool back
+  off an altar used to reset it to full durability; now it does not.
+- Research: one note per enchant (`enchant_<key>`, `src/magic/entries.ts`, `learnEnchant` in `src/magic/research.ts`), needs
+  `infusion`, no board, never opened by a scan. The notebook shows "Not written yet" until the altar writes it, then names the aspect.
+- Phase 4 enchants (`src/core/enchant.ts`, effects in `src/game/enchantEffects.ts`, all through `enchantLevel`):
+  Ember (I; smelts what it breaks where a furnace recipe exists: ore to ingot, log to charcoal), Featherfall (I: no fall damage,
+  `src/player/physics.ts`; II: holding Jump slows the fall to 3 m/s for 1.5 s per airtime), Lightstep (I-III: a Floating Light trail
+  on open cells for 2.5 / 4 / 6 s, at most 12 cells, `LightTrail`), Bounty (I-III: 10 / 20 / 30% for one extra drop, a pickup chime).
+  Ember is I only: the plan's "a creature it hits catches fire" needs a burn state for creatures and hostiles, which does not exist yet.
+- Tests: `src/magic/enchantAltar.test.ts` (hum, silent altar, write, costs, mishaps, save), `src/game/enchantPhase4.test.ts` (registry,
+  Ember, Bounty, Featherfall, Lightstep, all without the world).

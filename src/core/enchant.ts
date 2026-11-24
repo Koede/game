@@ -14,7 +14,7 @@ export interface EnchantDef {
   max: number;
   /** The aspect the enchant is tied to: its colour and icon, and what the altar will ask for. */
   aspect: Aspect;
-  /** Aspects the altar asks per level (phase 3; informational until then). */
+  /** What the altar asks: `perLevel` of the aspect times the level being written (see `enchantCost`). */
   cost: { aspect: Aspect; perLevel: number };
   colour: string;
   description: string;
@@ -27,6 +27,8 @@ const isDigTool = (def: ItemDef | null | undefined): boolean => {
   const k = def?.tool?.kind;
   return (k === 'pickaxe' || k === 'axe' || k === 'shovel') && !def?.tool?.fell;
 };
+/** Any tool a player holds (Featherfall and Lightstep ride on what is in hand). */
+const isTool = (def: ItemDef | null | undefined): boolean => !!def?.tool;
 
 export const ENCHANTS: readonly EnchantDef[] = [
   {
@@ -47,6 +49,46 @@ export const ENCHANTS: readonly EnchantDef[] = [
     cost: { aspect: 'drive', perLevel: 2 },
     colour: '#e0a060',
     description: 'What this tool breaks or kills flies to you from 3, 5 or 7 blocks away, never through a wall.',
+    appliesTo: isDigTool,
+  },
+  {
+    key: 'ember',
+    name: 'Ember',
+    max: 1,
+    aspect: 'cinder',
+    cost: { aspect: 'cinder', perLevel: 2 },
+    colour: '#e0683a',
+    description: 'What this tool breaks is smelted as it falls: ore comes out as ingot, and a log as charcoal.',
+    appliesTo: isDigTool,
+  },
+  {
+    key: 'featherfall',
+    name: 'Featherfall',
+    max: 2,
+    aspect: 'gale',
+    cost: { aspect: 'gale', perLevel: 2 },
+    colour: '#a8d8e8',
+    description: 'Falls cost no health while you carry it. II: holding Jump on the way down slows the fall for a moment.',
+    appliesTo: isTool,
+  },
+  {
+    key: 'lightstep',
+    name: 'Lightstep',
+    max: 3,
+    aspect: 'glow',
+    cost: { aspect: 'glow', perLevel: 2 },
+    colour: '#f4eab0',
+    description: 'You leave a soft trail of light behind you that fades: a few cells at I, more at II and III.',
+    appliesTo: isTool,
+  },
+  {
+    key: 'bounty',
+    name: 'Bounty',
+    max: 3,
+    aspect: 'clarity',
+    cost: { aspect: 'clarity', perLevel: 2 },
+    colour: '#f2c94c',
+    description: 'What this tool breaks has a chance of one extra drop: 10%, 20% or 30%, marked by a small glint.',
     appliesTo: isDigTool,
   },
 ];
@@ -114,6 +156,32 @@ export function enchantStack(stack: ItemStack, key: string, level: number, def?:
   stack.enchants = addEnchant(stack.enchants, key, level);
   return true;
 }
+
+/** The level an altar writes next on an item: one above what it has, or null when the enchant is already at max (or unknown). */
+export function nextEnchantLevel(enchants: Readonly<Record<string, number>> | undefined, key: string): number | null {
+  const def = BY_KEY.get(key);
+  if (!def) return null;
+  const cur = enchants?.[key] ?? 0;
+  return cur >= def.max ? null : cur + 1;
+}
+
+/** Essentia an altar draws to write `level` of an enchant: its perLevel times the level (so II costs twice I). */
+export function enchantCost(key: string, level: number): Partial<Record<Aspect, number>> {
+  const def = BY_KEY.get(key);
+  return def ? { [def.cost.aspect]: def.cost.perLevel * Math.max(1, Math.floor(level)) } : {};
+}
+
+/**
+ * How unstable writing `level` onto an item with these enchants is: the sum of the levels already on it, plus the levels
+ * above the first being written. A first enchant on a bare tool is steady (0).
+ */
+export function enchantInstability(enchants: Readonly<Record<string, number>> | undefined, level: number): number {
+  const existing = Object.values(enchants ?? {}).reduce((s, n) => s + (typeof n === 'number' ? n : 0), 0);
+  return existing + Math.max(0, Math.floor(level) - 1);
+}
+
+/** The research entry that records an enchant once the altar has taught it (src/magic/entries.ts). */
+export const enchantEntryKey = (key: string): string => `enchant_${key}`;
 
 export interface EnchantLine {
   key: string;

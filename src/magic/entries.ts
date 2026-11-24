@@ -11,6 +11,7 @@ import type { Aspect, Aspects } from './aspects';
 import { corner, hexCell, type BoardSpec } from './board';
 import type { AgeName } from './ageMap';
 import { WAND_CAPS, WAND_CORES, wandKey } from '../content/itemsMagic';
+import { ENCHANTS, enchantEntryKey } from '../core/enchant';
 
 const WAND_RECIPES = WAND_CORES.flatMap((c) => WAND_CAPS.map((p) => wandKey(c.key, p.key)));
 
@@ -25,6 +26,11 @@ export interface ResearchEntry {
   /** Lore spent to start the research notes, Thaumcraft style: one of each anchor's aspect. */
   cost: Aspects;
   unlocks: { recipes?: readonly string[]; flags?: readonly string[] };
+  /**
+   * An enchant note (docs/plans/enchantments.md): no board and never opened by a scan. The Infusion Altar writes it the
+   * first time it teaches `enchant` (src/magic/research.ts `learnEnchant`); until then its text says nothing of the aspect.
+   */
+  learn?: { enchant: string };
 }
 
 /**
@@ -216,13 +222,24 @@ const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft |
   },
 ];
 
+/** One enchant note per enchant in the registry: learned by testing at the altar, so each waits for `infusion`. */
+const ENCHANT_NOTES: Omit<ResearchEntry, 'board' | 'cost'>[] = ENCHANTS.map((e) => ({
+  key: enchantEntryKey(e.key),
+  title: e.name,
+  text: 'An enchantment the altar can write onto a tool. Put a tool on the altar with no recipe and essentia nearby: when the altar hums, Use it with a rod until it takes. The note is written then.',
+  age: e.key === 'veinseeker' || e.key === 'magnet' ? 'bronze' : 'forge',
+  requires: ['infusion'],
+  unlocks: {},
+  learn: { enchant: e.key },
+}));
+
 /** Every entry with its board drawn at its age's complexity, and what starting its notes costs. */
-export const RESEARCH: readonly ResearchEntry[] = DRAFTS.map((d) => {
+export const RESEARCH: readonly ResearchEntry[] = [...DRAFTS.map((d) => {
   const board = d.board ? d.board(BOARD_RADIUS[d.age] ?? 3) : null;
   const cost: Aspects = {};
   for (const a of board?.anchors ?? []) cost[a.aspect] = 1;
   return { ...d, board, cost };
-});
+}), ...ENCHANT_NOTES.map((n) => ({ ...n, board: null, cost: {} as Aspects }))];
 
 const BY_KEY = new Map(RESEARCH.map((e) => [e.key, e]));
 export const researchEntry = (key: string): ResearchEntry | null => BY_KEY.get(key) ?? null;

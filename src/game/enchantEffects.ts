@@ -4,12 +4,101 @@
  * one helper and stays free of enchant rules. DOM-free; veins use the felling approach (breadth-first from the block hit).
  */
 import { enchantLevel } from '../core/enchant';
-import { AIR, type BlockDef, type IWorld, type ItemAmount, type Slot } from '../core/types';
+import { blockId } from '../core/registry';
+import { AIR, type BlockDef, type IWorld, type ItemAmount, makeVoxel, type Slot } from '../core/types';
+import { smeltRecipeFor } from '../sim/furnace';
 import { canHarvest } from './mining';
 import type { PlayerState } from './playerState';
 
 /** Blocks a Veinseeker breaks beyond the one hit, by level (index = level). */
 export const VEIN_SIZE: readonly number[] = [0, 3, 6, 10];
+/** Chance of one extra drop from a Bounty tool, by level (index = level). */
+export const BOUNTY_CHANCE: readonly number[] = [0, 0.1, 0.2, 0.3];
+/** Lightstep: seconds a trail cell stays lit, by level (index = level); 0 = no trail. */
+export const TRAIL_S: readonly number[] = [0, 2.5, 4, 6];
+/** Most trail cells lit at once (the oldest go first). */
+export const TRAIL_CAP = 12;
+/** Featherfall II: the fastest a gliding fall may go, m/s, and how long one glide may last in the air. */
+export const GLIDE_FALL_SPEED = 3;
+export const GLIDE_S = 1.5;
+
+/** Featherfall (any level): falls cost no health while the enchanted tool is held. */
+export const featherfallNegates = (held: Slot): boolean => enchantLevel(held, 'featherfall') >= 1;
+/** Featherfall II: holding Jump in the air slows a descent to GLIDE_FALL_SPEED for up to GLIDE_S per airtime. */
+export const glides = (held: Slot): boolean => enchantLevel(held, 'featherfall') >= 2;
+
+/** Ember: what a broken block drops is smelted on the spot where a furnace recipe exists (ore to ingot, log to charcoal). */
+export function emberSmelt(drops: ItemAmount[], held: Slot): ItemAmount[] {
+  if (enchantLevel(held, 'ember') < 1) return drops;
+  return drops.map((d) => {
+    const r = smeltRecipeFor(d.item);
+    if (!r || r.inputs.length !== 1 || r.inputs[0].count <= 0) return d;
+    const count = Math.round((d.count * r.output.count) / r.inputs[0].count);
+    return count > 0 ? { item: r.output.item, count } : d;
+  });
+}
+
+/** Bounty: with its chance, one extra of the first drop. `bonus` says it happened (the glint). */
+export function bountyDrops(drops: ItemAmount[], held: Slot, rng: () => number): { drops: ItemAmount[]; bonus: boolean } {
+  const chance = BOUNTY_CHANCE[Math.min(enchantLevel(held, 'bounty'), BOUNTY_CHANCE.length - 1)] ?? 0;
+  if (chance <= 0 || drops.length === 0 || rng() >= chance) return { drops, bonus: false };
+  const first = drops[0];
+  return { drops: [{ item: first.item, count: first.count + 1 }, ...drops.slice(1)], bonus: true };
+}
+
+/** Everything the held tool does to what it breaks: Ember smelts, then Bounty may add one. */
+export function shapeDrops(drops: ItemAmount[], held: Slot, rng: () => number): { drops: ItemAmount[]; bonus: boolean } {
+  if (drops.length === 0) return { drops, bonus: false };
+  return bountyDrops(emberSmelt(drops, held), held, rng);
+}
+
+/**
+ * Lightstep: a trail of Floating Light cells behind the player. Each cell the player stands in gets lit (where the cell
+ * is open air), then goes out after its level's seconds. Owned by the physics controller, which steps it once a frame.
+ */
+export class LightTrail {
+  private readonly cells: { x: number; y: number; z: number; left: number }[] = [];
+  private last = '';
+
+  constructor(private readonly world: IWorld) {}
+
+  /** Ages the trail; lights the cell at `feet` when Lightstep is held and the player has moved into a new cell. */
+  step(dt: number, feet: { x: number; y: number; z: number }, held: Slot): void {
+    const level = enchantLevel(held, 'lightstep');
+    for (let i = this.cells.length - 1; i >= 0; i--) {
+      const c = this.cells[i];
+      c.left -= dt;
+      if (c.left > 0) continue;
+      this.cells.splice(i, 1);
+      if (this.world.getBlock(c.x, c.y, c.z).key === 'magic_light') this.world.setVoxel(c.x, c.y, c.z, AIR, 'player');
+    }
+    if (level < 1) {
+      this.last = '';
+      return;
+    }
+    const x = Math.floor(feet.x);
+    const y = Math.floor(feet.y);
+    const z = Math.floor(feet.z);
+    const k = `${x},${y},${z}`;
+    if (k === this.last) return;
+    this.last = k;
+    if (this.cells.some((c) => c.x === x && c.y === y && c.z === z)) return;
+    if (!this.world.isLoaded(x, z) || this.world.getBlock(x, y, z).key !== 'air') return;
+    if (!this.world.setVoxel(x, y, z, makeVoxel(blockId('magic_light')), 'player')) return;
+    this.cells.push({ x, y, z, left: TRAIL_S[Math.min(level, TRAIL_S.length - 1)] ?? 0 });
+    while (this.cells.length > TRAIL_CAP) {
+      const old = this.cells.shift()!;
+      if (this.world.getBlock(old.x, old.y, old.z).key === 'magic_light') this.world.setVoxel(old.x, old.y, old.z, AIR, 'player');
+    }
+  }
+
+  /** Cells currently lit (for tests and the debug view). */
+  get lit(): number {
+    return this.cells.length;
+  }
+}
+
+
 /** Blocks around the player a Magnet tool's drops fly in from, by level. */
 export const MAGNET_RADIUS: readonly number[] = [0, 3, 5, 7];
 
@@ -89,7 +178,9 @@ export function breakVein(
     if (!canHarvest(def, held)) continue;
     const voxel = world.getVoxel(c.x, c.y, c.z);
     if (!world.setVoxel(c.x, c.y, c.z, AIR, 'player')) continue;
-    player.dropAll(rollDrops(def, rng), { x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5 }, magnetRadius(held));
+    const shaped = shapeDrops(rollDrops(def, rng), held, rng);
+    player.dropAll(shaped.drops, { x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5 }, magnetRadius(held));
+    if (shaped.bonus) player.bus.emit('sfx', { name: 'pickup', x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5, pitch: 1.6 });
     n++;
     player.bus.emit('block:broken', { x: c.x, y: c.y, z: c.z, voxel });
     if (player.wearHeld(def)) break;
