@@ -108,6 +108,7 @@ export class GameState {
     this.player = new PlayerState(bus, { x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
     this.player.dev = mode === 'dev';
     this.clock = new GameClock(bus);
+    world.setDayProvider(() => this.clock.day);
     // Load the player before the tracker and the simulation see anything: the tracker reads player.stats.
     if (save) {
       diag('state.player_before_load', () => ({ spawn, savedPlayer: save.player, constructed: playerBrief(this.player) }));
