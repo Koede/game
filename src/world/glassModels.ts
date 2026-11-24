@@ -110,6 +110,13 @@ export const GLASS_MODELS: Readonly<Record<string, GlassModel>> = {
   },
   // A glass dome on a brass base, with a brass nipple for the pump.
   vacuum_cap: { ports: NY, body: [[4, 2, 4, 12, 5, 12], [5, 5, 5, 11, 7, 11]], metal: [[3, 0, 3, 13, 2, 13], [7, 7, 7, 9, 10, 9]] },
+  // A separatory funnel: a pear-shaped bulb tapering to a brass tap over a thin stem, a stopper on top.
+  separatory_funnel: {
+    ports: PY | NY,
+    body: [[7, 0, 7, 9, 4, 9], ...walls(6, 6, 10, 10, 5, 7), ...walls(4, 4, 12, 12, 7, 10), ...walls(3, 3, 13, 13, 10, 13), [6, 13, 6, 10, 15, 10]],
+    metal: [[5, 4, 7, 11, 5, 9], [10, 4, 7, 12, 6, 8], [5, 15, 5, 11, 16, 11]],
+    lamp: [13, 11, 7, 15, 13, 9],
+  },
   // Essentia (src/content/itemsMagic.ts): a stoppered jar, its folded void twin, and the tube that joins them.
   essentia_jar: {
     family: 'essentia', ports: SIDES | PY | NY,

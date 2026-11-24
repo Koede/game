@@ -14,7 +14,7 @@ const glassCase = (machine: string, props: Partial<BlockDef> = {}): Partial<Bloc
 export const DISTILL_SPEC = {
   // New faces this module adds on top of the distillery textures already inside the base budget:
   // reflux / vacuum (idle+lit), filter (idle+lit+done+blocked), asphalt, 5 containers, 12 potion vials.
-  textures: 25,
+  textures: 29,
   blocks: [
     'still_base', 'boiling_flask', 'boiling_flask_done', 'reaction_vessel', 'reaction_vessel_done', 'column_segment', 'condenser_coil',
     'cooling_jacket', 'receiver', 'receiver_done', 'glass_tube', 'airlock_cap', 'chem_port',
@@ -47,6 +47,8 @@ export const DISTILL_SPEC = {
     filter_bed: glassCase('filter_bed', { itemKey: 'filter_bed', lightActive: 2 }),
     filter_bed_done: glassCase('filter_bed', { itemKey: null, drops: [{ item: 'filter_bed', count: 1 }], lightActive: 0 }),
     vacuum_cap: glassCase('vacuum_cap'),
+    separatory_funnel: glassCase('separatory_funnel', { itemKey: 'separatory_funnel' }),
+    separatory_funnel_done: glassCase('separatory_funnel', { itemKey: null, drops: [{ item: 'separatory_funnel', count: 1 }] }),
   } as Record<string, Partial<BlockDef>>,
 
   machines: {

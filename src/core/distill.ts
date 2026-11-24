@@ -19,6 +19,7 @@ export const CHEM = {
   reflux: 'reflux_head',
   filter: 'filter_bed',
   vacuum: 'vacuum_cap',
+  funnel: 'separatory_funnel',
 } as const;
 
 export type ChemRole = keyof typeof CHEM;
@@ -30,7 +31,7 @@ const roleByKind = new Map<string, ChemRole>(Object.entries(CHEM).map(([r, k]) =
 /** The `_done` block twin of a stateful module (shows "step complete" and, with the active bit, "blocked"). */
 export const DONE_SUFFIX = '_done';
 /** Modules with a `_done` twin. */
-export const STATEFUL: readonly ChemKind[] = [CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.filter];
+export const STATEFUL: readonly ChemKind[] = [CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.filter, CHEM.funnel];
 
 /** The module kind of a block key (`boiling_flask_done` -> `boiling_flask`), or null. */
 export function chemKindOf(blockKey: string): ChemKind | null {
@@ -59,8 +60,11 @@ export const stateLook = (state: ChemState): { done: boolean; active: boolean } 
 export const CHEM_CAPACITY_L: Readonly<Record<ChemKind, number>> = {
   still_base: 0, boiling_flask: 4000, reaction_vessel: 4000, column_segment: 0, condenser_coil: 100,
   cooling_jacket: 1000, receiver: 2000, glass_tube: 50, airlock_cap: 0, chem_port: 0,
-  reflux_head: 0, filter_bed: 500, vacuum_cap: 0,
+  reflux_head: 0, filter_bed: 500, vacuum_cap: 0, separatory_funnel: 1000,
 };
+
+/** Seconds a separatory funnel's layers take to settle before it lets the bottom one out. */
+export const SETTLE_S = 3;
 
 /** The temperatures a still base can be set to (tap it with an empty hand to step through them). */
 /** Includes the potion still (60), the asphalt vessel (150) and the vacuum residue run (330). */

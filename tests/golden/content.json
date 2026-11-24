@@ -273,7 +273,9 @@
     "quest_board": {"category":"block","hardness":1.2,"key":"quest_board","oriented":true,"tool":"axe"},
     "wall_clock": {"category":"block","hardness":1.2,"key":"wall_clock","oriented":true,"tool":"axe"},
     "glassware_glass": {"category":"block","drops":"none","hardness":-1,"item":false,"key":"glassware_glass","opaque":false,"translucent":true},
-    "glassware_brass": {"category":"block","drops":"none","hardness":-1,"item":false,"key":"glassware_brass","opaque":false,"translucent":true}
+    "glassware_brass": {"category":"block","drops":"none","hardness":-1,"item":false,"key":"glassware_brass","opaque":false,"translucent":true},
+    "separatory_funnel": {"age":0,"category":"machine","hardness":0.6,"key":"separatory_funnel","lightActive":0,"machine":"separatory_funnel","opaque":false,"shape":"glass","solid":true,"stack":16,"tool":"pickaxe","translucent":true},
+    "separatory_funnel_done": {"age":0,"category":"machine","drops":[{"count":1,"item":"separatory_funnel"}],"hardness":0.6,"item":false,"key":"separatory_funnel_done","lightActive":0,"machine":"separatory_funnel","opaque":false,"shape":"glass","solid":true,"stack":16,"tool":"pickaxe","translucent":true}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -779,6 +781,7 @@
     "chem_port": {"age":2,"id":"chem_port","inputs":[{"count":2,"item":"iron_plate"},{"count":1,"item":"glass"}],"kind":"forge","minTempC":1000,"minTier":3,"output":{"count":1,"item":"chem_port"},"station":"furnace"},
     "empty_canister": {"age":2,"id":"empty_canister","inputs":[{"count":2,"item":"iron_plate"}],"kind":"forge","minTempC":1000,"minTier":3,"output":{"count":2,"item":"empty_canister"},"station":"furnace"},
     "filter_bed": {"age":0,"id":"filter_bed","inputs":[{"count":2,"item":"glass"}],"kind":"forge","minTempC":700,"minTier":1,"output":{"count":1,"item":"filter_bed"},"station":"furnace"},
+    "separatory_funnel": {"age":0,"id":"separatory_funnel","inputs":[{"count":2,"item":"glass"},{"count":1,"item":"tin_ingot"}],"kind":"forge","minTempC":700,"minTier":1,"output":{"count":1,"item":"separatory_funnel"},"station":"furnace"},
     "reflux_head": {"age":2,"id":"reflux_head","inputs":[{"count":2,"item":"glass"},{"count":1,"item":"iron_plate"}],"kind":"forge","minTempC":1000,"minTier":3,"output":{"count":1,"item":"reflux_head"},"station":"furnace"},
     "vacuum_cap": {"age":3,"id":"vacuum_cap","inputs":[{"count":1,"item":"glass"},{"count":1,"item":"steel_plate"}],"kind":"forge","minTempC":1300,"minTier":4,"output":{"count":1,"item":"vacuum_cap"},"station":"furnace"},
     "distil_syrup": {"age":0,"byproducts":[{"count":3,"item":"glass_beaker"}],"id":"distil_syrup","inputs":[{"count":4,"item":"pine_sap"}],"minTempC":130,"output":{"count":1,"item":"syrup_beaker"},"station":"boiling_flask","timeS":120},
@@ -964,6 +967,7 @@
     "reflux_head": {"blocks":["reflux_head"],"kind":"reflux_head","role":"chem"},
     "filter_bed": {"blocks":["filter_bed","filter_bed_done"],"kind":"filter_bed","params":{"capacityL":500},"role":"chem"},
     "vacuum_cap": {"blocks":["vacuum_cap"],"kind":"vacuum_cap","role":"chem"},
+    "separatory_funnel": {"blocks":["separatory_funnel","separatory_funnel_done"],"kind":"separatory_funnel","params":{"capacityL":1000},"role":"chem"},
     "hand": {"blocks":["chopping_block","hand_quern","stone_anvil","mortar","clay_table","loom","drying_rack","tanning_trough"],"kind":"hand","role":"hand"},
     "casting_bench": {"blocks":["casting_bench"],"itemPipes":false,"kind":"casting_bench","params":{"moulds":4,"range":4},"role":"hand","slots":4},
     "alloy_pot": {"blocks":["alloy_pot"],"kind":"alloy_pot","params":{"moltenS":20},"placementHint":"Set it against a furnace.","role":"hand"}

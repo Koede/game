@@ -19,9 +19,9 @@ export type ChemResult =
   | { ok: false; reason: string };
 
 /** Modules a container pours into, and what they take. */
-const POURS_INTO: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.jacket]);
+const POURS_INTO: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.jacket, CHEM.funnel]);
 /** Modules a container takes out of. */
-const TAKES_FROM: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.condenser]);
+const TAKES_FROM: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.condenser, CHEM.funnel]);
 
 const fluidName = (key: string | null): string => (key ? (fluidOrNull(key)?.name ?? key) : 'nothing');
 const moduleName = (e: ChemEntity): string => item(e.kind).name;

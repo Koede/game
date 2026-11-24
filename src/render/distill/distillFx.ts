@@ -37,6 +37,7 @@ interface Mod {
   flow?: number;
   band?: number;
   recvS?: number;
+  settleS?: number;
 }
 
 const MOTION_VERT = /* glsl */ `
@@ -233,6 +234,18 @@ export class DistillFx {
           this.box(cx, e.y, cz, 1.5 * P, 10 * P, 1.5 * P, hex, 0, { flow: [0, -1, 0], speed: run * 0.7 });
         }
         break;
+      case CHEM.funnel: {
+        // The bulb (5/16 to 13/16): layers settle; once settled the bottom one runs out of the stem.
+        this.layered(cx, e.y + 5 * P, cz, 8 * P, 8 * P, 8 * P, mix, fill, 0);
+        const layers = layersOf(mix);
+        if (working && layers.length > 1 && (e.settleS ?? 0) >= 3) {
+          this.box(cx, e.y - 0.5, cz, 1.5 * P, 0.5 + 4 * P, 1.5 * P, layers[0].colour, 0.05, { flow: [0, -1, 0], speed: run });
+        } else if (working) {
+          // Settling: the layers churn gently apart.
+          for (let i = 0; i < 3; i++) this.bit(cx - 0.12 + i * 0.12, e.y + 0.4, cz, 0, 0.3, 0, 1.6, i / 3, 0.035, layers[layers.length - 1]?.colour ?? hex);
+        }
+        break;
+      }
       case CHEM.tube:
         if (litres > 0.05) this.streams(e, hex, Math.max(0.3, fill), run);
         break;

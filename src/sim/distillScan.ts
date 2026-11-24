@@ -86,11 +86,13 @@ export function moduleAt(world: IWorld, x: number, y: number, z: number): RigMod
 /** Whether `kind` pours liquid towards a neighbour in direction d (index into DIRS). */
 const pours = (kind: ChemKind, d: number): boolean =>
   (kind === CHEM.filter && d === 0)
+  || (kind === CHEM.funnel && d === 0)
   || (d !== 1 && (kind === CHEM.condenser || kind === CHEM.receiver || kind === CHEM.tube || kind === CHEM.vessel));
 
 /** Whether `kind` takes liquid from a neighbour `from` lying in direction d of it (index into DIRS). */
 function takes(kind: ChemKind, d: number, from: ChemKind): boolean {
   if (kind === CHEM.filter) return d === 1;
+  if (kind === CHEM.funnel) return d === 1 || (d >= 2 && from === CHEM.tube);
   if (kind === CHEM.receiver || kind === CHEM.tube) return d === 1 || d >= 2;
   if (kind === CHEM.vessel) return d === 1 || (d >= 2 && from === CHEM.tube);
   if (kind === CHEM.flask) return (d === 1 || d >= 2) && from === CHEM.tube;
