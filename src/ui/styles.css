@@ -2408,6 +2408,41 @@ body {
 .hw-bag__headrow .hw-btn {
   min-height: 32px;
 }
+.hw-bag__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.hw-bag__tools [hidden] {
+  display: none !important;
+}
+.hw-pocket-label {
+  grid-column: 1 / -1;
+  padding: 6px 2px 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hw-heat-hi);
+}
+.hw-slot[data-locked]::before {
+  content: '';
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 8px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 2px solid var(--hw-heat-hi);
+  border-radius: 3px 3px 1px 1px;
+  background: var(--hw-soot-0);
+  pointer-events: none;
+}
+/* A held stack can be dragged over other slots to spread it: the page must not scroll under the finger. */
+.hw-slot[data-selected] {
+  touch-action: none;
+}
 .hw-slot[data-favourite]::after {
   content: '°5';
   position: absolute;

@@ -120,6 +120,11 @@ export class ItemSlot {
     setFlag(this.el, 'favourite', on);
   }
 
+  /** Marks a locked slot (a small badge: sorting, moves and drops leave it alone). */
+  setLocked(on: boolean): void {
+    setFlag(this.el, 'locked', on);
+  }
+
   setDisabled(on: boolean): void {
     setAttr(this.el, 'aria-disabled', on ? 'true' : null);
   }
