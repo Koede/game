@@ -24,8 +24,8 @@ describe('glassware models', () => {
       expect(SHAPE[blockId(def.key)], def.key).toBe(SHAPE_GLASS);
     }
     for (const [name, model] of Object.entries(GLASS_MODELS)) {
-      expect(model.body.length, name).toBeGreaterThan(0);
-      for (const box of model.body) {
+      expect(model.body.length + (model.metal?.length ?? 0), name).toBeGreaterThan(0);
+      for (const box of [...model.body, ...(model.metal ?? []), ...(model.lamp ? [model.lamp] : [])]) {
         const [x0, y0, z0, x1, y1, z1] = box;
         expect(Math.min(x0, y0, z0), name).toBeGreaterThanOrEqual(0);
         expect(Math.max(x1, y1, z1), name).toBeLessThanOrEqual(16);
@@ -81,7 +81,7 @@ describe('glassware models', () => {
   });
 
   it('gives the pieces different shapes (no two models share a body)', () => {
-    const bodies = Object.values(GLASS_MODELS).map((m) => JSON.stringify(m.body));
+    const bodies = Object.values(GLASS_MODELS).map((m) => JSON.stringify([m.body, m.metal ?? []]));
     expect(new Set(bodies).size).toBe(bodies.length);
   });
 });

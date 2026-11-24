@@ -145,6 +145,10 @@ for (const def of BLOCKS) {
     }
   }
 }
+/** Texture slots the glassware meshes borrow for their parts (meshGlass.ts): clear glass and brass. */
+const slotOfKey = (key: string): number => (blockOrNull(key)?.id ?? 0) * STATES * 6;
+export const GLASSWARE_GLASS_SLOT = slotOfKey('glass');
+export const GLASSWARE_METAL_SLOT = slotOfKey('bronze_plate_block');
 for (const [key, hue] of Object.entries(COOL_EMITTERS)) {
   const def = blockOrNull(key);
   if (def) LIGHT_HUE[def.id] = hue;
