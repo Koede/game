@@ -29,27 +29,35 @@ export interface ComponentSpec {
   colour: number;
   /** Relative to water (1): how slowly it runs through tubes and drips from coils. */
   viscosity: number;
+  /** Density relative to water (1): which layer it settles in. */
+  density: number;
+  /** Which layer it dissolves in: `water` things mix with water, `oil` things float on it (or sink, if denser). */
+  phase: Phase;
 }
 
-const spec = (key: Component, name: string, bp: number | null, colour: number, viscosity: number): ComponentSpec => ({ key, name, bp, colour, viscosity });
+/** The two liquid phases that do not mix: a vessel holding both settles into layers (`layersOf`). */
+export type Phase = 'water' | 'oil';
+
+const spec = (key: Component, name: string, bp: number | null, colour: number, viscosity: number, density: number, phase: Phase): ComponentSpec =>
+  ({ key, name, bp, colour, viscosity, density, phase });
 
 export const COMPONENTS: Readonly<Record<Component, ComponentSpec>> = {
-  methanol: spec('methanol', 'Heads', 65, 0xdfe8ee, 0.6),
-  ethanol: spec('ethanol', 'Ethanol', 78, 0xf1efe2, 1),
-  gasoline: spec('gasoline', 'Gasoline', 90, 0xf2d24a, 0.5),
-  water: spec('water', 'Water', 100, 0x3a86b4, 1),
-  fusel: spec('fusel', 'Tails', 130, 0xb9a36a, 2),
-  turpentine: spec('turpentine', 'Turpentine', 160, 0xcfe0a6, 1.2),
-  kerosene: spec('kerosene', 'Kerosene', 190, 0x9fc4e8, 1.5),
-  diesel: spec('diesel', 'Diesel', 280, 0xc98f2e, 3),
-  lube_base: spec('lube_base', 'Lube Base', 370, 0x7a5a1e, 12),
-  bitumen: spec('bitumen', 'Bitumen', 520, 0x15120f, 200),
-  sugars: spec('sugars', 'Sugars', null, 0xc07a18, 30),
-  rosin: spec('rosin', 'Rosin', null, 0x95560f, 30),
+  methanol: spec('methanol', 'Heads', 65, 0xdfe8ee, 0.6, 0.79, 'water'),
+  ethanol: spec('ethanol', 'Ethanol', 78, 0xf1efe2, 1, 0.79, 'water'),
+  gasoline: spec('gasoline', 'Gasoline', 90, 0xf2d24a, 0.5, 0.74, 'oil'),
+  water: spec('water', 'Water', 100, 0x3a86b4, 1, 1.0, 'water'),
+  fusel: spec('fusel', 'Tails', 130, 0xb9a36a, 2, 0.81, 'oil'),
+  turpentine: spec('turpentine', 'Turpentine', 160, 0xcfe0a6, 1.2, 0.86, 'oil'),
+  kerosene: spec('kerosene', 'Kerosene', 190, 0x9fc4e8, 1.5, 0.8, 'oil'),
+  diesel: spec('diesel', 'Diesel', 280, 0xc98f2e, 3, 0.85, 'oil'),
+  lube_base: spec('lube_base', 'Lube Base', 370, 0x7a5a1e, 12, 0.9, 'oil'),
+  bitumen: spec('bitumen', 'Bitumen', 520, 0x15120f, 200, 1.03, 'oil'),
+  sugars: spec('sugars', 'Sugars', null, 0xc07a18, 30, 1.4, 'water'),
+  rosin: spec('rosin', 'Rosin', null, 0x95560f, 30, 1.07, 'oil'),
   // Filtered or blended products. No boiling point is given for them, so they stay in the vessel.
-  lubricant: spec('lubricant', 'Lubricant', null, 0x20ff80, 12),
-  tincture: spec('tincture', 'Tincture', null, 0xc02080, 1),
-  clear_tincture: spec('clear_tincture', 'Clear Tincture', null, 0x66ffcc, 1),
+  lubricant: spec('lubricant', 'Lubricant', null, 0x20ff80, 12, 0.88, 'oil'),
+  tincture: spec('tincture', 'Tincture', null, 0xc02080, 1, 1.02, 'water'),
+  clear_tincture: spec('clear_tincture', 'Clear Tincture', null, 0x66ffcc, 1, 1.01, 'water'),
 };
 
 export const COMPONENT_KEYS = Object.keys(COMPONENTS) as Component[];
@@ -157,6 +165,31 @@ export function colourOf(m: Mix, empty = 0x9fb7c0): number {
     b += (c & 255) * w;
   }
   return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
+}
+
+/** One settled layer of a mixture: what is in it, its litres and colour. */
+export interface Layer { phase: Phase; litres: number; colour: number; density: number; mix: Mix }
+
+/**
+ * How a mixture settles when left to stand: one layer per phase that holds anything (a watery layer and an oily one), the
+ * denser at the bottom. Bottom first. A mixture of one phase is one layer.
+ */
+export function layersOf(m: Mix): Layer[] {
+  const by: Record<Phase, Mix> = { water: {}, oil: {} };
+  for (const k in m) {
+    const l = m[k as Component] ?? 0;
+    if (l > DUST_L) by[COMPONENTS[k as Component].phase][k as Component] = l;
+  }
+  const out: Layer[] = [];
+  for (const phase of ['water', 'oil'] as const) {
+    const mix = by[phase];
+    const litres = total(mix);
+    if (litres <= DUST_L) continue;
+    let d = 0;
+    for (const k in mix) d += (mix[k as Component]! / litres) * COMPONENTS[k as Component].density;
+    out.push({ phase, litres, colour: colourOf(mix), density: d, mix });
+  }
+  return out.sort((a, b) => b.density - a.density);
 }
 
 /** Geometric-mean viscosity of a mixture (water 1). */

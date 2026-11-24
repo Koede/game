@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   COMPONENTS, GRADES, SLOP, add, bubblePoint, colourOf, drawIndex, expand, gradeOf, meets, nameOf, pour, share, take, total, trayTemps,
-  vapourShares, viscosityOf, type Mix,
+  layersOf, vapourShares, viscosityOf, type Mix,
 } from './chem';
 
 describe('chem mixtures', () => {
@@ -68,5 +68,30 @@ describe('chem mixtures', () => {
     add(m, 'bitumen', 1);
     expect(viscosityOf(m)).toBeGreaterThan(10);
     expect(viscosityOf({ gasoline: 1 })).toBeLessThan(1);
+  });
+});
+
+describe('settling into layers', () => {
+  it('keeps one layer for a mixture of one phase', () => {
+    const l = layersOf({ water: 2, ethanol: 1 });
+    expect(l.length).toBe(1);
+    expect(l[0].phase).toBe('water');
+    expect(l[0].litres).toBeCloseTo(3);
+  });
+
+  it('floats oil on water, bottom layer first', () => {
+    const l = layersOf({ water: 2, kerosene: 1, gasoline: 0.5 });
+    expect(l.map((x) => x.phase)).toEqual(['water', 'oil']);
+    expect(l[1].litres).toBeCloseTo(1.5);
+    expect(l[0].colour).not.toBe(l[1].colour);
+  });
+
+  it('sinks a heavy oil (bitumen) under the water', () => {
+    const l = layersOf({ water: 1, bitumen: 2 });
+    expect(l.map((x) => x.phase)).toEqual(['oil', 'water']);
+  });
+
+  it('settles nothing from an empty mixture', () => {
+    expect(layersOf({})).toEqual([]);
   });
 });
