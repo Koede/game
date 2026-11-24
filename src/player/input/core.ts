@@ -3,6 +3,7 @@
  * frame. InputManager is the thin browser adapter that feeds it events.
  */
 import type { Settings } from '../../core/context';
+import type { EmoteKind } from '../emotes';
 import { TouchGestures, type LookDelta } from './gestures';
 import { clearIntent, createIntent, type Intent } from './intent';
 import { CMD_DROP, CMD_EMOTE, CMD_PHOTO, CMD_INVENTORY, CMD_LOG, CMD_NONE, CMD_PAUSE, NO_KEYS, isGameKey, keyAxisX, keyAxisZ, keyCommand, keyDropHeld, keyJump, keySneak, keySprint, reduceKeys } from './keys';
@@ -51,14 +52,37 @@ export class InputCore {
   private logEdge = false;
   private emoteEdge = false;
   private photoEdge = false;
+  private emoteSetEdge: EmoteKind | 'stop' | null = null;
   private pauseEdge = false;
   private dropEdge = false;
   private dropAllEdge = false;
   private dropHeldS = 0;
   private blocked = false;
   private armed = false;
+  /** Touch toggles (quick menu): held until switched off, unlike the held keys. */
+  private sneakLock = false;
+  private sprintLock = false;
 
   constructor(private readonly settings: Settings) {}
+
+  /** The sneak toggle is on (sneaks without holding a key). */
+  get sneakLocked(): boolean {
+    return this.sneakLock;
+  }
+
+  /** The sprint lock is on (sprints without holding the stick out). Sneaking and sprinting do not go together. */
+  get sprintLocked(): boolean {
+    return this.sprintLock;
+  }
+
+  setSneakLock(on: boolean): void {
+    this.sneakLock = on;
+    if (on) this.sprintLock = false;
+  }
+
+  setSprintLock(on: boolean): void {
+    this.sprintLock = on && !this.sneakLock;
+  }
 
   /** The touch Place toggle is armed: the next Use places the held block (see Intent.place). */
   get placeArmed(): boolean {
@@ -148,6 +172,11 @@ export class InputCore {
     this.command(CMD_PAUSE);
   }
 
+  /** The quick menu picked an emote to play, or 'stop' (next frame only). */
+  requestEmoteSet(choice: EmoteKind | 'stop'): void {
+    if (!this.blocked) this.emoteSetEdge = choice;
+  }
+
   /** Lets go of every key, button and finger and drops everything accumulated. */
   releaseAll(): void {
     this.keys = NO_KEYS;
@@ -168,6 +197,7 @@ export class InputCore {
     this.logEdge = false;
     this.emoteEdge = false;
     this.photoEdge = false;
+    this.emoteSetEdge = null;
     this.pauseEdge = false;
     this.dropEdge = false;
     this.dropAllEdge = false;
@@ -205,7 +235,8 @@ export class InputCore {
 
     intent.jump = keyJump(this.keys) || this.touch.jumpHeld;
     intent.sprint = keySprint(this.keys) || stick.sprint;
-    intent.sneak = keySneak(this.keys);
+    intent.sneak = keySneak(this.keys) || this.sneakLock;
+    intent.sprint = intent.sprint || this.sprintLock;
     intent.mine = this.lockedMine || this.drag.mineHeld || this.touch.mineHeld;
     intent.use = this.frameUse(dtSeconds);
     // Shift is also sprint: it only means "place" together with a Use, and sprinting needs the walk key anyway.
@@ -222,6 +253,8 @@ export class InputCore {
     intent.log = this.logEdge;
     intent.emote = this.emoteEdge;
     intent.photo = this.photoEdge;
+    intent.emoteSet = this.emoteSetEdge;
+    this.emoteSetEdge = null;
     intent.pause = this.pauseEdge;
     // Q drops one (Shift+Q the stack); holding Q past DROP_HOLD_S drops what is left of the stack, once.
     if (keyDropHeld(this.keys)) {

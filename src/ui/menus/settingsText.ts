@@ -46,6 +46,24 @@ export function itemMagnetHint(m: Settings['itemMagnet']): string {
       : 'Dropped items within about 6 blocks fly to you.';
 }
 
+export const GRAPHICS_OPTIONS: readonly { value: NonNullable<Settings['graphics']>; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'normal', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
+/** What each level turns on or off (src/render/quality.ts holds the numbers). Applied at once, no restart. */
+export function graphicsHint(q: Settings['graphics']): string {
+  switch (q) {
+    case 'low':
+      return 'Fewer effects: no water waves or foam, no loot beams, the fog closes in sooner, and machine liquids animate at half speed. Easiest on older phones.';
+    case 'high':
+      return 'Water waves and foam, loot beams, machine liquids at full speed, and the fog stays clear a little further out.';
+    default:
+      return 'Water waves and foam, loot beams, machine liquids at full speed, and the usual fog distance.';
+  }
+}
+
 export function uiScaleHint(scale: Settings['uiScale']): string {
   return scale === 'large'
     ? 'Bigger text and touch buttons: easier to read and hit on a small phone.'

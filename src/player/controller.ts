@@ -210,6 +210,12 @@ export class PlayerController {
         const kind = this.emotes.cycle();
         if (kind) this.bus.emit('emote', { kind });
       }
+      // The touch quick menu picks an emote outright (or stops the one playing).
+      if (intent.emoteSet === 'stop') this.emotes.cancel();
+      else if (intent.emoteSet) {
+        this.emotes.play(intent.emoteSet);
+        this.bus.emit('emote', { kind: intent.emoteSet });
+      }
       this.emotes.update(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump);
       // Sitting holds the body still; looking around still works.
       if (this.emotes.sitting) {

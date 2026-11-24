@@ -188,7 +188,15 @@ export class Game {
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
-      this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
+      this.inputManager = new InputManager({
+        container: opts.app,
+        touchLayer: root.layers.touch,
+        settings,
+        state: this.input,
+        bus,
+        // The touch quick menu reads these each frame (the controller is created just below, before any frame runs).
+        quickState: () => ({ dead: state.player.dead, photo: this.controller?.photo.active ?? false, emote: this.controller?.emotes.kind ?? null }),
+      });
       this.ui = new GameUI(root, {
         bus,
         input: this.input,

@@ -4,7 +4,7 @@ import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
 import { PRESETS, applyPreset, detectPreset, presetById, type PresetId } from './settingsPresets';
-import { DIFFICULTY_OPTIONS, ITEM_MAGNET_OPTIONS, LOOT_FILTER_OPTIONS, difficultyHint, itemMagnetHint, lootFilterHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
+import { DIFFICULTY_OPTIONS, GRAPHICS_OPTIONS, ITEM_MAGNET_OPTIONS, LOOT_FILTER_OPTIONS, difficultyHint, graphicsHint, itemMagnetHint, lootFilterHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
 export const SETTINGS_LIMITS = {
@@ -49,6 +49,7 @@ export class SettingsPanel {
         'View',
         this.choice('uiScale', 'Text and button size', UI_SCALE_OPTIONS, uiScaleHint),
         this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', { ...L.renderDistance, max: isTouchFirst() ? PHONE_MAX_RENDER_DISTANCE : L.renderDistance.max }, (v) => `${v} chunks`),
+        this.choice('graphics', 'Graphics', GRAPHICS_OPTIONS, graphicsHint),
         this.slider('fov', 'Field of view', '', L.fov, (v) => `${v}°`),
         this.toggle('showFps', 'Show frame rate', ''),
       ),
@@ -110,24 +111,25 @@ export class SettingsPanel {
   }
 
   /** A segmented choice whose hint says what the picked value means (Difficulty, UI size). */
-  private choice<K extends 'difficulty' | 'uiScale' | 'itemMagnet' | 'lootFilter'>(
+  private choice<K extends 'difficulty' | 'uiScale' | 'itemMagnet' | 'lootFilter' | 'graphics'>(
     key: K,
     label: string,
     options: readonly { value: Settings[K]; label: string }[],
     hintOf: (value: Settings[K]) => string,
   ): HTMLElement {
     const hint = h('div', { class: 'hw-setting__hint', text: hintOf(this.current[key]) });
-    const seg = new Segmented<Settings[K]>({
+    // Segmented works on strings; every choice in this row is a string union (Graphics is optional on Settings, hence the casts).
+    const seg = new Segmented<string>({
       label,
-      options: [...options],
-      value: this.current[key],
+      options: options.map((o) => ({ value: o.value as string, label: o.label })),
+      value: this.current[key] as string,
       onChange: (v) => {
-        hint.textContent = hintOf(v);
-        this.change(key, v);
+        hint.textContent = hintOf(v as Settings[K]);
+        this.change(key, v as Settings[K]);
       },
     });
     this.sync.push(() => {
-      seg.set(this.current[key]);
+      seg.set(this.current[key] as string);
       hint.textContent = hintOf(this.current[key]);
     });
     return this.row(label, hint, seg.el, true);

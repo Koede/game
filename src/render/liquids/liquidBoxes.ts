@@ -100,6 +100,13 @@ const FRAG = /* glsl */ `
 const tmp = new THREE.Matrix4();
 const colour = new THREE.Color();
 
+/** Animation speed of every LiquidBoxes, 1 = full (the graphics setting's liquidRate, set by the renderer each frame). */
+let liquidRate = 1;
+
+export function setLiquidRate(rate: number): void {
+  liquidRate = Number.isFinite(rate) ? Math.min(1, Math.max(0, rate)) : 1;
+}
+
 export class LiquidBoxes {
   readonly mesh: THREE.InstancedMesh;
   private readonly flow: THREE.InstancedBufferAttribute;
@@ -126,8 +133,8 @@ export class LiquidBoxes {
   /** Bodies added since the last `begin()`. */
   get count(): number { return this.n; }
 
-  /** Advances the animation clock (seconds). */
-  tick(clock: number): void { this.material.uniforms.uTime.value = clock; }
+  /** Advances the animation clock (seconds), at the animation rate the graphics setting allows. */
+  tick(clock: number): void { this.material.uniforms.uTime.value = clock * liquidRate; }
 
   begin(): void { this.n = 0; }
 

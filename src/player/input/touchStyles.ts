@@ -203,6 +203,67 @@ export const TOUCH_CSS = `
   .hw-touch--large .hw-touch-btn--place { --hw-touch-s: 52px; right: calc(104px + var(--hw-touch-r)); bottom: calc(248px + var(--hw-touch-b)); }
   .hw-touch--large .hw-touch-stick { bottom: calc(104px + var(--hw-touch-b)); }
 }
+/* Quick menu entry. Portrait: the hotbar is a full-width strip at the bottom, so the entry sits just above the stick at the left
+   edge (12 px gap). Landscape: the hotbar is centred, so the entry sits above the stick in the left corner. Left-handed layouts
+   move the thumb cluster to the left, so the entry goes to the right corner there. */
+.hw-touch-btn[hidden] { display: none; }
+.hw-touch-btn--menu { --hw-touch-s: 56px; left: calc(12px + var(--hw-touch-l)); bottom: calc(232px + var(--hw-touch-b)); }
+.hw-touch-btn--menu .hw-touch-label { font-size: 9px; }
+@media (orientation: landscape) {
+  .hw-touch-btn--menu { left: calc(34px + var(--hw-touch-l)); bottom: calc(158px + var(--hw-touch-b)); }
+}
+.hw-touch--one-left .hw-touch-btn--menu { left: auto; right: calc(12px + var(--hw-touch-r)); bottom: calc(232px + var(--hw-touch-b)); }
+@media (orientation: landscape) {
+  .hw-touch--one-left .hw-touch-btn--menu { right: calc(20px + var(--hw-touch-r)); bottom: calc(16px + var(--hw-touch-b)); }
+}
+.hw-touch--large .hw-touch-btn--menu { --hw-touch-s: 66px; }
+.hw-touch--large .hw-touch-btn--menu .hw-touch-label { font-size: 11px; }
+@media (orientation: portrait) {
+  /* The large stick sits 8 px higher (bottom 104), so the larger entry lifts with it. */
+  .hw-touch--large .hw-touch-btn--menu { bottom: calc(244px + var(--hw-touch-b)); }
+}
+
+/* The radial ring: large round items on an arc above the entry button (positions are set inline by quickMenuView.ts). */
+.hw-touch-radial { position: absolute; inset: 0; pointer-events: none; }
+.hw-touch-radial[hidden] { display: none; }
+.hw-touch-radial__item {
+  position: absolute;
+  box-sizing: border-box;
+  margin: -32px 0 0 -32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--hw-touch-rim);
+  border-radius: 50%;
+  background: var(--hw-touch-fill);
+  box-shadow: var(--hw-touch-edge);
+  color: var(--hw-touch-ink);
+  font: 700 11px / 1.1 var(--hw-font-display, 'Chakra Petch', system-ui, sans-serif);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+.hw-touch-radial__item::before { content: ''; position: absolute; inset: -8px; border-radius: inherit; }
+.hw-touch-radial__item:active { transform: scale(0.92); }
+.hw-touch-radial__item--on { border-color: var(--hw-touch-accent); color: var(--hw-touch-accent); background: rgba(24, 18, 14, 0.82); }
+.hw-touch-radial__item--off { opacity: 0.4; }
+.hw-touch-radial--animated .hw-touch-radial__item { animation: hw-touch-radial-in 140ms ease-out both; }
+@keyframes hw-touch-radial-in {
+  from { opacity: 0; scale: 0.5; }
+  to { opacity: 1; scale: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-touch-radial--animated .hw-touch-radial__item { animation: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hw-touch-btn, .hw-touch-stick { transition: none; }
 }

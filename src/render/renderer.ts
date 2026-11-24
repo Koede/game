@@ -22,6 +22,7 @@ import { createChunkMaterials, createWorldUniforms, type ChunkMaterials, type Wo
 import { Particles, type ParticleSpec } from './particles';
 import { PRECIP_MAX_DESKTOP, PRECIP_MAX_TOUCH, PrecipitationLayer } from './precipitation';
 import { RainMask } from './rainMask';
+import { setLiquidRate } from './liquids/liquidBoxes';
 import { graphicsProfile } from './quality';
 import { Sky, type SkyExtras } from './sky';
 import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
@@ -285,7 +286,9 @@ export class Renderer implements IView {
     const sky = computeSky(this.clock.timeOfDay, this.clock.sunlight(), this.skyState, fx.nightLevel);
     applyWeather(sky, fx.sky);
     const u = this.uniforms;
-    u.uFx.value = graphicsProfile(this.settings.graphics).fx;
+    const quality = graphicsProfile(this.settings.graphics);
+    u.uFx.value = quality.fx;
+    setLiquidRate(quality.liquidRate);
     u.uWet.value = fx.wet;
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);

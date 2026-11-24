@@ -1,3 +1,5 @@
+import type { EmoteKind } from '../emotes';
+
 /**
  * What the player wants to do this frame, independent of the device it came from.
  *
@@ -38,6 +40,8 @@ export interface Intent {
   emote: boolean;
   /** Edge: the photo mode key (P) went down. */
   photo: boolean;
+  /** Edge (touch quick menu): play this emote, or 'stop' to end the one playing. Null when nothing was picked. */
+  emoteSet: EmoteKind | 'stop' | null;
   pause: boolean;
   /** Edge: the drop key (Q) went down: drop one of the held item. */
   drop: boolean;
@@ -63,6 +67,7 @@ export function createIntent(): Intent {
     log: false,
     emote: false,
     photo: false,
+    emoteSet: null,
     pause: false,
     drop: false,
     dropAll: false,
@@ -85,6 +90,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.hotbarStep = 0;
   intent.inventory = false;
   intent.log = false;
+  intent.emoteSet = null;
   intent.pause = false;
   intent.drop = false;
   intent.dropAll = false;
