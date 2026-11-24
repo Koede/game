@@ -12,7 +12,7 @@ yet. Order is a suggestion, not a promise.
 | [glass-and-liquids-polish.md](glass-and-liquids-polish.md) | Finish the glassware and animated liquids work | 5 |
 | [wandering-trader.md](wandering-trader.md) | A trader who walks in with a changing stock and stories | 6 |
 | [caves-and-depths.md](caves-and-depths.md) | Larger caves with their own rooms, hazards and loot | 7 |
-| [auto-build-assist.md](auto-build-assist.md) | Blueprint-guided placing so big builds are fun on a phone | 7 |
+| [auto-build-assist.md](auto-build-assist.md) | Blueprint-guided placing so big builds are fun on a phone | 8 |
 
 Rules for every plan: the base progression never needs it (optional like magic), saves stay valid (new fields optional and sanitised),
 content tests keep the one-age-ahead cap, and each phase ends with `tsc`, the full vitest run, the golden update where content changed,
