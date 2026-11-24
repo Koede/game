@@ -28,7 +28,10 @@ Ideas:
 
 1. **Search and filter** in the bag: a search box (name, category, "usable now at this station") and a filter strip. Sort, favourites and
    move-all already exist.
-2. **Drag to split and distribute**: drag a stack over several slots to spread it evenly; a second finger splits in half.
+2. **Done: drag to split and distribute.** Press the held stack and drag over empty or matching slots to spread it evenly; released
+   elsewhere it stays put. The moves pass also shipped: drop one (right-click or long-press), Shift / two-finger bulk moves between
+   the hotbar and pockets, one-step Undo, per-slot locks with a badge, "Order: newest" sorting, Gather matching, and Belt Pouch
+   pockets. Details in docs/api/inventory.md ("Moves"). Not done here: a second finger splitting in half.
 3. **Quick-stack to nearby containers** (a button): puts items that already live in a crate within 6 blocks into it.
 4. **Hotbar swap sets**: two rows you flip between with one tap (build/mine), kept per world.
 5. **Held-item preview** in the corner while you choose a slot (the name and its durability bar, enchant lines).
