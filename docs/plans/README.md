@@ -7,10 +7,11 @@ yet. Order is a suggestion, not a promise.
 | --- | --- | --- |
 | [loot-and-containers.md](loot-and-containers.md) | Rarity, nested tables, named finds, tavern vault and closet | 1 |
 | [enchantments.md](enchantments.md) | A few bold, behaviour-changing enchants, found by experiment at the altar | 2 |
-| [touch-and-settings.md](touch-and-settings.md) | Touch buttons for emotes, photo and sneak; the graphics setting control | 3 |
-| [glass-and-liquids-polish.md](glass-and-liquids-polish.md) | Finish the glassware and animated liquids work | 4 |
-| [wandering-trader.md](wandering-trader.md) | A trader who walks in with a changing stock and stories | 5 |
-| [caves-and-depths.md](caves-and-depths.md) | Larger caves with their own rooms, hazards and loot | 6 |
+| [legendary-weapons.md](legendary-weapons.md) | Named weapons with legendary effects, utilities and visuals | 3 |
+| [touch-and-settings.md](touch-and-settings.md) | Touch buttons for emotes, photo and sneak; the graphics setting control | 4 |
+| [glass-and-liquids-polish.md](glass-and-liquids-polish.md) | Finish the glassware and animated liquids work | 5 |
+| [wandering-trader.md](wandering-trader.md) | A trader who walks in with a changing stock and stories | 6 |
+| [caves-and-depths.md](caves-and-depths.md) | Larger caves with their own rooms, hazards and loot | 7 |
 | [auto-build-assist.md](auto-build-assist.md) | Blueprint-guided placing so big builds are fun on a phone | 7 |
 
 Rules for every plan: the base progression never needs it (optional like magic), saves stay valid (new fields optional and sanitised),

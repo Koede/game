@@ -22,8 +22,8 @@ Mobs and fishing roll their own fixed tables.
 1. **Rarity.** `common`, `fine`, `rare`, `legendary` on loot entries. Names and tooltips take the colour (white, green, blue, gold).
 2. **Nested named tables.** An entry can point at another table by id (depth limit 3, cycle check). Every table gets a `guaranteed` themed
    item plus random extras.
-3. **Named finds.** A few hand-written legendary items (for example "Orrin's Spare Pick", a pickaxe with a line of story and a fixed
-   enchant). They are placed once per world in the best containers, never rolled twice.
+3. **Named finds.** A few hand-written legendary weapons (see legendary-weapons.md: for example "Orrin's Spare Pick", a pickaxe with a
+   line of story and a fixed enchant). They are placed once per world in the best containers, never rolled twice.
 4. **Tavern payoff.**
    - Closet: a handwritten note (a research scroll) and one Fine item.
    - Vault: one named find, a research scroll, an essentia jar of a starter aspect and a small stash. Placed in `buildTavern`, rolled from the
