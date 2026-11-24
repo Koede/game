@@ -50,10 +50,12 @@ export class Crosshair {
 
   /**
    * `name` of the targeted block (null = nothing in reach); `mining` 0..1, or -1 when not mining. With `creature`,
-   * its name and a health bar are shown instead of `name`.
+   * its name and a health bar are shown instead of `name`. `rarity` ('fine' | 'rare' | 'legendary') tints a dropped
+   * item's name; null leaves it bone-coloured.
    */
-  set(name: string | null, mining: number, creature: TargetInfo | null = null): void {
+  set(name: string | null, mining: number, creature: TargetInfo | null = null, rarity: string | null = null): void {
     setText(this.label, creature ? creature.name : (name ?? ''));
+    setAttr(this.nameEl, 'data-rarity', creature ? null : rarity);
     const hpKey = creature ? `${creature.health}/${creature.max}|${creature.hostile}` : '';
     if (hpKey !== this.shownHp) {
       this.shownHp = hpKey;

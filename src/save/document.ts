@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst
 import type { AchievementsSnapshot } from '../game/achievements';
 import type { ClockSnapshot } from '../game/clock';
 import type { JournalSnapshot } from '../game/journal';
+import { isLootFilter } from '../game/lootFilter';
 import type { ObjectivesSnapshot } from '../game/objectives';
 import type { PlayerSnapshot } from '../game/playerState';
 import type { SurvivalSnapshot } from '../game/survival';
@@ -124,6 +125,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (typeof raw.moveAssist === 'boolean') out.moveAssist = raw.moveAssist;
   if (GRAPHICS.includes(raw.graphics as NonNullable<Settings['graphics']>)) out.graphics = raw.graphics as Settings['graphics'];
   if (ITEM_MAGNETS.includes(raw.itemMagnet as Settings['itemMagnet'])) out.itemMagnet = raw.itemMagnet as Settings['itemMagnet'];
+  if (isLootFilter(raw.lootFilter)) out.lootFilter = raw.lootFilter;
   return out;
 }
 

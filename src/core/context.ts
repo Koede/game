@@ -44,6 +44,8 @@ export interface Settings {
   graphics?: 'low' | 'normal' | 'high';
   /** Item magnet: how far dropped items fly to the player (src/game/magnet.ts). Older saved settings lack it and read as 'off'. */
   itemMagnet: 'off' | 'small' | 'large';
+  /** Loot filter: 'all' picks up every drop; 'junk' leaves rubble, dirt, seeds, sand and gravel lying (src/game/lootFilter.ts). Older saves read as 'all'. */
+  lootFilter: 'all' | 'junk';
   /** One-handed touch layout: the whole control cluster and the joystick sit under the thumb of this side. Older saves read as 'off'. */
   oneHanded: 'off' | 'left' | 'right';
 }
@@ -85,6 +87,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   haptics: true,
   graphics: 'normal',
   itemMagnet: 'off',
+  lootFilter: 'all',
   oneHanded: 'off',
 });
 

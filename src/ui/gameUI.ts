@@ -228,9 +228,12 @@ export class GameUI {
     this.hud.setTarget(target, mining);
   }
 
-  /** Shows `name` under the crosshair instead of the block's (an animal: "Goat - 6/8"); null shows the block again. */
-  setTargetName(name: string | null): void {
-    this.hud.setTargetName(name);
+  /**
+   * Shows `name` under the crosshair instead of the block's (an animal: "Goat - 6/8"; a drop: "Stone ×12" tinted by
+   * `rarity`); null shows the block again.
+   */
+  setTargetName(name: string | null, rarity: string | null = null): void {
+    this.hud.setTargetName(name, rarity);
   }
 
   dispose(): void {

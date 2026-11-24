@@ -111,6 +111,8 @@ export interface PickupTarget {
   dead: boolean;
   inventory: { space(item: string): number };
   give(item: string, count?: number, durability?: number, enchants?: Record<string, number>): number;
+  /** The loot filter: false leaves this item lying (no pull, no pickup). Absent means everything is taken. */
+  takes?(item: string): boolean;
 }
 
 /** Pulls items towards the player (the vacuum pump now, the electromagnet later). See ./collectors. */
@@ -257,7 +259,7 @@ export class GroundItems {
         changed = true;
         continue;
       }
-      if (canTake && e.delayS <= 0) {
+      if (canTake && e.delayS <= 0 && (!player.takes || player.takes(e.item))) {
         const dx = px - e.x;
         const dy = py - e.y;
         const dz = pz - e.z;

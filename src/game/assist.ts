@@ -3,6 +3,7 @@
  * the pickup magnet choice, build undo. Saved in the player snapshot as `assist`; missing in older saves.
  */
 import { recipe as recipeById } from '../core/registry';
+import type { LootFilter } from './lootFilter';
 import type { MagnetMode } from './magnet';
 
 export interface AssistSnapshot {
@@ -19,6 +20,9 @@ export class PlayAssist {
 
   /** The item magnet choice (Settings.itemMagnet, copied in by the app; not saved with the world). */
   magnet: MagnetMode = 'off';
+
+  /** The loot filter (Settings.lootFilter, copied in by the app; not saved with the world). */
+  lootFilter: LootFilter = 'all';
 
   /** Pins a recipe; pinning the one already pinned unpins it. Unknown ids are ignored. Returns the new pin. */
   togglePin(id: string): string | null {

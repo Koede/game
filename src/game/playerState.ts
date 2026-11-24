@@ -18,6 +18,7 @@ import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundIt
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
 import { PlayAssist, type AssistSnapshot } from './assist';
+import { takesItem } from './lootFilter';
 import { favouritesOf, setFavourites } from './inventoryTools';
 import { wear } from './mining';
 import { Caravan, type CaravanSave } from './caravan';
@@ -276,6 +277,11 @@ export class PlayerState {
     this.bus.emit('sfx', { name: 'tool_break' });
     this.bus.emit('toast', { text: `Your ${itemOrNull(held.item)?.name ?? held.item} broke`, kind: 'warn', item: held.item });
     return true;
+  }
+
+  /** Whether the loot filter (Settings.lootFilter) lets the player pick `item` up from the ground. */
+  takes(item: string): boolean {
+    return takesItem(this.assist.lootFilter, item);
   }
 
   /**

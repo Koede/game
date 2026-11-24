@@ -18,10 +18,11 @@ import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
-import { DT } from '../core/constants';
+import { DT, REACH } from '../core/constants';
 import { isFluidEndpoint } from '../core/registry';
 import type { Face } from '../core/types';
 import { collectLeafDrops } from '../game/leafDrops';
+import { aimGroundItem, dropLabel } from '../game/groundAim';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
 import { VehicleManager, wrapIntentSource } from '../vehicles';
@@ -160,6 +161,7 @@ export class Game {
   constructor(opts: GameOptions) {
     const { state, settings, root } = opts;
     state.player.assist.magnet = settings.itemMagnet;
+    state.player.assist.lootFilter = settings.lootFilter;
     this.state = state;
     this.settings = settings;
     this.pool = opts.pool;
@@ -293,6 +295,7 @@ export class Game {
         // Spec 19.3: the difficulty applies to the automatons and the player's side together, at once.
         state.setDifficulty(settings.difficulty);
         state.player.assist.magnet = settings.itemMagnet;
+        state.player.assist.lootFilter = settings.lootFilter;
         invalidate();
       }),
       bus.on('ui:opened', () => {
@@ -473,9 +476,25 @@ export class Game {
     return m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
   }
 
+  /** A drop lying under the aim: the crosshair names it first (the name and rarity last shown, as "text|rarity"). */
+  private namedDrop: string | null = null;
+  /** Stands in for the station name while a drop is shown, so the station's own name comes back when the drop goes. */
+  private readonly dropMark = '\u0000drop';
+  private readonly aimScratch = { x: 0, y: 0, z: 0 };
   /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
   private namedStation: string | null = null;
   private showStationName(): void {
+    const drop = this.controller.targetAnimal === null ? this.dropUnderAim() : null;
+    if (drop !== null) {
+      const key = `${drop.text}|${drop.rarity ?? ''}`;
+      if (key !== this.namedDrop) {
+        this.namedDrop = key;
+        this.ui.setTargetName(drop.text, drop.rarity);
+      }
+      this.namedStation = this.dropMark;
+      return;
+    }
+    this.namedDrop = null;
     let label: string | null = null;
     const hit = this.controller.targetAnimal === null ? this.controller.target : null;
     if (hit && hit.block.handStation !== null) label = this.state.sim.handView(hit.x, hit.y, hit.z)?.label ?? null;
@@ -486,6 +505,16 @@ export class Game {
     if (label === this.namedStation) return;
     this.namedStation = label;
     this.ui.setTargetName(label);
+  }
+
+  /** The drop the view is aimed at, nearer than the block behind it, as the crosshair names it; null for none. */
+  private dropUnderAim(): { text: string; rarity: string | null } | null {
+    const p = this.state.player;
+    if (p.dead || p.ground.items.length === 0) return null;
+    const d = p.viewDir(this.aimScratch);
+    const hit = this.controller.target;
+    const e = aimGroundItem(p.ground.items, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, hit ? hit.distance : Infinity);
+    return e ? dropLabel(e.item, e.count) : null;
   }
 
   /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */

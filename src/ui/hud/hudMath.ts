@@ -90,10 +90,17 @@ export function dayInfo(timeOfDay: number): DayInfo {
 /** Frost vignette strength 0..1: creeps in below 30 warmth, full at 0. */
 export const frostLevel = (warmth: number): number => (warmth >= 30 ? 0 : Math.min(1, (30 - Math.max(0, warmth)) / 30));
 
-export interface FeedEntry {
+export interface FeedPart {
   item: string;
   count: number;
-  /** Time (ms) the entry was last bumped; it expires FEED_LINGER_MS after that. */
+}
+
+export interface FeedEntry {
+  /** What arrived in this batch: one part per item kind, in the order first gained. */
+  parts: FeedPart[];
+  /** When the batch opened (ms). Gains within PICKUP_BATCH_MS of that join it. */
+  start: number;
+  /** Time (ms) of the last gain; the line expires FEED_LINGER_MS after it. */
   at: number;
   /** Increments on every change, so the view knows what to redraw. */
   rev: number;
@@ -101,23 +108,27 @@ export interface FeedEntry {
 
 export const FEED_LINGER_MS = 3200;
 export const FEED_MAX = 5;
+/** Pickups this close together (ms, from the first of them) are one line: "+12 Stone, +3 Log". */
+export const PICKUP_BATCH_MS = 1000;
 
-/** The item-gain feed: one line per item, repeated gains of the same item add up instead of stacking lines. */
+/**
+ * The item-gain feed: one line per second of pickups. Gains that arrive within PICKUP_BATCH_MS of the line's first one
+ * add to it (an item already in it adds up), so a handful of pickups reads as one message instead of a stack of them.
+ */
 export class GainFeed {
   readonly entries: FeedEntry[] = [];
 
   push(item: string, count: number, now: number): void {
-    const existing = this.entries.find((e) => e.item === item);
-    if (existing) {
-      existing.count += count;
-      existing.at = now;
-      existing.rev++;
-      // The latest gain moves to the bottom of the list, nearest the player's eye line.
-      this.entries.splice(this.entries.indexOf(existing), 1);
-      this.entries.push(existing);
+    const last = this.entries[this.entries.length - 1];
+    if (last && now - last.start < PICKUP_BATCH_MS) {
+      const part = last.parts.find((p) => p.item === item);
+      if (part) part.count += count;
+      else last.parts.push({ item, count });
+      last.at = now;
+      last.rev++;
       return;
     }
-    this.entries.push({ item, count, at: now, rev: 0 });
+    this.entries.push({ parts: [{ item, count }], start: now, at: now, rev: 0 });
     while (this.entries.length > FEED_MAX) this.entries.shift();
   }
 

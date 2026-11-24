@@ -3,7 +3,7 @@ import { itemOrNull } from '../../core/registry';
 import { h, setFlag, setText } from '../kit/dom';
 import { ItemIcon } from '../kit/icons';
 import { hungerLevel } from '../screens/food';
-import { GainFeed, frostLevel } from './hudMath';
+import { GainFeed, frostLevel, type FeedEntry } from './hudMath';
 
 interface Line {
   el: HTMLDivElement;
@@ -15,7 +15,7 @@ interface Line {
 export class FeedView {
   readonly el: HTMLDivElement;
   private readonly model = new GainFeed();
-  private readonly lines = new Map<string, Line>();
+  private readonly lines = new Map<FeedEntry, Line>();
 
   constructor() {
     this.el = h('div', { class: 'hw-feed', attrs: { 'aria-live': 'polite', role: 'log' } });
@@ -32,28 +32,28 @@ export class FeedView {
   }
 
   refreshIcons(): void {
-    for (const [item, line] of this.lines) line.icon.set(item);
+    for (const [entry, line] of this.lines) line.icon.set(entry.parts[0].item);
   }
 
   private render(): void {
     const entries = this.model.entries;
-    const keep = new Set(entries.map((e) => e.item));
-    for (const [item, line] of this.lines) {
-      if (keep.has(item)) continue;
+    for (const [entry, line] of this.lines) {
+      if (entries.includes(entry)) continue;
       line.el.remove();
-      this.lines.delete(item);
+      this.lines.delete(entry);
     }
     for (const entry of entries) {
-      let line = this.lines.get(entry.item);
+      let line = this.lines.get(entry);
       if (!line) {
-        const icon = new ItemIcon(entry.item);
+        // The icon is the batch's first item; "+12 Stone, +3 Log" reads as one line.
+        const icon = new ItemIcon(entry.parts[0].item);
         const text = h('span', { class: 'hw-feed__text' });
         line = { el: h('div', { class: 'hw-feed__line' }, icon.el, text), icon, text, rev: -1 };
-        this.lines.set(entry.item, line);
+        this.lines.set(entry, line);
       }
       if (line.rev !== entry.rev) {
         line.rev = entry.rev;
-        setText(line.text, `+${entry.count} ${itemOrNull(entry.item)?.name ?? entry.item}`);
+        setText(line.text, entry.parts.map((p) => `+${p.count} ${itemOrNull(p.item)?.name ?? p.item}`).join(', '));
         // Restart the little bump animation on every new gain.
         line.el.classList.remove('hw-feed__line--bump');
         void line.el.offsetWidth;

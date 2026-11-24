@@ -643,6 +643,10 @@
 .hw-cross__name[data-shown] {
   opacity: 1;
 }
+/* A dropped item under the aim is named in its rarity colour (the same tints as the inventory tooltip). */
+.hw-cross__name[data-rarity='fine'] .hw-cross__label { color: #7fd17f; }
+.hw-cross__name[data-rarity='rare'] .hw-cross__label { color: #6fb0ff; }
+.hw-cross__name[data-rarity='legendary'] .hw-cross__label { color: #f2c14e; }
 .hw-hud[data-screen] .hw-cross,
 .hw-layer[data-screen] .hw-banner[data-size='md'] {
   visibility: hidden;

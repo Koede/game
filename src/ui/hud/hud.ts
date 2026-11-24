@@ -99,6 +99,8 @@ export class Hud {
   private blockName: string | null = null;
   private mining = -1;
   private nameOverride: string | null = null;
+  /** The rarity tint of the override (a dropped item under the aim), or null. */
+  private nameRarity: string | null = null;
   /** The creature named by the override ("Forge Warden - 9/16"), shown with a health bar. */
   private creature: TargetInfo | null = null;
   private readonly cues: CombatCues;
@@ -259,11 +261,12 @@ export class Hud {
 
   /**
    * A name that replaces the block's under the crosshair (an animal: "Goat - 6/8"), or null to show the block
-   * again. Cheap to call every frame: the label only changes when the text does.
+   * again. `rarity` tints a dropped item's name. Cheap to call every frame: the label only changes when the text does.
    */
-  setTargetName(name: string | null): void {
+  setTargetName(name: string | null, rarity: string | null = null): void {
     if (name !== this.nameOverride) this.creature = parseTargetName(name);
     this.nameOverride = name;
+    this.nameRarity = rarity;
     this.showTarget();
   }
 
@@ -292,10 +295,11 @@ export class Hud {
     const name = this.nameOverride ?? this.blockName;
     // Mining fills the ring; so does the work bar of a hand station (Hand Quern - wheat 3/6 strokes).
     const mining = this.nameOverride !== null ? -1 : this.mining >= 0 ? this.mining : this.workFraction;
-    const key = `${name}|${mining}`;
+    const rarity = this.nameOverride !== null ? this.nameRarity : null;
+    const key = `${name}|${mining}|${rarity}`;
     if (key === this.targetKey) return;
     this.targetKey = key;
-    this.crosshair.set(name, mining, this.nameOverride !== null ? this.creature : null);
+    this.crosshair.set(name, mining, this.nameOverride !== null ? this.creature : null, rarity);
   }
 
   /** A stroke, a finished job or a take at the aimed station: the aiming line follows at once, not on the slow tick. */

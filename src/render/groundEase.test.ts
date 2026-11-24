@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { easeToward } from './groundItems';
+import { easeToward, tidyYaw, tiltedHalf } from './groundItems';
+
+describe('calm resting pose (ground items)', () => {
+  it('a drop at rest keeps its free spin, and a calm one lands on a quarter turn', () => {
+    expect(tidyYaw(0.3, 0)).toBeCloseTo(0.3, 9);
+    const q = Math.PI / 2;
+    expect(tidyYaw(0.3, 1)).toBeCloseTo(0, 9);
+    expect(tidyYaw(1.9, 1)).toBeCloseTo(q, 9);
+    expect(tidyYaw(2.5, 1)).toBeCloseTo(2 * q, 9);
+    // Part way through settling it is between the two, moving continuously.
+    expect(tidyYaw(0.3, 0.5)).toBeCloseTo(0.15, 9);
+  });
+
+  it('a block tipped onto its face keeps its footprint on the ground (no sinking while it tips)', () => {
+    const half = 0.15;
+    expect(tiltedHalf(half, 0)).toBeCloseTo(half, 9);
+    expect(tiltedHalf(half, -Math.PI / 2)).toBeCloseTo(half, 9);
+    // At 45 degrees a cube's lowest corner is further out, so its centre must rise.
+    expect(tiltedHalf(half, -Math.PI / 4)).toBeGreaterThan(half);
+  });
+});
 
 describe('easeToward (ground item smoothing)', () => {
   it('moves towards the target without overshooting, and stays put with no time', () => {

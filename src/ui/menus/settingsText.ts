@@ -29,6 +29,15 @@ export const ITEM_MAGNET_OPTIONS: readonly { value: Settings['itemMagnet']; labe
   { value: 'large', label: 'Large' },
 ];
 
+export const LOOT_FILTER_OPTIONS: readonly { value: Settings['lootFilter']; label: string }[] = [
+  { value: 'all', label: 'Pick up everything' },
+  { value: 'junk', label: 'Ignore junk' },
+];
+
+export function lootFilterHint(f: Settings['lootFilter']): string {
+  return f === 'all' ? 'Every item you walk over is picked up.' : 'Rubble, dirt, seeds, sand and gravel stay on the ground. Everything else is picked up.';
+}
+
 export function itemMagnetHint(m: Settings['itemMagnet']): string {
   return m === 'off'
     ? 'Dropped items fly to you only when you are close. Small and Large pull them in from further away.'
