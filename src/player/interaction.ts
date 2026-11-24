@@ -159,6 +159,8 @@ export class Interaction {
 
   /** A Use handler that goes first (after placing against a screen block); returns null to pass. Set by the app. */
   beforeUse: ((hit: RayHit | null) => 'worked' | 'refused' | 'screen' | null) | null = null;
+  /** An axe blow on a log (game/fallingTrees.ts): true when the tree takes the blow instead of the log breaking. Set by the app. */
+  treeChop: ((hit: RayHit) => boolean) | null = null;
 
   get mining(): boolean {
     return this.progress >= 0;
@@ -342,6 +344,12 @@ export class Interaction {
       this.breakCooldown = BREAK_COOLDOWN_S;
       this.edits++;
       exertMining(this.player);
+      return;
+    }
+    // An axe on a tree's base wears its health down; the tree falls when that runs out (game/fallingTrees.ts).
+    if (this.treeChop !== null && this.treeChop(hit)) {
+      this.progress = -1;
+      this.breakCooldown = BREAK_COOLDOWN_S;
       return;
     }
     const def = hit.block;

@@ -30,6 +30,8 @@ import { createInputState, type InputState, type IView, type Settings } from '..
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
 import { GroundItemRenderer } from '../render/groundItems';
+import { FallingTreeRenderer } from '../render/fallingTrees';
+import { FallingTrees } from '../game/fallingTrees';
 import { MobRenderer } from '../render/mobs';
 import { NightlifeFx } from '../render/nightlifeFx';
 import { critters, darkOf, type Critter, type NightEnv } from '../sim/nightlife';
@@ -107,6 +109,9 @@ export class Game {
   readonly npcRenderer: NpcRenderer;
   /** Items lying in the world, one instanced draw per kind. */
   readonly itemRenderer: GroundItemRenderer;
+  /** Trees on their way down (game/fallingTrees.ts) and their drawing. */
+  readonly trees: FallingTrees;
+  readonly treeRenderer: FallingTreeRenderer;
   /** Jar fills, wellsprings and items on pedestals and altars (src/render/magic). */
   readonly magicRenderer: MagicRenderer;
   /** Turning cogs, links, arms and pistons of the workshop (src/render/workshop). */
@@ -176,6 +181,8 @@ export class Game {
     this.npcRenderer = new NpcRenderer(this.renderer);
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
+    this.treeRenderer = new FallingTreeRenderer(this.renderer);
+    this.trees = new FallingTrees(world, player, bus);
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
@@ -223,6 +230,7 @@ export class Game {
       this.vehicles.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
+      this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
       this.controller.interaction.beforeUse = (hit) => {
         if (hit) {
           const held = player.heldStack();
@@ -405,6 +413,7 @@ export class Game {
       this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
+      this.treeRenderer.update(this.trees.trees());
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
@@ -560,6 +569,7 @@ export class Game {
   private tickOnce(): void {
     this.state.tick(DT);
     this.state.world.leaves.tick();
+    this.trees.tick(DT);
   }
 
   toSave(): WorldSave {
