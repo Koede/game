@@ -31,6 +31,7 @@ import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
 import { RESEARCH } from './entries';
 import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
+import { FlowLog } from './essentiaFlow';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
 import { charmFactors } from './charms';
 import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
@@ -91,6 +92,8 @@ export const DESK_REACH = 3;
 export const ALTAR_REACH = 3;
 /** Seconds between two units an infusion draws. */
 export const INFUSE_STEP_S = 0.4;
+/** Seconds a just-brewed draught's colour swirls in its crucible. */
+export const BREW_SWIRL_S = 4;
 /** Seconds of work one unit of Spring buys a clay servant, and how far (Chebyshev) it may walk from where it was placed. */
 export const SERVANT_FEED_S = 30;
 export const SERVANT_RANGE = 8;
@@ -291,6 +294,10 @@ export class Magic {
   private pendingMirror: string | null = null;
   /** Draughts running: potion item -> seconds left. */
   private readonly potions = new Map<string, number>();
+  /** Essentia moving from jars to what draws on them, for the renderer's streams (src/magic/essentiaFlow.ts). */
+  readonly flows = new FlowLog();
+  /** A draught just brewed at a crucible: its colour swirls in the pot for a few seconds (key -> colour, seconds left). */
+  private readonly brewed = new Map<string, { color: number; left: number }>();
   /** Upgrade levels per focus item. */
   private readonly focusLevels = new Map<string, FocusLevels>();
   private wardScale = WARD_SCALE;
@@ -424,6 +431,8 @@ export class Magic {
         this.toast(`${itemOrNull(k)?.name ?? 'The draught'} wears off`);
       }
     }
+    this.flows.tick(dt);
+    for (const [k, b] of this.brewed) if ((b.left -= dt) <= 0) this.brewed.delete(k);
     this.applyBody();
     const cap = this.bestRod()?.capacity ?? 0;
     for (const p of Object.keys(this.vis) as Primal[]) if (this.vis[p] > cap) this.vis[p] = cap;
@@ -1043,6 +1052,7 @@ export class Magic {
       if (!j || j.aspect !== aspect || j.n <= 0) continue;
       const t = Math.min(need, j.n);
       this.setJar(jx, jy, jz, aspect, j.n - t);
+      this.flows.record([jx, jy, jz], [x, y, z], aspect);
       need -= t;
     }
     while (withVials && need > 0 && this.player.inventory.has(vialKey(aspect))) {
@@ -1080,6 +1090,7 @@ export class Magic {
         if (left === null || left >= SIPHON_BELOW_S) continue;
         if (this.hooks.stokeFurnace(fx, fy, fz, CINDER_BURN_S / VIAL_UNITS)) {
           this.setJar(x, y, z, 'cinder', j.n - 1);
+          this.flows.record([x, y, z], [fx, fy, fz], 'cinder');
           break;
         }
       }
@@ -1158,6 +1169,30 @@ export class Magic {
     return (this.hooks.furnaceFire?.(x, y - 1, z) ?? 0) > 0;
   }
 
+  /**
+   * Every crucible with water, for the renderer: whether it boils, its essentia, and the colour of a draught swirling in
+   * it (one just brewed, or one the pot holds the essentia for, waiting on its catalyst), else null.
+   */
+  crucibleViews(): { x: number; y: number; z: number; hot: boolean; ess: Aspects; potion: number | null }[] {
+    const out: { x: number; y: number; z: number; hot: boolean; ess: Aspects; potion: number | null }[] = [];
+    for (const [k, c] of this.crucibles) {
+      if (!c.water) continue;
+      const [x, y, z] = parse3(k);
+      if (this.world.getBlock(x, y, z).key !== CRUCIBLE) continue;
+      let potion = this.brewed.get(k)?.color ?? null;
+      if (potion === null)
+        for (const r of ALCHEMY) {
+          const spec = potionSpec(r.output.item);
+          if (spec && !this.craftGate(r.id) && canPay(c, r.cost)) {
+            potion = spec.color;
+            break;
+          }
+        }
+      out.push({ x, y, z, hot: this.crucibleHot(x, y, z), ess: c.ess, potion });
+    }
+    return out;
+  }
+
   crucibleText(x: number, y: number, z: number): string | null {
     const c = this.crucibleAt(x, y, z);
     if (!c) return null;
@@ -1213,6 +1248,8 @@ export class Magic {
     const recipe = alchemyFor(held).find((r) => !this.craftGate(r.id) && canPay(c, r.cost));
     if (recipe) {
       takeEssence(c, recipe.cost);
+      const brew = potionSpec(recipe.output.item);
+      if (brew) this.brewed.set(k, { color: brew.color, left: BREW_SWIRL_S });
       this.player.consumeHeld(1);
       this.player.give(recipe.output.item, recipe.output.count);
       this.stats.crafted++;

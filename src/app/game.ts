@@ -176,7 +176,7 @@ export class Game {
     this.npcRenderer = new NpcRenderer(this.renderer);
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
-    this.magicRenderer = new MagicRenderer(this.renderer, world);
+    this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
       this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
