@@ -51,3 +51,9 @@ closet and vault stay sealed (existing flood-fill tests); save round-trip with r
 
 Loot inflation. Keep rare weights low and cap guaranteed items to the theme. Rarity must not appear on items that cannot carry it
 (stackables); colour the name, not the stack.
+
+## Borrowed from other RPGs
+
+See rpg-inspirations.md. For this plan: rolled affixes with generated names (Diablo, Path of Exile), placed rather than rolled secrets
+(Dark Souls), small puzzle crates (Zelda), lore books with perks (Skyrim), boss-gated drops (Terraria), monster parts as crafting inputs
+(Monster Hunter), and hidden pity (Destiny).

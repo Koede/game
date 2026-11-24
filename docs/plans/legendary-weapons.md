@@ -78,3 +78,9 @@ and use one.
 - Visual cost on a phone: trails and lights are budgeted and scale with the graphics setting.
 - Too many to track: eight is the target; add more only after players use these.
 - Duplicate verbs: each weapon must change play differently; reject a weapon whose verb is only "more damage".
+
+## Borrowed from other RPGs
+
+See rpg-inspirations.md. For this plan: a weapon art on its own button with a cooldown (Dark Souls), different weapon families with distinct
+movesets (Monster Hunter), an awakened second form with a changed verb (Hades), a short quest to earn each one instead of only a drop
+(Destiny), a utility that solves puzzles (Zelda), and a set bonus when paired with a legendary charm (Diablo).

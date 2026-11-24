@@ -5,6 +5,7 @@ yet. Order is a suggestion, not a promise.
 
 | Plan | One line | Suggested order |
 | --- | --- | --- |
+| [rpg-inspirations.md](rpg-inspirations.md) | What to borrow from Diablo, Zelda, Souls, Skyrim, Monster Hunter and others | read first |
 | [loot-and-containers.md](loot-and-containers.md) | Rarity, nested tables, named finds, tavern vault and closet | 1 |
 | [enchantments.md](enchantments.md) | A few bold, behaviour-changing enchants, found by experiment at the altar | 2 |
 | [legendary-weapons.md](legendary-weapons.md) | Named weapons with legendary effects, utilities and visuals | 3 |

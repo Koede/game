@@ -60,3 +60,10 @@ vein.
 
 Veinseeker and Bounty can flatten mining progression: cap vein size by level and keep tier gates. Magnet must not scoop drops through
 walls. Avoid stat-stacking: one enchant per slot of its kind.
+
+## Borrowed from other RPGs
+
+See rpg-inspirations.md. For this plan: learn an effect by breaking an enchanted find (Skyrim), element infusion that changes damage type
+and look (Dark Souls), elemental reactions between two enchants (Genshin), a charge that the effect drains and a jar refills (Elder
+Scrolls), temporary fusion of a part onto a weapon (Zelda), boon-style shrine offers where you pick one of three (Hades), and socket-like
+essentia slots later (Path of Exile).
