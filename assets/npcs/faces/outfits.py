@@ -32,19 +32,19 @@ RING = 5  # rows above the cut that fade into the body
 # 'gen': per outfit, in the generated body (960x1280): chin line, optionally the head's top (when a parasol covers it), and for people whose
 # shoulders rise beside the jaw 'keep' (rows above the chin from which the sides stay) and 'hw' (half width of the erased head window).
 CFG = {
-    'mara': dict(top=33, chin=272, cx=452, head=[(232, 25), (668, 25), (668, 215), (582, 215), (582, 278), (325, 278), (325, 215), (232, 215)],
+    # ref: the chin line used only to scale and align the generated body (hat/hair-top based); chin: the true chin tip of the original face.
+    'mara': dict(top=33, ref=272, chin=283, cx=448, head=[(232, 25), (668, 25), (668, 215), (582, 215), (582, 289), (325, 289), (325, 215), (232, 215)],
                  gen={'sleep': dict(chin=225), 'swim': dict(chin=225)}),
-    'rosa': dict(gen_hair_rows=60, top=42, chin=280, cx=470, head=[(240, 30), (640, 30), (640, 262), (545, 262), (545, 286), (400, 286), (400, 262), (240, 262)],
-                 hair=([[(240, 262), (410, 262), (410, 345), (240, 345)]], 'auburn'),
+    'rosa': dict(gen_hair_rows=110, gen_clear=(26, 70), top=42, ref=280, chin=297, cx=450, head=[(240, 30), (640, 30), (640, 275), (545, 275), (545, 303), (400, 303), (400, 275), (240, 275)],
+                 hair=([[(240, 275), (410, 275), (410, 350), (240, 350)]], 'auburn'),
                  gen={'sleep': dict(chin=235), 'swim': dict(chin=238)}),
-    'gruk': dict(top=13, chin=255, cx=500, head=[(405, 5), (565, 5), (565, 125), (597, 125), (597, 235), (575, 261), (430, 261), (405, 235)], nobrown=100,
-                 gen={'sleep': dict(chin=297, keep=70, hw=95), 'swim': dict(chin=288, keep=70, hw=95)}),
-    'orrin': dict(top=59, chin=273, cx=470, head=[(330, 50), (595, 50), (595, 279), (330, 279)],
+    'gruk': dict(top=13, ref=255, chin=262, cx=468, head=[(385, 5), (560, 5), (560, 262), (535, 268), (402, 268), (385, 262)], nobrown=100,
+                 gen={'sleep': dict(chin=297, keep=70, hw=66), 'swim': dict(chin=288, keep=70, hw=66)}),
+    'orrin': dict(top=59, ref=273, chin=281, cx=447, head=[(330, 50), (595, 50), (595, 287), (330, 287)],
                   gen={'sleep': dict(chin=262), 'swim': dict(chin=355, top=178, keep=90, hw=125, kstart=95)}),
-    'bram': dict(top=66, chin=262, cx=440, head=[(250, 60), (545, 60), (545, 268), (250, 268)], beard=(360, 268, 540, 700),
+    'bram': dict(top=66, ref=262, chin=262, cx=447, head=[(250, 60), (545, 60), (545, 268), (250, 268)], beard=(360, 268, 540, 700),
                  gen={'sleep': dict(chin=185), 'swim': dict(chin=182)}),
-    'veyra': dict(top=25, chin=178, cx=500, head=[(345, 15), (655, 15), (655, 184), (345, 184)],
-                  hair=([[(330, 184), (440, 184), (440, 330), (330, 330)], [(560, 184), (670, 184), (670, 330), (560, 330)]], 'navy'),
+    'veyra': dict(top=25, ref=178, chin=187, cx=479, head=[(345, 15), (655, 15), (655, 140), (560, 193), (440, 193), (345, 140)],
                   gen={'sleep': dict(chin=176), 'swim': dict(chin=173)}),
 }
 
@@ -95,6 +95,7 @@ def poly_mask(size, polys):
 def head_silhouette(c, orig, ofg):
     """Boolean mask of the original's head: its own alpha inside the head polygon (plus Bram's beard, which hangs over the chest)."""
     H, W, _ = orig.shape
+    beard = np.zeros((H, W), bool)
     keep = ofg & poly_mask((W, H), [c['head']])
     keep[round(c['chin'] + CUT):] = False
     if 'nobrown' in c:  # Gruk: the hammer handle and vest straps beside the jaw are wood and leather, not head
@@ -102,7 +103,8 @@ def head_silhouette(c, orig, ofg):
         brown = (o[..., 0] > o[..., 1] + 8) & (o[..., 0] > o[..., 2] + 8)
         dx = np.abs(np.arange(W)[None, :] - c['cx'])
         rows = np.arange(H)[:, None]
-        keep &= ~(brown & (((dx > 85) & (rows >= c['nobrown'])) | ((dx > 40) & (rows >= 212))))
+        notgreen = (o.max(2) >= 45) & (o[..., 0] >= o[..., 1] - 2)
+        keep &= ~(((notgreen & (dx > 66) & (rows >= c['nobrown']) & (rows <= 215))) | (brown & (dx > 40) & (rows >= 212)))
     if 'hair' in c:  # hair that hangs past the cut line stays from the original (roots over the shoulders), picked by colour
         o = orig.astype(int)
         r, g, b = o[..., 0], o[..., 1], o[..., 2]
@@ -118,8 +120,9 @@ def head_silhouette(c, orig, ofg):
         m = np.zeros((H, W), bool)
         m[y0:y1, x0:x1] = ((sat < 26) & (lum > 110) & (lum < 235))[y0:y1, x0:x1]
         lab, _ = ndimage.label(m)
-        keep |= ndimage.binary_dilation(ndimage.binary_closing(lab == lab[y0 + 80, (x0 + x1) // 2], iterations=2), iterations=1) & ofg
-    return keep
+        beard = ndimage.binary_dilation(ndimage.binary_closing(lab == lab[y0 + 80, (x0 + x1) // 2], iterations=2), iterations=1) & ofg
+        keep |= beard
+    return keep, beard
 
 
 def place(dst, src, ox, oy):
@@ -160,8 +163,8 @@ def build(cid, outfit):
     top_g = g.get('top', int(np.where(col.any(axis=1))[0][0]))
     band = gfg[chin_g - 50:chin_g - 10, gcx0 - 140:gcx0 + 140]
     cx_g = float(np.median(np.where(band)[1])) + gcx0 - 140
-    s = (c['chin'] - c['top']) / (chin_g - top_g)
-    cut_g = chin_g + CUT / s
+    s = (c['ref'] - c['top']) / (chin_g - top_g)
+    cut_g = chin_g + (c['chin'] + CUT - c['ref']) / s
     # the generated body's skin takes on the original face's skin tone, so neck, chest and arms match the pasted head
     body_rgb = tone_match(gen, gfg, orig, ofg, c, chin_g, s, cx_g)
     # (2) erase the generated head
@@ -177,12 +180,16 @@ def build(cid, outfit):
         gi = gen.astype(int)
         hairy = (gi[..., 0] >= 110) & (gi[..., 1] >= 62) & (gi[..., 1] <= 130) & (gi[..., 0] - gi[..., 1] < 105) & (gi[..., 2] < 80) & (gi[..., 0] - gi[..., 2] > 60)
         galpha &= ~(hairy & (gy < cut_g + c['gen_hair_rows']))
+    if c.get('gen_clear'):  # stray strands beside the neck (they belonged to the erased head)
+        rows_, half = c['gen_clear']
+        galpha[int(cut_g - RING / s):int(cut_g + rows_), :int(cx_g - half)] = False
+        galpha[int(cut_g - RING / s):int(cut_g + rows_), int(cx_g + half):] = False
     body = Image.fromarray(np.dstack([body_rgb, (galpha * 255).astype(np.uint8)]), 'RGBA')
     nw, nh = round(gen.shape[1] * s), round(gen.shape[0] * s)
     body = body.resize((nw, nh), Image.LANCZOS)
-    bx, by = round(c['cx'] - cx_g * s), round(c['chin'] - chin_g * s)
+    bx, by = round(c['cx'] - cx_g * s), round(c['ref'] - chin_g * s)
     # (4) the silhouette of the original head, down to the cut line (Bram's beard continues below it)
-    sil = head_silhouette(c, orig, ofg)
+    sil, beard_m = head_silhouette(c, orig, ofg)
     ba = np.array(body)[..., 3] > 8
     bys, bxs = np.where(ba)
     hys, hxs = np.where(sil)
@@ -201,11 +208,24 @@ def build(cid, outfit):
     place(alpha, sil.astype(float), -x0, -y0)
     # (5) the last RING rows above the cut fade into the body underneath
     cut = round(c['chin'] + CUT) - y0
-    if 'beard' not in c:
-        for i in range(RING):
-            r = cut - 1 - i
-            w = 1.0 - (i + 1) / (RING + 1)  # how much of the body shows: 0.83 just above the cut, 0.17 five rows up
-            alpha[r] = np.where(bodyA[r], alpha[r] * (1 - w), alpha[r])
+    bm = np.zeros((CH, CW), bool)
+    place(bm, beard_m, -x0, -y0)
+    for i in range(RING):
+        r = cut - 1 - i
+        w = 1.0 - (i + 1) / (RING + 1)  # how much of the body shows: 0.83 just above the cut, 0.17 five rows up
+        alpha[r] = np.where(bodyA[r] & ~bm[r], alpha[r] * (1 - w), alpha[r])
+    if 'keep' in g and cid == 'gruk':  # the erased head window is wider than the original's neck: close the gap from the surrounding body
+        import cv2
+
+        gap = np.zeros((CH, CW), np.uint8)
+        wx0, wx1 = round(bx + (cx_g - g['hw']) * s) - x0, round(bx + (cx_g + g['hw']) * s) - x0
+        wy0, wy1 = round(by + g.get('kstart', chin_g - g['keep']) * s) - y0, cut
+        gap[max(wy0, 0):wy1, max(wx0, 0):wx1] = 1
+        tmp = np.zeros((CH, CW), bool)
+        place(tmp, sil, -x0, -y0)
+        gap = ((gap > 0) & ~bodyA & ~tmp).astype(np.uint8) * 255
+        gap = cv2.dilate(gap, np.ones((3, 3), np.uint8))
+        out = cv2.inpaint(out.round().astype(np.uint8), gap, 6, cv2.INPAINT_TELEA).astype(float)
     padded = np.zeros((CH, CW, 3))
     place(padded, orig.astype(float), -x0, -y0)
     res = (padded * alpha[..., None] + out * (1 - alpha[..., None])).round().astype(np.uint8)
