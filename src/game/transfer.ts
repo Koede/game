@@ -23,10 +23,18 @@ export function transfer(from: Inventory, fromSlot: number, to: Inventory, toSlo
   else if (canMerge(dst, src)) n = Math.min(n, stackLimit(src.item) - dst.count);
   else return 0;
   if (n <= 0) return 0;
-  if (dst) dst.count += n;
-  else to.slots[toSlot] = makeStack(src.item, n, src.durability, src.quality, src.enchants);
+  if (dst) {
+    dst.count += n;
+    to.setTick(toSlot, Math.max(to.tickOf(toSlot), from.tickOf(fromSlot)));
+  } else {
+    to.slots[toSlot] = makeStack(src.item, n, src.durability, src.quality, src.enchants);
+    to.setTick(toSlot, from.tickOf(fromSlot));
+  }
   src.count -= n;
-  if (src.count <= 0) from.slots[fromSlot] = null;
+  if (src.count <= 0) {
+    from.slots[fromSlot] = null;
+    from.setTick(fromSlot, 0);
+  }
   notify(from, to);
   return n;
 }
@@ -39,8 +47,11 @@ export function swapSlots(from: Inventory, fromSlot: number, to: Inventory, toSl
   if (fromSlot < 0 || fromSlot >= from.size || toSlot < 0 || toSlot >= to.size) return false;
   if (a && !to.accepts(a.item, toSlot)) return false;
   if (b && !from.accepts(b.item, fromSlot)) return false;
+  const ta = from.tickOf(fromSlot);
   from.slots[fromSlot] = b;
+  from.setTick(fromSlot, to.tickOf(toSlot));
   to.slots[toSlot] = a;
+  to.setTick(toSlot, ta);
   notify(from, to);
   return true;
 }

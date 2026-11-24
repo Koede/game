@@ -20,6 +20,7 @@ import { Inventory } from './inventory';
 import { PlayAssist, type AssistSnapshot } from './assist';
 import { takesItem } from './lootFilter';
 import { favouritesOf, setFavourites } from './inventoryTools';
+import { pocketsOf, setPockets, type Pocket } from './pockets';
 import { wear } from './mining';
 import { Caravan, type CaravanSave } from './caravan';
 import { RecipeBook, type RecipeBookSave } from './discovery';
@@ -59,6 +60,12 @@ export interface PlayerSnapshot {
   inventory: Slot[];
   /** Favourite inventory slots (sort and move-all leave them); missing in older saves. */
   favourites?: number[];
+  /** Locked inventory slots (the per-slot lock; nothing moves out of or into them through the UI); missing in older saves. */
+  locks?: number[];
+  /** Pickup tick per inventory slot (sorting 'newest first' reads them); missing in older saves: none. */
+  picked?: number[];
+  /** The backpack's pockets (named sections); missing in older saves: one pocket. */
+  pockets?: Pocket[];
   /** Play-assist state (pinned recipe...); missing in older saves. */
   assist?: AssistSnapshot;
   selectedSlot: number;
@@ -438,6 +445,9 @@ export class PlayerState {
       food: this.food,
       inventory: this.inventory.toJSON(),
       favourites: [...favouritesOf(this.inventory)].sort((a, b) => a - b),
+      locks: [...this.inventory.locked].sort((a, b) => a - b),
+      picked: [...this.inventory.ticks],
+      pockets: pocketsOf(this.inventory),
       assist: this.assist.toJSON(),
       selectedSlot: this.selectedSlot,
       home: this.home ? { ...this.home } : null,
@@ -480,6 +490,9 @@ export class PlayerState {
     this.sprinting = false;
     this.inventory.load(s.inventory);
     setFavourites(this.inventory, s.favourites);
+    this.inventory.setLocks(s.locks);
+    this.inventory.setTicks(s.picked);
+    setPockets(this.inventory, s.pockets);
     this.assist.load(s.assist);
     this.selectedSlot = clamp(Math.floor(s.selectedSlot), 0, HOTBAR_SIZE - 1);
     this.home = s.home ? { ...s.home } : null;
