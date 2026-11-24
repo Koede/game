@@ -103,3 +103,50 @@ describe('miniblock mesher path', () => {
     expect(walled).toBe(free + 6); // the stone's six faces, all still visible
   });
 });
+
+describe('the jukebox model', () => {
+  const model = MINI_MODELS.jukebox;
+  const layersOf = (facing: Facing, active: boolean): { quads: { v: number[][] }[]; layers: Set<number> } => {
+    const centre = new Uint16Array(CHUNK_SIZE * 256 * CHUNK_SIZE);
+    centre[voxelIndex(5, 40, 5)] = makeVoxel(blockId('jukebox'), facing, active);
+    const mesh = meshChunk({ cx: 0, cz: 0, chunks: [null, null, null, null, centre, null, null, null, null] });
+    const quads: { v: number[][] }[] = [];
+    const layers = new Set<number>();
+    for (const batch of [mesh.opaque, mesh.cutout, mesh.translucent]) {
+      for (let q = 0; q < batch.positions.length / 12; q++) {
+        quads.push({ v: [0, 1, 2, 3].map((k) => [batch.positions[(q * 4 + k) * 3] - 5, batch.positions[(q * 4 + k) * 3 + 1] - 40, batch.positions[(q * 4 + k) * 3 + 2] - 5]) });
+        layers.add(batch.layers[q * 4]);
+      }
+    }
+    return { quads, layers };
+  };
+
+  it('is a many-box model whose every part lies inside the cell', () => {
+    expect(model.boxes.length).toBeGreaterThan(30);
+    for (const b of model.boxes) for (let a = 0; a < 3; a++) {
+      expect(b.from[a]).toBeGreaterThanOrEqual(0);
+      expect(b.to[a]).toBeLessThanOrEqual(16);
+      expect(b.to[a]).toBeGreaterThan(b.from[a]);
+    }
+    expect(stationBounds('jukebox')![4]).toBe(1);
+  });
+
+  it('keeps its own meshed geometry inside the cell for every facing, and turns with it', () => {
+    const front = (f: Facing): number => {
+      let zmin = 9, xmax = -9, xmin = 9, zmax = -9;
+      for (const q of layersOf(f, false).quads) for (const p of q.v) { zmin = Math.min(zmin, p[2]); zmax = Math.max(zmax, p[2]); xmin = Math.min(xmin, p[0]); xmax = Math.max(xmax, p[0]); expect(p[1]).toBeGreaterThanOrEqual(-1e-4); expect(p[1]).toBeLessThanOrEqual(1 + 1e-4); }
+      expect(Math.min(zmin, xmin)).toBeGreaterThanOrEqual(-1e-4);
+      expect(Math.max(zmax, xmax)).toBeLessThanOrEqual(1 + 1e-4);
+      // The front proud of the cabinet (the chrome kick and the bubble tubes) reaches 0.4/16 from its edge: which edge says the facing.
+      return zmin < 0.05 ? 0 : xmax > 0.95 ? 1 : zmax > 0.95 ? 2 : 3;
+    };
+    expect([0, 1, 2, 3].map((f) => front(f as Facing))).toEqual([0, 1, 2, 3]);
+  });
+
+  it('shows the lit window and bubble tubes only while active', () => {
+    const off = layersOf(0, false), on = layersOf(0, true);
+    expect(off.quads.length).toBe(on.quads.length);
+    expect([...on.layers].sort().join()).not.toBe([...off.layers].sort().join());
+    expect(on.layers.size).toBe(off.layers.size);
+  });
+});

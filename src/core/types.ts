@@ -289,6 +289,8 @@ export interface BlockTextures {
   topActive?: string;
   /** While active, on the bottom face (default: `bottom`). A hearth's ceiling glows on its underside too. */
   bottomActive?: string;
+  /** Further textures the block's miniblock model draws with (`tex` / `texOn` of its faces, src/world/miniModel.ts): they get atlas layers too. */
+  models?: readonly string[];
 }
 
 export interface Drop {

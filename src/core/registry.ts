@@ -108,6 +108,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
   put(Face.NY, bottom, bottomA);
   put(Face.PZ, side, sideA);
   put(Face.NZ, front, frontA);
+  for (const name of t.models ?? []) layerOf(name);
 
   const hasItem = spec.item ?? shape !== 'none';
   let drops: Drop[];

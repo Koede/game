@@ -11,11 +11,14 @@ const fixture = (key: string, name: string, desc: string): BlockSpec => ({
   textures: { side: 'plank', top: 'plank', bottom: 'plank', front: `${key}_front` },
 });
 
-/** The jukebox: an arched cabinet that glows amber while it plays (the active bit; the manager flips it). */
+/** The jukebox: a 1940s arched cabinet drawn as a miniblock model (src/world/jukeboxModel.ts); its window and bubble tubes glow while it plays (the active bit; the manager flips it). */
 const jukebox: BlockSpec = {
   key: 'jukebox', name: 'Jukebox', desc: 'An arched wooden cabinet with a brass grille. Use it to start the music; everyone but Gruk dances.',
   hardness: 1.2, tool: 'axe', category: 'block', oriented: true, lightActive: 6,
-  textures: { side: 'plank', top: 'plank', bottom: 'plank', front: 'jukebox_front', frontActive: 'jukebox_front_on' },
+  textures: { side: 'plank', top: 'plank', bottom: 'plank', front: 'jukebox_front', frontActive: 'jukebox_front_on',
+    // The model's materials (src/world/jukeboxModel.ts).
+    models: ['jukebox_wood', 'jukebox_chrome', 'jukebox_brass', 'jukebox_grille', 'jukebox_window', 'jukebox_window_on', 'jukebox_panel', 'jukebox_bubble', 'jukebox_bubble_on'],
+  },
 };
 
 export default {

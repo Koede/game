@@ -405,6 +405,8 @@ SPEC.worldOnlyItems.push(...MAGIC_SPEC.worldOnly, 'quest_board', 'wall_clock', '
 SPEC.maxTextures += 2;
 // The jukebox faces (src/render/textures/areas/tavern_fixtures.ts): jukebox_front, jukebox_front_on.
 SPEC.maxTextures += 2;
+// The jukebox model's materials (src/world/jukeboxModel.ts): wood, chrome, brass, grille, window (+on), panel, bubble (+on).
+SPEC.maxTextures += 9;
 // The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
 SPEC.maxTextures += 2;
 

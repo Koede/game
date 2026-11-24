@@ -6,7 +6,7 @@
  * bottom-left corner of a face seen from outside and v points up (on top and bottom faces u points
  * east); partial shapes (slab, torch, cable, lowered liquid) sample the matching part of the texture.
  */
-import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelFacing, type ChunkMeshData } from '../core/types';
+import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelActive, voxelFacing, type ChunkMeshData } from '../core/types';
 import {
   BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, GLOWS, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
   GLASS_MODEL, SHAPE_BUCKET, SHAPE_CUBE, SHAPE_FENCE, SHAPE_GLASS, SHAPE_SLOPE, SHAPE_STAIRS, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
@@ -254,7 +254,7 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
         const id = v & VOXEL_ID_MASK;
         switch (SHAPE[id]) {
           case SHAPE_CUBE:
-            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
+            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z, voxelActive(v));
             else cubeFaces(v, id, p, x, y, z, false);
             break;
           case SHAPE_LIQUID: cubeFaces(v, id, p, x, y, z, true); break;
@@ -262,7 +262,7 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
           case SHAPE_TORCH: torch(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z); break;
           case SHAPE_CABLE: cable(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
           case SHAPE_SLAB:
-            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
+            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z, voxelActive(v));
             else slab(builders[BATCH[id]], faceSlot(v), p, x, y, z);
             break;
           case SHAPE_STAIRS: stairs(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;

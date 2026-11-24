@@ -11,14 +11,16 @@
  * A box:
  *   from, to   corners, sixteenths (may exceed 0..16 a little for overhangs; the mesh is not clipped)
  *   faces      per-face options: `uv` [u0, v0, u1, v1] in sixteenths of the tile (v up), `tex` another texture's name
- *              (it must be in the atlas), `hide` (no face). By default a face samples the block's own tile at its position.
+ *              (it must be in the atlas), `texOn` the texture to show instead while the voxel is active (a lit window), `hide`
+ *              (no face). By default a face samples the block's own tile at its position.
  *   rot        { axis, angle (degrees), origin? (sixteenths, default the box centre) }: a tilted spout, a leaning rack pole
  *   shade      brightness multiplier 0..1 (a darker inside, a lighter rim)
- *   emissive   the faces ignore light (a glowing core, a lit lamp pane)
+ *   emissive   the faces ignore light (a glowing core, a lit lamp pane); `emissiveOn`: only while the voxel is active (a jukebox's lamps)
  *   part       a named MOVING part (lid, handle, crank): not meshed into the chunk; the renderer draws it with the
  *              part-and-track system (src/render/parts) and reads it through `miniParts`
  */
 import type { Facing } from '../core/types';
+import { JUKEBOX_MODEL } from './jukeboxModel';
 
 export type V3 = readonly [number, number, number];
 export type FaceName = 'n' | 's' | 'e' | 'w' | 'u' | 'd';
@@ -27,6 +29,7 @@ export const FACE_NAMES: readonly FaceName[] = ['e', 'w', 'u', 'd', 's', 'n'];
 export interface MiniFace {
   uv?: readonly [number, number, number, number];
   tex?: string;
+  texOn?: string;
   hide?: boolean;
 }
 
@@ -37,6 +40,7 @@ export interface MiniBox {
   rot?: { axis: 'x' | 'y' | 'z'; angle: number; origin?: V3 };
   shade?: number;
   emissive?: boolean;
+  emissiveOn?: boolean;
   part?: string;
 }
 
@@ -63,6 +67,8 @@ export function vessel(min: number, max: number, floor: number, h: number, wall:
 }
 
 export const MINI_MODELS: Record<string, MiniModel> = {
+  // The tavern jukebox: a 1940s arched cabinet (jukeboxModel.ts).
+  jukebox: JUKEBOX_MODEL,
   // The fired pot with a spout: foot, round belly, shoulder, a neck ring round the open top, a tilted spout and a loop handle.
   alloy_pot: {
     boxes: [

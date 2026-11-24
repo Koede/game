@@ -17,11 +17,11 @@ const MINI_CORNERS = new Array<number>(24);
 const MINI_TURNED = new Array<number>(24);
 
 /** Draws one miniblock model (miniModel.ts) in a cell: every box of it that is not a moving part. */
-export function miniShape(b: Builder, slot: number, model: MiniModel, facing: Facing, p: number, x: number, y: number, z: number): void {
-  for (const mb of model.boxes) if (!mb.part) miniBox(b, slot, mb, facing, p, x, y, z);
+export function miniShape(b: Builder, slot: number, model: MiniModel, facing: Facing, p: number, x: number, y: number, z: number, active = false): void {
+  for (const mb of model.boxes) if (!mb.part) miniBox(b, slot, mb, facing, p, x, y, z, active);
 }
 
-function miniBox(b: Builder, slot: number, mb: MiniBox, facing: Facing, p: number, x: number, y: number, z: number): void {
+function miniBox(b: Builder, slot: number, mb: MiniBox, facing: Facing, p: number, x: number, y: number, z: number, active: boolean): void {
   const c = boxCorners(mb, MINI_CORNERS);
   // Turn every corner about the cell centre to the facing: (x, z) -> (16 - z, x) per quarter turn.
   for (let i = 0; i < 8; i++) {
@@ -58,7 +58,7 @@ function miniBox(b: Builder, slot: number, mb: MiniBox, facing: Facing, p: numbe
       const flush = (wf & 1) === 0 ? max === 16 : min === 0;
       if (flush && OPAQUE[vol[p + D_FRONT[wf]] & VOXEL_ID_MASK] === 1) continue;
     }
-    const glow = mb.emissive ? LIGHT_FLAG_EMISSIVE : FACE_GLOW[slot + wf] === 1 ? 1 : 0;
+    const glow = mb.emissive || (active && mb.emissiveOn) ? LIGHT_FLAG_EMISSIVE : FACE_GLOW[slot + wf] === 1 ? 1 : 0;
     const u = U_AXIS[wf], v = V_AXIS[wf];
     for (let k = 0; k < 4; k++) {
       const o = idx(k);
@@ -78,14 +78,14 @@ function miniBox(b: Builder, slot: number, mb: MiniBox, facing: Facing, p: numbe
       QShade[k] = Math.min(255, FACE_SHADE[wf] * shade * 255);
       QFlags[k] = glow | cool;
     }
-    pushQuad(b, opt?.tex ? textureLayer(opt.tex) : FACE_LAYER[slot + wf]);
+    pushQuad(b, opt?.tex ? textureLayer(active && opt.texOn ? opt.texOn : opt.tex) : FACE_LAYER[slot + wf]);
   }
 }
 
-export function stationShape(b: Builder, slot: number, index: number, facing: Facing, p: number, x: number, y: number, z: number): void {
+export function stationShape(b: Builder, slot: number, index: number, facing: Facing, p: number, x: number, y: number, z: number, active = false): void {
   const mini = miniByIndex(index - MINI_BASE);
   if (mini) {
-    miniShape(b, slot, mini, facing, p, x, y, z);
+    miniShape(b, slot, mini, facing, p, x, y, z, active);
     return;
   }
   for (const raw of stationBoxesByIndex(index)) {
