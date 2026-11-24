@@ -29,7 +29,7 @@ describe('crafting', () => {
     expect(HAND_RECIPES.map((r) => r.id)).toContain('flint_pickaxe');
     expect(HAND_RECIPES.every((r) => r.station === 'hand')).toBe(true);
     expect(WORKBENCH_RECIPES.map((r) => r.id)).toEqual([
-      'furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'dough',
+      'furnace_clay', 'crate', 'belt_pouch', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'dough',
       'ground_coffee', 'ground_dark_coffee', 'berry_tea_blend', 'trail_blend',
       'hand_quern', 'stone_anvil', 'clay_table', 'loom', 'tanning_trough', 'bronze_hammer',
       'bronze_pickaxe', 'bronze_axe', 'bronze_shovel', 'bronze_hoe', 'bronze_maul',

@@ -411,6 +411,8 @@ SPEC.maxTextures += 2;
 SPEC.maxTextures += 9;
 // The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
 SPEC.maxTextures += 2;
+// The Belt Pouch icon (src/content/itemsHand.ts): one item texture, painted as a placeholder tile until it has art.
+SPEC.maxTextures += 1;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

@@ -46,6 +46,7 @@ export const HAND_ITEMS: ItemSpec[] = [
   { key: 'soaked_hide', name: 'Soaked Hide', category: 'material', age: 0, desc: 'A hide left in the tanning trough for a minute. Hang it on a drying rack in the sun to make leather.' },
   { key: 'leather', name: 'Leather', category: 'material', age: 0, desc: 'Hide, tanned and dried hard but supple. It lines bellows, coats and furnace seals.' },
   { key: 'cloth', name: 'Cloth', category: 'material', age: 0, desc: 'Fiber woven on the loom. A padded coat is stuffed with it.' },
+  { key: 'belt_pouch', name: 'Belt Pouch', category: 'misc', age: 0, stack: 4, desc: 'A leather pouch with a flap for each thing you carry. Sew one into the pack from the carry bar: that part of the bag becomes its own named pocket (up to four).' },
   unfired('cup', 'Cup', 'Wet clay in the shape of a cup. Fire it in a furnace crucible at 400 C or hotter.'),
   unfired('cone', 'Drip Cone', 'A wet clay cone. Fire it in a crucible.'),
   unfired('alloy_pot', 'Alloy Pot', 'A wet clay pot with a spout. Fire it in a crucible, then set it against a furnace.'),

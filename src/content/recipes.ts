@@ -74,6 +74,7 @@ const HAND: RecipeSpec[] = [
 const WORKBENCH: RecipeSpec[] = [
   workbench('furnace_clay', 'furnace_clay', '12 rubble, 6 clay'),
   workbench('crate', 'crate', '8 plank'),
+  workbench('belt_pouch', 'belt_pouch', '2 leather, 2 cord'),
   workbench('stone_brick', '4 stone_brick', '4 rubble'),
   workbench('pail', 'pail', '3 plank, 1 cord'),
   workbench('padded_coat', 'padded_coat', '4 cloth, 2 cord'),
