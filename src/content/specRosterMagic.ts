@@ -40,7 +40,7 @@ export const MAGIC_SPEC = {
     ],
   } as Record<string, string[]>,
   /** Found only in the deep ruins' crates, never made. */
-  worldOnly: ['scroll_ledger', 'scroll_verses', 'scroll_margin'],
+  worldOnly: ['scroll_ledger', 'scroll_verses', 'scroll_margin', 'orrins_spare_pick'],
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */
   textures: 91,
 };

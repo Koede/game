@@ -1,0 +1,511 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rollLoot regression (old tables, fixed seeds) > rolls the same stacks for the same seeds 1`] = `
+{
+  "chem_lab:1": [
+    {
+      "count": 3,
+      "item": "glass_beaker",
+    },
+    {
+      "count": 3,
+      "item": "sulfur",
+    },
+    {
+      "count": 3,
+      "item": "glass_vial",
+    },
+    {
+      "count": 1,
+      "item": "vial_clarity",
+    },
+    {
+      "count": 1,
+      "item": "spirit_beaker",
+    },
+  ],
+  "chem_lab:12345": [
+    {
+      "count": 5,
+      "item": "glass_vial",
+    },
+    {
+      "count": 1,
+      "item": "field_notebook",
+    },
+    {
+      "count": 1,
+      "item": "wash_beaker",
+    },
+    {
+      "count": 1,
+      "item": "field_notebook",
+    },
+    {
+      "count": 3,
+      "item": "sulfur",
+    },
+  ],
+  "chem_lab:7": [
+    {
+      "count": 4,
+      "item": "glass_beaker",
+    },
+    {
+      "count": 1,
+      "item": "vial_clarity",
+    },
+    {
+      "count": 1,
+      "item": "wash_beaker",
+    },
+    {
+      "count": 1,
+      "item": "spirit_beaker",
+    },
+  ],
+  "chem_lab:987654321": [
+    {
+      "count": 2,
+      "item": "glass_beaker",
+    },
+    {
+      "count": 4,
+      "item": "glass",
+    },
+    {
+      "count": 3,
+      "item": "spirit_beaker",
+    },
+    {
+      "count": 3,
+      "item": "glass_vial",
+    },
+  ],
+  "deep:1": [
+    {
+      "count": 6,
+      "item": "coal",
+    },
+    {
+      "count": 1,
+      "item": "scroll_verses",
+    },
+    {
+      "count": 1,
+      "item": "scroll_ledger",
+    },
+    {
+      "count": 3,
+      "item": "copper_ingot",
+    },
+    {
+      "count": 4,
+      "item": "firebrick",
+    },
+  ],
+  "deep:12345": [
+    {
+      "count": 3,
+      "item": "copper_ingot",
+    },
+    {
+      "count": 9,
+      "item": "wheat_seeds",
+    },
+    {
+      "count": 1,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 3,
+      "item": "bronze_ingot",
+    },
+    {
+      "count": 1,
+      "durability": 192,
+      "item": "bronze_pickaxe",
+    },
+  ],
+  "deep:7": [
+    {
+      "count": 8,
+      "item": "coal",
+    },
+    {
+      "count": 4,
+      "item": "firebrick",
+    },
+    {
+      "count": 2,
+      "item": "iron_ingot",
+    },
+  ],
+  "deep:987654321": [
+    {
+      "count": 2,
+      "item": "iron_ore",
+    },
+    {
+      "count": 1,
+      "item": "thermopile",
+    },
+    {
+      "count": 4,
+      "item": "copper_cable",
+    },
+    {
+      "count": 1,
+      "item": "treasure_map",
+    },
+    {
+      "count": 1,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 6,
+      "item": "copper_wire",
+    },
+  ],
+  "frozen_foundry:1": [
+    {
+      "count": 3,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 1,
+      "durability": 384,
+      "item": "iron_pickaxe",
+    },
+    {
+      "count": 1,
+      "durability": 384,
+      "item": "iron_pickaxe",
+    },
+    {
+      "count": 5,
+      "item": "coke",
+    },
+  ],
+  "frozen_foundry:12345": [
+    {
+      "count": 7,
+      "item": "coke",
+    },
+    {
+      "count": 6,
+      "item": "scrap_metal",
+    },
+    {
+      "count": 2,
+      "item": "iron_plate",
+    },
+  ],
+  "frozen_foundry:7": [
+    {
+      "count": 4,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 2,
+      "item": "iron_plate",
+    },
+    {
+      "count": 4,
+      "item": "coke",
+    },
+  ],
+  "frozen_foundry:987654321": [
+    {
+      "count": 2,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 3,
+      "item": "scrap_metal",
+    },
+    {
+      "count": 8,
+      "item": "coke",
+    },
+    {
+      "count": 6,
+      "item": "firebrick",
+    },
+  ],
+  "lumber_mill:1": [
+    {
+      "count": 12,
+      "item": "plank",
+    },
+    {
+      "count": 2,
+      "item": "drive_shaft",
+    },
+    {
+      "count": 5,
+      "item": "cord",
+    },
+  ],
+  "lumber_mill:12345": [
+    {
+      "count": 4,
+      "item": "cord",
+    },
+    {
+      "count": 1,
+      "durability": 192,
+      "item": "bronze_axe",
+    },
+    {
+      "count": 2,
+      "item": "bronze_ingot",
+    },
+    {
+      "count": 14,
+      "item": "plank",
+    },
+    {
+      "count": 1,
+      "item": "drive_shaft",
+    },
+  ],
+  "lumber_mill:7": [
+    {
+      "count": 16,
+      "item": "plank",
+    },
+    {
+      "count": 9,
+      "item": "stick",
+    },
+    {
+      "count": 4,
+      "item": "cord",
+    },
+  ],
+  "lumber_mill:987654321": [
+    {
+      "count": 8,
+      "item": "plank",
+    },
+    {
+      "count": 2,
+      "item": "leather",
+    },
+    {
+      "count": 8,
+      "item": "cord",
+    },
+    {
+      "count": 3,
+      "item": "bronze_ingot",
+    },
+  ],
+  "near:1": [
+    {
+      "count": 6,
+      "item": "rubble",
+    },
+    {
+      "count": 1,
+      "item": "treasure_map",
+    },
+    {
+      "count": 1,
+      "durability": 64,
+      "item": "flint_shovel",
+    },
+    {
+      "count": 4,
+      "item": "coal",
+    },
+  ],
+  "near:12345": [
+    {
+      "count": 5,
+      "item": "coal",
+    },
+    {
+      "count": 6,
+      "item": "torch",
+    },
+    {
+      "count": 4,
+      "item": "charcoal",
+    },
+  ],
+  "near:7": [
+    {
+      "count": 8,
+      "item": "rubble",
+    },
+    {
+      "count": 2,
+      "item": "flint",
+    },
+    {
+      "count": 3,
+      "item": "copper_ore",
+    },
+  ],
+  "near:987654321": [
+    {
+      "count": 4,
+      "item": "rubble",
+    },
+    {
+      "count": 1,
+      "item": "pail",
+    },
+    {
+      "count": 3,
+      "item": "wheat_seeds",
+    },
+    {
+      "count": 3,
+      "item": "copper_ore",
+    },
+    {
+      "count": 3,
+      "item": "clay",
+    },
+  ],
+  "old_factory:1": [
+    {
+      "count": 5,
+      "item": "scrap_metal",
+    },
+    {
+      "count": 2,
+      "item": "bellows",
+    },
+    {
+      "count": 3,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 4,
+      "item": "coke",
+    },
+  ],
+  "old_factory:12345": [
+    {
+      "count": 5,
+      "item": "iron_ingot",
+    },
+    {
+      "count": 10,
+      "item": "item_pipe",
+    },
+    {
+      "count": 3,
+      "item": "iron_plate",
+    },
+  ],
+  "old_factory:7": [
+    {
+      "count": 6,
+      "item": "scrap_metal",
+    },
+    {
+      "count": 5,
+      "item": "coke",
+    },
+    {
+      "count": 1,
+      "item": "steel_plate",
+    },
+    {
+      "count": 3,
+      "item": "iron_ingot",
+    },
+  ],
+  "old_factory:987654321": [
+    {
+      "count": 3,
+      "item": "scrap_metal",
+    },
+    {
+      "count": 2,
+      "item": "iron_plate",
+    },
+    {
+      "count": 2,
+      "item": "steel_plate",
+    },
+    {
+      "count": 6,
+      "item": "firebrick",
+    },
+    {
+      "count": 6,
+      "item": "coke",
+    },
+  ],
+  "standing_circle:1": [
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 2,
+      "item": "treasure_map",
+    },
+  ],
+  "standing_circle:12345": [
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 4,
+      "item": "wildberries",
+    },
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+  ],
+  "standing_circle:7": [
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 1,
+      "item": "treasure_map",
+    },
+    {
+      "count": 2,
+      "item": "glass_vial",
+    },
+  ],
+  "standing_circle:987654321": [
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+    {
+      "count": 3,
+      "item": "cord",
+    },
+    {
+      "count": 1,
+      "item": "vis_rod",
+    },
+  ],
+}
+`;

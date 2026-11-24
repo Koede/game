@@ -20,3 +20,11 @@ describe('rarity', () => {
     expect(stick && itemRarity(stick)).toBe(0);
   });
 });
+
+describe('named rarity', () => {
+  it('a named legendary item glows gold even though its age is plain, and plain items stay plain', () => {
+    expect(itemRarity({ age: 0, key: 'orrins_spare_pick' })).toBe(4);
+    expect(itemRarity({ age: 0, key: 'scroll_margin' })).toBe(2);
+    expect(itemRarity({ age: 0, key: 'stick' })).toBe(0);
+  });
+});

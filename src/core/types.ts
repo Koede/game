@@ -901,20 +901,35 @@ export type ProjectileKind = 'ember_bolt';
 /** 'near': ruins on the surface close to spawn - modest help. 'deep': buried or far-flung ruins - richer finds. */
 export type LootTier = 'near' | 'deep';
 
+/** How special a find is (docs/plans/loot-and-containers.md): white, green, blue, gold. Data about an entry or an item, never a stack field. */
+export type LootRarity = 'common' | 'fine' | 'rare' | 'legendary';
+
 export interface LootEntry {
+  /** The item given. Empty ('') when the entry is a reference to another table (`table`). */
   item: string;
-  /** Count, or an inclusive [min, max] range. */
+  /** Count, or an inclusive [min, max] range. Ignored for a table reference (the table rolls itself once). */
   count: number | [number, number];
   /** Relative weight among the entries of its table (> 0). */
   weight: number;
+  /** Rarity of the entry (default 'common'). `luck` leans the weights toward the higher ones. */
+  rarity?: LootRarity;
+  /** Id of another table to roll in place of an item (nesting depth is limited to LOOT_MAX_DEPTH, cycles are rejected). */
+  table?: string;
 }
 
 export interface LootTableSpec {
+  /** Optional id for lookup by `lootTableById` and for nesting. */
+  id?: string;
   tier: LootTier;
   /** Number of weighted draws (with replacement), inclusive [min, max]. */
   rolls: [number, number];
   entries: LootEntry[];
+  /** Entries always given first, each exactly once (the table's themed item), before the weighted draws. */
+  guaranteed?: LootEntry[];
 }
+
+/** Tables may nest at most this many levels deep (the table being rolled is level 0). */
+export const LOOT_MAX_DEPTH = 3;
 
 // ---------------------------------------------------------------------------------------------
 // Weather and the moon (spec 15). Numbers live in src/core/constants.ts, lookups in src/core/weather.ts.

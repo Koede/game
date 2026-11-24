@@ -7,10 +7,11 @@
  * below the sea) are richer: metal, cable and the occasional thermopile - never anything past the Forge Age, so a
  * lucky find speeds the climb without skipping it (content tests hold both tables to that).
  */
-import type { LootTableSpec } from '../core/types';
+import type { ItemStack, LootRarity, LootTableSpec } from '../core/types';
 
 export const LOOT_TABLES: LootTableSpec[] = [
   {
+    id: 'ruin_near',
     tier: 'near',
     rolls: [3, 5],
     entries: [
@@ -32,6 +33,7 @@ export const LOOT_TABLES: LootTableSpec[] = [
     ],
   },
   {
+    id: 'ruin_deep',
     tier: 'deep',
     rolls: [3, 6],
     entries: [
@@ -57,3 +59,79 @@ export const LOOT_TABLES: LootTableSpec[] = [
     ],
   },
 ];
+
+/**
+ * Rarity of items that carry one (docs/plans/loot-and-containers.md). Data about the item, never a field of a stack: names and
+ * tooltips colour by it (white common, green fine, blue rare, gold legendary), and the ground-item beam honours it. Items not listed are common.
+ */
+export const ITEM_RARITY: Readonly<Record<string, LootRarity>> = {
+  orrins_spare_pick: 'legendary',
+  scroll_ledger: 'rare',
+  scroll_verses: 'rare',
+  scroll_margin: 'rare',
+};
+
+/**
+ * Hand-written finds: placed once per world in a particular container (never rolled twice), with a fixed story.
+ * `enchants` is the hook for the enchantment system (ItemStack.enchants, src/core/enchant.ts): when set it is attached to the stack
+ * `rollLoot` creates. Orrin's Spare Pick is to carry a fixed Veinseeker enchant - add it here (`enchants: { veinseeker: 1 }`), nowhere else.
+ */
+export interface NamedFind {
+  item: string;
+  /** Where it is placed (a loot table id). */
+  table: string;
+  /** Fixed enchantments (key to level) the stack comes with. */
+  enchants?: Record<string, number>;
+}
+export const NAMED_FINDS: readonly NamedFind[] = [
+  { item: 'orrins_spare_pick', table: 'tavern_vault' /* , enchants: { veinseeker: 1 } (the enchantment agent) */ },
+];
+
+/** A named find's fixed extras by item key (enchants), if any. */
+export function namedFindOf(item: string): NamedFind | undefined {
+  return NAMED_FINDS.find((f) => f.item === item);
+}
+
+/**
+ * Tables with ids that are not ruin tiers or structures (looked up by `lootTableById`, nestable by id). The tavern's two secret
+ * rooms (src/npcs/tavern.ts): the sealed closet upstairs and the vault under the yard. Everything stays within one age of Ember.
+ */
+export const NAMED_TABLES: LootTableSpec[] = [
+  {
+    id: 'tavern_closet', tier: 'near', rolls: [2, 3],
+    guaranteed: [
+      { item: 'scroll_margin', count: 1, weight: 1, rarity: 'rare' },
+      { item: 'bronze_axe', count: 1, weight: 1, rarity: 'fine' },
+    ],
+    entries: [
+      { item: 'torch', count: [2, 4], weight: 8 },
+      { item: 'bread', count: [1, 3], weight: 8 },
+      { item: 'glass_vial', count: [1, 2], weight: 6 },
+      { item: 'flint', count: [2, 4], weight: 6 },
+      { item: 'wheat_seeds', count: [2, 4], weight: 5 },
+    ],
+  },
+  {
+    id: 'tavern_vault', tier: 'near', rolls: [3, 4],
+    guaranteed: [
+      { item: 'orrins_spare_pick', count: 1, weight: 1, rarity: 'legendary' },
+      { item: 'scroll_ledger', count: 1, weight: 1, rarity: 'rare' },
+      { item: 'essentia_jar', count: 1, weight: 1, rarity: 'fine' },
+      { item: 'vial_cinder', count: 2, weight: 1, rarity: 'fine' },
+    ],
+    entries: [
+      { item: 'bronze_ingot', count: [2, 4], weight: 8 },
+      { item: 'coal', count: [4, 8], weight: 8 },
+      { item: 'torch', count: [3, 6], weight: 6 },
+      { item: 'glass_vial', count: [2, 4], weight: 6 },
+      { item: 'bread', count: [2, 4], weight: 6 },
+    ],
+  },
+];
+
+/** A stack's fixed extras from its named find, applied by `rollLoot`. */
+export function applyNamedFind(stack: ItemStack): ItemStack {
+  const f = namedFindOf(stack.item);
+  if (f?.enchants) stack.enchants = { ...f.enchants };
+  return stack;
+}

@@ -6,6 +6,7 @@
  * world, around the spawn point; old worlds are not touched. `layoutBlocks` is pure (tavern-local placements): testable without a world.
  */
 import { blockId } from '../core/registry';
+import { tableCrateEntity } from '../world/ruinCrates';
 import { Facing, makeVoxel, type IWorld } from '../core/types';
 
 export const TAVERN_W = 13;
@@ -30,6 +31,15 @@ export const FIRE_SPOTS: readonly (readonly [number, number, number])[] = [[11, 
  * bedroom), west bedroom first. The east bedroom opens with Rosa's first room upgrade.
  */
 export const GUEST_BEDS: readonly (readonly [number, number, number])[] = [[1.5, 6.5, 6.5], [11.5, 6.5, 6.5]];
+
+/**
+ * The two loot crates of the secret rooms (tavern-local cells, tables in src/content/loot.ts): the sealed closet between the bedrooms and the
+ * vault behind the cellar's false wall. They are entities placed once, when the tavern is built for a new world, and saved with it.
+ */
+export const TAVERN_CRATES: readonly { table: string; at: readonly [number, number, number] }[] = [
+  { table: 'tavern_closet', at: [6, 6, 7] },
+  { table: 'tavern_vault', at: [5, -BASEMENT_DEPTH + 1, 11] },
+];
 
 export interface Placement {
   x: number;
@@ -263,5 +273,6 @@ export function buildTavern(world: IWorld, ox: number, oy: number, oz: number): 
   for (const p of layoutBlocks()) {
     world.setVoxel(ox + p.x, oy + p.y, oz + p.z, makeVoxel(blockId(p.block), p.facing ?? Facing.North), 'sim');
   }
+  for (const c of TAVERN_CRATES) world.setEntity(tableCrateEntity(world.seed, ox + c.at[0], oy + c.at[1], oz + c.at[2], c.table));
   return true;
 }

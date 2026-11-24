@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE } from '../core/constants';
 import { mulberry32, seedFromString } from '../core/math';
-import { BLOCKS, STRUCTURE_LOOT, blockId, creature, item, rollLoot } from '../core/registry';
+import { BLOCKS, STRUCTURE_LOOT, blockId, creature, item, lootTableItems, rollLoot } from '../core/registry';
 import { CHUNK_SIZE, CHUNK_VOLUME, voxelIndex, voxelId } from '../core/types';
 import { chunkKey } from './chunk';
 import { ID } from './ids';
@@ -45,7 +45,7 @@ describe('the structure types', () => {
       expect(d.desc.length, d.key).toBeGreaterThan(30);
       const table = STRUCTURE_LOOT[d.key];
       expect(table, d.key).toBeDefined();
-      for (const e of table.entries) expect(item(e.item).age, `${d.key}: ${e.item}`).toBeLessThanOrEqual(d.age + 1);
+      for (const key of lootTableItems(table)) expect(item(key).age, `${d.key}: ${key}`).toBeLessThanOrEqual(d.age + 1);
       // The crate holds something every time, in stacks that fit.
       for (let n = 0; n < 50; n++) {
         const loot = rollLoot(table, mulberry32(n));

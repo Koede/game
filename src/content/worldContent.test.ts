@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE, NIGHT_LIGHT_FULL_MOON, NIGHT_LIGHT_NEW_MOON } from '../core/constants';
 import { mulberry32 } from '../core/math';
 import {
-  BLOCKS, CREATURES, ITEMS, LOOT_TABLES, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, block, fuelOf, item, lootTable, machine,
+  BLOCKS, CREATURES, ITEMS, LOOT_TABLES, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, block, fuelOf, item, lootTable, lootTableItems, machine,
   recipesFor, rollLoot,
 } from '../core/registry';
 import { ALL_BIOMES, type LootTableSpec } from '../core/types';
@@ -131,7 +131,8 @@ describe('14. Old Works loot', () => {
   it('has a near and a deep table that never reach past their age', () => {
     expect(LOOT_TABLES.map((t) => t.tier).sort()).toEqual(['deep', 'near']);
     for (const t of LOOT_TABLES) {
-      for (const e of t.entries) expect(item(e.item).age, `${t.tier}: ${e.item}`).toBeLessThanOrEqual(WORLD_SPEC.lootMaxAge[t.tier]);
+      // Nested tables and guaranteed entries count too.
+      for (const key of lootTableItems(t)) expect(item(key).age, `${t.tier}: ${key}`).toBeLessThanOrEqual(WORLD_SPEC.lootMaxAge[t.tier]);
     }
     // The spec's examples: buckets and flint tools near, iron, a thermopile and cable deep.
     const near = lootTable('near').entries.map((e) => e.item);

@@ -102,6 +102,12 @@ const TOOLS: ItemSpec[] = [
       'Digs faster and lasts three times as long as flint.',
     ],
   }),
+  // A named find (src/content/loot.ts NAMED_FINDS): a bronze pickaxe with a story, a little tougher than the common one. Ember and Bronze materials only.
+  {
+    key: 'orrins_spare_pick', name: "Orrin's Spare Pick",
+    desc: "The pick Orrin hid behind the brick for the day his own broke. Bronze, but cast with care and kept dry for years.",
+    icon: 'item_bronze_pickaxe', category: 'tool', age: 0, tool: { kind: 'pickaxe', tier: 2, speed: 3, durability: 256 },
+  },
   ...toolSet({
     material: 'iron', name: 'Iron', tier: 3, speed: 4.5, durability: 384, age: 2,
     desc: [

@@ -10,7 +10,7 @@ export { OBJECTIVES } from './objectives';
 export { ORE_VEINS } from './oreVeins';
 export { CREATURE_SPECS } from './creatures';
 export { AUTOMATON_SPECS } from './automatons';
-export { LOOT_TABLES } from './loot';
+export { ITEM_RARITY, LOOT_TABLES, NAMED_FINDS, NAMED_TABLES, applyNamedFind, namedFindOf, type NamedFind } from './loot';
 export { STRUCTURE_LOOT } from './lootStructures';
 export { FLUID_SPECS } from './fluids';
 export { MOULD_SPECS, CAST_METAL_SPECS } from './mouldsHand';

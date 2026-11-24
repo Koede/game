@@ -3,6 +3,7 @@
  * metals and machine parts read as treasure from across a base while sticks and pebbles stay plain.
  * Pure data, no GL: the ground-item renderer turns the colour into a glow and a light beam.
  */
+import { rarityOf } from '../core/registry';
 import type { ItemDef } from '../core/types';
 
 export type Rarity = 0 | 1 | 2 | 3 | 4;
@@ -22,7 +23,11 @@ export function rarityOfAge(age: number): Rarity {
 }
 
 /** Heavy gear is a step rarer than materials of the same age; the result never exceeds legendary. */
-export function itemRarity(def: Pick<ItemDef, 'age' | 'weapon' | 'armour'>): Rarity {
+const NAMED_RARITY = { common: 0, fine: 1, rare: 2, legendary: 4 } as const;
+
+/** A named item's own rarity (src/content/loot.ts ITEM_RARITY) wins when it is higher than what its age gives. */
+export function itemRarity(def: Pick<ItemDef, 'age' | 'weapon' | 'armour'> & { key?: string }): Rarity {
   const bump = (def.weapon || def.armour) && def.age >= 1 ? 1 : 0;
-  return Math.min(4, rarityOfAge(def.age) + bump) as Rarity;
+  const named = def.key ? NAMED_RARITY[rarityOf(def.key)] : 0;
+  return Math.max(named, Math.min(4, rarityOfAge(def.age) + bump)) as Rarity;
 }

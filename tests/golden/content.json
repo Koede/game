@@ -301,6 +301,7 @@
     "bronze_pickaxe": {"age":0,"category":"tool","key":"bronze_pickaxe","tool":{"durability":192,"kind":"pickaxe","speed":3,"tier":2}},
     "bronze_axe": {"age":0,"category":"tool","key":"bronze_axe","tool":{"durability":192,"kind":"axe","speed":3,"tier":2}},
     "bronze_shovel": {"age":0,"category":"tool","key":"bronze_shovel","tool":{"durability":192,"kind":"shovel","speed":3,"tier":2}},
+    "orrins_spare_pick": {"age":0,"category":"tool","key":"orrins_spare_pick","tool":{"durability":256,"kind":"pickaxe","speed":3,"tier":2}},
     "iron_pickaxe": {"age":2,"category":"tool","key":"iron_pickaxe","tool":{"durability":384,"kind":"pickaxe","speed":4.5,"tier":3}},
     "iron_axe": {"age":2,"category":"tool","key":"iron_axe","tool":{"durability":384,"kind":"axe","speed":4.5,"tier":3}},
     "iron_shovel": {"age":2,"category":"tool","key":"iron_shovel","tool":{"durability":384,"kind":"shovel","speed":4.5,"tier":3}},

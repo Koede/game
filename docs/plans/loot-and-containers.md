@@ -42,6 +42,12 @@ Cut for the first pass: pity counters, loot log and curses (bookkeeping, not pla
 4. Mob and fishing tables.
 5. Named finds.
 
+## Shipped (phases 1-3)
+
+Rarity, nested named tables, `guaranteed`, `lootTableById` and `rollLoot` v2 with optional `luck` (old tables roll identically, snapshot test); rarity colours on tooltips and slots and
+named-item ground beams (`rarityOf`); the tavern closet and vault crates (`tavern_closet`, `tavern_vault`) with Orrin's Spare Pick (`NAMED_FINDS` hook for its enchant). See docs/api/loot.md.
+Left: mob and fishing tables, the other named finds, locked crates.
+
 ## Tests
 
 Deterministic per seed; every entry respects its age cap; nesting depth and cycles are rejected; tavern crates exist at their cells and the
