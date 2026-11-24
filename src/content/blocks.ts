@@ -120,6 +120,14 @@ const LEGACY_BLOCKS: BlockSpec[] = [
     hardness: 2, tool: 'axe', textures: { side: 'oak_log_side', top: 'log_top' },
   },
   {
+    key: 'oak_stump', name: 'Oak Stump', desc: 'What is left of a felled oak: a ring of old wood. Chop it for a stick or two.',
+    hardness: 2.5, tool: 'axe', drops: [{ item: 'stick', count: [1, 2] }], textures: { side: 'oak_log_side', top: 'log_top' },
+  },
+  {
+    key: 'pine_stump', name: 'Pine Stump', desc: 'A resinous stump of a felled pine. Chop it for a stick or two.',
+    hardness: 2.5, tool: 'axe', drops: [{ item: 'stick', count: [1, 2] }], textures: { side: 'pine_log_side', top: 'log_top' },
+  },
+  {
     key: 'oak_leaves', name: 'Oak Leaves', desc: 'Broad green leaves. Stripping them yields fiber and the odd stick.',
     hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'oak_leaves' },
   },

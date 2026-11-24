@@ -9,7 +9,7 @@
 import type { GameBus } from '../core/context';
 import { FLAG_FELLED_TREE } from '../core/constants';
 import { block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, Face, type BlockDef, type IWorld, type ItemAmount, type Slot } from '../core/types';
+import { AIR, Face, makeVoxel, Facing, type BlockDef, type IWorld, type ItemAmount, type Slot } from '../core/types';
 import type { RayHit } from '../player/raycast';
 import { exertMining } from './hunger';
 import { rollDrops } from './mining';
@@ -377,7 +377,9 @@ export class FallingTrees {
   /** The warning is over: the trunk and crown leave the world and become the falling body. */
   private release(tree: FallingTree): void {
     tree.phase = 'falling';
-    this.world.setVoxel(tree.base.x, tree.base.y, tree.base.z, AIR, 'player');
+    // The stump is left behind: the base log becomes a stump block (it is not in the way of the fall; see stumpAt).
+    const stump = blockByKey(tree.logKey.replace(/_log$/, '_stump'));
+    this.world.setVoxel(tree.base.x, tree.base.y, tree.base.z, makeVoxel(stump.id, Facing.North), 'player');
     for (const c of tree.trunk) this.world.setVoxel(c.x, c.y, c.z, AIR, 'player');
     for (const c of tree.leaves) this.world.setVoxel(c.x, c.y, c.z, AIR, 'player');
     this.bus.emit('sfx', { name: 'tree_fall', x: tree.base.x + 0.5, y: tree.base.y + 0.5, z: tree.base.z + 0.5 });
@@ -435,8 +437,13 @@ export class FallingTrees {
     else this.bus.emit('sfx', { name: 'dig_wood', x: t.x, y: t.y, z: t.z, volume: 0.3 });
   }
 
+  /** The falling trees' own stumps are not an obstacle to their fall. */
+  private stumpAt(x: number, y: number, z: number): boolean {
+    return this.active.some((t) => t.phase === 'falling' && t.base.x === x && t.base.y === y && t.base.z === z);
+  }
+
   private terrain(): Terrain {
-    return { solidAt: (x, y, z) => this.world.getBlock(x, y, z).solid === true };
+    return { solidAt: (x, y, z) => !this.stumpAt(x, y, z) && this.world.getBlock(x, y, z).solid === true };
   }
 }
 

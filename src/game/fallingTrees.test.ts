@@ -49,6 +49,8 @@ describe('felling a tree with an axe', () => {
     for (let n = 0; n < 60 * 20 && t.trees.trees().length > 0; n++) t.trees.tick(1 / 60);
     expect(t.trees.trees()).toHaveLength(0);
     expect(t.trees.logs()).toHaveLength(1);
+    // The base log is left as a stump block, which a chop gives sticks from.
+    expect(t.world.getBlock(0, 10, 0).key).toBe('oak_stump');
     // Four trunk logs above the stump (the base log is the stump); no crown in this grove.
     expect(t.trees.logs()[0].length).toBe(4);
     expect(t.flags).toContain(FLAG_FELLED_TREE);

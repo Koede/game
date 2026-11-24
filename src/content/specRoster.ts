@@ -420,6 +420,8 @@ SPEC.items.push(...WORKSHOP_SPEC.items);
 for (const station of Object.keys(WORKSHOP_SPEC.recipes)) SPEC.recipes[station] = [...(SPEC.recipes[station] ?? []), ...WORKSHOP_SPEC.recipes[station]];
 SPEC.maxTextures += WORKSHOP_SPEC.textures;
 SPEC.worldOnlyItems.push(...WORKSHOP_SPEC.worldOnly);
+// Felled trees leave a stump block (game/fallingTrees.ts): it only exists in the world, and its textures are the log's.
+SPEC.worldOnlyItems.push('oak_stump', 'pine_stump');
 
 // Glassware (vials and beakers on the furnace top) comes after the workshop.
 SPEC.blocks.push(...GLASS_SPEC.blocks);
