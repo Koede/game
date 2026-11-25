@@ -76,7 +76,10 @@ FACE = {
 
 # Regions of a generated sprite to paint over from their surroundings before the face goes on (x0, y0, x1, y1): the sunglasses resting on
 # Veyra's head in the swim concept (she keeps the reading glasses of her day face).
-CLEAN = {('veyra', 'swim'): (400, 40, 545, 108)}
+CLEAN = {}  # e.g. {('veyra', 'swim'): (400, 40, 545, 108)} would paint the sunglasses off her head (not used: she wears them there)
+# Faces transplanted without the day sprite's glasses (the gold rims are painted out of the day face first): Veyra's swim sprite wears her
+# glasses pushed up on her head instead, as in the concept.
+NO_GLASSES = {('veyra', 'swim')}
 
 
 def clean(cid, outfit, img):
@@ -141,6 +144,14 @@ def transplant(cid, outfit, gen):
 
     day = np.array(Image.open(os.path.join(ROOT, f'{cid}.jpg')).convert('RGB')).astype(np.float32)
     (dl, dr), (gl, gr) = EYES[cid]['day'], EYES[cid][outfit]
+    if (cid, outfit) in NO_GLASSES:
+        rim = ((day[..., 0] - day[..., 2] > 25) & (day[..., 1] > day[..., 2] + 5) & (day[..., 0] > 100)).astype(np.uint8)
+        rim[:, :400] = 0
+        rim[:, 570:] = 0
+        rim[:90] = 0
+        rim[175:] = 0
+        rim = cv2.dilate(rim, np.ones((7, 7), np.uint8))
+        day = cv2.inpaint(day.astype(np.uint8), rim, 4, cv2.INPAINT_TELEA).astype(np.float32)
     dl, dr, gl, gr = (np.array(p, np.float32) for p in (dl, dr, gl, gr))
     d_day = np.linalg.norm(dr - dl)
     k = np.linalg.norm(gr - gl) / d_day
