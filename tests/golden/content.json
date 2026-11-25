@@ -240,7 +240,7 @@
     "rivet_plate_block": {"category":"block","hardness":4,"key":"rivet_plate_block","minTier":1,"tool":"pickaxe"},
     "brake": {"age":1,"category":"machine","hardness":1.2,"key":"brake","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "pillow_block": {"age":1,"category":"machine","hardness":1.2,"key":"pillow_block","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
-    "wool_bedding": {"category":"block","hardness":0.8,"key":"wool_bedding","shape":"slab","tool":"axe","warmth":1},
+    "wool_bedding": {"category":"block","hardness":0.8,"key":"wool_bedding","oriented":true,"shape":"slab","tool":"axe","warmth":1},
     "cam_drum": {"age":1,"category":"machine","hardness":1.2,"key":"cam_drum","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "logic_gate": {"age":1,"category":"machine","hardness":1.2,"key":"logic_gate","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "research_table": {"age":0,"category":"machine","hardness":1,"key":"research_table","minTier":0,"tool":"axe"},

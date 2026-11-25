@@ -184,10 +184,11 @@ function upstairs(put: Put, W: number, D: number): void {
   box(put, 5, 6, 6, 7, 9, 7, 'plank');
   // The hole in the floor over the upper part of the stair (z 2-4), so there is head room to climb it.
   box(put, 1, TAVERN_H, 2, 1, TAVERN_H, 4, 'air');
-  // Bedroom west: two pallets along the wall, a chest and a nightstand with a torch on each; bedroom east the same.
+  // Bedroom west: two beds with their headboards on the west wall, a chest and a nightstand with a torch on each; bedroom east
+  // the same, headboards on the east wall (the beds are single cells drawn by src/world/bedModel.ts).
   for (const z of [6, 7]) {
-    put(1, 6, z, 'wool_bedding');
-    put(W - 1, 6, z, 'wool_bedding');
+    put(1, 6, z, 'wool_bedding', Facing.East);
+    put(W - 1, 6, z, 'wool_bedding', Facing.West);
   }
   for (const [x, z] of [[2, 7], [4, 7], [10, 7], [8, 7]] as const) {
     put(x, 6, z, 'crate');

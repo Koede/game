@@ -7,6 +7,8 @@ import { icon } from '../shapes';
 const GLASS = [P.rgb(0x5d7c88), P.rgb(0x86a9b6), P.rgb(0xaed0db), P.rgb(0xd2eaf0), P.rgb(0xf2fbfd)];
 const MILK = [P.rgb(0xb9b2a0), P.rgb(0xd7d1c0), P.rgb(0xece7d8), P.rgb(0xf8f4ea), P.rgb(0xffffff)];
 const WOOL = [P.rgb(0x8f8672), P.rgb(0xb4ab95), P.rgb(0xd3cab5), P.rgb(0xe8e1cf), P.rgb(0xf7f2e4)];
+const PILLOW = [P.rgb(0xb9b2a0), P.rgb(0xd7d1c0), P.rgb(0xe9e4d6), P.rgb(0xf4f0e6), P.rgb(0xfffdf6)];
+const BLANKET = [P.rgb(0x5e1f1d), P.rgb(0x7d2a26), P.rgb(0x9a3b32), P.rgb(0xb4503f), P.rgb(0xcc6a55)];
 const CHEESE = [P.rgb(0xa9843a), P.rgb(0xcfa84e), P.rgb(0xe9c56a), P.rgb(0xf6dc8c), P.rgb(0xfff0b0)];
 const BUTTER = [P.rgb(0xc9a02a), P.rgb(0xe8bf3c), P.rgb(0xf5d864), P.rgb(0xfbe98e), P.rgb(0xfff6c0)];
 const TEA = [P.rgb(0x8a7a52), P.rgb(0xb09f72), P.rgb(0xd0c096), P.rgb(0xe0d2ac), P.rgb(0xf0e6c6)];
@@ -85,17 +87,45 @@ function cup(c: Canvas, liquid: readonly P.RGB[]): void {
   c.set(9, 3, MILK[2]);
 }
 
+/** The bed's inventory and break-particle tile, seen from above: a cream pillow at the top, a red blanket, a plank border. */
 function beddingTile(c: Canvas): void {
-  const n = c.noise(4, 4, 11);
-  c.each((x, y) => shade(WOOL[2], (n(x, y) - 0.5) * 0.18 + (c.hash(x, y, 3) - 0.5) * 0.1));
-  c.rect(0, 0, 16, 2, P.WOOD[2]);
-  c.rect(0, 14, 16, 2, P.WOOD[1]);
-  c.rect(0, 0, 2, 16, P.WOOD[2]);
-  c.rect(14, 0, 2, 16, P.WOOD[1]);
-  for (let y = 4; y < 14; y += 4) c.line(3, y, 12, y, WOOL[1]);
+  c.each((x, y) => {
+    if (x < 1 || x > 14 || y > 14) return shade(P.WOOD[1], (c.hash(x, y, 4) - 0.5) * 0.14);
+    if (y < 5) return shade(PILLOW[3], (c.hash(x, y, 5) - 0.5) * 0.08);
+    if (y === 5) return shade(BLANKET[1], -0.2);
+    return shade(BLANKET[2], (c.hash(x, y, 6) - 0.5) * 0.1 + (x % 4 === 0 ? 0.06 : 0));
+  });
+}
+
+/** The bed's model materials (src/world/bedModel.ts): planks for the frame, a cream ticking mattress, a red blanket, a linen pillow. */
+function bedFrame(c: Canvas): void {
+  c.each((x, y) => shade(P.WOOD[2], (c.hash(x, 0, 41) - 0.5) * 0.3 + (c.hash(x, y, 42) - 0.5) * 0.08 + (y % 8 === 3 ? -0.08 : 0)));
+}
+function bedMattress(c: Canvas): void {
+  c.each((x, y) => {
+    const base = x % 4 < 2 ? P.rgb(0xc4bca4) : P.rgb(0xe8e2cf);
+    return shade(base, (c.hash(x, y, 51) - 0.5) * 0.07 + (y === 0 ? -0.1 : 0));
+  });
+}
+function bedBlanket(c: Canvas): void {
+  c.each((x, y) => {
+    const base = x % 4 === 0 ? P.rgb(0xb4503f) : P.rgb(0x9a3b32);
+    const edge = y < 1 || y > 14 ? -0.14 : 0;
+    return shade(base, edge + (c.hash(x, y, 61) - 0.5) * 0.08);
+  });
+}
+function bedPillow(c: Canvas): void {
+  c.each((x, y) => {
+    const d = Math.hypot((x - 7.5) / 7, (y - 7.5) / 6);
+    return shade(d < 0.7 ? PILLOW[3] : PILLOW[2], -0.22 * Math.max(0, d - 0.7) + (c.hash(x, y, 71) - 0.5) * 0.05 - (y === 15 ? 0.14 : 0));
+  });
 }
 
 export default {
+  bed_frame: bedFrame,
+  bed_mattress: bedMattress,
+  bed_blanket: bedBlanket,
+  bed_pillow: bedPillow,
   item_milk_pail: icon(pailOfMilk),
   item_milk_beaker: icon(beakerOfMilk),
   item_wool: icon(wool),

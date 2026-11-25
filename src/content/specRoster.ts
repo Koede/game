@@ -409,6 +409,8 @@ SPEC.maxTextures += 2;
 SPEC.maxTextures += 2;
 // The jukebox model's materials (src/world/jukeboxModel.ts): wood, chrome, brass, grille, window (+on), panel, bubble (+on).
 SPEC.maxTextures += 9;
+// The wool bedding model's materials (src/world/bedModel.ts): bed_frame, bed_mattress, bed_blanket, bed_pillow.
+SPEC.maxTextures += 4;
 // The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
 SPEC.maxTextures += 2;
 // The Belt Pouch icon (src/content/itemsHand.ts): one item texture, painted as a placeholder tile until it has art.

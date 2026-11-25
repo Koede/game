@@ -20,6 +20,7 @@
  *              part-and-track system (src/render/parts) and reads it through `miniParts`
  */
 import type { Facing } from '../core/types';
+import { BED_MODEL } from './bedModel';
 import { JUKEBOX_MODEL } from './jukeboxModel';
 
 export type V3 = readonly [number, number, number];
@@ -69,6 +70,8 @@ export function vessel(min: number, max: number, floor: number, h: number, wall:
 export const MINI_MODELS: Record<string, MiniModel> = {
   // The tavern jukebox: a 1940s arched cabinet (jukeboxModel.ts).
   jukebox: JUKEBOX_MODEL,
+  // The wool bedding: a single-cell bed with legs, frame, mattress, folded blanket and pillow (bedModel.ts).
+  wool_bedding: BED_MODEL,
   // The fired pot with a spout: foot, round belly, shoulder, a neck ring round the open top, a tilted spout and a loop handle.
   alloy_pot: {
     boxes: [

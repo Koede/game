@@ -42,6 +42,9 @@ function concrete(c: Canvas): void {
   // Formwork seam and the plugged holes of the form ties.
   for (let x = 0; x < 16; x++) c.set(x, 7, c.hash(x, 7, 3) < 0.8 ? shade(k[2], 0.12) : k[1]);
   for (let x = 0; x < 16; x++) c.set(x, 8, shade(k[1], -0.05));
+  // Aggregate: pale chips and dark pits across the face, so the grey is not a flat sheet.
+  for (const [x, y] of c.scatter(9, 6)) c.wset(x, y, k[4]);
+  for (const [x, y] of c.scatter(9, 9)) c.wset(x, y, k[0]);
   for (const x of [3, 11]) {
     c.set(x, 3, k[0]);
     c.set(x + 1, 4, k[3]);

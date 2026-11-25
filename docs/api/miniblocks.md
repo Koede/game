@@ -30,6 +30,10 @@ By default a face samples the block's own tile at the face's position in the cel
 
 ## Converted so far
 `alloy_pot` (the clay pot): foot, belly, shoulder, neck ring round the open top, a tilted spout, a looped handle.
+`jukebox` (src/world/jukeboxModel.ts): the arched cabinet, with emissive glass and bubble tubes while playing.
+`wool_bedding` (src/world/bedModel.ts): a single-cell bed, four legs, plank frame, footboard, headboard, mattress, a folded blanket and a
+pillow. It is `oriented`, so it faces the player when placed (headboard away). A two-cell bed (head and foot cells) was not built:
+it needs paired placement and removal in the world edit path, so the bed stays one cell.
 
 ## Not yet
 Held-item / inventory-icon drawing from the same model, collision boxes beyond the whole cell, the moving-part renderer for

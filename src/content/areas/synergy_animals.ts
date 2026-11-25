@@ -37,7 +37,8 @@ export default {
     milky('milk_coffee', 'Milk Coffee', 'Ground coffee stirred with goat milk in a cup: fills you up and keeps you well fed for two minutes.'),
   ],
   blocks: [
-    { key: 'wool_bedding', name: 'Wool Bedding', desc: 'A low pallet of wool and boards. Warm to stand beside, soft to look at.', shape: 'slab', hardness: 0.8, tool: 'axe', warmth: 1, category: 'block', textures: { all: 'wool_bedding' } },
+    // Drawn as a single-cell bed by the miniblock model in src/world/bedModel.ts; its materials are listed here for the atlas.
+    { key: 'wool_bedding', name: 'Wool Bedding', desc: 'A low bed of boards and wool: a plank frame, a cream mattress, a red blanket folded at the foot and a pillow. Warm to lie beside, soft to look at.', shape: 'slab', hardness: 0.8, tool: 'axe', warmth: 1, category: 'block', oriented: true, textures: { all: 'wool_bedding', models:['bed_frame', 'bed_mattress', 'bed_blanket', 'bed_pillow'] } },
   ],
   recipes: [
     bench('shears', '1 shears', '2 bronze_plate, 1 stick, 1 cord'),

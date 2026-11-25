@@ -245,10 +245,15 @@ export const MAGIC_TEXTURES: PainterSet = {
   magic_desk_top: deskTop,
   magic_crucible_side: (c) => {
     c.rect(0, 0, 16, 16, P.rgb(0x3a3438));
-    c.rect(0, 0, 16, 2, P.rgb(0x5a5258));
+    c.rect(0, 0, 16, 2, P.rgb(0x6a6066));
     c.rect(0, 14, 16, 2, P.rgb(0x241f22));
-    c.rect(3, 5, 10, 6, P.rgb(0x4a4045));
+    c.rect(0, 0, 1, 16, P.rgb(0x4a4246));
+    c.rect(3, 5, 10, 6, P.rgb(0x5e5058));
+    c.rect(3, 5, 10, 1, P.rgb(0x7a6a72));
+    // Iron rivets at the corners of the rim.
+    for (const [x, y] of [[2, 3], [13, 3], [2, 12], [13, 12]]) c.set(x, y, P.rgb(0x9a9098));
     c.rect(5, 6, 6, 1, P.rgb(0x8a63c8));
+    c.set(7, 7, P.rgb(0xc8a8f0));
   },
   magic_crucible_top: (c) => {
     c.rect(0, 0, 16, 16, P.rgb(0x5a5258));

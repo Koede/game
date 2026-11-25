@@ -4,7 +4,7 @@ import * as P from '../palette';
 import { shade } from '../palette';
 import { icon } from '../shapes';
 
-const COLORS: Record<string, number> = { red: 0xb83a32, yellow: 0xd8b43a, blue: 0x3a64b8, green: 0x3f8f45, black: 0x2a2a2e, white: 0xeeeae0 };
+const COLORS: Record<string, number> = { red: 0xb83a32, yellow: 0xd8b43a, blue: 0x3a64b8, green: 0x3f8f45, black: 0x3e3e4a, white: 0xeeeae0 };
 
 function dyeIcon(color: number): (c: Canvas) => void {
   const base = P.rgb(color);
@@ -23,6 +23,8 @@ function stained(color: number): (c: Canvas) => void {
     const n = c.noise(4, 4, 7);
     c.each((x, y) => shade(base, (n(x, y) - 0.5) * 0.14 + (c.hash(x, y, 2) - 0.5) * 0.06));
     for (const y of [0, 5, 10, 15]) c.line(0, y, 15, y, shade(base, -0.28));
+    // A lit lip under each seam, so the boards read as separate planks at a glance.
+    for (const y of [1, 6, 11]) c.line(0, y, 15, y, shade(base, 0.12));
     for (const [x, y] of [[4, 2], [11, 7], [6, 12]]) c.rect(x, y, 1, 1, shade(base, -0.2));
   };
 }
