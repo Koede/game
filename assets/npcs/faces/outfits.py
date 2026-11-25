@@ -74,6 +74,67 @@ FACE = {
 }
 
 
+# Regions of a generated sprite to paint over from their surroundings before the face goes on (x0, y0, x1, y1): the sunglasses resting on
+# Veyra's head in the swim concept (she keeps the reading glasses of her day face).
+CLEAN = {('veyra', 'swim'): (400, 40, 545, 108)}
+
+
+def clean(cid, outfit, img):
+    """Removes a prop lying on the hair: inside the box, every pixel of the head that is not hair is repainted with the hair texture from
+    further down the same columns (so the strands and shading carry on), then the head's dark outline is drawn back along the silhouette."""
+    import cv2
+
+    box = CLEAN.get((cid, outfit))
+    if not box:
+        return img
+    x0, y0, x1, y1 = box
+    out = img.copy()
+    a = img.astype(int)
+    hair = (a.max(axis=2) < 110) & (a[..., 2] >= a[..., 0])
+    bg = np.abs(a - np.array(GREY)).sum(axis=2) < 30
+    fg = ~bg
+    # the prop is a pair of round glasses: find the gold rims, fit a disc to each lens, and take the discs and the bridge
+    gold = (a[..., 0] > 160) & (a[..., 1] > 110) & (a[..., 2] < 110) & (a[..., 0] - a[..., 2] > 80)
+    gy, gx = np.where(gold[y0:y1, x0:x1])
+    gy, gx = gy + y0, gx + x0
+    mid = (gx.min() + gx.max()) / 2
+    prop = np.zeros(hair.shape, np.uint8)
+    centres = []
+    for side in (gx < mid, gx >= mid):
+        cx, cy = gx[side].mean(), gy[side].mean()
+        r = np.hypot(gx[side] - cx, gy[side] - cy).max()
+        cv2.circle(prop, (int(round(cx)), int(round(cy))), int(r) + 6, 1, -1)
+        centres.append((int(round(cx)), int(round(cy))))
+    cv2.line(prop, centres[0], centres[1], 1, 8)
+    shiny = np.zeros(hair.shape, np.uint8)  # any gold rim or white glint left in the box goes too
+    shiny[y0:y1, x0:x1] = (gold | (a.min(axis=2) > 150))[y0:y1, x0:x1]
+    prop = (prop.astype(bool) | cv2.dilate(shiny, np.ones((7, 7), np.uint8)).astype(bool)) & fg
+    dy = y1 - y0
+    ys, xs = np.where(prop)
+    w = img.shape[1]
+    # where to borrow hair from: straight below (a box height or two down), else sideways along the same row, clear of the glasses
+    offsets = [(dy, 0), (2 * dy, 0), (0, -60), (0, 60), (0, -90), (0, 90)] + [(oy, ox) for oy in (10, 20, 30, 45) for ox in (-35, 35, -50, 50, -70, 70)]
+    left = np.zeros(hair.shape, np.uint8)
+    for y, x in zip(ys, xs):
+        for oy, ox in offsets:
+            sy, sx = y + oy, x + ox
+            if 0 <= sy < img.shape[0] and 0 <= sx < w and hair[sy, sx] and not prop[sy, sx]:
+                out[y, x] = img[sy, sx]
+                break
+        else:
+            left[y, x] = 1
+    if left.any():  # whatever found no hair to borrow is filled in from its neighbours
+        out = cv2.inpaint(out, left, 3, cv2.INPAINT_TELEA)
+    # the outline: head pixels next to the background become the darkest hair colour
+    dark = np.percentile(a[hair][:, :3], 3, axis=0).astype(np.uint8)
+    outside = (a == np.array(GREY)).all(axis=2)  # the background the flatten step set (connected to the border)
+    edge = ~outside & cv2.dilate(outside.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    sel = np.zeros(hair.shape, bool)
+    sel[y0:y1, x0:x1] = edge[y0:y1, x0:x1]
+    out[sel] = dark
+    return out
+
+
 def transplant(cid, outfit, gen):
     """The day sprite's face, eye-aligned, tone-matched and feathered, over the generated face."""
     import cv2
@@ -116,7 +177,7 @@ def main(ids):
             flat = flatten(src)
             if (cid, outfit) in FLIP:
                 flat = flat[:, ::-1].copy()
-            flat = transplant(cid, outfit, flat)
+            flat = transplant(cid, outfit, clean(cid, outfit, flat))
             Image.fromarray(flat).save(os.path.join(ROOT, f'{cid}_{outfit}.jpg'), quality=95, subsampling=0)
             print(cid, outfit, 'saved')
 
