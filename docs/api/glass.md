@@ -10,6 +10,15 @@ Every piece of glassware is a block of shape `glass` (src/core/types.ts `BlockSh
 - The chemistry pieces (`CHEM` in src/core/distill.ts) each have their own model. Their `_done` twins share the plain piece's model.
 - The furnace-top glass (`furnace_beaker`, `furnace_vial`, the sap and resin forms) uses the `beaker` and `vial` models.
 
+## Curves
+
+Glassware stays blocky, in keeping with the voxel style: flasks, columns, jars, funnels, caps, beakers, tubes and joints are all
+boxes. The one curved shape is the condenser coil: a model's optional `coil` is a helix tube (`helixTube` in
+`src/world/meshPrimitives.ts`) winding round its glass rod, between its brass end caps. The tube is a circle swept along the
+helix, about 3 quads per step and 6 sides round (about 144 quads for three turns). The coil's own vertices stay inside the cell,
+and the whole coil piece is held under a vertex budget in `meshGlass.test.ts`. The helix is not a liquid vessel, so
+`liquidProfile.ts` does not follow it.
+
 ## Joining
 
 Each model names its `ports`: the faces where it can join another piece (a flask has a port down for its burner plate, up for a
@@ -24,4 +33,6 @@ line up. The tube is 4/16 wide (`TUBE_HALF`) and the flange 6/16 (`FLANGE_HALF`)
 2. Add a model (boxes and `ports`) to `GLASS_MODELS` under its key, and map any extra keys (done twins, boiling forms) in `MODEL_OF_KEY`.
 3. `npm run ids:sync` and `npm run golden:update`.
 
-`src/world/meshGlass.test.ts` checks that every glass-shaped block has a model, every model fits its cell, and arms join glass only.
+`src/world/meshGlass.test.ts` checks that every glass-shaped block has a model, every model fits its cell, arms join glass only, and
+the coil and each piece stay under the vertex budget. `src/world/meshPrimitives.test.ts` checks the helix tube's counts, bounds
+and outward faces.

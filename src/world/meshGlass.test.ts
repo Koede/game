@@ -3,7 +3,10 @@ import { CHEM, DONE_SUFFIX } from '../core/distill';
 import { blockId, BLOCKS } from '../core/registry';
 import { makeVoxel, type MeshBatch } from '../core/types';
 import { GLASS_JOINS, GLASS_MODEL, SHAPE, SHAPE_GLASS } from './blockTables';
+import { glass } from './meshGlass';
 import { GLASS_MODEL_NAMES, GLASS_MODELS, glassModelIndex, glassModelName } from './glassModels';
+import { LIGHT_VOLUME } from './lighting';
+import { Builder, lit } from './meshQuads';
 import { meshChunk } from './mesher';
 import { emptyNeighborhood, put } from './testUtil';
 
@@ -81,7 +84,32 @@ describe('glassware models', () => {
   });
 
   it('gives the pieces different shapes (no two models share a body)', () => {
-    const bodies = Object.values(GLASS_MODELS).map((m) => JSON.stringify([m.body, m.metal ?? []]));
+    const bodies = Object.values(GLASS_MODELS).map((m) => JSON.stringify([m.body, m.metal ?? [], m.coil ?? null]));
     expect(new Set(bodies).size).toBe(bodies.length);
+  });
+
+  it('the condenser coil is a helix tube inside its cell, with a vertex budget per piece', () => {
+    const model = GLASS_MODELS.condenser_coil;
+    expect(model.coil).toBeDefined();
+    const alone = meshOf([[5, 40, 5, CHEM.condenser]]);
+    // The whole piece (rod, caps and coil) stays under a phone budget.
+    expect(alone.positions.length / 3).toBeLessThanOrEqual(900);
+    const b = new Builder();
+    lit.light = new Uint8Array(LIGHT_VOLUME);
+    glass(b, 0, GLASS_MODEL_NAMES.indexOf('condenser_coil') + 1, 0, 0, 0, 0);
+    expect(b.verts).toBeGreaterThan(0);
+    for (let i = 0; i < b.verts; i++) {
+      for (let a = 0; a < 3; a++) {
+        expect(b.positions[i * 3 + a]).toBeGreaterThanOrEqual(0);
+        expect(b.positions[i * 3 + a]).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('every piece stays under a per-piece vertex budget', () => {
+    for (const key of Object.values(CHEM)) {
+      const mesh = meshOf([[5, 40, 5, key]]);
+      expect(mesh.positions.length / 3, key).toBeLessThanOrEqual(900);
+    }
   });
 });

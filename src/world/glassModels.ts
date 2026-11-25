@@ -26,6 +26,8 @@ export interface GlassModel {
   readonly metal?: readonly Box[];
   /** The status lamp, drawn with the block's own lamp. */
   readonly lamp?: Box;
+  /** A helix tube winding round the piece's vertical centre line (meshPrimitives.ts), in 1/16ths: radius of the line, tube radius, height and turns. */
+  readonly coil?: { readonly radius: number; readonly tube: number; readonly y0: number; readonly y1: number; readonly turns: number };
   /** Faces where this piece joins a neighbour that has a port on the face looking back at it. */
   readonly ports: number;
   /** Pieces join only within one family: the distillery's glass and the essentia line never share a joint. Default `chem`. */
@@ -75,9 +77,11 @@ export const GLASS_MODELS: Readonly<Record<string, GlassModel>> = {
     metal: [[4, 0, 4, 12, 1, 12], [4, 15, 4, 12, 16, 12]],
   },
   // A coil: glass bars turning round a central glass rod, climbing, between brass end caps.
+  // The coil is a real helix tube (meshPrimitives.ts) spiralling round the glass rod, between brass end caps.
   condenser_coil: {
     ports: NY | SIDES,
-    body: [[7, 1, 7, 9, 15, 9], [3, 2, 3, 13, 3, 5], [11, 4, 3, 13, 5, 13], [3, 6, 11, 13, 7, 13], [3, 8, 3, 5, 9, 13], [3, 10, 3, 13, 11, 5], [11, 12, 3, 13, 13, 13]],
+    body: [[7, 1, 7, 9, 15, 9]],
+    coil: { radius: 2.25, tube: 1.25, y0: 2, y1: 14, turns: 3 },
     metal: [[6, 0, 6, 10, 1, 10], [6, 15, 6, 10, 16, 10]],
   },
   // A jacket: a hollow outer shell round a clear inner tube, held by brass bands under a brass cap.

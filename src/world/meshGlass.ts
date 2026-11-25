@@ -9,6 +9,7 @@ import { VOXEL_ID_MASK } from '../core/types';
 import { GLASS_FAMILY, GLASS_PORTS, GLASSWARE_GLASS_SLOT, GLASSWARE_METAL_SLOT } from './blockTables';
 import { FLANGE_HALF, GLASS_MODEL_NAMES, GLASS_MODELS, TUBE_HALF, type Box } from './glassModels';
 import { box, D_FRONT, vol, type Builder } from './meshQuads';
+import { helixTube } from './meshPrimitives';
 
 const lo = [0, 0, 0];
 const hi = [0, 0, 0];
@@ -43,6 +44,13 @@ export function glass(b: Builder, own: number, model: number, p: number, x: numb
   const m = name === undefined ? undefined : GLASS_MODELS[name];
   if (!m) return;
   for (const bx of m.body) part(b, GLASSWARE_GLASS_SLOT, p, x, y, z, bx);
+  if (m.coil) {
+    // The helix tube: model units to cell units, centred on the cell's vertical axis.
+    const c = m.coil;
+    helixTube(b, GLASSWARE_GLASS_SLOT, p, x, y, z, {
+      cx: CENTRE / 16, cz: CENTRE / 16, radius: c.radius / 16, tube: c.tube / 16, y0: c.y0 / 16, y1: c.y1 / 16, turns: c.turns,
+    });
+  }
   if (m.metal) for (const bx of m.metal) part(b, GLASSWARE_METAL_SLOT, p, x, y, z, bx);
   if (m.lamp) part(b, own, p, x, y, z, m.lamp, true);
   const joints = glassJoints(p, m.ports);
