@@ -20,8 +20,20 @@ import { arcRoute, crucibleColour, flowPath, type Cell, type EssentiaFlow } from
 import type { MirrorLink } from '../../magic/essentiaNet';
 import { NODE_POOL } from '../../magic/nodes';
 import { GroundItemRenderer, type GroundScene } from '../groundItems';
-import { LiquidBoxes } from '../liquids/liquidBoxes';
+import { LiquidBoxes, surfaceDip } from '../liquids/liquidBoxes';
 import { LightProbe, lightColor } from '../lightProbe';
+
+/** A crucible's water stands this far above the block top (the rim) at rest. The boil dips from there and never rises. */
+export const CRUCIBLE_RIM_LIFT = 0.004;
+
+/**
+ * The water body of a crucible whose block top is `top`: `level` is its open surface (the highest point of the slosh, at the
+ * rim) and `bottom` reaches below the deepest dip of a full boil, so the shader's displaced top never inverts the box.
+ */
+export function crucibleSurface(top: number): { bottom: number; level: number } {
+  const level = top + CRUCIBLE_RIM_LIFT;
+  return { bottom: level - surfaceDip(1) - 0.01, level };
+}
 
 export interface JarFill { x: number; y: number; z: number; aspect: Aspect; fill: number }
 export interface NodeView { key: string; x: number; y: number; z: number; aspect: Aspect; left: number }
@@ -283,20 +295,20 @@ export class MagicRenderer {
     for (const n of Object.values(v.ess)) total += n ?? 0;
     const fill = Math.min(1, total / CRUCIBLE_CAP);
     const boil = v.hot ? 0.35 + 0.45 * fill : 0;
-    // The water's face, just proud of the block top, inside the rim: tinted by its essentia, or by a draught's colour
-    // when it holds one (one layer, so the slosh never tears two apart).
+    // The water's face sits just proud of the block top (the rim) and the shader's slosh only dips down from it, so a boil
+    // never lifts the surface above the rim. The body runs down into the block so the dip never shows a gap at the edge.
     const hex = v.potion !== null ? mixHex(crucibleColour(v.ess, WATER, CRUCIBLE_CAP), v.potion, 0.7) : crucibleColour(v.ess, WATER, CRUCIBLE_CAP);
-    // The shader's slosh dips the face by up to this much (more as it boils): it must stay above the block's top.
-    const dip = 0.012 + 0.05 * boil;
-    L.add(cx, top - 0.02, cz, 0.64, 0.026 + dip, 0.64, this.lit(hex, cx, top + 0.2, cz, 0.1 + 0.2 * fill), {
+    const { bottom, level } = crucibleSurface(top);
+    L.add(cx, bottom, cz, 0.64, level - bottom, 0.64, this.lit(hex, cx, top + 0.2, cz, 0.1 + 0.2 * fill), {
       flow: v.potion !== null ? [-0.5, 0, 1] : [1, 0, 0.5], speed: v.hot ? 0.35 : 0.06, boil, surface: true, glow: (v.potion !== null ? 0.2 : 0.05) + 0.2 * fill,
     });
     // Flecks of the richest aspects circling the surface, two rings turning opposite ways.
     let n = 0;
-    for (const a in v.ess) if ((v.ess[a as Aspect] ?? 0) > 0 && n < 6) this.fleck(cx, top + dip, cz, a as Aspect, n++, Object.keys(v.ess).length, boil);
+    for (const a in v.ess) if ((v.ess[a as Aspect] ?? 0) > 0 && n < 6) this.fleck(cx, level, cz, a as Aspect, n++, Object.keys(v.ess).length, boil);
   }
 
-  private fleck(cx: number, top: number, cz: number, a: Aspect, i: number, of: number, boil: number): void {
+  /** A fleck lies on the surface: its box ends at the level, so it never rises past the rim either. */
+  private fleck(cx: number, level: number, cz: number, a: Aspect, i: number, of: number, boil: number): void {
     const hex = aspectHex(a);
     const n = Math.min(6, of);
     for (let r = 0; r < 2; r++) {
@@ -304,7 +316,7 @@ export class MagicRenderer {
       const rad = r ? 0.12 : 0.23;
       const fx = cx + Math.cos(ang) * rad;
       const fz = cz + Math.sin(ang) * rad;
-      this.liquids.add(fx, top - 0.004, fz, 0.05, 0.018, 0.05, this.lit(hex, fx, top + 0.2, fz, 0.6), { glow: 0.6, boil: boil * 0.5 });
+      this.liquids.add(fx, level - 0.016, fz, 0.05, 0.016, 0.05, this.lit(hex, fx, level + 0.2, fz, 0.6), { glow: 0.6, boil: boil * 0.5 });
     }
   }
 

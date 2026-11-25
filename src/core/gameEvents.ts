@@ -166,7 +166,11 @@ export type SfxName =
   /** One drop leaving a condenser or coil. Positioned at the module. */
   | 'distill_drip'
   /** A glass chime when a distillery step completes. Positioned at the module. */
-  | 'distill_chime';
+  | 'distill_chime'
+  /** Liquid trickling through a tube or down a condenser while it runs. Positioned at the module. */
+  | 'distill_trickle'
+  /** A stopcock turned by hand on the separatory funnel. Positioned at the module. */
+  | 'distill_tap';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;

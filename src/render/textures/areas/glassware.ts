@@ -10,6 +10,7 @@ import { mix, shade } from '../palette';
 const TINT = P.rgb(0xd8eef2);
 const EDGE = P.rgb(0x7fb4c4);
 const SHINE = P.rgb(0xffffff);
+const SKY = P.rgb(0xe4f6ff);
 
 function glass(c: Canvas): void {
   for (let y = 0; y < 16; y++) {
@@ -27,6 +28,10 @@ function glass(c: Canvas): void {
     c.set(4, y, SHINE, 90);
     c.set(11, y, SHINE, 60);
   }
+  // The sky: a pale reflection that catches the light across the top of each piece, and one thin column down its middle
+  // (the glass catches the environment rather than sitting flat).
+  for (let x = 5; x <= 10; x++) for (let y = 1; y <= 3; y++) c.set(x, y, SKY, 70);
+  for (let y = 1; y < 15; y++) c.set(8, y, SKY, 40);
 }
 
 function brass(c: Canvas): void {

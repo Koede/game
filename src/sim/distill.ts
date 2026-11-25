@@ -127,6 +127,8 @@ export class Distillery {
   private acc = 0;
   /** Steps run (a diagnostic and a test hook). */
   steps = 0;
+  /** Seconds until each module's next bubble or trickle sound (not saved: sounds only). */
+  private readonly cueLeft = new Map<string, number>();
 
   constructor(readonly world: IWorld, readonly bus: GameBus, readonly host: DistillHost) {}
 
@@ -572,6 +574,31 @@ export class Distillery {
   }
 
   /** Sets every module's state on its block, and tells the player when a run completes. */
+  /**
+   * The sounds of a running rig, now and then: a boiling flask bubbles, and a tube or condenser with liquid running through
+   * it trickles. Each module counts down on its own, staggered by its position so a rig does not pop or trickle in step.
+   */
+  private cue(key: string, e: ChemEntity, dt: number): void {
+    const boiling = e.kind === CHEM.flask && e.state === 'working';
+    const running = (e.kind === CHEM.tube || e.kind === CHEM.condenser) && finite(e.flow, 0) > 0;
+    if (!boiling && !running) {
+      this.cueLeft.delete(key);
+      return;
+    }
+    const left = this.cueLeft.get(key);
+    const stagger = (((e.x * 73 + e.y * 151 + e.z * 37) % 97) + 97) % 97 / 97;
+    if (left === undefined) {
+      this.cueLeft.set(key, stagger * (boiling ? 1.6 : 0.5));
+      return;
+    }
+    if (left - dt > 0) {
+      this.cueLeft.set(key, left - dt);
+      return;
+    }
+    this.bus.emit('sfx', { name: boiling ? 'distill_bubble' : 'distill_trickle', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
+    this.cueLeft.set(key, boiling ? 1.2 + 1.2 * stagger : 0.5 + 0.4 * stagger);
+  }
+
   private show(rig: Rig, arrived: Set<string>, was: Map<string, ChemState>, dt: number): void {
     const flaskOf = new Map<string, ChemEntity | null>();
     for (const still of rig.stills) {
@@ -588,6 +615,7 @@ export class Distillery {
       if (got && quiet && (e.kind === CHEM.receiver || e.kind === CHEM.condenser)) {
         this.bus.emit('sfx', { name: 'distill_drip', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
       }
+      this.cue(key, e, dt);
       const before = was.get(key) ?? e.state;
       switch (e.kind) {
         case CHEM.flask:

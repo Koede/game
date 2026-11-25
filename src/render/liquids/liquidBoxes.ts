@@ -40,7 +40,9 @@ const VERT = /* glsl */ `
       vec4 w0 = m * vec4(p, 1.0);
       float wave = sin(w0.x * 11.0 + uTime * 3.1 + aFx.z * 6.0) * sin(w0.z * 9.0 - uTime * 2.7);
       float sy = max(0.02, length(m[1].xyz));
-      p.y += ((0.012 + 0.05 * aFx.x) * wave) / sy;
+      // The slosh only dips below the box top (the level): the top is the highest the surface gets, so a boil never
+      // rises above the vessel's rim.
+      p.y -= ((0.012 + 0.05 * aFx.x) * (0.5 + 0.5 * wave)) / sy;
     }
     vec4 wp = m * vec4(p, 1.0);
     vWorld = wp.xyz;
@@ -96,6 +98,9 @@ const FRAG = /* glsl */ `
     gl_FragColor = vec4(c, 1.0);
   }
 `;
+
+/** How far a surface sloshes down from its level at a boil (block units): the shader's dip, 0.012 still to 0.062 at a full boil. */
+export const surfaceDip = (boil: number): number => 0.012 + 0.05 * Math.min(1, Math.max(0, boil));
 
 const tmp = new THREE.Matrix4();
 const colour = new THREE.Color();

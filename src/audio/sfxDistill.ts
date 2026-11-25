@@ -22,6 +22,22 @@ export const DISTILL_SFX = {
       noise('white', bp(4200, undefined, 1.4), 0.06, 0.03, { a: 0.002 }),
     ],
   },
+  // Liquid running through a tube or down a condenser: a soft wash that flutters, with a faint glassy tick.
+  distill_trickle: {
+    jitter: 2,
+    layers: [
+      noise('pink', bp(1500, 900, 1.2), 0.1, 0.14, { a: 0.02, trem: { rate: 18, depth: 0.5 } }),
+      tone('sine', 900, 0.03, 0.12, { a: 0.01, freqEnd: 1300 }),
+    ],
+  },
+  // A stopcock turned by hand: a short mechanical click with a tick of glass.
+  distill_tap: {
+    jitter: 2,
+    layers: [
+      noise('white', hp(2400), 0.16, 0.02, { a: 0.001 }),
+      tone('triangle', 1100, 0.18, 0.03, { a: 0.001, freqEnd: 700 }),
+    ],
+  },
   // A step finished: two glass partials a fifth apart, short enough to sit under a toast.
   distill_chime: {
     jitter: 1,

@@ -47,6 +47,8 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
       e.setC = STILL_SETPOINTS[(i + 1) % STILL_SETPOINTS.length];
       return { ok: true, consume: false, toast: `Still Base set to ${e.setC} C` };
     }
+    // The funnel's stopcock clicks under the hand (the sound for a hand tap; the run-out itself is silent).
+    if (e.kind === CHEM.funnel) d.bus.emit('sfx', { name: 'distill_tap', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
     return { ok: true, consume: false, toast: chemView(d, x, y, z)?.text ?? moduleName(e) };
   }
   if (heldKey === 'wrench') {

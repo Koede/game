@@ -67,7 +67,8 @@ export class BrewTools {
     const held = this.host.player.heldStack()?.item ?? null;
     const kind = machineOfBlock(hit.block);
     if (kind?.role === 'chem' && this.brew.chemUse) {
-      if (this.host.placeCooldown > 0) return this.pause();
+      // No placement cooldown here: a tap on a module places nothing, and the cooldown counts clamped frame time, so a slow
+      // frame rate (a phone, a software-GL run) kept a second tap on a still base from landing ("the setpoint stayed at 97").
       const r = this.brew.chemUse(hit.x, hit.y, hit.z, held);
       return r === null ? null : this.apply(r, held);
     }

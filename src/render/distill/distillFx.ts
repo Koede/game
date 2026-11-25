@@ -19,6 +19,7 @@ import { CHEM, CHEM_CAPACITY_L, chemKindOf } from '../../core/distill';
 import type { IWorld } from '../../core/types';
 import type { LightProbe } from '../emitters';
 import { LiquidBoxes, type LiquidStyle } from '../liquids/liquidBoxes';
+import { jacketBodies, lighten, profiledBodies } from './liquidProfile';
 
 export const DISTILL_RANGE = 40;
 export const LIQUID_MAX = 512;
@@ -131,20 +132,25 @@ export class DistillFx {
   }
 
   /**
-   * A vessel's contents settled into layers, bottom first, in a body `w` x `d` from height `y0` up to at most `y0 + hMax`
-   * when full. The top layer has the open surface and the boil; the layers below roll gently. Returns the height reached.
+   * A vessel's contents settled into layers, bottom first, cut to the glass model's own interior (liquidProfile.ts) so the
+   * liquid follows the belly, the bulb or the shoulder rather than a box. The top layer's open surface boils; the layers
+   * below roll gently. Returns the height of the liquid.
    */
-  private layered(cx: number, y0: number, cz: number, w: number, d: number, hMax: number, mix: Mix, fill: number, boil: number, glow = 0): number {
+  private profiled(e: Mod, model: string, mix: Mix, fill: number, boil: number, glow = 0): number {
     const layers = layersOf(mix);
-    const all = layers.reduce((t, l) => t + l.litres, 0);
-    let y = y0;
-    layers.forEach((l, i) => {
-      const h = hMax * Math.min(1, fill) * (all > 0 ? l.litres / all : 0);
-      const top = i === layers.length - 1;
-      this.box(cx, y, cz, w, h, d, l.colour, glow, { surface: top, boil: top ? boil : boil * 0.4 });
-      y += h;
-    });
-    return y - y0;
+    const bodies = profiledBodies(model, layers.map((l) => l.litres), fill);
+    const topLayer = layers.length - 1;
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const b of bodies) {
+      const top = b.layer === topLayer;
+      this.box(e.x + (b.x0 + b.x1) / 2, e.y + b.y0, e.z + (b.z0 + b.z1) / 2, b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0, layers[b.layer].colour, glow, {
+        surface: b.top, boil: top ? boil : boil * 0.4,
+      });
+      lo = Math.min(lo, b.y0);
+      hi = Math.max(hi, b.y1);
+    }
+    return bodies.length ? hi - lo : 0;
   }
 
   private bit(sx: number, sy: number, sz: number, tx: number, ty: number, tz: number, period: number, phase: number, size: number, hex: number): void {
@@ -189,7 +195,7 @@ export class DistillFx {
     switch (e.kind) {
       case CHEM.flask: {
         // The belly (walls 2..14, from 1/16): the charge settles in layers and boils on top.
-        const h = this.layered(cx, e.y + P, cz, 10 * P, 10 * P, 10 * P, mix, fill, boil, working ? 0.15 : 0);
+        const h = this.profiled(e, 'boiling_flask', mix, fill, boil, working ? 0.15 : 0);
         if (working && h > 0.05) {
           const n = Math.min(10, 4 + Math.round((e.flow ?? 0) / 4));
           const period = 0.5 + 0.35 * Math.log2(1 + visc);
@@ -202,20 +208,27 @@ export class DistillFx {
         break;
       }
       case CHEM.vessel: {
-        const h = this.layered(cx, e.y + P, cz, 10 * P, 10 * P, 10 * P, mix, fill, working ? 0.25 : 0);
+        const h = this.profiled(e, 'reaction_vessel', mix, fill, working ? 0.25 : 0);
         if (working && h > 0.05) for (let i = 0; i < 5; i++) this.bit(cx - 0.25 + i * 0.12, e.y + 0.1, cz + (i % 2 ? 0.15 : -0.15), 0, h - 0.04, 0, 2.4, i / 5, 0.035, 0xfaf3dc);
         break;
       }
       case CHEM.receiver: {
         // The jar (walls 3..13, to 7/16), then the neck as it brims; a stream falls in while it receives.
-        this.layered(cx, e.y + P, cz, 8 * P, 8 * P, 6 * P, mix, Math.min(1, fill * 1.15), 0);
+        this.profiled(e, 'receiver', mix, Math.min(1, fill * 1.15), 0);
         if (fill > 0.87) this.box(cx, e.y + 7 * P, cz, 4 * P, Math.min(6 * P, (fill - 0.87) * 4), 4 * P, hex, 0, { surface: true });
         if ((e.recvS ?? 99) < 0.5) this.box(cx, e.y + 7 * P, cz, 1.5 * P, 9 * P, 1.5 * P, hex, 0.1, { flow: [0, -1, 0], speed: run * 1.3 });
         break;
       }
-      case CHEM.jacket:
-        this.box(cx, e.y, cz, 12 * P, 13 * P * fill, 12 * P, hex, 0, { surface: true, flow: [0, 1, 0], speed: 0.15 });
+      case CHEM.jacket: {
+        // The water fills the annulus round the clear tube, under the shell; a pale level line marks its top, so the water
+        // reads as water in a glass jacket from across the room rather than a blue block.
+        const h = 13 * P * Math.min(1, fill);
+        for (const b of jacketBodies(fill)) {
+          this.box(e.x + (b.x0 + b.x1) / 2, e.y + b.y0, e.z + (b.z0 + b.z1) / 2, b.x1 - b.x0, b.y1 - b.y0, b.z1 - b.z0, hex, 0, { surface: true, flow: [0, 1, 0], speed: 0.15 });
+          if (h > 0) this.box(e.x + (b.x0 + b.x1) / 2, e.y + h - P / 2, e.z + (b.z0 + b.z1) / 2, b.x1 - b.x0, P / 2, b.z1 - b.z0, lighten(hex, 0.55), 0.3);
+        }
         break;
+      }
       case CHEM.segment:
         if (e.band) {
           this.box(cx, e.y + P, cz, 4 * P, 14 * P, 4 * P, e.band, 0.45, { flow: [0, 1, 0], speed: working ? 0.8 : 0.2, boil: working ? 0.4 : 0 });
@@ -233,13 +246,13 @@ export class DistillFx {
       case CHEM.filter:
         if (litres > 0.05) {
           // Liquid standing in the funnel's mouth and running out of its stem.
-          this.layered(cx, e.y + 10 * P, cz, 8 * P, 8 * P, 4 * P, mix, fill, 0);
+          this.profiled(e, 'filter_bed', mix, fill, 0);
           this.box(cx, e.y, cz, 1.5 * P, 10 * P, 1.5 * P, hex, 0, { flow: [0, -1, 0], speed: run * 0.7 });
         }
         break;
       case CHEM.funnel: {
         // The bulb (5/16 to 13/16): layers settle; once settled the bottom one runs out of the stem.
-        this.layered(cx, e.y + 5 * P, cz, 8 * P, 8 * P, 8 * P, mix, fill, 0);
+        this.profiled(e, 'separatory_funnel', mix, fill, 0);
         const layers = layersOf(mix);
         if (working && layers.length > 1 && (e.settleS ?? 0) >= 3) {
           this.box(cx, e.y - 0.5, cz, 1.5 * P, 0.5 + 4 * P, 1.5 * P, layers[0].colour, 0.05, { flow: [0, -1, 0], speed: run });
