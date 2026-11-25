@@ -73,6 +73,7 @@ reference images to a generator myself; uploading them in the site is how they g
 
 ## Outfits (sleepwear and swimwear)
 
-`<id>_sleep.jpg` (worn from late evening to dawn) and `<id>_swim.jpg` (worn in the yard pool; hot Bloom middays the regulars cool off there) are
-built by `python assets/npcs/faces/outfits.py`: a generated body in the new outfit with the ORIGINAL head pasted back (face, hair, hat, beard),
-so faces never drift; the script asserts the head pixels are identical. Generated bodies live in `assets/npcs/faces/gen/`. Then `node scripts/npc-art.mjs`.
+`<id>_sleep.jpg` (worn from late evening to dawn) and `<id>_swim.jpg` (worn in the yard pool on hot Bloom middays, and at a party) are whole
+generated characters (head and body together), prompted with a close description of each person's face, hair, skin and build and the day
+sprite's pose; faces drift a little from the day sprites. Sources live in `assets/npcs/faces/whole/`; `python assets/npcs/faces/outfits.py`
+flattens them onto the plain grey and saves the jpgs. Then `node scripts/npc-art.mjs`.
