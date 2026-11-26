@@ -22,6 +22,7 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
+import { seasonOf } from '../sim/seasons';
 import { isFluidEndpoint, itemOrNull, machine } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
@@ -171,6 +172,10 @@ export class GameState {
       knockPlayer: (vx, vy, vz) => combat.knock(vx, vy, vz),
       sky: () => ({ storm: this.weather.state.kind === 'storm', moonPhase: this.clock.moonPhase }),
     });
+    this.mobs.skyFn = (out) => {
+      out.storm = this.weather.state.kind === 'storm';
+      out.winter = seasonOf(this.clock.day) === 'winter';
+    };
     this.mobPlayer = mobPlayerOf(this.player);
     this.mobs.onDeath((d) => {
       this.player.dropAll(d.drops, { x: d.x, y: d.y + 0.4, z: d.z }, magnetRadius(this.player.heldStack()));

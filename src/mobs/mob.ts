@@ -56,6 +56,9 @@ export function createMob(id: number, spec: CreatureSpec, x: number, y: number, 
     head: 0,
     phead: 0,
     stuckS: 0,
+    homeX: x,
+    homeZ: z,
+    routineS: 0,
     hostile: null,
   };
 }
