@@ -16,7 +16,7 @@ import {
 } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
 import { hostileCap, hostileDamage, type SkyFacts } from '../core/hostile';
-import { AIR, type CreatureSpec, type HostileSpec, type IWorld } from '../core/types';
+import { AIR, type CreatureSpec, type HostileSpec, type IWorld, type Slot } from '../core/types';
 import { bodyHeight, halfWidth } from './brain';
 import { knockVector, voicePitch } from './attacks';
 import { CORPSE_FADE_S, VOID_Y } from './constants';
@@ -37,6 +37,7 @@ import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
 import { structureGuardPlans } from '../world/structures';
 import { isLairKey } from '../world/caveLair';
 import { CRATE_VOXEL, tableCrateEntity } from '../world/ruinCrates';
+import { LegendaryClaims, legendaryClaimsOf } from '../world/legendaryClaims';
 
 /** Footsteps are voiced within this many blocks of the player. */
 const STEP_RANGE = 24;
@@ -194,7 +195,15 @@ export class HostileLayer {
     for (let y = Math.floor(d.y) + 2; y >= Math.floor(d.y) - 2; y--) {
       if (world.getVoxel(x, y, z) !== AIR || !world.getBlock(x, y - 1, z).solid) continue;
       if (world.getEntity(x, y, z)) return;
-      world.setEntity(tableCrateEntity(this.host.seed, x, y, z, 'cave_boss'));
+      const crate = tableCrateEntity(this.host.seed, x, y, z, 'cave_boss');
+      // The boss's hoard may hold one legendary weapon (docs/api/legendary.md, "Boss hoard hook"): the first empty slot takes it.
+      const found = legendaryClaimsOf(world)?.roll('boss', x, y, z) ?? null;
+      if (found) {
+        const slots = crate.slots as Slot[];
+        const at = slots.indexOf(null);
+        if (at >= 0) slots[at] = LegendaryClaims.stackOf(found);
+      }
+      world.setEntity(crate);
       world.setVoxel(x, y, z, CRATE_VOXEL, 'sim');
       this.host.bus.emit('toast', { text: 'The Colossus falls and leaves a chest of its hoard', kind: 'info' });
       return;
