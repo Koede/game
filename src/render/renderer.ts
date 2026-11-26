@@ -14,6 +14,7 @@ import { BrewFx } from './brewFx';
 import { BrewLiquid } from './brewLiquid';
 import { DistillFx } from './distill/distillFx';
 import { Emitters } from './emitters';
+import { heldGlowOf } from '../game/legendary';
 import { HandParts } from './handwork/handParts';
 import { MachineParts } from './machines';
 import { Glows } from './glows';
@@ -110,6 +111,7 @@ export class Renderer implements IView {
   }
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
+  private heldGlow: readonly [number, number, number] | null = null;
   private readonly brewFx: BrewFx;
   private readonly brewLiquid: BrewLiquid;
   /** Liquids, bubbles, drips and column bands of the glass distillery (two draw calls). */
@@ -246,6 +248,7 @@ export class Renderer implements IView {
   }
 
   setHeldItem(itemKey: string | null): void {
+    this.heldGlow = heldGlowOf(itemKey);
     this.held.set(itemKey);
   }
 
@@ -335,7 +338,9 @@ export class Renderer implements IView {
       this.probe.probe(cam.position.x, cam.position.y, cam.position.z);
       const tint = this.probe.tint(BLOCK_TINT, this.probeTint);
       const c = lightColor(this.probe.sky, this.probe.block, sky.skyLight, tint, AMBIENT, this.lightRgb);
-      this.held.setLight(c[0], c[1], c[2]);
+      // A held legendary lights itself: its glow is a floor under the held item's light (no extra light source), so it reads in the dark.
+      const g = this.heldGlow;
+      this.held.setLight(g ? Math.max(c[0], g[0]) : c[0], g ? Math.max(c[1], g[1]) : c[1], g ? Math.max(c[2], g[2]) : c[2]);
       this.target.setBrightness(luminance(c));
     }
 

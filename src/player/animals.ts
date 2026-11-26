@@ -10,7 +10,8 @@
 import { legendaryEffectOf } from '../content/legendary';
 import { REACH } from '../core/constants';
 import { CREATURES } from '../core/registry';
-import { BURST_DAMAGE, BURST_RADIUS, stunOf, type PlayerState } from '../game';
+import { ARC_COS, ARC_MAX_TARGETS, stunOf, type PlayerState } from '../game';
+import { enchantLevel } from '../core/enchant';
 import { hitDamage, type YieldKind } from '../mobs';
 import type { HitExtras } from '../game/legendary';
 import { swapHeldItem } from './buckets';
@@ -28,6 +29,7 @@ export interface AnimalTargets {
   /** A legendary weapon's extras (src/game/legendary.ts), all optional: damage with no hit cooldown, a shove away from a point, the creatures near a point. */
   hurtExtra?(id: number, damage: number, fromX: number, fromZ: number): boolean;
   shove?(id: number, fromX: number, fromZ: number, speed: number): void;
+  root?(id: number, seconds: number): void;
   near?(x: number, z: number, radius: number, exceptId?: number): { id: number; x: number; y: number; z: number }[];
   /** Milks or shears (optional: not every stand-in has it). Refused with a reason while the animal is not ready. */
   harvest?(id: number, kind: YieldKind): { ok: true } | { ok: false; reason: string };
@@ -92,7 +94,8 @@ export class AnimalHands {
     const item = this.player.heldStack()?.item ?? null;
     const p = this.player.position;
     const leg = combat.legendary;
-    const extra = leg.beforeHit(item, this.dark());
+    const level = enchantLevel(this.player.heldStack() ?? undefined, 'attunement');
+    const extra = leg.beforeHit(item, this.dark(), level);
     const id = this.target;
     const r = this.animals.hit(id, hitDamage(item, this.player.buffs.strength) + extra.damage, p.x, p.z, stunOf(item) + extra.stunS);
     if (!r.ok) {
@@ -103,23 +106,41 @@ export class AnimalHands {
     combat.startStrikeCooldown(item);
     this.swing.triggerSwing();
     this.player.wearHeldTool(1);
-    this.legendaryAfter(item, id, extra, p.x, p.z, r.killed === true);
+    this.legendaryAfter(item, id, extra, level, p.x, p.z, r.killed === true);
     return true;
   }
 
   /** The legendary weapon's part of a landed blow: the shove, the Emberfang's marks and burst, and the spark event for the renderer. */
-  private legendaryAfter(item: string | null, id: number, extra: HitExtras, px: number, pz: number, killed: boolean): void {
+  private legendaryAfter(item: string | null, id: number, extra: HitExtras, level: number, px: number, pz: number, killed: boolean): void {
     const a = this.animals;
     const at = a.near?.(px, pz, REACH + 1, -1).find((m) => m.id === id);
-    if (extra.shove > 0 && !killed) a.shove?.(id, px, pz, extra.shove);
-    const mark = this.player.combat.legendary.afterHit(item, id);
+    if (extra.shove !== 0 && !killed) a.shove?.(id, px, pz, extra.shove);
+    if (extra.rootS > 0 && !killed) a.root?.(id, extra.rootS);
+    const mark = this.player.combat.legendary.afterHit(item, id, level);
     if (mark.burst && a.hurtExtra) {
-      a.hurtExtra(id, BURST_DAMAGE, px, pz);
-      for (const m of a.near?.(at?.x ?? px, at?.z ?? pz, BURST_RADIUS, id) ?? []) a.hurtExtra(m.id, BURST_DAMAGE, px, pz);
+      a.hurtExtra(id, mark.damage, px, pz);
+      for (const m of a.near?.(at?.x ?? px, at?.z ?? pz, mark.radius, id) ?? []) a.hurtExtra(m.id, mark.damage, px, pz);
     }
+    if (extra.arc && a.hurtExtra) this.shockArc(id, extra.arc.damage, extra.arc.reach, px, pz);
     if (at && (extra.proc || mark.burst || mark.marks > 0)) {
       const effect = legendaryEffectOf(item);
       if (effect) this.player.bus.emit('legendary:proc', { effect, x: at.x, y: at.y + 0.8, z: at.z });
+    }
+  }
+
+  /** Starcleaver: the arc hurts up to ARC_MAX_TARGETS other creatures in front of the wielder within `reach`, nearest first. */
+  private shockArc(skipId: number, damage: number, reach: number, px: number, pz: number): void {
+    const a = this.animals;
+    const dir = this.player.viewDir({ x: 0, y: 0, z: 0 });
+    const flat = Math.hypot(dir.x, dir.z) || 1;
+    let hit = 0;
+    for (const m of a.near?.(px, pz, reach, skipId) ?? []) {
+      const dx = m.x - px;
+      const dz = m.z - pz;
+      const d = Math.hypot(dx, dz) || 1;
+      if ((dx * dir.x + dz * dir.z) / (d * flat) < ARC_COS) continue;
+      a.hurtExtra?.(m.id, damage, px, pz);
+      if (++hit >= ARC_MAX_TARGETS) break;
     }
   }
 

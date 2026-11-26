@@ -12,6 +12,7 @@ import { GameClock } from '../game/clock';
 import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
+import { watchLegendaries } from '../game/legendaryNotes';
 import { Survival } from '../game/survival';
 import { Thermal } from '../game/thermal';
 import { DailyGoals, isDailyGoalsSnapshot, type GoalFacts } from '../game/dailyGoals';
@@ -161,6 +162,7 @@ export class GameState {
     this.resumed = save !== null;
     this.journal = new Journal(() => this.clock.day, bus);
     if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
+    watchLegendaries(bus, () => this.player.inventory.slots, this.journal);
     this.achievements = new Achievements(bus, () => this.progressFacts());
     if (save?.achievements && isAchievementsSnapshot(save.achievements)) this.achievements.load(save.achievements);
     this.dailyGoals = new DailyGoals({

@@ -235,15 +235,39 @@ export class MobManager {
     return true;
   }
 
-  /** Throws a creature `speed` blocks/s away from (fromX, fromZ), on top of the knockback its hit already gave (a lunge's shove). */
+  /** Throws a creature `speed` blocks/s away from (fromX, fromZ) (negative: pulls it toward the point), on top of the knockback its hit already gave (a lunge's shove). */
   shove(id: number, fromX: number, fromZ: number, speed: number): void {
     const m = this.byId.get(id);
-    if (!m || m.state === 'dying' || !(speed > 0) || m.spec.hostile?.stationary) return;
+    if (!m || m.state === 'dying' || !Number.isFinite(speed) || speed === 0 || m.spec.hostile?.stationary) return;
     const dx = m.x - fromX;
     const dz = m.z - fromZ;
     const d = Math.hypot(dx, dz) || 1;
     m.vx += (dx / d) * speed;
     m.vz += (dz / d) * speed;
+  }
+
+  /** Seconds each rooted creature has left (Rootsong): its horizontal movement is zeroed every tick until it runs out. */
+  private readonly rooted = new Map<number, number>();
+
+  /** Holds a creature in place for `seconds` (an automaton is also stunned, so it stops acting). Refreshes, never stacks. */
+  root(id: number, seconds: number): void {
+    const m = this.byId.get(id);
+    if (!m || m.state === 'dying' || !(seconds > 0)) return;
+    this.rooted.set(id, Math.max(seconds, this.rooted.get(id) ?? 0));
+    if (m.hostile) m.hostile.stunS = Math.max(m.hostile.stunS, seconds);
+    m.vx = m.vz = 0;
+  }
+
+  private tickRoots(dt: number): void {
+    for (const [id, left] of this.rooted) {
+      const m = this.byId.get(id);
+      if (!m || m.state === 'dying' || left - dt <= 0) {
+        this.rooted.delete(id);
+        continue;
+      }
+      this.rooted.set(id, left - dt);
+      m.vx = m.vz = 0;
+    }
   }
 
   /** Living creatures (animals and automatons) within `radius` blocks of (x, z) on the flat, nearest first, `exceptId` left out. */
@@ -339,6 +363,7 @@ export class MobManager {
     // Every brain first, then the crowd push, then every body, so the push sees this tick's intentions.
     for (let i = 0; i < active.length; i++) this.mind(active[i], dt);
     separate(this.world, active, dt);
+    if (this.rooted.size > 0) this.tickRoots(dt);
     for (let i = 0; i < active.length; i++) this.move(active[i], dt, player);
     for (const m of this.retiring) this.removeMob(m);
     this.retiring.length = 0;

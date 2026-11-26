@@ -174,7 +174,7 @@ export const TOOL_USES: readonly ToolUseRow[] = [
   },
   {
     id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass, ferns, reeds and dry shrub down to fibre (shrub gives a stick too)',
-    applies: (c) => kindOf(c) === 'hoe' && is(c, ...CHEAP_FOLIAGE),
+    applies: (c) => (kindOf(c) === 'hoe' || heldIs(c, 'starcleaver')) && is(c, ...CHEAP_FOLIAGE),
     run: (c) => (remove(c) ? (drop(c, [{ item: 'fiber', count: 2 }, { item: 'stick', count: 1, chance: c.def.key === 'dry_shrub' ? 0.7 : 0 }]), wearTool(c), sfx(c, 'harvest'), true) : false),
   },
   {
@@ -222,7 +222,13 @@ export const TOOL_USES: readonly ToolUseRow[] = [
   {
     id: 'maul_cracks_brick', system: 'masonry', summary: 'A maul cracks stone brick into cracked brick (the pickaxe dresses it back)',
     applies: (c) => kindOf(c) === 'maul' && is(c, 'stone_brick'),
-    run: (c) => (replace(c, 'cracked_stone_brick') ? (wearTool(c), sfx(c, 'dig_stone'), true) : false),
+    // The Quiet Hammer does it without a sound.
+    run: (c) => (replace(c, 'cracked_stone_brick') ? (wearTool(c), heldIs(c, 'quiet_hammer') || sfx(c, 'dig_stone'), true) : false),
+  },
+  {
+    id: 'rootsong_greens_dirt', system: 'farming', summary: 'Rootsong used on bare dirt coaxes grass over it',
+    applies: (c) => kindOf(c) === 'staff' && is(c, 'dirt'),
+    run: (c) => (replace(c, 'grass') ? (wearTool(c), sfx(c, 'harvest'), true) : false),
   },
   {
     id: 'torch_melts_snow', system: 'survival', summary: 'A torch (or Emberfang) held to a snow block melts it away (it is kept)',

@@ -91,6 +91,16 @@ export const ENCHANTS: readonly EnchantDef[] = [
     description: 'What this tool breaks has a chance of one extra drop: 10%, 20% or 30%, marked by a small glint.',
     appliesTo: isDigTool,
   },
+  {
+    key: 'attunement',
+    name: 'Attunement',
+    max: 2,
+    aspect: 'rune',
+    cost: { aspect: 'rune', perLevel: 3 },
+    colour: '#d9b8ff',
+    description: 'Only a legendary weapon takes it: its verb deepens a level (II twice over). It never changes what the weapon does.',
+    appliesTo: (def) => !!def && rarityOf(def.key) === 'legendary' && !!def.weapon,
+  },
 ];
 
 const BY_KEY = new Map<string, EnchantDef>(ENCHANTS.map((e) => [e.key, e]));
@@ -146,10 +156,11 @@ export function canEnchant(def: ItemDef | null | undefined, key: string): boolea
 }
 
 /**
- * Whether the ALTAR may write `key` onto an item: `canEnchant`, and never onto a legendary, which keeps exactly the enchants it was
+ * Whether the ALTAR may write `key` onto an item: `canEnchant`, and onto a legendary only as Attunement (deepening its verb), so it keeps exactly the enchants it was
  * found with (docs/plans/legendary-weapons.md). Loot and fixed finds go through `enchantStack`, which is not held to this.
  */
-export const canAltarEnchant = (def: ItemDef | null | undefined, key: string): boolean => !!def && rarityOf(def.key) !== 'legendary' && canEnchant(def, key);
+export const canAltarEnchant = (def: ItemDef | null | undefined, key: string): boolean =>
+  !!def && canEnchant(def, key) && (rarityOf(def.key) !== 'legendary' || key === 'attunement');
 
 /**
  * Returns new enchants with `key` set to `level` (clamped 1..max; the higher of the old and new level wins). Unknown key

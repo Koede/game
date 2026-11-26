@@ -8,7 +8,7 @@ const MAUL_IRON = 7;
 
 describe('the legendary weapons (data)', () => {
   it('are real items with a story, a verb, a utility and a hint', () => {
-    expect(LEGENDARIES.length).toBeGreaterThanOrEqual(4);
+    expect(LEGENDARIES).toHaveLength(8);
     for (const l of LEGENDARIES) {
       expect(item(l.item).name, l.item).toBeTruthy();
       expect(l.story.length, l.item).toBeGreaterThan(10);
@@ -28,7 +28,7 @@ describe('the legendary weapons (data)', () => {
   it('stay near a normal weapon of their age: the power is the verb, not the number', () => {
     for (const spec of LEGENDARY_ITEMS) {
       const def = item(spec.key);
-      expect(def.weapon!.damage, spec.key).toBeGreaterThanOrEqual(5);
+      expect(def.weapon!.damage, spec.key).toBeGreaterThanOrEqual(4);
       expect(def.weapon!.damage, spec.key).toBeLessThanOrEqual(MAUL_IRON);
       expect(def.age, spec.key).toBeLessThanOrEqual(1);
       expect(def.tool!.speed, spec.key).toBe(1); // no weapon mines faster
@@ -72,6 +72,10 @@ describe('the legendary weapons (data)', () => {
     expect(canAltarEnchant(item('orrins_spare_pick'), 'magnet')).toBe(false);
     expect(canAltarEnchant(item('orrins_spare_pick'), 'veinseeker')).toBe(false);
     expect(canAltarEnchant(item('gale_reed'), 'featherfall')).toBe(false);
+    // The one thing the altar may do to a legendary: deepen its verb, which a common weapon cannot take.
+    expect(canAltarEnchant(item('gale_reed'), 'attunement')).toBe(true);
+    expect(canAltarEnchant(item('emberfang'), 'attunement')).toBe(true);
+    expect(canAltarEnchant(item('bronze_pickaxe'), 'attunement')).toBe(false);
   });
 
   it('Orrin\'s Spare Pick still comes from the tavern vault with Veinseeker', () => {
@@ -112,9 +116,9 @@ describe('placement for the ruin and boss systems', () => {
   it('rotates which ruin gets which weapon with the seed, and rejects bad indexes', () => {
     const firsts = new Set<string | null>();
     for (let seed = 0; seed < 50; seed++) firsts.add(legendaryForSource('ruin', seed, 0));
-    expect(firsts.size).toBe(2);
+    expect(firsts.size).toBeGreaterThanOrEqual(2);
     expect(legendaryForSource('ruin', 1, -1)).toBeNull();
     expect(legendaryForSource('ruin', 1, 1.5)).toBeNull();
-    expect(legendaryForSource('boss', 1, 0)).toBe('emberfang');
+    expect(['emberfang', 'starcleaver']).toContain(legendaryForSource('boss', 1, 0));
   });
 });

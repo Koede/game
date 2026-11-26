@@ -61,10 +61,61 @@ function galeReed(c: Canvas): void {
   c.set(5, 5, P.ICE[4]);
 }
 
+function quietHammer(c: Canvas): void {
+  // A grey, felt-wrapped head on a short haft: no shine anywhere.
+  c.line(3, 13, 10, 6, P.WOOD[2]);
+  c.line(4, 13, 11, 6, P.WOOD[1]);
+  c.rect(8, 2, 6, 5, P.GRAPHITE[3]);
+  c.rect(8, 2, 6, 1, P.GRAPHITE[4]);
+  c.rect(8, 6, 6, 1, P.GRAPHITE[1]);
+  c.rect(8, 3, 1, 3, P.CONCRETE[2]);
+  c.set(13, 4, P.CONCRETE[3]);
+}
+
+function tidebrand(c: Canvas): void {
+  // Three prongs on a long pale shaft, wet-looking highlights.
+  c.line(2, 14, 11, 5, P.WOOD[3]);
+  c.line(3, 14, 12, 5, P.WOOD[1]);
+  c.line(10, 6, 13, 1, P.ICE[3]);
+  c.line(12, 5, 15, 2, P.ICE[3]);
+  c.line(11, 6, 15, 6, P.ICE[3]);
+  c.line(10, 7, 14, 7, P.ICE[1]);
+  c.set(13, 1, P.ICE[4]);
+  c.set(15, 2, P.ICE[4]);
+  c.set(15, 6, P.ICE[4]);
+  c.set(4, 11, P.WATER[4]);
+}
+
+function rootsong(c: Canvas): void {
+  // A twisting living staff: bark, a green leaf crown and a petal.
+  c.line(3, 14, 10, 5, P.OAK_BARK[3]);
+  c.line(4, 14, 11, 5, P.OAK_BARK[1]);
+  c.line(6, 11, 4, 9, P.OAK_BARK[2]);
+  c.disc(11.5, 4.5, 2.5, P.OAK_LEAF[3]);
+  c.disc(10.5, 3.5, 1.2, P.OAK_LEAF[4]);
+  c.set(14, 2, P.EMBER[3]);
+  c.set(13, 7, P.OAK_LEAF[4]);
+}
+
+function starcleaver(c: Canvas): void {
+  // A broad blade with a star-bright core.
+  for (let i = 0; i <= 8; i++) {
+    c.rect(4 + i, 11 - i, 3, 2, P.ARC_STEEL[3]);
+    c.set(4 + i, 11 - i, P.ARC_STEEL[4]);
+  }
+  for (const [x, y] of [[6, 9], [8, 7], [10, 5]] as const) c.set(x, y, P.ARC_GLOW[4]);
+  hilt(c, 4, 12, 1, 15, P.GOLD);
+  c.set(13, 2, P.ARC_GLOW[3]);
+}
+
 const paint = (fn: Painter): Painter => icon(fn);
 
 export const LEGENDARY_ICONS: PainterSet = {
   item_emberfang: paint(emberfang),
   item_lanternblade: paint(lanternblade),
   item_gale_reed: paint(galeReed),
+  item_quiet_hammer: paint(quietHammer),
+  item_tidebrand: paint(tidebrand),
+  item_rootsong: paint(rootsong),
+  item_starcleaver: paint(starcleaver),
 };
