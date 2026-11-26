@@ -40,7 +40,7 @@ export const FOOD_SPEC = {
     wildberries: 2,
   } as Record<string, number>,
   /** Foods that grant a buff: item -> [buff, seconds]. */
-  buffs: { hearth_stew: ['well_fed', 360], sugar: ['sugar_rush', 45], sugar_cookie: ['sugar_rush', 90], sweet_bun: ['sugar_rush', 150], sugar_cake: ['sugar_rush', 240] } as Record<string, [string, number]>,
+  buffs: { hearth_stew: ['well_fed', 360], sugar: ['sugar_rush', 45], sugar_cookie: ['sugar_rush', 90], sweet_bun: ['sugar_rush', 150], sugar_cake: ['sugar_rush', 240], fish_chowder: ['well_fed', 300], winter_broth: ['well_warmed', 240] } as Record<string, [string, number]>,
 
   /** Hoes: item -> [tier, durability]. */
   hoes: { flint_hoe: [1, 64], bronze_hoe: [2, 192], iron_hoe: [3, 384] } as Record<string, [number, number]>,

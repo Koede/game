@@ -226,7 +226,7 @@ export class GameState {
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
     this.exploration = new Exploration({
-      world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight,
+      world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight, day: () => this.clock.day,
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });

@@ -24,6 +24,7 @@ const FAMILIES: Readonly<Record<string, readonly string[]>> = {
   root: ['potato', 'carrot', 'baked_potato'],
   grain: ['wheat', 'flour', 'dough', 'bread'],
   sweet: ['sugar', 'wildberries', 'sugar_cookie', 'sweet_bun'],
+  fish: ['cooked_perch', 'cooked_trout', 'cooked_eel', 'cooked_glowfin', 'cooked_salmon', 'cooked_pike', 'cooked_carp', 'cooked_whitefish', 'cooked_crayfish'],
   sap: ['pine_sap', 'pine_resin'],
 };
 
@@ -35,6 +36,9 @@ export const IDEAL_HEAT_C: Readonly<Record<string, number>> = {
   baked_potato: 200,
   bread: 230,
   hearth_stew: 150,
+  fish_chowder: 150,
+  winter_broth: 150,
+  cooked_salmon: 200,
 };
 export const DEFAULT_IDEAL_C = 200;
 /** Degrees off the ideal at which the heat stops helping at all. */

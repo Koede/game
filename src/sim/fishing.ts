@@ -3,7 +3,7 @@
  * weather, how long the wait is. Randomness is injected (`rng` returns [0,1)) so tests and replays are exact.
  * The Use handler on a water block with a rod in hand and the bobber are a thin layer over this.
  */
-import { FISH, JUNK, type FishSpec, type WaterKind } from '../content/fishing';
+import { FISH, JUNK, type FishSeason, type FishSpec, type WaterKind } from '../content/fishing';
 
 export interface WaterSpot {
   biome: 'woodland' | 'dunes' | 'frostfell' | 'scar' | 'marsh';
@@ -23,6 +23,8 @@ export interface CastContext {
   /** 0..1 fraction of the day since dawn; night when >= 0.55 (see DAY in core/constants for the real clock). */
   night: boolean;
   raining: boolean;
+  /** The season of the year; absent (older callers) means no seasonal effect. */
+  season?: FishSeason;
 }
 
 /** Pool size (horizontal blocks) at which still water counts as a lake. */
@@ -44,7 +46,8 @@ export interface Catch { kind: 'fish' | 'junk' | 'nothing'; item: string | null;
 const weightOf = (f: FishSpec, kind: WaterKind, ctx: CastContext): number => {
   const base = f.weights[kind] ?? 0;
   if (base === 0) return 0;
-  return base * (ctx.night && f.night ? f.night : 1) * (ctx.raining && f.rain ? f.rain : 1);
+  const seasonal = ctx.season ? f.seasons?.[ctx.season] ?? 1 : 1;
+  return base * (ctx.night && f.night ? f.night : 1) * (ctx.raining && f.rain ? f.rain : 1) * seasonal;
 };
 
 /** Chance a cast ends in nothing at all (the fish got away). Rain and the dim hours of night bring them on. */
@@ -79,6 +82,10 @@ export function biteDelayS(ctx: CastContext, rng: () => number): number {
   const base = 4 + rng() * 8;
   return base * (ctx.raining ? 0.75 : 1) * (ctx.night ? 0.85 : 1);
 }
+
+/** Fish that can be caught in `kind` water in `season` (every fish of that water when the season is omitted). */
+export const fishInSeason = (kind: WaterKind, season?: FishSeason): string[] =>
+  FISH.filter((f) => weightOf(f, kind, { night: false, raining: false, season }) > 0).map((f) => f.item);
 
 /** Fish a water kind can hold (for the codex and tests). */
 export const fishIn = (kind: WaterKind): string[] => FISH.filter((f) => (f.weights[kind] ?? 0) > 0).map((f) => f.item);
