@@ -22,6 +22,7 @@ import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
 import { BuildChip } from './buildChip';
+import { TownChip, type TownChipInfo } from './townChip';
 import { NudgeBar } from './nudge';
 import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
@@ -47,6 +48,8 @@ export interface HudDeps {
   input: InputState;
   /** The world's weather (spec 15) for the dial's glyph and moon; null or missing = none. */
   weather?: () => WeatherState | null;
+  /** The town chip under the goal tracker: the camp goal or the building going up; null hides it. */
+  town?: () => TownChipInfo | null;
 }
 
 const SLOW_S = 0.125;
@@ -71,6 +74,7 @@ export class Hud {
   private readonly dialogue: NpcDialogue;
   private readonly vitals = new Vitals();
   private readonly goal: GoalTracker;
+  private readonly townChip: TownChip;
   private readonly compass = new Compass();
   private readonly quick: QuickCraft;
   private readonly build: BuildChip;
@@ -122,6 +126,7 @@ export class Hud {
     this.deps = deps;
     const bus = deps.bus;
     this.goal = new GoalTracker(bus);
+    this.townChip = new TownChip(bus);
     this.hotbar = new Hotbar(deps.player, bus);
     this.quick = new QuickCraft(deps.player, bus);
     this.build = new BuildChip(deps.world, deps.player, bus);
@@ -134,7 +139,7 @@ export class Hud {
       'div',
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
-      h('div', { class: 'hw-hud__mid' }, this.goal.el, this.nudge.el),
+      h('div', { class: 'hw-hud__mid' }, this.goal.el, this.townChip.el, this.nudge.el),
       h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el),
     );
     this.devBtn = this.devButton(bus);
@@ -359,6 +364,7 @@ export class Hud {
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
     this.goal.update(d.objectives);
+    this.townChip.update(d.town?.() ?? null);
     this.quick.update();
     this.build.update();
     const home = d.player.home;

@@ -1,6 +1,6 @@
 # Contentment and coming back (src/npcs/contentment.ts)
 
-A pure module (no world, no rendering, not wired yet). Implements items 4 and 5 of "Borrowed from Terraria's town NPCs" in `docs/plans/just-you-and-orrin.md`.
+A pure module (no world, no rendering). Wired in by `src/npcs/settlement.ts` and the manager: see `docs/api/npcs.md`, "Newcomers, housing and contentment". Implements items 4 and 5 of "Borrowed from Terraria's town NPCs" in `docs/plans/just-you-and-orrin.md`.
 
 ## Contentment
 

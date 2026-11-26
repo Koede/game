@@ -12,6 +12,7 @@ import type { PlayerState } from '../game/playerState';
 import type { Survival } from '../game/survival';
 import { BackGesture } from './hud/backGesture';
 import { Hud } from './hud/hud';
+import type { TownChipInfo } from './hud/townChip';
 import { NO_UI_SIM, type UISimQuery } from './hud/query';
 import { setIconProvider, type IconProvider } from './kit/icons';
 import type { UIRoot } from './kit/root';
@@ -83,6 +84,8 @@ export interface GameUIDeps {
   weather?: () => WeatherState | null;
   /** Lets the mouse go when a screen opens (normally InputManager.releasePointerCapture). GameUI never touches pointer lock itself. */
   releasePointer?: () => void;
+  /** The town chip and the pause menu's Town entry: null when the world has no town to show. */
+  town?: () => TownChipInfo | null;
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
   pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
@@ -137,6 +140,7 @@ export class GameUI {
       sim: () => this.sim,
       input: deps.input,
       weather: () => deps.weather?.() ?? null,
+      town: deps.town,
     });
     const bus = deps.bus;
     this.offs.push(
@@ -164,7 +168,7 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });

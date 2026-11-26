@@ -74,6 +74,10 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     timeOfDay: () => d.clock.timeOfDay,
     day: () => d.clock.day,
     worldSeed: () => d.world.seed,
+    townFacts: () => ({
+      magic: d.magic.notebook().entries().some((e) => e.status === 'done'),
+      alchemy: d.player.inventory.count('glass_beaker') > 0,
+    }),
     held: () => {
       const s = d.player.heldStack();
       return s ? { item: s.item, count: s.count } : null;

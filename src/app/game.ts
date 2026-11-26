@@ -15,6 +15,7 @@ import { Magic } from '../magic/magic';
 import { MagicRenderer } from '../render/magic/magicRenderer';
 import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
 import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
+import { createTownScreen } from '../ui/screens/town/townScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
@@ -210,6 +211,7 @@ export class Game {
         achievements: state.achievements,
         sim,
         weather: () => state.weather.state,
+        town: () => state.npcs.townChip(),
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,
@@ -219,6 +221,7 @@ export class Game {
       });
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
+      this.ui.registerScreen('town', (request, ctx) => createTownScreen(request as { type: 'town' }, ctx, () => state.npcs.townPage()));
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z, request.type === 'rune_desk' && request.bench === true), request.type === 'rune_desk' && request.bench === true));

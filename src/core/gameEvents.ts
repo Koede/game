@@ -25,6 +25,8 @@ export type ScreenRequest =
   | { type: 'log' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
+  /** The Town page: Gruk's building, the town's standing, who lives where, and the camp goals. */
+  | { type: 'town' }
   | { type: 'pause' }
   /** Dev Mode's item browser (docs/api/dev-mode.md). */
   | { type: 'creative' }
@@ -233,6 +235,8 @@ export interface GameEvents {
   // ---- progression ----
   'objective:completed': { id: string };
   'age:advanced': { age: number };
+  /** The town has a moment worth a diary line (a newcomer, a camp goal): the journal writes it once per `key`. */
+  'town:note': { key: string; text: string };
   /** A named one-off thing happened (objective conditions of type 'flag' listen for these). */
   'flag': { flag: string };
   /** The player started an emote (wave, sit, cheer, dance). */

@@ -12,7 +12,8 @@ import { makeEnchantedStack } from '../game/inventory';
 import { isFurnace } from '../sim';
 import type { App } from './app';
 
-import type { TownDebug } from '../npcs/manager';
+import type { NpcManager, TownDebug } from '../npcs/manager';
+import type { TownPage } from '../npcs/townPage';
 import { checkRoom } from '../npcs/housing';
 import { LODGE_BED } from '../npcs/lodge';
 
@@ -66,6 +67,12 @@ export interface DebugHandle {
   groundItems(): { item: string; count: number; x: number; y: number; z: number }[];
   /** Gruk's town (npcs/manager.ts townDebug): the building in progress, the build board, the storage bay and its crate. Null before a world runs. */
   town(): TownDebug | null;
+  /** The settlement (npcs/manager.ts settlementDebug): the move-in line, the rooms, who lives where, contentment, camp goals. */
+  settlement(): ReturnType<NpcManager['settlementDebug']> | null;
+  /** The Town page's data (npcs/townPage.ts). */
+  townPage(): TownPage | null;
+  /** Runs `n` nights of the move-in roll at once and returns who arrived (e2e). */
+  skipNights(n: number): string[];
   /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
   fallenLogs(): { id: number; length: number; ox: number; oy: number; oz: number; dx: number; dz: number; theta: number }[];
   look(yaw: number, pitch: number): void;
@@ -209,6 +216,15 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     town() {
       return game().state.npcs.townDebug();
+    },
+    settlement() {
+      return game().state.npcs.settlementDebug();
+    },
+    townPage() {
+      return game().state.npcs.townPage();
+    },
+    skipNights(n: number) {
+      return game().state.npcs.skipNights(n);
     },
     lodge() {
       const s = game().state;
