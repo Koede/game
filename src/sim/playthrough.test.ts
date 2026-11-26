@@ -383,8 +383,14 @@ describe('scripted playthrough', () => {
     play.place('crank_lever', { x: 15, y: 1, z: 8 });
     play.place('bell', { x: 16, y: 1, z: 8 });
     play.place('piston', { x: 17, y: 1, z: 8 });
+    // The small steam loop: a copper steam kettle, and a rotor to turn a shaft with it.
+    play.find('4 copper_ingot, 4 bronze_plate, 1 drive_shaft, 1 bronze_cog');
+    play.forge('steam_kettle');
+    play.forge('steam_rotor');
+    play.place('steam_kettle', { x: 18, y: 1, z: 8 });
+    play.place('steam_rotor', { x: 18, y: 2, z: 8 });
     play.step(0.5);
-    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell', 'place_piston']) done(id);
+    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell', 'place_piston', 'place_steam_kettle', 'place_steam_rotor']) done(id);
 
     // Spec 17: the Blast Furnace needs a Blast hearth - 16 brick around the Bronze Furnace, open at the top.
     play.craft('bellows', 1, BENCH);

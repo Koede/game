@@ -2,7 +2,7 @@
  * Per-block-id lookup tables for the hot loops of lighting and meshing. Every table has 1024 entries so a
  * masked voxel id can index it without a bounds check; ids without a block behave like air.
  */
-import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
+import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK, STEAM_KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
 import { glassFamily, glassModelIndex, glassPorts } from './glassModels';
@@ -137,7 +137,7 @@ for (const def of BLOCKS) {
     LIGHT_CLASS[id] = LIGHT_CLEAR;
   }
   if (def.shape === 'cup') CUP_STAGE[id] = 1 + CUP_STAGES.indexOf(cupStageOfBlock(def.key) ?? 'cup');
-  if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
+  if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK || def.key === STEAM_KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
   for (let state = 0; state < STATES; state++) {
     const facing = (state & 3) as Facing;
     const active = (state & 4) !== 0;

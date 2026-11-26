@@ -200,6 +200,9 @@ export class GameState {
     this.workshop = new Workshop(world, bus, this.player.ground);
     world.loadExtra('workshop', (raw) => this.workshop.load(raw));
     this.workshop.generatorWatts = (x, y, z) => this.sim.machineView(x, y, z)?.outW ?? 0;
+    // Steam rotors turn on a boiling steam kettle; the kettle burns water and heat only while the rotor's shaft line carries a load.
+    this.workshop.steamAt = (x, y, z) => this.sim.steamReadyAt(x, y, z);
+    this.sim.setSteamDemand((x, y, z) => (this.workshop.netAt(x, y, z)?.stress ?? 0) > 0);
     // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
     this.workshop.standingOn = (x, y, z) => treadwheelOccupied(this.player.position, this.mobs.all, x, y, z);
     const pack = workshopClockAndPack(this.clock, (item, n) => this.player.inventory.add(item, n));

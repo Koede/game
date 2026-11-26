@@ -448,6 +448,8 @@ SPEC.maxTextures += SYNERGY_ARTIFICER_SPEC.textures;
 
 // Dyes, stained planks and furniture (content/areas/decor.ts): 6 dye icons + 6 plank tiles + 3 furniture tiles.
 SPEC.maxTextures += 15;
+// The small steam loop (content/areas/steam_loop.ts): steam_kettle + steam_kettle_on, boiler_plate, safety_valve + safety_valve_top.
+SPEC.maxTextures += 5;
 // World exploration (waypoint stones, ...; src/content/areas/world_*.ts): only the texture budget is pinned.
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);

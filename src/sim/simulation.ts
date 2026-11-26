@@ -81,6 +81,17 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private readonly hand: HandWork;
   /** Casting benches: four mould sockets, never a power node (docs/api/handwork-content.md section 4). */
   private readonly benches: CastingBenches;
+  /** Whether the cell holds a boiling steam kettle with water in it: open steam for a rotor standing on it. */
+  steamReadyAt(x: number, y: number, z: number): boolean {
+    const e = this.brewing.entityAt(x, y, z);
+    return !!e && e.kind === 'kettle' && (e as { boiling: boolean }).boiling && (e as { waterL: number }).waterL > 0 && this.world.getBlock(x, y, z).key === 'steam_kettle';
+  }
+
+  /** Lets the game say whether a rotor above a kettle has work. */
+  setSteamDemand(fn: ((x: number, y: number, z: number) => boolean) | null): void {
+    this.brewing.steamDemand = fn;
+  }
+
   /** Buckets on furnace tops, cup setups and kettles (docs/api/brewing.md): entities that are not machine nodes. */
   private readonly brewing: Brewing;
   /** The glass distillery's modules and rigs (docs/api/distillery.md): entities that are not machine nodes. */

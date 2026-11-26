@@ -8,7 +8,7 @@ import {
 } from '../core/constants';
 import type { GameBus } from '../core/context';
 import {
-  BOIL_BUCKET_MACHINE, BREW_CUP_MACHINE, CONTAINER_BLOCKS, CUP_BLOCK, KETTLE_MACHINE, cupStageOfBlock, type CupStage,
+  BOIL_BUCKET_MACHINE, BREW_CUP_MACHINE, CONTAINER_BLOCKS, CUP_BLOCK, KETTLE_MACHINE, STEAM_KETTLE_BLOCK, cupStageOfBlock, type CupStage,
 } from '../core/brewing';
 import { blockId, blockOf, itemOrNull } from '../core/registry';
 import { posKey, type FurnaceEntity } from './entities';
@@ -59,6 +59,9 @@ const HEAT_W = 600;
 const BOILING_W = 300;
 const DRIP_EVERY_S = 0.5;
 const KETTLE_HYSTERESIS_C = 10;
+/** The steam kettle while a rotor on it has work: heat drawn (3.3 kW, tech-spine 2.2) and water boiled away (20 L/s of steam at 0.1 L water per L). */
+export const STEAM_KETTLE_W = 3300;
+export const STEAM_WATER_L_PER_S = 2;
 
 const finite = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 
@@ -67,6 +70,8 @@ export class Brewing {
   private readonly list: BrewEntity[] = [];
   /** The container being set down by placeContainer(), read when its block change arrives. */
   pendingContainer: string | null = null;
+  /** Set by the game: whether the steam rotor at x,y,z has work to do (its shaft line carries a load). */
+  steamDemand: ((x: number, y: number, z: number) => boolean) | null = null;
 
   constructor(readonly world: IWorld, readonly bus: GameBus, readonly host: BrewHost) {}
 
@@ -265,11 +270,16 @@ export class Brewing {
   }
 
   private kettle(e: Kettle, dt: number): void {
-    void dt;
     const furnace = this.host.furnaceBelow(e.x, e.y - 1, e.z);
     const t = furnace ? furnace.tempC : AMBIENT_TEMP_C;
     const boiling = e.waterL > 0 && t >= KETTLE_BOIL_C - (e.boiling ? KETTLE_HYSTERESIS_C : 0);
-    if (boiling && furnace) furnace.extractW += BOILING_W;
+    // A steam kettle with a working rotor on top boils harder: more heat in, water out.
+    const working = boiling && this.world.getBlock(e.x, e.y, e.z).key === STEAM_KETTLE_BLOCK && (this.steamDemand?.(e.x, e.y + 1, e.z) ?? false);
+    if (boiling && furnace) furnace.extractW += working ? STEAM_KETTLE_W : BOILING_W;
+    if (working) {
+      e.waterL = Math.max(0, e.waterL - STEAM_WATER_L_PER_S * dt);
+      if (e.waterL <= 0) this.bus.emit('toast', { text: 'The steam kettle boiled dry - pour water in', kind: 'warn' });
+    }
     if (boiling === e.boiling) return;
     e.boiling = boiling;
     const v = this.world.getVoxel(e.x, e.y, e.z);
