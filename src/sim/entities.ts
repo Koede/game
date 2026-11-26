@@ -164,6 +164,8 @@ export interface SimNode {
   openSky: boolean;
   /** Water wheels within the share radius, itself included. */
   wheels: number;
+  /** Water wheels: blocks of head (water stacked beside it, src/sim/hydro.ts). */
+  head: number;
   /** Furnaces this machine works with (thermopile, blower: touching; steam engine: the one underneath). */
   furnaces: FurnaceEntity[];
   /** Crates touching this machine. */
@@ -192,7 +194,7 @@ export const posKey = (x: number, y: number, z: number): string => `${x},${y},${
 export function createNode(e: SimEntity): SimNode {
   return {
     e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, loaded: true, dirty: true, water: 0, sideWater: 0,
-    lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, fs: null, extraFuel: null,
+    lava: 0, openSky: false, wheels: 1, head: 0, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, fs: null, extraFuel: null,
   };
 }
 
@@ -248,6 +250,8 @@ export interface SimContext {
   wind: number;
   /** Solar output multiplier of this tick's weather (WEATHER_SOLAR, eased; spec 15). */
   solar: number;
+  /** How freely rivers run this tick, 0..1 (frozen in winter; src/sim/hydro.ts). */
+  river: number;
   /** True on one tick per second: slow housekeeping (crate push) runs then. */
   everySecond: boolean;
   /** Sets the voxel's active flag when it differs from the node's. */

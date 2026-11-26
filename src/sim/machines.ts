@@ -3,6 +3,7 @@
  * `prepare` states what the machine can generate or wants to draw this tick, `apply` runs after the network
  * was solved and does the work. All numbers come from the registry.
  */
+import { headBoost } from './hydro';
 import { BROWNOUT_STALL } from '../core/constants';
 import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
@@ -106,7 +107,7 @@ const ambient = (watts: (node: SimNode, ctx: SimContext, spec: MachineSpec) => n
   apply: followLoad,
 });
 
-const waterWheel = ambient((n, _c, s) => (n.water >= (s.params?.minWater ?? 0) ? (s.outputW ?? 0) / Math.max(1, n.wheels) : 0));
+const waterWheel = ambient((n, c, s) => (n.water >= (s.params?.minWater ?? 0) ? ((s.outputW ?? 0) / Math.max(1, n.wheels)) * headBoost(n.head) * c.river : 0));
 const windTurbine = ambient((n, ctx, s) => {
   const p = s.params ?? {};
   if (!n.openSky) return 0;
