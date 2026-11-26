@@ -15,6 +15,8 @@ export class BlueprintPanel {
   private readonly body: HTMLDivElement;
   private renaming: string | null = null;
   private deleting: string | null = null;
+  /** What the card last drew: it is rebuilt only when this changes, so a tap never lands on a button that was just replaced. */
+  private drawn = '';
 
   constructor(
     private readonly tools: BlueprintTools,
@@ -39,6 +41,7 @@ export class BlueprintPanel {
   toggle(): void {
     if (this.open) this.hide();
     else {
+      this.drawn = '';
       this.el.hidden = false;
       this.render();
     }
@@ -48,6 +51,7 @@ export class BlueprintPanel {
     this.el.hidden = true;
     this.renaming = null;
     this.deleting = null;
+    this.drawn = '';
   }
 
   private get book(): BlueprintBook {
@@ -58,6 +62,14 @@ export class BlueprintPanel {
   render(): void {
     if (!this.open) return;
     if (this.renaming && this.body.querySelector('input:focus')) return;
+    const key = JSON.stringify([
+      this.book.entries.map((e) => [e.id, e.bp.name, e.origin, this.tools.needs(e.bp).map((n) => [n.item, n.need, Math.min(n.have, n.need)])]),
+      this.book.jobs.map((j) => [j.id, j.name, j.job.missing, Math.round(j.job.progress * 100)]),
+      this.renaming,
+      this.deleting,
+    ]);
+    if (key === this.drawn) return;
+    this.drawn = key;
     clear(this.body);
     const rows: HTMLElement[] = [];
     for (const j of this.book.jobs) {

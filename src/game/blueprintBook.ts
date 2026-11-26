@@ -8,6 +8,7 @@
  */
 import { blockOrNull } from '../core/registry';
 import type { IWorld } from '../core/types';
+import { itemOfBlock } from './buildTools';
 import { BuildJob, FREE_SOURCE, MAX_BLUEPRINT_CELLS, type Blueprint, type BlueprintCell, type MaterialSource } from './blueprint';
 
 /** Blueprints held at most. */
@@ -91,7 +92,7 @@ export function cleanBlueprint(raw: unknown): Blueprint | null {
     const dy = Math.floor(Number(c.dy));
     const dz = Math.floor(Number(c.dz));
     if (![dx, dy, dz].every(Number.isFinite) || dx < 0 || dy < 0 || dz < 0 || dx >= size[0] || dy >= size[1] || dz >= size[2]) continue;
-    cells.push({ dx, dy, dz, block: c.block, facing: (Math.floor(Number(c.facing)) || 0) & 3, ...(typeof c.item === 'string' ? { item: c.item } : {}) });
+    cells.push({ dx, dy, dz, block: c.block, facing: (Math.floor(Number(c.facing)) || 0) & 3, item: typeof c.item === 'string' ? c.item : itemOfBlock(c.block) ?? c.block });
   }
   if (cells.length === 0) return null;
   return { name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim().slice(0, 32) : 'Blueprint', size, cells };
@@ -224,4 +225,23 @@ export function tickJobs(book: BlueprintBook, dt: number, world: IWorld, stock: 
     } else if (j.job.missing && !before) report.dry.push({ name: j.name, item: j.job.missing });
   }
   return report;
+}
+
+/** What a source of known plans (the ruins' `OldPlans`) offers: only what the book needs, so the two stay decoupled. */
+export interface PlanSource {
+  list(): readonly { id: string }[];
+  blueprintOf(id: string): Blueprint | null;
+}
+
+/** Grants every plan the source knows that the book lacks, under the stable id `plan:<id>`. Returns the toasts to show. */
+export function grantKnownPlans(book: BlueprintBook, source: PlanSource): string[] {
+  const out: string[] = [];
+  for (const { id } of source.list()) {
+    if (book.get(`plan:${id}`)) continue;
+    const bp = source.blueprintOf(id);
+    if (!bp) continue;
+    const r = book.grant(bp, `plan:${id}`);
+    if (r.added || !r.ok) out.push(r.text);
+  }
+  return out;
 }

@@ -30,3 +30,10 @@ Save a built layout, then rebuild it elsewhere from materials: either by hand fr
 - Place picks a blueprint: a bar under the chip shows the placement ghost at the aim (the existing `ghost:show`: blue where it goes, red hatching
   where something is in the way; at most 1024 cells) with **Gruk builds**, **Build here** (instant from the pack, skipping what it cannot pay for or
   what is blocked), **Turn** and **Cancel**. The block under the crosshair gives the low corner (the aimed face's cell).
+
+## Feeding the book from other systems
+- **Event:** `bus.emit('blueprint:grant', { id: 'stone_hut' })` (catalog id) or `{ id: 'my:stable-id', blueprint }`; the app grants it and toasts.
+  Daily goals: add a `blueprint` Reward variant and emit this from `grant`; nothing else is needed.
+- **Old plans (ruins):** `AppState.syncOldPlans` copies every plan `state.oldPlans` knows (`list()` / `blueprintOf(id)`) into the book as
+  `plan:<id>` about once a second. It looks `oldPlans` up by name, so it does nothing until that module exists and works once it is merged.
+- A cell without `item` (old plans) is given the item that places its block when it is loaded.

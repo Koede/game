@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
 import { BuildJob, captureBlueprint } from './blueprint';
-import { BLUEPRINT_CATALOG, BlueprintBook, JOB_RANGE, MAX_BLUEPRINTS, MAX_JOBS, tickJobs } from './blueprintBook';
+import { BLUEPRINT_CATALOG, BlueprintBook, cleanBlueprint, grantKnownPlans, JOB_RANGE, MAX_BLUEPRINTS, MAX_JOBS, tickJobs } from './blueprintBook';
 import { FakeWorld } from './fakeWorld';
 import { Inventory } from './inventory';
 import { PlayerState } from './playerState';
@@ -95,5 +95,16 @@ describe('blueprint book', () => {
     const book = new BlueprintBook();
     book.commission(small(), [0, 5, 0]);
     expect(book.jobs[0].job).toBeInstanceOf(BuildJob);
+  });
+
+  it('grants the plans a source knows once, under plan:<id>, and fills in a missing item', () => {
+    const book = new BlueprintBook();
+    const bp = { name: 'Kiln House', size: [1, 1, 1] as [number, number, number], cells: [{ dx: 0, dy: 0, dz: 0, block: 'stone_brick', facing: 0 }] };
+    const known = [{ id: 'kiln_house' }, { id: 'ghost' }];
+    const src = { list: () => known, blueprintOf: (id: string) => (id === 'kiln_house' ? bp : null) };
+    expect(grantKnownPlans(book, src)).toEqual(['New blueprint: Kiln House']);
+    expect(grantKnownPlans(book, src)).toEqual([]);
+    expect(book.get('plan:kiln_house')!.origin).toBe('granted');
+    expect(cleanBlueprint(bp)!.cells[0].item).toBeTruthy();
   });
 });

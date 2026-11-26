@@ -27,7 +27,8 @@ import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
-import { tickJobs } from '../game/blueprintBook';
+import type { Blueprint } from '../game/blueprint';
+import { grantKnownPlans, tickJobs, type PlanSource } from '../game/blueprintBook';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -242,6 +243,13 @@ export class GameState {
     this.offs.push(world.persist('restoration', () => this.restoration.toJSON()));
     world.loadExtra('pets', (raw) => this.pets.load(raw));
     this.offs.push(world.persist('pets', () => this.pets.toJSON()));
+    // Anything may hand the player a blueprint by emitting 'blueprint:grant' (ruins, daily goals).
+    this.offs.push(
+      bus.on('blueprint:grant', (e) => {
+        const r = this.player.blueprints.grant((e.blueprint as Blueprint | undefined) ?? e.id, e.blueprint ? e.id : undefined);
+        if (r.added || !r.ok) bus.emit('toast', { text: r.text, kind: r.ok ? 'good' : 'warn' });
+      }),
+    );
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
@@ -388,6 +396,7 @@ export class GameState {
     this.weathering.tick(dt);
     this.pets.tick(dt);
     if (this.player.blueprints.jobs.length > 0) this.tickBlueprints(dt);
+    if (this.ticks % 40 === 0) this.syncOldPlans();
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
@@ -395,6 +404,16 @@ export class GameState {
     if (!this.npcs.greeted) this.npcs.greet();
     this.playTimeS += dt;
     this.ticks++;
+  }
+
+  /**
+   * The old plans read in the ruins (src/game/oldPlans.ts, when that module is present) join the blueprint book. Looked up by name so
+   * this works with or without it.
+   */
+  private syncOldPlans(): void {
+    const src = (this as unknown as { oldPlans?: PlanSource }).oldPlans;
+    if (!src || typeof src.list !== 'function' || typeof src.blueprintOf !== 'function') return;
+    for (const text of grantKnownPlans(this.player.blueprints, src)) this.bus.emit('toast', { text, kind: 'good' });
   }
 
   /** Gruk's blueprint builds: they draw from the pack and say so when it runs dry or a build is done. */

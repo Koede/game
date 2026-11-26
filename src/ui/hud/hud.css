@@ -1287,6 +1287,7 @@
   max-height: 70vh;
   padding: 10px;
   pointer-events: auto;
+  background: rgba(20, 17, 14, 0.97);
 }
 .hw-bp[hidden],
 .hw-bp__bar[hidden] {
