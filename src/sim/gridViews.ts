@@ -180,6 +180,8 @@ export interface NetworkStats {
   /** Watts going into storage (before the 90% efficiency) and coming out of it. */
   chargeW: number;
   dischargeW: number;
+  /** Most the switched-on storage can give at once, in watts (0 without storage). */
+  storageRateW: number;
   /** Most the cables carry; Infinity without cables. */
   ratingW: number;
   cables: number;
@@ -220,12 +222,18 @@ function membersOf(net: Network): NetworkMember[] {
   });
 }
 
+function storageRate(net: Network): number {
+  let w = 0;
+  for (const n of net.storage) if (n.loaded && (n.e as MachineEntity).on) w += n.spec.rateW ?? 0;
+  return w;
+}
+
 /** A snapshot of one network. `members` is worked out on first access (the HUD only needs the totals). */
 export function networkStats(net: Network): NetworkStats {
   let members: NetworkMember[] | null = null;
   return {
     id: net.id, generationW: net.generationW, demandW: net.demandW, deliveredW: net.deliveredW, storedJ: net.storedJ,
-    capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW, ratingW: net.ratingW, cables: net.cables,
+    capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW, storageRateW: storageRate(net), ratingW: net.ratingW, cables: net.cables,
     satisfaction: net.f, overloaded: net.overloaded, state: net.state,
     get members(): NetworkMember[] {
       if (members === null) members = membersOf(net);
