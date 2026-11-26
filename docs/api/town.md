@@ -16,8 +16,9 @@ Gruk builds a village next to the tavern from presaved templates (plan: `docs/pl
 - `src/npcs/buildBoard.ts`: pure. The board, the town's reputation, the reputation gates (`UNLOCK_REP`) and the bay's places
   (`bayBoardSpot`, `bayFrontSpot`, `bayCrateSpot`).
 - `src/npcs/manager.ts` (`tickTown`, `townDebug`, `town` in the npcs snapshot) and `src/npcs/host.ts` (`townSurface`, `townBlock`,
-  `townEdited`, `townPlace`, `townCrate`) wire it in. The origin is the camp's centre in a new world (`camp.ts`, phase 1 of
-  `docs/plans/just-you-and-orrin.md`) and the tavern's centre once it stands. The builder is Gruk (`BUILDER_ID`): his name is on the
+  `townEdited`, `townPlace`, `townCrate`) wire it in. The plan is anchored on the camp's centre in a new world (`camp.ts`, phase 1 of
+  `docs/plans/just-you-and-orrin.md`), or the tavern's centre in an old world, and is made once. From the lodge's first stage the
+  people's origin is the lodge's plot (`lodgeOrigin()`); the plan does not move. The builder is Gruk (`BUILDER_ID`): his name is on the
   board's toasts and he takes the build-bounty trust.
 
 ## State

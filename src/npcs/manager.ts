@@ -1,6 +1,6 @@
 /**
  * NpcManager: the tavern's people and props. DOM-free and headless (owned by GameState, saved with `world.persist('npcs')`).
- * `buildStart` builds the tavern around the spawn point of a NEW world; `talk` is the player's Use on a person or prop under the
+ * A NEW world opens at a camp (`startCamp`); `buildStart`, which builds a full tavern round a spawn point, has no callers. `talk` is the player's Use on a person or prop under the
  * crosshair. Roles: the witch (magic), barkeep (brewing) and artificer (tech) alternate chatter with progression advice; the orc can be
  * hired for coin to fight beside you; the hermit buys what you hold; the board pays a coin bounty for every progression goal you have
  * done (you must come to the board to redeem it); the clock tells the time. Phrase banks: ./scripts.

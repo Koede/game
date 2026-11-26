@@ -10,4 +10,4 @@
 - Drawn by `meshDoor.ts`: a plank panel thin across the facing axis; closed, the bottom half has a small handle on the front side;
   open, the panel lies against one edge of the cell.
 - Housing: `DOOR_KEYS` in `npcs/housing.ts` holds `wooden_door`, so a room with a door is no longer "needs a door".
-- Not done: mobs and NPC pathing still treat a door as a full solid block, open or shut.
+- Mobs pass an open door and treat a shut one as a wall (`mobs/terrain.ts`); they never open a door themselves. NPC routes go through doors (`npcs/nav.ts`).

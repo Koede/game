@@ -14,11 +14,11 @@ hall's fire) and two bedrolls (`wool_bedding`). The camp is 9 x 5 with its floor
 which is also the spawn point, so a respawn lands there. **Only Gruk lives in a new world** (`BUILDER_ID`, the builder who also gives
 the wooden tools on first talk). He walks the camp's routines (`CAMP_ROUTINES`, camp-local). The others are not drawn, not ticked and
 not talkable, and Orrin is a later newcomer. Old saves keep the tavern and all six people; `settle` (the debug helper
-`window.__hw.settle()`, `NpcManager.settle`) builds the full tavern on the camp's origin and moves everyone in, and is what the tavern
+`window.__hw.settle()`, `NpcManager.settle`) builds the full tavern on the camp's origin (or the lodge's, part-way up) and moves everyone in, and is what the tavern
 tests and e2e use (`src/npcs/settledWorld.ts`).
 
 **Who lives here** is `NpcManager.isPresent(id)`, saved as `present` (optional: old saves have everyone). `camp` (also optional) marks
-a camp in place of the tavern, and `hasTavern` is `!camp`. While a person is absent: their routine and drawing are off, Use on them says
+a camp in place of the tavern, and `hasTavern` is `!camp` once the lodge's last stage stands (`tavernLevel` 5, see the lodge section). While a person is absent: their routine and drawing are off, Use on them says
 nothing (`speak` returns ''), their service menu is empty (`serviceMenu`), favours for them are not pinned (`FavourBoard.refresh` takes
 a `canAsk`), gossip needs two present people, Rosa's bar does not sell or collect rent, the festival needs three present (and the
 tavern), the trader does not visit without the tavern, and the jukebox and party button need the tavern. `advice(role)` for an absent
@@ -37,7 +37,7 @@ artificer's road. Lines show as toasts (`Name, title: "..."`). Old worlds are no
   two tables); `buildTavern(world, ox, oy, oz)` flattens a one-block margin, clears the air above and places it (source `'sim'`).
   `TAVERN_START` = [6, 1, 2]: the world spawn is put on that cell, so a respawn lands in the hall.
 - `manager.ts`: `NpcManager` (owned by `GameState.npcs`, saved with `world.persist('npcs')`: origin, greeted, gifted, hints heard, `present`,
-  `camp`). `startCamp` (a new world), `settle` (camp to tavern), `buildStart` (a full tavern, everyone present), `views()`, `raycast`
+  `camp`). `startCamp` (a new world, at a camp), `settle` (camp or lodge to tavern), `buildStart` (a full tavern, everyone present; no callers), `views()`, `raycast`
   (box 0.76 x 2.0, reach 3.4, no occlusion by blocks), `talk` (0.8 s cooldown so a held Use does not read the script), `speak`, `greet`
   (the welcome toast, once), `tick`.
 - `GameState.create` calls `startInCamp()` (falls back to the old open-view start when no ground is loaded); the player faces south.
@@ -51,7 +51,7 @@ artificer's road. Lines show as toasts (`Name, title: "..."`). Old worlds are no
 (desktop and phone portrait: opens in the tavern, uses each person and checks the gift and the toast; `HW_GPU=1` for the real GPU).
 
 ## Ideas for later
-Shop/trade with Rosa, a quest board, recruiting Gruk as a smith at the Bronze Furnace, Mara teaching research entries, walking schedules and
+Recruiting Gruk as a smith at the Bronze Furnace, Mara teaching research entries, walking schedules and
 night-time seating, more people in the structures session's outposts.
 
 ## Jukebox and dancing
@@ -126,7 +126,7 @@ Seven small systems built on the tavern's people. Each is a pure module in `src/
 
 ## Veyra, the alchemist (sixth person)
 
-A dark elf distiller in the hall (`id veyra`, role and sprite `alchemist`, home `[4,1,2]`, night by the stairs `[2,1,1]`, dances at `[4,1,3]`). Welcome gift: 3 glass vials and 2 glass beakers. Odd visits give her advice (`alchemyAdvice` in `src/npcs/alchemy.ts`: the next rung of the glass distillery ladder from what the pack holds: syrup, wash, low wines, spirit, tincture, clear tincture, essence/elixir) or a goal hint; Use again takes the tonic she pitches (`TONICS` in drinks.ts: a swift tonic and a mending draught, three a day each). She likes glassware, charcoal, sulfur and tinctures (friendship.ts), has two favours, four gossip pairs (Mara, Rosa, Orrin, Gruk), a wake-up note and a dance style. Phrase bank `scripts/alchemist.ts`. Art: owner references in `docs/art-refs/`; drop `veyra.png`, `veyra_portrait.png`, `veyra_anim.png`, `veyra_dance.png`, `veyra_faces.jpg` in `assets/npcs/` and run `node scripts/npc-art.mjs`; until then the code-drawn sprite and portrait are used. Not done: the vapour-skull idle animation.
+A dark elf distiller in the hall (`id veyra`, role and sprite `alchemist`, home `[4,1,2]`, night by the stairs `[2,1,1]`, dances at `[4,1,3]`). Welcome gift: 3 glass vials and 2 glass beakers. Odd visits give her advice (`alchemyAdvice` in `src/npcs/alchemy.ts`: the next rung of the glass distillery ladder from what the pack holds: syrup, wash, low wines, spirit, tincture, clear tincture, essence/elixir) or a goal hint; Use again takes the tonic she pitches (`TONICS` in drinks.ts: a swift tonic and a mending draught, three a day each). She likes glassware, charcoal, sulfur and tinctures (friendship.ts), has two favours, four gossip pairs (Mara, Rosa, Orrin, Gruk), a wake-up note and a dance style. Phrase bank `scripts/alchemist.ts`. Art: owner references in `docs/art-refs/`; drop `veyra.png`, `veyra_portrait.png`, `veyra_anim.png`, `veyra_dance.png`, `veyra_faces.jpg` in `assets/npcs/` and run `node scripts/npc-art.mjs`; until then the code-drawn sprite and portrait are used. Her skull smoke is drawn: a puff curls up, gathers into a small skull and crumbles (schedule in `src/npcs/smoke.ts`, drawing in `src/render/npcs/smoke.ts`).
 
 ## The lodge and its stages (lodge.ts)
 
@@ -140,7 +140,7 @@ tavern).
   `hasTavern` is no longer `at && !camp` alone: the camp flag is cleared when the lodge's first stage stands, and the tavern features
   wait for the last stage.
 - **Fires**: the lodge's hearth (`LODGE_FIRES`, the furnace in the common room) until the tavern stands.
-- **Gruk** keeps to `LODGE_ROUTINE` (the common room) while only the lodge stands.
+- **Gruk** keeps to `LODGE_ROUTINE` (the common room) until the full tavern stands.
 - **Respawn**: `bedSpawn()` is the first bedroom's spot from stage 1, the guest bed once the upper floor stands; `state.ts` moves
   `player.spawn` there each tick (a respawn with a home furnace still goes to the home).
 - **Settle** (`settle()`): builds the full tavern on the current origin (the camp's, or the lodge's) and marks the lodge finished.
