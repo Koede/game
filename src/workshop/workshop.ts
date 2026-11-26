@@ -433,7 +433,7 @@ export class Workshop {
   }
 
   /**
-   * Shaft speed a dynamo at (x, y, z) is turned at, rpm; 0 when its line is still, jammed, overloaded or overloaded.
+   * Shaft speed a dynamo at (x, y, z) is turned at, rpm; 0 when its line is still, jammed or overloaded.
    */
   dynamoRpm(x: number, y: number, z: number): number {
     const key = k3(x, y, z);

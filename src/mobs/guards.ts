@@ -7,7 +7,7 @@ import { creature } from '../core/registry';
 import { CHUNK_SIZE, type CreatureSpec, type IWorld } from '../core/types';
 import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
 import { structureGuardPlans, type StructureGuardPlan } from '../world/structures';
-import { caveLairSite, chunkHasLair, lairKey, type CaveLair } from '../world/caveLair';
+import { caveLairSite, chunkHasLair, chunkHoldsCamp, lairKey, type CaveLair } from '../world/caveLair';
 import { floorAt } from './hostileSpawner';
 import { clearanceOf } from './terrain';
 
@@ -102,7 +102,7 @@ export function guardLair(host: GuardHost, p: CaveLair): boolean {
 const lairsTried = new WeakMap<GuardHost, Set<string>>();
 export function guardLairOfChunk(host: GuardHost, cx: number, cz: number): void {
   const key = lairKey(cx, cz);
-  if (!chunkHasLair(host.seed, cx, cz) || host.guarded.has(key)) return;
+  if (!(chunkHasLair(host.seed, cx, cz) || chunkHoldsCamp(host.seed, cx, cz)) || host.guarded.has(key)) return;
   let tried = lairsTried.get(host);
   if (!tried) lairsTried.set(host, (tried = new Set()));
   if (tried.has(key) || !host.world.isLoaded(cx * CHUNK_SIZE, cz * CHUNK_SIZE)) return;

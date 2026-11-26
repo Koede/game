@@ -221,6 +221,42 @@ const fuelGenerator: Behaviour = {
   },
 };
 
+/**
+ * Kerosene lamp: not wired to anything. While its slot holds a Kerosene Canister (or a canister is still burning) it is lit and burns
+ * `lampW` of the canister's `fuelEnergyJ`. Each canister used up is owed back as an empty one (`progress`), handed over in the slot when the stack ends.
+ */
+const keroseneLamp: Behaviour = {
+  prepare(node) {
+    (node.e as MachineEntity).availW = 0;
+  },
+  apply(node, ctx, dt) {
+    const e = node.e as MachineEntity;
+    e.outW = 0;
+    const empty = 'empty_canister';
+    let slot = e.slots[0];
+    if (!e.on) {
+      ctx.setActive(node, false);
+      return;
+    }
+    if (slot && slot.item === empty) {
+      ctx.setActive(node, e.fuelJ > 0);
+      if (e.fuelJ > 0) e.fuelJ = Math.max(0, e.fuelJ - (node.spec.params?.lampW ?? 0) * dt);
+      return;
+    }
+    const before = slot ? slot.count : 0;
+    if (holdsFuel(node)) burnFuel(node, ctx, (node.spec.params?.lampW ?? 0) * dt);
+    slot = e.slots[0];
+    const after = slot ? slot.count : 0;
+    if (after < before) e.progress += before - after;
+    if (!slot && e.progress > 0 && e.fuelJ >= 0) {
+      e.slots[0] = { item: empty, count: Math.min(e.progress, 16) };
+      e.progress = 0;
+      ctx.touch(e);
+    }
+    ctx.setActive(node, e.fuelJ > 0 || holdsFuel(node));
+  },
+};
+
 // ---- storage and simple consumers ---------------------------------------------------------------------------
 
 /** Batteries are moved by the network solver itself. */
@@ -390,6 +426,7 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   steam_engine: heatEngine,
   burner_generator: fuelGenerator,
   combustion_engine: fuelGenerator,
+  kerosene_lamp: keroseneLamp,
   water_wheel: waterWheel,
   wind_turbine: windTurbine,
   solar_panel: solarPanel,

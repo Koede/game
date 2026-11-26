@@ -596,6 +596,23 @@ describe('a settled world opens in the tavern', () => {
     state.dispose();
   });
 
+  it('never conjures fuel: an empty woodpile and bay leave the hearths to burn down, and logs in the bay feed them', () => {
+    const state = settledWorld(22, 'fires-out');
+    state.npcs.firewood = 0;
+    const o = state.npcs.at!;
+    const [fx, fy, fz] = FIRE_SPOTS[0];
+    const fire = () => state.sim.furnaceAt(o[0] + fx, o[1] + fy, o[2] + fz)!;
+    const slots = () => state.sim.furnaceSlots(o[0] + fx, o[1] + fy, o[2] + fz)!;
+    for (let s = 0; s < slots().fuel.size; s++) slots().fuel.set(s, null);
+    for (let i = 0; i < 400; i++) state.tick();
+    const logs = () => slots().fuel.slots.reduce((n, st) => n + (st?.item === 'oak_log' ? st.count : 0), 0);
+    expect(logs()).toBe(0);
+    state.npcs.firewood = 30;
+    for (let i = 0; i < 400; i++) state.tick();
+    expect(state.npcs.firewood).toBeLessThan(30);
+    state.dispose();
+  });
+
   it('keeps both hearths lit', () => {
     const state = settledWorld(22, 'fires');
     for (let i = 0; i < 200; i++) state.tick();

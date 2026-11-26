@@ -5,6 +5,7 @@
  * coerced to its type (slot lists to valid stacks, numbers to finite numbers, the tier into range), in place; what
  * cannot be repaired is reported so the caller drops it.
  */
+import { sanitizeEnchants } from '../core/enchant';
 import { MACHINES, MAX_FURNACE_TIER, canonicalItemKey, fluidOrNull, fuelOf, itemOrNull, recipe } from '../core/registry';
 import { PIPE_FILTER_SLOTS, PIPE_PRIORITY_MAX, PIPE_PRIORITY_MIN } from '../core/constants';
 import type { BlockEntity, Slot } from '../core/types';
@@ -25,6 +26,9 @@ function cleanSlot(v: unknown): Slot {
   if (key === null) return null;
   const s: Exclude<Slot, null> = { item: key, count: Math.floor(v.count) };
   if (finite(v.durability)) s.durability = v.durability;
+  if (v.quality === 1 || v.quality === 2) s.quality = v.quality;
+  const enchants = sanitizeEnchants(v.enchants);
+  if (enchants) s.enchants = enchants;
   return s;
 }
 

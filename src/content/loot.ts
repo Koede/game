@@ -53,6 +53,9 @@ export const LOOT_TABLES: LootTableSpec[] = [
       { item: 'thermopile', count: 1, weight: 2 },
       { item: 'bronze_bucket', count: 1, weight: 2 },
       { item: 'bronze_pickaxe', count: 1, weight: 2 },
+      // Lucky finds: a tool that already carries an enchant (the altar is the other way to get one).
+      { item: 'bronze_pickaxe', count: 1, weight: 1, rarity: 'rare', enchants: { magnet: 1 } },
+      { item: 'bronze_axe', count: 1, weight: 1, rarity: 'rare', quality: 1, enchants: { bounty: 1 } },
       // Hidden research (src/magic/scrolls.ts): rare, and optional like all magic.
       { item: 'scroll_ledger', count: 1, weight: 1 },
       { item: 'scroll_verses', count: 1, weight: 1 },
