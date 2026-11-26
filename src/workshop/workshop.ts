@@ -120,7 +120,7 @@ export interface SwingView { kind: string; x: number; y: number; z: number; phas
 export interface LinkView { kind: string; x1: number; y: number; z1: number; x2: number; z2: number; rpm: number }
 export interface WorkshopView { spin: SpinView[]; swings: SwingView[]; links: LinkView[] }
 /** Parts that show a turning cog on top while they run. */
-const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
+const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft', 'mill_wheel']);
 
 /** Seconds a recipe takes at 16 rpm: strokes x STROKE_S, or half the drying / soaking time of a timed recipe. */
 const needS = (r: RecipeDef): number => ((r.strokes ?? 0) > 0 ? (r.strokes as number) * STROKE_S : (r.timeS ?? 2) * 0.5);
@@ -152,6 +152,8 @@ export class Workshop {
   /** True while the cell holds a boiling steam kettle with water: a steam rotor above it turns. */
   steamAt: ((x: number, y: number, z: number) => boolean) | null = null;
   /** What a beam engine at x,y,z gives (rpm and stress units from the boiler pressure), or null when it has no steam. */
+  /** What the mill wheel at x,y,z gets from the river (rpm and stress units), or null. Set by the app from the simulation. */
+  riverAt: ((x: number, y: number, z: number) => { rpm: number; capacity: number } | null) | null = null;
   engineAt: ((x: number, y: number, z: number) => { rpm: number; capacity: number } | null) | null = null;
   private readonly off: () => void;
   /** Richer "use this item on that block" for deployers (hoes, hand stations): set by Game; null/undefined falls back to placing and breaking. */
@@ -430,6 +432,7 @@ export class Workshop {
     if (p.kind === 'clockwork_motor') return (this.wound.get(key) ?? 0) > 0 ? { rpm: CLOCKWORK.rpm, capacity: CLOCKWORK.capacity } : null;
     if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
     if (p.kind === 'steam_rotor') return this.steamAt?.(p.x, p.y - 1, p.z) ? { rpm: STEAM_ROTOR.rpm, capacity: STEAM_ROTOR.capacity } : null;
+    if (p.kind === 'mill_wheel') return this.riverAt?.(p.x, p.y, p.z) ?? null;
     if (p.kind === 'beam_engine') return this.engineAt?.(p.x, p.y, p.z) ?? null;
     if (this.pto.has(key)) return { rpm: 24, capacity: 30 };
     const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
@@ -955,6 +958,7 @@ export class Workshop {
     const mv = p.kind === 'piston' ? this.contra.describe(x, y, z) : null;
     if (mv) parts.push(`extended ${mv.split('extended ')[1]}`);
     if (p.kind === 'beam_engine') parts.push(this.engineAt?.(p.x, p.y, p.z) ? 'steam up' : 'no steam: needs 2 bar through a Steam Port and pipes');
+    if (p.kind === 'mill_wheel') parts.push(this.riverAt?.(p.x, p.y, p.z) ? 'river turning it' : 'no flow: set it in moving water (frozen rivers stop it)');
     if (p.kind === 'steam_rotor') parts.push(this.steamAt?.(p.x, p.y - 1, p.z) ? 'steam up' : 'no steam: stand it on a boiling Copper Steam Kettle');
     if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
     const m = this.machines.get(key);

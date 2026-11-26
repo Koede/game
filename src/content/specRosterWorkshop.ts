@@ -3,7 +3,7 @@ export const WORKSHOP_SPEC = {
   blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
     'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill',
-    'shear_pin', 'flywheel', 'brake', 'pillow_block', 'cam_drum', 'logic_gate', 'differential', 'treadwheel', 'steam_rotor', 'beam_engine', 'saw_arm', 'item_vault', 'vacuum_collector',
+    'shear_pin', 'flywheel', 'brake', 'pillow_block', 'cam_drum', 'logic_gate', 'differential', 'treadwheel', 'steam_rotor', 'beam_engine', 'mill_wheel', 'saw_arm', 'item_vault', 'vacuum_collector',
     'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface', 'wind_vane', 'signal_relay', 'signal_timer', 'push_button',
     'contraption_frame', 'piston', 'bearing', 'rail', 'skiff'],
   items: ['engineer_goggles', 'bronze_cog', 'punched_card'],
@@ -51,6 +51,7 @@ export const WORKSHOP_SPEC = {
       'differential: 1 differential <- 3 bronze_cog, 1 bronze_ingot, 1 drive_shaft @600 T2',
       'steam_rotor: 1 steam_rotor <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft @600 T2',
       'beam_engine: 1 beam_engine <- 6 bronze_plate, 2 bronze_cog, 1 flywheel, 2 steam_pipe @1000 T2',
+      'mill_wheel: 1 mill_wheel <- 12 plank, 2 copper_ingot @500 T2',
       'treadwheel: 1 treadwheel <- 4 plank, 2 bronze_ingot, 2 drive_shaft @600 T2',
       'saw_arm: 1 saw_arm <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw @600 T2',
       'item_vault: 1 item_vault <- 4 crate, 2 bronze_plate @600 T2',
@@ -77,7 +78,7 @@ export const WORKSHOP_SPEC = {
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then the modular fronts (two for each running one) and icons, plus the vane face and the punched-card icon. */
-  textures: 112,
+  textures: 114,
   /** Nothing is world-only now: the vane and the card are forged (Wave 4, dead ends). */
   worldOnly: [] as string[],
 };

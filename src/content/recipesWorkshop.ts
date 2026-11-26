@@ -50,6 +50,7 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('differential', '3 bronze_cog, 1 bronze_ingot, 1 drive_shaft', 600),
   forge('steam_rotor', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft', 600),
   forge('beam_engine', '6 bronze_plate, 2 bronze_cog, 1 flywheel, 2 steam_pipe', 1000),
+  forge('mill_wheel', '12 plank, 2 copper_ingot', 500),
   forge('treadwheel', '4 plank, 2 bronze_ingot, 2 drive_shaft', 600),
   forge('saw_arm', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw', 600),
   forge('item_vault', '4 crate, 2 bronze_plate', 600),

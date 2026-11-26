@@ -5,6 +5,7 @@
  * - Ice: rivers slow as winter comes and freeze solid in it, so output follows `riverScale` of the clock day.
  */
 import type { IWorld } from '../core/types';
+import { isWater, isWaterSource } from '../world/water';
 import { DAYS_PER_SEASON, dayOfSeason, seasonOf } from './seasons';
 
 /** Most blocks of head that count. */
@@ -42,4 +43,25 @@ export function headAt(world: IWorld, x: number, y: number, z: number): number {
     if (h > best) best = h;
   }
   return best;
+}
+
+/** The mill wheel, the river-driven shaft source: rpm, stress units per side of moving water, most sides counted. */
+export const MILL_WHEEL = { rpm: 16, suPerSide: 6, maxSides: 3 };
+/** Share of a side's flow that still (source) water gives: a pool turns a wheel, but only slowly. */
+export const SLACK = 0.5;
+
+/**
+ * Stress units a mill wheel at x,y,z gives now: 6 per side of flowing water (falling water too), half for a still
+ * pool, at most 3 sides, times the dam's head boost and the river's `scale` (ice). Water beside the wheel that is
+ * not a river, a pump's, is not told apart from it here.
+ */
+export function millWheelSu(world: IWorld, x: number, y: number, z: number, scale: number): number {
+  let sides = 0;
+  for (const [dx, dz] of SIDES) {
+    const v = world.getVoxel(x + dx, y, z + dz);
+    if (!isWater(v)) continue;
+    sides += isWaterSource(v) ? SLACK : 1;
+  }
+  sides = Math.min(MILL_WHEEL.maxSides, sides);
+  return sides * MILL_WHEEL.suPerSide * headBoost(headAt(world, x, y, z)) * scale;
 }
