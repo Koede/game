@@ -179,7 +179,8 @@ export const holdsFuel = (node: SimNode): boolean => {
 const FUEL_SIP = 0.1;
 
 /** Takes `joules` of electricity out of the fuel, loading the next item from the slot when one runs out. */
-export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
+/** `giveEmpties` false: the machine keeps the used-up containers itself (the kerosene lamp leaves them in its slot). */
+export function burnFuel(node: SimNode, ctx: SimContext, joules: number, giveEmpties = true): void {
   const e = node.e as MachineEntity;
   let need = joules;
   while (need > 0) {
@@ -190,7 +191,7 @@ export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
         const back = fuelContainerOf(s.item);
         s.count--;
         if (s.count <= 0) e.slots[0] = null;
-        if (back) ctx.giveBack(back);
+        if (back && giveEmpties) ctx.giveBack(back);
         e.fuelJ = worth;
         ctx.touch(e);
       } else {
@@ -244,7 +245,7 @@ const keroseneLamp: Behaviour = {
       return;
     }
     const before = slot ? slot.count : 0;
-    if (holdsFuel(node)) burnFuel(node, ctx, (node.spec.params?.lampW ?? 0) * dt);
+    if (holdsFuel(node)) burnFuel(node, ctx, (node.spec.params?.lampW ?? 0) * dt, false);
     slot = e.slots[0];
     const after = slot ? slot.count : 0;
     if (after < before) e.progress += before - after;

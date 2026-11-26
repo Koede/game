@@ -32,4 +32,13 @@ describe('kerosene lamp', () => {
     kit.run(2450);
     expect(lamp.slots[0]).toEqual({ item: 'empty_canister', count: 2 });
   });
+
+  it('returns each used-up canister once: in the lamp, not also into the pack', () => {
+    const kit = makeKit();
+    const lamp = kit.machine('kerosene_lamp', 0, 5, 0);
+    lamp.slots[0] = { item: 'kerosene_canister', count: 2 };
+    kit.run(2450);
+    expect(lamp.slots[0]).toEqual({ item: 'empty_canister', count: 2 });
+    expect(kit.sim.player.inventory.count('empty_canister')).toBe(0);
+  });
 });
