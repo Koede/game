@@ -18,14 +18,14 @@ export type SurfaceFn = (x: number, z: number) => Surface | null;
 /** Site search: a candidate centre this far (blocks) from the origin, and how many candidates to try. */
 export const SITE_MIN = 24;
 export const SITE_MAX = 64;
-export const SITE_CANDIDATES = 16;
+export const SITE_CANDIDATES = 48;
 /** Plots sit on a lattice this far apart (blocks); a footprint is at most this wide. */
 export const SLOT_PITCH = 12;
 export const SLOT_RING = 3;
 /** Largest height difference (blocks) under a footprint for the plot to count. */
 export const RELIEF_MAX = 3;
 /** Fewest usable plots a site needs (the plaza is one of them). */
-export const MIN_PLOTS = 6;
+export const MIN_PLOTS = 4;
 
 /** The first buildings in order: the storage bay nearest the plaza, the plaza itself, then houses and lamps. */
 export const TOWN_ORDER: readonly string[] = [

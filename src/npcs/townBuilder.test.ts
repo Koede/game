@@ -219,13 +219,14 @@ describe('town builder', () => {
     for (const p of g.placedNonAir()) expect(p.prev).not.toBe('plank');
   });
 
-  it('moves wild crops, flowers and other loose growth out of the way, but never logs or leaves', () => {
+  it('moves wild crops, flowers, loose growth and overhanging leaves out of the way, but never a trunk', () => {
     expect(movable('wild_potato')).toBe(true);
     expect(movable('wild_wheat')).toBe(true);
     expect(movable('skybell')).toBe(true);
     expect(movable('tall_grass')).toBe(true);
     expect(movable('oak_log')).toBe(false);
-    expect(movable('oak_leaves')).toBe(false);
+    expect(movable('oak_leaves')).toBe(true);
+    expect(movable('pine_log')).toBe(false);
     expect(movable('water')).toBe(false);
     expect(movable('air')).toBe(false);
   });

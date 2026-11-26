@@ -45,7 +45,14 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     },
     townSurface: (x, z) => {
       if (!d.world.isLoaded(x, z)) return null;
-      const y = d.world.surfaceY(x, z);
+      // The ground, not what grows on it: look down through loose growth (grass, crops, flowers) and tree leaves to the first
+      // solid block. A trunk is solid, so a column with a tree in it still reads as a log (unbuildable).
+      let y = d.world.surfaceY(x, z);
+      for (let n = 0; n < 32 && y > 0; n++, y--) {
+        const b = d.world.getBlock(x, y, z);
+        if (b.solid && !b.key.endsWith('_leaves')) break;
+        if (b.liquid !== null) break;
+      }
       return y < 0 ? null : { y, key: d.world.getBlock(x, y, z).key };
     },
     townBlock: (x, y, z) => (d.world.isLoaded(x, z) ? d.world.getBlock(x, y, z).key : null),

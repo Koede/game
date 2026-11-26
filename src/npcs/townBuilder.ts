@@ -140,10 +140,13 @@ export function buildCells(t: TownTemplate, b: PlannedBuilding, base: number, gr
 
 /**
  * Whether Gruk may move a natural block out of the way: the MOVABLE ground blocks, and any loose growth that is not solid (wild
- * crops, flowers, mushrooms, ferns). Logs, leaves, ores, liquids and machines stay. The caller already refuses player-edited cells.
+ * crops, flowers, mushrooms, ferns), and leaves (trimming overhanging branches). Logs, ores, liquids and machines stay. The caller
+ * already refuses player-edited cells.
  */
 export function movable(key: string): boolean {
   if (MOVABLE.has(key)) return true;
+  // Overhanging branches are trimmed (leaves only: a trunk is never felled).
+  if (key.endsWith('_leaves')) return true;
   const def = blockOrNull(key);
   return !!def && key !== 'air' && !def.solid && def.liquid === null && !def.machine;
 }
