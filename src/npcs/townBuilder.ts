@@ -1,5 +1,5 @@
 /**
- * The town builder (docs/plans/orrin-builds-a-town.md, sections 2 and 3-of-phase-2): Orrin raises the planned buildings one by one
+ * The town builder (docs/plans/orrin-builds-a-town.md, sections 2 and 3-of-phase-2): Gruk raises the planned buildings one by one
  * through the world. Pure over a small host interface (see TownHost), so it is testable without the game.
  *
  * - Pace: DAY_BUDGET cells per day, spent during the day phase; a turned day (sleep, time away) credits the rest of the day.
@@ -7,20 +7,27 @@
  *   `cell` (how far the budget has reached) and `laid` (how far placement has got). Placement lags the budget when a chunk is not
  *   loaded or the bay is short, and catches up in batches (MAX_PER_TICK) when it can.
  * - Materials: every placed block is taken from the storage bay's stock. Digging a movable block out of the way puts its drops into
- *   the bay. With too little stock Orrin waits, and `missing()` names what the current stage still needs. `deliver()` adds stock.
+ *   the bay. With too little stock Gruk waits, and `missing()` names what the current stage still needs. `deliver()` adds stock.
  * - Protection: a cell the player (or anything but the world's generation) changed is never overwritten or dug; a plot with too
  *   many such cells, or with unbuildable ground, is dropped and the next plot is used.
  * - Stilts: columns under the footprint are filled with stone from the bay up to the base row, so a house on a slope stands on
  *   tall footings instead of a flattened pad. Nothing is levelled for free.
  */
 import { DAY_LENGTH_S, SUNSET_AT, TWILIGHT } from '../core/constants';
+import { hash32, mulberry32 } from '../core/math';
 import { blockOrNull } from '../core/registry';
+import type { Slot } from '../core/types';
 import { phaseAt } from '../game/clock';
+import { rollDrops } from '../game/mining';
+import { festivalDay } from './festival';
 import { buildableKey, planTown, RELIEF_MAX, type PlannedBuilding, type Surface, type TownPlan } from './townPlan';
 import { footprintOf, rotateCell, townTemplate, TOWN_STAGES, type TownTemplate } from './townTemplates';
 import type { BuildBoardSnapshot } from './buildBoard';
 
-/** Cells Orrin reaches per day of working time. */
+/** The NPC who builds the town (the owner's choice: Gruk, the orc smith). Trust for the build board is paid to this id. */
+export const BUILDER_ID = 'gruk';
+
+/** Cells Gruk reaches per day of working time. */
 export const DAY_BUDGET = 32;
 /** Most cells a plot may have in the way (player-edited, or blocks that are not movable) before it is dropped. */
 export const MAX_BLOCKED = 6;
@@ -30,8 +37,20 @@ export const MAX_PER_TICK = 300;
 export const PLAN_RETRY_S = 10;
 /** Owed budget is kept to this many days, so a long absence catches up without an unbounded burst. */
 const MAX_OWED_DAYS = 4;
-/** Blocks Orrin digs out of the way (grass, plants, dirt bumps, loose stone) when they are not the player's. */
+/** Most days after a turned day that are counted one by one for skipped working days (the owed cap makes the rest moot). */
+const MAX_GAP_DAYS = 16;
+/** Blocks Gruk digs out of the way (grass, plants, dirt bumps, loose stone) when they are not the player's. */
 export const MOVABLE = new Set(['grass', 'tall_grass', 'fern', 'dry_shrub', 'dirt', 'gravel', 'stone', 'rubble', 'snow', 'sand', 'clay', 'ember_poppy', 'skybell', 'frost_lily']);
+
+/** The storage bay's crate as the builder sees it: its slots (read) and what it can take or give up (Inventory fits). */
+export interface StockCrate {
+  readonly slots: readonly Slot[];
+  add(item: string, count: number): number;
+  remove(item: string, count: number): number;
+}
+
+/** Gruk rests on festival days (festival.ts): no digging, no placing, and no budget earned. */
+export const workDay = (day: number): boolean => !festivalDay(day);
 
 /** What the builder needs from the game. */
 export interface TownHost {
@@ -64,7 +83,7 @@ export interface TownItem {
   count: number;
 }
 
-/** A building Orrin has finished: its template, its origin and rotation, and the base row it stood on. */
+/** A building Gruk has finished: its template, its origin and rotation, and the base row it stood on. */
 export interface FinishedBuilding {
   template: string;
   x: number;
@@ -142,6 +161,39 @@ export class TownBuilder {
   private readonly bay = new Map<string, number>();
   private planWait = 0;
   private finishedQ: FinishedBuilding[] = [];
+  /** The world seed (kept from the last tick): digs roll their drops from it and the cell. */
+  private seed = 0;
+  /** The crate's counts as the last sync left them (null until the crate is seen). */
+  private seen: Map<string, number> | null = null;
+  /** The template Gruk waits on because no planned building is unlocked yet, or null. */
+  private waiting: string | null = null;
+  /** Why plots were skipped, newest last (for the debug read; not saved). */
+  private skips: string[] = [];
+  private skipWhy = '';
+
+  /** `unlocked` says whether a template may start now (reputation, see buildBoard.ts). Everything is unlocked by default. */
+  constructor(private readonly unlocked: (template: string) => boolean = () => true) {}
+
+  /** The base row of the building in progress (null when none has started). */
+  buildBase(): number | null {
+    return this.base;
+  }
+
+  /** The planned building at the head of the queue (the one being raised, or next), or null. */
+  currentPlace(): PlannedBuilding | null {
+    return this.plan && !this.done ? this.plan.buildings[this.building] : null;
+  }
+
+  /** How far the budget and placement have got in the building in progress, and its cell count (for the debug read). */
+  progress(): { cell: number; laid: number; cells: number; blocked: number; skips: string[]; next: { x: number; y: number; z: number; block: string; dig: boolean; stage: number } | null } {
+    const c = this.cells[this.laid] ?? null;
+    return { cell: this.cell, laid: this.laid, cells: this.cells.length, blocked: this.blocked, skips: this.skips, next: c ? { x: c.x, y: c.y, z: c.z, block: c.block, dig: c.dig, stage: c.stage } : null };
+  }
+
+  /** The template Gruk waits on because nothing planned is unlocked, or null. */
+  waitingOn(): string | null {
+    return this.waiting;
+  }
 
   /** The buildings finished since the last call (the board and the town's reputation take them). */
   takeFinished(): FinishedBuilding[] {
@@ -170,6 +222,36 @@ export class TownBuilder {
     if (this.base === null || this.cells.length === 0) return -1;
     const c = this.cells[Math.min(this.laid, this.cells.length - 1)];
     return c.stage;
+  }
+
+  /**
+   * Reconciles the storage bay's stock with its crate. Counts the player put in or took out since the last look change the stock;
+   * then the crate is brought to the stock (whatever does not fit stays in the stock). Null when there is no crate: the stock stays.
+   */
+  syncCrate(crate: StockCrate | null): void {
+    if (!crate) {
+      this.seen = null;
+      return;
+    }
+    const counts = (): Map<string, number> => {
+      const m = new Map<string, number>();
+      for (const s of crate.slots) if (s) m.set(s.item, (m.get(s.item) ?? 0) + s.count);
+      return m;
+    };
+    const cur = counts();
+    if (this.seen === null) this.seen = cur;
+    for (const item of new Set([...cur.keys(), ...this.seen.keys()])) {
+      const d = (cur.get(item) ?? 0) - (this.seen.get(item) ?? 0);
+      if (d > 0) this.add(item, d);
+      else if (d < 0) this.bay.set(item, Math.max(0, (this.bay.get(item) ?? 0) + d));
+    }
+    for (const item of new Set([...this.bay.keys(), ...cur.keys()])) {
+      const want = this.bay.get(item) ?? 0;
+      const have = cur.get(item) ?? 0;
+      if (want > have) crate.add(item, want - have);
+      else if (want < have) crate.remove(item, have - want);
+    }
+    this.seen = counts();
   }
 
   /** The storage bay's stock (a copy). */
@@ -207,6 +289,7 @@ export class TownBuilder {
    * again whenever no site suits.
    */
   tick(dt: number, host: TownHost, seed: number, origin: readonly [number, number]): void {
+    this.seed = seed;
     if (!this.plan) {
       this.planWait -= dt;
       if (this.planWait > 0) return;
@@ -217,12 +300,15 @@ export class TownBuilder {
     const day = host.day();
     if (this.lastDay === 0) this.lastDay = day;
     if (day !== this.lastDay) {
-      // The day that ended credits what it did not spend (a sleep through the evening, say), and any days skipped outright.
-      this.owed += Math.max(0, DAY_BUDGET - this.accrued) + DAY_BUDGET * Math.max(0, day - this.lastDay - 1);
+      // The day that ended credits what it did not spend (a sleep through the evening, say), and each working day skipped
+      // outright. A festival day is a rest day: it earns nothing.
+      let credit = workDay(this.lastDay) ? Math.max(0, DAY_BUDGET - this.accrued) : 0;
+      for (let d = this.lastDay + 1; d < day && d <= this.lastDay + MAX_GAP_DAYS; d++) if (workDay(d)) credit += DAY_BUDGET;
+      this.owed += credit;
       this.accrued = 0;
       this.lastDay = day;
     }
-    if (phaseAt(host.timeOfDay()) === 'day') {
+    if (phaseAt(host.timeOfDay()) === 'day' && workDay(day)) {
       const add = (DAY_BUDGET * dt) / (DAY_LENGTH_S * (SUNSET_AT - 2 * TWILIGHT));
       this.accrued += add;
       this.owed += add;
@@ -234,9 +320,21 @@ export class TownBuilder {
   private work(host: TownHost): void {
     for (let guard = 0; guard < 64 && this.plan && !this.done; guard++) {
       if (this.base === null) {
+        // A locked building is passed over: the next unlocked one in the queue is brought to the front (the plan is saved).
+        const at = this.nextUnlocked();
+        if (at < 0) {
+          this.waiting = this.plan.buildings[this.building].template;
+          return;
+        }
+        this.waiting = null;
+        if (at !== this.building) {
+          const b = this.plan.buildings;
+          [b[this.building], b[at]] = [b[at], b[this.building]];
+        }
         const r = this.start(host);
         if (r === 'wait') return;
         if (r === 'skip') {
+          this.skips = [...this.skips, `${this.plan.buildings[this.building].template}: ${this.skipWhy}`].slice(-8);
           this.nextBuilding();
           continue;
         }
@@ -261,6 +359,13 @@ export class TownBuilder {
     }
   }
 
+  /** Index of the first planned building, from the head of the queue, that may start now; -1 when none may. */
+  private nextUnlocked(): number {
+    if (!this.plan) return -1;
+    for (let i = this.building; i < this.plan.buildings.length; i++) if (this.unlocked(this.plan.buildings[i].template)) return i;
+    return -1;
+  }
+
   private nextBuilding(): void {
     this.building++;
     this.base = null;
@@ -274,7 +379,10 @@ export class TownBuilder {
   private start(host: TownHost): 'ok' | 'wait' | 'skip' {
     const b = this.plan!.buildings[this.building];
     const t = townTemplate(b.template);
-    if (!t) return 'skip';
+    if (!t) {
+      this.skipWhy = 'no template';
+      return 'skip';
+    }
     const f = footprintOf(t, b.rot);
     const ground: number[] = [];
     let lo = Infinity;
@@ -284,14 +392,20 @@ export class TownBuilder {
       for (let j = 0; j < f.d; j++) {
         const s = host.townSurface(b.x + i, b.z + j);
         if (s === null) return 'wait';
-        if (!buildableKey(s.key)) return 'skip';
+        if (!buildableKey(s.key)) {
+          this.skipWhy = `ground is ${s.key} at ${b.x + i},${b.z + j}`;
+          return 'skip';
+        }
         if (host.townEdited(b.x + i, s.y, b.z + j)) topEdits++;
         ground.push(s.y);
         lo = Math.min(lo, s.y);
         hi = Math.max(hi, s.y);
       }
     }
-    if (hi - lo > RELIEF_MAX || topEdits > MAX_BLOCKED) return 'skip';
+    if (hi - lo > RELIEF_MAX || topEdits > MAX_BLOCKED) {
+      this.skipWhy = `relief ${hi - lo}, edited tops ${topEdits}`;
+      return 'skip';
+    }
     const base = lo + 1;
     const cells = buildCells(t, b, base, ground);
     let blockedHere = 0;
@@ -300,7 +414,10 @@ export class TownBuilder {
       if (key === null) return 'wait';
       if (blockedCell(c, key, host.townEdited(c.x, c.y, c.z))) blockedHere++;
     }
-    if (blockedHere > MAX_BLOCKED) return 'skip';
+    if (blockedHere > MAX_BLOCKED) {
+      this.skipWhy = `${blockedHere} cells in the way`;
+      return 'skip';
+    }
     this.base = base;
     this.ground = ground;
     this.cells = cells;
@@ -325,6 +442,7 @@ export class TownBuilder {
     if (key === c.block) return 'done';
     if (blockedCell(c, key, edited)) {
       this.blocked++;
+      this.skips = [...this.skips, `blocked ${c.block} at ${c.x},${c.y},${c.z}: found ${key}${edited ? ' (edited)' : ''}`].slice(-8);
       return 'done';
     }
     if ((this.bay.get(c.block) ?? 0) < 1) return 'wait';
@@ -337,14 +455,14 @@ export class TownBuilder {
     return 'done';
   }
 
-  /** Clears a movable block: its drops go into the bay. False when the chunk would not take it. */
+  /**
+   * Clears a movable block: its drops go into the bay. Chance drops are rolled with a generator seeded from the world seed and the
+   * cell, so a dig gives the same result every time and the stock is right on average. False when the chunk would not take it.
+   */
   private digOut(host: TownHost, c: TownJob, key: string): boolean {
     if (!host.townPlace(c.x, c.y, c.z, 'air', 0)) return false;
-    for (const d of blockOrNull(key)?.drops ?? []) {
-      if ((d.chance ?? 1) < 1) continue;
-      const n = typeof d.count === 'number' ? d.count : d.count[0];
-      this.add(d.item, n);
-    }
+    const def = blockOrNull(key);
+    if (def) for (const d of rollDrops(def, mulberry32(hash32(this.seed, c.x, c.y, c.z)))) this.add(d.item, d.count);
     return true;
   }
 
@@ -392,6 +510,8 @@ export class TownBuilder {
     this.bay.clear();
     this.planWait = 0;
     this.finishedQ = [];
+    this.seen = null;
+    this.waiting = null;
     if (!raw || typeof raw !== 'object') return;
     const r = raw as Partial<TownSnapshot>;
     const int = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);

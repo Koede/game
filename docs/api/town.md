@@ -1,6 +1,7 @@
-# Orrin's town (phases 1-2, and the building board of phase 5)
+# Gruk's town (phases 1-2, and the building board of phase 5)
 
-Orrin builds a village next to the tavern from presaved templates (plan: `docs/plans/orrin-builds-a-town.md`).
+Gruk builds a village next to the tavern from presaved templates (plan: `docs/plans/orrin-builds-a-town.md`). The builder is
+`BUILDER_ID = 'gruk'` (exported from `townBuilder.ts`); the build board's trust goes to that id.
 
 ## Files
 
@@ -10,55 +11,78 @@ Orrin builds a village next to the tavern from presaved templates (plan: `docs/p
 - `src/npcs/townTemplates.ts`: the template library (`TOWN_TEMPLATES`): storage bay, cottage, workshop, well and plaza, lamp post.
   Each has cells in five stages (`clearing`, `frame`, `walls`, `roof`, `finish`). Frame cells are oak logs and stone brick only.
 - `src/npcs/townBuilder.ts`: `TownBuilder`, the saved progress and the storage bay. `buildCells` turns a planned building into
-  ordered jobs (stilts and digs first, then the template cells). Talks to the game through `TownHost`.
-- `src/npcs/manager.ts` (`tickTown`, `town` in the npcs snapshot) and `src/npcs/host.ts` (`townSurface`, `townBlock`, `townEdited`,
-  `townPlace`) wire it in. The origin is the tavern's centre for now; any generic origin can be passed to `tick`.
+  ordered jobs (stilts and digs first, then the template cells). Talks to the game through `TownHost`. `syncCrate` reconciles the
+  bay's stock with its crate (see below).
+- `src/npcs/buildBoard.ts`: pure. The board, the town's reputation, the reputation gates (`UNLOCK_REP`) and the bay's places
+  (`bayBoardSpot`, `bayFrontSpot`, `bayCrateSpot`).
+- `src/npcs/manager.ts` (`tickTown`, `townDebug`, `town` in the npcs snapshot) and `src/npcs/host.ts` (`townSurface`, `townBlock`,
+  `townEdited`, `townPlace`, `townCrate`) wire it in. The origin is the tavern's centre for now.
 
 ## State
 
-Snapshot field `town` (optional, old saves load and start a town): the plan (site and buildings), `building` (index),
+Snapshot field `town` (optional, old saves load and start a town): the plan (site and buildings, in build order), `building` (index),
 `base` and `ground` (the current building's base row and footprint heights), `stage`, `cell` (how far the budget reached),
-`laid` (how far placement reached), `lastDay`, `owed`, `accrued`, `blocked` and `bay` (the storage bay's stock).
+`laid` (how far placement reached), `lastDay`, `owed`, `accrued`, `blocked` and `bay` (the storage bay's stock). The board is
+`town.board` (`bounties`, `rep`, `spot`, `bay`, `placed`). The stock crate's contents are the crate's own slots (the save keeps them with
+the world).
 
-## Building board (phase 5)
+`townDebug()` (`window.__hw.town()` in the browser) reads the state for the e2e: site, building, base, waiting, standing, board,
+bay, crate, front, stock, coin, plan and `progress` (cell, laid, next cell, skipped plots and why).
 
-- `src/npcs/buildBoard.ts`: pure. `BuildBoard` holds the bounties, the town's reputation and the board's spot. `refresh(now, missing, seed)`
-  redraws from the builder's `missing()`; `deliver(id, take)` pays one part of a bounty; `finished()` adds reputation per finished
-  building. `REPUTATION_STEPS` and `BOARD_REWARDS` are data. `bayBoardSpot` places the board inside the storage bay.
+## Building board
+
 - **Bounties** come only from `missing()` for the current building and stage. Three are up at a time. Each asks for a chunk of 8 to 32
-  of one item (or what is left, when less) and never more than the building still needs. A bounty is redrawn when it is filled, and the
-  whole board when the stage or building moves on. Draws are seeded from the world seed and a counter kept in the save.
-- **Payouts:** coin is the item's price (`priceOf` in `economy.ts`) times the count, a little more on later stages, at least 4. Each
-  bounty also pays town reputation (1 + size/8 + stage) and Orrin's trust (2, or 3 for big chunks). Parts pay their shares, so the
-  totals are exact.
+  of one item (or what is left, when less) and never more than the building still needs. The board is redrawn every tick, so a
+  bounty appears as soon as a stage needs material. Draws are seeded from the world seed and a counter kept in the save.
+- **Payouts:** coin is added to the coin counter (`coins` in the npcs snapshot, the same counter the favours board uses) as the item's
+  price (`priceOf` in `economy.ts`) times the count, a little more on later stages, at least 4. Each part also pays town reputation
+  (1 + size/8 + stage) and Gruk's trust (2, or 3 for big chunks). Parts pay their shares, so the totals are exact.
 - **Rare rewards:** each new bounty rolls once for a rare item from `BOARD_REWARDS` (5%, 15% on the finishing stage). It is paid when
   the bounty is complete.
 - **Reputation:** rises with each part filled and by `REP_PER_BUILDING` per finished building. `REPUTATION_STEPS` (strangers,
-  neighbours, village, town) are data for the unlocks that come later.
-- **The board block:** a `quest_board` block placed inside the storage bay (`BuildBoard.spot`) once the bay is finished. Use it
-  within 6 blocks of the spot (the manager checks the player's position through the host), with a stack in hand that matches a
-  bounty to hand it in: the items are taken from hand, go into the storage bay, and pay coin, standing and trust. Use it empty-handed
-  to read the open bounties and standing. Use on the tavern's quest board is unchanged.
-- **Save:** `town.board` in the npcs snapshot (optional, old saves load an empty board).
+  neighbours, village, town) are data.
+- **Unlocks:** `UNLOCK_REP` gates templates by standing: the storage bay, the well and plaza and the lamp post need none, the workshop
+  10, the cottage 20. A locked building in the queue is passed over: the next unlocked one is brought to the front (the plan is saved
+  in that order). When nothing planned is unlocked Gruk waits, and the board says what standing the next one needs (`lockNote`).
+- **The board block:** a `quest_board` block placed in the storage bay's floor row (`BuildBoard.spot`) as soon as Gruk has started the
+  bay, so the first materials can be handed in before the bay stands. Use it from `bayFrontSpot` or from inside the bay, within
+  6 blocks, with a stack in hand that matches a bounty to hand it in: the items are taken from hand, go into the stock, and pay coin,
+  standing and trust. Use it empty-handed to read the open bounties and standing. Use on the tavern's quest board is unchanged.
+- **The stock crate:** the bay's one crate (`BAY_CRATE`, on the floor row) holds the stock. Use it to open the crate. Each look at the
+  crate (every tick once the crate exists) reconciles both ways: what the player put in counts as delivered, what the player took out
+  leaves the stock, and then the crate is brought to the stock (what does not fit stays in the stock). Hand-ins and the builder's own
+  takes show in the crate the same way. The stock map stays the source of truth.
+- **Save:** `town.board` in the npcs snapshot (optional, old saves load an empty board; `bay` is optional too).
 
 ## Pace
 
-`DAY_BUDGET` = 32 cells per day, spent during the day phase. A turned day credits what it did not spend, and skipped days are
-credited in full (capped at four days). A cottage frame is about two days, its finish about three more.
+`DAY_BUDGET` = 32 cells per day, spent during the day phase. A turned day credits what it did not spend, and each skipped working
+day is credited in full (capped at four days). Festival days (`festival.ts`, the last day of each season) are rest days: no budget is
+earned on them and nothing is dug or placed in their day phase. A cottage frame is about two days, its finish about three more.
 
 ## Rules
 
-- Every placed block comes from the bay. With too little stock Orrin waits; `missing()` lists what the current stage still needs.
-  `deliver(item, count)` adds stock (the building board hands it in, see below).
-- Movable blocks in the way (grass, plants, dirt, gravel, stone, snow, sand, clay) are dug out into the bay.
+- Every placed block comes from the bay. With too little stock Gruk waits; `missing()` lists what the current stage still needs.
+  `deliver(item, count)` adds stock (the building board hands it in, see above).
+- Movable blocks in the way (grass, plants, dirt, gravel, stone, snow, sand, clay) are dug out into the bay. Their chance drops are
+  rolled (`rollDrops`) with a generator seeded from the world seed and the cell, so a dig gives the same result every time and the
+  stock is right on average.
 - A cell the world has edited (`IWorld.wasEdited`) is never overwritten or dug. A plot with more than `MAX_BLOCKED` such cells is
-  skipped, as is a plot with trees, water or steep ground.
+  skipped, as is a plot with trees, water or steep ground. The reason is kept for the debug read (`progress.skips`).
 - Cells in unloaded chunks wait; the budget keeps counting and placement catches up in batches of `MAX_PER_TICK`.
+
+## Tests and e2e
+
+- `townBuilder.test.ts` and `buildBoard.test.ts`: rest days, skipped days, seeded chance drops, unlock gating and the plan swap,
+  the stock crate both ways and across a save, the board's place and save.
+- `scripts/e2e-town.mjs` (headless, real input for the board and the crate): new world, the site and board placed, the first bounty
+  handed in by Use, days skipped with `setDay` with the bounties handed in again, the bay checked in the world, the crate opened
+  with Use, and a cottage frame checked.
 
 ## Adding a template
 
 1. Write a `template(key, name, w, d, door, draw)` in `townTemplates.ts`. Use `c.stage = '...'` and the canvas helpers
    (`set`, `box`, `perimeter`, `fill`, `unset`). Keep the frame to oak logs and stone brick.
 2. Keep `w` and `d` at 9 or less. Add the key to `TOWN_TEMPLATES`.
-3. Add its key to `TOWN_ORDER` in `townPlan.ts` where it belongs.
+3. Add its key to `TOWN_ORDER` in `townPlan.ts` where it belongs, and a standing to `UNLOCK_REP` in `buildBoard.ts`.
 4. `townTemplates.test.ts` checks the stages, the frame and the footprint automatically.

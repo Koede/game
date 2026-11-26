@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { itemOrNull } from '../core/registry';
 import { priceOf } from './economy';
+import { BAY_CRATE, bayCrateSpot, lockNote, unlockedAt, UNLOCK_REP } from './buildBoard';
 import {
   BOARD_REWARDS,
   BOARD_SLOTS,
@@ -236,7 +237,7 @@ describe('build board: delivery into the bay', () => {
     const world = new Flat();
     const town = new TownBuilder();
     const board = new BuildBoard();
-    // Settle the plan and the first cells: the bay has nothing in stock yet, so Orrin waits on the frame.
+    // Settle the plan and the first cells: the bay has nothing in stock yet, so Gruk waits on the frame.
     for (let i = 0; i < 40; i++) town.tick(2, world, SEED, [100, -40]);
     const need = town.missing();
     expect(need.length).toBeGreaterThan(0);
@@ -311,5 +312,53 @@ describe('build board: save', () => {
   it('describes a bounty for the player', () => {
     const b = boardFor([{ item: 'oak_log', count: 12 }]);
     expect(describeBounty(b.bounties[0])).toContain('oak log');
+  });
+});
+
+describe('build board: unlocks, the bay and its crate', () => {
+  it('gates templates by town standing: the storage bay, well, plaza and lamp post early, the workshop and cottage later', () => {
+    expect(unlockedAt('storage_bay', 0)).toBe(true);
+    expect(unlockedAt('well_plaza', 0)).toBe(true);
+    expect(unlockedAt('lamp_post', 0)).toBe(true);
+    expect(unlockedAt('workshop', UNLOCK_REP.workshop - 1)).toBe(false);
+    expect(unlockedAt('workshop', UNLOCK_REP.workshop)).toBe(true);
+    expect(UNLOCK_REP.cottage).toBeGreaterThan(UNLOCK_REP.workshop);
+    expect(unlockedAt('cottage', UNLOCK_REP.cottage - 1)).toBe(false);
+    expect(unlockedAt('cottage', UNLOCK_REP.cottage)).toBe(true);
+  });
+
+  it('says what standing a locked building needs, and nothing once it is unlocked', () => {
+    const note = lockNote('cottage', 5)!;
+    expect(note).toContain('Cottage');
+    expect(note).toContain(String(UNLOCK_REP.cottage));
+    expect(note).toContain('5');
+    expect(lockNote('cottage', UNLOCK_REP.cottage)).toBeNull();
+  });
+
+  it('places the stock crate inside the bay on the floor row, apart from the board', () => {
+    for (const rot of [0, 1, 2, 3]) {
+      const f = { x: 100, z: 40, rot, base: 11 };
+      const c = bayCrateSpot(f)!;
+      expect(c.y).toBe(11 + BAY_CRATE.y);
+      expect(c.x).toBeGreaterThanOrEqual(100);
+      expect(c.z).toBeGreaterThanOrEqual(40);
+      const s = bayBoardSpot(f)!;
+      expect(c.x === s.x && c.z === s.z).toBe(false);
+    }
+  });
+
+  it('keeps the bay place through a save, and the board and crate follow it', () => {
+    const b = new BuildBoard();
+    b.setBay({ x: 100, z: 40, rot: 1, base: 11 });
+    const json = JSON.parse(JSON.stringify(b.toJSON()));
+    const b2 = new BuildBoard();
+    b2.load(json);
+    expect(b2.bay).toEqual({ x: 100, z: 40, rot: 1, base: 11 });
+    expect(b2.spot).toEqual(b.spot);
+    expect(b2.crate()).toEqual(b.crate());
+    const old = new BuildBoard();
+    old.load({ v: 1, seq: 0, rep: 0, done: 0, stageKey: '', bounties: [], spot: null, placed: false });
+    expect(old.bay).toBeNull();
+    expect(old.crate()).toBeNull();
   });
 });

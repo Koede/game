@@ -46,7 +46,7 @@ export interface TownPlan {
   buildings: PlannedBuilding[];
 }
 
-/** Ground that Orrin can build on: not water, lava or ice, and not a tree (leaves, logs) or ore. */
+/** Ground that Gruk can build on: not water, lava or ice, and not a tree (leaves, logs) or ore. */
 export function buildableKey(key: string): boolean {
   if (key === 'water' || key === 'lava' || key === 'ice' || key === 'air') return false;
   if (key.endsWith('_leaves') || key.endsWith('_log') || key.endsWith('_ore')) return false;

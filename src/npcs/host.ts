@@ -4,8 +4,10 @@ import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
 import type { Magic } from '../magic/magic';
 import type { MobManager } from '../mobs';
-import { Facing, makeVoxel, voxelActive, voxelId, withActive, type IWorld } from '../core/types';
+import { Facing, makeVoxel, voxelActive, voxelId, withActive, type IWorld, type Slot } from '../core/types';
 import { OBJECTIVES, blockId } from '../core/registry';
+import { Inventory } from '../game/inventory';
+import { emptyCrateEntity } from '../world/ruinCrates';
 import type { Simulation } from '../sim';
 import { alchemyAdvice } from './alchemy';
 import type { NpcHost } from './manager';
@@ -49,6 +51,16 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     townBlock: (x, y, z) => (d.world.isLoaded(x, z) ? d.world.getBlock(x, y, z).key : null),
     townEdited: (x, y, z) => d.world.wasEdited?.(x, y, z) ?? false,
     townPlace: (x, y, z, block, facing) => d.world.isLoaded(x, z) && d.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing), 'town'),
+    townCrate: (x, y, z) => {
+      if (!d.world.isLoaded(x, z)) return null;
+      let e = d.world.getEntity(x, y, z);
+      // A crate the builder placed has no entity yet: it gets an empty one, so the stock has somewhere to live.
+      if (!e && d.world.getBlock(x, y, z).key === 'crate') {
+        e = emptyCrateEntity(x, y, z);
+        d.world.setEntity(e);
+      }
+      return e && e.kind === 'crate' ? new Inventory(e.slots as Slot[]) : null;
+    },
     give: (item, n) => d.player.give(item, n),
     currentGoal: () => d.objectives.current?.id ?? null,
     completed: () => new Set(d.objectives.completed.map((o) => o.id)),

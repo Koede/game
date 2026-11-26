@@ -1,5 +1,5 @@
 /**
- * Town templates (docs/plans/orrin-builds-a-town.md): the presaved buildings Orrin raises, drawn into a recording canvas and split
+ * Town templates (docs/plans/orrin-builds-a-town.md): the presaved buildings Gruk raises, drawn into a recording canvas and split
  * into stages (clearing, frame, walls, roof, finish). Pure and DOM-free.
  *
  * Local coordinates: x in [0, w), z in [0, d), y = 0 is the lowest course, sitting on the base row (the first block above the lowest
@@ -123,7 +123,7 @@ function hall(c: TownCanvas, o: { h: number; doorX: number; windows: [number, nu
   c.box(1, 0, 1, X - 1, 0, Z - 1, 'plank');
 }
 
-/** The storage bay (the first building): an open-fronted shed of posts and a roof over crates, which hold Orrin's materials. */
+/** The storage bay (the first building): an open-fronted shed of posts and a roof over crates, which hold Gruk's materials. */
 const STORAGE_BAY = template('storage_bay', 'Storage Bay', 7, 5, { x: 3, z: 4, facing: Facing.South }, (c) => {
   c.stage = 'frame';
   c.perimeter(0, 0, 6, 4, 0, 'stone_brick', false);
@@ -140,7 +140,8 @@ const STORAGE_BAY = template('storage_bay', 'Storage Bay', 7, 5, { x: 3, z: 4, f
   c.set(3, 0, 4, 'air');
   c.set(3, -1, 5, 'dirt');
   c.stage = 'finish';
-  for (const [x, z] of [[1, 1], [3, 1], [5, 1], [3, 3]] as const) c.set(x, 0, z, 'crate');
+  // The one stock crate (buildBoard.ts BAY_CRATE): the bay's stock lives in it, and the player can open it.
+  c.set(3, 0, 1, 'crate');
   c.set(3, 2, 1, 'torch');
 });
 

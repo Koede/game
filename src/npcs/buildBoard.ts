@@ -1,10 +1,10 @@
 /**
- * The building board (docs/plans/orrin-builds-a-town.md, sections 2 and phase 5): material bounties for what Orrin's current
+ * The building board (docs/plans/orrin-builds-a-town.md, sections 2 and phase 5): material bounties for what Gruk's current
  * building still needs, and the town's reputation. Pure: the caller passes the builder's `missing()` list and the current stage.
  *
  * - Bounties come only from `missing`, never more of an item than is still needed, and BOARD_SLOTS are up at a time.
  * - A bounty is a chunk of CHUNK_MIN to CHUNK_MAX of one item (or all that is left, when less). It can be filled in parts.
- * - Each part pays coin (scaled to the material's price, see economy.ts), town reputation and Orrin's trust. The shares add up
+ * - Each part pays coin (scaled to the material's price, see economy.ts), town reputation and Gruk's trust. The shares add up
  *   exactly to the bounty's totals. A bounty may carry a rare reward, rolled once when it is drawn.
  * - The board is redrawn when a bounty is filled, and when the stage (or the building) moves on.
  * - Deterministic: every draw comes from the world seed and a counter, both kept in the save.
@@ -25,8 +25,6 @@ export const RARE_CHANCE = 0.05;
 export const RARE_CHANCE_FINISH = 0.15;
 /** Town reputation for each finished building. */
 export const REP_PER_BUILDING = 6;
-/** Seconds between redraws of the board from the builder's needs. */
-export const BOARD_REFRESH_S = 2;
 /** Where the town's reputation stands, as data: a step applies from `at` up. Later building types unlock by these steps. */
 export const REPUTATION_STEPS: readonly { at: number; name: string }[] = [
   { at: 0, name: 'strangers' },
@@ -34,6 +32,24 @@ export const REPUTATION_STEPS: readonly { at: number; name: string }[] = [
   { at: 30, name: 'village' },
   { at: 60, name: 'town' },
 ];
+/**
+ * The town standing a building needs before Gruk starts it (data). Buildings not listed need none. The storage bay, the well and
+ * the lamp post come first; the workshop needs some standing, the cottage more.
+ */
+export const UNLOCK_REP: Readonly<Record<string, number>> = { storage_bay: 0, well_plaza: 0, lamp_post: 0, workshop: 10, cottage: 20 };
+
+/** Whether a template may be started at this town standing. */
+export function unlockedAt(template: string, rep: number): boolean {
+  return rep >= (UNLOCK_REP[template] ?? 0);
+}
+
+/** A line for the board when Gruk cannot start `template` yet: what standing it needs, and what the town has. Null when it is unlocked. */
+export function lockNote(template: string, rep: number): string | null {
+  if (unlockedAt(template, rep)) return null;
+  const name = townTemplate(template)?.name ?? template;
+  return `Gruk will not start the ${name} until the town stands at ${UNLOCK_REP[template]} (it stands at ${rep}).`;
+}
+
 /** The rare rewards a bounty may roll (real item keys, src/content). */
 export const BOARD_REWARDS: readonly BoardReward[] = [
   { item: 'shears', count: 1 },
@@ -45,6 +61,22 @@ export const BOARD_REWARDS: readonly BoardReward[] = [
 const FINISH = TOWN_STAGES.indexOf('finish');
 /** The board's place inside the storage bay, local to its footprint (on the floor row, by the open front). */
 const BAY_ROOM = { x: 5, y: 0, z: 3 };
+/** The bay's stock crate, local to its footprint (on the floor row): the player opens it and sees the stock. */
+export const BAY_CRATE = { x: 3, y: 0, z: 1 };
+
+export interface CellPos {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** Where the storage bay stands: its origin, rotation and floor row (the base row the builder chose). */
+export interface BayPlace {
+  x: number;
+  z: number;
+  rot: number;
+  base: number;
+}
 
 export interface BoardReward {
   item: string;
@@ -92,6 +124,8 @@ export interface BuildBoardSnapshot {
   stageKey: string;
   bounties: Bounty[];
   spot: BoardSpot | null;
+  /** The storage bay's place (optional, so older boards load). */
+  bay?: BayPlace | null;
   placed: boolean;
 }
 
@@ -126,11 +160,30 @@ export function chunkSize(available: number, rnd: () => number): number {
 }
 
 /** Where the board sits in the world, given the storage bay's origin, rotation and floor row. Null for an unknown template. */
-export function bayBoardSpot(f: { x: number; z: number; rot: number; base: number }): BoardSpot | null {
+export function bayBoardSpot(f: BayPlace): BoardSpot | null {
   const t = townTemplate('storage_bay');
   if (!t) return null;
   const r = rotateCell(BAY_ROOM.x, BAY_ROOM.z, t.w, t.d, f.rot, Facing.South);
   return { x: f.x + r.x, y: f.base + BAY_ROOM.y, z: f.z + r.z, facing: r.facing };
+}
+
+/** The open front of the bay, one step outside it on the standing row: where a player stands to see the board through it. */
+export const BAY_FRONT = { x: 3, y: 1, z: 5 };
+
+/** Where a player stands to use the board through the bay's open front. Null for an unknown template. */
+export function bayFrontSpot(f: BayPlace): CellPos | null {
+  const t = townTemplate('storage_bay');
+  if (!t) return null;
+  const r = rotateCell(BAY_FRONT.x, BAY_FRONT.z, t.w, t.d, f.rot, Facing.South);
+  return { x: f.x + r.x, y: f.base + BAY_FRONT.y, z: f.z + r.z };
+}
+
+/** Where the bay's stock crate stands in the world. Null for an unknown template. */
+export function bayCrateSpot(f: BayPlace): CellPos | null {
+  const t = townTemplate('storage_bay');
+  if (!t) return null;
+  const r = rotateCell(BAY_CRATE.x, BAY_CRATE.z, t.w, t.d, f.rot, Facing.South);
+  return { x: f.x + r.x, y: f.base + BAY_CRATE.y, z: f.z + r.z };
 }
 
 /** A seeded random source for the n-th draw. */
@@ -148,12 +201,30 @@ export class BuildBoard {
   rep = 0;
   /** Bounties filled over the whole game. */
   done = 0;
-  /** Where the board sits (inside the storage bay), once the bay is up. */
+  /** Where the board sits (inside the storage bay), once the bay's floor row is known. */
   spot: BoardSpot | null = null;
+  /** The storage bay's place, once Gruk has started it. The board and the stock crate are placed from it. */
+  bay: BayPlace | null = null;
   /** True once the board block has been placed at `spot`. */
   placed = false;
   private seq = 0;
   private stageKey = '';
+
+  /** Sets the storage bay's place (and so the board's spot). */
+  setBay(f: BayPlace): void {
+    this.bay = { x: f.x, z: f.z, rot: f.rot, base: f.base };
+    this.spot = bayBoardSpot(this.bay);
+  }
+
+  /** Where a player stands to use the board through the bay's front, or null before the bay is placed. */
+  front(): CellPos | null {
+    return this.bay ? bayFrontSpot(this.bay) : null;
+  }
+
+  /** Where the bay's stock crate is, or null before the bay is placed. */
+  crate(): CellPos | null {
+    return this.bay ? bayCrateSpot(this.bay) : null;
+  }
 
   /** Redraws the board for the current building and stage. `now` is null when nothing is being built. Returns true when it changed. */
   refresh(now: { template: string; stage: number } | null, missing: readonly TownItem[], seed: number): boolean {
@@ -250,6 +321,7 @@ export class BuildBoard {
       stageKey: this.stageKey,
       bounties: this.list(),
       spot: this.spot ? { ...this.spot } : null,
+      bay: this.bay ? { ...this.bay } : null,
       placed: this.placed,
     };
   }
@@ -260,6 +332,7 @@ export class BuildBoard {
     this.rep = 0;
     this.done = 0;
     this.spot = null;
+    this.bay = null;
     this.placed = false;
     this.seq = 0;
     this.stageKey = '';
@@ -272,6 +345,8 @@ export class BuildBoard {
     this.placed = r.placed === true;
     const s = r.spot;
     if (s && typeof s === 'object' && [s.x, s.y, s.z, s.facing].every(Number.isFinite)) this.spot = { x: s.x, y: s.y, z: s.z, facing: s.facing };
+    const bay = r.bay;
+    if (bay && typeof bay === 'object' && [bay.x, bay.z, bay.rot, bay.base].every(Number.isFinite)) this.setBay(bay);
     for (const b of Array.isArray(r.bounties) ? r.bounties : []) {
       if (!b || typeof b !== 'object' || typeof b.id !== 'string' || typeof b.item !== 'string' || typeof b.template !== 'string') continue;
       const size = numOf(b.size, 1, CHUNK_MAX);

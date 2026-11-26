@@ -56,3 +56,12 @@ export function structureCrateEntity(seed: number, x: number, y: number, z: numb
     depthY: y, halted: '', availW: 0, outW: 0, demandW: 0, f: 0,
   };
 }
+
+/** An empty crate (the storage bay's stock crate: its owner fills it). */
+export function emptyCrateEntity(x: number, y: number, z: number): BlockEntity {
+  return {
+    kind: 'crate', x, y, z, on: true, slots: new Array<Slot>(CRATE_SIZE).fill(null),
+    progress: 0, recipe: null, fuelJ: 0, storedJ: 0, coreC: AMBIENT_TEMP_C, hotS: 0, warned: false, alarmS: 0,
+    depthY: y, halted: '', availW: 0, outW: 0, demandW: 0, f: 0,
+  };
+}

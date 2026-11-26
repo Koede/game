@@ -19,8 +19,8 @@ import { TRADER_FULL, TRADER_WANT_SHORT, TRADER_WANT_THANKS } from './scripts/tr
 import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
-import { TownBuilder, type TownHost, type TownSnapshot } from './townBuilder';
-import { BOARD_REFRESH_S, BuildBoard, bayBoardSpot, describeBounty, reputationStep } from './buildBoard';
+import { BUILDER_ID, MOVABLE, TownBuilder, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
+import { BuildBoard, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
@@ -95,11 +95,32 @@ export interface NpcSnapshot {
   festival?: FestivalState;
   /** The wandering trader's visit under way (trader.ts): its start day, the units left per stock line, and whether the wanted favour is done. */
   trader?: { visit: number; left: number[]; wantDone: boolean };
-  /** Orrin's town build (townBuilder.ts): the plan, the progress and the storage bay's stock. */
+  /** Gruk's town build (townBuilder.ts): the plan, the progress and the storage bay's stock. */
   town?: TownSnapshot;
 }
 
 /** What the manager needs from the game. */
+/** The town's state as the debug handle reports it (NpcManager.townDebug). */
+export interface TownDebug {
+  site: [number, number] | null;
+  building: string | null;
+  base: number | null;
+  waiting: string | null;
+  rep: number;
+  board: { spot: { x: number; y: number; z: number } | null; placed: boolean; bounties: { id: string; item: string; left: number; coin: number; template: string }[] };
+  bay: { x: number; z: number; rot: number; base: number } | null;
+  crate: { x: number; y: number; z: number } | null;
+  front: { x: number; y: number; z: number } | null;
+  stock: Record<string, number>;
+  missing: { item: string; count: number }[];
+  stage: number;
+  progress: { cell: number; laid: number; cells: number; blocked: number; skips: string[]; next: { x: number; y: number; z: number; block: string; dig: boolean; stage: number } | null };
+  coins: number;
+  planned: { template: string; x: number; z: number; rot: number } | null;
+  /** The whole queue, in build order (as it stands: unlocked buildings may have been moved forward). */
+  plan: { template: string; x: number; z: number; rot: number }[];
+}
+
 export interface NpcHost {
   /** Lights or darkens the jukebox block's lamp (its active bit). False when the chunk is not loaded or the block is not there. */
   setBlockActive?(x: number, y: number, z: number, on: boolean): boolean;
@@ -132,6 +153,8 @@ export interface NpcHost {
   townEdited?(x: number, y: number, z: number): boolean;
   /** Sets a block (or 'air') with the 'town' source. False when the chunk is not loaded. */
   townPlace?(x: number, y: number, z: number, block: string, facing: number): boolean;
+  /** The storage bay's stock crate at a cell, as an inventory over its slots (null when there is no crate there). */
+  townCrate?(x: number, y: number, z: number): StockCrate | null;
   companion: CompanionHost;
 }
 
@@ -209,10 +232,10 @@ export class NpcManager {
   private gossipSaid: string[] = [];
   private drinkLog: DrinkLog = { day: 0, n: {} };
   private readonly bar = new Upkeep();
-  private readonly town = new TownBuilder();
-  /** Orrin's building board: bounties for the current stage and the town's reputation (buildBoard.ts). */
+  /** Templates start once the town stands at their standing (buildBoard.ts UNLOCK_REP). */
+  private readonly town = new TownBuilder((t) => unlockedAt(t, this.board.rep));
+  /** Gruk's building board: bounties for the current stage and the town's reputation (buildBoard.ts). */
   private readonly board = new BuildBoard();
-  private boardS = 0;
   private fest: FestivalState = newFestivalState();
   private festNow = false;
   /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
@@ -712,7 +735,7 @@ export class NpcManager {
     return BOUNTIES.filter((b) => !(done?.has(b.id) ?? false)).slice(0, limit);
   }
 
-  /** Whether the player stands at Orrin's building board (inside the storage bay): Use there is for the build bounties. */
+  /** Whether the player stands at Gruk's building board (inside the storage bay): Use there is for the build bounties. */
   private atTownBoard(): boolean {
     const s = this.board.spot;
     const p = this.host?.companion.player();
@@ -726,12 +749,14 @@ export class NpcManager {
     if (held && this.deliverBuild(held.item, held.count)) return 'Build board';
     const open = this.board.list();
     const standing = reputationStep(this.board.rep).name;
-    if (open.length === 0) this.toast(`Build board: Orrin has nothing waiting on materials. Town standing: ${standing} (${this.board.rep}).`);
+    const waiting = this.town.waitingOn();
+    if (open.length === 0 && waiting) this.toast(`Build board: ${lockNote(waiting, this.board.rep) ?? 'Gruk is waiting.'} Town standing: ${standing} (${this.board.rep}).`);
+    else if (open.length === 0) this.toast(`Build board: Gruk has nothing waiting on materials. Town standing: ${standing} (${this.board.rep}).`);
     else this.toast(`Build board: ${open.map(describeBounty).join('; ')}. Town standing: ${standing} (${this.board.rep}). Hold the items and use the board to hand them in.`);
     return 'Build board';
   }
 
-  /** Hands held materials to a build bounty: they go into the storage bay, and pay coin, town standing and Orrin's trust. */
+  /** Hands held materials to a build bounty: they go into the storage bay, and pay coin, town standing and Gruk's trust. */
   private deliverBuild(item: string, count: number): boolean {
     const b = this.board.matching(item);
     const pay = b ? this.board.deliver(b.id, count) : null;
@@ -740,10 +765,10 @@ export class NpcManager {
     this.town.deliver(item, pay.take);
     this.coins += pay.coin;
     if (pay.reward) this.host?.give(pay.reward.item, pay.reward.count);
-    const orrin = NPCS.find((n) => n.id === 'orrin');
-    if (orrin && pay.trust > 0) this.raiseTrust(orrin, pay.trust);
+    const builder = NPCS.find((n) => n.id === BUILDER_ID);
+    if (builder && pay.trust > 0) this.raiseTrust(builder, pay.trust);
     const rare = pay.reward ? `, and a ${pay.reward.item.replace(/_/g, ' ')}` : '';
-    this.toast(`Build board: ${pay.take} ${item.replace(/_/g, ' ')} into the storage bay. +${pay.coin} coin, +${pay.rep} town standing${pay.trust ? `, +${pay.trust} trust with Orrin` : ''}${rare}.`);
+    this.toast(`Build board: ${pay.take} ${item.replace(/_/g, ' ')} into the storage bay. +${pay.coin} coin, +${pay.rep} town standing${pay.trust ? `, +${pay.trust} trust with Gruk` : ''}${rare}.`);
     this.refreshBoard(this.host);
     return true;
   }
@@ -755,13 +780,40 @@ export class NpcManager {
     this.board.refresh(cur && stage >= 0 ? { template: cur, stage } : null, this.town.missing(), host?.worldSeed?.() ?? 0);
   }
 
-  /** Places the board block inside the storage bay once the bay stands (and the spot is clear). */
+  /**
+   * Places the board block in the storage bay's floor row once the spot is known (the bay is being raised; the board does not
+   * wait for it to stand, so the first materials can be handed in). Waits while the cell holds something that is not movable.
+   */
   private placeBoard(host: NpcHost): void {
     const s = this.board.spot;
     if (!s || this.board.placed || !host.townBlock || !host.townPlace) return;
     const key = host.townBlock.call(host, s.x, s.y, s.z);
     if (key === null) return;
-    this.board.placed = key === 'air' ? host.townPlace.call(host, s.x, s.y, s.z, 'quest_board', s.facing) : true;
+    if (key === 'quest_board') this.board.placed = true;
+    else if (key === 'air' || MOVABLE.has(key)) this.board.placed = host.townPlace.call(host, s.x, s.y, s.z, 'quest_board', s.facing);
+  }
+
+  /** The town's state for the debug handle and the e2e driver: the building in progress, the board, the bay and its crate, the coin. */
+  townDebug(): TownDebug {
+    const at = this.town.currentPlace();
+    return {
+      site: this.town.planned ? [...this.town.planned.site] : null,
+      building: this.town.currentTemplate,
+      base: this.town.buildBase(),
+      waiting: this.town.waitingOn(),
+      rep: this.board.rep,
+      board: { spot: this.board.spot ? { x: this.board.spot.x, y: this.board.spot.y, z: this.board.spot.z } : null, placed: this.board.placed, bounties: this.board.list().map((b) => ({ id: b.id, item: b.item, left: b.left, coin: b.coin, template: b.template })) },
+      bay: this.board.bay ? { ...this.board.bay } : null,
+      crate: this.board.crate(),
+      front: this.board.front(),
+      stock: this.town.stock(),
+      progress: this.town.progress(),
+      missing: this.town.missing(),
+      stage: this.town.stage(),
+      coins: this.coins,
+      planned: at ? { template: at.template, x: at.x, z: at.z, rot: at.rot } : null,
+      plan: (this.town.planned?.buildings ?? []).map((b) => ({ template: b.template, x: b.x, z: b.z, rot: b.rot })),
+    };
   }
 
   /** The town's save: the builder's state, with the building board inside it. */
@@ -1111,7 +1163,7 @@ export class NpcManager {
     }
   }
 
-  /** Orrin's town build, anchored on the tavern's centre (townBuilder.ts). Only when the host can place blocks. */
+  /** Gruk's town build, anchored on the tavern's centre (townBuilder.ts). Only when the host can place blocks. */
   private tickTown(host: NpcHost, dt: number): void {
     const { townSurface, townBlock, townEdited, townPlace } = host;
     const o = this.at;
@@ -1124,17 +1176,22 @@ export class NpcManager {
       townEdited: (x, y, z) => townEdited.call(host, x, y, z),
       townPlace: (x, y, z, block, facing) => townPlace.call(host, x, y, z, block, facing),
     };
+    // The bay's stock is what its crate holds: the player's hand-ins and takes are read first, then the crate is brought to the stock.
+    const crate = this.board.crate();
+    this.town.syncCrate(crate && host.townCrate ? host.townCrate.call(host, crate.x, crate.y, crate.z) : null);
     this.town.tick(dt, th, host.worldSeed?.() ?? 0, [o[0] + Math.floor(TAVERN_W / 2), o[2] + Math.floor(TAVERN_D / 2)]);
     for (const f of this.town.takeFinished()) {
       this.board.finished();
-      if (f.template === 'storage_bay') this.board.spot = bayBoardSpot(f);
+      if (f.template === 'storage_bay' && !this.board.bay) this.board.setBay(f);
     }
-    this.boardS -= dt;
-    if (this.boardS <= 0) {
-      this.boardS = BOARD_REFRESH_S;
-      this.refreshBoard(host);
-      this.placeBoard(host);
-    }
+    // The bay's floor row is known once Gruk has started it: the board is placed from then on, before the bay stands.
+    const at = this.town.currentPlace();
+    const base = this.town.buildBase();
+    if (!this.board.bay && at && at.template === 'storage_bay' && base !== null) this.board.setBay({ x: at.x, z: at.z, rot: at.rot, base });
+    // The board is redrawn every tick: what Gruk still needs changes as the stages move, and a timer on game time would
+    // leave it stale while the game time barely moves (a paused or slow run).
+    this.refreshBoard(host);
+    this.placeBoard(host);
   }
 
   /** The welcome, once, the first tick of a new world. */
@@ -1216,7 +1273,6 @@ export class NpcManager {
     }
     this.town.load(r.town);
     this.board.load(r.town?.board);
-    this.boardS = 0;
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;
