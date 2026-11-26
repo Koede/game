@@ -729,6 +729,11 @@ export class Workshop {
     return this.logi.accept(x, y, z, item, count);
   }
 
+  /** How many of `item` the cell would take, without moving anything (jobs check the drop-off before they lift). */
+  canOffer(x: number, y: number, z: number, item: string, count: number): number {
+    return this.logi.accept(x, y, z, item, count, false);
+  }
+
   /** What a depot, basin, funnel or crate holds that can be pulled out. */
   peek(x: number, y: number, z: number): { item: string; count: number }[] {
     return this.logi.peek(x, y, z);

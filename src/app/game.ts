@@ -16,6 +16,7 @@ import { MagicRenderer } from '../render/magic/magicRenderer';
 import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
 import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
+import { createJobsScreen } from '../ui/screens/jobs/jobsScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT, REACH } from '../core/constants';
@@ -220,6 +221,7 @@ export class Game {
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
+      this.ui.registerScreen('jobs', (request, ctx) => createJobsScreen(ctx, state.npcs, request.type === 'jobs' ? request.person : undefined));
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z, request.type === 'rune_desk' && request.bench === true), request.type === 'rune_desk' && request.bench === true));
       registerDistillRig(this.ui);
@@ -243,6 +245,8 @@ export class Game {
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
       this.controller.fallenAim = (o, d, maxDist) => this.trees.aimHit(o, d, maxDist);
       this.controller.interaction.beforeUse = (hit) => {
+        // Picking a stop for a resident's job (docs/api/jobs.md): this Use sets it.
+        if (state.npcs.pickingStop) return state.npcs.jobPick(hit) ? 'screen' : null;
         if (hit) {
           const held = player.heldStack();
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));

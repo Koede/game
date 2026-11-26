@@ -66,6 +66,10 @@ export interface DebugHandle {
   groundItems(): { item: string; count: number; x: number; y: number; z: number }[];
   /** Gruk's town (npcs/manager.ts townDebug): the building in progress, the build board, the storage bay and its crate. Null before a world runs. */
   town(): TownDebug | null;
+  /** Settlement jobs (npcs/jobs.ts): what each resident is set to carry. */
+  jobs(): { id: string; kind: string; filter: string; from: { x: number; y: number; z: number } | null; to: { x: number; y: number; z: number } | null; status: string; moved: number; carrying: { item: string; count: number } | null }[];
+  /** Dev skip for the jobs e2e: gives `id` a job between two stops (the same calls the Jobs screen makes). False when they cannot work. */
+  setJob(id: string, kind: 'haul' | 'feed' | null, from?: { x: number; y: number; z: number }, to?: { x: number; y: number; z: number }, filter?: 'ore' | 'fuel' | 'any'): boolean;
   /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
   fallenLogs(): { id: number; length: number; ox: number; oy: number; oz: number; dx: number; dz: number; theta: number }[];
   look(yaw: number, pitch: number): void;
@@ -199,6 +203,19 @@ export function createDebugHandle(app: App): DebugHandle {
         return 1 - game().state.player.give(item, 1, s.durability, s.enchants);
       }
       return count - game().state.player.give(item, count);
+    },
+    jobs() {
+      return game().state.npcs.jobs.all().map((v) => ({ id: v.id, kind: v.job.kind, filter: v.job.filter, from: v.job.from, to: v.job.to, status: v.status, moved: v.moved, carrying: v.carrying }));
+    },
+    setJob(id, kind, from, to, filter) {
+      const npcs = game().state.npcs;
+      if (!npcs.canWork(id)) return false;
+      npcs.setJob(id, kind);
+      if (kind === null) return true;
+      if (filter) npcs.jobs.setFilter(id, filter);
+      if (from) npcs.jobs.setStop(id, 'from', from);
+      if (to) npcs.jobs.setStop(id, 'to', to);
+      return true;
     },
     /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
     fallenLogs() {

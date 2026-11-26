@@ -2963,6 +2963,7 @@ body {
   font-size: var(--hw-fs-sm);
   line-height: 1.35;
   color: var(--hw-ash-1);
+}
 /* Recipe helper strip (src/ui/screens/inventory/recipeHelperPanel.ts) */
 .hw-helper {
   display: grid;
@@ -3032,3 +3033,19 @@ body {
 /* Trade caravan */
 .hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
 .hw-caravan__row span { flex: 1; min-width: 0; }
+
+/* ---- the Jobs screen (docs/api/jobs.md) ---- */
+.hw-jobs { display: flex; flex-direction: column; gap: 12px; }
+.hw-jobs__intro { margin: 0 0 10px; opacity: 0.85; }
+.hw-jobs__card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.hw-jobs__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.hw-jobs__head span { font-size: 13px; opacity: 0.75; }
+.hw-jobs__seg { display: flex; gap: 6px; }
+.hw-jobs__opt { flex: 1 1 0; min-height: 44px; }
+.hw-jobs__opt.is-on { outline: 2px solid var(--hw-accent, #e0a84a); background: rgba(224, 168, 74, 0.22); font-weight: 700; }
+.hw-jobs__label { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
+.hw-jobs__pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; text-align: left; }
+.hw-jobs__pick small { font-size: 12px; opacity: 0.75; }
+.hw-jobs__stop { font-weight: 600; overflow-wrap: anywhere; }
+.hw-jobs__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 13px; }
+.hw-jobs__status { margin: 0; }

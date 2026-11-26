@@ -244,7 +244,7 @@ export class GameState {
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
-    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim }));
+    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, workshop: this.workshop }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
     this.offs.push(() => this.workshop.dispose());

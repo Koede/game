@@ -9,6 +9,7 @@ import { OBJECTIVES, blockId } from '../core/registry';
 import { Inventory } from '../game/inventory';
 import { emptyCrateEntity } from '../world/ruinCrates';
 import type { Simulation } from '../sim';
+import type { Workshop } from '../workshop/workshop';
 import { alchemyAdvice } from './alchemy';
 import type { NpcHost } from './manager';
 
@@ -20,6 +21,8 @@ export interface NpcHostDeps {
   mobs: MobManager;
   world: IWorld;
   sim: Simulation;
+  /** The Bronze workshop: its containers and machines are what a resident's job carries between. */
+  workshop?: Workshop;
 }
 
 /** The first sentence or two of a text, at most `max` characters. */
@@ -34,6 +37,11 @@ export function brief(text: string, max = 200): string {
 const BREW_GOALS = ['boil_bucket', 'first_brew', 'six_cups'];
 
 export function makeNpcHost(d: NpcHostDeps): NpcHost {
+  // Optional machine wear calls, present once the wear work is merged.
+  const sim = d.sim as Simulation & {
+    wornMachines?(minWear?: number, near?: { x: number; z: number; radius: number }): { x: number; y: number; z: number; kind: string; wear: number }[];
+    tendMachine?(x: number, y: number, z: number): number;
+  };
   const goal = (id: string) => OBJECTIVES.find((o) => o.id === id);
   return {
     setBlockActive: (x, y, z, on) => {
@@ -125,6 +133,20 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       if (slots && e.fuel.every((s) => s === null) && !e.burnItem) slots.fuel.add('oak_log', 12);
       if (!e.lit) d.sim.light(x, y, z);
     },
+    jobs: d.workshop
+      ? {
+          peek: (s) => (d.world.isLoaded(s.x, s.z) ? d.workshop!.peek(s.x, s.y, s.z) : []),
+          take: (s, item, max) => d.workshop!.take(s.x, s.y, s.z, item, max),
+          canOffer: (s, item, n) => d.workshop!.canOffer(s.x, s.y, s.z, item, n),
+          offer: (s, item, n) => d.workshop!.offer(s.x, s.y, s.z, item, n),
+          loaded: (s) => d.world.isLoaded(s.x, s.z),
+          spill: (s, item, n) => d.player.ground.spawn(item, n, s.x + 0.5, s.y + 1.1, s.z + 0.5),
+          // Machine wear (docs/api/machine-wear.md) may not be in this build: the job then says so.
+          worn: typeof sim.wornMachines === 'function' ? (near) => sim.wornMachines!(0.25, near) : undefined,
+          tend: typeof sim.tendMachine === 'function' ? (x, y, z) => sim.tendMachine!(x, y, z) : undefined,
+          blockAt: (s) => (d.world.isLoaded(s.x, s.z) ? d.world.getBlock(s.x, s.y, s.z).key : null),
+        }
+      : undefined,
     companion: {
       world: d.world,
       player: () => ({ x: d.player.position.x, y: d.player.position.y, z: d.player.position.z, dead: d.player.dead }),
