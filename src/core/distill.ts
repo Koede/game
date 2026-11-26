@@ -162,6 +162,8 @@ export const FUEL_GRADES: Readonly<Record<string, FuelGrade>> = {
   fuel_canister: { saw: 1, tractor: 1, empty: null },
   gasoline_canister: { saw: 1.3, tractor: 1.2, empty: EMPTY_CANISTER },
   diesel_canister: { saw: 0, tractor: 1.5, empty: EMPTY_CANISTER },
+  // Kerosene: a tractor burns it, one canister per canister; a two-stroke saw would choke on it.
+  kerosene_canister: { saw: 0, tractor: 1, empty: EMPTY_CANISTER },
   fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, empty: EMPTY_BEAKER },
 };
 export const fuelGrade = (item: string): FuelGrade | null => FUEL_GRADES[item] ?? null;
