@@ -18,6 +18,7 @@ import { WORLD_SPEC } from './specRosterWorld';
 import { FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 import { EXPLORE_SPEC } from './specRosterExplore';
+import { OLD_PLANS_SPEC } from './specRosterOldPlans';
 
 type Numbers = Record<string, number>;
 
@@ -452,3 +453,6 @@ SPEC.maxTextures += 15;
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
+// Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
+SPEC.maxTextures += OLD_PLANS_SPEC.textures;
+SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);

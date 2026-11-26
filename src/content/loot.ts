@@ -69,6 +69,10 @@ export const ITEM_RARITY: Readonly<Record<string, LootRarity>> = {
   scroll_ledger: 'rare',
   scroll_verses: 'rare',
   scroll_margin: 'rare',
+  plan_kiln_house: 'rare',
+  plan_cistern: 'rare',
+  plan_foundry_hall: 'rare',
+  plan_lookout: 'rare',
 };
 
 /**

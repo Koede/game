@@ -257,6 +257,8 @@ export class Game {
         if (fixture && state.npcs.useFixture(fixture) !== null) return 'worked';
         const repaired = state.restoration.use(hit);
         if (repaired !== null) return repaired;
+        const planned = state.oldPlans.use(player.heldStack());
+        if (planned !== null) return planned;
         const explored = state.exploration.use(hit, player.heldStack());
         if (explored !== null) return explored;
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
