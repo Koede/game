@@ -62,7 +62,7 @@ const SUPER: CableLook = {
   core: P.CYAN,
 };
 
-function battery(c: Canvas): void {
+function battery(c: Canvas, lit = false): void {
   plate(c);
   // Terminals: copper positive, dark negative.
   c.rect(3, 2, 3, 2, P.COPPER[2]);
@@ -72,11 +72,11 @@ function battery(c: Canvas): void {
   c.rect(4, 1, 1, 1, P.rgb(0xd04030));
   // Charge window: four cells, three lit.
   well(c, 4, 5, 8, 7);
-  for (let k = 0; k < 4; k++) c.rect(5, 6 + k * 2, 7, 1, k === 0 ? P.CYAN_OFF : P.CYAN);
+  for (let k = 0; k < 4; k++) c.rect(5, 6 + k * 2, 7, 1, k === 0 && !lit ? P.CYAN_OFF : P.CYAN);
   c.rect(2, 13, 9, 1, P.HAZARD);
 }
 
-function lithiumBank(c: Canvas): void {
+function lithiumBank(c: Canvas, lit = false): void {
   plate(c);
   // Six lilac-capped cells in a rack, and a charge strip along the bottom.
   for (const y of [4.5, 8.5]) {
@@ -87,7 +87,7 @@ function lithiumBank(c: Canvas): void {
     }
   }
   well(c, 3, 11, 7, 1);
-  c.rect(3, 11, 5, 1, P.CYAN);
+  c.rect(3, 11, lit ? 10 : 5, 1, P.CYAN);
 }
 
 export const GRID: PainterSet = {
@@ -95,5 +95,7 @@ export const GRID: PainterSet = {
   heavy_cable: (c) => cable(c, HEAVY),
   super_cable: (c) => cable(c, SUPER),
   battery_front: battery,
+  battery_front_on: (c) => battery(c, true),
   lithium_bank_front: lithiumBank,
+  lithium_bank_front_on: (c) => lithiumBank(c, true),
 };
