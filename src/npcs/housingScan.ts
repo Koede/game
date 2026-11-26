@@ -6,7 +6,7 @@
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { BED_KEYS, checkRoom } from './housing';
 import type { RoomInput } from './housingView';
-import { BED_ROOM } from './settlement';
+import { BED_ROOM, HOUSE_ROOM } from './settlement';
 
 /** How far from the town's centre beds are looked for (blocks), and the height band around its floor. */
 export const SCAN_RADIUS = 40;
@@ -26,10 +26,11 @@ export interface ScanArea {
 
 export const bedRoomId = (x: number, y: number, z: number): string => `${BED_ROOM}${x},${y},${z}`;
 
-/** Parses "bed:x,y,z", or null. */
+/** Parses "bed:x,y,z" or "house:x,y,z" (the cell the resident sleeps at), or null. */
 export function bedOfRoom(id: string): { x: number; y: number; z: number } | null {
-  if (!id.startsWith(BED_ROOM)) return null;
-  const p = id.slice(BED_ROOM.length).split(',').map(Number);
+  const prefix = id.startsWith(BED_ROOM) ? BED_ROOM : id.startsWith(HOUSE_ROOM) ? HOUSE_ROOM : null;
+  if (!prefix) return null;
+  const p = id.slice(prefix.length).split(',').map(Number);
   return p.length === 3 && p.every(Number.isFinite) ? { x: p[0], y: p[1], z: p[2] } : null;
 }
 

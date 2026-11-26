@@ -31,6 +31,9 @@ export interface TownResident {
   tone: LineTone;
   reasons: string[];
   trust: number;
+  /** The room id they live in ('camp' for none), and where they could be moved by hand (none for the builder). */
+  room: string;
+  moves: { id: string; label: string }[];
 }
 
 export interface TownNextInLine {

@@ -1,3 +1,4 @@
+import { tipFactor } from './contentment';
 import { describe, expect, it } from 'vitest';
 import { itemOrNull } from '../core/registry';
 import { FAVOURS, FAVOUR_DAYS, FAVOUR_SLOTS, FavourBoard } from './favours';
@@ -65,8 +66,10 @@ describe('favours on the quest board', () => {
     expect(f).toBeTruthy();
     r.state.held = { item: f.item, count: f.count + 2 };
     const t0 = r.npcs.trustOf(f.who);
+    const mood = r.npcs.settlementDebug().scores[f.who] ?? 0;
     r.npcs.useFixture('board');
-    expect(r.npcs.coins).toBe(f.coin);
+    // The coin is a tip that follows the asker's contentment (1 at neutral).
+    expect(r.npcs.coins).toBe(f.coin > 0 ? Math.max(1, Math.round(f.coin * tipFactor(mood))) : 0);
     expect(r.npcs.trustOf(f.who)).toBe(t0 + f.trust);
     expect(r.state.held?.count).toBe(2);
     expect(r.npcs.pinnedFavours().some((x) => x.id === f.id)).toBe(false);

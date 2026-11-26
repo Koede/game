@@ -16,7 +16,9 @@ function bar(percent: number): HTMLElement {
 }
 
 /** The page's body for one reading of the town. Exported for tests and tools. */
-export function renderTown(p: TownPage): HTMLElement {
+export type MoveResident = (id: string, room: string) => { ok: boolean; reason?: string };
+
+export function renderTown(p: TownPage, move?: MoveResident, done?: () => void): HTMLElement {
   const out = h('div', { class: 'hw-town' });
   if (!p.active) {
     out.append(h('p', { class: 'hw-town__line', text: 'There is no town to look at yet. Gruk builds one only in a new world.' }));
@@ -37,7 +39,16 @@ export function renderTown(p: TownPage): HTMLElement {
   const next = p.standing.next ? `Next step: ${p.standing.next.name} at ${p.standing.next.at}.` : 'The highest step.';
   out.append(section('Standing', h('p', { class: 'hw-town__line', text: `${p.standing.name} (${p.standing.value}). ${next}` }), p.nextUnlock ? h('p', { class: 'hw-town__line', text: `Next unlock: ${p.nextUnlock}.` }) : null, h('p', { class: 'hw-town__line', text: `${p.finished} of ${p.planned} buildings done. The town feels ${p.moodLabel}.` })));
 
-  out.append(section('Who lives here', ...p.residents.map((r) => h('div', { class: 'hw-town__row' }, h('span', { class: 'hw-town__name', text: r.name }), h('span', { class: 'hw-town__sub', text: `${r.home}, ${r.tone === 'warm' ? 'content' : r.tone === 'grumpy' ? 'restless' : 'settled'}` })))));
+  const mover = (r: TownPage['residents'][number]): HTMLElement | null => {
+    if (!move || r.moves.length < 2) return null;
+    const sel = h('select', { class: 'hw-town__move', attrs: { 'aria-label': `Move ${r.name} to another room` } }, ...r.moves.map((m) => h('option', { text: m.label, attrs: { value: m.id, selected: m.id === r.room } })));
+    sel.addEventListener('change', () => {
+      move(r.id, sel.value);
+      done?.();
+    });
+    return sel;
+  };
+  out.append(section('Who lives here', ...p.residents.map((r) => h('div', { class: 'hw-town__row' }, h('span', { class: 'hw-town__name', text: r.name }), h('span', { class: 'hw-town__sub', text: `${r.home}, ${r.tone === 'warm' ? 'content' : r.tone === 'grumpy' ? 'restless' : 'settled'}` }), mover(r)))));
   const bits = p.residents.filter((r) => r.reasons.length > 0).map((r) => `${r.name} ${r.reasons[0]}`);
   if (bits.length > 0) out.append(h('p', { class: 'hw-town__line hw-town__sub', text: bits.slice(0, 4).join('. ') + '.' }));
 
@@ -48,7 +59,7 @@ export function renderTown(p: TownPage): HTMLElement {
   return out;
 }
 
-export function createTownScreen(_request: { type: 'town' }, ctx: ScreenContext, page: () => TownPage): GameScreen {
+export function createTownScreen(_request: { type: 'town' }, ctx: ScreenContext, page: () => TownPage, move?: MoveResident): GameScreen {
   const body = h('div', { class: 'hw-town-wrap' });
   const window = new Window({ title: 'Town', subtitle: `Day ${ctx.clock.day}`, size: 'md', fit: 'tall', body });
   return {
@@ -56,7 +67,7 @@ export function createTownScreen(_request: { type: 'town' }, ctx: ScreenContext,
     refresh: () => {
       const p = page();
       window.setSubtitle(`Day ${p.day}`);
-      body.replaceChildren(renderTown(p));
+      body.replaceChildren(renderTown(p, move, () => ctx.invalidate()));
     },
     dispose: () => undefined,
   };

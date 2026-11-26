@@ -7,7 +7,7 @@
  * flood-fill room check as the layout stands). Rooms the player builds are found by their beds and must pass `checkRoom`.
  */
 import { ARRIVALS, rollNight, type Arrival, type Newcomer } from './moveIn';
-import { CAMP, evictBroken, nextInLine, roomViews, type Eviction, type NextInLine, type Occupancy, type RoomInput, type RoomView } from './housingView';
+import { CAMP, assignRoom, evictBroken, nextInLine, roomViews, type Eviction, type NextInLine, type Occupancy, type RoomInput, type RoomView } from './housingView';
 import { NAMES, PEOPLE, contentment, type Contentment, type PersonId, type Tag } from './contentment';
 
 /** A room that exists in the lodge once its stage stands. */
@@ -34,6 +34,10 @@ export const LODGE_SLEEP: Readonly<Record<string, readonly [number, number, numb
 
 /** Prefix of the ids of rooms found by their bed in the world ("bed:x,y,z"). */
 export const BED_ROOM = 'bed:';
+/** Prefix of the ids of the houses Gruk builds for residents ("house:x,y,z", the floor cell by the door). */
+export const HOUSE_ROOM = 'house:';
+/** A resident has lived in the lodge at least this many days (a moon) before they get a house. */
+export const HOUSE_AFTER_DAYS = 8;
 
 /** Nights rolled in one go at most (a long time away: the chance is capped, so more nights change little). */
 export const MAX_NIGHTS = 40;
@@ -56,6 +60,9 @@ export interface SettlementSnapshot {
   occ: Record<string, string>;
   /** Arrivals, newest last: person id, room id, day. */
   log: [string, string, number][];
+  /** Houses Gruk has built (room ids), and the day each person was knocked down (they are back the next morning). */
+  houses?: string[];
+  away?: Record<string, number>;
 }
 
 export interface HousingRow extends RoomView {
@@ -70,6 +77,8 @@ export class Settlement {
   private since: Record<string, number> = {};
   private occ: Record<string, string> = {};
   private log: [string, string, number][] = [];
+  private houses: string[] = [];
+  private away: Record<string, number> = {};
   /** Cached contentment per person, recomputed each night. */
   private scores: Record<string, Contentment> = {};
 
@@ -89,6 +98,71 @@ export class Settlement {
   /** Puts a person in a room without a roll (a dev settle, an assignment). */
   place(id: string, room: string): void {
     this.occ[id] = room;
+  }
+
+  // ---- houses and moving out ----
+
+  addHouse(id: string): void {
+    if (!this.houses.includes(id)) this.houses.push(id);
+  }
+
+  /** The houses built, as always-valid rooms (Gruk's own walls, like the lodge's bedrooms). */
+  houseRooms(): RoomInput[] {
+    return this.houses.map((id) => ({ id, check: { ok: true, reasons: [], cells: 0 } }));
+  }
+
+  /**
+   * Residents who move out to a free house: in the order they arrived, once they have lived in a room of the lodge for a moon. One
+   * per free house. Returns the moves, already applied.
+   */
+  moveOuts(day: number, rooms: readonly RoomInput[]): { personId: string; from: string; to: string }[] {
+    const out: { personId: string; from: string; to: string }[] = [];
+    for (const [personId, from, since] of this.log) {
+      if (this.occ[personId] !== from || from.startsWith(HOUSE_ROOM) || day - since < HOUSE_AFTER_DAYS) continue;
+      const taken = new Set(Object.values(this.occ));
+      const house = this.houses.find((h) => !taken.has(h) && rooms.some((r) => r.id === h && r.check.ok));
+      if (!house) break;
+      this.occ[personId] = house;
+      out.push({ personId, from, to: house });
+    }
+    return out;
+  }
+
+  /** Moves a person to a room by hand (the Town page). Refuses rooms that are missing, broken or lived in. */
+  assign(personId: string, roomId: string, rooms: readonly RoomInput[]): { ok: true } | { ok: false; reason: string } {
+    const r = assignRoom(this.occ, personId, roomId, rooms);
+    if (!r.ok) return r;
+    this.occ = { ...r.occupancy };
+    if (roomId === CAMP) delete this.occ[personId];
+    return { ok: true };
+  }
+
+  // ---- knock-down and return (contentment.ts) ----
+
+  /** Someone is knocked down on `day`: away until the next morning, their room kept. */
+  knockDown(id: string, day: number): void {
+    this.away[id] = day;
+  }
+
+  isAway(id: string, day: number): boolean {
+    const d = this.away[id];
+    return d !== undefined && day <= d;
+  }
+
+  /** True on the morning someone comes back: their lines are grumpy that day. */
+  isGrumpy(id: string, day: number): boolean {
+    const d = this.away[id];
+    return d !== undefined && day === d + 1;
+  }
+
+  /** Forgets knock-downs older than yesterday. Returns who came back this morning. */
+  comeBack(day: number): string[] {
+    const back: string[] = [];
+    for (const [id, d] of Object.entries(this.away)) {
+      if (day === d + 1) back.push(id);
+      else if (day > d + 1) delete this.away[id];
+    }
+    return back;
   }
 
   /** Records the day each room was first seen and forgets rooms that are gone. */
@@ -145,7 +219,7 @@ export class Settlement {
 
   /** Each room as the housing view shows it, with its label. */
   housing(rooms: readonly RoomInput[], labels: Readonly<Record<string, string>>): HousingRow[] {
-    return roomViews(rooms, this.occ).map((v) => ({ ...v, label: labels[v.id] ?? (v.id.startsWith(BED_ROOM) ? 'Your room' : v.id), built: v.id.startsWith(BED_ROOM) }));
+    return roomViews(rooms, this.occ).map((v) => ({ ...v, label: labels[v.id] ?? (v.id.startsWith(HOUSE_ROOM) ? 'House' : v.id.startsWith(BED_ROOM) ? 'Your room' : v.id), built: v.id.startsWith(BED_ROOM) }));
   }
 
   /** The person next in the line and what holds them back, or null when everyone has come. */
@@ -178,7 +252,7 @@ export class Settlement {
   // ---- save ----
 
   toJSON(): SettlementSnapshot {
-    return { last: this.last, since: { ...this.since }, occ: { ...this.occ }, log: this.log.map((l) => [...l] as [string, string, number]) };
+    return { last: this.last, since: { ...this.since }, occ: { ...this.occ }, log: this.log.map((l) => [...l] as [string, string, number]), houses: [...this.houses], away: { ...this.away } };
   }
 
   load(raw: unknown): void {
@@ -186,6 +260,8 @@ export class Settlement {
     this.since = {};
     this.occ = {};
     this.log = [];
+    this.houses = [];
+    this.away = {};
     this.scores = {};
     if (!raw || typeof raw !== 'object') return;
     const r = raw as Partial<SettlementSnapshot>;
@@ -194,6 +270,8 @@ export class Settlement {
     if (r.occ && typeof r.occ === 'object') for (const [k, v] of Object.entries(r.occ)) if (typeof v === 'string') this.occ[k] = v;
     for (const l of Array.isArray(r.log) ? r.log : []) if (Array.isArray(l) && typeof l[0] === 'string' && typeof l[1] === 'string' && Number.isFinite(l[2])) this.log.push([l[0], l[1], l[2]]);
     this.log = this.log.slice(-12);
+    for (const h of Array.isArray(r.houses) ? r.houses : []) if (typeof h === 'string' && h.startsWith(HOUSE_ROOM)) this.houses.push(h);
+    if (r.away && typeof r.away === 'object') for (const [k, v] of Object.entries(r.away)) if (typeof v === 'number' && Number.isFinite(v)) this.away[k] = v;
   }
 }
 
