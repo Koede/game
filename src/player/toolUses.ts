@@ -91,7 +91,7 @@ function sfx(c: Ctx, name: Sound): void {
 }
 
 const LEAVES = ['oak_leaves', 'pine_leaves'];
-const CHEAP_FOLIAGE = ['tall_grass', 'dry_shrub'];
+const CHEAP_FOLIAGE = ['tall_grass', 'dry_shrub', 'fern', 'reeds'];
 /** Bare bush key -> its fruiting block, from the bush's own `harvestLeaves` rule. */
 const REGROWS: ReadonlyMap<string, string> = new Map(BLOCKS.filter((b) => b.harvestLeaves !== null).map((b) => [b.harvestLeaves as string, b.key]));
 const LOOSE_PILES = ['sand', 'gravel', 'rubble', 'snow'];
@@ -173,7 +173,7 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     run: (c) => c.world.getVoxel(c.hit.x, c.hit.y + 1, c.hit.z) === AIR && replace(c, 'dirt') && (wearTool(c), sfx(c, 'till'), true),
   },
   {
-    id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass and dry shrub down to fibre (shrub gives a stick too)',
+    id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass, ferns, reeds and dry shrub down to fibre (shrub gives a stick too)',
     applies: (c) => kindOf(c) === 'hoe' && is(c, ...CHEAP_FOLIAGE),
     run: (c) => (remove(c) ? (drop(c, [{ item: 'fiber', count: 2 }, { item: 'stick', count: 1, chance: c.def.key === 'dry_shrub' ? 0.7 : 0 }]), wearTool(c), sfx(c, 'harvest'), true) : false),
   },

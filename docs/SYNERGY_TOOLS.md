@@ -27,7 +27,7 @@ hammer still strikes an anvil first (hand stations and pipes run before the tabl
 | `saw_stripped_log` | chainsaw x stripped log | 6 planks, 1 fuel | felling |
 | `hoe_reap_replant` | hoe x ripe crop | drops + crop back to stage 0 | farming |
 | `shovel_flatten_farmland` | shovel x farmland top | dirt (nothing may grow on it) | farming |
-| `hoe_scythe` | hoe x tall grass / dry shrub | 2 fibre (+ stick from shrub) | farming |
+| `hoe_scythe` | hoe x tall grass / fern / reeds / dry shrub | 2 fibre (+ stick from shrub) | farming |
 | `shovel_cut_sod` | shovel x grass top | dirt + fibre | farming |
 | `shovel_sift_gravel` | shovel x gravel | sand, 35% flint | masonry |
 | `slop_feeds_crop` | Slop Canister x growing crop | +1 growth stage, empty canister back | distillery |

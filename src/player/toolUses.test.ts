@@ -68,6 +68,8 @@ const CASES: Case[] = [
   { id: 'hoe_reap_replant', held: 'flint_hoe', target: 'wheat_3', becomes: 'wheat_0', drops: [['wheat', 1]] },
   { id: 'shovel_flatten_farmland', held: 'wooden_shovel', target: 'farmland', face: 'top', becomes: 'dirt' },
   { id: 'hoe_scythe', held: 'flint_hoe', target: 'tall_grass', becomes: 'air', drops: [['fiber', 2]] },
+  { id: 'hoe_scythe', held: 'flint_hoe', target: 'fern', becomes: 'air', drops: [['fiber', 2]] },
+  { id: 'hoe_scythe', held: 'iron_hoe', target: 'reeds', becomes: 'air', drops: [['fiber', 2]] },
   { id: 'shovel_cut_sod', held: 'flint_shovel', target: 'grass', face: 'top', becomes: 'dirt', drops: [['fiber', 1]] },
   { id: 'shovel_sift_gravel', held: 'wooden_shovel', target: 'gravel', becomes: 'sand', drops: [['flint', 1]] },
   { id: 'slop_feeds_crop', held: 'slop_canister', target: 'carrot_1', becomes: 'carrot_2', heldAfter: 'empty_canister' },
