@@ -248,6 +248,7 @@ export class GameState {
       rng: () => Math.random(),
       furnaces: () => this.disasterFurnaces(),
       boilers: () => this.disasterBoilers(),
+      steamBoilers: () => this.sim.boilerPressures(),
       cables: (fn) => this.sim.eachCable(fn),
       burst: (x, y, z, radius) => {
         // Radius 0: the boiler block alone is wrecked (its blast has no reach); the furnace under it stays.

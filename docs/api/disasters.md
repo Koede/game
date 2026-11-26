@@ -24,7 +24,7 @@ All hazards emit a `toast`, a positioned `sfx` and `disaster:warn { kind, level,
 ## Hooks for the other threads
 
 Everything the rules need arrives as probes built in `GameState` (`disasterFurnaces`, `disasterBoilers`, `sim.eachCable`):
-- **Steam loop:** `BoilerProbe.fill` is the steam room's fill today; swap it for a real pressure ratio when the loop has
+- **Steam loop (PR #37, docs/api/steam.md):** formed boilers are the steam loop's own: it warns at 7 bar, has its valve and bursts at 8 bar, so the disasters only add the scald (`DisastersHost.steamBoilers` = `Simulation.boilerPressures()`): a shell that disappears while at its rating hurts a player within `hurtDist` blocks (3 normal / 8 damage at 4 blocks on hard). The legacy boiler machine keeps the pressure model above; its `BoilerProbe.fill` is the steam room's fill today; swap it for a real pressure ratio when the loop has
   one. The valve is any block keyed `safety_valve` within `VALVE_REACH`, or pass `DisastersHost.valveNear`.
 - **Heat zones:** `FlueProbe.tempC` is the furnace's temperature; a zone model can feed its own.
 - **Seasons / hard mode:** `winter.hard` feeds the `difficulty` callback.

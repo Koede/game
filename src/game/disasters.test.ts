@@ -113,6 +113,31 @@ describe('boiler overpressure', () => {
   });
 });
 
+describe('steam-loop boilers: the steam loop bursts them, the disasters add the scald', () => {
+  it('a boiler that vanishes while at its rating scalds a player close by; one taken down calmly does not', () => {
+    for (const [fill, close] of [[1.02, true], [0.4, true], [1.02, false]] as const) {
+      const bus = createBus();
+      const world = new FakeWorld(bus);
+      const player = new PlayerState(bus, { x: 0.5, y: 6, z: 0.5 });
+      const toasts: string[] = [];
+      bus.on('toast', (e) => toasts.push(e.text));
+      let list = [{ x: close ? 1 : 40, y: 6, z: 1, fill }];
+      const d = new Disasters({
+        world, bus, player, difficulty: () => 'normal', weather: () => CLEAR, rng: () => 0,
+        furnaces: () => [], boilers: () => [], cables: () => {}, burst: () => {}, steamBoilers: () => list,
+      });
+      d.tick(0.5);
+      list = [];
+      const hp = player.health;
+      d.tick(0.5);
+      const scalded = fill >= 1 && close;
+      expect(player.health < hp).toBe(scalded);
+      expect(toasts.some((t) => /scalded/.test(t))).toBe(scalded);
+      expect(d.alerts()).toEqual([]); // no pressure tracking of its own: the steam loop owns the warning
+    }
+  });
+});
+
 describe('chimney fires', () => {
   const sootS = (flue: 'blocked' | 'open' | 'chimney', fuel = 'oak_log', temp = 500): number => {
     const r = rig('normal');
