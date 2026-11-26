@@ -99,7 +99,9 @@ try {
     await d.settle(500);
     await d.shot('1-hud');
     const chip = page.locator('[data-testid="town-chip"]');
-    await d.press(chip);
+    // On desktop the mouse is captured by pointer lock (letting go opens the pause menu), so the HUD chip is clicked through the DOM there.
+    if ((await d.state()).ui?.pointerLocked) await chip.evaluate((el) => el.click());
+    else await d.press(chip);
     await d.waitScreen('town');
     const text = (await page.locator('.hw-window').first().innerText()).replace(/\s+/g, ' ');
     for (const want of ['Gruk is building', 'Standing', 'Who lives here', 'Rosa', 'Lodge bedroom', 'Rooms', 'Camp goals']) assert(text.toLowerCase().includes(want.toLowerCase()), `the page says "${want}": ${text.slice(0, 300)}`);
