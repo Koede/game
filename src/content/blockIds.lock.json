@@ -300,6 +300,6 @@
   "signal_relay": 298,
   "signal_timer": 299,
   "push_button": 300,
-  "boiler_gauge_glass": 301
-  "kerosene_lamp": 282
+  "boiler_gauge_glass": 301,
+  "kerosene_lamp": 302
 }
