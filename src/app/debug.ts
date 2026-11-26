@@ -60,6 +60,8 @@ export interface DebugHandle {
   teleport(x: number, y: number, z: number): void;
   /** Items lying in the world (drops waiting to be picked up), for the e2e driver. */
   groundItems(): { item: string; count: number; x: number; y: number; z: number }[];
+  /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
+  fallenLogs(): { id: number; length: number; ox: number; oy: number; oz: number; dx: number; dz: number; theta: number }[];
   look(yaw: number, pitch: number): void;
   /** Turns the view to the centre of block (x, y, z). */
   lookAt(x: number, y: number, z: number): void;
