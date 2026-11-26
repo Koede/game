@@ -53,6 +53,18 @@ async function runDevice(device) {
     return { at: st.npcs.at, views: st.npcs.views(), pos: st.player.position, pack: Object.fromEntries(st.player.inventory.toJSON().filter(Boolean).map((s) => [s.item, s.count])) };
   });
 
+  /**
+   * Taps the conversation box away if a line is still up (a tap finishes the line, the next closes it): on a phone the box
+   * covers the Use button, and a tap on it is taken by the box.
+   */
+  const closeTalk = async () => {
+    const box = page.locator('.hw-npcsay:not([hidden])');
+    for (let i = 0; i < 3 && (await box.count()) > 0; i++) {
+      await (d.touch ? box.first().tap({ timeout: 2000 }) : box.first().click({ timeout: 2000 })).catch(() => undefined);
+      await d.settle(250);
+    }
+  };
+
   try {
     await step('a new world opens inside the tavern with the welcome', async () => {
       await page.waitForSelector('.hw-title', { timeout: 30_000 });
@@ -73,16 +85,33 @@ async function runDevice(device) {
 
     for (const [id, gift, word] of [['rosa', 'hearth_stew', 'On the house'], ['gruk', 'wooden_pickaxe', 'Wooden tools'], ['mara', 'field_notebook', 'notebook'], ['veyra', 'glass_vial', 'Glass. Clean']]) {
       await step(`using ${id} gives the welcome gift and a line`, async () => {
-        const s = await npcs();
-        const v = s.views.find((x) => x.id === id);
-        // Stand north of the person (the customers' side; Rosa is behind the bar, so three blocks off), then aim at their chest.
-        await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z - p.back), { x: v.x, y: v.y, z: v.z, back: id === 'rosa' ? 3 : id === 'veyra' ? -2 : 2 });
-        await d.settle(300);
-        await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: v.x, y: v.y, z: v.z });
-        await d.settle(200);
-        await d.shot(`2-${id}`);
-        await d.holdUse(250);
-        await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 5000, interval: 100, arg: gift });
+        // Stand two blocks from the person on the floor (Rosa is behind the bar, so three blocks north of her), then aim at their
+        // chest. People walk between their spots by the hour, so each try reads where they are now and takes a side with room for
+        // the player (north, south, west, east), in one go so they cannot step away between the stand and the aim.
+        const off = id === 'rosa' ? [[0, -3]] : [[0, -2], [0, 2], [-2, 0], [2, 0]];
+        let got = false;
+        for (let i = 0; i < 6 && !got; i++) {
+          const placed = await d.hw((p) => {
+            const hw = window.__hw;
+            const v = hw.app.game.state.npcs.views().find((x) => x.id === p.id);
+            const free = (c) => {
+              const b = (dy) => hw.getBlock(Math.floor(c.x), Math.floor(c.y) + dy, Math.floor(c.z));
+              return !b(0).solid && !b(1).solid && b(-1).solid;
+            };
+            const stands = p.off.map(([dx, dz]) => ({ x: v.x + dx, y: v.y, z: v.z + dz })).filter(free);
+            const stand = stands[p.i % Math.max(1, stands.length)];
+            if (!stand) return null;
+            hw.teleport(stand.x, stand.y, stand.z);
+            hw.lookAt(v.x, v.y + 1.2, v.z);
+            return { v: [v.x, v.y, v.z], stand };
+          }, { id, off, i });
+          assert(placed, `no room to stand beside ${id}`);
+          await d.settle(250);
+          if (i === 0) await d.shot(`2-${id}`);
+          await d.holdUse(250);
+          got = await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 2500, interval: 100, arg: gift }).then(() => true, () => false);
+        }
+        assert(got, `timed out waiting for ${gift} in the pack`);
         await waitFor(page, () => document.querySelector('.hw-npcsay:not([hidden])') !== null, 'the dialogue box', { timeout: 4000, interval: 100 });
         await d.settle(1800);
         const said = await page.locator('.hw-npcsay__text').textContent();
@@ -96,6 +125,7 @@ async function runDevice(device) {
     const FIXTURE = { board: { lx: 3, ly: 2, lz: 0 }, clock: { lx: 5, ly: 3, lz: 0 } };
     for (const [id, word] of [['board', 'Quest board|Favour|bounty'], ['clock', 'It is'], ['orrin', 'wrench'], ['bram', 'Hold|hold|show|Show|Pick|What are you|Welcome|customer|Mind|sign|Come|goat|buy|Take|coin']]) {
       await step(`using ${id} answers`, async () => {
+        await closeTalk();
         const s = await npcs();
         const fx = FIXTURE[id];
         const v = fx ? { x: s.at[0] + fx.lx + 0.5, y: s.at[1] + 1, z: s.at[2] + fx.lz + 0.5 } : s.views.find((x) => x.id === id);
@@ -112,18 +142,27 @@ async function runDevice(device) {
         }
         await d.shot(`3-${id}`);
         await d.holdUse(250);
-        await d.settle(400);
+        // The answer is a toast or a typed line in the dialogue box: give it a moment to show.
+        await waitFor(page, (w) => {
+          const re = new RegExp(w, 'i');
+          return [...document.querySelectorAll('.hw-toasts .hw-toast, .hw-npcsay__text')].some((e) => re.test(e.textContent ?? '')) || window.__hw.app.game.state.player.inventory.count('wrench') >= 1;
+        }, `an answer matching ${word}`, { timeout: 3000, interval: 100, arg: word }).catch(() => undefined);
         const toasts = (await page.locator('.hw-toasts .hw-toast').allTextContents()).concat(await page.locator('.hw-npcsay__text').allTextContents());
         const re = new RegExp(word, 'i');
         assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: nothing matching ${word}: ${toasts.slice(-3).join(' | ')}`);
       });
     }
     await step('the jukebox makes everyone but Gruk dance', async () => {
+      await closeTalk();
       const s = await npcs();
-      // The jukebox is a block against the north wall now: aim at it like any block.
+      // The jukebox is a block against the north wall now: aim at it like any block, from two blocks in front of it (from where
+      // the last step left the player, the wall torch beside it at (7, 2, 1) can be in the way).
+      await d.hw((a) => window.__hw.teleport(a[0] + 8.5, a[1] + 1, a[2] + 3.5), s.at);
+      await d.settle(300);
       assert(await d.approach({ x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 }), 'aims at the jukebox block');
       await d.settle(200);
-      await d.holdUse(250);
+      // One press: the jukebox toggles on every use, and a held Use repeats every 0.25 s (a 250 ms hold can switch it back off).
+      await d.use();
       await d.settle(600);
       const after = await npcs();
       const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');
