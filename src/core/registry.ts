@@ -152,6 +152,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     placeOn: spec.placeOn ?? null,
     harvestLeaves: spec.harvestLeaves ?? null,
     pipe: spec.pipe ?? null,
+    air: spec.air ?? null,
     handStation: spec.handStation ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
@@ -557,6 +558,7 @@ export const isFluidEndpoint = (def: BlockDef): boolean => machineOfBlock(def)?.
  * fluid pipes never join each other. (A wrench may still switch a joint off; that is per-pipe state in src/sim.)
  */
 export function pipeJoins(pipe: BlockDef, other: BlockDef): boolean {
+  if (pipe.air?.role === 'tube') return other.air !== null;
   const family = pipe.pipe?.family;
   if (!family) return false;
   if (other.pipe) return other.pipe.family === family;

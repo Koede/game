@@ -127,6 +127,11 @@ const FORGE: RecipeSpec[] = [
   forge(1, 'wrench', '3 bronze_ingot', 600),
   // Ground items: the handheld pump that pulls loose items in (Bronze Age by design; see itemsGround.ts for the gate).
   forge(2, 'hand_vacuum', '4 bronze_plate, 2 leather, 1 bellows, 2 copper_plate', 800),
+  // The Bronze Age air network (BRONZE_PLAN 4.4): all of it needs the Bronze Furnace's heat and bronze plate.
+  forge(2, '6 air_tube', '1 bronze_plate, 1 glass', 800),
+  forge(2, 'air_tank', '6 bronze_plate, 1 air_tube', 900),
+  forge(2, 'air_compressor', '4 bronze_plate, 1 bronze_cog, 2 air_tube', 900),
+  forge(2, 'blast_nozzle', '4 bronze_plate, 1 air_tube, 2 firebrick', 1100),
   // Resin, sugar and sweet baking (itemsSugar.ts): beakers from glass, sap boiled to resin, resin distilled to sugar, then baked.
   forge(1, '2 glass_beaker', '1 glass', 650),
   forge(1, 'pine_resin', '1 pine_sap', 180, { byproducts: '1 glass_beaker' }),

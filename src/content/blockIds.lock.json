@@ -283,5 +283,9 @@
   "steam_rotor": 281,
   "steam_kettle": 282,
   "boiler_plate": 283,
-  "safety_valve": 284
+  "safety_valve": 284,
+  "air_tube": 285,
+  "air_tank": 286,
+  "air_compressor": 287,
+  "blast_nozzle": 288
 }

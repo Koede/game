@@ -415,6 +415,8 @@ SPEC.maxTextures += 4;
 SPEC.maxTextures += 2;
 // The Belt Pouch icon (src/content/itemsHand.ts): one item texture, painted as a placeholder tile until it has art.
 SPEC.maxTextures += 1;
+// The Bronze Age air blocks (src/content/blocksAir.ts): pipe_air, air_tank_side/top, air_compressor_side/top, blast_nozzle (+on).
+SPEC.maxTextures += 7;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

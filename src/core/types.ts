@@ -368,8 +368,22 @@ export interface BlockSpec {
   harvestLeaves?: string;
   /** Item or fluid transport (spec 16): set on every block of shape 'pipe' and on nothing else. */
   pipe?: PipeSpec;
+  /** Compressed air (BRONZE_PLAN 5.3): a member of an air network. Never set together with `pipe`; src/sim/airNet.ts owns it. */
+  air?: AirSpec;
   /** Ember handwork: the block is worked by the player's strokes (its machine has role 'hand'). */
   handStation?: HandStationSpec;
+}
+
+/**
+ * A block of the air network (BRONZE_PLAN 4.4 and 5.3). Every touching member joins one network: tubes carry, tanks
+ * store, a compressor makes air, a user (the blast nozzle) draws it. `volumeL` is what the block adds to its network.
+ */
+export interface AirSpec {
+  role: 'tube' | 'tank' | 'source' | 'user';
+  volumeL: number;
+  /** Users: the least pressure it works at, in bar, and the air it uses while it works, in litres a second. */
+  minBar?: number;
+  useLPerS?: number;
 }
 
 /**
@@ -427,6 +441,8 @@ export interface BlockDef {
   harvestLeaves: string | null;
   /** Transport numbers of a pipe block (spec 16), or null for anything that is not a pipe. */
   pipe: PipeSpec | null;
+  /** Air network membership (BRONZE_PLAN 5.3), or null. */
+  air: AirSpec | null;
   handStation: HandStationSpec | null;
   /** Key of the item that places this block, or null. */
   itemKey: string | null;
@@ -564,6 +580,11 @@ export interface HearthStructureSpec {
   electrodes?: number;
   /** Power port blocks needed in the faces (0 or absent: none). */
   powerPorts?: number;
+  /**
+   * Part blocks a formed hearth must have in its faces, by block key (the Blast hearth: `{ blast_nozzle: 1 }`).
+   * A furnace that carries `legacyHearth` (set by the save migration for hearths built before the rule) is exempt.
+   */
+  requiredParts?: Record<string, number>;
   /** Crucibles = min(maxCrucibles, interior x * z + crucibleBonus). */
   maxCrucibles: number;
   crucibleBonus: number;

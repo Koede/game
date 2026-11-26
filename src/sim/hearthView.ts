@@ -4,7 +4,7 @@
  * position needs which block, and which hold the wrong one. Built on demand from the last scan; never per tick.
  */
 import type { Interior } from '../core/hearth';
-import { BLOCKS, FURNACE_TIERS } from '../core/registry';
+import { BLOCKS, FURNACE_TIERS, block } from '../core/registry';
 import { voxelFacing, voxelId, type Facing, type IWorld } from '../core/types';
 import { tally } from '../game/crafting';
 import type { Inventory } from '../game/inventory';
@@ -66,7 +66,7 @@ export interface MaterialRow {
 }
 
 export interface StructureCheck {
-  key: 'floor' | 'walls' | 'ceiling' | 'interior' | 'electrodes' | 'ports';
+  key: 'floor' | 'walls' | 'ceiling' | 'interior' | 'electrodes' | 'ports' | 'parts';
   label: string;
   have: number;
   need: number;
@@ -300,6 +300,8 @@ export function structureView(
   };
   place('electrode', s.electrodes ?? 0, CellRole.CeilingFace);
   place('power_port', s.powerPorts ?? 0, CellRole.WallFace);
+  const required = e.legacyHearth ? [] : Object.entries(s.requiredParts ?? {});
+  for (const [key, n] of required) place(key, n, CellRole.WallFace);
 
   const ghost: GhostCell[] = [];
   const need = new Map<string, number>();
@@ -336,6 +338,7 @@ export function structureView(
   check('interior', 'Inside empty', interiorTotal - interiorWrong.length, interiorTotal);
   if (s.electrodes) check('electrodes', 'Electrodes', placed.get('electrode') ?? 0, s.electrodes);
   if (s.powerPorts) check('ports', 'Power ports', placed.get('power_port') ?? 0, s.powerPorts);
+  for (const [key, n] of required) check('parts', block(key).name, placed.get(key) ?? 0, n);
 
   let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
   for (const c of cells) {
