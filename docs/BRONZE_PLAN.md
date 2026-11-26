@@ -299,6 +299,10 @@ hearth goal opens the Forge Age. Still to do from this plan: `requiredParts: { b
    the objective position is unchanged.
 4. AC: typecheck, all unit tests, full `npm run e2e` (scripts must upgrade Clay -> Bronze -> Blast).
 
+**B1/B2 air slice - DONE (see `docs/api/air.md`)**: air_tube, air_tank, air_compressor and blast_nozzle, the air network (`src/sim/airNet.ts`, its own
+graph, not pipeGraph), and the Blast hearth's `requiredParts: { blast_nozzle: 1 }` fed at 2 bar. Hearths built before the rule keep working (`legacyHearth`,
+save rev 3). The compressor's shaft is the steam work's seam (`AirHost.shaftRpm`); until then Use cranks it by hand.
+
 **B1 - contracts, content, art, sound (alone in the repo)**
 Sections 4, 7; objectives of section 9; textures (bronze plate with rivets and seams + formed twin, glass
 gauge with water, ports with coloured rings: heat = amber, water = blue, steam = white; rods; tubes with

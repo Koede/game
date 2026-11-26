@@ -280,7 +280,11 @@
     "party_button": {"category":"block","hardness":1.2,"key":"party_button","lightActive":4,"oriented":true,"tool":"axe"},
     "oak_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"oak_stump","tool":"axe"},
     "pine_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"pine_stump","tool":"axe"},
-    "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"}
+    "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"},
+    "air_tube": {"age":1,"air":{"role":"tube","volumeL":50},"category":"machine","hardness":0.4,"key":"air_tube","shape":"pipe","tool":"pickaxe"},
+    "air_tank": {"age":1,"air":{"role":"tank","volumeL":4000},"category":"machine","hardness":2,"key":"air_tank","stack":16,"tool":"pickaxe"},
+    "air_compressor": {"age":1,"air":{"role":"source","volumeL":50},"category":"machine","hardness":2,"key":"air_compressor","stack":16,"tool":"pickaxe"},
+    "blast_nozzle": {"age":1,"air":{"minBar":2,"role":"user","useLPerS":20,"volumeL":20},"category":"machine","hardness":2,"key":"blast_nozzle","stack":16,"tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -631,6 +635,10 @@
     "item_pipe": {"age":0,"id":"item_pipe","inputs":[{"count":2,"item":"bronze_ingot"},{"count":1,"item":"glass"}],"kind":"forge","minTempC":800,"minTier":1,"output":{"count":8,"item":"item_pipe"},"station":"furnace"},
     "wrench": {"age":0,"id":"wrench","inputs":[{"count":3,"item":"bronze_ingot"}],"kind":"forge","minTempC":600,"minTier":1,"output":{"count":1,"item":"wrench"},"station":"furnace"},
     "hand_vacuum": {"age":1,"id":"hand_vacuum","inputs":[{"count":4,"item":"bronze_plate"},{"count":2,"item":"leather"},{"count":1,"item":"bellows"},{"count":2,"item":"copper_plate"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"hand_vacuum"},"station":"furnace"},
+    "air_tube": {"age":1,"id":"air_tube","inputs":[{"count":1,"item":"bronze_plate"},{"count":1,"item":"glass"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":6,"item":"air_tube"},"station":"furnace"},
+    "air_tank": {"age":1,"id":"air_tank","inputs":[{"count":6,"item":"bronze_plate"},{"count":1,"item":"air_tube"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"air_tank"},"station":"furnace"},
+    "air_compressor": {"age":1,"id":"air_compressor","inputs":[{"count":4,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":2,"item":"air_tube"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"air_compressor"},"station":"furnace"},
+    "blast_nozzle": {"age":1,"id":"blast_nozzle","inputs":[{"count":4,"item":"bronze_plate"},{"count":1,"item":"air_tube"},{"count":2,"item":"firebrick"}],"kind":"forge","minTempC":1100,"minTier":2,"output":{"count":1,"item":"blast_nozzle"},"station":"furnace"},
     "glass_beaker": {"age":0,"id":"glass_beaker","inputs":[{"count":1,"item":"glass"}],"kind":"forge","minTempC":650,"minTier":1,"output":{"count":2,"item":"glass_beaker"},"station":"furnace"},
     "pine_resin": {"age":0,"byproducts":[{"count":1,"item":"glass_beaker"}],"id":"pine_resin","inputs":[{"count":1,"item":"pine_sap"}],"kind":"forge","minTempC":180,"minTier":1,"output":{"count":1,"item":"pine_resin"},"station":"furnace"},
     "sugar": {"age":0,"byproducts":[{"count":1,"item":"pail"},{"count":1,"item":"glass_beaker"}],"id":"sugar","inputs":[{"count":2,"item":"pine_resin"},{"count":1,"item":"water_pail"},{"count":1,"item":"glass_beaker"}],"kind":"forge","minTempC":260,"minTier":1,"output":{"count":3,"item":"sugar"},"station":"furnace"},

@@ -14,7 +14,7 @@ const isRecord = (v: unknown): v is Rec => typeof v === 'object' && v !== null &
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /** The revision this build writes. */
-export const SAVE_REV = 2;
+export const SAVE_REV = 3;
 /** What a world without `rev` is: only builds that wrote envelope v1 (five ages) lacked it, and `migrateSave` stamps those rev 1. */
 export const DEFAULT_REV = 2;
 
@@ -47,9 +47,24 @@ export function sixAges(world: Rec): void {
   }
 }
 
+/**
+ * rev 2 -> 3, the Blast Nozzle (BRONZE_PLAN 4.5): the Blast hearth now needs a Blast Nozzle in a wall, and a hearth is
+ * rescanned when a save loads, so a furnace that already owns tier 3 or more would come apart. Each is flagged
+ * `legacyHearth` and its hearth forms without the nozzle, as it did when it was built. Furnaces placed from now on are
+ * not flagged. The air blocks were appended to the block table, so no voxel id moves.
+ */
+export function blastNozzle(world: Rec): void {
+  const inner = world.world;
+  if (!isRecord(inner) || !Array.isArray(inner.entities)) return;
+  for (const e of inner.entities) {
+    if (isRecord(e) && e.kind === 'furnace' && isNum(e.tier) && e.tier >= 3) e.legacyHearth = true;
+  }
+}
+
 /** `MIGRATIONS[n]` upgrades a world of rev n to rev n + 1, in place. */
 export const MIGRATIONS: Readonly<Record<number, (world: Rec) => void>> = {
   1: sixAges,
+  2: blastNozzle,
 };
 
 /** The revision a raw world save claims (see DEFAULT_REV). */

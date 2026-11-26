@@ -31,7 +31,9 @@ export type HearthProblemCode =
   | 'ceiling'
   | 'wall_tier'
   | 'electrodes'
-  | 'ports';
+  | 'ports'
+  /** A part the tier requires is missing (the Blast hearth's Blast Nozzle). */
+  | 'parts';
 
 export interface HearthProblem {
   code: HearthProblemCode;
@@ -101,6 +103,12 @@ export interface HearthScan {
   itemHatches: Pos[];
   fluidHatches: Pos[];
   blowers: Pos[];
+  /** Blast nozzles in the faces (BRONZE_PLAN 4.5): they feed on air and count as tuyeres. */
+  nozzles: Pos[];
+  /** Valid face parts by block key (what `requiredParts` is checked against). */
+  partCounts: Record<string, number>;
+  /** Set from ScanOptions.legacyHearth: the tier's `requiredParts` are not demanded of this hearth. */
+  exemptParts: boolean;
   /** Every cell of the box (shell, controller and inside): x, y, z, block id, CellRole - five numbers per cell. */
   cells: number[];
   floor: CellTally;
@@ -118,6 +126,11 @@ export interface ScanOptions {
   prev?: HearthBox | null;
   /** Largest inside across of the tier the furnace is heading for (quoted when no walls close); default MAX_ACROSS. */
   maxAcross?: number;
+  /**
+   * The furnace was built before the Blast Nozzle became a requirement (FurnaceEntity.legacyHearth, set by the save
+   * migration): its hearth forms without the tier's `requiredParts`.
+   */
+  legacyHearth?: boolean;
 }
 
 /** The neutral note of a furnace with nothing of a hearth around it. */
@@ -149,6 +162,7 @@ const PORT = block('power_port').id;
 const ITEM_HATCH = block('item_hatch').id;
 const FLUID_HATCH = block('fluid_hatch').id;
 const BLOWER = block('blower').id;
+const NOZZLE = block('blast_nozzle').id;
 
 /** The wall tier of a block id (0: not a wall block). */
 export const wallTierOf = (id: number): number => WALL_TIER[id];
@@ -201,7 +215,7 @@ const tally = (): CellTally => ({ total: 0, parts: 0, bad: 0, byTier: [0, 0, 0, 
 function emptyScan(): HearthScan {
   return {
     box: null, inner: null, closed: false, problems: [], problemCount: 0, wallTier: 0, windows: 0, electrodes: [], ports: [],
-    itemHatches: [], fluidHatches: [], blowers: [], cells: [], floor: tally(), walls: tally(), ceiling: tally(), structuralTier: 0,
+    itemHatches: [], fluidHatches: [], blowers: [], nozzles: [], partCounts: {}, exemptParts: false, cells: [], floor: tally(), walls: tally(), ceiling: tally(), structuralTier: 0,
     note: null,
   };
 }
@@ -282,6 +296,7 @@ function findBox(world: IWorld, x: number, y: number, z: number, facing: Facing,
  */
 export function scanHearth(world: IWorld, x: number, y: number, z: number, facing: Facing, options: ScanOptions = {}): HearthScan {
   const scan = emptyScan();
+  scan.exemptParts = options.legacyHearth === true;
   const b = findBox(world, x, y, z, facing, scan, options.maxAcross ?? MAX_ACROSS);
   if (b) classify(world, b, scan);
   const prev = options.prev ?? null;
@@ -289,6 +304,7 @@ export function scanHearth(world: IWorld, x: number, y: number, z: number, facin
   const f = frameOf(facing);
   if (prev.ux !== f.ux || prev.uz !== f.uz) return scan;
   const old = emptyScan();
+  old.exemptParts = scan.exemptParts;
   classify(world, prev, old);
   const shell = old.floor.total + old.walls.total + old.ceiling.total;
   const gaps = countGaps(old);
@@ -353,12 +369,14 @@ function classify(world: IWorld, b: HearthBox, scan: HearthScan): void {
             bad = `${name()}s only work in the ceiling`;
           } else {
             t.parts++;
+            scan.partCounts[BLOCKS[id].key] = (scan.partCounts[BLOCKS[id].key] ?? 0) + 1;
             const p: Pos = [wx, yy, wz];
             if (id === GLASS) scan.windows++;
             else if (id === PORT) scan.ports.push(p);
             else if (id === ITEM_HATCH) scan.itemHatches.push(p);
             else if (id === FLUID_HATCH) scan.fluidHatches.push(p);
             else if (id === BLOWER) scan.blowers.push(p);
+            else if (id === NOZZLE) scan.nozzles.push(p);
             else scan.electrodes.push(p);
             continue;
           }
@@ -422,6 +440,12 @@ export function tierProblems(scan: HearthScan, tier: number, max = HEARTH_MAX_PR
   if (electrodes > 0 && !push('electrodes', bx, b.y1 + 1, bz, `Needs ${plural(electrodes, 'more Arc Electrode')}`)) return out;
   const ports = (s.powerPorts ?? 0) - scan.ports.length;
   if (ports > 0 && !push('ports', b.cx, b.cy, b.cz, `Needs ${plural(ports, 'more Power Port')}`)) return out;
+  if (!scan.exemptParts) {
+    for (const [key, want] of Object.entries(s.requiredParts ?? {})) {
+      const missing = want - (scan.partCounts[key] ?? 0);
+      if (missing > 0 && !push('parts', b.cx, b.cy, b.cz, `Needs ${plural(missing, `more ${block(key).name}`)} in a wall`)) return out;
+    }
+  }
   if (scan.wallTier > 0 && scan.wallTier < tier) {
     const wall = block(s.wall[0]).name;
     const c = scan.cells;
