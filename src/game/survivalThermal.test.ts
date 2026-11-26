@@ -25,7 +25,6 @@ function rig(opts: { box: string | null; hard: boolean; biome?: BiomeKey; fire?:
   const biome: BiomeKey = opts.biome ?? ('woodland' as BiomeKey);
   const survival = new Survival(world, player, clock, () => biome);
   survival.thermal = new Thermal(world, { isNight: () => true, biomeAt: () => biome }, bus);
-  survival.hard = opts.hard;
   player.warmth = 60;
   const run = (s: number): void => {
     for (let i = Math.round(s / DT); i > 0; i--) {
@@ -46,15 +45,6 @@ describe('Survival with the thermal model', () => {
     }
   });
 
-  it('a cold night outdoors costs extra warmth on hard and not on normal', () => {
-    const normal = rig({ box: null, hard: false });
-    const hard = rig({ box: null, hard: true });
-    normal.run(20);
-    hard.run(20);
-    expect(normal.player.warmth).toBeCloseTo(60 - 0.3 * 20, 0);
-    expect(hard.player.warmth).toBeLessThan(normal.player.warmth - 1);
-  });
-
   it('a cold unheated room is no better than outdoors on hard (insulation only keeps heat that is there)', () => {
     const cold = rig({ box: 'insulated_wall', hard: true, fire: false });
     cold.run(10);
@@ -62,12 +52,15 @@ describe('Survival with the thermal model', () => {
     expect(cold.player.warmth).toBeLessThan(60);
   });
 
-  it('frostfell at night is freezing on hard: the cold names itself as frost', () => {
-    const r = rig({ box: null, hard: true, biome: 'frostfell' as BiomeKey });
-    r.run(5);
-    expect(r.survival.temperatureC!).toBeLessThanOrEqual(-5);
-    expect(r.survival.coldCause).toBe('frost');
-    expect(r.player.warmth).toBeLessThan(MAX_WARMTH);
+  it('a hard winter drain reads the same temperature: rooms and fires matter to it', async () => {
+    const { setTemperatureProvider, temperatureAt } = await import('../sim/temperature');
+    const r = rig({ box: 'insulated_wall', hard: true });
+    r.run(1);
+    setTemperatureProvider((q) => r.survival.thermal!.temperatureAt(q.x, q.y + 0.9, q.z));
+    const inside = temperatureAt({ x: 0.5, y: 10, z: 0.5, day: 20, night: true, snowing: false, exposed: false });
+    setTemperatureProvider(null);
+    expect(inside).toBeGreaterThanOrEqual(15);
+    expect(inside).toBeGreaterThan(temperatureAt({ x: 0.5, y: 10, z: 0.5, day: 20, night: true, snowing: false, exposed: true }));
   });
 
   it('without a thermal model nothing changes (old harnesses)', () => {
@@ -76,7 +69,6 @@ describe('Survival with the thermal model', () => {
     world.fill(-8, 9, -8, 8, 9, 8, 'stone');
     const player = new PlayerState(bus, { x: 0.5, y: 10, z: 0.5 });
     const survival = new Survival(world, player, new GameClock(bus, NIGHT), () => 'woodland' as BiomeKey);
-    survival.hard = true;
     player.warmth = 60;
     for (let i = Math.round(10 / DT); i > 0; i--) survival.tick(DT);
     expect(player.warmth).toBeCloseTo(57, 5);

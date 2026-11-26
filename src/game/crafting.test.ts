@@ -45,6 +45,8 @@ describe('crafting', () => {
       // Tool-and-block synergy (src/content/areas/synergy_tools.ts).
       'plank_slab', 'stone_slab', 'brick_slab', 'stone_brick_slab', 'stone_pillar', 'brick_pillar', 'brick_lintel', 'brick_chimney',
       'bronze_plate_block', 'brick_from_slabs',
+      // Heat as a resource (src/content/areas/warmth.ts).
+      'insulated_wall',
     ]);
   });
 

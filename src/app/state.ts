@@ -29,6 +29,8 @@ import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { Winter } from '../game/winter';
+import { setTemperatureProvider } from '../sim/temperature';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -84,6 +86,8 @@ export class GameState {
   readonly exploration: Exploration;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Frozen rivers and the hard-winter arc (docs/api/winter.md). */
+  readonly winter: Winter;
   /** Repairable old-age machines (docs/api/restoration.md). */
   readonly restoration: Restoration;
   /** Companion dog and cat (docs/api/pets.md). */
@@ -139,7 +143,6 @@ export class GameState {
       seasonOffsetC: () => SEASON_OFFSET_C[seasonOf(this.clock.day)],
     }, bus);
     this.survival.thermal = this.thermal;
-    this.survival.hard = difficulty === 'hard';
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
     this.resumed = save !== null;
     this.journal = new Journal(() => this.clock.day, bus);
@@ -246,6 +249,19 @@ export class GameState {
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
+    this.winter = new Winter({
+      world, bus, player: this.player, day: () => this.clock.day, isNight: () => this.clock.isNight,
+      snowing: (x, y, z) => this.sim.weather.snowAt(x, y, z),
+    });
+    world.loadExtra('winter', (raw) => this.winter.load(raw));
+    // A new world on Hard is a hard-winter world; the choice is saved with it, and a save without it never is one.
+    if (save === null && difficulty === 'hard') this.winter.hard = true;
+    this.offs.push(world.persist('winter', () => this.winter.toJSON()));
+    // Heat zones answer the temperature question wherever the player (or anything) asks it: rooms, fires, insulation, the sky.
+    setTemperatureProvider((q) => (this.world.isLoaded(q.x, q.z) ? this.thermal.temperatureAt(q.x, q.y + 0.9, q.z) : null));
+    this.offs.push(() => setTemperatureProvider(null));
+    this.survival.winterDrain = (exposed) => this.winter.coldDrain(exposed);
+    this.sim.hardWinter = this.winter.hard;
     this.pets = new Pets({
       bus, player: this.player, mobs: this.mobs, isDusk: () => this.clock.phase === 'dusk' || this.clock.phase === 'dawn',
       standAt: (x, z) => { const y = spawnCell(world, x, z, clearanceOf(1.0)); return y < 0 ? null : y; }, rng: () => Math.random(),
@@ -315,7 +331,6 @@ export class GameState {
     this.difficultyNow = d;
     this.mobs.setDifficulty(d);
     this.player.combat.setDifficulty(d);
-    this.survival.hard = d === 'hard';
   }
 
   /**
@@ -402,6 +417,8 @@ export class GameState {
     this.workshop.tick(dt);
     this.exploration.tick(dt);
     this.weathering.tick(dt);
+    this.winter.tick(dt);
+    this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });

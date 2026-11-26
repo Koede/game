@@ -213,6 +213,7 @@ export class Game {
         achievements: state.achievements,
         sim,
         weather: () => state.weather.state,
+        winterGoal: () => state.winter.activeGoal(),
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,

@@ -31,7 +31,15 @@ export class GoalTracker {
     });
   }
 
-  update(objectives: ObjectiveTracker): void {
+  update(objectives: ObjectiveTracker, winter: { title: string } | null = null): void {
+    if (winter) {
+      setText(this.kicker, 'Winter goal');
+      setText(this.title, winter.title);
+      setText(this.progressText, '');
+      this.setFill(0);
+      setAttr(this.el, 'aria-label', `Winter goal: ${winter.title}. Open the Hearth Log`);
+      return;
+    }
     const current = objectives.current;
     const done = objectives.completed.length;
     if (!current) {

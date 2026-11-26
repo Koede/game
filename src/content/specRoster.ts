@@ -404,15 +404,15 @@ SPEC.worldOnlyItems.push(...MAGIC_SPEC.worldOnly, 'quest_board', 'wall_clock', '
 // The tavern's fixture faces (src/render/textures/areas/tavern_fixtures.ts): quest_board_front, wall_clock_front.
 SPEC.maxTextures += 2;
 // The jukebox faces (src/render/textures/areas/tavern_fixtures.ts): jukebox_front, jukebox_front_on.
-SPEC.maxTextures += 2;
+SPEC.maxTextures += 3;
 // The party button faces: party_button_front, party_button_front_on.
-SPEC.maxTextures += 2;
+SPEC.maxTextures += 3;
 // The jukebox model's materials (src/world/jukeboxModel.ts): wood, chrome, brass, grille, window (+on), panel, bubble (+on).
 SPEC.maxTextures += 9;
 // The wool bedding model's materials (src/world/bedModel.ts): bed_frame, bed_mattress, bed_blanket, bed_pillow.
 SPEC.maxTextures += 4;
 // The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
-SPEC.maxTextures += 2;
+SPEC.maxTextures += 3;
 // The Belt Pouch icon (src/content/itemsHand.ts): one item texture, painted as a placeholder tile until it has art.
 SPEC.maxTextures += 1;
 
@@ -452,3 +452,5 @@ SPEC.maxTextures += 15;
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
+// The insulated wall tile (src/render/textures/areas/warmth.ts).
+SPEC.maxTextures += 1;

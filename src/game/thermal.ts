@@ -131,6 +131,7 @@ interface Room {
   rise: number;
 }
 
+const OUTDOORS: Room = { kind: 'outdoors', cells: 0, faces: 0, leak: 0, sources: [], power: 0, rise: 0 };
 const DIRS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const key = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
@@ -216,7 +217,7 @@ export class Thermal {
     const size = 2 * r + 1;
     const temps = new Float32Array(size * size);
     const floors = new Int16Array(size * size).fill(-1);
-    const gathered = this.gather(cx - r - MAX_RADIUS, cx + r + MAX_RADIUS, Math.max(0, y - 6 - MAX_RADIUS), Math.min(WORLD_HEIGHT - 1, y + 3 + MAX_RADIUS), cz - r - MAX_RADIUS, cz + r + MAX_RADIUS);
+    const gathered = this.gather(cx - r - MAX_RADIUS, cx + r + MAX_RADIUS, Math.max(0, y - 8), Math.min(WORLD_HEIGHT - 1, y + 8), cz - r - MAX_RADIUS, cz + r + MAX_RADIUS);
     for (let j = 0; j < size; j++) {
       for (let i = 0; i < size; i++) {
         const x = cx - r + i;
@@ -243,6 +244,7 @@ export class Thermal {
   private roomAt(x: number, y: number, z: number): Room {
     const hit = this.rooms.get(key(x, y, z));
     if (hit) return hit;
+    if (this.world.isLoaded(x, z) && this.skyAbove(x, y, z)) return OUTDOORS;
     this.floods++;
     const world = this.world;
     const seen = new Set<string>([key(x, y, z)]);
@@ -305,6 +307,7 @@ export class Thermal {
 
   /** Whether the column above (x, y, z) is open to the sky. */
   private skyAbove(x: number, y: number, z: number): boolean {
+    if (y > this.world.surfaceY(x, z)) return true; // above the highest block of the column: nothing overhead
     for (let yy = y + 1; yy < WORLD_HEIGHT; yy++) if (this.world.getBlock(x, yy, z).solid) return false;
     return true;
   }
