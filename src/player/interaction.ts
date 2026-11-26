@@ -7,7 +7,8 @@
  */
 import type { GameBus } from '../core/context';
 import { blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, withId, type BlockDef, type IWorld, type Voxel } from '../core/types';
+import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, voxelActive, voxelVariant, withActive, withId, type BlockDef, type IWorld, type Voxel } from '../core/types';
+import { DOOR_TOP, doorPartnerStep } from '../core/doorShape';
 import {
   TILLABLE,
   breakVein,
@@ -250,6 +251,10 @@ export class Interaction {
       const tapped = this.sap.use(hit);
       if (tapped !== null) return tapped === 'tapped' ? 'worked' : 'refused';
     }
+    if (hit && !forcePlace) {
+      const swung = this.swingDoor(hit);
+      if (swung !== null) return swung;
+    }
     if (hit) {
       const brewed = this.brewing.use(hit) ?? this.brewing.placeContainer(hit);
       if (brewed !== null) return brewed;
@@ -307,8 +312,16 @@ export class Interaction {
       }
     }
     if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) return false;
-    const voxel = makeVoxel(def.id, def.oriented ? facingTowards(this.player.yaw) : Facing.North);
+    // A door is two cells: the top half goes in the cell above, which must be free and clear of the player.
+    const door = def.shape === 'door';
+    if (door && (!this.placeableCell(x, y + 1, z) || this.body.intersectsCell(x, y + 1, z, 1))) {
+      this.advise(`place:${def.key}`, 'A door needs two cells of room: clear the cell above.');
+      return false;
+    }
+    const facing = def.oriented ? facingTowards(this.player.yaw) : Facing.North;
+    const voxel = makeVoxel(def.id, facing);
     if (!this.world.setVoxel(x, y, z, voxel, 'player')) return false;
+    if (door) this.world.setVoxel(x, y + 1, z, makeVoxel(def.id, facing, false, DOOR_TOP), 'player');
     this.edits++;
     if (!(this.player.dev && this.player.devFreePlace)) this.player.consumeHeld(1);
     this.placeCooldown = PLACE_COOLDOWN_S;
@@ -367,6 +380,7 @@ export class Interaction {
     const left = leftBehind(def, voxel);
     if (!this.world.setVoxel(x, y, z, left, 'player')) return;
     this.edits++;
+    if (def.shape === 'door') this.clearDoorPartner(def, x, y, z, voxel);
     this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 }, magnet);
     if (shaped.bonus) this.bus.emit('sfx', { name: 'pickup', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.6 });
     const broke = this.player.wearHeld(def);
@@ -379,6 +393,29 @@ export class Interaction {
     this.bus.emit('block:broken', { x, y, z, voxel });
     this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.popUnsupported(x, y + 1, z);
+  }
+
+  /** Use on a wooden door (docs/api/door.md): both halves swing open or shut together. Null when the block is no door. */
+  private swingDoor(hit: RayHit): UseOutcome | null {
+    if (hit.block.shape !== 'door') return null;
+    if (this.placeCooldown > 0) return 'refused';
+    const { x, y, z, voxel, block: def } = hit;
+    const on = !voxelActive(voxel);
+    const py = y + doorPartnerStep(voxelVariant(voxel));
+    if (!this.world.setVoxel(x, y, z, withActive(voxel, on), 'player')) return 'refused';
+    const partner = this.world.getVoxel(x, py, z);
+    if (blockOf(partner).key === def.key) this.world.setVoxel(x, py, z, withActive(partner, on), 'player');
+    this.edits++;
+    this.placeCooldown = PLACE_COOLDOWN_S;
+    this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: on ? 1.2 : 0.9, volume: 0.6 });
+    this.swing.triggerSwing();
+    return 'worked';
+  }
+
+  /** Breaking one half of a door takes the other half with it (no second drop). */
+  private clearDoorPartner(def: BlockDef, x: number, y: number, z: number, voxel: Voxel): void {
+    const py = y + doorPartnerStep(voxelVariant(voxel));
+    if (blockOf(this.world.getVoxel(x, py, z)).key === def.key) this.world.setVoxel(x, py, z, AIR, 'player');
   }
 
   /** Use on a fruiting bush: its drops into the pack, the picked block in its place (entity kept), sfx harvest. */

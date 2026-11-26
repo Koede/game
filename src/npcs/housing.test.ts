@@ -99,3 +99,13 @@ describe('checkRoom', () => {
     expect(checkRoom(bedroom(), 1, 1, 1).reasons).toContain('needs a door');
   });
 });
+
+describe('checkRoom with the wooden door', () => {
+  it('passes a room whose door is a wooden_door (default DOOR_KEYS)', () => {
+    const w = bedroom();
+    w.put(0, 1, 2, 'wooden_door');
+    const r = checkRoom(w, 1, 1, 1);
+    expect(r.ok).toBe(true);
+    expect(r.reasons).toEqual([]);
+  });
+});

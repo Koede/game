@@ -16,11 +16,8 @@ export const ROOM_MIN_HEIGHT = 3;
 export const BED_KEYS: ReadonlySet<string> = new Set(['wool_bedding']);
 /** Block keys that count as a seat or a table. */
 export const SEAT_KEYS: ReadonlySet<string> = new Set(['dining_table', 'plank_bench']);
-/**
- * Block keys that count as a door. Content has no door block yet, so this is empty and every room reads "needs a door"
- * until one is added; callers and tests can pass their own set through `RoomOptions.doors`.
- */
-export const DOOR_KEYS: ReadonlySet<string> = new Set<string>();
+/** Block keys that count as a door: the wooden door (content/areas/doors.ts; both halves share the key). */
+export const DOOR_KEYS: ReadonlySet<string> = new Set(['wooden_door']);
 
 export interface RoomOptions {
   /** Door block keys for this check. Defaults to DOOR_KEYS. */

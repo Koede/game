@@ -6,8 +6,9 @@
 import { PLAYER_HEIGHT, PLAYER_WIDTH } from '../core/constants';
 import type { Vec3 } from '../core/math';
 import { blockOf } from '../core/registry';
+import { doorPanel } from '../core/doorShape';
 import { STAIR_BOXES } from '../core/stairShape';
-import { WORLD_HEIGHT, voxelFacing, type IWorld } from '../core/types';
+import { WORLD_HEIGHT, voxelActive, voxelFacing, type IWorld } from '../core/types';
 
 export const HALF_WIDTH = PLAYER_WIDTH / 2;
 /** Contact tolerance: touching is not overlapping. */
@@ -20,6 +21,8 @@ export function solidHeight(world: IWorld, x: number, y: number, z: number): num
   if (!world.isLoaded(x, z)) return 1;
   const def = blockOf(world.getVoxel(x, y, z));
   if (!def.solid) return 0;
+  // An open door is passable; a closed one is solid (its thin box is in boxesAt).
+  if (def.shape === 'door') return voxelActive(world.getVoxel(x, y, z)) ? 0 : 1;
   return def.shape === 'slab' || def.shape === 'stairs' || def.shape === 'slope' ? 0.5 : 1;
 }
 
@@ -40,6 +43,15 @@ function boxesAt(world: IWorld, x: number, y: number, z: number): number {
         [BX0[i], BZ0[i], BX1[i], BZ1[i], BH[i]] = boxes[i];
       }
       return 2;
+    }
+    if (def.solid && def.shape === 'door' && !voxelActive(v)) {
+      const panel = doorPanel(voxelFacing(v), false);
+      BX0[0] = panel.lo[0];
+      BZ0[0] = panel.lo[2];
+      BX1[0] = panel.hi[0];
+      BZ1[0] = panel.hi[2];
+      BH[0] = panel.hi[1];
+      return 1;
     }
   }
   const h = solidHeight(world, x, y, z);

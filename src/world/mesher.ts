@@ -9,7 +9,7 @@
 import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelActive, voxelFacing, type ChunkMeshData } from '../core/types';
 import {
   BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, GLOWS, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
-  GLASS_MODEL, SHAPE_BUCKET, SHAPE_CUBE, SHAPE_FENCE, SHAPE_GLASS, SHAPE_SLOPE, SHAPE_STAIRS, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
+  GLASS_MODEL, SHAPE_BUCKET, SHAPE_CUBE, SHAPE_DOOR, SHAPE_FENCE, SHAPE_GLASS, SHAPE_SLOPE, SHAPE_STAIRS, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
 } from './blockTables';
 import type { ChunkNeighborhood } from './chunk';
 import { ID } from './ids';
@@ -21,6 +21,7 @@ import {
 import { LIQ, liquidShape } from './meshLiquid';
 import { bucket, cup } from './meshCup';
 import { fence } from './meshFence';
+import { door } from './meshDoor';
 import { glass } from './meshGlass';
 import { slope, stairs } from './meshStairs';
 import { pipe } from './meshPipe';
@@ -268,6 +269,7 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
           case SHAPE_STAIRS: stairs(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
           case SHAPE_SLOPE: slope(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
           case SHAPE_FENCE: fence(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
+          case SHAPE_DOOR: door(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
           case SHAPE_GLASS: glass(builders[BATCH[id]], faceSlot(v), GLASS_MODEL[id], p, x, y, z); break;
           case SHAPE_PIPE: pipe(builders[BATCH[id]], faceSlot(v), id, p, x, y, z); break;
           case SHAPE_CUP: cup(builders[BATCH_CUTOUT], faceSlot(v), id, p, x, y, z); break;
