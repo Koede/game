@@ -34,7 +34,7 @@ import { explode, meltDown } from './fission';
 import { applyFurnace, prepareFurnace, statsOf } from './furnace';
 import * as actions from './furnaceActions';
 import type { ActionHost, ForgeResult } from './furnaceActions';
-import { gridSummary, machineView, networkStats, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
+import { gridCells, gridSummary, machineView, networkStats, type GridCell, type GridSummary, type MachineView, type NetworkStats } from './gridViews';
 import { isPipeEntity, type PortChange } from './pipeState';
 import { tankColumn, tankView } from './tanks';
 import { Transport } from './transport';
@@ -107,6 +107,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** allNetworks() of the current tick and topology. */
   private stats: NetworkStats[] = [];
   private statsTick = -1;
+  private readonly overlayCells: GridCell[] = [];
+  private readonly overlay = { tick: -1, rev: 0, only: null as number | null, range: 0, x: 0, y: 0, z: 0 };
   private statsOf: Network[] | null = null;
 
   constructor(
@@ -837,6 +839,44 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       this.statsOf = networks;
     }
     return this.stats;
+  }
+
+  /**
+   * The cable and machine cells of the power grid near a point, for the grid overlay (held Grid Meter, or a Grid Monitor
+   * in range). `only` is one network's id to show just that network. The cells are rebuilt once a tick (or when the point
+   * moved a few blocks); `tick` is a revision that changes whenever they were, and the array is reused: copy what you keep.
+   */
+  gridOverlay(px: number, py: number, pz: number, range: number, only: number | null = null): { tick: number; cells: GridCell[] } {
+    this.nodes.fresh();
+    const o = this.overlay;
+    const moved = Math.abs(px - o.x) + Math.abs(py - o.y) + Math.abs(pz - o.z) > 3;
+    if (o.tick !== this.tickCount || o.only !== only || o.range !== range || moved) {
+      gridCells(this.nodes.networks, this.nodes.cableNets, px, py, pz, range, only, this.overlayCells);
+      o.tick = this.tickCount;
+      o.only = only;
+      o.range = range;
+      o.x = px;
+      o.y = py;
+      o.z = pz;
+      o.rev++;
+    }
+    return { tick: o.rev, cells: this.overlayCells };
+  }
+
+  /** Id of the network of the nearest switched-on Grid Monitor within `range` blocks of a point, or null. */
+  monitorNear(px: number, py: number, pz: number, range: number): number | null {
+    this.nodes.fresh();
+    let best: number | null = null;
+    let bestD = range * range;
+    for (const n of this.nodes.all) {
+      if (n.e.kind !== 'grid_monitor' || !n.net || !(n.e as MachineEntity).on) continue;
+      const d = (n.e.x + 0.5 - px) ** 2 + (n.e.y + 0.5 - py) ** 2 + (n.e.z + 0.5 - pz) ** 2;
+      if (d <= bestD) {
+        bestD = d;
+        best = n.net.id;
+      }
+    }
+    return best;
   }
 
   /** Totals of every network and the worst alert state, for the HUD. */

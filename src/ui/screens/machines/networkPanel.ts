@@ -8,7 +8,7 @@ import { h, setAttr, setText } from '../../kit/dom';
 import { formatJoules, formatPercent, formatWatts } from '../../kit/format';
 import { Meter, Sparkline, StatFigure } from '../../kit/gauges';
 import { ItemIcon } from '../../kit/icons';
-import { alertText, cableText, memberWatts } from './machineText';
+import { alertText, cableText, lossText, memberWatts } from './machineText';
 
 interface MemberRow {
   el: HTMLLIElement;
@@ -23,6 +23,7 @@ const MAX_MEMBERS = 40;
 export class NetworkPanel {
   readonly el: HTMLElement;
   private readonly alert: HTMLParagraphElement;
+  private readonly losses: HTMLParagraphElement;
   private readonly gen = new StatFigure({ caption: 'Generation', tone: 'power' });
   private readonly demand = new StatFigure({ caption: 'Demand' });
   private readonly stored = new StatFigure({ caption: 'Stored', tone: 'power' });
@@ -38,6 +39,7 @@ export class NetworkPanel {
 
   constructor(opts: { compact?: boolean; emptyText?: string } = {}) {
     this.alert = h('p', { class: 'hw-net__alert', attrs: { role: 'status' } });
+    this.losses = h('p', { class: 'hw-net__losses' });
     this.spark = new Sparkline({
       label: 'Generation and use over the last minute',
       a: { label: 'Generation', tone: 'power' },
@@ -55,6 +57,7 @@ export class NetworkPanel {
       h('div', { class: 'hw-net__figures' }, this.gen.el, this.demand.el, this.stored.el),
       h('div', { class: 'hw-net__chart' }, this.spark.el),
       h('div', { class: 'hw-net__meters' }, this.supply.el, this.cable.el),
+      this.losses,
       this.membersHead,
       this.members,
     );
@@ -85,6 +88,9 @@ export class NetworkPanel {
     this.stored.setNote(
       net.capacityJ > 0 ? `of ${formatJoules(net.capacityJ)}${net.chargeW > 0 ? ` - charging ${formatWatts(net.chargeW)}` : ''}` : 'No batteries',
     );
+    const loss = lossText(net);
+    this.losses.hidden = loss === null;
+    setText(this.losses, loss ?? '');
     this.spark.set(net.historyG, net.historyUsed);
     this.supply.set(net.satisfaction, 1, net.demandW > 0 ? `${formatWatts(net.deliveredW)} of ${formatWatts(net.demandW)}` : 'Idle');
     this.supply.setTone(net.satisfaction < 0.999 && net.demandW > 0 ? 'warn' : 'power');

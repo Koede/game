@@ -363,6 +363,7 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   lamp: simpleConsumer,
   space_heater: simpleConsumer,
   ward_beacon: simpleConsumer,
+  grid_monitor: simpleConsumer,
   blower,
   bore_rig: boreRig,
 };

@@ -6,12 +6,14 @@
 import * as THREE from 'three';
 import type { GameBus } from '../../core/context';
 import type { IWorld } from '../../core/types';
+import type { GridCell } from '../../sim';
 import type { WorldUniforms } from '../materials';
 import type { Particles } from '../particles';
 import { FormedLayer } from '../formed';
 import { CellLight } from './cellLight';
 import type { TransportFeed, TransportSource } from './feed';
 import { GhostLayer } from './ghosts';
+import { GridOverlay } from './gridOverlay';
 import { HearthLights } from './hearths';
 import { BlockHighlight } from './highlight';
 import { PacketLayer } from './packets';
@@ -36,6 +38,8 @@ export class TechLayer {
   private readonly light: CellLight;
   private readonly packets: PacketLayer;
   private readonly overlay: PipeOverlay;
+  private readonly grid = new GridOverlay();
+  private gridFeed: { tick: number; cells: readonly GridCell[] } | null = null;
   private readonly hearths: HearthLights;
   private readonly ghosts: GhostLayer;
   private readonly formed: FormedLayer;
@@ -52,13 +56,18 @@ export class TechLayer {
     this.ghosts = new GhostLayer(world, bus, uniforms);
     this.formed = new FormedLayer(world, bus, uniforms);
     this.highlight = new BlockHighlight(bus, canvas);
-    this.group.add(this.packets.group, this.overlay.mesh, this.hearths.group, this.formed.group, this.ghosts.group, this.highlight.group);
+    this.group.add(this.packets.group, this.overlay.mesh, this.grid.group, this.hearths.group, this.formed.group, this.ghosts.group, this.highlight.group);
     this.group.name = 'tech';
   }
 
   /** Where packets and pipe contents come from (null: draw none). */
   setTransport(source: TransportSource | null): void {
     this.source = source;
+  }
+
+  /** The power grid overlay's cells (null: off). Set once a frame by the app; see src/game/gridMeter.ts. */
+  setGrid(feed: { tick: number; cells: readonly GridCell[] } | null): void {
+    this.gridFeed = feed;
   }
 
   setScale(pixelsPerUnit: number): void {
@@ -82,6 +91,7 @@ export class TechLayer {
     this.formed.update(dt, p.x, p.z);
     this.ghosts.update(p.x, p.y, p.z);
     this.highlight.update(dt, camera);
+    this.grid.update(dt, this.gridFeed);
     const s = this.stats;
     s.packets = this.packets.drawn;
     s.pipePieces = this.overlay.drawn;
@@ -93,6 +103,7 @@ export class TechLayer {
   dispose(): void {
     this.packets.dispose();
     this.overlay.dispose();
+    this.grid.dispose();
     this.hearths.dispose();
     this.ghosts.dispose();
     this.formed.dispose();

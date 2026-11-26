@@ -62,6 +62,7 @@ import {
   TRACTOR_ROAD_HEIGHT,
   walkRoadFactor,
 } from './gameWiring';
+import { gridOverlayFor, meterUse } from '../game/gridMeter';
 import { clampFrameDt, FixedStep } from './loop';
 import { GameState } from './state';
 
@@ -259,6 +260,8 @@ export class Game {
         if (repaired !== null) return repaired;
         const explored = state.exploration.use(hit, player.heldStack());
         if (explored !== null) return explored;
+        const metered = meterUse(state.sim, bus, player.heldStack()?.item ?? null, hit);
+        if (metered !== null) return metered;
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
@@ -412,6 +415,7 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.renderer.setGridOverlay(gridOverlayFor(state.sim, p.heldStack()?.item ?? null, p.position.x, p.eyeY, p.position.z));
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
     showRodAura(this.ui.hud, this.magic.rodReading());
     this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
