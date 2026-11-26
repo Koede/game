@@ -280,7 +280,10 @@
     "party_button": {"category":"block","hardness":1.2,"key":"party_button","lightActive":4,"oriented":true,"tool":"axe"},
     "oak_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"oak_stump","tool":"axe"},
     "pine_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"pine_stump","tool":"axe"},
-    "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"}
+    "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"},
+    "signal_relay": {"age":1,"category":"machine","hardness":1.2,"key":"signal_relay","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
+    "signal_timer": {"age":1,"category":"machine","hardness":1.2,"key":"signal_timer","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
+    "push_button": {"age":1,"category":"machine","hardness":1.2,"key":"push_button","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -862,6 +865,9 @@
     "crank_lever": {"age":1,"id":"crank_lever","inputs":[{"count":1,"item":"bronze_ingot"},{"count":1,"item":"stick"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"crank_lever"},"station":"furnace"},
     "pressure_plate": {"age":1,"id":"pressure_plate","inputs":[{"count":1,"item":"bronze_plate"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":2,"item":"pressure_plate"},"station":"furnace"},
     "metronome": {"age":1,"id":"metronome","inputs":[{"count":1,"item":"clockwork_motor"},{"count":1,"item":"bronze_cog"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"metronome"},"station":"furnace"},
+    "signal_relay": {"age":1,"id":"signal_relay","inputs":[{"count":2,"item":"bronze_ingot"},{"count":1,"item":"bronze_cog"},{"count":2,"item":"signal_wire"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"signal_relay"},"station":"furnace"},
+    "signal_timer": {"age":1,"id":"signal_timer","inputs":[{"count":1,"item":"clockwork_motor"},{"count":2,"item":"bronze_cog"},{"count":1,"item":"glass"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"signal_timer"},"station":"furnace"},
+    "push_button": {"age":1,"id":"push_button","inputs":[{"count":1,"item":"bronze_ingot"},{"count":1,"item":"plank"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"push_button"},"station":"furnace"},
     "signal_lamp": {"age":1,"id":"signal_lamp","inputs":[{"count":1,"item":"glass"},{"count":1,"item":"copper_ingot"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"signal_lamp"},"station":"furnace"},
     "bell": {"age":1,"id":"bell","inputs":[{"count":2,"item":"bronze_ingot"},{"count":1,"item":"stick"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"bell"},"station":"furnace"},
     "tally_board": {"age":1,"id":"tally_board","inputs":[{"count":1,"item":"bronze_plate"},{"count":2,"item":"plank"},{"count":1,"item":"stick"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"tally_board"},"station":"furnace"},

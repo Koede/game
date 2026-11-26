@@ -4,7 +4,7 @@ export const WORKSHOP_SPEC = {
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
     'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill',
     'shear_pin', 'flywheel', 'brake', 'pillow_block', 'cam_drum', 'logic_gate', 'differential', 'treadwheel', 'saw_arm', 'item_vault', 'vacuum_collector',
-    'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface', 'wind_vane',
+    'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface', 'wind_vane', 'signal_relay', 'signal_timer', 'push_button',
     'contraption_frame', 'piston', 'bearing', 'rail', 'skiff'],
   items: ['engineer_goggles', 'bronze_cog', 'punched_card'],
   objectives: ['place hand_crank 1', 'place mech_millstone 1', 'make bronze_cog 2', 'place ratio_dial 1', 'place mixer 1', 'place mech_arm 1', 'place saw_arm 1', 'place item_vault 1', 'place crank_lever 1', 'place bell 1', 'place piston 1'],
@@ -57,6 +57,9 @@ export const WORKSHOP_SPEC = {
       'crank_lever: 1 crank_lever <- 1 bronze_ingot, 1 stick @600 T2',
       'pressure_plate: 2 pressure_plate <- 1 bronze_plate @600 T2',
       'metronome: 1 metronome <- 1 clockwork_motor, 1 bronze_cog @600 T2',
+      'signal_relay: 1 signal_relay <- 2 bronze_ingot, 1 bronze_cog, 2 signal_wire @600 T2',
+      'signal_timer: 1 signal_timer <- 1 clockwork_motor, 2 bronze_cog, 1 glass @600 T2',
+      'push_button: 1 push_button <- 1 bronze_ingot, 1 plank @600 T2',
       'signal_lamp: 1 signal_lamp <- 1 glass, 1 copper_ingot @600 T2',
       'bell: 1 bell <- 2 bronze_ingot, 1 stick @600 T2',
       'tally_board: 1 tally_board <- 1 bronze_plate, 2 plank, 1 stick @600 T2',
@@ -70,7 +73,7 @@ export const WORKSHOP_SPEC = {
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then the modular fronts (two for each running one) and icons, plus the vane face and the punched-card icon. */
-  textures: 102,
+  textures: 108,
   /** No recipe: the docs give the vane none, and there is no paper to punch a card from. Tests place or grant them. */
   worldOnly: ['wind_vane', 'punched_card'],
 };

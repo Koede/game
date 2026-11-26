@@ -48,6 +48,9 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'crank_lever', name: 'Crank Lever', anim: true, desc: 'Use it to throw it on or off. Touching machines (arms, deployers, drills, clutches) read the signal.' },
   { key: 'pressure_plate', name: 'Pressure Plate', anim: true, flat: true, desc: 'Signals while an item lies on it or you stand on it.' },
   { key: 'metronome', name: 'Metronome', anim: true, desc: 'Signals for one second in every four. Set an arm or a clutch beside it to pace a line.' },
+  { key: 'signal_relay', name: 'Signal Relay', anim: true, desc: 'Reads the cell behind it and drives the one in front at full strength, renewing a fading line. Tap it to pick repeater, delay, hold or one pulse.' },
+  { key: 'signal_timer', name: 'Signal Timer', anim: true, desc: 'A clock you set by tapping. It signals for a few seconds every 2, 4, 8, 15, 30 or 60 seconds. Tap it to pick the beat.' },
+  { key: 'push_button', name: 'Push Button', anim: true, desc: 'Tap it and it signals for two seconds. Wire it to a machine for a single run.' },
   { key: 'signal_lamp', name: 'Signal Lamp', anim: true, desc: 'Lights while a powered signal cell touches it.' },
   { key: 'bell', name: 'Bell', anim: false, desc: 'Rings when a signal reaches it, and whenever a machine within 12 blocks seizes, jams or is overloaded.' },
   { key: 'tally_board', name: 'Tally Board', anim: false, desc: 'Passes items on out of its front like a funnel and counts them. Use it to reset the count.' },
@@ -61,7 +64,7 @@ export const PART_DEFS: readonly PartDef[] = [
 ];
 
 /** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
-export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_relay', 'signal_timer', 'push_button', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },

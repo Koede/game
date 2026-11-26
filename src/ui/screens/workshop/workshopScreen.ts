@@ -46,7 +46,7 @@ export const RULES: readonly string[] = [
   'Speed has a direction. A reverse box flips it, a ratio dial changes it, a governor caps it, a clutch (or a gearshift between steps) hands nothing on. A differential turns at the mean of two shafts.',
   'Every part costs stress units; the sources carry a limit (a crank 8 su). Over the limit the line stops, or a shear pin snaps first. Two routes that turn one part differently jam.',
   'Oil raises the limit: use Heavy Residue (x1.25) or pine resin (x1.10) on any part of the line.',
-  'Signals: a lever, plate or metronome lights signal wire; machines that touch a signal cell work only while it is on, a clutch flips, a bell rings.',
+  'Signals: a lever, push button, plate, timer or metronome lights signal wire; a relay renews it and tap-sets delays; machines that touch a signal cell work only while it is on, a clutch flips, a bell rings.',
   'Items move on belts, through funnels and chutes, by arms (wrench: source, then targets) into depots, basins, vaults and crates. Fluids reach spouts and drains from tanks on the pipe network.',
 ];
 
