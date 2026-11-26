@@ -296,8 +296,8 @@
   "blast_nozzle": 294,
   "dynamo": 295,
   "rolling_mill": 296,
-  "drop_forge": 297
-  "signal_relay": 281,
-  "signal_timer": 282,
-  "push_button": 283
+  "drop_forge": 297,
+  "signal_relay": 298,
+  "signal_timer": 299,
+  "push_button": 300
 }
