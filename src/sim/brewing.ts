@@ -7,6 +7,7 @@ import {
   AMBIENT_TEMP_C, BOIL_DRY_SECONDS, BOIL_SECONDS, BOIL_TEMP_C, BREW_SECONDS, BREW_STEAM_S, FLAG_BOILED_WATER, FLAG_BREWED, KETTLE_BOIL_C,
 } from '../core/constants';
 import type { GameBus } from '../core/context';
+import { KETTLE_HEAT_W } from '../core/energy';
 import {
   BOIL_BUCKET_MACHINE, BREW_CUP_MACHINE, CONTAINER_BLOCKS, CUP_BLOCK, KETTLE_MACHINE, STEAM_KETTLE_BLOCK, cupStageOfBlock, type CupStage,
 } from '../core/brewing';
@@ -60,7 +61,7 @@ const BOILING_W = 300;
 const DRIP_EVERY_S = 0.5;
 const KETTLE_HYSTERESIS_C = 10;
 /** The steam kettle while a rotor on it has work: heat drawn (3.3 kW, tech-spine 2.2) and water boiled away (20 L/s of steam at 0.1 L water per L). */
-export const STEAM_KETTLE_W = 3300;
+export const STEAM_KETTLE_W = KETTLE_HEAT_W;
 export const STEAM_WATER_L_PER_S = 2;
 
 const finite = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);

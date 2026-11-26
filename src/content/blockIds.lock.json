@@ -308,4 +308,16 @@
   "steam_port": 306,
   "steam_pipe": 307,
   "mill_wheel": 308
+  "steam_rotor": 281,
+  "steam_kettle": 282,
+  "boiler_plate": 283,
+  "safety_valve": 284,
+  "boiler_gauge_glass": 285,
+  "beam_engine": 286,
+  "heat_port": 287,
+  "water_port": 288,
+  "steam_port": 289,
+  "steam_pipe": 290,
+  "steam_tank": 291,
+  "windmill": 292
 }

@@ -16,6 +16,7 @@ import { blockOf, blockOrNull, canonicalItemKey, itemOrNull, machine, recipesAt 
 import { MachineStatus, withStatus } from '../core/machineStatus';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
 import { windAt } from '../sim/machines';
+import { suFromW, windmillW } from '../core/energy';
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
 import type { GroundItems } from '../game/groundItems';
@@ -433,6 +434,7 @@ export class Workshop {
     if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
     if (p.kind === 'steam_rotor') return this.steamAt?.(p.x, p.y - 1, p.z) ? { rpm: STEAM_ROTOR.rpm, capacity: STEAM_ROTOR.capacity } : null;
     if (p.kind === 'mill_wheel') return this.riverAt?.(p.x, p.y, p.z) ?? null;
+    if (p.kind === 'windmill') return this.windmillSource(p);
     if (p.kind === 'beam_engine') return this.engineAt?.(p.x, p.y, p.z) ?? null;
     if (this.pto.has(key)) return { rpm: 24, capacity: 30 };
     const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
@@ -446,6 +448,28 @@ export class Workshop {
     const key = k3(x, y, z);
     if (!this.parts.has(key)) return 0;
     return Math.abs(this.speed.get(key) ?? 0);
+  }
+
+  /** Sky and spacing checks of the windmills, refreshed every two seconds. */
+  private readonly windCheck = new Map<string, { at: number; ok: boolean }>();
+
+  /** A windmill turns with the wind (8 + 16 w rpm, 100 + 300 w W) when its sky is open and no other windmill is within 5 blocks. */
+  private windmillSource(p: Part): Source | null {
+    const key = k3(p.x, p.y, p.z);
+    const seen = this.windCheck.get(key);
+    let ok = seen?.ok ?? false;
+    if (!seen || this.clock - seen.at >= 2) {
+      ok = true;
+      for (let y = p.y + 1; y <= p.y + 24 && ok; y++) if (this.world.getBlock(p.x, y, p.z).solid) ok = false;
+      for (const [k, q] of this.parts) if (ok && q.kind === 'windmill' && k !== key && Math.abs(q.x - p.x) <= 5 && Math.abs(q.z - p.z) <= 5 && Math.abs(q.y - p.y) <= 5 && k < key) ok = false;
+      this.windCheck.set(key, { at: this.clock, ok });
+    }
+    if (!ok) return null;
+    const params = machine('wind_turbine').params ?? {};
+    const raw = windAt(this.timeS?.() ?? this.clock, params.windMin ?? 0.25, params.windMax ?? 1);
+    const w = Math.max(0, Math.min(1, (raw - (params.windMin ?? 0.25)) / ((params.windMax ?? 1) - (params.windMin ?? 0.25)) + Math.min(0.3, Math.max(0, (p.y - 62) / 100))));
+    const rpm = 8 + 16 * w;
+    return { rpm, capacity: suFromW(windmillW(w), rpm) };
   }
 
   /** Each driven, fuelled tractor turns the nearest drive shaft it touches. */
@@ -957,6 +981,7 @@ export class Workshop {
     if (set) parts.push(set);
     const mv = p.kind === 'piston' ? this.contra.describe(x, y, z) : null;
     if (mv) parts.push(`extended ${mv.split('extended ')[1]}`);
+    if (p.kind === 'windmill' && !this.windmillSource(p)) parts.push('no wind here: open sky, 5 blocks from other windmills');
     if (p.kind === 'beam_engine') parts.push(this.engineAt?.(p.x, p.y, p.z) ? 'steam up' : 'no steam: needs 2 bar through a Steam Port and pipes');
     if (p.kind === 'mill_wheel') parts.push(this.riverAt?.(p.x, p.y, p.z) ? 'river turning it' : 'no flow: set it in moving water (frozen rivers stop it)');
     if (p.kind === 'steam_rotor') parts.push(this.steamAt?.(p.x, p.y - 1, p.z) ? 'steam up' : 'no steam: stand it on a boiling Copper Steam Kettle');

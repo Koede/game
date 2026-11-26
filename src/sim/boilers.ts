@@ -14,6 +14,7 @@ import { blockOf, itemOrNull } from '../core/registry';
 import type { BlockDef, BlockEntity, IWorld } from '../core/types';
 import { voxelId } from '../core/types';
 import { posKey, type FurnaceEntity } from './entities';
+import { ENGINE_L_PER_BAR, ETA, HEAT_PORT_W, STEAM_J_PER_L, WATER_PER_STEAM, suFromW } from '../core/energy';
 
 export const BOILER_MACHINE = 'boiler_vessel';
 export const BOILER_PLATE = 'boiler_plate';
@@ -24,6 +25,7 @@ export const WATER_PORT = 'water_port';
 export const STEAM_PORT = 'steam_port';
 export const STEAM_PIPE = 'steam_pipe';
 export const BEAM_ENGINE = 'beam_engine';
+export const STEAM_TANK = 'steam_tank';
 const SHELL = new Set([BOILER_PLATE, BOILER_GLASS, SAFETY_VALVE, HEAT_PORT, WATER_PORT, STEAM_PORT]);
 /** Steam room of one pipe, L; most pipes and engines one boiler's line may hold. */
 const PIPE_L = 100;
@@ -31,18 +33,23 @@ const MAX_LINE = 200;
 /** Water a Water Port takes from water touching it, L/s. */
 const PORT_WATER_L_S = 20;
 /** A beam engine (tech-spine 2.6): 2 bar to start, 16 rpm per bar up to 96, 6 stress units, 10 L/s per bar at full load (10% idle). */
-export const ENGINE = { minBar: 2, rpmPerBar: 16, maxRpm: 96, capacity: 6, litresPerBar: 10 };
+export const ENGINE = { minBar: 2, rpmPerBar: 16, maxRpm: 96, litresPerBar: ENGINE_L_PER_BAR };
+/** Steam room of a Steam Tank on the line, L. */
+const TANK_L = 8000;
+/** What a beam engine gives at `bar`: rpm 16 per bar to 96, and stress units from the ledger (eta x steam heat / shaft speed). */
+export function engineOutput(bar: number): { rpm: number; capacity: number } {
+  const rpm = Math.min(ENGINE.maxRpm, ENGINE.rpmPerBar * bar);
+  return { rpm, capacity: suFromW(ETA.beamEngine(bar) * ENGINE.litresPerBar * bar * STEAM_J_PER_L, rpm) };
+}
 
 
 /** Heat one furnace puts into the boiler, W (a Heat Port's 10 kW), and the most furnaces that feed one vessel. */
-export const BOILER_HEAT_W = 10_000;
+export const BOILER_HEAT_W = HEAT_PORT_W;
 const MAX_FURNACES = 3;
 /** Furnace temperature that counts as a fire under the boiler, C. */
 const FIRE_C = 150;
 /** Steam made per joule of heat: 1 kW makes 6 L/s (tech-spine ledger). */
-const L_PER_J = 1 / 167;
-/** Litres of water spent per litre of steam. */
-const WATER_PER_STEAM = 0.1;
+const L_PER_J = 1 / STEAM_J_PER_L;
 /** The vessel's rating, bar; the warning starts one bar below it and the burst comes after this many seconds over it. */
 export const BOILER_RATED_BAR = 8;
 export const BURST_AFTER_S = 5;
@@ -83,6 +90,7 @@ interface Vessel {
   engines: [number, number, number][];
   waters: [number, number, number][];
   pipes: number;
+  tanks: number;
   rotorOn: boolean;
   warned: boolean;
   hissT: number;
@@ -127,7 +135,7 @@ export class Boilers {
     e.steamL = Math.max(0, finite(e.steamL, 0));
     e.valve = (VALVE_SETTINGS as readonly number[]).includes(e.valve) ? e.valve : 6;
     e.overS = Math.max(0, finite(e.overS, 0));
-    this.vessels.set(posKey(e.x, e.y, e.z), { e, formed: false, why: 'not scanned yet', cells: 0, shell: [], furnaces: [], rotors: [], engines: [], waters: [], pipes: 0, rotorOn: false, warned: false, hissT: 0 });
+    this.vessels.set(posKey(e.x, e.y, e.z), { e, formed: false, why: 'not scanned yet', cells: 0, shell: [], furnaces: [], rotors: [], engines: [], waters: [], pipes: 0, tanks: 0, rotorOn: false, warned: false, hissT: 0 });
     this.dirty = true;
   }
 
@@ -163,7 +171,7 @@ export class Boilers {
 
   private isLine(x: number, y: number, z: number): boolean {
     const k = this.world.getBlock(x, y, z).key;
-    return k === STEAM_PIPE || k === BEAM_ENGINE;
+    return k === STEAM_PIPE || k === BEAM_ENGINE || k === STEAM_TANK;
   }
 
   private scan(v: Vessel): void {
@@ -175,6 +183,7 @@ export class Boilers {
     v.engines = [];
     v.waters = [];
     v.pipes = 0;
+    v.tanks = 0;
     const g = v.e;
     const seen = new Set<string>([posKey(g.x, g.y, g.z)]);
     const queue: [number, number, number][] = [[g.x, g.y, g.z]];
@@ -272,7 +281,9 @@ export class Boilers {
     }
     for (let i = 0; i < line.length && i < MAX_LINE; i++) {
       const [x, y, z] = line[i];
-      if (this.world.getBlock(x, y, z).key === STEAM_PIPE) v.pipes++;
+      const lk = this.world.getBlock(x, y, z).key;
+      if (lk === STEAM_PIPE) v.pipes++;
+      else if (lk === STEAM_TANK) v.tanks++;
       else v.engines.push([x, y, z]);
       for (const [dx, dy, dz] of DIRS) {
         const nx = x + dx, ny = y + dy, nz = z + dz;
@@ -289,7 +300,7 @@ export class Boilers {
     for (const k of v.shell) this.owner.set(k, v);
     // The vessel holds no more than its cells allow.
     v.e.waterL = Math.min(v.e.waterL, WATER_L_PER_CELL * v.cells);
-    v.e.steamL = Math.min(v.e.steamL, STEAM_L_PER_CELL * v.cells * 12 + PIPE_L * v.pipes * 12);
+    v.e.steamL = Math.min(v.e.steamL, steamRoom(v) * 12);
   }
 
   private rescan(): void {
@@ -311,8 +322,8 @@ export class Boilers {
   // ---- numbers ---------------------------------------------------------------------------------------------------
 
   /** Pressure of a vessel, bar (gauge): its steam over the steam room of its cells and its pipes. */
-  static bar(v: { e: BoilerEntity; cells: number; pipes?: number }): number {
-    return v.cells > 0 ? v.e.steamL / (STEAM_L_PER_CELL * v.cells + PIPE_L * (v.pipes ?? 0)) : 0;
+  static bar(v: { e: BoilerEntity; cells: number; pipes?: number; tanks?: number }): number {
+    return v.cells > 0 ? v.e.steamL / steamRoom(v) : 0;
   }
 
   /** What the beam engine at x,y,z gives: speed from the pressure, or null below 2 bar (or when it is on no boiler's line). */
@@ -321,7 +332,7 @@ export class Boilers {
       if (!v.formed || !v.engines.some((c) => c[0] === x && c[1] === y && c[2] === z)) continue;
       const bar = Boilers.bar(v);
       if (bar < ENGINE.minBar) return null;
-      return { rpm: Math.min(ENGINE.maxRpm, ENGINE.rpmPerBar * bar), capacity: ENGINE.capacity };
+      return engineOutput(bar);
     }
     return null;
   }
@@ -357,7 +368,7 @@ export class Boilers {
 
   private run(v: Vessel, dt: number): void {
     const e = v.e;
-    const volume = STEAM_L_PER_CELL * v.cells + PIPE_L * v.pipes;
+    const volume = steamRoom(v);
     // A water port takes water from water touching it.
     for (const [x, y, z] of v.waters) {
       if (e.waterL >= WATER_L_PER_CELL * v.cells) break;
@@ -477,6 +488,9 @@ export class Boilers {
     return { ok: false, reason: this.text(x, y, z) ?? 'Boiler' };
   }
 }
+
+/** Litres of steam room: the cells, the pipes and the tanks on the line. */
+const steamRoom = (v: { cells: number; pipes?: number; tanks?: number }): number => STEAM_L_PER_CELL * v.cells + PIPE_L * (v.pipes ?? 0) + TANK_L * (v.tanks ?? 0);
 
 const DIRS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const unkey = (k: string): [number, number, number] => k.split(',').map(Number) as [number, number, number];

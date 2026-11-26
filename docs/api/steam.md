@@ -47,3 +47,9 @@ it wants the old wheels to turn shafts, restore a small bridge in `sourceFor` fo
 ## Not built yet
 
 Mill wheel and windmill, scald damage from a burst (PR #26 adds it from `boilerPressures()`), the steam tank, and the energy ledger test (K3).
+
+## Windmill, steam tank and the ledger
+
+- `windmill` (forge: 6 plank, 2 cloth, drive shaft, bronze cog) is a shaft source that needs no fuel. It wants open sky (nothing solid in the 24 blocks above) and no other windmill within 5 blocks; the lower key keeps its wind. It turns at 8 + 16 x wind rpm and carries 100 to 400 W (`windmillW`), plus a small altitude bonus.
+- `steam_tank` (6 bronze plate, steam pipe) is a line cell holding 8000 L of steam, so a tank on the line smooths pressure swings.
+- `src/core/energy.ts` is the single ledger (W = su x rpm x 3.125; steam 167 J/L; 0.1 L water per L steam; every efficiency below 1). Beam engine output derives from it: about 3 su at 2 bar, 6 su at 6 bar. `src/core/energy.test.ts` checks that no source gives more shaft power than its heat in times its efficiency.

@@ -84,7 +84,18 @@ function steamPipe(c: Canvas): void {
   for (const [x, y] of [[6, 6], [9, 6], [6, 9], [9, 9]] as const) c.set(x, y, b[4]);
 }
 
+function steamTank(c: Canvas): void {
+  const b = P.BRONZE;
+  c.fill(b[1]);
+  c.rect(0, 0, 16, 2, b[3]);
+  c.rect(0, 14, 16, 2, b[0]);
+  for (const y of [5, 10]) { c.rect(0, y, 16, 1, b[4]); c.rect(0, y + 1, 16, 1, b[0]); }
+  for (const [x, y] of [[2, 3], [13, 3], [2, 8], [13, 8], [2, 12], [13, 12]] as const) c.set(x, y, b[4]);
+  c.rect(7, 4, 2, 8, P.IRON_METAL[2]);
+}
+
 export default {
+  steam_tank: steamTank,
   heat_port: portTile((c) => { c.rect(7, 6, 2, 4, P.EMBER[3]); c.rect(6, 7, 4, 2, P.EMBER[2]); }),
   water_port: portTile((c) => { c.rect(6, 6, 4, 4, P.WATER[3]); c.rect(7, 7, 2, 2, P.WATER[4]); }),
   steam_port: portTile((c) => { c.rect(6, 6, 4, 4, STEAM); c.rect(7, 7, 2, 2, STEAM_FAINT); }),

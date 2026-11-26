@@ -37,7 +37,7 @@ export const ENGINE_CURVES: Record<EngineKind, (w: number) => number> = {
   /** A spring: flat in speed (its unwinding is the wind state). */
   spring: (w) => (w <= 1 ? 1 : 0),
 };
-export const ENGINE_KIND_OF: Record<string, EngineKind> = { steam_engine: 'steam', steam_rotor: 'steam', beam_engine: 'steam', clockwork_motor: 'spring', hand_crank: 'human', treadwheel: 'human' };
+export const ENGINE_KIND_OF: Record<string, EngineKind> = { steam_engine: 'steam', steam_rotor: 'steam', beam_engine: 'steam', windmill: 'flat', clockwork_motor: 'spring', hand_crank: 'human', treadwheel: 'human' };
 export const engineKindOf = (partKind: string): EngineKind => ENGINE_KIND_OF[partKind] ?? 'flat';
 
 /** Momentum each part kind adds at its own speed (su*s), scaled by the square of its speed ratio to the network. */

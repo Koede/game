@@ -105,7 +105,7 @@ export const BASE_STRESS: Record<string, number> = {
   conveyor_belt: 0.25, mech_saw: 4, mech_millstone: 4, mech_mortar: 4, mech_loom: 2,
   mech_hammer: 8, mech_rack: 2, mech_press: 8, rolling_mill: 32, drop_forge: 24, dynamo: 16, mixer: 6, deployer: 6, mech_arm: 3, mech_drill: 6, mech_pump: 4,
   reverse_box: 0.5, ratio_dial: 0.5, clutch: 0.25, split_box: 0.5, sequence_gearshift: 1, governor: 0.5, worm_gear: 1,
-  chain_sprocket: 0.5, belt_pulley: 1, differential: 1, flywheel: 0.5, shear_pin: 0, saw_arm: 5, vacuum_collector: 3, treadwheel: 0, steam_rotor: 0, beam_engine: 0, mill_wheel: 0, air_compressor: 3, bearing: 6, piston: 6, cam_drum: 1.5, brake: 0.25
+  chain_sprocket: 0.5, belt_pulley: 1, differential: 1, flywheel: 0.5, shear_pin: 0, saw_arm: 5, vacuum_collector: 3, treadwheel: 0, steam_rotor: 0, beam_engine: 0, mill_wheel: 0, windmill: 0, air_compressor: 3, bearing: 6, piston: 6, cam_drum: 1.5, brake: 0.25
 };
 
 /** The factor the sequenced gearshift applies at `t` seconds. A punched card replaces the preset program. */

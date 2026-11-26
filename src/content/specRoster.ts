@@ -467,7 +467,7 @@ SPEC.maxTextures += 15;
 // Charged faces of the battery and lithium bank (render/textures/grid.ts); the cell rack reuses the battery's.
 SPEC.maxTextures += 2;
 // The small steam loop (content/areas/steam_loop.ts): steam_kettle + steam_kettle_on, boiler_plate, safety_valve + safety_valve_top, boiler_gauge_glass.
-SPEC.maxTextures += 10;
+SPEC.maxTextures += 11;
 // World exploration (waypoint stones, ...; src/content/areas/world_*.ts): only the texture budget is pinned.
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 // Fishing depth (content/areas/world_fishing.ts): 5 raw fish + 5 cooked fish + fish chowder + winter broth icons.
