@@ -13,6 +13,7 @@ import { MAGIC_RECIPES } from './recipesMagic';
 import { WORKSHOP_RECIPES } from './recipesWorkshop';
 import { GLASS_RECIPES } from './itemsGlass';
 import { HAND_RECIPES } from './recipesHand';
+import { TOOL_PART_RECIPES } from './toolParts';
 import { MACHINE_SPECS } from './tech';
 import { areaRecipes } from './area';
 
@@ -234,4 +235,4 @@ const MACHINE: RecipeSpec[] = [
   ...machineRecipes('electrolyzer', 45, [['deuterium_cell', 'empty_cell', 4]]),
 ];
 
-export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...DISTILL_RECIPES, ...MAGIC_RECIPES, ...WORKSHOP_RECIPES, ...GLASS_RECIPES, ...areaRecipes()];
+export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...TOOL_PART_RECIPES, ...DISTILL_RECIPES, ...MAGIC_RECIPES, ...WORKSHOP_RECIPES, ...GLASS_RECIPES, ...areaRecipes()];

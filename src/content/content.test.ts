@@ -11,6 +11,7 @@ import { DISTILL_RECIPE_COUNT, DISTILL_SPEC } from './specRosterDistill';
 import { MAGIC_RECIPE_COUNT, MAGIC_SPEC } from './specRosterMagic';
 import { WORKSHOP_RECIPE_COUNT, WORKSHOP_SPEC } from './specRosterWorkshop';
 import { GLASS_RECIPE_COUNT, GLASS_SPEC } from './specRosterGlass';
+import { isModularVariant } from './toolParts';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
 const stationsOf = (): string[] => [...new Set(RECIPES.map((r) => r.station))];
@@ -179,7 +180,7 @@ describe('4. structural rules', () => {
       expect(it.fuel?.flameTempC, it.key).toBeGreaterThan(200);
     }
     for (const kind of ['pickaxe', 'axe', 'shovel'] satisfies ToolKind[]) {
-      const tools = ITEMS.filter((i) => i.tool?.kind === kind && !i.key.startsWith('wooden_') && !/^(rune|gale|orrins)_/.test(i.key)).sort((a, b) => (a.tool?.tier ?? 0) - (b.tool?.tier ?? 0));
+      const tools = ITEMS.filter((i) => i.tool?.kind === kind && !i.key.startsWith('wooden_') && !/^(rune|gale|orrins)_/.test(i.key) && !isModularVariant(i.key)).sort((a, b) => (a.tool?.tier ?? 0) - (b.tool?.tier ?? 0));
       expect(tools.slice(0, 4).map((t) => t.tool?.tier), kind).toEqual([1, 2, 3, 4]);
       // The wooden stopgap reaches flint's tier but is slower and far more fragile.
       const wood = item(`wooden_${kind}`).tool!;

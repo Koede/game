@@ -452,3 +452,5 @@ SPEC.maxTextures += 15;
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
+// Modular tool heads (src/content/toolParts.ts): flint, iron and steel pickaxe, axe and shovel head icons.
+SPEC.maxTextures += 9;

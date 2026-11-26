@@ -1,5 +1,16 @@
 # Truly modular tools
 
+## Status (phases 1-2 built, swap rules of 3)
+
+Built as the plan intends, with one difference in how a build is stored: every head x handle x binding combination is a real generated
+item (`iron_pine_resin_pickaxe`), not an `ItemStack.parts` field, so stacks, saves, wear, enchants and mining need no new bookkeeping.
+`src/content/toolParts.ts` has the materials, the formulas, the generated items and the assembly list; `src/game/toolParts.ts` has the
+swap rule. The default build (any head, oak handle = two sticks, cord) is the legacy tool, number for number (parity test), and all legacy
+keys stay valid. Heads: flint, bronze, iron, steel, for pickaxe, axe and shovel (new heads are hand or furnace recipes; bronze heads were
+already cast). Handles: oak, pine (faster, wears sooner). Bindings: cord, resin (lasts longer). Assemblies list at the workbench screen
+(`BUILD_RECIPES`) outside the recipe tree. Not done: Tool Builder preview screen, anvil swap UI, traits beyond the numbers, composed
+held model and icon, weapons and hoes, extras.
+
 ## Goal
 
 Every tool and weapon is built from parts, and the parts decide what it is good at. No more "bronze pickaxe" as a fixed item: a pickaxe is a

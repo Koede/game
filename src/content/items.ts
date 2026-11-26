@@ -8,6 +8,7 @@
 import { WELL_FED_DURATION_S } from '../core/constants';
 import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
+import { TOOL_PART_ITEMS } from './toolParts';
 import { areaItems } from './area';
 import { EMBER_ITEMS } from './emberbound';
 import { BREW_ITEMS } from './itemsBrew';
@@ -253,4 +254,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS, ...DISTILL_ITEMS, ...MAGIC_ITEMS, ...WORKSHOP_ITEMS, ...GLASS_ITEMS, ...areaItems()];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...TOOL_PART_ITEMS, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS, ...DISTILL_ITEMS, ...MAGIC_ITEMS, ...WORKSHOP_ITEMS, ...GLASS_ITEMS, ...areaItems()];

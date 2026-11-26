@@ -40,11 +40,11 @@ function hammer(head: Ramp, lashed: boolean): (c: Canvas) => void {
 
 // ---- cast heads ----------------------------------------------------------------------------------
 
-function castHead(rows: readonly string[]): (c: Canvas) => void {
+function castHead(rows: readonly string[], metal: Ramp = P.BRONZE): (c: Canvas) => void {
   return icon((c) => {
-    c.sprite(rows, rampLegend(P.BRONZE), 0, 2);
+    c.sprite(rows, rampLegend(metal), 0, 2);
     // A sprue stub where the metal ran in.
-    c.set(7, 13, P.BRONZE[0]);
+    c.set(7, 13, metal[0]);
   });
 }
 
@@ -279,6 +279,16 @@ export const HAND_ICONS: PainterSet = {
   item_bronze_shovel_head: castHead(SHOVEL_HEAD),
   item_bronze_hoe_head: castHead(HOE_HEAD),
   item_bronze_maul_head: castHead(MAUL_HEAD),
+  // Modular tool heads (docs/plans/modular-tools.md): the same three shapes in flint, iron and steel.
+  item_flint_pickaxe_head: castHead(PICKAXE_HEAD, FLINT),
+  item_flint_axe_head: castHead(AXE_HEAD, FLINT),
+  item_flint_shovel_head: castHead(SHOVEL_HEAD, FLINT),
+  item_iron_pickaxe_head: castHead(PICKAXE_HEAD, P.IRON_METAL),
+  item_iron_axe_head: castHead(AXE_HEAD, P.IRON_METAL),
+  item_iron_shovel_head: castHead(SHOVEL_HEAD, P.IRON_METAL),
+  item_steel_pickaxe_head: castHead(PICKAXE_HEAD, P.STEEL),
+  item_steel_axe_head: castHead(AXE_HEAD, P.STEEL),
+  item_steel_shovel_head: castHead(SHOVEL_HEAD, P.STEEL),
   item_copper_bloom: bloom(P.COPPER),
   item_tin_bloom: bloom(P.TIN),
   item_bronze_bloom: bloom(P.BRONZE),
