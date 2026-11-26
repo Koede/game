@@ -249,6 +249,7 @@ export class GameState {
     this.workshop.steamAt = (x, y, z) => this.sim.steamReadyAt(x, y, z);
     // A compressor on a shaft line builds air at 2 L/s per rpm (BRONZE_PLAN 5.3); hand-cranking stays as the early fallback.
     this.sim.airShaftRpm = (x, y, z) => this.workshop.rpmOf(x, y, z);
+    this.workshop.engineAt = (x, y, z) => this.sim.beamEngineAt(x, y, z);
     this.sim.setSteamDemand((x, y, z) => (this.workshop.netAt(x, y, z)?.stress ?? 0) > 0);
     this.sim.shaftRpm = (x, y, z) => this.workshop.dynamoRpm(x, y, z);
     // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.

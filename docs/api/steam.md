@@ -30,7 +30,20 @@ K6 is done: `GENERATOR_SHAFT` and `Workshop.generatorWatts` are gone. Water whee
 watts only and no longer join shaft networks. The only shaft sources are cranks, the clockwork motor, the treadwheel, a tractor and
 the steam rotor.
 
+## Ports, pipes and the beam engine
+
+Wall parts (part of the shell): `heat_port` takes 10 kW from a furnace touching it on the outside; `water_port` takes 20 L/s from water
+touching it (and Use pours a full bucket in); `steam_port` joins the `steam_pipe` run touching it. Pipes (100 L of steam room each) and
+`beam_engine` blocks touching that run, up to 200, are the vessel's line and share its pressure. The beam engine is a workshop source:
+needs 2 bar, 16 rpm per bar up to 96, 6 stress units, draws 10 L/s per bar (10 % while its shaft line has no load).
+
+## Water wheels (decision for the integration thread)
+
+`water_wheel`, `wind_turbine` and `steam_engine` are watts-only blocks since K6 (see above). The plan's water source for shafts is a
+NEW block, the mill wheel (K5, 6 su per side, 300 W, `mill_wheel`), which is not built here. Water power PR #19 should either add the
+mill wheel as a `sourceFor` provider in `workshop.ts` (like `steam_rotor`: a `Workshop` hook that returns `{ rpm, capacity }`) or, if
+it wants the old wheels to turn shafts, restore a small bridge in `sourceFor` for `water_wheel` only. Nothing else here depends on it.
+
 ## Not built yet
 
-Heat ports, water port and steam port blocks, steam pipes and the gas net, the beam engine, mill wheel and windmill, scald damage
-from a burst, and the energy ledger test (K3).
+Mill wheel and windmill, scald damage from a burst (PR #26 adds it from `boilerPressures()`), the steam tank, and the energy ledger test (K3).

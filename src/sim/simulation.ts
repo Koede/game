@@ -549,6 +549,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     return !!e && e.kind === 'kettle' && (e as { boiling: boolean }).boiling && (e as { waterL: number }).waterL > 0 && this.world.getBlock(x, y, z).key === 'steam_kettle';
   }
 
+  /** What the beam engine at x,y,z gives from its boiler's pressure, or null. */
+  beamEngineAt(x: number, y: number, z: number): { rpm: number; capacity: number } | null {
+    return this.boilers.engineAt(x, y, z);
+  }
+
   /** Lets the game say whether a rotor above a kettle has work. */
   setSteamDemand(fn: ((x: number, y: number, z: number) => boolean) | null): void {
     this.brewing.steamDemand = fn;

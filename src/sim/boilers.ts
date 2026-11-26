@@ -19,7 +19,20 @@ export const BOILER_MACHINE = 'boiler_vessel';
 export const BOILER_PLATE = 'boiler_plate';
 export const BOILER_GLASS = 'boiler_gauge_glass';
 export const SAFETY_VALVE = 'safety_valve';
-const SHELL = new Set([BOILER_PLATE, BOILER_GLASS, SAFETY_VALVE]);
+export const HEAT_PORT = 'heat_port';
+export const WATER_PORT = 'water_port';
+export const STEAM_PORT = 'steam_port';
+export const STEAM_PIPE = 'steam_pipe';
+export const BEAM_ENGINE = 'beam_engine';
+const SHELL = new Set([BOILER_PLATE, BOILER_GLASS, SAFETY_VALVE, HEAT_PORT, WATER_PORT, STEAM_PORT]);
+/** Steam room of one pipe, L; most pipes and engines one boiler's line may hold. */
+const PIPE_L = 100;
+const MAX_LINE = 200;
+/** Water a Water Port takes from water touching it, L/s. */
+const PORT_WATER_L_S = 20;
+/** A beam engine (tech-spine 2.6): 2 bar to start, 16 rpm per bar up to 96, 6 stress units, 10 L/s per bar at full load (10% idle). */
+export const ENGINE = { minBar: 2, rpmPerBar: 16, maxRpm: 96, capacity: 6, litresPerBar: 10 };
+
 
 /** Heat one furnace puts into the boiler, W (a Heat Port's 10 kW), and the most furnaces that feed one vessel. */
 export const BOILER_HEAT_W = 10_000;
@@ -67,6 +80,9 @@ interface Vessel {
   shell: string[];
   furnaces: FurnaceEntity[];
   rotors: [number, number, number][];
+  engines: [number, number, number][];
+  waters: [number, number, number][];
+  pipes: number;
   rotorOn: boolean;
   warned: boolean;
   hissT: number;
@@ -111,7 +127,7 @@ export class Boilers {
     e.steamL = Math.max(0, finite(e.steamL, 0));
     e.valve = (VALVE_SETTINGS as readonly number[]).includes(e.valve) ? e.valve : 6;
     e.overS = Math.max(0, finite(e.overS, 0));
-    this.vessels.set(posKey(e.x, e.y, e.z), { e, formed: false, why: 'not scanned yet', cells: 0, shell: [], furnaces: [], rotors: [], rotorOn: false, warned: false, hissT: 0 });
+    this.vessels.set(posKey(e.x, e.y, e.z), { e, formed: false, why: 'not scanned yet', cells: 0, shell: [], furnaces: [], rotors: [], engines: [], waters: [], pipes: 0, rotorOn: false, warned: false, hissT: 0 });
     this.dirty = true;
   }
 
@@ -145,12 +161,20 @@ export class Boilers {
     return SHELL.has(this.world.getBlock(x, y, z).key);
   }
 
+  private isLine(x: number, y: number, z: number): boolean {
+    const k = this.world.getBlock(x, y, z).key;
+    return k === STEAM_PIPE || k === BEAM_ENGINE;
+  }
+
   private scan(v: Vessel): void {
     v.formed = false;
     v.cells = 0;
     v.shell = [];
     v.furnaces = [];
     v.rotors = [];
+    v.engines = [];
+    v.waters = [];
+    v.pipes = 0;
     const g = v.e;
     const seen = new Set<string>([posKey(g.x, g.y, g.z)]);
     const queue: [number, number, number][] = [[g.x, g.y, g.z]];
@@ -224,6 +248,40 @@ export class Boilers {
       const f = this.host.furnaceUnder(x, y - 2, z);
       if (f && furnaces.size < MAX_FURNACES) furnaces.add(f);
     }
+    // Heat ports take heat from a furnace touching them on the outside; water ports and steam ports look outwards too.
+    const lineSeen = new Set<string>();
+    const line: [number, number, number][] = [];
+    for (const q of queue) {
+      const key = this.world.getBlock(q[0], q[1], q[2]).key;
+      if (key !== HEAT_PORT && key !== WATER_PORT && key !== STEAM_PORT) continue;
+      if (key === WATER_PORT) v.waters.push(q);
+      for (const [dx, dy, dz] of DIRS) {
+        const nx = q[0] + dx, ny = q[1] + dy, nz = q[2] + dz;
+        if (wall[idx(nx, ny, nz)] || (nx >= minX && nx <= maxX && ny >= minY && ny <= maxY && nz >= minZ && nz <= maxZ && !out[idx(nx, ny, nz)])) continue;
+        if (key === HEAT_PORT) {
+          const f = this.host.furnaceUnder(nx, ny, nz);
+          if (f && furnaces.size < MAX_FURNACES) furnaces.add(f);
+        } else if (key === STEAM_PORT) {
+          const k = posKey(nx, ny, nz);
+          if (!lineSeen.has(k) && this.isLine(nx, ny, nz)) {
+            lineSeen.add(k);
+            line.push([nx, ny, nz]);
+          }
+        }
+      }
+    }
+    for (let i = 0; i < line.length && i < MAX_LINE; i++) {
+      const [x, y, z] = line[i];
+      if (this.world.getBlock(x, y, z).key === STEAM_PIPE) v.pipes++;
+      else v.engines.push([x, y, z]);
+      for (const [dx, dy, dz] of DIRS) {
+        const nx = x + dx, ny = y + dy, nz = z + dz;
+        const k = posKey(nx, ny, nz);
+        if (lineSeen.has(k) || !this.isLine(nx, ny, nz)) continue;
+        lineSeen.add(k);
+        line.push([nx, ny, nz]);
+      }
+    }
     v.furnaces = [...furnaces];
     for (const q of queue) if (this.world.getBlock(q[0], q[1] + 1, q[2]).key === 'steam_rotor') v.rotors.push([q[0], q[1] + 1, q[2]]);
     v.formed = true;
@@ -231,7 +289,7 @@ export class Boilers {
     for (const k of v.shell) this.owner.set(k, v);
     // The vessel holds no more than its cells allow.
     v.e.waterL = Math.min(v.e.waterL, WATER_L_PER_CELL * v.cells);
-    v.e.steamL = Math.min(v.e.steamL, STEAM_L_PER_CELL * v.cells * 12);
+    v.e.steamL = Math.min(v.e.steamL, STEAM_L_PER_CELL * v.cells * 12 + PIPE_L * v.pipes * 12);
   }
 
   private rescan(): void {
@@ -252,9 +310,20 @@ export class Boilers {
 
   // ---- numbers ---------------------------------------------------------------------------------------------------
 
-  /** Pressure of a vessel, bar (gauge). */
-  static bar(v: { e: BoilerEntity; cells: number }): number {
-    return v.cells > 0 ? v.e.steamL / (STEAM_L_PER_CELL * v.cells) : 0;
+  /** Pressure of a vessel, bar (gauge): its steam over the steam room of its cells and its pipes. */
+  static bar(v: { e: BoilerEntity; cells: number; pipes?: number }): number {
+    return v.cells > 0 ? v.e.steamL / (STEAM_L_PER_CELL * v.cells + PIPE_L * (v.pipes ?? 0)) : 0;
+  }
+
+  /** What the beam engine at x,y,z gives: speed from the pressure, or null below 2 bar (or when it is on no boiler's line). */
+  engineAt(x: number, y: number, z: number): { rpm: number; capacity: number } | null {
+    for (const v of this.vessels.values()) {
+      if (!v.formed || !v.engines.some((c) => c[0] === x && c[1] === y && c[2] === z)) continue;
+      const bar = Boilers.bar(v);
+      if (bar < ENGINE.minBar) return null;
+      return { rpm: Math.min(ENGINE.maxRpm, ENGINE.rpmPerBar * bar), capacity: ENGINE.capacity };
+    }
+    return null;
   }
 
   /** Pressure as a share of the rating (the over-pressure hazard reads this), one entry per formed vessel. */
@@ -288,7 +357,17 @@ export class Boilers {
 
   private run(v: Vessel, dt: number): void {
     const e = v.e;
-    const volume = STEAM_L_PER_CELL * v.cells;
+    const volume = STEAM_L_PER_CELL * v.cells + PIPE_L * v.pipes;
+    // A water port takes water from water touching it.
+    for (const [x, y, z] of v.waters) {
+      if (e.waterL >= WATER_L_PER_CELL * v.cells) break;
+      for (const [dx, dy, dz] of DIRS) {
+        if (this.world.getBlock(x + dx, y + dy, z + dz).liquid === 'water') {
+          e.waterL = Math.min(WATER_L_PER_CELL * v.cells, e.waterL + PORT_WATER_L_S * dt);
+          break;
+        }
+      }
+    }
     // Heat in, steam made, water spent.
     let heatW = 0;
     for (const f of v.furnaces) {
@@ -311,6 +390,15 @@ export class Boilers {
         if (this.world.getBlock(x, y, z).key !== 'steam_rotor') continue;
         if (this.steamDemand?.(x, y, z)) e.steamL = Math.max(0, e.steamL - ROTOR_STEAM_L_PER_S * dt);
       }
+    }
+    // Beam engines on the steam line take steam in proportion to the load on their shaft (10% idle).
+    if (bar >= ENGINE.minBar) {
+      for (const [x, y, z] of v.engines) {
+        if (this.world.getBlock(x, y, z).key !== BEAM_ENGINE) continue;
+        const load = this.steamDemand?.(x, y, z) ? 1 : 0.1;
+        e.steamL = Math.max(0, e.steamL - ENGINE.litresPerBar * bar * load * dt);
+      }
+      bar = e.steamL / volume;
     }
     // A safety valve in the shell vents above its setting.
     bar = e.steamL / volume;
@@ -373,7 +461,7 @@ export class Boilers {
   use(x: number, y: number, z: number, held: string | null): { ok: true; consume: boolean; give?: string; toast?: string } | { ok: false; reason: string } | null {
     const v = this.vesselAt(x, y, z);
     const key = this.world.getBlock(x, y, z).key;
-    if (!v || (key !== BOILER_GLASS && key !== SAFETY_VALVE)) return null;
+    if (!v || (key !== BOILER_GLASS && key !== SAFETY_VALVE && key !== WATER_PORT)) return null;
     if (key === SAFETY_VALVE) {
       const i = (VALVE_SETTINGS as readonly number[]).indexOf(v.e.valve);
       v.e.valve = VALVE_SETTINGS[(i + 1) % VALVE_SETTINGS.length];

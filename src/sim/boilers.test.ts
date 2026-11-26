@@ -94,4 +94,44 @@ describe('the sealed boiler', () => {
     run(kit, f, 1.2);
     expect(Math.abs(bar(kit) - before)).toBeLessThan(0.5);
   });
+
+  it('heat ports take heat from a furnace beside the wall; a steam port and pipes carry pressure to a beam engine', () => {
+    const kit = makeKit();
+    const f = build(kit, true);
+    kit.world.put(-1, 3, 0, 'steam_port');
+    kit.world.put(-2, 3, 0, 'steam_pipe');
+    kit.world.put(-3, 3, 0, 'steam_pipe');
+    kit.world.put(-4, 3, 0, 'beam_engine');
+    kit.sim.setSteamDemand(() => true);
+    run(kit, f, 1.2);
+    expect(kit.sim.beamEngineAt(-4, 3, 0)).toBeNull();
+    for (let i = 0; i < 3; i++) kit.sim.brewUse(1, 3, 0, 'water_pail');
+    run(kit, f, 90);
+    const e = kit.sim.beamEngineAt(-4, 3, 0);
+    expect(e).not.toBeNull();
+    expect(e!.capacity).toBe(6);
+    expect(e!.rpm).toBeCloseTo(16 * bar(kit), 1);
+    // 2 pipes add 200 L of steam room.
+    expect(kit.sim.brewView(1, 3, 0)?.text).toMatch(/bar/);
+  });
+
+  it('a heat port beside a furnace and no floor furnace still heats; a water port beside water fills the boiler', () => {
+    const kit = makeKit();
+    const side = kit.furnace(3, 4, 0);
+    for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) for (let y = 2; y <= 5; y++) {
+      if (x === 0 && z === 0 && y >= 3 && y <= 4) continue;
+      kit.world.put(x, y, z, 'boiler_plate');
+    }
+    kit.world.put(2, 4, 0, 'heat_port');
+    kit.world.put(1, 4, 0, 'heat_port');
+    kit.world.put(-1, 3, 0, 'water_port');
+    kit.world.put(-2, 3, 0, 'water');
+    kit.world.put(1, 3, 0, 'boiler_gauge_glass');
+    run(kit, side, 1.2);
+    expect(kit.sim.boilerPressures()).toHaveLength(1);
+    run(kit, side, 20);
+    expect(kit.sim.brewView(1, 3, 0)?.text).toMatch(/water [34]\d\d L|water [1-9]\d\d L/);
+    run(kit, side, 30);
+    expect(bar(kit)).toBeGreaterThan(0.3);
+  });
 });
