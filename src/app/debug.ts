@@ -13,6 +13,8 @@ import { isFurnace } from '../sim';
 import type { App } from './app';
 
 import type { TownDebug } from '../npcs/manager';
+import { checkRoom } from '../npcs/housing';
+import { LODGE_BED } from '../npcs/lodge';
 
 export interface DebugSummary {
   phase: string;
@@ -74,6 +76,10 @@ export interface DebugHandle {
    * False when the world has no camp to settle (it has its tavern already, or is not running).
    */
   settle(): boolean;
+  /** The lodge (npcs/lodge.ts): the tavern level (0 camp, 1..4 stages in, 5 the full tavern), the origin, the spawn and the bedroom's check reasons. */
+  lodge(): { level: number; origin: number[] | null; hasTavern: boolean; spawn: { x: number; y: number; z: number } | null; bedroom: string[] | null };
+  /** Dev skip for the lodge's e2e: puts `n` of every block the lodge's stages use into the storage bay's stock. Returns `n`. */
+  supplyLodge(n: number): number;
   setTime(timeOfDay: number): void;
   /** Sets the clock's day (1-based; the moon follows: day 1 full, day 5 new). */
   setDay(day: number): void;
@@ -203,6 +209,22 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     town() {
       return game().state.npcs.townDebug();
+    },
+    lodge() {
+      const s = game().state;
+      const o = s.npcs.at;
+      const bed = o ? { x: o[0] + LODGE_BED[0], y: o[1] + LODGE_BED[1], z: o[2] + LODGE_BED[2] } : null;
+      return {
+        level: s.npcs.tavernLevel,
+        origin: o ? [...o] : null,
+        hasTavern: s.npcs.hasTavern,
+        spawn: s.npcs.bedSpawn(),
+        // The first bedroom as the world holds it right now (null before the lodge stands).
+        bedroom: bed && s.npcs.tavernLevel >= 1 && s.npcs.tavernLevel < 4 ? checkRoom(s.world, bed.x, bed.y, bed.z).reasons : null,
+      };
+    },
+    supplyLodge(n) {
+      return game().state.npcs.supplyLodge(n);
     },
     settle() {
       return game().state.settleNpcs();
