@@ -63,6 +63,12 @@ export interface DisastersHost {
   boilers(): Iterable<BoilerProbe>;
   /** Calls `fn` with every cable block's position. */
   cables(fn: (x: number, y: number, z: number) => void): void;
+  /**
+   * Formed steam-loop boilers (Simulation.boilerPressures): `fill` is bar over the rating. The steam loop owns their
+   * warning (7 bar), valve and burst (8 bar for 5 s), so the disasters never double-handle them; they only add the
+   * scald when one that was at or over its rating disappears (the shell burst) with the player close.
+   */
+  steamBoilers?(): Iterable<{ x: number; y: number; z: number; fill: number }>;
   /** Whether a safety valve guards the boiler at x,y,z. Default: a `safety_valve` block within reach (the steam loop's block). */
   valveNear?(x: number, y: number, z: number): boolean;
   /** A boiler is wrecked: `radius` 0 takes the boiler block alone, more blows a sphere (and hurts by distance). */
@@ -197,6 +203,8 @@ export class Disasters {
   private pending: Pending | null = null;
   private stormTold = false;
   private alarmBeepS = 0;
+  /** Last fill of each steam-loop boiler seen, to tell a burst (gone while at its rating) from a boiler taken down. */
+  private readonly steamSeen = new Map<string, { x: number; y: number; z: number; fill: number }>();
 
   constructor(private readonly host: DisastersHost) {}
 
@@ -243,6 +251,7 @@ export class Disasters {
       return;
     }
     this.tickBoilers(dt, t);
+    this.tickSteamBoilers(t);
     this.tickFurnaces(dt, t);
     this.tickStorm(dt, t);
   }
@@ -294,6 +303,22 @@ export class Disasters {
       this.alarmBeepS = 1.5 - loudest * 0.8;
       this.host.bus.emit('sfx', { name: 'steam_hiss', x: player.position.x, y: player.position.y, z: player.position.z, volume: 0.6 + loudest * 0.4, pitch: 0.8 + loudest * 0.5 });
     }
+  }
+
+  /** The steam loop bursts its own boilers; here the scald: escaping steam hurts a player close to the wrecked shell. */
+  private tickSteamBoilers(t: DisasterTuning): void {
+    if (!this.host.steamBoilers) return;
+    const now = new Map<string, { x: number; y: number; z: number; fill: number }>();
+    for (const b of this.host.steamBoilers()) now.set(key(b.x, b.y, b.z), b);
+    const { player } = this.host;
+    for (const [k, was] of this.steamSeen) {
+      if (now.has(k) || was.fill < 1) continue;
+      const d = Math.hypot(was.x + 0.5 - player.position.x, was.y + 0.5 - player.position.y, was.z + 0.5 - player.position.z);
+      this.emitWarn('boiler', 'struck', was.x, was.y, was.z, d < t.boiler.hurtDist ? 'The boiler burst and scalded you with steam!' : 'A boiler burst!', null);
+      if (d < t.boiler.hurtDist && !player.dead) player.damage(t.boiler.hurtDamage, 'explosion');
+    }
+    this.steamSeen.clear();
+    for (const [k, b] of now) this.steamSeen.set(k, b);
   }
 
   private burstBoiler(boiler: BoilerProbe, t: DisasterTuning, dist: number): void {
