@@ -915,6 +915,10 @@ export interface LootEntry {
   rarity?: LootRarity;
   /** Id of another table to roll in place of an item (nesting depth is limited to LOOT_MAX_DEPTH, cycles are rejected). */
   table?: string;
+  /** Fixed enchants the stack carries (key to level). Entries that name them give single stacks; ones a tool cannot take are skipped. */
+  enchants?: Record<string, number>;
+  /** A tool's quality: 1 fine, 2 masterwork (more durability, stronger enchants). Tools only. */
+  quality?: 1 | 2;
 }
 
 export interface LootTableSpec {

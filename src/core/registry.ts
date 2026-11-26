@@ -61,6 +61,8 @@ import {
   type Voxel,
   LOOT_MAX_DEPTH,
 } from './types';
+import { enchantStack } from './enchant';
+import { maxDurabilityOf } from '../game/inventory';
 import { validateTech } from './techValidation';
 import { validateAutomaton, validateGear } from './hostileValidation';
 import { validateBrewing } from './brewValidation';
@@ -455,7 +457,25 @@ function give(out: ItemStack[], entry: LootEntry, random: () => number, luck: nu
     rollInto(out, lootTableById(entry.table), random, luck, depth + 1);
     return;
   }
-  addStacks(out, entry.item, rollCount(entry.count, random));
+  const n = rollCount(entry.count, random);
+  if (entry.enchants || entry.quality) {
+    // A special find is its own stack (never merged), a tool at its quality's full durability with whatever enchants it can take.
+    const def = item(entry.item);
+    for (let i = 0; i < n; i++) {
+      const stack: ItemStack = { item: entry.item, count: 1 };
+      if (def.tool) {
+        stack.durability = def.tool.durability;
+        if (entry.quality) {
+          stack.quality = entry.quality;
+          stack.durability = maxDurabilityOf(entry.item, entry.quality) ?? def.tool.durability;
+        }
+      }
+      for (const [k, lv] of Object.entries(entry.enchants ?? {})) enchantStack(stack, k, lv, def);
+      out.push(stack);
+    }
+    return;
+  }
+  addStacks(out, entry.item, n);
 }
 
 function rollInto(out: ItemStack[], table: LootTableSpec, random: () => number, luck: number, depth: number): void {

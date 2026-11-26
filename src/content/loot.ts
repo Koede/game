@@ -169,6 +169,23 @@ export const NAMED_TABLES: LootTableSpec[] = [
       { item: 'bronze_axe', count: 1, weight: 2, rarity: 'fine' },
     ],
   },
+  // The cave boss's chest (src/world/caveLair.ts): the one place loot, enchantments and quality meet. Fixed enchants, a masterwork pick.
+  {
+    id: 'cave_boss', tier: 'deep', rolls: [3, 4],
+    guaranteed: [
+      { item: 'iron_pickaxe', count: 1, weight: 1, rarity: 'rare', quality: 2, enchants: { veinseeker: 2, magnet: 1 } },
+      { item: 'bronze_axe', count: 1, weight: 1, rarity: 'rare', quality: 1, enchants: { bounty: 1 } },
+      { item: 'scroll_margin', count: 1, weight: 1, rarity: 'rare' },
+      { item: 'ember_core', count: 2, weight: 1, rarity: 'fine' },
+    ],
+    entries: [
+      { item: 'iron_ingot', count: [3, 6], weight: 8 },
+      { item: 'coal', count: [6, 12], weight: 8 },
+      { item: 'bronze_ingot', count: [2, 4], weight: 6 },
+      { item: 'essentia_jar', count: 1, weight: 4, rarity: 'fine' },
+      { item: 'scrap_metal', count: [3, 6], weight: 6 },
+    ],
+  },
   // The wandering trader's stock (src/npcs/trader.ts): the everyday goods of a visit, then one rare line. Both stay one age ahead of Ember.
   {
     id: 'trader_common', tier: 'near', rolls: [4, 6],

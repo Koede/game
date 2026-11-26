@@ -56,10 +56,10 @@ export class FlatWorld implements IWorld {
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--) if (this.getVoxel(x, y, z) !== AIR) return y;
     return -1;
   }
-  getEntity(): BlockEntity | undefined {
+  getEntity(_x?: number, _y?: number, _z?: number): BlockEntity | undefined {
     return undefined;
   }
-  setEntity(): void {}
+  setEntity(_e?: BlockEntity): void {}
   removeEntity(): BlockEntity | undefined {
     return undefined;
   }

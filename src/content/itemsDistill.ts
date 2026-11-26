@@ -19,7 +19,7 @@ export const DISTILL_ITEMS: ItemSpec[] = [
   can('empty_canister', 'Empty Canister', 'A steel canister for 1000 litres. Fill it at a receiver, a tank, a pump or an oil pool.'),
   can('crude_canister', 'Crude Oil Canister', 'A canister of black crude oil. Pour it into a flask under a column of three segments and refine it at 350 C.'),
   can('gasoline_canister', 'Gasoline Canister', 'Light, golden gasoline from the top of the column. The best chainsaw fuel; the tractor runs on it too.'),
-  can('kerosene_canister', 'Kerosene Canister', 'Pale kerosene, the middle cut of crude oil. Lamp and heater fuel to come.'),
+  can('kerosene_canister', 'Kerosene Canister', 'Pale kerosene, the middle cut of crude oil. Burns in a tractor, one canister for one; a chainsaw will not take it.'),
   can('diesel_canister', 'Diesel Canister', 'Heavy amber diesel from the lowest cut. The tractor goes half again as far on it; a chainsaw cannot burn it.'),
   can('residue_canister', 'Heavy Residue', 'What crude oil leaves in the flask: lube base and bitumen. A vacuum cap splits it.'),
   can('slop_canister', 'Slop Canister', 'A canister of mixed-up liquid. Pour it back into a flask and distil it again.'),

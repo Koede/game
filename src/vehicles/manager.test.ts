@@ -171,6 +171,16 @@ describe('VehicleManager: on foot', () => {
     expect(r.count('tractor_harvester')).toBe(1);
   });
 
+  it('a Kerosene Canister fuels the tractor one for one and the empty canister comes back', () => {
+    const r = rig();
+    const t = r.vehicles.place(0.5, 10, 6.5, 0)!;
+    r.hold('kerosene_canister', 2);
+    r.vehicles.handle(r.intent({ use: true }), 0.7);
+    expect(t.fuel).toBe(CANISTER_S);
+    expect(r.count('kerosene_canister')).toBe(1);
+    expect(r.count('empty_canister')).toBe(1);
+  });
+
   it('a full tank refuses another canister', () => {
     const r = rig();
     const t = r.vehicles.place(0.5, 10, 6.5, 0, null, TANK_S)!;
