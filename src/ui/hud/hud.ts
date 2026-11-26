@@ -43,6 +43,8 @@ export interface HudDeps {
   clock: GameClock;
   objectives: ObjectiveTracker;
   survival: Survival;
+  /** A hard-winter goal that takes the goal plate while the season asks for it; null or missing = the guided goal. */
+  winterGoal?: () => { title: string; text: string } | null;
   /** The current simulation query (it can be swapped after the HUD exists). */
   sim: () => UISimQuery;
   input: InputState;
@@ -363,7 +365,7 @@ export class Hud {
     this.devBtn.hidden = !d.player.dev;
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
-    this.goal.update(d.objectives);
+    this.goal.update(d.objectives, d.winterGoal?.() ?? null);
     this.townChip.update(d.town?.() ?? null);
     this.quick.update();
     this.build.update();

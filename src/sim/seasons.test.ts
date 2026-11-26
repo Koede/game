@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CROP_SEASON, DAYS_PER_SEASON, MIN_SCALE, SNOW_GROWTH, cropScale, dayOfSeason, seasonOf } from './seasons';
+import { CROP_SEASON, DAYS_PER_SEASON, MIN_SCALE, SNOW_GROWTH, GREENHOUSE_SCALE, cropScale, dayOfSeason, seasonOf } from './seasons';
 
 describe('seasons', () => {
   it('turns every DAYS_PER_SEASON days, spring first, and wraps the year', () => {
@@ -21,5 +21,14 @@ describe('seasons', () => {
   it('snow slows crops but never stops them', () => {
     expect(cropScale('spring', 'wheat', true)).toBeCloseTo(SNOW_GROWTH);
     expect(cropScale('winter', 'wheat', true)).toBe(MIN_SCALE);
+  });
+});
+
+describe('hard-winter crops', () => {
+  it('freezes an exposed crop in winter, lets a roofed one grow, and leaves other seasons and worlds alone', () => {
+    expect(cropScale('winter', 'wheat', false, true, true)).toBe(0);
+    expect(cropScale('winter', 'wheat', false, true, false)).toBe(GREENHOUSE_SCALE);
+    expect(cropScale('winter', 'wheat', false, false, true)).toBe(CROP_SEASON.wheat.winter);
+    expect(cropScale('autumn', 'carrot', false, true, true)).toBe(CROP_SEASON.carrot.autumn);
   });
 });

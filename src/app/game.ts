@@ -214,6 +214,7 @@ export class Game {
         sim,
         weather: () => state.weather.state,
         town: () => state.npcs.townChip(),
+        winterGoal: () => state.winter.activeGoal(),
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,
