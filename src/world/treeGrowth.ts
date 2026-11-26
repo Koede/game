@@ -6,7 +6,9 @@
  * trunk, stops growing where it stands.
  *
  * Growth is a pure function of (kind, generated trunk, age in days). The only saved state is the planting day
- * of each tree that has been seen (TreeAges); the voxels come back from the seed, so saves stay small.
+ * of each tree that has been seen (TreeAges); the voxels come back from the seed, so saves stay small. Trees the
+ * player planted from saplings (saplings.ts) are drawn by the same growth from their own planting day; a felling
+ * stump may sprout a sapling there (saplings.ts), so a felled forest grows back.
  */
 import { AIR, CHUNK_SIZE, CHUNK_VOLUME, type Voxel } from '../core/types';
 import { ID } from './ids';
@@ -138,7 +140,9 @@ const isLog = (v: Voxel): boolean => v === ID.oakLog || v === ID.pineLog;
  * alone). Then each tree that reaches the chunk is drawn twice into empty scratch arrays, once as generated and
  * once grown; the voxels that differ are written where the chunk is still air (or a leaf, for a trunk log), and
  * never where `hooks.blocked` says so. So the chunk always equals a fresh load on that day. Trees first seen here
- * are planted on the day before `day` unless they are already felled. Returns how many voxels growth wrote.
+ * are planted on the day before `day` unless they are already felled. `planted` are the player's planted trees
+ * (saplings.ts) that stand and reach the chunk, already grown to `day`: they have no generated voxels, so they are
+ * drawn only into the grown state. Returns how many voxels growth wrote.
  */
 export function growChunk(
   t: Terrain,
@@ -150,6 +154,7 @@ export function growChunk(
   hooks: GrowthHooks,
   scratch: GrowthScratch,
   record: number[],
+  planted: readonly TreeSite[] = [],
 ): number {
   for (let k = 0; k < record.length; k += 3) {
     const i = record[k];
@@ -183,6 +188,10 @@ export function growChunk(
     drawTree(grown, x0, z0, g);
     if (g.trunk !== s.trunk) growing = true;
   });
+  for (const g of planted) {
+    drawTree(grown, x0, z0, g);
+    growing = true;
+  }
   if (!growing) return 0;
 
   let written = 0;

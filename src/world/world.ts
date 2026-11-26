@@ -19,7 +19,10 @@ import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity } from './ruinCrates
 import { structureCrateCells } from './structures';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
-import { OAK_BROAD, type TreeSite } from './flora';
+import { CANOPY, OAK_BROAD, type TreeSite } from './flora';
+import {
+  STUMP_DAYS, Saplings, daysSince, isTree, logId, plantedTree, saplingId, saplingSpecies, stumpSpecies, stumpSprouts, type Planting,
+} from './saplings';
 import { growChunk, createGrowthScratch, TreeAges, type GrowthScratch } from './treeGrowth';
 import { WorkerPool, type PoolMode } from './workerPool';
 import { terrainFor } from './terrain';
@@ -87,6 +90,8 @@ export class World implements IWorld {
   private readonly offChunkLoaded: () => void;
   /** Planting day of every tree seen standing (saved under 'treeAges'); growth is worked out from it. */
   private readonly trees = new TreeAges();
+  /** Saplings the player planted and stumps waiting to sprout (saved under 'saplings'); growth draws their trees. */
+  readonly saplings = new Saplings();
   private readonly growScratch: GrowthScratch = createGrowthScratch();
   /** Voxels the current growth of each loaded chunk wrote (see growChunk); dropped when the chunk unloads. */
   private readonly growthRecords = new Map<number, number[]>();
@@ -135,6 +140,7 @@ export class World implements IWorld {
     });
     this.offChunkUnloaded = bus.on('chunk:unloaded', ({ cx, cz }) => this.growthRecords.delete(chunkKey(cx, cz)));
     this.persist('treeAges', () => this.trees.toJSON());
+    this.persist('saplings', () => this.saplings.toJSON());
   }
 
   /** Tells the world what clock day it is (trees grow a day at a time). The game calls this once it has its clock. */
@@ -189,6 +195,7 @@ export class World implements IWorld {
     this.bus.emit('block:changed', { x: bx, y: by, z: bz, from, to: voxel, source });
     this.water.changed(bx, by, bz, from, voxel, source);
     this.leaves.changed(bx, by, bz, from, voxel, source);
+    if (source !== 'load') this.trackSaplings(bx, by, bz, voxel);
     return true;
   }
 
@@ -415,6 +422,8 @@ export class World implements IWorld {
     this.growthRecords.clear();
     this.growQueue = [];
     this.loadExtra('treeAges', (raw) => this.trees.load(raw));
+    this.saplings.clear();
+    this.loadExtra('saplings', (raw) => this.saplings.load(raw));
     this.streamer = new ChunkStreamer(this.host);
     this.grownDay = this.dayOf();
   }
@@ -425,13 +434,81 @@ export class World implements IWorld {
     if (!chunk) return;
     const key = chunkKey(cx, cz);
     const record = this.growthRecords.get(key) ?? [];
-    growChunk(terrainFor(this.currentSeed), cx, cz, chunk.voxels, this.dayOf(), this.trees, {
+    const day = this.dayOf();
+    const planted = this.plantedTrees(cx, cz, day);
+    growChunk(terrainFor(this.currentSeed), cx, cz, chunk.voxels, day, this.trees, {
       standing: (s, top) => this.treeStanding(s, top),
       blocked: (index) => this.edits.has(cx, cz, index),
       changed: (index, from, to) => this.streamer.onEdit(chunk, index & (CHUNK_SIZE - 1), (index >> 4) & (CHUNK_SIZE - 1), from, to, 'load'),
-    }, this.growScratch, record);
+    }, this.growScratch, record, planted);
     if (record.length > 0) this.growthRecords.set(key, record);
     else this.growthRecords.delete(key);
+  }
+
+  /**
+   * A sapling placed (or sprouted) is planted today; a felling stump starts its wait to sprout. A planting or stump
+   * whose cell becomes anything else (broken, felled, built over) is forgotten.
+   */
+  private trackSaplings(x: number, y: number, z: number, voxel: Voxel): void {
+    const p = this.saplings.plantingAt(x, y, z);
+    if (p && voxelId(voxel) !== saplingId(p.species) && voxelId(voxel) !== logId(p.species)) this.saplings.unplant(x, y, z);
+    const st = this.saplings.stumpAt(x, y, z);
+    if (st && stumpSpecies(voxel) !== st.species) this.saplings.removeStump(x, y, z);
+    const sapling = saplingSpecies(voxel);
+    if (sapling >= 0 && !this.saplings.plantingAt(x, y, z)) this.saplings.plant(x, y, z, sapling, this.dayOf());
+    const stump = stumpSpecies(voxel);
+    if (stump >= 0 && !this.saplings.stumpAt(x, y, z)) this.saplings.addStump(x, y, z, stump, this.dayOf());
+  }
+
+  /**
+   * The planted trees growth draws into chunk (cx, cz) on `day`. First the chunk's own cells move on: a stump whose
+   * wait is over sprouts a sapling (if it is one that sprouts, and nothing sits on it) or is forgotten, a planting
+   * whose cell no longer holds its sapling or log is forgotten, and a planting that has become a tree turns its
+   * sapling into the root log (an edit, like any placed block).
+   */
+  private plantedTrees(cx: number, cz: number, day: number): TreeSite[] {
+    const x0 = cx * CHUNK_SIZE;
+    const z0 = cz * CHUNK_SIZE;
+    const x1 = x0 + CHUNK_SIZE - 1;
+    const z1 = z0 + CHUNK_SIZE - 1;
+    for (const st of this.saplings.stumpsIn(x0, z0, x1, z1)) {
+      if (daysSince(st, day) < STUMP_DAYS) continue;
+      this.saplings.removeStump(st.x, st.y, st.z);
+      if (stumpSpecies(this.getVoxel(st.x, st.y, st.z)) !== st.species) continue;
+      if (!stumpSprouts(this.currentSeed, st.x, st.y, st.z) || this.getVoxel(st.x, st.y + 1, st.z) !== AIR) continue;
+      if (!BLOCKS[saplingId(st.species)].placeOn?.includes(this.getBlock(st.x, st.y - 1, st.z).key)) continue;
+      this.setVoxel(st.x, st.y, st.z, makeVoxel(saplingId(st.species)), 'sim');
+      // Planted on the day the wait ended, so a chunk loaded late shows the tree it would have grown by now.
+      this.saplings.plant(st.x, st.y, st.z, st.species, st.day + STUMP_DAYS);
+    }
+    for (const p of this.saplings.plantsNear(x0, z0, x1, z1, 0)) {
+      const id = voxelId(this.getVoxel(p.x, p.y, p.z));
+      if (id !== saplingId(p.species) && id !== logId(p.species)) this.saplings.unplant(p.x, p.y, p.z);
+      else if (isTree(p, day) && id === saplingId(p.species)) this.setVoxel(p.x, p.y, p.z, makeVoxel(logId(p.species)), 'sim');
+    }
+    const out: TreeSite[] = [];
+    for (const p of this.saplings.plantsNear(x0, z0, x1, z1, CANOPY)) {
+      const tree = plantedTree(p, day);
+      if (tree && this.plantedStanding(p, tree)) out.push(tree);
+    }
+    return out;
+  }
+
+  /**
+   * A planted tree stands while its root cell holds its sapling or log (when that chunk is loaded) and nothing above
+   * the root up to the grown top was ever edited.
+   */
+  private plantedStanding(p: Planting, tree: TreeSite): boolean {
+    if (this.isLoaded(p.x, p.z)) {
+      const id = voxelId(this.getVoxel(p.x, p.y, p.z));
+      if (id !== saplingId(p.species) && id !== logId(p.species)) return false;
+    }
+    const cx = chunkCoord(p.x);
+    const cz = chunkCoord(p.z);
+    for (let y = p.y + 1; y <= tree.base + tree.trunk; y++) {
+      if (this.edits.has(cx, cz, voxelIndex(localCoord(p.x), y, localCoord(p.z)))) return false;
+    }
+    return true;
   }
 
   /** True when the voxel at (x, y, z) was ever changed (edits.ts): the town builder leaves such cells alone. */

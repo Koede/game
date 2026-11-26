@@ -57,6 +57,16 @@ and the canopy levels from the branch wood at landing. Each log gives its normal
   (a machine, a crate) is within 14 blocks. One in-game day (`DAY_LENGTH_S`) of such time and it rots; a toast warns one
   minute before. The tavern is not special-cased, so keep builds away from felled trees if you need them to stay.
 
+## Saplings and regrowth
+
+- Each species has a sapling (`oak_sapling`, `pine_sapling`, content `src/content/areas/world_saplings.ts`). Leaves
+  drop their own sapling 4 % of the time (broken, decayed, or shed by a landing tree), and each axe cut of a fallen log
+  gives its sapling 20 % of the time (`CUT_SAPLING_CHANCE`, `saplingOf` in `fallenLogs.ts`).
+- A sapling placed on grass or dirt grows into a tree (docs/api/tree-growth.md, "Planted trees").
+- A felling stump is remembered when it is placed. Three days later (`STUMP_DAYS`) 40 % of stumps (a fixed roll per
+  cell, `stumpSprouts`) turn into a sapling of their species, if nothing sits on them and they stand on grass or dirt;
+  the rest stay stumps. Chopping the stump first forgets it. Code: `src/world/saplings.ts`, wired in `World`.
+
 ## Settings (`src/core/context.ts`, the settings panel)
 
 | Setting | Default | Effect |
@@ -68,7 +78,6 @@ and the canopy levels from the branch wood at landing. Each log gives its normal
 
 ## Not done
 
-- Saplings: there is no sapling item yet, so a stump cannot be replanted, and stumps do not sprout in forests.
 - Fallen logs do not hurt creatures that walk into them; only the falling tree does damage.
 - NPCs are not hit by a falling tree (only the player and animals).
 - The tavern is not protected from rotting logs by name (only by block entities within 14 blocks).

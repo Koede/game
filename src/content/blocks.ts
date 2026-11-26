@@ -23,6 +23,9 @@ const FOLIAGE_DROPS: Drop[] = [
   { item: 'fiber', count: 1, chance: 0.3 },
   { item: 'stick', count: 1, chance: 0.15 },
 ];
+/** Leaves also drop their tree's sapling now and then (src/content/areas/world_saplings.ts, docs/api/tree-growth.md). */
+export const LEAF_SAPLING_CHANCE = 0.04;
+const leafDrops = (sapling: string): Drop[] => [...FOLIAGE_DROPS, { item: sapling, count: 1, chance: LEAF_SAPLING_CHANCE }];
 
 /** An ore: one texture named after its key, pickaxe only, drops itself unless `extra.drops` says otherwise. */
 function ore(key: string, name: string, desc: string, hardness: number, minTier: number, age: number, extra: Partial<BlockSpec> = {}): BlockSpec {
@@ -129,7 +132,7 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   },
   {
     key: 'oak_leaves', name: 'Oak Leaves', desc: 'Broad green leaves. Stripping them yields fiber and the odd stick.',
-    hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'oak_leaves' },
+    hardness: 0.3, drops: leafDrops('oak_sapling'), textures: { all: 'oak_leaves' },
   },
   {
     key: 'pine_log', name: 'Pine Log', desc: 'A resinous pine trunk. It splits, burns and chars exactly like oak.',
@@ -137,7 +140,7 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   },
   {
     key: 'pine_leaves', name: 'Pine Boughs', desc: 'Dense needled boughs. They give fiber and sticks just as oak leaves do.',
-    hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'pine_leaves' },
+    hardness: 0.3, drops: leafDrops('pine_sapling'), textures: { all: 'pine_leaves' },
   },
   {
     key: 'tall_grass', name: 'Tall Grass', desc: 'Long grass. Pull it up for fiber, and now and then a few wheat seeds.',

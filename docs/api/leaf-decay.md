@@ -32,7 +32,7 @@ ticksLeft, ...] }`, optional: older saves mean nothing pending; damaged data onl
 
 ## Drops
 
-`rollLeafDrops` rolls the leaf's own drop table (fiber 30 %, stick 15 %; the content defines no sapling item). The World
+`rollLeafDrops` rolls the leaf's own drop table (fiber 30 %, stick 15 %, the tree's sapling 4 %). The World
 emits `'leaves:decayed'`; `collectLeafDrops(bus, player)` (`src/game/leafDrops.ts`, wired in `Game`) turns the drops into
 ground items at the leaf (`player.dropAll`, docs/api/ground-items.md), so they are picked up like any other drop.
 

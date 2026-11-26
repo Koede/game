@@ -6,6 +6,7 @@ import manifest from '../../tests/fixtures/saves/manifest.json';
 import beforeBronze from '../../tests/fixtures/save-before-bronze.json';
 import modulesAll from '../../tests/fixtures/saves/modules-all.json';
 import sixAgeRev2 from '../../tests/fixtures/saves/sixage-rev2.json';
+import saplingsSave from '../../tests/fixtures/saves/saplings.json';
 import { MemoryStorage } from './storage';
 import { PREV_KEY, SAVE_KEY, SaveSlot, type WorldSave } from './document';
 import { SAVE_REV } from './migrations';
@@ -36,7 +37,7 @@ interface Summary {
   parts: number;
   tractors: number;
 }
-const FILES: Record<string, unknown> = { 'save-before-bronze.json': beforeBronze, 'saves/sixage-rev2.json': sixAgeRev2, 'saves/modules-all.json': modulesAll };
+const FILES: Record<string, unknown> = { 'save-before-bronze.json': beforeBronze, 'saves/sixage-rev2.json': sixAgeRev2, 'saves/modules-all.json': modulesAll, 'saves/saplings.json': saplingsSave };
 const rows = manifest as unknown as Row[];
 
 function summarise(s: WorldSave): Summary {

@@ -91,7 +91,8 @@ All five phases are in (commits 4527147 to ee9110a). The behaviour and the numbe
   bounces and rests. Changed to this from the scripted hinge, at the owner's request.
 - Phase 2, the fallen log: a saved entity, cut one piece per axe cut, rotting after a day of loaded time.
 - Phase 3, damage: a sweep along the moving body, the 0.4 s wait rule, and the "Tree damage to me" setting.
-- Phase 4, canopy and stumps: branch wood and leaves on landing, a stump block left behind. Not done: sapling replanting
-  and forest regrowth (there is no sapling item).
+- Phase 4, canopy and stumps: branch wood and leaves on landing, a stump block left behind. Saplings (R7): leaves and
+  fallen-log cuts drop them, a planted one grows into a tree, and some stumps sprout one after three days
+  (docs/api/felling.md "Saplings and regrowth"). Stumps sprout in any biome, not only forests.
 - Phase 5, polish: creak, chop and crash sounds, landing dust, a double buzz on phones, reduce motion (double speed).
 - Also: Auto-buck (default off) and the wood yield (trunk logs plus a bonus per canopy level).

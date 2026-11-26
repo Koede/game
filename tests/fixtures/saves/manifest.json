@@ -51,5 +51,25 @@
       "parts": 6,
       "tractors": 1
     }
+  },
+  {
+    "name": "saplings",
+    "file": "saves/saplings.json",
+    "v": 2,
+    "summary": {
+      "entities": 1,
+      "items": 0,
+      "scanned": 0,
+      "completed": 0,
+      "age": 0,
+      "extras": [
+        "magic",
+        "saplings",
+        "vehicles",
+        "workshop"
+      ],
+      "parts": 6,
+      "tractors": 1
+    }
   }
 ]

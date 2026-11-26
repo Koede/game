@@ -23,6 +23,8 @@ export const LOG_WARN_S = 60;
 export const PROTECT_RADIUS = 14;
 /** Log radius for aiming, blocks. */
 export const LOG_RADIUS = 0.5;
+/** Chance that one cut also gives the tree's sapling (oak_log -> oak_sapling), docs/api/felling.md. */
+export const CUT_SAPLING_CHANCE = 0.2;
 
 export interface FallenLog {
   id: number;
@@ -123,7 +125,8 @@ export class FallenLogs {
   }
 
   /**
-   * One axe cut on a fallen log: the piece off its tip (cutPiece), as the log items it is worth. Returns the drops, the
+   * One axe cut on a fallen log: the piece off its tip (cutPiece), as the log items it is worth, and now and then
+   * (CUT_SAPLING_CHANCE) the tree's sapling. Returns the drops, the
    * tip cell's world position, and whether the log is gone (its last piece was cut). Null for an unknown id or an
    * empty log.
    */
@@ -134,6 +137,7 @@ export class FallenLogs {
     const logDef = blockByKey(log.logKey);
     const drops: ItemAmount[] = [];
     for (let i = 0; i < take; i++) mergeDrops(drops, rollDrops(logDef, rng));
+    if (rng() < CUT_SAPLING_CHANCE) mergeDrops(drops, [{ item: saplingOf(log.logKey), count: 1 }]);
     const u = rodAxis(log);
     const at = { x: log.ox + u.ux * (log.length - 0.5), y: log.oy + u.uy * (log.length - 0.5), z: log.oz + u.uz * (log.length - 0.5) };
     log.length = remaining;
@@ -179,6 +183,9 @@ export class FallenLogs {
     }
   }
 }
+
+/** The sapling item of a log block key: oak_log -> oak_sapling, pine_log -> pine_sapling. */
+export const saplingOf = (logKey: string): string => logKey.replace(/_log$/, '_sapling');
 
 /** Adds `drops` into `into`, summing the same items. */
 export function mergeDrops(into: ItemAmount[], drops: ItemAmount[]): void {

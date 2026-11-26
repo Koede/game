@@ -319,7 +319,9 @@ export const SPEC = {
     water: { shape: 'liquid', liquid: 'water', itemKey: null },
     lava: { shape: 'liquid', liquid: 'lava', light: 15, contactDamage: 4, warmth: 4, itemKey: null },
     oak_log: AXE, pine_log: AXE, plank: AXE, workbench: { ...AXE, station: 'workbench' }, crate: { ...AXE, machine: 'crate' },
-    oak_leaves: FOLIAGE, pine_leaves: FOLIAGE,
+    // Leaves also drop their own sapling now and then (src/content/areas/world_saplings.ts).
+    oak_leaves: { drops: [...FOLIAGE.drops!, { item: 'oak_sapling', count: 1, chance: 0.04 }] },
+    pine_leaves: { drops: [...FOLIAGE.drops!, { item: 'pine_sapling', count: 1, chance: 0.04 }] },
     tall_grass: { shape: 'cross', drops: [{ item: 'fiber', count: 1, chance: 0.5 }, { item: 'wheat_seeds', count: 1, chance: 0.15 }] },
     dry_shrub: { shape: 'cross', drops: [{ item: 'stick', count: [1, 2] }] },
     coal_ore: { ...pick(1), drops: [{ item: 'coal', count: [1, 2] }] },
@@ -415,6 +417,8 @@ SPEC.maxTextures += 4;
 SPEC.maxTextures += 2;
 // The Belt Pouch icon (src/content/itemsHand.ts): one item texture, painted as a placeholder tile until it has art.
 SPEC.maxTextures += 1;
+// The saplings (src/render/textures/areas/world_saplings.ts): oak_sapling, pine_sapling.
+SPEC.maxTextures += 2;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

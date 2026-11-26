@@ -167,13 +167,13 @@ describe('leaf decay', () => {
     run(world, 400);
     expect(events).toHaveLength(before);
     const items = new Set(events.flatMap((e) => e.drops.map((d) => d.item)));
-    expect([...items].every((i) => i === 'fiber' || i === 'stick')).toBe(true);
+    expect([...items].every((i) => i === 'fiber' || i === 'stick' || i === 'oak_sapling')).toBe(true);
     expect(items.size).toBeGreaterThan(0);
   });
 
   it('rollLeafDrops follows the table: chance and counts', () => {
     expect(rollLeafDrops(LEAF, () => 0.99)).toEqual([]);
-    expect(rollLeafDrops(LEAF, () => 0)).toEqual([{ item: 'fiber', count: 1 }, { item: 'stick', count: 1 }]);
+    expect(rollLeafDrops(LEAF, () => 0)).toEqual([{ item: 'fiber', count: 1 }, { item: 'stick', count: 1 }, { item: 'oak_sapling', count: 1 }]);
   });
 
   it('looks at no more than LEAF_MAX_PER_TICK leaves a tick; the rest carry over', () => {
