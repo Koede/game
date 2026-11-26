@@ -133,7 +133,9 @@ async function runDevice(device) {
       await d.shot('2-goggles');
     });
 
-    await step('a ratio dial lets one crank drive a mixer: dough in the basin, a funnel carries it to a depot', async () => {
+    // Stress follows power since the balance pass (base x rpm / 16): a mixer geared up to 48 rpm loads 18 SU, more than a
+    // hand crank carries, so a clockwork motor (24 rpm, 24 SU) drives it, as in logistics.test.ts.
+    await step('a ratio dial lets a clockwork motor drive a mixer: dough in the basin, a funnel carries it to a depot', async () => {
       await d.hw((p) => {
         const hw = window.__hw;
         const w = hw.app.game.workshop;
@@ -143,7 +145,7 @@ async function runDevice(device) {
         hw.setVoxel(x, y, z, 'basin');
         hw.setVoxel(x, y + 1, z, 'mixer');
         hw.setVoxel(x - 1, y + 1, z, 'ratio_dial');
-        hw.setVoxel(x - 2, y + 1, z, 'hand_crank');
+        hw.setVoxel(x - 2, y + 1, z, 'clockwork_motor');
         hw.setVoxel(x + 1, y, z, 'funnel', 1);
         hw.setVoxel(x + 2, y, z, 'depot');
         w.use(x, y, z, { item: 'water_pail', count: 1 }, () => undefined);
@@ -151,16 +153,14 @@ async function runDevice(device) {
         w.use(x + 1, y, z, { item: 'dough', count: 1 }, () => undefined);
         w.use(x - 1, y + 1, z, null, () => undefined);
         w.use(x - 1, y + 1, z, null, () => undefined);
+        w.use(x - 2, y + 1, z, null, () => undefined); // one wind (30 s), as logistics.test.ts does
         hw.teleport(x - 2.5, y + 1, z - 1.5);
         hw.lookAt(x - 1.5, y + 1.5, z + 0.5);
       }, P);
       await d.selectEmptyHand();
-      assert(await d.approach({ x: P.x0 - 2, y: P.gy + 1, z: P.z0 + 5 }), 'aims at the second crank');
-      await d.use();
-      for (let i = 0; i < 14; i++) {
-        await d.hw((p) => window.__hw.app.game.workshop.crank(p.x0 - 2, p.gy + 1, p.z0 + 5), P);
-        await d.hw(() => window.__hw.tick(20));
-      }
+      assert(await d.approach({ x: P.x0 - 2, y: P.gy + 1, z: P.z0 + 5 }), 'aims at the clockwork motor');
+      await d.use(); // Use on it winds it some more
+      for (let i = 0; i < 14; i++) await d.hw(() => window.__hw.tick(20));
       await d.shot('3-mixer');
       const got = await d.hw((p) => window.__hw.app.game.workshop.logi.peek(p.x0 + 2, p.gy, p.z0 + 5), P);
       assert(got.some((e) => e.item === 'dough' && e.count >= 2), `depot holds ${JSON.stringify(got)}`);
@@ -310,10 +310,14 @@ async function runDevice(device) {
         hw.teleport(p.x0 + 3.5, y + 2, p.z0 + 2.5);
         hw.lookAt(p.x0 - 1, y + 1, p.z0 + 7);
       }, P);
-      for (let i = 0; i < 6; i++) {
-        await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 + 7); w.crank(p.x0 - 3, p.gy, p.z0 + 6); }, P);
-        await d.hw(() => window.__hw.tick(20));
-        if (i === 2) await d.shot('9-contraptions');
+      // A quarter turn takes about 1.5 s at the crank's 16 rpm, so after 6 s the platform can be home again: the arm counts as
+      // turned away if it left its cell at any check.
+      let armMoved = false;
+      for (let i = 0; i < 24; i++) {
+        if (i % 4 === 0) await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 + 7); w.crank(p.x0 - 3, p.gy, p.z0 + 6); }, P);
+        await d.hw(() => window.__hw.tick(5));
+        if (!armMoved) armMoved = (await d.hw((p) => window.__hw.getBlock(p.x0 - 3, p.gy + 2, p.z0 + 6).block, P)) !== 'mech_arm';
+        if (i === 8) await d.shot('9-contraptions');
       }
       const r = await d.hw((p) => {
         const hw = window.__hw;
@@ -329,7 +333,7 @@ async function runDevice(device) {
       await d.shot('10-contraptions-after');
       assert(r.depot !== null && r.depot < P.x0 + 1, `the piston pushed the depot west: ${r.depot}`);
       assert(r.flint.some((e) => e.item === 'flint' && e.count === 4), `the depot kept its stack: ${JSON.stringify(r.flint)}`);
-      assert(r.arm !== 'mech_arm', `the bearing turned the arm away: ${r.arm}`);
+      assert(armMoved, `the bearing turned the arm away: ${r.arm}`);
       assert(r.skiff !== null && r.load.some((e) => e.item === 'flint' && e.count === 3), `the skiff rolls with its load: ${JSON.stringify(r)}`);
     });
 
