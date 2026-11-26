@@ -152,6 +152,11 @@ export class InputManager {
     return this.disposed ? Promise.resolve(false) : this.lock.request();
   }
 
+  /** Toggles photo mode as the P key / quick menu does (the photo bar's Done button). */
+  requestPhoto(): void {
+    this.core.requestPhoto();
+  }
+
   /** Lets the mouse go (a screen opened). Does not count as a pause request. */
   releasePointerCapture(): void {
     this.lock.release();

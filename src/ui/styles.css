@@ -2963,6 +2963,7 @@ body {
   font-size: var(--hw-fs-sm);
   line-height: 1.35;
   color: var(--hw-ash-1);
+}
 /* Recipe helper strip (src/ui/screens/inventory/recipeHelperPanel.ts) */
 .hw-helper {
   display: grid;
@@ -3017,8 +3018,7 @@ body {
 .hw-title:not([data-stage='0'])::before { opacity: 1; }
 
 /* Photo mode (P): the HUD and the touch controls step aside; toasts stay so "Photo saved" shows. */
-.hw-root--photo .hw-layer[data-layer='hud'],
-.hw-root--photo .hw-layer[data-layer='touch'] { visibility: hidden; }
+.hw-root--photo .hw-layer[data-layer='hud'] { visibility: hidden; }
 /* Experiment row (discovery) */
 .hw-exp { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 6px; }
 .hw-exp summary { cursor: pointer; font-weight: 600; }
@@ -3032,3 +3032,22 @@ body {
 /* Trade caravan */
 .hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
 .hw-caravan__row span { flex: 1; min-width: 0; }
+
+/* Photo mode controls (src/ui/photoUi.ts): the touch layer stays for moving and the shutter; only its other buttons step aside. */
+.hw-root--photo .hw-layer[data-layer='touch'] { visibility: visible; }
+.hw-root--photo .hw-touch-btn--mine,
+.hw-root--photo .hw-touch-btn--place,
+.hw-root--photo .hw-touch-btn--bag,
+.hw-root--photo .hw-touch-btn--pause,
+.hw-root--photo .hw-touch-btn--menu { display: none; }
+.hw-photo { position: absolute; inset: 0; pointer-events: none; }
+.hw-photo[hidden], .hw-photo [hidden] { display: none; }
+.hw-photo__bar { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 16px); pointer-events: auto; }
+.hw-photo__btn { min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(20, 16, 12, 0.72); color: #f2ead8; font: inherit; font-size: 0.9rem; cursor: pointer; }
+.hw-photo__btn--exit { background: rgba(120, 60, 30, 0.85); }
+.hw-photo__album { position: absolute; inset: 0; pointer-events: auto; overflow-y: auto; padding: calc(64px + env(safe-area-inset-top)) 16px 24px; background: rgba(12, 9, 6, 0.9); color: #f2ead8; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.hw-photo__title { margin: 0; font-size: 1.1rem; }
+.hw-photo__cards { display: flex; flex-direction: column; gap: 14px; width: min(100%, 420px); }
+.hw-photo__card { margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.hw-photo__card-img { width: 100%; height: auto; max-height: 52vh; object-fit: contain; border-radius: 4px; background: #14100c; }
+.hw-photo__empty { opacity: 0.8; text-align: center; }

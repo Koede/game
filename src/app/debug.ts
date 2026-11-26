@@ -82,6 +82,8 @@ export interface DebugHandle {
    * long while; 'auto' hands the sky back to the seed's timetable.
    */
   setWeather(kind: WeatherKind | 'auto', instant?: boolean): void;
+  /** Announces that age `age` began (the postcard and story directors react), without touching the furnace. */
+  advanceAge(age: number): void;
   /** Sets the food bar (0..20), e.g. to make room for a meal. */
   setFood(food: number): void;
   /** Empties the pack and the hotbar (to start a check with known items). */
@@ -222,6 +224,9 @@ export function createDebugHandle(app: App): DebugHandle {
       const dz = z + 0.5 - p.position.z;
       p.yaw = Math.atan2(-dx, -dz);
       p.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    },
+    advanceAge(age) {
+      game().state.bus.emit('age:advanced', { age });
     },
     setTime(t) {
       game().state.clock.setTimeOfDay(t);
