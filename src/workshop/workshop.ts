@@ -117,7 +117,7 @@ export interface SwingView { kind: string; x: number; y: number; z: number; phas
 export interface LinkView { kind: string; x1: number; y: number; z1: number; x2: number; z2: number; rpm: number }
 export interface WorkshopView { spin: SpinView[]; swings: SwingView[]; links: LinkView[] }
 /** Parts that show a turning cog on top while they run. */
-const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
+const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft', 'mill_wheel']);
 
 /** Seconds a recipe takes at 16 rpm: strokes x STROKE_S, or half the drying / soaking time of a timed recipe. */
 const needS = (r: RecipeDef): number => ((r.strokes ?? 0) > 0 ? (r.strokes as number) * STROKE_S : (r.timeS ?? 2) * 0.5);

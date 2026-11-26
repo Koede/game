@@ -93,6 +93,7 @@ describe('workshop', () => {
     t.put(1, 0, 0, 'drive_shaft');
     t.run(1);
     expect(t.shop.netAt(1, 0, 0)?.rpm ?? 0).toBeGreaterThan(0);
+    expect(t.shop.view(0, 0).spin.some((v) => v.kind === 'mill_wheel' && v.rpm !== 0)).toBe(true);
     su = 0; // frozen over
     t.run(1);
     expect(t.shop.netAt(1, 0, 0)?.rpm ?? 0).toBe(0);
