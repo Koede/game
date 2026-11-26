@@ -1,6 +1,7 @@
 /**
  * The build chip (docs/api/assist.md): Undo for the last placements, and copy-paste of up to 8x8x8 by aim. Shown while there is
- * something to undo, a copy in progress, or a block in hand. Keys on a keyboard: Z undo, C mark corner, V paste.
+ * something to undo, a copy in progress, or a block in hand. Keys on a keyboard: Z undo, C mark corner, V paste. The blueprint
+ * panel (blueprintPanel.ts) rides along while the Builder's Square is held or a build is under way.
  */
 import type { GameBus } from '../../core/context';
 import { REACH } from '../../core/constants';
@@ -11,10 +12,12 @@ import type { PlayerState } from '../../game/playerState';
 import { createRayHit, raycast } from '../../player/raycast';
 import { h, setAttr, setText } from '../kit/dom';
 import { glyph } from '../kit/icons';
+import { BlueprintPanel } from './blueprintPanel';
 
 export class BuildChip {
   readonly el: HTMLDivElement;
   readonly tools: BuildTools;
+  readonly blueprints: BlueprintPanel;
   private readonly undoBtn: HTMLButtonElement;
   private readonly more: HTMLButtonElement;
   private readonly menu: HTMLDivElement;
@@ -30,6 +33,7 @@ export class BuildChip {
     private readonly bus: GameBus,
   ) {
     this.tools = new BuildTools(world, player, bus);
+    this.blueprints = new BlueprintPanel(world, player, bus);
     this.undoBtn = h('button', { class: 'hw-quick__main', attrs: { type: 'button', 'data-action': 'undo' } });
     this.more = h('button', { class: 'hw-quick__more', attrs: { type: 'button', 'aria-label': 'Build tools', 'aria-expanded': 'false' } }, glyph('chevron', 12));
     this.markBtn = h('button', { class: 'hw-quick__item', attrs: { type: 'button', 'data-action': 'mark' } });
@@ -37,7 +41,7 @@ export class BuildChip {
     this.cancelBtn = h('button', { class: 'hw-quick__item', attrs: { type: 'button', 'data-action': 'cancel' }, text: 'Cancel copy' });
     this.menu = h('div', { class: 'hw-quick__list' }, this.markBtn, this.pasteBtn, this.cancelBtn);
     this.menu.hidden = true;
-    this.el = h('div', { class: 'hw-quick hw-build hw-hud-plate', attrs: { 'data-testid': 'build-chip' } }, h('div', { class: 'hw-quick__bar' }, this.undoBtn, this.more), this.menu);
+    this.el = h('div', { class: 'hw-quick hw-build hw-hud-plate', attrs: { 'data-testid': 'build-chip' } }, h('div', { class: 'hw-quick__bar' }, this.undoBtn, this.more), this.menu, this.blueprints.el);
     this.el.hidden = true;
     this.undoBtn.addEventListener('click', () => this.undo());
     this.more.addEventListener('click', () => this.toggle(this.menu.hidden));
@@ -61,6 +65,7 @@ export class BuildChip {
 
   dispose(): void {
     this.tools.dispose();
+    this.blueprints.dispose();
   }
 
   private toggle(open: boolean): void {
@@ -103,7 +108,8 @@ export class BuildChip {
     const t = this.tools;
     const held = this.player.heldStack();
     const building = held !== null && blockOfItem(held.item) !== null;
-    const active = t.undoCount > 0 || t.clip !== null || t.pendingCorner !== null;
+    this.blueprints.update();
+    const active = t.undoCount > 0 || t.clip !== null || t.pendingCorner !== null || this.blueprints.active;
     this.el.hidden = !active && !building;
     if (this.el.hidden) return;
     setText(this.undoBtn, t.undoCount > 0 ? `Undo ×${t.undoCount}` : 'Build');

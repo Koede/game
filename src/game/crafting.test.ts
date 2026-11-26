@@ -38,6 +38,8 @@ describe('crafting', () => {
       // (The Bronze workshop pieces are made at the Bronze Furnace now: src/content/recipesWorkshop.ts.)
       // Glassware (src/content/itemsGlass.ts).
       'water_beaker', 'water_vial',
+      // The Builder's Square (src/content/areas/build_blueprints.ts; area files load in name order).
+      'builders_square',
       // Decorating (src/content/areas/decor.ts; area files load in name order, decor before synergy).
       'dining_table', 'plank_bench', 'bookshelf',
       // Goat milk and wool (src/content/areas/synergy_animals.ts; area files load in name order).

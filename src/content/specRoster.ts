@@ -419,6 +419,8 @@ SPEC.maxTextures += 2;
 SPEC.maxTextures += 1;
 // The saplings (src/render/textures/areas/world_saplings.ts): oak_sapling, pine_sapling.
 SPEC.maxTextures += 2;
+// The Builder's Square icon (src/render/textures/areas/build_blueprints.ts).
+SPEC.maxTextures += 1;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

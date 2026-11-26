@@ -7,7 +7,12 @@
 import { blockOrNull, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelId, type IWorld } from '../core/types';
 import type { ItemAmount } from '../core/types';
-import type { Inventory } from './inventory';
+
+/** Where a build takes its blocks from: a chest's Inventory, or a whole storage network (blueprints.ts NetworkSource). */
+export interface MaterialSource {
+  remove(item: string, count: number): number;
+  add(item: string, count: number): number;
+}
 
 export const BUILD_INTERVAL_S = 0.6;
 export const MAX_BLUEPRINT_CELLS = 4096;
@@ -82,7 +87,7 @@ export class BuildJob {
   }
 
   /** Advances `builders` workers by `dt` seconds. Returns how many blocks were placed. */
-  tick(dt: number, world: IWorld, chest: Inventory, builders = 1): number {
+  tick(dt: number, world: IWorld, chest: MaterialSource, builders = 1): number {
     if (this.state === 'done') return 0;
     this.acc += dt * Math.max(0, builders);
     let placed = 0;

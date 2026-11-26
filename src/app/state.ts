@@ -30,6 +30,7 @@ import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
+import { Blueprints } from '../game/blueprints';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
 import { NpcManager } from '../npcs';
 import { makeNpcHost } from '../npcs/host';
@@ -82,6 +83,8 @@ export class GameState {
   readonly restoration: Restoration;
   /** Companion dog and cat (docs/api/pets.md). */
   readonly pets: Pets;
+  /** Saved blueprints and the builds under way (docs/api/blueprint.md). */
+  readonly blueprints: Blueprints;
   /** The camp, tavern and their people (docs/api/npcs.md, docs/plans/just-you-and-orrin.md). */
   readonly npcs: NpcManager;
   readonly seedText: string | null;
@@ -245,6 +248,9 @@ export class GameState {
     this.offs.push(world.persist('pets', () => this.pets.toJSON()));
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
+    this.blueprints = new Blueprints(bus, (x, y, z) => this.sim.storageNetwork(x, y, z));
+    world.loadExtra('blueprints', (raw) => this.blueprints.load(raw));
+    this.offs.push(world.persist('blueprints', () => this.blueprints.toJSON()));
     this.npcs = new NpcManager(bus);
     this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
@@ -388,6 +394,7 @@ export class GameState {
     this.exploration.tick(dt);
     this.weathering.tick(dt);
     this.pets.tick(dt);
+    this.blueprints.tick(dt, this.world);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();

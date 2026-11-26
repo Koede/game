@@ -1273,3 +1273,23 @@
   font-size: 11px;
   opacity: 0.75;
 }
+
+/* ---- blueprint panel of the build chip (src/ui/hud/blueprintPanel.ts) ------------------------------------------------------- */
+.hw-bp {
+  display: grid;
+  max-width: 240px;
+  border-top: 1px solid var(--hw-plate-edge);
+}
+.hw-bp[hidden],
+.hw-bp [hidden] {
+  display: none;
+}
+.hw-bp__line {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.hw-bp__mats,
+.hw-bp__sites {
+  opacity: 0.8;
+}

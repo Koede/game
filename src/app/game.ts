@@ -7,6 +7,7 @@
  * -> animal models (interpolated) -> render.
  */
 import { saveShot } from './photo';
+import { bindBlueprints } from '../ui/hud/blueprintPanel';
 import { resumeLine } from '../game/journal';
 import { setBoardGuide } from '../game/nextStep';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
@@ -246,6 +247,9 @@ export class Game {
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
       this.controller.fallenAim = (o, d, maxDist) => this.trees.aimHit(o, d, maxDist);
       this.controller.interaction.beforeUse = (hit) => {
+        // The Builder's Square marks blueprint corners and build sites (src/game/blueprints.ts).
+        const drafted = state.blueprints.use(hit, player.heldStack());
+        if (drafted !== null) return drafted;
         if (hit) {
           const held = player.heldStack();
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
@@ -267,6 +271,7 @@ export class Game {
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
+      bindBlueprints(state.blueprints);
       // "What next?" points at Gruk's build board while a bounty is open.
       setBoardGuide(() => state.npcs.boardGuide());
       this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
@@ -632,6 +637,7 @@ export class Game {
     if (this.disposed) return;
     this.disposed = true;
     for (const off of this.offs) off();
+    bindBlueprints(null);
     setBoardGuide(null);
     this.offs.length = 0;
     this.vehicleHud.dispose();
