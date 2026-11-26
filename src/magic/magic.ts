@@ -93,6 +93,8 @@ export const CLARITY_L = 250;
 /** Reach of the rune desk and the altar for jars (blocks), and of the altar for pedestals. */
 export const DESK_REACH = 3;
 export const ALTAR_REACH = 3;
+const INFUSION_CENTERS: ReadonlySet<string> = new Set(INFUSIONS.map((r) => r.center));
+const INFUSION_AROUND: ReadonlySet<string> = new Set(INFUSIONS.flatMap((r) => r.around));
 /** Seconds between two units an infusion draws. */
 export const INFUSE_STEP_S = 0.4;
 /** Seconds a just-brewed draught's colour swirls in its crucible. */
@@ -1289,6 +1291,16 @@ export class Magic {
 
   // ---- pedestals and the infusion altar ----------------------------------------------------------------------------
 
+  /** Whether an item has any use on an altar's heart (an infusion's centre, or gear that can take an enchant). */
+  static isHeartItem(item: string): boolean {
+    return INFUSION_CENTERS.has(item) || ENCHANTS.some((e) => canEnchant(itemOrNull(item), e.key));
+  }
+
+  /** Whether an item belongs on a pedestal (it is among some infusion's surrounding items). */
+  static isPedestalItem(item: string): boolean {
+    return INFUSION_AROUND.has(item);
+  }
+
   private usePedestal(t: MagicTarget, held: string | null): MagicOutcome {
     const k = k3(t.x, t.y, t.z);
     const on = this.pedestals.get(k);
@@ -1298,6 +1310,10 @@ export class Magic {
       return 'worked';
     }
     if (!held) return 'refused';
+    if (!Magic.isPedestalItem(held)) {
+      this.advise('This item is part of no infusion, so the pedestal leaves it alone');
+      return 'refused';
+    }
     this.player.consumeHeld(1);
     this.pedestals.set(k, held);
     return 'worked';
@@ -1319,6 +1335,10 @@ export class Magic {
     }
     if (!held) {
       this.advise('Set the heart item on the altar, the rest on pedestals, then Use the altar with a rod');
+      return 'refused';
+    }
+    if (!Magic.isHeartItem(held)) {
+      this.advise('Nothing can be infused into this item, so the altar will not take it');
       return 'refused';
     }
     // The heart keeps what it carries (durability, enchants) for as long as it sits here.

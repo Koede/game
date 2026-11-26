@@ -35,7 +35,7 @@ describe('13. buckets', () => {
     expect(fuelOf('lava_bucket')).toEqual({ energyJ: 2_000_000, burnS: 100, flameTempC: 1300, fuelReturns: 'bronze_bucket' });
     expect(item('lava_bucket').stack).toBe(1);
     // Only containers return anything; the burner generator takes it too and hands the empty bucket to the player.
-    expect(ITEMS.filter((it) => it.fuel?.fuelReturns).map((it) => it.key)).toEqual(['lava_bucket']);
+    expect(ITEMS.filter((it) => it.fuel?.fuelReturns).map((it) => it.key)).toEqual(['lava_bucket', 'fuel_ethanol_beaker', 'gasoline_canister', 'kerosene_canister', 'diesel_canister']);
     expect(machine('burner_generator').fuels).toContain('lava_bucket');
     expect(machine('burner_generator').fuels).toContain('peat');
   });

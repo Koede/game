@@ -171,10 +171,15 @@ export const fuelGrade = (item: string): FuelGrade | null => FUEL_GRADES[item] ?
 
 // ---- modules added after the first slice (docs/DISTILLERY_PLAN.md 2, 8, 15) --------------------------------
 
-/** Ground burner, used only when no hot furnace sits under the still base. */
-export const BURNER_C = { charcoal: 250, fuel_ethanol_beaker: 300 } as const;
-export const burnerTemp = (item: string): number | null =>
-  item === 'charcoal' ? BURNER_C.charcoal : item === 'fuel_ethanol_beaker' ? BURNER_C.fuel_ethanol_beaker : null;
+/**
+ * Ground burner, used only when no hot furnace sits under the still base. It holds the glassware to a gentle heat:
+ * wood and peat 200 C, charcoal 250 C, fuel ethanol and coal 300 C, coke 350 C. Hotter fuels (the lava bucket, an ember
+ * core) and the engine canisters are too fierce for glass and are refused.
+ */
+export const BURNER_C: Readonly<Record<string, number>> = {
+  stick: 200, plank: 200, oak_log: 200, pine_log: 200, peat: 200, charcoal: 250, coal: 300, fuel_ethanol_beaker: 300, coke: 350,
+};
+export const burnerTemp = (item: string): number | null => BURNER_C[item] ?? null;
 
 /** Wrench cycles a reflux head through these returns. Plates are multiplied by (1 + 2 r). */
 export const REFLUX_RATIOS = [0, 0.5, 0.75] as const;

@@ -282,3 +282,17 @@ describe('item sanity', () => {
     }
   });
 });
+
+describe('refined fuels in furnaces', () => {
+  it.each(['gasoline_canister', 'kerosene_canister', 'diesel_canister', 'fuel_ethanol_beaker'])('%s burns in a firebox and hands its empty container back', (key) => {
+    const spec = fuelOf(key)!;
+    expect(spec.fuelReturns).toBe(fuelGrade(key)!.empty);
+    const kit = makeKit();
+    const e = kit.furnace(0, 5, 0);
+    expect(kit.sim.furnaceSlots(0, 5, 0)!.fuel.accepts(key, 0)).toBe(true);
+    fire(kit, e, key, 1);
+    kit.run(0.5);
+    expect(e.burnItem).toBe(key);
+    expect(e.fuel.some((s) => s?.item === spec.fuelReturns)).toBe(true);
+  });
+});

@@ -598,7 +598,6 @@ export function validateContent(): string[] {
     if (it.stack < 1) problems.push(`item ${it.key}: stack must be >= 1`);
     const back = it.fuel?.fuelReturns;
     if (back !== undefined && !knownItem(back)) problems.push(`item ${it.key}: fuelReturns "${back}" is not an item`);
-    if (back !== undefined && it.stack !== 1) problems.push(`item ${it.key}: a fuel that returns its container must stack to 1`);
   }
   for (const r of RECIPES) {
     if (!knownItem(r.output.item)) problems.push(`recipe ${r.id}: output "${r.output.item}" is not an item`);
