@@ -127,6 +127,48 @@ export const NAMED_TABLES: LootTableSpec[] = [
       { item: 'bread', count: [2, 4], weight: 6 },
     ],
   },
+  // Cave camps (src/world/caveRooms.ts): an abandoned miner's cache, richer the deeper it lies. One table per depth band, named
+  // `cave_camp_<band>`; the boss that ends the caves reads these ids too, so keep the naming.
+  {
+    id: 'cave_camp_shallow', tier: 'near', rolls: [2, 3],
+    entries: [
+      { item: 'torch', count: [3, 6], weight: 10 },
+      { item: 'coal', count: [3, 6], weight: 8 },
+      { item: 'bread', count: [1, 3], weight: 8 },
+      { item: 'flint', count: [2, 4], weight: 6 },
+      { item: 'cord', count: [2, 4], weight: 6 },
+      { item: 'wooden_pickaxe', count: 1, weight: 3 },
+      { item: 'copper_ingot', count: [1, 3], weight: 4 },
+    ],
+  },
+  {
+    id: 'cave_camp_middle', tier: 'near', rolls: [3, 4],
+    entries: [
+      { item: 'torch', count: [4, 8], weight: 8 },
+      { item: 'coal', count: [4, 8], weight: 8 },
+      { item: 'bread', count: [2, 4], weight: 6 },
+      { item: 'cord', count: [2, 5], weight: 6 },
+      { item: 'tin_ingot', count: [1, 3], weight: 6 },
+      { item: 'copper_ingot', count: [2, 4], weight: 6 },
+      { item: 'bronze_ingot', count: [1, 2], weight: 5 },
+      { item: 'bronze_pickaxe', count: 1, weight: 2, rarity: 'fine' },
+      { item: 'glass_vial', count: [1, 3], weight: 4 },
+    ],
+  },
+  {
+    id: 'cave_camp_deep', tier: 'near', rolls: [3, 5],
+    guaranteed: [{ item: 'torch', count: [4, 8], weight: 1 }],
+    entries: [
+      { item: 'bronze_ingot', count: [2, 4], weight: 8 },
+      { item: 'iron_ingot', count: [1, 3], weight: 6 },
+      { item: 'coal', count: [5, 10], weight: 8 },
+      { item: 'glass_vial', count: [2, 4], weight: 5 },
+      { item: 'essentia_jar', count: 1, weight: 2, rarity: 'rare' },
+      { item: 'vial_cinder', count: 1, weight: 3, rarity: 'fine' },
+      { item: 'treasure_map', count: 1, weight: 3, rarity: 'rare' },
+      { item: 'bronze_axe', count: 1, weight: 2, rarity: 'fine' },
+    ],
+  },
   // The wandering trader's stock (src/npcs/trader.ts): the everyday goods of a visit, then one rare line. Both stay one age ahead of Ember.
   {
     id: 'trader_common', tier: 'near', rolls: [4, 6],

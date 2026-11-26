@@ -280,7 +280,10 @@
     "party_button": {"category":"block","hardness":1.2,"key":"party_button","lightActive":4,"oriented":true,"tool":"axe"},
     "oak_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"oak_stump","tool":"axe"},
     "pine_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"pine_stump","tool":"axe"},
-    "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"}
+    "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"},
+    "foul_air": {"contactDamage":1,"drops":"none","hardness":0,"item":false,"key":"foul_air","opaque":false,"replaceable":true,"shape":"cross","solid":false},
+    "chalk_mark": {"hardness":0,"key":"chalk_mark","light":1,"placeOn":["stone","rubble","gravel","clay","basalt","dirt","sand","limestone"],"shape":"cross"},
+    "cave_cairn": {"hardness":1.5,"key":"cave_cairn","light":7,"minTier":0,"tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -875,6 +878,8 @@
     "sugar_vial": {"age":0,"byproducts":[{"count":1,"item":"pail"},{"count":1,"item":"glass_vial"}],"id":"sugar_vial","inputs":[{"count":2,"item":"pine_resin"},{"count":1,"item":"water_pail"},{"count":1,"item":"glass_vial"}],"kind":"forge","minTempC":260,"minTier":1,"output":{"count":3,"item":"sugar"},"station":"furnace"},
     "water_beaker": {"age":0,"byproducts":[{"count":1,"item":"pail"}],"id":"water_beaker","inputs":[{"count":1,"item":"water_pail"},{"count":4,"item":"glass_beaker"}],"output":{"count":4,"item":"water_beaker"},"station":"workbench"},
     "water_vial": {"age":0,"byproducts":[{"count":1,"item":"pail"}],"id":"water_vial","inputs":[{"count":1,"item":"water_pail"},{"count":4,"item":"glass_vial"}],"output":{"count":4,"item":"water_vial"},"station":"workbench"},
+    "chalk_mark": {"age":0,"id":"chalk_mark","inputs":[{"count":1,"item":"limestone"}],"kind":"forge","minTempC":300,"minTier":1,"output":{"count":8,"item":"chalk_mark"},"station":"furnace"},
+    "cave_cairn": {"age":0,"id":"cave_cairn","inputs":[{"count":4,"item":"rubble"},{"count":1,"item":"glowcap"}],"kind":"forge","minTempC":300,"minTier":1,"output":{"count":1,"item":"cave_cairn"},"station":"furnace"},
     "red_dye": {"age":0,"id":"red_dye","inputs":[{"count":1,"item":"wildberries"}],"output":{"count":2,"item":"red_dye"},"station":"mortar","strokes":4},
     "yellow_dye": {"age":0,"id":"yellow_dye","inputs":[{"count":1,"item":"carrot"}],"output":{"count":2,"item":"yellow_dye"},"station":"mortar","strokes":4},
     "blue_dye": {"age":0,"id":"blue_dye","inputs":[{"count":1,"item":"crushed_tin"}],"output":{"count":2,"item":"blue_dye"},"station":"mortar","strokes":4},

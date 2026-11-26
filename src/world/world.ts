@@ -15,8 +15,9 @@ import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
 import { WaterFlow, checkWaterSnapshot, type WaterSnapshot } from './flow';
 import { LeafDecay, checkLeafSnapshot, rollLeafDrops, type LeafSnapshot } from './leafDecay';
-import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity } from './ruinCrates';
+import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity, tableCrateEntity } from './ruinCrates';
 import { structureCrateCells } from './structures';
+import { caveBandAt, caveCampTable, findCaveCamp } from './caveRooms';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
 import { OAK_BROAD, type TreeSite } from './flora';
@@ -421,6 +422,12 @@ export class World implements IWorld {
       if (this.getVoxel(x, y, z) !== AIR) continue;
       this.setEntity(structureCrateEntity(this.currentSeed, x, y, z, key));
       this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
+    }
+    // A cave camp's crate is a generated voxel with no entity yet (the first load gives it its loot, by the camp's depth band).
+    const camp = findCaveCamp(this.currentSeed, cx, cz, (x, y, z) => voxelId(this.getVoxel(x, y, z)));
+    if (camp && !this.edits.has(cx, cz, voxelIndex(localCoord(camp.x), camp.y, localCoord(camp.z))) && !this.entityStore.get(camp.x, camp.y, camp.z)) {
+      this.setEntity(tableCrateEntity(this.currentSeed, camp.x, camp.y, camp.z, caveCampTable(caveBandAt(camp.y))));
+      this.setVoxel(camp.x, camp.y, camp.z, CRATE_VOXEL, 'load');
     }
   }
 

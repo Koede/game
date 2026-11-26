@@ -13,7 +13,7 @@ export const WORLD_SPEC = {
     'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'berry_bush_bare', 'glowcap', 'cactus',
     'packed_ice', 'ice_spike', 'basalt_column', 'steam_vent', 'peat',
     'cracked_stone_brick', 'mossy_stone_brick', 'collapsed_furnace', 'rusted_shell',
-    'crystal_cluster', 'oil',
+    'crystal_cluster', 'foul_air', 'oil',
   ],
 
   items: ['bronze_bucket', 'lava_bucket', 'wildberries'],
@@ -44,6 +44,7 @@ export const WORLD_SPEC = {
     collapsed_furnace: { ...pick(0), oriented: true, itemKey: null, drops: [{ item: 'firebrick', count: [2, 4] }, { item: 'clay', count: 1, chance: 0.5 }] },
     rusted_shell: { ...pick(2), itemKey: null, drops: [{ item: 'iron_ore', count: 1 }, { item: 'copper_wire', count: [1, 2], chance: 0.5 }] },
     crystal_cluster: cross({ ...pick(3), light: 4, itemKey: null, drops: [{ item: 'silica', count: [1, 2] }] }),
+    foul_air: cross({ itemKey: null, replaceable: true, contactDamage: 1, drops: [] }),
     oil: { shape: 'liquid', liquid: 'oil', itemKey: null, drops: [], hardness: -1, replaceable: true },
   } as Record<string, Partial<BlockDef>>,
 

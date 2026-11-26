@@ -25,6 +25,7 @@ import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
+import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Pets } from '../game/pets';
@@ -75,6 +76,8 @@ export class GameState {
   readonly workshop: Workshop;
   /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
   readonly exploration: Exploration;
+  /** Foul air snuffs torches; cave finds go in the journal. */
+  readonly caveWatch: CaveWatch;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
   /** Repairable old-age machines (docs/api/restoration.md). */
@@ -230,6 +233,8 @@ export class GameState {
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });
+    this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, note: (text, key) => this.journal.add('note', text, key) });
+    this.offs.push(() => this.caveWatch.dispose());
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     this.pets = new Pets({
       bus, player: this.player, mobs: this.mobs, isDusk: () => this.clock.phase === 'dusk' || this.clock.phase === 'dawn',
@@ -384,6 +389,7 @@ export class GameState {
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
     this.exploration.tick(dt);
+    this.caveWatch.tick(dt);
     this.weathering.tick(dt);
     this.pets.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();

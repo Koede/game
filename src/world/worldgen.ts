@@ -1,11 +1,12 @@
 /**
  * World generation. `generateChunk` is a pure function of (seed, cx, cz): it keeps no state between calls
  * and can run in any order and in any thread. The stages are terrain columns, caves, ore veins, the deeper
- * underground (geodes, lakes, lava falls), cliff outcrops, trees, surface life, cave glowcaps and ruins.
+ * underground (geodes, lakes, lava falls), cliff outcrops, trees, surface life, cave glowcaps, one cave room (camp, lode, sinkhole or foul-air pocket) and ruins.
  */
 import { hash32 } from '../core/math';
 import { CHUNK_SIZE, CHUNK_VOLUME, WORLD_HEIGHT, voxelIndex, type BiomeKey } from '../core/types';
 import { carveCaves } from './caves';
+import { placeCaveRoom, type CaveRoom } from './caveRooms';
 import { MARGIN, createColumns } from './columns';
 import { placeTrees } from './flora';
 import { ID } from './ids';
@@ -90,6 +91,15 @@ function fillColumn(t: Terrain, voxels: Uint16Array, c: Column, lx: number, lz: 
   }
 }
 
+/** The room the latest `generateChunk` stamped (null for none): read it right after the call, as `caveRoomOf` does. */
+let lastRoom: CaveRoom | null = null;
+
+/** The cave room chunk (cx, cz) holds, if any: what a hook (the cave boss, a map note) asks without keeping the voxels. */
+export function caveRoomOf(seed: number, cx: number, cz: number): CaveRoom | null {
+  generateChunk(seed, cx, cz);
+  return lastRoom;
+}
+
 export function generateChunk(seed: number, cx: number, cz: number): Uint16Array {
   const t = terrainFor(seed);
   const voxels = new Uint16Array(CHUNK_VOLUME);
@@ -136,6 +146,7 @@ export function generateChunk(seed: number, cx: number, cz: number): Uint16Array
   placeTrees(t, voxels, cx, cz);
   placeSurfaceLife(t, voxels, x0, z0, cols);
   placeCaveGlowcaps(t, voxels, x0, z0, cols);
+  lastRoom = placeCaveRoom(t, voxels, cx, cz, cols);
   for (const ruin of ruinsNear(seed, cx, cz)) drawRuin(voxels, x0, z0, ruin);
   for (const s of structuresNear(seed, cx, cz)) drawStructure(voxels, x0, z0, s);
   placeHotSprings(t, voxels, cx, cz, cols);

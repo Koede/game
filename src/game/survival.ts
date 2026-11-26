@@ -445,7 +445,7 @@ export class Survival {
           const def = blockOf(v);
           if (def.contactDamage <= dps) continue;
           dps = def.contactDamage;
-          cause = def.liquid === 'lava' ? 'lava' : 'burn';
+          cause = def.liquid === 'lava' ? 'lava' : def.key === 'foul_air' ? 'gas' : 'burn';
         }
       }
     }
