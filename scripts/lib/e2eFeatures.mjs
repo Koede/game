@@ -5,7 +5,8 @@ import { hlog } from './diag.mjs';
 import { bagIndex, openTab, sendFromBag, showBag } from './e2eFurnace.mjs';
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-const MEATS = { hen: 'raw_fowl', goat: 'raw_mutton', boar: 'raw_chop' };
+// The farm animals and the biome animals (src/content/biomeMobs.ts) that drop meat.
+const MEATS = { hen: 'raw_fowl', goat: 'raw_mutton', boar: 'raw_chop', stag: 'raw_chop', dune_hare: 'raw_fowl', snow_ox: 'raw_mutton', slag_newt: 'raw_fowl', marsh_heron: 'raw_fowl' };
 const COOKED = { raw_fowl: 'cooked_fowl', raw_mutton: 'cooked_mutton', raw_chop: 'cooked_chop' };
 
 /** Points the view at a living animal's body centre (aiming is set-up, like lookAt for blocks). */
@@ -175,10 +176,12 @@ async function useUntil(d, done, what) {
 async function smeltAndCollect(d, page, input, output) {
   await openTab(d, 'smelt');
   await sendFromBag(d, input, 'Crucible');
-  let f = (await d.state()).furnaces[0];
+  const at = d.places.furnace;
+  const ours = (st) => st.furnaces.find((x) => x.x === at.x && x.y === at.y && x.z === at.z);
+  let f = ours(await d.state());
   if (f.crucibleIn[0]?.item !== input) throw new Error(`the crucible holds ${JSON.stringify(f.crucibleIn[0])}`);
   for (let i = 0; i < 30; i++) {
-    f = (await d.state()).furnaces[0];
+    f = ours(await d.state());
     if (f.crucibleOut[0]?.item === output && !f.crucibleIn[0]) break;
     await d.hw(() => window.__hw.tick(60));
   }
@@ -206,10 +209,10 @@ export async function featureSteps({ d, step, assert, page }) {
       window.__hw.setTime(0.15);
     });
     await d.selectItem('flint_axe');
-    const mobs = await waitFor(page, () => {
-      const list = window.__hw.state().mobs.filter((m) => !m.baby && m.d < 64);
+    const mobs = await waitFor(page, (meats) => {
+      const list = window.__hw.state().mobs.filter((m) => !m.baby && m.d < 64 && meats.includes(m.species));
       return list.length ? list : null;
-    }, 'an animal near spawn', { timeout: 20_000 });
+    }, 'an animal near spawn', { timeout: 20_000, arg: Object.keys(MEATS) });
     const mob = mobs[0];
     ctx.meat = MEATS[mob.species];
     console.log(`       ${mob.species} #${mob.id} ${mob.d} blocks from spawn`);
@@ -293,7 +296,9 @@ export async function featureSteps({ d, step, assert, page }) {
     await d.waitScreen('furnace');
     await sendFromBag(d, 'charcoal', 'Firebox');
     await d.press(page.locator('.hw-window .hw-fbx__btns button', { hasText: 'Light' }));
-    await waitFor(page, () => window.__hw.state().furnaces[0]?.lit, 'the fire to catch', { timeout: 5000, interval: 100 });
+    // A new world's camp has its own tended furnace: the one placed here is found by its cell.
+    d.places.furnace = ctx.furnace;
+    await waitFor(page, (at) => window.__hw.state().furnaces.find((x) => x.x === at.x && x.y === at.y && x.z === at.z)?.lit, 'the fire to catch', { timeout: 5000, interval: 100, arg: ctx.furnace });
     ctx.cooked = COOKED[ctx.meat];
     await smeltAndCollect(d, page, ctx.meat, ctx.cooked);
     await d.shot('22-cooked');
