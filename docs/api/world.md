@@ -48,7 +48,8 @@ Streaming and extras:
 - `update(playerX, playerZ, renderDistance, budgetMs): void` - once per frame. Re-meshes player edits,
   hides chunks that left the view, unloads far ones, starts generate/mesh jobs nearest first; in main-thread
   mode runs jobs for what is left of `budgetMs` (at least one per call when the budget is positive).
-  Render distance is clamped to 1..32 (`MAX_RENDER_DISTANCE`).
+  Render distance is clamped to 1..32 (`MAX_RENDER_DISTANCE`). After a day change it also grows a few queued
+  chunks' trees per frame (docs/api/tree-growth.md; `pendingGrowth()`, `finishGrowth()`).
 - `ensureLoadedAround(x, z, radiusChunks): void` - generates every missing chunk within that Chebyshev
   radius on this thread, now (about 1-2 ms per chunk). Meshes still come from `update()`.
 - `isReadyAround(x, z, radiusChunks): boolean` - every chunk in view within the radius has been meshed.

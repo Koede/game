@@ -34,7 +34,7 @@ trunk plus an even share of the gap to the cap, reached on the rule day. It neve
 ## How it stays consistent
 
 Each loaded chunk keeps a record of the voxels growth wrote (flat `[index, from, to]` triples, dropped when the chunk
-unloads). When the day changes, `World.update` puts those voxels back and grows the chunk again to the new day, so a
+unloads). When the day changes, `World.update` (over a few frames) puts those voxels back and grows the chunk again to the new day, so a
 chunk always equals a fresh load on that day. A day-by-day walk and a single jump to the same day end in the same
 voxels (`treeGrowth.test.ts`). Growth is not an edit: it is not in the edit log, and it is recomputed on every load.
 
@@ -48,4 +48,7 @@ planting days, so the trees they hold are planted on the day they are first seen
 
 - `World` gets the clock day from `setDayProvider` (set by `GameState` after it creates the clock). The default is day 1.
 - A chunk that loads grows to the current day in its `chunk:loaded` handler.
-- A day change regrows every loaded chunk in the next `World.update`, once per day.
+- A day change queues every loaded chunk (nearest the player first) and `World.update` grows a few per frame: at
+  least 2, and up to 8 while under a quarter of the frame budget, so the day change costs no single long frame.
+  Each chunk writes only its own voxels and grows to the current day whenever it runs, so the result equals growing
+  them all at once. `pendingGrowth()` counts the chunks still queued; `finishGrowth()` grows them all now.

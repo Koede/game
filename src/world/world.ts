@@ -62,6 +62,11 @@ export interface WorldStats extends StreamStats {
 }
 
 const BELOW_WORLD: Voxel = makeVoxel(blockId('corestone'));
+/** Day-change tree growth per frame: always this many chunks (so it finishes even with no budget left)... */
+const GROW_MIN_PER_FRAME = 2;
+/** ...and up to this many while under GROW_BUDGET_SHARE of the frame budget. */
+const GROW_MAX_PER_FRAME = 8;
+const GROW_BUDGET_SHARE = 0.25;
 
 export class World implements IWorld {
   readonly pool: WorkerPool;
@@ -90,6 +95,11 @@ export class World implements IWorld {
   private dayOf: () => number = () => 1;
   /** The day the loaded chunks were last grown to. */
   private grownDay = 1;
+  /**
+   * Chunks still to grow to the new day, nearest the player last (popped first). A day change queues every loaded
+   * chunk here and `update` grows a few per frame, so the day change costs no single long frame.
+   */
+  private growQueue: { cx: number; cz: number }[] = [];
 
   constructor(seed: number, readonly bus: GameBus, options: WorldOptions = {}) {
     this.currentSeed = seed >>> 0;
@@ -219,12 +229,50 @@ export class World implements IWorld {
    * jobs nearest first, and in main-thread mode runs jobs for what is left of `budgetMs`.
    */
   update(playerX: number, playerZ: number, renderDistance: number, budgetMs: number): void {
+    const start = performance.now();
     const day = this.dayOf();
     if (day !== this.grownDay) {
       this.grownDay = day;
-      for (const chunk of this.chunks.values()) this.growChunkAt(chunk.cx, chunk.cz);
+      this.queueGrowth(playerX, playerZ);
     }
-    this.streamer.update(playerX, playerZ, renderDistance, budgetMs);
+    this.pumpGrowth(start, budgetMs);
+    this.streamer.update(playerX, playerZ, renderDistance, budgetMs - (performance.now() - start));
+  }
+
+  /** Chunks still waiting to grow to the current day (0 once a day change has been worked through). */
+  pendingGrowth(): number {
+    return this.growQueue.length;
+  }
+
+  /** Grows every queued chunk now (a loading screen, a test): the same voxels the per-frame pump arrives at. */
+  finishGrowth(): void {
+    while (this.growQueue.length > 0) {
+      const next = this.growQueue.pop()!;
+      this.growChunkAt(next.cx, next.cz);
+    }
+  }
+
+  /**
+   * Queues every loaded chunk to grow to the new day, nearest the player first. Growing a chunk grows it to the
+   * current day whenever it runs, and a chunk loaded meanwhile grows on load, so a later day change simply
+   * replaces the queue. Each chunk writes only its own voxels, so the order does not change the result.
+   */
+  private queueGrowth(playerX: number, playerZ: number): void {
+    const px = chunkCoord(Math.floor(playerX));
+    const pz = chunkCoord(Math.floor(playerZ));
+    const dist = (c: { cx: number; cz: number }): number => (c.cx - px) ** 2 + (c.cz - pz) ** 2;
+    this.growQueue = [...this.chunks.values()].map((c) => ({ cx: c.cx, cz: c.cz })).sort((a, b) => dist(b) - dist(a));
+  }
+
+  /** Grows queued chunks: at least GROW_MIN_PER_FRAME, then more while under a share of the frame budget. */
+  private pumpGrowth(start: number, budgetMs: number): void {
+    let done = 0;
+    while (this.growQueue.length > 0 && done < GROW_MAX_PER_FRAME) {
+      if (done >= GROW_MIN_PER_FRAME && performance.now() - start >= budgetMs * GROW_BUDGET_SHARE) break;
+      const next = this.growQueue.pop()!;
+      this.growChunkAt(next.cx, next.cz);
+      done++;
+    }
   }
 
   /** Generates, on this thread and right now, every missing chunk within `radiusChunks` of (x, z). */
@@ -365,6 +413,7 @@ export class World implements IWorld {
     // Older saves have no tree ages: their trees count as planted on the day they are first seen (age 0).
     this.trees.clear();
     this.growthRecords.clear();
+    this.growQueue = [];
     this.loadExtra('treeAges', (raw) => this.trees.load(raw));
     this.streamer = new ChunkStreamer(this.host);
     this.grownDay = this.dayOf();

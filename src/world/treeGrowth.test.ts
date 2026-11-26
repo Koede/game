@@ -185,6 +185,7 @@ describe('tree growth in the world', () => {
 
     day = 9;
     world.update(spawn.x, spawn.z, 0, 0);
+    world.finishGrowth();
     const after = world.chunkVoxels(cx, cz)!;
     let changed = 0;
     for (let i = 0; i < before.length; i++) if (after[i] !== before[i]) changed++;
@@ -220,6 +221,45 @@ describe('tree growth in the world', () => {
     const felledColumn = column();
     day = 9;
     world.update(spawn.x, spawn.z, 0, 0);
+    world.finishGrowth();
     expect(column()).toEqual(felledColumn);
+  });
+
+  it('a day change grows a few chunks per frame, and once the queue drains the voxels equal growing them all at once', () => {
+    const spawn = findSpawn(SEED);
+    const make = (): { world: World; setDay: (d: number) => void } => {
+      let day = 1;
+      const world = new World(SEED, createBus());
+      world.setDayProvider(() => day);
+      world.ensureLoadedAround(spawn.x, spawn.z, 2);
+      return { world, setDay: (d) => (day = d) };
+    };
+    const paced = make();
+    const atOnce = make();
+    paced.setDay(9);
+    atOnce.setDay(9);
+
+    paced.world.update(spawn.x, spawn.z, 0, 0);
+    const loaded = 25;
+    expect(paced.world.pendingGrowth()).toBeGreaterThan(0);
+    expect(paced.world.pendingGrowth()).toBeLessThan(loaded);
+    let frames = 1;
+    while (paced.world.pendingGrowth() > 0 && frames < 100) {
+      paced.world.update(spawn.x, spawn.z, 0, 0);
+      frames++;
+    }
+    expect(paced.world.pendingGrowth()).toBe(0);
+    expect(frames).toBeGreaterThan(1);
+
+    atOnce.world.update(spawn.x, spawn.z, 0, 0);
+    atOnce.world.finishGrowth();
+    const sx = chunkCoord(spawn.x);
+    const sz = chunkCoord(spawn.z);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        expect(paced.world.chunkVoxels(sx + dx, sz + dz)).toEqual(atOnce.world.chunkVoxels(sx + dx, sz + dz));
+      }
+    }
+    expect(JSON.stringify(paced.world.toJSON())).toBe(JSON.stringify(atOnce.world.toJSON()));
   });
 });
