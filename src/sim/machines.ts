@@ -6,6 +6,7 @@
 import { headBoost } from './hydro';
 import { BROWNOUT_STALL } from '../core/constants';
 import { MachineStatus } from '../core/machineStatus';
+import { fuelGrade } from '../core/distill';
 import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
 import { rollDrops } from '../game/mining';
@@ -151,15 +152,21 @@ export function windAt(timeS: number, min: number, max: number): number {
 /** Electric joules one fuel item is worth in this generator. */
 export function fuelEnergyJ(spec: MachineSpec, itemKey: string): number {
   if (!spec.fuels || !spec.fuels.includes(itemKey)) return 0;
-  const heat = spec.params?.fuelEnergyJ ?? spec.params?.rodEnergyJ ?? fuelOf(itemKey)?.energyJ ?? 0;
+  // A canister-fed engine (params.fuelEnergyJ is the heat of one Fuel Canister) scales it by the fuel's engine grade.
+  const heat = spec.params?.fuelEnergyJ !== undefined
+    ? spec.params.fuelEnergyJ * (fuelGrade(itemKey)?.engine ?? 1)
+    : spec.params?.rodEnergyJ ?? fuelOf(itemKey)?.energyJ ?? 0;
   return heat * (spec.efficiency ?? 1);
 }
+
+/** The container a burned fuel item leaves behind (the empty canister, the lava bucket's bronze bucket), or null. */
+export const fuelContainerOf = (itemKey: string): string | null => fuelGrade(itemKey)?.empty ?? fuelOf(itemKey)?.fuelReturns ?? null;
 
 /** Electric joules one litre of piped refined fuel is worth in this generator (0: it burns none). */
 export function fluidFuelJPerL(spec: MachineSpec): number {
   const perCanister = spec.params?.fuelLPerCanister;
   if (!perCanister || !spec.fluids?.accepts?.includes('fuel')) return 0;
-  return fuelEnergyJ(spec, spec.fuels?.[0] ?? '') / perCanister;
+  return fuelEnergyJ(spec, 'fuel_canister') / perCanister;
 }
 
 export const holdsFuel = (node: SimNode): boolean => {
@@ -180,8 +187,10 @@ export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
       const s = e.slots[0];
       const worth = s ? fuelEnergyJ(node.spec, s.item) : 0;
       if (s && worth > 0) {
+        const back = fuelContainerOf(s.item);
         s.count--;
         if (s.count <= 0) e.slots[0] = null;
+        if (back) ctx.giveBack(back);
         e.fuelJ = worth;
         ctx.touch(e);
       } else {

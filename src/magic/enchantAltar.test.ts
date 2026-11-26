@@ -211,3 +211,30 @@ describe('enchanting at the altar', () => {
     expect(u.magic.infusionAt(0, 1, 0)).toBeNull();
   });
 });
+
+describe('altar and pedestal item rules', () => {
+  it('refuse items with no infusion use, with a toast, and keep the item', () => {
+    const t = setup();
+    t.put(0, 1, 0, 'infusion_altar');
+    t.put(3, 1, 0, 'arcane_pedestal');
+    const toasts: string[] = [];
+    t.bus.on('toast', (e) => toasts.push(e.text));
+    t.hold('dirt', 3);
+    expect(t.magic.use(t.at(0, 1, 0))).toBe('refused');
+    expect(t.magic.use(t.at(3, 1, 0))).toBe('refused');
+    expect(t.carried('dirt')?.count).toBe(3);
+    expect(toasts.length).toBe(2);
+  });
+
+  it('take every infusion centre, enchantable gear, and every pedestal item an infusion names', async () => {
+    const { INFUSIONS } = await import('../content/recipesMagic');
+    const { Magic: M } = await import('./magic');
+    for (const r of INFUSIONS) {
+      expect(M.isHeartItem(r.center), r.id).toBe(true);
+      for (const a of r.around) expect(M.isPedestalItem(a), `${r.id} ${a}`).toBe(true);
+    }
+    expect(M.isHeartItem('iron_pickaxe')).toBe(true);
+    expect(M.isHeartItem('dirt')).toBe(false);
+    expect(M.isPedestalItem('dirt')).toBe(false);
+  });
+});

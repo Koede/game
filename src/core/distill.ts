@@ -152,28 +152,34 @@ export const isEmptyChemContainer = (key: string): boolean => Object.values(CHEM
 /**
  * Engine fuels (plan 8.1): what one container is worth to each consumer, as a multiple of the old Fuel Canister.
  * 0 = that engine refuses it. `empty` is handed back after refuelling (the old Fuel Canister is used up whole).
+ * `engine` is the same for the combustion engine's fuel slot (the electric output scales with it).
  */
 export interface FuelGrade {
   saw: number;
   tractor: number;
+  engine: number;
   empty: string | null;
 }
 export const FUEL_GRADES: Readonly<Record<string, FuelGrade>> = {
-  fuel_canister: { saw: 1, tractor: 1, empty: null },
-  gasoline_canister: { saw: 1.3, tractor: 1.2, empty: EMPTY_CANISTER },
-  diesel_canister: { saw: 0, tractor: 1.5, empty: EMPTY_CANISTER },
-  // Kerosene: a tractor burns it, one canister per canister; a two-stroke saw would choke on it.
-  kerosene_canister: { saw: 0, tractor: 1, empty: EMPTY_CANISTER },
-  fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, empty: EMPTY_BEAKER },
+  fuel_canister: { saw: 1, tractor: 1, engine: 1, empty: null },
+  gasoline_canister: { saw: 1.3, tractor: 1.2, engine: 1.2, empty: EMPTY_CANISTER },
+  kerosene_canister: { saw: 0, tractor: 1, engine: 1, empty: EMPTY_CANISTER },
+  diesel_canister: { saw: 0, tractor: 1.5, engine: 1.5, empty: EMPTY_CANISTER },
+  fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, engine: 0.2, empty: EMPTY_BEAKER },
 };
 export const fuelGrade = (item: string): FuelGrade | null => FUEL_GRADES[item] ?? null;
 
 // ---- modules added after the first slice (docs/DISTILLERY_PLAN.md 2, 8, 15) --------------------------------
 
-/** Ground burner, used only when no hot furnace sits under the still base. */
-export const BURNER_C = { charcoal: 250, fuel_ethanol_beaker: 300 } as const;
-export const burnerTemp = (item: string): number | null =>
-  item === 'charcoal' ? BURNER_C.charcoal : item === 'fuel_ethanol_beaker' ? BURNER_C.fuel_ethanol_beaker : null;
+/**
+ * Ground burner, used only when no hot furnace sits under the still base. It holds the glassware to a gentle heat:
+ * wood and peat 200 C, charcoal 250 C, fuel ethanol and coal 300 C, coke 350 C. Hotter fuels (the lava bucket, an ember
+ * core) and the engine canisters are too fierce for glass and are refused.
+ */
+export const BURNER_C: Readonly<Record<string, number>> = {
+  stick: 200, plank: 200, oak_log: 200, pine_log: 200, peat: 200, charcoal: 250, coal: 300, fuel_ethanol_beaker: 300, coke: 350,
+};
+export const burnerTemp = (item: string): number | null => BURNER_C[item] ?? null;
 
 /** Wrench cycles a reflux head through these returns. Plates are multiplied by (1 + 2 r). */
 export const REFLUX_RATIOS = [0, 0.5, 0.75] as const;

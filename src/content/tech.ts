@@ -5,6 +5,7 @@
 import { BATTERY_EFFICIENCY, CRATE_SIZE, IGNITION_POWER_W, IGNITION_SECONDS, STARHEARTH_OUTPUT_W } from '../core/constants';
 import type { AgeSpec, FurnaceTierSpec, HearthStructureSpec, MachineSpec } from '../core/types';
 import { amounts } from './amounts';
+import { FUEL_GRADES } from '../core/distill';
 import { areaMachines } from './area';
 import { ITEM_SPECS } from './items';
 import { HAND_MACHINES } from './blocksHand';
@@ -75,10 +76,12 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
 ];
 
 /**
- * What a burner generator accepts: every FuelSpec item except those that hand a container back (the lava bucket),
- * since its single fuel slot has nowhere to put the empty bucket. The furnace firebox takes every fuel.
+ * What a burner generator accepts: every FuelSpec item, as the furnace firebox does. A fuel that hands a container back
+ * (the lava bucket) gives it to the player (SimContext.giveBack) when it burns.
  */
-const BURNER_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel && it.fuel.fuelReturns === undefined).map((it) => it.key);
+const BURNER_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel).map((it) => it.key);
+/** What the combustion engine's slot takes: every container of refined fuel with an engine grade (src/core/distill.ts FUEL_GRADES). */
+const ENGINE_FUELS: string[] = Object.entries(FUEL_GRADES).filter(([, g]) => g.engine > 0).map(([k]) => k);
 
 export const MACHINE_SPECS: MachineSpec[] = [
   // furnace - one spec for all six tier blocks. Per-tier numbers are in FURNACE_TIERS and the fire model's
@@ -184,7 +187,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
   //   fuelLPerCanister  litres of refined fuel worth one canister's energy
   {
     kind: 'combustion_engine', name: 'Combustion Engine', role: 'generator', blocks: ['combustion_engine'], outputW: 12000,
-    fuels: ['fuel_canister'], efficiency: 0.4, slots: 1,
+    fuels: ENGINE_FUELS, efficiency: 0.4, slots: 1,
     params: { fuelEnergyJ: 6_000_000, fuelLPerCanister: 1000 },
     fluids: { accepts: ['fuel'], capacityL: 4000 },
     desc: 'Makes up to 12 kW. Each fuel canister gives 2.4 MJ of electricity, burned only as fast as the network draws.',
