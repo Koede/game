@@ -50,3 +50,9 @@ export function watchLegendaries(bus: GameBus, slots: () => readonly Slot[], jou
   check();
   return bus.on('inventory:changed', check);
 }
+
+/** "3 of 8 found". */
+export const legendarySummary = (pages: readonly LegendaryPage[]): string => `${pages.filter((p) => p.found).length} of ${pages.length} found`;
+
+/** Bars (1..3) a hum of `level` (0..1) shows on the HUD; 0 for no hum. */
+export const humBars = (level: number): number => (level > 0 ? Math.min(3, 1 + Math.floor(level * 3)) : 0);

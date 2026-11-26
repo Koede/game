@@ -85,7 +85,12 @@ world.setEntity(crate);
   its durability and fixed enchants (`NAMED_FINDS` is derived from `LEGENDARIES`).
 - The tavern vault keeps its own table; Orrin's Spare Pick is unchanged.
 
+## Legends screen and hum chip
+
+The Hearth Log has a Legends section (`src/ui/screens/log/legendsView.ts`): found weapons in full, unfound ones as "???" with a rumour, and an "N of 8 found" line. The pick's hum shows as 1 to 3 bars beside the clock (`src/ui/hud/humChip.ts`), driven by the `legendary:hum` event.
+
+Note: `src/ui/styles.css` has an old unclosed `.hw-bag__empty {` that makes everything after it get ignored. The Legends and hum CSS sits above it on purpose. Closing that brace would change other UI, so it is left for its own fix.
+
 ## Not built yet
 
-The boss hook above (waits for PR #27 to meet this branch), a notebook silhouette screen (the data and notes exist), a true ribbon mesh for the trail (it is sparks), and a HUD for
-Orrin's pick hum (sound only). Tidebrand's easier movement underwater is only the breath.
+The boss hook above (waits for PR #27 to meet this branch) and a true ribbon mesh for the trail (it is sparks). Tidebrand's easier movement underwater is only the breath.

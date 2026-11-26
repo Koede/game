@@ -287,6 +287,8 @@ export interface GameEvents {
   'mob:spawned': { id: number; species: string };
   /** A legendary weapon's verb fired (src/game/legendary.ts): the renderer shows a small burst of sparks, capped per event. */
   'legendary:proc': { effect: LegendaryEffect; x: number; y: number; z: number };
+  /** Orrin's Spare Pick hums: `level` 0..1, louder the nearer the ore (sent about twice a second while ore is within reach). */
+  'legendary:hum': { level: number };
   /** A legendary weapon was swung: a thin trail of `count` sparks along the swing from the eye (0 = none: reduced motion). */
   'legendary:swing': { effect: LegendaryEffect; x: number; y: number; z: number; yaw: number; pitch: number; count: number };
   /** An animal was hit; `health` is what it has left. */

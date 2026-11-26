@@ -441,6 +441,7 @@ export class PlayerController {
     const item = p.heldStack()?.item ?? null;
     if (legendaryEffectOf(item) !== 'veinseek') return;
     const level = oreHum(this.world, item, p.position.x, p.position.y + 1, p.position.z);
+    if (level > 0) this.bus.emit('legendary:hum', { level });
     if (level > 0) this.bus.emit('sfx', { name: 'infuse', x: p.position.x, y: p.position.y + 1, z: p.position.z, volume: 0.15 + level * 0.35, pitch: 0.7 + level * 0.5 });
   }
 

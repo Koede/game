@@ -22,6 +22,7 @@ import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
 import { BuildChip } from './buildChip';
+import { HumChip } from './humChip';
 import { NudgeBar } from './nudge';
 import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
@@ -74,6 +75,7 @@ export class Hud {
   private readonly compass = new Compass();
   private readonly quick: QuickCraft;
   private readonly build: BuildChip;
+  private readonly hum: HumChip;
   private readonly nudge: NudgeBar;
   private readonly dial = new DayDial();
   private readonly power = new PowerStrip();
@@ -125,6 +127,7 @@ export class Hud {
     this.hotbar = new Hotbar(deps.player, bus);
     this.quick = new QuickCraft(deps.player, bus);
     this.build = new BuildChip(deps.world, deps.player, bus);
+    this.hum = new HumChip(bus);
     this.nudge = new NudgeBar(deps.world, deps.player, deps.objectives);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
@@ -135,7 +138,7 @@ export class Hud {
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
       h('div', { class: 'hw-hud__mid' }, this.goal.el, this.nudge.el),
-      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el),
+      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el, this.hum.el),
     );
     this.devBtn = this.devButton(bus);
     this.devBtn.hidden = !deps.player.dev;
@@ -347,6 +350,7 @@ export class Hud {
     this.observer?.disconnect();
     if (typeof window !== 'undefined') window.removeEventListener('keydown', this.onKey);
     this.build.dispose();
+    this.hum.dispose();
     this.hotbar.dispose();
     this.dialogue.dispose();
     this.feed.el.remove();
