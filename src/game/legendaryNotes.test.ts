@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LEGENDARIES } from '../content/legendary';
 import { createBus } from '../core/context';
 import { Journal } from './journal';
-import { legendaryNoteKey, legendaryPages, noteLegendaries, watchLegendaries } from './legendaryNotes';
+import { humBars, legendaryNoteKey, legendaryPages, legendarySummary, noteLegendaries, watchLegendaries } from './legendaryNotes';
 
 describe('the legendary notebook pages', () => {
   it('shows a found weapon in full and an unfound one as a silhouette with its rumour', () => {
@@ -40,5 +40,21 @@ describe('the legendary notebook pages', () => {
     bus.emit('inventory:changed', {});
     expect(toasts).toHaveLength(1);
     stop();
+  });
+});
+
+describe('the Legends screen and the hum chip (pure parts)', () => {
+  it('counts what is found', () => {
+    expect(legendarySummary(legendaryPages(() => false))).toBe('0 of 8 found');
+    expect(legendarySummary(legendaryPages((i) => i === 'emberfang' || i === 'tidebrand'))).toBe('2 of 8 found');
+  });
+
+  it('shows one to three hum bars, more when nearer, none for silence', () => {
+    expect(humBars(0)).toBe(0);
+    expect(humBars(-1)).toBe(0);
+    expect(humBars(0.1)).toBe(1);
+    expect(humBars(0.5)).toBe(2);
+    expect(humBars(0.99)).toBe(3);
+    expect(humBars(1)).toBe(3);
   });
 });

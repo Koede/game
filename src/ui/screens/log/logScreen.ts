@@ -6,6 +6,7 @@ import { HearthLogView } from './hearthLog';
 import { AchievementsView } from './achievementsView';
 import { DailyGoalsView } from './dailyGoalsView';
 import { JournalView } from './journalView';
+import { LegendsView } from './legendsView';
 
 /** "Day 12", with the worn keepsake after it. */
 function dayLine(ctx: ScreenContext): string {
@@ -20,6 +21,8 @@ export function createLogScreen(_request: { type: 'log' }, ctx: ScreenContext): 
   if (dg) view.el.append(dg.el);
   const journal = ctx.journal ? new JournalView(ctx.journal, ctx.world, () => ctx.player.position) : null;
   if (journal) view.el.append(journal.el);
+  const legends = ctx.journal ? new LegendsView(ctx.journal) : null;
+  if (legends) view.el.append(legends.el);
   const medals = ctx.achievements ? new AchievementsView(ctx.achievements) : null;
   if (medals) view.el.append(medals.el);
   const window = new Window({ title: 'Hearth Log', subtitle: dayLine(ctx), size: 'md', fit: 'tall', body: view.el });
@@ -29,6 +32,7 @@ export function createLogScreen(_request: { type: 'log' }, ctx: ScreenContext): 
       view.refresh();
       dg?.refresh();
       journal?.refresh();
+      legends?.refresh();
       medals?.refresh();
       window.setSubtitle(dayLine(ctx));
     },

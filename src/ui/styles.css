@@ -2992,6 +2992,26 @@ body {
 .hw-root[data-color-mode='blue-yellow'] .hw-vital[data-kind='health'] {
   --hw-vital-color: #e8344f;
 }
+/* Legends (the Hearth Log) and the Spare Pick's ore hum chip (docs/api/legendary.md). */
+.hw-legends { margin-top: 14px; display: grid; gap: 8px; }
+.hw-legends__title { margin: 0; font-size: 1rem; }
+.hw-legends__summary { margin: 0; opacity: 0.8; font-size: 0.85rem; }
+.hw-legends__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hw-legends__item { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; }
+.hw-legends__mark { flex: none; color: #ecc758; font-size: 1.1rem; line-height: 1.2; }
+.hw-legends__item.is-silhouette { opacity: 0.6; }
+.hw-legends__item.is-silhouette .hw-legends__mark { color: inherit; }
+.hw-legends__item.is-silhouette .hw-legends__name { letter-spacing: 0.2em; }
+.hw-legends__name { color: #ecc758; }
+.hw-legends__item.is-silhouette .hw-legends__name { color: inherit; }
+.hw-legends__line { margin: 2px 0 0; }
+.hw-hum { display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 0.8rem; }
+.hw-hum[hidden] { display: none; }
+.hw-hum__bar { width: 5px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); }
+.hw-hum__bar:nth-child(2) { height: 16px; }
+.hw-hum__bar:nth-child(3) { height: 20px; }
+.hw-hum__bar.is-on { background: #c7a24a; }
+
 .hw-bag__empty {
   margin: 8px 0 0;
   font-size: var(--hw-fs-sm);
@@ -3147,3 +3167,6 @@ body {
 .hw-photo__card { margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .hw-photo__card-img { width: 100%; height: auto; max-height: 52vh; object-fit: contain; border-radius: 4px; background: #14100c; }
 .hw-photo__empty { opacity: 0.8; text-align: center; }
+.hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
+.hw-caravan__row span { flex: 1; min-width: 0; }
+
