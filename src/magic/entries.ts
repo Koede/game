@@ -30,8 +30,15 @@ export interface ResearchEntry {
    * An enchant note (docs/plans/enchantments.md): no board and never opened by a scan. The Infusion Altar writes it the
    * first time it teaches `enchant` (src/magic/research.ts `learnEnchant`); until then its text says nothing of the aspect.
    */
-  learn?: { enchant: string };
+  learn?: { enchant?: string; practice?: Practice };
 }
+
+/**
+ * Research by doing: an insight note with no board. It is written when the player has used something `need` times
+ * (`notePractice` in research.ts counts each use under `key`), and only once its `requires` are done, so the order of the
+ * tree still holds. `unlocks` works as for any entry. The counter keeps running in old saves from the day this shipped.
+ */
+export interface Practice { key: string; need: number; /** What the counter counts, in the notebook: "draws with a rod". */ what: string }
 
 /**
  * A board drawn for a radius: research complexity grows with the age (Ember 2, Bronze 3, Forge 4), so the same layout is
@@ -76,6 +83,30 @@ const ATTUNE_RECIPES: Record<'bronze' | 'iron', string[]> = { bronze: [], iron: 
 for (const metal of ['bronze', 'iron'] as const) {
   for (const kind of ['pickaxe', 'axe', 'shovel']) for (const aspect of ['rune', 'gale']) ATTUNE_RECIPES[metal].push(`${aspect}_${metal}_${kind}`);
 }
+
+/** Insight notes (research by doing): earned by using a thing, not by scanning or solving a board. Each wants its tree entry first. */
+const PRACTICE_NOTES: Omit<ResearchEntry, 'board' | 'cost'>[] = [
+  {
+    key: 'steady_hand', title: 'A Steady Hand', age: 'ember', requires: ['gathering_rod'], unlocks: { flags: ['steady_rod'] },
+    text: 'A rod is learned by drawing with it. After enough draws your hand stops fighting it, and the rod drinks a fifth faster.',
+    learn: { practice: { key: 'rod_draw', need: 400, what: 'draws with a rod' } },
+  },
+  {
+    key: 'crucible_sense', title: 'A Feel for the Pot', age: 'ember', requires: ['crucible'], unlocks: { flags: ['crucible_sense'] },
+    text: 'Melt enough things down and you learn which of them keep their nature: a crucible you work spills a little less as flux.',
+    learn: { practice: { key: 'crucible_melt', need: 12, what: 'things melted in a crucible' } },
+  },
+  {
+    key: 'patient_altar', title: 'A Patient Altar', age: 'bronze', requires: ['infusion'], unlocks: { flags: ['patient_altar'] },
+    text: 'Having watched a few infusions through, you know when to feed the altar: its work takes a sixth less time.',
+    learn: { practice: { key: 'infuse', need: 3, what: 'infusions finished' } },
+  },
+  {
+    key: 'thrifty_caster', title: 'A Thrifty Caster', age: 'bronze', requires: ['focus_kindle'], unlocks: { flags: ['thrifty_caster'] },
+    text: 'Every cast teaches you what to leave out. Each focus costs a tenth less vis (never below one).',
+    learn: { practice: { key: 'cast', need: 20, what: 'casts of a focus' } },
+  },
+];
 
 const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft | null })[] = [
   // ---- Ember -------------------------------------------------------------------------------------------------------
@@ -239,7 +270,7 @@ export const RESEARCH: readonly ResearchEntry[] = [...DRAFTS.map((d) => {
   const cost: Aspects = {};
   for (const a of board?.anchors ?? []) cost[a.aspect] = 1;
   return { ...d, board, cost };
-}), ...ENCHANT_NOTES.map((n) => ({ ...n, board: null, cost: {} as Aspects }))];
+}), ...[...PRACTICE_NOTES, ...ENCHANT_NOTES].map((n) => ({ ...n, board: null, cost: {} as Aspects }))];
 
 const BY_KEY = new Map(RESEARCH.map((e) => [e.key, e]));
 export const researchEntry = (key: string): ResearchEntry | null => BY_KEY.get(key) ?? null;

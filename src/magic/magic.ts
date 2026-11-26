@@ -30,7 +30,7 @@ import type { PlayerState } from '../game/playerState';
 import { ASPECT_LIST, LATE, PRIMALS, aspectInfo, aspectsText, isAspect, type Aspect, type Aspects } from './aspects';
 import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
-import { RESEARCH } from './entries';
+import { RESEARCH, type ResearchEntry } from './entries';
 import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { FlowLog } from './essentiaFlow';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
@@ -45,7 +45,7 @@ import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
 import { compass, NODE_HEIGHT, NODE_POOL, NODE_REACH, NODE_REGEN_S, nodesNear, type NodeSite } from './nodes';
 import {
-  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, learnEnchant, placeToken, removeToken,
+  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, learnEnchant, notePractice, placeToken, removeToken, settlePractice,
   sanitizeResearch, scanObject,
   type EntryStatus, type PlaceResult, type ResearchState,
 } from './research';
@@ -153,7 +153,7 @@ export interface NotebookApi {
   research(): ResearchState;
   entries(): {
     key: string; title: string; text: string; status: EntryStatus; board: BoardSpec | null; age: string;
-    requires: readonly string[]; cost: Aspects; short: Aspect[]; learn?: { enchant: string };
+    requires: readonly string[]; cost: Aspects; short: Aspect[]; learn?: ResearchEntry['learn'];
   }[];
   /** Starts an entry's research notes (pays its cost in lore). */
   begin(entry: string): PlaceResult;
@@ -421,6 +421,18 @@ export class Magic {
   private heldRod(): RodTier | null {
     const held = this.player.heldStack()?.item;
     return ROD_TIERS.find((r) => r.key === held) ?? null;
+  }
+
+  /** Research by doing: one more use of `key`; an insight note that this completes is announced (src/magic/research.ts). */
+  private practice(key: string): void {
+    this.announceInsight(notePractice(this.research, key));
+  }
+
+  private announceInsight(notes: readonly ResearchEntry[]): void {
+    for (const e of notes) {
+      this.toast(`Insight: ${e.title}`, undefined, 'good');
+      this.bus.emit('sfx', { name: 'research_solve' });
+    }
   }
 
   /** Why the player cannot craft this recipe yet, or null. */
@@ -925,7 +937,7 @@ export class Magic {
   }
 
   private gather(rod: RodTier): MagicOutcome {
-    if (this.clock - this.lastDraw < ROD_INTERVAL_S && this.lastDraw >= 0) return 'worked';
+    if (this.clock - this.lastDraw < ROD_INTERVAL_S * (hasFlag(this.research, 'steady_rod') ? 0.8 : 1) && this.lastDraw >= 0) return 'worked';
     const p = this.player;
     const roomFor = (a: Aspect): boolean => this.partsOf(a).some((x) => this.vis[x] < rod.capacity);
     const node = this.nearNode();
@@ -956,6 +968,7 @@ export class Magic {
     if (units <= 0) return 'refused';
     for (const x of this.partsOf(aspect)) this.vis[x] = Math.min(rod.capacity, this.vis[x] + (rod.favour?.includes(x) ? Math.ceil(units * 1.5) : units));
     this.bus.emit('sfx', { name: 'rod_hum', pitch: 0.8 + Math.min(1, this.visTotal() / (rod.capacity * 6)) });
+    this.practice('rod_draw');
     return 'worked';
   }
 
@@ -1277,8 +1290,10 @@ export class Magic {
       return 'refused';
     }
     this.player.consumeHeld(1);
-    const spilled = dissolve(c, scaleByAura(fp, this.crucibleAura(t.x, t.z)));
+    const raw = dissolve(c, scaleByAura(fp, this.crucibleAura(t.x, t.z)));
+    const spilled = hasFlag(this.research, 'crucible_sense') ? Math.floor(raw * 0.7) : raw;
     this.crucibles.set(k, c);
+    this.practice('crucible_melt');
     this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
     if (spilled > 0) {
       this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
@@ -1432,7 +1447,7 @@ export class Magic {
       this.advise('The infusion broke off: an item was taken away');
       return;
     }
-    f.t += dt;
+    f.t += hasFlag(this.research, 'patient_altar') ? dt * 1.2 : dt;
     f.step += dt;
     const inst = this.infusionInstability(f);
     if (inst > 0 && this.rng() < inst * MISHAP_PER_S * dt) this.mishap(f);
@@ -1461,6 +1476,7 @@ export class Magic {
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
+    this.practice('infuse');
     this.addWarp(golemBody(r.id) || r.id === 'void_jar' ? 2 : 1);
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.bus.emit('item:made', { item: r.output.item, count: 1, station: 'infusion_altar', recipeId: r.id });
@@ -1527,6 +1543,7 @@ export class Magic {
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
+    this.practice('infuse');
     this.addWarp(1);
     const item = this.altars.get(k) ?? '';
     const name = enchantDef(e.key)?.name ?? e.key;
@@ -1671,11 +1688,13 @@ export class Magic {
   /** A cap's favoured primals cost a quarter less (at least 1) in foci; Thrift levels of the focus lower every primal. */
   focusCost(cost: Partial<Vis>, rod: RodTier | null, focus?: string): Partial<Vis> {
     const thrift = focus ? this.levelsOf(focus).cost : 0;
-    if (!rod?.favour && !thrift) return cost;
+    const keen = hasFlag(this.research, 'thrifty_caster');
+    if (!rod?.favour && !thrift && !keen) return cost;
     const out: Partial<Vis> = {};
     for (const [p, n] of Object.entries(cost) as [Primal, number][]) {
       let c = rod?.favour?.includes(p) ? Math.max(1, Math.floor(n * 0.75)) : n;
       if (thrift) c = thriftCost(c, thrift);
+      if (keen) c = Math.max(1, Math.floor(c * 0.9));
       out[p] = c;
     }
     return out;
@@ -1786,6 +1805,7 @@ export class Magic {
     for (const [p, n] of Object.entries(cost) as [Primal, number][]) this.vis[p] -= n;
     this.cooldowns.set(focus, cooldownS);
     this.stats.casts++;
+    this.practice('cast');
     this.bus.emit('sfx', { name: 'cast' });
     return 'worked';
   }
@@ -2290,6 +2310,7 @@ export class Magic {
         if (r.solved) {
           const e = RESEARCH.find((x) => x.key === entry);
           if (e?.age === 'forge') this.addWarp(1);
+          this.announceInsight(settlePractice(this.research));
           this.toast(`Research done: ${e?.title ?? entry}`, undefined, 'good');
           this.bus.emit('sfx', { name: 'research_solve' });
         }

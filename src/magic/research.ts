@@ -12,6 +12,8 @@ import { RESEARCH, researchEntry, type ResearchEntry } from './entries';
 /** Lore gained per aspect from one first scan, at most. */
 export const SCAN_LORE_CAP = 4;
 /** Aspects every player knows from the start (what a stick and a stone teach). */
+/** No count goes past this. */
+const PRACTICE_CAP = 99999;
 export const STARTING_ASPECTS: readonly Aspect[] = ['loam', 'spring', 'craft'];
 
 /** begun: the notes exist (their cost is paid); done: the board was solved and the research learned. */
@@ -28,6 +30,8 @@ export interface ResearchState {
    * here or on a finished entry. Omitted when empty; not a research entry of its own.
    */
   flags?: string[];
+  /** Research by doing: how many times each practice (see `Practice` in entries.ts) has been done. Omitted when empty. */
+  practice?: Record<string, number>;
 }
 
 export const freshResearch = (): ResearchState => ({ v: 2, scanned: [], known: [...STARTING_ASPECTS], lore: {}, entries: {} });
@@ -102,6 +106,33 @@ export function learnEnchant(s: ResearchState, enchant: string): boolean {
   entryState(s, key).done = true;
   return true;
 }
+
+/**
+ * Research by doing: one more use of `key` (a rod draw, a cast...). Every insight note that counts it and is open writes
+ * itself once its count is reached; returns those notes so the caller can tell the player. A note whose earlier research
+ * is not done yet waits: `settlePractice` writes it when that research finishes.
+ */
+export function notePractice(s: ResearchState, key: string, n = 1): ResearchEntry[] {
+  const p = (s.practice ??= {});
+  p[key] = Math.min(PRACTICE_CAP, (p[key] ?? 0) + n);
+  return settlePractice(s);
+}
+
+/** Writes every open insight note whose count is reached. */
+export function settlePractice(s: ResearchState): ResearchEntry[] {
+  const out: ResearchEntry[] = [];
+  for (const e of RESEARCH) {
+    const pr = e.learn?.practice;
+    if (!pr || isDone(s, e.key) || !isOpen(s, e) || (s.practice?.[pr.key] ?? 0) < pr.need) continue;
+    entryState(s, e.key).done = true;
+    out.push(e);
+  }
+  return out;
+}
+
+/** How far an insight note has come: the count so far and what it needs. */
+export const practiceProgress = (s: ResearchState, e: ResearchEntry): { n: number; need: number } | null =>
+  e.learn?.practice ? { n: Math.min(e.learn.practice.need, s.practice?.[e.learn.practice.key] ?? 0), need: e.learn.practice.need } : null;
 
 /** The compound two aspects make, or null. */
 export function compoundOf(a: Aspect, b: Aspect): Aspect | null {
@@ -190,6 +221,9 @@ export function sanitizeResearch(raw: unknown): ResearchState {
       s.entries[k] = { done, tokens: v1 && !done ? {} : tokens };
       if (!v1 && ev.begun === true && !done) s.entries[k].begun = true;
     }
+  if (r.practice && typeof r.practice === 'object')
+    for (const [k, n] of Object.entries(r.practice as Record<string, unknown>))
+      if (typeof n === 'number' && n > 0 && k.length <= 40) (s.practice ??= {})[k] = Math.min(PRACTICE_CAP, Math.floor(n));
   if (Array.isArray(r.flags)) {
     const flags = r.flags.filter((f): f is string => typeof f === 'string').slice(0, 32);
     if (flags.length) s.flags = [...new Set(flags)];
