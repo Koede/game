@@ -23,6 +23,7 @@ const BADGES: Readonly<Record<string, readonly string[]>> = {
   starved: ['#######', '#.RRR.#', '#R.r.R#', '#Rr.rR#', '#R.r.R#', '#.RRR.#', '#######'],
   full: ['#######', '#AAAAA#', '#aaaaa#', '#AAAAA#', '#aaaaa#', '#AAAAA#', '#######'],
   worn: ['#######', '#.....#', '#.b.b.#', '#.....#', '#.b.b.#', '#.....#', '#######'],
+  jammed: ['#######', '#..R..#', '#..R..#', '#..R..#', '#.....#', '#..R..#', '#######'],
   broken: ['#######', '#B...B#', '#.B.B.#', '#..B..#', '#.B.B.#', '#B...B#', '#######'],
 };
 
@@ -54,6 +55,7 @@ export function paintStatus(c: Canvas, key: string): void {
     dim(c, 0.4);
     cracks(c);
   }
+  if (key === 'jammed') dim(c, 0.12);
   if (key === 'worn') {
     dim(c, 0.1);
     scuffs(c);

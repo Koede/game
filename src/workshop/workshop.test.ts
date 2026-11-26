@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
+import { MachineStatus, voxelStatus } from '../core/machineStatus';
 import { BLOCKS, blockId, machine } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelId, type IWorld, type Voxel } from '../core/types';
 import { GroundItems } from '../game/groundItems';
@@ -34,6 +35,33 @@ function setup() {
   bus.on('toast', (t) => toasts.push(t.text));
   return { bus, world, ground, shop, put, crank, run, toasts };
 }
+
+describe('workshop status faces', () => {
+  it('an overloaded network shows jammed on every part after a second, and clears when relieved', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'mech_saw');
+    t.put(2, 0, 0, 'mech_millstone');
+    t.put(3, 0, 0, 'mech_mortar');
+    t.crank(0, 0, 0);
+    t.run(0.5);
+    expect(voxelStatus(t.world.getVoxel(2, 0, 0))).toBe(MachineStatus.None);
+    t.run(1.5);
+    for (const x of [1, 2, 3]) {
+      expect(voxelStatus(t.world.getVoxel(x, 0, 0))).toBe(MachineStatus.Jammed);
+      expect(voxelActive(t.world.getVoxel(x, 0, 0))).toBe(false);
+    }
+  });
+  it('a millstone with wheat in it and nothing turning it shows starved', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'mech_millstone', Facing.South);
+    t.shop.use(0, 0, 0, { item: 'wheat', count: 2 }, () => undefined);
+    t.run(0.5);
+    expect(voxelStatus(t.world.getVoxel(0, 0, 0))).toBe(MachineStatus.None);
+    t.run(1.5);
+    expect(voxelStatus(t.world.getVoxel(0, 0, 0))).toBe(MachineStatus.Starved);
+  });
+});
 
 describe('workshop', () => {
   it('a cranked belt carries an item away from the side it was laid from, and stops with the crank', () => {
