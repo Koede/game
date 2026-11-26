@@ -4,6 +4,7 @@
  */
 import { machine } from '../core/registry';
 import { CHUNK_SIZE, FACE_DIRS, WORLD_HEIGHT, type IWorld } from '../core/types';
+import { HEAD_MAX, headAt } from './hydro';
 import { isFurnace, posKey, type FurnaceEntity, type MachineEntity, type SimNode } from './entities';
 
 const WHEEL_RADIUS = machine('water_wheel').params?.shareRadius ?? 0;
@@ -54,6 +55,7 @@ export function surroundings(
     for (let yy = y + 1; yy < WORLD_HEIGHT && n.openSky; yy++) if (world.getBlock(x, yy, z).solid) n.openSky = false;
   } else if (kind === 'water_wheel') {
     n.wheels = 0;
+    n.head = headAt(world, x, y, z);
     for (const o of tickers) if (o.e.kind === 'water_wheel' && chebyshev(o, x, y, z) <= WHEEL_RADIUS) n.wheels++;
   }
 }
@@ -62,6 +64,7 @@ export function surroundings(
 export function concerns(n: SimNode, x: number, y: number, z: number, wheel: boolean): boolean {
   const d = chebyshev(n, x, y, z);
   if (d <= 1) return true;
+  if (n.e.kind === 'water_wheel' && y > n.e.y && y <= n.e.y + 1 + HEAD_MAX && Math.abs(n.e.x - x) <= 1 && Math.abs(n.e.z - z) <= 1) return true;
   if (SKY.has(n.e.kind)) return n.e.x === x && n.e.z === z && y > n.e.y;
   return wheel && n.e.kind === 'water_wheel' && d <= WHEEL_RADIUS;
 }

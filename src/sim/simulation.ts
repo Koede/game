@@ -52,6 +52,7 @@ import { repairToast, sanitizeEntity } from './sanitize';
 import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
+import { riverScale } from './hydro';
 import { cropScale, seasonOf } from './seasons';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
@@ -63,6 +64,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   wind = 1;
   /** Solar multiplier of the weather this tick (1 without weather). */
   solar = 1;
+  /** River flow factor this tick (ice in winter; src/sim/hydro.ts). */
+  river = 1;
   /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
   readonly weather = new SimWeather();
   /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
@@ -270,6 +273,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.sunlight = this.clock.sunlight();
     this.wind = windAt(this.clock.worldTimeS, WIND.windMin, WIND.windMax) * weather.wind;
     this.solar = weather.solar;
+    this.river = riverScale(this.clock.day);
 
     for (const n of nodes.furnaces) n.loaded = world.isLoaded(n.e.x, n.e.z);
     const { tickers, behaviours } = nodes;
