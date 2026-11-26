@@ -1,3 +1,4 @@
+import { COMPOSED_ICON_BUILDS, TOOL_HEAD_ICON_COUNT } from '../../content/toolParts';
 import { describe, expect, it } from 'vitest';
 import { SYNERGY_ARTIFICER_SPEC } from '../../content/specRosterSynergyArtificer';
 import { SYNERGY_ANIMALS_SPEC } from '../../content/specRosterSynergyTools';
@@ -248,7 +249,7 @@ describe('texture content', () => {
   it('item icons have a transparent background and a darker outline', () => {
     const icons = TEXTURE_NAMES.filter((n) => n.startsWith('item_'));
     // 157 before the glass distillery, which adds one icon per non-block item (src/content/itemsDistill.ts).
-    expect(icons.length).toBe(157 + DISTILL_ITEMS.length + MAGIC_ITEMS.length + WORKSHOP_ITEMS.length + GLASS_ITEMS.length + SYNERGY_ARTIFICER_SPEC.items.length + SYNERGY_ANIMALS_SPEC.items.length + 6 /* decor dyes */ + EXPLORE_SPEC.icons + 1 /* the belt pouch (src/content/itemsHand.ts) */ + 9 /* modular tool heads (src/content/toolParts.ts) */);
+    expect(icons.length).toBe(157 + DISTILL_ITEMS.length + MAGIC_ITEMS.length + WORKSHOP_ITEMS.length + GLASS_ITEMS.length + SYNERGY_ARTIFICER_SPEC.items.length + SYNERGY_ANIMALS_SPEC.items.length + 6 /* decor dyes */ + EXPLORE_SPEC.icons + 1 /* the belt pouch (src/content/itemsHand.ts) */ + TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length /* modular tools (src/content/toolParts.ts) */);
     for (const name of icons) {
       const px = paintTexture(name);
       let clear = 0;

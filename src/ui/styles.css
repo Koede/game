@@ -3020,6 +3020,19 @@ body {
 .hw-root--photo .hw-layer[data-layer='hud'],
 .hw-root--photo .hw-layer[data-layer='touch'] { visibility: hidden; }
 /* Experiment row (discovery) */
+.hw-tb { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 6px; }
+.hw-tb summary { cursor: pointer; font-weight: 600; }
+.hw-tb .hw-tb__row { display: flex !important; width: 100%; align-items: center; gap: 8px; margin: 4px 0; }
+.hw-tb__row span { width: 64px; flex: none; opacity: 0.8; }
+.hw-tb__sel { flex: 1; min-width: 0; min-height: 36px; }
+.hw-tb__stats { width: 100%; margin: 6px 0; border-collapse: collapse; font-size: 0.9em; }
+.hw-tb__stats th { text-align: left; font-weight: 400; opacity: 0.8; }
+.hw-tb__stats td { text-align: right; padding-left: 8px; }
+.hw-tb__up { color: #9be39b; }
+.hw-tb__down { color: #f0a0a0; }
+.hw-tb__same { opacity: 0.6; }
+.hw-tb__traits { margin: 4px 0; padding-left: 18px; font-size: 0.85em; opacity: 0.85; }
+.hw-tb__note { margin: 6px 0; font-size: 0.9em; }
 .hw-exp { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 6px; }
 .hw-exp summary { cursor: pointer; font-weight: 600; }
 .hw-exp__row { display: flex; gap: 6px; margin: 4px 0; }

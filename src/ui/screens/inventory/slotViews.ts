@@ -1,5 +1,6 @@
 /** How stored stacks look in the UI: the slot view (tool wear as a fraction) and the tooltip card. DOM-free. */
 import { enchantDef, enchantLines, isEnchanted } from '../../../core/enchant';
+import { BINDINGS, HANDLES, HEADS, partsOfItem } from '../../../content/toolParts';
 import { itemOrNull, rarityOf } from '../../../core/registry';
 import { fullDurability } from '../../../game/inventory';
 import type { TooltipCard } from '../../kit/feedback';
@@ -16,6 +17,10 @@ export function itemCard(stack: ViewStack): TooltipCard {
   if (stack.count > 1) rows.push(['Count', String(stack.count)]);
   if (def?.tool) {
     rows.push(['Tool', `${titleFromKey(def.tool.kind)}, tier ${def.tool.tier}`]);
+    const build = partsOfItem(stack.item);
+    if (build) rows.push(['Built from', `${HEADS[build.head].name} head, ${HANDLES[build.handle].name.toLowerCase()} handle, ${BINDINGS[build.binding].name.toLowerCase()} binding`]);
+    if (def.tool.speed > 1) rows.push(['Mining speed', String(def.tool.speed)]);
+    if (def.weapon) rows.push(['Damage', String(def.weapon.damage)]);
     if (stack.durability !== undefined) rows.push(['Uses left', `${stack.durability} / ${def.tool.durability}`]);
   }
   if (def?.wear !== undefined && stack.durability !== undefined) {

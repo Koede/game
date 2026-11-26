@@ -3,6 +3,7 @@
  * document. The content files are compared against it, so a slip in either place shows up as a failing test.
  * A deliberate balance change has to be made here as well. Nothing but the test imports this file.
  */
+import { COMPOSED_ICON_BUILDS, TOOL_HEAD_ICON_COUNT } from './toolParts';
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { BREW_SPEC } from './specRosterBrew';
 import { DISTILL_SPEC } from './specRosterDistill';
@@ -408,7 +409,7 @@ SPEC.maxTextures += 2;
 // The party button faces: party_button_front, party_button_front_on.
 SPEC.maxTextures += 2;
 // The jukebox model's materials (src/world/jukeboxModel.ts): wood, chrome, brass, grille, window (+on), panel, bubble (+on).
-SPEC.maxTextures += 9;
+SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
 // The wool bedding model's materials (src/world/bedModel.ts): bed_frame, bed_mattress, bed_blanket, bed_pillow.
 SPEC.maxTextures += 4;
 // The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
@@ -452,5 +453,5 @@ SPEC.maxTextures += 15;
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
-// Modular tool heads (src/content/toolParts.ts): flint, iron and steel pickaxe, axe and shovel head icons.
-SPEC.maxTextures += 9;
+// Modular tools (src/content/toolParts.ts): one icon per new head, and a composed icon for each non-default pick, axe, shovel and hoe build.
+SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
