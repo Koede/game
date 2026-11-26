@@ -185,6 +185,8 @@ export interface NetworkStats {
   chokedW: number;
   /** Demand that goes unmet (demand minus what is delivered). */
   shortW: number;
+  /** Most the switched-on storage can give at once, in watts (0 without storage). */
+  storageRateW: number;
   /** Most the cables carry; Infinity without cables. */
   ratingW: number;
   cables: number;
@@ -225,12 +227,18 @@ function membersOf(net: Network): NetworkMember[] {
   });
 }
 
+function storageRate(net: Network): number {
+  let w = 0;
+  for (const n of net.storage) if (n.loaded && (n.e as MachineEntity).on) w += n.spec.rateW ?? 0;
+  return w;
+}
+
 /** A snapshot of one network. `members` is worked out on first access (the HUD only needs the totals). */
 export function networkStats(net: Network): NetworkStats {
   let members: NetworkMember[] | null = null;
   return {
     id: net.id, generationW: net.generationW, demandW: net.demandW, deliveredW: net.deliveredW, storedJ: net.storedJ,
-    capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW,
+    capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW, storageRateW: storageRate(net),
     lossW: net.lossW, chokedW: net.chokedW, shortW: Math.max(0, net.demandW - net.deliveredW), ratingW: net.ratingW, cables: net.cables,
     satisfaction: net.f, overloaded: net.overloaded, state: net.state,
     get members(): NetworkMember[] {

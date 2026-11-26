@@ -360,6 +360,7 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   geothermal_tap: geothermalTap,
   battery: storage,
   lithium_bank: storage,
+  cell_rack: storage,
   lamp: simpleConsumer,
   space_heater: simpleConsumer,
   ward_beacon: simpleConsumer,

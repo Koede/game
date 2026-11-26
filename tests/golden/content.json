@@ -281,6 +281,7 @@
     "oak_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"oak_stump","tool":"axe"},
     "pine_stump": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":2.5,"key":"pine_stump","tool":"axe"},
     "wooden_door": {"category":"block","hardness":1.5,"key":"wooden_door","oriented":true,"shape":"door","solid":true,"tool":"axe"},
+    "cell_rack": {"age":3,"category":"block","hardness":2,"key":"cell_rack","machine":"cell_rack","oriented":true,"power":"device","stack":16,"tool":"pickaxe"},
     "grid_monitor": {"age":1,"hardness":2,"key":"grid_monitor","lightActive":8,"machine":"grid_monitor","power":"device","stack":16,"tool":"pickaxe"}
   },
   "items": {
@@ -896,6 +897,7 @@
     "fence": {"age":0,"id":"fence","inputs":[{"count":2,"item":"plank"},{"count":2,"item":"stick"}],"output":{"count":4,"item":"fence"},"station":"hand"},
     "grid_meter": {"age":0,"id":"grid_meter","inputs":[{"count":2,"item":"copper_wire"},{"count":1,"item":"glass"},{"count":1,"item":"tin_ingot"}],"kind":"forge","minTempC":500,"minTier":1,"output":{"count":1,"item":"grid_meter"},"station":"furnace"},
     "grid_monitor": {"age":1,"id":"grid_monitor","inputs":[{"count":1,"item":"grid_meter"},{"count":2,"item":"copper_cable"},{"count":1,"item":"glass"},{"count":2,"item":"copper_ingot"}],"kind":"forge","minTempC":700,"minTier":2,"output":{"count":1,"item":"grid_monitor"},"station":"furnace"},
+    "cell_rack": {"age":3,"id":"cell_rack","inputs":[{"count":3,"item":"battery"},{"count":2,"item":"steel_plate"},{"count":1,"item":"copper_coil"}],"kind":"forge","minTempC":1800,"minTier":4,"output":{"count":1,"item":"cell_rack"},"station":"furnace"},
     "plank_stairs": {"age":0,"id":"plank_stairs","inputs":[{"count":3,"item":"plank"}],"output":{"count":4,"item":"plank_stairs"},"station":"hand"},
     "stone_brick_stairs": {"age":0,"id":"stone_brick_stairs","inputs":[{"count":3,"item":"stone_brick"}],"output":{"count":4,"item":"stone_brick_stairs"},"station":"hand"},
     "plank_roof": {"age":0,"id":"plank_roof","inputs":[{"count":3,"item":"plank"}],"output":{"count":4,"item":"plank_roof"},"station":"hand"},
@@ -984,7 +986,8 @@
     "hand": {"blocks":["chopping_block","hand_quern","stone_anvil","mortar","clay_table","loom","drying_rack","tanning_trough"],"kind":"hand","role":"hand"},
     "casting_bench": {"blocks":["casting_bench"],"itemPipes":false,"kind":"casting_bench","params":{"moulds":4,"range":4},"role":"hand","slots":4},
     "alloy_pot": {"blocks":["alloy_pot"],"kind":"alloy_pot","params":{"moltenS":20},"placementHint":"Set it against a furnace.","role":"hand"},
-    "grid_monitor": {"blocks":["grid_monitor"],"drawW":5,"kind":"grid_monitor","role":"consumer"}
+    "grid_monitor": {"blocks":["grid_monitor"],"drawW":5,"kind":"grid_monitor","role":"consumer"},
+    "cell_rack": {"blocks":["cell_rack"],"capacityJ":10000000,"kind":"cell_rack","params":{"chargeEfficiency":0.9},"rateW":20000,"role":"storage"}
   },
   "objectives": {
     "gather_logs": {"age":0,"condition":{"of":[{"block":"oak_log","count":4,"type":"break"},{"block":"pine_log","count":4,"type":"break"}],"type":"any"},"id":"gather_logs"},

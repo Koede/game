@@ -4,33 +4,40 @@ import type { GridCell, NetworkStats } from '../sim';
 import { gridOverlayFor, GRID_METER, meterReading, meterUse, METER_RANGE, MONITOR_RANGE, type GridSim } from './gridMeter';
 
 const stats = (over: Partial<NetworkStats> = {}): NetworkStats => ({
-  id: 1, generationW: 1000, demandW: 800, deliveredW: 800, storedJ: 0, capacityJ: 0, chargeW: 0, dischargeW: 0, lossW: 0, chokedW: 0, shortW: 0,
+  id: 1, generationW: 1000, demandW: 800, deliveredW: 800, storedJ: 0, capacityJ: 0, chargeW: 0, dischargeW: 0, storageRateW: 0, lossW: 0, chokedW: 0, shortW: 0,
   ratingW: 10_000, cables: 3, satisfaction: 1, overloaded: false, state: 'ok', members: [], historyG: [], historyUsed: [], ...over,
 });
 
 describe('meterReading', () => {
   it('says all is well with the figures', () => {
-    expect(meterReading(stats())).toBe('Steady: 1 kW made, 800 W wanted - everything runs at full power.');
+    expect(meterReading(stats())).toBe('Steady: 1 kW for 800 W, all at full power.');
   });
   it('names a brown-out and the percentage', () => {
     expect(meterReading(stats({ generationW: 2000, demandW: 3000, deliveredW: 2000, satisfaction: 2 / 3, state: 'brownout' })))
-      .toBe('Brown-out: 2 kW made, 3 kW wanted - machines run at 66%.');
+      .toBe('Brown-out: 2 kW of 3 kW, 66%.');
   });
   it('says machines stop below the stall point', () => {
-    expect(meterReading(stats({ generationW: 100, demandW: 1000, satisfaction: 0.1, state: 'brownout' }))).toMatch(/^Stalled: .*machines stop/);
+    expect(meterReading(stats({ generationW: 100, demandW: 1000, satisfaction: 0.1, state: 'brownout' }))).toMatch(/^Stalled: 100 W of 1 kW, 10%/);
   });
   it('blames the cable on an overload', () => {
     expect(meterReading(stats({ generationW: 12_000, demandW: 20_000, satisfaction: 0.5, overloaded: true, state: 'overload' })))
-      .toBe('Overloaded: 12 kW made, 20 kW wanted, but the cable carries only 10 kW - machines get 50%.');
+      .toBe('Overload: cable carries 10 kW, 50% supplied.');
   });
   it('adds losses', () => {
     expect(meterReading(stats({ lossW: 150, chokedW: 50 }))).toMatch(/ 200 W lost\.$/);
   });
   it('counts what batteries feed as made', () => {
-    expect(meterReading(stats({ generationW: 0, dischargeW: 300, demandW: 300, deliveredW: 300 }))).toMatch(/^Steady: 300 W made, 300 W wanted/);
+    expect(meterReading(stats({ generationW: 0, dischargeW: 300, demandW: 300, deliveredW: 300 }))).toMatch(/^Steady: 300 W for 300 W/);
   });
   it('an idle grid says so', () => {
     expect(meterReading(stats({ demandW: 0, deliveredW: 0 }))).toMatch(/^Idle: 1 kW made, nothing asks/);
+  });
+});
+
+describe('meterReading night cover', () => {
+  it('adds how long the batteries carry the load', () => {
+    const text = meterReading(stats({ storedJ: 2_000_000, capacityJ: 2_000_000, storageRateW: 3000 }));
+    expect(text).toMatch(/Steady: .*Lasts \d+ min unaided\.$|Lasts the night/);
   });
 });
 

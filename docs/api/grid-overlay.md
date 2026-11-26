@@ -5,7 +5,7 @@ Files: `src/content/areas/power_grid.ts`, `src/game/gridMeter.ts`, `src/render/t
 
 - **Grid Meter** (item, forge T1, 2 copper wire + glass + tin ingot). Held, the overlay shows every grid within 24 blocks. Use on a
   cable or machine toasts that network's reading ("Brown-out: 2 kW made, 3 kW wanted - machines run at 66%. 200 W lost.").
-- **Grid Monitor** (block `grid_monitor`, id 280+, forge T2, meter + 2 copper cable + glass + 2 copper ingot). A 5 W consumer: its lens
+- **Grid Monitor** (block `grid_monitor`, id 282 (see the lock), forge T2, meter + 2 copper cable + glass + 2 copper ingot). A 5 W consumer: its lens
   is lit while its network has power. Its screen is the full network panel (supply, demand, stored, one minute of history, cable load,
   losses, members). Within 12 blocks of a switched-on monitor the overlay shows that monitor's own network without holding the meter.
 - **Overlay**: cables are bright cores seen through walls, green under 60% of the weakest cable's rating, amber to red above it, red

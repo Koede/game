@@ -3,7 +3,7 @@
  * what Use with the meter reads out. DOM-free; the app wires `gridOverlayFor` to the renderer and `meterUse` to beforeUse.
  */
 import type { GameBus } from '../core/context';
-import type { GridCell, NetworkStats } from '../sim';
+import { coverText, type GridCell, type NetworkStats } from '../sim';
 import { BROWNOUT_STALL } from '../core/constants';
 import { formatWatts } from './objectives';
 
@@ -34,16 +34,15 @@ const pct = (f: number): string => `${Math.floor(f * 100)}%`;
 
 /** One or two sentences about a network: what it makes, wants and loses, and how the machines on it are doing. */
 export function meterReading(net: NetworkStats): string {
-  const head = `${formatWatts(net.generationW + net.dischargeW)} made, ${formatWatts(net.demandW)} wanted`;
+  const made = formatWatts(net.generationW + net.dischargeW);
   const lost = net.lossW + net.chokedW;
-  const tail = lost >= 0.5 ? ` ${formatWatts(lost)} lost.` : '';
-  if (net.overloaded || net.state === 'overload') {
-    return `Overloaded: ${head}, but the cable carries only ${formatWatts(net.ratingW)} - machines get ${pct(net.satisfaction)}.${tail}`;
-  }
-  if (net.demandW > 0 && net.satisfaction < BROWNOUT_STALL) return `Stalled: ${head} - only ${pct(net.satisfaction)}, machines stop.${tail}`;
-  if (net.demandW > 0 && net.satisfaction < 0.999) return `Brown-out: ${head} - machines run at ${pct(net.satisfaction)}.${tail}`;
-  if (net.demandW <= 0) return `Idle: ${formatWatts(net.generationW + net.dischargeW)} made, nothing asks for power.${tail}`;
-  return `Steady: ${head} - everything runs at full power.${tail}`;
+  const cover = coverText(net);
+  const tail = (lost >= 0.5 ? ` ${formatWatts(lost)} lost.` : '') + (cover ? ` ${cover}.` : '');
+  if (net.overloaded || net.state === 'overload') return `Overload: cable carries ${formatWatts(net.ratingW)}, ${pct(net.satisfaction)} supplied.${tail}`;
+  if (net.demandW > 0 && net.satisfaction < BROWNOUT_STALL) return `Stalled: ${made} of ${formatWatts(net.demandW)}, ${pct(net.satisfaction)}.${tail}`;
+  if (net.demandW > 0 && net.satisfaction < 0.999) return `Brown-out: ${made} of ${formatWatts(net.demandW)}, ${pct(net.satisfaction)}.${tail}`;
+  if (net.demandW <= 0) return `Idle: ${made} made, nothing asks for power.${tail}`;
+  return `Steady: ${made} for ${formatWatts(net.demandW)}, all at full power.${tail}`;
 }
 
 /** Use with a meter in hand: reads the network of the cable or machine aimed at. Null when no meter is held. */
