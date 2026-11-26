@@ -3,8 +3,11 @@ import { createBus, type GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
 import { blockId } from '../core/registry';
-import { AIR, CHUNK_SIZE, makeVoxel, voxelId, type BlockEntity, type ChunkMeshData } from '../core/types';
+import { AIR, CHUNK_SIZE, makeVoxel, voxelId, voxelIndex, type BlockEntity, type ChunkMeshData } from '../core/types';
+import { chunkCoord, localCoord } from './chunk';
+import { findCaveCamp } from './caveRooms';
 import { runJob } from './jobs';
+import { generateChunk } from './worldgen';
 import { World } from './world';
 
 const SEED = 20261121;
@@ -218,7 +221,9 @@ describe('World streaming', () => {
     expect(world.getVoxel(5, 70, 5)).toBe(STONE);
     expect(world.getVoxel(-20, 3, 40)).toBe(edited);
     // Besides the player's two edits: one per Old Works crate the World placed in the chunks it loaded on the way.
-    const crates = [...world.entities()].filter((e) => e.kind === 'crate').length;
+    // Cave camp crates are generated voxels: the World gives them loot and an entity but no edit (the voxel is already a crate).
+    const generated = (x: number, y: number, z: number): number => generateChunk(SEED, chunkCoord(x), chunkCoord(z))[voxelIndex(localCoord(x), y, localCoord(z))];
+    const crates = [...world.entities()].filter((e) => e.kind === 'crate' && findCaveCamp(SEED, chunkCoord(e.x), chunkCoord(e.z), generated)?.y !== e.y).length;
     expect(world.stats().edits).toBe(2 + crates);
   });
 
