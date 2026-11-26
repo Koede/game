@@ -118,6 +118,19 @@ export const MACHINE_SPECS: MachineSpec[] = [
     desc: 'Makes 0.25 W for every degree a touching furnace is above 100 C, up to 300 W. It cools that furnace by four times what it delivers.',
     placementHint: 'Must touch a furnace.',
   },
+  // dynamo - the only bridge from a workshop shaft to the grid (docs/STEAM_PLAN.md, SPEC 20). It is also a part of the
+  // shaft network (src/workshop: a load of 16 stress units at 16 rpm). watts = min(capW, wattsPerRpm * rpm) while the
+  // line it touches turns at minRpm or more. A line that an electric generator (water wheel, wind turbine, steam
+  // engine) turns gives it nothing: watts cannot be made twice. params:
+  //   minRpm       slowest shaft speed it works at
+  //   wattsPerRpm  watts for every rpm above zero
+  //   capW         most it can deliver
+  {
+    kind: 'dynamo', name: 'Dynamo', role: 'generator', blocks: ['dynamo'], outputW: 2000,
+    params: { minRpm: 64, wattsPerRpm: 30, capW: 2000 },
+    desc: 'Turns shaft rotation into current: 30 W for every rpm, up to 2 kW, and it will not run below 64 rpm. It is the first electricity of the Forge Age.',
+    placementHint: 'Join it to a drive shaft or any turning part of a workshop line.',
+  },
   // steam_engine - same formula as the thermopile, for the furnace directly below it. params:
   //   wattsPerC, minTempC, capW, heatPerWatt   as for the thermopile
   //   minWater         water blocks needed among its 4 horizontal neighbours

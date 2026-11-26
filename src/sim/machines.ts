@@ -56,6 +56,8 @@ export function placementProblem(node: SimNode): string | null {
       return node.lava > 0 || heldL(e, 'lava') > 0 ? null : 'Must touch lava';
     case 'blower':
       return node.furnaces.length > 0 ? null : 'Must touch a furnace';
+    case 'dynamo':
+      return (node.e as MachineEntity).availW > 0 ? null : `Needs a shaft line turning ${p.minRpm} rpm or more`;
     default:
       return null;
   }
@@ -107,6 +109,12 @@ const ambient = (watts: (node: SimNode, ctx: SimContext, spec: MachineSpec) => n
   apply: followLoad,
 });
 
+/** Dynamo: watts from the speed of the workshop shaft line it is part of (see Workshop.dynamoRpm). */
+const dynamo = ambient((n, ctx, s) => {
+  const p = s.params ?? {};
+  const rpm = ctx.shaftRpm?.(n.e.x, n.e.y, n.e.z) ?? 0;
+  return rpm >= (p.minRpm ?? 0) ? Math.min(p.capW ?? s.outputW ?? 0, (p.wattsPerRpm ?? 0) * rpm) : 0;
+});
 const waterWheel = ambient((n, _c, s) => (n.water >= (s.params?.minWater ?? 0) ? (s.outputW ?? 0) / Math.max(1, n.wheels) : 0));
 const windTurbine = ambient((n, ctx, s) => {
   const p = s.params ?? {};
@@ -367,6 +375,7 @@ const boreRig: Behaviour = {
 const BEHAVIOURS: Record<string, Behaviour> = {
   crate: inert,
   thermopile: heatEngine,
+  dynamo,
   steam_engine: heatEngine,
   burner_generator: fuelGenerator,
   combustion_engine: fuelGenerator,

@@ -67,6 +67,26 @@ function bellows(c: Canvas): void {
   c.set(6, 6, w[4]);
 }
 
+function axleOf(r: Ramp): (c: Canvas) => void {
+  // A turned shaft on the diagonal with a collar at each end and a keyway notch.
+  return (c) => {
+    for (let t = 2; t <= 13; t++) {
+      const x = t;
+      const y = 15 - t;
+      c.set(x, y - 1, r[4]);
+      c.set(x, y, r[3]);
+      c.set(x + 1, y, r[2]);
+      c.set(x, y + 1, r[1]);
+      c.set(x + 1, y + 1, r[0]);
+    }
+    for (const t of [3, 12]) {
+      c.rect(t - 1, 15 - t - 2, 3, 3, r[2]);
+      c.set(t - 1, 15 - t - 2, r[4]);
+    }
+    c.set(8, 6, r[0]);
+  };
+}
+
 function chassis(c: Canvas): void {
   // A square iron frame with bronze diagonal braces and corner gussets.
   const i = P.IRON_METAL;
@@ -262,6 +282,8 @@ export const PART_ICONS: PainterSet = {
   item_ceramic_insulator: icon(ceramicInsulator),
   item_bellows: icon(bellows),
   item_chassis: icon(chassis),
+  item_iron_axle: icon(axleOf(P.IRON_METAL)),
+  item_steel_axle: icon(axleOf(P.STEEL)),
   item_silicon_wafer: icon(siliconWafer),
   item_circuit: icon(circuit),
   item_enriched_pellet: icon(enrichedPellet),

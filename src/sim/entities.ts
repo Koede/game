@@ -259,6 +259,8 @@ export interface SimContext {
   wind: number;
   /** Solar output multiplier of this tick's weather (WEATHER_SOLAR, eased; spec 15). */
   solar: number;
+  /** Speed of the workshop shaft line the dynamo at (x, y, z) touches, rpm. Absent or null: no workshop, no turning. */
+  shaftRpm?: ((x: number, y: number, z: number) => number) | null;
   /** True on one tick per second: slow housekeeping (crate push) runs then. */
   everySecond: boolean;
   /**

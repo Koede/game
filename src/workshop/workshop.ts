@@ -57,7 +57,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo']);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -78,6 +78,8 @@ export interface NetInfo {
   rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number; jammed?: boolean;
   /** Speed factor of the dynamics (1 = as solved), momentum su*s, a long shaft whipping, the load pulse now, and what the goggles tell the player. */
   w?: number; momentum?: number; whip?: boolean; pulse?: number; findings?: Finding[];
+  /** An electric generator (water wheel, wind turbine, steam engine) turns this line: a dynamo on it makes nothing extra. */
+  electric?: boolean;
 }
 /** Dynamic state of one network (src/workshop/mech/drive.ts), kept between ticks by its smallest member key. Not saved: it rebuilds in a tick. */
 interface NetDyn { st: DriveState; nominal: Map<string, number>; stress: number; capacity: number }
@@ -220,7 +222,7 @@ export class Workshop {
 
   /** Blocks a piston or bearing may carry: frames and every workshop part, never generators (sim machines) or the actuators. */
   private isMovable(kind: string): boolean {
-    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind in GENERATOR_SHAFT) return false;
+    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind in GENERATOR_SHAFT || kind === 'dynamo') return false;
     return kind === 'contraption_frame' || KINETIC.has(kind) || isLogistic(kind) || SIGNAL_KINDS.has(kind);
   }
 
@@ -440,6 +442,16 @@ export class Workshop {
     return extra > 0 ? { rpm: extra, capacity: CRANK_CAPACITY } : null;
   }
 
+  /**
+   * Shaft speed a dynamo at (x, y, z) is turned at, rpm; 0 when its line is still, jammed, overloaded or turned by an
+   * electric generator (that line already counts as watts).
+   */
+  dynamoRpm(x: number, y: number, z: number): number {
+    const key = k3(x, y, z);
+    if (!this.parts.has(key) || this.netOf.get(key)?.electric) return 0;
+    return Math.abs(this.speed.get(key) ?? 0);
+  }
+
   /** Each driven, fuelled tractor turns the nearest drive shaft it touches. */
   private findPto(): void {
     this.pto.clear();
@@ -583,7 +595,8 @@ export class Workshop {
       const capacity = dyn ? dyn.capacity : solved.capacity;
       const stress = dyn ? dyn.stress : solved.stress;
       const overstressed = sources.size > 0 && !solved.jam && stress > capacity && w < 0.5;
-      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm * w, stress, capacity, overstressed, parts: members.length, jammed: solved.jam, w, whip, momentum, findings, pulse };
+      const electric = [...sources.keys()].some((k) => (this.parts.get(k)?.kind ?? '') in GENERATOR_SHAFT);
+      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm * w, stress, capacity, overstressed, parts: members.length, jammed: solved.jam, w, whip, momentum, findings, pulse, electric };
       for (const key of members) {
         this.netOf.set(key, info);
         const r = rpmNow?.get(key);

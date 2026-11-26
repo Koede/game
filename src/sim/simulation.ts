@@ -65,6 +65,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   wind = 1;
   /** Solar multiplier of the weather this tick (1 without weather). */
   solar = 1;
+  /** Speed of the workshop shaft line a dynamo touches, rpm (the game wires it to the workshop; none = still). */
+  shaftRpm: ((x: number, y: number, z: number) => number) | null = null;
   /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
   readonly weather = new SimWeather();
   /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
@@ -113,7 +115,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** The Bronze Age air network (BRONZE_PLAN 5.3): tubes, tanks, compressors and the Blast Nozzle. */
   readonly air: AirNets;
   /** Speed of the workshop shaft that turns a compressor at a cell (rpm); set by the app from the workshop, null = no shafts. */
-  shaftRpm: ((x: number, y: number, z: number) => number) | null = null;
+  airShaftRpm: ((x: number, y: number, z: number) => number) | null = null;
   private readonly transportRender: TransportRenderer;
   readonly giveBack = (item: string): void => {
     this.player.give(item, 1);
@@ -156,7 +158,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z),
       flagOnce: (flag) => this.flagOnce(flag),
     });
-    this.air = new AirNets({ world, bus, shaftRpm: (x, y, z) => this.shaftRpm?.(x, y, z) ?? 0 });
+    this.air = new AirNets({ world, bus, shaftRpm: (x, y, z) => this.airShaftRpm?.(x, y, z) ?? 0 });
     const nodes = this.nodes;
     this.hearths = new HearthSet({
       world, bus, player, byKey: nodes.byKey, air: this.air,

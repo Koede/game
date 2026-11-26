@@ -8,8 +8,9 @@ import type { BlockSpec, ItemSpec } from '../core/types';
 import { ageIndexOf } from '../magic/ageMap';
 
 const BRONZE = ageIndexOf('bronze');
+const FORGE = ageIndexOf('forge');
 
-export interface PartDef { key: string; name: string; desc: string; /** has a running front */ anim: boolean; /** a flat slab: the face is its top */ flat?: boolean }
+export interface PartDef { key: string; name: string; desc: string; /** has a running front */ anim: boolean; /** a flat slab: the face is its top */ flat?: boolean; /** age it is made in; Bronze unless given */ age?: number }
 
 export const PART_DEFS: readonly PartDef[] = [
   { key: 'reverse_box', name: 'Reverse Box', anim: true, desc: 'Two meshed cogs: what leaves it turns the other way. Use it to read its direction under goggles.' },
@@ -58,6 +59,8 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'piston', name: 'Piston', anim: true, desc: 'While turning it pushes the structure in front of it out one block at a time (up to 4), leaving a rod; stopped, it pulls it back. A lever makes it a lift.' },
   { key: 'bearing', name: 'Bearing', anim: true, desc: 'Turns the structure on top of it a quarter turn every 1.5 s, with the shaft: left or right. Machines on it stay powered through the bearing.' },
   { key: 'rail', name: 'Rail', anim: false, flat: true, desc: 'A track of slats. A skiff above a line of rails rolls along it, waits at the end and turns round.' },
+  { key: 'rolling_mill', name: 'Rolling Mill', anim: true, age: FORGE, desc: 'Two heavy rollers over a basin, 64 rpm or more. Ingots in the basin come out as plate, one plate for every ingot where a press needs two. Heavy: it asks 32 stress units.' },
+  { key: 'drop_forge', name: 'Drop Forge', anim: true, age: FORGE, desc: 'A cam-lifted drop hammer over a basin, 32 rpm or more. It forms plates and ingots into chassis and coils with no fire at all. Heavy: it asks 24 stress units.' },
   { key: 'skiff', name: 'Skiff', anim: false, desc: 'A little ore cart on rails. It holds a stack that arms and funnels load and unload. Use it empty-handed to board. A signal cell it touches brakes it while off.' },
 ];
 
@@ -65,6 +68,8 @@ export const PART_DEFS: readonly PartDef[] = [
 export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
+  { key: 'iron_axle', name: 'Iron Axle', category: 'component', age: FORGE, stack: 64, desc: 'A turned iron shaft that takes up to 128 rpm. Dynamos and rolling mills are built on them.' },
+  { key: 'steel_axle', name: 'Steel Axle', category: 'component', age: FORGE, stack: 64, desc: 'A hardened steel shaft rated for 256 rpm. The drop forge hangs its hammer on one.' },
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },
   { key: 'punched_card', name: 'Punched Card', category: 'material', age: BRONZE, stack: 16, desc: 'A stiff card of eight steps for a sequenced gearshift. Each step sets a speed ratio, a direction and how many seconds it runs.' },
 ];
@@ -72,7 +77,7 @@ export const PART_ITEMS: ItemSpec[] = [
 const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, ...(anim ? { frontActive: `ws_${key}_front_on` } : {}) });
 
 export const PART_BLOCKS: BlockSpec[] = PART_DEFS.map((d): BlockSpec => ({
-  key: d.key, name: d.name, desc: d.desc, category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
+  key: d.key, name: d.name, desc: d.desc, category: 'machine', age: d.age ?? BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
   oriented: !d.flat, textures: d.flat
     ? { top: `ws_${d.key}_front`, ...(d.anim ? { topActive: `ws_${d.key}_front_on` } : {}), side: 'ws_belt_side', bottom: 'ws_machine_side' }
     : front(d.key, d.anim),

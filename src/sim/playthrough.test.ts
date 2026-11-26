@@ -32,7 +32,9 @@ const TROUGH = { x: -10, y: 1, z: 5 };
 /** Twelve crates south-west of the furnace, within its reach (and the bench's). */
 const CRATES = [2, 3, 4].flatMap((z) => [-1, -2, -3, -4].map((x) => ({ x, y: 1, z })));
 /** At the furnace's mouth: it touches the furnace and carries the grid to it. */
-const THERMOPILE = { x: 0, y: 1, z: 1 };
+const DYNAMO = { x: 0, y: 1, z: 1 };
+const ROLLING_MILL = { x: 18, y: 1, z: 8 };
+const DROP_FORGE = { x: 19, y: 1, z: 8 };
 const LAMP = { x: -1, y: 1, z: 1 };
 /** On the furnace: the Blast hearth's open top leaves room for it. */
 const STEAM = { x: 0, y: 2, z: 0 };
@@ -43,7 +45,7 @@ const MEALS = ['hearth_stew', 'cooked_chop', 'bread', 'baked_potato'];
 /** The hotbar slot the script puts things in hand with. */
 const HAND = 8;
 
-/** The power bus: a run of cable east from the thermopile along z = 1, machines on both sides of it. */
+/** The power bus: a run of cable east from the dynamo along z = 1, machines on both sides of it. */
 const BUS = [1, 2, 3, 4, 5, 6, 7, 8].map((x) => ({ x, y: 1, z: 1 }));
 const CRUSHER = { x: 3, y: 1, z: 2 };
 /** Spec 19.4: on the bus beside the crusher. */
@@ -325,18 +327,9 @@ describe('scripted playthrough', () => {
     play.step(0.5);
     done('salvage_automaton');
     play.smelt('clay', 8);
-    play.smelt('sand', 2);
-    play.forge('thermopile');
-    play.place('thermopile', THERMOPILE);
-    play.step(2);
-    expect(sim.machineView(THERMOPILE.x, THERMOPILE.y, THERMOPILE.z)!.availW).toBeCloseTo(0.25 * (800 - 100), 0);
-    done('first_power');
-    play.wire(1);
-    play.forge('lamp');
-    play.place('lamp', LAMP);
-    play.step(1);
-    done('place_lamp');
-    expect(voxelActive(kit.world.getVoxel(LAMP.x, LAMP.y, LAMP.z))).toBe(true);
+    play.smelt('sand', 1);
+    // No watt exists before the Blast hearth: the thermopile and the lamp are Forge Age work now.
+    expect(play.view().forge.find((r) => r.recipe.id === 'thermopile')).toMatchObject({ locked: true, reason: 'Needs the Blast Furnace' });
 
     // A night by the fire.
     kit.clock.setTimeOfDay(0.7);
@@ -477,10 +470,45 @@ describe('scripted playthrough', () => {
     play.forge('steel_ingot', 4);
     done('make_steel');
     play.wire(60);
-    play.bronze(6);
+    play.bronze(8);
+    // Heavy industry (docs/PROGRESSION.md): iron axles, a rolling mill, a drop forge, and the dynamo at the end of it.
+    play.find('40 iron_ore');
+    play.smelt('iron_ore', 40);
+    play.forge('iron_axle', 3);
+    done('make_iron_axle');
+    play.forge('iron_plate', 18);
+    play.forge('chassis', 3); // rolling mill, drop forge, crusher
+    play.forge('rolling_mill');
+    play.place('rolling_mill', ROLLING_MILL);
+    play.step(0.5);
+    done('place_rolling_mill');
+    play.forge('steel_plate', 2);
+    play.forge('steel_axle');
+    play.find('4 stone_brick');
+    play.forge('drop_forge');
+    play.place('drop_forge', DROP_FORGE);
+    play.step(0.5);
+    done('place_drop_forge');
     play.forge('copper_coil', 3);
+    play.forge('dynamo');
+    play.place('dynamo', DYNAMO);
+    play.step(0.5);
+    done('place_dynamo');
+    // A still shaft makes nothing; one turning 64 rpm makes 30 W for every rpm. The workshop supplies the speed in the game.
+    expect(sim.machineView(DYNAMO.x, DYNAMO.y, DYNAMO.z)!.availW).toBe(0);
+    sim.shaftRpm = () => 64;
+    play.step(2);
+    expect(sim.machineView(DYNAMO.x, DYNAMO.y, DYNAMO.z)!.availW).toBe(30 * 64);
+    done('first_power');
+    sim.shaftRpm = null;
+    play.find('1 sand');
+    play.smelt('sand', 1);
+    play.wire(3);
+    play.forge('lamp');
+    play.place('lamp', LAMP);
+    play.step(1);
+    done('place_lamp');
     play.forge('iron_plate', 6);
-    play.forge('chassis');
     play.forge('crusher');
     play.place('crusher', CRUSHER);
     done('place_crusher');
@@ -535,6 +563,7 @@ describe('scripted playthrough', () => {
     // The Arc hearth: refractory brick walls, a ceiling with an electrode. Forged while the Blast hearth still stands
     // (refractory brick needs 1300 C); building it puts a lid on the furnace, so the steam engine comes off it.
     play.forge('brick', 24);
+    play.find('8 coke'); // the heavy industry above burned the stock
     play.forge('refractory_brick', 6);
     play.forge('electrode');
     expect(play.view().upgrade).toMatchObject({

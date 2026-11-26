@@ -294,4 +294,7 @@
   "air_tank": 292,
   "air_compressor": 293,
   "blast_nozzle": 294
+  "dynamo": 281,
+  "rolling_mill": 282,
+  "drop_forge": 283
 }
