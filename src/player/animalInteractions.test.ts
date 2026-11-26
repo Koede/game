@@ -26,6 +26,7 @@ function setup(species = 'goat') {
   const talks: number[] = [];
   const controller = new PlayerController({
     world, bus, player, view: new StubView(), input, settings: { ...DEFAULT_SETTINGS }, state: createInputState(), rng: () => 0, animals: mobs,
+    person: (_x, _y, _z, _dx, _dy, _dz, maxDist) => (maxDist > 1 ? 'Mara' : null),
     talk: (_x, _y, _z, _dx, _dy, _dz, maxDist) => (talks.push(maxDist ?? Infinity), false),
   });
   const mp = mobPlayerOf(player);
@@ -39,7 +40,7 @@ function setup(species = 'goat') {
     input.next.use = true;
     controller.update(DT);
   };
-  return { bus, world, player, mobs, mob, hold, use, toasts, talks };
+  return { bus, world, player, mobs, mob, hold, use, toasts, talks, input, controller };
 }
 
 describe('animal yields with a full pack', () => {
@@ -102,5 +103,17 @@ describe('talking past things', () => {
     t.player.pitch = 0;
     t.use();
     expect(t.talks[0]).toBeLessThan(2.6);
+  });
+});
+
+describe('mining a person', () => {
+  it('stops at them with a toast and digs nothing', () => {
+    const t = setup('goat');
+    t.mob.x = 40;
+    t.player.pitch = -Math.PI / 2;
+    t.input.next.mine = true;
+    t.controller.update(DT);
+    expect(t.toasts.some((x) => /Mara steps aside/.test(x))).toBe(true);
+    expect(t.controller.miningProgress).toBeLessThan(0);
   });
 });
