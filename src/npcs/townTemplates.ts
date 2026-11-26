@@ -9,6 +9,7 @@
  * Only blocks that exist in the registry are used (src/content/blocks.ts). Frame cells are only oak logs and stone brick.
  */
 import { Facing } from '../core/types';
+import { lodgeTemplateFor } from './lodge';
 
 export const TOWN_STAGES = ['clearing', 'frame', 'walls', 'roof', 'finish'] as const;
 export type TownStage = (typeof TOWN_STAGES)[number];
@@ -208,7 +209,9 @@ export const TOWN_TEMPLATES: Readonly<Record<string, TownTemplate>> = {
 
 /** The template with `key`, or null. */
 export function townTemplate(key: string): TownTemplate | null {
-  return Object.prototype.hasOwnProperty.call(TOWN_TEMPLATES, key) ? TOWN_TEMPLATES[key] : null;
+  if (Object.prototype.hasOwnProperty.call(TOWN_TEMPLATES, key)) return TOWN_TEMPLATES[key];
+  // The lodge and its upgrade stages (lodge.ts) are built on the same plots; they are not in the 9 x 9 library.
+  return lodgeTemplateFor(key);
 }
 
 /**

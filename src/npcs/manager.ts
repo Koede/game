@@ -20,6 +20,7 @@ import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
 import { BUILDER_ID, MOVABLE, TownBuilder, movable, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
+import { LODGE_FIRES, LODGE_NAMES, LODGE_PATH, LODGE_ROUTINE, LODGE_SPAWN, lodgeItems, type LodgeKey } from './lodge';
 import { BuildBoard, bayBoardSpot, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
 import { CAMP_D, CAMP_FIRES, CAMP_ROUTINES, CAMP_START, CAMP_W, buildCamp, pickCampSite } from './camp';
 import type { SurfaceFn } from './townPlan';
@@ -274,9 +275,34 @@ export class NpcManager {
     return this.people.has(id);
   }
 
-  /** The tavern stands (an old world, or after `settle`): the hall, its fixtures, the trader and the festival are on. */
+  /**
+   * How many lodge stages stand (lodge.ts, 0..5): 0 at the camp, 1 once the lodge's bedroom is up, 5 for the full Hearth & Anvil.
+   * An old town whose plan has no lodge (or a save from before the lodge) has its tavern already.
+   */
+  get tavernLevel(): number {
+    if (!this.at) return 0;
+    if (!this.camp && !this.town.hasLodge()) return LODGE_PATH.length;
+    return this.town.lodgeLevel();
+  }
+
+  /**
+   * The tavern stands: the hall, its fixtures, the trader and the festival are on. Only after the lodge's last stage (or an old
+   * world, or `settle`): the lodge's earlier stages switch on their own features (`tavernLevel`).
+   */
   get hasTavern(): boolean {
-    return this.at !== null && !this.camp;
+    return this.at !== null && !this.camp && this.tavernLevel >= LODGE_PATH.length;
+  }
+
+  /**
+   * Where the player wakes after a respawn without a home furnace: the lodge's first bedroom once it stands, the guest bed once the
+   * upper floor does. Null while the camp is still the spawn point (and in worlds with no lodge).
+   */
+  bedSpawn(): { x: number; y: number; z: number } | null {
+    const o = this.at;
+    const level = this.tavernLevel;
+    if (!o || this.camp || level < 1) return null;
+    if (level >= 4) return { x: o[0] + GUEST_BEDS[0][0], y: o[1] + GUEST_BEDS[0][1], z: o[2] + GUEST_BEDS[0][2] };
+    return { x: o[0] + LODGE_SPAWN[0] + 0.5, y: o[1] + LODGE_SPAWN[1], z: o[2] + LODGE_SPAWN[2] + 0.5 };
   }
 
   private presentCount(): number {
@@ -309,7 +335,9 @@ export class NpcManager {
    */
   settle(world: IWorld): { x: number; y: number; z: number } | null {
     const o = this.at;
-    if (!o || !this.camp || !buildTavern(world, o[0], o[1], o[2])) return null;
+    // The camp, or the lodge part-way up: the full tavern goes on the same origin (the lodge's cells are its own).
+    if (!o || this.tavernLevel >= LODGE_PATH.length || !buildTavern(world, o[0], o[1], o[2])) return null;
+    this.town.finishLodge();
     this.camp = false;
     this.people = new Set(NPCS.map((n) => n.id));
     this.pos.clear();
@@ -330,7 +358,10 @@ export class NpcManager {
 
   /** Where a person stands in `phase`: the camp's spot for the builder while the camp stands, else their tavern routine. */
   private spot(n: NpcDef, phase: Phase): Spot | null {
-    return this.camp ? (CAMP_ROUTINES[n.id]?.[phase as 'morning'] ?? null) : spotFor(n.id, phase);
+    if (this.camp) return CAMP_ROUTINES[n.id]?.[phase as 'morning'] ?? null;
+    // Only the lodge stands: Gruk keeps to the common room by the hearth (the tavern's own spots are not built yet).
+    if (n.id === BUILDER_ID && this.tavernLevel < LODGE_PATH.length) return LODGE_ROUTINE;
+    return spotFor(n.id, phase);
   }
 
   /** Tavern-local x, z of a person or prop right now: walking their routine, or fixed. */
@@ -434,7 +465,8 @@ export class NpcManager {
   /** The bar sells while the tavern is open (not at night); a turned day sells a night and collects rent. */
   private tickBar(dt: number): void {
     const host = this.host;
-    if (!host || !this.at || !this.isPresent('rosa')) return;
+    // The bar counter is the lodge's second stage: nothing sells until it stands.
+    if (!host || !this.at || this.tavernLevel < 2 || !this.isPresent('rosa')) return;
     this.bar.tick(dt, this.phase() !== 'night', this.rng);
     const got = this.bar.dayRoll(host.day(), this.rng);
     if (got > 0) this.toast(`While you were away the bar took ${got} coin. Ask Rosa for the till (${Math.floor(this.bar.till)} waiting).`);
@@ -572,7 +604,7 @@ export class NpcManager {
 
   /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
   serviceMenu(id: 'rosa' | 'gruk' | 'veyra' = 'rosa'): ServiceMenu {
-    if (!this.isPresent(id)) return new ServiceMenu([]);
+    if (!this.isPresent(id) || (id === 'rosa' && this.tavernLevel < 2)) return new ServiceMenu([]);
     return id === 'gruk' ? this.gruk : id === 'veyra' ? this.veyra : this.rosa;
   }
 
@@ -668,7 +700,8 @@ export class NpcManager {
       say: (line) => this.say(npc, line),
       toast: (text) => this.toast(text),
       bed: (nth) => {
-        const o = this.at;
+        // The guest beds are on the upper floor, the lodge's fourth stage.
+        const o = this.tavernLevel >= 4 ? this.at : null;
         const free = this.bar.built.has('rooms2') ? GUEST_BEDS.length : 1;
         const b = o ? GUEST_BEDS[nth % free] : undefined;
         return b && o ? { x: o[0] + b[0], y: o[1] + b[1], z: o[2] + b[2] } : null;
@@ -872,6 +905,12 @@ export class NpcManager {
     if (key === null) return;
     if (key === 'quest_board') this.board.placed = true;
     else if (key === 'air' || movable(key)) this.board.placed = host.townPlace.call(host, s.x, s.y, s.z, 'quest_board', s.facing);
+  }
+
+  /** Dev skip (the lodge's e2e): `n` of every block the lodge's stages use goes into the storage bay's stock. */
+  supplyLodge(n: number): number {
+    for (const item of lodgeItems()) this.town.deliver(item, n);
+    return n;
   }
 
   /** The town's state for the debug handle and the e2e driver: the building in progress, the board, the bay and its crate, the coin. */
@@ -1084,7 +1123,8 @@ export class NpcManager {
 
   /** Shown while in the yard, and while walking out of it (until they reach the gate). */
   private traderShown(): boolean {
-    if (!this.traderInfo()) return false;
+    // The caravan comes to the tavern only once it stands (the lodge's last stage), not to the lodge or the camp.
+    if (!this.hasTavern || !this.traderInfo()) return false;
     if (this.traderHereNow()) return true;
     const p = this.pos.get(TRADER_ID);
     return !!p && Math.hypot(p[0] - TRADER_GATE[0], p[1] - TRADER_GATE[2]) > 0.05;
@@ -1241,8 +1281,27 @@ export class NpcManager {
     this.fireS -= dt;
     if (this.fireS <= 0) {
       this.fireS = 8;
-      for (const [x, y, z] of this.camp ? CAMP_FIRES : FIRE_SPOTS) host.tendFire?.(this.at[0] + x, this.at[1] + y, this.at[2] + z);
+      const fires = this.camp ? CAMP_FIRES : this.tavernLevel >= LODGE_PATH.length ? FIRE_SPOTS : LODGE_FIRES;
+      for (const [x, y, z] of fires) host.tendFire?.(this.at[0] + x, this.at[1] + y, this.at[2] + z);
     }
+  }
+
+  /**
+   * A lodge stage is finished. The lodge's first stage (its bedroom) makes it the home: the people's origin moves to the lodge,
+   * the camp is left behind, and the player wakes in the bedroom (bedSpawn). The later stages say what they added.
+   */
+  private lodgeStageDone(stage: LodgeKey): void {
+    if (stage === LODGE_PATH[0]) {
+      const o = this.town.lodgeOrigin();
+      if (o) {
+        this.at = o;
+        this.camp = false;
+        this.pos.clear();
+        this.routes.clear();
+      }
+    }
+    const k = LODGE_PATH.indexOf(stage);
+    this.toast(stage === LODGE_PATH[LODGE_PATH.length - 1] ? `${LODGE_NAMES[k]} is finished. The tavern is open.` : `${this.builderName()} finished ${LODGE_NAMES[k]}.`);
   }
 
   /** Gruk's town build, anchored on the tavern's centre (townBuilder.ts). Only when the host can place blocks. */
@@ -1266,6 +1325,7 @@ export class NpcManager {
     for (const f of this.town.takeFinished()) {
       this.board.finished();
       if (f.template === 'storage_bay' && !this.board.bay) this.board.setBay(f);
+      if ((LODGE_PATH as readonly string[]).includes(f.template)) this.lodgeStageDone(f.template as LodgeKey);
     }
     // The bay's floor row is known once Gruk has started it: the board is placed from then on, before the bay stands.
     const at = this.town.currentPlace();

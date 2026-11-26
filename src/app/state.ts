@@ -390,6 +390,16 @@ export class GameState {
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
     this.npcs.tick(dt);
+    // Once the lodge's bedroom stands, a respawn without a home furnace wakes the player there (npcs bedSpawn).
+    const bed = this.npcs.bedSpawn();
+    if (bed) {
+      const s = this.player.spawn;
+      if (s.x !== bed.x || s.y !== bed.y || s.z !== bed.z) {
+        s.x = bed.x;
+        s.y = bed.y;
+        s.z = bed.z;
+      }
+    }
     if (!this.npcs.greeted) this.npcs.greet();
     this.playTimeS += dt;
     this.ticks++;

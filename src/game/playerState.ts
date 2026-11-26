@@ -286,15 +286,15 @@ export class PlayerState {
     return true;
   }
 
+  /**
+   * Puts items into the inventory. Emits 'item:gained' for what arrived (and 'inventory:changed'); what does
+   * not fit is returned as a count after a warning toast.
+   */
   /** Whether the loot filter (Settings.lootFilter) lets the player pick `item` up from the ground. */
   takes(item: string): boolean {
     return takesItem(this.assist.lootFilter, item);
   }
 
-  /**
-   * Puts items into the inventory. Emits 'item:gained' for what arrived (and 'inventory:changed'); what does
-   * not fit is returned as a count after a warning toast.
-   */
   give(item: string, count = 1, durability?: number, enchants?: Record<string, number>): number {
     const left = this.inventory.add(item, count, durability, 0, this.inventory.size, undefined, enchants);
     const gained = Math.floor(count) - left;

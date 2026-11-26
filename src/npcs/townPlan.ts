@@ -29,7 +29,7 @@ export const MIN_PLOTS = 4;
 
 /** The first buildings in order: the storage bay nearest the plaza, the plaza itself, then houses and lamps. */
 export const TOWN_ORDER: readonly string[] = [
-  'storage_bay', 'well_plaza', 'cottage', 'lamp_post', 'workshop', 'cottage', 'lamp_post', 'cottage', 'workshop', 'cottage', 'lamp_post', 'cottage',
+  'storage_bay', 'lodge', 'well_plaza', 'cottage', 'lamp_post', 'workshop', 'cottage', 'lamp_post', 'cottage', 'workshop', 'cottage', 'lamp_post', 'cottage',
 ];
 
 export interface PlannedBuilding {
@@ -117,6 +117,16 @@ export function planTown(seed: number, origin: readonly [number, number], surfac
         buildings.push({ template: key, x, z, rot: 0 });
         continue;
       }
+      if (key === 'lodge') {
+        // The lodge takes the nearest plot whose ground holds its whole footprint (the hall and its yard, rot 0). Its footprint
+        // stays clear of the 9 x 9 plots on the lattice (the slot pitch is 12), so the plots beside it are unchanged.
+        const at = plots.findIndex((p, i) => i >= next && footingHeights(surface, ...corner(p[0], p[1], t.w, t.d), t.w, t.d) !== null);
+        if (at < 0) continue;
+        const [cx, cz] = plots.splice(at, 1)[0];
+        const [x, z] = corner(cx, cz, t.w, t.d);
+        buildings.push({ template: key, x, z, rot: 0 });
+        continue;
+      }
       if (next >= plots.length) break;
       const [cx, cz] = plots[next++];
       const rot = hash32(seed, cx, cz) & 3;
@@ -124,6 +134,8 @@ export function planTown(seed: number, origin: readonly [number, number], surfac
       const [x, z] = corner(cx, cz, f.w, f.d);
       buildings.push({ template: key, x, z, rot });
     }
+    // A town with a lodge needs a site where the lodge's footprint fits (flat enough): otherwise the next site is tried.
+    if (order.includes('lodge') && !buildings.some((b) => b.template === 'lodge')) continue;
     return { site: [sx, sz], buildings };
   }
   return null;
