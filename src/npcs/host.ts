@@ -118,11 +118,15 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       else b.grant(buff, s);
       if (buff !== 'strength') d.player.bus.emit('buff:gained', { buff, durationS: s });
     },
-    tendFire: (x, y, z) => {
+    tendFire: (x, y, z, fuel) => {
       const e = d.sim.furnaceAt(x, y, z);
       if (!e) return;
       const slots = d.sim.furnaceSlots(x, y, z);
-      if (slots && e.fuel.every((s) => s === null) && !e.burnItem) slots.fuel.add('oak_log', 12);
+      if (slots && e.fuel.every((s) => s === null) && !e.burnItem) {
+        const got = fuel('oak_log', 12);
+        const left = got > 0 ? slots.fuel.add('oak_log', got) : 0;
+        if (left > 0) fuel('oak_log', -left);
+      }
       if (!e.lit) d.sim.light(x, y, z);
     },
     companion: {

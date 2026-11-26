@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from './math';
+import { canEnchant, enchantDef } from './enchant';
 import { LOOT_TABLES, STRUCTURE_LOOT, item, lootTable, lootTableById, lootTableItems, rollLoot, validateLootTables } from './registry';
 import type { LootTableSpec } from './types';
 
@@ -69,5 +70,26 @@ describe('rollLoot v2', () => {
     for (const id of ['tavern_closet', 'tavern_vault']) {
       for (const key of lootTableItems(lootTableById(id))) expect(item(key).age, `${id}: ${key}`).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('enchanted loot entries', () => {
+  it('only name real enchants the item can take, and quality only on tools', () => {
+    const tables = [...LOOT_TABLES, ...Object.values(STRUCTURE_LOOT), lootTableById('cave_boss'), lootTableById('tavern_closet'), lootTableById('tavern_vault')];
+    let found = 0;
+    for (const tb of tables) {
+      for (const en of [...(tb.guaranteed ?? []), ...tb.entries]) {
+        if (!en.enchants && !en.quality) continue;
+        found++;
+        const def = item(en.item);
+        if (en.quality) expect(def.tool, `${en.item} quality`).toBeTruthy();
+        for (const [k, lv] of Object.entries(en.enchants ?? {})) {
+          expect(canEnchant(def, k), `${en.item} ${k}`).toBe(true);
+          expect(lv).toBeGreaterThanOrEqual(1);
+          expect(lv).toBeLessThanOrEqual(enchantDef(k)!.max);
+        }
+      }
+    }
+    expect(found).toBeGreaterThanOrEqual(5);
   });
 });

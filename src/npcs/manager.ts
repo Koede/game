@@ -63,6 +63,9 @@ export interface NpcView {
   party: boolean;
 }
 
+/** Logs in the town's woodpile in a new world: about two hours of one fire (12 logs burn 10 minutes). */
+export const FIREWOOD_START = 144;
+
 export interface NpcSnapshot {
   v: 1;
   /** Tavern-local origin in the world (the north-west floor corner), or null in worlds without one. */
@@ -72,6 +75,8 @@ export interface NpcSnapshot {
   spoken: Record<string, number>;
   heard?: string[];
   coins?: number;
+  /** Logs left in the town's own woodpile (the hearths burn these before the storage bay's stock). */
+  wood?: number;
   claimed?: string[];
   hiredS?: number;
   comp?: [number, number, number];
@@ -144,7 +149,7 @@ export interface NpcHost {
   /** Progression advice for a specialist (magic, brewing, tech), or null when there is none. */
   advice(role: 'witch' | 'barkeep' | 'artificer' | 'alchemist'): string | null;
   /** Keeps a hearth in the tavern burning. */
-  tendFire?(x: number, y: number, z: number): void;
+  tendFire?(x: number, y: number, z: number, fuel: (item: string, count: number) => number): void;
   /** Skips the night to dawn: rested, warm (a paid bed). */
   sleepToDawn?(bed?: { x: number; y: number; z: number }): void;
   /** Gives the player a timed buff (Rosa's drinks). */
@@ -193,6 +198,9 @@ export class NpcManager {
   at: [number, number, number] | null = null;
   greeted = false;
   coins = 0;
+  /** The town's own woodpile for its hearths. Finite: once it and the storage bay's logs are gone the fires burn down. */
+  firewood = FIREWOOD_START;
+  private fireDownTold = false;
   /** The tavern jukebox is playing. */
   jukeboxOn = false;
   /** The party button behind the bar is on: everyone in swimwear and dancing. */
@@ -1241,8 +1249,25 @@ export class NpcManager {
     this.fireS -= dt;
     if (this.fireS <= 0) {
       this.fireS = 8;
-      for (const [x, y, z] of this.camp ? CAMP_FIRES : FIRE_SPOTS) host.tendFire?.(this.at[0] + x, this.at[1] + y, this.at[2] + z);
+      for (const [x, y, z] of this.camp ? CAMP_FIRES : FIRE_SPOTS) host.tendFire?.(this.at[0] + x, this.at[1] + y, this.at[2] + z, (item, n) => this.fireFuel(item, n));
     }
+  }
+
+  /** Fuel for a hearth: the woodpile first, then the storage bay (so the player's logs keep the fires too). Never conjured. */
+  private fireFuel(item: string, count: number): number {
+    if (item !== 'oak_log') return 0;
+    if (count < 0) {
+      this.firewood += -count; // logs a full hearth would not take go back on the pile
+      return 0;
+    }
+    const own = Math.min(this.firewood, count);
+    this.firewood -= own;
+    const got = own + (own < count ? this.town.draw(item, count - own) : 0);
+    if (got === 0 && !this.fireDownTold) {
+      this.fireDownTold = true;
+      this.toast('The hearth is burning down: the woodpile is empty. Put oak logs in the storage bay.');
+    } else if (got > 0) this.fireDownTold = false;
+    return got;
   }
 
   /** Gruk's town build, anchored on the tavern's centre (townBuilder.ts). Only when the host can place blocks. */
@@ -1295,7 +1320,7 @@ export class NpcManager {
     const r2 = (n: number): number => Math.round(n * 100) / 100;
     return {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
-      coins: this.coins, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
+      coins: this.coins, wood: this.firewood, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
@@ -1322,6 +1347,7 @@ export class NpcManager {
     this.gifted = new Set(strings(r.gifted));
     this.heard = new Set(strings(r.heard));
     this.claimed = new Set(strings(r.claimed));
+    this.firewood = typeof r.wood === 'number' && Number.isFinite(r.wood) ? Math.max(0, Math.floor(r.wood)) : FIREWOOD_START;
     this.coins = typeof r.coins === 'number' && Number.isFinite(r.coins) ? Math.max(0, Math.floor(r.coins)) : 0;
     this.trust = {};
     this.giftDay = {};

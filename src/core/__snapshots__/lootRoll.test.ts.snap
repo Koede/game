@@ -124,6 +124,9 @@ exports[`rollLoot regression (old tables, fixed seeds) > rolls the same stacks f
     {
       "count": 1,
       "durability": 192,
+      "enchants": {
+        "magnet": 1,
+      },
       "item": "bronze_pickaxe",
     },
   ],
@@ -137,8 +140,8 @@ exports[`rollLoot regression (old tables, fixed seeds) > rolls the same stacks f
       "item": "firebrick",
     },
     {
-      "count": 2,
-      "item": "iron_ingot",
+      "count": 1,
+      "item": "treasure_map",
     },
   ],
   "deep:987654321": [
@@ -148,7 +151,7 @@ exports[`rollLoot regression (old tables, fixed seeds) > rolls the same stacks f
     },
     {
       "count": 1,
-      "item": "thermopile",
+      "item": "bronze_bucket",
     },
     {
       "count": 4,
@@ -239,7 +242,16 @@ exports[`rollLoot regression (old tables, fixed seeds) > rolls the same stacks f
       "item": "plank",
     },
     {
-      "count": 2,
+      "count": 1,
+      "durability": 240,
+      "enchants": {
+        "ember": 1,
+      },
+      "item": "bronze_axe",
+      "quality": 1,
+    },
+    {
+      "count": 1,
       "item": "drive_shaft",
     },
     {
@@ -267,7 +279,12 @@ exports[`rollLoot regression (old tables, fixed seeds) > rolls the same stacks f
     },
     {
       "count": 1,
-      "item": "drive_shaft",
+      "durability": 240,
+      "enchants": {
+        "ember": 1,
+      },
+      "item": "bronze_axe",
+      "quality": 1,
     },
   ],
   "lumber_mill:7": [

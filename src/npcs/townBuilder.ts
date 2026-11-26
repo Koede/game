@@ -282,6 +282,14 @@ export class TownBuilder {
     return n;
   }
 
+  /** Takes up to `count` of an item out of the storage bay's stock (a hearth's fuel); returns how many came out. The crate follows on the next look. */
+  draw(item: string, count: number): number {
+    const n = Math.min(Math.floor(count), this.bay.get(item) ?? 0);
+    if (!(n > 0)) return 0;
+    this.take(item, n);
+    return n;
+  }
+
   /** What the current stage still needs from the bay beyond its stock: the blocks left in the stage, less what the bay holds. */
   missing(): TownItem[] {
     if (this.base === null || this.laid >= this.cells.length) return [];
