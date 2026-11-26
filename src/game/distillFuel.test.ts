@@ -21,7 +21,7 @@ describe('distillery fuels in engines', () => {
       expect(itemOrNull(k), k).not.toBeNull();
       if (g.empty) expect(itemOrNull(g.empty), k).not.toBeNull();
     }
-    expect(FUEL_GRADES.fuel_canister).toEqual({ saw: 1, tractor: 1, empty: null });
+    expect(FUEL_GRADES.fuel_canister).toEqual({ saw: 1, tractor: 1, engine: 1, empty: null });
   });
 
   it('gasoline fills a chainsaw 1.3 times as far and hands the empty canister back', () => {

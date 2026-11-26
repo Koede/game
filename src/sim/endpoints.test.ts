@@ -36,7 +36,8 @@ describe('item endpoints', () => {
     kit.machine('burner_generator', 3, 1, 0);
     const burner = kit.sim.itemEndpoint(3, 1, 0, Face.PY)!;
     expect(burner.insert('coal', 4)).toBe(4);
-    expect(burner.room('lava_bucket')).toBe(0); // it has nowhere to put the empty bucket
+    expect(burner.room('lava_bucket')).toBe(0); // the slot already holds coal
+    expect(burner.room('fuel_canister')).toBe(0);
     expect(burner.offer()).toBeNull();
 
     const rig = kit.machine('bore_rig', 6, 1, 0);

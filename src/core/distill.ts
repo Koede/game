@@ -152,17 +152,20 @@ export const isEmptyChemContainer = (key: string): boolean => Object.values(CHEM
 /**
  * Engine fuels (plan 8.1): what one container is worth to each consumer, as a multiple of the old Fuel Canister.
  * 0 = that engine refuses it. `empty` is handed back after refuelling (the old Fuel Canister is used up whole).
+ * `engine` is the same for the combustion engine's fuel slot (the electric output scales with it).
  */
 export interface FuelGrade {
   saw: number;
   tractor: number;
+  engine: number;
   empty: string | null;
 }
 export const FUEL_GRADES: Readonly<Record<string, FuelGrade>> = {
-  fuel_canister: { saw: 1, tractor: 1, empty: null },
-  gasoline_canister: { saw: 1.3, tractor: 1.2, empty: EMPTY_CANISTER },
-  diesel_canister: { saw: 0, tractor: 1.5, empty: EMPTY_CANISTER },
-  fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, empty: EMPTY_BEAKER },
+  fuel_canister: { saw: 1, tractor: 1, engine: 1, empty: null },
+  gasoline_canister: { saw: 1.3, tractor: 1.2, engine: 1.2, empty: EMPTY_CANISTER },
+  kerosene_canister: { saw: 0, tractor: 1, engine: 1, empty: EMPTY_CANISTER },
+  diesel_canister: { saw: 0, tractor: 1.5, engine: 1.5, empty: EMPTY_CANISTER },
+  fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, engine: 0.2, empty: EMPTY_BEAKER },
 };
 export const fuelGrade = (item: string): FuelGrade | null => FUEL_GRADES[item] ?? null;
 

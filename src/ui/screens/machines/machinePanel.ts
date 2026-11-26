@@ -130,7 +130,7 @@ export class MachinePanel {
         const fuel = this.slot('Fuel', `${label} fuel`);
         this.fuel = h('p', { class: 'hw-mach__fuel hw-num' });
         const fuels = (spec.fuels ?? []).map(nameOf);
-        const accepts = fuels.length > 4 ? 'Burns logs, planks, sticks, charcoal, coal or coke' : `Burns ${fuels.join(', ')}`;
+        const accepts = fuels.length > 4 ? 'Burns any furnace fuel' : `Burns ${fuels.join(', ')}`;
         this.extra.append(
           h('div', { class: 'hw-mach__row' }, fuel.el, h('div', { class: 'hw-mach__grow' }, h('span', { class: 'hw-heading', text: 'Fuel left' }), this.fuel, h('p', { class: 'hw-mach__note', text: accepts }))),
         );

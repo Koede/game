@@ -107,10 +107,9 @@ describe('2. roster of spec section 2', () => {
       for (const name of Object.keys(machine(kind).params ?? {})) expect(numbers, `${kind}.params.${name}`).toHaveProperty(name);
     }
     expect(machine('furnace').blocks).toEqual(FURNACE_TIERS.map((t) => t.block));
-    // Every fuel except those that hand a container back: the burner's one slot has nowhere to put the bucket.
-    const returnsContainer = (key: string): boolean => item(key).fuel?.fuelReturns !== undefined;
-    expectContains(machine('burner_generator').fuels ?? [], Object.keys(SPEC.fuels).filter((k) => !returnsContainer(k)), 'burner fuels');
-    expect(machine('combustion_engine').fuels).toEqual(['fuel_canister']);
+    // Every fuel, the lava bucket too (its empty bucket goes back to the player). The engine takes the refined fuels.
+    expectContains(machine('burner_generator').fuels ?? [], Object.keys(SPEC.fuels), 'burner fuels');
+    expect(machine('combustion_engine').fuels).toEqual(['fuel_canister', 'gasoline_canister', 'kerosene_canister', 'diesel_canister', 'fuel_ethanol_beaker']);
     expect(machine('fission_pile').fuels).toEqual(['fuel_rod']);
   });
 
