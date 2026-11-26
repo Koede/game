@@ -12,7 +12,9 @@ Orrin builds a village next to the tavern from presaved templates (plan: `docs/p
 - `src/npcs/townBuilder.ts`: `TownBuilder`, the saved progress and the storage bay. `buildCells` turns a planned building into
   ordered jobs (stilts and digs first, then the template cells). Talks to the game through `TownHost`.
 - `src/npcs/manager.ts` (`tickTown`, `town` in the npcs snapshot) and `src/npcs/host.ts` (`townSurface`, `townBlock`, `townEdited`,
-  `townPlace`) wire it in. The origin is the tavern's centre for now; any generic origin can be passed to `tick`.
+  `townPlace`) wire it in. The origin is the camp's centre in a new world (`camp.ts`, phase 1 of `docs/plans/just-you-and-orrin.md`)
+  and the tavern's centre once it stands. The builder is Gruk (`BUILDER_ID` in manager.ts): his name is on the board's toasts and he
+  takes the build-bounty trust.
 
 ## State
 

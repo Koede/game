@@ -54,14 +54,14 @@ export class FavourBoard {
   total = 0;
   private lastDay = 0;
 
-  /** Drops expired notes and pins new ones for `day`. Returns true when the board changed. */
-  refresh(day: number, rng: () => number): boolean {
+  /** Drops expired notes and pins new ones for `day` (only from people `canAsk` allows: the ones who live here). Returns true when the board changed. */
+  refresh(day: number, rng: () => number, canAsk: (who: string) => boolean = () => true): boolean {
     if (day === this.lastDay) return false;
     this.lastDay = day;
     const before = this.pinned.map((p) => p.id).join();
     this.pinned = this.pinned.filter((p) => day - p.day < FAVOUR_DAYS);
     const have = new Set(this.pinned.map((p) => p.id));
-    const free = FAVOURS.filter((f) => !have.has(f.id) && day - (this.done[f.id] ?? -99) >= FAVOUR_DAYS);
+    const free = FAVOURS.filter((f) => !have.has(f.id) && canAsk(f.who) && day - (this.done[f.id] ?? -99) >= FAVOUR_DAYS);
     while (this.pinned.length < FAVOUR_SLOTS && free.length > 0) {
       const f = free.splice(Math.min(free.length - 1, Math.floor(rng() * free.length)), 1)[0];
       this.pinned.push({ id: f.id, day });

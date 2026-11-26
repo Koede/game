@@ -3,11 +3,13 @@ import { blockId, creature } from '../core/registry';
 import { Facing, makeVoxel } from '../core/types';
 import { isWorldSave } from '../save/document';
 import { isFurnace } from '../sim';
+import { CAMP_SEARCH, CAMP_START } from '../npcs/camp';
+import { settledWorld } from '../npcs/settledWorld';
 import { GameState, seedFrom } from './state';
 
 /** A world with a lit clay furnace next to the player and a few things in the pack. */
 function playedState(): { state: GameState; fx: number; fy: number; fz: number } {
-  const state = GameState.create(7, 'seven');
+  const state = settledWorld(7, 'seven');
   const p = state.player.position;
   const fx = Math.floor(p.x) + 2;
   const fz = Math.floor(p.z);
@@ -26,10 +28,14 @@ function playedState(): { state: GameState; fx: number; fy: number; fz: number }
 }
 
 describe('GameState', () => {
-  it('starts a new world at the spawn point, on the ground, at early morning', () => {
+  it('starts a new world at the camp by the spawn point, on the ground, at early morning', () => {
     const state = GameState.create(11, null);
     const spawn = state.world.spawnPoint();
-    expect(state.player.position).toEqual({ x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
+    const o = state.npcs.at!;
+    expect(state.npcs.camp).toBe(true);
+    expect(state.player.position).toEqual({ x: o[0] + CAMP_START[0] + 0.5, y: o[1] + CAMP_START[1], z: o[2] + CAMP_START[2] + 0.5 });
+    expect(state.player.spawn).toEqual(state.player.position);
+    expect(Math.abs(state.player.position.x - spawn.x) + Math.abs(state.player.position.z - spawn.z)).toBeLessThanOrEqual(CAMP_SEARCH * 2 + 2);
     expect(state.world.isLoaded(spawn.x, spawn.z)).toBe(true);
     expect(state.clock.timeOfDay).toBeCloseTo(0.05, 5);
     expect(state.objectives.current?.id).toBe('gather_logs');
