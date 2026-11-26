@@ -108,6 +108,7 @@ export class TouchGestures {
   private lookX = 0;
   private lookY = 0;
   private usePulses = 0;
+  private worldTaps = 0;
   private jumpCount = 0;
   private mineCount = 0;
   private useCount = 0;
@@ -232,6 +233,7 @@ export class TouchGestures {
           this.mineCount--;
         }
         this.usePulses++;
+        this.worldTaps++;
       } else {
         this.promoteHold(p, t);
       }
@@ -280,6 +282,13 @@ export class TouchGestures {
     this.lookY = 0;
   }
 
+  /** Number of taps on the bare world (not the Use button) since the last call: a stray tap must not do what only the button should. */
+  takeWorldTaps(): number {
+    const n = this.worldTaps;
+    this.worldTaps = 0;
+    return n;
+  }
+
   /** Number of use presses (world taps + Use button presses) since the last call. */
   takeUsePulses(): number {
     const n = this.usePulses;
@@ -293,6 +302,7 @@ export class TouchGestures {
     this.lookX = 0;
     this.lookY = 0;
     this.usePulses = 0;
+    this.worldTaps = 0;
     this.holdPhase = HOLD_NONE;
   }
 

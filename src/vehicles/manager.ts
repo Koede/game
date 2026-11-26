@@ -91,6 +91,8 @@ export class VehicleManager {
   private swapKey = false;
   private lastJump = false;
   private workTimer = 0;
+  /** Seconds before the "tap Exit" hint may show again. */
+  private exitHintS = 0;
   private chug = 0;
   private lowFuelWarned = false;
   private physics: { reset(): void } | null = null;
@@ -301,6 +303,7 @@ export class VehicleManager {
     const { player } = this.host;
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.workTimer = Math.max(0, this.workTimer - dt);
+    this.exitHintS = Math.max(0, this.exitHintS - dt);
     for (const t of this.tractors.values()) {
       if (t.working > 0) t.working = Math.max(0, t.working - dt * 2.5);
       if (t !== this.driving && !t.onGround && this.host.world.isLoaded(t.x, t.z)) settleTractor(this.host.world, t, Math.min(dt, 0.05));
@@ -362,7 +365,13 @@ export class VehicleManager {
     const throttle = intent.moveZ;
     const steer = intent.moveX;
     const wantWork = this.workKey || intent.mine;
-    const exit = intent.use && this.cooldown <= 0;
+    // On a phone a stray tap on the world is a Use too: getting off takes the Exit button (the Use button recaptioned), a key or a click.
+    const strayTap = intent.use && intent.worldTap;
+    const exit = intent.use && this.cooldown <= 0 && !strayTap;
+    if (strayTap && this.cooldown <= 0 && this.exitHintS <= 0) {
+      this.exitHintS = 6;
+      this.host.bus.emit('toast', { text: 'Tap Exit to get off the tractor', kind: 'info' });
+    }
     // The controller must neither walk, mine, place nor turn the machine's driver: those are taken.
     intent.moveX = intent.moveZ = 0;
     intent.lookYaw = 0;

@@ -303,7 +303,10 @@ export class Interaction {
   placeBlock(hit: RayHit, def: BlockDef): boolean {
     if (this.placeCooldown > 0) return false;
     const { x, y, z } = placementCell(hit);
-    if (!this.placeableCell(x, y, z)) return false;
+    if (!this.placeableCell(x, y, z)) {
+      this.advise('place:no-room', 'Nothing can go there: aim at a free face', 4);
+      return false;
+    }
     if (def.placeOn) {
       const below = this.world.getBlock(x, y - 1, z);
       if (!def.placeOn.includes(below.key)) {
@@ -311,7 +314,10 @@ export class Interaction {
         return false;
       }
     }
-    if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) return false;
+    if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) {
+      this.advise('place:in-the-way', 'You are standing in the way: step aside to place that', 4);
+      return false;
+    }
     // A door is two cells: the top half goes in the cell above, which must be free and clear of the player.
     const door = def.shape === 'door';
     if (door && (!this.placeableCell(x, y + 1, z) || this.body.intersectsCell(x, y + 1, z, 1))) {
@@ -329,6 +335,23 @@ export class Interaction {
     this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: placePitch(def), volume: 0.8 });
     this.swing.triggerSwing();
     return true;
+  }
+
+  /**
+   * The cue for a Use that did nothing and said nothing (the controller calls it when no toast or screen followed), so
+   * no tap on the sky or on a block is ever mute. A refusal right after another action is just the cooldown: quiet.
+   */
+  explainIdle(hit: RayHit | null, outcome: 'none' | 'refused', forcePlace: boolean): void {
+    if (this.player.dead || (outcome === 'refused' && this.placeCooldown > 0)) return;
+    const held = this.player.heldStack();
+    const heldName = held ? (itemOrNull(held.item)?.name ?? held.item) : null;
+    const target = hit ? hit.block.name : null;
+    let text: string;
+    if (forcePlace && !(held && blockOfItem(held.item))) text = 'Hold a block to place it';
+    else if (!target) text = heldName ? `Nothing in reach to use the ${heldName} on` : 'Nothing in reach to use';
+    else if (outcome === 'refused') text = heldName ? `Cannot use the ${heldName} on the ${target} right now` : `Cannot use the ${target} right now`;
+    else text = heldName ? `The ${heldName} does nothing to the ${target}` : `Nothing to do with the ${target} by hand`;
+    this.advise(`idle:${forcePlace ? "place" : "use"}:${outcome}:${hit?.block.key ?? 'sky'}:${held?.item ?? ''}`, text, 4);
   }
 
   // ---------------------------------------------------------------------------------------------
