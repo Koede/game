@@ -106,7 +106,9 @@ Added: `Window.whenClosed`, `PauseMenu.window` (both for GameUI).
 - `class Toasts(host, { max? = 4 })` - `show({ text, kind?, item?, durationMs? })` (the bus 'toast' payload fits; identical messages bump a ×N counter), `clear()`, `dispose()`.
 - `class Banner(host)` - `show({ title, kicker?, subtitle?, tone?: 'heat'|'power'|'good', size?: 'md'|'lg', durationMs? })` (queued), `clear()`.
 - `class Tooltip(host)` - `attach(target, source, { touch?: 'longpress'|'none' }): Dispose` (source may be a function for live numbers),
-  `show(anchor: HTMLElement | Box, content)`, `hide()`. Content: string, `{ title, body?, rows?: [label, value][] }`, or a Node.
+  `show(anchor: HTMLElement | Box, content)`, `hide()`. Content: string, `{ title, body?, rows?: [label, value][], rarity?,
+  lines?: { text, colour, aspect, title?, effect? }[] }`, or a Node. A line's `effect` is a muted one-liner under it
+  (`.hw-tooltip__effect`: the enchant's effect at its level).
 
 ## format.ts (DOM-free)
 - `HEAT_STOPS`, `heatRgb(tempC)`, `heatColor(tempC)` (#rrggbb fill colour), `heatTextColor(tempC)` (lifted for text on dark panels),

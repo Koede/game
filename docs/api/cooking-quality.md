@@ -11,3 +11,6 @@
 - Left for wiring: the sim's furnace forge outputs (stew, bread) should pass the pot temperature to `dishQuality` and give the stack its quality.
 
 Wired: `sim/furnaceActions.forge` passes the furnace temperature (`heatC: e.tempC`) to `craftByPlayer`, so forged stew and bread get quality.
+
+Shown (R2): `dishLabel(stack)` ('Tasty' / 'Exquisite', '' for ordinary and non-foods) and `dishEffect(q)` ("Tasty: 20% more
+food, buffs last 1.5x") feed `stackName` ("Tasty Bread") and the item card's Quality row.

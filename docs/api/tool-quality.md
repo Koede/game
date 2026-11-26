@@ -9,4 +9,7 @@
   stamps it. `rollQuality(roll, skill)` widens the odds up to double.
 - Repair: use a worn tool on any anvil (`HandTools.station`): `repairTool(stack, sources)` consumes the tool's material
   (`REPAIR_MATERIALS`: planks, flint, bronze/iron/steel ingots), each unit restoring 25% of its best durability.
-- `wearFraction`, `qualityLabel` for UI. Nothing in content changed.
+- `wearFraction`, `qualityLabel(stack)` ('Fine' / 'Masterwork', '' for plain and for non-tools), `qualityEffect(q)`
+  ("Fine: 25% more uses") for UI. Nothing in content changed.
+- Shown (R2): slot names, the carry bar and the item card read `stackName` ("Fine Iron Pickaxe", `ui/screens/inventory/slotViews.ts`);
+  the card has a Quality row and "Uses left" out of the quality's own best; the slot wear bar uses it too.

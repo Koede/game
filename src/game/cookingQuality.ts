@@ -98,3 +98,15 @@ export function foodStrength(stack: ItemStack): { hunger: number; buff: number }
 
 /** Whether the item is a food that quality applies to. */
 export const isDish = (item: string): boolean => !!itemOrNull(item)?.food;
+
+/** "Tasty Bread" style label prefix: '' for an ordinary dish and for anything that is not a food (tools use `qualityLabel`). */
+export const dishLabel = (stack: Pick<ItemStack, 'item' | 'quality'>): string =>
+  stack.quality && isDish(stack.item) ? DISH_NAME[stack.quality as DishQuality] ?? '' : '';
+
+/** One line on what the cooking gives, for tooltips ("Tasty: 20% more food, buffs last 1.5x"); '' for ordinary. */
+export function dishEffect(quality: number | undefined): string {
+  const q = (quality ?? 0) as DishQuality;
+  const s = FOOD_STRENGTH[q];
+  if (!q || !s) return '';
+  return `${DISH_NAME[q]}: ${Math.round((s.hunger - 1) * 100)}% more food, buffs last ${s.buff}x`;
+}

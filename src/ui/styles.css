@@ -996,6 +996,11 @@ body {
   font: 600 12.5px / 1.3 var(--hw-font-display);
   letter-spacing: 0.03em;
 }
+.hw-tooltip__effect {
+  margin: 0 0 2px 19px;
+  font: 400 11.5px / 1.3 var(--hw-font-body);
+  color: var(--hw-ink-muted);
+}
 .hw-slot--sm {
   --hw-slot: 44px;
 }

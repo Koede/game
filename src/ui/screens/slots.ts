@@ -18,7 +18,7 @@ import { moveHalf, moveOne, moveStack, quickMove } from '../../game/transfer';
 import { Disposer, h, listen, setText, type Dispose } from '../kit/dom';
 import type { Tooltip, TooltipCard } from '../kit/feedback';
 import { foodLine } from './food';
-import { itemCard, slotView } from './inventory/slotViews';
+import { itemCard, slotView, stackName } from './inventory/slotViews';
 
 export { itemCard, slotView };
 import { Button, IconButton } from '../kit/controls';
@@ -422,7 +422,7 @@ export class SlotController {
 
   /**
    * `ghostLayer` holds the icon that follows a mouse while something is picked (normally the tooltip layer);
-   * `tooltip` shows item cards on hover / keyboard focus (touch keeps long-press for half stacks).
+   * `tooltip` shows item cards on hover / keyboard focus, and on touch long-press (which also picks half, as before).
    */
   constructor(bus: GameBus, ghostLayer: HTMLElement | null = null, tooltip: Tooltip | null = null) {
     this.bus = bus;
@@ -496,11 +496,13 @@ export class SlotController {
         listen(view.el, 'pointerdown', (ev) => this.dragStart(cell, ev)),
       );
       if (this.tooltip) {
+        // The long-press that opens the card on touch has just picked this slot (half), so its own pick still shows it.
         const source = (): TooltipCard | null => {
           const stack = spec.inventory.slots[start + k];
-          return stack && !this.logic.picked ? itemCard(stack) : null;
+          const pick = this.logic.picked;
+          return stack && (!pick || (pick.group === spec.id && pick.index === start + k)) ? itemCard(stack) : null;
         };
-        tips.push(this.tooltip.attach(view.el, source, { touch: 'none' }));
+        tips.push(this.tooltip.attach(view.el, source));
       }
     });
     this.refresh();
@@ -701,7 +703,7 @@ export class SlotController {
       this.barKey = '';
       return;
     }
-    const name = itemOrNull(stack.item)?.name ?? stack.item;
+    const name = itemOrNull(stack.item) ? stackName(stack) : stack.item;
     const amount = pick.half ? Math.ceil(stack.count / 2) : stack.count;
     setText(this.barText, `${amount > 1 ? `${amount} ` : ''}${name}${pick.half ? ' (half)' : ''}`);
     // Touch has no item card: the carry bar is where a phone player learns what a food restores.

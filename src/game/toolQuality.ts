@@ -51,8 +51,15 @@ export function applyQuality(stack: ItemStack, quality: 0 | Quality): ItemStack 
 }
 
 export const qualityOf = (stack: ItemStack): 0 | Quality => stack.quality ?? 0;
-/** "Fine Iron Pickaxe" style label prefix, '' for plain. */
-export const qualityLabel = (stack: ItemStack): string => (stack.quality ? QUALITY_NAME[stack.quality] : '');
+/** "Fine Iron Pickaxe" style label prefix: '' for a plain tool and for anything that is not a tool (foods use `dishLabel`). */
+export const qualityLabel = (stack: Pick<ItemStack, 'item' | 'quality'>): string =>
+  stack.quality && itemOrNull(stack.item)?.tool ? QUALITY_NAME[stack.quality] : '';
+
+/** One line on what the workmanship gives, for tooltips ("Fine: 25% more uses"); '' for plain. */
+export function qualityEffect(quality: 0 | Quality | undefined): string {
+  if (!quality) return '';
+  return `${QUALITY_NAME[quality]}: ${Math.round((QUALITY_DURABILITY_MULT[quality] - 1) * 100)}% more uses`;
+}
 
 /** How worn a stack is: 0 fresh .. 1 about to break; null when it does not wear. */
 export function wearFraction(stack: ItemStack): number | null {

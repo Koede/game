@@ -97,7 +97,8 @@ another slot = drop ONE and keep the pick. Double-tap (a tap that picked, then t
 double-click or shift-click = quick move. While picked, the action bar shows the stack and one "To <group>"
 button per destination that accepts the item, plus a put-back button. Moves play `ui_click`, refusals `error`.
 Hover / keyboard focus on a slot shows an item card (name, description, count, tool tier and uses, fuel burn
-time and flame); touch has no tooltip (long-press is the half pick) - the action bar names the picked item.
+time and flame, quality, enchants with a one-line effect each); on touch a long-press shows the same card (it still
+picks half too; the card lingers 1.4 s after the finger lifts) - the action bar names the picked item.
 
 ```ts
 class SlotInteraction {               // DOM-free rules (unit-tested); indices are inventory slot indices
@@ -130,7 +131,9 @@ coal -> firebox, ore -> crucible); when there is none, the other groups over the
 Do not put the action bar ABOVE slots yourself: it would push them down when it appears.
 
 Stack views (src/ui/screens/inventory/slotViews.ts, re-exported from slots.ts):
-`slotView(stack | null): SlotView | null` (tool wear as 0..1), `itemCard(stack): TooltipCard`.
+`slotView(stack | null): SlotView | null` (tool wear as 0..1 of the stack's own best, quality included; `name` is
+`stackName`), `itemCard(stack): TooltipCard`, `stackName(stack)` ("Fine Iron Pickaxe", "Tasty Bread"),
+`enchantEffectLine(key, level)` ("Breaks 6 more blocks of an ore vein"; numbers from `game/enchantEffects` tables).
 
 ## 5. Screens and reusable pieces
 
@@ -253,5 +256,5 @@ ui.setIconProvider(createIconProvider());
   shift-click, action bar, make, close by X / Escape / E / L / back, hotbar tap, workbench with a crate, death and
   respawn, pause / resume) and by screenshots at all three sizes.
 - Banners use the kit's queue: a cascade of several completed goals shows them one after another (3 s each).
-- Touch has no item tooltip; item descriptions are only visible on desktop (hover / focus).
+- Touch item tooltip: long-press on a slot shows the item card as well as picking half (R2, 2026-11-25).
 - `src/ui/screens/slots.ts` is about 380 lines (rules + controller), a little above the 350-line aim.

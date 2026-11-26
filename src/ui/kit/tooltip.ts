@@ -12,8 +12,8 @@ export interface TooltipCard {
   rarity?: string;
   /** Label / value pairs under the body ("Burns for" / "80 s"). */
   rows?: readonly (readonly [label: string, value: string])[];
-  /** Coloured lines with an aspect icon under the title (enchantments: "Veinseeker II"). */
-  lines?: readonly { text: string; colour: string; aspect: Aspect; title?: string }[];
+  /** Coloured lines with an aspect icon under the title (enchantments: "Veinseeker II"), each with an optional one-line `effect` under it. */
+  lines?: readonly { text: string; colour: string; aspect: Aspect; title?: string; effect?: string }[];
 }
 
 export type TooltipContent = string | TooltipCard | Node | null;
@@ -154,9 +154,10 @@ export class Tooltip {
           ? h(
               'div',
               { class: 'hw-tooltip__enchants' },
-              content.lines.map((l) =>
+              content.lines.map((l) => [
                 h('div', { class: 'hw-tooltip__enchant', style: { color: l.colour }, attrs: { title: l.title ?? '' } }, aspectIcon(l.aspect, 14), h('span', { text: l.text })),
-              ),
+                l.effect ? h('div', { class: 'hw-tooltip__effect', text: l.effect }) : null,
+              ]),
             )
           : null,
         content.body ? h('div', { class: 'hw-tooltip__body', text: content.body }) : null,
