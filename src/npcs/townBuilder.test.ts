@@ -223,6 +223,7 @@ describe('town builder', () => {
     expect(movable('wild_potato')).toBe(true);
     expect(movable('wild_wheat')).toBe(true);
     expect(movable('skybell')).toBe(true);
+    for (const bush of ['berry_bush', 'berry_bush_bare', 'tea_bush', 'tea_bush_bare']) expect(movable(bush)).toBe(true);
     expect(movable('tall_grass')).toBe(true);
     expect(movable('oak_log')).toBe(false);
     expect(movable('oak_leaves')).toBe(true);

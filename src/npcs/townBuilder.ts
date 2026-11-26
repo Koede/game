@@ -41,7 +41,9 @@ const MAX_OWED_DAYS = 4;
 /** Most days after a turned day that are counted one by one for skipped working days (the owed cap makes the rest moot). */
 const MAX_GAP_DAYS = 16;
 /** Blocks Gruk digs out of the way (grass, plants, dirt bumps, loose stone) when they are not the player's. */
-export const MOVABLE = new Set(['grass', 'tall_grass', 'fern', 'dry_shrub', 'dirt', 'gravel', 'stone', 'rubble', 'snow', 'sand', 'clay', 'ember_poppy', 'skybell', 'frost_lily']);
+export const MOVABLE = new Set(['grass', 'tall_grass', 'fern', 'dry_shrub', 'dirt', 'gravel', 'stone', 'rubble', 'snow', 'sand', 'clay', 'ember_poppy', 'skybell', 'frost_lily',
+  // Wild bushes (they carry a regrowth machine, so the generic test below would refuse them).
+  'berry_bush', 'berry_bush_bare', 'tea_bush', 'tea_bush_bare']);
 
 /** The storage bay's crate as the builder sees it: its slots (read) and what it can take or give up (Inventory fits). */
 export interface StockCrate {
@@ -624,6 +626,7 @@ export class TownBuilder {
       this.add(c.block, 1);
       return 'wait';
     }
+    this.owned.set(`${c.x},${c.y},${c.z}`, c.block);
     return 'done';
   }
 
@@ -633,6 +636,8 @@ export class TownBuilder {
    */
   private digOut(host: TownHost, c: TownJob, key: string): boolean {
     if (!host.townPlace(c.x, c.y, c.z, 'air', 0)) return false;
+    // The cell is Gruk's own now: the air he left is not a player edit, so the next block of this plot may go in it.
+    this.owned.set(`${c.x},${c.y},${c.z}`, 'air');
     const def = blockOrNull(key);
     if (def) for (const d of rollDrops(def, mulberry32(hash32(this.seed, c.x, c.y, c.z)))) this.add(d.item, d.count);
     return true;
