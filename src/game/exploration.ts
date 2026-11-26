@@ -21,7 +21,7 @@ import { STRUCTURE_GRID_CHUNKS, squareStructure } from '../world/structures';
 import { makeTreasureMap, treasureClue, treasureHint, type Landmark, type TreasureMap } from '../world/treasure';
 import { biteDelayS, rollCatch, waterKind, type CastContext, type WaterSpot } from '../sim/fishing';
 import type { Season } from '../sim/seasons';
-import { WAYPOINT_FUEL_ITEM, WaypointNetwork, type Waypoint, type WaypointSave } from '../sim/waypoints';
+import { WAYPOINT_FUEL_ITEM, WaypointNetwork, type Destination, type Waypoint, type WaypointSave } from '../sim/waypoints';
 import type { PlayerState } from './playerState';
 
 /** Structure types that count as landmarks for treasure maps. */
@@ -120,6 +120,38 @@ export class Exploration {
 
   private sel = new Map<number, number>();
 
+  /**
+   * Set by the app: opens the waypoint picker for this stone (src/ui/screens/waypoint). While it is set, Use on a stone
+   * with somewhere to go opens the picker; without it (headless) Use cycles destinations in toasts as before.
+   */
+  openPicker: ((stone: Waypoint) => void) | null = null;
+
+  /**
+   * Travel from stone `fromId` to the visited stone `toId` under the usual rules: the player must still stand at the
+   * first, and pays `travelCost` in charcoal. The picker calls this.
+   */
+  travelTo(fromId: number, toId: number): 'worked' | 'refused' {
+    this.prune();
+    const p = this.host.player.position;
+    const from = this.waypoints.nearest(p.x, p.y, p.z);
+    const d = from && from.id === fromId ? this.waypoints.destinations(from).find((x) => x.stone.id === toId) : undefined;
+    if (!from || !d) { this.toast('You need to stand at a waypoint stone to travel.', 'warn'); return 'refused'; }
+    return this.travel(from, d);
+  }
+
+  /** Map markers (docs/api/journal.md): every waypoint stone, and the landmark each read treasure map in the pack points at. */
+  mapMarks(): Array<{ kind: 'waypoint' | 'treasure'; x: number; z: number; name: string }> {
+    const out: Array<{ kind: 'waypoint' | 'treasure'; x: number; z: number; name: string }> = [];
+    for (const w of this.waypoints.all()) out.push({ kind: 'waypoint', x: w.x, z: w.z, name: w.name });
+    for (const slot of this.host.player.inventory.toJSON()) {
+      if (!slot || slot.item !== MAP_ITEM || !slot.durability || this.chests.has(Math.floor(slot.durability / 8))) continue;
+      const m = this.mapOf(slot);
+      // The clue never gives coordinates, so the map circles the landmark, not the dig spot.
+      if (m) out.push({ kind: 'treasure', x: m.landmark.x, z: m.landmark.z, name: m.landmark.name });
+    }
+    return out;
+  }
+
   private useStone(aim: UseAim, held: ItemStack | null): 'worked' | 'refused' {
     this.prune();
     const stone = this.register(aim.x, aim.y, aim.z);
@@ -130,6 +162,7 @@ export class Exploration {
       this.toast(`${stone.name} is remembered. Place a second stone elsewhere and visit it to travel between them.`);
       return 'worked';
     }
+    if (this.openPicker) { this.openPicker(stone); return 'worked'; }
     const fuelHeld = held?.item === WAYPOINT_FUEL_ITEM;
     const i = (this.sel.get(stone.id) ?? 0) % dests.length;
     const d = dests[i];
@@ -138,6 +171,11 @@ export class Exploration {
       this.toast(`${stone.name}: ${d.stone.name}, ${Math.round(d.distance)} blocks, ${d.fuel} charcoal. Hold charcoal and Use to go; Use with an empty hand for the next.`);
       return 'worked';
     }
+    return this.travel(stone, d);
+  }
+
+  /** Pay the fare and step through from `stone` to `d`. */
+  private travel(stone: Waypoint, d: Destination): 'worked' | 'refused' {
     const { player } = this.host;
     if (player.inventory.count(WAYPOINT_FUEL_ITEM) < d.fuel) {
       this.toast(`The trip to ${d.stone.name} needs ${d.fuel} charcoal.`, 'warn');

@@ -55,6 +55,7 @@ import {
   hiddenStructureCells,
   PLAYER_ROAD_HALF,
   registerDistillRig,
+  registerWaypointPicker,
   PLAYER_ROAD_HEIGHT,
   showRodAura,
   tractorRoadFactor,
@@ -223,6 +224,7 @@ export class Game {
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z, request.type === 'rune_desk' && request.bench === true), request.type === 'rune_desk' && request.bench === true));
       registerDistillRig(this.ui);
+      registerWaypointPicker(this.ui, bus, state.exploration);
       const renderer = this.renderer;
       const ui = this.ui;
       // The controller draws through IView; the crosshair (HUD) needs the same target as the outline.

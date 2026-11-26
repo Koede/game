@@ -12,6 +12,11 @@ import type { PlayerState } from '../game/playerState';
 import { sweepBox } from '../vehicles/collide';
 import { BODY_HEIGHT, HALF_WIDTH } from '../vehicles/tractor';
 import { createRigScreen } from '../ui/screens/distill';
+import type { GameBus } from '../core/context';
+import type { Exploration } from '../game/exploration';
+import type { GameUI } from '../ui/gameUI';
+import { setMapMarkerSource } from '../ui/screens/log/journalMap';
+import { createWaypointScreen } from '../ui/screens/waypoint/waypointScreen';
 
 const PLAYER_HALF = PLAYER_WIDTH / 2;
 /** Same slack the treadwheel used for the player before tame animals counted. */
@@ -84,6 +89,16 @@ export function showRodAura(hud: { setAura(text: string | null): void }, reading
 /** Registers the wrench's distillery rig screen. */
 export function registerDistillRig(ui: { registerScreen(type: 'distill_rig', factory: typeof createRigScreen): void }): void {
   ui.registerScreen('distill_rig', createRigScreen);
+}
+
+/**
+ * The waypoint picker and the journal map's markers (docs/api/waypoints.md, journal.md): Use on a stone with somewhere
+ * to go opens the picker instead of cycling toasts; the Hearth Log map pins stones and treasure-map landmarks.
+ */
+export function registerWaypointPicker(ui: Pick<GameUI, 'registerScreen'>, bus: GameBus, exploration: Exploration): void {
+  ui.registerScreen('waypoint', (request, ctx) => createWaypointScreen(request, ctx, exploration));
+  exploration.openPicker = (s) => bus.emit('ui:open', { screen: { type: 'waypoint', x: s.x, y: s.y, z: s.z } });
+  setMapMarkerSource(() => exploration.mapMarks());
 }
 
 /**

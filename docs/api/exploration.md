@@ -4,9 +4,12 @@
 `World.persist('exploration')`, ticked from `GameState.tick`). The app's `beforeUse` hook (src/app/game.ts) calls
 `exploration.use(hit, heldStack)` first; `exploration.teleport` is bound to the controller.
 
-- **Waypoint stones**: registered on `block:placed`; broken ones are pruned on the next Use. Empty-hand Use shows the
-  next destination and its charcoal price (cycles); Use holding charcoal travels (pays `travelCost`, lands one block above
-  the target stone). Holding a block item (placing another stone) is never hijacked.
+- **Waypoint stones**: registered on `block:placed`; broken ones are pruned on the next Use. In the game Use opens the
+  waypoint picker (`openPicker`, set by `registerWaypointPicker`); a pick calls `travelTo(fromId, toId)`, which checks
+  the player still stands at the stone, pays `travelCost` in charcoal and lands one block above the target. Headless
+  (no `openPicker`): empty-hand Use cycles destinations in toasts, Use holding charcoal travels. Holding a block item
+  (placing another stone) is never hijacked. `mapMarks()` lists the stones and, per read treasure map in the pack whose
+  chest is not buried yet, its landmark (never the dig spot): the journal map draws them.
 - **Treasure maps**: loot item (weight 2 near / 3 deep ruin crates). The stack's `durability` = `serial*8 + age`, set on the
   first read (age = player's current age). The serial fixes a search region (120-620 blocks from the origin); the
   landmark is picked among the ruins there (`spawnRuin` + `squareRuin`), so a map points at the same place wherever it
