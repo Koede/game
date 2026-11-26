@@ -285,7 +285,12 @@
     "steam_kettle": {"age":1,"category":"misc","hardness":0.6,"key":"steam_kettle","machine":"kettle","placeOn":["furnace_clay","furnace_bronze","furnace_blast","furnace_arc","furnace_plasma","furnace_star","brick","refractory_brick","plasma_casing","star_casing"],"shape":"bucket","solid":false,"tool":"pickaxe"},
     "boiler_plate": {"age":1,"category":"block","hardness":2,"key":"boiler_plate","minTier":0,"tool":"pickaxe"},
     "safety_valve": {"age":1,"category":"machine","hardness":1.2,"key":"safety_valve","machine":"boiler_vessel","minTier":0,"tool":"pickaxe"},
-    "boiler_gauge_glass": {"age":1,"category":"machine","hardness":1.2,"key":"boiler_gauge_glass","machine":"boiler_vessel","minTier":0,"tool":"pickaxe"}
+    "boiler_gauge_glass": {"age":1,"category":"machine","hardness":1.2,"key":"boiler_gauge_glass","machine":"boiler_vessel","minTier":0,"tool":"pickaxe"},
+    "beam_engine": {"age":1,"category":"machine","hardness":1.2,"key":"beam_engine","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
+    "heat_port": {"age":1,"category":"block","hardness":2,"key":"heat_port","minTier":0,"tool":"pickaxe"},
+    "water_port": {"age":1,"category":"machine","hardness":2,"key":"water_port","machine":"boiler_vessel","minTier":0,"tool":"pickaxe"},
+    "steam_port": {"age":1,"category":"block","hardness":2,"key":"steam_port","minTier":0,"tool":"pickaxe"},
+    "steam_pipe": {"age":1,"category":"block","hardness":1.5,"key":"steam_pipe","minTier":0,"tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -860,6 +865,7 @@
     "pillow_block": {"age":1,"id":"pillow_block","inputs":[{"count":2,"item":"bronze_ingot"},{"count":2,"item":"stone_brick"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"pillow_block"},"station":"furnace"},
     "differential": {"age":1,"id":"differential","inputs":[{"count":3,"item":"bronze_cog"},{"count":1,"item":"bronze_ingot"},{"count":1,"item":"drive_shaft"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"differential"},"station":"furnace"},
     "steam_rotor": {"age":1,"id":"steam_rotor","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":1,"item":"drive_shaft"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"steam_rotor"},"station":"furnace"},
+    "beam_engine": {"age":1,"id":"beam_engine","inputs":[{"count":6,"item":"bronze_plate"},{"count":2,"item":"bronze_cog"},{"count":1,"item":"flywheel"},{"count":2,"item":"steam_pipe"}],"kind":"forge","minTempC":1000,"minTier":2,"output":{"count":1,"item":"beam_engine"},"station":"furnace"},
     "treadwheel": {"age":1,"id":"treadwheel","inputs":[{"count":4,"item":"plank"},{"count":2,"item":"bronze_ingot"},{"count":2,"item":"drive_shaft"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"treadwheel"},"station":"furnace"},
     "saw_arm": {"age":1,"id":"saw_arm","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":1,"item":"drive_shaft"},{"count":1,"item":"mech_saw"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"saw_arm"},"station":"furnace"},
     "item_vault": {"age":1,"id":"item_vault","inputs":[{"count":4,"item":"crate"},{"count":2,"item":"bronze_plate"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"item_vault"},"station":"furnace"},
@@ -902,6 +908,10 @@
     "stone_brick_stairs": {"age":0,"id":"stone_brick_stairs","inputs":[{"count":3,"item":"stone_brick"}],"output":{"count":4,"item":"stone_brick_stairs"},"station":"hand"},
     "plank_roof": {"age":0,"id":"plank_roof","inputs":[{"count":3,"item":"plank"}],"output":{"count":4,"item":"plank_roof"},"station":"hand"},
     "stone_brick_roof": {"age":0,"id":"stone_brick_roof","inputs":[{"count":3,"item":"stone_brick"}],"output":{"count":4,"item":"stone_brick_roof"},"station":"hand"},
+    "heat_port": {"age":1,"id":"heat_port","inputs":[{"count":2,"item":"bronze_plate"},{"count":2,"item":"bronze_ingot"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"heat_port"},"station":"furnace"},
+    "water_port": {"age":1,"id":"water_port","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"pail"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"water_port"},"station":"furnace"},
+    "steam_port": {"age":1,"id":"steam_port","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"steam_pipe"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"steam_port"},"station":"furnace"},
+    "steam_pipe": {"age":1,"id":"steam_pipe","inputs":[{"count":2,"item":"bronze_plate"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":6,"item":"steam_pipe"},"station":"furnace"},
     "boiler_gauge_glass": {"age":1,"id":"boiler_gauge_glass","inputs":[{"count":2,"item":"bronze_plate"},{"count":2,"item":"glass"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"boiler_gauge_glass"},"station":"furnace"},
     "steam_kettle": {"age":1,"id":"steam_kettle","inputs":[{"count":4,"item":"copper_ingot"},{"count":2,"item":"bronze_plate"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"steam_kettle"},"station":"furnace"},
     "boiler_plate": {"age":1,"id":"boiler_plate","inputs":[{"count":2,"item":"bronze_plate"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":2,"item":"boiler_plate"},"station":"furnace"},
@@ -990,7 +1000,7 @@
     "hand": {"blocks":["chopping_block","hand_quern","stone_anvil","mortar","clay_table","loom","drying_rack","tanning_trough"],"kind":"hand","role":"hand"},
     "casting_bench": {"blocks":["casting_bench"],"itemPipes":false,"kind":"casting_bench","params":{"moulds":4,"range":4},"role":"hand","slots":4},
     "alloy_pot": {"blocks":["alloy_pot"],"kind":"alloy_pot","params":{"moltenS":20},"placementHint":"Set it against a furnace.","role":"hand"},
-    "boiler_vessel": {"blocks":["boiler_gauge_glass","safety_valve"],"kind":"boiler_vessel","params":{"heatW":10000,"ratedBar":8,"steamPerCellL":1000},"placementHint":"Set it in the wall of a closed boiler of plates.","role":"brew"}
+    "boiler_vessel": {"blocks":["boiler_gauge_glass","safety_valve","water_port"],"kind":"boiler_vessel","params":{"heatW":10000,"ratedBar":8,"steamPerCellL":1000},"placementHint":"Set it in the wall of a closed boiler of plates.","role":"brew"}
   },
   "objectives": {
     "gather_logs": {"age":0,"condition":{"of":[{"block":"oak_log","count":4,"type":"break"},{"block":"pine_log","count":4,"type":"break"}],"type":"any"},"id":"gather_logs"},
@@ -1038,6 +1048,7 @@
     "make_bronze_cog": {"age":1,"condition":{"count":2,"item":"bronze_cog","type":"make"},"id":"make_bronze_cog"},
     "place_steam_kettle": {"age":1,"condition":{"block":"steam_kettle","count":1,"type":"place"},"id":"place_steam_kettle"},
     "place_steam_rotor": {"age":1,"condition":{"block":"steam_rotor","count":1,"type":"place"},"id":"place_steam_rotor"},
+    "place_beam_engine": {"age":1,"condition":{"block":"beam_engine","count":1,"type":"place"},"id":"place_beam_engine"},
     "place_boiler": {"age":1,"condition":{"block":"boiler_gauge_glass","count":1,"type":"place"},"id":"place_boiler"},
     "place_ratio_dial": {"age":1,"condition":{"block":"ratio_dial","count":1,"type":"place"},"id":"place_ratio_dial"},
     "place_mixer": {"age":1,"condition":{"block":"mixer","count":1,"type":"place"},"id":"place_mixer"},

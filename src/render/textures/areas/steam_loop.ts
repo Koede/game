@@ -67,7 +67,28 @@ function gaugeGlass(c: Canvas): void {
   c.line(8, 6, 10, 4, P.EMBER[3]);
 }
 
+function portTile(mark: (c: Canvas) => void): (c: Canvas) => void {
+  return (c) => { boilerPlate(c); c.rect(4, 4, 8, 8, P.IRON_METAL[1]); c.rect(5, 5, 6, 6, P.IRON_METAL[2]); mark(c); };
+}
+
+function steamPipe(c: Canvas): void {
+  const b = P.BRONZE;
+  c.fill(P.IRON_METAL[0]);
+  c.rect(0, 5, 16, 6, b[2]);
+  c.rect(0, 5, 16, 1, b[4]);
+  c.rect(0, 10, 16, 1, b[0]);
+  c.rect(5, 0, 6, 16, b[2]);
+  c.rect(5, 0, 1, 16, b[4]);
+  c.rect(10, 0, 1, 16, b[0]);
+  c.rect(5, 5, 6, 6, b[3]);
+  for (const [x, y] of [[6, 6], [9, 6], [6, 9], [9, 9]] as const) c.set(x, y, b[4]);
+}
+
 export default {
+  heat_port: portTile((c) => { c.rect(7, 6, 2, 4, P.EMBER[3]); c.rect(6, 7, 4, 2, P.EMBER[2]); }),
+  water_port: portTile((c) => { c.rect(6, 6, 4, 4, P.WATER[3]); c.rect(7, 7, 2, 2, P.WATER[4]); }),
+  steam_port: portTile((c) => { c.rect(6, 6, 4, 4, STEAM); c.rect(7, 7, 2, 2, STEAM_FAINT); }),
+  steam_pipe: steamPipe,
   boiler_gauge_glass: gaugeGlass,
   steam_kettle: (c) => kettle(c, false),
   steam_kettle_on: (c) => kettle(c, true),

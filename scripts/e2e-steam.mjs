@@ -101,6 +101,11 @@ try {
       }
       hw.setVoxel(x, y + 4, z, 'safety_valve');
       hw.setVoxel(x - 1, y + 2, z, 'boiler_gauge_glass');
+      hw.setVoxel(x, y + 2, z - 1, 'steam_port');
+      hw.setVoxel(x, y + 2, z - 2, 'steam_pipe');
+      hw.setVoxel(x, y + 2, z - 3, 'steam_pipe');
+      hw.setVoxel(x, y + 2, z - 4, 'beam_engine');
+      hw.setVoxel(x + 1, y + 2, z - 4, 'drive_shaft');
       hw.give('water_pail', 2);
       return { x, y, z };
     }, P);
@@ -115,8 +120,12 @@ try {
     await d.hw((b) => {
       const hw = window.__hw;
       const f = [...hw.app.game.state.world.entities()].find((e) => e.kind === 'furnace' && e.x === b.x && e.y === b.y && e.z === b.z);
-      for (let i = 0; i < 40; i++) { f.tempC = 400; hw.tick(20); }
+      for (let i = 0; i < 80; i++) { f.tempC = 400; hw.tick(20); }
     }, B);
+    const eng = await d.hw((b) => window.__hw.app.game.workshop.describe(b.x, b.y + 2, b.z - 4), B);
+    assert(/steam up/.test(eng ?? ''), `engine says: ${eng}`);
+    const shaft = await d.hw((b) => window.__hw.app.game.workshop.describe(b.x + 1, b.y + 2, b.z - 4), B);
+    assert(/rpm/.test(shaft ?? ''), `shaft says: ${shaft}`);
     const text = await d.hw((b) => window.__hw.app.game.state.sim.brewView(b.x - 1, b.y + 2, b.z)?.text, B);
     assert(/Boiler - [1-9][\d.]* bar/.test(text ?? ''), `gauge says: ${text}`);
     await d.hw((b) => window.__hw.lookAt(b.x - 1, b.y + 2, b.z), B);
