@@ -6,15 +6,18 @@
  */
 import { MOB_MAX_DROP } from '../core/constants';
 import { blockOf, blockOrNull } from '../core/registry';
-import { WORLD_HEIGHT, type IWorld } from '../core/types';
+import { WORLD_HEIGHT, voxelActive, type IWorld } from '../core/types';
 
 /** Height of the solid part of a cell: 0 (passable), 0.5 (slab) or 1. Unloaded and below-world cells are 1. */
 export function solidHeight(world: IWorld, x: number, y: number, z: number): number {
   if (y < 0) return 1;
   if (y >= WORLD_HEIGHT) return 0;
   if (!world.isLoaded(x, z)) return 1;
-  const def = blockOf(world.getVoxel(x, y, z));
+  const v = world.getVoxel(x, y, z);
+  const def = blockOf(v);
   if (!def.solid) return 0;
+  // Doors (docs/api/door.md): open is passable, closed is a wall. Mobs never open doors themselves.
+  if (def.shape === 'door') return voxelActive(v) ? 0 : 1;
   return def.shape === 'slab' ? 0.5 : 1;
 }
 
@@ -61,7 +64,9 @@ export const clearanceOf = (h: number): number => Math.max(1, Math.ceil(h - 1e-6
 function open(world: IWorld, x: number, y: number, z: number): boolean {
   if (y >= WORLD_HEIGHT) return true;
   if (y < 0 || !world.isLoaded(x, z)) return false;
-  const def = blockOf(world.getVoxel(x, y, z));
+  const v = world.getVoxel(x, y, z);
+  const def = blockOf(v);
+  if (def.shape === 'door') return voxelActive(v);
   return !def.solid && def.liquid === null;
 }
 

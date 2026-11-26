@@ -14,7 +14,8 @@ function build(): boolean[][] {
   for (const b of layoutBlocks()) at.set(`${b.x},${b.y},${b.z}`, b.block);
   const solid = (x: number, y: number, z: number): boolean => {
     const k = at.get(`${x},${y},${z}`);
-    return k !== undefined && k !== 'air';
+    // People open doors as they walk through them (docs/api/door.md).
+    return k !== undefined && k !== 'air' && k !== 'wooden_door';
   };
   const g: boolean[][] = [];
   for (let z = 0; z < TAVERN_D + YARD_D; z++) {

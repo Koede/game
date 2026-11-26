@@ -60,4 +60,40 @@ describe('wooden door', () => {
     expect(voxelVariant(world.getVoxel(0, 11, 3))).toBe(DOOR_TOP);
     expect(world.getVoxel(0, 12, 3)).toBe(AIR);
   });
+
+  it('places as two halves, and refuses when the cell above is taken', () => {
+    const { world, interaction, aim } = setup();
+    const def = block('wooden_door');
+    // A fresh spot on the floor in front of the player: the bottom half goes at y=10, the top at y=11.
+    world.setVoxel(0, 10, 3, AIR);
+    world.setVoxel(0, 11, 3, AIR);
+    const floor = aim(0.5, 9.99, 2.5);
+    expect(floor).not.toBeNull();
+    expect(interaction.placeBlock(floor!, def)).toBe(true);
+    const px = floor!.x;
+    const pz = floor!.z;
+    expect(world.getBlock(px, 10, pz).key).toBe('wooden_door');
+    expect(voxelVariant(world.getVoxel(px, 10, pz))).toBe(0);
+    expect(world.getBlock(px, 11, pz).key).toBe('wooden_door');
+    expect(voxelVariant(world.getVoxel(px, 11, pz))).toBe(DOOR_TOP);
+
+    // Blocked above: no door, and nothing changes.
+    interaction.updateMining(1, false, null);
+    world.setVoxel(1, 11, 3, makeVoxel(block('stone').id));
+    const floor2 = aim(1.5, 9.99, 3.5);
+    expect(floor2).not.toBeNull();
+    expect(interaction.placeBlock(floor2!, def)).toBe(false);
+    expect(world.getBlock(floor2!.x, 10, floor2!.z).key).not.toBe('wooden_door');
+  });
+
+  it('breaks as one: mining either half removes both', () => {
+    for (const half of [10, 11]) {
+      const { world, interaction, aim } = setup();
+      const hit = aim(0.5, half + 0.5, 3.5);
+      expect(hit?.block.key).toBe('wooden_door');
+      for (let i = 0; i < 400 && world.getBlock(0, half, 3).key === 'wooden_door'; i++) interaction.updateMining(0.05, true, aim(0.5, half + 0.5, 3.5));
+      expect(world.getVoxel(0, 10, 3)).toBe(AIR);
+      expect(world.getVoxel(0, 11, 3)).toBe(AIR);
+    }
+  });
 });
