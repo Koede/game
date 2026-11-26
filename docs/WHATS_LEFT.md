@@ -1,5 +1,8 @@
 # Hearthwatt - what is left to do (2026-11-21)
 
+Update 2026-11-26: several items below are done (marked **DONE**). For the current plan-versus-code status read
+`docs/plans/lookback-2026-11-26.md` and the briefs in `docs/plans/renormalize-2026-11-25.md`.
+
 One place for everything still open, in priority order. Detail lives in the linked notes. State at the time of writing:
 `npx tsc --noEmit` clean, `npx vitest run` 1988 passed / 0 failed (171 files), everything committed. The e2e scripts of the
 new features (magic, workshop, distill, dev, ground, vehicles, handwork) were reported passing by their sessions, but the
@@ -34,27 +37,29 @@ cranks only); an aura HUD dial; tubes are their own network, not fluid pipes; th
 vial; more research entries beyond the 24, deeper Forge-age tiers; balance and a music/sound pass.
 
 ## 4. Distillery - `docs/DISTILLERY_PLAN.md` section 15, `docs/api/distillery.md`
-Rig screen and ghost previews; ground burner (charcoal or fuel ethanol without a furnace); reflux head and filter bed; lubricant
-from residue (vacuum cap) and the chainsaw bar-oil consumer; bitumen and asphalt road blocks with a speed effect; potions
+~~Rig screen and ghost previews~~ **DONE** (`src/ui/screens/distill/rigScreen.ts`); ~~reflux head and filter bed~~ **DONE**;
+~~lubricant consumer~~ **DONE** (`lubricant_canister` halves chainsaw bar wear, `src/game/felling.ts`); ~~`distill:step` event~~ **DONE**
+(emitted, no listener yet). Still open: ground burner (charcoal or fuel ethanol without a furnace); bitumen and asphalt road blocks with a speed effect; potions
 (essences, tinctures, elixirs tied to the brewing buffs), drinks and the antiseptic bandage; tank support for the new fluids and
 pipes out of a receiver into tanks end to end; shaft hooks (stirrer, lubricant stress); catalyst bed, pressure cap, cracker and
-the refinery tower multiblock; a `distill:step` event, own sounds, a Codex progression branch, a balance pass.
+the refinery tower multiblock; own sounds, a Codex progression branch, a balance pass.
 
 ## 5. Handwork, brewing, food - `docs/api/handwork*.md`, `casting.md`, `sugar.md`
 Casting Bench block is inert (pouring happens at the furnace); hand-taking molten metal for anvil hot work (the hot window
-opens on `cast:poured`); sap-tap state is not saved and the tap has no animation or particles; a boiling pail's seconds-left
+opens on `cast:poured`); ~~sap-tap state is not saved~~ **DONE** (saved as `extras.sap`,
+`src/player/sapTools.ts`), the tap still has no animation or particles; a boiling pail's seconds-left
 is lost when moved by `Inventory.add`/spill; more baked goods and a sugar-aware brewing/alcohol tie-in; the clay table/cup
 decision above.
 
 ## 6. Smaller known gaps (collected from every session's report)
 Rack under glass keeps running (confirm intent); crops whose farmland is removed stay without growing; steam engine draws heat
-when idle; UI size setting (Normal/Large); Structure tab shift buttons and machines list; pump status wording; boiler/turbine
+when idle; ~~UI size setting (Normal/Large)~~ **DONE** (`Settings.uiScale`); Structure tab shift buttons and machines list; pump status wording; boiler/turbine
 hint texts; the steam-plan item names (copper_kettle vs kettle_pot, mech_pump recipe item). See `docs/SESSION_CONTEXT.md` section 6.
 
 ## 7. Process notes for whoever continues
 - Run everything locally; `HW_GPU=1` renders e2e on a real GPU, `HW_DIAG=1` and `?diag=1` give diagnostics (`docs/SESSION_CONTEXT.md` section 9).
-- Several sessions shared one checkout: give each disjoint files, commit often, and use the `.run-lock` mutex folder before any
-  `npm run build` or e2e (they rebuild `dist/`). Pause everything before merging upstream.
+- Several sessions shared one checkout: give each disjoint files, commit often, and use the `.gate-heavy` lock folder before any
+  `npm run build`, full vitest or e2e (`docs/lanes/FOUNDATION.md`, `scripts/lib/lock.mjs`). Pause everything before merging upstream.
 - Pointer lock is refused in automation-driven browser windows; test the real cursor in a normal browser.
 - Regenerate the handoff bundle with `bash scripts/make-handoff-bundle.sh HEARTHWATT_COMPLETE_HANDOFF.md`.
 

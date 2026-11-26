@@ -14,7 +14,7 @@ conifer in the world is the **pine**, so pine logs weep the sap ("spruce" in the
 |---|---|
 | Glass | `smelt` sand 700 C -> glass (existing) |
 | Chemistry supplies | forge `2 glass_beaker` from `1 glass`, 650 C |
-| Tap | **Use** a Glass Beaker on a pine log: the beaker becomes `pine_sap`; that log weeps again after 120 s (`TAP_COOLDOWN_S`, not saved) |
+| Tap | **Use** a Glass Beaker on a pine log: the beaker becomes `pine_sap`; that log weeps again after 120 s (`TAP_COOLDOWN_S`; the seconds left are saved with the world as `extras.sap`) |
 | Boil | forge `pine_resin` from `1 pine_sap`, 180 C, beaker returned |
 | Distil | forge `3 sugar` from `2 pine_resin + 1 water_pail + 1 glass_beaker`, 260 C, bucket and beaker returned |
 | Bake | forge `4 sugar_cookie` (flour + sugar, 190 C); `sweet_bun` (dough + sugar, 220 C); `sugar_cake` (2 flour + 2 sugar + water bucket, 200 C, bucket returned) |

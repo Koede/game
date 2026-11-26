@@ -469,10 +469,14 @@ every card), and `scripts/e2e-distill.mjs` (desktop + phone portrait, passing). 
 graph keeps only receivers, condensers, tubes, flasks, vessels and jackets as buffers (segments hold no liquid); there is
 no `distill:step` event yet (sfx + toast + flags instead); the reflux head was not built.
 
+Update (2026-11-26, checked against the code): the `distill:step` event now exists (`src/core/gameEvents.ts`, emitted in
+`src/sim/distill.ts`; nothing listens yet), the reflux head and filter bed are built (`src/content/blocksDistill.ts`),
+lubricant has a consumer (a `lubricant_canister` halves chainsaw bar wear, `src/game/felling.ts`), and item 1 below is
+done. See `docs/plans/lookback-2026-11-26.md` for the wider status.
+
 Left, in order:
-1. **Rig screen**: a STRUCTURE-style panel on Use-with-wrench (problems list with tap-to-highlight, capabilities, the
-   process picker) and **ghost previews** from a card's rig string (`render/tech/ghosts.ts`). Today problems show only
-   in the crosshair line.
+1. **Rig screen (done)**: problems list with tap-to-highlight, capabilities and the process picker with ghost previews
+   (`src/ui/screens/distill/rigScreen.ts`, registered in `src/app/gameWiring.ts` as `distill_rig`).
 2. **Burner on the ground**: a still base burning charcoal or a fuel-ethanol beaker without a furnace (Ember comfort).
 3. **Reflux head** (plan 2) and **filter bed**; then **lubricant** from residue (vacuum cap) and the chainsaw bar-oil
    consumer; **bitumen and asphalt** road blocks with their speed effect.

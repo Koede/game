@@ -94,7 +94,9 @@ Yes, if it is visible and steady.
 
 ## Phases (each shippable on its own)
 
-Phases 1 and 2 are shipped, and the board part of phase 5 (`docs/api/town.md`). Phases 3 and 4, the unlocks and the next-building choice of phase 5 are not started.
+Phases 1 and 2 are shipped, and phase 5 apart from the next-building choice (`docs/api/town.md`): reputation unlocks are built
+(`UNLOCK_REP` and `unlockedAt` in `src/npcs/buildBoard.ts`: workshop at 10, cottage at 20). Phases 3 and 4 and the next-building
+choice are not started.
 
 1. **Plan and templates (pure), shipped:** site choice, layout of plots and paths, the template format with stages, templates that fit to the
    terrain (footings and posts that reach the ground), five templates (storage bay, cottage, workshop, well and plaza, lamp post). Tests
@@ -105,9 +107,9 @@ Phases 1 and 2 are shipped, and the board part of phase 5 (`docs/api/town.md`). 
    the village starts on day 1 with the storage bay.
 3. **Orrin on site:** routine to the build by day, hammer animation and sound, site dialogue and progress in his menu, the plaza sign.
 4. **More buildings and growth:** bakery, smithy, market stalls, gardens, town hall; age-gated templates; plots grow outward.
-5. **The building board and reputation (board part shipped):** material bounties for the current stage (coin, town reputation and Orrin's
-   trust, rare item rolls), delivery by hand into the storage bay, reputation steps as data. Still to do: the building types that
-   reputation unlocks, and a choice of the next building from his menu.
+5. **The building board and reputation (shipped except the choice):** material bounties for the current stage (coin, town reputation and
+   Orrin's trust, rare item rolls), delivery by hand into the storage bay, reputation steps as data, building types that reputation
+   unlocks. Still to do: a choice of the next building from his menu.
 
 ## Tests
 

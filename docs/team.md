@@ -11,7 +11,7 @@ Claude Code desktop sessions started by the coordinator; no other agent CLI (Cod
 - **Execution: parallel streams, disjoint files.** Every stream has an owner and a file list (from `docs/CONGRUENCE.md`).
   The six-age refactor is the one exclusive phase: nobody else edits while it runs.
 - **Usage: local and lean.** Everything runs on Saturn; workers read trimmed output; no sub-agent fan-out inside a worker.
-- **Shared resources:** `dist/` and the e2e chain are guarded by the `.run-lock` folder (`mkdir` to take, `rmdir` to release).
+- **Shared resources:** `dist/` and the e2e chain are guarded by the `.gate-heavy` folder in the main checkout (`mkdir` to take, `rmdir` to release; scripts take it themselves, see `docs/lanes/FOUNDATION.md` and `scripts/lib/lock.mjs`).
 - **Notification channel:** the desktop app notes the coordinator when a session ends a turn; nobody polls.
 
 ## Roles

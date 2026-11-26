@@ -131,10 +131,10 @@ Severity: **B** blocks a stream, **M** confusing or exploitable, **S** small. Fi
 
 I did not run an exhaustive graph (that is a test, task G2). Observed from docs and content lists:
 
-- **No source or no way to obtain at their age:** `lubricant` as a fluid or can (workshop has `LUBE` keyed on `residue` and `pine_resin`; no `lubricant_can` item in `itemsWorkshop*.ts`
-  list); `bar oil` (chainsaw consumer unbuilt); `spark`/`soul`/`void` aspects (no source); `bent_pin` return (plan only, verify).
+- **No source or no way to obtain at their age:** `lubricant` as a fluid or can (workshop has `LUBE` keyed on `residue` and `pine_resin`; since then a `lubricant_canister` exists in `src/core/distill.ts` and halves chainsaw bar wear,
+  `src/game/felling.ts`, so this point is resolved); `bar oil` (resolved: the lubricant canister is the bar-oil consumer); `spark`/`soul`/`void` aspects (no source); `bent_pin` return (plan only, verify).
 - **Dead-end fluids:** `slop` (distillery waste: no use); `kerosene` (no consumer unless a lamp or jet fuel is added); `gasoline`/`diesel` have tractor/chainsaw use but
-  no generator (combustion generator uses `fuel`? verify); `sugar_wash`, `low_wines` only feed the still; `syrup` should reach sugar (rule not verified);
+  no generator (the combustion engine burns only `fuel`: piped refined fuel or `fuel_canister`, `src/sim/fluidUse.ts`, `src/sim/machines.ts`); `sugar_wash`, `low_wines` only feed the still; `syrup` should reach sugar (rule not verified);
   `crude_oil` and `fuel` (old refined fuel) are older than the 11 new fluids and the relation between `fuel` and `gasoline/diesel` is not documented - **one of them must absorb the other** (see section 4, B7).
 - **Closed-union cost:** `FluidKey` is a literal union in `core/types.ts` - every new fluid (steam variants, lubricant, essence) touches core. Convention below: fluids append, never reorder.
 - **Items that exist but have no recipe consumer:** unknown; expect some Atomic and glass beakers. Test G2 enumerates (item is craftable AND (used as input OR placeable OR consumable OR objective reward)).
@@ -324,7 +324,7 @@ Designs:
 2. **Alcohol path**: sugar wash -> low wines -> spirit (distillery) and a **fermenting jar** (Ember: clay jar + wash + days) that makes weak ale/cider you can drink raw. Drink buffs: Cider (warm + slow), Ale (hearty: hunger), Spirit (burn, heat resist). Alcohol should have a visible cost (aim sway) and a hangover-like "well-fed burn" so it is a choice.
 3. **New foods from new machines**: mill flour -> basin + mixer dough -> belt oven; sweet bun/cookie/cake exist; add savoury pie (meat + flour), cheese (milk + salt + time), jerky (rack). Each food has: hunger, well-fed seconds, optional buff. All numbers in `core/constants.ts` neighbourhood; one table.
 4. **Farming/irrigation/weather**: furrows next to water grow faster; rain waters; drought in the Current age storms? Tractor harvest and deployer-hoe both reach crop rules (`cropRules.ts`): reaper and tractor use the same ripeness check.
-5. **Sap -> syrup -> sugar chain** completes: tapped pine sap boils on the furnace into syrup (distillery fluid), syrup crystallises on a rack/hot plate into sugar; tap state saved (known gap), animation and particles.
+5. **Sap -> syrup -> sugar chain** completes: tapped pine sap boils on the furnace into syrup (distillery fluid), syrup crystallises on a rack/hot plate into sugar; tap state is now saved (`extras.sap`, `src/player/sapTools.ts`); animation and particles still open.
 6. **Hunger from new drinks** with a single table `DRINK_HUNGER` so brewing, distillery and potions share it.
 7. **Bushes regrow after farmland removal** (known gap) and **rack under glass** decision.
 8. **Cup/cone vs clay table**: apply the owner's decision.

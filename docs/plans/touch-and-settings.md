@@ -11,8 +11,10 @@ thumb.
 
 ## What exists
 
-Emotes, photo mode and the sneak toggle exist as logic and keyboard bindings; the graphics setting exists without a control. The settings
-panel and touch layout live under `src/ui` and `src/player/input`.
+Status (2026-11-26): phases 1 to 3 are built. The graphics control is in the settings panel (`src/ui/menus/settings.ts`, `GRAPHICS_OPTIONS`);
+the radial quick menu with emote wheel, photo mode, sneak toggle and sprint lock is `src/player/input/quickMenu.ts` (DOM in
+`quickMenuView.ts`); photo mode saves a framed PNG (`src/app/photo.ts`). Phase 4 (left-handed and one-handed layouts) is not built.
+The settings panel and touch layout live under `src/ui` and `src/player/input`.
 
 ## Design
 

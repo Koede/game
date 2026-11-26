@@ -10,7 +10,7 @@ Pure modules for the town's housing. Nothing here is wired into the game yet; th
 - Enclosed: the fill must not reach sky, an unloaded column, or more than 2000 open cells. Otherwise `not enclosed`.
 - Size: more than 300 open cells is `too large`. A 3 x 3 floor (furniture counts) is needed (`too small`), and height at least 3 (`too low`).
 - Inside or bordering the room: a door (`needs a door`), a lit block (`needs a light`, any block with emitted light), the bed (`needs a bed` if the position is not a bed), and a seat or table (`needs a seat or table`).
-- Keys: beds `wool_bedding`; seats and tables `dining_table`, `plank_bench`. Content has no door block yet, so `DOOR_KEYS` is empty and rooms read `needs a door` until one is added. Pass `doors` to test with another key.
+- Keys: beds `wool_bedding`; seats and tables `dining_table`, `plank_bench`. Doors: `DOOR_KEYS` is `wooden_door`. Pass `doors` to test with another key.
 
 ## Move-in roll (`moveIn.ts`)
 

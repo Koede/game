@@ -59,7 +59,8 @@ Counts: 14 cheap wins, 9 loose ends, 11 unwired, 14 synergy, 10 hindsight, 7 ris
 - Trader phase 4 (friendship discount, rare slot): no trust in src/npcs/trader.ts. Low, S.
 - Enchant Ember is level I only; no burn state (docs/plans/enchantments.md:102). Low, M.
 - Night life: trader visits at night, owl and bat sounds, per-model meshes (docs/api/nightlife.md:11). Low, M.
-- Distillery rig screen (problems list, process picker): problems show only on the crosshair line (docs/DISTILLERY_PLAN.md:462-466). High, M.
+- ~~Distillery rig screen~~: built after all (src/ui/screens/distill/rigScreen.ts, registered as `distill_rig` in src/app/gameWiring.ts:85-86;
+  corrected 2026-11-26).
 - Casting Bench is inert: `outputItem`, `addMelt`, `hasPot`, `mouldPoursLeft` have no non-test caller (src/sim/casting.ts;
   docs/WHATS_LEFT.md section 5). Med, M.
 
@@ -134,13 +135,17 @@ Counts: 14 cheap wins, 9 loose ends, 11 unwired, 14 synergy, 10 hindsight, 7 ris
 
 ## Stale docs
 
-docs/api/door.md:13 (door pathing is fixed, 5fb7455); docs/api/housing.md:13 (DOOR_KEYS has wooden_door); docs/api/npcs.md:53-55
-(shop and quest board shipped) and :129 (Veyra's skull smoke is wired); src/npcs/manager.ts:3 docstring (new worlds use startCamp;
-`buildStart` has no callers); docs/plans/orrin-builds-a-town.md:97 (unlocks are built); docs/WHATS_LEFT.md section 5 (sap state is
-saved) and section 6 (UI size exists); docs/CONGRUENCE.md:137 and :327; docs/DISTILLERY_PLAN.md:470-474 (reflux head, lubricant
-consumer and `distill:step` exist); docs/plans/touch-and-settings.md (graphics control and radial menu exist); docs/api/hud.md:139;
-docs/api/felling.md (names a treeDamage.ts that does not exist; damage lives in src/game/fallingTrees.ts:133); docs citing
-src/game/waypoints.ts and src/game/fishing.ts (the code is in src/sim/).
+Swept 2026-11-26 (R6). Fixed: docs/api/housing.md:13 (DOOR_KEYS is `wooden_door`); docs/plans/orrin-builds-a-town.md:97 and phase 5
+(reputation unlocks are built, `UNLOCK_REP` in src/npcs/buildBoard.ts); docs/WHATS_LEFT.md sections 4 to 7; docs/CONGRUENCE.md:134-137
+and :327; docs/DISTILLERY_PLAN.md section 15 (`distill:step`, reflux head, filter bed, lubricant consumer, rig screen);
+docs/plans/touch-and-settings.md (graphics control, radial menu and photo PNG exist); docs/api/sugar.md:17 (sap taps are saved);
+docs/team.md (`.gate-heavy`, not `.run-lock`); docs/plans/README.md (status column instead of "nothing here is built yet").
+Not stale on recheck: docs/api/felling.md cites only `treeDamage.test.ts` (which exists) and the `treeDamage` setting; no doc cites
+src/game/waypoints.ts or src/game/fishing.ts any more.
+
+Still open, owned by other sessions: docs/api/door.md:13 (door pathing is fixed, 5fb7455); docs/api/npcs.md:53-55 (shop and quest
+board shipped) and :129 (Veyra's skull smoke is wired); src/npcs/manager.ts:3 docstring (new worlds use startCamp; `buildStart` has no
+callers); docs/api/hud.md:139.
 
 ## Briefs
 
@@ -183,5 +188,5 @@ the code; no code changes.
 ### R7. Next wave (larger, one at a time)
 In order: newcomers and the housing view (just-you-and-orrin.md phases 5-6, unblocks the whole settlement); contentment wiring
 (phase 7, plus town standing into favours and prices); a town page; waypoint picker and map markers; sapling item, replanting and
-stump sprouting; Veyra buys and grades brews, Rosa serves spirits; the distillery rig screen; camp defence at night; town phase 3
+stump sprouting; Veyra buys and grades brews, Rosa serves spirits; camp defence at night; town phase 3
 (Gruk on site) and phase 4 templates; the blueprint capture tool with storage-network pull; full e2e chain and a phone play-through.
