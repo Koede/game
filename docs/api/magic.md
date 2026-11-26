@@ -143,3 +143,13 @@ chained in `npm run e2e`; `node scripts/codex/preview.mjs <dir>` covers the Esse
 - Tubes are glass blocks with their own small network, not the fluid-pipe machinery (21 aspects do not fit the FluidKey union).
 - The rest of a partly used vial at the desk is lost; foci have no hand animation; wellspring crystals are unlit meshes.
 - Not built: spark as a drawable aspect, golems that fight, an aura HUD dial.
+
+## Research by doing (insight notes)
+
+Using things also teaches. `ResearchState.practice` (optional, sanitised) counts uses by key; `notePractice(state, key)` in
+`src/magic/research.ts` adds one and writes every insight note (an entry whose `learn.practice` = `{ key, need, what }`) that is
+open and has reached its count. A note whose `requires` are not done yet waits, and `settlePractice` writes it when they are
+(called after a board is solved). Insight notes have no board and unlock flags like any entry, so they sit in the same tree.
+Current notes: `steady_hand` (400 rod draws, flag `steady_rod`: draws 20% faster), `crucible_sense` (12 melts, `crucible_sense`:
+30% less flux), `patient_altar` (3 infusions, `patient_altar`: 1/6 faster), `thrifty_caster` (20 casts, `thrifty_caster`: foci cost 10% less).
+Old saves have no counters; they start at zero and no existing research changes. Tests use `learnAll()` without the insight notes.

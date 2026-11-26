@@ -7,7 +7,8 @@ import { PlayerState } from '../game/playerState';
 import { jarsFor } from './essentiaNet';
 import { Magic, STUDY_LORE, WARD_SCALE, type MagicTarget } from './magic';
 import { NODE_POOL, nodeInChunk, nodesNear } from './nodes';
-import { RESEARCH } from './entries';
+import { RESEARCH, researchEntry } from './entries';
+import { hasFlag, isDone, freshResearch, notePractice, sanitizeResearch, settlePractice } from './research';
 import { ARCANE_RECIPES } from '../content/recipesMagic';
 
 /** A stone floor at y=0, air above; cells set by `put`. */
@@ -47,7 +48,8 @@ function setup() {
   const learn = (...keys: string[]) => {
     for (const k of keys) magic.research.entries[k] = { done: true, tokens: {} };
   };
-  const learnAll = () => learn(...RESEARCH.map((e) => e.key));
+  /** Every board and enchant note; the insight notes (research by doing) are earned in their own tests, as they change numbers. */
+  const learnAll = () => learn(...RESEARCH.filter((e) => !e.learn?.practice).map((e) => e.key));
   return { bus, world, player, magic, put, hold, at, learn, learnAll, cranked, stoked: () => stoked, setFire: (f: number) => (fire = f) };
 }
 
@@ -446,5 +448,60 @@ describe('servants, siphon, still and study', () => {
     u.magic.load({ pedestals: [[1, 2, 3, 'nope']], charge: 'x', servants: 'bad' });
     expect(u.magic.displays()).toEqual([]);
     expect(block('magic_light').light).toBeGreaterThan(0);
+  });
+});
+
+describe('research by doing', () => {
+  const note = (key: string) => researchEntry(key) as NonNullable<ReturnType<typeof researchEntry>>;
+
+  it('counts uses and writes the insight note once', () => {
+    const t = setup();
+    t.learn('gathering_rod');
+    expect(notePractice(t.magic.research, 'rod_draw', 399)).toEqual([]);
+    expect(hasFlag(t.magic.research, 'steady_rod')).toBe(false);
+    expect(notePractice(t.magic.research, 'rod_draw').map((e) => e.key)).toEqual(['steady_hand']);
+    expect(hasFlag(t.magic.research, 'steady_rod')).toBe(true);
+    expect(notePractice(t.magic.research, 'rod_draw')).toEqual([]);
+  });
+
+  it('melting things in a crucible is counted as practice', () => {
+    const t = setup();
+    t.learn('crucible');
+    t.put(1, 0, 1, 'crucible');
+    t.hold('copper_ingot', 1);
+    t.magic.use(t.at(1, 0, 1));
+    expect(t.magic.research.practice?.crucible_melt ?? 0).toBeLessThanOrEqual(1);
+  });
+
+  it('waits for the earlier research, then settles when it is done', () => {
+    const s = freshResearch();
+    notePractice(s, 'infuse', 5);
+    expect(isDone(s, 'patient_altar')).toBe(false);
+    s.entries.infusion = { done: true, tokens: {} };
+    expect(settlePractice(s).map((e) => e.key)).toEqual(['patient_altar']);
+    expect(isDone(s, 'patient_altar')).toBe(true);
+  });
+
+  it('the Thrifty Caster pays a tenth less for a focus, never under one', () => {
+    const t = setup();
+    t.learn('thrifty_caster');
+    expect(t.magic.focusCost({ ember: 10 } as never, null)).toEqual({ ember: 9 });
+    expect(t.magic.focusCost({ ember: 1 } as never, null)).toEqual({ ember: 1 });
+  });
+
+  it('keeps counts through save sanitising and drops junk', () => {
+    const s = freshResearch();
+    notePractice(s, 'cast', 7);
+    const back = sanitizeResearch(JSON.parse(JSON.stringify(s)));
+    expect(back.practice).toEqual({ cast: 7 });
+    expect(sanitizeResearch({ v: 2, practice: { cast: -3, x: 'a', y: 2.7 } }).practice).toEqual({ y: 2 });
+    expect(sanitizeResearch({ v: 2 }).practice).toBeUndefined();
+  });
+
+  it('every insight note counts a practice some code reports, and its tree entry exists', () => {
+    for (const e of RESEARCH.filter((x) => x.learn?.practice)) {
+      expect(e.requires.every((r) => researchEntry(r))).toBe(true);
+      expect(note(e.key).unlocks.flags?.length).toBeGreaterThan(0);
+    }
   });
 });

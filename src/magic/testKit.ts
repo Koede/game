@@ -43,7 +43,8 @@ export function setup() {
   const learn = (...keys: string[]) => {
     for (const k of keys) magic.research.entries[k] = { done: true, tokens: {} };
   };
-  const learnAll = () => learn(...RESEARCH.map((e) => e.key));
+  /** Every board and enchant note; insight notes (research by doing) change numbers, so tests earn them on their own. */
+  const learnAll = () => learn(...RESEARCH.filter((e) => !e.learn?.practice).map((e) => e.key));
   return { bus, world, player, magic, put, hold, at, learn, learnAll, cranked, stoked: () => stoked, setFire: (f: number) => (fire = f) };
 }
 

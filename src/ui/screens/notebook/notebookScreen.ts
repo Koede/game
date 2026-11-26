@@ -339,7 +339,14 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
     }
     if (e.learn) {
       // An enchant note (src/magic/entries.ts): the altar writes it on the first success, and only then names the aspect.
-      const def = enchantDef(e.learn.enchant);
+      if (e.learn.practice) {
+        // An insight note (research by doing): written by use, so it shows the count instead of a board.
+        const pr = e.learn.practice;
+        const n = Math.min(pr.need, api.research().practice?.[pr.key] ?? 0);
+        out.push(h('p', { class: 'hw-nb__muted', text: e.status === 'done' ? `Insight gained: ${pr.need} ${pr.what}.` : `Learned by doing: ${n} of ${pr.need} ${pr.what}.` }));
+        return out;
+      }
+      const def = e.learn.enchant ? enchantDef(e.learn.enchant) : null;
       if (e.status === 'done' && def) out.push(h('p', { class: 'hw-nb__text', text: `${def.description} It wants ${aspectInfo(def.aspect).name} (${def.cost.perLevel} per level).` }));
       else out.push(h('p', { class: 'hw-nb__muted', text: 'Not written yet. Put a tool on the altar with no recipe and the essentia it wants near it.' }));
       return out;
