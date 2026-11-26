@@ -8,6 +8,7 @@
  */
 import { saveShot } from './photo';
 import { resumeLine } from '../game/journal';
+import { setBoardGuide } from '../game/nextStep';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
 import { setCraftGate } from '../game/crafting';
@@ -257,6 +258,8 @@ export class Game {
         // The tavern's fixtures are blocks: the quest board and the wall clock talk when used.
         const fixture = hit ? FIXTURE_ROLES[hit.block.key] : undefined;
         if (fixture && state.npcs.useFixture(fixture) !== null) return 'worked';
+        // The camp's bedrolls sleep to dawn (evening or night, no enemies near).
+        if (hit?.block.key === 'wool_bedding' && state.npcs.useBed(hit.x, hit.y, hit.z) !== null) return 'worked';
         const repaired = state.restoration.use(hit);
         if (repaired !== null) return repaired;
         const explored = state.exploration.use(hit, player.heldStack());
@@ -264,6 +267,8 @@ export class Game {
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
+      // "What next?" points at Gruk's build board while a bounty is open.
+      setBoardGuide(() => state.npcs.boardGuide());
       this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
       this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
@@ -627,6 +632,7 @@ export class Game {
     if (this.disposed) return;
     this.disposed = true;
     for (const off of this.offs) off();
+    setBoardGuide(null);
     this.offs.length = 0;
     this.vehicleHud.dispose();
     this.tractorRenderer.dispose();

@@ -164,3 +164,52 @@ export const ORC_HIRE = {
     'Gruk strikes!',
   ],
 };
+
+/**
+ * What Gruk says about the town build (docs/api/town.md). `{building}`, `{stage}` and `{missing}` are filled in by `buildLine`:
+ * `working` while the board waits on materials, `stocked` when the bay has all the stage needs, `locked` when the next building
+ * waits on town standing (`{lock}` is the board's note), `finished` after the last planned building.
+ */
+export const ORC_BUILD = {
+  working: [
+    'The {building} is at the {stage} stage. Gruk still needs {missing}. Bring it to the board in the storage bay.',
+    'Gruk is on the {building}, the {stage} stage. Short of {missing}. The board pays for it.',
+    '{building}, {stage} stage. No {missing}, no progress. You know where the board is.',
+  ],
+  stocked: [
+    'The {building} is at the {stage} stage. The bay has what Gruk needs. Only time now.',
+    '{building}, {stage}. Materials are in. Gruk swings, the walls go up.',
+  ],
+  locked: [
+    'Gruk waits. {lock}',
+    'Nothing to raise yet. {lock}',
+  ],
+  finished: [
+    'Every building on the plan stands. The town is finished. Gruk is proud. Quietly.',
+    'The town is done. Gruk built all of it. Some of it twice.',
+  ],
+};
+
+/** The town build as Gruk talks about it: what he is raising and what is short, or why he waits, or that the town is finished. */
+export interface BuildTalk {
+  building: string | null;
+  stage: string | null;
+  missing: readonly { item: string; count: number }[];
+  lock: string | null;
+  finished: boolean;
+}
+
+/** Up to three missing items as words: "24 oak log, 10 plank and 3 glass". */
+export function missingWords(missing: readonly { item: string; count: number }[]): string {
+  const parts = missing.slice(0, 3).map((m) => `${m.count} ${m.item.replace(/_/g, ' ')}`);
+  return parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** Gruk's line about the build, from one of ORC_BUILD's banks (`pick` chooses the line); null when there is nothing to say yet. */
+export function buildLine(t: BuildTalk, pick: (lines: readonly string[]) => string): string | null {
+  if (t.finished) return pick(ORC_BUILD.finished);
+  if (!t.building && t.lock) return pick(ORC_BUILD.locked).replace('{lock}', t.lock);
+  if (!t.building || !t.stage) return null;
+  const bank = t.missing.length > 0 ? ORC_BUILD.working : ORC_BUILD.stocked;
+  return pick(bank).replace('{building}', t.building).replace('{stage}', t.stage).replace('{missing}', missingWords(t.missing));
+}

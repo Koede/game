@@ -54,6 +54,8 @@ export const ACHIEVEMENTS: readonly AchievementSpec[] = [
   { id: 'first_treasure', name: 'X Marks the Spot', text: 'Dig up a buried treasure crate.', on: 'treasure:dug' },
   { id: 'first_enchant', name: 'Written in Light', text: 'Enchant an item at the altar.', on: 'enchant:applied' },
   { id: 'first_pet', name: 'Faithful Friend', text: 'Win a stray animal over.', on: 'pet:tamed' },
+  { id: 'first_town_building', name: 'Raising the Roof', text: 'See Gruk finish a town building.', on: 'town:built' },
+  { id: 'first_bounty', name: 'Hauling for Gruk', text: 'Fill a build bounty.', on: 'town:bounty' },
 ];
 
 export interface AchievementsSnapshot {

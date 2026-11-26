@@ -50,8 +50,11 @@ export interface StockCrate {
   remove(item: string, count: number): number;
 }
 
-/** Gruk rests on festival days (festival.ts): no digging, no placing, and no budget earned. */
-export const workDay = (day: number): boolean => !festivalDay(day);
+/**
+ * Gruk rests on festival days (festival.ts): no digging, no placing, and no budget earned. Only while a festival can run at all
+ * (`festivals`, the manager's gate: the tavern and three people); at the camp a festival day is a working day.
+ */
+export const workDay = (day: number, festivals = true): boolean => !(festivals && festivalDay(day));
 
 /** What the builder needs from the game. */
 export interface TownHost {
@@ -65,6 +68,10 @@ export interface TownHost {
   townEdited(x: number, y: number, z: number): boolean;
   /** Sets a block (or 'air') with the 'town' change source. False when the chunk is not loaded. */
   townPlace(x: number, y: number, z: number, block: string, facing: number): boolean;
+  /** True while Gruk is away (hired to follow the player): building pauses and the time away earns no budget. */
+  away?(): boolean;
+  /** Whether a festival can run (the tavern and three people). Without it every festival day is a rest day, as before. */
+  festivals?(): boolean;
 }
 
 /** One cell of a building in the world: a placement, or a dig (block 'air' that clears movable blocks). */
@@ -110,6 +117,8 @@ export interface TownSnapshot {
   bay: Record<string, number>;
   /** The building board (buildBoard.ts); written by the manager, optional so older saves load. */
   board?: BuildBoardSnapshot;
+  /** Items the player took out of the bay's crate and has not put back: a later deposit of them pays nothing (optional). */
+  taken?: Record<string, number>;
   /**
    * The lodge's progress (lodge.ts): the stage in progress (0..4), the floor row it stands on, and whether it was settled (dev skip).
    * Optional: a town without a lodge in its plan (every older save) has none.
@@ -200,6 +209,8 @@ export class TownBuilder {
    * that still holds that block is not the player's, so a later stage may replace it.
    */
   private owned = new Map<string, string>();
+  /** Items the player took out of the crate and has not put back (see `repay`). */
+  private readonly taken = new Map<string, number>();
 
   /** `unlocked` says whether a template may start now (reputation, see buildBoard.ts). Everything is unlocked by default. */
   constructor(private readonly unlocked: (template: string) => boolean = () => true) {}
@@ -320,11 +331,14 @@ export class TownBuilder {
   /**
    * Reconciles the storage bay's stock with its crate. Counts the player put in or took out since the last look change the stock;
    * then the crate is brought to the stock (whatever does not fit stays in the stock). Null when there is no crate: the stock stays.
+   * Returns what the player put in (the manager pays the part that matches a bounty through the board); a take-out is remembered
+   * (`repay`), so putting the same items back pays nothing.
    */
-  syncCrate(crate: StockCrate | null): void {
+  syncCrate(crate: StockCrate | null): TownItem[] {
+    const put: TownItem[] = [];
     if (!crate) {
       this.seen = null;
-      return;
+      return put;
     }
     const counts = (): Map<string, number> => {
       const m = new Map<string, number>();
@@ -335,8 +349,13 @@ export class TownBuilder {
     if (this.seen === null) this.seen = cur;
     for (const item of new Set([...cur.keys(), ...this.seen.keys()])) {
       const d = (cur.get(item) ?? 0) - (this.seen.get(item) ?? 0);
-      if (d > 0) this.add(item, d);
-      else if (d < 0) this.bay.set(item, Math.max(0, (this.bay.get(item) ?? 0) + d));
+      if (d > 0) {
+        this.add(item, d);
+        put.push({ item, count: d });
+      } else if (d < 0) {
+        this.bay.set(item, Math.max(0, (this.bay.get(item) ?? 0) + d));
+        this.taken.set(item, (this.taken.get(item) ?? 0) - d);
+      }
     }
     for (const item of new Set([...this.bay.keys(), ...cur.keys()])) {
       const want = this.bay.get(item) ?? 0;
@@ -345,6 +364,24 @@ export class TownBuilder {
       else if (want < have) crate.remove(item, have - want);
     }
     this.seen = counts();
+    return put;
+  }
+
+  /**
+   * Of `count` of `item` going into the bay, the part that is new: items the player took out of the crate earlier are put back
+   * first and count for nothing (so a take-out and a put-back cannot be paid twice). Uses up that much of the take-out record.
+   */
+  repay(item: string, count: number): number {
+    const owe = this.taken.get(item) ?? 0;
+    const back = Math.min(owe, Math.max(0, count));
+    if (owe - back > 0) this.taken.set(item, owe - back);
+    else this.taken.delete(item);
+    return Math.max(0, count) - back;
+  }
+
+  /** How many of `item` the player took out of the crate and has not put back. */
+  takenOut(item: string): number {
+    return this.taken.get(item) ?? 0;
   }
 
   /** The storage bay's stock (a copy). */
@@ -391,22 +428,26 @@ export class TownBuilder {
       if (!this.plan) return;
     }
     const day = host.day();
+    const fests = host.festivals ? host.festivals() : true;
+    const away = host.away ? host.away() : false;
     if (this.lastDay === 0) this.lastDay = day;
     if (day !== this.lastDay) {
       // The day that ended credits what it did not spend (a sleep through the evening, say), and each working day skipped
-      // outright. A festival day is a rest day: it earns nothing.
-      let credit = workDay(this.lastDay) ? Math.max(0, DAY_BUDGET - this.accrued) : 0;
-      for (let d = this.lastDay + 1; d < day && d <= this.lastDay + MAX_GAP_DAYS; d++) if (workDay(d)) credit += DAY_BUDGET;
+      // outright. A festival day is a rest day: it earns nothing (only while a festival can run).
+      let credit = workDay(this.lastDay, fests) ? Math.max(0, DAY_BUDGET - this.accrued) : 0;
+      for (let d = this.lastDay + 1; d < day && d <= this.lastDay + MAX_GAP_DAYS; d++) if (workDay(d, fests)) credit += DAY_BUDGET;
       this.owed += credit;
       this.accrued = 0;
       this.lastDay = day;
     }
-    if (phaseAt(host.timeOfDay()) === 'day' && workDay(day)) {
+    if (phaseAt(host.timeOfDay()) === 'day' && workDay(day, fests)) {
       const add = (DAY_BUDGET * dt) / (DAY_LENGTH_S * (SUNSET_AT - 2 * TWILIGHT));
       this.accrued += add;
-      this.owed += add;
+      // Away (hired): the working time passes as if spent, so the end of the day credits none of it back.
+      if (!away) this.owed += add;
     }
     this.owed = Math.min(this.owed, MAX_OWED_DAYS * DAY_BUDGET);
+    if (away) return;
     this.work(host);
   }
 
@@ -650,6 +691,7 @@ export class TownBuilder {
       accrued: r3(this.accrued),
       blocked: this.blocked,
       bay: this.stock(),
+      taken: this.taken.size > 0 ? Object.fromEntries(this.taken) : undefined,
       lodge: this.hasLodge() ? { stage: this.lodgeStage, base: this.lodgeBase, done: this.lodgeDone } : undefined,
     };
   }
@@ -668,6 +710,7 @@ export class TownBuilder {
     this.accrued = 0;
     this.blocked = 0;
     this.bay.clear();
+    this.taken.clear();
     this.planWait = 0;
     this.finishedQ = [];
     this.seen = null;
@@ -695,6 +738,7 @@ export class TownBuilder {
     this.accrued = num(r.accrued);
     this.blocked = int(r.blocked);
     for (const [k, v] of Object.entries(r.bay ?? {})) if (typeof v === 'number' && Number.isFinite(v) && v > 0) this.bay.set(k, Math.floor(v));
+    for (const [k, v] of Object.entries(r.taken ?? {})) if (typeof v === 'number' && Number.isFinite(v) && v > 0) this.taken.set(k, Math.floor(v));
     const lg = r.lodge;
     if (lg && typeof lg === 'object') {
       this.lodgeStage = Math.min(LODGE_PATH.length - 1, int(lg.stage));

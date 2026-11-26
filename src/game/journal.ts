@@ -101,6 +101,8 @@ export class Journal {
       bus.on('treasure:dug', () => this.add('first', 'Dug up a buried treasure crate.', 'first:treasure')),
       bus.on('enchant:applied', ({ item }) => this.add('first', `Enchanted my ${itemName(item)} at the altar.`, 'first:enchant')),
       bus.on('pet:tamed', ({ species }) => this.add('first', `A stray ${species.replace(/_/g, ' ')} decided I was worth following.`, 'first:pet')),
+      bus.on('town:built', () => this.add('first', 'Gruk finished the first building of the town.', 'first:town_building')),
+      bus.on('town:bounty', ({ item }) => this.add('first', `Filled my first build bounty for Gruk: ${itemName(item)}.`, 'first:bounty')),
     );
   }
 

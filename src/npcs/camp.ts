@@ -15,6 +15,8 @@ export const CAMP_D = 5;
 export const CAMP_START: readonly [number, number, number] = [3, 1, 4];
 /** The campfire (a clay furnace the game keeps lit, like the hall's fireplace). */
 export const CAMP_FIRES: readonly (readonly [number, number, number])[] = [[5, 1, 2]];
+/** The two bedrolls (camp-local): Use on one sleeps to dawn (NpcManager.useBed). */
+export const CAMP_BEDS: readonly (readonly [number, number, number])[] = [[7, 1, 1], [7, 1, 3]];
 /** How far (blocks) from the spawn point the camp may be put, to find flat ground. */
 export const CAMP_SEARCH = 16;
 
@@ -34,8 +36,7 @@ export function campLayout(): Placement[] {
   put(5, 1, 2, 'furnace_clay', Facing.North);
   for (const [x, z] of [[4, 1], [6, 1], [4, 3], [6, 3]] as const) put(x, 1, z, 'stone_brick');
   // Two bedrolls (wool bedding) by the fire, headboards to the east.
-  put(7, 1, 1, 'wool_bedding', Facing.West);
-  put(7, 1, 3, 'wool_bedding', Facing.West);
+  for (const [x, y, z] of CAMP_BEDS) put(x, y, z, 'wool_bedding', Facing.West);
   return out;
 }
 

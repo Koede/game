@@ -12,6 +12,23 @@ export const ROOM_FRIEND_TRUST = 20;
 
 export const roomCost = (rosaTrust: number): number => (rosaTrust >= ROOM_FRIEND_TRUST ? ROOM_FRIEND_COST : ROOM_COST);
 
+/** No sleep with a hostile creature this close (blocks, flat distance) to the player. */
+export const SLEEP_SAFE_R = 16;
+
+/**
+ * Why the player cannot sleep to dawn now, or null when they can: the rules the paid room and the camp bedrolls share. Only in
+ * the evening or at night, and not with a hostile within SLEEP_SAFE_R.
+ */
+export function sleepBlocked(
+  phase: string,
+  player: { x: number; z: number } | null,
+  hostiles: readonly { x: number; z: number }[],
+): string | null {
+  if (phase !== 'evening' && phase !== 'night') return 'You can only sleep in the evening or at night.';
+  if (player && hostiles.some((h) => Math.hypot(h.x - player.x, h.z - player.z) <= SLEEP_SAFE_R)) return 'You cannot sleep with enemies nearby.';
+  return null;
+}
+
 /** One line from each regular, left on the bar while you sleep. `{day}` is the day just ended. */
 export const NOTES: Readonly<Record<string, readonly string[]>> = {
   mara: [
@@ -68,6 +85,7 @@ export const ROOM_SERVICE: Service = {
     const c = roomCost(p.trust('rosa'));
     if (p.coins() < c) return `${c} coin for the bed, and you carry ${p.coins()}. A bench by the fire is free.`;
     if (!p.host?.sleepToDawn) return 'The rooms are being aired. Another night.';
+    if (sleepBlocked(ph, p.host.companion.player(), p.host.companion.hostiles())) return 'Not with those things prowling outside, love. Deal with them first.';
     p.spend(c);
     p.host.sleepToDawn(p.bed(p.day()) ?? undefined);
     p.addTrust('rosa', 1);

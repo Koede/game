@@ -14,15 +14,16 @@ import { BEAT_S, DANCES, notesAt } from './jukebox';
 import { LinePicker, clockHM, clockText, type Phase } from './dialogue';
 import { BOUNTIES, stackPrice } from './economy';
 import { HERMIT_NOTHING, HERMIT_SALE } from './scripts/hermit';
-import { ORC_HIRE } from './scripts/orc';
+import { ORC_HIRE, buildLine } from './scripts/orc';
 import { TRADER_FULL, TRADER_WANT_SHORT, TRADER_WANT_THANKS } from './scripts/trader';
 import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
 import { BUILDER_ID, MOVABLE, TownBuilder, movable, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
 import { LODGE_FIRES, LODGE_NAMES, LODGE_PATH, LODGE_ROUTINE, LODGE_SPAWN, lodgeItems, type LodgeKey } from './lodge';
-import { BuildBoard, bayBoardSpot, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
-import { CAMP_D, CAMP_FIRES, CAMP_ROUTINES, CAMP_START, CAMP_W, buildCamp, pickCampSite } from './camp';
+import { BuildBoard, TOWN_FINISHED, bayBoardSpot, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
+import { townTemplate, TOWN_STAGES } from './townTemplates';
+import { CAMP_BEDS, CAMP_D, CAMP_FIRES, CAMP_ROUTINES, CAMP_START, CAMP_W, buildCamp, pickCampSite } from './camp';
 import type { SurfaceFn } from './townPlan';
 import type { Spot } from './routines';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
@@ -30,7 +31,7 @@ import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
 import { SWIM_SPOTS, chooseOutfit, coolOffAt, inPool, type Outfit } from './outfits';
 import { ServiceMenu, type Service, type TavernPort } from './services';
-import { ROOM_SERVICE } from './rooms';
+import { ROOM_SERVICE, sleepBlocked } from './rooms';
 import { FavourBoard, type Favour } from './favours';
 import { festivalOn, festivalServices, newFestivalState, type FestivalState } from './festival';
 import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
@@ -618,11 +619,16 @@ export class NpcManager {
     return { gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze };
   }
 
+  /** Whether a festival can run at all: the tavern stands and at least three people live here. Gruk rests on festival days only then. */
+  festivalCanRun(): boolean {
+    return this.hasTavern && this.presentCount() >= 3;
+  }
+
   /** From dusk to dawn of a festival day the jukebox plays and the dancers dance (unless the player had it on already). */
   private tickFestival(): void {
     const host = this.host;
     if (!host || !this.at) return;
-    const on = this.hasTavern && this.presentCount() >= 3 && festivalOn(host.day(), this.phase());
+    const on = this.festivalCanRun() && festivalOn(host.day(), this.phase());
     if (on === this.festNow) return;
     this.festNow = on;
     if (on) {
@@ -822,7 +828,7 @@ export class NpcManager {
     }
     const n = (this.spoken[npc.id] ?? 0) + 1;
     this.spoken[npc.id] = n;
-    const talk = (n % 2 === 1 ? this.hint(npc) : null) ?? this.lines.pick(npc.id, npc.bank!, this.phase(), { greeting: this.greeting(npc) });
+    const talk = (n % 2 === 1 ? (this.hint(npc) ?? this.buildTalk()) : null) ?? this.lines.pick(npc.id, npc.bank!, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, talk);
     // Odd visits offer his arm for hire; even visits offer a bout in the hall.
     const bout2 = n % 2 === 0 ? this.gruk.pitch(this.port(npc)) : null;
@@ -864,27 +870,114 @@ export class NpcManager {
     const open = this.board.list();
     const standing = reputationStep(this.board.rep).name;
     const waiting = this.town.waitingOn();
-    if (open.length === 0 && waiting) this.toast(`Build board: ${lockNote(waiting, this.board.rep) ?? `${this.builderName()} is waiting.`} Town standing: ${standing} (${this.board.rep}).`);
+    if (this.town.done) this.toast(`Build board: ${TOWN_FINISHED} Town standing: ${standing} (${this.board.rep}).`);
+    else if (open.length === 0 && waiting) this.toast(`Build board: ${lockNote(waiting, this.board.rep) ?? `${this.builderName()} is waiting.`} Town standing: ${standing} (${this.board.rep}).`);
     else if (open.length === 0) this.toast(`Build board: ${this.builderName()} has nothing waiting on materials. Town standing: ${standing} (${this.board.rep}).`);
     else this.toast(`Build board: ${open.map(describeBounty).join('; ')}. Town standing: ${standing} (${this.board.rep}). Hold the items and use the board to hand them in.`);
     return 'Build board';
   }
 
-  /** Hands held materials to a build bounty: they go into the storage bay, and pay coin, town standing and Gruk's trust. */
+  /**
+   * Hands held materials to a build bounty: they go into the storage bay, and pay coin, town standing and Gruk's trust. Items the
+   * player took out of the bay's crate go back first and pay nothing (TownBuilder.repay).
+   */
   private deliverBuild(item: string, count: number): boolean {
-    const b = this.board.matching(item);
-    const pay = b ? this.board.deliver(b.id, count) : null;
-    if (!pay) return false;
-    this.host?.takeHeld(pay.take);
-    this.town.deliver(item, pay.take);
-    this.coins += pay.coin;
-    if (pay.reward) this.host?.give(pay.reward.item, pay.reward.count);
-    const builder = NPCS.find((n) => n.id === BUILDER_ID);
-    if (builder && pay.trust > 0) this.raiseTrust(builder, pay.trust);
-    const rare = pay.reward ? `, and a ${pay.reward.item.replace(/_/g, ' ')}` : '';
-    this.toast(`Build board: ${pay.take} ${item.replace(/_/g, ' ')} into the storage bay. +${pay.coin} coin, +${pay.rep} town standing${pay.trust ? `, +${pay.trust} trust with ${this.builderName()}` : ''}${rare}.`);
+    const want = this.board.list().filter((b) => b.item === item).reduce((s, b) => s + b.left, 0);
+    if (want <= 0) return false;
+    const take = Math.min(Math.floor(count), want + this.town.takenOut(item));
+    if (!(take > 0)) return false;
+    this.host?.takeHeld(take);
+    this.town.deliver(item, take);
+    if (this.payBounties(item, take, 'into the storage bay') === 0) this.toast(`Build board: ${take} ${item.replace(/_/g, ' ')} back into the storage bay (taken from its crate earlier, so no pay).`);
     this.refreshBoard(this.host);
     return true;
+  }
+
+  /**
+   * Pays the build bounties for `count` of `item` that went into the bay (by the board or the crate): coin, town standing, Gruk's
+   * trust and any rare reward, and a toast. The part that puts back what the player took out of the crate pays nothing. Returns
+   * how many were paid for.
+   */
+  private payBounties(item: string, count: number, how: string): number {
+    let fresh = this.town.repay(item, count);
+    let paid = 0;
+    let coin = 0;
+    let rep = 0;
+    let trust = 0;
+    const rewards: string[] = [];
+    for (let b = this.board.matching(item); b && fresh > 0; b = this.board.matching(item)) {
+      const pay = this.board.deliver(b.id, fresh);
+      if (!pay || pay.take <= 0) break;
+      fresh -= pay.take;
+      paid += pay.take;
+      coin += pay.coin;
+      rep += pay.rep;
+      trust += pay.trust;
+      if (pay.reward) {
+        this.host?.give(pay.reward.item, pay.reward.count);
+        rewards.push(pay.reward.item.replace(/_/g, ' '));
+      }
+      if (pay.done) this.bus.emit('town:bounty', { item, filled: this.board.done });
+    }
+    if (paid <= 0) return 0;
+    this.coins += coin;
+    const builder = NPCS.find((n) => n.id === BUILDER_ID);
+    if (builder && trust > 0) this.raiseTrust(builder, trust);
+    const rare = rewards.map((r) => `, and a ${r}`).join('');
+    this.toast(`Build board: ${paid} ${item.replace(/_/g, ' ')} ${how}. +${coin} coin, +${rep} town standing${trust ? `, +${trust} trust with ${this.builderName()}` : ''}${rare}.`);
+    return paid;
+  }
+
+  /** Gruk's line about the town build (scripts/orc.ts `buildLine`), or null before the town is planned. */
+  private buildTalk(): string | null {
+    if (!this.town.planned) return null;
+    const cur = this.town.currentTemplate;
+    const stage = this.town.stage();
+    const name = cur ? (townTemplate(cur)?.name ?? cur).replace(/^the /i, '') : null;
+    const waiting = this.town.waitingOn();
+    return buildLine(
+      {
+        building: stage >= 0 ? name : null,
+        stage: stage >= 0 ? (TOWN_STAGES[stage] ?? null) : null,
+        missing: this.town.missing(),
+        lock: waiting ? lockNote(waiting, this.board.rep) : null,
+        finished: this.town.done,
+      },
+      (lines) => this.lines.from('orc-build', lines),
+    );
+  }
+
+  /**
+   * What "What next?" points at for the town (src/game/nextStep.ts): the open build bounties and where the player stands to use the
+   * board. Null while no bounty is open or the board is not placed.
+   */
+  boardGuide(): { bounties: { item: string; left: number; text: string }[]; at: { x: number; y: number; z: number } } | null {
+    const at = this.board.front() ?? this.board.spot;
+    const open = this.board.list();
+    if (!at || !this.board.placed || open.length === 0) return null;
+    return { bounties: open.map((b) => ({ item: b.item, left: b.left, text: describeBounty(b) })), at: { x: at.x, y: at.y, z: at.z } };
+  }
+
+  /**
+   * Use on a bed block at (x, y, z): a camp bedroll sleeps the player to dawn, free, on the paid room's rules (evening or night only,
+   * and not with a hostile near). Null when the block is not one of the camp's bedrolls (the caller goes on to other uses).
+   */
+  useBed(x: number, y: number, z: number): string | null {
+    const o = this.at;
+    if (!o || !this.camp) return null;
+    const bed = CAMP_BEDS.find(([bx, by, bz]) => o[0] + bx === x && o[1] + by === y && o[2] + bz === z);
+    if (!bed) return null;
+    const host = this.host;
+    if (!host?.sleepToDawn) return null;
+    const why = sleepBlocked(this.phase(), host.companion.player(), host.companion.hostiles());
+    if (why) {
+      this.toast(why);
+      return why;
+    }
+    host.sleepToDawn({ x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    const line = 'You slept on the bedroll by the fire until dawn.';
+    this.toast(line);
+    return line;
   }
 
   /** Redraws the board from the builder's needs: when a bounty is filled, or the stage moves on. */
@@ -1316,14 +1409,20 @@ export class NpcManager {
       townBlock: (x, y, z) => townBlock.call(host, x, y, z),
       townEdited: (x, y, z) => townEdited.call(host, x, y, z),
       townPlace: (x, y, z, block, facing) => townPlace.call(host, x, y, z, block, facing),
+      // Hired, Gruk follows the player: his building pauses for the hire's length.
+      away: () => this.companion.active,
+      festivals: () => this.festivalCanRun(),
     };
     // The bay's stock is what its crate holds: the player's hand-ins and takes are read first, then the crate is brought to the stock.
+    // What the player put in pays through the board like a hand-in when it matches an open bounty; the rest is plain stock.
     const crate = this.board.crate();
-    this.town.syncCrate(crate && host.townCrate ? host.townCrate.call(host, crate.x, crate.y, crate.z) : null);
+    const put = this.town.syncCrate(crate && host.townCrate ? host.townCrate.call(host, crate.x, crate.y, crate.z) : null);
+    for (const d of put) this.payBounties(d.item, d.count, 'into the storage bay crate');
     const anchor: [number, number] = this.camp ? [o[0] + Math.floor(CAMP_W / 2), o[2] + Math.floor(CAMP_D / 2)] : [o[0] + Math.floor(TAVERN_W / 2), o[2] + Math.floor(TAVERN_D / 2)];
     this.town.tick(dt, th, host.worldSeed?.() ?? 0, anchor);
     for (const f of this.town.takeFinished()) {
       this.board.finished();
+      this.bus.emit('town:built', { template: f.template, built: this.board.built });
       if (f.template === 'storage_bay' && !this.board.bay) this.board.setBay(f);
       if ((LODGE_PATH as readonly string[]).includes(f.template)) this.lodgeStageDone(f.template as LodgeKey);
     }

@@ -275,6 +275,10 @@ export interface GameEvents {
   'toast': { text: string; kind?: ToastKind; item?: string };
   /** Someone in the tavern speaks: the dialogue box shows their portrait, name and the text (src/ui/hud/npcDialogue.ts). */
   'npc:say': { id: string; role: string; name: string; title: string; text: string };
+  /** Gruk finished a town building or a lodge stage (src/npcs/manager.ts); `built` counts them all, so 1 is the first. */
+  'town:built': { template: string; built: number };
+  /** A build bounty was filled (by the board or the bay's crate); `filled` counts them all, so 1 is the first. */
+  'town:bounty': { item: string; filled: number };
 
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */

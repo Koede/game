@@ -25,8 +25,9 @@ Gruk builds a village next to the tavern from presaved templates (plan: `docs/pl
 
 Snapshot field `town` (optional, old saves load and start a town): the plan (site and buildings, in build order), `building` (index),
 `base` and `ground` (the current building's base row and footprint heights), `stage`, `cell` (how far the budget reached),
-`laid` (how far placement reached), `lastDay`, `owed`, `accrued`, `blocked` and `bay` (the storage bay's stock). The board is
-`town.board` (`bounties`, `rep`, `spot`, `bay`, `placed`). The stock crate's contents are the crate's own slots (the save keeps them with
+`laid` (how far placement reached), `lastDay`, `owed`, `accrued`, `blocked`, `bay` (the storage bay's stock) and `taken` (optional:
+what the player took out of the crate and has not put back). The board is `town.board` (`bounties`, `rep`, `done`, `built`
+(optional), `spot`, `bay`, `placed`). The stock crate's contents are the crate's own slots (the save keeps them with
 the world).
 
 `townDebug()` (`window.__hw.town()` in the browser) reads the state for the e2e: site, building, base, waiting, standing, board,
@@ -50,18 +51,34 @@ bay, crate, front, stock, coin, plan and `progress` (cell, laid, next cell, skip
 - **The board block:** a `quest_board` block placed in the storage bay's floor row (`BuildBoard.spot`) as soon as Gruk has started the
   bay, so the first materials can be handed in before the bay stands. Use it from `bayFrontSpot` or from inside the bay, within
   6 blocks, with a stack in hand that matches a bounty to hand it in: the items are taken from hand, go into the stock, and pay coin,
-  standing and trust. Use it empty-handed to read the open bounties and standing. Use on the tavern's quest board is unchanged.
+  standing and trust. Use it empty-handed to read the open bounties and standing. After the last planned building it says the town
+  is finished (`TOWN_FINISHED`). Use on the tavern's quest board is unchanged.
 - **The stock crate:** the bay's one crate (`BAY_CRATE`, on the floor row) holds the stock. Use it to open the crate. Each look at the
   crate (every tick once the crate exists) reconciles both ways: what the player put in counts as delivered, what the player took out
   leaves the stock, and then the crate is brought to the stock (what does not fit stays in the stock). Hand-ins and the builder's own
-  takes show in the crate the same way. The stock map stays the source of truth.
+  takes show in the crate the same way. The stock map stays the source of truth. A deposit that matches an open bounty pays through
+  the board like a hand-in (coin, standing, Gruk's trust, a rare reward when it completes the bounty; `syncCrate` returns the
+  deposits and the manager pays them); anything else is plain stock. Items taken out of the crate are remembered (`taken`) and put
+  back first, by the crate or the board, for no pay (`TownBuilder.repay`), so a take-out and a put-back cannot be paid twice.
+- **Gruk's lines:** on every other talk (when he has no goal hint) Gruk names the building, its stage and up to three missing items,
+  or says the bay has what he needs, or why he waits (`lockNote`), or that the town is finished (`ORC_BUILD`, `buildLine` in
+  `scripts/orc.ts`).
+- **"What next?":** `NpcManager.boardGuide()` gives the open bounties and the board's front; `src/app/game.ts` registers it with
+  `setBoardGuide` (`src/game/nextStep.ts`). `nudgeFor` points at the board while a bounty is open and the pack holds an item one asks
+  for, or when no goal is left; a goal step with no place to point at keeps its text and adds the board's line, with the arrow on the
+  board. A goal with a place to point at keeps the arrow.
+- **Events:** `town:built` `{ template, built }` when Gruk finishes a building or a lodge stage, and `town:bounty` `{ item, filled }`
+  when a bounty is filled (by the board or the crate). The counts are all-time (`BuildBoard.built`, `done`), so 1 is the first.
 - **Save:** `town.board` in the npcs snapshot (optional, old saves load an empty board; `bay` is optional too).
 
 ## Pace
 
 `DAY_BUDGET` = 32 cells per day, spent during the day phase. A turned day credits what it did not spend, and each skipped working
 day is credited in full (capped at four days). Festival days (`festival.ts`, the last day of each season) are rest days: no budget is
-earned on them and nothing is dug or placed in their day phase. A cottage frame is about two days, its finish about three more.
+earned on them and nothing is dug or placed in their day phase, but only while a festival can run (`TownHost.festivals`, the manager's
+`festivalCanRun()`: the tavern and three people); at the camp a festival day is a working day. While Gruk is hired
+(`TownHost.away`, the companion is active) the building pauses: nothing is dug or placed, and the working time away earns nothing,
+not even at the day's end. A cottage frame is about two days, its finish about three more.
 
 ## Rules
 
@@ -78,6 +95,8 @@ earned on them and nothing is dug or placed in their day phase. A cottage frame 
 
 - `townBuilder.test.ts` and `buildBoard.test.ts`: rest days, skipped days, seeded chance drops, unlock gating and the plan swap,
   the stock crate both ways and across a save, the board's place and save.
+- `townPolish.test.ts`: crate deposits paid through the board and no pay for a put-back, Gruk's build lines, the board guide and
+  `nudgeFor`, the camp bedrolls, the hire pause, festival rest only where a festival can run, the finished town, `town:built`.
 - `scripts/e2e-town.mjs` (headless, real input for the board and the crate): new world, the site and board placed, the first bounty
   handed in by Use, days skipped with `setDay` with the bounties handed in again, the bay checked in the world, the crate opened
   with Use, and a cottage frame checked.

@@ -121,6 +121,8 @@ export interface BuildBoardSnapshot {
   seq: number;
   rep: number;
   done: number;
+  /** Buildings (and lodge stages) finished over the whole game (optional, so older boards load). */
+  built?: number;
   stageKey: string;
   bounties: Bounty[];
   spot: BoardSpot | null;
@@ -145,6 +147,9 @@ export function bountyCoin(item: string, count: number, stage: number): number {
 export function share(total: number, size: number, from: number, to: number): number {
   return Math.floor((total * to) / size) - Math.floor((total * from) / size);
 }
+
+/** What the board says once every planned building stands. */
+export const TOWN_FINISHED = 'Every building on the plan stands. The town is finished.';
 
 /** A board line for the player, e.g. "24 oak log for the Cottage, frame (18 coin)". */
 export function describeBounty(b: Bounty): string {
@@ -201,6 +206,8 @@ export class BuildBoard {
   rep = 0;
   /** Bounties filled over the whole game. */
   done = 0;
+  /** Buildings (and lodge stages) Gruk has finished over the whole game. */
+  built = 0;
   /** Where the board sits (inside the storage bay), once the bay's floor row is known. */
   spot: BoardSpot | null = null;
   /** The storage bay's place, once Gruk has started it. The board and the stock crate are placed from it. */
@@ -302,9 +309,10 @@ export class BuildBoard {
     return pay;
   }
 
-  /** A building was finished: reputation rises. */
+  /** A building was finished: reputation rises, and it is counted. */
   finished(): void {
     this.rep += REP_PER_BUILDING;
+    this.built++;
   }
 
   /** The bounties on the board (copies). */
@@ -318,6 +326,7 @@ export class BuildBoard {
       seq: this.seq,
       rep: this.rep,
       done: this.done,
+      built: this.built,
       stageKey: this.stageKey,
       bounties: this.list(),
       spot: this.spot ? { ...this.spot } : null,
@@ -331,6 +340,7 @@ export class BuildBoard {
     this.bounties = [];
     this.rep = 0;
     this.done = 0;
+    this.built = 0;
     this.spot = null;
     this.bay = null;
     this.placed = false;
@@ -341,6 +351,7 @@ export class BuildBoard {
     this.seq = numOf(r.seq, 0, 1e9) ?? 0;
     this.rep = numOf(r.rep, 0, 1e9) ?? 0;
     this.done = numOf(r.done, 0, 1e9) ?? 0;
+    this.built = numOf(r.built, 0, 1e9) ?? 0;
     this.stageKey = typeof r.stageKey === 'string' ? r.stageKey : '';
     this.placed = r.placed === true;
     const s = r.spot;

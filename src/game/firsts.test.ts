@@ -18,6 +18,8 @@ const CASES: Case[] = [
   { event: 'treasure:dug', payload: { x: 1, y: 2, z: 3 }, achievement: 'first_treasure', journal: 'first:treasure', text: /treasure crate/ },
   { event: 'enchant:applied', payload: { item: 'bronze_pickaxe', enchant: 'swift', level: 1 }, achievement: 'first_enchant', journal: 'first:enchant', text: /Enchanted my .* at the altar/ },
   { event: 'pet:tamed', payload: { id: 7, species: 'dog' }, achievement: 'first_pet', journal: 'first:pet', text: /stray dog/ },
+  { event: 'town:built', payload: { template: 'storage_bay', built: 1 }, achievement: 'first_town_building', journal: 'first:town_building', text: /first building of the town/ },
+  { event: 'town:bounty', payload: { item: 'oak_log', filled: 1 }, achievement: 'first_bounty', journal: 'first:bounty', text: /first build bounty for Gruk: oak log/ },
 ];
 
 describe('firsts from feature events', () => {

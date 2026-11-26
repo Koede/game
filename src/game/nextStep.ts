@@ -119,10 +119,39 @@ function planCondition(player: PlayerState, c: ObjectiveCondition, title: string
   }
 }
 
-/** The hint for a goal; null when everything is done. Goals the planner does not understand fall back to their own title. */
-export function nudgeFor(player: PlayerState, objective: ObjectiveSpec | null): Nudge | null {
-  if (!objective) return null;
-  return planCondition(player, objective.condition, objective.title) ?? { text: objective.title, target: null };
+/** The town's open build bounties and where the player stands to use Gruk's board (NpcManager.boardGuide). */
+export interface BoardGuide {
+  bounties: readonly { item: string; left: number; text: string }[];
+  at: { x: number; y: number; z: number };
+}
+
+let boardGuide: (() => BoardGuide | null) | null = null;
+
+/** Registers where the build board's guide comes from (the game wires the NPC manager in; null unhooks it). */
+export function setBoardGuide(fn: (() => BoardGuide | null) | null): void {
+  boardGuide = fn;
+}
+
+/** The nudge for the build board: "Gruk's build board wants ...", with the arrow on the board's front. */
+export function boardNudge(guide: BoardGuide): Nudge {
+  return { text: `Gruk's build board (storage bay) wants ${guide.bounties[0].text}`, target: { kind: 'pos', ...guide.at } };
+}
+
+/**
+ * The hint for a goal; null when everything is done. Goals the planner does not understand fall back to their own title. While a
+ * build bounty is open (`board`, by default the registered guide), "What next?" points at the board: when the pack holds something a
+ * bounty asks for, or every goal is done (the board's line alone), or the goal's step has no place in the world to point at (the
+ * goal's line, then the board's). A goal with a place to point at keeps the arrow.
+ */
+export function nudgeFor(player: PlayerState, objective: ObjectiveSpec | null, board: BoardGuide | null = boardGuide?.() ?? null): Nudge | null {
+  const goal = objective ? (planCondition(player, objective.condition, objective.title) ?? { text: objective.title, target: null }) : null;
+  if (!board || board.bounties.length === 0) return goal;
+  const carried = board.bounties.find((b) => player.inventory.count(b.item) > 0);
+  if (carried) return boardNudge({ ...board, bounties: [carried] });
+  if (!goal) return boardNudge(board);
+  // A step with no place to point at (craft by hand, place a block) keeps its text, and the arrow shows the way to the board.
+  if (!goal.target) return { text: `${goal.text}. Then: ${boardNudge(board).text}`, target: boardNudge(board).target };
+  return goal;
 }
 
 export interface Found {
