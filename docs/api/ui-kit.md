@@ -122,6 +122,7 @@ Added: `Window.whenClosed`, `PauseMenu.window` (both for GameUI).
 ## menus
 - `class TitleScreen(root, { hasSave, settings, onNewWorld(seed|null), onContinue, onSettingsChange(settings, key), controls?, version?, ages? })` -
   `show()` (menu layer, starts the ember fire), `hide()`, `setHasSave(b)`, `visible`, `dispose()`. With a save, New World is hold-to-confirm.
+  The age strip defaults to `DEFAULT_AGES`: the six `AGES` short names (Ember, Bronze, Forge, Current, Atomic, Star).
 - `class PauseMenu(root, { settings, onSettingsChange, onResume, onQuit, controls?, openLog? })` - `open()`, `close()`, `isOpen`, `setSettings(s)`,
   `window` (built but not opened; GameUI opens it as its 'pause' screen). With `openLog(section)` the menu shows Journal and
   Achievements entries; GameUI opens the Hearth Log as `{ type: 'log', section }`, scrolled to that section.

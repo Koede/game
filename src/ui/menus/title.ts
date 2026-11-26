@@ -1,6 +1,7 @@
 /** The front door: wordmark, one line of promise, and the way into a world. */
 import type { Difficulty, Settings } from '../../core/context';
 import { modeLabel, type GameMode } from '../../core/gameMode';
+import { AGES } from '../../core/registry';
 import { titleStage } from '../../game/achievements';
 import { Button, Segmented, TextField } from '../kit/controls';
 import { h, setText } from '../kit/dom';
@@ -42,7 +43,8 @@ const WORD_HEAT = 'HEARTH';
 const WORD_POWER = 'WATT';
 /** The first six letters climb the heat ramp to white heat; the last four are electric. */
 const LETTER_TEMPS = [640, 800, 960, 1120, 1300, 1500];
-const DEFAULT_AGES = ['Ember', 'Forge', 'Current', 'Atomic', 'Star'];
+/** Every age, short names, from the content (six since the Bronze Age). */
+export const DEFAULT_AGES = AGES.map((a) => a.name.replace(/ Age$/, ''));
 const AGE_COLORS = [heatColor(800), heatColor(1000), heatColor(1150), 'var(--hw-power)', 'var(--hw-power-hi)', heatColor(1500)];
 const MODE_HINTS: Record<GameMode, string> = {
   survival: 'The real game: heat, hunger and the Emberbound.',

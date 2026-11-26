@@ -162,7 +162,8 @@ Parts: `Hotbar` (9 slots, counts, durability, selection, tap selects via `player
 with the food line for food - "Roast Chop · +8 food", key numbers on desktop), `Vitals` (health, warmth with trend
 arrow, FOOD with Hungry / starving states, air only under water, buff pills: Well-Warmed m:ss or "Warming N s" while
 earning it, and Well-Fed m:ss; see `docs/api/food-ui.md`), `Compass` (needle towards home relative to the view every frame, distance,
-"640°" in the heat colour / "cold" / "gone"), `GoalTracker` (goal n of 37, title, progress, tap -> `'ui:open' log`),
+"640°" in the heat colour / "cold" / "gone"), `GoalTracker` (kicker per age "Age 1 - Ember" with step "3/9" among that age's goals - `goalKicker(goal)`,
+`ageShortName(age)` -, title, the goal's own count as the bar, tap -> `'ui:open' log`),
 `DayDial` (sun / moon on a day-night dial, day number, time to the next sunset / sunrise), `PowerStrip` (shown
 once a network generates, consumes or stores: generation, demand marker, "uses X", stored, brown-out / overload),
 `Crosshair` (mining ring 0..1 and the targeted block's name), `FeedView` (+N item lines, merged per item, 3.2 s),
