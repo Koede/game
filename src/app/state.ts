@@ -233,7 +233,7 @@ export class GameState {
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });
-    this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, note: (text, key) => this.journal.add('note', text, key) });
+    this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, held: () => this.player.heldStack()?.item ?? null, consumeHeld: () => { this.player.consumeHeld(); }, note: (text, key) => this.journal.add('note', text, key) });
     this.offs.push(() => this.caveWatch.dispose());
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     this.pets = new Pets({
