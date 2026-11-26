@@ -322,7 +322,7 @@ async function runDevice(device) {
     });
 
     await report.step('the goal tracker and What next? answer a tap, and the log they open closes', async () => {
-      await d.press(page.locator('.hw-goal'));
+      await d.press(page.locator('.hw-goal:not(.hw-town-chip)'));
       await waitFor(page, () => document.querySelectorAll('.hw-window').length > 0, 'the log from the goal tracker', { timeout: 4000, interval: 100 });
       await closeByButton('log');
       await playResumes('log');

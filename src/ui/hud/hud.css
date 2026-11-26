@@ -1114,9 +1114,10 @@
   display: none;
 }
 @media (max-height: 519.98px) {
+  /* Landscape phones: the touch Menu button sits at the left edge under the vitals, so the chip goes just above it. */
   .hw-devchip {
-    top: auto;
-    bottom: 38%;
+    top: 124px;
+    bottom: auto;
   }
 }
 

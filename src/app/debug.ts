@@ -153,6 +153,7 @@ export function createDebugHandle(app: App): DebugHandle {
       const g = app.game;
       const s = g?.state;
       const p = s?.player;
+      const dist2 = (e: { x: number; y: number; z: number }): number => (p ? (e.x + 0.5 - p.position.x) ** 2 + (e.y - p.position.y) ** 2 + (e.z + 0.5 - p.position.z) ** 2 : 0);
       return {
         phase: app.phase,
         ready: g?.ready ?? false,
@@ -176,7 +177,8 @@ export function createDebugHandle(app: App): DebugHandle {
         time: s ? { timeOfDay: round(s.clock.timeOfDay, 4), day: s.clock.day, phase: s.clock.phase } : null,
         objective: s ? { id: s.objectives.current?.id ?? null, completed: s.objectives.completed.map((o) => o.id), age: s.objectives.age } : null,
         furnaces: s
-          ? [...s.world.entities()].filter(isFurnace).map((f) => ({
+          // Nearest to the player first: a world can hold furnaces of its own (settlements), and a script means the one it is using.
+          ? [...s.world.entities()].filter(isFurnace).sort((a, b) => dist2(a) - dist2(b)).map((f) => ({
               x: f.x, y: f.y, z: f.z, tier: f.tier, tempC: round(f.tempC, 2), lit: f.lit, draft: round(f.draft), ignited: f.ignited,
               fuel: JSON.parse(JSON.stringify(f.fuel)), crucibleIn: JSON.parse(JSON.stringify(f.crucibleIn)), crucibleOut: JSON.parse(JSON.stringify(f.crucibleOut)),
               crucibleMelt: JSON.parse(JSON.stringify(f.crucibleMelt)), crucibleMoltenS: f.crucibleMoltenS.map((v) => round(v, 2)),

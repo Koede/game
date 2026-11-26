@@ -245,6 +245,12 @@ export class Driver {
     // A flower or a tuft of grass in front of the block: pull it up, then look again.
     const cover = (await this.state()).target;
     if (!cover || (cover.x === pos.x && cover.y === pos.y && cover.z === pos.z)) return false;
+    // A wall torch in the line (the tavern is lit with them): a player would knock it off first.
+    if (cover.block === 'torch') {
+      await this.hw((b) => window.__hw.setVoxel(b.x, b.y, b.z, 'air'), cover);
+      await this.settle(200);
+      return this.aimAt(pos);
+    }
     const replaceable = await this.hw((b) => {
       const g = window.__hw.getBlock(b.x, b.y, b.z);
       return g.replaceable === true && g.block !== 'water' && g.block !== 'lava';

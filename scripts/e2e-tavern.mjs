@@ -73,16 +73,32 @@ async function runDevice(device) {
 
     for (const [id, gift, word] of [['rosa', 'hearth_stew', 'On the house'], ['gruk', 'wooden_pickaxe', 'Wooden tools'], ['mara', 'field_notebook', 'notebook'], ['veyra', 'glass_vial', 'Glass. Clean']]) {
       await step(`using ${id} gives the welcome gift and a line`, async () => {
-        const s = await npcs();
-        const v = s.views.find((x) => x.id === id);
-        // Stand north of the person (the customers' side; Rosa is behind the bar, so three blocks off), then aim at their chest.
-        await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z - p.back), { x: v.x, y: v.y, z: v.z, back: id === 'rosa' ? 3 : id === 'veyra' ? -2 : 2 });
-        await d.settle(300);
-        await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: v.x, y: v.y, z: v.z });
-        await d.settle(200);
-        await d.shot(`2-${id}`);
-        await d.holdUse(250);
-        await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 5000, interval: 100, arg: gift });
+        // People walk about (Gruk is off building the camp, others wander): stand by them, aim, Use, and try again when they moved on.
+        let got = false;
+        for (let attempt = 0; attempt < 5 && !got; attempt++) {
+          const s = await npcs();
+          const v = s.views.find((x) => x.id === id);
+          // Stand north of the person (the customers' side; Rosa is behind the bar, so three blocks off), then aim at their chest.
+          await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z - p.back), { x: v.x, y: v.y, z: v.z, back: id === 'rosa' ? 3 : id === 'veyra' ? -2 : 2 });
+          await d.settle(300);
+          const aim = async () => {
+            const fresh = (await npcs()).views.find((x) => x.id === id);
+            // lookAt aims at the centre of a cell (+0.5 on every axis): take that off to hit the person's own coordinates.
+            await d.hw((p) => window.__hw.lookAt(p.x - 0.5, p.y + p.h - 0.5, p.z - 0.5), { x: fresh.x, y: fresh.y, z: fresh.z, h: id === 'rosa' ? 1.6 : 1.2 });
+            await d.settle(150);
+          };
+          await aim();
+          // A torch stands on the bar in front of Rosa and catches the aim: take it away for this check.
+          const cover = (await d.state()).target;
+          if (cover && cover.block === 'torch') {
+            await d.hw((c) => window.__hw.setVoxel(c.x, c.y, c.z, 'air'), cover);
+            await aim();
+          }
+          if (attempt === 0) await d.shot(`2-${id}`);
+          await d.holdUse(250);
+          got = await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 2500, interval: 100, arg: gift }).then(() => true, () => false);
+        }
+        assert(got, `${id} never gave ${gift}`);
         await waitFor(page, () => document.querySelector('.hw-npcsay:not([hidden])') !== null, 'the dialogue box', { timeout: 4000, interval: 100 });
         await d.settle(1800);
         const said = await page.locator('.hw-npcsay__text').textContent();
@@ -111,19 +127,23 @@ async function runDevice(device) {
           await d.settle(200);
         }
         await d.shot(`3-${id}`);
+        // The last person's dialogue box can sit over the touch Use button: let it close by itself first.
+        await page.waitForFunction(() => { const b = document.querySelector('.hw-npcsay'); return !b || b.hidden || getComputedStyle(b).display === 'none' || getComputedStyle(b).visibility === 'hidden' || b.offsetParent === null; }, null, { timeout: 15000 }).catch(() => undefined);
         await d.holdUse(250);
-        await d.settle(400);
+        await d.settle(d.touch ? 1500 : 400);
         const toasts = (await page.locator('.hw-toasts .hw-toast').allTextContents()).concat(await page.locator('.hw-npcsay__text').allTextContents());
         const re = new RegExp(word, 'i');
-        assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: nothing matching ${word}: ${toasts.slice(-3).join(' | ')}`);
+        assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: nothing matching ${word}: ${toasts.slice(-3).join(' | ')} ui ${JSON.stringify((await d.state()).ui)} target ${JSON.stringify((await d.state()).target)}`);
       });
     }
     await step('the jukebox makes everyone but Gruk dance', async () => {
       const s = await npcs();
       // The jukebox is a block against the north wall now: aim at it like any block.
-      assert(await d.approach({ x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 }), 'aims at the jukebox block');
+      assert(await d.approach({ x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 }), `aims at the jukebox block ${JSON.stringify({ at: s.at, crosshair: (await d.state()).target, here: (await d.hw((c) => window.__hw.getBlock(c.x, c.y, c.z).block, { x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 })) })}`);
       await d.settle(200);
-      await d.holdUse(250);
+      // A dialogue box can sit over the touch Use button: let it close by itself first.
+      await page.waitForFunction(() => { const b = document.querySelector('.hw-npcsay'); return !b || b.hidden || getComputedStyle(b).display === 'none' || getComputedStyle(b).visibility === 'hidden' || b.offsetParent === null; }, null, { timeout: 15000 }).catch(() => undefined);
+      await d.holdUse(100); // short: a Use held 250 ms repeats, and the jukebox toggles off again
       await d.settle(600);
       const after = await npcs();
       const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');

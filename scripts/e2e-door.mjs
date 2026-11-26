@@ -60,18 +60,33 @@ try {
     await d.shot('1-door-closed');
   });
 
+  // A door is two cells tall and either half answers Use: aim at the bottom and accept whichever half the ray reaches first.
+  const aimAtDoor = async () => {
+    await d.centerMouse();
+    await d.hw((p) => window.__hw.lookAt(p.x, p.y, p.z), door);
+    try {
+      await waitFor(page, (p) => {
+        const t = window.__hw.state().target;
+        return !!t && t.x === p.x && t.z === p.z && (t.y === p.y || t.y === p.y + 1) && t.block === 'wooden_door';
+      }, 'aim at the door', { timeout: 3000, interval: 100, arg: door });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   await step('Use opens it, Use again shuts it', async () => {
     await d.selectEmptyHand();
     const before = await blockAt(door);
     // Use on a door opens no screen: aim at it and press Use.
-    assert(await d.aimAt(door), 'aims at the door');
+    assert(await aimAtDoor(), 'aims at the door');
     await d.use();
     await d.settle(400);
     const open = await blockAt(door);
     assert(open.active !== before.active, `Use toggles the door (active ${before.active} -> ${open.active})`);
     await d.shot('2-door-open');
     await d.settle(600); // the place/use cooldown
-    assert(await d.aimAt(door), 'aims at the door again');
+    assert(await aimAtDoor(), 'aims at the door again');
     await d.use();
     await d.settle(400);
     const shut = await blockAt(door);

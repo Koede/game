@@ -213,9 +213,12 @@ export async function emberSteps({ d, step, assert, page }) {
     await d.waitScreen('furnace');
     await sendFromBag(d, 'charcoal', 'Firebox');
     await d.press(page.locator('.hw-window .hw-fbx__btns button', { hasText: 'Light' }));
-    await waitFor(page, () => window.__hw.state().furnaces[0]?.lit, 'the fire to catch', { timeout: 5000, interval: 100 });
-    for (let i = 0; i < 40 && (await d.state()).furnaces[0].tempC < 720; i++) await d.hw(() => window.__hw.tick(100));
-    const temp = (await d.state()).furnaces[0].tempC;
+    // The world may hold other furnaces (settlements): the one under test is the one placed here.
+    const mine = { x: ctx.furnace.x, y: ctx.furnace.y, z: ctx.furnace.z };
+    await waitFor(page, (a) => window.__hw.state().furnaces.find((f) => f.x === a.x && f.y === a.y && f.z === a.z)?.lit, 'the fire to catch', { timeout: 5000, interval: 100, arg: mine });
+    const tempOf = async () => (await d.state()).furnaces.find((f) => f.x === mine.x && f.y === mine.y && f.z === mine.z).tempC;
+    for (let i = 0; i < 40 && (await tempOf()) < 720; i++) await d.hw(() => window.__hw.tick(100));
+    const temp = await tempOf();
     assert(temp >= 700, `the furnace only reached ${temp} C`);
     // The maul is no longer a furnace recipe (it is hand-cast from a head, see e2e-handwork): the pack gets one by set-up.
     await d.hw(() => window.__hw.give('bronze_maul', 1));

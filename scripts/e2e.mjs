@@ -186,7 +186,8 @@ async function runDevice(device) {
       assert(spot, 'the furnace was not placed');
       d.places.furnace = spot;
       const s = await hw(() => window.__hw.state());
-      assert(s.furnaces.length === 1, 'the simulation has no furnace entity');
+      // The world may hold furnaces of its own (settlements): look for the one just placed.
+      assert(s.furnaces.some((f) => f.x === spot.x && f.y === spot.y && f.z === spot.z), 'the simulation has no furnace entity');
       assert(s.player.home && s.player.home.x === spot.x && s.player.home.z === spot.z, 'the new furnace did not become home');
     });
 
@@ -243,7 +244,7 @@ async function runDevice(device) {
       assert(Math.hypot(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z) < 0.05, `position ${JSON.stringify(p1)} != ${JSON.stringify(p0)}`);
       assert(Math.abs(p1.yaw - p0.yaw) < 1e-3 && Math.abs(p1.pitch - p0.pitch) < 1e-3, `view direction not restored: ${p1.yaw},${p1.pitch} vs ${p0.yaw},${p0.pitch}`);
       assert(JSON.stringify(now.inventory) === JSON.stringify(before.inventory), 'inventory differs after Continue');
-      assert(now.furnaces.length === 1, 'furnace entity missing after Continue');
+      assert(now.furnaces.length === before.furnaces.length, 'a furnace entity is missing after Continue');
       const f0 = before.furnaces[0];
       const f1 = now.furnaces[0];
       for (const key of ['x', 'y', 'z', 'tier', 'lit']) assert(f1[key] === f0[key], `furnace ${key}: ${f1[key]} != ${f0[key]}`);

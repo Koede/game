@@ -140,13 +140,26 @@ for (const device of devices) {
       await press('mark', { x: base.x + 1, y: base.y, z: base.z + 1 });
       const dest = { x: base.x - 6, z: base.z };
       const ground = await d.hw((t) => window.__hw.surfaceY(t.x, t.z), dest);
-      await d.hw((t) => window.__hw.setVoxel(t.x, t.y, t.z, 'stone'), { ...dest, y: ground });
+      // A flat 2x2 pad (the terrain here may step), with air above it.
+      await d.hw((t) => {
+        for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+          window.__hw.setVoxel(t.x + i, t.y, t.z + j, 'stone');
+          window.__hw.setVoxel(t.x + i, t.y + 1, t.z + j, 'air');
+          window.__hw.setVoxel(t.x + i, t.y + 2, t.z + j, 'air');
+        }
+      }, { ...dest, y: ground });
       await press('paste', { x: dest.x, y: ground, z: dest.z });
-      const placed = await d.hw((t) => {
+      const countPasted = (t) => d.hw((t) => {
         let n = 0;
         for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) if (window.__hw.getBlock(t.x + i, t.y + 1, t.z + j).block === 'stone') n++;
         return n;
-      }, { ...dest, y: ground });
+      }, t);
+      // The paste lands over a few ticks, not all at once: give it a moment.
+      let placed = await countPasted({ ...dest, y: ground });
+      for (let i = 0; i < 20 && placed !== 4; i++) {
+        await d.settle(250);
+        placed = await countPasted({ ...dest, y: ground });
+      }
       assert(placed === 4, `pasted blocks ${placed}`);
       assert((await count('stone')) === 16, `paid 4 stones, have ${await count('stone')}`);
       await d.shot('4-paste');

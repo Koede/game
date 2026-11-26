@@ -271,10 +271,9 @@ async function runDevice(device) {
       assert(after === 'air', `the lever is on so the drill breaks the dirt: ${after}`);
       const lamp = await d.hw((p) => window.__hw.app.game.workshop.describe(p.x0 + 2, p.gy + 1, p.z0 - 3), P);
       assert(/on/.test(lamp ?? ''), `lamp: ${lamp}`);
-      // Goggles on empty air open the guide.
-      await d.selectItem('engineer_goggles');
-      await d.hw(() => window.__hw.lookAt(window.__hw.state().player.x, window.__hw.state().player.y + 30, window.__hw.state().player.z + 0.01));
-      await d.use();
+      // The goggles in the pack open the guide from the Bag's Workshop Guide chip (Use at the sky only gives a hint).
+      await d.openInventory();
+      await d.press(page.locator('.hw-bag-chips button', { hasText: 'Workshop Guide' }));
       await d.settle(500);
       await page.waitForSelector('.hw-ws', { timeout: 5000 });
       await page.locator('button', { hasText: 'Basins' }).first().click();
@@ -310,10 +309,12 @@ async function runDevice(device) {
         hw.teleport(p.x0 + 3.5, y + 2, p.z0 + 2.5);
         hw.lookAt(p.x0 - 1, y + 1, p.z0 + 7);
       }, P);
-      for (let i = 0; i < 6; i++) {
+      // Keep cranking until the arm has been carried round (a slow frame rate gives a weak crank fewer ticks per turn).
+      for (let i = 0; i < 24; i++) {
         await d.hw((p) => { const w = window.__hw.app.game.workshop; w.crank(p.x0 + 4, p.gy, p.z0 + 7); w.crank(p.x0 - 3, p.gy, p.z0 + 6); }, P);
         await d.hw(() => window.__hw.tick(20));
         if (i === 2) await d.shot('9-contraptions');
+        if (i >= 5 && (await d.hw((p) => window.__hw.getBlock(p.x0 - 3, p.gy + 2, p.z0 + 6).block !== 'mech_arm', P))) break;
       }
       const r = await d.hw((p) => {
         const hw = window.__hw;
