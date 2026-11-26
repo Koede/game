@@ -12,9 +12,9 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('6 conveyor_belt', '3 leather, 2 stick, 1 plank', 400, 'conveyor_belt'),
   forge('6 conveyor_belt', '4 cloth, 2 stick, 1 plank', 400, 'conveyor_belt_cloth'),
   forge('mech_saw', '2 bronze_plate, 2 plank, 1 drive_shaft', 600),
-  forge('mech_millstone', '4 stone_brick, 1 drive_shaft', 500),
+  forge('mech_millstone', '4 stone_brick, 1 drive_shaft, 2 bronze_plate', 500),
   forge('mech_mortar', '2 bronze_ingot, 2 stone_brick, 1 drive_shaft', 600),
-  forge('mech_loom', '1 loom, 2 plank, 1 drive_shaft', 400),
+  forge('mech_loom', '1 loom, 2 plank, 1 drive_shaft, 2 bronze_plate, 1 bronze_cog', 400),
   // Transmission parts (docs/OVERHAUL_PLAN.md A.2).
   forge('2 bronze_cog', '1 bronze_ingot', 600),
   forge('reverse_box', '2 bronze_cog, 1 drive_shaft, 1 plank', 600),

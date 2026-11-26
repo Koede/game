@@ -9,12 +9,12 @@ describe('mechanics bench', () => {
     expect(bp.length).toBeGreaterThan(30);
   });
 
-  it('placed in a world: row 0 turns with a brake and a copper fuse, row 4 whips, row 8 lights its lamps, row 12 presses', () => {
+  it('placed in a world: row 0 turns with a brake and a bronze fuse, row 4 whips, row 8 lights its lamps, row 12 presses', () => {
     const t = setup();
     expect(placeMechBench(t.world, 0, 0, 0, t.shop)).toBeGreaterThan(30);
     t.run(3);
     expect(t.shop.netAt(1, 0, 0)?.w).toBeGreaterThan(0.2); // the flywheel line spins up
-    expect(t.shop.describe(3, 0, 0)).toMatch(/Copper pin/);
+    expect(t.shop.describe(3, 0, 0)).toMatch(/Bronze pin/);
     expect(t.shop.netAt(2, 0, 4)?.whip).toBe(true);
     let lit = false;
     for (let i = 0; i < 200; i++) {

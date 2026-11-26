@@ -114,14 +114,16 @@ describe('logistics', () => {
     t.put(0, 0, 0, 'basin');
     t.put(0, 1, 0, 'mixer');
     t.put(1, 1, 0, 'ratio_dial');
-    t.put(2, 1, 0, 'hand_crank');
+    // A clockwork motor (24 rpm, 24 SU): a mixer geared up to 48 rpm loads 18 SU, more than one crank carries.
+    t.put(2, 1, 0, 'clockwork_motor');
+    t.shop.use(2, 1, 0, null, () => undefined);
     t.shop.offer(0, 0, 0, 'flour', 2);
     t.shop.use(0, 0, 0, { item: 'water_pail', count: 1 }, () => undefined);
-    t.run(6, [2, 1, 0]);
-    expect(count(t, 0, 0, 0).dough).toBeUndefined(); // 16 rpm: too slow
+    t.run(6);
+    expect(count(t, 0, 0, 0).dough).toBeUndefined(); // 24 rpm: too slow
     t.shop.use(1, 1, 0, null, () => undefined);
     t.shop.use(1, 1, 0, null, () => undefined); // x2
-    t.run(8, [2, 1, 0]);
+    t.run(8);
     expect(count(t, 0, 0, 0).dough).toBe(2);
     expect(t.shop.describe(0, 0, 0)).toContain('750 L');
   });

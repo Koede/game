@@ -72,6 +72,32 @@ export const SAFE_FALL = 3.5;
 // --- power ---
 /** Fraction of charging power that ends up stored. */
 export const BATTERY_EFFICIENCY = 0.9;
+
+// One exchange-rate table for every energy conversion (docs/advice/balance-economy.md 3.1). Machines read their own
+// numbers from content; balance.test.ts checks those agree with this table and that every loop through it is lossy.
+/** Watts of shaft power one stress unit stands for at the 16 rpm reference. */
+export const W_PER_SU = 50;
+/** Heat to shaft: a piston steam engine. */
+export const ETA_STEAM_SHAFT = 0.25;
+/** Shaft to electricity: the dynamo (not built yet). */
+export const ETA_DYNAMO = 0.9;
+/** Heat to electricity: the steam turbine. */
+export const ETA_TURBINE = 0.5;
+/** Fuel to electricity: the burner generator and the combustion engine. */
+export const ETA_BURNER = 0.3;
+export const ETA_COMBUSTION = 0.4;
+/** Electricity to furnace heat. */
+export const ETA_ELECTRIC_HEAT = 1;
+/** Every conversion as [from, to, efficiency]. A loop through them must multiply to at most 0.6 (balance T2a). Storage
+ * (BATTERY_EFFICIENCY, a 0.9 round trip) is not a conversion and is left out. */
+export const CONVERSIONS: readonly (readonly [from: string, to: string, efficiency: number])[] = [
+  ['heat', 'shaft', ETA_STEAM_SHAFT],
+  ['shaft', 'electric', ETA_DYNAMO],
+  ['heat', 'electric', ETA_TURBINE],
+  ['fuel', 'electric', ETA_COMBUSTION],
+  ['fuel', 'heat', 1],
+  ['electric', 'heat', ETA_ELECTRIC_HEAT],
+];
 /** Machines stall when their network delivers less than this fraction of what they ask for. */
 export const BROWNOUT_STALL = 0.25;
 
@@ -101,7 +127,7 @@ export const EAT_COOLDOWN_S = 0.6;
 /** Well-Fed (from forged meals): duration, health regeneration speed-up, and the factor on all food drain. */
 export const WELL_FED_DURATION_S = 360;
 export const WELL_FED_REGEN_MULT = 2;
-export const WELL_FED_DRAIN_MULT = 0.5;
+export const WELL_FED_DRAIN_MULT = 0.6;
 
 // --- animals (spec 12.5) ---
 /** Hard caps: animals simulated (loaded) at once, and animals kept in the save. */
@@ -324,7 +350,7 @@ export const BREW_STEAM_S = 20;
 /** A carried boiling bucket cools back to a water bucket after this many seconds. */
 export const BOILING_KEEPS_S = 90;
 /** How long every drink's buff lasts, and the pause between two drinks. */
-export const DRINK_BUFF_S = 180;
+export const DRINK_BUFF_S = 300;
 export const DRINK_COOLDOWN_S = 1;
 /** Spring: jump velocity x this (fall damage must not worsen: the safe fall grows with the jump). */
 export const SPRING_JUMP_MULT = 1.35;
@@ -337,8 +363,8 @@ export const MENDING_REGEN_MULT = 2;
 export const SWIFT_SPEED_MULT = 1.2;
 /** Vigor: mining speed x this. */
 export const VIGOR_MINING_MULT = 1.25;
-/** Lasting: factor on food drain. */
-export const LASTING_DRAIN_MULT = 0.5;
+/** Lasting: factor on food drain. With Well-Fed the product stays >= 0.4 (balance T8), so hunger never stops mattering. */
+export const LASTING_DRAIN_MULT = 0.7;
 /** Seconds a tea bush or coffee shrub takes to fruit again after being picked. */
 export const TEA_REGROW_S = 360;
 /** Flags the game emits for brewing's goals: the first bucket boiled, the first cup brewed, all six drinks drunk. */
@@ -371,8 +397,10 @@ export const FLAG_DROVE_TRACTOR = 'drove_tractor';
 // Sugar Rush (resin sugar and everything baked with it): a small speed boost that burns the Well-Fed timer faster.
 /** Factor on walk, sprint and swim speed while Sugar Rush runs. */
 export const SUGAR_SPEED_MULT = 1.12;
-/** Well-Fed runs out this many times faster while Sugar Rush runs (hunger itself drains as usual). */
+/** Well-Fed runs out this many times faster while Sugar Rush runs. */
 export const SUGAR_WELL_FED_BURN_MULT = 2.5;
+/** Hunger drains this many times faster while Sugar Rush runs, so the rush costs something without a stew too. */
+export const SUGAR_DRAIN_MULT = 1.25;
 
 // --- the six furnace tiers (BRONZE_PLAN W0): 1 Clay, 2 Bronze, 3 Blast hearth, 4 Arc, 5 Plasma, 6 Starhearth ---
 /** The Bronze Furnace: the hottest a furnace gets while it stands alone as one block. */

@@ -25,8 +25,8 @@ All keys are exactly those of spec section 2. Things worth knowing:
 | steam_engine | generator | outputW 2000 | wattsPerC 4, minTempC 250, capW 2000, heatPerWatt 3, minWater 1 (of its 4 sides) |
 | burner_generator | generator | outputW 3000, fuels = every FuelSpec item, efficiency 0.3, slots 1 | |
 | water_wheel | generator | outputW 400 | minWater 2, shareRadius 3 |
-| wind_turbine | generator | outputW 1500 | windMin 0.25, windMax 1, altitudeBaseY 40, altitudeSpanY 40, altitudeMin 0.25, altitudeMax 1 |
-| solar_panel | generator | outputW 300 | minSunlight 0.1 (at or below: 0 W) |
+| wind_turbine | generator | outputW 1500 | windMin 0.25, windMax 1, altitudeBaseY 40, altitudeSpanY 40, altitudeMin 0.25, altitudeMax 1, shareRadius 12 |
+| solar_panel | generator | outputW 300 | minSunlight 0.15 (at or below: 0 W), shareRadius 6 |
 | combustion_engine | generator | outputW 12000, fuels ['fuel_canister'], efficiency 0.4, slots 1 | fuelEnergyJ 6_000_000 (heat; x efficiency = 2.4 MJ electric) |
 | geothermal_tap | generator | outputW 6000 | wattsPerLava 2000, capW 6000 |
 | fission_pile | generator | outputW 60000, fuels ['fuel_rod'], efficiency 1, slots 1 | rodEnergyJ 72_000_000 (already electric), minWater 2, runTempC 600, warnTempC 900, meltdownTempC 1200, meltdownSeconds 10, heatRateC 8, coolRateC 20, blastRadius 3, warnRadiation 4, warnRadius 6, alarmIntervalS 2 |

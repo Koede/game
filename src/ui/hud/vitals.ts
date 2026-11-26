@@ -173,7 +173,7 @@ export class Vitals {
     } else this.warmBuff.hide();
 
     const fed = survival.hunger.wellFedTimeLeftS;
-    if (fed > 0) this.fedBuff.show('Well-Fed', clockTime(fed), false, 'Well-Fed: you heal twice as fast and get hungry half as quickly');
+    if (fed > 0) this.fedBuff.show('Well-Fed', clockTime(fed), false, 'Well-Fed: you heal twice as fast and get hungry 40% slower');
     else this.fedBuff.hide();
     const sugar = player.buffs.sugarS;
     if (sugar > 0) this.sugarBuff.show('Sugar Rush', clockTime(sugar), false, 'Sugar Rush: you move faster, but Well-Fed wears off quicker');

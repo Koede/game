@@ -13,6 +13,7 @@ import {
   LASTING_DRAIN_MULT,
   MENDING_REGEN_MULT,
   SPRING_JUMP_MULT,
+  SUGAR_DRAIN_MULT,
   SUGAR_SPEED_MULT,
   SUGAR_WELL_FED_BURN_MULT,
   SWIFT_SPEED_MULT,
@@ -195,9 +196,9 @@ export class Buffs {
     return (this.has('mending') ? MENDING_REGEN_MULT : 1) * this.magicRegen;
   }
 
-  /** Factor on food drain (Lasting). */
+  /** Factor on food drain (Lasting; Sugar Rush raises it). */
   get foodDrainMult(): number {
-    return (this.has('lasting') ? LASTING_DRAIN_MULT : 1) * this.magicFoodDrain;
+    return (this.has('lasting') ? LASTING_DRAIN_MULT : 1) * (this.sugarS > 0 ? SUGAR_DRAIN_MULT : 1) * this.magicFoodDrain;
   }
 
   toJSON(): BuffsSnapshot {

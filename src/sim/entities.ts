@@ -162,7 +162,7 @@ export interface SimNode {
   sideWater: number;
   lava: number;
   openSky: boolean;
-  /** Water wheels within the share radius, itself included. */
+  /** Shared generators of this kind (water wheel, wind turbine, solar panel) within its share radius, itself included. */
   wheels: number;
   /** Furnaces this machine works with (thermopile, blower: touching; steam engine: the one underneath). */
   furnaces: FurnaceEntity[];

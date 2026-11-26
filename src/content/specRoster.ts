@@ -79,7 +79,7 @@ export const SPEC = {
   /** item -> [energyJ, burnS, flameTempC]. */
   fuels: {
     stick: [30_000, 12, 450], plank: [60_000, 20, 550], oak_log: [200_000, 50, 650], pine_log: [200_000, 50, 650],
-    charcoal: [400_000, 80, 1000], coal: [800_000, 100, 1250], coke: [1_200_000, 120, 1550],
+    charcoal: [400_000, 80, 1000], coal: [800_000, 100, 1250], coke: [1_000_000, 100, 1550],
     ...WORLD_SPEC.fuels,
     ...EMBER_SPEC.fuels,
   } as Record<string, number[]>,
@@ -190,7 +190,7 @@ export const SPEC = {
       'combustion_engine: 1 combustion_engine <- 1 chassis, 4 steel_plate, 3 copper_coil, 1 circuit @1400 T4',
       'geothermal_tap: 1 geothermal_tap <- 1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit @1400 T4',
       'bore_rig: 1 bore_rig <- 1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit @1600 T4',
-      'plasma_casing: 2 plasma_casing <- 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod @1900 T4',
+      'plasma_casing: 4 plasma_casing <- 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod @1900 T4',
       'power_port: 1 power_port <- 2 copper_coil, 2 ceramic_insulator, 1 iron_plate @1200 T4',
       'steam_turbine: 1 steam_turbine <- 1 chassis, 4 steel_plate, 4 copper_coil @1600 T4',
       'arc_maul: 1 arc_maul <- 2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery @1800 T4',
@@ -206,8 +206,8 @@ export const SPEC = {
       'fission_pile: 1 fission_pile <- 1 chassis, 6 superalloy, 4 fused_quartz, 4 circuit @2800 T5',
       'magnet_ring: 1 magnet_ring <- 4 copper_coil, 2 superalloy, 2 lithium_salt @2800 T5',
       'super_cable: 6 super_cable <- 1 magnet_ring, 2 aluminum_ingot, 2 ceramic_insulator @2600 T5',
-      'star_core: 1 star_core <- 6 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit @3000 T5',
-      'star_casing: 2 star_casing <- 2 superalloy, 1 fused_quartz, 1 magnet_ring @2800 T5',
+      'star_core: 1 star_core <- 3 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit @3000 T5',
+      'star_casing: 6 star_casing <- 2 superalloy, 1 fused_quartz @2800 T5',
     ],
     crusher: [
       'crushed_copper: 2 crushed_copper <- 1 copper_ore 4s 4000J',
@@ -236,7 +236,7 @@ export const SPEC = {
     [3, 'furnace_blast', 'Blast Furnace', 1500, 300, 2.5, 2, 2, 1.25, 0, 8, 700, '4 bronze_ingot, 1 bellows'],
     [4, 'furnace_arc', 'Arc Furnace', 2100, 400, 3, 3, 2, 1.5, 8000, 10, 1200, '2 copper_coil, 2 steel_plate'],
     [5, 'furnace_plasma', 'Plasma Furnace', 3200, 800, 8, 4, 2, 2, 40000, 12, 1900, '2 circuit, 2 tungsten_rod'],
-    [6, 'furnace_star', 'Starhearth', 3200, 800, 8, 4, 2, 3, 40000, 24, 3000, '1 star_core, 8 deuterium_cell'],
+    [6, 'furnace_star', 'Starhearth', 3200, 800, 8, 4, 2, 3, 40000, 24, 3000, '1 star_core, 4 deuterium_cell'],
   ] as Array<Array<string | number>>,
 
   /** kind -> [role, every number of spec 2.5 / 3.3, by MachineSpec field or params name]. */
@@ -250,8 +250,8 @@ export const SPEC = {
     steam_engine: ['generator', { outputW: 2000, wattsPerC: 4, minTempC: 250, capW: 2000, heatPerWatt: 3, minWater: 1, pipedWaterLPerS: 10 }],
     burner_generator: ['generator', { outputW: 3000, efficiency: 0.3, slots: 1 }],
     water_wheel: ['generator', { outputW: 400, minWater: 2, shareRadius: 3 }],
-    wind_turbine: ['generator', { outputW: 1500, windMin: 0.25, windMax: 1, altitudeBaseY: 40, altitudeSpanY: 40, altitudeMin: 0.25, altitudeMax: 1 }],
-    solar_panel: ['generator', { outputW: 300, minSunlight: 0.15 }],
+    wind_turbine: ['generator', { outputW: 1500, windMin: 0.25, windMax: 1, altitudeBaseY: 40, altitudeSpanY: 40, altitudeMin: 0.25, altitudeMax: 1, shareRadius: 12 }],
+    solar_panel: ['generator', { outputW: 300, minSunlight: 0.15, shareRadius: 6 }],
     combustion_engine: ['generator', { outputW: 12_000, efficiency: 0.4, fuelEnergyJ: 6_000_000, slots: 1, fuelLPerCanister: 1000 }],
     geothermal_tap: ['generator', { outputW: 6000, wattsPerLava: 2000, capW: 6000, lavaLPerRun: 1000, lavaRunS: 600 }],
     fission_pile: ['generator', {

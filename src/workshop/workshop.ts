@@ -38,7 +38,9 @@ export const GENERATOR_SHAFT: Record<string, { rpm: number; suPerW: number }> = 
   water_wheel: { rpm: 12, suPerW: 1 / 50 }, wind_turbine: { rpm: 16, suPerW: 1 / 50 }, steam_engine: { rpm: 24, suPerW: 1 / 50 },
 };
 /** Clockwork motor: rpm, capacity, seconds per wind and the most it holds. */
-export const CLOCKWORK = { rpm: 24, capacity: 48, windS: 30, maxS: 120 };
+export const CLOCKWORK = { rpm: 24, capacity: 24, windS: 30, maxS: 120 };
+/** Treadwheel: rpm and the stress units it carries while someone stands on it (1.5 cranks). */
+export const TREADWHEEL = { rpm: 12, capacity: 12 };
 /** Stress capacity factor of an oiled network: Heavy Residue (the distillery's lube base) and pine resin. */
 export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1.1, s: 300 } } as const;
 /** Furthest a chain / belt link reaches along a line, blocks. */
@@ -428,7 +430,7 @@ export class Workshop {
       const w = this.generatorWatts?.(p.x, p.y, p.z) ?? 0;
       return w > 0 ? { rpm: g.rpm, capacity: w * g.suPerW } : null;
     }
-    if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
+    if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: TREADWHEEL.rpm, capacity: TREADWHEEL.capacity } : null;
     if (this.pto.has(key)) return { rpm: 24, capacity: 30 };
     const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
     return extra > 0 ? { rpm: extra, capacity: CRANK_CAPACITY } : null;

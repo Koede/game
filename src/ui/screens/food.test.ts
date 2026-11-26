@@ -109,20 +109,20 @@ describe('hunger state', () => {
 
 describe('drink text', () => {
   it('names the buff and its length like "+N food"', () => {
-    expect(foodLine('light_roast')).toBe('Swift 3 min');
-    expect(foodLine('green_tea')).toBe('Spring 3 min');
-    expect(foodRows('berry_tea')).toEqual([['Drink', 'Mending 3 min'], ['Effect', 'Heal 2 times as fast']]);
+    expect(foodLine('light_roast')).toBe('Swift 5 min');
+    expect(foodLine('green_tea')).toBe('Spring 5 min');
+    expect(foodRows('berry_tea')).toEqual([['Drink', 'Mending 5 min'], ['Effect', 'Heal 2 times as fast']]);
     expect(foodRows('black_tea_cup')).toContainEqual(['Warms', '+10 warmth']);
   });
 
   it('an ingredient says which drink it brews', () => {
-    expect(foodRows('ground_coffee')).toEqual([['Brews', 'Light Roast: Swift 3 min'], ['Effect', 'Walk, sprint and swim 20% faster']]);
-    expect(foodRows('trail_blend')[0]).toEqual(['Brews', 'Trail Blend: Lasting 3 min']);
-    expect(foodRows('dried_tea')[0][1]).toBe('Green Tea: Spring 3 min');
+    expect(foodRows('ground_coffee')).toEqual([['Brews', 'Light Roast: Swift 5 min'], ['Effect', 'Walk, sprint and swim 20% faster']]);
+    expect(foodRows('trail_blend')[0]).toEqual(['Brews', 'Trail Blend: Lasting 5 min']);
+    expect(foodRows('dried_tea')[0][1]).toBe('Green Tea: Spring 5 min');
   });
 
   it('the item card of a cup of coffee carries the buff rows', () => {
-    expect(itemCard({ item: 'dark_roast', count: 1 }).rows).toContainEqual(['Drink', 'Vigor 3 min']);
+    expect(itemCard({ item: 'dark_roast', count: 1 }).rows).toContainEqual(['Drink', 'Vigor 5 min']);
   });
 
   it('recipe rows badge the drink an ingredient makes, and the tea and coffee chain sits in the Kitchen chip', () => {

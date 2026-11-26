@@ -66,11 +66,11 @@ export class NodeSet {
     }
   }
 
-  /** A block changed at x,y,z: refresh the nodes it concerns; `power` when a power block came or went. */
-  blockChanged(x: number, y: number, z: number, power: boolean, wheel: boolean): void {
+  /** A block changed at x,y,z: refresh the nodes it concerns; `power` when a power block came or went, `shared` the shared generator kind that did. */
+  blockChanged(x: number, y: number, z: number, power: boolean, shared: string | null): void {
     if (power) this.topologyDirty = true;
     for (const n of this.all) {
-      if (n.dirty || !concerns(n, x, y, z, wheel)) continue;
+      if (n.dirty || !concerns(n, x, y, z, shared)) continue;
       n.dirty = true;
       this.envDirty = true;
     }

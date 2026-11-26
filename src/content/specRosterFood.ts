@@ -35,7 +35,7 @@ export const FOOD_SPEC = {
     raw_fowl: 2, raw_mutton: 3, raw_chop: 3, cooked_fowl: 6, cooked_mutton: 7, cooked_chop: 8,
     potato: 1, baked_potato: 5, carrot: 3, bread: 6, hearth_stew: 12,
     // Resin sugar and what is baked with it (itemsSugar.ts).
-    sugar: 1, sugar_cookie: 3, sweet_bun: 6, sugar_cake: 9,
+    sugar: 1, sugar_cookie: 2, sweet_bun: 6, sugar_cake: 9,
     // Spec 14: picked from berry bushes.
     wildberries: 2,
   } as Record<string, number>,

@@ -2,7 +2,7 @@
  * The Mechanics Test Bench (docs/MECHANICS_PLAN.md section 6, Dev Mode): a hall of small stations that exercise every part of the drivetrain layer.
  * `mechBenchBlueprint` is pure (a list of blocks relative to a corner); `placeMechBench` writes it into a world and winds the motors.
  *
- *   row z=0   brake + torque fuse + flywheel: motor, flywheel, brake, copper fuse, saw and loom as the load
+ *   row z=0   brake + torque fuse + flywheel: motor, flywheel, brake, bronze fuse, saw and loom as the load
  *   row z=4   whip: motor and a run of seven shafts (critical speed 22.9 rpm, the motor turns 24): put a pillow block into the run to cure it
  *   row z=8   cam drum: four tracks light wire and lamps on its sides; beside it an AND gate with two levers
  *   row z=12  press line: motor, flywheel, press over a basin of bronze ingots (pulses ride through the flywheel)
@@ -29,7 +29,7 @@ export function mechBenchBlueprint(): BenchBlock[] {
   // Row 0: brake / fuse / flywheel.
   b.push({ dx: 0, dy: 0, dz: 0, key: 'clockwork_motor', uses: 4 });
   row(0, ['flywheel', 'brake', 'shear_pin', 'drive_shaft', 'mech_saw'], 1);
-  b[b.length - 3].uses = 1; // the pin: copper (6 su)
+  b[b.length - 3].uses = 2; // the pin: bronze (12 su); saw and loom at 24 rpm load ~10 SU
   b.push({ dx: 5, dy: 0, dz: 1, key: 'mech_loom' });
   // Row 4: seven shafts whip at the motor's 24 rpm.
   b.push({ dx: 0, dy: 0, dz: 4, key: 'clockwork_motor', uses: 4 });

@@ -247,7 +247,9 @@ export function solveNetwork(input: SolveInput): Solved {
     const p = input.part(k);
     const base = BASE_STRESS[p.kind] ?? 0;
     if (base === 0 || r === 0) continue;
-    const st = base * Math.max(0.25, Math.min(4, 16 / Math.abs(r)));
+    // Stress follows power: a part turning twice as fast does twice the work, so it loads the network twice as much.
+    // Gearing then conserves work (balance T3); there is no rpm at which a part becomes cheap.
+    const st = base * (Math.abs(r) / 16);
     partStress.set(k, st);
     stress += st;
   }

@@ -110,9 +110,10 @@ const waterWheel = ambient((n, _c, s) => (n.water >= (s.params?.minWater ?? 0) ?
 const windTurbine = ambient((n, ctx, s) => {
   const p = s.params ?? {};
   if (!n.openSky) return 0;
-  return (s.outputW ?? 0) * ctx.wind * clamp((n.e.y - p.altitudeBaseY) / p.altitudeSpanY, p.altitudeMin, p.altitudeMax);
+  return ((s.outputW ?? 0) * ctx.wind * clamp((n.e.y - p.altitudeBaseY) / p.altitudeSpanY, p.altitudeMin, p.altitudeMax)) / Math.max(1, n.wheels);
 });
-const solarPanel = ambient((n, ctx, s) => (n.openSky && ctx.sunlight > (s.params?.minSunlight ?? 0) ? (s.outputW ?? 0) * ctx.sunlight * ctx.solar : 0));
+const solarPanel = ambient((n, ctx, s) =>
+  n.openSky && ctx.sunlight > (s.params?.minSunlight ?? 0) ? ((s.outputW ?? 0) * ctx.sunlight * ctx.solar) / Math.max(1, n.wheels) : 0);
 /** Watts a geothermal tap gets from the lava blocks touching it (they never run out). */
 const lavaBlockW = (n: SimNode, s: MachineSpec): number => Math.min(s.params?.capW ?? 0, (s.params?.wattsPerLava ?? 0) * n.lava);
 /** Piped lava (spec 16.2) runs it at full output; lavaLPerRun lasts lavaRunS at that output, on top of what blocks give. */

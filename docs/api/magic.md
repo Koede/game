@@ -39,7 +39,7 @@ essentia_tube, arcane_pedestal (forge). `ARCANE_RECIPES` (desk, with aspect `cos
   wellspring in reach with research 'wellsprings' at twice the rate, else the richest drawable aspect of the blocks within 3 -
   primal only until 'compound_draw'); with an empty vial carried the units fill vials, else they charge the rod (`charge`, capped
   by the best rod carried). Rod on an altar starts an infusion. Foci spend charge. Vials on jars, pedestal / altar put and take,
-  rune desk opens screen 'rune_desk', Vial of Cinder on a burning furnace (+90 s, 'warm_hearth'), Vial of Clarity on a
+  rune desk opens screen 'rune_desk', Vial of Cinder on a burning furnace (+45 s `CINDER_BURN_S`, 'warm_hearth'), Vial of Clarity on a
   distillery flask (takes 250 L of water out, 'still_trace').
 - `tick(dt)`: ward timer (`player.damageScale` 0.5 for 30 s), infusion draw (1 unit / 0.4 s from jars within 4 or tubed; done when
   paid and `seconds` passed; the heart becomes the result), every second: clay servants (fed 1 Spring per 30 s from a jar they

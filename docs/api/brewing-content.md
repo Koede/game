@@ -24,8 +24,8 @@ SfxName gains 'boil_bubble' | 'pour' | 'drip' | 'sip'
 events: 'brew:started' {x,y,z,drink}  'brew:done' {x,y,z,drink}  'water:boiling' {x,y,z}  'player:drank' {item}   (drink = drink ITEM key)
 // constants.ts
 BOIL_TEMP_C 100, BOIL_SECONDS 12, BOIL_DRY_SECONDS 180, KETTLE_BOIL_C 120, BREW_SECONDS 4, BREW_STEAM_S 20, BOILING_KEEPS_S 90,
-DRINK_BUFF_S 180, DRINK_COOLDOWN_S 1, SPRING_JUMP_MULT 1.35, HEARTHKEPT_DRAIN_MULT 0.5, HEARTHKEPT_DRINK_WARMTH 10,
-MENDING_REGEN_MULT 2, SWIFT_SPEED_MULT 1.2, VIGOR_MINING_MULT 1.25, LASTING_DRAIN_MULT 0.5, TEA_REGROW_S 360
+DRINK_BUFF_S 300, DRINK_COOLDOWN_S 1, SPRING_JUMP_MULT 1.35, HEARTHKEPT_DRAIN_MULT 0.5, HEARTHKEPT_DRINK_WARMTH 10,
+MENDING_REGEN_MULT 2, SWIFT_SPEED_MULT 1.2, VIGOR_MINING_MULT 1.25, LASTING_DRAIN_MULT 0.7, TEA_REGROW_S 360
 FLAG_BOILED_WATER 'boiled_water', FLAG_BREWED 'brewed', FLAG_SIX_CUPS 'six_cups'
 ```
 
@@ -88,7 +88,7 @@ its stack `durability` = seconds left). `water_pail` gained `container: { holds:
 | `ground_dark_coffee` | `dark_roast` "Dark Roast" | vigor (mining x1.25) | coffee | 0x2c1a10 |
 | `trail_blend` | `trail_blend_cup` "Trail Blend" | lasting (food drain x0.5) | coffee | 0x4a2f1a |
 
-All six: `drink { buffS: 180 }`, stack 1, category `food`, no `food` field. Drinking returns `clay_cup`.
+All six: `drink { buffS: 300 }`, stack 1, category `food`, no `food` field. Drinking returns `clay_cup`.
 
 ## 5. Recipes (`src/content/recipesBrew.ts`, appended after every older recipe; ids)
 

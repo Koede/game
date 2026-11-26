@@ -152,9 +152,9 @@ T2: `refractory_brick` x4 (4 brick, 1 coke, 1300), `electrode` (3 graphite_elect
 1 glass, 1300), `fluid_pipe` x8 (2 iron_plate, 1 glass, 1000), `hot_fluid_pipe` x8 (2 steel_plate, 1 ceramic_insulator, 1400),
 `tank` (4 iron_plate, 4 glass, 1000), `pump` (1 chassis, 1 copper_coil, 2 fluid_pipe, 1000), `boiler` (4 iron_plate,
 2 copper_coil, 1 tank, 1100).
-T3: `plasma_casing` x2 (2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod, 1900), `power_port` (2 copper_coil,
+T3: `plasma_casing` x4 (2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod, 1900), `power_port` (2 copper_coil,
 2 ceramic_insulator, 1 iron_plate, 1200), `steam_turbine` (1 chassis, 4 steel_plate, 4 copper_coil, 1600).
-T4: `star_casing` x2 (2 superalloy, 1 fused_quartz, 1 magnet_ring, 2800).
+T4: `star_casing` x6 (2 superalloy, 1 fused_quartz, 2800); `star_core` takes 3 magnet_ring.
 
 ### Furnace tiers: upgrade costs of 17.2 and structures of 17.1
 | tier | upgradeCost | wall (accepted) | inner min..max | ceiling | parts | crucibles |
@@ -162,7 +162,7 @@ T4: `star_casing` x2 (2 superalloy, 1 fused_quartz, 1 magnet_ring, 2800).
 | 2 | 4 bronze_ingot, 1 bellows | brick (+ the three above) | 1x1x1..3x3x3 | optional | - | min(5, xz + 1) |
 | 3 | 2 copper_coil, 2 steel_plate | refractory_brick (+2) | 1x1x1..4x4x3 | required | 1 electrode | min(6, xz + 1) |
 | 4 | 2 circuit, 2 tungsten_rod | plasma_casing, star_casing | 2x2x2..5x5x4 | required | 2 power_port | min(8, xz + 2) |
-| 5 | 1 star_core, 8 deuterium_cell | star_casing | 3x3x3..5x5x5 | required | 4 power_port | 9 |
+| 5 | 1 star_core, 4 deuterium_cell | star_casing | 3x3x3..5x5x5 | required | 4 power_port | 9 |
 `FurnaceTierSpec.crucibles` is unchanged: it is the count of the unformed controller (all the game has until the sim
 forms hearths); a formed hearth's count is `hearthCrucibles`.
 

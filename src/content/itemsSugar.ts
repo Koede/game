@@ -36,7 +36,7 @@ export const SUGAR_ITEMS: ItemSpec[] = [
     desc: 'Pale crystals distilled from resin. Bake with it, or eat it for a short Sugar Rush: faster feet, but Well-Fed wears off quicker.',
   },
   {
-    key: 'sugar_cookie', name: 'Sugar Cookie', category: 'food', age: 0, stack: 16, food: rush(3, SUGAR_RUSH_S.sugar_cookie),
+    key: 'sugar_cookie', name: 'Sugar Cookie', category: 'food', age: 0, stack: 16, food: rush(2, SUGAR_RUSH_S.sugar_cookie),
     desc: 'Flour and sugar baked crisp. A small meal and a Sugar Rush: you move faster, but Well-Fed wears off quicker.',
   },
   {

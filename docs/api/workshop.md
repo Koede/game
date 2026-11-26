@@ -6,7 +6,7 @@ mechGraph/mech) is NOT built; this module is a self-contained kinetic layer that
 ## Content (`src/content/itemsWorkshop.ts`, `recipesWorkshop.ts`, fixture `specRosterWorkshop.ts`)
 Blocks: `hand_crank`, `drive_shaft`, `conveyor_belt` (slab, oriented), `mech_saw` (chopping_block recipes, full blade yield),
 `mech_millstone` (hand_quern), `mech_mortar` "Stamp Mill" (mortar, with its bonus chance), `mech_loom` (loom). Item:
-`engineer_goggles`. All age `ageIndexOf('bronze')` (= 1 since BRONZE_PLAN W0) and all forged at the Bronze Furnace (`forge(2, ...)`: the six that were workbench recipes - crank, shaft, belts, millstone, loom - are furnace recipes at 400-500 C now). The eleven workshop goals sit in the Bronze Age after `bronze_furnace` (`docs/api/ages.md`). Faces/icon: `src/render/textures/iconsWorkshop.ts`.
+`engineer_goggles`. All age `ageIndexOf('bronze')` (= 1 since BRONZE_PLAN W0) and all forged at the Bronze Furnace (`forge(2, ...)`: the six that were workbench recipes - crank, shaft, belts, millstone, loom - are furnace recipes at 400-500 C now). `mech_millstone` also takes 2 `bronze_plate`, `mech_loom` 2 `bronze_plate` + 1 `bronze_cog` (balance: a machine costs 15-40 hand operations). The eleven workshop goals sit in the Bronze Age after `bronze_furnace` (`docs/api/ages.md`). Faces/icon: `src/render/textures/iconsWorkshop.ts`.
 
 ## Runtime (`workshop.ts`, class `Workshop`, owned by `Game`, saved with `world.persist('workshop')`)
 - Parts join on all six sides into networks (BFS each tick, capped 512). A network turns at `CRANK_RPM` 16 while a crank in it
@@ -28,14 +28,14 @@ Blocks: `hand_crank`, `drive_shaft`, `conveyor_belt` (slab, oriented), `mech_saw
 `node scripts/e2e-workshop.mjs [--no-build] [--device=...]`, chained in `npm run e2e`.
 
 ## Rotation (src/workshop/kinetics.ts, pure solver; Workshop owns state)
-Sources: `hand_crank` (16 rpm, 8 su while Used), `clockwork_motor` (24 rpm, 48 su, Use winds 30 s, max 120 s), and the generator blocks
+Sources: `hand_crank` (16 rpm, 8 su while Used), `clockwork_motor` (`CLOCKWORK`: 24 rpm, 24 su, Use winds 30 s, max 120 s), `treadwheel` (`TREADWHEEL`: 12 rpm, 12 su while someone stands on it), and the generator blocks
 `water_wheel` (12 rpm), `wind_turbine` (16), `steam_engine` (24) that touch a shaft: capacity = their watts / 50 su (`generatorWatts` hook,
 Game feeds it from `sim.machineView().outW`). Speed is signed (right/left). It flows outward from the sources; a part hands it on to every
 neighbour it did not receive it from, after: `reverse_box` negate, `ratio_dial` x0.5/1/2/3 (Use cycles), `governor` cap 32/64/96, `clutch` Use
 engages/releases (released passes nothing), `sequence_gearshift` loop programs (3, Use cycles), `worm_gear` /8. `chain_sprocket` (range 16) and
 `belt_pulley` (range 9, size 1/2/3 by Use, speed by size ratio) join two parts in a straight horizontal line. Reaching one part with two
-different speeds is a JAM: the network stops and one toast says so. Stress: each part costs `BASE_STRESS[kind] x clamp(16/|rpm|, .25, 4)`;
-over capacity the network stops. Oil: Use a `residue_canister` (distillery lube base) x1.25 for 10 min, `pine_resin` x1.10 for 5 min, whole net.
+different speeds is a JAM: the network stops and one toast says so. Stress: each part costs `BASE_STRESS[kind] x |rpm|/16` (stress follows
+power, so gearing conserves work: balance T3 in `src/content/balance.test.ts`); over capacity the network stops. Oil: Use a `residue_canister` (distillery lube base) x1.25 for 10 min, `pine_resin` x1.10 for 5 min, whole net.
 Belts reverse with the sign of the speed. Goggles text: "right|left N rpm, load a/b su".
 
 ## Machine interface for other systems (stable; golems and constructs from src/magic use exactly this)

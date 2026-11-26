@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SUGAR_SPEED_MULT, SUGAR_WELL_FED_BURN_MULT, WELL_FED_DURATION_S } from '../core/constants';
+import { SUGAR_DRAIN_MULT, SUGAR_SPEED_MULT, SUGAR_WELL_FED_BURN_MULT, WELL_FED_DURATION_S } from '../core/constants';
 import { createBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { ITEMS, RECIPES, item } from '../core/registry';
@@ -58,10 +58,11 @@ describe('Sugar Rush', () => {
     expect(b.sugarS).toBeCloseTo(90);
   });
 
-  it('leaves hunger drain alone', () => {
+  it('raises hunger drain while it runs, so the rush costs something without a stew', () => {
     const b = new Buffs();
-    b.sugarS = 60;
     expect(b.foodDrainMult).toBe(1);
+    b.sugarS = 60;
+    expect(b.foodDrainMult).toBe(SUGAR_DRAIN_MULT);
   });
 
   it('stacks with Swift, ends, clears on respawn and survives a save', () => {

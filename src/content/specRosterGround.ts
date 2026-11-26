@@ -14,7 +14,7 @@ export const GROUND_SPEC = {
     'glass_beaker: 2 glass_beaker <- 1 glass @650 T1',
     'pine_resin: 1 pine_resin <- 1 pine_sap @180 T1',
     'sugar: 3 sugar <- 2 pine_resin, 1 water_pail, 1 glass_beaker @260 T1',
-    'sugar_cookie: 4 sugar_cookie <- 1 flour, 1 sugar @190 T1',
+    'sugar_cookie: 3 sugar_cookie <- 1 flour, 1 sugar @190 T1',
     'sweet_bun: 1 sweet_bun <- 1 dough, 1 sugar @220 T1',
     'sugar_cake: 1 sugar_cake <- 2 flour, 2 sugar, 1 water_pail @200 T1',
   ],

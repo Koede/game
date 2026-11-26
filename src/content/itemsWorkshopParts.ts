@@ -40,7 +40,7 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'cam_drum', name: 'Cam Drum', anim: true, desc: 'A pegged drum, a music box for machines. Turning, it lights signal wire on its four sides in a pattern. Use it to pick one of six programs.' },
   { key: 'logic_gate', name: 'Logic Gate', anim: true, desc: 'Reads the signal cells on its left and right and drives the cell in front: AND, OR, XOR, NOT, latch, counters, compare, delay. Use it to cycle modes.' },
   { key: 'differential', name: 'Differential', anim: true, desc: 'Two shafts meet here and it turns at their mean speed, even when they turn opposite ways. It hands that on to the sides they did not come from.' },
-  { key: 'treadwheel', name: 'Treadwheel', anim: true, desc: 'A big wheel to walk in. It turns at 12 rpm and carries 24 stress units while you or a tame animal stand on top of it.' },
+  { key: 'treadwheel', name: 'Treadwheel', anim: true, desc: 'A big wheel to walk in. It turns at 12 rpm and carries 12 stress units while you or a tame animal stand on top of it.' },
   { key: 'saw_arm', name: 'Saw Arm', anim: true, desc: 'A deployer with a blade. Every three seconds it fells the whole tree in front of it, log by log, and the logs fall as items. It needs no fuel.' },
   { key: 'item_vault', name: 'Item Vault', anim: false, desc: 'Holds 108 stacks of anything. Funnels, arms and belts fill and empty it. Use it with an item to store, empty-handed to take the biggest stack.' },
   { key: 'vacuum_collector', name: 'Vacuum Collector', anim: true, desc: 'A turning fan that sucks loose items from four blocks around and sends them out of its front into whatever is there.' },

@@ -237,7 +237,7 @@ describe('furnace texts', () => {
     expect(fuelLoadCount('plank', 8)).toBe(6);
     expect(fuelLoadCount('oak_log', 4)).toBe(3);
     expect(fuelLoadCount('coal', 12)).toBe(2);
-    expect(fuelLoadCount('coke', 5)).toBe(1);
+    expect(fuelLoadCount('coke', 5)).toBe(2); // 100 s each
     expect(fuelLoadCount('stick', 2)).toBe(2);
   });
 });

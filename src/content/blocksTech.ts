@@ -58,7 +58,7 @@ export const TECH_BLOCKS: BlockSpec[] = [
   // ---- hearth walls (spec 17.1-17.2) ----
   shell('refractory_brick', 'Refractory Brick', 'Brick baked hard with coke. It walls an Arc hearth and holds any lesser one.', 2, 5),
   shell('plasma_casing', 'Plasma Casing', 'Steel, aluminum and tungsten plate for the walls of a Plasma hearth.', 3, 6),
-  shell('star_casing', 'Star Casing', 'Superalloy and fused quartz around magnet rings: the only wall that can hold a star.', 4, 8),
+  shell('star_casing', 'Star Casing', 'Superalloy fused with quartz: the only wall that can hold a star.', 4, 8),
 
   // ---- hearth parts ----
   shell('electrode', 'Arc Electrode', 'A graphite arc set in the ceiling of a hearth. An Arc hearth needs at least one.', 2, 3),

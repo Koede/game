@@ -451,7 +451,7 @@ describe('scripted playthrough', () => {
     expect(sim.pipeView(OUT_PIPE.x, OUT_PIPE.y, OUT_PIPE.z)!.ports.find((p) => p.mode === 'pull')!.status).toMatch(/^Moving \d+ every 2 s$|^Nothing to pull$/);
     done('smelt_iron');
     mark('iron piped through the hearth');
-    play.smelt('coal', 50);
+    play.smelt('coal', 60); // coke burns 100 s (balance: 1 MJ, same 10 kW fire)
     play.smelt('copper_ore', 36);
     play.smelt('tin_ore', 4);
     play.smelt('clay', 60);

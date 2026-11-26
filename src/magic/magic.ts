@@ -85,7 +85,7 @@ export const DRAW_CAP = 24;
 /** Seconds between two rod draws (the Use repeat already paces it; this guards fast taps). */
 export const ROD_INTERVAL_S = 0.2;
 /** Fire seconds one Vial of Cinder adds to a burning furnace; the siphon adds a quarter of it per unit. */
-export const CINDER_BURN_S = 90;
+export const CINDER_BURN_S = 45;
 /** The siphon tops a fire up when it has less than this left. */
 export const SIPHON_BELOW_S = 15;
 /** Litres of water a Vial of Clarity takes out of a flask. */

@@ -131,7 +131,7 @@ const FORGE: RecipeSpec[] = [
   forge(1, '2 glass_beaker', '1 glass', 650),
   forge(1, 'pine_resin', '1 pine_sap', 180, { byproducts: '1 glass_beaker' }),
   forge(1, '3 sugar', '2 pine_resin, 1 water_pail, 1 glass_beaker', 260, { byproducts: '1 pail, 1 glass_beaker' }),
-  forge(1, '4 sugar_cookie', '1 flour, 1 sugar', 190),
+  forge(1, '3 sugar_cookie', '1 flour, 1 sugar', 190),
   forge(1, 'sweet_bun', '1 dough, 1 sugar', 220),
   forge(1, 'sugar_cake', '2 flour, 2 sugar, 1 water_pail', 200, { byproducts: '1 pail' }),
   // The Emberbound (spec 19.4): weapons for breaking metal.
@@ -192,7 +192,7 @@ const FORGE: RecipeSpec[] = [
   forge(4, 'tractor_harvester', '1 chassis, 4 steel_plate, 2 copper_coil', 1300),
   forge(4, 'geothermal_tap', '1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit', 1400),
   forge(4, 'bore_rig', '1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit', 1600),
-  forge(4, '2 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),
+  forge(4, '4 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),
   forge(4, 'power_port', '2 copper_coil, 2 ceramic_insulator, 1 iron_plate', 1200),
   forge(4, 'steam_turbine', '1 chassis, 4 steel_plate, 4 copper_coil', 1600),
   // The Emberbound (spec 19.4): relic machines built around ember cores.
@@ -210,8 +210,8 @@ const FORGE: RecipeSpec[] = [
   forge(5, 'fission_pile', '1 chassis, 6 superalloy, 4 fused_quartz, 4 circuit', 2800),
   forge(5, 'magnet_ring', '4 copper_coil, 2 superalloy, 2 lithium_salt', 2800),
   forge(5, '6 super_cable', '1 magnet_ring, 2 aluminum_ingot, 2 ceramic_insulator', 2600),
-  forge(5, 'star_core', '6 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit', 3000),
-  forge(5, '2 star_casing', '2 superalloy, 1 fused_quartz, 1 magnet_ring', 2800),
+  forge(5, 'star_core', '3 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit', 3000),
+  forge(5, '6 star_casing', '2 superalloy, 1 fused_quartz', 2800),
 ];
 
 const MACHINE: RecipeSpec[] = [

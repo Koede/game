@@ -6,7 +6,12 @@ import { machine } from '../core/registry';
 import { CHUNK_SIZE, FACE_DIRS, WORLD_HEIGHT, type IWorld } from '../core/types';
 import { isFurnace, posKey, type FurnaceEntity, type MachineEntity, type SimNode } from './entities';
 
-const WHEEL_RADIUS = machine('water_wheel').params?.shareRadius ?? 0;
+/** Generators that share their output with others of their kind nearby: kind -> share radius (Chebyshev blocks). */
+const SHARE_RADIUS: ReadonlyMap<string, number> = new Map(
+  ['water_wheel', 'wind_turbine', 'solar_panel'].map((k) => [k, machine(k).params?.shareRadius ?? 0] as const).filter(([, r]) => r > 0),
+);
+/** True for a machine kind whose output is shared with others of its kind within a radius. */
+export const isShared = (kind: string | null | undefined): boolean => !!kind && SHARE_RADIUS.has(kind);
 /** Machines whose `furnaces` list is every furnace touching them. */
 const TOUCHES_FURNACE = new Set(['thermopile', 'blower']);
 /** Machines that need open sky (or, for the furnace, feel the rain): a change anywhere in the column above them concerns them. */
@@ -19,7 +24,7 @@ const chebyshev = (n: SimNode, x: number, y: number, z: number): number =>
 export type ShellOwner = (key: string) => FurnaceEntity | null;
 
 /**
- * Recomputes the surroundings of one node. `tickers` are every non-furnace, non-crate node (for water wheels). A
+ * Recomputes the surroundings of one node. `tickers` are every non-furnace, non-crate node (for shared generators). A
  * block of a formed hearth's shell counts as its controller: a thermopile or blower touching the shell touches the
  * furnace, a steam engine on the shell sits on it.
  */
@@ -52,18 +57,20 @@ export function surroundings(
   if (SKY.has(kind)) {
     n.openSky = true;
     for (let yy = y + 1; yy < WORLD_HEIGHT && n.openSky; yy++) if (world.getBlock(x, yy, z).solid) n.openSky = false;
-  } else if (kind === 'water_wheel') {
+  }
+  const radius = SHARE_RADIUS.get(kind);
+  if (radius !== undefined) {
     n.wheels = 0;
-    for (const o of tickers) if (o.e.kind === 'water_wheel' && chebyshev(o, x, y, z) <= WHEEL_RADIUS) n.wheels++;
+    for (const o of tickers) if (o.e.kind === kind && chebyshev(o, x, y, z) <= radius) n.wheels++;
   }
 }
 
-/** Whether a block change at x,y,z can alter this node's surroundings. `wheel`: a water wheel came or went. */
-export function concerns(n: SimNode, x: number, y: number, z: number, wheel: boolean): boolean {
+/** Whether a block change at x,y,z can alter this node's surroundings. `shared`: the kind of shared generator that came or went, if any. */
+export function concerns(n: SimNode, x: number, y: number, z: number, shared: string | null): boolean {
   const d = chebyshev(n, x, y, z);
   if (d <= 1) return true;
-  if (SKY.has(n.e.kind)) return n.e.x === x && n.e.z === z && y > n.e.y;
-  return wheel && n.e.kind === 'water_wheel' && d <= WHEEL_RADIUS;
+  if (shared !== null && n.e.kind === shared && d <= (SHARE_RADIUS.get(shared) ?? 0)) return true;
+  return SKY.has(n.e.kind) && n.e.x === x && n.e.z === z && y > n.e.y;
 }
 
 /** Whether a node stands in chunk column (cx, cz) or touches it. */

@@ -72,7 +72,7 @@ const RAW: ItemSpec[] = [
   { key: 'flint', name: 'Flint', desc: 'A sharp-edged stone found in gravel. Your first tools are tipped with it.', category: 'resource', age: 0 },
   { key: 'coal', name: 'Coal', desc: 'Dense black fuel. It burns long and reaches 1250 C.', category: 'fuel', age: 0, fuel: fuel(800, 100, 1250) },
   { key: 'charcoal', name: 'Charcoal', desc: 'Wood baked down to clean fuel. It burns at 1000 C, hot enough for copper and bronze.', category: 'fuel', age: 0, fuel: fuel(400, 80, 1000) },
-  { key: 'coke', name: 'Coke', desc: 'Coal with the smoke cooked out of it. The hottest fuel there is, and the carbon in steel.', category: 'fuel', age: 2, fuel: fuel(1200, 120, 1550) },
+  { key: 'coke', name: 'Coke', desc: 'Coal with the smoke cooked out of it. The hottest fuel there is, and the carbon in steel.', category: 'fuel', age: 2, fuel: fuel(1000, 100, 1550) },
   { key: 'sulfur', name: 'Sulfur', desc: 'Bright yellow powder with a sharp smell. It goes into acid batteries.', category: 'resource', age: 0 },
 ];
 

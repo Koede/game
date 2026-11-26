@@ -45,6 +45,7 @@ import { HearthSet } from './hearth';
 import { furnaceStats, type FurnaceStats } from './hearthStats';
 import { structureView, type StructureTarget, type StructureView } from './hearthView';
 import { windAt } from './machines';
+import { isShared } from './surroundings';
 import { NodeSet } from './nodes';
 import type { Network } from './power';
 import { SafeZones, guardsZone, type SafeZone, type SafeZoneQuery } from './safeZones';
@@ -391,7 +392,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   /** Refreshes the machines a block change concerns, and removes the machine that stood there if it is gone. */
   private machineBlockChanged(x: number, y: number, z: number, from: BlockDef, to: BlockDef): void {
-    this.nodes.blockChanged(x, y, z, from.power !== null || to.power !== null, from.machine === 'water_wheel' || to.machine === 'water_wheel');
+    const shared = isShared(from.machine) ? from.machine : isShared(to.machine) ? to.machine : null;
+    this.nodes.blockChanged(x, y, z, from.power !== null || to.power !== null, shared);
     const node = this.nodes.byKey.get(posKey(x, y, z));
     if (node && node.e.kind !== to.machine) this.removeMachine(node);
   }

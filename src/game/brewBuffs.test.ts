@@ -15,6 +15,7 @@ import {
   MENDING_REGEN_MULT,
   VIGOR_MINING_MULT,
   WARMTH_DRAIN_WATER,
+  WELL_FED_DRAIN_MULT,
 } from '../core/constants';
 import { createBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
@@ -207,15 +208,15 @@ describe('drink()', () => {
 });
 
 describe('each buff at its hook', () => {
-  it('Lasting halves the food drain and multiplies with Well-Fed', () => {
+  it('Lasting slows the food drain and multiplies with Well-Fed', () => {
     const r = rig();
     expect(foodDrainPerS(r.player)).toBeCloseTo(FOOD_DRAIN_PER_S);
     r.player.buffs.grant('lasting', 100);
     expect(foodDrainPerS(r.player)).toBeCloseTo(FOOD_DRAIN_PER_S * LASTING_DRAIN_MULT);
     r.player.buffs.wellFedS = 100;
-    expect(foodDrainPerS(r.player)).toBeCloseTo(FOOD_DRAIN_PER_S * LASTING_DRAIN_MULT * 0.5);
+    expect(foodDrainPerS(r.player)).toBeCloseTo(FOOD_DRAIN_PER_S * LASTING_DRAIN_MULT * WELL_FED_DRAIN_MULT);
     r.run(60);
-    expect(MAX_FOOD - r.player.food).toBeCloseTo(60 * FOOD_DRAIN_PER_S * LASTING_DRAIN_MULT * 0.5, 3);
+    expect(MAX_FOOD - r.player.food).toBeCloseTo(60 * FOOD_DRAIN_PER_S * LASTING_DRAIN_MULT * WELL_FED_DRAIN_MULT, 3);
   });
 
   it('Vigor speeds mining by its multiplier and stacks with Well-Warmed', () => {

@@ -73,14 +73,15 @@ loose_segment shared_condenser too_many` (shown in the crosshair line of the mod
 `PROCESS_CARDS` in `recipesDistill.ts` are RecipeSpecs at a module station (role `chem`, energy 0) with a `rig` string,
 so the Codex lists them through `RECIPES` with no script change. The solver (`progression.ts chemReady`) runs one when
 every block of its rig is owned and, with a base, a furnace reaches its setting. `distillProcess.test.ts` builds each rig
-and checks it makes at least the card's outputs. Cards: distil_syrup (130 C), ferment_wash, distil_low_wines (97 C),
-distil_spirit (92 C), refine_crude (350 C, 3 segments), rectify_spirit (2 segments), refine_crude_short (2 segments:
+and checks it makes at least the card's outputs. Cards: distil_syrup (130 C), ferment_wash, distil_low_wines (97 C, 8 wash : 1),
+distil_spirit (92 C, 4 low wines : 1), refine_crude (350 C, 3 segments), rectify_spirit (2 segments, 2 spirit : 1), refine_crude_short (2 segments:
 gasoline and kerosene come over as slop).
 
 ## Engines
 
 `FUEL_GRADES`: `fuel_canister` 1/1, `gasoline_canister` saw 1.3 / tractor 1.2, `diesel_canister` tractor 1.5 (a chainsaw
-refuses it), `fuel_ethanol_beaker` 0.25 / 0.2. `felling.ts isSawFuel / refuelChainsaw` and `vehicles/manager.ts refuel`
+refuses it), `fuel_ethanol_beaker` 0.5 / 0.4. Wash bottles at 12% ethanol and low wines at 36% (`core/chem.ts` GRADES) so the
+halved ratios still fill a beaker. `felling.ts isSawFuel / refuelChainsaw` and `vehicles/manager.ts refuel`
 read it and hand the empty container back.
 
 ## Ages

@@ -10,6 +10,7 @@ import {
   MAX_HEALTH,
   REGEN_FOOD_COST,
   STARVE_INTERVAL_S,
+  WELL_FED_DRAIN_MULT,
   WELL_FED_DURATION_S,
 } from '../core/constants';
 import { createBus } from '../core/context';
@@ -57,7 +58,7 @@ describe('Hunger: drain', () => {
     expect(r.hunger.foodRate).toBeCloseTo(-FOOD_DRAIN_PER_S, 9);
   });
 
-  it('drains 2.5x while sprinting and half as fast while Well-Fed', () => {
+  it('drains 2.5x while sprinting and slower while Well-Fed', () => {
     const sprint = rig();
     sprint.player.sprinting = true;
     sprint.run(60);
@@ -67,18 +68,18 @@ describe('Hunger: drain', () => {
     fed.player.buffs.wellFedS = 1000;
     fed.player.sprinting = true;
     fed.run(60);
-    expect(fed.player.food).toBeCloseTo(MAX_FOOD - 1.25, 5);
-    expect(foodDrainPerS(fed.player)).toBeCloseTo((FOOD_DRAIN_PER_S * 2.5) / 2, 9);
+    expect(fed.player.food).toBeCloseTo(MAX_FOOD - 2.5 * WELL_FED_DRAIN_MULT, 5);
+    expect(foodDrainPerS(fed.player)).toBeCloseTo(FOOD_DRAIN_PER_S * 2.5 * WELL_FED_DRAIN_MULT, 9);
   });
 
-  it('jumps and mined blocks cost food, halved while Well-Fed', () => {
+  it('jumps and mined blocks cost food, less while Well-Fed', () => {
     const r = rig();
     exertJump(r.player);
     exertMining(r.player);
     expect(r.player.food).toBeCloseTo(MAX_FOOD - FOOD_COST_PER_JUMP - FOOD_COST_PER_BLOCK_MINED, 9);
     r.player.buffs.wellFedS = 10;
     exertJump(r.player);
-    expect(r.player.food).toBeCloseTo(MAX_FOOD - 1.5 * FOOD_COST_PER_JUMP - FOOD_COST_PER_BLOCK_MINED, 9);
+    expect(r.player.food).toBeCloseTo(MAX_FOOD - (1 + WELL_FED_DRAIN_MULT) * FOOD_COST_PER_JUMP - FOOD_COST_PER_BLOCK_MINED, 9);
   });
 
   it('the Well-Fed timer runs out', () => {

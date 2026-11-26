@@ -68,7 +68,7 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
   {
     tier: 6, block: 'furnace_star', name: 'Starhearth', age: 5,
     maxTempC: 3200, heatCapacityJ: 800, lossWPerC: 8, crucibles: 4, fuelSlots: 2, speed: 3, electricHeatW: 40000, warmth: 24,
-    upgradeCost: amounts('1 star_core, 8 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[6],
+    upgradeCost: amounts('1 star_core, 4 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[6],
     blurb: 'A star core in a furnace body. Hold 3000 C, deliver 300 kW for 90 seconds, and it will burn on its own forever.',
   },
 ];
@@ -149,19 +149,21 @@ export const MACHINE_SPECS: MachineSpec[] = [
   //   windMin, windMax   range of the slow wind noise wind(t)
   //   altitudeBaseY, altitudeSpanY, altitudeMin, altitudeMax
   //                      altitude = clamp((y - altitudeBaseY) / altitudeSpanY, altitudeMin, altitudeMax)
+  //   shareRadius        output is divided by the number of wind turbines within this many blocks (itself included)
   {
     kind: 'wind_turbine', name: 'Wind Turbine', role: 'generator', blocks: ['wind_turbine'], outputW: 1500,
-    params: { windMin: 0.25, windMax: 1, altitudeBaseY: 40, altitudeSpanY: 40, altitudeMin: 0.25, altitudeMax: 1 },
-    desc: 'Makes up to 1.5 kW as the wind rises and falls. Height matters: a quarter of that near the ground, all of it 80 blocks up.',
+    params: { windMin: 0.25, windMax: 1, altitudeBaseY: 40, altitudeSpanY: 40, altitudeMin: 0.25, altitudeMax: 1, shareRadius: 12 },
+    desc: 'Makes up to 1.5 kW as the wind rises and falls. Height matters: a quarter of that near the ground, all of it 80 blocks up. Turbines within 12 blocks share the wind.',
     placementHint: 'Needs open sky above. Higher is better.',
   },
   // solar_panel - watts = outputW * sunlight, only under open sky. params:
   //   minSunlight  sunlight factor at or below which it makes nothing: above the brightest full-moon night (0.12),
   //                so moonlight never powers a panel. The weather scales output too (WEATHER_SOLAR in core/constants).
+  //   shareRadius  output is divided by the number of solar panels within this many blocks (itself included)
   {
     kind: 'solar_panel', name: 'Solar Panel', role: 'generator', blocks: ['solar_panel'], outputW: 300,
-    params: { minSunlight: 0.15 },
-    desc: 'Makes up to 300 W in full daylight, less at dawn and dusk, and nothing at night.',
+    params: { minSunlight: 0.15, shareRadius: 6 },
+    desc: 'Makes up to 300 W in full daylight, less at dawn and dusk, and nothing at night. Panels within 6 blocks share that between them.',
     placementHint: 'Needs open sky above.',
   },
   // combustion_engine - load-following. slots: 1 fuel slot. Electric joules per canister = fuelEnergyJ * efficiency

@@ -73,7 +73,7 @@ export const BREW_SPEC = {
 
   /** Drinks: item -> [buff, buffS, warmth]. */
   drinks: {
-    green_tea: ['spring', 180, 0], black_tea_cup: ['hearthkept', 180, 10], berry_tea: ['mending', 180, 0],
-    light_roast: ['swift', 180, 0], dark_roast: ['vigor', 180, 0], trail_blend_cup: ['lasting', 180, 0],
+    green_tea: ['spring', 300, 0], black_tea_cup: ['hearthkept', 300, 10], berry_tea: ['mending', 300, 0],
+    light_roast: ['swift', 300, 0], dark_roast: ['vigor', 300, 0], trail_blend_cup: ['lasting', 300, 0],
   } as Record<string, [string, number, number]>,
 };
