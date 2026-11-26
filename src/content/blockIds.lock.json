@@ -286,4 +286,8 @@
   "grid_monitor": 284,
   "cell_rack": 285,
   "insulated_wall": 286
+  "steam_rotor": 281,
+  "steam_kettle": 282,
+  "boiler_plate": 283,
+  "safety_valve": 284
 }

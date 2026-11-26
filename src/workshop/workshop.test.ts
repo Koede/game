@@ -67,6 +67,24 @@ describe('workshop', () => {
     expect(t.ground.items.some((e) => e.item === 'wheat')).toBe(false);
   });
 
+  it('a steam rotor on a boiling kettle grinds wheat at the millstone with no hand on a crank', () => {
+    const t = setup();
+    let steam = true;
+    t.shop.steamAt = (x, y, z) => steam && x === 0 && y === -1 && z === 0;
+    t.put(0, 0, 0, 'steam_rotor');
+    t.put(1, 0, 0, 'drive_shaft');
+    t.put(2, 0, 0, 'mech_millstone', Facing.South);
+    for (let z = 1; z <= 3; z++) t.put(2, 0, z, 'conveyor_belt', Facing.South);
+    t.ground.spawn('wheat', 2, 2.5, 0.5, 3.5, { scatter: false });
+    t.run(30);
+    const flour = (): number => t.ground.items.filter((e) => e.item === 'flour').reduce((n, e) => n + e.count, 0);
+    expect(flour()).toBe(2);
+    steam = false; // the kettle boils dry: the line stops
+    t.ground.spawn('wheat', 2, 2.5, 0.5, 3.5, { scatter: false });
+    t.run(30);
+    expect(flour()).toBe(2);
+  });
+
   it('items dropped on a machine top are taken in; Use puts the held stack in', () => {
     const t = setup();
     t.put(0, 0, 0, 'hand_crank');

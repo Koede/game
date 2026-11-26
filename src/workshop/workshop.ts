@@ -37,6 +37,9 @@ export const STRESS: Record<string, number> = BASE_STRESS;
 export const GENERATOR_SHAFT: Record<string, { rpm: number; suPerW: number }> = {
   water_wheel: { rpm: 12, suPerW: 1 / 50 }, wind_turbine: { rpm: 16, suPerW: 1 / 50 }, steam_engine: { rpm: 24, suPerW: 1 / 50 },
 };
+/** Steam rotor on an open copper kettle (docs/advice/tech-spine.md 2.2): 16 rpm and 4 stress units, 200 W. */
+export const STEAM_ROTOR = { rpm: 16, capacity: 4 };
+
 /** Clockwork motor: rpm, capacity, seconds per wind and the most it holds. */
 export const CLOCKWORK = { rpm: 24, capacity: 48, windS: 30, maxS: 120 };
 /** Stress capacity factor of an oiled network: Heavy Residue (the distillery's lube base) and pine resin. */
@@ -148,6 +151,8 @@ export class Workshop {
   private readonly seizedWarned = new Set<string>();
   /** More speed sources (the shaft core later): rpm a part gets from outside, or 0. */
   extraRpm: ((x: number, y: number, z: number) => number) | null = null;
+  /** True while the cell holds a boiling steam kettle with water: a steam rotor above it turns. */
+  steamAt: ((x: number, y: number, z: number) => boolean) | null = null;
   private readonly off: () => void;
   /** Richer "use this item on that block" for deployers (hoes, hand stations): set by Game; null/undefined falls back to placing and breaking. */
   /** True while a player or tame animal stands on the cell above (treadwheel); set by Game. */
@@ -429,6 +434,7 @@ export class Workshop {
       return w > 0 ? { rpm: g.rpm, capacity: w * g.suPerW } : null;
     }
     if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
+    if (p.kind === 'steam_rotor') return this.steamAt?.(p.x, p.y - 1, p.z) ? { rpm: STEAM_ROTOR.rpm, capacity: STEAM_ROTOR.capacity } : null;
     if (this.pto.has(key)) return { rpm: 24, capacity: 30 };
     const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
     return extra > 0 ? { rpm: extra, capacity: CRANK_CAPACITY } : null;
@@ -914,6 +920,7 @@ export class Workshop {
     if (set) parts.push(set);
     const mv = p.kind === 'piston' ? this.contra.describe(x, y, z) : null;
     if (mv) parts.push(`extended ${mv.split('extended ')[1]}`);
+    if (p.kind === 'steam_rotor') parts.push(this.steamAt?.(p.x, p.y - 1, p.z) ? 'steam up' : 'no steam: stand it on a boiling Copper Steam Kettle');
     if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
     const m = this.machines.get(key);
     if (m) {

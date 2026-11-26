@@ -48,6 +48,7 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('brake', '2 bronze_ingot, 1 bronze_cog, 1 leather', 600),
   forge('pillow_block', '2 bronze_ingot, 2 stone_brick', 600),
   forge('differential', '3 bronze_cog, 1 bronze_ingot, 1 drive_shaft', 600),
+  forge('steam_rotor', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft', 600),
   forge('treadwheel', '4 plank, 2 bronze_ingot, 2 drive_shaft', 600),
   forge('saw_arm', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw', 600),
   forge('item_vault', '4 crate, 2 bronze_plate', 600),
