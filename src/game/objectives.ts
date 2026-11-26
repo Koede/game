@@ -8,6 +8,7 @@
  */
 import { FLAG_AUTOMATON_SALVAGED, FLAG_PEACEFUL } from '../core/constants';
 import type { GameBus } from '../core/context';
+import { CHEM, FLAG_FIRST_SPIRIT } from '../core/distill';
 import { AGES, FURNACE_TIERS, MAX_FURNACE_TIER, OBJECTIVES, blockOf, furnaceTier, furnaceTierOfBlock, itemOrNull } from '../core/registry';
 import type { ItemAmount, ObjectiveCondition, ObjectiveSpec } from '../core/types';
 import type { PlayerState } from './playerState';
@@ -107,6 +108,10 @@ export class ObjectiveTracker {
       bus.on('automaton:salvaged', () => this.flags.add(FLAG_AUTOMATON_SALVAGED)),
       bus.on('furnace:upgraded', (e) => reachTier(e.tier)),
       bus.on('block:placed', (e) => reachTier(furnaceTierOfBlock(blockOf(e.voxel).key)?.tier ?? 0)),
+      // "Run your first spirit": a boiling flask finished a distilling run (docs/DISTILLERY_PLAN.md "Left" 8).
+      bus.on('distill:step', (e) => {
+        if (e.state === 'done' && e.module === CHEM.flask) this.flags.add(FLAG_FIRST_SPIRIT);
+      }),
     ];
   }
 

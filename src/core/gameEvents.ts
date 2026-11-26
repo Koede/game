@@ -22,7 +22,8 @@ export type ScreenRequest =
   | { type: 'furnace'; x: number; y: number; z: number }
   | { type: 'machine'; x: number; y: number; z: number }
   | { type: 'crate'; x: number; y: number; z: number }
-  | { type: 'log' }
+  /** The Hearth Log; `section` scrolls straight to the journal or the achievements (the pause menu's entries). */
+  | { type: 'log'; section?: 'journal' | 'achievements' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
   | { type: 'pause' }
@@ -172,7 +173,20 @@ export type SfxName =
   /** Liquid trickling through a tube or down a condenser while it runs. Positioned at the module. */
   | 'distill_trickle'
   /** A stopcock turned by hand on the separatory funnel. Positioned at the module. */
-  | 'distill_tap';
+  | 'distill_tap'
+  // ---- exploration and companions (src/audio/sfxExplore.ts) ----
+  /** A fishing line flicked out and the float landing. Positioned at the float. */
+  | 'fish_cast'
+  /** A bite: the float ducks under. Positioned at the float. */
+  | 'fish_bite'
+  /** A fish landed: a splash and a flap. */
+  | 'fish_land'
+  /** Stepping through a waypoint stone: a low hum that swells and a soft chime. */
+  | 'waypoint_travel'
+  /** A buried treasure crate turned up: a shovel scrape and a bright little flourish. */
+  | 'treasure_found'
+  /** A stray companion decided to trust you: a happy chirp. Positioned at the animal. */
+  | 'pet_tamed';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
@@ -365,5 +379,17 @@ export interface GameEvents {
    * A distillery module changed state. Objectives listen for `state: 'done'` and the process key
    * ("Run your first spirit"). `process` is omitted when no process card is running.
    */
-  'distill:step': { x: number; y: number; z: number; state: string; process?: string };
+  'distill:step': { x: number; y: number; z: number; state: string; process?: string; /** The module kind (`boiling_flask`, `reaction_vessel`, ...). */ module?: string };
+
+  // ---- exploration, enchanting and companions (docs/api/exploration.md, docs/api/pets.md) ----
+  /** The player landed a fish (`item` = the fish's item key). */
+  'fish:caught': { item: string };
+  /** The player stepped through a waypoint stone (`from` / `to` = the stones' names). */
+  'waypoint:travelled': { from: string; to: string };
+  /** The player opened or broke into a buried treasure crate (once per crate). */
+  'treasure:dug': { x: number; y: number; z: number };
+  /** An altar finished writing an enchant onto an item. */
+  'enchant:applied': { item: string; enchant: string; level: number };
+  /** A stray companion (dog, cat) became the player's pet. */
+  'pet:tamed': { id: number; species: string };
 }

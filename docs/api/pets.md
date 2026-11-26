@@ -10,4 +10,5 @@
   takes everything back; saved per mob id with `World.persist('pets')`) and the warning (a hostile within 18 blocks of the
   player: "Dog growls" toast, at most every 25 s). Use goes through `AnimalTargets.pet` / `MobManager.petUse`.
 - Not done: a pet pack screen, healing or fighting, bed/home, teleport-catch-up beyond the sprint.
-- Tests: `src/game/pets.test.ts`.
+- The first gift to a stray emits `pet:tamed { id, species }` and sfx `pet_tamed` (MobManager.feed); the achievement `first_pet` and a journal line listen.
+- Tests: `src/game/pets.test.ts`. `src/mobs/petTamed.test.ts`.

@@ -98,6 +98,15 @@ describe('enchanting at the altar', () => {
     expect(t.magic.infusionAt(0, 1, 0)).toBeNull();
   });
 
+  it("announces 'enchant:applied' when a write succeeds (achievements and the journal listen)", () => {
+    const t = altarWith('iron_pickaxe', 'vein');
+    const got: unknown[] = [];
+    t.bus.on('enchant:applied', (e) => got.push(e));
+    expect(startWithRod(t)).toBe('worked');
+    for (let i = 0; i < (ENCHANT_INFUSE_S + 2) * 10; i++) t.magic.tick(0.1);
+    expect(got).toEqual([{ item: 'iron_pickaxe', enchant: 'veinseeker', level: 1 }]);
+  });
+
   it('writes Veinseeker I from the jars, names nothing until then, and records it in the notebook once', () => {
     const t = altarWith('iron_pickaxe', 'vein');
     expect(startWithRod(t)).toBe('worked');

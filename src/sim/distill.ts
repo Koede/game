@@ -691,7 +691,7 @@ export class Distillery {
 
   private announce(e: ChemEntity, before: ChemState): void {
     const at = { x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 };
-    this.bus.emit('distill:step', { x: e.x, y: e.y, z: e.z, state: e.state });
+    this.bus.emit('distill:step', { x: e.x, y: e.y, z: e.z, state: e.state, module: e.kind });
     if (e.state === 'working' && before !== 'working' && e.kind === CHEM.flask) {
       this.bus.emit('sfx', { name: 'distill_bubble', ...at });
     }

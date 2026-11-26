@@ -19,6 +19,8 @@ export interface PauseMenuOptions {
   dev?: { get(): boolean; set(on: boolean): void };
   /** Control lists for How to Play, when the real bindings differ from the defaults. */
   controls?: HowToPlayOptions;
+  /** Opens the Hearth Log at its Journal or Achievements (the menu's own entries for them; hidden without it). */
+  openLog?: (section: 'journal' | 'achievements') => void;
 }
 
 type View = 'menu' | 'settings' | 'howto';
@@ -105,6 +107,12 @@ export class PauseMenu {
     } else win.setBody(new HowToPlay(this.opts.controls).el);
   }
 
+  /** A menu entry that leaves the pause menu for one section of the Hearth Log; nothing when the host gave no `openLog`. */
+  private logEntry(label: string, section: 'journal' | 'achievements'): HTMLElement | null {
+    const openLog = this.opts.openLog;
+    return openLog ? new Button({ label, block: true, onClick: () => openLog(section) }).el : null;
+  }
+
   private menuView(): HTMLElement {
     const quit = (): void => {
       this.quitting = true;
@@ -117,6 +125,8 @@ export class PauseMenu {
       new Button({ label: 'Resume', kind: 'primary', size: 'lg', block: true, icon: 'play', onClick: () => this.close() }).el,
       new Button({ label: 'Settings', block: true, onClick: () => this.show('settings') }).el,
       new Button({ label: 'How to Play', block: true, onClick: () => this.show('howto') }).el,
+      this.logEntry('Journal', 'journal'),
+      this.logEntry('Achievements', 'achievements'),
       h('div', { class: 'hw-menu__gap' }),
       new Button({ label: 'Save and quit to title', kind: 'quiet', block: true, onClick: quit }).el,
     );

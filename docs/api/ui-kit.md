@@ -122,14 +122,17 @@ Added: `Window.whenClosed`, `PauseMenu.window` (both for GameUI).
 ## menus
 - `class TitleScreen(root, { hasSave, settings, onNewWorld(seed|null), onContinue, onSettingsChange(settings, key), controls?, version?, ages? })` -
   `show()` (menu layer, starts the ember fire), `hide()`, `setHasSave(b)`, `visible`, `dispose()`. With a save, New World is hold-to-confirm.
-- `class PauseMenu(root, { settings, onSettingsChange, onResume, onQuit, controls? })` - `open()`, `close()`, `isOpen`, `setSettings(s)`,
-  `window` (built but not opened; GameUI opens it as its 'pause' screen).
+- `class PauseMenu(root, { settings, onSettingsChange, onResume, onQuit, controls?, openLog? })` - `open()`, `close()`, `isOpen`, `setSettings(s)`,
+  `window` (built but not opened; GameUI opens it as its 'pause' screen). With `openLog(section)` the menu shows Journal and
+  Achievements entries; GameUI opens the Hearth Log as `{ type: 'log', section }`, scrolled to that section.
 - `class SettingsPanel({ settings, onChange(settings, key) })` - `el`, `settings`, `set(s)`; `SETTINGS_LIMITS`.
 - `class HowToPlay({ keyboard?, touch?, initial? })`; `DEFAULT_KEYBOARD_CONTROLS`, `DEFAULT_TOUCH_CONTROLS`, `interface ControlLine { keys; action }`
   ('–' and '/' in `keys` are drawn as separators). Sections: The loop (5 steps; step 5 "four times, each inside a bigger hearth"),
   Staying alive (food, cooking, farming, animals and breeding, buckets and bread, cold and rain), Building big (hearths,
   pipes and the wrench, power), then Controls (adds P / B at the furnace, sprint at the stick's edge, double-tap / shift-click
   quick move; review gc-3). The two new sections reuse `.hw-howto__loop` / `.hw-howto__step` with a glyph in the square.
+  Later: Working by hand, Tea and coffee, The Emberbound, and "Photo, emotes and what next" (`EXTRAS`: P / Use for a framed shot,
+  G or the quick menu's Emote wheel, the "What next?" hint under the goal); the keyboard list gained G (emote) and P (photo).
 - `class EmberField(seed?)` (menus/fire.ts) - the title's cellular fire canvas: `start()`, `stop()`, `dispose()`.
 
 ## Usage

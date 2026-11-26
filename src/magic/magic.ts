@@ -1532,6 +1532,7 @@ export class Magic {
     const name = enchantDef(e.key)?.name ?? e.key;
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.toast(`Enchanted: ${itemOrNull(item)?.name ?? item} gains ${name} ${levelName(e.level)}`, item, 'good');
+    this.bus.emit('enchant:applied', { item, enchant: e.key, level: e.level });
     if (learnEnchant(this.research, e.key)) this.toast(`Noted in your notebook: ${name}`, undefined, 'good');
   }
 

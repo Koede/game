@@ -54,7 +54,13 @@ export interface ExplorationHost {
 /** What a Use aimed at (x,y,z) with (px,py,pz) in front of it, if any, needs to know. */
 export interface UseAim { x: number; y: number; z: number; px: number; py: number; pz: number; block: { key: string; liquid: string | null } }
 
-export interface ExplorationSave { waypoints: WaypointSave; serial: number; chests: number[] }
+export interface ExplorationSave {
+  waypoints: WaypointSave;
+  serial: number;
+  chests: number[];
+  /** Buried crates not opened yet, as [x, y, z] (older saves lack it: their crates simply never count as dug). */
+  buried?: Array<[number, number, number]>;
+}
 
 type Fishing =
   | { phase: 'idle' }
@@ -65,6 +71,8 @@ export class Exploration {
   readonly waypoints = new WaypointNetwork();
   private serial = 0;
   private chests = new Set<number>();
+  /** Buried treasure crates the player has not opened yet, keyed "x,y,z". Opening or breaking one emits 'treasure:dug'. */
+  private buried = new Set<string>();
   private fishing: Fishing = { phase: 'idle' };
   private acc = 0;
   /** Set by the app: moves the player (the controller teleports and resets the fall). */
@@ -75,11 +83,18 @@ export class Exploration {
       const def = blockByKey(WAYPOINT_BLOCK);
       if (voxelId(e.voxel) === def.id) this.register(e.x, e.y, e.z);
     });
+    host.bus.on('ui:open', ({ screen }) => {
+      if (screen.type === 'crate') this.dig(screen.x, screen.y, screen.z);
+    });
+    host.bus.on('block:broken', (e) => this.dig(e.x, e.y, e.z));
   }
 
   // ---- persistence ----------------------------------------------------------------------------
 
-  toJSON(): ExplorationSave { return { waypoints: this.waypoints.toSave(), serial: this.serial, chests: [...this.chests] }; }
+  toJSON(): ExplorationSave {
+    const buried = [...this.buried].map((k) => k.split(',').map(Number) as [number, number, number]);
+    return { waypoints: this.waypoints.toSave(), serial: this.serial, chests: [...this.chests], ...(buried.length ? { buried } : {}) };
+  }
 
   load(raw: unknown): void {
     const s = raw as Partial<ExplorationSave> | null;
@@ -89,6 +104,11 @@ export class Exploration {
     for (const w of net.all()) this.waypoints.place(w.x, w.y, w.z, w.name);
     this.serial = Number(s.serial) || 0;
     this.chests = new Set(Array.isArray(s.chests) ? s.chests.map(Number) : []);
+    this.buried = new Set(
+      (Array.isArray(s.buried) ? s.buried : [])
+        .filter((p): p is [number, number, number] => Array.isArray(p) && p.length === 3 && p.every((n) => Number.isInteger(n)))
+        .map((p) => p.join(',')),
+    );
   }
 
   // ---- Use --------------------------------------------------------------------------------------
@@ -186,6 +206,8 @@ export class Exploration {
     const to = this.waypoints.landing(d.stone);
     this.teleport(to.x, to.y, to.z);
     this.toast(`You step through to ${d.stone.name}.`, 'good');
+    this.host.bus.emit('sfx', { name: 'waypoint_travel' });
+    this.host.bus.emit('waypoint:travelled', { from: stone.name, to: d.stone.name });
     return 'worked';
   }
 
@@ -256,8 +278,16 @@ export class Exploration {
       this.chests.add(serial);
       world.setVoxel(m.x, y, m.z, makeVoxel(blockByKey('crate').id), 'load');
       world.setEntity(treasureCrate(m, y));
+      this.buried.add(`${m.x},${y},${m.z}`);
       this.toast('The ground nearby feels disturbed...', 'good');
     }
+  }
+
+  /** The player opened or broke the buried crate at x,y,z (once per crate). */
+  private dig(x: number, y: number, z: number): void {
+    if (!this.buried.delete(`${x},${y},${z}`)) return;
+    this.host.bus.emit('sfx', { name: 'treasure_found', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    this.host.bus.emit('treasure:dug', { x, y, z });
   }
 
   // ---- fishing -----------------------------------------------------------------------------------------
@@ -303,6 +333,7 @@ export class Exploration {
     if (!kind) { this.toast('The water is too shallow to fish.', 'warn'); return 'refused'; }
     this.fishing = { phase: 'waiting', untilS: this.host.now() + biteDelayS(this.ctx(), this.rng), x: aim.px, y: aim.py, z: aim.pz, kind };
     this.toast(`You cast into the ${kind === 'cave' ? 'cave pool' : kind}.`);
+    this.host.bus.emit('sfx', { name: 'fish_cast', x: aim.px + 0.5, y: aim.py + 0.5, z: aim.pz + 0.5 });
     return 'worked';
   }
 
@@ -313,6 +344,8 @@ export class Exploration {
     if (got.item === null) { this.toast('It slips the hook.'); return 'worked'; }
     const left = this.host.player.give(got.item, 1);
     const name = itemOrNull(got.item)?.name ?? got.item;
+    this.host.bus.emit('sfx', { name: 'fish_land' });
+    this.host.bus.emit('fish:caught', { item: got.item });
     this.toast(left > 0 ? `You land a ${name} but your pack is full.` : `You land a ${name}.`, 'good');
     return 'worked';
   }
@@ -336,6 +369,7 @@ export class Exploration {
       } else if (f.phase === 'waiting' && this.host.now() >= f.untilS) {
         this.fishing = { phase: 'bite', untilS: this.host.now() + BITE_WINDOW_S, x: f.x, y: f.y, z: f.z, kind: f.kind };
         this.toast('Something bites! Use the rod now.', 'good');
+        this.host.bus.emit('sfx', { name: 'fish_bite', x: f.x + 0.5, y: f.y + 0.5, z: f.z + 0.5 });
       } else if (f.phase === 'bite' && this.host.now() >= f.untilS) {
         this.fishing = { phase: 'idle' };
         this.toast('It got away.');

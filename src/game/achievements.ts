@@ -1,8 +1,10 @@
 /**
- * Achievements: small, quiet milestones read from numbers the game already keeps (stats, goals, age, ground explored).
+ * Achievements: small, quiet milestones read from numbers the game already keeps (stats, goals, age, ground explored),
+ * plus "firsts" earned the moment a feature's event fires (a fish landed, a waypoint trip, a treasure dug, an enchant, a pet).
  * DOM-free. `tick(dt)` re-checks once a second; a new one raises a toast and is remembered in the save with the day it was earned.
  */
 import type { GameBus } from '../core/context';
+import type { GameEvents } from '../core/gameEvents';
 
 /** Everything an achievement may ask about. */
 export interface ProgressFacts {
@@ -23,7 +25,10 @@ export interface AchievementSpec {
   id: string;
   name: string;
   text: string;
-  test: (f: ProgressFacts) => boolean;
+  /** Read from the progress facts once a second. */
+  test?: (f: ProgressFacts) => boolean;
+  /** Or earned the first time this bus event fires. */
+  on?: keyof GameEvents;
 }
 
 export const ACHIEVEMENTS: readonly AchievementSpec[] = [
@@ -43,6 +48,12 @@ export const ACHIEVEMENTS: readonly AchievementSpec[] = [
   { id: 'bruised', name: 'Learned the Hard Way', text: 'Die once.', test: (f) => f.deaths >= 1 },
   { id: 'taster', name: 'Taster', text: 'Drink three different drinks.', test: (f) => f.drinks >= 3 },
   { id: 'long_haul', name: 'Long Haul', text: 'Play for two hours.', test: (f) => f.playTimeS >= 7200 },
+  // ---- firsts, earned by the feature's own event ----
+  { id: 'first_fish', name: 'Gone Fishing', text: 'Land your first fish.', on: 'fish:caught' },
+  { id: 'first_waypoint', name: 'Stepping Stones', text: 'Travel through a waypoint stone.', on: 'waypoint:travelled' },
+  { id: 'first_treasure', name: 'X Marks the Spot', text: 'Dig up a buried treasure crate.', on: 'treasure:dug' },
+  { id: 'first_enchant', name: 'Written in Light', text: 'Enchant an item at the altar.', on: 'enchant:applied' },
+  { id: 'first_pet', name: 'Faithful Friend', text: 'Win a stray animal over.', on: 'pet:tamed' },
 ];
 
 export interface AchievementsSnapshot {
@@ -63,10 +74,14 @@ export class Achievements {
   private readonly got = new Map<string, number>();
   private sinceCheck = 0;
 
+  private readonly offs: Array<() => void> = [];
+
   constructor(
     private readonly bus: GameBus,
     private readonly facts: () => ProgressFacts,
-  ) {}
+  ) {
+    for (const a of ACHIEVEMENTS) if (a.on) this.offs.push(bus.on(a.on, () => this.unlock(a)));
+  }
 
   has(id: string): boolean {
     return this.got.has(id);
@@ -88,12 +103,27 @@ export class Achievements {
     const f = this.facts();
     const fresh: AchievementSpec[] = [];
     for (const a of ACHIEVEMENTS) {
-      if (this.got.has(a.id) || !a.test(f)) continue;
-      this.got.set(a.id, f.day);
+      if (this.got.has(a.id) || !a.test?.(f)) continue;
+      this.award(a, f.day);
       fresh.push(a);
-      this.bus.emit('toast', { text: `Achievement: ${a.name}`, kind: 'good' });
     }
     return fresh;
+  }
+
+  /** Earns an event achievement now (no-op when already earned). Returns true when it was new. */
+  private unlock(a: AchievementSpec): boolean {
+    if (this.got.has(a.id)) return false;
+    this.award(a, this.facts().day);
+    return true;
+  }
+
+  private award(a: AchievementSpec, day: number): void {
+    this.got.set(a.id, day);
+    this.bus.emit('toast', { text: `Achievement: ${a.name}`, kind: 'good' });
+  }
+
+  dispose(): void {
+    for (const off of this.offs.splice(0)) off();
   }
 
   toJSON(): AchievementsSnapshot {

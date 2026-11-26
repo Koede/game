@@ -501,6 +501,11 @@ describe('scripted playthrough', () => {
     play.step(2);
     expect(sim.furnaceView(F.x, F.y, F.z)!.extractW).toBeGreaterThan(5000);
     play.until('1 MJ stored', () => tracker.isComplete('store_energy'), 1500);
+    // STAND-IN (the distillery simulation replaces it): a boiling flask finishing its run, as src/sim/distill.ts announces it.
+    // The real run is tested in src/sim/distill*.test.ts.
+    kit.bus.emit('distill:step', { x: 0, y: 0, z: 0, state: 'done', module: 'boiling_flask' });
+    play.step(0.5);
+    done('first_spirit');
     for (const p of BURNERS) {
       play.forge('iron_plate', 4);
       play.bronze(2); // STAND-IN (casting replaces)

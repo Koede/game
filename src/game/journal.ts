@@ -4,7 +4,7 @@
  * loop; nothing here needs the player to write anything down. Saved as an optional `journal` field of the world save.
  */
 import type { GameBus } from '../core/context';
-import { AGES, OBJECTIVES } from '../core/registry';
+import { AGES, OBJECTIVES, itemOrNull } from '../core/registry';
 
 /** Newest entries kept (the oldest drop off). */
 export const MAX_ENTRIES = 160;
@@ -56,6 +56,9 @@ function fromBase64(text: string): Uint8Array {
   return out;
 }
 
+/** An item's display name in lower case ("raw perch"), or its key with spaces when unknown. */
+const itemName = (key: string): string => (itemOrNull(key)?.name ?? key.replace(/_/g, ' ')).toLowerCase();
+
 /** Things worth a "first time" line: the event, and how it reads in the diary. */
 const FIRST_BLOCKS: Readonly<Record<string, string>> = {
   furnace_clay: 'Built my first clay furnace.',
@@ -93,6 +96,11 @@ export class Journal {
       }),
       bus.on('mob:died', ({ species }) => this.add('first', `Brought down my first ${species.replace(/_/g, ' ')}.`, `first:kill:${species}`)),
       bus.on('item:made', ({ item }) => this.noteFirstMade(item)),
+      bus.on('fish:caught', ({ item }) => this.add('first', `Landed my first fish: ${itemName(item)}.`, 'first:fish')),
+      bus.on('waypoint:travelled', ({ to }) => this.add('first', `Stepped through a waypoint stone to ${to}.`, 'first:waypoint')),
+      bus.on('treasure:dug', () => this.add('first', 'Dug up a buried treasure crate.', 'first:treasure')),
+      bus.on('enchant:applied', ({ item }) => this.add('first', `Enchanted my ${itemName(item)} at the altar.`, 'first:enchant')),
+      bus.on('pet:tamed', ({ species }) => this.add('first', `A stray ${species.replace(/_/g, ' ')} decided I was worth following.`, 'first:pet')),
     );
   }
 

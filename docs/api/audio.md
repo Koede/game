@@ -93,3 +93,7 @@ Eight automaton sounds (`src/audio/sfxEmber.ts`), measured against the existing 
 ## Footsteps by surface
 
 `stepSound(def)` (src/player/blockRules.ts) maps the block under the feet to `step_stone`, `step_wood`, `step_sand`, `step_snow` or `step_metal` (plain `step` for earth and plants); `PlayerController` emits it every `STEP_EVERY` metres. Rain and wind beds already follow the weather (ambienceWeather.ts).
+
+## Exploration and companions
+
+Six one-shots in `src/audio/sfxExplore.ts` (`EXPLORE_SFX`): `fish_cast` (at the float, on a cast), `fish_bite` (at the float, when the bite window opens), `fish_land` (a fish landed), `waypoint_travel` (stepping through a stone), `treasure_found` (at a buried crate, when it is opened or broken) and `pet_tamed` (at the animal, on the first gift). Emitters: src/game/exploration.ts and src/mobs/manager.ts. Not yet: festival, gossip and sparring sounds (their emitters live in src/npcs).

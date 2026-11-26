@@ -230,7 +230,11 @@ export class MobManager {
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing to feed' };
     if (m.spec.pet) {
       // A companion: the first gift makes it yours (no breeding).
-      if (!m.tame) this.bus.emit('toast', { text: `The ${m.spec.name.toLowerCase()} trusts you now. It will follow you.`, kind: 'good' });
+      if (!m.tame) {
+        this.bus.emit('toast', { text: `The ${m.spec.name.toLowerCase()} trusts you now. It will follow you.`, kind: 'good' });
+        this.bus.emit('sfx', { name: 'pet_tamed', x: m.x, y: m.y + bodyHeight(m), z: m.z });
+        this.bus.emit('pet:tamed', { id: m.id, species: m.spec.key });
+      }
       m.tame = true;
       this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
       return { ok: true };

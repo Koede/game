@@ -4,6 +4,9 @@
  */
 import type { DrinkBuff, DrinkFamily } from './types';
 
+/** Flag raised the first time a boiling flask finishes a distilling run (src/game/objectives.ts listens to 'distill:step'). */
+export const FLAG_FIRST_SPIRIT = 'first_spirit';
+
 /** Every chemistry module kind. The kind is also the key of its block and of its MachineSpec. */
 export const CHEM = {
   base: 'still_base',

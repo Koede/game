@@ -33,6 +33,7 @@ import { FISHING_ROD, FISH_ITEMS } from './fishing';
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
 import { ALCHEMY, ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
+import { FLAG_FIRST_SPIRIT } from '../core/distill';
 import {
   AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS,
   FURNACE_BUFF_C,
@@ -423,6 +424,8 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   [FLAG_BOILED_WATER]: (p) => ITEMS.some((it) => it.container?.holds === 'water' && p.items.has(it.container.boilsTo)),
   [FLAG_BREWED]: (p) => DRINKS.some((d) => p.items.has(d.key)),
   [FLAG_SIX_CUPS]: (p) => DRINKS.length === 6 && DRINKS.every((d) => p.items.has(d.key)),
+  // The distillery: a boiling flask on a still base, condensed into a receiver (any run counts).
+  [FLAG_FIRST_SPIRIT]: (p) => ['still_base', 'boiling_flask', 'condenser_coil', 'receiver'].every((k) => p.items.has(k)),
   // Spec 19: an automaton broken apart (bare hands will do, slowly), or a world on Peaceful.
   [FLAG_AUTOMATON_SALVAGED]: (p) => p.hostiles,
   [FLAG_PEACEFUL]: (p) => !p.hostiles,

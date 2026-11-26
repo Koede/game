@@ -1,6 +1,7 @@
 /**
  * How to Play: the core loop in five lines, staying alive (food, farming, animals, cold), building big (hearths,
- * pipes), working by hand, tea and coffee, the Emberbound automatons, then the controls for keyboard + mouse and for touch.
+ * pipes), working by hand, tea and coffee, the Emberbound automatons, photo / emotes / what next, then the controls for keyboard
+ * + mouse and for touch.
  */
 import { Segmented } from '../kit/controls';
 import { h } from '../kit/dom';
@@ -33,6 +34,8 @@ export const DEFAULT_KEYBOARD_CONTROLS: readonly ControlLine[] = [
   { keys: ['L'], action: 'Hearth Log: goals and ages' },
   { keys: ['P', '/', 'B'], action: 'At the furnace: pump the bellows / show the backpack' },
   { keys: ['Shift-click'], action: 'Move a stack straight across' },
+  { keys: ['G'], action: 'Emote: wave, sit, cheer, dance' },
+  { keys: ['P'], action: 'Photo mode (Use takes the picture)' },
   { keys: ['Esc'], action: 'Close a window, pause' },
 ];
 
@@ -112,6 +115,13 @@ export const EMBERBOUND: readonly Tip[] = [
   { icon: 'bolt', text: 'A powered ward beacon keeps them 32 blocks away all round your base. Rather build in peace? Choose Peaceful in Settings.' },
 ];
 
+/** Photo mode, emotes and the "What next?" hint: the small things that are easy to miss. */
+export const EXTRAS: readonly Tip[] = [
+  { icon: 'sun', text: 'Photo: press P (or Photo in the touch quick menu) to hide the HUD and frame a shot. Use takes the picture and saves it as a framed PNG with the day under it; P or Esc leaves photo mode.' },
+  { icon: 'heart', text: 'Emote: press G to wave, sit, cheer or dance, one after another; on touch, open the quick menu and pick one from the Emote wheel. Walking or jumping ends it, and the dance keeps time with the tavern jukebox.' },
+  { icon: 'help', text: 'What next: tap "What next?" under the goal for one short hint toward the current goal. When the thing you need is out in the world, an arrow points to the nearest one.' },
+];
+
 /** Entries of `keys` drawn as plain separators between caps, not as caps. */
 const SEPARATORS = new Set(['–', '/']);
 
@@ -160,6 +170,7 @@ export class HowToPlay {
       this.tips('Working by hand', '#c98a4b', HANDWORK),
       this.tips('Tea and coffee', '#d39a62', BREWING),
       this.tips('The Emberbound', '#ff7a2a', EMBERBOUND),
+      this.tips('Photo, emotes and what next', 'var(--hw-accent)', EXTRAS),
       h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch),
     );
   }

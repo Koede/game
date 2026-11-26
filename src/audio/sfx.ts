@@ -9,11 +9,12 @@ import { VEHICLE_SFX } from './sfxVehicle';
 import { HAND_SFX } from './sfxHand';
 import { MAGIC_SFX } from './sfxMagic';
 import { DISTILL_SFX } from './sfxDistill';
+import { EXPLORE_SFX } from './sfxExplore';
 import { HEARTH_SFX } from './sfxHearth';
 import { TRANSPORT_SFX } from './sfxTransport';
 import { WEATHER_SFX } from './sfxWeather';
 import { WORLD_SFX } from './sfxWorld';
 
-export const SFX: Readonly<Record<SfxName, Patch>> = { ...WORLD_SFX, ...HEARTH_SFX, ...CUE_SFX, ...FARM_SFX, ...WEATHER_SFX, ...TRANSPORT_SFX, ...EMBER_SFX, ...BREW_SFX, ...HAND_SFX, ...VEHICLE_SFX, ...MAGIC_SFX, ...DISTILL_SFX };
+export const SFX: Readonly<Record<SfxName, Patch>> = { ...WORLD_SFX, ...HEARTH_SFX, ...CUE_SFX, ...FARM_SFX, ...WEATHER_SFX, ...TRANSPORT_SFX, ...EMBER_SFX, ...BREW_SFX, ...HAND_SFX, ...VEHICLE_SFX, ...MAGIC_SFX, ...DISTILL_SFX, ...EXPLORE_SFX };
 
 export const SFX_NAMES = Object.keys(SFX) as SfxName[];
