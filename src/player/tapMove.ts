@@ -52,6 +52,25 @@ export function tapDirection(ndcX: number, ndcY: number, aspect: number, fovDeg:
   return out;
 }
 
+/**
+ * Where a world point shows on screen, as -1..1 from the left / bottom (the inverse of `tapDirection`), or null when it
+ * is behind the camera or off the screen. (dx, dy, dz) is the point minus the eye.
+ */
+export function projectPoint(dx: number, dy: number, dz: number, aspect: number, fovDeg: number, yaw: number, pitch: number, out: { x: number; y: number }): { x: number; y: number } | null {
+  const sinY = Math.sin(yaw);
+  const cosY = Math.cos(yaw);
+  const sinP = Math.sin(pitch);
+  const cosP = Math.cos(pitch);
+  const depth = -sinY * cosP * dx + sinP * dy - cosY * cosP * dz;
+  if (depth < 0.1) return null;
+  const right = cosY * dx - sinY * dz;
+  const up = sinY * sinP * dx + cosP * dy + cosY * sinP * dz;
+  const t = Math.tan((fovDeg * Math.PI) / 360);
+  out.x = right / (depth * t * aspect);
+  out.y = up / (depth * t);
+  return Math.abs(out.x) <= 1 && Math.abs(out.y) <= 1 ? out : null;
+}
+
 export interface Steer {
   /** The yaw the body should have now (the controller writes it). */
   yaw: number;
@@ -70,6 +89,8 @@ const wrap = (a: number): number => {
 export class TapMove {
   /** The goal cell's centre, valid while `active`. */
   x = 0;
+  /** Height of the floor at the goal (for the on-screen marker). */
+  y = 0;
   z = 0;
   active = false;
   private age = 0;
@@ -78,8 +99,9 @@ export class TapMove {
   private readonly out: Steer = { yaw: 0, moveZ: 0, jump: false };
 
   /** Starts walking toward (x, z). */
-  set(x: number, z: number): void {
+  set(x: number, z: number, y = 0): void {
     this.x = x;
+    this.y = y;
     this.z = z;
     this.active = true;
     this.age = 0;

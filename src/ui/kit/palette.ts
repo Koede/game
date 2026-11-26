@@ -42,6 +42,19 @@ export const STATUS_COLORS: Readonly<Record<Exclude<ColorMode, 'off'>, { good: s
   'blue-yellow': { good: '#4fd0b6', warn: '#ff9fb0', bad: '#e8344f' },
 };
 
+/** The grid overlay's load colours, light to heavy: ok, busy, overloaded (a status line, not a brightness ramp: pair it with a shape or label). */
+export const LOAD_RAMPS: Readonly<Record<ColorMode, Ramp>> = {
+  off: ramp('#58e07a', '#f0b440', '#e8503c'),
+  'red-green': ramp('#56b4e9', '#f0e442', '#e8702a'),
+  'blue-yellow': ramp('#4fd0b6', '#ff9fb0', '#e8344f'),
+};
+
+/** Same as sampleRamp but 0..1 per channel (three.js colours: `colour.setRGB(...rampRgb01(stops, t))`). */
+export function rampRgb01(stops: Ramp, t: number): [number, number, number] {
+  const c = sampleRamp(stops, t);
+  return [c[0] / 255, c[1] / 255, c[2] / 255];
+}
+
 export const rampFor = (mode: ColorMode | undefined, kind: RampKind): Ramp => RAMPS[mode ?? 'off'][kind];
 
 /** The colour at t (0..1, clamped) along a ramp, linearly mixed between its stops. */

@@ -31,3 +31,11 @@ players: never carry meaning in hue alone. DOM overlays can also follow `data-co
 
 `npx vitest run` (palette, tap-to-move, input and settings tests) and `node scripts/e2e-a11y.mjs` (phone portrait: sizes,
 palettes, a real touch tap that walks, persistence over a reload).
+
+## Integration notes for the heat view (PR #39) and the grid overlay (PR #33)
+
+Both overlays were written before `colorMode` existed and are not wired to it yet. After merging this branch, two small edits:
+
+- **Heat view** (`src/render/heatView.ts`, `heatColor` in `src/game/thermal.ts`): it returns cold blue, a green-tinted "comfortable" and orange-red warm, with an alpha that grows with the distance from comfort. Keep `heatColor` for `colorMode: 'off'`. For the other modes map the temperature to `t` (0 at -5 C and below, 1 at 44 C and above) and use `rampRgb01(rampFor(settings.colorMode, 'heat'), t)` for the colour, keeping the alpha. Rebuild the mesh colours when `settings:changed` fires (the view already refreshes twice a second, so reading `settings.colorMode` in that refresh is enough). Pass `settings` into `HeatView` instead of importing it.
+- **Grid overlay** (`src/render/tech/gridOverlay.ts`, `loadColour`): `OK` / `BUSY` / `HOT` are green / amber / red, the exact pair this option exists for. Replace the three constants with `LOAD_RAMPS[settings.colorMode]` (stops 0, 1, 2 = ok, busy, overloaded) and pick by the same thresholds as today. Source and storage stay cyan / violet (they are told apart by shape and brightness, not by red versus green). Keep the machine-screen network panel's status text, which already names the state in words.
+Neither edit changes behaviour with `colorMode: 'off'`.

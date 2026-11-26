@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARRIVE_DIST, GIVE_UP_S, MAX_WALK_S, TURN_RATE, TapMove, tapDirection } from './tapMove';
+import { ARRIVE_DIST, GIVE_UP_S, MAX_WALK_S, TURN_RATE, TapMove, projectPoint, tapDirection } from './tapMove';
 
 const DT = 1 / 60;
 
@@ -28,6 +28,22 @@ describe('tapDirection', () => {
   it('turning the view left moves a right-hand tap with it', () => {
     const d = tapDirection(1, 0, 1, 90, Math.PI / 2, 0, { x: 0, y: 0, z: 0 });
     expect(d.z).toBeLessThan(-0.6); // facing west, the right of the screen is north (-Z)
+  });
+});
+
+describe('projectPoint', () => {
+  it('is the inverse of tapDirection', () => {
+    for (const [nx, ny, yaw, pitch] of [[0, 0, 0, 0], [0.5, -0.4, 1.2, 0.3], [-0.8, 0.6, -2.5, -0.2]]) {
+      const d = tapDirection(nx, ny, 0.5, 72, yaw, pitch, { x: 0, y: 0, z: 0 });
+      const p = projectPoint(d.x * 7, d.y * 7, d.z * 7, 0.5, 72, yaw, pitch, { x: 0, y: 0 });
+      expect(p?.x).toBeCloseTo(nx);
+      expect(p?.y).toBeCloseTo(ny);
+    }
+  });
+
+  it('hides points behind the camera or off the screen', () => {
+    expect(projectPoint(0, 0, 5, 1, 72, 0, 0, { x: 0, y: 0 })).toBeNull(); // south, looking north
+    expect(projectPoint(20, 0, -2, 1, 72, 0, 0, { x: 0, y: 0 })).toBeNull(); // far to the right
   });
 });
 

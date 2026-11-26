@@ -12,6 +12,7 @@ import type { Survival } from '../../game/survival';
 import { h, setFlag, setText } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
 import { applyAccessibility, applyUiScale } from '../kit/uiScale';
+import { TapMarker, type TapGoalView } from './tapMarker';
 import { CombatCues } from './combatCues';
 import { parseTargetName, type TargetInfo } from './combatMath';
 import { Compass } from './compass';
@@ -52,6 +53,8 @@ export interface HudDeps {
   weather?: () => WeatherState | null;
   /** The town chip under the goal tracker: the camp goal or the building going up; null hides it. */
   town?: () => TownChipInfo | null;
+  /** Where tap to move is walking to, or null (the controller's TapMove; the HUD draws a ring there). */
+  tapGoal?: () => TapGoalView | null;
 }
 
 const SLOW_S = 0.125;
@@ -101,6 +104,7 @@ export class Hud {
   private readonly offs: (() => void)[] = [];
   private readonly observer: ResizeObserver | null;
   private slow = SLOW_S;
+  private readonly tapMark = new TapMarker();
   /** Work done at the aimed hand station, 0..1, or -1 when the target is not one at work. */
   private workFraction = -1;
   private gridTimer = GRID_S;
@@ -163,6 +167,7 @@ export class Hud {
       this.top,
       this.crosshair.el,
       this.scanFx.el,
+      this.tapMark.el,
       bottom,
       this.coach.el,
       this.devBtn,
@@ -224,6 +229,7 @@ export class Hud {
   frame(dt: number): void {
     const d = this.deps;
     this.compass.aim(d.player);
+    this.tapMark.update(d.tapGoal?.() ?? null, { x: d.player.position.x, y: d.player.eyeY, z: d.player.position.z }, d.player.yaw, d.player.pitch, d.settings.fov, window.innerWidth / Math.max(1, window.innerHeight));
     this.nudge.frame(dt);
     this.coach.look(d.player.yaw, d.player.pitch, d.input.touch);
     if (this.hotbarDirty) {

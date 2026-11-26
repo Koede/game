@@ -232,6 +232,7 @@ export class Game {
         weather: () => state.weather.state,
         town: () => state.npcs.townChip(),
         winterGoal: () => state.winter.activeGoal(),
+        tapGoal: () => (this.controller?.tapMove.active ? this.controller.tapMove : null),
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,
