@@ -140,7 +140,13 @@ for (const device of devices) {
       await press('mark', { x: base.x + 1, y: base.y, z: base.z + 1 });
       const dest = { x: base.x - 6, z: base.z };
       const ground = await d.hw((t) => window.__hw.surfaceY(t.x, t.z), dest);
-      await d.hw((t) => window.__hw.setVoxel(t.x, t.y, t.z, 'stone'), { ...dest, y: ground });
+      // Set-up: a flat 2 x 2 pad for the paste (the ground beside the aimed cell can be a block higher on a slope).
+      await d.hw((t) => {
+        for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+          window.__hw.setVoxel(t.x + i, t.y, t.z + j, i === 0 && j === 0 ? 'stone' : 'grass');
+          for (let dy = 1; dy <= 3; dy++) window.__hw.setVoxel(t.x + i, t.y + dy, t.z + j, 'air');
+        }
+      }, { ...dest, y: ground });
       await press('paste', { x: dest.x, y: ground, z: dest.z });
       const placed = await d.hw((t) => {
         let n = 0;
