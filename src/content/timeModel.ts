@@ -9,6 +9,7 @@
  * Cost of an item = cheapest route over every recipe (a fixed point), in expert seconds per unit. A raw item costs
  * the time to mine it with the best tool of the age; a recipe costs its inputs plus the attended time at its station.
  */
+import { isModularVariant } from './toolParts';
 import { BLOCKS, FURNACE_TIERS, ITEMS, ORE_VEINS, RECIPES } from '../core/registry';
 import type { BlockDef, ItemAmount, RecipeDef, ToolKind } from '../core/types';
 import { MOULD_SPECS, CAST_METAL_SPECS } from './mouldsHand';
@@ -61,7 +62,7 @@ interface ToolOption {
   universal: boolean;
 }
 
-const TOOLS: readonly ToolOption[] = ITEMS.filter((it) => it.tool && it.tool.kind !== 'maul' && it.tool.kind !== 'hoe' && it.tool.kind !== 'hammer').map((it) => ({
+const TOOLS: readonly ToolOption[] = ITEMS.filter((it) => it.tool && !isModularVariant(it.key) && it.tool.kind !== 'maul' && it.tool.kind !== 'hoe' && it.tool.kind !== 'hammer').map((it) => ({
   kind: it.tool!.kind,
   tier: it.tool!.tier,
   speed: it.tool!.speed,

@@ -1416,7 +1416,7 @@ export class NpcManager {
   /** Looks for rooms the player built: every bed near the town that passes the room check. */
   private scanBuilt(host: NpcHost): RoomInput[] {
     const o = this.at;
-    if (!o) return [];
+    if (!o || !host.companion.world) return [];
     return scanRooms(host.companion.world, { x: o[0] + Math.floor(LODGE_W / 2), y: o[1], z: o[2] + Math.floor(LODGE_D / 2), lodge: { x: o[0], z: o[2], w: LODGE_W, d: LODGE_D } });
   }
 

@@ -41,7 +41,7 @@ describe('distillery fuels in engines', () => {
   });
 
   it('kerosene runs a tractor one canister per canister but a chainsaw refuses it', () => {
-    expect(FUEL_GRADES.kerosene_canister).toEqual({ saw: 0, tractor: 1, empty: 'empty_canister' });
+    expect(FUEL_GRADES.kerosene_canister).toEqual({ saw: 0, tractor: 1, engine: 1, empty: 'empty_canister' });
     expect(isSawFuel('kerosene_canister')).toBe(false);
     const p = withSaw('kerosene_canister');
     expect(refuelChainsaw(p)).toBe('no-fuel');

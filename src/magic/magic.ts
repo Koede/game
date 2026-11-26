@@ -21,7 +21,7 @@
  *   touching (or tubed to) a burning furnace tops it up. Still: a Vial of Clarity on a flask takes water out ('still_trace').
  */
 import type { GameBus } from '../core/context';
-import { blockOrNull, blockId, itemOrNull } from '../core/registry';
+import { blockOrNull, blockId, itemOrNull, rarityOf } from '../core/registry';
 import { ENCHANTS, addEnchant, canAltarEnchant, copyEnchants, enchantCost, enchantDef, enchantInstability, isEnchantKey, levelName, nextEnchantLevel, sanitizeEnchants } from '../core/enchant';
 import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
 import { FOCI, JAR_UNITS, ROD_TIERS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
@@ -1308,7 +1308,7 @@ export class Magic {
 
   /** Whether an item has any use on an altar's heart (an infusion's centre, or gear that can take an enchant). */
   static isHeartItem(item: string): boolean {
-    return INFUSION_CENTERS.has(item) || ENCHANTS.some((e) => canAltarEnchant(itemOrNull(item), e.key));
+    return INFUSION_CENTERS.has(item) || rarityOf(item) === 'legendary' || ENCHANTS.some((e) => canAltarEnchant(itemOrNull(item), e.key));
   }
 
   /** Whether an item belongs on a pedestal (it is among some infusion's surrounding items). */
