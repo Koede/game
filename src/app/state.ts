@@ -243,7 +243,6 @@ export class GameState {
     this.offs.push(() => this.magic.dispose());
     this.workshop = new Workshop(world, bus, this.player.ground);
     world.loadExtra('workshop', (raw) => this.workshop.load(raw));
-    this.workshop.generatorWatts = (x, y, z) => this.sim.machineView(x, y, z)?.outW ?? 0;
     // Steam rotors turn on a boiling steam kettle; the kettle burns water and heat only while the rotor's shaft line carries a load.
     this.workshop.steamAt = (x, y, z) => this.sim.steamReadyAt(x, y, z);
     // A compressor on a shaft line builds air at 2 L/s per rpm (BRONZE_PLAN 5.3); hand-cranking stays as the early fallback.

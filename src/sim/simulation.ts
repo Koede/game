@@ -20,6 +20,7 @@ import type { PlayerState } from '../game/playerState';
 import { cratesNear, pushToCrates } from './crates';
 import { MIN_SUNLIGHT, isPlant, isPlantBlock, type CropView } from './cropRules';
 import { Brewing, isBrewKind } from './brewing';
+import { BOILER_MACHINE, Boilers } from './boilers';
 import { brewUse, brewView, isFurnaceTop, placeContainer, type BrewResult, type BrewView } from './brewActions';
 import { Distillery, isChemKind } from './distill';
 import { chemPortEndpoint, chemUse, chemView, type ChemResult, type ChemView } from './distillActions';
@@ -92,19 +93,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private readonly hand: HandWork;
   /** Casting benches: four mould sockets, never a power node (docs/api/handwork-content.md section 4). */
   private readonly benches: CastingBenches;
-  /** Whether the cell holds a boiling steam kettle with water in it: open steam for a rotor standing on it. */
-  steamReadyAt(x: number, y: number, z: number): boolean {
-    const e = this.brewing.entityAt(x, y, z);
-    return !!e && e.kind === 'kettle' && (e as { boiling: boolean }).boiling && (e as { waterL: number }).waterL > 0 && this.world.getBlock(x, y, z).key === 'steam_kettle';
-  }
-
-  /** Lets the game say whether a rotor above a kettle has work. */
-  setSteamDemand(fn: ((x: number, y: number, z: number) => boolean) | null): void {
-    this.brewing.steamDemand = fn;
-  }
-
   /** Buckets on furnace tops, cup setups and kettles (docs/api/brewing.md): entities that are not machine nodes. */
   private readonly brewing: Brewing;
+  /** Sealed boilers (docs/api/steam.md): a gauge glass owns the vessel entity; never a machine node. */
+  private readonly boilers: Boilers;
   /** The glass distillery's modules and rigs (docs/api/distillery.md): entities that are not machine nodes. */
   readonly distill: Distillery;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
@@ -159,6 +151,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       flagOnce: (flag) => this.flagOnce(flag),
       returnItem: (x, y, z, item, durability) => this.returnItem(x, y, z, item, durability),
     });
+    this.boilers = new Boilers(world, bus, { furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z) });
     this.distill = new Distillery(world, bus, {
       furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z),
       flagOnce: (flag) => this.flagOnce(flag),
@@ -245,6 +238,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.hand.clear();
     this.benches.clear();
     this.brewing.clear();
+    this.boilers.clear();
     this.distill.clear();
     this.hearths.clear();
     // A damaged entity (an older save's shape, a bad field) is repaired, or dropped when its kind is unknown, so one
@@ -254,6 +248,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       if (isPlant(e)) this.crops.track(e);
       else if (this.trackHand(e)) continue;
       else if (isBrewKind(e.kind)) this.brewing.track(e);
+      else if (e.kind === BOILER_MACHINE) this.boilers.track(e);
       else if (isChemKind(e.kind)) this.distill.track(e);
       else if (isAirEntity(e)) continue; // the air network follows its own saved entities (airNet.ts)
       else if (!isPipeEntity(e)) {
@@ -331,6 +326,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     for (let i = 0; i < tickers.length; i++) if (tickers[i].loaded) behaviours[i].apply(tickers[i], this, dt);
     // Brewing draws its heat into the furnaces' extractW before they are advanced.
     this.brewing.tick(dt);
+    this.boilers.tick(dt);
     this.distill.tick(dt);
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
@@ -410,6 +406,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       return;
     }
     if (Distillery.handles(from)) this.distill.remove(x, y, z);
+    if (Boilers.handles(to)) {
+      this.boilers.place(x, y, z, to);
+      return;
+    }
+    if (Boilers.handles(from)) this.boilers.remove(x, y, z);
     // Buckets, cups and kettles (docs/api/brewing.md) keep their own entities; they are never machine nodes.
     if (Brewing.handles(to)) {
       this.brewing.place(x, y, z, to);
@@ -536,7 +537,22 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   /** The brewing table: what the held item (null: an empty hand) does to the cup, bucket or kettle at x,y,z. */
   brewUse(x: number, y: number, z: number, heldKey: string | null): BrewResult {
+    const boiler = this.boilers.use(x, y, z, heldKey);
+    if (boiler) return boiler;
     return brewUse(this.brewing, x, y, z, heldKey);
+  }
+
+  /** Whether the cell holds a boiling steam kettle with water in it: open steam for a rotor standing on it. */
+  steamReadyAt(x: number, y: number, z: number): boolean {
+    const e = this.brewing.entityAt(x, y, z);
+    if (this.boilers.steamReadyAt(x, y, z)) return true;
+    return !!e && e.kind === 'kettle' && (e as { boiling: boolean }).boiling && (e as { waterL: number }).waterL > 0 && this.world.getBlock(x, y, z).key === 'steam_kettle';
+  }
+
+  /** Lets the game say whether a rotor above a kettle has work. */
+  setSteamDemand(fn: ((x: number, y: number, z: number) => boolean) | null): void {
+    this.brewing.steamDemand = fn;
+    this.boilers.steamDemand = fn;
   }
 
   /** Sets a water container on the furnace or hearth roof below the empty cell x,y,z. */
@@ -552,7 +568,14 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   /** What the bucket, cup or kettle at a position is doing (the target sentence), or null. */
   brewView(x: number, y: number, z: number): BrewView | ChemView | null {
+    const boiler = this.boilers.text(x, y, z);
+    if (boiler) return { kind: 'kettle', stage: 'filled', text: boiler, progress: 0, secondsLeft: 0, drink: null, tempC: null };
     return brewView(this.brewing, x, y, z) ?? chemView(this.distill, x, y, z);
+  }
+
+  /** Pressure of every formed boiler: bar, and the share of the rating (the over-pressure hazard reads it). */
+  boilerPressures(): ReturnType<Boilers['pressures']> {
+    return this.boilers.pressures();
   }
 
   /** The distillery's table: what the held item (null: empty hand) does to the module at x,y,z; null when nothing. */

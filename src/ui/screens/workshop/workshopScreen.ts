@@ -41,7 +41,7 @@ function css(): void {
 const nice = (key: string): string => itemOrNull(key)?.name ?? key.replace(/_/g, ' ');
 
 export const RULES: readonly string[] = [
-  'A source (crank, clockwork motor, treadwheel, water wheel, wind turbine, steam engine, a tractor beside a shaft) turns everything it touches. Parts join on every side. A belt whose exit touches another belt shares that speed, even after a piston moves only one of them.',
+  'A source (crank, clockwork motor, treadwheel, steam rotor, a tractor beside a shaft) turns everything it touches. Parts join on every side. A belt whose exit touches another belt shares that speed, even after a piston moves only one of them.',
   'A sequenced gearshift runs one of three programs, or a punched card of eight steps: ratio, direction (back, off, forward) and seconds. Use the loaded gearshift empty-handed to edit the card.',
   'Speed has a direction. A reverse box flips it, a ratio dial changes it, a governor caps it, a clutch (or a gearshift between steps) hands nothing on. A differential turns at the mean of two shafts.',
   'Every part costs stress units; the sources carry a limit (a crank 8 su). Over the limit the line stops, or a shear pin snaps first. Two routes that turn one part differently jam.',

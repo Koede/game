@@ -33,10 +33,6 @@ export const CRANK_S = 2.5;
 export const CRANK_CAPACITY = 8;
 /** Stress units per part (cranks and shafts cost nothing). */
 export const STRESS: Record<string, number> = BASE_STRESS;
-/** Generators that also turn a shaft they touch: rpm, and stress units per watt they make. */
-export const GENERATOR_SHAFT: Record<string, { rpm: number; suPerW: number }> = {
-  water_wheel: { rpm: 12, suPerW: 1 / 50 }, wind_turbine: { rpm: 16, suPerW: 1 / 50 }, steam_engine: { rpm: 24, suPerW: 1 / 50 },
-};
 /** Steam rotor on an open copper kettle (docs/advice/tech-spine.md 2.2): 16 rpm and 4 stress units, 200 W. */
 export const STEAM_ROTOR = { rpm: 16, capacity: 4 };
 
@@ -57,7 +53,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo']);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -145,7 +141,6 @@ export class Workshop {
   private readonly lubeFactor = new Map<string, number>();
   private clock = 0;
   /** Watts a generator block makes right now (the sim's machine view); null = generators do not turn shafts. */
-  generatorWatts: ((x: number, y: number, z: number) => number) | null = null;
   private readonly machines = new Map<string, MachineState>();
   /** rpm of every turning part this tick, and the network facts per part. */
   private readonly speed = new Map<string, number>();
@@ -222,7 +217,7 @@ export class Workshop {
 
   /** Blocks a piston or bearing may carry: frames and every workshop part, never generators (sim machines) or the actuators. */
   private isMovable(kind: string): boolean {
-    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind in GENERATOR_SHAFT || kind === 'dynamo') return false;
+    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind === 'dynamo') return false;
     return kind === 'contraption_frame' || KINETIC.has(kind) || isLogistic(kind) || SIGNAL_KINDS.has(kind);
   }
 
@@ -430,11 +425,6 @@ export class Workshop {
   private sourceFor(key: string, p: Part): Source | null {
     if (p.kind === 'hand_crank') return this.cranks.has(key) ? { rpm: CRANK_RPM, capacity: CRANK_CAPACITY } : null;
     if (p.kind === 'clockwork_motor') return (this.wound.get(key) ?? 0) > 0 ? { rpm: CLOCKWORK.rpm, capacity: CLOCKWORK.capacity } : null;
-    const g = GENERATOR_SHAFT[p.kind];
-    if (g) {
-      const w = this.generatorWatts?.(p.x, p.y, p.z) ?? 0;
-      return w > 0 ? { rpm: g.rpm, capacity: w * g.suPerW } : null;
-    }
     if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
     if (p.kind === 'steam_rotor') return this.steamAt?.(p.x, p.y - 1, p.z) ? { rpm: STEAM_ROTOR.rpm, capacity: STEAM_ROTOR.capacity } : null;
     if (this.pto.has(key)) return { rpm: 24, capacity: 30 };

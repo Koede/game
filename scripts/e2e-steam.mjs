@@ -90,6 +90,40 @@ try {
     await d.shot('2-turning');
   });
 
+  await report.step('a sealed boiler forms round the furnace, fills by tap, and the gauge reads pressure', async () => {
+    const B = await d.hw((p) => {
+      const hw = window.__hw;
+      const x = p.x0 + 3, z = p.z0 + 4, y = p.gy;
+      hw.setVoxel(x, y, z, 'furnace_bronze');
+      for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let dy = 1; dy <= 4; dy++) {
+        if (dx === 0 && dz === 0 && dy >= 2 && dy <= 3) continue;
+        hw.setVoxel(x + dx, y + dy, z + dz, 'boiler_plate');
+      }
+      hw.setVoxel(x, y + 4, z, 'safety_valve');
+      hw.setVoxel(x - 1, y + 2, z, 'boiler_gauge_glass');
+      hw.give('water_pail', 2);
+      return { x, y, z };
+    }, P);
+    await d.hw((b) => { const hw = window.__hw; hw.teleport(b.x - 3.5, b.y, b.z - 0.5); }, B);
+    await d.settle(1500);
+    await d.selectItem('water_pail');
+    for (let i = 0; i < 2; i++) {
+      assert(await d.aimAt({ x: B.x - 1, y: B.y + 2, z: B.z }), 'aims at the gauge glass');
+      await d.use();
+      await d.settle(700);
+    }
+    await d.hw((b) => {
+      const hw = window.__hw;
+      const f = [...hw.app.game.state.world.entities()].find((e) => e.kind === 'furnace' && e.x === b.x && e.y === b.y && e.z === b.z);
+      for (let i = 0; i < 40; i++) { f.tempC = 400; hw.tick(20); }
+    }, B);
+    const text = await d.hw((b) => window.__hw.app.game.state.sim.brewView(b.x - 1, b.y + 2, b.z)?.text, B);
+    assert(/Boiler - [1-9][\d.]* bar/.test(text ?? ''), `gauge says: ${text}`);
+    await d.hw((b) => window.__hw.lookAt(b.x - 1, b.y + 2, b.z), B);
+    await d.settle(500);
+    await d.shot('3-boiler');
+  });
+
   await report.step('no console errors', async () => {
     await d.hw(() => clearInterval(window.__steamHold));
     assert(errors.length === 0, errors.slice(0, 5).join(' | '));
