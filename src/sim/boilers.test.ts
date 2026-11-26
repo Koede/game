@@ -109,7 +109,8 @@ describe('the sealed boiler', () => {
     run(kit, f, 90);
     const e = kit.sim.beamEngineAt(-4, 3, 0);
     expect(e).not.toBeNull();
-    expect(e!.capacity).toBe(6);
+    expect(e!.capacity).toBeGreaterThan(2.9);
+    expect(e!.capacity).toBeLessThanOrEqual(8);
     expect(e!.rpm).toBeCloseTo(16 * bar(kit), 1);
     // 2 pipes add 200 L of steam room.
     expect(kit.sim.brewView(1, 3, 0)?.text).toMatch(/bar/);

@@ -47,6 +47,11 @@ export default {
       textures: { all: 'steam_pipe' },
     },
     {
+      key: 'steam_tank', name: 'Steam Receiver', category: 'block', age: BRONZE, hardness: 2, tool: 'pickaxe', minTier: 0,
+      desc: 'A bronze drum on a boiler steam line. It adds 8000 L of steam room, so pressure moves slowly and engines ride out the peaks.',
+      textures: { all: 'steam_tank' },
+    },
+    {
       key: 'boiler_plate', name: 'Boiler Plate', category: 'block', age: BRONZE, hardness: 2, tool: 'pickaxe', minTier: 0,
       desc: 'A riveted bronze shell plate, rated for 8 bar. Close a box of them round two empty cells, with a Gauge Glass in the wall, and it is a boiler.',
       textures: { all: 'boiler_plate' },
@@ -65,6 +70,7 @@ export default {
     },
   ],
   recipes: [
+    forge('steam_tank', '6 bronze_plate, 1 steam_pipe', 900),
     forge('heat_port', '2 bronze_plate, 2 bronze_ingot', 800),
     forge('water_port', '2 bronze_plate, 1 pail', 800),
     forge('steam_port', '2 bronze_plate, 1 steam_pipe', 800),

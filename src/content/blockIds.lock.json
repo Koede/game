@@ -289,5 +289,7 @@
   "heat_port": 287,
   "water_port": 288,
   "steam_port": 289,
-  "steam_pipe": 290
+  "steam_pipe": 290,
+  "steam_tank": 291,
+  "windmill": 292
 }
