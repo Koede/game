@@ -46,7 +46,8 @@ export async function handworkSteps({ d, step, assert, page }) {
     await d.centerMouse();
     await d.hw((a) => { const hw = window.__hw; hw.teleport(a.x, a.y, a.z); hw.lookAt(a.tx, a.ty, a.tz); }, { x: pos.x + 0.5, y: pos.y, z: pos.z + dist, tx: pos.x + 0.5, ty: pos.y + 0.45, tz: pos.z + 0.5 });
     await d.settle(500);
-    assert(await d.aimAt(pos), `cannot aim at ${JSON.stringify(pos)}`);
+    // Something may stand in that line (a plant, a passing animal): let the driver step to a spot that sees the station.
+    assert((await d.aimAt(pos)) || (await d.approach(pos)), `cannot aim at ${JSON.stringify(pos)}`);
   };
 
   await step('a yard of hand stations is set up and the crosshair names them', async () => {
