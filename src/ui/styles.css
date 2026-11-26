@@ -2963,6 +2963,7 @@ body {
   font-size: var(--hw-fs-sm);
   line-height: 1.35;
   color: var(--hw-ash-1);
+}
 /* Recipe helper strip (src/ui/screens/inventory/recipeHelperPanel.ts) */
 .hw-helper {
   display: grid;
@@ -3032,3 +3033,17 @@ body {
 /* Trade caravan */
 .hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
 .hw-caravan__row span { flex: 1; min-width: 0; }
+
+/* Town page and the HUD's town chip */
+.hw-town-chip { margin-top: 4px; min-height: 40px; }
+.hw-town__sec { margin: 0 0 12px; }
+.hw-town__goal { margin: 2px 0 4px; font-weight: 600; font-size: 1.05em; }
+.hw-town__line { margin: 4px 0; line-height: 1.35; }
+.hw-town__warn { color: var(--hw-heat-hi, #e0a060); }
+.hw-town__sub { opacity: 0.75; font-size: 0.92em; }
+.hw-town__row { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; margin: 3px 0; }
+.hw-town__row.is-done { opacity: 0.55; }
+.hw-town__row.is-invalid .hw-town__sub { color: var(--hw-heat-hi, #e0a060); }
+.hw-town__name { font-weight: 600; min-width: 0; }
+.hw-town__bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.hw-town__fill { height: 100%; background: var(--hw-heat, #d9822b); }

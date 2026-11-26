@@ -237,6 +237,11 @@ export class TownBuilder {
     return this.plan;
   }
 
+  /** Buildings finished or dropped so far (the plan's index of the one in progress). */
+  get builtCount(): number {
+    return this.building;
+  }
+
   /** True once every planned building is finished or dropped. */
   get done(): boolean {
     return this.plan !== null && this.building >= this.plan.buildings.length;

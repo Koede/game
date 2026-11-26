@@ -3,7 +3,8 @@
  * (the clock jumps, you wake rested and warm), and Rosa reads you a short note the regulars left while you slept. A friend of
  * Rosa pays less.
  */
-import type { Service } from './services';
+import { priceFactor } from './contentment';
+import type { Service, TavernPort } from './services';
 
 export const ROOM_COST = 14;
 export const ROOM_FRIEND_COST = 10;
@@ -11,6 +12,9 @@ export const ROOM_FRIEND_COST = 10;
 export const ROOM_FRIEND_TRUST = 20;
 
 export const roomCost = (rosaTrust: number): number => (rosaTrust >= ROOM_FRIEND_TRUST ? ROOM_FRIEND_COST : ROOM_COST);
+
+/** The bed's price now: the friend rate, then Rosa's contentment (a happy Rosa charges up to 15% less, a restless one up to 20% more). */
+export const bedCost = (p: TavernPort): number => Math.max(1, Math.round(roomCost(p.trust('rosa')) * priceFactor(p.mood?.('rosa') ?? 0)));
 
 /** One line from each regular, left on the bar while you sleep. `{day}` is the day just ended. */
 export const NOTES: Readonly<Record<string, readonly string[]>> = {
@@ -55,17 +59,17 @@ export function wakeNotes(rng: () => number): string[] {
 
 export const ROOM_SERVICE: Service = {
   id: 'room',
-  cost: (p) => roomCost(p.trust('rosa')),
+  cost: (p) => bedCost(p),
   pitch: (p) => {
     const ph = p.phase();
     if (ph !== 'evening' && ph !== 'night') return null;
-    const c = roomCost(p.trust('rosa'));
+    const c = bedCost(p);
     return `A bed upstairs for the night is ${c} coin, clean sheets and a fire in the wall. Use me again to take it.`;
   },
   accept: (p) => {
     const ph = p.phase();
     if (ph !== 'evening' && ph !== 'night') return 'Beds are for the night, love. Come back at dusk.';
-    const c = roomCost(p.trust('rosa'));
+    const c = bedCost(p);
     if (p.coins() < c) return `${c} coin for the bed, and you carry ${p.coins()}. A bench by the fire is free.`;
     if (!p.host?.sleepToDawn) return 'The rooms are being aired. Another night.';
     p.spend(c);

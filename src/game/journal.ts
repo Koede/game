@@ -87,6 +87,7 @@ export class Journal {
         const spec = AGES[age];
         if (spec) this.add('age', `A new age begins: ${spec.name}. ${spec.blurb}`, `age:${age}`);
       }),
+      bus.on('town:note', ({ key, text }) => this.add('note', text, key)),
       bus.on('player:death', ({ cause }) => this.add('death', `I died (${cause}).`)),
       bus.on('weather:changed', ({ kind }) => {
         if (kind === 'storm') this.add('storm', 'Caught out in a storm.', 'first:storm');

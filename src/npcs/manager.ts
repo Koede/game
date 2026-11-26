@@ -37,6 +37,17 @@ import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
 import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
 import { DRINKS, TONICS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
+import { newcomerLine, type Arrival, type Newcomer, type TownFacts } from './moveIn';
+import { ARRIVAL_LINES, BED_ROOM, LODGE_COMMON, LODGE_ROOMS, LODGE_SLEEP, Settlement, lodgeRooms, nameOfPerson, sampleTags, townContentment, type SettlementSnapshot } from './settlement';
+import { bedOfRoom, scanRooms } from './housingScan';
+import { CAMP as CAMP_ROOM, type RoomInput } from './housingView';
+import { favourRate, lineTone, priceFactor } from './contentment';
+import { DAY_BUDGET } from './townBuilder';
+import { townTemplate } from './townTemplates';
+import { REPUTATION_STEPS, UNLOCK_REP } from './buildBoard';
+import { moodLabel, waitingText, type TownPage } from './townPage';
+import { CAMP_GOALS, currentGoal, doneGoals, type CampFacts, type CampGoal } from '../game/campGoals';
+import { LODGE_D, LODGE_W } from './lodge';
 
 export interface NpcView {
   id: string;
@@ -105,6 +116,10 @@ export interface NpcSnapshot {
   present?: string[];
   /** The camp stands in place of the tavern (a new world); absent in old saves. */
   camp?: boolean;
+  /** Who lives in which room, the move-in clock and the arrival log (settlement.ts); absent in old saves. */
+  settle?: SettlementSnapshot;
+  /** Camp goals done and the flags that feed them (campGoals.ts); absent in old saves. */
+  goals?: { done: string[]; flags: string[] };
 }
 
 /** What the manager needs from the game. */
@@ -139,6 +154,8 @@ export interface NpcHost {
   day(): number;
   /** The world's seed (the trader's visits and stock are drawn from it). */
   worldSeed?(): number;
+  /** What the move-in triggers ask about the player (magic met, the distillery reached); absent: neither. */
+  townFacts?(): { magic: boolean; alchemy: boolean };
   /** The stack in the player's hand, or null. */
   held(): { item: string; count: number } | null;
   takeHeld(count: number): void;
@@ -229,6 +246,15 @@ export class NpcManager {
   private readonly routes = new Map<string, { goal: string; cells: Cell[] }>();
   /** The camp stands in place of the tavern (a new world): no tavern features until `settle`. */
   camp = false;
+  /** Who lives where, the nightly move-in roll and contentment (settlement.ts). */
+  private readonly settlement = new Settlement();
+  /** The rooms found by their bed in the world (housingScan.ts), refreshed on a night when they matter. */
+  private builtRooms: RoomInput[] = [];
+  private trackedLevel = -1;
+  /** Camp goals seen done (campGoals.ts), the flags that feed them, and whether the first look after a load has passed. */
+  private goalsDone = new Set<string>();
+  private goalFlags = new Set<string>();
+  private goalsReady = false;
   /** Who lives here now (ids in NPCS). Only these are drawn, walk, talk, and count for gated features. */
   private people = new Set<string>(NPCS.map((n) => n.id));
   private host: NpcHost | null = null;
@@ -260,6 +286,9 @@ export class NpcManager {
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
+    bus.on?.('flag', ({ flag }) => {
+      if (flag === 'well_warmed' || flag === 'rested') this.goalFlags.add(flag);
+    });
   }
 
   bind(host: NpcHost): void {
@@ -361,6 +390,8 @@ export class NpcManager {
     if (this.camp) return CAMP_ROUTINES[n.id]?.[phase as 'morning'] ?? null;
     // Only the lodge stands: Gruk keeps to the common room by the hearth (the tavern's own spots are not built yet).
     if (n.id === BUILDER_ID && this.tavernLevel < LODGE_PATH.length) return LODGE_ROUTINE;
+    // Only the lodge stands: the newcomers keep to the common room by day and sleep in their bedroom at night.
+    if (this.tavernLevel < LODGE_PATH.length) return this.lodgeSpot(n.id, phase);
     return spotFor(n.id, phase);
   }
 
@@ -696,6 +727,7 @@ export class NpcManager {
       spend: (n) => (this.coins >= n ? ((this.coins -= n), true) : false),
       earn: (n) => void (this.coins += n),
       trust: (id) => this.trustOf(id),
+      mood: (id) => this.settlement.scoreOf(id),
       addTrust: (id, n) => void (this.trust[id] = Math.max(0, Math.min(TRUST_MAX, this.trustOf(id) + n))),
       say: (line) => this.say(npc, line),
       toast: (text) => this.toast(text),
@@ -1049,7 +1081,8 @@ export class NpcManager {
       this.say(npc, line);
       return line;
     }
-    const mood = 0.7 + this.rng() * 0.7;
+    // Old Bram pays by his mood, which is his contentment: 0.75 when he is restless, 1.35 when he is cheerful (no dice).
+    const mood = 1.05 + 0.3 * this.settlement.scoreOf('bram');
     const coin = stackPrice(held.item, held.count, mood);
     if (coin <= 0) {
       const line = 'That is not worth the air it takes to say so. Sorry.';
@@ -1142,27 +1175,33 @@ export class NpcManager {
     this.traderMenu = new ServiceMenu(lines.map((_, i) => this.traderService(i)));
   }
 
+  /** The stall's price once the town's mood is counted: a content town pays up to 15% less, a restless one up to 20% more (contentment.ts). */
+  private tradePrice(base: number): number {
+    return base <= 0 ? 0 : Math.max(1, Math.round(base * priceFactor(this.settlement.mood())));
+  }
+
   /** One stock line as a service: pitched while units are left; the Use inside the window buys one unit. */
   private traderService(i: number): Service {
     const line = (): TraderLine | undefined => this.traderCache?.lines[i];
     return {
       id: `trader-${i}`,
-      cost: () => line()?.price ?? 0,
+      cost: () => this.tradePrice(line()?.price ?? 0),
       pitch: () => {
         const l = line();
         if (!l || !this.trade || this.trade.left[i] <= 0) return null;
-        return `${nameOf(l.item)}: ${this.trade.left[i]} left at ${l.price} coin. Use me again to buy one.`;
+        return `${nameOf(l.item)}: ${this.trade.left[i]} left at ${this.tradePrice(l.price)} coin. Use me again to buy one.`;
       },
       accept: (p) => {
         const l = line();
         if (!l || !this.trade || this.trade.left[i] <= 0) return 'That one is sold out. Ask what else I have.';
-        if (!p.spend(l.price)) return `That is ${l.price} coin, friend, and you carry ${p.coins()}. Come back with it.`;
+        const price = this.tradePrice(l.price);
+        if (!p.spend(price)) return `That is ${price} coin, friend, and you carry ${p.coins()}. Come back with it.`;
         if ((this.host?.give(l.item, 1) ?? 1) > 0) {
-          p.earn(l.price);
+          p.earn(price);
           return TRADER_FULL;
         }
         this.trade.left[i]--;
-        this.toast(`Bought 1 ${nameOf(l.item)} from Pell for ${l.price} coin (${this.coins} left)`);
+        this.toast(`Bought 1 ${nameOf(l.item)} from Pell for ${price} coin (${this.coins} left)`);
         return `There you go. One ${nameOf(l.item)}. Do not wear it out on the road.`;
       },
     };
@@ -1243,9 +1282,254 @@ export class NpcManager {
     const t = this.trade!;
     return {
       start: info.visit.start, leave: info.visit.leave, here: info.here,
-      stock: c.lines.map((l, i) => ({ item: l.item, left: t.left[i], price: l.price, rare: l.rare })),
+      stock: c.lines.map((l, i) => ({ item: l.item, left: t.left[i], price: this.tradePrice(l.price), rare: l.rare })),
       want: c.want, wantDone: t.wantDone,
     };
+  }
+
+  // ---- newcomers, housing and contentment -----------------------------------------------------------------------
+
+  /** Where a resident stands while only the lodge is built: the common room by day, their bedroom at night. */
+  private lodgeSpot(id: string, phase: Phase): Spot {
+    if (phase === 'night') {
+      const room = this.settlement.roomOf(id);
+      const sleep = LODGE_SLEEP[room];
+      if (sleep) return sleep;
+    }
+    return LODGE_COMMON[id] ?? LODGE_ROUTINE;
+  }
+
+  /** The people still to come, with what holds each back (moveIn.ts). */
+  private townLine(host: NpcHost): Newcomer[] {
+    const extra = host.townFacts?.() ?? { magic: false, alchemy: false };
+    const residents = this.presentCount() - (this.people.has(BUILDER_ID) ? 1 : 0);
+    const facts: TownFacts = { hearth: this.tavernLevel >= 1, firstBronze: host.completed().has('make_bronze'), firstMagic: extra.magic, residents, alchemy: extra.alchemy };
+    return newcomerLine(facts, this.board.rep).filter((n) => !this.people.has(n.id));
+  }
+
+  /** Every room the town counts now: the lodge's own (valid by default) and the player's found by their bed. */
+  private roomsNow(): RoomInput[] {
+    return [...lodgeRooms(this.tavernLevel), ...this.builtRooms];
+  }
+
+  private roomLabel(id: string): string {
+    return LODGE_ROOMS.find((r) => r.id === id)?.label ?? (id === CAMP_ROOM ? 'Camp' : 'Your room');
+  }
+
+  /** Looks for rooms the player built: every bed near the town that passes the room check. */
+  private scanBuilt(host: NpcHost): RoomInput[] {
+    const o = this.at;
+    if (!o) return [];
+    return scanRooms(host.companion.world, { x: o[0] + Math.floor(LODGE_W / 2), y: o[1], z: o[2] + Math.floor(LODGE_D / 2), lodge: { x: o[0], z: o[2], w: LODGE_W, d: LODGE_D } });
+  }
+
+  /**
+   * Each time the day turns, the nights that passed are rolled one by one: a newcomer may move into a free valid room (never on its
+   * first night, at most one a night), a resident whose room broke moves out, and contentment is read again.
+   */
+  private tickSettlement(host: NpcHost): void {
+    if (!this.at) return;
+    const day = host.day();
+    const level = this.tavernLevel;
+    const turned = day !== this.settlement.last;
+    if (!turned && level === this.trackedLevel) return;
+    this.trackedLevel = level;
+    if (!turned) {
+      this.settlement.track(day, this.roomsNow());
+      return;
+    }
+    const line = (): Newcomer[] => this.townLine(host);
+    const lives = Object.values(this.settlement.occupancy).some((r) => r.startsWith(BED_ROOM));
+    if (line().length > 0 || lives) this.builtRooms = this.scanBuilt(host);
+    this.settlement.track(day, this.roomsNow());
+    this.settlement.advance(day, () => this.roomsNow(), line, this.rng, (a, night) => this.moveIn(a, night));
+    for (const m of this.settlement.evict(this.roomsNow())) {
+      this.toast(`${nameOfPerson(m.personId)}'s room is not a room any more (a wall, the door, the light or the seat is gone). ${m.to === CAMP_ROOM ? 'They sleep by the camp fire until it is mended.' : `They move to the ${this.roomLabel(m.to).toLowerCase()}.`}`);
+    }
+    this.rescore(host);
+  }
+
+  /** A newcomer arrives: they walk in at the door, say who they are, and their room has their things in it. */
+  private moveIn(a: Arrival, night: number): void {
+    const id = a.personId;
+    this.people.add(id);
+    this.pos.set(id, [6, 0]);
+    this.routes.delete(id);
+    const name = nameOfPerson(id);
+    const room = this.roomLabel(a.roomId).toLowerCase();
+    this.toast(`${name} has moved into the ${room}.`);
+    const hello = ARRIVAL_LINES[id];
+    if (hello) this.toast(hello);
+    this.bus.emit('town:note', { key: `town:arrived:${id}`, text: `${name} moved into the ${room}.` });
+    this.bus.emit('sfx', { name: 'ui_click' });
+    void night;
+  }
+
+  /** Reads contentment again for everyone who lives here (the room, the neighbours and the surroundings). */
+  private rescore(host: NpcHost): void {
+    const o = this.at;
+    if (!o) {
+      this.settlement.setScores({});
+      return;
+    }
+    const spotOf = (id: string): { x: number; y: number; z: number } => {
+      const room = this.settlement.roomOf(id);
+      const def = LODGE_ROOMS.find((r) => r.id === room);
+      if (def) return { x: o[0] + def.at[0], y: o[1] + def.at[1], z: o[2] + def.at[2] };
+      const bed = bedOfRoom(room);
+      if (bed) return bed;
+      return { x: o[0] + LODGE_ROUTINE[0], y: o[1] + LODGE_ROUTINE[1], z: o[2] + LODGE_ROUTINE[2] };
+    };
+    const block = host.townBlock;
+    const residents = NPCS.filter((n) => this.people.has(n.id)).map((n) => n.id);
+    this.settlement.setScores(townContentment(
+      residents,
+      spotOf,
+      (id) => this.settlement.roomOf(id) !== CAMP_ROOM,
+      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot) : new Set()),
+    ));
+  }
+
+  /** What the camp goals read (campGoals.ts). */
+  private campFacts(): CampFacts {
+    return {
+      metBuilder: (this.spoken[BUILDER_ID] ?? 0) > 0,
+      warmed: this.goalFlags.has('well_warmed'),
+      rested: this.goalFlags.has('rested'),
+      standing: this.board.rep,
+      lodgeLevel: this.tavernLevel,
+      residents: this.presentCount() - (this.people.has(BUILDER_ID) ? 1 : 0),
+    };
+  }
+
+  /** Whether the camp goal track applies here: a new world's camp, or a lodge on its way (an old tavern has no such track). */
+  private campTrack(): boolean {
+    return this.at !== null && (this.camp || this.town.hasLodge());
+  }
+
+  /** Notes the camp goals the town has finished: a toast and a diary line each (silently on the first look after a load). */
+  private tickGoals(host: NpcHost): void {
+    void host;
+    if (!this.campTrack()) return;
+    const done = doneGoals(this.campFacts(), this.goalsDone);
+    const fresh = CAMP_GOALS.filter((g) => done.has(g.id) && !this.goalsDone.has(g.id));
+    if (fresh.length === 0) {
+      this.goalsReady = true;
+      return;
+    }
+    for (const g of fresh) this.goalsDone.add(g.id);
+    if (!this.goalsReady) {
+      this.goalsReady = true;
+      return;
+    }
+    const last = fresh[fresh.length - 1];
+    for (const g of fresh) this.bus.emit('town:note', { key: `camp:${g.id}`, text: g.note });
+    this.toast(`Camp goal done: ${last.title}.`);
+    const next = currentGoal(this.goalsDone);
+    if (next) this.toast(`Next at the camp: ${next.title}. ${next.text}`);
+  }
+
+  /** The current camp goal for the HUD chip, or null when the track is finished or does not apply. */
+  campGoal(): CampGoal | null {
+    return this.campTrack() ? currentGoal(doneGoals(this.campFacts(), this.goalsDone)) : null;
+  }
+
+  /** What the HUD's town chip says: the camp goal, else the building going up; null when there is no town to show. */
+  townChip(): { kicker: string; title: string } | null {
+    if (!this.campTrack()) return null;
+    const goal = this.campGoal();
+    if (goal) return { kicker: 'Camp goal', title: goal.title };
+    const cur = this.town.currentTemplate;
+    if (!cur) return { kicker: 'Town', title: `${this.presentCount() - 1} neighbours` };
+    const idx = (LODGE_PATH as readonly string[]).indexOf(cur);
+    const prog = this.town.progress();
+    const pct = prog.cells > 0 ? Math.round((100 * prog.laid) / prog.cells) : 0;
+    return { kicker: 'Gruk is building', title: `${idx >= 0 ? LODGE_NAMES[idx] : (townTemplate(cur)?.name ?? cur)} ${pct}%` };
+  }
+
+  /** Everything the Town page shows (townPage.ts). */
+  townPage(): TownPage {
+    const host = this.host;
+    const day = host?.day() ?? 1;
+    const active = this.campTrack();
+    const cur = this.town.currentTemplate;
+    const prog = this.town.progress();
+    const lodgeIdx = (LODGE_PATH as readonly string[]).indexOf(cur ?? '');
+    const missing = this.town.missing().map((m) => ({ item: m.item, count: m.count }));
+    const waiting = this.town.waitingOn();
+    const building = cur
+      ? {
+          name: lodgeIdx >= 0 ? LODGE_NAMES[lodgeIdx] : (townTemplate(cur)?.name ?? cur),
+          stage: lodgeIdx >= 0 ? lodgeIdx + 1 : null,
+          stages: lodgeIdx >= 0 ? LODGE_PATH.length : null,
+          percent: prog.cells > 0 ? Math.round((100 * prog.laid) / prog.cells) : 0,
+          missing,
+          daysLeft: missing.length === 0 && prog.cells > 0 ? Math.max(1, Math.ceil((prog.cells - prog.laid) / DAY_BUDGET)) : null,
+          waiting: waiting ? lockNote(waiting, this.board.rep) : null,
+        }
+      : null;
+    const rep = this.board.rep;
+    const nextStep = REPUTATION_STEPS.find((s) => s.at > rep) ?? null;
+    const lock = Object.entries(UNLOCK_REP).filter(([, at]) => at > rep).sort((a, b) => a[1] - b[1])[0];
+    const line = host ? this.townLine(host) : [];
+    const free = this.roomsNow();
+    const nextIn = line.length > 0 ? this.settlement.next(line, free) : null;
+    const labels: Record<string, string> = {};
+    for (const r of LODGE_ROOMS) labels[r.id] = r.label;
+    const done = doneGoals(this.campFacts(), this.goalsDone);
+    const goals = this.campTrack() ? CAMP_GOALS.map((g) => ({ id: g.id, title: g.title, text: g.text, done: done.has(g.id) })) : [];
+    const goal = goals.find((g) => !g.done) ?? null;
+    return {
+      active,
+      camp: this.camp,
+      day,
+      building,
+      finished: this.town.builtCount,
+      planned: this.town.planned?.buildings.length ?? 0,
+      standing: { name: reputationStep(rep).name, value: rep, next: nextStep ? { name: nextStep.name, at: nextStep.at } : null },
+      nextUnlock: lock ? `${townTemplate(lock[0])?.name ?? lock[0]} (town standing ${lock[1]}; it stands at ${rep})` : null,
+      mood: this.settlement.mood(),
+      moodLabel: moodLabel(this.settlement.mood()),
+      residents: NPCS.filter((n) => this.people.has(n.id)).map((n) => {
+        const score = this.settlement.scoreOf(n.id);
+        const room = this.settlement.roomOf(n.id);
+        return { id: n.id, name: n.name, home: n.id === BUILDER_ID && room === CAMP_ROOM ? (this.camp ? 'Camp' : 'Common room') : room === CAMP_ROOM ? 'Common room' : (labels[room] ?? 'Your room'), score, tone: lineTone(score), reasons: [...this.settlement.reasonsOf(n.id)], trust: this.trustOf(n.id) };
+      }),
+      rooms: this.settlement.housing(free, labels),
+      nextInLine: nextIn ? { id: nextIn.id, name: nameOfPerson(nextIn.id), waitingFor: nextIn.waitingFor, text: waitingText(nextIn.id, nameOfPerson(nextIn.id), nextIn.waitingFor) } : null,
+      goals,
+      goal,
+    };
+  }
+
+  /** The settlement as the debug handle and the e2e driver read it: the line, the rooms, who lives where, the scores. */
+  settlementDebug(): { last: number; level: number; line: Newcomer[]; rooms: RoomInput[]; occupancy: Record<string, string>; scores: Record<string, number>; mood: number; goals: string[]; present: string[] } {
+    const host = this.host;
+    return {
+      last: this.settlement.last,
+      level: this.tavernLevel,
+      line: host ? this.townLine(host) : [],
+      rooms: this.roomsNow(),
+      occupancy: this.settlement.occupancy,
+      scores: Object.fromEntries(NPCS.filter((n) => this.people.has(n.id)).map((n) => [n.id, this.settlement.scoreOf(n.id)])),
+      mood: this.settlement.mood(),
+      goals: [...this.goalsDone],
+      present: [...this.people],
+    };
+  }
+
+  /** Dev skip (the e2e): runs `n` nights of the move-in roll at once, as if the days had passed. Returns who arrived. */
+  skipNights(n: number): string[] {
+    const host = this.host;
+    if (!host || !this.at) return [];
+    const before = new Set(this.people);
+    const day = host.day() + Math.max(0, Math.floor(n));
+    this.settlement.track(host.day(), this.roomsNow());
+    this.builtRooms = this.scanBuilt(host);
+    this.settlement.track(host.day(), this.roomsNow());
+    this.settlement.advance(day, () => this.roomsNow(), () => this.townLine(host), this.rng, (a, night) => this.moveIn(a, night));
+    this.rescore(host);
+    return [...this.people].filter((p) => !before.has(p));
   }
 
   // ---- time -----------------------------------------------------------------------------------------------------
@@ -1261,10 +1545,12 @@ export class NpcManager {
     this.tickFestival();
     this.tickTrader(dt);
     this.tickGossip(dt);
-    if (this.host) this.favours.refresh(this.host.day(), this.rng, (who) => this.isPresent(who));
+    if (this.host) this.favours.refresh(this.host.day(), this.rng, (who) => this.isPresent(who), (who) => favourRate(this.settlement.scoreOf(who)));
     const host = this.host;
     if (!host || !this.at) return;
     this.tickTown(host, dt);
+    this.tickSettlement(host);
+    this.tickGoals(host);
     this.syncJukeboxLamp();
     this.syncPartyLamp();
     if (this.jukeboxOn) this.playJukebox(dt);
@@ -1360,6 +1646,7 @@ export class NpcManager {
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
       town: this.townSnapshot(), present: [...this.people], camp: this.camp,
+      settle: this.settlement.toJSON(), goals: { done: [...this.goalsDone], flags: [...this.goalFlags] },
     };
   }
 
@@ -1427,6 +1714,12 @@ export class NpcManager {
     }
     this.town.load(r.town);
     this.board.load(r.town?.board);
+    this.settlement.load(r.settle);
+    this.builtRooms = [];
+    this.trackedLevel = -1;
+    this.goalsDone = new Set(strings(r.goals?.done).filter((id) => CAMP_GOALS.some((g) => g.id === id)));
+    this.goalFlags = new Set(strings(r.goals?.flags));
+    this.goalsReady = false;
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;

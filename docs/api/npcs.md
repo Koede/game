@@ -150,3 +150,44 @@ tavern).
 Tests: `lodge.test.ts` (the split, the stages' diffs, the bedrooms in the stages), `lodgeBuild.test.ts` (the builder builds all five
 stages on a flat plot, the built world equals the layout, saves, settle), `lodgeFeatures.test.ts` (feature gates and the spawn). E2e:
 `scripts/e2e-lodge.mjs`.
+
+## Newcomers, housing and contentment (settlement.ts, moveIn.ts, townPage.ts)
+
+A new world has only Gruk; everyone else walks in. `NpcManager.tickSettlement` runs when the day turns: the nights since the last
+roll are rolled one by one (`Settlement.advance`, at most `MAX_NIGHTS` 40; sleeping and time away count). Each night, every free
+valid room gets one roll (`moveIn.ts`: never on the room's first night, 4% rising 2% a night to 30%, at most one arrival a night).
+The line is `ARRIVALS`: Rosa (a hearth), **Orrin** (first bronze, `make_bronze` done), Mara (first magic: a done notebook entry),
+Bram (three residents besides Gruk), Veyra (the distillery: a glass beaker in the pack). Gruk is the builder and is not in the line
+(the earlier plan had him second; Orrin took that place). `host.townFacts()` carries the two triggers the goal list cannot.
+
+- **Rooms.** The lodge's own bedrooms are valid housing by default (`LODGE_ROOMS`: `lodge_1`..`lodge_3` at stages 1 to 3, the two
+  guest rooms at stage 4); the upper floor's open doorways fail the flood fill, so they are not checked. Rooms the player builds are
+  found by their `wool_bedding` within 40 blocks of the lodge (`housingScan.ts`, outside the lodge's footprint, at most 24 beds) and
+  must pass `checkRoom`. They are scanned only on a night when someone waits or someone lives in one. A resident whose built room
+  stops passing moves to a free valid room, or to the camp (`Settlement.evict`).
+- **Arrival.** The newcomer is added to `present`, appears at the door and walks to the common room (`LODGE_COMMON`) or, at night, to
+  their bedroom (`LODGE_SLEEP`) while only the lodge stands. A toast, an introduction line (`ARRIVAL_LINES`) and a diary line
+  (`town:note` bus event, key `town:arrived:<id>`) say so.
+- **Contentment** is read again each night (`townContentment`): neighbours are residents within 16 blocks, tags come from block
+  samples (`sampleTags`: water, trees, forge, fumes, hearth; quiet when no forge or fumes and at most two housed neighbours), and
+  only residents with a room of their own count as a crowd. Effects: Old Bram pays by his mood (0.75 to 1.35, no dice), the
+  trader's stall and Rosa's bed follow `priceFactor` (the town's mean mood for the trader), and a restless person pins fewer favours
+  (`favourRate` below 1 is a chance, at 1 or more always).
+- **Save.** `settle` (last night rolled, room first-seen days, who lives where, arrival log) and `goals` (camp goals done and the
+  flags that feed them) are optional in `NpcSnapshot`; an old save starts them fresh, so no rev bump or migration is needed.
+
+### The camp goals (src/game/campGoals.ts)
+
+A track of seven goals on its own, not in the main goal list (so no old save can be stuck on one): meet Gruk, warm up, sleep a night,
+fill a bounty, raise the lodge, welcome a newcomer, a home for three. It shows only where a camp or a lodge exists, reads facts (what
+the town has done, so work already behind you counts), and writes a toast and a diary line as each is done. `NpcManager.campGoal()`.
+
+### The Town page
+
+`NpcManager.townPage()` (data: `townPage.ts`) and `townChip()`; screen `src/ui/screens/town/townScreen.ts` (`{ type: 'town' }`), the
+HUD chip under the goal tracker (`src/ui/hud/townChip.ts`) and a Town entry in the pause menu open it. It shows the camp goal, the
+building and its stage, percent and missing items, days of work left, standing and the next unlock, who lives where and how
+content they are, the rooms, who is next in line and what they wait for.
+
+Dev helpers: `window.__hw.settlement()`, `townPage()` and `skipNights(n)`. Tests: `settlement.test.ts`, `newcomers.test.ts`,
+`campGoals.test.ts`. E2e: `scripts/e2e-newcomers.mjs`.

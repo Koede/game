@@ -61,10 +61,10 @@ export interface ArrivalSpec {
   trigger: Trigger;
 }
 
-/** The line, first to last. Orrin is the builder from the start and is not in it. */
+/** The line, first to last. Gruk is the builder and lives at the camp from the start, so he is not in it; Orrin takes the second place. */
 export const ARRIVALS: readonly ArrivalSpec[] = [
   { id: 'rosa', name: 'Rosa', trigger: 'hearth' },
-  { id: 'gruk', name: 'Gruk', trigger: 'first_bronze' },
+  { id: 'orrin', name: 'Orrin', trigger: 'first_bronze' },
   { id: 'mara', name: 'Mara', trigger: 'first_magic' },
   { id: 'bram', name: 'Old Bram', trigger: 'three_residents' },
   { id: 'veyra', name: 'Veyra', trigger: 'alchemy' },

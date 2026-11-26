@@ -55,7 +55,7 @@ export class FavourBoard {
   private lastDay = 0;
 
   /** Drops expired notes and pins new ones for `day` (only from people `canAsk` allows: the ones who live here). Returns true when the board changed. */
-  refresh(day: number, rng: () => number, canAsk: (who: string) => boolean = () => true): boolean {
+  refresh(day: number, rng: () => number, canAsk: (who: string) => boolean = () => true, rate: (who: string) => number = () => 1): boolean {
     if (day === this.lastDay) return false;
     this.lastDay = day;
     const before = this.pinned.map((p) => p.id).join();
@@ -64,6 +64,9 @@ export class FavourBoard {
     const free = FAVOURS.filter((f) => !have.has(f.id) && canAsk(f.who) && day - (this.done[f.id] ?? -99) >= FAVOUR_DAYS);
     while (this.pinned.length < FAVOUR_SLOTS && free.length > 0) {
       const f = free.splice(Math.min(free.length - 1, Math.floor(rng() * free.length)), 1)[0];
+      // A discontent person pins fewer favours (contentment.ts favourRate, 0.5 to 1.5): the others always do. No roll is drawn at 1 or more.
+      const r = rate(f.who);
+      if (r < 1 && rng() >= r) continue;
       this.pinned.push({ id: f.id, day });
     }
     return this.pinned.map((p) => p.id).join() !== before;

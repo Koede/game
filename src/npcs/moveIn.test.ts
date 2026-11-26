@@ -44,7 +44,7 @@ describe('triggers and the line', () => {
   it('lists the plan order with its triggers', () => {
     expect(ARRIVALS.map((a) => [a.id, a.trigger])).toEqual([
       ['rosa', 'hearth'],
-      ['gruk', 'first_bronze'],
+      ['orrin', 'first_bronze'],
       ['mara', 'first_magic'],
       ['bram', 'three_residents'],
       ['veyra', 'alchemy'],

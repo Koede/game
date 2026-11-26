@@ -1,6 +1,6 @@
 /**
  * Room check for housing (docs/api/housing.md). A flood fill from a bed decides whether the air around it is a bedroom:
- * enclosed, big enough, with a door, a light, the bed and a seat or table. Pure over IWorld; the game does not call it yet.
+ * enclosed, big enough, with a door, a light, the bed and a seat or table. Pure over IWorld; the manager calls it for rooms the player builds (housingScan.ts).
  */
 import { voxelLight } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
