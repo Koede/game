@@ -96,6 +96,21 @@ describe('newcomers in a new world', () => {
     expect(state.npcs.views().some((x) => x.id === 'rosa')).toBe(true);
   });
 
+  it('a resident with a house outside the lodge walks out of the door to it for the night, and back by day', () => {
+    const o = (state.npcs as any).at as [number, number, number];
+    const st = (state.npcs as any).settlement;
+    const house = `house:${o[0] + 25},${o[1] + 1},${o[2] + 3}`;
+    st.addHouse(house);
+    expect(state.npcs.moveResident('rosa', house)).toEqual({ ok: true });
+    const xOf = (): number => state.npcs.views().find((v) => v.id === 'rosa')!.x;
+    state.clock.timeOfDay = 0.9;
+    for (let n = 0; n < 4000 && xOf() < o[0] + 24; n++) state.tick(1);
+    expect(xOf()).toBeGreaterThan(o[0] + 16); // out past the lodge's walls
+    state.clock.timeOfDay = 0.3;
+    for (let n = 0; n < 4000 && xOf() > o[0] + 14; n++) state.tick(1);
+    expect(xOf()).toBeLessThan(o[0] + 14);
+  });
+
   it('a skipped stretch of nights is rolled one by one and never moves in more than the free rooms hold', () => {
     const came = state.npcs.skipNights(60);
     expect(came.length).toBeLessThanOrEqual(1); // one bedroom, one resident already: at most nobody

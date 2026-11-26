@@ -18,7 +18,7 @@ import { ORC_HIRE } from './scripts/orc';
 import { TRADER_FULL, TRADER_WANT_SHORT, TRADER_WANT_THANKS } from './scripts/trader';
 import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
-import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
+import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, YARD_D, buildTavern } from './tavern';
 import { BUILDER_ID, MOVABLE, TownBuilder, movable, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
 import { LODGE_FIRES, LODGE_NAMES, LODGE_PATH, LODGE_ROUTINE, LODGE_SPAWN, lodgeItems, type LodgeKey } from './lodge';
 import { BuildBoard, bayBoardSpot, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
@@ -394,11 +394,29 @@ export class NpcManager {
   /** Where a person stands in `phase`: the camp's spot for the builder while the camp stands, else their tavern routine. */
   private spot(n: NpcDef, phase: Phase): Spot | null {
     if (this.camp) return CAMP_ROUTINES[n.id]?.[phase as 'morning'] ?? null;
+    // A resident with a house of their own walks home for the night (tavern-local coordinates, outside the nav grid).
+    if (phase === 'night' && n.id !== BUILDER_ID) {
+      const h = this.houseSpot(n.id);
+      if (h) return h;
+    }
     // Only the lodge stands: Gruk keeps to the common room by the hearth (the tavern's own spots are not built yet).
     if (n.id === BUILDER_ID && this.tavernLevel < LODGE_PATH.length) return LODGE_ROUTINE;
     // Only the lodge stands: the newcomers keep to the common room by day and sleep in their bedroom at night.
     if (this.tavernLevel < LODGE_PATH.length) return this.lodgeSpot(n.id, phase);
     return spotFor(n.id, phase);
+  }
+
+  /** The tavern-local spot of the house or built room a resident sleeps in, or null (they sleep in the lodge). */
+  private houseSpot(id: string): Spot | null {
+    const o = this.at;
+    const b = bedOfRoom(this.settlement.roomOf(id));
+    if (!o || !b) return null;
+    return [b.x - o[0], b.y - o[1], b.z - o[2]];
+  }
+
+  /** Whether a tavern-local point is outside the nav grid (out in the world, on the way to a house). */
+  private outside(x: number, z: number): boolean {
+    return x < -0.5 || z < -0.5 || x > TAVERN_W - 0.5 || z > TAVERN_D + YARD_D - 0.5;
   }
 
   /** Tavern-local x, z of a person or prop right now: walking their routine, or fixed. */
@@ -438,6 +456,25 @@ export class NpcManager {
     const goal = this.target(n);
     const gk = `${goal[0]},${goal[1]}`;
     let route = this.routes.get(n.id);
+    if ((!route || route.goal !== gk) && !this.camp && (this.outside(goal[0], goal[1]) || this.outside(here[0], here[1]))) {
+      // Between the tavern's door and a house: out through the door, then straight over the open ground (and back the same way).
+      const door: [number, number] = [6, 0];
+      const cells: [number, number][] = [];
+      if (!this.outside(here[0], here[1])) {
+        const from = nearestCell(here[0], here[1], false);
+        const path = from ? findPath(from, door, false) : null;
+        if (from && path) cells.push(...path.map((c) => [c[0], c[1]] as [number, number]));
+        else cells.push(door);
+        cells.push(goal);
+      } else if (!this.outside(goal[0], goal[1])) {
+        cells.push(door);
+        const path = findPath(door, [Math.round(goal[0]), Math.round(goal[1])], false);
+        if (path) cells.push(...path.map((c) => [c[0], c[1]] as [number, number]));
+        cells.push(goal);
+      } else cells.push(goal);
+      route = { goal: gk, cells };
+      this.routes.set(n.id, route);
+    }
     if (!route || route.goal !== gk) {
       const from = nearestCell(here[0], here[1], this.camp);
       const path = from ? findPath(from, goal, this.camp) : null;
@@ -536,7 +573,7 @@ export class NpcManager {
       return {
         id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, party: this.partyOn && n.kind === 'person', dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired, danceS: this.danceS,
         x: hired ? this.companion.x : o[0] + here[0] + cell,
-        y: hired ? this.companion.y : o[1] + n.at[1],
+        y: hired ? this.companion.y : this.outside(here[0], here[1]) ? o[1] + (this.houseSpot(n.id)?.[1] ?? n.at[1]) : o[1] + n.at[1],
         z: hired ? this.companion.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
         bubble: bubble?.id === n.id ? bubble.text : null,
