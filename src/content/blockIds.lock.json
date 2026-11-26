@@ -299,10 +299,6 @@
   "drop_forge": 297,
   "signal_relay": 298,
   "signal_timer": 299,
-  "push_button": 300
-  "steam_rotor": 281,
-  "steam_kettle": 282,
-  "boiler_plate": 283,
-  "safety_valve": 284,
-  "boiler_gauge_glass": 285
+  "push_button": 300,
+  "boiler_gauge_glass": 301
 }
