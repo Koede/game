@@ -132,15 +132,14 @@ describe('kinetics', () => {
     expect(rpmAt(t, 1)).toBeNull();
   });
 
-  it('a generator block turns a shaft it touches in proportion to its watts', () => {
+  it('a watt generator block no longer turns a shaft it touches (tech-spine K6: watts never become shaft power)', () => {
     const t = setup();
-    t.shop.generatorWatts = (x) => (x === 0 ? 400 : 0);
     t.put(0, 0, 0, 'water_wheel');
     t.put(1, 0, 0, 'drive_shaft');
     t.put(2, 0, 0, 'mech_saw');
     t.run(0.3);
-    expect(t.shop.netAt(1, 0, 0)?.capacity).toBe(8);
-    expect(rpmAt(t, 1)?.[2]).toBe('12');
+    expect(t.shop.netAt(1, 0, 0)?.capacity ?? 0).toBe(0);
+    expect(rpmAt(t, 1)).toBeNull();
   });
 
   it('oil raises the stress capacity of the whole network', () => {

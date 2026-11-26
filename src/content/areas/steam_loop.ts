@@ -22,17 +22,30 @@ export default {
       textures: { all: 'steam_kettle', sideActive: 'steam_kettle_on', topActive: 'steam_kettle_on' },
     },
     {
+      key: 'boiler_gauge_glass', name: 'Gauge Glass', category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, machine: 'boiler_vessel',
+      desc: 'Set in the wall of a sealed boiler. Shows water and pressure; Use it with a full water bucket to fill the boiler.',
+      textures: { all: 'boiler_gauge_glass' },
+    },
+    {
       key: 'boiler_plate', name: 'Boiler Plate', category: 'block', age: BRONZE, hardness: 2, tool: 'pickaxe', minTier: 0,
-      desc: 'A riveted bronze shell plate, rated for 8 bar. The walls of the sealed boiler are built from it; the boiler itself comes later in the age.',
+      desc: 'A riveted bronze shell plate, rated for 8 bar. Close a box of them round two empty cells, with a Gauge Glass in the wall, and it is a boiler.',
       textures: { all: 'boiler_plate' },
     },
     {
-      key: 'safety_valve', name: 'Safety Valve', category: 'block', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0,
-      desc: 'A spring valve that vents steam above its set pressure (2, 4, 6 or 8 bar). It belongs on the roof of the sealed boiler, which comes later in the age.',
+      key: 'safety_valve', name: 'Safety Valve', category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, machine: 'boiler_vessel',
+      desc: 'A spring valve in the wall of a boiler. It vents steam above its setting; Use it to cycle 2, 4, 6 or 8 bar.',
       textures: { top: 'safety_valve_top', side: 'safety_valve', bottom: 'boiler_plate' },
     },
   ],
+  machines: [
+    {
+      kind: 'boiler_vessel', name: 'Boiler', role: 'brew', blocks: ['boiler_gauge_glass', 'safety_valve'], params: { ratedBar: 8, heatW: 10000, steamPerCellL: 1000 },
+      desc: 'A sealed box of Boiler Plate round two or more empty cells, with a Gauge Glass in the wall. A furnace under its floor heats it.',
+      placementHint: 'Set it in the wall of a closed boiler of plates.',
+    },
+  ],
   recipes: [
+    forge('boiler_gauge_glass', '2 bronze_plate, 2 glass', 800),
     forge('steam_kettle', '4 copper_ingot, 2 bronze_plate', 600),
     forge('2 boiler_plate', '2 bronze_plate', 800, 'boiler_plate'),
     forge('safety_valve', '2 bronze_ingot, 1 cord, 1 bronze_cog', 900),
@@ -44,7 +57,11 @@ export default {
     },
     {
       id: 'place_steam_rotor', title: 'Turn a shaft with steam', age: BRONZE, condition: { type: 'place', block: 'steam_rotor', count: 1 },
-      text: 'Put a Steam Rotor on the boiling kettle and a drive shaft beside it. It turns at 16 rpm and carries one millstone (4 stress units): no hand on the crank.',
+      text: 'Put a Steam Rotor on the boiling kettle (or on the wall of a boiler) and a drive shaft beside it. It turns at 16 rpm and carries one millstone (4 stress units): no hand on the crank.',
+    },
+    {
+      id: 'place_boiler', title: 'Build a steam boiler', age: BRONZE, condition: { type: 'place', block: 'boiler_gauge_glass', count: 1 },
+      text: 'Close a box of Boiler Plate round two empty cells, a furnace under its floor, a Gauge Glass in the wall and a Safety Valve. Pour water in by the bucket. Watch the needle: valve before 8 bar.',
     },
   ],
   objectivesAfter: 'make_bronze_cog',

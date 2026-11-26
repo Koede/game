@@ -389,8 +389,11 @@ describe('scripted playthrough', () => {
     play.forge('steam_rotor');
     play.place('steam_kettle', { x: 18, y: 1, z: 8 });
     play.place('steam_rotor', { x: 18, y: 2, z: 8 });
+    play.find('2 bronze_plate, 2 glass');
+    play.forge('boiler_gauge_glass');
+    play.place('boiler_gauge_glass', { x: 19, y: 1, z: 8 });
     play.step(0.5);
-    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell', 'place_piston', 'place_steam_kettle', 'place_steam_rotor']) done(id);
+    for (const id of ['place_hand_crank', 'place_mech_millstone', 'make_bronze_cog', 'place_ratio_dial', 'place_mixer', 'place_mech_arm', 'place_saw_arm', 'place_item_vault', 'place_crank_lever', 'place_bell', 'place_piston', 'place_steam_kettle', 'place_steam_rotor', 'place_boiler']) done(id);
 
     // Spec 17: the Blast Furnace needs a Blast hearth - 16 brick around the Bronze Furnace, open at the top.
     play.craft('bellows', 1, BENCH);

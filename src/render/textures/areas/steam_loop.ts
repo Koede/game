@@ -58,7 +58,17 @@ function valveTop(c: Canvas): void {
   });
 }
 
+function gaugeGlass(c: Canvas): void {
+  boilerPlate(c);
+  c.rect(4, 3, 8, 10, P.IRON_METAL[1]);
+  c.rect(5, 4, 6, 8, GLASS);
+  c.rect(5, 8, 6, 4, P.WATER[3]);
+  c.rect(5, 8, 6, 1, P.WATER[4]);
+  c.line(8, 6, 10, 4, P.EMBER[3]);
+}
+
 export default {
+  boiler_gauge_glass: gaugeGlass,
   steam_kettle: (c) => kettle(c, false),
   steam_kettle_on: (c) => kettle(c, true),
   boiler_plate: boilerPlate,

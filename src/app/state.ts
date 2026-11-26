@@ -199,7 +199,6 @@ export class GameState {
     this.offs.push(() => this.magic.dispose());
     this.workshop = new Workshop(world, bus, this.player.ground);
     world.loadExtra('workshop', (raw) => this.workshop.load(raw));
-    this.workshop.generatorWatts = (x, y, z) => this.sim.machineView(x, y, z)?.outW ?? 0;
     // Steam rotors turn on a boiling steam kettle; the kettle burns water and heat only while the rotor's shaft line carries a load.
     this.workshop.steamAt = (x, y, z) => this.sim.steamReadyAt(x, y, z);
     this.sim.setSteamDemand((x, y, z) => (this.workshop.netAt(x, y, z)?.stress ?? 0) > 0);

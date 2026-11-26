@@ -48,14 +48,14 @@ export function sixAges(world: Rec): void {
 }
 
 /**
- * rev 2 -> 3, the small steam loop: two goals (`place_steam_kettle`, `place_steam_rotor`) now sit between the millstone and
+ * rev 2 -> 3, the small steam loop: three goals (`place_steam_kettle`, `place_steam_rotor`, `place_boiler`) now sit between the millstone and
  * the Blast Furnace. A save that had already built the Blast Furnace is given them, so its place in the list is the same.
  * The new blocks were appended to the id lock, so no voxel changes.
  */
 export function steamGoals(world: Rec): void {
   const o = world.objectives;
   if (!isRecord(o) || !Array.isArray(o.completed) || !o.completed.includes('blast_furnace')) return;
-  for (const id of ['place_steam_kettle', 'place_steam_rotor']) if (!o.completed.includes(id)) o.completed.push(id);
+  for (const id of ['place_steam_kettle', 'place_steam_rotor', 'place_boiler']) if (!o.completed.includes(id)) o.completed.push(id);
 }
 
 /** `MIGRATIONS[n]` upgrades a world of rev n to rev n + 1, in place. */

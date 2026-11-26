@@ -283,5 +283,6 @@
   "steam_rotor": 281,
   "steam_kettle": 282,
   "boiler_plate": 283,
-  "safety_valve": 284
+  "safety_valve": 284,
+  "boiler_gauge_glass": 285
 }
