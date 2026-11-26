@@ -242,6 +242,8 @@ export class InputCore {
     intent.sprint = intent.sprint || this.sprintLock;
     intent.mine = this.lockedMine || this.drag.mineHeld || this.touch.mineHeld;
     intent.use = this.frameUse(dtSeconds);
+    const worldTaps = this.touch.takeWorldTaps();
+    intent.worldTap = intent.use && worldTaps > 0 && !this.touch.useHeld;
     // Shift is also sprint: it only means "place" together with a Use, and sprinting needs the walk key anyway.
     intent.place = intent.use && (keySprint(this.keys) || this.armed);
     if (intent.use) this.armed = false;

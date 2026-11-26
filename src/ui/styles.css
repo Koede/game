@@ -2485,6 +2485,12 @@ body {
   min-width: 0;
   min-height: 0;
 }
+.hw-bag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
 .hw-craft__bag {
   overflow-y: auto;
   overscroll-behavior: contain;

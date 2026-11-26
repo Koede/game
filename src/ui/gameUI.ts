@@ -153,7 +153,10 @@ export class GameUI {
     });
     const bus = deps.bus;
     this.offs.push(
-      bus.on('ui:open', ({ screen }) => void this.open(screen)),
+      bus.on('ui:open', ({ screen }) => {
+        // A screen that cannot be built (its machine is not set up yet) says so, instead of leaving the tap mute.
+        if (!this.open(screen) && !this.active?.modal) bus.emit('toast', { text: 'There is nothing to open here yet', kind: 'info' });
+      }),
       bus.on('ui:close', () => this.close()),
       bus.on('player:death', () => this.showDeath()),
       bus.on('player:respawn', () => (this.active?.kind === 'death' ? this.closeActive() : undefined)),

@@ -24,6 +24,8 @@ export interface Intent {
   mine: boolean;
   /** True on the frame the use control was pressed, and again every USE_REPEAT_S while it stays held. */
   use: boolean;
+  /** With `use`: it came from a tap on the bare world, not from the Use button or a key (a stray tap must not get off a tractor). */
+  worldTap: boolean;
   /**
    * With `use`: this Use places the held block on the face aimed at, skipping screens, the pipe screen and buckets
    * (Shift held on a keyboard, or the touch Place toggle armed for one Use).
@@ -68,6 +70,7 @@ export function createIntent(): Intent {
     sneak: false,
     mine: false,
     use: false,
+    worldTap: false,
     place: false,
     hotbarSlot: null,
     hotbarStep: 0,
@@ -97,6 +100,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.sneak = false;
   intent.mine = false;
   intent.use = false;
+  intent.worldTap = false;
   intent.place = false;
   intent.hotbarSlot = null;
   intent.hotbarStep = 0;

@@ -275,10 +275,6 @@ export class Game {
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
           if (shop !== null) return shop;
         }
-        if (!hit && player.heldStack()?.item === GOGGLES) {
-          bus.emit('ui:open', { screen: { type: 'workshop' } });
-          return 'screen';
-        }
         // The tavern's fixtures are blocks: the quest board and the wall clock talk when used.
         const fixture = hit ? FIXTURE_ROLES[hit.block.key] : undefined;
         if (fixture && state.npcs.useFixture(fixture) !== null) return 'worked';

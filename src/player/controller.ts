@@ -149,6 +149,8 @@ export class PlayerController {
   private humS = 0;
   /** Seconds until the next swing trail (a held Mine swings about every 0.45 s). */
   private trailS = 0;
+  /** Toasts and screen requests seen so far: a Use that raised neither was silent. */
+  private heard = 0;
 
   constructor(options: PlayerControllerOptions) {
     this.world = options.world;
@@ -172,6 +174,9 @@ export class PlayerController {
         this.input.releasePointerCapture?.();
       }),
       this.bus.on('ui:closed', () => this.recapture()),
+      // Use that ends in a toast or a screen has explained itself; only the silent ones get the fallback cue (useAt).
+      this.bus.on('toast', () => this.heard++),
+      this.bus.on('ui:open', () => this.heard++),
       this.bus.on('player:respawn', () => this.physics.reset()),
       // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
       attachSapSave(this.world, this.player),
@@ -269,7 +274,7 @@ export class PlayerController {
       const edits = this.interaction.edits;
       if (this.animals?.target != null) this.actOnAnimal(dt, intent);
       else {
-        if (intent.use) this.interaction.use(this.useTarget(this.currentTarget), intent.place);
+        if (intent.use) this.useAt(this.useTarget(this.currentTarget), intent.place);
         const who = intent.mine ? this.personAimed() : null;
         if (who !== null) this.interaction.advise(`npc-mine:${who}`, `${who} steps aside. Nobody here is for hitting.`);
         this.interaction.updateMining(dt, intent.mine && who === null, this.currentTarget);
@@ -429,11 +434,18 @@ export class PlayerController {
     return behind ?? hit;
   }
 
+  /** Use on the target; a Use that did nothing and said nothing gets a short hint, so no tap is ever mute. */
+  private useAt(hit: RayHit | null, place: boolean): void {
+    const heard = this.heard;
+    const outcome = this.interaction.use(hit, place);
+    if ((outcome === 'none' || outcome === 'refused') && this.heard === heard) this.interaction.explainIdle(hit, outcome, place);
+  }
+
   /** Mine and Use while an animal is under the crosshair: no block is mined; Use falls through when it is not food for it. */
   private actOnAnimal(dt: number, intent: Intent): void {
     const hands = this.animals as AnimalHands;
     this.interaction.updateMining(dt, false, null);
-    if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
+    if (intent.use && hands.use() === 'pass') this.useAt(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
   }
 

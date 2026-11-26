@@ -926,6 +926,30 @@
     display: none;
   }
 }
+/* Narrow portrait phones: nine slots cannot be 44 px wide in 390 px with gaps, so the bar goes edge to edge with no gap
+   and no padding (one column of 390 / 9 = 43 px, 44 px tall) instead of shrinking each slot to 38 px. */
+@media (max-width: 460px) and (min-height: 520px) {
+  .hw-hud__bottom {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  .hw-hotbar {
+    width: 100%;
+    padding: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+  .hw-hotbar .hw-slotgrid {
+    --hw-slot-gap: 0px;
+    --hw-slot-min: 0px;
+  }
+  .hw-hotbar .hw-slot {
+    height: 44px;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+}
 /* Landscape phones: one compact row along the top. */
 @media (max-height: 519.98px) {
   .hw-hud {
