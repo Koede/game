@@ -59,6 +59,8 @@ async function runDevice(device) {
       await page.fill('.hw-title input', 'tavern-e2e');
       await d.press(page.locator('.hw-title button', { hasText: 'New World' }));
       await waitFor(page, () => window.__hw.state().phase === 'playing', 'play', { timeout: 120_000 });
+      // A new world starts at the camp; the tavern tests build the full tavern first (window.__hw.settle).
+      if (!(await d.hw(() => window.__hw.settle()))) throw new Error('could not settle the camp into the tavern');
       await d.settle(2500);
       const s = await npcs();
       assert(s.at, 'no tavern was built');

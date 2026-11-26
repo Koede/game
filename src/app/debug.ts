@@ -69,6 +69,11 @@ export interface DebugHandle {
   look(yaw: number, pitch: number): void;
   /** Turns the view to the centre of block (x, y, z). */
   lookAt(x: number, y: number, z: number): void;
+  /**
+   * Dev skip for tests and e2e of the tavern: builds the full tavern at the camp, everyone moves in and the player goes to the hall.
+   * False when the world has no camp to settle (it has its tavern already, or is not running).
+   */
+  settle(): boolean;
   setTime(timeOfDay: number): void;
   /** Sets the clock's day (1-based; the moon follows: day 1 full, day 5 new). */
   setDay(day: number): void;
@@ -198,6 +203,9 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     town() {
       return game().state.npcs.townDebug();
+    },
+    settle() {
+      return game().state.settleNpcs();
     },
     teleport(x, y, z) {
       game().teleport(x, y, z);

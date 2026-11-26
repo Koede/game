@@ -7,7 +7,24 @@
 > - **Scripts** (`src/npcs/scripts/*.ts`, `PhraseBank`: greet, idle, morning, evening, night, rare, farewell, hints by goal): witch, barkeep, orc, artificer, hermit; `LinePicker` draws by time of day, rarely a rare line, never one said in the last 14. Odd visits give the goal hint (once) or the specialist's advice, even visits give chatter.
 > - **Clock and fires:** the wall clock is a prop sprite repainted each minute (dawn = 06:00; Use for a toast); the hall fireplace and Bram's fire are kept burning (`tendFire`, every 8 s). Tests: `src/npcs/npcs.test.ts`; e2e: `scripts/e2e-tavern.mjs`.
 
-Every NEW world opens inside **the Hearth & Anvil tavern**, built round the spawn point, with three adult pixel-sprite NPCs:
+**Phase 1 of `docs/plans/just-you-and-orrin.md` (shipped): a new world opens at a camp, not in the tavern.** `camp.ts` finds a flat,
+buildable patch near the spawn (`pickCampSite`: relief up to 1, else up to 3, else the spawn's own ground; never water or lava) and
+`buildCamp` places Gruk's cart (a plank bed on log posts with log wheels), a lit campfire (a clay furnace in a stone ring, tended like the
+hall's fire) and two bedrolls (`wool_bedding`). The camp is 9 x 5 with its floor at the origin, and the player starts at `CAMP_START`,
+which is also the spawn point, so a respawn lands there. **Only Gruk lives in a new world** (`BUILDER_ID`, the builder who also gives
+the wooden tools on first talk). He walks the camp's routines (`CAMP_ROUTINES`, camp-local). The others are not drawn, not ticked and
+not talkable, and Orrin is a later newcomer. Old saves keep the tavern and all six people; `settle` (the debug helper
+`window.__hw.settle()`, `NpcManager.settle`) builds the full tavern on the camp's origin and moves everyone in, and is what the tavern
+tests and e2e use (`src/npcs/settledWorld.ts`).
+
+**Who lives here** is `NpcManager.isPresent(id)`, saved as `present` (optional: old saves have everyone). `camp` (also optional) marks
+a camp in place of the tavern, and `hasTavern` is `!camp`. While a person is absent: their routine and drawing are off, Use on them says
+nothing (`speak` returns ''), their service menu is empty (`serviceMenu`), favours for them are not pinned (`FavourBoard.refresh` takes
+a `canAsk`), gossip needs two present people, Rosa's bar does not sell or collect rent, the festival needs three present (and the
+tavern), the trader does not visit without the tavern, and the jukebox and party button need the tavern. `advice(role)` for an absent
+specialist gives the builder's general advice (the current goal, as the artificer gives it).
+
+Originally (the first pass), every NEW world opened inside **the Hearth & Anvil tavern**, built round the spawn point, with three adult pixel-sprite NPCs:
 **Mara** (hedge witch, violet hat and dress, gives a Field Notebook), **Rosa** (barkeep behind the bar, auburn ponytail, gives a
 Hearth Stew) and **Gruk** (orc smith, green, tusked, gives a wooden pickaxe and axe). Use on one talks: the first time they give their
 welcome gift; then each says a hint tied to the current goal once (`NpcDef.byGoal`, keyed by objective id), then rotating lines about the
@@ -19,10 +36,12 @@ artificer's road. Lines show as toasts (`Name, title: "..."`). Old worlds are no
   door gap in the north wall, plank bar with stools, crate shelves, torches, a clay-furnace fireplace with brick chimney, workbench,
   two tables); `buildTavern(world, ox, oy, oz)` flattens a one-block margin, clears the air above and places it (source `'sim'`).
   `TAVERN_START` = [6, 1, 2]: the world spawn is put on that cell, so a respawn lands in the hall.
-- `manager.ts`: `NpcManager` (owned by `GameState.npcs`, saved with `world.persist('npcs')`: tavern origin, greeted, gifted, hints heard).
-  `buildStart`, `views()`, `raycast` (box 0.76 x 2.0, reach 3.4, no occlusion by blocks), `talk` (0.8 s cooldown so a held Use does not read the
-  script), `speak`, `greet` (the welcome toast, once), `tick`.
-- `GameState.create` calls `startInTavern()` (falls back to the old open-view start when the ground is not loaded); the player faces south.
+- `manager.ts`: `NpcManager` (owned by `GameState.npcs`, saved with `world.persist('npcs')`: origin, greeted, gifted, hints heard, `present`,
+  `camp`). `startCamp` (a new world), `settle` (camp to tavern), `buildStart` (a full tavern, everyone present), `views()`, `raycast`
+  (box 0.76 x 2.0, reach 3.4, no occlusion by blocks), `talk` (0.8 s cooldown so a held Use does not read the script), `speak`, `greet`
+  (the welcome toast, once), `tick`.
+- `GameState.create` calls `startInCamp()` (falls back to the old open-view start when no ground is loaded); the player faces south.
+  `GameState.settleNpcs()` is the settle skip. `nav.ts` has a camp grid next to the tavern's (`camp` flag).
 - `PlayerController` option `talk(ox, oy, oz, dx, dy, dz)`: Use on a person consumes the Use (like the collectors).
 - `src/render/npcs/sprites.ts` draws the 24 x 40 sprites procedurally (`paintNpc`), `npcRenderer.ts` shows them as camera-facing `THREE.Sprite`s
   (nearest filtering, idle bob, dimmed with the sky: `clock.sunlight()`).

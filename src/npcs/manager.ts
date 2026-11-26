@@ -20,7 +20,10 @@ import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
 import { BUILDER_ID, MOVABLE, TownBuilder, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
-import { BuildBoard, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
+import { BuildBoard, bayBoardSpot, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
+import { CAMP_D, CAMP_FIRES, CAMP_ROUTINES, CAMP_START, CAMP_W, buildCamp, pickCampSite } from './camp';
+import type { SurfaceFn } from './townPlan';
+import type { Spot } from './routines';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
@@ -97,6 +100,10 @@ export interface NpcSnapshot {
   trader?: { visit: number; left: number[]; wantDone: boolean };
   /** Gruk's town build (townBuilder.ts): the plan, the progress and the storage bay's stock. */
   town?: TownSnapshot;
+  /** Who lives here now (ids in NPCS). Absent in old saves: everyone does. */
+  present?: string[];
+  /** The camp stands in place of the tavern (a new world); absent in old saves. */
+  camp?: boolean;
 }
 
 /** What the manager needs from the game. */
@@ -163,6 +170,10 @@ const OFFER_WINDOW_S = 10;
 const SHELF_MAX = 6;
 const GREET_AFTER_S = 90;
 const TRADER_ID = 'pell';
+/** The person who lives in a new world's camp and builds the town (`BUILDER_ID`, townBuilder.ts; Orrin joins later). */
+export { BUILDER_ID };
+/** Who answers for each specialist role's advice; when they do not live here yet, the builder gives the general advice. */
+const SPECIALIST: Readonly<Record<'witch' | 'barkeep' | 'artificer' | 'alchemist', string>> = { witch: 'mara', barkeep: 'rosa', artificer: 'orrin', alchemist: 'veyra' };
 
 /** The trader right now, for the UI and the tests (see NpcManager.trader). */
 export interface TraderStatus {
@@ -215,6 +226,10 @@ export class NpcManager {
   private readonly pos = new Map<string, [number, number]>();
   /** The route each walking person follows: the goal it was planned for and the cells still to cross. */
   private readonly routes = new Map<string, { goal: string; cells: Cell[] }>();
+  /** The camp stands in place of the tavern (a new world): no tavern features until `settle`. */
+  camp = false;
+  /** Who lives here now (ids in NPCS). Only these are drawn, walk, talk, and count for gated features. */
+  private people = new Set<string>(NPCS.map((n) => n.id));
   private host: NpcHost | null = null;
   private cooldownS = 0;
   private offerS = 0;
@@ -254,13 +269,68 @@ export class NpcManager {
     return this.at !== null;
   }
 
-  /** Builds the tavern with its start cell on x, z (the world spawn, so a respawn lands in it too), the floor at ground level y. Returns the player's start. */
+  /** Whether a person lives here now (a new world has only the builder until the others move in). */
+  isPresent(id: string): boolean {
+    return this.people.has(id);
+  }
+
+  /** The tavern stands (an old world, or after `settle`): the hall, its fixtures, the trader and the festival are on. */
+  get hasTavern(): boolean {
+    return this.at !== null && !this.camp;
+  }
+
+  private presentCount(): number {
+    return NPCS.filter((n) => this.people.has(n.id)).length;
+  }
+
+  /**
+   * Starts a NEW world at a camp on flat ground near the spawn (sx, sz): Gruk's cart, a fire and two bedrolls, and only Gruk
+   * lives there. Returns the player's start, or null when no ground near the spawn will take it.
+   */
+  startCamp(world: IWorld, sx: number, sz: number): { x: number; y: number; z: number } | null {
+    const surface: SurfaceFn = (x, z) => {
+      if (!world.isLoaded(x, z)) return null;
+      const y = world.surfaceY(x, z);
+      return y < 0 ? null : { y, key: world.getBlock(x, y, z).key };
+    };
+    const site = pickCampSite(surface, Math.floor(sx), Math.floor(sz));
+    if (!site || !buildCamp(world, site[0], site[1], site[2])) return null;
+    this.at = [...site];
+    this.camp = true;
+    this.people = new Set([BUILDER_ID]);
+    this.pos.clear();
+    this.routes.clear();
+    return { x: site[0] + CAMP_START[0] + 0.5, y: site[1] + CAMP_START[1], z: site[2] + CAMP_START[2] + 0.5 };
+  }
+
+  /**
+   * Dev skip (window.__hw.settle): builds the full tavern on the camp's origin and everyone moves in. Returns the player's start in
+   * the hall, or null when there is no camp to settle (an old world already has its tavern).
+   */
+  settle(world: IWorld): { x: number; y: number; z: number } | null {
+    const o = this.at;
+    if (!o || !this.camp || !buildTavern(world, o[0], o[1], o[2])) return null;
+    this.camp = false;
+    this.people = new Set(NPCS.map((n) => n.id));
+    this.pos.clear();
+    this.routes.clear();
+    return { x: o[0] + TAVERN_START[0] + 0.5, y: o[1] + TAVERN_START[1], z: o[2] + TAVERN_START[2] + 0.5 };
+  }
+
+  /** Builds the full tavern with its start cell on x, z, the floor at ground level y; everyone lives there. Returns the player's start. */
   buildStart(world: IWorld, cx: number, groundY: number, cz: number): { x: number; y: number; z: number } | null {
     const ox = Math.floor(cx) - TAVERN_START[0];
     const oz = Math.floor(cz) - TAVERN_START[2];
     if (!buildTavern(world, ox, groundY, oz)) return null;
     this.at = [ox, groundY, oz];
+    this.camp = false;
+    this.people = new Set(NPCS.map((n) => n.id));
     return { x: ox + TAVERN_START[0] + 0.5, y: groundY + TAVERN_START[1], z: oz + TAVERN_START[2] + 0.5 };
+  }
+
+  /** Where a person stands in `phase`: the camp's spot for the builder while the camp stands, else their tavern routine. */
+  private spot(n: NpcDef, phase: Phase): Spot | null {
+    return this.camp ? (CAMP_ROUTINES[n.id]?.[phase as 'morning'] ?? null) : spotFor(n.id, phase);
   }
 
   /** Tavern-local x, z of a person or prop right now: walking their routine, or fixed. */
@@ -268,7 +338,7 @@ export class NpcManager {
     if (n.kind !== 'person') return [n.at[0], n.at[2]];
     const have = this.pos.get(n.id);
     if (have) return have;
-    const s = n.role === 'trader' ? (this.traderHereNow() ? TRADER_SETTLE : TRADER_GATE) : spotFor(n.id, this.phase());
+    const s = n.role === 'trader' ? (this.traderHereNow() ? TRADER_SETTLE : TRADER_GATE) : this.spot(n, this.phase());
     const start: [number, number] = s ? [s[0], s[2]] : [n.at[0], n.at[2]];
     this.pos.set(n.id, start);
     return start;
@@ -284,14 +354,14 @@ export class NpcManager {
     if (d) return [d[0], d[2]];
     const sw = this.coolOff() ? SWIM_SPOTS[n.id] : undefined;
     if (sw) return [sw[0], sw[2]];
-    const s = spotFor(n.id, this.phase());
+    const s = this.spot(n, this.phase());
     return s ? [s[0], s[2]] : [n.at[0], n.at[2]];
   }
 
   /** A hot midday (the warm season, outside the festival): the regulars cool off in the yard pool. */
   private coolOff(): boolean {
     const h = this.host;
-    return !!h && coolOffAt(h.day(), h.timeOfDay());
+    return !!h && this.hasTavern && coolOffAt(h.day(), h.timeOfDay());
   }
 
   /** One walking step along the planned route (replanned when the goal changes); straight when no route exists. */
@@ -301,8 +371,8 @@ export class NpcManager {
     const gk = `${goal[0]},${goal[1]}`;
     let route = this.routes.get(n.id);
     if (!route || route.goal !== gk) {
-      const from = nearestCell(here[0], here[1]);
-      const path = from ? findPath(from, goal) : null;
+      const from = nearestCell(here[0], here[1], this.camp);
+      const path = from ? findPath(from, goal, this.camp) : null;
       route = { goal: gk, cells: path ? [...path] : [[goal[0], goal[1]]] };
       if (from && path && (Math.abs(from[0] - here[0]) > 0.01 || Math.abs(from[1] - here[1]) > 0.01)) route.cells.unshift(from);
       this.routes.set(n.id, route);
@@ -325,7 +395,7 @@ export class NpcManager {
   private apart(a: string, b: string): number {
     const na = NPCS.find((n) => n.id === a);
     const nb = NPCS.find((n) => n.id === b);
-    if (!na || !nb) return Infinity;
+    if (!na || !nb || !this.isPresent(a) || !this.isPresent(b)) return Infinity;
     const [ax, az] = this.where(na);
     const [bx, bz] = this.where(nb);
     return Math.hypot(ax - bx, az - bz);
@@ -340,12 +410,14 @@ export class NpcManager {
       this.gossip = advance(this.gossip, dt);
       return;
     }
+    if (this.presentCount() < 2) return;
     const tod = host.timeOfDay();
     const slot = slotAt(tod);
     const key = `${host.day()}:${slot}`;
     if (slot < 0 || key === this.gossipLast) return;
     const p = host.companion.player();
     const near = (id: string): boolean => {
+      if (!this.isPresent(id)) return false;
       const n = NPCS.find((x) => x.id === id)!;
       const [x, z] = this.where(n);
       return Math.hypot(o[0] + x - p.x, o[2] + z - p.z) <= HEAR_RANGE;
@@ -362,7 +434,7 @@ export class NpcManager {
   /** The bar sells while the tavern is open (not at night); a turned day sells a night and collects rent. */
   private tickBar(dt: number): void {
     const host = this.host;
-    if (!host || !this.at) return;
+    if (!host || !this.at || !this.isPresent('rosa')) return;
     this.bar.tick(dt, this.phase() !== 'night', this.rng);
     const got = this.bar.dayRoll(host.day(), this.rng);
     if (got > 0) this.toast(`While you were away the bar took ${got} coin. Ask Rosa for the till (${Math.floor(this.bar.till)} waiting).`);
@@ -388,7 +460,7 @@ export class NpcManager {
     if (!o) return [];
     const { h, m } = clockHM(this.host?.timeOfDay() ?? 0);
     const bubble = bubbleOf(this.gossip);
-    return [...NPCS, ...VISITORS].filter((n) => n.role !== 'trader' || this.traderShown()).map((n) => {
+    return [...NPCS.filter((n) => this.isPresent(n.id)), ...VISITORS].filter((n) => n.role !== 'trader' || this.traderShown()).map((n) => {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
       const here = this.where(n);
@@ -450,14 +522,16 @@ export class NpcManager {
 
   /** Use on a fixture block (the quest board or the wall clock, placed by the tavern). Null when there is no such fixture. */
   useFixture(role: 'board' | 'clock' | 'jukebox' | 'party'): string | null {
-    if (role === 'party') return this.useParty();
     if (role === 'board' && this.atTownBoard()) return this.useTownBoard();
+    if (!this.hasTavern) return null;
+    if (role === 'party') return this.useParty();
     const npc = FIXTURES.find((n) => n.role === role);
     return npc ? this.speak(npc) : null;
   }
 
   /** What the person says or does when used. Returns the main line. */
   speak(npc: NpcDef): string {
+    if (npc.kind === 'person' && npc.role !== 'trader' && !this.isPresent(npc.id)) return '';
     if (npc.role === 'board') return this.useBoard(npc);
     if (npc.role === 'clock') return this.useClock(npc);
     if (npc.role === 'jukebox') return this.useJukebox(npc);
@@ -486,7 +560,7 @@ export class NpcManager {
     const bank = npc.bank!;
     let line: string | null = null;
     // Odd visits: a hint for the goal (once) or the specialist's advice about what to do next; even visits: talk.
-    if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.host?.advice(npc.role) ?? null : null);
+    if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.advice(npc.role) : null);
     if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     this.say(npc, line);
     if (npc.role === 'barkeep' || npc.role === 'alchemist') {
@@ -498,6 +572,7 @@ export class NpcManager {
 
   /** Rosa's menu and the port she serves from (a UI or a test buys by id). */
   serviceMenu(id: 'rosa' | 'gruk' | 'veyra' = 'rosa'): ServiceMenu {
+    if (!this.isPresent(id)) return new ServiceMenu([]);
     return id === 'gruk' ? this.gruk : id === 'veyra' ? this.veyra : this.rosa;
   }
 
@@ -515,7 +590,7 @@ export class NpcManager {
   private tickFestival(): void {
     const host = this.host;
     if (!host || !this.at) return;
-    const on = festivalOn(host.day(), this.phase());
+    const on = this.hasTavern && this.presentCount() >= 3 && festivalOn(host.day(), this.phase());
     if (on === this.festNow) return;
     this.festNow = on;
     if (on) {
@@ -532,6 +607,12 @@ export class NpcManager {
       if (this.fest.juke && !this.partyOn) this.jukeboxOn = false;
       this.fest.juke = false;
     }
+  }
+
+  /** Progression advice from a specialist. When that person does not live here yet, the builder (Gruk) gives the general advice. */
+  advice(role: 'witch' | 'barkeep' | 'artificer' | 'alchemist'): string | null {
+    const r = this.isPresent(SPECIALIST[role]) ? role : 'artificer';
+    return this.host?.advice(r) ?? null;
   }
 
   /** Units on Rosa's bar. */
@@ -642,7 +723,7 @@ export class NpcManager {
 
   /** The favours pinned to the board now. */
   pinnedFavours(): Favour[] {
-    return this.favours.list();
+    return this.favours.list().filter((f) => this.isPresent(f.who));
   }
 
   /** Hands in a favour held in the player's stack. Null when the board wants nothing they hold. */
@@ -750,8 +831,8 @@ export class NpcManager {
     const open = this.board.list();
     const standing = reputationStep(this.board.rep).name;
     const waiting = this.town.waitingOn();
-    if (open.length === 0 && waiting) this.toast(`Build board: ${lockNote(waiting, this.board.rep) ?? 'Gruk is waiting.'} Town standing: ${standing} (${this.board.rep}).`);
-    else if (open.length === 0) this.toast(`Build board: Gruk has nothing waiting on materials. Town standing: ${standing} (${this.board.rep}).`);
+    if (open.length === 0 && waiting) this.toast(`Build board: ${lockNote(waiting, this.board.rep) ?? `${this.builderName()} is waiting.`} Town standing: ${standing} (${this.board.rep}).`);
+    else if (open.length === 0) this.toast(`Build board: ${this.builderName()} has nothing waiting on materials. Town standing: ${standing} (${this.board.rep}).`);
     else this.toast(`Build board: ${open.map(describeBounty).join('; ')}. Town standing: ${standing} (${this.board.rep}). Hold the items and use the board to hand them in.`);
     return 'Build board';
   }
@@ -768,7 +849,7 @@ export class NpcManager {
     const builder = NPCS.find((n) => n.id === BUILDER_ID);
     if (builder && pay.trust > 0) this.raiseTrust(builder, pay.trust);
     const rare = pay.reward ? `, and a ${pay.reward.item.replace(/_/g, ' ')}` : '';
-    this.toast(`Build board: ${pay.take} ${item.replace(/_/g, ' ')} into the storage bay. +${pay.coin} coin, +${pay.rep} town standing${pay.trust ? `, +${pay.trust} trust with Gruk` : ''}${rare}.`);
+    this.toast(`Build board: ${pay.take} ${item.replace(/_/g, ' ')} into the storage bay. +${pay.coin} coin, +${pay.rep} town standing${pay.trust ? `, +${pay.trust} trust with ${this.builderName()}` : ''}${rare}.`);
     this.refreshBoard(this.host);
     return true;
   }
@@ -991,7 +1072,7 @@ export class NpcManager {
   /** The visit covering today (null between visits) and whether the trader is standing in the yard now. */
   private traderInfo(): { visit: TraderVisit; here: boolean } | null {
     const host = this.host;
-    if (!host || !this.at) return null;
+    if (!host || !this.at || !this.hasTavern) return null;
     const day = host.day();
     const visit = traderVisitOn(this.traderSeed(), day);
     return visit ? { visit, here: traderHere(visit, day, this.phase()) } : null;
@@ -1140,7 +1221,7 @@ export class NpcManager {
     this.tickFestival();
     this.tickTrader(dt);
     this.tickGossip(dt);
-    if (this.host) this.favours.refresh(this.host.day(), this.rng);
+    if (this.host) this.favours.refresh(this.host.day(), this.rng, (who) => this.isPresent(who));
     const host = this.host;
     if (!host || !this.at) return;
     this.tickTown(host, dt);
@@ -1149,6 +1230,7 @@ export class NpcManager {
     if (this.jukeboxOn) this.playJukebox(dt);
     for (const n of [...NPCS, ...VISITORS]) {
       if (n.kind !== 'person' || (n.role === 'orc' && this.companion.active)) continue;
+      if (n.role !== 'trader' && !this.isPresent(n.id)) continue;
       this.pos.set(n.id, this.step(n, dt));
     }
     if (this.companion.active) {
@@ -1159,7 +1241,7 @@ export class NpcManager {
     this.fireS -= dt;
     if (this.fireS <= 0) {
       this.fireS = 8;
-      for (const [x, y, z] of FIRE_SPOTS) host.tendFire?.(this.at[0] + x, this.at[1] + y, this.at[2] + z);
+      for (const [x, y, z] of this.camp ? CAMP_FIRES : FIRE_SPOTS) host.tendFire?.(this.at[0] + x, this.at[1] + y, this.at[2] + z);
     }
   }
 
@@ -1179,7 +1261,8 @@ export class NpcManager {
     // The bay's stock is what its crate holds: the player's hand-ins and takes are read first, then the crate is brought to the stock.
     const crate = this.board.crate();
     this.town.syncCrate(crate && host.townCrate ? host.townCrate.call(host, crate.x, crate.y, crate.z) : null);
-    this.town.tick(dt, th, host.worldSeed?.() ?? 0, [o[0] + Math.floor(TAVERN_W / 2), o[2] + Math.floor(TAVERN_D / 2)]);
+    const anchor: [number, number] = this.camp ? [o[0] + Math.floor(CAMP_W / 2), o[2] + Math.floor(CAMP_D / 2)] : [o[0] + Math.floor(TAVERN_W / 2), o[2] + Math.floor(TAVERN_D / 2)];
+    this.town.tick(dt, th, host.worldSeed?.() ?? 0, anchor);
     for (const f of this.town.takeFinished()) {
       this.board.finished();
       if (f.template === 'storage_bay' && !this.board.bay) this.board.setBay(f);
@@ -1194,11 +1277,18 @@ export class NpcManager {
     this.placeBoard(host);
   }
 
+  /** The builder's display name (Gruk). */
+  private builderName(): string {
+    return NPCS.find((n) => n.id === BUILDER_ID)?.name ?? 'Gruk';
+  }
+
   /** The welcome, once, the first tick of a new world. */
   greet(): void {
     if (this.greeted || !this.at) return;
     this.greeted = true;
-    this.toast('The Hearth & Anvil. Talk to Mara, Rosa, Gruk and Orrin (Use on them), check the quest board by the door, and visit Old Bram out back.');
+    this.toast(this.camp
+      ? `A camp by the spawn: ${this.builderName()}'s cart, a fire and two bedrolls. Use ${this.builderName()} to talk; he has wooden tools for you.`
+      : 'The Hearth & Anvil. Talk to Mara, Rosa, Gruk and Orrin (Use on them), check the quest board by the door, and visit Old Bram out back.');
   }
 
   toJSON(): NpcSnapshot {
@@ -1209,7 +1299,7 @@ export class NpcManager {
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
-      town: this.townSnapshot(),
+      town: this.townSnapshot(), present: [...this.people], camp: this.camp,
     };
   }
 
@@ -1225,6 +1315,10 @@ export class NpcManager {
     if (this.partyOn) this.jukeboxOn = true;
     this.partyLamp = null;
     const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
+    // Old saves (no `present`) have everyone; a camp keeps its own list.
+    this.camp = r.camp === true && this.at !== null;
+    const known = (id: string): boolean => NPCS.some((n) => n.id === id);
+    this.people = new Set(Array.isArray(r.present) ? strings(r.present).filter(known) : NPCS.map((n) => n.id));
     this.gifted = new Set(strings(r.gifted));
     this.heard = new Set(strings(r.heard));
     this.claimed = new Set(strings(r.claimed));

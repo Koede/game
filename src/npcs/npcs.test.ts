@@ -23,6 +23,7 @@ import { BARKEEP } from './scripts/barkeep';
 import { HERMIT } from './scripts/hermit';
 import { ORC } from './scripts/orc';
 import { WITCH } from './scripts/witch';
+import { settledWorld } from './settledWorld';
 
 describe('the tavern layout', () => {
   const blocks = layoutBlocks();
@@ -565,9 +566,9 @@ describe('the portraits', () => {
   });
 });
 
-describe('a new world opens in the tavern', () => {
+describe('a settled world opens in the tavern', () => {
   it('builds the hall and yard round the spawn, stands the player inside facing the bar, and saves it', () => {
-    const state = GameState.create(21, 'tavern');
+    const state = settledWorld(21, 'tavern');
     const o = state.npcs.at!;
     expect(o).not.toBeNull();
     const p = state.player.position;
@@ -587,7 +588,7 @@ describe('a new world opens in the tavern', () => {
   });
 
   it('keeps both hearths lit', () => {
-    const state = GameState.create(22, 'fires');
+    const state = settledWorld(22, 'fires');
     for (let i = 0; i < 200; i++) state.tick();
     const o = state.npcs.at!;
     for (const [x, y, z] of FIRE_SPOTS) {

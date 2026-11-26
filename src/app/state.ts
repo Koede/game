@@ -81,7 +81,7 @@ export class GameState {
   readonly restoration: Restoration;
   /** Companion dog and cat (docs/api/pets.md). */
   readonly pets: Pets;
-  /** The tavern's people (docs/api/npcs.md). */
+  /** The camp, tavern and their people (docs/api/npcs.md, docs/plans/just-you-and-orrin.md). */
   readonly npcs: NpcManager;
   readonly seedText: string | null;
   /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
@@ -275,7 +275,7 @@ export class GameState {
     const world = new World(seed >>> 0, bus, { pool: options.pool });
     const state = new GameState(world, bus, seedText, null, options.difficulty ?? 'normal', parseGameMode(options.mode));
     state.prepareAroundPlayer(2);
-    state.startInTavern();
+    state.startInCamp();
     return state;
   }
 
@@ -302,19 +302,39 @@ export class GameState {
     this.player.combat.setDifficulty(d);
   }
 
-  /** A new world opens inside the tavern (docs/api/npcs.md); where it cannot be built (unloaded ground), the old open-view start. */
-  startInTavern(): void {
+  /**
+   * A new world opens at the camp by the spawn (docs/plans/just-you-and-orrin.md): Gruk's cart, a fire and two bedrolls, and
+   * the spawn point moves there. Where no flat ground is loaded, the old open-view start.
+   */
+  startInCamp(): void {
     const p = this.player.position;
-    const ground = this.world.surfaceY(Math.floor(p.x), Math.floor(p.z));
-    const start = ground >= 0 ? this.npcs.buildStart(this.world, Math.floor(p.x), ground, Math.floor(p.z)) : null;
+    const start = this.npcs.startCamp(this.world, Math.floor(p.x), Math.floor(p.z));
     if (!start) {
       this.faceOpenView();
       return;
     }
-    this.player.position.x = start.x;
-    this.player.position.y = start.y;
-    this.player.position.z = start.z;
-    this.player.yaw = Math.PI; // looking south, into the hall
+    this.placePlayer(start, Math.PI);
+  }
+
+  /** Dev skip (window.__hw.settle): the full tavern is built at the camp, everyone moves in, and the player goes to the hall. */
+  settleNpcs(): boolean {
+    const p = this.player.position;
+    this.world.ensureLoadedAround(Math.floor(p.x), Math.floor(p.z), 2); // the tavern reaches about 14 blocks from the camp
+    const start = this.npcs.settle(this.world);
+    if (!start) return false;
+    this.placePlayer(start, Math.PI);
+    return true;
+  }
+
+  /** Puts the player on `at` facing `yaw`, and makes that their spawn (where a respawn without a home lands). */
+  private placePlayer(at: { x: number; y: number; z: number }, yaw: number): void {
+    this.player.position.x = at.x;
+    this.player.position.y = at.y;
+    this.player.position.z = at.z;
+    this.player.spawn.x = at.x;
+    this.player.spawn.y = at.y;
+    this.player.spawn.z = at.z;
+    this.player.yaw = yaw; // looking south, into the camp or the hall
     this.player.pitch = 0;
   }
 
