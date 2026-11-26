@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { tableCrateEntity } from '../world/ruinCrates';
+import type { MachineEntity } from './entities';
 import { sanitizeEntity } from './sanitize';
 
 describe('sanitizing a crate keeps what makes a tool special', () => {
   it('leaves quality and enchants on stored tools, and drops illegal ones', () => {
-    const e = tableCrateEntity(1234, 0, 5, 0, 'cave_boss');
+    const e = tableCrateEntity(1234, 0, 5, 0, 'cave_boss') as MachineEntity;
     const before = JSON.stringify(e.slots);
     expect(sanitizeEntity(e)).toBe('ok');
     expect(JSON.stringify(e.slots)).toBe(before);
