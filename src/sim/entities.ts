@@ -93,6 +93,10 @@ export interface MachineEntity extends BlockEntity {
    */
   fluidIn: FluidStack | null;
   fluidOut: FluidStack | null;
+  /** Wear (src/sim/wear.ts): 0 as new .. 1 worn out. Absent in older saves: good condition. */
+  wear?: number;
+  /** Repaired and kept up: runs faster while the wear stays low. */
+  kept?: boolean;
   /** Pump: litres drawn from the lava or oil block it is emptying (a block goes every litresPerBlock). */
   drawnL?: number;
   /** Pump, boiler, steam turbine: litres a second it pumped, boiled or used last tick. */

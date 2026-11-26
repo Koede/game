@@ -2,11 +2,13 @@
  * The simulation facade: follows block changes to create and remove block entities, ticks the machines, solves
  * the power networks, and exposes the player's actions and the queries the UI and the objectives need.
  */
+import { KEPT_BELOW, NPC_TEND_WEAR, REPAIRED_WEAR, REPAIR_ITEM, repairCost, wearOf, wearsOut } from './wear';
+import { ingredientStatus, takeIngredients } from '../game/crafting';
 import { TICK_RATE } from '../core/constants';
 import type { GameBus } from '../core/context';
 import type { GameEvents } from '../core/gameEvents';
 import { mulberry32 } from '../core/math';
-import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
+import { blockOf, furnaceTierOfBlock, itemOrNull, machine } from '../core/registry';
 import { popUnsupportedAt } from '../game/farming';
 import { NETWORK_RADIUS, validLabel, type Chest } from '../game/storage';
 import { PlantSupport } from './plantSupport';
@@ -686,6 +688,52 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       this.bus.emit('sfx', { name: on ? 'machine_on' : 'machine_off', x, y, z });
     }
     return OK;
+  }
+
+  // ---- wear and upkeep (src/sim/wear.ts, docs/api/machine-wear.md) -------------------------------------------------
+
+  /** The player repairs the machine at x, y, z: iron ingots from the pack or a crate nearby, wear back to 0, and it runs "well kept". */
+  repairMachine(x: number, y: number, z: number): ActionResult {
+    const e = this.machineAt(x, y, z);
+    if (!e || !wearsOut(e.kind)) return refuse('Nothing here wears out');
+    const cost = repairCost(e);
+    if (cost <= 0) return refuse('It is as good as new');
+    const sources = this.stationSources(x, y, z);
+    const need = [{ item: REPAIR_ITEM, count: cost }];
+    const status = ingredientStatus(need, sources);
+    if (!status.ok) return refuse(`Needs ${cost} ${itemOrNull(REPAIR_ITEM)?.name ?? REPAIR_ITEM} to repair (${status.ingredients[0].have} held)`);
+    takeIngredients(need, sources);
+    e.wear = REPAIRED_WEAR;
+    e.kept = true;
+    this.bus.emit('sfx', { name: 'upgrade', x, y, z });
+    this.bus.emit('toast', { text: `Repaired the ${machine(e.kind).name}`, kind: 'good' });
+    return OK;
+  }
+
+  /**
+   * Stub for the settlement-jobs work: machines (within `radius` blocks of x, z when given) an NPC with an upkeep job could tend,
+   * worst first. `minWear` skips machines that are fine.
+   */
+  wornMachines(minWear = 0.25, near?: { x: number; z: number; radius: number }): Array<{ x: number; y: number; z: number; kind: string; wear: number }> {
+    const out: Array<{ x: number; y: number; z: number; kind: string; wear: number }> = [];
+    for (const n of this.nodes.all) {
+      if (isFurnace(n.e) || !wearsOut(n.e.kind)) continue;
+      const wear = wearOf(n.e);
+      if (wear < minWear) continue;
+      if (near && Math.hypot(n.e.x - near.x, n.e.z - near.z) > near.radius) continue;
+      out.push({ x: n.e.x, y: n.e.y, z: n.e.z, kind: n.e.kind, wear });
+    }
+    return out.sort((a, b) => b.wear - a.wear);
+  }
+
+  /** Stub for the settlement-jobs work: an NPC tends the machine (no materials; takes NPC_TEND_WEAR off). Returns the wear taken off. */
+  tendMachine(x: number, y: number, z: number): number {
+    const e = this.machineAt(x, y, z);
+    if (!e || !wearsOut(e.kind)) return 0;
+    const before = wearOf(e);
+    e.wear = Math.max(REPAIRED_WEAR, before - NPC_TEND_WEAR);
+    if (e.wear < KEPT_BELOW) e.kept = true;
+    return before - e.wear;
   }
 
   /** Flips a machine's switch. */

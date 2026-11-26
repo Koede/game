@@ -26,6 +26,8 @@ export interface ScreenSim {
   machineView(x: number, y: number, z: number): MachineView | null;
   machineSlots(x: number, y: number, z: number): Inventory | null;
   setMachineOn(x: number, y: number, z: number, on: boolean): ActionResult;
+  /** Repairs a worn machine with iron ingots (src/sim/wear.ts). */
+  repairMachine(x: number, y: number, z: number): ActionResult;
   stationSources(x: number, y: number, z: number): Inventory[];
   /** The storage network around a chest (docs/api/storage.md): chests within range, and a chest's label. */
   storageNetwork(x: number, y: number, z: number): Chest[];

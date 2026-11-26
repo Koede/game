@@ -116,6 +116,8 @@ export interface DebugHandle {
   setDifficulty(d: Difficulty): void;
   /** Whether (x, y, z) lies in a safe zone (a hot furnace's warm zone or a powered ward beacon's radius). */
   isSafe(x: number, y: number, z: number): boolean;
+  /** Sets the wear (0..1) of the machine at a cell (set-up for the wear checks). */
+  setMachineWear(x: number, y: number, z: number, wear: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
@@ -326,6 +328,12 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     isSafe(x, y, z) {
       return game().state.sim.isSafe(x, y, z);
+    },
+    setMachineWear(x, y, z, wear) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e) return false;
+      e.wear = Math.max(0, Math.min(1, wear));
+      return true;
     },
     getBlock(x, y, z) {
       const v = game().state.world.getVoxel(x, y, z);
