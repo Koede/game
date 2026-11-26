@@ -282,9 +282,8 @@
   "wooden_door": 280,
   "foul_air": 281,
   "chalk_mark": 282,
-  "cave_cairn": 283
-  "cell_rack": 281
-  "cell_rack": 281,
-  "grid_monitor": 282
-  "insulated_wall": 281
+  "cave_cairn": 283,
+  "grid_monitor": 284,
+  "cell_rack": 285,
+  "insulated_wall": 286
 }
