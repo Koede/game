@@ -154,6 +154,10 @@ export interface SimNode {
   net: Network | null;
   /** Mirrors the voxel's active flag so the world is only written on change. */
   active: boolean;
+  /** Mirrors the voxel's machine status (src/core/machineStatus.ts); `statusWant` is what the behaviour asked for since tick `statusSince`. */
+  status: number;
+  statusWant: number;
+  statusSince: number;
   loaded: boolean;
   /** The surroundings below must be recomputed (a block near it changed, or its chunk was loaded). */
   dirty: boolean;
@@ -173,6 +177,8 @@ export interface SimNode {
   maxOut: number;
   /** Processors: the job that can run this tick. */
   job: RecipeDef | null;
+  /** Processors: why no job runs (a MachineStatus), for the block's face. */
+  stalled: number;
   /** Furnaces: the numbers it runs at (effective tier, hearth size, tuyeres); kept by src/sim/hearth.ts. */
   fs: FurnaceStats | null;
   /** Furnaces: fuel its formed hearth adds to the firebox (lava in fluid hatches), or null. */
@@ -191,8 +197,8 @@ export const posKey = (x: number, y: number, z: number): string => `${x},${y},${
 
 export function createNode(e: SimEntity): SimNode {
   return {
-    e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, loaded: true, dirty: true, water: 0, sideWater: 0,
-    lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, fs: null, extraFuel: null,
+    e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, status: 0, statusWant: 0, statusSince: 0, loaded: true, dirty: true, water: 0, sideWater: 0,
+    lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, stalled: 0, fs: null, extraFuel: null,
   };
 }
 
@@ -250,8 +256,12 @@ export interface SimContext {
   solar: number;
   /** True on one tick per second: slow housekeeping (crate push) runs then. */
   everySecond: boolean;
-  /** Sets the voxel's active flag when it differs from the node's. */
-  setActive(node: SimNode, active: boolean): void;
+  /**
+   * Sets the voxel's active flag when it differs from the node's. `status` (MachineStatus, only meaningful while not
+   * active) is what the face should show when the machine is stopped: it is applied once it has held for a second, so a
+   * flickering brown-out does not remesh the chunk every tick.
+   */
+  setActive(node: SimNode, active: boolean, status?: number): void;
   /** Tells an open screen that the simulation wrote into this entity's slots. */
   touch(e: SimEntity): void;
   /** Emits a 'flag' event the first time only. */

@@ -5,6 +5,7 @@
  * Everything outside src/content reads blocks, items and recipes through this module.
  */
 import { ITEM_ALIASES, noteLostItem } from '../content/aliases';
+import { STATUS_COUNT, statusTextureName, voxelStatus } from './machineStatus';
 import {
   AGES as AGE_SPECS,
   AUTOMATON_SPECS,
@@ -116,6 +117,19 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
   put(Face.NZ, front, frontA);
   for (const name of t.models ?? []) layerOf(name);
 
+  // Status looks: the off textures of the faces that show a running machine (else the front), with a status badge.
+  const layersStatus: (number[] | null)[] = [null];
+  if (t.status && shape !== 'none') {
+    const names = [side, side, top, bottom, side, front];
+    const faces = [Face.PX, Face.NX, Face.PY, Face.NY, Face.PZ, Face.NZ].filter((f) => layers[f] !== layersActive[f]);
+    const shown = faces.length > 0 ? faces : spec.oriented ? [Face.NZ] : [Face.PX, Face.NX, Face.PZ, Face.NZ];
+    for (let status = 1; status < STATUS_COUNT; status++) {
+      const l = layers.slice();
+      for (const f of shown) l[f] = layerOf(statusTextureName(names[f], status));
+      layersStatus.push(l);
+    }
+  }
+
   const hasItem = spec.item ?? shape !== 'none';
   let drops: Drop[];
   if (spec.drops === 'none') drops = [];
@@ -156,6 +170,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     itemKey: hasItem ? spec.key : null,
     layers,
     layersActive,
+    layersStatus,
   };
 }
 
@@ -185,13 +200,13 @@ export const blockId = (key: string): number => block(key).id;
 export const blockOf = (v: Voxel): BlockDef => BLOCKS[voxelId(v)] ?? BLOCKS[0];
 
 /** Texture layer of one face of a block, taking its facing and active flag into account. */
-export function faceLayer(def: BlockDef, face: Face, facing: Facing, active: boolean): number {
-  const layers = active ? def.layersActive : def.layers;
+export function faceLayer(def: BlockDef, face: Face, facing: Facing, active: boolean, status = 0): number {
+  const layers = (status > 0 ? def.layersStatus[status] : null) ?? (active ? def.layersActive : def.layers);
   if (!def.oriented || face === Face.PY || face === Face.NY) return layers[face];
   return face === FACING_TO_FACE[facing] ? layers[Face.NZ] : layers[Face.PX];
 }
 export const voxelFaceLayer = (v: Voxel, face: Face): number =>
-  faceLayer(blockOf(v), face, voxelFacing(v), voxelActive(v));
+  faceLayer(blockOf(v), face, voxelFacing(v), voxelActive(v), voxelStatus(v));
 /** Light emitted by a voxel (0..15), honouring its active flag. */
 export const voxelLight = (v: Voxel): number => {
   const def = blockOf(v);
