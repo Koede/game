@@ -24,7 +24,10 @@ describe('a new world starts at a camp', () => {
   it('builds the cart, a lit campfire and two bedrolls, and the player and Gruk start beside them', () => {
     const state = GameState.create(32, null);
     const o = state.npcs.at!;
-    expect(blockOf(state.world.getVoxel(o[0] + 1, o[1] + 2, o[2] + 1)).key).toBe('plank'); // the cart bed
+    expect(blockOf(state.world.getVoxel(o[0] + 1, o[1] + 1, o[2] + 1)).key).toBe('plank'); // the cart's low body
+    expect(blockOf(state.world.getVoxel(o[0] + 0, o[1] + 1, o[2] + 0)).key).toBe('oak_log'); // a wheel
+    // Nothing of the cart hangs over head height (the old cart had a plank bed at y + 2 that read as a roof).
+    for (let x = 0; x <= 3; x++) for (let z = 0; z <= 2; z++) expect(blockOf(state.world.getVoxel(o[0] + x, o[1] + 3, o[2] + z)).key).toBe('air');
     expect(blockOf(state.world.getVoxel(o[0] + 7, o[1] + 1, o[2] + 1)).key).toBe('wool_bedding');
     expect(blockOf(state.world.getVoxel(o[0] + 7, o[1] + 1, o[2] + 3)).key).toBe('wool_bedding');
     const [fx, fy, fz] = CAMP_FIRES[0];

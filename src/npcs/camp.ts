@@ -26,15 +26,13 @@ export function campLayout(): Placement[] {
   };
   // The floor: packed dirt under the whole camp, so the ground is level for walking.
   for (let x = 0; x < CAMP_W; x++) for (let z = 0; z < CAMP_D; z++) put(x, 0, z, 'dirt');
-  // The cart: a plank bed on four log posts, with plank rails and two log wheels under its sides.
-  for (let x = 0; x <= 3; x++) for (let z = 0; z <= 2; z++) put(x, 2, z, 'plank');
-  for (const [x, z] of [[0, 0], [3, 0], [0, 2], [3, 2]] as const) put(x, 3, z, 'oak_log');
-  for (const x of [1, 2]) for (const z of [0, 2]) put(x, 3, z, 'plank');
-  put(0, 1, 1, 'oak_log');
-  put(3, 1, 1, 'oak_log');
-  // The campfire: a lit clay furnace ringed by stone.
+  // The cart: a low plank body between four log wheels, with plank sides one block up. Nothing hangs over head height.
+  for (const [x, z] of [[0, 0], [3, 0], [0, 2], [3, 2]] as const) put(x, 1, z, 'oak_log');
+  for (const x of [1, 2]) for (let z = 0; z <= 2; z++) put(x, 1, z, 'plank');
+  for (const x of [1, 2]) for (const z of [0, 2]) put(x, 2, z, 'plank');
+  // The campfire: a lit clay furnace with stones on its diagonals, so the fire shows from every side.
   put(5, 1, 2, 'furnace_clay', Facing.North);
-  for (const [x, z] of [[4, 2], [6, 2], [5, 1], [5, 3]] as const) put(x, 1, z, 'stone_brick');
+  for (const [x, z] of [[4, 1], [6, 1], [4, 3], [6, 3]] as const) put(x, 1, z, 'stone_brick');
   // Two bedrolls (wool bedding) by the fire, headboards to the east.
   put(7, 1, 1, 'wool_bedding', Facing.West);
   put(7, 1, 3, 'wool_bedding', Facing.West);
@@ -43,7 +41,7 @@ export function campLayout(): Placement[] {
 
 /** Where Gruk (the builder, the camp's only person) stands in each part of the day, camp-local. */
 export const CAMP_ROUTINES: Readonly<Record<string, Readonly<Record<'morning' | 'day' | 'evening' | 'night', Spot>>>> = {
-  gruk: { morning: [2, 1, 4], day: [1, 1, 4], evening: [5, 1, 4], night: [6, 1, 1] },
+  gruk: { morning: [2, 1, 4], day: [1, 1, 4], evening: [5, 1, 4], night: [8, 1, 1] },
 };
 
 /**
