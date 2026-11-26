@@ -1050,10 +1050,10 @@
 .hw-hud[data-screen] .hw-devchip {
   display: none;
 }
+/* Short screens (phones in landscape): just under the vitals, clear of the touch quick-menu entry above the stick. */
 @media (max-height: 519.98px) {
   .hw-devchip {
-    top: auto;
-    bottom: 38%;
+    top: calc(var(--hw-safe-t, 0px) + 68px);
   }
 }
 
