@@ -503,10 +503,8 @@ export class Magic {
   use(target: MagicTarget | null): MagicOutcome | null {
     const held = this.player.heldStack()?.item ?? null;
     if (held === NOTEBOOK) {
-      if (!target) {
-        this.bus.emit('ui:open', { screen: { type: 'notebook' } });
-        return 'screen';
-      }
+      // The notebook opens from the Bag chip, not by aiming at nothing: with nothing aimed Use gets the plain hint.
+      if (!target) return null;
       return this.scanHold(target.block.key);
     }
     const key = target?.block.key;

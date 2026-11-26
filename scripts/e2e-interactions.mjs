@@ -181,27 +181,38 @@ async function runDevice(device) {
       await d.hw(() => window.__hw.clearInventory());
     });
 
-    await report.step('the notebook at the sky opens, closes by its button and play resumes', async () => {
-      await drainToasts();
-      await d.hw(() => { window.__hw.give('field_notebook', 1); window.__hw.selectSlot(0); window.__hw.look(0, 1.1); });
-      await d.settle(300);
-      await d.use();
-      await waitFor(page, () => document.querySelectorAll('.hw-window').length > 0, 'the notebook window', { timeout: 4000, interval: 100 });
-      await d.shot('02-notebook');
-      await closeByButton('notebook');
-      await playResumes('notebook');
+    await report.step('Use at the sky with the notebook or goggles only gives the hint; the Bag chips open them', async () => {
+      for (const [item, chip, held] of [['field_notebook', 'Notebook', 'Field Notebook'], ['engineer_goggles', 'Workshop Guide', 'Engineer']]) {
+        await drainToasts();
+        await d.hw((i) => { window.__hw.clearInventory(); window.__hw.give(i, 1); window.__hw.selectSlot(0); window.__hw.look(0, 1.1); }, item);
+        await d.settle(300);
+        await d.use();
+        await toastMatching(/nothing in reach/i, `${item} at the sky`);
+        assert((await windows()) === 0, `${item} at the sky still opens a screen`);
+        await d.press(btn('bag'));
+        await waitFor(page, () => document.querySelectorAll('.hw-window').length > 0, 'the bag', { timeout: 4000, interval: 100 });
+        const chipEl = page.locator('.hw-bag-chips button', { hasText: chip });
+        await chipEl.waitFor({ state: 'visible', timeout: 4000 });
+        const box = await chipEl.boundingBox();
+        assert(box && box.height >= 32, `${chip} chip is too small`);
+        await d.shot(`02-chip-${item}`);
+        await d.press(chipEl);
+        await d.settle(500);
+        assert((await windows()) === 1 && !(await page.locator('.hw-bag-chips').isVisible()), `${chip} chip did not open its screen`);
+        await closeByButton(chip);
+        await playResumes(chip);
+      }
       await d.hw(() => window.__hw.clearInventory());
     });
 
-    await report.step('goggles at the sky open the Workshop Guide, which closes', async () => {
-      await d.hw(() => { window.__hw.give('engineer_goggles', 1); window.__hw.selectSlot(0); window.__hw.look(0, 1.1); });
-      await d.settle(300);
-      await d.use();
-      await waitFor(page, () => document.querySelectorAll('.hw-window').length > 0, 'the guide window', { timeout: 4000, interval: 100 });
-      await d.shot('03-guide');
-      await closeByButton('Workshop Guide');
-      await playResumes('Workshop Guide');
-      await d.hw(() => window.__hw.clearInventory());
+    await report.step('hotbar slots are at least 43 px wide and 44 px tall in one row', async () => {
+      const boxes = await page.evaluate(() => [...document.querySelectorAll('.hw-hotbar .hw-slot')].map((e) => { const r = e.getBoundingClientRect(); return { w: r.width, h: r.height, y: Math.round(r.y), r: r.right }; }));
+      assert(boxes.length === 9, `${boxes.length} hotbar slots`);
+      if (device === 'phonePortrait') {
+        assert(boxes.every((b) => b.w >= 43 && b.h >= 44), `a hotbar slot is smaller than 43x44: ${JSON.stringify(boxes[0])}`);
+        assert(new Set(boxes.map((b) => b.y)).size === 1, 'the hotbar wrapped onto two rows');
+        assert(boxes[8].r <= 391, 'the hotbar overflows the screen');
+      }
     });
 
     // Every station the Use button opens: a real block, aimed at, Use, a close control, input back.
