@@ -495,7 +495,9 @@ export class Game {
     const was = { x: cam.position.x, y: cam.position.y, z: cam.position.z, yaw: cam.rotation.y, pitch: cam.rotation.x };
     const v = postcardVantage({ x: p.position.x, z: p.position.z, eyeY: p.eyeY }, state.npcs.townDebug().site);
     this.renderer.setView(v.x, v.y, v.z, v.yaw, v.pitch);
+    this.renderer.hideHand = true;
     this.renderer.render(0);
+    this.renderer.hideHand = false;
     const card = makePostcard(this.renderer.canvas, age, AGES[age]?.name ?? `Age ${age}`, state.clock.day);
     // Back to the player's own view before anything is shown.
     this.renderer.setView(was.x, was.y, was.z, was.yaw, was.pitch);

@@ -269,6 +269,9 @@ export class Renderer implements IView {
 
   // ---------------------------------------------------------------------------------------------- frame
 
+  /** Skips the first-person hand and held item (postcards and other third-person frames). */
+  hideHand = false;
+
   /** Draws one frame. `dt` in seconds drives animation (water, plants, particles, the hand). */
   render(dt: number): void {
     if (this.disposed || this.contextLost) return;
@@ -348,8 +351,10 @@ export class Renderer implements IView {
     gl.info.reset();
     gl.clear();
     gl.render(this.scene, cam);
-    gl.clearDepth();
-    gl.render(this.held.scene, this.held.camera);
+    if (!this.hideHand) {
+      gl.clearDepth();
+      gl.render(this.held.scene, this.held.camera);
+    }
 
     const s = this.stats;
     s.drawCalls = gl.info.render.calls;
