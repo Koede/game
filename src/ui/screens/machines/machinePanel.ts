@@ -41,11 +41,19 @@ export class MachinePanel {
   private second: Meter | null = null;
   private thermo: Thermometer | null = null;
   private recipeLine: HTMLSpanElement | null = null;
+  /** Wear (src/sim/wear.ts): condition meter and the Repair button, for machines that wear. */
+  private readonly care: HTMLDivElement;
+  private readonly condition: Meter;
+  private readonly repairBtn: HTMLButtonElement;
   /** Machines with fluid ports: their buffers. */
   private readonly tanks: FluidTanks | null;
 
-  constructor(view: MachineView, layout: MachineLayout, slots: SlotController, inventory: Inventory | null, toBag: readonly QuickTarget[]) {
+  constructor(view: MachineView, layout: MachineLayout, slots: SlotController, inventory: Inventory | null, toBag: readonly QuickTarget[], onRepair?: () => void) {
     this.layout = layout;
+    this.condition = new Meter({ label: 'Condition', tone: 'power' });
+    this.repairBtn = h('button', { class: 'hw-btn', attrs: { type: 'button' }, on: { click: () => onRepair?.() } });
+    this.care = h('div', { class: 'hw-mach__care' }, this.condition.el, this.repairBtn);
+    this.care.hidden = view.wear === null;
     this.figure = new StatFigure({ caption: headline(view, layout).caption, size: 'lg' });
     const icon = new ItemIcon(machineItem(view.kind));
     icon.el.classList.add('hw-mach__icon');
@@ -61,6 +69,7 @@ export class MachinePanel {
       h('div', { class: 'hw-mach__head' }, icon.el, this.figure.el),
       this.status,
       this.problem,
+      this.care,
       this.tanks?.el ?? null,
       this.extra,
       this.hint,
@@ -76,6 +85,13 @@ export class MachinePanel {
     if (this.tanks && view.fluids) this.tanks.update(view.fluids, usesWaterBeside(view));
     setText(this.status, pretty(view.status || (view.on ? 'Ready' : 'Switched off')));
     setAttr(this.status, 'data-tone', machineTone(view));
+    this.care.hidden = view.wear === null;
+    if (view.wear !== null) {
+      const left = 1 - view.wear;
+      this.condition.set(left, 1, `${Math.round(left * 100)}% - ${view.condition === 'kept' ? 'well kept, runs faster' : view.condition}`);
+      this.repairBtn.hidden = view.repairCost <= 0;
+      setText(this.repairBtn, `Repair (${view.repairCost} ${nameOf('iron_ingot')})`);
+    }
     this.problem.hidden = view.problem === null;
     setText(this.problem, view.problem ?? '');
     this.hint.hidden = view.hint === null;

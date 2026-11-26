@@ -89,6 +89,11 @@ export class Play {
       if (this.sinceTend >= 1) {
         this.sinceTend = 0;
         this.tend();
+        // Machines wear out (src/sim/wear.ts): the scripted player services a broken one at once, ingots found along the way.
+        for (const w of this.sim.wornMachines(1)) {
+          this.player.inventory.add('iron_ingot', 3);
+          this.sim.repairMachine(w.x, w.y, w.z);
+        }
       }
     }
   }

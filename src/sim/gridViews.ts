@@ -1,4 +1,5 @@
 /** Read-only snapshots of machines and power networks for the UI and the HUD. Built on demand, never per tick. */
+import { conditionOf, isBroken, repairCost, wearOf, wearsOut, type Condition } from './wear';
 import { BROWNOUT_STALL } from '../core/constants';
 import { furnaceTier, recipe } from '../core/registry';
 import type { MachineRole, RecipeDef, Slot } from '../core/types';
@@ -12,6 +13,11 @@ import type { Network, NetworkState } from './power';
 import type { FluidLinks } from './transportViews';
 
 export interface MachineView {
+  /** Wear (src/sim/wear.ts): 0 as new .. 1 worn out, or null for a machine that does not wear. */
+  wear: number | null;
+  condition: Condition | null;
+  /** Iron ingots a repair costs now (0: nothing to repair or it does not wear). */
+  repairCost: number;
   kind: string;
   name: string;
   role: MachineRole;
@@ -90,6 +96,7 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
   if (spec.role === 'crate') return '';
   if (spec.role === 'hearth_part') return hearthPartStatus(e, around.hearthTier ?? 0);
   if (!e.on) return 'Switched off';
+  if (wearsOut(e.kind) && isBroken(e)) return 'Broken - repair it to run again';
   if (spec.role === 'storage') {
     const pct = Math.round((100 * e.storedJ) / (spec.capacityJ ?? 1));
     if (v.network === null || (node.net !== null && node.net.nodes.length < 2)) return `${pct}% - not connected`;
@@ -136,7 +143,9 @@ export function machineView(node: SimNode, around: MachineSurroundings = {}): Ma
   const span = e.kind === 'bore_rig' ? spec.params?.secondsPerBlock ?? 1 : r ? r.timeS : 1;
   const slot = e.slots[0];
   const fuelJ = spec.fuels && spec.fuels.length > 0 ? e.fuelJ + (slot ? slot.count * fuelEnergyJ(spec, slot.item) : 0) : 0;
+  const wears = wearsOut(e.kind);
   const view: MachineView = {
+    wear: wears ? wearOf(e) : null, condition: wears ? conditionOf(e) : null, repairCost: wears ? repairCost(e) : 0,
     kind: e.kind, name: spec.name, role: spec.role, x: e.x, y: e.y, z: e.z, on: e.on, running: node.active, status: '',
     problem: placementProblem(node), hint: spec.placementHint ?? null, network: node.net ? node.net.id : null,
     availW: e.availW, outW: e.outW, demandW: e.demandW, satisfaction: consumer ? (node.net ? node.net.f : 0) : 1,

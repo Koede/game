@@ -47,7 +47,11 @@ export function createMachineScreen(request: At, ctx: ScreenContext, sim: Screen
   const layout = machineLayout(first.kind, first.role);
   if (layout === 'crate') return createCrateScreen(request, ctx, sim);
   const inventory = sim.machineSlots(x, y, z);
-  const panel = new MachinePanel(first, layout, ctx.slots, inventory && inventory.size > 0 ? inventory : null, TO_BAG);
+  const panel = new MachinePanel(first, layout, ctx.slots, inventory && inventory.size > 0 ? inventory : null, TO_BAG, () => {
+    const r = sim.repairMachine(x, y, z);
+    if (!r.ok) ctx.bus.emit('toast', { text: pretty(r.reason), kind: 'warn' });
+    ctx.invalidate();
+  });
   const net = new NetworkPanel({ compact: true, emptyText: 'Not connected: lay cable to generators, batteries or machines.' });
   const toggle = new Toggle({
     label: `Switch the ${first.name} on or off`,

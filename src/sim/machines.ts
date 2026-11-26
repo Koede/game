@@ -10,6 +10,7 @@ import { rollDrops } from '../game/mining';
 import { addToSlots, roomInSlots, type FurnaceEntity, type MachineEntity, type SimContext, type SimNode } from './entities';
 import { heldL, pipedWater, useFluid } from './fluidUse';
 import { powered } from './power';
+import { addWear, isBroken, speedOf, wearsOut } from './wear';
 
 export interface Behaviour {
   prepare(node: SimNode, ctx: SimContext): void;
@@ -251,7 +252,7 @@ const processor: Behaviour = {
     }
     const minWater = node.spec.params?.minWater;
     const dry = minWater !== undefined && node.water < minWater && !pipedWater(e, node.spec.params?.pipedWaterLPerS);
-    const blocked = !e.on || r === null || dry || roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
+    const blocked = !e.on || r === null || dry || isBroken(e) || roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
     node.job = blocked ? null : r;
     e.demandW = blocked ? 0 : node.spec.drawW ?? 0;
   },
@@ -264,7 +265,7 @@ const processor: Behaviour = {
     if (r && running) {
       const p = node.spec.params ?? {};
       if (p.minWater !== undefined && node.water < p.minWater) useFluid(e, 'water', (p.pipedWaterLPerS ?? 0) * dt);
-      e.progress += dt * e.f;
+      e.progress += dt * e.f * speedOf(e);
       if (e.progress >= r.timeS) {
         e.progress = 0;
         const inp = e.slots[0];
@@ -315,7 +316,7 @@ const boreRig: Behaviour = {
     if (e.halted !== '' && ctx.everySecond) boreTarget(node, ctx);
     const full = e.slots.every((s) => s !== null);
     node.job = null;
-    e.demandW = e.on && e.halted === '' && !full ? node.spec.drawW ?? 0 : 0;
+    e.demandW = e.on && e.halted === '' && !full && !isBroken(e) ? node.spec.drawW ?? 0 : 0;
   },
   apply(node, ctx, dt) {
     const e = node.e as MachineEntity;
@@ -323,7 +324,7 @@ const boreRig: Behaviour = {
     const running = e.demandW > 0 && e.f >= BROWNOUT_STALL;
     ctx.setActive(node, running);
     if (running) {
-      e.progress += dt * e.f;
+      e.progress += dt * e.f * speedOf(e);
       if (e.progress >= (node.spec.params?.secondsPerBlock ?? 1)) {
         e.progress = 0;
         const y = boreTarget(node, ctx);
@@ -369,7 +370,40 @@ const BEHAVIOURS: Record<string, Behaviour> = {
 
 /** The behaviour of a machine kind (the fission pile has its own file). Unknown kinds do nothing. */
 export function behaviourOf(kind: string): Behaviour {
-  return BEHAVIOURS[kind] ?? (isProcessor(kind) ? processor : inert);
+  const base = BEHAVIOURS[kind] ?? (isProcessor(kind) ? processor : inert);
+  return wearsOut(kind) ? withWear(base) : base;
+}
+
+const worn = new WeakMap<Behaviour, Behaviour>();
+
+/**
+ * Wear (src/sim/wear.ts) around a behaviour: a broken machine neither makes nor draws power, a worn or well-kept generator
+ * and blower scale their output (processors and the bore rig scale their own work), and every second it runs wears it.
+ */
+function withWear(base: Behaviour): Behaviour {
+  let b = worn.get(base);
+  if (b) return b;
+  b = {
+    prepare(node, ctx) {
+      base.prepare(node, ctx);
+      const e = node.e as MachineEntity;
+      if (isBroken(e)) {
+        e.availW = 0;
+        e.demandW = 0;
+        node.job = null;
+      } else if (node.spec.role === 'generator') e.availW *= speedOf(e);
+    },
+    apply(node, ctx, dt) {
+      base.apply(node, ctx, dt);
+      const e = node.e as MachineEntity;
+      if (node.active && !isBroken(e)) {
+        addWear(e, dt);
+        if (isBroken(e)) ctx.bus.emit('toast', { text: `A ${node.spec.name} broke down`, kind: 'warn' });
+      }
+    },
+  };
+  worn.set(base, b);
+  return b;
 }
 
 /** Display name of an item for status texts. */

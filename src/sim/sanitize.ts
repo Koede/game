@@ -103,6 +103,9 @@ export function sanitizeEntity(e: BlockEntity, blockTier: number | null = null):
     if (effTier < 1 || effTier > (f.tier as number) || !Number.isInteger(effTier)) set('effTier', 1);
     if (f.hearth !== null && !validSummary(f.hearth)) set('hearth', null);
   } else {
+    // Wear arrived later: absent is fine (as new), a bad value is reset.
+    if ('wear' in f && !(finite(f.wear) && f.wear >= 0 && f.wear <= 1)) set('wear', 0);
+    if ('kept' in f && typeof f.kept !== 'boolean') set('kept', false);
     if (f.recipe !== null && !(typeof f.recipe === 'string' && recipe(f.recipe))) set('recipe', null);
     for (const key of ['fluidIn', 'fluidOut']) if (f[key] !== null && !cleanFluid(f[key])) set(key, null);
     for (const key of ['drawnL', 'rateL']) if (key in f && !finite(f[key])) set(key, 0);
