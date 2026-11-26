@@ -13,8 +13,9 @@ function rig(y = 20) {
   const toasts: string[] = [];
   bus.on('toast', (t) => toasts.push(t.text));
   const pos = { x: 10, y, z: 10 };
-  const watch = new CaveWatch({ world, bus, position: () => pos, note: (text, key) => journal.add('note', text, key) });
-  return { bus, world, journal, toasts, watch, pos };
+  const hand = { item: 'torch' as string | null, count: 3 };
+  const watch = new CaveWatch({ world, bus, position: () => pos, held: () => hand.item, consumeHeld: () => { if (--hand.count <= 0) hand.item = null; }, note: (text, key) => journal.add('note', text, key) });
+  return { bus, world, journal, toasts, watch, pos, hand };
 }
 
 describe('foul air and torches', () => {
@@ -49,6 +50,29 @@ describe('foul air and torches', () => {
     r.world.put(11, WATCH_MAX_Y + 5, 10, 'torch');
     r.watch.tick(1);
     expect(voxelId(r.world.getVoxel(11, WATCH_MAX_Y + 5, 10))).toBe(blockId('torch'));
+  });
+});
+
+describe('a held torch', () => {
+  it('loses one torch a second while the player stands within two blocks of foul air, with one toast', () => {
+    const r = rig();
+    r.world.put(11, 20, 10, 'foul_air');
+    r.watch.tick(1);
+    expect(r.hand.count).toBe(2);
+    r.watch.tick(1);
+    expect(r.hand.count).toBe(1);
+    expect(r.toasts.filter((t) => /torch/.test(t))).toHaveLength(1);
+  });
+
+  it('is safe away from foul air, and only torches are affected', () => {
+    const r = rig();
+    r.world.put(15, 20, 10, 'foul_air');
+    r.watch.tick(1);
+    expect(r.hand.count).toBe(3);
+    r.world.put(11, 20, 10, 'foul_air');
+    r.hand.item = 'stick';
+    r.watch.tick(1);
+    expect(r.hand.count).toBe(3);
   });
 });
 

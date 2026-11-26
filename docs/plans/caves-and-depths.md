@@ -47,7 +47,7 @@ All four phases are in.
   caves that exist: `camp` (crate, lit torch, fallen log), `lode` (a cluster of the band's rarer ore on a wall; only ore the depth allows), `sinkhole`
   (a 3-wide shaft, 5-7 deep, glowcap rim, ore at the bottom; never nearer than 2 blocks to the lava) and `gas` (a pocket of the new `foul_air`
   block, which hurts to stand in, guarding a lode).
-- **Foul air** (`foul_air`, id 281, cross-shaped wisps, `contactDamage: 1`, death cause `gas`). Placed torches within 2 blocks of it go out (`src/game/caveWatch.ts`, checked once a second near the player below y 56).
+- **Foul air** (`foul_air`, id 281, cross-shaped wisps, `contactDamage: 1`, death cause `gas`). Placed torches within 2 blocks of it go out, and so does the held one when you stand that close (`src/game/caveWatch.ts`, checked once a second near the player below y 56).
 - **Camp loot**: named tables `cave_camp_shallow`, `cave_camp_middle`, `cave_camp_deep` in `src/content/loot.ts`. The camp's crate is a generated voxel;
   the World gives it its entity and loot on first load (`findCaveCamp` in `world.ts`).
 - **Hooks** (all exported from `src/world`): `caveBandAt(y)`, `caveCampTable(band)`, `caveRoomPlan(seed, cx, cz)` (what a chunk will try, and the columns),

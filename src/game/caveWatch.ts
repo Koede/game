@@ -1,6 +1,7 @@
 /**
  * What the caves do around the player (docs/plans/caves-and-depths.md, hazards and phase 4). DOM-free; ticked with the game.
- *  - Foul air snuffs torches: any placed torch within SNUFF_REACH blocks of a foul-air cell goes out (the block is removed).
+ *  - Foul air snuffs torches: any placed torch within SNUFF_REACH blocks of a foul-air cell goes out (the block is removed), and so does
+ *    one torch from the stack in the player's hand when the player's body is that close.
  *  - Map notes: the journal (src/game/journal.ts) gets a line the first time the player finds a miner's camp, stands near foul air,
  *    or builds a cave cairn, each with its place and depth band. The journal's map shows ground the player has been over, never more.
  */
@@ -22,6 +23,10 @@ export interface CaveWatchHost {
   readonly world: IWorld;
   readonly bus: GameBus;
   position(): { x: number; y: number; z: number };
+  /** The key of the item in the player's hand, if any. */
+  held(): string | null;
+  /** Uses up one of the held item (a torch the foul air put out). */
+  consumeHeld(): void;
   /** The journal's `add`: true when written. */
   note(text: string, key: string): boolean;
 }
@@ -57,6 +62,21 @@ export class CaveWatch {
     const pz = Math.floor(p.z);
     this.watchCamps(px, py, pz);
     this.watchGas(px, py, pz);
+    this.watchHeld(px, py, pz);
+  }
+
+  private watchHeld(px: number, py: number, pz: number): void {
+    if (this.host.held() !== 'torch') return;
+    // The body: feet and head cells.
+    if (!this.nearFoul(px, py, pz) && !this.nearFoul(px, py + 1, pz)) return;
+    this.host.consumeHeld();
+    this.snuff();
+  }
+
+  private snuff(): void {
+    if (this.t - this.snuffedAt <= 5) return;
+    this.snuffedAt = this.t;
+    this.host.bus.emit('toast', { text: 'A torch gutters out in the foul air.', kind: 'warn' });
   }
 
   private watchCamps(px: number, py: number, pz: number): void {
@@ -83,10 +103,7 @@ export class CaveWatch {
           if (id === this.foul && gas === null) gas = [x, y, z];
           if (id === this.torch && this.nearFoul(x, y, z)) {
             world.setVoxel(x, y, z, AIR, 'sim');
-            if (this.t - this.snuffedAt > 5) {
-              this.snuffedAt = this.t;
-              this.host.bus.emit('toast', { text: 'A torch gutters out in the foul air.', kind: 'warn' });
-            }
+            this.snuff();
           }
         }
       }
