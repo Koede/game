@@ -3,6 +3,7 @@
  * first-person hand, and implements IView for the player controller. One render(dt) per frame, allocation-free.
  */
 import * as THREE from 'three';
+import { HeatView } from './heatView';
 import { STAR_TURNS_PER_DAY } from '../core/constants';
 import type { GameBus, IView, Settings } from '../core/context';
 import { blockOf } from '../core/registry';
@@ -181,12 +182,13 @@ export class Renderer implements IView {
     this.distillFx = new DistillFx(world, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
+    this.heatView = new HeatView();
     this.tech = new TechLayer(world, bus, this.uniforms, this.particles, this.canvas);
     this.stats.tech = this.tech.stats;
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.brewLiquid.mesh, this.distillFx.group);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.heatView.mesh, this.brewLiquid.mesh, this.distillFx.group);
     this.applyDistance();
 
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
@@ -263,6 +265,9 @@ export class Renderer implements IView {
    * src/render; null draws none. Formed hearths, ghosts and highlights need nothing: they come from the world and
    * the bus.
    */
+  /** The heat view (src/render/heatView.ts): `heatView.setVisible(on)` and `heatView.set(grid)`; the game feeds it. */
+  readonly heatView: HeatView;
+
   setTransport(source: TransportSource | null): void {
     this.tech.setTransport(source);
   }
@@ -401,6 +406,7 @@ export class Renderer implements IView {
     this.machines.dispose();
     this.handParts.dispose();
     this.tech.dispose();
+    this.heatView.dispose();
     this.held.dispose();
     this.materials.dispose();
     this.atlas.texture.dispose();

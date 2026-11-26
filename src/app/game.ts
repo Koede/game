@@ -100,6 +100,9 @@ export function chunksInView(r: number): number {
 /** Fixture blocks (src/content/areas/tavern_fixtures.ts) and the NPC role each one speaks as. */
 const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox' | 'party'>> = { quest_board: 'board', wall_clock: 'clock', jukebox: 'jukebox', party_button: 'party' };
 
+/** Blocks around the player the heat view paints (a 25 x 25 patch). */
+const HEAT_VIEW_RADIUS = 12;
+
 export class Game {
   readonly state: GameState;
   readonly input: InputState = createInputState();
@@ -283,6 +286,7 @@ export class Game {
       const last = [...state.journal.entries].reverse().find((e) => e.kind !== 'death');
       bus.emit('toast', { text: resumeLine(state.clock.day, state.objectives.current?.title ?? null, last), kind: 'info' });
     }
+    this.ui.hud.onHeatToggle = () => this.toggleHeatView();
     this.offs.push(
       bus.on('photo:snap', () => (this.shotPending = true)),
       bus.on('photo:mode', ({ on }) => root.el.classList.toggle('hw-root--photo', on)),
@@ -292,6 +296,7 @@ export class Game {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.code === 'KeyF') this.vehicles.setWorkKey(down);
       else if (e.code === 'KeyR' && down && !e.repeat) this.vehicles.pressSwapKey();
+      else if (e.code === 'KeyH' && down && !e.repeat) this.toggleHeatView();
     };
     const keyDown = onKey(true);
     const keyUp = onKey(false);
@@ -412,6 +417,7 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.updateHeatView(dt);
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
     showRodAura(this.ui.hud, this.magic.rodReading());
     this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
@@ -529,6 +535,29 @@ export class Game {
   }
 
   /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */
+  /** The heat view (src/render/heatView.ts): H or the temperature chip; refreshed twice a second while on. */
+  private heatOn = false;
+  private heatIn = 0;
+  private toggleHeatView(): void {
+    this.heatOn = !this.heatOn;
+    this.renderer.heatView.setVisible(this.heatOn);
+    this.ui.hud.setHeatView(this.heatOn);
+    this.heatIn = 0;
+    if (this.heatOn) this.state.bus.emit('toast', { text: 'Heat view: blue is cold, green is comfortable, orange and red are warm. Walls and insulation show.', kind: 'info' });
+  }
+
+  private updateHeatView(dt: number): void {
+    if (!this.heatOn) return;
+    this.heatIn -= dt;
+    if (this.heatIn > 0) return;
+    this.heatIn = 0.5;
+    const p = this.state.player.position;
+    const r = HEAT_VIEW_RADIUS;
+    const cx = Math.floor(p.x), cz = Math.floor(p.z);
+    const g = this.state.thermal.grid(cx, Math.floor(p.y), cz, r);
+    this.renderer.heatView.set({ ...g, x0: cx - r, z0: cz - r });
+  }
+
   private showAnimalName(): void {
     const id = this.controller.targetAnimal;
     const health = id !== null ? (this.state.mobs.get(id)?.health ?? -1) : -1;

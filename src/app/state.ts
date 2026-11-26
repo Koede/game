@@ -13,6 +13,8 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
 import { Survival } from '../game/survival';
+import { Thermal } from '../game/thermal';
+import { seasonOf } from '../sim/seasons';
 import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
 import { StoryDirector } from '../game/storyBeats';
 import { Journal, isJournalSnapshot } from '../game/journal';
@@ -48,6 +50,9 @@ export interface StateOptions {
   mode?: GameMode;
 }
 
+/** What each season adds to the outdoor temperature in C (thermal.ts). The winter arc and the heat view read this. */
+export const SEASON_OFFSET_C: Readonly<Record<ReturnType<typeof seasonOf>, number>> = { spring: 0, summer: 4, autumn: -2, winter: -10 };
+
 export class GameState {
   readonly bus: GameBus;
   readonly world: World;
@@ -55,6 +60,8 @@ export class GameState {
   readonly clock: GameClock;
   readonly sim: Simulation;
   readonly survival: Survival;
+  /** Heat as a resource (src/game/thermal.ts): `thermal.temperatureAt(x, y, z)` in C, rooms, insulation, the heat view's grid. */
+  readonly thermal: Thermal;
   readonly objectives: ObjectiveTracker;
   /** The sky (spec 15): its `state` is read by the simulation, survival, renderer, audio and HUD. */
   readonly weather: Weather;
@@ -125,6 +132,14 @@ export class GameState {
     this.sim.useWeather(this.weather.state, biomeAt);
     this.survival = new Survival(world, this.player, this.clock, biomeAt);
     this.survival.weather = this.weather.state;
+    this.thermal = new Thermal(world, {
+      isNight: () => this.clock.isNight,
+      biomeAt,
+      weather: () => this.weather.state,
+      seasonOffsetC: () => SEASON_OFFSET_C[seasonOf(this.clock.day)],
+    }, bus);
+    this.survival.thermal = this.thermal;
+    this.survival.hard = difficulty === 'hard';
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
     this.resumed = save !== null;
     this.journal = new Journal(() => this.clock.day, bus);
@@ -244,7 +259,7 @@ export class GameState {
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
-    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim }));
+    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, thermal: this.thermal }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
     this.offs.push(() => this.workshop.dispose());
@@ -300,6 +315,7 @@ export class GameState {
     this.difficultyNow = d;
     this.mobs.setDifficulty(d);
     this.player.combat.setDifficulty(d);
+    this.survival.hard = d === 'hard';
   }
 
   /**
@@ -376,6 +392,7 @@ export class GameState {
     // Flowing water (spec 18.2): one step of the world's scheduled water updates per fixed tick.
     this.world.water.tick();
     this.mobs.tick(dt, this.mobPlayer);
+    this.thermal.tick(dt);
     this.survival.tick(dt);
     this.objectives.tick(dt);
     this.journal.explore(this.player.position.x, this.player.position.z);
@@ -477,6 +494,7 @@ export class GameState {
 
   dispose(): void {
     for (const off of this.offs.splice(0)) off();
+    this.thermal.dispose();
     this.objectives.dispose();
     this.journal.dispose();
     this.story.dispose();

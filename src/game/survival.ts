@@ -31,6 +31,7 @@ import { clamp, type Vec3 } from '../core/math';
 import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { heldWarms } from './heldWarmth';
+import { COLD_C, COMFORT_C, FREEZING_C, type Thermal } from './thermal';
 import { peakDrain } from './peaks';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
@@ -58,6 +59,9 @@ export interface SurvivalSnapshot {
 
 /** Seconds between rescans of heat and radiation sources. */
 export const SCAN_INTERVAL_S = 0.5;
+/** Hard difficulty: warmth lost per second in air below COLD_C, and in air at or below FREEZING_C (thermal.ts). */
+export const WARMTH_DRAIN_HARD_COLD = 0.15;
+export const WARMTH_DRAIN_HARD_FREEZING = 0.35;
 /** Radiating blocks further than this many blocks away add nothing to the dose. */
 export const RADIATION_RANGE = 4;
 /** Doses above this hurt. */
@@ -154,6 +158,12 @@ export class Survival {
    * WARMTH_DRAIN_WET more warmth per second (spec 15). Null = no weather.
    */
   weather: WeatherState | null = null;
+  /** The temperature model (thermal.ts). Null (tests, old harnesses): the cold works exactly as before. */
+  thermal: Thermal | null = null;
+  /** Hard difficulty: a cold room costs warmth. Normal and peaceful only ever gain from a warm room. */
+  hard = false;
+  /** The air temperature at the player's chest as of the last scan, or null without a thermal model. */
+  temperatureC: number | null = null;
 
   constructor(
     private readonly world: IWorld,
@@ -335,6 +345,7 @@ export class Survival {
       }
     }
     this.frost = this.biomeAt(cx, cz) === 'frostfell';
+    this.temperatureC = this.thermal ? this.thermal.temperatureAt(player.position.x, player.position.y + PLAYER_HEIGHT / 2, player.position.z) : null;
     this.exposed = openSkyAbove(world, player.position.x, player.position.y + PLAYER_HEIGHT, player.position.z);
     this.coatMult = bestArmour(player.inventory.slots).warmthDrainMult;
     this.suit = player.inventory.has('shield_suit');
@@ -371,13 +382,17 @@ export class Survival {
       // Each drain on its own; the biggest names the cause (ties go to the one the player can act on first).
       const water = player.inWater ? WARMTH_DRAIN_WATER : 0;
       const wet = this.soaked ? WARMTH_DRAIN_WET : 0;
-      const frost = this.frost ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
-      const dark = night ? WARMTH_DRAIN_NIGHT : 0;
+      // A warm room (thermal.ts) shuts out the night and the frost; on hard a cold one makes things worse.
+      const tc = this.temperatureC;
+      const warmRoom = tc !== null && tc >= COMFORT_C;
+      const chill = this.hard && tc !== null ? (tc <= FREEZING_C ? WARMTH_DRAIN_HARD_FREEZING : tc < COLD_C ? WARMTH_DRAIN_HARD_COLD : 0) : 0;
+      const frost = this.frost && !warmRoom ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
+      const dark = night && !warmRoom ? WARMTH_DRAIN_NIGHT : 0;
       const peak = peakDrain(player.position.y);
-      let drain = water + wet + frost + dark + peak;
+      let drain = water + wet + frost + dark + peak + chill;
       if (drain > 0) {
-        const top = Math.max(water, wet, frost, dark, peak);
-        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top ? 'frost' : 'night';
+        const top = Math.max(water, wet, frost, dark, peak, chill);
+        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top || (chill === top && this.frost) ? 'frost' : 'night';
       }
       drain *= this.coatMult;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
