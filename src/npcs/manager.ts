@@ -18,7 +18,8 @@ import { ORC_HIRE } from './scripts/orc';
 import { TRADER_FULL, TRADER_WANT_SHORT, TRADER_WANT_THANKS } from './scripts/trader';
 import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
-import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_START, buildTavern } from './tavern';
+import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
+import { TownBuilder, type TownHost, type TownSnapshot } from './townBuilder';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
@@ -93,6 +94,8 @@ export interface NpcSnapshot {
   festival?: FestivalState;
   /** The wandering trader's visit under way (trader.ts): its start day, the units left per stock line, and whether the wanted favour is done. */
   trader?: { visit: number; left: number[]; wantDone: boolean };
+  /** Orrin's town build (townBuilder.ts): the plan, the progress and the storage bay's stock. */
+  town?: TownSnapshot;
 }
 
 /** What the manager needs from the game. */
@@ -120,6 +123,14 @@ export interface NpcHost {
   /** Whether the trade caravan is in town today, and a way to open its screen. */
   caravanPresent?(): boolean;
   openCaravan?(): void;
+  /** Ground under a column: the top solid block, or null when not loaded (townBuilder.ts). */
+  townSurface?(x: number, z: number): { y: number; key: string } | null;
+  /** The block key at a cell, or null when its chunk is not loaded. */
+  townBlock?(x: number, y: number, z: number): string | null;
+  /** True when the player (or anything but the world's generation) changed the cell. */
+  townEdited?(x: number, y: number, z: number): boolean;
+  /** Sets a block (or 'air') with the 'town' source. False when the chunk is not loaded. */
+  townPlace?(x: number, y: number, z: number, block: string, facing: number): boolean;
   companion: CompanionHost;
 }
 
@@ -197,6 +208,7 @@ export class NpcManager {
   private gossipSaid: string[] = [];
   private drinkLog: DrinkLog = { day: 0, n: {} };
   private readonly bar = new Upkeep();
+  private readonly town = new TownBuilder();
   private fest: FestivalState = newFestivalState();
   private festNow = false;
   /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
@@ -1016,6 +1028,7 @@ export class NpcManager {
     if (this.host) this.favours.refresh(this.host.day(), this.rng);
     const host = this.host;
     if (!host || !this.at) return;
+    this.tickTown(host, dt);
     this.syncJukeboxLamp();
     this.syncPartyLamp();
     if (this.jukeboxOn) this.playJukebox(dt);
@@ -1035,6 +1048,22 @@ export class NpcManager {
     }
   }
 
+  /** Orrin's town build, anchored on the tavern's centre (townBuilder.ts). Only when the host can place blocks. */
+  private tickTown(host: NpcHost, dt: number): void {
+    const { townSurface, townBlock, townEdited, townPlace } = host;
+    const o = this.at;
+    if (!o || !townSurface || !townBlock || !townEdited || !townPlace) return;
+    const th: TownHost = {
+      day: () => host.day(),
+      timeOfDay: () => host.timeOfDay(),
+      townSurface: (x, z) => townSurface.call(host, x, z),
+      townBlock: (x, y, z) => townBlock.call(host, x, y, z),
+      townEdited: (x, y, z) => townEdited.call(host, x, y, z),
+      townPlace: (x, y, z, block, facing) => townPlace.call(host, x, y, z, block, facing),
+    };
+    this.town.tick(dt, th, host.worldSeed?.() ?? 0, [o[0] + Math.floor(TAVERN_W / 2), o[2] + Math.floor(TAVERN_D / 2)]);
+  }
+
   /** The welcome, once, the first tick of a new world. */
   greet(): void {
     if (this.greeted || !this.at) return;
@@ -1050,6 +1079,7 @@ export class NpcManager {
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
+      town: this.town.toJSON(),
     };
   }
 
@@ -1111,6 +1141,7 @@ export class NpcManager {
     if (tr && typeof tr === 'object' && Number.isFinite(tr.visit) && Array.isArray(tr.left)) {
       this.trade = { visit: Math.floor(tr.visit), left: tr.left.map((n) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0)), wantDone: tr.wantDone === true };
     }
+    this.town.load(r.town);
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;

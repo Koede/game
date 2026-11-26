@@ -385,6 +385,11 @@ export class World implements IWorld {
     else this.growthRecords.delete(key);
   }
 
+  /** True when the voxel at (x, y, z) was ever changed (edits.ts): the town builder leaves such cells alone. */
+  wasEdited(x: number, y: number, z: number): boolean {
+    return this.edits.has(chunkCoord(x), chunkCoord(z), voxelIndex(localCoord(x), y, localCoord(z)));
+  }
+
   /** A tree stands while no voxel from its ground up to `top` was ever edited (felled, chopped or decayed). */
   private treeStanding(s: TreeSite, top: number): boolean {
     const columns = s.kind === OAK_BROAD ? 4 : 1;

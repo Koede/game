@@ -978,7 +978,7 @@ export interface BlockEntity {
   [field: string]: unknown;
 }
 
-export type ChangeSource = 'player' | 'sim' | 'load';
+export type ChangeSource = 'player' | 'sim' | 'load' | 'town';
 
 export interface IWorld {
   readonly seed: number;
@@ -990,6 +990,8 @@ export interface IWorld {
   setVoxel(x: number, y: number, z: number, voxel: Voxel, source?: ChangeSource): boolean;
   /** True when the chunk column containing world x,z holds voxel data. */
   isLoaded(x: number, z: number): boolean;
+  /** True when the voxel was ever changed by the player, the sim or the town (the edit log). Optional: test fakes may omit it. */
+  wasEdited?(x: number, y: number, z: number): boolean;
   /** Highest non-air block y in a column, or -1 when unloaded. */
   surfaceY(x: number, z: number): number;
 

@@ -4,7 +4,7 @@ import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
 import type { Magic } from '../magic/magic';
 import type { MobManager } from '../mobs';
-import { voxelActive, voxelId, withActive, type IWorld } from '../core/types';
+import { Facing, makeVoxel, voxelActive, voxelId, withActive, type IWorld } from '../core/types';
 import { OBJECTIVES, blockId } from '../core/registry';
 import type { Simulation } from '../sim';
 import { alchemyAdvice } from './alchemy';
@@ -41,6 +41,14 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       if (voxelActive(v) !== on) d.world.setVoxel(x, y, z, withActive(v, on), 'sim');
       return true;
     },
+    townSurface: (x, z) => {
+      if (!d.world.isLoaded(x, z)) return null;
+      const y = d.world.surfaceY(x, z);
+      return y < 0 ? null : { y, key: d.world.getBlock(x, y, z).key };
+    },
+    townBlock: (x, y, z) => (d.world.isLoaded(x, z) ? d.world.getBlock(x, y, z).key : null),
+    townEdited: (x, y, z) => d.world.wasEdited?.(x, y, z) ?? false,
+    townPlace: (x, y, z, block, facing) => d.world.isLoaded(x, z) && d.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing), 'town'),
     give: (item, n) => d.player.give(item, n),
     currentGoal: () => d.objectives.current?.id ?? null,
     completed: () => new Set(d.objectives.completed.map((o) => o.id)),
