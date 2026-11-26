@@ -143,6 +143,40 @@ describe('use auto-repeat', () => {
   });
 });
 
+describe('tap to move', () => {
+  it('a world tap reports where instead of pressing Use, once', () => {
+    const core = make({ tapToMove: true });
+    core.touch.setViewport(400, 800);
+    core.touch.down(1, 300, 200, 0, 'world'); // right of centre, above it
+    core.touch.up(1, 80);
+    const f = core.frame(DT, 100, false);
+    expect(f.use).toBe(false);
+    expect(f.tap).toBe(true);
+    expect(f.tapX).toBeCloseTo(0.5);
+    expect(f.tapY).toBeCloseTo(0.5);
+    expect(f.tapAspect).toBeCloseTo(0.5);
+    expect(core.frame(DT, 116, false).tap).toBe(false);
+  });
+
+  it('the Use button still uses, and holding still mines', () => {
+    const core = make({ tapToMove: true });
+    core.touch.down(1, 300, 700, 0, 'use');
+    expect(core.frame(DT, 16, false)).toMatchObject({ use: true, tap: false });
+    core.touch.up(1, 40);
+    core.touch.down(2, 200, 300, 100, 'world');
+    let mining = false;
+    for (let t = 100; t < 800; t += 16) mining = core.frame(DT, t, false).mine;
+    expect(mining).toBe(true);
+  });
+
+  it('off, a tap is Use and never a tap-to-move', () => {
+    const core = make({ tapToMove: false });
+    core.touch.down(1, 300, 300, 0, 'world');
+    core.touch.up(1, 80);
+    expect(core.frame(DT, 100, false)).toMatchObject({ use: true, tap: false });
+  });
+});
+
 describe('place (Shift + Use, the touch Place toggle)', () => {
   it('Shift held turns a Use into a place; Shift alone or a plain Use does not', () => {
     const core = make();

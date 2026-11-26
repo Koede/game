@@ -26,6 +26,7 @@ import { blockOfItem } from '../core/registry';
 import { legendaryEffectOf } from '../content/legendary';
 import { DARK_LIGHT, oreHum } from '../game/legendary';
 import { blockLightAt, skyOpenAt } from '../mobs/sight';
+import { TAP_RANGE, TapMove, tapDirection } from './tapMove';
 import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
 import { attachSapSave } from './sapTools';
 
@@ -111,6 +112,9 @@ export class PlayerController {
   private readonly state: InputState;
   private readonly hit: RayHit = createRayHit();
   private readonly talkHit: RayHit = createRayHit();
+  private readonly tapHit: RayHit = createRayHit();
+  /** The walk a tap started (Settings.tapToMove). */
+  readonly tapMove = new TapMove();
   /** A screen block behind a thin block under the crosshair (see useTarget). */
   private readonly behind: RayHit = createRayHit();
   private readonly dir: Vec3 = { x: 0, y: 0, z: 1 };
@@ -247,8 +251,9 @@ export class PlayerController {
         const beast = this.animals?.distanceAlong(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z) ?? Infinity;
         if (this.talkTo(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, Math.min(wall ? wall.distance : Infinity, beast))) intent.use = false;
       }
+      this.tapWalk(dt, intent);
       this.move(dt, intent);
-    }
+    } else this.tapMove.cancel();
 
     this.currentTarget = this.cast();
     if (!p.dead) {
@@ -286,6 +291,30 @@ export class PlayerController {
     if (intent.pause) this.bus.emit('ui:open', { screen: { type: 'pause' } });
     else if (intent.inventory) this.bus.emit('ui:open', { screen: { type: this.player.dev ? 'creative' : 'inventory' } });
     else if (intent.log) this.bus.emit('ui:open', { screen: { type: 'log' } });
+  }
+
+  /** Tap to move: a tap picks the cell under the finger as the goal; each frame steers the body toward it unless the player takes over. */
+  private tapWalk(dt: number, intent: Intent): void {
+    const p = this.player;
+    const tm = this.tapMove;
+    if (!this.settings.tapToMove) {
+      tm.cancel();
+      return;
+    }
+    if (intent.tap) {
+      tapDirection(intent.tapX, intent.tapY, intent.tapAspect, this.settings.fov, p.yaw, p.pitch, this.dir);
+      const d = this.dir;
+      const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, TAP_RANGE, false, this.tapHit);
+      if (hit) tm.set(hit.px + 0.5, hit.pz + 0.5);
+    }
+    if (!tm.active) return;
+    const manual = Math.abs(intent.moveX) > 0.1 || Math.abs(intent.moveZ) > 0.1 || intent.jump || this.emotes.sitting;
+    const s = tm.steer(p.position.x, p.position.z, p.yaw, dt, manual);
+    if (!s) return;
+    p.yaw = s.yaw;
+    intent.moveX = 0;
+    intent.moveZ = s.moveZ;
+    intent.jump = s.jump;
   }
 
   private move(dt: number, intent: Intent): void {

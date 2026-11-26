@@ -14,6 +14,8 @@
   color: var(--hw-bone);
   font-family: var(--hw-font-body);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+  /* HUD size (Settings.hudScale -> --hw-hud-scale on the root, kit/uiScale.ts): the whole HUD grows or shrinks, anchored to its edges. */
+  zoom: var(--hw-hud-scale, 1);
 }
 .hw-hud[data-touch] {
   /* The touch overlay's bag + pause buttons: about 112 x 60 px at the top right. */
@@ -720,6 +722,12 @@
   background: rgba(13, 10, 8, 0.62);
   border: 1px solid var(--hw-plate-edge);
   border-radius: var(--hw-radius);
+}
+/* On a phone the hotbar already spans the screen, so the HUD size leaves it alone (nine slots would wrap into two rows). */
+@media (max-width: 640px) {
+  .hw-hotbar {
+    zoom: calc(1 / var(--hw-hud-scale, 1));
+  }
 }
 .hw-hotbar .hw-slotgrid {
   --hw-slot-gap: 3px;

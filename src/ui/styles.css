@@ -70,10 +70,11 @@
   --hw-font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --hw-font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
 
-  --hw-fs-xs: 11px;
-  --hw-fs-sm: 13px;
-  --hw-fs-md: 15px;
-  --hw-fs-lg: 18px;
+  /* Text size: Settings.textScale sets --hw-text-scale on the root (src/ui/kit/uiScale.ts); every token follows it. */
+  --hw-fs-xs: calc(11px * var(--hw-text-scale, 1));
+  --hw-fs-sm: calc(13px * var(--hw-text-scale, 1));
+  --hw-fs-md: calc(15px * var(--hw-text-scale, 1));
+  --hw-fs-lg: calc(18px * var(--hw-text-scale, 1));
 
   --hw-tap: 44px;
   --hw-radius: 2px;
@@ -89,24 +90,24 @@
 /* UI size Large (Settings.uiScale; src/ui/kit/uiScale.ts marks the root): type and touch targets grow, and every
    window, button, chip and slot hint follows these tokens. The HUD's own Large rules are in src/ui/hud/combat.css. */
 .hw-root[data-ui-scale='large'] {
-  --hw-fs-xs: 13px;
-  --hw-fs-sm: 15px;
-  --hw-fs-md: 17px;
-  --hw-fs-lg: 21px;
+  --hw-fs-xs: calc(13px * var(--hw-text-scale, 1));
+  --hw-fs-sm: calc(15px * var(--hw-text-scale, 1));
+  --hw-fs-md: calc(17px * var(--hw-text-scale, 1));
+  --hw-fs-lg: calc(21px * var(--hw-text-scale, 1));
   --hw-tap: 52px;
   --hw-icon: 36px;
 }
 .hw-root[data-ui-scale='large'] .hw-btn {
-  font-size: 16px;
+  font-size: calc(16px * var(--hw-text-scale, 1));
 }
 .hw-root[data-ui-scale='large'] .hw-seg__opt,
 .hw-root[data-ui-scale='large'] .hw-chip,
 .hw-root[data-ui-scale='large'] .hw-tab {
-  font-size: 14.5px;
+  font-size: calc(14.5px * var(--hw-text-scale, 1));
 }
 .hw-root[data-ui-scale='large'] .hw-toggle__state,
 .hw-root[data-ui-scale='large'] .hw-carry__name {
-  font-size: 14px;
+  font-size: calc(14px * var(--hw-text-scale, 1));
 }
 
 /* ---- 2. base --------------------------------------------------------------------------- */
@@ -2942,8 +2943,9 @@ body {
   transition: none !important;
   scroll-behavior: auto !important;
 }
-/* Colour-safe: good / warning / bad / health / food sit on a blue - yellow - orange line (Okabe-Ito) instead of green - yellow - red. */
-.hw-root[data-color-safe] {
+/* Colour-blind palettes (Settings.colorMode; data-color-mode on the root). Status colours and the heat / power ramps (kit/palette.ts) stay apart without red versus green. */
+.hw-root[data-color-mode='red-green'] {
+  /* Okabe-Ito: blue - yellow - orange */
   --hw-good: #56b4e9;
   --hw-good-wash: #0d2230;
   --hw-warn: #f0e442;
@@ -2954,9 +2956,41 @@ body {
   --hw-food: #56b4e9;
   --hw-food-hi: #a9d9f5;
   --hw-food-wash: #0d2230;
+  --hw-temp-500: #6a176e;
+  --hw-temp-800: #c73e4c;
+  --hw-temp-1100: #f98e09;
+  --hw-temp-1500: #fcffa4;
+  --hw-temp-1900: #e6fbff;
+  --hw-power-hi: #e6fbff;
+  --hw-power-lo: #0b5fa8;
+  --hw-power-wash: #0a1f4d;
 }
-.hw-root[data-color-safe] .hw-vital[data-kind='health'] {
+.hw-root[data-color-mode='red-green'] .hw-vital[data-kind='health'] {
   --hw-vital-color: #e8702a;
+}
+.hw-root[data-color-mode='blue-yellow'] {
+  /* No blue versus green, no yellow versus violet: teal - pink - red */
+  --hw-good: #4fd0b6;
+  --hw-good-wash: #0a2420;
+  --hw-warn: #ff9fb0;
+  --hw-warn-wash: #331820;
+  --hw-bad: #e8344f;
+  --hw-bad-hi: #ff8fa1;
+  --hw-bad-wash: #33101a;
+  --hw-food: #4fd0b6;
+  --hw-food-hi: #a4ead9;
+  --hw-food-wash: #0a2420;
+  --hw-temp-500: #8f1022;
+  --hw-temp-800: #e8344f;
+  --hw-temp-1100: #ff9fb0;
+  --hw-temp-1500: #fff5f7;
+  --hw-temp-1900: #eafff8;
+  --hw-power-hi: #eafff8;
+  --hw-power-lo: #0e6b66;
+  --hw-power-wash: #06201f;
+}
+.hw-root[data-color-mode='blue-yellow'] .hw-vital[data-kind='health'] {
+  --hw-vital-color: #e8344f;
 }
 .hw-bag__empty {
   margin: 8px 0 0;

@@ -69,3 +69,21 @@ export function uiScaleHint(scale: Settings['uiScale']): string {
     ? 'Bigger text and touch buttons: easier to read and hit on a small phone.'
     : 'Large makes text and touch buttons bigger for small screens.';
 }
+
+export const COLOR_MODE_OPTIONS: readonly { value: Settings['colorMode']; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'red-green', label: 'Red-green' },
+  { value: 'blue-yellow', label: 'Blue-yellow' },
+];
+
+/** What each colour-blind palette changes (src/ui/kit/palette.ts holds the colours). */
+export function colorModeHint(mode: Settings['colorMode']): string {
+  switch (mode) {
+    case 'red-green':
+      return 'For red-green colour blindness (protanopia, deuteranopia): good, warning and bad show as blue, yellow and orange, and the heat and power overlays run dark to bright without red or green.';
+    case 'blue-yellow':
+      return 'For blue-yellow colour blindness (tritanopia): good, warning and bad show as teal, pink and red, and the heat and power overlays run dark to bright without blue or yellow.';
+    default:
+      return 'The game\'s own colours. Pick the kind of colour blindness you have to change status colours and the heat and power overlays.';
+  }
+}

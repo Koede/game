@@ -4,7 +4,7 @@ import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
 import { PRESETS, applyPreset, detectPreset, presetById, type PresetId } from './settingsPresets';
-import { DIFFICULTY_OPTIONS, GRAPHICS_OPTIONS, ITEM_MAGNET_OPTIONS, LOOT_FILTER_OPTIONS, difficultyHint, graphicsHint, itemMagnetHint, lootFilterHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
+import { COLOR_MODE_OPTIONS, DIFFICULTY_OPTIONS, colorModeHint, GRAPHICS_OPTIONS, ITEM_MAGNET_OPTIONS, LOOT_FILTER_OPTIONS, difficultyHint, graphicsHint, itemMagnetHint, lootFilterHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
 export const SETTINGS_LIMITS = {
@@ -12,6 +12,8 @@ export const SETTINGS_LIMITS = {
   fov: { min: 55, max: 100, step: 1 },
   sensitivity: { min: 0.2, max: 3, step: 0.1 },
   volume: { min: 0, max: 1, step: 0.05 },
+  textScale: { min: 0.85, max: 1.6, step: 0.05 },
+  hudScale: { min: 0.8, max: 1.5, step: 0.05 },
 } as const;
 
 export interface SettingsPanelOptions {
@@ -24,6 +26,7 @@ export interface SettingsPanelOptions {
 }
 
 const speed = (v: number): string => `${v.toFixed(1)}×`;
+const percent = (v: number): string => `${Math.round(v * 100)}%`;
 
 /** A mouse (or trackpad) is attached: without one the mouse setting means nothing to the player. */
 const hasMouse = (): boolean => typeof matchMedia !== 'function' || matchMedia('(any-pointer: fine)').matches;
@@ -64,7 +67,10 @@ export class SettingsPanel {
       this.section(
         'Accessibility',
         this.toggle('reduceMotion', 'Reduce motion', 'No view bob, sprint zoom, landing dip, flashes, pulses or sliding. Bars and counters still update.'),
-        this.toggle('colorSafe', 'Colour-blind-safe colours', 'Good, warning and bad show as blue, yellow and orange instead of green, yellow and red.'),
+        this.choice('colorMode', 'Colour-blind palette', COLOR_MODE_OPTIONS, colorModeHint),
+        this.slider('textScale', 'Text size', 'Scales every word in the menus and the HUD.', L.textScale, percent),
+        this.slider('hudScale', 'HUD and button size', 'Scales the meters, hotbar, compass and the touch buttons.', L.hudScale, percent),
+        this.toggle('tapToMove', 'Tap to move', 'Tap the ground to walk there. Touching the stick or a key stops the walk. A tap no longer presses Use: use the Use button.'),
       ),
       this.section(
         'Feel',
@@ -111,7 +117,7 @@ export class SettingsPanel {
   }
 
   /** A segmented choice whose hint says what the picked value means (Difficulty, UI size). */
-  private choice<K extends 'difficulty' | 'uiScale' | 'itemMagnet' | 'lootFilter' | 'graphics'>(
+  private choice<K extends 'difficulty' | 'uiScale' | 'colorMode' | 'itemMagnet' | 'lootFilter' | 'graphics'>(
     key: K,
     label: string,
     options: readonly { value: Settings[K]; label: string }[],
@@ -136,7 +142,7 @@ export class SettingsPanel {
   }
 
   private slider(
-    key: 'renderDistance' | 'fov' | 'mouseSensitivity' | 'touchSensitivity' | 'volume',
+    key: 'renderDistance' | 'fov' | 'mouseSensitivity' | 'touchSensitivity' | 'volume' | 'textScale' | 'hudScale',
     label: string,
     hint: string,
     limits: { min: number; max: number; step: number },
@@ -147,7 +153,7 @@ export class SettingsPanel {
     return this.row(label, hint, slider.el, true);
   }
 
-  private toggle(key: 'invertY' | 'showFps' | 'moveAssist' | 'autoStep' | 'reduceMotion' | 'colorSafe' | 'haptics' | 'autoBuck' | 'treeDamage', label: string, hint: string): HTMLElement {
+  private toggle(key: 'invertY' | 'showFps' | 'moveAssist' | 'autoStep' | 'reduceMotion' | 'tapToMove' | 'haptics' | 'autoBuck' | 'treeDamage', label: string, hint: string): HTMLElement {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);

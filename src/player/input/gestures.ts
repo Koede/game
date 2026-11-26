@@ -111,6 +111,11 @@ export class TouchGestures {
   private jumpCount = 0;
   private mineCount = 0;
   private useCount = 0;
+  /** Settings.tapToMove (set each frame): a still tap on the world is reported by takeTap() instead of pressing Use. */
+  tapToMove = false;
+  private tapPending = false;
+  private tapX = 0;
+  private tapY = 0;
   /** Time of the previous update() (frame clock); -Infinity before the first. */
   private lastUpdateT = -Infinity;
 
@@ -231,7 +236,10 @@ export class TouchGestures {
           p.holding = false;
           this.mineCount--;
         }
-        this.usePulses++;
+        // A world tap waits as `tapPending`; it becomes Use or a tap-to-move depending on the setting when the frame takes it.
+        this.tapPending = true;
+        this.tapX = p.lastX;
+        this.tapY = p.lastY;
       } else {
         this.promoteHold(p, t);
       }
@@ -280,8 +288,22 @@ export class TouchGestures {
     this.lookY = 0;
   }
 
+  /** A world tap waiting (with tap-to-move on): writes where into `out` as -1..1 from the left / bottom plus the aspect, and clears it. */
+  takeTap(out: { x: number; y: number; aspect: number }): boolean {
+    if (!this.tapPending || !this.tapToMove) return false;
+    this.tapPending = false;
+    out.x = clamp((this.tapX / this.width) * 2 - 1, -1, 1);
+    out.y = clamp(1 - (this.tapY / this.height) * 2, -1, 1);
+    out.aspect = this.width / this.height;
+    return true;
+  }
+
   /** Number of use presses (world taps + Use button presses) since the last call. */
   takeUsePulses(): number {
+    if (this.tapPending && !this.tapToMove) {
+      this.tapPending = false;
+      this.usePulses++;
+    }
     const n = this.usePulses;
     this.usePulses = 0;
     return n;
@@ -293,6 +315,7 @@ export class TouchGestures {
     this.lookX = 0;
     this.lookY = 0;
     this.usePulses = 0;
+    this.tapPending = false;
     this.holdPhase = HOLD_NONE;
   }
 
