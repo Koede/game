@@ -53,7 +53,7 @@ import { repairToast, sanitizeEntity } from './sanitize';
 import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
-import { riverScale } from './hydro';
+import { MILL_WHEEL, millWheelSu, riverScale } from './hydro';
 import { cropScale, seasonOf } from './seasons';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
@@ -495,6 +495,12 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     const e = this.brewing.entityAt(x, y, z);
     if (this.boilers.steamReadyAt(x, y, z)) return true;
     return !!e && e.kind === 'kettle' && (e as { boiling: boolean }).boiling && (e as { waterL: number }).waterL > 0 && this.world.getBlock(x, y, z).key === 'steam_kettle';
+  }
+
+  /** What the mill wheel at x,y,z gets from the river now (src/sim/hydro.ts), or null. */
+  millWheelAt(x: number, y: number, z: number): { rpm: number; capacity: number } | null {
+    const su = millWheelSu(this.world, x, y, z, this.river);
+    return su > 0 ? { rpm: MILL_WHEEL.rpm, capacity: su } : null;
   }
 
   /** What the beam engine at x,y,z gives from its boiler's pressure, or null. */

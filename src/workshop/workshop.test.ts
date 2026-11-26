@@ -85,6 +85,19 @@ describe('workshop', () => {
     expect(flour()).toBe(2);
   });
 
+  it('a mill wheel turns its shaft only while the river gives it flow', () => {
+    const t = setup();
+    let su = 12;
+    t.shop.riverAt = (x, y, z) => (su > 0 && x === 0 && y === 0 && z === 0 ? { rpm: 16, capacity: su } : null);
+    t.put(0, 0, 0, 'mill_wheel');
+    t.put(1, 0, 0, 'drive_shaft');
+    t.run(1);
+    expect(t.shop.netAt(1, 0, 0)?.rpm ?? 0).toBeGreaterThan(0);
+    su = 0; // frozen over
+    t.run(1);
+    expect(t.shop.netAt(1, 0, 0)?.rpm ?? 0).toBe(0);
+  });
+
   it('items dropped on a machine top are taken in; Use puts the held stack in', () => {
     const t = setup();
     t.put(0, 0, 0, 'hand_crank');

@@ -43,6 +43,7 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'treadwheel', name: 'Treadwheel', anim: true, desc: 'A big wheel to walk in. It turns at 12 rpm and carries 24 stress units while you or a tame animal stand on top of it.' },
   { key: 'steam_rotor', name: 'Steam Rotor', anim: true, desc: 'Two bent jets on a hub. Stand it on a boiling steam kettle or a boiler wall, a shaft beside it: 16 rpm, 4 stress units.' },
   { key: 'beam_engine', name: 'Beam Engine', anim: true, desc: 'A rocking beam and flywheel on a boiler steam line. From 2 bar it turns the shaft beside it, 16 rpm per bar up to 96, and carries 6 stress units.' },
+  { key: 'mill_wheel', name: 'Mill Wheel', anim: true, desc: 'A paddle wheel for a river. Moving water on its sides turns a shaft beside it: 16 rpm, 6 stress units a side. A dam adds head; ice stops it.' },
   { key: 'saw_arm', name: 'Saw Arm', anim: true, desc: 'A deployer with a blade. Every three seconds it fells the whole tree in front of it, log by log, and the logs fall as items. It needs no fuel.' },
   { key: 'item_vault', name: 'Item Vault', anim: false, desc: 'Holds 108 stacks of anything. Funnels, arms and belts fill and empty it. Use it with an item to store, empty-handed to take the biggest stack.' },
   { key: 'vacuum_collector', name: 'Vacuum Collector', anim: true, desc: 'A turning fan that sucks loose items from four blocks around and sends them out of its front into whatever is there.' },

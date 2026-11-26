@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FROZEN, HEAD_MAX, headBoost, riverScale } from './hydro';
 import { DAYS_PER_SEASON } from './seasons';
+import { flowingWater } from '../world/water';
 import { makeKit } from './testKit';
 
 describe('river flow through the year', () => {
@@ -57,5 +58,38 @@ describe('water wheel on a dammed river', () => {
     kit.clock.day = 1;
     kit.run(0.05);
     expect(w.availW).toBe(400);
+  });
+});
+
+describe('mill wheel (river shaft source)', () => {
+  const wheel = (kit: ReturnType<typeof makeKit>) => {
+    kit.world.put(0, 5, 0, 'mill_wheel');
+    return () => kit.sim.millWheelAt(0, 5, 0);
+  };
+
+  it('is dead in dry air, gives 6 su per flowing side, caps at 3 sides, and a still pool counts half', () => {
+    const kit = makeKit();
+    const at = wheel(kit);
+    expect(at()).toBeNull();
+    kit.world.setVoxel(1, 5, 0, flowingWater(3));
+    expect(at()).toEqual({ rpm: 16, capacity: 6 });
+    kit.world.put(-1, 5, 0, 'water'); // a still pool beside it: +0.5
+    expect(at()!.capacity).toBeCloseTo(9, 6);
+    kit.world.setVoxel(0, 5, 1, flowingWater(2));
+    kit.world.setVoxel(0, 5, -1, flowingWater(2));
+    expect(at()!.capacity).toBe(18); // 4 sides capped to 3
+  });
+
+  it('gains from a dam and loses to ice, like the old wheel', () => {
+    const kit = makeKit();
+    const at = wheel(kit);
+    kit.world.setVoxel(1, 5, 0, flowingWater(3));
+    kit.world.setVoxel(1, 6, 0, flowingWater(1));
+    kit.world.setVoxel(1, 7, 0, flowingWater(1));
+    kit.run(0.05);
+    expect(at()!.capacity).toBeCloseTo(6 * 1.5, 6);
+    kit.clock.day = 3 * DAYS_PER_SEASON + 1 + Math.floor(DAYS_PER_SEASON / 2);
+    kit.run(0.05);
+    expect(at()!.capacity).toBeCloseTo(6 * 1.5 * FROZEN, 6);
   });
 });
