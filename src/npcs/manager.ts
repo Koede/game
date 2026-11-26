@@ -19,7 +19,7 @@ import { TRADER_FULL, TRADER_WANT_SHORT, TRADER_WANT_THANKS } from './scripts/tr
 import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
-import { BUILDER_ID, MOVABLE, TownBuilder, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
+import { BUILDER_ID, MOVABLE, TownBuilder, movable, type StockCrate, type TownHost, type TownSnapshot } from './townBuilder';
 import { BuildBoard, bayBoardSpot, describeBounty, lockNote, reputationStep, unlockedAt } from './buildBoard';
 import { CAMP_D, CAMP_FIRES, CAMP_ROUTINES, CAMP_START, CAMP_W, buildCamp, pickCampSite } from './camp';
 import type { SurfaceFn } from './townPlan';
@@ -871,7 +871,7 @@ export class NpcManager {
     const key = host.townBlock.call(host, s.x, s.y, s.z);
     if (key === null) return;
     if (key === 'quest_board') this.board.placed = true;
-    else if (key === 'air' || MOVABLE.has(key)) this.board.placed = host.townPlace.call(host, s.x, s.y, s.z, 'quest_board', s.facing);
+    else if (key === 'air' || movable(key)) this.board.placed = host.townPlace.call(host, s.x, s.y, s.z, 'quest_board', s.facing);
   }
 
   /** The town's state for the debug handle and the e2e driver: the building in progress, the board, the bay and its crate, the coin. */

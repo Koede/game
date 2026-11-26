@@ -138,11 +138,21 @@ export function buildCells(t: TownTemplate, b: PlannedBuilding, base: number, gr
   return out.sort((p, q) => p.stage - q.stage || p.y - q.y || p.z - q.z || p.x - q.x);
 }
 
+/**
+ * Whether Gruk may move a natural block out of the way: the MOVABLE ground blocks, and any loose growth that is not solid (wild
+ * crops, flowers, mushrooms, ferns). Logs, leaves, ores, liquids and machines stay. The caller already refuses player-edited cells.
+ */
+export function movable(key: string): boolean {
+  if (MOVABLE.has(key)) return true;
+  const def = blockOrNull(key);
+  return !!def && key !== 'air' && !def.solid && def.liquid === null && !def.machine;
+}
+
 /** Whether a cell is in the way: the player's, or a block that is neither movable nor the target. */
 function blockedCell(c: TownJob, key: string, edited: boolean): boolean {
-  if (c.dig) return key !== 'air' && (!MOVABLE.has(key) || edited);
+  if (c.dig) return key !== 'air' && (!movable(key) || edited);
   if (key === c.block) return false;
-  return edited || !(key === 'air' || MOVABLE.has(key));
+  return edited || !(key === 'air' || movable(key));
 }
 
 export class TownBuilder {
@@ -169,6 +179,8 @@ export class TownBuilder {
   private waiting: string | null = null;
   /** Why plots were skipped, newest last (for the debug read; not saved). */
   private skips: string[] = [];
+  /** Plots the storage bay has been tried on (so it never swaps back and forth). Not saved: a reload simply tries again. */
+  private tried = new Set<string>();
   private skipWhy = '';
 
   /** `unlocked` says whether a template may start now (reputation, see buildBoard.ts). Everything is unlocked by default. */
@@ -335,6 +347,9 @@ export class TownBuilder {
         if (r === 'wait') return;
         if (r === 'skip') {
           this.skips = [...this.skips, `${this.plan.buildings[this.building].template}: ${this.skipWhy}`].slice(-8);
+          // The storage bay is never dropped (the board and every later building need it): it swaps plots with a later building
+          // whose plot can hold it, and is tried there next.
+          if (this.plan.buildings[this.building].template === 'storage_bay' && this.moveBay()) continue;
           this.nextBuilding();
           continue;
         }
@@ -364,6 +379,31 @@ export class TownBuilder {
     if (!this.plan) return -1;
     for (let i = this.building; i < this.plan.buildings.length; i++) if (this.unlocked(this.plan.buildings[i].template)) return i;
     return -1;
+  }
+
+  /** Swaps the storage bay's plot with the next later plot big enough for it (the bay keeps its place in the queue). */
+  private moveBay(): boolean {
+    if (!this.plan) return false;
+    const b = this.plan.buildings;
+    const bay = b[this.building];
+    const need = townTemplate('storage_bay');
+    if (!need) return false;
+    for (let j = this.building + 1; j < b.length; j++) {
+      const t = townTemplate(b[j].template);
+      if (!t || this.tried.has(`${b[j].x},${b[j].z}`)) continue;
+      const fits = (w: number, d: number): boolean => w >= need.w && d >= need.d;
+      const fp = footprintOf(t, b[j].rot);
+      if (!fits(fp.w, fp.d) && !fits(fp.d, fp.w)) continue;
+      this.tried.add(`${bay.x},${bay.z}`);
+      // The bay takes the larger plot, rotated to fit; the other building takes the bay's old plot (it may be skipped there).
+      const rot = fits(fp.w, fp.d) ? 0 : 1;
+      const other = { template: b[j].template, x: bay.x, z: bay.z, rot: bay.rot };
+      b[this.building] = { template: 'storage_bay', x: b[j].x, z: b[j].z, rot };
+      b[j] = other;
+      this.base = null;
+      return true;
+    }
+    return false;
   }
 
   private nextBuilding(): void {
@@ -433,7 +473,7 @@ export class TownBuilder {
     const edited = host.townEdited(c.x, c.y, c.z);
     if (c.dig) {
       if (key === 'air') return 'done';
-      if (!MOVABLE.has(key) || edited) {
+      if (!movable(key) || edited) {
         this.blocked++;
         return 'done';
       }

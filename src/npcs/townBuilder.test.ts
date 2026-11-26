@@ -4,7 +4,7 @@ import { blockOrNull } from '../core/registry';
 import { phaseAt } from '../game/clock';
 import { Inventory } from '../game/inventory';
 import { SEASON_DAYS } from './festival';
-import { BUILDER_ID, DAY_BUDGET, MOVABLE, TownBuilder, type TownHost, workDay } from './townBuilder';
+import { BUILDER_ID, DAY_BUDGET, MOVABLE, TownBuilder, movable, type TownHost, workDay } from './townBuilder';
 import { planTown } from './townPlan';
 import { footprintOf, townTemplate } from './townTemplates';
 
@@ -197,8 +197,37 @@ describe('town builder', () => {
     for (let x = bay.x; x < bay.x + f.w; x++) for (let z = bay.z; z < bay.z + f.d; z++) g.playerBlock(x, 11, z, 'plank');
     stockUp(b);
     runDays(b, g, 1);
-    expect(b.toJSON()!.building).toBe(1);
-    expect(b.currentTemplate).toBe('well_plaza');
+    // The storage bay is never dropped: it moves to the next plot that can hold it and is built there.
+    expect(b.currentTemplate).toBe('storage_bay');
+    const moved = b.toJSON()!.plan!.buildings[b.toJSON()!.building];
+    expect([moved.x, moved.z]).not.toEqual([bay.x, bay.z]);
+    expect(g.placedNonAir().length).toBeGreaterThan(0);
+    for (const p of g.placedNonAir()) expect(p.prev).not.toBe('plank');
+  });
+
+  it('drops any other building whose plot is blocked, and moves on', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    const plan = planTown(SEED, ORIGIN, (x, z) => g.townSurface(x, z))!;
+    const next = plan.buildings[1];
+    const f = footprintOf(townTemplate(next.template)!, next.rot);
+    for (let x = next.x; x < next.x + f.w; x++) for (let z = next.z; z < next.z + f.d; z++) g.playerBlock(x, 11, z, 'plank');
+    stockUp(b);
+    runDays(b, g, 12);
+    const state = b.toJSON()!;
+    expect(state.building).toBeGreaterThan(1);
+    for (const p of g.placedNonAir()) expect(p.prev).not.toBe('plank');
+  });
+
+  it('moves wild crops, flowers and other loose growth out of the way, but never logs or leaves', () => {
+    expect(movable('wild_potato')).toBe(true);
+    expect(movable('wild_wheat')).toBe(true);
+    expect(movable('skybell')).toBe(true);
+    expect(movable('tall_grass')).toBe(true);
+    expect(movable('oak_log')).toBe(false);
+    expect(movable('oak_leaves')).toBe(false);
+    expect(movable('water')).toBe(false);
+    expect(movable('air')).toBe(false);
   });
 
   it('catches up on cells in unloaded chunks when they load, and never places one twice', () => {
