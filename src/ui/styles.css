@@ -2963,6 +2963,7 @@ body {
   font-size: var(--hw-fs-sm);
   line-height: 1.35;
   color: var(--hw-ash-1);
+}
 /* Recipe helper strip (src/ui/screens/inventory/recipeHelperPanel.ts) */
 .hw-helper {
   display: grid;
@@ -3030,5 +3031,6 @@ body {
 .hw-exp__book .is-found { opacity: 1; color: #9be39b; }
 
 /* Trade caravan */
-.hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
-.hw-caravan__row span { flex: 1; min-width: 0; }
+.hw-caravan__row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-start; margin: 6px 0; }
+.hw-caravan__row > .hw-btn { min-height: 44px; }
+.hw-caravan__row > span { flex: 1 1 100%; min-width: 0; }

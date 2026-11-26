@@ -69,4 +69,23 @@ describe('trade caravans', () => {
     expect(back.buyPrice('bread')).toBe(c.buyPrice('bread'));
     expect(back.present()).toBe(true);
   });
+
+  it('loads a save from before prices were fitted, dropping keys that are no longer bought', () => {
+    const c = Caravan.fromJSON({ surplus: { iron_ingot: 4, lithium_salt: 9, nonsense: 1 }, day: 8, bought: { sulfur: 1 }, visit: 8 });
+    expect(c.surplusOf('iron_ingot')).toBe(4);
+    expect(c.surplusOf('lithium_salt')).toBe(0);
+    expect(Caravan.fromJSON(undefined).present()).toBe(false);
+    expect(() => Caravan.fromJSON({ surplus: 'x' as never, day: -5 })).not.toThrow();
+  });
+
+  it('refuses a lot worth less than one coin instead of eating the goods', () => {
+    const c = new Caravan();
+    c.setDay(3);
+    const inv = new Inventory(8);
+    inv.add('potato', 3);
+    expect(c.sell(inv, 'potato', 3)).toMatchObject({ ok: false });
+    expect(inv.count('potato')).toBe(3);
+    inv.add('bread', 8);
+    expect(c.sell(inv, 'bread', 8)).toMatchObject({ ok: true });
+  });
 });
