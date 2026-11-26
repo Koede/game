@@ -58,8 +58,14 @@ export class Pets {
   /** Use on a pet (id) with `held` (null = empty hand). Returns a message for a toast, or null when it is not a tame pet. */
   useOn(id: number, held: ItemStack | null): 'worked' | 'refused' | null {
     const m = this.host.mobs.get(id);
-    if (!m || !m.tame || !m.spec.pet) return null;
+    if (!m || !m.spec.pet) return null;
     const name = m.spec.name;
+    if (!m.tame) {
+      // A stray: only its food wins it over. Anything else (or an empty hand) used to do nothing at all.
+      if (held && m.spec.likes.includes(held.item)) return null;
+      this.host.bus.emit('toast', { text: `The ${name.toLowerCase()} is wary of you. Offer it food it likes.`, kind: 'info' });
+      return 'refused';
+    }
     const pack = this.packOf(id);
     const toast = (text: string, kind: 'info' | 'good' | 'warn' = 'info'): void => this.host.bus.emit('toast', { text, kind });
     if (!held) {

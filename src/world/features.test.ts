@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { maxDurabilityOf } from '../game/inventory';
 import { createBus } from '../core/context';
 import { CRATE_SIZE, RUIN_DEEP_DISTANCE } from '../core/constants';
 import { seedFromString } from '../core/math';
@@ -277,7 +278,7 @@ describe('ruin crates', () => {
       expect(def, s.item).not.toBeNull();
       expect(s.count).toBeGreaterThanOrEqual(1);
       expect(s.count).toBeLessThanOrEqual(def?.stack ?? 0);
-      if (def?.tool) expect(s.durability).toBe(def.tool.durability);
+      if (def?.tool) expect(s.durability).toBe(maxDurabilityOf(s.item, s.quality));
     }
   };
 

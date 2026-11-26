@@ -12,6 +12,7 @@ import type { Survival } from '../../game/survival';
 import { h, setFlag, setText } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
 import { applyAccessibility, applyUiScale } from '../kit/uiScale';
+import { TapMarker, type TapGoalView } from './tapMarker';
 import { CombatCues } from './combatCues';
 import { parseTargetName, type TargetInfo } from './combatMath';
 import { Compass } from './compass';
@@ -22,6 +23,8 @@ import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
 import { BuildChip } from './buildChip';
+import { TownChip, type TownChipInfo } from './townChip';
+import { HumChip } from './humChip';
 import { NudgeBar } from './nudge';
 import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
@@ -42,11 +45,17 @@ export interface HudDeps {
   clock: GameClock;
   objectives: ObjectiveTracker;
   survival: Survival;
+  /** A hard-winter goal that takes the goal plate while the season asks for it; null or missing = the guided goal. */
+  winterGoal?: () => { title: string; text: string } | null;
   /** The current simulation query (it can be swapped after the HUD exists). */
   sim: () => UISimQuery;
   input: InputState;
   /** The world's weather (spec 15) for the dial's glyph and moon; null or missing = none. */
   weather?: () => WeatherState | null;
+  /** The town chip under the goal tracker: the camp goal or the building going up; null hides it. */
+  town?: () => TownChipInfo | null;
+  /** Where tap to move is walking to, or null (the controller's TapMove; the HUD draws a ring there). */
+  tapGoal?: () => TapGoalView | null;
 }
 
 const SLOW_S = 0.125;
@@ -70,10 +79,19 @@ export class Hud {
   private readonly devBtn: HTMLButtonElement;
   private readonly dialogue: NpcDialogue;
   private readonly vitals = new Vitals();
+  /** The heat view chip (src/ui/hud/vitals.ts): `onHeatToggle` is set by the game, `setHeatView` mirrors the state on the chip. */
+  set onHeatToggle(fn: (() => void) | null) {
+    this.vitals.onHeatToggle = fn;
+  }
+  setHeatView(on: boolean): void {
+    this.vitals.heatOn = on;
+  }
   private readonly goal: GoalTracker;
+  private readonly townChip: TownChip;
   private readonly compass = new Compass();
   private readonly quick: QuickCraft;
   private readonly build: BuildChip;
+  private readonly hum: HumChip;
   private readonly nudge: NudgeBar;
   private readonly dial = new DayDial();
   private readonly power = new PowerStrip();
@@ -88,6 +106,7 @@ export class Hud {
   private readonly offs: (() => void)[] = [];
   private readonly observer: ResizeObserver | null;
   private slow = SLOW_S;
+  private readonly tapMark = new TapMarker();
   /** Work done at the aimed hand station, 0..1, or -1 when the target is not one at work. */
   private workFraction = -1;
   private gridTimer = GRID_S;
@@ -122,9 +141,11 @@ export class Hud {
     this.deps = deps;
     const bus = deps.bus;
     this.goal = new GoalTracker(bus);
+    this.townChip = new TownChip(bus);
     this.hotbar = new Hotbar(deps.player, bus);
     this.quick = new QuickCraft(deps.player, bus);
     this.build = new BuildChip(deps.world, deps.player, bus);
+    this.hum = new HumChip(bus);
     this.nudge = new NudgeBar(deps.world, deps.player, deps.objectives);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
@@ -134,8 +155,8 @@ export class Hud {
       'div',
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
-      h('div', { class: 'hw-hud__mid' }, this.goal.el, this.nudge.el),
-      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el),
+      h('div', { class: 'hw-hud__mid' }, this.goal.el, this.townChip.el, this.nudge.el),
+      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el, this.hum.el),
     );
     this.devBtn = this.devButton(bus);
     this.devBtn.hidden = !deps.player.dev;
@@ -149,6 +170,7 @@ export class Hud {
       this.top,
       this.crosshair.el,
       this.scanFx.el,
+      this.tapMark.el,
       bottom,
       this.coach.el,
       this.devBtn,
@@ -210,6 +232,7 @@ export class Hud {
   frame(dt: number): void {
     const d = this.deps;
     this.compass.aim(d.player);
+    this.tapMark.update(d.tapGoal?.() ?? null, { x: d.player.position.x, y: d.player.eyeY, z: d.player.position.z }, d.player.yaw, d.player.pitch, d.settings.fov, window.innerWidth / Math.max(1, window.innerHeight));
     this.nudge.frame(dt);
     this.coach.look(d.player.yaw, d.player.pitch, d.input.touch);
     if (this.hotbarDirty) {
@@ -347,6 +370,7 @@ export class Hud {
     this.observer?.disconnect();
     if (typeof window !== 'undefined') window.removeEventListener('keydown', this.onKey);
     this.build.dispose();
+    this.hum.dispose();
     this.hotbar.dispose();
     this.dialogue.dispose();
     this.feed.el.remove();
@@ -358,7 +382,8 @@ export class Hud {
     this.devBtn.hidden = !d.player.dev;
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
-    this.goal.update(d.objectives);
+    this.goal.update(d.objectives, d.winterGoal?.() ?? null);
+    this.townChip.update(d.town?.() ?? null);
     this.quick.update();
     this.build.update();
     const home = d.player.home;

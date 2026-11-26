@@ -21,8 +21,8 @@
  *   touching (or tubed to) a burning furnace tops it up. Still: a Vial of Clarity on a flask takes water out ('still_trace').
  */
 import type { GameBus } from '../core/context';
-import { blockOrNull, blockId, itemOrNull } from '../core/registry';
-import { ENCHANTS, addEnchant, canEnchant, copyEnchants, enchantCost, enchantDef, enchantInstability, isEnchantKey, levelName, nextEnchantLevel, sanitizeEnchants } from '../core/enchant';
+import { blockOrNull, blockId, itemOrNull, rarityOf } from '../core/registry';
+import { ENCHANTS, addEnchant, canAltarEnchant, copyEnchants, enchantCost, enchantDef, enchantInstability, isEnchantKey, levelName, nextEnchantLevel, sanitizeEnchants } from '../core/enchant';
 import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
 import { FOCI, JAR_UNITS, ROD_TIERS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
 import { ALCHEMY, ARCANE_RECIPES, INFUSIONS, alchemyFor, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
@@ -30,7 +30,7 @@ import type { PlayerState } from '../game/playerState';
 import { ASPECT_LIST, LATE, PRIMALS, aspectInfo, aspectsText, isAspect, type Aspect, type Aspects } from './aspects';
 import type { BoardSpec } from './board';
 import { bottle, canPay, crucibleTotal, dissolve, freshCrucible, take as takeEssence, type CrucibleState } from './crucible';
-import { RESEARCH } from './entries';
+import { RESEARCH, type ResearchEntry } from './entries';
 import { JAR_BLOCKS, jarsFor, MIRROR, shortfall, TUBE } from './essentiaNet';
 import { FlowLog } from './essentiaFlow';
 import { auraKind, auraPrimal, auraText, baseAura, RICH_VIS_S, scaleByAura, TAINT_WARP_S, type AuraKind } from './aura';
@@ -45,7 +45,7 @@ import { aspectsOf } from './fingerprint';
 import { craftGateReason } from './gates';
 import { compass, NODE_HEIGHT, NODE_POOL, NODE_REACH, NODE_REGEN_S, nodesNear, type NodeSite } from './nodes';
 import {
-  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, learnEnchant, placeToken, removeToken,
+  beginResearch, beginShortfall, combineAspects, entryStatus, freshResearch, hasFlag, hintFor, learnEnchant, notePractice, placeToken, removeToken, settlePractice,
   sanitizeResearch, scanObject,
   type EntryStatus, type PlaceResult, type ResearchState,
 } from './research';
@@ -93,6 +93,8 @@ export const CLARITY_L = 250;
 /** Reach of the rune desk and the altar for jars (blocks), and of the altar for pedestals. */
 export const DESK_REACH = 3;
 export const ALTAR_REACH = 3;
+const INFUSION_CENTERS: ReadonlySet<string> = new Set(INFUSIONS.map((r) => r.center));
+const INFUSION_AROUND: ReadonlySet<string> = new Set(INFUSIONS.flatMap((r) => r.around));
 /** Seconds between two units an infusion draws. */
 export const INFUSE_STEP_S = 0.4;
 /** Seconds a just-brewed draught's colour swirls in its crucible. */
@@ -153,7 +155,7 @@ export interface NotebookApi {
   research(): ResearchState;
   entries(): {
     key: string; title: string; text: string; status: EntryStatus; board: BoardSpec | null; age: string;
-    requires: readonly string[]; cost: Aspects; short: Aspect[]; learn?: { enchant: string };
+    requires: readonly string[]; cost: Aspects; short: Aspect[]; learn?: ResearchEntry['learn'];
   }[];
   /** Starts an entry's research notes (pays its cost in lore). */
   begin(entry: string): PlaceResult;
@@ -423,6 +425,18 @@ export class Magic {
     return ROD_TIERS.find((r) => r.key === held) ?? null;
   }
 
+  /** Research by doing: one more use of `key`; an insight note that this completes is announced (src/magic/research.ts). */
+  private practice(key: string): void {
+    this.announceInsight(notePractice(this.research, key));
+  }
+
+  private announceInsight(notes: readonly ResearchEntry[]): void {
+    for (const e of notes) {
+      this.toast(`Insight: ${e.title}`, undefined, 'good');
+      this.bus.emit('sfx', { name: 'research_solve' });
+    }
+  }
+
   /** Why the player cannot craft this recipe yet, or null. */
   craftGate(recipeId: string): string | null {
     return craftGateReason(this.research, recipeId);
@@ -503,10 +517,8 @@ export class Magic {
   use(target: MagicTarget | null): MagicOutcome | null {
     const held = this.player.heldStack()?.item ?? null;
     if (held === NOTEBOOK) {
-      if (!target) {
-        this.bus.emit('ui:open', { screen: { type: 'notebook' } });
-        return 'screen';
-      }
+      // The notebook opens from the Bag chip, not by aiming at nothing: with nothing aimed Use gets the plain hint.
+      if (!target) return null;
       return this.scanHold(target.block.key);
     }
     const key = target?.block.key;
@@ -925,7 +937,7 @@ export class Magic {
   }
 
   private gather(rod: RodTier): MagicOutcome {
-    if (this.clock - this.lastDraw < ROD_INTERVAL_S && this.lastDraw >= 0) return 'worked';
+    if (this.clock - this.lastDraw < ROD_INTERVAL_S * (hasFlag(this.research, 'steady_rod') ? 0.8 : 1) && this.lastDraw >= 0) return 'worked';
     const p = this.player;
     const roomFor = (a: Aspect): boolean => this.partsOf(a).some((x) => this.vis[x] < rod.capacity);
     const node = this.nearNode();
@@ -956,6 +968,7 @@ export class Magic {
     if (units <= 0) return 'refused';
     for (const x of this.partsOf(aspect)) this.vis[x] = Math.min(rod.capacity, this.vis[x] + (rod.favour?.includes(x) ? Math.ceil(units * 1.5) : units));
     this.bus.emit('sfx', { name: 'rod_hum', pitch: 0.8 + Math.min(1, this.visTotal() / (rod.capacity * 6)) });
+    this.practice('rod_draw');
     return 'worked';
   }
 
@@ -1277,8 +1290,10 @@ export class Magic {
       return 'refused';
     }
     this.player.consumeHeld(1);
-    const spilled = dissolve(c, scaleByAura(fp, this.crucibleAura(t.x, t.z)));
+    const raw = dissolve(c, scaleByAura(fp, this.crucibleAura(t.x, t.z)));
+    const spilled = hasFlag(this.research, 'crucible_sense') ? Math.floor(raw * 0.7) : raw;
     this.crucibles.set(k, c);
+    this.practice('crucible_melt');
     this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 1, z: t.z + 0.5, pitch: 0.7 });
     if (spilled > 0) {
       this.toast(`The crucible overflows: ${spilled} essentia boils away as flux`, undefined, 'warn');
@@ -1289,6 +1304,16 @@ export class Magic {
 
   // ---- pedestals and the infusion altar ----------------------------------------------------------------------------
 
+  /** Whether an item has any use on an altar's heart (an infusion's centre, or gear that can take an enchant). */
+  static isHeartItem(item: string): boolean {
+    return INFUSION_CENTERS.has(item) || rarityOf(item) === 'legendary' || ENCHANTS.some((e) => canAltarEnchant(itemOrNull(item), e.key));
+  }
+
+  /** Whether an item belongs on a pedestal (it is among some infusion's surrounding items). */
+  static isPedestalItem(item: string): boolean {
+    return INFUSION_AROUND.has(item);
+  }
+
   private usePedestal(t: MagicTarget, held: string | null): MagicOutcome {
     const k = k3(t.x, t.y, t.z);
     const on = this.pedestals.get(k);
@@ -1298,6 +1323,10 @@ export class Magic {
       return 'worked';
     }
     if (!held) return 'refused';
+    if (!Magic.isPedestalItem(held)) {
+      this.advise('This item is part of no infusion, so the pedestal leaves it alone');
+      return 'refused';
+    }
     this.player.consumeHeld(1);
     this.pedestals.set(k, held);
     return 'worked';
@@ -1319,6 +1348,10 @@ export class Magic {
     }
     if (!held) {
       this.advise('Set the heart item on the altar, the rest on pedestals, then Use the altar with a rod');
+      return 'refused';
+    }
+    if (!Magic.isHeartItem(held)) {
+      this.advise('Nothing can be infused into this item, so the altar will not take it');
       return 'refused';
     }
     // The heart keeps what it carries (durability, enchants) for as long as it sits here.
@@ -1432,7 +1465,7 @@ export class Magic {
       this.advise('The infusion broke off: an item was taken away');
       return;
     }
-    f.t += dt;
+    f.t += hasFlag(this.research, 'patient_altar') ? dt * 1.2 : dt;
     f.step += dt;
     const inst = this.infusionInstability(f);
     if (inst > 0 && this.rng() < inst * MISHAP_PER_S * dt) this.mishap(f);
@@ -1461,6 +1494,7 @@ export class Magic {
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
+    this.practice('infuse');
     this.addWarp(golemBody(r.id) || r.id === 'void_jar' ? 2 : 1);
     this.bus.emit('sfx', { name: 'infuse', x: f.x + 0.5, y: f.y + 1, z: f.z + 0.5, pitch: 1.3 });
     this.bus.emit('item:made', { item: r.output.item, count: 1, station: 'infusion_altar', recipeId: r.id });
@@ -1486,7 +1520,7 @@ export class Magic {
     if (!item) return false;
     const def = itemOrNull(item);
     const enchants = this.altarKit.get(k)?.enchants;
-    return ENCHANTS.some((e) => canEnchant(def, e.key) && nextEnchantLevel(enchants, e.key) !== null);
+    return ENCHANTS.some((e) => canAltarEnchant(def, e.key) && nextEnchantLevel(enchants, e.key) !== null);
   }
 
   /**
@@ -1502,7 +1536,7 @@ export class Magic {
     const stock = this.stockNear(x, y, z);
     for (const e of ENCHANTS) {
       const level = nextEnchantLevel(enchants, e.key);
-      if (level !== null && canEnchant(def, e.key) && (stock[e.cost.aspect] ?? 0) > 0) return { key: e.key, level, aspect: e.cost.aspect };
+      if (level !== null && canAltarEnchant(def, e.key) && (stock[e.cost.aspect] ?? 0) > 0) return { key: e.key, level, aspect: e.cost.aspect };
     }
     return null;
   }
@@ -1527,6 +1561,7 @@ export class Magic {
     this.infusion = null;
     this.setActive(f.x, f.y, f.z, false);
     this.stats.infusions++;
+    this.practice('infuse');
     this.addWarp(1);
     const item = this.altars.get(k) ?? '';
     const name = enchantDef(e.key)?.name ?? e.key;
@@ -1671,11 +1706,13 @@ export class Magic {
   /** A cap's favoured primals cost a quarter less (at least 1) in foci; Thrift levels of the focus lower every primal. */
   focusCost(cost: Partial<Vis>, rod: RodTier | null, focus?: string): Partial<Vis> {
     const thrift = focus ? this.levelsOf(focus).cost : 0;
-    if (!rod?.favour && !thrift) return cost;
+    const keen = hasFlag(this.research, 'thrifty_caster');
+    if (!rod?.favour && !thrift && !keen) return cost;
     const out: Partial<Vis> = {};
     for (const [p, n] of Object.entries(cost) as [Primal, number][]) {
       let c = rod?.favour?.includes(p) ? Math.max(1, Math.floor(n * 0.75)) : n;
       if (thrift) c = thriftCost(c, thrift);
+      if (keen) c = Math.max(1, Math.floor(c * 0.9));
       out[p] = c;
     }
     return out;
@@ -1786,6 +1823,7 @@ export class Magic {
     for (const [p, n] of Object.entries(cost) as [Primal, number][]) this.vis[p] -= n;
     this.cooldowns.set(focus, cooldownS);
     this.stats.casts++;
+    this.practice('cast');
     this.bus.emit('sfx', { name: 'cast' });
     return 'worked';
   }
@@ -2290,6 +2328,7 @@ export class Magic {
         if (r.solved) {
           const e = RESEARCH.find((x) => x.key === entry);
           if (e?.age === 'forge') this.addWarp(1);
+          this.announceInsight(settlePractice(this.research));
           this.toast(`Research done: ${e?.title ?? entry}`, undefined, 'good');
           this.bus.emit('sfx', { name: 'research_solve' });
         }

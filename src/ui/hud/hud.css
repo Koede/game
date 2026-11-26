@@ -14,6 +14,8 @@
   color: var(--hw-bone);
   font-family: var(--hw-font-body);
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+  /* HUD size (Settings.hudScale -> --hw-hud-scale on the root, kit/uiScale.ts): the whole HUD grows or shrinks, anchored to its edges. */
+  zoom: var(--hw-hud-scale, 1);
 }
 .hw-hud[data-touch] {
   /* The touch overlay's bag + pause buttons: about 112 x 60 px at the top right. */
@@ -702,6 +704,37 @@
   animation: hw-feed-bump 220ms ease-out;
 }
 
+/* ---- tap-to-move destination (src/ui/hud/tapMarker.ts) ------------------------------------- */
+.hw-tapmark {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.hw-tapmark__ring {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 3px solid var(--hw-focus);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.65), inset 0 0 0 2px rgba(0, 0, 0, 0.5);
+  animation: hw-tapmark-pulse 1.1s ease-out infinite;
+}
+.hw-tapmark__dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--hw-focus);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.65);
+}
+@keyframes hw-tapmark-pulse {
+  from { transform: scale(1.35); opacity: 0.6; }
+  to { transform: scale(0.85); opacity: 1; }
+}
+
 /* ---- hotbar ------------------------------------------------------------------------------- */
 .hw-hud__bottom {
   position: absolute;
@@ -720,6 +753,12 @@
   background: rgba(13, 10, 8, 0.62);
   border: 1px solid var(--hw-plate-edge);
   border-radius: var(--hw-radius);
+}
+/* On a phone the hotbar already spans the screen, so the HUD size leaves it alone (nine slots would wrap into two rows). */
+@media (max-width: 640px) {
+  .hw-hotbar {
+    zoom: calc(1 / var(--hw-hud-scale, 1));
+  }
 }
 .hw-hotbar .hw-slotgrid {
   --hw-slot-gap: 3px;
@@ -887,6 +926,30 @@
     display: none;
   }
 }
+/* Narrow portrait phones: nine slots cannot be 44 px wide in 390 px with gaps, so the bar goes edge to edge with no gap
+   and no padding (one column of 390 / 9 = 43 px, 44 px tall) instead of shrinking each slot to 38 px. */
+@media (max-width: 460px) and (min-height: 520px) {
+  .hw-hud__bottom {
+    padding-right: 0;
+    padding-left: 0;
+  }
+  .hw-hotbar {
+    width: 100%;
+    padding: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+  .hw-hotbar .hw-slotgrid {
+    --hw-slot-gap: 0px;
+    --hw-slot-min: 0px;
+  }
+  .hw-hotbar .hw-slot {
+    height: 44px;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+}
 /* Landscape phones: one compact row along the top. */
 @media (max-height: 519.98px) {
   .hw-hud {
@@ -1051,9 +1114,10 @@
   display: none;
 }
 @media (max-height: 519.98px) {
+  /* Landscape phones: the touch Menu button sits at the left edge under the vitals, so the chip goes just above it. */
   .hw-devchip {
-    top: auto;
-    bottom: 38%;
+    top: 124px;
+    bottom: auto;
   }
 }
 
@@ -1129,6 +1193,22 @@
   font: 500 16px / 1.45 var(--hw-font-body, inherit);
   min-height: 3.2em;
   white-space: pre-wrap;
+}
+.hw-npcsay__work {
+  display: block;
+  margin: 10px 0 0 auto;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(#8a5a34, #6b4425);
+  color: #fff3d6;
+  font: 700 14px / 1.2 var(--hw-font-body, inherit);
+  box-shadow: 0 0 0 2px #3a2314, inset 0 0 0 1px #c79a5e;
+  cursor: pointer;
+}
+.hw-npcsay__work[hidden] {
+  display: none;
 }
 .hw-npcsay__more {
   position: absolute;
@@ -1272,4 +1352,101 @@
 .hw-nudge__dist {
   font-size: 11px;
   opacity: 0.75;
+}
+
+/* ---- blueprints (src/ui/hud/blueprintPanel.ts, buildChip.ts): the saved-layout card and the placement bar --------------------- */
+.hw-bp {
+  position: fixed;
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: min(440px, calc(100vw - 24px));
+  max-height: 70vh;
+  padding: 10px;
+  pointer-events: auto;
+  background: rgba(20, 17, 14, 0.97);
+}
+.hw-bp[hidden],
+.hw-bp__bar[hidden] {
+  display: none;
+}
+.hw-bp__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hw-bp__body {
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.hw-bp__row {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+}
+.hw-bp__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.hw-bp__sub,
+.hw-bp__line {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.hw-bp__mats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.hw-bp__mat {
+  padding: 1px 6px;
+  font-size: 11px;
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: 10px;
+}
+.hw-bp__mat--short {
+  border-color: #ff6a4d;
+  color: #ff9a85;
+}
+.hw-bp__acts,
+.hw-bp__bar-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hw-bp__btn,
+.hw-bp__act {
+  min-height: 44px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+  cursor: pointer;
+}
+.hw-bp__input {
+  min-height: 40px;
+  font: inherit;
+  color: inherit;
+}
+.hw-bp__empty {
+  margin: 0;
+  font-size: 13px;
+}
+.hw-bp__bar {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--hw-plate-edge);
 }

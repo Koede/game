@@ -84,3 +84,7 @@ and use one.
 See rpg-inspirations.md. For this plan: a weapon art on its own button with a cooldown (Dark Souls), different weapon families with distinct
 movesets (Monster Hunter), an awakened second form with a changed verb (Hades), a short quest to earn each one instead of only a drop
 (Destiny), a utility that solves puzzles (Zelda), and a set bonus when paired with a legendary charm (Diablo).
+
+## Shipped (phases 1-3, no altar upgrade or notebook yet)
+
+Spare Pick (hum), Emberfang, Gale Reed and Lanternblade end to end, the placement API for the ruin and boss threads and the spark visual. See `docs/api/legendary.md`.

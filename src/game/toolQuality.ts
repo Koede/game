@@ -3,6 +3,7 @@
  * more durability (`QUALITY_DURABILITY_MULT`). A worn tool is repaired at an anvil with the material it is made
  * of: each unit restores a quarter of its best durability. Pure rules over stacks and inventories; DOM-free.
  */
+import { HEADS, partsOfItem } from '../content/toolParts';
 import { itemOrNull } from '../core/registry';
 import type { ItemStack } from '../core/types';
 import { QUALITY_DURABILITY_MULT, maxDurabilityOf, type Inventory } from './inventory';
@@ -30,6 +31,9 @@ export function repairMaterial(item: string): string | null {
   const def = itemOrNull(item);
   if (!def?.tool) return null;
   const kind = def.tool.kind;
+  // A modular build mends with its head's material (src/content/toolParts.ts); a legacy tool reads as its default build.
+  const build = partsOfItem(item);
+  if (build) return HEADS[build.head]?.repair ?? null;
   if (!item.endsWith(`_${kind}`)) return null;
   return REPAIR_MATERIALS[item.slice(0, -kind.length - 1)] ?? null;
 }

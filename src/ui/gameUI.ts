@@ -12,6 +12,7 @@ import type { PlayerState } from '../game/playerState';
 import type { Survival } from '../game/survival';
 import { BackGesture } from './hud/backGesture';
 import { Hud } from './hud/hud';
+import type { TownChipInfo } from './hud/townChip';
 import { NO_UI_SIM, type UISimQuery } from './hud/query';
 import { setIconProvider, type IconProvider } from './kit/icons';
 import type { UIRoot } from './kit/root';
@@ -21,6 +22,7 @@ import { createDeathScreen } from './screens/death/deathScreen';
 import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
 import type { Achievements } from '../game/achievements';
+import type { DailyGoals } from '../game/dailyGoals';
 import type { Journal } from '../game/journal';
 import { createCaravanScreen } from './screens/caravan/caravanScreen';
 import { createLogScreen } from './screens/log/logScreen';
@@ -49,6 +51,7 @@ export interface ScreenContext {
   /** The diary and explored map (docs/api/journal.md); absent in test harnesses. */
   readonly journal?: Journal;
   readonly achievements?: Achievements;
+  readonly dailyGoals?: DailyGoals;
   /** The current simulation query (follows setSim). */
   readonly sim: UISimQuery;
   /** The world's weather now (spec 15), or null when the game has none. */
@@ -76,13 +79,20 @@ export interface GameUIDeps {
   clock: GameClock;
   objectives: ObjectiveTracker;
   survival: Survival;
+  /** The hard-winter goal to show in place of the guided goal while it is autumn or winter (src/game/winter.ts). */
+  winterGoal?: () => { title: string; text: string } | null;
   journal?: Journal;
   achievements?: Achievements;
+  dailyGoals?: DailyGoals;
   sim?: UISimQuery;
   /** The world's weather (spec 15): the HUD dial's glyph and moon, the Hearth Log's forecast. */
   weather?: () => WeatherState | null;
+  /** Where tap to move is walking to (the HUD draws a ring there), or null. */
+  tapGoal?: () => { x: number; y: number; z: number } | null;
   /** Lets the mouse go when a screen opens (normally InputManager.releasePointerCapture). GameUI never touches pointer lock itself. */
   releasePointer?: () => void;
+  /** The town chip and the pause menu's Town entry: null when the world has no town to show. */
+  town?: () => TownChipInfo | null;
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
   pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
@@ -134,13 +144,19 @@ export class GameUI {
       clock: deps.clock,
       objectives: deps.objectives,
       survival: deps.survival,
+      winterGoal: () => deps.winterGoal?.() ?? null,
       sim: () => this.sim,
       input: deps.input,
       weather: () => deps.weather?.() ?? null,
+      town: deps.town,
+      tapGoal: () => deps.tapGoal?.() ?? null,
     });
     const bus = deps.bus;
     this.offs.push(
-      bus.on('ui:open', ({ screen }) => void this.open(screen)),
+      bus.on('ui:open', ({ screen }) => {
+        // A screen that cannot be built (its machine is not set up yet) says so, instead of leaving the tap mute.
+        if (!this.open(screen) && !this.active?.modal) bus.emit('toast', { text: 'There is nothing to open here yet', kind: 'info' });
+      }),
       bus.on('ui:close', () => this.close()),
       bus.on('player:death', () => this.showDeath()),
       bus.on('player:respawn', () => (this.active?.kind === 'death' ? this.closeActive() : undefined)),
@@ -164,7 +180,7 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });
@@ -257,6 +273,7 @@ export class GameUI {
       survival: d.survival,
       journal: d.journal,
       achievements: d.achievements,
+      dailyGoals: d.dailyGoals,
       get sim() {
         return ui.sim;
       },

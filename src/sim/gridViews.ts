@@ -1,4 +1,5 @@
 /** Read-only snapshots of machines and power networks for the UI and the HUD. Built on demand, never per tick. */
+import { conditionOf, isBroken, repairCost, wearOf, wearsOut, type Condition } from './wear';
 import { BROWNOUT_STALL } from '../core/constants';
 import { furnaceTier, recipe } from '../core/registry';
 import type { MachineRole, RecipeDef, Slot } from '../core/types';
@@ -12,6 +13,11 @@ import type { Network, NetworkState } from './power';
 import type { FluidLinks } from './transportViews';
 
 export interface MachineView {
+  /** Wear (src/sim/wear.ts): 0 as new .. 1 worn out, or null for a machine that does not wear. */
+  wear: number | null;
+  condition: Condition | null;
+  /** Iron ingots a repair costs now (0: nothing to repair or it does not wear). */
+  repairCost: number;
   kind: string;
   name: string;
   role: MachineRole;
@@ -90,6 +96,7 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
   if (spec.role === 'crate') return '';
   if (spec.role === 'hearth_part') return hearthPartStatus(e, around.hearthTier ?? 0);
   if (!e.on) return 'Switched off';
+  if (wearsOut(e.kind) && isBroken(e)) return 'Broken - repair it to run again';
   if (spec.role === 'storage') {
     const pct = Math.round((100 * e.storedJ) / (spec.capacityJ ?? 1));
     if (v.network === null || (node.net !== null && node.net.nodes.length < 2)) return `${pct}% - not connected`;
@@ -136,7 +143,9 @@ export function machineView(node: SimNode, around: MachineSurroundings = {}): Ma
   const span = e.kind === 'bore_rig' ? spec.params?.secondsPerBlock ?? 1 : r ? r.timeS : 1;
   const slot = e.slots[0];
   const fuelJ = spec.fuels && spec.fuels.length > 0 ? e.fuelJ + (slot ? slot.count * fuelEnergyJ(spec, slot.item) : 0) : 0;
+  const wears = wearsOut(e.kind);
   const view: MachineView = {
+    wear: wears ? wearOf(e) : null, condition: wears ? conditionOf(e) : null, repairCost: wears ? repairCost(e) : 0,
     kind: e.kind, name: spec.name, role: spec.role, x: e.x, y: e.y, z: e.z, on: e.on, running: node.active, status: '',
     problem: placementProblem(node), hint: spec.placementHint ?? null, network: node.net ? node.net.id : null,
     availW: e.availW, outW: e.outW, demandW: e.demandW, satisfaction: consumer ? (node.net ? node.net.f : 0) : 1,
@@ -180,6 +189,13 @@ export interface NetworkStats {
   /** Watts going into storage (before the 90% efficiency) and coming out of it. */
   chargeW: number;
   dischargeW: number;
+  /** Watts lost charging batteries, and watts of demand the weakest cable held back. */
+  lossW: number;
+  chokedW: number;
+  /** Demand that goes unmet (demand minus what is delivered). */
+  shortW: number;
+  /** Most the switched-on storage can give at once, in watts (0 without storage). */
+  storageRateW: number;
   /** Most the cables carry; Infinity without cables. */
   ratingW: number;
   cables: number;
@@ -220,12 +236,19 @@ function membersOf(net: Network): NetworkMember[] {
   });
 }
 
+function storageRate(net: Network): number {
+  let w = 0;
+  for (const n of net.storage) if (n.loaded && (n.e as MachineEntity).on) w += n.spec.rateW ?? 0;
+  return w;
+}
+
 /** A snapshot of one network. `members` is worked out on first access (the HUD only needs the totals). */
 export function networkStats(net: Network): NetworkStats {
   let members: NetworkMember[] | null = null;
   return {
     id: net.id, generationW: net.generationW, demandW: net.demandW, deliveredW: net.deliveredW, storedJ: net.storedJ,
-    capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW, ratingW: net.ratingW, cables: net.cables,
+    capacityJ: net.capacityJ, chargeW: net.chargeW, dischargeW: net.dischargeW, storageRateW: storageRate(net),
+    lossW: net.lossW, chokedW: net.chokedW, shortW: Math.max(0, net.demandW - net.deliveredW), ratingW: net.ratingW, cables: net.cables,
     satisfaction: net.f, overloaded: net.overloaded, state: net.state,
     get members(): NetworkMember[] {
       if (members === null) members = membersOf(net);
@@ -261,3 +284,64 @@ export function gridSummary(networks: readonly Network[]): GridSummary {
   }
   return s;
 }
+
+// ---- the grid overlay -------------------------------------------------------------------------------------------
+
+export type GridCellKind = 'cable' | 'source' | 'load' | 'storage';
+
+/** One block of a power network, as the grid overlay draws it. */
+export interface GridCell {
+  x: number;
+  y: number;
+  z: number;
+  kind: GridCellKind;
+  /** NetworkStats.id of its network. */
+  net: number;
+  /** 0..1: how full the cables are (consumers and sources share their network's figure). */
+  load: number;
+  state: NetworkState;
+  /** A consumer that is not getting all it asks for. */
+  short: boolean;
+}
+
+/** How full a network's cables are: what they carry against the weakest cable's rating. */
+export function cableLoad(net: Network): number {
+  const carried = net.deliveredW + net.chargeW;
+  if (Number.isFinite(net.ratingW)) return Math.min(1, carried / net.ratingW);
+  const supply = net.generationW + net.dischargeW;
+  return supply > 0 ? Math.min(1, carried / supply) : 0;
+}
+
+/**
+ * Every cable and machine within `range` blocks (Chebyshev, so a box) of a point, for the overlay. `only` limits it to
+ * one network (a grid monitor shows just its own). Built on demand, once a tick at most.
+ */
+export function gridCells(
+  networks: readonly Network[], cables: ReadonlyMap<string, Network>, px: number, py: number, pz: number, range: number,
+  only: number | null, out: GridCell[] = [],
+): GridCell[] {
+  out.length = 0;
+  const near = (x: number, y: number, z: number): boolean =>
+    Math.abs(x + 0.5 - px) <= range && Math.abs(y + 0.5 - py) <= range && Math.abs(z + 0.5 - pz) <= range;
+  for (const net of networks) {
+    if (only !== null && net.id !== only) continue;
+    const load = cableLoad(net);
+    for (const n of net.nodes) {
+      const { x, y, z } = n.e;
+      if (!near(x, y, z)) continue;
+      const role = n.spec.role;
+      const kind: GridCellKind = role === 'generator' || n.e.kind === 'furnace' ? 'source' : role === 'storage' ? 'storage' : 'load';
+      out.push({ x, y, z, kind, net: net.id, load, state: net.state, short: kind === 'load' && n.e.demandW > 0 && net.f < BROWNOUT_BELOW_LOAD });
+    }
+  }
+  for (const [key, net] of cables) {
+    if (only !== null && net.id !== only) continue;
+    const [x, y, z] = key.split(',').map(Number);
+    if (!near(x, y, z)) continue;
+    out.push({ x, y, z, kind: 'cable', net: net.id, load: cableLoad(net), state: net.state, short: false });
+  }
+  return out;
+}
+
+/** A consumer counts as short of power below this satisfaction (one part in a thousand of slack for rounding). */
+const BROWNOUT_BELOW_LOAD = 0.999;

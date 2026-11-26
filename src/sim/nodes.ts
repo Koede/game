@@ -2,6 +2,7 @@
  * The simulation's runtime bookkeeping: one SimNode per tracked block entity, grouped the way the tick walks
  * them, plus the power networks and which of both must be refreshed after the world changed.
  */
+import { voxelStatus } from '../core/machineStatus';
 import { voxelActive, type IWorld } from '../core/types';
 import { createNode, isFurnace, type SimEntity, type SimNode } from './entities';
 import { fissionPile } from './fission';
@@ -42,7 +43,9 @@ export class NodeSet {
 
   track(e: SimEntity): SimNode {
     const node = createNode(e);
-    node.active = voxelActive(this.world.getVoxel(e.x, e.y, e.z));
+    const v = this.world.getVoxel(e.x, e.y, e.z);
+    node.active = voxelActive(v);
+    node.status = voxelStatus(v);
     this.all.push(node);
     this.byKey.set(node.key, node);
     if (isFurnace(e)) this.furnaces.push(node);

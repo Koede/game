@@ -4,6 +4,7 @@ import { recipe } from '../core/registry';
 import type { RecipeDef } from '../core/types';
 import {
   BENCH_RECIPES,
+  BUILD_RECIPES,
   HAND_RECIPES,
   WORKBENCH_RECIPES,
   availability,
@@ -45,6 +46,8 @@ describe('crafting', () => {
       // Tool-and-block synergy (src/content/areas/synergy_tools.ts).
       'plank_slab', 'stone_slab', 'brick_slab', 'stone_brick_slab', 'stone_pillar', 'brick_pillar', 'brick_lintel', 'brick_chimney',
       'bronze_plate_block', 'brick_from_slabs',
+      // Heat as a resource (src/content/areas/warmth.ts).
+      'insulated_wall',
     ]);
   });
 
@@ -185,7 +188,7 @@ describe('workbench offers hand recipes too', () => {
   it('lists every workbench recipe first, then every hand recipe', () => {
     expect(BENCH_RECIPES.slice(0, WORKBENCH_RECIPES.length)).toEqual([...WORKBENCH_RECIPES]);
     for (const r of HAND_RECIPES) expect(BENCH_RECIPES).toContain(r);
-    expect(BENCH_RECIPES.length).toBe(WORKBENCH_RECIPES.length + HAND_RECIPES.length);
+    expect(BENCH_RECIPES.length).toBe(WORKBENCH_RECIPES.length + BUILD_RECIPES.length + HAND_RECIPES.length);
     expect(new Set(BENCH_RECIPES.map((r) => r.id)).size).toBe(BENCH_RECIPES.length);
   });
 });

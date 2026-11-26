@@ -1,5 +1,21 @@
 # Truly modular tools
 
+## Status (built)
+
+Built as the plan intends, with one difference in how a build is stored: every head x handle x binding combination is a real generated
+item (`iron_pine_resin_pickaxe`), not an `ItemStack.parts` field, so stacks, saves, wear, enchants and mining need no new bookkeeping.
+`src/content/toolParts.ts` has the materials, formulas, generated items and assembly list; `src/game/toolParts.ts` the swap rule;
+`src/game/toolBuilder.ts` the builder and rework rules; `src/ui/screens/workbench/toolBuilderPanel.ts` the screen.
+
+- Kinds: pickaxe, axe, shovel, hoe, maul. Heads: flint, bronze, iron, steel (hoes: no steel; mauls: no flint). Handles: oak, pine. Bindings: cord, resin.
+- The default build (any head, oak handle = two sticks, cord) is the legacy tool, number for number (parity test); legacy keys stay valid.
+- Tool Builder (workbench screen): pick tool, head, handle, binding; stats with deltas against the tool in hand; trait lines; Build.
+- Rework (same panel): replace one part of a tool in the pack with one from the pack; the old part comes back; enchants, quality and share of wear kept.
+  The anvil keeps its repair-by-use; part swapping lives at the workbench, where the parts are.
+- Traits: each part has a trait line; resin spares a use of wear 15% of the time (`sparesWear`, one wear path in PlayerState.wearHeldTool).
+- Composed icons (and so the held model, which draws the icon): head metal on the build's handle wood, resin bead at the joint. Mauls borrow their metal's icon.
+- Not done: weapons beyond mauls (no swords or spears exist yet), extras slot, wire binding, glass shard.
+
 ## Goal
 
 Every tool and weapon is built from parts, and the parts decide what it is good at. No more "bronze pickaxe" as a fixed item: a pickaxe is a

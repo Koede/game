@@ -33,6 +33,7 @@ export class InputCore {
 
   private readonly intent = createIntent();
   private readonly look: LookDelta = { x: 0, y: 0 };
+  private readonly tapAt = { x: 0, y: 0, aspect: 1 };
   private keys = NO_KEYS;
   private mouseX = 0;
   private mouseY = 0;
@@ -64,6 +65,7 @@ export class InputCore {
   private sprintLock = false;
 
   constructor(private readonly settings: Settings) {}
+
 
   /** The sneak toggle is on (sneaks without holding a key). */
   get sneakLocked(): boolean {
@@ -217,6 +219,7 @@ export class InputCore {
       this.releaseAll();
       return clearIntent(intent);
     }
+    this.touch.tapToMove = this.settings.tapToMove;
     this.touch.update(nowMs);
     this.drag.update(nowMs);
 
@@ -239,6 +242,8 @@ export class InputCore {
     intent.sprint = intent.sprint || this.sprintLock;
     intent.mine = this.lockedMine || this.drag.mineHeld || this.touch.mineHeld;
     intent.use = this.frameUse(dtSeconds);
+    const worldTaps = this.touch.takeWorldTaps();
+    intent.worldTap = intent.use && worldTaps > 0 && !this.touch.useHeld;
     // Shift is also sprint: it only means "place" together with a Use, and sprinting needs the walk key anyway.
     intent.place = intent.use && (keySprint(this.keys) || this.armed);
     if (intent.use) this.armed = false;
@@ -256,6 +261,12 @@ export class InputCore {
     intent.emoteSet = this.emoteSetEdge;
     this.emoteSetEdge = null;
     intent.pause = this.pauseEdge;
+    intent.tap = this.settings.tapToMove && this.touch.takeTap(this.tapAt);
+    if (intent.tap) {
+      intent.tapX = this.tapAt.x;
+      intent.tapY = this.tapAt.y;
+      intent.tapAspect = this.tapAt.aspect;
+    }
     // Q drops one (Shift+Q the stack); holding Q past DROP_HOLD_S drops what is left of the stack, once.
     if (keyDropHeld(this.keys)) {
       const before = this.dropHeldS;

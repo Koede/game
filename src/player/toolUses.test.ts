@@ -68,6 +68,8 @@ const CASES: Case[] = [
   { id: 'hoe_reap_replant', held: 'flint_hoe', target: 'wheat_3', becomes: 'wheat_0', drops: [['wheat', 1]] },
   { id: 'shovel_flatten_farmland', held: 'wooden_shovel', target: 'farmland', face: 'top', becomes: 'dirt' },
   { id: 'hoe_scythe', held: 'flint_hoe', target: 'tall_grass', becomes: 'air', drops: [['fiber', 2]] },
+  { id: 'hoe_scythe', held: 'flint_hoe', target: 'fern', becomes: 'air', drops: [['fiber', 2]] },
+  { id: 'hoe_scythe', held: 'iron_hoe', target: 'reeds', becomes: 'air', drops: [['fiber', 2]] },
   { id: 'shovel_cut_sod', held: 'flint_shovel', target: 'grass', face: 'top', becomes: 'dirt', drops: [['fiber', 1]] },
   { id: 'shovel_sift_gravel', held: 'wooden_shovel', target: 'gravel', becomes: 'sand', drops: [['flint', 1]] },
   { id: 'slop_feeds_crop', held: 'slop_canister', target: 'carrot_1', becomes: 'carrot_2', heldAfter: 'empty_canister' },
@@ -77,6 +79,7 @@ const CASES: Case[] = [
   { id: 'pick_dress_limestone', held: 'flint_pickaxe', target: 'limestone', becomes: 'stone_brick' },
   { id: 'maul_cracks_brick', held: 'bronze_maul', target: 'stone_brick', becomes: 'cracked_stone_brick' },
   { id: 'torch_melts_snow', held: 'torch', target: 'snow', becomes: 'air' },
+  { id: 'rootsong_greens_dirt', held: 'rootsong', target: 'dirt', becomes: 'grass' },
   { id: 'pail_chips_ice', held: 'pail', target: 'ice', becomes: 'air', heldAfter: 'water_pail' },
   { id: 'hammer_stone_to_rubble', held: 'flint_hammer', target: 'stone', becomes: 'rubble' },
   { id: 'hammer_rubble_to_gravel', held: 'bronze_hammer', target: 'rubble', becomes: 'gravel' },
@@ -93,7 +96,7 @@ describe('tool uses: every row of the table', () => {
   it('has a case here for every row but the wrench, and ids are unique', () => {
     const ids = TOOL_USES.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.filter((id) => !CASES.some((c) => c.id === id)).sort()).toEqual(['wrench_turn_block']);
+    expect(ids.filter((id) => !CASES.some((c) => c.id === id)).sort()).toEqual(['stick_sweeps_flue', 'wrench_turn_block']);
   });
 
   for (const c of CASES) {
@@ -110,6 +113,22 @@ describe('tool uses: every row of the table', () => {
       expect(t.swings()).toBe(1);
     });
   }
+});
+
+describe('tool uses: the flue sweep (docs/api/disasters.md)', () => {
+  it('a stick used on a Brick Chimney standing on a furnace sweeps it and is used up; on a lone chimney it does nothing', () => {
+    const t = setup();
+    const swept: Array<{ x: number; y: number; z: number }> = [];
+    t.bus.on('disaster:sweep', (e) => swept.push(e));
+    t.put('brick_chimney');
+    t.hold('stick', undefined, 3);
+    expect(t.interaction.use(t.aim('side'))).not.toBe('worked');
+    expect(swept).toEqual([]);
+    t.world.put(CELL.x, CELL.y - 1, CELL.z, 'furnace_clay');
+    expect(t.interaction.use(t.aim('side'))).toBe('worked');
+    expect(swept).toEqual([CELL]);
+    expect(t.player.heldStack()?.count).toBe(2);
+  });
 });
 
 describe('docs/SYNERGY_TOOLS.md', () => {

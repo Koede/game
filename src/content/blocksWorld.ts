@@ -93,6 +93,12 @@ export const WORLD_BLOCKS: BlockSpec[] = [
     drops: [{ item: 'silica', count: [1, 2] }], textures: { all: 'crystal_cluster' },
   },
   {
+    // Pockets sit in the lowest, stillest cave rooms (src/world/caveRooms.ts). Thin green wisps: walk round them or fill them in with a block.
+    key: 'foul_air', name: 'Foul Air', desc: 'Sour green wisps that pool in still, deep cave rooms. Breathing them hurts. Wall them off with any block, or hold your breath and go round.',
+    shape: 'cross', solid: false, opaque: false, hardness: 0, replaceable: true, item: false, drops: 'none', contactDamage: 1,
+    textures: { all: 'foul_air' },
+  },
+  {
     key: 'oil', name: 'Crude Oil', desc: 'Thick black oil seeping up in the dunes and the scar. A pump draws it off; a bucket cannot hold it.',
     shape: 'liquid', liquid: 'oil', replaceable: true, hardness: -1, drops: 'none', item: false, textures: { all: 'oil' },
   },

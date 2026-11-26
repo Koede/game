@@ -56,6 +56,9 @@ export function createMob(id: number, spec: CreatureSpec, x: number, y: number, 
     head: 0,
     phead: 0,
     stuckS: 0,
+    homeX: x,
+    homeZ: z,
+    routineS: 0,
     hostile: null,
   };
 }
@@ -76,6 +79,8 @@ export function feedRefusal(m: Mob | undefined, itemKey: string): string | null 
   if (!m || m.state === 'dying') return 'Nothing to feed';
   const name = m.spec.name.toLowerCase();
   if (!m.spec.likes.includes(itemKey)) {
+    // A creature that eats nothing (an automaton, a hostile) must not produce "Zombies eat ".
+    if (m.spec.likes.length === 0) return `The ${name} wants no food`;
     const liked = m.spec.likes.map((k) => itemOrNull(k)?.name ?? k).join(' or ');
     return `${m.spec.name}s eat ${liked.toLowerCase()}`;
   }

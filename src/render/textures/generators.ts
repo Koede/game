@@ -26,6 +26,20 @@ function thermopile(c: Canvas, lit: boolean): void {
   c.rect(2, 11, 12, 1, lit ? P.EMBER[2] : P.FIRED_CLAY[0]);
 }
 
+function dynamo(c: Canvas, lit: boolean): void {
+  // A copper-wound drum on an iron axle through the casing; lit, the windings spark and the axle blurs.
+  well(c, 2, 3, 12, 8);
+  for (let y = 4; y <= 9; y++) {
+    c.rect(4, y, 8, 1, y % 2 === 0 ? P.COPPER[3] : P.COPPER[1]);
+    if (lit && y % 2 === 0) c.set(4 + ((y * 3) % 7), y, P.rgb(0xfff0a0));
+  }
+  bevel(c, 4, 4, 8, 6, P.COPPER[4], P.COPPER[0]);
+  c.rect(1, 6, 14, 2, lit ? P.IRON_METAL[3] : P.IRON_METAL[2]);
+  c.rect(1, 6, 14, 1, P.IRON_METAL[4]);
+  if (lit) for (const x of [3, 7, 11]) c.set(x, 11, P.rgb(0x8fb4ff));
+  c.rect(5, 12, 6, 1, I[0]);
+}
+
 function steamEngine(c: Canvas, lit: boolean): void {
   // Riveted boiler drum on top, pressure gauge on its end, piston and flywheel below.
   c.rect(2, 2, 9, 5, P.COPPER[2]);
@@ -163,6 +177,7 @@ function solarTop(c: Canvas): void {
 
 export const GENERATORS: PainterSet = {
   ...front('thermopile', thermopile),
+  ...front('dynamo', dynamo),
   ...front('steam_engine', steamEngine),
   ...front('burner_generator', burnerGenerator),
   ...front('water_wheel', waterWheel),

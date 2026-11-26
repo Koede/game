@@ -23,7 +23,9 @@ describe('structure text', () => {
     const fresh = kit.sim.structureView(0, 1, 0)!;
     const cells = ghostCells(fresh);
     expect(cells).toHaveLength(16);
-    expect(cells.every((c) => c.block === 'brick' && c.state === 'missing')).toBe(true);
+    expect(cells.every((c) => c.state === 'missing')).toBe(true);
+    expect(cells.filter((c) => c.block === 'blast_nozzle')).toHaveLength(1); // the Blast hearth's nozzle
+    expect(cells.filter((c) => c.block === 'brick')).toHaveLength(15);
     kit.formed(0, 1, 0, { tier: 3 });
     kit.world.put(1, 1, 1, 'dirt');
     kit.world.put(0, 1, 1, 'torch');

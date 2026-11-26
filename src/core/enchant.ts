@@ -4,7 +4,7 @@
  * its verb happens. Pure data and helpers, DOM-free, no world.
  */
 import type { Aspect } from '../magic/aspects';
-import { itemOrNull } from './registry';
+import { itemOrNull, rarityOf } from './registry';
 import type { ItemDef, ItemStack, Slot } from './types';
 
 export interface EnchantDef {
@@ -91,6 +91,16 @@ export const ENCHANTS: readonly EnchantDef[] = [
     description: 'What this tool breaks has a chance of one extra drop: 10%, 20% or 30%, marked by a small glint.',
     appliesTo: isDigTool,
   },
+  {
+    key: 'attunement',
+    name: 'Attunement',
+    max: 2,
+    aspect: 'rune',
+    cost: { aspect: 'rune', perLevel: 3 },
+    colour: '#d9b8ff',
+    description: 'Only a legendary weapon takes it: its verb deepens a level (II twice over). It never changes what the weapon does.',
+    appliesTo: (def) => !!def && rarityOf(def.key) === 'legendary' && !!def.weapon,
+  },
 ];
 
 const BY_KEY = new Map<string, EnchantDef>(ENCHANTS.map((e) => [e.key, e]));
@@ -105,6 +115,16 @@ export const levelName = (level: number): string => ROMAN[level] ?? String(level
 export function enchantLevel(stack: Slot | undefined, key: string): number {
   const n = stack?.enchants?.[key];
   return typeof n === 'number' && n > 0 ? Math.floor(n) : 0;
+}
+
+/**
+ * The level an effect runs at: the written level, one higher on a Masterwork tool (never past the enchant's maximum, and
+ * never from nothing). Every effect in src/game/enchantEffects.ts reads this, so quality and enchantments work together.
+ */
+export function effectiveEnchantLevel(stack: Slot | undefined, key: string): number {
+  const written = enchantLevel(stack, key);
+  if (written < 1) return 0;
+  return Math.min(BY_KEY.get(key)?.max ?? written, written + (stack?.quality === 2 ? 1 : 0));
 }
 
 export const isEnchanted = (stack: Slot | undefined): boolean => !!stack?.enchants && Object.keys(stack.enchants).length > 0;
@@ -134,6 +154,13 @@ export function canEnchant(def: ItemDef | null | undefined, key: string): boolea
   const e = BY_KEY.get(key);
   return !!e && !!def && e.appliesTo(def);
 }
+
+/**
+ * Whether the ALTAR may write `key` onto an item: `canEnchant`, and onto a legendary only as Attunement (deepening its verb), so it keeps exactly the enchants it was
+ * found with (docs/plans/legendary-weapons.md). Loot and fixed finds go through `enchantStack`, which is not held to this.
+ */
+export const canAltarEnchant = (def: ItemDef | null | undefined, key: string): boolean =>
+  !!def && canEnchant(def, key) && (rarityOf(def.key) !== 'legendary' || key === 'attunement');
 
 /**
  * Returns new enchants with `key` set to `level` (clamped 1..max; the higher of the old and new level wins). Unknown key

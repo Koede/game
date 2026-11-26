@@ -50,6 +50,8 @@ artificer's road. Lines show as toasts (`Name, title: "..."`). Old worlds are no
 `npx vitest run src/npcs` (layout, talk, gifts, save round trip, sprites, a new world opens in the hall) and `node scripts/e2e-tavern.mjs`
 (desktop and phone portrait: opens in the tavern, uses each person and checks the gift and the toast; `HW_GPU=1` for the real GPU).
 
+**Jobs:** residents can be put to work carrying items between your containers and machines (`docs/api/jobs.md`).
+
 ## Ideas for later
 Shop/trade with Rosa, a quest board, recruiting Gruk as a smith at the Bronze Furnace, Mara teaching research entries, walking schedules and
 night-time seating, more people in the structures session's outposts.
@@ -127,3 +129,83 @@ Seven small systems built on the tavern's people. Each is a pure module in `src/
 ## Veyra, the alchemist (sixth person)
 
 A dark elf distiller in the hall (`id veyra`, role and sprite `alchemist`, home `[4,1,2]`, night by the stairs `[2,1,1]`, dances at `[4,1,3]`). Welcome gift: 3 glass vials and 2 glass beakers. Odd visits give her advice (`alchemyAdvice` in `src/npcs/alchemy.ts`: the next rung of the glass distillery ladder from what the pack holds: syrup, wash, low wines, spirit, tincture, clear tincture, essence/elixir) or a goal hint; Use again takes the tonic she pitches (`TONICS` in drinks.ts: a swift tonic and a mending draught, three a day each). She likes glassware, charcoal, sulfur and tinctures (friendship.ts), has two favours, four gossip pairs (Mara, Rosa, Orrin, Gruk), a wake-up note and a dance style. Phrase bank `scripts/alchemist.ts`. Art: owner references in `docs/art-refs/`; drop `veyra.png`, `veyra_portrait.png`, `veyra_anim.png`, `veyra_dance.png`, `veyra_faces.jpg` in `assets/npcs/` and run `node scripts/npc-art.mjs`; until then the code-drawn sprite and portrait are used. Not done: the vapour-skull idle animation.
+
+## The lodge and its stages (lodge.ts)
+
+Gruk builds the lodge (`docs/api/town.md`, "The lodge") as the second building of the town, then four upgrades on the same plot. Each
+stage switches on its own features; `NpcManager.tavernLevel` says how many stages stand (0 at the camp, 1..4 in progress, 5 the full
+tavern).
+
+- **Bar** (`tickBar`, Rosa's service menu): from stage 2 (`tavernLevel >= 2`). Rosa's drinks and upkeep need her present as before.
+- **Guest beds** (`port.bed`, `GUEST_BEDS`): from stage 4, the upper floor (`tavernLevel >= 4`).
+- **Jukebox, party button, stage, pool, trader, festival** (`hasTavern`): only once the last stage is finished (`tavernLevel >= 5`).
+  `hasTavern` is no longer `at && !camp` alone: the camp flag is cleared when the lodge's first stage stands, and the tavern features
+  wait for the last stage.
+- **Fires**: the lodge's hearth (`LODGE_FIRES`, the furnace in the common room) until the tavern stands.
+- **Gruk** keeps to `LODGE_ROUTINE` (the common room) while only the lodge stands.
+- **Respawn**: `bedSpawn()` is the first bedroom's spot from stage 1, the guest bed once the upper floor stands; `state.ts` moves
+  `player.spawn` there each tick (a respawn with a home furnace still goes to the home).
+- **Settle** (`settle()`): builds the full tavern on the current origin (the camp's, or the lodge's) and marks the lodge finished.
+- **Dev helpers**: `window.__hw.lodge()` (level, origin, hasTavern, spawn, the bedroom's check reasons) and `supplyLodge(n)` (puts n of
+  every lodge block into the bay's stock).
+
+Tests: `lodge.test.ts` (the split, the stages' diffs, the bedrooms in the stages), `lodgeBuild.test.ts` (the builder builds all five
+stages on a flat plot, the built world equals the layout, saves, settle), `lodgeFeatures.test.ts` (feature gates and the spawn). E2e:
+`scripts/e2e-lodge.mjs`.
+
+## Newcomers, housing and contentment (settlement.ts, moveIn.ts, townPage.ts)
+
+A new world has only Gruk; everyone else walks in. `NpcManager.tickSettlement` runs when the day turns: the nights since the last
+roll are rolled one by one (`Settlement.advance`, at most `MAX_NIGHTS` 40; sleeping and time away count). Each night, every free
+valid room gets one roll (`moveIn.ts`: never on the room's first night, 4% rising 2% a night to 30%, at most one arrival a night).
+The line is `ARRIVALS`: Rosa (a hearth), **Orrin** (first bronze, `make_bronze` done), Mara (first magic: a done notebook entry),
+Bram (three residents besides Gruk), Veyra (the distillery: a glass beaker in the pack). Gruk is the builder and is not in the line
+(the earlier plan had him second; Orrin took that place). `host.townFacts()` carries the two triggers the goal list cannot.
+
+- **Rooms.** The lodge's own bedrooms are valid housing by default (`LODGE_ROOMS`: `lodge_1`..`lodge_3` at stages 1 to 3, the two
+  guest rooms at stage 4); the upper floor's open doorways fail the flood fill, so they are not checked. Rooms the player builds are
+  found by their `wool_bedding` within 40 blocks of the lodge (`housingScan.ts`, outside the lodge's footprint, at most 24 beds) and
+  must pass `checkRoom`. They are scanned only on a night when someone waits or someone lives in one. A resident whose built room
+  stops passing moves to a free valid room, or to the camp (`Settlement.evict`).
+- **Arrival.** The newcomer is added to `present`, appears at the door and walks to the common room (`LODGE_COMMON`) or, at night, to
+  their bedroom (`LODGE_SLEEP`) while only the lodge stands. A toast, an introduction line (`ARRIVAL_LINES`) and a diary line
+  (`town:note` bus event, key `town:arrived:<id>`) say so.
+- **Contentment** is read again each night (`townContentment`): neighbours are residents within 16 blocks, tags come from block
+  samples (`sampleTags`: water, trees, forge, fumes, hearth; quiet when no forge or fumes and at most two housed neighbours), and
+  only residents with a room of their own count as a crowd. Effects: Old Bram pays by his mood (0.75 to 1.35, no dice), the
+  trader's stall and Rosa's bed follow `priceFactor` (the town's mean mood for the trader), and a restless person pins fewer favours
+  (`favourRate` below 1 is a chance, at 1 or more always).
+- **Save.** `settle` (last night rolled, room first-seen days, who lives where, arrival log) and `goals` (camp goals done and the
+  flags that feed them) are optional in `NpcSnapshot`; an old save starts them fresh, so no rev bump or migration is needed.
+
+### The camp goals (src/game/campGoals.ts)
+
+A track of seven goals on its own, not in the main goal list (so no old save can be stuck on one): meet Gruk, warm up, sleep a night,
+fill a bounty, raise the lodge, welcome a newcomer, a home for three. It shows only where a camp or a lodge exists, reads facts (what
+the town has done, so work already behind you counts), and writes a toast and a diary line as each is done. `NpcManager.campGoal()`.
+
+### The Town page
+
+`NpcManager.townPage()` (data: `townPage.ts`) and `townChip()`; screen `src/ui/screens/town/townScreen.ts` (`{ type: 'town' }`), the
+HUD chip under the goal tracker (`src/ui/hud/townChip.ts`) and a Town entry in the pause menu open it. It shows the camp goal, the
+building and its stage, percent and missing items, days of work left, standing and the next unlock, who lives where and how
+content they are, the rooms, who is next in line and what they wait for.
+
+**Houses and moving out.** When a cottage finishes after the tavern stands, its floor cell becomes a free house room (`house:x,y,z`,
+valid by default). On the next day turn the earliest arrival who has lived in the lodge a moon (`HOUSE_AFTER_DAYS` 8) moves in; a goodbye
+by trust tier is toasted (a stranger thanks you, a friend says "come by anytime", a close friend gives 10 coin), their lodge room is free
+again, and a diary line is written. They keep to the common room by day and walk home at night: out through the door (tavern-local
+cell 6,0) and straight over open ground to the house or built room (`houseSpot`, `step`), back the same way in the morning. Not built:
+a house styled per person, and pathing around obstacles on the open ground.
+
+**By hand.** The Town page gives each resident (not Gruk) a room picker of the free valid rooms and the common room
+(`moveResident`, `moveOptions`, refusals from `housingView.assignRoom`).
+
+**Tips and lines.** A favour's coin is scaled by the asker's `tipFactor` (exact at neutral). A content person adds a warm word after a
+line (a third of the time), a restless one a grumpy word (half), and the morning someone comes back from a knock-down always a grumpy one.
+
+**Knock-down.** An `explosion` near a resident knocks them down: out of sight and silent for the day, back the next morning (a toast),
+room kept. Saved as `away` in the settlement snapshot.
+
+Dev helpers: `window.__hw.settlement()`, `townPage()` and `skipNights(n)`. Tests: `settlement.test.ts`, `newcomers.test.ts`,
+`campGoals.test.ts`. E2e: `scripts/e2e-newcomers.mjs`.

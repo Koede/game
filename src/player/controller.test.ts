@@ -246,3 +246,99 @@ describe('PlayerController', () => {
     expect(view.view.y).toBeCloseTo(10 + PLAYER_EYE, 3);
   });
 });
+
+describe('tap to move', () => {
+  it('walks to the tapped ground, ends on arrival and does not press Use', () => {
+    const { player, input, settings, controller, run } = setup();
+    settings.tapToMove = true;
+    controller.update(DT);
+    // Looking level: a tap low on the screen lands on the floor ahead (north, -Z).
+    input.next.tap = true;
+    input.next.tapX = 0;
+    input.next.tapY = -0.6;
+    input.next.tapAspect = 0.5;
+    controller.update(DT);
+    input.next.tap = false;
+    expect(controller.tapMove.active).toBe(true);
+    const goalZ = controller.tapMove.z;
+    expect(goalZ).toBeLessThan(player.position.z);
+    run(6);
+    expect(controller.tapMove.active).toBe(false);
+    expect(Math.abs(player.position.z - goalZ)).toBeLessThan(0.7);
+  });
+
+  it('the stick takes over at once', () => {
+    const { input, settings, controller, run } = setup();
+    settings.tapToMove = true;
+    controller.update(DT);
+    input.next.tap = true;
+    input.next.tapY = -0.6;
+    input.next.tapAspect = 0.5;
+    controller.update(DT);
+    input.next.tap = false;
+    run(0.2);
+    expect(controller.tapMove.active).toBe(true);
+    input.next.moveX = 1;
+    controller.update(DT);
+    expect(controller.tapMove.active).toBe(false);
+  });
+
+  it('ignores taps while the option is off', () => {
+    const { input, controller } = setup();
+    input.next.tap = true;
+    input.next.tapY = -0.6;
+    controller.update(DT);
+    expect(controller.tapMove.active).toBe(false);
+  });
+});
+
+describe('Use that does nothing says why', () => {
+  it('Use at the sky with empty hands is explained, once, not on every repeat', () => {
+    const { bus, input, controller, player } = setup();
+    player.pitch = 1.2;
+    const log = record(bus, 'toast');
+    controller.update(DT);
+    input.next.use = true;
+    controller.update(DT);
+    expect(log.map((x) => x.e.text)).toEqual(['Nothing in reach to use']);
+    input.next.use = true;
+    controller.update(DT);
+    expect(log).toHaveLength(1);
+  });
+
+  it('Use on a block the held item does nothing to names both', () => {
+    const { bus, world, input, controller, player } = setup();
+    world.put(0, 10, -2, 'stone');
+    player.yaw = 0;
+    player.pitch = Math.atan2(10.5 - player.eyeY, 1.5);
+    const log = record(bus, 'toast');
+    controller.update(DT);
+    input.next.use = true;
+    controller.update(DT);
+    expect(log.map((x) => x.e.text)).toEqual(['Nothing to do with the Stone by hand']);
+  });
+
+  it('Place armed with nothing to place says to hold a block', () => {
+    const { bus, input, controller, player } = setup();
+    player.pitch = 1.2;
+    const log = record(bus, 'toast');
+    controller.update(DT);
+    input.next.use = true;
+    input.next.place = true;
+    controller.update(DT);
+    expect(log.map((x) => x.e.text)).toEqual(['Hold a block to place it']);
+  });
+
+  it('a Use that already toasted is not given a second message', () => {
+    const { bus, input, controller, player } = setup();
+    player.pitch = 1.2;
+    player.inventory.set(player.selectedSlot, { item: 'bread', count: 1 });
+    player.food = 100;
+    const log = record(bus, 'toast');
+    controller.update(DT);
+    input.next.use = true;
+    controller.update(DT);
+    expect(log.length).toBeLessThanOrEqual(1);
+    expect(log.every((x) => !/Nothing in reach/.test(x.e.text))).toBe(true);
+  });
+});

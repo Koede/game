@@ -5,6 +5,7 @@
  * Conventions: `position` is the centre of the feet (the eye is PLAYER_EYE above it). Yaw is in radians, 0 looks
  * north (-Z) and positive turns left - exactly a three.js camera's rotation.y. Pitch is positive looking up.
  */
+import { sparesWear } from '../content/toolParts';
 import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE, REGEN_MIN_FOOD } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
 import type { DamageCause } from '../core/gameEvents';
@@ -18,6 +19,7 @@ import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundIt
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
 import { PlayAssist, type AssistSnapshot } from './assist';
+import { BlueprintBook, type BlueprintBookSnapshot } from './blueprintBook';
 import { takesItem } from './lootFilter';
 import { favouritesOf, setFavourites } from './inventoryTools';
 import { pocketsOf, setPockets, type Pocket } from './pockets';
@@ -87,6 +89,8 @@ export interface PlayerSnapshot {
   ground?: GroundItemSnapshot[];
   /** Recipe book and caravan (docs/api/discovery.md, caravan.md). Missing in older saves: empty. */
   book?: RecipeBookSave;
+  /** Saved and granted blueprints and Gruk's build jobs (docs/api/blueprint.md). Missing in older saves: empty. */
+  blueprints?: BlueprintBookSnapshot;
   caravan?: CaravanSave;
 }
 
@@ -171,6 +175,8 @@ export class PlayerState {
   readonly assist = new PlayAssist();
   /** Hidden recipes found by experiment (src/game/discovery.ts). */
   readonly book = new RecipeBook();
+  /** The blueprints the player owns and the jobs Gruk is working (./blueprintBook). */
+  readonly blueprints = new BlueprintBook();
   /** The trade caravan's prices and visit (src/game/caravan.ts). */
   readonly caravan = new Caravan();
   /** Handheld collectors (vacuum pump, later the electromagnet). */
@@ -274,6 +280,7 @@ export class PlayerState {
   wearHeldTool(uses: number): boolean {
     const held = this.heldStack();
     if (!held || held.durability === undefined || !(uses > 0) || this.dev) return false;
+    if (sparesWear(held.item, Math.random())) return false; // a resin binding sometimes spares the use (content/toolParts.ts)
     held.durability -= uses;
     if (held.durability > 0) {
       this.inventory.notifyChanged();
@@ -286,15 +293,15 @@ export class PlayerState {
     return true;
   }
 
+  /**
+   * Puts items into the inventory. Emits 'item:gained' for what arrived (and 'inventory:changed'); what does
+   * not fit is returned as a count after a warning toast.
+   */
   /** Whether the loot filter (Settings.lootFilter) lets the player pick `item` up from the ground. */
   takes(item: string): boolean {
     return takesItem(this.assist.lootFilter, item);
   }
 
-  /**
-   * Puts items into the inventory. Emits 'item:gained' for what arrived (and 'inventory:changed'); what does
-   * not fit is returned as a count after a warning toast.
-   */
   give(item: string, count = 1, durability?: number, enchants?: Record<string, number>): number {
     const left = this.inventory.add(item, count, durability, 0, this.inventory.size, undefined, enchants);
     const gained = Math.floor(count) - left;
@@ -468,6 +475,7 @@ export class PlayerState {
       killedBy: this.killedBy,
       ground: this.ground.toJSON(),
       book: this.book.toJSON(),
+      blueprints: this.blueprints.toJSON(),
       caravan: this.caravan.toJSON(),
     };
   }
@@ -512,6 +520,7 @@ export class PlayerState {
     this.collectors.stop();
     this.ground.load(s.ground);
     this.book.load(s.book);
+    this.blueprints.load(s.blueprints);
     this.caravan.load(s.caravan);
   }
 }

@@ -7,10 +7,13 @@
  * The animals are reached through the small AnimalTargets interface (src/mobs' MobManager fits it), so the player
  * module keeps no reference to the manager's internals.
  */
+import { legendaryEffectOf } from '../content/legendary';
 import { REACH } from '../core/constants';
 import { CREATURES } from '../core/registry';
-import { stunOf, type PlayerState } from '../game';
+import { ARC_COS, ARC_MAX_TARGETS, stunOf, type PlayerState } from '../game';
+import { enchantLevel } from '../core/enchant';
 import { hitDamage, type YieldKind } from '../mobs';
+import type { HitExtras } from '../game/legendary';
 import { swapHeldItem } from './buckets';
 import type { SwingTarget } from './interaction';
 
@@ -22,7 +25,12 @@ export interface AnimalTargets {
    * Hits a creature for `damage` from (fromX, fromZ); refused (`ok: false`) during its hit cooldown. `stunS` > 0
    * (the arc maul) stuns an automaton for that long; animals ignore it.
    */
-  hit(id: number, damage: number, fromX: number, fromZ: number, stunS?: number): { ok: boolean };
+  hit(id: number, damage: number, fromX: number, fromZ: number, stunS?: number): { ok: boolean; killed?: boolean };
+  /** A legendary weapon's extras (src/game/legendary.ts), all optional: damage with no hit cooldown, a shove away from a point, the creatures near a point. */
+  hurtExtra?(id: number, damage: number, fromX: number, fromZ: number): boolean;
+  shove?(id: number, fromX: number, fromZ: number, speed: number): void;
+  root?(id: number, seconds: number): void;
+  near?(x: number, z: number, radius: number, exceptId?: number): { id: number; x: number; y: number; z: number }[];
   /** Milks or shears (optional: not every stand-in has it). Refused with a reason while the animal is not ready. */
   harvest?(id: number, kind: YieldKind): { ok: true } | { ok: false; reason: string };
   /** Feeds a liked item (the caller takes the item); refused with a reason the player can read. */
@@ -51,6 +59,8 @@ export type AnimalUse = 'fed' | 'refused' | 'pass' | 'milked' | 'sheared';
 export class AnimalHands {
   /** Id of the animal under the crosshair after the last aim(), or null. */
   target: number | null = null;
+  /** Whether it is dark where the player stands (the Lanternblade's burst); set by the controller. Default: never. */
+  dark: () => boolean = () => false;
 
   constructor(
     private readonly animals: AnimalTargets,
@@ -69,6 +79,11 @@ export class AnimalHands {
     return this.target;
   }
 
+  /** Distance to the nearest animal on the ray within reach, or Infinity (so a person behind an animal is not talked to). */
+  distanceAlong(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): number {
+    return this.animals.raycast(ox, oy, oz, dx, dy, dz, REACH)?.distance ?? Infinity;
+  }
+
   /**
    * Mine held on the target: one hit whenever both the player's swing (0.5 s with a maul, 0.4 s otherwise) and the
    * creature's own cooldown allow. A weapon with `stunS` passes it along; the held tool or weapon wears by 1.
@@ -78,12 +93,55 @@ export class AnimalHands {
     if (this.target === null || this.player.dead || !combat.strikeReady) return false;
     const item = this.player.heldStack()?.item ?? null;
     const p = this.player.position;
-    const r = this.animals.hit(this.target, hitDamage(item, this.player.buffs.strength), p.x, p.z, stunOf(item));
-    if (!r.ok) return false;
+    const leg = combat.legendary;
+    const level = enchantLevel(this.player.heldStack() ?? undefined, 'attunement');
+    const extra = leg.beforeHit(item, this.dark(), level);
+    const id = this.target;
+    const r = this.animals.hit(id, hitDamage(item, this.player.buffs.strength) + extra.damage, p.x, p.z, stunOf(item) + extra.stunS);
+    if (!r.ok) {
+      // The blow did not land (the creature's own cooldown): a spent lunge window is given back.
+      if (extra.lunge) leg.giveBackLunge();
+      return false;
+    }
     combat.startStrikeCooldown(item);
     this.swing.triggerSwing();
     this.player.wearHeldTool(1);
+    this.legendaryAfter(item, id, extra, level, p.x, p.z, r.killed === true);
     return true;
+  }
+
+  /** The legendary weapon's part of a landed blow: the shove, the Emberfang's marks and burst, and the spark event for the renderer. */
+  private legendaryAfter(item: string | null, id: number, extra: HitExtras, level: number, px: number, pz: number, killed: boolean): void {
+    const a = this.animals;
+    const at = a.near?.(px, pz, REACH + 1, -1).find((m) => m.id === id);
+    if (extra.shove !== 0 && !killed) a.shove?.(id, px, pz, extra.shove);
+    if (extra.rootS > 0 && !killed) a.root?.(id, extra.rootS);
+    const mark = this.player.combat.legendary.afterHit(item, id, level);
+    if (mark.burst && a.hurtExtra) {
+      a.hurtExtra(id, mark.damage, px, pz);
+      for (const m of a.near?.(at?.x ?? px, at?.z ?? pz, mark.radius, id) ?? []) a.hurtExtra(m.id, mark.damage, px, pz);
+    }
+    if (extra.arc && a.hurtExtra) this.shockArc(id, extra.arc.damage, extra.arc.reach, px, pz);
+    if (at && (extra.proc || mark.burst || mark.marks > 0)) {
+      const effect = legendaryEffectOf(item);
+      if (effect) this.player.bus.emit('legendary:proc', { effect, x: at.x, y: at.y + 0.8, z: at.z });
+    }
+  }
+
+  /** Starcleaver: the arc hurts up to ARC_MAX_TARGETS other creatures in front of the wielder within `reach`, nearest first. */
+  private shockArc(skipId: number, damage: number, reach: number, px: number, pz: number): void {
+    const a = this.animals;
+    const dir = this.player.viewDir({ x: 0, y: 0, z: 0 });
+    const flat = Math.hypot(dir.x, dir.z) || 1;
+    let hit = 0;
+    for (const m of a.near?.(px, pz, reach, skipId) ?? []) {
+      const dx = m.x - px;
+      const dz = m.z - pz;
+      const d = Math.hypot(dx, dz) || 1;
+      if ((dx * dir.x + dz * dir.z) / (d * flat) < ARC_COS) continue;
+      a.hurtExtra?.(m.id, damage, px, pz);
+      if (++hit >= ARC_MAX_TARGETS) break;
+    }
   }
 
   /**
@@ -125,7 +183,9 @@ export class AnimalHands {
     }
     if (milking) swapHeldItem(this.player, MILK_CONTAINERS[item]);
     else {
-      this.player.give('wool', WOOL_PER_SHEARING);
+      // A full pack drops the wool at the player's feet instead of losing it (the goat's timer has already started).
+      const left = this.player.give('wool', WOOL_PER_SHEARING);
+      if (left > 0) this.player.drop('wool', left);
       this.player.wearHeldTool(1);
     }
     this.swing.triggerSwing();

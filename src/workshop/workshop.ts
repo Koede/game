@@ -12,9 +12,11 @@
  * it feed speed into these networks without changing anything else here.
  */
 import type { GameBus } from '../core/context';
-import { blockOrNull, canonicalItemKey, itemOrNull, machine, recipesAt } from '../core/registry';
+import { blockOf, blockOrNull, canonicalItemKey, itemOrNull, machine, recipesAt } from '../core/registry';
+import { MachineStatus, withStatus } from '../core/machineStatus';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
 import { windAt } from '../sim/machines';
+import { suFromW, windmillW } from '../core/energy';
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
 import type { GroundItems } from '../game/groundItems';
@@ -33,10 +35,9 @@ export const CRANK_S = 2.5;
 export const CRANK_CAPACITY = 8;
 /** Stress units per part (cranks and shafts cost nothing). */
 export const STRESS: Record<string, number> = BASE_STRESS;
-/** Generators that also turn a shaft they touch: rpm, and stress units per watt they make. */
-export const GENERATOR_SHAFT: Record<string, { rpm: number; suPerW: number }> = {
-  water_wheel: { rpm: 12, suPerW: 1 / 50 }, wind_turbine: { rpm: 16, suPerW: 1 / 50 }, steam_engine: { rpm: 24, suPerW: 1 / 50 },
-};
+/** Steam rotor on an open copper kettle (docs/advice/tech-spine.md 2.2): 16 rpm and 4 stress units, 200 W. */
+export const STEAM_ROTOR = { rpm: 16, capacity: 4 };
+
 /** Clockwork motor: rpm, capacity, seconds per wind and the most it holds. */
 export const CLOCKWORK = { rpm: 24, capacity: 48, windS: 30, maxS: 120 };
 /** Stress capacity factor of an oiled network: Heavy Residue (the distillery's lube base) and pine resin. */
@@ -54,7 +55,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo']);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -75,6 +76,8 @@ export interface NetInfo {
   rpm: number; stress: number; capacity: number; overstressed: boolean; parts: number; jammed?: boolean;
   /** Speed factor of the dynamics (1 = as solved), momentum su*s, a long shaft whipping, the load pulse now, and what the goggles tell the player. */
   w?: number; momentum?: number; whip?: boolean; pulse?: number; findings?: Finding[];
+  /** An electric generator (water wheel, wind turbine, steam engine) turns this line: a dynamo on it makes nothing extra. */
+  electric?: boolean;
 }
 /** Dynamic state of one network (src/workshop/mech/drive.ts), kept between ticks by its smallest member key. Not saved: it rebuilds in a tick. */
 interface NetDyn { st: DriveState; nominal: Map<string, number>; stress: number; capacity: number }
@@ -118,7 +121,7 @@ export interface SwingView { kind: string; x: number; y: number; z: number; phas
 export interface LinkView { kind: string; x1: number; y: number; z1: number; x2: number; z2: number; rpm: number }
 export interface WorkshopView { spin: SpinView[]; swings: SwingView[]; links: LinkView[] }
 /** Parts that show a turning cog on top while they run. */
-const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft']);
+const SPIN_KINDS = new Set(['flywheel', 'differential', 'treadwheel', 'hand_crank', 'reverse_box', 'ratio_dial', 'split_box', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'governor', 'sequence_gearshift', 'clutch', 'clockwork_motor', 'drive_shaft', 'mill_wheel']);
 
 /** Seconds a recipe takes at 16 rpm: strokes x STROKE_S, or half the drying / soaking time of a timed recipe. */
 const needS = (r: RecipeDef): number => ((r.strokes ?? 0) > 0 ? (r.strokes as number) * STROKE_S : (r.timeS ?? 2) * 0.5);
@@ -140,7 +143,6 @@ export class Workshop {
   private readonly lubeFactor = new Map<string, number>();
   private clock = 0;
   /** Watts a generator block makes right now (the sim's machine view); null = generators do not turn shafts. */
-  generatorWatts: ((x: number, y: number, z: number) => number) | null = null;
   private readonly machines = new Map<string, MachineState>();
   /** rpm of every turning part this tick, and the network facts per part. */
   private readonly speed = new Map<string, number>();
@@ -148,6 +150,12 @@ export class Workshop {
   private readonly seizedWarned = new Set<string>();
   /** More speed sources (the shaft core later): rpm a part gets from outside, or 0. */
   extraRpm: ((x: number, y: number, z: number) => number) | null = null;
+  /** True while the cell holds a boiling steam kettle with water: a steam rotor above it turns. */
+  steamAt: ((x: number, y: number, z: number) => boolean) | null = null;
+  /** What a beam engine at x,y,z gives (rpm and stress units from the boiler pressure), or null when it has no steam. */
+  /** What the mill wheel at x,y,z gets from the river (rpm and stress units), or null. Set by the app from the simulation. */
+  riverAt: ((x: number, y: number, z: number) => { rpm: number; capacity: number } | null) | null = null;
+  engineAt: ((x: number, y: number, z: number) => { rpm: number; capacity: number } | null) | null = null;
   private readonly off: () => void;
   /** Richer "use this item on that block" for deployers (hoes, hand stations): set by Game; null/undefined falls back to placing and breaking. */
   /** True while a player or tame animal stands on the cell above (treadwheel); set by Game. */
@@ -215,7 +223,7 @@ export class Workshop {
 
   /** Blocks a piston or bearing may carry: frames and every workshop part, never generators (sim machines) or the actuators. */
   private isMovable(kind: string): boolean {
-    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind in GENERATOR_SHAFT) return false;
+    if (CONTRAPTION_KINDS.includes(kind as 'piston') || kind === 'dynamo') return false;
     return kind === 'contraption_frame' || KINETIC.has(kind) || isLogistic(kind) || SIGNAL_KINDS.has(kind);
   }
 
@@ -286,7 +294,7 @@ export class Workshop {
     if (shopped !== null) return shopped;
     if (!(held && blockOrNull(held.item)) && this.signals.use(x, y, z)) return 'worked';
     if (!(held && blockOrNull(held.item))) {
-      const gate = this.signals.cycleGate(x, y, z);
+      const gate = this.signals.cycleGate(x, y, z) ?? this.signals.cycleSetting(x, y, z);
       if (gate) {
         this.bus.emit('toast', { text: gate, kind: 'info' });
         return 'worked';
@@ -423,15 +431,45 @@ export class Workshop {
   private sourceFor(key: string, p: Part): Source | null {
     if (p.kind === 'hand_crank') return this.cranks.has(key) ? { rpm: CRANK_RPM, capacity: CRANK_CAPACITY } : null;
     if (p.kind === 'clockwork_motor') return (this.wound.get(key) ?? 0) > 0 ? { rpm: CLOCKWORK.rpm, capacity: CLOCKWORK.capacity } : null;
-    const g = GENERATOR_SHAFT[p.kind];
-    if (g) {
-      const w = this.generatorWatts?.(p.x, p.y, p.z) ?? 0;
-      return w > 0 ? { rpm: g.rpm, capacity: w * g.suPerW } : null;
-    }
     if (p.kind === 'treadwheel') return this.standingOn?.(p.x, p.y + 1, p.z) ? { rpm: 12, capacity: 24 } : null;
+    if (p.kind === 'steam_rotor') return this.steamAt?.(p.x, p.y - 1, p.z) ? { rpm: STEAM_ROTOR.rpm, capacity: STEAM_ROTOR.capacity } : null;
+    if (p.kind === 'mill_wheel') return this.riverAt?.(p.x, p.y, p.z) ?? null;
+    if (p.kind === 'windmill') return this.windmillSource(p);
+    if (p.kind === 'beam_engine') return this.engineAt?.(p.x, p.y, p.z) ?? null;
     if (this.pto.has(key)) return { rpm: 24, capacity: 30 };
     const extra = this.extraRpm?.(p.x, p.y, p.z) ?? 0;
     return extra > 0 ? { rpm: extra, capacity: CRANK_CAPACITY } : null;
+  }
+
+  /**
+   * Shaft speed a dynamo at (x, y, z) is turned at, rpm; 0 when its line is still, jammed or overloaded.
+   */
+  dynamoRpm(x: number, y: number, z: number): number {
+    const key = k3(x, y, z);
+    if (!this.parts.has(key)) return 0;
+    return Math.abs(this.speed.get(key) ?? 0);
+  }
+
+  /** Sky and spacing checks of the windmills, refreshed every two seconds. */
+  private readonly windCheck = new Map<string, { at: number; ok: boolean }>();
+
+  /** A windmill turns with the wind (8 + 16 w rpm, 100 + 300 w W) when its sky is open and no other windmill is within 5 blocks. */
+  private windmillSource(p: Part): Source | null {
+    const key = k3(p.x, p.y, p.z);
+    const seen = this.windCheck.get(key);
+    let ok = seen?.ok ?? false;
+    if (!seen || this.clock - seen.at >= 2) {
+      ok = true;
+      for (let y = p.y + 1; y <= p.y + 24 && ok; y++) if (this.world.getBlock(p.x, y, p.z).solid) ok = false;
+      for (const [k, q] of this.parts) if (ok && q.kind === 'windmill' && k !== key && Math.abs(q.x - p.x) <= 5 && Math.abs(q.z - p.z) <= 5 && Math.abs(q.y - p.y) <= 5 && k < key) ok = false;
+      this.windCheck.set(key, { at: this.clock, ok });
+    }
+    if (!ok) return null;
+    const params = machine('wind_turbine').params ?? {};
+    const raw = windAt(this.timeS?.() ?? this.clock, params.windMin ?? 0.25, params.windMax ?? 1);
+    const w = Math.max(0, Math.min(1, (raw - (params.windMin ?? 0.25)) / ((params.windMax ?? 1) - (params.windMin ?? 0.25)) + Math.min(0.3, Math.max(0, (p.y - 62) / 100))));
+    const rpm = 8 + 16 * w;
+    return { rpm, capacity: suFromW(windmillW(w), rpm) };
   }
 
   /** Each driven, fuelled tractor turns the nearest drive shaft it touches. */
@@ -652,9 +690,33 @@ export class Workshop {
     }
     for (const [key, p] of this.parts) {
       const v = this.world.getVoxel(p.x, p.y, p.z);
-      const on = this.speed.has(key);
-      if (voxelActive(v) !== on) this.world.setVoxel(p.x, p.y, p.z, withActive(v, on), 'sim');
+      const net = this.netOf.get(key);
+      const m = this.machines.get(key);
+      const jammed = net !== undefined && (net.overstressed || net.jammed === true);
+      const on = !jammed && this.speed.has(key);
+      // Why a part stands still, for its face: its network is overloaded, or a machine has work and nothing turns it.
+      const want = jammed ? MachineStatus.Jammed : m && !on && (m.recipe !== null || Object.keys(m.buffer).length > 0) ? MachineStatus.Starved : MachineStatus.None;
+      const shown = this.statusFor(key, want);
+      const next = blockOf(v).layersStatus.length > 1 ? withStatus(withActive(v, on), shown) : withActive(v, on);
+      if (next !== v) this.world.setVoxel(p.x, p.y, p.z, next, 'sim');
     }
+  }
+
+  private readonly statusHold = new Map<string, { want: number; since: number; shown: number }>();
+
+  /** A status shows once it has held for a second (and clears at once), so a flicker does not remesh the chunk. */
+  private statusFor(key: string, want: number): number {
+    let h = this.statusHold.get(key);
+    if (!h) {
+      h = { want: 0, since: this.clock, shown: 0 };
+      this.statusHold.set(key, h);
+    }
+    if (h.want !== want) {
+      h.want = want;
+      h.since = this.clock;
+    }
+    if (want === 0 || this.clock - h.since >= 1) h.shown = want;
+    return h.shown;
   }
 
   private moveBelts(dt: number): void {
@@ -727,6 +789,11 @@ export class Workshop {
   /** Hands items to the machine, depot, basin, funnel or crate at a cell; returns how many it took. */
   offer(x: number, y: number, z: number, item: string, count: number): number {
     return this.logi.accept(x, y, z, item, count);
+  }
+
+  /** How many of `item` the cell would take, without moving anything (jobs check the drop-off before they lift). */
+  canOffer(x: number, y: number, z: number, item: string, count: number): number {
+    return this.logi.accept(x, y, z, item, count, false);
   }
 
   /** What a depot, basin, funnel or crate holds that can be pulled out. */
@@ -874,6 +941,11 @@ export class Workshop {
 
   // ---- Views ------------------------------------------------------------------------------------------
 
+  /** Speed (rpm, unsigned) the shaft network turns the part at this cell at this tick; 0 when it is still or none. */
+  rpmOf(x: number, y: number, z: number): number {
+    return Math.abs(this.speed.get(k3(x, y, z)) ?? 0);
+  }
+
   netAt(x: number, y: number, z: number): NetInfo | null {
     return this.netOf.get(k3(x, y, z)) ?? null;
   }
@@ -909,6 +981,10 @@ export class Workshop {
     if (set) parts.push(set);
     const mv = p.kind === 'piston' ? this.contra.describe(x, y, z) : null;
     if (mv) parts.push(`extended ${mv.split('extended ')[1]}`);
+    if (p.kind === 'windmill' && !this.windmillSource(p)) parts.push('no wind here: open sky, 5 blocks from other windmills');
+    if (p.kind === 'beam_engine') parts.push(this.engineAt?.(p.x, p.y, p.z) ? 'steam up' : 'no steam: needs 2 bar through a Steam Port and pipes');
+    if (p.kind === 'mill_wheel') parts.push(this.riverAt?.(p.x, p.y, p.z) ? 'river turning it' : 'no flow: set it in moving water (frozen rivers stop it)');
+    if (p.kind === 'steam_rotor') parts.push(this.steamAt?.(p.x, p.y - 1, p.z) ? 'steam up' : 'no steam: stand it on a boiling Copper Steam Kettle');
     if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
     const m = this.machines.get(key);
     if (m) {

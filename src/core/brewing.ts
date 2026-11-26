@@ -66,6 +66,8 @@ export const CONTAINER_BLOCKS: Readonly<Record<string, ContainerBlocks>> = {
 
 /** The kettle pot block (its machine kind is KETTLE_MACHINE; the active bit of its voxel is set while it boils). */
 export const KETTLE_BLOCK = 'kettle_pot';
+/** The Copper Steam Kettle: the same kettle machine, and it gives open steam to a steam rotor standing on it. */
+export const STEAM_KETTLE_BLOCK = 'steam_kettle';
 
 /** How the HUD, tooltips and recipe rows name a drink buff. */
 export interface DrinkBuffText {

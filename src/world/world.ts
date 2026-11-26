@@ -8,15 +8,17 @@ import { mulberry32 } from '../core/math';
 import { BLOCKS, blockId } from '../core/registry';
 import {
   AIR, CHUNK_SIZE, WORLD_HEIGHT, makeVoxel, voxelId, voxelIndex,
-  type BiomeKey, type BlockDef, type BlockEntity, type ChangeSource, type IWorld, type Voxel,
+  type BiomeKey, type BlockDef, type BlockEntity, type ChangeSource, type IWorld, type Slot, type Voxel,
 } from '../core/types';
 import { chunkCoord, chunkKey, localCoord, type Chunk } from './chunk';
 import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
 import { WaterFlow, checkWaterSnapshot, type WaterSnapshot } from './flow';
 import { LeafDecay, checkLeafSnapshot, rollLeafDrops, type LeafSnapshot } from './leafDecay';
-import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity } from './ruinCrates';
+import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity, tableCrateEntity } from './ruinCrates';
+import { LegendaryClaims, registerLegendaryClaims } from './legendaryClaims';
 import { structureCrateCells } from './structures';
+import { caveBandAt, caveCampTable, findCaveCamp } from './caveRooms';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
 import { OAK_BROAD, type TreeSite } from './flora';
@@ -82,6 +84,7 @@ export class World implements IWorld {
   private readonly offChunkLoaded: () => void;
   /** Planting day of every tree seen standing (saved under 'treeAges'); growth is worked out from it. */
   private readonly trees = new TreeAges();
+  private readonly legendary = new LegendaryClaims(() => this.currentSeed);
   private readonly growScratch: GrowthScratch = createGrowthScratch();
   /** Voxels the current growth of each loaded chunk wrote (see growChunk); dropped when the chunk unloads. */
   private readonly growthRecords = new Map<number, number[]>();
@@ -125,6 +128,9 @@ export class World implements IWorld {
     });
     this.offChunkUnloaded = bus.on('chunk:unloaded', ({ cx, cz }) => this.growthRecords.delete(chunkKey(cx, cz)));
     this.persist('treeAges', () => this.trees.toJSON());
+    registerLegendaryClaims(this, this.legendary);
+    this.legendary.load(this.extra('legendary'));
+    this.persist('legendary', () => this.legendary.toJSON());
   }
 
   /** Tells the world what clock day it is (trees grow a day at a time). The game calls this once it has its clock. */
@@ -413,7 +419,15 @@ export class World implements IWorld {
     for (const { x, y, z } of ruinCrateCells(this.currentSeed, cx, cz)) {
       if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z))) || this.entityStore.get(x, y, z)) continue;
       if (this.getVoxel(x, y, z) !== AIR) continue;
-      this.setEntity(ruinCrateEntity(this.currentSeed, x, y, z, this.spawnPoint()));
+      const crate = ruinCrateEntity(this.currentSeed, x, y, z, this.spawnPoint());
+      // A ruin crate may hold one of the legendary weapons, once per world (src/world/legendaryClaims.ts); its own hash, so the ordinary roll is unchanged.
+      const found = this.legendary.roll('ruin', x, y, z);
+      if (found) {
+        const slots = crate.slots as Slot[];
+        const at = slots.indexOf(null);
+        if (at >= 0) slots[at] = LegendaryClaims.stackOf(found);
+      }
+      this.setEntity(crate);
       this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
     }
     for (const { x, y, z, key } of structureCrateCells(this.currentSeed, cx, cz)) {
@@ -421,6 +435,12 @@ export class World implements IWorld {
       if (this.getVoxel(x, y, z) !== AIR) continue;
       this.setEntity(structureCrateEntity(this.currentSeed, x, y, z, key));
       this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
+    }
+    // A cave camp's crate is a generated voxel with no entity yet (the first load gives it its loot, by the camp's depth band).
+    const camp = findCaveCamp(this.currentSeed, cx, cz, (x, y, z) => voxelId(this.getVoxel(x, y, z)));
+    if (camp && !this.edits.has(cx, cz, voxelIndex(localCoord(camp.x), camp.y, localCoord(camp.z))) && !this.entityStore.get(camp.x, camp.y, camp.z)) {
+      this.setEntity(tableCrateEntity(this.currentSeed, camp.x, camp.y, camp.z, caveCampTable(caveBandAt(camp.y))));
+      this.setVoxel(camp.x, camp.y, camp.z, CRATE_VOXEL, 'load');
     }
   }
 

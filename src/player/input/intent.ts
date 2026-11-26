@@ -24,6 +24,8 @@ export interface Intent {
   mine: boolean;
   /** True on the frame the use control was pressed, and again every USE_REPEAT_S while it stays held. */
   use: boolean;
+  /** With `use`: it came from a tap on the bare world, not from the Use button or a key (a stray tap must not get off a tractor). */
+  worldTap: boolean;
   /**
    * With `use`: this Use places the held block on the face aimed at, skipping screens, the pipe screen and buckets
    * (Shift held on a keyboard, or the touch Place toggle armed for one Use).
@@ -43,6 +45,14 @@ export interface Intent {
   /** Edge (touch quick menu): play this emote, or 'stop' to end the one playing. Null when nothing was picked. */
   emoteSet: EmoteKind | 'stop' | null;
   pause: boolean;
+  /**
+   * Edge (touch, Settings.tapToMove): a short tap on the world. `tapX` / `tapY` are where, -1..1 from the left / bottom of
+   * the view, and `tapAspect` the view's width / height; the controller turns them into a walk (player/tapMove.ts).
+   */
+  tap: boolean;
+  tapX: number;
+  tapY: number;
+  tapAspect: number;
   /** Edge: the drop key (Q) went down: drop one of the held item. */
   drop: boolean;
   /** With `drop`: Shift was held; or alone: Q was held long enough to drop the rest of the stack. */
@@ -60,6 +70,7 @@ export function createIntent(): Intent {
     sneak: false,
     mine: false,
     use: false,
+    worldTap: false,
     place: false,
     hotbarSlot: null,
     hotbarStep: 0,
@@ -69,6 +80,10 @@ export function createIntent(): Intent {
     photo: false,
     emoteSet: null,
     pause: false,
+    tap: false,
+    tapX: 0,
+    tapY: 0,
+    tapAspect: 1,
     drop: false,
     dropAll: false,
   };
@@ -85,6 +100,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.sneak = false;
   intent.mine = false;
   intent.use = false;
+  intent.worldTap = false;
   intent.place = false;
   intent.hotbarSlot = null;
   intent.hotbarStep = 0;
@@ -92,6 +108,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.log = false;
   intent.emoteSet = null;
   intent.pause = false;
+  intent.tap = false;
   intent.drop = false;
   intent.dropAll = false;
   return intent;

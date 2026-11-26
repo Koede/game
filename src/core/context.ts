@@ -33,8 +33,18 @@ export interface Settings {
   autoStep: boolean;
   /** No decorative movement: view bob, sprint FOV kick, landing dip, UI flashes, pulses and slides (starts on when the device asks for reduced motion). */
   reduceMotion: boolean;
-  /** Accessibility: status colours (good / warning / bad, health, food) that stay apart for colour-blind players. */
-  colorSafe: boolean;
+  /**
+   * Accessibility: 'red-green' (protan / deutan) and 'blue-yellow' (tritan) swap the status colours and every grid overlay's
+   * ramp (heat, power) for ones that stay apart for that kind of colour blindness (src/ui/kit/palette.ts). Older saves with
+   * `colorSafe: true` read as 'red-green'.
+   */
+  colorMode: ColorMode;
+  /** Accessibility: multiplies text everywhere in the UI (0.85..1.6; 1 = default). Stacks with `uiScale`. */
+  textScale: number;
+  /** Accessibility: multiplies the HUD (vitals, hotbar, compass, goal, feed) and the touch buttons (0.8..1.5; 1 = default). */
+  hudScale: number;
+  /** Accessibility: a tap on the world walks there (the view turns, the body walks and steps up); any stick or key input cancels it. Taps then no longer press Use - the Use button does. */
+  tapToMove: boolean;
   /** Short vibrations on phones for mining, crafting and getting hurt (where the browser can vibrate). */
   haptics: boolean;
   /** 'Auto-buck felled trees': a tree's log is cut into pieces as soon as it lands (game/fallingTrees.ts). Off: the axe cuts it piece by piece. */
@@ -53,6 +63,10 @@ export interface Settings {
   /** One-handed touch layout: the whole control cluster and the joystick sit under the thumb of this side. Older saves read as 'off'. */
   oneHanded: 'off' | 'left' | 'right';
 }
+
+/** Colour-blind palette: off, red-green (protanopia, deuteranopia) or blue-yellow (tritanopia). */
+export type ColorMode = 'off' | 'red-green' | 'blue-yellow';
+export const COLOR_MODES: readonly ColorMode[] = ['off', 'red-green', 'blue-yellow'];
 
 /** Spec 19.3. */
 export type Difficulty = 'peaceful' | 'normal' | 'hard';
@@ -87,7 +101,10 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   moveAssist: true,
   autoStep: touchFirst,
   reduceMotion,
-  colorSafe: false,
+  colorMode: 'off',
+  textScale: 1,
+  hudScale: 1,
+  tapToMove: false,
   haptics: true,
   autoBuck: false,
   treeDamage: true,

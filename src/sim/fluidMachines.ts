@@ -17,6 +17,7 @@
  * - Still: between item jobs, oilPerRunL of crude oil becomes fuelPerRunL of refined fuel every oilRunS.
  */
 import { BROWNOUT_STALL, DT } from '../core/constants';
+import { MachineStatus } from '../core/machineStatus';
 import { fluid as fluidSpec, fluidOfLiquid, machine } from '../core/registry';
 import { AIR, FACE_DIRS, type FluidKey, type IWorld, type LiquidKind } from '../core/types';
 import { isLiquidSource, refillsAsSource } from '../world/water';
@@ -124,7 +125,9 @@ const pump: Behaviour = {
     e.f = node.net ? node.net.f : 0;
     const src = sources.get(node) ?? null;
     const running = e.demandW > 0 && src !== null && e.f >= BROWNOUT_STALL && powered(node.net);
-    ctx.setActive(node, running);
+    // Nothing to pump (no liquid in reach, or the power is out) is starved; a tank with no room left is full.
+    const status = !e.on ? MachineStatus.None : src === null || e.demandW > 0 ? MachineStatus.Starved : MachineStatus.Full;
+    ctx.setActive(node, running, status);
     e.rateL = 0;
     if (!running || !src) return;
     const litres = Math.min(PP.litresPerS * e.f * dt, outRoom(e, src.fluid, PUMP.fluids?.capacityL ?? 0));
@@ -170,7 +173,7 @@ const boiler: Behaviour = {
       e.rateL = steam / dt;
       furnace.extractW += e.rateL * BP.heatPerSteamL;
     }
-    ctx.setActive(node, steam > 0);
+    ctx.setActive(node, steam > 0, e.on && furnace && heldL(e, 'water') <= 0 ? MachineStatus.Starved : MachineStatus.None);
   },
 };
 
@@ -185,7 +188,7 @@ const turbine: Behaviour = {
   apply(node, ctx, dt) {
     const e = node.e as MachineEntity;
     e.outW = e.availW * (node.net ? node.net.load : 0);
-    ctx.setActive(node, e.availW > 0);
+    ctx.setActive(node, e.availW > 0, e.on && e.availW <= 0 ? MachineStatus.Starved : MachineStatus.None);
     const out = TURBINE.outputW ?? 1;
     const used = useFluid(e, 'steam', (TURBINE.params?.steamLPerS ?? 0) * dt * (e.outW / out));
     e.rateL = used / dt;
@@ -226,7 +229,7 @@ const still: Behaviour = {
     }
     e.f = node.net ? node.net.f : 0;
     const running = e.demandW > 0 && e.f >= BROWNOUT_STALL;
-    ctx.setActive(node, running);
+    ctx.setActive(node, running, e.demandW > 0 ? MachineStatus.Starved : MachineStatus.None);
     if (!running) return;
     e.progress += dt * e.f;
     if (e.progress < SP.oilRunS) return;

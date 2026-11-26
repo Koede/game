@@ -259,6 +259,15 @@ describe('talking', () => {
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z, 0, 1, 0)).toBeNull();
   });
 
+  it('does not talk to a person behind something nearer on the ray (a wall or an animal)', () => {
+    const { npcs, toasts } = rig();
+    const mara = npcs.views().find((v) => v.id === 'mara')!;
+    const eye = mara.y + 1.5;
+    expect(npcs.talk(mara.x, eye, mara.z - 3, 0, 0, 1, 1.5)).toBe(false);
+    expect(toasts).toHaveLength(0);
+    expect(npcs.talk(mara.x, eye, mara.z - 3, 0, 0, 1, 5)).toBe(true);
+  });
+
   it('does not read the whole script while Use is held', () => {
     const { npcs, toasts } = rig();
     const mara = npcs.views().find((v) => v.id === 'mara')!;
@@ -584,6 +593,23 @@ describe('a settled world opens in the tavern', () => {
     const again = GameState.restore(JSON.parse(JSON.stringify(save)));
     expect(again.npcs.at).toEqual(o);
     again.dispose();
+    state.dispose();
+  });
+
+  it('never conjures fuel: an empty woodpile and bay leave the hearths to burn down, and logs in the bay feed them', () => {
+    const state = settledWorld(22, 'fires-out');
+    state.npcs.firewood = 0;
+    const o = state.npcs.at!;
+    const [fx, fy, fz] = FIRE_SPOTS[0];
+    const fire = () => state.sim.furnaceAt(o[0] + fx, o[1] + fy, o[2] + fz)!;
+    const slots = () => state.sim.furnaceSlots(o[0] + fx, o[1] + fy, o[2] + fz)!;
+    for (let s = 0; s < slots().fuel.size; s++) slots().fuel.set(s, null);
+    for (let i = 0; i < 400; i++) state.tick();
+    const logs = () => slots().fuel.slots.reduce((n, st) => n + (st?.item === 'oak_log' ? st.count : 0), 0);
+    expect(logs()).toBe(0);
+    state.npcs.firewood = 30;
+    for (let i = 0; i < 400; i++) state.tick();
+    expect(state.npcs.firewood).toBeLessThan(30);
     state.dispose();
   });
 

@@ -1,4 +1,5 @@
 /** Spec sections 13-15: buckets and lava, the richer world (marsh, berries, ruins and their loot), and the weather data. */
+import { maxDurabilityOf } from '../game/inventory';
 import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE, NIGHT_LIGHT_FULL_MOON, NIGHT_LIGHT_NEW_MOON } from '../core/constants';
 import { mulberry32 } from '../core/math';
@@ -34,9 +35,9 @@ describe('13. buckets', () => {
   it('burns a lava bucket at 1300 C for 100 s (2 MJ) and hands the bronze bucket back', () => {
     expect(fuelOf('lava_bucket')).toEqual({ energyJ: 2_000_000, burnS: 100, flameTempC: 1300, fuelReturns: 'bronze_bucket' });
     expect(item('lava_bucket').stack).toBe(1);
-    // Only containers return anything; the burner generator's single slot could not hold the empty bucket.
-    expect(ITEMS.filter((it) => it.fuel?.fuelReturns).map((it) => it.key)).toEqual(['lava_bucket']);
-    expect(machine('burner_generator').fuels).not.toContain('lava_bucket');
+    // Only containers return anything; the burner generator takes it too and hands the empty bucket to the player.
+    expect(ITEMS.filter((it) => it.fuel?.fuelReturns).map((it) => it.key)).toEqual(['lava_bucket', 'fuel_ethanol_beaker', 'gasoline_canister', 'kerosene_canister', 'diesel_canister']);
+    expect(machine('burner_generator').fuels).toContain('lava_bucket');
     expect(machine('burner_generator').fuels).toContain('peat');
   });
 
@@ -151,7 +152,7 @@ describe('14. Old Works loot', () => {
         for (const s of loot) {
           expect(s.count, s.item).toBeGreaterThan(0);
           expect(s.count, s.item).toBeLessThanOrEqual(item(s.item).stack);
-          expect(s.durability, s.item).toBe(item(s.item).tool?.durability);
+          expect(s.durability, s.item).toBe(maxDurabilityOf(s.item, s.quality) ?? item(s.item).tool?.durability);
         }
       }
     }

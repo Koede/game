@@ -9,7 +9,7 @@
 import type { GameBus } from '../core/context';
 import { BLOCKS, block as blockByKey, itemOrNull } from '../core/registry';
 import { AIR, Face, makeVoxel, voxelActive, voxelFacing, type BlockDef, type ItemAmount, type ItemDef, type ItemStack, type IWorld, type Voxel } from '../core/types';
-import { cropStage, isRipeCrop, rollDrops, sawFuel, type PlayerState } from '../game';
+import { cropStage, furnaceBelowChimney, isRipeCrop, rollDrops, sawFuel, type PlayerState } from '../game';
 import { frontFace } from './blockRules';
 import { swapHeldItem } from './buckets';
 import type { RayHit } from './raycast';
@@ -91,7 +91,7 @@ function sfx(c: Ctx, name: Sound): void {
 }
 
 const LEAVES = ['oak_leaves', 'pine_leaves'];
-const CHEAP_FOLIAGE = ['tall_grass', 'dry_shrub'];
+const CHEAP_FOLIAGE = ['tall_grass', 'dry_shrub', 'fern', 'reeds'];
 /** Bare bush key -> its fruiting block, from the bush's own `harvestLeaves` rule. */
 const REGROWS: ReadonlyMap<string, string> = new Map(BLOCKS.filter((b) => b.harvestLeaves !== null).map((b) => [b.harvestLeaves as string, b.key]));
 const LOOSE_PILES = ['sand', 'gravel', 'rubble', 'snow'];
@@ -173,8 +173,8 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     run: (c) => c.world.getVoxel(c.hit.x, c.hit.y + 1, c.hit.z) === AIR && replace(c, 'dirt') && (wearTool(c), sfx(c, 'till'), true),
   },
   {
-    id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass and dry shrub down to fibre (shrub gives a stick too)',
-    applies: (c) => kindOf(c) === 'hoe' && is(c, ...CHEAP_FOLIAGE),
+    id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass, ferns, reeds and dry shrub down to fibre (shrub gives a stick too)',
+    applies: (c) => (kindOf(c) === 'hoe' || heldIs(c, 'starcleaver')) && is(c, ...CHEAP_FOLIAGE),
     run: (c) => (remove(c) ? (drop(c, [{ item: 'fiber', count: 2 }, { item: 'stick', count: 1, chance: c.def.key === 'dry_shrub' ? 0.7 : 0 }]), wearTool(c), sfx(c, 'harvest'), true) : false),
   },
   {
@@ -222,11 +222,17 @@ export const TOOL_USES: readonly ToolUseRow[] = [
   {
     id: 'maul_cracks_brick', system: 'masonry', summary: 'A maul cracks stone brick into cracked brick (the pickaxe dresses it back)',
     applies: (c) => kindOf(c) === 'maul' && is(c, 'stone_brick'),
-    run: (c) => (replace(c, 'cracked_stone_brick') ? (wearTool(c), sfx(c, 'dig_stone'), true) : false),
+    // The Quiet Hammer does it without a sound.
+    run: (c) => (replace(c, 'cracked_stone_brick') ? (wearTool(c), heldIs(c, 'quiet_hammer') || sfx(c, 'dig_stone'), true) : false),
   },
   {
-    id: 'torch_melts_snow', system: 'survival', summary: 'A torch held to a snow block melts it away (the torch is kept)',
-    applies: (c) => heldIs(c, 'torch') && is(c, 'snow'),
+    id: 'rootsong_greens_dirt', system: 'farming', summary: 'Rootsong used on bare dirt coaxes grass over it',
+    applies: (c) => kindOf(c) === 'staff' && is(c, 'dirt'),
+    run: (c) => (replace(c, 'grass') ? (wearTool(c), sfx(c, 'harvest'), true) : false),
+  },
+  {
+    id: 'torch_melts_snow', system: 'survival', summary: 'A torch (or Emberfang) held to a snow block melts it away (it is kept)',
+    applies: (c) => (heldIs(c, 'torch') || heldIs(c, 'emberfang')) && is(c, 'snow'),
     run: (c) => (remove(c) ? (sfx(c, 'splash'), true) : false),
   },
   {
@@ -253,6 +259,16 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     id: 'hammer_rivet_plate', system: 'bronze', summary: 'A hammer rivets a Bronze Plate Block into a Riveted Plate Block',
     applies: (c) => kindOf(c) === 'hammer' && is(c, 'bronze_plate_block'),
     run: (c) => (replace(c, 'rivet_plate_block') ? (wearTool(c), sfx(c, 'dig_metal'), true) : false),
+  },
+  {
+    id: 'stick_sweeps_flue', system: 'furnace', summary: 'A stick pushed up a Brick Chimney sweeps the soot off the furnace it stands on (the stick is used up)',
+    applies: (c) => heldIs(c, 'stick') && is(c, 'brick_chimney') && furnaceBelowChimney(c.world, c.hit.x, c.hit.y, c.hit.z) !== null,
+    run: (c) => {
+      if (!c.player.consumeHeld(1)) return false;
+      c.bus.emit('disaster:sweep', { x: c.hit.x, y: c.hit.y, z: c.hit.z });
+      sfx(c, 'dig_wood');
+      return true;
+    },
   },
   {
     id: 'pail_mosses_brick', system: 'fluids', summary: 'A water pail left on stone brick wets it into mossy brick; the pail comes back empty',

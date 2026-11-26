@@ -271,7 +271,11 @@ export async function techSteps({ d, step, assert, page }) {
 
   await step('the walls and an item hatch go up and the Blast hearth forms', async () => {
     const order = [...ctx.ring].sort((a, b) => a.z - b.z || a.x - b.x);
-    for (const cell of order) await placeInto(d, ctx.site, 'brick', cell, { supports: [3] });
+    // The Blast hearth needs a Blast Nozzle set in a wall face (BRONZE_PLAN 4.5): the middle of the north wall (ring[1]) takes it.
+    await d.hw(() => window.__hw.give('blast_nozzle', 1));
+    await d.settle(400);
+    const nozzle = ctx.ring[1];
+    for (const cell of order) await placeInto(d, ctx.site, cell === nozzle ? 'blast_nozzle' : 'brick', cell, { supports: [3] });
     let log = await events(d);
     assert(!log.some((e) => e.startsWith('formed')), `formed before the hatch closed the wall: ${log.join(' | ')}`);
     await placeInto(d, ctx.site, 'item_hatch', ctx.hatch, { supports: [3] });

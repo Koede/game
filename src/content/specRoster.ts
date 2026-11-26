@@ -3,6 +3,7 @@
  * document. The content files are compared against it, so a slip in either place shows up as a failing test.
  * A deliberate balance change has to be made here as well. Nothing but the test imports this file.
  */
+import { COMPOSED_ICON_BUILDS, TOOL_HEAD_ICON_COUNT } from './toolParts';
 import type { BiomeKey, BlockDef, MachineRole } from '../core/types';
 import { BREW_SPEC } from './specRosterBrew';
 import { DISTILL_SPEC } from './specRosterDistill';
@@ -18,6 +19,7 @@ import { WORLD_SPEC } from './specRosterWorld';
 import { FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 import { EXPLORE_SPEC } from './specRosterExplore';
+import { OLD_PLANS_SPEC } from './specRosterOldPlans';
 
 type Numbers = Record<string, number>;
 
@@ -135,8 +137,6 @@ export const SPEC = {
       'brick: 1 brick <- 4 firebrick @400 T1',
       'ceramic_insulator: 2 ceramic_insulator <- 1 clay, 1 sand @600 T1',
       'copper_cable: 6 copper_cable <- 3 copper_wire, 2 ceramic_insulator @500 T1',
-      'thermopile: 1 thermopile <- 4 copper_ingot, 2 tin_ingot, 2 firebrick @700 T1',
-      'lamp: 1 lamp <- 1 glass, 2 copper_wire @500 T1',
       'hearth_stew: 1 hearth_stew <- 1 cooked_chop, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_mutton: 1 hearth_stew <- 1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_fowl: 1 hearth_stew <- 1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail @300 T1',
@@ -160,6 +160,13 @@ export const SPEC = {
       'battery: 1 battery <- 2 iron_plate, 2 copper_ingot, 3 sulfur @900 T3',
       'steel_ingot: 2 steel_ingot <- 2 iron_ingot, 1 coke, 1 limestone @1400 T3',
       'steel_plate: 1 steel_plate <- 2 steel_ingot @1300 T3',
+      'iron_axle: 2 iron_axle <- 1 iron_ingot @1000 T3',
+      'steel_axle: 2 steel_axle <- 1 steel_ingot @1300 T3',
+      'rolling_mill: 1 rolling_mill <- 1 chassis, 4 iron_plate, 2 iron_axle @1000 T3',
+      'drop_forge: 1 drop_forge <- 1 chassis, 2 steel_plate, 2 steel_axle, 4 stone_brick @1300 T3',
+      'dynamo: 1 dynamo <- 2 copper_coil, 1 iron_axle, 2 iron_plate @1000 T3',
+      'thermopile: 1 thermopile <- 4 copper_ingot, 2 tin_ingot, 2 firebrick @700 T3',
+      'lamp: 1 lamp <- 1 glass, 2 copper_wire @500 T3',
       'steel_pickaxe: 1 steel_pickaxe <- 3 steel_ingot, 2 stick @1300 T3',
       'steel_axe: 1 steel_axe <- 3 steel_ingot, 2 stick @1300 T3',
       'steel_shovel: 1 steel_shovel <- 1 steel_ingot, 2 stick @1300 T3',
@@ -299,9 +306,9 @@ export const SPEC = {
     'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
     'place clay_table 1', 'make ingot_mould 1', 'make copper_ingot 2', 'flag first_pour', 'place hand_quern 1', 'flag tilled', 'place wheat_0 1',
     'make flour 1', 'make bread 1', ...BREW_SPEC.objectives, 'place stone_anvil 1', 'make copper_plate 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_pickaxe_head 1',
-    'make bronze_maul 1', 'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1',
+    'make bronze_maul 1', 'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)',
     'place drying_rack 1', 'make leather 1', 'make cloth 1', 'tier 2', ...WORKSHOP_SPEC.objectives, 'tier 3', 'place item_pipe 1',
-    'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 4', 'place pump 1',
+    'make iron_ingot 8', 'make steel_ingot 6', 'make iron_axle 2', 'place rolling_mill 1', 'place drop_forge 1', 'place dynamo 1', 'generate 100', 'place lamp 1', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 4', 'place pump 1',
     'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', ...GROUND_SPEC.objectivesAfterBeacon, 'generate 10000', 'make tungsten_rod 4', 'tier 5',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 6',
     'flag ignited',
@@ -404,17 +411,23 @@ SPEC.worldOnlyItems.push(...MAGIC_SPEC.worldOnly, 'quest_board', 'wall_clock', '
 // The tavern's fixture faces (src/render/textures/areas/tavern_fixtures.ts): quest_board_front, wall_clock_front.
 SPEC.maxTextures += 2;
 // The jukebox faces (src/render/textures/areas/tavern_fixtures.ts): jukebox_front, jukebox_front_on.
-SPEC.maxTextures += 2;
+SPEC.maxTextures += 3;
 // The party button faces: party_button_front, party_button_front_on.
-SPEC.maxTextures += 2;
+SPEC.maxTextures += 3;
 // The jukebox model's materials (src/world/jukeboxModel.ts): wood, chrome, brass, grille, window (+on), panel, bubble (+on).
-SPEC.maxTextures += 9;
+SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
 // The wool bedding model's materials (src/world/bedModel.ts): bed_frame, bed_mattress, bed_blanket, bed_pillow.
 SPEC.maxTextures += 4;
 // The glassware materials (src/render/textures/areas/glassware.ts): glassware_glass, glassware_brass.
-SPEC.maxTextures += 2;
+SPEC.maxTextures += 3;
 // The Belt Pouch icon (src/content/itemsHand.ts): one item texture, painted as a placeholder tile until it has art.
 SPEC.maxTextures += 1;
+// The foul-air wisps (src/render/textures/worldPlants.ts): one cave hazard texture.
+SPEC.maxTextures += 1;
+// The cave breadcrumbs (src/render/textures/areas/cave_marks.ts): chalk_mark and cave_cairn.
+SPEC.maxTextures += 2;
+// The Bronze Age air blocks (src/content/blocksAir.ts): pipe_air, air_tank_side/top, air_compressor_side/top, blast_nozzle (+on).
+SPEC.maxTextures += 7;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);
@@ -424,6 +437,9 @@ SPEC.maxTextures += WORKSHOP_SPEC.textures;
 SPEC.worldOnlyItems.push(...WORKSHOP_SPEC.worldOnly);
 // Felled trees leave a stump block (game/fallingTrees.ts): it only exists in the world, and its textures are the log's.
 SPEC.worldOnlyItems.push('oak_stump', 'pine_stump');
+// The legendary weapons are found, never crafted (src/content/legendary.ts): world only, with one icon each (src/render/textures/iconsLegendary.ts).
+SPEC.worldOnlyItems.push('emberfang', 'gale_reed', 'lanternblade', 'quiet_hammer', 'tidebrand', 'rootsong', 'starcleaver');
+SPEC.maxTextures += 7;
 
 // Glassware (vials and beakers on the furnace top) comes after the workshop.
 SPEC.blocks.push(...GLASS_SPEC.blocks);
@@ -448,7 +464,22 @@ SPEC.maxTextures += SYNERGY_ARTIFICER_SPEC.textures;
 
 // Dyes, stained planks and furniture (content/areas/decor.ts): 6 dye icons + 6 plank tiles + 3 furniture tiles.
 SPEC.maxTextures += 15;
+// Charged faces of the battery and lithium bank (render/textures/grid.ts); the cell rack reuses the battery's.
+SPEC.maxTextures += 2;
+// The small steam loop (content/areas/steam_loop.ts): steam_kettle + steam_kettle_on, boiler_plate, safety_valve + safety_valve_top, boiler_gauge_glass.
+SPEC.maxTextures += 11;
 // World exploration (waypoint stones, ...; src/content/areas/world_*.ts): only the texture budget is pinned.
 SPEC.maxTextures += EXPLORE_SPEC.textures;
+// Fishing depth (content/areas/world_fishing.ts): 5 raw fish + 5 cooked fish + fish chowder + winter broth icons.
+SPEC.maxTextures += 12;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
+// The insulated wall tile (src/render/textures/areas/warmth.ts).
+SPEC.maxTextures += 1;
+// Forge heavy industry (rolling mill, drop forge, dynamo; iron and steel axles): two fronts each for the dynamo, mill and forge, two item icons.
+SPEC.maxTextures += 8;
+// Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
+SPEC.maxTextures += OLD_PLANS_SPEC.textures;
+SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
+// Modular tools (src/content/toolParts.ts): one icon per new head, and a composed icon for each non-default pick, axe, shovel and hoe build.
+SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;

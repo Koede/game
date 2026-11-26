@@ -70,10 +70,11 @@
   --hw-font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --hw-font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
 
-  --hw-fs-xs: 11px;
-  --hw-fs-sm: 13px;
-  --hw-fs-md: 15px;
-  --hw-fs-lg: 18px;
+  /* Text size: Settings.textScale sets --hw-text-scale on the root (src/ui/kit/uiScale.ts); every token follows it. */
+  --hw-fs-xs: calc(11px * var(--hw-text-scale, 1));
+  --hw-fs-sm: calc(13px * var(--hw-text-scale, 1));
+  --hw-fs-md: calc(15px * var(--hw-text-scale, 1));
+  --hw-fs-lg: calc(18px * var(--hw-text-scale, 1));
 
   --hw-tap: 44px;
   --hw-radius: 2px;
@@ -89,24 +90,24 @@
 /* UI size Large (Settings.uiScale; src/ui/kit/uiScale.ts marks the root): type and touch targets grow, and every
    window, button, chip and slot hint follows these tokens. The HUD's own Large rules are in src/ui/hud/combat.css. */
 .hw-root[data-ui-scale='large'] {
-  --hw-fs-xs: 13px;
-  --hw-fs-sm: 15px;
-  --hw-fs-md: 17px;
-  --hw-fs-lg: 21px;
+  --hw-fs-xs: calc(13px * var(--hw-text-scale, 1));
+  --hw-fs-sm: calc(15px * var(--hw-text-scale, 1));
+  --hw-fs-md: calc(17px * var(--hw-text-scale, 1));
+  --hw-fs-lg: calc(21px * var(--hw-text-scale, 1));
   --hw-tap: 52px;
   --hw-icon: 36px;
 }
 .hw-root[data-ui-scale='large'] .hw-btn {
-  font-size: 16px;
+  font-size: calc(16px * var(--hw-text-scale, 1));
 }
 .hw-root[data-ui-scale='large'] .hw-seg__opt,
 .hw-root[data-ui-scale='large'] .hw-chip,
 .hw-root[data-ui-scale='large'] .hw-tab {
-  font-size: 14.5px;
+  font-size: calc(14.5px * var(--hw-text-scale, 1));
 }
 .hw-root[data-ui-scale='large'] .hw-toggle__state,
 .hw-root[data-ui-scale='large'] .hw-carry__name {
-  font-size: 14px;
+  font-size: calc(14px * var(--hw-text-scale, 1));
 }
 
 /* ---- 2. base --------------------------------------------------------------------------- */
@@ -2484,6 +2485,12 @@ body {
   min-width: 0;
   min-height: 0;
 }
+.hw-bag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
 .hw-craft__bag {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2942,8 +2949,9 @@ body {
   transition: none !important;
   scroll-behavior: auto !important;
 }
-/* Colour-safe: good / warning / bad / health / food sit on a blue - yellow - orange line (Okabe-Ito) instead of green - yellow - red. */
-.hw-root[data-color-safe] {
+/* Colour-blind palettes (Settings.colorMode; data-color-mode on the root). Status colours and the heat / power ramps (kit/palette.ts) stay apart without red versus green. */
+.hw-root[data-color-mode='red-green'] {
+  /* Okabe-Ito: blue - yellow - orange */
   --hw-good: #56b4e9;
   --hw-good-wash: #0d2230;
   --hw-warn: #f0e442;
@@ -2954,15 +2962,68 @@ body {
   --hw-food: #56b4e9;
   --hw-food-hi: #a9d9f5;
   --hw-food-wash: #0d2230;
+  --hw-temp-500: #6a176e;
+  --hw-temp-800: #c73e4c;
+  --hw-temp-1100: #f98e09;
+  --hw-temp-1500: #fcffa4;
+  --hw-temp-1900: #e6fbff;
+  --hw-power-hi: #e6fbff;
+  --hw-power-lo: #0b5fa8;
+  --hw-power-wash: #0a1f4d;
 }
-.hw-root[data-color-safe] .hw-vital[data-kind='health'] {
+.hw-root[data-color-mode='red-green'] .hw-vital[data-kind='health'] {
   --hw-vital-color: #e8702a;
 }
+.hw-root[data-color-mode='blue-yellow'] {
+  /* No blue versus green, no yellow versus violet: teal - pink - red */
+  --hw-good: #4fd0b6;
+  --hw-good-wash: #0a2420;
+  --hw-warn: #ff9fb0;
+  --hw-warn-wash: #331820;
+  --hw-bad: #e8344f;
+  --hw-bad-hi: #ff8fa1;
+  --hw-bad-wash: #33101a;
+  --hw-food: #4fd0b6;
+  --hw-food-hi: #a4ead9;
+  --hw-food-wash: #0a2420;
+  --hw-temp-500: #8f1022;
+  --hw-temp-800: #e8344f;
+  --hw-temp-1100: #ff9fb0;
+  --hw-temp-1500: #fff5f7;
+  --hw-temp-1900: #eafff8;
+  --hw-power-hi: #eafff8;
+  --hw-power-lo: #0e6b66;
+  --hw-power-wash: #06201f;
+}
+.hw-root[data-color-mode='blue-yellow'] .hw-vital[data-kind='health'] {
+  --hw-vital-color: #e8344f;
+}
+/* Legends (the Hearth Log) and the Spare Pick's ore hum chip (docs/api/legendary.md). */
+.hw-legends { margin-top: 14px; display: grid; gap: 8px; }
+.hw-legends__title { margin: 0; font-size: 1rem; }
+.hw-legends__summary { margin: 0; opacity: 0.8; font-size: 0.85rem; }
+.hw-legends__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hw-legends__item { display: flex; gap: 10px; align-items: flex-start; font-size: 0.9rem; }
+.hw-legends__mark { flex: none; color: #ecc758; font-size: 1.1rem; line-height: 1.2; }
+.hw-legends__item.is-silhouette { opacity: 0.6; }
+.hw-legends__item.is-silhouette .hw-legends__mark { color: inherit; }
+.hw-legends__item.is-silhouette .hw-legends__name { letter-spacing: 0.2em; }
+.hw-legends__name { color: #ecc758; }
+.hw-legends__item.is-silhouette .hw-legends__name { color: inherit; }
+.hw-legends__line { margin: 2px 0 0; }
+.hw-hum { display: flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 0.8rem; }
+.hw-hum[hidden] { display: none; }
+.hw-hum__bar { width: 5px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.25); }
+.hw-hum__bar:nth-child(2) { height: 16px; }
+.hw-hum__bar:nth-child(3) { height: 20px; }
+.hw-hum__bar.is-on { background: #c7a24a; }
+
 .hw-bag__empty {
   margin: 8px 0 0;
   font-size: var(--hw-fs-sm);
   line-height: 1.35;
   color: var(--hw-ash-1);
+}
 /* Recipe helper strip (src/ui/screens/inventory/recipeHelperPanel.ts) */
 .hw-helper {
   display: grid;
@@ -2991,6 +3052,23 @@ body {
 .hw-helper__pinned .hw-ingr[data-short] {
   outline: 1px solid var(--hw-warn, #e0a040);
 }
+/* Daily and seasonal goals in the Hearth Log (src/game/dailyGoals.ts). */
+.hw-dg { margin-top: 14px; display: grid; gap: 6px; }
+.hw-dg__title { margin: 6px 0 0; font-size: 1rem; }
+.hw-dg__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hw-dg__row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
+.hw-dg__text { min-width: 0; overflow-wrap: anywhere; }
+.hw-dg__num { flex: none; opacity: 0.8; }
+.hw-dg__track { display: block; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; margin-top: 3px; }
+.hw-dg__fill { display: block; height: 100%; background: var(--hw-accent, #e0a040); transform-origin: left; }
+.hw-dg__goal--done { opacity: 0.6; }
+.hw-dg__reward { display: block; opacity: 0.7; margin-top: 2px; }
+.hw-dg__shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+.hw-dg__keep { width: 100%; min-height: 44px; font: inherit; font-size: 0.85rem; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 4px 6px; display: grid; }
+.hw-dg__keep:disabled { opacity: 0.4; }
+.hw-dg__keep--got { font-weight: 600; }
+.hw-dg__keep--worn { border-color: var(--hw-accent, #e0a040); }
+.hw-dg__keep small { font-weight: 400; opacity: 0.8; }
 /* The Journal section of the Hearth Log (docs/api/journal.md). */
 .hw-journal { margin-top: 14px; display: grid; gap: 8px; }
 .hw-medals { margin-top: 14px; display: grid; gap: 4px; }
@@ -3017,9 +3095,21 @@ body {
 .hw-title:not([data-stage='0'])::before { opacity: 1; }
 
 /* Photo mode (P): the HUD and the touch controls step aside; toasts stay so "Photo saved" shows. */
-.hw-root--photo .hw-layer[data-layer='hud'],
-.hw-root--photo .hw-layer[data-layer='touch'] { visibility: hidden; }
+.hw-root--photo .hw-layer[data-layer='hud'] { visibility: hidden; }
 /* Experiment row (discovery) */
+.hw-tb { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 6px; }
+.hw-tb summary { cursor: pointer; font-weight: 600; }
+.hw-tb .hw-tb__row { display: flex !important; width: 100%; align-items: center; gap: 8px; margin: 4px 0; }
+.hw-tb__row span { width: 64px; flex: none; opacity: 0.8; }
+.hw-tb__sel { flex: 1; min-width: 0; min-height: 36px; }
+.hw-tb__stats { width: 100%; margin: 6px 0; border-collapse: collapse; font-size: 0.9em; }
+.hw-tb__stats th { text-align: left; font-weight: 400; opacity: 0.8; }
+.hw-tb__stats td { text-align: right; padding-left: 8px; }
+.hw-tb__up { color: #9be39b; }
+.hw-tb__down { color: #f0a0a0; }
+.hw-tb__same { opacity: 0.6; }
+.hw-tb__traits { margin: 4px 0; padding-left: 18px; font-size: 0.85em; opacity: 0.85; }
+.hw-tb__note { margin: 6px 0; font-size: 0.9em; }
 .hw-exp { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 6px; }
 .hw-exp summary { cursor: pointer; font-weight: 600; }
 .hw-exp__row { display: flex; gap: 6px; margin: 4px 0; }
@@ -3030,5 +3120,59 @@ body {
 .hw-exp__book .is-found { opacity: 1; color: #9be39b; }
 
 /* Trade caravan */
+.hw-caravan__row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-start; margin: 6px 0; }
+.hw-caravan__row > .hw-btn { min-height: 44px; }
+.hw-caravan__row > span { flex: 1 1 100%; min-width: 0; }
+
+/* Town page and the HUD's town chip */
+.hw-town-chip { margin-top: 4px; min-height: 40px; }
+.hw-town__sec { margin: 0 0 12px; }
+.hw-town__goal { margin: 2px 0 4px; font-weight: 600; font-size: 1.05em; }
+.hw-town__line { margin: 4px 0; line-height: 1.35; }
+.hw-town__warn { color: var(--hw-heat-hi, #e0a060); }
+.hw-town__sub { opacity: 0.75; font-size: 0.92em; }
+.hw-town__row { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; margin: 3px 0; }
+.hw-town__row.is-done { opacity: 0.55; }
+.hw-town__row.is-invalid .hw-town__sub { color: var(--hw-heat-hi, #e0a060); }
+.hw-town__name { font-weight: 600; min-width: 0; }
+.hw-town__bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.hw-town__fill { height: 100%; background: var(--hw-heat, #d9822b); }
+.hw-town__move { max-width: 46%; min-height: 36px; font: inherit; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; }
+
+/* ---- the Jobs screen (docs/api/jobs.md) ---- */
+.hw-jobs { display: flex; flex-direction: column; gap: 12px; }
+.hw-jobs__intro { margin: 0 0 10px; opacity: 0.85; }
+.hw-jobs__card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.hw-jobs__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.hw-jobs__head span { font-size: 13px; opacity: 0.75; }
+.hw-jobs__seg { display: flex; gap: 6px; }
+.hw-jobs__opt { flex: 1 1 0; min-height: 44px; }
+.hw-jobs__opt.is-on { outline: 2px solid var(--hw-accent, #e0a84a); background: rgba(224, 168, 74, 0.22); font-weight: 700; }
+.hw-jobs__label { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
+.hw-jobs__pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; text-align: left; }
+.hw-jobs__pick small { font-size: 12px; opacity: 0.75; }
+.hw-jobs__stop { font-weight: 600; overflow-wrap: anywhere; }
+.hw-jobs__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 13px; }
+.hw-jobs__status { margin: 0; }
+
+/* Photo mode controls (src/ui/photoUi.ts): the touch layer stays for moving and the shutter; only its other buttons step aside. */
+.hw-root--photo .hw-layer[data-layer='touch'] { visibility: visible; }
+.hw-root--photo .hw-touch-btn--mine,
+.hw-root--photo .hw-touch-btn--place,
+.hw-root--photo .hw-touch-btn--bag,
+.hw-root--photo .hw-touch-btn--pause,
+.hw-root--photo .hw-touch-btn--menu { display: none; }
+.hw-photo { position: absolute; inset: 0; pointer-events: none; }
+.hw-photo[hidden], .hw-photo [hidden] { display: none; }
+.hw-photo__bar { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: calc(100% - 16px); pointer-events: auto; }
+.hw-photo__btn { min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(20, 16, 12, 0.72); color: #f2ead8; font: inherit; font-size: 0.9rem; cursor: pointer; }
+.hw-photo__btn--exit { background: rgba(120, 60, 30, 0.85); }
+.hw-photo__album { position: absolute; inset: 0; pointer-events: auto; overflow-y: auto; padding: calc(64px + env(safe-area-inset-top)) 16px 24px; background: rgba(12, 9, 6, 0.9); color: #f2ead8; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.hw-photo__title { margin: 0; font-size: 1.1rem; }
+.hw-photo__cards { display: flex; flex-direction: column; gap: 14px; width: min(100%, 420px); }
+.hw-photo__card { margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.hw-photo__card-img { width: 100%; height: auto; max-height: 52vh; object-fit: contain; border-radius: 4px; background: #14100c; }
+.hw-photo__empty { opacity: 0.8; text-align: center; }
 .hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
 .hw-caravan__row span { flex: 1; min-width: 0; }
+

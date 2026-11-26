@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addEnchant, canEnchant, enchantLevel, enchantLines, enchantStack, isEnchanted, sanitizeEnchants } from './enchant';
+import { addEnchant, canEnchant, effectiveEnchantLevel, enchantLevel, enchantLines, enchantStack, isEnchanted, sanitizeEnchants } from './enchant';
 import { itemOrNull } from './registry';
 import { Inventory, canMerge, cloneStack, makeEnchantedStack, makeStack } from '../game/inventory';
 import { quickMove, transfer } from '../game/transfer';
@@ -95,5 +95,17 @@ describe('enchants on stacks and inventories', () => {
     expect(inv.add('stick', 1, undefined, 0, 2, undefined, { magnet: 1 })).toBe(0);
     expect(inv.get(0)?.count).toBe(3);
     expect(inv.get(1)?.enchants).toEqual({ magnet: 1 });
+  });
+});
+
+describe('masterwork tools run an enchant one level higher', () => {
+  it('adds one level, never past the maximum and never from nothing', () => {
+    const plain = { item: 'bronze_pickaxe', count: 1, enchants: { veinseeker: 2 } };
+    expect(effectiveEnchantLevel(plain, 'veinseeker')).toBe(2);
+    expect(effectiveEnchantLevel({ ...plain, quality: 1 }, 'veinseeker')).toBe(2);
+    expect(effectiveEnchantLevel({ ...plain, quality: 2 }, 'veinseeker')).toBe(3);
+    expect(effectiveEnchantLevel({ ...plain, quality: 2, enchants: { veinseeker: 3 } }, 'veinseeker')).toBe(3);
+    expect(effectiveEnchantLevel({ ...plain, quality: 2, enchants: { ember: 1 } }, 'ember')).toBe(1);
+    expect(effectiveEnchantLevel({ ...plain, quality: 2 }, 'magnet')).toBe(0);
   });
 });

@@ -19,6 +19,7 @@ import { isFlowingWater } from '../world/water';
 import { squareRuin, spawnRuin } from '../world/ruins';
 import { STRUCTURE_GRID_CHUNKS, squareStructure } from '../world/structures';
 import { makeTreasureMap, treasureClue, treasureHint, type Landmark, type TreasureMap } from '../world/treasure';
+import { seasonOf } from '../sim/seasons';
 import { biteDelayS, rollCatch, waterKind, type CastContext, type WaterSpot } from '../sim/fishing';
 import { WAYPOINT_FUEL_ITEM, WaypointNetwork, type Waypoint, type WaypointSave } from '../sim/waypoints';
 import type { PlayerState } from './playerState';
@@ -43,6 +44,8 @@ export interface ExplorationHost {
   age(): number;
   isNight(): boolean;
   raining(): boolean;
+  /** 1-based clock day, for the season of the year; omit and fish ignore the season. */
+  day?(): number;
   biomeAt(x: number, z: number): 'woodland' | 'dunes' | 'frostfell' | 'scar' | 'marsh';
   now(): number;
   rng?: () => number;
@@ -244,7 +247,9 @@ export class Exploration {
     };
   }
 
-  private ctx(): CastContext { return { night: this.host.isNight(), raining: this.host.raining() }; }
+  private ctx(): CastContext {
+    return { night: this.host.isNight(), raining: this.host.raining(), ...(this.host.day ? { season: seasonOf(this.host.day()) } : {}) };
+  }
   private rng = (): number => (this.host.rng ?? Math.random)();
 
   private useRod(aim: UseAim | null): 'worked' | 'refused' | null {

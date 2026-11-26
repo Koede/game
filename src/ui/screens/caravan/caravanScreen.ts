@@ -6,6 +6,8 @@ import { h } from '../../kit/dom';
 import { Window } from '../../kit/window';
 
 const name = (k: string): string => itemOrNull(k)?.name ?? k;
+/** Cheap goods pay a fraction each, so they are quoted per 10. */
+const quote = (p: number): string => (p >= 5 ? `${Math.round(p)} each` : p >= 1 ? `${p.toFixed(1)} each` : `${(p * 10).toFixed(1)} per 10`);
 
 export function createCaravanScreen(_request: { type: 'caravan' }, ctx: ScreenContext): GameScreen {
   const { player, bus } = ctx;
@@ -42,8 +44,9 @@ export function createCaravanScreen(_request: { type: 'caravan' }, ctx: ScreenCo
       for (const s of player.inventory.slots) if (s && caravan.buyPrice(s.item) > 0 && s.item !== CURRENCY) counts.set(s.item, (counts.get(s.item) ?? 0) + s.count);
       sellList.replaceChildren(
         ...[...counts].map(([k, n]) =>
-          row(`${name(k)} x${n} - ${caravan.buyPrice(k)} each`, [
+          row(`${name(k)} x${n} - ${quote(caravan.buyPrice(k))}`, [
             btn('Sell 1', () => report(caravan.sell(player.inventory, k, 1))),
+            btn('Sell 10', () => report(caravan.sell(player.inventory, k, 10))),
             btn('Sell all', () => report(caravan.sell(player.inventory, k, n))),
           ]),
         ),

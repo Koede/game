@@ -40,6 +40,7 @@ import {
 import { CONE_ITEM, CUP_ITEM } from '../core/brewing';
 import { smallestShell } from '../core/hearth';
 import { PROCESS_BY_ID, rigBlocks } from './recipesDistill';
+import { BUILD_RECIPE_SPECS } from './toolParts';
 import {
   AUTOMATONS, BLOCKS, CREATURES, DRINKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, MOULDS, ORE_VEINS, RECIPES,
   block, castMetalOfIngot, furnaceTier, isHandStation, item, machine, recipe, recipesFor,
@@ -54,7 +55,7 @@ export const NATURAL_BLOCKS: readonly string[] = [
   'oak_log', 'oak_leaves', 'pine_log', 'pine_leaves', 'tall_grass', 'dry_shrub',
   'wild_wheat', 'wild_potato', 'wild_carrot',
   'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'glowcap', 'cactus', 'packed_ice', 'ice_spike',
-  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'oil',
+  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'foul_air', 'oil',
   'tea_bush', 'coffee_shrub',
   ...areaNaturalBlocks(),
 ];
@@ -352,6 +353,12 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
       gain(r.output.item, r.id);
       for (const extra of r.byproducts) gain(extra.item, r.id);
       changed = true;
+    }
+    // Modular tool assemblies (toolParts.ts) list at the workbench but sit outside the recipe tree.
+    if (items.has('workbench')) {
+      for (const r of BUILD_RECIPE_SPECS) {
+        if (r.inputs.every((i) => items.has(i.item)) && gain(r.output.item, `build:${r.id}`)) changed = true;
+      }
     }
     // Ember casting: metal smelted without a mould cools into a bloom (a lump to smelt again); a fired mould turns molten
     // metal into its cast item. Ingots themselves come from the gated recipes above (their source stays a recipe).

@@ -113,7 +113,7 @@ describe('brewing blocks take the tap first', () => {
 });
 
 describe('the kettle', () => {
-  it('an empty bucket asks the simulation (a boiling kettle fills it); a water bucket is left to the pipes', () => {
+  it('an empty bucket asks the simulation (a boiling kettle fills it); a water bucket asks it too, to be poured in', () => {
     const { world, interaction, aim, hold, calls, answers } = setup();
     world.put(0, 10, -2, 'kettle_pot');
     hold({ item: 'pail', count: 1 });
@@ -122,8 +122,9 @@ describe('the kettle', () => {
     expect(calls).toEqual(['use 0,10,-2 pail']);
     interaction.updateMining(0.2, false, null);
     hold({ item: 'water_pail', count: 1 });
+    answers.use = { ok: false, reason: 'The kettle is full' };
     interaction.use(aim(0.5, 10.2, -1.5));
-    expect(calls).toHaveLength(1);
+    expect(calls).toEqual(['use 0,10,-2 pail', 'use 0,10,-2 water_pail']);
   });
 });
 

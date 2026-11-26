@@ -5,6 +5,7 @@
  * Everything outside src/content reads blocks, items and recipes through this module.
  */
 import { ITEM_ALIASES, noteLostItem } from '../content/aliases';
+import { STATUS_COUNT, statusTextureName, voxelStatus } from './machineStatus';
 import {
   AGES as AGE_SPECS,
   AUTOMATON_SPECS,
@@ -61,6 +62,8 @@ import {
   type Voxel,
   LOOT_MAX_DEPTH,
 } from './types';
+import { enchantStack } from './enchant';
+import { maxDurabilityOf } from '../game/inventory';
 import { validateTech } from './techValidation';
 import { validateAutomaton, validateGear } from './hostileValidation';
 import { validateBrewing } from './brewValidation';
@@ -116,6 +119,19 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
   put(Face.NZ, front, frontA);
   for (const name of t.models ?? []) layerOf(name);
 
+  // Status looks: the off textures of the faces that show a running machine (else the front), with a status badge.
+  const layersStatus: (number[] | null)[] = [null];
+  if (t.status && shape !== 'none') {
+    const names = [side, side, top, bottom, side, front];
+    const faces = [Face.PX, Face.NX, Face.PY, Face.NY, Face.PZ, Face.NZ].filter((f) => layers[f] !== layersActive[f]);
+    const shown = faces.length > 0 ? faces : spec.oriented ? [Face.NZ] : [Face.PX, Face.NX, Face.PZ, Face.NZ];
+    for (let status = 1; status < STATUS_COUNT; status++) {
+      const l = layers.slice();
+      for (const f of shown) l[f] = layerOf(statusTextureName(names[f], status));
+      layersStatus.push(l);
+    }
+  }
+
   const hasItem = spec.item ?? shape !== 'none';
   let drops: Drop[];
   if (spec.drops === 'none') drops = [];
@@ -152,10 +168,12 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     placeOn: spec.placeOn ?? null,
     harvestLeaves: spec.harvestLeaves ?? null,
     pipe: spec.pipe ?? null,
+    air: spec.air ?? null,
     handStation: spec.handStation ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
     layersActive,
+    layersStatus,
   };
 }
 
@@ -185,13 +203,13 @@ export const blockId = (key: string): number => block(key).id;
 export const blockOf = (v: Voxel): BlockDef => BLOCKS[voxelId(v)] ?? BLOCKS[0];
 
 /** Texture layer of one face of a block, taking its facing and active flag into account. */
-export function faceLayer(def: BlockDef, face: Face, facing: Facing, active: boolean): number {
-  const layers = active ? def.layersActive : def.layers;
+export function faceLayer(def: BlockDef, face: Face, facing: Facing, active: boolean, status = 0): number {
+  const layers = (status > 0 ? def.layersStatus[status] : null) ?? (active ? def.layersActive : def.layers);
   if (!def.oriented || face === Face.PY || face === Face.NY) return layers[face];
   return face === FACING_TO_FACE[facing] ? layers[Face.NZ] : layers[Face.PX];
 }
 export const voxelFaceLayer = (v: Voxel, face: Face): number =>
-  faceLayer(blockOf(v), face, voxelFacing(v), voxelActive(v));
+  faceLayer(blockOf(v), face, voxelFacing(v), voxelActive(v), voxelStatus(v));
 /** Light emitted by a voxel (0..15), honouring its active flag. */
 export const voxelLight = (v: Voxel): number => {
   const def = blockOf(v);
@@ -455,7 +473,25 @@ function give(out: ItemStack[], entry: LootEntry, random: () => number, luck: nu
     rollInto(out, lootTableById(entry.table), random, luck, depth + 1);
     return;
   }
-  addStacks(out, entry.item, rollCount(entry.count, random));
+  const n = rollCount(entry.count, random);
+  if (entry.enchants || entry.quality) {
+    // A special find is its own stack (never merged), a tool at its quality's full durability with whatever enchants it can take.
+    const def = item(entry.item);
+    for (let i = 0; i < n; i++) {
+      const stack: ItemStack = { item: entry.item, count: 1 };
+      if (def.tool) {
+        stack.durability = def.tool.durability;
+        if (entry.quality) {
+          stack.quality = entry.quality;
+          stack.durability = maxDurabilityOf(entry.item, entry.quality) ?? def.tool.durability;
+        }
+      }
+      for (const [k, lv] of Object.entries(entry.enchants ?? {})) enchantStack(stack, k, lv, def);
+      out.push(stack);
+    }
+    return;
+  }
+  addStacks(out, entry.item, n);
 }
 
 function rollInto(out: ItemStack[], table: LootTableSpec, random: () => number, luck: number, depth: number): void {
@@ -557,6 +593,7 @@ export const isFluidEndpoint = (def: BlockDef): boolean => machineOfBlock(def)?.
  * fluid pipes never join each other. (A wrench may still switch a joint off; that is per-pipe state in src/sim.)
  */
 export function pipeJoins(pipe: BlockDef, other: BlockDef): boolean {
+  if (pipe.air?.role === 'tube') return other.air !== null;
   const family = pipe.pipe?.family;
   if (!family) return false;
   if (other.pipe) return other.pipe.family === family;
@@ -598,7 +635,6 @@ export function validateContent(): string[] {
     if (it.stack < 1) problems.push(`item ${it.key}: stack must be >= 1`);
     const back = it.fuel?.fuelReturns;
     if (back !== undefined && !knownItem(back)) problems.push(`item ${it.key}: fuelReturns "${back}" is not an item`);
-    if (back !== undefined && it.stack !== 1) problems.push(`item ${it.key}: a fuel that returns its container must stack to 1`);
   }
   for (const r of RECIPES) {
     if (!knownItem(r.output.item)) problems.push(`recipe ${r.id}: output "${r.output.item}" is not an item`);

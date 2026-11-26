@@ -4,7 +4,7 @@
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
 import { DT } from '../core/constants';
-import type { Difficulty } from '../core/context';
+import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelActive, voxelFacing, type Facing, type WeatherKind, type WeatherState } from '../core/types';
@@ -12,7 +12,10 @@ import { makeEnchantedStack } from '../game/inventory';
 import { isFurnace } from '../sim';
 import type { App } from './app';
 
-import type { TownDebug } from '../npcs/manager';
+import type { NpcManager, TownDebug } from '../npcs/manager';
+import type { TownPage } from '../npcs/townPage';
+import { checkRoom } from '../npcs/housing';
+import { LODGE_BED } from '../npcs/lodge';
 
 export interface DebugSummary {
   phase: string;
@@ -64,6 +67,16 @@ export interface DebugHandle {
   groundItems(): { item: string; count: number; x: number; y: number; z: number }[];
   /** Gruk's town (npcs/manager.ts townDebug): the building in progress, the build board, the storage bay and its crate. Null before a world runs. */
   town(): TownDebug | null;
+  /** The settlement (npcs/manager.ts settlementDebug): the move-in line, the rooms, who lives where, contentment, camp goals. */
+  settlement(): ReturnType<NpcManager['settlementDebug']> | null;
+  /** The Town page's data (npcs/townPage.ts). */
+  townPage(): TownPage | null;
+  /** Runs `n` nights of the move-in roll at once and returns who arrived (e2e). */
+  skipNights(n: number): string[];
+  /** Settlement jobs (npcs/jobs.ts): what each resident is set to carry. */
+  jobs(): { id: string; kind: string; filter: string; from: { x: number; y: number; z: number } | null; to: { x: number; y: number; z: number } | null; status: string; moved: number; carrying: { item: string; count: number } | null }[];
+  /** Dev skip for the jobs e2e: gives `id` a job between two stops (the same calls the Jobs screen makes). False when they cannot work. */
+  setJob(id: string, kind: 'haul' | 'feed' | null, from?: { x: number; y: number; z: number }, to?: { x: number; y: number; z: number }, filter?: 'ore' | 'fuel' | 'any'): boolean;
   /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
   fallenLogs(): { id: number; length: number; ox: number; oy: number; oz: number; dx: number; dz: number; theta: number }[];
   look(yaw: number, pitch: number): void;
@@ -74,6 +87,10 @@ export interface DebugHandle {
    * False when the world has no camp to settle (it has its tavern already, or is not running).
    */
   settle(): boolean;
+  /** The lodge (npcs/lodge.ts): the tavern level (0 camp, 1..4 stages in, 5 the full tavern), the origin, the spawn and the bedroom's check reasons. */
+  lodge(): { level: number; origin: number[] | null; hasTavern: boolean; spawn: { x: number; y: number; z: number } | null; bedroom: string[] | null };
+  /** Dev skip for the lodge's e2e: puts `n` of every block the lodge's stages use into the storage bay's stock. Returns `n`. */
+  supplyLodge(n: number): number;
   setTime(timeOfDay: number): void;
   /** Sets the clock's day (1-based; the moon follows: day 1 full, day 5 new). */
   setDay(day: number): void;
@@ -82,6 +99,8 @@ export interface DebugHandle {
    * long while; 'auto' hands the sky back to the seed's timetable.
    */
   setWeather(kind: WeatherKind | 'auto', instant?: boolean): void;
+  /** Announces that age `age` began (the postcard and story directors react), without touching the furnace. */
+  advanceAge(age: number): void;
   /** Sets the food bar (0..20), e.g. to make room for a meal. */
   setFood(food: number): void;
   /** Empties the pack and the hotbar (to start a check with known items). */
@@ -90,11 +109,19 @@ export interface DebugHandle {
   damage(amount: number, cause?: DamageCause): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
   /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
+  /** Air temperature in C at a cell (src/game/thermal.ts). */
+  temperatureAt(x: number, y: number, z: number): number;
+  /** Turns the heat view on or off (same as the H key). */
+  setHeatView(on: boolean): void;
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
   /** Changes Settings.difficulty the way the settings panel does (saved, applied to the running world at once). */
   setDifficulty(d: Difficulty): void;
+  /** Changes settings the way the settings panel does (merged over the current ones, saved, applied at once). */
+  setSettings(patch: Partial<Settings>): void;
   /** Whether (x, y, z) lies in a safe zone (a hot furnace's warm zone or a powered ward beacon's radius). */
   isSafe(x: number, y: number, z: number): boolean;
+  /** Sets the wear (0..1) of the machine at a cell (set-up for the wear checks). */
+  setMachineWear(x: number, y: number, z: number, wear: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
@@ -126,6 +153,7 @@ export function createDebugHandle(app: App): DebugHandle {
       const g = app.game;
       const s = g?.state;
       const p = s?.player;
+      const dist2 = (e: { x: number; y: number; z: number }): number => (p ? (e.x + 0.5 - p.position.x) ** 2 + (e.y - p.position.y) ** 2 + (e.z + 0.5 - p.position.z) ** 2 : 0);
       return {
         phase: app.phase,
         ready: g?.ready ?? false,
@@ -149,7 +177,8 @@ export function createDebugHandle(app: App): DebugHandle {
         time: s ? { timeOfDay: round(s.clock.timeOfDay, 4), day: s.clock.day, phase: s.clock.phase } : null,
         objective: s ? { id: s.objectives.current?.id ?? null, completed: s.objectives.completed.map((o) => o.id), age: s.objectives.age } : null,
         furnaces: s
-          ? [...s.world.entities()].filter(isFurnace).map((f) => ({
+          // Nearest to the player first: a world can hold furnaces of its own (settlements), and a script means the one it is using.
+          ? [...s.world.entities()].filter(isFurnace).sort((a, b) => dist2(a) - dist2(b)).map((f) => ({
               x: f.x, y: f.y, z: f.z, tier: f.tier, tempC: round(f.tempC, 2), lit: f.lit, draft: round(f.draft), ignited: f.ignited,
               fuel: JSON.parse(JSON.stringify(f.fuel)), crucibleIn: JSON.parse(JSON.stringify(f.crucibleIn)), crucibleOut: JSON.parse(JSON.stringify(f.crucibleOut)),
               crucibleMelt: JSON.parse(JSON.stringify(f.crucibleMelt)), crucibleMoltenS: f.crucibleMoltenS.map((v) => round(v, 2)),
@@ -194,6 +223,19 @@ export function createDebugHandle(app: App): DebugHandle {
       }
       return count - game().state.player.give(item, count);
     },
+    jobs() {
+      return game().state.npcs.jobs.all().map((v) => ({ id: v.id, kind: v.job.kind, filter: v.job.filter, from: v.job.from, to: v.job.to, status: v.status, moved: v.moved, carrying: v.carrying }));
+    },
+    setJob(id, kind, from, to, filter) {
+      const npcs = game().state.npcs;
+      if (!npcs.canWork(id)) return false;
+      npcs.setJob(id, kind);
+      if (kind === null) return true;
+      if (filter) npcs.jobs.setFilter(id, filter);
+      if (from) npcs.jobs.setStop(id, 'from', from);
+      if (to) npcs.jobs.setStop(id, 'to', to);
+      return true;
+    },
     /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
     fallenLogs() {
       return game().trees.logs().map((l) => ({ id: l.id, length: l.length, ox: l.ox, oy: l.oy, oz: l.oz, dx: l.dx, dz: l.dz, theta: l.theta }));
@@ -203,6 +245,31 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     town() {
       return game().state.npcs.townDebug();
+    },
+    settlement() {
+      return game().state.npcs.settlementDebug();
+    },
+    townPage() {
+      return game().state.npcs.townPage();
+    },
+    skipNights(n: number) {
+      return game().state.npcs.skipNights(n);
+    },
+    lodge() {
+      const s = game().state;
+      const o = s.npcs.at;
+      const bed = o ? { x: o[0] + LODGE_BED[0], y: o[1] + LODGE_BED[1], z: o[2] + LODGE_BED[2] } : null;
+      return {
+        level: s.npcs.tavernLevel,
+        origin: o ? [...o] : null,
+        hasTavern: s.npcs.hasTavern,
+        spawn: s.npcs.bedSpawn(),
+        // The first bedroom as the world holds it right now (null before the lodge stands).
+        bedroom: bed && s.npcs.tavernLevel >= 1 && s.npcs.tavernLevel < 4 ? checkRoom(s.world, bed.x, bed.y, bed.z).reasons : null,
+      };
+    },
+    supplyLodge(n) {
+      return game().state.npcs.supplyLodge(n);
     },
     settle() {
       return game().state.settleNpcs();
@@ -222,6 +289,9 @@ export function createDebugHandle(app: App): DebugHandle {
       const dz = z + 0.5 - p.position.z;
       p.yaw = Math.atan2(-dx, -dz);
       p.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    },
+    advanceAge(age) {
+      game().state.bus.emit('age:advanced', { age });
     },
     setTime(t) {
       game().state.clock.setTimeOfDay(t);
@@ -250,6 +320,13 @@ export function createDebugHandle(app: App): DebugHandle {
     setVoxel(x, y, z, block, facing = 0, active = false) {
       return game().state.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing, active), 'sim');
     },
+    temperatureAt(x, y, z) {
+      return game().state.thermal.temperatureAt(x, y, z);
+    },
+    setHeatView(on) {
+      const g = game() as unknown as { heatOn: boolean; toggleHeatView(): void };
+      if (g.heatOn !== on) g.toggleHeatView();
+    },
     spawnMob(species, x, y, z, baby = false) {
       const s = game().state;
       return s.mobs.add(creature(species), { x, y, z, yaw: 0 }, baby).id;
@@ -258,8 +335,17 @@ export function createDebugHandle(app: App): DebugHandle {
       if (!['peaceful', 'normal', 'hard'].includes(d)) throw new Error(`unknown difficulty "${d}"`);
       app.changeSettings({ ...app.settings, difficulty: d }, 'difficulty');
     },
+    setSettings(patch) {
+      app.changeSettings({ ...app.settings, ...patch }, Object.keys(patch)[0] as keyof Settings);
+    },
     isSafe(x, y, z) {
       return game().state.sim.isSafe(x, y, z);
+    },
+    setMachineWear(x, y, z, wear) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e) return false;
+      e.wear = Math.max(0, Math.min(1, wear));
+      return true;
     },
     getBlock(x, y, z) {
       const v = game().state.world.getVoxel(x, y, z);

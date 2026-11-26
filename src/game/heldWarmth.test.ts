@@ -22,10 +22,10 @@ function night() {
 
 describe('warm things in the hand', () => {
   it('names the torch and the boiling vessels, nothing else', () => {
-    for (const k of ['torch', 'boiling_pail', 'boiling_beaker', 'boiling_vial']) expect(heldWarms({ item: k, count: 1 }), k).toBe(true);
+    for (const k of ['torch', 'emberfang', 'boiling_pail', 'boiling_beaker', 'boiling_vial']) expect(heldWarms({ item: k, count: 1 }), k).toBe(true);
     expect(heldWarms({ item: 'water_pail', count: 1 })).toBe(false);
     expect(heldWarms(null)).toBe(false);
-    expect(HELD_WARM_ITEMS.size).toBe(4);
+    expect(HELD_WARM_ITEMS.size).toBe(5);
   });
 
   it('a held torch stops the night cold and warms back up; an unselected one does not', () => {

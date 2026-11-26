@@ -70,8 +70,13 @@ describe('settings', () => {
   });
 
   it('keeps the accessibility switches and reads their absence as off', () => {
-    const back = sanitizeSettings({ reduceMotion: true, colorSafe: true });
-    expect([back.reduceMotion, back.colorSafe]).toEqual([true, true]);
+    const back = sanitizeSettings({ reduceMotion: true, colorMode: 'blue-yellow', tapToMove: true, textScale: 1.3, hudScale: 1.25 });
+    expect([back.reduceMotion, back.colorMode, back.tapToMove, back.textScale, back.hudScale]).toEqual([true, 'blue-yellow', true, 1.3, 1.25]);
+    // The old single switch reads as the red-green palette; sizes are clamped to what the sliders offer.
+    expect(sanitizeSettings({ colorSafe: true }).colorMode).toBe('red-green');
+    expect(sanitizeSettings({ colorMode: 'sepia' }).colorMode).toBe('off');
+    const wild = sanitizeSettings({ textScale: 9, hudScale: 0.1 });
+    expect([wild.textScale, wild.hudScale]).toEqual([1.6, 0.8]);
     expect(sanitizeSettings({ reduceMotion: 'yes' }).reduceMotion).toBe(false);
   });
 

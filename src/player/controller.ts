@@ -23,6 +23,11 @@ import { landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
+import { legendaryEffectOf } from '../content/legendary';
+import { enchantLevel } from '../core/enchant';
+import { DARK_LIGHT, oreHum, swingTrailSparks } from '../game/legendary';
+import { blockLightAt, skyOpenAt } from '../mobs/sight';
+import { TAP_RANGE, TapMove, tapDirection } from './tapMove';
 import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
 import { attachSapSave } from './sapTools';
 
@@ -49,7 +54,9 @@ export interface PlayerControllerOptions {
   /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
   animals?: AnimalTargets;
   /** The tavern's people: Use on one talks to them (returns true when someone was spoken to). */
-  talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number) => boolean;
+  /** The name of a person (not a prop) the ray hits within maxDist, or null: Mine on them is stopped with a toast. */
+  person?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number) => string | null;
+  talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist?: number) => boolean;
   /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
   transport?: TransportHands;
   /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
@@ -58,6 +65,8 @@ export interface PlayerControllerOptions {
   hands?: HandHands;
   /** The tavern jukebox is playing: the dance emote keeps its beat. */
   jukeboxOn?: () => boolean;
+  /** Daylight 0 (night) .. 1 (noon): with it, open sky counts as dark at night (the Lanternblade's burst). Default: open sky is never dark. */
+  sunlight?: () => number;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -101,10 +110,15 @@ export class PlayerController {
   readonly emotes: Emotes;
   readonly photo = new PhotoCamera();
   private readonly talkTo: PlayerControllerOptions['talk'];
+  private readonly whoIs: PlayerControllerOptions['person'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
   private readonly state: InputState;
   private readonly hit: RayHit = createRayHit();
+  private readonly talkHit: RayHit = createRayHit();
+  private readonly tapHit: RayHit = createRayHit();
+  /** The walk a tap started (Settings.tapToMove). */
+  readonly tapMove = new TapMove();
   /** A screen block behind a thin block under the crosshair (see useTarget). */
   private readonly behind: RayHit = createRayHit();
   private readonly dir: Vec3 = { x: 0, y: 0, z: 1 };
@@ -130,6 +144,13 @@ export class PlayerController {
   private jumpHeld = false;
   private sinceJumpTap = 9;
   private sprintWanted = false;
+  private readonly sunlight: () => number;
+  /** Seconds until the Spare Pick's hum is checked again. */
+  private humS = 0;
+  /** Seconds until the next swing trail (a held Mine swings about every 0.45 s). */
+  private trailS = 0;
+  /** Toasts and screen requests seen so far: a Use that raised neither was silent. */
+  private heard = 0;
 
   constructor(options: PlayerControllerOptions) {
     this.world = options.world;
@@ -138,18 +159,24 @@ export class PlayerController {
     this.view = options.view;
     this.emotes = new Emotes(options.jukeboxOn);
     this.talkTo = options.talk;
+    this.whoIs = options.person;
     this.input = options.input;
     this.settings = options.settings;
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
     this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null, options.hands ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
+    this.sunlight = options.sunlight ?? (() => 1);
+    if (this.animals) this.animals.dark = () => this.isDark();
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {
         this.interaction.stopMining();
         this.input.releasePointerCapture?.();
       }),
       this.bus.on('ui:closed', () => this.recapture()),
+      // Use that ends in a toast or a screen has explained itself; only the silent ones get the fallback cue (useAt).
+      this.bus.on('toast', () => this.heard++),
+      this.bus.on('ui:open', () => this.heard++),
       this.bus.on('player:respawn', () => this.physics.reset()),
       // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
       attachSapSave(this.world, this.player),
@@ -226,20 +253,31 @@ export class PlayerController {
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
+      if (intent.use && this.lunge()) intent.use = false;
+      this.hum(dt);
+      this.swingTrail(dt, intent.mine);
+      p.combat.legendary.observe(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump || !p.onGround, intent.mine);
       if (intent.use && this.talkTo) {
         p.viewDir(this.dir);
-        if (this.talkTo(p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z)) intent.use = false;
+        // Nobody is talked to through a wall or past an animal standing in front of them.
+        const d = this.dir;
+        const wall = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, false, this.talkHit);
+        const beast = this.animals?.distanceAlong(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z) ?? Infinity;
+        if (this.talkTo(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, Math.min(wall ? wall.distance : Infinity, beast))) intent.use = false;
       }
+      this.tapWalk(dt, intent);
       this.move(dt, intent);
-    }
+    } else this.tapMove.cancel();
 
     this.currentTarget = this.cast();
     if (!p.dead) {
       const edits = this.interaction.edits;
       if (this.animals?.target != null) this.actOnAnimal(dt, intent);
       else {
-        if (intent.use) this.interaction.use(this.useTarget(this.currentTarget), intent.place);
-        this.interaction.updateMining(dt, intent.mine, this.currentTarget);
+        if (intent.use) this.useAt(this.useTarget(this.currentTarget), intent.place);
+        const who = intent.mine ? this.personAimed() : null;
+        if (who !== null) this.interaction.advise(`npc-mine:${who}`, `${who} steps aside. Nobody here is for hitting.`);
+        this.interaction.updateMining(dt, intent.mine && who === null, this.currentTarget);
       }
       // A broken or placed block changes what is under the crosshair this very frame.
       if (this.interaction.edits !== edits) this.currentTarget = this.cast();
@@ -269,6 +307,30 @@ export class PlayerController {
     if (intent.pause) this.bus.emit('ui:open', { screen: { type: 'pause' } });
     else if (intent.inventory) this.bus.emit('ui:open', { screen: { type: this.player.dev ? 'creative' : 'inventory' } });
     else if (intent.log) this.bus.emit('ui:open', { screen: { type: 'log' } });
+  }
+
+  /** Tap to move: a tap picks the cell under the finger as the goal; each frame steers the body toward it unless the player takes over. */
+  private tapWalk(dt: number, intent: Intent): void {
+    const p = this.player;
+    const tm = this.tapMove;
+    if (!this.settings.tapToMove) {
+      tm.cancel();
+      return;
+    }
+    if (intent.tap) {
+      tapDirection(intent.tapX, intent.tapY, intent.tapAspect, this.settings.fov, p.yaw, p.pitch, this.dir);
+      const d = this.dir;
+      const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, TAP_RANGE, false, this.tapHit);
+      if (hit) tm.set(hit.px + 0.5, hit.pz + 0.5, hit.py);
+    }
+    if (!tm.active) return;
+    const manual = Math.abs(intent.moveX) > 0.1 || Math.abs(intent.moveZ) > 0.1 || intent.jump || this.emotes.sitting;
+    const s = tm.steer(p.position.x, p.position.z, p.yaw, dt, manual);
+    if (!s) return;
+    p.yaw = s.yaw;
+    intent.moveX = 0;
+    intent.moveZ = s.moveZ;
+    intent.jump = s.jump;
   }
 
   private move(dt: number, intent: Intent): void {
@@ -372,12 +434,76 @@ export class PlayerController {
     return behind ?? hit;
   }
 
+  /** Use on the target; a Use that did nothing and said nothing gets a short hint, so no tap is ever mute. */
+  private useAt(hit: RayHit | null, place: boolean): void {
+    const heard = this.heard;
+    const outcome = this.interaction.use(hit, place);
+    if ((outcome === 'none' || outcome === 'refused') && this.heard === heard) this.interaction.explainIdle(hit, outcome, place);
+  }
+
   /** Mine and Use while an animal is under the crosshair: no block is mined; Use falls through when it is not food for it. */
   private actOnAnimal(dt: number, intent: Intent): void {
     const hands = this.animals as AnimalHands;
     this.interaction.updateMining(dt, false, null);
-    if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
+    if (intent.use && hands.use() === 'pass') this.useAt(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
+  }
+
+  /** Whether the light where the player stands is below DARK_LIGHT: block light, or the sky's by day when it is open overhead. */
+  private isDark(): boolean {
+    const p = this.player.position;
+    const y = p.y + 1;
+    if (blockLightAt(this.world, p.x, y, p.z, DARK_LIGHT) >= DARK_LIGHT) return false;
+    return !(skyOpenAt(this.world, p.x, y, p.z) && this.sunlight() * 15 >= DARK_LIGHT);
+  }
+
+  /** Gale Reed: Use throws the wielder forward. True when it did (the Use is spent). */
+  private lunge(): boolean {
+    const p = this.player;
+    const item = p.heldStack()?.item ?? null;
+    if (legendaryEffectOf(item) !== 'lunge') return false;
+    p.viewDir(this.dir);
+    const impulse = p.combat.legendary.tryLunge(item, this.dir.x, this.dir.z, enchantLevel(p.heldStack() ?? undefined, 'attunement'));
+    if (!impulse) return false;
+    p.combat.knock(impulse.vx, impulse.vy, impulse.vz);
+    this.view.triggerSwing();
+    this.bus.emit('legendary:proc', { effect: 'lunge', x: p.position.x, y: p.position.y + 0.9, z: p.position.z });
+    this.sfx('jump', 0.8);
+    return true;
+  }
+
+  /** A legendary weapon swung (Mine held, not on the Spare Pick's digging): the renderer draws a thin trail of sparks. */
+  private swingTrail(dt: number, mine: boolean): void {
+    this.trailS = Math.max(0, this.trailS - dt);
+    if (!mine || this.trailS > 0 || !this.player.combat.strikeReady) return;
+    const p = this.player;
+    const effect = legendaryEffectOf(p.heldStack()?.item);
+    if (!effect || effect === 'veinseek') return;
+    this.trailS = 0.45;
+    const count = swingTrailSparks(this.settings.reduceMotion, this.settings.graphics);
+    if (count > 0) this.bus.emit('legendary:swing', { effect, x: p.position.x, y: p.eyeY, z: p.position.z, yaw: p.yaw, pitch: p.pitch, count });
+  }
+
+  /** Orrin's Spare Pick: a soft hum while ore lies within reach behind a wall, louder the closer it is. Checked twice a second. */
+  private hum(dt: number): void {
+    this.humS -= dt;
+    if (this.humS > 0) return;
+    this.humS = 0.5;
+    const p = this.player;
+    const item = p.heldStack()?.item ?? null;
+    if (legendaryEffectOf(item) !== 'veinseek') return;
+    const level = oreHum(this.world, item, p.position.x, p.position.y + 1, p.position.z);
+    if (level > 0) this.bus.emit('legendary:hum', { level });
+    if (level > 0) this.bus.emit('sfx', { name: 'infuse', x: p.position.x, y: p.position.y + 1, z: p.position.z, volume: 0.15 + level * 0.35, pitch: 0.7 + level * 0.5 });
+  }
+
+  /** A person standing nearer than any block or animal on the aim ray (Mine must not dig through them), or null. */
+  private personAimed(): string | null {
+    if (!this.whoIs) return null;
+    const p = this.player;
+    const d = this.dir;
+    const wall = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, false, this.talkHit);
+    return this.whoIs(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, wall ? wall.distance : REACH);
   }
 
   /** Photo mode: the body stays put, the eye detaches and flies; Use takes the picture. */

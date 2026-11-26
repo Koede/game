@@ -24,6 +24,8 @@ export interface CraftingScreenOptions {
   note?: (crates: number) => string;
   /** A panel under the recipe list (the experiment row); refreshed with the screen. */
   extra?: { readonly el: HTMLElement; refresh(): void };
+  /** Chips under the bag (the notebook and the Workshop Guide open from here), refreshed with the screen. */
+  chips?: { readonly el: HTMLElement; refresh(): void };
 }
 
 const coarsePointer = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -41,7 +43,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
     many: BATCH,
     emptyText: 'Nothing to make here.',
     onMake: (id, count) => {
-      const recipe = recipeById(id);
+      const recipe = recipeById(id) ?? opts.recipes.find((r) => r.id === id);
       if (!recipe) return;
       const result = makeRecipe(player, recipe, count, opts.crates());
       if (!result.ok) {
@@ -57,7 +59,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
   const body = h(
     'div',
     { class: 'hw-craft' },
-    h('section', { class: 'hw-craft__bag' }, bag.el),
+    h('section', { class: 'hw-craft__bag' }, bag.el, opts.chips?.el),
     h('section', { class: 'hw-craft__make' }, h('h3', { class: 'hw-heading', text: opts.listTitle }), note, helper.el, list.el, opts.extra?.el),
   );
   const window = new Window({ title: opts.title, subtitle: opts.subtitle, size: 'lg', fit: 'tall', scroll: false, body, footer: slotHint() });
@@ -66,6 +68,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
     refresh: () => {
       ctx.slots.refresh();
       opts.extra?.refresh();
+      opts.chips?.refresh();
       const crates = opts.crates();
       list.setRows(recipeRows(opts.recipes, [inventory, ...crates], inventory));
       helper.refresh(crates);

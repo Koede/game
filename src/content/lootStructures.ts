@@ -24,6 +24,7 @@ export const STRUCTURE_LOOT: Record<string, LootTableSpec> = {
   lumber_mill: table('near', [3, 5], [
     e('plank', [8, 16], 14), e('cord', [3, 6], 10), e('bronze_ingot', [1, 3], 8), e('stick', [6, 12], 8), e('bronze_axe', 1, 3),
     e('leather', [1, 2], 5), e('drive_shaft', 1, 3),
+    { item: 'bronze_axe', count: 1, weight: 1, rarity: 'rare', quality: 1, enchants: { ember: 1 } },
   ]),
   glassblower_kiln: table('near', [3, 5], [
     e('glass_beaker', [1, 3], 12), e('silica', [2, 5], 10), e('glass_vial', [2, 4], 10), e('sand', [6, 12], 8), e('brick', [4, 8], 8),

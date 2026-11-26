@@ -79,7 +79,8 @@ describe('Use with a hoe', () => {
     expect(r.interaction.use(r.aimFloor())).toBe('none');
     r.world.put(0, 10, -2, 'grass');
     expect(r.interaction.use(r.aim(0.5, 10.5, -1.5))).toBe('none');
-    expect(r.toasts()).toEqual(['Till the soil from above: aim at its top']);
+    // Farmland and stone say where a hoe works; the grass hit from the side keeps its own hint.
+    expect(r.toasts()).toEqual([expect.stringMatching(/hoe only tills dirt and grass/), expect.stringMatching(/hoe only tills dirt and grass/), 'Till the soil from above: aim at its top']);
     expect(r.world.getBlock(0, 10, -2).key).toBe('grass');
   });
 

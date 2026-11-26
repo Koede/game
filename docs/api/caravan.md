@@ -13,3 +13,10 @@
 `PlayerState.caravan` is saved as `PlayerSnapshot.caravan`; `GameState.tick` calls `setDay(clock.day)`. Screen request
 `{ type: 'caravan' }` (`src/ui/screens/caravan/caravanScreen.ts`: sell rows, buy rows, purse). Old Bram opens it when used
 with an empty hand on caravan days (`NpcHost.caravanPresent/openCaravan`).
+
+## Prices fitted to the time model
+`BASE_VALUE` is what the caravan buys, in copper-ingot units (fractions allowed): the item's expert seconds divided by a copper
+ingot's (`src/content/timeModel.ts`), so selling never beats mining copper. A sale pays `floor(sum of unit prices)`; a lot that
+pays under one ingot is refused. Cheap goods are quoted per 10 in the screen. `RARE_PRICE` is what its own goods cost (>= 1.5x
+their time cost, dearer when few are left); the caravan never buys them back. `src/content/caravanBalance.test.ts` bounds all of
+this at tool tiers 3-5. Saves are unchanged: old ones load, keys that are no longer bought are dropped.

@@ -65,7 +65,7 @@ describe('hearth scan: forming', () => {
 
   it('lets higher walls stand for lower tiers, and the weakest wall caps the tier', () => {
     expect(setup({ tier: 3, wall: 'star_casing' }).scan().structuralTier).toBe(3);
-    const { world, scan } = setup({ tier: 4, inner: [2, 2, 2] });
+    const { world, scan } = setup({ tier: 4, inner: [2, 2, 2], parts: { blast_nozzle: 1 } });
     expect(scan().structuralTier).toBe(4);
     world.put(1, 4, 1, 'brick'); // a floor cell
     const mixed = scan();
@@ -88,7 +88,8 @@ describe('hearth scan: forming', () => {
     expect(s.fluidHatches).toEqual([[2, 5, 2]]);
     expect(s.blowers).toEqual([[-2, 6, 2]]);
     expect(s.ports).toEqual([[0, 4, 2]]);
-    expect(s.walls.parts + s.floor.parts).toBe(6);
+    expect(s.walls.parts + s.floor.parts).toBe(7); // the Blast hearth's Blast Nozzle is a part too
+    expect(s.nozzles).toHaveLength(1);
   });
 });
 
@@ -153,10 +154,10 @@ describe('hearth scan: problems', () => {
       { code: 'ceiling', x: 0, y: 6, z: 1, text: 'An Arc hearth needs a ceiling' },
       { code: 'electrodes', x: 0, y: 6, z: 1, text: 'Needs 1 more Arc Electrode' },
     ]);
-    const plasma = setup({ tier: 5, ports: 0 }).scan();
+    const plasma = setup({ tier: 5, ports: 0, parts: { blast_nozzle: 1 } }).scan();
     expect(plasma.structuralTier).toBe(3); // no electrode for an Arc hearth either; small enough for a Blast one
     expect(tierProblems(plasma, 5)).toEqual([{ code: 'ports', x: 0, y: 5, z: 0, text: 'Needs 2 more Power Ports' }]);
-    expect(tierProblems(setup({ tier: 5, ports: 1 }).scan(), 5)[0].text).toBe('Needs 1 more Power Port');
+    expect(tierProblems(setup({ tier: 5, ports: 1, parts: { blast_nozzle: 1 } }).scan(), 5)[0].text).toBe('Needs 1 more Power Port');
   });
 
   it('reports at most eight problems, and counts them all', () => {

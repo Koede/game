@@ -6,9 +6,11 @@
  * expects, so a corrupt or hand-edited save is refused here instead of breaking the game half-way through loading.
  */
 import type { GameMode } from '../core/gameMode';
-import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
+import { COLOR_MODES, DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
 import type { AchievementsSnapshot } from '../game/achievements';
+import type { DailyGoalsSnapshot } from '../game/dailyGoals';
 import type { ClockSnapshot } from '../game/clock';
+import type { DisastersSnapshot } from '../game/disasters';
 import type { JournalSnapshot } from '../game/journal';
 import { isLootFilter } from '../game/lootFilter';
 import type { ObjectivesSnapshot } from '../game/objectives';
@@ -56,6 +58,8 @@ export interface WorldSave {
    * follows from the seed and the time anyway), never a reason to drop the world.
    */
   weather?: WeatherSnapshot;
+  /** Boiler pressure, chimney soot and the storm timer (docs/api/disasters.md). Optional: older saves start calm; a damaged one is ignored. */
+  disasters?: DisastersSnapshot;
   /**
    * The animals (spec 12.5). Optional: saves from before the animals lack it (they start fresh), and one that
    * MobManager.load refuses is ignored the same way, never a reason to drop the world.
@@ -65,6 +69,8 @@ export interface WorldSave {
   journal?: JournalSnapshot;
   /** Achievements earned (src/game/achievements.ts). Optional, ignored when damaged. */
   achievements?: AchievementsSnapshot;
+  /** Daily and seasonal goals and the keepsakes they earned (src/game/dailyGoals.ts). Optional, ignored when damaged. */
+  dailyGoals?: DailyGoalsSnapshot;
   /**
    * 'dev' for a Dev Mode world (docs/api/dev-mode.md). Optional: absent means survival, and survival saves never write it,
    * so they stay exactly as before.
@@ -87,6 +93,8 @@ export const SETTINGS_BOUNDS = {
   mouseSensitivity: [0.2, 3],
   touchSensitivity: [0.2, 3],
   volume: [0, 1],
+  textScale: [0.85, 1.6],
+  hudScale: [0.8, 1.5],
 } as const satisfies Partial<Record<keyof Settings, readonly [number, number]>>;
 
 const TOUCH_MODES: readonly Settings['touchControls'][] = ['auto', 'on', 'off'];
@@ -111,6 +119,8 @@ export function sanitizeSettings(raw: unknown): Settings {
   out.renderDistance = Math.round(out.renderDistance);
   if (isTouchFirst()) out.renderDistance = Math.min(out.renderDistance, PHONE_MAX_RENDER_DISTANCE);
   out.fov = Math.round(out.fov);
+  out.textScale = Math.round(out.textScale * 20) / 20;
+  out.hudScale = Math.round(out.hudScale * 20) / 20;
   if (typeof raw.invertY === 'boolean') out.invertY = raw.invertY;
   if (typeof raw.showFps === 'boolean') out.showFps = raw.showFps;
   if (TOUCH_MODES.includes(raw.touchControls as Settings['touchControls'])) out.touchControls = raw.touchControls as Settings['touchControls'];
@@ -122,7 +132,10 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (typeof raw.autoBuck === 'boolean') out.autoBuck = raw.autoBuck;
   if (typeof raw.treeDamage === 'boolean') out.treeDamage = raw.treeDamage;
   if (typeof raw.reduceMotion === 'boolean') out.reduceMotion = raw.reduceMotion;
-  if (typeof raw.colorSafe === 'boolean') out.colorSafe = raw.colorSafe;
+  // Older saves had one switch, colorSafe: its palette is the red-green one.
+  if (COLOR_MODES.includes(raw.colorMode as Settings['colorMode'])) out.colorMode = raw.colorMode as Settings['colorMode'];
+  else if (raw.colorSafe === true) out.colorMode = 'red-green';
+  if (typeof raw.tapToMove === 'boolean') out.tapToMove = raw.tapToMove;
   if (typeof raw.autoStep === 'boolean') out.autoStep = raw.autoStep;
   if (typeof raw.moveAssist === 'boolean') out.moveAssist = raw.moveAssist;
   if (GRAPHICS.includes(raw.graphics as NonNullable<Settings['graphics']>)) out.graphics = raw.graphics as Settings['graphics'];

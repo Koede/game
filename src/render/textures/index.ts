@@ -6,6 +6,7 @@
 import { Canvas, TEXTURE_SIZE, type Painter } from './canvas';
 import { PAINTERS } from './painters';
 import { applyReadability } from './readability';
+import { statusPainter } from './status';
 
 export { TEXTURE_SIZE } from './canvas';
 export { pipeWindow } from './transport';
@@ -29,7 +30,7 @@ function checker(): Uint8ClampedArray {
 }
 
 const painterOf = (name: string): Painter | undefined =>
-  Object.prototype.hasOwnProperty.call(PAINTERS, name) ? PAINTERS[name] : undefined;
+  Object.prototype.hasOwnProperty.call(PAINTERS, name) ? PAINTERS[name] : statusPainter(name, painterOf);
 
 /** True when `name` has its own painter (every entry of the registry's TEXTURE_NAMES does). */
 export function hasPainter(name: string): boolean {

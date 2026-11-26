@@ -88,6 +88,13 @@ async function standToUseBoard(t) {
     await d.settle(400);
     if (await d.aimAt(sp)) return stand;
   }
+  // Posts and beams may stand in those lines: ask the driver for any spot whose eye sees the board.
+  const seen = await d.standSeeing(sp);
+  if (seen) {
+    await teleport(seen);
+    await d.settle(400);
+    if (await d.aimAt(sp)) return seen;
+  }
   return null;
 }
 
@@ -146,9 +153,9 @@ try {  await step('a new world loads into play', async () => {
       const t = await town();
       bayUp = !!t.bay && t.building !== 'storage_bay';
       if (bayUp && bayDay === null) bayDay = day;
-      if (bayUp) break;
       if (bayUp && !cottage) {
-        for (const cot of t.plan.filter((b) => b.template === 'cottage')) {
+        // The next plot after the bay is the lodge or the first cottage: either one's frame shows the builder moved on.
+        for (const cot of t.plan.filter((b) => b.template === 'cottage' || b.template === 'lodge')) {
           const sy = await surfaceAt(cot.x + 3, cot.z + 3);
           const n = await countIn({ x0: cot.x, x1: cot.x + 8, y0: sy - 1, y1: sy + 8, z0: cot.z, z1: cot.z + 8 }, 'oak_log');
           if (n >= 8) {
@@ -189,7 +196,8 @@ try {  await step('a new world loads into play', async () => {
     assert(isCrate === 'crate', `the crate block is in the world (got ${isCrate})`);
     await teleport({ x: t.crate.x - 1, y: t.crate.y + 2, z: t.crate.z });
     await d.settle(600);
-    assert(await d.aimAt(t.crate), 'aims at the crate');
+    // Posts and beams may stand in the way: approach finds a stand that sees the crate.
+    assert(await d.approach(t.crate), 'aims at the crate');
     await d.use();
     await d.settle(700);
     const open = (await d.state()).ui?.open;

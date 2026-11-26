@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
+import { MachineStatus, voxelStatus } from '../core/machineStatus';
 import { BLOCKS, blockId, machine } from '../core/registry';
 import { Facing, makeVoxel, voxelActive, voxelId, type IWorld, type Voxel } from '../core/types';
 import { GroundItems } from '../game/groundItems';
@@ -35,6 +36,33 @@ function setup() {
   return { bus, world, ground, shop, put, crank, run, toasts };
 }
 
+describe('workshop status faces', () => {
+  it('an overloaded network shows jammed on every part after a second, and clears when relieved', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'mech_saw');
+    t.put(2, 0, 0, 'mech_millstone');
+    t.put(3, 0, 0, 'mech_mortar');
+    t.crank(0, 0, 0);
+    t.run(0.5);
+    expect(voxelStatus(t.world.getVoxel(2, 0, 0))).toBe(MachineStatus.None);
+    t.run(1.5);
+    for (const x of [1, 2, 3]) {
+      expect(voxelStatus(t.world.getVoxel(x, 0, 0))).toBe(MachineStatus.Jammed);
+      expect(voxelActive(t.world.getVoxel(x, 0, 0))).toBe(false);
+    }
+  });
+  it('a millstone with wheat in it and nothing turning it shows starved', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'mech_millstone', Facing.South);
+    t.shop.use(0, 0, 0, { item: 'wheat', count: 2 }, () => undefined);
+    t.run(0.5);
+    expect(voxelStatus(t.world.getVoxel(0, 0, 0))).toBe(MachineStatus.None);
+    t.run(1.5);
+    expect(voxelStatus(t.world.getVoxel(0, 0, 0))).toBe(MachineStatus.Starved);
+  });
+});
+
 describe('workshop', () => {
   it('a cranked belt carries an item away from the side it was laid from, and stops with the crank', () => {
     const t = setup();
@@ -65,6 +93,55 @@ describe('workshop', () => {
     const flour = t.ground.items.filter((e) => e.item === 'flour').reduce((n, e) => n + e.count, 0);
     expect(flour).toBe(2);
     expect(t.ground.items.some((e) => e.item === 'wheat')).toBe(false);
+  });
+
+  it('a steam rotor on a boiling kettle grinds wheat at the millstone with no hand on a crank', () => {
+    const t = setup();
+    let steam = true;
+    t.shop.steamAt = (x, y, z) => steam && x === 0 && y === -1 && z === 0;
+    t.put(0, 0, 0, 'steam_rotor');
+    t.put(1, 0, 0, 'drive_shaft');
+    t.put(2, 0, 0, 'mech_millstone', Facing.South);
+    for (let z = 1; z <= 3; z++) t.put(2, 0, z, 'conveyor_belt', Facing.South);
+    t.ground.spawn('wheat', 2, 2.5, 0.5, 3.5, { scatter: false });
+    t.run(30);
+    const flour = (): number => t.ground.items.filter((e) => e.item === 'flour').reduce((n, e) => n + e.count, 0);
+    expect(flour()).toBe(2);
+    steam = false; // the kettle boils dry: the line stops
+    t.ground.spawn('wheat', 2, 2.5, 0.5, 3.5, { scatter: false });
+    t.run(30);
+    expect(flour()).toBe(2);
+  });
+
+  it('a mill wheel turns its shaft only while the river gives it flow', () => {
+    const t = setup();
+    let su = 12;
+    t.shop.riverAt = (x, y, z) => (su > 0 && x === 0 && y === 0 && z === 0 ? { rpm: 16, capacity: su } : null);
+    t.put(0, 0, 0, 'mill_wheel');
+    t.put(1, 0, 0, 'drive_shaft');
+    t.run(1);
+    expect(t.shop.netAt(1, 0, 0)?.rpm ?? 0).toBeGreaterThan(0);
+    expect(t.shop.view(0, 0).spin.some((v) => v.kind === 'mill_wheel' && v.rpm !== 0)).toBe(true);
+    su = 0; // frozen over
+    t.run(1);
+    expect(t.shop.netAt(1, 0, 0)?.rpm ?? 0).toBe(0);
+  });
+
+  it('a windmill grinds wheat in open sky, and a roof over it stops the line', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'windmill');
+    t.put(1, 0, 0, 'drive_shaft');
+    t.put(2, 0, 0, 'mech_millstone', Facing.South);
+    for (let z = 1; z <= 3; z++) t.put(2, 0, z, 'conveyor_belt', Facing.South);
+    t.ground.spawn('wheat', 2, 2.5, 0.5, 3.5, { scatter: false });
+    t.run(40);
+    const flour = (): number => t.ground.items.filter((e) => e.item === 'flour').reduce((n, e) => n + e.count, 0);
+    expect(flour()).toBe(2);
+    t.put(0, 6, 0, 'stone'); // a roof: no wind reaches it
+    t.run(5);
+    t.ground.spawn('wheat', 2, 2.5, 0.5, 3.5, { scatter: false });
+    t.run(40);
+    expect(flour()).toBe(2);
   });
 
   it('items dropped on a machine top are taken in; Use puts the held stack in', () => {

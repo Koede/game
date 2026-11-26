@@ -19,6 +19,8 @@ export interface TavernPort {
   spend(n: number): boolean;
   earn(n: number): void;
   trust(id: string): number;
+  /** Contentment of a person, in [-1, 1] (0 when unknown): shop prices follow it (contentment.ts priceFactor). */
+  mood?(id: string): number;
   addTrust(id: string, n: number): void;
   say(line: string): void;
   toast(text: string): void;

@@ -271,6 +271,16 @@ function wrench(c: Canvas): void {
   for (const [x, y] of [[2, 13], [3, 13], [2, 12]] as const) c.set(x, y, b[0], 0);
 }
 
+// Air tube: a plain bronze tube with pale glass bands and a round bronze hub, no see-through (nothing flows to show).
+const AIR_PIPE: PipeLook = {
+  band: tube(P.BRONZE, (k, t) => (t % 4 === 1 ? P.BRONZE[3] : k === 2 ? P.GLASS[3] : k === 5 ? mix(P.GLASS[0], P.BRONZE[1], 0.5) : mix(P.GLASS[2], P.BRONZE[0], 0.35))),
+  collar: [P.BRONZE[4], P.BRONZE[2], P.BRONZE[0]],
+  hub: (c) => {
+    c.disc(7.5, 7.5, 1.8, P.GLASS[2]);
+    c.set(7, 7, P.GLASS[4]);
+  },
+};
+
 const LOOKS: Record<string, PipeLook> = { pipe_item: ITEM_PIPE, pipe_item_fast: FAST_PIPE, pipe_fluid: FLUID_PIPE, pipe_fluid_hot: HOT_PIPE };
 
 /**
@@ -292,6 +302,7 @@ export const TRANSPORT: PainterSet = {
   pipe_item_fast: (c) => pipe(c, FAST_PIPE),
   pipe_fluid: (c) => pipe(c, FLUID_PIPE),
   pipe_fluid_hot: (c) => pipe(c, HOT_PIPE),
+  pipe_air: (c) => pipe(c, AIR_PIPE),
   ...front('pump', pump),
   tank_side: tankSide,
   tank_top: tankTop,

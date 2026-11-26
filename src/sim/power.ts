@@ -38,6 +38,10 @@ export class Network {
   capacityJ = 0;
   chargeW = 0;
   dischargeW = 0;
+  /** Watts lost turning power into stored charge (the batteries' round trip), as of the last solve. */
+  lossW = 0;
+  /** Watts of demand the weakest cable kept from getting through (an overbuilt grid on thin cable). */
+  chokedW = 0;
   /** Satisfaction: the fraction of its demand every consumer receives. */
   f = 1;
   /** Fraction of the available generation actually used (fuel generators burn in proportion). */
@@ -100,12 +104,14 @@ export class Network {
     const fromGen = Math.min(G, used);
     const fromBat = used - fromGen;
     const chg = dis > 0 ? 0 : Math.max(0, Math.min(Math.min(G, rating) - used, inCap));
+    let lost = 0;
     for (const n of this.storage) {
       const e = n.e as MachineEntity;
       const cap = n.spec.capacityJ ?? 0;
       const eff = n.spec.params?.chargeEfficiency ?? BATTERY_EFFICIENCY;
       const out = outCap > 0 ? (fromBat * n.maxOut) / outCap : 0;
       const into = inCap > 0 ? (chg * n.maxIn) / inCap : 0;
+      lost += into * (1 - eff);
       const next = e.storedJ + (eff * into - out) * dt;
       stored += next - e.storedJ;
       e.storedJ = next < 0 ? 0 : next > cap ? cap : next;
@@ -121,6 +127,9 @@ export class Network {
     this.capacityJ = capacity;
     this.chargeW = chg;
     this.dischargeW = fromBat;
+    this.lossW = lost;
+    const wanted = Math.min(D, G + dis);
+    this.chokedW = wanted - Math.min(wanted, supply);
     this.f = f;
     this.load = G > 0 ? (fromGen + chg) / G : 0;
     this.overloaded = G + dis > rating && D > supply;

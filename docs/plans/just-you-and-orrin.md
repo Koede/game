@@ -124,14 +124,17 @@ switch on with the stage that holds them (the jukebox with the stage, the pool w
    off until their person is present (`NpcManager.isPresent`, saved as `present`). The dev command `window.__hw.settle()` builds the
    full tavern at the camp and moves everyone in for tests and e2e. See `docs/api/npcs.md` and `scripts/e2e-camp.mjs`.
 2. **Gruk's hut, storage bay and the building board** (from `orrin-builds-a-town.md` phases 1-2 and 5).
-3. **The lodge:** stage 1 of the upgrade path as a Gruk building; the bedroom becomes the spawn; sleeping there.
-4. **Lodge upgrades to the tavern:** the rooms built one at a time, each switching on its existing features.
-5. **Newcomers:** the nightly move-in roll per empty bedroom (rising chance, one arrival a night, eligibility triggers), the walk-in and
-   introduction.
-6. **The room check and the housing view:** valid rooms (including player-built ones) count as free housing for the move-in roll; the
-   housing view with reasons; assigning rooms; residents whose room breaks move.
-7. **Contentment:** likes and dislikes about neighbours and surroundings, crowding, the effects on prices, tips, favours and lines;
-   residents knocked down come back the next morning.
+3. **The lodge (shipped):** stage 1 of the upgrade path as a Gruk building (`src/npcs/lodge.ts`, `docs/api/town.md`); the bedroom becomes
+   the spawn. Sleeping there is not built yet (the spawn point only).
+4. **Lodge upgrades to the tavern (shipped):** the rooms built one at a time, each switching on its existing features (`docs/api/npcs.md`,
+   "The lodge and its stages"). Open: the upper floor's guest rooms do not pass the room check as the layout stands (open doorways).
+5. **Newcomers (shipped):** the nightly move-in roll per empty bedroom (rising chance, one arrival a night, eligibility triggers), the
+   walk-in and introduction. Gruk is the builder, so the line is Rosa, Orrin, Mara, Bram, Veyra (`docs/api/npcs.md`, "Newcomers").
+6. **The room check and the housing view (shipped, read-only):** valid rooms (the lodge's own by default, player-built ones by their bed
+   and `checkRoom`) count as free housing for the move-in roll; the Town page lists the rooms with reasons; residents whose room breaks
+   move. Moving a resident by hand is on the Town page.
+7. **Contentment (partly shipped):** likes and dislikes, crowding and the effects on Bram's payout, the trader's and Rosa's prices and
+   how often favours are pinned. Tips follow favours, lines take a warm or grumpy word, and a resident knocked down by a blast is back the next morning.
 8. **Houses and moving out (after the tavern is finished):** per-person house templates, the goodbye scene by trust tier, routines that bring them to the tavern at night.
 
 ## Tests

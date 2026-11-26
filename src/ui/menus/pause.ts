@@ -15,6 +15,8 @@ export interface PauseMenuOptions {
   onResume: () => void;
   /** "Save and quit to title" was chosen. The menu has already closed; `onResume` is not called. */
   onQuit: () => void;
+  /** When given, a Town entry opens the Town page (the world has a town to show). */
+  onTown?: () => void;
   /** The Dev Mode switch shown in Settings (see SettingsPanelOptions.dev). */
   dev?: { get(): boolean; set(on: boolean): void };
   /** Control lists for How to Play, when the real bindings differ from the defaults. */
@@ -115,6 +117,7 @@ export class PauseMenu {
       'div',
       { class: 'hw-menu' },
       new Button({ label: 'Resume', kind: 'primary', size: 'lg', block: true, icon: 'play', onClick: () => this.close() }).el,
+      this.opts.onTown ? new Button({ label: 'Town', block: true, onClick: () => this.opts.onTown?.() }).el : null,
       new Button({ label: 'Settings', block: true, onClick: () => this.show('settings') }).el,
       new Button({ label: 'How to Play', block: true, onClick: () => this.show('howto') }).el,
       h('div', { class: 'hw-menu__gap' }),

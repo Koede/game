@@ -265,6 +265,22 @@ export class WorkshopRenderer {
         this.bar(hub[0], hub[1], hub[2], grip[0], grip[1], grip[2], 0.1, IRON);
         continue;
       }
+      if (sp.kind === 'mill_wheel') {
+        // A paddle wheel standing on the block, axis along z: two crossing spokes and a paddle at each tip.
+        const cx = sp.x + 0.5;
+        const cy = sp.y + 1.5;
+        const r = 0.45;
+        for (let i = 0; i < 4; i++) {
+          const t = a + yaw + (i * Math.PI) / 2;
+          const tip = this.nudge(sp.x, sp.y, sp.z, cx + Math.cos(t) * r, cy + Math.sin(t) * r, sp.z + 0.5);
+          const hub = this.nudge(sp.x, sp.y, sp.z, cx, cy, sp.z + 0.5);
+          this.bar(hub[0], hub[1], hub[2], tip[0], tip[1], tip[2], 0.07, DARK);
+          const lo = this.nudge(sp.x, sp.y, sp.z, cx + Math.cos(t) * r, cy + Math.sin(t) * r, sp.z + 0.2);
+          const hi = this.nudge(sp.x, sp.y, sp.z, cx + Math.cos(t) * r, cy + Math.sin(t) * r, sp.z + 0.8);
+          this.bar(lo[0], lo[1], lo[2], hi[0], hi[1], hi[2], 0.12, WOOD);
+        }
+        continue;
+      }
       const p = this.nudge(sp.x, sp.y, sp.z, sp.x + 0.5, sp.y + 1.07, sp.z + 0.5);
       this.cog(p[0], p[1], p[2], a + yaw, sp.kind === 'chain_sprocket' || sp.kind === 'worm_gear' ? 0.8 : 1, BRONZE);
     }

@@ -109,6 +109,18 @@ describe('look, tap and hold', () => {
     expect(g.mineHeld).toBe(false);
   });
 
+  it('a tap on the world counts as a world tap, a press of the Use button does not', () => {
+    const g = phone();
+    g.down(1, 250, 300, 0, 'world');
+    g.up(1, 100);
+    expect(g.takeWorldTaps()).toBe(1);
+    expect(g.takeWorldTaps()).toBe(0);
+    g.down(2, 300, 600, 200, 'use');
+    g.up(2, 300);
+    expect(g.takeWorldTaps()).toBe(0);
+    expect(g.takeUsePulses()).toBe(2);
+  });
+
   it('a still touch lifted any time before the hold starts is a tap (no dead band)', () => {
     const g = phone();
     g.down(1, 250, 300, 0, 'world');

@@ -115,6 +115,12 @@ export function eat(player: PlayerState, slot = player.selectedSlot): EatResult 
     player.buffs.sugarS = Math.max(player.buffs.sugarS, buffS);
     bus.emit('buff:gained', { buff, durationS: buffS });
     bus.emit('toast', { text: 'Sugar Rush: you move faster, but Well-Fed wears off quicker', kind: 'good', item });
+  } else if (food.buff === 'well_warmed' && buffS > 0) {
+    // The same Well-Warmed a fire or a mug of ale gives: it only ever lengthens, never shortens, a running one.
+    buff = 'well_warmed';
+    player.buffs.wellWarmedS = Math.max(player.buffs.wellWarmedS, buffS);
+    bus.emit('buff:gained', { buff, durationS: buffS });
+    bus.emit('toast', { text: 'Well-Warmed: you mine faster and the cold bites half as hard', kind: 'good', item });
   }
   return { ok: true, item, hunger, buff };
 }

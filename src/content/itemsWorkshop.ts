@@ -32,18 +32,18 @@ export const WORKSHOP_ITEMS: ItemSpec[] = [
   },
 ];
 
-const machineFaces = (key: string) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, frontActive: `ws_${key}_front_on` });
+const machineFaces = (key: string) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, frontActive: `ws_${key}_front_on`, status: true });
 
 export const WORKSHOP_BLOCKS: BlockSpec[] = [
   {
     key: 'hand_crank', name: 'Hand Crank', category: 'machine', age: BRONZE, hardness: 0.6, tool: 'axe', minTier: 0, stack: 16,
-    textures: { side: 'ws_crank_side', top: 'ws_crank_top', bottom: 'ws_shaft_end', sideActive: 'ws_crank_side_on' },
+    textures: { side: 'ws_crank_side', top: 'ws_crank_top', bottom: 'ws_shaft_end', sideActive: 'ws_crank_side_on', status: true },
     desc: 'Use it (hold Use to keep turning): it turns every shaft, belt and machine joined to it for a few seconds. One crank drives two machines or a long belt.',
   },
   {
     key: 'drive_shaft', name: 'Drive Shaft', category: 'machine', age: BRONZE, hardness: 0.5, tool: 'axe', minTier: 0, stack: 64,
     opaque: false, translucent: true,
-    textures: { side: 'ws_shaft_side', top: 'ws_shaft_end', bottom: 'ws_shaft_end', sideActive: 'ws_shaft_side_on' },
+    textures: { side: 'ws_shaft_side', top: 'ws_shaft_end', bottom: 'ws_shaft_end', sideActive: 'ws_shaft_side_on', status: true },
     desc: 'A wooden shaft in a frame. Joins cranks, belts and machines on every side so one source can turn them all.',
   },
   {

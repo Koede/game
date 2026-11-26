@@ -87,6 +87,25 @@ describe('generators and their placement rules', () => {
     expect(a.availW).toBe(400);
   });
 
+  it('a dynamo makes 30 W per shaft rpm from 64 rpm, capped at 2 kW, and nothing from a still line', () => {
+    const kit = makeKit();
+    const d = kit.machine('dynamo', 0, 1, 0);
+    kit.run(0.05);
+    expect(d.availW).toBe(0);
+    expect(kit.sim.machineView(0, 1, 0)!.problem).toBe('Needs a shaft line turning 64 rpm or more');
+    let rpm = 63;
+    kit.sim.shaftRpm = () => rpm;
+    kit.run(0.05);
+    expect(d.availW).toBe(0); // too slow
+    rpm = 64;
+    kit.run(0.05);
+    expect(d.availW).toBe(1920);
+    expect(kit.sim.machineView(0, 1, 0)!.problem).toBeNull();
+    rpm = 128;
+    kit.run(0.05);
+    expect(d.availW).toBe(2000);
+  });
+
   it('wind turbines need open sky and like altitude', () => {
     const kit = makeKit();
     const p = machine('wind_turbine').params!;

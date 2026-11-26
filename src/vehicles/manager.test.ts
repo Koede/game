@@ -171,6 +171,16 @@ describe('VehicleManager: on foot', () => {
     expect(r.count('tractor_harvester')).toBe(1);
   });
 
+  it('a Kerosene Canister fuels the tractor one for one and the empty canister comes back', () => {
+    const r = rig();
+    const t = r.vehicles.place(0.5, 10, 6.5, 0)!;
+    r.hold('kerosene_canister', 2);
+    r.vehicles.handle(r.intent({ use: true }), 0.7);
+    expect(t.fuel).toBe(CANISTER_S);
+    expect(r.count('kerosene_canister')).toBe(1);
+    expect(r.count('empty_canister')).toBe(1);
+  });
+
   it('a full tank refuses another canister', () => {
     const r = rig();
     const t = r.vehicles.place(0.5, 10, 6.5, 0, null, TANK_S)!;
@@ -187,6 +197,23 @@ describe('VehicleManager: on foot', () => {
     expect(r.vehicles.driving).not.toBeNull();
     r.vehicles.handle(r.intent({ use: true }), 0.016);
     expect(r.vehicles.driving).not.toBeNull();
+    r.vehicles.handle(r.intent({ use: true }), USE_COOLDOWN_S);
+    expect(r.vehicles.driving).toBeNull();
+  });
+});
+
+describe('VehicleManager: a stray tap while driving', () => {
+  it('a tap on the bare world does not get the player off (it says how), the Exit button or a key does', () => {
+    const r = rig();
+    r.vehicles.place(0.5, 10, 6.5, 0, null, TANK_S);
+    r.vehicles.handle(r.intent({ use: true }), 0.016);
+    expect(r.vehicles.driving).not.toBeNull();
+    r.vehicles.handle(r.intent({ use: true, worldTap: true }), USE_COOLDOWN_S);
+    expect(r.vehicles.driving).not.toBeNull();
+    expect(r.toasts.some((t) => /exit/i.test(t))).toBe(true);
+    const hints = r.toasts.length;
+    r.vehicles.handle(r.intent({ use: true, worldTap: true }), 0.016);
+    expect(r.toasts.length).toBe(hints); // the hint is not repeated at once
     r.vehicles.handle(r.intent({ use: true }), USE_COOLDOWN_S);
     expect(r.vehicles.driving).toBeNull();
   });

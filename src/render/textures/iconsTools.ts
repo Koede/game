@@ -6,15 +6,22 @@ import type { Canvas, Painter, PainterSet } from './canvas';
 import * as P from './palette';
 import { type Ramp, shade } from './palette';
 import { icon } from './shapes';
+import { COMPOSED_ICON_BUILDS, buildItemKey } from '../../content/toolParts';
 
 type Kind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
 
 const FLINT: Ramp = [P.rgb(0x2b2c37), P.rgb(0x40424f), P.rgb(0x5a5d70), P.rgb(0x7c8198), P.rgb(0xa9afc6)];
 const HEADS: Record<string, Ramp> = { wooden: P.WOOD, flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
 
-/** The wooden handle along the main diagonal, from (x0, y0) up to (x1, y1). */
-function handle(c: Canvas, x0: number, y0: number, x1: number, y1: number): void {
-  const w = P.WOOD;
+/** Handle woods and binding colours of the modular builds (src/content/toolParts.ts): oak is the plain wood. */
+const HANDLE_RAMPS: Record<string, Ramp> = {
+  oak: P.WOOD,
+  pine: [P.rgb(0x7a6236), P.rgb(0x9a8048), P.rgb(0xb89c5e), P.rgb(0xd0b878), P.rgb(0xe6d298)],
+};
+const RESIN: Ramp = [P.rgb(0x6e3c0c), P.rgb(0x9a5a14), P.rgb(0xc98a22), P.rgb(0xe8b44a), P.rgb(0xfbe08a)];
+
+/** The handle along the main diagonal, from (x0, y0) up to (x1, y1), in the wood of the build. */
+function handle(c: Canvas, x0: number, y0: number, x1: number, y1: number, w: Ramp = P.WOOD): void {
   const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
   for (let i = 0; i <= steps; i++) {
     const x = Math.round(x0 + ((x1 - x0) * i) / steps);
@@ -82,16 +89,16 @@ function headShape(kind: Kind, x: number, y: number): number {
   return across < 0 ? 0.65 : 0.35;
 }
 
-function tool(c: Canvas, kind: Kind, material: string): void {
+function tool(c: Canvas, kind: Kind, material: string, wood: Ramp = P.WOOD, resin = false): void {
   const r = HEADS[material];
-  if (kind === 'shovel') handle(c, 6, 8, 13, 1);
-  else if (kind === 'hoe') handle(c, 1, 14, 10, 5);
-  else if (kind === 'axe') handle(c, 2, 14, 13, 3);
-  else handle(c, 1, 14, 10, 5);
+  if (kind === 'shovel') handle(c, 6, 8, 13, 1, wood);
+  else if (kind === 'hoe') handle(c, 1, 14, 10, 5, wood);
+  else if (kind === 'axe') handle(c, 2, 14, 13, 3, wood);
+  else handle(c, 1, 14, 10, 5, wood);
   if (kind === 'shovel') {
-    c.rect(12, 0, 4, 1, P.WOOD[3]);
-    c.rect(12, 1, 1, 1, P.WOOD[1]);
-    c.rect(15, 1, 1, 1, P.WOOD[1]);
+    c.rect(12, 0, 4, 1, wood[3]);
+    c.rect(12, 1, 1, 1, wood[1]);
+    c.rect(15, 1, 1, 1, wood[1]);
   }
   c.each((x, y) => {
     const v = headShape(kind, x, y);
@@ -107,6 +114,13 @@ function tool(c: Canvas, kind: Kind, material: string): void {
     c.set(jx + 1, jy + 1, P.CLOTH[1]);
     c.set(jx - 1, jy + 1, P.CLOTH[2]);
   } else c.set(jx, jy, shade(r[4], 0.4));
+  // A resin binding: an amber bead of it at the joint and a drip down the haft.
+  if (resin) {
+    c.set(jx, jy, RESIN[3]);
+    c.set(jx + 1, jy + 1, RESIN[2]);
+    c.set(jx - 1, jy + 1, RESIN[1]);
+    c.set(jx - 1, jy + 2, RESIN[4]);
+  }
 }
 
 function powerDrill(c: Canvas): void {
@@ -147,5 +161,10 @@ for (const material of Object.keys(HEADS)) {
 }
 // Hoes (spec 12.4) come in flint, bronze and iron only.
 for (const material of ['wooden', 'flint', 'bronze', 'iron']) tools[`item_${material}_hoe`] = icon((c) => tool(c, 'hoe', material));
+
+// Composed icons of the modular builds: the head's own shape and metal on the build's handle wood and binding.
+for (const b of COMPOSED_ICON_BUILDS) {
+  tools[`item_${buildItemKey(b)}`] = icon((c) => tool(c, b.kind as Kind, b.head, HANDLE_RAMPS[b.handle], b.binding === 'resin'));
+}
 
 export const TOOL_ICONS: PainterSet = { ...tools, item_power_drill: icon(powerDrill), item_belt_pouch: icon(beltPouch) };

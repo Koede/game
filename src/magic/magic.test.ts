@@ -28,7 +28,7 @@ function setup() {
 }
 
 describe('magic runtime', () => {
-  it('the notebook scans a block once and opens its screen at the sky', () => {
+  it('the notebook scans a block once and does nothing at the sky (the Bag chip opens it)', () => {
     const t = setup();
     t.hold('field_notebook');
     const opened: unknown[] = [];
@@ -42,8 +42,8 @@ describe('magic runtime', () => {
     }
     expect(t.magic.research.scanned).toEqual(['copper_ore']);
     expect(t.magic.research.known).toContain('vein');
-    expect(t.magic.use(null)).toBe('screen');
-    expect(opened).toEqual([{ type: 'notebook' }]);
+    expect(t.magic.use(null)).toBeNull();
+    expect(opened).toEqual([]);
   });
 
   it('the rod draws loam vis from stone, never fills vials, and stops when the pool is full', () => {

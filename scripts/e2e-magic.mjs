@@ -110,10 +110,9 @@ async function runDevice(device) {
       assert(!res.ok && /Research/.test(res.reason ?? ''), `refused: ${JSON.stringify(res)}`);
     });
 
-    await step('Use at the sky opens the notebook', async () => {
-      await d.hw((p) => window.__hw.lookAt(p.x0 + 0.5, p.gy + 40, p.z0 + 3.6), P);
-      await d.settle(300);
-      await d.use();
+    await step('the Bag\'s Notebook chip opens the notebook', async () => {
+      await d.openInventory();
+      await d.press(page.locator('.hw-bag-chips button', { hasText: 'Notebook' }));
       await page.waitForSelector('.hw-nb', { timeout: 5000 });
       await d.settle(300);
       await d.shot('2-notebook');

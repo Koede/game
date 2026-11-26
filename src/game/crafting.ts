@@ -4,6 +4,7 @@
  * Temperature and tier gates are the simulation's business; it calls these functions for the items.
  */
 import type { SfxName } from '../core/gameEvents';
+import { BUILD_RECIPE_SPECS } from '../content/toolParts';
 import { itemOrNull, recipesAt } from '../core/registry';
 import type { ItemAmount, RecipeDef } from '../core/types';
 import { bringToHotbar } from './handy';
@@ -43,7 +44,9 @@ export type CraftResult =
 export const HAND_RECIPES: readonly RecipeDef[] = recipesAt('hand');
 export const WORKBENCH_RECIPES: readonly RecipeDef[] = recipesAt('workbench');
 /** Everything the workbench screen offers: its own recipes first, then every hand recipe too. */
-export const BENCH_RECIPES: readonly RecipeDef[] = [...WORKBENCH_RECIPES, ...HAND_RECIPES];
+/** Modular tool assemblies (src/content/toolParts.ts): listed at the workbench, outside the recipe tree. */
+export const BUILD_RECIPES: readonly RecipeDef[] = BUILD_RECIPE_SPECS.map((r) => ({ ...r, kind: 'forge', byproducts: [], timeS: 0, minTempC: 0, minTier: 1, energyJ: 0 }));
+export const BENCH_RECIPES: readonly RecipeDef[] = [...WORKBENCH_RECIPES, ...BUILD_RECIPES, ...HAND_RECIPES];
 
 const nameOf = (item: string): string => itemOrNull(item)?.name ?? item;
 const isTally = (sources: readonly Inventory[] | ItemTally): sources is ItemTally => sources instanceof Map;

@@ -1,6 +1,6 @@
 /**
  * Trade caravans (docs/api/caravan.md). A merchant train arrives on certain days with a few rare goods and buys
- * surplus. Prices are paid and asked in CURRENCY items and shift with what you sell: every unit sold adds surplus,
+ * surplus. Prices are fitted to the time model and are paid and asked in CURRENCY items and shift with what you sell: every unit sold adds surplus,
  * which lowers that item's price and fades 25% each day. Stock is deterministic per arrival day. Pure; DOM-free.
  */
 import { itemOrNull } from '../core/registry';
@@ -12,23 +12,29 @@ export const CARAVAN_EVERY = 5;
 export const CARAVAN_OFFSET = 3;
 /** Share of the surplus that is gone after one day. */
 export const SURPLUS_FADE = 0.25;
-/** The caravan pays this share of an item's base value, and asks this multiple for its own goods. */
+/** The caravan pays this share of an item's base value (it is a buyer, never a source of free coin). */
 export const BUY_SHARE = 0.6;
-export const SELL_MARKUP = 1.6;
 
-/** Base value in currency of everything the caravan will buy. Append only. */
+/**
+ * What the caravan buys, as a value in CURRENCY (copper ingots, fractions allowed). Fitted to the time model
+ * (src/content/timeModel.ts, docs/advice/balance-economy.md): value = expert seconds to make the item / expert
+ * seconds to make one copper ingot, so selling can never beat mining copper. Goods the model cannot route (animal
+ * and plant leaves, cooked food) are guesses marked `A`. Floor 0.05 so a stack of crops still pays a little.
+ * A rare good the caravan itself brings is NOT in here: it never buys its own stock back (no round trip).
+ */
 export const BASE_VALUE: Readonly<Record<string, number>> = {
-  wheat: 1, potato: 1, carrot: 1, flour: 2, bread: 3, hide: 3, leather: 6, cloth: 5, fiber: 1, cord: 2,
-  pine_resin: 3, sugar: 4, raw_chop: 3, cooked_chop: 5, hearth_stew: 9, coal: 2, charcoal: 2, flint: 1,
-  tin_ingot: 6, bronze_ingot: 9, iron_ingot: 12, steel_ingot: 24, glass_beaker: 8,
-  // rare goods the caravan brings
-  tea_cutting: 14, coffee_cutting: 14, sulfur: 10, silica: 9, lithium_salt: 30, tungsten_powder: 40, yellowcake: 55,
-  magnet_ring: 45, fused_quartz: 35,
+  wheat: 0.11, potato: 0.05, carrot: 0.05, flour: 0.34, bread: 0.48, hide: 2.25, leather: 5, cloth: 0.71, fiber: 0.05, cord: 0.34,
+  coal: 0.4, charcoal: 0.73, flint: 0.22, tin_ingot: 1.03, bronze_ingot: 1.12, iron_ingot: 0.91, steel_ingot: 1.61, glass_beaker: 0.39,
+  // no route in the time model (A)
+  pine_resin: 0.5, sugar: 0.8, raw_chop: 1.5, cooked_chop: 2, hearth_stew: 4,
 };
 
-export const RARE_GOODS: readonly string[] = [
-  'tea_cutting', 'coffee_cutting', 'sulfur', 'silica', 'lithium_salt', 'tungsten_powder', 'magnet_ring', 'fused_quartz', 'yellowcake',
-];
+/** Rare goods the caravan brings, and what ONE costs in CURRENCY before the low-stock markup. Each is at least 1.5x its time-model cost. */
+export const RARE_PRICE: Readonly<Record<string, number>> = {
+  tea_cutting: 22, coffee_cutting: 22, sulfur: 16, silica: 14, lithium_salt: 48, tungsten_powder: 64, magnet_ring: 72, fused_quartz: 56, yellowcake: 88,
+};
+
+export const RARE_GOODS: readonly string[] = Object.keys(RARE_PRICE);
 
 export interface CaravanSave {
   surplus: Record<string, number>;
@@ -120,15 +126,15 @@ export class Caravan {
     const base = BASE_VALUE[item];
     if (!base) return 0;
     const saturation = 1 / (1 + (this.surplusOf(item) + extra) / 12);
-    return Math.max(1, Math.round(base * BUY_SHARE * saturation));
+    return Math.round(base * BUY_SHARE * saturation * 1000) / 1000;
   }
 
   /** What one unit of its own stock costs. Rarer (fewer left) is dearer. */
   sellPrice(item: string): number {
-    const base = BASE_VALUE[item];
+    const base = RARE_PRICE[item];
     if (!base) return 0;
     const left = this.stock().find((s) => s.item === item)?.left ?? 0;
-    return Math.max(1, Math.round(base * SELL_MARKUP * (1 + Math.max(0, 3 - left) * 0.1)));
+    return Math.max(1, Math.round(base * (1 + Math.max(0, 3 - left) * 0.1)));
   }
 
   /** Stock still on the carts today. */
@@ -147,6 +153,9 @@ export class Caravan {
     if (!(n >= 1)) return { ok: false, reason: 'You have none to sell' };
     let total = 0;
     for (let i = 0; i < n; i++) total += this.buyPrice(item, i);
+    // Coins are whole ingots: the odd fraction is the caravan's. A lot too small to pay one is refused, not eaten.
+    total = Math.floor(total + 1e-9);
+    if (total < 1) return { ok: false, reason: 'Worth less than a copper ingot. Sell more at once' };
     inv.remove(item, n);
     const unpaid = inv.add(CURRENCY, total);
     if (unpaid > 0) {

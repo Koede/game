@@ -31,6 +31,8 @@ import { clamp, type Vec3 } from '../core/math';
 import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { heldWarms } from './heldWarmth';
+import { COMFORT_C, type Thermal } from './thermal';
+import { legendaryEffectOf } from '../content/legendary';
 import { peakDrain } from './peaks';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
@@ -68,6 +70,9 @@ export const WELL_WARMED_DRAIN_FACTOR = 0.5;
 export const REGEN_INTERVAL_S = 4;
 export const REGEN_QUIET_S = 8;
 export const REGEN_MIN_WARMTH = 50;
+/** Tidebrand: breath used up per second underwater, as a fraction of normal. */
+export const TIDEBRAND_AIR_MULT = 0.35;
+
 /** Breath regained per second with the head above water (a full breath in three seconds). */
 export const AIR_REFILL_PER_S = MAX_AIR_S / 3;
 
@@ -154,6 +159,12 @@ export class Survival {
    * WARMTH_DRAIN_WET more warmth per second (spec 15). Null = no weather.
    */
   weather: WeatherState | null = null;
+  /** The temperature model (thermal.ts). Null (tests, old harnesses): the cold works exactly as before. */
+  thermal: Thermal | null = null;
+  /** The air temperature at the player's chest as of the last scan, or null without a thermal model. */
+  temperatureC: number | null = null;
+  /** Extra warmth lost per second in the open from a hard winter (src/game/winter.ts); null = none. */
+  winterDrain: ((exposed: boolean) => number) | null = null;
 
   constructor(
     private readonly world: IWorld,
@@ -335,6 +346,7 @@ export class Survival {
       }
     }
     this.frost = this.biomeAt(cx, cz) === 'frostfell';
+    this.temperatureC = this.thermal ? this.thermal.temperatureAt(player.position.x, player.position.y + PLAYER_HEIGHT / 2, player.position.z) : null;
     this.exposed = openSkyAbove(world, player.position.x, player.position.y + PLAYER_HEIGHT, player.position.z);
     this.coatMult = bestArmour(player.inventory.slots).warmthDrainMult;
     this.suit = player.inventory.has('shield_suit');
@@ -371,13 +383,17 @@ export class Survival {
       // Each drain on its own; the biggest names the cause (ties go to the one the player can act on first).
       const water = player.inWater ? WARMTH_DRAIN_WATER : 0;
       const wet = this.soaked ? WARMTH_DRAIN_WET : 0;
-      const frost = this.frost ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
-      const dark = night ? WARMTH_DRAIN_NIGHT : 0;
+      // A warm room (thermal.ts) shuts out the night and the frost. Hard winters cost more in the cold: winter.ts reads the same temperature.
+      const tc = this.temperatureC;
+      const warmRoom = tc !== null && tc >= COMFORT_C;
+      const frost = this.frost && !warmRoom ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
+      const dark = night && !warmRoom ? WARMTH_DRAIN_NIGHT : 0;
       const peak = peakDrain(player.position.y);
-      let drain = water + wet + frost + dark + peak;
+      const winter = this.winterDrain ? this.winterDrain(this.exposed) : 0;
+      let drain = water + wet + frost + dark + peak + winter;
       if (drain > 0) {
-        const top = Math.max(water, wet, frost, dark, peak);
-        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top ? 'frost' : 'night';
+        const top = Math.max(water, wet, frost, dark, peak, winter);
+        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top || winter === top ? 'frost' : 'night';
       }
       drain *= this.coatMult;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
@@ -417,7 +433,9 @@ export class Survival {
       return;
     }
     if (player.air > 0) {
-      player.air = Math.max(0, player.air - dt);
+      // Tidebrand (docs/api/legendary.md): carried, the sea is easy on the lungs: breath lasts nearly three times as long.
+      const held = player.heldStack()?.item ?? null;
+      player.air = Math.max(0, player.air - (legendaryEffectOf(held) === 'pull' ? dt * TIDEBRAND_AIR_MULT : dt));
       return;
     }
     this.drownAcc += dt;
@@ -445,7 +463,7 @@ export class Survival {
           const def = blockOf(v);
           if (def.contactDamage <= dps) continue;
           dps = def.contactDamage;
-          cause = def.liquid === 'lava' ? 'lava' : 'burn';
+          cause = def.liquid === 'lava' ? 'lava' : def.key === 'foul_air' ? 'gas' : 'burn';
         }
       }
     }

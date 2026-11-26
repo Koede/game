@@ -62,6 +62,7 @@ const NEIGHBOUR_WEIGHT = 0.35;
 const TAG_WEIGHT = 0.3;
 const CROWD_STEP = 0.25;
 const CROWD_CAP = 0.75;
+const WARMTH_CAP = 0.3;
 
 export interface Facts {
   /** Ids of people within the radius (the person themself is not in this list). */
@@ -70,6 +71,8 @@ export interface Facts {
   tags: ReadonlySet<Tag>;
   /** Residents within the radius, not counting the person. */
   residentsNearby: number;
+  /** Degrees C the person's room is warmer (+) or colder (-) than outside; absent or NaN counts as 0 (src/npcs/warmth.ts warmthDelta, when it exists). */
+  warmth?: number;
 }
 
 export interface Contentment {
@@ -107,6 +110,14 @@ export function contentment(person: PersonId, facts: Facts): Contentment {
   } else if (facts.residentsNearby >= 1 && (taste.company ?? 0) > 0) {
     raw += taste.company ?? 0;
     reasons.push('likes having folk close by');
+  }
+
+  const w = facts.warmth;
+  if (typeof w === 'number' && Number.isFinite(w) && w !== 0) {
+    // A warm room is a comfort (up to +0.3 at +15 C), a room colder than outside a grievance (down to -0.3).
+    const bump = Math.max(-WARMTH_CAP, Math.min(WARMTH_CAP, w * 0.02));
+    raw += bump;
+    if (Math.abs(bump) >= 0.05) reasons.push(bump > 0 ? 'likes the warm room' : 'dislikes the cold room');
   }
 
   return { score: clampScore(Math.tanh(raw)), reasons };

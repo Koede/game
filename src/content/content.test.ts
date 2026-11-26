@@ -11,6 +11,8 @@ import { DISTILL_RECIPE_COUNT, DISTILL_SPEC } from './specRosterDistill';
 import { MAGIC_RECIPE_COUNT, MAGIC_SPEC } from './specRosterMagic';
 import { WORKSHOP_RECIPE_COUNT, WORKSHOP_SPEC } from './specRosterWorkshop';
 import { GLASS_RECIPE_COUNT, GLASS_SPEC } from './specRosterGlass';
+import { parseStatusTexture } from '../core/machineStatus';
+import { isModularVariant } from './toolParts';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
 const stationsOf = (): string[] => [...new Set(RECIPES.map((r) => r.station))];
@@ -107,10 +109,9 @@ describe('2. roster of spec section 2', () => {
       for (const name of Object.keys(machine(kind).params ?? {})) expect(numbers, `${kind}.params.${name}`).toHaveProperty(name);
     }
     expect(machine('furnace').blocks).toEqual(FURNACE_TIERS.map((t) => t.block));
-    // Every fuel except those that hand a container back: the burner's one slot has nowhere to put the bucket.
-    const returnsContainer = (key: string): boolean => item(key).fuel?.fuelReturns !== undefined;
-    expectContains(machine('burner_generator').fuels ?? [], Object.keys(SPEC.fuels).filter((k) => !returnsContainer(k)), 'burner fuels');
-    expect(machine('combustion_engine').fuels).toEqual(['fuel_canister']);
+    // Every fuel, the lava bucket too (its empty bucket goes back to the player). The engine takes the refined fuels.
+    expectContains(machine('burner_generator').fuels ?? [], Object.keys(SPEC.fuels), 'burner fuels');
+    expect(machine('combustion_engine').fuels).toEqual(['fuel_canister', 'gasoline_canister', 'kerosene_canister', 'diesel_canister', 'fuel_ethanol_beaker']);
     expect(machine('fission_pile').fuels).toEqual(['fuel_rod']);
   });
 
@@ -179,7 +180,7 @@ describe('4. structural rules', () => {
       expect(it.fuel?.flameTempC, it.key).toBeGreaterThan(200);
     }
     for (const kind of ['pickaxe', 'axe', 'shovel'] satisfies ToolKind[]) {
-      const tools = ITEMS.filter((i) => i.tool?.kind === kind && !i.key.startsWith('wooden_') && !/^(rune|gale|orrins)_/.test(i.key)).sort((a, b) => (a.tool?.tier ?? 0) - (b.tool?.tier ?? 0));
+      const tools = ITEMS.filter((i) => i.tool?.kind === kind && !i.key.startsWith('wooden_') && !/^(rune|gale|orrins)_/.test(i.key) && !isModularVariant(i.key)).sort((a, b) => (a.tool?.tier ?? 0) - (b.tool?.tier ?? 0));
       expect(tools.slice(0, 4).map((t) => t.tool?.tier), kind).toEqual([1, 2, 3, 4]);
       // The wooden stopgap reaches flint's tier but is slower and far more fragile.
       const wood = item(`wooden_${kind}`).tool!;
@@ -269,7 +270,8 @@ describe('4. structural rules', () => {
   it('names textures in snake_case and keeps their number paintable', () => {
     for (const name of TEXTURE_NAMES) expect(name).toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
     expect(new Set(TEXTURE_NAMES).size).toBe(TEXTURE_NAMES.length);
-    expect(TEXTURE_NAMES.length).toBeLessThanOrEqual(SPEC.maxTextures);
+    // Status looks are derived from a base face, not designed art: they are budgeted by the faces they derive from.
+    expect(TEXTURE_NAMES.filter((n) => !parseStatusTexture(n)).length).toBeLessThanOrEqual(SPEC.maxTextures);
   });
 });
 
