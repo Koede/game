@@ -81,6 +81,8 @@ export interface GameUIDeps {
   sim?: UISimQuery;
   /** The world's weather (spec 15): the HUD dial's glyph and moon, the Hearth Log's forecast. */
   weather?: () => WeatherState | null;
+  /** Where tap to move is walking to (the HUD draws a ring there), or null. */
+  tapGoal?: () => { x: number; y: number; z: number } | null;
   /** Lets the mouse go when a screen opens (normally InputManager.releasePointerCapture). GameUI never touches pointer lock itself. */
   releasePointer?: () => void;
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
@@ -137,6 +139,7 @@ export class GameUI {
       sim: () => this.sim,
       input: deps.input,
       weather: () => deps.weather?.() ?? null,
+      tapGoal: () => deps.tapGoal?.() ?? null,
     });
     const bus = deps.bus;
     this.offs.push(

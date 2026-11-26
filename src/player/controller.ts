@@ -288,7 +288,7 @@ export class PlayerController {
       tapDirection(intent.tapX, intent.tapY, intent.tapAspect, this.settings.fov, p.yaw, p.pitch, this.dir);
       const d = this.dir;
       const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, TAP_RANGE, false, this.tapHit);
-      if (hit) tm.set(hit.px + 0.5, hit.pz + 0.5);
+      if (hit) tm.set(hit.px + 0.5, hit.pz + 0.5, hit.py);
     }
     if (!tm.active) return;
     const manual = Math.abs(intent.moveX) > 0.1 || Math.abs(intent.moveZ) > 0.1 || intent.jump || this.emotes.sitting;

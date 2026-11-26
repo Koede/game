@@ -210,6 +210,7 @@ export class Game {
         achievements: state.achievements,
         sim,
         weather: () => state.weather.state,
+        tapGoal: () => (this.controller?.tapMove.active ? this.controller.tapMove : null),
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { COLOR_MODES } from '../../core/context';
 import { luminance } from './format';
-import { RAMPS, rampFor, rampGradient, sampleRamp, type RampKind } from './palette';
+import { LOAD_RAMPS, RAMPS, rampFor, rampRgb01, rampGradient, sampleRamp, type RampKind } from './palette';
 
 describe('colour-blind palettes', () => {
   it('has a heat and a power ramp for every mode', () => {
@@ -31,6 +31,11 @@ describe('colour-blind palettes', () => {
     expect(sampleRamp(stops, 9)).toEqual(sampleRamp(stops, 1));
     expect(sampleRamp(stops, NaN)).toEqual(sampleRamp(stops, 0));
     expect(sampleRamp([[0, 0, 0], [200, 100, 50]], 0.5)).toEqual([100, 50, 25]);
+  });
+
+  it('load ramps differ per mode and rampRgb01 is 0..1', () => {
+    expect(new Set(COLOR_MODES.map((m) => LOAD_RAMPS[m][0].join()))).toHaveProperty('size', 3);
+    expect(rampRgb01(LOAD_RAMPS.off, 1)).toEqual([0xe8 / 255, 0x50 / 255, 0x3c / 255]);
   });
 
   it('writes a gradient with an even stop spread', () => {

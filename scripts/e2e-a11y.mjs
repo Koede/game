@@ -84,11 +84,17 @@ try {
     const start = (await d.state()).player;
     const { width, height } = d.size;
     await d.tapFinger(7, Math.round(width * 0.5), Math.round(height * 0.5));
+    await d.settle(250);
+    const mark = await page.evaluate(() => { const el = document.querySelector('.hw-tapmark'); return !!el && !el.hidden; });
+    assert(mark, 'no destination marker while walking');
+    await d.shot('07-marker');
     await d.settle(2500);
+    const gone = await page.evaluate(() => document.querySelector('.hw-tapmark').hidden);
+    assert(gone, 'marker still showing after arrival');
     const end = (await d.state()).player;
     const moved = Math.hypot(end.x - start.x, end.z - start.z);
     assert(moved > 2, `moved only ${moved.toFixed(2)} blocks`);
-    await d.shot('07-after-tap');
+    await d.shot('08-after-tap');
   });
 
   await report.step('the settings screen shows the new controls on a phone', async () => {
