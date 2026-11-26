@@ -27,6 +27,8 @@ import type { SurfaceFn } from './townPlan';
 import type { Spot } from './routines';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
+import { warmerSpot } from './warmth';
+import { ROUTINES } from './routines';
 import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
 import { SWIM_SPOTS, chooseOutfit, coolOffAt, inPool, type Outfit } from './outfits';
 import { ServiceMenu, type Service, type TavernPort } from './services';
@@ -166,6 +168,8 @@ export interface NpcHost {
   takeHeld(count: number): void;
   /** Progression advice for a specialist (magic, brewing, tech), or null when there is none. */
   advice(role: 'witch' | 'barkeep' | 'artificer' | 'alchemist'): string | null;
+  /** Air temperature in C at a world cell (src/game/thermal.ts). Absent: nobody seeks warmth. */
+  temperatureAt?(x: number, y: number, z: number): number;
   /** Keeps a hearth in the tavern burning. */
   tendFire?(x: number, y: number, z: number): void;
   /** Skips the night to dawn: rested, warm (a paid bed). */
@@ -397,12 +401,31 @@ export class NpcManager {
 
   /** Where a person stands in `phase`: the camp's spot for the builder while the camp stands, else their tavern routine. */
   private spot(n: NpcDef, phase: Phase): Spot | null {
+    const own = this.baseSpot(n, phase);
+    return own && (phase === 'evening' || phase === 'night') ? this.warmerThan(own, phase) : own;
+  }
+
+  private baseSpot(n: NpcDef, phase: Phase): Spot | null {
     if (this.camp) return CAMP_ROUTINES[n.id]?.[phase as 'morning'] ?? null;
     // Only the lodge stands: Gruk keeps to the common room by the hearth (the tavern's own spots are not built yet).
     if (n.id === BUILDER_ID && this.tavernLevel < LODGE_PATH.length) return LODGE_ROUTINE;
     // Only the lodge stands: the newcomers keep to the common room by day and sleep in their bedroom at night.
     if (this.tavernLevel < LODGE_PATH.length) return this.lodgeSpot(n.id, phase);
     return spotFor(n.id, phase);
+  }
+
+  /** On a cold evening or night (thermal.ts) a person takes the warmest spot the routines already use, if it is clearly warmer. */
+  private warmerThan(own: Spot, phase: Phase): Spot {
+    const host = this.host;
+    const o = this.at;
+    if (!host?.temperatureAt || !o) return own;
+    const routines = this.camp ? CAMP_ROUTINES : ROUTINES;
+    const candidates: Spot[] = [];
+    for (const r of Object.values(routines)) {
+      const c = r[phase as 'morning'];
+      if (c) candidates.push(c);
+    }
+    return warmerSpot(own, candidates, (x, y, z) => host.temperatureAt!(o[0] + x, o[1] + y, o[2] + z));
   }
 
   /** Tavern-local x, z of a person or prop right now: walking their routine, or fixed. */

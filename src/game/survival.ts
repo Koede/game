@@ -31,6 +31,7 @@ import { clamp, type Vec3 } from '../core/math';
 import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { heldWarms } from './heldWarmth';
+import { COMFORT_C, type Thermal } from './thermal';
 import { peakDrain } from './peaks';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
@@ -154,6 +155,10 @@ export class Survival {
    * WARMTH_DRAIN_WET more warmth per second (spec 15). Null = no weather.
    */
   weather: WeatherState | null = null;
+  /** The temperature model (thermal.ts). Null (tests, old harnesses): the cold works exactly as before. */
+  thermal: Thermal | null = null;
+  /** The air temperature at the player's chest as of the last scan, or null without a thermal model. */
+  temperatureC: number | null = null;
   /** Extra warmth lost per second in the open from a hard winter (src/game/winter.ts); null = none. */
   winterDrain: ((exposed: boolean) => number) | null = null;
 
@@ -337,6 +342,7 @@ export class Survival {
       }
     }
     this.frost = this.biomeAt(cx, cz) === 'frostfell';
+    this.temperatureC = this.thermal ? this.thermal.temperatureAt(player.position.x, player.position.y + PLAYER_HEIGHT / 2, player.position.z) : null;
     this.exposed = openSkyAbove(world, player.position.x, player.position.y + PLAYER_HEIGHT, player.position.z);
     this.coatMult = bestArmour(player.inventory.slots).warmthDrainMult;
     this.suit = player.inventory.has('shield_suit');
@@ -373,8 +379,11 @@ export class Survival {
       // Each drain on its own; the biggest names the cause (ties go to the one the player can act on first).
       const water = player.inWater ? WARMTH_DRAIN_WATER : 0;
       const wet = this.soaked ? WARMTH_DRAIN_WET : 0;
-      const frost = this.frost ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
-      const dark = night ? WARMTH_DRAIN_NIGHT : 0;
+      // A warm room (thermal.ts) shuts out the night and the frost. Hard winters cost more in the cold: winter.ts reads the same temperature.
+      const tc = this.temperatureC;
+      const warmRoom = tc !== null && tc >= COMFORT_C;
+      const frost = this.frost && !warmRoom ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
+      const dark = night && !warmRoom ? WARMTH_DRAIN_NIGHT : 0;
       const peak = peakDrain(player.position.y);
       const winter = this.winterDrain ? this.winterDrain(this.exposed) : 0;
       let drain = water + wet + frost + dark + peak + winter;

@@ -3,6 +3,7 @@
  * Well-Fed and drink (tea, coffee) pills, and one short visible line saying why warmth falls or that food is low (titles never show on touch).
  */
 import { MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, WELL_WARMED_AFTER_S } from '../../core/constants';
+import { feelOf } from '../../game/thermal';
 import { survivalNote, type SurvivalNoteTone } from '../../game/cold';
 import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
@@ -88,6 +89,25 @@ const HUNGER_TITLES: Record<HungerState, string | null> = {
 
 const NOTE_COLOURS: Record<SurvivalNoteTone, string> = { cold: '#8fc4ff', warn: 'var(--hw-warn)', bad: 'var(--hw-bad-hi)' };
 
+/** The temperature chip under the bars: a button, so it works by tap on a phone as well as with the H key. */
+const HEAT_STYLE: Readonly<Record<string, string>> = {
+  font: '600 11px / 1.2 var(--hw-font-display)',
+  'letter-spacing': '0.02em',
+  'pointer-events': 'auto',
+  cursor: 'pointer',
+  'min-height': '28px',
+  padding: '2px 8px',
+  margin: '2px 0 0 18px',
+  color: 'inherit',
+  background: 'transparent',
+  border: '1px solid var(--hw-plate-edge)',
+  'border-radius': '6px',
+  'text-align': 'left',
+};
+const HEAT_COLOURS: Readonly<Record<string, string>> = {
+  freezing: '#8fb8ff', cold: '#9ec9ff', cool: '#bcd9e8', comfortable: '#cfe8c0', warm: '#ffc27a', hot: '#ff9a6a',
+};
+
 /** Styled inline: the line is this module's alone and hud.css belongs to the HUD as a whole. */
 const NOTE_STYLE: Readonly<Record<string, string>> = {
   font: '600 11px / 1.2 var(--hw-font-display)',
@@ -113,6 +133,13 @@ export class Vitals {
   private readonly drinkPills = new Map<DrinkBuff, BuffPill>();
   private readonly buffs: HTMLDivElement;
   private readonly note: HTMLDivElement;
+  /** The temperature chip: tap (or H) toggles the heat view. */
+  private readonly heat: HTMLButtonElement;
+  private shownHeat = '';
+  /** Set by the game: toggles the heat view. */
+  onHeatToggle: (() => void) | null = null;
+  /** Whether the heat view is on (shown on the chip). */
+  heatOn = false;
   private shownNote = '';
   private shownTrend = '';
   private shownHunger: HungerState | '' = '';
@@ -129,7 +156,10 @@ export class Vitals {
     this.buffs.hidden = true;
     this.note = h('div', { class: 'hw-vitals__note', style: NOTE_STYLE, attrs: { role: 'status' } });
     this.note.hidden = true;
-    this.el = h('div', { class: 'hw-vitals hw-hud-plate' }, this.health.el, this.warmth.el, this.food.el, this.air.el, this.note, this.buffs);
+    this.heat = h('button', { class: 'hw-vitals__heat', style: HEAT_STYLE, attrs: { type: 'button', 'aria-label': 'Air temperature. Tap for the heat view', 'data-testid': 'heat-chip' } });
+    this.heat.hidden = true;
+    this.heat.addEventListener('click', () => this.onHeatToggle?.());
+    this.el = h('div', { class: 'hw-vitals hw-hud-plate' }, this.health.el, this.warmth.el, this.food.el, this.air.el, this.note, this.heat, this.buffs);
   }
 
   update(player: PlayerState, survival: Survival): void {
@@ -159,6 +189,18 @@ export class Vitals {
       if (note) {
         setText(this.note, note.text);
         this.note.style.color = NOTE_COLOURS[note.tone];
+      }
+    }
+    const tc = survival.temperatureC;
+    const heatKey = tc === null ? '' : `${Math.round(tc)}|${this.heatOn ? 1 : 0}`;
+    if (heatKey !== this.shownHeat) {
+      this.shownHeat = heatKey;
+      this.heat.hidden = tc === null;
+      if (tc !== null) {
+        const feel = feelOf(tc);
+        setText(this.heat, `${Math.round(tc)}\u00b0C ${feel}${this.heatOn ? ' \u00b7 heat view' : ''}`);
+        this.heat.style.color = HEAT_COLOURS[feel];
+        setAttr(this.heat, 'aria-pressed', this.heatOn ? 'true' : 'false');
       }
     }
     const underwater = player.headInWater || player.air < MAX_AIR_S - 0.05;

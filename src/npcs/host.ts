@@ -23,6 +23,8 @@ export interface NpcHostDeps {
   sim: Simulation;
   /** The Bronze workshop: its containers and machines are what a resident's job carries between. */
   workshop?: Workshop;
+  /** The temperature model; absent in tests (nobody seeks warmth then). */
+  thermal?: { temperatureAt(x: number, y: number, z: number): number };
 }
 
 /** The first sentence or two of a text, at most `max` characters. */
@@ -130,6 +132,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       else b.grant(buff, s);
       if (buff !== 'strength') d.player.bus.emit('buff:gained', { buff, durationS: s });
     },
+    temperatureAt: d.thermal ? (x, y, z) => d.thermal!.temperatureAt(x, y, z) : undefined,
     tendFire: (x, y, z) => {
       const e = d.sim.furnaceAt(x, y, z);
       if (!e) return;

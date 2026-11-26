@@ -107,6 +107,10 @@ export interface DebugHandle {
   damage(amount: number, cause?: DamageCause): void;
   setVoxel(x: number, y: number, z: number, block: string, facing?: number, active?: boolean): boolean;
   /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
+  /** Air temperature in C at a cell (src/game/thermal.ts). */
+  temperatureAt(x: number, y: number, z: number): number;
+  /** Turns the heat view on or off (same as the H key). */
+  setHeatView(on: boolean): void;
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
   /** Changes Settings.difficulty the way the settings panel does (saved, applied to the running world at once). */
   setDifficulty(d: Difficulty): void;
@@ -304,6 +308,13 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     setVoxel(x, y, z, block, facing = 0, active = false) {
       return game().state.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing, active), 'sim');
+    },
+    temperatureAt(x, y, z) {
+      return game().state.thermal.temperatureAt(x, y, z);
+    },
+    setHeatView(on) {
+      const g = game() as unknown as { heatOn: boolean; toggleHeatView(): void };
+      if (g.heatOn !== on) g.toggleHeatView();
     },
     spawnMob(species, x, y, z, baby = false) {
       const s = game().state;

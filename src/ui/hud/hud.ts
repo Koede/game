@@ -75,6 +75,13 @@ export class Hud {
   private readonly devBtn: HTMLButtonElement;
   private readonly dialogue: NpcDialogue;
   private readonly vitals = new Vitals();
+  /** The heat view chip (src/ui/hud/vitals.ts): `onHeatToggle` is set by the game, `setHeatView` mirrors the state on the chip. */
+  set onHeatToggle(fn: (() => void) | null) {
+    this.vitals.onHeatToggle = fn;
+  }
+  setHeatView(on: boolean): void {
+    this.vitals.heatOn = on;
+  }
   private readonly goal: GoalTracker;
   private readonly townChip: TownChip;
   private readonly compass = new Compass();

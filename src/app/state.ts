@@ -13,6 +13,8 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
 import { Survival } from '../game/survival';
+import { Thermal } from '../game/thermal';
+import { seasonOf } from '../sim/seasons';
 import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
 import { StoryDirector } from '../game/storyBeats';
 import { Journal, isJournalSnapshot } from '../game/journal';
@@ -29,6 +31,7 @@ import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Winter } from '../game/winter';
+import { setTemperatureProvider } from '../sim/temperature';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -50,6 +53,9 @@ export interface StateOptions {
   mode?: GameMode;
 }
 
+/** What each season adds to the outdoor temperature in C (thermal.ts). The winter arc and the heat view read this. */
+export const SEASON_OFFSET_C: Readonly<Record<ReturnType<typeof seasonOf>, number>> = { spring: 0, summer: 4, autumn: -2, winter: -10 };
+
 export class GameState {
   readonly bus: GameBus;
   readonly world: World;
@@ -57,6 +63,8 @@ export class GameState {
   readonly clock: GameClock;
   readonly sim: Simulation;
   readonly survival: Survival;
+  /** Heat as a resource (src/game/thermal.ts): `thermal.temperatureAt(x, y, z)` in C, rooms, insulation, the heat view's grid. */
+  readonly thermal: Thermal;
   readonly objectives: ObjectiveTracker;
   /** The sky (spec 15): its `state` is read by the simulation, survival, renderer, audio and HUD. */
   readonly weather: Weather;
@@ -131,6 +139,13 @@ export class GameState {
     this.sim.useWeather(this.weather.state, biomeAt);
     this.survival = new Survival(world, this.player, this.clock, biomeAt);
     this.survival.weather = this.weather.state;
+    this.thermal = new Thermal(world, {
+      isNight: () => this.clock.isNight,
+      biomeAt,
+      weather: () => this.weather.state,
+      seasonOffsetC: () => SEASON_OFFSET_C[seasonOf(this.clock.day)],
+    }, bus);
+    this.survival.thermal = this.thermal;
     this.objectives = new ObjectiveTracker(bus, this.player, this.sim);
     this.resumed = save !== null;
     this.journal = new Journal(() => this.clock.day, bus);
@@ -247,6 +262,9 @@ export class GameState {
     // A new world on Hard is a hard-winter world; the choice is saved with it, and a save without it never is one.
     if (save === null && difficulty === 'hard') this.winter.hard = true;
     this.offs.push(world.persist('winter', () => this.winter.toJSON()));
+    // Heat zones answer the temperature question wherever the player (or anything) asks it: rooms, fires, insulation, the sky.
+    setTemperatureProvider((q) => (this.world.isLoaded(q.x, q.z) ? this.thermal.temperatureAt(q.x, q.y + 0.9, q.z) : null));
+    this.offs.push(() => setTemperatureProvider(null));
     this.survival.winterDrain = (exposed) => this.winter.coldDrain(exposed);
     this.sim.hardWinter = this.winter.hard;
     this.pets = new Pets({
@@ -262,7 +280,7 @@ export class GameState {
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
-    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, workshop: this.workshop }));
+    this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, workshop: this.workshop, thermal: this.thermal }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
     this.offs.push(() => this.workshop.dispose());
@@ -394,6 +412,7 @@ export class GameState {
     // Flowing water (spec 18.2): one step of the world's scheduled water updates per fixed tick.
     this.world.water.tick();
     this.mobs.tick(dt, this.mobPlayer);
+    this.thermal.tick(dt);
     this.survival.tick(dt);
     this.objectives.tick(dt);
     this.journal.explore(this.player.position.x, this.player.position.z);
@@ -508,6 +527,7 @@ export class GameState {
 
   dispose(): void {
     for (const off of this.offs.splice(0)) off();
+    this.thermal.dispose();
     this.objectives.dispose();
     this.journal.dispose();
     this.story.dispose();

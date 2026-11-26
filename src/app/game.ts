@@ -7,6 +7,7 @@
  * -> animal models (interpolated) -> render.
  */
 import { saveShot } from './photo';
+import { newThermalGrid } from '../game/thermal';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -102,6 +103,11 @@ export function chunksInView(r: number): number {
 
 /** Fixture blocks (src/content/areas/tavern_fixtures.ts) and the NPC role each one speaks as. */
 const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox' | 'party'>> = { quest_board: 'board', wall_clock: 'clock', jukebox: 'jukebox', party_button: 'party' };
+
+/** Blocks around the player the heat view paints (a 25 x 25 patch). */
+const HEAT_VIEW_RADIUS = 12;
+/** Rows of the 25-row heat grid computed per frame (about 2 ms each frame at most). */
+const HEAT_ROWS_PER_FRAME = 4;
 
 export class Game {
   readonly state: GameState;
@@ -294,6 +300,7 @@ export class Game {
       const last = [...state.journal.entries].reverse().find((e) => e.kind !== 'death');
       bus.emit('toast', { text: resumeLine(state.clock.day, state.objectives.current?.title ?? null, last), kind: 'info' });
     }
+    this.ui.hud.onHeatToggle = () => this.toggleHeatView();
     this.offs.push(
       bus.on('photo:snap', () => (this.shotPending = true)),
       bus.on('photo:mode', ({ on }) => root.el.classList.toggle('hw-root--photo', on)),
@@ -303,6 +310,7 @@ export class Game {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.code === 'KeyF') this.vehicles.setWorkKey(down);
       else if (e.code === 'KeyR' && down && !e.repeat) this.vehicles.pressSwapKey();
+      else if (e.code === 'KeyH' && down && !e.repeat) this.toggleHeatView();
     };
     const keyDown = onKey(true);
     const keyUp = onKey(false);
@@ -424,6 +432,7 @@ export class Game {
     this.showAnimalName();
     this.showStationName();
     this.renderer.setGridOverlay(gridOverlayFor(state.sim, p.heldStack()?.item ?? null, p.position.x, p.eyeY, p.position.z));
+    this.updateHeatView(dt);
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
     showRodAura(this.ui.hud, this.magic.rodReading());
     this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
@@ -541,6 +550,43 @@ export class Game {
   }
 
   /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */
+  /** The heat view (src/render/heatView.ts): H or the temperature chip; refreshed twice a second while on. */
+  private heatOn = false;
+  private heatIn = 0;
+  private toggleHeatView(): void {
+    this.heatOn = !this.heatOn;
+    this.renderer.heatView.setVisible(this.heatOn);
+    this.ui.hud.setHeatView(this.heatOn);
+    this.heatIn = 0;
+    if (this.heatOn) this.state.bus.emit('toast', { text: 'Heat view: blue is cold, green is comfortable, orange and red are warm. Walls and insulation show.', kind: 'info' });
+  }
+
+  /** The grid being filled a few rows a frame, where it is centred, and the next row to do. */
+  private heatJob: { g: ReturnType<typeof newThermalGrid>; cx: number; y: number; cz: number; row: number } | null = null;
+
+  /** Refreshes the heat view without a hitch: HEAT_ROWS_PER_FRAME rows a frame, a new pass every half second. */
+  private updateHeatView(dt: number): void {
+    if (!this.heatOn) {
+      this.heatJob = null;
+      return;
+    }
+    const r = HEAT_VIEW_RADIUS;
+    if (!this.heatJob) {
+      this.heatIn -= dt;
+      if (this.heatIn > 0) return;
+      const p = this.state.player.position;
+      this.heatJob = { g: newThermalGrid(r), cx: Math.floor(p.x), y: Math.floor(p.y), cz: Math.floor(p.z), row: 0 };
+    }
+    const job = this.heatJob;
+    const to = Math.min(job.g.size, job.row + HEAT_ROWS_PER_FRAME);
+    this.state.thermal.gridRows(job.g, job.cx, job.y, job.cz, r, job.row, to);
+    job.row = to;
+    if (to < job.g.size) return;
+    this.renderer.heatView.set({ ...job.g, x0: job.cx - r, z0: job.cz - r });
+    this.heatJob = null;
+    this.heatIn = 0.5;
+  }
+
   private showAnimalName(): void {
     const id = this.controller.targetAnimal;
     const health = id !== null ? (this.state.mobs.get(id)?.health ?? -1) : -1;
