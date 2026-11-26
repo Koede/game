@@ -12,6 +12,7 @@ import type { Simulation } from '../sim';
 import type { Workshop } from '../workshop/workshop';
 import { alchemyAdvice } from './alchemy';
 import type { NpcHost } from './manager';
+import { warmthDelta } from './warmth';
 
 export interface NpcHostDeps {
   player: PlayerState;
@@ -25,6 +26,8 @@ export interface NpcHostDeps {
   workshop?: Workshop;
   /** The temperature model; absent in tests (nobody seeks warmth then). */
   thermal?: { temperatureAt(x: number, y: number, z: number): number };
+  /** A hard-winter world: a cold home then counts against contentment (warmth.ts warmthDelta). */
+  hardWinter?: () => boolean;
 }
 
 /** The first sentence or two of a text, at most `max` characters. */
@@ -132,6 +135,8 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       else b.grant(buff, s);
       if (buff !== 'strength') d.player.bus.emit('buff:gained', { buff, durationS: s });
     },
+    // contentment.ts turns degrees into a bump of 0.02 per degree, so warmthDelta's score shift (-0.3..0.3) goes in as 50x.
+    roomWarmth: d.thermal ? (x, y, z) => warmthDelta(d.thermal!.temperatureAt(x, y, z), d.hardWinter?.() ?? false) * 50 : undefined,
     temperatureAt: d.thermal ? (x, y, z) => d.thermal!.temperatureAt(x, y, z) : undefined,
     tendFire: (x, y, z, fuel) => {
       const e = d.sim.furnaceAt(x, y, z);
