@@ -62,6 +62,34 @@ export const LEGENDARIES: readonly LegendarySpec[] = [
     hint: 'Miners say a lamp-sword lies where the old stairs end.',
     enchants: { lightstep: 2 },
   },
+  {
+    item: 'quiet_hammer', effect: 'still_blow', source: 'ruin',
+    story: 'Cast for a mason who worked nights beside sleeping neighbours.',
+    verb: 'After standing still a moment, the next blow is silent and heavy: extra damage and a short stun.',
+    utility: 'Cracks stone brick like any maul, without a sound.',
+    hint: 'Old stonecutters say a hammer that never rang is buried under a ruin\'s floor.',
+  },
+  {
+    item: 'tidebrand', effect: 'pull', source: 'ruin',
+    story: 'A three-pronged fishing spear, salt-white, from a drowned works.',
+    verb: 'Each hit pulls the target a step toward you.',
+    utility: 'Carried, your breath lasts nearly three times as long underwater.',
+    hint: 'Fishers talk of a trident that kept a diver breathing, in the ruins near water.',
+  },
+  {
+    item: 'rootsong', effect: 'root', source: 'ruin',
+    story: 'A staff of living wood that hums when the ground is wet.',
+    verb: 'Each hit roots the target in place for a moment.',
+    utility: 'Use on bare dirt to coax grass over it.',
+    hint: 'Hedge-folk sing of a staff that grew where an old ruin\'s garden once was.',
+  },
+  {
+    item: 'starcleaver', effect: 'shock_arc', source: 'boss',
+    story: 'A broad blade that fell from the sky into the old works and stayed.',
+    verb: 'Hold Mine to charge a swing; the charged blow releases a shock arc through up to three more creatures ahead.',
+    utility: 'Sweeps tall grass and dry shrub down in one stroke.',
+    hint: 'The caravan folk say a star-iron blade lies with the keeper of the deepest works.',
+  },
 ];
 
 const BY_ITEM = new Map(LEGENDARIES.map((l) => [l.item, l]));
@@ -87,6 +115,26 @@ export const LEGENDARY_ITEMS: ItemSpec[] = [
     key: 'lanternblade', name: 'Lanternblade', icon: 'item_lanternblade', category: 'tool', age: 1,
     desc: 'A short blade with a lamp in its hilt. A hit in the dark bursts into light and stuns automatons. Leaves a trail of light.',
     tool: { kind: 'sword', tier: 2, speed: 1, durability: 320 }, weapon: { damage: 5 },
+  },
+  {
+    key: 'quiet_hammer', name: 'The Quiet Hammer', icon: 'item_quiet_hammer', category: 'tool', age: 1,
+    desc: 'Cast for a mason who worked beside sleepers. After standing still, the next blow is silent and heavy. Cracks brick quietly.',
+    tool: { kind: 'maul', tier: 2, speed: 1, durability: 320 }, weapon: { damage: 6 },
+  },
+  {
+    key: 'tidebrand', name: 'Tidebrand', icon: 'item_tidebrand', category: 'tool', age: 1,
+    desc: 'A salt-white trident from a drowned works. Each hit pulls the target toward you, and carried, it stretches your breath underwater.',
+    tool: { kind: 'trident', tier: 2, speed: 1, durability: 320 }, weapon: { damage: 5 },
+  },
+  {
+    key: 'rootsong', name: 'Rootsong', icon: 'item_rootsong', category: 'tool', age: 1,
+    desc: 'A staff of living wood. Each hit roots the target in place for a moment. Use on bare dirt to green it over.',
+    tool: { kind: 'staff', tier: 2, speed: 1, durability: 320 }, weapon: { damage: 4 },
+  },
+  {
+    key: 'starcleaver', name: 'Starcleaver', icon: 'item_starcleaver', category: 'tool', age: 1,
+    desc: 'A broad star-iron blade. Hold Mine to charge: the charged blow throws a shock arc ahead. Sweeps grass and shrub aside.',
+    tool: { kind: 'sword', tier: 2, speed: 1, durability: 320 }, weapon: { damage: 6 },
   },
 ];
 

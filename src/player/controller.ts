@@ -24,7 +24,8 @@ import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
 import { legendaryEffectOf } from '../content/legendary';
-import { DARK_LIGHT, oreHum } from '../game/legendary';
+import { enchantLevel } from '../core/enchant';
+import { DARK_LIGHT, oreHum, swingTrailSparks } from '../game/legendary';
 import { blockLightAt, skyOpenAt } from '../mobs/sight';
 import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
 import { attachSapSave } from './sapTools';
@@ -138,6 +139,8 @@ export class PlayerController {
   private readonly sunlight: () => number;
   /** Seconds until the Spare Pick's hum is checked again. */
   private humS = 0;
+  /** Seconds until the next swing trail (a held Mine swings about every 0.45 s). */
+  private trailS = 0;
 
   constructor(options: PlayerControllerOptions) {
     this.world = options.world;
@@ -238,6 +241,8 @@ export class PlayerController {
       if (intent.use && p.collectors.trigger()) intent.use = false;
       if (intent.use && this.lunge()) intent.use = false;
       this.hum(dt);
+      this.swingTrail(dt, intent.mine);
+      p.combat.legendary.observe(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump || !p.onGround, intent.mine);
       if (intent.use && this.talkTo) {
         p.viewDir(this.dir);
         if (this.talkTo(p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z)) intent.use = false;
@@ -406,13 +411,25 @@ export class PlayerController {
     const item = p.heldStack()?.item ?? null;
     if (legendaryEffectOf(item) !== 'lunge') return false;
     p.viewDir(this.dir);
-    const impulse = p.combat.legendary.tryLunge(item, this.dir.x, this.dir.z);
+    const impulse = p.combat.legendary.tryLunge(item, this.dir.x, this.dir.z, enchantLevel(p.heldStack() ?? undefined, 'attunement'));
     if (!impulse) return false;
     p.combat.knock(impulse.vx, impulse.vy, impulse.vz);
     this.view.triggerSwing();
     this.bus.emit('legendary:proc', { effect: 'lunge', x: p.position.x, y: p.position.y + 0.9, z: p.position.z });
     this.sfx('jump', 0.8);
     return true;
+  }
+
+  /** A legendary weapon swung (Mine held, not on the Spare Pick's digging): the renderer draws a thin trail of sparks. */
+  private swingTrail(dt: number, mine: boolean): void {
+    this.trailS = Math.max(0, this.trailS - dt);
+    if (!mine || this.trailS > 0 || !this.player.combat.strikeReady) return;
+    const p = this.player;
+    const effect = legendaryEffectOf(p.heldStack()?.item);
+    if (!effect || effect === 'veinseek') return;
+    this.trailS = 0.45;
+    const count = swingTrailSparks(this.settings.reduceMotion, this.settings.graphics);
+    if (count > 0) this.bus.emit('legendary:swing', { effect, x: p.position.x, y: p.eyeY, z: p.position.z, yaw: p.yaw, pitch: p.pitch, count });
   }
 
   /** Orrin's Spare Pick: a soft hum while ore lies within reach behind a wall, louder the closer it is. Checked twice a second. */

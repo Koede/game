@@ -21,6 +21,7 @@ export * from './collectors';
 export * from './enchantEffects';
 export * from './heldWarmth';
 export * from './legendary';
+export * from './legendaryNotes';
 export * from './assist';
 export * from './recipeHelper';
 export * from './quickCraft';

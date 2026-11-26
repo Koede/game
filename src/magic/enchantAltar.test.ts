@@ -211,3 +211,31 @@ describe('enchanting at the altar', () => {
     expect(u.magic.infusionAt(0, 1, 0)).toBeNull();
   });
 });
+
+describe('attuning a legendary at the altar', () => {
+  it('hums for Rune on a legendary weapon, and for nothing a common tool would take', () => {
+    const t = altarWith('gale_reed', 'rune');
+    expect(t.magic.enchantHum(0, 1, 0)).toEqual({ key: 'attunement', level: 1, aspect: 'rune' });
+    // Vein would suit a pickaxe; a legendary spear takes no such enchant.
+    expect(altarWith('gale_reed', 'vein').magic.enchantHum(0, 1, 0)).toBeNull();
+    expect(altarWith('orrins_spare_pick', 'vein').magic.enchantHum(0, 1, 0)).toBeNull();
+    expect(altarWith('bronze_axe', 'rune').magic.enchantHum(0, 1, 0)).toBeNull();
+  });
+
+  it('writes Attunement I and hands the weapon back with the enchants it was found with', () => {
+    const t = setup();
+    t.learn('infusion');
+    t.put(0, 1, 0, 'infusion_altar');
+    t.player.inventory.clear();
+    t.player.inventory.set(0, { item: 'gale_reed', count: 1, durability: 300, enchants: { featherfall: 2 } });
+    t.player.selectedSlot = 0;
+    expect(t.magic.use(t.at(0, 1, 0))).toBe('worked');
+    t.put(0, 1, 2, 'essentia_jar');
+    t.fill(0, 1, 2, 'rune', 2);
+    expect(startWithRod(t)).toBe('worked');
+    for (let i = 0; i < (ENCHANT_INFUSE_S + 2) * 10; i++) t.magic.tick(0.1);
+    t.player.inventory.clear();
+    expect(t.magic.use(t.at(0, 1, 0))).toBe('worked');
+    expect(t.carried('gale_reed')?.enchants).toEqual({ featherfall: 2, attunement: 1 });
+  });
+});

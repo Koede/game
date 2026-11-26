@@ -77,6 +77,7 @@ const CASES: Case[] = [
   { id: 'pick_dress_limestone', held: 'flint_pickaxe', target: 'limestone', becomes: 'stone_brick' },
   { id: 'maul_cracks_brick', held: 'bronze_maul', target: 'stone_brick', becomes: 'cracked_stone_brick' },
   { id: 'torch_melts_snow', held: 'torch', target: 'snow', becomes: 'air' },
+  { id: 'rootsong_greens_dirt', held: 'rootsong', target: 'dirt', becomes: 'grass' },
   { id: 'pail_chips_ice', held: 'pail', target: 'ice', becomes: 'air', heldAfter: 'water_pail' },
   { id: 'hammer_stone_to_rubble', held: 'flint_hammer', target: 'stone', becomes: 'rubble' },
   { id: 'hammer_rubble_to_gravel', held: 'bronze_hammer', target: 'rubble', becomes: 'gravel' },

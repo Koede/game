@@ -287,6 +287,8 @@ export interface GameEvents {
   'mob:spawned': { id: number; species: string };
   /** A legendary weapon's verb fired (src/game/legendary.ts): the renderer shows a small burst of sparks, capped per event. */
   'legendary:proc': { effect: LegendaryEffect; x: number; y: number; z: number };
+  /** A legendary weapon was swung: a thin trail of `count` sparks along the swing from the eye (0 = none: reduced motion). */
+  'legendary:swing': { effect: LegendaryEffect; x: number; y: number; z: number; yaw: number; pitch: number; count: number };
   /** An animal was hit; `health` is what it has left. */
   'mob:hurt': { id: number; species: string; health: number };
   'mob:died': { id: number; species: string };

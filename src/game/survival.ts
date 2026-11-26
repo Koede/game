@@ -31,6 +31,7 @@ import { clamp, type Vec3 } from '../core/math';
 import { bestArmour } from '../core/hostile';
 import { blockOf, voxelWarmth } from '../core/registry';
 import { heldWarms } from './heldWarmth';
+import { legendaryEffectOf } from '../content/legendary';
 import { peakDrain } from './peaks';
 import { AIR, WORLD_HEIGHT, type BiomeKey, type IWorld, type WeatherState } from '../core/types';
 import { isWet } from '../core/weather';
@@ -68,6 +69,9 @@ export const WELL_WARMED_DRAIN_FACTOR = 0.5;
 export const REGEN_INTERVAL_S = 4;
 export const REGEN_QUIET_S = 8;
 export const REGEN_MIN_WARMTH = 50;
+/** Tidebrand: breath used up per second underwater, as a fraction of normal. */
+export const TIDEBRAND_AIR_MULT = 0.35;
+
 /** Breath regained per second with the head above water (a full breath in three seconds). */
 export const AIR_REFILL_PER_S = MAX_AIR_S / 3;
 
@@ -417,7 +421,9 @@ export class Survival {
       return;
     }
     if (player.air > 0) {
-      player.air = Math.max(0, player.air - dt);
+      // Tidebrand (docs/api/legendary.md): carried, the sea is easy on the lungs: breath lasts nearly three times as long.
+      const held = player.heldStack()?.item ?? null;
+      player.air = Math.max(0, player.air - (legendaryEffectOf(held) === 'pull' ? dt * TIDEBRAND_AIR_MULT : dt));
       return;
     }
     this.drownAcc += dt;

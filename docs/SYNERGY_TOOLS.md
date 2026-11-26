@@ -46,6 +46,7 @@ hammer still strikes an anvil first (hand stations and pipes run before the tabl
 | `lava_vitrifies_sand` | lava bucket x sand | glass, bronze bucket back | glass |
 | `lava_fires_clay` | lava bucket x clay | brick, bronze bucket back | furnace |
 | `torch_melts_snow` | torch x snow | snow gone, torch kept | survival |
+| `rootsong_greens_dirt` | Rootsong (legendary staff) x dirt | grass over it | farming |
 | `wrench_turn_block` | wrench x side/top/back of a front-facing block | quarter turn (front still opens the screen) | machines |
 | `vacuum_loose_piles` | hand vacuum x sand/gravel/rubble/snow | block into the pack for 4 s of suction | ground items |
 

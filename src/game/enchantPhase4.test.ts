@@ -24,8 +24,8 @@ function cellWorld() {
 }
 
 describe('the enchant set (registry)', () => {
-  it('holds the six enchants of the plan, each with an aspect, a level cap of at most III, and a cost per level', () => {
-    expect(ENCHANTS.map((e) => e.key)).toEqual(['veinseeker', 'magnet', 'ember', 'featherfall', 'lightstep', 'bounty']);
+  it('holds the six enchants of the plan and attunement, each with an aspect, a level cap of at most III, and a cost per level', () => {
+    expect(ENCHANTS.map((e) => e.key)).toEqual(['veinseeker', 'magnet', 'ember', 'featherfall', 'lightstep', 'bounty', 'attunement']); // attunement: legendary weapons only (docs/api/legendary.md)
     for (const e of ENCHANTS) {
       expect(e.max).toBeGreaterThanOrEqual(1);
       expect(e.max).toBeLessThanOrEqual(3);
