@@ -3,7 +3,7 @@ export const WORKSHOP_SPEC = {
   blocks: ['hand_crank', 'drive_shaft', 'conveyor_belt', 'mech_saw', 'mech_millstone', 'mech_mortar', 'mech_loom',
     'reverse_box', 'ratio_dial', 'clutch', 'split_box', 'sequence_gearshift', 'governor', 'worm_gear', 'chain_sprocket', 'belt_pulley', 'clockwork_motor',
     'mech_hammer', 'mech_rack', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill',
-    'shear_pin', 'flywheel', 'brake', 'pillow_block', 'cam_drum', 'logic_gate', 'differential', 'treadwheel', 'saw_arm', 'item_vault', 'vacuum_collector',
+    'shear_pin', 'flywheel', 'brake', 'pillow_block', 'cam_drum', 'logic_gate', 'differential', 'treadwheel', 'steam_rotor', 'saw_arm', 'item_vault', 'vacuum_collector',
     'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'tally_board', 'clockface', 'wind_vane',
     'contraption_frame', 'piston', 'bearing', 'rail', 'skiff'],
   items: ['engineer_goggles', 'bronze_cog', 'punched_card'],
@@ -49,6 +49,7 @@ export const WORKSHOP_SPEC = {
       'brake: 1 brake <- 2 bronze_ingot, 1 bronze_cog, 1 leather @600 T2',
       'pillow_block: 1 pillow_block <- 2 bronze_ingot, 2 stone_brick @600 T2',
       'differential: 1 differential <- 3 bronze_cog, 1 bronze_ingot, 1 drive_shaft @600 T2',
+      'steam_rotor: 1 steam_rotor <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft @600 T2',
       'treadwheel: 1 treadwheel <- 4 plank, 2 bronze_ingot, 2 drive_shaft @600 T2',
       'saw_arm: 1 saw_arm <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 1 mech_saw @600 T2',
       'item_vault: 1 item_vault <- 4 crate, 2 bronze_plate @600 T2',
@@ -70,7 +71,7 @@ export const WORKSHOP_SPEC = {
     ],
   } as Record<string, string[]>,
   /** 19 faces and one icon, then the modular fronts (two for each running one) and icons, plus the vane face and the punched-card icon. */
-  textures: 102,
+  textures: 104,
   /** No recipe: the docs give the vane none, and there is no paper to punch a card from. Tests place or grant them. */
   worldOnly: ['wind_vane', 'punched_card'],
 };
