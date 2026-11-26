@@ -49,6 +49,8 @@ export interface PlayerControllerOptions {
   /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
   animals?: AnimalTargets;
   /** The tavern's people: Use on one talks to them (returns true when someone was spoken to). */
+  /** The name of a person (not a prop) the ray hits within maxDist, or null: Mine on them is stopped with a toast. */
+  person?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number) => string | null;
   talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist?: number) => boolean;
   /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
   transport?: TransportHands;
@@ -101,6 +103,7 @@ export class PlayerController {
   readonly emotes: Emotes;
   readonly photo = new PhotoCamera();
   private readonly talkTo: PlayerControllerOptions['talk'];
+  private readonly whoIs: PlayerControllerOptions['person'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
   private readonly state: InputState;
@@ -139,6 +142,7 @@ export class PlayerController {
     this.view = options.view;
     this.emotes = new Emotes(options.jukeboxOn);
     this.talkTo = options.talk;
+    this.whoIs = options.person;
     this.input = options.input;
     this.settings = options.settings;
     this.state = options.state;
@@ -244,7 +248,9 @@ export class PlayerController {
       if (this.animals?.target != null) this.actOnAnimal(dt, intent);
       else {
         if (intent.use) this.interaction.use(this.useTarget(this.currentTarget), intent.place);
-        this.interaction.updateMining(dt, intent.mine, this.currentTarget);
+        const who = intent.mine ? this.personAimed() : null;
+        if (who !== null) this.interaction.advise(`npc-mine:${who}`, `${who} steps aside. Nobody here is for hitting.`);
+        this.interaction.updateMining(dt, intent.mine && who === null, this.currentTarget);
       }
       // A broken or placed block changes what is under the crosshair this very frame.
       if (this.interaction.edits !== edits) this.currentTarget = this.cast();
@@ -383,6 +389,15 @@ export class PlayerController {
     this.interaction.updateMining(dt, false, null);
     if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
+  }
+
+  /** A person standing nearer than any block or animal on the aim ray (Mine must not dig through them), or null. */
+  private personAimed(): string | null {
+    if (!this.whoIs) return null;
+    const p = this.player;
+    const d = this.dir;
+    const wall = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, false, this.talkHit);
+    return this.whoIs(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, wall ? wall.distance : REACH);
   }
 
   /** Photo mode: the body stays put, the eye detaches and flies; Use takes the picture. */

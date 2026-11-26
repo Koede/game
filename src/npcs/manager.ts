@@ -489,6 +489,12 @@ export class NpcManager {
     return best;
   }
 
+  /** The name of a person (not a prop) the ray hits within maxDist, or null. */
+  personAt(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number): string | null {
+    const hit = this.raycast(ox, oy, oz, dx, dy, dz, maxDist);
+    return hit && hit.npc.kind === 'person' ? hit.npc.name : null;
+  }
+
   /** Use on a person or prop: true when something was spoken to (the Use is spent). */
   talk(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist = REACH): boolean {
     const hit = this.raycast(ox, oy, oz, dx, dy, dz);
