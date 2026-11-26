@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BINDINGS, HANDLES, HEADS, MODULAR_KINDS, TOOL_PART_ITEMS, TOOL_PART_RECIPES, buildItemKey, buildStats, partsOfItem } from '../content/toolParts';
+import { BINDINGS, HANDLES, KIND_HEADS, MODULAR_KINDS, sparesWear, TOOL_PART_ITEMS, TOOL_PART_RECIPES, buildItemKey, buildStats, partsOfItem } from '../content/toolParts';
 import { item, itemOrNull } from '../core/registry';
 import { Inventory, makeStack } from './inventory';
 import { BUILD_RECIPES, craft } from './crafting';
@@ -10,11 +10,13 @@ import { block } from '../core/registry';
 
 describe('modular tools: parity with the old tools', () => {
   it('every legacy pickaxe, axe and shovel is its default build, number for number', () => {
-    for (const head of Object.keys(HEADS)) {
-      for (const kind of MODULAR_KINDS) {
+    for (const kind of MODULAR_KINDS) {
+      for (const head of [...KIND_HEADS[kind], ...(kind === 'maul' ? [] : ['wooden'])]) {
         const legacy = item(`${head}_${kind}`).tool!;
         const build = { kind, head, handle: 'oak', binding: 'cord' };
-        expect(buildStats(build), `${head}_${kind}`).toEqual({ tier: legacy.tier, speed: legacy.speed, durability: legacy.durability });
+        const { damage, ...numbers } = buildStats(build);
+        expect(numbers, `${head}_${kind}`).toEqual({ tier: legacy.tier, speed: legacy.speed, durability: legacy.durability });
+        if (kind === 'maul') expect(damage, `${head}_${kind}`).toBe(item(`${head}_${kind}`).weapon!.damage);
         expect(partsOfItem(`${head}_${kind}`)).toEqual(build);
         expect(buildItemKey(build)).toBe(`${head}_${kind}`);
       }
@@ -22,11 +24,13 @@ describe('modular tools: parity with the old tools', () => {
   });
   it('every built tool item carries the stats its parts give', () => {
     const built = TOOL_PART_ITEMS.filter((i) => i.tool);
-    expect(built.length).toBe(4 * 3 * (Object.keys(HANDLES).length * Object.keys(BINDINGS).length - 1));
+    expect(built.length).toBe(MODULAR_KINDS.reduce((n, k) => n + KIND_HEADS[k].length, 0) * (Object.keys(HANDLES).length * Object.keys(BINDINGS).length - 1));
     for (const spec of built) {
       const b = partsOfItem(spec.key)!;
       expect(b, spec.key).not.toBeNull();
-      expect(item(spec.key).tool).toMatchObject(buildStats(b));
+      const { damage, ...numbers } = buildStats(b);
+      expect(item(spec.key).tool).toMatchObject(numbers);
+      if (b.kind === 'maul') expect(item(spec.key).weapon!.damage).toBe(damage);
     }
   });
   it('a fine handle never adds tier: a bronze head cannot mine a tier-3 block however it is built', () => {
@@ -41,6 +45,21 @@ describe('modular tools: parity with the old tools', () => {
     const pine = miningTime(stone, makeStack('iron_pine_cord_pickaxe', 1, 326), false);
     expect(pine).toBeLessThan(plain);
     expect(item('iron_oak_resin_pickaxe').tool!.durability).toBeGreaterThan(item('iron_pickaxe').tool!.durability);
+  });
+});
+
+describe('modular tools: hoes, mauls and traits', () => {
+  it('a built maul keeps speed 1 and its head\'s damage; a built hoe still tills', () => {
+    const maul = item('iron_pine_resin_maul');
+    expect(maul.tool).toMatchObject({ kind: 'maul', speed: 1 });
+    expect(maul.weapon!.damage).toBe(7);
+    expect(item('flint_oak_resin_hoe').tool).toMatchObject({ kind: 'hoe', speed: 1, durability: 77 });
+  });
+  it('only a resin binding ever spares a use of wear, and only on a low roll', () => {
+    expect(sparesWear('iron_oak_resin_pickaxe', 0.05)).toBe(true);
+    expect(sparesWear('iron_oak_resin_pickaxe', 0.9)).toBe(false);
+    expect(sparesWear('iron_pickaxe', 0)).toBe(false);
+    expect(sparesWear('iron_pine_cord_axe', 0)).toBe(false);
   });
 });
 

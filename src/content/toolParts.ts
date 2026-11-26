@@ -1,19 +1,22 @@
 /**
- * Modular tools (docs/plans/modular-tools.md, phases 1-2 and the swap rule of 3). A pickaxe, axe or shovel is a HEAD of a
+ * Modular tools (docs/plans/modular-tools.md). A pickaxe, axe, shovel, hoe or maul is a HEAD of a
  * material, a HANDLE and a BINDING. Materials are data below; every combination is a real item, generated here, so saves,
  * stacks, wear, enchants and mining all work on it with no per-stack bookkeeping.
  *
  * The default build (any head, oak handle = two sticks, cord) is the old tool of that material, number for number: the
  * legacy keys (`flint_pickaxe`...) stay valid items and recipes and read as that build (`partsOfItem`). Stats:
  *   speed = head.speed * handle.speed          durability = round(head.durability * handle.durability * binding.hold)
+ * (hoes and mauls never mine faster: speed 1; a maul's damage is its head's.) A resin binding sometimes spares a use of wear.
  * Pure data and pure functions; imports no registry (the registry imports this).
  */
 import type { ItemSpec, RecipeSpec, ToolKind } from '../core/types';
 import { amount, amounts } from './amounts';
 
 export type PartRole = 'head' | 'handle' | 'binding';
-export type ModularKind = Extract<ToolKind, 'pickaxe' | 'axe' | 'shovel'>;
-export const MODULAR_KINDS: readonly ModularKind[] = ['pickaxe', 'axe', 'shovel'];
+export type ModularKind = Extract<ToolKind, 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul'>;
+export const MODULAR_KINDS: readonly ModularKind[] = ['pickaxe', 'axe', 'shovel', 'hoe', 'maul'];
+/** Kinds that mine faster with a better head (the rest keep speed 1). */
+export const MINING_KINDS: readonly ModularKind[] = ['pickaxe', 'axe', 'shovel'];
 
 export interface HeadMaterial {
   key: string;
@@ -25,6 +28,10 @@ export interface HeadMaterial {
   age: number;
   /** Item that mends it at an anvil (src/game/toolQuality.ts). */
   repair: string;
+  /** One line for the tooltip (the numbers are shown beside it). */
+  trait: string;
+  /** Maul damage a blow of this head deals. */
+  damage?: number;
 }
 export interface HandleMaterial {
   key: string;
@@ -48,11 +55,11 @@ export interface BindingMaterial {
 }
 
 export const HEADS: Readonly<Record<string, HeadMaterial>> = {
-  wooden: { key: 'wooden', name: 'Wooden', tier: 1, speed: 1.4, durability: 12, age: 0, repair: 'plank' },
-  flint: { key: 'flint', name: 'Flint', tier: 1, speed: 2, durability: 64, age: 0, repair: 'flint' },
-  bronze: { key: 'bronze', name: 'Bronze', tier: 2, speed: 3, durability: 192, age: 0, repair: 'bronze_ingot' },
-  iron: { key: 'iron', name: 'Iron', tier: 3, speed: 4.5, durability: 384, age: 2, repair: 'iron_ingot' },
-  steel: { key: 'steel', name: 'Steel', tier: 4, speed: 6, durability: 768, age: 2, repair: 'steel_ingot' },
+  wooden: { key: 'wooden', name: 'Wooden', tier: 1, speed: 1.4, durability: 12, age: 0, repair: 'plank', trait: 'Splinters: breaks after a dozen swings' },
+  flint: { key: 'flint', name: 'Flint', tier: 1, speed: 2, durability: 64, age: 0, repair: 'flint', trait: 'Brittle Flint: quick and cheap, wears sooner' },
+  bronze: { key: 'bronze', name: 'Bronze', tier: 2, speed: 3, durability: 192, age: 0, repair: 'bronze_ingot', trait: 'Bronze Temper: tough and steady', damage: 5 },
+  iron: { key: 'iron', name: 'Iron', tier: 3, speed: 4.5, durability: 384, age: 2, repair: 'iron_ingot', trait: 'Iron Weight: heavy and strong', damage: 7 },
+  steel: { key: 'steel', name: 'Steel', tier: 4, speed: 6, durability: 768, age: 2, repair: 'steel_ingot', trait: 'Steel Edge: the keenest and longest-lived', damage: 9 },
 };
 export const HANDLES: Readonly<Record<string, HandleMaterial>> = {
   oak: { key: 'oak', name: 'Oak', inputs: '2 stick', speed: 1, durability: 1, trait: 'Oak Grip: the standard handle' },
@@ -63,8 +70,14 @@ export const BINDINGS: Readonly<Record<string, BindingMaterial>> = {
   resin: { key: 'resin', name: 'Resin', item: 'pine_resin', hold: 1.2, trait: 'Resin: holds longer' },
 };
 
-/** Heads that are made as items (bronze heads already exist from the Ember handwork; wooden tools stay stopgaps). */
-export const HEAD_ITEM_MATERIALS = ['flint', 'bronze', 'iron', 'steel'] as const;
+/** Heads each kind comes in as items (bronze heads already exist from the Ember handwork; wooden tools stay stopgaps). */
+export const KIND_HEADS: Readonly<Record<ModularKind, readonly string[]>> = {
+  pickaxe: ['flint', 'bronze', 'iron', 'steel'],
+  axe: ['flint', 'bronze', 'iron', 'steel'],
+  shovel: ['flint', 'bronze', 'iron', 'steel'],
+  hoe: ['flint', 'bronze', 'iron'],
+  maul: ['bronze', 'iron', 'steel'],
+};
 export const DEFAULT_HANDLE = 'oak';
 export const DEFAULT_BINDING = 'cord';
 
@@ -75,12 +88,12 @@ export interface ToolBuild {
   binding: string;
 }
 
-const KIND_LABEL: Record<ModularKind, string> = { pickaxe: 'Pickaxe', axe: 'Axe', shovel: 'Shovel' };
+export const KIND_LABEL: Record<ModularKind, string> = { pickaxe: 'Pickaxe', axe: 'Axe', shovel: 'Shovel', hoe: 'Hoe', maul: 'Maul' };
 /** Units of head material one head costs (as the old tools: pickaxe and axe three, shovel one; flint two and one). */
-const HEAD_UNITS: Record<string, Record<ModularKind, number>> = {
-  flint: { pickaxe: 2, axe: 2, shovel: 1 },
-  iron: { pickaxe: 3, axe: 3, shovel: 1 },
-  steel: { pickaxe: 3, axe: 3, shovel: 1 },
+const HEAD_UNITS: Record<string, Partial<Record<ModularKind, number>>> = {
+  flint: { pickaxe: 2, axe: 2, shovel: 1, hoe: 1 },
+  iron: { pickaxe: 3, axe: 3, shovel: 1, hoe: 2, maul: 4 },
+  steel: { pickaxe: 3, axe: 3, shovel: 1, maul: 4 },
 };
 
 export const isDefaultBuild = (b: Pick<ToolBuild, 'handle' | 'binding'>): boolean => b.handle === DEFAULT_HANDLE && b.binding === DEFAULT_BINDING;
@@ -89,13 +102,27 @@ export const headItemKey = (head: string, kind: ModularKind): string => `${head}
 export const buildItemKey = (b: ToolBuild): string => (isDefaultBuild(b) ? `${b.head}_${b.kind}` : `${b.head}_${b.handle}_${b.binding}_${b.kind}`);
 
 /** The numbers a build comes to (the formulas in the file header). */
-export function buildStats(b: ToolBuild): { tier: number; speed: number; durability: number } {
+export function buildStats(b: ToolBuild): { tier: number; speed: number; durability: number; damage?: number } {
   const head = HEADS[b.head], handle = HANDLES[b.handle], binding = BINDINGS[b.binding];
-  return {
+  const mines = MINING_KINDS.includes(b.kind);
+  const out: { tier: number; speed: number; durability: number; damage?: number } = {
     tier: head.tier,
-    speed: Math.round(head.speed * handle.speed * 100) / 100,
+    speed: mines ? Math.round(head.speed * handle.speed * 100) / 100 : 1,
     durability: Math.round(head.durability * handle.durability * binding.hold),
   };
+  if (b.kind === 'maul' && head.damage !== undefined) out.damage = head.damage;
+  return out;
+}
+
+/** Each part's trait line, head first (shown in the tooltip and the builder). */
+export const buildTraits = (b: ToolBuild): string[] => [HEADS[b.head].trait, HANDLES[b.handle].trait, BINDINGS[b.binding].trait];
+
+/** Chance a use of a resin-bound tool costs no wear. */
+export const RESIN_SPARE_CHANCE = 0.15;
+/** True when this use of `item` is spared its wear (`roll` is a uniform [0,1) draw). */
+export function sparesWear(item: string, roll: number): boolean {
+  const b = partsOfItem(item);
+  return b !== null && b.binding === 'resin' && roll < RESIN_SPARE_CHANCE;
 }
 
 export function buildName(b: ToolBuild): string {
@@ -104,11 +131,11 @@ export function buildName(b: ToolBuild): string {
 }
 
 /** Heads that can be built into tools: those with a legacy tool of this kind (wooden too, as a virtual build only). */
-const buildable = (head: string): boolean => HEADS[head] !== undefined;
+const buildable = (head: string, kind: ModularKind): boolean => KIND_HEADS[kind].includes(head) || (head === 'wooden' && kind !== 'maul');
 
-const BUILDS: ToolBuild[] = [];
-for (const head of HEAD_ITEM_MATERIALS)
-  for (const kind of MODULAR_KINDS)
+export const BUILDS: ToolBuild[] = [];
+for (const kind of MODULAR_KINDS)
+  for (const head of KIND_HEADS[kind])
     for (const handle of Object.keys(HANDLES))
       for (const binding of Object.keys(BINDINGS)) BUILDS.push({ kind, head, handle, binding });
 
@@ -122,7 +149,7 @@ export function partsOfItem(item: string): ToolBuild | null {
   for (const kind of MODULAR_KINDS) {
     if (!item.endsWith(`_${kind}`)) continue;
     const head = item.slice(0, -kind.length - 1);
-    if (buildable(head)) return { kind, head, handle: DEFAULT_HANDLE, binding: DEFAULT_BINDING };
+    if (buildable(head, kind)) return { kind, head, handle: DEFAULT_HANDLE, binding: DEFAULT_BINDING };
   }
   return null;
 }
@@ -140,7 +167,7 @@ export function swapPartKey(item: string, role: PartRole, material: string): str
   const next: ToolBuild = { ...b, [role]: material };
   if (!HEADS[next.head] || !HANDLES[next.handle] || !BINDINGS[next.binding]) return null;
   const key = buildItemKey(next);
-  return key === item || BY_KEY.has(key) || (isDefaultBuild(next) && buildable(next.head)) ? key : null;
+  return key === item || BY_KEY.has(key) || (isDefaultBuild(next) && buildable(next.head, next.kind)) ? key : null;
 }
 
 /** What comes back when a part is taken off a tool: the item (a handle is its parts, a head its cast head). */
@@ -158,31 +185,43 @@ export const TOOL_PART_ITEMS: ItemSpec[] = [
     desc: 'A light, straight pine haft. Fitted to a head it swings a tenth faster than oak and wears a little sooner.',
   },
   // Heads not already cast from bronze (itemsHand.ts makes the bronze ones).
-  ...HEAD_ITEM_MATERIALS.filter((m) => m !== 'bronze').flatMap((m) =>
-    MODULAR_KINDS.map((kind): ItemSpec => ({
+  ...MODULAR_KINDS.flatMap((kind) =>
+    KIND_HEADS[kind].filter((m) => m !== 'bronze').map((m): ItemSpec => ({
       key: headItemKey(m, kind), name: `${HEADS[m].name} ${KIND_LABEL[kind]} Head`, category: 'component', age: HEADS[m].age,
       desc: `A ${HEADS[m].name.toLowerCase()} ${kind} head. Bind it to a handle at the workbench; the handle and binding you pick change how it works.`,
     })),
   ),
   ...BUILDS.filter((b) => !isDefaultBuild(b)).map((b): ItemSpec => {
     const s = buildStats(b);
-    return {
-      key: buildItemKey(b), name: buildName(b), category: 'tool', age: HEADS[b.head].age, icon: `item_${b.head}_${b.kind}`,
-      desc: `${HEADS[b.head].name} head, ${HANDLES[b.handle].name.toLowerCase()} handle, ${BINDINGS[b.binding].name.toLowerCase()} binding. ${HANDLES[b.handle].trait}. ${BINDINGS[b.binding].trait}.`,
+    const spec: ItemSpec = {
+      key: buildItemKey(b), name: buildName(b), category: 'tool', age: HEADS[b.head].age,
+      desc: `${HEADS[b.head].name} head, ${HANDLES[b.handle].name.toLowerCase()} handle, ${BINDINGS[b.binding].name.toLowerCase()} binding. ${buildTraits(b).join('. ')}.`,
       tool: { kind: b.kind, tier: s.tier, speed: s.speed, durability: s.durability },
     };
+    // Pickaxes, axes, shovels and hoes paint their own composed icon (render/textures/iconsTools.ts); a maul borrows its metal's.
+    if (b.kind === 'maul') {
+      spec.icon = `item_${b.head}_maul`;
+      spec.weapon = { damage: s.damage! };
+    }
+    return spec;
   }),
 ];
+
+/** New head items, each with an icon of its own (the bronze heads were cast before this). */
+export const TOOL_HEAD_ICON_COUNT = MODULAR_KINDS.reduce((n, k) => n + KIND_HEADS[k].filter((m) => m !== 'bronze').length, 0);
+
+/** Builds that paint a composed icon of their own (everything but mauls). */
+export const COMPOSED_ICON_BUILDS: ToolBuild[] = BUILDS.filter((b) => !isDefaultBuild(b) && b.kind !== 'maul');
 
 /** The pine handle and the new heads (assembly is BUILD_RECIPES: it lists at the workbench but is not part of the recipe tree). */
 export const TOOL_PART_RECIPES: RecipeSpec[] = [
   { id: 'pine_handle', station: 'hand', inputs: amounts('1 pine_log'), output: amount('2 pine_handle'), age: 0 },
-  ...HEAD_ITEM_MATERIALS.filter((m) => m !== 'bronze').flatMap((m) =>
-    MODULAR_KINDS.map((kind): RecipeSpec => {
+  ...MODULAR_KINDS.flatMap((kind) =>
+    KIND_HEADS[kind].filter((m) => m !== 'bronze').map((m): RecipeSpec => {
       const inputs = amounts(`${HEAD_UNITS[m][kind]} ${m === 'flint' ? 'flint' : `${m}_ingot`}`);
       const out = amount(headItemKey(m, kind));
       if (m === 'flint') return { id: out.item, station: 'hand', inputs, output: out, age: 0 };
-      return { id: out.item, station: 'furnace', kind: 'forge', inputs, output: out, minTempC: m === 'iron' ? 1000 : 1300, minTier: 3, age: 2 };
+      return { id: out.item, station: 'furnace', kind: 'forge', inputs, output: out, minTempC: m === 'iron' ? (kind === 'maul' ? 1100 : 1000) : kind === 'maul' ? 1400 : 1300, minTier: 3, age: 2 };
     }),
   ),
 ];

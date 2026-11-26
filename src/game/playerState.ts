@@ -5,6 +5,7 @@
  * Conventions: `position` is the centre of the feet (the eye is PLAYER_EYE above it). Yaw is in radians, 0 looks
  * north (-Z) and positive turns left - exactly a three.js camera's rotation.y. Pitch is positive looking up.
  */
+import { sparesWear } from '../content/toolParts';
 import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE, REGEN_MIN_FOOD } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
 import type { DamageCause } from '../core/gameEvents';
@@ -279,6 +280,7 @@ export class PlayerState {
   wearHeldTool(uses: number): boolean {
     const held = this.heldStack();
     if (!held || held.durability === undefined || !(uses > 0) || this.dev) return false;
+    if (sparesWear(held.item, Math.random())) return false; // a resin binding sometimes spares the use (content/toolParts.ts)
     held.durability -= uses;
     if (held.durability > 0) {
       this.inventory.notifyChanged();
