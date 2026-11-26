@@ -20,6 +20,7 @@ import { squareRuin, spawnRuin } from '../world/ruins';
 import { STRUCTURE_GRID_CHUNKS, squareStructure } from '../world/structures';
 import { makeTreasureMap, treasureClue, treasureHint, type Landmark, type TreasureMap } from '../world/treasure';
 import { biteDelayS, rollCatch, waterKind, type CastContext, type WaterSpot } from '../sim/fishing';
+import type { Season } from '../sim/seasons';
 import { WAYPOINT_FUEL_ITEM, WaypointNetwork, type Waypoint, type WaypointSave } from '../sim/waypoints';
 import type { PlayerState } from './playerState';
 
@@ -43,6 +44,8 @@ export interface ExplorationHost {
   age(): number;
   isNight(): boolean;
   raining(): boolean;
+  /** The season of the clock day (src/sim/seasons.ts). */
+  season(): Season;
   biomeAt(x: number, z: number): 'woodland' | 'dunes' | 'frostfell' | 'scar' | 'marsh';
   now(): number;
   rng?: () => number;
@@ -244,7 +247,7 @@ export class Exploration {
     };
   }
 
-  private ctx(): CastContext { return { night: this.host.isNight(), raining: this.host.raining() }; }
+  private ctx(): CastContext { return { night: this.host.isNight(), raining: this.host.raining(), season: this.host.season() }; }
   private rng = (): number => (this.host.rng ?? Math.random)();
 
   private useRod(aim: UseAim | null): 'worked' | 'refused' | null {

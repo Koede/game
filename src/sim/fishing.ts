@@ -4,6 +4,7 @@
  * The Use handler on a water block with a rod in hand and the bobber are a thin layer over this.
  */
 import { FISH, JUNK, type FishSpec, type WaterKind } from '../content/fishing';
+import type { Season } from './seasons';
 
 export interface WaterSpot {
   biome: 'woodland' | 'dunes' | 'frostfell' | 'scar' | 'marsh';
@@ -23,6 +24,8 @@ export interface CastContext {
   /** 0..1 fraction of the day since dawn; night when >= 0.55 (see DAY in core/constants for the real clock). */
   night: boolean;
   raining: boolean;
+  /** The season of the clock day (src/sim/seasons.ts): some fish bite more in one season. */
+  season: Season;
 }
 
 /** Pool size (horizontal blocks) at which still water counts as a lake. */
@@ -44,7 +47,7 @@ export interface Catch { kind: 'fish' | 'junk' | 'nothing'; item: string | null;
 const weightOf = (f: FishSpec, kind: WaterKind, ctx: CastContext): number => {
   const base = f.weights[kind] ?? 0;
   if (base === 0) return 0;
-  return base * (ctx.night && f.night ? f.night : 1) * (ctx.raining && f.rain ? f.rain : 1);
+  return base * (ctx.night && f.night ? f.night : 1) * (ctx.raining && f.rain ? f.rain : 1) * (f.season?.[ctx.season] ?? 1);
 };
 
 /** Chance a cast ends in nothing at all (the fish got away). Rain and the dim hours of night bring them on. */

@@ -15,7 +15,7 @@ function rig() {
   bus.on('toast', (e) => toasts.push(e.text));
   let t = 0;
   const ex = new Exploration({
-    world, bus, player, age: () => 2, isNight: () => false, raining: () => false, biomeAt: () => 'woodland', now: () => t, rng: () => 0.5,
+    world, bus, player, age: () => 2, isNight: () => false, raining: () => false, season: () => 'spring', biomeAt: () => 'woodland', now: () => t, rng: () => 0.5,
   });
   const teleports: number[][] = [];
   ex.teleport = (x, y, z) => { teleports.push([x, y, z]); };

@@ -7,6 +7,8 @@
  */
 import { hash32 } from '../core/math';
 import { blockId } from '../core/registry';
+import { DOOR_TOP } from '../core/doorShape';
+import { Facing, makeVoxel, type Voxel } from '../core/types';
 import { DUNES, FROSTFELL, MARSH, SCAR, WOODLAND } from './terrain';
 
 /** A guardian slot: species key, local cell, extra height above the floor to start looking for a stand, and role. */
@@ -48,7 +50,7 @@ const B = {
   column: blockId('basalt_column'), vent: blockId('steam_vent'), rusted: blockId('rusted_shell'), corestone: blockId('corestone'),
   coalOre: blockId('coal_ore'), asphalt: blockId('asphalt'), poppy: blockId('ember_poppy'), skybell: blockId('skybell'),
   fern: blockId('fern'), lily: blockId('frost_lily'), shrub: blockId('dry_shrub'), light: blockId('magic_light'),
-  jar: blockId('essentia_jar'), workbench: blockId('workbench'), tallGrass: blockId('tall_grass'), furnace: blockId('collapsed_furnace'), crystal: blockId('crystal_cluster'), berry: blockId('berry_bush'),
+  jar: blockId('essentia_jar'), woodenDoor: blockId('wooden_door'), workbench: blockId('workbench'), tallGrass: blockId('tall_grass'), furnace: blockId('collapsed_furnace'), crystal: blockId('crystal_cluster'), berry: blockId('berry_bush'),
 };
 export { B as STRUCTURE_BLOCKS };
 /** The rusted old-age machine a player can repair (src/game/restoration.ts). */
@@ -82,13 +84,18 @@ export class Canvas {
   }
 
   set(x: number, y: number, z: number, id: number): void {
+    this.put(x, y, z, id);
+  }
+
+  /** Writes a whole voxel (id plus facing and variant bits, see makeVoxel) at a local cell. */
+  put(x: number, y: number, z: number, voxel: Voxel): void {
     if (x < 0 || z < 0 || x >= this.w || z >= this.d) return;
     if (y === 0 && x === this.crate[0] && z === this.crate[1]) return;
     const wy = this.floorY + 1 + y;
     const lx = this.x0 + x - this.chunkX;
     const lz = this.z0 + z - this.chunkZ;
     if (lx < 0 || lx >= 16 || lz < 0 || lz >= 16 || wy < 1 || wy >= this.height) return;
-    this.voxels[this.index(lx, wy, lz)] = id;
+    this.voxels[this.index(lx, wy, lz)] = voxel;
   }
 
   /** A solid box of `id`, inclusive corners. */
@@ -123,6 +130,12 @@ export class Canvas {
   /** Makes a doorway: clears cells y0..y1 at (x, z). */
   gap(x: number, z: number, y0 = 0, y1 = 1): void {
     for (let y = y0; y <= y1; y++) this.set(x, y, z, B.air);
+  }
+
+  /** A closed wooden door in the doorway at (x, z): the bottom half at y = 0, the top half (DOOR_TOP) above it. */
+  door(x: number, z: number, facing: Facing): void {
+    this.put(x, 0, z, makeVoxel(B.woodenDoor, facing, false, 0));
+    this.put(x, 1, z, makeVoxel(B.woodenDoor, facing, false, DOOR_TOP));
   }
 
   /** The floor row (y = -1). */
@@ -180,7 +193,7 @@ const LUMBER_MILL: StructureDef = {
   build(c) {
     c.floor(0, 0, 10, 8, (x, z) => c.mix(x, 0, z, B.plank, B.plank, B.stoneBrick));
     c.ring(0, 0, 10, 8, 0, 4, (x, y, z) => (y === 0 ? B.stoneBrick : (x === 0 || x === 10) && (z === 0 || z === 8) ? B.oakLog : B.plank), 90);
-    c.gap(5, 8, 0, 2); c.gap(0, 4, 1, 2); c.gap(10, 4, 1, 2);
+    c.gap(5, 8, 0, 2); c.door(5, 8, Facing.South); c.gap(0, 4, 1, 2); c.gap(10, 4, 1, 2);
     // The saw bench: a long table with a log on it, a stack of boards, drive posts.
     c.box(2, 0, 2, 7, 0, 2, B.plank); c.box(3, 1, 2, 4, 1, 2, B.oakLog); c.box(7, 0, 6, 8, 1, 7, B.plank);
     c.pillar(2, 6, 0, 3, B.oakLog); c.pillar(5, 6, 0, 3, B.oakLog);
@@ -245,7 +258,7 @@ const HUNTERS_LODGE: StructureDef = {
   build(c) {
     c.floor(0, 0, 8, 6, (x, z) => (c.roll(x, 0, z) < 160 ? B.plank : B.stoneBrick));
     c.ring(0, 0, 8, 6, 0, 3, (x, y, z) => ((x === 0 || x === 8) && (z === 0 || z === 6) ? B.pineLog : B.pineLog), 50);
-    c.gap(4, 6, 0, 1); c.gap(8, 3, 1, 1);
+    c.gap(4, 6, 0, 1); c.door(4, 6, Facing.South); c.gap(8, 3, 1, 1);
     c.box(0, 3, 0, 8, 3, 6, B.plank); c.box(0, 4, 0, 8, 4, 6, B.snow);
     c.box(6, 0, 1, 7, 1, 1, B.stoneBrick); c.set(7, 2, 1, B.stoneBrick); c.set(6, 0, 2, B.torch);
     c.box(3, 0, 1, 5, 0, 1, B.pineLog); c.set(2, 0, 5, B.torch);
@@ -335,7 +348,7 @@ const PEAT_STILT_HUT: StructureDef = {
   build(c) {
     c.floor(0, 0, 6, 6, () => B.plank);
     c.ring(0, 0, 6, 6, 0, 4, (x, y, z) => ((x === 0 || x === 6) && (z === 0 || z === 6) ? B.oakLog : B.plank), 60);
-    c.gap(3, 6, 0, 1); c.gap(0, 3, 1, 2);
+    c.gap(3, 6, 0, 1); c.door(3, 6, Facing.South); c.gap(0, 3, 1, 2);
     c.box(0, 4, 0, 6, 4, 6, B.plank);
     c.set(3, 0, 7, B.peat); c.box(5, 0, 7, 6, 0, 7, B.peat); c.set(6, 1, 7, B.peat);
     c.set(1, 0, 7, B.reeds); c.set(2, 0, 7, B.reeds);
@@ -362,7 +375,7 @@ const PUMP_HOUSE: StructureDef = {
   build(c) {
     c.floor(0, 0, 8, 6, (x, z) => c.mix(x, 0, z, B.stoneBrick, B.mossy));
     c.ring(0, 0, 8, 6, 0, 3, mossyBrick(c), 90);
-    c.gap(4, 6, 0, 1);
+    c.gap(4, 6, 0, 1); c.door(4, 6, Facing.South);
     for (const x of [0, 8]) for (const z of [0, 6]) c.set(x, 3, z, B.oakLog);
     c.box(3, -1, 2, 5, -1, 4, B.water); c.box(3, -2, 2, 5, -2, 4, B.water);
     c.ring(2, 1, 6, 5, 0, 1, () => B.stoneBrick); c.set(4, 0, 1, B.air);
@@ -392,7 +405,7 @@ const OLD_HOME: StructureDef = {
   build(c) {
     c.floor(0, 0, 8, 6, (x, z) => c.mix(x, 0, z, B.plank, B.plank, B.stoneBrick));
     c.ring(0, 0, 8, 6, 0, 3, (x, y, z) => ((x === 0 || x === 8) && (z === 0 || z === 6) ? B.oakLog : c.mix(x, y, z, B.plank, B.plank, B.stoneBrick, B.mossy)), 70);
-    c.gap(4, 6, 0, 1);
+    c.gap(4, 6, 0, 1); c.door(4, 6, Facing.South);
     for (const [x, z] of [[0, 3], [8, 3], [3, 0], [6, 0]]) c.set(x, 1, z, c.roll(x, 1, z) < 120 ? B.glass : B.air);
     c.box(0, 3, 0, 8, 3, 6, B.plank);
     for (const [x, z] of [[2, 2], [5, 3], [7, 5]]) c.set(x, 3, z, B.air);

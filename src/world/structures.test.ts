@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE } from '../core/constants';
 import { mulberry32, seedFromString } from '../core/math';
 import { BLOCKS, STRUCTURE_LOOT, blockId, creature, item, lootTableItems, rollLoot } from '../core/registry';
-import { CHUNK_SIZE, CHUNK_VOLUME, voxelIndex, voxelId } from '../core/types';
+import { CHUNK_SIZE, CHUNK_VOLUME, voxelIndex, voxelId, voxelVariant } from '../core/types';
+import { DOOR_TOP } from '../core/doorShape';
 import { chunkKey } from './chunk';
 import { ID } from './ids';
 import { squareRuin } from './ruins';
@@ -21,11 +22,11 @@ const keys = (...k: string[]): number[] => k.map((x) => blockId(x));
 /** What each biome's structures may be made of (plus the dirt and stone the levelling lays). */
 const COMMON = keys('dirt', 'stone', 'rubble', 'torch', 'magic_light');
 const PALETTE: Record<number, number[]> = {
-  [WOODLAND]: [...COMMON, ...keys('grass', 'oak_log', 'oak_leaves', 'plank', 'stone_brick', 'brick', 'mossy_stone_brick', 'cracked_stone_brick', 'ember_poppy', 'fern', 'skybell', 'glowcap', 'glass', 'workbench', 'collapsed_furnace', 'tall_grass')],
+  [WOODLAND]: [...COMMON, ...keys('grass', 'oak_log', 'oak_leaves', 'plank', 'stone_brick', 'brick', 'mossy_stone_brick', 'cracked_stone_brick', 'ember_poppy', 'fern', 'skybell', 'glowcap', 'glass', 'workbench', 'collapsed_furnace', 'tall_grass', 'wooden_door')],
   [DUNES]: [...COMMON, ...keys('sand', 'brick', 'clay', 'limestone', 'glass', 'cactus', 'dry_shrub', 'water', 'rusted_shell', 'asphalt', 'corestone')],
-  [FROSTFELL]: [...COMMON, ...keys('snow', 'ice', 'packed_ice', 'ice_spike', 'pine_log', 'plank', 'stone_brick', 'cracked_stone_brick', 'frost_lily', 'collapsed_furnace', 'rusted_shell')],
+  [FROSTFELL]: [...COMMON, ...keys('snow', 'ice', 'packed_ice', 'ice_spike', 'pine_log', 'plank', 'stone_brick', 'cracked_stone_brick', 'frost_lily', 'collapsed_furnace', 'rusted_shell', 'wooden_door')],
   [SCAR]: [...COMMON, ...keys('basalt', 'basalt_column', 'steam_vent', 'lava', 'corestone', 'rusted_shell', 'coal_ore')],
-  [MARSH]: [...COMMON, ...keys('peat', 'clay', 'reeds', 'mossy_stone_brick', 'stone_brick', 'cracked_stone_brick', 'oak_log', 'plank', 'glowcap', 'water', 'glass', 'essentia_jar')],
+  [MARSH]: [...COMMON, ...keys('peat', 'clay', 'reeds', 'mossy_stone_brick', 'stone_brick', 'cracked_stone_brick', 'oak_log', 'plank', 'glowcap', 'water', 'glass', 'essentia_jar', 'wooden_door')],
 };
 
 /** A site standing at chunk (0, 0) on flat stone, so the real drawing path can be inspected cell by cell. */
@@ -96,6 +97,36 @@ describe('the structure types', () => {
           }
           expect(stands, `${def.key} guard ${s.species} at ${s.x},${s.z}`).toBe(true);
         }
+      }
+    });
+  }
+});
+
+describe('doorways of homes and workshops', () => {
+  // The doorway of each home or workshop holds a closed wooden_door: two cells, bottom then top (DOOR_TOP), same facing.
+  const DOORED = ['old_home', 'hunters_lodge', 'peat_stilt_hut', 'lumber_mill', 'pump_house'];
+  for (const key of DOORED) {
+    it(`${key}: one closed wooden_door in its doorway, both halves present, standing on the floor row`, () => {
+      const def = STRUCTURE_DEFS.find((d) => d.key === key)!;
+      const door = blockId('wooden_door');
+      for (const biome of def.biomes) {
+        const { voxels } = drawn(def, biome);
+        const doors: Array<[number, number]> = [];
+        for (let z = 0; z < CHUNK_SIZE; z++) {
+          for (let x = 0; x < CHUNK_SIZE; x++) {
+            const bottom = voxels[voxelIndex(x, 41, z)];
+            if (voxelId(bottom) !== door) continue;
+            doors.push([x, z]);
+            const top = voxels[voxelIndex(x, 42, z)];
+            expect(voxelId(top), `${key} top half`).toBe(door);
+            expect(voxelVariant(top), `${key} top half variant`).toBe(DOOR_TOP);
+            expect(voxelVariant(bottom), `${key} bottom half variant`).toBe(0);
+            expect((top >> 10) & 3, `${key} halves face the same way`).toBe((bottom >> 10) & 3);
+            expect((bottom >> 12) & 1, `${key} door starts closed`).toBe(0);
+            expect(voxelId(voxels[voxelIndex(x, 40, z)]), `${key} door stands on the floor`).not.toBe(0);
+          }
+        }
+        expect(doors.length, `${key} in biome ${biome}`).toBe(1);
       }
     });
   }

@@ -9,13 +9,17 @@ export const FISHING_ROD_WEAR = 90;
 export type WaterKind = 'pond' | 'river' | 'lake' | 'marsh' | 'frozen' | 'cave';
 
 /** A catch: weights per water kind (0 or absent: not there). `junk` is what the line brings up instead of a fish. */
-export interface FishSpec { item: string; cooked: string; weights: Partial<Record<WaterKind, number>>; night?: number; rain?: number }
+export interface FishSpec {
+  item: string; cooked: string; weights: Partial<Record<WaterKind, number>>; night?: number; rain?: number;
+  /** Multiplier per season (src/sim/seasons.ts); absent seasons count 1. Every fish keeps a weight in every season. */
+  season?: Partial<Record<'spring' | 'summer' | 'autumn' | 'winter', number>>;
+}
 
 export const FISH: readonly FishSpec[] = [
-  { item: 'raw_perch', cooked: 'cooked_perch', weights: { pond: 6, river: 4, lake: 3, marsh: 3 } },
-  { item: 'raw_trout', cooked: 'cooked_trout', weights: { river: 6, lake: 4, frozen: 5 }, rain: 1.6 },
-  { item: 'raw_eel', cooked: 'cooked_eel', weights: { marsh: 6, lake: 2, pond: 1 }, night: 2 },
-  { item: 'raw_glowfin', cooked: 'cooked_glowfin', weights: { cave: 8, lake: 1 }, night: 1 },
+  { item: 'raw_perch', cooked: 'cooked_perch', weights: { pond: 6, river: 4, lake: 3, marsh: 3 }, season: { summer: 1.5 } },
+  { item: 'raw_trout', cooked: 'cooked_trout', weights: { river: 6, lake: 4, frozen: 5 }, rain: 1.6, season: { spring: 1.6 } },
+  { item: 'raw_eel', cooked: 'cooked_eel', weights: { marsh: 6, lake: 2, pond: 1 }, night: 2, season: { autumn: 1.6 } },
+  { item: 'raw_glowfin', cooked: 'cooked_glowfin', weights: { cave: 8, lake: 1 }, night: 1, season: { winter: 1.8 } },
 ];
 
 /** Not fish: what a cast sometimes hauls up. Real items of every age (checked by tests). */

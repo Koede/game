@@ -20,6 +20,7 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
+import { seasonOf } from '../sim/seasons';
 import { isFluidEndpoint } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
@@ -228,6 +229,7 @@ export class GameState {
     this.exploration = new Exploration({
       world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight,
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
+      season: () => seasonOf(this.clock.day),
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
