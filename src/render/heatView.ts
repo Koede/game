@@ -5,6 +5,8 @@
  */
 import * as THREE from 'three';
 import { heatColor } from '../game/thermal';
+import type { ColorMode } from '../core/context';
+import { rampFor, rampRgb01 } from '../ui/kit/palette';
 
 export interface HeatGrid {
   temps: Float32Array;
@@ -21,6 +23,9 @@ export class HeatView {
   private readonly mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.42, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   private readonly dummy = new THREE.Object3D();
   private readonly color = new THREE.Color();
+  /** Settings.colorMode: 'off' keeps the cold-blue / warm-orange look, the others use the colour-blind heat ramp. */
+  colorMode: ColorMode = 'off';
+  private last: HeatGrid | null = null;
   /** Cells drawn by the last feed. */
   drawn = 0;
 
@@ -43,19 +48,23 @@ export class HeatView {
 
   /** Lays one tile per cell that has a floor and something to show (comfortable air is left clear). */
   set(grid: HeatGrid): void {
+    this.last = grid;
     const { temps, floors, size } = grid;
+    const ramp = this.colorMode === 'off' ? null : rampFor(this.colorMode, 'heat');
     let n = 0;
     const cap = this.mesh.instanceMatrix.count;
     for (let j = 0; j < size && n < cap; j++) {
       for (let i = 0; i < size && n < cap; i++) {
         const fy = floors[j * size + i];
         if (fy < 0) continue;
-        const [r, g, b, a] = heatColor(temps[j * size + i]);
+        const temp = temps[j * size + i];
+        const [r, g, b, a] = heatColor(temp);
         if (a < 0.1) continue;
         this.dummy.position.set(grid.x0 + i + 0.5, fy + 0.04, grid.z0 + j + 0.5);
         this.dummy.updateMatrix();
         this.mesh.setMatrixAt(n, this.dummy.matrix);
-        this.color.setRGB(r, g, b);
+        if (ramp) this.color.setRGB(...rampRgb01(ramp, (temp + 5) / 49)); // 0 at -5 C and below, 1 at 44 C and above
+        else this.color.setRGB(r, g, b);
         this.mesh.setColorAt(n, this.color);
         n++;
       }
@@ -64,6 +73,11 @@ export class HeatView {
     this.drawn = n;
     this.mesh.instanceMatrix.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  /** Repaints the last grid (the colour mode changed). */
+  refresh(): void {
+    if (this.last) this.set(this.last);
   }
 
   dispose(): void {

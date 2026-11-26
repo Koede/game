@@ -194,6 +194,7 @@ export class Renderer implements IView {
     this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.heatView.mesh, this.brewLiquid.mesh, this.distillFx.group);
     this.applyDistance();
 
+    this.applyColorMode();
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
     this.offs.push(bus.on('block:placed', () => this.held.bump()));
     this.offs.push(bus.on('weather:lightning', ({ distance, bearing }) => this.fx.lightning(distance, bearing)));
@@ -433,8 +434,19 @@ export class Renderer implements IView {
 
   // ---------------------------------------------------------------------------------------------- internals
 
+  /** Hands Settings.colorMode to the overlays that draw ramps (heat view, grid overlay). */
+  private applyColorMode(): void {
+    const mode = this.settings.colorMode ?? 'off';
+    this.tech.setColorMode(mode);
+    if (this.heatView.colorMode !== mode) {
+      this.heatView.colorMode = mode;
+      this.heatView.refresh();
+    }
+  }
+
   private onSettings(): void {
     this.setFov(this.settings.fov);
+    this.applyColorMode();
     if (this.settings.renderDistance !== this.renderDistance) {
       this.renderDistance = this.settings.renderDistance;
       this.applyDistance();

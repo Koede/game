@@ -4,7 +4,7 @@
  * highlight. The Renderer owns one TechLayer and calls update() once per frame before drawing.
  */
 import * as THREE from 'three';
-import type { GameBus } from '../../core/context';
+import type { ColorMode, GameBus } from '../../core/context';
 import type { IWorld } from '../../core/types';
 import type { GridCell } from '../../sim';
 import type { WorldUniforms } from '../materials';
@@ -63,6 +63,11 @@ export class TechLayer {
   /** Where packets and pipe contents come from (null: draw none). */
   setTransport(source: TransportSource | null): void {
     this.source = source;
+  }
+
+  /** Settings.colorMode for the overlays drawn here (the grid's load colours). */
+  setColorMode(mode: ColorMode): void {
+    this.grid.colorMode = mode;
   }
 
   /** The power grid overlay's cells (null: off). Set once a frame by the app; see src/game/gridMeter.ts. */

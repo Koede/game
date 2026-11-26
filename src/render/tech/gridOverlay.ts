@@ -7,6 +7,8 @@
  */
 import * as THREE from 'three';
 import type { GridCell } from '../../sim';
+import type { ColorMode } from '../../core/context';
+import { LOAD_RAMPS, rampRgb01 } from '../../ui/kit/palette';
 
 /** Cells drawn at most per kind of draw (cables / machines). */
 export const GRID_CABLE_CAP = 2048;
@@ -21,8 +23,20 @@ const HOT = new THREE.Color(0xe8503c);
 const SOURCE = new THREE.Color(0x4ad0ff);
 const STORAGE = new THREE.Color(0xa070f0);
 
-/** Colour of a cable (or a healthy consumer) at `load` 0..1 on a grid in `state`. Written into `out`. */
-export function loadColour(load: number, state: GridCell['state'], out: THREE.Color): THREE.Color {
+/**
+ * Colour of a cable (or a healthy consumer) at `load` 0..1 on a grid in `state`. Written into `out`. With a colour-blind
+ * `mode` the ok / busy / overloaded stops come from LOAD_RAMPS (src/ui/kit/palette.ts) instead of green / amber / red.
+ */
+export function loadColour(load: number, state: GridCell['state'], out: THREE.Color, mode: ColorMode = 'off'): THREE.Color {
+  if (mode !== 'off') {
+    const ramp = LOAD_RAMPS[mode];
+    const at = (t: number): THREE.Color => out.setRGB(...rampRgb01(ramp, t));
+    if (state === 'overload') return at(1);
+    if (state === 'brownout') return at(0.75);
+    if (load < 0.6) return at(0);
+    if (load < 0.9) return at((load - 0.6) / 0.3 * 0.5);
+    return at(0.5 + Math.min(1, (load - 0.9) / 0.1) * 0.5);
+  }
   if (state === 'overload') return out.copy(HOT);
   if (state === 'brownout') return out.copy(BUSY).lerp(HOT, 0.5);
   if (load < 0.6) return out.copy(OK);
@@ -44,6 +58,9 @@ function layer(cap: number, size: number, opacity: number, order: number): THREE
 }
 
 export class GridOverlay {
+  /** Settings.colorMode; the instance colours are rewritten when it changes. */
+  colorMode: ColorMode = 'off';
+  private writtenMode: ColorMode = 'off';
   readonly group = new THREE.Group();
   /** Cells drawn (cables + machines). */
   drawn = 0;
@@ -68,8 +85,9 @@ export class GridOverlay {
       return;
     }
     this.time += dt;
-    if (feed.tick !== this.tick) {
+    if (feed.tick !== this.tick || this.colorMode !== this.writtenMode) {
       this.tick = feed.tick;
+      this.writtenMode = this.colorMode;
       this.write(feed.cells);
     }
     // A grid in trouble breathes: the one thing that moves between ticks.
@@ -110,8 +128,8 @@ export class GridOverlay {
       mesh.setMatrixAt(i, this.m);
       if (c.kind === 'source') this.colour.copy(SOURCE);
       else if (c.kind === 'storage') this.colour.copy(STORAGE);
-      else if (c.short) this.colour.copy(HOT);
-      else loadColour(c.load, c.state, this.colour);
+      else if (c.short) loadColour(1, 'overload', this.colour, this.colorMode);
+      else loadColour(c.load, c.state, this.colour, this.colorMode);
       mesh.setColorAt(i, this.colour);
     }
     this.cables.count = nc;
