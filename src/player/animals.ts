@@ -69,6 +69,11 @@ export class AnimalHands {
     return this.target;
   }
 
+  /** Distance to the nearest animal on the ray within reach, or Infinity (so a person behind an animal is not talked to). */
+  distanceAlong(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): number {
+    return this.animals.raycast(ox, oy, oz, dx, dy, dz, REACH)?.distance ?? Infinity;
+  }
+
   /**
    * Mine held on the target: one hit whenever both the player's swing (0.5 s with a maul, 0.4 s otherwise) and the
    * creature's own cooldown allow. A weapon with `stunS` passes it along; the held tool or weapon wears by 1.
@@ -125,7 +130,9 @@ export class AnimalHands {
     }
     if (milking) swapHeldItem(this.player, MILK_CONTAINERS[item]);
     else {
-      this.player.give('wool', WOOL_PER_SHEARING);
+      // A full pack drops the wool at the player's feet instead of losing it (the goat's timer has already started).
+      const left = this.player.give('wool', WOOL_PER_SHEARING);
+      if (left > 0) this.player.drop('wool', left);
       this.player.wearHeldTool(1);
     }
     this.swing.triggerSwing();

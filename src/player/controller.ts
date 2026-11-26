@@ -49,7 +49,7 @@ export interface PlayerControllerOptions {
   /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
   animals?: AnimalTargets;
   /** The tavern's people: Use on one talks to them (returns true when someone was spoken to). */
-  talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number) => boolean;
+  talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist?: number) => boolean;
   /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
   transport?: TransportHands;
   /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
@@ -105,6 +105,7 @@ export class PlayerController {
   private readonly settings: Settings;
   private readonly state: InputState;
   private readonly hit: RayHit = createRayHit();
+  private readonly talkHit: RayHit = createRayHit();
   /** A screen block behind a thin block under the crosshair (see useTarget). */
   private readonly behind: RayHit = createRayHit();
   private readonly dir: Vec3 = { x: 0, y: 0, z: 1 };
@@ -228,7 +229,11 @@ export class PlayerController {
       if (intent.use && p.collectors.trigger()) intent.use = false;
       if (intent.use && this.talkTo) {
         p.viewDir(this.dir);
-        if (this.talkTo(p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z)) intent.use = false;
+        // Nobody is talked to through a wall or past an animal standing in front of them.
+        const d = this.dir;
+        const wall = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, false, this.talkHit);
+        const beast = this.animals?.distanceAlong(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z) ?? Infinity;
+        if (this.talkTo(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, Math.min(wall ? wall.distance : Infinity, beast))) intent.use = false;
       }
       this.move(dt, intent);
     }
