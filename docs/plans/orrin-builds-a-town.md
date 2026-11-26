@@ -1,5 +1,7 @@
 # Orrin builds a town
 
+> **Change (owner):** the builder is **Gruk**, not Orrin. Read "Orrin" as "Gruk" below; code uses `BUILDER_ID`.
+
 ## Goal
 
 Orrin, the tavern's artificer, slowly builds a village next to the tavern for the people of the world. The layout is procedural (drawn from
