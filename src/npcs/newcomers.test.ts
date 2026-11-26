@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { GameState } from '../app/state';
 import { NpcManager, type NpcSnapshot } from './manager';
 import { createBus } from '../core/context';
+import { NPCS } from './data';
 
 /** A new world whose lodge stands (the builder is stocked and run for days), then days run until someone moves in. */
 let state: GameState;
@@ -71,6 +72,43 @@ describe('newcomers in a new world', () => {
     const b = new NpcManager(createBus());
     expect(() => b.load(old)).not.toThrow();
     expect(b.isPresent('rosa')).toBe(true);
+  });
+
+  it('moves Rosa by hand to a free room, and refuses Gruk and a missing room', () => {
+    const now = state.npcs.settlementDebug().occupancy.rosa;
+    const to = state.npcs.moveOptions('rosa').find((o) => o.id.startsWith('lodge_') && o.id !== now);
+    expect(to).toBeTruthy();
+    expect(state.npcs.moveResident('rosa', to!.id)).toEqual({ ok: true });
+    expect(state.npcs.settlementDebug().occupancy.rosa).toBe(to!.id);
+    expect(state.npcs.moveResident('gruk', to!.id).ok).toBe(false);
+    expect(state.npcs.moveResident('rosa', 'lodge_9').ok).toBe(false);
+    expect(state.npcs.townPage().residents.find((r) => r.id === 'rosa')?.moves.length).toBeGreaterThan(1);
+  });
+
+  it('knocks Rosa down in a blast: she is gone from view today and back in the morning', () => {
+    const v = state.npcs.views().find((x) => x.id === 'rosa')!;
+    state.bus.emit('explosion', { x: v.x, y: v.y, z: v.z, radius: 3 });
+    expect(state.npcs.views().some((x) => x.id === 'rosa')).toBe(false);
+    expect(state.npcs.speak({ ...(NPCS.find((n) => n.id === 'rosa')!) })).toBe('');
+    const day = state.clock.day;
+    for (let n = 0; state.clock.day === day && n < 3000; n++) state.tick(1);
+    state.tick(1);
+    expect(state.npcs.views().some((x) => x.id === 'rosa')).toBe(true);
+  });
+
+  it('a resident with a house outside the lodge walks out of the door to it for the night, and back by day', () => {
+    const o = (state.npcs as any).at as [number, number, number];
+    const st = (state.npcs as any).settlement;
+    const house = `house:${o[0] + 25},${o[1] + 1},${o[2] + 3}`;
+    st.addHouse(house);
+    expect(state.npcs.moveResident('rosa', house)).toEqual({ ok: true });
+    const xOf = (): number => state.npcs.views().find((v) => v.id === 'rosa')!.x;
+    state.clock.timeOfDay = 0.9;
+    for (let n = 0; n < 4000 && xOf() < o[0] + 24; n++) state.tick(1);
+    expect(xOf()).toBeGreaterThan(o[0] + 16); // out past the lodge's walls
+    state.clock.timeOfDay = 0.3;
+    for (let n = 0; n < 4000 && xOf() > o[0] + 14; n++) state.tick(1);
+    expect(xOf()).toBeLessThan(o[0] + 14);
   });
 
   it('a skipped stretch of nights is rolled one by one and never moves in more than the free rooms hold', () => {

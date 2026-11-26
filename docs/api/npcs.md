@@ -191,5 +191,21 @@ HUD chip under the goal tracker (`src/ui/hud/townChip.ts`) and a Town entry in t
 building and its stage, percent and missing items, days of work left, standing and the next unlock, who lives where and how
 content they are, the rooms, who is next in line and what they wait for.
 
+**Houses and moving out.** When a cottage finishes after the tavern stands, its floor cell becomes a free house room (`house:x,y,z`,
+valid by default). On the next day turn the earliest arrival who has lived in the lodge a moon (`HOUSE_AFTER_DAYS` 8) moves in; a goodbye
+by trust tier is toasted (a stranger thanks you, a friend says "come by anytime", a close friend gives 10 coin), their lodge room is free
+again, and a diary line is written. They keep to the common room by day and walk home at night: out through the door (tavern-local
+cell 6,0) and straight over open ground to the house or built room (`houseSpot`, `step`), back the same way in the morning. Not built:
+a house styled per person, and pathing around obstacles on the open ground.
+
+**By hand.** The Town page gives each resident (not Gruk) a room picker of the free valid rooms and the common room
+(`moveResident`, `moveOptions`, refusals from `housingView.assignRoom`).
+
+**Tips and lines.** A favour's coin is scaled by the asker's `tipFactor` (exact at neutral). A content person adds a warm word after a
+line (a third of the time), a restless one a grumpy word (half), and the morning someone comes back from a knock-down always a grumpy one.
+
+**Knock-down.** An `explosion` near a resident knocks them down: out of sight and silent for the day, back the next morning (a toast),
+room kept. Saved as `away` in the settlement snapshot.
+
 Dev helpers: `window.__hw.settlement()`, `townPage()` and `skipNights(n)`. Tests: `settlement.test.ts`, `newcomers.test.ts`,
 `campGoals.test.ts`. E2e: `scripts/e2e-newcomers.mjs`.

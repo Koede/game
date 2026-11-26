@@ -179,3 +179,56 @@ describe('contentment of the town', () => {
     expect(contentment('rosa', { ...base, warmth: 1000 }).score).toBeLessThanOrEqual(1);
   });
 });
+
+describe('houses, moving by hand, knock-down', () => {
+  const rooms = () => [...lodgeRooms(3)];
+  const seeded = () => {
+    const s = new Settlement();
+    s.track(1, rooms());
+    s.advance(1, rooms, () => lineOf({}), never, () => undefined);
+    s.place('rosa', 'lodge_1');
+    // log an arrival on day 2
+    s.advance(3, rooms, () => lineOf({}), always, (a) => s.place(a.personId, a.roomId));
+    return s;
+  };
+
+  it('moves the earliest resident into a free house after a moon, never before, one per house', () => {
+    const s = seeded();
+    const who = s.arrivals()[0][0];
+    const day0 = s.arrivals()[0][2];
+    s.addHouse('house:10,5,10');
+    const house = s.houseRooms();
+    expect(s.moveOuts(day0 + 3, [...rooms(), ...house])).toEqual([]);
+    const moved = s.moveOuts(day0 + 8, [...rooms(), ...house]);
+    expect(moved.map((m) => [m.personId, m.to])).toEqual([[who, 'house:10,5,10']]);
+    expect(s.roomOf(who)).toBe('house:10,5,10');
+    expect(s.moveOuts(day0 + 20, [...rooms(), ...house])).toEqual([]); // the house is taken now
+  });
+
+  it('assigns by hand to a free valid room only, and the camp always works', () => {
+    const s = seeded();
+    const who = s.arrivals()[0][0];
+    expect(s.assign(who, 'nope', rooms())).toMatchObject({ ok: false });
+    expect(s.assign(who, 'lodge_3', rooms())).toEqual({ ok: true });
+    expect(s.roomOf(who)).toBe('lodge_3');
+    s.place('mara', 'lodge_2');
+    expect(s.assign(who, 'lodge_2', rooms())).toMatchObject({ ok: false, reason: 'room is taken' });
+    expect(s.assign(who, CAMP, rooms())).toEqual({ ok: true });
+    expect(s.roomOf(who)).toBe(CAMP);
+  });
+
+  it('keeps someone away the day they are knocked down, back and grumpy the next morning, and saves it', () => {
+    const s = new Settlement();
+    s.knockDown('bram', 5);
+    expect(s.isAway('bram', 5)).toBe(true);
+    expect(s.isAway('bram', 6)).toBe(false);
+    expect(s.isGrumpy('bram', 6)).toBe(true);
+    expect(s.isGrumpy('bram', 7)).toBe(false);
+    const t = new Settlement();
+    t.load(JSON.parse(JSON.stringify(s.toJSON())));
+    expect(t.isAway('bram', 5)).toBe(true);
+    expect(t.comeBack(6)).toEqual(['bram']);
+    expect(t.comeBack(8)).toEqual([]);
+    expect(t.isGrumpy('bram', 6)).toBe(false); // forgotten after yesterday
+  });
+});

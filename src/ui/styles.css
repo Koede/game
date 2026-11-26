@@ -3098,6 +3098,7 @@ body {
 .hw-town__name { font-weight: 600; min-width: 0; }
 .hw-town__bar { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
 .hw-town__fill { height: 100%; background: var(--hw-heat, #d9822b); }
+.hw-town__move { max-width: 46%; min-height: 36px; font: inherit; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; }
 
 /* ---- the Jobs screen (docs/api/jobs.md) ---- */
 .hw-jobs { display: flex; flex-direction: column; gap: 12px; }

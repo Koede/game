@@ -132,9 +132,9 @@ switch on with the stage that holds them (the jukebox with the stage, the pool w
    walk-in and introduction. Gruk is the builder, so the line is Rosa, Orrin, Mara, Bram, Veyra (`docs/api/npcs.md`, "Newcomers").
 6. **The room check and the housing view (shipped, read-only):** valid rooms (the lodge's own by default, player-built ones by their bed
    and `checkRoom`) count as free housing for the move-in roll; the Town page lists the rooms with reasons; residents whose room breaks
-   move. Open: moving a resident by hand to another room.
+   move. Moving a resident by hand is on the Town page.
 7. **Contentment (partly shipped):** likes and dislikes, crowding and the effects on Bram's payout, the trader's and Rosa's prices and
-   how often favours are pinned. Open: tips and the warmth of lines; residents knocked down coming back the next morning.
+   how often favours are pinned. Tips follow favours, lines take a warm or grumpy word, and a resident knocked down by a blast is back the next morning.
 8. **Houses and moving out (after the tavern is finished):** per-person house templates, the goodbye scene by trust tier, routines that bring them to the tavern at night.
 
 ## Tests
