@@ -6,9 +6,9 @@ saved as the optional `WorldSave.disasters` (`{ v: 1, pressure, soot, strikeInS 
 
 ## Difficulty (the world's hard-mode flag)
 
-It reads `Settings.difficulty` through `GameState`: `peaceful` has no disasters, `normal` is mild (long warnings,
+Harsh is the per-world hard flag the winter module saves at creation (`winter.hard`, docs/api/winter.md): an old save never has it, so Hard in Settings does not make it harsh. Peaceful still comes from `Settings.difficulty`. `peaceful` has no disasters, `normal` is mild (long warnings,
 nothing blown up, little damage), `hard` is harsh (short warnings, blasts, fire spreading, strikes burning a run of cables).
-Other threads that add a hard-mode world flag only need to change the `difficulty` callback in `GameState`.
+The mapping is the `difficulty` callback in `GameState`.
 
 ## The three hazards
 
@@ -27,6 +27,6 @@ Everything the rules need arrives as probes built in `GameState` (`disasterFurna
 - **Steam loop:** `BoilerProbe.fill` is the steam room's fill today; swap it for a real pressure ratio when the loop has
   one. The valve is any block keyed `safety_valve` within `VALVE_REACH`, or pass `DisastersHost.valveNear`.
 - **Heat zones:** `FlueProbe.tempC` is the furnace's temperature; a zone model can feed its own.
-- **Seasons / hard mode:** change the `difficulty` callback.
+- **Seasons / hard mode:** `winter.hard` feeds the `difficulty` callback.
 
 Tests: `src/game/disasters.test.ts` (rules), `src/app/disasters.test.ts` (save compatibility), `src/player/toolUses.test.ts` (the sweep).

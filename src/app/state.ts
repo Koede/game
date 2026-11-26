@@ -28,6 +28,7 @@ import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
+import { Winter } from '../game/winter';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -80,6 +81,8 @@ export class GameState {
   readonly weathering: Weathering;
   /** Boiler overpressure, chimney fires and storms on exposed wiring, each with its counterplay (docs/api/disasters.md). */
   readonly disasters: Disasters;
+  /** Frozen rivers and the hard-winter arc (docs/api/winter.md). */
+  readonly winter: Winter;
   /** Repairable old-age machines (docs/api/restoration.md). */
   readonly restoration: Restoration;
   /** Companion dog and cat (docs/api/pets.md). */
@@ -236,7 +239,9 @@ export class GameState {
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     this.disasters = new Disasters({
       world, bus, player: this.player,
-      difficulty: () => this.difficultyNow,
+      // Peaceful comes from Settings; harsh from the per-world hard flag the winter module stores at creation, so an old
+      // save on Hard stays mild and both features agree on what a hard world is.
+      difficulty: () => (this.difficultyNow === 'peaceful' ? 'peaceful' : this.winter.hard ? 'hard' : 'normal'),
       weather: () => this.weather.state,
       rng: () => Math.random(),
       furnaces: () => this.disasterFurnaces(),
@@ -249,6 +254,16 @@ export class GameState {
     });
     if (save?.disasters && isDisastersSnapshot(save.disasters)) this.disasters.load(save.disasters);
     this.offs.push(bus.on('disaster:sweep', ({ x, y, z }) => void this.disasters.sweep(x, y, z)));
+    this.winter = new Winter({
+      world, bus, player: this.player, day: () => this.clock.day, isNight: () => this.clock.isNight,
+      snowing: (x, y, z) => this.sim.weather.snowAt(x, y, z),
+    });
+    world.loadExtra('winter', (raw) => this.winter.load(raw));
+    // A new world on Hard is a hard-winter world; the choice is saved with it, and a save without it never is one.
+    if (save === null && difficulty === 'hard') this.winter.hard = true;
+    this.offs.push(world.persist('winter', () => this.winter.toJSON()));
+    this.survival.winterDrain = (exposed) => this.winter.coldDrain(exposed);
+    this.sim.hardWinter = this.winter.hard;
     this.pets = new Pets({
       bus, player: this.player, mobs: this.mobs, isDusk: () => this.clock.phase === 'dusk' || this.clock.phase === 'dawn',
       standAt: (x, z) => { const y = spawnCell(world, x, z, clearanceOf(1.0)); return y < 0 ? null : y; }, rng: () => Math.random(),
@@ -404,6 +419,8 @@ export class GameState {
     this.exploration.tick(dt);
     this.weathering.tick(dt);
     this.disasters.tick(dt);
+    this.winter.tick(dt);
+    this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });

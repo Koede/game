@@ -20,6 +20,21 @@ describe('disasters in the headless GameState', () => {
     s.dispose();
   });
 
+  it('harsh follows the per-world hard flag, not the Settings difficulty; peaceful still comes from Settings', () => {
+    const old = fixture(); // an old save: no hard-winter flag
+    const a = GameState.restore(old, { difficulty: 'hard' });
+    expect(a.disasters.level).toBe('normal');
+    a.dispose();
+    const fresh = GameState.create(7, null, { difficulty: 'hard' });
+    expect(fresh.disasters.level).toBe('hard');
+    fresh.setDifficulty('peaceful');
+    expect(fresh.disasters.level).toBe('peaceful');
+    fresh.dispose();
+    const easy = GameState.create(7, null, { difficulty: 'normal' });
+    expect(easy.disasters.level).toBe('normal');
+    easy.dispose();
+  });
+
   it('a damaged disasters block is ignored, never a reason to drop the world', () => {
     const save = fixture();
     (save as { disasters?: unknown }).disasters = { v: 'nope' };

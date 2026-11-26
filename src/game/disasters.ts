@@ -200,6 +200,11 @@ export class Disasters {
 
   constructor(private readonly host: DisastersHost) {}
 
+  /** The difficulty the disasters run on right now. */
+  get level(): Difficulty {
+    return this.host.difficulty();
+  }
+
   private get tuning(): DisasterTuning {
     return DISASTER_TUNING[this.host.difficulty()];
   }

@@ -67,7 +67,9 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   readonly weather = new SimWeather();
   /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
   private readonly cropScaleAt = (crop: string, x: number, y: number, z: number, exposed: boolean): number =>
-    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z));
+    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z), this.hardWinter, exposed);
+  /** A hard-winter world (docs/api/winter.md): exposed crops freeze in winter, a roof makes a greenhouse. Set by GameState. */
+  hardWinter = false;
   private readonly rainAt = (x: number, y: number, z: number): boolean => this.weather.wetAt(x, y, z);
   /** True on one tick per second. */
   everySecond = false;

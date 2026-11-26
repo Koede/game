@@ -154,6 +154,8 @@ export class Survival {
    * WARMTH_DRAIN_WET more warmth per second (spec 15). Null = no weather.
    */
   weather: WeatherState | null = null;
+  /** Extra warmth lost per second in the open from a hard winter (src/game/winter.ts); null = none. */
+  winterDrain: ((exposed: boolean) => number) | null = null;
 
   constructor(
     private readonly world: IWorld,
@@ -374,10 +376,11 @@ export class Survival {
       const frost = this.frost ? (night ? WARMTH_DRAIN_FROST_NIGHT : WARMTH_DRAIN_FROST_DAY) : 0;
       const dark = night ? WARMTH_DRAIN_NIGHT : 0;
       const peak = peakDrain(player.position.y);
-      let drain = water + wet + frost + dark + peak;
+      const winter = this.winterDrain ? this.winterDrain(this.exposed) : 0;
+      let drain = water + wet + frost + dark + peak + winter;
       if (drain > 0) {
-        const top = Math.max(water, wet, frost, dark, peak);
-        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top ? 'frost' : 'night';
+        const top = Math.max(water, wet, frost, dark, peak, winter);
+        cause = water === top ? 'water' : wet === top ? (w?.precipitation === 'snow' ? 'snow' : 'rain') : frost === top || peak === top || winter === top ? 'frost' : 'night';
       }
       drain *= this.coatMult;
       if (player.wellWarmed) drain *= WELL_WARMED_DRAIN_FACTOR;
