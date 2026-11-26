@@ -11,4 +11,12 @@ Launch in this order as slots free up. Each entry names the plan, the files it m
 7. **Tree felling follow-up**, only if the felling agent reports gaps (quick-mode polish, stump sprouting).
 8. **Orrin builds a town** (docs/plans/orrin-builds-a-town.md). Phases 1-2 launched first (plan and templates, then the builder). Touches new files under src/npcs/town*, the npcs snapshot, NpcHost, src/app wiring for laying blocks. Dependency: none.
 
+9. **Renormalize R1: town polish** (docs/plans/renormalize-2026-11-25.md). Touches src/npcs/manager.ts, townBuilder.ts, buildBoard.ts, scripts/orc.ts, src/game/nextStep.ts. Wait for: the lodge agent. Dependency: none.
+10. **Renormalize R2: quality names and enchant tooltips.** Touches src/ui/screens/slots.ts and tooltip code. Wait for: nothing. Dependency: none.
+11. **Renormalize R3: day-change hitch.** Touches src/world/world.ts, treeGrowth.ts. Wait for: nothing. Dependency: none.
+12. **Renormalize R4: feature integration pass** (achievements, journal, objectives, pause menu, How to Play, sounds). Touches src/game/achievements.ts, journal.ts, objectives, src/ui/menus/*, src/audio cues. Wait for: R1 for the town achievement events. Dependency: none.
+13. **Renormalize R5: doors in structures, season in fishing.** Touches src/world/structureDefs.ts, ruins.ts, src/sim/fishing.ts. Wait for: R3 (both in src/world). Dependency: none.
+14. **Renormalize R6: stale docs sweep.** Docs only. Wait for: nothing.
+15. **Renormalize R7: next wave**, one at a time in the order in the plan, starting with newcomers and the housing view (just-you-and-orrin.md phases 5-6). Touches src/npcs/manager.ts. Wait for: the lodge agent and R1.
+
 Rules for every brief: commit only own files, never push, never stash or reset, re-read shared files before editing, report under 150 words.
