@@ -96,15 +96,4 @@ describe('Forge heavy industry', () => {
     expect(t.shop.dynamoRpm(3, 1, 0)).toBeGreaterThanOrEqual(64);
     expect(t.shop.dynamoRpm(9, 9, 9)).toBe(0); // not a part
   });
-
-  it('a line turned by an electric generator gives the dynamo nothing: watts are not made twice', () => {
-    const t = setup();
-    t.put(0, 1, 0, 'water_wheel');
-    t.shop.generatorWatts = () => 400;
-    t.put(1, 1, 0, 'dynamo');
-    t.put(2, 1, 0, 'ratio_dial');
-    t.shop.tick(0.05);
-    t.shop.tick(0.05);
-    expect(t.shop.dynamoRpm(1, 1, 0)).toBe(0);
-  });
 });

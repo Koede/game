@@ -433,12 +433,11 @@ export class Workshop {
   }
 
   /**
-   * Shaft speed a dynamo at (x, y, z) is turned at, rpm; 0 when its line is still, jammed, overloaded or turned by an
-   * electric generator (that line already counts as watts).
+   * Shaft speed a dynamo at (x, y, z) is turned at, rpm; 0 when its line is still, jammed, overloaded or overloaded.
    */
   dynamoRpm(x: number, y: number, z: number): number {
     const key = k3(x, y, z);
-    if (!this.parts.has(key) || this.netOf.get(key)?.electric) return 0;
+    if (!this.parts.has(key)) return 0;
     return Math.abs(this.speed.get(key) ?? 0);
   }
 
@@ -585,8 +584,7 @@ export class Workshop {
       const capacity = dyn ? dyn.capacity : solved.capacity;
       const stress = dyn ? dyn.stress : solved.stress;
       const overstressed = sources.size > 0 && !solved.jam && stress > capacity && w < 0.5;
-      const electric = [...sources.keys()].some((k) => (this.parts.get(k)?.kind ?? '') in GENERATOR_SHAFT);
-      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm * w, stress, capacity, overstressed, parts: members.length, jammed: solved.jam, w, whip, momentum, findings, pulse, electric };
+      const info: NetInfo = { rpm: overstressed || solved.jam ? 0 : maxRpm * w, stress, capacity, overstressed, parts: members.length, jammed: solved.jam, w, whip, momentum, findings, pulse };
       for (const key of members) {
         this.netOf.set(key, info);
         const r = rpmNow?.get(key);
