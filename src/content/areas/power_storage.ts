@@ -12,7 +12,7 @@ const block: BlockSpec = {
   key: 'cell_rack', name: 'Cell Rack', age: 3,
   desc: 'A steel frame of linked acid cells: 10 MJ, released as fast as 20 kW. Enough to run a workshop through the night.',
   machine: 'cell_rack', power: 'device', oriented: true, hardness: 2, tool: 'pickaxe', stack: 16, category: 'block',
-  textures: { side: 'machine_side', top: 'machine_top', front: 'battery_front' },
+  textures: { side: 'machine_side', top: 'machine_top', front: 'battery_front', frontActive: 'battery_front_on' },
 };
 
 const machine: MachineSpec = {

@@ -74,3 +74,16 @@ describe('storage cover', () => {
     expect(coverText({ storedJ: 600, storageRateW: 100, demandW: 10 })).toBe('Lasts 60 s unaided');
   });
 });
+
+describe('storage face glow', () => {
+  it('lights while the block holds charge', async () => {
+    const { voxelActive } = await import('../core/types');
+    const kit = makeKit();
+    const rack = kit.machine('cell_rack', 0, 5, 0);
+    kit.run(1);
+    expect(voxelActive(kit.world.getVoxel(0, 5, 0))).toBe(false);
+    rack.storedJ = 5_000_000;
+    kit.run(1);
+    expect(voxelActive(kit.world.getVoxel(0, 5, 0))).toBe(true);
+  });
+});

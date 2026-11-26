@@ -203,8 +203,17 @@ const fuelGenerator: Behaviour = {
 // ---- storage and simple consumers ---------------------------------------------------------------------------
 
 /** Batteries are moved by the network solver itself. */
-const storage: Behaviour = { prepare() {}, apply() {} };
-const inert: Behaviour = storage;
+const inert: Behaviour = { prepare() {}, apply() {} };
+
+/** Storage lights its face (the `_on` texture) while it holds charge. */
+const storage: Behaviour = {
+  prepare() {},
+  apply(node, ctx) {
+    const e = node.e as MachineEntity;
+    const cap = node.spec.capacityJ ?? 0;
+    ctx.setActive(node, cap > 0 && e.storedJ > cap * 0.01);
+  },
+};
 
 /** Lamp, space heater and ward beacon: draw power, and are "active" (lit, warm, warding) while they get enough of it. */
 const simpleConsumer: Behaviour = {
