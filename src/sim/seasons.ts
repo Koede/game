@@ -26,8 +26,16 @@ export const CROP_SEASON: Readonly<Record<string, Readonly<Record<Season, number
   carrot: { spring: 1, summer: 0.8, autumn: 1.25, winter: 0.6 },
 };
 
-/** Growth multiplier of `crop` in `season` (1 for crops the table does not know), slowed by snow on it. */
-export function cropScale(season: Season, crop: string, snowing: boolean): number {
+/** Winter growth of a crop under a roof on a hard-winter world: a greenhouse keeps it near its autumn pace. */
+export const GREENHOUSE_SCALE = 0.8;
+
+/**
+ * Growth multiplier of `crop` in `season` (1 for crops the table does not know), slowed by snow on it. On a hard-winter
+ * world (`hardWinter`, docs/api/winter.md) an exposed crop is frozen solid in winter (0) and one under a roof
+ * (a greenhouse) grows at GREENHOUSE_SCALE; every other world keeps the gentle crawl above.
+ */
+export function cropScale(season: Season, crop: string, snowing: boolean, hardWinter = false, exposed = true): number {
+  if (hardWinter && season === 'winter') return exposed ? 0 : GREENHOUSE_SCALE;
   const base = CROP_SEASON[crop]?.[season] ?? 1;
   return Math.max(MIN_SCALE, base * (snowing ? SNOW_GROWTH : 1));
 }

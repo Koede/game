@@ -76,6 +76,8 @@ export interface GameUIDeps {
   clock: GameClock;
   objectives: ObjectiveTracker;
   survival: Survival;
+  /** The hard-winter goal to show in place of the guided goal while it is autumn or winter (src/game/winter.ts). */
+  winterGoal?: () => { title: string; text: string } | null;
   journal?: Journal;
   achievements?: Achievements;
   sim?: UISimQuery;
@@ -134,6 +136,7 @@ export class GameUI {
       clock: deps.clock,
       objectives: deps.objectives,
       survival: deps.survival,
+      winterGoal: () => deps.winterGoal?.() ?? null,
       sim: () => this.sim,
       input: deps.input,
       weather: () => deps.weather?.() ?? null,
