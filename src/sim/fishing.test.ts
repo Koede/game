@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ITEMS, RECIPES } from '../core/registry';
 import { mulberry32 } from '../core/math';
-import { COOKED_FISH_ITEMS, FISH, FISHING_ROD, FISH_ITEMS, JUNK, type WaterKind } from '../content/fishing';
-import { LAKE_AREA, biteDelayS, fishIn, rollCatch, waterKind, type WaterSpot } from './fishing';
+import { FISH_CHOWDER_BUFF_S, WINTER_BROTH_BUFF_S, COOKED_FISH_ITEMS, FISH, FISHING_ROD, FISH_ITEMS, JUNK, type WaterKind } from '../content/fishing';
+import { LAKE_AREA, biteDelayS, fishIn, fishInSeason, rollCatch, waterKind, type WaterSpot } from './fishing';
 
 const spot = (p: Partial<WaterSpot> = {}): WaterSpot => ({ biome: 'woodland', depth: 2, area: 6, flowing: false, underground: false, ...p });
 const DAY = { night: false, raining: false };
@@ -57,5 +57,68 @@ describe('fishing rules', () => {
     };
     expect(count(true)).toBeGreaterThan(count(false));
     expect(biteDelayS({ night: false, raining: true }, () => 0.5)).toBeLessThan(biteDelayS(DAY, () => 0.5));
+  });
+});
+
+describe('fishing by place and season', () => {
+  const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
+  const KINDS: WaterKind[] = ['pond', 'river', 'lake', 'marsh', 'frozen', 'cave'];
+  const tally = (kind: WaterKind, season: (typeof SEASONS)[number], n = 4000): Record<string, number> => {
+    const rng = mulberry32(21);
+    const out: Record<string, number> = {};
+    for (let i = 0; i < n; i++) { const c = rollCatch(kind, { ...DAY, season }, rng); if (c.item) out[c.item] = (out[c.item] ?? 0) + 1; }
+    return out;
+  };
+
+  it('has nine fish, each living somewhere', () => {
+    expect(FISH.length).toBe(9);
+    for (const f of FISH) expect(KINDS.some((k) => (f.weights[k] ?? 0) > 0), f.item).toBe(true);
+  });
+
+  it('something always bites: every water has a fish in every season', () => {
+    for (const k of KINDS) for (const s of SEASONS) expect(fishInSeason(k, s).length, `${k} ${s}`).toBeGreaterThan(0);
+  });
+
+  it('salmon run in autumn and are gone by winter', () => {
+    expect(fishInSeason('river', 'winter')).not.toContain('raw_salmon');
+    expect(fishInSeason('river', 'autumn')).toContain('raw_salmon');
+    expect(tally('river', 'autumn').raw_salmon).toBeGreaterThan(tally('river', 'spring').raw_salmon);
+    expect(tally('river', 'winter').raw_salmon).toBeUndefined();
+  });
+
+  it('whitefish peak through the winter ice and carp in summer', () => {
+    expect(tally('frozen', 'winter').raw_whitefish).toBeGreaterThan(tally('frozen', 'spring').raw_whitefish);
+    expect(tally('pond', 'summer').raw_carp).toBeGreaterThan(tally('pond', 'winter').raw_carp);
+    expect(fishInSeason('marsh', 'winter')).not.toContain('raw_crayfish');
+  });
+
+  it('is unchanged when no season is given', () => {
+    const rng = (): (() => number) => mulberry32(3);
+    const a = Array.from({ length: 50 }, ((r) => () => rollCatch('lake', DAY, r))(rng()));
+    const b = Array.from({ length: 50 }, ((r) => () => rollCatch('lake', DAY, r))(rng()));
+    expect(a).toEqual(b);
+    expect(fishInSeason('lake')).toEqual(fishIn('lake'));
+  });
+
+  it('the dishes stay inside the buff bounds: under the stew, and the broth no better than ale', () => {
+    const stew = ITEMS.find((i) => i.key === 'hearth_stew')?.food;
+    const chowder = ITEMS.find((i) => i.key === 'fish_chowder')?.food;
+    const broth = ITEMS.find((i) => i.key === 'winter_broth')?.food;
+    expect(chowder).toMatchObject({ buff: 'well_fed', buffS: FISH_CHOWDER_BUFF_S });
+    expect(broth).toMatchObject({ buff: 'well_warmed', buffS: WINTER_BROTH_BUFF_S });
+    expect(chowder!.buffS!).toBeLessThanOrEqual(stew!.buffS!);
+    expect(chowder!.hunger).toBeLessThan(stew!.hunger);
+    expect(broth!.buffS!).toBeLessThanOrEqual(240);
+    for (const f of FISH) expect(ITEMS.find((i) => i.key === f.cooked)?.food?.hunger ?? 0).toBeGreaterThan(2);
+  });
+
+  it('every chowder and broth recipe takes cooked fish and returns the pail', () => {
+    const dishes = RECIPES.filter((r) => ['fish_chowder', 'winter_broth'].includes(r.output.item));
+    expect(dishes.length).toBeGreaterThanOrEqual(8);
+    for (const r of dishes) {
+      expect(COOKED_FISH_ITEMS).toContain(r.inputs[0].item);
+      expect(r.inputs).toContainEqual({ item: 'water_pail', count: 1 });
+      expect(r.byproducts).toEqual([{ item: 'pail', count: 1 }]);
+    }
   });
 });

@@ -466,6 +466,8 @@ SPEC.maxTextures += 2;
 SPEC.maxTextures += 5;
 // World exploration (waypoint stones, ...; src/content/areas/world_*.ts): only the texture budget is pinned.
 SPEC.maxTextures += EXPLORE_SPEC.textures;
+// Fishing depth (content/areas/world_fishing.ts): 5 raw fish + 5 cooked fish + fish chowder + winter broth icons.
+SPEC.maxTextures += 12;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
 // The insulated wall tile (src/render/textures/areas/warmth.ts).
