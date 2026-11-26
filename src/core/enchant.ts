@@ -4,7 +4,7 @@
  * its verb happens. Pure data and helpers, DOM-free, no world.
  */
 import type { Aspect } from '../magic/aspects';
-import { itemOrNull } from './registry';
+import { itemOrNull, rarityOf } from './registry';
 import type { ItemDef, ItemStack, Slot } from './types';
 
 export interface EnchantDef {
@@ -144,6 +144,12 @@ export function canEnchant(def: ItemDef | null | undefined, key: string): boolea
   const e = BY_KEY.get(key);
   return !!e && !!def && e.appliesTo(def);
 }
+
+/**
+ * Whether the ALTAR may write `key` onto an item: `canEnchant`, and never onto a legendary, which keeps exactly the enchants it was
+ * found with (docs/plans/legendary-weapons.md). Loot and fixed finds go through `enchantStack`, which is not held to this.
+ */
+export const canAltarEnchant = (def: ItemDef | null | undefined, key: string): boolean => !!def && rarityOf(def.key) !== 'legendary' && canEnchant(def, key);
 
 /**
  * Returns new enchants with `key` set to `level` (clamped 1..max; the higher of the old and new level wins). Unknown key

@@ -373,6 +373,11 @@ export class HostileLayer {
     return hitHostile(this.hurtEnv, m, damage, fromX, fromZ, stunS);
   }
 
+  /** Hurts automaton `m` for `damage` as the player, with no hit cooldown (a legendary weapon's burst); flash, 'mob:hurt', a clang, breaks at 0. */
+  hurtByPlayer(m: Mob, damage: number): void {
+    if (m.state !== 'dying') hurtHostile(this.hurtEnv, m, damage, 'player');
+  }
+
   private hurtMob(m: Mob, damage: number, cause: DeathCause): void {
     hurtHostile(this.hurtEnv, m, damage, cause);
   }

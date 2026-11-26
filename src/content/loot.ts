@@ -8,6 +8,7 @@
  * lucky find speeds the climb without skipping it (content tests hold both tables to that).
  */
 import type { ItemStack, LootRarity, LootTableSpec } from '../core/types';
+import { LEGENDARIES, LEGENDARY_TABLES, legendaryTableId } from './legendary';
 
 export const LOOT_TABLES: LootTableSpec[] = [
   {
@@ -66,6 +67,9 @@ export const LOOT_TABLES: LootTableSpec[] = [
  */
 export const ITEM_RARITY: Readonly<Record<string, LootRarity>> = {
   orrins_spare_pick: 'legendary',
+  emberfang: 'legendary',
+  gale_reed: 'legendary',
+  lanternblade: 'legendary',
   scroll_ledger: 'rare',
   scroll_verses: 'rare',
   scroll_margin: 'rare',
@@ -87,9 +91,11 @@ export interface NamedFind {
   /** Fixed enchantments (key to level) the stack comes with. */
   enchants?: Record<string, number>;
 }
-export const NAMED_FINDS: readonly NamedFind[] = [
-  { item: 'orrins_spare_pick', table: 'tavern_vault', enchants: { veinseeker: 1 } },
-];
+export const NAMED_FINDS: readonly NamedFind[] = LEGENDARIES.map((l) => ({
+  item: l.item,
+  table: l.source === 'tavern_vault' ? 'tavern_vault' : legendaryTableId(l.item),
+  ...(l.enchants ? { enchants: l.enchants } : {}),
+}));
 
 /** A named find's fixed extras by item key (enchants), if any. */
 export function namedFindOf(item: string): NamedFind | undefined {
@@ -219,6 +225,8 @@ export const NAMED_TABLES: LootTableSpec[] = [
       { item: 'glass_beaker', count: [1, 2], weight: 3, rarity: 'fine' },
     ],
   },
+  // One table per legendary that is not in the tavern (src/content/legendary.ts): the ruin and boss systems roll these.
+  ...LEGENDARY_TABLES,
 ];
 
 /** A stack's fixed extras from its named find, applied by `rollLoot`. */

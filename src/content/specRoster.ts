@@ -436,6 +436,9 @@ SPEC.maxTextures += WORKSHOP_SPEC.textures;
 SPEC.worldOnlyItems.push(...WORKSHOP_SPEC.worldOnly);
 // Felled trees leave a stump block (game/fallingTrees.ts): it only exists in the world, and its textures are the log's.
 SPEC.worldOnlyItems.push('oak_stump', 'pine_stump');
+// The legendary weapons are found, never crafted (src/content/legendary.ts): world only, with one icon each (src/render/textures/iconsLegendary.ts).
+SPEC.worldOnlyItems.push('emberfang', 'gale_reed', 'lanternblade');
+SPEC.maxTextures += 3;
 
 // Glassware (vials and beakers on the furnace top) comes after the workshop.
 SPEC.blocks.push(...GLASS_SPEC.blocks);

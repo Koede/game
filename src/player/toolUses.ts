@@ -225,8 +225,8 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     run: (c) => (replace(c, 'cracked_stone_brick') ? (wearTool(c), sfx(c, 'dig_stone'), true) : false),
   },
   {
-    id: 'torch_melts_snow', system: 'survival', summary: 'A torch held to a snow block melts it away (the torch is kept)',
-    applies: (c) => heldIs(c, 'torch') && is(c, 'snow'),
+    id: 'torch_melts_snow', system: 'survival', summary: 'A torch (or Emberfang) held to a snow block melts it away (it is kept)',
+    applies: (c) => (heldIs(c, 'torch') || heldIs(c, 'emberfang')) && is(c, 'snow'),
     run: (c) => (remove(c) ? (sfx(c, 'splash'), true) : false),
   },
   {

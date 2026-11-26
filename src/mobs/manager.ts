@@ -224,6 +224,45 @@ export class MobManager {
   }
 
   /**
+   * Hurts a creature for `damage` from (fromX, fromZ) as the player with NO hit cooldown: the burst of a legendary weapon (src/game/legendary.ts)
+   * rides on a blow that already passed the cooldown. False for an unknown or dying creature.
+   */
+  hurtExtra(id: number, damage: number, fromX: number, fromZ: number): boolean {
+    const m = this.byId.get(id);
+    if (!m || m.state === 'dying' || !(damage > 0)) return false;
+    if (m.hostile) this.hostileLayer.hurtByPlayer(m, damage);
+    else this.hurt(m, damage, fromX, fromZ, 'player');
+    return true;
+  }
+
+  /** Throws a creature `speed` blocks/s away from (fromX, fromZ), on top of the knockback its hit already gave (a lunge's shove). */
+  shove(id: number, fromX: number, fromZ: number, speed: number): void {
+    const m = this.byId.get(id);
+    if (!m || m.state === 'dying' || !(speed > 0) || m.spec.hostile?.stationary) return;
+    const dx = m.x - fromX;
+    const dz = m.z - fromZ;
+    const d = Math.hypot(dx, dz) || 1;
+    m.vx += (dx / d) * speed;
+    m.vz += (dz / d) * speed;
+  }
+
+  /** Living creatures (animals and automatons) within `radius` blocks of (x, z) on the flat, nearest first, `exceptId` left out. */
+  near(x: number, z: number, radius: number, exceptId = -1): { id: number; x: number; y: number; z: number }[] {
+    const out: { id: number; x: number; y: number; z: number; d: number }[] = [];
+    const r2 = radius * radius;
+    const scan = (list: readonly Mob[]): void => {
+      for (const m of list) {
+        if (m.id === exceptId || m.state === 'dying') continue;
+        const d = (m.x - x) ** 2 + (m.z - z) ** 2;
+        if (d <= r2) out.push({ id: m.id, x: m.x, y: m.y, z: m.z, d });
+      }
+    };
+    scan(this.active);
+    scan(this.hostileLayer.active);
+    return out.sort((a, b) => a.d - b.d).map(({ d: _d, ...rest }) => rest);
+  }
+
+  /**
    * The player offers `itemKey` (Use with it in hand). A liked item makes a grown, rested animal eager for
    * MOB_EAGER_S (the caller then consumes one item) and marks it as the player's (tame: never retired).
    * Otherwise refused with a short reason for a toast, before anything is used up: also when no baby could be
