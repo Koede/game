@@ -8,6 +8,7 @@
 import type { GameMode } from '../core/gameMode';
 import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
 import type { AchievementsSnapshot } from '../game/achievements';
+import type { DailyGoalsSnapshot } from '../game/dailyGoals';
 import type { ClockSnapshot } from '../game/clock';
 import type { JournalSnapshot } from '../game/journal';
 import { isLootFilter } from '../game/lootFilter';
@@ -65,6 +66,8 @@ export interface WorldSave {
   journal?: JournalSnapshot;
   /** Achievements earned (src/game/achievements.ts). Optional, ignored when damaged. */
   achievements?: AchievementsSnapshot;
+  /** Daily and seasonal goals and the keepsakes they earned (src/game/dailyGoals.ts). Optional, ignored when damaged. */
+  dailyGoals?: DailyGoalsSnapshot;
   /**
    * 'dev' for a Dev Mode world (docs/api/dev-mode.md). Optional: absent means survival, and survival saves never write it,
    * so they stay exactly as before.

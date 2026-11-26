@@ -86,6 +86,27 @@ describe('GameState', () => {
     copy.dispose();
   });
 
+  it('keeps the daily goal track in the save, and loads saves made before it existed', () => {
+    const { state } = playedState();
+    expect(state.dailyGoals.daily()).toHaveLength(3);
+    state.dailyGoals.load({ ...state.dailyGoals.toJSON(), keepsakes: ['k_sun_hat'], worn: 'k_sun_hat' });
+    const save = JSON.parse(JSON.stringify(state.toSave())) as unknown;
+    if (!isWorldSave(save)) throw new Error('not a save');
+    expect(save.dailyGoals?.keepsakes).toEqual(['k_sun_hat']);
+    const copy = GameState.restore(save);
+    expect(copy.dailyGoals.keepsakes).toEqual(['k_sun_hat']);
+    const old = { ...save };
+    delete old.dailyGoals;
+    expect(isWorldSave(old)).toBe(true);
+    const fresh = GameState.restore(old);
+    fresh.tick();
+    expect(fresh.dailyGoals.keepsakes).toEqual([]);
+    expect(fresh.dailyGoals.daily().every((g) => g.current === 0)).toBe(true);
+    const broken = GameState.restore({ ...save, dailyGoals: { day: 'x' } as never });
+    expect(broken.dailyGoals.keepsakes).toEqual([]);
+    for (const x of [state, copy, fresh, broken]) x.dispose();
+  });
+
   it('ticks flowing water, saves it mid-flow and continues it identically (spec 18.2)', () => {
     const state = GameState.create(7, 'seven');
     const p = state.player.position;

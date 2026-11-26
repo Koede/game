@@ -208,6 +208,7 @@ export class Game {
         survival,
         journal: state.journal,
         achievements: state.achievements,
+        dailyGoals: state.dailyGoals,
         sim,
         weather: () => state.weather.state,
         releasePointer: () => this.inputManager.releasePointerCapture(),

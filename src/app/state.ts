@@ -13,6 +13,7 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
 import { Survival } from '../game/survival';
+import { DailyGoals, isDailyGoalsSnapshot, type GoalFacts } from '../game/dailyGoals';
 import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
 import { StoryDirector } from '../game/storyBeats';
 import { Journal, isJournalSnapshot } from '../game/journal';
@@ -64,6 +65,8 @@ export class GameState {
   /** The world was picked up from a save (the game shows a welcome-back line). */
   readonly resumed: boolean;
   readonly achievements: Achievements;
+  /** The daily and seasonal goal track (src/game/dailyGoals.ts), apart from the age goals. */
+  readonly dailyGoals: DailyGoals;
   readonly story: StoryDirector;
   /** Live view of the player for the animals (position, yaw, held item). */
   readonly mobPlayer: MobPlayer;
@@ -131,6 +134,14 @@ export class GameState {
     if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
     this.achievements = new Achievements(bus, () => this.progressFacts());
     if (save?.achievements && isAchievementsSnapshot(save.achievements)) this.achievements.load(save.achievements);
+    this.dailyGoals = new DailyGoals({
+      bus,
+      seed: world.seed,
+      day: () => this.clock.day,
+      facts: () => this.goalFacts(),
+      give: (item, count) => this.player.give(item, count),
+    });
+    if (save?.dailyGoals && isDailyGoalsSnapshot(save.dailyGoals)) this.dailyGoals.load(save.dailyGoals);
     this.story = new StoryDirector(bus, this.journal, () => this.clock.phase, save?.objectives?.age ?? 0);
     this.mobs = new MobManager(world, bus, this.clock, world.seed, { difficulty });
     // The Emberbound (spec 19): ONE damage path. The automatons scale by the difficulty and emit 'player:attacked'
@@ -380,6 +391,7 @@ export class GameState {
     this.objectives.tick(dt);
     this.journal.explore(this.player.position.x, this.player.position.z);
     this.achievements.tick(dt);
+    this.dailyGoals.tick(dt);
     this.story.tick(dt);
     this.magicLink.tick(this.magic, dt);
     this.workshop.tick(dt);
@@ -403,6 +415,13 @@ export class GameState {
     p.warmth = MAX_WARMTH;
     p.air = MAX_AIR_S;
     if (p.dead) p.dead = false;
+  }
+
+  /** What the daily and seasonal goals measure growth of. */
+  private goalFacts(): GoalFacts {
+    const st = this.player.stats;
+    const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks };
   }
 
   /** What the achievements read. */
@@ -472,6 +491,7 @@ export class GameState {
       mobs: this.mobs.toJSON(),
       journal: this.journal.toJSON(),
       achievements: this.achievements.toJSON(),
+      dailyGoals: this.dailyGoals.toJSON(),
     };
   }
 
