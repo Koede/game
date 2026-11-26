@@ -18,6 +18,7 @@ import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundIt
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
 import { PlayAssist, type AssistSnapshot } from './assist';
+import { BlueprintBook, type BlueprintBookSnapshot } from './blueprintBook';
 import { takesItem } from './lootFilter';
 import { favouritesOf, setFavourites } from './inventoryTools';
 import { pocketsOf, setPockets, type Pocket } from './pockets';
@@ -87,6 +88,8 @@ export interface PlayerSnapshot {
   ground?: GroundItemSnapshot[];
   /** Recipe book and caravan (docs/api/discovery.md, caravan.md). Missing in older saves: empty. */
   book?: RecipeBookSave;
+  /** Saved and granted blueprints and Gruk's build jobs (docs/api/blueprint.md). Missing in older saves: empty. */
+  blueprints?: BlueprintBookSnapshot;
   caravan?: CaravanSave;
 }
 
@@ -171,6 +174,8 @@ export class PlayerState {
   readonly assist = new PlayAssist();
   /** Hidden recipes found by experiment (src/game/discovery.ts). */
   readonly book = new RecipeBook();
+  /** The blueprints the player owns and the jobs Gruk is working (./blueprintBook). */
+  readonly blueprints = new BlueprintBook();
   /** The trade caravan's prices and visit (src/game/caravan.ts). */
   readonly caravan = new Caravan();
   /** Handheld collectors (vacuum pump, later the electromagnet). */
@@ -468,6 +473,7 @@ export class PlayerState {
       killedBy: this.killedBy,
       ground: this.ground.toJSON(),
       book: this.book.toJSON(),
+      blueprints: this.blueprints.toJSON(),
       caravan: this.caravan.toJSON(),
     };
   }
@@ -512,6 +518,7 @@ export class PlayerState {
     this.collectors.stop();
     this.ground.load(s.ground);
     this.book.load(s.book);
+    this.blueprints.load(s.blueprints);
     this.caravan.load(s.caravan);
   }
 }

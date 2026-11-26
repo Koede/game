@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
-import { BUILD_INTERVAL_S, BuildJob, captureBlueprint, materialsOf } from './blueprint';
+import { makeVoxel, voxelFacing } from '../core/types';
+import { blockId } from '../core/registry';
+import { BUILD_INTERVAL_S, BuildJob, FREE_SOURCE, MAX_BLUEPRINT_SIDE, captureBlueprint, checkSite, materialsOf, rotateBlueprint } from './blueprint';
 import { FakeWorld } from './fakeWorld';
 import { Inventory } from './inventory';
 
@@ -56,5 +58,51 @@ describe('blueprint mode', () => {
     expect(back.state).toBe('done');
     expect(target.getBlock(10, 5, 10).key).toBe('stone');
     expect(BuildJob.fromJSON(null)).toBeNull();
+  });
+
+  it('keeps machines (a crate is a block with an item) and refuses a box with a side over the limit', () => {
+    const w = house();
+    w.put(1, 5, 1, 'crate');
+    const bp = captureBlueprint(w, [0, 5, 0], [2, 5, 2])!;
+    expect(bp.cells.some((c) => c.block === 'crate' && c.item === 'crate')).toBe(true);
+    expect(captureBlueprint(w, [0, 5, 0], [MAX_BLUEPRINT_SIDE, 5, 0])).toBeNull();
+    const target = new FakeWorld(createBus());
+    const chest = new Inventory(8);
+    chest.add('plank', 9);
+    chest.add('crate', 1);
+    const job = new BuildJob(bp, [20, 5, 20]);
+    job.tick(BUILD_INTERVAL_S * 30, target, chest, 2, 'player');
+    expect(target.getBlock(21, 5, 21).key).toBe('crate');
+    expect(job.state).toBe('done');
+  });
+
+  it('turns in quarter turns: the shape and facings follow, four turns come back', () => {
+    const w = new FakeWorld(createBus());
+    w.fill(0, 5, 0, 2, 5, 0, 'stone'); // a wall along x
+    w.setVoxel(0, 6, 0, makeVoxel(blockId('crate'), 1), 'sim');
+    const bp = captureBlueprint(w, [0, 5, 0], [2, 6, 0])!;
+    const r = rotateBlueprint(bp, 1);
+    expect(r.size).toEqual([1, 2, 3]);
+    expect(new Set(r.cells.map((c) => `${c.dx},${c.dy},${c.dz}`)).size).toBe(bp.cells.length);
+    const crate = r.cells.find((c) => c.block === 'crate')!;
+    expect(crate.facing).toBe(2); // east turned clockwise is south
+    expect(crate.dz).toBe(0);
+    const back = rotateBlueprint(bp, 4);
+    expect(back).toBe(bp);
+    const full = rotateBlueprint(rotateBlueprint(rotateBlueprint(rotateBlueprint(bp, 1), 1), 1), 1);
+    expect(full.cells.map((c) => `${c.dx},${c.dy},${c.dz},${c.facing}`).sort()).toEqual(bp.cells.map((c) => `${c.dx},${c.dy},${c.dz},${c.facing}`).sort());
+    expect(voxelFacing(makeVoxel(1, 3))).toBe(3);
+  });
+
+  it('checkSite tells free, right and blocked cells; a free source never runs dry', () => {
+    const bp = captureBlueprint(house(), [0, 5, 0], [2, 5, 0])!;
+    const t = new FakeWorld(createBus());
+    t.put(10, 5, 10, 'plank');
+    t.put(11, 5, 10, 'stone');
+    expect(checkSite(t, bp, [10, 5, 10]).map((c) => c.state)).toEqual(['right', 'blocked', 'free']);
+    const job = new BuildJob(bp, [10, 5, 10]);
+    job.tick(BUILD_INTERVAL_S * 10, t, FREE_SOURCE, 1);
+    expect(t.getBlock(12, 5, 10).key).toBe('plank');
+    expect(job.state).toBe('done');
   });
 });

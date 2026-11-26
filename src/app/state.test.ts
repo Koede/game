@@ -86,6 +86,14 @@ describe('GameState', () => {
     copy.dispose();
   });
 
+  it('grants a blueprint when something emits blueprint:grant, once', () => {
+    const state = GameState.create(7, 'seven');
+    state.bus.emit('blueprint:grant', { id: 'stone_hut' });
+    state.bus.emit('blueprint:grant', { id: 'stone_hut' });
+    expect(state.player.blueprints.entries.map((e) => e.bp.name)).toEqual(['Stone Hut']);
+    state.dispose();
+  });
+
   it('ticks flowing water, saves it mid-flow and continues it identically (spec 18.2)', () => {
     const state = GameState.create(7, 'seven');
     const p = state.player.position;

@@ -22,7 +22,7 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
-import { isFluidEndpoint, machine } from '../core/registry';
+import { isFluidEndpoint, itemOrNull, machine } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
@@ -33,6 +33,8 @@ import { Weathering } from '../game/weathering';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
 import { setTemperatureProvider } from '../sim/temperature';
+import type { Blueprint } from '../game/blueprint';
+import { grantKnownPlans, tickJobs, type PlanSource } from '../game/blueprintBook';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -303,6 +305,13 @@ export class GameState {
     this.offs.push(world.persist('restoration', () => this.restoration.toJSON()));
     world.loadExtra('pets', (raw) => this.pets.load(raw));
     this.offs.push(world.persist('pets', () => this.pets.toJSON()));
+    // Anything may hand the player a blueprint by emitting 'blueprint:grant' (ruins, daily goals).
+    this.offs.push(
+      bus.on('blueprint:grant', (e) => {
+        const r = this.player.blueprints.grant((e.blueprint as Blueprint | undefined) ?? e.id, e.blueprint ? e.id : undefined);
+        if (r.added || !r.ok) bus.emit('toast', { text: r.text, kind: r.ok ? 'good' : 'warn' });
+      }),
+    );
     world.loadExtra('exploration', (raw) => this.exploration.load(raw));
     this.offs.push(world.persist('exploration', () => this.exploration.toJSON()));
     this.npcs = new NpcManager(bus);
@@ -453,6 +462,8 @@ export class GameState {
     this.winter.tick(dt);
     this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
+    if (this.player.blueprints.jobs.length > 0) this.tickBlueprints(dt);
+    if (this.ticks % 40 === 0) this.syncOldPlans();
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
@@ -500,6 +511,24 @@ export class GameState {
       });
     });
     return out;
+  }
+
+  /**
+   * The old plans read in the ruins (src/game/oldPlans.ts, when that module is present) join the blueprint book. Looked up by name so
+   * this works with or without it.
+   */
+  private syncOldPlans(): void {
+    const src = (this as unknown as { oldPlans?: PlanSource }).oldPlans;
+    if (!src || typeof src.list !== 'function' || typeof src.blueprintOf !== 'function') return;
+    for (const text of grantKnownPlans(this.player.blueprints, src)) this.bus.emit('toast', { text, kind: 'good' });
+  }
+
+  /** Gruk's blueprint builds: they draw from the pack and say so when it runs dry or a build is done. */
+  private tickBlueprints(dt: number): void {
+    const p = this.player;
+    const r = tickJobs(p.blueprints, dt, this.world, p.inventory, p.position, p.dev && p.devFreePlace);
+    for (const name of r.finished) this.bus.emit('toast', { text: `Gruk finished the ${name}`, kind: 'info' });
+    for (const d of r.dry) this.bus.emit('toast', { text: `Gruk needs ${itemOrNull(d.item)?.name ?? d.item} for the ${d.name}`, kind: 'warn' });
   }
 
   /** Dev Mode: the bars never fall (no starving, freezing or drowning), and the dead are revived. */

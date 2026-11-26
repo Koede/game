@@ -1289,3 +1289,100 @@
   font-size: 11px;
   opacity: 0.75;
 }
+
+/* ---- blueprints (src/ui/hud/blueprintPanel.ts, buildChip.ts): the saved-layout card and the placement bar --------------------- */
+.hw-bp {
+  position: fixed;
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: min(440px, calc(100vw - 24px));
+  max-height: 70vh;
+  padding: 10px;
+  pointer-events: auto;
+  background: rgba(20, 17, 14, 0.97);
+}
+.hw-bp[hidden],
+.hw-bp__bar[hidden] {
+  display: none;
+}
+.hw-bp__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hw-bp__body {
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.hw-bp__row {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+}
+.hw-bp__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.hw-bp__sub,
+.hw-bp__line {
+  font-size: 12px;
+  opacity: 0.75;
+}
+.hw-bp__mats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.hw-bp__mat {
+  padding: 1px 6px;
+  font-size: 11px;
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: 10px;
+}
+.hw-bp__mat--short {
+  border-color: #ff6a4d;
+  color: #ff9a85;
+}
+.hw-bp__acts,
+.hw-bp__bar-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hw-bp__btn,
+.hw-bp__act {
+  min-height: 44px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--hw-plate-edge);
+  border-radius: var(--hw-radius);
+  cursor: pointer;
+}
+.hw-bp__input {
+  min-height: 40px;
+  font: inherit;
+  color: inherit;
+}
+.hw-bp__empty {
+  margin: 0;
+  font-size: 13px;
+}
+.hw-bp__bar {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--hw-plate-edge);
+}

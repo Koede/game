@@ -204,6 +204,11 @@ export interface GameEvents {
    */
   'leaves:decayed': { x: number; y: number; z: number; voxel: Voxel; drops: ItemAmount[] };
   /** A block was placed by the player. */
+  /**
+   * Hand the player a blueprint (docs/api/blueprint.md): `id` is a catalog id (`stone_hut`), or, with `blueprint`, a stable id for that
+   * layout so a repeat is noticed. Ruins, daily goals and the like emit this instead of importing the blueprint book.
+   */
+  'blueprint:grant': { id: string; blueprint?: { name: string; size: [number, number, number]; cells: Array<{ dx: number; dy: number; dz: number; block: string; facing: number; item?: string }> } };
   'block:placed': { x: number; y: number; z: number; voxel: Voxel };
   'player:damage': { amount: number; cause: DamageCause; health: number };
   'player:death': { cause: DamageCause };

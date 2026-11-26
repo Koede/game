@@ -15,8 +15,8 @@ import type { WorldUniforms } from '../materials';
 import { flush } from './boxBatch';
 import { LEAVES_ONLY, sightTo } from './sightline';
 
-/** Ghost cells drawn at most (a Starhearth's largest shell is 218 cells plus 125 inside). */
-export const GHOST_CAP = 512;
+/** Ghost cells drawn at most (a Starhearth's largest shell is 218 cells plus 125 inside; a blueprint ghost sends up to 1024). */
+export const GHOST_CAP = 1024;
 /** Sight lines re-checked per frame (round-robin) after the camera moved; a still camera checks nothing. */
 const SIGHT_CHECKS = 8;
 /** Camera movement (blocks, summed over the axes) that queues every sight line again. */
