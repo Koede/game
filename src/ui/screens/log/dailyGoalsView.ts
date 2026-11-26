@@ -5,7 +5,7 @@ import { h, setText } from '../../kit/dom';
 
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-export const rewardLabel = (r: Reward): string => (r.kind === 'cosmetic' ? `Keepsake: ${keepsakeOf(r.id)?.name ?? r.id}` : `${r.count} ${itemOrNull(r.item)?.name ?? r.item}`);
+export const rewardLabel = (r: Reward): string => (r.kind === 'blueprint' ? `Blueprint: ${r.id.replace(/_/g, ' ')}` : r.kind === 'cosmetic' ? `Keepsake: ${keepsakeOf(r.id)?.name ?? r.id}` : `${r.count} ${itemOrNull(r.item)?.name ?? r.item}`);
 
 function goalRow(g: GoalView): HTMLElement {
   return h(

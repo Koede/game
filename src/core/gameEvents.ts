@@ -256,6 +256,8 @@ export interface GameEvents {
   'ui:opened': { screen: ScreenRequest };
   'ui:closed': Record<string, never>;
   /** Short message on the HUD. `item` shows that item's icon next to it. */
+  /** A goal reward unlocked a blueprint by id (the blueprints feature listens; harmless when nothing does). */
+  'blueprint:grant': { id: string };
   'toast': { text: string; kind?: ToastKind; item?: string };
   /** Someone in the tavern speaks: the dialogue box shows their portrait, name and the text (src/ui/hud/npcDialogue.ts). */
   'npc:say': { id: string; role: string; name: string; title: string; text: string };

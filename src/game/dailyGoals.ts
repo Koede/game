@@ -6,8 +6,8 @@
  * (made, placed, broken, drinks, ground explored) since the day or season began, so nothing here listens to the bus.
  *
  * Rewards are generic slots: `item` (handed over like an objective reward, held back until the pack has room) and
- * `cosmetic` (a keepsake: collected, listed in the Hearth Log, one worn as the Log's title). A future `blueprint`
- * slot only needs a new `Reward` variant and a branch in `grant`.
+ * `cosmetic` (a keepsake: collected, listed in the Hearth Log, one worn as the Log's title) and `blueprint`
+ * (emits `blueprint:grant` with the id on the bus; the blueprints feature owns what it unlocks).
  *
  * DOM-free. Saved as an optional `dailyGoals` field of the world save: older saves simply start a fresh track.
  */
@@ -20,7 +20,7 @@ export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored';
 const METRICS: readonly GoalMetric[] = ['made', 'placed', 'broken', 'drunk', 'explored'];
 export type GoalFacts = Record<GoalMetric, number>;
 
-export type Reward = { kind: 'item'; item: string; count: number } | { kind: 'cosmetic'; id: string };
+export type Reward = { kind: 'item'; item: string; count: number } | { kind: 'cosmetic'; id: string } | { kind: 'blueprint'; id: string };
 
 export interface GoalSpec {
   id: string;
@@ -82,7 +82,7 @@ export const SEASONAL_GOALS: Readonly<Record<Season, readonly GoalSpec[]>> = {
   ],
   winter: [
     seasonal('s_winter_drink', 'Drink 5 cups this winter', 'drunk', 5, 'k_frost_scarf'),
-    seasonal('s_winter_place', 'Place 150 blocks this winter', 'placed', 150, 'k_snow_lantern'),
+    { id: 's_winter_place', text: 'Place 150 blocks this winter', metric: 'placed', target: 150, reward: { kind: 'blueprint', id: 'stone_hut' } },
   ],
 };
 
@@ -94,7 +94,6 @@ export const SEASONAL_KEEPSAKES: readonly Keepsake[] = [
   { id: 'k_leaf_crown', name: 'Leaf Crown', text: 'Woven from the first red leaves.' },
   { id: 'k_harvest_knot', name: 'Harvest Knot', text: 'Straw tied up at the end of the year.' },
   { id: 'k_frost_scarf', name: 'Frost Scarf', text: 'Warm, and white as the first snow.' },
-  { id: 'k_snow_lantern', name: 'Snow Lantern', text: 'A lantern carved from packed snow.' },
 ];
 
 export const KEEPSAKES: readonly Keepsake[] = [...DAILY_KEEPSAKES, ...SEASONAL_KEEPSAKES];
@@ -277,6 +276,11 @@ export class DailyGoals {
 
   private grant(r: Reward, reason: string): void {
     const bus = this.d.bus;
+    if (r.kind === 'blueprint') {
+      bus.emit('blueprint:grant', { id: r.id });
+      bus.emit('toast', { text: `${reason} - blueprint: ${r.id.replace(/_/g, ' ')}`, kind: 'good' });
+      return;
+    }
     if (r.kind === 'cosmetic') {
       const k = keepsakeOf(r.id);
       if (k && !this.owned.includes(k.id)) {

@@ -29,7 +29,7 @@ describe('DailyGoals content', () => {
   it('has unique ids and every reward points at something real', () => {
     const ids = [...DAILY_POOL, ...Object.values(SEASONAL_GOALS).flat()].map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const g of Object.values(SEASONAL_GOALS).flat()) expect(g.reward.kind === 'cosmetic' && keepsakeOf(g.reward.id)).toBeTruthy();
+    for (const g of Object.values(SEASONAL_GOALS).flat()) expect(g.reward.kind === 'item' || (g.reward.kind === 'cosmetic' ? keepsakeOf(g.reward.id) : g.reward.id)).toBeTruthy();
     expect(new Set(KEEPSAKES.map((k) => k.id)).size).toBe(KEEPSAKES.length);
   });
 
@@ -128,5 +128,19 @@ describe('DailyGoals', () => {
     goals.wear('k_sun_hat');
     expect(goals.worn).toBe('k_sun_hat');
     expect(isDailyGoalsSnapshot({ day: 1 })).toBe(false);
+  });
+
+  it('announces a blueprint reward on the bus, once', () => {
+    const { goals, s } = rig();
+    const bus = (goals as unknown as { d: { bus: ReturnType<typeof createBus> } }).d.bus;
+    const got: string[] = [];
+    bus.on('blueprint:grant', (e) => got.push(e.id));
+    goals.sync();
+    s.day = DAYS_PER_SEASON * 3 + 1;
+    goals.sync();
+    s.facts.placed += 150;
+    goals.sync();
+    goals.sync();
+    expect(got).toEqual(['stone_hut']);
   });
 });
