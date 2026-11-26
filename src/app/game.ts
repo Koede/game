@@ -6,8 +6,13 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
-import { saveShot } from './photo';
 import { newThermalGrid } from '../game/thermal';
+import { makePostcard, saveShot, sendPostcard } from './photo';
+import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
+import { PhotoUi } from '../ui/photoUi';
+import { browserStorage } from '../save/storage';
+import { AGES } from '../core/registry';
+import { filterById, type PhotoFilter } from '../player/photoFilters';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -165,6 +170,11 @@ export class Game {
   private covered = false;
   /** Photo mode asked for a shot: saved from the next rendered frame. */
   private shotPending = false;
+  /** Town postcards (game/postcards.ts): when one is due, the next frame is drawn from a vantage over the town. */
+  private readonly postcardStore: PostcardStore;
+  private readonly postcards: PostcardDirector;
+  private readonly photoUi: PhotoUi;
+  private photoFilter: PhotoFilter = filterById('natural');
   private coverCheckedAt = -Infinity;
   private readonly offs: (() => void)[] = [];
   constructor(opts: GameOptions) {
@@ -304,9 +314,32 @@ export class Game {
       bus.emit('toast', { text: resumeLine(state.clock.day, state.objectives.current?.title ?? null, last), kind: 'info' });
     }
     this.ui.hud.onHeatToggle = () => this.toggleHeatView();
+    this.postcardStore = new PostcardStore(browserStorage(), world.seed);
+    this.postcards = new PostcardDirector(bus, (age) => this.postcardStore.has(age));
+    // A loaded game that already passed an age without a card gets one at its next quiet daytime moment.
+    for (let age = 1; age <= state.objectives.age; age++) if (!this.postcardStore.has(age)) bus.emit('age:advanced', { age });
+    const canShare = typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function';
+    this.photoUi = new PhotoUi({
+      onFilter: (f) => this.applyPhotoFilter(f),
+      onExit: () => this.inputManager.requestPhoto(),
+      onSendCard: (card) => {
+        void sendPostcard(card, this.photoUi.shareOn).then((r) => {
+          state.bus.emit('toast', { text: r === 'shared' ? 'Postcard shared' : r === 'downloaded' ? 'Postcard saved' : 'Could not save the postcard', kind: r === 'failed' ? 'bad' : 'good' });
+        });
+      },
+      cards: () => this.postcardStore.list(),
+      canShare,
+    });
+    root.layers.windows.appendChild(this.photoUi.el);
     this.offs.push(
+      () => this.postcards.dispose(),
+      () => this.photoUi.el.remove(),
       bus.on('photo:snap', () => (this.shotPending = true)),
-      bus.on('photo:mode', ({ on }) => root.el.classList.toggle('hw-root--photo', on)),
+      bus.on('photo:mode', ({ on }) => {
+        root.el.classList.toggle('hw-root--photo', on);
+        this.photoUi.setActive(on);
+        if (!on) this.applyPhotoFilter(filterById('natural'));
+      }),
     );
     const onKey = (down: boolean) => (e: KeyboardEvent): void => {
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -460,13 +493,43 @@ export class Game {
       if (this.shotPending) {
         this.shotPending = false;
         const canvas = this.renderer.canvas;
-        void saveShot(canvas, state.clock.day, state.clock.phase).then((ok) => {
-          if (ok) this.state.bus.emit('toast', { text: 'Photo saved', kind: 'good' });
+        const share = this.photoUi.shareOn;
+        void saveShot(canvas, state.clock.day, state.clock.phase, this.photoFilter.css, share).then((r) => {
+          if (r !== 'failed') this.state.bus.emit('toast', { text: r === 'shared' ? 'Photo shared' : 'Photo saved', kind: 'good' });
         });
       }
+      this.takeDuePostcard(paused);
       this.lastDraw = now;
     }
     this.frames++;
+  }
+
+  private applyPhotoFilter(f: PhotoFilter): void {
+    this.photoFilter = f;
+    this.renderer.canvas.style.filter = f.css === 'none' ? '' : f.css;
+  }
+
+  /** When an age postcard is due and the moment is quiet, draws one frame from over the town, keeps it, and puts the view back. */
+  private takeDuePostcard(paused: boolean): void {
+    const state = this.state;
+    const age = this.postcards.poll(DT, { paused, dead: state.player.dead, busy: this.input.uiOpen || this.controller.photo.active, phase: state.clock.phase });
+    if (age === null) return;
+    const p = state.player;
+    const cam = this.renderer.camera;
+    const was = { x: cam.position.x, y: cam.position.y, z: cam.position.z, yaw: cam.rotation.y, pitch: cam.rotation.x };
+    const v = postcardVantage({ x: p.position.x, z: p.position.z, eyeY: p.eyeY }, state.npcs.townDebug().site);
+    this.renderer.setView(v.x, v.y, v.z, v.yaw, v.pitch);
+    this.renderer.hideHand = true;
+    this.renderer.render(0);
+    this.renderer.hideHand = false;
+    const card = makePostcard(this.renderer.canvas, age, AGES[age]?.name ?? `Age ${age}`, state.clock.day);
+    // Back to the player's own view before anything is shown.
+    this.renderer.setView(was.x, was.y, was.z, was.yaw, was.pitch);
+    this.renderer.render(0);
+    if (!card) return;
+    this.postcardStore.add(card);
+    this.photoUi.refresh();
+    state.bus.emit('toast', { text: `Postcard kept: ${card.ageName}. Open photo mode to save or share it.`, kind: 'good' });
   }
 
   /**
