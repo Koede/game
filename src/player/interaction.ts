@@ -7,7 +7,7 @@
  */
 import type { GameBus } from '../core/context';
 import { blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, voxelActive, voxelVariant, withActive, withId, type BlockDef, type IWorld, type Voxel } from '../core/types';
+import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, voxelActive, voxelVariant, withActive, withId, type BlockDef, type ItemDef, type IWorld, type Voxel } from '../core/types';
 import { DOOR_TOP, doorPartnerStep } from '../core/doorShape';
 import {
   TILLABLE,
@@ -88,6 +88,8 @@ export class Interaction {
   private placeCooldown = 0;
   private clock = 0;
   private readonly advice = new Map<string, number>();
+  /** Counts every advise() call, shown or held back by its cooldown. */
+  private adviceGiven = 0;
   private readonly buckets: Buckets;
   private readonly pipes: PipeTools;
   private readonly brewing: BrewTools;
@@ -224,6 +226,31 @@ export class Interaction {
    * right after (handTools.ts): a stroke, an insert or a take at a hand station, a mould poured from a molten furnace.
    */
   use(hit: RayHit | null, forcePlace = false): UseOutcome {
+    const advised = this.adviceGiven;
+    const outcome = this.useOn(hit, forcePlace);
+    if (outcome !== 'none' || this.player.dead) return outcome;
+    if (this.adviceGiven !== advised) return outcome; // a rule already explained itself (maybe on cooldown): no second toast
+    // Nothing claimed this Use: an item that is not a block-and-target thing (an elixir) may still act, set by the app...
+    const last = this.lastResort?.(hit) ?? null;
+    if (last !== null) return last;
+    // ...and otherwise the player is told why nothing happened (a silent press reads as a broken button).
+    this.explainNothing(hit);
+    return 'none';
+  }
+
+  /** Last say on a Use nothing else claimed (the elixir drink, set by the app); null to pass. */
+  lastResort: ((hit: RayHit | null) => UseOutcome | null) | null = null;
+
+  /** The toast for a held item aimed at a block it cannot do anything to. Bare hands stay quiet (a tap is not a request). */
+  private explainNothing(hit: RayHit | null): void {
+    const held = this.player.heldStack();
+    if (!hit || !held || hit.block.liquid !== null) return;
+    const item = itemOrNull(held.item);
+    if (!item) return;
+    this.advise(`nouse:${item.key}:${hit.block.key}`, noUseAdvice(item, hit.block));
+  }
+
+  private useOn(hit: RayHit | null, forcePlace: boolean): UseOutcome {
     if (this.player.dead) return 'none';
     if (hit && hit.block.liquid === null) {
       const def = blockOfItem(this.player.heldStack()?.item ?? '');
@@ -311,7 +338,10 @@ export class Interaction {
   placeBlock(hit: RayHit, def: BlockDef): boolean {
     if (this.placeCooldown > 0) return false;
     const { x, y, z } = placementCell(hit);
-    if (!this.placeableCell(x, y, z)) return false;
+    if (!this.placeableCell(x, y, z)) {
+      this.advise('place:nospace', y < 0 || y >= WORLD_HEIGHT ? 'Nothing can be built past the edge of the world' : 'There is no room to place that there');
+      return false;
+    }
     if (def.placeOn) {
       const below = this.world.getBlock(x, y - 1, z);
       if (!def.placeOn.includes(below.key)) {
@@ -319,7 +349,10 @@ export class Interaction {
         return false;
       }
     }
-    if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) return false;
+    if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) {
+      this.advise('place:body', 'You are standing in the way - step aside to place that');
+      return false;
+    }
     // A door is two cells: the top half goes in the cell above, which must be free and clear of the player.
     const door = def.shape === 'door';
     if (door && (!this.placeableCell(x, y + 1, z) || this.body.intersectsCell(x, y + 1, z, 1))) {
@@ -494,6 +527,7 @@ export class Interaction {
 
   /** A toast that explains a refusal, at most once per `cooldownS` (default ADVICE_COOLDOWN_S) for the same subject. */
   advise(key: string, text: string, cooldownS = ADVICE_COOLDOWN_S): void {
+    this.adviceGiven++;
     const last = this.advice.get(key);
     if (last !== undefined && this.clock - last < cooldownS) return;
     this.advice.set(key, this.clock);
@@ -508,6 +542,14 @@ export class Interaction {
 function placesAgainst(def: BlockDef, hit: RayHit): boolean {
   if (!buildsOnto(def) || hit.block.pipe !== null || !screenFor(hit.block, hit.x, hit.y, hit.z)) return false;
   return frontFace(hit.block, hit.voxel) !== hit.face;
+}
+
+/** Why the held item did nothing on the block: a hint where the tool has a real use nearby, else a plain statement. */
+export function noUseAdvice(item: ItemDef, target: BlockDef): string {
+  if (isHoe({ item: item.key, count: 1 })) return `A hoe only tills dirt and grass, from above - not ${target.name}`;
+  const kind = item.tool?.kind;
+  if (kind && kind !== 'hoe' && canMine(target)) return `Nothing to do with the ${item.name} on ${target.name} - hold Mine to dig it`;
+  return `The ${item.name} does nothing on ${target.name}`;
 }
 
 /** What breaking or picking a block leaves in its cell: the picked stage of a bush (same facing and flags), else air. */

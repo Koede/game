@@ -703,14 +703,11 @@ export class Game {
   /** An elixir is not a drink item. Use that nothing else claimed drinks it through elixirGrant. */
   private armElixirDrink(): void {
     const interaction = this.controller.interaction;
-    const use = interaction.use.bind(interaction);
-    interaction.use = (hit, forcePlace) => {
-      const outcome = use(hit, forcePlace);
-      if (outcome !== 'none') return outcome;
+    interaction.lastResort = () => {
       const drank = drinkElixir(this.state.player);
       switch (drank.kind) {
         case 'no':
-          return outcome;
+          return null;
         case 'refused':
           return 'refused';
         case 'drunk':
