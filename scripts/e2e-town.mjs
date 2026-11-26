@@ -78,17 +78,21 @@ async function handInAll(maxRounds = 8) {
 
 /**
  * Stands where the board can be seen and aims at it: the bay's front first, then the cells beside the board inside the bay (the
- * floor-row sill of the front blocks a low view from outside). Returns the stand that worked, or null.
+ * floor-row sill of the front blocks a low view from outside). The bay turns with the site (the lodge in the plan moves it), so
+ * the cells round the board are tried in every direction, only where a player fits; last, the driver's own approach. Returns the
+ * stand that worked, or null.
  */
 async function standToUseBoard(t) {
   const sp = t.board.spot;
-  const stands = [t.front, { x: sp.x - 1, y: sp.y + 1, z: sp.z }, { x: sp.x - 1, y: sp.y + 1, z: sp.z - 1 }, { x: sp.x, y: sp.y + 1, z: sp.z - 1 }].filter(Boolean);
+  const around = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dz]) => ({ x: sp.x + dx, y: sp.y + 1, z: sp.z + dz }));
+  const fits = await d.hw((cells) => cells.map((c) => !window.__hw.getBlock(c.x, c.y, c.z).solid && !window.__hw.getBlock(c.x, c.y + 1, c.z).solid), around);
+  const stands = [t.front, ...around.filter((_, i) => fits[i])].filter(Boolean);
   for (const stand of stands) {
     await teleport(stand);
     await d.settle(400);
     if (await d.aimAt(sp)) return stand;
   }
-  return null;
+  return (await d.approach(sp)) ? (await d.state()).player : null;
 }
 
 try {  await step('a new world loads into play', async () => {
@@ -138,15 +142,15 @@ try {  await step('a new world loads into play', async () => {
   let bayDay = null;
   let cottage = null;
   await step('days are skipped and the bounties handed in, until the storage bay stands and the first cottage frame is up', async () => {
-    // Runs until the bay stands and three days more have passed (or a cottage frame shows, or day 30).
-    for (let day = 2; day <= 30 && !(bayUp && cottage) && !(bayDay !== null && day - bayDay >= 3); day++) {
+    // Runs until the bay stands and a cottage frame shows (or twelve days after the bay, or day 30). The lodge and the well
+    // plaza come between the bay and the first cottage in the town order (townPlan.ts), so the frame takes some days.
+    for (let day = 2; day <= 30 && !(bayUp && cottage) && !(bayDay !== null && day - bayDay >= 12); day++) {
       await d.hw((n) => window.__hw.setDay(n), day);
       await d.settle(300);
       const handed = await handInAll(8);
       const t = await town();
       bayUp = !!t.bay && t.building !== 'storage_bay';
       if (bayUp && bayDay === null) bayDay = day;
-      if (bayUp) break;
       if (bayUp && !cottage) {
         for (const cot of t.plan.filter((b) => b.template === 'cottage')) {
           const sy = await surfaceAt(cot.x + 3, cot.z + 3);
@@ -189,7 +193,8 @@ try {  await step('a new world loads into play', async () => {
     assert(isCrate === 'crate', `the crate block is in the world (got ${isCrate})`);
     await teleport({ x: t.crate.x - 1, y: t.crate.y + 2, z: t.crate.z });
     await d.settle(600);
-    assert(await d.aimAt(t.crate), 'aims at the crate');
+    // The bay turns with the site: from the west may be a wall, so the driver finds a stand that sees the crate.
+    assert((await d.aimAt(t.crate)) || (await d.approach(t.crate)), 'aims at the crate');
     await d.use();
     await d.settle(700);
     const open = (await d.state()).ui?.open;
