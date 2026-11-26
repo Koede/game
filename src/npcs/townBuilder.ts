@@ -18,6 +18,7 @@ import { blockOrNull } from '../core/registry';
 import { phaseAt } from '../game/clock';
 import { buildableKey, planTown, RELIEF_MAX, type PlannedBuilding, type Surface, type TownPlan } from './townPlan';
 import { footprintOf, rotateCell, townTemplate, TOWN_STAGES, type TownTemplate } from './townTemplates';
+import type { BuildBoardSnapshot } from './buildBoard';
 
 /** Cells Orrin reaches per day of working time. */
 export const DAY_BUDGET = 32;
@@ -63,6 +64,15 @@ export interface TownItem {
   count: number;
 }
 
+/** A building Orrin has finished: its template, its origin and rotation, and the base row it stood on. */
+export interface FinishedBuilding {
+  template: string;
+  x: number;
+  z: number;
+  rot: number;
+  base: number;
+}
+
 export interface TownSnapshot {
   v: 1;
   plan: { site: [number, number]; buildings: PlannedBuilding[] } | null;
@@ -78,6 +88,8 @@ export interface TownSnapshot {
   accrued: number;
   blocked: number;
   bay: Record<string, number>;
+  /** The building board (buildBoard.ts); written by the manager, optional so older saves load. */
+  board?: BuildBoardSnapshot;
 }
 
 const STAGE_INDEX = new Map(TOWN_STAGES.map((s, i) => [s, i]));
@@ -129,6 +141,14 @@ export class TownBuilder {
   blocked = 0;
   private readonly bay = new Map<string, number>();
   private planWait = 0;
+  private finishedQ: FinishedBuilding[] = [];
+
+  /** The buildings finished since the last call (the board and the town's reputation take them). */
+  takeFinished(): FinishedBuilding[] {
+    const out = this.finishedQ;
+    this.finishedQ = [];
+    return out;
+  }
 
   /** The plan (site and buildings), or null while no site has been found. */
   get planned(): TownPlan | null {
@@ -232,6 +252,8 @@ export class TownBuilder {
         placed++;
       }
       if (this.laid >= this.cells.length && this.cell >= this.cells.length) {
+        const b = this.plan!.buildings[this.building];
+        this.finishedQ.push({ template: b.template, x: b.x, z: b.z, rot: b.rot, base: this.base ?? 0 });
         this.nextBuilding();
         continue;
       }
@@ -369,6 +391,7 @@ export class TownBuilder {
     this.blocked = 0;
     this.bay.clear();
     this.planWait = 0;
+    this.finishedQ = [];
     if (!raw || typeof raw !== 'object') return;
     const r = raw as Partial<TownSnapshot>;
     const int = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);

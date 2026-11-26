@@ -20,6 +20,7 @@ import type { PhraseBank } from './scripts/types';
 import { traderBank, traderHere, traderStock, traderVisitOn, traderWant, type TraderLine, type TraderVisit, type TraderWant } from './trader';
 import { FIRE_SPOTS, GUEST_BEDS, PARTY_BUTTON, TAVERN_D, TAVERN_START, TAVERN_W, buildTavern } from './tavern';
 import { TownBuilder, type TownHost, type TownSnapshot } from './townBuilder';
+import { BOARD_REFRESH_S, BuildBoard, bayBoardSpot, describeBounty, reputationStep } from './buildBoard';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
@@ -209,6 +210,9 @@ export class NpcManager {
   private drinkLog: DrinkLog = { day: 0, n: {} };
   private readonly bar = new Upkeep();
   private readonly town = new TownBuilder();
+  /** Orrin's building board: bounties for the current stage and the town's reputation (buildBoard.ts). */
+  private readonly board = new BuildBoard();
+  private boardS = 0;
   private fest: FestivalState = newFestivalState();
   private festNow = false;
   /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
@@ -424,6 +428,7 @@ export class NpcManager {
   /** Use on a fixture block (the quest board or the wall clock, placed by the tavern). Null when there is no such fixture. */
   useFixture(role: 'board' | 'clock' | 'jukebox' | 'party'): string | null {
     if (role === 'party') return this.useParty();
+    if (role === 'board' && this.atTownBoard()) return this.useTownBoard();
     const npc = FIXTURES.find((n) => n.role === role);
     return npc ? this.speak(npc) : null;
   }
@@ -705,6 +710,64 @@ export class NpcManager {
   openBounties(limit = 3): { id: string; title: string; coin: number }[] {
     const done = this.host?.completed();
     return BOUNTIES.filter((b) => !(done?.has(b.id) ?? false)).slice(0, limit);
+  }
+
+  /** Whether the player stands at Orrin's building board (inside the storage bay): Use there is for the build bounties. */
+  private atTownBoard(): boolean {
+    const s = this.board.spot;
+    const p = this.host?.companion.player();
+    if (!s || !this.board.placed || !p) return false;
+    return Math.abs(p.x - s.x) <= 6 && Math.abs(p.z - s.z) <= 6 && Math.abs(p.y - s.y) <= 4;
+  }
+
+  /** Use on the building board: a held stack that matches a bounty is handed in; otherwise the open bounties are read out. */
+  private useTownBoard(): string {
+    const held = this.host?.held() ?? null;
+    if (held && this.deliverBuild(held.item, held.count)) return 'Build board';
+    const open = this.board.list();
+    const standing = reputationStep(this.board.rep).name;
+    if (open.length === 0) this.toast(`Build board: Orrin has nothing waiting on materials. Town standing: ${standing} (${this.board.rep}).`);
+    else this.toast(`Build board: ${open.map(describeBounty).join('; ')}. Town standing: ${standing} (${this.board.rep}). Hold the items and use the board to hand them in.`);
+    return 'Build board';
+  }
+
+  /** Hands held materials to a build bounty: they go into the storage bay, and pay coin, town standing and Orrin's trust. */
+  private deliverBuild(item: string, count: number): boolean {
+    const b = this.board.matching(item);
+    const pay = b ? this.board.deliver(b.id, count) : null;
+    if (!pay) return false;
+    this.host?.takeHeld(pay.take);
+    this.town.deliver(item, pay.take);
+    this.coins += pay.coin;
+    if (pay.reward) this.host?.give(pay.reward.item, pay.reward.count);
+    const orrin = NPCS.find((n) => n.id === 'orrin');
+    if (orrin && pay.trust > 0) this.raiseTrust(orrin, pay.trust);
+    const rare = pay.reward ? `, and a ${pay.reward.item.replace(/_/g, ' ')}` : '';
+    this.toast(`Build board: ${pay.take} ${item.replace(/_/g, ' ')} into the storage bay. +${pay.coin} coin, +${pay.rep} town standing${pay.trust ? `, +${pay.trust} trust with Orrin` : ''}${rare}.`);
+    this.refreshBoard(this.host);
+    return true;
+  }
+
+  /** Redraws the board from the builder's needs: when a bounty is filled, or the stage moves on. */
+  private refreshBoard(host: NpcHost | null | undefined): void {
+    const cur = this.town.currentTemplate;
+    const stage = this.town.stage();
+    this.board.refresh(cur && stage >= 0 ? { template: cur, stage } : null, this.town.missing(), host?.worldSeed?.() ?? 0);
+  }
+
+  /** Places the board block inside the storage bay once the bay stands (and the spot is clear). */
+  private placeBoard(host: NpcHost): void {
+    const s = this.board.spot;
+    if (!s || this.board.placed || !host.townBlock || !host.townPlace) return;
+    const key = host.townBlock.call(host, s.x, s.y, s.z);
+    if (key === null) return;
+    this.board.placed = key === 'air' ? host.townPlace.call(host, s.x, s.y, s.z, 'quest_board', s.facing) : true;
+  }
+
+  /** The town's save: the builder's state, with the building board inside it. */
+  private townSnapshot(): TownSnapshot | undefined {
+    const t = this.town.toJSON();
+    return t ? { ...t, board: this.board.toJSON() } : undefined;
   }
 
   private useBoard(npc: NpcDef): string {
@@ -1062,6 +1125,16 @@ export class NpcManager {
       townPlace: (x, y, z, block, facing) => townPlace.call(host, x, y, z, block, facing),
     };
     this.town.tick(dt, th, host.worldSeed?.() ?? 0, [o[0] + Math.floor(TAVERN_W / 2), o[2] + Math.floor(TAVERN_D / 2)]);
+    for (const f of this.town.takeFinished()) {
+      this.board.finished();
+      if (f.template === 'storage_bay') this.board.spot = bayBoardSpot(f);
+    }
+    this.boardS -= dt;
+    if (this.boardS <= 0) {
+      this.boardS = BOARD_REFRESH_S;
+      this.refreshBoard(host);
+      this.placeBoard(host);
+    }
   }
 
   /** The welcome, once, the first tick of a new world. */
@@ -1079,7 +1152,7 @@ export class NpcManager {
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
-      town: this.town.toJSON(),
+      town: this.townSnapshot(),
     };
   }
 
@@ -1142,6 +1215,8 @@ export class NpcManager {
       this.trade = { visit: Math.floor(tr.visit), left: tr.left.map((n) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0)), wantDone: tr.wantDone === true };
     }
     this.town.load(r.town);
+    this.board.load(r.town?.board);
+    this.boardS = 0;
     this.spoken = {};
     if (r.spoken && typeof r.spoken === 'object') for (const [k, v] of Object.entries(r.spoken)) if (typeof v === 'number' && Number.isFinite(v)) this.spoken[k] = v;
     const c = r.comp;

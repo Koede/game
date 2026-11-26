@@ -1,4 +1,4 @@
-# Orrin's town (phases 1-2)
+# Orrin's town (phases 1-2, and the building board of phase 5)
 
 Orrin builds a village next to the tavern from presaved templates (plan: `docs/plans/orrin-builds-a-town.md`).
 
@@ -20,6 +20,27 @@ Snapshot field `town` (optional, old saves load and start a town): the plan (sit
 `base` and `ground` (the current building's base row and footprint heights), `stage`, `cell` (how far the budget reached),
 `laid` (how far placement reached), `lastDay`, `owed`, `accrued`, `blocked` and `bay` (the storage bay's stock).
 
+## Building board (phase 5)
+
+- `src/npcs/buildBoard.ts`: pure. `BuildBoard` holds the bounties, the town's reputation and the board's spot. `refresh(now, missing, seed)`
+  redraws from the builder's `missing()`; `deliver(id, take)` pays one part of a bounty; `finished()` adds reputation per finished
+  building. `REPUTATION_STEPS` and `BOARD_REWARDS` are data. `bayBoardSpot` places the board inside the storage bay.
+- **Bounties** come only from `missing()` for the current building and stage. Three are up at a time. Each asks for a chunk of 8 to 32
+  of one item (or what is left, when less) and never more than the building still needs. A bounty is redrawn when it is filled, and the
+  whole board when the stage or building moves on. Draws are seeded from the world seed and a counter kept in the save.
+- **Payouts:** coin is the item's price (`priceOf` in `economy.ts`) times the count, a little more on later stages, at least 4. Each
+  bounty also pays town reputation (1 + size/8 + stage) and Orrin's trust (2, or 3 for big chunks). Parts pay their shares, so the
+  totals are exact.
+- **Rare rewards:** each new bounty rolls once for a rare item from `BOARD_REWARDS` (5%, 15% on the finishing stage). It is paid when
+  the bounty is complete.
+- **Reputation:** rises with each part filled and by `REP_PER_BUILDING` per finished building. `REPUTATION_STEPS` (strangers,
+  neighbours, village, town) are data for the unlocks that come later.
+- **The board block:** a `quest_board` block placed inside the storage bay (`BuildBoard.spot`) once the bay is finished. Use it
+  within 6 blocks of the spot (the manager checks the player's position through the host), with a stack in hand that matches a
+  bounty to hand it in: the items are taken from hand, go into the storage bay, and pay coin, standing and trust. Use it empty-handed
+  to read the open bounties and standing. Use on the tavern's quest board is unchanged.
+- **Save:** `town.board` in the npcs snapshot (optional, old saves load an empty board).
+
 ## Pace
 
 `DAY_BUDGET` = 32 cells per day, spent during the day phase. A turned day credits what it did not spend, and skipped days are
@@ -28,7 +49,7 @@ credited in full (capped at four days). A cottage frame is about two days, its f
 ## Rules
 
 - Every placed block comes from the bay. With too little stock Orrin waits; `missing()` lists what the current stage still needs.
-  `deliver(item, count)` adds stock (bounties come in phase 5).
+  `deliver(item, count)` adds stock (the building board hands it in, see below).
 - Movable blocks in the way (grass, plants, dirt, gravel, stone, snow, sand, clay) are dug out into the bay.
 - A cell the world has edited (`IWorld.wasEdited`) is never overwritten or dug. A plot with more than `MAX_BLOCKED` such cells is
   skipped, as is a plot with trees, water or steep ground.
