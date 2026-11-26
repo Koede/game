@@ -5,7 +5,7 @@ import { hlog } from './diag.mjs';
 import { bagIndex, openTab, sendFromBag, showBag } from './e2eFurnace.mjs';
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-const MEATS = { hen: 'raw_fowl', goat: 'raw_mutton', boar: 'raw_chop' };
+const MEATS = { hen: 'raw_fowl', goat: 'raw_mutton', boar: 'raw_chop', stag: 'raw_chop', dune_hare: 'raw_fowl', snow_ox: 'raw_mutton', slag_newt: 'raw_fowl' };
 const COOKED = { raw_fowl: 'cooked_fowl', raw_mutton: 'cooked_mutton', raw_chop: 'cooked_chop' };
 
 /** Points the view at a living animal's body centre (aiming is set-up, like lookAt for blocks). */
@@ -16,7 +16,7 @@ async function aimAtMob(d, id) {
     const m = s.mobs.find((x) => x.id === id);
     if (!m) return null;
     const p = s.player;
-    const body = { hen: 0.35, goat: 0.65, boar: 0.5 }[m.species] ?? 0.5;
+    const body = { hen: 0.35, goat: 0.65, boar: 0.5, stag: 0.75, dune_hare: 0.5, snow_ox: 0.6, slag_newt: 0.15 }[m.species] ?? 0.5;
     const dx = m.x - p.x;
     const dz = m.z - p.z;
     const dy = m.y + body - (p.y + 1.62);
@@ -172,17 +172,21 @@ async function useUntil(d, done, what) {
 }
 
 /** Smelts `input` into `output` in the crucible (fast-forwarded) and collects it onto the hotbar. */
-async function smeltAndCollect(d, page, input, output) {
+async function smeltAndCollect(d, page, input, output, at) {
   await openTab(d, 'smelt');
   await sendFromBag(d, input, 'Crucible');
-  let f = (await d.state()).furnaces[0];
-  if (f.crucibleIn[0]?.item !== input) throw new Error(`the crucible holds ${JSON.stringify(f.crucibleIn[0])}`);
-  for (let i = 0; i < 30; i++) {
-    f = (await d.state()).furnaces[0];
+  // The send lands on the next game tick: wait for it instead of reading the state at once.
+  await waitFor(page, ({ i, a }) => window.__hw.state().furnaces.find((x) => x.x === a.x && x.y === a.y && x.z === a.z)?.crucibleIn[0]?.item === i, `${input} in the crucible`, { timeout: 5000, interval: 100, arg: { i: input, a: at } }).catch(() => undefined);
+  // The world may hold other furnaces (settlements): the one under test is the one the player lit.
+  const mine = (st) => st.furnaces.find((x) => x.x === at.x && x.y === at.y && x.z === at.z);
+  let f = mine(await d.state());
+  // A stack the crucible takes straight into its job leaves the input slot empty at once; the output loop below is the real check.
+  for (let i = 0; i < 40; i++) {
+    f = mine(await d.state());
     if (f.crucibleOut[0]?.item === output && !f.crucibleIn[0]) break;
     await d.hw(() => window.__hw.tick(60));
   }
-  if (f.crucibleOut[0]?.item !== output) throw new Error(`no ${output}: ${JSON.stringify(f.crucibleOut)} at ${f.tempC} C`);
+  if (f.crucibleOut[0]?.item !== output) throw new Error(`no ${output}: ${JSON.stringify(f)}`);
   await d.settle(400);
   await showBag(d, false);
   // Pick the output stack, then tap a free hotbar slot in the bag (where the next step selects it).
@@ -295,7 +299,7 @@ export async function featureSteps({ d, step, assert, page }) {
     await d.press(page.locator('.hw-window .hw-fbx__btns button', { hasText: 'Light' }));
     await waitFor(page, () => window.__hw.state().furnaces[0]?.lit, 'the fire to catch', { timeout: 5000, interval: 100 });
     ctx.cooked = COOKED[ctx.meat];
-    await smeltAndCollect(d, page, ctx.meat, ctx.cooked);
+    await smeltAndCollect(d, page, ctx.meat, ctx.cooked, ctx.furnace);
     await d.shot('22-cooked');
     await d.closeScreen();
   });
@@ -369,7 +373,7 @@ export async function featureSteps({ d, step, assert, page }) {
   await step('the dough bakes into bread in the furnace', async () => {
     await d.useBlock(ctx.furnace);
     await d.waitScreen('furnace');
-    await smeltAndCollect(d, page, 'dough', 'bread');
+    await smeltAndCollect(d, page, 'dough', 'bread', ctx.furnace);
     await d.shot('26-bread');
     await d.closeScreen();
   });
