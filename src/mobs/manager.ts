@@ -36,6 +36,7 @@ import {
   VOID_Y,
 } from './constants';
 import { separate } from './crowd';
+import { routinePhase, wakeUp, type MobSky } from './routine';
 import { createMob, feedRefusal, rollDrops } from './mob';
 import { YIELD_COOLDOWN_S, yieldRefusal, type YieldKind } from './yields';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
@@ -131,6 +132,8 @@ export class MobManager {
       player: { x: 0, y: 0, z: 0, yaw: 0, heldItem: () => null },
       held: null,
       mobs: this.active,
+      phase: 'day',
+      sky: { storm: false, winter: false },
       byId: (id) => this.byId.get(id),
       birth: (a, b) => this.birth(a, b),
     };
@@ -157,6 +160,8 @@ export class MobManager {
   get loaded(): readonly Mob[] {
     return this.active;
   }
+  /** Set by the game: fills in whether a storm rages and whether it is winter (routine.ts). Default: clear, no winter. */
+  skyFn: ((out: MobSky) => void) | null = null;
   /** Set by the game: handles Use on a tame pet with something it does not eat (src/game/pets.ts). */
   petUse: ((id: number, held: { item: string; count: number; durability?: number } | null) => 'worked' | 'refused' | null) | null = null;
 
@@ -238,6 +243,10 @@ export class MobManager {
     if (!this.birthRoom()) return { ok: false, reason: NO_ROOM };
     m.eagerS = MOB_EAGER_S;
     m.tame = true;
+    // A fed animal gets used to the yard: it keeps near here and beds down here.
+    m.homeX = m.x;
+    m.homeZ = m.z;
+    wakeUp(m);
     this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     if (!eagerPartnerNear(this.mobs, m)) {
       const name = m.spec.name.toLowerCase();
@@ -254,6 +263,7 @@ export class MobManager {
     const m = this.byId.get(id);
     const refused = yieldRefusal(m, kind);
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing there' };
+    wakeUp(m);
     if (kind === 'milk') m.milkS = YIELD_COOLDOWN_S.milk;
     else m.woolS = YIELD_COOLDOWN_S.wool;
     this.bus.emit('sfx', { name: kind === 'milk' ? 'splash' : 'harvest', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
@@ -273,6 +283,8 @@ export class MobManager {
     const brain = this.brain;
     brain.player = player;
     brain.held = player.heldItem();
+    brain.phase = routinePhase(this.clock.timeOfDay);
+    if (this.skyFn) this.skyFn(brain.sky);
     this.despawnS -= dt;
     if (this.despawnS <= 0) {
       this.despawnS = DESPAWN_CHECK_S;
