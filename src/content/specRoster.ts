@@ -417,6 +417,8 @@ SPEC.maxTextures += 2;
 SPEC.maxTextures += 1;
 // The foul-air wisps (src/render/textures/worldPlants.ts): one cave hazard texture.
 SPEC.maxTextures += 1;
+// The cave breadcrumbs (src/render/textures/areas/cave_marks.ts): chalk_mark and cave_cairn.
+SPEC.maxTextures += 2;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

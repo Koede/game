@@ -280,5 +280,7 @@
   "oak_stump": 278,
   "pine_stump": 279,
   "wooden_door": 280,
-  "foul_air": 281
+  "foul_air": 281,
+  "chalk_mark": 282,
+  "cave_cairn": 283
 }
