@@ -490,9 +490,10 @@ export class NpcManager {
   }
 
   /** Use on a person or prop: true when something was spoken to (the Use is spent). */
-  talk(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): boolean {
+  talk(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist = REACH): boolean {
     const hit = this.raycast(ox, oy, oz, dx, dy, dz);
-    if (!hit) return false;
+    // Something nearer on the ray (a wall, an animal) is what the player aims at; props that are blocks themselves keep a margin.
+    if (!hit || hit.distance > maxDist + (hit.npc.kind === 'prop' ? 0.75 : 0)) return false;
     if (this.cooldownS > 0) return true;
     this.cooldownS = 0.8;
     this.speak(hit.npc);

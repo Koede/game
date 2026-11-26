@@ -259,6 +259,15 @@ describe('talking', () => {
     expect(npcs.raycast(mara.x, mara.y + 1.5, mara.z, 0, 1, 0)).toBeNull();
   });
 
+  it('does not talk to a person behind something nearer on the ray (a wall or an animal)', () => {
+    const { npcs, toasts } = rig();
+    const mara = npcs.views().find((v) => v.id === 'mara')!;
+    const eye = mara.y + 1.5;
+    expect(npcs.talk(mara.x, eye, mara.z - 3, 0, 0, 1, 1.5)).toBe(false);
+    expect(toasts).toHaveLength(0);
+    expect(npcs.talk(mara.x, eye, mara.z - 3, 0, 0, 1, 5)).toBe(true);
+  });
+
   it('does not read the whole script while Use is held', () => {
     const { npcs, toasts } = rig();
     const mara = npcs.views().find((v) => v.id === 'mara')!;

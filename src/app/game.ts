@@ -236,7 +236,7 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, talk: (ox, oy, oz, dx, dy, dz) => state.npcs.talk(ox, oy, oz, dx, dy, dz), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn });
       this.vehicles.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
