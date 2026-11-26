@@ -213,9 +213,12 @@ export async function emberSteps({ d, step, assert, page }) {
     await d.waitScreen('furnace');
     await sendFromBag(d, 'charcoal', 'Firebox');
     await d.press(page.locator('.hw-window .hw-fbx__btns button', { hasText: 'Light' }));
-    await waitFor(page, () => window.__hw.state().furnaces[0]?.lit, 'the fire to catch', { timeout: 5000, interval: 100 });
-    for (let i = 0; i < 40 && (await d.state()).furnaces[0].tempC < 720; i++) await d.hw(() => window.__hw.tick(100));
-    const temp = (await d.state()).furnaces[0].tempC;
+    // The camp's own tended furnace (lit with oak logs) is in the list too: read the one placed here.
+    const at = ctx.furnace;
+    const ours = (s) => s.furnaces.find((f) => f.x === at.x && f.y === at.y && f.z === at.z);
+    await waitFor(page, (c) => window.__hw.state().furnaces.find((f) => f.x === c.x && f.y === c.y && f.z === c.z)?.lit, 'the fire to catch', { timeout: 5000, interval: 100, arg: at });
+    for (let i = 0; i < 40 && ours(await d.state()).tempC < 720; i++) await d.hw(() => window.__hw.tick(100));
+    const temp = ours(await d.state()).tempC;
     assert(temp >= 700, `the furnace only reached ${temp} C`);
     // The maul is no longer a furnace recipe (it is hand-cast from a head, see e2e-handwork): the pack gets one by set-up.
     await d.hw(() => window.__hw.give('bronze_maul', 1));
