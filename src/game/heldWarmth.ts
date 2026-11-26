@@ -5,6 +5,6 @@
 import type { Slot } from '../core/types';
 
 /** Items that warm whoever holds them (the selected hotbar slot). */
-export const HELD_WARM_ITEMS: ReadonlySet<string> = new Set(['torch', 'boiling_pail', 'boiling_beaker', 'boiling_vial']);
+export const HELD_WARM_ITEMS: ReadonlySet<string> = new Set(['torch', 'emberfang', 'boiling_pail', 'boiling_beaker', 'boiling_vial']);
 
 export const heldWarms = (held: Slot): boolean => held !== null && HELD_WARM_ITEMS.has(held.item);

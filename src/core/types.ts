@@ -92,7 +92,13 @@ export type Slot = ItemStack | null;
  * and the maul (spec 19.4): a weapon made for breaking metal. No block names 'hoe' or 'maul' as its tool, so both
  * count as bare hands for mining and never wear while mining; a maul's combat numbers are its ItemSpec.weapon.
  */
-export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul' | 'hammer';
+export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul' | 'hammer' | 'sword' | 'spear';
+
+/**
+ * The verbs of the legendary weapons (docs/plans/legendary-weapons.md, src/content/legendary.ts): one per weapon, read from the item key
+ * and never from a stack, so nothing the player does to a stack can add, swap or lose one.
+ */
+export type LegendaryEffect = 'veinseek' | 'burning_marks' | 'lunge' | 'lantern_burst';
 
 export interface ToolSpec {
   kind: ToolKind;

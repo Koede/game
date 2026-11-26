@@ -4,7 +4,7 @@
  *
  * Adding an event: append it here (never rename or remove one that another module may use).
  */
-import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack, ItemAmount, ProjectileKind, Voxel, WeatherKind } from './types';
+import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack, ItemAmount, LegendaryEffect, ProjectileKind, Voxel, WeatherKind } from './types';
 
 /**
  * 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own).
@@ -285,6 +285,8 @@ export interface GameEvents {
   'player:ate': { item: string; hunger: number };
   /** An animal entered the world (spawn roll, keep-alive spawn or birth). `id` is unique for the session and saved. */
   'mob:spawned': { id: number; species: string };
+  /** A legendary weapon's verb fired (src/game/legendary.ts): the renderer shows a small burst of sparks, capped per event. */
+  'legendary:proc': { effect: LegendaryEffect; x: number; y: number; z: number };
   /** An animal was hit; `health` is what it has left. */
   'mob:hurt': { id: number; species: string; health: number };
   'mob:died': { id: number; species: string };

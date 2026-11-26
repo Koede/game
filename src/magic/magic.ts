@@ -22,7 +22,7 @@
  */
 import type { GameBus } from '../core/context';
 import { blockOrNull, blockId, itemOrNull } from '../core/registry';
-import { ENCHANTS, addEnchant, canEnchant, copyEnchants, enchantCost, enchantDef, enchantInstability, isEnchantKey, levelName, nextEnchantLevel, sanitizeEnchants } from '../core/enchant';
+import { ENCHANTS, addEnchant, canAltarEnchant, copyEnchants, enchantCost, enchantDef, enchantInstability, isEnchantKey, levelName, nextEnchantLevel, sanitizeEnchants } from '../core/enchant';
 import { FACE_DIRS, FACING_TO_FACE, type Facing, makeVoxel, voxelActive, voxelFacing, withActive, type BlockDef, type Face, type IWorld } from '../core/types';
 import { FOCI, JAR_UNITS, ROD_TIERS, VIAL_UNITS, VOID_JAR_UNITS, vialKey, type RodTier } from '../content/itemsMagic';
 import { ALCHEMY, ARCANE_RECIPES, INFUSIONS, alchemyFor, type ArcaneRecipe, type InfusionRecipe } from '../content/recipesMagic';
@@ -1486,7 +1486,7 @@ export class Magic {
     if (!item) return false;
     const def = itemOrNull(item);
     const enchants = this.altarKit.get(k)?.enchants;
-    return ENCHANTS.some((e) => canEnchant(def, e.key) && nextEnchantLevel(enchants, e.key) !== null);
+    return ENCHANTS.some((e) => canAltarEnchant(def, e.key) && nextEnchantLevel(enchants, e.key) !== null);
   }
 
   /**
@@ -1502,7 +1502,7 @@ export class Magic {
     const stock = this.stockNear(x, y, z);
     for (const e of ENCHANTS) {
       const level = nextEnchantLevel(enchants, e.key);
-      if (level !== null && canEnchant(def, e.key) && (stock[e.cost.aspect] ?? 0) > 0) return { key: e.key, level, aspect: e.cost.aspect };
+      if (level !== null && canAltarEnchant(def, e.key) && (stock[e.cost.aspect] ?? 0) > 0) return { key: e.key, level, aspect: e.cost.aspect };
     }
     return null;
   }

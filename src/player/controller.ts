@@ -23,6 +23,9 @@ import { landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
+import { legendaryEffectOf } from '../content/legendary';
+import { DARK_LIGHT, oreHum } from '../game/legendary';
+import { blockLightAt, skyOpenAt } from '../mobs/sight';
 import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
 import { attachSapSave } from './sapTools';
 
@@ -58,6 +61,8 @@ export interface PlayerControllerOptions {
   hands?: HandHands;
   /** The tavern jukebox is playing: the dance emote keeps its beat. */
   jukeboxOn?: () => boolean;
+  /** Daylight 0 (night) .. 1 (noon): with it, open sky counts as dark at night (the Lanternblade's burst). Default: open sky is never dark. */
+  sunlight?: () => number;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -130,6 +135,9 @@ export class PlayerController {
   private jumpHeld = false;
   private sinceJumpTap = 9;
   private sprintWanted = false;
+  private readonly sunlight: () => number;
+  /** Seconds until the Spare Pick's hum is checked again. */
+  private humS = 0;
 
   constructor(options: PlayerControllerOptions) {
     this.world = options.world;
@@ -144,6 +152,8 @@ export class PlayerController {
     this.physics = new PlayerPhysics(this.world, this.player);
     this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null, options.hands ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
+    this.sunlight = options.sunlight ?? (() => 1);
+    if (this.animals) this.animals.dark = () => this.isDark();
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {
         this.interaction.stopMining();
@@ -226,6 +236,8 @@ export class PlayerController {
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
+      if (intent.use && this.lunge()) intent.use = false;
+      this.hum(dt);
       if (intent.use && this.talkTo) {
         p.viewDir(this.dir);
         if (this.talkTo(p.position.x, p.eyeY, p.position.z, this.dir.x, this.dir.y, this.dir.z)) intent.use = false;
@@ -378,6 +390,41 @@ export class PlayerController {
     this.interaction.updateMining(dt, false, null);
     if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
+  }
+
+  /** Whether the light where the player stands is below DARK_LIGHT: block light, or the sky's by day when it is open overhead. */
+  private isDark(): boolean {
+    const p = this.player.position;
+    const y = p.y + 1;
+    if (blockLightAt(this.world, p.x, y, p.z, DARK_LIGHT) >= DARK_LIGHT) return false;
+    return !(skyOpenAt(this.world, p.x, y, p.z) && this.sunlight() * 15 >= DARK_LIGHT);
+  }
+
+  /** Gale Reed: Use throws the wielder forward. True when it did (the Use is spent). */
+  private lunge(): boolean {
+    const p = this.player;
+    const item = p.heldStack()?.item ?? null;
+    if (legendaryEffectOf(item) !== 'lunge') return false;
+    p.viewDir(this.dir);
+    const impulse = p.combat.legendary.tryLunge(item, this.dir.x, this.dir.z);
+    if (!impulse) return false;
+    p.combat.knock(impulse.vx, impulse.vy, impulse.vz);
+    this.view.triggerSwing();
+    this.bus.emit('legendary:proc', { effect: 'lunge', x: p.position.x, y: p.position.y + 0.9, z: p.position.z });
+    this.sfx('jump', 0.8);
+    return true;
+  }
+
+  /** Orrin's Spare Pick: a soft hum while ore lies within reach behind a wall, louder the closer it is. Checked twice a second. */
+  private hum(dt: number): void {
+    this.humS -= dt;
+    if (this.humS > 0) return;
+    this.humS = 0.5;
+    const p = this.player;
+    const item = p.heldStack()?.item ?? null;
+    if (legendaryEffectOf(item) !== 'veinseek') return;
+    const level = oreHum(this.world, item, p.position.x, p.position.y + 1, p.position.z);
+    if (level > 0) this.bus.emit('sfx', { name: 'infuse', x: p.position.x, y: p.position.y + 1, z: p.position.z, volume: 0.15 + level * 0.35, pitch: 0.7 + level * 0.5 });
   }
 
   /** Photo mode: the body stays put, the eye detaches and flies; Use takes the picture. */

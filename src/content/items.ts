@@ -10,6 +10,7 @@ import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
 import { areaItems } from './area';
 import { EMBER_ITEMS } from './emberbound';
+import { LEGENDARY_ITEMS } from './legendary';
 import { BREW_ITEMS } from './itemsBrew';
 import { DISTILL_ITEMS } from './itemsDistill';
 import { GROUND_ITEMS } from './itemsGround';
@@ -105,7 +106,7 @@ const TOOLS: ItemSpec[] = [
   // A named find (src/content/loot.ts NAMED_FINDS): a bronze pickaxe with a story, a little tougher than the common one. Ember and Bronze materials only.
   {
     key: 'orrins_spare_pick', name: "Orrin's Spare Pick",
-    desc: "The pick Orrin hid behind the brick for the day his own broke. Bronze, but cast with care and kept dry for years.",
+    desc: "The pick Orrin hid behind the brick for the day his own broke. Cast with care, kept dry for years. Breaks a whole ore vein at a stroke, and hums near ore behind a wall.",
     icon: 'item_bronze_pickaxe', category: 'tool', age: 0, tool: { kind: 'pickaxe', tier: 2, speed: 3, durability: 256 },
   },
   ...toolSet({
@@ -253,4 +254,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS, ...DISTILL_ITEMS, ...MAGIC_ITEMS, ...WORKSHOP_ITEMS, ...GLASS_ITEMS, ...areaItems()];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS, ...DISTILL_ITEMS, ...MAGIC_ITEMS, ...WORKSHOP_ITEMS, ...GLASS_ITEMS, ...areaItems(), ...LEGENDARY_ITEMS];

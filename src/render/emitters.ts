@@ -7,6 +7,7 @@ import { FURNACE_HOT_C } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { hashFloat } from '../core/math';
 import { blockOf, TEXTURE_NAMES } from '../core/registry';
+import type { LegendaryEffect } from '../core/types';
 import { Face, FACE_DIRS, FACING_TO_FACE, voxelActive, voxelFacing, type BlockDef, type IWorld, type Voxel } from '../core/types';
 import type { Glows } from './glows';
 import { ParticleLook, type ParticleSpec, type Particles } from './particles';
@@ -42,6 +43,8 @@ const GLOW_COLORS: readonly (readonly [number, number, number])[] = [
 ];
 
 const SCAN_INTERVAL_S = 0.5;
+/** Sparks one legendary proc emits at most. */
+export const PROC_SPARKS = 14;
 /** Furnace smoke is emitted this far from the camera (horizontal blocks). */
 const SMOKE_RANGE = 176;
 const STEAM_RANGE = 64;
@@ -91,6 +94,7 @@ export class Emitters {
       }),
       bus.on('machine:job', (e) => this.puffs(e.x + 0.5, e.y + 1.05, e.z + 0.5, 'steam', 3)),
       bus.on('explosion', (e) => this.explosion(e.x + 0.5, e.y + 0.5, e.z + 0.5, e.radius)),
+      bus.on('legendary:proc', (e) => this.legendaryProc(e.effect, e.x, e.y, e.z)),
     ];
   }
 
@@ -314,6 +318,20 @@ export class Emitters {
       this.spark(x + spread(0.3), y + spread(0.3), z + spread(0.3), Math.cos(a) * s, 2 + rnd() * 3 * power, Math.sin(a) * s, gold);
     }
     this.puffs(x, y + 0.5, z, 'smoke', Math.round(count / 10));
+  }
+
+  /**
+   * A legendary weapon's verb fired: a small, capped burst of sparks in its colour (never more than PROC_SPARKS per event, so a stress
+   * scene of swings stays inside the particle budget). `gold` sparks are the pale ones; the rest are ember orange.
+   */
+  private legendaryProc(effect: LegendaryEffect, x: number, y: number, z: number): void {
+    const count = effect === 'burning_marks' ? PROC_SPARKS : Math.round(PROC_SPARKS * 0.75);
+    for (let i = 0; i < count; i++) {
+      const a = rnd() * Math.PI * 2;
+      const s = 1.2 + rnd() * 2.2;
+      const rise = effect === 'lunge' ? 0.6 + rnd() : 1.5 + rnd() * 2;
+      this.spark(x + spread(0.25), y + spread(0.25), z + spread(0.25), Math.cos(a) * s, rise, Math.sin(a) * s, effect !== 'burning_marks');
+    }
   }
 
   private explosion(x: number, y: number, z: number, radius: number): void {
