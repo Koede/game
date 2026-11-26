@@ -4,7 +4,7 @@
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
 import { DT } from '../core/constants';
-import type { Difficulty } from '../core/context';
+import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
 import { makeVoxel, voxelActive, voxelFacing, type Facing, type WeatherKind, type WeatherState } from '../core/types';
@@ -93,6 +93,8 @@ export interface DebugHandle {
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
   /** Changes Settings.difficulty the way the settings panel does (saved, applied to the running world at once). */
   setDifficulty(d: Difficulty): void;
+  /** Changes settings the way the settings panel does (merged over the current ones, saved, applied at once). */
+  setSettings(patch: Partial<Settings>): void;
   /** Whether (x, y, z) lies in a safe zone (a hot furnace's warm zone or a powered ward beacon's radius). */
   isSafe(x: number, y: number, z: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
@@ -257,6 +259,9 @@ export function createDebugHandle(app: App): DebugHandle {
     setDifficulty(d) {
       if (!['peaceful', 'normal', 'hard'].includes(d)) throw new Error(`unknown difficulty "${d}"`);
       app.changeSettings({ ...app.settings, difficulty: d }, 'difficulty');
+    },
+    setSettings(patch) {
+      app.changeSettings({ ...app.settings, ...patch }, Object.keys(patch)[0] as keyof Settings);
     },
     isSafe(x, y, z) {
       return game().state.sim.isSafe(x, y, z);

@@ -246,3 +246,48 @@ describe('PlayerController', () => {
     expect(view.view.y).toBeCloseTo(10 + PLAYER_EYE, 3);
   });
 });
+
+describe('tap to move', () => {
+  it('walks to the tapped ground, ends on arrival and does not press Use', () => {
+    const { player, input, settings, controller, run } = setup();
+    settings.tapToMove = true;
+    controller.update(DT);
+    // Looking level: a tap low on the screen lands on the floor ahead (north, -Z).
+    input.next.tap = true;
+    input.next.tapX = 0;
+    input.next.tapY = -0.6;
+    input.next.tapAspect = 0.5;
+    controller.update(DT);
+    input.next.tap = false;
+    expect(controller.tapMove.active).toBe(true);
+    const goalZ = controller.tapMove.z;
+    expect(goalZ).toBeLessThan(player.position.z);
+    run(6);
+    expect(controller.tapMove.active).toBe(false);
+    expect(Math.abs(player.position.z - goalZ)).toBeLessThan(0.7);
+  });
+
+  it('the stick takes over at once', () => {
+    const { input, settings, controller, run } = setup();
+    settings.tapToMove = true;
+    controller.update(DT);
+    input.next.tap = true;
+    input.next.tapY = -0.6;
+    input.next.tapAspect = 0.5;
+    controller.update(DT);
+    input.next.tap = false;
+    run(0.2);
+    expect(controller.tapMove.active).toBe(true);
+    input.next.moveX = 1;
+    controller.update(DT);
+    expect(controller.tapMove.active).toBe(false);
+  });
+
+  it('ignores taps while the option is off', () => {
+    const { input, controller } = setup();
+    input.next.tap = true;
+    input.next.tapY = -0.6;
+    controller.update(DT);
+    expect(controller.tapMove.active).toBe(false);
+  });
+});

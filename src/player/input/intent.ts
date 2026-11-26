@@ -43,6 +43,14 @@ export interface Intent {
   /** Edge (touch quick menu): play this emote, or 'stop' to end the one playing. Null when nothing was picked. */
   emoteSet: EmoteKind | 'stop' | null;
   pause: boolean;
+  /**
+   * Edge (touch, Settings.tapToMove): a short tap on the world. `tapX` / `tapY` are where, -1..1 from the left / bottom of
+   * the view, and `tapAspect` the view's width / height; the controller turns them into a walk (player/tapMove.ts).
+   */
+  tap: boolean;
+  tapX: number;
+  tapY: number;
+  tapAspect: number;
   /** Edge: the drop key (Q) went down: drop one of the held item. */
   drop: boolean;
   /** With `drop`: Shift was held; or alone: Q was held long enough to drop the rest of the stack. */
@@ -69,6 +77,10 @@ export function createIntent(): Intent {
     photo: false,
     emoteSet: null,
     pause: false,
+    tap: false,
+    tapX: 0,
+    tapY: 0,
+    tapAspect: 1,
     drop: false,
     dropAll: false,
   };
@@ -92,6 +104,7 @@ export function clearIntent(intent: Intent): Intent {
   intent.log = false;
   intent.emoteSet = null;
   intent.pause = false;
+  intent.tap = false;
   intent.drop = false;
   intent.dropAll = false;
   return intent;
