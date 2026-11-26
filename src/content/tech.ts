@@ -156,7 +156,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
   {
     kind: 'water_wheel', name: 'Water Wheel', role: 'generator', blocks: ['water_wheel'], outputW: 400,
     params: { minWater: 2, shareRadius: 3 },
-    desc: 'Makes a steady 400 W. Wheels within 3 blocks of each other share that between them.',
+    desc: 'Makes 400 W, 100 W more for each block of water stacked beside it (a dam; up to 4), and far less when the river ices over in late autumn and winter. Wheels within 3 blocks of each other share the flow.',
     placementHint: 'Needs water on at least two of its six sides.',
   },
   // wind_turbine - watts = outputW * wind(t) * altitude, only under open sky. params:

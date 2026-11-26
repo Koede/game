@@ -14,7 +14,6 @@ import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
 import { Survival } from '../game/survival';
 import { Thermal } from '../game/thermal';
-import { seasonOf } from '../sim/seasons';
 import { DailyGoals, isDailyGoalsSnapshot, type GoalFacts } from '../game/dailyGoals';
 import { Achievements, isAchievementsSnapshot, type ProgressFacts } from '../game/achievements';
 import { StoryDirector } from '../game/storyBeats';
