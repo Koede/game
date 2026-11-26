@@ -36,6 +36,7 @@ import { festivalOn, festivalServices, newFestivalState, type FestivalState } fr
 import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
 import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
+import { JobBoard, KIND_NAMES, aptitudeOf, type JobKind, type JobsPort, type JobsWorld, type Stop } from './jobs';
 import { DRINKS, TONICS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
 import { newcomerLine, type Arrival, type Newcomer, type TownFacts } from './moveIn';
 import { ARRIVAL_LINES, BED_ROOM, LODGE_COMMON, LODGE_ROOMS, LODGE_SLEEP, Settlement, lodgeRooms, nameOfPerson, sampleTags, townContentment, type SettlementSnapshot } from './settlement';
@@ -120,6 +121,8 @@ export interface NpcSnapshot {
   settle?: SettlementSnapshot;
   /** Camp goals done and the flags that feed them (campGoals.ts); absent in old saves. */
   goals?: { done: string[]; flags: string[] };
+  /** What each resident carries between two stops (jobs.ts); absent in old saves. */
+  jobs?: ReturnType<JobBoard['toJSON']>;
 }
 
 /** What the manager needs from the game. */
@@ -182,6 +185,8 @@ export interface NpcHost {
   townPlace?(x: number, y: number, z: number, block: string, facing: number): boolean;
   /** The storage bay's stock crate at a cell, as an inventory over its slots (null when there is no crate there). */
   townCrate?(x: number, y: number, z: number): StockCrate | null;
+  /** The containers and machines a resident's job carries between (jobs.ts); absent in tests without a workshop. */
+  jobs?: JobsWorld;
   companion: CompanionHost;
 }
 
@@ -280,6 +285,9 @@ export class NpcManager {
   private readonly town = new TownBuilder((t) => unlockedAt(t, this.board.rep));
   /** Gruk's building board: bounties for the current stage and the town's reputation (buildBoard.ts). */
   private readonly board = new BuildBoard();
+  readonly jobs = new JobBoard();
+  /** A stop being picked: the next Use on a block sets it (see jobPick). */
+  private picking: { id: string; which: 'from' | 'to' } | null = null;
   private fest: FestivalState = newFestivalState();
   private festNow = false;
   /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
@@ -529,11 +537,12 @@ export class NpcManager {
       const hired = n.role === 'orc' && this.companion.active;
       const cell = n.kind === 'person' ? 0.5 : 0;
       const here = this.where(n);
+      const road = !hired && n.kind === 'person' ? this.jobs.pose(n.id) : null;
       return {
         id: n.id, name: n.name, sprite: n.sprite, role: n.role, kind: n.kind, scale: n.scale, hired, party: this.partyOn && n.kind === 'person', dancing: this.jukeboxOn && n.kind === 'person' && DANCES(n.role) && !hired, danceS: this.danceS,
-        x: hired ? this.companion.x : o[0] + here[0] + cell,
-        y: hired ? this.companion.y : o[1] + n.at[1],
-        z: hired ? this.companion.z : o[2] + here[1] + cell,
+        x: hired ? this.companion.x : road ? road.x : o[0] + here[0] + cell,
+        y: hired ? this.companion.y : road ? road.y : o[1] + n.at[1],
+        z: hired ? this.companion.z : road ? road.z : o[2] + here[1] + cell,
         extra: n.role === 'clock' ? h * 60 + m : 0,
         bubble: bubble?.id === n.id ? bubble.text : null,
         outfit: n.kind === 'person' ? chooseOutfit({ phase: this.phase(), inWater: this.coolOff() && inPool(here[0], here[1]), dancing: this.jukeboxOn && DANCES(n.role), hired, party: this.partyOn && n.kind === 'person' }) : 'day',
@@ -565,7 +574,7 @@ export class NpcManager {
   }
 
   private say(npc: NpcDef, line: string): void {
-    this.bus.emit('npc:say', { id: npc.id, role: npc.role, name: npc.name, title: npc.title, text: line });
+    this.bus.emit('npc:say', { id: npc.id, role: npc.role, name: npc.name, title: npc.title, text: line, work: this.canWork(npc.id) || undefined });
   }
 
   private toast(text: string): void {
@@ -1535,6 +1544,86 @@ export class NpcManager {
     return [...this.people].filter((p) => !before.has(p));
   }
 
+  // ---- jobs (jobs.ts, docs/api/jobs.md) ---------------------------------------------------------------------------
+
+  /** Who can be given work: people who live here (not props, not the visiting trader), and only when the world has a workshop. */
+  canWork(id: string): boolean {
+    const n = NPCS.find((p) => p.id === id);
+    return !!n && n.kind === 'person' && n.role !== 'trader' && this.isPresent(id) && !!this.host?.jobs;
+  }
+
+  /** The people the Jobs screen lists, each with what they carry and what they do now. */
+  workers(): { id: string; name: string; note: string; kindName: string | null }[] {
+    return NPCS.filter((n) => this.canWork(n.id)).map((n) => {
+      const v = this.jobs.get(n.id);
+      return { id: n.id, name: n.name, note: aptitudeOf(n.id).note, kindName: v ? KIND_NAMES[v.job.kind] : null };
+    });
+  }
+
+  /** Puts a resident to work (or changes what they do); `null` sends them back to their routine. */
+  setJob(id: string, kind: JobKind | null): void {
+    if (!this.canWork(id)) return;
+    if (kind === null) this.jobs.clear(id);
+    else this.jobs.assign(id, kind);
+  }
+
+  /** Asks for a stop to be picked: the next Use on a block (not a person) sets it, then the Jobs screen opens again. */
+  startPick(id: string, which: 'from' | 'to'): boolean {
+    if (!this.canWork(id) || !this.jobs.has(id)) return false;
+    this.picking = { id, which };
+    this.toast(`Aim at ${which === 'to' ? 'the crate or machine to deliver to' : this.jobs.get(id)?.job.kind === 'tend' ? 'a block in the workshop to look after' : 'the crate, depot or vault to collect from'} and Use`);
+    return true;
+  }
+
+  get pickingStop(): { id: string; which: 'from' | 'to' } | null {
+    return this.picking;
+  }
+
+  cancelPick(): void {
+    this.picking = null;
+  }
+
+  /** The game's Use on a block while a stop is being picked: true when the Use was spent. */
+  jobPick(hit: { x: number; y: number; z: number; block: { key: string } } | null): boolean {
+    const p = this.picking;
+    if (!p) return false;
+    if (!hit || hit.block.key === 'air') {
+      this.picking = null;
+      this.toast('Nothing there. Open the jobs again to pick a stop.');
+      return true;
+    }
+    this.picking = null;
+    const stop: Stop = { x: hit.x, y: hit.y, z: hit.z };
+    this.jobs.setStop(p.id, p.which, stop);
+    const name = NPCS.find((n) => n.id === p.id)?.name ?? p.id;
+    this.toast(`${name} will ${p.which === 'to' ? 'deliver to' : this.jobs.get(p.id)?.job.kind === 'tend' ? 'look after the machines around' : 'collect from'} the ${hit.block.key.replace(/_/g, ' ')} at ${stop.x}, ${stop.y}, ${stop.z}`);
+    this.bus.emit('ui:open', { screen: { type: 'jobs', person: p.id } });
+    return true;
+  }
+
+  private tickJobs(host: NpcHost, dt: number): void {
+    const w = host.jobs;
+    if (!w || this.jobs.size === 0) return;
+    const port: JobsPort = {
+      peek: (s) => w.peek(s),
+      take: (s, item, max) => w.take(s, item, max),
+      canOffer: (s, item, n) => w.canOffer(s, item, n),
+      offer: (s, item, n) => w.offer(s, item, n),
+      loaded: (s) => w.loaded(s),
+      spill: (s, item, n) => w.spill(s, item, n),
+      worn: w.worn ? (near) => w.worn!(near) : undefined,
+      tend: w.tend ? (x, y, z) => w.tend!(x, y, z) : undefined,
+      working: () => this.phase() !== 'night',
+      busy: (id) => !this.isPresent(id) || (id === 'gruk' && this.companion.active),
+    };
+    this.jobs.tick(dt, port);
+  }
+
+  /** The block under a stop (for the screen's labels), or null when it is not loaded. */
+  stopBlock(s: Stop): string | null {
+    return this.host?.jobs?.blockAt(s) ?? null;
+  }
+
   // ---- time -----------------------------------------------------------------------------------------------------
 
   tick(dt: number): void {
@@ -1554,6 +1643,7 @@ export class NpcManager {
     this.tickTown(host, dt);
     this.tickSettlement(host);
     this.tickGoals(host);
+    this.tickJobs(host, dt);
     this.syncJukeboxLamp();
     this.syncPartyLamp();
     if (this.jukeboxOn) this.playJukebox(dt);
@@ -1648,7 +1738,7 @@ export class NpcManager {
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
       trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
-      town: this.townSnapshot(), present: [...this.people], camp: this.camp,
+      town: this.townSnapshot(), present: [...this.people], camp: this.camp, jobs: this.jobs.size > 0 ? this.jobs.toJSON() : undefined,
       settle: this.settlement.toJSON(), goals: { done: [...this.goalsDone], flags: [...this.goalFlags] },
     };
   }
@@ -1715,6 +1805,8 @@ export class NpcManager {
     if (tr && typeof tr === 'object' && Number.isFinite(tr.visit) && Array.isArray(tr.left)) {
       this.trade = { visit: Math.floor(tr.visit), left: tr.left.map((n) => (Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0)), wantDone: tr.wantDone === true };
     }
+    this.jobs.load(r.jobs, (id) => this.people.has(id));
+    this.picking = null;
     this.town.load(r.town);
     this.board.load(r.town?.board);
     this.settlement.load(r.settle);

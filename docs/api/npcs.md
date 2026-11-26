@@ -50,6 +50,8 @@ artificer's road. Lines show as toasts (`Name, title: "..."`). Old worlds are no
 `npx vitest run src/npcs` (layout, talk, gifts, save round trip, sprites, a new world opens in the hall) and `node scripts/e2e-tavern.mjs`
 (desktop and phone portrait: opens in the tavern, uses each person and checks the gift and the toast; `HW_GPU=1` for the real GPU).
 
+**Jobs:** residents can be put to work carrying items between your containers and machines (`docs/api/jobs.md`).
+
 ## Ideas for later
 Shop/trade with Rosa, a quest board, recruiting Gruk as a smith at the Bronze Furnace, Mara teaching research entries, walking schedules and
 night-time seating, more people in the structures session's outposts.

@@ -28,6 +28,8 @@ export class NpcDialogue {
   private readonly textEl: HTMLParagraphElement;
   private readonly more: HTMLSpanElement;
   private readonly off: () => void;
+  private readonly workBtn: HTMLButtonElement;
+  private who = '';
   private text = '';
   private shown = 0;
   private holdS = 0;
@@ -48,11 +50,21 @@ export class NpcDialogue {
     this.titleEl = h('span', { class: 'hw-npcsay__title' });
     this.textEl = h('p', { class: 'hw-npcsay__text', attrs: { 'aria-live': 'polite' } });
     this.more = h('span', { class: 'hw-npcsay__more', text: '▼', attrs: { 'aria-hidden': 'true' } });
+    this.workBtn = h('button', { class: 'hw-npcsay__work', text: 'Give work', attrs: { type: 'button', 'data-testid': 'npc-work' } });
+    this.workBtn.hidden = true;
+    // A tap on the button must not close the box (the box closes on pointerdown) and opens the Jobs screen for this person.
+    this.workBtn.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    this.workBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const id = this.who;
+      this.hide();
+      if (id) bus.emit('ui:open', { screen: { type: 'jobs', person: id } });
+    });
     this.el = h(
       'div',
       { class: 'hw-npcsay', attrs: { role: 'dialog', 'aria-label': 'Conversation' } },
       this.frame,
-      h('div', { class: 'hw-npcsay__card' }, h('div', { class: 'hw-npcsay__tab' }, this.nameEl, this.titleEl), this.textEl, this.more),
+      h('div', { class: 'hw-npcsay__card' }, h('div', { class: 'hw-npcsay__tab' }, this.nameEl, this.titleEl), this.textEl, this.workBtn, this.more),
     );
     this.el.hidden = true;
     this.el.addEventListener('pointerdown', (ev) => {
@@ -61,11 +73,13 @@ export class NpcDialogue {
       this.advance();
     });
     parent.appendChild(this.el);
-    this.off = bus.on('npc:say', (e) => this.say(e.role as NpcRole, e.name, e.title, e.text, e.id));
+    this.off = bus.on('npc:say', (e) => this.say(e.role as NpcRole, e.name, e.title, e.text, e.id, e.work === true));
   }
 
   /** Shows a line (replacing any being shown). */
-  say(role: NpcRole, name: string, title: string, text: string, id = ''): void {
+  say(role: NpcRole, name: string, title: string, text: string, id = '', work = false): void {
+    this.who = id;
+    this.workBtn.hidden = !work;
     this.nameEl.textContent = name;
     this.titleEl.textContent = title;
     const art = id ? npcArt(`${id}_portrait`) : undefined;
@@ -78,7 +92,7 @@ export class NpcDialogue {
     else if (hasPortrait(role)) this.drawPortrait(role);
     this.text = text;
     this.shown = 0;
-    this.holdS = Math.max(READ_S_MIN, text.length * READ_S_PER_CHAR);
+    this.holdS = Math.max(READ_S_MIN, text.length * READ_S_PER_CHAR) + (work ? 8 : 0);
     this.textEl.textContent = '';
     this.more.hidden = true;
     this.el.hidden = false;

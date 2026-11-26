@@ -1130,6 +1130,22 @@
   min-height: 3.2em;
   white-space: pre-wrap;
 }
+.hw-npcsay__work {
+  display: block;
+  margin: 10px 0 0 auto;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(#8a5a34, #6b4425);
+  color: #fff3d6;
+  font: 700 14px / 1.2 var(--hw-font-body, inherit);
+  box-shadow: 0 0 0 2px #3a2314, inset 0 0 0 1px #c79a5e;
+  cursor: pointer;
+}
+.hw-npcsay__work[hidden] {
+  display: none;
+}
 .hw-npcsay__more {
   position: absolute;
   right: 14px;

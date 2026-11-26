@@ -36,6 +36,8 @@ export type ScreenRequest =
   | { type: 'notebook'; /** Opened at a Research Table: the notes can be written on. */ table?: boolean }
   /** The Workshop Guide: parts, basin recipe cards, rules (docs/api/workshop.md). */
   | { type: 'workshop' }
+  /** The settlement's jobs (docs/api/jobs.md): what each resident carries between two stops. `person` is the one to show first. */
+  | { type: 'jobs'; person?: string }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
   | { type: 'rune_desk'; x: number; y: number; z: number; /** The Arcane Workbench: the bench's recipes instead of the desk's. */ bench?: boolean }
   /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */
@@ -262,7 +264,7 @@ export interface GameEvents {
   /** Short message on the HUD. `item` shows that item's icon next to it. */
   'toast': { text: string; kind?: ToastKind; item?: string };
   /** Someone in the tavern speaks: the dialogue box shows their portrait, name and the text (src/ui/hud/npcDialogue.ts). */
-  'npc:say': { id: string; role: string; name: string; title: string; text: string };
+  'npc:say': { id: string; role: string; name: string; title: string; text: string; /** The dialogue offers to give this person work (the Jobs screen). */ work?: boolean };
 
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */
