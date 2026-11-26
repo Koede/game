@@ -20,13 +20,14 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
-import { isFluidEndpoint } from '../core/registry';
+import { isFluidEndpoint, machine } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -77,6 +78,8 @@ export class GameState {
   readonly exploration: Exploration;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Boiler overpressure, chimney fires and storms on exposed wiring, each with its counterplay (docs/api/disasters.md). */
+  readonly disasters: Disasters;
   /** Repairable old-age machines (docs/api/restoration.md). */
   readonly restoration: Restoration;
   /** Companion dog and cat (docs/api/pets.md). */
@@ -231,6 +234,21 @@ export class GameState {
       biomeAt: (x, z) => world.biomeAt(x, z), now: () => this.clock.worldTimeS,
     });
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
+    this.disasters = new Disasters({
+      world, bus, player: this.player,
+      difficulty: () => this.difficultyNow,
+      weather: () => this.weather.state,
+      rng: () => Math.random(),
+      furnaces: () => this.disasterFurnaces(),
+      boilers: () => this.disasterBoilers(),
+      cables: (fn) => this.sim.eachCable(fn),
+      burst: (x, y, z, radius) => {
+        // Radius 0: the boiler block alone is wrecked (its blast has no reach); the furnace under it stays.
+        this.sim.explode(x, y, z, radius > 0 ? radius : 0.5);
+      },
+    });
+    if (save?.disasters && isDisastersSnapshot(save.disasters)) this.disasters.load(save.disasters);
+    this.offs.push(bus.on('disaster:sweep', ({ x, y, z }) => void this.disasters.sweep(x, y, z)));
     this.pets = new Pets({
       bus, player: this.player, mobs: this.mobs, isDusk: () => this.clock.phase === 'dusk' || this.clock.phase === 'dawn',
       standAt: (x, z) => { const y = spawnCell(world, x, z, clearanceOf(1.0)); return y < 0 ? null : y; }, rng: () => Math.random(),
@@ -385,6 +403,7 @@ export class GameState {
     this.workshop.tick(dt);
     this.exploration.tick(dt);
     this.weathering.tick(dt);
+    this.disasters.tick(dt);
     this.pets.tick(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
@@ -393,6 +412,36 @@ export class GameState {
     if (!this.npcs.greeted) this.npcs.greet();
     this.playTimeS += dt;
     this.ticks++;
+  }
+
+  /** Furnaces as probes for the disasters (docs/api/disasters.md). */
+  private disasterFurnaces(): FlueProbe[] {
+    const out: FlueProbe[] = [];
+    this.sim.eachFurnace((e, loaded) => out.push({
+      x: e.x, y: e.y, z: e.z, lit: e.lit, tempC: e.tempC, burnItem: e.burnItem, loaded,
+      extinguish: () => { e.lit = false; e.burnItem = null; e.burnLeftS = 0; },
+    }));
+    return out;
+  }
+
+  /** Boilers as probes. Pressure stands on the steam room's fill until the steam loop provides a real figure. */
+  private disasterBoilers(): BoilerProbe[] {
+    const out: BoilerProbe[] = [];
+    this.sim.eachMachineOfKind('boiler', (e, node) => {
+      const cap = machine('boiler').fluids?.capacityL ?? 1000;
+      const steam = e.fluidOut && e.fluidOut.fluid === 'steam' ? e.fluidOut.litres : 0;
+      let tempC = 0;
+      for (const f of node.furnaces) tempC = Math.max(tempC, f.tempC);
+      out.push({
+        x: e.x, y: e.y, z: e.z, loaded: node.loaded, fill: steam / cap, tempC,
+        vent: (litres) => {
+          const take = Math.min(steam, litres);
+          if (e.fluidOut && take > 0) e.fluidOut.litres -= take;
+          return take;
+        },
+      });
+    });
+    return out;
   }
 
   /** Dev Mode: the bars never fall (no starving, freezing or drowning), and the dead are revived. */
@@ -469,6 +518,7 @@ export class GameState {
       objectives: this.objectives.toJSON(),
       playTimeS: this.playTimeS,
       weather: this.weather.toJSON(),
+      disasters: this.disasters.toJSON(),
       mobs: this.mobs.toJSON(),
       journal: this.journal.toJSON(),
       achievements: this.achievements.toJSON(),

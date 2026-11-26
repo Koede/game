@@ -9,7 +9,7 @@
 import type { GameBus } from '../core/context';
 import { BLOCKS, block as blockByKey, itemOrNull } from '../core/registry';
 import { AIR, Face, makeVoxel, voxelActive, voxelFacing, type BlockDef, type ItemAmount, type ItemDef, type ItemStack, type IWorld, type Voxel } from '../core/types';
-import { cropStage, isRipeCrop, rollDrops, sawFuel, type PlayerState } from '../game';
+import { cropStage, furnaceBelowChimney, isRipeCrop, rollDrops, sawFuel, type PlayerState } from '../game';
 import { frontFace } from './blockRules';
 import { swapHeldItem } from './buckets';
 import type { RayHit } from './raycast';
@@ -253,6 +253,16 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     id: 'hammer_rivet_plate', system: 'bronze', summary: 'A hammer rivets a Bronze Plate Block into a Riveted Plate Block',
     applies: (c) => kindOf(c) === 'hammer' && is(c, 'bronze_plate_block'),
     run: (c) => (replace(c, 'rivet_plate_block') ? (wearTool(c), sfx(c, 'dig_metal'), true) : false),
+  },
+  {
+    id: 'stick_sweeps_flue', system: 'furnace', summary: 'A stick pushed up a Brick Chimney sweeps the soot off the furnace it stands on (the stick is used up)',
+    applies: (c) => heldIs(c, 'stick') && is(c, 'brick_chimney') && furnaceBelowChimney(c.world, c.hit.x, c.hit.y, c.hit.z) !== null,
+    run: (c) => {
+      if (!c.player.consumeHeld(1)) return false;
+      c.bus.emit('disaster:sweep', { x: c.hit.x, y: c.hit.y, z: c.hit.z });
+      sfx(c, 'dig_wood');
+      return true;
+    },
   },
   {
     id: 'pail_mosses_brick', system: 'fluids', summary: 'A water pail left on stone brick wets it into mossy brick; the pail comes back empty',

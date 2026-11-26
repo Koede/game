@@ -9,6 +9,7 @@ import type { GameMode } from '../core/gameMode';
 import { DEFAULT_SETTINGS, DIFFICULTIES, PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Difficulty, type Settings } from '../core/context';
 import type { AchievementsSnapshot } from '../game/achievements';
 import type { ClockSnapshot } from '../game/clock';
+import type { DisastersSnapshot } from '../game/disasters';
 import type { JournalSnapshot } from '../game/journal';
 import { isLootFilter } from '../game/lootFilter';
 import type { ObjectivesSnapshot } from '../game/objectives';
@@ -56,6 +57,8 @@ export interface WorldSave {
    * follows from the seed and the time anyway), never a reason to drop the world.
    */
   weather?: WeatherSnapshot;
+  /** Boiler pressure, chimney soot and the storm timer (docs/api/disasters.md). Optional: older saves start calm; a damaged one is ignored. */
+  disasters?: DisastersSnapshot;
   /**
    * The animals (spec 12.5). Optional: saves from before the animals lack it (they start fresh), and one that
    * MobManager.load refuses is ignored the same way, never a reason to drop the world.
