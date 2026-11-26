@@ -48,7 +48,8 @@ export function createMachineScreen(request: At, ctx: ScreenContext, sim: Screen
   if (layout === 'crate') return createCrateScreen(request, ctx, sim);
   const inventory = sim.machineSlots(x, y, z);
   const panel = new MachinePanel(first, layout, ctx.slots, inventory && inventory.size > 0 ? inventory : null, TO_BAG);
-  const net = new NetworkPanel({ compact: true, emptyText: 'Not connected: lay cable to generators, batteries or machines.' });
+  const monitor = first.kind === 'grid_monitor';
+  const net = new NetworkPanel({ compact: !monitor, emptyText: 'Not connected: lay cable to generators, batteries or machines.' });
   const toggle = new Toggle({
     label: `Switch the ${first.name} on or off`,
     tone: 'power',
@@ -70,7 +71,7 @@ export function createMachineScreen(request: At, ctx: ScreenContext, sim: Screen
     { class: ['hw-mscreen', !bag && 'hw-mscreen--solo'] },
     h('div', { class: 'hw-mscreen__machine' }, panel.el),
     bag ? h('div', { class: 'hw-mscreen__bag' }, bag.el, ctx.slots.actionBar) : null,
-    powered ? h('div', { class: 'hw-mscreen__net' }, h('h3', { class: 'hw-heading', text: 'Power network' }), net.el) : null,
+    powered ? h('div', { class: 'hw-mscreen__net' }, h('h3', { class: 'hw-heading', text: monitor ? 'Grid monitor' : 'Power network' }), net.el) : null,
   );
   const window = new Window({
     title: first.name,

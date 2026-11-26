@@ -10,7 +10,7 @@ export type { IgnitionPower } from './ignitionPower';
 export { cableFor } from './ignitionPower';
 export type { FurnaceSlots } from './slots';
 export type { CrucibleView, ForgeRow, FurnaceView, SmeltRow, Trend, UpgradeView } from './views';
-export type { GridSummary, MachineView, NetworkMember, NetworkStats } from './gridViews';
+export type { GridCell, GridCellKind, GridSummary, MachineView, NetworkMember, NetworkStats } from './gridViews';
 export type { NetworkState } from './power';
 export { HISTORY_SECONDS } from './power';
 export type { Cover, CoverInput } from './storageCover';

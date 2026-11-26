@@ -27,6 +27,7 @@ import { graphicsProfile } from './quality';
 import { Sky, type SkyExtras } from './sky';
 import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
 import { TargetBox } from './target';
+import type { GridCell } from '../sim';
 import { TechLayer, type TechStats, type TransportSource } from './tech';
 import { SteamVents } from './vents';
 import { WeatherFx } from './weatherFx';
@@ -265,6 +266,11 @@ export class Renderer implements IView {
    */
   setTransport(source: TransportSource | null): void {
     this.tech.setTransport(source);
+  }
+
+  /** The power grid overlay (held Grid Meter, or a Grid Monitor close by): the cells to draw, or null for none. */
+  setGridOverlay(feed: { tick: number; cells: readonly GridCell[] } | null): void {
+    this.tech.setGrid(feed);
   }
 
   // ---------------------------------------------------------------------------------------------- frame
