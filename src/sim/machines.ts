@@ -4,6 +4,7 @@
  * was solved and does the work. All numbers come from the registry.
  */
 import { BROWNOUT_STALL } from '../core/constants';
+import { MachineStatus } from '../core/machineStatus';
 import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
 import { rollDrops } from '../game/mining';
@@ -196,7 +197,8 @@ const fuelGenerator: Behaviour = {
     const e = node.e as MachineEntity;
     e.outW = e.availW * (node.net ? node.net.load : 0);
     if (e.outW > 0) burnFuel(node, ctx, e.outW * dt);
-    ctx.setActive(node, e.outW > 0);
+    // Switched on with nothing to burn is the one thing a generator can be starved of.
+    ctx.setActive(node, e.outW > 0, e.on && !holdsFuel(node) ? MachineStatus.Starved : MachineStatus.None);
   },
 };
 
@@ -224,7 +226,8 @@ const simpleConsumer: Behaviour = {
   apply(node, ctx) {
     const e = node.e as MachineEntity;
     e.f = node.net ? node.net.f : 0;
-    ctx.setActive(node, e.demandW > 0 && powered(node.net));
+    const live = e.demandW > 0 && powered(node.net);
+    ctx.setActive(node, live, e.demandW > 0 && !live ? MachineStatus.Starved : MachineStatus.None);
   },
 };
 
@@ -241,7 +244,7 @@ const blower: Behaviour = {
       const floor = (node.spec.params?.draftFloor ?? 0) * e.f;
       for (const fe of node.furnaces) if (fe.draft < floor) fe.draft = floor;
     }
-    ctx.setActive(node, running);
+    ctx.setActive(node, running, e.demandW > 0 && !running ? MachineStatus.Starved : MachineStatus.None);
   },
 };
 
@@ -260,8 +263,11 @@ const processor: Behaviour = {
     }
     const minWater = node.spec.params?.minWater;
     const dry = minWater !== undefined && node.water < minWater && !pipedWater(e, node.spec.params?.pipedWaterLPerS);
-    const blocked = !e.on || r === null || dry || roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
+    const noRoom = r !== null && roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
+    const blocked = !e.on || r === null || dry || noRoom;
     node.job = blocked ? null : r;
+    // Why it is stopped, for the face: a full output slot or a missing water supply; no input or a switch is just idle.
+    node.stalled = !e.on || r === null ? MachineStatus.None : noRoom ? MachineStatus.Full : dry ? MachineStatus.Starved : MachineStatus.None;
     e.demandW = blocked ? 0 : node.spec.drawW ?? 0;
   },
   apply(node, ctx, dt) {
@@ -269,7 +275,7 @@ const processor: Behaviour = {
     const r = node.job;
     e.f = node.net ? node.net.f : 0;
     const running = r !== null && e.f >= BROWNOUT_STALL;
-    ctx.setActive(node, running);
+    ctx.setActive(node, running, r !== null ? MachineStatus.Starved : node.stalled);
     if (r && running) {
       const p = node.spec.params ?? {};
       if (p.minWater !== undefined && node.water < p.minWater) useFluid(e, 'water', (p.pipedWaterLPerS ?? 0) * dt);
@@ -330,7 +336,8 @@ const boreRig: Behaviour = {
     const e = node.e as MachineEntity;
     e.f = node.net ? node.net.f : 0;
     const running = e.demandW > 0 && e.f >= BROWNOUT_STALL;
-    ctx.setActive(node, running);
+    const full = e.slots.every((s) => s !== null);
+    ctx.setActive(node, running, e.demandW > 0 ? MachineStatus.Starved : e.on && e.halted === '' && full ? MachineStatus.Full : MachineStatus.None);
     if (running) {
       e.progress += dt * e.f;
       if (e.progress >= (node.spec.params?.secondsPerBlock ?? 1)) {

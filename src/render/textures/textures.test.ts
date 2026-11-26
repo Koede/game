@@ -11,6 +11,7 @@ import { BLOCKS, TEXTURE_NAMES } from '../../core/registry';
 import { Canvas } from './canvas';
 import { averageColor, hasPainter, paintTexture, TEXTURE_SIZE } from './index';
 import { PAINTERS } from './painters';
+import { statusPainter } from './status';
 import { applyReadability, readable } from './readability';
 
 const BYTES = 16 * 16 * 4;
@@ -19,7 +20,7 @@ const lum = (px: Uint8ClampedArray, i: number): number => 0.3 * px[i] + 0.59 * p
 
 function fresh(name: string): Uint8ClampedArray {
   const c = new Canvas(name);
-  PAINTERS[name](c);
+  (PAINTERS[name] ?? statusPainter(name, (n) => PAINTERS[n]))?.(c);
   // What paintTexture hands out: the painter's pixels through the readability tone curve (the checker stays raw).
   return name === 'missing' ? c.data : applyReadability(c.data);
 }

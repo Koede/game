@@ -50,7 +50,7 @@ export const FACING_TO_FACE: ReadonlyArray<Face> = [Face.NZ, Face.PX, Face.PZ, F
 //   bits 0-9   block id (index into BLOCKS)
 //   bits 10-11 facing (Facing)
 //   bit  12    active flag (lit furnace, running machine, ...)
-//   bits 13-15 variant (free for per-block use, e.g. fill level)
+//   bits 13-15 variant (free for per-block use, e.g. fill level; machines: MachineStatus, src/core/machineStatus.ts)
 // ---------------------------------------------------------------------------------------------
 
 export type Voxel = number;
@@ -291,6 +291,11 @@ export interface BlockTextures {
   topActive?: string;
   /** While active, on the bottom face (default: `bottom`). A hearth's ceiling glows on its underside too. */
   bottomActive?: string;
+  /**
+   * Opts the block into machine status looks (src/core/machineStatus.ts): while the voxel's status is starved, full or
+   * broken, the faces that change when it runs (else the front) show the off texture with that status painted on.
+   */
+  status?: boolean;
   /** Further textures the block's miniblock model draws with (`tex` / `texOn` of its faces, src/world/miniModel.ts): they get atlas layers too. */
   models?: readonly string[];
 }
@@ -437,6 +442,8 @@ export interface BlockDef {
   layers: number[];
   /** Same, while active. */
   layersActive: number[];
+  /** Per status code (index 1..3; index 0 unused): the layers of a machine in that status, or null when the block has none. */
+  layersStatus: (number[] | null)[];
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -35,7 +35,7 @@ function furnace(tier: string, name: string, desc: string, age: number, lightAct
   return {
     key, name, desc, age, lightActive, warmthActive,
     machine: 'furnace', power: 'device', oriented: true, hardness: 3, tool: 'pickaxe', stack: 1,
-    textures: { side: `${key}_side`, top: `${key}_top`, front: `${key}_front`, frontActive: `${key}_front_on` },
+    textures: { side: `${key}_side`, top: `${key}_top`, front: `${key}_front`, frontActive: `${key}_front_on`, status: true },
   };
 }
 
@@ -44,7 +44,7 @@ function machine(key: string, name: string, desc: string, age: number, extra: Pa
   return {
     key, name, desc, age,
     machine: key, power: 'device', oriented: true, hardness: 2, tool: 'pickaxe', stack: 16,
-    textures: { side: 'machine_side', top: 'machine_top', front: `${key}_front`, frontActive: `${key}_front_on` },
+    textures: { side: 'machine_side', top: 'machine_top', front: `${key}_front`, frontActive: `${key}_front_on`, status: true },
     ...extra,
   };
 }

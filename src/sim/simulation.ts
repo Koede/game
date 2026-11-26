@@ -10,6 +10,7 @@ import { blockOf, furnaceTierOfBlock, machine } from '../core/registry';
 import { popUnsupportedAt } from '../game/farming';
 import { NETWORK_RADIUS, validLabel, type Chest } from '../game/storage';
 import { PlantSupport } from './plantSupport';
+import { withStatus } from '../core/machineStatus';
 import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
@@ -439,15 +440,28 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   // ---- SimContext -----------------------------------------------------------------------------------------------
 
-  setActive(node: SimNode, active: boolean): void {
-    if (node.active === active) return;
-    node.active = active;
-    this.lampSeen(node, true);
-    // A furnace's active bit is "at or above FURNACE_HOT_C"; a beacon's is "powered": either moves a safe zone.
-    if (guardsZone(node)) this.zones.invalidate();
+  setActive(node: SimNode, active: boolean, status = 0): void {
+    // Status only shows on a stopped machine, and only once it has held for a second (no remesh per flicker).
+    const want = active ? 0 : status;
+    if (want !== node.statusWant) {
+      node.statusWant = want;
+      node.statusSince = this.tickCount;
+    }
+    const settled = want === 0 || this.tickCount - node.statusSince >= TICK_RATE;
+    const nextStatus = want === 0 ? 0 : settled ? want : node.status;
+    const activeChanged = node.active !== active;
+    if (activeChanged) {
+      node.active = active;
+      this.lampSeen(node, true);
+      // A furnace's active bit is "at or above FURNACE_HOT_C"; a beacon's is "powered": either moves a safe zone.
+      if (guardsZone(node)) this.zones.invalidate();
+    }
+    if (node.status === nextStatus && !activeChanged) return;
+    node.status = nextStatus;
     const { x, y, z } = node.e;
     const v = this.world.getVoxel(x, y, z);
-    if (voxelActive(v) !== active) this.world.setVoxel(x, y, z, withActive(v, active), 'sim');
+    const next = withStatus(withActive(v, active), nextStatus);
+    if (next !== v) this.world.setVoxel(x, y, z, next, 'sim');
   }
 
   touch(e: SimEntity): void {

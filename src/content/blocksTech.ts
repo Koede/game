@@ -20,7 +20,7 @@ function pipe(key: string, tile: string, name: string, desc: string, age: number
 function casedMachine(key: string, name: string, desc: string, age: number, extra: Partial<BlockSpec> = {}): BlockSpec {
   return {
     key, name, desc, age, machine: key, oriented: true, hardness: 2, tool: 'pickaxe', stack: 16,
-    textures: { side: 'machine_side', top: 'machine_top', front: `${key}_front`, frontActive: `${key}_front_on` },
+    textures: { side: 'machine_side', top: 'machine_top', front: `${key}_front`, frontActive: `${key}_front_on`, status: true },
     ...extra,
   };
 }

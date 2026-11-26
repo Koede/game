@@ -11,6 +11,7 @@ import { DISTILL_RECIPE_COUNT, DISTILL_SPEC } from './specRosterDistill';
 import { MAGIC_RECIPE_COUNT, MAGIC_SPEC } from './specRosterMagic';
 import { WORKSHOP_RECIPE_COUNT, WORKSHOP_SPEC } from './specRosterWorkshop';
 import { GLASS_RECIPE_COUNT, GLASS_SPEC } from './specRosterGlass';
+import { parseStatusTexture } from '../core/machineStatus';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
 const stationsOf = (): string[] => [...new Set(RECIPES.map((r) => r.station))];
@@ -269,7 +270,8 @@ describe('4. structural rules', () => {
   it('names textures in snake_case and keeps their number paintable', () => {
     for (const name of TEXTURE_NAMES) expect(name).toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
     expect(new Set(TEXTURE_NAMES).size).toBe(TEXTURE_NAMES.length);
-    expect(TEXTURE_NAMES.length).toBeLessThanOrEqual(SPEC.maxTextures);
+    // Status looks are derived from a base face, not designed art: they are budgeted by the faces they derive from.
+    expect(TEXTURE_NAMES.filter((n) => !parseStatusTexture(n)).length).toBeLessThanOrEqual(SPEC.maxTextures);
   });
 });
 

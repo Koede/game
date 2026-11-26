@@ -5,6 +5,7 @@
 import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
+import { STATUS_COUNT, voxelStatus } from '../core/machineStatus';
 import { glassFamily, glassModelIndex, glassPorts } from './glassModels';
 import { isStationShape, stationIndex } from './stationShapes';
 
@@ -99,11 +100,18 @@ export const BUCKET_KETTLE = 2;
 /** Bits 10-12 of a voxel (facing and active flag) select one of 8 visual states. */
 export const voxelState = (v: number): number => (v >> 10) & 7;
 const STATES = 8;
-/** Texture layer per (id, state, face): index with `faceSlot(v) + face`. */
-export const FACE_LAYER = new Uint16Array(BLOCKS.length * STATES * 6);
+/** Per block: 7 when it has machine status looks (voxel bits 13-15 pick them), else 0 (those bits mean something else, or nothing). */
+export const STATUS_MASK = new Uint8Array(BLOCKS.length);
+/** Codes past the defined statuses (a damaged save) read as no status. */
+const STATUS_FOLD = Uint8Array.from({ length: 8 }, (_, i) => (i < STATUS_COUNT ? i : 0));
+/** Texture layer per (id, status, state, face): index with `faceSlot(v) + face`. */
+export const FACE_LAYER = new Uint16Array(BLOCKS.length * STATUS_COUNT * STATES * 6);
 /** 1 where that face shows the block's glowing "active" texture while the voxel emits light. */
-export const FACE_GLOW = new Uint8Array(BLOCKS.length * STATES * 6);
-export const faceSlot = (v: number): number => ((v & VOXEL_ID_MASK) * STATES + voxelState(v)) * 6;
+export const FACE_GLOW = new Uint8Array(BLOCKS.length * STATUS_COUNT * STATES * 6);
+export const faceSlot = (v: number): number => {
+  const id = v & VOXEL_ID_MASK;
+  return ((id * STATUS_COUNT + STATUS_FOLD[voxelStatus(v) & STATUS_MASK[id]]) * STATES + voxelState(v)) * 6;
+};
 
 for (const def of BLOCKS) {
   const id = def.id;
@@ -138,19 +146,22 @@ for (const def of BLOCKS) {
   }
   if (def.shape === 'cup') CUP_STAGE[id] = 1 + CUP_STAGES.indexOf(cupStageOfBlock(def.key) ?? 'cup');
   if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
-  for (let state = 0; state < STATES; state++) {
-    const facing = (state & 3) as Facing;
-    const active = (state & 4) !== 0;
-    for (let face = 0; face < 6; face++) {
-      const slot = (id * STATES + state) * 6 + face;
-      const layer = faceLayer(def, face as Face, facing, active);
-      FACE_LAYER[slot] = layer;
-      FACE_GLOW[slot] = active && def.lightActive > 0 && layer !== faceLayer(def, face as Face, facing, false) ? 1 : 0;
+  if (def.layersStatus.length > 1) STATUS_MASK[id] = 7;
+  for (let status = 0; status < (STATUS_MASK[id] ? STATUS_COUNT : 1); status++) {
+    for (let state = 0; state < STATES; state++) {
+      const facing = (state & 3) as Facing;
+      const active = (state & 4) !== 0;
+      for (let face = 0; face < 6; face++) {
+        const slot = ((id * STATUS_COUNT + status) * STATES + state) * 6 + face;
+        const layer = faceLayer(def, face as Face, facing, active, status);
+        FACE_LAYER[slot] = layer;
+        FACE_GLOW[slot] = status === 0 && active && def.lightActive > 0 && layer !== faceLayer(def, face as Face, facing, false) ? 1 : 0;
+      }
     }
   }
 }
 /** Texture slots the glassware meshes borrow for their parts (meshGlass.ts): clear glass and brass. */
-const slotOfKey = (key: string): number => (blockOrNull(key)?.id ?? 0) * STATES * 6;
+const slotOfKey = (key: string): number => (blockOrNull(key)?.id ?? 0) * STATUS_COUNT * STATES * 6;
 export const GLASSWARE_GLASS_SLOT = slotOfKey('glassware_glass');
 export const GLASSWARE_METAL_SLOT = slotOfKey('glassware_brass');
 for (const [key, hue] of Object.entries(COOL_EMITTERS)) {

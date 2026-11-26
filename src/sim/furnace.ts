@@ -1,4 +1,5 @@
 /** The furnace heat model, firebox, crucibles and Starhearth ignition (spec 3.1). Pure state changes on the entity. */
+import { MachineStatus } from '../core/machineStatus';
 import {
   AMBIENT_TEMP_C, DRAFT_DECAY_PER_S, DRAFT_FLAME_BONUS_C, FURNACE_HOT_C,
 } from '../core/constants';
@@ -195,7 +196,10 @@ export function applyFurnace(node: SimNode, ctx: SimContext, dt: number, lossMul
 
   runCrucibles(e, ctx, dt, fs);
   if (e.ignition === 'running') runIgnition(e, ctx, dt, f);
-  ctx.setActive(node, t >= FURNACE_HOT_C);
+  // Cold with something in a crucible and nothing to heat it (no fire, no fuel, no power) is out of fuel.
+  const wants = e.crucibleIn.some((s) => s !== null);
+  const starved = wants && !e.lit && fuelCount(e) === 0 && e.deliveredW <= 0 && !e.electric;
+  ctx.setActive(node, t >= FURNACE_HOT_C, starved ? MachineStatus.Starved : MachineStatus.None);
 }
 
 /** Starts the fire if there is anything to burn. */
