@@ -73,9 +73,9 @@ describe('network texts', () => {
   });
 
   it('teaches the first step on an unwired furnace', () => {
-    expect(lonelyFurnaceText(1)).toMatch(/Thermopile/);
-    expect(lonelyFurnaceText(2)).toMatch(/Thermopile/);
-    expect(lonelyFurnaceText(3)).not.toMatch(/Thermopile/);
+    expect(lonelyFurnaceText(1)).toMatch(/Dynamo/);
+    expect(lonelyFurnaceText(2)).toMatch(/Dynamo/);
+    expect(lonelyFurnaceText(3)).not.toMatch(/Dynamo/);
     expect(lonelyFurnaceText(4)).toMatch(/heats itself electrically/);
   });
 });

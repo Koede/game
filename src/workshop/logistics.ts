@@ -16,11 +16,13 @@ import type { GroundItems } from '../game/groundItems';
 import { stackLimit } from '../game/inventory';
 
 /** Block kinds this module owns state for. */
-export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault', 'tally_board', 'skiff'] as const;
+export const LOGI_KINDS = ['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'mixer', 'mech_press', 'rolling_mill', 'drop_forge', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector', 'item_vault', 'tally_board', 'skiff'] as const;
 const LOGI = new Set<string>(LOGI_KINDS);
 export const isLogistic = (kind: string): boolean => LOGI.has(kind);
 /** Logistic kinds that need shaft power (they are also kinetic parts). */
-export const POWERED = new Set(['mixer', 'mech_press', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector']);
+/** Machines that work the basin below them (BASIN_RECIPES). */
+export const BASIN_MACHINES = new Set(['mixer', 'mech_press', 'rolling_mill', 'drop_forge']);
+export const POWERED = new Set(['mixer', 'mech_press', 'rolling_mill', 'drop_forge', 'deployer', 'mech_arm', 'mech_drill', 'saw_arm', 'vacuum_collector']);
 /** Cells ground items resting on top are taken into. */
 const TAKES_GROUND = new Set(['depot', 'basin', 'funnel', 'chute', 'deployer', 'item_drain', 'item_vault', 'tally_board', 'skiff']);
 
@@ -369,6 +371,8 @@ export class Logistics {
           break;
         case 'mixer':
         case 'mech_press':
+        case 'rolling_mill':
+        case 'drop_forge':
           this.process(c, dt);
           break;
         case 'mech_arm':
@@ -727,8 +731,8 @@ export class Logistics {
     if (c.filter) bits.push(`filter ${itemOrNull(c.filter)?.name ?? c.filter}`);
     if (c.kind === 'mech_arm') bits.push(c.src ? `${c.targets.length} target${c.targets.length === 1 ? '' : 's'}` : 'not set: use a wrench');
     if (POWERED.has(c.kind) && this.host.rpmAt(x, y, z) <= 0) bits.push('still');
-    if ((c.kind === 'mixer' || c.kind === 'mech_press') && c.progress > 0) bits.push(`working ${Math.round(c.progress * 10) / 10} s`);
-    if ((c.kind === 'mixer' || c.kind === 'mech_press') && c.progress <= 0) {
+    if (BASIN_MACHINES.has(c.kind) && c.progress > 0) bits.push(`working ${Math.round(c.progress * 10) / 10} s`);
+    if (BASIN_MACHINES.has(c.kind) && c.progress <= 0) {
       const cards = BASIN_RECIPES.filter((r) => r.machine === c.kind).map(basinCard);
       if (cards.length) bits.push(`makes: ${cards.join('; ')}`);
     }

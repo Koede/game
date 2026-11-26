@@ -191,7 +191,7 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   },
   {
     key: 'lamp', name: 'Lamp', desc: 'An electric lamp. It shines for as long as its network has power.',
-    machine: 'lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
+    age: 2, machine: 'lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
     textures: { side: 'lamp', sideActive: 'lamp_on', top: 'machine_top' },
   },
 
@@ -203,7 +203,8 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   furnace('star', 'Starhearth', 'A furnace built to hold a star. Bring it to 3000 C, feed it power, and ignite it.', 5, 15, 24),
 
   // ---- generators ----------------------------------------------------------------------------
-  machine('thermopile', 'Thermopile', "Turns a furnace's heat straight into a trickle of current. Set it against a furnace.", 0),
+  machine('thermopile', 'Thermopile', "Turns a furnace's heat straight into a trickle of current. Set it against a furnace.", 2),
+  machine('dynamo', 'Dynamo', 'Windings on an iron axle. Turned by a shaft line at 64 rpm or more, it makes up to 2 kW: the first electricity of the Forge Age.', 2),
   machine('steam_engine', 'Steam Engine', 'Boils water over the fire and spins a dynamo. It sits on top of a furnace with water at its side.', 2),
   machine('burner_generator', 'Burner Generator', 'Burns any furnace fuel for electricity, and only as fast as the network asks.', 2, { lightActive: 7 }),
   machine('water_wheel', 'Water Wheel', 'Slow, steady power from water on at least two sides. Wheels crowded together share the flow.', 2),

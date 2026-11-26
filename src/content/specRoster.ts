@@ -135,8 +135,6 @@ export const SPEC = {
       'brick: 1 brick <- 4 firebrick @400 T1',
       'ceramic_insulator: 2 ceramic_insulator <- 1 clay, 1 sand @600 T1',
       'copper_cable: 6 copper_cable <- 3 copper_wire, 2 ceramic_insulator @500 T1',
-      'thermopile: 1 thermopile <- 4 copper_ingot, 2 tin_ingot, 2 firebrick @700 T1',
-      'lamp: 1 lamp <- 1 glass, 2 copper_wire @500 T1',
       'hearth_stew: 1 hearth_stew <- 1 cooked_chop, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_mutton: 1 hearth_stew <- 1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail @300 T1',
       'hearth_stew_fowl: 1 hearth_stew <- 1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail @300 T1',
@@ -160,6 +158,13 @@ export const SPEC = {
       'battery: 1 battery <- 2 iron_plate, 2 copper_ingot, 3 sulfur @900 T3',
       'steel_ingot: 2 steel_ingot <- 2 iron_ingot, 1 coke, 1 limestone @1400 T3',
       'steel_plate: 1 steel_plate <- 2 steel_ingot @1300 T3',
+      'iron_axle: 2 iron_axle <- 1 iron_ingot @1000 T3',
+      'steel_axle: 2 steel_axle <- 1 steel_ingot @1300 T3',
+      'rolling_mill: 1 rolling_mill <- 1 chassis, 4 iron_plate, 2 iron_axle @1000 T3',
+      'drop_forge: 1 drop_forge <- 1 chassis, 2 steel_plate, 2 steel_axle, 4 stone_brick @1300 T3',
+      'dynamo: 1 dynamo <- 2 copper_coil, 1 iron_axle, 2 iron_plate @1000 T3',
+      'thermopile: 1 thermopile <- 4 copper_ingot, 2 tin_ingot, 2 firebrick @700 T3',
+      'lamp: 1 lamp <- 1 glass, 2 copper_wire @500 T3',
       'steel_pickaxe: 1 steel_pickaxe <- 3 steel_ingot, 2 stick @1300 T3',
       'steel_axe: 1 steel_axe <- 3 steel_ingot, 2 stick @1300 T3',
       'steel_shovel: 1 steel_shovel <- 1 steel_ingot, 2 stick @1300 T3',
@@ -299,9 +304,9 @@ export const SPEC = {
     'any(make cooked_fowl 1 | make cooked_mutton 1 | make cooked_chop 1 | make baked_potato 1)', 'flag ate',
     'place clay_table 1', 'make ingot_mould 1', 'make copper_ingot 2', 'flag first_pour', 'place hand_quern 1', 'flag tilled', 'place wheat_0 1',
     'make flour 1', 'make bread 1', ...BREW_SPEC.objectives, 'place stone_anvil 1', 'make copper_plate 1', 'flag bellows_pumped', 'make bronze_ingot 4', 'make bronze_pickaxe_head 1',
-    'make bronze_maul 1', 'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)', 'generate 100', 'place lamp 1',
+    'make bronze_maul 1', 'make bronze_pickaxe 1', 'any(flag automaton_salvaged | flag peaceful)',
     'place drying_rack 1', 'make leather 1', 'make cloth 1', 'tier 2', ...WORKSHOP_SPEC.objectives, 'tier 3', 'place item_pipe 1',
-    'make iron_ingot 8', 'make steel_ingot 6', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 4', 'place pump 1',
+    'make iron_ingot 8', 'make steel_ingot 6', 'make iron_axle 2', 'place rolling_mill 1', 'place drop_forge 1', 'place dynamo 1', 'generate 100', 'place lamp 1', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 4', 'place pump 1',
     'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', ...GROUND_SPEC.objectivesAfterBeacon, 'generate 10000', 'make tungsten_rod 4', 'tier 5',
     'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 6',
     'flag ignited',
@@ -452,3 +457,5 @@ SPEC.maxTextures += 15;
 SPEC.maxTextures += EXPLORE_SPEC.textures;
 SPEC.worldOnlyItems.push(...EXPLORE_SPEC.worldOnly);
 SPEC.blocks.push(...EXPLORE_SPEC.blocks);
+// Forge heavy industry (rolling mill, drop forge, dynamo; iron and steel axles): two fronts each for the dynamo, mill and forge, two item icons.
+SPEC.maxTextures += 8;

@@ -104,6 +104,20 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   pillow_block: { tint: 0x8090a0, draw: (c) => { c.rect(2, 9, 12, 5, IRON[1]); c.rect(2, 9, 12, 1, IRON[3]); c.each((x, y) => (Math.hypot(x + 0.5 - 8, y + 0.5 - 8) < 4 ? IRON[0] : null)); c.rect(6, 7, 4, 2, BRONZE[3]); c.set(3, 11, IRON[0]); c.set(12, 11, IRON[0]); } },
   piston: { tint: 0x6080d0, draw: (c, on) => { c.rect(3, 8, 10, 6, IRON[1]); c.rect(3, 8, 10, 1, IRON[3]); c.rect(7, on ? 2 : 5, 2, on ? 7 : 4, IRON[2]); c.rect(4, on ? 1 : 4, 8, 2, BRONZE[3]); } },
   bearing: { tint: 0x40b0b0, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5.5 && d > 3 ? (Math.floor((Math.atan2(y - 9, x - 8) + (on ? 0.5 : 0)) * 2) % 2 === 0 ? IRON[3] : IRON[2]) : d <= 3 ? IRON[0] : null; }); } },
+  rolling_mill: { tint: 0x9aa4b0, draw: (c, on) => {
+    c.rect(2, 4, 12, 2, IRON[1]); c.rect(2, 4, 12, 1, IRON[3]);
+    c.rect(2, 8, 12, 2, IRON[1]); c.rect(2, 8, 12, 1, IRON[3]);
+    c.rect(1, 3, 1, 8, IRON[0]); c.rect(14, 3, 1, 8, IRON[0]);
+    c.rect(2, 6, 12, 2, on ? GLOW : IRON[0]);
+    for (let i = 0; i < 4; i++) c.rect(3 + i * 3 + (on ? 1 : 0), 4, 1, 1, IRON[0]);
+    c.rect(2, 12, 12, 2, STONE_[2]);
+  } },
+  drop_forge: { tint: 0x8a6a50, draw: (c, on) => {
+    c.rect(3, 2, 2, 11, IRON[1]); c.rect(11, 2, 2, 11, IRON[1]);
+    c.rect(3, 2, 10, 2, IRON[2]);
+    c.rect(6, on ? 7 : 4, 4, 3, IRON[3]); c.rect(7, 4, 2, on ? 3 : 0, IRON[0]);
+    c.rect(2, 13, 12, 2, STONE_[1]); c.rect(5, 12, 6, 1, on ? GLOW : IRON[0]);
+  } },
   rail: { tint: 0x907050, draw: (c) => { c.rect(0, 0, 16, 16, WOOD[1]); c.rect(2, 0, 2, 16, IRON[2]); c.rect(12, 0, 2, 16, IRON[2]); for (let y = 1; y < 16; y += 4) { c.rect(1, y, 14, 2, WOOD[3]); c.rect(1, y, 14, 1, WOOD[4]); c.set(2, y, IRON[0]); c.set(13, y, IRON[0]); } c.rect(2, 0, 1, 16, IRON[3]); } },
   skiff: { tint: 0xb06030, draw: (c) => { c.rect(2, 5, 12, 8, IRON[1]); c.rect(2, 5, 12, 1, IRON[3]); c.rect(3, 6, 10, 5, WOOD[0]); for (const x of [4, 11]) c.rect(x, 13, 2, 2, BRONZE[2]); } },
   hammer: { tint: 0x8a6a40, draw: (c, on) => { c.rect(2, 12, 12, 3, IRON[1]); c.rect(2, 12, 12, 1, IRON[3]); c.rect(7, on ? 6 : 2, 2, 5, WOOD[3]); c.rect(4, on ? 4 : 1, 8, 3, IRON[2]); c.rect(4, on ? 4 : 1, 8, 1, IRON[3]); } },

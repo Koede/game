@@ -104,14 +104,18 @@ Every conversion is a block in the world you can watch working.
 - **Hearth:** brick multiblock 1x1x1 to 3x3x3 inside, more crucibles and speed with size, hatches **[built]**;
   requires a Blast Nozzle **[planned]**. Coal 1250, coke 1550, lava bucket 1300, ember core 1700. Iron 1150,
   steel 1400.
-- **Heavy industry [planned]:** iron axles (128 rpm), then steel (256); Rolling Mill, Drop Forge, shaft- or
-  steam-driven Crusher; iron thermocouples (20 kW); steel boilers and pipes (16 bar).
+- **Heavy industry [built, 2026-11-26]:** iron axles (forged from iron, 2 per ingot) and steel axles; the Rolling Mill
+  (workshop part over a Basin, 64 rpm, 32 stress: ingots to plates one for one, where the Bronze press gives one for two)
+  and the Drop Forge (32 rpm, 24 stress: chassis and copper coils from plates and wire with no fire). Both run on the
+  workshop shaft line (`src/workshop`). Shaft-driven crusher, iron thermocouples and steel boilers **[planned]**.
 - **Fluids:** iron and steel pipes, pump, tanks. **[built]**
-- **First electricity, at the END of the age [planned / change]:** the Dynamo turns shaft rotation into up to
-  2 kW; the Thermopile moves here; copper cable, lamps, the Acid Battery. **[cable, lamp, battery built]**
+- **First electricity, at the END of the age [built]:** the Dynamo is the only shaft-to-watts bridge: 30 W for every rpm
+  of the line it sits on, from 64 rpm, up to 2 kW. A line turned by an electric generator (water wheel, wind turbine,
+  steam engine) gives it nothing, so no watt is counted twice. The Thermopile and the Lamp moved here too: **no watt exists
+  before the Blast hearth** (a deep-ruin crate can still hold a thermopile). Copper cable, the Acid Battery **[built]**.
 - **Defence:** iron and steel mauls, plated coat, steel cuirass. **[data and rules built]**
-- **Goals, in order:** Blast hearth - smelt iron - heavy machines (rolling mill) - steel - make electricity
-  (dynamo) - place a lamp - crusher - a machine finishes a job - generate 2 kW - store 1 MJ.
+- **Goals, in order:** Blast hearth - pipe ore - smelt iron - steel - iron axles - rolling mill - drop forge - dynamo -
+  make electricity (100 W) - place a lamp - crusher - a machine finishes a job - generate 2 kW - store 1 MJ.
 - **Gate:** refractory brick shell with an Arc Electrode in the roof, and a grid that can feed 8 kW.
   **[built]**
 

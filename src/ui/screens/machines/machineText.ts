@@ -45,7 +45,7 @@ export const memberWatts = (watts: number): string =>
 /** What the GRID tab says when the furnace is wired to nothing. */
 export function lonelyFurnaceText(tier: number): string {
   if (tier < FIRST_HEARTH_TIER) {
-    return 'No power yet. Forge a Thermopile (700 °C) and set it against the furnace: its heat becomes electricity. A Lamp touching it lights up.';
+    return 'No power yet. Electricity is the work of the Forge Age: build a Blast hearth, then a Dynamo on a shaft line turning 64 rpm or more, and run cable from it.';
   }
   const base = 'This furnace is not wired to anything. Lay copper cable from it to generators, batteries and machines.';
   return tier >= FIRST_ELECTRIC_TIER ? `${base} Once it is on a network with power, it heats itself electrically.` : base;

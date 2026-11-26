@@ -63,6 +63,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   wind = 1;
   /** Solar multiplier of the weather this tick (1 without weather). */
   solar = 1;
+  /** Speed of the workshop shaft line a dynamo touches, rpm (the game wires it to the workshop; none = still). */
+  shaftRpm: ((x: number, y: number, z: number) => number) | null = null;
   /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
   readonly weather = new SimWeather();
   /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
