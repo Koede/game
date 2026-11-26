@@ -217,6 +217,7 @@ export class Game {
         survival,
         journal: state.journal,
         achievements: state.achievements,
+        dailyGoals: state.dailyGoals,
         sim,
         weather: () => state.weather.state,
         town: () => state.npcs.townChip(),

@@ -2992,6 +2992,23 @@ body {
 .hw-helper__pinned .hw-ingr[data-short] {
   outline: 1px solid var(--hw-warn, #e0a040);
 }
+/* Daily and seasonal goals in the Hearth Log (src/game/dailyGoals.ts). */
+.hw-dg { margin-top: 14px; display: grid; gap: 6px; }
+.hw-dg__title { margin: 6px 0 0; font-size: 1rem; }
+.hw-dg__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hw-dg__row { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9rem; }
+.hw-dg__text { min-width: 0; overflow-wrap: anywhere; }
+.hw-dg__num { flex: none; opacity: 0.8; }
+.hw-dg__track { display: block; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; margin-top: 3px; }
+.hw-dg__fill { display: block; height: 100%; background: var(--hw-accent, #e0a040); transform-origin: left; }
+.hw-dg__goal--done { opacity: 0.6; }
+.hw-dg__reward { display: block; opacity: 0.7; margin-top: 2px; }
+.hw-dg__shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+.hw-dg__keep { width: 100%; min-height: 44px; font: inherit; font-size: 0.85rem; color: inherit; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 4px 6px; display: grid; }
+.hw-dg__keep:disabled { opacity: 0.4; }
+.hw-dg__keep--got { font-weight: 600; }
+.hw-dg__keep--worn { border-color: var(--hw-accent, #e0a040); }
+.hw-dg__keep small { font-weight: 400; opacity: 0.8; }
 /* The Journal section of the Hearth Log (docs/api/journal.md). */
 .hw-journal { margin-top: 14px; display: grid; gap: 8px; }
 .hw-medals { margin-top: 14px; display: grid; gap: 4px; }

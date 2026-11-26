@@ -22,6 +22,7 @@ import { createDeathScreen } from './screens/death/deathScreen';
 import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
 import type { Achievements } from '../game/achievements';
+import type { DailyGoals } from '../game/dailyGoals';
 import type { Journal } from '../game/journal';
 import { createCaravanScreen } from './screens/caravan/caravanScreen';
 import { createLogScreen } from './screens/log/logScreen';
@@ -50,6 +51,7 @@ export interface ScreenContext {
   /** The diary and explored map (docs/api/journal.md); absent in test harnesses. */
   readonly journal?: Journal;
   readonly achievements?: Achievements;
+  readonly dailyGoals?: DailyGoals;
   /** The current simulation query (follows setSim). */
   readonly sim: UISimQuery;
   /** The world's weather now (spec 15), or null when the game has none. */
@@ -81,6 +83,7 @@ export interface GameUIDeps {
   winterGoal?: () => { title: string; text: string } | null;
   journal?: Journal;
   achievements?: Achievements;
+  dailyGoals?: DailyGoals;
   sim?: UISimQuery;
   /** The world's weather (spec 15): the HUD dial's glyph and moon, the Hearth Log's forecast. */
   weather?: () => WeatherState | null;
@@ -264,6 +267,7 @@ export class GameUI {
       survival: d.survival,
       journal: d.journal,
       achievements: d.achievements,
+      dailyGoals: d.dailyGoals,
       get sim() {
         return ui.sim;
       },
