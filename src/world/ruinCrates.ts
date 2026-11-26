@@ -7,6 +7,7 @@
 import { AMBIENT_TEMP_C, CRATE_SIZE, RUIN_DEEP_BELOW_SEA, RUIN_DEEP_DISTANCE } from '../core/constants';
 import { hash32, mulberry32 } from '../core/math';
 import { STRUCTURE_LOOT, blockId, lootTable, lootTableById, rollLoot } from '../core/registry';
+import { PLAN_STRUCTURES, planForCrate } from '../content/oldPlans';
 import { SEA_LEVEL, makeVoxel, type BlockEntity, type LootTier, type Slot, type Voxel } from '../core/types';
 
 export const CRATE_VOXEL: Voxel = makeVoxel(blockId('crate'));
@@ -20,7 +21,15 @@ export function ruinLootTier(x: number, y: number, z: number, spawn: { x: number
 export function ruinCrateSlots(seed: number, x: number, y: number, z: number, tier: LootTier): Slot[] {
   const slots: Slot[] = rollLoot(lootTable(tier), mulberry32(hash32(seed, x, y, z)));
   while (slots.length < CRATE_SIZE) slots.push(null);
-  return slots.slice(0, CRATE_SIZE);
+  return withPlan(slots.slice(0, CRATE_SIZE), seed, x, y, z, tier);
+}
+
+/** Puts an old plan (src/content/oldPlans.ts) in the first empty slot by its own hash, so the crate's ordinary roll is unchanged. */
+function withPlan(slots: Slot[], seed: number, x: number, y: number, z: number, tier: LootTier): Slot[] {
+  const plan = planForCrate(hash32(seed ^ 0x91a7, x, y, z), tier);
+  const at = slots.indexOf(null);
+  if (plan !== null && at >= 0) slots[at] = { item: plan, count: 1 };
+  return slots;
 }
 
 /**
@@ -50,8 +59,9 @@ export function tableCrateEntity(seed: number, x: number, y: number, z: number, 
 export function structureCrateEntity(seed: number, x: number, y: number, z: number, key: string): BlockEntity {
   const slots: Slot[] = rollLoot(STRUCTURE_LOOT[key], mulberry32(hash32(seed, x, y, z)));
   while (slots.length < CRATE_SIZE) slots.push(null);
+  const tier = PLAN_STRUCTURES[key];
   return {
-    kind: 'crate', x, y, z, on: true, slots: slots.slice(0, CRATE_SIZE),
+    kind: 'crate', x, y, z, on: true, slots: tier ? withPlan(slots.slice(0, CRATE_SIZE), seed, x, y, z, tier) : slots.slice(0, CRATE_SIZE),
     progress: 0, recipe: null, fuelJ: 0, storedJ: 0, coreC: AMBIENT_TEMP_C, hotS: 0, warned: false, alarmS: 0,
     depthY: y, halted: '', availW: 0, outW: 0, demandW: 0, f: 0,
   };

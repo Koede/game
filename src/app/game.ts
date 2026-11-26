@@ -272,6 +272,8 @@ export class Game {
         if (fixture && state.npcs.useFixture(fixture) !== null) return 'worked';
         const repaired = state.restoration.use(hit);
         if (repaired !== null) return repaired;
+        const planned = state.oldPlans.use(player.heldStack());
+        if (planned !== null) return planned;
         const explored = state.exploration.use(hit, player.heldStack());
         if (explored !== null) return explored;
         const metered = meterUse(state.sim, bus, player.heldStack()?.item ?? null, hit);

@@ -38,6 +38,7 @@ import type { Blueprint } from '../game/blueprint';
 import { grantKnownPlans, tickJobs, type PlanSource } from '../game/blueprintBook';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
+import { OldPlans } from '../game/oldPlans';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
 import { NpcManager } from '../npcs';
 import { makeNpcHost } from '../npcs/host';
@@ -99,6 +100,8 @@ export class GameState {
   readonly winter: Winter;
   /** Repairable old-age machines (docs/api/restoration.md). */
   readonly restoration: Restoration;
+  /** Drawings found in the ruins; each is a Blueprint (docs/api/old-plans.md). */
+  readonly oldPlans: OldPlans;
   /** Companion dog and cat (docs/api/pets.md). */
   readonly pets: Pets;
   /** The camp, tavern and their people (docs/api/npcs.md, docs/plans/just-you-and-orrin.md). */
@@ -308,6 +311,9 @@ export class GameState {
     this.restoration = new Restoration(world, bus, this.player);
     world.loadExtra('restoration', (raw) => this.restoration.load(raw));
     this.offs.push(world.persist('restoration', () => this.restoration.toJSON()));
+    this.oldPlans = new OldPlans(bus, this.player);
+    world.loadExtra('oldPlans', (raw) => this.oldPlans.load(raw));
+    this.offs.push(world.persist('oldPlans', () => this.oldPlans.toJSON()));
     world.loadExtra('pets', (raw) => this.pets.load(raw));
     this.offs.push(world.persist('pets', () => this.pets.toJSON()));
     // Anything may hand the player a blueprint by emitting 'blueprint:grant' (ruins, daily goals).

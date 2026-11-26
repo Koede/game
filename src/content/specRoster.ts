@@ -18,6 +18,7 @@ import { WORLD_SPEC } from './specRosterWorld';
 import { FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 import { EXPLORE_SPEC } from './specRosterExplore';
+import { OLD_PLANS_SPEC } from './specRosterOldPlans';
 
 type Numbers = Record<string, number>;
 
@@ -471,3 +472,6 @@ SPEC.blocks.push(...EXPLORE_SPEC.blocks);
 SPEC.maxTextures += 1;
 // Forge heavy industry (rolling mill, drop forge, dynamo; iron and steel axles): two fronts each for the dynamo, mill and forge, two item icons.
 SPEC.maxTextures += 8;
+// Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
+SPEC.maxTextures += OLD_PLANS_SPEC.textures;
+SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
