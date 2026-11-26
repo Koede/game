@@ -71,7 +71,8 @@ try {
     assert(open.active !== before.active, `Use toggles the door (active ${before.active} -> ${open.active})`);
     await d.shot('2-door-open');
     await d.settle(600); // the place/use cooldown
-    assert(await d.aimAt(door), 'aims at the door again');
+    // The open door is a thin panel at one edge of its cell: from some stands the aim passes beside it, so step round if needed.
+    assert((await d.aimAt(door)) || (await d.approach(door)), 'aims at the door again');
     await d.use();
     await d.settle(400);
     const shut = await blockAt(door);
