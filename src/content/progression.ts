@@ -54,7 +54,7 @@ export const NATURAL_BLOCKS: readonly string[] = [
   'oak_log', 'oak_leaves', 'pine_log', 'pine_leaves', 'tall_grass', 'dry_shrub',
   'wild_wheat', 'wild_potato', 'wild_carrot',
   'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'glowcap', 'cactus', 'packed_ice', 'ice_spike',
-  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'oil',
+  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'foul_air', 'oil',
   'tea_bush', 'coffee_shrub',
   ...areaNaturalBlocks(),
 ];

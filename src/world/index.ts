@@ -2,7 +2,8 @@
 export { World, WORLD_SNAPSHOT_VERSION, type WorldOptions, type WorldSnapshot, type WorldStats } from './world';
 export { WorkerPool, type PoolMode, type WorkerLike, type WorkerPoolOptions } from './workerPool';
 export { MAX_RENDER_DISTANCE, UNLOAD_MARGIN, type StreamStats } from './streamer';
-export { generateChunk, biomeAt, findSpawn } from './worldgen';
+export { generateChunk, biomeAt, findSpawn, caveRoomOf } from './worldgen';
+export { CAVE_BANDS, caveBandAt, caveCampTable, caveRoomPlan, findCaveCamp, lodeOre, type CaveBand, type CaveRoom, type CaveRoomKind } from './caveRooms';
 export { SPAWN_RESOURCE_RADIUS } from './spawn';
 export { computeLight, borderHashes, lightIndex, skyLightOf, blockLightOf, LIGHT_W, LIGHT_H, LIGHT_VOLUME } from './lighting';
 export { meshChunk, meshBuffers, LIQUID_SURFACE, type MeshInput } from './mesher';
