@@ -269,9 +269,9 @@ export class Game {
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
-      this.trees.dispose();
+      this.itemRenderer.dispose();
+    this.trees.dispose();
     this.treeRenderer.dispose();
-    this.itemRenderer.dispose();
       this.magicRenderer.dispose();
       this.workshopRenderer.dispose();
       this.mobRenderer.dispose();
@@ -632,9 +632,9 @@ export class Game {
     this.controller.dispose();
     this.inputManager.dispose();
     this.audio.dispose();
+    this.itemRenderer.dispose();
     this.trees.dispose();
     this.treeRenderer.dispose();
-    this.itemRenderer.dispose();
     this.magicRenderer.dispose();
     this.workshopRenderer.dispose();
     this.mobRenderer.dispose();

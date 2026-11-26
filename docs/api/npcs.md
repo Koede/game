@@ -127,3 +127,26 @@ Seven small systems built on the tavern's people. Each is a pure module in `src/
 ## Veyra, the alchemist (sixth person)
 
 A dark elf distiller in the hall (`id veyra`, role and sprite `alchemist`, home `[4,1,2]`, night by the stairs `[2,1,1]`, dances at `[4,1,3]`). Welcome gift: 3 glass vials and 2 glass beakers. Odd visits give her advice (`alchemyAdvice` in `src/npcs/alchemy.ts`: the next rung of the glass distillery ladder from what the pack holds: syrup, wash, low wines, spirit, tincture, clear tincture, essence/elixir) or a goal hint; Use again takes the tonic she pitches (`TONICS` in drinks.ts: a swift tonic and a mending draught, three a day each). She likes glassware, charcoal, sulfur and tinctures (friendship.ts), has two favours, four gossip pairs (Mara, Rosa, Orrin, Gruk), a wake-up note and a dance style. Phrase bank `scripts/alchemist.ts`. Art: owner references in `docs/art-refs/`; drop `veyra.png`, `veyra_portrait.png`, `veyra_anim.png`, `veyra_dance.png`, `veyra_faces.jpg` in `assets/npcs/` and run `node scripts/npc-art.mjs`; until then the code-drawn sprite and portrait are used. Not done: the vapour-skull idle animation.
+
+## The lodge and its stages (lodge.ts)
+
+Gruk builds the lodge (`docs/api/town.md`, "The lodge") as the second building of the town, then four upgrades on the same plot. Each
+stage switches on its own features; `NpcManager.tavernLevel` says how many stages stand (0 at the camp, 1..4 in progress, 5 the full
+tavern).
+
+- **Bar** (`tickBar`, Rosa's service menu): from stage 2 (`tavernLevel >= 2`). Rosa's drinks and upkeep need her present as before.
+- **Guest beds** (`port.bed`, `GUEST_BEDS`): from stage 4, the upper floor (`tavernLevel >= 4`).
+- **Jukebox, party button, stage, pool, trader, festival** (`hasTavern`): only once the last stage is finished (`tavernLevel >= 5`).
+  `hasTavern` is no longer `at && !camp` alone: the camp flag is cleared when the lodge's first stage stands, and the tavern features
+  wait for the last stage.
+- **Fires**: the lodge's hearth (`LODGE_FIRES`, the furnace in the common room) until the tavern stands.
+- **Gruk** keeps to `LODGE_ROUTINE` (the common room) while only the lodge stands.
+- **Respawn**: `bedSpawn()` is the first bedroom's spot from stage 1, the guest bed once the upper floor stands; `state.ts` moves
+  `player.spawn` there each tick (a respawn with a home furnace still goes to the home).
+- **Settle** (`settle()`): builds the full tavern on the current origin (the camp's, or the lodge's) and marks the lodge finished.
+- **Dev helpers**: `window.__hw.lodge()` (level, origin, hasTavern, spawn, the bedroom's check reasons) and `supplyLodge(n)` (puts n of
+  every lodge block into the bay's stock).
+
+Tests: `lodge.test.ts` (the split, the stages' diffs, the bedrooms in the stages), `lodgeBuild.test.ts` (the builder builds all five
+stages on a flat plot, the built world equals the layout, saves, settle), `lodgeFeatures.test.ts` (feature gates and the spawn). E2e:
+`scripts/e2e-lodge.mjs`.

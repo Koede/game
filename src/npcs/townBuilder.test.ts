@@ -364,7 +364,8 @@ describe('town builder: rest days, unlocks, chance drops and the bay crate', () 
     const b = new TownBuilder((t) => t !== 'storage_bay');
     stockUp(b);
     runDays(b, g, 1);
-    expect(b.planned!.buildings[0].template).toBe('well_plaza');
+    // The lodge is the next building after the bay in the order, so it is the first one unlocked.
+    expect(b.planned!.buildings[0].template).toBe('lodge');
     expect(b.planned!.buildings.some((x) => x.template === 'storage_bay')).toBe(true);
     expect(b.waitingOn()).toBeNull();
     expect(g.placedNonAir().length).toBeGreaterThan(0);

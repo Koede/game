@@ -88,3 +88,35 @@ earned on them and nothing is dug or placed in their day phase. A cottage frame 
 2. Keep `w` and `d` at 9 or less. Add the key to `TOWN_TEMPLATES`.
 3. Add its key to `TOWN_ORDER` in `townPlan.ts` where it belongs, and a standing to `UNLOCK_REP` in `buildBoard.ts`.
 4. `townTemplates.test.ts` checks the stages, the frame and the footprint automatically.
+
+## The lodge (`src/npcs/lodge.ts`, phases 3 and 4 of `docs/plans/just-you-and-orrin.md`)
+
+The lodge is the second building in the plan (`TOWN_ORDER`, after the storage bay). It takes the nearest plot whose ground holds the
+whole tavern footprint, 13 x 15 (the hall and its yard), at rotation 0. Its plot never overlaps a 9 x 9 lattice plot (the pitch is 12).
+
+- **Stages.** `LODGE_PATH` = `lodge`, `lodge_bar`, `lodge_kitchen`, `lodge_upper`, `lodge_tavern`. Gruk builds them in order on the same
+  plot and floor row (`TownBuilder.lodgeStage`): the lodge with its first bedroom, the bar counter and a second bedroom, the kitchen,
+  pantry and a third bedroom, the upper floor with its guest rooms and stairwell, and the yard, pool, stage, jukebox and cellar.
+  Each stage is an ordinary building job: bounties from `missing()`, stages, bay stock.
+- **The split.** `groupOf` puts every `layoutBlocks()` placement into one of five groups by region. `layoutAt(k)` is the layout of
+  groups 0..k; `stateAt(k)` adds the temporary rooms standing at that stage (`roomCells`: walls, a 2-high door, a bed, a bench and a
+  torch). `stageBlocks(k)` is the diff from stage k-1: the cells a stage places, and the air it clears. Applied in order, the five
+  stages end exactly on `layoutBlocks()` (`lodge.test.ts`).
+- **Templates.** `lodgeTemplate(k)` is stage k as a town template (13 x 15 footprint, `TOWN_STAGES` for each cell). `townTemplate`
+  falls back to these keys, so the plan and the saves can name them.
+- **Owned cells.** Gruk's own blocks read as not edited by the player: `TownBuilder.owned` maps each cell the lodge placed (and the
+  air cleared over the plot, and the footing) to the block it should hold. A later stage may dig or replace those; the player's
+  blocks stay protected.
+- **Clearing.** Stage 0 starts by clearing the air over the plot (`lodgeVolume`, no budget). A non-movable block or a player's block
+  in the way counts against the plot (`MAX_BLOCKED`).
+- **Temporary rooms.** The ground-floor bedrooms are walls the upper floor takes down: the clearing at the start of stage 3 removes
+  them. The bedroom of stage 0 is the spawn point until then.
+- **Save.** `TownSnapshot.lodge` = `{ stage, base, done }`, optional: a town with no lodge in its plan (every older save) has none.
+  The owned cells are recomputed from the stage, not saved.
+- **Settle.** `TownBuilder.finishLodge()` marks the lodge done (the dev skip builds the full tavern); a lodge not yet started is
+  skipped by the builder.
+- **Reads.** `lodgeLevel()` is the number of finished stages (0..5); `hasLodge()`; `lodgeOrigin()` is the plot corner at the floor row,
+  once stage 0 has started.
+
+Known gap: the upper floor's two guest rooms have open doorways (`air`) and no seat, so they do not pass `checkRoom` as the layout
+stands. Fixing it changes `layoutBlocks()` (a door and a bench), which the spec keeps exact; it needs a decision.

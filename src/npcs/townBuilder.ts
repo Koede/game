@@ -23,6 +23,7 @@ import { festivalDay } from './festival';
 import { buildableKey, planTown, RELIEF_MAX, type PlannedBuilding, type Surface, type TownPlan } from './townPlan';
 import { footprintOf, rotateCell, townTemplate, TOWN_STAGES, type TownTemplate } from './townTemplates';
 import type { BuildBoardSnapshot } from './buildBoard';
+import { LODGE_D, LODGE_PATH, LODGE_W, lodgeTemplate, lodgeVolume, stageBlocks } from './lodge';
 
 /** The NPC who builds the town (the owner's choice: Gruk, the orc smith). Trust for the build board is paid to this id. */
 export const BUILDER_ID = 'gruk';
@@ -109,6 +110,11 @@ export interface TownSnapshot {
   bay: Record<string, number>;
   /** The building board (buildBoard.ts); written by the manager, optional so older saves load. */
   board?: BuildBoardSnapshot;
+  /**
+   * The lodge's progress (lodge.ts): the stage in progress (0..4), the floor row it stands on, and whether it was settled (dev skip).
+   * Optional: a town without a lodge in its plan (every older save) has none.
+   */
+  lodge?: { stage: number; base: number | null; done: boolean };
 }
 
 const STAGE_INDEX = new Map(TOWN_STAGES.map((s, i) => [s, i]));
@@ -117,10 +123,10 @@ const STAGE_INDEX = new Map(TOWN_STAGES.map((s, i) => [s, i]));
  * The cells of a planned building at `base`, given the ground under its footprint (index i * d + j, rotated footprint). Stilts and
  * digs come first in their stages, then the template's own cells, in stage order and bottom-up.
  */
-export function buildCells(t: TownTemplate, b: PlannedBuilding, base: number, ground: readonly number[]): TownJob[] {
+export function buildCells(t: TownTemplate, b: PlannedBuilding, base: number, ground: readonly number[], footing = true): TownJob[] {
   const f = footprintOf(t, b.rot);
   const out: TownJob[] = [];
-  for (let i = 0; i < f.w; i++) {
+  for (let i = 0; footing && i < f.w; i++) {
     for (let j = 0; j < f.d; j++) {
       const g = ground[i * f.d + j];
       const x = b.x + i;
@@ -185,6 +191,15 @@ export class TownBuilder {
   /** Plots the storage bay has been tried on (so it never swaps back and forth). Not saved: a reload simply tries again. */
   private tried = new Set<string>();
   private skipWhy = '';
+  /** The lodge (lodge.ts) in progress: its stage (0..4), its floor row, and whether it was settled by the dev skip. */
+  private lodgeStage = 0;
+  private lodgeBase: number | null = null;
+  private lodgeDone = false;
+  /**
+   * What Gruk himself left in the cells of the lodge (and the air he cleared over the plot): the block each should hold. A cell
+   * that still holds that block is not the player's, so a later stage may replace it.
+   */
+  private owned = new Map<string, string>();
 
   /** `unlocked` says whether a template may start now (reputation, see buildBoard.ts). Everything is unlocked by default. */
   constructor(private readonly unlocked: (template: string) => boolean = () => true) {}
@@ -227,9 +242,72 @@ export class TownBuilder {
     return this.plan !== null && this.building >= this.plan.buildings.length;
   }
 
-  /** The building being raised now (its template key), or null. */
+  /** The building being raised now (its template key; the lodge's current stage key), or null. */
   get currentTemplate(): string | null {
-    return this.plan && !this.done ? this.plan.buildings[this.building].template : null;
+    if (!this.plan || this.done) return null;
+    const t = this.plan.buildings[this.building].template;
+    return t === 'lodge' ? LODGE_PATH[this.lodgeStage] : t;
+  }
+
+  /** The plan's index of the lodge, or -1 (no lodge in this town: every older save). */
+  private lodgeIndex(): number {
+    return this.plan ? this.plan.buildings.findIndex((b) => b.template === 'lodge') : -1;
+  }
+
+  /** Whether the town's plan has a lodge (the new worlds do; older towns do not). */
+  hasLodge(): boolean {
+    return this.lodgeIndex() >= 0;
+  }
+
+  /**
+   * How many lodge stages are finished: 0 before the lodge, 1 once it stands, up to 5 (the full tavern). A town with no lodge
+   * reads 0, and a settled one 5.
+   */
+  lodgeLevel(): number {
+    const idx = this.lodgeIndex();
+    if (idx < 0) return 0;
+    if (this.lodgeDone || this.building > idx) return LODGE_PATH.length;
+    return this.building === idx ? this.lodgeStage : 0;
+  }
+
+  /** The lodge's origin in the world (the plot corner at its floor row), once its first stage has started; null before. */
+  lodgeOrigin(): [number, number, number] | null {
+    const idx = this.lodgeIndex();
+    if (idx < 0 || this.lodgeBase === null) return null;
+    const b = this.plan!.buildings[idx];
+    return [b.x, this.lodgeBase, b.z];
+  }
+
+  /**
+   * Settles the lodge at once (the dev skip builds the full tavern itself, so Gruk leaves the lodge's stages alone). Any stage in
+   * progress is dropped; the lodge counts as finished.
+   */
+  finishLodge(): void {
+    this.lodgeDone = true;
+    const idx = this.lodgeIndex();
+    if (idx >= 0 && this.building === idx) this.nextBuilding();
+    this.lodgeStage = 0;
+  }
+
+  /** Cells Gruk owns: the footing and the air over the plot (clear), then what the stages before `k` placed. */
+  private ownedFor(k: number, b: PlannedBuilding, base: number, ground: readonly number[]): Map<string, string> {
+    const m = new Map<string, string>();
+    for (const [x, y, z] of lodgeVolume()) m.set(`${b.x + x},${base + y},${b.z + z}`, 'air');
+    // The footing alone (stilts and digs under and over the base row), built from an empty template.
+    const footing = buildCells({ key: '', name: '', w: LODGE_W, d: LODGE_D, door: { x: 0, z: 0, facing: 0 }, cells: [] }, b, base, ground, true);
+    for (const j of footing) m.set(`${j.x},${j.y},${j.z}`, j.dig ? 'air' : j.block);
+    for (let s = 0; s < k; s++) for (const c of stageBlocks(s)) m.set(`${b.x + c.x},${base + c.y},${b.z + c.z}`, c.block);
+    return m;
+  }
+
+  /** The cells of the lodge's stage k: the first stage with its footing, the later ones only what they change. */
+  private lodgeCells(k: number, b: PlannedBuilding, base: number, ground: readonly number[]): TownJob[] {
+    return buildCells(lodgeTemplate(k), b, base, ground, k === 0);
+  }
+
+  /** Whether the player (or anything but the lodge's own work) changed a cell: Gruk's own blocks do not count. */
+  private edited(host: TownHost, x: number, y: number, z: number, key: string): boolean {
+    return host.townEdited(x, y, z) && this.owned.get(`${x},${y},${z}`) !== key;
   }
 
   /** The stage index of the cell being laid, or -1 when nothing is in progress. */
@@ -335,6 +413,11 @@ export class TownBuilder {
   private work(host: TownHost): void {
     for (let guard = 0; guard < 64 && this.plan && !this.done; guard++) {
       if (this.base === null) {
+        // A lodge settled by the dev skip is not built on its plot.
+        if (this.lodgeDone && this.plan.buildings[this.building].template === 'lodge') {
+          this.nextBuilding();
+          continue;
+        }
         // A locked building is passed over: the next unlocked one in the queue is brought to the front (the plan is saved).
         const at = this.nextUnlocked();
         if (at < 0) {
@@ -369,7 +452,16 @@ export class TownBuilder {
       }
       if (this.laid >= this.cells.length && this.cell >= this.cells.length) {
         const b = this.plan!.buildings[this.building];
-        this.finishedQ.push({ template: b.template, x: b.x, z: b.z, rot: b.rot, base: this.base ?? 0 });
+        this.finishedQ.push({ template: this.currentTemplate ?? b.template, x: b.x, z: b.z, rot: b.rot, base: this.base ?? 0 });
+        if (b.template === 'lodge' && this.lodgeStage < LODGE_PATH.length - 1) {
+          // The next room of the lodge: the same plot and floor row, the cells of that stage only.
+          this.lodgeStage++;
+          this.cells = this.lodgeCells(this.lodgeStage, b, this.base ?? 0, this.ground);
+          this.owned = this.ownedFor(this.lodgeStage, b, this.base ?? 0, this.ground);
+          this.cell = 0;
+          this.laid = 0;
+          continue;
+        }
         this.nextBuilding();
         continue;
       }
@@ -413,6 +505,7 @@ export class TownBuilder {
     this.building++;
     this.base = null;
     this.ground = [];
+    this.owned = new Map();
     this.cells = [];
     this.cell = 0;
     this.laid = 0;
@@ -451,21 +544,42 @@ export class TownBuilder {
     }
     const base = lo + 1;
     const cells = buildCells(t, b, base, ground);
+    const lodge = b.template === 'lodge';
+    this.owned = lodge ? this.ownedFor(0, b, base, ground) : new Map();
     let blockedHere = 0;
     for (const c of cells) {
       const key = host.townBlock(c.x, c.y, c.z);
       if (key === null) return 'wait';
-      if (blockedCell(c, key, host.townEdited(c.x, c.y, c.z))) blockedHere++;
+      if (blockedCell(c, key, this.edited(host, c.x, c.y, c.z, key))) blockedHere++;
+    }
+    // The lodge's air over the plot is cleared before it starts (no budget: the plot is cleared, not built). Anything in the way
+    // that is not movable, or was changed by the player, counts against the plot like any other blocked cell.
+    const clear: [number, number, number][] = [];
+    if (lodge) {
+      const inTemplate = new Set(cells.map((c) => `${c.x},${c.y},${c.z}`));
+      for (const [x, y, z] of lodgeVolume()) {
+        const wx = b.x + x;
+        const wy = base + y;
+        const wz = b.z + z;
+        if (inTemplate.has(`${wx},${wy},${wz}`)) continue;
+        const key = host.townBlock(wx, wy, wz);
+        if (key === null) return 'wait';
+        if (key === 'air') continue;
+        if (!movable(key) || host.townEdited(wx, wy, wz)) blockedHere++;
+        else clear.push([wx, wy, wz]);
+      }
     }
     if (blockedHere > MAX_BLOCKED) {
       this.skipWhy = `${blockedHere} cells in the way`;
       return 'skip';
     }
+    for (const [x, y, z] of clear) host.townPlace(x, y, z, 'air', 0);
     this.base = base;
     this.ground = ground;
     this.cells = cells;
     this.cell = 0;
     this.laid = 0;
+    if (lodge) this.lodgeBase = base;
     return 'ok';
   }
 
@@ -473,17 +587,19 @@ export class TownBuilder {
   private attempt(host: TownHost, c: TownJob): 'done' | 'wait' {
     const key = host.townBlock(c.x, c.y, c.z);
     if (key === null) return 'wait';
-    const edited = host.townEdited(c.x, c.y, c.z);
+    // A block Gruk himself left here (the lodge's earlier stages) may be dug or replaced; the player's blocks may not.
+    const own = this.owned.get(`${c.x},${c.y},${c.z}`) === key;
+    const edited = own ? false : host.townEdited(c.x, c.y, c.z);
     if (c.dig) {
       if (key === 'air') return 'done';
-      if (!movable(key) || edited) {
+      if (!own && (!movable(key) || edited)) {
         this.blocked++;
         return 'done';
       }
       return this.digOut(host, c, key) ? 'done' : 'wait';
     }
     if (key === c.block) return 'done';
-    if (blockedCell(c, key, edited)) {
+    if (!own && blockedCell(c, key, edited)) {
       this.blocked++;
       this.skips = [...this.skips, `blocked ${c.block} at ${c.x},${c.y},${c.z}: found ${key}${edited ? ' (edited)' : ''}`].slice(-8);
       return 'done';
@@ -534,6 +650,7 @@ export class TownBuilder {
       accrued: r3(this.accrued),
       blocked: this.blocked,
       bay: this.stock(),
+      lodge: this.hasLodge() ? { stage: this.lodgeStage, base: this.lodgeBase, done: this.lodgeDone } : undefined,
     };
   }
 
@@ -555,6 +672,10 @@ export class TownBuilder {
     this.finishedQ = [];
     this.seen = null;
     this.waiting = null;
+    this.lodgeStage = 0;
+    this.lodgeBase = null;
+    this.lodgeDone = false;
+    this.owned = new Map();
     if (!raw || typeof raw !== 'object') return;
     const r = raw as Partial<TownSnapshot>;
     const int = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0);
@@ -574,15 +695,23 @@ export class TownBuilder {
     this.accrued = num(r.accrued);
     this.blocked = int(r.blocked);
     for (const [k, v] of Object.entries(r.bay ?? {})) if (typeof v === 'number' && Number.isFinite(v) && v > 0) this.bay.set(k, Math.floor(v));
+    const lg = r.lodge;
+    if (lg && typeof lg === 'object') {
+      this.lodgeStage = Math.min(LODGE_PATH.length - 1, int(lg.stage));
+      this.lodgeBase = typeof lg.base === 'number' && Number.isFinite(lg.base) ? lg.base : null;
+      this.lodgeDone = lg.done === true;
+    }
     const b = this.done ? null : buildings[this.building];
-    const t = b ? townTemplate(b.template) : null;
+    const isLodge = b?.template === 'lodge';
+    const t = b ? townTemplate(isLodge ? LODGE_PATH[this.lodgeStage] : b.template) : null;
     const base = r.base;
     if (b && t && typeof base === 'number' && Number.isFinite(base) && Array.isArray(r.ground)) {
       const f = footprintOf(t, b.rot);
       if (r.ground.length === f.w * f.d && r.ground.every(Number.isFinite)) {
         this.base = base;
         this.ground = [...r.ground];
-        this.cells = buildCells(t, b, base, this.ground);
+        this.cells = isLodge ? this.lodgeCells(this.lodgeStage, b, base, this.ground) : buildCells(t, b, base, this.ground);
+        this.owned = isLodge ? this.ownedFor(this.lodgeStage, b, base, this.ground) : new Map();
         this.cell = Math.min(int(r.cell), this.cells.length);
         this.laid = Math.min(int(r.laid), this.cell);
       }
