@@ -217,6 +217,7 @@ export function townContentment(
   spotOf: (id: string) => Spot | null,
   housed: (id: string) => boolean,
   tagsAt: (id: string, spot: Spot) => ReadonlySet<Tag>,
+  warmthAt?: (id: string, spot: Spot) => number,
 ): Record<string, Contentment> {
   const people = residents.filter(isPersonId);
   const out: Record<string, Contentment> = {};
@@ -235,7 +236,7 @@ export function townContentment(
     const tags = new Set(tagsAt(id, spot));
     // Quiet: no forge or fumes about, and few housed neighbours.
     if (!tags.has('forge') && !tags.has('fumes') && residentsNearby <= 2) tags.add('quiet');
-    out[id] = contentment(id, { neighbours, tags, residentsNearby });
+    out[id] = contentment(id, { neighbours, tags, residentsNearby, warmth: warmthAt?.(id, spot) });
   }
   return out;
 }

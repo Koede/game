@@ -169,4 +169,13 @@ describe('contentment of the town', () => {
     const fire = sampleTags((x, y, z) => (x === 0 && z === 0 && y === 1 ? 'furnace_clay' : 'air'), at(0));
     expect(fire.has('hearth')).toBe(true);
   });
+
+  it('is happier in a warm room and unhappier in a cold one, and does nothing without a reading', () => {
+    const base = { neighbours: [], tags: new Set<never>(), residentsNearby: 0 } as const;
+    const none = contentment('rosa', base).score;
+    expect(contentment('rosa', { ...base, warmth: 10 }).score).toBeGreaterThan(none);
+    expect(contentment('rosa', { ...base, warmth: -10 }).score).toBeLessThan(none);
+    expect(contentment('rosa', { ...base, warmth: Number.NaN }).score).toBe(none);
+    expect(contentment('rosa', { ...base, warmth: 1000 }).score).toBeLessThanOrEqual(1);
+  });
 });

@@ -154,6 +154,8 @@ export interface NpcHost {
   day(): number;
   /** The world's seed (the trader's visits and stock are drawn from it). */
   worldSeed?(): number;
+  /** Degrees C a spot is warmer than outside (heat zones, src/npcs/warmth.ts warmthDelta); absent until that is wired, then 0 everywhere. */
+  roomWarmth?(x: number, y: number, z: number): number;
   /** What the move-in triggers ask about the player (magic met, the distillery reached); absent: neither. */
   townFacts?(): { magic: boolean; alchemy: boolean };
   /** The stack in the player's hand, or null. */
@@ -1387,6 +1389,7 @@ export class NpcManager {
       spotOf,
       (id) => this.settlement.roomOf(id) !== CAMP_ROOM,
       (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot) : new Set()),
+      (_id, spot) => host.roomWarmth?.(spot.x, spot.y, spot.z) ?? 0,
     ));
   }
 
