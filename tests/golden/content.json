@@ -308,7 +308,9 @@
     "water_port": {"age":1,"category":"machine","hardness":2,"key":"water_port","machine":"boiler_vessel","minTier":0,"tool":"pickaxe"},
     "steam_port": {"age":1,"category":"block","hardness":2,"key":"steam_port","minTier":0,"tool":"pickaxe"},
     "steam_pipe": {"age":1,"category":"block","hardness":1.5,"key":"steam_pipe","minTier":0,"tool":"pickaxe"},
-    "mill_wheel": {"age":1,"category":"machine","hardness":1.2,"key":"mill_wheel","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"}
+    "mill_wheel": {"age":1,"category":"machine","hardness":1.2,"key":"mill_wheel","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
+    "windmill": {"age":1,"category":"machine","hardness":1.2,"key":"windmill","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
+    "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -1003,6 +1005,7 @@
     "steam_rotor": {"age":1,"id":"steam_rotor","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":1,"item":"drive_shaft"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"steam_rotor"},"station":"furnace"},
     "beam_engine": {"age":1,"id":"beam_engine","inputs":[{"count":6,"item":"bronze_plate"},{"count":2,"item":"bronze_cog"},{"count":1,"item":"flywheel"},{"count":2,"item":"steam_pipe"}],"kind":"forge","minTempC":1000,"minTier":2,"output":{"count":1,"item":"beam_engine"},"station":"furnace"},
     "mill_wheel": {"age":1,"id":"mill_wheel","inputs":[{"count":12,"item":"plank"},{"count":2,"item":"copper_ingot"}],"kind":"forge","minTempC":500,"minTier":2,"output":{"count":1,"item":"mill_wheel"},"station":"furnace"},
+    "windmill": {"age":1,"id":"windmill","inputs":[{"count":6,"item":"plank"},{"count":2,"item":"cloth"},{"count":1,"item":"drive_shaft"},{"count":1,"item":"bronze_cog"}],"kind":"forge","minTempC":500,"minTier":2,"output":{"count":1,"item":"windmill"},"station":"furnace"},
     "treadwheel": {"age":1,"id":"treadwheel","inputs":[{"count":4,"item":"plank"},{"count":2,"item":"bronze_ingot"},{"count":2,"item":"drive_shaft"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"treadwheel"},"station":"furnace"},
     "saw_arm": {"age":1,"id":"saw_arm","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":1,"item":"drive_shaft"},{"count":1,"item":"mech_saw"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"saw_arm"},"station":"furnace"},
     "item_vault": {"age":1,"id":"item_vault","inputs":[{"count":4,"item":"crate"},{"count":2,"item":"bronze_plate"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"item_vault"},"station":"furnace"},
@@ -1055,6 +1058,7 @@
     "stone_brick_stairs": {"age":0,"id":"stone_brick_stairs","inputs":[{"count":3,"item":"stone_brick"}],"output":{"count":4,"item":"stone_brick_stairs"},"station":"hand"},
     "plank_roof": {"age":0,"id":"plank_roof","inputs":[{"count":3,"item":"plank"}],"output":{"count":4,"item":"plank_roof"},"station":"hand"},
     "stone_brick_roof": {"age":0,"id":"stone_brick_roof","inputs":[{"count":3,"item":"stone_brick"}],"output":{"count":4,"item":"stone_brick_roof"},"station":"hand"},
+    "steam_tank": {"age":1,"id":"steam_tank","inputs":[{"count":6,"item":"bronze_plate"},{"count":1,"item":"steam_pipe"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"steam_tank"},"station":"furnace"},
     "heat_port": {"age":1,"id":"heat_port","inputs":[{"count":2,"item":"bronze_plate"},{"count":2,"item":"bronze_ingot"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"heat_port"},"station":"furnace"},
     "water_port": {"age":1,"id":"water_port","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"pail"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"water_port"},"station":"furnace"},
     "steam_port": {"age":1,"id":"steam_port","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"steam_pipe"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"steam_port"},"station":"furnace"},
