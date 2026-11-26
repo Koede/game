@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { e2eDist, ensureBuilt } from './lib/e2eArgs.mjs';
 import { createReporter, openGame, waitFor, VIEWPORTS } from './lib/browser.mjs';
 import { Driver } from './lib/e2eDriver.mjs';
-import { furnaceSteps } from './lib/e2eFurnace.mjs';
+import { furnaceAt, furnaceSteps } from './lib/e2eFurnace.mjs';
 import { sandboxChecks } from './lib/e2eSandbox.mjs';
 
 const root = resolve(fileURLToPath(import.meta.url), '../..');
@@ -186,7 +186,7 @@ async function runDevice(device) {
       assert(spot, 'the furnace was not placed');
       d.places.furnace = spot;
       const s = await hw(() => window.__hw.state());
-      assert(s.furnaces.length === 1, 'the simulation has no furnace entity');
+      assert(furnaceAt(s, spot), 'the simulation has no furnace entity');
       assert(s.player.home && s.player.home.x === spot.x && s.player.home.z === spot.z, 'the new furnace did not become home');
     });
 
@@ -243,9 +243,9 @@ async function runDevice(device) {
       assert(Math.hypot(p1.x - p0.x, p1.y - p0.y, p1.z - p0.z) < 0.05, `position ${JSON.stringify(p1)} != ${JSON.stringify(p0)}`);
       assert(Math.abs(p1.yaw - p0.yaw) < 1e-3 && Math.abs(p1.pitch - p0.pitch) < 1e-3, `view direction not restored: ${p1.yaw},${p1.pitch} vs ${p0.yaw},${p0.pitch}`);
       assert(JSON.stringify(now.inventory) === JSON.stringify(before.inventory), 'inventory differs after Continue');
-      assert(now.furnaces.length === 1, 'furnace entity missing after Continue');
-      const f0 = before.furnaces[0];
-      const f1 = now.furnaces[0];
+      const f0 = furnaceAt(before, d.places.furnace);
+      const f1 = furnaceAt(now, d.places.furnace);
+      assert(f0 && f1, 'furnace entity missing after Continue');
       for (const key of ['x', 'y', 'z', 'tier', 'lit']) assert(f1[key] === f0[key], `furnace ${key}: ${f1[key]} != ${f0[key]}`);
       assert(JSON.stringify(f1.crucibleOut) === JSON.stringify(f0.crucibleOut), 'crucible output differs');
       assert(Math.abs(f1.tempC - f0.tempC) < 25, `furnace temperature ${f1.tempC} vs ${f0.tempC}`);

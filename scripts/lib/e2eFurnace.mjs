@@ -5,9 +5,11 @@ import { waitFor } from './browser.mjs';
 /** Index of an inventory slot among the backpack panel's slot buttons (27 pack slots first, then the hotbar). */
 export const bagIndex = (slot) => (slot >= 9 ? slot - 9 : 27 + slot);
 
+/** The furnace entity standing at `at` in a state (a new world's camp has its own tended furnace, so never furnaces[0]). */
+export const furnaceAt = (s, at) => s.furnaces.find((f) => f.x === at.x && f.y === at.y && f.z === at.z);
+
 async function furnace(d) {
-  const s = await d.state();
-  return s.furnaces[0];
+  return furnaceAt(await d.state(), d.places.furnace);
 }
 
 /** Opens the backpack drawer on screens where it is a drawer (phones); a no-op beside the side column. */
@@ -57,7 +59,7 @@ export async function furnaceSteps({ d, step, assert, hw, page }) {
 
   await step('lights it and the temperature rises', async () => {
     await d.press(page.locator('.hw-window .hw-fbx__btns button', { hasText: 'Light' }));
-    await waitFor(page, () => window.__hw.state().furnaces[0].lit, 'the fire to catch', { timeout: 5000, interval: 100 });
+    await waitFor(page, (at) => window.__hw.state().furnaces.find((f) => f.x === at.x && f.y === at.y && f.z === at.z)?.lit, 'the fire to catch', { timeout: 5000, interval: 100, arg: d.places.furnace });
     const t0 = (await furnace(d)).tempC;
     await d.settle(3000);
     const t1 = (await furnace(d)).tempC;
@@ -147,7 +149,7 @@ export async function furnaceSteps({ d, step, assert, hw, page }) {
     await page.mouse.down();
     await d.settle(1100);
     await page.mouse.up();
-    await waitFor(page, () => window.__hw.state().furnaces[0].tier === 2, 'the furnace to become tier 2', { timeout: 6000, interval: 100 });
+    await waitFor(page, (at) => window.__hw.state().furnaces.find((f) => f.x === at.x && f.y === at.y && f.z === at.z)?.tier === 2, 'the furnace to become tier 2', { timeout: 6000, interval: 100, arg: d.places.furnace });
     const block = await d.hw((c) => window.__hw.getBlock(c.x, c.y, c.z).block, d.places.furnace);
     assert(block === 'furnace_bronze', `the block is ${block}`);
     await d.settle(400);
