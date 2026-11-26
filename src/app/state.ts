@@ -20,13 +20,14 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
-import { isFluidEndpoint } from '../core/registry';
+import { isFluidEndpoint, itemOrNull } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { tickJobs } from '../game/blueprintBook';
 import { Pets } from '../game/pets';
 import { Restoration } from '../game/restoration';
 import { clearanceOf, spawnCell } from '../mobs/terrain';
@@ -386,6 +387,7 @@ export class GameState {
     this.exploration.tick(dt);
     this.weathering.tick(dt);
     this.pets.tick(dt);
+    if (this.player.blueprints.jobs.length > 0) this.tickBlueprints(dt);
     if (this.ticks % 200 === 0) this.workshop.verify();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
@@ -393,6 +395,14 @@ export class GameState {
     if (!this.npcs.greeted) this.npcs.greet();
     this.playTimeS += dt;
     this.ticks++;
+  }
+
+  /** Gruk's blueprint builds: they draw from the pack and say so when it runs dry or a build is done. */
+  private tickBlueprints(dt: number): void {
+    const p = this.player;
+    const r = tickJobs(p.blueprints, dt, this.world, p.inventory, p.position, p.dev && p.devFreePlace);
+    for (const name of r.finished) this.bus.emit('toast', { text: `Gruk finished the ${name}`, kind: 'info' });
+    for (const d of r.dry) this.bus.emit('toast', { text: `Gruk needs ${itemOrNull(d.item)?.name ?? d.item} for the ${d.name}`, kind: 'warn' });
   }
 
   /** Dev Mode: the bars never fall (no starving, freezing or drowning), and the dead are revived. */
