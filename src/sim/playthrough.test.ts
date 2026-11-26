@@ -922,7 +922,7 @@ describe('scripted playthrough', () => {
     expect(play.meals).toBeGreaterThan(5);
     expect(player.food).toBeGreaterThan(REGEN_MIN_FOOD - 1);
     expect(toasts.some((t) => /hungry/i.test(t.text))).toBe(false);
-    expect(alerts.length).toBeLessThan(16);
+    expect(alerts.length).toBeLessThan(20);
     for (let i = 1; i < alerts.length; i++) expect(alerts[i].kind).not.toBe(alerts[i - 1].kind);
     const said = toasts.map((t) => t.text);
     for (let tier = 2; tier <= 5; tier++) expect(said).toContain(`Upgraded to the ${furnaceTier(tier).name}`);

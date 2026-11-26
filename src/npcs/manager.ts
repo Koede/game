@@ -414,7 +414,8 @@ export class NpcManager {
   /** Where a person stands in `phase`: the camp's spot for the builder while the camp stands, else their tavern routine. */
   private spot(n: NpcDef, phase: Phase): Spot | null {
     const own = this.baseSpot(n, phase);
-    return own && (phase === 'evening' || phase === 'night') ? this.warmerThan(own, phase) : own;
+    // A house outside the lodge keeps its sleeper: warmth only picks between spots the routines already use.
+    return own && (phase === 'evening' || phase === 'night') && !this.outside(own[0], own[2]) ? this.warmerThan(own, phase) : own;
   }
 
   private baseSpot(n: NpcDef, phase: Phase): Spot | null {
