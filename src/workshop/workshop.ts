@@ -12,7 +12,8 @@
  * it feed speed into these networks without changing anything else here.
  */
 import type { GameBus } from '../core/context';
-import { blockOrNull, canonicalItemKey, itemOrNull, machine, recipesAt } from '../core/registry';
+import { blockOf, blockOrNull, canonicalItemKey, itemOrNull, machine, recipesAt } from '../core/registry';
+import { MachineStatus, withStatus } from '../core/machineStatus';
 import { Facing, makeVoxel, voxelActive, voxelFacing, withActive, type IWorld, type RecipeDef } from '../core/types';
 import { windAt } from '../sim/machines';
 import { MECH_TWINS } from '../content/itemsWorkshop';
@@ -652,9 +653,33 @@ export class Workshop {
     }
     for (const [key, p] of this.parts) {
       const v = this.world.getVoxel(p.x, p.y, p.z);
-      const on = this.speed.has(key);
-      if (voxelActive(v) !== on) this.world.setVoxel(p.x, p.y, p.z, withActive(v, on), 'sim');
+      const net = this.netOf.get(key);
+      const m = this.machines.get(key);
+      const jammed = net !== undefined && (net.overstressed || net.jammed === true);
+      const on = !jammed && this.speed.has(key);
+      // Why a part stands still, for its face: its network is overloaded, or a machine has work and nothing turns it.
+      const want = jammed ? MachineStatus.Jammed : m && !on && (m.recipe !== null || Object.keys(m.buffer).length > 0) ? MachineStatus.Starved : MachineStatus.None;
+      const shown = this.statusFor(key, want);
+      const next = blockOf(v).layersStatus.length > 1 ? withStatus(withActive(v, on), shown) : withActive(v, on);
+      if (next !== v) this.world.setVoxel(p.x, p.y, p.z, next, 'sim');
     }
+  }
+
+  private readonly statusHold = new Map<string, { want: number; since: number; shown: number }>();
+
+  /** A status shows once it has held for a second (and clears at once), so a flicker does not remesh the chunk. */
+  private statusFor(key: string, want: number): number {
+    let h = this.statusHold.get(key);
+    if (!h) {
+      h = { want: 0, since: this.clock, shown: 0 };
+      this.statusHold.set(key, h);
+    }
+    if (h.want !== want) {
+      h.want = want;
+      h.since = this.clock;
+    }
+    if (want === 0 || this.clock - h.since >= 1) h.shown = want;
+    return h.shown;
   }
 
   private moveBelts(dt: number): void {

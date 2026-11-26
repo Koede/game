@@ -1,12 +1,13 @@
 /**
  * Machine status, shown on the block itself instead of in an icon.
  *
- * A machine face has up to six looks (status only shows while stopped; a running machine always shows its running face):
+ * A machine face has up to seven looks (status only shows while stopped; a running machine always shows its running face):
  *   running  - the voxel's active flag (the block's own `*_on` texture, drawn full-bright where it glows)
  *   idle     - switched off or nothing to do: the plain "off" texture, i.e. the block's base face
  *   starved  - wants to work but lacks fuel, power, water or input: the off face with a red "empty" badge
  *   full     - cannot work because its output has no room: the off face with an amber "stacked" badge
  *   worn     - still works but is wearing out: the off face a little duller, scuffed, with a grey badge (the machine-wear system sets it)
+ *   jammed   - a mechanical network that is overloaded or fighting itself (every part of it shows it, even if it still turns)
  *   broken   - damaged and stopped: the off face, darkened and cracked (also set by the machine-wear system)
  *
  * Everything but running and idle is stored in bits 13-15 of the voxel (the variant bits; machines use no
@@ -15,11 +16,11 @@
  * anything extra. Content, sim and renderer only share this file.
  */
 
-export const MachineStatus = { None: 0, Starved: 1, Full: 2, Worn: 3, Broken: 4 } as const;
+export const MachineStatus = { None: 0, Starved: 1, Full: 2, Worn: 3, Broken: 4, Jammed: 5 } as const;
 export type MachineStatusCode = (typeof MachineStatus)[keyof typeof MachineStatus];
 
 /** Suffix key per status code (index 0 = no status). */
-export const STATUS_KEYS = ['', 'starved', 'full', 'worn', 'broken'] as const;
+export const STATUS_KEYS = ['', 'starved', 'full', 'worn', 'broken', 'jammed'] as const;
 export const STATUS_COUNT = STATUS_KEYS.length;
 const SEP = '_stat_';
 
@@ -35,6 +36,6 @@ export function parseStatusTexture(name: string): { base: string; status: number
   return status > 0 ? { base: name.slice(0, i), status } : null;
 }
 
-/** Bits 13-15 of a voxel (a block with status looks uses all three: 0..4 are defined). */
+/** Bits 13-15 of a voxel (a block with status looks uses all three: 0..5 are defined). */
 export const voxelStatus = (v: number): number => (v >> 13) & 7;
 export const withStatus = (v: number, status: number): number => (v & ~(7 << 13)) | ((status & 7) << 13);

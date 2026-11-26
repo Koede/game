@@ -68,7 +68,7 @@ export const PART_ITEMS: ItemSpec[] = [
   { key: 'punched_card', name: 'Punched Card', category: 'material', age: BRONZE, stack: 16, desc: 'A stiff card of eight steps for a sequenced gearshift. Each step sets a speed ratio, a direction and how many seconds it runs.' },
 ];
 
-const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, ...(anim ? { frontActive: `ws_${key}_front_on` } : {}) });
+const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, ...(anim ? { frontActive: `ws_${key}_front_on` } : {}), status: true });
 
 export const PART_BLOCKS: BlockSpec[] = PART_DEFS.map((d): BlockSpec => ({
   key: d.key, name: d.name, desc: d.desc, category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
