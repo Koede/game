@@ -57,7 +57,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...Object.keys(GENERATOR_SHAFT), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor']);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -884,6 +884,11 @@ export class Workshop {
   }
 
   // ---- Views ------------------------------------------------------------------------------------------
+
+  /** Speed (rpm, unsigned) the shaft network turns the part at this cell at this tick; 0 when it is still or none. */
+  rpmOf(x: number, y: number, z: number): number {
+    return Math.abs(this.speed.get(k3(x, y, z)) ?? 0);
+  }
 
   netAt(x: number, y: number, z: number): NetInfo | null {
     return this.netOf.get(k3(x, y, z)) ?? null;

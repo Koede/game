@@ -273,6 +273,14 @@ export class Interaction {
       this.swing.triggerSwing();
       return 'screen';
     }
+    // An air block (tube, tank, compressor, nozzle) answers a Use with its pressure; a compressor takes a stroke of the
+    // hand crank. A held building block still places (above), so a tube is never worked by accident.
+    if (hit && hit.block.air !== null && hit.block.liquid === null && blockOfItem(this.player.heldStack()?.item ?? '') === null) {
+      this.stopMining();
+      this.bus.emit('air:use', { x: hit.x, y: hit.y, z: hit.z });
+      this.swing.triggerSwing();
+      return 'worked';
+    }
     // A fruiting bush is picked by hand, whatever is held.
     if (hit && hit.block.harvestLeaves !== null && hit.block.liquid === null) return this.pick(hit);
     const held = this.player.heldStack();

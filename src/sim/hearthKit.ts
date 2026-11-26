@@ -17,6 +17,8 @@ export interface ShellOptions {
   /** Electrodes in the ceiling and power ports in the back wall (default: what the tier needs). */
   electrodes?: number;
   ports?: number;
+  /** Parts the tier requires, set in the back wall by block key (default: its `requiredParts`; `{}` builds a hearth without them). */
+  parts?: Record<string, number>;
   /** Lowest interior layer relative to the furnace (default 0: the furnace sits at the bottom of the inside). */
   dy?: number;
 }
@@ -54,6 +56,7 @@ export function buildHearth(world: IWorld, x: number, y: number, z: number, o: S
   const wall = blockId(o.wall ?? s.wall[0]);
   let electrodes = o.electrodes ?? s.electrodes ?? 0;
   let ports = o.ports ?? s.powerPorts ?? 0;
+  const parts = Object.entries(o.parts ?? s.requiredParts ?? {}).flatMap(([key, n]) => Array.from({ length: n }, () => key));
   const cells = boxCells(b);
   const midU = (b.u0 + b.u1) / 2;
   const midV = (b.depth + 1) / 2;
@@ -68,6 +71,8 @@ export function buildHearth(world: IWorld, x: number, y: number, z: number, o: S
     } else if (ports > 0 && c.role === CellRole.WallFace && c.v === b.depth + 1) {
       id = block('power_port').id;
       ports--;
+    } else if (parts.length > 0 && c.role === CellRole.WallFace && c.v === b.depth + 1) {
+      id = block(parts.shift() as string).id;
     }
     world.setVoxel(c.x, c.y, c.z, makeVoxel(id), 'player');
   }

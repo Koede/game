@@ -320,6 +320,8 @@ export interface GameEvents {
    * The furnace at x,y,z now sits in a formed hearth of structural `tier` (sim, on a change of formed state or
    * tier). `min` / `max` are the inclusive world corners of the shell (render: the light sweep; UI: the STRUCTURE tab).
    */
+  /** A Use on an air block (BRONZE_PLAN 5.3): the sim reads its pressure and, on a compressor, works the hand crank. */
+  'air:use': { x: number; y: number; z: number };
   'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
   /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
   'hearth:unformed': { x: number; y: number; z: number };

@@ -395,6 +395,11 @@ describe('scripted playthrough', () => {
     // Spec 17: the Blast Furnace needs a Blast hearth - 16 brick around the Bronze Furnace, open at the top.
     play.craft('bellows', 1, BENCH);
     expect(play.view().upgrade).toMatchObject({ ok: false, structureOk: false, reason: 'Build a Blast hearth: brick walls around the furnace' });
+    // BRONZE_PLAN 4.5: the Blast hearth also needs a Blast Nozzle in a wall, made at the Bronze Furnace from air tubes.
+    play.find('5 bronze_plate, 1 glass, 2 firebrick'); // STAND-IN: the plates are hammered by hand on the anvil elsewhere
+    play.forge('air_tube'); // 6 tubes from 1 plate and 1 glass
+    play.forge('blast_nozzle');
+    expect(play.have('blast_nozzle')).toBe(1);
     play.find('26 clay');
     play.smelt('clay', 26);
     play.forge('brick', 16);
@@ -429,6 +434,9 @@ describe('scripted playthrough', () => {
     play.forge('wrench');
     play.forge('item_pipe');
     const formedBefore = hearths.length;
+    // The Blast Nozzle sits where the plan put it, on the east face: move it to the west face first (all in one go).
+    const NOZZLE_WEST = { x: -1, y: 1, z: -1 };
+    kit.world.put(NOZZLE_WEST.x, NOZZLE_WEST.y, NOZZLE_WEST.z, 'blast_nozzle'); // STAND-IN: the pack's spare nozzle, set in at once
     for (const p of [IN_HATCH, OUT_HATCH]) {
       play.breakBlock(p);
       play.place('item_hatch', p);

@@ -48,6 +48,11 @@ export interface FurnaceEntity extends BlockEntity {
   ignitionLowS: number;
   /** The formed hearth it sits in (spec 17), or null; saved so a loaded game runs on until the first scan confirms it. */
   hearth: HearthSummary | null;
+  /**
+   * Set by the save migration on a furnace that predates the Blast Nozzle rule (BRONZE_PLAN 4.5): its hearth forms
+   * without the tier's `requiredParts`. Absent on every furnace built since.
+   */
+  legacyHearth?: boolean;
   /** Tier it runs at: min(tier, the hearth's structural tier), 1 when it stands alone (spec 17.1). */
   effTier: number;
   // Figures of the last tick, for the UI and the network.

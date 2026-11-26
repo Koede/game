@@ -20,7 +20,7 @@ const positiveInt = (n: number): boolean => Number.isInteger(n) && n >= 1;
 function validatePipes(t: TechTables, problems: string[]): void {
   for (const def of t.blocks) {
     const at = `block ${def.key}`;
-    if ((def.shape === 'pipe') !== (def.pipe !== null)) problems.push(`${at}: shape 'pipe' and a pipe spec go together`);
+    if ((def.shape === 'pipe') !== (def.pipe !== null || def.air?.role === 'tube')) problems.push(`${at}: shape 'pipe' and a pipe or air-tube spec go together`);
     const p = def.pipe;
     if (!p) continue;
     if (!(p.ratePerS > 0)) problems.push(`${at}: pipe ratePerS must be > 0`);

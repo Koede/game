@@ -71,6 +71,12 @@ describe('pre-bronze save', () => {
         min: [-17, 43, -20],
         max: [-15, 44, -18],
       });
+      // BRONZE_PLAN 4.5: the hearth was built before the Blast Nozzle was required; the migration flags it and a rescan keeps it.
+      expect(furnace.legacyHearth).toBe(true);
+      state.sim.validateHearths();
+      state.sim.tick(0.05);
+      expect(furnace.hearth).toMatchObject({ tier: 3, inner: [1, 1, 1] });
+      expect(state.sim.structureView(-16, 44, -18, { tier: 3 })!.problems).toEqual([]);
     } finally {
       state.dispose();
     }

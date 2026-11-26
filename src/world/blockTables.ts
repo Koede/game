@@ -57,9 +57,11 @@ export const LIQUID = new Uint8Array(SIZE);
 export const POWERED = new Uint8Array(SIZE);
 /** 1 for non-opaque blocks that hide the faces between two blocks of the same id (liquids, glass). */
 export const MERGES = new Uint8Array(SIZE);
-/** Transport families (spec 16), as bits: PIPE_ITEM, PIPE_FLUID. */
+/** Transport families (spec 16), as bits: PIPE_ITEM, PIPE_FLUID, PIPE_AIR. */
 export const PIPE_ITEM = 1;
 export const PIPE_FLUID = 2;
+/** The air family (BRONZE_PLAN 5.3): air tubes and the blocks they join. It never joins item or fluid pipes. */
+export const PIPE_AIR = 4;
 /** The family of a pipe block (0 for anything else). */
 export const PIPE_FAMILY = new Uint8Array(SIZE);
 /**
@@ -132,8 +134,9 @@ for (const def of BLOCKS) {
   GLASS_FAMILY[id] = def.shape === 'glass' ? glassFamily(def.key) : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
+  else if (def.air?.role === 'tube') PIPE_FAMILY[id] = PIPE_JOINS[id] = PIPE_AIR;
   else {
-    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0);
+    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0) | (def.air ? PIPE_AIR : 0);
     PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
   }
   GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;

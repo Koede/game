@@ -226,6 +226,8 @@ export class GameState {
     this.workshop.generatorWatts = (x, y, z) => this.sim.machineView(x, y, z)?.outW ?? 0;
     // Steam rotors turn on a boiling steam kettle; the kettle burns water and heat only while the rotor's shaft line carries a load.
     this.workshop.steamAt = (x, y, z) => this.sim.steamReadyAt(x, y, z);
+    // A compressor on a shaft line builds air at 2 L/s per rpm (BRONZE_PLAN 5.3); hand-cranking stays as the early fallback.
+    this.sim.shaftRpm = (x, y, z) => this.workshop.rpmOf(x, y, z);
     this.sim.setSteamDemand((x, y, z) => (this.workshop.netAt(x, y, z)?.stress ?? 0) > 0);
     // Treadwheels turn while the player stands on them; a driven, fuelled tractor turns a shaft beside it; spouts and drains reach tanks with buckets.
     this.workshop.standingOn = (x, y, z) => treadwheelOccupied(this.player.position, this.mobs.all, x, y, z);

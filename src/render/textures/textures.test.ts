@@ -163,7 +163,7 @@ describe('texture content', () => {
 
   it('pipes fill the 8/16 plus the mesher samples and are clear in the corners; item pipes are glazed', () => {
     const pipes = BLOCKS.filter((b) => b.shape === 'pipe').map((b) => TEXTURE_NAMES[b.layers[0]]);
-    expect(pipes).toEqual(['pipe_item', 'pipe_item_fast', 'pipe_fluid', 'pipe_fluid_hot']);
+    expect(pipes).toEqual(['pipe_item', 'pipe_item_fast', 'pipe_fluid', 'pipe_fluid_hot', 'pipe_air']);
     for (const name of pipes) {
       const glazed = name.startsWith('pipe_item');
       const px = paintTexture(name);

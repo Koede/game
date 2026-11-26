@@ -19,7 +19,8 @@ const wallsFrom = (tier: number): string[] => WALLS.slice(tier - 3);
 
 /** The hearth each tier needs (spec 17.1). Crucibles of a formed hearth = min(maxCrucibles, x * z + crucibleBonus). */
 const HEARTHS: Record<number, HearthStructureSpec> = {
-  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', maxCrucibles: 5, crucibleBonus: 1 },
+  // The Blast hearth needs a Blast Nozzle in a face (BRONZE_PLAN 4.5); hearths built before that rule are kept by `legacyHearth`.
+  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', requiredParts: { blast_nozzle: 1 }, maxCrucibles: 5, crucibleBonus: 1 },
   4: { wall: wallsFrom(4), minInner: [1, 1, 1], maxInner: [4, 4, 3], ceiling: 'required', electrodes: 1, maxCrucibles: 6, crucibleBonus: 1 },
   5: { wall: wallsFrom(5), minInner: [2, 2, 2], maxInner: [5, 5, 4], ceiling: 'required', powerPorts: 2, maxCrucibles: 8, crucibleBonus: 2 },
   6: { wall: wallsFrom(6), minInner: [3, 3, 3], maxInner: [5, 5, 5], ceiling: 'required', powerPorts: 4, maxCrucibles: 9, crucibleBonus: 0 },
