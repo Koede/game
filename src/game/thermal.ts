@@ -153,6 +153,7 @@ export class Thermal {
 
   /** Forget every cached room (a block changed, or a fire went out). */
   invalidate(): void {
+    this.gatherCache = null;
     this.rooms.clear();
     this.ageS = 0;
   }
@@ -214,14 +215,23 @@ export class Thermal {
    * cache hits, not a few hundred flood fills.
    */
   grid(cx: number, y: number, cz: number, r: number): { temps: Float32Array; floors: Int16Array; size: number } {
-    const size = 2 * r + 1;
-    const temps = new Float32Array(size * size);
-    const floors = new Int16Array(size * size).fill(-1);
-    const gathered = this.gather(cx - r - MAX_RADIUS, cx + r + MAX_RADIUS, Math.max(0, y - 8), Math.min(WORLD_HEIGHT - 1, y + 8), cz - r - MAX_RADIUS, cz + r + MAX_RADIUS);
-    for (let j = 0; j < size; j++) {
+    const g = newThermalGrid(r);
+    this.gridRows(g, cx, y, cz, r, 0, g.size);
+    return g;
+  }
+
+  /**
+   * Fills rows j0..j1-1 of a grid made by `newThermalGrid(r)`, so a caller can spread a refresh over several frames (the heat
+   * view does a few rows a frame: the world can change under a half-finished grid, which only shows as one stale row for 0.5 s).
+   */
+  gridRows(g: { temps: Float32Array; floors: Int16Array; size: number }, cx: number, y: number, cz: number, r: number, j0: number, j1: number): void {
+    const { temps, floors, size } = g;
+    const gathered = this.gatheredFor(cx, y, cz, r);
+    for (let j = j0; j < Math.min(j1, size); j++) {
       for (let i = 0; i < size; i++) {
         const x = cx - r + i;
         const z = cz - r + j;
+        floors[j * size + i] = -1;
         if (!this.world.isLoaded(x, z)) continue;
         let fy = -1;
         for (let yy = Math.min(WORLD_HEIGHT - 1, y + 2); yy >= Math.max(1, y - 4); yy--) {
@@ -235,10 +245,21 @@ export class Thermal {
         temps[j * size + i] = this.zoneAt(x, fy, z, gathered).tempC;
       }
     }
-    return { temps, floors, size };
   }
 
   // ---- internals ----
+
+  /** The warm blocks around a grid, scanned once per 8-block bucket of the centre and kept until a block changes. */
+  private gatherCache: { key: string; list: OpenSource[] } | null = null;
+  private gatheredFor(cx: number, y: number, cz: number, r: number): OpenSource[] {
+    const bx = Math.floor(cx / 8), bz = Math.floor(cz / 8), by = Math.floor(y / 8);
+    const key2 = `${bx},${by},${bz},${r}`;
+    if (this.gatherCache?.key === key2) return this.gatherCache.list;
+    // Cover every centre in the bucket: the box is padded by the bucket size.
+    const list = this.gather(bx * 8 - r - MAX_RADIUS, bx * 8 + 7 + r + MAX_RADIUS, Math.max(0, by * 8 - 8), Math.min(WORLD_HEIGHT - 1, by * 8 + 15), bz * 8 - r - MAX_RADIUS, bz * 8 + 7 + r + MAX_RADIUS);
+    this.gatherCache = { key: key2, list };
+    return list;
+  }
 
   /** The room (or the open air / cave) a non-solid cell belongs to, cached for every cell the fill reached. */
   private roomAt(x: number, y: number, z: number): Room {
@@ -344,8 +365,10 @@ export class Thermal {
     const list = gathered ?? this.gather(x0 - R, x0 + R, Math.max(0, y0 - R), Math.min(WORLD_HEIGHT - 1, y0 + R), z0 - R, z0 + R);
     let total = 0;
     for (const s of list) {
-      const d = Math.hypot(px - (s.x + 0.5), py - (s.y + 0.5), pz - (s.z + 0.5));
-      if (d >= s.radius || !this.clearLine(s.x, s.y, s.z, px, py, pz)) continue;
+      const dx = px - (s.x + 0.5), dy = py - (s.y + 0.5), dz = pz - (s.z + 0.5);
+      if (dx * dx + dy * dy + dz * dz >= s.radius * s.radius) continue;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (!this.clearLine(s.x, s.y, s.z, px, py, pz)) continue;
       const f = 1 - d / s.radius;
       total += OPEN_C_PER_BLOCK * s.radius * f * f;
     }
@@ -365,6 +388,12 @@ export class Thermal {
     }
     return true;
   }
+}
+
+/** An empty grid for `Thermal.gridRows` with radius r. */
+export function newThermalGrid(r: number): { temps: Float32Array; floors: Int16Array; size: number } {
+  const size = 2 * r + 1;
+  return { temps: new Float32Array(size * size), floors: new Int16Array(size * size).fill(-1), size };
 }
 
 /** One word for how a temperature feels, for the HUD and the heat view's legend. */

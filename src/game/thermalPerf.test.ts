@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FakeWorld } from './fakeWorld';
-import { Thermal } from './thermal';
+import { Thermal, newThermalGrid } from './thermal';
 
 describe('Thermal cost', () => {
   it('a 25 x 25 heat view grid with fires and a house costs a few ms, and a cached query microseconds', () => {
@@ -14,6 +14,19 @@ describe('Thermal cost', () => {
     const t0 = performance.now();
     t.grid(0, 1, 0, 12);
     const grid = performance.now() - t0;
+    const t2 = performance.now();
+    t.grid(1, 1, 0, 12); // the next refresh after a step: sources cached, rooms cached
+    const warm = performance.now() - t2;
+    console.log(`warm grid ${warm.toFixed(1)} ms`);
+    expect(warm).toBeLessThan(15);
+    // Spread over frames: the biggest slice (4 rows) is what a frame pays.
+    const g = newThermalGrid(12);
+    t.gridRows(g, 0, 1, 0, 12, 0, 1); // warm the caches
+    const t3 = performance.now();
+    t.gridRows(g, 0, 1, 0, 12, 8, 12);
+    const slice = performance.now() - t3;
+    console.log(`4-row slice ${slice.toFixed(1)} ms`);
+    expect(slice).toBeLessThan(4);
     const t1 = performance.now();
     for (let i = 0; i < 1000; i++) t.temperatureAt(0.5, 1.5, 0.5);
     const cached = (performance.now() - t1) / 1000;

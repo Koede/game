@@ -7,6 +7,7 @@
  * -> animal models (interpolated) -> render.
  */
 import { saveShot } from './photo';
+import { newThermalGrid } from '../game/thermal';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -102,6 +103,8 @@ const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox' | 'pa
 
 /** Blocks around the player the heat view paints (a 25 x 25 patch). */
 const HEAT_VIEW_RADIUS = 12;
+/** Rows of the 25-row heat grid computed per frame (about 2 ms each frame at most). */
+const HEAT_ROWS_PER_FRAME = 4;
 
 export class Game {
   readonly state: GameState;
@@ -547,16 +550,30 @@ export class Game {
     if (this.heatOn) this.state.bus.emit('toast', { text: 'Heat view: blue is cold, green is comfortable, orange and red are warm. Walls and insulation show.', kind: 'info' });
   }
 
+  /** The grid being filled a few rows a frame, where it is centred, and the next row to do. */
+  private heatJob: { g: ReturnType<typeof newThermalGrid>; cx: number; y: number; cz: number; row: number } | null = null;
+
+  /** Refreshes the heat view without a hitch: HEAT_ROWS_PER_FRAME rows a frame, a new pass every half second. */
   private updateHeatView(dt: number): void {
-    if (!this.heatOn) return;
-    this.heatIn -= dt;
-    if (this.heatIn > 0) return;
-    this.heatIn = 0.5;
-    const p = this.state.player.position;
+    if (!this.heatOn) {
+      this.heatJob = null;
+      return;
+    }
     const r = HEAT_VIEW_RADIUS;
-    const cx = Math.floor(p.x), cz = Math.floor(p.z);
-    const g = this.state.thermal.grid(cx, Math.floor(p.y), cz, r);
-    this.renderer.heatView.set({ ...g, x0: cx - r, z0: cz - r });
+    if (!this.heatJob) {
+      this.heatIn -= dt;
+      if (this.heatIn > 0) return;
+      const p = this.state.player.position;
+      this.heatJob = { g: newThermalGrid(r), cx: Math.floor(p.x), y: Math.floor(p.y), cz: Math.floor(p.z), row: 0 };
+    }
+    const job = this.heatJob;
+    const to = Math.min(job.g.size, job.row + HEAT_ROWS_PER_FRAME);
+    this.state.thermal.gridRows(job.g, job.cx, job.y, job.cz, r, job.row, to);
+    job.row = to;
+    if (to < job.g.size) return;
+    this.renderer.heatView.set({ ...job.g, x0: job.cx - r, z0: job.cz - r });
+    this.heatJob = null;
+    this.heatIn = 0.5;
   }
 
   private showAnimalName(): void {
