@@ -19,7 +19,7 @@ export default {
     {
       key: 'steam_kettle', name: 'Copper Steam Kettle', category: 'misc', age: BRONZE, shape: 'bucket', solid: false, hardness: 0.6, tool: 'pickaxe', machine: 'kettle', placeOn: TOPS,
       desc: 'A copper drum on the furnace. Pour water in by the bucket; boiling, it gives open steam. A Steam Rotor on top turns a shaft beside it.',
-      textures: { all: 'steam_kettle', sideActive: 'steam_kettle_on', topActive: 'steam_kettle_on' },
+      textures: { all: 'steam_kettle', sideActive: 'steam_kettle_on', topActive: 'steam_kettle_on', status: true },
     },
     {
       key: 'boiler_plate', name: 'Boiler Plate', category: 'block', age: BRONZE, hardness: 2, tool: 'pickaxe', minTier: 0,
