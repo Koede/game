@@ -107,6 +107,16 @@ export function enchantLevel(stack: Slot | undefined, key: string): number {
   return typeof n === 'number' && n > 0 ? Math.floor(n) : 0;
 }
 
+/**
+ * The level an effect runs at: the written level, one higher on a Masterwork tool (never past the enchant's maximum, and
+ * never from nothing). Every effect in src/game/enchantEffects.ts reads this, so quality and enchantments work together.
+ */
+export function effectiveEnchantLevel(stack: Slot | undefined, key: string): number {
+  const written = enchantLevel(stack, key);
+  if (written < 1) return 0;
+  return Math.min(BY_KEY.get(key)?.max ?? written, written + (stack?.quality === 2 ? 1 : 0));
+}
+
 export const isEnchanted = (stack: Slot | undefined): boolean => !!stack?.enchants && Object.keys(stack.enchants).length > 0;
 
 /**

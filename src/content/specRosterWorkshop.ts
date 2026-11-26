@@ -60,6 +60,8 @@ export const WORKSHOP_SPEC = {
       'signal_lamp: 1 signal_lamp <- 1 glass, 1 copper_ingot @600 T2',
       'bell: 1 bell <- 2 bronze_ingot, 1 stick @600 T2',
       'tally_board: 1 tally_board <- 1 bronze_plate, 2 plank, 1 stick @600 T2',
+      'punched_card: 2 punched_card <- 1 bronze_plate @600 T2',
+      'wind_vane: 1 wind_vane <- 1 bronze_ingot, 2 stick, 1 cloth @500 T2',
       'clockface: 1 clockface <- 1 glass, 1 bronze_cog, 1 plank @600 T2',
       'contraption_frame: 4 contraption_frame <- 4 plank, 1 bronze_ingot @600 T2',
       'piston: 1 piston <- 2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 2 contraption_frame @600 T2',
@@ -71,8 +73,8 @@ export const WORKSHOP_SPEC = {
   } as Record<string, string[]>,
   /** 19 faces and one icon, then the modular fronts (two for each running one) and icons, plus the vane face and the punched-card icon. */
   textures: 102,
-  /** No recipe: the docs give the vane none, and there is no paper to punch a card from. Tests place or grant them. */
-  worldOnly: ['wind_vane', 'punched_card'],
+  /** Nothing is world-only now: the vane and the card are forged (Wave 4, dead ends). */
+  worldOnly: [] as string[],
 };
 
 export const WORKSHOP_RECIPE_COUNT = Object.values(WORKSHOP_SPEC.recipes).reduce((n, l) => n + l.length, 0);

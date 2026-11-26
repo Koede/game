@@ -3,7 +3,7 @@
  * the single place a verb happens (src/player/interaction.ts for a broken block, src/app/state.ts for a mob's drops) calls
  * one helper and stays free of enchant rules. DOM-free; veins use the felling approach (breadth-first from the block hit).
  */
-import { enchantLevel } from '../core/enchant';
+import { effectiveEnchantLevel as enchantLevel } from '../core/enchant';
 import { blockId } from '../core/registry';
 import { AIR, type BlockDef, type IWorld, type ItemAmount, makeVoxel, type Slot } from '../core/types';
 import { smeltRecipeFor } from '../sim/furnace';
