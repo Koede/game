@@ -299,8 +299,17 @@ export class TouchGestures {
     return true;
   }
 
+  /** A world tap that waited for the tap-to-move check and found the option off is a Use press (and a world tap) after all. */
+  private settleTap(): void {
+    if (!this.tapPending || this.tapToMove) return;
+    this.tapPending = false;
+    this.usePulses++;
+    this.worldTaps++;
+  }
+
   /** Number of taps on the bare world (not the Use button) since the last call: a stray tap must not do what only the button should. */
   takeWorldTaps(): number {
+    this.settleTap();
     const n = this.worldTaps;
     this.worldTaps = 0;
     return n;
@@ -308,11 +317,7 @@ export class TouchGestures {
 
   /** Number of use presses (world taps + Use button presses) since the last call. */
   takeUsePulses(): number {
-    if (this.tapPending && !this.tapToMove) {
-      this.tapPending = false;
-      this.usePulses++;
-      this.worldTaps++;
-    }
+    this.settleTap();
     const n = this.usePulses;
     this.usePulses = 0;
     return n;
