@@ -13,6 +13,8 @@ export type { CrucibleView, ForgeRow, FurnaceView, SmeltRow, Trend, UpgradeView 
 export type { GridSummary, MachineView, NetworkMember, NetworkStats } from './gridViews';
 export type { NetworkState } from './power';
 export { HISTORY_SECONDS } from './power';
+export type { Cover, CoverInput } from './storageCover';
+export { NIGHT_S, coverText, formatSpan, storageCover } from './storageCover';
 export { smeltRecipeFor } from './furnace';
 export type { PourOption } from './casting';
 export { ALLOY_POT, POT_COPPER_MAX, POT_TIN_MAX, pourOptions } from './casting';

@@ -8,6 +8,7 @@ import { h, setAttr, setText } from '../../kit/dom';
 import { formatJoules, formatPercent, formatWatts } from '../../kit/format';
 import { Meter, Sparkline, StatFigure } from '../../kit/gauges';
 import { ItemIcon } from '../../kit/icons';
+import { coverText } from '../../../sim';
 import { alertText, cableText, memberWatts } from './machineText';
 
 interface MemberRow {
@@ -82,9 +83,9 @@ export class NetworkPanel {
     this.demand.setTone(net.satisfaction < 0.999 && net.demandW > 0 ? 'warn' : 'neutral');
     this.demand.setNote(net.demandW > 0 ? `${formatPercent(net.satisfaction)} supplied` : 'Nothing asks for power');
     this.stored.set(net.capacityJ > 0 ? formatJoules(net.storedJ) : '--');
-    this.stored.setNote(
-      net.capacityJ > 0 ? `of ${formatJoules(net.capacityJ)}${net.chargeW > 0 ? ` - charging ${formatWatts(net.chargeW)}` : ''}` : 'No batteries',
-    );
+    const cover = coverText(net);
+    const base = net.capacityJ > 0 ? `of ${formatJoules(net.capacityJ)}${net.chargeW > 0 ? ` - charging ${formatWatts(net.chargeW)}` : ''}` : 'No batteries';
+    this.stored.setNote(cover ? `${base} - ${cover}` : base);
     this.spark.set(net.historyG, net.historyUsed);
     this.supply.set(net.satisfaction, 1, net.demandW > 0 ? `${formatWatts(net.deliveredW)} of ${formatWatts(net.demandW)}` : 'Idle');
     this.supply.setTone(net.satisfaction < 0.999 && net.demandW > 0 ? 'warn' : 'power');
