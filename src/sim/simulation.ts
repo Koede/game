@@ -312,6 +312,24 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     }
   }
 
+  /** Disasters (docs/api/disasters.md): every furnace node, every machine node of one kind, and every cable position. */
+  eachFurnace(fn: (e: FurnaceEntity, loaded: boolean) => void): void {
+    this.nodes.fresh();
+    for (const n of this.nodes.furnaces) fn(n.e as FurnaceEntity, n.loaded);
+  }
+
+  eachMachineOfKind(kind: string, fn: (e: MachineEntity, node: SimNode) => void): void {
+    for (const n of this.nodes.all) if (!isFurnace(n.e) && n.e.kind === kind) fn(n.e as MachineEntity, n);
+  }
+
+  eachCable(fn: (x: number, y: number, z: number) => void): void {
+    this.nodes.fresh();
+    for (const k of this.nodes.cableNets.keys()) {
+      const [x, y, z] = k.split(',').map(Number);
+      fn(x, y, z);
+    }
+  }
+
   /** Blows up a sphere of blocks around a position (machines inside are destroyed with their contents). */
   explode(x: number, y: number, z: number, radius: number): void {
     this.destroy(() => explode(this, x, y, z, radius));

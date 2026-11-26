@@ -22,7 +22,7 @@ import { Weather, isWeatherSnapshot } from '../game/weather';
 import { MobManager, mobPlayerOf, type MobPlayer } from '../mobs';
 import type { WorldSave } from '../save/document';
 import { Simulation } from '../sim';
-import { isFluidEndpoint } from '../core/registry';
+import { isFluidEndpoint, machine } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
@@ -30,6 +30,7 @@ import { Workshop } from '../workshop/workshop';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
 import { setTemperatureProvider } from '../sim/temperature';
 import { Pets } from '../game/pets';
@@ -89,6 +90,8 @@ export class GameState {
   readonly caveWatch: CaveWatch;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Boiler overpressure, chimney fires and storms on exposed wiring, each with its counterplay (docs/api/disasters.md). */
+  readonly disasters: Disasters;
   /** Frozen rivers and the hard-winter arc (docs/api/winter.md). */
   readonly winter: Winter;
   /** Repairable old-age machines (docs/api/restoration.md). */
@@ -254,6 +257,23 @@ export class GameState {
     this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, note: (text, key) => this.journal.add('note', text, key) });
     this.offs.push(() => this.caveWatch.dispose());
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
+    this.disasters = new Disasters({
+      world, bus, player: this.player,
+      // Peaceful comes from Settings; harsh from the per-world hard flag the winter module stores at creation, so an old
+      // save on Hard stays mild and both features agree on what a hard world is.
+      difficulty: () => (this.difficultyNow === 'peaceful' ? 'peaceful' : this.winter.hard ? 'hard' : 'normal'),
+      weather: () => this.weather.state,
+      rng: () => Math.random(),
+      furnaces: () => this.disasterFurnaces(),
+      boilers: () => this.disasterBoilers(),
+      cables: (fn) => this.sim.eachCable(fn),
+      burst: (x, y, z, radius) => {
+        // Radius 0: the boiler block alone is wrecked (its blast has no reach); the furnace under it stays.
+        this.sim.explode(x, y, z, radius > 0 ? radius : 0.5);
+      },
+    });
+    if (save?.disasters && isDisastersSnapshot(save.disasters)) this.disasters.load(save.disasters);
+    this.offs.push(bus.on('disaster:sweep', ({ x, y, z }) => void this.disasters.sweep(x, y, z)));
     this.winter = new Winter({
       world, bus, player: this.player, day: () => this.clock.day, isNight: () => this.clock.isNight,
       snowing: (x, y, z) => this.sim.weather.snowAt(x, y, z),
@@ -423,6 +443,7 @@ export class GameState {
     this.exploration.tick(dt);
     this.caveWatch.tick(dt);
     this.weathering.tick(dt);
+    this.disasters.tick(dt);
     this.winter.tick(dt);
     this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
@@ -443,6 +464,36 @@ export class GameState {
     if (!this.npcs.greeted) this.npcs.greet();
     this.playTimeS += dt;
     this.ticks++;
+  }
+
+  /** Furnaces as probes for the disasters (docs/api/disasters.md). */
+  private disasterFurnaces(): FlueProbe[] {
+    const out: FlueProbe[] = [];
+    this.sim.eachFurnace((e, loaded) => out.push({
+      x: e.x, y: e.y, z: e.z, lit: e.lit, tempC: e.tempC, burnItem: e.burnItem, loaded,
+      extinguish: () => { e.lit = false; e.burnItem = null; e.burnLeftS = 0; },
+    }));
+    return out;
+  }
+
+  /** Boilers as probes. Pressure stands on the steam room's fill until the steam loop provides a real figure. */
+  private disasterBoilers(): BoilerProbe[] {
+    const out: BoilerProbe[] = [];
+    this.sim.eachMachineOfKind('boiler', (e, node) => {
+      const cap = machine('boiler').fluids?.capacityL ?? 1000;
+      const steam = e.fluidOut && e.fluidOut.fluid === 'steam' ? e.fluidOut.litres : 0;
+      let tempC = 0;
+      for (const f of node.furnaces) tempC = Math.max(tempC, f.tempC);
+      out.push({
+        x: e.x, y: e.y, z: e.z, loaded: node.loaded, fill: steam / cap, tempC,
+        vent: (litres) => {
+          const take = Math.min(steam, litres);
+          if (e.fluidOut && take > 0) e.fluidOut.litres -= take;
+          return take;
+        },
+      });
+    });
+    return out;
   }
 
   /** Dev Mode: the bars never fall (no starving, freezing or drowning), and the dead are revived. */
@@ -519,6 +570,7 @@ export class GameState {
       objectives: this.objectives.toJSON(),
       playTimeS: this.playTimeS,
       weather: this.weather.toJSON(),
+      disasters: this.disasters.toJSON(),
       mobs: this.mobs.toJSON(),
       journal: this.journal.toJSON(),
       achievements: this.achievements.toJSON(),

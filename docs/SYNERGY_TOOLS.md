@@ -14,7 +14,7 @@ implemented and unit-tested; "e2e" has not been run in a browser for this pass (
 **Conventions kept:** no key renamed, no voxel id moved, no new screens, no new saved state. A wrench still works pipes first, a
 hammer still strikes an anvil first (hand stations and pipes run before the table).
 
-## Use rows (29)
+## Use rows (30)
 
 | id | Held x target | Result | System |
 |---|---|---|---|
@@ -40,6 +40,7 @@ hammer still strikes an anvil first (hand stations and pipes run before the tabl
 | `hammer_rubble_to_gravel` | hammer x rubble | gravel | masonry |
 | `hammer_gravel_to_sand` | hammer x gravel | sand | masonry |
 | `hammer_rivet_plate` | hammer x Bronze Plate Block | Riveted Plate Block | bronze |
+| `stick_sweeps_flue` | stick x Brick Chimney (on a furnace) | soot swept off the furnace, stick used up (docs/api/disasters.md) | furnace |
 | `pail_mosses_brick` | water pail x stone brick | mossy stone brick, empty pail | fluids |
 | `pail_melts_snow` | empty pail x snow | water pail | fluids |
 | `pail_chips_ice` | empty pail x ice | water pail | fluids |

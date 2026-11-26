@@ -306,6 +306,14 @@ export interface GameEvents {
    * distance / SOUND_SPEED seconds.
    */
   'weather:lightning': { distance: number; bearing: number };
+  /**
+   * A disaster telegraph (docs/api/disasters.md): a boiler building pressure, a chimney sooting up, a storm aiming at
+   * exposed wiring. 'watch' is a heads-up, 'warning' / 'imminent' mean act now, 'struck' it happened, 'averted' the
+   * counterplay held. A toast and a sound go with it; this is for the HUD and tests.
+   */
+  /** A stick was used on a Brick Chimney at x,y,z: the disasters sweep the furnace it stands on (src/player/toolUses.ts). */
+  'disaster:sweep': { x: number; y: number; z: number };
+  'disaster:warn': { kind: 'boiler' | 'chimney' | 'storm'; level: 'watch' | 'warning' | 'imminent' | 'struck' | 'averted'; x: number; y: number; z: number };
 
   // ---- multiblock hearths (spec 17) ----
   /**
