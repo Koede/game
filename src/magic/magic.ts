@@ -1308,7 +1308,7 @@ export class Magic {
 
   /** Whether an item has any use on an altar's heart (an infusion's centre, or gear that can take an enchant). */
   static isHeartItem(item: string): boolean {
-    return INFUSION_CENTERS.has(item) || ENCHANTS.some((e) => canEnchant(itemOrNull(item), e.key));
+    return INFUSION_CENTERS.has(item) || ENCHANTS.some((e) => canAltarEnchant(itemOrNull(item), e.key));
   }
 
   /** Whether an item belongs on a pedestal (it is among some infusion's surrounding items). */
