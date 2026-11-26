@@ -293,7 +293,7 @@ export class Workshop {
     if (shopped !== null) return shopped;
     if (!(held && blockOrNull(held.item)) && this.signals.use(x, y, z)) return 'worked';
     if (!(held && blockOrNull(held.item))) {
-      const gate = this.signals.cycleGate(x, y, z);
+      const gate = this.signals.cycleGate(x, y, z) ?? this.signals.cycleSetting(x, y, z);
       if (gate) {
         this.bus.emit('toast', { text: gate, kind: 'info' });
         return 'worked';
