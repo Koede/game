@@ -41,7 +41,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
     many: BATCH,
     emptyText: 'Nothing to make here.',
     onMake: (id, count) => {
-      const recipe = recipeById(id);
+      const recipe = recipeById(id) ?? opts.recipes.find((r) => r.id === id);
       if (!recipe) return;
       const result = makeRecipe(player, recipe, count, opts.crates());
       if (!result.ok) {

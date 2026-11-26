@@ -480,3 +480,5 @@ SPEC.maxTextures += 8;
 // Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
 SPEC.maxTextures += OLD_PLANS_SPEC.textures;
 SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
+// Modular tool heads (src/content/toolParts.ts): flint, iron and steel pickaxe, axe and shovel head icons.
+SPEC.maxTextures += 9;
