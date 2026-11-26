@@ -194,6 +194,11 @@ const LEGACY_BLOCKS: BlockSpec[] = [
     machine: 'lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
     textures: { side: 'lamp', sideActive: 'lamp_on', top: 'machine_top' },
   },
+  {
+    key: 'kerosene_lamp', name: 'Kerosene Lamp', desc: 'A lantern that burns Kerosene Canisters and needs no wires. Fill its slot; a canister lasts twenty minutes and leaves an empty one.',
+    machine: 'kerosene_lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
+    textures: { side: 'lamp', sideActive: 'lamp_on', top: 'machine_top' },
+  },
 
   // ---- furnaces ------------------------------------------------------------------------------
   furnace('clay', 'Clay Furnace', 'The heart of your base. Feed it fuel, keep it hot, and smelt and forge at its mouth.', 0, 11, 6),

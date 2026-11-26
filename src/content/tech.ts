@@ -216,6 +216,15 @@ export const MACHINE_SPECS: MachineSpec[] = [
   },
 
   // ---- storage (capacityJ, rateW = most it can charge or discharge) --------------------------
+  // kerosene_lamp - not on any network (the block has no `power`): burns one Kerosene Canister at a time from its slot, lamp-sized.
+  // params: fuelEnergyJ per canister, lampW burn rate (so a canister lasts fuelEnergyJ / lampW = 1200 s). The last canister of a stack
+  // leaves empty canisters in the slot. Behaviour: src/sim/machines.ts keroseneLamp.
+  {
+    kind: 'kerosene_lamp', name: 'Kerosene Lamp', role: 'generator', blocks: ['kerosene_lamp'], outputW: 1, /* nominal: the lamp never feeds a network (availW stays 0) */
+    fuels: ['kerosene_canister'], efficiency: 1, slots: 1, itemPipes: false,
+    params: { fuelEnergyJ: 3600, lampW: 3 },
+    desc: 'Burns a Kerosene Canister for twenty minutes of light, with no power network. The empty canister is left in its slot.',
+  },
   // battery, lithium_bank - params:
   //   chargeEfficiency  fraction of charging power that ends up stored
   {

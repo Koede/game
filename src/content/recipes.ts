@@ -117,6 +117,7 @@ const FORGE: RecipeSpec[] = [
   forge(1, '6 copper_cable', '3 copper_wire, 2 ceramic_insulator', 500),
   forge(1, 'thermopile', '4 copper_ingot, 2 tin_ingot, 2 firebrick', 700),
   forge(1, 'lamp', '1 glass, 2 copper_wire', 500),
+  forge(1, 'kerosene_lamp', '1 glass, 2 bronze_ingot, 1 stick', 600),
   forge(1, 'hearth_stew', '1 cooked_chop, 1 potato, 1 carrot, 1 water_pail', 300, { byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_mutton', byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_fowl', byproducts: '1 pail' }),
