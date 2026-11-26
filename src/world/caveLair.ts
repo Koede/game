@@ -5,7 +5,9 @@
  * should prefer those rooms. Chosen once per chunk from the seed; the guard set remembers it, so it is never created twice.
  */
 import { hashFloat, hash32 } from '../core/math';
-import { CHUNK_SIZE, type IWorld } from '../core/types';
+import { CHUNK_SIZE, voxelId, type IWorld } from '../core/types';
+import { blockId } from '../core/registry';
+import { caveBandAt, findCaveCamp } from './caveRooms';
 
 export const LAIR_CHANCE = 0.05;
 const SALT = 0x6c616972;
@@ -28,6 +30,10 @@ export interface CaveLair {
   x1: number;
   z1: number;
 }
+
+/** Of the deep cave camps (src/world/caveRooms.ts), this share is held by the boss. */
+export const DEEP_CAMP_LAIR_CHANCE = 0.5;
+const SALT_CAMP = 0x63616d70;
 
 export const lairKey = (cx: number, cz: number): string => `lair:${cx},${cz}`;
 export const isLairKey = (key: string): boolean => key.startsWith('lair:');
@@ -55,15 +61,34 @@ function roomOk(world: IWorld, x0: number, z0: number, floor: number): boolean {
   return true;
 }
 
-/** True when this chunk is one of the few that hold a lair (a pure function of the seed). */
+/** True when this chunk is one of the few that may hold a lair in an open roofed room (a pure function of the seed). */
 export const chunkHasLair = (seed: number, cx: number, cz: number): boolean => hashFloat(seed ^ SALT, cx, cz) < LAIR_CHANCE;
+/** True when the boss holds this chunk's deep camp, if it has one (a pure function of the seed). */
+export const chunkHoldsCamp = (seed: number, cx: number, cz: number): boolean => hashFloat(seed ^ SALT_CAMP, cx, cz) < DEEP_CAMP_LAIR_CHANCE;
+
+/**
+ * The real cave rooms of the caves work: a deep band camp (its crate stands in the loaded chunk) kept by the boss. The boss stands
+ * beside the camp's crate; the camp's own loot stays where it is for whoever gets past.
+ */
+function campSite(world: IWorld, seed: number, cx: number, cz: number): CaveLair | null {
+  if (!chunkHoldsCamp(seed, cx, cz)) return null;
+  const crate = blockId('crate');
+  const camp = findCaveCamp(seed, cx, cz, (x, y, z) => voxelId(world.getVoxel(x, y, z)));
+  if (!camp || caveBandAt(camp.y) !== 'deep' || voxelId(world.getVoxel(camp.x, camp.y, camp.z)) !== crate) return null;
+  return {
+    key: lairKey(cx, cz), x: camp.x + 0.5, z: camp.z + 0.5, floor: camp.y - 1,
+    x0: camp.x - 2, z0: camp.z - 2, x1: camp.x + 2, z1: camp.z + 2,
+  };
+}
 
 /** The lair of chunk (cx, cz), or null: not a lair chunk, not loaded, or no room big enough in it. Deterministic for an untouched chunk. */
 export function caveLairSite(world: IWorld, seed: number, cx: number, cz: number): CaveLair | null {
-  if (!chunkHasLair(seed, cx, cz)) return null;
   const bx = cx * CHUNK_SIZE;
   const bz = cz * CHUNK_SIZE;
   if (!world.isLoaded(bx, bz)) return null;
+  const camp = campSite(world, seed, cx, cz);
+  if (camp) return camp;
+  if (!chunkHasLair(seed, cx, cz)) return null;
   const span = CHUNK_SIZE - LAIR_W;
   for (let t = 0; t < TRIES; t++) {
     const x0 = bx + (hash32(seed ^ SALT, cx, cz, t * 2) % (span + 1));

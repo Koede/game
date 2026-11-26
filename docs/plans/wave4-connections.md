@@ -19,12 +19,19 @@ Branch work on `docs/plans/feature-plan-2026-11-26.md` Wave 4 ("dead-end items" 
    function to point at them; nothing else needs to change.
 5. **Dead ends fixed:** `punched_card` (2 from one bronze plate) and `wind_vane` now have forge recipes; they were unobtainable.
 
-## Not built (ranked)
+## Added after the first pass
 
-- `tendFire` still conjures 12 oak logs for the tavern and camp fires. Removing them needs a fuel source (a woodpile crate beside each fire, or
-  the storage bay); the settled-world tests expect lit hearths. Decision for the owner: stock-and-upkeep versus free ambience.
-- Kerosene lamp (a lamp that burns canisters).
-- Ruin and structure tables with enchanted entries: left alone because `rollLoot`'s frozen regression test pins them; do it with a new snapshot.
+- **Hearths burn real logs.** The tavern and camp fires no longer conjure oak logs. A new world's town has a finite woodpile
+  (`FIREWOOD_START`, 144 logs, saved), then the storage bay's logs are used (`TownBuilder.draw`); when both are empty the hearth burns down
+  and a toast says to put logs in the bay. Test: `src/npcs/npcs.test.ts` ("never conjures fuel").
+- **Enchanted ruin loot.** `ruin_deep` can hold a Magnet bronze pickaxe or a Fine Bounty axe; the lumber mill crate a Fine Ember axe. The frozen
+  loot snapshot was regenerated on purpose. A test checks every enchant and quality on every table is legal.
+- **The boss now holds real caves.** `caveLairSite` prefers the caves work's deep camps (`findCaveCamp`, `caveBandAt`): half of the deep camps
+  have a Slag Colossus beside the crate. The open-room scan remains for rooms without a camp.
+
+## Not built
+
+- Kerosene lamp: it needs a new block, art and a fuel UI; the plan allows "lamp or tractor fuel", and tractor fuel is done.
 - Fine and Masterwork tools dropping from ordinary tables; mob drops carrying enchants.
-- The "three unused gear designs": no such table was found in `src`; needs the owner to name them.
+- The "unused gear designs": dropped (no such table exists).
 - Altar research that names an enchant from a loot scroll; cave crates in small chambers.

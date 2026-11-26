@@ -1,4 +1,5 @@
 /** Spec sections 13-15: buckets and lava, the richer world (marsh, berries, ruins and their loot), and the weather data. */
+import { maxDurabilityOf } from '../game/inventory';
 import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE, NIGHT_LIGHT_FULL_MOON, NIGHT_LIGHT_NEW_MOON } from '../core/constants';
 import { mulberry32 } from '../core/math';
@@ -151,7 +152,7 @@ describe('14. Old Works loot', () => {
         for (const s of loot) {
           expect(s.count, s.item).toBeGreaterThan(0);
           expect(s.count, s.item).toBeLessThanOrEqual(item(s.item).stack);
-          expect(s.durability, s.item).toBe(item(s.item).tool?.durability);
+          expect(s.durability, s.item).toBe(maxDurabilityOf(s.item, s.quality) ?? item(s.item).tool?.durability);
         }
       }
     }
