@@ -24,12 +24,15 @@ describe('the Use button caption', () => {
     expect(useVerb(aim({ held: item('bread') }))).toBe('Eat');
     expect(useVerb(aim({ held: item('bread'), block: block('stone') }))).toBe('Eat');
     expect(useVerb(aim({ held: item('bread'), block: block('workbench') }))).toBe('Open');
+    expect(useVerb(aim({ held: item('bread'), block: block('farmland') }))).toBe('Use');
   });
 
   it('says Place for a held block aimed at a block, and when the Place toggle is armed', () => {
     expect(useVerb(aim({ held: item('plank'), block: block('stone') }))).toBe('Place');
     expect(useVerb(aim({ held: item('plank') }))).toBe('Use');
-    expect(useVerb(aim({ held: item('plank'), placeArmed: true }))).toBe('Place');
+    expect(useVerb(aim({ held: item('plank'), placeArmed: true }))).toBe('Use');
+    expect(useVerb(aim({ held: item('plank'), placeArmed: true, block: block('stone') }))).toBe('Place');
+    expect(useVerb(aim({ held: item('plank'), placeArmed: true, person: true }))).toBe('Talk');
     expect(useVerb(aim({ held: item('plank'), placeArmed: true, block: block('workbench') }))).toBe('Place');
   });
 

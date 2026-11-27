@@ -25,15 +25,17 @@ export interface UseAim {
 /** The one word the Use button shows for this aim. */
 export function useVerb(a: UseAim): UseVerb {
   const placeable = a.held ? blockOfItem(a.held.key) !== null : false;
-  if (a.placeArmed && placeable) return 'Place';
   if (a.person) return 'Talk';
   if (a.animal) return 'Use';
   const b = a.block;
+  // Armed, the next Use places the held block on the face aimed at: only a block to place against makes that true.
+  if (a.placeArmed && placeable && b && b.liquid === null) return 'Place';
   if (b && b.liquid === null && (b.shape === 'door' || screenFor(b, 0, 0, 0) !== null)) {
     // A building block held against a machine goes on the face aimed at (or opens the screen on its front): say nothing specific.
     return placeable && a.held && buildsOnto(blockOfItem(a.held.key)!) ? 'Use' : 'Open';
   }
-  if (a.held?.food) return 'Eat';
+  // Planting (farmland, crops) and picking (bushes) run before eating: any machine-kind block or farmland is a plain Use.
+  if (a.held?.food) return b && (b.machine !== null || b.key === 'farmland') ? 'Use' : 'Eat';
   if (placeable && b && b.liquid === null) return 'Place';
   return 'Use';
 }

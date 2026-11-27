@@ -1151,7 +1151,8 @@
 }
 @media (orientation: landscape) {
   .hw-hud[data-touch] .hw-npcsay {
-    bottom: calc(var(--hw-safe-b, 0px) + 84px);
+    /* Above the stick whichever side it rests on (one-handed layouts move it inward), beside the right-hand cluster. */
+    bottom: calc(var(--hw-safe-b, 0px) + 156px);
     width: min(720px, calc(100% - 420px));
   }
 }

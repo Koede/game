@@ -115,23 +115,27 @@ export function fitQuickRadius(radius: number, count: number, centre: { x: numbe
     if (x > 1e-6) fit = Math.min(fit, (surface.width - EDGE_PX - centre.x) / x);
     if (x < -1e-6) fit = Math.min(fit, (centre.x - EDGE_PX) / -x);
     if (y < -1e-6) fit = Math.min(fit, (centre.y - EDGE_PX) / -y);
+    if (y > 1e-6) fit = Math.min(fit, (surface.height - EDGE_PX - centre.y) / y);
   }
   return Math.max(0, fit);
 }
+
+/** The arc may swing this far below the horizontal (the room beside the entry button) when a short screen needs it. */
+export const QUICK_ARC_MIN_DEG = -40;
 
 /** Gap kept between two neighbouring items of the ring, px. */
 export const QUICK_GAP_PX = 6;
 
 /**
  * Where the arc starts (degrees) so neighbouring items clear each other at `radius`: the default arc when it already does,
- * otherwise swung further down towards the horizontal, as far as 0, so a short screen (a phone on its side, where the ring
+ * otherwise swung further down towards the horizontal, as far as QUICK_ARC_MIN_DEG, so a short screen (a phone on its side, where the ring
  * cannot get tall) spreads the items sideways instead of stacking them on top of each other.
  */
 export function quickArcFrom(count: number, radius: number): number {
   if (count < 2 || radius <= 0) return QUICK_ARC_DEG.from;
   const needRad = 2 * Math.asin(Math.min(1, (QUICK_ITEM_PX + QUICK_GAP_PX) / (2 * radius)));
   const from = QUICK_ARC_DEG.to - (needRad * 180 * (count - 1)) / Math.PI;
-  return Math.max(0, Math.min(QUICK_ARC_DEG.from, from));
+  return Math.max(QUICK_ARC_MIN_DEG, Math.min(QUICK_ARC_DEG.from, from));
 }
 
 /** How far apart two neighbouring items sit on the ring: items do not overlap when this is at least QUICK_ITEM_PX. */

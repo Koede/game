@@ -119,4 +119,15 @@ describe('quick menu: ring geometry', () => {
     // The fit with the widened arc never exceeds the screen.
     expect(fitQuickRadius(QUICK_RADIUS_PX, 4, { x: 60, y: 200 }, { width: 800, height: 390 }, 1, from)).toBeGreaterThan(0);
   });
+
+  it('the five-item emote wheel keeps its items clear on a 667x375 phone on its side', () => {
+    const centre = { x: 62, y: 189 };
+    const surface = { width: 667, height: 375 };
+    const first = fitQuickRadius(QUICK_RADIUS_PX, 5, centre, surface, 1);
+    const from = quickArcFrom(5, first);
+    const r = fitQuickRadius(QUICK_RADIUS_PX, 5, centre, surface, 1, from);
+    const o = quickMenuOffsets(5, r, from);
+    for (let i = 1; i < o.length; i++) expect(Math.hypot(o[i].x - o[i - 1].x, o[i].y - o[i - 1].y)).toBeGreaterThanOrEqual(QUICK_ITEM_PX - 1);
+    for (const p of o) expect(centre.y + p.y).toBeLessThanOrEqual(surface.height - QUICK_ITEM_PX / 2);
+  });
 });
