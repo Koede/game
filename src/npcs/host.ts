@@ -49,6 +49,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
   };
   const goal = (id: string) => OBJECTIVES.find((o) => o.id === id);
   return {
+    age: () => d.objectives.age,
     setBlockActive: (x, y, z, on) => {
       if (!d.world.isLoaded(x, z)) return false;
       const v = d.world.getVoxel(x, y, z);
