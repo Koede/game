@@ -48,6 +48,7 @@ export function renderTown(p: TownPage, move?: MoveResident, done?: () => void):
     });
     return sel;
   };
+  if (p.festival) out.append(section(p.festival.tonight ? `Festival: ${p.festival.name}` : 'Festivals', h('p', { class: ['hw-town__line', p.festival.tonight && 'hw-town__goal'], text: p.festival.line }), h('p', { class: 'hw-town__line', text: p.festival.medals })));
   out.append(section('Who lives here', ...p.residents.map((r) => h('div', { class: 'hw-town__row' }, h('span', { class: 'hw-town__name', text: r.name }), h('span', { class: 'hw-town__sub', text: `${r.home}, ${r.tone === 'warm' ? 'content' : r.tone === 'grumpy' ? 'restless' : 'settled'}` }), mover(r)))));
   const bits = p.residents.filter((r) => r.reasons.length > 0).map((r) => `${r.name} ${r.reasons[0]}`);
   if (bits.length > 0) out.append(h('p', { class: 'hw-town__line hw-town__sub', text: bits.slice(0, 4).join('. ') + '.' }));

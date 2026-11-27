@@ -16,8 +16,10 @@ import { itemOrNull } from '../core/registry';
 import type { ItemAmount } from '../core/types';
 import { DAYS_PER_SEASON, SEASONS, seasonOf, type Season } from '../sim/seasons';
 
-export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored';
-const METRICS: readonly GoalMetric[] = ['made', 'placed', 'broken', 'drunk', 'explored'];
+export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns';
+/** The metrics every save has; `festival` (contests entered) and `crowns` (golds in a festival's own contest) came later. */
+const BASE_METRICS = ['made', 'placed', 'broken', 'drunk', 'explored'] as const;
+const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns'];
 export type GoalFacts = Record<GoalMetric, number>;
 
 export type Reward = { kind: 'item'; item: string; count: number } | { kind: 'cosmetic'; id: string } | { kind: 'blueprint'; id: string };
@@ -66,8 +68,31 @@ export const DAILY_KEEPSAKES: readonly Keepsake[] = [
 
 const seasonal = (id: string, text: string, metric: GoalMetric, target: number, key: string): GoalSpec => ({ id, text, metric, target, reward: { kind: 'cosmetic', id: key } });
 
+/**
+ * The festival goals of each season (npcs/festival.ts holds the festival on the season's last day): enter any contest for the
+ * festival's keepsake, win gold in its own contest for its trophy. Neither can be had any other way.
+ */
+export const FESTIVAL_GOALS: Readonly<Record<Season, readonly GoalSpec[]>> = {
+  spring: [
+    seasonal('f_spring_enter', 'Enter a contest at the Sowing Fair', 'festival', 1, 'k_sowing_ribbon'),
+    seasonal('f_spring_crown', 'Win gold at the seed and flower show', 'crowns', 1, 'k_golden_trowel'),
+  ],
+  summer: [
+    seasonal('f_summer_enter', 'Enter a contest at the Midsummer Bonfire', 'festival', 1, 'k_bonfire_ember'),
+    seasonal('f_summer_crown', 'Win gold at the Bonfire catch', 'crowns', 1, 'k_silver_hook'),
+  ],
+  autumn: [
+    seasonal('f_autumn_enter', 'Enter a contest at the Harvest Fair', 'festival', 1, 'k_corn_dolly'),
+    seasonal('f_autumn_crown', 'Win gold with the harvest basket', 'crowns', 1, 'k_harvest_crown'),
+  ],
+  winter: [
+    seasonal('f_winter_enter', 'Enter a contest at Lantern Night', 'festival', 1, 'k_paper_lantern'),
+    seasonal('f_winter_crown', 'Win the lantern crowning', 'crowns', 1, 'k_star_lantern'),
+  ],
+};
+
 /** Two per season, harder than the dailies, each earning a keepsake of that season. */
-export const SEASONAL_GOALS: Readonly<Record<Season, readonly GoalSpec[]>> = {
+const SEASON_TRACK: Readonly<Record<Season, readonly GoalSpec[]>> = {
   spring: [
     seasonal('s_spring_make', 'Make 30 things this spring', 'made', 30, 'k_blossom_pin'),
     seasonal('s_spring_walk', 'Learn 3,000 blocks of ground this spring', 'explored', 3000, 'k_rain_boots'),
@@ -86,6 +111,14 @@ export const SEASONAL_GOALS: Readonly<Record<Season, readonly GoalSpec[]>> = {
   ],
 };
 
+/** Each season's goals: its two own, then its festival's two. */
+export const SEASONAL_GOALS: Readonly<Record<Season, readonly GoalSpec[]>> = {
+  spring: [...SEASON_TRACK.spring, ...FESTIVAL_GOALS.spring],
+  summer: [...SEASON_TRACK.summer, ...FESTIVAL_GOALS.summer],
+  autumn: [...SEASON_TRACK.autumn, ...FESTIVAL_GOALS.autumn],
+  winter: [...SEASON_TRACK.winter, ...FESTIVAL_GOALS.winter],
+};
+
 export const SEASONAL_KEEPSAKES: readonly Keepsake[] = [
   { id: 'k_blossom_pin', name: 'Blossom Pin', text: 'A first-flower pin for the collar.' },
   { id: 'k_rain_boots', name: 'Rain Boots Charm', text: 'Tiny boots that splash on their own.' },
@@ -96,7 +129,19 @@ export const SEASONAL_KEEPSAKES: readonly Keepsake[] = [
   { id: 'k_frost_scarf', name: 'Frost Scarf', text: 'Warm, and white as the first snow.' },
 ];
 
-export const KEEPSAKES: readonly Keepsake[] = [...DAILY_KEEPSAKES, ...SEASONAL_KEEPSAKES];
+/** The festivals' keepsakes: a token for taking part, a trophy for gold in the festival's own contest. */
+export const FESTIVAL_KEEPSAKES: readonly Keepsake[] = [
+  { id: 'k_sowing_ribbon', name: 'Sowing Ribbon', text: 'Green and yellow, pinned on at the Sowing Fair.' },
+  { id: 'k_golden_trowel', name: 'Golden Trowel', text: 'Best in show at the Sowing Fair. Too fine to dig with.' },
+  { id: 'k_bonfire_ember', name: 'Bonfire Ember', text: 'A coal from the Midsummer Bonfire, kept warm in a tin.' },
+  { id: 'k_silver_hook', name: 'Silver Hook', text: 'For the best catch weighed by the Midsummer fire.' },
+  { id: 'k_corn_dolly', name: 'Corn Dolly', text: 'Plaited from the last sheaf at the Harvest Fair.' },
+  { id: 'k_harvest_crown', name: 'Harvest Crown', text: 'Wheat and ribbon, for the heaviest basket of the year.' },
+  { id: 'k_paper_lantern', name: 'Paper Lantern', text: 'One of a hundred lit on Lantern Night.' },
+  { id: 'k_star_lantern', name: 'Star Lantern', text: 'Crowned the brightest light of Lantern Night.' },
+];
+
+export const KEEPSAKES: readonly Keepsake[] = [...DAILY_KEEPSAKES, ...SEASONAL_KEEPSAKES, ...FESTIVAL_KEEPSAKES];
 export const keepsakeOf = (id: string): Keepsake | undefined => KEEPSAKES.find((k) => k.id === id);
 
 /** Pack space missing for the bonus: a handful of stained planks to build with. */
@@ -129,7 +174,13 @@ export interface DailyGoalsSnapshot {
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
-const isFacts = (v: unknown): v is GoalFacts => isRecord(v) && METRICS.every((m) => typeof v[m] === 'number' && Number.isFinite(v[m]));
+const isFacts = (v: unknown): v is GoalFacts => isRecord(v) && BASE_METRICS.every((m) => typeof v[m] === 'number' && Number.isFinite(v[m]));
+/** A base from an older save lacks the later metrics: -1 marks them, and the next sync starts them from the present. */
+const fillFacts = (v: GoalFacts): GoalFacts => {
+  const out = { ...v };
+  for (const m of METRICS) if (typeof out[m] !== 'number' || !Number.isFinite(out[m])) out[m] = -1;
+  return out;
+};
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === 'string');
 
 export function isDailyGoalsSnapshot(v: unknown): v is DailyGoalsSnapshot {
@@ -245,6 +296,10 @@ export class DailyGoals {
       this.seasonBase = { ...f };
       this.seasonDone.clear();
     }
+    for (const m of METRICS) {
+      if (this.base[m] < 0) this.base[m] = f[m];
+      if (this.seasonBase[m] < 0) this.seasonBase[m] = f[m];
+    }
     for (const g of dailyFor(this.d.seed, this.day)) {
       if (this.done.has(g.id) || this.gain(g, this.base, f) < g.target) continue;
       this.done.add(g.id);
@@ -330,7 +385,7 @@ export class DailyGoals {
   }
 
   toJSON(): DailyGoalsSnapshot {
-    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0 };
+    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0 };
     return {
       day: this.day,
       base: { ...(this.base ?? zero) },
@@ -348,11 +403,11 @@ export class DailyGoals {
 
   load(s: DailyGoalsSnapshot): void {
     this.day = s.day;
-    this.base = { ...s.base };
+    this.base = fillFacts(s.base);
     this.done = new Set(s.done);
     this.bonusGiven = s.bonusGiven;
     this.season = s.season;
-    this.seasonBase = { ...s.seasonBase };
+    this.seasonBase = fillFacts(s.seasonBase);
     this.seasonDone = new Set(s.seasonDone);
     this.paid = new Set(s.paid);
     this.owned = s.keepsakes.filter((id) => keepsakeOf(id) !== undefined);

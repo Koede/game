@@ -72,6 +72,8 @@ export interface TownPage {
   goals: TownGoalRow[];
   /** The current camp goal, or null when the track is done or not shown. */
   goal: TownGoalRow | null;
+  /** Tonight's festival or the next one (festival.ts), with the medals won so far. */
+  festival?: { name: string; line: string; tonight: boolean; medals: string };
 }
 
 export const moodLabel = (score: number): string => (score >= 0.5 ? 'cheerful' : score >= 0.2 ? 'content' : score > -0.2 ? 'settled' : score > -0.5 ? 'restless' : 'unhappy');

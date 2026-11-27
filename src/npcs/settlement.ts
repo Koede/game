@@ -184,7 +184,7 @@ export class Settlement {
    * The nights between the last roll and `day`, rolled one by one (sleeping and time away count each night). `line` is read before
    * each night, so an arrival changes who is next; `arrive` applies it. Returns the arrivals in order.
    */
-  advance(day: number, rooms: () => readonly RoomInput[], line: () => readonly Newcomer[], rng: () => number, arrive: (a: Arrival, day: number) => void): Arrival[] {
+  advance(day: number, rooms: () => readonly RoomInput[], line: () => readonly Newcomer[], rng: () => number, arrive: (a: Arrival, day: number) => void, draw: (nightDay: number) => number = () => 1): Arrival[] {
     if (this.last === 0 || day < this.last) {
       this.last = day;
       return [];
@@ -194,7 +194,7 @@ export class Settlement {
     const out: Arrival[] = [];
     for (let k = 1; k <= n; k++) {
       const nightDay = day - n + k;
-      const r = rollNight({ arrived: [] }, this.freeRooms(nightDay, rooms()), line(), rng);
+      const r = rollNight({ arrived: [] }, this.freeRooms(nightDay, rooms()), line(), rng, draw(nightDay));
       if (!r.arrival) continue;
       this.occ[r.arrival.personId] = r.arrival.roomId;
       this.log.push([r.arrival.personId, r.arrival.roomId, nightDay]);

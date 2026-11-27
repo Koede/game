@@ -615,7 +615,8 @@ export class GameState {
   private goalFacts(): GoalFacts {
     const st = this.player.stats;
     const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
-    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks };
+    const fest = this.npcs.festivalRecord();
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns };
   }
 
   /** What the achievements read. */
