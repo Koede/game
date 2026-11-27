@@ -57,7 +57,7 @@ export function previewRows(b: ToolBuild, against: ToolBuild | null): StatRow[] 
   if (b.kind === 'pickaxe' || b.kind === 'axe' || b.kind === 'shovel') rows.push({ label: 'Mining speed', value: s.speed, delta: o ? Math.round((s.speed - o.speed) * 100) / 100 : null });
   if (s.damage !== undefined) rows.push({ label: 'Damage', value: s.damage, delta: o?.damage !== undefined ? s.damage - o.damage : null });
   rows.push({ label: 'Uses', value: s.durability, delta: o ? s.durability - o.durability : null });
-  rows.push({ label: 'Mining tier', value: s.tier, delta: o ? s.tier - o.tier : null });
+  if (s.damage === undefined) rows.push({ label: 'Mining tier', value: s.tier, delta: o ? s.tier - o.tier : null });
   return rows;
 }
 export { buildTraits };
