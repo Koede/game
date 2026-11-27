@@ -232,7 +232,10 @@ export class CropField {
     const next = STAGE_OF[info.next] as StageInfo;
     c.info = next;
     e.growS = next.next < 0 ? 0 : e.growS - info.stageS;
-    this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage });
+    const ripe = next.next < 0;
+    this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage, ...(ripe ? { ripe } : {}) });
+    // Ripening is the one stage worth hearing: a soft high chime where the crop stands (distance fades it).
+    if (ripe) this.bus.emit('sfx', { name: 'pickup', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, volume: 0.35, pitch: 1.9 });
   }
 
   /** Recomputes the dirty facts of a crop; returns roughly how many world reads it took. */

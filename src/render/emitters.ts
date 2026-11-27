@@ -105,6 +105,7 @@ export class Emitters {
       }),
       bus.on('machine:job', (e) => this.puffs(e.x + 0.5, e.y + 1.05, e.z + 0.5, 'steam', 3)),
       bus.on('explosion', (e) => this.explosion(e.x + 0.5, e.y + 0.5, e.z + 0.5, e.radius)),
+      bus.on('crop:grew', (e) => e.ripe && this.ripeGlint(e.x + 0.5, e.y + 0.6, e.z + 0.5)),
       bus.on('legendary:proc', (e) => this.legendaryProc(e.effect, e.x, e.y, e.z)),
       bus.on('legendary:swing', (e) => this.swingTrail(e.effect, e.x, e.y, e.z, e.yaw, e.pitch, e.count)),
     ];
@@ -336,6 +337,11 @@ export class Emitters {
    * A legendary weapon's verb fired: a small, capped burst of sparks in its colour (never more than PROC_SPARKS per event, so a stress
    * scene of swings stays inside the particle budget). `gold` sparks are the pale ones; the rest are ember orange.
    */
+  /** A crop just ripened: a few gold motes drift up from it. */
+  private ripeGlint(x: number, y: number, z: number): void {
+    for (let i = 0; i < 6; i++) this.spark(x + spread(0.3), y + spread(0.2), z + spread(0.3), spread(0.4), 0.8 + rnd() * 0.8, spread(0.4), true);
+  }
+
   private legendaryProc(effect: LegendaryEffect, x: number, y: number, z: number): void {
     const count = effect === 'burning_marks' ? PROC_SPARKS : Math.round(PROC_SPARKS * 0.75);
     for (let i = 0; i < count; i++) {

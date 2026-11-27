@@ -172,4 +172,6 @@ export interface CropView {
   tempC?: number;
   /** Open sky, a heated greenhouse, a cold roofed spot, or frozen (filled in by the simulation). */
   shelter?: Shelter;
+  /** The season's growth factor for this crop (CROP_SEASON; 1 = ordinary, filled in by the simulation). */
+  seasonPace?: number;
 }
