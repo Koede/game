@@ -29,6 +29,8 @@ import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { Workshop } from '../workshop/workshop';
+import { Lifts } from '../workshop/lifts';
+import { isWinch } from '../workshop/liftParts';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
@@ -91,6 +93,8 @@ export class GameState {
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
   readonly workshop: Workshop;
+  /** Lift cages and steam elevators (docs/api/lifts.md); the drawbridges live in the workshop. */
+  readonly lifts: Lifts;
   /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
   readonly exploration: Exploration;
   /** Foul air snuffs torches; cave finds go in the journal. */
@@ -278,6 +282,13 @@ export class GameState {
       return r.did === 'insert' ? 'consumed' : 'used';
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    world.loadExtra('drawbridges', (raw) => this.workshop.bridges.load(raw));
+    this.offs.push(world.persist('drawbridges', () => this.workshop.bridges.toJSON()));
+    this.lifts = new Lifts({ world, bus, rpmAt: (x, y, z) => this.workshop.rpmOf(x, y, z), player: this.player });
+    world.loadExtra('lifts', (raw) => this.lifts.load(raw));
+    this.offs.push(world.persist('lifts', () => this.lifts.toJSON()));
+    this.offs.push(() => this.lifts.dispose());
+    this.workshop.partNote = (x, y, z, kind) => (isWinch(kind) ? this.lifts.describe(x, y, z) : null);
     this.exploration = new Exploration({
       world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight, day: () => this.clock.day,
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
@@ -491,6 +502,7 @@ export class GameState {
     if (this.player.blueprints.jobs.length > 0) this.tickBlueprints(dt);
     if (this.ticks % 40 === 0) this.syncOldPlans();
     if (this.ticks % 200 === 0) this.workshop.verify();
+    if (this.ticks % 40 === 0) this.lifts.settle();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
     this.npcs.tick(dt);

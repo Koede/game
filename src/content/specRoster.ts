@@ -483,3 +483,5 @@ SPEC.maxTextures += OLD_PLANS_SPEC.textures;
 SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
 // Modular tools (src/content/toolParts.ts): one icon per new head, and a composed icon for each non-default pick, axe, shovel and hoe build.
 SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
+// Bridges, lifts and elevators (src/render/textures/areas/lifts.ts): two faces each for the lift winch, elevator and drawbridge, the deck top.
+SPEC.maxTextures += 7;

@@ -19,6 +19,8 @@ import { windAt } from '../sim/machines';
 import { suFromW, windmillW } from '../core/energy';
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
+import { LIFT_PARTS } from './liftParts';
+import { Drawbridges } from './drawbridge';
 import type { GroundItems } from '../game/groundItems';
 import { Contraptions, CONTRAPTION_KINDS } from './contraption';
 import { SIGNAL_KINDS, Signals } from './signals';
@@ -55,7 +57,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo', ...LIFT_PARTS]);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -174,6 +176,10 @@ export class Workshop {
   readonly logi: Logistics;
   readonly signals: Signals;
   readonly contra: Contraptions;
+  /** Drawbridges (docs/api/lifts.md): lay and lift their decks while their shaft turns. */
+  readonly bridges: Drawbridges;
+  /** More goggles text for a part (the lifts add depth and landing); set by Game. */
+  partNote: ((x: number, y: number, z: number, kind: string) => string | null) | null = null;
   private holding = false;
   /** Time of day text for the clockface; set by Game. */
   clockText: (() => string) | null = null;
@@ -211,6 +217,12 @@ export class Workshop {
           this.holding = false;
         }
       },
+    });
+    this.bridges = new Drawbridges({
+      world, bus,
+      rpmAt: (x, y, z) => this.speed.get(k3(x, y, z)) ?? 0,
+      signalled: (x, y, z) => !this.signals.gate(x, y, z) || this.signals.near(x, y, z),
+      lit: (x, y, z) => this.signals.near(x, y, z),
     });
     this.off = bus.on('block:changed', (e) => this.noteBlock(e.x, e.y, e.z));
     liveRef = this;
@@ -254,6 +266,7 @@ export class Workshop {
     this.logi.relocate(map);
     this.signals.relocate(map);
     this.contra.relocate(map);
+    this.bridges.relocate(map);
   }
 
   private noteBlock(x: number, y: number, z: number): void {
@@ -263,6 +276,7 @@ export class Workshop {
     this.logi.noteBlock(x, y, z, kind);
     this.contra.noteBlock(x, y, z, kind);
     this.signals.noteBlock(x, y, z, kind);
+    this.bridges.noteBlock(x, y, z, kind);
     if (KINETIC.has(kind)) {
       const was = this.parts.get(key);
       if (!was || was.kind !== kind) {
@@ -302,6 +316,7 @@ export class Workshop {
     }
     const part = this.parts.get(key) ?? (KINETIC.has(this.world.getBlock(x, y, z).key) ? (this.noteBlock(x, y, z), this.parts.get(key)) : undefined);
     if (!part) return null;
+    if (part.kind === 'drawbridge' && !(held && blockOrNull(held.item))) return this.bridges.use(x, y, z);
     if (part.kind === 'hand_crank') {
       if (held && blockOrNull(held.item)) return null; // a held block is placed against it as usual
       const first = !this.cranks.has(key) || (this.cranks.get(key) ?? 0) <= 0;
@@ -385,6 +400,7 @@ export class Workshop {
     this.work(dt);
     this.logi.tick(dt);
     this.contra.tick(dt);
+    this.bridges.tick(dt);
   }
 
   /** Keys of the part and everything it touches or is linked to (clutches and all). */
@@ -986,6 +1002,10 @@ export class Workshop {
     if (p.kind === 'mill_wheel') parts.push(this.riverAt?.(p.x, p.y, p.z) ? 'river turning it' : 'no flow: set it in moving water (frozen rivers stop it)');
     if (p.kind === 'steam_rotor') parts.push(this.steamAt?.(p.x, p.y - 1, p.z) ? 'steam up' : 'no steam: stand it on a boiling Copper Steam Kettle');
     if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
+    const bridge = p.kind === 'drawbridge' ? this.bridges.describe(x, y, z) : null;
+    if (bridge) parts.push(bridge);
+    const note = this.partNote?.(x, y, z, p.kind);
+    if (note) parts.push(note);
     const m = this.machines.get(key);
     if (m) {
       const held = Object.entries(m.buffer).map(([i, n]) => `${n} ${itemOrNull(i)?.name ?? i}`);
