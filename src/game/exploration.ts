@@ -3,8 +3,8 @@
  * fishing. The rules live in src/sim/waypoints.ts, src/world/treasure.ts and src/sim/fishing.ts; this class holds their
  * state, reads the world, answers Use and saves through `World.persist`. DOM-free; the app's `beforeUse` hook calls `use`.
  *
- *  - Waypoint stone: Use with an empty hand names/registers it and shows the next destination; Use holding charcoal
- *    travels there and pays the fuel. A stone that has been broken drops out of the network.
+ *  - Waypoint stone: Use registers it and opens the waypoint screen (a picker of visited stones with distance and
+ *    charcoal price); `travel` pays the fuel and moves the player. A stone that has been broken drops out of the network.
  *  - Treasure map: the stack's durability carries `serial * 8 + age` (set on the first read). Reading shows the clue and a
  *    warm/cold hint; once the player is within CHEST_LOAD_R of the spot a crate is buried there (once per serial).
  *  - Fishing: Use a rod on water to cast, Use again inside the bite window to land the catch.
@@ -18,10 +18,10 @@ import { FISHING_ROD } from '../content/fishing';
 import { isFlowingWater } from '../world/water';
 import { squareRuin, spawnRuin } from '../world/ruins';
 import { STRUCTURE_GRID_CHUNKS, squareStructure } from '../world/structures';
-import { makeTreasureMap, treasureClue, treasureHint, type Landmark, type TreasureMap } from '../world/treasure';
+import { compassWord, makeTreasureMap, treasureClue, treasureHint, type Landmark, type TreasureMap } from '../world/treasure';
 import { seasonOf } from '../sim/seasons';
 import { biteDelayS, rollCatch, waterKind, type CastContext, type WaterSpot } from '../sim/fishing';
-import { WAYPOINT_FUEL_ITEM, WaypointNetwork, type Waypoint, type WaypointSave } from '../sim/waypoints';
+import { WAYPOINT_FUEL_ITEM, WAYPOINT_USE_RADIUS, WaypointNetwork, type Destination, type Waypoint, type WaypointSave } from '../sim/waypoints';
 import type { PlayerState } from './playerState';
 
 /** Structure types that count as landmarks for treasure maps. */
@@ -35,6 +35,8 @@ export const CAST_LEASH = 8;
 /** The chest is buried when the player comes this close (its chunk is loaded by then). */
 export const CHEST_LOAD_R = 24;
 const LANDMARK_NAMES = ['the Old Works', 'the Broken Hall', 'the Grey Foundry', 'the Sunken Yard', 'the Cold Forge', 'the Ash Court', 'the Quiet Mill'];
+/** The name treasure maps (and the airship's chart) give the ruin whose middle is at (x, z). */
+export const ruinName = (seed: number, x: number, z: number): string => LANDMARK_NAMES[hash32(seed, x, z, 77) % LANDMARK_NAMES.length];
 
 export interface ExplorationHost {
   readonly world: IWorld;
@@ -53,6 +55,9 @@ export interface ExplorationHost {
 
 /** What a Use aimed at (x,y,z) with (px,py,pz) in front of it, if any, needs to know. */
 export interface UseAim { x: number; y: number; z: number; px: number; py: number; pz: number; block: { key: string; liquid: string | null } }
+
+export interface MapMark { kind: 'waypoint' | 'treasure'; x: number; z: number; label: string }
+export interface WaypointView { stone: Waypoint; charcoal: number; destinations: Array<Destination & { compass: string }> }
 
 export interface ExplorationSave { waypoints: WaypointSave; serial: number; chests: number[] }
 
@@ -98,7 +103,7 @@ export class Exploration {
       const r = this.useRod(aim);
       if (r !== null) return r;
     }
-    if (aim && aim.block.key === WAYPOINT_BLOCK && !(held && itemOrNull(held.item)?.block)) return this.useStone(aim, held);
+    if (aim && aim.block.key === WAYPOINT_BLOCK && !(held && itemOrNull(held.item)?.block)) return this.useStone(aim);
     if (held?.item === MAP_ITEM) return this.readMap(held);
     return null;
   }
@@ -118,9 +123,7 @@ export class Exploration {
     }
   }
 
-  private sel = new Map<number, number>();
-
-  private useStone(aim: UseAim, held: ItemStack | null): 'worked' | 'refused' {
+  private useStone(aim: UseAim): 'worked' | 'refused' {
     this.prune();
     const stone = this.register(aim.x, aim.y, aim.z);
     if (!stone) { this.toast('Too many waypoint stones in this world: break one first.', 'warn'); return 'refused'; }
@@ -130,25 +133,49 @@ export class Exploration {
       this.toast(`${stone.name} is remembered. Place a second stone elsewhere and visit it to travel between them.`);
       return 'worked';
     }
-    const fuelHeld = held?.item === WAYPOINT_FUEL_ITEM;
-    const i = (this.sel.get(stone.id) ?? 0) % dests.length;
-    const d = dests[i];
-    if (!fuelHeld) {
-      this.sel.set(stone.id, (i + 1) % dests.length);
-      this.toast(`${stone.name}: ${d.stone.name}, ${Math.round(d.distance)} blocks, ${d.fuel} charcoal. Hold charcoal and Use to go; Use with an empty hand for the next.`);
-      return 'worked';
-    }
-    const { player } = this.host;
-    if (player.inventory.count(WAYPOINT_FUEL_ITEM) < d.fuel) {
-      this.toast(`The trip to ${d.stone.name} needs ${d.fuel} charcoal.`, 'warn');
-      return 'refused';
-    }
-    if (!this.teleport) return 'refused';
-    player.inventory.remove(WAYPOINT_FUEL_ITEM, d.fuel);
+    this.host.bus.emit('ui:open', { screen: { type: 'waypoints', stone: stone.id } });
+    return 'worked';
+  }
+
+  /** What the waypoint screen shows for stone `id`: the stone, where each visited stone lies and what the trip costs. */
+  waypointView(id: number): WaypointView | null {
+    this.prune();
+    const stone = this.waypoints.all().find((w) => w.id === id);
+    if (!stone) return null;
+    return {
+      stone,
+      charcoal: this.host.player.inventory.count(WAYPOINT_FUEL_ITEM),
+      destinations: this.waypoints.destinations(stone).map((d) => ({ ...d, compass: compassWord(stone.x, stone.z, d.stone.x, d.stone.z) })),
+    };
+  }
+
+  /** Travel from stone `fromId` to stone `toId`, paying charcoal. Returns an error line, or null when the player stepped through. */
+  travel(fromId: number, toId: number): string | null {
+    const view = this.waypointView(fromId);
+    const d = view?.destinations.find((x) => x.stone.id === toId);
+    if (!view || !d) return 'That stone is gone.';
+    if (!this.teleport) return 'The stones are quiet here.';
+    const p = this.host.player.position;
+    if (Math.hypot(p.x - view.stone.x, p.z - view.stone.z) > WAYPOINT_USE_RADIUS + 2) return 'Step back to the stone to travel.';
+    if (view.charcoal < d.fuel) return `The trip to ${d.stone.name} needs ${d.fuel} charcoal.`;
+    this.host.player.inventory.remove(WAYPOINT_FUEL_ITEM, d.fuel);
     const to = this.waypoints.landing(d.stone);
     this.teleport(to.x, to.y, to.z);
     this.toast(`You step through to ${d.stone.name}.`, 'good');
-    return 'worked';
+    return null;
+  }
+
+  renameStone(id: number, name: string): boolean { return this.waypoints.rename(id, name); }
+
+  /** Marks for the journal map: every waypoint stone, and the landmark circled on each treasure map in the pack (never the chest). */
+  mapMarks(): MapMark[] {
+    const out: MapMark[] = this.waypoints.all().map((w) => ({ kind: 'waypoint', x: w.x, z: w.z, label: w.name }));
+    for (const slot of this.host.player.inventory.toJSON()) {
+      if (!slot || slot.item !== MAP_ITEM || !slot.durability) continue;
+      const m = this.mapOf(slot);
+      if (m) out.push({ kind: 'treasure', x: m.landmark.x, z: m.landmark.z, label: m.landmark.name });
+    }
+    return out;
   }
 
   // ---- treasure maps ------------------------------------------------------------------------------
@@ -161,7 +188,7 @@ export class Exploration {
       if (!r) return;
       const x = r.x0 + (r.w >> 1);
       const z = r.z0 + (r.d >> 1);
-      out.push({ id: `${x},${z}`, name: LANDMARK_NAMES[hash32(seed, x, z, 77) % LANDMARK_NAMES.length], x, z });
+      out.push({ id: `${x},${z}`, name: ruinName(seed, x, z), x, z });
     };
     add(spawnRuin(seed));
     const SQ = RUIN_GRID_CHUNKS * CHUNK_SIZE;
