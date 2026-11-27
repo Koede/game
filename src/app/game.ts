@@ -24,6 +24,7 @@ import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createTownScreen } from '../ui/screens/town/townScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
 import { createJobsScreen } from '../ui/screens/jobs/jobsScreen';
+import { createWaypointScreen } from '../ui/screens/waypoints/waypointScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT, REACH } from '../core/constants';
@@ -224,6 +225,7 @@ export class Game {
         objectives,
         survival,
         journal: state.journal,
+        mapMarks: () => state.exploration.mapMarks(),
         achievements: state.achievements,
         dailyGoals: state.dailyGoals,
         sim,
@@ -243,6 +245,7 @@ export class Game {
       this.ui.registerScreen('town', (request, ctx) => createTownScreen(request as { type: 'town' }, ctx, () => state.npcs.townPage(), (id, room) => state.npcs.moveResident(id, room)));
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
       this.ui.registerScreen('jobs', (request, ctx) => createJobsScreen(ctx, state.npcs, request.type === 'jobs' ? request.person : undefined));
+      this.ui.registerScreen('waypoints', (request, ctx) => (request.type === 'waypoints' ? createWaypointScreen(ctx, state.exploration, request.stone) : null));
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z, request.type === 'rune_desk' && request.bench === true), request.type === 'rune_desk' && request.bench === true));
       registerDistillRig(this.ui);
