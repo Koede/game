@@ -68,6 +68,7 @@ import {
   TRACTOR_ROAD_HEIGHT,
   walkRoadFactor,
 } from './gameWiring';
+import { firstHourStep } from '../game/firstHour';
 import { gridOverlayFor, meterUse } from '../game/gridMeter';
 import { clampFrameDt, FixedStep } from './loop';
 import { GameState } from './state';
@@ -229,6 +230,8 @@ export class Game {
         sim,
         weather: () => state.weather.state,
         town: () => state.npcs.townChip(),
+        guide: () => firstHourStep({ isComplete: (id) => objectives.isComplete(id), campDone: state.npcs.campDone() }),
+        campSpot: () => state.npcs.campSpot(),
         winterGoal: () => state.winter.activeGoal(),
         tapGoal: () => (this.controller?.tapMove.active ? this.controller.tapMove : null),
         releasePointer: () => this.inputManager.releasePointerCapture(),
