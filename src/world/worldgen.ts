@@ -16,7 +16,7 @@ import { placeHotSprings } from './springs';
 import { drawRuin, ruinsNear } from './ruins';
 import { drawStructure, structuresNear } from './structures';
 import {
-  BIOME_KEYS, Column, DUNES, FROSTFELL, LIQUID_LAVA, LIQUID_NONE, LIQUID_OIL, LIQUID_WATER, MARSH, SCAR,
+  BIOME_KEYS, Column, DUNES, FROSTFELL, LIQUID_LAVA, LIQUID_NONE, LIQUID_WATER, MARSH, SCAR,
   SURFACE_CLAY, SURFACE_DIRT, SURFACE_GRASS, SURFACE_GRAVEL, SURFACE_PEAT, SURFACE_SAND, SURFACE_SNOW, TREE_LINE,
   caveMouth, sampleColumn, surfaceKind, terrainFor, type Terrain,
 } from './terrain';

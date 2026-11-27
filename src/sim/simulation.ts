@@ -13,7 +13,7 @@ import { popUnsupportedAt } from '../game/farming';
 import { NETWORK_RADIUS, validLabel, type Chest } from '../game/storage';
 import { PlantSupport } from './plantSupport';
 import { withStatus } from '../core/machineStatus';
-import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
+import { withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
@@ -846,7 +846,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * sides, a crate's or a machine's slots; an item hatch of a formed hearth stands for its controller. Null for
    * anything else. `face` is the side of that block the pipe touches; every side of today's blocks behaves the same.
    */
-  itemEndpoint(x: number, y: number, z: number, face: Face): ItemEndpoint | null {
+  itemEndpoint(x: number, y: number, z: number, _face: Face): ItemEndpoint | null {
     const key = posKey(x, y, z);
     const node = this.nodes.byKey.get(key);
     if (!node) return null;
@@ -861,7 +861,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * The fluid side of the block at x, y, z (spec 16.2): a machine with fluid ports, through its buffers. A fluid hatch
    * counts only as part of a formed hearth (its lava fuels the controller). Null for anything else.
    */
-  fluidEndpoint(x: number, y: number, z: number, face: Face): FluidEndpoint | null {
+  fluidEndpoint(x: number, y: number, z: number, _face: Face): FluidEndpoint | null {
     const chem = chemPortEndpoint(this.distill, x, y, z);
     if (chem) return chem;
     const key = posKey(x, y, z);

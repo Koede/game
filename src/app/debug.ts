@@ -3,7 +3,6 @@
  * helpers that SET UP states quickly (give items, teleport, set the time, place a voxel, open a screen, run ticks,
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
-import { DT } from '../core/constants';
 import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
@@ -374,7 +373,6 @@ export function createDebugHandle(app: App): DebugHandle {
       const { world, player } = game().state;
       const id = blockId(block);
       const px = Math.floor(player.position.x);
-      const py = Math.floor(player.position.y);
       const pz = Math.floor(player.position.z);
       const found: { x: number; y: number; z: number; d: number }[] = [];
       for (let x = px - radius; x <= px + radius; x++) {
