@@ -17,12 +17,12 @@ const CSS = `
 .hw-ws{display:flex;flex-direction:column;gap:8px;padding:4px 2px 12px}
 .hw-ws__part{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06);min-height:44px}
 .hw-ws__part b{display:block}
-.hw-ws__stress{font-size:12px;opacity:.7}
+.hw-ws__stress{font-size:var(--hw-fs-sm);opacity:.7}
 .hw-ws__card{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;border-radius:8px;background:rgba(255,255,255,.06)}
-.hw-ws__chip{min-height:32px;padding:4px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.25);display:inline-flex;align-items:center}
-.hw-ws__chip--out{border-color:#5cc060;background:rgba(92,192,96,.18)}
-.hw-ws__chip--fluid{border-color:#4a9fe0;background:rgba(74,159,224,.18)}
-.hw-ws__arrow{opacity:.7;font-size:12px;text-align:center}
+.hw-ws__chip{font-size:var(--hw-fs-sm);min-height:32px;padding:4px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.25);display:inline-flex;align-items:center}
+.hw-ws__chip--out{border-color:var(--hw-good);background:var(--hw-good-wash);border-width:2px}
+.hw-ws__chip--fluid{border-color:var(--hw-power);background:var(--hw-power-wash);border-style:dashed}
+.hw-ws__arrow{opacity:.7;font-size:var(--hw-fs-sm);text-align:center}
 .hw-ws__rule{margin:0;line-height:1.4}
 .hw-ws__row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .hw-ws__n{width:1.4em;opacity:.7}
@@ -45,7 +45,7 @@ export const RULES: readonly string[] = [
   'A sequenced gearshift runs one of three programs, or a punched card of eight steps: ratio, direction (back, off, forward) and seconds. Use the loaded gearshift empty-handed to edit the card.',
   'Speed has a direction. A reverse box flips it, a ratio dial changes it, a governor caps it, a clutch (or a gearshift between steps) hands nothing on. A differential turns at the mean of two shafts.',
   'Every part costs stress units; the sources carry a limit (a crank 8 su). Over the limit the line stops, or a shear pin snaps first. Two routes that turn one part differently jam.',
-  'Oil raises the limit: use Heavy Residue (x1.25) or pine resin (x1.10) on any part of the line.',
+  'Oil raises the limit: use Lubricant (x1.4), Heavy Residue (x1.25) or pine resin (x1.10) on any part of the line.',
   'Signals: a lever, push button, plate, timer or metronome lights signal wire; a relay renews it and tap-sets delays; machines that touch a signal cell work only while it is on, a clutch flips, a bell rings.',
   'Items move on belts, through funnels and chutes, by arms (wrench: source, then targets) into depots, basins, vaults and crates. Fluids reach spouts and drains from tanks on the pipe network.',
 ];
@@ -182,9 +182,9 @@ function createGuideScreen(ctx: ScreenContext): GameScreen {
       for (const r of BASIN_RECIPES) {
         const card = h('div', { class: 'hw-ws__card', attrs: { 'data-recipe': r.id } });
         for (const [i, n] of Object.entries(r.items)) card.appendChild(chip(`${n} ${nice(i)}`));
-        if (r.fluid) card.appendChild(chip(`${r.fluid.litres} L ${r.fluid.key}`, 'hw-ws__chip--fluid'));
+        if (r.fluid) card.appendChild(chip(`Fluid: ${r.fluid.litres} L ${r.fluid.key}`, 'hw-ws__chip--fluid'));
         card.appendChild(h('span', { class: 'hw-ws__arrow', text: `> ${nice(r.machine)} ${r.minRpm} rpm, ${r.seconds} s >` }));
-        card.appendChild(chip(`${r.output.count} ${nice(r.output.item)}`, 'hw-ws__chip--out'));
+        card.appendChild(chip(`Makes: ${r.output.count} ${nice(r.output.item)}`, 'hw-ws__chip--out'));
         body.appendChild(card);
       }
     } else {
