@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemOrNull } from '../core/registry';
-import { BASE_VALUE, CURRENCY, RARE_GOODS, Caravan, caravanHere, caravanStock, nextCaravanDay } from './caravan';
+import { BASE_VALUE, BUY_SHARE, CARAVAN_EVERY, CURRENCY, MAX_DEMAND, MIN_DEMAND, RARE_GOODS, RARE_PRICE, Caravan, caravanHere, caravanStock, demandFor, nextCaravanDay, wantedGoods } from './caravan';
 import { Inventory } from './inventory';
 
 describe('trade caravans', () => {
@@ -87,5 +87,125 @@ describe('trade caravans', () => {
     expect(inv.count('potato')).toBe(3);
     inv.add('bread', 8);
     expect(c.sell(inv, 'bread', 8)).toMatchObject({ ok: true });
+  });
+});
+
+describe('caravan market: supply, demand and prices', () => {
+  it('demand stays in bounds, is stable per visit, and moves between visits', () => {
+    const seen = new Set<number>();
+    for (let day = 3; day < 300; day += CARAVAN_EVERY) {
+      for (const k of Object.keys(BASE_VALUE)) {
+        const d = demandFor(k, day);
+        expect(d).toBeGreaterThanOrEqual(MIN_DEMAND);
+        expect(d).toBeLessThanOrEqual(MAX_DEMAND);
+        expect(demandFor(k, day)).toBe(d);
+        // days between visits quote the coming visit
+        expect(demandFor(k, day - 1)).toBe(d);
+        seen.add(d);
+      }
+    }
+    expect(seen.size).toBeGreaterThan(20);
+    expect(demandFor('bedrock_nonsense', 3)).toBe(0);
+  });
+
+  it('names a couple of wanted goods each visit that pay more than usual', () => {
+    const counts = new Map<string, number>();
+    for (let day = 3; day < 400; day += CARAVAN_EVERY) {
+      const w = wantedGoods(day);
+      expect(w).toHaveLength(2);
+      expect(new Set(w).size).toBe(2);
+      for (const k of w) {
+        expect(BASE_VALUE[k], k).toBeDefined();
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      }
+    }
+    // the asks rotate over the goods instead of always naming the same ones
+    expect(counts.size).toBeGreaterThan(Object.keys(BASE_VALUE).length / 2);
+    // on average a wanted good is in more demand than the rest
+    let wanted = 0;
+    let other = 0;
+    let nw = 0;
+    let no = 0;
+    for (let day = 3; day < 400; day += CARAVAN_EVERY) {
+      const w = wantedGoods(day);
+      for (const k of Object.keys(BASE_VALUE)) {
+        if (w.includes(k)) (wanted += demandFor(k, day)), nw++;
+        else (other += demandFor(k, day)), no++;
+      }
+    }
+    expect(wanted / nw).toBeGreaterThan(other / no + 0.1);
+  });
+
+  it('the screen-facing caravan pays the demand-adjusted price and reports it', () => {
+    const c = new Caravan();
+    c.setDay(3);
+    const [k] = c.wanted();
+    expect(c.demand(k)).toBe(demandFor(k, 3));
+    expect(c.buyPrice(k)).toBeCloseTo(BASE_VALUE[k] * BUY_SHARE * demandFor(k, 3), 3);
+  });
+
+  it('trend arrows compare against the last visit, and your own glut shows as falling', () => {
+    const c = new Caravan();
+    c.setDay(3);
+    for (const k of Object.keys(BASE_VALUE)) expect(c.trend(k)).toBe('steady'); // no history yet
+    c.setDay(8);
+    let ups = 0;
+    let downs = 0;
+    for (const k of Object.keys(BASE_VALUE)) {
+      const t = c.trend(k);
+      const ratio = demandFor(k, 8) / demandFor(k, 3);
+      if (t === 'up') (ups++, expect(ratio).toBeGreaterThan(1));
+      if (t === 'down') (downs++, expect(ratio).toBeLessThan(1));
+    }
+    expect(ups + downs).toBeGreaterThan(0);
+    const inv = new Inventory(20);
+    inv.add('iron_ingot', 60);
+    c.sell(inv, 'iron_ingot', 40);
+    expect(c.trend('iron_ingot')).toBe('down');
+  });
+
+  it('buying a rare good makes it dearer on later visits, and that fades', () => {
+    const c = new Caravan();
+    c.setDay(8);
+    const good = caravanStock(8)[0];
+    const inv = new Inventory(20);
+    inv.add(CURRENCY, 900);
+    const before = RARE_PRICE[good.item];
+    expect(c.buy(inv, good.item, good.left)).toMatchObject({ ok: true });
+    expect(c.rareDemandOf(good.item)).toBeGreaterThan(0);
+    const pushed = c.rareDemandOf(good.item);
+    c.setDay(20);
+    expect(c.rareDemandOf(good.item)).toBeLessThan(pushed);
+    expect(c.rareDemandOf(good.item)).toBeGreaterThan(0);
+    // find a later visit that stocks it and check the markup is there
+    const fresh = new Caravan();
+    for (let day = 13; day < 400; day += CARAVAN_EVERY) {
+      const line = caravanStock(day).find((l) => l.item === good.item);
+      if (!line) continue;
+      c.setDay(day);
+      fresh.setDay(day);
+      if (c.rareDemandOf(good.item) > 0.02) expect(c.sellPrice(good.item)).toBeGreaterThan(fresh.sellPrice(good.item));
+      break;
+    }
+    c.setDay(2000);
+    expect(c.rareDemandOf(good.item)).toBe(0);
+    expect(before).toBeGreaterThan(0);
+  });
+
+  it('saves and restores market memory; old saves without it still load', () => {
+    const c = new Caravan();
+    c.setDay(3);
+    c.setDay(8);
+    const good = caravanStock(8)[0];
+    const inv = new Inventory(20);
+    inv.add(CURRENCY, 500);
+    c.buy(inv, good.item, 1);
+    const back = Caravan.fromJSON(JSON.parse(JSON.stringify(c.toJSON())));
+    expect(back.rareDemandOf(good.item)).toBe(c.rareDemandOf(good.item));
+    for (const k of Object.keys(BASE_VALUE)) expect(back.trend(k)).toBe(c.trend(k));
+    const old = Caravan.fromJSON({ surplus: {}, day: 8, bought: {}, visit: 8 });
+    expect(old.rareDemandOf(good.item)).toBe(0);
+    expect(old.trend('iron_ingot')).toBe('steady');
+    expect(() => Caravan.fromJSON({ rareDemand: { sulfur: -1, wheat: 2 } as never, lastQuote: 'x' as never })).not.toThrow();
   });
 });

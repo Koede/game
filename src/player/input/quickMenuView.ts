@@ -13,7 +13,6 @@ export class QuickMenuView {
   private shown = false;
   private centre: QuickCentre = { x: 0, y: 0 };
   private side: 1 | -1 = 1;
-  private animated = true;
   private ids = '';
   private labels = new Map<string, HTMLDivElement>();
 
@@ -37,7 +36,6 @@ export class QuickMenuView {
   show(centre: QuickCentre, side: 1 | -1, animated: boolean, items: QuickItem[]): void {
     this.centre = centre;
     this.side = side;
-    this.animated = animated;
     this.shown = true;
     this.el.hidden = false;
     this.el.classList.toggle('hw-touch-radial--animated', animated);
