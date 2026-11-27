@@ -309,5 +309,11 @@
   "steam_pipe": 307,
   "mill_wheel": 308,
   "windmill": 309,
-  "steam_tank": 310
+  "steam_tank": 310,
+  "tube_sender": 311,
+  "tube_receiver": 312,
+  "water_pipe": 313,
+  "hand_pump": 314,
+  "cistern": 315,
+  "sprinkler": 316
 }

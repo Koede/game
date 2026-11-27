@@ -37,6 +37,12 @@ export interface UICropView {
   hydrated: boolean;
   /** Seconds to ripe at the current rate (Infinity while not growing). */
   ripeInS: number;
+  /** Open sky, a heated greenhouse, a cold roofed spot or frozen (docs/api/greenhouse.md); absent = open. */
+  shelter?: 'open' | 'greenhouse' | 'cold' | 'frozen';
+  /** Roofed crops: the air in C. */
+  tempC?: number;
+  /** The season's growth factor for this crop (1 = ordinary): over 1.1 is in season, under 0.75 out of season. */
+  seasonPace?: number;
 }
 
 /** A cup setup or a bucket on a furnace in words (a subset of the simulation's BrewView). */

@@ -28,7 +28,7 @@ export const VEHICLE_SFX = {
       tone('triangle', 180, 0.3, 0.07, { a: 0.002, freqEnd: 110 }),
     ],
   },
-  // A trunk coming down: the crack of the last fibres, a rush of branches and a heavy thud.
+  // A trunk coming down: the crack of the last fibers, a rush of branches and a heavy thud.
   tree_fall: {
     jitter: 2,
     layers: [

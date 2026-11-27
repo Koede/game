@@ -303,6 +303,7 @@ export class MobManager {
       this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
       return { ok: true };
     }
+    if (this.brain.sky.winter) return { ok: false, reason: 'Too cold to raise young: wait for spring' };
     if (!this.birthRoom()) return { ok: false, reason: NO_ROOM };
     m.eagerS = MOB_EAGER_S;
     m.tame = true;
@@ -328,7 +329,8 @@ export class MobManager {
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing there' };
     wakeUp(m);
     if (kind === 'milk') m.milkS = YIELD_COOLDOWN_S.milk;
-    else m.woolS = YIELD_COOLDOWN_S.wool;
+    else if (kind === 'wool') m.woolS = YIELD_COOLDOWN_S.wool;
+    else m.eggS = YIELD_COOLDOWN_S.egg;
     this.bus.emit('sfx', { name: kind === 'milk' ? 'splash' : 'harvest', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     return { ok: true };
   }
@@ -376,7 +378,7 @@ export class MobManager {
 
   /** Timers and behaviour of one simulated animal (sets its velocity). */
   private mind(m: Mob, dt: number): void {
-    if (!advanceTimers(m, dt, this.brain.player)) return;
+    if (!advanceTimers(m, dt, this.brain.player, this.brain.sky.winter)) return;
     growUp(this.world, m);
     think(this.brain, m, dt);
   }

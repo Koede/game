@@ -308,6 +308,14 @@ export class Interaction {
       this.swing.triggerSwing();
       return 'worked';
     }
+    // A plumbing block (pipe, pump, cistern, sprinkler) answers a Use with what its line holds; a hand pump takes a
+    // stroke. A held building block still places (above).
+    if (hit && hit.block.plumb !== null && hit.block.liquid === null && blockOfItem(this.player.heldStack()?.item ?? '') === null) {
+      this.stopMining();
+      this.bus.emit('water:use', { x: hit.x, y: hit.y, z: hit.z });
+      this.swing.triggerSwing();
+      return 'worked';
+    }
     // A fruiting bush is picked by hand, whatever is held.
     if (hit && hit.block.harvestLeaves !== null && hit.block.liquid === null) return this.pick(hit);
     const held = this.player.heldStack();

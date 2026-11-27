@@ -113,10 +113,9 @@ export class Emitters {
       bus.on('brew:done', (e) => this.fxBurst('steam', e.x + 0.5, e.y + 1, e.z + 0.5, 12)),
       bus.on('cast:poured', (e) => this.fxBurst('glow', e.x + 0.5, e.y + 1, e.z + 0.5, 14)),
       bus.on('furnace:smelted', (e) => this.fxBurst('glow', e.x + 0.5, e.y + 1, e.z + 0.5, 10)),
-      bus.on('crop:grew', (e) => {
-        if (e.stage >= 3) this.fxBurst('sparkle', e.x + 0.5, e.y + 0.6, e.z + 0.5, 8);
-      }),
+      bus.on('water:spray', (e) => this.spray(e.x, e.y, e.z)),
       bus.on('explosion', (e) => this.explosion(e.x + 0.5, e.y + 0.5, e.z + 0.5, e.radius)),
+      bus.on('crop:grew', (e) => e.ripe && this.ripeGlint(e.x + 0.5, e.y + 0.6, e.z + 0.5)),
       bus.on('legendary:proc', (e) => this.legendaryProc(e.effect, e.x, e.y, e.z)),
       bus.on('legendary:swing', (e) => this.swingTrail(e.effect, e.x, e.y, e.z, e.yaw, e.pitch, e.count)),
     ];
@@ -258,6 +257,28 @@ export class Emitters {
     }
   }
 
+  /** One puff of a sprinkler (twice a second): droplets thrown out in a ring that fall over the field around it. */
+  private spray(x: number, y: number, z: number): void {
+    const cx = x + 0.5;
+    const cy = y + 0.6;
+    const cz = z + 0.5;
+    if (Math.abs(cx - this.camX) > STEAM_RANGE || Math.abs(cz - this.camZ) > STEAM_RANGE) return;
+    const light = this.light(cx, cy, cz, this.lightRgb);
+    const p = this.spec;
+    for (let i = 0; i < 22; i++) {
+      const a = rnd() * Math.PI * 2;
+      const v = 1.6 + rnd() * 2.6;
+      p.x = cx + Math.cos(a) * 0.2;
+      p.y = cy;
+      p.z = cz + Math.sin(a) * 0.2;
+      p.vx = Math.cos(a) * v;
+      p.vy = 2.4 + rnd() * 1.6;
+      p.vz = Math.sin(a) * v;
+      const k = 0.85 + rnd() * 0.3;
+      this.chip(0.78 * light[0] * k + 0.1, 0.9 * light[1] * k + 0.1, light[2] * k + 0.12, 0.04 + rnd() * 0.035, 0.7 + rnd() * 0.5);
+    }
+  }
+
   /** A few chips flying off the face of the block being mined that looks at the camera. */
   private chips(x: number, y: number, z: number): void {
     const v = this.world.getVoxel(x, y, z);
@@ -390,6 +411,11 @@ export class Emitters {
    * A legendary weapon's verb fired: a small, capped burst of sparks in its colour (never more than PROC_SPARKS per event, so a stress
    * scene of swings stays inside the particle budget). `gold` sparks are the pale ones; the rest are ember orange.
    */
+  /** A crop just ripened: a few gold motes drift up from it. */
+  private ripeGlint(x: number, y: number, z: number): void {
+    for (let i = 0; i < 6; i++) this.spark(x + spread(0.3), y + spread(0.2), z + spread(0.3), spread(0.4), 0.8 + rnd() * 0.8, spread(0.4), true);
+  }
+
   private legendaryProc(effect: LegendaryEffect, x: number, y: number, z: number): void {
     const count = effect === 'burning_marks' ? PROC_SPARKS : Math.round(PROC_SPARKS * 0.75);
     for (let i = 0; i < count; i++) {

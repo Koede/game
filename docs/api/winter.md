@@ -10,8 +10,8 @@ Builds on seasons (docs/api/seasons.md) and the cold rules (`src/game/survival.t
   sudden winter. Normal worlds keep today's gentle winter.
   - Cold: out in the cold (`temperatureAt` < 0) the player loses `-t * WINTER_DRAIN_PER_C` warmth a second extra
     (cause `frost`), building up over the first days of the first winter. Roofs and fires work as ever.
-  - Crops: `cropScale(season, crop, snowing, hardWinter, exposed)`: an exposed crop is frozen (0) in winter; one under a
-    roof (a glass roof lets the light in) grows at `GREENHOUSE_SCALE`.
+  - Crops: `cropScale(season, crop, snowing, hardWinter, exposed, tempC)`: an exposed crop is frozen (0) in winter; one under a
+    roof grows by the air temperature: heated to 10 °C it is a greenhouse at full pace (docs/api/greenhouse.md).
   - Goal track (`Winter.goals()`, `activeGoal()` shown on the HUD goal plate through the first autumn and winter):
     stockpile fuel (`FUEL_TARGET_S` burn-seconds in the pack and nearby crates), raise a greenhouse (a crop under glass),
     live to the thaw. Toasts announce autumn, winter and the thaw.
