@@ -27,8 +27,6 @@ import { createJobsScreen } from '../ui/screens/jobs/jobsScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT, REACH } from '../core/constants';
-import { isFluidEndpoint } from '../core/registry';
-import type { Face } from '../core/types';
 import { collectLeafDrops } from '../game/leafDrops';
 import { aimGroundItem, dropLabel } from '../game/groundAim';
 import { VehicleHud } from '../ui/vehicleHud';
@@ -411,7 +409,7 @@ export class Game {
   /** Fireflies, bats and owls (src/sim/nightlife.ts) around the player, drawn as particles. */
   private drawNightlife(dt: number): void {
     if (dt <= 0) return;
-    const { world, clock, weather, player } = this.state;
+    const { clock, weather, player } = this.state;
     this.nightEnv.dark = darkOf(clock.sunlight());
     this.nightEnv.timeS = clock.worldTimeS;
     this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;

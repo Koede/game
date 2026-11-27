@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BASE_VALUE, BUY_SHARE, CURRENCY, RARE_GOODS, RARE_PRICE, Caravan } from '../game/caravan';
+import { BASE_VALUE, BUY_SHARE, CURRENCY, MAX_DEMAND, RARE_GOODS, RARE_PRICE, Caravan, demandFor } from '../game/caravan';
 import { Inventory } from '../game/inventory';
 import { costTable } from './timeModel';
 
@@ -14,7 +14,8 @@ describe('caravan prices fit the time model', () => {
         const c = cost.get(item);
         if (c === undefined) continue;
         // coins paid, in the expert seconds those coins would have cost, against the seconds the item cost
-        expect(value * BUY_SHARE * copper, `${item} pays ${value} coin`).toBeLessThanOrEqual(c * 1.0 + 1e-6);
+        // at the highest demand the market can reach (a wanted good on a good day)
+        expect(value * BUY_SHARE * MAX_DEMAND * copper, `${item} pays ${value} coin`).toBeLessThanOrEqual(c * 1.0 + 1e-6);
       }
     });
 
@@ -51,7 +52,8 @@ describe('caravan prices fit the time model', () => {
     c.setDay(8);
     c.setDay(13);
     c.setDay(18);
-    expect(c.buyPrice('iron_ingot')).toBeGreaterThan(first * 0.9);
+    // recovered against that day's market (demand drifts between visits)
+    expect(c.buyPrice('iron_ingot')).toBeGreaterThan(first * 0.9 * (demandFor('iron_ingot', 18) / demandFor('iron_ingot', 3)));
   });
 
   it('sell-and-rebuy is a net loss on every item', () => {
@@ -62,7 +64,7 @@ describe('caravan prices fit the time model', () => {
       inv.add(item, 1000);
       const r = c.sell(inv, item, 1000);
       if (!r.ok) continue;
-      expect(r.price).toBeLessThanOrEqual(1000 * BASE_VALUE[item] * BUY_SHARE + 1e-6);
+      expect(r.price).toBeLessThanOrEqual(1000 * BASE_VALUE[item] * BUY_SHARE * MAX_DEMAND + 1e-6);
     }
   });
 });

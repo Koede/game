@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../core/math';
 import { CAMP } from './housingView';
 import { ARRIVALS, newcomerLine, type TownFacts } from './moveIn';
-import { LODGE_COMMON, LODGE_ROOMS, LODGE_SLEEP, MAX_NIGHTS, Settlement, lodgeRooms, sampleTags, townContentment } from './settlement';
+import { LODGE_COMMON, LODGE_SLEEP, MAX_NIGHTS, Settlement, lodgeRooms, sampleTags, townContentment } from './settlement';
 import { contentment } from './contentment';
 import { walkable } from './nav';
 
@@ -164,7 +164,7 @@ describe('contentment of the town', () => {
   it('reads the surroundings from block samples: trees need a few leaves, a single one is not a wood', () => {
     const one = sampleTags((x, y, z) => (x === 0 && y === 1 && z === 0 ? 'oak_leaves' : 'air'), at(0));
     expect(one.has('trees')).toBe(false);
-    const wood = sampleTags((x, y) => (y === 1 ? 'oak_leaves' : 'air'), at(0));
+    const wood = sampleTags((_x, y) => (y === 1 ? 'oak_leaves' : 'air'), at(0));
     expect(wood.has('trees')).toBe(true);
     const fire = sampleTags((x, y, z) => (x === 0 && z === 0 && y === 1 ? 'furnace_clay' : 'air'), at(0));
     expect(fire.has('hearth')).toBe(true);

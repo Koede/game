@@ -5,6 +5,7 @@
  */
 import { MACHINES, block, blockId, machine } from '../core/registry';
 import type { BlockDef, BlockEntity } from '../core/types';
+import type { Shelter } from './seasons';
 
 const SPEC = machine('crop');
 
@@ -163,4 +164,12 @@ export interface CropView {
   ripeInS: number;
   /** "Ripe" / "Needs farmland" / "Needs light" / "Growing - stage 2 of 4". */
   status: string;
+  /** A wild bush (it needs nothing around it). */
+  wild: boolean;
+  /** Nothing over it: rain, snow and frost reach it. */
+  exposed: boolean;
+  /** Roofed crops: the air in C (filled in by the simulation; docs/api/greenhouse.md). */
+  tempC?: number;
+  /** Open sky, a heated greenhouse, a cold roofed spot, or frozen (filled in by the simulation). */
+  shelter?: Shelter;
 }

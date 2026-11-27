@@ -314,4 +314,6 @@
   "elevator_winch": 312,
   "drawbridge": 313,
   "bridge_deck": 314
+  "tube_sender": 311,
+  "tube_receiver": 312
 }

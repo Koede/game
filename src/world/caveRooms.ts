@@ -134,7 +134,7 @@ const DX4 = [1, -1, 0, 0];
 const DZ4 = [0, 0, 1, -1];
 
 /** A cluster of ore on the nearest wall round (lx, y, lz), `count` blocks at least when the rock allows. Returns blocks placed. */
-function stampLode(t: Terrain, voxels: Uint16Array, lx: number, y: number, lz: number, rng: () => number): number {
+function stampLode(_t: Terrain, voxels: Uint16Array, lx: number, y: number, lz: number, rng: () => number): number {
   const vein = lodeVein(y + 1, rng());
   if (!vein) return 0;
   const ore = vein.id;

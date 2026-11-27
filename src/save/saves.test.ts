@@ -5,6 +5,11 @@ import { takeLostItems } from '../content/aliases';
 import manifest from '../../tests/fixtures/saves/manifest.json';
 import beforeBronze from '../../tests/fixtures/save-before-bronze.json';
 import modulesAll from '../../tests/fixtures/saves/modules-all.json';
+import premergeCcrRev2 from '../../tests/fixtures/saves/premerge-ccr-rev2.json';
+import premergeSteamRev3 from '../../tests/fixtures/saves/premerge-steam-rev3.json';
+import premergeNozzleRev3 from '../../tests/fixtures/saves/premerge-nozzle-rev3.json';
+import premergeHeavyRev3 from '../../tests/fixtures/saves/premerge-heavy-rev3.json';
+import premergeMainRev5 from '../../tests/fixtures/saves/premerge-main-rev5.json';
 import sixAgeRev2 from '../../tests/fixtures/saves/sixage-rev2.json';
 import { MemoryStorage } from './storage';
 import { PREV_KEY, SAVE_KEY, SaveSlot, type WorldSave } from './document';
@@ -36,7 +41,7 @@ interface Summary {
   parts: number;
   tractors: number;
 }
-const FILES: Record<string, unknown> = { 'save-before-bronze.json': beforeBronze, 'saves/sixage-rev2.json': sixAgeRev2, 'saves/modules-all.json': modulesAll };
+const FILES: Record<string, unknown> = { 'save-before-bronze.json': beforeBronze, 'saves/sixage-rev2.json': sixAgeRev2, 'saves/modules-all.json': modulesAll, 'saves/premerge-ccr-rev2.json': premergeCcrRev2, 'saves/premerge-steam-rev3.json': premergeSteamRev3, 'saves/premerge-nozzle-rev3.json': premergeNozzleRev3, 'saves/premerge-heavy-rev3.json': premergeHeavyRev3, 'saves/premerge-main-rev5.json': premergeMainRev5 };
 const rows = manifest as unknown as Row[];
 
 function summarise(s: WorldSave): Summary {
