@@ -21,12 +21,12 @@ export const LIKES: Readonly<Record<string, readonly string[]>> = {
 export interface TierReward { item: string; count: number; line: string }
 /** Paid once each, when trust first reaches tiers[0], tiers[1], tiers[2] (a missing entry pays nothing). */
 export const REWARDS: Readonly<Record<string, readonly (TierReward | null)[]>> = {
-  mara: [{ item: 'glass_vial', count: 3, line: 'Here, take these. I blow too many.' }, { item: 'sanity_soap', count: 2, line: 'Scrub well. The deep work leaves marks on a mind.' }, null],
-  rosa: [{ item: 'hearth_stew', count: 2, line: 'Eat. You look thin. Do not argue.' }, { item: 'hearth_stew', count: 4, line: 'A proper meal for a proper regular.' }, null],
-  gruk: [{ item: 'coal', count: 6, line: 'Fuel. For the good fire.' }, null, null],
-  orrin: [{ item: 'copper_ingot', count: 3, line: 'Spares from the bench. Make something clever.' }, { item: 'iron_ingot', count: 3, line: 'Do not tell the others I was this generous.' }, null],
-  veyra: [{ item: 'glass_beaker', count: 4, line: 'Spare glass. Do not drop it; I count my beakers.' }, { item: 'charcoal', count: 6, line: 'Activated, more or less. It will clean a tincture nicely.' }, null],
-  bram: [{ item: 'glowcap', count: 4, line: 'Found these. Too many for me.' }, null, null],
+  mara: [{ item: 'glass_vial', count: 3, line: 'Here, take these. I blow too many.' }, { item: 'sanity_soap', count: 2, line: 'Scrub well. The deep work leaves marks on a mind.' }, { item: 'vein_lens', count: 1, line: 'My own lens. It sees the veins in stone the way I see them in people.' }],
+  rosa: [{ item: 'hearth_stew', count: 2, line: 'Eat. You look thin. Do not argue.' }, { item: 'hearth_stew', count: 4, line: 'A proper meal for a proper regular.' }, { item: 'honey_cake', count: 3, line: 'The good cake, the one I keep for family. Do not tell the others.' }],
+  gruk: [{ item: 'coal', count: 6, line: 'Fuel. For the good fire.' }, { item: 'iron_ingot', count: 4, line: 'Gruk saved this. Make something strong.' }, { item: 'iron_maul', count: 1, line: 'Clan gets a clan maul. Gruk made it himself.' }],
+  orrin: [{ item: 'copper_ingot', count: 3, line: 'Spares from the bench. Make something clever.' }, { item: 'iron_ingot', count: 3, line: 'Do not tell the others I was this generous.' }, { item: 'engineer_goggles', count: 1, line: 'My second pair. They show you what a machine is thinking.' }],
+  veyra: [{ item: 'glass_beaker', count: 4, line: 'Spare glass. Do not drop it; I count my beakers.' }, { item: 'charcoal', count: 6, line: 'Activated, more or less. It will clean a tincture nicely.' }, { item: 'vial_clarity', count: 3, line: 'Clarity, bottled. Use it where the work needs a clear head.' }],
+  bram: [{ item: 'glowcap', count: 4, line: 'Found these. Too many for me.' }, { item: 'treasure_map', count: 1, line: 'Where the good stones are. One day I said. Today.' }, { item: 'treasure_map', count: 2, line: 'And the owl\'s tree. Both maps are yours. Dig well.' }],
 };
 
 /** Warmer lines for each tier above stranger (index 0 = friendly). */
