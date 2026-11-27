@@ -81,9 +81,13 @@ describe('emitters', () => {
       step(2);
       expect(emitters.activeSources, `${kind} stopped`).toBe(0);
       world.put(4, 11, 4, kind, 0, true);
-      step(8);
+      let seen = 0;
+      for (let i = 0; i < 16; i++) {
+        step(0.5); // short-lived motes: look for them as they fly
+        seen = Math.max(seen, particles.count);
+      }
       expect(emitters.activeSources, `${kind} running`).toBe(1);
-      expect(bursts + particles.count, kind).toBeGreaterThan(0);
+      expect(seen + bursts, kind).toBeGreaterThan(0);
     }
   });
 
