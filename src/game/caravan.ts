@@ -50,6 +50,7 @@ export const BASE_VALUE: Readonly<Record<string, number>> = {
   coal: 0.4, charcoal: 0.73, flint: 0.22, tin_ingot: 1.03, bronze_ingot: 1.12, iron_ingot: 0.91, steel_ingot: 1.61, glass_beaker: 0.39,
   // no route in the time model (A)
   pine_resin: 0.5, sugar: 0.8, raw_chop: 1.5, cooked_chop: 2, hearth_stew: 4,
+  honey: 1.5, beeswax: 1.2, honey_cake: 3, raw_perch: 0.8, cooked_perch: 1.2, cheese: 5.3, wool: 1.5, glass_vial: 0.39,
 };
 
 /** Rare goods the caravan brings, and what ONE costs in CURRENCY before the low-stock markup. Each is at least 1.5x its time-model cost. */
