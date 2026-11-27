@@ -16,7 +16,7 @@ import { FOOD_SPEC } from './specRosterFood';
 import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
-import { FARM_EGGS_SPEC, FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
+import { FARM_EGGS_SPEC, FARM_ICE_SPEC, FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 import { EXPLORE_SPEC } from './specRosterExplore';
 import { OLD_PLANS_SPEC } from './specRosterOldPlans';
@@ -461,6 +461,8 @@ SPEC.items.push(...SYNERGY_ANIMALS_SPEC.items);
 SPEC.maxTextures += SYNERGY_ANIMALS_SPEC.textures;
 SPEC.items.push(...FARM_EGGS_SPEC.items);
 SPEC.maxTextures += FARM_EGGS_SPEC.textures;
+SPEC.items.push(...FARM_ICE_SPEC.items);
+SPEC.maxTextures += FARM_ICE_SPEC.textures;
 
 // The artificer's attuned tools (docs/SYNERGY_PLAN.md section 2) come last.
 SPEC.items.push(...SYNERGY_ARTIFICER_SPEC.items);
