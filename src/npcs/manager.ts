@@ -230,6 +230,8 @@ export class NpcManager {
   at: [number, number, number] | null = null;
   greeted = false;
   coins = 0;
+  /** The purse as last seen by tick: any change (a sale, a wage, a fee) clinks. */
+  private seenCoins = 0;
   /** The town's own woodpile for its hearths. Finite: once it and the storage bay's logs are gone the fires burn down. */
   firewood = FIREWOOD_START;
   private fireDownTold = false;
@@ -1780,6 +1782,10 @@ export class NpcManager {
   // ---- time -----------------------------------------------------------------------------------------------------
 
   tick(dt: number): void {
+    if (this.coins !== this.seenCoins) {
+      this.seenCoins = this.coins;
+      this.bus.emit('sfx', { name: 'coin', volume: 0.7 });
+    }
     this.clockS += dt;
     if (this.cooldownS > 0) this.cooldownS = Math.max(0, this.cooldownS - dt);
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
@@ -1939,6 +1945,7 @@ export class NpcManager {
     this.claimed = new Set(strings(r.claimed));
     this.firewood = typeof r.wood === 'number' && Number.isFinite(r.wood) ? Math.max(0, Math.floor(r.wood)) : FIREWOOD_START;
     this.coins = typeof r.coins === 'number' && Number.isFinite(r.coins) ? Math.max(0, Math.floor(r.coins)) : 0;
+    this.seenCoins = this.coins;
     this.trust = {};
     this.giftDay = {};
     for (const [src, dst] of [[r.trust, this.trust], [r.giftDay, this.giftDay]] as const) {

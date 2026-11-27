@@ -10,6 +10,7 @@
  *  - Fishing: Use a rod on water to cast, Use again inside the bite window to land the catch.
  */
 import type { GameBus } from '../core/context';
+import type { FxBurstKind, SfxName } from '../core/gameEvents';
 import { CRATE_SIZE, RUIN_GRID_CHUNKS } from '../core/constants';
 import { hash32 } from '../core/math';
 import { block as blockByKey, itemOrNull } from '../core/registry';
@@ -103,6 +104,8 @@ export class Exploration {
     return null;
   }
 
+  private sfx(name: SfxName, x: number, y: number, z: number, pitch = 1, volume = 1): void { this.host.bus.emit('sfx', { name, x, y, z, pitch, volume }); }
+  private fx(kind: FxBurstKind, x: number, y: number, z: number, count = 12): void { this.host.bus.emit('fx:burst', { kind, x, y, z, count }); }
   private toast(text: string, kind: 'info' | 'good' | 'warn' = 'info'): void { this.host.bus.emit('toast', { text, kind }); }
 
   // ---- waypoints ----------------------------------------------------------------------------------
@@ -146,7 +149,10 @@ export class Exploration {
     if (!this.teleport) return 'refused';
     player.inventory.remove(WAYPOINT_FUEL_ITEM, d.fuel);
     const to = this.waypoints.landing(d.stone);
+    const from = player.position;
+    this.sfx('cast', from.x, from.y, from.z); this.fx('sparkle', from.x, from.y + 1, from.z, 24);
     this.teleport(to.x, to.y, to.z);
+    this.sfx('cast', to.x, to.y, to.z, 1.3); this.fx('sparkle', to.x, to.y + 1, to.z, 24);
     this.toast(`You step through to ${d.stone.name}.`, 'good');
     return 'worked';
   }
@@ -218,6 +224,7 @@ export class Exploration {
       this.chests.add(serial);
       world.setVoxel(m.x, y, m.z, makeVoxel(blockByKey('crate').id), 'load');
       world.setEntity(treasureCrate(m, y));
+      this.sfx('scan_chime', m.x + 0.5, y, m.z + 0.5); this.fx('dust', m.x + 0.5, y + 0.5, m.z + 0.5, 20);
       this.toast('The ground nearby feels disturbed...', 'good');
     }
   }
@@ -266,6 +273,7 @@ export class Exploration {
     const kind = waterKind(spot);
     if (!kind) { this.toast('The water is too shallow to fish.', 'warn'); return 'refused'; }
     this.fishing = { phase: 'waiting', untilS: this.host.now() + biteDelayS(this.ctx(), this.rng), x: aim.px, y: aim.py, z: aim.pz, kind };
+    this.sfx('splash', aim.px + 0.5, aim.py + 0.5, aim.pz + 0.5, 1.2, 0.7); this.fx('splash', aim.px + 0.5, aim.py + 1, aim.pz + 0.5, 10);
     this.toast(`You cast into the ${kind === 'cave' ? 'cave pool' : kind}.`);
     return 'worked';
   }
@@ -277,6 +285,7 @@ export class Exploration {
     if (got.item === null) { this.toast('It slips the hook.'); return 'worked'; }
     const left = this.host.player.give(got.item, 1);
     const name = itemOrNull(got.item)?.name ?? got.item;
+    this.sfx('harvest', f.x + 0.5, f.y + 0.5, f.z + 0.5); this.fx('splash', f.x + 0.5, f.y + 1, f.z + 0.5, 14);
     this.toast(left > 0 ? `You land a ${name} but your pack is full.` : `You land a ${name}.`, 'good');
     return 'worked';
   }
@@ -299,6 +308,8 @@ export class Exploration {
         this.fishing = { phase: 'idle' };
       } else if (f.phase === 'waiting' && this.host.now() >= f.untilS) {
         this.fishing = { phase: 'bite', untilS: this.host.now() + BITE_WINDOW_S, x: f.x, y: f.y, z: f.z, kind: f.kind };
+        this.sfx('splash', f.x + 0.5, f.y + 0.5, f.z + 0.5, 0.9); this.sfx('pickup', f.x + 0.5, f.y + 0.5, f.z + 0.5, 0.7);
+        this.fx('splash', f.x + 0.5, f.y + 1, f.z + 0.5, 18);
         this.toast('Something bites! Use the rod now.', 'good');
       } else if (f.phase === 'bite' && this.host.now() >= f.untilS) {
         this.fishing = { phase: 'idle' };

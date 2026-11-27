@@ -607,6 +607,18 @@
 .hw-cross[data-target] .hw-cross__mark::after {
   background: #fff;
 }
+.hw-cross[data-hit] .hw-cross__mark {
+  transform: rotate(45deg) scale(1.5);
+}
+.hw-cross[data-hit] .hw-cross__mark::before,
+.hw-cross[data-hit] .hw-cross__mark::after {
+  background: #ff8a6a;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hw-cross__mark {
+    transition: transform 0.08s ease-out;
+  }
+}
 .hw-cross__svg {
   position: absolute;
   inset: 0;
@@ -1449,4 +1461,22 @@
   gap: 4px;
   padding: 6px 8px;
   border-top: 1px solid var(--hw-plate-edge);
+}
+
+/* ---- autosave mark ---------------------------------------------------------------------- */
+.hw-saved {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: rgba(255, 246, 232, 0.85);
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.hw-saved[data-show] {
+  opacity: 1;
 }

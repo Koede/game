@@ -7,6 +7,7 @@ import { FURNACE_HOT_C } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { hashFloat } from '../core/math';
 import { blockOf, TEXTURE_NAMES } from '../core/registry';
+import type { FxBurstKind } from '../core/gameEvents';
 import type { LegendaryEffect } from '../core/types';
 import { Face, FACE_DIRS, FACING_TO_FACE, voxelActive, voxelFacing, type BlockDef, type IWorld, type Voxel } from '../core/types';
 import type { Glows } from './glows';
@@ -24,7 +25,7 @@ interface Source {
   z: number;
   /** Particles per second (0 = none, e.g. an electrically heated furnace glows but does not smoke). */
   rate: number;
-  kind: 'smoke' | 'steam' | 'exhaust' | 'star';
+  kind: 'smoke' | 'steam' | 'exhaust' | 'star' | 'dust' | 'spark';
   carry: number;
   /** Furnaces: tier (1-5) for the halo in front of the mouth, 0 for no halo; dx/dz point out of the mouth. */
   glowTier: number;
@@ -60,6 +61,10 @@ export const PROC_SPARKS = 14;
 const SMOKE_RANGE = 176;
 const STEAM_RANGE = 64;
 const STEAM_MACHINES = new Set(['steam_engine', 'still', 'geothermal_tap', 'fission_pile', 'electrolyzer']);
+/** Machines that grind: a pale dust puffs off the top while they run. */
+const DUST_MACHINES = new Set(['crusher', 'centrifuge']);
+/** Machines that crackle with current or draught while they run: a thin stream of warm motes. */
+const SPARK_MACHINES = new Set(['dynamo', 'blower', 'space_heater']);
 const EXHAUST_MACHINES = new Set(['combustion_engine', 'burner_generator']);
 
 const rnd = Math.random;
@@ -104,6 +109,13 @@ export class Emitters {
         if (e.station === 'furnace') this.forgeSparks();
       }),
       bus.on('machine:job', (e) => this.puffs(e.x + 0.5, e.y + 1.05, e.z + 0.5, 'steam', 3)),
+      bus.on('fx:burst', (e) => this.fxBurst(e.kind, e.x, e.y, e.z, e.count)),
+      bus.on('brew:done', (e) => this.fxBurst('steam', e.x + 0.5, e.y + 1, e.z + 0.5, 12)),
+      bus.on('cast:poured', (e) => this.fxBurst('glow', e.x + 0.5, e.y + 1, e.z + 0.5, 14)),
+      bus.on('furnace:smelted', (e) => this.fxBurst('glow', e.x + 0.5, e.y + 1, e.z + 0.5, 10)),
+      bus.on('crop:grew', (e) => {
+        if (e.stage >= 3) this.fxBurst('sparkle', e.x + 0.5, e.y + 0.6, e.z + 0.5, 8);
+      }),
       bus.on('explosion', (e) => this.explosion(e.x + 0.5, e.y + 0.5, e.z + 0.5, e.radius)),
       bus.on('legendary:proc', (e) => this.legendaryProc(e.effect, e.x, e.y, e.z)),
       bus.on('legendary:swing', (e) => this.swingTrail(e.effect, e.x, e.y, e.z, e.yaw, e.pitch, e.count)),
@@ -130,7 +142,8 @@ export class Emitters {
       s.carry += s.rate * dt;
       while (s.carry >= 1) {
         s.carry -= 1;
-        this.puffs(s.x, s.y, s.z, s.kind, 1);
+        if (s.kind === 'dust' || s.kind === 'spark') this.fxBurst(s.kind === 'dust' ? 'dust' : 'glow', s.x, s.y - 0.2, s.z, 2);
+        else this.puffs(s.x, s.y, s.z, s.kind, 1);
       }
       if (s.glowTier > 0) {
         const c = GLOW_COLORS[Math.min(GLOW_COLORS.length, s.glowTier) - 1];
@@ -182,6 +195,12 @@ export class Emitters {
         } else if (EXHAUST_MACHINES.has(e.kind)) {
           kind = 'exhaust';
           rate = 2.5;
+        } else if (DUST_MACHINES.has(e.kind)) {
+          kind = 'dust';
+          rate = 2;
+        } else if (SPARK_MACHINES.has(e.kind)) {
+          kind = 'spark';
+          rate = 1.2;
         }
       }
       if (!kind) continue;
@@ -266,7 +285,7 @@ export class Emitters {
     }
   }
 
-  private chip(r: number, g: number, b: number, size: number, life: number): void {
+  private chip(r: number, g: number, b: number, size: number, life: number, gravity = 16): void {
     const p = this.spec;
     p.r = p.r2 = r;
     p.g = p.g2 = g;
@@ -275,7 +294,7 @@ export class Emitters {
     p.sizeEnd = size * 0.8;
     p.life = life;
     p.alpha = 1;
-    p.gravity = 16;
+    p.gravity = gravity;
     p.drag = 0.6;
     p.look = ParticleLook.Chip;
     p.fog = 1;
@@ -321,6 +340,41 @@ export class Emitters {
       }
     }
     if (best) this.burst(best.x, best.y - 0.2, best.z, 26, 0.8, false);
+  }
+
+  /** Look of each fx burst: colour, rise (+ goes up), fall (gravity), spread and lifetime. */
+  private fxBurst(kind: FxBurstKind, x: number, y: number, z: number, count = 12): void {
+    if ((x - this.camX) ** 2 + (z - this.camZ) ** 2 > 48 * 48) return;
+    if (kind === 'steam') {
+      this.puffs(x, y, z, 'steam', Math.max(1, Math.round(count / 4)));
+      return;
+    }
+    const n = Math.min(40, Math.max(1, count));
+    const light = this.light(x, y, z, this.lightRgb);
+    const l = (light[0] + light[1] + light[2]) / 3;
+    const p = this.spec;
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2;
+      const s = (0.6 + rnd() * 1.4) * (kind === 'dust' ? 1.2 : 1);
+      p.x = x + spread(0.25);
+      p.y = y + spread(0.1);
+      p.z = z + spread(0.25);
+      p.vx = Math.cos(a) * s;
+      p.vz = Math.sin(a) * s;
+      let r = 1, g = 1, b = 1, size = 0.07, life = 0.5, grav = 14, up = 2 + rnd() * 2;
+      switch (kind) {
+        case 'splash': r = 0.55; g = 0.75; b = 0.95; up = 3 + rnd() * 2.5; break;
+        case 'dust': r = 0.7; g = 0.62; b = 0.5; size = 0.1; life = 0.6; grav = 3; up = 0.8 + rnd(); break;
+        case 'snow': r = g = b = 0.95; size = 0.08; grav = 5; up = 1 + rnd() * 1.5; break;
+        case 'sparkle': r = 1; g = 0.9; b = 0.4; size = 0.06; life = 0.9; grav = -1.5; up = 0.8 + rnd(); break;
+        case 'hearts': r = 1; g = 0.45; b = 0.55; size = 0.1; life = 1.1; grav = -2; up = 0.8 + rnd(); p.vx *= 0.3; p.vz *= 0.3; break;
+        case 'glow': r = 1; g = 0.7; b = 0.3; size = 0.06; life = 0.7; grav = -1; up = 0.6 + rnd(); break;
+        case 'hit': r = 1; g = 0.85; b = 0.6; size = 0.06; life = 0.3; grav = 8; up = 1 + rnd() * 1.5; break;
+      }
+      p.vy = up;
+      const k = kind === 'sparkle' || kind === 'glow' || kind === 'hearts' ? 1 : Math.max(0.35, l);
+      this.chip(r * k, g * k, b * k, size, life, grav);
+    }
   }
 
   private burst(x: number, y: number, z: number, count: number, power: number, gold: boolean): void {

@@ -68,6 +68,10 @@ export class Pets {
     }
     const pack = this.packOf(id);
     const toast = (text: string, kind: 'info' | 'good' | 'warn' = 'info'): void => this.host.bus.emit('toast', { text, kind });
+    const hearts = (): void => {
+      this.host.bus.emit('fx:burst', { kind: 'hearts', x: m.x, y: m.y + 0.8, z: m.z, count: 8 });
+      this.host.bus.emit('sfx', { name: 'pickup', x: m.x, y: m.y + 0.5, z: m.z, pitch: 1.5, volume: 0.6 });
+    };
     if (!held) {
       let n = 0;
       for (let i = 0; i < pack.length; i++) {
@@ -77,6 +81,7 @@ export class Pets {
         n += s.count - left;
         pack[i] = left > 0 ? { ...s, count: left } : null;
       }
+      hearts();
       toast(n > 0 ? `${name} drops ${n} ${n === 1 ? 'thing' : 'things'} into your pack.` : `${name} is carrying nothing.`);
       return 'worked';
     }
@@ -88,6 +93,7 @@ export class Pets {
     if (!taken) return 'refused';
     const cur = pack[free];
     pack[free] = cur ? { ...cur, count: cur.count + taken.count } : { ...taken };
+    hearts();
     toast(`${name} takes the ${taken.item.replace(/_/g, ' ')}.`);
     return 'worked';
   }
@@ -102,6 +108,7 @@ export class Pets {
       if (near) {
         this.warnS = WARN_EVERY_S;
         const m = mine[0];
+        this.host.bus.emit('sfx', { name: 'boar', x: m.x, y: m.y + 0.5, z: m.z, pitch: 1.4, volume: 0.5 });
         this.host.bus.emit('toast', { text: `${m.spec.name} ${m.spec.key === 'cat' ? 'hisses' : 'growls'}: something dangerous is near.`, kind: 'warn' });
       }
     }

@@ -70,6 +70,26 @@ export const CUE_SFX = {
     ui: true,
     layers: [tone('sine', 780, 0.1, 0.07, { a: 0.005, freqEnd: 520 })],
   },
+  // A coin clink: two bright bells a moment apart.
+  coin: {
+    layers: [bell(N.E6, 0.14, 0.22, 0, 0.8), bell(N.G6, 0.12, 0.3, 0.07, 0.8)],
+  },
+  // A door swinging open: a low wooden creak that rises, with a soft knock of the latch.
+  door_open: {
+    layers: [
+      tone('triangle', 150, 0.12, 0.28, { a: 0.03, freqEnd: 230, filter: lp(900) }),
+      noise('white', lp(700), 0.05, 0.12, { a: 0.02 }),
+      noise('white', lp(1200), 0.06, 0.03, { at: 0.02 }),
+    ],
+  },
+  // A door swinging shut: the creak falls and ends in a thump.
+  door_close: {
+    layers: [
+      tone('triangle', 230, 0.1, 0.2, { a: 0.02, freqEnd: 140, filter: lp(900) }),
+      noise('white', lp(500), 0.12, 0.07, { at: 0.17 }),
+      tone('sine', 90, 0.16, 0.12, { at: 0.17, a: 0.004, freqEnd: 60 }),
+    ],
+  },
   // A soft double "no": low, short, never harsh.
   error: {
     ui: true,

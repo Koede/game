@@ -44,6 +44,8 @@ export type ScreenRequest =
   | { type: 'distill_rig'; x: number; y: number; z: number };
 
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
+export type FxBurstKind = 'splash' | 'dust' | 'snow' | 'sparkle' | 'hearts' | 'steam' | 'glow' | 'hit';
+
 export type SfxName =
   | 'dig_stone'
   | 'dig_dirt'
@@ -74,6 +76,9 @@ export type SfxName =
   | 'jukebox_note'
   | 'age'
   | 'ui_click'
+  | 'coin'
+  | 'door_open'
+  | 'door_close'
   | 'ui_open'
   | 'ui_close'
   | 'error'
@@ -273,6 +278,8 @@ export interface GameEvents {
 
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */
+  /** A small one-off particle burst at a world point (render/emitters.ts `fxBurst`). */
+  'fx:burst': { kind: FxBurstKind; x: number; y: number; z: number; count?: number };
   'sfx': { name: SfxName; x?: number; y?: number; z?: number; volume?: number; pitch?: number };
 
   // ---- world overlays (UI asks, renderer draws) ----

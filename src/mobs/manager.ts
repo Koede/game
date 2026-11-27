@@ -430,6 +430,7 @@ export class MobManager {
     const y = m.y + bodyHeight(m) * 0.6;
     this.bus.emit('mob:hurt', { id: m.id, species: m.spec.key, health: Math.max(0, m.health) });
     this.bus.emit('sfx', { name: 'mob_hurt', x: m.x, y, z: m.z, pitch: m.baby ? 1.4 : 1 });
+    this.bus.emit('fx:burst', { kind: 'hit', x: m.x, y, z: m.z, count: 8 });
     if (m.health > 0) return;
     m.state = 'dying';
     m.deadS = 0;
