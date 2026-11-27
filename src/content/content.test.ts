@@ -9,6 +9,7 @@ import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, hearthMaterials,
 import { SPEC } from './specRoster';
 import { parseStatusTexture } from '../core/machineStatus';
 import { isModularVariant } from './toolParts';
+import { FLOWER_DYES } from './areas/decor';
 
 const sorted = (keys: Iterable<string>): string[] => [...keys].sort();
 const stationsOf = (): string[] => [...new Set(RECIPES.map((r) => r.station))];
@@ -340,7 +341,11 @@ describe('3. progression solver', () => {
   it('does not depend on lava, loose rubble or biome-flavoured blocks', () => {
     const lean = solve(MAX_FURNACE_TIER, SPEC.optionalWorldBlocks);
     expect(lean.tier).toBe(MAX_FURNACE_TIER);
-    expect(RECIPES.filter((r) => !lean.recipes.has(r.id)).map((r) => r.id)).toEqual([]);
+    // The wild-flower pigments are a second route to a dye that the berry, carrot, tin and flour routes already give,
+    // so they may lean on a flower that only some biomes grow.
+    const bonusRoutes = new Set(FLOWER_DYES.map(([flower, colour]) => `${colour}_dye_${flower}`));
+    expect(RECIPES.filter((r) => !lean.recipes.has(r.id) && !bonusRoutes.has(r.id)).map((r) => r.id)).toEqual([]);
+    for (const [, colour] of FLOWER_DYES) expect(lean.recipes.has(`${colour}_dye`), colour).toBe(true);
     expect(conditionMet({ type: 'flag', flag: 'ignited' }, lean)).toBe(true);
   });
 

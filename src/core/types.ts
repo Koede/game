@@ -198,6 +198,8 @@ export interface WeaponSpec {
   damage: number;
   /** Automatons it hits are stunned this long: they stop, and a wind-up in progress is cancelled (the arc maul). */
   stunS?: number;
+  /** Seconds between two blows (a sword is quick, a maul slow). Absent = WEAPON_HIT_COOLDOWN_S. */
+  cooldownS?: number;
 }
 
 /**

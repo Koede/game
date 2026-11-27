@@ -29,7 +29,7 @@ export const MIN_PLOTS = 4;
 
 /** The first buildings in order: the storage bay nearest the plaza, the plaza itself, then houses and lamps. */
 export const TOWN_ORDER: readonly string[] = [
-  'storage_bay', 'lodge', 'well_plaza', 'cottage', 'lamp_post', 'workshop', 'cottage', 'lamp_post', 'cottage', 'workshop', 'cottage', 'lamp_post', 'cottage',
+  'storage_bay', 'lodge', 'well_plaza', 'cottage', 'lamp_post', 'workshop', 'clock_tower', 'cottage', 'lamp_post', 'cottage', 'workshop', 'cottage', 'lamp_post', 'cottage',
 ];
 
 export interface PlannedBuilding {

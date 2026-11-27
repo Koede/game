@@ -30,7 +30,7 @@ export const FREEZE_RADIUS = 40;
 const SIDE = FREEZE_RADIUS * 2 + 1;
 /** Most shallow frozen cells remembered (a save stays small); past it, new shallow ice is not tracked and stays until the player melts it. */
 /** Blocks that draw water from a touching cell. */
-const INTAKES = new Set(['pump', 'water_port']);
+const INTAKES = new Set(['pump', 'water_port', 'hand_pump']);
 const INTAKE_DIRS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]];
 const SHALLOW_MAX = 20000;
 

@@ -63,11 +63,11 @@ T_load  = steady load x (1 + pulse(t))                     (pulse from cams / st
 `reverse_box`, `ratio_dial`, `clutch`, `governor`, `worm_gear`, `chain_sprocket`, `belt_pulley`, `differential`, `sequence_gearshift` [all B, unchanged]. New:
 | Part | Age | Behaviour |
 |---|---|---|
-| `planetary_set` [P] | Forge | three-port ratio: sun/ring/carrier - hold one port with a brake and the ratio of the other two changes (`gearMath.planetary`). The reason brakes exist |
+| `planetary_set` [P] | Forge | three-port ratio: sun/ring/carrier - hold one port with a brake and the ratio of the other two changes (ratio math was removed 2026-11-27 with the unwired `gearMath.ts`; re-add it with the part). The reason brakes exist |
 | `cvt_cone` [P] | Forge | continuously variable ratio 0.4-2.5 set by a signal level 0-15 (analogue!), loses 8 % power |
 | `slip_clutch` [P] | Bronze | transmits at most its rated torque then slips: caps torque instead of breaking; heat = slip x speed |
 | `overrunning_clutch` [P] | Bronze | one-way: lets a flywheel keep spinning when the engine stops, or a lift hold against a load |
-`gearMath.ts` holds the ratio algebra (`chain`, `planetary`, `differentialSplit`, `cvt`), all pure and tested.
+`gearMath.ts` (ratio algebra) was removed 2026-11-27: nothing called it. Re-add it alongside the first part that needs it.
 
 ### 2.3 Torque, inertia and safety (the new axis)
 `flywheel` [B, now with real momentum], `brake` [B slice 2], `torque_fuse` = upgraded `shear_pin` [B slice 2], `pillow_block` [B slice 2], `torque_gauge` [P]
@@ -91,7 +91,7 @@ Pure kinematics the **render system consumes** for part-and-track animation (a c
 (position, velocity, *torque ripple*), `rackPinion`, `scissorLift`, `pantograph`, `gantryPose`. Drives `piston` (a real stroke curve instead of a step), the press ram, saws.
 The **torque ripple** of a slider-crank (`torqueProfile`) is what the load pulse of section 1 is for: ram strokes demand `1 + 2 sin^2`-shaped pulses.
 
-### 2.7 Hydraulics and pneumatics (between steam and air) - `hydraulics.ts`
+### 2.7 Hydraulics and pneumatics (between steam and air) - `hydraulics.ts` (removed 2026-11-27, unwired; design kept for reference)
 A discrete pressure circuit solver on the same graph idea: **pump** (turns shaft torque into pressure x flow), **accumulator** (stores volume at pressure: the hydraulic
 flywheel), **relief valve**, **check valve**, **directional valve** (signal-controlled), **cylinder** (area -> force, stroke -> volume), **motor** (back to a shaft).
 `step(circuit, dt)` returns pressures, cylinder positions, and pump load (su). A cylinder with 4x the area of the pump piston trades speed for force - the same
@@ -123,15 +123,15 @@ with fixes. A rolling `LoadGraph` (pure ring buffer, 120 samples of load/capacit
 - **Current**: dynamo bridge, electric servo, tractor PTO, analogue sensors that feed wires. The rotational layer stays; electricity is a different system with a **bridge** (generator/motor blocks).
 
 ## 6. Slices and status
-1. `[done]` Pure core with tests: `mech/drive.ts` (momentum dynamics, engines, brake, fuse, whip, diagnose, load graph), `mech/gearMath.ts`.
-2. `[done]` `mech/drum.ts`, `mech/logic.ts`, `mech/linkage.ts`, `mech/hydraulics.ts` with tests; perf test for 200 parts.
+1. `[done]` Pure core with tests: `mech/drive.ts` (momentum dynamics, engines, brake, fuse, whip, diagnose, load graph), (`gearMath.ts` removed later, unwired).
+2. `[done]` `mech/drum.ts`, `mech/logic.ts`, `mech/linkage.ts` with tests (`hydraulics.ts` removed later, unwired); perf test for 200 parts.
 3. `[done]` `drive.ts` wired into `Workshop.solve` (momentum, brake with heat and fade, rated fuses on through-torque, whip + `pillow_block`, press/hammer pulses from the
    slider-crank curve, real flywheel coast), `mech` save extras with migration safety; blocks `brake`, `pillow_block`; goggles lines. Legacy numbers unchanged for
    parts without momentum; five tests rewritten (flywheel) or extended.
 4. `[done, first cut]` `cam_drum` (six preset programs, four signal tracks) and `logic_gate` (AND/OR/XOR/NOT/latch/counter 4 and 8/compare/delay) in `signals.ts`.
    `[next]` custom peg editing UI and punched-card loading for drums, an analogue `tachometer` / `torque_gauge` that feeds gates, `slip_clutch`, `planetary_set`, `cvt_cone`.
 5. `[done]` Dev Mode bench: creative menu button **Mech bench** (`mech/bench.ts`).
-6. `[next]` Hydraulic blocks (the `Circuit` solver is done and tested but unwired: pump, accumulator, valve, cylinder blocks and their render), tool-head frames, sorters,
+6. `[next]` Hydraulic blocks (the `Circuit` solver was removed unwired; rebuild it with the blocks: pump, accumulator, valve, cylinder blocks and their render), tool-head frames, sorters,
    water wheel / windmill modules as blocks, essentia servo.
 7. `[next]` Goggles overlay + load graph UI; Codex entries and sounds for the new parts; render: consume `linkage.ts` poses (`sliderPose`, `follower`, `sliderPhase`) through the
    shared part-and-track animation system in `src/render` (owned by the render session) so the press ram, drum pegs and piston rods animate as parts on tracks.
