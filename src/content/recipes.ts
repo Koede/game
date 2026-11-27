@@ -132,6 +132,9 @@ const FORGE: RecipeSpec[] = [
   forge(2, 'air_tank', '6 bronze_plate, 1 air_tube', 900),
   forge(2, 'air_compressor', '4 bronze_plate, 1 bronze_cog, 2 air_tube', 900),
   forge(2, 'blast_nozzle', '4 bronze_plate, 1 air_tube, 2 firebrick', 1100),
+  // Pneumatic tubes: a sender and a receiver set against crates shoot items through the air network.
+  forge(2, 'tube_sender', '3 bronze_plate, 1 air_tube, 1 bronze_cog', 900),
+  forge(2, 'tube_receiver', '3 bronze_plate, 1 air_tube, 1 glass', 900),
   // Resin, sugar and sweet baking (itemsSugar.ts): beakers from glass, sap boiled to resin, resin distilled to sugar, then baked.
   forge(1, '2 glass_beaker', '1 glass', 650),
   forge(1, 'pine_resin', '1 pine_sap', 180, { byproducts: '1 glass_beaker' }),
