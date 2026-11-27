@@ -17,7 +17,7 @@ import { NO_UI_SIM, type UISimQuery } from './hud/query';
 import { setIconProvider, type IconProvider } from './kit/icons';
 import type { UIRoot } from './kit/root';
 import type { Window } from './kit/window';
-import { PauseMenu } from './menus/pause';
+import { PauseMenu, type PageLink } from './menus/pause';
 import { createDeathScreen } from './screens/death/deathScreen';
 import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
@@ -180,11 +180,22 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined, pages: this.pageLinks(deps) });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });
     }
+  }
+
+  /** The pages the pause menu lists and searches: the Hearth Log always, the guides once their item is carried, Jobs where there is a town. */
+  private pageLinks(deps: GameUIDeps): PageLink[] {
+    const open = (screen: ScreenRequest) => () => deps.bus.emit('ui:open', { screen });
+    return [
+      { id: 'log', label: 'Hearth Log', hint: 'Goals, ages and the forecast', keywords: 'objectives quests next goal progress weather', open: open({ type: 'log' }) },
+      { id: 'notebook', label: 'Field Notebook', hint: 'Research, lore, aspects, noted things', keywords: 'research aspects lore notes scan magic goals', available: () => deps.player.inventory.has('field_notebook'), open: open({ type: 'notebook' }) },
+      { id: 'workshop', label: 'Workshop Guide', hint: 'Parts, basin recipes and rules', keywords: 'engineer goggles tools parts', available: () => deps.player.inventory.has('engineer_goggles'), open: open({ type: 'workshop' }) },
+      { id: 'jobs', label: 'Jobs', hint: 'What each resident carries and where', keywords: 'residents haul feed tend work settlement', available: () => !!deps.town?.(), open: open({ type: 'jobs' }) },
+    ];
   }
 
   /** The request of the open screen (null when none, or while the death / win screen is up). */

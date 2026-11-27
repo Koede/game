@@ -2124,6 +2124,73 @@ body {
 .hw-menu__gap {
   height: 4px;
 }
+.hw-menu__pages,
+.hw-menu__results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.hw-menu__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.hw-menu__result {
+  display: grid;
+  gap: 2px;
+  min-height: var(--hw-tap);
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--hw-bone);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+  font: inherit;
+}
+.hw-menu__result span {
+  font-size: 13px;
+  color: var(--hw-ash-1);
+  overflow-wrap: anywhere;
+}
+.hw-menu__none,
+.hw-howto__none {
+  margin: 0;
+  color: var(--hw-ash-1);
+  text-align: center;
+}
+
+/* Search box (kit/search.ts): the label is for screen readers; the field shares its row with Clear. */
+.hw-search {
+  position: relative;
+  display: block;
+}
+.hw-search .hw-field__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.hw-search .hw-input {
+  padding-right: 64px;
+}
+.hw-search__clear {
+  position: absolute;
+  right: 4px;
+  top: 0;
+  height: var(--hw-tap);
+  min-width: 56px;
+  padding: 0 8px;
+  color: var(--hw-ash-1);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 13px;
+}
+.hw-search__clear[hidden] {
+  display: none;
+}
 
 .hw-settings {
   display: grid;
@@ -3176,3 +3243,7 @@ body {
 .hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
 .hw-caravan__row span { flex: 1; min-width: 0; }
 
+.hw-search input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none;
+}

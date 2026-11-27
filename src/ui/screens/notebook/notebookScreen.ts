@@ -13,6 +13,7 @@ import { aspectsOf } from '../../../magic/fingerprint';
 import type { NotebookApi } from '../../../magic/magic';
 import type { GameScreen, ScreenContext } from '../../gameUI';
 import { h } from '../../kit/dom';
+import { SearchBox, matches } from '../../kit/search';
 import { Window } from '../../kit/window';
 
 const CSS = `
@@ -68,6 +69,13 @@ const CSS = `
 .hw-nb__need.is-short{background:rgba(232,98,42,.22)}
 .hw-nb__ok{color:#8fe08f;font-size:12px}
 .hw-nb__goal{display:flex;gap:8px;align-items:center;min-height:32px}
+.hw-nb--inner{padding:0}
+.hw-nb__find{display:flex;flex-direction:column;gap:8px}
+.hw-nb__hit{display:flex;flex-direction:column;gap:2px;min-height:44px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:inherit;font:inherit;text-align:left}
+.hw-nb__hit[data-status=done]{border-color:#5cc060}
+.hw-nb__hit[data-status=locked]{opacity:.5}
+.hw-nb__hit small{opacity:.7}
+.hw-nb__h{margin:6px 0 0;font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
 `;
 
 
@@ -88,7 +96,11 @@ export function injectNotebookCss(): void {
   document.head.appendChild(style);
 }
 
-type Tab = 'research' | 'aspects' | 'notes' | 'goals';
+type Tab = 'research' | 'lore' | 'goals';
+type StatusFilter = 'all' | 'open' | 'begun' | 'done' | 'locked';
+const STATUS_FILTERS: readonly { id: StatusFilter; label: string }[] = [
+  { id: 'all', label: 'All' }, { id: 'open', label: 'Ready' }, { id: 'begun', label: 'Begun' }, { id: 'done', label: 'Done' }, { id: 'locked', label: 'Locked' },
+];
 
 type Entry = ReturnType<NotebookApi['entries']>[number];
 const SVG = 'http://www.w3.org/2000/svg';
@@ -106,11 +118,22 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
   let entry: string | null = null;
   let selected: number | null = null;
   let message = '';
+  let query = '';
+  let status: StatusFilter = 'all';
   let signature = '';
-  const body = h('div', { class: 'hw-nb' });
+  const content = h('div', { class: 'hw-nb hw-nb--inner' });
+  const search = new SearchBox({
+    label: 'Search the notebook',
+    placeholder: 'Search this notebook',
+    onInput: (q) => {
+      query = q;
+      render();
+    },
+  });
+  const body = h('div', { class: 'hw-nb' }, search.el, content);
   const window = new Window({
     title: table ? 'Research Table' : 'Field Notebook', size: 'md', fit: 'tall', body,
-    tabs: [{ id: 'research', label: 'Research' }, { id: 'aspects', label: 'Aspects' }, { id: 'notes', label: 'Notes' }, { id: 'goals', label: 'Goals' }],
+    tabs: [{ id: 'research', label: 'Research' }, { id: 'lore', label: 'Lore' }, { id: 'goals', label: 'Goals' }],
     activeTab: 'research',
     onTab: (id) => {
       tab = id as Tab;
@@ -323,13 +346,64 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
     return [h('p', { class: 'hw-nb__age', text: 'Combine lore' }), h('div', { class: 'hw-nb__palette' }, ...rows)];
   }
 
+  /** What an entry's search looks through: title, text, the age, its status and the names of the aspects it costs. */
+  function entryText(e: Entry): string {
+    const hidden = e.status === 'locked' && !api.entries().some((x) => e.requires.includes(x.key) && x.status === 'done');
+    if (hidden) return '';
+    return `${e.title} ${e.text} ${e.age} ${(Object.keys(e.cost) as Aspect[]).map((a) => aspectInfo(a).name).join(' ')}`;
+  }
+
+  function renderFilters(entries: Entry[]): HTMLElement {
+    const row = h('div', { class: 'hw-nb__row', attrs: { role: 'group', 'aria-label': 'Show entries' } });
+    for (const f of STATUS_FILTERS) {
+      const n = f.id === 'all' ? entries.length : entries.filter((e) => e.status === f.id).length;
+      if (f.id !== 'all' && f.id !== status && n === 0) continue;
+      const b = button(`${f.label} ${n}`, () => {
+        status = f.id;
+        render();
+      }, 'hw-nb__agebtn');
+      b.dataset.filter = f.id;
+      b.setAttribute('aria-pressed', String(f.id === status));
+      row.appendChild(b);
+    }
+    return row;
+  }
+
+  /** The entries that fit the search and the status filter, as a list across every age; a tap opens one. */
+  function renderHits(entries: Entry[]): HTMLElement {
+    const hits = entries.filter((e) => (status === 'all' || e.status === status) && matches(query, entryText(e)));
+    const list = h('div', { class: 'hw-nb__find', attrs: { role: 'list', 'aria-label': 'Matching research' } });
+    if (!hits.length) list.appendChild(h('p', { class: 'hw-nb__muted', text: 'No research matches. Try another word, or pick All.' }));
+    for (const e of hits) {
+      const hidden = entryText(e) === '';
+      const b = h('button', { class: 'hw-nb__hit', attrs: { type: 'button', role: 'listitem', 'data-hit': e.key } },
+        h('strong', { text: hidden ? '???' : e.title }), h('small', { text: `${e.age[0].toUpperCase()}${e.age.slice(1)} - ${e.status === 'open' ? 'ready to begin' : e.status}` }));
+      b.dataset.status = e.status;
+      b.addEventListener('click', () => {
+        entry = e.key;
+        age = e.age;
+        selected = null;
+        message = '';
+        query = '';
+        status = 'all';
+        search.set('');
+        render();
+      });
+      list.appendChild(b);
+    }
+    return list;
+  }
+
   function renderResearch(): HTMLElement[] {
     const out: HTMLElement[] = [];
     const entries = api.entries();
     if (!entry || !entries.some((e) => e.key === entry)) {
       entry = (entries.find((e) => e.status === 'begun') ?? entries.find((e) => e.status === 'open') ?? entries[0]).key;
     }
-    out.push(renderMap(entries));
+    const filtering = query.trim() !== '' || status !== 'all';
+    out.push(renderFilters(entries));
+    if (filtering) out.push(renderHits(entries));
+    else out.push(renderMap(entries));
     const e = entries.find((x) => x.key === entry) as Entry;
     out.push(h('p', { class: 'hw-nb__title', text: e.title }), h('p', { class: 'hw-nb__text', text: e.text }));
     if (e.status === 'locked') {
@@ -429,21 +503,31 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
 
   function renderAspects(): HTMLElement[] {
     const r = api.research();
-    const out: HTMLElement[] = [];
+    const out: HTMLElement[] = [h('p', { class: 'hw-nb__h', text: 'Aspects' })];
+    let shown = 0;
+    let unknown = 0;
     for (const a of ASPECT_LIST) {
       const info = aspectInfo(a);
       const known = r.known.includes(a);
+      if (query.trim() && !(known && matches(query, info.name, info.meaning, info.parts?.map((p) => aspectInfo(p).name).join(' ')))) continue;
+      if (!known) {
+        unknown++;
+        continue;
+      }
+      shown++;
       const parts = info.parts ? ` = ${aspectInfo(info.parts[0]).name} + ${aspectInfo(info.parts[1]).name}` : ' (primal)';
       const dot = known ? aspectIcon(a, 24) : h('span', { class: 'hw-nb__dot' });
       out.push(h('div', { class: ['hw-nb__aspect', known ? '' : 'hw-nb__muted'] }, dot,
         h('span', { text: known ? `${info.name}${parts}: ${info.meaning}. Lore ${r.lore[a] ?? 0}` : 'Unknown aspect' })));
     }
+    if (!shown) out.push(h('p', { class: 'hw-nb__muted', text: query.trim() ? 'No known aspect matches.' : 'No aspects known yet: note things with the notebook.' }));
+    else if (unknown) out.push(h('p', { class: 'hw-nb__muted', text: `${unknown} more aspect${unknown === 1 ? '' : 's'} still unknown.` }));
     return out;
   }
 
   function renderNotes(): HTMLElement[] {
     const r = api.research();
-    const out: HTMLElement[] = [h('p', { class: 'hw-nb__text', text: `${r.scanned.length} things noted. Aim the notebook at a block and press Use to note it; things you carry are noted here.` })];
+    const out: HTMLElement[] = [h('p', { class: 'hw-nb__h', text: 'Noted things' }), h('p', { class: 'hw-nb__text', text: `${r.scanned.length} things noted. Aim the notebook at a block and press Use to note it; things you carry are noted here.` })];
     const carried = new Set<string>();
     for (const s of ctx.player.inventory.toJSON()) if (s) carried.add(s.item);
     const fresh = [...carried].filter((k) => !r.scanned.includes(k));
@@ -476,23 +560,26 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       }
       if (vials.length) out.push(h('p', { class: 'hw-nb__muted', text: 'Studying a vial turns its essentia into lore and gives the vial back.' }), study);
     }
-    for (const k of [...r.scanned].reverse().slice(0, 60)) {
+    const noted = [...r.scanned].reverse().filter((k) => matches(query, itemOrNull(k)?.name ?? k, aspectsText(aspectsOf(k))));
+    if (query.trim() && !noted.length) out.push(h('p', { class: 'hw-nb__muted', text: 'No noted thing matches.' }));
+    for (const k of noted.slice(0, 60)) {
       out.push(h('div', { class: 'hw-nb__aspect' }, h('span', { text: `${itemOrNull(k)?.name ?? k}:` }), aspectsRow(aspectsOf(k))));
     }
     return out;
   }
 
   function renderGoals(): HTMLElement[] {
+    const goals = api.goals().filter((g) => matches(query, g.title));
     return [
-      h('p', { class: 'hw-nb__muted', text: 'Side goals of the craft. None of them is needed to finish the game.' }),
-      ...api.goals().map((g) => h('div', { class: ['hw-nb__goal', g.done ? '' : 'hw-nb__muted'] }, h('span', { text: g.done ? '✓' : '○' }), h('span', { text: g.title }))),
+      h('p', { class: 'hw-nb__muted', text: query.trim() && !goals.length ? 'No goal matches.' : 'Side goals of the craft. None of them is needed to finish the game.' }),
+      ...goals.map((g) => h('div', { class: ['hw-nb__goal', g.done ? '' : 'hw-nb__muted'] }, h('span', { text: g.done ? '✓' : '○' }), h('span', { text: g.title }))),
     ];
   }
 
   function render(): void {
-    const parts = tab === 'research' ? renderResearch() : tab === 'aspects' ? renderAspects() : tab === 'goals' ? renderGoals() : renderNotes();
+    const parts = tab === 'research' ? renderResearch() : tab === 'lore' ? [...renderNotes(), ...renderAspects()] : renderGoals();
     if (message) parts.push(h('p', { class: 'hw-nb__text', text: message, attrs: { role: 'status' } }));
-    body.replaceChildren(...parts);
+    content.replaceChildren(...parts);
     signature = JSON.stringify(api.research());
   }
   render();

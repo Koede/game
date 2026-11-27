@@ -5,6 +5,7 @@
 import { Segmented } from '../kit/controls';
 import { h } from '../kit/dom';
 import { glyph, type GlyphName } from '../kit/icons';
+import { SearchBox, matches } from '../kit/search';
 
 export interface ControlLine {
   /** Key caps or gestures, shown as separate caps: ['W', 'A', 'S', 'D'] or ['Hold on a block']; '–' and '/' are separators. */
@@ -18,6 +19,8 @@ export interface HowToPlayOptions {
   touch?: readonly ControlLine[];
   /** Which list to show first. Default: touch on a touch-first device, keyboard otherwise. */
   initial?: 'keyboard' | 'touch';
+  /** Start with this search typed in (the pause menu's search sends you here with your words). */
+  query?: string;
 }
 
 export const DEFAULT_KEYBOARD_CONTROLS: readonly ControlLine[] = [
@@ -117,8 +120,27 @@ const SEPARATORS = new Set(['–', '/']);
 
 const touchFirst = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
+/** Every line of How to Play as plain text with the section it sits in: what the pause menu's search looks through. */
+export function howToTopics(opts: HowToPlayOptions = {}): { section: string; text: string }[] {
+  const out: { section: string; text: string }[] = [];
+  const add = (section: string, lines: readonly string[]): void => lines.forEach((text) => out.push({ section, text }));
+  add('The loop', LOOP.map((l) => l.text));
+  add('Staying alive', LIVING.map((t) => t.text));
+  add('Building big', BUILDING.map((t) => t.text));
+  add('Working by hand', HANDWORK.map((t) => t.text));
+  add('Tea and coffee', BREWING.map((t) => t.text));
+  add('The Emberbound', EMBERBOUND.map((t) => t.text));
+  const controls = [...(opts.keyboard ?? DEFAULT_KEYBOARD_CONTROLS), ...(opts.touch ?? DEFAULT_TOUCH_CONTROLS)];
+  add('Controls', controls.map((c) => `${c.keys.join(' ')}: ${c.action}`));
+  return out;
+}
+
 export class HowToPlay {
   readonly el: HTMLDivElement;
+  /** Everything a search can hide: each line with its text, each section with its lines. */
+  private readonly lines: { el: HTMLElement[]; text: string; section: HTMLElement }[] = [];
+  private readonly sections: HTMLElement[] = [];
+  private readonly empty: HTMLElement;
 
   constructor(opts: HowToPlayOptions = {}) {
     const lists = {
@@ -140,41 +162,70 @@ export class HowToPlay {
       onChange: show,
     });
     show(initial);
+    this.empty = h('p', { class: 'hw-howto__none', text: 'Nothing here matches. Try one word, like "water" or "furnace".' });
+    this.empty.hidden = true;
+    const search = new SearchBox({ label: 'Search How to Play', placeholder: 'Search the guide', value: opts.query, onInput: (q) => this.filter(q) });
     this.el = h(
       'div',
       { class: 'hw-howto' },
-      h(
-        'section',
-        { class: 'hw-howto__loop' },
-        h('h3', { class: 'hw-heading', text: 'The loop' }),
-        h(
-          'ol',
-          { class: 'hw-howto__steps' },
-          LOOP.map((step, i) =>
-            h('li', { class: 'hw-howto__step', style: { '--hw-step': step.tone } }, h('span', { class: 'hw-howto__num hw-num', text: String(i + 1) }), h('span', { text: step.text })),
-          ),
-        ),
-      ),
+      search.el,
+      this.empty,
+      this.loop(),
       this.tips('Staying alive', 'var(--hw-food)', LIVING),
       this.tips('Building big', 'var(--hw-power)', BUILDING),
       this.tips('Working by hand', '#c98a4b', HANDWORK),
       this.tips('Tea and coffee', '#d39a62', BREWING),
       this.tips('The Emberbound', '#ff7a2a', EMBERBOUND),
-      h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch),
+      this.track(h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch)),
     );
+    for (const dl of [lists.keyboard, lists.touch]) {
+      const section = dl.parentElement as HTMLElement;
+      const kids = [...dl.children] as HTMLElement[];
+      for (let i = 0; i + 1 < kids.length; i += 2) this.lines.push({ el: [kids[i], kids[i + 1]], text: `${kids[i].textContent} ${kids[i + 1].textContent}`, section });
+    }
+    if (opts.query) this.filter(opts.query);
+    this.searchBox = search;
+  }
+
+  private searchBox: SearchBox | null = null;
+
+  /** Puts a query in the search field and applies it. */
+  search(query: string): void {
+    this.searchBox?.set(query);
+    this.filter(query);
+  }
+
+  private track(section: HTMLElement): HTMLElement {
+    this.sections.push(section);
+    return section;
+  }
+
+  /** Hides every line that does not match and every section left with no line; shows a note when nothing is left. */
+  private filter(query: string): void {
+    let any = false;
+    for (const l of this.lines) {
+      const show = matches(query, l.text);
+      l.el.forEach((e) => (e.hidden = !show));
+      any ||= show;
+    }
+    for (const sec of this.sections) sec.hidden = !this.lines.some((l) => l.section === sec && !l.el[0].hidden) && query.trim() !== '';
+    this.empty.hidden = any || query.trim() === '';
+  }
+
+  private loop(): HTMLElement {
+    const items = LOOP.map((step, i) =>
+      h('li', { class: 'hw-howto__step', style: { '--hw-step': step.tone } }, h('span', { class: 'hw-howto__num hw-num', text: String(i + 1) }), h('span', { text: step.text })),
+    );
+    const section = this.track(h('section', { class: 'hw-howto__loop' }, h('h3', { class: 'hw-heading', text: 'The loop' }), h('ol', { class: 'hw-howto__steps' }, items)));
+    items.forEach((li, i) => this.lines.push({ el: [li], text: `The loop ${LOOP[i].text}`, section }));
+    return section;
   }
 
   private tips(title: string, tone: string, tips: readonly Tip[]): HTMLElement {
-    return h(
-      'section',
-      { class: 'hw-howto__loop' },
-      h('h3', { class: 'hw-heading', text: title }),
-      h(
-        'ul',
-        { class: 'hw-howto__steps' },
-        tips.map((tip) => h('li', { class: 'hw-howto__step', style: { '--hw-step': tone } }, h('span', { class: 'hw-howto__num' }, glyph(tip.icon, 16)), h('span', { text: tip.text }))),
-      ),
-    );
+    const items = tips.map((tip) => h('li', { class: 'hw-howto__step', style: { '--hw-step': tone } }, h('span', { class: 'hw-howto__num' }, glyph(tip.icon, 16)), h('span', { text: tip.text })));
+    const section = this.track(h('section', { class: 'hw-howto__loop' }, h('h3', { class: 'hw-heading', text: title }), h('ul', { class: 'hw-howto__steps' }, items)));
+    items.forEach((li, i) => this.lines.push({ el: [li], text: `${title} ${tips[i].text}`, section }));
+    return section;
   }
 
   private controlList(lines: readonly ControlLine[]): HTMLDListElement {
