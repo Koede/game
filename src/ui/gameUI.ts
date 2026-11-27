@@ -11,7 +11,7 @@ import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
 import type { Survival } from '../game/survival';
 import { BackGesture } from './hud/backGesture';
-import { Hud } from './hud/hud';
+import { Hud, type HudDeps } from './hud/hud';
 import type { TownChipInfo } from './hud/townChip';
 import { NO_UI_SIM, type UISimQuery } from './hud/query';
 import { setIconProvider, type IconProvider } from './kit/icons';
@@ -93,6 +93,9 @@ export interface GameUIDeps {
   releasePointer?: () => void;
   /** The town chip and the pause menu's Town entry: null when the world has no town to show. */
   town?: () => TownChipInfo | null;
+  /** The guided first hour's step (HudDeps.guide) and the camp's spot for its arrow. */
+  guide?: HudDeps['guide'];
+  campSpot?: HudDeps['campSpot'];
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
   pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
@@ -149,6 +152,8 @@ export class GameUI {
       input: deps.input,
       weather: () => deps.weather?.() ?? null,
       town: deps.town,
+      guide: deps.guide,
+      campSpot: deps.campSpot,
       tapGoal: () => deps.tapGoal?.() ?? null,
     });
     const bus = deps.bus;

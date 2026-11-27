@@ -1594,16 +1594,26 @@ export class NpcManager {
     if (next) this.toast(`Next at the camp: ${next.title}. ${next.text}`);
   }
 
+  /** The camp goals done (for the guided first hour, firstHour.ts), or null when this world has no camp track. */
+  campDone(): ReadonlySet<string> | null {
+    return this.campTrack() ? doneGoals(this.campFacts(), this.goalsDone) : null;
+  }
+
+  /** Where the camp is (its cart, fire and board are all within a few blocks), for the "What next?" arrow; null without a camp. */
+  campSpot(): { x: number; y: number; z: number } | null {
+    return this.at && this.campTrack() ? { x: this.at[0], y: this.at[1], z: this.at[2] } : null;
+  }
+
   /** The current camp goal for the HUD chip, or null when the track is finished or does not apply. */
   campGoal(): CampGoal | null {
     return this.campTrack() ? currentGoal(doneGoals(this.campFacts(), this.goalsDone)) : null;
   }
 
   /** What the HUD's town chip says: the camp goal, else the building going up; null when there is no town to show. */
-  townChip(): { kicker: string; title: string } | null {
+  townChip(): { kicker: string; title: string; goal?: string } | null {
     if (!this.campTrack()) return null;
     const goal = this.campGoal();
-    if (goal) return { kicker: 'Camp goal', title: goal.title };
+    if (goal) return { kicker: 'Camp goal', title: goal.title, goal: goal.id };
     const cur = this.town.currentTemplate;
     if (!cur) return { kicker: 'Town', title: `${this.presentCount() - 1} neighbours` };
     const idx = (LODGE_PATH as readonly string[]).indexOf(cur);
