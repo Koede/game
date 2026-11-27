@@ -4,6 +4,7 @@ import { priceOf } from './economy';
 import { BAY_CRATE, bayCrateSpot, lockNote, unlockedAt, UNLOCK_REP } from './buildBoard';
 import {
   BOARD_REWARDS,
+  rewardsAt,
   BOARD_SLOTS,
   BuildBoard,
   CHUNK_MAX,
@@ -200,6 +201,13 @@ describe('build board: payouts and rewards', () => {
   it('rare rewards are real items', () => {
     expect(BOARD_REWARDS.length).toBeGreaterThan(0);
     for (const r of BOARD_REWARDS) expect(itemOrNull(r.item)).not.toBeNull();
+  });
+
+  it('town standing widens the rare reward pool with real items', () => {
+    expect(rewardsAt(0)).toEqual(BOARD_REWARDS);
+    expect(rewardsAt(30).length).toBeGreaterThan(rewardsAt(29).length);
+    expect(rewardsAt(60).length).toBeGreaterThan(rewardsAt(59).length);
+    for (const r of rewardsAt(60)) expect(itemOrNull(r.item)).not.toBeNull();
   });
 
   it('pays the reward only when the bounty is complete', () => {

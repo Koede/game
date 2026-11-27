@@ -57,6 +57,17 @@ export const BOARD_REWARDS: readonly BoardReward[] = [
   { item: 'copper_coil', count: 2 },
   { item: 'silica', count: 3 },
 ];
+/** Better rare rewards the town earns with standing: a village (30) pays in steel, a town (60) in circuits and superalloy. */
+export const BOARD_REWARDS_VILLAGE: readonly BoardReward[] = [{ item: 'steel_plate', count: 2 }, { item: 'circuit', count: 2 }];
+export const BOARD_REWARDS_TOWN: readonly BoardReward[] = [{ item: 'magnet_ring', count: 1 }, { item: 'superalloy', count: 2 }];
+
+/** The rare rewards a bounty may roll at this town standing: each standing step adds better ones to the pool. */
+export function rewardsAt(rep: number): readonly BoardReward[] {
+  const tiers = [BOARD_REWARDS];
+  if (rep >= 30) tiers.push(BOARD_REWARDS_VILLAGE);
+  if (rep >= 60) tiers.push(BOARD_REWARDS_TOWN);
+  return tiers.flat();
+}
 
 const FINISH = TOWN_STAGES.indexOf('finish');
 /** The board's place inside the storage bay, local to its footprint (on the floor row, by the open front). */
@@ -253,7 +264,8 @@ export class BuildBoard {
         const avail = allow.get(pick.item) ?? 0;
         const size = chunkSize(avail, rnd);
         const rare = rnd() < (now.stage === FINISH ? RARE_CHANCE_FINISH : RARE_CHANCE);
-        const pickReward = BOARD_REWARDS[Math.min(BOARD_REWARDS.length - 1, Math.floor(rnd() * BOARD_REWARDS.length))];
+        const pool = rewardsAt(this.rep);
+        const pickReward = pool[Math.min(pool.length - 1, Math.floor(rnd() * pool.length))];
         allow.set(pick.item, avail - size);
         this.bounties.push({
           id: `b${this.seq}`,
