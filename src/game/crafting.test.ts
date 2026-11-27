@@ -45,6 +45,8 @@ describe('crafting', () => {
       'dining_table', 'plank_bench', 'bookshelf',
       // Hen eggs (src/content/areas/farm_eggs.ts).
       'dough_egg',
+      // Ice uses (src/content/areas/farm_ice.ts).
+      'melt_ice', 'berry_ice',
       // Goat milk and wool (src/content/areas/synergy_animals.ts; area files load in name order).
       'shears', 'milk_tea', 'milk_coffee', 'dough_milk', 'padded_coat_wool', 'bellows_wool', 'wool_bedding',
       // Tool-and-block synergy (src/content/areas/synergy_tools.ts).

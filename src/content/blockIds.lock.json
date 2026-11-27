@@ -316,6 +316,14 @@
   "hand_pump": 314,
   "cistern": 315,
   "sprinkler": 316,
-  "beehive": 317,
-  "beeswax_candle": 318
+  "lift_winch": 317,
+  "elevator_winch": 318,
+  "drawbridge": 319,
+  "bridge_deck": 320,
+  "telegraph_pole": 321,
+  "telegraph_office": 322,
+  "radio_mast": 323,
+  "clock_tower": 324,
+  "beehive": 325,
+  "beeswax_candle": 326
 }

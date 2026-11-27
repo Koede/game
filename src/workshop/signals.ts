@@ -8,8 +8,9 @@ import type { GameBus } from '../core/context';
 import { Facing, voxelFacing, type IWorld } from '../core/types';
 import { LogicNet, type LogicKind } from './mech/logic';
 import type { GroundItems } from '../game/groundItems';
+import { CLOCK_TIMER_PRESETS, TOWER_RANGE, TOWER_SCHEDULES, clockTimerOn, scheduleText, striking } from './clockTower';
 
-export const SIGNAL_KINDS = new Set(['signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'logic_gate', 'signal_relay', 'signal_timer', 'push_button']);
+export const SIGNAL_KINDS = new Set(['signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'logic_gate', 'signal_relay', 'signal_timer', 'push_button', 'clock_tower']);
 /** Modes of the relay (tap to cycle). It reads the cell behind it and drives the cell in front at full strength: it also renews a fading signal. */
 export const RELAY_MODES: readonly { name: string; kind: 'repeat' | 'delay' | 'hold' | 'pulse'; s: number }[] = [
   { name: 'Repeater (full strength)', kind: 'repeat', s: 0 },
@@ -36,7 +37,9 @@ export const GATE_MODES: readonly { name: string; kind: LogicKind; arg?: number 
   { name: 'Compare (left at least right)', kind: 'cmp' },
   { name: 'Delay (left, one second later)', kind: 'delay', arg: 20 },
 ];
-const SOURCES = new Set(['crank_lever', 'pressure_plate', 'metronome', 'signal_timer', 'push_button']);
+const SOURCES = new Set(['crank_lever', 'pressure_plate', 'metronome', 'signal_timer', 'push_button', 'clock_tower']);
+/** Settings of a timer: its beats in seconds, then the clock settings it has next to a clock tower (clockTower.ts). */
+const TIMER_SETTINGS = TIMER_PRESETS.length + CLOCK_TIMER_PRESETS.length;
 export const SIGNAL_RANGE = 15;
 /** Metronome: one pulse every PERIOD seconds, on for PULSE of them. */
 export const METRONOME_PERIOD_S = 4;
@@ -49,8 +52,14 @@ const k3 = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
 const modeIndex = (v: unknown, n: number): number => (Number.isInteger(v) && (v as number) >= 0 && (v as number) < n ? (v as number) : 0);
 const timerText = (i: number): string => {
-  const p = TIMER_PRESETS[Math.min(i, TIMER_PRESETS.length - 1)];
+  if (i >= TIMER_PRESETS.length) return CLOCK_TIMER_PRESETS[Math.min(i - TIMER_PRESETS.length, CLOCK_TIMER_PRESETS.length - 1)].name;
+  const p = TIMER_PRESETS[i];
   return `${p.on} s on, every ${p.every} s`;
+};
+/** A 24-hour clock reading of time of day `tod` (0 = sunrise = 06:00). */
+const hhmm = (tod: number): string => {
+  const m = Math.floor((((6 * 60 + tod * 1440) % 1440) + 1440) % 1440);
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
 
 interface Cell { kind: string; x: number; y: number; z: number; s: number }
@@ -60,6 +69,8 @@ export interface SignalHost {
   readonly ground: GroundItems;
   readonly bus: GameBus;
   standingOn(): ((x: number, y: number, z: number) => boolean) | null;
+  /** The sun's time of day (0..1, 0 = sunrise) for clock towers; null or absent: no sun to read, towers stand still. */
+  timeOfDay?(): number | null;
 }
 
 export class Signals {
@@ -79,6 +90,8 @@ export class Signals {
   /** Push buttons: the clock time each stops signalling. */
   private readonly pushed = new Map<string, number>();
   private clock = 0;
+  /** Clock towers that were striking last tick (their bell rings once as a strike starts). */
+  private readonly striking = new Set<string>();
 
   constructor(private readonly host: SignalHost) {}
 
@@ -124,8 +137,14 @@ export class Signals {
       this.host.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.2 + c.s * 0.05, volume: 0.4 });
       return `Relay: ${RELAY_MODES[c.s].name}`;
     }
+    if (c?.kind === 'clock_tower') {
+      c.s = (c.s + 1) % TOWER_SCHEDULES.length;
+      this.host.bus.emit('sfx', { name: 'tower_bell', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.5, volume: 0.3 });
+      return `Clock tower: ${scheduleText(c.s)}`;
+    }
     if (c?.kind === 'signal_timer') {
-      c.s = (c.s + 1) % TIMER_PRESETS.length;
+      // Next to a clock tower the timer also has the tower's clock settings.
+      c.s = (c.s + 1) % (this.towerNear(c) ? TIMER_SETTINGS : TIMER_PRESETS.length);
       this.host.bus.emit('sfx', { name: 'dig_wood', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.2 + c.s * 0.05, volume: 0.4 });
       return `Timer: ${timerText(c.s)}`;
     }
@@ -229,8 +248,43 @@ export class Signals {
     return false;
   }
 
+  /** Every clock tower: where it stands and the town hours it is set to (TOWER_SCHEDULES). */
+  towers(): { x: number; y: number; z: number; schedule: number }[] {
+    const out: { x: number; y: number; z: number; schedule: number }[] = [];
+    for (const c of this.cells.values()) if (c.kind === 'clock_tower') out.push({ x: c.x, y: c.y, z: c.z, schedule: c.s });
+    return out;
+  }
+
+  /** True when a clock tower stands within TOWER_RANGE blocks of the cell. */
+  private towerNear(c: { x: number; y: number; z: number }): boolean {
+    for (const o of this.cells.values()) if (o.kind === 'clock_tower' && Math.hypot(o.x - c.x, o.y - c.y, o.z - c.z) <= TOWER_RANGE) return true;
+    return false;
+  }
+
+  private tod(): number | null {
+    const v = this.host.timeOfDay?.();
+    return typeof v === 'number' && Number.isFinite(v) ? v : null;
+  }
+
+  private timerOn(c: Cell, t: number, tod: number | null): boolean {
+    if (c.s < TIMER_PRESETS.length) return t % TIMER_PRESETS[c.s].every < TIMER_PRESETS[c.s].on;
+    const p = CLOCK_TIMER_PRESETS[Math.min(c.s - TIMER_PRESETS.length, CLOCK_TIMER_PRESETS.length - 1)];
+    return tod !== null && this.towerNear(c) && clockTimerOn(p.key, tod);
+  }
+
+  /** A tower lights while it strikes the hour, and its bell rings once as the strike starts. */
+  private towerOn(key: string, c: Cell, tod: number | null): boolean {
+    const on = tod !== null && striking(tod);
+    if (on && !this.striking.has(key)) {
+      this.striking.add(key);
+      this.host.bus.emit('sfx', { name: 'tower_bell', x: c.x + 0.5, y: c.y + 0.5, z: c.z + 0.5, volume: 0.7 });
+    } else if (!on) this.striking.delete(key);
+    return on;
+  }
+
   tick(t: number): void {
     this.clock = t;
+    const tod = this.tod();
     const gateOut = this.runGates();
     for (const [k, v] of this.runRelays(t)) gateOut.set(k, v);
     this.level.clear();
@@ -244,9 +298,10 @@ export class Signals {
       const on = c.kind === 'crank_lever' ? c.s === 1
         : c.kind === 'pressure_plate' ? this.pressed(c)
           : c.kind === 'metronome' ? t % METRONOME_PERIOD_S < METRONOME_PULSE_S
-            : c.kind === 'signal_timer' ? t % TIMER_PRESETS[Math.min(c.s, TIMER_PRESETS.length - 1)].every < TIMER_PRESETS[Math.min(c.s, TIMER_PRESETS.length - 1)].on
+            : c.kind === 'signal_timer' ? this.timerOn(c, t, tod)
               : c.kind === 'push_button' ? t < (this.pushed.get(key) ?? 0)
-                : false;
+                : c.kind === 'clock_tower' ? this.towerOn(key, c, tod)
+                  : false;
       if (SOURCES.has(c.kind) && on) {
         seed(key);
         this.litCells.add(key);
@@ -357,7 +412,15 @@ export class Signals {
       return `Logic Gate - ${m.name}, ${this.lit(k3(x, y, z)) ? 'on' : 'off'}${n}`;
     }
     if (c.kind === 'signal_relay') return `Relay - ${RELAY_MODES[Math.min(c.s, RELAY_MODES.length - 1)].name}, ${this.lit(k3(x, y, z)) ? 'on' : 'off'}`;
-    if (c.kind === 'signal_timer') return `Timer - ${timerText(c.s)}, ${this.lit(k3(x, y, z)) ? 'on' : 'off'}`;
+    if (c.kind === 'signal_timer') {
+      const idle = c.s >= TIMER_PRESETS.length && !this.towerNear(c) ? ` (idle: no clock tower within ${TOWER_RANGE} blocks)` : '';
+      return `Timer - ${timerText(c.s)}${idle}, ${this.lit(k3(x, y, z)) ? 'on' : 'off'}`;
+    }
+    if (c.kind === 'clock_tower') {
+      const tod = this.tod();
+      const time = tod === null ? 'no sun to read' : hhmm(tod);
+      return `Clock Tower - ${time}, ${TOWER_SCHEDULES[Math.min(c.s, TOWER_SCHEDULES.length - 1)].name}; strikes every hour. Tap it to change the town's hours`;
+    }
     const names: Record<string, string> = { signal_wire: 'Signal Wire', crank_lever: 'Crank Lever', pressure_plate: 'Pressure Plate', metronome: 'Metronome', signal_lamp: 'Signal Lamp', bell: 'Bell', push_button: 'Push Button' };
     const state = c.kind === 'bell' ? (this.near(x, y, z) ? 'ringing' : 'quiet, rings when a machine seizes within 12 blocks')
       : c.kind === 'signal_wire' ? `strength ${this.level.get(k3(x, y, z)) ?? 0}`
@@ -373,7 +436,7 @@ export class Signals {
     this.cells.clear();
     for (const row of Array.isArray(raw) ? raw : []) {
       if (!Array.isArray(row) || row.length !== 5 || ![row[0], row[1], row[2]].every(Number.isInteger) || !SIGNAL_KINDS.has(row[3])) continue;
-      this.cells.set(k3(row[0], row[1], row[2]), { kind: row[3], x: row[0], y: row[1], z: row[2], s: row[3] === 'logic_gate' ? modeIndex(row[4], GATE_MODES.length) : row[3] === 'signal_relay' ? modeIndex(row[4], RELAY_MODES.length) : row[3] === 'signal_timer' ? modeIndex(row[4], TIMER_PRESETS.length) : row[4] ? 1 : 0 });
+      this.cells.set(k3(row[0], row[1], row[2]), { kind: row[3], x: row[0], y: row[1], z: row[2], s: row[3] === 'logic_gate' ? modeIndex(row[4], GATE_MODES.length) : row[3] === 'signal_relay' ? modeIndex(row[4], RELAY_MODES.length) : row[3] === 'signal_timer' ? modeIndex(row[4], TIMER_SETTINGS) : row[3] === 'clock_tower' ? modeIndex(row[4], TOWER_SCHEDULES.length) : row[4] ? 1 : 0 });
     }
   }
 

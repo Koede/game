@@ -58,6 +58,7 @@ describe('crop growth', () => {
     live(kit, 2 * STAGE_S);
     expect(stageAt(kit, 0, 11, 0)).toBe('wheat_3');
     expect(grew.map((g) => g.stage)).toEqual([1, 2, 3]);
+    expect(grew.map((g) => g.ripe)).toEqual([undefined, undefined, true]);
     // The same entity all along, now resting.
     expect(kit.world.getEntity(0, 11, 0)).toBe(e);
     expect(e.growS).toBe(0);
@@ -124,6 +125,19 @@ describe('crop growth', () => {
     kit.world.put(0, 11, -3, 'water');
     live(kit, DT);
     expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
+  });
+
+  it('a pond that froze over (winter) still keeps the crop hydrated, and stays so when it freezes under it', () => {
+    const kit = morning();
+    plant(kit, 0, 11, 0, { water: true });
+    live(kit, 1);
+    expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
+    kit.world.put(3, 10, 0, 'ice'); // the winter module froze the water
+    live(kit, DT);
+    expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
+    kit.world.put(3, 10, 0, 'air'); // the ice is mined out: now it is dry
+    live(kit, DT);
+    expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(false);
   });
 
   it('a plant left on nothing pops on the next tick, dropping what it would (UNIT-03 rule 1)', () => {
@@ -231,7 +245,7 @@ describe('crop growth', () => {
     expect(kit.sim.entityCount).toBe(2);
     expect(kit.sim.cropCount).toBe(1);
     expect(placed).toEqual([]);
-    expect(sfx).toEqual([]);
+    expect(sfx.map((s) => s.name)).toEqual(['pickup']); // only the ripening chime
     expect(toasts).toEqual([]);
     const before = JSON.stringify(kit.player.inventory.toJSON());
     kit.world.put(0, 11, 0, 'air');

@@ -121,7 +121,7 @@ try {
     await d.approach(wheat);
     await d.settle(1200);
     const text = await label();
-    assert(/Wheat - growing, bees pollinating/.test(text), `crosshair: ${text}`);
+    assert(/Wheat - growing.*bees pollinating/.test(text), `crosshair: ${text}`);
     await d.shot('03-pollinated');
   });
 

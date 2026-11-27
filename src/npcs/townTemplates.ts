@@ -198,6 +198,42 @@ const LAMP_POST = template('lamp_post', 'Lamp Post', 1, 1, { x: 0, z: 0, facing:
   c.set(0, 6, 0, 'torch');
 });
 
+/**
+ * The clock tower: a stone shaft on oak corner posts, a belfry floor half-way up, and the town's tower clock over the door
+ * (clockTower.ts: it sets the hours the town keeps). The other three faces carry plain dials. The pointed roof is the town's
+ * tallest point.
+ */
+const CLOCK_TOWER = template('clock_tower', 'Clock Tower', 5, 5, { x: 2, z: 4, facing: Facing.South }, (c) => {
+  c.stage = 'frame';
+  c.perimeter(0, 0, 4, 4, 0, 'stone_brick', false);
+  c.unset(2, 0, 4);
+  for (const [x, z] of [[0, 0], [4, 0], [0, 4], [4, 4]] as const) c.box(x, 0, z, x, 10, z, 'oak_log');
+  c.perimeter(0, 0, 4, 4, 5, 'oak_log', false);
+  c.perimeter(0, 0, 4, 4, 10, 'oak_log', false);
+  c.stage = 'walls';
+  for (const y of [1, 2, 3, 4, 6, 7, 8, 9]) c.perimeter(0, 0, 4, 4, y, 'stone_brick', false);
+  c.unset(2, 1, 4);
+  for (const [x, z] of [[2, 0], [0, 2], [4, 2]] as const) c.set(x, 3, z, 'glass');
+  c.box(1, 5, 1, 3, 5, 3, 'plank');
+  c.stage = 'roof';
+  c.box(0, 11, 0, 4, 11, 4, 'plank');
+  c.box(1, 12, 1, 3, 12, 3, 'plank');
+  c.set(2, 13, 2, 'plank');
+  c.stage = 'clearing';
+  c.set(2, 0, 4, 'air');
+  c.set(2, -1, 5, 'dirt');
+  c.stage = 'finish';
+  c.box(1, 0, 1, 3, 0, 3, 'plank');
+  c.set(1, 1, 1, 'torch');
+  c.set(2, 6, 2, 'torch');
+  c.set(2, 14, 2, 'torch');
+  // The tower clock faces the door side; plain dials on the other three.
+  c.set(2, 8, 4, 'clock_tower', Facing.South);
+  c.set(2, 8, 0, 'clockface', Facing.North);
+  c.set(0, 8, 2, 'clockface', Facing.West);
+  c.set(4, 8, 2, 'clockface', Facing.East);
+});
+
 /** The presaved library, by key. */
 export const TOWN_TEMPLATES: Readonly<Record<string, TownTemplate>> = {
   [STORAGE_BAY.key]: STORAGE_BAY,
@@ -205,6 +241,7 @@ export const TOWN_TEMPLATES: Readonly<Record<string, TownTemplate>> = {
   [WORKSHOP.key]: WORKSHOP,
   [WELL_PLAZA.key]: WELL_PLAZA,
   [LAMP_POST.key]: LAMP_POST,
+  [CLOCK_TOWER.key]: CLOCK_TOWER,
 };
 
 /** The template with `key`, or null. */

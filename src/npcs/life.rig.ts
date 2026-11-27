@@ -14,6 +14,7 @@ export interface RigState {
   slept: number;
   buffs: Array<[string, number]>;
   hostiles: { id: number; x: number; y: number; z: number }[];
+  age: number;
 }
 
 export function lifeRig(opts: { coins?: number; tod?: number; held?: RigState['held']; pack?: Record<string, number>; day?: number; seed?: number } = {}) {
@@ -28,11 +29,12 @@ export function lifeRig(opts: { coins?: number; tod?: number; held?: RigState['h
   let seed = 11;
   const rng = (): number => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
   const npcs = new NpcManager(bus, rng);
-  const state: RigState = { goal: 'gather_logs', done: new Set(), held: opts.held ?? null, tod: opts.tod ?? 0.8, day: opts.day ?? 3, pack: { ...(opts.pack ?? {}) }, slept: 0, buffs: [], hostiles: [] };
+  const state: RigState = { goal: 'gather_logs', done: new Set(), held: opts.held ?? null, tod: opts.tod ?? 0.8, day: opts.day ?? 3, pack: { ...(opts.pack ?? {}) }, slept: 0, buffs: [], hostiles: [], age: 0 };
   const world = new FakeWorld(bus);
   const host: NpcHost = {
     give: (item, n) => (state.pack[item] = (state.pack[item] ?? 0) + n, 0),
     currentGoal: () => state.goal,
+    age: () => state.age,
     completed: () => state.done,
     timeOfDay: () => state.tod,
     day: () => state.day,

@@ -38,8 +38,22 @@ function setup(species = 'hen', baby = false) {
     controller.update(DT);
   };
   const eggs = (): number => player.inventory.count('egg');
-  return { player, mob, use, toasts, tickMobs, eggs };
+  return { player, mobs, mob, use, toasts, tickMobs, eggs };
 }
+
+describe('winter on the farm', () => {
+  it('slows laying to half pace and refuses to breed', () => {
+    const t = setup();
+    t.mobs.skyFn = (out) => {
+      out.winter = true;
+    };
+    t.mob.eggS = 100;
+    t.tickMobs(10);
+    expect(t.mob.eggS).toBeGreaterThan(94);
+    expect(t.mob.eggS).toBeLessThan(96);
+    expect(t.mobs.feed(t.mob.id, 'wheat_seeds')).toEqual({ ok: false, reason: 'Too cold to raise young: wait for spring' });
+  });
+});
 
 describe('hen eggs', () => {
   it('an empty hand takes an egg from a hen, then she needs five minutes', () => {
