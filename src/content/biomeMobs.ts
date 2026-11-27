@@ -106,7 +106,7 @@ export const BIOME_ANIMALS: CreatureSpec[] = [
   {
     key: 'stag', name: 'Stag', desc: 'A russet stag of the woodland glades. It bolts at a footstep, but a sheaf of wheat will bring it close.',
     biomes: ['woodland'], health: 9, speed: 3, size: { w: 0.8, h: 1.5 },
-    drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: [1, 2] }], likes: ['wheat'], group: [2, 3], model: STAG,
+    drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: [1, 2] }, { item: 'bone', count: 1, chance: 0.5 }], likes: ['wheat'], group: [2, 3], model: STAG,
   },
   {
     key: 'dune_hare', name: 'Dune Hare', desc: 'A sand-coloured hare with ears like sails. It lives off dry shrub and the seeds travellers drop.',
