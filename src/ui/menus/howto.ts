@@ -150,6 +150,7 @@ export class HowToPlay {
     const show = (which: 'keyboard' | 'touch'): void => {
       lists.keyboard.hidden = which !== 'keyboard';
       lists.touch.hidden = which !== 'touch';
+      this.refilter?.();
     };
     const initial = opts.initial ?? (touchFirst() ? 'touch' : 'keyboard');
     const picker = new Segmented<'keyboard' | 'touch'>({
@@ -185,9 +186,11 @@ export class HowToPlay {
     }
     if (opts.query) this.filter(opts.query);
     this.searchBox = search;
+    this.refilter = () => this.filter(search.value);
   }
 
   private searchBox: SearchBox | null = null;
+  private refilter: (() => void) | null = null;
 
   /** Puts a query in the search field and applies it. */
   search(query: string): void {
@@ -206,9 +209,10 @@ export class HowToPlay {
     for (const l of this.lines) {
       const show = matches(query, l.text);
       l.el.forEach((e) => (e.hidden = !show));
-      any ||= show;
+      // A control line in the scheme that is not showing cannot answer the search.
+      any ||= show && !l.el[0].parentElement?.hidden;
     }
-    for (const sec of this.sections) sec.hidden = !this.lines.some((l) => l.section === sec && !l.el[0].hidden) && query.trim() !== '';
+    for (const sec of this.sections) sec.hidden = !this.lines.some((l) => l.section === sec && !l.el[0].hidden && !l.el[0].parentElement?.hidden) && query.trim() !== '';
     this.empty.hidden = any || query.trim() === '';
   }
 
