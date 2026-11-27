@@ -138,6 +138,8 @@ export interface DebugHandle {
   findBlocks(block: string, radius?: number, limit?: number): { x: number; y: number; z: number; d: number }[];
   surfaceY(x: number, z: number): number;
   open(screen: ScreenRequest): void;
+  /** Sends any bus event, for browser checks of effects (e.g. emit('fx:burst', { kind: 'splash', x, y, z })). */
+  emit(name: string, payload?: unknown): void;
   close(): void;
   selectSlot(slot: number): void;
   tick(n: number): void;
@@ -435,6 +437,9 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     open(screen) {
       game().bus.emit('ui:open', { screen });
+    },
+    emit(name, payload = {}) {
+      (game().bus as unknown as { emit(n: string, p: unknown): void }).emit(name, payload);
     },
     close() {
       game().bus.emit('ui:close', {});

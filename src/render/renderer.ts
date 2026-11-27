@@ -16,6 +16,7 @@ import { BrewFx } from './brewFx';
 import { BrewLiquid } from './brewLiquid';
 import { DistillFx } from './distill/distillFx';
 import { Emitters } from './emitters';
+import { FeelFx } from './feelFx';
 import { heldGlowOf } from '../game/legendary';
 import { HandParts } from './handwork/handParts';
 import { MachineParts } from './machines';
@@ -113,6 +114,7 @@ export class Renderer implements IView {
   }
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
+  private readonly feelFx: FeelFx;
   private heldGlow: readonly [number, number, number] | null = null;
   private readonly brewFx: BrewFx;
   private readonly brewLiquid: BrewLiquid;
@@ -185,6 +187,7 @@ export class Renderer implements IView {
     this.particles = new Particles(this.uniforms);
     this.probe = new LightProbe(world);
     this.emitters = new Emitters(bus, world, this.particles, (x, y, z, out) => this.lightAt(x, y, z, out));
+    this.feelFx = new FeelFx(bus, this.particles);
     this.vents = new SteamVents(bus, world, this.particles);
     this.brewFx = new BrewFx(world, this.particles);
     this.handParts = new HandParts(world, this.uniforms, bus, this.particles);
@@ -427,6 +430,7 @@ export class Renderer implements IView {
     for (const off of this.offs) off();
     this.resizeObserver?.disconnect();
     this.emitters.dispose();
+    this.feelFx.dispose();
     this.brewLiquid.dispose();
     this.distillFx.dispose();
     this.vents.dispose();

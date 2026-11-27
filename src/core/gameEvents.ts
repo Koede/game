@@ -45,6 +45,9 @@ export type ScreenRequest =
   /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */
   | { type: 'distill_rig'; x: number; y: number; z: number };
 
+/** The kinds of small particle burst the bus can ask for with 'fx:burst'. */
+export type FxKind = 'splash' | 'dust' | 'snow' | 'hearts' | 'sparkle' | 'steam' | 'poof' | 'hit' | 'glow' | 'bobber' | 'bobber_dip' | 'ripple';
+
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
 export type SfxName =
   | 'dig_stone'
@@ -80,6 +83,10 @@ export type SfxName =
   | 'toast_good'
   /** A low soft double thud when a warning or bad news appears as a toast. */
   | 'toast_warn'
+  /** A rod is cast: a soft whoosh and a plop. */
+  | 'fish_cast'
+  /** A fish bites: a bright plink. */
+  | 'fish_bite'
   | 'ui_open'
   | 'ui_close'
   | 'error'
@@ -295,6 +302,8 @@ export interface GameEvents {
   // ---- system ----
   'settings:changed': Record<string, never>;
   'game:saved': Record<string, never>;
+  /** A small visible burst (splash, dust, hearts, a hit spark...) at a world point; the renderer draws it (src/render/feelFx.ts). `count` overrides the default, and is capped. */
+  'fx:burst': { kind: FxKind; x: number; y: number; z: number; count?: number };
   'game:paused': { paused: boolean };
 
   // ---- food, farming and animals (spec 12) ----

@@ -109,6 +109,26 @@ describe('fishing use', () => {
     expect(r.ex.fishingPhase).toBe('idle');
   });
 
+  it('gives the cast, the bobber and the bite a sound and a splash', () => {
+    const r = rig();
+    r.world.fill(-3, 5, -3, 3, 5, 3, 'sand');
+    r.world.fill(-3, 6, -3, 3, 9, 3, 'water');
+    const sfx: string[] = [];
+    const fx: string[] = [];
+    r.bus.on('sfx', (e) => sfx.push(e.name));
+    r.bus.on('fx:burst', (e) => fx.push(e.kind));
+    const rod = r.hold('fishing_rod', 1, 5);
+    const aim = { ...r.aim(0, 5, 0), block: { key: 'sand', liquid: null }, px: 0, py: 6, pz: 0 };
+    r.ex.use(aim, rod);
+    expect(sfx).toEqual(['fish_cast']);
+    expect(fx).toEqual(['splash']);
+    r.tick(1.3);
+    expect(fx).toContain('bobber');
+    r.tick(20);
+    expect(sfx).toContain('fish_bite');
+    expect(fx).toContain('bobber_dip');
+  });
+
   it('loses the fish when the bite window passes, and ignores dry ground', () => {
     const r = rig();
     r.world.fill(-3, 5, -3, 3, 5, 3, 'sand');
