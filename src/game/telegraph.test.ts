@@ -162,6 +162,27 @@ describe('telegraph network', () => {
     expect(b.tg.size).toBe(2);
   });
 
+  it('a mast on air when saved stays on air after a reload until its chunk is loaded', () => {
+    const r = rig({ watts: RADIO_MIN_W });
+    r.world.put(0, 1, 0, 'telegraph_office');
+    r.world.put(5, 1, 0, 'radio_mast');
+    r.world.put(140, 1, 0, 'radio_mast');
+    r.world.put(145, 1, 0, 'telegraph_office');
+    r.run(1.1);
+    expect(r.tg.view(0, 1, 0)?.offices).toBe(2);
+    const snap = JSON.parse(JSON.stringify(r.tg.toJSON()));
+    const b = rig({ watts: RADIO_MIN_W });
+    b.world.put(0, 1, 0, 'telegraph_office');
+    b.world.put(5, 1, 0, 'radio_mast');
+    b.world.put(140, 1, 0, 'radio_mast');
+    b.world.put(145, 1, 0, 'telegraph_office');
+    (b.world as { isLoaded: (x: number) => boolean }).isLoaded = (x: number) => x < 100;
+    b.tg.load(snap);
+    b.run(1.1);
+    expect(b.tg.view(0, 1, 0)?.offices).toBe(2);
+    expect(b.tg.onAir(140, 1, 0)).toBe(true);
+  });
+
   it('stormDueIn reads the timetable ahead, and an overhead storm is 0', () => {
     const sky = skyWithStormAt(1000);
     expect(stormDueIn(sky, 100, 600)).toBeNull();
