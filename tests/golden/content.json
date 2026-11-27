@@ -310,7 +310,10 @@
     "steam_pipe": {"age":1,"category":"block","hardness":1.5,"key":"steam_pipe","minTier":0,"tool":"pickaxe"},
     "mill_wheel": {"age":1,"category":"machine","hardness":1.2,"key":"mill_wheel","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "windmill": {"age":1,"category":"machine","hardness":1.2,"key":"windmill","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
-    "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"}
+    "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"},
+    "telegraph_pole": {"age":1,"category":"machine","hardness":0.8,"key":"telegraph_pole","shape":"fence","tool":"axe"},
+    "telegraph_office": {"age":1,"category":"machine","hardness":1.5,"key":"telegraph_office","lightActive":3,"oriented":true,"tool":"axe"},
+    "radio_mast": {"age":3,"category":"machine","hardness":2,"key":"radio_mast","lightActive":4,"shape":"fence","tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -1090,6 +1093,9 @@
     "brick_chimney": {"age":0,"id":"brick_chimney","inputs":[{"count":4,"item":"brick"}],"output":{"count":2,"item":"brick_chimney"},"station":"workbench"},
     "bronze_plate_block": {"age":0,"id":"bronze_plate_block","inputs":[{"count":4,"item":"bronze_plate"}],"output":{"count":1,"item":"bronze_plate_block"},"station":"workbench"},
     "brick_from_slabs": {"age":0,"id":"brick_from_slabs","inputs":[{"count":2,"item":"brick_slab"}],"output":{"count":1,"item":"brick"},"station":"workbench"},
+    "telegraph_pole": {"age":1,"id":"telegraph_pole","inputs":[{"count":2,"item":"oak_log"},{"count":2,"item":"copper_wire"},{"count":1,"item":"glass"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":4,"item":"telegraph_pole"},"station":"furnace"},
+    "telegraph_office": {"age":1,"id":"telegraph_office","inputs":[{"count":4,"item":"plank"},{"count":4,"item":"copper_wire"},{"count":2,"item":"bronze_plate"}],"kind":"forge","minTempC":800,"minTier":2,"output":{"count":1,"item":"telegraph_office"},"station":"furnace"},
+    "radio_mast": {"age":3,"id":"radio_mast","inputs":[{"count":4,"item":"steel_plate"},{"count":2,"item":"copper_coil"},{"count":1,"item":"circuit"}],"kind":"forge","minTempC":1200,"minTier":4,"output":{"count":1,"item":"radio_mast"},"station":"furnace"},
     "insulated_wall": {"age":0,"id":"insulated_wall","inputs":[{"count":4,"item":"plank"},{"count":3,"item":"wool"}],"output":{"count":4,"item":"insulated_wall"},"station":"workbench"},
     "fishing_rod": {"age":0,"id":"fishing_rod","inputs":[{"count":2,"item":"stick"},{"count":1,"item":"cord"},{"count":1,"item":"flint"}],"output":{"count":1,"item":"fishing_rod"},"station":"hand"},
     "cooked_perch": {"age":0,"id":"cooked_perch","inputs":[{"count":1,"item":"raw_perch"}],"kind":"smelt","minTempC":180,"minTier":1,"output":{"count":1,"item":"cooked_perch"},"station":"furnace","timeS":6},

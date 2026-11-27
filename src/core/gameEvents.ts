@@ -25,6 +25,8 @@ export type ScreenRequest =
   | { type: 'log' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
+  /** A telegraph office or radio mast (docs/api/telegraph.md): the wire's news, the caravan by wire, the signal mode. */
+  | { type: 'telegraph'; x: number; y: number; z: number }
   /** The Town page: Gruk's building, the town's standing, who lives where, and the camp goals. */
   | { type: 'town' }
   | { type: 'pause' }

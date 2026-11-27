@@ -3,7 +3,7 @@
  * helpers that SET UP states quickly (give items, teleport, set the time, place a voxel, open a screen, run ticks,
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
-import { DT } from '../core/constants';
+import { DAY_LENGTH_S, DT } from '../core/constants';
 import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
@@ -99,6 +99,10 @@ export interface DebugHandle {
    * long while; 'auto' hands the sky back to the seed's timetable.
    */
   setWeather(kind: WeatherKind | 'auto', instant?: boolean): void;
+  /** The telegraph network (docs/api/telegraph.md): nodes, wires, telegrams, and the office at a position's view. */
+  telegraph(x?: number, y?: number, z?: number): unknown;
+  /** Moves the clock to `leadS` world seconds before the next storm on the seed's timetable (releases a forced sky). */
+  skipToStorm(leadS: number): number;
   /** Announces that age `age` began (the postcard and story directors react), without touching the furnace. */
   advanceAge(age: number): void;
   /** Sets the food bar (0..20), e.g. to make room for a meal. */
@@ -307,6 +311,33 @@ export function createDebugHandle(app: App): DebugHandle {
       else if (['clear', 'cloudy', 'rain', 'storm'].includes(kind)) s.weather.force(kind, s.clock.worldTimeS, instant);
       else throw new Error(`unknown weather "${kind}"`);
       s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
+    },
+    telegraph(x, y, z) {
+      const g = game();
+      const t = g.state.telegraph;
+      return {
+        ...t.toJSON(),
+        lines: t.lines().length,
+        wirePoints: g.telegraphWires.points,
+        view: x === undefined ? null : t.view(x, y as number, z as number),
+        storm: x === undefined ? null : t.stormFor(x, y as number, z as number),
+        busy: x === undefined ? null : t.busy(x, y as number, z as number),
+      };
+    },
+    skipToStorm(leadS) {
+      const s = game().state;
+      s.weather.release();
+      const now = s.clock.worldTimeS;
+      let seg = s.weather.schedule.at(now);
+      for (let i = seg.index + 1; i < seg.index + 400; i++) {
+        seg = s.weather.schedule.segment(i);
+        if (seg.kind === 'storm' && seg.startS - leadS > now) break;
+      }
+      const at = (seg.startS - leadS) / DAY_LENGTH_S;
+      s.clock.day = Math.floor(at) + 1;
+      s.clock.setTimeOfDay(at - Math.floor(at));
+      s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
+      return seg.startS - s.clock.worldTimeS;
     },
     setFood(food) {
       game().state.player.food = Math.max(0, Math.min(20, food));
