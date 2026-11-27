@@ -21,7 +21,7 @@ import { MachineStatus } from '../core/machineStatus';
 import { fluid as fluidSpec, fluidOfLiquid, machine } from '../core/registry';
 import { AIR, FACE_DIRS, type FluidKey, type IWorld, type LiquidKind } from '../core/types';
 import { isLiquidSource, refillsAsSource } from '../world/water';
-import type { FurnaceEntity, MachineEntity, SimContext, SimNode } from './entities';
+import type { FurnaceEntity, MachineEntity, SimNode } from './entities';
 import { heldL, useFluid } from './fluidUse';
 import { behaviourOf, type Behaviour } from './machines';
 import { powered } from './power';

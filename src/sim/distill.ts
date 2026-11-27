@@ -19,14 +19,14 @@ import {
 import { AMBIENT_TEMP_C } from '../core/constants';
 import type { GameBus } from '../core/context';
 import {
-  ASPHALT_C, ASPHALT_COUNT, BOIL_J_PER_L, BOIL_LPS, CANISTER_L, CHEM, CHEM_CAPACITY_L, CHEM_KINDS, CHEM_STEP_HZ,
+  ASPHALT_C, ASPHALT_COUNT, BOIL_J_PER_L, BOIL_LPS, CANISTER_L, CHEM, CHEM_CAPACITY_L, CHEM_STEP_HZ,
   CONDENSE_LPS, DONE_SUFFIX, ELIXIR_BATCH_L, ELIXIR_VIALS, ESSENCE_COUNT, ESSENCE_RUIN_C, ESSENCE_SET_C, FERMENT_LPS, FERMENT_MAX_C,
   FERMENT_MAX_ETHANOL, FERMENT_MAX_SUGARS, FERMENT_MIN_C, FLOW_LPS, GLASS_MAX_C, HEAD_C, HEAD_JACKET_C, JACKET_MULT,
   CHEM_CONTAINERS, RECEIVE_HOLD_S, SETTLE_S, STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, TINCTURE_C, VACUUM_BP, burnerTemp, chemKindOf, drinkOfEssence, essenceDrink, fuelGrade,
   isBotanical, isFilterMedium, isRefluxRatio, stateLook, type ChemKind, type ChemState,
 } from '../core/distill';
 import { blockId, blockOf, fluidOrNull } from '../core/registry';
-import { voxelActive, voxelId, withActive, withId, type BlockDef, type BlockEntity, type IWorld } from '../core/types';
+import { voxelActive, withActive, withId, type BlockDef, type BlockEntity, type IWorld } from '../core/types';
 import { posKey, type FurnaceEntity } from './entities';
 import { scanAll, type Rig, type Still } from './distillScan';
 

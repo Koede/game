@@ -15,7 +15,6 @@ const SEED = 42;
 const DUSK = 0.61;
 const NIGHT = 0.8;
 const MORNING = 0.02;
-const DAYTIME = 0.3;
 
 describe('the trader schedule (pure)', () => {
   it('arrives once every few days, at dusk, and stays three nights', () => {
