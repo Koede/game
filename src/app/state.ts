@@ -28,6 +28,7 @@ import { isFluidEndpoint, itemOrNull, machine } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
+import { AirshipManager } from '../vehicles/airshipManager';
 import { Workshop } from '../workshop/workshop';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
@@ -89,6 +90,8 @@ export class GameState {
   readonly mobPlayer: MobPlayer;
   /** Tractors (docs/api/tractor.md). Headless: the browser Game binds the physics and draws them. */
   readonly vehicles: VehicleManager;
+  /** Airships and the sky chart (docs/api/airship.md). */
+  readonly airships: AirshipManager;
   /** Essentia & Research (docs/api/magic.md). */
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
@@ -216,6 +219,9 @@ export class GameState {
     this.vehicles = new VehicleManager({ world, bus, player: this.player });
     world.loadExtra('vehicles', (raw) => this.vehicles.load(raw));
     this.offs.push(world.persist('vehicles', () => this.vehicles.toJSON()));
+    this.airships = new AirshipManager({ world, bus, player: this.player, biomeAt: (x, z) => world.biomeAt(x, z), busy: () => this.vehicles.driving !== null });
+    world.loadExtra('airships', (raw) => this.airships.load(raw));
+    this.offs.push(world.persist('airships', () => this.airships.toJSON()));
     const sim = this.sim;
     this.magic = new Magic(world, bus, this.player, {
       stokeFurnace: (x, y, z, seconds) => {

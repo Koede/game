@@ -40,6 +40,8 @@ export type ScreenRequest =
   | { type: 'workshop' }
   /** The settlement's jobs (docs/api/jobs.md): what each resident carries between two stops. `person` is the one to show first. */
   | { type: 'jobs'; person?: string }
+  /** The waypoint stone `stone` (docs/api/waypoints.md): pick a visited stone to travel to, rename this one. */
+  | { type: 'waypoints'; stone: number }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
   | { type: 'rune_desk'; x: number; y: number; z: number; /** The Arcane Workbench: the bench's recipes instead of the desk's. */ bench?: boolean }
   /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */

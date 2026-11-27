@@ -32,3 +32,12 @@ describe('hard-winter crops', () => {
     expect(cropScale('autumn', 'carrot', false, true, true)).toBe(CROP_SEASON.carrot.autumn);
   });
 });
+
+describe('seasonLine', () => {
+  it('names the season and the day within it', async () => {
+    const { seasonLine } = await import('./seasons');
+    expect(seasonLine(1)).toBe('Spring, day 1 of 6');
+    expect(seasonLine(16)).toBe('Autumn, day 4 of 6');
+    expect(seasonLine(25)).toBe('Spring, day 1 of 6');
+  });
+});
