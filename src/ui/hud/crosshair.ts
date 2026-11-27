@@ -48,6 +48,15 @@ export class Crosshair {
     this.set(null, -1);
   }
 
+  private hitTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** A hit marker: the crosshair flares into an X for a moment when the player lands a blow. */
+  flashHit(): void {
+    clearTimeout(this.hitTimer);
+    this.el.dataset.hit = '1';
+    this.hitTimer = setTimeout(() => delete this.el.dataset.hit, 160);
+  }
+
   /**
    * `name` of the targeted block (null = nothing in reach); `mining` 0..1, or -1 when not mining. With `creature`,
    * its name and a health bar are shown instead of `name`. `rarity` ('fine' | 'rare' | 'legendary') tints a dropped

@@ -473,7 +473,7 @@ export class Interaction {
     if (blockOf(partner).key === def.key) this.world.setVoxel(x, py, z, withActive(partner, on), 'player');
     this.edits++;
     this.placeCooldown = PLACE_COOLDOWN_S;
-    this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: on ? 1.2 : 0.9, volume: 0.6 });
+    this.bus.emit('sfx', { name: on ? 'door_open' : 'door_close', x: x + 0.5, y: y + 0.5, z: z + 0.5, volume: 0.8 });
     this.swing.triggerSwing();
     return 'worked';
   }

@@ -181,6 +181,18 @@ export class GameUI {
       return true;
     });
     this.offs.push(() => document.removeEventListener('keydown', onKey), () => this.back.dispose());
+    // Every button and tab gives a click, unless something already made a sound for that press (so no double click).
+    let lastSfx = 0;
+    this.offs.push(deps.bus.on('sfx', () => (lastSfx = performance.now())));
+    const onPress = (ev: Event): void => {
+      const el = ev.target instanceof Element ? ev.target.closest('button, [role="tab"]') : null;
+      if (!el || (el as HTMLButtonElement).disabled) return;
+      setTimeout(() => {
+        if (performance.now() - lastSfx > 80) deps.bus.emit('sfx', { name: 'ui_click', volume: 0.6 });
+      }, 0);
+    };
+    root.el.addEventListener('click', onPress);
+    this.offs.push(() => root.el.removeEventListener('click', onPress));
 
     this.registerScreen('inventory', createInventoryScreen);
     this.registerScreen('workbench', createWorkbenchScreen);

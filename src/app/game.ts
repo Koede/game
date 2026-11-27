@@ -127,6 +127,9 @@ const HEAT_VIEW_RADIUS = 12;
 /** Rows of the 25-row heat grid computed per frame (about 2 ms each frame at most). */
 const HEAT_ROWS_PER_FRAME = 4;
 
+/** Machines whose aim line shows what they hold (their machine view's status). */
+const LEVEL_MACHINES: ReadonlySet<string> = new Set(['tank', 'alloy_pot', 'battery', 'lithium_bank', 'cell_rack']);
+
 export class Game {
   readonly state: GameState;
   readonly input: InputState = createInputState();
@@ -668,10 +671,17 @@ export class Game {
     else if (hit && (label = this.magicLabel(hit.x, hit.y, hit.z, hit.block.key)) !== null) { /* magic */ }
     else if (!hit && (label = this.magic.rodReading()) !== null) { /* rod reading at the sky */ }
     else if (hit && this.state.player.inventory.has(GOGGLES)) label = inspect(this.inspectProbe, hit.x, hit.y, hit.z);
+    else if (hit && LEVEL_MACHINES.has(hit.block.machine ?? '') && (label = this.levelLabel(hit)) !== null) { /* tank, battery... */ }
     else if (hit && isKinetic(hit.block.key)) label = hit.block.name;
     if (label === this.namedStation) return;
     this.namedStation = label;
     this.ui.setTargetName(label);
+  }
+
+  /** "Tank - 22,000 of 48,000 L": what a store-like machine holds, read off its machine view; null when it says nothing. */
+  private levelLabel(hit: { x: number; y: number; z: number; block: { name: string } }): string | null {
+    const status = this.state.sim.machineView(hit.x, hit.y, hit.z)?.status;
+    return status ? `${hit.block.name} - ${status}` : null;
   }
 
   /** The drop the view is aimed at, nearer than the block behind it, as the crosshair names it; null for none. */
