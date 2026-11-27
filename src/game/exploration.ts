@@ -318,6 +318,7 @@ export class Exploration {
     this.wearRod();
     if (got.item === null) { this.toast('It slips the hook.'); return 'worked'; }
     const left = this.host.player.give(got.item, 1);
+    this.host.bus.emit('act:done', { kind: 'fished' });
     const name = itemOrNull(got.item)?.name ?? got.item;
     this.sfx('harvest', f.x + 0.5, f.y + 0.5, f.z + 0.5); this.fx('splash', f.x + 0.5, f.y + 1, f.z + 0.5, 14);
     this.toast(left > 0 ? `You land a ${name} but your pack is full.` : `You land a ${name}.`, 'good');
