@@ -6,7 +6,7 @@
  */
 import type { GameBus } from '../core/context';
 import { HAND_STROKE_FOOD, HOT_WORK_WINDOW_S, STROKE_HOT_MULT, STROKE_TOOL_MULT } from '../core/constants';
-import { AIR, WORLD_HEIGHT, voxelId, type BlockDef, type IWorld, type Slot } from '../core/types';
+import { AIR, WORLD_HEIGHT, type BlockDef, type IWorld, type Slot } from '../core/types';
 import { blockOf, voxelWarmth } from '../core/registry';
 import type { PlayerState } from '../game/playerState';
 import { posKey } from './entities';

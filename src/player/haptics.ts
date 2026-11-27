@@ -3,7 +3,7 @@
  * exists (Android browsers; iOS Safari has none, so nothing happens there). Listens to the bus, so nothing else needs to
  * know. Rate-limited so a held Mine feels like taps rather than one long buzz.
  */
-import type { GameBus, Settings } from '../core/context';
+import type { GameBus } from '../core/context';
 
 /** Shortest time between two buzzes, in milliseconds. */
 export const HAPTIC_GAP_MS = 70;

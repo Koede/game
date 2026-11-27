@@ -17,7 +17,7 @@ import type { GameEvents } from '../core/gameEvents';
 import { item } from '../core/registry';
 import { GameClock } from './clock';
 import { FakeWorld } from './fakeWorld';
-import { Hunger, eat, eatRefusal, exertJump, exertMining, foodDrainPerS, isFull } from './hunger';
+import { eat, eatRefusal, exertJump, exertMining, foodDrainPerS, isFull } from './hunger';
 import { PlayerState, RESPAWN_MIN_FOOD, type PlayerSnapshot } from './playerState';
 import { Survival } from './survival';
 
