@@ -2172,6 +2172,28 @@ body {
   }
 }
 
+.hw-saves__stack {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.hw-saves__text {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  /* 16px keeps iOS from zooming the page when the field takes focus. */
+  font: 16px / 1.3 var(--hw-font-mono, monospace);
+  color: var(--hw-bone);
+  background: var(--hw-soot-0);
+  border: 1px solid var(--hw-iron-2);
+  border-radius: var(--hw-radius);
+  resize: vertical;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
 .hw-howto {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

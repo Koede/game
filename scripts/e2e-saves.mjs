@@ -42,7 +42,7 @@ try {
     await shot('01-saves');
     const over = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
     assert(!over, 'horizontal overflow');
-    const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.hw-settings button', { hasText: 'Back up my world' }).click()]);
+    const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.hw-settings button', { hasText: 'Download a file' }).click()]);
     file = join(shots, 'backup.json');
     await download.saveAs(file);
     const text = readFileSync(file, 'utf8');
@@ -64,6 +64,28 @@ try {
     await page.waitForTimeout(300);
     const buttons2 = await page.$$eval('.hw-title button', (b) => b.map((x) => x.textContent.trim()));
     assert(buttons2.some((t) => t.startsWith('Continue')), `Continue missing after restore: ${buttons2}`);
+  });
+
+  await report.step('where downloads are blocked, the backup is text that can be pasted back', async () => {
+    if (!(await page.locator('.hw-settings').count())) await openSavesSettings();
+    await page.locator('.hw-settings button', { hasText: 'Show it as text' }).click();
+    const text = await page.locator('textarea[aria-label="Backup text"]').inputValue();
+    assert(JSON.parse(text).d.world.seedText === 'backup', 'the shown text is not the save');
+    await shot('02b-text');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForSelector('.hw-title');
+    await openSavesSettings();
+    await page.locator('.hw-settings button', { hasText: 'Restore from pasted text' }).click();
+    await page.locator('textarea[aria-label="Backup text to restore"]').fill('not a save');
+    await page.locator('.hw-settings button', { hasText: 'Restore this text' }).click();
+    assert(/not a save/.test(await page.locator('.hw-saves__status').innerText()), 'junk text was not refused');
+    await page.locator('textarea[aria-label="Backup text to restore"]').fill(text);
+    await page.locator('.hw-settings button', { hasText: 'Restore this text' }).click();
+    await page.waitForFunction(() => document.querySelector('.hw-saves__status')?.textContent.includes('Restored'), null, { timeout: 5000 });
+    await shot('02c-pasted');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
   });
 
   await report.step('the restored world continues with its edit', async () => {
