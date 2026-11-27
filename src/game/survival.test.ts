@@ -236,6 +236,15 @@ describe('Survival: hazards', () => {
     expect(beside.player.health).toBe(18);
   });
 
+  it('warns once with a toast before radiation starts to hurt', () => {
+    const r = rig();
+    const toasts: string[] = [];
+    r.bus.on('toast', (e) => toasts.push(e.text));
+    r.world.put(0, 9, 0, 'pitchblende');
+    r.run(3);
+    expect(toasts.filter((t) => t.startsWith('Radiation'))).toHaveLength(1);
+  });
+
   it('takes radiation damage above a dose of 1, with linear falloff over 4 blocks', () => {
     const r = rig();
     r.world.put(0, 9, 0, 'pitchblende');

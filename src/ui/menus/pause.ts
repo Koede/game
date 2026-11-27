@@ -4,10 +4,26 @@ import { Button } from '../kit/controls';
 import { h } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
 import { Window } from '../kit/window';
-import { HowToPlay, type HowToPlayOptions } from './howto';
+import { SearchBox, matches } from '../kit/search';
+import { HowToPlay, howToTopics, type HowToPlayOptions } from './howto';
 import { SettingsPanel, type SaveTools } from './settings';
 
+/** A page the pause menu can jump to: it shows as a button, and the search finds it by label, hint or keywords. */
+export interface PageLink {
+  id: string;
+  label: string;
+  /** One short line on what the page holds. */
+  hint: string;
+  /** Extra words the search matches (older names, what is inside). */
+  keywords?: string;
+  /** Hidden while false (a page the player has not unlocked). Read each time the menu opens. */
+  available?: () => boolean;
+  open: () => void;
+}
+
 export interface PauseMenuOptions {
+  /** Pages shown as buttons under Resume and found by the search (Hearth Log, Notebook, Workshop Guide, Jobs, Town...). */
+  pages?: readonly PageLink[];
   settings: Settings;
   /** Same contract as SettingsPanel: called on every change with a fresh copy. */
   onSettingsChange: (settings: Settings, key: keyof Settings) => void;
@@ -17,10 +33,8 @@ export interface PauseMenuOptions {
   onQuit: () => void;
   /** When given, a Town entry opens the Town page (the world has a town to show). */
   onTown?: () => void;
-  /** Backing up the saved world; adds a Backup entry that opens Settings at the Saves section. */
+  /** Backing up the saved world while playing: shown in Settings (Saves) and found by the search as Backup. */
   saves?: SaveTools;
-  /** Open the Hearth Log scrolled to its Journal or Achievements (the menu closes first). */
-  onLog?: (focus: 'journal' | 'achievements') => void;
   /** The Dev Mode switch shown in Settings (see SettingsPanelOptions.dev). */
   dev?: { get(): boolean; set(on: boolean): void };
   /** Control lists for How to Play, when the real bindings differ from the defaults. */
@@ -91,7 +105,7 @@ export class PauseMenu {
     this.settings = { ...settings };
   }
 
-  private show(view: View): void {
+  private show(view: View, query = ''): void {
     const win = this.win;
     if (!win) return;
     win.setTitle(TITLES[view]);
@@ -109,7 +123,16 @@ export class PauseMenu {
           },
         }).el,
       );
-    } else win.setBody(new HowToPlay(this.opts.controls).el);
+    } else win.setBody(new HowToPlay({ ...this.opts.controls, query }).el);
+  }
+
+  /** The page links that are available now: the Town entry (older option) joins `pages` unless one is already there. */
+  private pageLinks(): PageLink[] {
+    const links = (this.opts.pages ?? []).filter((p) => p.available?.() !== false);
+    if (this.opts.onTown && !links.some((p) => p.id === 'town')) {
+      links.push({ id: 'town', label: 'Town', hint: 'Gruk\'s building, who lives where', keywords: 'settlement villagers residents camp', open: () => this.opts.onTown?.() });
+    }
+    return links;
   }
 
   private menuView(): HTMLElement {
@@ -118,16 +141,59 @@ export class PauseMenu {
       this.win?.close();
       this.opts.onQuit();
     };
+    const pages = this.pageLinks();
+    const settingsWords = 'settings options difficulty peaceful hard graphics quality ui size large sound volume music loot filter magnet dev mode controls sensitivity fps';
+    const settingsLink: PageLink = { id: 'settings', label: 'Settings', hint: 'Difficulty, graphics, sound, controls', keywords: `${settingsWords}${this.opts.saves ? ' backup save export download copy' : ''}`, open: () => this.show('settings') };
+    const howtoLink: PageLink = { id: 'howto', label: 'How to Play', hint: 'The loop, staying alive, controls', keywords: 'help guide tutorial controls keys', open: () => this.show('howto') };
+    const all: PageLink[] = [...pages, settingsLink, howtoLink];
+    const topics = howToTopics(this.opts.controls);
+    const list = h('div', { class: 'hw-menu__pages' });
+    const results = h('div', { class: 'hw-menu__results', attrs: { role: 'list', 'aria-label': 'Search results' } });
+    results.hidden = true;
+    const none = h('p', { class: 'hw-menu__none', text: 'Nothing found. Try one word: "water", "jobs", "aspects".' });
+    none.hidden = true;
+    const row = (p: PageLink): HTMLElement => {
+      const b = new Button({ label: p.label, block: true, onClick: p.open }).el;
+      b.dataset.page = p.id;
+      return b;
+    };
+    const result = (title: string, hint: string, open: () => void, id: string): HTMLElement => {
+      const b = h('button', { class: 'hw-menu__result', attrs: { type: 'button', role: 'listitem', 'data-result': id } }, h('strong', { text: title }), h('span', { text: hint }));
+      b.addEventListener('click', open);
+      return b;
+    };
+    list.append(...pages.map(row), h('div', { class: 'hw-menu__pair' }, row(settingsLink), row(howtoLink)));
+    const search = new SearchBox({
+      label: 'Search pages and help',
+      placeholder: 'Search pages and help',
+      onInput: (q) => {
+        const query = q.trim();
+        list.hidden = query !== '';
+        results.replaceChildren();
+        if (!query) {
+          results.hidden = true;
+          none.hidden = true;
+          return;
+        }
+        const found: HTMLElement[] = all.filter((p) => matches(query, p.label, p.hint, p.keywords)).map((p) => result(p.label, p.hint, p.open, p.id));
+        const hits = topics.filter((t) => matches(query, t.section, t.text));
+        if (hits.length) {
+          const sections = [...new Set(hits.map((t) => t.section))];
+          found.push(result(`How to Play: ${hits.length} match${hits.length === 1 ? '' : 'es'}`, `${sections.join(', ')} - "${hits[0].text.slice(0, 80)}${hits[0].text.length > 80 ? '...' : ''}"`, () => this.show('howto', query), 'howto-hits'));
+        }
+        results.replaceChildren(...found);
+        results.hidden = found.length === 0;
+        none.hidden = found.length > 0;
+      },
+    });
     return h(
       'div',
       { class: 'hw-menu' },
       new Button({ label: 'Resume', kind: 'primary', size: 'lg', block: true, icon: 'play', onClick: () => this.close() }).el,
-      this.opts.onTown ? new Button({ label: 'Town', block: true, onClick: () => this.opts.onTown?.() }).el : null,
-      this.opts.onLog ? new Button({ label: 'Journal', block: true, onClick: () => this.opts.onLog?.('journal') }).el : null,
-      this.opts.onLog ? new Button({ label: 'Achievements', block: true, onClick: () => this.opts.onLog?.('achievements') }).el : null,
-      new Button({ label: 'Settings', block: true, onClick: () => this.show('settings') }).el,
-      this.opts.saves ? new Button({ label: 'Backup', block: true, onClick: () => this.show('settings') }).el : null,
-      new Button({ label: 'How to Play', block: true, onClick: () => this.show('howto') }).el,
+      search.el,
+      list,
+      results,
+      none,
       h('div', { class: 'hw-menu__gap' }),
       new Button({ label: 'Save and quit to title', kind: 'quiet', block: true, onClick: quit }).el,
     );

@@ -24,7 +24,7 @@ Design: `docs/EMBER_PLAN.md` sections 2 and 5. Data (moulds, metals, items, reci
   DEVIATION from handwork-content.md section 4: the pot is not the `alloy_pot` BLOCK touching a furnace (the Ember
   clay furnace has ONE crucible, and nothing else routes Use on that block); the block, its recipe and the
   `alloy_pot` station stay in the data but nothing runs them.
-- Not built: the Casting Bench pouring into set moulds, and hot work with molten items taken by hand (the Stone Anvil
+- Casting Bench pouring into set moulds is built (`src/sim/castingBench.ts`). Not built: hot work with molten items taken by hand (the Stone Anvil
   `hotS` window): a pool cannot be taken out by hand, only poured.
 
 ## Entity (FurnaceEntity, saved with it; src/sim/sanitize.ts repairs old and bad saves)

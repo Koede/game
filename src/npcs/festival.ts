@@ -221,6 +221,8 @@ export function suits(contest: Contest, item: string | null): boolean {
 export interface FestivalHooks {
   /** A stage stands in the hall (helps the dance). */
   stage(): boolean;
+  /** The town can hold its festival at all (the full Hearth & Anvil stands and three people live here); default yes. */
+  ready?(): boolean;
   /** Raises the town's standing (buildBoard.ts reputation). */
   addRep?(n: number): void;
 }
@@ -230,7 +232,7 @@ export function festivalServices(state: () => FestivalState, hooks: FestivalHook
     id: `fest:${c}`,
     cost: () => 0,
     pitch: (p) => {
-      if (!festivalOn(p.day(), p.phase()) || !contestsOn(p.day()).includes(c) || state().entered[c] === p.day()) return null;
+      if (!festivalOn(p.day(), p.phase()) || hooks.ready?.() === false || !contestsOn(p.day()).includes(c) || state().entered[c] === p.day()) return null;
       const f = festivalOf(p.day());
       return isSignature(c)
         ? `The ${f.name}'s own contest is open: the ${NAME[c]}. Four judges, gold, silver or bronze, and the town remembers a winner. ${HOW[c]}`
@@ -238,6 +240,7 @@ export function festivalServices(state: () => FestivalState, hooks: FestivalHook
     },
     accept: (p) => {
       if (!festivalOn(p.day(), p.phase())) return 'The festival is for its own night, love.';
+      if (hooks.ready?.() === false) return 'No festival this season, love. We need the whole hall and a few more neighbours first.';
       if (!contestsOn(p.day()).includes(c)) return `That one belongs to another season. Tonight is the ${festivalOf(p.day()).name}.`;
       const st = state();
       if (st.entered[c] === p.day()) return 'You have entered that one tonight. Let someone else win.';

@@ -165,3 +165,10 @@ describe('knock-down and return', () => {
     expect(roomOf(freshContentment(), 'bram')).toBeNull();
   });
 });
+
+describe('industrial tags', () => {
+  it('lamps please Rosa and engines annoy Mara', () => {
+    expect(contentment('rosa', facts({ tags: new Set<Tag>(['lights']) })).reasons).toContain('likes the lamplight nearby');
+    expect(contentment('mara', facts({ tags: new Set<Tag>(['noise']) })).reasons).toContain('dislikes the machine noise nearby');
+  });
+});

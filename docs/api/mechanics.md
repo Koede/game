@@ -39,11 +39,9 @@ jams and the steady load/capacity; `mech/*` adds the physics and the programmabl
 ## Pure modules (no wiring yet unless listed)
 | Module | Purpose | Wired |
 |---|---|---|
-| `mech/gearMath.ts` | `stage`, `chain`, `planetary`, `differentialSplit`, `cvtRatio`, `pulleyRatio`, `rackSpeed`, efficiencies | no (for planetary / CVT parts) |
 | `mech/drum.ts` | `Drum` pegs, `advanceDrum` edges, `follower` lift, save shape, `encoderPulses`, `Spring`, `Escapement` | drum: yes (presets) |
 | `mech/logic.ts` | `LogicNet`: and/or/not/xor/cmp/latch/counter/delay/scale, loops cut by a back edge | gate: yes |
 | `mech/linkage.ts` | slider-crank pose/rate/`strokeLoad`, rack, scissor lift, pantograph, lever, gantry `stepAxis` | `strokeLoad`: yes; poses are for render |
-| `mech/hydraulics.ts` | `Circuit`: pump, relief, check, valve, orifice, accumulator, cylinder; `HYDRAULIC` / `PNEUMATIC` media; returns pump load su | no |
 | `mech/bench.ts` | `mechBenchBlueprint()`, `placeMechBench(world, x, y, z, workshop)` | creative menu |
 
 ## Dev Mode bench

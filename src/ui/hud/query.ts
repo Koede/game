@@ -35,6 +35,8 @@ export interface UICropView {
   soil: boolean;
   lit: boolean;
   hydrated: boolean;
+  /** Bees from a hive in reach are pollinating it (it grows half again as fast). */
+  pollinated?: boolean;
   /** Seconds to ripe at the current rate (Infinity while not growing). */
   ripeInS: number;
   /** Open sky, a heated greenhouse, a cold roofed spot or frozen (docs/api/greenhouse.md); absent = open. */
@@ -72,6 +74,8 @@ export interface UISimQuery {
   brewView(x: number, y: number, z: number): UIBrewView | null;
   /** The hand station at a block position, or null (crosshair: what it holds and how far the work is). */
   handView(x: number, y: number, z: number): UIHandView | null;
+  /** The machine at a block position, or null (crosshair: its state in words, "Press - Waiting for input"). */
+  machineView(x: number, y: number, z: number): { status: string } | null;
 }
 
 /** Before the simulation exists: no furnaces, no networks, no station sources (screens fall back to the player). */
@@ -82,4 +86,5 @@ export const NO_UI_SIM: UISimQuery = {
   cropView: () => null,
   brewView: () => null,
   handView: () => null,
+  machineView: () => null,
 };

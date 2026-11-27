@@ -54,9 +54,13 @@ export const sortModeOf = (inv: Inventory): SortMode => modes.get(inv) ?? 'kind'
 /** The sort order the Sort button uses for this inventory. A display choice: it is not saved. */
 export const setSortMode = (inv: Inventory, mode: SortMode): void => void modes.set(inv, mode);
 
-const ORDER = ['tool', 'weapon', 'armor', 'food', 'fuel', 'material', 'machine', 'misc'];
+/** Pack order: tools and gear first, then what is eaten or burnt, then raw and worked materials, blocks, machines, odds and ends. */
+const ORDER = ['tool', 'armour', 'food', 'fuel', 'material', 'component', 'resource', 'block', 'machine', 'misc'];
 const rank = (item: string): number => {
-  const i = ORDER.indexOf(itemOrNull(item)?.category ?? 'misc');
+  const def = itemOrNull(item);
+  // Worn gear carries its own spec but sits in 'misc' (padded coat, cuirass): it sorts with the tools.
+  const group = def?.armour ? 'armour' : def?.category ?? 'misc';
+  const i = ORDER.indexOf(group);
   return i < 0 ? ORDER.length : i;
 };
 const tierOf = (item: string): number => itemOrNull(item)?.tool?.tier ?? 0;

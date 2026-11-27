@@ -319,7 +319,7 @@ export class Play {
       this.until(`${name} on ${input}`, () => {
         const e = this.sim.machineAt(p.x, p.y, p.z);
         if (!e) throw new Error(`${name} is gone`);
-        return e.slots[0] === null || e.recipe === null || this.sim.machineView(p.x, p.y, p.z)?.status === 'Output is full';
+        return e.slots[0] === null || e.recipe === null || this.sim.machineView(p.x, p.y, p.z)?.status.startsWith('Output is full') === true;
       }, 3000);
       if (inv.get(1)) quickMove(inv, 1, this.player.inventory);
       const e = this.sim.machineAt(p.x, p.y, p.z);

@@ -1,13 +1,13 @@
 /** Read-only snapshots of machines and power networks for the UI and the HUD. Built on demand, never per tick. */
 import { conditionOf, isBroken, repairCost, wearOf, wearsOut, type Condition } from './wear';
 import { BROWNOUT_STALL } from '../core/constants';
-import { furnaceTier, recipe } from '../core/registry';
+import { RECIPES, furnaceTier, recipe } from '../core/registry';
 import type { MachineRole, RecipeDef, Slot } from '../core/types';
 import { formatWatts } from '../game/objectives';
 import type { FluidStack, FurnaceEntity, MachineEntity, SimNode } from './entities';
 import { pileCooled } from './fission';
 import { fluidStatus, oilProgress } from './fluidMachines';
-import { fuelEnergyJ, holdsFuel, isProcessor, itemName, placementProblem } from './machines';
+import { fuelEnergyJ, holdsFuel, isProcessor, itemName, machineRecipeFor, placementProblem } from './machines';
 import { hearthName } from './hearthScan';
 import type { Network, NetworkState } from './power';
 import type { FluidLinks } from './transportViews';
@@ -121,9 +121,14 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
     if (e.halted !== '') return e.halted;
     if (e.demandW <= 0) return 'Buffer full';
   } else if (isProcessor(e.kind)) {
-    if (!e.slots[0]) return 'Waiting for input';
-    if (v.recipe === null) return 'Not enough input';
-    if (e.demandW <= 0) return 'Output is full';
+    const inp = e.slots[0];
+    if (!inp) return `Empty - put in ${processorInputs(e.kind)}`;
+    if (v.recipe === null) {
+      const r = machineRecipeFor(e.kind, inp.item);
+      if (r) return `Needs ${r.inputs[0].count - inp.count} more ${itemName(inp.item)} (${r.inputs[0].count} per batch)`;
+      return `Cannot use ${itemName(inp.item)} - take it out`;
+    }
+    if (e.demandW <= 0) return 'Output is full - take it out, or put a crate beside it';
   }
   if (e.kind === 'ward_beacon') {
     if (v.satisfaction < BROWNOUT_STALL) return `${v.satisfaction > 0 ? 'Not enough power' : 'No power'} - automatons can come near`;
@@ -133,6 +138,13 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
   if (e.kind === 'bore_rig') return `Boring at depth ${e.depthY}`;
   if (v.recipe) return `Making ${itemName(v.recipe.output.item)} - ${Math.round(v.progress * 100)}%`;
   return v.satisfaction < 1 ? `Running at ${Math.round(v.satisfaction * 100)}% power` : 'Running';
+}
+
+/** The inputs a processor accepts, for the empty-machine hint ("copper ore, tin ore, gravel and 5 more"). */
+function processorInputs(kind: string): string {
+  const names = RECIPES.filter((r) => r.station === kind).map((r) => itemName(r.inputs[0].item));
+  const uniq = [...new Set(names)];
+  return uniq.length <= 3 ? uniq.join(', ') : `${uniq.slice(0, 3).join(', ')} and ${uniq.length - 3} more`;
 }
 
 export function machineView(node: SimNode, around: MachineSurroundings = {}): MachineView {

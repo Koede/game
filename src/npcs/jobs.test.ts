@@ -50,6 +50,9 @@ describe('job filters', () => {
     expect(matches('coal', 'ore')).toBe(false);
     expect(matches('coal', 'fuel')).toBe(true);
     expect(matches('copper_ore', 'fuel')).toBe(false);
+    expect(matches('carrot', 'food')).toBe(true);
+    expect(matches('wheat_seeds', 'food')).toBe(true);
+    expect(matches('copper_ore', 'food')).toBe(false);
     expect(matches('stick', 'any')).toBe(true);
   });
 });

@@ -43,7 +43,7 @@ export const STEAM_ROTOR = { rpm: 16, capacity: 4 };
 /** Clockwork motor: rpm, capacity, seconds per wind and the most it holds. */
 export const CLOCKWORK = { rpm: 24, capacity: 48, windS: 30, maxS: 120 };
 /** Stress capacity factor of an oiled network: Heavy Residue (the distillery's lube base) and pine resin. */
-export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1.1, s: 300 } } as const;
+export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1.1, s: 300 }, lubricant: { factor: 1.4, s: 900 } } as const;
 /** Furthest a chain / belt link reaches along a line, blocks. */
 export const LINK_RANGE: Record<string, number> = { chain_sprocket: 16, belt_pulley: 9 };
 /** Settings that Use cycles: how many states each part has. */
@@ -183,6 +183,8 @@ export class Workshop {
   private holding = false;
   /** Time of day text for the clockface; set by Game. */
   clockText: (() => string) | null = null;
+  /** The sun's time of day (0..1, 0 = sunrise) for clock towers and the timers they wind; set by Game. */
+  timeOfDay: (() => number) | null = null;
   /** World time for the wind vane. S10 assigns `() => clock.worldTimeS`. Until then the vane uses time since this workshop loaded. */
   timeS: (() => number) | null = null;
   /** Puts a returned punched card in the pack. S10 assigns `(item, n) => player.inventory.add(item, n)`. Until then the card drops. */
@@ -194,7 +196,7 @@ export class Workshop {
   private editing: string | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus, private readonly ground: GroundItems, private readonly rng: () => number = Math.random) {
-    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn });
+    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn, timeOfDay: () => this.timeOfDay?.() ?? null });
     this.logi = new Logistics({
       world, ground, bus, rng,
       gate: (x, y, z) => this.signals.gate(x, y, z),
@@ -330,8 +332,8 @@ export class Workshop {
       this.bus.emit('toast', { text: `Wound: ${Math.round(this.wound.get(key) ?? 0)} s of turning`, kind: 'info' });
       return 'worked';
     }
-    if (held && (held.item === 'residue_canister' || held.item === 'pine_resin') && part.kind !== 'hand_crank' && !blockOrNull(held.item)) {
-      const lube = held.item === 'residue_canister' ? LUBE.residue : LUBE.pine_resin;
+    if (held && (held.item === 'residue_canister' || held.item === 'pine_resin' || held.item === 'lubricant_canister') && part.kind !== 'hand_crank' && !blockOrNull(held.item)) {
+      const lube = held.item === 'residue_canister' ? LUBE.residue : held.item === 'lubricant_canister' ? LUBE.lubricant : LUBE.pine_resin;
       for (const k of this.netMembers(key)) {
         this.lube.set(k, lube.s);
         this.lubeFactor.set(k, lube.factor);

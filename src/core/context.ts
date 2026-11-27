@@ -47,6 +47,8 @@ export interface Settings {
   tapToMove: boolean;
   /** Short vibrations on phones for mining, crafting and getting hurt (where the browser can vibrate). */
   haptics: boolean;
+  /** Keep the screen awake while playing (the Screen Wake Lock, where the browser has one); paused or hidden it lets go. */
+  keepAwake: boolean;
   /** 'Auto-buck felled trees': a tree's log is cut into pieces as soon as it lands (game/fallingTrees.ts). Off: the axe cuts it piece by piece. */
   autoBuck: boolean;
   /** Falling trees hurt what they land on: the player and animals (on by default; off for a relaxed game). Trees still fall. */
@@ -106,6 +108,7 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   hudScale: 1,
   tapToMove: false,
   haptics: true,
+  keepAwake: true,
   autoBuck: false,
   treeDamage: true,
   graphics: 'normal',
