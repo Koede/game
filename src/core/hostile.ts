@@ -92,6 +92,10 @@ export function pickAutomaton(
 /** Hostiles allowed loaded at once on this difficulty. */
 export const hostileCap = (d: Difficulty): number => HOSTILE_CAP[d];
 
+/** Each age the player has reached makes the automatons hit this much harder (age 5 = +50%), so late gear is not a free pass. */
+export const AGE_DAMAGE_STEP = 0.1;
+export const ageDamageMult = (age: number): number => 1 + AGE_DAMAGE_STEP * Math.max(0, Math.floor(age));
+
 /** Damage one landed attack of this automaton deals on this difficulty (before armour). 0 for a non-automaton. */
 export const hostileDamage = (spec: CreatureSpec, d: Difficulty): number => (spec.hostile?.damage ?? 0) * HOSTILE_DAMAGE_MULT[d];
 
