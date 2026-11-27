@@ -38,7 +38,7 @@ import { charmFactors } from './charms';
 import { blinkRange, freshLevels, kindleBurnS, MOD_MAX, modKind, MODS, rayReach, thriftCost, wardTuning, type FocusLevels, type ModKind } from './focusMods';
 import { CELL_AURA, TAINT_BLOCK, TaintField } from './taint';
 import { nearestZone, zoneAt } from './voidZone';
-import { foundFlag, scrollById, scrollOfItem, SCROLLS, type ScrollSpec } from './scrolls';
+import { foundFlag, scrollOfItem, SCROLLS, type ScrollSpec } from './scrolls';
 import { potionFactors, potionSpec } from './potions';
 import { golemBody, HAUL_CONTAINERS, MARKER_DROP, MARKER_PULL, type GolemBody } from './golems';
 import { aspectsOf } from './fingerprint';
@@ -1053,20 +1053,6 @@ export class Magic {
     this.bus.emit('sfx', { name: 'essentia_pour', x: t.x + 0.5, y: t.y + 0.5, z: t.z + 0.5 });
     this.toast(this.jarText(t.x, t.y, t.z) ?? '');
     return 'worked';
-  }
-
-  /** Essentia the jars in reach of x, y, z hold, per aspect. */
-  private available(x: number, y: number, z: number, radius: number, withVials: boolean): Aspects {
-    const have: Aspects = {};
-    for (const [jx, jy, jz] of jarsFor(this.blockAt, x, y, z, radius, this.mirrorLink)) {
-      const j = this.jarAt(jx, jy, jz);
-      if (j?.aspect && j.n > 0) have[j.aspect] = (have[j.aspect] ?? 0) + j.n;
-    }
-    if (withVials) for (const a of ASPECT_LIST) {
-      const n = this.player.inventory.count(vialKey(a));
-      if (n > 0) have[a] = (have[a] ?? 0) + n * VIAL_UNITS;
-    }
-    return have;
   }
 
   /** Takes `n` units of `aspect` from the jars in reach (then whole carried vials when allowed). Returns units taken. */

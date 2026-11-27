@@ -69,7 +69,7 @@ describe('the tavern layout', () => {
 
 describe('the jukebox', () => {
   it('toggles, plays a pitched tune on the beat and makes everyone but Gruk dance', () => {
-    const { npcs, by } = rig();
+    const { npcs } = rig();
     const bus = (npcs as unknown as { bus: { on: (n: string, f: (e: { pitch?: number }) => void) => void } }).bus;
     const notes: number[] = [];
     bus.on('sfx', (e) => void (e.pitch !== undefined && notes.push(e.pitch)));
@@ -601,7 +601,6 @@ describe('a settled world opens in the tavern', () => {
     state.npcs.firewood = 0;
     const o = state.npcs.at!;
     const [fx, fy, fz] = FIRE_SPOTS[0];
-    const fire = () => state.sim.furnaceAt(o[0] + fx, o[1] + fy, o[2] + fz)!;
     const slots = () => state.sim.furnaceSlots(o[0] + fx, o[1] + fy, o[2] + fz)!;
     for (let s = 0; s < slots().fuel.size; s++) slots().fuel.set(s, null);
     for (let i = 0; i < 400; i++) state.tick();

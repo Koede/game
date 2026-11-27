@@ -264,7 +264,7 @@ const amounts = (text: string): ItemAmount[] =>
  */
 export const AGE_KITS: ReadonlyArray<{ age: string; kit: ItemAmount[] }> = [
   { age: 'ember', kit: amounts('workbench, flint_pickaxe, flint_axe, flint_shovel, furnace_clay, 10 charcoal, bronze_hammer, ingot_mould, pickaxe_mould, axe_mould, shovel_mould, hoe_mould, alloy_pot, kettle_pot, clay_cup, drip_cone, 8 stone_brick, bronze_pickaxe_head, bronze_axe_head, bronze_shovel_head, bronze_hoe_head') },
-  { age: 'bronze', kit: amounts('bronze_pickaxe, bronze_axe, bronze_shovel, bronze_hoe, 8 bronze_plate, 8 brick') },
+  { age: 'bronze', kit: amounts('bronze_pickaxe, bronze_axe, bronze_shovel, bronze_hoe, 8 bronze_plate, 8 brick, hand_crank, mech_millstone, ratio_dial, mixer, mech_arm, saw_arm, item_vault, crank_lever, bell, piston, steam_kettle, steam_rotor, boiler_gauge_glass, steam_pipe, beam_engine, blast_nozzle') },
   { age: 'forge', kit: amounts('iron_pickaxe, iron_axe, steel_pickaxe, steel_axe, plated_coat, steel_cuirass, crusher, boiler, steam_engine, 2 tank, pump') },
   { age: 'current', kit: amounts('steam_turbine, still, 2 wind_turbine, chainsaw, bore_rig, 2 battery, 6 heavy_cable, 4 circuit') },
   { age: 'atomic', kit: amounts('fission_pile, centrifuge, electrolyzer, power_drill, shield_suit, lithium_bank, 6 super_cable') },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SUNSET_AT } from '../core/constants';
 import { sunlightAt } from '../game/clock';
-import { computeSky, createSkyState, luminance, NIGHT_SUNLIGHT, sunAngle, sunHeight, type SkyState } from './skyModel';
+import { computeSky, createSkyState, luminance, sunAngle, sunHeight, type SkyState } from './skyModel';
 
 const skyAt = (t: number): SkyState => computeSky(t, sunlightAt(t), createSkyState());
 const COLOURS = ['zenith', 'horizon', 'glow', 'sunColor', 'skyLight', 'cloud', 'sunDir', 'moonDir'] as const;

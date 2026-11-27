@@ -54,7 +54,7 @@ export const MILK_CONTAINERS: Readonly<Record<string, string>> = { pail: 'milk_p
 export const SHEARS: ReadonlySet<string> = new Set(['shears', 'flint_axe', 'bronze_axe']);
 export const WOOL_PER_SHEARING = 2;
 
-export type AnimalUse = 'fed' | 'refused' | 'pass' | 'milked' | 'sheared';
+export type AnimalUse = 'fed' | 'refused' | 'pass' | 'milked' | 'sheared' | 'gathered';
 
 export class AnimalHands {
   /** Id of the animal under the crosshair after the last aim(), or null. */
@@ -152,6 +152,22 @@ export class AnimalHands {
     if (this.target === null || this.player.dead) return 'pass';
     const held = this.player.heldStack();
     if (held && this.animals.harvest && (held.item in MILK_CONTAINERS || SHEARS.has(held.item))) return this.harvest(held.item);
+    // An empty hand gathers a hen's egg (so does a hand already holding eggs, but only while she has one: otherwise Use eats it);
+    // for any other animal the refusal says it gives none and Use goes on.
+    if ((!held || held.item === 'egg') && this.animals.harvest) {
+      const r = this.animals.harvest(this.target, 'egg');
+      if (r.ok) {
+        const left = this.player.give('egg', 1);
+        if (left > 0) this.player.drop('egg', left);
+        this.swing.triggerSwing();
+        return 'gathered';
+      }
+      if (held) return 'pass';
+      if (!/ gives no /.test(r.reason)) {
+        this.advisor.advise(`yield:${r.reason.replace(/\d+/g, '')}`, r.reason);
+        return 'refused';
+      }
+    }
     if (this.animals.pet && !(held && likedByAnimals(held.item))) {
       const pet = this.animals.pet(this.target, held);
       if (pet !== null) {
