@@ -254,7 +254,7 @@ describe('the airship manager', () => {
     const player = new PlayerState(bus, { x: 0.5, y: 10, z: 8.5 });
     const ships = new AirshipManager({ world, bus, player, biomeAt: () => 'woodland', busy: () => true });
     ships.place(0.5, 10, 5.5, 0, TANK_S);
-    const src = { frame: (): Intent => Object.assign(createIntent(), { use: true }), name: 'src' };
+    const src = { frame: (_dt: number): Intent => Object.assign(createIntent(), { use: true }), name: 'src' };
     const wrapped = wrapAirshipSource(src, ships);
     expect(wrapped.frame(0.05).use).toBe(true);
     expect(ships.flying).toBeNull();
