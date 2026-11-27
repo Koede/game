@@ -45,6 +45,8 @@ import { FallingTreeRenderer } from '../render/fallingTrees';
 import { FallingTrees } from '../game/fallingTrees';
 import { MobRenderer } from '../render/mobs';
 import { NightlifeFx } from '../render/nightlifeFx';
+import { SeasonFx } from '../render/seasonFx';
+import { leafFall } from '../render/seasonTint';
 import { critters, darkOf, type Critter, type NightEnv } from '../sim/nightlife';
 import { NPCS } from '../npcs/data';
 import { loadNpcArt } from '../render/npcs/art';
@@ -171,6 +173,7 @@ export class Game {
   private wasStill = false;
   private lastDraw = 0;
   private nightlifeFx!: NightlifeFx;
+  private seasonFx!: SeasonFx;
   private readonly nightList: Critter[] = [];
   private nightEnv!: NightEnv;
   /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
@@ -303,6 +306,7 @@ export class Game {
       };
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
       this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
+      this.seasonFx = new SeasonFx(world, (p) => renderer.spawnParticle(p));
       this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
@@ -428,6 +432,7 @@ export class Game {
     this.nightEnv.timeS = clock.worldTimeS;
     this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;
     this.nightlifeFx.update(dt, this.nightEnv.dark < 0.15 ? [] : critters(this.nightEnv, player.position.x, player.position.z, this.nightList));
+    this.seasonFx.update(dt, leafFall(clock.day + clock.timeOfDay), player.position.x, player.position.y, player.position.z);
   }
 
   /** A frame while the loading screen is up: stream chunks and draw behind it, nothing moves. */
