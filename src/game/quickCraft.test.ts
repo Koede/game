@@ -26,6 +26,8 @@ describe('quick-craft', () => {
     const refused = repeatLastHand(p);
     expect(refused?.ok).toBe(false);
     expect(p.inventory.count('cord')).toBe(2);
+    // The refusal names what is short and where to get it.
+    expect(refused?.ok === false && refused.reason).toMatch(/^Missing 3 Fiber\. Fiber: (Made at|Found)/);
   });
 
   it('refuses recipes that are not made by hand and does not change last', () => {
