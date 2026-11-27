@@ -3208,3 +3208,16 @@ body {
 .hw-caravan__tag--hot { background: var(--hw-heat-wash); color: var(--hw-heat-hi); }
 .hw-caravan__tag--cold { background: var(--hw-soot-4); color: var(--hw-ash-2); }
 
+
+/* Waypoint stone screen */
+.hw-way { display: flex; flex-direction: column; gap: 10px; }
+.hw-way__rename { display: flex; gap: 8px; }
+.hw-way__name { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.3); color: inherit; font: inherit; }
+.hw-way__charcoal, .hw-way__status, .hw-way__empty { margin: 0; font-size: 13px; opacity: 0.85; }
+.hw-way__list { display: flex; flex-direction: column; gap: 8px; }
+.hw-way__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
+.hw-way__info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hw-way__info span { font-size: 13px; opacity: 0.75; }
+.hw-way__go { min-height: 44px; flex: 0 0 auto; }
+.hw-way__go[aria-disabled='true'] { opacity: 0.45; }
+.hw-journal__key { margin: 4px 0 0; font-size: 12px; opacity: 0.8; overflow-wrap: anywhere; }
