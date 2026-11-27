@@ -312,4 +312,6 @@
   "steam_tank": 310,
   "oak_sapling": 311,
   "pine_sapling": 312
+  "tube_sender": 311,
+  "tube_receiver": 312
 }

@@ -137,7 +137,6 @@ export class Canvas {
 }
 
 /** Walls of brick and its aged kin, mostly weathered. */
-const oldBrick = (c: Canvas) => (x: number, y: number, z: number): number => c.mix(x, y, z, B.stoneBrick, B.mossy, B.cracked, B.brick);
 const mossyBrick = (c: Canvas) => (x: number, y: number, z: number): number => c.mix(x, y, z, B.mossy, B.mossy, B.stoneBrick, B.cracked);
 
 // ---------------------------------------------------------------------------------------------------- woodland
@@ -184,7 +183,7 @@ const LUMBER_MILL: StructureDef = {
     // The saw bench: a long table with a log on it, a stack of boards, drive posts.
     c.box(2, 0, 2, 7, 0, 2, B.plank); c.box(3, 1, 2, 4, 1, 2, B.oakLog); c.box(7, 0, 6, 8, 1, 7, B.plank);
     c.pillar(2, 6, 0, 3, B.oakLog); c.pillar(5, 6, 0, 3, B.oakLog);
-    c.fill(1, 4, 1, 9, 4, 7, (x, y, z) => (c.roll(x, 4, z) < 130 ? B.plank : -1));
+    c.fill(1, 4, 1, 9, 4, 7, (x, _y, z) => (c.roll(x, 4, z) < 130 ? B.plank : -1));
     c.set(1, 1, 1, B.torch); c.set(9, 1, 6, B.torch);
   },
 };
@@ -200,7 +199,7 @@ const GLASSBLOWER_KILN: StructureDef = {
     c.gap(4, 0, 0, 1);
     // The furnace pillar in the middle with a glass crown.
     c.box(3, 0, 3, 5, 2, 5, B.brick); c.box(4, 3, 4, 4, 3, 4, B.glass); c.set(4, 0, 3, B.air);
-    c.fill(1, 3, 1, 7, 3, 7, (x, y, z) => ((x === 1 || x === 7 || z === 1 || z === 7) && c.roll(x, 3, z) < 60 ? B.glass : -1));
+    c.fill(1, 3, 1, 7, 3, 7, (x, _y, z) => ((x === 1 || x === 7 || z === 1 || z === 7) && c.roll(x, 3, z) < 60 ? B.glass : -1));
     for (const [x, z] of [[7, 1], [1, 1], [7, 7]]) c.set(x, 0, z, B.sand);
     c.set(8, 0, 4, B.shrub);
   },
@@ -244,7 +243,7 @@ const HUNTERS_LODGE: StructureDef = {
   biomes: [FROSTFELL], w: 9, d: 7, age: 0, crate: [1, 4], guards: [], floor: 'biome',
   build(c) {
     c.floor(0, 0, 8, 6, (x, z) => (c.roll(x, 0, z) < 160 ? B.plank : B.stoneBrick));
-    c.ring(0, 0, 8, 6, 0, 3, (x, y, z) => ((x === 0 || x === 8) && (z === 0 || z === 6) ? B.pineLog : B.pineLog), 50);
+    c.ring(0, 0, 8, 6, 0, 3, (x, _y, z) => ((x === 0 || x === 8) && (z === 0 || z === 6) ? B.pineLog : B.pineLog), 50);
     c.gap(4, 6, 0, 1); c.gap(8, 3, 1, 1);
     c.box(0, 3, 0, 8, 3, 6, B.plank); c.box(0, 4, 0, 8, 4, 6, B.snow);
     c.box(6, 0, 1, 7, 1, 1, B.stoneBrick); c.set(7, 2, 1, B.stoneBrick); c.set(6, 0, 2, B.torch);
@@ -258,7 +257,7 @@ const FROST_CAIRN: StructureDef = {
   biomes: [FROSTFELL], w: 9, d: 9, age: 1, crate: [4, 4], guards: [{ species: 'rime_husk', x: 2, z: 2 }, { species: 'rime_husk', x: 6, z: 6 }], floor: 'biome',
   build(c) {
     c.floor(1, 1, 7, 7, (x, z) => c.mix(x, 0, z, B.stoneBrick, B.packedIce));
-    c.ring(1, 1, 7, 7, 0, 3, (x, y, z) => (y === 2 ? B.ice : B.packedIce), 80);
+    c.ring(1, 1, 7, 7, 0, 3, (_x, y, _z) => (y === 2 ? B.ice : B.packedIce), 80);
     c.gap(4, 7, 0, 1);
     for (const [x, z] of [[0, 0], [8, 0], [0, 8], [8, 8], [4, 0], [4, 8]]) c.pillar(x, z, 0, 2, B.iceSpike);
     c.box(3, 0, 3, 5, 0, 5, B.stoneBrick); c.set(3, 1, 4, B.stoneBrick); c.set(4, 0, 4, B.air);
@@ -274,8 +273,8 @@ const FROZEN_FOUNDRY: StructureDef = {
     c.ring(0, 0, 10, 8, 0, 4, (x, y, z) => c.mix(x, y, z, B.stoneBrick, B.cracked, B.stoneBrick), 110);
     c.gap(5, 0, 0, 2);
     c.set(5, 0, 8, B.furnace); c.pillar(5, 8, 1, 3, B.stoneBrick);
-    c.fill(1, 3, 1, 9, 3, 7, (x, y, z) => (c.roll(x, 3, z) < 55 ? B.packedIce : -1));
-    c.fill(1, 2, 1, 9, 2, 7, (x, y, z) => (c.roll(x, 2, z) < 25 ? B.iceSpike : -1));
+    c.fill(1, 3, 1, 9, 3, 7, (x, _y, z) => (c.roll(x, 3, z) < 55 ? B.packedIce : -1));
+    c.fill(1, 2, 1, 9, 2, 7, (x, _y, z) => (c.roll(x, 2, z) < 25 ? B.iceSpike : -1));
     c.set(2, 0, 7, B.rusted); c.set(8, 0, 7, B.rusted); c.set(8, 1, 7, B.rusted);
     c.box(1, 0, 3, 2, 0, 3, B.packedIce);
   },
@@ -334,7 +333,7 @@ const PEAT_STILT_HUT: StructureDef = {
   biomes: [MARSH], w: 7, d: 8, age: 0, crate: [5, 2], guards: [], floor: 'biome',
   build(c) {
     c.floor(0, 0, 6, 6, () => B.plank);
-    c.ring(0, 0, 6, 6, 0, 4, (x, y, z) => ((x === 0 || x === 6) && (z === 0 || z === 6) ? B.oakLog : B.plank), 60);
+    c.ring(0, 0, 6, 6, 0, 4, (x, _y, z) => ((x === 0 || x === 6) && (z === 0 || z === 6) ? B.oakLog : B.plank), 60);
     c.gap(3, 6, 0, 1); c.gap(0, 3, 1, 2);
     c.box(0, 4, 0, 6, 4, 6, B.plank);
     c.set(3, 0, 7, B.peat); c.box(5, 0, 7, 6, 0, 7, B.peat); c.set(6, 1, 7, B.peat);
@@ -349,7 +348,7 @@ const ALCHEMIST_TOWER: StructureDef = {
     c.floor(0, 0, 6, 6, (x, z) => c.mix(x, 0, z, B.mossy, B.stoneBrick, B.clay));
     c.ring(0, 0, 6, 6, 0, 8, mossyBrick(c), 140);
     c.gap(3, 0, 0, 1);
-    for (const y of [3, 5]) c.fill(1, y, 1, 5, y, 5, (x, yy, z) => (x === 1 || x === 5 || z === 1 || z === 5 ? B.plank : -1));
+    for (const y of [3, 5]) c.fill(1, y, 1, 5, y, 5, (x, _yy, z) => (x === 1 || x === 5 || z === 1 || z === 5 ? B.plank : -1));
     c.set(6, 4, 3, B.glass); c.set(3, 4, 6, B.glass); c.set(0, 5, 3, B.glass);
     c.set(4, 0, 5, B.jar); c.set(5, 0, 5, B.glowcap); c.set(1, 0, 5, B.glowcap);
     c.set(3, -1, 7, B.reeds); c.set(2, 0, 7, B.reeds);
@@ -366,7 +365,7 @@ const PUMP_HOUSE: StructureDef = {
     for (const x of [0, 8]) for (const z of [0, 6]) c.set(x, 3, z, B.oakLog);
     c.box(3, -1, 2, 5, -1, 4, B.water); c.box(3, -2, 2, 5, -2, 4, B.water);
     c.ring(2, 1, 6, 5, 0, 1, () => B.stoneBrick); c.set(4, 0, 1, B.air);
-    c.fill(1, 3, 1, 7, 3, 5, (x, y, z) => (c.roll(x, 3, z) < 90 ? B.plank : -1));
+    c.fill(1, 3, 1, 7, 3, 5, (x, _y, z) => (c.roll(x, 3, z) < 90 ? B.plank : -1));
     c.set(1, 0, 5, B.reeds); c.set(7, 0, 5, B.reeds);
   },
 };
@@ -429,8 +428,8 @@ const OLD_FACTORY: StructureDef = {
     c.ring(5, 7, 7, 9, 0, 1, ruin);
     c.set(6, 0, 8, RUINED_MACHINE);
     // The collapsed roof: scattered beams and fallen rubble.
-    c.fill(1, 4, 1, 13, 4, 9, (x, y, z) => (c.roll(x, 4, z) < 50 ? B.rusted : -1));
-    c.fill(1, 0, 1, 13, 0, 9, (x, y, z) => (c.roll(x, 5, z) < 25 ? B.rubble : -1));
+    c.fill(1, 4, 1, 13, 4, 9, (x, _y, z) => (c.roll(x, 4, z) < 50 ? B.rusted : -1));
+    c.fill(1, 0, 1, 13, 0, 9, (x, _y, z) => (c.roll(x, 5, z) < 25 ? B.rubble : -1));
   },
 };
 
@@ -447,7 +446,7 @@ const CHEM_LAB: StructureDef = {
     for (const x of [2, 4, 6, 8]) if (c.roll(x, 7, 1) < 200) c.set(x, 1, 1, B.glass);
     c.box(4, 0, 4, 6, 0, 4, B.limestone); c.set(5, 1, 4, B.glass); c.set(4, 1, 4, B.glass);
     // Broken glass and reagent stains on the floor.
-    c.fill(1, 0, 2, 9, 0, 7, (x, y, z) => (c.roll(x, 8, z) < 20 ? B.glass : c.roll(x, 9, z) < 20 ? B.clay : -1));
+    c.fill(1, 0, 2, 9, 0, 7, (x, _y, z) => (c.roll(x, 8, z) < 20 ? B.glass : c.roll(x, 9, z) < 20 ? B.clay : -1));
     c.set(1, 0, 6, B.shrub); c.set(9, 0, 6, B.sand);
     c.set(5, 0, 6, RUINED_MACHINE);
   },
@@ -471,7 +470,7 @@ const STANDING_CIRCLE: StructureDef = {
     // Two lintels still lie across the north and south pairs; the rest have fallen.
     c.box(1, 4, 5, 1, 4, 5, B.mossy); c.box(9, 4, 5, 9, 4, 5, B.mossy);
     c.set(5, 4, 5, B.light);
-    c.fill(0, 0, 0, 10, 0, 10, (x, y, z) => (c.roll(x, 6, z) < 18 ? B.fern : -1));
+    c.fill(0, 0, 0, 10, 0, 10, (x, _y, z) => (c.roll(x, 6, z) < 18 ? B.fern : -1));
   },
 };
 
@@ -499,7 +498,7 @@ const BURIED_COLOSSUS: StructureDef = {
     c.gap(6, 1, 0, 1);
     c.set(6, 2, 1, B.brick); c.set(4, 3, 1, B.glass); c.set(8, 3, 1, B.glass);
     c.box(3, 2, 1, 3, 2, 1, B.brick); c.box(9, 2, 1, 9, 2, 1, B.brick);
-    c.fill(0, 0, 0, 12, 0, 8, (x, y, z) => (c.roll(x, 7, z) < 70 && (x < 3 || x > 9 || z < 1 || z > 7) ? B.sand : -1));
+    c.fill(0, 0, 0, 12, 0, 8, (x, _y, z) => (c.roll(x, 7, z) < 70 && (x < 3 || x > 9 || z < 1 || z > 7) ? B.sand : -1));
   },
 };
 

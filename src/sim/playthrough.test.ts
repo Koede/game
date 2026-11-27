@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_SIX_CUPS, FURNACE_HOT_C, REGEN_MIN_FOOD } from '../core/constants';
 import { OBJECTIVES, blockId, blockOf, furnaceTier, machine } from '../core/registry';
-import { Face, voxelActive } from '../core/types';
+import { Face } from '../core/types';
 import { eat, plant, till, type UseTarget } from '../game';
 import { swapSlots } from '../game/transfer';
 import type { FakeWorld } from '../game/fakeWorld';
@@ -28,7 +28,6 @@ const ANVIL = { x: -6, y: 1, z: 5 };
 const CLAY_TABLE = { x: -7, y: 1, z: 5 };
 const LOOM = { x: -8, y: 1, z: 5 };
 const RACK = { x: -9, y: 1, z: 5 };
-const TROUGH = { x: -10, y: 1, z: 5 };
 /** Twelve crates south-west of the furnace, within its reach (and the bench's). */
 const CRATES = [2, 3, 4].flatMap((z) => [-1, -2, -3, -4].map((x) => ({ x, y: 1, z })));
 /** At the furnace's mouth: it touches the furnace and carries the grid to it. */

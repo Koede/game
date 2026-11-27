@@ -26,12 +26,6 @@ function head(c: Canvas, skin: Rgb, cx = 32, cy = 28, rx = 13.5, ry = 15): void 
   c.ellipse(cx, cy, rx, ry, skin);
 }
 
-function mouthSmile(c: Canvas, x: number, y: number, w: number, lip: Rgb): void {
-  c.line(x - w, y - 0.3, x - w * 0.4, y + 0.8, 0.9, lip);
-  c.line(x - w * 0.4, y + 0.8, x + w * 0.4, y + 0.8, 0.9, lip);
-  c.line(x + w * 0.4, y + 0.8, x + w, y - 0.3, 0.9, lip);
-}
-
 function mara(c: Canvas): void {
   const skin = hex(0xf6d8bd);
   const hair = hex(0x35255e);

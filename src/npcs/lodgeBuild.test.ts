@@ -90,7 +90,7 @@ function started(): { b: TownBuilder; h: Flat } {
 
 describe('the lodge in the town plan', () => {
   it('is the second building in the plan, on a plot that holds its whole footprint, and touches no other plot', () => {
-    const flat = (x: number, z: number) => (x === x ? { y: 10, key: 'grass' } : null);
+    const flat = (x: number, _z: number) => (x === x ? { y: 10, key: 'grass' } : null);
     const plan = planTown(SEED, ORIGIN, flat);
     expect(plan).not.toBeNull();
     const idx = plan!.buildings.findIndex((x) => x.template === 'lodge');

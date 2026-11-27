@@ -1,7 +1,8 @@
 /**
  * Trade caravans (docs/api/caravan.md). A merchant train arrives on certain days with a few rare goods and buys
  * surplus. Prices are fitted to the time model and are paid and asked in CURRENCY items and shift with what you sell: every unit sold adds surplus,
- * which lowers that item's price and fades 25% each day. Stock is deterministic per arrival day. Pure; DOM-free.
+ * which lowers that item's price and fades 25% each day. Demand drifts per visit and a few goods are wanted at a premium;
+ * buying rare goods makes them dearer for a while. Stock and demand are deterministic per arrival day. Pure; DOM-free.
  */
 import { itemOrNull } from '../core/registry';
 import type { Inventory } from './inventory';
@@ -14,6 +15,28 @@ export const CARAVAN_OFFSET = 3;
 export const SURPLUS_FADE = 0.25;
 /** The caravan pays this share of an item's base value (it is a buyer, never a source of free coin). */
 export const BUY_SHARE = 0.6;
+
+/**
+ * Market demand (docs/api/caravan.md "Market"). Each visit the caravan's appetite for every good drifts a little, and it
+ * names a few WANTED goods it pays a premium for. The combined demand multiplier stays within [MIN_DEMAND, MAX_DEMAND];
+ * MAX_DEMAND is held under the time model's headroom (crops on the 0.05 floor pay 1.25x less than their cost), so even a
+ * wanted good never beats mining copper (src/content/caravanBalance.test.ts).
+ */
+export const MIN_DEMAND = 0.75;
+export const MAX_DEMAND = 1.2;
+/** How far demand for a good drifts from visit to visit (+/-). */
+export const DEMAND_DRIFT = 0.12;
+/** Extra demand on the goods the caravan asks for this visit. */
+export const WANTED_BONUS = 0.18;
+export const WANTED_PER_VISIT = 2;
+/** Each rare good you buy raises its price on later visits by this share; the extra fades RARE_DEMAND_FADE per day. */
+export const RARE_DEMAND_STEP = 0.06;
+export const RARE_DEMAND_FADE = 0.1;
+export const RARE_DEMAND_CAP = 0.6;
+/** Trend arrows: a change smaller than this share of the price is "steady". */
+export const TREND_EPS = 0.04;
+
+export type Trend = 'up' | 'down' | 'steady';
 
 /**
  * What the caravan buys, as a value in CURRENCY (copper ingots, fractions allowed). Fitted to the time model
@@ -38,6 +61,10 @@ export const RARE_GOODS: readonly string[] = Object.keys(RARE_PRICE);
 
 export interface CaravanSave {
   surplus: Record<string, number>;
+  /** How much the rare goods you bought pushed their prices up (missing in older saves: none). */
+  rareDemand?: Record<string, number>;
+  /** What each good paid at the start of the last visit, for trend arrows (missing in older saves: none). */
+  lastQuote?: Record<string, number>;
   /** Day the surplus was last faded to. */
   day: number;
   /** Units already bought from this visit, by item. */
@@ -69,6 +96,44 @@ const hash = (n: number): number => {
   return h >>> 0;
 };
 
+const seedOf = (s: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0;
+  return h >>> 0;
+};
+
+/** Index of the visit on (or the last one before) `day`: 0 for day 3, 1 for day 8, ... (-1 before the first). */
+const visitIndex = (day: number): number => Math.floor((Math.floor(day) - CARAVAN_OFFSET) / CARAVAN_EVERY);
+
+/** The goods the visit on (or next after) `day` asks for. Same every time for the same visit. */
+export function wantedGoods(day: number): string[] {
+  const v = visitIndex(nextCaravanDay(day));
+  const pool = Object.keys(BASE_VALUE).filter((k) => itemOrNull(k));
+  const out: string[] = [];
+  let h = hash(v * 7919 + 17);
+  while (out.length < WANTED_PER_VISIT && pool.length > 0) {
+    out.push(pool.splice(h % pool.length, 1)[0]);
+    h = hash(h);
+  }
+  return out;
+}
+
+/**
+ * The market's appetite for `item` on the visit on (or next after) `day`, as a price multiplier: a bounded random walk
+ * per good (deterministic, so the same world sees the same market) plus the wanted bonus. 1 = normal.
+ */
+export function demandFor(item: string, day: number): number {
+  if (!BASE_VALUE[item]) return 0;
+  const v = Math.max(0, visitIndex(nextCaravanDay(day)));
+  const seed = seedOf(item);
+  // walk: sum of the last few visits' steps, so a good stays dear or cheap for a while instead of flickering
+  let walk = 0;
+  for (let i = Math.max(0, v - 3); i <= v; i++) walk += ((hash(seed ^ hash(i + 1)) % 2001) / 1000 - 1) * (DEMAND_DRIFT / 2);
+  let d = 1 + walk;
+  if (wantedGoods(day).includes(item)) d += WANTED_BONUS;
+  return Math.min(MAX_DEMAND, Math.max(MIN_DEMAND, Math.round(d * 1000) / 1000));
+}
+
 /** What the visit on `day` carries: three distinct rare goods, a few of each. Same every time for the same day. */
 export function caravanStock(day: number): StockLine[] {
   if (!caravanHere(day)) return [];
@@ -87,6 +152,8 @@ export function caravanStock(day: number): StockLine[] {
 
 export class Caravan {
   private surplus = new Map<string, number>();
+  private rareDemand = new Map<string, number>();
+  private lastQuote = new Map<string, number>();
   private bought = new Map<string, number>();
   private lastDay = 0;
   private visit = -1;
@@ -101,9 +168,20 @@ export class Caravan {
         if (nv < 0.05) this.surplus.delete(k);
         else this.surplus.set(k, nv);
       }
+      const rareKeep = Math.pow(1 - RARE_DEMAND_FADE, d - this.lastDay);
+      for (const [k, v] of this.rareDemand) {
+        const nv = v * rareKeep;
+        if (nv < 0.005) this.rareDemand.delete(k);
+        else this.rareDemand.set(k, nv);
+      }
       this.lastDay = d;
     }
     if (caravanHere(d) && d !== this.visit) {
+      // remember what the previous visit paid at its start, for the trend arrows
+      if (this.visit >= 0) {
+        const prevDay = this.visit;
+        for (const k of Object.keys(BASE_VALUE)) this.lastQuote.set(k, this.quoteOn(k, prevDay, 0));
+      }
       this.visit = d;
       this.bought.clear();
     }
@@ -121,12 +199,41 @@ export class Caravan {
     return this.surplus.get(item) ?? 0;
   }
 
-  /** What the caravan pays for ONE of `item` right now (0: not interested), falling as surplus piles up. */
+  /** What the caravan pays for ONE of `item` right now (0: not interested), falling as surplus piles up and moving with demand. */
   buyPrice(item: string, extra = 0): number {
+    return this.quoteOn(item, this.lastDay, this.surplusOf(item) + extra);
+  }
+
+  /** The price on `day` with `surplus` units of glut, before any of today's sales (used for quotes and trends). */
+  private quoteOn(item: string, day: number, surplus: number): number {
     const base = BASE_VALUE[item];
     if (!base) return 0;
-    const saturation = 1 / (1 + (this.surplusOf(item) + extra) / 12);
-    return Math.round(base * BUY_SHARE * saturation * 1000) / 1000;
+    const saturation = 1 / (1 + surplus / 12);
+    return Math.round(base * BUY_SHARE * demandFor(item, day) * saturation * 1000) / 1000;
+  }
+
+  /** Today's demand multiplier for `item` (1 = normal; see `demandFor`). */
+  demand(item: string): number {
+    return demandFor(item, this.lastDay);
+  }
+
+  /** Goods the current (or next) visit asks for. */
+  wanted(): string[] {
+    return wantedGoods(this.lastDay);
+  }
+
+  /** Whether `item` pays more or less than at the start of the last visit. 'steady' with no history. */
+  trend(item: string): Trend {
+    const prev = this.lastQuote.get(item);
+    const now = this.buyPrice(item);
+    if (!prev || !now) return 'steady';
+    const r = now / prev - 1;
+    return r > TREND_EPS ? 'up' : r < -TREND_EPS ? 'down' : 'steady';
+  }
+
+  /** How much your buying has pushed a rare good's price up (0..RARE_DEMAND_CAP). */
+  rareDemandOf(item: string): number {
+    return Math.min(RARE_DEMAND_CAP, this.rareDemand.get(item) ?? 0);
   }
 
   /** What one unit of its own stock costs. Rarer (fewer left) is dearer. */
@@ -134,7 +241,7 @@ export class Caravan {
     const base = RARE_PRICE[item];
     if (!base) return 0;
     const left = this.stock().find((s) => s.item === item)?.left ?? 0;
-    return Math.max(1, Math.round(base * (1 + Math.max(0, 3 - left) * 0.1)));
+    return Math.max(1, Math.round(base * (1 + Math.max(0, 3 - left) * 0.1) * (1 + this.rareDemandOf(item))));
   }
 
   /** Stock still on the carts today. */
@@ -179,17 +286,25 @@ export class Caravan {
     inv.remove(CURRENCY, price);
     inv.add(item, n);
     this.bought.set(item, (this.bought.get(item) ?? 0) + n);
+    this.rareDemand.set(item, Math.min(RARE_DEMAND_CAP, (this.rareDemand.get(item) ?? 0) + RARE_DEMAND_STEP * n));
     return { ok: true, count: n, price };
   }
 
   toJSON(): CaravanSave {
-    return { surplus: Object.fromEntries(this.surplus), day: this.lastDay, bought: Object.fromEntries(this.bought), visit: this.visit };
+    return {
+      surplus: Object.fromEntries(this.surplus),
+      rareDemand: Object.fromEntries(this.rareDemand),
+      lastQuote: Object.fromEntries(this.lastQuote),
+      day: this.lastDay, bought: Object.fromEntries(this.bought), visit: this.visit,
+    };
   }
 
   /** Replaces this caravan's state from a save (missing or damaged data leaves it fresh). */
   load(raw: Partial<CaravanSave> | null | undefined): void {
     const c = Caravan.fromJSON(raw);
     this.surplus = c.surplus;
+    this.rareDemand = c.rareDemand;
+    this.lastQuote = c.lastQuote;
     this.bought = c.bought;
     this.lastDay = c.lastDay;
     this.visit = c.visit;
@@ -199,6 +314,8 @@ export class Caravan {
     const c = new Caravan();
     const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0;
     for (const [k, v] of Object.entries(raw?.surplus ?? {})) if (BASE_VALUE[k] && num(v)) c.surplus.set(k, v);
+    for (const [k, v] of Object.entries(raw?.rareDemand ?? {})) if (RARE_PRICE[k] && num(v)) c.rareDemand.set(k, Math.min(RARE_DEMAND_CAP, v));
+    for (const [k, v] of Object.entries(raw?.lastQuote ?? {})) if (BASE_VALUE[k] && num(v)) c.lastQuote.set(k, v);
     for (const [k, v] of Object.entries(raw?.bought ?? {})) if (itemOrNull(k) && num(v)) c.bought.set(k, v);
     if (num(raw?.day)) c.lastDay = Math.floor(raw.day);
     if (typeof raw?.visit === 'number') c.visit = Math.floor(raw.visit);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
+import { expectContains } from './rosterCheck';
 import { HEARTH_CEILING_PARTS, HEARTH_FACE_PARTS, LITRES_PER_BUCKET } from '../core/constants';
 import { faceCells, hearthCrucibles, smallestShell } from '../core/hearth';
 import {

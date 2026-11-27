@@ -429,6 +429,8 @@ SPEC.maxTextures += 1;
 SPEC.maxTextures += 2;
 // The Bronze Age air blocks (src/content/blocksAir.ts): pipe_air, air_tank_side/top, air_compressor_side/top, blast_nozzle (+on).
 SPEC.maxTextures += 7;
+// Pneumatic tubes (src/content/blocksPneumatic.ts): tube_sender_side, tube_receiver_side, tube_station_top.
+SPEC.maxTextures += 3;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);

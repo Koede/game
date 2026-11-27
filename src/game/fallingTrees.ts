@@ -43,7 +43,6 @@ import {
   impactDamage,
   inFallZone,
   treeHealth,
-  woodYield,
 } from './treeFell';
 
 /** Seconds of creak and shaking before a felled tree starts to go. */
@@ -261,7 +260,7 @@ export class FallingTrees {
   }
 
   /** Starts a warning for the tree at `base` (its trunk is still standing until the warning ends). */
-  private start(logKey: string, base: { x: number; y: number; z: number }, axeTier: number, trunkLen: number): void {
+  private start(logKey: string, base: { x: number; y: number; z: number }, axeTier: number, _trunkLen: number): void {
     // The trunk is every log the flood fill finds above the base (a bent trunk included).
     const cells: Cell[] = trunkAbove(this.world, base.x, base.y, base.z, 400).filter((c) => c.y > base.y).map((c) => ({ x: c.x, y: c.y, z: c.z, key: logKey }));
     const leaves = this.gatherLeaves(logKey, cells, base);

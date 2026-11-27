@@ -5,7 +5,7 @@
  */
 import type { Canvas, PainterSet } from './canvas';
 import * as P from './palette';
-import { type RGB, type Ramp, rgb, shade } from './palette';
+import { type RGB, type Ramp, rgb } from './palette';
 
 const ramp = (a: number, b: number, c: number, d: number, e: number): Ramp => [rgb(a), rgb(b), rgb(c), rgb(d), rgb(e)];
 
