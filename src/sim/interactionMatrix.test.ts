@@ -116,8 +116,8 @@ describe("a furnace's smart sides (item pipes, hatches)", () => {
 describe('generators with a fuel slot', () => {
   const GENERATORS = [...MACHINES.values()].filter((m) => (m.fuels?.length ?? 0) > 0).map((m) => m.kind);
 
-  it('exist for the burner generator, the combustion engine, the fission pile and the kerosene lamp', () => {
-    expect(GENERATORS.sort()).toEqual(['burner_generator', 'combustion_engine', 'fission_pile', 'kerosene_lamp']);
+  it('exist for the burner generator, the combustion engine, the fission pile, the kerosene lamp and the lighthouse lamp', () => {
+    expect(GENERATORS.sort()).toEqual(['burner_generator', 'combustion_engine', 'fission_pile', 'kerosene_lamp', 'lighthouse_lamp']);
   });
 
   it.each(GENERATORS)('%s takes exactly its fuels, each worth some energy', (kind) => {

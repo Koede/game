@@ -13,7 +13,8 @@ import { ID } from './ids';
 import { CROP_CELL, cropPatch, newPatch } from './plants';
 import { findSpawn } from './spawn';
 import { Canvas, STRUCTURE_DEFS, type StructureDef } from './structureDefs';
-import { Column, DUNES, FROSTFELL, LIQUID_NONE, MARSH, SCAR, WATER_TOP, caveMouth, sampleColumn, terrainFor, type Terrain } from './terrain';
+import { Column, DUNES, FROSTFELL, LIQUID_NONE, LIQUID_WATER, MARSH, SCAR, WATER_TOP, caveMouth, sampleColumn, terrainFor, type Terrain } from './terrain';
+import { LIGHTHOUSE, LIGHTHOUSE_CHANCE, LIGHTHOUSE_SPAWN_CLEAR, lighthouseFloor } from './lighthouses';
 import { ruinsNear } from './ruins';
 
 export const STRUCTURE_GRID_CHUNKS = 5;
@@ -106,9 +107,59 @@ export function squareStructure(seed: number, sx: number, sz: number): Structure
       found = siteAt(t, seed, sx * SQUARE + SQUARE_MARGIN + (a % span), sz * SQUARE + SQUARE_MARGIN + ((a >>> 12) % span), a >>> 3);
     }
   }
+  // A square with no structure of its own may still hold a keeper's lighthouse on a shore (src/world/lighthouses.ts).
+  if (!found && (hash32(seed, sx, sz, 0x11a7) & 0xffff) / 65536 < LIGHTHOUSE_CHANCE) found = lighthouseIn(seed, sx, sz);
   if (cache.size >= 512) cache.delete(cache.keys().next().value as string);
   cache.set(key, found);
   return found;
+}
+
+/** Spots tried per square: the shore is a thin line, so a lighthouse needs more tries than a structure. */
+const LIGHTHOUSE_TRIES = 32;
+const shoreCol = new Column();
+const shore = { height: 0, wet: false, dry: false };
+
+/** A lighthouse site in square (sx, sz): a few tries along the square's shore, never near spawn, in the Scar or on a ruin. */
+function lighthouseIn(seed: number, sx: number, sz: number): StructureSite | null {
+  const t = terrainFor(seed);
+  const spawn = findSpawn(seed);
+  const span = SQUARE - 2 * SQUARE_MARGIN;
+  const column = (x: number, z: number) => {
+    sampleColumn(t, x, z, shoreCol);
+    shore.height = shoreCol.height;
+    shore.wet = shoreCol.liquid === LIQUID_WATER;
+    shore.dry = shoreCol.liquid === LIQUID_NONE;
+    return shore;
+  };
+  for (let attempt = 0; attempt < LIGHTHOUSE_TRIES; attempt++) {
+    const a = hash32(seed, sx, sz, 0x11a8 + attempt);
+    const cx = sx * SQUARE + SQUARE_MARGIN + (a % span);
+    const cz = sz * SQUARE + SQUARE_MARGIN + ((a >>> 12) % span);
+    if (Math.hypot(cx - spawn.x, cz - spawn.z) < LIGHTHOUSE_SPAWN_CLEAR) continue;
+    sampleColumn(t, cx, cz, shoreCol);
+    if (shoreCol.biome === SCAR) continue;
+    const biome = shoreCol.biome;
+    const floor = lighthouseFloor(cx, cz, column);
+    if (floor < 0 || caveMouth(t, cx, cz)) continue;
+    const def = LIGHTHOUSE;
+    const x0 = cx - (def.w >> 1);
+    const z0 = cz - (def.d >> 1);
+    let blocked = false;
+    forEachTree(t, x0 - 1, z0 - 1, x0 + def.w, z0 + def.d, 1, (s) => {
+      const wide = s.kind === 2 ? 1 : 0;
+      if (s.x + wide >= x0 - 1 && s.x <= x0 + def.w && s.z + wide >= z0 - 1 && s.z <= z0 + def.d) blocked = true;
+    });
+    for (let rz = Math.floor((z0 - 4) / CHUNK_SIZE); rz <= Math.floor((z0 + def.d + 4) / CHUNK_SIZE) && !blocked; rz++) {
+      for (let rx = Math.floor((x0 - 4) / CHUNK_SIZE); rx <= Math.floor((x0 + def.w + 4) / CHUNK_SIZE); rx++) {
+        for (const r of ruinsNear(seed, rx, rz)) {
+          if (r.x0 - 4 < x0 + def.w && r.x0 + r.w + 4 > x0 && r.z0 - 4 < z0 + def.d && r.z0 + r.d + 4 > z0) blocked = true;
+        }
+      }
+    }
+    if (blocked) continue;
+    return { def, x0, z0, floor, biome, bits: a >>> 3, crateX: x0 + def.crate[0], crateZ: z0 + def.crate[1] };
+  }
+  return null;
 }
 
 /** Every structure whose blocks may fall inside chunk (cx, cz) (a structure stays inside its square, so at most one). */

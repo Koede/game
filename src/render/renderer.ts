@@ -17,6 +17,7 @@ import { Emitters } from './emitters';
 import { heldGlowOf } from '../game/legendary';
 import { HandParts } from './handwork/handParts';
 import { MachineParts } from './machines';
+import { LighthouseBeams } from './beams';
 import { Glows } from './glows';
 import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
@@ -118,6 +119,8 @@ export class Renderer implements IView {
   private readonly distillFx: DistillFx;
   private readonly handParts: HandParts;
   private readonly machines: MachineParts;
+  /** Lit lighthouse lamps: their turning lenses and beams (beams.ts). */
+  private readonly beams: LighthouseBeams;
   private readonly tech: TechLayer;
   private readonly vents: SteamVents;
   private readonly held: HeldItem;
@@ -185,13 +188,14 @@ export class Renderer implements IView {
     this.distillFx = new DistillFx(world, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
+    this.beams = new LighthouseBeams(world);
     this.heatView = new HeatView();
     this.tech = new TechLayer(world, bus, this.uniforms, this.particles, this.canvas);
     this.stats.tech = this.tech.stats;
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.heatView.mesh, this.brewLiquid.mesh, this.distillFx.group);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.beams.group, this.handParts.group, this.tech.group, this.heatView.mesh, this.brewLiquid.mesh, this.distillFx.group);
     this.applyDistance();
 
     this.applyColorMode();
@@ -355,6 +359,7 @@ export class Renderer implements IView {
     this.distillFx.update(dt, cam.position.x, cam.position.z);
     const machinesStarted = performance.now();
     this.machines.update(dt, cam);
+    this.beams.update(dt, cam.position, sky.day);
     this.handParts.update(dt, cam);
     const machinesMs = performance.now() - machinesStarted;
     const techStarted = performance.now();
@@ -421,6 +426,7 @@ export class Renderer implements IView {
     this.sky.dispose();
     this.precipitation.dispose();
     this.machines.dispose();
+    this.beams.dispose();
     this.handParts.dispose();
     this.tech.dispose();
     this.heatView.dispose();
@@ -483,7 +489,10 @@ export class Renderer implements IView {
       const edge = ((this.renderDistance + 0.5) * CHUNK_SIZE - 6) * g.fogEnd * (1 - close * fx.amount);
       u.uFogColor.value.fromArray(sky.horizon);
       u.uFogGlow.value.fromArray(sky.glow);
-      u.uFog.value.set(edge * (g.fogStart - 0.35 * close * fx.amount), edge);
+      // Through a spyglass or telescope (a narrow view, docs/api/optics.md) the haze lifts to the edge of the loaded land.
+      const start = edge * (g.fogStart - 0.35 * close * fx.amount);
+      const zoomed = this.camera.fov < this.settings.fov * 0.6;
+      u.uFog.value.set(zoomed ? Math.max(start, edge * 0.82) : start, edge);
     }
     return false;
   }

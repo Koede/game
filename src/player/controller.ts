@@ -128,6 +128,8 @@ export class PlayerController {
   /** The block behind an animal under the crosshair (Use that means nothing to animals goes there). */
   private blockBehind: RayHit | null = null;
   private fov = -1;
+  /** Optics (src/game/optics.ts): the view is this many times closer, and turns this many times slower. 1 = no glass raised. */
+  zoom = 1;
   private heldKey: string | null | undefined = undefined;
   private bobPhase = 0;
   private bobAmount = 0;
@@ -227,10 +229,10 @@ export class PlayerController {
     }
 
     if (!p.dead) {
-      p.yaw -= intent.lookYaw;
+      p.yaw -= intent.lookYaw / this.zoom;
       if (p.yaw > Math.PI) p.yaw -= Math.PI * 2;
       else if (p.yaw < -Math.PI) p.yaw += Math.PI * 2;
-      p.pitch = clamp(p.pitch + intent.lookPitch, -PITCH_LIMIT, PITCH_LIMIT);
+      p.pitch = clamp(p.pitch + intent.lookPitch / this.zoom, -PITCH_LIMIT, PITCH_LIMIT);
       this.hotbar(intent);
       this.menus(intent);
       if (intent.emote) {
@@ -389,7 +391,7 @@ export class PlayerController {
   }
 
   private sprintFov(dt: number, sprinting: boolean): void {
-    const target = this.settings.fov + (sprinting && !this.settings.reduceMotion ? SPRINT_FOV_KICK : 0);
+    const target = (this.settings.fov + (sprinting && !this.settings.reduceMotion && this.zoom === 1 ? SPRINT_FOV_KICK : 0)) / this.zoom;
     let next = this.fov < 0 ? target : this.fov + (target - this.fov) * (1 - Math.exp(-8 * dt));
     if (Math.abs(next - target) < 0.05) next = target;
     if (next !== this.fov) {
