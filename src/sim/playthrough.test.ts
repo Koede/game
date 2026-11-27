@@ -908,6 +908,15 @@ describe('scripted playthrough', () => {
     mark('ignited');
     play.step(5);
 
+    // ---- After ignition: the Star Age's own goals ---------------------------------------------------------------------
+    play.find('1 arc_mail, 4 superalloy, 1 fused_quartz');
+    play.forge('superalloy_hauberk');
+    play.find('3 superalloy, 1 magnet_ring, 1 battery, 2 stick');
+    play.forge('superalloy_maul');
+    play.until('75 MJ banked', () => sim.grid().storedJ >= 75e6, 3600);
+    play.step(0.5);
+    for (const id of ['star_armor', 'star_maul', 'star_bank']) done(id);
+
     // ---- The end state --------------------------------------------------------------------------------------------
     const star = play.view();
     expect(star).toMatchObject({ tier: 6, ignited: true, tempC: 5000, hot: true, status: 'A star burns here. It needs nothing more.' });

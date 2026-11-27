@@ -1374,6 +1374,9 @@
     "make_deuterium": {"age":4,"condition":{"count":4,"item":"deuterium_cell","type":"make"},"id":"make_deuterium"},
     "make_star_core": {"age":4,"condition":{"count":1,"item":"star_core","type":"make"},"id":"make_star_core"},
     "starhearth": {"age":4,"condition":{"tier":6,"type":"furnaceTier"},"id":"starhearth"},
-    "ignite": {"age":5,"condition":{"flag":"ignited","type":"flag"},"id":"ignite"}
+    "ignite": {"age":5,"condition":{"flag":"ignited","type":"flag"},"id":"ignite"},
+    "star_armor": {"age":5,"condition":{"count":1,"item":"superalloy_hauberk","type":"make"},"id":"star_armor","reward":[{"count":4,"item":"superalloy"}]},
+    "star_maul": {"age":5,"condition":{"count":1,"item":"superalloy_maul","type":"make"},"id":"star_maul","reward":[{"count":2,"item":"superalloy"}]},
+    "star_bank": {"age":5,"condition":{"joules":75000000,"type":"stored"},"id":"star_bank"}
   }
 }

@@ -174,6 +174,14 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
   // ---- Star Age ------------------------------------------------------------------------------
   objective(5, 'ignite', 'Ignite the Starhearth', flag('ignited'),
     'Ignition needs 300 kW for 90 seconds without a flicker, with the furnace at 3000 C. Lay super cable, fill your lithium banks, and light your star.'),
+  objective(5, 'star_armor', 'Arm yourself in superalloy', make('superalloy_hauberk'),
+    'The star burns. Now wear what it made: forge a superalloy hauberk at the Arc Furnace, the heaviest coat in the world.',
+    '4 superalloy'),
+  objective(5, 'star_maul', 'Forge the superalloy maul', make('superalloy_maul'),
+    'Three superalloy, a magnet ring, a battery and two sticks make a maul that stuns whatever it hits.',
+    '2 superalloy'),
+  objective(5, 'star_bank', 'Bank 75 MJ', { type: 'stored', joules: 75_000_000 },
+    'Keep the star lit for the long run: fill your batteries to 75 MJ so the Starhearth never flickers.'),
 ];
 
 /** The goals in order: the lists above plus each area's (content/areas), placed after their `objectivesAfter`. */
