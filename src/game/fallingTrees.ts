@@ -234,6 +234,7 @@ export class FallingTrees {
     this.player.wearHeld(hit.block);
     exertMining(this.player);
     this.bus.emit('sfx', { name: 'tree_chop', x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
+    this.bus.emit('tree:hit', { x: hit.x, y: hit.y, z: hit.z, left: Math.max(0, left), total: treeHealth(trunkLen), pine: key === 'pine_log' });
     if (left > 0) {
       this.health.set(k, left);
       return true;

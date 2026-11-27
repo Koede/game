@@ -192,6 +192,8 @@ export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
 export interface GameEvents {
   // ---- world ----
   /** A voxel changed (emitted by the world for every setVoxel). */
+  /** An axe blow landed on a standing tree: where, the health left (0 = it is going down) and of how much. */
+  'tree:hit': { x: number; y: number; z: number; left: number; total: number; pine: boolean };
   'block:changed': { x: number; y: number; z: number; from: Voxel; to: Voxel; source: ChangeSource };
   'chunk:loaded': { cx: number; cz: number };
   'chunk:unloaded': { cx: number; cz: number };
