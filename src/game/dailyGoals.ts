@@ -17,6 +17,7 @@ import type { ItemAmount } from '../core/types';
 import { DAYS_PER_SEASON, SEASONS, seasonOf, type Season } from '../sim/seasons';
 
 export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'brewed' | 'cast' | 'jobs' | 'meals';
+const ALL_METRICS: readonly GoalMetric[] = ['made', 'placed', 'broken', 'drunk', 'explored', 'brewed', 'cast', 'jobs', 'meals'];
 /** The metrics every save has; the later ones are filled in from the current facts when missing. */
 const METRICS: readonly GoalMetric[] = ['made', 'placed', 'broken', 'drunk', 'explored'];
 export type GoalFacts = Record<GoalMetric, number>;
@@ -236,6 +237,10 @@ export class DailyGoals {
     const day = this.d.day();
     const f = this.d.facts();
     this.deliverPending();
+    // Saves from before a metric existed: start counting it from now (not zero, so nothing completes by itself).
+    for (const base of [this.base, this.seasonBase]) {
+      if (base) for (const m of ALL_METRICS) base[m] ??= f[m];
+    }
     const sKey = seasonKeyOf(day);
     if (this.base === null || day !== this.day) {
       const fresh = this.base !== null;

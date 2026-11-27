@@ -143,4 +143,15 @@ describe('DailyGoals', () => {
     goals.sync();
     expect(got).toEqual(['stone_hut']);
   });
+
+  it('starts a metric missing from an old save at the current number', () => {
+    const facts = { ...zero, brewed: 9 };
+    const g = new DailyGoals({ bus: createBus(), seed: 1, day: () => 1, facts: () => facts, give: () => 0 });
+    const old = { ...zero } as Partial<GoalFacts>;
+    delete old.brewed;
+    g.load({ ...g.toJSON(), base: old as GoalFacts, seasonBase: old as GoalFacts });
+    g.sync();
+    expect(g.toJSON().base.brewed).toBe(9);
+    expect(g.toJSON().seasonBase.brewed).toBe(9);
+  });
 });
