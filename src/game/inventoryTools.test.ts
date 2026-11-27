@@ -17,6 +17,15 @@ describe('sortRange', () => {
     expect(inv.slots.slice(3).every((s) => s === null)).toBe(true);
   });
 
+  it('groups by category: tools, gear, food, fuel, materials, components, resources, blocks, machines, odds', () => {
+    const inv = new Inventory(12);
+    // One of each group, laid out backwards.
+    const keys = ['workbench', 'stone', 'coal_ore', 'pine_handle', 'copper_ingot', 'coal', 'raw_fowl', 'padded_coat', 'flint_pickaxe', 'pail'];
+    keys.forEach((k, i) => inv.set(i, { item: k, count: 1 }));
+    sortRange(inv, 0);
+    expect(inv.slots.filter(Boolean).map((s) => s!.item)).toEqual(['flint_pickaxe', 'padded_coat', 'raw_fowl', 'coal', 'copper_ingot', 'pine_handle', 'coal_ore', 'stone', 'workbench', 'pail']);
+  });
+
   it('leaves favourites where they are and slots outside the range alone', () => {
     const inv = new Inventory(6);
     inv.set(0, { item: 'stone', count: 3 });
