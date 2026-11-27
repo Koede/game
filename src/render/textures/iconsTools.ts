@@ -9,6 +9,7 @@ import { icon } from './shapes';
 import { COMPOSED_ICON_BUILDS, buildItemKey } from '../../content/toolParts';
 
 type Kind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
+type WeaponKind = 'sword' | 'spear';
 
 const FLINT: Ramp = [P.rgb(0x2b2c37), P.rgb(0x40424f), P.rgb(0x5a5d70), P.rgb(0x7c8198), P.rgb(0xa9afc6)];
 const HEADS: Record<string, Ramp> = { wooden: P.WOOD, flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
@@ -123,6 +124,47 @@ function tool(c: Canvas, kind: Kind, material: string, wood: Ramp = P.WOOD, resi
   }
 }
 
+/** A sword: a blade up the diagonal, a crossguard, a wrapped grip and a pommel. A spear: a long shaft with a leaf-shaped point. */
+function weapon(c: Canvas, kind: WeaponKind, material: string, wood: Ramp = P.WOOD, resin = false): void {
+  const r = HEADS[material];
+  const dot = (x: number, y: number, ramp: Ramp, i: number): void => c.set(x, y, ramp[i]);
+  if (kind === 'sword') {
+    // Blade from (5,10) to (14,1), two pixels wide: bright edge up-left, shade down-right.
+    for (let i = 0; i <= 9; i++) {
+      const x = 5 + i, y = 10 - i;
+      dot(x, y, r, 4);
+      dot(x + 1, y, r, 2);
+      if (i > 0 && i < 9) dot(x, y + 1, r, 1);
+    }
+    dot(14, 1, r, 4);
+    dot(15, 0, r, 3);
+    // Crossguard across the blade's root, grip and pommel in the build's wood.
+    for (let i = -2; i <= 2; i++) dot(4 + i, 11 + i, material === 'flint' ? P.WOOD : r, i === 0 ? 3 : 1);
+    handle(c, 1, 14, 4, 11, wood);
+    c.set(0, 15, wood[0]);
+    c.set(resin ? 3 : 2, 12, resin ? RESIN[3] : P.CLOTH[3]);
+    if (resin) c.set(2, 13, RESIN[2]);
+    return;
+  }
+  // Spear: shaft (0,15) to (11,4), head leaf (11,4)-(15,0).
+  handle(c, 0, 15, 11, 4, wood);
+  const leaf: Array<[number, number, number]> = [[11, 3, 3], [12, 2, 4], [13, 1, 4], [14, 0, 4], [12, 3, 2], [13, 2, 3], [14, 1, 3], [15, 0, 2], [11, 2, 2], [12, 1, 3], [13, 0, 2], [10, 3, 1], [12, 4, 1], [13, 3, 1], [14, 2, 1]];
+  for (const [x, y, i] of leaf) {
+    if (material === 'flint' && c.hash(x, y, 1) < 0.25 && i < 3) continue;
+    dot(x, y, r, i);
+  }
+  // Lashing at the socket.
+  if (material === 'flint' || material === 'wooden') {
+    c.set(10, 5, P.CLOTH[3]);
+    c.set(9, 6, P.CLOTH[2]);
+  } else c.set(10, 5, shade(r[4], 0.4));
+  if (resin) {
+    c.set(10, 5, RESIN[3]);
+    c.set(9, 6, RESIN[2]);
+    c.set(8, 7, RESIN[4]);
+  }
+}
+
 function powerDrill(c: Canvas): void {
   // Pistol-grip body in hazard yellow and soot, a battery foot with a cyan charge pip, a tungsten bit.
   const body = [P.rgb(0x6e5410), P.rgb(0xa07e18), P.HAZARD, P.rgb(0xf0cf4c), P.rgb(0xfff0a0)];
@@ -164,7 +206,9 @@ for (const material of ['wooden', 'flint', 'bronze', 'iron']) tools[`item_${mate
 
 // Composed icons of the modular builds: the head's own shape and metal on the build's handle wood and binding.
 for (const b of COMPOSED_ICON_BUILDS) {
-  tools[`item_${buildItemKey(b)}`] = icon((c) => tool(c, b.kind as Kind, b.head, HANDLE_RAMPS[b.handle], b.binding === 'resin'));
+  tools[`item_${buildItemKey(b)}`] = b.kind === 'sword' || b.kind === 'spear'
+    ? icon((c) => weapon(c, b.kind as WeaponKind, b.head, HANDLE_RAMPS[b.handle], b.binding === 'resin'))
+    : icon((c) => tool(c, b.kind as Kind, b.head, HANDLE_RAMPS[b.handle], b.binding === 'resin'));
 }
 
 export const TOOL_ICONS: PainterSet = { ...tools, item_power_drill: icon(powerDrill), item_belt_pouch: icon(beltPouch) };

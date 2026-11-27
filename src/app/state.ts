@@ -37,6 +37,8 @@ import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
+import { RADIO_MIN_W, Telegraph } from '../game/telegraph';
+import { caravanHere } from '../game/caravan';
 import { setTemperatureProvider } from '../sim/temperature';
 import type { Blueprint } from '../game/blueprint';
 import { grantKnownPlans, tickJobs, type PlanSource } from '../game/blueprintBook';
@@ -116,6 +118,8 @@ export class GameState {
   readonly pets: Pets;
   /** The camp, tavern and their people (docs/api/npcs.md, docs/plans/just-you-and-orrin.md). */
   readonly npcs: NpcManager;
+  /** Telegraph poles, offices and radio masts: storm warnings, town news, remote signals (docs/api/telegraph.md). */
+  readonly telegraph: Telegraph;
   readonly seedText: string | null;
   /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
   private notices: string[] = [];
@@ -361,6 +365,27 @@ export class GameState {
     this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, workshop: this.workshop, thermal: this.thermal, hardWinter: () => this.winter.hard }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
+    this.telegraph = new Telegraph({
+      world, bus,
+      sky: () => this.weather,
+      now: () => this.clock.worldTimeS,
+      day: () => this.clock.day,
+      town: () => this.npcs.at,
+      powerW: (x, y, z) => {
+        let best = 0;
+        for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          const n = this.sim.networkAt(x + dx, y + dy, z + dz);
+          if (n) best = Math.max(best, n.generationW + n.dischargeW + (n.storedJ > 0 ? RADIO_MIN_W : 0));
+        }
+        return best;
+      },
+      signalIn: (x, y, z) => this.workshop.signals.near(x, y, z),
+      signalOut: (x, y, z, on) => this.workshop.signal(x, y, z, on),
+      caravanDay: (day) => caravanHere(day),
+    });
+    world.loadExtra('telegraph', (raw) => this.telegraph.load(raw));
+    this.offs.push(world.persist('telegraph', () => this.telegraph.toJSON()));
+    this.offs.push(() => this.telegraph.dispose());
     this.offs.push(() => this.workshop.dispose());
     for (const key of world.failedExtras()) this.notices.push(`Saved ${key} data could not be read. A copy was kept (${key}.bad) and it starts empty.`);
     const lost = takeLostItems();
@@ -503,6 +528,7 @@ export class GameState {
     this.caveWatch.tick(dt);
     this.weathering.tick(dt);
     this.disasters.tick(dt);
+    this.telegraph.tick(dt);
     this.winter.tick(dt);
     this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
@@ -590,7 +616,8 @@ export class GameState {
   private goalFacts(): GoalFacts {
     const st = this.player.stats;
     const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
-    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks };
+    const fest = this.npcs.festivalRecord();
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns };
   }
 
   /** What the achievements read. */
