@@ -32,11 +32,14 @@ export function createCaravanScreen(_request: { type: 'caravan' }, ctx: ScreenCo
     buyList,
   );
   const window = new Window({ title: 'Trade Caravan', subtitle: '', size: 'md', fit: 'tall', body });
-  const report = (r: { ok: boolean; reason?: string }): void => {
+  const report = (r: { ok: boolean; reason?: string; count?: number }): void => {
     if (!r.ok) {
       bus.emit('toast', { text: r.reason ?? 'No deal', kind: 'warn' });
       bus.emit('sfx', { name: 'error' });
-    } else bus.emit('sfx', { name: 'craft' });
+    } else {
+      player.tally('traded', r.count ?? 1);
+      bus.emit('sfx', { name: 'craft' });
+    }
     ctx.invalidate();
   };
   const row = (label: string | HTMLElement, buttons: HTMLElement[], item?: string): HTMLElement =>

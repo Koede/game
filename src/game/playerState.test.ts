@@ -99,6 +99,17 @@ describe('PlayerState', () => {
     expect(toasts).toHaveLength(1);
   });
 
+  it('tallies fish, crops and milk that arrive, and caravan trades', () => {
+    const bus = createBus();
+    const player = new PlayerState(bus);
+    bus.emit('item:gained', { item: 'wheat', count: 3 });
+    bus.emit('item:gained', { item: 'milk_pail', count: 1 });
+    bus.emit('item:gained', { item: 'oak_log', count: 9 });
+    player.tally('traded', 4);
+    expect(player.stats.acts).toEqual({ harvested: 3, milked: 1, traded: 4 });
+    player.dispose();
+  });
+
   it('records lifetime counters from bus events', () => {
     const bus = createBus();
     const player = new PlayerState(bus);

@@ -25,6 +25,7 @@ import { takesItem } from './lootFilter';
 import { favouritesOf, setFavourites } from './inventoryTools';
 import { pocketsOf, setPockets, type Pocket } from './pockets';
 import { wear } from './mining';
+import { FISH_ITEMS } from '../content/fishing';
 import { Caravan, type CaravanSave } from './caravan';
 import { RecipeBook, type RecipeBookSave } from './discovery';
 
@@ -111,6 +112,13 @@ const bump = (counters: Record<string, number>, key: string, by: number): void =
 
 /** Fraction of a tool's wear left at which the player is warned it is nearly gone. */
 export const LOW_WEAR_FRACTION = 0.1;
+
+/** Which day-goal tally an arriving item feeds: fish caught, crops gathered, milk drawn. */
+const ACT_OF_ITEM: Record<string, string> = Object.fromEntries([
+  ...FISH_ITEMS.map((k) => [k, 'caught']),
+  ...['wheat', 'potato', 'carrot', 'wildberries'].map((k) => [k, 'harvested']),
+  ...['milk_pail', 'milk_beaker'].map((k) => [k, 'milked']),
+]);
 
 export class PlayerState {
   readonly position: Vec3;
@@ -205,7 +213,16 @@ export class PlayerState {
       bus.on('cast:poured', () => bump((this.stats.acts ??= {}), 'cast', 1)),
       bus.on('machine:job', () => bump((this.stats.acts ??= {}), 'jobs', 1)),
       bus.on('player:ate', () => bump((this.stats.acts ??= {}), 'meals', 1)),
+      bus.on('item:gained', (e) => {
+        const k = ACT_OF_ITEM[e.item];
+        if (k) bump((this.stats.acts ??= {}), k, e.count);
+      }),
     ];
+  }
+
+  /** Adds to one of the day-goal tallies (`stats.acts`), for acts that have no event of their own. */
+  tally(key: string, n = 1): void {
+    bump((this.stats.acts ??= {}), key, n);
   }
 
   /** Stops listening to the bus (when the game this player belongs to is torn down). */

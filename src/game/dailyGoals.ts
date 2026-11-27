@@ -16,10 +16,10 @@ import { itemOrNull } from '../core/registry';
 import type { ItemAmount } from '../core/types';
 import { DAYS_PER_SEASON, SEASONS, seasonOf, type Season } from '../sim/seasons';
 
-export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns' | 'brewed' | 'cast' | 'jobs' | 'meals';
+export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns' | 'brewed' | 'cast' | 'jobs' | 'meals' | 'caught' | 'harvested' | 'traded' | 'milked';
 /** The metrics every save has; `festival` (contests entered) and `crowns` (golds in a festival's own contest) came later. */
 const BASE_METRICS = ['made', 'placed', 'broken', 'drunk', 'explored'] as const;
-const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns', 'brewed', 'cast', 'jobs', 'meals'];
+const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns', 'brewed', 'cast', 'jobs', 'meals', 'caught', 'harvested', 'traded', 'milked'];
 export type GoalFacts = Record<GoalMetric, number>;
 
 export type Reward = { kind: 'item'; item: string; count: number } | { kind: 'cosmetic'; id: string } | { kind: 'blueprint'; id: string };
@@ -55,6 +55,10 @@ export const DAILY_POOL: readonly GoalSpec[] = [
   { id: 'd_cast_2', text: 'Pour 2 castings', metric: 'cast', target: 2, reward: item('black_dye', 3) },
   { id: 'd_jobs_5', text: 'Let your machines finish 5 jobs', metric: 'jobs', target: 5, reward: item('blue_dye', 3) },
   { id: 'd_meals_3', text: 'Eat 3 meals', metric: 'meals', target: 3, reward: item('yellow_dye', 2) },
+  { id: 'd_catch_2', text: 'Catch 2 fish', metric: 'caught', target: 2, reward: item('blue_dye', 2) },
+  { id: 'd_harvest_8', text: 'Gather 8 crops or berries', metric: 'harvested', target: 8, reward: item('green_dye', 3) },
+  { id: 'd_trade_5', text: 'Trade 5 goods with the caravan', metric: 'traded', target: 5, reward: item('red_dye', 2) },
+  { id: 'd_milk_2', text: 'Milk 2 times', metric: 'milked', target: 2, reward: item('white_dye', 3) },
   { id: 'd_walk_2500', text: 'Learn 2,500 blocks of new ground', metric: 'explored', target: 2500, reward: item('blue_dye', 3) },
 ];
 
@@ -389,7 +393,7 @@ export class DailyGoals {
   }
 
   toJSON(): DailyGoalsSnapshot {
-    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
+    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0, caught: 0, harvested: 0, traded: 0, milked: 0 };
     return {
       day: this.day,
       base: { ...(this.base ?? zero) },

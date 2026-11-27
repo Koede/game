@@ -627,7 +627,7 @@ export class GameState {
     const st = this.player.stats;
     const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
     const fest = this.npcs.festivalRecord();
-    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns, brewed: st.acts?.brewed ?? 0, cast: st.acts?.cast ?? 0, jobs: st.acts?.jobs ?? 0, meals: st.acts?.meals ?? 0 };
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns, brewed: st.acts?.brewed ?? 0, cast: st.acts?.cast ?? 0, jobs: st.acts?.jobs ?? 0, meals: st.acts?.meals ?? 0, caught: st.acts?.caught ?? 0, harvested: st.acts?.harvested ?? 0, traded: st.acts?.traded ?? 0, milked: st.acts?.milked ?? 0 };
   }
 
   /** What the achievements read. */
