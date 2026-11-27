@@ -85,7 +85,8 @@ for (const device of devices) {
       await d.waitScreen('town');
       const text = (await page.locator('.hw-window').first().innerText()).replace(/\s+/g, ' ');
       assert(/Festival: Harvest Fair/i.test(text) && /Medals so far/.test(text), `town page: ${text.slice(0, 400)}`);
-      await page.locator('.hw-town__sec', { hasText: 'Festival' }).scrollIntoViewIfNeeded();
+      // The Town page redraws as it ticks, so Playwright's actionability wait can lose the node: scroll it with one in-page call.
+      await page.locator('.hw-town__sec', { hasText: 'Festival' }).first().evaluate((el) => el.scrollIntoView({ block: 'center' }));
       await d.settle(300);
       await d.shot('3-town-page');
       await d.closeScreen();
