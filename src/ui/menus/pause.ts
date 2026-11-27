@@ -6,7 +6,7 @@ import type { UIRoot } from '../kit/root';
 import { Window } from '../kit/window';
 import { SearchBox, matches } from '../kit/search';
 import { HowToPlay, howToTopics, type HowToPlayOptions } from './howto';
-import { SettingsPanel } from './settings';
+import { SettingsPanel, type SaveTools } from './settings';
 
 /** A page the pause menu can jump to: it shows as a button, and the search finds it by label, hint or keywords. */
 export interface PageLink {
@@ -33,6 +33,8 @@ export interface PauseMenuOptions {
   onQuit: () => void;
   /** When given, a Town entry opens the Town page (the world has a town to show). */
   onTown?: () => void;
+  /** Backing up the saved world while playing: shown in Settings (Saves) and found by the search as Backup. */
+  saves?: SaveTools;
   /** The Dev Mode switch shown in Settings (see SettingsPanelOptions.dev). */
   dev?: { get(): boolean; set(on: boolean): void };
   /** Control lists for How to Play, when the real bindings differ from the defaults. */
@@ -114,6 +116,7 @@ export class PauseMenu {
         new SettingsPanel({
           settings: this.settings,
           dev: this.opts.dev,
+          saves: this.opts.saves,
           onChange: (settings, key) => {
             this.settings = settings;
             this.opts.onSettingsChange(settings, key);
@@ -140,7 +143,7 @@ export class PauseMenu {
     };
     const pages = this.pageLinks();
     const settingsWords = 'settings options difficulty peaceful hard graphics quality ui size large sound volume music loot filter magnet dev mode controls sensitivity fps';
-    const settingsLink: PageLink = { id: 'settings', label: 'Settings', hint: 'Difficulty, graphics, sound, controls', keywords: settingsWords, open: () => this.show('settings') };
+    const settingsLink: PageLink = { id: 'settings', label: 'Settings', hint: 'Difficulty, graphics, sound, controls', keywords: `${settingsWords}${this.opts.saves ? ' backup save export download copy' : ''}`, open: () => this.show('settings') };
     const howtoLink: PageLink = { id: 'howto', label: 'How to Play', hint: 'The loop, staying alive, controls', keywords: 'help guide tutorial controls keys', open: () => this.show('howto') };
     const all: PageLink[] = [...pages, settingsLink, howtoLink];
     const topics = howToTopics(this.opts.controls);

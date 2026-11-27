@@ -184,12 +184,27 @@ export class Hud {
       this.devBtn,
     );
     root.layers.hud.appendChild(this.el);
+    // A quiet corner mark each time the game saves, so players know quitting is safe.
+    const saved = h('div', { class: 'hw-saved', text: 'Saved', attrs: { 'aria-hidden': 'true' } });
+    this.el.appendChild(saved);
+    let savedTimer: ReturnType<typeof setTimeout> | undefined;
+    this.offs.push(
+      bus.on('game:saved', () => {
+        saved.dataset.show = '1';
+        clearTimeout(savedTimer);
+        savedTimer = setTimeout(() => delete saved.dataset.show, 1400);
+      }),
+      () => clearTimeout(savedTimer),
+    );
     this.dialogue = new NpcDialogue(bus, this.el);
     // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
     root.layers.toasts.appendChild(this.feed.el);
 
     this.offs.push(
-      bus.on('toast', (t) => this.toast(t.text, t.kind, t.item)),
+      bus.on('mob:hurt', () => this.crosshair.flashHit()),
+      bus.on('toast', (t) => {
+        this.toast(t.text, t.kind, t.item);
+      }),
       bus.on('objective:completed', ({ id }) => this.objectiveBanner(id)),
       bus.on('age:advanced', ({ age }) => this.ageBanner(age)),
       bus.on('item:gained', ({ item, count }) => this.feed.push(item, count)),

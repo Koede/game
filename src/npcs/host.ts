@@ -1,4 +1,5 @@
 /** Connects the NpcManager to the running game (docs/api/npcs.md): goals, clock, pack, magic notebook, mobs and hearths. */
+import { FURNACE_HOT_C } from '../core/constants';
 import type { GameClock } from '../game/clock';
 import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
@@ -151,6 +152,8 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
         if (left > 0) fuel('oak_log', -left);
       }
       if (!e.lit) d.sim.light(x, y, z);
+      // A kept fire is never a cold one: the camp's "sleep by the fire" goal needs it hot enough to rest at (restCheck).
+      else if (e.tempC < FURNACE_HOT_C + 10) e.tempC = FURNACE_HOT_C + 10;
     },
     jobs: d.workshop
       ? {

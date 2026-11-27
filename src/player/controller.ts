@@ -6,7 +6,7 @@
 import { Emotes } from './emotes';
 import { PhotoCamera } from './photoCam';
 import { stepSound } from './blockRules';
-import type { SfxName } from '../core/gameEvents';
+import type { FxBurstKind, SfxName } from '../core/gameEvents';
 import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
 import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
@@ -348,8 +348,13 @@ export class PlayerController {
       this.sfx('jump');
       exertJump(p);
     }
-    if (r.enteredWater) this.sfx('splash');
-    else if (r.landedFrom > LAND_SOUND_FROM) this.sfx('land');
+    if (r.enteredWater) {
+      this.sfx('splash');
+      this.fx('splash', p.position.y + 0.9, 14);
+    } else if (r.landedFrom > LAND_SOUND_FROM) {
+      this.sfx('land');
+      if (!this.settings.reduceMotion) this.fx(this.groundIsSnow() ? 'snow' : 'dust', p.position.y + 0.05, Math.min(24, 6 + Math.round(r.landedFrom * 3)));
+    }
     if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;
     if (r.landedFrom > 0 && !this.settings.reduceMotion) this.landDip = Math.max(this.landDip, landingDip(r.landedFrom));
     if (p.onGround && r.walked > 0) {
@@ -358,6 +363,7 @@ export class PlayerController {
       if (this.stepDistance >= every) {
         this.stepDistance -= every;
         const feet = this.world.getBlock(Math.floor(p.position.x), Math.floor(p.position.y - 0.02), Math.floor(p.position.z));
+        if (r.sprinting && !this.settings.reduceMotion && (feet.opaque || feet.solid)) this.fx(feet.key === 'snow' || feet.key === 'snow_block' ? 'snow' : 'dust', p.position.y + 0.05, 3);
         this.sfx(feet.opaque || feet.solid ? stepSound(feet) : 'step', r.sneaking ? SNEAK_STEP_VOLUME : r.sprinting ? SPRINT_STEP_VOLUME : STEP_VOLUME);
       }
     }
@@ -560,6 +566,17 @@ export class PlayerController {
       // A refusal (no user gesture yet) is fine: the next click on the view captures again.
       if (locked) this.state.pointerLocked = true;
     });
+  }
+
+  private fx(kind: FxBurstKind, y: number, count: number): void {
+    const p = this.player.position;
+    this.bus.emit('fx:burst', { kind, x: p.x, y, z: p.z, count });
+  }
+
+  private groundIsSnow(): boolean {
+    const p = this.player.position;
+    const k = this.world.getBlock(Math.floor(p.x), Math.floor(p.y - 0.02), Math.floor(p.z)).key;
+    return k === 'snow' || k === 'snow_block';
   }
 
   private sfx(name: SfxName, volume?: number): void {

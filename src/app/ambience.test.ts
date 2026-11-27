@@ -97,4 +97,24 @@ describe('AmbienceProbe', () => {
     probe.invalidate();
     expect(probe.update(0.016).sheltered).toBe(true);
   });
+
+  it('hears turning workshop parts, louder when nearer, and nothing when none turn', () => {
+    const { bus, world, player, clock } = setup();
+    let parts: Array<[number, number]> = [];
+    const workshop = {
+      turningNear: (px: number, py: number, pz: number, radius: number, weight: number) =>
+        parts.reduce((sum, [x, z]) => sum + Math.max(0, weight * (1 - Math.hypot(x - px, 40 - py, z - pz) / radius)), 0),
+    };
+    const probe = new AmbienceProbe(world, player, clock, null, workshop);
+    expect(probe.update(0.016).turning).toBe(0);
+    parts = [[10, 0]];
+    probe.invalidate();
+    const far = probe.update(0.016).turning;
+    parts = [[2, 0]];
+    probe.invalidate();
+    const near = probe.update(0.016).turning;
+    expect(far).toBeGreaterThan(0);
+    expect(near).toBeGreaterThan(far);
+    void bus;
+  });
 });

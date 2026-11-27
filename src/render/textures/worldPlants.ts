@@ -293,6 +293,21 @@ function foulAir(c: Canvas): void {
   for (const [x, y] of [[3, 9], [10, 6], [13, 12], [7, 13]] as const) c.set(x, y, GAS[0]);
 }
 
+function sapling(c: Canvas, leaf: Ramp, pine: boolean): void {
+  // A thin trunk with a small tuft of leaves at the top (a pine's is a stacked cone).
+  for (let y = 8; y < 16; y++) c.set(8, y, y > 12 ? CATTAIL[1] : CATTAIL[2]);
+  if (pine) {
+    for (const [y, w] of [[4, 0], [6, 1], [8, 2], [10, 3], [12, 4]] as const) for (let x = -w; x <= w; x++) c.set(8 + x, y, x === -w ? leaf[1] : x === w ? leaf[3] : leaf[2]);
+    c.set(8, 2, leaf[4]);
+    c.set(8, 3, leaf[3]);
+  } else {
+    for (const [x, y] of [[6, 5], [7, 5], [8, 5], [9, 5], [10, 5], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7], [7, 4], [8, 4], [9, 4]] as const) c.set(x, y, (x + y) % 3 === 0 ? leaf[4] : (x + y) % 3 === 1 ? leaf[3] : leaf[2]);
+    for (const [x, y] of [[5, 7], [11, 7], [6, 8], [10, 8]] as const) c.set(x, y, leaf[1]);
+  }
+}
+const oakSapling = (c: Canvas): void => sapling(c, STEM, false);
+const pineSapling = (c: Canvas): void => sapling(c, FERN, true);
+
 export const WORLD_PLANTS: PainterSet = {
   ember_poppy: emberPoppy,
   skybell,
@@ -305,4 +320,6 @@ export const WORLD_PLANTS: PainterSet = {
   crystal_cluster: crystalCluster,
   ice_spike: iceSpike,
   foul_air: foulAir,
+  oak_sapling: oakSapling,
+  pine_sapling: pineSapling,
 };

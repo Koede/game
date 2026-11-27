@@ -181,15 +181,20 @@ export class Contraptions {
 
   /** True when every target is free: in the move, vacated on purpose, or not a solid block. */
   private fits(moves: ReadonlyMap<string, Move>, vacate?: ReadonlySet<string>): boolean {
+    return this.blocker(moves, vacate) === null;
+  }
+
+  /** The first cell a move cannot enter, in words ("Stone at 3, 64, 9", "the height limit"), or null when everything fits. */
+  private blocker(moves: ReadonlyMap<string, Move>, vacate?: ReadonlySet<string>): string | null {
     const world = this.host.world;
     for (const { to } of moves.values()) {
-      if (to[1] < 0 || to[1] > 250) return false;
+      if (to[1] < 0 || to[1] > 250) return 'the height limit';
       const key = k3(...to);
       if (moves.has(key) || vacate?.has(key)) continue;
       const b = world.getBlock(...to);
-      if (b.key !== 'air' && !(b.solid === false && b.liquid === null && !b.machine)) return false;
+      if (b.key !== 'air' && !(b.solid === false && b.liquid === null && !b.machine)) return `${b.name} at ${to[0]}, ${to[1]}, ${to[2]}`;
     }
-    return true;
+    return null;
   }
 
   /** Moves every cell of `moves` (from -> to, facing turned by `turn` quarter turns) at once; false when something is in the way. */
@@ -300,8 +305,8 @@ export class Contraptions {
     const front: [number, number, number] = [a.x + dx, a.y, a.z + dz];
     if (powered && a.ext < PISTON_MAX) {
       const moves = this.pushMoves(front, dx, dz);
-      if (moves === null) return this.toast('The contraption is too big to push (48 blocks)');
-      if (!this.commit(moves, (e) => { e.x += dx; e.z += dz; })) return this.toast('Something blocks the piston');
+      if (moves === null) return this.toast('The contraption is too big to push (over 48 blocks) - unhook some frames');
+      if (!this.commit(moves, (e) => { e.x += dx; e.z += dz; })) return this.toast(`The piston is blocked by ${this.blocker(moves) ?? 'something in the way'} - clear it`);
       this.host.world.setVoxel(...front, makeVoxel(blockId('contraption_frame')), 'sim');
       a.ext++;
       this.host.bus.emit('sfx', { name: 'pipe_clunk', x: a.x + 0.5, y: a.y + 0.5, z: a.z + 0.5, pitch: 0.7 });
@@ -312,7 +317,7 @@ export class Contraptions {
       this.host.world.setVoxel(...front, 0, 'sim');
       if (!this.commit(moves, (e) => { e.x -= dx; e.z -= dz; })) {
         this.host.world.setVoxel(...front, makeVoxel(blockId('contraption_frame')), 'sim');
-        return this.toast('Something blocks the piston');
+        return this.toast(`The piston cannot pull back: blocked by ${this.blocker(moves, new Set([k3(...front)])) ?? 'something in the way'}`);
       }
       a.ext--;
       this.host.bus.emit('sfx', { name: 'pipe_clunk', x: a.x + 0.5, y: a.y + 0.5, z: a.z + 0.5, pitch: 0.55 });
@@ -358,8 +363,8 @@ export class Contraptions {
   private finishBearing(a: Act): void {
     const step = this.bearingStep(a);
     if (step === 'idle') return;
-    if (step === 'big') return this.toast('The contraption is too big to turn (48 blocks)');
-    if (step === 'blocked') return this.toast('Something blocks the bearing');
+    if (step === 'big') return this.toast('The contraption is too big to turn (over 48 blocks) - unhook some frames');
+    if (step === 'blocked') return this.toast('The bearing is blocked - clear the way around the turning blocks');
     const { moves, cw } = step;
     const ok = this.commit(moves, (e, _to, from) => {
       void from;
@@ -368,7 +373,7 @@ export class Contraptions {
       e.x = cw ? a.x + 0.5 - rz : a.x + 0.5 + rz;
       e.z = cw ? a.z + 0.5 + rx : a.z + 0.5 - rx;
     });
-    if (!ok) return this.toast('Something blocks the bearing');
+    if (!ok) return this.toast('The bearing is blocked - clear the way around the turning blocks');
     this.host.bus.emit('sfx', { name: 'pipe_clunk', x: a.x + 0.5, y: a.y + 0.5, z: a.z + 0.5, pitch: 0.9 });
   }
 

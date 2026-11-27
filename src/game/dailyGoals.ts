@@ -16,10 +16,10 @@ import { itemOrNull } from '../core/registry';
 import type { ItemAmount } from '../core/types';
 import { DAYS_PER_SEASON, SEASONS, seasonOf, type Season } from '../sim/seasons';
 
-export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns';
+export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns' | 'brewed' | 'cast' | 'jobs' | 'meals';
 /** The metrics every save has; `festival` (contests entered) and `crowns` (golds in a festival's own contest) came later. */
 const BASE_METRICS = ['made', 'placed', 'broken', 'drunk', 'explored'] as const;
-const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns'];
+const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns', 'brewed', 'cast', 'jobs', 'meals'];
 export type GoalFacts = Record<GoalMetric, number>;
 
 export type Reward = { kind: 'item'; item: string; count: number } | { kind: 'cosmetic'; id: string } | { kind: 'blueprint'; id: string };
@@ -51,6 +51,10 @@ export const DAILY_POOL: readonly GoalSpec[] = [
   { id: 'd_drink_1', text: 'Drink something warm or cool', metric: 'drunk', target: 1, reward: item('white_dye', 2) },
   { id: 'd_drink_3', text: 'Drink 3 cups', metric: 'drunk', target: 3, reward: item('yellow_dye', 3) },
   { id: 'd_walk_800', text: 'Learn 800 blocks of new ground', metric: 'explored', target: 800, reward: item('green_dye', 2) },
+  { id: 'd_brew_2', text: 'Brew 2 cups at the hearth', metric: 'brewed', target: 2, reward: item('green_dye', 3) },
+  { id: 'd_cast_2', text: 'Pour 2 castings', metric: 'cast', target: 2, reward: item('black_dye', 3) },
+  { id: 'd_jobs_5', text: 'Let your machines finish 5 jobs', metric: 'jobs', target: 5, reward: item('blue_dye', 3) },
+  { id: 'd_meals_3', text: 'Eat 3 meals', metric: 'meals', target: 3, reward: item('yellow_dye', 2) },
   { id: 'd_walk_2500', text: 'Learn 2,500 blocks of new ground', metric: 'explored', target: 2500, reward: item('blue_dye', 3) },
 ];
 
@@ -385,7 +389,7 @@ export class DailyGoals {
   }
 
   toJSON(): DailyGoalsSnapshot {
-    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0 };
+    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
     return {
       day: this.day,
       base: { ...(this.base ?? zero) },

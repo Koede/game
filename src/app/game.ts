@@ -6,6 +6,7 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import type { SaveTools } from '../ui/menus/settings';
 import { newThermalGrid } from '../game/thermal';
 import { makePostcard, saveShot, sendPostcard } from './photo';
 import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
@@ -110,6 +111,8 @@ export interface GameOptions {
   /** "Save and quit to title" was chosen in the pause menu. */
   onQuit: () => void;
   onSettingsChange: (settings: Settings, key: keyof Settings) => void;
+  /** Back up the saved world from the pause menu (file or text; no restore while a world is open). */
+  saves?: SaveTools;
 }
 
 /** Number of chunk columns the world meshes within `r` chunks of the player (the streamer's view circle). */
@@ -126,6 +129,9 @@ const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox' | 'pa
 const HEAT_VIEW_RADIUS = 12;
 /** Rows of the 25-row heat grid computed per frame (about 2 ms each frame at most). */
 const HEAT_ROWS_PER_FRAME = 4;
+
+/** Machines whose aim line shows what they hold (their machine view's status). */
+const LEVEL_MACHINES: ReadonlySet<string> = new Set(['tank', 'alloy_pot', 'battery', 'lithium_bank', 'cell_rack']);
 
 export class Game {
   readonly state: GameState;
@@ -227,6 +233,7 @@ export class Game {
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.treeRenderer = new FallingTreeRenderer(this.renderer, (p) => this.renderer.spawnParticle(p));
+    this.offs.push(bus.on('tree:hit', (h) => this.treeRenderer?.chop(h)));
     this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs, reduceMotion: () => this.settings.reduceMotion });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
@@ -264,6 +271,7 @@ export class Game {
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,
+          saves: opts.saves,
           onQuit: opts.onQuit,
           dev: { get: () => state.mode === 'dev', set: (on) => state.setMode(on ? 'dev' : 'survival') },
         },
@@ -337,7 +345,7 @@ export class Game {
       this.airshipRenderer = new AirshipRenderer(this.renderer, world);
       this.airshipHud = new AirshipHud(root.layers.hud, () => this.input.touch, () => this.airships.pressCourseKey());
       this.audio = new AudioEngine(bus, settings);
-      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
+      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state, state.workshop);
     } catch (err) {
       this.itemRenderer.dispose();
     this.trees.dispose();
@@ -667,10 +675,17 @@ export class Game {
     else if (hit && (label = this.magicLabel(hit.x, hit.y, hit.z, hit.block.key)) !== null) { /* magic */ }
     else if (!hit && (label = this.magic.rodReading()) !== null) { /* rod reading at the sky */ }
     else if (hit && this.state.player.inventory.has(GOGGLES)) label = inspect(this.inspectProbe, hit.x, hit.y, hit.z);
+    else if (hit && LEVEL_MACHINES.has(hit.block.machine ?? '') && (label = this.levelLabel(hit)) !== null) { /* tank, battery... */ }
     else if (hit && isKinetic(hit.block.key)) label = hit.block.name;
     if (label === this.namedStation) return;
     this.namedStation = label;
     this.ui.setTargetName(label);
+  }
+
+  /** "Tank - 22,000 of 48,000 L": what a store-like machine holds, read off its machine view; null when it says nothing. */
+  private levelLabel(hit: { x: number; y: number; z: number; block: { name: string } }): string | null {
+    const status = this.state.sim.machineView(hit.x, hit.y, hit.z)?.status;
+    return status ? `${hit.block.name} - ${status}` : null;
   }
 
   /** The drop the view is aimed at, nearer than the block behind it, as the crosshair names it; null for none. */

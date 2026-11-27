@@ -16,9 +16,9 @@
     "water": {"drops":"none","hardness":-1,"item":false,"key":"water","liquid":"water","replaceable":true,"shape":"liquid","translucent":true},
     "lava": {"contactDamage":4,"drops":"none","hardness":-1,"item":false,"key":"lava","light":15,"liquid":"lava","replaceable":true,"shape":"liquid","warmth":4},
     "oak_log": {"hardness":2,"key":"oak_log","tool":"axe"},
-    "oak_leaves": {"drops":[{"chance":0.3,"count":1,"item":"fiber"},{"chance":0.15,"count":1,"item":"stick"}],"hardness":0.3,"key":"oak_leaves"},
+    "oak_leaves": {"drops":[{"chance":0.3,"count":1,"item":"fiber"},{"chance":0.15,"count":1,"item":"stick"},{"chance":0.08,"count":1,"item":"oak_sapling"}],"hardness":0.3,"key":"oak_leaves"},
     "pine_log": {"hardness":2,"key":"pine_log","tool":"axe"},
-    "pine_leaves": {"drops":[{"chance":0.3,"count":1,"item":"fiber"},{"chance":0.15,"count":1,"item":"stick"}],"hardness":0.3,"key":"pine_leaves"},
+    "pine_leaves": {"drops":[{"chance":0.3,"count":1,"item":"fiber"},{"chance":0.15,"count":1,"item":"stick"},{"chance":0.08,"count":1,"item":"pine_sapling"}],"hardness":0.3,"key":"pine_leaves"},
     "tall_grass": {"drops":[{"chance":0.5,"count":1,"item":"fiber"},{"chance":0.15,"count":1,"item":"wheat_seeds"}],"hardness":0.1,"key":"tall_grass","placeOn":["grass","dirt"],"replaceable":true,"shape":"cross"},
     "dry_shrub": {"drops":[{"count":[1,2],"item":"stick"}],"hardness":0.2,"key":"dry_shrub","placeOn":["sand","dirt","grass","gravel","snow","stone","basalt"],"replaceable":true,"shape":"cross"},
     "coal_ore": {"age":0,"category":"resource","drops":[{"count":[1,2],"item":"coal"}],"hardness":5,"key":"coal_ore","minTier":1,"tool":"pickaxe"},
@@ -326,7 +326,9 @@
     "radio_mast": {"age":3,"category":"machine","hardness":2,"key":"radio_mast","lightActive":4,"shape":"fence","tool":"pickaxe"},
     "clock_tower": {"age":1,"category":"machine","hardness":1.2,"key":"clock_tower","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "beehive": {"age":0,"category":"machine","hardness":1.2,"key":"beehive","machine":"beehive","tool":"axe"},
-    "beeswax_candle": {"age":0,"category":"block","hardness":0.1,"key":"beeswax_candle","light":12,"shape":"torch","warmth":1}
+    "beeswax_candle": {"age":0,"category":"block","hardness":0.1,"key":"beeswax_candle","light":12,"shape":"torch","warmth":1},
+    "oak_sapling": {"age":0,"hardness":0.1,"key":"oak_sapling","placeOn":["grass","dirt"],"shape":"cross"},
+    "pine_sapling": {"age":0,"hardness":0.1,"key":"pine_sapling","placeOn":["grass","dirt"],"shape":"cross"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
