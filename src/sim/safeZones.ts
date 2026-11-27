@@ -34,6 +34,7 @@ export interface SafeZoneQuery {
 }
 
 const BEACON_RADIUS = machine('ward_beacon').params?.radius ?? WARD_BEACON_RADIUS;
+const LIGHTHOUSE_RADIUS = machine('lighthouse_lamp').params?.radius ?? WARD_BEACON_RADIUS;
 
 /** The warm-zone radius of a furnace of this tier: its block's warmth radius while active. */
 export const furnaceWarmRadius = (tier: number): number => block(furnaceTier(tier).block).warmthActive;
@@ -42,7 +43,7 @@ export const furnaceWarmRadius = (tier: number): number => block(furnaceTier(tie
 export const furnaceIsHot = (e: FurnaceEntity): boolean => e.tempC >= FURNACE_HOT_C;
 
 /** Whether a node's state decides a zone (a furnace, a ward beacon). */
-export const guardsZone = (node: SimNode): boolean => isFurnace(node.e) || node.e.kind === 'ward_beacon';
+export const guardsZone = (node: SimNode): boolean => isFurnace(node.e) || node.e.kind === 'ward_beacon' || node.e.kind === 'lighthouse_lamp';
 
 export class SafeZones {
   private zones: readonly SafeZone[] = [];
@@ -85,6 +86,9 @@ export class SafeZones {
         if (furnaceIsHot(e)) next.push({ kind: 'furnace', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, radius: furnaceWarmRadius(e.tier) });
       } else if (e.kind === 'ward_beacon' && n.active) {
         next.push({ kind: 'beacon', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, radius: BEACON_RADIUS });
+      } else if (e.kind === 'lighthouse_lamp' && n.active) {
+        // A lit lighthouse lamp (docs/api/optics.md) wards like a beacon; its sphere reaches down the tower to the ground.
+        next.push({ kind: 'beacon', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, radius: LIGHTHOUSE_RADIUS });
       }
     }
     if (!sameZones(this.zones, next)) {

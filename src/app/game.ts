@@ -6,6 +6,8 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import { Optics } from '../game/optics';
+import { OpticsHud } from '../ui/opticsHud';
 import type { SaveTools } from '../ui/menus/settings';
 import { newThermalGrid } from '../game/thermal';
 import { makePostcard, saveShot, sendPostcard } from './photo';
@@ -163,6 +165,8 @@ export class Game {
   readonly magic: Magic;
   /** The Bronze workshop pieces (docs/api/workshop.md): cranks, shafts, belts, mechanical stations. */
   readonly workshop: Workshop;
+  /** Spyglass, telescope and spotting (src/game/optics.ts). */
+  readonly optics: Optics;
   private readonly tractorRenderer: TractorRenderer;
   private readonly vehicleHud: VehicleHud;
   private readonly liftRenderer: LiftRenderer;
@@ -307,9 +311,25 @@ export class Game {
       this.armElixirDrink();
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
       this.controller.fallenAim = (o, d, maxDist) => this.trees.aimHit(o, d, maxDist);
+      const controller = this.controller;
+      this.optics = new Optics({
+        world, bus, player, seed: world.seed,
+        setZoom: (zoom) => (controller.zoom = zoom),
+        isNight: () => state.clock.isNight,
+        weather: () => state.weather.state,
+      });
+      world.loadExtra('optics', (raw) => this.optics.load(raw));
+      this.offs.push(world.persist('optics', () => this.optics.toJSON()), bus.on('ui:opened', () => this.optics.lower()), bus.on('flag', ({ flag }) => {
+        if (flag !== 'lighthouse_lit') return;
+        bus.emit('toast', { text: 'The lighthouse is lit: its beam sweeps the water, and no automaton comes near.', kind: 'good', item: 'lighthouse_lamp' });
+        bus.emit('town:note', { key: 'lighthouse_lit', text: 'Lit a lighthouse lamp high over the water. Its beam can be seen from far off.' });
+      }));
       this.controller.interaction.beforeUse = (hit) => {
         // Picking a stop for a resident's job (docs/api/jobs.md): this Use sets it.
         if (state.npcs.pickingStop) return state.npcs.jobPick(hit) ? 'screen' : null;
+        // The spyglass in hand, or a telescope aimed at (docs/api/optics.md).
+        const looked = this.optics.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block } : null, player.heldStack()?.item ?? null);
+        if (looked !== null) return looked;
         // Telegraph offices and radio masts open the wire's screen (docs/api/telegraph.md).
         if (hit && (hit.block.key === 'telegraph_office' || hit.block.key === 'radio_mast') && state.telegraph.node(hit.x, hit.y, hit.z)) {
           bus.emit('ui:open', { screen: { type: 'telegraph', x: hit.x, y: hit.y, z: hit.z } });
@@ -340,6 +360,8 @@ export class Game {
       this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
+      const opticsHud = new OpticsHud(root.layers.hud, bus);
+      this.offs.push(() => opticsHud.dispose());
       this.liftRenderer = new LiftRenderer(this.renderer, world);
       this.liftHud = new LiftHud(root.layers.hud, () => this.input.touch);
       this.airshipRenderer = new AirshipRenderer(this.renderer, world);
@@ -512,6 +534,7 @@ export class Game {
       const tractor = this.vehicles.driving;
       const tractorFrom = tractor ? { x: tractor.x, z: tractor.z, y: tractor.y } : null;
       this.controller.update(dt);
+      this.optics.update(dt);
       if (tractor && tractorFrom && this.vehicles.driving === tractor) this.boostTractor(tractor, tractorFrom);
       if (followRide(state.player, this.workshop.onRide())) this.controller.physics.reset();
       state.lifts.carry();
