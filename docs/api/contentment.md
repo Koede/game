@@ -4,7 +4,7 @@ A pure module (no world, no rendering). Wired in by `src/npcs/settlement.ts` and
 
 ## Contentment
 
-- `TASTES`: per person (`orrin`, `rosa`, `gruk`, `mara`, `bram`, `veyra`) likes and dislikes. A subject is a neighbour (a person id) or a surrounding tag (`hearth`, `trees`, `water`, `fumes`, `forge`, `crowded`, `quiet`). Orrin also has a small `company` bonus.
+- `TASTES`: per person (`orrin`, `rosa`, `gruk`, `mara`, `bram`, `veyra`) likes and dislikes. A subject is a neighbour (a person id) or a surrounding tag (`hearth`, `trees`, `water`, `fumes`, `forge`, `crowded`, `quiet`, `lights`, `noise`). Orrin also has a small `company` bonus.
 - `contentment(person, facts)` takes `facts = { neighbours, tags, residentsNearby }` and returns `{ score, reasons }`. Each matched like adds, each matched dislike subtracts (neighbour 0.35, tag 0.3). Residents above `CROWD_LIMIT` (3) subtract 0.25 each, capped at 0.75. The raw sum goes through `tanh`, so `score` is in [-1, 1]. `reasons` are short lines such as `likes living near Gruk`.
 - Effects, all bounded (any input, including NaN, is clamped first):
   - `priceFactor(score)` in [0.85, 1.2]: content means cheaper.
