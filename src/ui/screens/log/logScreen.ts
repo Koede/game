@@ -1,5 +1,6 @@
 /** The Hearth Log as a standalone screen (L, or a tap on the goal tracker). */
 import type { GameScreen, ScreenContext } from '../../gameUI';
+import { seasonLine } from '../../../sim/seasons';
 import { keepsakeOf } from '../../../game/dailyGoals';
 import { Window } from '../../kit/window';
 import { HearthLogView } from './hearthLog';
@@ -12,14 +13,15 @@ import { LegendsView } from './legendsView';
 function dayLine(ctx: ScreenContext): string {
   const worn = ctx.dailyGoals?.worn;
   const name = worn ? keepsakeOf(worn)?.name : undefined;
-  return name ? `Day ${ctx.clock.day} \u00b7 ${name}` : `Day ${ctx.clock.day}`;
+  const base = `Day ${ctx.clock.day} \u00b7 ${seasonLine(ctx.clock.day)}`;
+  return name ? `${base} \u00b7 ${name}` : base;
 }
 
 export function createLogScreen(_request: { type: 'log' }, ctx: ScreenContext): GameScreen {
   const view = new HearthLogView(ctx.objectives, () => ctx.weather);
   const dg = ctx.dailyGoals ? new DailyGoalsView(ctx.dailyGoals) : null;
   if (dg) view.el.append(dg.el);
-  const journal = ctx.journal ? new JournalView(ctx.journal, ctx.world, () => ctx.player.position) : null;
+  const journal = ctx.journal ? new JournalView(ctx.journal, ctx.world, () => ctx.player.position, () => ctx.mapMarks?.() ?? []) : null;
   if (journal) view.el.append(journal.el);
   const legends = ctx.journal ? new LegendsView(ctx.journal) : null;
   if (legends) view.el.append(legends.el);

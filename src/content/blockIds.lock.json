@@ -311,4 +311,6 @@
   "windmill": 309,
   "steam_tank": 310,
   "clock_tower": 311
+  "tube_sender": 311,
+  "tube_receiver": 312
 }

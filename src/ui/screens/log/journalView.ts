@@ -3,12 +3,14 @@ import type { IWorld } from '../../../core/types';
 import { journalSummary, type Journal } from '../../../game/journal';
 import { h, setText } from '../../kit/dom';
 import { MAP_PX, paintMap } from './journalMap';
+import type { MapMark } from '../../../game/exploration';
 
 export class JournalView {
   readonly el: HTMLElement;
   private readonly canvas: HTMLCanvasElement;
   private readonly list: HTMLOListElement;
   private readonly summary: HTMLParagraphElement;
+  private readonly key: HTMLParagraphElement;
   private shown = -1;
   private mapAt = -1;
   private readonly img: ImageData | null;
@@ -17,11 +19,13 @@ export class JournalView {
     private readonly journal: Journal,
     private readonly world: Pick<IWorld, 'surfaceY'>,
     private readonly feet: () => { x: number; z: number },
+    private readonly marks: () => readonly MapMark[] = () => [],
   ) {
     this.canvas = h('canvas', { class: 'hw-journal__map', attrs: { width: String(MAP_PX), height: String(MAP_PX), 'aria-label': 'Explored map' } });
     this.summary = h('p', { class: 'hw-journal__summary' });
+    this.key = h('p', { class: 'hw-journal__key', attrs: { hidden: true } });
     this.list = h('ol', { class: 'hw-journal__list' });
-    this.el = h('section', { class: 'hw-journal' }, h('h3', { class: 'hw-journal__title', text: 'Journal' }), this.canvas, this.summary, this.list);
+    this.el = h('section', { class: 'hw-journal' }, h('h3', { class: 'hw-journal__title', text: 'Journal' }), this.canvas, this.key, this.summary, this.list);
     this.img = typeof ImageData === 'function' ? new ImageData(MAP_PX, MAP_PX) : null;
   }
 
@@ -30,7 +34,11 @@ export class JournalView {
     if (this.img && now - this.mapAt > 1000) {
       this.mapAt = now;
       const f = this.feet();
-      paintMap(this.journal, f.x, f.z, MAP_PX, (x, z) => this.world.surfaceY(x, z), this.img.data);
+      const marks = this.marks();
+      paintMap(this.journal, f.x, f.z, MAP_PX, (x, z) => this.world.surfaceY(x, z), this.img.data, marks);
+      const legend = marks.map((m) => `${m.kind === 'waypoint' ? '\u25c6' : '\u2715'} ${m.label}`).join('   ');
+      setText(this.key, legend);
+      this.key.hidden = legend === '';
       this.canvas.getContext('2d')?.putImageData(this.img, 0, 0);
     }
     const key = this.journal.entries.length * 1000 + this.journal.seenCells;
