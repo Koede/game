@@ -310,7 +310,7 @@ export const SPEC = {
     'place drying_rack 1', 'make leather 1', 'make cloth 1', 'tier 2', ...WORKSHOP_SPEC.objectives, 'tier 3', 'place item_pipe 1',
     'make iron_ingot 8', 'make steel_ingot 6', 'make iron_axle 2', 'place rolling_mill 1', 'place drop_forge 1', 'place dynamo 1', 'generate 100', 'place lamp 1', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 4', 'place pump 1',
     'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', ...GROUND_SPEC.objectivesAfterBeacon, 'generate 10000', 'make tungsten_rod 4', 'tier 5',
-    'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 6',
+    'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 4', 'make star_core 1', 'tier 6',
     'flag ignited',
   ],
 

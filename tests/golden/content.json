@@ -1252,7 +1252,7 @@
     "make_superalloy": {"age":4,"condition":{"count":8,"item":"superalloy","type":"make"},"id":"make_superalloy"},
     "place_fission_pile": {"age":4,"condition":{"block":"fission_pile","count":1,"type":"place"},"id":"place_fission_pile","reward":[{"count":2,"item":"water_pail"}]},
     "generate_60kw": {"age":4,"condition":{"type":"generate","watts":60000},"id":"generate_60kw"},
-    "make_deuterium": {"age":4,"condition":{"count":8,"item":"deuterium_cell","type":"make"},"id":"make_deuterium"},
+    "make_deuterium": {"age":4,"condition":{"count":4,"item":"deuterium_cell","type":"make"},"id":"make_deuterium"},
     "make_star_core": {"age":4,"condition":{"count":1,"item":"star_core","type":"make"},"id":"make_star_core"},
     "starhearth": {"age":4,"condition":{"tier":6,"type":"furnaceTier"},"id":"starhearth"},
     "ignite": {"age":5,"condition":{"flag":"ignited","type":"flag"},"id":"ignite"}
