@@ -64,7 +64,7 @@ describe('processors', () => {
     m.slots[1] = { item: 'crushed_tin', count: 98 };
     kit.run(10);
     expect(m.slots[1]!.count).toBe(98);
-    expect(kit.sim.machineView(0, 5, 0)!.status).toBe('Output is full');
+    expect(kit.sim.machineView(0, 5, 0)!.status).toContain('Output is full');
     const crate = kit.machine('crate', 0, 6, 0);
     kit.run(6);
     expect(m.slots[1]).toBeNull();
@@ -396,5 +396,18 @@ describe('persistence', () => {
     const snap = (kit: Kit) => JSON.parse(JSON.stringify([...kit.world.entities()]));
     expect(snap(b)).toEqual(snap(a));
     expect(b.sim.entityCount).toBe(6);
+  });
+});
+
+describe('idle reasons name the missing input', () => {
+  it('an empty crusher lists what it takes, a short stack says how many more', () => {
+    const kit = makeKit();
+    const m = kit.machine('crusher', 0, 5, 0);
+    bank(kit, 1, 5, 0);
+    kit.run(1);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toMatch(/^Empty - put in .*ore/);
+    m.slots[0] = { item: 'stick', count: 1 };
+    kit.run(1);
+    expect(kit.sim.machineView(0, 5, 0)!.status).toMatch(/^Cannot use Stick/);
   });
 });

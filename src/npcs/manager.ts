@@ -314,7 +314,7 @@ export class NpcManager {
   private festNow = false;
   /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
   private readonly veyra = new ServiceMenu(TONICS.map((d) => drinkService(d, () => this.drinkLog)));
-  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, { stage: () => this.bar.built.has('stage'), addRep: (n) => void (this.board.rep += n) }), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, { stage: () => this.bar.built.has('stage'), addRep: (n) => void (this.board.rep += n), ready: () => this.hasTavern && this.presentCount() >= 3 }), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);

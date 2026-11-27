@@ -145,6 +145,8 @@ export class Survival {
   private drownAcc = 0;
   private contactAcc = 0;
   private radiationS = 0;
+  /** The radiation warning toast has fired and not yet re-armed (dose back under a quarter of the safe dose). */
+  private radiationWarned = false;
   private regenS = 0;
   private rate = 0;
   private heated = false;
@@ -487,6 +489,10 @@ export class Survival {
     }
     if (this.suit) dose *= SHIELD_SUIT_FACTOR;
     this.dose = dose;
+    if (dose > RADIATION_SAFE_DOSE / 2 && !this.radiationWarned) {
+      this.radiationWarned = true;
+      player.bus.emit('toast', { text: 'Radiation: this place is hot - step away, or wear a shield suit', kind: 'warn' });
+    } else if (dose < RADIATION_SAFE_DOSE / 4) this.radiationWarned = false;
     if (dose <= RADIATION_SAFE_DOSE) {
       this.radiationS = 0;
       return;

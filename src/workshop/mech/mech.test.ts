@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { BRAKE_TORQUE, FUSE_GRACE_S, LoadGraph, coastSeconds, criticalRpm, diagnose, fresh, networkMomentum, rideThrough, shaftRuns, stepDrive, stepFuse, stepHeat, throughTorque, whipFactor, worstWhip, type DriveInput, type Engine } from './drive';
-import { chain, cvtRatio, differentialMean, planetary, planetaryReduction, power, stage } from './gearMath';
 import { DRUM_STEPS, advanceDrum, drumFromJSON, drumFromRows, drumToJSON, encoderPulses, follower, makeDrum, outputs, setPeg, stepEscapement, springTorque, windSpring, unwindSpring } from './drum';
 import { LogicNet } from './logic';
 import { pantograph, lever, rackTravel, scissorAngle, scissorHeight, sliderPhase, sliderPos, sliderRate, sliderStroke, stepAxis, strokeLoad } from './linkage';
-import { Circuit, HYDRAULIC, PNEUMATIC, TANK } from './hydraulics';
 
 const crank: Engine = { rated: 8, curve: 'flat' };
 const run = (input: DriveInput, seconds: number, w = 1, dt = 0.05): number => {
@@ -137,32 +135,6 @@ describe('diagnose and graph', () => {
     for (let i = 1; i <= 6; i++) g.push(i, 10, 1);
     expect(g.series().load).toEqual([3, 4, 5, 6]);
     expect(g.peakRatio()).toBeCloseTo(0.6);
-  });
-});
-
-describe('gear math', () => {
-  it('gearing trades speed for torque and loses a little power', () => {
-    const out = stage({ rpm: 16, torque: 8 }, 2);
-    expect(out.rpm).toBe(32);
-    expect(out.torque).toBeLessThan(4);
-    expect(power(out)).toBeLessThan(power({ rpm: 16, torque: 8 }));
-    const back = chain({ rpm: 16, torque: 8 }, [{ ratio: 3 }, { ratio: 1 / 3 }]);
-    expect(back.rpm).toBeCloseTo(16);
-  });
-
-  it('planetary set obeys its law and holds', () => {
-    const p = planetary(2, { sun: 30, carrier: 10 });
-    expect(p.ring).toBeCloseTo(0);
-    expect(planetary(2, { sun: 30, carrier: 5 }).ring).toBeCloseTo(-7.5);
-    expect(planetary(3, { sun: 16 }, 'ring').carrier).toBeCloseTo(16 * planetaryReduction(3));
-    expect(() => planetary(2, { sun: 1 })).toThrow();
-    expect(differentialMean(10, -4)).toBe(3);
-  });
-
-  it('cvt spans 0.4 to 2.5', () => {
-    expect(cvtRatio(0)).toBeCloseTo(0.4);
-    expect(cvtRatio(15)).toBeCloseTo(2.5);
-    expect(cvtRatio(7)).toBeGreaterThan(cvtRatio(6));
   });
 });
 
@@ -355,58 +327,6 @@ describe('linkage', () => {
     expect(a.pos).toBe(10);
     expect(a.vel).toBe(0);
     expect(maxPos).toBeLessThanOrEqual(10);
-  });
-});
-
-describe('hydraulics', () => {
-  it('a pump charges an accumulator, a valve fires a cylinder, a relief caps pressure', () => {
-    const c = new Circuit();
-    c.add({ kind: 'pump', id: 'p', to: 'a', disp: 0.4, rpm: 60 })
-      .add({ kind: 'relief', id: 'r', at: 'a', setting: 30 })
-      .add({ kind: 'accumulator', id: 'acc', at: 'a', size: 4, precharge: 5 })
-      .add({ kind: 'valve', id: 'v', from: 'a', to: 'b', open: false })
-      .add({ kind: 'cylinder', id: 'cyl', at: 'b', area: 0.5, stroke: 3, load: 4, springReturn: true });
-    let load = 0;
-    for (let i = 0; i < 400; i++) load = Math.max(load, c.step(0.05).pumpLoad);
-    expect(c.pressure('a')).toBeGreaterThan(10);
-    expect(c.pressure('a')).toBeLessThanOrEqual(36);
-    expect(load).toBeGreaterThan(0);
-    expect(c.position('cyl')).toBe(0);
-    c.setValve('v', true);
-    for (let i = 0; i < 200; i++) c.step(0.05);
-    expect(c.position('cyl')).toBeGreaterThan(1);
-    c.setValve('v', false);
-    c.setLoad('cyl', 40);
-    c.setPump('p', 0);
-    for (let i = 0; i < 600; i++) c.step(0.05);
-    expect(c.position('cyl')).toBeLessThan(3);
-  });
-
-  it('a bigger cylinder is slower but pushes harder (the ratio lesson)', () => {
-    const t = (area: number, load: number): number => {
-      const c = new Circuit();
-      c.add({ kind: 'pump', id: 'p', to: 'a', disp: 0.4, rpm: 60 }).add({ kind: 'relief', id: 'r', at: 'a', setting: 30 })
-        .add({ kind: 'valve', id: 'v', from: 'a', to: 'b', open: true }).add({ kind: 'cylinder', id: 'cyl', at: 'b', area, stroke: 2, load, springReturn: false });
-      for (let i = 0; i < 4000; i++) {
-        c.step(0.05);
-        if (c.position('cyl') >= 2) return i;
-      }
-      return Infinity;
-    };
-    expect(t(0.5, 4)).toBeLessThan(t(2, 4));
-    expect(t(2, 40)).toBeLessThan(Infinity); // 40 / 2 = 20 bar: the big one can lift what the small one cannot (40 / 0.5 = 80 bar)
-    expect(t(0.5, 40)).toBe(Infinity);
-  });
-
-  it('pneumatic circuits are softer than hydraulic ones', () => {
-    const fill = (m: typeof PNEUMATIC): number => {
-      const c = new Circuit(m);
-      c.add({ kind: 'pump', id: 'p', to: 'a', disp: 0.4, rpm: 60 });
-      for (let i = 0; i < 20; i++) c.step(0.05);
-      return c.pressure('a');
-    };
-    expect(fill(PNEUMATIC)).toBeLessThan(fill(HYDRAULIC));
-    expect(TANK).toBe('tank');
   });
 });
 

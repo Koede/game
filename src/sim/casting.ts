@@ -126,7 +126,7 @@ function loadPot(ctx: SimContext, e: FurnaceEntity, slot: number, ingot: string)
   ctx.player.inventory.remove(ingot, n);
   mix[k] += n;
   ctx.touch(e);
-  ctx.bus.emit('sfx', { name: 'pour', x: e.x, y: e.y, z: e.z });
+  ctx.bus.emit('sfx', { name: 'cast_pour', x: e.x, y: e.y, z: e.z });
   return OK;
 }
 
@@ -186,7 +186,7 @@ export function emitPour(
 ): void {
   ctx.bus.emit('cast:poured', { ...pos, mould, metal, item, count, at });
   ctx.bus.emit('item:made', { item, count, station: 'furnace', recipeId: `cast:${mould}` });
-  ctx.bus.emit('sfx', { name: 'pour', ...pos });
+  ctx.bus.emit('sfx', { name: 'cast_pour', ...pos });
   ctx.flagOnce(FLAG_FIRST_POUR);
 }
 
