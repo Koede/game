@@ -28,8 +28,7 @@ left. Inside a page that blocks storage the game still runs, warns you once, and
 page is closed. A save that cannot be read (or comes from a newer version) is kept as a backup and never
 overwritten unless you start a New World; a full storage never deletes the last good save.
 
-New worlds begin at a camp with one companion, Gruk, and the game tells you what changed in each release in
-[CHANGELOG.md](CHANGELOG.md).
+New worlds begin at a camp with one companion, Gruk. Release-by-release changes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Controls
 
@@ -49,7 +48,7 @@ New worlds begin at a camp with one companion, Gruk, and the game tells you what
 | At the furnace: pump the bellows / show the backpack | P / B | Pump button / Backpack handle |
 | Set a pipe end to Push, Pull or Off | Use with the wrench on the pipe | the same |
 | Open the pipe screen (what flows, filters, priority) | Use on a pipe with an empty hand | the same |
-| Move to a point on the ground | (not on keyboard) | tap to move, with an on-screen destination ring |
+| Tap to move (optional setting) | - | tap a spot; an on-screen ring marks the destination |
 
 Screens use the same slot rules everywhere: click (tap) a stack to pick it up, click (tap) where it goes;
 right-click (long-press) takes half; shift-click (double-tap) or the "To ..." buttons move it straight across.
@@ -146,9 +145,9 @@ need housing, and stay content through the things they like, crowding and room w
 and tend machines for you. A wandering trader visits every few days at dusk, and caravans trade at prices that
 follow the time model.
 
-**Felling, caves and seasons of exploration.** A felled tree falls and lies as a log you cut up with the axe; it
-leaves a stump and branch wood behind. Caves run deep: camps, ore lodes, sinkholes and foul air that puts out a
-held torch, marked by chalk and cairns. A boss holds the deepest camps.
+**Felling and caves.** A felled tree falls and lies as a log you cut up with the axe; it leaves a stump and
+branch wood behind. Caves run deep: camps, ore lodes, sinkholes and foul air that puts out a held torch, marked
+by chalk and cairns. A boss holds the deepest camps.
 
 **Blueprints, tools and goals.** Save a machine layout and see its placement ghost, then build it from your pack
 or hand it to a resident. Ruins and old-age crates can hold old plans. Modular tools combine heads, handles and
