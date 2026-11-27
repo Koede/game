@@ -20,7 +20,15 @@ export function mapScale(journal: Journal, px: number, pz: number, size: number)
   return s;
 }
 
-export function paintMap(journal: Journal, px: number, pz: number, size: number, heightAt: (x: number, z: number) => number, out: Uint8ClampedArray): { blocksPerPx: number } {
+/** A place the map circles: a waypoint stone (blue diamond) or the landmark a treasure map names (red cross). */
+export interface MapMark { kind: 'waypoint' | 'treasure'; x: number; z: number }
+const MARK_COLOUR: Record<MapMark['kind'], readonly number[]> = { waypoint: [90, 200, 255], treasure: [255, 90, 70] };
+const MARK_SHAPE: Record<MapMark['kind'], ReadonlyArray<readonly [number, number]>> = {
+  waypoint: [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]],
+  treasure: [[0, 0], [1, 1], [-1, -1], [1, -1], [-1, 1], [2, 2], [-2, -2], [2, -2], [-2, 2]],
+};
+
+export function paintMap(journal: Journal, px: number, pz: number, size: number, heightAt: (x: number, z: number) => number, out: Uint8ClampedArray, marks: readonly MapMark[] = []): { blocksPerPx: number } {
   const b = journal.bounds();
   const cx = b ? (b.minX + b.maxX) / 2 : px;
   const cz = b ? (b.minZ + b.maxZ) / 2 : pz;
@@ -43,6 +51,20 @@ export function paintMap(journal: Journal, px: number, pz: number, size: number,
         out[o + 2] = UNSEEN[2];
       }
       out[o + 3] = 255;
+    }
+  }
+  for (const m of marks) {
+    const mx = Math.round((m.x - x0) / blocksPerPx);
+    const mz = Math.round((m.z - z0) / blocksPerPx);
+    const c = MARK_COLOUR[m.kind];
+    for (const [dx, dz] of MARK_SHAPE[m.kind]) {
+      const x = mx + dx;
+      const z = mz + dz;
+      if (x < 0 || z < 0 || x >= size || z >= size) continue;
+      const o = (z * size + x) * 4;
+      out[o] = c[0];
+      out[o + 1] = c[1];
+      out[o + 2] = c[2];
     }
   }
   // The player: a small bright cross.

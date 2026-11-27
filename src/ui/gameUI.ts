@@ -24,6 +24,7 @@ import { createInventoryScreen } from './screens/inventory/inventoryScreen';
 import type { Achievements } from '../game/achievements';
 import type { DailyGoals } from '../game/dailyGoals';
 import type { Journal } from '../game/journal';
+import type { MapMark } from '../game/exploration';
 import { createCaravanScreen } from './screens/caravan/caravanScreen';
 import { createLogScreen } from './screens/log/logScreen';
 import { SlotController } from './screens/slots';
@@ -50,6 +51,8 @@ export interface ScreenContext {
   readonly survival: Survival;
   /** The diary and explored map (docs/api/journal.md); absent in test harnesses. */
   readonly journal?: Journal;
+  /** Waypoints and treasure-map landmarks to circle on the journal map. */
+  mapMarks?(): readonly MapMark[];
   readonly achievements?: Achievements;
   readonly dailyGoals?: DailyGoals;
   /** The current simulation query (follows setSim). */
@@ -82,6 +85,8 @@ export interface GameUIDeps {
   /** The hard-winter goal to show in place of the guided goal while it is autumn or winter (src/game/winter.ts). */
   winterGoal?: () => { title: string; text: string } | null;
   journal?: Journal;
+  /** Waypoints and treasure-map landmarks to circle on the journal map. */
+  mapMarks?: () => readonly MapMark[];
   achievements?: Achievements;
   dailyGoals?: DailyGoals;
   sim?: UISimQuery;
@@ -277,6 +282,7 @@ export class GameUI {
       objectives: d.objectives,
       survival: d.survival,
       journal: d.journal,
+      mapMarks: () => d.mapMarks?.() ?? [],
       achievements: d.achievements,
       dailyGoals: d.dailyGoals,
       get sim() {
