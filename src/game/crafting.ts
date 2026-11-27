@@ -3,6 +3,7 @@
  * counted and taken across several inventories in priority order - the player's first, then nearby crates.
  * Temperature and tier gates are the simulation's business; it calls these functions for the items.
  */
+import { getHint } from './itemLookup';
 import type { SfxName } from '../core/gameEvents';
 import { BUILD_RECIPE_SPECS } from '../content/toolParts';
 import { itemOrNull, recipesAt } from '../core/registry';
@@ -252,7 +253,12 @@ export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: P
       }) || undefined;
   }
   const result = craft(recipe, sources, player.inventory, times, quality);
-  if (!result.ok) return result;
+  if (!result.ok) {
+    // Say where to get the first thing that is missing, so a refusal is a next step.
+    const first = result.missing[0];
+    const hint = first ? getHint(first.item) : '';
+    return hint ? { ...result, reason: `${result.reason}. ${nameOf(first.item)}: ${hint}` } : result;
+  }
   for (const m of result.made) {
     player.bus.emit('item:made', { item: m.item, count: m.count, station: recipe.station, recipeId: recipe.id });
   }
