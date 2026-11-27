@@ -500,7 +500,7 @@ export class PlayerController {
   }
 
   /** A person standing nearer than any block or animal on the aim ray (Mine must not dig through them), or null. */
-  private personAimed(): string | null {
+  personAimed(): string | null {
     if (!this.whoIs) return null;
     const p = this.player;
     const d = this.dir;

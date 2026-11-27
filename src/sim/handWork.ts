@@ -222,7 +222,8 @@ export class HandWork {
   private insert(node: HandNode, held: string): StrokeResult {
     const { e, def } = node;
     const input = e.slots[0];
-    if (input && input.item !== held) return { ok: false, reason: `Busy with ${this.d.rules.itemName(input.item)}` };
+    // Say what is loaded and what to do: a station keeps the whole stack it was given, and a different item cannot join it.
+    if (input && input.item !== held) return { ok: false, reason: `${def.name} still holds ${input.count} ${this.d.rules.itemName(input.item)}: work it with an empty hand (or the right tool) and take the result first` };
     const cap = def.timed ? def.batch : this.d.rules.stackLimit(held);
     const room = cap - (input?.count ?? 0);
     if (room <= 0) return { ok: false, reason: `${def.name} is full` };

@@ -35,6 +35,7 @@ import { isWinch } from '../workshop/liftParts';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { Saplings } from '../game/saplings';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
 import { RADIO_MIN_W, Telegraph } from '../game/telegraph';
@@ -106,6 +107,8 @@ export class GameState {
   readonly caveWatch: CaveWatch;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Planted saplings and sprouting stumps (docs/api/felling.md). */
+  readonly saplings: Saplings;
   /** Boiler overpressure, chimney fires and storms on exposed wiring, each with its counterplay (docs/api/disasters.md). */
   readonly disasters: Disasters;
   /** Frozen rivers and the hard-winter arc (docs/api/winter.md). */
@@ -197,6 +200,7 @@ export class GameState {
       },
       knockPlayer: (vx, vy, vz) => combat.knock(vx, vy, vz),
       sky: () => ({ storm: this.weather.state.kind === 'storm', moonPhase: this.clock.moonPhase }),
+      age: () => this.objectives.age,
     });
     this.mobs.skyFn = (out) => {
       out.storm = this.weather.state.kind === 'storm';
@@ -307,6 +311,9 @@ export class GameState {
     });
     this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, held: () => this.player.heldStack()?.item ?? null, consumeHeld: () => { this.player.consumeHeld(); }, note: (text, key) => this.journal.add('note', text, key) });
     this.offs.push(() => this.caveWatch.dispose());
+    this.saplings = new Saplings({ world, bus, day: () => this.clock.day, rng: () => Math.random() });
+    world.loadExtra('saplings', (raw) => this.saplings.load(raw));
+    this.offs.push(world.persist('saplings', () => this.saplings.toJSON()), () => this.saplings.dispose());
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     this.disasters = new Disasters({
       world, bus, player: this.player,
@@ -527,6 +534,7 @@ export class GameState {
     this.exploration.tick(dt);
     this.caveWatch.tick(dt);
     this.weathering.tick(dt);
+    this.saplings.tick();
     this.disasters.tick(dt);
     this.telegraph.tick(dt);
     this.winter.tick(dt);

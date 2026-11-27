@@ -32,7 +32,7 @@ describe('contraptions', () => {
     t.run(3, [[0, 0, 0]]);
     expect(t.world.getBlock(2, 0, 0).key).toBe('contraption_frame');
     expect(t.world.getBlock(3, 0, 0).key).toBe('stone');
-    expect(t.toasts.some((x) => x.includes('blocks'))).toBe(true);
+    expect(t.toasts.some((x) => x.includes('blocked by Stone at 3, 0, 0'))).toBe(true);
   });
 
   it('a bearing turns a structure a quarter turn, facings with it, left or right with the shaft', () => {

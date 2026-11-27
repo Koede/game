@@ -93,6 +93,9 @@ export const SETTINGS_BOUNDS = {
   mouseSensitivity: [0.2, 3],
   touchSensitivity: [0.2, 3],
   volume: [0, 1],
+  effectsVolume: [0, 1],
+  musicVolume: [0, 1],
+  ambienceVolume: [0, 1],
   textScale: [0.85, 1.6],
   hudScale: [0.8, 1.5],
 } as const satisfies Partial<Record<keyof Settings, readonly [number, number]>>;
@@ -129,6 +132,7 @@ export function sanitizeSettings(raw: unknown): Settings {
   if (HANDEDNESS.includes(raw.oneHanded as Settings['oneHanded'])) out.oneHanded = raw.oneHanded as Settings['oneHanded'];
   if (UI_SCALES.includes(raw.uiScale as Settings['uiScale'])) out.uiScale = raw.uiScale as Settings['uiScale'];
   if (typeof raw.haptics === 'boolean') out.haptics = raw.haptics;
+  if (typeof raw.keepAwake === 'boolean') out.keepAwake = raw.keepAwake;
   if (typeof raw.autoBuck === 'boolean') out.autoBuck = raw.autoBuck;
   if (typeof raw.treeDamage === 'boolean') out.treeDamage = raw.treeDamage;
   if (typeof raw.reduceMotion === 'boolean') out.reduceMotion = raw.reduceMotion;

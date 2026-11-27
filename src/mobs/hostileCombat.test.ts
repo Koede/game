@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DT, EMBER_BOLT_GRAVITY, HOSTILE_DAMAGE_MULT, MOB_HIT_COOLDOWN_S } from '../core/constants';
 import { creature } from '../core/registry';
+import { ageDamageMult } from '../core/hostile';
 import { arena } from './hostileKit';
 import { aimLob } from './projectiles';
 import { lineClear } from './sight';
@@ -360,6 +361,19 @@ describe('daylight', () => {
     a.player.z = 70;
     a.run(1.1);
     expect(a.mobs.get(m.id)).toBeUndefined();
+  });
+});
+
+describe('age scaling', () => {
+  it('automatons hit harder for every age the player has reached', () => {
+    expect(ageDamageMult(0)).toBe(1);
+    expect(ageDamageMult(5)).toBeCloseTo(1.5, 5);
+    const a = arena();
+    a.mobs.useHostileHooks({ damagePlayer: (amount, cause, x, z, kind) => a.blows.push({ t: 0, amount, cause, kind, x, z }), age: () => 5 });
+    a.player.z = 2.8;
+    a.spawn('forge_warden', 0.5, 11, 0.5, Math.PI);
+    a.run(2);
+    expect(a.blows[0].amount).toBeCloseTo(3 * 1.5, 5);
   });
 });
 

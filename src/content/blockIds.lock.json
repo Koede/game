@@ -324,6 +324,10 @@
   "telegraph_office": 322,
   "radio_mast": 323,
   "clock_tower": 324,
-  "telescope": 325,
-  "lighthouse_lamp": 326
+  "beehive": 325,
+  "beeswax_candle": 326,
+  "oak_sapling": 327,
+  "pine_sapling": 328,
+  "telescope": 329,
+  "lighthouse_lamp": 330
 }
