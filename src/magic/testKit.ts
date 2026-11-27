@@ -1,7 +1,7 @@
 /** Shared setup for the magic runtime tests: a stone floor world, a player, a Magic. Not a test itself. */
 import { createBus } from '../core/context';
-import { BLOCKS, block, blockId } from '../core/registry';
-import { Face, makeVoxel, voxelActive, voxelId, type IWorld, type Voxel } from '../core/types';
+import { BLOCKS, blockId } from '../core/registry';
+import { Face, makeVoxel, voxelId, type IWorld, type Voxel } from '../core/types';
 import { PlayerState } from '../game/playerState';
 import { Magic, type MagicTarget } from './magic';
 import { RESEARCH } from './entries';

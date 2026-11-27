@@ -212,6 +212,8 @@ export interface PlayerCraftOptions {
   times?: number;
   /** Temperature of the pot or oven the dish is cooked at, when the station has one (cooking quality). */
   heatC?: number;
+  /** Craftsman's skill 0..1 for the quality roll of a tool (the hot-work window, a good hand); default 0. */
+  skill?: number;
   /** Sound to request on success. Default 'craft'; null for none. */
   sfx?: SfxName | null;
 }
@@ -238,7 +240,7 @@ export function craftByPlayer(player: PlayerState, recipe: RecipeDef, options: P
   const times = options.times ?? 1;
   // A single tool craft may come out fine or masterwork (src/game/toolQuality.ts).
   let quality: 1 | 2 | undefined;
-  if (times === 1 && itemOrNull(recipe.output.item)?.tool) quality = rollQuality(Math.random()) || undefined;
+  if (times === 1 && itemOrNull(recipe.output.item)?.tool) quality = rollQuality(Math.random(), options.skill ?? 0) || undefined;
   // A dish's quality comes from its ingredients and the heat it was cooked at (src/game/cookingQuality.ts).
   else if (times === 1 && itemOrNull(recipe.output.item)?.food) {
     quality =

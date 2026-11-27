@@ -224,3 +224,80 @@ describe('SaveSlot', () => {
     expect(backing.getItem(BACKUP_KEY)).toBeNull();
   });
 });
+
+describe('SaveSlot backup and restore', () => {
+  const settings = { ...DEFAULT_SETTINGS, fov: 77 };
+
+  it('exports the stored text and takes it back on another device, keeping that device\'s settings', () => {
+    const a = new MemoryStorage();
+    const from = new SaveSlot(a);
+    expect(from.exportText()).toBeNull();
+    from.write({ settings: DEFAULT_SETTINGS, world: worldSave() });
+    const text = from.exportText();
+    expect(text).toContain('"seed":99');
+
+    const b = new SaveSlot(new MemoryStorage());
+    const result = b.importText(text!, settings);
+    expect(result).toMatchObject({ ok: true, stored: true });
+    const doc = b.read();
+    expect(doc.world?.seed).toBe(99);
+    expect(doc.settings.fov).toBe(77);
+  });
+
+  it('refuses text that is not a save this version can open, and changes nothing', () => {
+    const storage = new MemoryStorage();
+    const slot = new SaveSlot(storage);
+    slot.write({ settings: DEFAULT_SETTINGS, world: worldSave() });
+    const before = storage.getItem(SAVE_KEY);
+    const newer = JSON.stringify({ v: SAVE_VERSION + 1, t: 0, d: { settings: {}, world: worldSave() } });
+    const noWorld = JSON.stringify({ v: SAVE_VERSION, t: 0, d: { settings: {}, world: null } });
+    for (const text of ['{nope', '', '[]', newer, noWorld]) {
+      expect(slot.importText(text, settings).ok).toBe(false);
+    }
+    expect(storage.getItem(SAVE_KEY)).toBe(before);
+    expect(slot.hasPrev).toBe(false);
+  });
+
+  it('keeps the world it replaces as the earlier save at once, and the earlier save can be brought back', () => {
+    const storage = new MemoryStorage();
+    const slot = new SaveSlot(storage, () => 5_000);
+    slot.write({ settings: DEFAULT_SETTINGS, world: { ...worldSave(), seed: 1 } });
+    const other = new SaveSlot(new MemoryStorage());
+    other.write({ settings: DEFAULT_SETTINGS, world: { ...worldSave(), seed: 2 } });
+
+    expect(slot.hasPrev).toBe(false);
+    expect(slot.importText(other.exportText()!, settings).ok).toBe(true);
+    expect(slot.read().world?.seed).toBe(2);
+    // Well under PREV_MIN_AGE_MS since the first write, yet the replaced world was kept.
+    expect(slot.hasPrev).toBe(true);
+    expect(slot.prevSavedAt()).toBe(5_000);
+
+    expect(slot.importText(slot.readPrev()!, settings).ok).toBe(true);
+    expect(slot.read().world?.seed).toBe(1);
+    // The one it replaced is now the earlier save, so the swap can be undone.
+    expect(JSON.parse(slot.readPrev()!).d.world.seed).toBe(2);
+  });
+
+  it('replaces a save this build could not read, leaving its copy, and lifts the hold', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, '{not json');
+    const slot = new SaveSlot(storage);
+    slot.read();
+    expect(slot.held).toBe(true);
+    expect(slot.exportText()).toBe('{not json');
+    const other = new SaveSlot(new MemoryStorage());
+    other.write({ settings: DEFAULT_SETTINGS, world: worldSave() });
+    expect(slot.importText(other.exportText()!, settings).ok).toBe(true);
+    expect(slot.held).toBe(false);
+    expect(storage.getItem(BACKUP_KEY)).toBe('{not json');
+    expect(slot.hasPrev).toBe(false);
+  });
+
+  it('says so when the browser will not keep the restored world', () => {
+    const slot = new SaveSlot(null);
+    const other = new SaveSlot(new MemoryStorage());
+    other.write({ settings: DEFAULT_SETTINGS, world: worldSave() });
+    expect(slot.importText(other.exportText()!, settings)).toMatchObject({ ok: true, stored: false });
+    expect(slot.read().world?.seed).toBe(99);
+  });
+});

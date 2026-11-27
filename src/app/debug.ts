@@ -3,7 +3,7 @@
  * helpers that SET UP states quickly (give items, teleport, set the time, place a voxel, open a screen, run ticks,
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
-import { DT } from '../core/constants';
+import { DAY_LENGTH_S } from '../core/constants';
 import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
@@ -99,6 +99,10 @@ export interface DebugHandle {
    * long while; 'auto' hands the sky back to the seed's timetable.
    */
   setWeather(kind: WeatherKind | 'auto', instant?: boolean): void;
+  /** The telegraph network (docs/api/telegraph.md): nodes, wires, telegrams, and the office at a position's view. */
+  telegraph(x?: number, y?: number, z?: number): unknown;
+  /** Moves the clock to `leadS` world seconds before the next storm on the seed's timetable (releases a forced sky). */
+  skipToStorm(leadS: number): number;
   /** Announces that age `age` began (the postcard and story directors react), without touching the furnace. */
   advanceAge(age: number): void;
   /** Sets the food bar (0..20), e.g. to make room for a meal. */
@@ -111,6 +115,10 @@ export interface DebugHandle {
   /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
   /** Air temperature in C at a cell (src/game/thermal.ts). */
   temperatureAt(x: number, y: number, z: number): number;
+  /** Makes the world a hard-winter one or not (docs/api/winter.md), for checks of frozen fields and greenhouses. */
+  setHardWinter(on: boolean): void;
+  /** What the crop at a cell is doing: shelter, air temperature, rate (docs/api/greenhouse.md); null when there is none. */
+  cropView(x: number, y: number, z: number): { shelter?: string; tempC?: number; rate: number; exposed: boolean; status: string } | null;
   /** Turns the heat view on or off (same as the H key). */
   setHeatView(on: boolean): void;
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
@@ -122,7 +130,13 @@ export interface DebugHandle {
   isSafe(x: number, y: number, z: number): boolean;
   /** Sets the wear (0..1) of the machine at a cell (set-up for the wear checks). */
   setMachineWear(x: number, y: number, z: number, wear: number): boolean;
+  /** Pneumatic tube checks: a crate's stacks (null when there is no crate), filling one, and setting a network's pressure. */
+  crate(x: number, y: number, z: number): Array<{ item: string; count: number }> | null;
+  fillCrate(x: number, y: number, z: number, item: string, count: number): boolean;
+  setAirBar(x: number, y: number, z: number, bar: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
+  /** The plumbing reading of a cell (docs/api/plumbing.md) and the crop there, for the plumbing checks. */
+  plumbing(x: number, y: number, z: number): { status: string | null; waterL: number; hydrated: boolean | null };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
   /** Nearest loaded blocks of a kind around the player (Chebyshev radius), nearest first. */
@@ -308,6 +322,33 @@ export function createDebugHandle(app: App): DebugHandle {
       else throw new Error(`unknown weather "${kind}"`);
       s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
     },
+    telegraph(x, y, z) {
+      const g = game();
+      const t = g.state.telegraph;
+      return {
+        ...t.toJSON(),
+        lines: t.lines().length,
+        wirePoints: g.telegraphWires.points,
+        view: x === undefined ? null : t.view(x, y as number, z as number),
+        storm: x === undefined ? null : t.stormFor(x, y as number, z as number),
+        busy: x === undefined ? null : t.busy(x, y as number, z as number),
+      };
+    },
+    skipToStorm(leadS) {
+      const s = game().state;
+      s.weather.release();
+      const now = s.clock.worldTimeS;
+      let seg = s.weather.schedule.at(now);
+      for (let i = seg.index + 1; i < seg.index + 400; i++) {
+        seg = s.weather.schedule.segment(i);
+        if (seg.kind === 'storm' && seg.startS - leadS > now) break;
+      }
+      const at = (seg.startS - leadS) / DAY_LENGTH_S;
+      s.clock.day = Math.floor(at) + 1;
+      s.clock.setTimeOfDay(at - Math.floor(at));
+      s.weather.update(0, s.clock.worldTimeS, s.clock.day, s.player.position);
+      return seg.startS - s.clock.worldTimeS;
+    },
     setFood(food) {
       game().state.player.food = Math.max(0, Math.min(20, food));
     },
@@ -322,6 +363,15 @@ export function createDebugHandle(app: App): DebugHandle {
     },
     temperatureAt(x, y, z) {
       return game().state.thermal.temperatureAt(x, y, z);
+    },
+    setHardWinter(on) {
+      const s = game().state;
+      s.winter.hard = on;
+      s.sim.hardWinter = on;
+    },
+    cropView(x, y, z) {
+      const v = game().state.sim.cropView(x, y, z);
+      return v && { shelter: v.shelter, tempC: v.tempC, rate: v.rate, exposed: v.exposed, status: v.status };
     },
     setHeatView(on) {
       const g = game() as unknown as { heatOn: boolean; toggleHeatView(): void };
@@ -345,6 +395,31 @@ export function createDebugHandle(app: App): DebugHandle {
       const e = game().state.sim.machineAt(x, y, z);
       if (!e) return false;
       e.wear = Math.max(0, Math.min(1, wear));
+      return true;
+    },
+    plumbing(x, y, z) {
+      const sim = game().state.sim;
+      const v = sim.waterView(x, y, z);
+      return { status: v?.status ?? null, waterL: v?.waterL ?? 0, hydrated: sim.cropView(x, y, z)?.hydrated ?? null };
+    },
+    crate(x, y, z) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e || e.kind !== 'crate') return null;
+      return e.slots.filter((s) => s !== null).map((s) => ({ item: s!.item, count: s!.count }));
+    },
+    fillCrate(x, y, z, item, count) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e || e.kind !== 'crate') return false;
+      const i = e.slots.indexOf(null);
+      if (i < 0) return false;
+      e.slots[i] = { item, count };
+      game().state.sim.touch(e);
+      return true;
+    },
+    setAirBar(x, y, z, bar) {
+      const net = game().state.sim.air.netAt(x, y, z);
+      if (!net) return false;
+      net.airL = net.volumeL * bar;
       return true;
     },
     getBlock(x, y, z) {
@@ -374,7 +449,6 @@ export function createDebugHandle(app: App): DebugHandle {
       const { world, player } = game().state;
       const id = blockId(block);
       const px = Math.floor(player.position.x);
-      const py = Math.floor(player.position.y);
       const pz = Math.floor(player.position.z);
       const found: { x: number; y: number; z: number; d: number }[] = [];
       for (let x = px - radius; x <= px + radius; x++) {

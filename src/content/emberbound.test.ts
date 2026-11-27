@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
+import { expectContains } from './rosterCheck';
 import {
   FLAG_PEACEFUL, HOSTILE_CAP, HOSTILE_DAMAGE_MULT, HOSTILE_SPAWN_LIGHT, WARD_BEACON_RADIUS,
 } from '../core/constants';

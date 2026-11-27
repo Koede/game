@@ -113,6 +113,38 @@ const MAUL_HEAD = mirror([
   '24333333',
   '.2222222',
 ]);
+// A sword blade (a long double-edged blade with a tang) and a spearhead (a leaf point with a socket), side on.
+const SWORD_HEAD = mirror([
+  '.......2',
+  '......24',
+  '......24',
+  '......24',
+  '......24',
+  '......24',
+  '......24',
+  '......24',
+  '......23',
+  '..222223',
+  '.2455453',
+  '..222223',
+  '......23',
+  '.......2',
+]);
+const SPEAR_HEAD = mirror([
+  '.......2',
+  '......24',
+  '.....245',
+  '.....245',
+  '....2455',
+  '....2455',
+  '...24555',
+  '...24553',
+  '...24533',
+  '....2233',
+  '.....243',
+  '.....243',
+  '......22',
+]);
 
 // ---- blooms and plates ---------------------------------------------------------------------------
 
@@ -293,6 +325,14 @@ export const HAND_ICONS: PainterSet = {
   item_iron_hoe_head: castHead(HOE_HEAD, P.IRON_METAL),
   item_iron_maul_head: castHead(MAUL_HEAD, P.IRON_METAL),
   item_steel_maul_head: castHead(MAUL_HEAD, P.STEEL),
+  // Sword and spear heads (src/content/toolParts.ts).
+  item_bronze_sword_head: castHead(SWORD_HEAD, P.BRONZE),
+  item_iron_sword_head: castHead(SWORD_HEAD, P.IRON_METAL),
+  item_steel_sword_head: castHead(SWORD_HEAD, P.STEEL),
+  item_flint_spear_head: castHead(SPEAR_HEAD, FLINT),
+  item_bronze_spear_head: castHead(SPEAR_HEAD, P.BRONZE),
+  item_iron_spear_head: castHead(SPEAR_HEAD, P.IRON_METAL),
+  item_steel_spear_head: castHead(SPEAR_HEAD, P.STEEL),
   item_copper_bloom: bloom(P.COPPER),
   item_tin_bloom: bloom(P.TIN),
   item_bronze_bloom: bloom(P.BRONZE),

@@ -1,6 +1,6 @@
 /** Spec section 12: food, farming and animals - the data the hunger, crop and animal code will run on. */
 import { COOKED_FISH_ITEMS } from './fishing';
-import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
+import { expectContains, expectPinned } from './rosterCheck';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKS, CREATURES, ITEMS, MACHINES, MAX_FURNACE_TIER, RECIPES, TEXTURE_NAMES,
@@ -27,7 +27,7 @@ describe('food items', () => {
 
   it('makes cooking worth it: every cooked dish fills more than what went into the crucible', () => {
     const kitchen = recipesAt('furnace').filter((r) => item(r.output.item).food);
-    expect(kitchen.map((r) => r.id).filter((id) => !COOKED_FISH_ITEMS.includes(id)).sort()).toEqual(['baked_potato', 'bread', 'bread_butter', 'cooked_chop', 'cooked_fowl', 'cooked_mutton', 'fish_chowder', 'fish_chowder_carp', 'fish_chowder_pike', 'fish_chowder_salmon', 'fish_chowder_trout', 'hearth_stew', 'hearth_stew_fowl', 'hearth_stew_milk', 'hearth_stew_mutton', 'sugar', 'sugar_cake', 'sugar_cake_milk', 'sugar_cookie', 'sugar_vial', 'sweet_bun', 'winter_broth', 'winter_broth_pike', 'winter_broth_trout']);
+    expect(kitchen.map((r) => r.id).filter((id) => !COOKED_FISH_ITEMS.includes(id)).sort()).toEqual(['baked_potato', 'bread', 'bread_butter', 'cooked_chop', 'cooked_fowl', 'cooked_mutton', 'fish_chowder', 'fish_chowder_carp', 'fish_chowder_pike', 'fish_chowder_salmon', 'fish_chowder_trout', 'fried_egg', 'hearth_stew', 'hearth_stew_fowl', 'hearth_stew_milk', 'hearth_stew_mutton', 'sugar', 'sugar_cake', 'sugar_cake_egg', 'sugar_cake_milk', 'sugar_cookie', 'sugar_vial', 'sweet_bun', 'winter_broth', 'winter_broth_pike', 'winter_broth_trout']);
     for (const r of kitchen.filter((k) => k.kind === 'smelt')) {
       const raw = item(r.inputs[0].item).food?.hunger ?? 0;
       expect(item(r.output.item).food?.hunger ?? 0, r.id).toBeGreaterThan(raw);

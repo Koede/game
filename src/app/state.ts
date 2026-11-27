@@ -28,12 +28,17 @@ import { isFluidEndpoint, itemOrNull, machine } from '../core/registry';
 import type { Face } from '../core/types';
 import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
+import { AirshipManager } from '../vehicles/airshipManager';
 import { Workshop } from '../workshop/workshop';
+import { Lifts } from '../workshop/lifts';
+import { isWinch } from '../workshop/liftParts';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
+import { RADIO_MIN_W, Telegraph } from '../game/telegraph';
+import { caravanHere } from '../game/caravan';
 import { setTemperatureProvider } from '../sim/temperature';
 import type { Blueprint } from '../game/blueprint';
 import { grantKnownPlans, tickJobs, type PlanSource } from '../game/blueprintBook';
@@ -87,10 +92,14 @@ export class GameState {
   readonly mobPlayer: MobPlayer;
   /** Tractors (docs/api/tractor.md). Headless: the browser Game binds the physics and draws them. */
   readonly vehicles: VehicleManager;
+  /** Airships and the sky chart (docs/api/airship.md). */
+  readonly airships: AirshipManager;
   /** Essentia & Research (docs/api/magic.md). */
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
   readonly workshop: Workshop;
+  /** Lift cages and steam elevators (docs/api/lifts.md); the drawbridges live in the workshop. */
+  readonly lifts: Lifts;
   /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
   readonly exploration: Exploration;
   /** Foul air snuffs torches; cave finds go in the journal. */
@@ -109,6 +118,8 @@ export class GameState {
   readonly pets: Pets;
   /** The camp, tavern and their people (docs/api/npcs.md, docs/plans/just-you-and-orrin.md). */
   readonly npcs: NpcManager;
+  /** Telegraph poles, offices and radio masts: storm warnings, town news, remote signals (docs/api/telegraph.md). */
+  readonly telegraph: Telegraph;
   readonly seedText: string | null;
   /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
   private notices: string[] = [];
@@ -212,6 +223,9 @@ export class GameState {
     this.vehicles = new VehicleManager({ world, bus, player: this.player });
     world.loadExtra('vehicles', (raw) => this.vehicles.load(raw));
     this.offs.push(world.persist('vehicles', () => this.vehicles.toJSON()));
+    this.airships = new AirshipManager({ world, bus, player: this.player, biomeAt: (x, z) => world.biomeAt(x, z), busy: () => this.vehicles.driving !== null });
+    world.loadExtra('airships', (raw) => this.airships.load(raw));
+    this.offs.push(world.persist('airships', () => this.airships.toJSON()));
     const sim = this.sim;
     this.magic = new Magic(world, bus, this.player, {
       stokeFurnace: (x, y, z, seconds) => {
@@ -278,6 +292,13 @@ export class GameState {
       return r.did === 'insert' ? 'consumed' : 'used';
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    world.loadExtra('drawbridges', (raw) => this.workshop.bridges.load(raw));
+    this.offs.push(world.persist('drawbridges', () => this.workshop.bridges.toJSON()));
+    this.lifts = new Lifts({ world, bus, rpmAt: (x, y, z) => this.workshop.rpmOf(x, y, z), player: this.player });
+    world.loadExtra('lifts', (raw) => this.lifts.load(raw));
+    this.offs.push(world.persist('lifts', () => this.lifts.toJSON()));
+    this.offs.push(() => this.lifts.dispose());
+    this.workshop.partNote = (x, y, z, kind) => (isWinch(kind) ? this.lifts.describe(x, y, z) : null);
     this.exploration = new Exploration({
       world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight, day: () => this.clock.day,
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
@@ -343,6 +364,27 @@ export class GameState {
     this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, workshop: this.workshop, thermal: this.thermal, hardWinter: () => this.winter.hard }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
+    this.telegraph = new Telegraph({
+      world, bus,
+      sky: () => this.weather,
+      now: () => this.clock.worldTimeS,
+      day: () => this.clock.day,
+      town: () => this.npcs.at,
+      powerW: (x, y, z) => {
+        let best = 0;
+        for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          const n = this.sim.networkAt(x + dx, y + dy, z + dz);
+          if (n) best = Math.max(best, n.generationW + n.dischargeW + (n.storedJ > 0 ? RADIO_MIN_W : 0));
+        }
+        return best;
+      },
+      signalIn: (x, y, z) => this.workshop.signals.near(x, y, z),
+      signalOut: (x, y, z, on) => this.workshop.signal(x, y, z, on),
+      caravanDay: (day) => caravanHere(day),
+    });
+    world.loadExtra('telegraph', (raw) => this.telegraph.load(raw));
+    this.offs.push(world.persist('telegraph', () => this.telegraph.toJSON()));
+    this.offs.push(() => this.telegraph.dispose());
     this.offs.push(() => this.workshop.dispose());
     for (const key of world.failedExtras()) this.notices.push(`Saved ${key} data could not be read. A copy was kept (${key}.bad) and it starts empty.`);
     const lost = takeLostItems();
@@ -485,12 +527,14 @@ export class GameState {
     this.caveWatch.tick(dt);
     this.weathering.tick(dt);
     this.disasters.tick(dt);
+    this.telegraph.tick(dt);
     this.winter.tick(dt);
     this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
     if (this.player.blueprints.jobs.length > 0) this.tickBlueprints(dt);
     if (this.ticks % 40 === 0) this.syncOldPlans();
     if (this.ticks % 200 === 0) this.workshop.verify();
+    if (this.ticks % 40 === 0) this.lifts.settle();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
     this.npcs.tick(dt);

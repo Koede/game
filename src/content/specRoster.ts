@@ -16,7 +16,7 @@ import { FOOD_SPEC } from './specRosterFood';
 import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
-import { FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
+import { FARM_EGGS_SPEC, FARM_ICE_SPEC, FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 import { EXPLORE_SPEC } from './specRosterExplore';
 import { OLD_PLANS_SPEC } from './specRosterOldPlans';
@@ -197,7 +197,7 @@ export const SPEC = {
       'combustion_engine: 1 combustion_engine <- 1 chassis, 4 steel_plate, 3 copper_coil, 1 circuit @1400 T4',
       'geothermal_tap: 1 geothermal_tap <- 1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit @1400 T4',
       'bore_rig: 1 bore_rig <- 1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit @1600 T4',
-      'plasma_casing: 2 plasma_casing <- 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod @1900 T4',
+      'plasma_casing: 6 plasma_casing <- 2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod @1900 T4',
       'power_port: 1 power_port <- 2 copper_coil, 2 ceramic_insulator, 1 iron_plate @1200 T4',
       'steam_turbine: 1 steam_turbine <- 1 chassis, 4 steel_plate, 4 copper_coil @1600 T4',
       'arc_maul: 1 arc_maul <- 2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery @1800 T4',
@@ -213,8 +213,8 @@ export const SPEC = {
       'fission_pile: 1 fission_pile <- 1 chassis, 6 superalloy, 4 fused_quartz, 4 circuit @2800 T5',
       'magnet_ring: 1 magnet_ring <- 4 copper_coil, 2 superalloy, 2 lithium_salt @2800 T5',
       'super_cable: 6 super_cable <- 1 magnet_ring, 2 aluminum_ingot, 2 ceramic_insulator @2600 T5',
-      'star_core: 1 star_core <- 6 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit @3000 T5',
-      'star_casing: 2 star_casing <- 2 superalloy, 1 fused_quartz, 1 magnet_ring @2800 T5',
+      'star_core: 1 star_core <- 3 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit @3000 T5',
+      'star_casing: 6 star_casing <- 2 superalloy, 1 fused_quartz @2800 T5',
     ],
     crusher: [
       'crushed_copper: 2 crushed_copper <- 1 copper_ore 4s 4000J',
@@ -243,7 +243,7 @@ export const SPEC = {
     [3, 'furnace_blast', 'Blast Furnace', 1500, 300, 2.5, 2, 2, 1.25, 0, 8, 700, '4 bronze_ingot, 1 bellows'],
     [4, 'furnace_arc', 'Arc Furnace', 2100, 400, 3, 3, 2, 1.5, 8000, 10, 1200, '2 copper_coil, 2 steel_plate'],
     [5, 'furnace_plasma', 'Plasma Furnace', 3200, 800, 8, 4, 2, 2, 40000, 12, 1900, '2 circuit, 2 tungsten_rod'],
-    [6, 'furnace_star', 'Starhearth', 3200, 800, 8, 4, 2, 3, 40000, 24, 3000, '1 star_core, 8 deuterium_cell'],
+    [6, 'furnace_star', 'Starhearth', 3200, 800, 8, 4, 2, 3, 40000, 24, 3000, '1 star_core, 4 deuterium_cell'],
   ] as Array<Array<string | number>>,
 
   /** kind -> [role, every number of spec 2.5 / 3.3, by MachineSpec field or params name]. */
@@ -310,7 +310,7 @@ export const SPEC = {
     'place drying_rack 1', 'make leather 1', 'make cloth 1', 'tier 2', ...WORKSHOP_SPEC.objectives, 'tier 3', 'place item_pipe 1',
     'make iron_ingot 8', 'make steel_ingot 6', 'make iron_axle 2', 'place rolling_mill 1', 'place drop_forge 1', 'place dynamo 1', 'generate 100', 'place lamp 1', 'place crusher 1', 'flag machine_job', 'generate 2000', 'stored 1000000', 'tier 4', 'place pump 1',
     'temp 1900', 'make circuit 2', 'any(place ward_beacon 1 | flag peaceful)', ...GROUND_SPEC.objectivesAfterBeacon, 'generate 10000', 'make tungsten_rod 4', 'tier 5',
-    'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 8', 'make star_core 1', 'tier 6',
+    'make superalloy 8', 'place fission_pile 1', 'generate 60000', 'make deuterium_cell 4', 'make star_core 1', 'tier 6',
     'flag ignited',
   ],
 
@@ -428,6 +428,8 @@ SPEC.maxTextures += 1;
 SPEC.maxTextures += 2;
 // The Bronze Age air blocks (src/content/blocksAir.ts): pipe_air, air_tank_side/top, air_compressor_side/top, blast_nozzle (+on).
 SPEC.maxTextures += 7;
+// Pneumatic tubes (src/content/blocksPneumatic.ts): tube_sender_side, tube_receiver_side, tube_station_top.
+SPEC.maxTextures += 3;
 
 // The Bronze workshop pieces (docs/OVERHAUL_PLAN.md A) come after Essentia & Research.
 SPEC.blocks.push(...WORKSHOP_SPEC.blocks);
@@ -457,6 +459,10 @@ SPEC.worldOnlyItems.push(...SYNERGY_TOOLS_SPEC.worldOnly);
 SPEC.blocks.push(...SYNERGY_ANIMALS_SPEC.blocks);
 SPEC.items.push(...SYNERGY_ANIMALS_SPEC.items);
 SPEC.maxTextures += SYNERGY_ANIMALS_SPEC.textures;
+SPEC.items.push(...FARM_EGGS_SPEC.items);
+SPEC.maxTextures += FARM_EGGS_SPEC.textures;
+SPEC.items.push(...FARM_ICE_SPEC.items);
+SPEC.maxTextures += FARM_ICE_SPEC.textures;
 
 // The artificer's attuned tools (docs/SYNERGY_PLAN.md section 2) come last.
 SPEC.items.push(...SYNERGY_ARTIFICER_SPEC.items);
@@ -478,8 +484,14 @@ SPEC.blocks.push(...EXPLORE_SPEC.blocks);
 SPEC.maxTextures += 1;
 // Forge heavy industry (rolling mill, drop forge, dynamo; iron and steel axles): two fronts each for the dynamo, mill and forge, two item icons.
 SPEC.maxTextures += 8;
+// The telegraph and radio network (src/render/textures/areas/telegraph.ts): telegraph_pole, telegraph_office_front (+on), radio_mast (+on).
+SPEC.maxTextures += 5;
 // Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
 SPEC.maxTextures += OLD_PLANS_SPEC.textures;
 SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
 // Modular tools (src/content/toolParts.ts): one icon per new head, and a composed icon for each non-default pick, axe, shovel and hoe build.
 SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
+// Bridges, lifts and elevators (src/render/textures/areas/lifts.ts): two faces each for the lift winch, elevator and drawbridge, the deck top.
+SPEC.maxTextures += 7;
+// Bronze Age plumbing (content/areas/plumbing.ts): pipe_water, sprinkler + sprinkler_on, hand_pump side/top/bottom, cistern side/top/bottom.
+SPEC.maxTextures += 9;
