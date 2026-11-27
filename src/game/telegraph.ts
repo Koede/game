@@ -98,6 +98,8 @@ export interface TelegraphSnapshot {
   /** Index of the weather segment last warned about (-1 none); `heard` = a forced storm already announced. */
   warned: number;
   caravanDay: number;
+  /** Masts on air when saved, so a mast in a chunk not loaded yet keeps its radio link after a reload. */
+  powered?: [number, number, number][];
 }
 
 const KINDS: readonly TelegraphKind[] = ['pole', 'office', 'mast'];
@@ -449,6 +451,7 @@ export class Telegraph {
       log: this.log.map((t) => ({ ...t })),
       warned: this.warned,
       caravanDay: this.caravanSeen,
+      powered: [...this.powered].map((k) => k.split(',').map(Number) as [number, number, number]),
     };
   }
 
@@ -463,6 +466,11 @@ export class Telegraph {
     this.log = raw.log.filter((t) => typeof t?.text === 'string' && Number.isFinite(t?.day)).slice(0, LOG_SIZE);
     this.warned = raw.warned;
     this.caravanSeen = raw.caravanDay;
+    this.powered = new Set(
+      (Array.isArray(raw.powered) ? raw.powered : [])
+        .filter((p) => Array.isArray(p) && p.length === 3 && this.nodes.get(k3(p[0], p[1], p[2]))?.kind === 'mast')
+        .map((p) => k3(p[0], p[1], p[2])),
+    );
     this.touch();
   }
 }
