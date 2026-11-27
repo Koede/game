@@ -74,6 +74,10 @@ export type SfxName =
   | 'jukebox_note'
   | 'age'
   | 'ui_click'
+  /** A soft bright note when good news appears as a toast. */
+  | 'toast_good'
+  /** A low soft double thud when a warning or bad news appears as a toast. */
+  | 'toast_warn'
   | 'ui_open'
   | 'ui_close'
   | 'error'

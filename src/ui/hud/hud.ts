@@ -425,7 +425,10 @@ export class Hud {
 
   private toast(text: string, kind: 'info' | 'good' | 'warn' | 'bad' | undefined, item?: string): void {
     if (this.echo && performance.now() < this.echo.until && text.startsWith(this.echo.text)) return;
-    this.root.toasts.show({ text, kind, item });
+    if (!this.root.toasts.show({ text, kind, item })) return;
+    // Toasts used to arrive silently: good news chimes, warnings thud (repeats only bump the counter, so they stay quiet).
+    if (kind === 'good') this.deps.bus.emit('sfx', { name: 'toast_good', volume: 0.7 });
+    else if (kind === 'warn' || kind === 'bad') this.deps.bus.emit('sfx', { name: 'toast_warn', volume: 0.8 });
   }
 
   private objectiveBanner(id: string): void {
