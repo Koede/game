@@ -93,13 +93,13 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
   HAND_OBJECTIVES.loom,
   objective(0, 'bronze_furnace', 'Build the Bronze Furnace', furnaceTier(2),
     'Open the furnace screen and the upgrade list: eight bronze ingots, four firebrick and a bellows, with the fire at 700 C. Bronze plates round the firebox hold 1100 C and two crucibles. It ends the Ember Age.',
-    '4 coal'),
+    '4 coal, 1 belt_pouch'),
 
   // ---- Bronze Age ----------------------------------------------------------------------------
   ...WORKSHOP_OBJECTIVES,
   objective(1, 'blast_furnace', 'Build the Blast Furnace', furnaceTier(3),
     'Build a Blast hearth: brick walls around the furnace, with a floor and one empty cell behind its mouth (the STRUCTURE tab shows where each brick goes). Then open the upgrade panel: it asks for bronze, a bellows and a fire of at least 700 C.',
-    '8 coal'),
+    '8 coal, 1 hand_vacuum'),
 
   // ---- Forge Age -----------------------------------------------------------------------------
   objective(2, 'pipe_ore', 'Pipe it in', place('item_pipe'),
@@ -133,7 +133,7 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
     'Forge an Acid Battery from iron, copper and sulfur, connect it, and let your generators fill it to 1 MJ. Stored power carries you through the gaps.'),
   objective(2, 'arc_furnace', 'Build the Arc Furnace', furnaceTier(4),
     'Rebuild the hearth in refractory brick with a full ceiling and an Arc Electrode in it. The upgrade then asks for copper coils and steel plate, with the fire at 1200 C. After it, the furnace heats itself with electricity.',
-    '12 copper_cable'),
+    '12 copper_cable, 1 plated_coat'),
 
   // ---- Current Age ---------------------------------------------------------------------------
   objective(3, 'pump_water', 'Pump water', place('pump'),
@@ -154,14 +154,14 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
     'Wolframite lies deep and yields only to steel. Crush it and smelt the powder at 2000 C into four tungsten rods.'),
   objective(3, 'plasma_furnace', 'Build the Plasma Furnace', furnaceTier(5),
     'Build a Plasma hearth: plasma casing around at least two by two by two empty cells, with two Power Ports in its walls. The upgrade asks for circuits and tungsten at 1900 C. It draws up to 40 kW, more than copper cable can carry.',
-    '12 heavy_cable'),
+    '12 heavy_cable, 1 steel_cuirass'),
 
   // ---- Atomic Age ----------------------------------------------------------------------------
   objective(4, 'make_superalloy', 'Forge superalloy', make('superalloy', 8),
     'At 2600 C steel, tungsten and aluminum fuse into superalloy. Holding that heat takes about 21 kW over heavy cable.'),
   objective(4, 'place_fission_pile', 'Build a fission pile', place('fission_pile'),
     'Forge a Fission Pile and set it down with water on at least two of its sides. Never let it run dry.',
-    '2 water_pail'),
+    '2 water_pail, 1 shield_suit'),
   objective(4, 'generate_60kw', 'Generate 60 kW', generate(60000),
     'Forge a Power Drill to mine pitchblende, crush it, enrich it in a centrifuge and seal the pellets into a fuel rod. One rod runs the pile at 60 kW for twenty minutes.'),
   objective(4, 'make_deuterium', 'Bottle deuterium', make('deuterium_cell', 4),
