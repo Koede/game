@@ -110,7 +110,7 @@ describe('sound definitions', () => {
 
   it('marks exactly the interface sounds as UI', () => {
     const ui = SFX_NAMES.filter((name) => SFX[name].ui === true).sort();
-    expect(ui).toEqual(['error', 'ui_click', 'ui_close', 'ui_open']);
+    expect(ui).toEqual(['error', 'toast_good', 'toast_warn', 'ui_click', 'ui_close', 'ui_open']);
   });
 
   it('gives repeated physical sounds a random pitch spread', () => {
