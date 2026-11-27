@@ -65,3 +65,31 @@ describe('EditLog', () => {
     expect(log.count).toBe(1);
   });
 });
+
+describe('EditLog run-length form', () => {
+  it('stores fills as runs, reads both forms back, and keeps scattered edits in the plain form', () => {
+    const log = new EditLog();
+    for (let i = 100; i < 700; i++) log.record(0, 0, i, 7 as never);
+    log.record(0, 0, 900, 9 as never);
+    log.record(1, 0, 5, 3 as never);
+    log.record(1, 0, 50, 4 as never);
+    log.record(1, 0, 500, 5 as never);
+    const snap = log.toJSON();
+    expect(snap['0,0'].startsWith('r:')).toBe(true);
+    expect(snap['0,0'].length).toBeLessThan(60);
+    expect(snap['1,0'].startsWith('r:')).toBe(false);
+    const back = new EditLog();
+    back.load(snap);
+    expect(back.count).toBe(log.count);
+    expect(JSON.stringify(back.toJSON())).toBe(JSON.stringify(snap));
+    const v = new Uint16Array(65536 * 4);
+    back.apply(0, 0, v);
+    expect(v[100]).toBe(7);
+    expect(v[699]).toBe(7);
+    expect(v[700]).toBe(0);
+    expect(v[900]).toBe(9);
+  });
+  it('refuses a truncated run entry', () => {
+    expect(() => new EditLog().load({ '0,0': 'r:AAAA' })).toThrow();
+  });
+});

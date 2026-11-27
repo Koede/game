@@ -1,6 +1,6 @@
 /** Spec section 12: food, farming and animals - the data the hunger, crop and animal code will run on. */
 import { COOKED_FISH_ITEMS } from './fishing';
-import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
+import { expectContains, expectPinned } from './rosterCheck';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKS, CREATURES, ITEMS, MACHINES, MAX_FURNACE_TIER, RECIPES, TEXTURE_NAMES,

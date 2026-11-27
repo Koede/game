@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { DT } from '../core/constants';
 import { Face } from '../core/types';
 import { createBus } from '../core/context';
-import { stackLimit } from '../game/inventory';
 import { MAX_GROUND_ITEMS } from '../game/groundItems';
 import { createFurnace, createNode, type SimContext } from './entities';
 import { applyFurnace } from './furnace';

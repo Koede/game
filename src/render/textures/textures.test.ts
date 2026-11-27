@@ -15,7 +15,7 @@ import { Canvas } from './canvas';
 import { averageColor, hasPainter, paintTexture, TEXTURE_SIZE } from './index';
 import { PAINTERS } from './painters';
 import { statusPainter } from './status';
-import { applyReadability, readable } from './readability';
+import { applyReadability } from './readability';
 
 const BYTES = 16 * 16 * 4;
 const alphaAt = (px: Uint8ClampedArray, x: number, y: number): number => px[(y * 16 + x) * 4 + 3];
