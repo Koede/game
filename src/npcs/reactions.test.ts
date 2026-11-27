@@ -47,3 +47,15 @@ describe('disasters and weather', () => {
     expect(r.toasts).toHaveLength(1);
   });
 });
+
+describe("Veyra's tonic offer", () => {
+  it('closes after its window instead of staying open for days', () => {
+    const r = lifeRig({ coins: 100, pack: { glass_vial: 5 } });
+    const veyra = r.by('veyra');
+    for (let i = 0; i < 6 && r.npcs.serviceMenu('veyra').open === null; i++) r.npcs.speak(veyra);
+    const menu = r.npcs.serviceMenu('veyra');
+    expect(menu.open).not.toBeNull();
+    r.npcs.tick(30);
+    expect(menu.open).toBeNull();
+  });
+});

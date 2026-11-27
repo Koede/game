@@ -69,6 +69,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       }
       return y < 0 ? null : { y, key: d.world.getBlock(x, y, z).key };
     },
+    townActive: (x, y, z) => d.world.isLoaded(x, z) && voxelActive(d.world.getVoxel(x, y, z)),
     townBlock: (x, y, z) => (d.world.isLoaded(x, z) ? d.world.getBlock(x, y, z).key : null),
     townEdited: (x, y, z) => d.world.wasEdited?.(x, y, z) ?? false,
     townPlace: (x, y, z, block, facing) => d.world.isLoaded(x, z) && d.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing), 'town'),

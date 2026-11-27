@@ -329,11 +329,12 @@ const BLOCK_TAGS: ReadonlyArray<readonly [Tag, (key: string) => boolean]> = [
   ['lights', (k) => k === 'lamp' || k === 'kerosene_lamp'],
   ['noise', (k) => k === 'steam_engine' || k === 'combustion_engine' || k === 'burner_generator' || k === 'dynamo'],
 ];
+const ACTIVE_TAGS: ReadonlySet<Tag> = new Set<Tag>(['lights', 'noise']);
 /** How many matching blocks make a surrounding count (a single leaf is not a wood). */
 const TAG_MIN: Readonly<Partial<Record<Tag, number>>> = { trees: 6, water: 3, noise: 2 };
 
 /** The surrounding tags at a spot, from samples of the blocks around it (radius 9, every third column, y -2..5). */
-export function sampleTags(blockAt: (x: number, y: number, z: number) => string | null, at: Spot): Set<Tag> {
+export function sampleTags(blockAt: (x: number, y: number, z: number) => string | null, at: Spot, activeAt?: (x: number, y: number, z: number) => boolean): Set<Tag> {
   const counts: Partial<Record<Tag, number>> = {};
   const bx = Math.floor(at.x);
   const by = Math.floor(at.y);
@@ -343,7 +344,12 @@ export function sampleTags(blockAt: (x: number, y: number, z: number) => string 
       for (let dy = -2; dy <= 5; dy++) {
         const key = blockAt(bx + dx, by + dy, bz + dz);
         if (!key || key === 'air') continue;
-        for (const [tag, test] of BLOCK_TAGS) if (test(key)) counts[tag] = (counts[tag] ?? 0) + 1;
+        for (const [tag, test] of BLOCK_TAGS) {
+          if (!test(key)) continue;
+          // A lamp only lights and an engine only clatters while it is on (when the caller can tell).
+          if (activeAt && ACTIVE_TAGS.has(tag) && !activeAt(bx + dx, by + dy, bz + dz)) continue;
+          counts[tag] = (counts[tag] ?? 0) + 1;
+        }
       }
     }
   }

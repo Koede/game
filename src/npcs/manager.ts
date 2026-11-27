@@ -191,6 +191,8 @@ export interface NpcHost {
   townSurface?(x: number, z: number): { y: number; key: string } | null;
   /** The block key at a cell, or null when its chunk is not loaded. */
   townBlock?(x: number, y: number, z: number): string | null;
+  /** Whether the block at a cell is switched on (a lit lamp, a running engine): the active bit. Absent: everything counts as on. */
+  townActive?(x: number, y: number, z: number): boolean;
   /** True when the player (or anything but the world's generation) changed the cell. */
   townEdited?(x: number, y: number, z: number): boolean;
   /** Sets a block (or 'air') with the 'town' source. False when the chunk is not loaded. */
@@ -1579,7 +1581,7 @@ export class NpcManager {
       residents,
       spotOf,
       (id) => this.settlement.roomOf(id) !== CAMP_ROOM,
-      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot) : new Set()),
+      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot, host.townActive ? (x, y, z) => host.townActive!(x, y, z) : undefined) : new Set()),
       (_id, spot) => host.roomWarmth?.(spot.x, spot.y, spot.z) ?? 0,
     ));
   }
@@ -1815,6 +1817,7 @@ export class NpcManager {
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
     this.gruk.tick(dt);
+    this.veyra.tick(dt);
     this.tickBar(dt);
     this.tickFestival();
     this.tickTrader(dt);

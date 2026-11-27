@@ -4,10 +4,10 @@
  * the drop-off (a furnace, a hearth, a quern...), so a person "runs a station" by keeping it supplied. Pure: the board keeps the
  * assignments and the walk's clock; everything about the world goes through a narrow `JobsPort`, so tests drive it without one.
  */
-import { fuelOf } from '../core/registry';
+import { fuelOf, itemOrNull } from '../core/registry';
 
 export type JobKind = 'haul' | 'feed' | 'tend';
-export type JobFilter = 'ore' | 'fuel' | 'any';
+export type JobFilter = 'ore' | 'fuel' | 'food' | 'any';
 
 export interface Stop {
   x: number;
@@ -23,9 +23,9 @@ export interface Job {
 }
 
 export const JOB_KINDS: readonly JobKind[] = ['haul', 'feed', 'tend'];
-export const JOB_FILTERS: readonly JobFilter[] = ['ore', 'fuel', 'any'];
+export const JOB_FILTERS: readonly JobFilter[] = ['ore', 'fuel', 'food', 'any'];
 export const KIND_NAMES: Readonly<Record<JobKind, string>> = { haul: 'Haul', feed: 'Run a station', tend: 'Tend machines' };
-export const FILTER_NAMES: Readonly<Record<JobFilter, string>> = { ore: 'Ore', fuel: 'Fuel', any: 'Anything' };
+export const FILTER_NAMES: Readonly<Record<JobFilter, string>> = { ore: 'Ore', fuel: 'Fuel', food: 'Food and crops', any: 'Anything' };
 
 /** Blocks a second a person walks on a job, and the seconds spent loading or unloading at each end. */
 export const JOB_SPEED = 1.6;
@@ -54,6 +54,7 @@ export const aptitudeOf = (id: string): Aptitude => APTITUDES[id] ?? DEFAULT_APT
 export function matches(item: string, filter: JobFilter): boolean {
   if (filter === 'any') return true;
   if (filter === 'ore') return item.endsWith('_ore') || item.startsWith('crushed_');
+  if (filter === 'food') return itemOrNull(item)?.food !== undefined || item.endsWith('_seeds') || item.endsWith('_seed');
   return fuelOf(item) !== null;
 }
 

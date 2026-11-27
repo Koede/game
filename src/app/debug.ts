@@ -75,7 +75,7 @@ export interface DebugHandle {
   /** Settlement jobs (npcs/jobs.ts): what each resident is set to carry. */
   jobs(): { id: string; kind: string; filter: string; from: { x: number; y: number; z: number } | null; to: { x: number; y: number; z: number } | null; status: string; moved: number; carrying: { item: string; count: number } | null }[];
   /** Dev skip for the jobs e2e: gives `id` a job between two stops (the same calls the Jobs screen makes). False when they cannot work. */
-  setJob(id: string, kind: 'haul' | 'feed' | null, from?: { x: number; y: number; z: number }, to?: { x: number; y: number; z: number }, filter?: 'ore' | 'fuel' | 'any'): boolean;
+  setJob(id: string, kind: 'haul' | 'feed' | null, from?: { x: number; y: number; z: number }, to?: { x: number; y: number; z: number }, filter?: 'ore' | 'fuel' | 'food' | 'any'): boolean;
   /** Fallen logs (game/fallenLogs.ts): length, and the rod's bottom end and angle, so a test can aim at the tip. */
   fallenLogs(): { id: number; length: number; ox: number; oy: number; oz: number; dx: number; dz: number; theta: number }[];
   look(yaw: number, pitch: number): void;
