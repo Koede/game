@@ -331,7 +331,7 @@ export class WaterNets {
     if (!net || !net.pumps.includes(key) || this.strokeCool > 0 || !this.pumpWater(key)) return false;
     if (net.waterL >= net.capL - 0.5) return false;
     this.strokeCool = PLUMB_STROKE_COOLDOWN_S;
-    net.waterL = Math.min(net.capL, net.waterL + this.lift(key, PLUMB_STROKE_L));
+    net.waterL = Math.min(net.capL, net.waterL + this.lift(key, Math.min(PLUMB_STROKE_L, net.capL - net.waterL)));
     return true;
   }
 
@@ -367,7 +367,9 @@ export class WaterNets {
       let gained = 0;
       for (const p of net.pumps) {
         const rpm = this.host.shaftRpm?.(keyX(p), keyY(p), keyZ(p)) ?? 0;
-        if (rpm > 0 && this.pumpWater(p)) gained += this.lift(p, rpm * PLUMB_PUMP_L_PER_RPM * dt);
+        // A full line stops the pump: it never draws (and never uses up a source) for water it cannot store.
+        const room = net.capL - net.waterL - gained;
+        if (rpm > 0 && room > 0 && this.pumpWater(p)) gained += this.lift(p, Math.min(room, rpm * PLUMB_PUMP_L_PER_RPM * dt));
       }
       for (const c of net.cisterns) {
         if (this.openSky.has(c) && this.host.rainAt?.(keyX(c), keyY(c) + 1, keyZ(c))) gained += CISTERN_RAIN_L_PER_S * dt;

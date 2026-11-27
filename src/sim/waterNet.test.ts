@@ -76,6 +76,16 @@ describe('water network', () => {
     expect(kit.sim.waterView(0, 5, 0)?.status).toMatch(/^Pumping 8 L\/s/);
   });
 
+  it('stops a shaft-driven pump at a full line, so a lone source is not used up for nothing', () => {
+    const kit = makeKit();
+    row(kit, ['hand_pump', 'water_pipe']); // 45 L
+    kit.world.put(0, 4, 0, 'water');
+    kit.sim.airShaftRpm = (x, y, z) => (x === 0 && y === 5 && z === 0 ? 64 : 0); // 32 L/s
+    kit.run(200);
+    expect(kit.sim.water.netAt(0, 5, 0)!.waterL).toBeCloseTo(45, 3);
+    expect(kit.world.getBlock(0, 4, 0).liquid).toBe('water');
+  });
+
   it('sprays while the line holds water and waters crops within 4 blocks, roofed or not, then runs dry', () => {
     const kit = makeKit();
     kit.clock.timeOfDay = 0.05;
