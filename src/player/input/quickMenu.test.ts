@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { EMOTES } from '../emotes';
 import {
+  QUICK_ARC_DEG,
   QUICK_ITEM_PX,
   QUICK_RADIUS_PX,
   fitQuickRadius,
+  quickArcFrom,
   quickMenuItems,
   quickMenuLit,
   quickMenuOffsets,
@@ -103,5 +105,18 @@ describe('quick menu: ring geometry', () => {
     expect(low).toBeGreaterThan(0);
     // Opening to the left from a button against the left edge leaves no room: the ring collapses.
     expect(fitQuickRadius(QUICK_RADIUS_PX, 4, { x: 10, y: 600 }, { width: 800, height: 800 }, -1)).toBeLessThan(QUICK_RADIUS_PX);
+  });
+
+  it('a short screen swings the arc towards the horizontal so the items keep clear of each other', () => {
+    // Plenty of room: the default arc.
+    expect(quickArcFrom(4, QUICK_RADIUS_PX)).toBe(QUICK_ARC_DEG.from);
+    // A phone on its side leaves a radius of ~150 px: the default 70-degree arc would crowd four 64 px items.
+    const from = quickArcFrom(4, 150);
+    expect(from).toBeLessThan(QUICK_ARC_DEG.from);
+    expect(from).toBeGreaterThanOrEqual(0);
+    const o = quickMenuOffsets(4, 150, from);
+    for (let i = 1; i < o.length; i++) expect(Math.hypot(o[i].x - o[i - 1].x, o[i].y - o[i - 1].y)).toBeGreaterThanOrEqual(QUICK_ITEM_PX - 1e-6);
+    // The fit with the widened arc never exceeds the screen.
+    expect(fitQuickRadius(QUICK_RADIUS_PX, 4, { x: 60, y: 200 }, { width: 800, height: 390 }, 1, from)).toBeGreaterThan(0);
   });
 });

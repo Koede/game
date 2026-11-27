@@ -93,11 +93,11 @@ const EDGE_PX = QUICK_ITEM_PX / 2 + 4;
  * Offsets (x to the right, y downwards, both in px) of `count` items on the ring, evenly spread over the arc, from the
  * entry button's centre. The ring opens to the right; the caller mirrors x for a ring that opens to the left.
  */
-export function quickMenuOffsets(count: number, radius: number): { x: number; y: number }[] {
+export function quickMenuOffsets(count: number, radius: number, fromDeg: number = QUICK_ARC_DEG.from): { x: number; y: number }[] {
   const out: { x: number; y: number }[] = [];
   for (let i = 0; i < count; i++) {
     const t = count <= 1 ? 0.5 : i / (count - 1);
-    const a = ((QUICK_ARC_DEG.from + (QUICK_ARC_DEG.to - QUICK_ARC_DEG.from) * t) * Math.PI) / 180;
+    const a = ((fromDeg + (QUICK_ARC_DEG.to - fromDeg) * t) * Math.PI) / 180;
     out.push({ x: radius * Math.cos(a), y: -radius * Math.sin(a) });
   }
   return out;
@@ -107,9 +107,9 @@ export function quickMenuOffsets(count: number, radius: number): { x: number; y:
  * The largest radius up to `radius` at which every item of the ring stays on screen, given the entry button's centre
  * (client px relative to the surface) and the surface size. `side` is +1 when the ring opens to the right, -1 to the left.
  */
-export function fitQuickRadius(radius: number, count: number, centre: { x: number; y: number }, surface: { width: number; height: number }, side: 1 | -1): number {
+export function fitQuickRadius(radius: number, count: number, centre: { x: number; y: number }, surface: { width: number; height: number }, side: 1 | -1, fromDeg: number = QUICK_ARC_DEG.from): number {
   let fit = radius;
-  for (const o of quickMenuOffsets(count, 1)) {
+  for (const o of quickMenuOffsets(count, 1, fromDeg)) {
     const x = side * o.x;
     const y = o.y;
     if (x > 1e-6) fit = Math.min(fit, (surface.width - EDGE_PX - centre.x) / x);
@@ -117,6 +117,21 @@ export function fitQuickRadius(radius: number, count: number, centre: { x: numbe
     if (y < -1e-6) fit = Math.min(fit, (centre.y - EDGE_PX) / -y);
   }
   return Math.max(0, fit);
+}
+
+/** Gap kept between two neighbouring items of the ring, px. */
+export const QUICK_GAP_PX = 6;
+
+/**
+ * Where the arc starts (degrees) so neighbouring items clear each other at `radius`: the default arc when it already does,
+ * otherwise swung further down towards the horizontal, as far as 0, so a short screen (a phone on its side, where the ring
+ * cannot get tall) spreads the items sideways instead of stacking them on top of each other.
+ */
+export function quickArcFrom(count: number, radius: number): number {
+  if (count < 2 || radius <= 0) return QUICK_ARC_DEG.from;
+  const needRad = 2 * Math.asin(Math.min(1, (QUICK_ITEM_PX + QUICK_GAP_PX) / (2 * radius)));
+  const from = QUICK_ARC_DEG.to - (needRad * 180 * (count - 1)) / Math.PI;
+  return Math.max(0, Math.min(QUICK_ARC_DEG.from, from));
 }
 
 /** How far apart two neighbouring items sit on the ring: items do not overlap when this is at least QUICK_ITEM_PX. */

@@ -1,5 +1,5 @@
 /** DOM of the radial quick menu: a ring of large round items around the entry button. Pure presentation. */
-import { QUICK_ITEM_PX, QUICK_RADIUS_PX, fitQuickRadius, quickMenuOffsets, type QuickItem } from './quickMenu';
+import { QUICK_ITEM_PX, QUICK_RADIUS_PX, fitQuickRadius, quickArcFrom, quickMenuOffsets, type QuickItem } from './quickMenu';
 
 export interface QuickCentre {
   /** Client (viewport) pixels: the entry button's centre. */
@@ -99,8 +99,13 @@ export class QuickMenuView {
     const rect = this.surface.getBoundingClientRect();
     const cx = this.centre.x - rect.left;
     const cy = this.centre.y - rect.top;
-    const radius = fitQuickRadius(QUICK_RADIUS_PX, items.length, { x: cx, y: cy }, { width: rect.width, height: rect.height }, this.side);
-    const offsets = quickMenuOffsets(items.length, radius);
+    const centre = { x: cx, y: cy };
+    const surface = { width: rect.width, height: rect.height };
+    // A short screen leaves little height: spread the items towards the horizontal rather than letting them overlap.
+    const first = fitQuickRadius(QUICK_RADIUS_PX, items.length, centre, surface, this.side);
+    const from = quickArcFrom(items.length, first);
+    const radius = fitQuickRadius(QUICK_RADIUS_PX, items.length, centre, surface, this.side, from);
+    const offsets = quickMenuOffsets(items.length, radius, from);
     items.forEach((item, i) => {
       const el = document.createElement('div');
       el.className = 'hw-touch-radial__item';

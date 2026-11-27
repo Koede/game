@@ -1056,7 +1056,8 @@
 }
 .hw-coach[data-mark='mine'] {
   right: calc(70px + var(--hw-safe-r));
-  bottom: calc(224px + var(--hw-safe-b));
+  /* Above the whole thumb cluster (the Place toggle tops out at 268 px), never over a button. */
+  bottom: calc(284px + var(--hw-safe-b));
 }
 .hw-coach[data-mark='mine']::after {
   right: 36px;
@@ -1072,7 +1073,7 @@
 @media (orientation: landscape) {
   .hw-coach[data-mark='mine'] {
     right: calc(90px + var(--hw-safe-r));
-    bottom: calc(158px + var(--hw-safe-b));
+    bottom: calc(216px + var(--hw-safe-b));
   }
 }
 @keyframes hw-coach-bob {
@@ -1137,6 +1138,22 @@
 }
 .hw-npcsay[hidden] {
   display: none;
+}
+/* On a touch screen the box must not sit on the thumb controls (it would eat every tap meant for Use, Mine, Jump and the stick):
+   portrait lifts it above the cluster and the quick-menu button; landscape narrows it to the gap between the stick and the cluster. */
+.hw-hud[data-touch] .hw-npcsay {
+  bottom: calc(var(--hw-safe-b, 0px) + 300px);
+  width: calc(100% - 24px);
+}
+.hw-hud[data-touch] .hw-npcsay__frame {
+  width: 84px;
+  height: 84px;
+}
+@media (orientation: landscape) {
+  .hw-hud[data-touch] .hw-npcsay {
+    bottom: calc(var(--hw-safe-b, 0px) + 84px);
+    width: min(720px, calc(100% - 420px));
+  }
 }
 .hw-npcsay__frame {
   flex: none;
