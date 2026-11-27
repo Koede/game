@@ -67,7 +67,7 @@ export const FOOD_SPEC = {
     },
     boar: {
       biomes: ['woodland', 'scar', 'marsh'], health: 10, speed: 2.8, size: { w: 0.9, h: 0.9 }, likes: ['potato', 'carrot'],
-      drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }],
+      drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }, { item: 'bone', count: 1, chance: 0.5 }],
     },
   } as Record<string, { biomes: BiomeKey[]; health: number; speed: number; size: { w: number; h: number }; likes: string[]; drops: Drop[] }>,
 };

@@ -66,6 +66,9 @@ const DUST_MACHINES = new Set(['crusher', 'centrifuge']);
 /** Machines that crackle with current or draught while they run: a thin stream of warm motes. */
 const SPARK_MACHINES = new Set(['dynamo', 'blower', 'space_heater']);
 const EXHAUST_MACHINES = new Set(['combustion_engine', 'burner_generator']);
+/** Machines that only change a front texture but should still read from a distance: a sunlit panel glints, hot metal gives off motes, a thermopile shimmers. Rate in motes per second. */
+const QUIET_SPARK_RATE: ReadonlyMap<string, number> = new Map([['solar_panel', 0.6], ['casting_bench', 1.5], ['alloy_pot', 1.5]]);
+const QUIET_STEAM_RATE: ReadonlyMap<string, number> = new Map([['thermopile', 0.8]]);
 
 const rnd = Math.random;
 const spread = (s: number): number => (rnd() * 2 - 1) * s;
@@ -200,6 +203,12 @@ export class Emitters {
         } else if (SPARK_MACHINES.has(e.kind)) {
           kind = 'spark';
           rate = 1.2;
+        } else if (QUIET_SPARK_RATE.has(e.kind)) {
+          kind = 'spark';
+          rate = QUIET_SPARK_RATE.get(e.kind)!;
+        } else if (QUIET_STEAM_RATE.has(e.kind)) {
+          kind = 'steam';
+          rate = QUIET_STEAM_RATE.get(e.kind)!;
         }
       }
       if (!kind) continue;

@@ -114,7 +114,7 @@ export const CREATURE_SPECS: CreatureSpec[] = [
   {
     key: 'boar', name: 'Boar', desc: 'A bristly wild boar of the woods, the scar and the marsh wallows. Shy, but potatoes and carrots win it over.',
     biomes: ['woodland', 'scar', 'marsh'], health: 10, speed: 2.8, size: { w: 0.9, h: 0.9 },
-    drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }], likes: ['potato', 'carrot'], group: [2, 3], model: BOAR,
+    drops: [{ item: 'raw_chop', count: [1, 3] }, { item: 'hide', count: 1 }, { item: 'bone', count: 1, chance: 0.5 }], likes: ['potato', 'carrot'], group: [2, 3], model: BOAR,
   },
 ];
 

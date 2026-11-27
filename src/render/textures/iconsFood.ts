@@ -291,6 +291,22 @@ function hide(c: Canvas): void {
   });
 }
 
+function boneItem(c: Canvas): void {
+  // A long bone laid on the diagonal, a knob at each end, lit from the upper left.
+  const ramp = [rgb(0x8f8268), rgb(0xb3a687), rgb(0xd6ccb0), rgb(0xeee7d2)];
+  for (let i = 0; i <= 8; i++) {
+    const x = 3 + i;
+    const y = 12 - i;
+    c.set(x, y, ramp[2]);
+    c.set(x + 1, y, ramp[1]);
+    c.set(x, y - 1, ramp[3]);
+    c.set(x + 1, y + 1, ramp[0]);
+  }
+  for (const [x, y] of [[2, 11], [2, 13], [3, 13], [1, 12], [12, 2], [13, 3], [13, 2], [12, 4], [14, 3]] as const) c.set(x, y, ramp[2]);
+  for (const [x, y] of [[2, 12], [13, 2]] as const) c.set(x, y, ramp[3]);
+  for (const [x, y] of [[3, 14], [14, 4]] as const) c.set(x, y, ramp[0]);
+}
+
 export const FOOD_ICONS: PainterSet = {
   item_raw_fowl: icon((c) => fowl(c, RAW_SKIN, false)),
   item_cooked_fowl: icon((c) => fowl(c, GOLDEN, true)),
@@ -308,4 +324,5 @@ export const FOOD_ICONS: PainterSet = {
   item_bread: icon(bread),
   item_hearth_stew: icon(hearthStew),
   item_hide: icon(hide),
+  item_bone: icon(boneItem),
 };
