@@ -20,7 +20,7 @@ import type { WeatherSnapshot } from '../game/weather';
 import type { MobsSnapshot } from '../mobs';
 import type { WorldSnapshot } from '../world/world';
 import { migrateWorld } from './migrations';
-import { SaveStore, browserStorage, type LoadProblem, type SaveResult, type StorageLike } from './storage';
+import { MemoryStorage, SaveStore, browserStorage, type LoadProblem, type SaveResult, type StorageLike } from './storage';
 
 /**
  * The ENVELOPE version. Do not bump it for content or format changes: bump `SAVE_REV` (save/migrations.ts) and add a
@@ -316,6 +316,43 @@ export class SaveSlot {
     return result;
   }
 
+  /**
+   * The saved text exactly as stored (an envelope: version, time and the document), for a backup file. Also the text of
+   * a save this build cannot read, so it can still be kept. Null when nothing is stored.
+   */
+  exportText(): string | null {
+    return this.store.inspect().raw;
+  }
+
+  /** When the previous good save was written (ms since epoch), or null when there is none. */
+  prevSavedAt(): number | null {
+    const raw = this.readPrev();
+    if (raw === null) return null;
+    try {
+      const env: unknown = JSON.parse(raw);
+      return isRecord(env) && isNum(env.t) ? env.t : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Replaces the saved world with the one in `text` (a backup file from exportText, or the previous save). Only a world
+   * this build can load is taken, and `settings` (this device's) are kept. The save it replaces becomes the previous
+   * save when it is old enough, so a wrong restore can be undone. Never throws; the world comes back on success.
+   */
+  importText(text: string, settings: Settings): { ok: true; world: WorldSave; stored: boolean } | { ok: false; message: string } {
+    const memory = new MemoryStorage();
+    memory.setItem(SAVE_KEY, text);
+    const probe = new SaveSlot(memory, this.now);
+    const found = probe.read();
+    if (probe.lastProblem || !found.world) return { ok: false, message: probe.lastProblem ? 'That file is not a save this version can open.' : 'That file holds no saved world.' };
+    this.keepAsPrev();
+    const result = this.write({ settings, world: found.world });
+    // A refused write still keeps the world in memory for this visit (SaveStore's fallback): `stored` says whether it will outlive the page.
+    return { ok: true, world: found.world, stored: result.ok };
+  }
+
   /** The previous good save (PREV_KEY) exists. */
   get hasPrev(): boolean {
     return this.getItem(PREV_KEY) !== null;
@@ -324,6 +361,18 @@ export class SaveSlot {
   /** The raw text of the previous good save, or null. */
   readPrev(): string | null {
     return this.getItem(PREV_KEY);
+  }
+
+  /** Copies the stored save to PREV_KEY now, whatever its age (before a restore replaces it); never while the slot holds an unreadable save. */
+  private keepAsPrev(): void {
+    if (this.heldRaw || !this.storage) return;
+    const cur = this.getItem(SAVE_KEY);
+    if (cur === null || !this.store.exists()) return;
+    try {
+      this.storage.setItem(PREV_KEY, cur);
+    } catch {
+      // Full: restoring matters more than keeping the old text.
+    }
   }
 
   /** Copies the stored save to PREV_KEY when it is old enough and readable; never while the slot holds an unreadable save. */
