@@ -57,7 +57,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'dynamo', ...LIFT_PARTS]);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'hand_pump', 'dynamo', ...LIFT_PARTS]);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);

@@ -3,7 +3,7 @@
  * masked voxel id can index it without a bounds check; ids without a block behave like air.
  */
 import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK, STEAM_KETTLE_BLOCK } from '../core/brewing';
-import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
+import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint, joinsPlumbing } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
 import { STATUS_COUNT, voxelStatus } from '../core/machineStatus';
 import { glassFamily, glassModelIndex, glassPorts } from './glassModels';
@@ -62,6 +62,8 @@ export const PIPE_ITEM = 1;
 export const PIPE_FLUID = 2;
 /** The air family (BRONZE_PLAN 5.3): air tubes and the blocks they join. It never joins item or fluid pipes. */
 export const PIPE_AIR = 4;
+/** The water family (docs/api/plumbing.md): water pipes, the plumbing blocks and boiler Water Ports. */
+export const PIPE_WATER = 8;
 /** The family of a pipe block (0 for anything else). */
 export const PIPE_FAMILY = new Uint8Array(SIZE);
 /**
@@ -135,8 +137,9 @@ for (const def of BLOCKS) {
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
   else if (def.air?.role === 'tube') PIPE_FAMILY[id] = PIPE_JOINS[id] = PIPE_AIR;
+  else if (def.plumb?.role === 'pipe' || def.plumb?.role === 'sprinkler') PIPE_FAMILY[id] = PIPE_JOINS[id] = PIPE_WATER;
   else {
-    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0) | (def.air ? PIPE_AIR : 0);
+    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0) | (def.air ? PIPE_AIR : 0) | (joinsPlumbing(def) ? PIPE_WATER : 0);
     PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
   }
   GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;

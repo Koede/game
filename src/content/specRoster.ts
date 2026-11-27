@@ -489,3 +489,5 @@ SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
 SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
 // Bridges, lifts and elevators (src/render/textures/areas/lifts.ts): two faces each for the lift winch, elevator and drawbridge, the deck top.
 SPEC.maxTextures += 7;
+// Bronze Age plumbing (content/areas/plumbing.ts): pipe_water, sprinkler + sprinkler_on, hand_pump side/top/bottom, cistern side/top/bottom.
+SPEC.maxTextures += 9;

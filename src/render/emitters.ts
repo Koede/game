@@ -104,6 +104,7 @@ export class Emitters {
         if (e.station === 'furnace') this.forgeSparks();
       }),
       bus.on('machine:job', (e) => this.puffs(e.x + 0.5, e.y + 1.05, e.z + 0.5, 'steam', 3)),
+      bus.on('water:spray', (e) => this.spray(e.x, e.y, e.z)),
       bus.on('explosion', (e) => this.explosion(e.x + 0.5, e.y + 0.5, e.z + 0.5, e.radius)),
       bus.on('legendary:proc', (e) => this.legendaryProc(e.effect, e.x, e.y, e.z)),
       bus.on('legendary:swing', (e) => this.swingTrail(e.effect, e.x, e.y, e.z, e.yaw, e.pitch, e.count)),
@@ -236,6 +237,28 @@ export class Emitters {
       p.vy = (1.5 + rnd() * 3) * speed;
       p.vz = spread(2.2) * speed;
       this.chip(c[0] * light[0] * k, c[1] * light[1] * k, c[2] * light[2] * k, 0.07 + rnd() * 0.07, 0.45 + rnd() * 0.5);
+    }
+  }
+
+  /** One puff of a sprinkler (twice a second): droplets thrown out in a ring that fall over the field around it. */
+  private spray(x: number, y: number, z: number): void {
+    const cx = x + 0.5;
+    const cy = y + 0.6;
+    const cz = z + 0.5;
+    if (Math.abs(cx - this.camX) > STEAM_RANGE || Math.abs(cz - this.camZ) > STEAM_RANGE) return;
+    const light = this.light(cx, cy, cz, this.lightRgb);
+    const p = this.spec;
+    for (let i = 0; i < 22; i++) {
+      const a = rnd() * Math.PI * 2;
+      const v = 1.6 + rnd() * 2.6;
+      p.x = cx + Math.cos(a) * 0.2;
+      p.y = cy;
+      p.z = cz + Math.sin(a) * 0.2;
+      p.vx = Math.cos(a) * v;
+      p.vy = 2.4 + rnd() * 1.6;
+      p.vz = Math.sin(a) * v;
+      const k = 0.85 + rnd() * 0.3;
+      this.chip(0.78 * light[0] * k + 0.1, 0.9 * light[1] * k + 0.1, light[2] * k + 0.12, 0.04 + rnd() * 0.035, 0.7 + rnd() * 0.5);
     }
   }
 
