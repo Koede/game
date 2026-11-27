@@ -125,6 +125,10 @@ export interface DebugHandle {
   isSafe(x: number, y: number, z: number): boolean;
   /** Sets the wear (0..1) of the machine at a cell (set-up for the wear checks). */
   setMachineWear(x: number, y: number, z: number, wear: number): boolean;
+  /** Pneumatic tube checks: a crate's stacks (null when there is no crate), filling one, and setting a network's pressure. */
+  crate(x: number, y: number, z: number): Array<{ item: string; count: number }> | null;
+  fillCrate(x: number, y: number, z: number, item: string, count: number): boolean;
+  setAirBar(x: number, y: number, z: number, bar: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
@@ -357,6 +361,26 @@ export function createDebugHandle(app: App): DebugHandle {
       const e = game().state.sim.machineAt(x, y, z);
       if (!e) return false;
       e.wear = Math.max(0, Math.min(1, wear));
+      return true;
+    },
+    crate(x, y, z) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e || e.kind !== 'crate') return null;
+      return e.slots.filter((s) => s !== null).map((s) => ({ item: s!.item, count: s!.count }));
+    },
+    fillCrate(x, y, z, item, count) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e || e.kind !== 'crate') return false;
+      const i = e.slots.indexOf(null);
+      if (i < 0) return false;
+      e.slots[i] = { item, count };
+      game().state.sim.touch(e);
+      return true;
+    },
+    setAirBar(x, y, z, bar) {
+      const net = game().state.sim.air.netAt(x, y, z);
+      if (!net) return false;
+      net.airL = net.volumeL * bar;
       return true;
     },
     getBlock(x, y, z) {
