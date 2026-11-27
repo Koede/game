@@ -43,6 +43,7 @@ import { gridCells, gridSummary, machineView, networkStats, type GridCell, type 
 import { isPipeEntity, type PortChange } from './pipeState';
 import { tankColumn, tankView } from './tanks';
 import { AirNets, isAirEntity, type AirView } from './airNet';
+import { isTubeStation, Pneumatics, type StationView } from './pneumatics';
 import { Transport } from './transport';
 import * as pipes from './transportActions';
 import type { BucketResult, WrenchResult } from './transportActions';
@@ -118,6 +119,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   readonly transport: Transport;
   /** The Bronze Age air network (BRONZE_PLAN 5.3): tubes, tanks, compressors and the Blast Nozzle. */
   readonly air: AirNets;
+  /** Pneumatic tubes: senders and receivers on the air network shoot items between crates. */
+  readonly pneumatics: Pneumatics;
   /** Speed of the workshop shaft that turns a compressor at a cell (rpm); set by the app from the workshop, null = no shafts. */
   airShaftRpm: ((x: number, y: number, z: number) => number) | null = null;
   private readonly transportRender: TransportRenderer;
@@ -168,6 +171,17 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       flagOnce: (flag) => this.flagOnce(flag),
     });
     this.air = new AirNets({ world, bus, shaftRpm: (x, y, z) => this.airShaftRpm?.(x, y, z) ?? 0 });
+    this.pneumatics = new Pneumatics({
+      world, bus, air: this.air,
+      crateAt: (x, y, z) => {
+        const e = this.machineAt(x, y, z);
+        return e && e.kind === 'crate' ? e : null;
+      },
+      touch: (e) => this.touch(e),
+      spill: (x, y, z, stacks) => {
+        if (!this.destroying) this.spills.add(x, y, z, stacks);
+      },
+    });
     const nodes = this.nodes;
     this.hearths = new HearthSet({
       world, bus, player, byKey: nodes.byKey, air: this.air,
@@ -264,6 +278,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       else if (e.kind === HIVE_MACHINE) this.apiary.track(e);
       else if (isChemKind(e.kind)) this.distill.track(e);
       else if (isAirEntity(e)) continue; // the air network follows its own saved entities (airNet.ts)
+      else if (isTubeStation(e)) continue; // capsules on their way to a pneumatic receiver (pneumatics.ts)
       else if (!isPipeEntity(e)) {
         const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
         if (r !== 'ok') repaired++;
@@ -274,6 +289,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     }
     repaired += this.transport.resync();
     this.air.resync();
+    this.pneumatics.resync();
     const text = repairToast(repaired);
     if (text) this.bus.emit('toast', { text, kind: 'warn' });
   }
@@ -344,6 +360,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
     this.air.tick(dt);
+    this.pneumatics.tick(dt);
     const beesIn = this.beesIn();
     this.apiary.tick(dt, beesIn);
     this.crops.tick(dt, this.sunlight, this.wetAt, this.cropScaleAt, beesIn === null);
@@ -400,6 +417,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     const key = posKey(x, y, z);
     this.transport.blockChanged(x, y, z, from, to);
     this.air.blockChanged(x, y, z, from, to);
+    this.pneumatics.blockChanged(x, y, z, from, to);
     this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
     const station = this.hand.blockChanged(x, y, z, from, to);
@@ -957,9 +975,19 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private useAir(x: number, y: number, z: number): void {
     const v = this.air.view(x, y, z);
     if (!v) return;
+    const station = v.role === 'station' ? this.pneumatics.view(x, y, z) : null;
+    if (station) {
+      this.bus.emit('toast', { text: `${v.name}: ${station.status}`, kind: 'info' });
+      return;
+    }
     if (v.role === 'source' && this.air.crank(x, y, z)) this.bus.emit('sfx', { name: 'dig_metal', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     const after = this.air.view(x, y, z) ?? v;
     this.bus.emit('toast', { text: `${after.name}: ${after.status}`, kind: 'info' });
+  }
+
+  /** What a Use on a pneumatic sender or receiver says, or null. */
+  stationView(x: number, y: number, z: number): StationView | null {
+    return this.pneumatics.view(x, y, z);
   }
 
   // ---- item and fluid transport (spec 16) --------------------------------------------------------------------------

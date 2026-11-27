@@ -57,7 +57,41 @@ function compressorTop(c: Canvas): void {
   for (const [x, y] of [[2, 2], [12, 2], [2, 12], [12, 12]]) rivet(c, x, y, B[4], B[0]);
 }
 
+/** Pneumatic station casing: riveted bronze with a round glass capsule port; `out` draws the arrow leaving (a sender). */
+function stationSide(out: boolean) {
+  return (c: Canvas): void => {
+    const n = c.noise(4, 4, out ? 13 : 17);
+    c.each((x, y) => tone([B[0], B[1], B[2], B[2]], 0.25 + n(x, y) * 0.5));
+    c.frame(0, 0, 16, 16, B[0]);
+    bevel(c, 1, 1, 14, 14, B[3], B[0]);
+    for (const [x, y] of [[2, 2], [12, 2], [2, 12], [12, 12]]) rivet(c, x, y, B[4], B[0]);
+    c.disc(7.5, 7.5, 4.6, B[0]);
+    c.disc(7.5, 7.5, 3.8, P.GLASS[1]);
+    c.ring(7.5, 7.5, 3.8, B[4]);
+    // A brass arrow: up and out of the port for a sender, down and in for a receiver.
+    const tip = out ? 5 : 10;
+    const tail = out ? 10 : 5;
+    c.rect(7, Math.min(tip, tail), 2, 6, P.GLASS[4]);
+    const dir = out ? 1 : -1;
+    for (let i = 0; i < 3; i++) c.rect(7 - i, tip + i * dir, 2 + i * 2, 1, P.GLASS[4]);
+    c.rect(0, 14, 16, 1, out ? mix(B[2], P.SOOT, 0.2) : P.GLASS[2]);
+  };
+}
+
+/** The station's lid: a plate with the tube's socket. */
+function stationTop(c: Canvas): void {
+  c.fill(B[1]);
+  c.frame(0, 0, 16, 16, B[0]);
+  bevel(c, 1, 1, 14, 14, B[3], B[0]);
+  c.disc(7.5, 7.5, 3.6, P.SOOT);
+  c.ring(7.5, 7.5, 3.6, B[4]);
+  c.ring(7.5, 7.5, 2.2, P.GLASS[2]);
+}
+
 export const AIR_TEXTURES: PainterSet = {
+  tube_sender_side: stationSide(true),
+  tube_receiver_side: stationSide(false),
+  tube_station_top: stationTop,
   air_tank_side: tankSide,
   air_tank_top: tankTop,
   air_compressor_side: compressorSide,

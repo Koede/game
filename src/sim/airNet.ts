@@ -47,6 +47,8 @@ export interface AirNet {
   /** Tube ends open to the air (see the file comment). */
   leaks: number;
   sources: number[];
+  /** Pneumatic tube stations (senders and receivers, src/sim/pneumatics.ts). */
+  stations: number[];
   /** Litres still to push in from hand strokes. */
   cranked: number;
   /** Chunk columns of unloaded cells the flood met: when one loads, the network is flooded again. */
@@ -181,7 +183,7 @@ export class AirNets {
   private flood(start: number, bars: ReadonlyMap<number, number> | null): AirNet {
     const { world } = this.host;
     const net: AirNet = {
-      id: this.nextId++, keys: [], volumeL: 0, airL: 0, leaks: 0, sources: [], cranked: 0, frontier: new Set(), madeLPerS: 0, lostLPerS: 0,
+      id: this.nextId++, keys: [], volumeL: 0, airL: 0, leaks: 0, sources: [], stations: [], cranked: 0, frontier: new Set(), madeLPerS: 0, lostLPerS: 0,
     };
     const stack = [start];
     this.byCell.set(start, net);
@@ -192,6 +194,7 @@ export class AirNets {
       net.volumeL += spec.volumeL;
       if (bars) net.airL += (bars.get(k) ?? 0) * spec.volumeL;
       if (spec.role === 'source') net.sources.push(k);
+      if (spec.role === 'station') net.stations.push(k);
       let joined = 0;
       let lastDir = -1;
       for (let d = 0; d < 6; d++) {
@@ -292,6 +295,14 @@ export class AirNets {
     return true;
   }
 
+  /** Takes `litres` from the network at a cell when it holds `minBar`: a pneumatic sender's shot. */
+  spend(x: number, y: number, z: number, litres: number, minBar: number): boolean {
+    const net = this.netAt(x, y, z);
+    if (!net || barOf(net) < minBar || net.airL < litres) return false;
+    net.airL -= litres;
+    return true;
+  }
+
   // ---- ticking ----------------------------------------------------------------------------------------------------
 
   tick(dt: number): void {
@@ -330,8 +341,10 @@ export class AirNets {
     const keep = new Set<number>();
     for (const net of this.nets) {
       if (net.airL <= 0.5 && !this.saved.has(net.keys[0])) continue;
-      let anchor = net.keys[0];
-      for (const k of net.keys) if (k < anchor) anchor = k;
+      // A station cell keeps its own entity (its capsules on the way, pneumatics.ts): the air is saved on another member.
+      let anchor = -1;
+      for (const k of net.keys) if ((anchor < 0 || k < anchor) && !net.stations.includes(k)) anchor = k;
+      if (anchor < 0) continue;
       keep.add(anchor);
       let e = world.getEntity(keyX(anchor), keyY(anchor), keyZ(anchor));
       if (!isAirEntity(e)) {
