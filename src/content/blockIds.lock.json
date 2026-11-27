@@ -309,5 +309,21 @@
   "steam_pipe": 307,
   "mill_wheel": 308,
   "windmill": 309,
-  "steam_tank": 310
+  "steam_tank": 310,
+  "tube_sender": 311,
+  "tube_receiver": 312,
+  "water_pipe": 313,
+  "hand_pump": 314,
+  "cistern": 315,
+  "sprinkler": 316,
+  "lift_winch": 317,
+  "elevator_winch": 318,
+  "drawbridge": 319,
+  "bridge_deck": 320,
+  "telegraph_pole": 321,
+  "telegraph_office": 322,
+  "radio_mast": 323,
+  "clock_tower": 324,
+  "beehive": 325,
+  "beeswax_candle": 326
 }

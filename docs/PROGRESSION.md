@@ -136,7 +136,7 @@ Every conversion is a block in the world you can watch working.
 Superalloy, fused quartz, power drill, shield suit, centrifuge, fuel rods, Fission Pile (60 kW, water-cooled),
 electrolyzer and deuterium, Lithium Bank, superconducting lines; the Slag Colossus in the deep.
 **Goals:** Plasma hearth - superalloy - fission pile - 60 kW - deuterium - star core.
-**Gate:** star casing shell with four power ports (93 casings - under review), a star core, 8 deuterium cells.
+**Gate:** star casing shell with four power ports (93 casings, now 6 per craft with no magnet ring), a star core (3 magnet rings), 4 deuterium cells.
 
 ### Age 5 - Star (Starhearth)  [built]
 

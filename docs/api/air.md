@@ -16,9 +16,25 @@ machine: item and fluid pipes never join them and they never join item or fluid 
 - A tube run that ends in open air (one joined arm, the cell across is not solid and not a member) leaks `100 x bar / 6` L/s.
 - `feed(x, y, z, dt)` takes a user's litres when its network holds the minimum pressure. `HearthSet.tick` asks for every nozzle of a lit furnace.
 - Saved as one `air` entity per network at its lowest cell; `resync` floods again from them (columns not loaded yet wait).
-- The shaft is not built yet: `AirHost.shaftRpm(x, y, z)` is the seam the steam work plugs into. Until then a Use on a compressor works the piston by
+- The shaft: `AirHost.shaftRpm(x, y, z)` is wired to the workshop's `dynamoRpm` (`app/state.ts`). Without a turning shaft a Use on a compressor works the piston by
   hand (`crank`, 26 L a stroke, 0.4 s apart); a Use on any air block toasts its pressure (event `air:use`).
 
 ## Blast hearth rule
 `HearthStructureSpec.requiredParts` (tier 3: `{ blast_nozzle: 1 }`), problem code `parts` ("Needs 1 more Blast Nozzle in a wall"), a `parts` row in
 the structure checklist. `FurnaceEntity.legacyHearth` (set by save migration rev 3 -> 4 on every furnace of tier 3 or more) exempts old hearths.
+
+## Pneumatic tubes (`src/sim/pneumatics.ts`, `Simulation.pneumatics`)
+Two more air members, role `station` (`AirSpec.station`), in `src/content/blocksPneumatic.ts`:
+| key | station | volume | notes |
+|---|---|---|---|
+| tube_sender | send | 20 L | shoots the crate it touches |
+| tube_receiver | receive | 20 L | fills the crate it touches |
+
+- Once a second (`PNEU_SEND_INTERVAL_S`) each sender takes the first stack of its crate that a receiver on the same network has room for: at most
+  `PNEU_CAPSULE_MAX` (16) items, for `PNEU_CAPSULE_L` (10) litres, only at `PNEU_MIN_BAR` (1) bar or more (`AirNets.spend`).
+- The receiver: one whose crate already holds that item first (a row of receivers sorts a base), else the nearest by Manhattan distance; never the
+  crate it came from. Room is promised when the capsule leaves, counting every capsule already on its way.
+- Flight: `PNEU_FLIGHT_BASE_S` + distance / `PNEU_BLOCKS_PER_S`. Capsules on their way are saved on the receiver's `tube_station` entity, so the air
+  network never anchors its `air` entity on a station cell. What does not fit on arrival waits in the receiver; a broken receiver spills it.
+- Recipes: `forge(2, ...)` at the Bronze Furnace, 900 C. A Use on a station toasts its status (`Simulation.stationView`).
+- Debug: `__hw.crate(x,y,z)`, `__hw.fillCrate(x,y,z,item,n)`, `__hw.setAirBar(x,y,z,bar)`. Phone check: project file `tube-check/e2e-tubes.mjs`.

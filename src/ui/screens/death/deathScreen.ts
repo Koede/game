@@ -38,6 +38,7 @@ const CAUSES: Record<DamageCause, { title: string; line: string }> = {
   // Spec 19: used only when the attacker is unknown; otherwise automatonDeath names it ("Felled by a Forge Warden").
   automaton: { title: 'Felled by an automaton', line: 'Every attack is telegraphed: when the embers flare, step out of reach. Your hot furnace is safe ground.' },
   gas: { title: 'You breathed foul air', line: 'Green wisps in a deep cave room are poison. Back out, and seal the pocket with a block before you go in again.' },
+  sting: { title: 'Stung once too often', line: 'Bees defend their comb. Hold a Bee Smoker while you take honeycomb and they stay calm.' },
   felled: { title: 'Crushed by a felled tree', line: 'Trees fall where you last struck them. Step out of the strike zone before the crown comes down.' },
   ember: { title: 'The embers caught you', line: 'An ember bolt sets you burning for a moment. Keep walls between you and a kiln sentry.' },
   hunger: {

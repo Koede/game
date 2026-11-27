@@ -3,7 +3,7 @@
  * backpack's pockets (named sections) are labelled inside its grid when there is more than one; Sort sorts each pocket
  * on its own; Undo appears for the one step the bag can take back (docs/api/inventory.md, "Moves").
  */
-import { EMPTY_BACKPACK, rangeIsEmpty } from './emptyState';
+import { EMPTY_BACKPACK, EMPTY_BACKPACK_HOTBAR, rangeIsEmpty } from './emptyState';
 import { HOTBAR_SIZE, INVENTORY_SIZE } from '../../../core/constants';
 import type { Inventory } from '../../../game/inventory';
 import { setSortMode, sortModeOf, sortRange, type SortMode } from '../../../game/inventoryTools';
@@ -78,7 +78,14 @@ export class InventoryPanel {
     );
     // Only the player's own pack says it is empty; a crate or machine panel passes its own label.
     const sync = (): void => {
-      this.emptyNote.hidden = opts.label !== undefined || !rangeIsEmpty(inventory.slots, HOTBAR_SIZE, packCount);
+      const ownPack = opts.label === undefined;
+      const packEmpty = ownPack && rangeIsEmpty(inventory.slots, HOTBAR_SIZE, packCount);
+      const hotbarEmpty = rangeIsEmpty(inventory.slots, 0, HOTBAR_SIZE);
+      this.emptyNote.hidden = !packEmpty;
+      // The hotbar counts: with logs in it the pack is not "all empty", and the note says where picked-up items go.
+      this.emptyNote.textContent = hotbarEmpty ? EMPTY_BACKPACK : EMPTY_BACKPACK_HOTBAR;
+      // On a phone the 27 empty slots would push the recipes off the first screen: fold the grid away while the pack is empty.
+      this.pack.el.hidden = packEmpty && touchFirst();
       if (isBag) this.syncPockets();
     };
     sync();

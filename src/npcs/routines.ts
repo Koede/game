@@ -30,6 +30,9 @@ export const DANCE_SPOTS: Readonly<Record<string, Spot>> = {
   mara: [6, 1, 3], rosa: [8, 1, 3], orrin: [10, 1, 3], veyra: [4, 1, 3], bram: [7, 1, 4],
 };
 
+/** Where the town gathers on a festival night beside the dancers: Gruk does not dance, but he comes in to watch by the floor. */
+export const FEST_SPOTS: Readonly<Record<string, Spot>> = { gruk: [5, 1, 4] };
+
 /** Where `id` should stand in `phase`, or null for someone without a routine (props). */
 export const spotFor = (id: string, phase: Phase): Spot | null => ROUTINES[id]?.[phase] ?? null;
 

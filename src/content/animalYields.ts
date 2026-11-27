@@ -4,4 +4,5 @@
  */
 export const ANIMAL_YIELDS: Readonly<Record<string, readonly string[]>> = {
   goat: ['milk_pail', 'milk_beaker', 'wool'],
+  hen: ['egg'],
 };

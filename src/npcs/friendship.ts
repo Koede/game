@@ -11,11 +11,11 @@ export const TIER_NAMES = ['stranger', 'friendly', 'close', 'confidant'] as cons
 /** Items each person likes. Giving one is the only way to raise trust. */
 export const LIKES: Readonly<Record<string, readonly string[]>> = {
   mara: ['glass_vial', 'vial_clarity', 'vial_mind', 'wildberries', 'glowcap', 'scribing_tools'],
-  rosa: ['bread', 'wildberries', 'hearth_stew', 'cheese', 'sugar_cookie', 'glowcap'],
+  rosa: ['bread', 'wildberries', 'hearth_stew', 'cheese', 'honey', 'honey_cake', 'glowcap'],
   gruk: ['coal', 'iron_ingot', 'bronze_ingot', 'bone', 'copper_ingot'],
   orrin: ['copper_ingot', 'glass', 'bronze_ingot', 'iron_ingot', 'tin_ingot'],
   veyra: ['glass_vial', 'glass_beaker', 'charcoal', 'sulfur', 'tincture_beaker', 'clear_tincture_beaker', 'spirit_beaker'],
-  bram: ['bone', 'glowcap', 'wildberries', 'hide', 'raw_perch'],
+  bram: ['bone', 'glowcap', 'wildberries', 'honey', 'raw_perch'],
 };
 
 export interface TierReward { item: string; count: number; line: string }

@@ -5,6 +5,7 @@
  */
 import { MACHINES, block, blockId, machine } from '../core/registry';
 import type { BlockDef, BlockEntity } from '../core/types';
+import type { Shelter } from './seasons';
 
 const SPEC = machine('crop');
 
@@ -104,6 +105,8 @@ export interface CropNode {
   rain: boolean;
   water: boolean;
   lamp: boolean;
+  /** A settled beehive is in reach (src/sim/apiary.ts): pollinated while the bees fly. */
+  bees: boolean;
   /** Bits of the cached facts to recompute before the crop is next looked at (see CropField). */
   dirty: number;
   /** Index in the awake list, -1 while asleep. */
@@ -120,14 +123,23 @@ export interface CropContext {
   wetAt: ((x: number, y: number, z: number) => boolean) | null;
   /** Seasonal growth multiplier of a crop at a position (src/sim/seasons.ts); absent = 1. */
   scale?: ((crop: string, x: number, y: number, z: number, exposed: boolean) => number) | null;
+  /** The bees are flying (by day, dry, not winter): crops beside a settled hive grow `pollenBoost` faster. */
+  beesOut?: boolean;
+  /** Growth multiplier of a pollinated crop (the beehive's params.boost); absent = 1. */
+  pollenBoost?: number;
+  /** A spraying sprinkler waters a crop at this position (src/sim/waterNet.ts), roofed or not; absent = none. */
+  irrigated?: ((x: number, y: number, z: number) => boolean) | null;
 }
+
+/** Whether bees are pollinating the crop now. */
+export const isPollinated = (c: CropNode, ctx: CropContext): boolean => c.bees && ctx.beesOut === true && c.info !== null && !c.info.wild;
 
 /** Daylight under open sky, or a powered lamp in reach (any hour, underground too). */
 export const isLit = (c: CropNode, ctx: CropContext): boolean => (ctx.sunUp && c.sky) || c.lamp;
 
 /** Whether the crop counts as watered: water in reach, or rain (or snow) falling on it under open sky (spec 15). */
 export function isHydrated(c: CropNode, ctx: CropContext): boolean {
-  return c.water || (c.rain && ctx.wetAt !== null && ctx.wetAt(c.e.x, c.e.y, c.e.z));
+  return c.water || (c.rain && ctx.wetAt !== null && ctx.wetAt(c.e.x, c.e.y, c.e.z)) || (ctx.irrigated?.(c.e.x, c.e.y, c.e.z) ?? false);
 }
 
 /** Growth per second of game time: 1 hydrated, dryRate dry, 0 when ripe, unlit or off farmland. A bush: 1 until ripe. */
@@ -135,7 +147,8 @@ export function growthRate(c: CropNode, ctx: CropContext): number {
   if (c.info === null || c.info.next < 0) return 0;
   if (c.info.wild) return 1;
   if (!c.soil || !isLit(c, ctx)) return 0;
-  const base = isHydrated(c, ctx) ? 1 : DRY_RATE;
+  const watered = isHydrated(c, ctx) ? 1 : DRY_RATE;
+  const base = isPollinated(c, ctx) ? watered * (ctx.pollenBoost ?? 1) : watered;
   return ctx.scale ? base * ctx.scale(c.info.crop, c.e.x, c.e.y, c.e.z, c.rain) : base;
 }
 
@@ -153,6 +166,8 @@ export interface CropView {
   soil: boolean;
   lit: boolean;
   hydrated: boolean;
+  /** Bees from a hive in reach are pollinating it now. */
+  pollinated: boolean;
   /** Current growth rate: 1, dryRate or 0. */
   rate: number;
   /** 0..1 through the current stage (1 when ripe). */
@@ -163,4 +178,14 @@ export interface CropView {
   ripeInS: number;
   /** "Ripe" / "Needs farmland" / "Needs light" / "Growing - stage 2 of 4". */
   status: string;
+  /** A wild bush (it needs nothing around it). */
+  wild: boolean;
+  /** Nothing over it: rain, snow and frost reach it. */
+  exposed: boolean;
+  /** Roofed crops: the air in C (filled in by the simulation; docs/api/greenhouse.md). */
+  tempC?: number;
+  /** Open sky, a heated greenhouse, a cold roofed spot, or frozen (filled in by the simulation). */
+  shelter?: Shelter;
+  /** The season's growth factor for this crop (CROP_SEASON; 1 = ordinary, filled in by the simulation). */
+  seasonPace?: number;
 }

@@ -125,11 +125,17 @@ function ageRooms(rooms: readonly FreeRoom[], filled: string | null): FreeRoom[]
  * One night. The first eligible person not yet arrived is the one in line; the free rooms are rolled in order, one roll
  * each, and the first success takes them. At most one arrival.
  */
-export function rollNight(state: MoveInState, rooms: readonly FreeRoom[], people: readonly Newcomer[], rng: () => number): NightResult {
+/** Word of a festival the player took part in travels: the night after it, each room's move-in chance is this many times higher. */
+export const FESTIVAL_DRAW = 3;
+/** ... but never above this. */
+export const FESTIVAL_DRAW_CAP = 0.6;
+
+export function rollNight(state: MoveInState, rooms: readonly FreeRoom[], people: readonly Newcomer[], rng: () => number, draw = 1): NightResult {
   const next = people.find((p) => p.eligible && !state.arrived.includes(p.id));
   if (!next) return { arrival: null, rooms: ageRooms(rooms, null), state };
   for (const room of rooms) {
-    if (rng() < moveInChance(room.emptyNights)) {
+    const chance = draw > 1 ? Math.min(FESTIVAL_DRAW_CAP, moveInChance(room.emptyNights) * draw) : moveInChance(room.emptyNights);
+    if (rng() < chance) {
       return {
         arrival: { personId: next.id, roomId: room.id },
         rooms: ageRooms(rooms, room.id),

@@ -167,7 +167,7 @@ export function startIgnition(host: ActionHost, e: FurnaceEntity, node: SimNode)
 /** Whether the player may rest at this furnace until dawn. */
 export function restCheck(host: ActionHost, e: FurnaceEntity, node: SimNode): ActionResult {
   if (!host.clock.isNight) return refuse('You can only rest at night');
-  if (e.tempC < FURNACE_HOT_C) return refuse('The furnace is cold');
+  if (e.tempC < FURNACE_HOT_C) return refuse('The fire is too cold - add fuel or pump the bellows');
   const p = host.player.position;
   const d = Math.hypot(p.x - (e.x + 0.5), p.y + PLAYER_HEIGHT / 2 - (e.y + 0.5), p.z - (e.z + 0.5));
   if (d > furnaceTier(e.tier).warmth) return refuse('Come closer to the furnace');

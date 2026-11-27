@@ -27,7 +27,7 @@ export const DISTILL_ITEMS: ItemSpec[] = [
   can('slop_canister', 'Slop Canister', 'A canister of mixed-up liquid. Pour it back into a flask and distil it again.'),
   { ...can('lube_base_canister', 'Lube Base', 'The light end of a vacuum residue run. Filter it through clay to make lubricant.'), age: 3 },
   { ...can('bitumen_canister', 'Bitumen', 'The hot residue a vacuum still leaves. With gravel and sand in a heated vessel it becomes asphalt.'), age: 3 },
-  { ...can('lubricant_canister', 'Lubricant', 'Clay-filtered lube base. Carried in the pack, it halves chainsaw bar wear.'), age: 3 },
+  { ...can('lubricant_canister', 'Lubricant', 'Clay-filtered lube base. Carried in the pack, it halves chainsaw bar wear; Use it on a shaft to oil the whole network.'), age: 3 },
   beaker('tincture_beaker', 'Tincture', 'Spirit steeped with tea, a glowcap or berries in a heated vessel.'),
   beaker('clear_tincture_beaker', 'Clear Tincture', 'A tincture run through a charcoal filter bed.'),
   ...ESSENCE_DRINKS.flatMap((row): ItemSpec[] => [

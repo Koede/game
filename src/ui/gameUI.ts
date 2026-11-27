@@ -11,19 +11,20 @@ import type { ObjectiveTracker } from '../game/objectives';
 import type { PlayerState } from '../game/playerState';
 import type { Survival } from '../game/survival';
 import { BackGesture } from './hud/backGesture';
-import { Hud } from './hud/hud';
+import { Hud, type HudDeps } from './hud/hud';
 import type { TownChipInfo } from './hud/townChip';
 import { NO_UI_SIM, type UISimQuery } from './hud/query';
 import { setIconProvider, type IconProvider } from './kit/icons';
 import type { UIRoot } from './kit/root';
 import type { Window } from './kit/window';
-import { PauseMenu } from './menus/pause';
+import { PauseMenu, type PageLink } from './menus/pause';
 import { createDeathScreen } from './screens/death/deathScreen';
 import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
 import type { Achievements } from '../game/achievements';
 import type { DailyGoals } from '../game/dailyGoals';
 import type { Journal } from '../game/journal';
+import type { MapMark } from '../game/exploration';
 import { createCaravanScreen } from './screens/caravan/caravanScreen';
 import { createLogScreen } from './screens/log/logScreen';
 import { SlotController } from './screens/slots';
@@ -50,6 +51,8 @@ export interface ScreenContext {
   readonly survival: Survival;
   /** The diary and explored map (docs/api/journal.md); absent in test harnesses. */
   readonly journal?: Journal;
+  /** Waypoints and treasure-map landmarks to circle on the journal map. */
+  mapMarks?(): readonly MapMark[];
   readonly achievements?: Achievements;
   readonly dailyGoals?: DailyGoals;
   /** The current simulation query (follows setSim). */
@@ -82,6 +85,8 @@ export interface GameUIDeps {
   /** The hard-winter goal to show in place of the guided goal while it is autumn or winter (src/game/winter.ts). */
   winterGoal?: () => { title: string; text: string } | null;
   journal?: Journal;
+  /** Waypoints and treasure-map landmarks to circle on the journal map. */
+  mapMarks?: () => readonly MapMark[];
   achievements?: Achievements;
   dailyGoals?: DailyGoals;
   sim?: UISimQuery;
@@ -93,6 +98,9 @@ export interface GameUIDeps {
   releasePointer?: () => void;
   /** The town chip and the pause menu's Town entry: null when the world has no town to show. */
   town?: () => TownChipInfo | null;
+  /** The guided first hour's step (HudDeps.guide) and the camp's spot for its arrow. */
+  guide?: HudDeps['guide'];
+  campSpot?: HudDeps['campSpot'];
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
   pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
@@ -149,6 +157,8 @@ export class GameUI {
       input: deps.input,
       weather: () => deps.weather?.() ?? null,
       town: deps.town,
+      guide: deps.guide,
+      campSpot: deps.campSpot,
       tapGoal: () => deps.tapGoal?.() ?? null,
     });
     const bus = deps.bus;
@@ -180,11 +190,22 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined, pages: this.pageLinks(deps) });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });
     }
+  }
+
+  /** The pages the pause menu lists and searches: the Hearth Log always, the guides once their item is carried, Jobs where there is a town. */
+  private pageLinks(deps: GameUIDeps): PageLink[] {
+    const open = (screen: ScreenRequest) => () => deps.bus.emit('ui:open', { screen });
+    return [
+      { id: 'log', label: 'Hearth Log', hint: 'Goals, ages and the forecast', keywords: 'objectives quests next goal progress weather', open: open({ type: 'log' }) },
+      { id: 'notebook', label: 'Field Notebook', hint: 'Research, lore, aspects, noted things', keywords: 'research aspects lore notes scan magic goals', available: () => deps.player.inventory.has('field_notebook'), open: open({ type: 'notebook' }) },
+      { id: 'workshop', label: 'Workshop Guide', hint: 'Parts, basin recipes and rules', keywords: 'engineer goggles tools parts', available: () => deps.player.inventory.has('engineer_goggles'), open: open({ type: 'workshop' }) },
+      { id: 'jobs', label: 'Jobs', hint: 'What each resident carries and where', keywords: 'residents haul feed tend work settlement', available: () => !!deps.town?.(), open: open({ type: 'jobs' }) },
+    ];
   }
 
   /** The request of the open screen (null when none, or while the death / win screen is up). */
@@ -272,6 +293,7 @@ export class GameUI {
       objectives: d.objectives,
       survival: d.survival,
       journal: d.journal,
+      mapMarks: () => d.mapMarks?.() ?? [],
       achievements: d.achievements,
       dailyGoals: d.dailyGoals,
       get sim() {

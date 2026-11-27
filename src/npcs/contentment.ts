@@ -10,7 +10,7 @@
 export const PEOPLE = ['orrin', 'rosa', 'gruk', 'mara', 'bram', 'veyra'] as const;
 export type PersonId = (typeof PEOPLE)[number];
 
-export const TAGS = ['hearth', 'trees', 'water', 'fumes', 'forge', 'crowded', 'quiet'] as const;
+export const TAGS = ['hearth', 'trees', 'water', 'fumes', 'forge', 'crowded', 'quiet', 'lights', 'noise'] as const;
 export type Tag = (typeof TAGS)[number];
 
 /** A like or dislike is either a neighbour (a person id) or a surrounding (a tag). */
@@ -28,12 +28,12 @@ export interface Taste {
  * Bram's hermit lines (he complains Gruk snores through the wall) give him the dislike of Gruk.
  */
 export const TASTES: Readonly<Record<PersonId, Taste>> = {
-  orrin: { likes: ['forge', 'gruk'], dislikes: ['fumes'], company: 0.3 },
-  rosa: { likes: ['hearth', 'gruk'], dislikes: ['quiet'] },
-  gruk: { likes: ['forge', 'rosa'], dislikes: ['fumes'] },
-  mara: { likes: ['trees', 'quiet'], dislikes: ['forge'] },
-  bram: { likes: ['quiet', 'trees'], dislikes: ['crowded', 'gruk'] },
-  veyra: { likes: ['water', 'quiet'], dislikes: ['forge'] },
+  orrin: { likes: ['forge', 'gruk', 'lights', 'noise'], dislikes: ['fumes'], company: 0.3 },
+  rosa: { likes: ['hearth', 'gruk', 'lights'], dislikes: ['quiet'] },
+  gruk: { likes: ['forge', 'rosa', 'noise'], dislikes: ['fumes'] },
+  mara: { likes: ['trees', 'quiet'], dislikes: ['forge', 'noise'] },
+  bram: { likes: ['quiet', 'trees'], dislikes: ['crowded', 'gruk', 'noise'] },
+  veyra: { likes: ['water', 'quiet', 'lights'], dislikes: ['forge', 'noise'] },
 };
 
 export const NAMES: Readonly<Record<PersonId, string>> = {
@@ -53,6 +53,8 @@ const TAG_TEXT: Readonly<Record<Tag, string>> = {
   forge: 'the forge',
   crowded: 'the crowding',
   quiet: 'the quiet',
+  lights: 'the lamplight',
+  noise: 'the machine noise',
 };
 
 /** Residents close by above this count make a place crowded. */

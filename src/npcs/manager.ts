@@ -28,23 +28,25 @@ import type { Spot } from './routines';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { warmerSpot } from './warmth';
+import { ageTalk, disasterShout, weatherTalk } from './reactions';
 import { ROUTINES } from './routines';
-import { DANCE_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
+import { TownClock, type TowerView } from './townClock';
+import { DANCE_SPOTS, FEST_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
 import { SWIM_SPOTS, chooseOutfit, coolOffAt, inPool, type Outfit } from './outfits';
 import { ServiceMenu, type Service, type TavernPort } from './services';
 import { ROOM_SERVICE } from './rooms';
 import { FavourBoard, type Favour } from './favours';
-import { festivalOn, festivalServices, newFestivalState, type FestivalState } from './festival';
+import { CONTESTS, suits, daysToFestival, festivalDay, festivalLine, festivalOf, festivalOn, festivalServices, newFestivalState, type Contest, type FestivalState } from './festival';
 import { Upkeep, stockLine, stockValue, upkeepServices } from './upkeep';
 import { sparLevel, sparService, type SparState } from './sparring';
 import { HEAR_RANGE, advance, bubbleOf, eligible, slotAt, type Running } from './gossip';
 import { JobBoard, KIND_NAMES, aptitudeOf, type JobKind, type JobsPort, type JobsWorld, type Stop } from './jobs';
 import { DRINKS, TONICS, drinkService, type DrinkLog, type TavernBuff } from './drinks';
-import { newcomerLine, type Arrival, type Newcomer, type TownFacts } from './moveIn';
+import { FESTIVAL_DRAW, newcomerLine, type Arrival, type Newcomer, type TownFacts } from './moveIn';
 import { ARRIVAL_LINES, BED_ROOM, HOUSE_ROOM, LODGE_COMMON, LODGE_ROOMS, LODGE_SLEEP, Settlement, lodgeRooms, nameOfPerson, sampleTags, townContentment, type SettlementSnapshot } from './settlement';
 import { bedOfRoom, scanRooms } from './housingScan';
 import { CAMP as CAMP_ROOM, type RoomInput } from './housingView';
-import { favourRate, lineTone, priceFactor, tipFactor } from './contentment';
+import { favourRate, lineTone, priceFactor, tipFactor, type PersonId } from './contentment';
 import { DAY_BUDGET } from './townBuilder';
 import { townTemplate } from './townTemplates';
 import { REPUTATION_STEPS, UNLOCK_REP } from './buildBoard';
@@ -159,6 +161,8 @@ export interface NpcHost {
   setBlockActive?(x: number, y: number, z: number, on: boolean): boolean;
   give(item: string, count: number): number;
   currentGoal(): string | null;
+  /** The age index the player has reached (0 ember .. 5 star); absent: 0. */
+  age?(): number;
   completed(): ReadonlySet<string>;
   timeOfDay(): number;
   day(): number;
@@ -188,6 +192,8 @@ export interface NpcHost {
   townSurface?(x: number, z: number): { y: number; key: string } | null;
   /** The block key at a cell, or null when its chunk is not loaded. */
   townBlock?(x: number, y: number, z: number): string | null;
+  /** Whether the block at a cell is switched on (a lit lamp, a running engine): the active bit. Absent: everything counts as on. */
+  townActive?(x: number, y: number, z: number): boolean;
   /** True when the player (or anything but the world's generation) changed the cell. */
   townEdited?(x: number, y: number, z: number): boolean;
   /** Sets a block (or 'air') with the 'town' source. False when the chunk is not loaded. */
@@ -196,6 +202,8 @@ export interface NpcHost {
   townCrate?(x: number, y: number, z: number): StockCrate | null;
   /** The containers and machines a resident's job carries between (jobs.ts); absent in tests without a workshop. */
   jobs?: JobsWorld;
+  /** Every clock tower in the world (src/workshop/clockTower.ts); the one nearest the town sets its hours. Absent: none. */
+  clockTowers?(): TowerView[];
   companion: CompanionHost;
 }
 
@@ -228,6 +236,8 @@ const nameOf = (item: string): string => item.replace(/_/g, ' ');
 
 export class NpcManager {
   at: [number, number, number] | null = null;
+  /** The town's clock tower and the hours it keeps (townClock.ts). */
+  readonly townClock = new TownClock();
   greeted = false;
   coins = 0;
   /** The town's own woodpile for its hearths. Finite: once it and the storage bay's logs are gone the fires burn down. */
@@ -248,6 +258,8 @@ export class NpcManager {
   private gifted = new Set<string>();
   private spoken: Record<string, number> = {};
   private heard = new Set<string>();
+  /** Reaction keys already spoken (a disaster level, a day's weather), so a warning that repeats is not shouted again. */
+  private readonly reacted = new Set<string>();
   private claimed = new Set<string>();
   private trust: Record<string, number> = {};
   /** Sales Bram still holds and will sell back at the price he paid (newest last). */
@@ -304,10 +316,12 @@ export class NpcManager {
   /** A stop being picked: the next Use on a block sets it (see jobPick). */
   private picking: { id: string; which: 'from' | 'to' } | null = null;
   private fest: FestivalState = newFestivalState();
+  /** The festival day whose morning reminder was toasted (not saved: a reload may remind again). */
+  private festMorning = 0;
   private festNow = false;
   /** Veyra's tonics (drinks.ts): a swift and a mending draught, a few a day. */
   private readonly veyra = new ServiceMenu(TONICS.map((d) => drinkService(d, () => this.drinkLog)));
-  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, () => this.bar.built.has('stage')), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
+  private readonly rosa = new ServiceMenu([ROOM_SERVICE, ...upkeepServices(() => this.bar), ...festivalServices(() => this.fest, { stage: () => this.bar.built.has('stage'), addRep: (n) => void (this.board.rep += n), ready: () => this.hasTavern && this.presentCount() >= 3 }), ...DRINKS.map((d) => drinkService(d, () => this.drinkLog))]);
 
   constructor(private readonly bus: GameBus, private readonly rng: () => number = Math.random) {
     this.lines = new LinePicker(rng);
@@ -315,6 +329,8 @@ export class NpcManager {
     bus.on?.('flag', ({ flag }) => {
       if (flag === 'well_warmed' || flag === 'rested') this.goalFlags.add(flag);
     });
+    bus.on?.('disaster:warn', (e) => this.react(`d:${e.kind}:${e.level}:${this.host?.day?.() ?? 0}`, disasterShout(e.kind, e.level, this.rng)));
+    bus.on?.('weather:changed', (e) => this.react(`w:${e.kind}:${this.host?.day?.() ?? 0}`, weatherTalk(e.kind, this.rng)));
   }
 
   bind(host: NpcHost): void {
@@ -478,6 +494,8 @@ export class NpcManager {
     }
     const d = this.jukeboxOn ? DANCE_SPOTS[n.id] : undefined;
     if (d) return [d[0], d[2]];
+    const fs = this.festNow ? FEST_SPOTS[n.id] : undefined;
+    if (fs) return [fs[0], fs[2]];
     const sw = this.coolOff() ? SWIM_SPOTS[n.id] : undefined;
     if (sw) return [sw[0], sw[2]];
     const s = this.spot(n, this.phase());
@@ -662,7 +680,8 @@ export class NpcManager {
   }
 
   private phase(): Phase {
-    const p = phaseAt(this.host?.timeOfDay() ?? 0.3);
+    // The town keeps the hours its clock tower is set to (townClock.ts); without one, the sun's.
+    const p = phaseAt(this.townClock.tod(this.host?.timeOfDay() ?? 0.3));
     return p === 'dawn' ? 'morning' : p === 'dusk' ? 'evening' : p;
   }
 
@@ -694,8 +713,18 @@ export class NpcManager {
     if (npc.role === 'clock') return this.useClock(npc);
     if (npc.role === 'jukebox') return this.useJukebox(npc);
     if (npc.role === 'trader') return this.useTrader(npc);
+    // A festival contest Rosa has just pitched takes what is held up for it before anything else (a liked dish is not a gift then).
+    if (npc.role === 'barkeep' && this.rosa.open?.startsWith('fest:')) {
+      const entered = this.rosa.take(this.port(npc));
+      if (entered !== null) {
+        this.say(npc, entered);
+        return entered;
+      }
+    }
     const gift = npc.kind === 'person' ? this.giveGift(npc) : null;
     if (gift !== null) return gift;
+    const shown = this.festivalShow(npc);
+    if (shown !== null) return shown;
     const stocked = this.stockBar(npc);
     if (stocked !== null) return stocked;
     if (npc.role === 'hermit') return this.useHermit(npc);
@@ -718,7 +747,7 @@ export class NpcManager {
     const bank = npc.bank!;
     let line: string | null = null;
     // Odd visits: a hint for the goal (once) or the specialist's advice about what to do next; even visits: talk.
-    if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.advice(npc.role) : null);
+    if (n % 2 === 1) line = this.hint(npc) ?? this.ageLine(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.advice(npc.role) : null);
     if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     line = this.tone(npc, line);
     this.say(npc, line);
@@ -741,19 +770,54 @@ export class NpcManager {
   }
 
   /** Medals won at the festival contests, all time. */
-  festivalRecord(): { gold: number; silver: number; bronze: number } {
-    return { gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze };
+  festivalRecord(): { gold: number; silver: number; bronze: number; entries: number; crowns: number } {
+    return { gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, entries: this.fest.entries, crowns: this.fest.crowns };
+  }
+
+  /**
+   * On a festival night, Use on Rosa holding a show piece that suits the festival's own contest (a fish at the Bonfire, a basket at
+   * the Harvest Fair) enters it straight away, before she would stock it on the bar.
+   */
+  private festivalShow(npc: NpcDef): string | null {
+    const host = this.host;
+    if (npc.role !== 'barkeep' || !this.festNow || !host) return null;
+    const sig = festivalOf(host.day()).signature;
+    const held = host.held();
+    if (!held || this.fest.entered[sig] === host.day() || !suits(sig, held.item)) return null;
+    return this.rosa.buy(`fest:${sig}`, this.port(npc));
+  }
+
+  /** The night after a festival the player took part in, word of it draws newcomers (moveIn.ts FESTIVAL_DRAW). */
+  private festivalDraw(nightDay: number): number {
+    return this.fest.lastDay > 0 && this.fest.lastDay === nightDay - 1 ? FESTIVAL_DRAW : 1;
+  }
+
+  /** Tonight's festival or the next one, for the Town page (festival.ts). */
+  festivalNote(): { name: string; line: string; tonight: boolean } {
+    const day = this.host?.day() ?? 1;
+    const f = festivalOf(day + daysToFestival(day));
+    return { name: f.name, line: festivalLine(day, this.hasTavern && this.presentCount() >= 3), tonight: festivalDay(day) };
   }
 
   /** From dusk to dawn of a festival day the jukebox plays and the dancers dance (unless the player had it on already). */
   private tickFestival(): void {
     const host = this.host;
     if (!host || !this.at) return;
-    const on = this.hasTavern && this.presentCount() >= 3 && festivalOn(host.day(), this.phase());
+    const ready = this.hasTavern && this.presentCount() >= 3;
+    if (ready && festivalDay(host.day()) && this.festMorning !== host.day() && !festivalOn(host.day(), this.phase())) {
+      // The morning of the day: Rosa reminds the town what to bring.
+      this.festMorning = host.day();
+      const f = festivalOf(host.day());
+      this.toast(`Today is the ${f.name}! The town gathers at the Hearth & Anvil at dusk: ${f.tonight}.`);
+    }
+    const on = ready && festivalOn(host.day(), this.phase());
     if (on === this.festNow) return;
     this.festNow = on;
     if (on) {
-      this.toast('The festival night begins at the Hearth & Anvil: music, dancing and three contests. Ask Rosa to enter.');
+      const f = festivalOf(host.day());
+      this.festMorning = host.day();
+      this.rosa.focus(`fest:${f.signature}`);
+      this.toast(`The ${f.name} begins at the Hearth & Anvil: ${f.blurb}. Four contests tonight; ask Rosa to enter.`);
       if (!this.jukeboxOn) {
         this.jukeboxOn = true;
         this.beatS = 0;
@@ -762,7 +826,7 @@ export class NpcManager {
         this.fest.juke = true;
       }
     } else {
-      this.toast('The festival is over. The hall is quiet again.');
+      this.toast(`The ${festivalOf(host.day() - 1).name} is over. The hall is quiet again.`);
       if (this.fest.juke && !this.partyOn) this.jukeboxOn = false;
       this.fest.juke = false;
     }
@@ -792,7 +856,8 @@ export class NpcManager {
   /** Hands food or a brew to Rosa for the bar. Null when she is not the one spoken to or it is not stock. */
   private stockBar(npc: NpcDef): string | null {
     const held = this.host?.held();
-    if (npc.role !== 'barkeep' || !held || stockValue(held.item) <= 0) return null;
+    // A dish or a fish held up for a festival contest Rosa has just pitched goes to the judges, not onto the bar.
+    if (npc.role !== 'barkeep' || !held || stockValue(held.item) <= 0 || this.rosa.open?.startsWith('fest:')) return null;
     const took = this.bar.add(held.item, held.count);
     if (took <= 0) {
       const line = 'The bar is full to the rafters. Let it sell down first.';
@@ -907,6 +972,28 @@ export class NpcManager {
     if (who) this.raiseTrust(who, f.trust);
     this.toast(`Favour done for ${who?.name ?? f.who}${coin ? `: +${coin} coin` : ''}${f.trust ? `, +${f.trust} trust` : ''}. ${f.thanks}`);
     return npc.name;
+  }
+
+  /** What a resident says about the age the player has reached, once per person per age (src/npcs/reactions.ts). */
+  private ageLine(npc: NpcDef): string | null {
+    const age = this.host?.age?.() ?? 0;
+    const t = age >= 1 ? ageTalk(npc.id as PersonId, age) : null;
+    if (!t) return null;
+    const key = `${npc.id}:age${t.age}`;
+    if (this.heard.has(key)) return null;
+    this.heard.add(key);
+    return t.text;
+  }
+
+  /** A present, awake resident calls out `line` (a toast, like Gruk's fight shout), at most once per `key` and not while the tavern is empty. */
+  private react(key: string, line: string | null): void {
+    if (!line || this.reacted.has(key)) return;
+    const who = NPCS.filter((n) => n.kind === 'person' && this.isPresent(n.id) && !this.away(n.id));
+    if (who.length === 0) return;
+    this.reacted.add(key);
+    if (this.reacted.size > 64) this.reacted.delete(this.reacted.values().next().value as string);
+    const n = who[Math.min(who.length - 1, Math.floor(this.rng() * who.length))];
+    this.toast(`${n.name}: "${line}"`);
   }
 
   /** The bank's hint for the current goal, once. */
@@ -1442,7 +1529,7 @@ export class NpcManager {
     this.settlement.track(day, this.roomsNow());
     for (const id of this.settlement.comeBack(day)) this.toast(`${nameOfPerson(id)} is back on their feet this morning, a little grumpy.`);
     for (const m of this.settlement.moveOuts(day, this.roomsNow())) this.moveOut(m.personId, m.to);
-    this.settlement.advance(day, () => this.roomsNow(), line, this.rng, (a, night) => this.moveIn(a, night));
+    this.settlement.advance(day, () => this.roomsNow(), line, this.rng, (a, night) => this.moveIn(a, night), (night) => this.festivalDraw(night));
     for (const m of this.settlement.evict(this.roomsNow())) {
       this.toast(`${nameOfPerson(m.personId)}'s room is not a room any more (a wall, the door, the light or the seat is gone). ${m.to === CAMP_ROOM ? 'They sleep by the camp fire until it is mended.' : `They move to the ${this.roomLabel(m.to).toLowerCase()}.`}`);
     }
@@ -1550,7 +1637,7 @@ export class NpcManager {
       residents,
       spotOf,
       (id) => this.settlement.roomOf(id) !== CAMP_ROOM,
-      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot) : new Set()),
+      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot, host.townActive ? (x, y, z) => host.townActive!(x, y, z) : undefined) : new Set()),
       (_id, spot) => host.roomWarmth?.(spot.x, spot.y, spot.z) ?? 0,
     ));
   }
@@ -1594,16 +1681,26 @@ export class NpcManager {
     if (next) this.toast(`Next at the camp: ${next.title}. ${next.text}`);
   }
 
+  /** The camp goals done (for the guided first hour, firstHour.ts), or null when this world has no camp track. */
+  campDone(): ReadonlySet<string> | null {
+    return this.campTrack() ? doneGoals(this.campFacts(), this.goalsDone) : null;
+  }
+
+  /** Where the camp is (its cart, fire and board are all within a few blocks), for the "What next?" arrow; null without a camp. */
+  campSpot(): { x: number; y: number; z: number } | null {
+    return this.at && this.campTrack() ? { x: this.at[0], y: this.at[1], z: this.at[2] } : null;
+  }
+
   /** The current camp goal for the HUD chip, or null when the track is finished or does not apply. */
   campGoal(): CampGoal | null {
     return this.campTrack() ? currentGoal(doneGoals(this.campFacts(), this.goalsDone)) : null;
   }
 
   /** What the HUD's town chip says: the camp goal, else the building going up; null when there is no town to show. */
-  townChip(): { kicker: string; title: string } | null {
+  townChip(): { kicker: string; title: string; goal?: string } | null {
     if (!this.campTrack()) return null;
     const goal = this.campGoal();
-    if (goal) return { kicker: 'Camp goal', title: goal.title };
+    if (goal) return { kicker: 'Camp goal', title: goal.title, goal: goal.id };
     const cur = this.town.currentTemplate;
     if (!cur) return { kicker: 'Town', title: `${this.presentCount() - 1} neighbours` };
     const idx = (LODGE_PATH as readonly string[]).indexOf(cur);
@@ -1664,6 +1761,7 @@ export class NpcManager {
       nextInLine: nextIn ? { id: nextIn.id, name: nameOfPerson(nextIn.id), waitingFor: nextIn.waitingFor, text: waitingText(nextIn.id, nameOfPerson(nextIn.id), nextIn.waitingFor) } : null,
       goals,
       goal,
+      festival: { ...this.festivalNote(), medals: this.fest.entries > 0 ? `Medals so far: ${this.fest.gold} gold, ${this.fest.silver} silver, ${this.fest.bronze} bronze; ${this.fest.crowns} festival crown${this.fest.crowns === 1 ? '' : 's'}.` : 'No festival contest entered yet.' },
     };
   }
 
@@ -1692,7 +1790,7 @@ export class NpcManager {
     this.settlement.track(host.day(), this.roomsNow());
     this.builtRooms = this.scanBuilt(host);
     this.settlement.track(host.day(), this.roomsNow());
-    this.settlement.advance(day, () => this.roomsNow(), () => this.townLine(host), this.rng, (a, night) => this.moveIn(a, night));
+    this.settlement.advance(day, () => this.roomsNow(), () => this.townLine(host), this.rng, (a, night) => this.moveIn(a, night), (night) => this.festivalDraw(night));
     this.rescore(host);
     return [...this.people].filter((p) => !before.has(p));
   }
@@ -1781,11 +1879,13 @@ export class NpcManager {
 
   tick(dt: number): void {
     this.clockS += dt;
+    this.townClock.refresh(this.host?.clockTowers?.(), this.at);
     if (this.cooldownS > 0) this.cooldownS = Math.max(0, this.cooldownS - dt);
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
     this.gruk.tick(dt);
+    this.veyra.tick(dt);
     this.tickBar(dt);
     this.tickFestival();
     this.tickTrader(dt);
@@ -1793,6 +1893,8 @@ export class NpcManager {
     if (this.host) this.favours.refresh(this.host.day(), this.rng, (who) => this.isPresent(who), (who) => favourRate(this.settlement.scoreOf(who)));
     const host = this.host;
     if (!host || !this.at) return;
+    const struck = this.townClock.strike(this.phase(), host.timeOfDay(), host.companion.player());
+    if (struck) this.bus.emit('toast', { text: struck, kind: 'info' });
     this.tickTown(host, dt);
     this.tickSettlement(host);
     this.tickGoals(host);
@@ -1911,7 +2013,7 @@ export class NpcManager {
       v: 1, at: this.at ? [...this.at] : null, greeted: this.greeted, gifted: [...this.gifted], spoken: { ...this.spoken }, heard: [...this.heard],
       coins: this.coins, wood: this.firewood, claimed: [...this.claimed], hiredS: Math.max(0, Math.round(this.companion.hiredS)),
       comp: [r2(this.companion.x), r2(this.companion.y), r2(this.companion.z)], juke: this.jukeboxOn, party: this.partyOn, partyJuke: this.jukeBeforeParty,
-      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, juke: this.fest.juke },
+      trust: { ...this.trust }, giftDay: { ...this.giftDay }, shelf: this.shelf.map((s) => [s.item, s.count, s.coin] as [string, number, number]), drinks: { day: this.drinkLog.day, n: { ...this.drinkLog.n } }, gossip: { last: this.gossipLast, said: [...this.gossipSaid] }, favours: this.favours.toJSON(), spar: { ...this.spar }, upkeep: this.bar.toJSON(), festival: { entered: { ...this.fest.entered }, gold: this.fest.gold, silver: this.fest.silver, bronze: this.fest.bronze, entries: this.fest.entries, crowns: this.fest.crowns, lastDay: this.fest.lastDay, juke: this.fest.juke },
       trader: this.trade ? { visit: this.trade.visit, left: [...this.trade.left], wantDone: this.trade.wantDone } : undefined,
       town: this.townSnapshot(), present: [...this.people], camp: this.camp, jobs: this.jobs.size > 0 ? this.jobs.toJSON() : undefined,
       settle: this.settlement.toJSON(), goals: { done: [...this.goalsDone], flags: [...this.goalFlags] },
@@ -1950,8 +2052,8 @@ export class NpcManager {
     this.festNow = false;
     const fe = r.festival;
     if (fe && typeof fe === 'object') {
-      for (const [k, v] of Object.entries(fe.entered ?? {})) if ((k === 'dance' || k === 'cook' || k === 'brew') && typeof v === 'number' && Number.isFinite(v)) this.fest.entered[k] = v;
-      for (const k of ['gold', 'silver', 'bronze'] as const) if (typeof fe[k] === 'number' && Number.isFinite(fe[k])) this.fest[k] = Math.max(0, Math.floor(fe[k]));
+      for (const [k, v] of Object.entries(fe.entered ?? {})) if ((CONTESTS as readonly string[]).includes(k) && typeof v === 'number' && Number.isFinite(v)) this.fest.entered[k as Contest] = v;
+      for (const k of ['gold', 'silver', 'bronze', 'entries', 'crowns', 'lastDay'] as const) if (typeof fe[k] === 'number' && Number.isFinite(fe[k])) this.fest[k] = Math.max(0, Math.floor(fe[k]));
       this.fest.juke = fe.juke === true;
     }
     const sp = r.spar;

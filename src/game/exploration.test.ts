@@ -34,34 +34,52 @@ function rig() {
 }
 
 describe('waypoint use', () => {
-  it('registers stones on placement and travels for charcoal', () => {
+  it('registers stones on placement, opens the picker and travels for charcoal', () => {
     const r = rig();
     r.stone(0, 0);
     r.stone(130, 0);
     expect(r.ex.waypoints.all()).toHaveLength(2);
+    const opened: unknown[] = [];
+    r.bus.on('ui:open', (e) => opened.push(e.screen));
     r.player.inventory.add('charcoal', 5);
-    const a = r.hold('flint');
-    r.player.inventory.set(r.player.selectedSlot, null);
     expect(r.ex.use(r.aim(0, 10, 0), null)).toBe('worked');
-    expect(r.toasts.at(-1)).toMatch(/Waypoint 2.*3 charcoal/);
-    expect(r.teleports).toHaveLength(0);
-    r.hold('charcoal', 5);
-    expect(r.ex.use(r.aim(0, 10, 0), r.player.heldStack())).toBe('worked');
+    expect(opened).toEqual([{ type: 'waypoints', stone: 1 }]);
+    const v = r.ex.waypointView(1)!;
+    expect(v.destinations).toHaveLength(1);
+    expect(v.destinations[0]).toMatchObject({ fuel: 3, compass: 'east' });
+    expect(v.charcoal).toBe(5);
+    const sfx: string[] = [];
+    r.bus.on('sfx', (e) => sfx.push(e.name));
+    expect(r.ex.travel(1, 2)).toBeNull();
+    expect(sfx).toEqual(['ignition', 'upgrade']);
     expect(r.teleports).toEqual([[130.5, 11, 0.5]]);
     expect(r.player.inventory.count('charcoal')).toBe(2);
-    void a;
   });
 
   it('refuses without enough fuel and forgets broken stones', () => {
     const r = rig();
     r.stone(0, 0);
     r.stone(400, 0);
-    const held = r.hold('charcoal', 1);
-    expect(r.ex.use(r.aim(0, 10, 0), held)).toBe('refused');
+    r.player.inventory.add('charcoal', 1);
+    expect(r.ex.travel(1, 2)).toMatch(/needs 7 charcoal/);
     expect(r.teleports).toHaveLength(0);
     r.world.setVoxel(400, 10, 0, 0);
     r.ex.use(r.aim(0, 10, 0), null);
     expect(r.ex.waypoints.all()).toHaveLength(1);
+  });
+
+  it('says so when no other stone is known, renames, and lists stones and map landmarks as marks', () => {
+    const r = rig();
+    r.stone(0, 0);
+    expect(r.ex.use(r.aim(0, 10, 0), null)).toBe('worked');
+    expect(r.toasts.at(-1)).toMatch(/Place a second stone/);
+    expect(r.ex.renameStone(1, 'Home')).toBe(true);
+    expect(r.ex.mapMarks()).toEqual([{ kind: 'waypoint', x: 0, z: 0, label: 'Home' }]);
+    const m = r.hold(MAP_ITEM);
+    expect(r.ex.mapMarks()).toHaveLength(1); // an unread map has no serial yet, so nothing to circle
+    r.ex.use(null, m);
+    const marks = r.ex.mapMarks();
+    if (marks.length > 1) expect(marks[1].kind).toBe('treasure');
   });
 
   it('does not hijack placing a stone against a stone, and saves the network', () => {
@@ -103,6 +121,27 @@ describe('fishing use', () => {
     expect(r.ex.fishingPhase).toBe('idle');
     expect(r.toasts.at(-1)).toMatch(/got away/);
     expect(r.ex.use({ ...aim, px: 5, py: 11, pz: 5 }, rod)).toBeNull();
+  });
+});
+
+describe('fishing through winter ice (winter x fishing)', () => {
+  it('casts through ice over deep water, landing a frozen-pool catch, and refuses ice over bare ground', () => {
+    const r = rig();
+    r.world.fill(-3, 5, -3, 3, 5, 3, 'sand');
+    r.world.fill(-3, 6, -3, 3, 8, 3, 'water');
+    r.world.fill(-3, 9, -3, 3, 9, 3, 'ice'); // the winter module froze the top
+    const rod = r.hold('fishing_rod', 1, 5);
+    const aim = r.aim(0, 9, 0); // aimed at the ice, placement cell above it
+    expect(r.ex.use(aim, rod)).toBe('worked');
+    expect(r.ex.fishingPhase).toBe('waiting');
+    expect(r.toasts.at(-1)).toMatch(/hole in the ice/);
+    r.tick(20);
+    expect(r.ex.use(aim, rod)).toBe('worked');
+    expect(FISH_ITEMS.some((f) => r.player.inventory.count(f) >= 1)).toBe(true);
+    // Shallow ice lying on sand is no fishing spot.
+    r.world.fill(-3, 5, 6, 3, 5, 9, 'sand');
+    r.world.fill(-3, 6, 6, 3, 6, 9, 'ice');
+    expect(r.ex.use(r.aim(0, 6, 7), rod)).toBeNull();
   });
 });
 

@@ -19,7 +19,7 @@ const LO = 4;
 const HI = 11;
 const inBand = (v: number): boolean => v >= LO && v <= HI;
 
-interface PipeLook {
+export interface PipeLook {
   /**
    * Colour of band row `k` (0 = the outer rim on the light side .. 7 = the rim on the dark side) at position `t`
    * along the arm (0..15, the same on every arm so the pattern lines up through the core).
@@ -38,7 +38,7 @@ interface PipeLook {
   window?: (k: number, t: number) => boolean;
 }
 
-function pipe(c: Canvas, look: PipeLook): void {
+export function pipe(c: Canvas, look: PipeLook): void {
   c.each((x, y) => {
     const h = inBand(y);
     const v = inBand(x);
@@ -63,7 +63,7 @@ function pipe(c: Canvas, look: PipeLook): void {
 }
 
 /** Rim, highlight and shadow rows shared by the metal tubes; `inner` paints rows 2..5. */
-const tube = (metal: readonly RGB[], inner: (k: number, t: number) => RGB) => (k: number, t: number): RGB => {
+export const tube = (metal: readonly RGB[], inner: (k: number, t: number) => RGB) => (k: number, t: number): RGB => {
   if (k === 0 || k === 7) return metal[0];
   if (k === 1) return t % 4 === 0 ? metal[4] : metal[3];
   if (k === 6) return metal[1];

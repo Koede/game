@@ -17,7 +17,7 @@ const coords = (b: MeshBatch, axis: number): number[] => [...b.positions.filter(
 
 describe('pipe shape', () => {
   it('joins exactly what registry.pipeJoins joins', () => {
-    for (const pipe of BLOCKS.filter((b) => b.pipe || b.air?.role === 'tube')) {
+    for (const pipe of BLOCKS.filter((b) => b.pipe || b.air?.role === 'tube' || b.plumb?.role === 'pipe' || b.plumb?.role === 'sprinkler')) {
       for (const other of BLOCKS) {
         expect((PIPE_JOINS[other.id] & PIPE_FAMILY[pipe.id]) !== 0, `${pipe.key} -> ${other.key}`).toBe(pipeJoins(pipe, other));
       }

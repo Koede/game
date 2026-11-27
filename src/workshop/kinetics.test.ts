@@ -156,6 +156,19 @@ describe('kinetics', () => {
     expect(t.shop.netAt(1, 0, 0)?.capacity).toBe(10);
   });
 
+  it('distilled lubricant oils a network better than residue', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'drive_shaft');
+    t.use(0, 0, 0);
+    t.run(0.2, [0, 0, 0]);
+    let taken = 0;
+    t.shop.use(1, 0, 0, { item: 'lubricant_canister', count: 1 }, (n) => { taken += n; });
+    t.run(0.2, [0, 0, 0]);
+    expect(taken).toBe(1);
+    expect(t.shop.netAt(1, 0, 0)?.capacity).toBe(11.2);
+  });
+
   it('punched-card factor math, clamps and an inserted card override the presets', () => {
     expect(stepFactor({ ratio: 2, direction: -1, seconds: 4 })).toBe(-2);
     expect(stepFactor({ ratio: 3, direction: 0, seconds: 9 })).toBe(0);

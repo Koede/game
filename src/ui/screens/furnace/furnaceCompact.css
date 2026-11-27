@@ -57,7 +57,8 @@
   grid-template-areas:
     'thermo mouth fuel btns fold'
     'status status status status status'
-    'hint hint hint hint hint';
+    'hint hint hint hint hint'
+    'rest rest rest rest rest';
   align-items: center;
   gap: 6px;
   padding: 6px;
@@ -71,7 +72,7 @@
 .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__controls > .hw-meter,
 .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuel > .hw-btn,
 .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__elec,
-.hw-fx[data-compact] .hw-fbx:not([data-open]) > .hw-btn,
+.hw-fx[data-compact] .hw-fbx:not([data-open]) > .hw-btn:not(.hw-fbx__rest),
 .hw-fx[data-compact] .hw-fbx[data-lit]:not([data-open]) .hw-fbx__light,
 .hw-fx[data-compact] .hw-fbx:not([data-lit]):not([data-open]) .hw-fbx__pump {
   display: none;
@@ -187,4 +188,20 @@
   .hw-fx[data-compact] .hw-fbx:not([data-open]) .hw-fbx__fuel {
     justify-content: center;
   }
+}
+
+/* The HEARTH / POWER / LOG buttons sit in a row above the page instead of floating over the right edge, where they hid the recipe tabs. */
+.hw-fx[data-compact] .hw-fx__float {
+  position: static;
+  flex-direction: row;
+  order: -1;
+  gap: 6px;
+  padding-bottom: 6px;
+}
+.hw-fx[data-compact] .hw-fx__float .hw-btn {
+  flex: 1 1 0;
+  min-height: 36px;
+}
+.hw-fx[data-compact] .hw-fx__pane .hw-cru-list {
+  padding-right: 0;
 }
