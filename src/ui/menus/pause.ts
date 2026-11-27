@@ -5,7 +5,7 @@ import { h } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
 import { Window } from '../kit/window';
 import { HowToPlay, type HowToPlayOptions } from './howto';
-import { SettingsPanel } from './settings';
+import { SettingsPanel, type SaveTools } from './settings';
 
 export interface PauseMenuOptions {
   settings: Settings;
@@ -17,6 +17,8 @@ export interface PauseMenuOptions {
   onQuit: () => void;
   /** When given, a Town entry opens the Town page (the world has a town to show). */
   onTown?: () => void;
+  /** Backing up the saved world; adds a Backup entry that opens Settings at the Saves section. */
+  saves?: SaveTools;
   /** Open the Hearth Log scrolled to its Journal or Achievements (the menu closes first). */
   onLog?: (focus: 'journal' | 'achievements') => void;
   /** The Dev Mode switch shown in Settings (see SettingsPanelOptions.dev). */
@@ -100,6 +102,7 @@ export class PauseMenu {
         new SettingsPanel({
           settings: this.settings,
           dev: this.opts.dev,
+          saves: this.opts.saves,
           onChange: (settings, key) => {
             this.settings = settings;
             this.opts.onSettingsChange(settings, key);
@@ -123,6 +126,7 @@ export class PauseMenu {
       this.opts.onLog ? new Button({ label: 'Journal', block: true, onClick: () => this.opts.onLog?.('journal') }).el : null,
       this.opts.onLog ? new Button({ label: 'Achievements', block: true, onClick: () => this.opts.onLog?.('achievements') }).el : null,
       new Button({ label: 'Settings', block: true, onClick: () => this.show('settings') }).el,
+      this.opts.saves ? new Button({ label: 'Backup', block: true, onClick: () => this.show('settings') }).el : null,
       new Button({ label: 'How to Play', block: true, onClick: () => this.show('howto') }).el,
       h('div', { class: 'hw-menu__gap' }),
       new Button({ label: 'Save and quit to title', kind: 'quiet', block: true, onClick: quit }).el,

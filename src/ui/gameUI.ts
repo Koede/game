@@ -18,6 +18,7 @@ import { setIconProvider, type IconProvider } from './kit/icons';
 import type { UIRoot } from './kit/root';
 import type { Window } from './kit/window';
 import { PauseMenu } from './menus/pause';
+import type { SaveTools } from './menus/settings';
 import { createDeathScreen } from './screens/death/deathScreen';
 import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
@@ -102,7 +103,7 @@ export interface GameUIDeps {
   guide?: HudDeps['guide'];
   campSpot?: HudDeps['campSpot'];
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
-  pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
+  pause?: { saves?: SaveTools; onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
 
 interface Active {
@@ -190,7 +191,7 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onLog: (focus) => deps.bus.emit('ui:open', { screen: { type: 'log', focus } }), onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, saves: pause.saves, onResume: () => undefined, onQuit: pause.onQuit, onLog: (focus) => deps.bus.emit('ui:open', { screen: { type: 'log', focus } }), onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });
