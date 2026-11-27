@@ -24,7 +24,7 @@ export function createLookupScreen(ctx: ScreenContext, first?: string): GameScre
   const rows = (title: string, list: readonly RecipeRow[]): HTMLElement | null =>
     list.length === 0
       ? null
-      : h('section', { class: 'hw-lookup__group' }, h('h4', { text: title }), h('ul', null, ...list.slice(0, 30).map((r) => h('li', null, h('b', { text: `${r.station}: ` }), r.text))));
+      : h('section', { class: 'hw-lookup__group' }, h('h4', { text: title }), h('ul', null, ...list.slice(0, 30).map((r) => h('li', null, h('b', { text: `${r.station}: ` }), r.text, ' ', ...r.items.filter((k) => k !== current).map((k) => h('button', { class: 'hw-btn hw-lookup__link', text: itemOrNull(k)?.name ?? k, attrs: { type: 'button', 'data-item': k, 'aria-label': `Open ${itemOrNull(k)?.name ?? k}` }, on: { click: () => { current = k; draw(); } } }))))));
 
   const draw = (): void => {
     const carried = new Set<string>();

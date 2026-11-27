@@ -18,6 +18,8 @@ export interface RecipeRow {
   station: string;
   /** "2 Plank, 1 Stick" -> "1 Chair". */
   text: string;
+  /** Every other item in the row (inputs and output), so a page can link to them. */
+  items: string[];
 }
 
 const title = (s: string): string => s.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -46,7 +48,7 @@ function allRecipes(): Flat[] {
   return out;
 }
 
-const row = (r: Flat): RecipeRow => ({ id: r.id, station: r.station, text: `${amountText(r.inputs)} -> ${amountText([r.output])}` });
+const row = (r: Flat): RecipeRow => ({ id: r.id, station: r.station, text: `${amountText(r.inputs)} -> ${amountText([r.output])}`, items: [...new Set([...r.inputs.map((i) => i.item), r.output.item])] });
 
 /** Recipes that make the item (byproducts of registry recipes count too). */
 export function madeBy(item: string): RecipeRow[] {
@@ -67,12 +69,14 @@ function lootHolds(t: LootTableSpec, item: string): boolean {
 /** Where the item turns up without a recipe: block drops, creature drops, loot, fishing, rewards. Short phrases, deduplicated. */
 export function foundIn(item: string): string[] {
   const out = new Set<string>();
-  for (const b of BLOCKS) if (b.drops.some((d) => d.item === item)) out.add(`Digging ${b.name}`);
+  for (const b of BLOCKS) if (b.drops.some((d) => d.item === item)) out.add(`${b.shape === 'cross' ? 'Picking' : 'Digging'} ${b.name}`);
   for (const c of CREATURES) if (c.drops.some((d) => d.item === item)) out.add(`Dropped by ${c.name}`);
   for (const [animal, items] of Object.entries(ANIMAL_YIELDS)) if (items.includes(item)) out.add(`From a ${title(animal).toLowerCase()}`);
   if (FISH.some((f) => f.item === item)) out.add('Fishing');
   if (JUNK.some((j) => j.item === item)) out.add('Fishing (junk)');
-  if ([...LOOT_TABLES, ...NAMED_TABLES].some((t) => lootHolds(t, item))) out.add('Ruin and cache loot');
+  const isTrader = (t: LootTableSpec): boolean => (t.id ?? '').startsWith('trader');
+  if ([...LOOT_TABLES, ...NAMED_TABLES].some((t) => !isTrader(t) && lootHolds(t, item))) out.add('Ruin and cache loot');
+  if ([...LOOT_TABLES, ...NAMED_TABLES].some((t) => isTrader(t) && lootHolds(t, item))) out.add('The wandering trader');
   for (const [where, t] of Object.entries(STRUCTURE_LOOT)) if (lootHolds(t, item)) out.add(`Crate at a ${title(where).toLowerCase()}`);
   for (const o of OBJECTIVES) if ((o.reward ?? []).some((r) => r.item === item)) out.add('Goal reward');
   const def = itemOrNull(item);

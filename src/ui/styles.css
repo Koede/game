@@ -3310,3 +3310,4 @@ body {
 .hw-lookup__group h4 { margin: 8px 0 2px; }
 .hw-lookup__group ul { margin: 0; padding-left: 18px; }
 .hw-lookup__note { opacity: 0.75; margin: 4px 0; }
+.hw-lookup__link { min-height: 28px; padding: 0 8px; margin: 2px 4px 2px 0; font-size: 0.85em; }
