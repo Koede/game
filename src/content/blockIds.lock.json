@@ -316,9 +316,9 @@
   "hand_pump": 314,
   "cistern": 315,
   "sprinkler": 316,
-  "clock_tower": 317
   "lift_winch": 317,
   "elevator_winch": 318,
   "drawbridge": 319,
-  "bridge_deck": 320
+  "bridge_deck": 320,
+  "clock_tower": 321
 }
