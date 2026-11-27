@@ -11,8 +11,10 @@ import { makePostcard, saveShot, sendPostcard } from './photo';
 import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
 import { PhotoUi } from '../ui/photoUi';
 import { browserStorage } from '../save/storage';
-import { AGES } from '../core/registry';
+import { AGES, itemOrNull } from '../core/registry';
 import { filterById, type PhotoFilter } from '../player/photoFilters';
+import { useVerb } from '../player/useVerb';
+import { WakeLockKeeper } from '../player/wakeLock';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -143,6 +145,7 @@ export class Game {
   readonly workshopRenderer: WorkshopRenderer;
   readonly telegraphWires: TelegraphWires;
   readonly inputManager: InputManager;
+  private readonly wake = new WakeLockKeeper();
   readonly ui: GameUI;
   readonly controller: PlayerController;
   /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
@@ -502,6 +505,7 @@ export class Game {
       const ticks = this.step.advance(dt);
       for (let i = 0; i < ticks; i++) this.tickOnce();
     }
+    this.wake.update(this.settings.keepAwake && this.input.touch && !paused);
     const p = state.player;
     // Nothing moves while paused: chunks stream again on resume.
     if (!paused) state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
@@ -509,6 +513,7 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.showUseVerb();
     this.renderer.setGridOverlay(gridOverlayFor(state.sim, p.heldStack()?.item ?? null, p.position.x, p.eyeY, p.position.z));
     this.updateHeatView(dt);
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
@@ -619,6 +624,17 @@ export class Game {
   private magicLabel(x: number, y: number, z: number, key: string): string | null {
     const m = this.magic;
     return m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+  }
+
+  /** The touch Use button says what a press does (Open, Eat, Place...); cheap, and a no-op without touch. */
+  private showUseVerb(): void {
+    if (!this.input.touch) return;
+    const p = this.state.player;
+    const held = p.heldStack();
+    const animal = this.controller.targetAnimal !== null;
+    this.inputManager.setUseLabel(
+      useVerb({ person: !animal && this.controller.personAimed() !== null, block: animal ? null : (this.controller.target?.block ?? null), animal, held: held ? itemOrNull(held.item) : null, placeArmed: this.inputManager.placeArmed }),
+    );
   }
 
   /** A drop lying under the aim: the crosshair names it first (the name and rarity last shown, as "text|rarity"). */
@@ -792,6 +808,7 @@ export class Game {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.wake.dispose();
     for (const off of this.offs) off();
     this.offs.length = 0;
     this.vehicleHud.dispose();
