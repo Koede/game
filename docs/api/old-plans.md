@@ -9,4 +9,4 @@ Drawings of the people of the Old Works, found in ruin crates. `src/content/oldP
   the ordinary loot roll is untouched. Crates are rolled only when a chunk is first generated, so old saves are not changed.
 - `OldPlans` (state.oldPlans, saved as extra `oldPlans`): `use(held)` reads and consumes a plan (a known one is kept, with a toast);
   `list()`, `has(id)`, `blueprints()`, `blueprintOf(id)` and `learn(id)` are the hooks for the blueprint screen.
-- Not wired: no screen lists the known plans yet; the blueprint thread should read `state.oldPlans.blueprints()`.
+- Wired: known plans join the blueprint book (`GameState.syncOldPlans`, `grantKnownPlans`) and show in the blueprint panel.

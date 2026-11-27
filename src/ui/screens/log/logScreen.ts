@@ -1,5 +1,6 @@
 /** The Hearth Log as a standalone screen (L, or a tap on the goal tracker). */
 import type { GameScreen, ScreenContext } from '../../gameUI';
+import { seasonLine } from '../../../sim/seasons';
 import { keepsakeOf } from '../../../game/dailyGoals';
 import { Window } from '../../kit/window';
 import { HearthLogView } from './hearthLog';
@@ -12,7 +13,8 @@ import { LegendsView } from './legendsView';
 function dayLine(ctx: ScreenContext): string {
   const worn = ctx.dailyGoals?.worn;
   const name = worn ? keepsakeOf(worn)?.name : undefined;
-  return name ? `Day ${ctx.clock.day} \u00b7 ${name}` : `Day ${ctx.clock.day}`;
+  const base = `Day ${ctx.clock.day} \u00b7 ${seasonLine(ctx.clock.day)}`;
+  return name ? `${base} \u00b7 ${name}` : base;
 }
 
 export function createLogScreen(_request: { type: 'log' }, ctx: ScreenContext): GameScreen {
