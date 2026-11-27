@@ -315,5 +315,9 @@
   "water_pipe": 313,
   "hand_pump": 314,
   "cistern": 315,
-  "sprinkler": 316
+  "sprinkler": 316,
+  "lift_winch": 317,
+  "elevator_winch": 318,
+  "drawbridge": 319,
+  "bridge_deck": 320
 }
