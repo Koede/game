@@ -13,6 +13,14 @@ describe('crop crosshair label', () => {
     expect(cropLabel({ ...base, name: 'Wheat (ripe)', ripe: true, ripeInS: 0 })).toBe('Wheat - ripe, harvest it');
   });
 
+  it('says what the greenhouse is doing: heated, cold or frozen', () => {
+    expect(cropLabel({ ...base, shelter: 'greenhouse', tempC: 18 })).toBe('Wheat - greenhouse 18 °C, ripe in 4 m');
+    expect(cropLabel({ ...base, shelter: 'cold', tempC: 4 })).toBe('Wheat - cold 4 °C, ripe in 4 m: heat it to 10 °C for full pace');
+    expect(cropLabel({ ...base, shelter: 'frozen', tempC: -3, ripeInS: Infinity })).toBe('Wheat - frozen at -3 °C: heat the room to 10 °C');
+    expect(cropLabel({ ...base, shelter: 'frozen', ripeInS: Infinity })).toBe('Wheat - frozen: roof it with glass and heat it');
+    expect(cropLabel({ ...base, shelter: 'open' })).toBe('Wheat - growing, ripe in 4 m');
+  });
+
   it('reads a real crop from the simulation (planted on dry farmland by day)', () => {
     const kit = makeKit();
     kit.clock.timeOfDay = 0.3;

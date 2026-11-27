@@ -51,5 +51,123 @@
       "parts": 6,
       "tractors": 1
     }
+  },
+  {
+    "name": "premerge-ccr-rev2",
+    "file": "saves/premerge-ccr-rev2.json",
+    "v": 2,
+    "summary": {
+      "entities": 0,
+      "items": 36,
+      "scanned": 0,
+      "completed": 6,
+      "age": 0,
+      "extras": [
+        "magic",
+        "vehicles",
+        "workshop"
+      ],
+      "parts": 0,
+      "tractors": 0
+    }
+  },
+  {
+    "name": "premerge-steam-rev3",
+    "file": "saves/premerge-steam-rev3.json",
+    "v": 2,
+    "summary": {
+      "entities": 2,
+      "items": 36,
+      "scanned": 0,
+      "completed": 6,
+      "age": 0,
+      "extras": [
+        "exploration",
+        "magic",
+        "npcs",
+        "pets",
+        "restoration",
+        "treeAges",
+        "vehicles",
+        "workshop"
+      ],
+      "parts": 0,
+      "tractors": 0
+    }
+  },
+  {
+    "name": "premerge-nozzle-rev3",
+    "file": "saves/premerge-nozzle-rev3.json",
+    "v": 2,
+    "summary": {
+      "entities": 2,
+      "items": 36,
+      "scanned": 0,
+      "completed": 6,
+      "age": 0,
+      "extras": [
+        "exploration",
+        "magic",
+        "npcs",
+        "pets",
+        "restoration",
+        "treeAges",
+        "vehicles",
+        "workshop"
+      ],
+      "parts": 0,
+      "tractors": 0
+    }
+  },
+  {
+    "name": "premerge-heavy-rev3",
+    "file": "saves/premerge-heavy-rev3.json",
+    "v": 2,
+    "summary": {
+      "entities": 2,
+      "items": 36,
+      "scanned": 0,
+      "completed": 6,
+      "age": 0,
+      "extras": [
+        "exploration",
+        "magic",
+        "npcs",
+        "pets",
+        "restoration",
+        "treeAges",
+        "vehicles",
+        "workshop"
+      ],
+      "parts": 0,
+      "tractors": 0
+    }
+  },
+  {
+    "name": "premerge-main-rev5",
+    "file": "saves/premerge-main-rev5.json",
+    "v": 2,
+    "summary": {
+      "entities": 4,
+      "items": 36,
+      "scanned": 0,
+      "completed": 6,
+      "age": 0,
+      "extras": [
+        "exploration",
+        "legendary",
+        "magic",
+        "npcs",
+        "oldPlans",
+        "pets",
+        "restoration",
+        "treeAges",
+        "vehicles",
+        "winter",
+        "workshop"
+      ],
+      "parts": 0,
+      "tractors": 0
+    }
   }
 ]

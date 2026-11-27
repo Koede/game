@@ -310,7 +310,9 @@
   "mill_wheel": 308,
   "windmill": 309,
   "steam_tank": 310,
-  "telegraph_pole": 311,
-  "telegraph_office": 312,
-  "radio_mast": 313
+  "tube_sender": 311,
+  "tube_receiver": 312,
+  "telegraph_pole": 313,
+  "telegraph_office": 314,
+  "radio_mast": 315
 }

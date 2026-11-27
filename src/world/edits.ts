@@ -6,7 +6,10 @@
 import { CHUNK_VOLUME, type Voxel } from '../core/types';
 import { chunkKey, keyChunkX, keyChunkZ } from './chunk';
 
-/** Saved edits: "cx,cz" -> base64 of (index, voxel) uint16 pairs. */
+/**
+ * Saved edits: "cx,cz" -> base64 of (index, voxel) uint16 pairs, or `RUNS_PREFIX` + base64 of (index, length, voxel)
+ * runs (consecutive indices holding the same voxel: walls, floors, fills), whichever is shorter for that chunk.
+ */
 export type EditsSnapshot = Record<string, string>;
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -43,6 +46,24 @@ export function decodeBase64(text: string): Uint8Array {
     if (o < out.length) out[o++] = n & 255;
   }
   return out;
+}
+
+/** Marks the run-length form of a chunk's edits (':' is not in the base64 alphabet, so the old form never starts so). */
+const RUNS_PREFIX = 'r:';
+
+/** The edits of one chunk as (index, length, voxel) runs: 5 bytes each, a run holds 1..255 consecutive indices of one voxel. */
+function encodeRuns(indices: number[], map: Map<number, Voxel>): Uint8Array {
+  const out: number[] = [];
+  let i = 0;
+  while (i < indices.length) {
+    const start = indices[i];
+    const voxel = map.get(start) as Voxel;
+    let len = 1;
+    while (len < 255 && i + len < indices.length && indices[i + len] === start + len && map.get(start + len) === voxel) len++;
+    out.push(start & 255, start >> 8, len, voxel & 255, voxel >> 8);
+    i += len;
+  }
+  return Uint8Array.from(out);
 }
 
 export class EditLog {
@@ -92,31 +113,47 @@ export class EditLog {
     const out: EditsSnapshot = {};
     for (const [key, map] of this.chunks) {
       const indices = [...map.keys()].sort((a, b) => a - b);
-      const bytes = new Uint8Array(indices.length * 4);
-      indices.forEach((index, n) => {
-        const voxel = map.get(index) as Voxel;
-        bytes[n * 4] = index & 255;
-        bytes[n * 4 + 1] = index >> 8;
-        bytes[n * 4 + 2] = voxel & 255;
-        bytes[n * 4 + 3] = voxel >> 8;
-      });
-      out[`${keyChunkX(key)},${keyChunkZ(key)}`] = encodeBase64(bytes);
+      const runs = encodeRuns(indices, map);
+      let text: string;
+      if (runs.length / 5 < indices.length * 0.8) {
+        text = RUNS_PREFIX + encodeBase64(runs);
+      } else {
+        const bytes = new Uint8Array(indices.length * 4);
+        indices.forEach((index, n) => {
+          const voxel = map.get(index) as Voxel;
+          bytes[n * 4] = index & 255;
+          bytes[n * 4 + 1] = index >> 8;
+          bytes[n * 4 + 2] = voxel & 255;
+          bytes[n * 4 + 3] = voxel >> 8;
+        });
+        text = encodeBase64(bytes);
+      }
+      out[`${keyChunkX(key)},${keyChunkZ(key)}`] = text;
     }
     return out;
   }
 
   /** Replaces every edit with the snapshot's. Throws on malformed data (nothing is changed then). */
   load(snapshot: EditsSnapshot): void {
-    const parsed: [number, number, Uint8Array][] = [];
+    const parsed: [number, number, Uint8Array, boolean][] = [];
     for (const [name, text] of Object.entries(snapshot)) {
       const m = /^(-?\d+),(-?\d+)$/.exec(name);
       if (!m || typeof text !== 'string') throw new Error(`world edits: bad chunk entry "${name}"`);
-      const bytes = decodeBase64(text);
-      if (bytes.length % 4 !== 0) throw new Error(`world edits: chunk ${name} has a truncated entry`);
-      parsed.push([Number(m[1]), Number(m[2]), bytes]);
+      const runs = text.startsWith(RUNS_PREFIX);
+      const bytes = decodeBase64(runs ? text.slice(RUNS_PREFIX.length) : text);
+      if (bytes.length % (runs ? 5 : 4) !== 0) throw new Error(`world edits: chunk ${name} has a truncated entry`);
+      parsed.push([Number(m[1]), Number(m[2]), bytes, runs]);
     }
     this.clear();
-    for (const [cx, cz, bytes] of parsed) {
+    for (const [cx, cz, bytes, runs] of parsed) {
+      if (runs) {
+        for (let i = 0; i < bytes.length; i += 5) {
+          const start = bytes[i] | (bytes[i + 1] << 8);
+          const voxel = bytes[i + 3] | (bytes[i + 4] << 8);
+          for (let k = 0; k < bytes[i + 2]; k++) if (start + k < CHUNK_VOLUME) this.record(cx, cz, start + k, voxel);
+        }
+        continue;
+      }
       for (let i = 0; i < bytes.length; i += 4) {
         const index = bytes[i] | (bytes[i + 1] << 8);
         if (index >= CHUNK_VOLUME) continue;

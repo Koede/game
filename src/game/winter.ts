@@ -112,7 +112,7 @@ export class Winter {
     const d = (id: string): boolean => this.done.has(id);
     return [
       { id: 'stockpile', title: 'Stockpile fuel', done: d('stockpile'), text: `Have ${FUEL_TARGET_S} seconds of burning put by, in your pack or in crates near home: about sixty logs. Winter nights are long.` },
-      { id: 'greenhouse', title: 'Raise a greenhouse', done: d('greenhouse'), text: 'Exposed crops freeze in winter. Plant on farmland and roof it with glass, so the light gets in and the snow stays out.' },
+      { id: 'greenhouse', title: 'Raise a greenhouse', done: d('greenhouse'), text: 'Exposed crops freeze in winter. Plant on farmland and roof it with glass, so the light gets in and the snow stays out. Keep a lit furnace or a heater inside: at 10 °C it grows at full pace all winter.' },
       { id: 'thaw', title: 'Live to the thaw', done: d('thaw'), text: 'Come through the first winter alive. The rivers freeze and the cold gets harder every night out in the open.' },
     ];
   }
@@ -169,7 +169,7 @@ export class Winter {
       return;
     }
     if (!this.firstWinter) return;
-    if (season === 'autumn') say('autumn', 'Winter is coming, and it is a hard one. Put fuel by and roof a crop with glass.', 'warn');
+    if (season === 'autumn') say('autumn', 'Winter is coming, and it is a hard one. Put fuel by, and roof a crop with glass and keep a fire in there.', 'warn');
     else if (season === 'winter') say('winter', 'Winter. Out in the open the cold bites hard and the rivers freeze: keep a fire close and live off the larder.', 'warn');
   }
 

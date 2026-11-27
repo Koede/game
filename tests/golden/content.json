@@ -311,6 +311,8 @@
     "mill_wheel": {"age":1,"category":"machine","hardness":1.2,"key":"mill_wheel","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "windmill": {"age":1,"category":"machine","hardness":1.2,"key":"windmill","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"},
+    "tube_sender": {"age":1,"air":{"role":"station","station":"send","volumeL":20},"category":"machine","hardness":2,"key":"tube_sender","stack":16,"tool":"pickaxe"},
+    "tube_receiver": {"age":1,"air":{"role":"station","station":"receive","volumeL":20},"category":"machine","hardness":2,"key":"tube_receiver","stack":16,"tool":"pickaxe"},
     "telegraph_pole": {"age":1,"category":"machine","hardness":0.8,"key":"telegraph_pole","shape":"fence","tool":"axe"},
     "telegraph_office": {"age":1,"category":"machine","hardness":1.5,"key":"telegraph_office","lightActive":3,"oriented":true,"tool":"axe"},
     "radio_mast": {"age":3,"category":"machine","hardness":2,"key":"radio_mast","lightActive":4,"shape":"fence","tool":"pickaxe"}
@@ -761,6 +763,8 @@
     "air_tank": {"age":1,"id":"air_tank","inputs":[{"count":6,"item":"bronze_plate"},{"count":1,"item":"air_tube"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"air_tank"},"station":"furnace"},
     "air_compressor": {"age":1,"id":"air_compressor","inputs":[{"count":4,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":2,"item":"air_tube"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"air_compressor"},"station":"furnace"},
     "blast_nozzle": {"age":1,"id":"blast_nozzle","inputs":[{"count":4,"item":"bronze_plate"},{"count":1,"item":"air_tube"},{"count":2,"item":"firebrick"}],"kind":"forge","minTempC":1100,"minTier":2,"output":{"count":1,"item":"blast_nozzle"},"station":"furnace"},
+    "tube_sender": {"age":1,"id":"tube_sender","inputs":[{"count":3,"item":"bronze_plate"},{"count":1,"item":"air_tube"},{"count":1,"item":"bronze_cog"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"tube_sender"},"station":"furnace"},
+    "tube_receiver": {"age":1,"id":"tube_receiver","inputs":[{"count":3,"item":"bronze_plate"},{"count":1,"item":"air_tube"},{"count":1,"item":"glass"}],"kind":"forge","minTempC":900,"minTier":2,"output":{"count":1,"item":"tube_receiver"},"station":"furnace"},
     "glass_beaker": {"age":0,"id":"glass_beaker","inputs":[{"count":1,"item":"glass"}],"kind":"forge","minTempC":650,"minTier":1,"output":{"count":2,"item":"glass_beaker"},"station":"furnace"},
     "pine_resin": {"age":0,"byproducts":[{"count":1,"item":"glass_beaker"}],"id":"pine_resin","inputs":[{"count":1,"item":"pine_sap"}],"kind":"forge","minTempC":180,"minTier":1,"output":{"count":1,"item":"pine_resin"},"station":"furnace"},
     "sugar": {"age":0,"byproducts":[{"count":1,"item":"pail"},{"count":1,"item":"glass_beaker"}],"id":"sugar","inputs":[{"count":2,"item":"pine_resin"},{"count":1,"item":"water_pail"},{"count":1,"item":"glass_beaker"}],"kind":"forge","minTempC":260,"minTier":1,"output":{"count":3,"item":"sugar"},"station":"furnace"},
