@@ -16,11 +16,11 @@ import { h } from '../../kit/dom';
 import { SearchBox, matches } from '../../kit/search';
 import { Window } from '../../kit/window';
 
-const CSS = `
+export const NOTEBOOK_CSS = `
 .hw-nb{display:flex;flex-direction:column;gap:10px;padding:4px 2px 12px}
 .hw-nb__list{display:flex;flex-wrap:wrap;gap:6px}
 .hw-nb__entry{min-height:44px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:inherit;font:inherit;text-align:left}
-.hw-nb__entry[data-status=done]{border-color:#5cc060;background:rgba(92,192,96,.16)}
+.hw-nb__entry[data-status=done]{border-color:var(--hw-good,#5cc060);background:color-mix(in srgb,var(--hw-good,#5cc060) 16%,transparent)}
 .hw-nb__entry[data-status=locked]{opacity:.45}
 .hw-nb__entry[aria-pressed=true]{outline:2px solid #ffd95a}
 .hw-nb__text{margin:0;line-height:1.35;opacity:.9}
@@ -38,8 +38,8 @@ const CSS = `
 .hw-nb__node[data-status=begun] .hw-nb__orb{box-shadow:0 0 0 2px #b48cff,0 0 10px 2px rgba(180,140,255,.6)}
 .hw-nb__node[data-status=locked]{opacity:.45}
 .hw-nb__node[aria-pressed=true] .hw-nb__orb{outline:3px solid #ffd95a;outline-offset:2px}
-.hw-nb__label{font-size:11px;line-height:1.1;text-align:center;text-shadow:0 1px 2px #000}
-.hw-nb__title{margin:0;font-weight:700;font-size:16px}
+.hw-nb__label{font-size:calc(11px*var(--hw-text-scale,1));line-height:1.1;text-align:center;text-shadow:0 1px 2px #000}
+.hw-nb__title{margin:0;font-weight:700;font-size:calc(16px*var(--hw-text-scale,1))}
 .hw-nb__hexwrap{display:flex;justify-content:center;padding:6px 0;border-radius:10px;background:#e8dcbc;background-image:radial-gradient(rgba(120,90,40,.18) 1px,transparent 1px);background-size:6px 6px}
 .hw-nb__hex{position:relative}
 .hw-nb__hex .hw-nb__lines line{stroke:rgba(60,40,20,.35)}
@@ -47,12 +47,12 @@ const CSS = `
 .hw-nb__cell{position:absolute;border-radius:50%;border:1px solid rgba(60,40,20,.35);background:rgba(60,40,20,.08);color:#111;font:600 10px/1 sans-serif;padding:0;overflow:hidden}
 .hw-nb__cell[data-kind=anchor]{border:3px solid #3a2a50}
 .hw-nb__cell[data-kind=blocked]{background:radial-gradient(circle,#1b1410 55%,rgba(27,20,16,.6) 70%,transparent 72%);border:0}
-.hw-nb__ink{margin:0;text-align:center;font-size:13px}
-.hw-nb__ink.is-dry{color:#ff9a6a}
+.hw-nb__ink{margin:0;text-align:center;font-size:calc(13px*var(--hw-text-scale,1))}
+.hw-nb__ink.is-dry{color:var(--hw-bad-hi,#ff9a6a)}
 .hw-nb__cell[data-sel=true]{outline:3px solid #ffd95a}
 .hw-nb__cell[data-linked=true]{box-shadow:0 0 10px 2px rgba(255,217,90,.7)}
 .hw-nb__palette{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-.hw-nb__chip{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:44px;min-height:44px;border-radius:22px;border:1px solid rgba(0,0,0,.4);color:#111;font:600 12px/1.1 sans-serif;padding:4px 10px}
+.hw-nb__chip{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:44px;min-height:44px;border-radius:22px;border:1px solid rgba(0,0,0,.4);color:#111;font:600 calc(12px*var(--hw-text-scale,1))/1.1 sans-serif;padding:4px 10px}
 .hw-nb__chip:disabled{opacity:.35}
 .hw-nb__row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .hw-nb__btn{min-height:44px;padding:0 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:inherit;font:inherit}
@@ -60,22 +60,22 @@ const CSS = `
 .hw-nb__dot{width:18px;height:18px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.5)}
 .hw-nb__muted{opacity:.6}
 .hw-nb__btn:disabled{opacity:.4}
-.hw-nb__age{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.7;width:100%}
+.hw-nb__age{margin:6px 0 0;font-size:calc(12px*var(--hw-text-scale,1));letter-spacing:.08em;text-transform:uppercase;opacity:.7;width:100%}
 .hw-nb__recipe{display:flex;gap:10px;align-items:center;padding:8px;border-radius:8px;background:rgba(255,255,255,.05)}
 .hw-nb__recipe-body{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
 .hw-nb__needs{display:flex;flex-wrap:wrap;gap:4px}
-.hw-nb__need{font-size:12px;padding:2px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.25)}
+.hw-nb__need{font-size:calc(12px*var(--hw-text-scale,1));padding:2px 6px;border-radius:10px;border:1px solid rgba(255,255,255,.25)}
 .hw-nb__need.is-ok{background:rgba(92,192,96,.22)}
 .hw-nb__need.is-short{background:rgba(232,98,42,.22)}
-.hw-nb__ok{color:#8fe08f;font-size:12px}
+.hw-nb__ok{color:var(--hw-good,#8fe08f);font-size:calc(12px*var(--hw-text-scale,1))}
 .hw-nb__goal{display:flex;gap:8px;align-items:center;min-height:32px}
 .hw-nb--inner{padding:0}
 .hw-nb__find{display:flex;flex-direction:column;gap:8px}
 .hw-nb__hit{display:flex;flex-direction:column;gap:2px;min-height:44px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:inherit;font:inherit;text-align:left}
-.hw-nb__hit[data-status=done]{border-color:#5cc060}
+.hw-nb__hit[data-status=done]{border-color:var(--hw-good,#5cc060)}
 .hw-nb__hit[data-status=locked]{opacity:.5}
 .hw-nb__hit small{opacity:.7}
-.hw-nb__h{margin:6px 0 0;font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.hw-nb__h{margin:6px 0 0;font-weight:700;font-size:calc(13px*var(--hw-text-scale,1));letter-spacing:.08em;text-transform:uppercase;opacity:.75}
 `;
 
 
@@ -92,7 +92,7 @@ export function injectNotebookCss(): void {
   if (document.getElementById('hw-notebook-css')) return;
   const style = document.createElement('style');
   style.id = 'hw-notebook-css';
-  style.textContent = CSS;
+  style.textContent = NOTEBOOK_CSS;
   document.head.appendChild(style);
 }
 
@@ -239,7 +239,7 @@ export function createNotebookScreen(ctx: ScreenContext, api: NotebookApi, table
       const ring = cost.length
         ? `conic-gradient(${cost.map((a, i) => `${aspectInfo(a).color} ${(i * 100) / cost.length}% ${((i + 1) * 100) / cost.length}%`).join(',')})`
         : '#c9b27a';
-      const orb = h('span', { class: 'hw-nb__orb', text: hidden ? '?' : e.status === 'done' ? '✓' : '' });
+      const orb = h('span', { class: 'hw-nb__orb', text: hidden ? '?' : e.status === 'done' ? '✓' : e.status === 'begun' ? '◐' : '' });
       orb.style.background = hidden ? '#333' : ring;
       node.append(orb, h('span', { class: 'hw-nb__label', text: hidden ? '???' : e.title }));
       map.appendChild(node);
