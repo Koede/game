@@ -8,6 +8,7 @@ import type { GameBus } from '../core/context';
 import { blockId, fuelOf } from '../core/registry';
 import { AIR, WORLD_HEIGHT, voxelId, type IWorld, type Slot } from '../core/types';
 import { isCrop } from '../sim/cropRules';
+import { WATER_SOURCE } from '../world/water';
 import { DAYS_PER_SEASON, dayOfSeason, seasonOf } from '../sim/seasons';
 import { temperatureAt } from '../sim/temperature';
 import type { PlayerState } from './playerState';
@@ -27,6 +28,11 @@ export const FREEZE_FROM_DAY = 2;
 export const FREEZE_BUDGET = 24;
 export const FREEZE_RADIUS = 40;
 const SIDE = FREEZE_RADIUS * 2 + 1;
+/** Most shallow frozen cells remembered (a save stays small); past it, new shallow ice is not tracked and stays until the player melts it. */
+/** Blocks that draw water from a touching cell. */
+const INTAKES = new Set(['pump', 'water_port', 'hand_pump']);
+const INTAKE_DIRS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]];
+const SHALLOW_MAX = 20000;
 
 export interface WinterGoal {
   id: 'stockpile' | 'greenhouse' | 'thaw';
@@ -40,6 +46,8 @@ export interface WinterSnapshot {
   hard: boolean;
   done: string[];
   told: string[];
+  /** Shallow cells (solid ground under them) this module froze, flat x,y,z triples: only these can be told from ice a player built. */
+  shallow?: number[];
 }
 
 export interface WinterHost {
@@ -61,6 +69,8 @@ export class Winter {
   hard = false;
   private done = new Set<string>();
   private told = new Set<string>();
+  /** Frozen cells with ground (not water) under them, "x,y,z": a pond's rim thaws too, which `below === WATER` alone would miss. */
+  private shallow = new Set<string>();
   private cursor = 0;
   private scanS = 0;
 
@@ -192,15 +202,35 @@ export class Winter {
       if (!world.isLoaded(x, z)) continue;
       const y = world.surfaceY(x, z);
       if (y < 1) continue;
-      const id = voxelId(world.getVoxel(x, y, z));
+      const voxel = world.getVoxel(x, y, z);
+      const id = voxelId(voxel);
       const below = voxelId(world.getVoxel(x, y - 1, z));
-      if (freezing && id === WATER && below !== AIR) world.setVoxel(x, y, z, ICE, 'sim');
-      else if (thawing && id === ICE && below === WATER && world.wasEdited?.(x, y, z)) world.setVoxel(x, y, z, WATER, 'sim');
+      // A tracked cell that is no longer ice (mined, built over) is forgotten, so a block put there later is never thawed.
+      if (this.shallow.size > 0 && id !== ICE) this.shallow.delete(`${x},${y},${z}`);
+      // Only still (source) water freezes: a flowing or falling cell would thaw back as a source and grow a spring.
+      if (freezing && voxel === WATER_SOURCE && below !== AIR && !this.drawnFrom(x, y, z)) {
+        if (world.setVoxel(x, y, z, ICE, 'sim') && below !== WATER && this.shallow.size < SHALLOW_MAX) this.shallow.add(`${x},${y},${z}`);
+      } else if (thawing && id === ICE) {
+        const key = `${x},${y},${z}`;
+        if (this.shallow.has(key)) {
+          this.shallow.delete(key);
+          world.setVoxel(x, y, z, WATER, 'sim');
+        } else if (below === WATER && world.wasEdited?.(x, y, z)) world.setVoxel(x, y, z, WATER, 'sim');
+      }
     }
   }
 
+  /** Whether a pump or a boiler's water port touches this cell: water that machinery draws from stays open (steam and pumps keep running through winter). */
+  private drawnFrom(x: number, y: number, z: number): boolean {
+    const { world } = this.host;
+    for (const [dx, dy, dz] of INTAKE_DIRS) if (INTAKES.has(world.getBlock(x + dx, y + dy, z + dz).key)) return true;
+    return false;
+  }
+
   toJSON(): WinterSnapshot {
-    return { v: 1, hard: this.hard, done: [...this.done], told: [...this.told] };
+    const shallow: number[] = [];
+    for (const k of this.shallow) shallow.push(...k.split(',').map(Number));
+    return { v: 1, hard: this.hard, done: [...this.done], told: [...this.told], ...(shallow.length ? { shallow } : {}) };
   }
 
   load(raw: unknown): void {
@@ -209,5 +239,12 @@ export class Winter {
     this.hard = r.hard === true;
     this.done = new Set(Array.isArray(r.done) ? r.done.filter((v): v is string => typeof v === 'string') : []);
     this.told = new Set(Array.isArray(r.told) ? r.told.filter((v): v is string => typeof v === 'string') : []);
+    this.shallow = new Set();
+    if (Array.isArray(r.shallow)) {
+      for (let i = 0; i + 2 < r.shallow.length && this.shallow.size < SHALLOW_MAX; i += 3) {
+        const [x, y, z] = [r.shallow[i], r.shallow[i + 1], r.shallow[i + 2]];
+        if ([x, y, z].every((n) => Number.isInteger(n))) this.shallow.add(`${x},${y},${z}`);
+      }
+    }
   }
 }

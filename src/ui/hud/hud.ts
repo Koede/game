@@ -287,7 +287,9 @@ export class Hud {
     this.workFraction = hand && hand.fraction > 0 ? hand.fraction : -1;
     if (hand) return hand.label;
     const block = this.deps.world.getBlock(t.x, t.y, t.z);
-    return block.id === 0 ? null : block.name;
+    if (block.id === 0) return null;
+    const machine = this.deps.sim().machineView(t.x, t.y, t.z);
+    return machine && machine.status ? `${block.name} - ${machine.status}` : block.name;
   }
 
   /**
@@ -437,7 +439,10 @@ export class Hud {
 
   private toast(text: string, kind: 'info' | 'good' | 'warn' | 'bad' | undefined, item?: string): void {
     if (this.echo && performance.now() < this.echo.until && text.startsWith(this.echo.text)) return;
-    this.root.toasts.show({ text, kind, item });
+    if (!this.root.toasts.show({ text, kind, item })) return;
+    // Toasts used to arrive silently: good news chimes, warnings thud (repeats only bump the counter, so they stay quiet).
+    if (kind === 'good') this.deps.bus.emit('sfx', { name: 'toast_good', volume: 0.7 });
+    else if (kind === 'warn' || kind === 'bad') this.deps.bus.emit('sfx', { name: 'toast_warn', volume: 0.8 });
   }
 
   private objectiveBanner(id: string): void {

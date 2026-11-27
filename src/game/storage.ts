@@ -22,7 +22,7 @@ export interface Chest {
 export function categoryOf(item: string): CategoryLabel {
   const def = itemOrNull(item);
   if (!def) return 'misc';
-  if (def.tool) return 'tools';
+  if (def.tool || def.armour) return 'tools';
   switch (def.category) {
     case 'food': return 'food';
     case 'material': case 'component': case 'resource': return 'materials';

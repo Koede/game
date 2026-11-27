@@ -49,6 +49,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
   };
   const goal = (id: string) => OBJECTIVES.find((o) => o.id === id);
   return {
+    age: () => d.objectives.age,
     setBlockActive: (x, y, z, on) => {
       if (!d.world.isLoaded(x, z)) return false;
       const v = d.world.getVoxel(x, y, z);
@@ -68,6 +69,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
       }
       return y < 0 ? null : { y, key: d.world.getBlock(x, y, z).key };
     },
+    townActive: (x, y, z) => d.world.isLoaded(x, z) && voxelActive(d.world.getVoxel(x, y, z)),
     townBlock: (x, y, z) => (d.world.isLoaded(x, z) ? d.world.getBlock(x, y, z).key : null),
     townEdited: (x, y, z) => d.world.wasEdited?.(x, y, z) ?? false,
     townPlace: (x, y, z, block, facing) => d.world.isLoaded(x, z) && d.world.setVoxel(x, y, z, makeVoxel(blockId(block), facing as Facing), 'town'),
@@ -85,6 +87,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     currentGoal: () => d.objectives.current?.id ?? null,
     completed: () => new Set(d.objectives.completed.map((o) => o.id)),
     timeOfDay: () => d.clock.timeOfDay,
+    clockTowers: () => d.workshop?.signals.towers() ?? [],
     day: () => d.clock.day,
     worldSeed: () => d.world.seed,
     townFacts: () => ({

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { blockOrNull, itemOrNull, recipe } from '../core/registry';
-import { DYES } from './areas/decor';
+import { DYES, FLOWER_DYES } from './areas/decor';
 
 describe('dyes, stains and furniture', () => {
   it('every colour has a dye, a mortar recipe, a stained block and a forge recipe from planks', () => {
@@ -19,6 +19,15 @@ describe('dyes, stains and furniture', () => {
       expect(blockOrNull(k), k).not.toBeNull();
       expect(recipe(k)!.station).toBe('workbench');
       expect(recipe(k)!.inputs.some((i) => i.item === 'plank')).toBe(true);
+    }
+  });
+});
+
+describe('flower dyes', () => {
+  it('each wild flower grinds to two portions of its colour at the mortar', () => {
+    for (const [flower, colour] of FLOWER_DYES) {
+      expect(itemOrNull(flower), flower).not.toBeNull();
+      expect(recipe(`${colour}_dye_${flower}`)).toMatchObject({ station: 'mortar', inputs: [{ item: flower, count: 1 }], output: { item: `${colour}_dye`, count: 2 } });
     }
   });
 });

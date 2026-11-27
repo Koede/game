@@ -160,7 +160,10 @@ export class Exploration {
     if (view.charcoal < d.fuel) return `The trip to ${d.stone.name} needs ${d.fuel} charcoal.`;
     this.host.player.inventory.remove(WAYPOINT_FUEL_ITEM, d.fuel);
     const to = this.waypoints.landing(d.stone);
+    const from = this.host.player.position;
+    this.host.bus.emit('sfx', { name: 'ignition', x: from.x, y: from.y, z: from.z, pitch: 1.4 });
     this.teleport(to.x, to.y, to.z);
+    this.host.bus.emit('sfx', { name: 'upgrade', x: to.x, y: to.y, z: to.z });
     this.toast(`You step through to ${d.stone.name}.`, 'good');
     return null;
   }
@@ -245,6 +248,7 @@ export class Exploration {
       this.chests.add(serial);
       world.setVoxel(m.x, y, m.z, makeVoxel(blockByKey('crate').id), 'load');
       world.setEntity(treasureCrate(m, y));
+      this.host.bus.emit('sfx', { name: 'objective', x: m.x, y, z: m.z });
       this.toast('The ground nearby feels disturbed...', 'good');
     }
   }
@@ -274,6 +278,13 @@ export class Exploration {
     };
   }
 
+  /** Ice over water (winter ponds and rivers): the water beneath, fished through the ice; shallow ice over ground is no spot. */
+  private measureIce(px: number, py: number, pz: number): WaterSpot | null {
+    if (this.host.world.getBlock(px, py, pz).key !== 'ice') return null;
+    const under = this.measure(px, py - 1, pz);
+    return under ? { ...under, frozen: true, underground: false } : null;
+  }
+
   private ctx(): CastContext {
     return { night: this.host.isNight(), raining: this.host.raining(), ...(this.host.day ? { season: seasonOf(this.host.day()) } : {}) };
   }
@@ -288,12 +299,12 @@ export class Exploration {
       return 'worked';
     }
     if (!aim) return null;
-    const spot = this.measure(aim.px, aim.py, aim.pz) ?? (aim.block.liquid === 'water' ? this.measure(aim.x, aim.y, aim.z) : null);
+    const spot = this.measure(aim.px, aim.py, aim.pz) ?? (aim.block.liquid === 'water' ? this.measure(aim.x, aim.y, aim.z) : this.measureIce(aim.x, aim.y, aim.z));
     if (!spot) return null;
     const kind = waterKind(spot);
     if (!kind) { this.toast('The water is too shallow to fish.', 'warn'); return 'refused'; }
     this.fishing = { phase: 'waiting', untilS: this.host.now() + biteDelayS(this.ctx(), this.rng), x: aim.px, y: aim.py, z: aim.pz, kind };
-    this.toast(`You cast into the ${kind === 'cave' ? 'cave pool' : kind}.`);
+    this.toast(`You cast into the ${kind === 'cave' ? 'cave pool' : kind === 'frozen' ? 'hole in the ice' : kind}.`);
     return 'worked';
   }
 

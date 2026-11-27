@@ -135,6 +135,10 @@ const OUTDOORS: Room = { kind: 'outdoors', cells: 0, faces: 0, leak: 0, sources:
 const DIRS: readonly (readonly [number, number, number])[] = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const key = (x: number, y: number, z: number): string => `${x},${y},${z}`;
 
+const isFreezeBlock = (v: number): boolean => { const k = blockOf(v).key; return k === 'water' || k === 'ice'; };
+/** Water turning to ice or back (the winter module's freeze and thaw). */
+const isFreezeChange = (from: number, to: number): boolean => isFreezeBlock(from) && isFreezeBlock(to);
+
 export class Thermal {
   private rooms = new Map<string, Room>();
   private ageS = 0;
@@ -143,7 +147,9 @@ export class Thermal {
   floods = 0;
 
   constructor(private readonly world: IWorld, private readonly climate: Climate, bus?: GameBus) {
-    if (bus) this.offs.push(bus.on('block:changed', () => this.invalidate()));
+    // Rivers and ponds freezing and thawing change ~24 cells a tick all winter: that must not empty the room cache every tick
+    // (it expires on its own every CACHE_S).
+    if (bus) this.offs.push(bus.on('block:changed', (e) => { if (!(e.source === 'sim' && isFreezeChange(e.from, e.to))) this.invalidate(); }));
   }
 
   dispose(): void {

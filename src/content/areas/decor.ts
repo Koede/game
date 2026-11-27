@@ -17,6 +17,9 @@ export const DYES: readonly { key: string; name: string; from: string }[] = [
   { key: 'white', name: 'White', from: 'flour' },
 ];
 
+/** Wild flowers that grind to a dye: [flower, colour]. */
+export const FLOWER_DYES: readonly (readonly [string, string])[] = [['ember_poppy', 'red'], ['skybell', 'blue'], ['frost_lily', 'white']];
+
 const dyeItems: ItemSpec[] = DYES.map((d) => ({
   key: `${d.key}_dye`, name: `${d.name} Dye`, desc: `A pinch of ${d.name.toLowerCase()} pigment. Boil it with planks in the furnace to stain them.`, category: 'material', age,
 }));
@@ -35,6 +38,8 @@ export default {
   blocks: [...stainBlocks, ...furniture],
   recipes: [
     ...DYES.map((d): RecipeSpec => ({ id: `${d.key}_dye`, station: 'mortar', inputs: amounts(`1 ${d.from}`), output: amount(`2 ${d.key}_dye`), strokes: 4, age })),
+    // The wild flowers are pigment too: a picked bloom grinds to two portions, like the berries and the carrot.
+    ...FLOWER_DYES.map(([flower, key]): RecipeSpec => ({ id: `${key}_dye_${flower}`, station: 'mortar', inputs: amounts(`1 ${flower}`), output: amount(`2 ${key}_dye`), strokes: 3, age })),
     ...DYES.map((d): RecipeSpec => ({
       id: `${d.key}_stained_plank`, station: 'furnace', kind: 'forge', inputs: amounts(`4 plank, 1 ${d.key}_dye`), output: amount(`4 ${d.key}_stained_plank`), minTempC: 100, minTier: 1, age,
     })),

@@ -25,6 +25,8 @@ export type ScreenRequest =
   | { type: 'log' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
+  /** A telegraph office or radio mast (docs/api/telegraph.md): the wire's news, the caravan by wire, the signal mode. */
+  | { type: 'telegraph'; x: number; y: number; z: number }
   /** The Town page: Gruk's building, the town's standing, who lives where, and the camp goals. */
   | { type: 'town' }
   | { type: 'pause' }
@@ -74,8 +76,14 @@ export type SfxName =
   | 'upgrade'
   | 'objective'
   | 'jukebox_note'
+  // The clock tower striking the hour (src/workshop/signals.ts).
+  | 'tower_bell'
   | 'age'
   | 'ui_click'
+  /** A soft bright note when good news appears as a toast. */
+  | 'toast_good'
+  /** A low soft double thud when a warning or bad news appears as a toast. */
+  | 'toast_warn'
   | 'ui_open'
   | 'ui_close'
   | 'error'
@@ -310,7 +318,7 @@ export interface GameEvents {
   'mob:hurt': { id: number; species: string; health: number };
   'mob:died': { id: number; species: string };
   /** A crop advanced to `stage` (0-based; the last stage is ripe). */
-  'crop:grew': { x: number; y: number; z: number; stage: number };
+  'crop:grew': { x: number; y: number; z: number; stage: number; /** The last stage: ready to harvest (a chime and a sparkle). */ ripe?: boolean };
 
   // ---- weather (spec 15) ----
   /** The weather began changing (once per change, when the blend from `previous` to `kind` starts). */
@@ -337,6 +345,10 @@ export interface GameEvents {
    */
   /** A Use on an air block (BRONZE_PLAN 5.3): the sim reads its pressure and, on a compressor, works the hand crank. */
   'air:use': { x: number; y: number; z: number };
+  /** A Use on a plumbing block (docs/api/plumbing.md): the sim reads its line and, on a hand pump, takes a stroke. */
+  'water:use': { x: number; y: number; z: number };
+  /** A sprinkler at x,y,z sprays (sim, twice a second while it has water): the renderer throws droplets. */
+  'water:spray': { x: number; y: number; z: number };
   'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
   /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
   'hearth:unformed': { x: number; y: number; z: number };

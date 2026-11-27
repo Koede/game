@@ -59,6 +59,7 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'signal_lamp', name: 'Signal Lamp', anim: true, desc: 'Lights while a powered signal cell touches it.' },
   { key: 'bell', name: 'Bell', anim: false, desc: 'Rings when a signal reaches it, and whenever a machine within 12 blocks seizes, jams or is overloaded.' },
   { key: 'tally_board', name: 'Tally Board', anim: false, desc: 'Passes items on out of its front like a funnel and counts them. Use it to reset the count.' },
+  { key: 'clock_tower', name: 'Tower Clock', anim: true, desc: 'Strikes and signals every hour, gives timers within 16 blocks clock settings, and sets the hours the town keeps. Tap it to pick early, sun or late hours.' },
   { key: 'clockface', name: 'Clockface', anim: false, desc: 'A dial that shows the time of day under the goggles.' },
   { key: 'wind_vane', name: 'Wind Vane', anim: false, desc: 'Shows the wind the turbines feel, the same rise and fall, with no bonus for where it stands.' },
   { key: 'contraption_frame', name: 'Contraption Frame', anim: false, desc: 'A timber frame that holds a moving structure together. Pistons and bearings carry every frame and workshop part connected to them.' },
@@ -71,7 +72,7 @@ export const PART_DEFS: readonly PartDef[] = [
 ];
 
 /** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
-export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_relay', 'signal_timer', 'push_button', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_relay', 'signal_timer', 'push_button', 'signal_lamp', 'bell', 'clock_tower', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
   { key: 'iron_axle', name: 'Iron Axle', category: 'component', age: FORGE, stack: 64, desc: 'A turned iron shaft that takes up to 128 rpm. Dynamos and rolling mills are built on them.' },

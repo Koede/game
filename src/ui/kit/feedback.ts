@@ -48,7 +48,8 @@ export class Toasts {
     host.appendChild(this.el);
   }
 
-  show(toast: ToastOptions): void {
+  /** Shows the toast; true when it is a new one (not a repeat bumping a counter). */
+  show(toast: ToastOptions): boolean {
     const kind = toast.kind ?? 'info';
     const text = shortenToast(toast.text);
     const duration = toast.durationMs ?? toastDuration(kind, text.length);
@@ -60,7 +61,7 @@ export class Toasts {
       existing.countEl.hidden = false;
       clearTimeout(existing.timer);
       existing.timer = setTimeout(() => this.dismiss(existing), duration);
-      return;
+      return false;
     }
     const countEl = h('span', { class: 'hw-toast__count hw-num' });
     countEl.hidden = true;
@@ -75,6 +76,7 @@ export class Toasts {
     this.entries.push(entry);
     this.el.appendChild(el);
     while (this.entries.length > this.max) this.remove(this.entries[evictionIndex(this.entries.map((e) => e.kind))]);
+    return true;
   }
 
   /** Removes every toast immediately. */

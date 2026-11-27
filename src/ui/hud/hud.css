@@ -1464,3 +1464,9 @@
   padding: 6px 8px;
   border-top: 1px solid var(--hw-plate-edge);
 }
+
+/* The day text takes the colour of the season (the tooltip and the label say which). */
+.hw-dial[data-season='spring'] .hw-dial__day { color: #b9e08a; }
+.hw-dial[data-season='summer'] .hw-dial__day { color: #f2d36b; }
+.hw-dial[data-season='autumn'] .hw-dial__day { color: #f0a050; }
+.hw-dial[data-season='winter'] .hw-dial__day { color: #b8dcf2; }

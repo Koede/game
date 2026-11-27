@@ -12,9 +12,13 @@ export function shade(h: number): number {
 }
 
 /** Smallest blocks-per-pixel (power of two) that fits everything seen, and the player, into `size` pixels. */
-export function mapScale(journal: Journal, px: number, pz: number, size: number): number {
+export function mapScale(journal: Journal, px: number, pz: number, size: number, marks: readonly { x: number; z: number }[] = []): number {
   const b = journal.bounds();
-  const span = Math.max(64, b ? Math.max(b.maxX - b.minX, b.maxZ - b.minZ) : 0, b ? 2 * Math.max(Math.abs(px - (b.minX + b.maxX) / 2), Math.abs(pz - (b.minZ + b.maxZ) / 2)) : 0);
+  const cx = b ? (b.minX + b.maxX) / 2 : px;
+  const cz = b ? (b.minZ + b.maxZ) / 2 : pz;
+  // A marked place (a treasure map's ruin) may lie past anything explored: the map grows to hold it.
+  const markSpan = marks.reduce((m, k) => Math.max(m, 2 * Math.abs(k.x - cx), 2 * Math.abs(k.z - cz)), 0);
+  const span = Math.max(64, markSpan, b ? Math.max(b.maxX - b.minX, b.maxZ - b.minZ) : 0, b ? 2 * Math.max(Math.abs(px - (b.minX + b.maxX) / 2), Math.abs(pz - (b.minZ + b.maxZ) / 2)) : 0);
   let s = 1;
   while (s * size < span * 1.1) s *= 2;
   return s;
@@ -32,7 +36,7 @@ export function paintMap(journal: Journal, px: number, pz: number, size: number,
   const b = journal.bounds();
   const cx = b ? (b.minX + b.maxX) / 2 : px;
   const cz = b ? (b.minZ + b.maxZ) / 2 : pz;
-  const blocksPerPx = mapScale(journal, px, pz, size);
+  const blocksPerPx = mapScale(journal, px, pz, size, marks);
   const x0 = cx - (size / 2) * blocksPerPx;
   const z0 = cz - (size / 2) * blocksPerPx;
   for (let j = 0; j < size; j++) {

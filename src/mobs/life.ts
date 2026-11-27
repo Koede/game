@@ -2,7 +2,7 @@
 import { MOB_GROW_UP_S } from '../core/constants';
 import type { IWorld } from '../core/types';
 import { bodyHeight, halfWidth } from './brain';
-import { HEAL_EVERY_S } from './constants';
+import { HEAL_EVERY_S, WINTER_YIELD_RATE } from './constants';
 import { embedded } from './physics';
 import type { Mob } from './types';
 
@@ -11,7 +11,7 @@ import type { Mob } from './types';
  * return value is false for it (no behaviour to run). A player-hurt animal keeps fleeing from where the player
  * is now. Babies past MOB_GROW_UP_S are left for the caller to grow up (growUp).
  */
-export function advanceTimers(m: Mob, dt: number, player: { x: number; z: number }): boolean {
+export function advanceTimers(m: Mob, dt: number, player: { x: number; z: number }, winter = false): boolean {
   m.px = m.x;
   m.py = m.y;
   m.pz = m.z;
@@ -30,7 +30,10 @@ export function advanceTimers(m: Mob, dt: number, player: { x: number; z: number
   if (m.eagerS > 0) m.eagerS = Math.max(0, m.eagerS - dt);
   if (m.cooldownS > 0) m.cooldownS = Math.max(0, m.cooldownS - dt);
   if (m.milkS > 0) m.milkS = Math.max(0, m.milkS - dt);
-  if (m.woolS > 0) m.woolS = Math.max(0, m.woolS - dt);
+  // Winter slows wool and laying to half pace.
+  const slow = winter ? WINTER_YIELD_RATE : 1;
+  if (m.woolS > 0) m.woolS = Math.max(0, m.woolS - dt * slow);
+  if (m.eggS > 0) m.eggS = Math.max(0, m.eggS - dt * slow);
   // Slow natural healing (healS starts negative after a hurt), so the odd scrape does not add up to a death.
   if (m.health < m.spec.health) {
     m.healS += dt;
