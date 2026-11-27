@@ -60,7 +60,7 @@ import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 import { MILL_WHEEL, millWheelSu, riverScale } from './hydro';
-import { cropScale, seasonOf, shelterOf } from './seasons';
+import { CROP_SEASON, cropScale, seasonOf, shelterOf } from './seasons';
 import { temperatureAt } from './temperature';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
@@ -1150,7 +1150,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     const v = this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt);
     if (v === null || v.wild) return v;
     const tempC = v.exposed ? undefined : Math.round(this.cropAirC(x, y, z));
-    return { ...v, tempC, shelter: shelterOf(seasonOf(this.clock.day), v.exposed, tempC, this.hardWinter) };
+    const season = seasonOf(this.clock.day);
+    return { ...v, tempC, shelter: shelterOf(season, v.exposed, tempC, this.hardWinter), seasonPace: CROP_SEASON[v.crop]?.[season] ?? 1 };
   }
 
   /** Furnaces, machines and crates (crops are counted by `cropCount`). */

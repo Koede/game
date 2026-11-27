@@ -7,6 +7,10 @@ import type { UICropView } from './query';
 /** Water within this many blocks keeps a crop growing at full speed (content: the crop's hydrationRadius). */
 const WATER_RADIUS = machine('crop').params?.hydrationRadius ?? 4;
 
+/** A crop's season factor at or above this reads "in season", at or below the other "out of season" (CROP_SEASON). */
+const IN_SEASON = 1.1;
+const OUT_OF_SEASON = 0.75;
+
 /**
  * "Wheat - ripe in 4 m", "Wheat - needs light: sun or a lamp", "Wheat - dry, ripe in 9 m: water within 4 blocks doubles it",
  * "Wheat - greenhouse 18 °C, ripe in 3 m", "Wheat - frozen at -4 °C: heat the room to 10 °C".
@@ -27,5 +31,7 @@ export function cropLabel(v: UICropView): string {
     const heat = `heat it to ${GREENHOUSE_WARM_C} °C for full pace`;
     return v.hydrated ? `${name} - cold${t}, ${when}: ${heat}` : `${name} - cold${t}, dry, ${when}: ${dry}`;
   }
-  return v.hydrated ? `${name} - growing, ${when}` : `${name} - dry, ${when}: ${dry}`;
+  const pace = v.seasonPace ?? 1;
+  const season = pace >= IN_SEASON ? ', in season' : pace <= OUT_OF_SEASON ? ', out of season' : '';
+  return v.hydrated ? `${name} - growing${season}, ${when}` : `${name} - dry${season}, ${when}: ${dry}`;
 }
