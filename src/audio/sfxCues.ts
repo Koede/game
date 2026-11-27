@@ -15,6 +15,10 @@ export const CUE_SFX = {
   jukebox_note: {
     layers: [...warm(N.C4, 0.16, 0.5), bell(N.C5, 0.05, 0.3, 0, 0.4)],
   },
+  // The clock tower strikes: a deep bronze bell with a long hum, a fifth and an octave ringing over it.
+  tower_bell: {
+    layers: [bell(N.C3, 0.2, 2.6, 0, 1.6), bell(N.G3, 0.08, 2.0, 0, 1.1), bell(N.C4, 0.07, 1.6, 0.01, 0.8), tone('sine', N.C3 / 2, 0.06, 2.4, { a: 0.02 })],
+  },
   // Furnace upgraded: a quick climb that lands on the octave.
   upgrade: {
     priority: 1,

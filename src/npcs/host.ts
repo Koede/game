@@ -85,6 +85,7 @@ export function makeNpcHost(d: NpcHostDeps): NpcHost {
     currentGoal: () => d.objectives.current?.id ?? null,
     completed: () => new Set(d.objectives.completed.map((o) => o.id)),
     timeOfDay: () => d.clock.timeOfDay,
+    clockTowers: () => d.workshop?.signals.towers() ?? [],
     day: () => d.clock.day,
     worldSeed: () => d.world.seed,
     townFacts: () => ({

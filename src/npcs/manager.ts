@@ -29,6 +29,7 @@ import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } fr
 import { findPath, nearestCell, type Cell } from './nav';
 import { warmerSpot } from './warmth';
 import { ROUTINES } from './routines';
+import { TownClock, type TowerView } from './townClock';
 import { DANCE_SPOTS, FEST_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
 import { SWIM_SPOTS, chooseOutfit, coolOffAt, inPool, type Outfit } from './outfits';
 import { ServiceMenu, type Service, type TavernPort } from './services';
@@ -196,6 +197,8 @@ export interface NpcHost {
   townCrate?(x: number, y: number, z: number): StockCrate | null;
   /** The containers and machines a resident's job carries between (jobs.ts); absent in tests without a workshop. */
   jobs?: JobsWorld;
+  /** Every clock tower in the world (src/workshop/clockTower.ts); the one nearest the town sets its hours. Absent: none. */
+  clockTowers?(): TowerView[];
   companion: CompanionHost;
 }
 
@@ -228,6 +231,8 @@ const nameOf = (item: string): string => item.replace(/_/g, ' ');
 
 export class NpcManager {
   at: [number, number, number] | null = null;
+  /** The town's clock tower and the hours it keeps (townClock.ts). */
+  readonly townClock = new TownClock();
   greeted = false;
   coins = 0;
   /** The town's own woodpile for its hearths. Finite: once it and the storage bay's logs are gone the fires burn down. */
@@ -666,7 +671,8 @@ export class NpcManager {
   }
 
   private phase(): Phase {
-    const p = phaseAt(this.host?.timeOfDay() ?? 0.3);
+    // The town keeps the hours its clock tower is set to (townClock.ts); without one, the sun's.
+    const p = phaseAt(this.townClock.tod(this.host?.timeOfDay() ?? 0.3));
     return p === 'dawn' ? 'morning' : p === 'dusk' ? 'evening' : p;
   }
 
@@ -1842,6 +1848,7 @@ export class NpcManager {
 
   tick(dt: number): void {
     this.clockS += dt;
+    this.townClock.refresh(this.host?.clockTowers?.(), this.at);
     if (this.cooldownS > 0) this.cooldownS = Math.max(0, this.cooldownS - dt);
     if (this.offerS > 0) this.offerS = Math.max(0, this.offerS - dt);
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
@@ -1854,6 +1861,8 @@ export class NpcManager {
     if (this.host) this.favours.refresh(this.host.day(), this.rng, (who) => this.isPresent(who), (who) => favourRate(this.settlement.scoreOf(who)));
     const host = this.host;
     if (!host || !this.at) return;
+    const struck = this.townClock.strike(this.phase(), host.timeOfDay(), host.companion.player());
+    if (struck) this.bus.emit('toast', { text: struck, kind: 'info' });
     this.tickTown(host, dt);
     this.tickSettlement(host);
     this.tickGoals(host);

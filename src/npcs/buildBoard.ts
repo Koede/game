@@ -36,7 +36,7 @@ export const REPUTATION_STEPS: readonly { at: number; name: string }[] = [
  * The town standing a building needs before Gruk starts it (data). Buildings not listed need none. The storage bay, the well and
  * the lamp post come first; the workshop needs some standing, the cottage more.
  */
-export const UNLOCK_REP: Readonly<Record<string, number>> = { storage_bay: 0, well_plaza: 0, lamp_post: 0, workshop: 10, cottage: 20 };
+export const UNLOCK_REP: Readonly<Record<string, number>> = { storage_bay: 0, well_plaza: 0, lamp_post: 0, workshop: 10, cottage: 20, clock_tower: 30 };
 
 /** Whether a template may be started at this town standing. */
 export function unlockedAt(template: string, rep: number): boolean {
