@@ -290,8 +290,12 @@ export class Exploration {
   }
   /** A sound and a splash of particles at the water block (x, y, z). */
   private cue(sfx: 'fish_cast' | 'fish_bite', fx: 'splash', x: number, y: number, z: number, count: number): void {
-    this.host.bus.emit('sfx', { name: sfx, x: x + 0.5, y: y + 0.9, z: z + 0.5 });
-    this.host.bus.emit('fx:burst', { kind: fx, x: x + 0.5, y: y + 0.9, z: z + 0.5, count });
+    this.host.bus.emit('sfx', { name: sfx, x: x + 0.5, y: this.surfaceY(x, y, z), z: z + 0.5 });
+    this.host.bus.emit('fx:burst', { kind: fx, x: x + 0.5, y: this.surfaceY(x, y, z), z: z + 0.5, count });
+  }
+  /** Where the line meets the surface: near the top of a water cell, or the floor of the air cell above ice. */
+  private surfaceY(x: number, y: number, z: number): number {
+    return this.host.world.getBlock(x, y, z).liquid === 'water' ? y + 0.9 : y + 0.05;
   }
   private bobAcc = 0;
   private rng = (): number => (this.host.rng ?? Math.random)();
@@ -317,7 +321,7 @@ export class Exploration {
 
   private land(f: Extract<Fishing, { phase: 'bite' }>): 'worked' {
     this.fishing = { phase: 'idle' };
-    this.host.bus.emit('fx:burst', { kind: 'splash', x: f.x + 0.5, y: f.y + 0.9, z: f.z + 0.5, count: 12 });
+    this.host.bus.emit('fx:burst', { kind: 'splash', x: f.x + 0.5, y: this.surfaceY(f.x, f.y, f.z), z: f.z + 0.5, count: 12 });
     const got = rollCatch(f.kind, this.ctx(), this.rng);
     this.wearRod();
     if (got.item === null) { this.toast('It slips the hook.'); return 'worked'; }
@@ -346,7 +350,7 @@ export class Exploration {
       } else if (f.phase === 'waiting' && this.host.now() >= f.untilS) {
         this.fishing = { phase: 'bite', untilS: this.host.now() + BITE_WINDOW_S, x: f.x, y: f.y, z: f.z, kind: f.kind };
         this.cue('fish_bite', 'splash', f.x, f.y, f.z, 10);
-        this.host.bus.emit('fx:burst', { kind: 'bobber_dip', x: f.x + 0.5, y: f.y + 0.9, z: f.z + 0.5 });
+        this.host.bus.emit('fx:burst', { kind: 'bobber_dip', x: f.x + 0.5, y: this.surfaceY(f.x, f.y, f.z), z: f.z + 0.5 });
         this.toast('Something bites! Use the rod now.', 'good');
       } else if (f.phase === 'bite' && this.host.now() >= f.untilS) {
         this.fishing = { phase: 'idle' };
@@ -358,8 +362,8 @@ export class Exploration {
     if (this.bobAcc >= 1.2) {
       this.bobAcc = 0;
       const w = this.fishing as Extract<Fishing, { phase: 'waiting' }>;
-      this.host.bus.emit('fx:burst', { kind: 'bobber', x: w.x + 0.5, y: w.y + 0.9, z: w.z + 0.5 });
-      if (this.rng() < 0.5) this.host.bus.emit('fx:burst', { kind: 'ripple', x: w.x + 0.5, y: w.y + 0.9, z: w.z + 0.5, count: 5 });
+      this.host.bus.emit('fx:burst', { kind: 'bobber', x: w.x + 0.5, y: this.surfaceY(w.x, w.y, w.z), z: w.z + 0.5 });
+      if (this.rng() < 0.5) this.host.bus.emit('fx:burst', { kind: 'ripple', x: w.x + 0.5, y: this.surfaceY(w.x, w.y, w.z), z: w.z + 0.5, count: 5 });
     }
     this.acc += dt;
     if (this.acc >= 1.5) { this.acc = 0; this.checkMaps(); }
