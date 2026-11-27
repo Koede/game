@@ -18,6 +18,8 @@ export interface AmbienceState {
   furnaceElectric: boolean;
   /** Amount of running machinery nearby, 0..1. */
   machineHum: number;
+  /** Amount of turning workshop machinery nearby (shafts, wheels, windmills, rotors), 0..1: a creaking, clattering drive. */
+  turning: number;
   /** Altitude / openness to the sky, 0 (sheltered) .. 1 (exposed summit). */
   wind: number;
   night: boolean;
@@ -46,6 +48,7 @@ export const createAmbienceState = (): AmbienceState => ({
   furnaceDistance: 0,
   furnaceElectric: false,
   machineHum: 0,
+  turning: 0,
   wind: 0,
   night: false,
   underwater: false,
@@ -69,6 +72,8 @@ export interface AmbienceTargets {
   crackleDense: number;
   arc: number;
   machine: number;
+  /** Turning wooden and iron drives of the workshop. */
+  turning: number;
   wind: number;
   windFreq: number;
   whistle: number;
@@ -102,6 +107,7 @@ export const createAmbienceTargets = (): AmbienceTargets => ({
   crackleDense: 0,
   arc: 0,
   machine: 0,
+  turning: 0,
   wind: 0,
   windFreq: 320,
   whistle: 0,
@@ -146,6 +152,8 @@ export function computeTargets(s: AmbienceState, out: AmbienceTargets): Ambience
   out.arc = s.furnaceElectric ? out.fire * (0.35 + 0.65 * heat) : 0;
 
   out.machine = unit(s.machineHum) * (s.underwater ? 0.4 : 1);
+
+  out.turning = unit(s.turning) * (s.underwater ? 0.4 : 1);
 
   const wind = unit(s.wind);
   const cold = unit(s.cold);

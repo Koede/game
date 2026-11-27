@@ -338,7 +338,7 @@ export class Game {
       this.airshipRenderer = new AirshipRenderer(this.renderer, world);
       this.airshipHud = new AirshipHud(root.layers.hud, () => this.input.touch, () => this.airships.pressCourseKey());
       this.audio = new AudioEngine(bus, settings);
-      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
+      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state, state.workshop);
     } catch (err) {
       this.itemRenderer.dispose();
     this.trees.dispose();

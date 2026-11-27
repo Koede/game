@@ -184,7 +184,12 @@ export type SfxName =
   /** Liquid trickling through a tube or down a condenser while it runs. Positioned at the module. */
   | 'distill_trickle'
   /** A stopcock turned by hand on the separatory funnel. Positioned at the module. */
-  | 'distill_tap';
+  | 'distill_tap'
+  // ---- later features (src/audio/sfxFeatures.ts) ----
+  | 'shutter'
+  | 'blueprint_unfurl'
+  | 'legend_proc'
+  | 'buff_gain';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
