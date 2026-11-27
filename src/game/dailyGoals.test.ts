@@ -3,7 +3,7 @@ import { createBus } from '../core/context';
 import { DAYS_PER_SEASON } from '../sim/seasons';
 import { DAILY_COUNT, DAILY_KEEPSAKES, DAILY_POOL, DailyGoals, KEEPSAKES, SEASONAL_GOALS, dailyFor, isDailyGoalsSnapshot, keepsakeOf, seasonKeyOf, type GoalFacts } from './dailyGoals';
 
-const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0 };
+const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
 
 function rig(opts: { room?: number } = {}) {
   const bus = createBus();
@@ -142,6 +142,17 @@ describe('DailyGoals', () => {
     goals.sync();
     goals.sync();
     expect(got).toEqual(['stone_hut']);
+  });
+
+  it('starts a metric missing from an old save at the current number', () => {
+    const facts = { ...zero, brewed: 9 };
+    const g = new DailyGoals({ bus: createBus(), seed: 1, day: () => 1, facts: () => facts, give: () => 0 });
+    const old = { ...zero } as Partial<GoalFacts>;
+    delete old.brewed;
+    g.load({ ...g.toJSON(), base: old as GoalFacts, seasonBase: old as GoalFacts });
+    g.sync();
+    expect(g.toJSON().base.brewed).toBe(9);
+    expect(g.toJSON().seasonBase.brewed).toBe(9);
   });
 });
 

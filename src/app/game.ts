@@ -6,6 +6,7 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import type { SaveTools } from '../ui/menus/settings';
 import { newThermalGrid } from '../game/thermal';
 import { makePostcard, saveShot, sendPostcard } from './photo';
 import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
@@ -110,6 +111,8 @@ export interface GameOptions {
   /** "Save and quit to title" was chosen in the pause menu. */
   onQuit: () => void;
   onSettingsChange: (settings: Settings, key: keyof Settings) => void;
+  /** Back up the saved world from the pause menu (file or text; no restore while a world is open). */
+  saves?: SaveTools;
 }
 
 /** Number of chunk columns the world meshes within `r` chunks of the player (the streamer's view circle). */
@@ -268,6 +271,7 @@ export class Game {
         releasePointer: () => this.inputManager.releasePointerCapture(),
         pause: {
           onSettingsChange: opts.onSettingsChange,
+          saves: opts.saves,
           onQuit: opts.onQuit,
           dev: { get: () => state.mode === 'dev', set: (on) => state.setMode(on ? 'dev' : 'survival') },
         },

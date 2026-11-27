@@ -22,7 +22,7 @@ export type ScreenRequest =
   | { type: 'furnace'; x: number; y: number; z: number }
   | { type: 'machine'; x: number; y: number; z: number }
   | { type: 'crate'; x: number; y: number; z: number }
-  | { type: 'log' }
+  | { type: 'log'; /** Scroll this part of the Hearth Log into view. */ focus?: 'journal' | 'achievements' | 'goals' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
   /** A telegraph office or radio mast (docs/api/telegraph.md): the wire's news, the caravan by wire, the signal mode. */
