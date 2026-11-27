@@ -205,6 +205,8 @@ export class Winter {
       const voxel = world.getVoxel(x, y, z);
       const id = voxelId(voxel);
       const below = voxelId(world.getVoxel(x, y - 1, z));
+      // A tracked cell that is no longer ice (mined, built over) is forgotten, so a block put there later is never thawed.
+      if (this.shallow.size > 0 && id !== ICE) this.shallow.delete(`${x},${y},${z}`);
       // Only still (source) water freezes: a flowing or falling cell would thaw back as a source and grow a spring.
       if (freezing && voxel === WATER_SOURCE && below !== AIR && !this.drawnFrom(x, y, z)) {
         if (world.setVoxel(x, y, z, ICE, 'sim') && below !== WATER && this.shallow.size < SHALLOW_MAX) this.shallow.add(`${x},${y},${z}`);
