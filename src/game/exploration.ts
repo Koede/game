@@ -158,7 +158,10 @@ export class Exploration {
     if (view.charcoal < d.fuel) return `The trip to ${d.stone.name} needs ${d.fuel} charcoal.`;
     this.host.player.inventory.remove(WAYPOINT_FUEL_ITEM, d.fuel);
     const to = this.waypoints.landing(d.stone);
+    const from = this.host.player.position;
+    this.host.bus.emit('sfx', { name: 'ignition', x: from.x, y: from.y, z: from.z, pitch: 1.4 });
     this.teleport(to.x, to.y, to.z);
+    this.host.bus.emit('sfx', { name: 'upgrade', x: to.x, y: to.y, z: to.z });
     this.toast(`You step through to ${d.stone.name}.`, 'good');
     return null;
   }
@@ -243,6 +246,7 @@ export class Exploration {
       this.chests.add(serial);
       world.setVoxel(m.x, y, m.z, makeVoxel(blockByKey('crate').id), 'load');
       world.setEntity(treasureCrate(m, y));
+      this.host.bus.emit('sfx', { name: 'objective', x: m.x, y, z: m.z });
       this.toast('The ground nearby feels disturbed...', 'good');
     }
   }
