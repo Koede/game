@@ -315,4 +315,8 @@
   "telegraph_pole": 313,
   "telegraph_office": 314,
   "radio_mast": 315
+  "water_pipe": 313,
+  "hand_pump": 314,
+  "cistern": 315,
+  "sprinkler": 316
 }
