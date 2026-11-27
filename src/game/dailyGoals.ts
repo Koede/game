@@ -16,7 +16,8 @@ import { itemOrNull } from '../core/registry';
 import type { ItemAmount } from '../core/types';
 import { DAYS_PER_SEASON, SEASONS, seasonOf, type Season } from '../sim/seasons';
 
-export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored';
+export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'brewed' | 'cast' | 'jobs' | 'meals';
+/** The metrics every save has; the later ones are filled in from the current facts when missing. */
 const METRICS: readonly GoalMetric[] = ['made', 'placed', 'broken', 'drunk', 'explored'];
 export type GoalFacts = Record<GoalMetric, number>;
 
@@ -49,6 +50,10 @@ export const DAILY_POOL: readonly GoalSpec[] = [
   { id: 'd_drink_1', text: 'Drink something warm or cool', metric: 'drunk', target: 1, reward: item('white_dye', 2) },
   { id: 'd_drink_3', text: 'Drink 3 cups', metric: 'drunk', target: 3, reward: item('yellow_dye', 3) },
   { id: 'd_walk_800', text: 'Learn 800 blocks of new ground', metric: 'explored', target: 800, reward: item('green_dye', 2) },
+  { id: 'd_brew_2', text: 'Brew 2 cups at the hearth', metric: 'brewed', target: 2, reward: item('green_dye', 3) },
+  { id: 'd_cast_2', text: 'Pour 2 castings', metric: 'cast', target: 2, reward: item('black_dye', 3) },
+  { id: 'd_jobs_5', text: 'Let your machines finish 5 jobs', metric: 'jobs', target: 5, reward: item('blue_dye', 3) },
+  { id: 'd_meals_3', text: 'Eat 3 meals', metric: 'meals', target: 3, reward: item('yellow_dye', 2) },
   { id: 'd_walk_2500', text: 'Learn 2,500 blocks of new ground', metric: 'explored', target: 2500, reward: item('blue_dye', 3) },
 ];
 
@@ -264,7 +269,7 @@ export class DailyGoals {
   }
 
   private gain(g: GoalSpec, base: GoalFacts, f: GoalFacts): number {
-    return Math.max(0, f[g.metric] - base[g.metric]);
+    return Math.max(0, f[g.metric] - (base[g.metric] ?? f[g.metric]));
   }
 
   /** A day's bonus: a keepsake not yet owned (picked by the day's luck), else a bundle of planks. */
@@ -330,7 +335,7 @@ export class DailyGoals {
   }
 
   toJSON(): DailyGoalsSnapshot {
-    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0 };
+    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
     return {
       day: this.day,
       base: { ...(this.base ?? zero) },
@@ -348,11 +353,11 @@ export class DailyGoals {
 
   load(s: DailyGoalsSnapshot): void {
     this.day = s.day;
-    this.base = { ...s.base };
+    this.base = { ...s.base } as GoalFacts;
     this.done = new Set(s.done);
     this.bonusGiven = s.bonusGiven;
     this.season = s.season;
-    this.seasonBase = { ...s.seasonBase };
+    this.seasonBase = { ...s.seasonBase } as GoalFacts;
     this.seasonDone = new Set(s.seasonDone);
     this.paid = new Set(s.paid);
     this.owned = s.keepsakes.filter((id) => keepsakeOf(id) !== undefined);

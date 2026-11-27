@@ -3,7 +3,7 @@ import { createBus } from '../core/context';
 import { DAYS_PER_SEASON } from '../sim/seasons';
 import { DAILY_COUNT, DAILY_KEEPSAKES, DAILY_POOL, DailyGoals, KEEPSAKES, SEASONAL_GOALS, dailyFor, isDailyGoalsSnapshot, keepsakeOf, seasonKeyOf, type GoalFacts } from './dailyGoals';
 
-const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0 };
+const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
 
 function rig(opts: { room?: number } = {}) {
   const bus = createBus();
