@@ -312,11 +312,11 @@
   "steam_tank": 310,
   "tube_sender": 311,
   "tube_receiver": 312,
-  "telegraph_pole": 313,
-  "telegraph_office": 314,
-  "radio_mast": 315
   "water_pipe": 313,
   "hand_pump": 314,
   "cistern": 315,
-  "sprinkler": 316
+  "sprinkler": 316,
+  "telegraph_pole": 317,
+  "telegraph_office": 318,
+  "radio_mast": 319
 }
