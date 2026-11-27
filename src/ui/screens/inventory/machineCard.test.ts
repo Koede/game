@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { itemCard } from './slotViews';
 
-const rows = (item: string): Record<string, string> => Object.fromEntries(itemCard({ item, count: 1 }).rows);
+const rows = (item: string): Record<string, string> => Object.fromEntries(itemCard({ item, count: 1 }).rows ?? []);
 
 describe('machine and container cards carry their numbers', () => {
   it('a generator says what it makes, a consumer what it draws, a battery what it stores', () => {
