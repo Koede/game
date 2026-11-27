@@ -112,7 +112,7 @@ export class Exploration {
   }
 
   /** Forget stones that were broken (only judged where the chunk is loaded). */
-  private prune(): void {
+  prune(): void {
     for (const w of this.waypoints.all()) {
       if (this.host.world.isLoaded(w.x, w.z) && this.host.world.getBlock(w.x, w.y, w.z).key !== WAYPOINT_BLOCK) this.waypoints.remove(w.x, w.y, w.z);
     }

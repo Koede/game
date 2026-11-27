@@ -225,7 +225,7 @@ export class Game {
         objectives,
         survival,
         journal: state.journal,
-        mapMarkers: () => state.exploration.waypoints.all().map((w) => ({ x: w.x, z: w.z, name: w.name, kind: 'waypoint' as const })),
+        mapMarkers: () => (state.exploration.prune(), state.exploration.waypoints.all()).map((w) => ({ x: w.x, z: w.z, name: w.name, kind: 'waypoint' as const })),
         achievements: state.achievements,
         dailyGoals: state.dailyGoals,
         sim,

@@ -310,8 +310,8 @@
   "mill_wheel": 308,
   "windmill": 309,
   "steam_tank": 310,
-  "oak_sapling": 311,
-  "pine_sapling": 312
   "tube_sender": 311,
-  "tube_receiver": 312
+  "tube_receiver": 312,
+  "oak_sapling": 313,
+  "pine_sapling": 314
 }
