@@ -18,4 +18,15 @@ describe('paintMap', () => {
     expect(dark).toBeGreaterThan(seen);
     expect(out.every((_, i) => i % 4 !== 3 || out[i] === 255)).toBe(true);
   });
+
+  it('draws a cyan dot for a marker', () => {
+    const j = new Journal(() => 1);
+    j.explore(0, 0);
+    const size = 32;
+    const out = new Uint8ClampedArray(size * size * 4);
+    paintMap(j, 0, 0, size, () => 64, out, [{ x: 8, z: 0 }]);
+    let cyan = 0;
+    for (let i = 0; i < out.length; i += 4) if (out[i] === 90 && out[i + 1] === 220 && out[i + 2] === 235) cyan++;
+    expect(cyan).toBeGreaterThan(4);
+  });
 });

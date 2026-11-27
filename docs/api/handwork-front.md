@@ -94,6 +94,6 @@ speed; every pose is a function of what just happened**:
 - Parts are drawn only within 64 blocks and 64 instances per part; beyond that the quern shows its bedstone without the runner.
 - A tool stroke that counted double plays the same animation (sparks only grow). The anvil flash is a tinted plate, not
   emissive: the machine shader has no glow.
-- The Casting Bench pouring into set moulds and hot work from molten metal taken by hand are not built (casting.md); no mould
+- Hot work from molten metal taken by hand is not built (casting.md); the Casting Bench does pour into set moulds now; no mould
   is drawn on the bench.
 - First-run coach marks ("Drag here to look around") can sit on the portrait tap point and eat the first taps in a scripted run.

@@ -16,7 +16,7 @@ machine: item and fluid pipes never join them and they never join item or fluid 
 - A tube run that ends in open air (one joined arm, the cell across is not solid and not a member) leaks `100 x bar / 6` L/s.
 - `feed(x, y, z, dt)` takes a user's litres when its network holds the minimum pressure. `HearthSet.tick` asks for every nozzle of a lit furnace.
 - Saved as one `air` entity per network at its lowest cell; `resync` floods again from them (columns not loaded yet wait).
-- The shaft is not built yet: `AirHost.shaftRpm(x, y, z)` is the seam the steam work plugs into. Until then a Use on a compressor works the piston by
+- The shaft is wired (`state.ts` sets `shaftRpm` from the workshop); `AirHost.shaftRpm(x, y, z)` was the seam. Until then a Use on a compressor works the piston by
   hand (`crank`, 26 L a stroke, 0.4 s apart); a Use on any air block toasts its pressure (event `air:use`).
 
 ## Blast hearth rule

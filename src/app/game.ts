@@ -203,6 +203,7 @@ export class Game {
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.treeRenderer = new FallingTreeRenderer(this.renderer, (p) => this.renderer.spawnParticle(p));
+    this.offs.push(bus.on('tree:hit', (h) => this.treeRenderer?.chop(h)));
     this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs, reduceMotion: () => this.settings.reduceMotion });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
@@ -226,6 +227,7 @@ export class Game {
         objectives,
         survival,
         journal: state.journal,
+        mapMarkers: () => state.exploration.waypoints.all().map((w) => ({ x: w.x, z: w.z, name: w.name, kind: 'waypoint' as const })),
         achievements: state.achievements,
         dailyGoals: state.dailyGoals,
         sim,

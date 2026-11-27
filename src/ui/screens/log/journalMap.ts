@@ -20,7 +20,11 @@ export function mapScale(journal: Journal, px: number, pz: number, size: number)
   return s;
 }
 
-export function paintMap(journal: Journal, px: number, pz: number, size: number, heightAt: (x: number, z: number) => number, out: Uint8ClampedArray): { blocksPerPx: number } {
+/** A place to dot on the map: a waypoint stone. Drawn as a small cyan diamond, over the ground and under the player's cross. */
+export interface MapMarker { x: number; z: number }
+const MARKER: readonly number[] = [90, 220, 235];
+
+export function paintMap(journal: Journal, px: number, pz: number, size: number, heightAt: (x: number, z: number) => number, out: Uint8ClampedArray, markers: readonly MapMarker[] = []): { blocksPerPx: number } {
   const b = journal.bounds();
   const cx = b ? (b.minX + b.maxX) / 2 : px;
   const cz = b ? (b.minZ + b.maxZ) / 2 : pz;
@@ -43,6 +47,19 @@ export function paintMap(journal: Journal, px: number, pz: number, size: number,
         out[o + 2] = UNSEEN[2];
       }
       out[o + 3] = 255;
+    }
+  }
+  for (const m of markers) {
+    const mx = Math.round((m.x - x0) / blocksPerPx);
+    const mz = Math.round((m.z - z0) / blocksPerPx);
+    for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0, 2], [0, -2], [2, 0], [-2, 0]] as const) {
+      const x = mx + dx;
+      const z = mz + dz;
+      if (x < 0 || z < 0 || x >= size || z >= size) continue;
+      const o = (z * size + x) * 4;
+      out[o] = MARKER[0];
+      out[o + 1] = MARKER[1];
+      out[o + 2] = MARKER[2];
     }
   }
   // The player: a small bright cross.

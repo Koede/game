@@ -68,7 +68,16 @@ and the canopy levels from the branch wood at landing. Each log gives its normal
 
 ## Not done
 
-- Saplings: there is no sapling item yet, so a stump cannot be replanted, and stumps do not sprout in forests.
 - Fallen logs do not hurt creatures that walk into them; only the falling tree does damage.
 - NPCs are not hit by a falling tree (only the player and animals).
 - The tavern is not protected from rotting logs by name (only by block entities within 14 blocks).
+
+## Replanting (src/game/saplings.ts)
+
+- Oak and pine leaves drop their own sapling (8 percent a leaf). A sapling is a placeable cross block (`oak_sapling`, `pine_sapling`) that
+  needs grass or dirt under it.
+- After `GROW_DAYS` (3) a sapling with `HEADROOM` (9) clear blocks above becomes a real tree of ordinary log and leaf voxels (an oak of 4 to 6 logs,
+  a pine of 6 to 8). Under a roof it waits. Saved as `saplings`: [x, y, z, day, stump, pine] rows.
+- A felled tree's stump is tracked too: after 3 days, 20 percent a day, it puts a sapling on soil beside it; it gives up after 20 days.
+- Chopping a standing tree emits `tree:hit` (where, health left, total); the renderer sprays chips and a few leaves. Falling trees and fallen logs
+  are coloured per species (oak warm brown, pine dark red-brown) with a stable brightness jitter per block, not one flat colour.

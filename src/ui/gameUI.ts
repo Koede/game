@@ -50,6 +50,8 @@ export interface ScreenContext {
   readonly survival: Survival;
   /** The diary and explored map (docs/api/journal.md); absent in test harnesses. */
   readonly journal?: Journal;
+  /** Places worth a dot on the journal map: waypoint stones (src/game/exploration.ts). */
+  readonly mapMarkers?: () => readonly { x: number; z: number; name: string; kind: 'waypoint' }[];
   readonly achievements?: Achievements;
   readonly dailyGoals?: DailyGoals;
   /** The current simulation query (follows setSim). */
@@ -82,6 +84,7 @@ export interface GameUIDeps {
   /** The hard-winter goal to show in place of the guided goal while it is autumn or winter (src/game/winter.ts). */
   winterGoal?: () => { title: string; text: string } | null;
   journal?: Journal;
+  mapMarkers?: () => readonly { x: number; z: number; name: string; kind: 'waypoint' }[];
   achievements?: Achievements;
   dailyGoals?: DailyGoals;
   sim?: UISimQuery;
@@ -272,6 +275,7 @@ export class GameUI {
       objectives: d.objectives,
       survival: d.survival,
       journal: d.journal,
+      mapMarkers: d.mapMarkers,
       achievements: d.achievements,
       dailyGoals: d.dailyGoals,
       get sim() {

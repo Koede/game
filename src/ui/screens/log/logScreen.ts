@@ -19,7 +19,7 @@ export function createLogScreen(_request: { type: 'log' }, ctx: ScreenContext): 
   const view = new HearthLogView(ctx.objectives, () => ctx.weather);
   const dg = ctx.dailyGoals ? new DailyGoalsView(ctx.dailyGoals) : null;
   if (dg) view.el.append(dg.el);
-  const journal = ctx.journal ? new JournalView(ctx.journal, ctx.world, () => ctx.player.position) : null;
+  const journal = ctx.journal ? new JournalView(ctx.journal, ctx.world, () => ctx.player.position, ctx.mapMarkers) : null;
   if (journal) view.el.append(journal.el);
   const legends = ctx.journal ? new LegendsView(ctx.journal) : null;
   if (legends) view.el.append(legends.el);
