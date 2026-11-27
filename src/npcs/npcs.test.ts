@@ -13,7 +13,7 @@ import {
 
 } from './index';
 import { findPath, nearestCell, walkable } from './nav';
-import { DANCE_SPOTS, ROUTINES } from './routines';
+import { DANCE_SPOTS, FEST_SPOTS, ROUTINES } from './routines';
 import { danceFrame, dancePose, danceMoveIndex, LOOP_S, MOVES, SECTION_BEATS, LOOP_BEATS } from './choreo';
 import { BEAT_S, notesAt, TUNE } from './jukebox';
 import { FACES, faceOf } from './mood';
@@ -643,7 +643,7 @@ describe('routines', () => {
   });
 
   it('dancers gather in front of the jukebox, free floor, and Gruk stays out', () => {
-    for (const [id, [x, y, z]] of Object.entries(DANCE_SPOTS)) {
+    for (const [id, [x, y, z]] of Object.entries({ ...DANCE_SPOTS, ...FEST_SPOTS })) {
       const b = at(x, y, z);
       expect(b === undefined || b === 'air', `${id} dances in ${b}`).toBe(true);
       expect(at(x, y - 1, z), id).toBe('plank');

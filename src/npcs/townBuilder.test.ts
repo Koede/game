@@ -327,8 +327,8 @@ describe('town builder: rest days, unlocks, chance drops and the bay crate', () 
     const b = new TownBuilder();
     stockUp(b);
     // The budget a turned day or a skipped day earns is spent into cells at once, so the owed budget and the cells count together.
-    dayAt(b, g, 5, false);
-    dayAt(b, g, 7, false);
+    dayAt(b, g, 2, false);
+    dayAt(b, g, 4, false);
     expect(b.toJSON()!.cell + b.toJSON()!.owed).toBe(2 * DAY_BUDGET);
     const g2 = new Ground();
     const b2 = new TownBuilder();
