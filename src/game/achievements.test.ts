@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBus } from '../core/context';
 import { ACHIEVEMENTS, Achievements, isAchievementsSnapshot, titleStage, type ProgressFacts } from './achievements';
 
-const base: ProgressFacts = { age: 0, goalsDone: 0, made: 0, placed: 0, broken: 0, deaths: 0, day: 1, blocksSeen: 0, playTimeS: 0, drinks: 0 };
+const base: ProgressFacts = { age: 0, goalsDone: 0, made: 0, placed: 0, broken: 0, deaths: 0, day: 1, blocksSeen: 0, playTimeS: 0, drinks: 0, goalDone: () => false, flag: () => false };
 
 describe('Achievements', () => {
   it('has unique ids', () => {
@@ -35,5 +35,20 @@ describe('Achievements', () => {
 
   it('maps the age to a title stage', () => {
     expect([undefined, 0, 2, 9, -1].map(titleStage)).toEqual([0, 0, 2, 5, 0]);
+  });
+
+  it('unlocks event achievements once and flag/goal ones from the facts', () => {
+    const bus = createBus();
+    const toasts: string[] = [];
+    bus.on('toast', (t) => toasts.push(t.text));
+    const a = new Achievements(bus, () => ({ ...base, day: 3, flag: (f) => f === 'ignited', goalDone: (id) => id === 'make_steel' }));
+    bus.emit('photo:snap', {});
+    bus.emit('photo:snap', {});
+    expect(a.has('photographer')).toBe(true);
+    expect(toasts.filter((t) => t.includes('Say Cheese'))).toHaveLength(1);
+    expect(a.check().map((s) => s.id).sort()).toEqual(['ignited', 'steelmaker']);
+    a.dispose();
+    bus.emit('brew:done', { x: 0, y: 0, z: 0, drink: 'tea' });
+    expect(a.has('brewer')).toBe(false);
   });
 });

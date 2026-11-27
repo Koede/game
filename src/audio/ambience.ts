@@ -3,6 +3,7 @@ import type { BufferBank } from './buffers';
 import { type AmbienceLayer, buildArc, buildFire, buildIgnition, buildMachine, buildNight, buildWater, buildWind, Follow, Rig } from './ambienceLayers';
 import { type AmbienceState, type AmbienceTargets, computeTargets, createAmbienceTargets } from './ambienceState';
 import { buildBoil } from './ambienceBoil';
+import { buildTurning } from './ambienceTurning';
 import { buildGusts, buildRain } from './ambienceWeather';
 import { MUFFLE_OPEN_HZ } from './master';
 import type { AudioCtxLike, FilterLike, NodeLike } from './types';
@@ -32,6 +33,7 @@ export class Ambience {
     { level: (t) => t.rain, build: buildRain, layer: null },
     { level: (t) => t.gust, build: buildGusts, layer: null },
     { level: (t) => t.boil, build: buildBoil, layer: null },
+    { level: (t) => t.turning, build: buildTurning, layer: null },
   ];
   private lastUpdate = -Infinity;
 

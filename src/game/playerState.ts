@@ -44,6 +44,8 @@ export interface PlayerStats {
   broken: Record<string, number>;
   /** Cups drunk by drink item key (missing in saves made before brewing). */
   drunk?: Record<string, number>;
+  /** Things done by kind (brewed, cast, jobs, meals), for the daily goals; missing in older saves. */
+  acts?: Record<string, number>;
   deaths: number;
 }
 
@@ -140,7 +142,7 @@ export class PlayerState {
   /** World spawn (feet position): where the player starts and respawns without a home. */
   readonly spawn: Vec3;
   readonly buffs: PlayerBuffs = new Buffs();
-  readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, drunk: {}, deaths: 0 };
+  readonly stats: PlayerStats = { made: {}, placed: {}, broken: {}, drunk: {}, acts: {}, deaths: 0 };
   /**
    * Dev Mode (docs/api/dev-mode.md): no damage, no wear, free placing, optional flight. Set by GameState from the
    * world's mode; never saved with the player.
@@ -199,6 +201,10 @@ export class PlayerState {
       bus.on('item:made', (e) => bump(this.stats.made, e.item, e.count)),
       bus.on('block:placed', (e) => bump(this.stats.placed, blockOf(e.voxel).key, 1)),
       bus.on('block:broken', (e) => bump(this.stats.broken, blockOf(e.voxel).key, 1)),
+      bus.on('brew:done', () => bump((this.stats.acts ??= {}), 'brewed', 1)),
+      bus.on('cast:poured', () => bump((this.stats.acts ??= {}), 'cast', 1)),
+      bus.on('machine:job', () => bump((this.stats.acts ??= {}), 'jobs', 1)),
+      bus.on('player:ate', () => bump((this.stats.acts ??= {}), 'meals', 1)),
     ];
   }
 
@@ -477,6 +483,7 @@ export class PlayerState {
         placed: { ...this.stats.placed },
         broken: { ...this.stats.broken },
         drunk: { ...this.stats.drunk },
+        acts: { ...this.stats.acts },
         deaths: this.stats.deaths,
       },
       dead: this.dead,
@@ -521,6 +528,7 @@ export class PlayerState {
     this.stats.placed = { ...s.stats.placed };
     this.stats.broken = { ...s.stats.broken };
     this.stats.drunk = { ...s.stats.drunk };
+    this.stats.acts = { ...s.stats.acts };
     this.stats.deaths = s.stats.deaths;
     this.dead = s.dead;
     this.deathCause = s.deathCause;

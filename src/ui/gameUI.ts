@@ -19,6 +19,7 @@ import type { UIRoot } from './kit/root';
 import type { Window } from './kit/window';
 import { PauseMenu, type PageLink } from './menus/pause';
 import { createLookupScreen } from './screens/lookup/lookupScreen';
+import type { SaveTools } from './menus/settings';
 import { createDeathScreen } from './screens/death/deathScreen';
 import { createCreativeScreen } from './screens/creative/creativeScreen';
 import { createInventoryScreen } from './screens/inventory/inventoryScreen';
@@ -103,7 +104,7 @@ export interface GameUIDeps {
   guide?: HudDeps['guide'];
   campSpot?: HudDeps['campSpot'];
   /** When given, GameUI shows the kit's PauseMenu as its 'pause' screen. */
-  pause?: { onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
+  pause?: { saves?: SaveTools; onSettingsChange(settings: Settings, key: keyof Settings): void; onQuit(): void; dev?: { get(): boolean; set(on: boolean): void } };
 }
 
 interface Active {
@@ -182,6 +183,18 @@ export class GameUI {
       return true;
     });
     this.offs.push(() => document.removeEventListener('keydown', onKey), () => this.back.dispose());
+    // Every button and tab gives a click, unless something already made a sound for that press (so no double click).
+    let lastSfx = 0;
+    this.offs.push(deps.bus.on('sfx', () => (lastSfx = performance.now())));
+    const onPress = (ev: Event): void => {
+      const el = ev.target instanceof Element ? ev.target.closest('button, [role="tab"]') : null;
+      if (!el || (el as HTMLButtonElement).disabled) return;
+      setTimeout(() => {
+        if (performance.now() - lastSfx > 80) deps.bus.emit('sfx', { name: 'ui_click', volume: 0.6 });
+      }, 0);
+    };
+    root.el.addEventListener('click', onPress);
+    this.offs.push(() => root.el.removeEventListener('click', onPress));
 
     this.registerScreen('inventory', createInventoryScreen);
     this.registerScreen('workbench', createWorkbenchScreen);
@@ -192,7 +205,7 @@ export class GameUI {
     const pause = deps.pause;
     if (pause) {
       this.registerScreen('pause', () => {
-        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined, pages: this.pageLinks(deps) });
+        const menu = new PauseMenu(root, { settings: deps.settings, onSettingsChange: pause.onSettingsChange, dev: pause.dev, saves: pause.saves, onResume: () => undefined, onQuit: pause.onQuit, onTown: deps.town?.() ? () => deps.bus.emit('ui:open', { screen: { type: 'town' } }) : undefined, pages: this.pageLinks(deps) });
         menu.window.setSubtitle(deps.player.dev ? 'Dev Mode world' : 'Survival world');
         return { window: menu.window, refresh: () => undefined, dispose: () => undefined };
       });
@@ -204,6 +217,8 @@ export class GameUI {
     const open = (screen: ScreenRequest) => () => deps.bus.emit('ui:open', { screen });
     return [
       { id: 'log', label: 'Hearth Log', hint: 'Goals, ages and the forecast', keywords: 'objectives quests next goal progress weather', open: open({ type: 'log' }) },
+      { id: 'journal', label: 'Journal', hint: 'Diary pages, finds and legends', keywords: 'diary notes discoveries history', open: open({ type: 'log', focus: 'journal' }) },
+      { id: 'achievements', label: 'Achievements', hint: 'Milestones earned and still to find', keywords: 'medals trophies progress', open: open({ type: 'log', focus: 'achievements' }) },
       { id: 'notebook', label: 'Field Notebook', hint: 'Research, lore, aspects, noted things', keywords: 'research aspects lore notes scan magic goals', available: () => deps.player.inventory.has('field_notebook'), open: open({ type: 'notebook' }) },
       { id: 'workshop', label: 'Workshop Guide', hint: 'Parts, basin recipes and rules', keywords: 'engineer goggles tools parts', available: () => deps.player.inventory.has('engineer_goggles'), open: open({ type: 'workshop' }) },
       { id: 'lookup', label: 'What is this for?', hint: 'How any item is made, used and found', keywords: 'recipe recipes craft crafting ingredients uses made find item codex how do i make', open: open({ type: 'lookup' }) },

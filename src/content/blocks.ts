@@ -25,6 +25,9 @@ const FOLIAGE_DROPS: Drop[] = [
   { item: 'fiber', count: 1, chance: 0.3 },
   { item: 'stick', count: 1, chance: 0.15 },
 ];
+/** Leaves also shake out the odd sapling, so a felled forest can be replanted (src/game/saplings.ts). */
+const OAK_LEAF_DROPS: Drop[] = [...FOLIAGE_DROPS, { item: 'oak_sapling', count: 1, chance: 0.08 }];
+const PINE_LEAF_DROPS: Drop[] = [...FOLIAGE_DROPS, { item: 'pine_sapling', count: 1, chance: 0.08 }];
 
 /** An ore: one texture named after its key, pickaxe only, drops itself unless `extra.drops` says otherwise. */
 function ore(key: string, name: string, desc: string, hardness: number, minTier: number, age: number, extra: Partial<BlockSpec> = {}): BlockSpec {
@@ -130,8 +133,16 @@ const LEGACY_BLOCKS: BlockSpec[] = [
     hardness: 2.5, tool: 'axe', drops: [{ item: 'stick', count: [1, 2] }], textures: { side: 'pine_log_side', top: 'log_top' },
   },
   {
+    key: 'oak_sapling', name: 'Oak Sapling', desc: 'A young oak. Plant it on grass or dirt with open sky above and it grows into a tree in three days.',
+    shape: 'cross', hardness: 0.1, placeOn: ['grass', 'dirt'], textures: { all: 'oak_sapling' }, age: 0,
+  },
+  {
+    key: 'pine_sapling', name: 'Pine Sapling', desc: 'A young pine. Plant it on grass or dirt with open sky above and it grows into a tree in three days.',
+    shape: 'cross', hardness: 0.1, placeOn: ['grass', 'dirt'], textures: { all: 'pine_sapling' }, age: 0,
+  },
+  {
     key: 'oak_leaves', name: 'Oak Leaves', desc: 'Broad green leaves. Stripping them yields fiber and the odd stick.',
-    hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'oak_leaves' },
+    hardness: 0.3, drops: OAK_LEAF_DROPS, textures: { all: 'oak_leaves' },
   },
   {
     key: 'pine_log', name: 'Pine Log', desc: 'A resinous pine trunk. It splits, burns and chars exactly like oak.',
@@ -139,7 +150,7 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   },
   {
     key: 'pine_leaves', name: 'Pine Boughs', desc: 'Dense needled boughs. They give fiber and sticks just as oak leaves do.',
-    hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'pine_leaves' },
+    hardness: 0.3, drops: PINE_LEAF_DROPS, textures: { all: 'pine_leaves' },
   },
   {
     key: 'tall_grass', name: 'Tall Grass', desc: 'Long grass. Pull it up for fiber, and now and then a few wheat seeds.',

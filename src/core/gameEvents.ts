@@ -22,7 +22,7 @@ export type ScreenRequest =
   | { type: 'furnace'; x: number; y: number; z: number }
   | { type: 'machine'; x: number; y: number; z: number }
   | { type: 'crate'; x: number; y: number; z: number }
-  | { type: 'log' }
+  | { type: 'log'; /** Scroll this part of the Hearth Log into view. */ focus?: 'journal' | 'achievements' | 'goals' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
   /** A telegraph office or radio mast (docs/api/telegraph.md): the wire's news, the caravan by wire, the signal mode. */
@@ -50,6 +50,8 @@ export type ScreenRequest =
   | { type: 'distill_rig'; x: number; y: number; z: number };
 
 /** Every one-shot sound. src/audio synthesises all of them; anything may request one with the 'sfx' event. */
+export type FxBurstKind = 'splash' | 'dust' | 'snow' | 'sparkle' | 'hearts' | 'steam' | 'glow' | 'hit';
+
 export type SfxName =
   | 'dig_stone'
   | 'dig_dirt'
@@ -82,6 +84,9 @@ export type SfxName =
   | 'tower_bell'
   | 'age'
   | 'ui_click'
+  | 'coin'
+  | 'door_open'
+  | 'door_close'
   /** A soft bright note when good news appears as a toast. */
   | 'toast_good'
   /** A low soft double thud when a warning or bad news appears as a toast. */
@@ -186,7 +191,12 @@ export type SfxName =
   /** Liquid trickling through a tube or down a condenser while it runs. Positioned at the module. */
   | 'distill_trickle'
   /** A stopcock turned by hand on the separatory funnel. Positioned at the module. */
-  | 'distill_tap';
+  | 'distill_tap'
+  // ---- later features (src/audio/sfxFeatures.ts) ----
+  | 'shutter'
+  | 'blueprint_unfurl'
+  | 'legend_proc'
+  | 'buff_gain';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
@@ -194,6 +204,8 @@ export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
 export interface GameEvents {
   // ---- world ----
   /** A voxel changed (emitted by the world for every setVoxel). */
+  /** An axe blow landed on a standing tree: where, the health left (0 = it is going down) and of how much. */
+  'tree:hit': { x: number; y: number; z: number; left: number; total: number; pine: boolean };
   'block:changed': { x: number; y: number; z: number; from: Voxel; to: Voxel; source: ChangeSource };
   'chunk:loaded': { cx: number; cz: number };
   'chunk:unloaded': { cx: number; cz: number };
@@ -285,6 +297,8 @@ export interface GameEvents {
 
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */
+  /** A small one-off particle burst at a world point (render/emitters.ts `fxBurst`). */
+  'fx:burst': { kind: FxBurstKind; x: number; y: number; z: number; count?: number };
   'sfx': { name: SfxName; x?: number; y?: number; z?: number; volume?: number; pitch?: number };
 
   // ---- world overlays (UI asks, renderer draws) ----

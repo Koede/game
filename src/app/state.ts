@@ -13,6 +13,7 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
 import { watchLegendaries } from '../game/legendaryNotes';
+import { watchFinale } from '../game/finale';
 import { Survival } from '../game/survival';
 import { Thermal } from '../game/thermal';
 import { DailyGoals, isDailyGoalsSnapshot, type GoalFacts } from '../game/dailyGoals';
@@ -35,6 +36,7 @@ import { isWinch } from '../workshop/liftParts';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { Saplings } from '../game/saplings';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
 import { RADIO_MIN_W, Telegraph } from '../game/telegraph';
@@ -106,6 +108,8 @@ export class GameState {
   readonly caveWatch: CaveWatch;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Planted saplings and sprouting stumps (docs/api/felling.md). */
+  readonly saplings: Saplings;
   /** Boiler overpressure, chimney fires and storms on exposed wiring, each with its counterplay (docs/api/disasters.md). */
   readonly disasters: Disasters;
   /** Frozen rivers and the hard-winter arc (docs/api/winter.md). */
@@ -174,6 +178,7 @@ export class GameState {
     this.journal = new Journal(() => this.clock.day, bus);
     if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
     watchLegendaries(bus, () => this.player.inventory.slots, this.journal);
+    this.offs.push(watchFinale(bus));
     this.achievements = new Achievements(bus, () => this.progressFacts());
     if (save?.achievements && isAchievementsSnapshot(save.achievements)) this.achievements.load(save.achievements);
     this.dailyGoals = new DailyGoals({
@@ -308,6 +313,9 @@ export class GameState {
     });
     this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, held: () => this.player.heldStack()?.item ?? null, consumeHeld: () => { this.player.consumeHeld(); }, note: (text, key) => this.journal.add('note', text, key) });
     this.offs.push(() => this.caveWatch.dispose());
+    this.saplings = new Saplings({ world, bus, day: () => this.clock.day, rng: () => Math.random() });
+    world.loadExtra('saplings', (raw) => this.saplings.load(raw));
+    this.offs.push(world.persist('saplings', () => this.saplings.toJSON()), () => this.saplings.dispose());
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     this.disasters = new Disasters({
       world, bus, player: this.player,
@@ -528,6 +536,7 @@ export class GameState {
     this.exploration.tick(dt);
     this.caveWatch.tick(dt);
     this.weathering.tick(dt);
+    this.saplings.tick();
     this.disasters.tick(dt);
     this.telegraph.tick(dt);
     this.winter.tick(dt);
@@ -618,7 +627,7 @@ export class GameState {
     const st = this.player.stats;
     const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
     const fest = this.npcs.festivalRecord();
-    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns };
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns, brewed: st.acts?.brewed ?? 0, cast: st.acts?.cast ?? 0, jobs: st.acts?.jobs ?? 0, meals: st.acts?.meals ?? 0 };
   }
 
   /** What the achievements read. */
@@ -636,6 +645,8 @@ export class GameState {
       blocksSeen: this.journal.seenBlocks,
       playTimeS: this.playTimeS,
       drinks: Object.keys(st.drunk ?? {}).length,
+      goalDone: (id) => this.objectives.toJSON().completed.includes(id),
+      flag: (flag) => this.objectives.hasFlag(flag),
     };
   }
 
@@ -697,6 +708,7 @@ export class GameState {
     for (const off of this.offs.splice(0)) off();
     this.thermal.dispose();
     this.objectives.dispose();
+    this.achievements.dispose();
     this.journal.dispose();
     this.story.dispose();
     this.mobs.dispose();
