@@ -43,6 +43,24 @@ export const EMBER_ITEMS: ItemSpec[] = [
     desc: 'Steel plate over a padded lining. Carried, it takes 40% off every automaton blow and still keeps out the cold.',
     armour: { reduction: 0.4, warmthDrainMult: 0.5 },
   },
+  // Armour for the ages the first two pieces skip: Bronze before iron, then Current and Atomic above steel.
+  {
+    key: 'bronze_vest', name: 'Bronze Vest', category: 'misc', age: 1, stack: 1,
+    desc: 'Bronze plate over a padded coat. Carried, it takes 15% off every automaton blow: the first armour a Bronze Furnace can make.',
+    armour: { reduction: 0.15, warmthDrainMult: 0.5 },
+  },
+  {
+    key: 'arc_mail', name: 'Arc Mail', category: 'misc', age: 3, stack: 1,
+    desc: 'A steel cuirass with aluminium scales and a circuit in the lining. Carried, it takes half off every automaton blow.',
+    armour: { reduction: 0.5, warmthDrainMult: 0.5 },
+  },
+  {
+    key: 'superalloy_hauberk', name: 'Superalloy Hauberk', category: 'misc', age: 4, stack: 1,
+    desc: 'Superalloy plate over Arc Mail, with a quartz visor. Carried, it takes 60% off every automaton blow.',
+    armour: { reduction: 0.6, warmthDrainMult: 0.5 },
+  },
+  maul('superalloy', 'Superalloy', 5, 1600, 4, 15,
+    'A superalloy head with a magnet ring and a heavy battery. 15 damage, and the arc locks an automaton\'s joints for two seconds.', 2),
 ];
 
 export const EMBER_BLOCKS: BlockSpec[] = [

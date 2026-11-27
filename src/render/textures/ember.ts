@@ -172,8 +172,7 @@ function platedCoat(c: Canvas): void {
 }
 
 /** A steel breastplate with a centre ridge and flared shoulder guards over a padded lining. */
-function steelCuirass(c: Canvas): void {
-  const s = P.STEEL;
+function steelCuirass(c: Canvas, s: Ramp = P.STEEL): void {
   const k = P.CLOTH;
   c.sprite(
     [
@@ -268,6 +267,10 @@ export const EMBER_TEXTURES: PainterSet = {
   item_arc_maul: icon((c) => maul(c, P.ARC_STEEL, true)),
   item_plated_coat: icon(platedCoat),
   item_steel_cuirass: icon(steelCuirass),
+  item_bronze_vest: icon((c) => steelCuirass(c, P.BRONZE)),
+  item_arc_mail: icon((c) => steelCuirass(c, P.ARC_STEEL)),
+  item_superalloy_hauberk: icon((c) => steelCuirass(c, P.SUPERALLOY)),
+  item_superalloy_maul: icon((c) => maul(c, P.SUPERALLOY, true)),
   ward_beacon_side: paint(wardSide, false),
   ward_beacon_side_on: paint(wardSide, true),
   ward_beacon_top: paint(wardTop, false),
