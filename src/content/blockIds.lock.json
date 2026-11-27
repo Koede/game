@@ -310,10 +310,10 @@
   "mill_wheel": 308,
   "windmill": 309,
   "steam_tank": 310,
-  "lift_winch": 311,
-  "elevator_winch": 312,
-  "drawbridge": 313,
-  "bridge_deck": 314
   "tube_sender": 311,
-  "tube_receiver": 312
+  "tube_receiver": 312,
+  "lift_winch": 313,
+  "elevator_winch": 314,
+  "drawbridge": 315,
+  "bridge_deck": 316
 }
