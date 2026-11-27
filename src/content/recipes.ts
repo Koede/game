@@ -192,6 +192,7 @@ const FORGE: RecipeSpec[] = [
   forge(3, 'steel_maul', '4 steel_ingot, 2 stick', 1400),
   forge(3, 'plated_coat', '6 iron_plate, 1 padded_coat', 1100),
   forge(3, 'steel_cuirass', '6 steel_plate, 1 padded_coat', 1400),
+  forge(2, 'bronze_vest', '4 bronze_plate, 1 padded_coat', 900),
 
   // ---- Arc Furnace ----
   forge(4, 'silicon_wafer', '2 silica, 1 coke', 1700),
@@ -213,6 +214,7 @@ const FORGE: RecipeSpec[] = [
   forge(4, 'power_port', '2 copper_coil, 2 ceramic_insulator, 1 iron_plate', 1200),
   forge(4, 'steam_turbine', '1 chassis, 4 steel_plate, 4 copper_coil', 1600),
   // The Emberbound (spec 19.4): relic machines built around ember cores.
+  forge(4, 'arc_mail', '1 steel_cuirass, 4 aluminum_ingot, 2 circuit', 1900),
   forge(4, 'arc_maul', '2 steel_plate, 1 copper_coil, 1 ember_core, 1 battery', 1800),
   forge(4, 'ward_beacon', '2 ember_core, 1 circuit, 2 steel_plate, 1 glass', 1500),
 
@@ -220,6 +222,8 @@ const FORGE: RecipeSpec[] = [
   forge(5, '2 superalloy', '2 steel_ingot, 1 tungsten_rod, 1 aluminum_ingot', 2600),
   forge(5, 'power_drill', '2 superalloy, 2 tungsten_rod, 1 copper_coil, 1 battery', 2600),
   forge(5, 'lithium_bank', '6 lithium_salt, 2 superalloy, 2 circuit', 2400),
+  forge(5, 'superalloy_hauberk', '1 arc_mail, 4 superalloy, 1 fused_quartz', 2600),
+  forge(5, 'superalloy_maul', '3 superalloy, 1 magnet_ring, 1 battery, 2 stick', 2600),
   forge(5, 'shield_suit', '4 superalloy, 2 fused_quartz, 6 cord', 2400),
   forge(5, 'centrifuge', '1 chassis, 4 superalloy, 2 copper_coil, 2 circuit', 2600),
   forge(5, 'electrolyzer', '1 chassis, 2 superalloy, 2 fused_quartz, 1 circuit', 2600),
