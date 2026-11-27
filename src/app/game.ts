@@ -11,8 +11,10 @@ import { makePostcard, saveShot, sendPostcard } from './photo';
 import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
 import { PhotoUi } from '../ui/photoUi';
 import { browserStorage } from '../save/storage';
-import { AGES } from '../core/registry';
+import { AGES, itemOrNull } from '../core/registry';
 import { filterById, type PhotoFilter } from '../player/photoFilters';
+import { useVerb } from '../player/useVerb';
+import { WakeLockKeeper } from '../player/wakeLock';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -20,6 +22,8 @@ import { setCraftGate } from '../game/crafting';
 import { Magic } from '../magic/magic';
 import { MagicRenderer } from '../render/magic/magicRenderer';
 import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
+import { createTelegraphScreen } from '../ui/screens/telegraph/telegraphScreen';
+import { TelegraphWires } from '../render/telegraphWires';
 import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createTownScreen } from '../ui/screens/town/townScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
@@ -32,6 +36,9 @@ import { collectLeafDrops } from '../game/leafDrops';
 import { aimGroundItem, dropLabel } from '../game/groundAim';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
+import { LiftRenderer } from '../render/workshop/liftRenderer';
+import { LiftHud } from '../ui/liftHud';
+import { wrapLiftIntent } from '../workshop/lifts';
 import { AirshipRenderer } from '../render/vehicles/airshipRenderer';
 import { AirshipHud } from '../ui/airshipHud';
 import { wrapAirshipSource, type AirshipManager } from '../vehicles/airshipManager';
@@ -47,6 +54,7 @@ import { MobRenderer } from '../render/mobs';
 import { NightlifeFx } from '../render/nightlifeFx';
 import { SeasonFx } from '../render/seasonFx';
 import { leafFall } from '../render/seasonTint';
+import { BeeFx } from '../render/beeFx';
 import { critters, darkOf, type Critter, type NightEnv } from '../sim/nightlife';
 import { NPCS } from '../npcs/data';
 import { loadNpcArt } from '../render/npcs/art';
@@ -136,7 +144,9 @@ export class Game {
   readonly magicRenderer: MagicRenderer;
   /** Turning cogs, links, arms and pistons of the workshop (src/render/workshop). */
   readonly workshopRenderer: WorkshopRenderer;
+  readonly telegraphWires: TelegraphWires;
   readonly inputManager: InputManager;
+  private readonly wake = new WakeLockKeeper();
   readonly ui: GameUI;
   readonly controller: PlayerController;
   /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
@@ -149,6 +159,8 @@ export class Game {
   readonly workshop: Workshop;
   private readonly tractorRenderer: TractorRenderer;
   private readonly vehicleHud: VehicleHud;
+  private readonly liftRenderer: LiftRenderer;
+  private readonly liftHud: LiftHud;
   private readonly airshipRenderer: AirshipRenderer;
   private readonly airshipHud: AirshipHud;
   readonly audio: AudioEngine;
@@ -174,6 +186,7 @@ export class Game {
   private lastDraw = 0;
   private nightlifeFx!: NightlifeFx;
   private seasonFx!: SeasonFx;
+  private beeFx!: BeeFx;
   private readonly nightList: Critter[] = [];
   private nightEnv!: NightEnv;
   /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
@@ -214,9 +227,11 @@ export class Game {
     void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
     this.treeRenderer = new FallingTreeRenderer(this.renderer, (p) => this.renderer.spawnParticle(p));
+    this.offs.push(bus.on('tree:hit', (h) => this.treeRenderer?.chop(h)));
     this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs, reduceMotion: () => this.settings.reduceMotion });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
+    this.telegraphWires = new TelegraphWires(this.renderer);
     try {
       this.inputManager = new InputManager({
         container: opts.app,
@@ -258,6 +273,7 @@ export class Game {
       registerStationScreens(this.ui, sim);
       this.ui.registerScreen('town', (request, ctx) => createTownScreen(request as { type: 'town' }, ctx, () => state.npcs.townPage(), (id, room) => state.npcs.moveResident(id, room)));
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
+      this.ui.registerScreen('telegraph', (request, ctx) => (request.type === 'telegraph' ? createTelegraphScreen(request, ctx, state.telegraph) : null));
       this.ui.registerScreen('jobs', (request, ctx) => createJobsScreen(ctx, state.npcs, request.type === 'jobs' ? request.person : undefined));
       this.ui.registerScreen('waypoints', (request, ctx) => (request.type === 'waypoints' ? createWaypointScreen(ctx, state.exploration, request.stone) : null));
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
@@ -276,9 +292,10 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(wrapAirshipSource(this.inputManager, this.airships), this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(wrapAirshipSource(wrapLiftIntent(this.inputManager, state.lifts), this.airships), this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
       this.vehicles.bindPhysics(this.controller.physics);
       this.airships.bindPhysics(this.controller.physics);
+      state.lifts.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
@@ -286,6 +303,11 @@ export class Game {
       this.controller.interaction.beforeUse = (hit) => {
         // Picking a stop for a resident's job (docs/api/jobs.md): this Use sets it.
         if (state.npcs.pickingStop) return state.npcs.jobPick(hit) ? 'screen' : null;
+        // Telegraph offices and radio masts open the wire's screen (docs/api/telegraph.md).
+        if (hit && (hit.block.key === 'telegraph_office' || hit.block.key === 'radio_mast') && state.telegraph.node(hit.x, hit.y, hit.z)) {
+          bus.emit('ui:open', { screen: { type: 'telegraph', x: hit.x, y: hit.y, z: hit.z } });
+          return 'screen';
+        }
         if (hit) {
           const held = player.heldStack();
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
@@ -307,9 +329,12 @@ export class Game {
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
       this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
       this.seasonFx = new SeasonFx(world, (p) => renderer.spawnParticle(p));
+      this.beeFx = new BeeFx((p) => renderer.spawnParticle(p));
       this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
+      this.liftRenderer = new LiftRenderer(this.renderer, world);
+      this.liftHud = new LiftHud(root.layers.hud, () => this.input.touch);
       this.airshipRenderer = new AirshipRenderer(this.renderer, world);
       this.airshipHud = new AirshipHud(root.layers.hud, () => this.input.touch, () => this.airships.pressCourseKey());
       this.audio = new AudioEngine(bus, settings);
@@ -320,6 +345,7 @@ export class Game {
     this.treeRenderer.dispose();
       this.magicRenderer.dispose();
       this.workshopRenderer.dispose();
+    this.telegraphWires.dispose();
       this.mobRenderer.dispose();
     this.npcRenderer.dispose();
       this.renderer.dispose();
@@ -433,6 +459,8 @@ export class Game {
     this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;
     this.nightlifeFx.update(dt, this.nightEnv.dark < 0.15 ? [] : critters(this.nightEnv, player.position.x, player.position.z, this.nightList));
     this.seasonFx.update(dt, leafFall(clock.day + clock.timeOfDay), player.position.x, player.position.y, player.position.z);
+    // Bees round the settled hives while they fly (src/sim/apiary.ts).
+    this.beeFx.update(dt, this.state.sim.buzzingHives(), player.position.x, player.position.z);
   }
 
   /** A frame while the loading screen is up: stream chunks and draw behind it, nothing moves. */
@@ -479,9 +507,11 @@ export class Game {
       this.controller.update(dt);
       if (tractor && tractorFrom && this.vehicles.driving === tractor) this.boostTractor(tractor, tractorFrom);
       if (followRide(state.player, this.workshop.onRide())) this.controller.physics.reset();
+      state.lifts.carry();
       const ticks = this.step.advance(dt);
       for (let i = 0; i < ticks; i++) this.tickOnce();
     }
+    this.wake.update(this.settings.keepAwake && this.input.touch && !paused);
     const p = state.player;
     // Nothing moves while paused: chunks stream again on resume.
     if (!paused) state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
@@ -489,12 +519,14 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.showUseVerb();
     this.renderer.setGridOverlay(gridOverlayFor(state.sim, p.heldStack()?.item ?? null, p.position.x, p.eyeY, p.position.z));
     this.updateHeatView(dt);
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
     showRodAura(this.ui.hud, this.magic.rodReading());
     this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
     this.vehicleHud.update(this.vehicles.status());
+    this.liftHud.update(state.lifts.status());
     this.airshipHud.update(this.airships.status());
     this.ui.frame(dt);
     const motions = this.workshop.contra.motions();
@@ -506,12 +538,14 @@ export class Game {
       this.npcRenderer.reduceMotion = this.settings.reduceMotion;
       this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
+      this.liftRenderer.update(state.lifts.views());
       this.airshipRenderer.update(paused ? 0 : dt, this.airships.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       this.treeRenderer.update(this.trees.trees(), this.trees.logs());
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
+      this.telegraphWires.update(this.state.telegraph);
       this.drawNightlife(paused ? 0 : dt);
       this.renderer.render(paused ? 0 : dt);
       if (this.shotPending) {
@@ -596,6 +630,17 @@ export class Game {
   private magicLabel(x: number, y: number, z: number, key: string): string | null {
     const m = this.magic;
     return m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+  }
+
+  /** The touch Use button says what a press does (Open, Eat, Place...); cheap, and a no-op without touch. */
+  private showUseVerb(): void {
+    if (!this.input.touch) return;
+    const p = this.state.player;
+    const held = p.heldStack();
+    const animal = this.controller.targetAnimal !== null;
+    this.inputManager.setUseLabel(
+      useVerb({ person: !animal && this.controller.personAimed() !== null, block: animal ? null : (this.controller.target?.block ?? null), animal, held: held ? itemOrNull(held.item) : null, placeArmed: this.inputManager.placeArmed }),
+    );
   }
 
   /** A drop lying under the aim: the crosshair names it first (the name and rarity last shown, as "text|rarity"). */
@@ -769,10 +814,13 @@ export class Game {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.wake.dispose();
     for (const off of this.offs) off();
     this.offs.length = 0;
     this.vehicleHud.dispose();
     this.tractorRenderer.dispose();
+    this.liftHud.dispose();
+    this.liftRenderer.dispose();
     this.airshipHud.dispose();
     this.airshipRenderer.dispose();
     this.ui.dispose();
@@ -784,6 +832,7 @@ export class Game {
     this.treeRenderer.dispose();
     this.magicRenderer.dispose();
     this.workshopRenderer.dispose();
+    this.telegraphWires.dispose();
     this.mobRenderer.dispose();
     this.npcRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.

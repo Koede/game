@@ -39,10 +39,14 @@ describe('crafting', () => {
       // (The Bronze workshop pieces are made at the Bronze Furnace now: src/content/recipesWorkshop.ts.)
       // Glassware (src/content/itemsGlass.ts).
       'water_beaker', 'water_vial',
+      // Bees and pollination (src/content/areas/bees.ts; the first area file by name).
+      'beehive', 'bee_smoker', 'honey', 'beeswax_candle',
       // Decorating (src/content/areas/decor.ts; area files load in name order, decor before synergy).
       'dining_table', 'plank_bench', 'bookshelf',
       // Hen eggs (src/content/areas/farm_eggs.ts).
       'dough_egg',
+      // Ice uses (src/content/areas/farm_ice.ts).
+      'melt_ice', 'berry_ice',
       // Goat milk and wool (src/content/areas/synergy_animals.ts; area files load in name order).
       'shears', 'milk_tea', 'milk_coffee', 'dough_milk', 'padded_coat_wool', 'bellows_wool', 'wool_bedding',
       // Tool-and-block synergy (src/content/areas/synergy_tools.ts).

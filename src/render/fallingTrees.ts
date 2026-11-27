@@ -18,6 +18,11 @@ export interface TreeScene {
 
 const LOG_COLOUR = new THREE.Color(0x6b4a2b);
 const LEAF_COLOUR = new THREE.Color(0x3f7a32);
+/** Per-species colours: oak is warm brown under bright leaves, pine is dark and reddish under blue-green needles. */
+const BARK: Record<string, THREE.Color> = { oak_log: LOG_COLOUR, pine_log: new THREE.Color(0x5a3a26) };
+const FOLIAGE: Record<string, THREE.Color> = { oak_log: LEAF_COLOUR, pine_log: new THREE.Color(0x2c5a3a) };
+/** A stable 0.8..1.2 brightness for the i-th cell, so bodies read as bark and leaf clumps and not as flat slabs. */
+const jitter = (i: number, salt: number): number => 0.8 + 0.4 * (((Math.imul(i + salt, 2654435761) >>> 8) & 255) / 255);
 const CUT_COLOUR = new THREE.Color(0xd2a46a);
 const CUBE_SCALE = 0.98;
 /** The cut end is rounded: a smaller block on the tip of a fallen log. */
@@ -95,6 +100,26 @@ export class FallingTreeRenderer {
     this.group.removeFromParent();
   }
 
+  /** Wood chips off the struck face and a few leaves shaken loose from the crown; a harder blow (less health left) sprays more. */
+  chop(h: { x: number; y: number; z: number; left: number; total: number; pine: boolean }): void {
+    if (!this.spawn) return;
+    const bark = h.pine ? BARK.pine_log : BARK.oak_log;
+    const leaf = h.pine ? FOLIAGE.pine_log : FOLIAGE.oak_log;
+    const n = 5 + Math.round(5 * (1 - h.left / Math.max(1, h.total)));
+    for (let i = 0; i < n + 4; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const chip = i < n;
+      const c = chip ? bark : leaf;
+      this.spawn({
+        x: h.x + 0.5 + Math.cos(a) * 0.45, y: chip ? h.y + 0.6 + (i % 3) * 0.2 : h.y + 3 + (i % 4), z: h.z + 0.5 + Math.sin(a) * 0.45,
+        vx: Math.cos(a) * (chip ? 1.6 : 0.5), vy: chip ? 1.6 + (i % 3) * 0.4 : -0.3, vz: Math.sin(a) * (chip ? 1.6 : 0.5),
+        life: chip ? 0.6 : 1.4, size: chip ? 0.1 : 0.14, sizeEnd: chip ? 0.05 : 0.1,
+        r: c.r, g: c.g, b: c.b, r2: c.r * 0.8, g2: c.g * 0.8, b2: c.b * 0.8, alpha: 1,
+        gravity: chip ? 9 : 2.5, drag: 0.4, look: ParticleLook.Puff, fog: 0.2,
+      });
+    }
+  }
+
   /** A puff of dust and small chips where a felled tree hits the ground. */
   private dust(at: { x: number; y: number; z: number }): void {
     if (!this.spawn) return;
@@ -155,7 +180,9 @@ export class FallingTreeRenderer {
       const l = cellLocal(c, tree.pivot);
       this.local.makeTranslation(l.lat, l.a, l.s);
       mesh.setMatrixAt(i, this.local);
-      mesh.setColorAt(i, this.colour.copy(i < tree.trunk.length ? LOG_COLOUR : LEAF_COLOUR));
+      const wood = i < tree.trunk.length;
+      this.colour.copy(wood ? BARK[tree.logKey] ?? LOG_COLOUR : FOLIAGE[tree.logKey] ?? LEAF_COLOUR).multiplyScalar(wood ? (i % 2 === 0 ? 1.08 : 0.92) : jitter(i, 7));
+      mesh.setColorAt(i, this.colour);
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
@@ -172,7 +199,7 @@ export class FallingTreeRenderer {
       this.local.makeTranslation(0, i + 0.5, 0);
       if (tip) this.local.multiply(this.scale.makeScale(CUT_END_SCALE, CUT_END_SCALE, CUT_END_SCALE));
       mesh.setMatrixAt(i, this.local);
-      mesh.setColorAt(i, this.colour.copy(tip ? CUT_COLOUR : LOG_COLOUR));
+      mesh.setColorAt(i, this.colour.copy(tip ? CUT_COLOUR : BARK[log.logKey] ?? LOG_COLOUR).multiplyScalar(tip ? 1 : i % 2 === 0 ? 1.08 : 0.92));
     }
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;

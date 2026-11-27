@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FEEL_SFX } from './sfxFeel';
 import { DISTILL_SFX } from './sfxDistill';
 import { MAGIC_SFX } from './sfxMagic';
 import type { SfxName } from '../core/gameEvents';
@@ -22,7 +23,7 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
     // 72 before Essentia & Research added six (src/audio/sfxMagic.ts); the distillery adds three (src/audio/sfxDistill.ts).
-    expect(SFX_NAMES.length).toBe(72 + 5 /* surface footsteps, sfxWorld.ts */ + Object.keys(MAGIC_SFX).length + Object.keys(DISTILL_SFX).length + 3 + 4); // + toast_good, toast_warn, fish_cast and fish_bite (sfxFeel.ts), + jukebox_note (sfxCues.ts), + tree_creak and tree_chop (sfxVehicle.ts)
+    expect(SFX_NAMES.length).toBe(72 + 5 /* surface footsteps, sfxWorld.ts */ + Object.keys(MAGIC_SFX).length + Object.keys(DISTILL_SFX).length + 4 + Object.keys(FEEL_SFX).length); // + every sound in sfxFeel.ts, + jukebox_note and tower_bell (sfxCues.ts), + tree_creak and tree_chop (sfxVehicle.ts)
     expect(Object.keys(DISTILL_SFX).sort()).toEqual(['distill_bubble', 'distill_chime', 'distill_drip', 'distill_tap', 'distill_trickle']);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);

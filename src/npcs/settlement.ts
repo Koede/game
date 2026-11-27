@@ -184,7 +184,7 @@ export class Settlement {
    * The nights between the last roll and `day`, rolled one by one (sleeping and time away count each night). `line` is read before
    * each night, so an arrival changes who is next; `arrive` applies it. Returns the arrivals in order.
    */
-  advance(day: number, rooms: () => readonly RoomInput[], line: () => readonly Newcomer[], rng: () => number, arrive: (a: Arrival, day: number) => void): Arrival[] {
+  advance(day: number, rooms: () => readonly RoomInput[], line: () => readonly Newcomer[], rng: () => number, arrive: (a: Arrival, day: number) => void, draw: (nightDay: number) => number = () => 1): Arrival[] {
     if (this.last === 0 || day < this.last) {
       this.last = day;
       return [];
@@ -194,7 +194,7 @@ export class Settlement {
     const out: Arrival[] = [];
     for (let k = 1; k <= n; k++) {
       const nightDay = day - n + k;
-      const r = rollNight({ arrived: [] }, this.freeRooms(nightDay, rooms()), line(), rng);
+      const r = rollNight({ arrived: [] }, this.freeRooms(nightDay, rooms()), line(), rng, draw(nightDay));
       if (!r.arrival) continue;
       this.occ[r.arrival.personId] = r.arrival.roomId;
       this.log.push([r.arrival.personId, r.arrival.roomId, nightDay]);
@@ -313,7 +313,7 @@ export function townContentment(
     }
     const tags = new Set(tagsAt(id, spot));
     // Quiet: no forge or fumes about, and few housed neighbours.
-    if (!tags.has('forge') && !tags.has('fumes') && residentsNearby <= 2) tags.add('quiet');
+    if (!tags.has('forge') && !tags.has('fumes') && !tags.has('noise') && residentsNearby <= 2) tags.add('quiet');
     out[id] = contentment(id, { neighbours, tags, residentsNearby, warmth: warmthAt?.(id, spot) });
   }
   return out;
@@ -325,12 +325,16 @@ const BLOCK_TAGS: ReadonlyArray<readonly [Tag, (key: string) => boolean]> = [
   ['forge', (k) => k.includes('anvil') || k.includes('blast') || k.startsWith('arc_') || k.startsWith('plasma_')],
   ['fumes', (k) => k.includes('still') || k.includes('distill') || k === 'boiling_flask'],
   ['hearth', (k) => k.startsWith('furnace') || k === 'campfire'],
+  // Power and light (docs/api/contentment.md): a lit lamp pleases some, a running engine annoys others.
+  ['lights', (k) => k === 'lamp' || k === 'kerosene_lamp'],
+  ['noise', (k) => k === 'steam_engine' || k === 'combustion_engine' || k === 'burner_generator' || k === 'dynamo'],
 ];
+const ACTIVE_TAGS: ReadonlySet<Tag> = new Set<Tag>(['lights', 'noise']);
 /** How many matching blocks make a surrounding count (a single leaf is not a wood). */
-const TAG_MIN: Readonly<Partial<Record<Tag, number>>> = { trees: 6, water: 3 };
+const TAG_MIN: Readonly<Partial<Record<Tag, number>>> = { trees: 6, water: 3, noise: 2 };
 
 /** The surrounding tags at a spot, from samples of the blocks around it (radius 9, every third column, y -2..5). */
-export function sampleTags(blockAt: (x: number, y: number, z: number) => string | null, at: Spot): Set<Tag> {
+export function sampleTags(blockAt: (x: number, y: number, z: number) => string | null, at: Spot, activeAt?: (x: number, y: number, z: number) => boolean): Set<Tag> {
   const counts: Partial<Record<Tag, number>> = {};
   const bx = Math.floor(at.x);
   const by = Math.floor(at.y);
@@ -340,7 +344,12 @@ export function sampleTags(blockAt: (x: number, y: number, z: number) => string 
       for (let dy = -2; dy <= 5; dy++) {
         const key = blockAt(bx + dx, by + dy, bz + dz);
         if (!key || key === 'air') continue;
-        for (const [tag, test] of BLOCK_TAGS) if (test(key)) counts[tag] = (counts[tag] ?? 0) + 1;
+        for (const [tag, test] of BLOCK_TAGS) {
+          if (!test(key)) continue;
+          // A lamp only lights and an engine only clatters while it is on (when the caller can tell).
+          if (activeAt && ACTIVE_TAGS.has(tag) && !activeAt(bx + dx, by + dy, bz + dz)) continue;
+          counts[tag] = (counts[tag] ?? 0) + 1;
+        }
       }
     }
   }

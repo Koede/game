@@ -19,6 +19,8 @@ import { windAt } from '../sim/machines';
 import { suFromW, windmillW } from '../core/energy';
 import { MECH_TWINS } from '../content/itemsWorkshop';
 import { NON_KINETIC, PART_DEFS } from '../content/itemsWorkshopParts';
+import { LIFT_PARTS } from './liftParts';
+import { Drawbridges } from './drawbridge';
 import type { GroundItems } from '../game/groundItems';
 import { Contraptions, CONTRAPTION_KINDS } from './contraption';
 import { SIGNAL_KINDS, Signals } from './signals';
@@ -41,7 +43,7 @@ export const STEAM_ROTOR = { rpm: 16, capacity: 4 };
 /** Clockwork motor: rpm, capacity, seconds per wind and the most it holds. */
 export const CLOCKWORK = { rpm: 24, capacity: 48, windS: 30, maxS: 120 };
 /** Stress capacity factor of an oiled network: Heavy Residue (the distillery's lube base) and pine resin. */
-export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1.1, s: 300 } } as const;
+export const LUBE = { residue: { factor: 1.25, s: 600 }, pine_resin: { factor: 1.1, s: 300 }, lubricant: { factor: 1.4, s: 900 } } as const;
 /** Furthest a chain / belt link reaches along a line, blocks. */
 export const LINK_RANGE: Record<string, number> = { chain_sprocket: 16, belt_pulley: 9 };
 /** Settings that Use cycles: how many states each part has. */
@@ -55,7 +57,7 @@ export const MACHINE_BUFFER = 16;
 /** Most parts in one network (keeps a runaway search cheap). */
 export const MAX_NET = 512;
 
-const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'hand_pump', 'dynamo']);
+const KINETIC = new Set(['hand_crank', 'drive_shaft', 'conveyor_belt', ...MECH_TWINS.map((t) => t.block), ...PART_DEFS.filter((d) => !NON_KINETIC.has(d.key)).map((d) => d.key), ...POWERED, 'shear_pin', 'flywheel', 'differential', 'treadwheel', 'air_compressor', 'hand_pump', 'dynamo', ...LIFT_PARTS]);
 const TWIN = new Map(MECH_TWINS.map((t) => [t.block, t]));
 
 export const isKinetic = (key: string): boolean => KINETIC.has(key);
@@ -174,9 +176,15 @@ export class Workshop {
   readonly logi: Logistics;
   readonly signals: Signals;
   readonly contra: Contraptions;
+  /** Drawbridges (docs/api/lifts.md): lay and lift their decks while their shaft turns. */
+  readonly bridges: Drawbridges;
+  /** More goggles text for a part (the lifts add depth and landing); set by Game. */
+  partNote: ((x: number, y: number, z: number, kind: string) => string | null) | null = null;
   private holding = false;
   /** Time of day text for the clockface; set by Game. */
   clockText: (() => string) | null = null;
+  /** The sun's time of day (0..1, 0 = sunrise) for clock towers and the timers they wind; set by Game. */
+  timeOfDay: (() => number) | null = null;
   /** World time for the wind vane. S10 assigns `() => clock.worldTimeS`. Until then the vane uses time since this workshop loaded. */
   timeS: (() => number) | null = null;
   /** Puts a returned punched card in the pack. S10 assigns `(item, n) => player.inventory.add(item, n)`. Until then the card drops. */
@@ -188,7 +196,7 @@ export class Workshop {
   private editing: string | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus, private readonly ground: GroundItems, private readonly rng: () => number = Math.random) {
-    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn });
+    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn, timeOfDay: () => this.timeOfDay?.() ?? null });
     this.logi = new Logistics({
       world, ground, bus, rng,
       gate: (x, y, z) => this.signals.gate(x, y, z),
@@ -211,6 +219,12 @@ export class Workshop {
           this.holding = false;
         }
       },
+    });
+    this.bridges = new Drawbridges({
+      world, bus,
+      rpmAt: (x, y, z) => this.speed.get(k3(x, y, z)) ?? 0,
+      signalled: (x, y, z) => !this.signals.gate(x, y, z) || this.signals.near(x, y, z),
+      lit: (x, y, z) => this.signals.near(x, y, z),
     });
     this.off = bus.on('block:changed', (e) => this.noteBlock(e.x, e.y, e.z));
     liveRef = this;
@@ -254,6 +268,7 @@ export class Workshop {
     this.logi.relocate(map);
     this.signals.relocate(map);
     this.contra.relocate(map);
+    this.bridges.relocate(map);
   }
 
   private noteBlock(x: number, y: number, z: number): void {
@@ -263,6 +278,7 @@ export class Workshop {
     this.logi.noteBlock(x, y, z, kind);
     this.contra.noteBlock(x, y, z, kind);
     this.signals.noteBlock(x, y, z, kind);
+    this.bridges.noteBlock(x, y, z, kind);
     if (KINETIC.has(kind)) {
       const was = this.parts.get(key);
       if (!was || was.kind !== kind) {
@@ -302,6 +318,7 @@ export class Workshop {
     }
     const part = this.parts.get(key) ?? (KINETIC.has(this.world.getBlock(x, y, z).key) ? (this.noteBlock(x, y, z), this.parts.get(key)) : undefined);
     if (!part) return null;
+    if (part.kind === 'drawbridge' && !(held && blockOrNull(held.item))) return this.bridges.use(x, y, z);
     if (part.kind === 'hand_crank') {
       if (held && blockOrNull(held.item)) return null; // a held block is placed against it as usual
       const first = !this.cranks.has(key) || (this.cranks.get(key) ?? 0) <= 0;
@@ -315,8 +332,8 @@ export class Workshop {
       this.bus.emit('toast', { text: `Wound: ${Math.round(this.wound.get(key) ?? 0)} s of turning`, kind: 'info' });
       return 'worked';
     }
-    if (held && (held.item === 'residue_canister' || held.item === 'pine_resin') && part.kind !== 'hand_crank' && !blockOrNull(held.item)) {
-      const lube = held.item === 'residue_canister' ? LUBE.residue : LUBE.pine_resin;
+    if (held && (held.item === 'residue_canister' || held.item === 'pine_resin' || held.item === 'lubricant_canister') && part.kind !== 'hand_crank' && !blockOrNull(held.item)) {
+      const lube = held.item === 'residue_canister' ? LUBE.residue : held.item === 'lubricant_canister' ? LUBE.lubricant : LUBE.pine_resin;
       for (const k of this.netMembers(key)) {
         this.lube.set(k, lube.s);
         this.lubeFactor.set(k, lube.factor);
@@ -385,6 +402,7 @@ export class Workshop {
     this.work(dt);
     this.logi.tick(dt);
     this.contra.tick(dt);
+    this.bridges.tick(dt);
   }
 
   /** Keys of the part and everything it touches or is linked to (clutches and all). */
@@ -986,6 +1004,10 @@ export class Workshop {
     if (p.kind === 'mill_wheel') parts.push(this.riverAt?.(p.x, p.y, p.z) ? 'river turning it' : 'no flow: set it in moving water (frozen rivers stop it)');
     if (p.kind === 'steam_rotor') parts.push(this.steamAt?.(p.x, p.y - 1, p.z) ? 'steam up' : 'no steam: stand it on a boiling Copper Steam Kettle');
     if (p.kind === 'clockwork_motor') parts.push(`${Math.round(this.wound.get(key) ?? 0)} s wound`);
+    const bridge = p.kind === 'drawbridge' ? this.bridges.describe(x, y, z) : null;
+    if (bridge) parts.push(bridge);
+    const note = this.partNote?.(x, y, z, p.kind);
+    if (note) parts.push(note);
     const m = this.machines.get(key);
     if (m) {
       const held = Object.entries(m.buffer).map(([i, n]) => `${n} ${itemOrNull(i)?.name ?? i}`);

@@ -5,8 +5,8 @@ import { footprintOf, rotateCell, TOWN_STAGES, TOWN_TEMPLATES, townTemplate } fr
 describe('town templates', () => {
   const all = Object.values(TOWN_TEMPLATES);
 
-  it('has the five first templates: storage bay, cottage, workshop, well and plaza, lamp post', () => {
-    expect(Object.keys(TOWN_TEMPLATES).sort()).toEqual(['cottage', 'lamp_post', 'storage_bay', 'well_plaza', 'workshop']);
+  it('has the first templates: storage bay, cottage, workshop, well and plaza, lamp post, clock tower', () => {
+    expect(Object.keys(TOWN_TEMPLATES).sort()).toEqual(['clock_tower', 'cottage', 'lamp_post', 'storage_bay', 'well_plaza', 'workshop']);
     expect(townTemplate('nope')).toBeNull();
     expect(townTemplate('constructor')).toBeNull();
   });

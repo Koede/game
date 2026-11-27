@@ -30,11 +30,16 @@ import { Magic } from '../magic/magic';
 import { VehicleManager } from '../vehicles';
 import { AirshipManager } from '../vehicles/airshipManager';
 import { Workshop } from '../workshop/workshop';
+import { Lifts } from '../workshop/lifts';
+import { isWinch } from '../workshop/liftParts';
 import { CaveWatch } from '../game/caveWatch';
 import { Exploration } from '../game/exploration';
 import { Weathering } from '../game/weathering';
+import { Saplings } from '../game/saplings';
 import { Disasters, isDisastersSnapshot, type BoilerProbe, type FlueProbe } from '../game/disasters';
 import { Winter } from '../game/winter';
+import { RADIO_MIN_W, Telegraph } from '../game/telegraph';
+import { caravanHere } from '../game/caravan';
 import { setTemperatureProvider } from '../sim/temperature';
 import type { Blueprint } from '../game/blueprint';
 import { grantKnownPlans, tickJobs, type PlanSource } from '../game/blueprintBook';
@@ -94,12 +99,16 @@ export class GameState {
   readonly magic: Magic;
   /** The Bronze workshop (docs/api/workshop.md). */
   readonly workshop: Workshop;
+  /** Lift cages and steam elevators (docs/api/lifts.md); the drawbridges live in the workshop. */
+  readonly lifts: Lifts;
   /** Waypoint stones, treasure maps and fishing (docs/api/exploration.md). */
   readonly exploration: Exploration;
   /** Foul air snuffs torches; cave finds go in the journal. */
   readonly caveWatch: CaveWatch;
   /** Seasons announcements and rain filling buckets (docs/api/seasons.md). */
   readonly weathering: Weathering;
+  /** Planted saplings and sprouting stumps (docs/api/felling.md). */
+  readonly saplings: Saplings;
   /** Boiler overpressure, chimney fires and storms on exposed wiring, each with its counterplay (docs/api/disasters.md). */
   readonly disasters: Disasters;
   /** Frozen rivers and the hard-winter arc (docs/api/winter.md). */
@@ -112,6 +121,8 @@ export class GameState {
   readonly pets: Pets;
   /** The camp, tavern and their people (docs/api/npcs.md, docs/plans/just-you-and-orrin.md). */
   readonly npcs: NpcManager;
+  /** Telegraph poles, offices and radio masts: storm warnings, town news, remote signals (docs/api/telegraph.md). */
+  readonly telegraph: Telegraph;
   readonly seedText: string | null;
   /** Things the player should hear once about the load (damaged modules, items from an old version); flushed on the first tick. */
   private notices: string[] = [];
@@ -189,6 +200,7 @@ export class GameState {
       },
       knockPlayer: (vx, vy, vz) => combat.knock(vx, vy, vz),
       sky: () => ({ storm: this.weather.state.kind === 'storm', moonPhase: this.clock.moonPhase }),
+      age: () => this.objectives.age,
     });
     this.mobs.skyFn = (out) => {
       out.storm = this.weather.state.kind === 'storm';
@@ -273,6 +285,7 @@ export class GameState {
         return r.ok ? r.held : null;
       },
     };
+    this.workshop.timeOfDay = () => this.clock.timeOfDay;
     this.workshop.clockText = () => {
       const h = (6 + this.clock.timeOfDay * 24) % 24;
       return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
@@ -284,6 +297,13 @@ export class GameState {
       return r.did === 'insert' ? 'consumed' : 'used';
     };
     this.offs.push(world.persist('workshop', () => this.workshop.toJSON()));
+    world.loadExtra('drawbridges', (raw) => this.workshop.bridges.load(raw));
+    this.offs.push(world.persist('drawbridges', () => this.workshop.bridges.toJSON()));
+    this.lifts = new Lifts({ world, bus, rpmAt: (x, y, z) => this.workshop.rpmOf(x, y, z), player: this.player });
+    world.loadExtra('lifts', (raw) => this.lifts.load(raw));
+    this.offs.push(world.persist('lifts', () => this.lifts.toJSON()));
+    this.offs.push(() => this.lifts.dispose());
+    this.workshop.partNote = (x, y, z, kind) => (isWinch(kind) ? this.lifts.describe(x, y, z) : null);
     this.exploration = new Exploration({
       world, bus, player: this.player, age: () => this.objectives.age, isNight: () => this.clock.isNight, day: () => this.clock.day,
       raining: () => this.weather.state.precipitation === 'rain' && this.weather.state.intensity > 0.2,
@@ -291,6 +311,9 @@ export class GameState {
     });
     this.caveWatch = new CaveWatch({ world, bus, position: () => this.player.position, held: () => this.player.heldStack()?.item ?? null, consumeHeld: () => { this.player.consumeHeld(); }, note: (text, key) => this.journal.add('note', text, key) });
     this.offs.push(() => this.caveWatch.dispose());
+    this.saplings = new Saplings({ world, bus, day: () => this.clock.day, rng: () => Math.random() });
+    world.loadExtra('saplings', (raw) => this.saplings.load(raw));
+    this.offs.push(world.persist('saplings', () => this.saplings.toJSON()), () => this.saplings.dispose());
     this.weathering = new Weathering({ world, bus, player: this.player, day: () => this.clock.day, weather: () => this.weather.state });
     this.disasters = new Disasters({
       world, bus, player: this.player,
@@ -349,6 +372,27 @@ export class GameState {
     this.npcs.bind(makeNpcHost({ player: this.player, objectives: this.objectives, clock: this.clock, magic: this.magic, mobs: this.mobs, world, sim: this.sim, workshop: this.workshop, thermal: this.thermal, hardWinter: () => this.winter.hard }));
     world.loadExtra('npcs', (raw) => this.npcs.load(raw));
     this.offs.push(world.persist('npcs', () => this.npcs.toJSON()));
+    this.telegraph = new Telegraph({
+      world, bus,
+      sky: () => this.weather,
+      now: () => this.clock.worldTimeS,
+      day: () => this.clock.day,
+      town: () => this.npcs.at,
+      powerW: (x, y, z) => {
+        let best = 0;
+        for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          const n = this.sim.networkAt(x + dx, y + dy, z + dz);
+          if (n) best = Math.max(best, n.generationW + n.dischargeW + (n.storedJ > 0 ? RADIO_MIN_W : 0));
+        }
+        return best;
+      },
+      signalIn: (x, y, z) => this.workshop.signals.near(x, y, z),
+      signalOut: (x, y, z, on) => this.workshop.signal(x, y, z, on),
+      caravanDay: (day) => caravanHere(day),
+    });
+    world.loadExtra('telegraph', (raw) => this.telegraph.load(raw));
+    this.offs.push(world.persist('telegraph', () => this.telegraph.toJSON()));
+    this.offs.push(() => this.telegraph.dispose());
     this.offs.push(() => this.workshop.dispose());
     for (const key of world.failedExtras()) this.notices.push(`Saved ${key} data could not be read. A copy was kept (${key}.bad) and it starts empty.`);
     const lost = takeLostItems();
@@ -490,13 +534,16 @@ export class GameState {
     this.exploration.tick(dt);
     this.caveWatch.tick(dt);
     this.weathering.tick(dt);
+    this.saplings.tick();
     this.disasters.tick(dt);
+    this.telegraph.tick(dt);
     this.winter.tick(dt);
     this.sim.hardWinter = this.winter.hard;
     this.pets.tick(dt);
     if (this.player.blueprints.jobs.length > 0) this.tickBlueprints(dt);
     if (this.ticks % 40 === 0) this.syncOldPlans();
     if (this.ticks % 200 === 0) this.workshop.verify();
+    if (this.ticks % 40 === 0) this.lifts.settle();
     if (this.notices.length > 0) for (const text of this.notices.splice(0)) this.bus.emit('toast', { text, kind: 'warn' });
     if (this.modeNow === 'dev') this.devUpkeep();
     this.npcs.tick(dt);
@@ -577,7 +624,8 @@ export class GameState {
   private goalFacts(): GoalFacts {
     const st = this.player.stats;
     const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
-    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks };
+    const fest = this.npcs.festivalRecord();
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns };
   }
 
   /** What the achievements read. */

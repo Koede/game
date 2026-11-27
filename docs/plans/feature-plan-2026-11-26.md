@@ -42,7 +42,7 @@ electricity, and electricity already starts in Ember through the thermopile. Tha
 | Weather and seasons, festival, hot springs, night creatures | **Built** | seasons reach crops but not fishing; "weather that matters" plan not started |
 | Food, farming, cooking quality, hunger and buffs | **Built** | dish and tool quality are saved but no UI shows the names (R2 in progress) |
 | Brewing (tea and coffee) | **Built** | Bronze hot plate missing (waits on heat rods) |
-| Handwork and casting | **Built** | Casting Bench inert; hand-taking molten metal not built |
+| Handwork and casting | **Built** | Casting Bench pours into set moulds; hand-taking molten metal not built |
 | Distillery and glassware | **Mostly built** | rig screen, reflux head, filter bed, lubricant done; refinery tower, cracker, spirit drinks, antiseptic bandage, bitumen roads missing; kerosene has no use; `distill:step` has no listener |
 | Workshop (Create-style) and mechanics | **Built, slices 1 to 5** | slip clutch, planetary set, CVT cone, hydraulics not wired; Mech bench only in Dev Mode |
 | Essentia magic (research, wands, golems, mirrors, aura, taint, void) | **Built** | spark, soul and void not drawable; golems do not haul to the town's storage; mirrors ignore labelled chests |

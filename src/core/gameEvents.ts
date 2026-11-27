@@ -11,7 +11,7 @@ import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack
  * 'automaton': a landed automaton attack, ember bolts included (spec 19.2; armour counts). 'ember': the burning an
  * ember bolt leaves (spec 19.1). The automaton behind either is the species of the last 'player:attacked'.
  */
-export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember' | 'felled' | 'gas';
+export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember' | 'felled' | 'gas' | 'sting';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type ToastKind = 'info' | 'good' | 'warn' | 'bad';
 
@@ -25,6 +25,8 @@ export type ScreenRequest =
   | { type: 'log' }
   /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
   | { type: 'caravan' }
+  /** A telegraph office or radio mast (docs/api/telegraph.md): the wire's news, the caravan by wire, the signal mode. */
+  | { type: 'telegraph'; x: number; y: number; z: number }
   /** The Town page: Gruk's building, the town's standing, who lives where, and the camp goals. */
   | { type: 'town' }
   | { type: 'pause' }
@@ -77,6 +79,8 @@ export type SfxName =
   | 'upgrade'
   | 'objective'
   | 'jukebox_note'
+  // The clock tower striking the hour (src/workshop/signals.ts).
+  | 'tower_bell'
   | 'age'
   | 'ui_click'
   /** A soft bright note when good news appears as a toast. */
@@ -195,6 +199,8 @@ export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
 export interface GameEvents {
   // ---- world ----
   /** A voxel changed (emitted by the world for every setVoxel). */
+  /** An axe blow landed on a standing tree: where, the health left (0 = it is going down) and of how much. */
+  'tree:hit': { x: number; y: number; z: number; left: number; total: number; pine: boolean };
   'block:changed': { x: number; y: number; z: number; from: Voxel; to: Voxel; source: ChangeSource };
   'chunk:loaded': { cx: number; cz: number };
   'chunk:unloaded': { cx: number; cz: number };

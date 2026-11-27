@@ -16,6 +16,7 @@ import { createFurnaceScreen, TO_BAG } from '../furnace/furnaceScreen';
 import { pretty, type ScreenSim } from '../furnace/simApi';
 import { injectStationCss } from '../furnace/styles';
 import { CATEGORY_LABELS, contents, labelName, sortPack } from '../../../game/storage';
+import { sortRange } from '../../../game/inventoryTools';
 import { itemOrNull } from '../../../core/registry';
 import { machineLayout } from './machineText';
 import { MachinePanel } from './machinePanel';
@@ -140,6 +141,12 @@ export function createCrateScreen(request: At, ctx: ScreenContext, sim: ScreenSi
     ctx.bus.emit('toast', { text: moved > 0 ? `Sorted ${moved} items into the chests` : 'Nothing to sort here', kind: moved > 0 ? 'good' : 'info' });
     ctx.invalidate();
   } } });
+  // Tidy this chest on its own (the pack has its own Sort; the button above files the pack into the chests).
+  const tidy = h('button', { class: 'hw-btn', text: 'Sort this crate', attrs: { type: 'button' }, on: { click: () => {
+    const freed = sortRange(inventory, 0);
+    ctx.bus.emit('toast', { text: freed > 0 ? `Tidied the crate: ${freed} slot${freed === 1 ? '' : 's'} freed` : 'The crate is already tidy', kind: freed > 0 ? 'good' : 'info' });
+    ctx.invalidate();
+  } } });
   const list = h('ul', { class: 'hw-mscreen__contents' });
   const onToggle = (): void => ctx.invalidate();
   const storage = h('details', { class: 'hw-mscreen__storage' }, h('summary', { text: 'Storage network' }), h('label', {}, 'Label ', label), sort, list);
@@ -147,7 +154,7 @@ export function createCrateScreen(request: At, ctx: ScreenContext, sim: ScreenSi
   const body = h(
     'div',
     { class: 'hw-mscreen hw-mscreen--crate' },
-    h('div', { class: 'hw-mscreen__machine' }, h('h3', { class: 'hw-heading', text: 'Crate' }), grid.el, note, storage),
+    h('div', { class: 'hw-mscreen__machine' }, h('h3', { class: 'hw-heading', text: 'Crate' }), grid.el, tidy, note, storage),
     h('div', { class: 'hw-mscreen__bag' }, bag.el, ctx.slots.actionBar),
   );
   const window = new Window({ title: 'Crate', subtitle: `${inventory.size} slots`, size: 'lg', body, footer: slotHint() });
