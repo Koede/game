@@ -1,10 +1,13 @@
 /**
  * The tavern's fixtures as real blocks (docs/api/npcs.md): the quest board, a notice board of pinned bounties, the wall
  * clock and the jukebox. Use the board for bounties and favours, and the clock for the time, just as you would talk to a regular. Oriented:
- * the painted face (`front`) looks into the room. Placed by the starting tavern only; not craftable.
+ * the painted face (`front`) looks into the room. The starting tavern has them, and the player can build the same at the workbench for their own lodge.
  */
 import type { AreaContent } from '../area';
-import type { BlockSpec } from '../../core/types';
+import type { BlockSpec, RecipeSpec } from '../../core/types';
+import { amount, amounts } from '../amounts';
+
+const bench = (id: string, output: string, inputs: string): RecipeSpec => ({ id, station: 'workbench', inputs: amounts(inputs), output: amount(output), age: 0 });
 
 const fixture = (key: string, name: string, desc: string): BlockSpec => ({
   key, name, desc, hardness: 1.2, tool: 'axe', category: 'block', oriented: true,
@@ -35,5 +38,10 @@ export default {
     fixture('quest_board', 'Quest Board', 'A cork board of pinned bounties and favours. Use it with coin or the item it asks for.'),
     fixture('wall_clock', 'Wall Clock', 'A round clock on a plank backing. Use it to hear the time of day.'),
   ],
-  recipes: [],
+  recipes: [
+    bench('quest_board', '1 quest_board', '4 plank, 2 cord'),
+    bench('wall_clock', '1 wall_clock', '4 plank, 1 cord, 1 flint'),
+    bench('party_button', '1 party_button', '2 plank, 1 charcoal, 1 cord'),
+    bench('jukebox', '1 jukebox', '8 plank, 2 cord, 3 flint'),
+  ],
 } satisfies AreaContent;
