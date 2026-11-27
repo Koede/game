@@ -11,7 +11,7 @@ import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack
  * 'automaton': a landed automaton attack, ember bolts included (spec 19.2; armour counts). 'ember': the burning an
  * ember bolt leaves (spec 19.1). The automaton behind either is the species of the last 'player:attacked'.
  */
-export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember' | 'felled' | 'gas';
+export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember' | 'felled' | 'gas' | 'sting';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type ToastKind = 'info' | 'good' | 'warn' | 'bad';
 
@@ -189,7 +189,12 @@ export type SfxName =
   /** Liquid trickling through a tube or down a condenser while it runs. Positioned at the module. */
   | 'distill_trickle'
   /** A stopcock turned by hand on the separatory funnel. Positioned at the module. */
-  | 'distill_tap';
+  | 'distill_tap'
+  // ---- later features (src/audio/sfxFeatures.ts) ----
+  | 'shutter'
+  | 'blueprint_unfurl'
+  | 'legend_proc'
+  | 'buff_gain';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
@@ -197,6 +202,8 @@ export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
 export interface GameEvents {
   // ---- world ----
   /** A voxel changed (emitted by the world for every setVoxel). */
+  /** An axe blow landed on a standing tree: where, the health left (0 = it is going down) and of how much. */
+  'tree:hit': { x: number; y: number; z: number; left: number; total: number; pine: boolean };
   'block:changed': { x: number; y: number; z: number; from: Voxel; to: Voxel; source: ChangeSource };
   'chunk:loaded': { cx: number; cz: number };
   'chunk:unloaded': { cx: number; cz: number };

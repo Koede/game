@@ -144,6 +144,25 @@ describe('AudioEngine one-shots', () => {
     expect((ctx.nodes[before] as FakeGain).gain.value).toBeCloseTo(0.25);
   });
 
+  it('scales one-shots by the effects and music sliders, and leaves interface sounds alone', () => {
+    const { bus, engine, ctx, settings } = setup();
+    engine.resume();
+    settings.effectsVolume = 0.5;
+    settings.musicVolume = 0.25;
+    const level = (name: 'forge' | 'jukebox_note' | 'ui_click') => {
+      const before = ctx.nodes.length;
+      bus.emit('sfx', { name, volume: 1 });
+      return (ctx.nodes[before] as FakeGain).gain.value;
+    };
+    expect(level('forge')).toBeCloseTo(0.5);
+    expect(level('jukebox_note')).toBeCloseTo(0.25);
+    expect(level('ui_click')).toBeCloseTo(1);
+    settings.effectsVolume = 0;
+    const sources = ctx.sources.length;
+    bus.emit('sfx', { name: 'explosion' });
+    expect(ctx.sources.length).toBe(sources); // a silenced effects slider starts nothing
+  });
+
   it('honours the pitch field and ignores nonsense pitches', () => {
     const first = (pitch?: number) => {
       const { bus, engine, ctx } = setup();

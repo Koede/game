@@ -43,6 +43,6 @@ This is how the settlement feeds your machines. Old saves load unchanged (`jobs`
 (real taps: talk, Give work, Haul, Ore, pick both stops by aiming, a day passes, 30 ore arrive).
 
 ## Open
-- Newcomers do not arrive in the game yet (`moveIn.ts` is not wired), so until they do, Gruk is the one who can be put to work in a
+- Newcomers arrive now (`NpcManager` calls `moveIn`); in a brand-new world Gruk is the one who can be put to work in a
   new world; the others can once they live here. Contentment (`pace`) is not applied yet; the port has the hook.
 - The walk is a straight line for show; a person does not path round walls.

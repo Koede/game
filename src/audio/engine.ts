@@ -7,6 +7,7 @@ import type { GameEvents, SfxName } from '../core/gameEvents';
 import { Ambience } from './ambience';
 import type { AmbienceState } from './ambienceState';
 import { BufferBank } from './buffers';
+import { bindEventCues } from './eventCues';
 import { createMasterChain, type MasterChain } from './master';
 import { playPatch } from './patch';
 import { SFX } from './sfx';
@@ -60,6 +61,7 @@ export class AudioEngine {
   /** Set when audio is unavailable or the engine was disposed: every call becomes a no-op. */
   private dead = false;
   private paused = false;
+  private ambienceOut: GainLike | null = null;
   private warned = false;
   private readonly voices: Voice[] = [];
   /** Stolen voices fading out; kept only so they can be disconnected afterwards. */
@@ -79,6 +81,7 @@ export class AudioEngine {
     this.random = options.random ?? Math.random;
     this.unsubscribe = [
       bus.on('sfx', (request) => this.play(request)),
+      bindEventCues(bus),
       bus.on('settings:changed', () => this.applyVolume()),
       bus.on('game:paused', ({ paused }) => {
         this.paused = paused;
@@ -147,7 +150,10 @@ export class AudioEngine {
       if (!this.ambience) {
         // The first few calls only pre-generate sample data, one buffer per frame.
         if (this.settings.volume <= 0 || !this.bank.warm()) return;
-        this.ambience = new Ambience(ctx, this.bank, this.chain.world, this.chain.muffle);
+        this.ambienceOut = ctx.createGain();
+        this.ambienceOut.gain.value = this.mix('ambienceVolume');
+        this.ambienceOut.connect(this.chain.world);
+        this.ambience = new Ambience(ctx, this.bank, this.ambienceOut, this.chain.muffle);
       }
       this.ambience.update(state, now);
     } catch (err) {
@@ -171,7 +177,7 @@ export class AudioEngine {
       const last = this.lastPlayed.get(request.name);
       if (last !== undefined && now - last >= 0 && now - last < REPEAT_GUARD_S) return;
 
-      let gain = volume;
+      let gain = volume * (ui ? 1 : this.mix(request.name === 'jukebox_note' ? 'musicVolume' : 'effectsVolume'));
       let pan = 0;
       if (!ui && request.x !== undefined && request.y !== undefined && request.z !== undefined) {
         const dx = request.x - this.lx;
@@ -231,6 +237,7 @@ export class AudioEngine {
     this.voices.length = 0;
     this.fading.length = 0;
     this.ambience = null;
+    this.ambienceOut = null;
     this.chain = null;
     this.bank = null;
   }
@@ -241,9 +248,16 @@ export class AudioEngine {
     return Number.isFinite(v) ? v * v * MASTER_TRIM : 0;
   }
 
+  /** A mixer slider (effects, music, ambience) as a 0..1 level; old settings without it count as full. */
+  private mix(key: 'effectsVolume' | 'musicVolume' | 'ambienceVolume'): number {
+    const v = this.settings[key];
+    return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+  }
+
   private applyVolume(): void {
     if (!this.ctx || !this.chain) return;
     try {
+      this.ambienceOut?.gain.setTargetAtTime(this.mix('ambienceVolume'), this.ctx.currentTime, 0.03);
       this.chain.master.gain.setTargetAtTime(this.masterLevel(), this.ctx.currentTime, 0.03);
     } catch (err) {
       this.warn(err);

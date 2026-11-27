@@ -132,6 +132,7 @@ const everything: AmbienceState = {
   furnaceDistance: 3,
   furnaceElectric: true,
   machineHum: 0.6,
+  turning: 0.5,
   wind: 0.7,
   night: true,
   underwater: false,
