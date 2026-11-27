@@ -13,7 +13,7 @@ import { popUnsupportedAt } from '../game/farming';
 import { NETWORK_RADIUS, validLabel, type Chest } from '../game/storage';
 import { PlantSupport } from './plantSupport';
 import { withStatus } from '../core/machineStatus';
-import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
+import { withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
@@ -43,6 +43,7 @@ import { isPipeEntity, type PortChange } from './pipeState';
 import { tankColumn, tankView } from './tanks';
 import { AirNets, isAirEntity, type AirView } from './airNet';
 import { isWaterEntity, WaterNets, type WaterView } from './waterNet';
+import { isTubeStation, Pneumatics, type StationView } from './pneumatics';
 import { Transport } from './transport';
 import * as pipes from './transportActions';
 import type { BucketResult, WrenchResult } from './transportActions';
@@ -59,7 +60,8 @@ import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 import { MILL_WHEEL, millWheelSu, riverScale } from './hydro';
-import { cropScale, seasonOf } from './seasons';
+import { cropScale, seasonOf, shelterOf } from './seasons';
+import { temperatureAt } from './temperature';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
 const WIND = machine('wind_turbine').params ?? {};
@@ -76,9 +78,13 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   river = 1;
   /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
   readonly weather = new SimWeather();
-  /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
+  /** Seasonal growth and snow on a crop (src/sim/seasons.ts); a roofed crop reads the air (docs/api/greenhouse.md). */
   private readonly cropScaleAt = (crop: string, x: number, y: number, z: number, exposed: boolean): number =>
-    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z), this.hardWinter, exposed);
+    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z), this.hardWinter, exposed, exposed ? undefined : this.cropAirC(x, y, z));
+  /** Degrees C of the air at a roofed crop (the heat zones answer through src/sim/temperature.ts). */
+  cropAirC(x: number, y: number, z: number): number {
+    return temperatureAt({ x: x + 0.5, y, z: z + 0.5, day: this.clock.day, night: this.clock.isNight, snowing: false, exposed: false });
+  }
   /** A hard-winter world (docs/api/winter.md): exposed crops freeze in winter, a roof makes a greenhouse. Set by GameState. */
   hardWinter = false;
   private readonly rainAt = (x: number, y: number, z: number): boolean => this.weather.wetAt(x, y, z);
@@ -114,6 +120,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   readonly air: AirNets;
   /** The Bronze Age water network (docs/api/plumbing.md): pipes, cisterns, hand pumps, sprinklers, boiler Water Ports. */
   readonly water: WaterNets;
+  /** Pneumatic tubes: senders and receivers on the air network shoot items between crates. */
+  readonly pneumatics: Pneumatics;
   /** Speed of the workshop shaft that turns a compressor at a cell (rpm); set by the app from the workshop, null = no shafts. */
   airShaftRpm: ((x: number, y: number, z: number) => number) | null = null;
   private readonly transportRender: TransportRenderer;
@@ -167,6 +175,17 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       world, bus, shaftRpm: (x, y, z) => this.airShaftRpm?.(x, y, z) ?? 0, rainAt: (x, y, z) => this.weather.soaks && this.rainAt(x, y, z),
     });
     this.crops.irrigatedAt = (x, y, z) => this.water.irrigated(x, y, z);
+    this.pneumatics = new Pneumatics({
+      world, bus, air: this.air,
+      crateAt: (x, y, z) => {
+        const e = this.machineAt(x, y, z);
+        return e && e.kind === 'crate' ? e : null;
+      },
+      touch: (e) => this.touch(e),
+      spill: (x, y, z, stacks) => {
+        if (!this.destroying) this.spills.add(x, y, z, stacks);
+      },
+    });
     const nodes = this.nodes;
     this.hearths = new HearthSet({
       world, bus, player, byKey: nodes.byKey, air: this.air,
@@ -264,6 +283,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       else if (isChemKind(e.kind)) this.distill.track(e);
       else if (isAirEntity(e)) continue; // the air network follows its own saved entities (airNet.ts)
       else if (isWaterEntity(e)) continue; // so does the water network (waterNet.ts)
+      else if (isTubeStation(e)) continue; // capsules on their way to a pneumatic receiver (pneumatics.ts)
       else if (!isPipeEntity(e)) {
         const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
         if (r !== 'ok') repaired++;
@@ -275,6 +295,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     repaired += this.transport.resync();
     this.air.resync();
     this.water.resync();
+    this.pneumatics.resync();
     const text = repairToast(repaired);
     if (text) this.bus.emit('toast', { text, kind: 'warn' });
   }
@@ -346,6 +367,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.transport.tick(dt);
     this.air.tick(dt);
     this.water.tick(dt);
+    this.pneumatics.tick(dt);
     this.crops.tick(dt, this.sunlight, this.wetAt, this.cropScaleAt);
     this.hand.tick(dt, this.sunlight >= MIN_SUNLIGHT, this.wetAt);
 
@@ -401,6 +423,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.transport.blockChanged(x, y, z, from, to);
     this.air.blockChanged(x, y, z, from, to);
     this.water.blockChanged(x, y, z, from, to);
+    this.pneumatics.blockChanged(x, y, z, from, to);
     this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
     const station = this.hand.blockChanged(x, y, z, from, to);
@@ -862,7 +885,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * sides, a crate's or a machine's slots; an item hatch of a formed hearth stands for its controller. Null for
    * anything else. `face` is the side of that block the pipe touches; every side of today's blocks behaves the same.
    */
-  itemEndpoint(x: number, y: number, z: number, face: Face): ItemEndpoint | null {
+  itemEndpoint(x: number, y: number, z: number, _face: Face): ItemEndpoint | null {
     const key = posKey(x, y, z);
     const node = this.nodes.byKey.get(key);
     if (!node) return null;
@@ -877,7 +900,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * The fluid side of the block at x, y, z (spec 16.2): a machine with fluid ports, through its buffers. A fluid hatch
    * counts only as part of a formed hearth (its lava fuels the controller). Null for anything else.
    */
-  fluidEndpoint(x: number, y: number, z: number, face: Face): FluidEndpoint | null {
+  fluidEndpoint(x: number, y: number, z: number, _face: Face): FluidEndpoint | null {
     const chem = chemPortEndpoint(this.distill, x, y, z);
     if (chem) return chem;
     const key = posKey(x, y, z);
@@ -951,6 +974,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private useAir(x: number, y: number, z: number): void {
     const v = this.air.view(x, y, z);
     if (!v) return;
+    const station = v.role === 'station' ? this.pneumatics.view(x, y, z) : null;
+    if (station) {
+      this.bus.emit('toast', { text: `${v.name}: ${station.status}`, kind: 'info' });
+      return;
+    }
     if (v.role === 'source' && this.air.crank(x, y, z)) this.bus.emit('sfx', { name: 'dig_metal', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     const after = this.air.view(x, y, z) ?? v;
     this.bus.emit('toast', { text: `${after.name}: ${after.status}`, kind: 'info' });
@@ -972,6 +1000,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     }
     const after = this.water.view(x, y, z) ?? v;
     this.bus.emit('toast', { text: `${after.name}: ${after.status}`, kind: 'info' });
+  }
+
+  /** What a Use on a pneumatic sender or receiver says, or null. */
+  stationView(x: number, y: number, z: number): StationView | null {
+    return this.pneumatics.view(x, y, z);
   }
 
   // ---- item and fluid transport (spec 16) --------------------------------------------------------------------------
@@ -1114,7 +1147,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** What the crop at a position is doing (stage, light, water, status), or null. Crops have no machine view. */
   cropView(x: number, y: number, z: number): CropView | null {
     this.weather.update();
-    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt);
+    const v = this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt);
+    if (v === null || v.wild) return v;
+    const tempC = v.exposed ? undefined : Math.round(this.cropAirC(x, y, z));
+    return { ...v, tempC, shelter: shelterOf(seasonOf(this.clock.day), v.exposed, tempC, this.hardWinter) };
   }
 
   /** Furnaces, machines and crates (crops are counted by `cropCount`). */

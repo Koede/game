@@ -219,7 +219,7 @@ export class CropField {
       soil: info.wild || c.soil, lit, hydrated, rate, progress: ripe ? 1 : Math.min(1, c.e.growS / stageS),
       nextStageS: ripe ? 0 : rate > 0 ? Math.max(0, left) / rate : Infinity,
       ripeInS: ripe ? 0 : rate > 0 ? (Math.max(0, left) + (info.stages - 2 - info.stage) * stageS) / rate : Infinity,
-      status,
+      status, wild: info.wild, exposed: c.rain,
     };
   }
 

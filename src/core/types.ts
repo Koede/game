@@ -392,8 +392,10 @@ export interface BlockSpec {
  * store, a compressor makes air, a user (the blast nozzle) draws it. `volumeL` is what the block adds to its network.
  */
 export interface AirSpec {
-  role: 'tube' | 'tank' | 'source' | 'user';
+  role: 'tube' | 'tank' | 'source' | 'user' | 'station';
   volumeL: number;
+  /** Stations (pneumatic tubes, src/sim/pneumatics.ts): a sender shoots the items of the crate it touches, a receiver fills its own. */
+  station?: 'send' | 'receive';
   /** Users: the least pressure it works at, in bar, and the air it uses while it works, in litres a second. */
   minBar?: number;
   useLPerS?: number;

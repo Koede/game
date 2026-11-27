@@ -7,10 +7,6 @@ import {
 import type { ObjectiveCondition, RecipeDef, ToolKind } from '../core/types';
 import { GRID_UNITS, KNOWN_FLAGS, NATURAL_BLOCKS, conditionMet, hearthMaterials, itemPlacing, rawCost, solve, type Progress } from './progression';
 import { SPEC } from './specRoster';
-import { DISTILL_RECIPE_COUNT, DISTILL_SPEC } from './specRosterDistill';
-import { MAGIC_RECIPE_COUNT, MAGIC_SPEC } from './specRosterMagic';
-import { WORKSHOP_RECIPE_COUNT, WORKSHOP_SPEC } from './specRosterWorkshop';
-import { GLASS_RECIPE_COUNT, GLASS_SPEC } from './specRosterGlass';
 import { parseStatusTexture } from '../core/machineStatus';
 import { isModularVariant } from './toolParts';
 

@@ -9,11 +9,13 @@ import { parseGameMode, type GameMode } from '../core/gameMode';
 import { SaveSlot, type WorldSave } from '../save/document';
 import type { SaveResult } from '../save/storage';
 import { UIRoot } from '../ui/kit/root';
+import type { SaveTools } from '../ui/menus/settings';
 import { TitleScreen } from '../ui/menus/title';
 import { WorkerPool } from '../world';
 import { installDebugHandle } from './debug';
 import { diag, diagOn, initDiag, playerBrief } from './diag';
 import { Game } from './game';
+import { deliver } from './photo';
 import { hasWebGL2, injectAppCss, LoadingScreen, NO_WEBGL_NOTICE, showNotice } from './screens';
 import { GameState, seedFrom } from './state';
 import { agoText, FrameGuard, Troubles } from './troubles';
@@ -126,6 +128,7 @@ export class App {
         onNewWorld: (seed, mode) => this.newWorld(seed, mode),
         onContinue: () => this.continueWorld(),
         onSettingsChange: (s, key) => this.changeSettings(s, key),
+        saves: this.saveTools(),
       });
     }
     this.title.setStage(this.slotTaken ? this.savedAge : 0);
@@ -343,6 +346,43 @@ export class App {
     const game = this.game;
     this.game = null;
     game?.dispose();
+  }
+
+  /** Backing up and restoring the saved world, offered in the title's Settings (see menus/settings.ts SaveTools). */
+  private saveTools(): SaveTools {
+    const take = (world: WorldSave): void => {
+      this.worldText = JSON.stringify(world);
+      this.savedMode = parseGameMode(world.mode);
+      this.savedAge = world.objectives?.age;
+      this.title?.setStage(this.savedAge);
+      this.title?.setHasSave(this.slotTaken, this.savedMode);
+      // A world that could not be read before no longer holds the slot.
+      this.slot.lastProblem = null;
+    };
+    const restore = (text: string | null, what: string): string => {
+      if (text === null) return 'There is nothing to restore.';
+      const result = this.slot.importText(text, { ...this.settings });
+      if (!result.ok) return result.message;
+      take(result.world);
+      return result.stored ? `Restored ${what}. Press Continue to play it.` : `Restored ${what} for this visit, but the browser will not keep it after you close the page.`;
+    };
+    return {
+      hasWorld: () => this.slotTaken,
+      backUp: async () => {
+        const text = this.slot.exportText();
+        if (text === null) return 'There is no saved world to back up yet.';
+        const day = new Date().toISOString().slice(0, 10);
+        const how = await deliver(new Blob([text], { type: 'application/json' }), `hearthwatt-save-${day}.json`, 'Hearthwatt save', true);
+        return how === 'failed' ? 'The backup could not be made.' : how === 'shared' ? 'Backup shared.' : 'Backup file saved to your downloads.';
+      },
+      text: () => this.slot.exportText(),
+      restore: (text) => restore(text, 'the backup'),
+      earlier: () => {
+        const at = this.slot.prevSavedAt();
+        return this.slot.hasPrev ? { label: at === null ? 'earlier' : new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) } : null;
+      },
+      restoreEarlier: () => restore(this.slot.readPrev(), 'the earlier save'),
+    };
   }
 
   /** Forgets the saved world (debug / tests). */
