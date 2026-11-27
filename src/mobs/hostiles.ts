@@ -15,7 +15,7 @@ import {
   PLAYER_HEIGHT,
 } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
-import { hostileCap, hostileDamage, type SkyFacts } from '../core/hostile';
+import { ageDamageMult, hostileCap, hostileDamage, type SkyFacts } from '../core/hostile';
 import { AIR, type CreatureSpec, type HostileSpec, type IWorld, type Slot } from '../core/types';
 import { bodyHeight, halfWidth } from './brain';
 import { knockVector, voicePitch } from './attacks';
@@ -93,7 +93,7 @@ export class HostileLayer {
       playerSafe: false, playerWet: false, night: false, daylight: true, safe,
       hurtPlayer: (m, spec, mult, dx, dz, knock, sx, sy, sz) => this.hurtPlayer(m, spec, mult, dx, dz, knock, sx, sy, sz),
       fireBolt: (m, _spec, x, y, z, vx, vy, vz) => {
-        this.projectiles.fire(host.bus, { id: m.id, species: m.spec.key }, x, y, z, vx, vy, vz, hostileDamage(m.spec, this.difficulty));
+        this.projectiles.fire(host.bus, { id: m.id, species: m.spec.key }, x, y, z, vx, vy, vz, hostileDamage(m.spec, this.difficulty) * this.ageMult());
       },
     };
     this.boltHost = {
@@ -357,8 +357,12 @@ export class HostileLayer {
 
   // ------------------------------------------------------------------------------------------ hurting the player
 
+  private ageMult(): number {
+    return ageDamageMult(this.hooks.age?.() ?? 0);
+  }
+
   private hurtPlayer(m: Mob, spec: HostileSpec, mult: number, dx: number, dz: number, knock: number, sx: number, sy: number, sz: number): void {
-    const amount = hostileDamage(m.spec, this.difficulty) * mult;
+    const amount = hostileDamage(m.spec, this.difficulty) * mult * this.ageMult();
     if (amount <= 0) return;
     this.host.bus.emit('player:attacked', { species: m.spec.key, attack: spec.attack, amount, x: sx, y: sy, z: sz });
     this.hooks.damagePlayer?.(amount, 'automaton', sx, sz, m.spec.key);

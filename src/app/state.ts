@@ -197,6 +197,7 @@ export class GameState {
       },
       knockPlayer: (vx, vy, vz) => combat.knock(vx, vy, vz),
       sky: () => ({ storm: this.weather.state.kind === 'storm', moonPhase: this.clock.moonPhase }),
+      age: () => this.objectives.age,
     });
     this.mobs.skyFn = (out) => {
       out.storm = this.weather.state.kind === 'storm';
