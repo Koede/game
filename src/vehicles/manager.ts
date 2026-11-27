@@ -480,7 +480,7 @@ export function rayBox(ox: number, oy: number, oz: number, dx: number, dy: numbe
 /** Puts the manager between an intent source and the controller. */
 export function wrapIntentSource<T extends { frame(dt: number): Intent }>(source: T, vehicles: VehicleManager): T {
   return new Proxy(source, {
-    get(target, prop, receiver) {
+    get(target, prop) {
       if (prop === 'frame') return (dt: number): Intent => vehicles.handle(target.frame(dt), dt);
       const value = Reflect.get(target, prop, target) as unknown;
       return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value;

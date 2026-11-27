@@ -1,5 +1,5 @@
 /** Brewing's data (BREWING_PLAN 3, 11): contracts, content, the cup table, recipes, goals and the solver. */
-import { expectContains, expectPinned, expectSubsequence } from './rosterCheck';
+import { expectContains, expectPinned } from './rosterCheck';
 import { describe, expect, it } from 'vitest';
 import { BOIL_TEMP_C, DRINK_BUFF_S, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_SIX_CUPS } from '../core/constants';
 import { CONTAINER_BLOCKS, CUP_BLOCK, CUP_STAGES, DRINK_BUFFS, DRINK_BUFF_KEYS, cupStageOfBlock } from '../core/brewing';

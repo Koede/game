@@ -132,6 +132,9 @@ const FORGE: RecipeSpec[] = [
   forge(2, 'air_tank', '6 bronze_plate, 1 air_tube', 900),
   forge(2, 'air_compressor', '4 bronze_plate, 1 bronze_cog, 2 air_tube', 900),
   forge(2, 'blast_nozzle', '4 bronze_plate, 1 air_tube, 2 firebrick', 1100),
+  // Pneumatic tubes: a sender and a receiver set against crates shoot items through the air network.
+  forge(2, 'tube_sender', '3 bronze_plate, 1 air_tube, 1 bronze_cog', 900),
+  forge(2, 'tube_receiver', '3 bronze_plate, 1 air_tube, 1 glass', 900),
   // Resin, sugar and sweet baking (itemsSugar.ts): beakers from glass, sap boiled to resin, resin distilled to sugar, then baked.
   forge(1, '2 glass_beaker', '1 glass', 650),
   forge(1, 'pine_resin', '1 pine_sap', 180, { byproducts: '1 glass_beaker' }),
@@ -209,7 +212,7 @@ const FORGE: RecipeSpec[] = [
   forge(4, 'tractor_harvester', '1 chassis, 4 steel_plate, 2 copper_coil', 1300),
   forge(4, 'geothermal_tap', '1 chassis, 4 steel_plate, 2 copper_coil, 1 circuit', 1400),
   forge(4, 'bore_rig', '1 chassis, 2 tungsten_rod, 2 copper_coil, 1 circuit', 1600),
-  forge(4, '2 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),
+  forge(4, '6 plasma_casing', '2 steel_plate, 1 aluminum_ingot, 1 tungsten_rod', 1900),
   forge(4, 'power_port', '2 copper_coil, 2 ceramic_insulator, 1 iron_plate', 1200),
   forge(4, 'steam_turbine', '1 chassis, 4 steel_plate, 4 copper_coil', 1600),
   // The Emberbound (spec 19.4): relic machines built around ember cores.
@@ -227,8 +230,8 @@ const FORGE: RecipeSpec[] = [
   forge(5, 'fission_pile', '1 chassis, 6 superalloy, 4 fused_quartz, 4 circuit', 2800),
   forge(5, 'magnet_ring', '4 copper_coil, 2 superalloy, 2 lithium_salt', 2800),
   forge(5, '6 super_cable', '1 magnet_ring, 2 aluminum_ingot, 2 ceramic_insulator', 2600),
-  forge(5, 'star_core', '6 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit', 3000),
-  forge(5, '2 star_casing', '2 superalloy, 1 fused_quartz, 1 magnet_ring', 2800),
+  forge(5, 'star_core', '3 magnet_ring, 8 superalloy, 6 fused_quartz, 4 circuit', 3000),
+  forge(5, '6 star_casing', '2 superalloy, 1 fused_quartz', 2800),
 ];
 
 const MACHINE: RecipeSpec[] = [

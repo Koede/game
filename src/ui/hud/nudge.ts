@@ -4,6 +4,7 @@
  * while closed. Key: N.
  */
 import type { IWorld } from '../../core/types';
+import type { GuideStep } from '../../game/firstHour';
 import { findNearestBlock, nudgeFor, stillThere, type Nudge } from '../../game/nextStep';
 import type { ObjectiveTracker } from '../../game/objectives';
 import type { PlayerState } from '../../game/playerState';
@@ -15,6 +16,14 @@ const DEG = 180 / Math.PI;
 /** The hint closes by itself after this long. */
 export const NUDGE_SHOW_S = 30;
 const REFRESH_S = 1;
+/** On the guided first hour, the button starts to pulse when the same step has stood this long: a quiet "stuck? ask me". */
+export const NUDGE_IDLE_S = 75;
+
+/** The first sentence of a camp step's text, as the hint (the full text lives on the Town page). */
+export function firstSentence(text: string): string {
+  const m = /^.*?[.!?](\s|$)/.exec(text);
+  return (m ? m[0] : text).trim();
+}
 
 interface Spot {
   x: number;
@@ -35,11 +44,16 @@ export class NudgeBar {
   private nudge: Nudge | null = null;
   private spot: Spot | null = null;
   private shownAngle = Number.NaN;
+  private stepId = '';
+  private stepS = 0;
+  private pulsing = false;
 
   constructor(
     private readonly world: IWorld,
     private readonly player: PlayerState,
     private readonly objectives: ObjectiveTracker,
+    private readonly guide: () => GuideStep | null = () => null,
+    private readonly campSpot: () => Spot | null = () => null,
   ) {
     this.needle = h('span', { class: 'hw-compass__needle' }, glyph('needle', 16));
     this.textEl = h('span', { class: 'hw-nudge__text' });
@@ -52,6 +66,8 @@ export class NudgeBar {
   }
 
   toggle(): void {
+    this.setPulse(false);
+    this.stepS = 0;
     if (this.open) return this.close();
     this.open = true;
     this.openS = 0;
@@ -79,7 +95,29 @@ export class NudgeBar {
     this.needle.style.transform = `rotate(${angle}deg)`;
   }
 
+  private setPulse(on: boolean): void {
+    if (on === this.pulsing) return;
+    this.pulsing = on;
+    this.ask.classList.toggle('hw-nudge__ask--pulse', on);
+  }
+
+  /** Counts how long the guided step has stood; the button pulses once when it has been a while. */
+  private watchStep(dt: number): void {
+    const step = this.guide();
+    const id = step ? `${step.kind}:${step.id}` : '';
+    if (id !== this.stepId) {
+      this.stepId = id;
+      this.stepS = 0;
+      this.setPulse(false);
+      return;
+    }
+    if (!id || this.open) return;
+    this.stepS += dt;
+    if (this.stepS >= NUDGE_IDLE_S) this.setPulse(true);
+  }
+
   frame(dt: number): void {
+    this.watchStep(dt);
     if (!this.open) return;
     this.openS += dt;
     this.sinceS += dt;
@@ -91,7 +129,9 @@ export class NudgeBar {
   /** Re-reads the goal (it moves on as the pack changes) and finds the target again only when the step or the spot changed. */
   private refresh(): void {
     this.sinceS = 0;
-    const next = nudgeFor(this.player, this.objectives.current);
+    const step = this.guide();
+    const spot = step?.kind === 'camp' ? this.campSpot() : null;
+    const next: Nudge | null = step?.kind === 'camp' ? { text: firstSentence(step.text), target: spot ? { kind: 'pos', ...spot } : null } : nudgeFor(this.player, this.objectives.current);
     const target = next?.target ?? null;
     const sameStep = this.nudge && next && this.nudge.text === next.text;
     this.nudge = next;

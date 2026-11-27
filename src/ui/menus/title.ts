@@ -10,7 +10,7 @@ import { applyAccessibility, applyUiScale } from '../kit/uiScale';
 import { Window } from '../kit/window';
 import { EmberField } from './fire';
 import { HowToPlay, type HowToPlayOptions } from './howto';
-import { SettingsPanel } from './settings';
+import { SettingsPanel, type SaveTools } from './settings';
 import { DIFFICULTY_OPTIONS, difficultyHint } from './settingsText';
 
 export interface TitleScreenOptions {
@@ -32,6 +32,8 @@ export interface TitleScreenOptions {
   controls?: HowToPlayOptions;
   /** Small print in the corner, e.g. "v0.1.0". */
   version?: string;
+  /** Back up and restore the saved world, shown in Settings. */
+  saves?: SaveTools;
   /** Names of the six ages for the strip under the promise. Default: the ages of the spec. */
   ages?: readonly string[];
   /** How far the saved world has got (its age, 0..5): the backdrop warms and brightens with it. */
@@ -259,6 +261,7 @@ export class TitleScreen {
   private openSettings(): void {
     const panel = new SettingsPanel({
       settings: this.settings,
+      saves: this.opts.saves,
       onChange: (settings, key) => this.changeSettings(settings, key),
     });
     this.openSub(new Window({ title: 'Settings', size: 'md', body: panel.el, onClose: () => (this.sub = null) }));

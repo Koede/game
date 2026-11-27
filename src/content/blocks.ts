@@ -9,6 +9,7 @@
 import type { BlockSpec, Drop } from '../core/types';
 import { EMBER_BLOCKS } from './emberbound';
 import { AIR_BLOCKS } from './blocksAir';
+import { PNEUMATIC_BLOCKS } from './blocksPneumatic';
 import { TECH_BLOCKS } from './blocksTech';
 import { WORLD_BLOCKS } from './blocksWorld';
 import { BREW_BLOCKS } from './blocksBrew';
@@ -292,6 +293,8 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   furnace('bronze', 'Bronze Furnace', 'Bronze plates round the firebox: 1100 C, two crucibles, and heat enough to carry to machines. It stands alone, no hearth needed.', 1, 11, 7),
   // The Bronze Age air network (BRONZE_PLAN 4.4), after the Bronze Furnace for the same reason.
   ...AIR_BLOCKS,
+  // Pneumatic tubes: stations on the air network that shoot items between crates.
+  ...PNEUMATIC_BLOCKS,
 ];
 
 /**

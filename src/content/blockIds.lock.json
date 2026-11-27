@@ -310,5 +310,7 @@
   "mill_wheel": 308,
   "windmill": 309,
   "steam_tank": 310,
-  "drill_rig": 311
+  "tube_sender": 311,
+  "tube_receiver": 312,
+  "drill_rig": 313
 }

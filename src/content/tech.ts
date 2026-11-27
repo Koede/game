@@ -70,7 +70,7 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
   {
     tier: 6, block: 'furnace_star', name: 'Starhearth', age: 5,
     maxTempC: 3200, heatCapacityJ: 800, lossWPerC: 8, crucibles: 4, fuelSlots: 2, speed: 3, electricHeatW: 40000, warmth: 24,
-    upgradeCost: amounts('1 star_core, 8 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[6],
+    upgradeCost: amounts('1 star_core, 4 deuterium_cell'), upgradeTempC: 3000, structure: HEARTHS[6],
     blurb: 'A star core in a furnace body. Hold 3000 C, deliver 300 kW for 90 seconds, and it will burn on its own forever.',
   },
 ];

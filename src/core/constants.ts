@@ -400,3 +400,14 @@ export const AIR_CRANK_L = 26;
 export const AIR_CRANK_COOLDOWN_S = 0.4;
 /** The blast nozzle counts as this many tuyeres while it is fed. */
 export const AIR_NOZZLE_TUYERES = 2;
+
+// ---- Pneumatic tubes (items shot through the air network between crates) ----
+/** Litres of air one capsule takes from its network, and the least pressure a sender fires at. */
+export const PNEU_CAPSULE_L = 10;
+export const PNEU_MIN_BAR = 1;
+/** Seconds between a sender's shots, and the most items a capsule carries (one stack at most). */
+export const PNEU_SEND_INTERVAL_S = 1;
+export const PNEU_CAPSULE_MAX = 16;
+/** A capsule's flight: a fixed start, then blocks a second along the straight-line (Manhattan) distance. */
+export const PNEU_FLIGHT_BASE_S = 0.3;
+export const PNEU_BLOCKS_PER_S = 12;

@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIRST_HEARTH_TIER } from '../core/constants';
 import { CHEM_CONTAINERS, FUEL_GRADES, fuelGrade } from '../core/distill';
-import { FURNACE_TIERS, ITEMS, MACHINES, RECIPES, fuelOf, item, itemOrNull, machine, recipesAt } from '../core/registry';
+import { FURNACE_TIERS, ITEMS, MACHINES, fuelOf, item, itemOrNull, machine, recipesAt } from '../core/registry';
 import { Face } from '../core/types';
 import { isSawFuel } from '../game/felling';
 import { ALLOY_POT } from './casting';
