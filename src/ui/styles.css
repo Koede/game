@@ -3301,3 +3301,12 @@ body {
 .hw-way__go { min-height: 44px; flex: 0 0 auto; }
 .hw-way__go[aria-disabled='true'] { opacity: 0.45; }
 .hw-journal__key { margin: 4px 0 0; font-size: 12px; opacity: 0.8; overflow-wrap: anywhere; }
+
+/* "What is this for?" lookup page */
+.hw-lookup { display: flex; flex-direction: column; gap: 10px; }
+.hw-lookup__results { display: flex; flex-wrap: wrap; gap: 6px; max-height: 28vh; overflow-y: auto; }
+.hw-lookup__item { min-height: 44px; }
+.hw-lookup__detail h3 { margin: 4px 0; }
+.hw-lookup__group h4 { margin: 8px 0 2px; }
+.hw-lookup__group ul { margin: 0; padding-left: 18px; }
+.hw-lookup__note { opacity: 0.75; margin: 4px 0; }

@@ -37,7 +37,8 @@ describe('food text', () => {
 
   it('puts food and the buff on the item card', () => {
     expect(foodRows('bread')).toEqual([['Eat', '+6 food']]);
-    expect(itemCard({ item: 'hearth_stew', count: 2 }).rows).toEqual([
+    // The lookup rows (made at / used in) come last.
+    expect(itemCard({ item: 'hearth_stew', count: 2 }).rows?.slice(0, 3)).toEqual([
       ['Count', '2'],
       ['Eat', '+12 food'],
       ['Buff', 'Well-Fed 6 min'],

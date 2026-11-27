@@ -40,6 +40,8 @@ export type ScreenRequest =
   | { type: 'workshop' }
   /** The settlement's jobs (docs/api/jobs.md): what each resident carries between two stops. `person` is the one to show first. */
   | { type: 'jobs'; person?: string }
+  /** "What is this for?": pick an item (search by name) to see what makes it, where it is used and where it is found. `item` opens it directly. */
+  | { type: 'lookup'; item?: string }
   /** The waypoint stone `stone` (docs/api/waypoints.md): pick a visited stone to travel to, rename this one. */
   | { type: 'waypoints'; stone: number }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */

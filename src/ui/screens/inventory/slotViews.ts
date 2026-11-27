@@ -12,6 +12,8 @@ import { foodRows } from '../food';
 /** The tooltip card of a stack: name, description, and what matters about it (wear, food, fuel, tool tier). */
 type ViewStack = { item: string; count: number; durability?: number; quality?: 1 | 2; enchants?: Record<string, number> };
 
+import { cardRows } from '../../../game/itemLookup';
+
 export function itemCard(stack: ViewStack): TooltipCard {
   const def = itemOrNull(stack.item);
   const rows: [string, string][] = [];
@@ -42,6 +44,7 @@ export function itemCard(stack: ViewStack): TooltipCard {
     const back = def.fuel.fuelReturns ? itemOrNull(def.fuel.fuelReturns) : null;
     if (back) rows.push(['Leaves', back.name]);
   }
+  rows.push(...cardRows(stack.item));
   const lines = enchantLines(stack).map((l) => ({ text: l.text, colour: l.colour, aspect: l.aspect, title: enchantDef(l.key)?.description }));
   const rarity = rarityOf(stack.item);
   const name = def?.name ?? titleFromKey(stack.item);

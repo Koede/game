@@ -33,13 +33,16 @@ const amountText = (list: readonly { item: string; count: number }[]): string =>
 
 interface Flat { id: string; station: string; inputs: { item: string; count: number }[]; output: { item: string; count: number } }
 
+let flatCache: Flat[] | null = null;
 function allRecipes(): Flat[] {
+  if (flatCache) return flatCache;
   const out: Flat[] = [];
   for (const r of RECIPES) out.push({ id: r.id, station: stationName(r.station), inputs: r.inputs, output: r.output });
   for (const r of BUILD_RECIPE_SPECS) out.push({ id: r.id, station: 'Workbench', inputs: r.inputs, output: r.output });
   for (const r of ARCANE_RECIPES) out.push({ id: r.id, station: r.bench ? 'Arcane Workbench' : 'Rune Desk', inputs: r.inputs, output: r.output });
   for (const r of INFUSIONS) out.push({ id: r.id, station: 'Infusion Altar', inputs: [{ item: r.center, count: 1 }, ...r.around.map((item) => ({ item, count: 1 }))], output: r.output });
   for (const r of ALCHEMY) out.push({ id: r.id, station: 'Alchemy', inputs: [{ item: r.catalyst, count: 1 }], output: r.output });
+  flatCache = out;
   return out;
 }
 
@@ -96,4 +99,18 @@ export function cardLine(item: string): string {
   }
   if (uses > 0) parts.push(`Used in ${uses} recipe${uses === 1 ? '' : 's'}`);
   return parts.join('. ');
+}
+
+/** The two card rows ("Made at" or "Found", and "Used in"); empty when there is nothing to say. */
+export function cardRows(item: string): [string, string][] {
+  const rows: [string, string][] = [];
+  const made = [...new Set(madeBy(item).map((r) => r.station))];
+  if (made.length) rows.push(['Made at', made.slice(0, 3).join(', ')]);
+  else {
+    const f = foundIn(item);
+    if (f.length) rows.push(['Found', f.slice(0, 2).join(', ')]);
+  }
+  const uses = usedIn(item).length;
+  if (uses > 0) rows.push(['Used in', `${uses} recipe${uses === 1 ? '' : 's'}`]);
+  return rows;
 }
