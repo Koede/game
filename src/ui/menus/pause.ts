@@ -143,7 +143,7 @@ export class PauseMenu {
     };
     const pages = this.pageLinks();
     const settingsWords = 'settings options difficulty peaceful hard graphics quality ui size large sound volume music loot filter magnet dev mode controls sensitivity fps';
-    const settingsLink: PageLink = { id: 'settings', label: 'Settings', hint: 'Difficulty, graphics, sound, controls', keywords: `${settingsWords}${this.opts.saves ? ' backup save export download copy' : ''}`, open: () => this.show('settings') };
+    const settingsLink: PageLink = { id: 'settings', label: 'Settings', hint: 'Difficulty, graphics, sound, controls', keywords: `${settingsWords}${this.opts.saves ? ' backup save export download copy restore earlier previous autosave' : ''}`, open: () => this.show('settings') };
     const howtoLink: PageLink = { id: 'howto', label: 'How to Play', hint: 'The loop, staying alive, controls', keywords: 'help guide tutorial controls keys', open: () => this.show('howto') };
     const all: PageLink[] = [...pages, settingsLink, howtoLink];
     const topics = howToTopics(this.opts.controls);
