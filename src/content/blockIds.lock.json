@@ -316,11 +316,11 @@
   "hand_pump": 314,
   "cistern": 315,
   "sprinkler": 316,
-  "telegraph_pole": 317,
-  "telegraph_office": 318,
-  "radio_mast": 319
   "lift_winch": 317,
   "elevator_winch": 318,
   "drawbridge": 319,
-  "bridge_deck": 320
+  "bridge_deck": 320,
+  "telegraph_pole": 321,
+  "telegraph_office": 322,
+  "radio_mast": 323
 }
