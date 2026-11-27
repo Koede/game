@@ -317,6 +317,8 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     }
     // Resin: a glass beaker held against a pine log catches its sap (player/sapTools.ts; item use, not a recipe).
     if (items.has('glass_beaker') && items.has('pine_log') && gain('pine_sap', 'tap')) changed = true;
+    // Bees (src/sim/apiary.ts): a beehive set among flowers is settled by a wild swarm; Use takes its comb. Source 'hive'.
+    if (items.has('beehive') && gain('honeycomb', 'hive')) changed = true;
     // Essentia (docs/OVERHAUL_PLAN.md B): a gathering rod fills empty vials from the land (item use). Source 'gather'.
     if (items.has('vis_rod') && items.has('glass_vial')) for (const a of ASPECTS) if (gain(vialKey(a.key), 'gather')) changed = true;
     // The Rune Desk and the Infusion Altar (recipesMagic.ts): ingredients plus essentia, which the rod always provides.

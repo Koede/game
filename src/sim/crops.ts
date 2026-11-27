@@ -11,10 +11,11 @@ import type { GameBus } from '../core/context';
 import { BLOCKS, blockId } from '../core/registry';
 import { CHUNK_SIZE, WORLD_HEIGHT, voxelId, withId, type BlockDef, type BlockEntity, type IWorld } from '../core/types';
 import {
-  HYDRATION_R, LAMP_R, MIN_SUNLIGHT, STAGE_OF, cropStage, growthRate, isHydrated, isLit, isPlant,
+  HYDRATION_R, LAMP_R, MIN_SUNLIGHT, STAGE_OF, cropStage, growthRate, isHydrated, isLit, isPlant, isPollinated,
   type CropContext, type CropEntity, type CropNode, type CropView, type StageInfo,
 } from './cropRules';
 import { posKey } from './entities';
+import { HIVE_DY, HIVE_REACH, POLLEN_BOOST } from './apiary';
 
 /**
  * World reads spent on refreshing cached facts per tick at most (a dry crop's water scan alone is 162 reads), so
@@ -33,7 +34,8 @@ const DIRTY_SOIL = 1;
 const DIRTY_SKY = 2;
 const DIRTY_WATER = 4;
 const DIRTY_LAMP = 8;
-const DIRTY_ALL = 15;
+const DIRTY_HIVE = 16;
+const DIRTY_ALL = 31;
 
 /** Numeric key of a block column (|z| < 2^21). */
 const colKey = (x: number, z: number): number => x * 4194304 + z;
@@ -44,7 +46,9 @@ export class CropField {
   private readonly awake: CropNode[] = [];
   /** Positions of every lamp that is lit (powered and running). */
   private readonly lamps = new Map<string, readonly [number, number, number]>();
-  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null };
+  /** Positions of every settled beehive (src/sim/apiary.ts). */
+  private readonly hives = new Map<string, readonly [number, number, number]>();
+  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null, beesOut: false, pollenBoost: POLLEN_BOOST };
   private sunWasUp: boolean | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus) {}
@@ -64,6 +68,7 @@ export class CropField {
     this.columns.clear();
     this.awake.length = 0;
     this.lamps.clear();
+    this.hives.clear();
     this.sunWasUp = null;
   }
 
@@ -71,7 +76,7 @@ export class CropField {
   track(stored: BlockEntity): CropNode {
     const e = stored as CropEntity;
     if (typeof e.growS !== 'number' || !Number.isFinite(e.growS)) e.growS = 0;
-    const node: CropNode = { e, key: posKey(e.x, e.y, e.z), info: null, soil: false, sky: false, rain: false, water: false, lamp: false, dirty: DIRTY_ALL, slot: -1, waitS: 0 };
+    const node: CropNode = { e, key: posKey(e.x, e.y, e.z), info: null, soil: false, sky: false, rain: false, water: false, lamp: false, bees: false, dirty: DIRTY_ALL, slot: -1, waitS: 0 };
     this.byKey.set(node.key, node);
     const ck = colKey(e.x, e.z);
     const col = this.columns.get(ck);
@@ -157,11 +162,22 @@ export class CropField {
     });
   }
 
+  /** A beehive at x,y,z gained (`settled`) or lost its swarm, or was removed. */
+  hiveChanged(x: number, y: number, z: number, settled: boolean): void {
+    const key = posKey(x, y, z);
+    if (settled === this.hives.has(key)) return;
+    if (settled) this.hives.set(key, [x, y, z]);
+    else this.hives.delete(key);
+    this.around(x, z, HIVE_REACH, (c) => {
+      if (Math.abs(c.e.y - y) <= HIVE_DY) this.touch(c, DIRTY_HIVE);
+    });
+  }
+
   /**
    * Advances every crop that can grow. `sunlight` is the clock's sunlight factor of this tick; `wetAt` says where
    * rain soaks exposed crops this tick (null: nowhere).
    */
-  tick(dt: number, sunlight: number, wetAt: CropContext['wetAt'] = null, scale: CropContext['scale'] = null): void {
+  tick(dt: number, sunlight: number, wetAt: CropContext['wetAt'] = null, scale: CropContext['scale'] = null, beesOut = false): void {
     const up = sunlight >= MIN_SUNLIGHT;
     if (up && this.sunWasUp === false) {
       // Sunrise: crops that slept through the dark under open sky look again.
@@ -171,6 +187,7 @@ export class CropField {
     this.ctx.sunUp = up;
     this.ctx.wetAt = wetAt;
     this.ctx.scale = scale;
+    this.ctx.beesOut = beesOut;
     const { awake, ctx } = this;
     let budget = REFRESH_READS_PER_TICK;
     // Backwards: a crop going to sleep swaps the last (already visited) crop into its place.
@@ -196,13 +213,13 @@ export class CropField {
   }
 
   /** What the crop at x,y,z is doing, or null when there is none (or its chunk has not been seen yet). */
-  view(x: number, y: number, z: number, sunlight: number, wetAt: CropContext['wetAt'] = null, scale: CropContext['scale'] = null): CropView | null {
+  view(x: number, y: number, z: number, sunlight: number, wetAt: CropContext['wetAt'] = null, scale: CropContext['scale'] = null, beesOut = false): CropView | null {
     const c = this.byKey.get(posKey(x, y, z));
     if (!c) return null;
     if (c.dirty !== 0 && this.world.isLoaded(x, z)) this.refresh(c);
     const info = c.info;
     if (info === null) return null;
-    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale };
+    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale, beesOut, pollenBoost: POLLEN_BOOST };
     const ripe = info.next < 0;
     const lit = info.wild || isLit(c, ctx);
     const hydrated = info.wild || isHydrated(c, ctx);
@@ -213,7 +230,7 @@ export class CropField {
       : !c.soil ? 'Needs farmland' : !lit ? 'Needs light' : `Growing - stage ${info.stage + 1} of ${info.stages}`;
     return {
       x, y, z, crop: info.crop, name: this.world.getBlock(x, y, z).name, stage: info.stage, stages: info.stages, ripe,
-      soil: info.wild || c.soil, lit, hydrated, rate, progress: ripe ? 1 : Math.min(1, c.e.growS / stageS),
+      soil: info.wild || c.soil, lit, hydrated, pollinated: isPollinated(c, ctx), rate, progress: ripe ? 1 : Math.min(1, c.e.growS / stageS),
       nextStageS: ripe ? 0 : rate > 0 ? Math.max(0, left) / rate : Infinity,
       ripeInS: ripe ? 0 : rate > 0 ? (Math.max(0, left) + (info.stages - 2 - info.stage) * stageS) / rate : Infinity,
       status,
@@ -265,6 +282,15 @@ export class CropField {
       for (const [lx, ly, lz] of this.lamps.values()) {
         if ((lx - x) ** 2 + (ly - y) ** 2 + (lz - z) ** 2 <= r2) {
           c.lamp = true;
+          break;
+        }
+      }
+    }
+    if (d & DIRTY_HIVE) {
+      c.bees = false;
+      for (const [hx, hy, hz] of this.hives.values()) {
+        if (Math.abs(hx - x) <= HIVE_REACH && Math.abs(hz - z) <= HIVE_REACH && Math.abs(hy - y) <= HIVE_DY) {
+          c.bees = true;
           break;
         }
       }

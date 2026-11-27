@@ -13,5 +13,6 @@ export function cropLabel(v: UICropView): string {
   if (!v.soil) return `${name} - needs farmland`;
   if (!v.lit) return `${name} - needs light: sun or a lamp`;
   const when = Number.isFinite(v.ripeInS) ? `ripe in ${formatCountdown(v.ripeInS)}` : 'not growing';
-  return v.hydrated ? `${name} - growing, ${when}` : `${name} - dry, ${when}: water within ${WATER_RADIUS} blocks doubles it`;
+  // Bees from a hive in reach (src/sim/apiary.ts): said only on the short line, the dry one is long enough already.
+  return v.hydrated ? `${name} - growing${v.pollinated ? ', bees pollinating' : ''}, ${when}` : `${name} - dry, ${when}: water within ${WATER_RADIUS} blocks doubles it`;
 }

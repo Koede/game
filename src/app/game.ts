@@ -43,6 +43,7 @@ import { FallingTreeRenderer } from '../render/fallingTrees';
 import { FallingTrees } from '../game/fallingTrees';
 import { MobRenderer } from '../render/mobs';
 import { NightlifeFx } from '../render/nightlifeFx';
+import { BeeFx } from '../render/beeFx';
 import { critters, darkOf, type Critter, type NightEnv } from '../sim/nightlife';
 import { NPCS } from '../npcs/data';
 import { loadNpcArt } from '../render/npcs/art';
@@ -164,6 +165,7 @@ export class Game {
   private wasStill = false;
   private lastDraw = 0;
   private nightlifeFx!: NightlifeFx;
+  private beeFx!: BeeFx;
   private readonly nightList: Critter[] = [];
   private nightEnv!: NightEnv;
   /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
@@ -290,6 +292,7 @@ export class Game {
       };
       state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
       this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
+      this.beeFx = new BeeFx((p) => renderer.spawnParticle(p));
       this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
@@ -408,6 +411,8 @@ export class Game {
     this.nightEnv.timeS = clock.worldTimeS;
     this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;
     this.nightlifeFx.update(dt, this.nightEnv.dark < 0.15 ? [] : critters(this.nightEnv, player.position.x, player.position.z, this.nightList));
+    // Bees round the settled hives while they fly (src/sim/apiary.ts).
+    this.beeFx.update(dt, this.state.sim.buzzingHives(), player.position.x, player.position.z);
   }
 
   /** A frame while the loading screen is up: stream chunks and draw behind it, nothing moves. */

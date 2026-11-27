@@ -24,3 +24,9 @@ describe('crop crosshair label', () => {
     expect(kit.sim.cropView(5, 11, 0)).toBeNull();
   });
 });
+
+describe('crop crosshair label with bees', () => {
+  it('says the bees are pollinating a watered crop', () => {
+    expect(cropLabel({ ...base, pollinated: true })).toBe('Wheat - growing, bees pollinating, ripe in 4 m');
+  });
+});

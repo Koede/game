@@ -35,6 +35,8 @@ export interface UICropView {
   soil: boolean;
   lit: boolean;
   hydrated: boolean;
+  /** Bees from a hive in reach are pollinating it (it grows half again as fast). */
+  pollinated?: boolean;
   /** Seconds to ripe at the current rate (Infinity while not growing). */
   ripeInS: number;
 }

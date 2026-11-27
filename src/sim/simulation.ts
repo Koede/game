@@ -21,6 +21,7 @@ import { cratesNear, pushToCrates } from './crates';
 import { MIN_SUNLIGHT, isPlant, isPlantBlock, type CropView } from './cropRules';
 import { Brewing, isBrewKind } from './brewing';
 import { BOILER_MACHINE, Boilers } from './boilers';
+import { Apiary, HIVE_MACHINE, type BeesIn } from './apiary';
 import { brewUse, brewView, isFurnaceTop, placeContainer, type BrewResult, type BrewView } from './brewActions';
 import { Distillery, isChemKind } from './distill';
 import { chemPortEndpoint, chemUse, chemView, type ChemResult, type ChemView } from './distillActions';
@@ -97,6 +98,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   private readonly brewing: Brewing;
   /** Sealed boilers (docs/api/steam.md): a gauge glass owns the vessel entity; never a machine node. */
   private readonly boilers: Boilers;
+  private readonly apiary: Apiary;
   /** The glass distillery's modules and rigs (docs/api/distillery.md): entities that are not machine nodes. */
   readonly distill: Distillery;
   /** Set while an explosion removes blocks: what the machines held is lost, not returned. */
@@ -152,6 +154,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       returnItem: (x, y, z, item, durability) => this.returnItem(x, y, z, item, durability),
     });
     this.boilers = new Boilers(world, bus, { furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z) });
+    this.apiary = new Apiary(world, bus, {
+      sting: (amount) => this.player.damage(amount, 'sting'),
+      hiveChanged: (x, y, z, settled) => this.crops.hiveChanged(x, y, z, settled),
+    });
     this.distill = new Distillery(world, bus, {
       furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z),
       flagOnce: (flag) => this.flagOnce(flag),
@@ -239,6 +245,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     this.benches.clear();
     this.brewing.clear();
     this.boilers.clear();
+    this.apiary.clear();
     this.distill.clear();
     this.hearths.clear();
     // A damaged entity (an older save's shape, a bad field) is repaired, or dropped when its kind is unknown, so one
@@ -249,6 +256,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       else if (this.trackHand(e)) continue;
       else if (isBrewKind(e.kind)) this.brewing.track(e);
       else if (e.kind === BOILER_MACHINE) this.boilers.track(e);
+      else if (e.kind === HIVE_MACHINE) this.apiary.track(e);
       else if (isChemKind(e.kind)) this.distill.track(e);
       else if (isAirEntity(e)) continue; // the air network follows its own saved entities (airNet.ts)
       else if (!isPipeEntity(e)) {
@@ -331,7 +339,9 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
     this.air.tick(dt);
-    this.crops.tick(dt, this.sunlight, this.wetAt, this.cropScaleAt);
+    const beesIn = this.beesIn();
+    this.apiary.tick(dt, beesIn);
+    this.crops.tick(dt, this.sunlight, this.wetAt, this.cropScaleAt, beesIn === null);
     this.hand.tick(dt, this.sunlight >= MIN_SUNLIGHT, this.wetAt);
 
     if (this.meltdowns.length > 0) {
@@ -411,6 +421,11 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       return;
     }
     if (Boilers.handles(from)) this.boilers.remove(x, y, z);
+    if (Apiary.handles(to)) {
+      this.apiary.place(x, y, z);
+      return;
+    }
+    if (Apiary.handles(from)) this.apiary.remove(x, y, z);
     // Buckets, cups and kettles (docs/api/brewing.md) keep their own entities; they are never machine nodes.
     if (Brewing.handles(to)) {
       this.brewing.place(x, y, z, to);
@@ -537,7 +552,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
 
   /** The brewing table: what the held item (null: an empty hand) does to the cup, bucket or kettle at x,y,z. */
   brewUse(x: number, y: number, z: number, heldKey: string | null): BrewResult {
-    const boiler = this.boilers.use(x, y, z, heldKey);
+    const boiler = this.boilers.use(x, y, z, heldKey) ?? this.apiary.use(x, y, z, heldKey);
     if (boiler) return boiler;
     return brewUse(this.brewing, x, y, z, heldKey);
   }
@@ -581,6 +596,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   brewView(x: number, y: number, z: number): BrewView | ChemView | null {
     const boiler = this.boilers.text(x, y, z);
     if (boiler) return { kind: 'kettle', stage: 'filled', text: boiler, progress: 0, secondsLeft: 0, drink: null, tempC: null };
+    const hive = this.apiary.text(x, y, z);
+    if (hive) return { kind: 'kettle', stage: 'filled', text: hive, progress: 0, secondsLeft: 0, drink: null, tempC: null };
     return brewView(this.brewing, x, y, z) ?? chemView(this.distill, x, y, z);
   }
 
@@ -1077,10 +1094,28 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     return j;
   }
 
+  /** Why the bees stay in their hives now (night, rain, winter), or null when they fly (src/sim/apiary.ts). */
+  private beesIn(): BeesIn {
+    if (this.clock.sunlight() < MIN_SUNLIGHT) return 'asleep for the night';
+    if (seasonOf(this.clock.day) === 'winter') return 'huddled in for winter';
+    if (this.weather.soaks) return 'sheltering from the rain';
+    return null;
+  }
+
+  /** Settled hives whose bees are flying now (the bee particles). */
+  buzzingHives(): ReturnType<Apiary['buzzing']> {
+    return this.apiary.buzzing();
+  }
+
+  /** The beehive entity at a position (tests, diagnostics). */
+  hiveAt(x: number, y: number, z: number): ReturnType<Apiary['entityAt']> {
+    return this.apiary.entityAt(x, y, z);
+  }
+
   /** What the crop at a position is doing (stage, light, water, status), or null. Crops have no machine view. */
   cropView(x: number, y: number, z: number): CropView | null {
     this.weather.update();
-    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt);
+    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt, this.beesIn() === null);
   }
 
   /** Furnaces, machines and crates (crops are counted by `cropCount`). */
