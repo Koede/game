@@ -6,4 +6,7 @@ export function rangeIsEmpty(slots: readonly (unknown | null | undefined)[], sta
   return true;
 }
 
+/** Whole inventory empty (hotbar too). */
 export const EMPTY_BACKPACK = 'Your backpack is empty. Mine, gather and craft: whatever you pick up lands here.';
+/** Backpack empty but the hotbar holds things (a fresh pack: picked-up items fill the hotbar first). */
+export const EMPTY_BACKPACK_HOTBAR = 'Nothing in the backpack yet: what you pick up fills the hotbar first, then lands here.';

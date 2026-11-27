@@ -5,7 +5,7 @@
  */
 import { h, setAttr, setText } from '../kit/dom';
 
-export type CoachMark = 'look' | 'mine' | 'goal';
+export type CoachMark = 'look' | 'mine' | 'goal' | 'sprint';
 
 const STORAGE_KEY = 'hearthwatt.coach';
 /** Radians of look (yaw plus pitch) that count as "has dragged to look". */
@@ -15,13 +15,17 @@ const TEXT: Record<CoachMark, string> = {
   look: 'Drag here to look around',
   mine: 'Aim at a tree and hold MINE',
   goal: 'Tap the goal for details',
+  sprint: 'Push the stick to its edge to sprint',
 };
+/** Blocks walked without a sprint before the sprint tip shows. */
+export const SPRINT_TIP_WALK = 80;
 
 /** The rules, DOM-free: which mark shows now, and what dismisses each. */
 export class CoachState {
   readonly seen: Set<CoachMark>;
   private looked = 0;
   private goalReady = false;
+  private walked = 0;
 
   constructor(seen: Iterable<CoachMark> = []) {
     this.seen = new Set(seen);
@@ -32,6 +36,7 @@ export class CoachState {
     if (!this.seen.has('look')) return 'look';
     if (!this.seen.has('mine')) return 'mine';
     if (!this.seen.has('goal') && this.goalReady) return 'goal';
+    if (!this.seen.has('sprint') && this.walked >= SPRINT_TIP_WALK) return 'sprint';
     return null;
   }
 
@@ -40,6 +45,16 @@ export class CoachState {
     if (this.seen.has('look')) return false;
     this.looked += Math.abs(radians);
     return this.looked >= LOOK_DONE_RAD && this.done('look');
+  }
+
+  /** The player moved by this many blocks on foot. Once enough has been walked, the sprint tip is due. */
+  addWalk(blocks: number): void {
+    this.walked += blocks;
+  }
+
+  /** The player sprinted: the tip is no longer needed. True when that finished the mark. */
+  sprinted(): boolean {
+    return this.done('sprint');
   }
 
   blockBroken(): boolean {
@@ -65,7 +80,7 @@ function load(): CoachMark[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const list: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list.filter((m): m is CoachMark => m === 'look' || m === 'mine' || m === 'goal') : [];
+    return Array.isArray(list) ? list.filter((m): m is CoachMark => m === 'look' || m === 'mine' || m === 'goal' || m === 'sprint') : [];
   } catch {
     return [];
   }
@@ -86,6 +101,8 @@ export class CoachMarks {
   private readonly state = new CoachState(load());
   private lastYaw = Number.NaN;
   private lastPitch = Number.NaN;
+  private lastX = Number.NaN;
+  private lastZ = Number.NaN;
   private shown: CoachMark | null | undefined;
 
   constructor() {
@@ -103,6 +120,18 @@ export class CoachMarks {
     }
     this.lastYaw = yaw;
     this.lastPitch = pitch;
+  }
+
+  /** Every frame with the player's position and sprint state (touch only): a long walk without sprinting shows the sprint tip. */
+  walk(x: number, z: number, sprinting: boolean, touch: boolean): void {
+    if (touch && !Number.isNaN(this.lastX)) {
+      const d = Math.hypot(x - this.lastX, z - this.lastZ);
+      // A teleport or respawn is not walking; only small steps count.
+      if (d < 2) this.state.addWalk(d);
+    }
+    this.lastX = x;
+    this.lastZ = z;
+    if (sprinting && touch && this.state.sprinted()) this.changed();
   }
 
   blockBroken(): void {
