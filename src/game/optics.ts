@@ -28,6 +28,8 @@ export const ZOOM: Record<OpticsMode, number> = { none: 1, spyglass: 4, telescop
 export const SPOT_RANGE: Record<OpticsMode, number> = { none: 0, spyglass: 280, telescope: 520 };
 /** Half-angle (radians) of the middle of the view a landmark must sit in to be spotted. */
 export const SPOT_CONE: Record<OpticsMode, number> = { none: 0, spyglass: (5 * Math.PI) / 180, telescope: (3 * Math.PI) / 180 };
+/** How far above or below level (radians, beyond the cone) the view may tilt and still hold a landmark: towers rise, hills fall. */
+export const HORIZON_SLACK = 0.12;
 /** Seconds a landmark must stay in the middle of the view. */
 export const SPOT_HOLD_S = 0.8;
 /** Seconds between looks for the landmark in view. */
@@ -96,7 +98,9 @@ export function landmarksNear(seed: number, x: number, z: number, range: number)
 }
 
 /** The landmark nearest the middle of the view within `cone` and `range` (never the one the player stands in), or null. */
-export function landmarkInView(marks: readonly Landmark[], px: number, pz: number, yaw: number, cone: number, range: number): Landmark | null {
+export function landmarkInView(marks: readonly Landmark[], px: number, pz: number, yaw: number, cone: number, range: number, pitch = 0): Landmark | null {
+  // Landmarks stand near the horizon: a view tilted well up (at the stars) or down sees none of them.
+  if (Math.abs(pitch) > cone + HORIZON_SLACK) return null;
   let best: Landmark | null = null;
   let bestOff = cone;
   for (const m of marks) {
@@ -211,7 +215,7 @@ export class Optics {
       this.marks = landmarksNear(this.host.seed, px, pz, range);
       this.marksAt = { x: px, z: pz, range };
     }
-    const seen = landmarkInView(this.marks, px, pz, p.yaw, SPOT_CONE[this.mode], range);
+    const seen = landmarkInView(this.marks, px, pz, p.yaw, SPOT_CONE[this.mode], range, p.pitch);
     if (seen && this.holding && seen.key === this.holding.key) this.heldS += step;
     else {
       this.holding = seen;

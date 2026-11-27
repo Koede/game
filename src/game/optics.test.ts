@@ -57,6 +57,10 @@ describe('optics: directions and the view', () => {
     // Too far, too close, or out of the cone: nothing.
     expect(landmarkInView(marks.filter((m) => m.key === 'c' || m.key === 'd'), 0, 0, yaw, 0.1, 300)).toBeNull();
     expect(landmarkInView(marks, 0, 0, Math.PI / 2, 0.1, 300)).toBeNull();
+    // Yaw on it but the view tilted up at the sky: not in the middle of the view.
+    expect(landmarkInView(marks, 0, 0, yaw, 0.1, 300, 0.1)?.key).toBe('a');
+    expect(landmarkInView(marks, 0, 0, yaw, 0.1, 300, 0.8)).toBeNull();
+    expect(landmarkInView(marks, 0, 0, yaw, 0.1, 300, -0.8)).toBeNull();
   });
 
   it('reads the weather in the stars', () => {
