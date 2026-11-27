@@ -177,6 +177,8 @@ export class Workshop {
   private holding = false;
   /** Time of day text for the clockface; set by Game. */
   clockText: (() => string) | null = null;
+  /** The sun's time of day (0..1, 0 = sunrise) for clock towers and the timers they wind; set by Game. */
+  timeOfDay: (() => number) | null = null;
   /** World time for the wind vane. S10 assigns `() => clock.worldTimeS`. Until then the vane uses time since this workshop loaded. */
   timeS: (() => number) | null = null;
   /** Puts a returned punched card in the pack. S10 assigns `(item, n) => player.inventory.add(item, n)`. Until then the card drops. */
@@ -188,7 +190,7 @@ export class Workshop {
   private editing: string | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus, private readonly ground: GroundItems, private readonly rng: () => number = Math.random) {
-    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn });
+    this.signals = new Signals({ world, ground, bus, standingOn: () => this.standingOn, timeOfDay: () => this.timeOfDay?.() ?? null });
     this.logi = new Logistics({
       world, ground, bus, rng,
       gate: (x, y, z) => this.signals.gate(x, y, z),

@@ -72,6 +72,8 @@ export type SfxName =
   | 'upgrade'
   | 'objective'
   | 'jukebox_note'
+  // The clock tower striking the hour (src/workshop/signals.ts).
+  | 'tower_bell'
   | 'age'
   | 'ui_click'
   | 'ui_open'

@@ -309,5 +309,6 @@
   "steam_pipe": 307,
   "mill_wheel": 308,
   "windmill": 309,
-  "steam_tank": 310
+  "steam_tank": 310,
+  "clock_tower": 311
 }
