@@ -119,6 +119,7 @@ export class FireboxPanel {
     );
     this.foldBtn.addEventListener('click', () => this.setOpen(!this.open));
     this.restBtn = new Button({ label: 'Rest until dawn', kind: 'quiet', size: 'sm', block: true, onClick: () => this.rest() });
+    this.restBtn.el.classList.add('hw-fbx__rest');
     this.el = h(
       'section',
       { class: 'hw-fbx', attrs: { 'aria-label': 'Firebox' } },

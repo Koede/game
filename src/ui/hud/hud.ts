@@ -287,7 +287,9 @@ export class Hud {
     this.workFraction = hand && hand.fraction > 0 ? hand.fraction : -1;
     if (hand) return hand.label;
     const block = this.deps.world.getBlock(t.x, t.y, t.z);
-    return block.id === 0 ? null : block.name;
+    if (block.id === 0) return null;
+    const machine = this.deps.sim().machineView(t.x, t.y, t.z);
+    return machine && machine.status ? `${block.name} - ${machine.status}` : block.name;
   }
 
   /**
