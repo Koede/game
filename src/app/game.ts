@@ -26,15 +26,17 @@ import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createTownScreen } from '../ui/screens/town/townScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
 import { createJobsScreen } from '../ui/screens/jobs/jobsScreen';
+import { createWaypointScreen } from '../ui/screens/waypoints/waypointScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
 import { DT, REACH } from '../core/constants';
-import { isFluidEndpoint } from '../core/registry';
-import type { Face } from '../core/types';
 import { collectLeafDrops } from '../game/leafDrops';
 import { aimGroundItem, dropLabel } from '../game/groundAim';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
+import { AirshipRenderer } from '../render/vehicles/airshipRenderer';
+import { AirshipHud } from '../ui/airshipHud';
+import { wrapAirshipSource, type AirshipManager } from '../vehicles/airshipManager';
 import { VehicleManager, wrapIntentSource } from '../vehicles';
 import { seatOf, type Tractor } from '../vehicles/tractor';
 import { createInputState, type InputState, type IView, type Settings } from '../core/context';
@@ -72,6 +74,7 @@ import {
   TRACTOR_ROAD_HEIGHT,
   walkRoadFactor,
 } from './gameWiring';
+import { firstHourStep } from '../game/firstHour';
 import { gridOverlayFor, meterUse } from '../game/gridMeter';
 import { clampFrameDt, FixedStep } from './loop';
 import { GameState } from './state';
@@ -138,6 +141,8 @@ export class Game {
   readonly controller: PlayerController;
   /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
   readonly vehicles: VehicleManager;
+  /** Airships and their sky chart (docs/api/airship.md). */
+  readonly airships: AirshipManager;
   /** Essentia & Research (docs/api/magic.md): research, jars, the land's drawn essentia. */
   readonly magic: Magic;
   /** The Bronze workshop pieces (docs/api/workshop.md): cranks, shafts, belts, mechanical stations. */
@@ -146,6 +151,8 @@ export class Game {
   readonly optics: Optics;
   private readonly tractorRenderer: TractorRenderer;
   private readonly vehicleHud: VehicleHud;
+  private readonly airshipRenderer: AirshipRenderer;
+  private readonly airshipHud: AirshipHud;
   readonly audio: AudioEngine;
   readonly ambience: AmbienceProbe;
   /** Frames drawn and fixed ticks run since the game started (debug / tests). */
@@ -192,6 +199,7 @@ export class Game {
     this.offs.push(collectLeafDrops(bus, player));
     // Vehicles, Magic and the Workshop live in GameState (headless, persisted there); the browser adds renderers and screens.
     this.vehicles = state.vehicles;
+    this.airships = state.airships;
     this.magic = state.magic;
     this.workshop = state.workshop;
     setCraftGate(state.restoration.gate((id) => this.magic.craftGate(id)));
@@ -230,11 +238,14 @@ export class Game {
         objectives,
         survival,
         journal: state.journal,
+        mapMarks: () => state.exploration.mapMarks(),
         achievements: state.achievements,
         dailyGoals: state.dailyGoals,
         sim,
         weather: () => state.weather.state,
         town: () => state.npcs.townChip(),
+        guide: () => firstHourStep({ isComplete: (id) => objectives.isComplete(id), campDone: state.npcs.campDone() }),
+        campSpot: () => state.npcs.campSpot(),
         winterGoal: () => state.winter.activeGoal(),
         tapGoal: () => (this.controller?.tapMove.active ? this.controller.tapMove : null),
         releasePointer: () => this.inputManager.releasePointerCapture(),
@@ -249,6 +260,7 @@ export class Game {
       this.ui.registerScreen('town', (request, ctx) => createTownScreen(request as { type: 'town' }, ctx, () => state.npcs.townPage(), (id, room) => state.npcs.moveResident(id, room)));
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
       this.ui.registerScreen('jobs', (request, ctx) => createJobsScreen(ctx, state.npcs, request.type === 'jobs' ? request.person : undefined));
+      this.ui.registerScreen('waypoints', (request, ctx) => (request.type === 'waypoints' ? createWaypointScreen(ctx, state.exploration, request.stone) : null));
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
       this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z, request.type === 'rune_desk' && request.bench === true), request.type === 'rune_desk' && request.bench === true));
       registerDistillRig(this.ui);
@@ -265,8 +277,9 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(wrapAirshipSource(this.inputManager, this.airships), this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
       this.vehicles.bindPhysics(this.controller.physics);
+      this.airships.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
@@ -315,6 +328,8 @@ export class Game {
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       const opticsHud = new OpticsHud(root.layers.hud, bus);
       this.offs.push(() => opticsHud.dispose());
+      this.airshipRenderer = new AirshipRenderer(this.renderer, world);
+      this.airshipHud = new AirshipHud(root.layers.hud, () => this.input.touch, () => this.airships.pressCourseKey());
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
@@ -363,8 +378,13 @@ export class Game {
     const onKey = (down: boolean) => (e: KeyboardEvent): void => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.code === 'KeyF') this.vehicles.setWorkKey(down);
-      else if (e.code === 'KeyR' && down && !e.repeat) this.vehicles.pressSwapKey();
+      if (e.code === 'KeyF') {
+        this.vehicles.setWorkKey(down);
+        this.airships.setSinkKey(down);
+      } else if (e.code === 'KeyR' && down && !e.repeat) {
+        this.vehicles.pressSwapKey();
+        this.airships.pressCourseKey();
+      }
       else if (e.code === 'KeyH' && down && !e.repeat) this.toggleHeatView();
     };
     const keyDown = onKey(true);
@@ -425,7 +445,7 @@ export class Game {
   /** Fireflies, bats and owls (src/sim/nightlife.ts) around the player, drawn as particles. */
   private drawNightlife(dt: number): void {
     if (dt <= 0) return;
-    const { world, clock, weather, player } = this.state;
+    const { clock, weather, player } = this.state;
     this.nightEnv.dark = darkOf(clock.sunlight());
     this.nightEnv.timeS = clock.worldTimeS;
     this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;
@@ -493,6 +513,7 @@ export class Game {
     showRodAura(this.ui.hud, this.magic.rodReading());
     this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
     this.vehicleHud.update(this.vehicles.status());
+    this.airshipHud.update(this.airships.status());
     this.ui.frame(dt);
     const motions = this.workshop.contra.motions();
     applyStructureHide(this.renderer.scene.getObjectByName('chunks'), hiddenStructureCells(motions, this.workshop.contra.vacating()));
@@ -503,6 +524,7 @@ export class Game {
       this.npcRenderer.reduceMotion = this.settings.reduceMotion;
       this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
+      this.airshipRenderer.update(paused ? 0 : dt, this.airships.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       this.treeRenderer.update(this.trees.trees(), this.trees.logs());
       const pp = state.player.position;
@@ -769,6 +791,8 @@ export class Game {
     this.offs.length = 0;
     this.vehicleHud.dispose();
     this.tractorRenderer.dispose();
+    this.airshipHud.dispose();
+    this.airshipRenderer.dispose();
     this.ui.dispose();
     this.controller.dispose();
     this.inputManager.dispose();

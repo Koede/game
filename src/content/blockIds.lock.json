@@ -310,6 +310,8 @@
   "mill_wheel": 308,
   "windmill": 309,
   "steam_tank": 310,
-  "telescope": 311,
-  "lighthouse_lamp": 312
+  "tube_sender": 311,
+  "tube_receiver": 312,
+  "telescope": 313,
+  "lighthouse_lamp": 314
 }

@@ -1,6 +1,6 @@
 /** The settings form, bound to the Settings contract. Used inside the title screen's and the pause menu's windows. */
 import { PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Settings } from '../../core/context';
-import { Segmented, Slider, Toggle } from '../kit/controls';
+import { Button, Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
 import { PRESETS, applyPreset, detectPreset, presetById, type PresetId } from './settingsPresets';
@@ -16,6 +16,22 @@ export const SETTINGS_LIMITS = {
   hudScale: { min: 0.8, max: 1.5, step: 0.05 },
 } as const;
 
+/** Backing up and restoring the saved world (title screen: all of it; elsewhere only `backUp`). Every action answers with a line to show. */
+export interface SaveTools {
+  /** A world is stored. */
+  hasWorld(): boolean;
+  /** Offers the saved world as a file. */
+  backUp(): Promise<string>;
+  /** The saved world as text, for copying where a download is blocked; null when there is none. */
+  text?(): string | null;
+  /** Replaces the saved world with the text of a backup (file or pasted). Absent while a world is open. */
+  restore?(text: string): string;
+  /** When the previous autosave was written, or null when there is none. Absent while a world is open. */
+  earlier?(): { label: string } | null;
+  /** Brings back the previous autosave. */
+  restoreEarlier?(): string;
+}
+
 export interface SettingsPanelOptions {
   /** Current values. The panel works on its own copy. */
   settings: Settings;
@@ -23,6 +39,8 @@ export interface SettingsPanelOptions {
   onChange: (settings: Settings, key: keyof Settings) => void;
   /** With a world open: the Dev Mode switch (on, off, any time). Absent on the title screen, where the mode is chosen for a new world. */
   dev?: { get(): boolean; set(on: boolean): void };
+  /** Adds a Saves section: back up the world to a file, restore one, or go back to the previous autosave. */
+  saves?: SaveTools;
 }
 
 const speed = (v: number): string => `${v.toFixed(1)}×`;
@@ -81,7 +99,118 @@ export class SettingsPanel {
         this.toggle('treeDamage', 'Tree damage to me', 'Falling trees hurt you and animals under them. Off for a relaxed game; trees still fall.'),
       ),
       this.section('Sound', this.slider('volume', 'Volume', '', L.volume, formatPercent)),
+      opts.saves ? this.section('Saves', ...this.saveRows(opts.saves)) : null,
     );
+  }
+
+  /**
+   * Back up and restore. The published page runs in a sandboxed frame where downloads and file pickers can be blocked, so
+   * every step also works as text (a save is a few tens of KB): show it to copy, paste it to restore.
+   * Restores replace the saved world, so the old one is kept as the earlier save (and the earlier save is a held button).
+   */
+  private saveRows(tools: SaveTools): HTMLElement[] {
+    const status = h('div', { class: 'hw-setting__hint hw-saves__status', attrs: { role: 'status', 'aria-live': 'polite' } });
+    const say = (line: string): void => {
+      status.textContent = line;
+    };
+    const box = (label: string, readOnly: boolean): HTMLTextAreaElement => {
+      const area = h('textarea', { class: 'hw-saves__text', attrs: { 'aria-label': label, rows: '5', spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off' } }) as HTMLTextAreaElement;
+      area.readOnly = readOnly;
+      area.hidden = true;
+      return area;
+    };
+    const stack = (...kids: (HTMLElement | null)[]): HTMLElement => h('div', { class: 'hw-saves__stack' }, kids);
+
+    // --- back up ---
+    const shown = box('Backup text', true);
+    const fileBtn = new Button({
+      label: 'Download a file',
+      block: true,
+      onClick: () => {
+        if (!tools.hasWorld()) return say('There is no saved world to back up yet.');
+        void tools.backUp().then(say, () => say('The backup could not be made.'));
+      },
+    });
+    const textBtn = new Button({
+      label: 'Show it as text to copy',
+      block: true,
+      kind: 'quiet',
+      onClick: () => {
+        const text = tools.text?.() ?? null;
+        if (text === null) return say('There is no saved world to back up yet.');
+        shown.value = text;
+        shown.hidden = false;
+        shown.focus();
+        shown.select();
+        const clip = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+        if (clip && typeof clip.writeText === 'function') clip.writeText(text).then(() => say('Copied. Paste it somewhere safe, e.g. a note to yourself.'), () => say('Select the text below and copy it.'));
+        else say('Select the text below and copy it.');
+      },
+    });
+    const rows: HTMLElement[] = [
+      this.row('Back up', 'Saves live in this browser only. Keep a copy: restore it here later, or on another device. If the download is blocked here, use the text.', stack(fileBtn.el, tools.text ? textBtn.el : null, shown), true),
+    ];
+
+    // --- restore ---
+    let earlierRow: HTMLElement | null = null;
+    const refreshEarlier = (): void => {
+      if (!tools.earlier || !tools.restoreEarlier) return;
+      const restoreEarlier = tools.restoreEarlier;
+      const found = tools.earlier();
+      const next = found
+        ? this.row(
+            'Earlier save',
+            `Written ${found.label}. Brings it back in place of the current world; the current one becomes the earlier save.`,
+            new Button({
+              label: 'Go back to it',
+              block: true,
+              holdMs: 1200,
+              hint: 'Hold - replaces your saved world',
+              onClick: () => {
+                say(restoreEarlier());
+                refreshEarlier();
+              },
+            }).el,
+            true,
+          )
+        : null;
+      if (earlierRow && next) earlierRow.replaceWith(next);
+      else if (earlierRow) earlierRow.remove();
+      else if (next) status.before(next);
+      earlierRow = next;
+    };
+    if (tools.restore) {
+      const restore = tools.restore;
+      const done = (line: string): void => {
+        say(line);
+        refreshEarlier();
+      };
+      const input = h('input', { attrs: { type: 'file', accept: '.json,application/json', hidden: 'hidden', 'aria-label': 'Backup file' } }) as HTMLInputElement;
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
+        file.text().then((text) => done(restore(text)), () => say('That file could not be read.'));
+      });
+      const pickBtn = new Button({ label: 'Restore from a file', block: true, onClick: () => input.click() });
+      const pasted = box('Backup text to restore', false);
+      const apply = new Button({ label: 'Restore this text', block: true, onClick: () => done(restore(pasted.value.trim())) });
+      apply.el.hidden = true;
+      const pasteBtn = new Button({
+        label: 'Restore from pasted text',
+        block: true,
+        kind: 'quiet',
+        onClick: () => {
+          pasted.hidden = false;
+          apply.el.hidden = false;
+          pasted.focus();
+        },
+      });
+      rows.push(this.row('Restore', 'Pick a backup file, or paste its text. It replaces the saved world; the world it replaces is kept as the earlier save.', stack(pickBtn.el, input, pasteBtn.el, pasted, apply.el), true));
+    }
+    rows.push(status);
+    refreshEarlier();
+    return rows;
   }
 
   /** A copy of the values as the panel currently shows them. */

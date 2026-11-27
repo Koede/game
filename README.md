@@ -8,7 +8,7 @@ largest machine on a power grid you build from wood, coal, wind, water, sunlight
 The game ends when you turn it into a star.
 
 Animals (hens, goats, boars) are passive: you hunt them for food and hide, and you can raise your own, but
-nothing hunts you and there is no combat. The world itself is the danger: cold nights and rain, hunger, long
+nothing hunts you. The world itself is the danger: cold nights and rain, hunger, long
 falls, deep water, lava, radiation and reactors you forgot to cool.
 
 ## Play
@@ -28,6 +28,8 @@ left. Inside a page that blocks storage the game still runs, warns you once, and
 page is closed. A save that cannot be read (or comes from a newer version) is kept as a backup and never
 overwritten unless you start a New World; a full storage never deletes the last good save.
 
+New worlds begin at a camp with one companion, Gruk. Release-by-release changes are in [CHANGELOG.md](CHANGELOG.md).
+
 ## Controls
 
 | | Keyboard and mouse | Touch |
@@ -46,6 +48,7 @@ overwritten unless you start a New World; a full storage never deletes the last 
 | At the furnace: pump the bellows / show the backpack | P / B | Pump button / Backpack handle |
 | Set a pipe end to Push, Pull or Off | Use with the wrench on the pipe | the same |
 | Open the pipe screen (what flows, filters, priority) | Use on a pipe with an empty hand | the same |
+| Tap to move (optional setting) | - | tap a spot; an on-screen ring marks the destination |
 
 Screens use the same slot rules everywhere: click (tap) a stack to pick it up, click (tap) where it goes;
 right-click (long-press) takes half; shift-click (double-tap) or the "To ..." buttons move it straight across.
@@ -67,6 +70,14 @@ on the spot, and every forging takes a little heat out of the fire.
 engine on top turns more heat into more power, and now the same fire has to choose between power and steel.
 Water wheels, burner generators, wind turbines, solar panels, combustion engines and geothermal taps follow.
 Cables join machines into networks; every cable type has a limit, and batteries cover the gaps.
+
+**Heat, steam and the Forge Age.** Heat zones track temperature room by room, with insulation, and the heat
+view shows where the warmth goes. A small steam loop (a copper steam kettle, a steam rotor, boiler plate and a
+safety valve) grows into sealed boilers that hold real pressure, a beam engine and a steam tank. Water
+power comes from dams that raise a wheel's head; rivers ice over in winter. The Forge Age adds a rolling
+mill, a drop forge and a dynamo. A windmill and a bronze air network with a Blast Nozzle feed the Blast hearth.
+The grid overlay (Grid Meter, Grid Monitor) shows load and losses, and signals (a relay, a tap-set timer and a
+push button) switch machines on and off. A kerosene lamp burns canisters of kerosene, which is also tractor fuel.
 
 **The furnace grows with you.** It is upgraded in place five times, and each tier begins an age (six ages in all). The Bronze Furnace is still one block;
 every upgrade after it needs a formed hearth around the furnace first: walls of the right block with enough room inside. The
@@ -92,21 +103,24 @@ short line under the bars says what to do ("Soaked: find a roof", "Hungry: eat s
 last furnace is home: the compass points to it, and it is where you wake up if the world gets the better of
 you, with everything you carried.
 
-**Weather.** Each world has its own sky: clear, cloudy, rain and storms that drift in and out (the first day
+**Weather and seasons.** Each world has its own sky: clear, cloudy, rain and storms that drift in and out (the first day
 and night are always dry). In the frostfell and up high the rain falls as snow, in the dunes as dust. Rain
-cools a furnace that stands under open sky, and storms bring lightning.
+cools a furnace that stands under open sky, and storms bring lightning. Winter freezes rivers, some worlds
+have a hard winter, and greenhouse crops carry you through the cold. Disasters have counterplay: a boiler can
+overpressure, a chimney can catch fire, and storms strike exposed wiring.
 
 **Food and hunger.** The food bar runs down as you work and faster when you sprint. Hold food and press Use to
 eat it. Cooked food fills far more than raw: meat, potatoes and dough cook in the furnace's crucibles (the
 Kitchen chip on the Smelt tab), and a hearth stew forged at the furnace makes you Well-Fed. Hungry, you cannot
-sprint; below 12 food you do not heal; an empty bar slowly wears your health down.
+sprint; below 12 food you do not heal; an empty bar slowly wears your health down. Fishing has five seasonal
+catches, and fish chowder and winter broth are cooked from them.
 
 **Farming and animals.** A hoe turns grass or dirt into farmland. Wheat seeds (from tall grass), potatoes and
 carrots grow on it in daylight or lamplight, twice as fast with water within four blocks; aim at a crop to see
 how long it has left. Mine an animal to hunt it. Hold what it likes and it follows you: hens like wheat seeds,
 goats wheat, boars potatoes and carrots. Press Use on an animal to feed it; feed two of a kind near each other
 and they raise a young one. Animals you have fed stay tame. Animals keep clear of lava and cacti, and the wild
-herd refills as you explore.
+herd refills as you explore. Animals live a day of their own: they go home at night and shelter in storms.
 
 **Buckets, water and bread.** Water flows: it runs downhill, spreads up to seven blocks and drains away when
 its source is gone. A bucket takes one source block out of still water (a lake refills the gap, a lone puddle
@@ -121,6 +135,28 @@ pipe screen: what flows, filters and priorities. Pumps draw water, lava or oil; 
 steam for a steam turbine (set the pipe end at the boiler to Pull). Hatches and power ports built into a hearth
 wall feed the furnace through its walls. Breaking a full crate or machine puts what fits in your pack and leaves
 the rest in a crate where it stood.
+
+**Machines wear.** Machines wear while they run, slow down, break and are repaired with iron ingots. A machine's
+face shows whether it is starved, full, worn or broken, and a jammed network shows its own status.
+
+**Towns and trade.** Gruk builds the town room by room: the lodge grows into the Hearth & Anvil, and Orrin's
+building board posts material bounties that raise your town's reputation. Residents move in on a nightly roll,
+need housing, and stay content through the things they like, crowding and room warmth. They haul, run stations
+and tend machines for you. A wandering trader visits every few days at dusk, and caravans trade at prices that
+follow the time model.
+
+**Felling and caves.** A felled tree falls and lies as a log you cut up with the axe; it leaves a stump and
+branch wood behind. Caves run deep: camps, ore lodes, sinkholes and foul air that puts out a held torch, marked
+by chalk and cairns. A boss holds the deepest camps.
+
+**Blueprints, tools and goals.** Save a machine layout and see its placement ghost, then build it from your pack
+or hand it to a resident. Ruins and old-age crates can hold old plans. Modular tools combine heads, handles and
+bindings at the workbench. Using a rod, crucible, altar or focus earns insight notes, and enchantments are found at
+the altar. Daily and seasonal goals pay keepsakes and dyes, and the Hearth Log has a Legends screen.
+
+**Photos and accessibility.** Photo mode has filters, a phone controls bar and a share sheet, and town postcards
+at each age. Accessibility options include colour-blind palettes and overlay ramps, text and HUD size sliders,
+reduced motion, and a touch quick menu.
 
 ## Development
 
@@ -139,6 +175,8 @@ picks one, `--no-build` reuses dist/. `scripts/e2e-features.mjs` hunts, cooks an
 bread, scoops and pours lava and water and checks rain. `scripts/e2e-tech.mjs` builds a Blast hearth brick by
 brick, pipes ore into it with the wrench and uses buckets on a tank. Screenshots land in `test-results/e2e*/`. In the page, `window.__hw` is a debug handle (state summary, give,
 teleport, setTime, tick, save...).
+
+Release notes live in [CHANGELOG.md](CHANGELOG.md). Add an entry under Unreleased with each change that players will notice.
 
 | Directory | What lives there |
 |---|---|

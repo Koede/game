@@ -162,7 +162,7 @@ T4: `star_casing` x2 (2 superalloy, 1 fused_quartz, 1 magnet_ring, 2800).
 | 2 | 4 bronze_ingot, 1 bellows | brick (+ the three above) | 1x1x1..3x3x3 | optional | - | min(5, xz + 1) |
 | 3 | 2 copper_coil, 2 steel_plate | refractory_brick (+2) | 1x1x1..4x4x3 | required | 1 electrode | min(6, xz + 1) |
 | 4 | 2 circuit, 2 tungsten_rod | plasma_casing, star_casing | 2x2x2..5x5x4 | required | 2 power_port | min(8, xz + 2) |
-| 5 | 1 star_core, 8 deuterium_cell | star_casing | 3x3x3..5x5x5 | required | 4 power_port | 9 |
+| 5 | 1 star_core, 4 deuterium_cell | star_casing | 3x3x3..5x5x5 | required | 4 power_port | 9 |
 `FurnaceTierSpec.crucibles` is unchanged: it is the count of the unformed controller (all the game has until the sim
 forms hearths); a formed hearth's count is `hearthCrucibles`.
 
