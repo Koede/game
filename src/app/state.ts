@@ -589,6 +589,8 @@ export class GameState {
       blocksSeen: this.journal.seenBlocks,
       playTimeS: this.playTimeS,
       drinks: Object.keys(st.drunk ?? {}).length,
+      goalDone: (id) => this.objectives.toJSON().completed.includes(id),
+      flag: (flag) => this.objectives.hasFlag(flag),
     };
   }
 
@@ -650,6 +652,7 @@ export class GameState {
     for (const off of this.offs.splice(0)) off();
     this.thermal.dispose();
     this.objectives.dispose();
+    this.achievements.dispose();
     this.journal.dispose();
     this.story.dispose();
     this.mobs.dispose();
