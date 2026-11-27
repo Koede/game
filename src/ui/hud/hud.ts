@@ -390,11 +390,12 @@ export class Hud {
     this.devBtn.hidden = !d.player.dev;
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
+    const winter = d.winterGoal?.() ?? null;
     const guide = d.guide?.() ?? null;
-    this.goal.update(d.objectives, d.winterGoal?.() ?? null, guide);
-    // On the guided path the goal plate carries the camp steps it covers, so the chip would only repeat or contradict it.
+    this.goal.update(d.objectives, winter, guide);
+    // On the guided path the goal plate carries the camp steps it covers, so the chip would only repeat or contradict it (unless a winter goal has taken the plate).
     const chip = d.town?.() ?? null;
-    this.townChip.update(guide && chip?.goal && GUIDED_CAMP_GOALS.has(chip.goal) ? null : chip);
+    this.townChip.update(guide && !winter && chip?.goal && GUIDED_CAMP_GOALS.has(chip.goal) ? null : chip);
     this.quick.update();
     this.build.update();
     const home = d.player.home;
