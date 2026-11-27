@@ -22,7 +22,7 @@ function render(patch: Patch, pitch = 1, gain = 1, when = 1) {
 describe('sound definitions', () => {
   it('covers every sound exactly once with a distinct patch', () => {
     // 72 before Essentia & Research added six (src/audio/sfxMagic.ts); the distillery adds three (src/audio/sfxDistill.ts).
-    expect(SFX_NAMES.length).toBe(72 + 5 /* surface footsteps, sfxWorld.ts */ + Object.keys(MAGIC_SFX).length + Object.keys(DISTILL_SFX).length + 3); // + jukebox_note (sfxCues.ts), + tree_creak and tree_chop (sfxVehicle.ts)
+    expect(SFX_NAMES.length).toBe(72 + 5 /* surface footsteps, sfxWorld.ts */ + Object.keys(MAGIC_SFX).length + Object.keys(DISTILL_SFX).length + 3 + 2); // + toast_good and toast_warn (sfxFeel.ts), + jukebox_note (sfxCues.ts), + tree_creak and tree_chop (sfxVehicle.ts)
     expect(Object.keys(DISTILL_SFX).sort()).toEqual(['distill_bubble', 'distill_chime', 'distill_drip', 'distill_tap', 'distill_trickle']);
     const seen = new Set(SFX_NAMES.map((name) => JSON.stringify(SFX[name].layers)));
     expect(seen.size).toBe(SFX_NAMES.length);
@@ -110,7 +110,7 @@ describe('sound definitions', () => {
 
   it('marks exactly the interface sounds as UI', () => {
     const ui = SFX_NAMES.filter((name) => SFX[name].ui === true).sort();
-    expect(ui).toEqual(['error', 'ui_click', 'ui_close', 'ui_open']);
+    expect(ui).toEqual(['error', 'toast_good', 'toast_warn', 'ui_click', 'ui_close', 'ui_open']);
   });
 
   it('gives repeated physical sounds a random pitch spread', () => {

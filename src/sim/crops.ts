@@ -48,7 +48,9 @@ export class CropField {
   private readonly lamps = new Map<string, readonly [number, number, number]>();
   /** Positions of every settled beehive (src/sim/apiary.ts). */
   private readonly hives = new Map<string, readonly [number, number, number]>();
-  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null, beesOut: false, pollenBoost: POLLEN_BOOST };
+  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null, irrigated: null, beesOut: false, pollenBoost: POLLEN_BOOST };
+  /** Where spraying sprinklers water crops (src/sim/waterNet.ts); null = nowhere. Set by the Simulation. */
+  irrigatedAt: ((x: number, y: number, z: number) => boolean) | null = null;
   private sunWasUp: boolean | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus) {}
@@ -188,6 +190,7 @@ export class CropField {
     this.ctx.wetAt = wetAt;
     this.ctx.scale = scale;
     this.ctx.beesOut = beesOut;
+    this.ctx.irrigated = this.irrigatedAt;
     const { awake, ctx } = this;
     let budget = REFRESH_READS_PER_TICK;
     // Backwards: a crop going to sleep swaps the last (already visited) crop into its place.
@@ -219,7 +222,7 @@ export class CropField {
     if (c.dirty !== 0 && this.world.isLoaded(x, z)) this.refresh(c);
     const info = c.info;
     if (info === null) return null;
-    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale, beesOut, pollenBoost: POLLEN_BOOST };
+    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale, irrigated: this.irrigatedAt, beesOut, pollenBoost: POLLEN_BOOST };
     const ripe = info.next < 0;
     const lit = info.wild || isLit(c, ctx);
     const hydrated = info.wild || isHydrated(c, ctx);
