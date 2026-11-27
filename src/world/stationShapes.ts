@@ -52,6 +52,13 @@ export const STATION_BOXES: Readonly<Record<string, readonly Box16[]>> = {
   ],
   // A low bench with a top and four legs; moulds stand on it.
   casting_bench: [[0, 9, 0, 16, 12, 16], post(1, 1, 9, 3), post(12, 1, 9, 3), post(1, 12, 9, 3), post(12, 12, 9, 3)],
+  // Optics (docs/api/optics.md). A tripod with a long barrel tilted up to the north; the eyepiece end is the low one.
+  telescope: [
+    post(2, 11, 10), post(12, 11, 10), post(7, 2, 10),
+    [6, 9, 6, 10, 11, 10], [7, 10, 10, 9, 12, 15], [6, 11, 4, 10, 14, 10], [5, 13, 0, 11, 16, 4],
+  ],
+  // The lighthouse lamp: a plinth, the lantern core and a cap with a finial; the ring of lenses turns round it (render/machines).
+  lighthouse_lamp: [[1, 0, 1, 15, 2, 15], [4, 2, 4, 12, 13, 12], [2, 13, 2, 14, 15, 14], [6, 15, 6, 10, 16, 10]],
 };
 
 /** Stations whose moving parts stand above the static boxes: the target outline reaches the top of the part (sixteenths). */

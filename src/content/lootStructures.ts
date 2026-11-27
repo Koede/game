@@ -11,6 +11,8 @@ const e = (item: string, count: number | [number, number], weight: number): Loot
 export const STRUCTURE_LOOT: Record<string, LootTableSpec> = {
   // Landmarks (docs/api/landmarks.md): each crate leans heavily on one notable item.
   standing_circle: table('near', [3, 4], [e('vis_rod', 1, 40), e('glass_vial', [1, 3], 12), e('wildberries', [2, 5], 8), e('cord', [2, 4], 6), e('treasure_map', 1, 6)]),
+  // A keeper's lighthouse on a shore (docs/api/optics.md): its crate holds the lenses and a lamp to light it again.
+  lighthouse: table('near', [3, 4], [e('lighthouse_lamp', 1, 30), e('lens', [2, 4], 20), e('coal', [3, 6], 12), e('spyglass', 1, 8), e('glass', [2, 4], 8), e('torch', [3, 6], 6)]),
   frost_watchtower: table('near', [3, 4], [e('plated_coat', 1, 40), e('torch', [3, 6], 10), e('coal', [3, 6], 8), e('hide', [1, 3], 8), e('treasure_map', 1, 6)]),
   buried_colossus: table('near', [3, 4], [e('treasure_map', 1, 40), e('glass', [2, 5], 10), e('sand', [6, 12], 8), e('copper_coil', 1, 6), e('brick', [3, 6], 8)]),
   charcoal_camp: table('near', [3, 4], [

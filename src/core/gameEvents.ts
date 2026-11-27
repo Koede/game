@@ -275,6 +275,8 @@ export interface GameEvents {
   'photo:mode': { on: boolean };
   /** The player took a picture: the game saves the next frame as a framed shot. */
   'photo:snap': Record<string, never>;
+  /** A spyglass or telescope was raised, lowered, or the landmark in the middle of its view changed (src/game/optics.ts). */
+  'optics:view': { mode: 'none' | 'spyglass' | 'telescope'; zoom: number; target: { name: string; distance: number; direction: string; spotted: boolean } | null };
   'emote': { kind: 'wave' | 'sit' | 'cheer' | 'dance' };
   'buff:gained': { buff: BuffName; durationS: number };
   'game:won': Record<string, never>;
