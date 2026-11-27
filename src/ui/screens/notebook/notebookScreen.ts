@@ -7,7 +7,7 @@
 import { enchantDef } from '../../../core/enchant';
 import { itemOrNull } from '../../../core/registry';
 import { aspectIcon, aspectLabel, aspectsRow } from '../../kit/aspectIcon';
-import { ASPECT_LIST, aspectInfo, linkable, type Aspect } from '../../../magic/aspects';
+import { ASPECT_LIST, aspectInfo, aspectsText, linkable, type Aspect } from '../../../magic/aspects';
 import { cellCount, hexCoord, linkedFrom, neighbours, type BoardSpec, type BoardTokens } from '../../../magic/board';
 import { aspectsOf } from '../../../magic/fingerprint';
 import type { NotebookApi } from '../../../magic/magic';
