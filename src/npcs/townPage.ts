@@ -70,6 +70,8 @@ export interface TownPage {
   rooms: HousingRow[];
   nextInLine: TownNextInLine | null;
   goals: TownGoalRow[];
+  /** Where the building board stands from the player ("45 blocks north-east"), or null when it is not placed. */
+  boardWhere?: string | null;
   /** The current camp goal, or null when the track is done or not shown. */
   goal: TownGoalRow | null;
   /** Tonight's festival or the next one (festival.ts), with the medals won so far. */
@@ -93,3 +95,15 @@ const TRIGGER_TEXT: Readonly<Record<string, string>> = {
   bram: 'three neighbours already here',
   veyra: 'the distillery (glass and spirit)',
 };
+
+const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'] as const;
+
+/** "45 blocks north-east" from `from` to `to` (north is -Z, east is +X), or "right here" when close. */
+export function whereIs(from: { x: number; z: number }, to: { x: number; z: number }): string {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const dist = Math.round(Math.hypot(dx, dz));
+  if (dist < 4) return 'right here';
+  const angle = (Math.atan2(dx, -dz) + 2 * Math.PI) % (2 * Math.PI);
+  return `${dist} blocks ${DIRS[Math.round(angle / (Math.PI / 4)) % 8]}`;
+}

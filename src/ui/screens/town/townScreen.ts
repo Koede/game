@@ -29,7 +29,7 @@ export function renderTown(p: TownPage, move?: MoveResident, done?: () => void):
   const b = p.building;
   if (b) {
     const head = b.stage !== null && b.stages !== null ? `${b.name} (stage ${b.stage} of ${b.stages})` : b.name;
-    const need = b.missing.length > 0 ? `Missing: ${b.missing.slice(0, 5).map((m) => `${m.count} ${nameOf(m.item)}`).join(', ')}${b.missing.length > 5 ? ', ...' : ''}. Hand them in at the board.` : null;
+    const need = b.missing.length > 0 ? `Missing: ${b.missing.slice(0, 5).map((m) => `${m.count} ${nameOf(m.item)}`).join(', ')}${b.missing.length > 5 ? ', ...' : ''}. Hand them in at the board${p.boardWhere ? ` (${p.boardWhere === 'right here' ? 'it is right here' : `${p.boardWhere} of you`})` : ''}.` : null;
     const when = b.daysLeft !== null ? `About ${b.daysLeft} day${b.daysLeft === 1 ? '' : 's'} of work left.` : b.missing.length > 0 ? 'Gruk waits for materials.' : null;
     out.append(section('Gruk is building', h('p', { class: 'hw-town__goal', text: head }), bar(b.percent), h('p', { class: 'hw-town__line', text: `${b.percent}% laid. ${when ?? ''}` }), need ? h('p', { class: 'hw-town__line hw-town__warn', text: need }) : null, b.waiting ? h('p', { class: 'hw-town__line hw-town__warn', text: b.waiting }) : null));
   } else {

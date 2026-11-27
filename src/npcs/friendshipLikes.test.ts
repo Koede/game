@@ -9,4 +9,10 @@ describe('friendship data uses real items', () => {
   it('every reward item exists', () => {
     for (const [who, list] of Object.entries(REWARDS)) for (const r of list) if (r) expect(itemOrNull(r.item), `${who} pays ${r.item}`).toBeTruthy();
   });
+  it('every tier of every person pays something', () => {
+    for (const [who, list] of Object.entries(REWARDS)) {
+      expect(list.length, who).toBe(3);
+      for (const r of list) expect(r, who).not.toBeNull();
+    }
+  });
 });

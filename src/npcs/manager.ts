@@ -50,7 +50,7 @@ import { favourRate, lineTone, priceFactor, tipFactor, type PersonId } from './c
 import { DAY_BUDGET } from './townBuilder';
 import { townTemplate } from './townTemplates';
 import { REPUTATION_STEPS, UNLOCK_REP } from './buildBoard';
-import { moodLabel, waitingText, type TownPage } from './townPage';
+import { moodLabel, waitingText, whereIs, type TownPage } from './townPage';
 import { CAMP_GOALS, currentGoal, doneGoals, type CampFacts, type CampGoal } from '../game/campGoals';
 import { LODGE_D, LODGE_W } from './lodge';
 
@@ -1761,6 +1761,7 @@ export class NpcManager {
       }),
       rooms: this.settlement.housing(free, labels),
       nextInLine: nextIn ? { id: nextIn.id, name: nameOfPerson(nextIn.id), waitingFor: nextIn.waitingFor, text: waitingText(nextIn.id, nameOfPerson(nextIn.id), nextIn.waitingFor) } : null,
+      boardWhere: host && this.board.spot ? whereIs(host.companion.player(), this.board.spot) : null,
       goals,
       goal,
       festival: { ...this.festivalNote(), medals: this.fest.entries > 0 ? `Medals so far: ${this.fest.gold} gold, ${this.fest.silver} silver, ${this.fest.bronze} bronze; ${this.fest.crowns} festival crown${this.fest.crowns === 1 ? '' : 's'}.` : 'No festival contest entered yet.' },
