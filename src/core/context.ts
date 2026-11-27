@@ -17,6 +17,12 @@ export interface Settings {
   invertY: boolean;
   /** Master volume 0..1. */
   volume: number;
+  /** Sound effects level 0..1, on top of the master volume (1 = as mixed). */
+  effectsVolume: number;
+  /** Music level 0..1 (the tavern jukebox), on top of the master volume. */
+  musicVolume: number;
+  /** Ambience level 0..1 (fire, wind, rain, machinery hum), on top of the master volume. */
+  ambienceVolume: number;
   /** 'auto' shows on-screen controls when the device has a touch screen. */
   touchControls: 'auto' | 'on' | 'off';
   showFps: boolean;
@@ -94,6 +100,9 @@ export const defaultSettings = (touchFirst: boolean, reduceMotion = false): Sett
   touchSensitivity: 1,
   invertY: false,
   volume: 0.8,
+  effectsVolume: 1,
+  musicVolume: 1,
+  ambienceVolume: 1,
   touchControls: 'auto',
   showFps: false,
   difficulty: 'normal',

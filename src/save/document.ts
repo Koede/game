@@ -93,6 +93,9 @@ export const SETTINGS_BOUNDS = {
   mouseSensitivity: [0.2, 3],
   touchSensitivity: [0.2, 3],
   volume: [0, 1],
+  effectsVolume: [0, 1],
+  musicVolume: [0, 1],
+  ambienceVolume: [0, 1],
   textScale: [0.85, 1.6],
   hudScale: [0.8, 1.5],
 } as const satisfies Partial<Record<keyof Settings, readonly [number, number]>>;
