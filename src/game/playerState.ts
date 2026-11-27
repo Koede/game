@@ -205,6 +205,7 @@ export class PlayerState {
       bus.on('cast:poured', () => bump((this.stats.acts ??= {}), 'cast', 1)),
       bus.on('machine:job', () => bump((this.stats.acts ??= {}), 'jobs', 1)),
       bus.on('player:ate', () => bump((this.stats.acts ??= {}), 'meals', 1)),
+      bus.on('act:done', (e) => bump((this.stats.acts ??= {}), e.kind, 1)),
     ];
   }
 

@@ -204,6 +204,7 @@ export class AnimalHands {
       if (left > 0) this.player.drop('wool', left);
       this.player.wearHeldTool(1);
     }
+    this.player.bus.emit('act:done', { kind: 'harvested' });
     this.swing.triggerSwing();
     return milking ? 'milked' : 'sheared';
   }

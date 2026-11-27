@@ -16,10 +16,10 @@ import { itemOrNull } from '../core/registry';
 import type { ItemAmount } from '../core/types';
 import { DAYS_PER_SEASON, SEASONS, seasonOf, type Season } from '../sim/seasons';
 
-export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns' | 'brewed' | 'cast' | 'jobs' | 'meals';
+export type GoalMetric = 'made' | 'placed' | 'broken' | 'drunk' | 'explored' | 'festival' | 'crowns' | 'brewed' | 'cast' | 'jobs' | 'meals' | 'fished' | 'harvested' | 'traded';
 /** The metrics every save has; `festival` (contests entered) and `crowns` (golds in a festival's own contest) came later. */
 const BASE_METRICS = ['made', 'placed', 'broken', 'drunk', 'explored'] as const;
-const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns', 'brewed', 'cast', 'jobs', 'meals'];
+const METRICS: readonly GoalMetric[] = [...BASE_METRICS, 'festival', 'crowns', 'brewed', 'cast', 'jobs', 'meals', 'fished', 'harvested', 'traded'];
 export type GoalFacts = Record<GoalMetric, number>;
 
 export type Reward = { kind: 'item'; item: string; count: number } | { kind: 'cosmetic'; id: string } | { kind: 'blueprint'; id: string };
@@ -55,7 +55,10 @@ export const DAILY_POOL: readonly GoalSpec[] = [
   { id: 'd_cast_2', text: 'Pour 2 castings', metric: 'cast', target: 2, reward: item('black_dye', 3) },
   { id: 'd_jobs_5', text: 'Let your machines finish 5 jobs', metric: 'jobs', target: 5, reward: item('blue_dye', 3) },
   { id: 'd_meals_3', text: 'Eat 3 meals', metric: 'meals', target: 3, reward: item('yellow_dye', 2) },
-  { id: 'd_walk_2500', text: 'Learn 2,500 blocks of new ground', metric: 'explored', target: 2500, reward: item('blue_dye', 3) },
+  { id: 'd_walk_2500', text: 'Learn 2,500 blocks of new ground', metric: 'explored', target: 2500, reward: item('treasure_map', 1) },
+  { id: 'd_fish_2', text: 'Land 2 fish', metric: 'fished', target: 2, reward: item('glass_vial', 2) },
+  { id: 'd_harvest_1', text: 'Milk or shear an animal', metric: 'harvested', target: 1, reward: item('sugar', 2) },
+  { id: 'd_trade_2', text: 'Make 2 deals with the caravan', metric: 'traded', target: 2, reward: item('copper_ingot', 2) },
 ];
 
 export const DAILY_COUNT = 3;
@@ -389,7 +392,7 @@ export class DailyGoals {
   }
 
   toJSON(): DailyGoalsSnapshot {
-    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
+    const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0, fished: 0, harvested: 0, traded: 0 };
     return {
       day: this.day,
       base: { ...(this.base ?? zero) },
