@@ -153,7 +153,7 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
   objective(3, 'make_tungsten', 'Sinter tungsten', make('tungsten_rod', 4),
     'Wolframite lies deep and yields only to steel. Crush it and smelt the powder at 2000 C into four tungsten rods.'),
   objective(3, 'plasma_furnace', 'Build the Plasma Furnace', furnaceTier(5),
-    'Build a Plasma hearth: plasma casing around at least two by two by two empty cells, with two Power Ports in its walls. The upgrade asks for circuits and tungsten at 1900 C. It draws up to 40 kW, more than copper cable can carry.',
+    'Build a Plasma hearth: 53 plasma casings (six come from each batch of 2 steel plate, 1 aluminum and 1 tungsten rod) around at least two by two by two empty cells, with two Power Ports in its walls. The upgrade asks for circuits and tungsten at 1900 C. It draws up to 40 kW, more than copper cable can carry.',
     '12 heavy_cable, 1 steel_cuirass'),
 
   // ---- Atomic Age ----------------------------------------------------------------------------
@@ -169,7 +169,7 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
   objective(4, 'make_star_core', 'Forge the star core', make('star_core'),
     'Three magnet rings, superalloy, fused quartz and circuits, brought together at 3000 C. This is the hardest thing you will ever forge.'),
   objective(4, 'starhearth', 'Build the Starhearth', furnaceTier(6),
-    'Build a Star hearth of star casing around three by three by three empty cells, with four Power Ports. Hold it at 3000 C and give it the star core and four deuterium cells.'),
+    'Build a Star hearth of 93 star casings around three by three by three empty cells, with four Power Ports. Six casings come from each batch of 2 superalloy and 1 fused quartz, so plan on 16 batches: about 32 superalloy. Hold it at 3000 C and give it the star core and four deuterium cells.'),
 
   // ---- Star Age ------------------------------------------------------------------------------
   objective(5, 'ignite', 'Ignite the Starhearth', flag('ignited'),
