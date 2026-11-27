@@ -320,6 +320,9 @@
   "elevator_winch": 318,
   "drawbridge": 319,
   "bridge_deck": 320,
-  "oak_sapling": 321,
-  "pine_sapling": 322
+  "telegraph_pole": 321,
+  "telegraph_office": 322,
+  "radio_mast": 323,
+  "oak_sapling": 324,
+  "pine_sapling": 325
 }

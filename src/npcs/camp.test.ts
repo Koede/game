@@ -95,13 +95,13 @@ describe('the people-gated features are off while their person is away', () => {
 
   it('the festival needs three people: off in the camp on a festival night, on in a settled world', () => {
     const camp = GameState.create(44, null);
-    camp.clock.day = 8; // the last day of the first season
+    camp.clock.day = 6; // the last day of the first season (the Sowing Fair)
     camp.clock.setTimeOfDay(0.9);
     for (let i = 0; i < 4; i++) camp.npcs.tick(0.1);
     expect(camp.npcs.festivalNow()).toBe(false);
     camp.dispose();
     const settled = settledWorld(45);
-    settled.clock.day = 8;
+    settled.clock.day = 6;
     settled.clock.setTimeOfDay(0.9);
     for (let i = 0; i < 4; i++) settled.npcs.tick(0.1);
     expect(settled.npcs.festivalNow()).toBe(true);

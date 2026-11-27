@@ -21,7 +21,7 @@
 - **Locks.** `inv.locked` holds the locked slots, saved as `locks` (sorted indices; missing means none). A locked slot takes nothing
   in (`accepts` says no), its stack cannot be moved, dropped or sorted, and move-all and gather skip it. Crafting and eating still
   use what is there. Set from the carry bar (Lock / Unlock). The badge is a small box on the slot.
-- **Sort.** `sortRange(inv, start, end, mode)`. `'kind'` (the default): category, then tool tier (best first), then name. `'recent'`
+- **Sort.** `sortRange(inv, start, end, mode)`. `'kind'` (the default): category (tools, worn gear, food, fuel, materials, components, resources, blocks, machines, odds), then tool tier (best first), then name. `'recent'`
   (Order: newest): the most recently picked up stack first. Every stack that lands in a slot takes the next pickup tick
   (`inv.ticks`, moves carry it, sorts keep the newest of merged stacks); saved as `picked` (per slot, missing means none). The order
   is a display choice and is not saved. The Sort button sorts each pocket on its own.

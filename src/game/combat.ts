@@ -33,7 +33,7 @@ export const difficultyDamage = (amount: number, cause: DamageCause, d: Difficul
 
 /** Seconds the player must wait after a landed hit with this item: WEAPON_HIT_COOLDOWN_S for weapons (mauls), else MOB_HIT_COOLDOWN_S. */
 export const strikeCooldownOf = (item: string | null): number =>
-  item !== null && itemOrNull(item)?.weapon ? WEAPON_HIT_COOLDOWN_S : MOB_HIT_COOLDOWN_S;
+  item !== null && itemOrNull(item)?.weapon ? itemOrNull(item)!.weapon!.cooldownS ?? WEAPON_HIT_COOLDOWN_S : MOB_HIT_COOLDOWN_S;
 
 /** Seconds a hit with this item stuns an automaton (the arc maul's 1 s), 0 for everything else. */
 export const stunOf = (item: string | null): number => (item !== null ? itemOrNull(item)?.weapon?.stunS ?? 0 : 0);

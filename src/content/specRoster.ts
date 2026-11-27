@@ -485,6 +485,8 @@ SPEC.blocks.push(...EXPLORE_SPEC.blocks);
 SPEC.maxTextures += 1;
 // Forge heavy industry (rolling mill, drop forge, dynamo; iron and steel axles): two fronts each for the dynamo, mill and forge, two item icons.
 SPEC.maxTextures += 8;
+// The telegraph and radio network (src/render/textures/areas/telegraph.ts): telegraph_pole, telegraph_office_front (+on), radio_mast (+on).
+SPEC.maxTextures += 5;
 // Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
 SPEC.maxTextures += OLD_PLANS_SPEC.textures;
 SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
