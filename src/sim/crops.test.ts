@@ -58,6 +58,7 @@ describe('crop growth', () => {
     live(kit, 2 * STAGE_S);
     expect(stageAt(kit, 0, 11, 0)).toBe('wheat_3');
     expect(grew.map((g) => g.stage)).toEqual([1, 2, 3]);
+    expect(grew.map((g) => g.ripe)).toEqual([undefined, undefined, true]);
     // The same entity all along, now resting.
     expect(kit.world.getEntity(0, 11, 0)).toBe(e);
     expect(e.growS).toBe(0);
@@ -231,7 +232,7 @@ describe('crop growth', () => {
     expect(kit.sim.entityCount).toBe(2);
     expect(kit.sim.cropCount).toBe(1);
     expect(placed).toEqual([]);
-    expect(sfx).toEqual([]);
+    expect(sfx.map((s) => s.name)).toEqual(['pickup']); // only the ripening chime
     expect(toasts).toEqual([]);
     const before = JSON.stringify(kit.player.inventory.toJSON());
     kit.world.put(0, 11, 0, 'air');

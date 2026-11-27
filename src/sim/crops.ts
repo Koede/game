@@ -44,7 +44,9 @@ export class CropField {
   private readonly awake: CropNode[] = [];
   /** Positions of every lamp that is lit (powered and running). */
   private readonly lamps = new Map<string, readonly [number, number, number]>();
-  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null };
+  private readonly ctx: CropContext = { sunUp: false, wetAt: null, scale: null, irrigated: null };
+  /** Where spraying sprinklers water crops (src/sim/waterNet.ts); null = nowhere. Set by the Simulation. */
+  irrigatedAt: ((x: number, y: number, z: number) => boolean) | null = null;
   private sunWasUp: boolean | null = null;
 
   constructor(private readonly world: IWorld, private readonly bus: GameBus) {}
@@ -171,6 +173,7 @@ export class CropField {
     this.ctx.sunUp = up;
     this.ctx.wetAt = wetAt;
     this.ctx.scale = scale;
+    this.ctx.irrigated = this.irrigatedAt;
     const { awake, ctx } = this;
     let budget = REFRESH_READS_PER_TICK;
     // Backwards: a crop going to sleep swaps the last (already visited) crop into its place.
@@ -202,7 +205,7 @@ export class CropField {
     if (c.dirty !== 0 && this.world.isLoaded(x, z)) this.refresh(c);
     const info = c.info;
     if (info === null) return null;
-    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale };
+    const ctx: CropContext = { sunUp: sunlight >= MIN_SUNLIGHT, wetAt, scale, irrigated: this.irrigatedAt };
     const ripe = info.next < 0;
     const lit = info.wild || isLit(c, ctx);
     const hydrated = info.wild || isHydrated(c, ctx);
@@ -232,7 +235,10 @@ export class CropField {
     const next = STAGE_OF[info.next] as StageInfo;
     c.info = next;
     e.growS = next.next < 0 ? 0 : e.growS - info.stageS;
-    this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage });
+    const ripe = next.next < 0;
+    this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage, ...(ripe ? { ripe } : {}) });
+    // Ripening is the one stage worth hearing: a soft high chime where the crop stands (distance fades it).
+    if (ripe) this.bus.emit('sfx', { name: 'pickup', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, volume: 0.35, pitch: 1.9 });
   }
 
   /** Recomputes the dirty facts of a crop; returns roughly how many world reads it took. */
