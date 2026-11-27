@@ -26,6 +26,9 @@ export const HIDDEN_RECIPES: readonly HiddenRecipe[] = [
   { id: 'cloth_bolt', station: 'workbench', inputs: [{ item: 'fiber', count: 4 }, { item: 'cord', count: 1 }], output: { item: 'cloth', count: 1 }, hint: 'Fibre, tied and tightly worked, becomes cloth.' },
   { id: 'travellers_stew', station: 'furnace', inputs: [{ item: 'raw_chop', count: 1 }, { item: 'carrot', count: 1 }, { item: 'potato', count: 1 }], output: { item: 'hearth_stew', count: 2 }, hint: 'Meat and roots, simmered together, feed two.' },
   { id: 'quick_brick', station: 'furnace', inputs: [{ item: 'silica', count: 2 }, { item: 'coal', count: 1 }], output: { item: 'firebrick', count: 2 }, hint: 'Sand glass and coal bake hard.' },
+  { id: 'blister_steel', station: 'furnace', inputs: [{ item: 'iron_ingot', count: 3 }, { item: 'charcoal', count: 2 }], output: { item: 'steel_ingot', count: 2 }, hint: 'Iron that soaks in charcoal fire turns hard.' },
+  { id: 'quartz_melt', station: 'furnace', inputs: [{ item: 'silica', count: 4 }, { item: 'coal', count: 1 }], output: { item: 'fused_quartz', count: 1 }, hint: 'Glass sand held very hot runs clear as water.' },
+  { id: 'flux_aluminum', station: 'furnace', inputs: [{ item: 'alumina', count: 3 }, { item: 'coal', count: 2 }], output: { item: 'aluminum_ingot', count: 1 }, hint: 'The white powder gives up its metal to a hungry fire.' },
 ];
 
 export type ExperimentResult =
