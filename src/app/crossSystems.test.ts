@@ -13,6 +13,9 @@ import { PlayerState } from '../game/playerState';
 import { Thermal } from '../game/thermal';
 import { DAYS_PER_SEASON } from '../sim/seasons';
 import { WATER_SOURCE, flowingWater, isWaterSource } from '../world/water';
+import { SUNSET_AT } from '../core/constants';
+import { CLOCK_TIMER_PRESETS } from '../workshop/clockTower';
+import { TIMER_PRESETS } from '../workshop/signals';
 import { GameState } from './state';
 
 const WINTER = DAYS_PER_SEASON * 3 + 3;
@@ -140,5 +143,80 @@ describe('storms and disasters x chunk streaming', () => {
     for (let i = 0; i < 20; i++) d.tick(0.5);
     expect(d.pressureAt(0, 6, 0)).toBe(p);
     expect(d.sootAt(0, 6, 5)).toBe(s);
+  });
+});
+
+describe('telegraph and radio x grid, storms', () => {
+  /** A geothermal tap on lava feeding a cable run that ends beside a radio mast, on flat stone near the camp. */
+  function mastRig() {
+    const s = GameState.create(5, null);
+    const p = s.player.position;
+    const x0 = Math.floor(p.x) + 4;
+    const z0 = Math.floor(p.z) + 4;
+    const y = s.world.surfaceY(x0, z0) + 3;
+    const put = (x: number, yy: number, z: number, key: string): void => void s.world.setVoxel(x, yy, z, makeVoxel(blockId(key)), 'player');
+    for (let x = x0 - 1; x <= x0 + 8; x++) for (let z = z0 - 1; z <= z0 + 1; z++) put(x, y - 1, z, 'stone');
+    put(x0, y - 1, z0, 'lava');
+    put(x0, y, z0, 'geothermal_tap');
+    for (let x = x0 + 1; x <= x0 + 4; x++) put(x, y, z0, 'copper_cable');
+    put(x0 + 5, y, z0, 'radio_mast');
+    return { s, x0, y, z0, put, mast: [x0 + 5, y, z0] as const, run: (n: number) => { for (let i = 0; i < n; i++) s.tick(); } };
+  }
+
+  it('a mast on a live grid is on air; a strike that cuts the cable takes it off, relaying it puts it back', () => {
+    const r = mastRig();
+    r.run(80);
+    expect(r.s.telegraph.onAir(...r.mast)).toBe(true);
+    r.s.world.setVoxel(r.x0 + 2, r.y, r.z0, 0, 'sim'); // what a lightning strike does
+    r.run(80);
+    expect(r.s.telegraph.onAir(...r.mast)).toBe(false);
+    r.put(r.x0 + 2, r.y, r.z0, 'copper_cable');
+    r.run(80);
+    expect(r.s.telegraph.onAir(...r.mast)).toBe(true);
+    r.s.dispose();
+  });
+
+  it('a storm-bell office hears a forced storm, and the warning names the cover-your-wiring advice once', () => {
+    const r = mastRig();
+    const [mx, my, mz] = r.mast;
+    r.put(mx + 1, my, mz, 'telegraph_office');
+    const toasts: string[] = [];
+    r.s.bus.on('toast', (e) => toasts.push(e.text));
+    r.run(40);
+    expect(r.s.telegraph.busy(mx + 1, my, mz)).toBe(false);
+    r.s.weather.force('storm', r.s.clock.worldTimeS, true);
+    r.run(80);
+    expect(r.s.telegraph.busy(mx + 1, my, mz)).toBe(true);
+    expect(toasts.filter((t) => /Telegram: A storm is on us/.test(t))).toHaveLength(1);
+    r.s.dispose();
+  });
+});
+
+describe('clock tower x signal timers (real clock)', () => {
+  it('a timer by a tower set to "by night" lights its lamp after sunset and darkens it at dawn, saved or not', () => {
+    const s = GameState.create(5, null);
+    const p = s.player.position;
+    const x = Math.floor(p.x) + 4;
+    const z = Math.floor(p.z) + 4;
+    const y = s.world.surfaceY(x, z) + 1;
+    const put = (dx: number, key: string): void => void s.world.setVoxel(x + dx, y, z, makeVoxel(blockId(key)), 'player');
+    put(0, 'signal_timer');
+    put(1, 'signal_lamp');
+    put(2, 'clock_tower');
+    s.clock.timeOfDay = 0.3;
+    for (let i = 0; i < 20; i++) s.tick();
+    const night = CLOCK_TIMER_PRESETS.findIndex((c) => c.key === 'night');
+    for (let i = 0; i < TIMER_PRESETS.length + night; i++) s.workshop.use(x, y, z, null, () => undefined);
+    for (let i = 0; i < 20; i++) s.tick();
+    expect(s.workshop.describe(x + 1, y, z)).toContain('off');
+    s.clock.timeOfDay = SUNSET_AT + 0.02;
+    for (let i = 0; i < 20; i++) s.tick();
+    expect(s.workshop.describe(x + 1, y, z)).toContain('on');
+    const copy = GameState.restore(JSON.parse(JSON.stringify(s.toSave())));
+    copy.prepareAroundPlayer(1);
+    for (let i = 0; i < 20; i++) copy.tick();
+    expect(copy.workshop.describe(x + 1, y, z)).toContain('on');
+    copy.dispose();
+    s.dispose();
   });
 });
