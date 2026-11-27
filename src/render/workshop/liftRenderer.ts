@@ -11,7 +11,7 @@ import type { IWorld } from '../../core/types';
 import type { LiftView } from '../../workshop/lifts';
 import { CAGE_HEIGHT, HEAD_HEIGHT } from '../../workshop/lifts';
 import { LightProbe } from '../lightProbe';
-import { Builder, FRAGMENT, VERTEX, type RGB, type TractorScene } from '../vehicles/tractorRenderer';
+import { Builder, VEHICLE_FRAGMENT as FRAGMENT, VEHICLE_VERTEX as VERTEX, type RGB, type TractorScene } from '../vehicles/tractorRenderer';
 
 const hex = (c: number): RGB => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 const WOOD = hex(0xa07a40);

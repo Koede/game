@@ -1331,6 +1331,20 @@
   color: inherit;
   cursor: pointer;
 }
+.hw-nudge__ask--pulse {
+  box-shadow: 0 0 0 2px rgba(255, 190, 90, 0.85);
+  animation: hw-nudge-pulse 1.6s ease-in-out infinite;
+}
+@keyframes hw-nudge-pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 190, 90, 0.25);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-nudge__ask--pulse {
+    animation: none;
+  }
+}
 .hw-nudge__panel {
   pointer-events: auto;
   display: flex;
@@ -1450,3 +1464,9 @@
   padding: 6px 8px;
   border-top: 1px solid var(--hw-plate-edge);
 }
+
+/* The day text takes the colour of the season (the tooltip and the label say which). */
+.hw-dial[data-season='spring'] .hw-dial__day { color: #b9e08a; }
+.hw-dial[data-season='summer'] .hw-dial__day { color: #f2d36b; }
+.hw-dial[data-season='autumn'] .hw-dial__day { color: #f0a050; }
+.hw-dial[data-season='winter'] .hw-dial__day { color: #b8dcf2; }

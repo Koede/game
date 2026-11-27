@@ -720,7 +720,7 @@ describe('scripted playthrough', () => {
     play.forge('steel_ingot', 54);
     play.forge('steel_plate', 54);
     play.heat(1900);
-    play.forge('plasma_casing', 27);
+    play.forge('plasma_casing', 9);
     play.wire(14);
     play.forge('copper_coil', 4);
     play.forge('ceramic_insulator', 2);
@@ -795,6 +795,13 @@ describe('scripted playthrough', () => {
     play.wire(136);
     play.forge('copper_coil', 34);
     mark('superalloy');
+    // The airship (docs/api/airship.md): flight and spotting are tested in src/vehicles/airship.test.ts and the airship
+    // e2e, so its two flags are raised here like the other world actions.
+    kit.bus.emit('flag', { flag: 'flew_airship' });
+    kit.bus.emit('flag', { flag: 'charted_lands' });
+    play.step(1);
+    done('fly_airship');
+    done('chart_lands');
 
     play.forge('centrifuge');
     play.place('centrifuge', CENTRIFUGE);
@@ -812,7 +819,7 @@ describe('scripted playthrough', () => {
     expect(sim.machineView(PILE.x, PILE.y, PILE.z)).toMatchObject({ cooled: true, availW: 60000 });
     mark('fission');
 
-    play.forge('magnet_ring', 6);
+    play.forge('magnet_ring', 3);
     play.forge('lithium_bank', 2);
     for (const p of BANKS) play.place('lithium_bank', p);
     play.forge('empty_cell', 4);
@@ -866,8 +873,8 @@ describe('scripted playthrough', () => {
     topUp();
     play.forge('copper_coil', 240);
     topUp();
-    play.forge('magnet_ring', 52);
-    play.forge('star_casing', 47);
+    play.forge('magnet_ring', 2);
+    play.forge('star_casing', 16);
     play.forge('ceramic_insulator', 6);
     play.forge('super_cable', 2);
     for (const p of [...BUS, ...ROOF_CABLES]) {

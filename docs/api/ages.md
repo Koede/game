@@ -10,7 +10,7 @@ reaching it begins (`src/content/tech.ts`, `AGES` there). Names are lower case i
 | 2 | `forge` | Blast Furnace (3) | 1500 | upgrade: 4 bronze_ingot, 1 bellows at 700 C, **and a formed Blast hearth** | first hearth (the boiler of BRONZE_PLAN is the first multiblock, the hearth the second) |
 | 3 | `current` | Arc Furnace (4) | 2100 | 2 copper_coil, 2 steel_plate at 1200 C, Arc hearth | electric heat from here |
 | 4 | `atomic` | Plasma Furnace (5) | 3200 | 2 circuit, 2 tungsten_rod at 1900 C, Plasma hearth | |
-| 5 | `star` | Starhearth (6) | 3200, then ignited | 1 star_core, 8 deuterium_cell at 3000 C, Star hearth | ignition 300 kW for 90 s |
+| 5 | `star` | Starhearth (6) | 3200, then ignited | 1 star_core, 4 deuterium_cell at 3000 C, Star hearth | ignition 300 kW for 90 s |
 
 Constants (`src/core/constants.ts`): `BRONZE_TIER` 2, `FIRST_HEARTH_TIER` 3, `LONE_MAX_TIER` 2 (a furnace without a formed
 hearth runs as the Bronze Furnace at most: `effTier = min(tier, max(2, hearth tier))`), `FIRST_ELECTRIC_TIER` 4, `STAR_TIER` 6.

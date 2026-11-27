@@ -164,12 +164,12 @@ const BASE_OBJECTIVES: ObjectiveSpec[] = [
     '2 water_pail'),
   objective(4, 'generate_60kw', 'Generate 60 kW', generate(60000),
     'Forge a Power Drill to mine pitchblende, crush it, enrich it in a centrifuge and seal the pellets into a fuel rod. One rod runs the pile at 60 kW for twenty minutes.'),
-  objective(4, 'make_deuterium', 'Bottle deuterium', make('deuterium_cell', 8),
+  objective(4, 'make_deuterium', 'Bottle deuterium', make('deuterium_cell', 4),
     'Forge empty cells from aluminum and feed them to an Electrolyzer that touches water. It draws 20 kW for 45 seconds a cell.'),
   objective(4, 'make_star_core', 'Forge the star core', make('star_core'),
-    'Six magnet rings, superalloy, fused quartz and circuits, brought together at 3000 C. This is the hardest thing you will ever forge.'),
+    'Three magnet rings, superalloy, fused quartz and circuits, brought together at 3000 C. This is the hardest thing you will ever forge.'),
   objective(4, 'starhearth', 'Build the Starhearth', furnaceTier(6),
-    'Build a Star hearth of star casing around three by three by three empty cells, with four Power Ports. Hold it at 3000 C and give it the star core and eight deuterium cells.'),
+    'Build a Star hearth of star casing around three by three by three empty cells, with four Power Ports. Hold it at 3000 C and give it the star core and four deuterium cells.'),
 
   // ---- Star Age ------------------------------------------------------------------------------
   objective(5, 'ignite', 'Ignite the Starhearth', flag('ignited'),

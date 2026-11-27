@@ -2,6 +2,8 @@
  * The Renderer: owns the WebGL2 canvas, the world scene (sky, chunk meshes, target box, particles) and the
  * first-person hand, and implements IView for the player controller. One render(dt) per frame, allocation-free.
  */
+import { ResolutionGovernor } from './resolutionGovernor';
+import { seasonTints } from './seasonTint';
 import * as THREE from 'three';
 import { HeatView } from './heatView';
 import { STAR_TURNS_PER_DAY } from '../core/constants';
@@ -133,6 +135,10 @@ export class Renderer implements IView {
   private readonly offs: (() => void)[] = [];
   private readonly resizeObserver: ResizeObserver | null = null;
   private readonly pixelRatioCap: number;
+  /** Lowers the drawing resolution on a slow phone (touch devices only; `scale` stays 1 elsewhere). */
+  private readonly governor = new ResolutionGovernor();
+  private readonly adaptive: boolean;
+  private lastDrawAt = 0;
   private time = 0;
   private probeTimer = 0;
   private targetValid = false;
@@ -163,6 +169,7 @@ export class Renderer implements IView {
     this.gl.info.autoReset = false;
     const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
     this.pixelRatioCap = touch || navigator.maxTouchPoints > 0 ? 1.5 : 2;
+    this.adaptive = this.pixelRatioCap < 2;
     container.prepend(this.canvas);
 
     this.renderDistance = settings.renderDistance;
@@ -308,6 +315,9 @@ export class Renderer implements IView {
     u.uFx.value = quality.fx;
     setLiquidRate(quality.liquidRate);
     u.uWet.value = fx.wet;
+    const tints = seasonTints((this.clock.day ?? 1) + this.clock.timeOfDay);
+    u.uLeafTint.value.set(tints.leaf.r, tints.leaf.g, tints.leaf.b, tints.leaf.a);
+    u.uGrassTint.value.set(tints.grass.r, tints.grass.g, tints.grass.b, tints.grass.a);
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);
     // Firelight breathes a little: two incommensurate waves, never strobing.
@@ -364,6 +374,12 @@ export class Renderer implements IView {
     this.particles.update(dt, 0.7 + Math.sin(windPhase) * 0.4, 0.25 + Math.cos(windPhase * 0.7) * 0.3);
     this.held.update(dt);
 
+    if (this.adaptive) {
+      const now = performance.now();
+      if (dt > 0 && this.lastDrawAt > 0 && this.governor.frame(now - this.lastDrawAt)) this.resize();
+      this.lastDrawAt = dt > 0 ? now : 0;
+    }
+
     const gl = this.gl;
     gl.info.reset();
     gl.clear();
@@ -392,7 +408,7 @@ export class Renderer implements IView {
   resize(): void {
     const w = Math.max(1, this.container.clientWidth);
     const h = Math.max(1, this.container.clientHeight);
-    const ratio = Math.min(window.devicePixelRatio || 1, this.pixelRatioCap);
+    const ratio = Math.round(Math.min(window.devicePixelRatio || 1, this.pixelRatioCap) * this.governor.scale * 100) / 100;
     if (w === this.width && h === this.height && ratio === this.stats.pixelRatio) return;
     this.width = w;
     this.height = h;
