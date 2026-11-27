@@ -10,12 +10,12 @@ export const TIER_NAMES = ['stranger', 'friendly', 'close', 'confidant'] as cons
 
 /** Items each person likes. Giving one is the only way to raise trust. */
 export const LIKES: Readonly<Record<string, readonly string[]>> = {
-  mara: ['glass_vial', 'vial_clarity', 'vial_mind', 'berries', 'mushroom', 'scribing_tools'],
-  rosa: ['bread', 'apple', 'berries', 'hearth_stew', 'honey', 'mushroom'],
+  mara: ['glass_vial', 'vial_clarity', 'vial_mind', 'wildberries', 'glowcap', 'scribing_tools'],
+  rosa: ['bread', 'wildberries', 'hearth_stew', 'cheese', 'sugar_cookie', 'glowcap'],
   gruk: ['coal', 'iron_ingot', 'bronze_ingot', 'bone', 'copper_ingot'],
   orrin: ['copper_ingot', 'glass', 'bronze_ingot', 'iron_ingot', 'tin_ingot'],
   veyra: ['glass_vial', 'glass_beaker', 'charcoal', 'sulfur', 'tincture_beaker', 'clear_tincture_beaker', 'spirit_beaker'],
-  bram: ['bone', 'mushroom', 'berries', 'feather', 'apple'],
+  bram: ['bone', 'glowcap', 'wildberries', 'hide', 'raw_perch'],
 };
 
 export interface TierReward { item: string; count: number; line: string }
@@ -26,7 +26,7 @@ export const REWARDS: Readonly<Record<string, readonly (TierReward | null)[]>> =
   gruk: [{ item: 'coal', count: 6, line: 'Fuel. For the good fire.' }, null, null],
   orrin: [{ item: 'copper_ingot', count: 3, line: 'Spares from the bench. Make something clever.' }, { item: 'iron_ingot', count: 3, line: 'Do not tell the others I was this generous.' }, null],
   veyra: [{ item: 'glass_beaker', count: 4, line: 'Spare glass. Do not drop it; I count my beakers.' }, { item: 'charcoal', count: 6, line: 'Activated, more or less. It will clean a tincture nicely.' }, null],
-  bram: [{ item: 'mushroom', count: 4, line: 'Found these. Too many for me.' }, null, null],
+  bram: [{ item: 'glowcap', count: 4, line: 'Found these. Too many for me.' }, null, null],
 };
 
 /** Warmer lines for each tier above stranger (index 0 = friendly). */

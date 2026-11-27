@@ -472,6 +472,7 @@
     "flour": {"age":0,"category":"material","key":"flour"},
     "dough": {"age":0,"category":"material","key":"dough"},
     "hide": {"age":0,"category":"resource","key":"hide"},
+    "bone": {"age":0,"category":"resource","key":"bone"},
     "wildberries": {"age":0,"category":"food","food":{"hunger":2},"key":"wildberries"},
     "berry_bush_bare": {"age":0,"category":"block","key":"berry_bush_bare","stack":16},
     "scrap_metal": {"age":0,"category":"material","key":"scrap_metal"},

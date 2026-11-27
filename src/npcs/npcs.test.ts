@@ -691,7 +691,7 @@ describe('friendship', () => {
     // Tier 1 at 20 trust.
     (npcs as unknown as { trust: Record<string, number> }).trust.rosa = 16;
     (npcs as unknown as { giftDay: Record<string, number> }).giftDay.rosa = 1;
-    state.held = { item: 'apple', count: 1 };
+    state.held = { item: 'wildberries', count: 1 };
     npcs.speak(by('rosa'));
     expect(npcs.trustOf('rosa')).toBe(24);
     expect(given).toContainEqual(['hearth_stew', 2]);
