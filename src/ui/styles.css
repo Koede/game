@@ -3176,3 +3176,12 @@ body {
 .hw-caravan__row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin: 4px 0; }
 .hw-caravan__row span { flex: 1; min-width: 0; }
 
+
+/* Touch: small buttons (Sort, Order, the notebook's age pills) are still a 44 px target; the look keeps its compact padding. */
+@media (pointer: coarse) {
+  .hw-btn--sm,
+  .hw-nb__agebtn,
+  .hw-bag__headrow .hw-btn {
+    min-height: var(--hw-tap, 44px);
+  }
+}

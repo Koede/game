@@ -172,6 +172,40 @@ async function runDevice(device) {
       await d.press(btn('menu'));
     });
 
+    /** Visible tappable things (buttons, tabs, chips) under `root` that are smaller than 44 px either way. */
+    const smallTargets = (rootSel) =>
+      page.evaluate((sel) => {
+        const out = [];
+        for (const el of document.querySelectorAll(`${sel} button, ${sel} [role="button"], ${sel} [role="tab"], ${sel} .hw-slot:not(.hw-slot--md)`)) {
+          if (el.closest('[hidden]') || el.closest('.hw-touch') || el.classList.contains('hw-slot--md')) continue; // the 9-column bag grid cannot reach 44 px on a phone
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === 'hidden') continue;
+          // A hit area padded with ::after / ::before counts: probe the centre-offset points a thumb could land on.
+          const pad = Math.max(0, (44 - r.height) / 2);
+          const hitsAbove = document.elementsFromPoint(r.left + r.width / 2, r.top - Math.min(pad, 6)).includes(el);
+          const hitsBelow = document.elementsFromPoint(r.left + r.width / 2, r.bottom + Math.min(pad, 6)).includes(el);
+          const h = r.height + (hitsAbove ? pad : 0) + (hitsBelow ? pad : 0);
+          if (r.width < 43 || h < 43.5) out.push(`${(el.className || el.tagName).toString().slice(0, 40)} "${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 20)}" ${Math.round(r.width)}x${Math.round(h)}`);
+        }
+        return out;
+      }, rootSel);
+
+    await report.step('HUD tappables (chips, goal, What next?) are 44 px or more', async () => {
+      const small = await smallTargets('.hw-hud');
+      assert(small.length === 0, `HUD targets under 44 px: ${small.join('; ')}`);
+    });
+
+    await report.step('the Bag: Sort and Order are 44 px or more (the 9-column slot grid is width-limited)', async () => {
+      await d.press(btn('bag'));
+      await waitFor(page, () => [...document.querySelectorAll('.hw-window')].some((w) => w.getBoundingClientRect().width > 0), 'the bag', { timeout: 5000, interval: 100 });
+      await d.settle(600);
+      await d.shot('06-bag');
+      const small = await smallTargets('.hw-window');
+      assert(small.length === 0, `Bag targets under 44 px: ${small.join('; ')}`);
+      await d.hw(() => window.__hw.close());
+      await d.settle(300);
+    });
+
     await report.step('no page errors', async () => assert(errors.length === 0, `page errors: ${errors.join(' | ')}`));
   } finally {
     await session.close();

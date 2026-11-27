@@ -77,6 +77,7 @@ export class SettingsPanel {
         this.toggle('moveAssist', 'Forgiving jumps', 'A jump pressed just after leaving a ledge, or just before landing, still counts.'),
         this.toggle('autoStep', 'Auto-step', 'Walk up one-block ledges without jumping (on by default on phones).'),
         this.toggle('haptics', 'Vibration', 'Short buzzes on phones for mining, crafting and getting hurt.'),
+        this.toggle('keepAwake', 'Keep screen on', 'The screen does not dim or sleep while you play. Letting go of the game (pause, another app) lets it sleep as usual.'),
         this.toggle('autoBuck', 'Auto-buck felled trees', 'A felled log is cut into pieces as soon as it lands. Off: cut it piece by piece with the axe.'),
         this.toggle('treeDamage', 'Tree damage to me', 'Falling trees hurt you and animals under them. Off for a relaxed game; trees still fall.'),
       ),
@@ -153,7 +154,7 @@ export class SettingsPanel {
     return this.row(label, hint, slider.el, true);
   }
 
-  private toggle(key: 'invertY' | 'showFps' | 'moveAssist' | 'autoStep' | 'reduceMotion' | 'tapToMove' | 'haptics' | 'autoBuck' | 'treeDamage', label: string, hint: string): HTMLElement {
+  private toggle(key: 'invertY' | 'showFps' | 'moveAssist' | 'autoStep' | 'reduceMotion' | 'tapToMove' | 'haptics' | 'keepAwake' | 'autoBuck' | 'treeDamage', label: string, hint: string): HTMLElement {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);

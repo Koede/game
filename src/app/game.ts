@@ -14,6 +14,7 @@ import { browserStorage } from '../save/storage';
 import { AGES, itemOrNull } from '../core/registry';
 import { filterById, type PhotoFilter } from '../player/photoFilters';
 import { useVerb } from '../player/useVerb';
+import { WakeLockKeeper } from '../player/wakeLock';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -133,6 +134,7 @@ export class Game {
   /** Turning cogs, links, arms and pistons of the workshop (src/render/workshop). */
   readonly workshopRenderer: WorkshopRenderer;
   readonly inputManager: InputManager;
+  private readonly wake = new WakeLockKeeper();
   readonly ui: GameUI;
   readonly controller: PlayerController;
   /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
@@ -458,6 +460,7 @@ export class Game {
       const ticks = this.step.advance(dt);
       for (let i = 0; i < ticks; i++) this.tickOnce();
     }
+    this.wake.update(this.settings.keepAwake && this.input.touch && !paused);
     const p = state.player;
     // Nothing moves while paused: chunks stream again on resume.
     if (!paused) state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
@@ -755,6 +758,7 @@ export class Game {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.wake.dispose();
     for (const off of this.offs) off();
     this.offs.length = 0;
     this.vehicleHud.dispose();

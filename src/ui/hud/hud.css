@@ -1468,3 +1468,15 @@
   padding: 6px 8px;
   border-top: 1px solid var(--hw-plate-edge);
 }
+
+/* Touch: small chips keep their look but get a 44 px hit area (an invisible 8 px halo; a thumb is not precise). */
+.hw-hud[data-touch] .hw-nudge__ask,
+.hw-hud[data-touch] .hw-vitals__heat {
+  position: relative;
+}
+.hw-hud[data-touch] .hw-nudge__ask::after,
+.hw-hud[data-touch] .hw-vitals__heat::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
