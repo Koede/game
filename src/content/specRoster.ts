@@ -487,3 +487,5 @@ SPEC.maxTextures += OLD_PLANS_SPEC.textures;
 SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
 // Modular tools (src/content/toolParts.ts): one icon per new head, and a composed icon for each non-default pick, axe, shovel and hoe build.
 SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
+// Bronze Age plumbing (content/areas/plumbing.ts): pipe_water, sprinkler + sprinkler_on, hand_pump side/top/bottom, cistern side/top/bottom.
+SPEC.maxTextures += 9;

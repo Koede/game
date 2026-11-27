@@ -21,3 +21,6 @@ export const CROWD_PUSH = 1.5;
 export const RETIRE_MIN_DISTANCE = 40;
 /** How often (seconds) the manager checks the stored count against MOB_STORED_SOFT_CAP. */
 export const DESPAWN_CHECK_S = 5;
+
+/** How fast a goat's wool and a hen's eggs come back in winter (1 = the usual pace). */
+export const WINTER_YIELD_RATE = 0.5;

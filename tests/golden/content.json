@@ -313,6 +313,10 @@
     "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"},
     "tube_sender": {"age":1,"air":{"role":"station","station":"send","volumeL":20},"category":"machine","hardness":2,"key":"tube_sender","stack":16,"tool":"pickaxe"},
     "tube_receiver": {"age":1,"air":{"role":"station","station":"receive","volumeL":20},"category":"machine","hardness":2,"key":"tube_receiver","stack":16,"tool":"pickaxe"},
+    "water_pipe": {"age":1,"category":"machine","hardness":0.5,"key":"water_pipe","plumb":{"role":"pipe","volumeL":25},"shape":"pipe","tool":"pickaxe"},
+    "hand_pump": {"age":1,"category":"machine","hardness":1.5,"key":"hand_pump","plumb":{"role":"pump","volumeL":20},"stack":16,"tool":"pickaxe"},
+    "cistern": {"age":1,"category":"machine","hardness":1.5,"key":"cistern","plumb":{"role":"cistern","volumeL":2000},"stack":16,"tool":"axe"},
+    "sprinkler": {"age":1,"category":"machine","hardness":0.6,"key":"sprinkler","plumb":{"role":"sprinkler","volumeL":10},"shape":"pipe","stack":32,"tool":"pickaxe"},
     "clock_tower": {"age":1,"category":"machine","hardness":1.2,"key":"clock_tower","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"}
   },
   "items": {
@@ -1064,6 +1068,10 @@
     "dough_egg": {"age":0,"byproducts":[{"count":1,"item":"pail"}],"id":"dough_egg","inputs":[{"count":2,"item":"flour"},{"count":1,"item":"egg"},{"count":1,"item":"water_pail"}],"output":{"count":3,"item":"dough"},"station":"workbench"},
     "sugar_cake_egg": {"age":0,"id":"sugar_cake_egg","inputs":[{"count":2,"item":"flour"},{"count":2,"item":"sugar"},{"count":2,"item":"egg"}],"kind":"forge","minTempC":200,"minTier":1,"output":{"count":2,"item":"sugar_cake"},"station":"furnace"},
     "fence": {"age":0,"id":"fence","inputs":[{"count":2,"item":"plank"},{"count":2,"item":"stick"}],"output":{"count":4,"item":"fence"},"station":"hand"},
+    "water_pipe": {"age":1,"id":"water_pipe","inputs":[{"count":2,"item":"copper_ingot"}],"kind":"forge","minTempC":700,"minTier":2,"output":{"count":8,"item":"water_pipe"},"station":"furnace"},
+    "hand_pump": {"age":1,"id":"hand_pump","inputs":[{"count":3,"item":"copper_ingot"},{"count":1,"item":"bronze_ingot"},{"count":2,"item":"plank"},{"count":1,"item":"water_pipe"}],"kind":"forge","minTempC":750,"minTier":2,"output":{"count":1,"item":"hand_pump"},"station":"furnace"},
+    "cistern": {"age":1,"id":"cistern","inputs":[{"count":6,"item":"plank"},{"count":2,"item":"copper_ingot"},{"count":1,"item":"water_pipe"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"cistern"},"station":"furnace"},
+    "sprinkler": {"age":1,"id":"sprinkler","inputs":[{"count":1,"item":"bronze_ingot"},{"count":2,"item":"water_pipe"}],"kind":"forge","minTempC":750,"minTier":2,"output":{"count":2,"item":"sprinkler"},"station":"furnace"},
     "grid_meter": {"age":0,"id":"grid_meter","inputs":[{"count":2,"item":"copper_wire"},{"count":1,"item":"glass"},{"count":1,"item":"tin_ingot"}],"kind":"forge","minTempC":500,"minTier":1,"output":{"count":1,"item":"grid_meter"},"station":"furnace"},
     "grid_monitor": {"age":1,"id":"grid_monitor","inputs":[{"count":1,"item":"grid_meter"},{"count":2,"item":"copper_cable"},{"count":1,"item":"glass"},{"count":2,"item":"copper_ingot"}],"kind":"forge","minTempC":700,"minTier":2,"output":{"count":1,"item":"grid_monitor"},"station":"furnace"},
     "cell_rack": {"age":3,"id":"cell_rack","inputs":[{"count":3,"item":"battery"},{"count":2,"item":"steel_plate"},{"count":1,"item":"copper_coil"}],"kind":"forge","minTempC":1800,"minTier":4,"output":{"count":1,"item":"cell_rack"},"station":"furnace"},

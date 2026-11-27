@@ -303,6 +303,7 @@ export class MobManager {
       this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
       return { ok: true };
     }
+    if (this.brain.sky.winter) return { ok: false, reason: 'Too cold to raise young: wait for spring' };
     if (!this.birthRoom()) return { ok: false, reason: NO_ROOM };
     m.eagerS = MOB_EAGER_S;
     m.tame = true;
@@ -377,7 +378,7 @@ export class MobManager {
 
   /** Timers and behaviour of one simulated animal (sets its velocity). */
   private mind(m: Mob, dt: number): void {
-    if (!advanceTimers(m, dt, this.brain.player)) return;
+    if (!advanceTimers(m, dt, this.brain.player, this.brain.sky.winter)) return;
     growUp(this.world, m);
     think(this.brain, m, dt);
   }
