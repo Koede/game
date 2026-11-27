@@ -102,8 +102,8 @@ describe('AmbienceProbe', () => {
     const { bus, world, player, clock } = setup();
     let parts: Array<[number, number]> = [];
     const workshop = {
-      turningNear: (px: number, pz: number, radius: number, weight: number) =>
-        parts.reduce((sum, [x, z]) => sum + Math.max(0, weight * (1 - Math.hypot(x - px, z - pz) / radius)), 0),
+      turningNear: (px: number, py: number, pz: number, radius: number, weight: number) =>
+        parts.reduce((sum, [x, z]) => sum + Math.max(0, weight * (1 - Math.hypot(x - px, 40 - py, z - pz) / radius)), 0),
     };
     const probe = new AmbienceProbe(world, player, clock, null, workshop);
     expect(probe.update(0.016).turning).toBe(0);

@@ -48,7 +48,7 @@ export class AmbienceProbe {
     /** The world's weather (rain bed, storm gusts, roof); null = always fair. */
     private readonly weather: WeatherState | null = null,
     /** The workshop's turning shafts and wheels (null = none heard). */
-    private readonly workshop: { turningNear(px: number, pz: number, radius: number, weight: number): number } | null = null,
+    private readonly workshop: { turningNear(px: number, py: number, pz: number, radius: number, weight: number): number } | null = null,
   ) {}
 
   /** Call every frame; returns the (reused) state to hand to AudioEngine.setAmbience. */
@@ -115,7 +115,7 @@ export class AmbienceProbe {
     s.furnaceElectric = electric;
     s.ignition = ignition;
     s.machineHum = unit(hum);
-    s.turning = this.workshop ? unit(this.workshop.turningNear(ex, ez, MACHINE_HEARING, TURNING_WEIGHT)) : 0;
+    s.turning = this.workshop ? unit(this.workshop.turningNear(ex, ey, ez, MACHINE_HEARING, TURNING_WEIGHT)) : 0;
     const altitude = unit((ey - WIND_LOW_Y) / (WIND_HIGH_Y - WIND_LOW_Y));
     const surface = this.world.surfaceY(Math.floor(ex), Math.floor(ez));
     // Under a roof or in a cave the wind is a distant murmur.

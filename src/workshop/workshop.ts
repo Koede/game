@@ -942,17 +942,18 @@ export class Workshop {
   // ---- Views ------------------------------------------------------------------------------------------
 
   /**
-   * How loud the turning machinery within `radius` of (px, pz) is, for the ambience: each part that is turning adds
+   * How loud the turning machinery within `radius` of (px, py, pz) is, for the ambience: each part that is turning adds
    * up to `weight`, fading with distance. Unlike `view` it allocates nothing, so the audio probe can ask a few times a second.
    */
-  turningNear(px: number, pz: number, radius: number, weight: number): number {
+  turningNear(px: number, py: number, pz: number, radius: number, weight: number): number {
     let sum = 0;
     const r2 = radius * radius;
     for (const [key, p] of this.parts) {
       if (!(Math.abs(this.speed.get(key) ?? 0) > 0)) continue;
       const dx = p.x + 0.5 - px;
+      const dy = p.y + 0.5 - py;
       const dz = p.z + 0.5 - pz;
-      const d2 = dx * dx + dz * dz;
+      const d2 = dx * dx + dy * dy + dz * dz;
       if (d2 > r2) continue;
       sum += weight * (1 - Math.sqrt(d2) / radius);
     }
