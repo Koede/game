@@ -3,7 +3,6 @@
  * helpers that SET UP states quickly (give items, teleport, set the time, place a voxel, open a screen, run ticks,
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
-import { DT } from '../core/constants';
 import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
@@ -111,6 +110,10 @@ export interface DebugHandle {
   /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
   /** Air temperature in C at a cell (src/game/thermal.ts). */
   temperatureAt(x: number, y: number, z: number): number;
+  /** Makes the world a hard-winter one or not (docs/api/winter.md), for checks of frozen fields and greenhouses. */
+  setHardWinter(on: boolean): void;
+  /** What the crop at a cell is doing: shelter, air temperature, rate (docs/api/greenhouse.md); null when there is none. */
+  cropView(x: number, y: number, z: number): { shelter?: string; tempC?: number; rate: number; exposed: boolean; status: string } | null;
   /** Turns the heat view on or off (same as the H key). */
   setHeatView(on: boolean): void;
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
@@ -323,6 +326,15 @@ export function createDebugHandle(app: App): DebugHandle {
     temperatureAt(x, y, z) {
       return game().state.thermal.temperatureAt(x, y, z);
     },
+    setHardWinter(on) {
+      const s = game().state;
+      s.winter.hard = on;
+      s.sim.hardWinter = on;
+    },
+    cropView(x, y, z) {
+      const v = game().state.sim.cropView(x, y, z);
+      return v && { shelter: v.shelter, tempC: v.tempC, rate: v.rate, exposed: v.exposed, status: v.status };
+    },
     setHeatView(on) {
       const g = game() as unknown as { heatOn: boolean; toggleHeatView(): void };
       if (g.heatOn !== on) g.toggleHeatView();
@@ -374,7 +386,6 @@ export function createDebugHandle(app: App): DebugHandle {
       const { world, player } = game().state;
       const id = blockId(block);
       const px = Math.floor(player.position.x);
-      const py = Math.floor(player.position.y);
       const pz = Math.floor(player.position.z);
       const found: { x: number; y: number; z: number; d: number }[] = [];
       for (let x = px - radius; x <= px + radius; x++) {

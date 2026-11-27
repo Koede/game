@@ -13,7 +13,7 @@ import { popUnsupportedAt } from '../game/farming';
 import { NETWORK_RADIUS, validLabel, type Chest } from '../game/storage';
 import { PlantSupport } from './plantSupport';
 import { withStatus } from '../core/machineStatus';
-import { voxelActive, withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
+import { withActive, type BlockDef, type BlockEntity, type Face, type IWorld, type WeatherState } from '../core/types';
 import type { GameClock } from '../game/clock';
 import type { Inventory } from '../game/inventory';
 import type { PlayerState } from '../game/playerState';
@@ -59,7 +59,8 @@ import { SlotAccess, type FurnaceSlots } from './slots';
 import { Spills } from './spills';
 import { forgeRows, furnaceView, type ForgeRow, type FurnaceView } from './views';
 import { MILL_WHEEL, millWheelSu, riverScale } from './hydro';
-import { cropScale, seasonOf } from './seasons';
+import { cropScale, seasonOf, shelterOf } from './seasons';
+import { temperatureAt } from './temperature';
 import { SimWeather, type SimBiomeLookup } from './weather';
 
 const WIND = machine('wind_turbine').params ?? {};
@@ -76,9 +77,13 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   river = 1;
   /** The weather's effects on machines, furnaces and crops (spec 15); fair weather until `useWeather`. */
   readonly weather = new SimWeather();
-  /** Seasonal growth and snow on a crop (src/sim/seasons.ts). */
+  /** Seasonal growth and snow on a crop (src/sim/seasons.ts); a roofed crop reads the air (docs/api/greenhouse.md). */
   private readonly cropScaleAt = (crop: string, x: number, y: number, z: number, exposed: boolean): number =>
-    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z), this.hardWinter, exposed);
+    cropScale(seasonOf(this.clock.day), crop, exposed && this.weather.snowAt(x, y, z), this.hardWinter, exposed, exposed ? undefined : this.cropAirC(x, y, z));
+  /** Degrees C of the air at a roofed crop (the heat zones answer through src/sim/temperature.ts). */
+  cropAirC(x: number, y: number, z: number): number {
+    return temperatureAt({ x: x + 0.5, y, z: z + 0.5, day: this.clock.day, night: this.clock.isNight, snowing: false, exposed: false });
+  }
   /** A hard-winter world (docs/api/winter.md): exposed crops freeze in winter, a roof makes a greenhouse. Set by GameState. */
   hardWinter = false;
   private readonly rainAt = (x: number, y: number, z: number): boolean => this.weather.wetAt(x, y, z);
@@ -863,7 +868,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * sides, a crate's or a machine's slots; an item hatch of a formed hearth stands for its controller. Null for
    * anything else. `face` is the side of that block the pipe touches; every side of today's blocks behaves the same.
    */
-  itemEndpoint(x: number, y: number, z: number, face: Face): ItemEndpoint | null {
+  itemEndpoint(x: number, y: number, z: number, _face: Face): ItemEndpoint | null {
     const key = posKey(x, y, z);
     const node = this.nodes.byKey.get(key);
     if (!node) return null;
@@ -878,7 +883,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
    * The fluid side of the block at x, y, z (spec 16.2): a machine with fluid ports, through its buffers. A fluid hatch
    * counts only as part of a formed hearth (its lava fuels the controller). Null for anything else.
    */
-  fluidEndpoint(x: number, y: number, z: number, face: Face): FluidEndpoint | null {
+  fluidEndpoint(x: number, y: number, z: number, _face: Face): FluidEndpoint | null {
     const chem = chemPortEndpoint(this.distill, x, y, z);
     if (chem) return chem;
     const key = posKey(x, y, z);
@@ -1115,7 +1120,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   /** What the crop at a position is doing (stage, light, water, status), or null. Crops have no machine view. */
   cropView(x: number, y: number, z: number): CropView | null {
     this.weather.update();
-    return this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt, this.beesIn() === null);
+    const v = this.crops.view(x, y, z, this.clock.sunlight(), this.wetAt, this.cropScaleAt, this.beesIn() === null);
+    if (v === null || v.wild) return v;
+    const tempC = v.exposed ? undefined : Math.round(this.cropAirC(x, y, z));
+    return { ...v, tempC, shelter: shelterOf(seasonOf(this.clock.day), v.exposed, tempC, this.hardWinter) };
   }
 
   /** Furnaces, machines and crates (crops are counted by `cropCount`). */

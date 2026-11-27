@@ -43,7 +43,7 @@ export interface ArrowInsets {
  * screen centre towards the block leaves the rectangle inside `insets`. A block behind the camera gets an arrow on
  * the left or right edge: the way to turn.
  */
-export function edgeArrow(vx: number, vy: number, vz: number, ndcX: number, ndcY: number, w: number, h: number, insets: ArrowInsets, out: EdgeArrow): EdgeArrow {
+export function edgeArrow(vx: number, _vy: number, vz: number, ndcX: number, ndcY: number, w: number, h: number, insets: ArrowInsets, out: EdgeArrow): EdgeArrow {
   const front = vz < 0;
   if (front && Math.abs(ndcX) <= 1 && Math.abs(ndcY) <= 1) {
     out.visible = false;

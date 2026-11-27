@@ -39,6 +39,10 @@ export interface UICropView {
   pollinated?: boolean;
   /** Seconds to ripe at the current rate (Infinity while not growing). */
   ripeInS: number;
+  /** Open sky, a heated greenhouse, a cold roofed spot or frozen (docs/api/greenhouse.md); absent = open. */
+  shelter?: 'open' | 'greenhouse' | 'cold' | 'frozen';
+  /** Roofed crops: the air in C. */
+  tempC?: number;
 }
 
 /** A cup setup or a bucket on a furnace in words (a subset of the simulation's BrewView). */

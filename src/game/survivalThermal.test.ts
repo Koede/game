@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DT, MAX_WARMTH } from '../core/constants';
+import { DT } from '../core/constants';
 import { createBus } from '../core/context';
 import type { BiomeKey } from '../core/types';
 import { GameClock } from './clock';

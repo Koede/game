@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DAY_LENGTH_S, SUNSET_AT } from '../../core/constants';
-import { FEED_LINGER_MS, FEED_MAX, GainFeed, PICKUP_BATCH_MS, dayInfo, formatCountdown, frostLevel, relativeBearing, summarizeGrid, untilLabel, wrapAngle } from './hudMath';
+import { FEED_MAX, GainFeed, PICKUP_BATCH_MS, dayInfo, formatCountdown, frostLevel, relativeBearing, summarizeGrid, untilLabel, wrapAngle } from './hudMath';
 
 const net = (o: Partial<Parameters<typeof summarizeGrid>[0][number]>) => ({
   generationW: 0, demandW: 0, deliveredW: 0, storedJ: 0, capacityJ: 0, satisfaction: 1, overloaded: false, ...o,
