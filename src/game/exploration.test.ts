@@ -48,7 +48,10 @@ describe('waypoint use', () => {
     expect(v.destinations).toHaveLength(1);
     expect(v.destinations[0]).toMatchObject({ fuel: 3, compass: 'east' });
     expect(v.charcoal).toBe(5);
+    const sfx: string[] = [];
+    r.bus.on('sfx', (e) => sfx.push(e.name));
     expect(r.ex.travel(1, 2)).toBeNull();
+    expect(sfx).toEqual(['ignition', 'upgrade']);
     expect(r.teleports).toEqual([[130.5, 11, 0.5]]);
     expect(r.player.inventory.count('charcoal')).toBe(2);
   });

@@ -3,6 +3,7 @@
  * first-person hand, and implements IView for the player controller. One render(dt) per frame, allocation-free.
  */
 import { ResolutionGovernor } from './resolutionGovernor';
+import { seasonTints } from './seasonTint';
 import * as THREE from 'three';
 import { HeatView } from './heatView';
 import { STAR_TURNS_PER_DAY } from '../core/constants';
@@ -314,6 +315,9 @@ export class Renderer implements IView {
     u.uFx.value = quality.fx;
     setLiquidRate(quality.liquidRate);
     u.uWet.value = fx.wet;
+    const tints = seasonTints((this.clock.day ?? 1) + this.clock.timeOfDay);
+    u.uLeafTint.value.set(tints.leaf.r, tints.leaf.g, tints.leaf.b, tints.leaf.a);
+    u.uGrassTint.value.set(tints.grass.r, tints.grass.g, tints.grass.b, tints.grass.a);
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);
     // Firelight breathes a little: two incommensurate waves, never strobing.
