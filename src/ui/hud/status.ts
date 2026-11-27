@@ -1,4 +1,5 @@
 /** Day/night dial (with the weather and tonight's moon) and the power strip (generation against demand, once any network exists). */
+import { seasonLine, seasonOf } from '../../sim/seasons';
 import type { WeatherState } from '../../core/types';
 import { h, setAttr, setFlag, setText } from '../kit/dom';
 import { formatJoules, formatPercent, formatWatts } from '../kit/format';
@@ -149,6 +150,9 @@ export class DayDial {
     }
     const sky = weather ? `${weatherWord(g)}. ` : '';
     setText(this.dayEl, `Day ${day}`);
+    const season = seasonOf(day);
+    setAttr(this.el, 'data-season', season);
+    setAttr(this.dayEl, 'title', seasonLine(day));
     setText(this.untilText, untilLabel(info.isNight, info.untilS));
     // Crossing the last two minutes: the dial pulses once so the coming night (or dawn) is noticed.
     const soon = info.untilS < DIAL_SOON_S;
@@ -160,7 +164,7 @@ export class DayDial {
       }
       this.shownSoon = soon;
     }
-    setAttr(this.el, 'aria-label', `Day ${day}, ${info.isNight ? 'night' : 'daytime'}. ${sky}${info.text}. Tonight: ${moonName(phase).toLowerCase()}.`);
+    setAttr(this.el, 'aria-label', `Day ${day}, ${seasonLine(day)}, ${info.isNight ? 'night' : 'daytime'}. ${sky}${info.text}. Tonight: ${moonName(phase).toLowerCase()}.`);
     setAttr(this.el, 'title', `${sky}${info.text}. Tonight: ${moonName(phase).toLowerCase()}`);
   }
 }

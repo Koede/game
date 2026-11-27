@@ -13,6 +13,9 @@ export const WATER_SCROLL = 0.9;
 
 /** Texture layer of crude oil: its pool surface is shuffled per block (see liquidTexel). */
 const OIL_LAYER = textureLayer('oil');
+/** Layers the seasons recolour (oak leaves, the grass top and tall grass). */
+const LEAF_LAYER = textureLayer('oak_leaves');
+const GRASS_LAYERS = [textureLayer('grass_top'), textureLayer('tall_grass')];
 
 /** Colours of the cool glows (glowcaps cyan, crystal clusters violet) that tint block light (spec 14). */
 export const COOL_CYAN = [0.36, 0.84, 1.0] as const;
@@ -147,6 +150,8 @@ in highp vec3 vWorld;
 in float vWet;
 in float vCrest;
 uniform highp float uFx;
+uniform vec4 uLeafTint;
+uniform vec4 uGrassTint;
 flat in float vLiquid;
 out vec4 fragColor;
 
@@ -197,9 +202,23 @@ vec4 liquidTexel(vec4 tex) {
   return c;
 }
 
+// The year's colour: keep the texture's brightness, pull its hue towards the season's target (unit luminance).
+vec3 seasonal(vec3 c, vec4 t, float amount) {
+  float l = dot(c, vec3(0.299, 0.587, 0.114));
+  return mix(c, l * t.rgb, clamp(amount, 0.0, 1.0));
+}
+
 void main() {
   vec4 tex = atlasTexel(vUv, vLayer);
   if (vLiquid > 0.5) tex = liquidTexel(tex);
+#ifndef TRANSLUCENT
+  if (abs(vLayer - ${LEAF_LAYER.toFixed(1)}) < 0.5) {
+    // Each clump of leaves turns at its own pace.
+    tex.rgb = seasonal(tex.rgb, uLeafTint, uLeafTint.a * (0.7 + 0.6 * hash12(floor(vWorld.xz * 0.5))));
+  } else if (abs(vLayer - ${GRASS_LAYERS[0].toFixed(1)}) < 0.5 || abs(vLayer - ${GRASS_LAYERS[1].toFixed(1)}) < 0.5) {
+    tex.rgb = seasonal(tex.rgb, uGrassTint, uGrassTint.a);
+  }
+#endif
 #ifdef CUTOUT
   if (tex.a < 0.4) discard;
 #endif

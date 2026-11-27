@@ -41,6 +41,8 @@ export interface Mob {
   /** Seconds before it gives milk again, and wool again (0 = ready; see yields.ts). */
   milkS: number;
   woolS: number;
+  /** Seconds until a hen lays again (0 = an egg is waiting). */
+  eggS: number;
   /** Fed or born to fed parents: the player's animal, never retired to make room. */
   tame: boolean;
   /** Natural healing clock: negative right after a hurt, +1 health each time it reaches HEAL_EVERY_S. */
@@ -191,6 +193,7 @@ export interface SavedMob {
   /** Seconds left until it gives again; absent in old saves (ready). */
   milkS?: number;
   woolS?: number;
+  eggS?: number;
   /** Home point; absent in old saves (then where it stands). */
   hx?: number;
   hz?: number;

@@ -27,6 +27,9 @@ export interface WorldUniforms {
   uFog: THREE.IUniform<THREE.Vector2>;
   /** How soaked sky-exposed surfaces look, 0..1 (weather). */
   uWet: THREE.IUniform<number>;
+  /** Seasonal colour of oak leaves and of grass: (target colour of unit luminance, amount), see seasonTint.ts. */
+  uLeafTint: THREE.IUniform<THREE.Vector4>;
+  uGrassTint: THREE.IUniform<THREE.Vector4>;
   /** Share of the optional surface effects drawn, 0..1 (water waves and foam; the graphics setting). */
   uFx: THREE.IUniform<number>;
 }
@@ -46,6 +49,8 @@ export function createWorldUniforms(atlas: THREE.Texture | null, atlas2: THREE.T
     uFog: { value: new THREE.Vector2(40, 90) },
     uWet: { value: 0 },
     uFx: { value: 1 },
+    uLeafTint: { value: new THREE.Vector4(1, 1, 1, 0) },
+    uGrassTint: { value: new THREE.Vector4(1, 1, 1, 0) },
   };
 }
 
