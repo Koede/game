@@ -38,6 +38,8 @@ export type ScreenRequest =
   | { type: 'workshop' }
   /** The settlement's jobs (docs/api/jobs.md): what each resident carries between two stops. `person` is the one to show first. */
   | { type: 'jobs'; person?: string }
+  /** The waypoint stone `stone` (docs/api/waypoints.md): pick a visited stone to travel to, rename this one. */
+  | { type: 'waypoints'; stone: number }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
   | { type: 'rune_desk'; x: number; y: number; z: number; /** The Arcane Workbench: the bench's recipes instead of the desk's. */ bench?: boolean }
   /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */
@@ -74,6 +76,10 @@ export type SfxName =
   | 'jukebox_note'
   | 'age'
   | 'ui_click'
+  /** A soft bright note when good news appears as a toast. */
+  | 'toast_good'
+  /** A low soft double thud when a warning or bad news appears as a toast. */
+  | 'toast_warn'
   | 'ui_open'
   | 'ui_close'
   | 'error'
@@ -306,7 +312,7 @@ export interface GameEvents {
   'mob:hurt': { id: number; species: string; health: number };
   'mob:died': { id: number; species: string };
   /** A crop advanced to `stage` (0-based; the last stage is ripe). */
-  'crop:grew': { x: number; y: number; z: number; stage: number };
+  'crop:grew': { x: number; y: number; z: number; stage: number; /** The last stage: ready to harvest (a chime and a sparkle). */ ripe?: boolean };
 
   // ---- weather (spec 15) ----
   /** The weather began changing (once per change, when the blend from `previous` to `kind` starts). */
@@ -333,6 +339,10 @@ export interface GameEvents {
    */
   /** A Use on an air block (BRONZE_PLAN 5.3): the sim reads its pressure and, on a compressor, works the hand crank. */
   'air:use': { x: number; y: number; z: number };
+  /** A Use on a plumbing block (docs/api/plumbing.md): the sim reads its line and, on a hand pump, takes a stroke. */
+  'water:use': { x: number; y: number; z: number };
+  /** A sprinkler at x,y,z sprays (sim, twice a second while it has water): the renderer throws droplets. */
+  'water:spray': { x: number; y: number; z: number };
   'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
   /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
   'hearth:unformed': { x: number; y: number; z: number };
