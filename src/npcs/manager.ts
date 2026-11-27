@@ -28,6 +28,7 @@ import type { Spot } from './routines';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { warmerSpot } from './warmth';
+import { compass } from '../magic/nodes';
 import { ageTalk, disasterShout, weatherTalk } from './reactions';
 import { ROUTINES } from './routines';
 import { TownClock, type TowerView } from './townClock';
@@ -1074,6 +1075,15 @@ export class NpcManager {
     return Math.abs(p.x - s.x) <= 6 && Math.abs(p.z - s.z) <= 6 && Math.abs(p.y - s.y) <= 4;
   }
 
+  /** "Build board: 45 blocks NE of you" while it stands somewhere other than at the player's feet, for the Town page. */
+  private boardHint(): string | null {
+    const s = this.board.spot;
+    const p = this.host?.companion.player();
+    if (!s || !this.board.placed || !p) return null;
+    const d = Math.round(Math.hypot(s.x - p.x, s.z - p.z));
+    return d <= 6 ? 'The building board is right here: use it to hand in bounty items.' : `Build board: ${d} blocks ${compass(p.x, p.z, s.x, s.z)} of you.`;
+  }
+
   /** Use on the building board: a held stack that matches a bounty is handed in; otherwise the open bounties are read out. */
   private useTownBoard(): string {
     const held = this.host?.held() ?? null;
@@ -1762,6 +1772,7 @@ export class NpcManager {
       goals,
       goal,
       festival: { ...this.festivalNote(), medals: this.fest.entries > 0 ? `Medals so far: ${this.fest.gold} gold, ${this.fest.silver} silver, ${this.fest.bronze} bronze; ${this.fest.crowns} festival crown${this.fest.crowns === 1 ? '' : 's'}.` : 'No festival contest entered yet.' },
+      boardHint: this.boardHint(),
     };
   }
 

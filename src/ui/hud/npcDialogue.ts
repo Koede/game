@@ -18,6 +18,8 @@ export const FACE_FADE_S = 0.2;
 /** Seconds the finished line stays up per character, plus a floor. */
 const READ_S_PER_CHAR = 0.045;
 const READ_S_MIN = 2.8;
+/** A screen that opens within this long of a line is part of that line (a shop with its pitch), so the bubble stays. */
+const OPEN_GRACE_MS = 400;
 
 export class NpcDialogue {
   readonly el: HTMLDivElement;
@@ -30,6 +32,7 @@ export class NpcDialogue {
   private readonly off: () => void;
   private readonly workBtn: HTMLButtonElement;
   private who = '';
+  private saidAt = 0;
   private text = '';
   private shown = 0;
   private holdS = 0;
@@ -73,12 +76,22 @@ export class NpcDialogue {
       this.advance();
     });
     parent.appendChild(this.el);
-    this.off = bus.on('npc:say', (e) => this.say(e.role as NpcRole, e.name, e.title, e.text, e.id, e.work === true));
+    const offSay = bus.on('npc:say', (e) => this.say(e.role as NpcRole, e.name, e.title, e.text, e.id, e.work === true));
+    // A full-screen window (the furnace, the bag) opening over a line would leave the bubble on top of its hotbar and Back button:
+    // close it, unless the screen opened as part of the same moment the person spoke (a shop opening with its pitch).
+    const offOpened = bus.on('ui:opened', () => {
+      if (!this.el.hidden && Date.now() - this.saidAt > OPEN_GRACE_MS) this.hide();
+    });
+    this.off = () => {
+      offSay();
+      offOpened();
+    };
   }
 
   /** Shows a line (replacing any being shown). */
   say(role: NpcRole, name: string, title: string, text: string, id = '', work = false): void {
     this.who = id;
+    this.saidAt = Date.now();
     this.workBtn.hidden = !work;
     this.nameEl.textContent = name;
     this.titleEl.textContent = title;

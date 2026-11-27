@@ -49,7 +49,7 @@ export const CAMP_GOALS: readonly CampGoal[] = [
   {
     id: 'first_night',
     title: 'Sleep a night',
-    text: 'At dusk, sleep by the fire (use it) until dawn. Nothing comes for a camp that has someone awake by a fire.',
+    text: 'At dusk, use the camp fire, open the firebox with the little arrow, and press Rest until dawn. The fire must be hot (200 C): feed it logs first. Nothing comes for a camp that has someone awake by a fire.',
     done: (f) => f.rested,
     note: 'Slept my first night at the camp.',
   },

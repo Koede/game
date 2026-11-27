@@ -24,7 +24,8 @@ export function renderTown(p: TownPage, move?: MoveResident, done?: () => void):
     out.append(h('p', { class: 'hw-town__line', text: 'There is no town to look at yet. Gruk builds one only in a new world.' }));
     return out;
   }
-  if (p.goal) out.append(section('Camp goal', h('p', { class: 'hw-town__goal', text: p.goal.title }), h('p', { class: 'hw-town__line', text: p.goal.text })));
+  if (p.goal) out.append(section('Camp goal', h('p', { class: 'hw-town__goal', text: p.goal.title }), h('p', { class: 'hw-town__line', text: p.goal.text }), p.boardHint ? h('p', { class: 'hw-town__line', text: p.boardHint }) : null));
+  else if (p.boardHint) out.append(section('Building board', h('p', { class: 'hw-town__line', text: p.boardHint })));
 
   const b = p.building;
   if (b) {

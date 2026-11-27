@@ -70,6 +70,8 @@ export interface TownPage {
   rooms: HousingRow[];
   nextInLine: TownNextInLine | null;
   goals: TownGoalRow[];
+  /** Where the building board stands from the player: 'Build board: 45 blocks NE of you', or null before it is placed. */
+  boardHint: string | null;
   /** The current camp goal, or null when the track is done or not shown. */
   goal: TownGoalRow | null;
   /** Tonight's festival or the next one (festival.ts), with the medals won so far. */
