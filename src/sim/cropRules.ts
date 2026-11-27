@@ -121,6 +121,8 @@ export interface CropContext {
   wetAt: ((x: number, y: number, z: number) => boolean) | null;
   /** Seasonal growth multiplier of a crop at a position (src/sim/seasons.ts); absent = 1. */
   scale?: ((crop: string, x: number, y: number, z: number, exposed: boolean) => number) | null;
+  /** A spraying sprinkler waters a crop at this position (src/sim/waterNet.ts), roofed or not; absent = none. */
+  irrigated?: ((x: number, y: number, z: number) => boolean) | null;
 }
 
 /** Daylight under open sky, or a powered lamp in reach (any hour, underground too). */
@@ -128,7 +130,7 @@ export const isLit = (c: CropNode, ctx: CropContext): boolean => (ctx.sunUp && c
 
 /** Whether the crop counts as watered: water in reach, or rain (or snow) falling on it under open sky (spec 15). */
 export function isHydrated(c: CropNode, ctx: CropContext): boolean {
-  return c.water || (c.rain && ctx.wetAt !== null && ctx.wetAt(c.e.x, c.e.y, c.e.z));
+  return c.water || (c.rain && ctx.wetAt !== null && ctx.wetAt(c.e.x, c.e.y, c.e.z)) || (ctx.irrigated?.(c.e.x, c.e.y, c.e.z) ?? false);
 }
 
 /** Growth per second of game time: 1 hydrated, dryRate dry, 0 when ripe, unlit or off farmland. A bush: 1 until ripe. */
