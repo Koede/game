@@ -16,7 +16,8 @@ type ViewStack = { item: string; count: number; durability?: number; quality?: 1
 export function machineRows(item: string): [string, string][] {
   const block = blockOrNull(item);
   const spec = block ? machineOfBlock(block) : null;
-  if (!spec) return [];
+  // The kerosene lamp is typed a generator but never feeds a network: its outputW is a placeholder.
+  if (!spec || spec.kind === 'kerosene_lamp') return [];
   const rows: [string, string][] = [];
   if (spec.role === 'storage') {
     if (spec.capacityJ) rows.push(['Stores', formatJoules(spec.capacityJ)]);

@@ -16,3 +16,9 @@ describe('machine and container cards carry their numbers', () => {
     expect(rows('stick').Makes).toBeUndefined();
   });
 });
+
+describe('the kerosene lamp', () => {
+  it('is not advertised as a power source', () => {
+    expect(rows('kerosene_lamp').Makes).toBeUndefined();
+  });
+});
