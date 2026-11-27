@@ -205,7 +205,11 @@ try {
     assert(deck === 'bridge_deck', `deck over the gap (${deck})`);
     // Walk south across it.
     await d.hw(() => window.__hw.look(Math.PI, 0));
-    await d.walk(2.8);
+    // Walk in short goes until past the gap (walking speed differs between devices; the far ledge is long).
+    for (let i = 0; i < 6; i++) {
+      await d.walk(i === 0 ? 2.2 : 0.6);
+      if ((await d.state()).player.z > B.z0 + 10.2) break;
+    }
     const p = (await d.state()).player;
     assert(p.z > B.z0 + 9 && p.y > B.y - 0.7, `crossed the gap (z ${p.z}, y ${p.y})`);
     await d.hw(() => window.__hw.look(0, -0.3));
