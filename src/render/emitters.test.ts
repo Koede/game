@@ -71,6 +71,22 @@ describe('emitters', () => {
     expect(particles.count).toBeGreaterThan(2);
   });
 
+  it('lets a running solar panel, thermopile, casting bench and alloy pot show it, and a stopped one stay quiet', () => {
+    for (const kind of ['solar_panel', 'thermopile', 'casting_bench', 'alloy_pot']) {
+      const { bus, world, particles, emitters, step } = setup();
+      let bursts = 0;
+      bus.on('fx:burst', () => bursts++); // glints and motes are fx bursts, drawn by the renderer's FeelFx
+      world.put(4, 11, 4, kind, 0, false);
+      world.setEntity({ kind, x: 4, y: 11, z: 4 });
+      step(2);
+      expect(emitters.activeSources, `${kind} stopped`).toBe(0);
+      world.put(4, 11, 4, kind, 0, true);
+      step(8);
+      expect(emitters.activeSources, `${kind} running`).toBe(1);
+      expect(bursts + particles.count, kind).toBeGreaterThan(0);
+    }
+  });
+
   it('bursts debris, sparks and smoke on events', () => {
     const { bus, world, particles } = setup();
     bus.emit('block:broken', { x: 0, y: 11, z: 0, voxel: makeVoxel(blockId('stone')) });
