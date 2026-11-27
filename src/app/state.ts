@@ -284,6 +284,7 @@ export class GameState {
         return r.ok ? r.held : null;
       },
     };
+    this.workshop.timeOfDay = () => this.clock.timeOfDay;
     this.workshop.clockText = () => {
       const h = (6 + this.clock.timeOfDay * 24) % 24;
       return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;

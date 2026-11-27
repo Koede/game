@@ -324,6 +324,7 @@
     "telegraph_pole": {"age":1,"category":"machine","hardness":0.8,"key":"telegraph_pole","shape":"fence","tool":"axe"},
     "telegraph_office": {"age":1,"category":"machine","hardness":1.5,"key":"telegraph_office","lightActive":3,"oriented":true,"tool":"axe"},
     "radio_mast": {"age":3,"category":"machine","hardness":2,"key":"radio_mast","lightActive":4,"shape":"fence","tool":"pickaxe"},
+    "clock_tower": {"age":1,"category":"machine","hardness":1.2,"key":"clock_tower","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "oak_sapling": {"age":0,"hardness":0.1,"key":"oak_sapling","placeOn":["grass","dirt"],"shape":"cross"},
     "pine_sapling": {"age":0,"hardness":0.1,"key":"pine_sapling","placeOn":["grass","dirt"],"shape":"cross"}
   },
@@ -1086,6 +1087,7 @@
     "punched_card": {"age":1,"id":"punched_card","inputs":[{"count":1,"item":"bronze_plate"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":2,"item":"punched_card"},"station":"furnace"},
     "wind_vane": {"age":1,"id":"wind_vane","inputs":[{"count":1,"item":"bronze_ingot"},{"count":2,"item":"stick"},{"count":1,"item":"cloth"}],"kind":"forge","minTempC":500,"minTier":2,"output":{"count":1,"item":"wind_vane"},"station":"furnace"},
     "clockface": {"age":1,"id":"clockface","inputs":[{"count":1,"item":"glass"},{"count":1,"item":"bronze_cog"},{"count":1,"item":"plank"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"clockface"},"station":"furnace"},
+    "clock_tower": {"age":1,"id":"clock_tower","inputs":[{"count":1,"item":"clockwork_motor"},{"count":4,"item":"bronze_cog"},{"count":2,"item":"glass"},{"count":1,"item":"bell"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"clock_tower"},"station":"furnace"},
     "contraption_frame": {"age":1,"id":"contraption_frame","inputs":[{"count":4,"item":"plank"},{"count":1,"item":"bronze_ingot"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":4,"item":"contraption_frame"},"station":"furnace"},
     "piston": {"age":1,"id":"piston","inputs":[{"count":2,"item":"bronze_plate"},{"count":1,"item":"bronze_cog"},{"count":1,"item":"drive_shaft"},{"count":2,"item":"contraption_frame"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"piston"},"station":"furnace"},
     "bearing": {"age":1,"id":"bearing","inputs":[{"count":2,"item":"bronze_plate"},{"count":2,"item":"bronze_cog"},{"count":1,"item":"drive_shaft"}],"kind":"forge","minTempC":600,"minTier":2,"output":{"count":1,"item":"bearing"},"station":"furnace"},

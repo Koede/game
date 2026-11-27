@@ -69,6 +69,7 @@ export const WORKSHOP_RECIPES: RecipeSpec[] = [
   forge('2 punched_card', '1 bronze_plate', 600),
   forge('wind_vane', '1 bronze_ingot, 2 stick, 1 cloth', 500),
   forge('clockface', '1 glass, 1 bronze_cog, 1 plank', 600),
+  forge('clock_tower', '1 clockwork_motor, 4 bronze_cog, 2 glass, 1 bell', 600),
   forge('4 contraption_frame', '4 plank, 1 bronze_ingot', 600),
   forge('piston', '2 bronze_plate, 1 bronze_cog, 1 drive_shaft, 2 contraption_frame', 600),
   forge('bearing', '2 bronze_plate, 2 bronze_cog, 1 drive_shaft', 600),
