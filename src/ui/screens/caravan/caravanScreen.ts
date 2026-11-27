@@ -36,7 +36,10 @@ export function createCaravanScreen(_request: { type: 'caravan' }, ctx: ScreenCo
     if (!r.ok) {
       bus.emit('toast', { text: r.reason ?? 'No deal', kind: 'warn' });
       bus.emit('sfx', { name: 'error' });
-    } else bus.emit('sfx', { name: 'craft' });
+    } else {
+      bus.emit('sfx', { name: 'craft' });
+      bus.emit('act:done', { kind: 'traded' });
+    }
     ctx.invalidate();
   };
   const row = (label: string | HTMLElement, buttons: HTMLElement[], item?: string): HTMLElement =>

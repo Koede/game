@@ -118,3 +118,11 @@ export function cardRows(item: string): [string, string][] {
   if (uses > 0) rows.push(['Used in', `${uses} recipe${uses === 1 ? '' : 's'}`]);
   return rows;
 }
+
+/** Where to get an item you are short of, as a short sentence ("Made at Furnace." / "Found: Digging Coal Ore."); empty when unknown. */
+export function getHint(item: string): string {
+  const made = [...new Set(madeBy(item).map((r) => r.station))];
+  if (made.length) return `Made at ${made.slice(0, 2).join(' or ')}.`;
+  const f = foundIn(item);
+  return f.length ? `Found: ${f.slice(0, 2).join(', ')}.` : '';
+}

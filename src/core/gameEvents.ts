@@ -322,6 +322,8 @@ export interface GameEvents {
   // ---- food, farming and animals (spec 12) ----
   /** The player ate one `item`, restoring `hunger` food points. */
   'player:ate': { item: string; hunger: number };
+  /** The player did a thing the daily goals count: 'fished' (a catch landed), 'harvested' (milk, wool, eggs taken), 'traded' (a deal at the caravan). */
+  'act:done': { kind: 'fished' | 'harvested' | 'traded' };
   /** An animal entered the world (spawn roll, keep-alive spawn or birth). `id` is unique for the session and saved. */
   'mob:spawned': { id: number; species: string };
   /** A legendary weapon's verb fired (src/game/legendary.ts): the renderer shows a small burst of sparks, capped per event. */
