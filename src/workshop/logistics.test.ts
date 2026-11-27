@@ -62,6 +62,16 @@ describe('logistics', () => {
     expect(count(t, 4, 0, 0).flint).toBe(1);
   });
 
+  it('a basin refuses a second fluid or a full load and says which', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'basin');
+    expect(t.shop.use(0, 0, 0, { item: 'water_pail', count: 1 }, () => undefined)).toBe('worked');
+    expect(t.shop.use(0, 0, 0, { item: 'lava_bucket', count: 1 }, () => undefined)).toBe('refused');
+    expect(t.toasts.some((x) => x.includes('already holds') && x.includes('empty it'))).toBe(true);
+    expect(t.shop.use(0, 0, 0, { item: 'water_pail', count: 1 }, () => undefined)).toBe('refused');
+    expect(t.toasts.some((x) => x.includes('is full'))).toBe(true);
+  });
+
   it('a chute drops items from a depot above into a basin below', () => {
     const t = setup();
     t.put(0, 2, 0, 'depot');

@@ -280,7 +280,10 @@ export class Logistics {
         const f = held ? fluidInBucket(held.item) : null;
         if (held && f?.bucket) {
           if ((c.fluid && c.fluid.key !== f.key) || (c.fluid?.litres ?? 0) + 1000 > BASIN_LITRES) {
-            this.host.bus.emit('toast', { text: 'The basin cannot take that', kind: 'info' });
+            const text = c.fluid && c.fluid.key !== f.key
+              ? `The basin already holds ${fluidOrNull(c.fluid.key)?.name ?? c.fluid.key}: empty it before adding something else`
+              : `The basin is full (${BASIN_LITRES} L): take some out first`;
+            this.host.bus.emit('toast', { text, kind: 'info' });
             return 'refused';
           }
           c.fluid = { key: f.key, litres: (c.fluid?.litres ?? 0) + 1000 };
