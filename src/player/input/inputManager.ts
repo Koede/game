@@ -117,6 +117,16 @@ export class InputManager {
     return !this.isLocked();
   }
 
+  /** Whether the touch Place toggle is armed (the next Use places the held block). */
+  get placeArmed(): boolean {
+    return this.core.placeArmed;
+  }
+
+  /** The caption of the touch Use button (what a press does now); see player/useVerb.ts. */
+  setUseLabel(label: string): void {
+    this.overlay.setUseLabel(label);
+  }
+
   /** Seconds between repeats of a held Use (the controller sets a hand station's stroke rate while one is aimed at). */
   setUseRepeat(seconds: number): void {
     this.core.useRepeatS = seconds;

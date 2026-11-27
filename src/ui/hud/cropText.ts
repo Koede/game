@@ -26,12 +26,14 @@ export function cropLabel(v: UICropView): string {
   if (!v.lit) return `${name} - needs light: sun or a lamp`;
   const when = Number.isFinite(v.ripeInS) ? `ripe in ${formatCountdown(v.ripeInS)}` : 'not growing';
   const dry = `water within ${WATER_RADIUS} blocks doubles it`;
-  if (v.shelter === 'greenhouse') return v.hydrated ? `${name} - greenhouse${t}, ${when}` : `${name} - greenhouse${t}, dry, ${when}: ${dry}`;
+  // Bees from a hive in reach (src/sim/apiary.ts): said only on the short watered lines, the others are long enough already.
+  const bees = v.pollinated ? ', bees pollinating' : '';
+  if (v.shelter === 'greenhouse') return v.hydrated ? `${name} - greenhouse${t}${bees}, ${when}` : `${name} - greenhouse${t}, dry, ${when}: ${dry}`;
   if (v.shelter === 'cold') {
     const heat = `heat it to ${GREENHOUSE_WARM_C} °C for full pace`;
     return v.hydrated ? `${name} - cold${t}, ${when}: ${heat}` : `${name} - cold${t}, dry, ${when}: ${dry}`;
   }
   const pace = v.seasonPace ?? 1;
   const season = pace >= IN_SEASON ? ', in season' : pace <= OUT_OF_SEASON ? ', out of season' : '';
-  return v.hydrated ? `${name} - growing${season}, ${when}` : `${name} - dry${season}, ${when}: ${dry}`;
+  return v.hydrated ? `${name} - growing${season}${bees}, ${when}` : `${name} - dry${season}, ${when}: ${dry}`;
 }

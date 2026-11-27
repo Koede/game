@@ -324,6 +324,8 @@
   "telegraph_office": 322,
   "radio_mast": 323,
   "clock_tower": 324,
-  "oak_sapling": 325,
-  "pine_sapling": 326
+  "beehive": 325,
+  "beeswax_candle": 326,
+  "oak_sapling": 327,
+  "pine_sapling": 328
 }

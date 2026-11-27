@@ -28,6 +28,7 @@ import type { Spot } from './routines';
 import { FRIEND_LINES, GIFT_TRUST, REWARDS, TIERS, TRUST_MAX, likes, tierOf } from './friendship';
 import { findPath, nearestCell, type Cell } from './nav';
 import { warmerSpot } from './warmth';
+import { ageTalk, disasterShout, weatherTalk } from './reactions';
 import { ROUTINES } from './routines';
 import { TownClock, type TowerView } from './townClock';
 import { DANCE_SPOTS, FEST_SPOTS, TRADER_GATE, TRADER_SETTLE, WALK_SPEED, spotFor, walk } from './routines';
@@ -45,7 +46,7 @@ import { FESTIVAL_DRAW, newcomerLine, type Arrival, type Newcomer, type TownFact
 import { ARRIVAL_LINES, BED_ROOM, HOUSE_ROOM, LODGE_COMMON, LODGE_ROOMS, LODGE_SLEEP, Settlement, lodgeRooms, nameOfPerson, sampleTags, townContentment, type SettlementSnapshot } from './settlement';
 import { bedOfRoom, scanRooms } from './housingScan';
 import { CAMP as CAMP_ROOM, type RoomInput } from './housingView';
-import { favourRate, lineTone, priceFactor, tipFactor } from './contentment';
+import { favourRate, lineTone, priceFactor, tipFactor, type PersonId } from './contentment';
 import { DAY_BUDGET } from './townBuilder';
 import { townTemplate } from './townTemplates';
 import { REPUTATION_STEPS, UNLOCK_REP } from './buildBoard';
@@ -160,6 +161,8 @@ export interface NpcHost {
   setBlockActive?(x: number, y: number, z: number, on: boolean): boolean;
   give(item: string, count: number): number;
   currentGoal(): string | null;
+  /** The age index the player has reached (0 ember .. 5 star); absent: 0. */
+  age?(): number;
   completed(): ReadonlySet<string>;
   timeOfDay(): number;
   day(): number;
@@ -189,6 +192,8 @@ export interface NpcHost {
   townSurface?(x: number, z: number): { y: number; key: string } | null;
   /** The block key at a cell, or null when its chunk is not loaded. */
   townBlock?(x: number, y: number, z: number): string | null;
+  /** Whether the block at a cell is switched on (a lit lamp, a running engine): the active bit. Absent: everything counts as on. */
+  townActive?(x: number, y: number, z: number): boolean;
   /** True when the player (or anything but the world's generation) changed the cell. */
   townEdited?(x: number, y: number, z: number): boolean;
   /** Sets a block (or 'air') with the 'town' source. False when the chunk is not loaded. */
@@ -253,6 +258,8 @@ export class NpcManager {
   private gifted = new Set<string>();
   private spoken: Record<string, number> = {};
   private heard = new Set<string>();
+  /** Reaction keys already spoken (a disaster level, a day's weather), so a warning that repeats is not shouted again. */
+  private readonly reacted = new Set<string>();
   private claimed = new Set<string>();
   private trust: Record<string, number> = {};
   /** Sales Bram still holds and will sell back at the price he paid (newest last). */
@@ -322,6 +329,8 @@ export class NpcManager {
     bus.on?.('flag', ({ flag }) => {
       if (flag === 'well_warmed' || flag === 'rested') this.goalFlags.add(flag);
     });
+    bus.on?.('disaster:warn', (e) => this.react(`d:${e.kind}:${e.level}:${this.host?.day?.() ?? 0}`, disasterShout(e.kind, e.level, this.rng)));
+    bus.on?.('weather:changed', (e) => this.react(`w:${e.kind}:${this.host?.day?.() ?? 0}`, weatherTalk(e.kind, this.rng)));
   }
 
   bind(host: NpcHost): void {
@@ -738,7 +747,7 @@ export class NpcManager {
     const bank = npc.bank!;
     let line: string | null = null;
     // Odd visits: a hint for the goal (once) or the specialist's advice about what to do next; even visits: talk.
-    if (n % 2 === 1) line = this.hint(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.advice(npc.role) : null);
+    if (n % 2 === 1) line = this.hint(npc) ?? this.ageLine(npc) ?? (npc.role === 'witch' || npc.role === 'barkeep' || npc.role === 'artificer' || npc.role === 'alchemist' ? this.advice(npc.role) : null);
     if (line === null) line = this.friendLine(npc) ?? this.lines.pick(npc.id, bank, this.phase(), { greeting: this.greeting(npc) });
     line = this.tone(npc, line);
     this.say(npc, line);
@@ -963,6 +972,28 @@ export class NpcManager {
     if (who) this.raiseTrust(who, f.trust);
     this.toast(`Favour done for ${who?.name ?? f.who}${coin ? `: +${coin} coin` : ''}${f.trust ? `, +${f.trust} trust` : ''}. ${f.thanks}`);
     return npc.name;
+  }
+
+  /** What a resident says about the age the player has reached, once per person per age (src/npcs/reactions.ts). */
+  private ageLine(npc: NpcDef): string | null {
+    const age = this.host?.age?.() ?? 0;
+    const t = age >= 1 ? ageTalk(npc.id as PersonId, age) : null;
+    if (!t) return null;
+    const key = `${npc.id}:age${t.age}`;
+    if (this.heard.has(key)) return null;
+    this.heard.add(key);
+    return t.text;
+  }
+
+  /** A present, awake resident calls out `line` (a toast, like Gruk's fight shout), at most once per `key` and not while the tavern is empty. */
+  private react(key: string, line: string | null): void {
+    if (!line || this.reacted.has(key)) return;
+    const who = NPCS.filter((n) => n.kind === 'person' && this.isPresent(n.id) && !this.away(n.id));
+    if (who.length === 0) return;
+    this.reacted.add(key);
+    if (this.reacted.size > 64) this.reacted.delete(this.reacted.values().next().value as string);
+    const n = who[Math.min(who.length - 1, Math.floor(this.rng() * who.length))];
+    this.toast(`${n.name}: "${line}"`);
   }
 
   /** The bank's hint for the current goal, once. */
@@ -1606,7 +1637,7 @@ export class NpcManager {
       residents,
       spotOf,
       (id) => this.settlement.roomOf(id) !== CAMP_ROOM,
-      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot) : new Set()),
+      (_id, spot) => (block ? sampleTags((x, y, z) => block.call(host, x, y, z), spot, host.townActive ? (x, y, z) => host.townActive!(x, y, z) : undefined) : new Set()),
       (_id, spot) => host.roomWarmth?.(spot.x, spot.y, spot.z) ?? 0,
     ));
   }
@@ -1854,6 +1885,7 @@ export class NpcManager {
     if (this.buybackS > 0) this.buybackS = Math.max(0, this.buybackS - dt);
     this.rosa.tick(dt);
     this.gruk.tick(dt);
+    this.veyra.tick(dt);
     this.tickBar(dt);
     this.tickFestival();
     this.tickTrader(dt);

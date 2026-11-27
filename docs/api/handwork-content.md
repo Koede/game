@@ -98,7 +98,7 @@ item taken from a crucible/alloy-pot output slot whose `moltenS > 0` (the castin
   `bloom` item (`copper_ingot -> copper_bloom`, `tin_ingot -> tin_bloom`, `bronze_ingot -> bronze_bloom`), 1:1, no loss.
   A bloom is re-smelted in a crucible (`<metal>_ingot_bloom` smelt recipes, 6 s) and is molten again. Non-cast metals
   (iron and up) are untouched: they come out as ingots as today.
-- **Casting Bench** (built: `src/sim/castingBench.ts`; Use on the furnace with a mould in hand still pours too): up to 4 moulds set in it (Use with a mould in hand adds it; Use
+- **Casting Bench** (built: `src/sim/castingBench.ts`; without it, pouring is Use on the furnace with a mould in hand): up to 4 moulds set in it (Use with a mould in hand adds it; Use
   with empty hand takes the last out). Taking molten output of a furnace within `CASTING_BENCH_RANGE` (4) blocks while
   the bench holds moulds pours into each set mould in turn (one cast each, as above) instead of needing one in hand.
 - **Alloy Pot** (a block touching a lit furnace): slot 0 takes copper_ingot, slot 1 tin_ingot, slot 2 is the output.

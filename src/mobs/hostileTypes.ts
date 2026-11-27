@@ -36,6 +36,8 @@ export interface HostileHooks {
   knockPlayer?: KnockPlayer | null;
   /** Storm and moon for the drones' habitat (spec 19.1). Default: a clear sky at full moon (no drones). */
   sky?: (() => SkyFacts) | null;
+  /** The player's age (objectives.age): automatons hit harder as it rises (`ageDamageMult`). Default: age 0. */
+  age?: (() => number) | null;
 }
 
 /**
