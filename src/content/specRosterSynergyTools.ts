@@ -36,3 +36,6 @@ export const SYNERGY_ANIMALS_SPEC = {
 
 /** Hen eggs (src/content/areas/farm_eggs.ts). */
 export const FARM_EGGS_SPEC = { items: ['egg', 'fried_egg'], textures: 2 };
+
+/** Ice uses (src/content/areas/farm_ice.ts). */
+export const FARM_ICE_SPEC = { items: ['berry_ice'], textures: 1 };
