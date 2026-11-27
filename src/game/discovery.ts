@@ -20,7 +20,7 @@ export interface HiddenRecipe {
 }
 
 export const HIDDEN_RECIPES: readonly HiddenRecipe[] = [
-  { id: 'waxed_cord', station: 'workbench', inputs: [{ item: 'fiber', count: 3 }, { item: 'pine_resin', count: 1 }], output: { item: 'cord', count: 4 }, hint: 'Sticky resin grips loose fiber.' },
+  { id: 'waxed_cord', station: 'workbench', inputs: [{ item: 'fiber', count: 3 }, { item: 'pine_resin', count: 1 }], output: { item: 'cord', count: 4 }, hint: 'Sticky resin grips loose fibre.' },
   { id: 'sweet_bun_wild', station: 'workbench', inputs: [{ item: 'dough', count: 1 }, { item: 'sugar', count: 1 }, { item: 'wildberries', count: 2 }], output: { item: 'sweet_bun', count: 2 }, hint: 'Dough likes sweet, tart company.' },
   { id: 'cookie_batch', station: 'workbench', inputs: [{ item: 'flour', count: 2 }, { item: 'sugar', count: 1 }, { item: 'pine_sap', count: 1 }], output: { item: 'sugar_cookie', count: 4 }, hint: 'Sap and sugar bind flour into crisp rounds.' },
   { id: 'cloth_bolt', station: 'workbench', inputs: [{ item: 'fiber', count: 4 }, { item: 'cord', count: 1 }], output: { item: 'cloth', count: 1 }, hint: 'Fibre, tied and tightly worked, becomes cloth.' },
