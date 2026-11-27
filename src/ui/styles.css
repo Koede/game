@@ -3145,8 +3145,8 @@ body {
 .hw-jobs__card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); }
 .hw-jobs__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .hw-jobs__head span { font-size: 13px; opacity: 0.75; }
-.hw-jobs__seg { display: flex; gap: 6px; }
-.hw-jobs__opt { flex: 1 1 0; min-height: 44px; }
+.hw-jobs__seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.hw-jobs__opt { flex: 1 1 auto; min-width: 0; min-height: 44px; }
 .hw-jobs__opt.is-on { outline: 2px solid var(--hw-accent, #e0a84a); background: rgba(224, 168, 74, 0.22); font-weight: 700; }
 .hw-jobs__label { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
 .hw-jobs__pick { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; text-align: left; }

@@ -123,6 +123,12 @@ class SaveSlot {
   readonly hasBackup: boolean
   read(): SaveDocument; write(doc): SaveResult
   writeText(settings, worldJson: string | null): SaveResult   // world already serialised (App keeps it as text)
+  // Backup and restore (title Settings > Saves, scripts/e2e-saves.mjs): the one way to reach hasPrev / the unreadable-save copy.
+  exportText(): string | null              // the stored envelope as written (also an unreadable one); null when empty
+  prevSavedAt(): number | null; hasPrev; readPrev()
+  importText(text, settings): { ok: true; world; stored: boolean } | { ok: false; message }
+  //   takes only a world this build can load, keeps this device's settings, and first copies the save it replaces to
+  //   PREV_KEY (whatever its age) so a wrong restore is undone by restoring the earlier save
 }
 // src/save/storage.ts
 type SaveResult = { ok: true; bytes } | { ok: false; reason: 'quota' | 'unavailable'; keptAt: number | null }
