@@ -185,6 +185,7 @@ export class App {
             pool,
             onQuit: () => this.saveAndQuit(),
             onSettingsChange: (s, key) => this.changeSettings(s, key),
+            saves: (({ hasWorld, backUp, text }) => ({ hasWorld, backUp, text }))(this.saveTools()),
           });
         } catch (err) {
           state?.dispose();

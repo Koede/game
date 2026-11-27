@@ -1,16 +1,35 @@
 /** How stored stacks look in the UI: the slot view (tool wear as a fraction) and the tooltip card. DOM-free. */
 import { enchantDef, enchantLines, isEnchanted } from '../../../core/enchant';
 import { BINDINGS, HANDLES, HEADS, partsOfItem } from '../../../content/toolParts';
-import { itemOrNull, rarityOf } from '../../../core/registry';
+import { blockOrNull, fluidInBucket, itemOrNull, machineOfBlock, rarityOf } from '../../../core/registry';
 import { maxDurabilityOf } from '../../../game/inventory';
 import { QUALITY_NAME, repairMaterial } from '../../../game/toolQuality';
 import type { TooltipCard } from '../../kit/feedback';
-import { formatDuration, formatTemp, titleFromKey } from '../../kit/format';
+import { formatDuration, formatJoules, formatTemp, formatWatts, titleFromKey } from '../../kit/format';
 import type { SlotView } from '../../kit/slot';
 import { foodRows } from '../food';
 
 /** The tooltip card of a stack: name, description, and what matters about it (wear, food, fuel, tool tier). */
 type ViewStack = { item: string; count: number; durability?: number; quality?: 1 | 2; enchants?: Record<string, number> };
+
+/** What a placed machine would do, from its spec: the rows a player needs to plan power before building anything. */
+export function machineRows(item: string): [string, string][] {
+  const block = blockOrNull(item);
+  const spec = block ? machineOfBlock(block) : null;
+  // The kerosene lamp is typed a generator but never feeds a network: its outputW is a placeholder.
+  if (!spec || spec.kind === 'kerosene_lamp') return [];
+  const rows: [string, string][] = [];
+  if (spec.role === 'storage') {
+    if (spec.capacityJ) rows.push(['Stores', formatJoules(spec.capacityJ)]);
+    if (spec.rateW) rows.push(['Charges and gives', `up to ${formatWatts(spec.rateW)}`]);
+  } else {
+    if (spec.outputW) rows.push(['Makes', `up to ${formatWatts(spec.outputW)}`]);
+    if (spec.drawW) rows.push(['Draws', formatWatts(spec.drawW)]);
+  }
+  if (spec.fluids?.capacityL) rows.push(['Holds', `${spec.fluids.capacityL} L`]);
+  else if (spec.slots && spec.role !== 'generator') rows.push(['Slots', String(spec.slots)]);
+  return rows;
+}
 
 export function itemCard(stack: ViewStack): TooltipCard {
   const def = itemOrNull(stack.item);
@@ -35,6 +54,9 @@ export function itemCard(stack: ViewStack): TooltipCard {
   if (def?.wear !== undefined && stack.durability !== undefined) {
     rows.push(stack.item === 'scribing_tools' ? ['Ink left', `${stack.durability} / ${def.wear}`] : ['Suction left', `${Math.round(stack.durability)} s / ${def.wear} s`]);
   }
+  rows.push(...machineRows(stack.item));
+  const bucket = fluidInBucket(stack.item);
+  if (bucket) rows.push(['Holds', `${bucket.name}, 1000 L (one bucket)`]);
   rows.push(...foodRows(stack.item));
   if (def?.fuel) {
     rows.push(['Burns for', formatDuration(def.fuel.burnS)]);

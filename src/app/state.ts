@@ -13,6 +13,7 @@ import { ObjectiveTracker } from '../game/objectives';
 import { PlayerState } from '../game/playerState';
 import { magnetRadius } from '../game/enchantEffects';
 import { watchLegendaries } from '../game/legendaryNotes';
+import { watchFinale } from '../game/finale';
 import { Survival } from '../game/survival';
 import { Thermal } from '../game/thermal';
 import { DailyGoals, isDailyGoalsSnapshot, type GoalFacts } from '../game/dailyGoals';
@@ -177,6 +178,7 @@ export class GameState {
     this.journal = new Journal(() => this.clock.day, bus);
     if (save?.journal && isJournalSnapshot(save.journal)) this.journal.load(save.journal);
     watchLegendaries(bus, () => this.player.inventory.slots, this.journal);
+    this.offs.push(watchFinale(bus));
     this.achievements = new Achievements(bus, () => this.progressFacts());
     if (save?.achievements && isAchievementsSnapshot(save.achievements)) this.achievements.load(save.achievements);
     this.dailyGoals = new DailyGoals({
@@ -625,7 +627,7 @@ export class GameState {
     const st = this.player.stats;
     const sum = (m: Record<string, number> | undefined): number => Object.values(m ?? {}).reduce((a, b) => a + b, 0);
     const fest = this.npcs.festivalRecord();
-    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns };
+    return { made: sum(st.made), placed: sum(st.placed), broken: sum(st.broken), drunk: sum(st.drunk), explored: this.journal.seenBlocks, festival: fest.entries, crowns: fest.crowns, brewed: st.acts?.brewed ?? 0, cast: st.acts?.cast ?? 0, jobs: st.acts?.jobs ?? 0, meals: st.acts?.meals ?? 0 };
   }
 
   /** What the achievements read. */
@@ -643,6 +645,8 @@ export class GameState {
       blocksSeen: this.journal.seenBlocks,
       playTimeS: this.playTimeS,
       drinks: Object.keys(st.drunk ?? {}).length,
+      goalDone: (id) => this.objectives.toJSON().completed.includes(id),
+      flag: (flag) => this.objectives.hasFlag(flag),
     };
   }
 
@@ -704,6 +708,7 @@ export class GameState {
     for (const off of this.offs.splice(0)) off();
     this.thermal.dispose();
     this.objectives.dispose();
+    this.achievements.dispose();
     this.journal.dispose();
     this.story.dispose();
     this.mobs.dispose();

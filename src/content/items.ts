@@ -246,6 +246,7 @@ const FOOD: ItemSpec[] = [
   { key: 'flour', name: 'Flour', desc: 'Ground wheat. Mixed with water at the workbench it becomes dough.', category: 'material', age: 0 },
   { key: 'dough', name: 'Dough', desc: 'Flour and water, ready for a crucible. At 220 C it bakes into bread.', category: 'material', age: 0 },
   { key: 'hide', name: 'Hide', desc: 'A tough animal hide. It makes bellows and a warm coat without all that cord.', category: 'resource', age: 0 },
+  { key: 'bone', name: 'Bone', desc: 'A clean animal bone. Gruk and Old Bram like them; a good gift.', category: 'resource', age: 0 },
   // Spec 14: picked from wild berry bushes, which fruit again five minutes later.
   { key: 'wildberries', name: 'Wildberries', desc: 'A handful of tart dark berries from a berry bush. A small snack on the move.', category: 'food', age: 0, food: food(2) },
   {
