@@ -20,3 +20,5 @@ Builds on the existing weather (docs/api/weather.md: `src/core/weather.ts`, `src
   Pines stay green. `leafFall(day)` is 0..1 and drives `SeasonFx` (`src/render/seasonFx.ts`): loose leaves drift from the underside of
   oak crowns near the player through autumn and the first days of winter.
 - Phone check: `scripts/e2e-seasons.mjs` (a small oak photographed in each season).
+- The HUD dial's day text takes the season's colour (`data-season` on `.hw-dial`) with the season and day in its tooltip and aria label; the
+  Hearth Log header reads "Day 16 · Autumn, day 4 of 6" (`seasonLine`, src/sim/seasons.ts).
