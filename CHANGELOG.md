@@ -20,14 +20,14 @@ Hearthwatt is pre-release (`version` is still 0.1.0), so everything below sits u
 
 - Heat zones: one temperature model across rooms, with insulation, a heat view and warm-room contentment.
 - Small steam loop: Copper Steam Kettle, Steam Rotor, Boiler Plate and Safety Valve. Steam has heat, water and steam ports, steam pipes and a beam engine. Boilers are sealed and hold real pressure.
-- The watt-to-shaft bridge is retired. Dynamos take a shaft directly.
+- The watt-to-shaft bridge is retired.
 - Forge Age heavy industry: rolling mill, drop forge and dynamo. Power moves to the Forge Age.
 - Water power: dams raise a wheel's head, and rivers ice over in late autumn and winter. A mill wheel is driven by a river shaft.
 - Windmill, steam tank and an energy ledger with a conservation test.
 - Bronze air network and Blast Nozzle: air tube, tank, compressor and nozzle. The Blast hearth requires a nozzle.
 - Power grid overlay: Grid Meter item, Grid Monitor block, load colouring and losses. Cell Rack storage block with a night-cover line on the grid panel. Storage blocks light their face while they hold charge.
 - Signals: relay (renew, delay, hold, pulse), a tap-set timer and a push button.
-- Kerosene is tractor fuel. A kerosene lamp is a wire-free lantern that burns Kerosene Canisters and returns each used-up canister once. Chainsaws refuse it.
+- Kerosene is tractor fuel. A kerosene lamp is a wire-free lantern that burns Kerosene Canisters and returns each used-up canister once.
 - Furnaces burn refined fuels, the still-base burner takes plain fuels, and fuel slots are consistent across the engine and the burner.
 
 ### Machines and wear
@@ -52,7 +52,7 @@ Hearthwatt is pre-release (`version` is still 0.1.0), so everything below sits u
 ### Crafting, items and progression
 
 - Modular tools (phases 1-2): heads, handles and bindings combined at the workbench, a Tool Builder and Rework panel, hoes and mauls, a resin trait, and composed icons.
-- Legendary weapons: Emberfang, Gale Reed, Lanternblade, Quiet Hammer, Tidebrand, Rootsong, Starcleaver and Attunement at the altar. Notebook notes cover them, and the Spare Pick hums.
+- Legendary weapons: Emberfang, Gale Reed, Lanternblade, Quiet Hammer, Tidebrand, Rootsong, Starcleaver and Attunement at the altar. The Spare Pick hums.
 - Enchantments: altar discovery, enchant notes and more enchants. Loot carries enchants and quality, and crates keep both on stored tools.
 - Research by doing: using a rod, crucible, altar or focus earns insight notes that unlock small steps.
 - Blueprints: save a machine layout, see a placement ghost, and build it from the pack or hand it to a resident. Ruins and old-age crates can hold old plans.
@@ -76,7 +76,7 @@ Hearthwatt is pre-release (`version` is still 0.1.0), so everything below sits u
 
 - Fixed silent failures in NPC and animal interactions.
 - Kerosene lamp returns each used canister once.
-- Fire-related and furnace fixes, including a Blast hearth and furnace fuel slot consistency.
+- Furnace fuel slots: the engine takes every refined fuel, and the burner takes the lava bucket.
 
 ### Development
 
