@@ -19,6 +19,12 @@ export function seasonOf(day: number): Season {
 /** Day within the season, 1..DAYS_PER_SEASON. */
 export const dayOfSeason = (day: number): number => ((Math.max(1, Math.floor(day)) - 1) % DAYS_PER_SEASON) + 1;
 
+/** "Autumn, day 4 of 6" for a HUD tooltip or a log header. */
+export function seasonLine(day: number): string {
+  const s = seasonOf(day);
+  return `${s[0].toUpperCase()}${s.slice(1)}, day ${dayOfSeason(day)} of ${DAYS_PER_SEASON}`;
+}
+
 /** Growth multiplier per crop and season: wheat loves summer, carrots and potatoes autumn; spring is the baseline. */
 export const CROP_SEASON: Readonly<Record<string, Readonly<Record<Season, number>>>> = {
   wheat: { spring: 1, summer: 1.25, autumn: 1, winter: 0.3 },

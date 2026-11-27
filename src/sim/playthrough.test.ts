@@ -795,6 +795,13 @@ describe('scripted playthrough', () => {
     play.wire(136);
     play.forge('copper_coil', 34);
     mark('superalloy');
+    // The airship (docs/api/airship.md): flight and spotting are tested in src/vehicles/airship.test.ts and the airship
+    // e2e, so its two flags are raised here like the other world actions.
+    kit.bus.emit('flag', { flag: 'flew_airship' });
+    kit.bus.emit('flag', { flag: 'charted_lands' });
+    play.step(1);
+    done('fly_airship');
+    done('chart_lands');
 
     play.forge('centrifuge');
     play.place('centrifuge', CENTRIFUGE);

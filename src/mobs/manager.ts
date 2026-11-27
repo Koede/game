@@ -328,7 +328,8 @@ export class MobManager {
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing there' };
     wakeUp(m);
     if (kind === 'milk') m.milkS = YIELD_COOLDOWN_S.milk;
-    else m.woolS = YIELD_COOLDOWN_S.wool;
+    else if (kind === 'wool') m.woolS = YIELD_COOLDOWN_S.wool;
+    else m.eggS = YIELD_COOLDOWN_S.egg;
     this.bus.emit('sfx', { name: kind === 'milk' ? 'splash' : 'harvest', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     return { ok: true };
   }

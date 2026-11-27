@@ -6,6 +6,8 @@ import { glyph } from '../kit/icons';
 export interface TownChipInfo {
   kicker: string;
   title: string;
+  /** The camp goal's id when the chip shows one (the guided first hour covers some of them). */
+  goal?: string;
 }
 
 export class TownChip {

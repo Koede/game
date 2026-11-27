@@ -54,13 +54,12 @@ try {
   });
 
   let plot = null;
-  await step('the camp goal shows in the HUD before anyone has come', async () => {
+  await step('the camp goal shows in the HUD before anyone has come (on the first-hour plate, not the chip)', async () => {
     await waitFor(page, () => window.__hw.town()?.plan?.some((b) => b.template === 'lodge'), 'the lodge is planned', { timeout: 60_000, interval: 300 });
     plot = (await town()).plan.find((b) => b.template === 'lodge');
-    const chip = page.locator('[data-testid="town-chip"]');
-    await chip.waitFor({ state: 'visible', timeout: 10_000 });
-    const text = (await chip.textContent()) ?? '';
-    assert(/camp goal/i.test(text), `chip: ${text}`);
+    const text = ((await page.locator('.hw-goal:not(.hw-town-chip)').first().textContent()) ?? '').replace(/\s+/g, ' ');
+    assert(/first hour.*meet gruk/i.test(text), `plate: ${text}`);
+    assert(await page.locator('[data-testid="town-chip"]').isHidden(), 'the chip repeats the plate');
     await d.shot('0-camp-chip');
   });
 
