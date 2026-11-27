@@ -10,6 +10,7 @@ import { fuelGrade } from '../core/distill';
 import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
 import { rollDrops } from '../game/mining';
+import { isLighthouse } from '../world/coast';
 import { addToSlots, roomInSlots, type FurnaceEntity, type MachineEntity, type SimContext, type SimNode } from './entities';
 import { heldL, pipedWater, useFluid } from './fluidUse';
 import { powered } from './power';
@@ -258,6 +259,29 @@ const keroseneLamp: Behaviour = {
   },
 };
 
+/**
+ * Lighthouse lamp (docs/api/optics.md): not wired to anything. While switched on with coal, charcoal or coke in its slot (or a lump
+ * still burning) it is lit and burns `lampW`; lit, it wards automatons off (src/sim/safeZones.ts). The first time one burns high on
+ * a shore (src/world/coast.ts) the 'lighthouse_lit' flag is raised.
+ */
+const lighthouseLamp: Behaviour = {
+  prepare(node) {
+    (node.e as MachineEntity).availW = 0;
+  },
+  apply(node, ctx, dt) {
+    const e = node.e as MachineEntity;
+    e.outW = 0;
+    if (!e.on) {
+      ctx.setActive(node, false);
+      return;
+    }
+    if (holdsFuel(node)) burnFuel(node, ctx, (node.spec.params?.lampW ?? 0) * dt);
+    const lit = e.fuelJ > 0 || holdsFuel(node);
+    ctx.setActive(node, lit, lit ? MachineStatus.None : MachineStatus.Starved);
+    if (lit && ctx.everySecond && isLighthouse(ctx.world, e.x, e.y, e.z)) ctx.flagOnce('lighthouse_lit');
+  },
+};
+
 // ---- storage and simple consumers ---------------------------------------------------------------------------
 
 /** Batteries are moved by the network solver itself. */
@@ -428,6 +452,7 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   burner_generator: fuelGenerator,
   combustion_engine: fuelGenerator,
   kerosene_lamp: keroseneLamp,
+  lighthouse_lamp: lighthouseLamp,
   water_wheel: waterWheel,
   wind_turbine: windTurbine,
   solar_panel: solarPanel,

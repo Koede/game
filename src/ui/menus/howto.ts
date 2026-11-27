@@ -1,6 +1,6 @@
 /**
  * How to Play: the core loop in five lines, staying alive (food, farming, animals, cold), building big (hearths,
- * pipes), working by hand, tea and coffee, the Emberbound automatons, then the controls for keyboard + mouse and for touch.
+ * pipes), working by hand, tea and coffee, the Emberbound automatons, settling in (the town, jobs, the caravan), further afield (bees, caves, tubes, lifts, blueprints, photos), then the controls for keyboard + mouse and for touch.
  */
 import { Segmented } from '../kit/controls';
 import { h } from '../kit/dom';
@@ -115,6 +115,26 @@ export const EMBERBOUND: readonly Tip[] = [
   { icon: 'bolt', text: 'A powered ward beacon keeps them 32 blocks away all round your base. Rather build in peace? Choose Peaceful in Settings.' },
 ];
 
+/** Gruk's town and the people in it: the pages in the pause menu that run it. */
+export const SETTLING: readonly Tip[] = [
+  { icon: 'home', text: 'Gruk builds a town beside your camp. The Town page (pause menu) shows what he is building, what he lacks, who lives where and who moves in next.' },
+  { icon: 'bag', text: 'Gruk pins what he needs on his building board. Hold the items and Use the board to hand them in: it fills his stock and earns coin and town standing, which unlocks bigger buildings.' },
+  { icon: 'hourglass', text: 'Give a resident work on the Jobs page: haul items between two blocks, keep a machine fed, or tend worn machines while you do something else.' },
+  { icon: 'cup', text: 'A trade caravan comes to town every fifth day. Sell your goods for copper ingots and buy its rare stock; whatever you sell a lot of pays less next visit.' },
+  { icon: 'bolt', text: 'Telegraph poles and an office warn you of storms and tell you what the next caravan carries; a powered radio mast reaches farther without poles.' },
+];
+
+/** Things to find once the basics run: each is a block or tool you meet in the world. */
+export const FURTHER: readonly Tip[] = [
+  { icon: 'sun', text: 'Bees: set a beehive near flowers or crops and wild bees move in. Crops within five blocks grow faster. Hold a Bee Smoker to take comb without being stung.' },
+  { icon: 'sun', text: 'Greenhouses: roof a crop with glass and keep the air above 10 C (a furnace room, or a heat zone) and it grows through winter.' },
+  { icon: 'warn', text: 'Caves: deep still rooms hold foul air that hurts to breathe and snuffs torches. Wall it off with any block, or go round. Leave a trail of torches to find your way back.' },
+  { icon: 'gear', text: 'Air tubes: a compressor, air tubes and a Pneumatic Sender and Receiver set against crates shoot items between them. The sender needs enough bar of air.' },
+  { icon: 'gear', text: 'Lifts and bridges: a lift winch, steam elevator or drawbridge runs from a shaft in your workshop; ride a cage up a cliff or down a mine.' },
+  { icon: 'pick', text: 'Blueprints: mark two corners to save a build, then rebuild it from your pack or hand it to Gruk to raise over time. Old Works drawings you find are kept as blueprints too.' },
+  { icon: 'moon', text: 'Photo mode: pick Photo from the quick menu (P on a keyboard) to fly the camera, apply a filter and keep a picture. Each new age keeps a postcard in the album.' },
+];
+
 /** Entries of `keys` drawn as plain separators between caps, not as caps. */
 const SEPARATORS = new Set(['–', '/']);
 
@@ -130,6 +150,8 @@ export function howToTopics(opts: HowToPlayOptions = {}): { section: string; tex
   add('Working by hand', HANDWORK.map((t) => t.text));
   add('Tea and coffee', BREWING.map((t) => t.text));
   add('The Emberbound', EMBERBOUND.map((t) => t.text));
+  add('Settling in', SETTLING.map((t) => t.text));
+  add('Further afield', FURTHER.map((t) => t.text));
   const controls = [...(opts.keyboard ?? DEFAULT_KEYBOARD_CONTROLS), ...(opts.touch ?? DEFAULT_TOUCH_CONTROLS)];
   add('Controls', controls.map((c) => `${c.keys.join(' ')}: ${c.action}`));
   return out;
@@ -177,6 +199,8 @@ export class HowToPlay {
       this.tips('Working by hand', '#c98a4b', HANDWORK),
       this.tips('Tea and coffee', '#d39a62', BREWING),
       this.tips('The Emberbound', '#ff7a2a', EMBERBOUND),
+      this.tips('Settling in', '#8ccf6a', SETTLING),
+      this.tips('Further afield', '#a98ae0', FURTHER),
       this.track(h('section', { class: 'hw-howto__controls' }, h('div', { class: 'hw-howto__bar' }, h('h3', { class: 'hw-heading', text: 'Controls' }), picker.el), lists.keyboard, lists.touch)),
     );
     for (const dl of [lists.keyboard, lists.touch]) {
