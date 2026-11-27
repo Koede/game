@@ -185,7 +185,7 @@ export class App {
             pool,
             onQuit: () => this.saveAndQuit(),
             onSettingsChange: (s, key) => this.changeSettings(s, key),
-            saves: (({ hasWorld, backUp, text }) => ({ hasWorld, backUp, text }))(this.saveTools()),
+            saves: this.inGameSaveTools(),
           });
         } catch (err) {
           state?.dispose();
@@ -347,6 +347,28 @@ export class App {
     const game = this.game;
     this.game = null;
     game?.dispose();
+  }
+
+  /**
+   * The save tools while a world is open (pause menu): back up, and go back to the earlier autosave. Going back leaves the running world
+   * without saving it again (the pause already saved it, and it becomes the earlier save) and returns to the title, where Continue plays the restored one.
+   */
+  private inGameSaveTools(): SaveTools {
+    const t = this.saveTools();
+    return {
+      hasWorld: t.hasWorld,
+      backUp: t.backUp,
+      text: t.text,
+      earlier: t.earlier,
+      restoreEarlier: () => {
+        const msg = t.restoreEarlier?.() ?? 'There is nothing to restore.';
+        if (msg.startsWith('Restored')) {
+          this.stopGame();
+          this.showTitle();
+        }
+        return msg;
+      },
+    };
   }
 
   /** Backing up and restoring the saved world, offered in the title's Settings (see menus/settings.ts SaveTools). */
