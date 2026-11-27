@@ -428,6 +428,9 @@ const FLAG_RULES: Record<string, (p: Progress) => boolean> = {
   // Current Age engines: a chainsaw and something to run it on; a tractor and its fuel.
   [FLAG_FELLED_TREE]: (p) => p.items.has('chainsaw') && p.items.has('fuel_canister'),
   [FLAG_DROVE_TRACTOR]: (p) => p.items.has('tractor') && p.items.has('fuel_canister'),
+  // The airship (docs/api/airship.md): a flight high enough to spot from, and a chart of six sights.
+  flew_airship: (p) => p.items.has('airship') && p.items.has('fuel_canister'),
+  charted_lands: (p) => p.items.has('airship') && p.items.has('fuel_canister'),
   // Brewing: the first boiling bucket, the first cup, and all six drinks (each needs its ingredient made at its own heat).
   [FLAG_BOILED_WATER]: (p) => ITEMS.some((it) => it.container?.holds === 'water' && p.items.has(it.container.boilsTo)),
   [FLAG_BREWED]: (p) => DRINKS.some((d) => p.items.has(d.key)),
