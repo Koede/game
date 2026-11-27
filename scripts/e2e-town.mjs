@@ -145,8 +145,8 @@ try {  await step('a new world loads into play', async () => {
   let bayDay = null;
   let cottage = null;
   await step('days are skipped and the bounties handed in, until the storage bay stands and the first cottage frame is up', async () => {
-    // Runs until the bay stands and twelve days more have passed (or a cottage frame shows, or day 30).
-    for (let day = 2; day <= 30 && !(bayUp && cottage) && !(bayDay !== null && day - bayDay >= 12); day++) {
+    // Runs until the bay stands and 22 days more have passed (or a cottage frame shows, or day 40). The lodge plot digs a 630-cell foundation first, so its frame shows about a fortnight after the bay.
+    for (let day = 2; day <= 40 && !(bayUp && cottage) && !(bayDay !== null && day - bayDay >= 22); day++) {
       await d.hw((n) => window.__hw.setDay(n), day);
       await d.settle(300);
       const handed = await handInAll(8);
