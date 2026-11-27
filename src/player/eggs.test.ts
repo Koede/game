@@ -72,7 +72,7 @@ describe('hen eggs', () => {
   });
 
   it('an egg fries at a furnace and enriches dough', () => {
-    expect(recipe('fried_egg').inputs[0].item).toBe('egg');
-    expect(recipe('dough_egg').output.count).toBe(3);
+    expect(recipe('fried_egg')?.inputs[0]?.item).toBe('egg');
+    expect(recipe('dough_egg')?.output?.count).toBe(3);
   });
 });
