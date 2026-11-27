@@ -1,4 +1,5 @@
 /** The hotbar: the first nine inventory slots, tappable, with the selected slot marked and its name shown on change. */
+import { QUALITY_NAME } from '../../game/toolQuality';
 import { enchantLines } from '../../core/enchant';
 import { HOTBAR_SIZE } from '../../core/constants';
 import type { GameBus } from '../../core/context';
@@ -61,7 +62,8 @@ export class Hotbar {
       this.shownHeld = held;
       if (!first && held) {
         const food = foodLine(held);
-        const name = itemOrNull(held)?.name ?? held;
+        const q = slots[selected]?.quality;
+        const name = `${q && itemOrNull(held)?.tool ? `${QUALITY_NAME[q]} ` : ''}${itemOrNull(held)?.name ?? held}`;
         const spells = enchantLines(slots[selected]).map((l) => l.text).join(', ');
         this.flashName([name, food, spells].filter(Boolean).join(' · '));
       }
