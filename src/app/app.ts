@@ -375,7 +375,8 @@ export class App {
         const how = await deliver(new Blob([text], { type: 'application/json' }), `hearthwatt-save-${day}.json`, 'Hearthwatt save', true);
         return how === 'failed' ? 'The backup could not be made.' : how === 'shared' ? 'Backup shared.' : 'Backup file saved to your downloads.';
       },
-      restoreFile: (text) => restore(text, 'the backup'),
+      text: () => this.slot.exportText(),
+      restore: (text) => restore(text, 'the backup'),
       earlier: () => {
         const at = this.slot.prevSavedAt();
         return this.slot.hasPrev ? { label: at === null ? 'earlier' : new Date(at).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) } : null;
