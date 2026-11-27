@@ -70,7 +70,7 @@ Counts: 14 cheap wins, 9 loose ends, 11 unwired, 14 synergy, 10 hindsight, 7 ris
 - `src/npcs/housing.ts`, `housingView.ts`, `moveIn.ts`: imported only by each other and tests. High, M. (Planned as phases 5-6.)
 - `src/game/blueprint.ts` (`captureBlueprint`, `materialsOf`, `BuildJob`): no non-test caller; no corner-picking tool
   (docs/api/blueprint.md:10). High, M.
-- `src/game/belts.ts` `BeltGrid`: pure sim, no blocks, renderer or save (docs/api/belts.md:3,9). Med, L.
+- ~~`src/game/belts.ts` `BeltGrid`~~: deleted 2026-11-27 (orphaned; item transport is now the air-powered pneumatic tubes).
 - Waypoints have no UI beyond a toast (no `waypoint` in src/ui; src/game/exploration.ts:123-128). High, M.
 - Treasure and waypoint markers are absent from the journal map (src/ui/screens/log/journalMap.ts). Med, M.
 - The Mech bench is reachable only from the Dev Mode creative menu (src/ui/screens/creative/creativeScreen.ts:42-47). Med, S.
