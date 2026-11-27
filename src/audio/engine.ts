@@ -7,6 +7,7 @@ import type { GameEvents, SfxName } from '../core/gameEvents';
 import { Ambience } from './ambience';
 import type { AmbienceState } from './ambienceState';
 import { BufferBank } from './buffers';
+import { bindEventCues } from './eventCues';
 import { createMasterChain, type MasterChain } from './master';
 import { playPatch } from './patch';
 import { SFX } from './sfx';
@@ -79,6 +80,7 @@ export class AudioEngine {
     this.random = options.random ?? Math.random;
     this.unsubscribe = [
       bus.on('sfx', (request) => this.play(request)),
+      bindEventCues(bus),
       bus.on('settings:changed', () => this.applyVolume()),
       bus.on('game:paused', ({ paused }) => {
         this.paused = paused;

@@ -294,7 +294,7 @@ export class Game {
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);
-      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
+      this.ambience = new AmbienceProbe(world, player, clock, state.weather.state, state.workshop);
     } catch (err) {
       this.itemRenderer.dispose();
     this.trees.dispose();

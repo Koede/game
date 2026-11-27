@@ -18,6 +18,8 @@ export const FURNACE_HEARING = 24;
 /** Running machines within this many blocks hum; each adds up to MACHINE_WEIGHT. */
 export const MACHINE_HEARING = 14;
 const MACHINE_WEIGHT = 0.35;
+/** Each turning workshop part within MACHINE_HEARING adds up to this much. */
+const TURNING_WEIGHT = 0.3;
 /** Temperature at which the fire sound is at full heat (a Plasma Furnace near its top). */
 const HOTTEST_C = 3000;
 /** Altitude band for the wind: calm at WIND_LOW_Y, full at WIND_HIGH_Y. */
@@ -45,6 +47,8 @@ export class AmbienceProbe {
     private readonly clock: GameClock,
     /** The world's weather (rain bed, storm gusts, roof); null = always fair. */
     private readonly weather: WeatherState | null = null,
+    /** The workshop's turning shafts and wheels (null = none heard). */
+    private readonly workshop: { turningNear(px: number, pz: number, radius: number, weight: number): number } | null = null,
   ) {}
 
   /** Call every frame; returns the (reused) state to hand to AudioEngine.setAmbience. */
@@ -111,6 +115,7 @@ export class AmbienceProbe {
     s.furnaceElectric = electric;
     s.ignition = ignition;
     s.machineHum = unit(hum);
+    s.turning = this.workshop ? unit(this.workshop.turningNear(ex, ez, MACHINE_HEARING, TURNING_WEIGHT)) : 0;
     const altitude = unit((ey - WIND_LOW_Y) / (WIND_HIGH_Y - WIND_LOW_Y));
     const surface = this.world.surfaceY(Math.floor(ex), Math.floor(ez));
     // Under a roof or in a cave the wind is a distant murmur.
