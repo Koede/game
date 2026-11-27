@@ -319,4 +319,8 @@
   "telegraph_pole": 317,
   "telegraph_office": 318,
   "radio_mast": 319
+  "lift_winch": 317,
+  "elevator_winch": 318,
+  "drawbridge": 319,
+  "bridge_deck": 320
 }

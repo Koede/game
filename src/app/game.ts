@@ -34,6 +34,9 @@ import { collectLeafDrops } from '../game/leafDrops';
 import { aimGroundItem, dropLabel } from '../game/groundAim';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
+import { LiftRenderer } from '../render/workshop/liftRenderer';
+import { LiftHud } from '../ui/liftHud';
+import { wrapLiftIntent } from '../workshop/lifts';
 import { AirshipRenderer } from '../render/vehicles/airshipRenderer';
 import { AirshipHud } from '../ui/airshipHud';
 import { wrapAirshipSource, type AirshipManager } from '../vehicles/airshipManager';
@@ -152,6 +155,8 @@ export class Game {
   readonly workshop: Workshop;
   private readonly tractorRenderer: TractorRenderer;
   private readonly vehicleHud: VehicleHud;
+  private readonly liftRenderer: LiftRenderer;
+  private readonly liftHud: LiftHud;
   private readonly airshipRenderer: AirshipRenderer;
   private readonly airshipHud: AirshipHud;
   readonly audio: AudioEngine;
@@ -281,9 +286,10 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(wrapAirshipSource(this.inputManager, this.airships), this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(wrapAirshipSource(wrapLiftIntent(this.inputManager, state.lifts), this.airships), this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
       this.vehicles.bindPhysics(this.controller.physics);
       this.airships.bindPhysics(this.controller.physics);
+      state.lifts.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
       this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
@@ -320,6 +326,8 @@ export class Game {
       this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
+      this.liftRenderer = new LiftRenderer(this.renderer, world);
+      this.liftHud = new LiftHud(root.layers.hud, () => this.input.touch);
       this.airshipRenderer = new AirshipRenderer(this.renderer, world);
       this.airshipHud = new AirshipHud(root.layers.hud, () => this.input.touch, () => this.airships.pressCourseKey());
       this.audio = new AudioEngine(bus, settings);
@@ -490,6 +498,7 @@ export class Game {
       this.controller.update(dt);
       if (tractor && tractorFrom && this.vehicles.driving === tractor) this.boostTractor(tractor, tractorFrom);
       if (followRide(state.player, this.workshop.onRide())) this.controller.physics.reset();
+      state.lifts.carry();
       const ticks = this.step.advance(dt);
       for (let i = 0; i < ticks; i++) this.tickOnce();
     }
@@ -506,6 +515,7 @@ export class Game {
     showRodAura(this.ui.hud, this.magic.rodReading());
     this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
     this.vehicleHud.update(this.vehicles.status());
+    this.liftHud.update(state.lifts.status());
     this.airshipHud.update(this.airships.status());
     this.ui.frame(dt);
     const motions = this.workshop.contra.motions();
@@ -517,6 +527,7 @@ export class Game {
       this.npcRenderer.reduceMotion = this.settings.reduceMotion;
       this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
+      this.liftRenderer.update(state.lifts.views());
       this.airshipRenderer.update(paused ? 0 : dt, this.airships.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
       this.treeRenderer.update(this.trees.trees(), this.trees.logs());
@@ -785,6 +796,8 @@ export class Game {
     this.offs.length = 0;
     this.vehicleHud.dispose();
     this.tractorRenderer.dispose();
+    this.liftHud.dispose();
+    this.liftRenderer.dispose();
     this.airshipHud.dispose();
     this.airshipRenderer.dispose();
     this.ui.dispose();
