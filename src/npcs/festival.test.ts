@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lifeRig } from './life.rig';
 import { DAYS_PER_SEASON, seasonOf as yearSeason } from '../sim/seasons';
-import { CONTESTS, FESTIVALS, JUDGES, SEASON_DAYS, contestsOn, daysToFestival, festivalDay, festivalLine, festivalOf, festivalOn, judge, judgeScore, medalFor, seasonOf, signatureQuality, suits } from './festival';
+import { CONTESTS, FESTIVALS, JUDGES, festivalServices, newFestivalState, SEASON_DAYS, contestsOn, daysToFestival, festivalDay, festivalLine, festivalOf, festivalOn, judge, judgeScore, medalFor, seasonOf, signatureQuality, suits } from './festival';
 import { FESTIVAL_DRAW, rollNight } from './moveIn';
 import { FEST_SPOTS } from './routines';
 
@@ -242,5 +242,21 @@ describe('entering by talking to Rosa', () => {
     r.npcs.speak(rosa);
     expect(r.toasts.join('|')).toMatch(/cooking contest: .* of 40/);
     expect(r.npcs.barStock()).toBe(0);
+  });
+});
+
+describe('readiness', () => {
+  it('no contest is pitched or taken when the town cannot hold its festival', () => {
+    const st = newFestivalState();
+    let ready = false;
+    const [dance] = festivalServices(() => st, { stage: () => false, ready: () => ready });
+    const r = lifeRig({ coins: 0, tod: 0.7 });
+    r.state.day = SEASON_DAYS;
+    const port = r.npcs.servicePort('rosa');
+    expect(dance.pitch(port)).toBeNull();
+    expect(dance.accept(port)).toMatch(/No festival this season/);
+    expect(st.entries).toBe(0);
+    ready = true;
+    expect(dance.pitch(port)).toBeTruthy();
   });
 });
