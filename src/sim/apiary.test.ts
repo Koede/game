@@ -108,6 +108,18 @@ describe('beehives', () => {
     live(kit, 20);
     expect(near.growS / far.growS).toBeCloseTo(POLLEN_BOOST, 1);
     expect(near.growS).toBeLessThan(STAGE_S);
+    // With the flowers gone (the wheat stays: ripe-ish crops are forage too) and then the wheat cut, the bees stop pollinating.
+    for (let i = 0; i < 6; i++) kit.world.put(1 + (i % 4), 11, -2 - Math.floor(i / 4), 'air');
+    kit.world.put(2, 11, 0, 'air');
+    kit.world.put(2 + HIVE_REACH + 4, 11, 0, 'air');
+    live(kit, 5);
+    kit.world.put(2, 11, 0, 'wheat_0');
+    live(kit, 1);
+    expect(kit.sim.brewView(0, 11, 0)?.text).toMatch(/no flowers near/);
+    expect(kit.sim.cropView(2, 11, 0)?.pollinated).toBe(false);
+    kit.world.put(1, 11, -2, 'ember_poppy');
+    live(kit, 5);
+    expect(kit.sim.cropView(2, 11, 0)?.pollinated).toBe(true);
     // Breaking the hive takes the bees away.
     kit.world.put(0, 11, 0, 'air');
     expect(kit.sim.hiveAt(0, 11, 0)).toBeNull();

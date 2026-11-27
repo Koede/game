@@ -6,7 +6,7 @@
  *   seconds of flying weather.
  * - The bees fly by day, in the dry, outside winter. While they fly a settled hive fills honeycomb: one comb per
  *   `combS` seconds with `fullForage` forage blocks around it, slower with fewer, up to `maxCombs`.
- * - Crops in reach of a settled hive are pollinated while the bees fly (CropField.hiveChanged; the boost is a growth
+ * - Crops in reach of a settled hive with forage are pollinated while the bees fly (CropField.hiveChanged; the boost is a growth
  *   multiplier in cropRules.growthRate).
  * - Use lifts out one comb. Without a Bee Smoker in hand the bees sting first.
  * The entity is plain JSON in the world (`settled`, `settleS`, `nectarS`, `combs`), repaired on load.
@@ -66,6 +66,8 @@ interface Hive {
   e: HiveEntity;
   forage: number;
   scanT: number;
+  /** What the crops were last told: settled with forage in reach (its bees pollinate when they fly). */
+  pollinating: boolean;
 }
 
 /** Why the bees stay in, or null when they fly. */
@@ -100,7 +102,7 @@ export class Apiary {
   }
 
   clear(): void {
-    for (const h of this.hives.values()) if (h.e.settled) this.host.hiveChanged(h.e.x, h.e.y, h.e.z, false);
+    for (const h of this.hives.values()) if (h.pollinating) this.host.hiveChanged(h.e.x, h.e.y, h.e.z, false);
     this.hives.clear();
   }
 
@@ -113,9 +115,10 @@ export class Apiary {
     e.combs = Math.min(MAX_COMBS, Math.max(0, Math.floor(finite(e.combs, 0))));
     const key = posKey(e.x, e.y, e.z);
     const was = this.hives.get(key);
-    if (was?.e.settled) this.host.hiveChanged(e.x, e.y, e.z, false);
-    this.hives.set(key, { e, forage: -1, scanT: 0 });
-    if (e.settled) this.host.hiveChanged(e.x, e.y, e.z, true);
+    if (was?.pollinating) this.host.hiveChanged(e.x, e.y, e.z, false);
+    const h: Hive = { e, forage: -1, scanT: 0, pollinating: false };
+    this.hives.set(key, h);
+    this.sync(h);
   }
 
   /** A beehive block now stands at x,y,z: adopt the stored entity or start an empty hive. */
@@ -136,7 +139,7 @@ export class Apiary {
     const h = this.hives.get(key);
     if (!h) return;
     this.hives.delete(key);
-    if (h.e.settled) this.host.hiveChanged(x, y, z, false);
+    if (h.pollinating) this.host.hiveChanged(x, y, z, false);
     if (this.world.getEntity(x, y, z) === h.e) this.world.removeEntity(x, y, z);
   }
 
@@ -151,13 +154,14 @@ export class Apiary {
       if (h.forage < 0 || h.scanT <= 0) {
         h.forage = this.countForage(e.x, e.y, e.z);
         h.scanT = SCAN_S;
+        this.sync(h);
       }
       if (beesIn !== null || h.forage === 0) continue;
       if (!e.settled) {
         e.settleS += dt;
         if (e.settleS >= SETTLE_S) {
           e.settled = true;
-          this.host.hiveChanged(e.x, e.y, e.z, true);
+          this.sync(h);
           this.bus.emit('toast', { text: 'A swarm of wild bees has moved into your beehive', kind: 'good', item: 'beehive' });
           this.bus.emit('sfx', { name: 'place', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, pitch: 1.6, volume: 0.4 });
         }
@@ -218,6 +222,14 @@ export class Apiary {
       return { ok: true, consume: false, give: HONEYCOMB, toast: `Ouch, stung! Honeycomb taken${left}. A Bee Smoker calms them` };
     }
     return { ok: true, consume: false, give: HONEYCOMB, toast: `The smoke calms the bees: honeycomb taken${left}` };
+  }
+
+  /** Tells the crops when the hive starts or stops pollinating (settled, and forage in reach once it was counted). */
+  private sync(h: Hive): void {
+    const want = h.e.settled && h.forage !== 0;
+    if (want === h.pollinating) return;
+    h.pollinating = want;
+    this.host.hiveChanged(h.e.x, h.e.y, h.e.z, want);
   }
 
   private countForage(x: number, y: number, z: number): number {
