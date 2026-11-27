@@ -312,7 +312,7 @@ export interface GameEvents {
   'mob:hurt': { id: number; species: string; health: number };
   'mob:died': { id: number; species: string };
   /** A crop advanced to `stage` (0-based; the last stage is ripe). */
-  'crop:grew': { x: number; y: number; z: number; stage: number };
+  'crop:grew': { x: number; y: number; z: number; stage: number; /** The last stage: ready to harvest (a chime and a sparkle). */ ripe?: boolean };
 
   // ---- weather (spec 15) ----
   /** The weather began changing (once per change, when the blend from `previous` to `kind` starts). */

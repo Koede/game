@@ -124,6 +124,27 @@ describe('fishing use', () => {
   });
 });
 
+describe('fishing through winter ice (winter x fishing)', () => {
+  it('casts through ice over deep water, landing a frozen-pool catch, and refuses ice over bare ground', () => {
+    const r = rig();
+    r.world.fill(-3, 5, -3, 3, 5, 3, 'sand');
+    r.world.fill(-3, 6, -3, 3, 8, 3, 'water');
+    r.world.fill(-3, 9, -3, 3, 9, 3, 'ice'); // the winter module froze the top
+    const rod = r.hold('fishing_rod', 1, 5);
+    const aim = r.aim(0, 9, 0); // aimed at the ice, placement cell above it
+    expect(r.ex.use(aim, rod)).toBe('worked');
+    expect(r.ex.fishingPhase).toBe('waiting');
+    expect(r.toasts.at(-1)).toMatch(/hole in the ice/);
+    r.tick(20);
+    expect(r.ex.use(aim, rod)).toBe('worked');
+    expect(FISH_ITEMS.some((f) => r.player.inventory.count(f) >= 1)).toBe(true);
+    // Shallow ice lying on sand is no fishing spot.
+    r.world.fill(-3, 5, 6, 3, 5, 9, 'sand');
+    r.world.fill(-3, 6, 6, 3, 6, 9, 'ice');
+    expect(r.ex.use(r.aim(0, 6, 7), rod)).toBeNull();
+  });
+});
+
 describe('treasure map use', () => {
   it('shows a stable clue, then buries the chest once when the player comes near', () => {
     const r = rig();

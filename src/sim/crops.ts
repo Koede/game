@@ -24,7 +24,8 @@ const REFRESH_READS_PER_TICK = 1500;
 const WATER_READS = 2 * (2 * HYDRATION_R + 1) ** 2;
 
 const FARMLAND = blockId('farmland');
-const IS_WATER: boolean[] = BLOCKS.map((b) => b.liquid === 'water');
+/** Water, and ice: a frozen pond still keeps the soil beside it moist (winter must not dry the greenhouse). */
+const IS_WATER: boolean[] = BLOCKS.map((b) => b.liquid === 'water' || b.key === 'ice');
 const IS_OPAQUE: boolean[] = BLOCKS.map((b) => b.opaque);
 /** Blocks that keep the rain off whatever is under them (the same rule as openSkyAbove in src/game/weather). */
 const STOPS_RAIN: boolean[] = BLOCKS.map((b) => b.solid || b.liquid !== null);
@@ -128,7 +129,7 @@ export class CropField {
         else if (opacity && c.e.y < y) this.touch(c, DIRTY_SKY);
       }
     }
-    if ((from.liquid === 'water') !== (to.liquid === 'water')) {
+    if (IS_WATER[from.id] !== IS_WATER[to.id]) {
       this.around(x, z, HYDRATION_R, (c) => {
         if (c.e.y === y || c.e.y === y + 1) this.touch(c, DIRTY_WATER);
       });
@@ -235,7 +236,10 @@ export class CropField {
     const next = STAGE_OF[info.next] as StageInfo;
     c.info = next;
     e.growS = next.next < 0 ? 0 : e.growS - info.stageS;
-    this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage });
+    const ripe = next.next < 0;
+    this.bus.emit('crop:grew', { x: e.x, y: e.y, z: e.z, stage: next.stage, ...(ripe ? { ripe } : {}) });
+    // Ripening is the one stage worth hearing: a soft high chime where the crop stands (distance fades it).
+    if (ripe) this.bus.emit('sfx', { name: 'pickup', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5, volume: 0.35, pitch: 1.9 });
   }
 
   /** Recomputes the dirty facts of a crop; returns roughly how many world reads it took. */
