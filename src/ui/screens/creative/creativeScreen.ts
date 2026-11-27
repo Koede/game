@@ -11,6 +11,8 @@ import { h } from '../../kit/dom';
 import { ItemSlot } from '../../kit/slot';
 import { Tabs } from '../../kit/tabs';
 import { Window } from '../../kit/window';
+import { liveWorkshop } from '../../../workshop/workshop';
+import { placeMechBench } from '../../../workshop/mech/bench';
 import { InventoryPanel } from '../inventory/inventoryPanel';
 import { itemCard } from '../inventory/slotViews';
 import { buildCatalogue, clearSlot, CREATIVE_TABS, filterCatalogue, grantItem, tabCounts, type CatalogueEntry, type CreativeTabId } from './catalogue';
@@ -35,7 +37,19 @@ export function createCreativeScreen(ctx: ScreenContext): GameScreen | null {
   const flight = new Toggle({ label: 'Flight', value: player.flying, onText: 'Flight: on', offText: 'Flight: off', onChange: (v) => (player.flying = v) });
   const trash = new Button({ label: 'Trash', kind: 'quiet', size: 'sm', icon: 'close', onClick: () => trashPicked() });
   const clearAll = new Button({ label: 'Clear pack', kind: 'danger', size: 'sm', holdMs: 900, hint: 'Hold', onClick: () => clearPack() });
-  const options = h('div', { class: 'hw-creative__options' }, fullStacks.el, freePlace.el, flight.el, trash.el, clearAll.el);
+  // The mechanics test bench (docs/MECHANICS_PLAN.md): a hall of stations built a few blocks ahead of you.
+  const bench = new Button({
+    label: 'Mech bench', kind: 'quiet', size: 'sm',
+    onClick: () => {
+      const p = player.position;
+      const ox = Math.floor(p.x - Math.sin(player.yaw) * 4);
+      const oz = Math.floor(p.z - Math.cos(player.yaw) * 4);
+      const n = placeMechBench(ctx.world, ox, Math.floor(p.y), oz, liveWorkshop());
+      ctx.bus.emit('toast', { text: `Mechanics bench built (${n} parts) at ${ox}, ${oz}: rows of motors, a brake, a fuse, a whip, a cam drum, a gate and a press`, kind: 'info' });
+      ctx.close();
+    },
+  });
+  const options = h('div', { class: 'hw-creative__options' }, fullStacks.el, freePlace.el, flight.el, bench.el, trash.el, clearAll.el);
 
   // ---- catalogue ----
   const info = h('p', { class: 'hw-creative__info', text: 'Pick an item to see what it is.', attrs: { role: 'status' } });

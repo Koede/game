@@ -5,6 +5,7 @@
  *
  * Operations between two slots (the click / tap interactions of the UI) are in ./transfer.
  */
+import { copyEnchants, enchantStack, sanitizeEnchants } from '../core/enchant';
 import { canonicalItemKey, itemOrNull } from '../core/registry';
 import type { ItemAmount, ItemStack, Slot } from '../core/types';
 
@@ -18,6 +19,21 @@ export interface InventoryOptions {
 }
 
 const UNKNOWN_ITEM_STACK = 99;
+
+/** Global pickup clock: a stack that lands in a slot takes the next tick, so "newest first" sorting can read them. */
+let pickupClock = 0;
+const nextTick = (): number => ++pickupClock;
+
+/** Lifts the clock past a saved tick so new pickups always count as the newest. */
+export function raisePickupClock(tick: number): void {
+  if (Number.isFinite(tick) && tick > pickupClock) pickupClock = Math.floor(tick);
+}
+
+/** A detached copy of an inventory's contents and pickup ticks: the undo history keeps these (src/game/inventoryMoves.ts). */
+export interface InventorySnapshot {
+  slots: Slot[];
+  ticks: number[];
+}
 
 /** Most items of this kind one slot holds. Tools never stack, whatever their item definition says. */
 export function stackLimit(item: string): number {
@@ -35,14 +51,38 @@ export const fullDurability = (item: string): number | undefined => {
   return def?.tool?.durability ?? def?.wear ?? def?.mould?.pours ?? def?.cools?.afterS;
 };
 
-export const makeStack = (item: string, count: number, durability?: number): ItemStack =>
-  durability === undefined ? { item, count } : { item, count, durability };
+/** Durability a well-made tool holds over a plain one (docs/api/tool-quality.md). */
+export const QUALITY_DURABILITY_MULT: Readonly<Record<1 | 2, number>> = { 1: 1.25, 2: 1.6 };
 
-export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item, stack.count, stack.durability);
+/** Most durability this item can hold at this workmanship. */
+export const maxDurabilityOf = (item: string, quality?: 1 | 2): number | undefined => {
+  const full = fullDurability(item);
+  return full === undefined ? undefined : Math.round(full * (quality ? QUALITY_DURABILITY_MULT[quality] : 1));
+};
+
+export const makeStack = (item: string, count: number, durability?: number, quality?: 1 | 2, enchants?: Record<string, number>): ItemStack => {
+  const s: ItemStack = durability === undefined ? { item, count } : { item, count, durability };
+  if (quality) s.quality = quality;
+  const e = copyEnchants(enchants);
+  if (e) s.enchants = e;
+  return s;
+};
+
+export const cloneStack = (stack: ItemStack): ItemStack => makeStack(stack.item, stack.count, stack.durability, stack.quality, stack.enchants);
+
+/**
+ * A fresh stack of `item` carrying enchants, e.g. loot's Orrin's Spare Pick: `makeEnchantedStack('iron_pickaxe', { veinseeker: 1 })`.
+ * Full durability, sanitised (unknown keys dropped, levels clamped) and only the enchants the item can take (enchantStack's rule).
+ */
+export const makeEnchantedStack = (item: string, enchants: Record<string, number>, count = 1): ItemStack => {
+  const s = makeStack(item, count, fullDurability(item));
+  for (const [key, level] of Object.entries(sanitizeEnchants(enchants) ?? {})) enchantStack(s, key, level);
+  return s;
+};
 
 /** True when items from `b` may be added onto stack `a`. */
 export const canMerge = (a: ItemStack, b: ItemStack): boolean =>
-  a.item === b.item && a.durability === undefined && b.durability === undefined && stackLimit(a.item) > 1;
+  a.item === b.item && a.durability === undefined && b.durability === undefined && a.quality === b.quality && !a.enchants && !b.enchants && stackLimit(a.item) > 1;
 
 /** A slot as it may be stored: unknown items and broken data become empty, counts and durability are clamped. */
 function sanitize(raw: Slot | undefined): Slot {
@@ -52,13 +92,29 @@ function sanitize(raw: Slot | undefined): Slot {
   const count = Math.min(Math.floor(raw.count), stackLimit(item));
   if (!(count > 0)) return null;
   const full = fullDurability(item);
-  if (full === undefined) return { item, count };
-  const durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), full) : full;
-  return { item, count, durability };
+  const def = itemOrNull(item);
+  const quality = (raw.quality === 1 || raw.quality === 2) && (def?.tool || def?.food) ? raw.quality : undefined;
+  // Enchants only on items that can hold them; unknown keys dropped, levels clamped (src/core/enchant.ts).
+  const enchants = sanitizeEnchants(raw.enchants);
+  const out: NonNullable<Slot> = { item, count };
+  if (full !== undefined) {
+    const max = maxDurabilityOf(item, quality) ?? full;
+    out.durability = typeof raw.durability === 'number' ? Math.min(Math.max(raw.durability, 1), max) : max;
+  }
+  if (quality) out.quality = quality;
+  if (enchants) out.enchants = enchants;
+  return out;
 }
 
 export class Inventory {
   readonly slots: Slot[];
+  /** Per slot: the pickup tick of the stack in it (0 = none). Only ever raised by pickups; sorting carries it along. */
+  readonly ticks: number[];
+  /**
+   * Locked slots (the player's per-slot lock): nothing is put into them (accepts() says no), so pickups and moves skip
+   * them. The UI also refuses to take anything out of them and sorting leaves them where they are.
+   */
+  readonly locked = new Set<number>();
   accept: AcceptRule | null;
   takeOnly: boolean;
   private readonly listeners = new Set<() => void>();
@@ -68,6 +124,7 @@ export class Inventory {
   /** A number allocates that many empty slots; an array is adopted as it is and written through to. */
   constructor(sizeOrSlots: number | Slot[], options: InventoryOptions = {}) {
     this.slots = typeof sizeOrSlots === 'number' ? new Array<Slot>(sizeOrSlots).fill(null) : sizeOrSlots;
+    this.ticks = new Array<number>(this.slots.length).fill(0);
     this.accept = options.accept ?? null;
     this.takeOnly = options.takeOnly ?? false;
   }
@@ -95,42 +152,59 @@ export class Inventory {
   set(slot: number, stack: Slot): void {
     if (slot < 0 || slot >= this.slots.length) return;
     this.slots[slot] = stack;
+    if (!stack) this.ticks[slot] = 0;
     this.notifyChanged();
   }
 
-  /** Whether `item` may be put into `slot` (take-only and the accept rule; not whether there is room). */
+  /** Whether `item` may be put into `slot` (take-only, locked slots and the accept rule; not whether there is room). */
   accepts(item: string, slot: number): boolean {
-    return !this.takeOnly && slot >= 0 && slot < this.slots.length && (this.accept === null || this.accept(item, slot));
+    return !this.takeOnly && slot >= 0 && slot < this.slots.length && !this.locked.has(slot) && (this.accept === null || this.accept(item, slot));
+  }
+
+  /** The pickup tick of a slot's stack (0 when none). */
+  tickOf(slot: number): number {
+    return this.ticks[slot] ?? 0;
+  }
+
+  /** Sets a slot's pickup tick directly (moves carry the tick with the stack). */
+  setTick(slot: number, tick: number): void {
+    if (slot >= 0 && slot < this.slots.length) this.ticks[slot] = tick;
   }
 
   /**
    * Adds items, topping up existing stacks before using empty slots, optionally only within slots [start, end).
    * Tools, moulds and cooling containers get full durability unless one is given. Returns how many did NOT fit.
    */
-  add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length): number {
+  add(item: string, count = 1, durability?: number, start = 0, end = this.slots.length, quality?: 1 | 2, enchants?: Record<string, number>): number {
     let left = Math.floor(count);
     if (left <= 0) return 0;
     if (this.takeOnly) return left;
     const slots = this.slots;
-    const limit = stackLimit(item);
+    const ench = copyEnchants(enchants);
+    const limit = ench ? 1 : stackLimit(item);
     const full = fullDurability(item);
-    const dur = full === undefined ? undefined : Math.min(Math.max(durability ?? full, 1), full);
+    const qdef = itemOrNull(item);
+    const q = qdef?.tool || qdef?.food ? quality : undefined;
+    const top = full === undefined ? undefined : maxDurabilityOf(item, q)!;
+    const dur = top === undefined ? undefined : Math.min(Math.max(durability ?? top, 1), top);
     const from = Math.max(0, start);
     const to = Math.min(slots.length, end);
     const before = left;
     if (dur === undefined && limit > 1) {
       for (let i = from; i < to && left > 0; i++) {
         const s = slots[i];
-        if (!s || s.item !== item || s.durability !== undefined || s.count >= limit || !this.accepts(item, i)) continue;
+        if (!s || s.item !== item || s.durability !== undefined || s.quality !== q || s.enchants || s.count >= limit || !this.accepts(item, i)) continue;
         const n = Math.min(limit - s.count, left);
         s.count += n;
+        this.ticks[i] = nextTick();
         left -= n;
       }
     }
     for (let i = from; i < to && left > 0; i++) {
       if (slots[i] || !this.accepts(item, i)) continue;
       const n = Math.min(limit, left);
-      slots[i] = makeStack(item, n, dur);
+      slots[i] = makeStack(item, n, dur, q, ench);
+      this.ticks[i] = nextTick();
       left -= n;
     }
     if (left !== before) this.notifyChanged();
@@ -149,7 +223,10 @@ export class Inventory {
       const n = Math.min(s.count, left);
       s.count -= n;
       left -= n;
-      if (s.count <= 0) slots[i] = null;
+      if (s.count <= 0) {
+        slots[i] = null;
+        this.ticks[i] = 0;
+      }
     }
     if (left !== before) this.notifyChanged();
     return before - left;
@@ -161,9 +238,12 @@ export class Inventory {
     const n = s ? Math.floor(Math.min(count, s.count)) : 0;
     if (!s || n <= 0) return null;
     s.count -= n;
-    if (s.count <= 0) this.slots[slot] = null;
+    if (s.count <= 0) {
+      this.slots[slot] = null;
+      this.ticks[slot] = 0;
+    }
     this.notifyChanged();
-    return makeStack(s.item, n, s.durability);
+    return makeStack(s.item, n, s.durability, s.quality, s.enchants);
   }
 
   count(item: string): number {
@@ -186,7 +266,7 @@ export class Inventory {
       const s = this.slots[i];
       if (!s) {
         if (this.accepts(item, i)) room += limit;
-      } else if (stackable && s.item === item && s.durability === undefined && s.count < limit && this.accepts(item, i)) {
+      } else if (stackable && s.item === item && s.durability === undefined && !s.enchants && s.count < limit && this.accepts(item, i)) {
         room += limit - s.count;
       }
     }
@@ -216,6 +296,7 @@ export class Inventory {
   clear(): void {
     if (this.isEmpty()) return;
     this.slots.fill(null);
+    this.ticks.fill(0);
     this.notifyChanged();
   }
 
@@ -224,7 +305,38 @@ export class Inventory {
     const copy = new Inventory(this.slots.map((s) => (s ? cloneStack(s) : null)));
     copy.accept = this.accept;
     copy.takeOnly = this.takeOnly;
+    copy.ticks.splice(0, copy.ticks.length, ...this.ticks);
+    for (const s of this.locked) copy.locked.add(s);
     return copy;
+  }
+
+  /** Contents and pickup ticks as they are now, for the undo history. */
+  snapshot(): InventorySnapshot {
+    return { slots: this.toJSON(), ticks: [...this.ticks] };
+  }
+
+  /** Puts a snapshot back (undo). Written straight into the slots; listeners are told once. */
+  restore(snap: InventorySnapshot): void {
+    for (let i = 0; i < this.slots.length; i++) {
+      this.slots[i] = snap.slots[i] ? cloneStack(snap.slots[i]!) : null;
+      this.ticks[i] = snap.ticks[i] ?? 0;
+    }
+    this.notifyChanged();
+  }
+
+  /** Saved pickup ticks (a save written before ticks existed has none: all zero). */
+  setTicks(ticks: readonly unknown[] | undefined): void {
+    for (let i = 0; i < this.slots.length; i++) {
+      const t = ticks?.[i];
+      this.ticks[i] = this.slots[i] && typeof t === 'number' && Number.isFinite(t) && t > 0 ? Math.floor(t) : 0;
+      raisePickupClock(this.ticks[i]);
+    }
+  }
+
+  /** Locks slots from a save (out-of-range or non-integer entries are dropped). */
+  setLocks(slots: readonly unknown[] | undefined): void {
+    this.locked.clear();
+    for (const n of slots ?? []) if (typeof n === 'number' && Number.isInteger(n) && n >= 0 && n < this.slots.length) this.locked.add(n);
   }
 
   /** Subscribes to changes made through this object (not to direct writes into a wrapped array). */
@@ -262,7 +374,10 @@ export class Inventory {
 
   /** Replaces the contents in place (the size stays what it is). Unknown items are dropped. */
   load(snapshot: readonly Slot[]): void {
-    for (let i = 0; i < this.slots.length; i++) this.slots[i] = sanitize(snapshot[i]);
+    for (let i = 0; i < this.slots.length; i++) {
+      this.slots[i] = sanitize(snapshot[i]);
+      this.ticks[i] = 0;
+    }
     this.notifyChanged();
   }
 }

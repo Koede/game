@@ -19,6 +19,7 @@ export const CHEM = {
   reflux: 'reflux_head',
   filter: 'filter_bed',
   vacuum: 'vacuum_cap',
+  funnel: 'separatory_funnel',
 } as const;
 
 export type ChemRole = keyof typeof CHEM;
@@ -30,7 +31,7 @@ const roleByKind = new Map<string, ChemRole>(Object.entries(CHEM).map(([r, k]) =
 /** The `_done` block twin of a stateful module (shows "step complete" and, with the active bit, "blocked"). */
 export const DONE_SUFFIX = '_done';
 /** Modules with a `_done` twin. */
-export const STATEFUL: readonly ChemKind[] = [CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.filter];
+export const STATEFUL: readonly ChemKind[] = [CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.filter, CHEM.funnel];
 
 /** The module kind of a block key (`boiling_flask_done` -> `boiling_flask`), or null. */
 export function chemKindOf(blockKey: string): ChemKind | null {
@@ -59,8 +60,11 @@ export const stateLook = (state: ChemState): { done: boolean; active: boolean } 
 export const CHEM_CAPACITY_L: Readonly<Record<ChemKind, number>> = {
   still_base: 0, boiling_flask: 4000, reaction_vessel: 4000, column_segment: 0, condenser_coil: 100,
   cooling_jacket: 1000, receiver: 2000, glass_tube: 50, airlock_cap: 0, chem_port: 0,
-  reflux_head: 0, filter_bed: 500, vacuum_cap: 0,
+  reflux_head: 0, filter_bed: 500, vacuum_cap: 0, separatory_funnel: 1000,
 };
+
+/** Seconds a separatory funnel's layers take to settle before it lets the bottom one out. */
+export const SETTLE_S = 3;
 
 /** The temperatures a still base can be set to (tap it with an empty hand to step through them). */
 /** Includes the potion still (60), the asphalt vessel (150) and the vacuum residue run (330). */
@@ -148,26 +152,34 @@ export const isEmptyChemContainer = (key: string): boolean => Object.values(CHEM
 /**
  * Engine fuels (plan 8.1): what one container is worth to each consumer, as a multiple of the old Fuel Canister.
  * 0 = that engine refuses it. `empty` is handed back after refuelling (the old Fuel Canister is used up whole).
+ * `engine` is the same for the combustion engine's fuel slot (the electric output scales with it).
  */
 export interface FuelGrade {
   saw: number;
   tractor: number;
+  engine: number;
   empty: string | null;
 }
 export const FUEL_GRADES: Readonly<Record<string, FuelGrade>> = {
-  fuel_canister: { saw: 1, tractor: 1, empty: null },
-  gasoline_canister: { saw: 1.3, tractor: 1.2, empty: EMPTY_CANISTER },
-  diesel_canister: { saw: 0, tractor: 1.5, empty: EMPTY_CANISTER },
-  fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, empty: EMPTY_BEAKER },
+  fuel_canister: { saw: 1, tractor: 1, engine: 1, empty: null },
+  gasoline_canister: { saw: 1.3, tractor: 1.2, engine: 1.2, empty: EMPTY_CANISTER },
+  kerosene_canister: { saw: 0, tractor: 1, engine: 1, empty: EMPTY_CANISTER },
+  diesel_canister: { saw: 0, tractor: 1.5, engine: 1.5, empty: EMPTY_CANISTER },
+  fuel_ethanol_beaker: { saw: 0.25, tractor: 0.2, engine: 0.2, empty: EMPTY_BEAKER },
 };
 export const fuelGrade = (item: string): FuelGrade | null => FUEL_GRADES[item] ?? null;
 
 // ---- modules added after the first slice (docs/DISTILLERY_PLAN.md 2, 8, 15) --------------------------------
 
-/** Ground burner, used only when no hot furnace sits under the still base. */
-export const BURNER_C = { charcoal: 250, fuel_ethanol_beaker: 300 } as const;
-export const burnerTemp = (item: string): number | null =>
-  item === 'charcoal' ? BURNER_C.charcoal : item === 'fuel_ethanol_beaker' ? BURNER_C.fuel_ethanol_beaker : null;
+/**
+ * Ground burner, used only when no hot furnace sits under the still base. It holds the glassware to a gentle heat:
+ * wood and peat 200 C, charcoal 250 C, fuel ethanol and coal 300 C, coke 350 C. Hotter fuels (the lava bucket, an ember
+ * core) and the engine canisters are too fierce for glass and are refused.
+ */
+export const BURNER_C: Readonly<Record<string, number>> = {
+  stick: 200, plank: 200, oak_log: 200, pine_log: 200, peat: 200, charcoal: 250, coal: 300, fuel_ethanol_beaker: 300, coke: 350,
+};
+export const burnerTemp = (item: string): number | null => BURNER_C[item] ?? null;
 
 /** Wrench cycles a reflux head through these returns. Plates are multiplied by (1 + 2 r). */
 export const REFLUX_RATIOS = [0, 0.5, 0.75] as const;

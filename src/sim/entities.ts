@@ -48,6 +48,11 @@ export interface FurnaceEntity extends BlockEntity {
   ignitionLowS: number;
   /** The formed hearth it sits in (spec 17), or null; saved so a loaded game runs on until the first scan confirms it. */
   hearth: HearthSummary | null;
+  /**
+   * Set by the save migration on a furnace that predates the Blast Nozzle rule (BRONZE_PLAN 4.5): its hearth forms
+   * without the tier's `requiredParts`. Absent on every furnace built since.
+   */
+  legacyHearth?: boolean;
   /** Tier it runs at: min(tier, the hearth's structural tier), 1 when it stands alone (spec 17.1). */
   effTier: number;
   // Figures of the last tick, for the UI and the network.
@@ -63,6 +68,8 @@ export interface FurnaceEntity extends BlockEntity {
 /** Every other machine shares one shape; a kind only uses the fields that concern it. */
 export interface MachineEntity extends BlockEntity {
   on: boolean;
+  /** Crates: the storage-network label (docs/api/storage.md). Absent or '' = unlabelled. */
+  label?: string;
   slots: Slot[];
   /** Processors: seconds into the current job. Bore rig: seconds into the current block. */
   progress: number;
@@ -86,6 +93,10 @@ export interface MachineEntity extends BlockEntity {
    */
   fluidIn: FluidStack | null;
   fluidOut: FluidStack | null;
+  /** Wear (src/sim/wear.ts): 0 as new .. 1 worn out. Absent in older saves: good condition. */
+  wear?: number;
+  /** Repaired and kept up: runs faster while the wear stays low. */
+  kept?: boolean;
   /** Pump: litres drawn from the lava or oil block it is emptying (a block goes every litresPerBlock). */
   drawnL?: number;
   /** Pump, boiler, steam turbine: litres a second it pumped, boiled or used last tick. */
@@ -152,6 +163,10 @@ export interface SimNode {
   net: Network | null;
   /** Mirrors the voxel's active flag so the world is only written on change. */
   active: boolean;
+  /** Mirrors the voxel's machine status (src/core/machineStatus.ts); `statusWant` is what the behaviour asked for since tick `statusSince`. */
+  status: number;
+  statusWant: number;
+  statusSince: number;
   loaded: boolean;
   /** The surroundings below must be recomputed (a block near it changed, or its chunk was loaded). */
   dirty: boolean;
@@ -162,6 +177,8 @@ export interface SimNode {
   openSky: boolean;
   /** Water wheels within the share radius, itself included. */
   wheels: number;
+  /** Water wheels: blocks of head (water stacked beside it, src/sim/hydro.ts). */
+  head: number;
   /** Furnaces this machine works with (thermopile, blower: touching; steam engine: the one underneath). */
   furnaces: FurnaceEntity[];
   /** Crates touching this machine. */
@@ -171,6 +188,8 @@ export interface SimNode {
   maxOut: number;
   /** Processors: the job that can run this tick. */
   job: RecipeDef | null;
+  /** Processors: why no job runs (a MachineStatus), for the block's face. */
+  stalled: number;
   /** Furnaces: the numbers it runs at (effective tier, hearth size, tuyeres); kept by src/sim/hearth.ts. */
   fs: FurnaceStats | null;
   /** Furnaces: fuel its formed hearth adds to the firebox (lava in fluid hatches), or null. */
@@ -189,8 +208,8 @@ export const posKey = (x: number, y: number, z: number): string => `${x},${y},${
 
 export function createNode(e: SimEntity): SimNode {
   return {
-    e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, loaded: true, dirty: true, water: 0, sideWater: 0,
-    lava: 0, openSky: false, wheels: 1, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, fs: null, extraFuel: null,
+    e, spec: machine(e.kind), key: posKey(e.x, e.y, e.z), net: null, active: false, status: 0, statusWant: 0, statusSince: 0, loaded: true, dirty: true, water: 0, sideWater: 0,
+    lava: 0, openSky: false, wheels: 1, head: 0, furnaces: [], crates: [], maxIn: 0, maxOut: 0, job: null, stalled: 0, fs: null, extraFuel: null,
   };
 }
 
@@ -246,10 +265,18 @@ export interface SimContext {
   wind: number;
   /** Solar output multiplier of this tick's weather (WEATHER_SOLAR, eased; spec 15). */
   solar: number;
+  /** Speed of the workshop shaft line the dynamo at (x, y, z) touches, rpm. Absent or null: no workshop, no turning. */
+  shaftRpm?: ((x: number, y: number, z: number) => number) | null;
+  /** How freely rivers run this tick, 0..1 (frozen in winter; src/sim/hydro.ts). */
+  river: number;
   /** True on one tick per second: slow housekeeping (crate push) runs then. */
   everySecond: boolean;
-  /** Sets the voxel's active flag when it differs from the node's. */
-  setActive(node: SimNode, active: boolean): void;
+  /**
+   * Sets the voxel's active flag when it differs from the node's. `status` (MachineStatus, only meaningful while not
+   * active) is what the face should show when the machine is stopped: it is applied once it has held for a second, so a
+   * flickering brown-out does not remesh the chunk every tick.
+   */
+  setActive(node: SimNode, active: boolean, status?: number): void;
   /** Tells an open screen that the simulation wrote into this entity's slots. */
   touch(e: SimEntity): void;
   /** Emits a 'flag' event the first time only. */

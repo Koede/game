@@ -12,7 +12,9 @@ describe('distillery effects', () => {
     pour(expand('sugar_wash', 3000), flask.mix, 3000);
     const fx = new DistillFx(r.kit.world, fullLight);
     fx.update(1, 0, 0);
-    expect(fx.counts).toEqual({ liquids: 1, motion: 0 });
+    // The wash settles: the watery body, and a thin film of fusel oil floating on it.
+    expect(fx.counts.liquids).toBeGreaterThanOrEqual(1);
+    expect(fx.counts.motion).toBe(0);
     runUntil(r, 900, () => flask.state === 'working' && (r.first('R').flow ?? 0) > 0, 20);
     runUntil(r, 900, () => false, 2);
     fx.update(1, 0, 0);
@@ -20,6 +22,19 @@ describe('distillery effects', () => {
     expect(fx.counts.motion).toBeGreaterThan(3); // bubbles and drips
     fx.update(1, 500, 500);
     expect(fx.counts).toEqual({ liquids: 0, motion: 0 });
+    fx.dispose();
+  });
+
+  it('settles oil on water into two layers in a flask', () => {
+    const r = buildRig('CR/F./B.');
+    const flask = r.first('F');
+    flask.mix.water = 1000;
+    flask.mix.kerosene = 500;
+    const fx = new DistillFx(r.kit.world, fullLight);
+    fx.update(1, 0, 0);
+    // The belly's profile steps (liquid follows the glass), so each layer is one body per run of slices with the same
+    // interior: the water layer is at least one, the oil above it at least one more.
+    expect(fx.counts.liquids).toBeGreaterThanOrEqual(2);
     fx.dispose();
   });
 

@@ -13,6 +13,7 @@ import { cubeGeometry, spriteGeometry } from './heldItem';
 import { LightProbe } from './lightProbe';
 import type { WorldUniforms } from './materials';
 import { LIGHT_GLSL } from './shaders/chunk';
+import { itemRarity, RARITY_COLOUR } from './rarity';
 import { paintTile } from './tiles';
 
 /** The parts of the Renderer it draws into (the Renderer satisfies it, as it does MobScene). */
@@ -22,17 +23,22 @@ export interface GroundScene {
   readonly uniforms: WorldUniforms;
 }
 
+const BEAM_HEIGHT = 2.6;
+
 const VERTEX = /* glsl */ `
 precision highp float;
 in float layer;
 in float shade;
 in vec3 aLight; // x sky 0..1, y block 0..1, z glow 0..1
+in vec3 aRarity; // glow colour of the item's rarity (black for common)
+uniform float uTime;
 ${LIGHT_GLSL}
 out vec2 vUv;
 flat out float vLayer;
 out vec3 vColor;
 out vec4 vFog;
 out float vGlow;
+out vec3 vRare;
 void main() {
   vec4 world = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vColor = lightColor(aLight.x, aLight.y) * shade;
@@ -42,6 +48,8 @@ void main() {
   vUv = uv;
   vLayer = layer;
   vGlow = aLight.z;
+  // Rarity glow breathes slowly, each instance on its own beat.
+  vRare = aRarity * (0.5 + 0.2 * sin(uTime * 3.0 + instanceMatrix[3].x * 1.7 + instanceMatrix[3].z * 2.3));
   gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;
@@ -54,14 +62,51 @@ flat in float vLayer;
 in vec3 vColor;
 in vec4 vFog;
 in float vGlow;
+in vec3 vRare;
 out vec4 fragColor;
 void main() {
   vec4 t = atlasTexel(vUv, vLayer);
   if (t.a < 0.5) discard;
-  vec3 c = t.rgb * vColor + vGlow * vec3(0.16, 0.34, 0.38);
+  vec3 c = t.rgb * vColor + vGlow * vec3(0.16, 0.34, 0.38) + vRare * (0.4 + 0.6 * t.rgb);
   fragColor = vec4(mix(c, vFog.rgb, vFog.a), 1.0);
 }
 `;
+
+const BEAM_VERTEX = /* glsl */ `
+precision highp float;
+in vec3 aBeam;
+${LIGHT_GLSL}
+out vec3 vBeam;
+out float vFade;
+out vec2 vQ;
+void main() {
+  vec3 base = instanceMatrix[3].xyz;
+  vec3 toCam = cameraPosition - base;
+  vec3 right = normalize(vec3(toCam.z, 0.0, -toCam.x) + vec3(0.0001, 0.0, 0.0));
+  float h = position.y + 0.5;
+  vec3 world = base + right * position.x * 0.22 * (1.0 - 0.6 * h) + vec3(0.0, h * ${BEAM_HEIGHT.toFixed(1)}, 0.0);
+  vBeam = aBeam;
+  // Fades up the beam and into the distance fog, so it never outlines the fog edge.
+  vFade = 1.0 - fogFactor(length(world - cameraPosition));
+  vQ = vec2(position.x * 2.0, h);
+  gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
+}
+`;
+const BEAM_FRAGMENT = /* glsl */ `
+precision mediump float;
+in vec3 vBeam;
+in float vFade;
+in vec2 vQ;
+out vec4 fragColor;
+void main() {
+  float a = (1.0 - vQ.y) * (1.0 - abs(vQ.x)) * (1.0 - abs(vQ.x)) * vFade;
+  fragColor = vec4(mix(vBeam, vec3(1.0), 0.4 * a), a * 0.75);
+}
+`;
+
+/** Items of this rarity and above also stand in a light beam (when beams are on and the graphics setting is not low), so loot reads from far away. */
+const BEAM_MIN_RARITY = 2;
+const BEAM_CAPACITY = 64;
 
 /** Edge of a block item and width of a sprite item, in blocks. */
 const BLOCK_SIZE = 0.3;
@@ -71,16 +116,61 @@ const FRESH_PROBES = 8;
 const PROBES_PER_FRAME = 3;
 const SPIN = 1.3;
 const BOB = 0.05;
+/**
+ * The physics runs at 20 Hz (src/game/groundItems.ts) and moves an item in steps, so drawing its raw position looks like stutter at 60
+ * frames a second. Each item is drawn at a smoothed position that eases to the physics one (this rate, per second; a flying item
+ * follows faster), and its bob height and size ease too, so landing, taking off and merging never snap.
+ */
+const FOLLOW_RATE = 28;
+const FLIGHT_RATE = 60;
+/** Beyond this far from the physics position (a teleport, a respawn) the drawn item just snaps. */
+const SNAP_DIST = 3;
+/** How fast the bob and the size ease to their targets, per second. */
+const POSE_RATE = 9;
+/** A settled drop calms (stops spinning, lies flat, stops bobbing) once it has rested this long, and only while nobody is within WAKE_DIST. */
+const CALM_AFTER_S = 1;
+const WAKE_DIST = 3;
+/** How fast the calm pose eases in (and back out when someone comes near), per second. */
+const CALM_RATE = 2;
+const QUARTER = Math.PI / 2;
+const TAU = Math.PI * 2;
 const RINGS = 3;
 const RING_PERIOD_S = 0.7;
 
 interface Kind {
+  rarity: number;
   mesh: THREE.InstancedMesh;
   light: THREE.InstancedBufferAttribute;
   capacity: number;
   /** Half-height of the model after scaling (rests on the ground). */
   lift: number;
   scale: number;
+  /** A full block item: lies flat on a face when calm, like a placed block (slabs and sprites stand). */
+  flat: boolean;
+}
+
+/** `from` eased towards `to` at `rate` per second over `dt` seconds: frame-rate independent and never overshooting. */
+export const easeToward = (from: number, to: number, rate: number, dt: number): number => from + (to - from) * (1 - Math.exp(-rate * Math.max(0, dt)));
+
+/** The yaw a drop is drawn at: its free spin, eased onto the nearest quarter turn as `calm` goes 0 to 1 (a tidy, axis-aligned pile). */
+export const tidyYaw = (spin: number, calm: number): number => spin + (Math.round(spin / QUARTER) * QUARTER - spin) * calm;
+
+/** Half the height of a block tipped by `tilt` radians about its X axis: a cube's footprint grows as it tips, so it never sinks into the ground. */
+export const tiltedHalf = (half: number, tilt: number): number => half * (Math.abs(Math.cos(tilt)) + Math.abs(Math.sin(tilt)));
+
+/** The drawn pose of one item: eased towards the physics state each frame so nothing snaps. */
+interface Pose {
+  x: number;
+  y: number;
+  z: number;
+  bob: number;
+  pop: number;
+  /** Free spin in radians (keeps turning while the drop is not calm). */
+  spin: number;
+  /** 0 = moving, spinning and bobbing; 1 = settled (quarter-turn yaw, lies flat, no bob). Eased. */
+  calm: number;
+  /** Seconds it has rested on the ground without being moved. */
+  rested: number;
 }
 
 interface Lit {
@@ -93,6 +183,8 @@ export class GroundItemRenderer {
   readonly group = new THREE.Group();
   private readonly kinds = new Map<string, Kind>();
   private readonly lit = new Map<number, Lit>();
+  private readonly poses = new Map<number, Pose>();
+  private dt = 0;
   private readonly material: THREE.ShaderMaterial;
   private readonly probe: LightProbe;
   private readonly rings: THREE.Mesh[] = [];
@@ -100,6 +192,11 @@ export class GroundItemRenderer {
   private readonly ringGeometry: THREE.RingGeometry;
   private readonly tmp = new THREE.Object3D();
   private readonly used = new Map<Kind, number>();
+  private readonly beams: THREE.InstancedMesh;
+  private readonly beamColour: THREE.InstancedBufferAttribute;
+  private readonly beamMaterial: THREE.ShaderMaterial;
+  /** Light beams over rare drops: a few extra triangles, so cheap, but a quality setting can switch them off. */
+  beamsOn = true;
   private time = 0;
   private frame = 0;
   private probeCursor = 0;
@@ -136,6 +233,26 @@ export class GroundItemRenderer {
       this.rings.push(ring);
       this.group.add(ring);
     }
+    const quad = new THREE.PlaneGeometry(1, 1);
+    this.beamColour = new THREE.InstancedBufferAttribute(new Float32Array(BEAM_CAPACITY * 3), 3);
+    this.beamColour.setUsage(THREE.DynamicDrawUsage);
+    quad.setAttribute('aBeam', this.beamColour);
+    this.beamMaterial = new THREE.ShaderMaterial({
+      name: 'ground-beams',
+      glslVersion: THREE.GLSL3,
+      uniforms: { ...view.uniforms },
+      vertexShader: BEAM_VERTEX,
+      fragmentShader: BEAM_FRAGMENT,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    this.beams = new THREE.InstancedMesh(quad, this.beamMaterial, BEAM_CAPACITY);
+    this.beams.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.beams.frustumCulled = false;
+    this.beams.count = 0;
+    this.beams.renderOrder = 5;
+    this.group.add(this.beams);
     this.group.frustumCulled = false;
     view.scene.add(this.group);
   }
@@ -146,6 +263,7 @@ export class GroundItemRenderer {
    */
   update(dt: number, items: readonly GroundItem[], pulling = false): void {
     this.time += dt;
+    this.dt = dt;
     this.frame++;
     this.drawn = 0;
     this.instances = 0;
@@ -155,13 +273,17 @@ export class GroundItemRenderer {
     const used = this.used;
     used.clear();
     for (const kind of this.kinds.values()) kind.mesh.count = 0;
+    let beams = 0;
+    const beamsOn = this.beamsOn && this.view.uniforms.uFx.value > 0;
     let probes = 0;
     for (let n = 0; n < items.length; n++) {
       const e = items[n];
       const dx = e.x - cam.x;
       const dy = e.y - cam.y;
       const dz = e.z - cam.z;
-      if (dx * dx + dy * dy + dz * dz > reach2) continue;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > reach2) continue;
+      const far = d2 > WAKE_DIST * WAKE_DIST;
       const kind = this.kindOf(e.item);
       if (!kind) continue;
       let lit = this.lit.get(e.id);
@@ -176,13 +298,26 @@ export class GroundItemRenderer {
         this.sample(e, lit);
       }
       const copies = e.count >= 16 ? 3 : e.count >= 2 ? 2 : 1;
+      const pose = this.pose(e, far);
       for (let c = 0; c < copies; c++) {
         const i = used.get(kind) ?? 0;
         if (i >= kind.capacity) this.grow(kind);
         used.set(kind, i + 1);
-        this.place(kind, i, e, c, copies, lit);
+        this.place(kind, i, e, c, copies, lit, pose);
+      }
+      if (beamsOn && kind.rarity >= BEAM_MIN_RARITY && beams < BEAM_CAPACITY) {
+        this.tmp.position.set(pose.x, pose.y + 0.05, pose.z);
+        this.tmp.rotation.set(0, 0, 0);
+        this.tmp.scale.setScalar(1);
+        this.tmp.updateMatrix();
+        this.beams.setMatrixAt(beams, this.tmp.matrix);
+        this.beamColour.setXYZ(beams, ...RARITY_COLOUR[kind.rarity]);
+        beams++;
       }
     }
+    this.beams.count = beams;
+    this.beams.instanceMatrix.needsUpdate = true;
+    this.beamColour.needsUpdate = true;
     this.probeCursor++;
     for (const [kind, n] of used) {
       kind.mesh.count = n;
@@ -191,7 +326,7 @@ export class GroundItemRenderer {
       this.drawn++;
       this.instances += n;
     }
-    if (this.frame % 120 === 0 && this.lit.size > items.length * 2 + 16) this.prune(items);
+    if (this.frame % 120 === 0 && (this.lit.size > items.length * 2 + 16 || this.poses.size > items.length * 2 + 16)) this.prune(items);
     this.updateRings(dt, pulling);
   }
 
@@ -202,6 +337,9 @@ export class GroundItemRenderer {
       k.mesh.dispose();
     }
     this.kinds.clear();
+    this.beams.geometry.dispose();
+    this.beams.dispose();
+    this.beamMaterial.dispose();
     this.material.dispose();
     this.ringGeometry.dispose();
     this.ringMaterial.dispose();
@@ -217,17 +355,55 @@ export class GroundItemRenderer {
     lit.age = 0;
   }
 
-  private place(kind: Kind, i: number, e: GroundItem, copy: number, copies: number, lit: Lit): void {
+  /**
+   * The eased pose of `e` for this frame (created at its physics position the first time it is seen). Call once per item per
+   * frame. `far` is true when nobody stands near it: only then can a rested drop calm down.
+   */
+  private pose(e: GroundItem, far: boolean): Pose {
+    let p = this.poses.get(e.id);
+    if (!p) {
+      p = { x: e.x, y: e.y, z: e.z, bob: e.onGround ? BOB : 0.04, pop: 1, spin: e.phase, calm: 0, rested: 0 };
+      this.poses.set(e.id, p);
+    }
+    // Calm: after about a second of rest and while nobody is near, the spin slows to a stop on a tidy angle and the bob fades.
+    p.rested = e.onGround && !e.homing ? p.rested + this.dt : 0;
+    p.calm = easeToward(p.calm, far && p.rested >= CALM_AFTER_S ? 1 : 0, CALM_RATE, this.dt);
+    p.spin = (p.spin + SPIN * (1 - p.calm) * this.dt) % TAU;
+    const dx = e.x - p.x;
+    const dy = e.y - p.y;
+    const dz = e.z - p.z;
+    if (dx * dx + dy * dy + dz * dz > SNAP_DIST * SNAP_DIST) {
+      p.x = e.x;
+      p.y = e.y;
+      p.z = e.z;
+    } else {
+      const rate = e.homing ? FLIGHT_RATE : FOLLOW_RATE;
+      p.x = easeToward(p.x, e.x, rate, this.dt);
+      p.y = easeToward(p.y, e.y, rate, this.dt);
+      p.z = easeToward(p.z, e.z, rate, this.dt);
+    }
+    // The bob is a smooth wave whose height eases in on landing and out on take-off, never jumping between two formulas.
+    const bobTarget = e.onGround ? BOB : 0.04;
+    const popTarget = e.homing ? Math.max(0.55, Math.min(1, 0.45 + 0.4 * Math.hypot(e.vx, e.vy, e.vz) * 0.1)) : 1;
+    p.bob = easeToward(p.bob, bobTarget, POSE_RATE, this.dt);
+    p.pop = easeToward(p.pop, popTarget, POSE_RATE, this.dt);
+    return p;
+  }
+
+  private place(kind: Kind, i: number, e: GroundItem, copy: number, copies: number, lit: Lit, p: Pose): void {
     const t = this.tmp;
-    const spin = this.time * SPIN + e.phase + copy * 0.9;
-    // Resting stacks bob gently; items in flight do not.
-    const bob = e.onGround ? Math.sin(this.time * 2.2 + e.phase) * BOB + BOB : 0.04;
+    // Calm block items tip onto a face (tilt about X, applied before the yaw so the yaw stays flat); the copies of a calm stack line up.
+    const tilt = kind.flat ? -QUARTER * p.calm : 0;
+    const yaw = tidyYaw(p.spin + copy * 0.9 * (1 - p.calm), p.calm);
+    const half = tiltedHalf(kind.lift, tilt);
+    // Resting stacks bob gently (a wave of the eased height `p.bob`); items in flight hover. A calm drop lies still.
+    const wave = e.onGround ? Math.sin(this.time * 2.2 + e.phase) * BOB * (p.bob / BOB) * (1 - p.calm) : 0;
+    const bob = p.bob + wave;
     const ox = copies > 1 ? (copy - (copies - 1) / 2) * 0.09 : 0;
     const oz = copies > 1 ? (copy % 2 === 0 ? -0.05 : 0.05) : 0;
-    t.position.set(e.x + ox, e.y + kind.lift + 0.04 + bob + copy * 0.015, e.z + oz);
-    t.rotation.set(0, spin, 0);
-    const pop = e.homing ? Math.max(0.55, Math.min(1, 0.45 + 0.4 * Math.hypot(e.vx, e.vy, e.vz) * 0.1)) : 1;
-    t.scale.setScalar(kind.scale * pop);
+    t.position.set(p.x + ox, p.y + half + 0.04 + bob + copy * 0.015, p.z + oz);
+    t.rotation.set(tilt, yaw, 0, 'YXZ');
+    t.scale.setScalar(kind.scale * p.pop);
     t.updateMatrix();
     kind.mesh.setMatrixAt(i, t.matrix);
     kind.light.setXYZ(i, lit.sky, lit.block, e.pulled ? 1 : 0);
@@ -241,15 +417,24 @@ export class GroundItemRenderer {
     const placed = blockOfItem(item);
     let geometry: THREE.BufferGeometry;
     let scale: number;
+    let flat = false;
     if (def.iconLayer < 0 && placed) {
       geometry = cubeGeometry(placed.layers, placed.shape === 'slab' ? 0.5 : 1);
       scale = BLOCK_SIZE;
+      flat = placed.shape !== 'slab';
     } else {
       const layer = def.iconLayer >= 0 ? def.iconLayer : 0;
       geometry = spriteGeometry(layer, paintTile(TEXTURE_NAMES[layer]));
       scale = SPRITE_SIZE;
     }
+    const rare = RARITY_COLOUR[itemRarity(def)];
+    const n = geometry.getAttribute('position').count;
+    const rarity = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) rarity.set(rare, i * 3);
+    geometry.setAttribute('aRarity', new THREE.BufferAttribute(rarity, 3));
     kind = this.makeKind(geometry, scale, START_CAPACITY, placed && def.iconLayer < 0 && placed.shape === 'slab' ? 0.25 : 0.5);
+    kind.rarity = itemRarity(def);
+    kind.flat = flat;
     this.kinds.set(item, kind);
     this.group.add(kind.mesh);
     return kind;
@@ -263,7 +448,7 @@ export class GroundItemRenderer {
     const light = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
     light.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('aLight', light);
-    return { mesh, light, capacity, lift: halfHeight * scale, scale };
+    return { rarity: 0, mesh, light, capacity, lift: halfHeight * scale, scale, flat: false };
   }
 
   /** More instances of one kind than fit: doubles the buffers (rare; copies what is there). */
@@ -290,6 +475,7 @@ export class GroundItemRenderer {
     const alive = new Set<number>();
     for (const e of items) alive.add(e.id);
     for (const id of this.lit.keys()) if (!alive.has(id)) this.lit.delete(id);
+    for (const id of this.poses.keys()) if (!alive.has(id)) this.poses.delete(id);
   }
 
   /** Cyan rings that shrink towards the view centre while a collector runs. */

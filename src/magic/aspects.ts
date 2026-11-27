@@ -64,6 +64,15 @@ export function kin(a: Aspect, b: Aspect): boolean {
   return (pa?.includes(b) ?? false) || (pb?.includes(a) ?? false);
 }
 
+/**
+ * Whether two research-board neighbours link, Thaumcraft-style: one must be a direct component of the other. Unlike `kin`,
+ * an aspect never links to itself, so a chain has to step between a compound and its parts.
+ */
+export function linkable(a: Aspect, b: Aspect): boolean {
+  if (a === b) return false;
+  return (INFO.get(a)?.parts?.includes(b) ?? false) || (INFO.get(b)?.parts?.includes(a) ?? false);
+}
+
 /** Aspects an aspect is kin to (excluding itself). */
 export const kinOf = (a: Aspect): Aspect[] => ASPECT_LIST.filter((b) => b !== a && kin(a, b));
 

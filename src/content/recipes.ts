@@ -13,6 +13,7 @@ import { MAGIC_RECIPES } from './recipesMagic';
 import { WORKSHOP_RECIPES } from './recipesWorkshop';
 import { GLASS_RECIPES } from './itemsGlass';
 import { HAND_RECIPES } from './recipesHand';
+import { TOOL_PART_RECIPES } from './toolParts';
 import { MACHINE_SPECS } from './tech';
 import { areaRecipes } from './area';
 
@@ -54,12 +55,16 @@ function machineRecipes(station: string, timeS: number, rows: Array<[output: str
 
 const HAND: RecipeSpec[] = [
   hand('cord', 'cord', '3 fiber'),
+  hand('wooden_pickaxe', 'wooden_pickaxe', '2 plank, 2 stick'),
+  hand('wooden_axe', 'wooden_axe', '2 plank, 2 stick'),
+  hand('wooden_shovel', 'wooden_shovel', '1 plank, 2 stick'),
   hand('flint_pickaxe', 'flint_pickaxe', '2 flint, 2 stick, 1 cord'),
   hand('flint_axe', 'flint_axe', '2 flint, 2 stick, 1 cord'),
   hand('flint_shovel', 'flint_shovel', '1 flint, 2 stick, 1 cord'),
   hand('workbench', 'workbench', '6 plank'),
   hand('torch', '4 torch', '1 stick, 1 charcoal'),
   hand('torch_coal', '4 torch', '1 stick, 1 coal'),
+  hand('wooden_hoe', 'wooden_hoe', '1 plank, 2 stick'),
   hand('flint_hoe', 'flint_hoe', '1 flint, 2 stick, 1 cord'),
 ];
 
@@ -70,6 +75,7 @@ const HAND: RecipeSpec[] = [
 const WORKBENCH: RecipeSpec[] = [
   workbench('furnace_clay', 'furnace_clay', '12 rubble, 6 clay'),
   workbench('crate', 'crate', '8 plank'),
+  workbench('belt_pouch', 'belt_pouch', '2 leather, 2 cord'),
   workbench('stone_brick', '4 stone_brick', '4 rubble'),
   workbench('pail', 'pail', '3 plank, 1 cord'),
   workbench('padded_coat', 'padded_coat', '4 cloth, 2 cord'),
@@ -110,8 +116,7 @@ const FORGE: RecipeSpec[] = [
   forge(1, 'brick', '4 firebrick', 400),
   forge(1, '2 ceramic_insulator', '1 clay, 1 sand', 600),
   forge(1, '6 copper_cable', '3 copper_wire, 2 ceramic_insulator', 500),
-  forge(1, 'thermopile', '4 copper_ingot, 2 tin_ingot, 2 firebrick', 700),
-  forge(1, 'lamp', '1 glass, 2 copper_wire', 500),
+  forge(1, 'kerosene_lamp', '1 glass, 2 bronze_ingot, 1 stick', 600),
   forge(1, 'hearth_stew', '1 cooked_chop, 1 potato, 1 carrot, 1 water_pail', 300, { byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_mutton, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_mutton', byproducts: '1 pail' }),
   forge(1, 'hearth_stew', '1 cooked_fowl, 1 potato, 1 carrot, 1 water_pail', 300, { id: 'hearth_stew_fowl', byproducts: '1 pail' }),
@@ -122,6 +127,11 @@ const FORGE: RecipeSpec[] = [
   forge(1, 'wrench', '3 bronze_ingot', 600),
   // Ground items: the handheld pump that pulls loose items in (Bronze Age by design; see itemsGround.ts for the gate).
   forge(2, 'hand_vacuum', '4 bronze_plate, 2 leather, 1 bellows, 2 copper_plate', 800),
+  // The Bronze Age air network (BRONZE_PLAN 4.4): all of it needs the Bronze Furnace's heat and bronze plate.
+  forge(2, '6 air_tube', '1 bronze_plate, 1 glass', 800),
+  forge(2, 'air_tank', '6 bronze_plate, 1 air_tube', 900),
+  forge(2, 'air_compressor', '4 bronze_plate, 1 bronze_cog, 2 air_tube', 900),
+  forge(2, 'blast_nozzle', '4 bronze_plate, 1 air_tube, 2 firebrick', 1100),
   // Resin, sugar and sweet baking (itemsSugar.ts): beakers from glass, sap boiled to resin, resin distilled to sugar, then baked.
   forge(1, '2 glass_beaker', '1 glass', 650),
   forge(1, 'pine_resin', '1 pine_sap', 180, { byproducts: '1 glass_beaker' }),
@@ -148,6 +158,15 @@ const FORGE: RecipeSpec[] = [
   forge(3, 'battery', '2 iron_plate, 2 copper_ingot, 3 sulfur', 900),
   forge(3, '2 steel_ingot', '2 iron_ingot, 1 coke, 1 limestone', 1400),
   forge(3, 'steel_plate', '2 steel_ingot', 1300),
+  // Heavy industry (docs/PROGRESSION.md, Forge Age): axles, the rolling mill, the drop forge, then the dynamo and the
+  // first electricity. The thermopile and the lamp wait here too, so no watt exists before the Blast hearth.
+  forge(3, '2 iron_axle', '1 iron_ingot', 1000, { id: 'iron_axle' }),
+  forge(3, '2 steel_axle', '1 steel_ingot', 1300, { id: 'steel_axle' }),
+  forge(3, 'rolling_mill', '1 chassis, 4 iron_plate, 2 iron_axle', 1000),
+  forge(3, 'drop_forge', '1 chassis, 2 steel_plate, 2 steel_axle, 4 stone_brick', 1300),
+  forge(3, 'dynamo', '2 copper_coil, 1 iron_axle, 2 iron_plate', 1000),
+  forge(3, 'thermopile', '4 copper_ingot, 2 tin_ingot, 2 firebrick', 700),
+  forge(3, 'lamp', '1 glass, 2 copper_wire', 500),
   forge(3, 'steel_pickaxe', '3 steel_ingot, 2 stick', 1300),
   forge(3, 'steel_axe', '3 steel_ingot, 2 stick', 1300),
   forge(3, 'steel_shovel', '1 steel_ingot, 2 stick', 1300),
@@ -229,4 +248,4 @@ const MACHINE: RecipeSpec[] = [
   ...machineRecipes('electrolyzer', 45, [['deuterium_cell', 'empty_cell', 4]]),
 ];
 
-export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...DISTILL_RECIPES, ...MAGIC_RECIPES, ...WORKSHOP_RECIPES, ...GLASS_RECIPES, ...areaRecipes()];
+export const RECIPE_SPECS: RecipeSpec[] = [...HAND, ...WORKBENCH, ...SMELT, ...FORGE, ...MACHINE, ...BREW_RECIPES, ...HAND_RECIPES, ...TOOL_PART_RECIPES, ...DISTILL_RECIPES, ...MAGIC_RECIPES, ...WORKSHOP_RECIPES, ...GLASS_RECIPES, ...areaRecipes()];

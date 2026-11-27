@@ -2,7 +2,7 @@
 import { HOLD_CHARGING, HOLD_MINING, HOLD_NONE, type TouchGestures } from './gestures';
 import { TOUCH_CSS } from './touchStyles';
 
-export type TouchButton = 'jump' | 'mine' | 'use' | 'place' | 'bag' | 'pause';
+export type TouchButton = 'jump' | 'mine' | 'use' | 'place' | 'bag' | 'pause' | 'menu';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -14,6 +14,7 @@ const ICONS: Readonly<Record<TouchButton, readonly string[]>> = {
   place: ['M10 6.2 15.8 9.5v6.6L10 19.4l-5.8-3.3V9.5z', 'M4.4 9.6 10 12.8l5.6-3.2', 'M10 12.8v6.4', 'M18.2 2.8v6', 'M15.2 5.8h6'],
   bag: ['M6.2 9h11.6l1.1 9.9a1.8 1.8 0 0 1-1.8 2H6.9a1.8 1.8 0 0 1-1.8-2z', 'M9 9V7.4a3 3 0 0 1 6 0V9'],
   pause: ['M7 5h3.4v14H7z', 'M13.6 5H17v14h-3.4z'],
+  menu: ['M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 1 0 0-7.6z', 'M12 3v3.2', 'M12 17.8V21', 'M3 12h3.2', 'M17.8 12H21'],
 };
 
 const LABELS: Readonly<Record<TouchButton, string>> = {
@@ -23,10 +24,11 @@ const LABELS: Readonly<Record<TouchButton, string>> = {
   place: 'Place',
   bag: 'Inventory',
   pause: 'Pause',
+  menu: 'Menu',
 };
 
-const CAPTIONED: readonly TouchButton[] = ['jump', 'mine', 'use', 'place'];
-const ORDER: readonly TouchButton[] = ['jump', 'mine', 'use', 'place', 'bag', 'pause'];
+const CAPTIONED: readonly TouchButton[] = ['jump', 'mine', 'use', 'place', 'menu'];
+const ORDER: readonly TouchButton[] = ['jump', 'mine', 'use', 'place', 'bag', 'pause', 'menu'];
 
 function icon(name: TouchButton): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, 'svg');
@@ -56,6 +58,8 @@ export class TouchOverlay {
   private holdKey = '';
   private diameter = 0;
   private placeArmed = false;
+  private menuOpenable = true;
+  private menuLit = false;
   private large = false;
 
   constructor(layer: HTMLElement) {
@@ -112,6 +116,12 @@ export class TouchOverlay {
   }
 
   /** Settings.uiScale 'large': bigger buttons and captions (`.hw-touch--large`). */
+  /** One-handed layout (Settings.oneHanded): mirrors or recentres the cluster under that thumb. */
+  setHanded(handed: 'off' | 'left' | 'right'): void {
+    this.root.classList.toggle('hw-touch--one-left', handed === 'left');
+    this.root.classList.toggle('hw-touch--one-right', handed === 'right');
+  }
+
   setLarge(large: boolean): void {
     if (large === this.large) return;
     this.large = large;
@@ -135,6 +145,28 @@ export class TouchOverlay {
     const el = this.buttons.get('place');
     el?.classList.toggle('hw-touch-btn--armed', armed);
     el?.setAttribute('aria-pressed', String(armed));
+  }
+
+  /** The quick menu's entry button: hidden when the menu cannot open (dead), lit while something it controls is on. */
+  setMenuState(openable: boolean, lit: boolean): void {
+    const el = this.buttons.get('menu');
+    if (!el) return;
+    if (openable !== this.menuOpenable) {
+      this.menuOpenable = openable;
+      el.hidden = !openable;
+    }
+    if (lit !== this.menuLit) {
+      this.menuLit = lit;
+      el.classList.toggle('hw-touch-btn--armed', lit);
+    }
+  }
+
+  /** Centre of a control in viewport pixels, or null when it is not shown. */
+  centreOf(name: TouchButton): { x: number; y: number } | null {
+    const el = this.buttons.get(name);
+    if (!el || el.hidden) return null;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
   }
 
   clearPressed(): void {

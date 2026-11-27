@@ -246,6 +246,20 @@ describe('timed stations', () => {
     expect(t.hand.view(5, 5, 5)?.progress).toBeCloseTo(7, 0);
   });
 
+  it('a torch within its warmth radius dries the rack at night, under a roof and out of the rain; far away it does not', () => {
+    const t = setup();
+    rackWith(t);
+    t.world.put(5, 9, 5, 'oak_log');
+    t.world.put(7, 5, 5, 'torch');
+    t.run(3, false, () => true);
+    expect(t.hand.view(5, 5, 5)).toMatchObject({ state: 'working', waitReason: null });
+    expect(t.hand.view(5, 5, 5)?.progress).toBeCloseTo(3, 0);
+    t.world.put(7, 5, 5, 'air');
+    t.world.put(9, 5, 5, 'torch'); // 4 blocks away: out of range
+    t.run(4, false);
+    expect(t.hand.view(5, 5, 5)).toMatchObject({ state: 'waiting', waitReason: 'Needs open sky' });
+  });
+
   it('a trough soaks anywhere, in the dark and the rain, and rejects a full batch', () => {
     const t = setup();
     t.world.put(5, 5, 5, 'plank');

@@ -1,4 +1,5 @@
 /** Every painter, by texture name. Families live in their own files; this only merges them. */
+import { AIR_TEXTURES } from './air';
 import { BREW } from './brew';
 import { AREA_PAINTERS } from './_generated/areas';
 import { BUILDING } from './building';
@@ -24,6 +25,7 @@ import { HAND_ICONS } from './iconsHand';
 import { FOOD_ICONS } from './iconsFood';
 import { MATERIAL_ICONS } from './iconsMaterials';
 import { PART_ICONS } from './iconsParts';
+import { LEGENDARY_ICONS } from './iconsLegendary';
 import { TOOL_ICONS } from './iconsTools';
 import { VEHICLE_ICONS } from './iconsVehicle';
 import { WORLD_ICONS } from './iconsWorld';
@@ -38,6 +40,6 @@ const MISSING: PainterSet = {
   missing: (c) => c.each((x, y) => (((x >> 2) + (y >> 2)) % 2 === 0 ? [255, 0, 255] : [0, 0, 0])),
 };
 
-const sets: PainterSet[] = [TERRAIN, ORES, PLANTS, BUILDING, FURNACES, CASING, GENERATORS, CONSUMERS, GRID, MATERIAL_ICONS, TOOL_ICONS, PART_ICONS, FARM, FOOD_ICONS, WORLD_PLANTS, WORLD_GROUND, WORLD_ICONS, HEARTH_SHELL, TRANSPORT, EMBER_TEXTURES, BREW, BREW_ICONS, VEHICLE_ICONS, GROUND_ICONS, SUGAR_ICONS, HAND_TEXTURES, HAND_ICONS, DISTILL_TEXTURES, MAGIC_TEXTURES, WORKSHOP_TEXTURES, WORKSHOP_PART_TEXTURES, GLASS_TEXTURES, ...AREA_PAINTERS, MISSING];
+const sets: PainterSet[] = [TERRAIN, ORES, PLANTS, BUILDING, FURNACES, CASING, GENERATORS, CONSUMERS, GRID, MATERIAL_ICONS, TOOL_ICONS, PART_ICONS, FARM, FOOD_ICONS, WORLD_PLANTS, WORLD_GROUND, WORLD_ICONS, HEARTH_SHELL, TRANSPORT, EMBER_TEXTURES, BREW, BREW_ICONS, VEHICLE_ICONS, GROUND_ICONS, SUGAR_ICONS, HAND_TEXTURES, HAND_ICONS, DISTILL_TEXTURES, MAGIC_TEXTURES, WORKSHOP_TEXTURES, WORKSHOP_PART_TEXTURES, GLASS_TEXTURES, AIR_TEXTURES, LEGENDARY_ICONS, ...AREA_PAINTERS, MISSING];
 
 export const PAINTERS: Readonly<Record<string, Painter>> = Object.assign({}, ...sets);

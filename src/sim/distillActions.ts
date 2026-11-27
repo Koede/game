@@ -19,9 +19,9 @@ export type ChemResult =
   | { ok: false; reason: string };
 
 /** Modules a container pours into, and what they take. */
-const POURS_INTO: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.jacket]);
+const POURS_INTO: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.jacket, CHEM.funnel]);
 /** Modules a container takes out of. */
-const TAKES_FROM: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.condenser]);
+const TAKES_FROM: ReadonlySet<ChemKind> = new Set([CHEM.flask, CHEM.vessel, CHEM.receiver, CHEM.condenser, CHEM.funnel]);
 
 const fluidName = (key: string | null): string => (key ? (fluidOrNull(key)?.name ?? key) : 'nothing');
 const moduleName = (e: ChemEntity): string => item(e.kind).name;
@@ -47,6 +47,8 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
       e.setC = STILL_SETPOINTS[(i + 1) % STILL_SETPOINTS.length];
       return { ok: true, consume: false, toast: `Still Base set to ${e.setC} C` };
     }
+    // The funnel's stopcock clicks under the hand (the sound for a hand tap; the run-out itself is silent).
+    if (e.kind === CHEM.funnel) d.bus.emit('sfx', { name: 'distill_tap', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
     return { ok: true, consume: false, toast: chemView(d, x, y, z)?.text ?? moduleName(e) };
   }
   if (heldKey === 'wrench') {
@@ -58,7 +60,7 @@ export function chemUse(d: Distillery, x: number, y: number, z: number, heldKey:
   if (e.kind === CHEM.base && burnerTemp(heldKey) !== null) {
     if (e.slots?.some((s) => s.count > 0)) return { ok: false, reason: 'The Still Base is already fuelled' };
     e.slots = [{ item: heldKey, count: 1 }];
-    return { ok: true, consume: true, toast: heldKey === 'charcoal' ? 'Charcoal in the burner: 250 C' : 'Fuel ethanol in the burner: 300 C' };
+    return { ok: true, consume: true, toast: `${itemOrNull(heldKey)?.name ?? heldKey} in the burner: ${burnerTemp(heldKey)} C` };
   }
   if (e.kind === CHEM.filter && isFilterMedium(heldKey)) {
     const have = e.slots?.find((s) => s.item === heldKey);
@@ -144,7 +146,7 @@ export function chemView(d: Distillery, x: number, y: number, z: number): ChemVi
         const still = rig?.stills.find((s) => s.base === key);
         const t = d.baseTemp(e);
         const fuel = e.slots?.find((s) => burnerTemp(s.item) !== null);
-        const how = t === null ? 'no heat' : fuel && t === burnerTemp(fuel.item) ? `burning ${fuel.item === 'charcoal' ? 'charcoal' : 'fuel ethanol'}` : 'furnace';
+        const how = t === null ? 'no heat' : fuel && t === burnerTemp(fuel.item) ? `burning ${(itemOrNull(fuel.item)?.name ?? fuel.item).toLowerCase()}` : 'furnace';
         text = `${name} - set ${e.setC} C, ${t === null ? 'no hot furnace under it' : `${how}, holding ${Math.round(t)} C`}${still ? '' : ', no flask on it'}`;
         tempC = t;
         break;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeKit } from '../../../sim/testKit';
 import type { MachineView, NetworkStats } from '../../../sim';
-import { alertText, cableText, fuelText, headline, lonelyFurnaceText, machineLayout, machineTone, memberWatts, subline } from './machineText';
+import { alertText, cableText, fuelText, headline, lonelyFurnaceText, machineLayout, machineTone, memberWatts, lossText, subline } from './machineText';
 
 const net = (over: Partial<NetworkStats>): NetworkStats =>
   ({
@@ -73,9 +73,18 @@ describe('network texts', () => {
   });
 
   it('teaches the first step on an unwired furnace', () => {
-    expect(lonelyFurnaceText(1)).toMatch(/Thermopile/);
-    expect(lonelyFurnaceText(2)).toMatch(/Thermopile/);
-    expect(lonelyFurnaceText(3)).not.toMatch(/Thermopile/);
+    expect(lonelyFurnaceText(1)).toMatch(/Dynamo/);
+    expect(lonelyFurnaceText(2)).toMatch(/Dynamo/);
+    expect(lonelyFurnaceText(3)).not.toMatch(/Dynamo/);
     expect(lonelyFurnaceText(4)).toMatch(/heats itself electrically/);
+  });
+});
+
+describe('lossText and the grid monitor headline', () => {
+  const base = { lossW: 0, chokedW: 0 } as unknown as NetworkStats;
+  it('is silent without losses and names each kind of loss', () => {
+    expect(lossText(base)).toBeNull();
+    expect(lossText({ ...base, lossW: 200 } as NetworkStats)).toBe('Losses: 200 W lost charging batteries.');
+    expect(lossText({ ...base, lossW: 200, chokedW: 2000 } as NetworkStats)).toBe('Losses: 200 W lost charging batteries, 2 kW held back by the cable.');
   });
 });

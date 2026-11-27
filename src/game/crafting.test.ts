@@ -4,6 +4,7 @@ import { recipe } from '../core/registry';
 import type { RecipeDef } from '../core/types';
 import {
   BENCH_RECIPES,
+  BUILD_RECIPES,
   HAND_RECIPES,
   WORKBENCH_RECIPES,
   availability,
@@ -29,15 +30,24 @@ describe('crafting', () => {
     expect(HAND_RECIPES.map((r) => r.id)).toContain('flint_pickaxe');
     expect(HAND_RECIPES.every((r) => r.station === 'hand')).toBe(true);
     expect(WORKBENCH_RECIPES.map((r) => r.id)).toEqual([
-      'furnace_clay', 'crate', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'dough',
+      'furnace_clay', 'crate', 'belt_pouch', 'stone_brick', 'pail', 'padded_coat', 'padded_coat_hide', 'bellows', 'bellows_hide', 'dough',
       'ground_coffee', 'ground_dark_coffee', 'berry_tea_blend', 'trail_blend',
       'hand_quern', 'stone_anvil', 'clay_table', 'loom', 'tanning_trough', 'bronze_hammer',
       'bronze_pickaxe', 'bronze_axe', 'bronze_shovel', 'bronze_hoe', 'bronze_maul',
       // Essentia & Research (src/content/recipesMagic.ts), last.
-      'vis_rod', 'essentia_jar',
+      'research_table', 'crucible', 'vis_rod', 'essentia_jar',
       // (The Bronze workshop pieces are made at the Bronze Furnace now: src/content/recipesWorkshop.ts.)
       // Glassware (src/content/itemsGlass.ts).
       'water_beaker', 'water_vial',
+      // Decorating (src/content/areas/decor.ts; area files load in name order, decor before synergy).
+      'dining_table', 'plank_bench', 'bookshelf',
+      // Goat milk and wool (src/content/areas/synergy_animals.ts; area files load in name order).
+      'shears', 'milk_tea', 'milk_coffee', 'dough_milk', 'padded_coat_wool', 'bellows_wool', 'wool_bedding',
+      // Tool-and-block synergy (src/content/areas/synergy_tools.ts).
+      'plank_slab', 'stone_slab', 'brick_slab', 'stone_brick_slab', 'stone_pillar', 'brick_pillar', 'brick_lintel', 'brick_chimney',
+      'bronze_plate_block', 'brick_from_slabs',
+      // Heat as a resource (src/content/areas/warmth.ts).
+      'insulated_wall',
     ]);
   });
 
@@ -178,7 +188,7 @@ describe('workbench offers hand recipes too', () => {
   it('lists every workbench recipe first, then every hand recipe', () => {
     expect(BENCH_RECIPES.slice(0, WORKBENCH_RECIPES.length)).toEqual([...WORKBENCH_RECIPES]);
     for (const r of HAND_RECIPES) expect(BENCH_RECIPES).toContain(r);
-    expect(BENCH_RECIPES.length).toBe(WORKBENCH_RECIPES.length + HAND_RECIPES.length);
+    expect(BENCH_RECIPES.length).toBe(WORKBENCH_RECIPES.length + BUILD_RECIPES.length + HAND_RECIPES.length);
     expect(new Set(BENCH_RECIPES.map((r) => r.id)).size).toBe(BENCH_RECIPES.length);
   });
 });

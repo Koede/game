@@ -195,7 +195,7 @@ function limestone(c: Canvas): void {
 function corestone(c: Canvas): void {
   const map = c.cells(7, 5);
   const k = P.CORESTONE;
-  bevelCells(c, map, (id) => (id % 2 === 0 ? k[1] : k[2]), k[0], 1, 0.12, 0.2);
+  bevelCells(c, map, (id) => (id % 2 === 0 ? k[2] : k[3]), k[0], 1, 0.2, 0.3);
   // Glints of the crystal the world rests on.
   for (const [x, y] of c.scatter(4, 6)) {
     c.wset(x, y, k[4]);

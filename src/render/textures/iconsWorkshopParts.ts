@@ -85,6 +85,10 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   flywheel: { tint: 0x707880, draw: (c, on) => { cogAt(c, 8, 9, 5.5, on ? 0.15 : 0, 14); c.each((x, y) => (Math.hypot(x + 0.5 - 8, y + 0.5 - 9) < 3 ? IRON[1] : null)); c.rect(7, 8, 2, 2, IRON[0]); } },
   differential: { tint: 0xc07090, draw: (c, on) => { cogAt(c, 5, 10, 3.2, on ? 0.3 : 0, 6); cogAt(c, 11, 10, 3.2, on ? -0.3 : 0, 6); cogAt(c, 8, 6, 2.6, on ? 0.2 : 0, 6); } },
   treadwheel: { tint: 0xa0804a, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 6 && d > 4.3 ? WOOD[4] : null; }); for (let i = 0; i < 6; i++) { const a = i * 1.047 + (on ? 0.4 : 0); c.rect(Math.round(8 + Math.cos(a) * 3), Math.round(9 + Math.sin(a) * 3), 1, 1, WOOD[3]); } c.rect(7, 8, 2, 2, IRON[1]); } },
+  steam_rotor: { tint: 0xdfe6e8, draw: (c, on) => { c.rect(7, 8, 2, 6, IRON[1]); c.rect(6, 7, 4, 2, BRONZE[3]); const a = on ? 1 : 0; c.rect(3 + a, 6 - a, 4, 1, BRONZE[4]); c.rect(9 - a, 8 + a, 4, 1, BRONZE[4]); c.rect(3 + a, 5 - a, 1, 2, IRON[3]); c.rect(12 - a, 9 + a, 1, 2, IRON[3]); if (on) { c.set(2, 4, P.rgb(0xdfe6e8)); c.set(13, 11, P.rgb(0xb4c0c6)); } } },
+  mill_wheel: { tint: 0x7a9fb8, draw: (c, on) => { const a = on ? 1 : 0; c.rect(7, 2, 2, 12, IRON[1]); c.rect(2, 7, 12, 2, IRON[1]); c.rect(3, 3 + a, 3, 2, BRONZE[3]); c.rect(10, 11 - a, 3, 2, BRONZE[3]); c.rect(3 + a, 11, 2, 3, BRONZE[3]); c.rect(11 - a, 2, 2, 3, BRONZE[3]); } },
+  beam_engine: { tint: 0xc0a060, draw: (c, on) => { c.rect(7, 8, 2, 6, IRON[1]); const t = on ? 2 : 0; c.line(3, 6 + t / 2, 13, 8 - t / 2, BRONZE[3]); c.line(3, 7 + t / 2, 13, 9 - t / 2, BRONZE[4]); c.rect(12, 9, 2, 4, IRON[2]); cogAt(c, 4, 11, 2.6, on ? 0.5 : 0, 6); } },
+  windmill: { tint: 0xe8e0c8, draw: (c, on) => { c.rect(7, 7, 2, 7, WOOD[3]); const a = on ? 1 : 0; c.rect(7, 3 + a, 2, 4, P.rgb(0xe8e0c8)); c.rect(9 + a, 7, 4, 2, P.rgb(0xe8e0c8)); c.rect(7, 9 - a, 2, 4, P.rgb(0xe8e0c8)); c.rect(3 - a, 7, 4, 2, P.rgb(0xe8e0c8)); c.rect(7, 7, 2, 2, IRON[1]); } },
   saw_arm: { tint: 0xc05040, draw: (c, on) => { cogAt(c, 8, 9, 5, on ? 0.25 : 0, 12); c.rect(2, 4, 12, 1, IRON[3]); c.rect(7, 8, 2, 2, IRON[0]); } },
   item_vault: { tint: 0xe0c050, draw: (c) => { c.rect(2, 4, 12, 10, IRON[1]); c.rect(2, 4, 12, 1, IRON[3]); for (const y of [7, 10]) c.rect(3, y, 10, 1, IRON[0]); c.rect(6, 12, 4, 1, BRONZE[4]); } },
   vacuum_collector: { tint: 0x80d0e0, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); if (d > 6) return null; const a = Math.atan2(y - 9, x - 8) + (on ? 0.6 : 0); return d < 1.5 ? IRON[0] : Math.sin(a * 3 + d * 0.8) > 0 ? IRON[2] : IRON[1]; }); } },
@@ -92,14 +96,35 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
   crank_lever: { tint: 0xe0c040, draw: (c, on) => { c.rect(3, 12, 10, 2, IRON[1]); const x = on ? 11 : 4; c.rect(Math.min(7, x), 6, Math.abs(x - 7) + 1, 1, IRON[2]); c.rect(7, 6, 2, 6, IRON[2]); c.rect(x - 1, 4, 3, 3, on ? GLOW : BRONZE[3]); } },
   pressure_plate: { tint: 0x909090, draw: (c, on) => { c.rect(1, 1, 14, 14, on ? IRON[1] : IRON[2]); c.rect(3, 3, 10, 10, on ? IRON[0] : IRON[3]); c.rect(5, 5, 6, 6, on ? GLOW : BRONZE[2]); } },
   metronome: { tint: 0xe0a0e0, draw: (c, on) => { c.rect(5, 12, 6, 2, WOOD[1]); for (let i = 0; i < 8; i++) c.rect(6 + (i >> 1), 12 - i, 4 - (i >> 1) * 1, 1, WOOD[3]); const x = on ? 11 : 4; c.rect(8, 4, 1, 8, IRON[3]); c.rect(x, 3, 2, 2, BRONZE[4]); } },
+  signal_relay: { tint: 0x60c080, draw: (c, on) => { c.rect(2, 4, 12, 9, IRON[1]); c.rect(2, 4, 12, 1, IRON[3]); c.rect(7, 12, 2, 3, on ? P.rgb(0x80e0a0) : IRON[0]); c.rect(7, 1, 2, 3, on ? P.rgb(0x80e0a0) : IRON[0]); c.rect(4, 7, 8, 3, on ? P.rgb(0x80e0a0) : IRON[0]); c.rect(5, 8, 2, 1, BRONZE[3]); } },
+  signal_timer: { tint: 0xe0c060, draw: (c, on) => { c.rect(2, 3, 12, 11, IRON[1]); c.rect(2, 3, 12, 1, IRON[3]); c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 8.5); return d < 4.5 ? (d > 3.5 ? BRONZE[3] : on ? P.rgb(0xf8f0b0) : P.rgb(0xf4ecd0)) : null; }); c.rect(8, 5, 1, 4, IRON[0]); c.rect(8, 8, 2, 1, IRON[0]); c.rect(1, 13, 14, 2, WOOD[3]); } },
+  push_button: { tint: 0xd04040, draw: (c, on) => { c.rect(2, 10, 12, 5, IRON[1]); c.rect(2, 10, 12, 1, IRON[3]); c.rect(4, on ? 8 : 5, 8, on ? 3 : 6, on ? P.rgb(0xf06060) : P.rgb(0xb03030)); c.rect(4, on ? 8 : 5, 8, 1, P.rgb(0xf08080)); } },
   signal_lamp: { tint: 0xf0f0a0, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5 ? (on ? (d < 3 ? P.rgb(0xfff4b0) : GLOW) : P.rgb(0x6a5a30)) : null; }); c.rect(5, 14, 6, 1, IRON[1]); } },
   bell: { tint: 0xd0a040, draw: (c) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return y > 4 && y < 12 && d < 5.5 - (11 - y) * 0.15 ? (x < 8 ? BRONZE[3] : BRONZE[2]) : null; }); c.rect(2, 12, 12, 1, BRONZE[1]); c.rect(7, 12, 2, 2, IRON[0]); c.rect(7, 2, 2, 2, IRON[1]); } },
   tally_board: { tint: 0x70b090, draw: (c) => { c.rect(2, 4, 12, 9, WOOD[0]); c.rect(3, 5, 10, 7, WOOD[4]); for (let i = 0; i < 4; i++) c.rect(4 + i * 2, 6, 1, 4, IRON[0]); c.rect(3, 8, 8, 1, IRON[0]); c.rect(9, 11, 4, 1, BRONZE[2]); } },
   clockface: { tint: 0xf0e0b0, draw: (c) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5.5 ? (d > 4.5 ? BRONZE[3] : P.rgb(0xf4ecd0)) : null; }); c.rect(8, 5, 1, 5, IRON[0]); c.rect(8, 9, 3, 1, IRON[0]); } },
   wind_vane: { tint: 0x88c8e8, draw: (c) => { c.rect(7, 6, 2, 8, IRON[2]); c.rect(5, 13, 6, 2, BRONZE[2]); arrow(c, 8, 4, 1, BRONZE[4]); c.rect(3, 5, 5, 1, BRONZE[3]); } },
   contraption_frame: { tint: 0xc8a060, draw: (c) => { c.rect(1, 3, 14, 12, WOOD[0]); c.rect(3, 5, 10, 8, WOOD[3]); c.rect(3, 5, 10, 1, WOOD[4]); c.rect(3, 5, 10, 8, WOOD[3]); c.rect(4, 6, 8, 6, WOOD[1]); c.rect(1, 3, 3, 3, BRONZE[3]); c.rect(12, 3, 3, 3, BRONZE[3]); } },
+  brake: { tint: 0xa05040, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5 ? IRON[on ? 3 : 1] : null; }); c.rect(2, 3, 12, 2, on ? BRONZE[3] : BRONZE[1]); c.rect(2, 13, 12, 2, on ? BRONZE[3] : BRONZE[1]); } },
+  cam_drum: { tint: 0xb08040, draw: (c, on) => { c.rect(2, 4, 12, 9, IRON[1]); c.rect(2, 4, 12, 1, IRON[3]); for (let i = 0; i < 4; i++) { c.rect(3 + i * 3, 6 + ((i + (on ? 1 : 0)) % 3) * 2, 2, 2, BRONZE[3]); c.rect(3 + i * 3, 5, 2, 1, IRON[0]); } c.rect(1, 13, 14, 2, WOOD[3]); } },
+  logic_gate: { tint: 0x50a070, draw: (c, on) => { c.rect(2, 3, 12, 10, IRON[1]); c.rect(2, 3, 12, 1, IRON[3]); c.rect(3, 6, 4, 3, on ? P.rgb(0x80e0a0) : IRON[0]); c.rect(9, 6, 4, 3, on ? P.rgb(0x80e0a0) : IRON[0]); c.rect(7, 10, 2, 3, BRONZE[3]); c.rect(7, 4, 2, 2, BRONZE[2]); } },
+  pillow_block: { tint: 0x8090a0, draw: (c) => { c.rect(2, 9, 12, 5, IRON[1]); c.rect(2, 9, 12, 1, IRON[3]); c.each((x, y) => (Math.hypot(x + 0.5 - 8, y + 0.5 - 8) < 4 ? IRON[0] : null)); c.rect(6, 7, 4, 2, BRONZE[3]); c.set(3, 11, IRON[0]); c.set(12, 11, IRON[0]); } },
   piston: { tint: 0x6080d0, draw: (c, on) => { c.rect(3, 8, 10, 6, IRON[1]); c.rect(3, 8, 10, 1, IRON[3]); c.rect(7, on ? 2 : 5, 2, on ? 7 : 4, IRON[2]); c.rect(4, on ? 1 : 4, 8, 2, BRONZE[3]); } },
   bearing: { tint: 0x40b0b0, draw: (c, on) => { c.each((x, y) => { const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9); return d < 5.5 && d > 3 ? (Math.floor((Math.atan2(y - 9, x - 8) + (on ? 0.5 : 0)) * 2) % 2 === 0 ? IRON[3] : IRON[2]) : d <= 3 ? IRON[0] : null; }); } },
+  rolling_mill: { tint: 0x9aa4b0, draw: (c, on) => {
+    c.rect(2, 4, 12, 2, IRON[1]); c.rect(2, 4, 12, 1, IRON[3]);
+    c.rect(2, 8, 12, 2, IRON[1]); c.rect(2, 8, 12, 1, IRON[3]);
+    c.rect(1, 3, 1, 8, IRON[0]); c.rect(14, 3, 1, 8, IRON[0]);
+    c.rect(2, 6, 12, 2, on ? GLOW : IRON[0]);
+    for (let i = 0; i < 4; i++) c.rect(3 + i * 3 + (on ? 1 : 0), 4, 1, 1, IRON[0]);
+    c.rect(2, 12, 12, 2, STONE_[2]);
+  } },
+  drop_forge: { tint: 0x8a6a50, draw: (c, on) => {
+    c.rect(3, 2, 2, 11, IRON[1]); c.rect(11, 2, 2, 11, IRON[1]);
+    c.rect(3, 2, 10, 2, IRON[2]);
+    c.rect(6, on ? 7 : 4, 4, 3, IRON[3]); c.rect(7, 4, 2, on ? 3 : 0, IRON[0]);
+    c.rect(2, 13, 12, 2, STONE_[1]); c.rect(5, 12, 6, 1, on ? GLOW : IRON[0]);
+  } },
   rail: { tint: 0x907050, draw: (c) => { c.rect(0, 0, 16, 16, WOOD[1]); c.rect(2, 0, 2, 16, IRON[2]); c.rect(12, 0, 2, 16, IRON[2]); for (let y = 1; y < 16; y += 4) { c.rect(1, y, 14, 2, WOOD[3]); c.rect(1, y, 14, 1, WOOD[4]); c.set(2, y, IRON[0]); c.set(13, y, IRON[0]); } c.rect(2, 0, 1, 16, IRON[3]); } },
   skiff: { tint: 0xb06030, draw: (c) => { c.rect(2, 5, 12, 8, IRON[1]); c.rect(2, 5, 12, 1, IRON[3]); c.rect(3, 6, 10, 5, WOOD[0]); for (const x of [4, 11]) c.rect(x, 13, 2, 2, BRONZE[2]); } },
   hammer: { tint: 0x8a6a40, draw: (c, on) => { c.rect(2, 12, 12, 3, IRON[1]); c.rect(2, 12, 12, 1, IRON[3]); c.rect(7, on ? 6 : 2, 2, 5, WOOD[3]); c.rect(4, on ? 4 : 1, 8, 3, IRON[2]); c.rect(4, on ? 4 : 1, 8, 1, IRON[3]); } },
@@ -107,7 +132,7 @@ const GLYPHS: Record<string, { tint: number; draw: Glyph }> = {
 
 export const registerGlyph = (key: string, tint: number, draw: Glyph): void => { GLYPHS[key] = { tint, draw }; };
 
-const STATIC = new Set(['contraption_frame', 'rail', 'skiff', 'bell', 'tally_board', 'clockface', 'wind_vane', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'shear_pin', 'item_vault']);
+const STATIC = new Set(['contraption_frame', 'rail', 'skiff', 'bell', 'tally_board', 'clockface', 'wind_vane', 'funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'shear_pin', 'item_vault', 'pillow_block']);
 const set: Record<string, PainterSet[string]> = {};
 for (const [key, g] of Object.entries(GLYPHS)) {
   const seed = [...key].reduce((s, ch) => s + ch.charCodeAt(0), 0);

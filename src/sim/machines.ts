@@ -3,13 +3,17 @@
  * `prepare` states what the machine can generate or wants to draw this tick, `apply` runs after the network
  * was solved and does the work. All numbers come from the registry.
  */
+import { headBoost } from './hydro';
 import { BROWNOUT_STALL } from '../core/constants';
+import { MachineStatus } from '../core/machineStatus';
+import { fuelGrade } from '../core/distill';
 import { RECIPES, fuelOf, itemOrNull } from '../core/registry';
 import type { MachineSpec, RecipeDef } from '../core/types';
 import { rollDrops } from '../game/mining';
 import { addToSlots, roomInSlots, type FurnaceEntity, type MachineEntity, type SimContext, type SimNode } from './entities';
 import { heldL, pipedWater, useFluid } from './fluidUse';
 import { powered } from './power';
+import { addWear, isBroken, speedOf, wearsOut } from './wear';
 
 export interface Behaviour {
   prepare(node: SimNode, ctx: SimContext): void;
@@ -55,6 +59,8 @@ export function placementProblem(node: SimNode): string | null {
       return node.lava > 0 || heldL(e, 'lava') > 0 ? null : 'Must touch lava';
     case 'blower':
       return node.furnaces.length > 0 ? null : 'Must touch a furnace';
+    case 'dynamo':
+      return (node.e as MachineEntity).availW > 0 ? null : `Needs a shaft line turning ${p.minRpm} rpm or more`;
     default:
       return null;
   }
@@ -106,7 +112,13 @@ const ambient = (watts: (node: SimNode, ctx: SimContext, spec: MachineSpec) => n
   apply: followLoad,
 });
 
-const waterWheel = ambient((n, _c, s) => (n.water >= (s.params?.minWater ?? 0) ? (s.outputW ?? 0) / Math.max(1, n.wheels) : 0));
+/** Dynamo: watts from the speed of the workshop shaft line it is part of (see Workshop.dynamoRpm). */
+const dynamo = ambient((n, ctx, s) => {
+  const p = s.params ?? {};
+  const rpm = ctx.shaftRpm?.(n.e.x, n.e.y, n.e.z) ?? 0;
+  return rpm >= (p.minRpm ?? 0) ? Math.min(p.capW ?? s.outputW ?? 0, (p.wattsPerRpm ?? 0) * rpm) : 0;
+});
+const waterWheel = ambient((n, c, s) => (n.water >= (s.params?.minWater ?? 0) ? ((s.outputW ?? 0) / Math.max(1, n.wheels)) * headBoost(n.head) * c.river : 0));
 const windTurbine = ambient((n, ctx, s) => {
   const p = s.params ?? {};
   if (!n.openSky) return 0;
@@ -140,15 +152,21 @@ export function windAt(timeS: number, min: number, max: number): number {
 /** Electric joules one fuel item is worth in this generator. */
 export function fuelEnergyJ(spec: MachineSpec, itemKey: string): number {
   if (!spec.fuels || !spec.fuels.includes(itemKey)) return 0;
-  const heat = spec.params?.fuelEnergyJ ?? spec.params?.rodEnergyJ ?? fuelOf(itemKey)?.energyJ ?? 0;
+  // A canister-fed engine (params.fuelEnergyJ is the heat of one Fuel Canister) scales it by the fuel's engine grade.
+  const heat = spec.params?.fuelEnergyJ !== undefined
+    ? spec.params.fuelEnergyJ * (fuelGrade(itemKey)?.engine ?? 1)
+    : spec.params?.rodEnergyJ ?? fuelOf(itemKey)?.energyJ ?? 0;
   return heat * (spec.efficiency ?? 1);
 }
+
+/** The container a burned fuel item leaves behind (the empty canister, the lava bucket's bronze bucket), or null. */
+export const fuelContainerOf = (itemKey: string): string | null => fuelGrade(itemKey)?.empty ?? fuelOf(itemKey)?.fuelReturns ?? null;
 
 /** Electric joules one litre of piped refined fuel is worth in this generator (0: it burns none). */
 export function fluidFuelJPerL(spec: MachineSpec): number {
   const perCanister = spec.params?.fuelLPerCanister;
   if (!perCanister || !spec.fluids?.accepts?.includes('fuel')) return 0;
-  return fuelEnergyJ(spec, spec.fuels?.[0] ?? '') / perCanister;
+  return fuelEnergyJ(spec, 'fuel_canister') / perCanister;
 }
 
 export const holdsFuel = (node: SimNode): boolean => {
@@ -161,7 +179,8 @@ export const holdsFuel = (node: SimNode): boolean => {
 const FUEL_SIP = 0.1;
 
 /** Takes `joules` of electricity out of the fuel, loading the next item from the slot when one runs out. */
-export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
+/** `giveEmpties` false: the machine keeps the used-up containers itself (the kerosene lamp leaves them in its slot). */
+export function burnFuel(node: SimNode, ctx: SimContext, joules: number, giveEmpties = true): void {
   const e = node.e as MachineEntity;
   let need = joules;
   while (need > 0) {
@@ -169,8 +188,10 @@ export function burnFuel(node: SimNode, ctx: SimContext, joules: number): void {
       const s = e.slots[0];
       const worth = s ? fuelEnergyJ(node.spec, s.item) : 0;
       if (s && worth > 0) {
+        const back = fuelContainerOf(s.item);
         s.count--;
         if (s.count <= 0) e.slots[0] = null;
+        if (back && giveEmpties) ctx.giveBack(back);
         e.fuelJ = worth;
         ctx.touch(e);
       } else {
@@ -196,15 +217,61 @@ const fuelGenerator: Behaviour = {
     const e = node.e as MachineEntity;
     e.outW = e.availW * (node.net ? node.net.load : 0);
     if (e.outW > 0) burnFuel(node, ctx, e.outW * dt);
-    ctx.setActive(node, e.outW > 0);
+    // Switched on with nothing to burn is the one thing a generator can be starved of.
+    ctx.setActive(node, e.outW > 0, e.on && !holdsFuel(node) ? MachineStatus.Starved : MachineStatus.None);
+  },
+};
+
+/**
+ * Kerosene lamp: not wired to anything. While its slot holds a Kerosene Canister (or a canister is still burning) it is lit and burns
+ * `lampW` of the canister's `fuelEnergyJ`. Each canister used up is owed back as an empty one (`progress`), handed over in the slot when the stack ends.
+ */
+const keroseneLamp: Behaviour = {
+  prepare(node) {
+    (node.e as MachineEntity).availW = 0;
+  },
+  apply(node, ctx, dt) {
+    const e = node.e as MachineEntity;
+    e.outW = 0;
+    const empty = 'empty_canister';
+    let slot = e.slots[0];
+    if (!e.on) {
+      ctx.setActive(node, false);
+      return;
+    }
+    if (slot && slot.item === empty) {
+      ctx.setActive(node, e.fuelJ > 0);
+      if (e.fuelJ > 0) e.fuelJ = Math.max(0, e.fuelJ - (node.spec.params?.lampW ?? 0) * dt);
+      return;
+    }
+    const before = slot ? slot.count : 0;
+    if (holdsFuel(node)) burnFuel(node, ctx, (node.spec.params?.lampW ?? 0) * dt, false);
+    slot = e.slots[0];
+    const after = slot ? slot.count : 0;
+    if (after < before) e.progress += before - after;
+    if (!slot && e.progress > 0 && e.fuelJ >= 0) {
+      e.slots[0] = { item: empty, count: Math.min(e.progress, 16) };
+      e.progress = 0;
+      ctx.touch(e);
+    }
+    ctx.setActive(node, e.fuelJ > 0 || holdsFuel(node));
   },
 };
 
 // ---- storage and simple consumers ---------------------------------------------------------------------------
 
 /** Batteries are moved by the network solver itself. */
-const storage: Behaviour = { prepare() {}, apply() {} };
-const inert: Behaviour = storage;
+const inert: Behaviour = { prepare() {}, apply() {} };
+
+/** Storage lights its face (the `_on` texture) while it holds charge. */
+const storage: Behaviour = {
+  prepare() {},
+  apply(node, ctx) {
+    const e = node.e as MachineEntity;
+    const cap = node.spec.capacityJ ?? 0;
+    ctx.setActive(node, cap > 0 && e.storedJ > cap * 0.01);
+  },
+};
 
 /** Lamp, space heater and ward beacon: draw power, and are "active" (lit, warm, warding) while they get enough of it. */
 const simpleConsumer: Behaviour = {
@@ -215,7 +282,8 @@ const simpleConsumer: Behaviour = {
   apply(node, ctx) {
     const e = node.e as MachineEntity;
     e.f = node.net ? node.net.f : 0;
-    ctx.setActive(node, e.demandW > 0 && powered(node.net));
+    const live = e.demandW > 0 && powered(node.net);
+    ctx.setActive(node, live, e.demandW > 0 && !live ? MachineStatus.Starved : MachineStatus.None);
   },
 };
 
@@ -232,7 +300,7 @@ const blower: Behaviour = {
       const floor = (node.spec.params?.draftFloor ?? 0) * e.f;
       for (const fe of node.furnaces) if (fe.draft < floor) fe.draft = floor;
     }
-    ctx.setActive(node, running);
+    ctx.setActive(node, running, e.demandW > 0 && !running ? MachineStatus.Starved : MachineStatus.None);
   },
 };
 
@@ -251,8 +319,11 @@ const processor: Behaviour = {
     }
     const minWater = node.spec.params?.minWater;
     const dry = minWater !== undefined && node.water < minWater && !pipedWater(e, node.spec.params?.pipedWaterLPerS);
-    const blocked = !e.on || r === null || dry || roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
+    const noRoom = r !== null && roomInSlots(e.slots, r.output.item, 1, 2) < r.output.count;
+    const blocked = !e.on || r === null || dry || isBroken(e) || noRoom;
     node.job = blocked ? null : r;
+    // Why it is stopped, for the face: a full output slot or a missing water supply; no input or a switch is just idle.
+    node.stalled = !e.on || r === null ? MachineStatus.None : noRoom ? MachineStatus.Full : dry ? MachineStatus.Starved : MachineStatus.None;
     e.demandW = blocked ? 0 : node.spec.drawW ?? 0;
   },
   apply(node, ctx, dt) {
@@ -260,11 +331,11 @@ const processor: Behaviour = {
     const r = node.job;
     e.f = node.net ? node.net.f : 0;
     const running = r !== null && e.f >= BROWNOUT_STALL;
-    ctx.setActive(node, running);
+    ctx.setActive(node, running, r !== null ? MachineStatus.Starved : node.stalled);
     if (r && running) {
       const p = node.spec.params ?? {};
       if (p.minWater !== undefined && node.water < p.minWater) useFluid(e, 'water', (p.pipedWaterLPerS ?? 0) * dt);
-      e.progress += dt * e.f;
+      e.progress += dt * e.f * speedOf(e);
       if (e.progress >= r.timeS) {
         e.progress = 0;
         const inp = e.slots[0];
@@ -315,15 +386,16 @@ const boreRig: Behaviour = {
     if (e.halted !== '' && ctx.everySecond) boreTarget(node, ctx);
     const full = e.slots.every((s) => s !== null);
     node.job = null;
-    e.demandW = e.on && e.halted === '' && !full ? node.spec.drawW ?? 0 : 0;
+    e.demandW = e.on && e.halted === '' && !full && !isBroken(e) ? node.spec.drawW ?? 0 : 0;
   },
   apply(node, ctx, dt) {
     const e = node.e as MachineEntity;
     e.f = node.net ? node.net.f : 0;
     const running = e.demandW > 0 && e.f >= BROWNOUT_STALL;
-    ctx.setActive(node, running);
+    const full = e.slots.every((s) => s !== null);
+    ctx.setActive(node, running, e.demandW > 0 ? MachineStatus.Starved : e.on && e.halted === '' && full ? MachineStatus.Full : MachineStatus.None);
     if (running) {
-      e.progress += dt * e.f;
+      e.progress += dt * e.f * speedOf(e);
       if (e.progress >= (node.spec.params?.secondsPerBlock ?? 1)) {
         e.progress = 0;
         const y = boreTarget(node, ctx);
@@ -351,25 +423,62 @@ const boreRig: Behaviour = {
 const BEHAVIOURS: Record<string, Behaviour> = {
   crate: inert,
   thermopile: heatEngine,
+  dynamo,
   steam_engine: heatEngine,
   burner_generator: fuelGenerator,
   combustion_engine: fuelGenerator,
+  kerosene_lamp: keroseneLamp,
   water_wheel: waterWheel,
   wind_turbine: windTurbine,
   solar_panel: solarPanel,
   geothermal_tap: geothermalTap,
   battery: storage,
   lithium_bank: storage,
+  cell_rack: storage,
   lamp: simpleConsumer,
   space_heater: simpleConsumer,
   ward_beacon: simpleConsumer,
+  grid_monitor: simpleConsumer,
   blower,
   bore_rig: boreRig,
 };
 
 /** The behaviour of a machine kind (the fission pile has its own file). Unknown kinds do nothing. */
 export function behaviourOf(kind: string): Behaviour {
-  return BEHAVIOURS[kind] ?? (isProcessor(kind) ? processor : inert);
+  const base = BEHAVIOURS[kind] ?? (isProcessor(kind) ? processor : inert);
+  return wearsOut(kind) ? withWear(base) : base;
+}
+
+const worn = new WeakMap<Behaviour, Behaviour>();
+
+/**
+ * Wear (src/sim/wear.ts) around a behaviour: a broken machine neither makes nor draws power, a worn or well-kept generator
+ * and blower scale their output (processors and the bore rig scale their own work), and every second it runs wears it.
+ */
+function withWear(base: Behaviour): Behaviour {
+  let b = worn.get(base);
+  if (b) return b;
+  b = {
+    prepare(node, ctx) {
+      base.prepare(node, ctx);
+      const e = node.e as MachineEntity;
+      if (isBroken(e)) {
+        e.availW = 0;
+        e.demandW = 0;
+        node.job = null;
+      } else if (node.spec.role === 'generator') e.availW *= speedOf(e);
+    },
+    apply(node, ctx, dt) {
+      base.apply(node, ctx, dt);
+      const e = node.e as MachineEntity;
+      if (node.active && !isBroken(e)) {
+        addWear(e, dt);
+        if (isBroken(e)) ctx.bus.emit('toast', { text: `A ${node.spec.name} broke down`, kind: 'warn' });
+      }
+    },
+  };
+  worn.set(base, b);
+  return b;
 }
 
 /** Display name of an item for status texts. */

@@ -92,7 +92,7 @@ describe('the resin to sugar chain is closed', () => {
     expect(make('glass_beaker')).toHaveLength(1);
     expect(make('pine_resin')[0].inputs.map((i) => i.item)).toEqual(['pine_sap']);
     expect(make('sugar')[0].inputs.map((i) => i.item).sort()).toEqual(['glass_beaker', 'pine_resin', 'water_pail']);
-    for (const out of ['sugar_cookie', 'sweet_bun', 'sugar_cake']) expect(make(out), out).toHaveLength(1);
+    for (const out of ['sugar_cookie', 'sweet_bun', 'sugar_cake']) expect(make(out).filter((r) => !r.id.endsWith('_milk')), out).toHaveLength(1); // goat milk makes a second route
     expect(ITEMS.some((i) => i.key === 'pine_sap')).toBe(true);
   });
 

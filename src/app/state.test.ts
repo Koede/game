@@ -3,11 +3,13 @@ import { blockId, creature } from '../core/registry';
 import { Facing, makeVoxel } from '../core/types';
 import { isWorldSave } from '../save/document';
 import { isFurnace } from '../sim';
+import { CAMP_SEARCH, CAMP_START } from '../npcs/camp';
+import { settledWorld } from '../npcs/settledWorld';
 import { GameState, seedFrom } from './state';
 
 /** A world with a lit clay furnace next to the player and a few things in the pack. */
 function playedState(): { state: GameState; fx: number; fy: number; fz: number } {
-  const state = GameState.create(7, 'seven');
+  const state = settledWorld(7, 'seven');
   const p = state.player.position;
   const fx = Math.floor(p.x) + 2;
   const fz = Math.floor(p.z);
@@ -26,10 +28,14 @@ function playedState(): { state: GameState; fx: number; fy: number; fz: number }
 }
 
 describe('GameState', () => {
-  it('starts a new world at the spawn point, on the ground, at early morning', () => {
+  it('starts a new world at the camp by the spawn point, on the ground, at early morning', () => {
     const state = GameState.create(11, null);
     const spawn = state.world.spawnPoint();
-    expect(state.player.position).toEqual({ x: spawn.x + 0.5, y: spawn.y, z: spawn.z + 0.5 });
+    const o = state.npcs.at!;
+    expect(state.npcs.camp).toBe(true);
+    expect(state.player.position).toEqual({ x: o[0] + CAMP_START[0] + 0.5, y: o[1] + CAMP_START[1], z: o[2] + CAMP_START[2] + 0.5 });
+    expect(state.player.spawn).toEqual(state.player.position);
+    expect(Math.abs(state.player.position.x - spawn.x) + Math.abs(state.player.position.z - spawn.z)).toBeLessThanOrEqual(CAMP_SEARCH * 2 + 2);
     expect(state.world.isLoaded(spawn.x, spawn.z)).toBe(true);
     expect(state.clock.timeOfDay).toBeCloseTo(0.05, 5);
     expect(state.objectives.current?.id).toBe('gather_logs');
@@ -56,6 +62,10 @@ describe('GameState', () => {
     expect(copy.clock.toJSON()).toEqual(state.clock.toJSON());
     expect(copy.objectives.toJSON()).toEqual(state.objectives.toJSON());
     expect(copy.playTimeS).toBeCloseTo(state.playTimeS, 9);
+    expect(state.journal.seenCells).toBeGreaterThan(0);
+    expect(copy.journal.seenCells).toBe(state.journal.seenCells);
+    expect(copy.achievements.toJSON()).toEqual(state.achievements.toJSON());
+    expect(state.achievements.has('first_steps')).toBe(true);
     expect(copy.world.getVoxel(fx, fy, fz)).toBe(state.world.getVoxel(fx, fy, fz));
     const restored = copy.sim.furnaceAt(fx, fy, fz)!;
     expect(JSON.parse(JSON.stringify(restored))).toEqual(JSON.parse(JSON.stringify(furnace)));
@@ -70,9 +80,39 @@ describe('GameState', () => {
     expect(b.crucibleOut).toEqual(a.crucibleOut);
     expect(b.fuel).toEqual(a.fuel);
     expect(copy.player.warmth).toBeCloseTo(state.player.warmth, 6);
-    expect([...copy.world.entities()].filter(isFurnace)).toHaveLength(1);
+    // The test's furnace, the tavern's fireplace and the hermit's fire.
+    expect([...copy.world.entities()].filter(isFurnace)).toHaveLength(3);
     state.dispose();
     copy.dispose();
+  });
+
+  it('grants a blueprint when something emits blueprint:grant, once', () => {
+    const state = GameState.create(7, 'seven');
+    state.bus.emit('blueprint:grant', { id: 'stone_hut' });
+    state.bus.emit('blueprint:grant', { id: 'stone_hut' });
+    expect(state.player.blueprints.entries.map((e) => e.bp.name)).toEqual(['Stone Hut']);
+    state.dispose();
+  });
+
+  it('keeps the daily goal track in the save, and loads saves made before it existed', () => {
+    const { state } = playedState();
+    expect(state.dailyGoals.daily()).toHaveLength(3);
+    state.dailyGoals.load({ ...state.dailyGoals.toJSON(), keepsakes: ['k_sun_hat'], worn: 'k_sun_hat' });
+    const save = JSON.parse(JSON.stringify(state.toSave())) as unknown;
+    if (!isWorldSave(save)) throw new Error('not a save');
+    expect(save.dailyGoals?.keepsakes).toEqual(['k_sun_hat']);
+    const copy = GameState.restore(save);
+    expect(copy.dailyGoals.keepsakes).toEqual(['k_sun_hat']);
+    const old = { ...save };
+    delete old.dailyGoals;
+    expect(isWorldSave(old)).toBe(true);
+    const fresh = GameState.restore(old);
+    fresh.tick();
+    expect(fresh.dailyGoals.keepsakes).toEqual([]);
+    expect(fresh.dailyGoals.daily().every((g) => g.current === 0)).toBe(true);
+    const broken = GameState.restore({ ...save, dailyGoals: { day: 'x' } as never });
+    expect(broken.dailyGoals.keepsakes).toEqual([]);
+    for (const x of [state, copy, fresh, broken]) x.dispose();
   });
 
   it('ticks flowing water, saves it mid-flow and continues it identically (spec 18.2)', () => {

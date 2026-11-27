@@ -15,6 +15,8 @@ const SPACE = 256;
 const SHIFT_L = 512;
 const SHIFT_R = 1024;
 const Q = 2048;
+const C = 4096;
+const CTRL_L = 8192;
 
 const HELD_BITS: Readonly<Record<string, number>> = {
   KeyW: W,
@@ -29,6 +31,8 @@ const HELD_BITS: Readonly<Record<string, number>> = {
   ShiftLeft: SHIFT_L,
   ShiftRight: SHIFT_R,
   KeyQ: Q,
+  KeyC: C,
+  ControlLeft: CTRL_L,
 };
 
 /** No keys held. */
@@ -53,6 +57,7 @@ export function keyAxisZ(mask: number): number {
 
 export const keyJump = (mask: number): boolean => (mask & SPACE) !== 0;
 export const keySprint = (mask: number): boolean => (mask & (SHIFT_L | SHIFT_R)) !== 0;
+export const keySneak = (mask: number): boolean => (mask & (C | CTRL_L)) !== 0;
 export const keyDropHeld = (mask: number): boolean => (mask & Q) !== 0;
 
 /** One-shot commands. 0-8 select that hotbar slot. */
@@ -61,6 +66,8 @@ export const CMD_INVENTORY = 9;
 export const CMD_LOG = 10;
 export const CMD_PAUSE = 11;
 export const CMD_DROP = 12;
+export const CMD_EMOTE = 13;
+export const CMD_PHOTO = 14;
 
 /** The one-shot command bound to a key, or CMD_NONE. */
 export function keyCommand(code: string): number {
@@ -73,6 +80,10 @@ export function keyCommand(code: string): number {
       return CMD_PAUSE;
     case 'KeyQ':
       return CMD_DROP;
+    case 'KeyG':
+      return CMD_EMOTE;
+    case 'KeyP':
+      return CMD_PHOTO;
     default: {
       const digit = DIGIT_KEY.exec(code);
       return digit ? Number(digit[1]) - 1 : CMD_NONE;

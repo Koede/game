@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { findShore, spawnCell, standCell, walkable } from './terrain';
+import { findShore, solidHeight, spawnCell, standCell, walkable } from './terrain';
+import { blockId } from '../core/registry';
+import { Facing, makeVoxel } from '../core/types';
 import { FlatWorld } from './testKit';
 
 // Flat grass at y = 10: an animal on it has its feet in cell 11.
@@ -141,3 +143,25 @@ describe('findShore', () => {
     expect(findShore(w, 0.5, 0.5, 10, 5, 1, [0, 0])).toBe(false);
   });
 });
+
+describe('doors', () => {
+  const door = (w: FlatWorld, open: boolean): void => {
+    w.setVoxel(3, 11, 3, makeVoxel(blockId('wooden_door'), Facing.North, open));
+    w.setVoxel(3, 12, 3, makeVoxel(blockId('wooden_door'), Facing.North, open, 1));
+  };
+
+  it('a closed door is a wall to animals and monsters', () => {
+    const w = new FlatWorld();
+    door(w, false);
+    expect(solidHeight(w, 3, 11, 3)).toBe(1);
+    expect(standCell(w, 3, 3, 11, 1)).toBeNaN();
+  });
+
+  it('an open door lets them through', () => {
+    const w = new FlatWorld();
+    door(w, true);
+    expect(solidHeight(w, 3, 11, 3)).toBe(0);
+    expect(standCell(w, 3, 3, 11, 1)).toBe(11);
+  });
+});
+

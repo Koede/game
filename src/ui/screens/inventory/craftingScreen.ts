@@ -10,6 +10,7 @@ import { h } from '../../kit/dom';
 import { RecipeList } from '../../kit/recipe';
 import { Window } from '../../kit/window';
 import { InventoryPanel } from './inventoryPanel';
+import { RecipeHelperPanel } from './recipeHelperPanel';
 import { BATCH, makeRecipe, recipeRows } from './recipeRows';
 
 export interface CraftingScreenOptions {
@@ -21,6 +22,10 @@ export interface CraftingScreenOptions {
   crates: () => readonly Inventory[];
   /** Optional line above the list ("2 crates nearby lend ingredients"). */
   note?: (crates: number) => string;
+  /** A panel under the recipe list (the experiment row); refreshed with the screen. */
+  extra?: { readonly el: HTMLElement; refresh(): void };
+  /** Chips under the bag (the notebook and the Workshop Guide open from here), refreshed with the screen. */
+  chips?: { readonly el: HTMLElement; refresh(): void };
 }
 
 const coarsePointer = (): boolean => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -38,7 +43,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
     many: BATCH,
     emptyText: 'Nothing to make here.',
     onMake: (id, count) => {
-      const recipe = recipeById(id);
+      const recipe = recipeById(id) ?? opts.recipes.find((r) => r.id === id);
       if (!recipe) return;
       const result = makeRecipe(player, recipe, count, opts.crates());
       if (!result.ok) {
@@ -48,21 +53,25 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
       ctx.invalidate();
     },
   });
+  const helper = new RecipeHelperPanel(player, opts.recipes, () => ctx.invalidate());
   const note = h('p', { class: 'hw-craft__note' });
   note.hidden = true;
   const body = h(
     'div',
     { class: 'hw-craft' },
-    h('section', { class: 'hw-craft__bag' }, bag.el),
-    h('section', { class: 'hw-craft__make' }, h('h3', { class: 'hw-heading', text: opts.listTitle }), note, list.el),
+    h('section', { class: 'hw-craft__bag' }, bag.el, opts.chips?.el),
+    h('section', { class: 'hw-craft__make' }, h('h3', { class: 'hw-heading', text: opts.listTitle }), note, helper.el, list.el, opts.extra?.el),
   );
   const window = new Window({ title: opts.title, subtitle: opts.subtitle, size: 'lg', fit: 'tall', scroll: false, body, footer: slotHint() });
   return {
     window,
     refresh: () => {
       ctx.slots.refresh();
+      opts.extra?.refresh();
+      opts.chips?.refresh();
       const crates = opts.crates();
       list.setRows(recipeRows(opts.recipes, [inventory, ...crates], inventory));
+      helper.refresh(crates);
       const text = opts.note ? opts.note(crates.length) : '';
       note.hidden = text === '';
       if (note.textContent !== text) note.textContent = text;
@@ -70,6 +79,7 @@ export function createCraftingScreen(ctx: ScreenContext, opts: CraftingScreenOpt
     dispose: () => {
       bag.dispose();
       list.dispose();
+      helper.dispose();
     },
   };
 }

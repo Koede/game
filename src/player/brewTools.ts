@@ -53,6 +53,8 @@ export interface BrewToolsHost {
 export type BrewOutcome = 'brewed' | 'placed' | 'refused';
 
 const KETTLE = KETTLE_MACHINE;
+/** A full water container: poured into a kettle by a tap. */
+const isWaterContainer = (key: string | null): boolean => key !== null && itemOrNull(key)?.container?.holds === 'water';
 const isEmptyContainer = (key: string | null): boolean => key !== null && ITEMS.some((it) => it.container?.emptyTo === key);
 
 export class BrewTools {
@@ -67,11 +69,12 @@ export class BrewTools {
     const held = this.host.player.heldStack()?.item ?? null;
     const kind = machineOfBlock(hit.block);
     if (kind?.role === 'chem' && this.brew.chemUse) {
-      if (this.host.placeCooldown > 0) return this.pause();
+      // No placement cooldown here: a tap on a module places nothing, and the cooldown counts clamped frame time, so a slow
+      // frame rate (a phone, a software-GL run) kept a second tap on a still base from landing ("the setpoint stayed at 97").
       const r = this.brew.chemUse(hit.x, hit.y, hit.z, held);
       return r === null ? null : this.apply(r, held);
     }
-    if (kind?.role !== 'brew' || (kind.kind === KETTLE && !isEmptyContainer(held))) return null;
+    if (kind?.role !== 'brew' || (kind.kind === KETTLE && !isEmptyContainer(held) && !isWaterContainer(held))) return null;
     if (this.host.placeCooldown > 0) return this.pause();
     return this.apply(this.brew.brewUse(hit.x, hit.y, hit.z, held), held);
   }

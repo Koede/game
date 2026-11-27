@@ -3,7 +3,8 @@ import { PHONE_MAX_RENDER_DISTANCE, isTouchFirst, type Settings } from '../../co
 import { Segmented, Slider, Toggle } from '../kit/controls';
 import { h } from '../kit/dom';
 import { formatPercent } from '../kit/format';
-import { DIFFICULTY_OPTIONS, difficultyHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
+import { PRESETS, applyPreset, detectPreset, presetById, type PresetId } from './settingsPresets';
+import { COLOR_MODE_OPTIONS, DIFFICULTY_OPTIONS, colorModeHint, GRAPHICS_OPTIONS, ITEM_MAGNET_OPTIONS, LOOT_FILTER_OPTIONS, difficultyHint, graphicsHint, itemMagnetHint, lootFilterHint, UI_SCALE_OPTIONS, uiScaleHint } from './settingsText';
 
 /** Ranges the sliders offer. Values outside them (from an old save) are shown clamped by the slider. */
 export const SETTINGS_LIMITS = {
@@ -11,6 +12,8 @@ export const SETTINGS_LIMITS = {
   fov: { min: 55, max: 100, step: 1 },
   sensitivity: { min: 0.2, max: 3, step: 0.1 },
   volume: { min: 0, max: 1, step: 0.05 },
+  textScale: { min: 0.85, max: 1.6, step: 0.05 },
+  hudScale: { min: 0.8, max: 1.5, step: 0.05 },
 } as const;
 
 export interface SettingsPanelOptions {
@@ -18,9 +21,12 @@ export interface SettingsPanelOptions {
   settings: Settings;
   /** Called on EVERY change (also while a slider is dragged) with a fresh copy and the key that changed. */
   onChange: (settings: Settings, key: keyof Settings) => void;
+  /** With a world open: the Dev Mode switch (on, off, any time). Absent on the title screen, where the mode is chosen for a new world. */
+  dev?: { get(): boolean; set(on: boolean): void };
 }
 
 const speed = (v: number): string => `${v.toFixed(1)}×`;
+const percent = (v: number): string => `${Math.round(v * 100)}%`;
 
 /** A mouse (or trackpad) is attached: without one the mouse setting means nothing to the player. */
 const hasMouse = (): boolean => typeof matchMedia !== 'function' || matchMedia('(any-pointer: fine)').matches;
@@ -30,6 +36,8 @@ export class SettingsPanel {
   private current: Settings;
   private readonly onChange: (settings: Settings, key: keyof Settings) => void;
   private readonly sync: (() => void)[] = [];
+  /** Keeps the Quick setup row honest when a single value is changed by hand. */
+  private refreshPresets: (() => void) | null = null;
 
   constructor(opts: SettingsPanelOptions) {
     this.current = { ...opts.settings };
@@ -38,11 +46,13 @@ export class SettingsPanel {
     this.el = h(
       'div',
       { class: 'hw-settings' },
-      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint)),
+      this.section('Quick setup', this.presets()),
+      this.section('Game', this.choice('difficulty', 'Difficulty', DIFFICULTY_OPTIONS, difficultyHint), this.choice('itemMagnet', 'Item magnet', ITEM_MAGNET_OPTIONS, itemMagnetHint), this.choice('lootFilter', 'Loot', LOOT_FILTER_OPTIONS, lootFilterHint), opts.dev ? this.devSwitch(opts.dev) : null),
       this.section(
         'View',
-        this.choice('uiScale', 'UI size', UI_SCALE_OPTIONS, uiScaleHint),
+        this.choice('uiScale', 'Text and button size', UI_SCALE_OPTIONS, uiScaleHint),
         this.slider('renderDistance', 'Render distance', 'How far the world is drawn (phones start at 4, computers at 6). Lower it if the game stutters.', { ...L.renderDistance, max: isTouchFirst() ? PHONE_MAX_RENDER_DISTANCE : L.renderDistance.max }, (v) => `${v} chunks`),
+        this.choice('graphics', 'Graphics', GRAPHICS_OPTIONS, graphicsHint),
         this.slider('fov', 'Field of view', '', L.fov, (v) => `${v}°`),
         this.toggle('showFps', 'Show frame rate', ''),
       ),
@@ -50,8 +60,25 @@ export class SettingsPanel {
         'Controls',
         hasMouse() ? this.slider('mouseSensitivity', 'Mouse look speed', '', L.sensitivity, speed) : null,
         this.slider('touchSensitivity', 'Touch look speed', '', L.sensitivity, speed),
-        this.toggle('invertY', 'Invert vertical look', ''),
+            this.toggle('invertY', 'Invert vertical look', ''),
         this.touchControls(),
+        this.oneHanded(),
+      ),
+      this.section(
+        'Accessibility',
+        this.toggle('reduceMotion', 'Reduce motion', 'No view bob, sprint zoom, landing dip, flashes, pulses or sliding. Bars and counters still update.'),
+        this.choice('colorMode', 'Colour-blind palette', COLOR_MODE_OPTIONS, colorModeHint),
+        this.slider('textScale', 'Text size', 'Scales every word in the menus and the HUD.', L.textScale, percent),
+        this.slider('hudScale', 'HUD and button size', 'Scales the meters, hotbar, compass and the touch buttons.', L.hudScale, percent),
+        this.toggle('tapToMove', 'Tap to move', 'Tap the ground to walk there. Touching the stick or a key stops the walk. A tap no longer presses Use: use the Use button.'),
+      ),
+      this.section(
+        'Feel',
+        this.toggle('moveAssist', 'Forgiving jumps', 'A jump pressed just after leaving a ledge, or just before landing, still counts.'),
+        this.toggle('autoStep', 'Auto-step', 'Walk up one-block ledges without jumping (on by default on phones).'),
+        this.toggle('haptics', 'Vibration', 'Short buzzes on phones for mining, crafting and getting hurt.'),
+        this.toggle('autoBuck', 'Auto-buck felled trees', 'A felled log is cut into pieces as soon as it lands. Off: cut it piece by piece with the axe.'),
+        this.toggle('treeDamage', 'Tree damage to me', 'Falling trees hurt you and animals under them. Off for a relaxed game; trees still fall.'),
       ),
       this.section('Sound', this.slider('volume', 'Volume', '', L.volume, formatPercent)),
     );
@@ -72,6 +99,7 @@ export class SettingsPanel {
     if (this.current[key] === value) return;
     this.current = { ...this.current, [key]: value };
     this.onChange({ ...this.current }, key);
+    this.refreshPresets?.();
   }
 
   private section(title: string, ...rows: (HTMLElement | null)[]): HTMLElement {
@@ -89,31 +117,32 @@ export class SettingsPanel {
   }
 
   /** A segmented choice whose hint says what the picked value means (Difficulty, UI size). */
-  private choice<K extends 'difficulty' | 'uiScale'>(
+  private choice<K extends 'difficulty' | 'uiScale' | 'colorMode' | 'itemMagnet' | 'lootFilter' | 'graphics'>(
     key: K,
     label: string,
     options: readonly { value: Settings[K]; label: string }[],
     hintOf: (value: Settings[K]) => string,
   ): HTMLElement {
     const hint = h('div', { class: 'hw-setting__hint', text: hintOf(this.current[key]) });
-    const seg = new Segmented<Settings[K]>({
+    // Segmented works on strings; every choice in this row is a string union (Graphics is optional on Settings, hence the casts).
+    const seg = new Segmented<string>({
       label,
-      options: [...options],
-      value: this.current[key],
+      options: options.map((o) => ({ value: o.value as string, label: o.label })),
+      value: this.current[key] as string,
       onChange: (v) => {
-        hint.textContent = hintOf(v);
-        this.change(key, v);
+        hint.textContent = hintOf(v as Settings[K]);
+        this.change(key, v as Settings[K]);
       },
     });
     this.sync.push(() => {
-      seg.set(this.current[key]);
+      seg.set(this.current[key] as string);
       hint.textContent = hintOf(this.current[key]);
     });
     return this.row(label, hint, seg.el, true);
   }
 
   private slider(
-    key: 'renderDistance' | 'fov' | 'mouseSensitivity' | 'touchSensitivity' | 'volume',
+    key: 'renderDistance' | 'fov' | 'mouseSensitivity' | 'touchSensitivity' | 'volume' | 'textScale' | 'hudScale',
     label: string,
     hint: string,
     limits: { min: number; max: number; step: number },
@@ -124,10 +153,59 @@ export class SettingsPanel {
     return this.row(label, hint, slider.el, true);
   }
 
-  private toggle(key: 'invertY' | 'showFps', label: string, hint: string): HTMLElement {
+  private toggle(key: 'invertY' | 'showFps' | 'moveAssist' | 'autoStep' | 'reduceMotion' | 'tapToMove' | 'haptics' | 'autoBuck' | 'treeDamage', label: string, hint: string): HTMLElement {
     const toggle = new Toggle({ label, value: this.current[key], onChange: (v) => this.change(key, v) });
     this.sync.push(() => toggle.set(this.current[key]));
     return this.row(label, hint, toggle.el, false);
+  }
+
+  /** Phone: light / Phone: pretty / Desktop in one tap; shows none picked once a slider has been moved by hand. */
+  private presets(): HTMLElement {
+    const label = 'Quick setup';
+    const touch = isTouchFirst();
+    const pick = (): PresetId => (detectPreset(this.current, touch) ?? 'custom') as PresetId;
+    const hintOf = (id: PresetId | 'custom'): string => (id === 'custom' ? 'Pick one to set the view distance and picture width. You can still fine-tune below.' : presetById(id).hint);
+    const hint = h('div', { class: 'hw-setting__hint', text: hintOf(pick()) });
+    const seg = new Segmented<PresetId>({
+      label,
+      options: PRESETS.map((p) => ({ value: p.id, label: p.label })),
+      value: pick(),
+      onChange: (id) => {
+        const next = applyPreset(this.current, id, touch);
+        for (const key of ['renderDistance', 'fov', 'showFps'] as const) this.change(key, next[key]);
+        for (const fn of this.sync) fn();
+      },
+    });
+    this.refreshPresets = () => {
+      seg.set(pick());
+      hint.textContent = hintOf(pick());
+    };
+    this.sync.push(this.refreshPresets);
+    return this.row(label, hint, seg.el, true);
+  }
+
+  /** Dev Mode: creative items, no damage or hunger, free building, flight. Off again with the same switch. */
+  private devSwitch(dev: { get(): boolean; set(on: boolean): void }): HTMLElement {
+    const label = 'Dev Mode';
+    const toggle = new Toggle({ label, value: dev.get(), onChange: (v) => dev.set(v) });
+    this.sync.push(() => toggle.set(dev.get()));
+    return this.row(label, 'Creative item menu, no damage or hunger, free building and flight. Switch it off again here to play as survival.', toggle.el, false);
+  }
+
+  private oneHanded(): HTMLElement {
+    const label = 'One-handed layout';
+    const seg = new Segmented<Settings['oneHanded']>({
+      label,
+      options: [
+        { value: 'off', label: 'Off' },
+        { value: 'left', label: 'Left' },
+        { value: 'right', label: 'Right' },
+      ],
+      value: this.current.oneHanded,
+      onChange: (v) => this.change('oneHanded', v),
+    });
+    this.sync.push(() => seg.set(this.current.oneHanded));
+    return this.row(label, 'Puts the stick and the buttons under one thumb. Look by dragging the upper screen.', seg.el, true);
   }
 
   private touchControls(): HTMLElement {

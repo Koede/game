@@ -5,12 +5,14 @@
  * chunks count as solid walls, so the player never falls through terrain that is not there yet. DOM-free and
  * allocation-free per step.
  */
-import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
+import { GRAVITY, JUMP_VELOCITY, PLAYER_EYE, SNEAK_SPEED_MULT, SPRINT_SPEED, SWIM_SPEED, WALK_SPEED } from '../core/constants';
 import { blockOf } from '../core/registry';
 import { WORLD_HEIGHT, type IWorld } from '../core/types';
 import { fallDamage, springFallAllowance, type PlayerState } from '../game';
+import { GLIDE_FALL_SPEED, GLIDE_S, LightTrail, featherfallNegates, glides } from '../game/enchantEffects';
 import { currentAt } from '../world/water';
-import { EPS, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
+import { JumpAssist } from './jumpAssist';
+import { EPS, HALF_WIDTH, boxIntersectsCell, overlapsLoadedSolid, solidHeight, sweepAxis } from './collision';
 
 /** What the physics needs from this frame's intent. */
 export interface MoveInput {
@@ -19,6 +21,8 @@ export interface MoveInput {
   moveZ: number;
   jump: boolean;
   sprint: boolean;
+  /** Creep: slow, and never walk off an edge. Optional (absent = not sneaking). */
+  sneak?: boolean;
 }
 
 /** What happened during one step (the same object is reused by every call). */
@@ -35,6 +39,7 @@ export interface StepResult {
   /** The player was out of the world and was put back at the spawn. */
   fellOut: boolean;
   sprinting: boolean;
+  sneaking: boolean;
 }
 
 /** Largest distance moved in one sub-step along any axis. */
@@ -47,6 +52,12 @@ export const FLY_RESPONSE = 10;
 export const FLY_SPEED_MULT = 1.8;
 /** Highest ledge (in blocks) walked onto without jumping: a slab. */
 export const STEP_HEIGHT = 0.5 + 0.02;
+/** Highest ledge walked onto with Auto-step on: one full block. */
+export const AUTO_STEP_HEIGHT = 1 + 0.02;
+/** How high the player steps up onto a ledge without jumping. */
+export const stepLift = (autoStep: boolean): number => (autoStep ? AUTO_STEP_HEIGHT : STEP_HEIGHT);
+/** Sneaking stops at an edge with a drop of at least this many blocks below (a slab is walked down). */
+export const SNEAK_DROP = 0.6;
 /** How quickly horizontal velocity follows the intent (1/s) on the ground, in the air and in liquids. */
 const GROUND_RESPONSE = 14;
 const AIR_RESPONSE = 2.5;
@@ -57,6 +68,10 @@ const LIQUID_DRAG = 4;
 const SWIM_UP_SPEED = 3.2;
 const SWIM_UP_RESPONSE = 8;
 const LEDGE_CLIMB_SPEED = 6.5;
+/** Pushing into a climbable bank while swimming lifts you at this speed even without Space (shoreline exit). */
+const BANK_EXIT_SPEED = 5;
+/** How many blocks above the waist a bank's top may be for the shoreline lift. */
+const BANK_SCAN = 3;
 /** Below this the player is out of the world (y < 0 is solid, so this only catches bugs and teleports). */
 const OUT_OF_WORLD_Y = -8;
 /** Height above the feet sampled to decide whether the body is in a liquid (waist) and in water (feet / chest). */
@@ -69,7 +84,7 @@ const FALLING_WATER_PUSH = 10;
 const CURRENT_SAMPLES = [0.1, WAIST] as const;
 
 export class PlayerPhysics {
-  readonly result: StepResult = { landedFrom: 0, jumped: false, enteredWater: false, walked: 0, steppedUp: 0, fellOut: false, sprinting: false };
+  readonly result: StepResult = { landedFrom: 0, jumped: false, enteredWater: false, walked: 0, steppedUp: 0, fellOut: false, sprinting: false, sneaking: false };
   /** The body is in any liquid (water or lava): swimming rules apply. */
   inLiquid = false;
   /** Highest feet position since the player last stood on something (for fall damage). */
@@ -78,6 +93,18 @@ export class PlayerPhysics {
   private blocked = false;
   /** Extra safe fall height earned in this fall from a boosted (Spring) jump; spent on landing. */
   private fallAllowance = 0;
+  /** Featherfall II: seconds of glide left in this airtime (refilled on landing). */
+  private glideLeft = GLIDE_S;
+  /** Lightstep: the lit trail behind the player (src/game/enchantEffects.ts). */
+  private readonly trail: LightTrail;
+  /** Coyote time and jump buffering (the Movement assist setting). */
+  readonly jumpAssist = new JumpAssist();
+  assist = true;
+  /** Walk onto one-block ledges without jumping (the Auto-step setting). */
+  autoStep = false;
+  /** Sneaking this step (set by step): moves that would drop off an edge are cut off. */
+  private sneaking = false;
+  private readonly probe = { x: 0, y: 0, z: 0 };
   /** The current where the body is this step (m/s; y -1 = under a waterfall). */
   readonly current = { x: 0, y: 0, z: 0 };
 
@@ -86,12 +113,15 @@ export class PlayerPhysics {
     private readonly player: PlayerState,
   ) {
     this.fallTop = player.position.y;
+    this.trail = new LightTrail(world);
   }
 
   /** Forget the fall in progress (after a teleport or respawn). */
   reset(): void {
     this.fallTop = this.player.position.y;
     this.fallAllowance = 0;
+    this.glideLeft = GLIDE_S;
+    this.jumpAssist.reset();
     this.player.velocity.x = this.player.velocity.y = this.player.velocity.z = 0;
   }
 
@@ -115,6 +145,7 @@ export class PlayerPhysics {
     r.steppedUp = 0;
     r.fellOut = false;
     r.sprinting = false;
+    r.sneaking = false;
     const p = this.player;
     const pos = p.position;
     const v = p.velocity;
@@ -136,15 +167,19 @@ export class PlayerPhysics {
     const wishX = cos * input.moveX - sin * input.moveZ;
     const wishZ = -sin * input.moveX - cos * input.moveZ;
     // A Hungry player cannot sprint (spec 12.1).
-    r.sprinting = input.sprint && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
+    r.sneaking = !!input.sneak && !this.inLiquid && !(p.flying && p.dev);
+    this.sneaking = r.sneaking;
+    r.sprinting = input.sprint && !r.sneaking && input.moveZ > SPRINT_MIN_FORWARD && !this.inLiquid && !p.hungry;
     p.sprinting = r.sprinting;
-    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : WALK_SPEED) * p.buffs.speedMult * (p.flying && p.dev ? FLY_SPEED_MULT : 1);
+    const speed = (this.inLiquid ? SWIM_SPEED : r.sprinting ? SPRINT_SPEED : r.sneaking ? WALK_SPEED * SNEAK_SPEED_MULT : WALK_SPEED) * p.buffs.speedMult * (p.flying && p.dev ? FLY_SPEED_MULT : 1);
     const response = this.inLiquid ? LIQUID_RESPONSE : p.onGround ? GROUND_RESPONSE : AIR_RESPONSE;
     const blend = 1 - Math.exp(-response * dt);
     // Flowing water at the feet or the waist carries the body along (what it would do with no input).
     const c = this.sampleCurrent();
     v.x += (wishX * speed + c.x - v.x) * blend;
     v.z += (wishZ * speed + c.z - v.z) * blend;
+
+    const jumpNow = this.jumpAssist.update(dt, input.jump, p.onGround, this.assist);
 
     // Vertical.
     if (p.flying && p.dev) {
@@ -157,16 +192,22 @@ export class PlayerPhysics {
       else v.y = (v.y - LIQUID_SINK * dt) * Math.exp(-LIQUID_DRAG * dt);
       if (c.y < 0) v.y -= FALLING_WATER_PUSH * dt;
     } else {
-      if (input.jump && p.onGround) {
+      if (jumpNow) {
         v.y = JUMP_VELOCITY * p.buffs.jumpMult;
         r.jumped = true;
       }
       v.y = Math.max(v.y - GRAVITY * dt, -MAX_FALL_SPEED);
+      // Featherfall II: holding Jump on the way down slows the fall, for GLIDE_S per airtime.
+      if (glides(p.heldStack()) && input.jump && !p.onGround && v.y < 0 && this.glideLeft > 0) {
+        v.y = Math.max(v.y, -GLIDE_FALL_SPEED);
+        this.glideLeft -= dt;
+      }
     }
 
     const wasOnGround = p.onGround;
-    this.integrate(dt, wasOnGround, input.jump);
+    this.integrate(dt, wasOnGround, input.jump, Math.hypot(input.moveX, input.moveZ) > 0.3);
     this.sampleLiquids();
+    this.trail.step(dt, pos, p.heldStack());
 
     // Fall tracking: the highest point since last standing; water breaks every fall.
     if (this.inLiquid) {
@@ -179,16 +220,18 @@ export class PlayerPhysics {
     } else {
       if (!wasOnGround) {
         r.landedFrom = Math.max(0, this.fallTop - pos.y);
-        const damage = fallDamage(r.landedFrom, this.fallAllowance);
+        // Featherfall: the held tool takes the fall (no health lost); the landing is still counted for the camera.
+        const damage = featherfallNegates(p.heldStack()) ? 0 : fallDamage(r.landedFrom, this.fallAllowance);
         if (damage > 0) p.damage(damage, 'fall');
       }
       this.fallTop = pos.y;
       this.fallAllowance = 0;
+      this.glideLeft = GLIDE_S;
     }
     return r;
   }
 
-  private integrate(dt: number, wasOnGround: boolean, jumpHeld: boolean): void {
+  private integrate(dt: number, wasOnGround: boolean, jumpHeld: boolean, pushing: boolean): void {
     const p = this.player;
     const pos = p.position;
     const v = p.velocity;
@@ -211,9 +254,18 @@ export class PlayerPhysics {
       const beforeX = pos.x;
       const beforeZ = pos.z;
       const beforeY = pos.y;
+      const guard = this.sneaking && (wasOnGround || grounded) && this.supported();
       this.moveAxis(0, sx);
+      if (guard && !this.supported()) {
+        pos.x = beforeX;
+        v.x = 0;
+      }
       let blockedX = this.blocked;
       this.moveAxis(2, sz);
+      if (guard && !this.supported()) {
+        pos.z = beforeZ;
+        v.z = 0;
+      }
       let blockedZ = this.blocked;
       if ((blockedX || blockedZ) && (wasOnGround || grounded) && !this.inLiquid) {
         const climbed = this.tryStep(beforeX, beforeY, beforeZ, sx, sz);
@@ -230,7 +282,12 @@ export class PlayerPhysics {
     if (hitX) v.x = 0;
     if (hitZ) v.z = 0;
     // Pushing into a bank while swimming up climbs out onto it.
-    if (this.inLiquid && jumpHeld && (hitX || hitZ)) v.y = Math.max(v.y, LEDGE_CLIMB_SPEED);
+    // Space climbs any bank; merely swimming into one with room to stand on top lifts you out too, so nobody is
+    // stuck at a shoreline on a touch screen. Walking into a bank off the bottom (wading) needs no Space either.
+    if (this.inLiquid && (hitX || hitZ)) {
+      if (jumpHeld) v.y = Math.max(v.y, LEDGE_CLIMB_SPEED);
+      else if (pushing && this.bankAhead(hitX ? Math.sign(dx) : 0, hitZ ? Math.sign(dz) : 0)) v.y = Math.max(v.y, BANK_EXIT_SPEED);
+    }
     p.onGround = grounded;
   }
 
@@ -247,7 +304,7 @@ export class PlayerPhysics {
     pos.x = x0;
     pos.y = y0;
     pos.z = z0;
-    const lifted = this.moveAxis(1, STEP_HEIGHT);
+    const lifted = this.moveAxis(1, stepLift(this.autoStep));
     this.moveAxis(0, sx);
     this.moveAxis(2, sz);
     this.moveAxis(1, -lifted);
@@ -257,6 +314,34 @@ export class PlayerPhysics {
     pos.y = plainY;
     pos.z = plainZ;
     return 0;
+  }
+
+  /**
+   * A bank you can climb out onto: in the direction (dx, dz) the waist-height cell is solid and the two cells above
+   * it are free (room to stand on top). Pure lookups, no allocation.
+   */
+  bankAhead(dx: number, dz: number): boolean {
+    if (dx === 0 && dz === 0) return false;
+    const pos = this.player.position;
+    const x = Math.floor(pos.x + dx * (HALF_WIDTH + 0.1));
+    const z = Math.floor(pos.z + dz * (HALF_WIDTH + 0.1));
+    const y = Math.floor(pos.y + WAIST);
+    if (this.solidHeight(x, y, z) < 1) return false;
+    // Scan up the wall for the first spot with standing room, at most a few blocks above the waist.
+    for (let k = 1; k <= BANK_SCAN; k++) {
+      if (this.solidHeight(x, y + k, z) === 0) return this.solidHeight(x, y + k + 1, z) === 0;
+    }
+    return false;
+  }
+
+  /** Whether ground lies within sneaking reach below the feet (a drop of a block or more is an edge). */
+  private supported(): boolean {
+    const pos = this.player.position;
+    const q = this.probe;
+    q.x = pos.x;
+    q.y = pos.y;
+    q.z = pos.z;
+    return sweepAxis(this.world, q, 1, -SNEAK_DROP) !== -SNEAK_DROP;
   }
 
   /** Sweeps the box along one axis; sets `blocked` when the move was cut short. */

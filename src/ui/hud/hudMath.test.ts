@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DAY_LENGTH_S, SUNSET_AT } from '../../core/constants';
-import { FEED_LINGER_MS, FEED_MAX, GainFeed, dayInfo, formatCountdown, frostLevel, relativeBearing, summarizeGrid, untilLabel, wrapAngle } from './hudMath';
+import { FEED_LINGER_MS, FEED_MAX, GainFeed, PICKUP_BATCH_MS, dayInfo, formatCountdown, frostLevel, relativeBearing, summarizeGrid, untilLabel, wrapAngle } from './hudMath';
 
 const net = (o: Partial<Parameters<typeof summarizeGrid>[0][number]>) => ({
   generationW: 0, demandW: 0, deliveredW: 0, storedJ: 0, capacityJ: 0, satisfaction: 1, overloaded: false, ...o,
@@ -86,22 +86,41 @@ describe('frostLevel', () => {
 });
 
 describe('GainFeed', () => {
-  it('adds repeated gains of an item into one line and moves it last', () => {
+  const parts = (feed: GainFeed) => feed.entries.map((e) => e.parts.map((p) => [p.item, p.count]));
+
+  it('merges the pickups of one second into one line, adding up an item already in it', () => {
     const feed = new GainFeed();
     feed.push('oak_log', 1, 0);
-    feed.push('flint', 1, 10);
-    feed.push('oak_log', 2, 20);
-    expect(feed.entries.map((e) => [e.item, e.count])).toEqual([['flint', 1], ['oak_log', 3]]);
-    expect(feed.entries[1].rev).toBe(1);
+    feed.push('flint', 1, 400);
+    feed.push('oak_log', 2, 900);
+    expect(parts(feed)).toEqual([[['oak_log', 3], ['flint', 1]]]);
+    expect(feed.entries[0].rev).toBe(2);
+  });
+
+  it('opens a new line for a pickup a second or more after the line began', () => {
+    const feed = new GainFeed();
+    feed.push('oak_log', 1, 0);
+    feed.push('stone', 4, PICKUP_BATCH_MS);
+    expect(parts(feed)).toEqual([[['oak_log', 1]], [['stone', 4]]]);
   });
 
   it('keeps at most FEED_MAX lines and expires old ones', () => {
     const feed = new GainFeed();
-    for (let i = 0; i < FEED_MAX + 2; i++) feed.push(`item_${i}`, 1, i);
+    for (let i = 0; i < FEED_MAX + 2; i++) feed.push(`item_${i}`, 1, i * PICKUP_BATCH_MS);
     expect(feed.entries).toHaveLength(FEED_MAX);
-    expect(feed.entries[0].item).toBe('item_2');
-    expect(feed.expire(FEED_LINGER_MS + 3)).toBe(true);
-    expect(feed.entries.map((e) => e.item)).toEqual(['item_3', 'item_4', 'item_5', 'item_6']);
-    expect(feed.expire(FEED_LINGER_MS + 3)).toBe(false);
+    expect(feed.entries[0].parts[0].item).toBe('item_2');
+    // Lines last FEED_LINGER_MS after their last gain: at 7 s the ones from 2 s and 3 s are gone.
+    expect(feed.expire(7000)).toBe(true);
+    expect(feed.entries.map((e) => e.parts[0].item)).toEqual(['item_4', 'item_5', 'item_6']);
+    expect(feed.expire(7000)).toBe(false);
+  });
+});
+
+import { isVitalCalm } from './hudMath';
+describe('vital calm', () => {
+  it('dims only nearly full bars', () => {
+    expect(isVitalCalm(1)).toBe(true);
+    expect(isVitalCalm(0.85)).toBe(true);
+    expect(isVitalCalm(0.6)).toBe(false);
   });
 });

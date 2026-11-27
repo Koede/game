@@ -2,6 +2,7 @@
 import type { ToastKind } from '../../core/gameEvents';
 import { h, prefersReducedMotion, setText } from './dom';
 import { ItemIcon, glyph, type GlyphName } from './icons';
+import { TOAST_MAX_VISIBLE, evictionIndex, shortenToast, toastDuration } from './toastPolicy';
 
 export * from './tooltip';
 
@@ -10,17 +11,18 @@ export interface ToastOptions {
   kind?: ToastKind;
   /** Item key: shows that item's icon in the toast. */
   item?: string;
-  /** How long it stays. Default 3200 ms (warn and bad: 4500 ms). */
+  /** How long it stays. Default: 2.4 s for good news, 3.6 s for warnings, a little longer for longer text (see toastPolicy). */
   durationMs?: number;
 }
 
 export interface ToastsOptions {
-  /** Most toasts on screen at once; the oldest makes room. Default 4. */
+  /** Most toasts on screen at once; the oldest calm one makes room. Default 3. */
   max?: number;
 }
 
 interface ToastEntry {
   key: string;
+  kind: ToastKind;
   el: HTMLDivElement;
   countEl: HTMLSpanElement;
   count: number;
@@ -41,15 +43,16 @@ export class Toasts {
 
   /** `host` is the layer to draw in (normally `UIRoot.layers.toasts`). */
   constructor(host: HTMLElement, opts: ToastsOptions = {}) {
-    this.max = opts.max ?? 4;
+    this.max = opts.max ?? TOAST_MAX_VISIBLE;
     this.el = h('div', { class: 'hw-toasts', attrs: { role: 'status', 'aria-live': 'polite' } });
     host.appendChild(this.el);
   }
 
   show(toast: ToastOptions): void {
     const kind = toast.kind ?? 'info';
-    const duration = toast.durationMs ?? (kind === 'warn' || kind === 'bad' ? 4500 : 3200);
-    const key = `${kind}|${toast.item ?? ''}|${toast.text}`;
+    const text = shortenToast(toast.text);
+    const duration = toast.durationMs ?? toastDuration(kind, text.length);
+    const key = `${kind}|${toast.item ?? ''}|${text}`;
     const existing = this.entries.find((e) => e.key === key);
     if (existing) {
       existing.count++;
@@ -65,13 +68,13 @@ export class Toasts {
       'div',
       { class: 'hw-toast', attrs: { 'data-kind': kind } },
       toast.item ? new ItemIcon(toast.item).el : h('span', { class: 'hw-toast__mark' }, glyph(KIND_GLYPH[kind], 14)),
-      h('span', { class: 'hw-toast__text', text: toast.text }),
+      h('span', { class: 'hw-toast__text', text, attrs: text === toast.text ? {} : { title: toast.text } }),
       countEl,
     );
-    const entry: ToastEntry = { key, el, countEl, count: 1, timer: setTimeout(() => this.dismiss(entry), duration) };
+    const entry: ToastEntry = { key, kind, el, countEl, count: 1, timer: setTimeout(() => this.dismiss(entry), duration) };
     this.entries.push(entry);
     this.el.appendChild(el);
-    while (this.entries.length > this.max) this.remove(this.entries[0]);
+    while (this.entries.length > this.max) this.remove(this.entries[evictionIndex(this.entries.map((e) => e.kind))]);
   }
 
   /** Removes every toast immediately. */

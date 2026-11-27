@@ -2,9 +2,11 @@
  * Per-block-id lookup tables for the hot loops of lighting and meshing. Every table has 1024 entries so a
  * masked voxel id can index it without a bounds check; ids without a block behave like air.
  */
-import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK } from '../core/brewing';
+import { CUP_STAGES, cupStageOfBlock, KETTLE_BLOCK, STEAM_KETTLE_BLOCK } from '../core/brewing';
 import { BLOCKS, blockOrNull, faceLayer, isFluidEndpoint, isItemEndpoint } from '../core/registry';
 import { VOXEL_ID_MASK, type BlockShape, type Face, type Facing } from '../core/types';
+import { STATUS_COUNT, voxelStatus } from '../core/machineStatus';
+import { glassFamily, glassModelIndex, glassPorts } from './glassModels';
 import { isStationShape, stationIndex } from './stationShapes';
 
 const SIZE = VOXEL_ID_MASK + 1;
@@ -19,10 +21,15 @@ export const SHAPE_SLAB = 6;
 export const SHAPE_PIPE = 7;
 export const SHAPE_CUP = 8;
 export const SHAPE_BUCKET = 9;
+export const SHAPE_FENCE = 10;
+export const SHAPE_STAIRS = 11;
+export const SHAPE_SLOPE = 12;
+export const SHAPE_GLASS = 13;
+export const SHAPE_DOOR = 14;
 const SHAPE_CODES: Record<BlockShape, number> = {
   none: SHAPE_NONE, cube: SHAPE_CUBE, liquid: SHAPE_LIQUID, cross: SHAPE_CROSS, torch: SHAPE_TORCH, cable: SHAPE_CABLE, slab: SHAPE_SLAB,
   pipe: SHAPE_PIPE,
-  cup: SHAPE_CUP, bucket: SHAPE_BUCKET,
+  cup: SHAPE_CUP, bucket: SHAPE_BUCKET, fence: SHAPE_FENCE, stairs: SHAPE_STAIRS, slope: SHAPE_SLOPE, glass: SHAPE_GLASS, door: SHAPE_DOOR,
 };
 
 export const BATCH_OPAQUE = 0;
@@ -50,9 +57,11 @@ export const LIQUID = new Uint8Array(SIZE);
 export const POWERED = new Uint8Array(SIZE);
 /** 1 for non-opaque blocks that hide the faces between two blocks of the same id (liquids, glass). */
 export const MERGES = new Uint8Array(SIZE);
-/** Transport families (spec 16), as bits: PIPE_ITEM, PIPE_FLUID. */
+/** Transport families (spec 16), as bits: PIPE_ITEM, PIPE_FLUID, PIPE_AIR. */
 export const PIPE_ITEM = 1;
 export const PIPE_FLUID = 2;
+/** The air family (BRONZE_PLAN 5.3): air tubes and the blocks they join. It never joins item or fluid pipes. */
+export const PIPE_AIR = 4;
 /** The family of a pipe block (0 for anything else). */
 export const PIPE_FAMILY = new Uint8Array(SIZE);
 /**
@@ -62,6 +71,15 @@ export const PIPE_FAMILY = new Uint8Array(SIZE);
 export const PIPE_JOINS = new Uint8Array(SIZE);
 /** 1 for pipe endpoints (not pipes): an arm meeting one gets a collar. */
 export const PIPE_ENDPOINT = new Uint8Array(SIZE);
+/** 1 for blocks a fence grows an arm towards: other fences and every opaque cube. */
+export const FENCE_JOINS = new Uint8Array(SIZE);
+/** Glassware (meshGlass.ts): a tube arm towards every neighbour with GLASS_JOINS set; GLASS_MODEL is its model index (glassModels.ts). */
+export const GLASS_JOINS = new Uint8Array(SIZE);
+export const GLASS_MODEL = new Uint8Array(SIZE);
+/** Port bits of a glass piece's model (glassModels.ts): a joint shows on a face only where both pieces have a port facing each other. */
+export const GLASS_PORTS = new Uint8Array(SIZE);
+/** Glass family code (glassModels.ts FAMILY_CODE): joints form only between pieces of one family. */
+export const GLASS_FAMILY = new Uint8Array(SIZE);
 /** Colour of the light a block emits: 0 warm firelight, 1 cyan, 2 violet (cool glows of caves, spec 14). */
 export const LIGHT_HUE = new Uint8Array(SIZE);
 export const HUE_CYAN = 1;
@@ -84,11 +102,18 @@ export const BUCKET_KETTLE = 2;
 /** Bits 10-12 of a voxel (facing and active flag) select one of 8 visual states. */
 export const voxelState = (v: number): number => (v >> 10) & 7;
 const STATES = 8;
-/** Texture layer per (id, state, face): index with `faceSlot(v) + face`. */
-export const FACE_LAYER = new Uint16Array(BLOCKS.length * STATES * 6);
+/** Per block: 7 when it has machine status looks (voxel bits 13-15 pick them), else 0 (those bits mean something else, or nothing). */
+export const STATUS_MASK = new Uint8Array(BLOCKS.length);
+/** Codes past the defined statuses (a damaged save) read as no status. */
+const STATUS_FOLD = Uint8Array.from({ length: 8 }, (_, i) => (i < STATUS_COUNT ? i : 0));
+/** Texture layer per (id, status, state, face): index with `faceSlot(v) + face`. */
+export const FACE_LAYER = new Uint16Array(BLOCKS.length * STATUS_COUNT * STATES * 6);
 /** 1 where that face shows the block's glowing "active" texture while the voxel emits light. */
-export const FACE_GLOW = new Uint8Array(BLOCKS.length * STATES * 6);
-export const faceSlot = (v: number): number => ((v & VOXEL_ID_MASK) * STATES + voxelState(v)) * 6;
+export const FACE_GLOW = new Uint8Array(BLOCKS.length * STATUS_COUNT * STATES * 6);
+export const faceSlot = (v: number): number => {
+  const id = v & VOXEL_ID_MASK;
+  return ((id * STATUS_COUNT + STATUS_FOLD[voxelStatus(v) & STATUS_MASK[id]]) * STATES + voxelState(v)) * 6;
+};
 
 for (const def of BLOCKS) {
   const id = def.id;
@@ -102,10 +127,16 @@ for (const def of BLOCKS) {
   const glassPipe = def.pipe?.family === 'item';
   BATCH[id] = def.translucent || glassPipe ? BATCH_TRANSLUCENT : def.shape === 'cross' || def.shape === 'torch' || def.shape === 'cup' || def.shape === 'bucket' ? BATCH_CUTOUT : BATCH_OPAQUE;
   POWERED[id] = def.power ? 1 : 0;
+  FENCE_JOINS[id] = def.shape === 'fence' || def.opaque ? 1 : 0;
+  GLASS_JOINS[id] = def.shape === 'glass' ? 1 : 0;
+  GLASS_MODEL[id] = def.shape === 'glass' ? glassModelIndex(def.key) : 0;
+  GLASS_PORTS[id] = def.shape === 'glass' ? glassPorts(def.key) : 0;
+  GLASS_FAMILY[id] = def.shape === 'glass' ? glassFamily(def.key) : 0;
   MERGES[id] = !def.opaque && (def.shape === 'liquid' || def.shape === 'cube') ? 1 : 0;
   if (def.pipe) PIPE_FAMILY[id] = PIPE_JOINS[id] = def.pipe.family === 'item' ? PIPE_ITEM : PIPE_FLUID;
+  else if (def.air?.role === 'tube') PIPE_FAMILY[id] = PIPE_JOINS[id] = PIPE_AIR;
   else {
-    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0);
+    PIPE_JOINS[id] = (isItemEndpoint(def) ? PIPE_ITEM : 0) | (isFluidEndpoint(def) ? PIPE_FLUID : 0) | (def.air ? PIPE_AIR : 0);
     PIPE_ENDPOINT[id] = PIPE_JOINS[id] !== 0 ? 1 : 0;
   }
   GLOWS[id] = def.shape === 'cross' && def.light > 0 ? 1 : 0;
@@ -117,18 +148,25 @@ for (const def of BLOCKS) {
     LIGHT_CLASS[id] = LIGHT_CLEAR;
   }
   if (def.shape === 'cup') CUP_STAGE[id] = 1 + CUP_STAGES.indexOf(cupStageOfBlock(def.key) ?? 'cup');
-  if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
-  for (let state = 0; state < STATES; state++) {
-    const facing = (state & 3) as Facing;
-    const active = (state & 4) !== 0;
-    for (let face = 0; face < 6; face++) {
-      const slot = (id * STATES + state) * 6 + face;
-      const layer = faceLayer(def, face as Face, facing, active);
-      FACE_LAYER[slot] = layer;
-      FACE_GLOW[slot] = active && def.lightActive > 0 && layer !== faceLayer(def, face as Face, facing, false) ? 1 : 0;
+  if (def.shape === 'bucket') BUCKET_KIND[id] = def.key === KETTLE_BLOCK || def.key === STEAM_KETTLE_BLOCK ? BUCKET_KETTLE : def.key.endsWith('_boiling') ? BUCKET_BOILING : BUCKET_COLD;
+  if (def.layersStatus.length > 1) STATUS_MASK[id] = 7;
+  for (let status = 0; status < (STATUS_MASK[id] ? STATUS_COUNT : 1); status++) {
+    for (let state = 0; state < STATES; state++) {
+      const facing = (state & 3) as Facing;
+      const active = (state & 4) !== 0;
+      for (let face = 0; face < 6; face++) {
+        const slot = ((id * STATUS_COUNT + status) * STATES + state) * 6 + face;
+        const layer = faceLayer(def, face as Face, facing, active, status);
+        FACE_LAYER[slot] = layer;
+        FACE_GLOW[slot] = status === 0 && active && def.lightActive > 0 && layer !== faceLayer(def, face as Face, facing, false) ? 1 : 0;
+      }
     }
   }
 }
+/** Texture slots the glassware meshes borrow for their parts (meshGlass.ts): clear glass and brass. */
+const slotOfKey = (key: string): number => (blockOrNull(key)?.id ?? 0) * STATUS_COUNT * STATES * 6;
+export const GLASSWARE_GLASS_SLOT = slotOfKey('glassware_glass');
+export const GLASSWARE_METAL_SLOT = slotOfKey('glassware_brass');
 for (const [key, hue] of Object.entries(COOL_EMITTERS)) {
   const def = blockOrNull(key);
   if (def) LIGHT_HUE[def.id] = hue;

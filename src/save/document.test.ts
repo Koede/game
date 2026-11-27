@@ -69,12 +69,27 @@ describe('settings', () => {
     expect(sanitizeSettings({ renderDistance: 7.6 }).renderDistance).toBe(8);
   });
 
+  it('keeps the accessibility switches and reads their absence as off', () => {
+    const back = sanitizeSettings({ reduceMotion: true, colorMode: 'blue-yellow', tapToMove: true, textScale: 1.3, hudScale: 1.25 });
+    expect([back.reduceMotion, back.colorMode, back.tapToMove, back.textScale, back.hudScale]).toEqual([true, 'blue-yellow', true, 1.3, 1.25]);
+    // The old single switch reads as the red-green palette; sizes are clamped to what the sliders offer.
+    expect(sanitizeSettings({ colorSafe: true }).colorMode).toBe('red-green');
+    expect(sanitizeSettings({ colorMode: 'sepia' }).colorMode).toBe('off');
+    const wild = sanitizeSettings({ textScale: 9, hudScale: 0.1 });
+    expect([wild.textScale, wild.hudScale]).toEqual([1.6, 0.8]);
+    expect(sanitizeSettings({ reduceMotion: 'yes' }).reduceMotion).toBe(false);
+  });
+
   it('keeps difficulty and UI size, and reads settings saved before them as Normal and normal', () => {
     const old = { renderDistance: 6, fov: 72, mouseSensitivity: 1, touchSensitivity: 1, invertY: false, volume: 0.8, touchControls: 'auto', showFps: false };
-    expect(sanitizeSettings(old)).toEqual({ ...old, difficulty: 'normal', uiScale: 'normal' });
+    expect(sanitizeSettings(old)).toEqual({ ...DEFAULT_SETTINGS, ...old, difficulty: 'normal', uiScale: 'normal' });
+    expect(sanitizeSettings({ oneHanded: 'right' }).oneHanded).toBe('right');
+    expect(sanitizeSettings({ oneHanded: 'sideways' }).oneHanded).toBe('off');
     const back = sanitizeSettings(JSON.parse(JSON.stringify({ ...DEFAULT_SETTINGS, difficulty: 'hard', uiScale: 'large' })));
     expect([back.difficulty, back.uiScale]).toEqual(['hard', 'large']);
     expect(sanitizeSettings({ difficulty: 'nightmare', uiScale: 3 })).toEqual(DEFAULT_SETTINGS);
+    expect(sanitizeSettings({ graphics: 'low' }).graphics).toBe('low');
+    expect(sanitizeSettings({ graphics: 'ultra' }).graphics).toBe('normal');
     expect(sanitizeSettings({ difficulty: 'peaceful' }).difficulty).toBe('peaceful');
   });
 });

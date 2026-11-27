@@ -5,9 +5,11 @@
  * FUEL_GRADES there (chainsaw and tractor read it).
  */
 import { ELIXIR_STRENGTH_ADD, ELIXIR_TIME_MULT, ESSENCE_DRINKS } from '../core/distill';
-import type { ItemSpec } from '../core/types';
+import type { FuelSpec, ItemSpec } from '../core/types';
 
 const beaker = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'material', age: 0, stack: 16 });
+/** A refined fuel in its container burns in a furnace firebox or a burner generator, and the container comes back. */
+const burns = (energyKJ: number, burnS: number, flameTempC: number, fuelReturns: string): FuelSpec => ({ energyJ: energyKJ * 1000, burnS, flameTempC, fuelReturns });
 const can = (key: string, name: string, desc: string): ItemSpec => ({ key, name, desc, category: 'material', age: 2, stack: 8 });
 
 export const DISTILL_ITEMS: ItemSpec[] = [
@@ -15,12 +17,12 @@ export const DISTILL_ITEMS: ItemSpec[] = [
   beaker('wash_beaker', 'Sugar Wash', 'A beaker of fermented wash, a little alcohol in a lot of water. Distil it at 97 C into Low Wines.'),
   beaker('low_wines_beaker', 'Low Wines', 'A beaker of weak first-run spirit. Distil it again at 92 C into Spirit.'),
   beaker('spirit_beaker', 'Spirit', 'A beaker of clear distilled spirit, more than half alcohol.'),
-  { ...beaker('fuel_ethanol_beaker', 'Fuel Ethanol', 'Nearly pure alcohol from a column still. It burns clean: a weak fuel for the chainsaw and the tractor.'), age: 2 },
+  { ...beaker('fuel_ethanol_beaker', 'Fuel Ethanol', 'Nearly pure alcohol from a column still. It burns clean: a weak fuel for the chainsaw, the tractor and the combustion engine.'), age: 2, fuel: burns(250, 50, 1100, 'glass_beaker') },
   can('empty_canister', 'Empty Canister', 'A steel canister for 1000 litres. Fill it at a receiver, a tank, a pump or an oil pool.'),
   can('crude_canister', 'Crude Oil Canister', 'A canister of black crude oil. Pour it into a flask under a column of three segments and refine it at 350 C.'),
-  can('gasoline_canister', 'Gasoline Canister', 'Light, golden gasoline from the top of the column. The best chainsaw fuel; the tractor runs on it too.'),
-  can('kerosene_canister', 'Kerosene Canister', 'Pale kerosene, the middle cut of crude oil. Lamp and heater fuel to come.'),
-  can('diesel_canister', 'Diesel Canister', 'Heavy amber diesel from the lowest cut. The tractor goes half again as far on it; a chainsaw cannot burn it.'),
+  { ...can('gasoline_canister', 'Gasoline Canister', 'Light, golden gasoline from the top of the column. The best chainsaw fuel; the tractor and the combustion engine run on it too.'), fuel: burns(1200, 100, 1450, 'empty_canister') },
+  { ...can('kerosene_canister', 'Kerosene Canister', 'Pale kerosene, the middle cut of crude oil. A tractor or a combustion engine burns it like a Fuel Canister; a chainsaw cannot.'), fuel: burns(1000, 100, 1350, 'empty_canister') },
+  { ...can('diesel_canister', 'Diesel Canister', 'Heavy amber diesel from the lowest cut. The tractor and the combustion engine go half again as far on it; a chainsaw cannot burn it.'), fuel: burns(1500, 120, 1350, 'empty_canister') },
   can('residue_canister', 'Heavy Residue', 'What crude oil leaves in the flask: lube base and bitumen. A vacuum cap splits it.'),
   can('slop_canister', 'Slop Canister', 'A canister of mixed-up liquid. Pour it back into a flask and distil it again.'),
   { ...can('lube_base_canister', 'Lube Base', 'The light end of a vacuum residue run. Filter it through clay to make lubricant.'), age: 3 },

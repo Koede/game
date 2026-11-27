@@ -48,7 +48,7 @@ describe('first-load chunk rolls', () => {
       const plan = rollChunk(world, 5, cx, 7, () => 'frostfell');
       if (plan) species.add(plan.species.key);
     }
-    expect([...species]).toEqual(['goat']);
+    expect([...species].sort()).toEqual(['goat', 'snow_ox']);
     for (let cx = 0; cx < 400; cx++) expect(rollChunk(world, 5, cx, 7, () => 'nowhere' as BiomeKey)).toBeNull();
   });
 

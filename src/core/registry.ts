@@ -5,6 +5,7 @@
  * Everything outside src/content reads blocks, items and recipes through this module.
  */
 import { ITEM_ALIASES, noteLostItem } from '../content/aliases';
+import { STATUS_COUNT, statusTextureName, voxelStatus } from './machineStatus';
 import {
   AGES as AGE_SPECS,
   AUTOMATON_SPECS,
@@ -14,7 +15,11 @@ import {
   FLUID_SPECS,
   FURNACE_TIERS as FURNACE_TIER_SPECS,
   ITEM_SPECS,
+  ITEM_RARITY,
   LOOT_TABLES as LOOT_TABLE_SPECS,
+  NAMED_TABLES as NAMED_TABLE_SPECS,
+  applyNamedFind,
+  STRUCTURE_LOOT as STRUCTURE_LOOT_SPECS,
   MACHINE_SPECS,
   MOULD_SPECS,
   OBJECTIVES as OBJECTIVE_SPECS,
@@ -42,6 +47,8 @@ import {
   type ItemDef,
   type ItemSpec,
   type ItemStack,
+  type LootRarity,
+  type LootEntry,
   type LootTableSpec,
   type LiquidKind,
   type LootTier,
@@ -53,7 +60,10 @@ import {
   type CastMetalSpec,
   type MouldSpec,
   type Voxel,
+  LOOT_MAX_DEPTH,
 } from './types';
+import { enchantStack } from './enchant';
+import { maxDurabilityOf } from '../game/inventory';
 import { validateTech } from './techValidation';
 import { validateAutomaton, validateGear } from './hostileValidation';
 import { validateBrewing } from './brewValidation';
@@ -107,6 +117,20 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
   put(Face.NY, bottom, bottomA);
   put(Face.PZ, side, sideA);
   put(Face.NZ, front, frontA);
+  for (const name of t.models ?? []) layerOf(name);
+
+  // Status looks: the off textures of the faces that show a running machine (else the front), with a status badge.
+  const layersStatus: (number[] | null)[] = [null];
+  if (t.status && shape !== 'none') {
+    const names = [side, side, top, bottom, side, front];
+    const faces = [Face.PX, Face.NX, Face.PY, Face.NY, Face.PZ, Face.NZ].filter((f) => layers[f] !== layersActive[f]);
+    const shown = faces.length > 0 ? faces : spec.oriented ? [Face.NZ] : [Face.PX, Face.NX, Face.PZ, Face.NZ];
+    for (let status = 1; status < STATUS_COUNT; status++) {
+      const l = layers.slice();
+      for (const f of shown) l[f] = layerOf(statusTextureName(names[f], status));
+      layersStatus.push(l);
+    }
+  }
 
   const hasItem = spec.item ?? shape !== 'none';
   let drops: Drop[];
@@ -120,7 +144,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     name: spec.name,
     desc: spec.desc ?? '',
     shape,
-    solid: spec.solid ?? (shape === 'cube' || shape === 'slab'),
+    solid: spec.solid ?? (shape === 'cube' || shape === 'slab' || shape === 'fence' || shape === 'stairs' || shape === 'slope'),
     opaque: spec.opaque ?? shape === 'cube',
     translucent: spec.translucent ?? false,
     hardness: spec.hardness ?? 1,
@@ -144,10 +168,12 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     placeOn: spec.placeOn ?? null,
     harvestLeaves: spec.harvestLeaves ?? null,
     pipe: spec.pipe ?? null,
+    air: spec.air ?? null,
     handStation: spec.handStation ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
     layersActive,
+    layersStatus,
   };
 }
 
@@ -177,13 +203,13 @@ export const blockId = (key: string): number => block(key).id;
 export const blockOf = (v: Voxel): BlockDef => BLOCKS[voxelId(v)] ?? BLOCKS[0];
 
 /** Texture layer of one face of a block, taking its facing and active flag into account. */
-export function faceLayer(def: BlockDef, face: Face, facing: Facing, active: boolean): number {
-  const layers = active ? def.layersActive : def.layers;
+export function faceLayer(def: BlockDef, face: Face, facing: Facing, active: boolean, status = 0): number {
+  const layers = (status > 0 ? def.layersStatus[status] : null) ?? (active ? def.layersActive : def.layers);
   if (!def.oriented || face === Face.PY || face === Face.NY) return layers[face];
   return face === FACING_TO_FACE[facing] ? layers[Face.NZ] : layers[Face.PX];
 }
 export const voxelFaceLayer = (v: Voxel, face: Face): number =>
-  faceLayer(blockOf(v), face, voxelFacing(v), voxelActive(v));
+  faceLayer(blockOf(v), face, voxelFacing(v), voxelActive(v), voxelStatus(v));
 /** Light emitted by a voxel (0..15), honouring its active flag. */
 export const voxelLight = (v: Voxel): number => {
   const def = blockOf(v);
@@ -232,7 +258,7 @@ function resolveItems(): ItemDef[] {
     let iconLayer: number;
     if (spec.icon) iconLayer = layerOf(spec.icon);
     else if (placed) {
-      const cubeLike = placed.shape === 'cube' || placed.shape === 'slab' || placed.shape === 'liquid';
+      const cubeLike = placed.shape === 'cube' || placed.shape === 'slab' || placed.shape === 'liquid' || placed.shape === 'fence' || placed.shape === 'stairs' || placed.shape === 'slope';
       iconLayer = cubeLike ? -1 : placed.layers[Face.PX];
     } else iconLayer = layerOf(`item_${spec.key}`);
     return {
@@ -373,6 +399,8 @@ export const creatureOrNull = (key: string): CreatureSpec | null => creaturesByK
 
 /** The loot tables of ruin crates, one per tier. */
 export const LOOT_TABLES: readonly LootTableSpec[] = LOOT_TABLE_SPECS;
+/** The crate tables of the generated structures, by structure key (docs/SYNERGY_PLAN.md). */
+export const STRUCTURE_LOOT: Readonly<Record<string, LootTableSpec>> = STRUCTURE_LOOT_SPECS;
 /** The table of a tier. Throws when the content has none. */
 export function lootTable(tier: LootTier): LootTableSpec {
   const table = LOOT_TABLES.find((t) => t.tier === tier);
@@ -380,36 +408,147 @@ export function lootTable(tier: LootTier): LootTableSpec {
   return table;
 }
 
+/** Every table that has an id: the ruin tiers ('ruin_near', 'ruin_deep'), the structure tables (by structure key) and the named tables. */
+const lootById = new Map<string, LootTableSpec>();
+for (const t of LOOT_TABLES) lootById.set(t.id ?? `ruin_${t.tier}`, t);
+for (const [key, t] of Object.entries(STRUCTURE_LOOT)) lootById.set(t.id ?? key, t);
+for (const t of NAMED_TABLE_SPECS) if (t.id) lootById.set(t.id, t);
+/** The tables with ids that are not ruin tiers or structures (the tavern's closet and vault). */
+export const NAMED_LOOT_TABLES: readonly LootTableSpec[] = NAMED_TABLE_SPECS;
+/** Every loot table by id (tier tables as 'ruin_near' / 'ruin_deep', structure tables by structure key). Throws on an unknown id. */
+export function lootTableById(id: string): LootTableSpec {
+  const table = lootById.get(id);
+  if (!table) throw new Error(`no loot table "${id}"`);
+  return table;
+}
+/** Whether a table id exists. */
+export const hasLootTable = (id: string): boolean => lootById.has(id);
+
+const RARITY_RANK: Readonly<Record<LootRarity, number>> = { common: 0, fine: 1, rare: 2, legendary: 3 };
+/** Rarity of an item (data only, never a stack field): 'common' unless the item is named in the content's rarity list. */
+export function rarityOf(itemKey: string): LootRarity {
+  return ITEM_RARITY[itemKey] ?? 'common';
+}
+
 const rollCount = (count: number | readonly [number, number], random: () => number): number =>
   typeof count === 'number' ? count : count[0] + Math.floor(random() * (count[1] - count[0] + 1));
 
+export interface RollOptions {
+  /** 0 (default) leaves the weights as authored; each point multiplies an entry's weight by 1 + luck x its rarity rank (fine 1, rare 2, legendary 3). */
+  luck?: number;
+}
+
 /**
- * Fills a ruin crate: `rolls` weighted draws (with replacement) from the table, each of its count, merged into
- * stacks no larger than each item's stack size, in draw order (tools come with full durability). `random`
- * returns [0, 1) - pass a stream seeded
- * from the world seed and the crate's position so the same world always holds the same loot.
+ * Fills a container: the table's `guaranteed` entries first (each once), then `rolls` weighted draws (with replacement) from
+ * its entries, each of its count, merged into stacks no larger than each item's stack size, in draw order (tools come with full
+ * durability, a named find with its fixed enchants). An entry may name another table (`table`), which rolls itself once in place
+ * (depth limit LOOT_MAX_DEPTH). `random` returns [0, 1) - pass a stream seeded from the world seed and the container's position
+ * so the same world always holds the same loot. A table without guaranteed, nested or rarity data rolls exactly as it always did.
  */
-export function rollLoot(table: LootTableSpec, random: () => number): ItemStack[] {
-  const total = table.entries.reduce((sum, e) => sum + e.weight, 0);
+export function rollLoot(table: LootTableSpec, random: () => number, opts: RollOptions = {}): ItemStack[] {
   const out: ItemStack[] = [];
+  rollInto(out, table, random, opts.luck ?? 0, 0);
+  return out;
+}
+
+function addStacks(out: ItemStack[], key: string, amount: number): void {
+  let count = amount;
+  const def = item(key);
+  const stack = def.stack;
+  for (const s of out) {
+    if (count === 0) break;
+    if (s.item !== key || s.count >= stack) continue;
+    const moved = Math.min(count, stack - s.count);
+    s.count += moved;
+    count -= moved;
+  }
+  for (; count > 0; count -= Math.min(count, stack)) {
+    const n = Math.min(count, stack);
+    out.push(applyNamedFind(def.tool ? { item: key, count: n, durability: def.tool.durability } : { item: key, count: n }));
+  }
+}
+
+function give(out: ItemStack[], entry: LootEntry, random: () => number, luck: number, depth: number): void {
+  if (entry.table !== undefined) {
+    rollInto(out, lootTableById(entry.table), random, luck, depth + 1);
+    return;
+  }
+  const n = rollCount(entry.count, random);
+  if (entry.enchants || entry.quality) {
+    // A special find is its own stack (never merged), a tool at its quality's full durability with whatever enchants it can take.
+    const def = item(entry.item);
+    for (let i = 0; i < n; i++) {
+      const stack: ItemStack = { item: entry.item, count: 1 };
+      if (def.tool) {
+        stack.durability = def.tool.durability;
+        if (entry.quality) {
+          stack.quality = entry.quality;
+          stack.durability = maxDurabilityOf(entry.item, entry.quality) ?? def.tool.durability;
+        }
+      }
+      for (const [k, lv] of Object.entries(entry.enchants ?? {})) enchantStack(stack, k, lv, def);
+      out.push(stack);
+    }
+    return;
+  }
+  addStacks(out, entry.item, n);
+}
+
+function rollInto(out: ItemStack[], table: LootTableSpec, random: () => number, luck: number, depth: number): void {
+  if (depth > LOOT_MAX_DEPTH) throw new Error(`loot table "${table.id ?? table.tier}" nests deeper than ${LOOT_MAX_DEPTH}`);
+  for (const g of table.guaranteed ?? []) give(out, g, random, luck, depth);
+  const weigh = luck === 0 ? (e: LootEntry) => e.weight : (e: LootEntry) => e.weight * (1 + luck * RARITY_RANK[e.rarity ?? 'common']);
+  const total = table.entries.reduce((sum, e) => sum + weigh(e), 0);
   const draws = rollCount(table.rolls, random);
   for (let d = 0; d < draws; d++) {
     let pick = random() * total;
-    const entry = table.entries.find((e) => (pick -= e.weight) < 0) ?? table.entries[table.entries.length - 1];
-    let count = rollCount(entry.count, random);
-    const def = item(entry.item);
-    const stack = def.stack;
-    for (const s of out) {
-      if (count === 0) break;
-      if (s.item !== entry.item || s.count >= stack) continue;
-      const moved = Math.min(count, stack - s.count);
-      s.count += moved;
-      count -= moved;
+    const entry = table.entries.find((e) => (pick -= weigh(e)) < 0) ?? table.entries[table.entries.length - 1];
+    give(out, entry, random, luck, depth);
+  }
+}
+
+/** Problems with the tables' entries, ids, nesting (unknown ids, cycles, depth) and the rarity list. */
+export function validateLootTables(knownItem: (k: string) => boolean, byId: ReadonlyMap<string, LootTableSpec> = lootById): string[] {
+  const problems: string[] = [];
+  const entryProblems = (name: string, e: LootEntry): void => {
+    if (e.table !== undefined) {
+      if (!byId.has(e.table)) problems.push(`loot ${name}: nested table "${e.table}" does not exist`);
+    } else {
+      if (!knownItem(e.item)) problems.push(`loot ${name}: "${e.item}" is not an item`);
+      const [lo, hi] = typeof e.count === 'number' ? [e.count, e.count] : e.count;
+      if (!(lo >= 1) || hi < lo) problems.push(`loot ${name}: ${e.item} count must be >= 1`);
     }
-    for (; count > 0; count -= Math.min(count, stack)) {
-      const n = Math.min(count, stack);
-      out.push(def.tool ? { item: entry.item, count: n, durability: def.tool.durability } : { item: entry.item, count: n });
-    }
+    if (!(e.weight > 0)) problems.push(`loot ${name}: ${e.item || e.table} needs a weight > 0`);
+    if (e.rarity !== undefined && !(e.rarity in RARITY_RANK)) problems.push(`loot ${name}: unknown rarity "${e.rarity}"`);
+  };
+  for (const [name, t] of byId) {
+    for (const e of t.entries) entryProblems(name, e);
+    for (const e of t.guaranteed ?? []) entryProblems(`${name} (guaranteed)`, e);
+    // Depth and cycles: walk the nested ids depth first from this table.
+    const walk = (cur: LootTableSpec, path: string[]): void => {
+      for (const e of [...(cur.guaranteed ?? []), ...cur.entries]) {
+        if (e.table === undefined) continue;
+        const next = byId.get(e.table);
+        if (!next) continue;
+        if (path.includes(e.table)) problems.push(`loot ${name}: nesting cycle ${[...path, e.table].join(' > ')}`);
+        else if (path.length > LOOT_MAX_DEPTH) problems.push(`loot ${name}: nests deeper than ${LOOT_MAX_DEPTH} (${[...path, e.table].join(' > ')})`);
+        else walk(next, [...path, e.table]);
+      }
+    };
+    walk(t, [name]);
+  }
+  if (byId === lootById) for (const key of Object.keys(ITEM_RARITY)) if (!knownItem(key)) problems.push(`rarity: "${key}" is not an item`);
+  return problems;
+}
+
+/** The items a table can give, nested tables and guaranteed entries included (for content tests holding every entry to an age). */
+export function lootTableItems(table: LootTableSpec, seen: ReadonlySet<LootTableSpec> = new Set()): string[] {
+  if (seen.has(table)) return [];
+  const next = new Set(seen).add(table);
+  const out: string[] = [];
+  for (const e of [...(table.guaranteed ?? []), ...table.entries]) {
+    if (e.table !== undefined) out.push(...lootTableItems(lootTableById(e.table), next));
+    else out.push(e.item);
   }
   return out;
 }
@@ -454,6 +593,7 @@ export const isFluidEndpoint = (def: BlockDef): boolean => machineOfBlock(def)?.
  * fluid pipes never join each other. (A wrench may still switch a joint off; that is per-pipe state in src/sim.)
  */
 export function pipeJoins(pipe: BlockDef, other: BlockDef): boolean {
+  if (pipe.air?.role === 'tube') return other.air !== null;
   const family = pipe.pipe?.family;
   if (!family) return false;
   if (other.pipe) return other.pipe.family === family;
@@ -495,7 +635,6 @@ export function validateContent(): string[] {
     if (it.stack < 1) problems.push(`item ${it.key}: stack must be >= 1`);
     const back = it.fuel?.fuelReturns;
     if (back !== undefined && !knownItem(back)) problems.push(`item ${it.key}: fuelReturns "${back}" is not an item`);
-    if (back !== undefined && it.stack !== 1) problems.push(`item ${it.key}: a fuel that returns its container must stack to 1`);
   }
   for (const r of RECIPES) {
     if (!knownItem(r.output.item)) problems.push(`recipe ${r.id}: output "${r.output.item}" is not an item`);
@@ -560,13 +699,8 @@ export function validateContent(): string[] {
     tiers.add(t.tier);
     if (!(t.rolls[0] >= 1) || t.rolls[1] < t.rolls[0]) problems.push(`loot ${t.tier}: rolls must be [min >= 1, max >= min]`);
     if (t.entries.length === 0) problems.push(`loot ${t.tier}: no entries`);
-    for (const e of t.entries) {
-      if (!knownItem(e.item)) problems.push(`loot ${t.tier}: "${e.item}" is not an item`);
-      if (!(e.weight > 0)) problems.push(`loot ${t.tier}: ${e.item} needs a weight > 0`);
-      const [lo, hi] = typeof e.count === 'number' ? [e.count, e.count] : e.count;
-      if (!(lo >= 1) || hi < lo) problems.push(`loot ${t.tier}: ${e.item} count must be >= 1`);
-    }
   }
+  problems.push(...validateLootTables(knownItem));
   problems.push(...validateHand({ blocks: BLOCKS, recipes: RECIPES, moulds: MOULDS, metals: CAST_METALS, item: itemOrNull, machine: (k) => MACHINES.get(k) ?? null }));
   problems.push(...validateBrewing({ items: ITEMS, knownItem, block: blockOrNull, machine: (k) => MACHINES.get(k) ?? null }));
   problems.push(...validateTech({ blocks: BLOCKS, knownBlock: (k) => blocksByKey.has(k), knownItem, fluids: FLUIDS, tiers: FURNACE_TIERS, machines: [...MACHINES.values()] }));
@@ -580,7 +714,7 @@ export function validateCreature(c: CreatureSpec): string[] {
   const knownItem = (key: string): boolean => itemsByKey.has(key);
   const problems: string[] = [];
   const at = `creature ${c.key}`;
-  if (c.biomes.length === 0) problems.push(`${at}: no biomes`);
+  if (c.biomes.length === 0 && c.pet !== true) problems.push(`${at}: no biomes`);
   for (const b of c.biomes) if (!BIOMES.has(b)) problems.push(`${at}: unknown biome "${b}"`);
   if (!(c.health > 0) || !(c.speed > 0) || !(c.size.w > 0) || !(c.size.h > 0)) problems.push(`${at}: health, speed and size must be > 0`);
   if (!(c.group[0] >= 1) || c.group[1] < c.group[0]) problems.push(`${at}: group must be [min >= 1, max >= min]`);

@@ -21,7 +21,7 @@ describe('distillery fuels in engines', () => {
       expect(itemOrNull(k), k).not.toBeNull();
       if (g.empty) expect(itemOrNull(g.empty), k).not.toBeNull();
     }
-    expect(FUEL_GRADES.fuel_canister).toEqual({ saw: 1, tractor: 1, empty: null });
+    expect(FUEL_GRADES.fuel_canister).toEqual({ saw: 1, tractor: 1, engine: 1, empty: null });
   });
 
   it('gasoline fills a chainsaw 1.3 times as far and hands the empty canister back', () => {
@@ -36,6 +36,14 @@ describe('distillery fuels in engines', () => {
     expect(isSawFuel('diesel_canister')).toBe(false);
     expect(isSawFuel('gasoline_canister')).toBe(true);
     const p = withSaw('diesel_canister');
+    expect(refuelChainsaw(p)).toBe('no-fuel');
+    expect(p.inventory.get(0)!.count).toBe(2);
+  });
+
+  it('kerosene runs a tractor one canister per canister but a chainsaw refuses it', () => {
+    expect(FUEL_GRADES.kerosene_canister).toEqual({ saw: 0, tractor: 1, engine: 1, empty: 'empty_canister' });
+    expect(isSawFuel('kerosene_canister')).toBe(false);
+    const p = withSaw('kerosene_canister');
     expect(refuelChainsaw(p)).toBe('no-fuel');
     expect(p.inventory.get(0)!.count).toBe(2);
   });

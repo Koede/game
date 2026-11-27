@@ -8,6 +8,7 @@
  */
 import type { BlockSpec, Drop } from '../core/types';
 import { EMBER_BLOCKS } from './emberbound';
+import { AIR_BLOCKS } from './blocksAir';
 import { TECH_BLOCKS } from './blocksTech';
 import { WORLD_BLOCKS } from './blocksWorld';
 import { BREW_BLOCKS } from './blocksBrew';
@@ -35,7 +36,7 @@ function furnace(tier: string, name: string, desc: string, age: number, lightAct
   return {
     key, name, desc, age, lightActive, warmthActive,
     machine: 'furnace', power: 'device', oriented: true, hardness: 3, tool: 'pickaxe', stack: 1,
-    textures: { side: `${key}_side`, top: `${key}_top`, front: `${key}_front`, frontActive: `${key}_front_on` },
+    textures: { side: `${key}_side`, top: `${key}_top`, front: `${key}_front`, frontActive: `${key}_front_on`, status: true },
   };
 }
 
@@ -44,7 +45,7 @@ function machine(key: string, name: string, desc: string, age: number, extra: Pa
   return {
     key, name, desc, age,
     machine: key, power: 'device', oriented: true, hardness: 2, tool: 'pickaxe', stack: 16,
-    textures: { side: 'machine_side', top: 'machine_top', front: `${key}_front`, frontActive: `${key}_front_on` },
+    textures: { side: 'machine_side', top: 'machine_top', front: `${key}_front`, frontActive: `${key}_front_on`, status: true },
     ...extra,
   };
 }
@@ -120,6 +121,14 @@ const LEGACY_BLOCKS: BlockSpec[] = [
     hardness: 2, tool: 'axe', textures: { side: 'oak_log_side', top: 'log_top' },
   },
   {
+    key: 'oak_stump', name: 'Oak Stump', desc: 'What is left of a felled oak: a ring of old wood. Chop it for a stick or two.',
+    hardness: 2.5, tool: 'axe', drops: [{ item: 'stick', count: [1, 2] }], textures: { side: 'oak_log_side', top: 'log_top' },
+  },
+  {
+    key: 'pine_stump', name: 'Pine Stump', desc: 'A resinous stump of a felled pine. Chop it for a stick or two.',
+    hardness: 2.5, tool: 'axe', drops: [{ item: 'stick', count: [1, 2] }], textures: { side: 'pine_log_side', top: 'log_top' },
+  },
+  {
     key: 'oak_leaves', name: 'Oak Leaves', desc: 'Broad green leaves. Stripping them yields fiber and the odd stick.',
     hardness: 0.3, drops: FOLIAGE_DROPS, textures: { all: 'oak_leaves' },
   },
@@ -183,7 +192,12 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   },
   {
     key: 'lamp', name: 'Lamp', desc: 'An electric lamp. It shines for as long as its network has power.',
-    machine: 'lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
+    age: 2, machine: 'lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
+    textures: { side: 'lamp', sideActive: 'lamp_on', top: 'machine_top' },
+  },
+  {
+    key: 'kerosene_lamp', name: 'Kerosene Lamp', desc: 'A lantern that burns Kerosene Canisters and needs no wires. Fill its slot; a canister lasts twenty minutes and leaves an empty one.',
+    machine: 'kerosene_lamp', power: 'device', hardness: 1, tool: 'pickaxe', stack: 64, lightActive: 15,
     textures: { side: 'lamp', sideActive: 'lamp_on', top: 'machine_top' },
   },
 
@@ -195,7 +209,8 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   furnace('star', 'Starhearth', 'A furnace built to hold a star. Bring it to 3000 C, feed it power, and ignite it.', 5, 15, 24),
 
   // ---- generators ----------------------------------------------------------------------------
-  machine('thermopile', 'Thermopile', "Turns a furnace's heat straight into a trickle of current. Set it against a furnace.", 0),
+  machine('thermopile', 'Thermopile', "Turns a furnace's heat straight into a trickle of current. Set it against a furnace.", 2),
+  machine('dynamo', 'Dynamo', 'Windings on an iron axle. Turned by a shaft line at 64 rpm or more, it makes up to 2 kW: the first electricity of the Forge Age.', 2),
   machine('steam_engine', 'Steam Engine', 'Boils water over the fire and spins a dynamo. It sits on top of a furnace with water at its side.', 2),
   machine('burner_generator', 'Burner Generator', 'Burns any furnace fuel for electricity, and only as fast as the network asks.', 2, { lightActive: 7 }),
   machine('water_wheel', 'Water Wheel', 'Slow, steady power from water on at least two sides. Wheels crowded together share the flow.', 2),
@@ -274,6 +289,8 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   ...GLASS_BLOCKS,
   // Appended last so no saved voxel id moves (BRONZE_PLAN W0): the Bronze Furnace is tier 2 of six.
   furnace('bronze', 'Bronze Furnace', 'Bronze plates round the firebox: 1100 C, two crucibles, and heat enough to carry to machines. It stands alone, no hearth needed.', 1, 11, 7),
+  // The Bronze Age air network (BRONZE_PLAN 4.4), after the Bronze Furnace for the same reason.
+  ...AIR_BLOCKS,
 ];
 
 /**

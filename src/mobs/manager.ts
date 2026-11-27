@@ -36,7 +36,9 @@ import {
   VOID_Y,
 } from './constants';
 import { separate } from './crowd';
+import { routinePhase, wakeUp, type MobSky } from './routine';
 import { createMob, feedRefusal, rollDrops } from './mob';
+import { YIELD_COOLDOWN_S, yieldRefusal, type YieldKind } from './yields';
 import { contactHazard, embedded, stepBody, type Hazard, type StepInfo } from './physics';
 import { advanceTimers, growUp } from './life';
 import { eagerPartnerNear, farthestWild, retireFar } from './population';
@@ -130,6 +132,8 @@ export class MobManager {
       player: { x: 0, y: 0, z: 0, yaw: 0, heldItem: () => null },
       held: null,
       mobs: this.active,
+      phase: 'day',
+      sky: { storm: false, winter: false },
       byId: (id) => this.byId.get(id),
       birth: (a, b) => this.birth(a, b),
     };
@@ -156,6 +160,15 @@ export class MobManager {
   get loaded(): readonly Mob[] {
     return this.active;
   }
+  /** Set by the game: fills in whether a storm rages and whether it is winter (routine.ts). Default: clear, no winter. */
+  skyFn: ((out: MobSky) => void) | null = null;
+  /** Set by the game: handles Use on a tame pet with something it does not eat (src/game/pets.ts). */
+  petUse: ((id: number, held: { item: string; count: number; durability?: number } | null) => 'worked' | 'refused' | null) | null = null;
+
+  pet(id: number, held: { item: string; count: number; durability?: number } | null): 'worked' | 'refused' | null {
+    return this.petUse ? this.petUse(id, held) : null;
+  }
+
   get(id: number): Mob | undefined {
     return this.byId.get(id);
   }
@@ -211,6 +224,69 @@ export class MobManager {
   }
 
   /**
+   * Hurts a creature for `damage` from (fromX, fromZ) as the player with NO hit cooldown: the burst of a legendary weapon (src/game/legendary.ts)
+   * rides on a blow that already passed the cooldown. False for an unknown or dying creature.
+   */
+  hurtExtra(id: number, damage: number, fromX: number, fromZ: number): boolean {
+    const m = this.byId.get(id);
+    if (!m || m.state === 'dying' || !(damage > 0)) return false;
+    if (m.hostile) this.hostileLayer.hurtByPlayer(m, damage);
+    else this.hurt(m, damage, fromX, fromZ, 'player');
+    return true;
+  }
+
+  /** Throws a creature `speed` blocks/s away from (fromX, fromZ) (negative: pulls it toward the point), on top of the knockback its hit already gave (a lunge's shove). */
+  shove(id: number, fromX: number, fromZ: number, speed: number): void {
+    const m = this.byId.get(id);
+    if (!m || m.state === 'dying' || !Number.isFinite(speed) || speed === 0 || m.spec.hostile?.stationary) return;
+    const dx = m.x - fromX;
+    const dz = m.z - fromZ;
+    const d = Math.hypot(dx, dz) || 1;
+    m.vx += (dx / d) * speed;
+    m.vz += (dz / d) * speed;
+  }
+
+  /** Seconds each rooted creature has left (Rootsong): its horizontal movement is zeroed every tick until it runs out. */
+  private readonly rooted = new Map<number, number>();
+
+  /** Holds a creature in place for `seconds` (an automaton is also stunned, so it stops acting). Refreshes, never stacks. */
+  root(id: number, seconds: number): void {
+    const m = this.byId.get(id);
+    if (!m || m.state === 'dying' || !(seconds > 0)) return;
+    this.rooted.set(id, Math.max(seconds, this.rooted.get(id) ?? 0));
+    if (m.hostile) m.hostile.stunS = Math.max(m.hostile.stunS, seconds);
+    m.vx = m.vz = 0;
+  }
+
+  private tickRoots(dt: number): void {
+    for (const [id, left] of this.rooted) {
+      const m = this.byId.get(id);
+      if (!m || m.state === 'dying' || left - dt <= 0) {
+        this.rooted.delete(id);
+        continue;
+      }
+      this.rooted.set(id, left - dt);
+      m.vx = m.vz = 0;
+    }
+  }
+
+  /** Living creatures (animals and automatons) within `radius` blocks of (x, z) on the flat, nearest first, `exceptId` left out. */
+  near(x: number, z: number, radius: number, exceptId = -1): { id: number; x: number; y: number; z: number }[] {
+    const out: { id: number; x: number; y: number; z: number; d: number }[] = [];
+    const r2 = radius * radius;
+    const scan = (list: readonly Mob[]): void => {
+      for (const m of list) {
+        if (m.id === exceptId || m.state === 'dying') continue;
+        const d = (m.x - x) ** 2 + (m.z - z) ** 2;
+        if (d <= r2) out.push({ id: m.id, x: m.x, y: m.y, z: m.z, d });
+      }
+    };
+    scan(this.active);
+    scan(this.hostileLayer.active);
+    return out.sort((a, b) => a.d - b.d).map(({ d: _d, ...rest }) => rest);
+  }
+
+  /**
    * The player offers `itemKey` (Use with it in hand). A liked item makes a grown, rested animal eager for
    * MOB_EAGER_S (the caller then consumes one item) and marks it as the player's (tame: never retired).
    * Otherwise refused with a short reason for a toast, before anything is used up: also when no baby could be
@@ -220,14 +296,40 @@ export class MobManager {
     const m = this.byId.get(id);
     const refused = feedRefusal(m, itemKey);
     if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing to feed' };
+    if (m.spec.pet) {
+      // A companion: the first gift makes it yours (no breeding).
+      if (!m.tame) this.bus.emit('toast', { text: `The ${m.spec.name.toLowerCase()} trusts you now. It will follow you.`, kind: 'good' });
+      m.tame = true;
+      this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
+      return { ok: true };
+    }
     if (!this.birthRoom()) return { ok: false, reason: NO_ROOM };
     m.eagerS = MOB_EAGER_S;
     m.tame = true;
+    // A fed animal gets used to the yard: it keeps near here and beds down here.
+    m.homeX = m.x;
+    m.homeZ = m.z;
+    wakeUp(m);
     this.bus.emit('sfx', { name: 'eat', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     if (!eagerPartnerNear(this.mobs, m)) {
       const name = m.spec.name.toLowerCase();
       this.bus.emit('toast', { text: `This ${name} is eager: feed another ${name} nearby`, kind: 'info' });
     }
+    return { ok: true };
+  }
+
+  /**
+   * Milk or shear an animal (yields.ts): refused with a reason for a toast while it is not ready; otherwise its timer
+   * starts and the caller hands over the item. Does not make the animal tame.
+   */
+  harvest(id: number, kind: YieldKind): FeedResult {
+    const m = this.byId.get(id);
+    const refused = yieldRefusal(m, kind);
+    if (refused !== null || !m) return { ok: false, reason: refused ?? 'Nothing there' };
+    wakeUp(m);
+    if (kind === 'milk') m.milkS = YIELD_COOLDOWN_S.milk;
+    else m.woolS = YIELD_COOLDOWN_S.wool;
+    this.bus.emit('sfx', { name: kind === 'milk' ? 'splash' : 'harvest', x: m.x, y: m.y + bodyHeight(m) * 0.6, z: m.z });
     return { ok: true };
   }
 
@@ -244,6 +346,8 @@ export class MobManager {
     const brain = this.brain;
     brain.player = player;
     brain.held = player.heldItem();
+    brain.phase = routinePhase(this.clock.timeOfDay);
+    if (this.skyFn) this.skyFn(brain.sky);
     this.despawnS -= dt;
     if (this.despawnS <= 0) {
       this.despawnS = DESPAWN_CHECK_S;
@@ -259,6 +363,7 @@ export class MobManager {
     // Every brain first, then the crowd push, then every body, so the push sees this tick's intentions.
     for (let i = 0; i < active.length; i++) this.mind(active[i], dt);
     separate(this.world, active, dt);
+    if (this.rooted.size > 0) this.tickRoots(dt);
     for (let i = 0; i < active.length; i++) this.move(active[i], dt, player);
     for (const m of this.retiring) this.removeMob(m);
     this.retiring.length = 0;

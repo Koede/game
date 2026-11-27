@@ -6,31 +6,22 @@ import type { Canvas, Painter, PainterSet } from './canvas';
 import * as P from './palette';
 import { type Ramp, shade } from './palette';
 import { icon } from './shapes';
+import { COMPOSED_ICON_BUILDS, buildItemKey } from '../../content/toolParts';
 
 type Kind = 'pickaxe' | 'axe' | 'shovel' | 'hoe';
 
 const FLINT: Ramp = [P.rgb(0x2b2c37), P.rgb(0x40424f), P.rgb(0x5a5d70), P.rgb(0x7c8198), P.rgb(0xa9afc6)];
-const HEADS: Record<string, Ramp> = { flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
+const HEADS: Record<string, Ramp> = { wooden: P.WOOD, flint: FLINT, bronze: P.BRONZE, iron: P.IRON_METAL, steel: P.STEEL };
 
-/** Axe head, hand-drawn: a crescent edge on the left, the neck wrapping the handle on the right. */
-/** Columns the axe sprite is moved right so its body sits on the handle instead of beside it. */
-const AXE_SHIFT = 3;
-const AXE = [
-  '................',
-  '..45............',
-  '.4553...........',
-  '.45332..........',
-  '.4533322222.....',
-  '.45333322222....',
-  '.4533332221.....',
-  '.45332..........',
-  '.4553...........',
-  '..45............',
-];
+/** Handle woods and binding colours of the modular builds (src/content/toolParts.ts): oak is the plain wood. */
+const HANDLE_RAMPS: Record<string, Ramp> = {
+  oak: P.WOOD,
+  pine: [P.rgb(0x7a6236), P.rgb(0x9a8048), P.rgb(0xb89c5e), P.rgb(0xd0b878), P.rgb(0xe6d298)],
+};
+const RESIN: Ramp = [P.rgb(0x6e3c0c), P.rgb(0x9a5a14), P.rgb(0xc98a22), P.rgb(0xe8b44a), P.rgb(0xfbe08a)];
 
-/** The wooden handle along the main diagonal, from (x0, y0) up to (x1, y1). */
-function handle(c: Canvas, x0: number, y0: number, x1: number, y1: number): void {
-  const w = P.WOOD;
+/** The handle along the main diagonal, from (x0, y0) up to (x1, y1), in the wood of the build. */
+function handle(c: Canvas, x0: number, y0: number, x1: number, y1: number, w: Ramp = P.WOOD): void {
   const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
   for (let i = 0; i <= steps; i++) {
     const x = Math.round(x0 + ((x1 - x0) * i) / steps);
@@ -41,6 +32,10 @@ function handle(c: Canvas, x0: number, y0: number, x1: number, y1: number): void
   c.set(x0, y0, w[0]);
   c.set(x0 + 1, y0, w[0]);
 }
+
+/** Axe geometry: the edge's distance from the handle (pixels), and the eye's position along the edge (see headShape). */
+const AXE_EDGE = 6.3;
+const AXE_EYE_U = 2.8;
 
 /** Head pixels by shape: returns 0..1 lightness for pixels inside the head, -1 outside. */
 function headShape(kind: Kind, x: number, y: number): number {
@@ -58,9 +53,19 @@ function headShape(kind: Kind, x: number, y: number): number {
     return 0.5 + (r - 10.2) / (half * 2) + (a - mid) * 0.35;
   }
   if (kind === 'axe') {
-    // The head is centred on the rod near its top end (the rod crosses the body at about (11, 5)), blade facing away.
-    const d = AXE[y]?.[x - AXE_SHIFT];
-    return d === undefined || d === '.' ? -1 : (Number(d) - 1) / 4;
+    // The head sits square on the handle: its cutting edge runs across the handle, perpendicular to it, on the blade side
+    // (up-left). `s` is the distance out from the handle's centre line towards the edge, `u` the position along the edge,
+    // measured from the eye where the haft passes through the head (about pixel (10, 6)).
+    const X = x + 0.5;
+    const Y = y + 0.5;
+    const s = (17.5 - (X + Y)) / Math.SQRT2;
+    const u = (X - Y) / Math.SQRT2 - AXE_EYE_U;
+    if (s < -1.4 || s > AXE_EDGE) return -1;
+    if (s < 0.9) return Math.abs(u) > 1.5 ? -1 : 0.3; // the poll wraps the haft behind the eye
+    const t = (s - 0.9) / (AXE_EDGE - 0.9);
+    if (Math.abs(u) > 1.3 + 2.1 * t) return -1; // the blade flares out towards the edge
+    if (s > AXE_EDGE - 0.8) return 0.97; // the bright cutting edge
+    return u < -0.3 ? 0.62 : u > 0.3 ? 0.3 : 0.5;
   }
   if (kind === 'hoe') {
     // A thin flat blade set square to the handle at its top end, its sharpened edge at the far (lower right) end.
@@ -84,16 +89,16 @@ function headShape(kind: Kind, x: number, y: number): number {
   return across < 0 ? 0.65 : 0.35;
 }
 
-function tool(c: Canvas, kind: Kind, material: string): void {
+function tool(c: Canvas, kind: Kind, material: string, wood: Ramp = P.WOOD, resin = false): void {
   const r = HEADS[material];
-  if (kind === 'shovel') handle(c, 6, 8, 13, 1);
-  else if (kind === 'hoe') handle(c, 1, 14, 10, 5);
-  else if (kind === 'axe') handle(c, 2, 14, 13, 3);
-  else handle(c, 1, 14, 10, 5);
+  if (kind === 'shovel') handle(c, 6, 8, 13, 1, wood);
+  else if (kind === 'hoe') handle(c, 1, 14, 10, 5, wood);
+  else if (kind === 'axe') handle(c, 2, 14, 13, 3, wood);
+  else handle(c, 1, 14, 10, 5, wood);
   if (kind === 'shovel') {
-    c.rect(12, 0, 4, 1, P.WOOD[3]);
-    c.rect(12, 1, 1, 1, P.WOOD[1]);
-    c.rect(15, 1, 1, 1, P.WOOD[1]);
+    c.rect(12, 0, 4, 1, wood[3]);
+    c.rect(12, 1, 1, 1, wood[1]);
+    c.rect(15, 1, 1, 1, wood[1]);
   }
   c.each((x, y) => {
     const v = headShape(kind, x, y);
@@ -103,12 +108,19 @@ function tool(c: Canvas, kind: Kind, material: string): void {
     return r[Math.max(0, Math.min(4, Math.floor(v * 4.99)))];
   });
   // Binding at the joint: cord lashing for flint, a bright wedge for cast metal.
-  const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [11, 5] : kind === 'hoe' ? [10, 4] : [6, 8];
-  if (material === 'flint') {
+  const [jx, jy] = kind === 'pickaxe' ? [9, 5] : kind === 'axe' ? [10, 6] : kind === 'hoe' ? [10, 4] : [6, 8];
+  if (material === 'flint' || material === 'wooden') {
     c.set(jx, jy, P.CLOTH[3]);
     c.set(jx + 1, jy + 1, P.CLOTH[1]);
     c.set(jx - 1, jy + 1, P.CLOTH[2]);
   } else c.set(jx, jy, shade(r[4], 0.4));
+  // A resin binding: an amber bead of it at the joint and a drip down the haft.
+  if (resin) {
+    c.set(jx, jy, RESIN[3]);
+    c.set(jx + 1, jy + 1, RESIN[2]);
+    c.set(jx - 1, jy + 1, RESIN[1]);
+    c.set(jx - 1, jy + 2, RESIN[4]);
+  }
 }
 
 function powerDrill(c: Canvas): void {
@@ -130,11 +142,29 @@ function powerDrill(c: Canvas): void {
   c.set(6, 5, P.SOOT);
 }
 
+/** The belt pouch (src/content/itemsHand.ts): a leather bag with a buckled flap. */
+function beltPouch(c: Canvas): void {
+  const L = [P.rgb(0x3a2214), P.rgb(0x58361f), P.rgb(0x7a4e2c), P.rgb(0x9a6a3e), P.rgb(0xb98c5c)];
+  c.rect(3, 6, 10, 8, L[2]);
+  c.rect(3, 6, 1, 8, L[1]);
+  c.rect(12, 6, 1, 8, L[0]);
+  c.rect(3, 13, 10, 1, L[0]);
+  c.rect(2, 3, 12, 4, L[3]);
+  c.rect(2, 3, 12, 1, L[4]);
+  c.rect(2, 6, 12, 1, L[0]);
+  c.rect(7, 7, 2, 2, P.IRON_METAL[4]);
+}
+
 const tools: Record<string, Painter> = {};
 for (const material of Object.keys(HEADS)) {
   for (const kind of ['pickaxe', 'axe', 'shovel'] as const) tools[`item_${material}_${kind}`] = icon((c) => tool(c, kind, material));
 }
 // Hoes (spec 12.4) come in flint, bronze and iron only.
-for (const material of ['flint', 'bronze', 'iron']) tools[`item_${material}_hoe`] = icon((c) => tool(c, 'hoe', material));
+for (const material of ['wooden', 'flint', 'bronze', 'iron']) tools[`item_${material}_hoe`] = icon((c) => tool(c, 'hoe', material));
 
-export const TOOL_ICONS: PainterSet = { ...tools, item_power_drill: icon(powerDrill) };
+// Composed icons of the modular builds: the head's own shape and metal on the build's handle wood and binding.
+for (const b of COMPOSED_ICON_BUILDS) {
+  tools[`item_${buildItemKey(b)}`] = icon((c) => tool(c, b.kind as Kind, b.head, HANDLE_RAMPS[b.handle], b.binding === 'resin'));
+}
+
+export const TOOL_ICONS: PainterSet = { ...tools, item_power_drill: icon(powerDrill), item_belt_pouch: icon(beltPouch) };

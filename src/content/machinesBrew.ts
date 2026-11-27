@@ -41,7 +41,7 @@ export const BREW_MACHINES: MachineSpec[] = [
   //   drainL     litres an empty container takes out as boiling water, once it is boiling
   //   heatDrawW  watts it draws from the furnace while it holds water
   {
-    kind: 'kettle', name: 'Kettle Pot', role: 'brew', blocks: ['kettle_pot'],
+    kind: 'kettle', name: 'Kettle Pot', role: 'brew', blocks: ['kettle_pot', 'steam_kettle'],
     params: { boilC: KETTLE_BOIL_C, capacityL: 4000, fillL: 1000, drainL: 1000, heatDrawW: 600 },
     desc: 'Set it on the furnace and pour water in. Once it boils, an empty bucket takes out boiling water.',
     placementHint: 'Stands on top of a furnace.',

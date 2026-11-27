@@ -68,6 +68,21 @@ export class Driver {
     await this.touchEvent('touchEnd');
   }
 
+  /**
+   * A quick tap: a finger down, a short beat, up. Both events go out without waiting for the page between them. A busy page
+   * (a software-GL run) acks each touch 100-250 ms late, and awaiting the ack put that delay between the two timestamps, so
+   * the game read the tap as a long press (a hold, not a use). The browser stamps each event when it is sent.
+   */
+  async tapFinger(id, x, y) {
+    this.cdp ??= await this.page.context().newCDPSession(this.page);
+    this.points.set(id, { x, y, id, radiusX: 8, radiusY: 8, force: 1 });
+    const down = this.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [...this.points.values()] });
+    await sleep(60);
+    this.points.delete(id);
+    const up = this.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [...this.points.values()] });
+    await Promise.all([down, up]);
+  }
+
   /** Centre of an element, for fingers. */
   async centerOf(selector) {
     const box = await this.page.locator(selector).first().boundingBox();
@@ -182,9 +197,7 @@ export class Driver {
       await this.press(this.page.locator('[data-hw-touch="use"]'));
     } else {
       const p = this.worldPoint();
-      await this.fingerDown(3, p.x, p.y);
-      await sleep(60);
-      await this.fingerUp(3);
+      await this.tapFinger(3, p.x, p.y);
     }
   }
 
@@ -232,6 +245,12 @@ export class Driver {
     // A flower or a tuft of grass in front of the block: pull it up, then look again.
     const cover = (await this.state()).target;
     if (!cover || (cover.x === pos.x && cover.y === pos.y && cover.z === pos.z)) return false;
+    // A wall torch in the line (the tavern is lit with them): a player would knock it off first.
+    if (cover.block === 'torch') {
+      await this.hw((b) => window.__hw.setVoxel(b.x, b.y, b.z, 'air'), cover);
+      await this.settle(200);
+      return this.aimAt(pos);
+    }
     const replaceable = await this.hw((b) => {
       const g = window.__hw.getBlock(b.x, b.y, b.z);
       return g.replaceable === true && g.block !== 'water' && g.block !== 'lava';

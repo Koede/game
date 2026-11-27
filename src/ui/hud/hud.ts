@@ -11,14 +11,22 @@ import type { PlayerState } from '../../game/playerState';
 import type { Survival } from '../../game/survival';
 import { h, setFlag, setText } from '../kit/dom';
 import type { UIRoot } from '../kit/root';
-import { applyUiScale } from '../kit/uiScale';
+import { applyAccessibility, applyUiScale } from '../kit/uiScale';
+import { TapMarker, type TapGoalView } from './tapMarker';
 import { CombatCues } from './combatCues';
 import { parseTargetName, type TargetInfo } from './combatMath';
 import { Compass } from './compass';
 import { Crosshair } from './crosshair';
+import { ScanFx } from './scanFx';
+import type { ScanDone, ScanProgress } from '../../magic/magic';
 import { FeedView, Vignettes } from './feed';
 import { GoalTracker } from './goal';
 import { Hotbar } from './hotbar';
+import { BuildChip } from './buildChip';
+import { TownChip, type TownChipInfo } from './townChip';
+import { HumChip } from './humChip';
+import { NudgeBar } from './nudge';
+import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
 import combatCss from './combat.css';
 import { summarizeGrid } from './hudMath';
@@ -27,6 +35,7 @@ import { cropLabel } from './cropText';
 import type { UISimQuery } from './query';
 import { DayDial, PowerStrip } from './status';
 import { Vitals } from './vitals';
+import { NpcDialogue } from './npcDialogue';
 
 export interface HudDeps {
   bus: GameBus;
@@ -36,11 +45,17 @@ export interface HudDeps {
   clock: GameClock;
   objectives: ObjectiveTracker;
   survival: Survival;
+  /** A hard-winter goal that takes the goal plate while the season asks for it; null or missing = the guided goal. */
+  winterGoal?: () => { title: string; text: string } | null;
   /** The current simulation query (it can be swapped after the HUD exists). */
   sim: () => UISimQuery;
   input: InputState;
   /** The world's weather (spec 15) for the dial's glyph and moon; null or missing = none. */
   weather?: () => WeatherState | null;
+  /** The town chip under the goal tracker: the camp goal or the building going up; null hides it. */
+  town?: () => TownChipInfo | null;
+  /** Where tap to move is walking to, or null (the controller's TapMove; the HUD draws a ring there). */
+  tapGoal?: () => TapGoalView | null;
 }
 
 const SLOW_S = 0.125;
@@ -61,12 +76,27 @@ export class Hud {
   private readonly deps: HudDeps;
   private readonly root: UIRoot;
   private readonly top: HTMLDivElement;
+  private readonly devBtn: HTMLButtonElement;
+  private readonly dialogue: NpcDialogue;
   private readonly vitals = new Vitals();
+  /** The heat view chip (src/ui/hud/vitals.ts): `onHeatToggle` is set by the game, `setHeatView` mirrors the state on the chip. */
+  set onHeatToggle(fn: (() => void) | null) {
+    this.vitals.onHeatToggle = fn;
+  }
+  setHeatView(on: boolean): void {
+    this.vitals.heatOn = on;
+  }
   private readonly goal: GoalTracker;
+  private readonly townChip: TownChip;
   private readonly compass = new Compass();
+  private readonly quick: QuickCraft;
+  private readonly build: BuildChip;
+  private readonly hum: HumChip;
+  private readonly nudge: NudgeBar;
   private readonly dial = new DayDial();
   private readonly power = new PowerStrip();
   private readonly crosshair = new Crosshair();
+  private readonly scanFx = new ScanFx();
   private readonly feed = new FeedView();
   private readonly vignettes = new Vignettes();
   private readonly hotbar: Hotbar;
@@ -76,6 +106,7 @@ export class Hud {
   private readonly offs: (() => void)[] = [];
   private readonly observer: ResizeObserver | null;
   private slow = SLOW_S;
+  private readonly tapMark = new TapMarker();
   /** Work done at the aimed hand station, 0..1, or -1 when the target is not one at work. */
   private workFraction = -1;
   private gridTimer = GRID_S;
@@ -87,6 +118,8 @@ export class Hud {
   private blockName: string | null = null;
   private mining = -1;
   private nameOverride: string | null = null;
+  /** The rarity tint of the override (a dropped item under the aim), or null. */
+  private nameRarity: string | null = null;
   /** The creature named by the override ("Forge Warden - 9/16"), shown with a health bar. */
   private creature: TargetInfo | null = null;
   private readonly cues: CombatCues;
@@ -108,7 +141,12 @@ export class Hud {
     this.deps = deps;
     const bus = deps.bus;
     this.goal = new GoalTracker(bus);
+    this.townChip = new TownChip(bus);
     this.hotbar = new Hotbar(deps.player, bus);
+    this.quick = new QuickCraft(deps.player, bus);
+    this.build = new BuildChip(deps.world, deps.player, bus);
+    this.hum = new HumChip(bus);
+    this.nudge = new NudgeBar(deps.world, deps.player, deps.objectives);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
     this.auraEl = h('div', { class: 'hw-aura hw-hud-plate', attrs: { role: 'status' } });
@@ -117,9 +155,11 @@ export class Hud {
       'div',
       { class: 'hw-hud__top' },
       h('div', { class: 'hw-hud__left' }, this.vitals.el, this.fpsEl),
-      h('div', { class: 'hw-hud__mid' }, this.goal.el),
-      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl),
+      h('div', { class: 'hw-hud__mid' }, this.goal.el, this.townChip.el, this.nudge.el),
+      h('div', { class: 'hw-hud__right' }, this.compass.el, this.dial.el, this.power.el, this.auraEl, this.quick.el, this.build.el, this.hum.el),
     );
+    this.devBtn = this.devButton(bus);
+    this.devBtn.hidden = !deps.player.dev;
     const bottom = h('div', { class: 'hw-hud__bottom' }, this.hotbar.el);
     this.cues = new CombatCues(this.top, bottom, () => deps.input.touch);
     this.el = h(
@@ -129,11 +169,14 @@ export class Hud {
       this.cues.el,
       this.top,
       this.crosshair.el,
+      this.scanFx.el,
+      this.tapMark.el,
       bottom,
       this.coach.el,
-      deps.player.dev ? this.devButton(bus) : null,
+      this.devBtn,
     );
     root.layers.hud.appendChild(this.el);
+    this.dialogue = new NpcDialogue(bus, this.el);
     // The feed shares the toast layer's column on narrow screens, so gains and toasts never cover each other.
     root.layers.toasts.appendChild(this.feed.el);
 
@@ -158,7 +201,7 @@ export class Hud {
       bus.on('mob:died', ({ id }) => this.cues.forget(id)),
       bus.on('player:death', () => this.cues.clear()),
       bus.on('player:respawn', () => this.cues.clear()),
-      bus.on('settings:changed', () => applyUiScale(root.el, deps.settings.uiScale)),
+      bus.on('settings:changed', () => { applyUiScale(root.el, deps.settings.uiScale); applyAccessibility(root.el, deps.settings); }),
       bus.on('inventory:changed', () => (this.hotbarDirty = true)),
       bus.on('hotbar:selected', () => (this.hotbarDirty = true)),
       bus.on('power:alert', (a) => {
@@ -167,16 +210,30 @@ export class Hud {
         if (a.kind !== 'meltdown_warning') this.toast(a.message, a.kind === 'recovered' ? 'good' : a.kind === 'overload' ? 'bad' : 'warn');
       }),
     );
+    if (typeof window !== 'undefined') window.addEventListener('keydown', this.onKey);
     // Toasts and banners start below whatever the HUD keeps along the top edge.
     this.observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => this.placeToasts()) : null;
     this.observer?.observe(this.top);
     applyUiScale(root.el, deps.settings.uiScale);
+    applyAccessibility(root.el, deps.settings);
     this.update();
   }
+
+  /** Build / quick-craft shortcuts (Z undo, C mark, V paste, N what next, X repeat the last hand recipe) while no screen is open. */
+  private readonly onKey = (e: KeyboardEvent): void => {
+    const tag = (e.target as HTMLElement | null)?.tagName;
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (this.screenOpen || this.deps.input.paused || this.deps.player.dead) return;
+    if (e.code === 'KeyN') this.nudge.toggle();
+    else if (e.code === 'KeyX') this.quick.repeat();
+    else this.build.key(e.code);
+  };
 
   frame(dt: number): void {
     const d = this.deps;
     this.compass.aim(d.player);
+    this.tapMark.update(d.tapGoal?.() ?? null, { x: d.player.position.x, y: d.player.eyeY, z: d.player.position.z }, d.player.yaw, d.player.pitch, d.settings.fov, window.innerWidth / Math.max(1, window.innerHeight));
+    this.nudge.frame(dt);
     this.coach.look(d.player.yaw, d.player.pitch, d.input.touch);
     if (this.hotbarDirty) {
       this.hotbarDirty = false;
@@ -227,11 +284,12 @@ export class Hud {
 
   /**
    * A name that replaces the block's under the crosshair (an animal: "Goat - 6/8"), or null to show the block
-   * again. Cheap to call every frame: the label only changes when the text does.
+   * again. `rarity` tints a dropped item's name. Cheap to call every frame: the label only changes when the text does.
    */
-  setTargetName(name: string | null): void {
+  setTargetName(name: string | null, rarity: string | null = null): void {
     if (name !== this.nameOverride) this.creature = parseTargetName(name);
     this.nameOverride = name;
+    this.nameRarity = rarity;
     this.showTarget();
   }
 
@@ -250,14 +308,21 @@ export class Hud {
     }
   }
 
+  /** The notebook scan over the crosshair (`Magic.scanProgress` / `scanResult`); call every frame, idle it is two comparisons. */
+  setScan(progress: ScanProgress | null, done: ScanDone | null): void {
+    this.scanFx.update(progress, done, performance.now());
+    this.crosshair.el.toggleAttribute('data-scan', progress !== null);
+  }
+
   private showTarget(): void {
     const name = this.nameOverride ?? this.blockName;
     // Mining fills the ring; so does the work bar of a hand station (Hand Quern - wheat 3/6 strokes).
     const mining = this.nameOverride !== null ? -1 : this.mining >= 0 ? this.mining : this.workFraction;
-    const key = `${name}|${mining}`;
+    const rarity = this.nameOverride !== null ? this.nameRarity : null;
+    const key = `${name}|${mining}|${rarity}`;
     if (key === this.targetKey) return;
     this.targetKey = key;
-    this.crosshair.set(name, mining, this.nameOverride !== null ? this.creature : null);
+    this.crosshair.set(name, mining, this.nameOverride !== null ? this.creature : null, rarity);
   }
 
   /** A stroke, a finished job or a take at the aimed station: the aiming line follows at once, not on the slow tick. */
@@ -303,16 +368,24 @@ export class Hud {
     for (const off of this.offs) off();
     this.offs.length = 0;
     this.observer?.disconnect();
+    if (typeof window !== 'undefined') window.removeEventListener('keydown', this.onKey);
+    this.build.dispose();
+    this.hum.dispose();
     this.hotbar.dispose();
+    this.dialogue.dispose();
     this.feed.el.remove();
     this.el.remove();
   }
 
   private update(): void {
     const d = this.deps;
+    this.devBtn.hidden = !d.player.dev;
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
-    this.goal.update(d.objectives);
+    this.goal.update(d.objectives, d.winterGoal?.() ?? null);
+    this.townChip.update(d.town?.() ?? null);
+    this.quick.update();
+    this.build.update();
     const home = d.player.home;
     this.compass.update(d.player, home ? d.sim().furnaceAt(home.x, home.y, home.z) : null);
     this.dial.update(d.clock.timeOfDay, d.clock.day, d.weather?.() ?? null);
@@ -324,6 +397,7 @@ export class Hud {
     this.cues.setBurning(d.player.combat.burning);
     // Settings are read by reference: a change made anywhere (title, pause menu) shows within a slow tick.
     applyUiScale(this.root.el, d.settings.uiScale);
+    applyAccessibility(this.root.el, d.settings);
     this.feed.tick();
     // The goal tip waits for the first finished goal (the list is built on each read: ask only until then).
     if (!this.goalDone && d.objectives.completed.length > 0) {

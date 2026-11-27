@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GRAVITY, JUMP_VELOCITY, MAX_HEALTH, SPRINT_SPEED, WALK_SPEED } from '../core/constants';
 import { createBus } from '../core/context';
+import { blockId, blockOf } from '../core/registry';
+import { Facing, makeVoxel } from '../core/types';
 import { PlayerPhysics, STEP_HEIGHT } from './physics';
 import { flatWorld, idle, makePlayer, PatchyWorld } from './testKit';
 import { WATER_FALLING, WATER_SOURCE, flowingWater } from '../world/water';
@@ -140,6 +142,45 @@ describe('walls and ceilings', () => {
   });
 });
 
+describe('stairs', () => {
+  const stair = (world: ReturnType<typeof flatWorld>, x: number, y: number, z: number, facing: Facing): void =>
+    void world.setVoxel(x, y, z, makeVoxel(blockId('plank_stairs'), facing), 'sim');
+
+  it('walks up a flight of stairs without jumping, half a block at a time', () => {
+    const world = flatWorld();
+    // Walking north (-Z) the stairs must be placed facing south: low at the front (south), rising away.
+    stair(world, 0, 10, -4, Facing.South);
+    world.fill(0, 10, -5, 0, 10, -5, 'plank');
+    stair(world, 0, 11, -5, Facing.South);
+    world.fill(0, 10, -6, 0, 11, -6, 'plank');
+    stair(world, 0, 12, -6, Facing.South);
+    const def = blockOf(world.getVoxel(0, 10, -4));
+    expect([def.key, def.shape, def.solid]).toEqual(['plank_stairs', 'stairs', true]);
+    const player = makePlayer();
+    const physics = new PlayerPhysics(world, player);
+    world.fill(-1, 12, -9, 1, 12, -7, 'plank'); // a landing at the top
+    let top = 0;
+    let atLanding = 0;
+    for (let i = 0; i < 60 * 3; i++) {
+      physics.step(DT, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+      top = Math.max(top, player.position.y);
+      if (player.position.z > -7.5) atLanding = player.position.y;
+    }
+    expect(top).toBeGreaterThanOrEqual(12.99); // up to the level of the landing (its top is at y 13)
+    expect(atLanding).toBeGreaterThanOrEqual(12.99);
+  });
+
+  it('a stair placed facing away is a riser: it blocks a walker at the half-block step above it', () => {
+    const world = flatWorld();
+    stair(world, 0, 10, -4, Facing.North); // front towards -Z, high side towards the walker (+Z)
+    const player = makePlayer();
+    const physics = new PlayerPhysics(world, player);
+    for (let i = 0; i < 60 * 2; i++) physics.step(DT, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+    // The riser is a full block high on the walker's side: with the auto-step of half a block it cannot be climbed.
+    expect(player.position.z).toBeGreaterThan(-3.6);
+  });
+});
+
 describe('falling', () => {
   it('does not tunnel through a one-block floor in a 60 m fall, and takes fall damage', () => {
     const bus = createBus();
@@ -265,6 +306,22 @@ describe('swimming', () => {
     expect(player.position.z).toBeLessThan(-2);
     expect(player.position.y).toBeGreaterThanOrEqual(12 - 1e-6);
   });
+
+  it('swimming into a bank climbs out without Space, but never up a wall with no top in reach', () => {
+    const swim = (wallTop: number): { z: number; y: number } => {
+      const world = flatWorld();
+      world.fill(-12, 10, -1, 12, 11, 12, 'water');
+      world.fill(-12, 10, -12, 12, wallTop, -2, 'stone');
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(world, player);
+      run(physics, 4, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+      return { z: player.position.z, y: player.position.y };
+    };
+    const low = swim(11);
+    expect(low.z).toBeLessThan(-2);
+    expect(low.y).toBeGreaterThanOrEqual(12 - 1e-6);
+    expect(swim(20).y).toBeLessThan(13);
+  });
 });
 
 describe('currents (spec 18.4)', () => {
@@ -310,5 +367,83 @@ describe('currents (spec 18.4)', () => {
     const y0 = a.position.y;
     run(fall, 1, up);
     expect(a.position.y).toBeGreaterThan(y0 + 0.5);
+  });
+});
+
+describe('jump assist in the physics', () => {
+  it('lets a jump pressed just after walking off an edge work, unless assist is off', () => {
+    for (const assist of [true, false]) {
+      const world = new PatchyWorld(null);
+      world.fill(-4, 9, 0, 4, 9, 4, 'stone');
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(world, player);
+      physics.assist = assist;
+      let jumped = false;
+      for (let i = 0; i < 60 && !jumped; i++) {
+        const stepped = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+        if (!player.onGround && player.position.z < -0.3) {
+          const r = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: true, sprint: false });
+          jumped = r.jumped;
+          break;
+        }
+        void stepped;
+      }
+      expect(jumped).toBe(assist);
+    }
+  });
+});
+
+describe('auto-step', () => {
+  const walkInto = (autoStep: boolean, wallHeight: number): number => {
+    const world = flatWorld(null);
+    world.fill(-3, 10, -9, 3, 9 + wallHeight, -3, 'stone');
+    const player = makePlayer(createBus(), 0.5, 10, 0.5);
+    const physics = new PlayerPhysics(world, player);
+    physics.autoStep = autoStep;
+    for (let i = 0; i < 120; i++) physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false });
+    return player.position.y;
+  };
+
+  it('walks onto a one-block ledge only when on', () => {
+    expect(walkInto(true, 1)).toBeCloseTo(11, 1);
+    expect(walkInto(false, 1)).toBeCloseTo(10, 1);
+  });
+
+  it('never climbs a two-block wall', () => {
+    expect(walkInto(true, 2)).toBeCloseTo(10, 1);
+  });
+});
+
+describe('sneaking', () => {
+  const edgeWorld = () => {
+    const world = new PatchyWorld(null);
+    world.fill(-4, 9, 0, 4, 9, 4, 'stone');
+    return world;
+  };
+
+  it('stops at an edge instead of walking off, where walking falls', () => {
+    for (const sneak of [true, false]) {
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(edgeWorld(), player);
+      for (let i = 0; i < 180; i++) physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint: false, sneak });
+      if (sneak) {
+        expect(player.onGround).toBe(true);
+        expect(player.position.y).toBeCloseTo(10, 2);
+        expect(player.position.z).toBeGreaterThan(-0.31);
+      } else expect(player.position.y).toBeLessThan(9);
+    }
+  });
+
+  it('is slower than walking, and sprint is ignored while sneaking', () => {
+    const run = (sneak: boolean, sprint: boolean): number => {
+      const player = makePlayer(createBus(), 0.5, 10, 0.5);
+      const physics = new PlayerPhysics(flatWorld(null), player);
+      let r = physics.step(1 / 60, idle());
+      for (let i = 0; i < 60; i++) r = physics.step(1 / 60, { moveX: 0, moveZ: 1, jump: false, sprint, sneak });
+      expect(r.sprinting).toBe(!sneak && sprint);
+      return Math.abs(player.position.z - 0.5);
+    };
+    expect(run(true, true)).toBeLessThan(run(false, false) * 0.5);
+    expect(run(false, true)).toBeGreaterThan(run(false, false));
   });
 });

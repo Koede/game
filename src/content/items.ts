@@ -8,8 +8,10 @@
 import { WELL_FED_DURATION_S } from '../core/constants';
 import type { FoodSpec, FuelSpec, ItemSpec, ToolKind } from '../core/types';
 import { BLOCK_SPECS } from './blocks';
+import { TOOL_PART_ITEMS } from './toolParts';
 import { areaItems } from './area';
 import { EMBER_ITEMS } from './emberbound';
+import { LEGENDARY_ITEMS } from './legendary';
 import { BREW_ITEMS } from './itemsBrew';
 import { DISTILL_ITEMS } from './itemsDistill';
 import { GROUND_ITEMS } from './itemsGround';
@@ -77,6 +79,15 @@ const RAW: ItemSpec[] = [
 ];
 
 const TOOLS: ItemSpec[] = [
+  // Wooden tools: a stopgap before the first flint. They reach what flint reaches (tier 1) but cut slower and wear out in a dozen uses.
+  ...toolSet({
+    material: 'wooden', name: 'Wooden', tier: 1, speed: 1.4, durability: 12, age: 0,
+    desc: [
+      'Fire-hardened wood. It breaks rubble and reaches coal, copper and tin, but snaps after about a dozen swings. Find flint soon.',
+      'A sharpened branch on a haft. It splits logs a little faster than bare hands, and splinters quickly.',
+      'A flat plank blade. It digs dirt and sand a little faster than bare hands, and splinters quickly.',
+    ],
+  }),
   ...toolSet({
     material: 'flint', name: 'Flint', tier: 1, speed: 2, durability: 64, age: 0,
     desc: [
@@ -93,6 +104,12 @@ const TOOLS: ItemSpec[] = [
       'Digs faster and lasts three times as long as flint.',
     ],
   }),
+  // A named find (src/content/loot.ts NAMED_FINDS): a bronze pickaxe with a story, a little tougher than the common one. Ember and Bronze materials only.
+  {
+    key: 'orrins_spare_pick', name: "Orrin's Spare Pick",
+    desc: "The pick Orrin hid behind the brick for the day his own broke. Cast with care, kept dry for years. Breaks a whole ore vein at a stroke, and hums near ore behind a wall.",
+    icon: 'item_bronze_pickaxe', category: 'tool', age: 0, tool: { kind: 'pickaxe', tier: 2, speed: 3, durability: 256 },
+  },
   ...toolSet({
     material: 'iron', name: 'Iron', tier: 3, speed: 4.5, durability: 384, age: 2,
     desc: [
@@ -190,6 +207,7 @@ const GEAR: ItemSpec[] = [
 ];
 
 const HOES: ItemSpec[] = [
+  hoe('wooden', 'Wooden', 1, 12, 0, 'Turns grass or dirt into farmland, a dozen times at most. Use it on the top of the block.'),
   hoe('flint', 'Flint', 1, 64, 0, 'Turns grass or dirt into farmland. Use it on the top of the block.'),
   hoe('bronze', 'Bronze', 2, 192, 0, 'Tills soil three times as long as a flint hoe before it wears out.'),
   hoe('iron', 'Iron', 3, 384, 2, 'A heavy iron blade that will till a whole field and then some.'),
@@ -237,4 +255,4 @@ const FOOD: ItemSpec[] = [
   },
 ];
 
-export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS, ...DISTILL_ITEMS, ...MAGIC_ITEMS, ...WORKSHOP_ITEMS, ...GLASS_ITEMS, ...areaItems()];
+export const ITEM_SPECS: ItemSpec[] = [...RAW, ...TOOLS, ...HOES, ...TOOL_PART_ITEMS, ...METALS, ...PARTS, ...GEAR, ...FOOD, ...EMBER_ITEMS, ...BREW_ITEMS, ...HAND_ITEMS, ...GROUND_ITEMS, ...VEHICLE_ITEMS, ...SUGAR_ITEMS, ...DISTILL_ITEMS, ...MAGIC_ITEMS, ...WORKSHOP_ITEMS, ...GLASS_ITEMS, ...areaItems(), ...LEGENDARY_ITEMS];

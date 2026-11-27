@@ -217,6 +217,11 @@
   display: grid;
   gap: 10px;
 }
+.hw-net__losses {
+  margin: 0;
+  font-size: var(--hw-fs-sm);
+  color: var(--hw-ash-2);
+}
 .hw-net__members {
   display: grid;
   gap: 4px;

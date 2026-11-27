@@ -22,14 +22,19 @@ describe('structure view', () => {
       [3, 'Blast hearth', 'brick'], [4, 'Arc hearth', 'refractory_brick'], [5, 'Plasma hearth', 'plasma_casing'], [6, 'Starhearth', 'star_casing'],
     ]);
     expect(v.target).toMatchObject({ tier: 3, name: 'Blast hearth', inner: [1, 1, 1], closed: false, min: [-1, 0, 0], max: [1, 1, 2], ready: false });
-    // 16 cells, all to be placed: 9 floor, 7 walls (the furnace is the eighth).
+    // 16 cells, all to be placed: 9 floor, 7 walls (the furnace is the eighth); one wall cell takes the Blast Nozzle.
     expect(v.target.cells).toHaveLength(16);
-    expect(v.target.cells.every((c) => c.state === 'missing' && c.want === 'brick' && c.has === 'air')).toBe(true);
-    expect(v.target.materials).toEqual([{ item: 'brick', need: 16, placed: 0, missing: 16, have: 0, ok: false }]);
+    expect(v.target.cells.every((c) => c.state === 'missing' && c.has === 'air')).toBe(true);
+    expect(v.target.cells.filter((c) => c.want === 'blast_nozzle')).toHaveLength(1);
+    expect(v.target.materials).toEqual(expect.arrayContaining([
+      { item: 'brick', need: 15, placed: 0, missing: 15, have: 0, ok: false },
+      { item: 'blast_nozzle', need: 1, placed: 0, missing: 1, have: 0, ok: false },
+    ]));
     expect(v.target.checklist).toEqual([
       { key: 'floor', label: 'Floor', have: 0, need: 9, ok: false },
       { key: 'walls', label: 'Walls', have: 0, need: 7, ok: false },
       { key: 'interior', label: 'Inside empty', have: 1, need: 1, ok: true },
+      { key: 'parts', label: 'Blast Nozzle', have: 0, need: 1, ok: false },
     ]);
   });
 
@@ -48,11 +53,15 @@ describe('structure view', () => {
     expect(cell(kit, 0, 0, 2)).toMatchObject({ role: 'edge', want: 'brick', state: 'missing' });
     expect(cell(kit, 0, 1, 1)).toMatchObject({ role: 'interior', want: 'air', has: 'torch', state: 'wrong' });
     expect(cell(kit, -1, 1, 1)).toMatchObject({ role: 'wall', state: 'ok' });
-    expect(v.target.materials).toEqual([{ item: 'brick', need: 16, placed: 14, missing: 2, have: 8, ok: true }]);
+    expect(v.target.materials).toEqual([
+      { item: 'brick', need: 15, placed: 13, missing: 2, have: 8, ok: true },
+      { item: 'blast_nozzle', need: 1, placed: 1, missing: 0, have: 0, ok: true },
+    ]);
     expect(v.target.checklist).toEqual([
       { key: 'floor', label: 'Floor', have: 8, need: 9, ok: false },
       { key: 'walls', label: 'Walls', have: 6, need: 7, ok: false },
       { key: 'interior', label: 'Inside empty', have: 0, need: 1, ok: false },
+      { key: 'parts', label: 'Blast Nozzle', have: 1, need: 1, ok: true },
     ]);
   });
 
@@ -71,7 +80,7 @@ describe('structure view', () => {
     const under = (c: { x: number; y: number; z: number }) => c.x === 0 && c.y === 0 && c.z === 0;
     expect(v.target.cells.filter((c) => c.has === 'brick' && !under(c)).every((c) => c.state === 'wrong')).toBe(true);
     expect(v.target.cells.find(under)).toMatchObject({ has: 'brick', want: 'brick', state: 'ok' });
-    expect(v.target.materials.map((m) => [m.item, m.need])).toEqual([['refractory_brick', 51], ['electrode', 1]]);
+    expect(v.target.materials.map((m) => [m.item, m.need])).toEqual([['refractory_brick', 50], ['blast_nozzle', 1], ['electrode', 1]]);
     expect(v.target.checklist.map((c) => c.key)).toEqual(['floor', 'walls', 'ceiling', 'interior', 'electrodes']);
     expect(v.problems).toEqual([
       { code: 'ceiling', x: 0, y: 2, z: 1, text: 'An Arc hearth needs a ceiling' },

@@ -117,11 +117,11 @@ describe('where they live (spec 19.3)', () => {
     const deep = spawnPlacesAt({ skyOpen: false, y: 12, night: false, biome: 'woodland' });
     expect(types(deep, calm)).toEqual(['cinder_mite', 'slag_colossus']);
     const night = spawnPlacesAt({ skyOpen: true, y: 40, night: true, biome: 'woodland' });
-    expect(types(night, calm)).toEqual(['bellows_hound', 'cinder_mite', 'forge_warden']);
+    expect(types(night, calm)).toEqual(['barkwright', 'bellows_hound', 'cinder_mite', 'forge_warden']);
     const scarCaveByDay = spawnPlacesAt({ skyOpen: false, y: 30, night: false, biome: 'scar' });
     expect(types(scarCaveByDay, calm)).toEqual(['bellows_hound', 'cinder_mite']);
     const scarNight = spawnPlacesAt({ skyOpen: true, y: 40, night: true, biome: 'scar' });
-    expect(types(scarNight, calm)).toEqual(['bellows_hound', 'cinder_mite', 'forge_warden', 'slag_colossus']);
+    expect(types(scarNight, calm)).toEqual(['bellows_hound', 'cinder_mite', 'forge_warden', 'magma_crawler', 'slag_colossus']);
   });
 
   it('flies drones over high ground only in storms and on moonless nights', () => {

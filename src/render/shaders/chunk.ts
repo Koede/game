@@ -71,6 +71,8 @@ in vec4 light;
 uniform float uTime;
 // How soaked sky-exposed surfaces look after rain, 0..1 (spec 15): darker, with a sheen at grazing angles.
 uniform float uWet;
+// Water waves on or off (the graphics setting), 0..1.
+uniform float uFx;
 ${LIGHT_GLSL}
 out vec2 vUv;
 flat out float vLayer;
@@ -78,6 +80,7 @@ out vec3 vColor;
 out vec4 vFog;
 out vec3 vWorld;
 out float vWet;
+out float vCrest;
 flat out float vLiquid;
 
 void main() {
@@ -97,8 +100,19 @@ void main() {
     world.z += cos(phase * 0.83) * 0.045;
   }
   vLiquid = 0.0;
+  vCrest = 0.0;
   if ((flags & 4) != 0) {
     color *= 0.93 + 0.07 * sin(uTime * 1.4 + world.x * 0.9 + world.z * 0.7);
+    bool lava = (flags & 1) != 0;
+    // Still pools breathe: two crossing swells lift the surface vertices (the ones above the cell's half) a few
+    // hundredths of a block, and the crests carry foam (see the fragment shader). Lava heaves slower and pulses.
+    if ((flags & 2) == 0 && uFx > 0.0 && fract(world.y) > 0.5) {
+      float t = lava ? uTime * 0.35 : uTime;
+      float wave = 0.5 * sin(t * 1.2 + world.x * 0.9 + world.z * 0.7) + 0.5 * sin(t * 0.8 - world.x * 0.5 + world.z * 1.1);
+      world.y += wave * (lava ? 0.025 : 0.04) * uFx;
+      vCrest = lava ? 0.0 : 0.5 + 0.5 * wave;
+    }
+    if (lava) color *= 1.0 + 0.14 * sin(uTime * 0.9 + world.x * 0.5 + world.z * 0.6);
     // The tile repeats, so only the fraction of the drift matters: it keeps texture coordinates small (mediump).
     // Moving water runs along v (the mesher points v along the flow on top, downwards on the sides).
     uvShift = (flags & 2) != 0 ? vec2(0.0, fract(uTime * ${WATER_SCROLL.toFixed(2)})) : fract(vec2(uTime * 0.018, uTime * 0.011));
@@ -131,6 +145,8 @@ in vec3 vColor;
 in vec4 vFog;
 in highp vec3 vWorld;
 in float vWet;
+in float vCrest;
+uniform highp float uFx;
 flat in float vLiquid;
 out vec4 fragColor;
 
@@ -173,6 +189,11 @@ vec4 liquidTexel(vec4 tex) {
   }
   float shade = valueNoise(wp * 0.07) * 0.6 + valueNoise(wp * 0.23 + 11.0) * 0.4;
   c.rgb *= 0.88 + 0.22 * shade;
+  // Foam on the wave crests: broken white flecks that drift and fade as the swell passes.
+  if (vCrest > 0.6) {
+    float fleck = smoothstep(0.55, 0.8, valueNoise(wp * 2.4 + vec2(uTime * 0.35, -uTime * 0.2)));
+    c.rgb = mix(c.rgb, vec3(0.92, 0.97, 1.0), fleck * smoothstep(0.6, 0.95, vCrest) * 0.55 * uFx);
+  }
   return c;
 }
 

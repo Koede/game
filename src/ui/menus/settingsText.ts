@@ -23,8 +23,67 @@ export const UI_SCALE_OPTIONS: readonly { value: Settings['uiScale']; label: str
   { value: 'large', label: 'Large' },
 ];
 
+export const ITEM_MAGNET_OPTIONS: readonly { value: Settings['itemMagnet']; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'small', label: 'Small' },
+  { value: 'large', label: 'Large' },
+];
+
+export const LOOT_FILTER_OPTIONS: readonly { value: Settings['lootFilter']; label: string }[] = [
+  { value: 'all', label: 'Pick up everything' },
+  { value: 'junk', label: 'Ignore junk' },
+];
+
+export function lootFilterHint(f: Settings['lootFilter']): string {
+  return f === 'all' ? 'Every item you walk over is picked up.' : 'Rubble, dirt, seeds, sand and gravel stay on the ground. Everything else is picked up.';
+}
+
+export function itemMagnetHint(m: Settings['itemMagnet']): string {
+  return m === 'off'
+    ? 'Dropped items fly to you only when you are close. Small and Large pull them in from further away.'
+    : m === 'small'
+      ? 'Dropped items within about 3 blocks fly to you.'
+      : 'Dropped items within about 6 blocks fly to you.';
+}
+
+export const GRAPHICS_OPTIONS: readonly { value: NonNullable<Settings['graphics']>; label: string }[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'normal', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
+/** What each level turns on or off (src/render/quality.ts holds the numbers). Applied at once, no restart. */
+export function graphicsHint(q: Settings['graphics']): string {
+  switch (q) {
+    case 'low':
+      return 'Fewer effects: no water waves or foam, no loot beams, the fog closes in sooner, and machine liquids animate at half speed. Easiest on older phones.';
+    case 'high':
+      return 'Water waves and foam, loot beams, machine liquids at full speed, and the fog stays clear a little further out.';
+    default:
+      return 'Water waves and foam, loot beams, machine liquids at full speed, and the usual fog distance.';
+  }
+}
+
 export function uiScaleHint(scale: Settings['uiScale']): string {
   return scale === 'large'
-    ? 'Bigger HUD, text and touch buttons - easier to read and hit on a small phone.'
-    : 'Large makes the HUD, text and touch buttons bigger for small screens.';
+    ? 'Bigger text and touch buttons: easier to read and hit on a small phone.'
+    : 'Large makes text and touch buttons bigger for small screens.';
+}
+
+export const COLOR_MODE_OPTIONS: readonly { value: Settings['colorMode']; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'red-green', label: 'Red-green' },
+  { value: 'blue-yellow', label: 'Blue-yellow' },
+];
+
+/** What each colour-blind palette changes (src/ui/kit/palette.ts holds the colours). */
+export function colorModeHint(mode: Settings['colorMode']): string {
+  switch (mode) {
+    case 'red-green':
+      return 'For red-green colour blindness (protanopia, deuteranopia): good, warning and bad show as blue, yellow and orange, and the heat and power overlays run dark to bright without red or green.';
+    case 'blue-yellow':
+      return 'For blue-yellow colour blindness (tritanopia): good, warning and bad show as teal, pink and red, and the heat and power overlays run dark to bright without blue or yellow.';
+    default:
+      return 'The game\'s own colours. Pick the kind of colour blindness you have to change status colours and the heat and power overlays.';
+  }
 }

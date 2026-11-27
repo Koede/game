@@ -79,7 +79,7 @@ export class Spills {
         continue;
       }
       room -= need;
-      ground.spawn(s.item, s.count, x + 0.5, y + 0.5, z + 0.5, { durability: s.durability });
+      ground.spawn(s.item, s.count, x + 0.5, y + 0.5, z + 0.5, { durability: s.durability, enchants: s.enchants });
     }
     return rest;
   }

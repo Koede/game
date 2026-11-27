@@ -17,8 +17,25 @@ import {
 import type { CreatureSpec, IWorld } from '../core/types';
 import { HOP_VELOCITY, SWIM_CLIMB_VELOCITY } from './physics';
 import { clearanceOf, findShore, standCell, walkable } from './terrain';
+import {
+  HERD_LEASH,
+  HERD_RANGE,
+  HOME_SETTLE,
+  WAKE_DISTANCE,
+  findShelter,
+  hasRoutine,
+  homeRange,
+  roofedAt,
+  wantNow,
+  type MobSky,
+  type RoutinePhase,
+  type Want,
+} from './routine';
 import type { Mob, MobPlayer } from './types';
 
+/** A tame pet keeps this far from the player (blocks) and sprints when more than PET_RUN_AT away. */
+const PET_STOP = 2.2;
+const PET_RUN_AT = 9;
 /** Fraction of the species speed used while wandering (following and breeding use the full speed). */
 export const WANDER_SPEED = 0.55;
 export const SWIM_SPEED = 0.6;
@@ -44,6 +61,9 @@ export interface BrainContext {
   held: string | null;
   /** Animals being simulated this tick. */
   mobs: readonly Mob[];
+  /** Phase of the day and the sky, refreshed every tick (routine.ts). */
+  phase: RoutinePhase;
+  sky: MobSky;
   byId(id: number): Mob | undefined;
   /** Two partners finished breeding: make the baby. */
   birth(a: Mob, b: Mob): void;
@@ -237,7 +257,7 @@ const shore = [0, 0];
 /** One tick of behaviour for a living animal (the manager handles dying, timers and physics). */
 export function think(ctx: BrainContext, m: Mob, dt: number): void {
   const speed = m.spec.speed;
-  const grazing = m.state === 'graze';
+  const grazing = m.state === 'graze' || m.state === 'sleep';
   m.head += ((grazing ? 1 : 0) - m.head) * Math.min(1, dt * 5);
 
   // 1. Hurt: run straight away from whoever hurt it.
@@ -295,6 +315,20 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
   }
   if (m.state === 'breed') setState(m, 'idle', 1);
 
+  // 3b. A tame companion always follows, running to catch up when it falls behind.
+  if (m.tame && m.spec.pet) {
+    const dx = ctx.player.x - m.x;
+    const dz = ctx.player.z - m.z;
+    const d = Math.sqrt(dx * dx + dz * dz);
+    const stop = PET_STOP + halfWidth(m) + PLAYER_WIDTH / 2;
+    if (d > stop && Math.abs(ctx.player.y - m.y) < 12) {
+      if (m.state !== 'follow') setState(m, 'follow', 0);
+      steer(ctx, m, ctx.player.x, ctx.player.z, d > PET_RUN_AT ? speed * 1.5 : speed, stop, dt);
+      return;
+    }
+    if (m.state === 'follow') setState(m, 'idle', 0.5 + ctx.rng());
+  }
+
   // 4. The player holds something it likes: follow to a polite distance, body to body (big animals stay as far
   // off as small ones).
   if (ctx.held !== null && m.spec.likes.includes(ctx.held)) {
@@ -328,6 +362,8 @@ export function think(ctx: BrainContext, m: Mob, dt: number): void {
   }
   if (m.state === 'follow' || m.state === 'flee') setState(m, 'idle', 0.5 + ctx.rng());
 
+  // 6. The daily routine: shelter from weather, sleep at night. Otherwise the calm life, shaped by the time of day.
+  if (hasRoutine(m.spec) && routine(ctx, m, dt)) return;
   idleCycle(ctx, m, dt);
 }
 
@@ -353,9 +389,12 @@ function idleCycle(ctx: BrainContext, m: Mob, dt: number): void {
     m.lookYaw = m.yaw + (ctx.rng() - 0.5) * 2.4;
   }
   if (m.stateS > 0) return;
+  if (hasRoutine(m.spec) && headForRoutine(ctx, m)) return;
 
   const pick = ctx.rng();
-  if (pick < 0.45) {
+  // Dawn is for grazing.
+  const dawn = ctx.phase === 'dawn' && hasRoutine(m.spec);
+  if (pick < (dawn ? 0.25 : 0.45)) {
     let cx = m.x;
     let cz = m.z;
     if (m.baby) {
@@ -367,9 +406,153 @@ function idleCycle(ctx: BrainContext, m: Mob, dt: number): void {
     }
     setState(m, 'wander', 10);
     if (!pickWanderTarget(ctx, m, cx, cz)) setState(m, 'idle', 1 + ctx.rng() * 2);
-  } else if (pick < 0.72) {
+  } else if (pick < (dawn ? 0.85 : 0.72)) {
     setState(m, 'graze', 3 + ctx.rng() * 4);
   } else {
     setState(m, 'idle', 2 + ctx.rng() * 3);
   }
+}
+
+// ---------------------------------------------------------------------------------------------- daily routine
+
+/** Gives the walk up for a while (a wall, a drop): the animal settles where it stands. */
+const GIVE_UP_S = 20;
+
+/** Starts a walk to (x, z) as a wander when the way is clear; false when it is not. */
+function walkTo(ctx: BrainContext, m: Mob, x: number, z: number): boolean {
+  const fy = Math.floor(m.y + 0.01);
+  if (Number.isNaN(walkable(ctx.world, m.x, m.z, fy, x, z, clearanceOf(bodyHeight(m))))) return false;
+  setState(m, 'wander', 14);
+  m.tx = x;
+  m.tz = z;
+  m.hasTarget = true;
+  return true;
+}
+
+/** The nearest grown animal of the same species within HERD_RANGE (not itself), or undefined. */
+function herdMate(ctx: BrainContext, m: Mob): Mob | undefined {
+  let best: Mob | undefined;
+  let bestD = HERD_RANGE * HERD_RANGE;
+  for (const o of ctx.mobs) {
+    if (o === m || o.spec !== m.spec || o.baby || o.state === 'dying') continue;
+    const d = (o.x - m.x) ** 2 + (o.z - m.z) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = o;
+    }
+  }
+  return best;
+}
+
+/**
+ * At each decision point of a calm animal: out of range by day, or at dusk, walk home; a grown animal far from its
+ * herd rejoins it. True when it started a walk (idleCycle then follows the wander target).
+ */
+function headForRoutine(ctx: BrainContext, m: Mob): boolean {
+  if (m.routineS > 0) return false;
+  const dh = Math.hypot(m.homeX - m.x, m.homeZ - m.z);
+  const limit = ctx.phase === 'dusk' ? HOME_SETTLE * 2 : homeRange(m);
+  if (dh > limit) {
+    const a = ctx.rng() * Math.PI * 2;
+    const r = ctx.rng() * HOME_SETTLE;
+    if (walkTo(ctx, m, Math.floor(m.homeX + Math.cos(a) * r) + 0.5, Math.floor(m.homeZ + Math.sin(a) * r) + 0.5)) return true;
+    m.routineS = GIVE_UP_S;
+    return false;
+  }
+  if (m.baby) return false;
+  const mate = herdMate(ctx, m);
+  if (mate && (mate.x - m.x) ** 2 + (mate.z - m.z) ** 2 > HERD_LEASH * HERD_LEASH) {
+    const a = ctx.rng() * Math.PI * 2;
+    if (walkTo(ctx, m, Math.floor(mate.x + Math.cos(a) * 2) + 0.5, Math.floor(mate.z + Math.sin(a) * 2) + 0.5)) return true;
+  }
+  return false;
+}
+
+/**
+ * The part of the routine that takes over the whole animal: sheltering from a storm (or the winter night) under the
+ * nearest roof, and sleeping at home at night. True when it did something this tick. When no roof can be reached the
+ * weather is ignored for GIVE_UP_S and the plain schedule applies.
+ */
+function routine(ctx: BrainContext, m: Mob, dt: number): boolean {
+  m.routineS -= dt;
+  let want: Want = wantNow(ctx.phase, ctx.sky);
+  if (want === 'shelter' && m.state !== 'shelter' && m.routineS > 0) want = wantNow(ctx.phase, { storm: false, winter: false });
+  if (want === 'shelter') return shelter(ctx, m, dt);
+  if (m.state === 'shelter') setState(m, 'idle', 0.5 + ctx.rng() * 3);
+  if (want === 'sleep') return sleep(ctx, m, dt);
+  if (m.state === 'sleep') setState(m, 'idle', 0.5 + ctx.rng() * 4);
+  return false;
+}
+
+function shelter(ctx: BrainContext, m: Mob, dt: number): boolean {
+  if (m.state !== 'shelter') {
+    setState(m, 'shelter', 0);
+    m.routineS = 0;
+  }
+  if (m.hasTarget) {
+    const r = steer(ctx, m, m.tx, m.tz, m.spec.speed * WANDER_SPEED * 1.4, 0.5, dt);
+    m.stuckS = m.blocked ? m.stuckS + dt : Math.max(0, m.stuckS - dt);
+    if (r === 'moving' && m.stuckS <= STUCK_S) return true;
+    m.hasTarget = false;
+    m.routineS = r === 'arrived' ? 1 : 0;
+    if (r !== 'arrived') return giveUpShelter(ctx, m);
+    return true;
+  }
+  brake(m, dt);
+  if (m.routineS > 0) return true;
+  m.routineS = 1 + ctx.rng();
+  const clearance = clearanceOf(bodyHeight(m));
+  if (roofedAt(ctx.world, m.x, m.y, m.z, clearance)) return true;
+  if (findShelter(ctx.world, m, m.x, m.z, clearance, spot)) {
+    m.tx = spot[0];
+    m.tz = spot[1];
+    m.hasTarget = true;
+    return true;
+  }
+  return giveUpShelter(ctx, m);
+}
+const spot = [0, 0];
+
+/** No roof in reach: carry on with the ordinary schedule for a while. */
+function giveUpShelter(ctx: BrainContext, m: Mob): boolean {
+  setState(m, 'idle', 0.5 + ctx.rng());
+  m.routineS = GIVE_UP_S;
+  return false;
+}
+
+function sleep(ctx: BrainContext, m: Mob, dt: number): boolean {
+  const near = (ctx.player.x - m.x) ** 2 + (ctx.player.z - m.z) ** 2 < WAKE_DISTANCE * WAKE_DISTANCE;
+  if (m.state === 'sleep') {
+    if (!near) {
+      brake(m, dt);
+      return true;
+    }
+    // Woken by the player: restless for a few seconds.
+    setState(m, 'idle', 6);
+    return true;
+  }
+  if (m.state === 'idle' && m.stateS > 0) {
+    m.stateS -= dt;
+    brake(m, dt);
+    return true;
+  }
+  if (near) return false;
+  const dh = Math.hypot(m.homeX - m.x, m.homeZ - m.z);
+  if (dh > HOME_SETTLE && m.routineS <= 0) {
+    if (m.state !== 'wander' || !m.hasTarget || Math.hypot(m.tx - m.homeX, m.tz - m.homeZ) > HOME_SETTLE) {
+      const a = ctx.rng() * Math.PI * 2;
+      const r = ctx.rng() * (HOME_SETTLE - 1);
+      if (!walkTo(ctx, m, Math.floor(m.homeX + Math.cos(a) * r) + 0.5, Math.floor(m.homeZ + Math.sin(a) * r) + 0.5)) {
+        m.routineS = GIVE_UP_S;
+        return false;
+      }
+    }
+    const r = steer(ctx, m, m.tx, m.tz, m.spec.speed * WANDER_SPEED * 1.2, 0.4, dt);
+    m.stuckS = m.blocked ? m.stuckS + dt : Math.max(0, m.stuckS - dt);
+    if (r === 'moving' && m.stuckS <= STUCK_S) return true;
+    // Arrived, or the way is shut: bed down here (and do not try the walk again tonight).
+    if (r !== 'arrived') m.routineS = GIVE_UP_S;
+  }
+  setState(m, 'sleep', 0);
+  return true;
 }

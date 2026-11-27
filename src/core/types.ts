@@ -50,7 +50,7 @@ export const FACING_TO_FACE: ReadonlyArray<Face> = [Face.NZ, Face.PX, Face.PZ, F
 //   bits 0-9   block id (index into BLOCKS)
 //   bits 10-11 facing (Facing)
 //   bit  12    active flag (lit furnace, running machine, ...)
-//   bits 13-15 variant (free for per-block use, e.g. fill level)
+//   bits 13-15 variant (free for per-block use, e.g. fill level; machines: MachineStatus, src/core/machineStatus.ts)
 // ---------------------------------------------------------------------------------------------
 
 export type Voxel = number;
@@ -80,6 +80,10 @@ export interface ItemStack {
   item: string;
   count: number;
   durability?: number;
+  /** Workmanship of a tool: 1 fine, 2 masterwork (absent = plain). Raises the most durability it can hold. */
+  quality?: 1 | 2;
+  /** Enchantments by key to level (src/core/enchant.ts). Absent = plain; sanitised on load; never merges. */
+  enchants?: Record<string, number>;
 }
 export type Slot = ItemStack | null;
 
@@ -88,7 +92,13 @@ export type Slot = ItemStack | null;
  * and the maul (spec 19.4): a weapon made for breaking metal. No block names 'hoe' or 'maul' as its tool, so both
  * count as bare hands for mining and never wear while mining; a maul's combat numbers are its ItemSpec.weapon.
  */
-export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul' | 'hammer';
+export type ToolKind = 'pickaxe' | 'axe' | 'shovel' | 'hoe' | 'maul' | 'hammer' | 'sword' | 'spear' | 'trident' | 'staff';
+
+/**
+ * The verbs of the legendary weapons (docs/plans/legendary-weapons.md, src/content/legendary.ts): one per weapon, read from the item key
+ * and never from a stack, so nothing the player does to a stack can add, swap or lose one.
+ */
+export type LegendaryEffect = 'veinseek' | 'burning_marks' | 'lunge' | 'lantern_burst' | 'still_blow' | 'pull' | 'root' | 'shock_arc';
 
 export interface ToolSpec {
   kind: ToolKind;
@@ -130,7 +140,7 @@ export interface FoodSpec {
   /** Food points restored (the bar holds MAX_FOOD). */
   hunger: number;
   /** Buff granted on eating. Foods with a buff may be eaten on a full stomach. */
-  buff?: 'well_fed' | 'sugar_rush';
+  buff?: 'well_fed' | 'sugar_rush' | 'well_warmed';
   /** Duration of the buff in seconds. */
   buffS?: number;
 }
@@ -267,7 +277,7 @@ export interface ItemDef extends ItemSpec {
  *  bucket - a small round-ish pot box standing on the floor of the cell, not solid (brewing): a bucket on a furnace
  *           top and the kettle pot, 10/16 wide and 8/16 tall.
  */
-export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe' | 'cup' | 'bucket';
+export type BlockShape = 'none' | 'cube' | 'liquid' | 'cross' | 'torch' | 'cable' | 'slab' | 'pipe' | 'cup' | 'bucket' | 'fence' | 'stairs' | 'slope' | 'glass' | 'door';
 
 /**
  * Names of procedural 16x16 textures. Fallbacks for unlisted faces:
@@ -287,6 +297,13 @@ export interface BlockTextures {
   topActive?: string;
   /** While active, on the bottom face (default: `bottom`). A hearth's ceiling glows on its underside too. */
   bottomActive?: string;
+  /**
+   * Opts the block into machine status looks (src/core/machineStatus.ts): while the voxel's status is starved, full or
+   * broken, the faces that change when it runs (else the front) show the off texture with that status painted on.
+   */
+  status?: boolean;
+  /** Further textures the block's miniblock model draws with (`tex` / `texOn` of its faces, src/world/miniModel.ts): they get atlas layers too. */
+  models?: readonly string[];
 }
 
 export interface Drop {
@@ -362,8 +379,22 @@ export interface BlockSpec {
   harvestLeaves?: string;
   /** Item or fluid transport (spec 16): set on every block of shape 'pipe' and on nothing else. */
   pipe?: PipeSpec;
+  /** Compressed air (BRONZE_PLAN 5.3): a member of an air network. Never set together with `pipe`; src/sim/airNet.ts owns it. */
+  air?: AirSpec;
   /** Ember handwork: the block is worked by the player's strokes (its machine has role 'hand'). */
   handStation?: HandStationSpec;
+}
+
+/**
+ * A block of the air network (BRONZE_PLAN 4.4 and 5.3). Every touching member joins one network: tubes carry, tanks
+ * store, a compressor makes air, a user (the blast nozzle) draws it. `volumeL` is what the block adds to its network.
+ */
+export interface AirSpec {
+  role: 'tube' | 'tank' | 'source' | 'user';
+  volumeL: number;
+  /** Users: the least pressure it works at, in bar, and the air it uses while it works, in litres a second. */
+  minBar?: number;
+  useLPerS?: number;
 }
 
 /**
@@ -421,6 +452,8 @@ export interface BlockDef {
   harvestLeaves: string | null;
   /** Transport numbers of a pipe block (spec 16), or null for anything that is not a pipe. */
   pipe: PipeSpec | null;
+  /** Air network membership (BRONZE_PLAN 5.3), or null. */
+  air: AirSpec | null;
   handStation: HandStationSpec | null;
   /** Key of the item that places this block, or null. */
   itemKey: string | null;
@@ -431,6 +464,8 @@ export interface BlockDef {
   layers: number[];
   /** Same, while active. */
   layersActive: number[];
+  /** Per status code (index 1..3; index 0 unused): the layers of a machine in that status, or null when the block has none. */
+  layersStatus: (number[] | null)[];
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -558,6 +593,11 @@ export interface HearthStructureSpec {
   electrodes?: number;
   /** Power port blocks needed in the faces (0 or absent: none). */
   powerPorts?: number;
+  /**
+   * Part blocks a formed hearth must have in its faces, by block key (the Blast hearth: `{ blast_nozzle: 1 }`).
+   * A furnace that carries `legacyHearth` (set by the save migration for hearths built before the rule) is exempt.
+   */
+  requiredParts?: Record<string, number>;
   /** Crucibles = min(maxCrucibles, interior x * z + crucibleBonus). */
   maxCrucibles: number;
   crucibleBonus: number;
@@ -799,6 +839,8 @@ export interface CreatureSpec {
   group: readonly [number, number];
   /** Box model of an adult (see CreaturePart for units and orientation). */
   model: CreaturePart[];
+  /** A tameable companion (src/content/pets.ts): never breeds; once tame it follows the player and carries a little. */
+  pet?: boolean;
   /**
    * Hostile automatons only (spec 19): how it fights and where it lives. Automatons never breed or grow (`likes` is
    * empty), are authored in src/content/automatons.ts and listed in the registry's AUTOMATONS, never in CREATURES.
@@ -830,8 +872,9 @@ export type HostileAttack = 'melee' | 'dash' | 'bolt' | 'zap' | 'slam';
  *  scar       - in the scar biome, any time it is dark there (night, or a cave or overhang by day)
  *  scar_night - in the scar biome, at night (open sky or not)
  *  peak       - open sky above, y >= HOSTILE_PEAK_Y, at night
+ *  wood_night, dunes_night, frost_night, marsh_night - open sky above in that biome, at night (the biome's own feral servants)
  */
-export type SpawnPlace = 'cave' | 'deep' | 'surface' | 'scar' | 'scar_night' | 'peak';
+export type SpawnPlace = 'cave' | 'deep' | 'surface' | 'scar' | 'scar_night' | 'peak' | 'wood_night' | 'dunes_night' | 'frost_night' | 'marsh_night';
 
 export interface HostileHabitat {
   /**
@@ -892,20 +935,39 @@ export type ProjectileKind = 'ember_bolt';
 /** 'near': ruins on the surface close to spawn - modest help. 'deep': buried or far-flung ruins - richer finds. */
 export type LootTier = 'near' | 'deep';
 
+/** How special a find is (docs/plans/loot-and-containers.md): white, green, blue, gold. Data about an entry or an item, never a stack field. */
+export type LootRarity = 'common' | 'fine' | 'rare' | 'legendary';
+
 export interface LootEntry {
+  /** The item given. Empty ('') when the entry is a reference to another table (`table`). */
   item: string;
-  /** Count, or an inclusive [min, max] range. */
+  /** Count, or an inclusive [min, max] range. Ignored for a table reference (the table rolls itself once). */
   count: number | [number, number];
   /** Relative weight among the entries of its table (> 0). */
   weight: number;
+  /** Rarity of the entry (default 'common'). `luck` leans the weights toward the higher ones. */
+  rarity?: LootRarity;
+  /** Id of another table to roll in place of an item (nesting depth is limited to LOOT_MAX_DEPTH, cycles are rejected). */
+  table?: string;
+  /** Fixed enchants the stack carries (key to level). Entries that name them give single stacks; ones a tool cannot take are skipped. */
+  enchants?: Record<string, number>;
+  /** A tool's quality: 1 fine, 2 masterwork (more durability, stronger enchants). Tools only. */
+  quality?: 1 | 2;
 }
 
 export interface LootTableSpec {
+  /** Optional id for lookup by `lootTableById` and for nesting. */
+  id?: string;
   tier: LootTier;
   /** Number of weighted draws (with replacement), inclusive [min, max]. */
   rolls: [number, number];
   entries: LootEntry[];
+  /** Entries always given first, each exactly once (the table's themed item), before the weighted draws. */
+  guaranteed?: LootEntry[];
 }
+
+/** Tables may nest at most this many levels deep (the table being rolled is level 0). */
+export const LOOT_MAX_DEPTH = 3;
 
 // ---------------------------------------------------------------------------------------------
 // Weather and the moon (spec 15). Numbers live in src/core/constants.ts, lookups in src/core/weather.ts.
@@ -954,7 +1016,7 @@ export interface BlockEntity {
   [field: string]: unknown;
 }
 
-export type ChangeSource = 'player' | 'sim' | 'load';
+export type ChangeSource = 'player' | 'sim' | 'load' | 'town';
 
 export interface IWorld {
   readonly seed: number;
@@ -966,6 +1028,8 @@ export interface IWorld {
   setVoxel(x: number, y: number, z: number, voxel: Voxel, source?: ChangeSource): boolean;
   /** True when the chunk column containing world x,z holds voxel data. */
   isLoaded(x: number, z: number): boolean;
+  /** True when the voxel was ever changed by the player, the sim or the town (the edit log). Optional: test fakes may omit it. */
+  wasEdited?(x: number, y: number, z: number): boolean;
   /** Highest non-air block y in a column, or -1 when unloaded. */
   surfaceY(x: number, z: number): number;
 

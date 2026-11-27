@@ -7,6 +7,7 @@ import { FURNACE_HOT_C } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { hashFloat } from '../core/math';
 import { blockOf, TEXTURE_NAMES } from '../core/registry';
+import type { LegendaryEffect } from '../core/types';
 import { Face, FACE_DIRS, FACING_TO_FACE, voxelActive, voxelFacing, type BlockDef, type IWorld, type Voxel } from '../core/types';
 import type { Glows } from './glows';
 import { ParticleLook, type ParticleSpec, type Particles } from './particles';
@@ -42,6 +43,19 @@ const GLOW_COLORS: readonly (readonly [number, number, number])[] = [
 ];
 
 const SCAN_INTERVAL_S = 0.5;
+/** Colour (0..1 RGB) of each weapon's swing trail. */
+const TRAIL_COLOUR: Readonly<Record<LegendaryEffect, readonly [number, number, number]>> = {
+  burning_marks: [1, 0.45, 0.12],
+  lunge: [0.75, 0.95, 0.9],
+  lantern_burst: [1, 0.85, 0.45],
+  still_blow: [0.55, 0.55, 0.6],
+  pull: [0.45, 0.8, 1],
+  root: [0.5, 1, 0.5],
+  shock_arc: [0.8, 0.9, 1],
+  veinseek: [0.9, 0.75, 0.4],
+};
+/** Sparks one legendary proc emits at most. */
+export const PROC_SPARKS = 14;
 /** Furnace smoke is emitted this far from the camera (horizontal blocks). */
 const SMOKE_RANGE = 176;
 const STEAM_RANGE = 64;
@@ -91,6 +105,8 @@ export class Emitters {
       }),
       bus.on('machine:job', (e) => this.puffs(e.x + 0.5, e.y + 1.05, e.z + 0.5, 'steam', 3)),
       bus.on('explosion', (e) => this.explosion(e.x + 0.5, e.y + 0.5, e.z + 0.5, e.radius)),
+      bus.on('legendary:proc', (e) => this.legendaryProc(e.effect, e.x, e.y, e.z)),
+      bus.on('legendary:swing', (e) => this.swingTrail(e.effect, e.x, e.y, e.z, e.yaw, e.pitch, e.count)),
     ];
   }
 
@@ -314,6 +330,46 @@ export class Emitters {
       this.spark(x + spread(0.3), y + spread(0.3), z + spread(0.3), Math.cos(a) * s, 2 + rnd() * 3 * power, Math.sin(a) * s, gold);
     }
     this.puffs(x, y + 0.5, z, 'smoke', Math.round(count / 10));
+  }
+
+  /**
+   * A legendary weapon's verb fired: a small, capped burst of sparks in its colour (never more than PROC_SPARKS per event, so a stress
+   * scene of swings stays inside the particle budget). `gold` sparks are the pale ones; the rest are ember orange.
+   */
+  private legendaryProc(effect: LegendaryEffect, x: number, y: number, z: number): void {
+    const count = effect === 'burning_marks' ? PROC_SPARKS : Math.round(PROC_SPARKS * 0.75);
+    for (let i = 0; i < count; i++) {
+      const a = rnd() * Math.PI * 2;
+      const s = 1.2 + rnd() * 2.2;
+      const rise = effect === 'lunge' ? 0.6 + rnd() : 1.5 + rnd() * 2;
+      this.spark(x + spread(0.25), y + spread(0.25), z + spread(0.25), Math.cos(a) * s, rise, Math.sin(a) * s, effect !== 'burning_marks');
+    }
+  }
+
+  /**
+   * A thin ribbon of sparks along a swing, in the weapon's colour (TRAIL_COLOUR): `count` points on an arc from low right to high left
+   * in front of the eye, each living a short moment. `count` is 0 under reduced motion and halved on low graphics (decided by the sender).
+   */
+  private swingTrail(effect: LegendaryEffect, x: number, y: number, z: number, yaw: number, pitch: number, count: number): void {
+    if (!(count > 0)) return;
+    const [r, g, b] = TRAIL_COLOUR[effect];
+    const fx = -Math.sin(yaw) * Math.cos(pitch);
+    const fz = -Math.cos(yaw) * Math.cos(pitch);
+    const rx = Math.cos(yaw);
+    const rz = -Math.sin(yaw);
+    for (let i = 0; i < count; i++) {
+      const t = count === 1 ? 0.5 : i / (count - 1);
+      const side = 0.7 - 1.4 * t;
+      const up = -0.5 + 0.9 * Math.sin(t * Math.PI);
+      const p = this.spec;
+      shapeSpark(p, x + fx * 1.3 + rx * side, y + up + Math.sin(pitch) * 1.3, z + fz * 1.3 + rz * side, spread(0.4), 0.3 + rnd() * 0.5, spread(0.4), false);
+      p.r = p.r2 = r;
+      p.g = p.g2 = g;
+      p.b = p.b2 = b;
+      p.life = 0.25 + rnd() * 0.2;
+      p.gravity = 2;
+      this.particles.spawn(p);
+    }
   }
 
   private explosion(x: number, y: number, z: number, radius: number): void {

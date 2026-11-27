@@ -7,11 +7,16 @@
  */
 import type { GameBus } from '../core/context';
 import { blockOf, blockOfItem, block as blockByKey, itemOrNull } from '../core/registry';
-import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, withId, type BlockDef, type IWorld, type Voxel } from '../core/types';
+import { AIR, Face, Facing, WORLD_HEIGHT, makeVoxel, voxelActive, voxelVariant, withActive, withId, type BlockDef, type ItemDef, type IWorld, type Voxel } from '../core/types';
+import { DOOR_TOP, doorPartnerStep } from '../core/doorShape';
 import {
   TILLABLE,
+  breakVein,
   canHarvest,
   canMine,
+  magnetRadius,
+  planVein,
+  shapeDrops,
   canTill,
   drink,
   eat,
@@ -32,10 +37,11 @@ import {
   till,
   type PlayerState,
 } from '../game';
-import { buildsOnto, digSound, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
+import { buildsOnto, digPitch, digSound, placePitch, facingTowards, frontFace, placeOnAdvice, screenFor, toolNeeded } from './blockRules';
 import { Buckets } from './buckets';
 import { BrewTools, type BrewHands } from './brewTools';
 import { HandTools, type HandHands } from './handTools';
+import { ToolUses } from './toolUses';
 import { SapTools } from './sapTools';
 import { PipeTools, type TransportHands } from './pipeTools';
 import type { RayHit } from './raycast';
@@ -82,11 +88,14 @@ export class Interaction {
   private placeCooldown = 0;
   private clock = 0;
   private readonly advice = new Map<string, number>();
+  /** Counts every advise() call, shown or held back by its cooldown. */
+  private adviceGiven = 0;
   private readonly buckets: Buckets;
   private readonly pipes: PipeTools;
   private readonly brewing: BrewTools;
   private readonly handwork: HandTools;
   private readonly sap: SapTools;
+  private readonly toolUses: ToolUses;
 
   constructor(
     private readonly world: IWorld,
@@ -135,6 +144,15 @@ export class Interaction {
       swing: () => swing.triggerSwing(),
       stopMining: () => this.stopMining(),
     });
+    this.toolUses = new ToolUses({
+      world, player, bus, rng,
+      get cooldown() {
+        return self.placeCooldown;
+      },
+      startCooldown: () => (this.placeCooldown = PLACE_COOLDOWN_S),
+      swing: () => swing.triggerSwing(),
+      stopMining: () => this.stopMining(),
+    });
     this.handwork = new HandTools({
       player,
       advise: (key, text) => this.advise(key, text),
@@ -145,6 +163,8 @@ export class Interaction {
 
   /** A Use handler that goes first (after placing against a screen block); returns null to pass. Set by the app. */
   beforeUse: ((hit: RayHit | null) => 'worked' | 'refused' | 'screen' | null) | null = null;
+  /** An axe blow on a log (game/fallingTrees.ts): true when the tree takes the blow instead of the log breaking. Set by the app. */
+  treeChop: ((hit: RayHit) => boolean) | null = null;
 
   get mining(): boolean {
     return this.progress >= 0;
@@ -174,7 +194,7 @@ export class Interaction {
     this.digTimer -= dt;
     if (this.digTimer <= 0) {
       this.digTimer += DIG_INTERVAL_S;
-      this.bus.emit('sfx', { name: digSound(def), x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5 });
+      this.bus.emit('sfx', { name: digSound(def), x: hit.x + 0.5, y: hit.y + 0.5, z: hit.z + 0.5, pitch: digPitch(def, this.player.heldStack()) });
       this.swing.triggerSwing();
     }
     if (this.progress >= 1) {
@@ -206,6 +226,31 @@ export class Interaction {
    * right after (handTools.ts): a stroke, an insert or a take at a hand station, a mould poured from a molten furnace.
    */
   use(hit: RayHit | null, forcePlace = false): UseOutcome {
+    const advised = this.adviceGiven;
+    const outcome = this.useOn(hit, forcePlace);
+    if (outcome !== 'none' || this.player.dead) return outcome;
+    if (this.adviceGiven !== advised) return outcome; // a rule already explained itself (maybe on cooldown): no second toast
+    // Nothing claimed this Use: an item that is not a block-and-target thing (an elixir) may still act, set by the app...
+    const last = this.lastResort?.(hit) ?? null;
+    if (last !== null) return last;
+    // ...and otherwise the player is told why nothing happened (a silent press reads as a broken button).
+    this.explainNothing(hit);
+    return 'none';
+  }
+
+  /** Last say on a Use nothing else claimed (the elixir drink, set by the app); null to pass. */
+  lastResort: ((hit: RayHit | null) => UseOutcome | null) | null = null;
+
+  /** The toast for a held item aimed at a block it cannot do anything to. Bare hands stay quiet (a tap is not a request). */
+  private explainNothing(hit: RayHit | null): void {
+    const held = this.player.heldStack();
+    if (!hit || !held || hit.block.liquid !== null) return;
+    const item = itemOrNull(held.item);
+    if (!item) return;
+    this.advise(`nouse:${item.key}:${hit.block.key}`, noUseAdvice(item, hit.block));
+  }
+
+  private useOn(hit: RayHit | null, forcePlace: boolean): UseOutcome {
     if (this.player.dead) return 'none';
     if (hit && hit.block.liquid === null) {
       const def = blockOfItem(this.player.heldStack()?.item ?? '');
@@ -233,6 +278,10 @@ export class Interaction {
       const tapped = this.sap.use(hit);
       if (tapped !== null) return tapped === 'tapped' ? 'worked' : 'refused';
     }
+    if (hit && !forcePlace) {
+      const swung = this.swingDoor(hit);
+      if (swung !== null) return swung;
+    }
     if (hit) {
       const brewed = this.brewing.use(hit) ?? this.brewing.placeContainer(hit);
       if (brewed !== null) return brewed;
@@ -240,6 +289,9 @@ export class Interaction {
       if (worked !== null) return worked;
       const piped = this.pipes.use(hit, this.player.heldStack()?.item ?? null);
       if (piped !== null) return piped;
+      // Tools and items on existing blocks (toolUses.ts): strip, reap, rivet, turn with the wrench...
+      const used = this.toolUses.use(hit);
+      if (used !== null) return used;
     }
     const screen = hit && hit.block.liquid === null ? screenFor(hit.block, hit.x, hit.y, hit.z) : null;
     if (screen) {
@@ -247,6 +299,14 @@ export class Interaction {
       this.bus.emit('ui:open', { screen });
       this.swing.triggerSwing();
       return 'screen';
+    }
+    // An air block (tube, tank, compressor, nozzle) answers a Use with its pressure; a compressor takes a stroke of the
+    // hand crank. A held building block still places (above), so a tube is never worked by accident.
+    if (hit && hit.block.air !== null && hit.block.liquid === null && blockOfItem(this.player.heldStack()?.item ?? '') === null) {
+      this.stopMining();
+      this.bus.emit('air:use', { x: hit.x, y: hit.y, z: hit.z });
+      this.swing.triggerSwing();
+      return 'worked';
     }
     // A fruiting bush is picked by hand, whatever is held.
     if (hit && hit.block.harvestLeaves !== null && hit.block.liquid === null) return this.pick(hit);
@@ -278,7 +338,10 @@ export class Interaction {
   placeBlock(hit: RayHit, def: BlockDef): boolean {
     if (this.placeCooldown > 0) return false;
     const { x, y, z } = placementCell(hit);
-    if (!this.placeableCell(x, y, z)) return false;
+    if (!this.placeableCell(x, y, z)) {
+      this.advise('place:nospace', y < 0 || y >= WORLD_HEIGHT ? 'Nothing can be built past the edge of the world' : 'There is no room to place that there', 4);
+      return false;
+    }
     if (def.placeOn) {
       const below = this.world.getBlock(x, y - 1, z);
       if (!def.placeOn.includes(below.key)) {
@@ -286,16 +349,44 @@ export class Interaction {
         return false;
       }
     }
-    if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) return false;
-    const voxel = makeVoxel(def.id, def.oriented ? facingTowards(this.player.yaw) : Facing.North);
+    if (def.solid && this.body.intersectsCell(x, y, z, def.shape === 'slab' ? 0.5 : 1)) {
+      this.advise('place:body', 'You are standing in the way - step aside to place that', 4);
+      return false;
+    }
+    // A door is two cells: the top half goes in the cell above, which must be free and clear of the player.
+    const door = def.shape === 'door';
+    if (door && (!this.placeableCell(x, y + 1, z) || this.body.intersectsCell(x, y + 1, z, 1))) {
+      this.advise(`place:${def.key}`, 'A door needs two cells of room: clear the cell above.');
+      return false;
+    }
+    const facing = def.oriented ? facingTowards(this.player.yaw) : Facing.North;
+    const voxel = makeVoxel(def.id, facing);
     if (!this.world.setVoxel(x, y, z, voxel, 'player')) return false;
+    if (door) this.world.setVoxel(x, y + 1, z, makeVoxel(def.id, facing, false, DOOR_TOP), 'player');
     this.edits++;
     if (!(this.player.dev && this.player.devFreePlace)) this.player.consumeHeld(1);
     this.placeCooldown = PLACE_COOLDOWN_S;
     this.bus.emit('block:placed', { x, y, z, voxel });
-    this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
+    this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: placePitch(def), volume: 0.8 });
     this.swing.triggerSwing();
     return true;
+  }
+
+  /**
+   * The cue for a Use that did nothing and said nothing (the controller calls it when no toast or screen followed), so
+   * no tap on the sky or on a block is ever mute. A refusal right after another action is just the cooldown: quiet.
+   */
+  explainIdle(hit: RayHit | null, outcome: 'none' | 'refused', forcePlace: boolean): void {
+    if (this.player.dead || (outcome === 'refused' && this.placeCooldown > 0)) return;
+    const held = this.player.heldStack();
+    const heldName = held ? (itemOrNull(held.item)?.name ?? held.item) : null;
+    const target = hit ? hit.block.name : null;
+    let text: string;
+    if (forcePlace && !(held && blockOfItem(held.item))) text = 'Hold a block to place it';
+    else if (!target) text = heldName ? `Nothing in reach to use the ${heldName} on` : 'Nothing in reach to use';
+    else if (outcome === 'refused') text = heldName ? `Cannot use the ${heldName} on the ${target} right now` : `Cannot use the ${target} right now`;
+    else text = heldName ? `The ${heldName} does nothing to the ${target}` : `Nothing to do with the ${target} by hand`;
+    this.advise(`idle:${forcePlace ? "place" : "use"}:${outcome}:${hit?.block.key ?? 'sky'}:${held?.item ?? ''}`, text, 4);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -327,19 +418,32 @@ export class Interaction {
       exertMining(this.player);
       return;
     }
+    // An axe on a tree's base wears its health down; the tree falls when that runs out (game/fallingTrees.ts).
+    if (this.treeChop !== null && this.treeChop(hit)) {
+      this.progress = -1;
+      this.breakCooldown = BREAK_COOLDOWN_S;
+      return;
+    }
     const def = hit.block;
     const held = this.player.heldStack();
-    const drops = harvest(def, held, this.rng);
+    const shaped = shapeDrops(harvest(def, held, this.rng), held, this.rng);
+    const drops = shaped.drops;
     const { x, y, z, voxel } = hit;
+    // Enchants (src/game/enchantEffects.ts): read before the break, since the tool can wear out on it.
+    const magnet = magnetRadius(held);
+    const vein = canHarvest(def, held) ? planVein(this.world, this.player, x, y, z) : [];
     this.progress = -1;
     this.breakCooldown = BREAK_COOLDOWN_S;
     // A fruiting bush gives its fruit and stays, picked (spec 14: harvestLeaves is a block rule).
     const left = leftBehind(def, voxel);
     if (!this.world.setVoxel(x, y, z, left, 'player')) return;
     this.edits++;
-    this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 });
-    this.player.wearHeld(def);
+    if (def.shape === 'door') this.clearDoorPartner(def, x, y, z, voxel);
+    this.player.dropAll(drops, { x: x + 0.5, y: y + 0.5, z: z + 0.5 }, magnet);
+    if (shaped.bonus) this.bus.emit('sfx', { name: 'pickup', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: 1.6 });
+    const broke = this.player.wearHeld(def);
     exertMining(this.player);
+    if (vein.length > 0 && !broke && left === AIR) this.edits += breakVein(this.world, this.player, vein, this.rng, rollDrops);
     if (left !== AIR) {
       this.bus.emit('sfx', { name: 'harvest', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
       return;
@@ -347,6 +451,29 @@ export class Interaction {
     this.bus.emit('block:broken', { x, y, z, voxel });
     this.bus.emit('sfx', { name: isRipeCrop(def) ? 'harvest' : 'break', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     this.popUnsupported(x, y + 1, z);
+  }
+
+  /** Use on a wooden door (docs/api/door.md): both halves swing open or shut together. Null when the block is no door. */
+  private swingDoor(hit: RayHit): UseOutcome | null {
+    if (hit.block.shape !== 'door') return null;
+    if (this.placeCooldown > 0) return 'refused';
+    const { x, y, z, voxel, block: def } = hit;
+    const on = !voxelActive(voxel);
+    const py = y + doorPartnerStep(voxelVariant(voxel));
+    if (!this.world.setVoxel(x, y, z, withActive(voxel, on), 'player')) return 'refused';
+    const partner = this.world.getVoxel(x, py, z);
+    if (blockOf(partner).key === def.key) this.world.setVoxel(x, py, z, withActive(partner, on), 'player');
+    this.edits++;
+    this.placeCooldown = PLACE_COOLDOWN_S;
+    this.bus.emit('sfx', { name: 'place', x: x + 0.5, y: y + 0.5, z: z + 0.5, pitch: on ? 1.2 : 0.9, volume: 0.6 });
+    this.swing.triggerSwing();
+    return 'worked';
+  }
+
+  /** Breaking one half of a door takes the other half with it (no second drop). */
+  private clearDoorPartner(def: BlockDef, x: number, y: number, z: number, voxel: Voxel): void {
+    const py = y + doorPartnerStep(voxelVariant(voxel));
+    if (blockOf(this.world.getVoxel(x, py, z)).key === def.key) this.world.setVoxel(x, py, z, AIR, 'player');
   }
 
   /** Use on a fruiting bush: its drops into the pack, the picked block in its place (entity kept), sfx harvest. */
@@ -417,6 +544,7 @@ export class Interaction {
 
   /** A toast that explains a refusal, at most once per `cooldownS` (default ADVICE_COOLDOWN_S) for the same subject. */
   advise(key: string, text: string, cooldownS = ADVICE_COOLDOWN_S): void {
+    this.adviceGiven++;
     const last = this.advice.get(key);
     if (last !== undefined && this.clock - last < cooldownS) return;
     this.advice.set(key, this.clock);
@@ -431,6 +559,14 @@ export class Interaction {
 function placesAgainst(def: BlockDef, hit: RayHit): boolean {
   if (!buildsOnto(def) || hit.block.pipe !== null || !screenFor(hit.block, hit.x, hit.y, hit.z)) return false;
   return frontFace(hit.block, hit.voxel) !== hit.face;
+}
+
+/** Why the held item did nothing on the block: a hint where the tool has a real use nearby, else a plain statement. */
+export function noUseAdvice(item: ItemDef, target: BlockDef): string {
+  if (isHoe({ item: item.key, count: 1 })) return `A hoe only tills dirt and grass, from above - not ${target.name}`;
+  const kind = item.tool?.kind;
+  if (kind && kind !== 'hoe' && canMine(target)) return `Nothing to do with the ${item.name} on ${target.name} - hold Mine to dig it`;
+  return `The ${item.name} does nothing on ${target.name}`;
 }
 
 /** What breaking or picking a block leaves in its cell: the picked stage of a bush (same facing and flags), else air. */

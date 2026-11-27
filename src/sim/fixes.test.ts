@@ -262,7 +262,7 @@ describe('a first hearth on flat ground (sim-4)', () => {
     expect(kit.sim.furnaceAt(0, 1, 0)!.hearth).toMatchObject({ tier: 3 });
     const v = kit.sim.structureView(0, 1, 0, { tier: 3 })!;
     expect(v.target.cells.find((c) => c.x === 0 && c.y === 0 && c.z === 0)).toMatchObject({ has: 'grass', state: 'ok' });
-    expect(v.target.materials).toEqual([expect.objectContaining({ item: 'brick', need: 15, missing: 0 })]);
+    expect(v.target.materials).toEqual([expect.objectContaining({ item: 'brick', need: 14, missing: 0 }), expect.objectContaining({ item: 'blast_nozzle', need: 1, missing: 0 })]);
     // A hole there is still a gap.
     kit.world.put(0, 0, 0, 'air');
     kit.sim.validateHearths();

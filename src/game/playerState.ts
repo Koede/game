@@ -5,6 +5,7 @@
  * Conventions: `position` is the centre of the feet (the eye is PLAYER_EYE above it). Yaw is in radians, 0 looks
  * north (-Z) and positive turns left - exactly a three.js camera's rotation.y. Pitch is positive looking up.
  */
+import { sparesWear } from '../content/toolParts';
 import { HOTBAR_SIZE, HUNGRY_AT, INVENTORY_SIZE, MAX_AIR_S, MAX_FOOD, MAX_HEALTH, MAX_WARMTH, PLAYER_EYE, REGEN_MIN_FOOD } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
 import type { DamageCause } from '../core/gameEvents';
@@ -17,7 +18,14 @@ import { Collectors } from './collectors';
 import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundItems';
 import { PlayerCombat, type CombatSnapshot } from './combat';
 import { Inventory } from './inventory';
+import { PlayAssist, type AssistSnapshot } from './assist';
+import { BlueprintBook, type BlueprintBookSnapshot } from './blueprintBook';
+import { takesItem } from './lootFilter';
+import { favouritesOf, setFavourites } from './inventoryTools';
+import { pocketsOf, setPockets, type Pocket } from './pockets';
 import { wear } from './mining';
+import { Caravan, type CaravanSave } from './caravan';
+import { RecipeBook, type RecipeBookSave } from './discovery';
 
 export interface BlockPos {
   x: number;
@@ -52,6 +60,16 @@ export interface PlayerSnapshot {
   /** Food 0..MAX_FOOD (spec 12.1). Missing in saves made before hunger existed: a full bar. */
   food?: number;
   inventory: Slot[];
+  /** Favourite inventory slots (sort and move-all leave them); missing in older saves. */
+  favourites?: number[];
+  /** Locked inventory slots (the per-slot lock; nothing moves out of or into them through the UI); missing in older saves. */
+  locks?: number[];
+  /** Pickup tick per inventory slot (sorting 'newest first' reads them); missing in older saves: none. */
+  picked?: number[];
+  /** The backpack's pockets (named sections); missing in older saves: one pocket. */
+  pockets?: Pocket[];
+  /** Play-assist state (pinned recipe...); missing in older saves. */
+  assist?: AssistSnapshot;
   selectedSlot: number;
   home: BlockPos | null;
   spawn: Vec3;
@@ -69,6 +87,11 @@ export interface PlayerSnapshot {
   killedBy?: string | null;
   /** Items lying in the world (docs/api/ground-items.md). Missing in saves made before ground items: none. */
   ground?: GroundItemSnapshot[];
+  /** Recipe book and caravan (docs/api/discovery.md, caravan.md). Missing in older saves: empty. */
+  book?: RecipeBookSave;
+  /** Saved and granted blueprints and Gruk's build jobs (docs/api/blueprint.md). Missing in older saves: empty. */
+  blueprints?: BlueprintBookSnapshot;
+  caravan?: CaravanSave;
 }
 
 /** Upper bound of the "seconds since the last damage" counter, so it stays a small finite number in saves. */
@@ -148,6 +171,14 @@ export class PlayerState {
   readonly combat: PlayerCombat;
   /** Items lying in the world: everything that gives items spawns them here (see `drop`, `dropHeld`). */
   readonly ground: GroundItems;
+  /** Pinned recipe, last hand recipe, undo and the like (./assist). */
+  readonly assist = new PlayAssist();
+  /** Hidden recipes found by experiment (src/game/discovery.ts). */
+  readonly book = new RecipeBook();
+  /** The blueprints the player owns and the jobs Gruk is working (./blueprintBook). */
+  readonly blueprints = new BlueprintBook();
+  /** The trade caravan's prices and visit (src/game/caravan.ts). */
+  readonly caravan = new Caravan();
   /** Handheld collectors (vacuum pump, later the electromagnet). */
   readonly collectors: Collectors;
   private readonly unsubscribe: Array<() => void>;
@@ -249,6 +280,7 @@ export class PlayerState {
   wearHeldTool(uses: number): boolean {
     const held = this.heldStack();
     if (!held || held.durability === undefined || !(uses > 0) || this.dev) return false;
+    if (sparesWear(held.item, Math.random())) return false; // a resin binding sometimes spares the use (content/toolParts.ts)
     held.durability -= uses;
     if (held.durability > 0) {
       this.inventory.notifyChanged();
@@ -265,8 +297,13 @@ export class PlayerState {
    * Puts items into the inventory. Emits 'item:gained' for what arrived (and 'inventory:changed'); what does
    * not fit is returned as a count after a warning toast.
    */
-  give(item: string, count = 1, durability?: number): number {
-    const left = this.inventory.add(item, count, durability);
+  /** Whether the loot filter (Settings.lootFilter) lets the player pick `item` up from the ground. */
+  takes(item: string): boolean {
+    return takesItem(this.assist.lootFilter, item);
+  }
+
+  give(item: string, count = 1, durability?: number, enchants?: Record<string, number>): number {
+    const left = this.inventory.add(item, count, durability, 0, this.inventory.size, undefined, enchants);
     const gained = Math.floor(count) - left;
     if (gained > 0) this.bus.emit('item:gained', { item, count: gained });
     if (left > 0) {
@@ -281,14 +318,18 @@ export class PlayerState {
    * THE call for "something gave items": broken blocks, animals, spills. Returns nothing; they are picked up again
    * by walking close (a collector pulls from further).
    */
-  drop(item: string, count = 1, durability?: number, at?: { x: number; y: number; z: number }): void {
+  drop(item: string, count = 1, durability?: number, at?: { x: number; y: number; z: number }, magnet?: number): void {
     const p = at ?? { x: this.position.x, y: this.position.y + 0.5, z: this.position.z };
-    this.ground.spawn(item, count, p.x, p.y, p.z, { durability });
+    this.ground.spawn(item, count, p.x, p.y, p.z, { durability, magnet });
   }
 
   /** Drops several stacks at one point (a spill, an animal's drops). */
-  dropAll(stacks: ReadonlyArray<{ item: string; count: number; durability?: number } | null>, at?: { x: number; y: number; z: number }): void {
-    for (const s of stacks) if (s) this.drop(s.item, s.count, s.durability, at);
+  dropAll(
+    stacks: ReadonlyArray<{ item: string; count: number; durability?: number } | null>,
+    at?: { x: number; y: number; z: number },
+    magnet?: number,
+  ): void {
+    for (const s of stacks) if (s) this.drop(s.item, s.count, s.durability, at, magnet);
   }
 
   /** Throws `count` out of `slot` in front of the player (the drop key). Returns how many left the pack. */
@@ -303,6 +344,7 @@ export class PlayerState {
     const hz = this.position.z + dir.z * 0.5;
     this.ground.spawn(taken.item, taken.count, hx, this.eyeY - 0.35, hz, {
       durability: taken.durability,
+      enchants: taken.enchants,
       scatter: false,
       vx: dir.x * 4.2,
       vy: 2 + dir.y * 3,
@@ -409,6 +451,11 @@ export class PlayerState {
       air: this.air,
       food: this.food,
       inventory: this.inventory.toJSON(),
+      favourites: [...favouritesOf(this.inventory)].sort((a, b) => a - b),
+      locks: [...this.inventory.locked].sort((a, b) => a - b),
+      picked: [...this.inventory.ticks],
+      pockets: pocketsOf(this.inventory),
+      assist: this.assist.toJSON(),
       selectedSlot: this.selectedSlot,
       home: this.home ? { ...this.home } : null,
       spawn: { ...this.spawn },
@@ -427,6 +474,9 @@ export class PlayerState {
       combat: this.combat.toJSON(),
       killedBy: this.killedBy,
       ground: this.ground.toJSON(),
+      book: this.book.toJSON(),
+      blueprints: this.blueprints.toJSON(),
+      caravan: this.caravan.toJSON(),
     };
   }
 
@@ -447,6 +497,11 @@ export class PlayerState {
     this.drinkCooldownS = 0;
     this.sprinting = false;
     this.inventory.load(s.inventory);
+    setFavourites(this.inventory, s.favourites);
+    this.inventory.setLocks(s.locks);
+    this.inventory.setTicks(s.picked);
+    setPockets(this.inventory, s.pockets);
+    this.assist.load(s.assist);
     this.selectedSlot = clamp(Math.floor(s.selectedSlot), 0, HOTBAR_SIZE - 1);
     this.home = s.home ? { ...s.home } : null;
     this.buffs.load(s.buffs);
@@ -464,5 +519,8 @@ export class PlayerState {
     this.killedBy = this.dead && typeof s.killedBy === 'string' ? s.killedBy : null;
     this.collectors.stop();
     this.ground.load(s.ground);
+    this.book.load(s.book);
+    this.blueprints.load(s.blueprints);
+    this.caravan.load(s.caravan);
   }
 }

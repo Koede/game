@@ -1,11 +1,12 @@
 /** The front door: wordmark, one line of promise, and the way into a world. */
 import type { Difficulty, Settings } from '../../core/context';
 import { modeLabel, type GameMode } from '../../core/gameMode';
+import { titleStage } from '../../game/achievements';
 import { Button, Segmented, TextField } from '../kit/controls';
 import { h, setText } from '../kit/dom';
 import { heatColor } from '../kit/format';
 import type { UIRoot } from '../kit/root';
-import { applyUiScale } from '../kit/uiScale';
+import { applyAccessibility, applyUiScale } from '../kit/uiScale';
 import { Window } from '../kit/window';
 import { EmberField } from './fire';
 import { HowToPlay, type HowToPlayOptions } from './howto';
@@ -33,6 +34,8 @@ export interface TitleScreenOptions {
   version?: string;
   /** Names of the six ages for the strip under the promise. Default: the ages of the spec. */
   ages?: readonly string[];
+  /** How far the saved world has got (its age, 0..5): the backdrop warms and brightens with it. */
+  stage?: number;
 }
 
 const WORD_HEAT = 'HEARTH';
@@ -101,6 +104,7 @@ export class TitleScreen {
       },
     });
     applyUiScale(root.el, this.settings.uiScale);
+    applyAccessibility(root.el, this.settings);
     this.menu = h('div', { class: 'hw-title__menu' });
     const ages = opts.ages ?? DEFAULT_AGES;
     this.wordmark = h(
@@ -126,7 +130,7 @@ export class TitleScreen {
     );
     this.el = h(
       'main',
-      { class: 'hw-title' },
+      { class: 'hw-title', attrs: { 'data-stage': String(titleStage(opts.stage)) } },
       this.fire.el,
       h(
         'div',
@@ -164,6 +168,11 @@ export class TitleScreen {
   }
 
   /** Call after a save was written or deleted while the title is alive. */
+  /** Changes the backdrop for a world that has got this far (its age). */
+  setStage(stage: number | undefined): void {
+    this.el.dataset.stage = String(titleStage(stage));
+  }
+
   setHasSave(hasSave: boolean, savedMode: GameMode = this.savedMode): void {
     if (hasSave === this.hasSave && savedMode === this.savedMode) return;
     this.hasSave = hasSave;
@@ -238,6 +247,7 @@ export class TitleScreen {
       setText(this.difficultyHint, difficultyHint(settings.difficulty));
     }
     applyUiScale(this.root.el, settings.uiScale);
+    applyAccessibility(this.root.el, settings);
     this.opts.onSettingsChange({ ...settings }, key);
   }
 

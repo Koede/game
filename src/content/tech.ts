@@ -5,6 +5,7 @@
 import { BATTERY_EFFICIENCY, CRATE_SIZE, IGNITION_POWER_W, IGNITION_SECONDS, STARHEARTH_OUTPUT_W } from '../core/constants';
 import type { AgeSpec, FurnaceTierSpec, HearthStructureSpec, MachineSpec } from '../core/types';
 import { amounts } from './amounts';
+import { FUEL_GRADES } from '../core/distill';
 import { areaMachines } from './area';
 import { ITEM_SPECS } from './items';
 import { HAND_MACHINES } from './blocksHand';
@@ -19,7 +20,8 @@ const wallsFrom = (tier: number): string[] => WALLS.slice(tier - 3);
 
 /** The hearth each tier needs (spec 17.1). Crucibles of a formed hearth = min(maxCrucibles, x * z + crucibleBonus). */
 const HEARTHS: Record<number, HearthStructureSpec> = {
-  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', maxCrucibles: 5, crucibleBonus: 1 },
+  // The Blast hearth needs a Blast Nozzle in a face (BRONZE_PLAN 4.5); hearths built before that rule are kept by `legacyHearth`.
+  3: { wall: wallsFrom(3), minInner: [1, 1, 1], maxInner: [3, 3, 3], ceiling: 'optional', requiredParts: { blast_nozzle: 1 }, maxCrucibles: 5, crucibleBonus: 1 },
   4: { wall: wallsFrom(4), minInner: [1, 1, 1], maxInner: [4, 4, 3], ceiling: 'required', electrodes: 1, maxCrucibles: 6, crucibleBonus: 1 },
   5: { wall: wallsFrom(5), minInner: [2, 2, 2], maxInner: [5, 5, 4], ceiling: 'required', powerPorts: 2, maxCrucibles: 8, crucibleBonus: 2 },
   6: { wall: wallsFrom(6), minInner: [3, 3, 3], maxInner: [5, 5, 5], ceiling: 'required', powerPorts: 4, maxCrucibles: 9, crucibleBonus: 0 },
@@ -74,10 +76,12 @@ export const FURNACE_TIERS: FurnaceTierSpec[] = [
 ];
 
 /**
- * What a burner generator accepts: every FuelSpec item except those that hand a container back (the lava bucket),
- * since its single fuel slot has nowhere to put the empty bucket. The furnace firebox takes every fuel.
+ * What a burner generator accepts: every FuelSpec item, as the furnace firebox does. A fuel that hands a container back
+ * (the lava bucket) gives it to the player (SimContext.giveBack) when it burns.
  */
-const BURNER_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel && it.fuel.fuelReturns === undefined).map((it) => it.key);
+const BURNER_FUELS: string[] = ITEM_SPECS.filter((it) => it.fuel).map((it) => it.key);
+/** What the combustion engine's slot takes: every container of refined fuel with an engine grade (src/core/distill.ts FUEL_GRADES). */
+const ENGINE_FUELS: string[] = Object.entries(FUEL_GRADES).filter(([, g]) => g.engine > 0).map(([k]) => k);
 
 export const MACHINE_SPECS: MachineSpec[] = [
   // furnace - one spec for all six tier blocks. Per-tier numbers are in FURNACE_TIERS and the fire model's
@@ -117,6 +121,19 @@ export const MACHINE_SPECS: MachineSpec[] = [
     desc: 'Makes 0.25 W for every degree a touching furnace is above 100 C, up to 300 W. It cools that furnace by four times what it delivers.',
     placementHint: 'Must touch a furnace.',
   },
+  // dynamo - the only bridge from a workshop shaft to the grid (docs/STEAM_PLAN.md, SPEC 20). It is also a part of the
+  // shaft network (src/workshop: a load of 16 stress units at 16 rpm). watts = min(capW, wattsPerRpm * rpm) while the
+  // line it touches turns at minRpm or more. A line that an electric generator (water wheel, wind turbine, steam
+  // engine) turns gives it nothing: watts cannot be made twice. params:
+  //   minRpm       slowest shaft speed it works at
+  //   wattsPerRpm  watts for every rpm above zero
+  //   capW         most it can deliver
+  {
+    kind: 'dynamo', name: 'Dynamo', role: 'generator', blocks: ['dynamo'], outputW: 2000,
+    params: { minRpm: 64, wattsPerRpm: 30, capW: 2000 },
+    desc: 'Turns shaft rotation into current: 30 W for every rpm, up to 2 kW, and it will not run below 64 rpm. It is the first electricity of the Forge Age.',
+    placementHint: 'Join it to a drive shaft or any turning part of a workshop line.',
+  },
   // steam_engine - same formula as the thermopile, for the furnace directly below it. params:
   //   wattsPerC, minTempC, capW, heatPerWatt   as for the thermopile
   //   minWater         water blocks needed among its 4 horizontal neighbours
@@ -142,7 +159,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
   {
     kind: 'water_wheel', name: 'Water Wheel', role: 'generator', blocks: ['water_wheel'], outputW: 400,
     params: { minWater: 2, shareRadius: 3 },
-    desc: 'Makes a steady 400 W. Wheels within 3 blocks of each other share that between them.',
+    desc: 'Makes 400 W, 100 W more for each block of water stacked beside it (a dam; up to 4), and far less when the river ices over in late autumn and winter. Wheels within 3 blocks of each other share the flow.',
     placementHint: 'Needs water on at least two of its six sides.',
   },
   // wind_turbine - watts = outputW * wind(t) * altitude, only under open sky. params:
@@ -170,7 +187,7 @@ export const MACHINE_SPECS: MachineSpec[] = [
   //   fuelLPerCanister  litres of refined fuel worth one canister's energy
   {
     kind: 'combustion_engine', name: 'Combustion Engine', role: 'generator', blocks: ['combustion_engine'], outputW: 12000,
-    fuels: ['fuel_canister'], efficiency: 0.4, slots: 1,
+    fuels: ENGINE_FUELS, efficiency: 0.4, slots: 1,
     params: { fuelEnergyJ: 6_000_000, fuelLPerCanister: 1000 },
     fluids: { accepts: ['fuel'], capacityL: 4000 },
     desc: 'Makes up to 12 kW. Each fuel canister gives 2.4 MJ of electricity, burned only as fast as the network draws.',
@@ -216,6 +233,15 @@ export const MACHINE_SPECS: MachineSpec[] = [
   },
 
   // ---- storage (capacityJ, rateW = most it can charge or discharge) --------------------------
+  // kerosene_lamp - not on any network (the block has no `power`): burns one Kerosene Canister at a time from its slot, lamp-sized.
+  // params: fuelEnergyJ per canister, lampW burn rate (so a canister lasts fuelEnergyJ / lampW = 1200 s). The last canister of a stack
+  // leaves empty canisters in the slot. Behaviour: src/sim/machines.ts keroseneLamp.
+  {
+    kind: 'kerosene_lamp', name: 'Kerosene Lamp', role: 'generator', blocks: ['kerosene_lamp'], outputW: 1, /* nominal: the lamp never feeds a network (availW stays 0) */
+    fuels: ['kerosene_canister'], efficiency: 1, slots: 1, itemPipes: false,
+    params: { fuelEnergyJ: 3600, lampW: 3 },
+    desc: 'Burns a Kerosene Canister for twenty minutes of light, with no power network. The empty canister is left in its slot.',
+  },
   // battery, lithium_bank - params:
   //   chargeEfficiency  fraction of charging power that ends up stored
   {

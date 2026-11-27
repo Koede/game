@@ -1,9 +1,10 @@
 /** Spec sections 13-15: buckets and lava, the richer world (marsh, berries, ruins and their loot), and the weather data. */
+import { maxDurabilityOf } from '../game/inventory';
 import { describe, expect, it } from 'vitest';
 import { CRATE_SIZE, NIGHT_LIGHT_FULL_MOON, NIGHT_LIGHT_NEW_MOON } from '../core/constants';
 import { mulberry32 } from '../core/math';
 import {
-  BLOCKS, CREATURES, ITEMS, LOOT_TABLES, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, block, fuelOf, item, lootTable, machine,
+  BLOCKS, CREATURES, ITEMS, LOOT_TABLES, MACHINES, MAX_FURNACE_TIER, OBJECTIVES, ORE_VEINS, block, fuelOf, item, lootTable, lootTableItems, machine,
   recipesFor, rollLoot,
 } from '../core/registry';
 import { ALL_BIOMES, type LootTableSpec } from '../core/types';
@@ -34,9 +35,9 @@ describe('13. buckets', () => {
   it('burns a lava bucket at 1300 C for 100 s (2 MJ) and hands the bronze bucket back', () => {
     expect(fuelOf('lava_bucket')).toEqual({ energyJ: 2_000_000, burnS: 100, flameTempC: 1300, fuelReturns: 'bronze_bucket' });
     expect(item('lava_bucket').stack).toBe(1);
-    // Only containers return anything; the burner generator's single slot could not hold the empty bucket.
-    expect(ITEMS.filter((it) => it.fuel?.fuelReturns).map((it) => it.key)).toEqual(['lava_bucket']);
-    expect(machine('burner_generator').fuels).not.toContain('lava_bucket');
+    // Only containers return anything; the burner generator takes it too and hands the empty bucket to the player.
+    expect(ITEMS.filter((it) => it.fuel?.fuelReturns).map((it) => it.key)).toEqual(['lava_bucket', 'fuel_ethanol_beaker', 'gasoline_canister', 'kerosene_canister', 'diesel_canister']);
+    expect(machine('burner_generator').fuels).toContain('lava_bucket');
     expect(machine('burner_generator').fuels).toContain('peat');
   });
 
@@ -98,7 +99,7 @@ describe('14. a richer world', () => {
   it('adds the marsh to the biomes, its ores and its animals', () => {
     expect(ALL_BIOMES).toEqual(['woodland', 'dunes', 'frostfell', 'scar', 'marsh']);
     expect(ORE_VEINS.filter((v) => v.biomes?.marsh).map((v) => v.block).sort()).toEqual(['coal_ore', 'iron_ore']);
-    expect(CREATURES.filter((c) => c.biomes.includes('marsh')).map((c) => c.key)).toEqual(['hen', 'boar']);
+    expect(CREATURES.filter((c) => c.biomes.includes('marsh')).map((c) => c.key)).toEqual(['hen', 'boar', 'marsh_heron']);
     expect(Object.keys(BIOME_ONLY_BLOCKS).sort()).toEqual([...ALL_BIOMES].sort());
   });
 
@@ -131,7 +132,8 @@ describe('14. Old Works loot', () => {
   it('has a near and a deep table that never reach past their age', () => {
     expect(LOOT_TABLES.map((t) => t.tier).sort()).toEqual(['deep', 'near']);
     for (const t of LOOT_TABLES) {
-      for (const e of t.entries) expect(item(e.item).age, `${t.tier}: ${e.item}`).toBeLessThanOrEqual(WORLD_SPEC.lootMaxAge[t.tier]);
+      // Nested tables and guaranteed entries count too.
+      for (const key of lootTableItems(t)) expect(item(key).age, `${t.tier}: ${key}`).toBeLessThanOrEqual(WORLD_SPEC.lootMaxAge[t.tier]);
     }
     // The spec's examples: buckets and flint tools near, iron, a thermopile and cable deep.
     const near = lootTable('near').entries.map((e) => e.item);
@@ -150,7 +152,7 @@ describe('14. Old Works loot', () => {
         for (const s of loot) {
           expect(s.count, s.item).toBeGreaterThan(0);
           expect(s.count, s.item).toBeLessThanOrEqual(item(s.item).stack);
-          expect(s.durability, s.item).toBe(item(s.item).tool?.durability);
+          expect(s.durability, s.item).toBe(maxDurabilityOf(s.item, s.quality) ?? item(s.item).tool?.durability);
         }
       }
     }

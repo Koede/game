@@ -4,14 +4,14 @@
  *
  * Adding an event: append it here (never rename or remove one that another module may use).
  */
-import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack, ItemAmount, ProjectileKind, Voxel, WeatherKind } from './types';
+import type { BlockEntity, ChangeSource, ChunkMeshData, DrinkBuff, HostileAttack, ItemAmount, LegendaryEffect, ProjectileKind, Voxel, WeatherKind } from './types';
 
 /**
  * 'hunger': an empty food bar (spec 12.1; it never takes the last health point on its own).
  * 'automaton': a landed automaton attack, ember bolts included (spec 19.2; armour counts). 'ember': the burning an
  * ember bolt leaves (spec 19.1). The automaton behind either is the species of the last 'player:attacked'.
  */
-export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember';
+export type DamageCause = 'fall' | 'cold' | 'lava' | 'drown' | 'radiation' | 'explosion' | 'burn' | 'hunger' | 'automaton' | 'ember' | 'felled' | 'gas';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type ToastKind = 'info' | 'good' | 'warn' | 'bad';
 
@@ -23,17 +23,23 @@ export type ScreenRequest =
   | { type: 'machine'; x: number; y: number; z: number }
   | { type: 'crate'; x: number; y: number; z: number }
   | { type: 'log' }
+  /** The trade caravan's buy/sell screen (docs/api/caravan.md). */
+  | { type: 'caravan' }
+  /** The Town page: Gruk's building, the town's standing, who lives where, and the camp goals. */
+  | { type: 'town' }
   | { type: 'pause' }
   /** Dev Mode's item browser (docs/api/dev-mode.md). */
   | { type: 'creative' }
   /** The pipe screen for the pipe (network segment) at this position. */
   | { type: 'pipe'; x: number; y: number; z: number }
   /** The field notebook: scanned things, aspects, research boards (docs/api/magic.md). */
-  | { type: 'notebook' }
+  | { type: 'notebook'; /** Opened at a Research Table: the notes can be written on. */ table?: boolean }
   /** The Workshop Guide: parts, basin recipe cards, rules (docs/api/workshop.md). */
   | { type: 'workshop' }
+  /** The settlement's jobs (docs/api/jobs.md): what each resident carries between two stops. `person` is the one to show first. */
+  | { type: 'jobs'; person?: string }
   /** The Rune Desk at this position: arcane recipes with essentia costs (docs/api/magic.md). */
-  | { type: 'rune_desk'; x: number; y: number; z: number }
+  | { type: 'rune_desk'; x: number; y: number; z: number; /** The Arcane Workbench: the bench's recipes instead of the desk's. */ bench?: boolean }
   /** The distillery rig panel for the module at this position (docs/DISTILLERY_PLAN.md). */
   | { type: 'distill_rig'; x: number; y: number; z: number };
 
@@ -47,6 +53,11 @@ export type SfxName =
   | 'break'
   | 'place'
   | 'step'
+  | 'step_stone'
+  | 'step_wood'
+  | 'step_sand'
+  | 'step_snow'
+  | 'step_metal'
   | 'jump'
   | 'land'
   | 'splash'
@@ -60,6 +71,7 @@ export type SfxName =
   | 'fire_out'
   | 'upgrade'
   | 'objective'
+  | 'jukebox_note'
   | 'age'
   | 'ui_click'
   | 'ui_open'
@@ -88,6 +100,10 @@ export type SfxName =
   // ---- Current Age engines: chainsaw and tractor ----
   | 'saw_cut'
   | 'tree_fall'
+  /** A felled tree's warning creak, before it goes. */
+  | 'tree_creak'
+  /** One axe blow on a tree or a fallen log. */
+  | 'tree_chop'
   | 'engine'
   | 'engine_start'
   // ---- buckets, a richer world, weather (spec 13-15) ----
@@ -154,7 +170,11 @@ export type SfxName =
   /** One drop leaving a condenser or coil. Positioned at the module. */
   | 'distill_drip'
   /** A glass chime when a distillery step completes. Positioned at the module. */
-  | 'distill_chime';
+  | 'distill_chime'
+  /** Liquid trickling through a tube or down a condenser while it runs. Positioned at the module. */
+  | 'distill_trickle'
+  /** A stopcock turned by hand on the separatory funnel. Positioned at the module. */
+  | 'distill_tap';
 
 /** Buffs the player can carry. */
 export type BuffName = 'well_warmed' | 'well_fed' | 'sugar_rush' | DrinkBuff;
@@ -184,6 +204,11 @@ export interface GameEvents {
    */
   'leaves:decayed': { x: number; y: number; z: number; voxel: Voxel; drops: ItemAmount[] };
   /** A block was placed by the player. */
+  /**
+   * Hand the player a blueprint (docs/api/blueprint.md): `id` is a catalog id (`stone_hut`), or, with `blueprint`, a stable id for that
+   * layout so a repeat is noticed. Ruins, daily goals and the like emit this instead of importing the blueprint book.
+   */
+  'blueprint:grant': { id: string; blueprint?: { name: string; size: [number, number, number]; cells: Array<{ dx: number; dy: number; dz: number; block: string; facing: number; item?: string }> } };
   'block:placed': { x: number; y: number; z: number; voxel: Voxel };
   'player:damage': { amount: number; cause: DamageCause; health: number };
   'player:death': { cause: DamageCause };
@@ -217,8 +242,16 @@ export interface GameEvents {
   // ---- progression ----
   'objective:completed': { id: string };
   'age:advanced': { age: number };
+  /** The town has a moment worth a diary line (a newcomer, a camp goal): the journal writes it once per `key`. */
+  'town:note': { key: string; text: string };
   /** A named one-off thing happened (objective conditions of type 'flag' listen for these). */
   'flag': { flag: string };
+  /** The player started an emote (wave, sit, cheer, dance). */
+  /** Photo mode switched on or off (the HUD hides while it is on). */
+  'photo:mode': { on: boolean };
+  /** The player took a picture: the game saves the next frame as a framed shot. */
+  'photo:snap': Record<string, never>;
+  'emote': { kind: 'wave' | 'sit' | 'cheer' | 'dance' };
   'buff:gained': { buff: BuffName; durationS: number };
   'game:won': Record<string, never>;
 
@@ -235,6 +268,8 @@ export interface GameEvents {
   'ui:closed': Record<string, never>;
   /** Short message on the HUD. `item` shows that item's icon next to it. */
   'toast': { text: string; kind?: ToastKind; item?: string };
+  /** Someone in the tavern speaks: the dialogue box shows their portrait, name and the text (src/ui/hud/npcDialogue.ts). */
+  'npc:say': { id: string; role: string; name: string; title: string; text: string; /** The dialogue offers to give this person work (the Jobs screen). */ work?: boolean };
 
   // ---- audio ----
   /** Play a one-shot sound, optionally positioned in the world. */
@@ -261,6 +296,12 @@ export interface GameEvents {
   'player:ate': { item: string; hunger: number };
   /** An animal entered the world (spawn roll, keep-alive spawn or birth). `id` is unique for the session and saved. */
   'mob:spawned': { id: number; species: string };
+  /** A legendary weapon's verb fired (src/game/legendary.ts): the renderer shows a small burst of sparks, capped per event. */
+  'legendary:proc': { effect: LegendaryEffect; x: number; y: number; z: number };
+  /** Orrin's Spare Pick hums: `level` 0..1, louder the nearer the ore (sent about twice a second while ore is within reach). */
+  'legendary:hum': { level: number };
+  /** A legendary weapon was swung: a thin trail of `count` sparks along the swing from the eye (0 = none: reduced motion). */
+  'legendary:swing': { effect: LegendaryEffect; x: number; y: number; z: number; yaw: number; pitch: number; count: number };
   /** An animal was hit; `health` is what it has left. */
   'mob:hurt': { id: number; species: string; health: number };
   'mob:died': { id: number; species: string };
@@ -276,12 +317,22 @@ export interface GameEvents {
    * distance / SOUND_SPEED seconds.
    */
   'weather:lightning': { distance: number; bearing: number };
+  /**
+   * A disaster telegraph (docs/api/disasters.md): a boiler building pressure, a chimney sooting up, a storm aiming at
+   * exposed wiring. 'watch' is a heads-up, 'warning' / 'imminent' mean act now, 'struck' it happened, 'averted' the
+   * counterplay held. A toast and a sound go with it; this is for the HUD and tests.
+   */
+  /** A stick was used on a Brick Chimney at x,y,z: the disasters sweep the furnace it stands on (src/player/toolUses.ts). */
+  'disaster:sweep': { x: number; y: number; z: number };
+  'disaster:warn': { kind: 'boiler' | 'chimney' | 'storm'; level: 'watch' | 'warning' | 'imminent' | 'struck' | 'averted'; x: number; y: number; z: number };
 
   // ---- multiblock hearths (spec 17) ----
   /**
    * The furnace at x,y,z now sits in a formed hearth of structural `tier` (sim, on a change of formed state or
    * tier). `min` / `max` are the inclusive world corners of the shell (render: the light sweep; UI: the STRUCTURE tab).
    */
+  /** A Use on an air block (BRONZE_PLAN 5.3): the sim reads its pressure and, on a compressor, works the hand crank. */
+  'air:use': { x: number; y: number; z: number };
   'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
   /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
   'hearth:unformed': { x: number; y: number; z: number };

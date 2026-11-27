@@ -140,6 +140,20 @@ function itemHatch(c: Canvas, lit: boolean): void {
   c.set(8, 13, b[3]);
 }
 
+/** The blast nozzle: a bronze cone narrowing to a dark throat, with a pale draught streak; formed, the throat glows. */
+function blastNozzle(c: Canvas, lit: boolean): void {
+  partFrame(c, lit);
+  const b = P.BRONZE;
+  c.disc(7.5, 7.5, 5.4, b[1]);
+  c.ring(7.5, 7.5, 5.2, b[4]);
+  c.disc(7.5, 7.5, 4, b[2]);
+  c.ring(7.5, 7.5, 4, b[0]);
+  c.disc(7.5, 7.5, 2.6, lit ? P.EMBER[2] : P.SOOT);
+  c.disc(7.5, 7.5, 1.3, lit ? P.EMBER[4] : shade(P.SOOT, 0.14));
+  // A pale draught streak across the cone: air goes in here.
+  for (const [x, y] of [[3, 3], [4, 4]] as const) c.set(x, y, P.GLASS[3]);
+}
+
 function fluidHatch(c: Canvas, lit: boolean): void {
   partFrame(c, lit);
   // A round flanged pipe port with a sight glass, and a valve handle on the frame.
@@ -209,6 +223,7 @@ export const HEARTH_SHELL: PainterSet = {
   ...both('star_casing', starCasing),
   ...both('electrode', electrode),
   ...both('hatch_item', itemHatch),
+  ...both('blast_nozzle', blastNozzle),
   ...both('hatch_fluid', fluidHatch),
   ...both('power_port', powerPort),
 };

@@ -28,19 +28,25 @@ function setup() {
 }
 
 describe('magic runtime', () => {
-  it('the notebook scans a block once and opens its screen at the sky', () => {
+  it('the notebook scans a block once and does nothing at the sky (the Bag chip opens it)', () => {
     const t = setup();
     t.hold('field_notebook');
     const opened: unknown[] = [];
     t.bus.on('ui:open', (e) => opened.push(e.screen));
     expect(t.magic.use(t.at('copper_ore', 0, 0, 0))).toBe('worked');
+    // Active scanning: a single press fills nothing; holding Use (repeats every 0.25 s) fills the bar.
+    expect(t.magic.research.scanned).toEqual([]);
+    for (let i = 0; i < 8; i++) {
+      t.magic.tick(0.25);
+      t.magic.use(t.at('copper_ore', 0, 0, 0));
+    }
     expect(t.magic.research.scanned).toEqual(['copper_ore']);
     expect(t.magic.research.known).toContain('vein');
-    expect(t.magic.use(null)).toBe('screen');
-    expect(opened).toEqual([{ type: 'notebook' }]);
+    expect(t.magic.use(null)).toBeNull();
+    expect(opened).toEqual([]);
   });
 
-  it('the rod fills an empty vial from the land and the land runs dry', () => {
+  it('the rod draws loam vis from stone, never fills vials, and stops when the pool is full', () => {
     const t = setup();
     t.hold('vis_rod');
     t.player.inventory.add('glass_vial', 2);
@@ -48,16 +54,15 @@ describe('magic runtime', () => {
       t.magic.tick(1);
       expect(t.magic.use(null)).toBe('worked');
     }
-    expect(t.player.inventory.count('glass_vial')).toBe(1);
-    expect(t.player.inventory.count('vial_loam')).toBe(1);
-    // Stone gives about 147 blocks x 4 loam / 8 => capped; keep drawing until drained.
+    expect(t.magic.vis.loam).toBe(VIAL_UNITS);
+    expect(t.player.inventory.count('glass_vial')).toBe(2);
     let refused = false;
     for (let i = 0; i < 200 && !refused; i++) {
       t.magic.tick(0.25);
-      if (!t.player.inventory.has('glass_vial')) t.player.inventory.add('glass_vial', 1);
       refused = t.magic.use(null) === 'refused';
     }
     expect(refused).toBe(true);
+    expect(t.magic.vis.loam).toBe(16);
   });
 
   it('jars take and give vials of one aspect, and survive a save', () => {

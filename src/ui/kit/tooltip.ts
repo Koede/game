@@ -1,4 +1,6 @@
 /** One shared tooltip: hover or keyboard focus on desktop, long-press on touch. It never leaves the viewport. */
+import type { Aspect } from '../../magic/aspects';
+import { aspectIcon } from './aspectIcon';
 import { Disposer, append, h, listen, type Dispose } from './dom';
 import { placeTooltip, type Box } from './layout';
 import { LONG_PRESS_MS } from './press';
@@ -6,8 +8,12 @@ import { LONG_PRESS_MS } from './press';
 export interface TooltipCard {
   title: string;
   body?: string;
+  /** Colours the title by loot rarity ('fine' green, 'rare' blue, 'legendary' gold); absent or 'common' leaves it plain. */
+  rarity?: string;
   /** Label / value pairs under the body ("Burns for" / "80 s"). */
   rows?: readonly (readonly [label: string, value: string])[];
+  /** Coloured lines with an aspect icon under the title (enchantments: "Veinseeker II"). */
+  lines?: readonly { text: string; colour: string; aspect: Aspect; title?: string }[];
 }
 
 export type TooltipContent = string | TooltipCard | Node | null;
@@ -143,7 +149,16 @@ export class Tooltip {
     } else {
       append(
         this.el,
-        h('div', { class: 'hw-tooltip__title', text: content.title }),
+        h('div', { class: 'hw-tooltip__title', text: content.title, attrs: content.rarity && content.rarity !== 'common' ? { 'data-rarity': content.rarity } : {} }),
+        content.lines && content.lines.length > 0
+          ? h(
+              'div',
+              { class: 'hw-tooltip__enchants' },
+              content.lines.map((l) =>
+                h('div', { class: 'hw-tooltip__enchant', style: { color: l.colour }, attrs: { title: l.title ?? '' } }, aspectIcon(l.aspect, 14), h('span', { text: l.text })),
+              ),
+            )
+          : null,
         content.body ? h('div', { class: 'hw-tooltip__body', text: content.body }) : null,
         content.rows && content.rows.length > 0
           ? h(

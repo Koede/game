@@ -13,3 +13,4 @@ export * from './scrollFade';
 export * from './gauges';
 export * from './feedback';
 export * from './uiScale';
+export * from './palette';

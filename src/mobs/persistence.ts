@@ -32,7 +32,11 @@ export function saveMobs(mobs: readonly Mob[], nextId: number, spawner: Spawner)
       eagerS: round(m.eagerS),
       cooldownS: round(m.cooldownS),
       tame: m.tame,
+      hx: round(m.homeX),
+      hz: round(m.homeZ),
     };
+    if (m.milkS > 0) r.milkS = round(m.milkS);
+    if (m.woolS > 0) r.woolS = round(m.woolS);
     if (m.state === 'dying' && m.pendingDrops !== null) {
       r.deadS = round(m.deadS);
       r.drops = m.pendingDrops.map((d) => ({ item: d.item, count: d.count }));
@@ -81,6 +85,12 @@ export function restoreMobs(s: MobsSnapshot, rng: () => number): { mobs: Mob[]; 
     m.ageS = Math.max(0, r.ageS);
     m.eagerS = finite(r.eagerS) ? Math.max(0, r.eagerS) : 0;
     m.cooldownS = finite(r.cooldownS) ? Math.max(0, r.cooldownS) : 0;
+    if (finite(r.hx) && finite(r.hz)) {
+      m.homeX = r.hx;
+      m.homeZ = r.hz;
+    }
+    m.milkS = finite(r.milkS) ? Math.max(0, r.milkS as number) : 0;
+    m.woolS = finite(r.woolS) ? Math.max(0, r.woolS as number) : 0;
     m.tame = typeof r.tame === 'boolean' ? r.tame : m.eagerS > 0 || m.cooldownS > 0;
     const drops = savedDrops(r.drops);
     if (drops !== null && finite(r.deadS)) {

@@ -3,6 +3,10 @@
  * -> interaction -> camera. It drives whatever draws the world only through IView (spec section 9) and never
  * imports src/render, src/sim or src/ui: screens are requested with 'ui:open' and machines react to world edits.
  */
+import { Emotes } from './emotes';
+import { PhotoCamera } from './photoCam';
+import { stepSound } from './blockRules';
+import type { SfxName } from '../core/gameEvents';
 import { PLAYER_EYE, REACH, WALK_SPEED, HOTBAR_SIZE } from '../core/constants';
 import type { GameBus, InputState, IView, Settings } from '../core/context';
 import { clamp, type Vec3 } from '../core/math';
@@ -13,10 +17,17 @@ import { useRepeatFor, type HandHands } from './handTools';
 import { AnimalHands, type AnimalTargets } from './animals';
 import { SCOOPING_BUCKETS } from './buckets';
 import type { Intent } from './input/intent';
+import { attachHaptics } from './haptics';
 import { Interaction } from './interaction';
+import { landingDip, settle } from './cameraFx';
 import { PlayerPhysics } from './physics';
 import type { TransportHands } from './pipeTools';
 import { blockOfItem } from '../core/registry';
+import { legendaryEffectOf } from '../content/legendary';
+import { enchantLevel } from '../core/enchant';
+import { DARK_LIGHT, oreHum, swingTrailSparks } from '../game/legendary';
+import { blockLightAt, skyOpenAt } from '../mobs/sight';
+import { TAP_RANGE, TapMove, tapDirection } from './tapMove';
 import { createRayHit, raycast, screenBehindThin, type LiquidAim, type RayHit } from './raycast';
 import { attachSapSave } from './sapTools';
 
@@ -42,12 +53,20 @@ export interface PlayerControllerOptions {
   rng?: () => number;
   /** The animals (src/mobs' MobManager): Mine hits them, Use feeds them. Without it only blocks are targeted. */
   animals?: AnimalTargets;
+  /** The tavern's people: Use on one talks to them (returns true when someone was spoken to). */
+  /** The name of a person (not a prop) the ray hits within maxDist, or null: Mine on them is stopped with a toast. */
+  person?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist: number) => string | null;
+  talk?: (ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxDist?: number) => boolean;
   /** Pipes and fluids (src/sim's Simulation): the wrench and buckets on tanks. Without it the wrench does nothing. */
   transport?: TransportHands;
   /** The simulation's brewing (src/sim's Simulation fits it): cups, heated buckets, the kettle, furnace-top placing. */
   brew?: BrewHands;
   /** The simulation's hand work (src/sim's Simulation fits it): strokes at the Ember stations, moulds poured at a furnace. */
   hands?: HandHands;
+  /** The tavern jukebox is playing: the dance emote keeps its beat. */
+  jukeboxOn?: () => boolean;
+  /** Daylight 0 (night) .. 1 (noon): with it, open sky counts as dark at night (the Lanternblade's burst). Default: open sky is never dark. */
+  sunlight?: () => number;
 }
 
 /** An empty bucket aims at liquid sources, through flowing water (spec 18.3); anything else looks through liquids. */
@@ -62,6 +81,14 @@ const BOB_X = 0.025;
 const BOB_FREQ = 0.62;
 /** Blocks walked on the ground between footstep sounds. */
 const STEP_EVERY = 1.75;
+/** Footstep spacing and loudness while sprinting (quick and firm) and sneaking (rare and hushed). */
+const SPRINT_STEP_EVERY = 1.45;
+const SNEAK_STEP_EVERY = 1.0;
+const STEP_VOLUME = 0.6;
+const SPRINT_STEP_VOLUME = 0.85;
+const SNEAK_STEP_VOLUME = 0.18;
+/** How far the eye sinks while sneaking, in blocks. */
+export const SNEAK_EYE_DROP = 0.22;
 /** A landing from higher than this makes a thud. */
 const LAND_SOUND_FROM = 1.2;
 /** Looking straight up or down stops just short of the pole (so the view direction never degenerates). */
@@ -80,10 +107,18 @@ export class PlayerController {
   private readonly bus: GameBus;
   private readonly player: PlayerState;
   private readonly view: IView;
+  readonly emotes: Emotes;
+  readonly photo = new PhotoCamera();
+  private readonly talkTo: PlayerControllerOptions['talk'];
+  private readonly whoIs: PlayerControllerOptions['person'];
   private readonly input: IntentSource;
   private readonly settings: Settings;
   private readonly state: InputState;
   private readonly hit: RayHit = createRayHit();
+  private readonly talkHit: RayHit = createRayHit();
+  private readonly tapHit: RayHit = createRayHit();
+  /** The walk a tap started (Settings.tapToMove). */
+  readonly tapMove = new TapMove();
   /** A screen block behind a thin block under the crosshair (see useTarget). */
   private readonly behind: RayHit = createRayHit();
   private readonly dir: Vec3 = { x: 0, y: 0, z: 1 };
@@ -99,33 +134,53 @@ export class PlayerController {
   /** Camera lag after stepping up onto a slab, so the eye glides instead of snapping. */
   private stepOffset = 0;
   private stepDistance = 0;
+  /** Eye height lost to sneaking, eased in and out. */
+  private sneakDip = 0;
+  /** Eye height lost to a hard landing, easing back. */
+  private landDip = 0;
   /** The mouse was captured at some point and should be captured again when a screen closes. */
   private wantsLock = false;
   /** Sprint was asked for on the previous frame (the hungry hint fires on a fresh request only). */
   private jumpHeld = false;
   private sinceJumpTap = 9;
   private sprintWanted = false;
+  private readonly sunlight: () => number;
+  /** Seconds until the Spare Pick's hum is checked again. */
+  private humS = 0;
+  /** Seconds until the next swing trail (a held Mine swings about every 0.45 s). */
+  private trailS = 0;
+  /** Toasts and screen requests seen so far: a Use that raised neither was silent. */
+  private heard = 0;
 
   constructor(options: PlayerControllerOptions) {
     this.world = options.world;
     this.bus = options.bus;
     this.player = options.player;
     this.view = options.view;
+    this.emotes = new Emotes(options.jukeboxOn);
+    this.talkTo = options.talk;
+    this.whoIs = options.person;
     this.input = options.input;
     this.settings = options.settings;
     this.state = options.state;
     this.physics = new PlayerPhysics(this.world, this.player);
     this.interaction = new Interaction(this.world, this.bus, this.player, this.physics, this.view, options.rng ?? Math.random, options.transport ?? null, options.brew ?? null, options.hands ?? null);
     this.animals = options.animals ? new AnimalHands(options.animals, this.player, this.view, this.interaction) : null;
+    this.sunlight = options.sunlight ?? (() => 1);
+    if (this.animals) this.animals.dark = () => this.isDark();
     this.unsubscribe.push(
       this.bus.on('ui:opened', () => {
         this.interaction.stopMining();
         this.input.releasePointerCapture?.();
       }),
       this.bus.on('ui:closed', () => this.recapture()),
+      // Use that ends in a toast or a screen has explained itself; only the silent ones get the fallback cue (useAt).
+      this.bus.on('toast', () => this.heard++),
+      this.bus.on('ui:open', () => this.heard++),
       this.bus.on('player:respawn', () => this.physics.reset()),
       // Weeping logs ride the world snapshot (extras.sap). Test worlds without persist stay session-only.
       attachSapSave(this.world, this.player),
+      attachHaptics(this.bus, () => this.settings.haptics),
     );
   }
 
@@ -162,6 +217,15 @@ export class PlayerController {
     if (this.state.pointerLocked) this.wantsLock = true;
     p.combat.coolStrike(dt);
 
+    if (!p.dead && (intent.photo || (this.photo.active && intent.pause))) {
+      this.togglePhoto(!this.photo.active);
+      if (!this.photo.active) intent.pause = false;
+    }
+    if (this.photo.active) {
+      this.updatePhoto(dt, intent);
+      return;
+    }
+
     if (!p.dead) {
       p.yaw -= intent.lookYaw;
       if (p.yaw > Math.PI) p.yaw -= Math.PI * 2;
@@ -169,19 +233,51 @@ export class PlayerController {
       p.pitch = clamp(p.pitch + intent.lookPitch, -PITCH_LIMIT, PITCH_LIMIT);
       this.hotbar(intent);
       this.menus(intent);
+      if (intent.emote) {
+        const kind = this.emotes.cycle();
+        if (kind) this.bus.emit('emote', { kind });
+      }
+      // The touch quick menu picks an emote outright (or stops the one playing).
+      if (intent.emoteSet === 'stop') this.emotes.cancel();
+      else if (intent.emoteSet) {
+        this.emotes.play(intent.emoteSet);
+        this.bus.emit('emote', { kind: intent.emoteSet });
+      }
+      this.emotes.update(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump);
+      // Sitting holds the body still; looking around still works.
+      if (this.emotes.sitting) {
+        intent.moveX = 0;
+        intent.moveZ = 0;
+        intent.jump = false;
+      }
       if (intent.drop) p.dropHeld(intent.dropAll);
       // Use with a collector (the hand vacuum pump) in hand runs it instead of acting on the world.
       if (intent.use && p.collectors.trigger()) intent.use = false;
+      if (intent.use && this.lunge()) intent.use = false;
+      this.hum(dt);
+      this.swingTrail(dt, intent.mine);
+      p.combat.legendary.observe(dt, intent.moveX !== 0 || intent.moveZ !== 0 || intent.jump || !p.onGround, intent.mine);
+      if (intent.use && this.talkTo) {
+        p.viewDir(this.dir);
+        // Nobody is talked to through a wall or past an animal standing in front of them.
+        const d = this.dir;
+        const wall = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, false, this.talkHit);
+        const beast = this.animals?.distanceAlong(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z) ?? Infinity;
+        if (this.talkTo(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, Math.min(wall ? wall.distance : Infinity, beast))) intent.use = false;
+      }
+      this.tapWalk(dt, intent);
       this.move(dt, intent);
-    }
+    } else this.tapMove.cancel();
 
     this.currentTarget = this.cast();
     if (!p.dead) {
       const edits = this.interaction.edits;
       if (this.animals?.target != null) this.actOnAnimal(dt, intent);
       else {
-        if (intent.use) this.interaction.use(this.useTarget(this.currentTarget), intent.place);
-        this.interaction.updateMining(dt, intent.mine, this.currentTarget);
+        if (intent.use) this.useAt(this.useTarget(this.currentTarget), intent.place);
+        const who = intent.mine ? this.personAimed() : null;
+        if (who !== null) this.interaction.advise(`npc-mine:${who}`, `${who} steps aside. Nobody here is for hitting.`);
+        this.interaction.updateMining(dt, intent.mine && who === null, this.currentTarget);
       }
       // A broken or placed block changes what is under the crosshair this very frame.
       if (this.interaction.edits !== edits) this.currentTarget = this.cast();
@@ -213,6 +309,30 @@ export class PlayerController {
     else if (intent.log) this.bus.emit('ui:open', { screen: { type: 'log' } });
   }
 
+  /** Tap to move: a tap picks the cell under the finger as the goal; each frame steers the body toward it unless the player takes over. */
+  private tapWalk(dt: number, intent: Intent): void {
+    const p = this.player;
+    const tm = this.tapMove;
+    if (!this.settings.tapToMove) {
+      tm.cancel();
+      return;
+    }
+    if (intent.tap) {
+      tapDirection(intent.tapX, intent.tapY, intent.tapAspect, this.settings.fov, p.yaw, p.pitch, this.dir);
+      const d = this.dir;
+      const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, TAP_RANGE, false, this.tapHit);
+      if (hit) tm.set(hit.px + 0.5, hit.pz + 0.5, hit.py);
+    }
+    if (!tm.active) return;
+    const manual = Math.abs(intent.moveX) > 0.1 || Math.abs(intent.moveZ) > 0.1 || intent.jump || this.emotes.sitting;
+    const s = tm.steer(p.position.x, p.position.z, p.yaw, dt, manual);
+    if (!s) return;
+    p.yaw = s.yaw;
+    intent.moveX = 0;
+    intent.moveZ = s.moveZ;
+    intent.jump = s.jump;
+  }
+
   private move(dt: number, intent: Intent): void {
     const p = this.player;
     const sprintAsked = intent.sprint && intent.moveZ > 0;
@@ -221,6 +341,8 @@ export class PlayerController {
     }
     this.sprintWanted = sprintAsked;
     this.devFlight(dt, intent.jump);
+    this.physics.assist = this.settings.moveAssist;
+    this.physics.autoStep = this.settings.autoStep;
     const r = this.physics.step(dt, intent);
     if (r.jumped) {
       this.sfx('jump');
@@ -229,16 +351,20 @@ export class PlayerController {
     if (r.enteredWater) this.sfx('splash');
     else if (r.landedFrom > LAND_SOUND_FROM) this.sfx('land');
     if (r.steppedUp > 0) this.stepOffset -= r.steppedUp;
+    if (r.landedFrom > 0 && !this.settings.reduceMotion) this.landDip = Math.max(this.landDip, landingDip(r.landedFrom));
     if (p.onGround && r.walked > 0) {
       this.stepDistance += r.walked;
-      if (this.stepDistance >= STEP_EVERY) {
-        this.stepDistance -= STEP_EVERY;
-        this.sfx('step', 0.6);
+      const every = r.sneaking ? SNEAK_STEP_EVERY : r.sprinting ? SPRINT_STEP_EVERY : STEP_EVERY;
+      if (this.stepDistance >= every) {
+        this.stepDistance -= every;
+        const feet = this.world.getBlock(Math.floor(p.position.x), Math.floor(p.position.y - 0.02), Math.floor(p.position.z));
+        this.sfx(feet.opaque || feet.solid ? stepSound(feet) : 'step', r.sneaking ? SNEAK_STEP_VOLUME : r.sprinting ? SPRINT_STEP_VOLUME : STEP_VOLUME);
       }
     }
+    this.sneakDip += ((r.sneaking ? SNEAK_EYE_DROP : 0) - this.sneakDip) * (1 - Math.exp(-12 * dt));
     // View bob follows the distance walked, fading in and out with ground speed.
     const speed = Math.hypot(p.velocity.x, p.velocity.z);
-    const bobTarget = p.onGround && !this.physics.inLiquid ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
+    const bobTarget = p.onGround && !this.physics.inLiquid && !this.settings.reduceMotion ? clamp(speed / WALK_SPEED, 0, 1.3) : 0;
     this.bobAmount += (bobTarget - this.bobAmount) * (1 - Math.exp(-10 * dt));
     if (p.onGround) this.bobPhase += r.walked * BOB_FREQ * Math.PI * 2;
     this.sprintFov(dt, r.sprinting && speed > WALK_SPEED * 0.9);
@@ -263,7 +389,7 @@ export class PlayerController {
   }
 
   private sprintFov(dt: number, sprinting: boolean): void {
-    const target = this.settings.fov + (sprinting ? SPRINT_FOV_KICK : 0);
+    const target = this.settings.fov + (sprinting && !this.settings.reduceMotion ? SPRINT_FOV_KICK : 0);
     let next = this.fov < 0 ? target : this.fov + (target - this.fov) * (1 - Math.exp(-8 * dt));
     if (Math.abs(next - target) < 0.05) next = target;
     if (next !== this.fov) {
@@ -271,6 +397,9 @@ export class PlayerController {
       this.view.setFov(next);
     }
   }
+
+  /** The fallen log on the aim ray within `maxDist`, as a target (set by the app; game/fallingTrees.ts). */
+  fallenAim: ((o: { x: number; y: number; z: number }, d: { x: number; y: number; z: number }, maxDist: number) => RayHit | null) | null = null;
 
   /**
    * The block under the crosshair, or null when nothing is in reach or an animal stands in front of it (then the
@@ -283,6 +412,9 @@ export class PlayerController {
     const d = this.dir;
     const hit = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, liquidAim(held?.item), this.hit);
     this.blockBehind = hit;
+    // A fallen log lying nearer than the block behind it is the target (game/fallingTrees.ts aimHit).
+    const fallen = this.fallenAim?.({ x: p.position.x, y: p.eyeY, z: p.position.z }, { x: d.x, y: d.y, z: d.z }, hit ? hit.distance : REACH) ?? null;
+    if (fallen !== null) return fallen;
     if (!this.animals || p.dead) return hit;
     const animal = this.animals.aim(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, hit ? hit.distance : Infinity);
     return animal === null ? hit : null;
@@ -293,7 +425,8 @@ export class PlayerController {
    * (a cable in a furnace mouth) that the ray passes beside, or that nothing held could be placed against.
    */
   private useTarget(hit: RayHit | null): RayHit | null {
-    if (!hit) return null;
+    // A fallen log is cut with the mining hold only; Use does not act on it (its target has a negative voxel).
+    if (!hit || hit.voxel < 0) return null;
     const p = this.player;
     const held = p.heldStack()?.item;
     const d = this.dir;
@@ -301,23 +434,106 @@ export class PlayerController {
     return behind ?? hit;
   }
 
+  /** Use on the target; a Use that did nothing and said nothing gets a short hint, so no tap is ever mute. */
+  private useAt(hit: RayHit | null, place: boolean): void {
+    const heard = this.heard;
+    const outcome = this.interaction.use(hit, place);
+    if ((outcome === 'none' || outcome === 'refused') && this.heard === heard) this.interaction.explainIdle(hit, outcome, place);
+  }
+
   /** Mine and Use while an animal is under the crosshair: no block is mined; Use falls through when it is not food for it. */
   private actOnAnimal(dt: number, intent: Intent): void {
     const hands = this.animals as AnimalHands;
     this.interaction.updateMining(dt, false, null);
-    if (intent.use && hands.use() === 'pass') this.interaction.use(this.useTarget(this.blockBehind), intent.place);
+    if (intent.use && hands.use() === 'pass') this.useAt(this.useTarget(this.blockBehind), intent.place);
     if (intent.mine) hands.strike();
+  }
+
+  /** Whether the light where the player stands is below DARK_LIGHT: block light, or the sky's by day when it is open overhead. */
+  private isDark(): boolean {
+    const p = this.player.position;
+    const y = p.y + 1;
+    if (blockLightAt(this.world, p.x, y, p.z, DARK_LIGHT) >= DARK_LIGHT) return false;
+    return !(skyOpenAt(this.world, p.x, y, p.z) && this.sunlight() * 15 >= DARK_LIGHT);
+  }
+
+  /** Gale Reed: Use throws the wielder forward. True when it did (the Use is spent). */
+  private lunge(): boolean {
+    const p = this.player;
+    const item = p.heldStack()?.item ?? null;
+    if (legendaryEffectOf(item) !== 'lunge') return false;
+    p.viewDir(this.dir);
+    const impulse = p.combat.legendary.tryLunge(item, this.dir.x, this.dir.z, enchantLevel(p.heldStack() ?? undefined, 'attunement'));
+    if (!impulse) return false;
+    p.combat.knock(impulse.vx, impulse.vy, impulse.vz);
+    this.view.triggerSwing();
+    this.bus.emit('legendary:proc', { effect: 'lunge', x: p.position.x, y: p.position.y + 0.9, z: p.position.z });
+    this.sfx('jump', 0.8);
+    return true;
+  }
+
+  /** A legendary weapon swung (Mine held, not on the Spare Pick's digging): the renderer draws a thin trail of sparks. */
+  private swingTrail(dt: number, mine: boolean): void {
+    this.trailS = Math.max(0, this.trailS - dt);
+    if (!mine || this.trailS > 0 || !this.player.combat.strikeReady) return;
+    const p = this.player;
+    const effect = legendaryEffectOf(p.heldStack()?.item);
+    if (!effect || effect === 'veinseek') return;
+    this.trailS = 0.45;
+    const count = swingTrailSparks(this.settings.reduceMotion, this.settings.graphics);
+    if (count > 0) this.bus.emit('legendary:swing', { effect, x: p.position.x, y: p.eyeY, z: p.position.z, yaw: p.yaw, pitch: p.pitch, count });
+  }
+
+  /** Orrin's Spare Pick: a soft hum while ore lies within reach behind a wall, louder the closer it is. Checked twice a second. */
+  private hum(dt: number): void {
+    this.humS -= dt;
+    if (this.humS > 0) return;
+    this.humS = 0.5;
+    const p = this.player;
+    const item = p.heldStack()?.item ?? null;
+    if (legendaryEffectOf(item) !== 'veinseek') return;
+    const level = oreHum(this.world, item, p.position.x, p.position.y + 1, p.position.z);
+    if (level > 0) this.bus.emit('legendary:hum', { level });
+    if (level > 0) this.bus.emit('sfx', { name: 'infuse', x: p.position.x, y: p.position.y + 1, z: p.position.z, volume: 0.15 + level * 0.35, pitch: 0.7 + level * 0.5 });
+  }
+
+  /** A person standing nearer than any block or animal on the aim ray (Mine must not dig through them), or null. */
+  private personAimed(): string | null {
+    if (!this.whoIs) return null;
+    const p = this.player;
+    const d = this.dir;
+    const wall = raycast(this.world, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, false, this.talkHit);
+    return this.whoIs(p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, wall ? wall.distance : REACH);
+  }
+
+  /** Photo mode: the body stays put, the eye detaches and flies; Use takes the picture. */
+  private togglePhoto(on: boolean): void {
+    const p = this.player;
+    if (on) this.photo.enter(p.position.x, p.eyeY, p.position.z, p.yaw, p.pitch);
+    else this.photo.exit();
+    this.interaction.stopMining();
+    this.emotes.cancel();
+    this.bus.emit('photo:mode', { on });
+  }
+
+  private updatePhoto(dt: number, intent: Intent): void {
+    const c = this.photo;
+    c.update(dt, { moveX: intent.moveX, moveZ: intent.moveZ, up: intent.jump, fast: intent.sprint, lookYaw: intent.lookYaw, lookPitch: intent.lookPitch });
+    if (intent.use) this.bus.emit('photo:snap', {});
+    this.view.setView(c.x, c.y, c.z, c.yaw, c.pitch);
   }
 
   private updateView(dt: number): void {
     const p = this.player;
     this.stepOffset *= Math.exp(-14 * dt);
+    this.landDip = settle(this.landDip, 9, dt);
     if (Math.abs(this.stepOffset) < 1e-3) this.stepOffset = 0;
     const bobY = Math.abs(Math.sin(this.bobPhase)) * BOB_Y * this.bobAmount;
     const side = Math.sin(this.bobPhase) * BOB_X * this.bobAmount;
     const x = p.position.x + Math.cos(p.yaw) * side;
     const z = p.position.z - Math.sin(p.yaw) * side;
-    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset, z, p.yaw, p.pitch);
+    const em = this.emotes.view();
+    this.view.setView(x, p.position.y + PLAYER_EYE + bobY + this.stepOffset - this.sneakDip - this.landDip + em.dy, z, p.yaw + em.dyaw, clamp(p.pitch + em.dpitch, -PITCH_LIMIT, PITCH_LIMIT));
     if (this.fov < 0) this.sprintFov(dt, false);
 
     const t = this.currentTarget;
@@ -346,7 +562,7 @@ export class PlayerController {
     });
   }
 
-  private sfx(name: 'jump' | 'splash' | 'land' | 'step', volume?: number): void {
+  private sfx(name: SfxName, volume?: number): void {
     const p = this.player.position;
     this.bus.emit('sfx', { name, x: p.x, y: p.y, z: p.z, volume });
   }

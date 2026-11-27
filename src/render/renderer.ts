@@ -3,6 +3,7 @@
  * first-person hand, and implements IView for the player controller. One render(dt) per frame, allocation-free.
  */
 import * as THREE from 'three';
+import { HeatView } from './heatView';
 import { STAR_TURNS_PER_DAY } from '../core/constants';
 import type { GameBus, IView, Settings } from '../core/context';
 import { blockOf } from '../core/registry';
@@ -13,18 +14,22 @@ import { BrewFx } from './brewFx';
 import { BrewLiquid } from './brewLiquid';
 import { DistillFx } from './distill/distillFx';
 import { Emitters } from './emitters';
+import { heldGlowOf } from '../game/legendary';
 import { HandParts } from './handwork/handParts';
 import { MachineParts } from './machines';
 import { Glows } from './glows';
 import { HeldItem } from './heldItem';
 import { lightColor, LightProbe } from './lightProbe';
 import { createChunkMaterials, createWorldUniforms, type ChunkMaterials, type WorldUniforms } from './materials';
-import { Particles } from './particles';
+import { Particles, type ParticleSpec } from './particles';
 import { PRECIP_MAX_DESKTOP, PRECIP_MAX_TOUCH, PrecipitationLayer } from './precipitation';
 import { RainMask } from './rainMask';
+import { setLiquidRate } from './liquids/liquidBoxes';
+import { graphicsProfile } from './quality';
 import { Sky, type SkyExtras } from './sky';
 import { applyWeather, computeSky, createSkyState, luminance, type SkyState } from './skyModel';
 import { TargetBox } from './target';
+import type { GridCell } from '../sim';
 import { TechLayer, type TechStats, type TransportSource } from './tech';
 import { SteamVents } from './vents';
 import { WeatherFx } from './weatherFx';
@@ -83,7 +88,7 @@ export class Renderer implements IView {
   readonly camera: THREE.PerspectiveCamera;
   readonly stats: RenderStats = {
     drawCalls: 0, triangles: 0, chunks: 0, chunkTriangles: 0, particles: 0, effectSources: 0, cpuMs: 0, pixelRatio: 1, precipitation: 0, weatherMs: 0, machines: 0, machinesMs: 0,
-    tech: { packets: 0, pipePieces: 0, hearths: 0, ghosts: 0 }, techMs: 0,
+    tech: { packets: 0, pipePieces: 0, hearths: 0, ghosts: 0, formed: 0 }, techMs: 0,
   };
   /** True while the WebGL context is lost (render() does nothing until it is restored). */
   contextLost = false;
@@ -100,8 +105,13 @@ export class Renderer implements IView {
   private readonly skyState: SkyState = createSkyState();
   private readonly target = new TargetBox();
   private readonly particles: Particles;
+  /** Adds one particle (the ambient night critters use it). */
+  spawnParticle(p: ParticleSpec): void {
+    this.particles.spawn(p);
+  }
   private readonly glows = new Glows();
   private readonly emitters: Emitters;
+  private heldGlow: readonly [number, number, number] | null = null;
   private readonly brewFx: BrewFx;
   private readonly brewLiquid: BrewLiquid;
   /** Liquids, bubbles, drips and column bands of the glass distillery (two draw calls). */
@@ -175,14 +185,16 @@ export class Renderer implements IView {
     this.distillFx = new DistillFx(world, (x, y, z, out) => this.lightAt(x, y, z, out));
     this.held = new HeldItem(this.uniforms);
     this.machines = new MachineParts(world, this.uniforms);
+    this.heatView = new HeatView();
     this.tech = new TechLayer(world, bus, this.uniforms, this.particles, this.canvas);
     this.stats.tech = this.tech.stats;
     this.rainMask = new RainMask(world);
     this.precipitation = new PrecipitationLayer(this.rainMask, this.pixelRatioCap < 2 ? PRECIP_MAX_TOUCH : PRECIP_MAX_DESKTOP);
 
-    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.brewLiquid.mesh, this.distillFx.group);
+    this.scene.add(this.sky.dome, this.chunks.group, this.sky.clouds, this.target.group, this.particles.points, this.glows.points, this.precipitation.mesh, this.machines.group, this.handParts.group, this.tech.group, this.heatView.mesh, this.brewLiquid.mesh, this.distillFx.group);
     this.applyDistance();
 
+    this.applyColorMode();
     this.offs.push(bus.on('settings:changed', () => this.onSettings()));
     this.offs.push(bus.on('block:placed', () => this.held.bump()));
     this.offs.push(bus.on('weather:lightning', ({ distance, bearing }) => this.fx.lightning(distance, bearing)));
@@ -237,6 +249,7 @@ export class Renderer implements IView {
   }
 
   setHeldItem(itemKey: string | null): void {
+    this.heldGlow = heldGlowOf(itemKey);
     this.held.set(itemKey);
   }
 
@@ -257,11 +270,22 @@ export class Renderer implements IView {
    * src/render; null draws none. Formed hearths, ghosts and highlights need nothing: they come from the world and
    * the bus.
    */
+  /** The heat view (src/render/heatView.ts): `heatView.setVisible(on)` and `heatView.set(grid)`; the game feeds it. */
+  readonly heatView: HeatView;
+
   setTransport(source: TransportSource | null): void {
     this.tech.setTransport(source);
   }
 
+  /** The power grid overlay (held Grid Meter, or a Grid Monitor close by): the cells to draw, or null for none. */
+  setGridOverlay(feed: { tick: number; cells: readonly GridCell[] } | null): void {
+    this.tech.setGrid(feed);
+  }
+
   // ---------------------------------------------------------------------------------------------- frame
+
+  /** Skips the first-person hand and held item (postcards and other third-person frames). */
+  hideHand = false;
 
   /** Draws one frame. `dt` in seconds drives animation (water, plants, particles, the hand). */
   render(dt: number): void {
@@ -280,6 +304,9 @@ export class Renderer implements IView {
     const sky = computeSky(this.clock.timeOfDay, this.clock.sunlight(), this.skyState, fx.nightLevel);
     applyWeather(sky, fx.sky);
     const u = this.uniforms;
+    const quality = graphicsProfile(this.settings.graphics);
+    u.uFx.value = quality.fx;
+    setLiquidRate(quality.liquidRate);
     u.uWet.value = fx.wet;
     u.uTime.value = this.time % 3600;
     u.uSkyLight.value.fromArray(sky.skyLight);
@@ -312,7 +339,9 @@ export class Renderer implements IView {
       this.probe.probe(cam.position.x, cam.position.y, cam.position.z);
       const tint = this.probe.tint(BLOCK_TINT, this.probeTint);
       const c = lightColor(this.probe.sky, this.probe.block, sky.skyLight, tint, AMBIENT, this.lightRgb);
-      this.held.setLight(c[0], c[1], c[2]);
+      // A held legendary lights itself: its glow is a floor under the held item's light (no extra light source), so it reads in the dark.
+      const g = this.heldGlow;
+      this.held.setLight(g ? Math.max(c[0], g[0]) : c[0], g ? Math.max(c[1], g[1]) : c[1], g ? Math.max(c[2], g[2]) : c[2]);
       this.target.setBrightness(luminance(c));
     }
 
@@ -339,8 +368,10 @@ export class Renderer implements IView {
     gl.info.reset();
     gl.clear();
     gl.render(this.scene, cam);
-    gl.clearDepth();
-    gl.render(this.held.scene, this.held.camera);
+    if (!this.hideHand) {
+      gl.clearDepth();
+      gl.render(this.held.scene, this.held.camera);
+    }
 
     const s = this.stats;
     s.drawCalls = gl.info.render.calls;
@@ -392,6 +423,7 @@ export class Renderer implements IView {
     this.machines.dispose();
     this.handParts.dispose();
     this.tech.dispose();
+    this.heatView.dispose();
     this.held.dispose();
     this.materials.dispose();
     this.atlas.texture.dispose();
@@ -402,8 +434,19 @@ export class Renderer implements IView {
 
   // ---------------------------------------------------------------------------------------------- internals
 
+  /** Hands Settings.colorMode to the overlays that draw ramps (heat view, grid overlay). */
+  private applyColorMode(): void {
+    const mode = this.settings.colorMode ?? 'off';
+    this.tech.setColorMode(mode);
+    if (this.heatView.colorMode !== mode) {
+      this.heatView.colorMode = mode;
+      this.heatView.refresh();
+    }
+  }
+
   private onSettings(): void {
     this.setFov(this.settings.fov);
+    this.applyColorMode();
     if (this.settings.renderDistance !== this.renderDistance) {
       this.renderDistance = this.settings.renderDistance;
       this.applyDistance();
@@ -436,10 +479,11 @@ export class Renderer implements IView {
     } else {
       const fx = this.fx;
       const close = fx.precipitation === 'dust' ? DUST_FOG : fx.precipitation === 'none' ? 0 : WET_FOG;
-      const edge = ((this.renderDistance + 0.5) * CHUNK_SIZE - 6) * (1 - close * fx.amount);
+      const g = graphicsProfile(this.settings.graphics);
+      const edge = ((this.renderDistance + 0.5) * CHUNK_SIZE - 6) * g.fogEnd * (1 - close * fx.amount);
       u.uFogColor.value.fromArray(sky.horizon);
       u.uFogGlow.value.fromArray(sky.glow);
-      u.uFog.value.set(edge * (0.62 - 0.35 * close * fx.amount), edge);
+      u.uFog.value.set(edge * (g.fogStart - 0.35 * close * fx.amount), edge);
     }
     return false;
   }

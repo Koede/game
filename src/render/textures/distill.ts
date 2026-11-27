@@ -137,6 +137,15 @@ const EMBLEMS: Record<ChemKind, (c: Canvas, lit: boolean) => void> = {
     etchRect(c, 3, 4, 10, 9);
     for (let y = 6; y < 12; y += 2) for (let x = 4; x < 12; x++) etch(c, x, y, 140);
   },
+  separatory_funnel(c) {
+    // A pear-shaped bulb over a brass tap and a stem: two etched layers inside.
+    etchRect(c, 5, 3, 6, 3, 150);
+    etchRect(c, 6, 6, 4, 3, 210);
+    c.rect(5, 9, 6, 1, BRASS[3]);
+    etch(c, 8, 10);
+    etch(c, 8, 11);
+    etch(c, 8, 12);
+  },
   vacuum_cap(c) {
     c.rect(3, 8, 10, 5, BRASS[2]);
     c.rect(3, 8, 10, 1, BRASS[4]);

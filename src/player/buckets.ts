@@ -140,6 +140,6 @@ export function swapHeldItem(player: PlayerState, item: string): void {
   inv.batch(() => {
     inv.removeAt(slot, 1);
     if (inv.get(slot) === null) inv.set(slot, { item, count: 1 });
-    else player.give(item, 1);
+    else if (player.give(item, 1) > 0) player.drop(item, 1); // a full pack must not swallow the result
   });
 }

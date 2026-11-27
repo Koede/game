@@ -16,6 +16,12 @@ const fieldC = new Float32Array(LXZ * LXZ * LY);
 /** Squared radius of a tunnel in noise units, and the chamber threshold. */
 const TUNNEL = 0.0105;
 const CHAMBER = 0.5;
+/** Below this y the network widens and chambers grow (the depth bands of caveRooms.ts: richer, roomier caves lower down). */
+const WIDEN_TOP = 36;
+const WIDEN_SPAN = 26;
+/** Deepest tunnels are this much roomier (squared radius), and the deepest chamber threshold this much lower. */
+const WIDEN_TUNNEL = 0.9;
+const WIDEN_CHAMBER = 0.1;
 const Y_STRIDE = CHUNK_SIZE * CHUNK_SIZE;
 
 const lerp = (a: number, b: number, f: number): number => a + (b - a) * f;
@@ -67,6 +73,9 @@ export function carveCaves(t: Terrain, voxels: Uint16Array, x0: number, z0: numb
           const c01 = lerp(fieldC[c + sz], fieldC[c + sz + sy], fy);
           const c11 = lerp(fieldC[c + sz + sx], fieldC[c + sz + sx + sy], fy);
           const fill = y <= CAVE_LAVA_TOP ? ID.lava : AIR;
+          const deep = y >= WIDEN_TOP ? 0 : Math.min(1, (WIDEN_TOP - y) / WIDEN_SPAN);
+          const tunnel = TUNNEL * (1 + WIDEN_TUNNEL * deep);
+          const chamber = CHAMBER - WIDEN_CHAMBER * deep;
           for (let dz = 0; dz < STEP; dz++) {
             const fz = dz / STEP;
             const a0 = lerp(a00, a01, fz);
@@ -81,7 +90,7 @@ export function carveCaves(t: Terrain, voxels: Uint16Array, x0: number, z0: numb
               const fx = dx / STEP;
               const a = lerp(a0, a1, fx);
               const b = lerp(b0, b1, fx);
-              if (a * a + b * b < TUNNEL || lerp(c0, c1, fx) > CHAMBER) {
+              if (a * a + b * b < tunnel || lerp(c0, c1, fx) > chamber) {
                 const i = y * Y_STRIDE + row + dx;
                 const v = voxels[i];
                 if (v !== AIR && v !== ID.corestone) voxels[i] = fill;

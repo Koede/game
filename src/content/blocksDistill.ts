@@ -67,6 +67,10 @@ const LOOKS: Record<ChemKind, Look> = {
     name: 'Filter Bed', age: 0, glow: 2,
     desc: 'Liquid in from above, out below. Load it with charcoal, sand or clay; the medium is used up, and a spent bed shows blocked until you load another.',
   },
+  separatory_funnel: {
+    name: 'Separatory Funnel', age: 0,
+    desc: 'A pear-shaped funnel with a tap. Liquids that do not mix settle into layers in it; it lets the bottom layer out below and keeps the top one.',
+  },
   vacuum_cap: {
     name: 'Vacuum Cap', age: 3,
     desc: 'On a column or a flask it lowers every boiling point. Residue run gently this way gives lube base overhead and bitumen left behind.',
@@ -78,7 +82,7 @@ function module(kind: ChemKind): BlockSpec[] {
   const cap = kind === CHEM.airlock || kind === CHEM.vacuum;
   const base: BlockSpec = {
     key: kind, name: look.name, desc: look.desc, machine: kind, hardness: 0.6, tool: 'pickaxe', age: look.age,
-    shape: cap ? 'slab' : 'cube', opaque: false, translucent: true, category: 'machine', stack: 16,
+    shape: 'glass', solid: true, opaque: false, translucent: true, category: 'machine', stack: 16,
     lightActive: look.glow ?? 0,
     textures: { side: `chem_${kind}`, top: cap ? `chem_${kind}` : 'chem_top', sideActive: `chem_${kind}_on`, topActive: cap ? `chem_${kind}_on` : 'chem_top' },
   };

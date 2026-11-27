@@ -51,6 +51,7 @@ export const DISTILL_FORGE: RecipeSpec[] = [
   forge(3, '2 empty_canister', '2 iron_plate', 1000),
   // Same glass costs as the module they sit beside. Vacuum is Current Age (tier 4 after the six-age renumbering), like the plan's age table.
   forge(1, 'filter_bed', '2 glass', 700),
+  forge(1, 'separatory_funnel', '2 glass, 1 tin_ingot', 700),
   forge(3, 'reflux_head', '2 glass, 1 iron_plate', 1000),
   forge(4, 'vacuum_cap', '1 glass, 1 steel_plate', 1300),
 ];
@@ -83,7 +84,7 @@ export const PROCESS_CARDS: ProcessCard[] = [
 /** Block key of each rig legend letter. */
 export const RIG_LEGEND: Readonly<Record<string, string>> = {
   B: 'still_base', F: 'boiling_flask', V: 'reaction_vessel', '|': 'column_segment', C: 'condenser_coil', R: 'receiver', T: 'glass_tube',
-  J: 'cooling_jacket', A: 'airlock_cap', P: 'chem_port', H: 'reflux_head', X: 'filter_bed', U: 'vacuum_cap',
+  J: 'cooling_jacket', A: 'airlock_cap', P: 'chem_port', H: 'reflux_head', X: 'filter_bed', U: 'vacuum_cap', S: 'separatory_funnel',
 };
 
 /** Every distinct block a rig string needs. */

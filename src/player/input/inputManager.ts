@@ -7,6 +7,8 @@ import { InputCore } from './core';
 import type { TouchTarget } from './gestures';
 import type { Intent } from './intent';
 import { physicalCode } from './keys';
+import { quickMenuItems, quickMenuLit, quickMenuOpenable, type QuickContext, type QuickPage, type QuickPlayerState } from './quickMenu';
+import { QuickMenuView } from './quickMenuView';
 import { PointerLock } from './pointerLock';
 import { TouchOverlay, type TouchButton } from './touchOverlay';
 
@@ -18,6 +20,8 @@ export interface InputManagerOptions {
   settings: Settings;
   state: InputState;
   bus: GameBus;
+  /** What the quick menu needs to know about the player (read each frame). Absent: alive, no photo mode, no emote. */
+  quickState?: () => QuickPlayerState;
 }
 
 /** Elements whose events belong to the UI, never to the game surface. */
@@ -32,12 +36,16 @@ const LOCK_SETTLE_MS = 120;
 const isTextInput = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
 
-type PointerRole = { kind: 'gesture'; button: TouchButton | null } | { kind: 'tap'; button: TouchButton };
+type PointerRole = { kind: 'gesture'; button: TouchButton | null } | { kind: 'tap'; button: TouchButton } | { kind: 'radial'; id: string };
 
 export class InputManager {
   readonly core: InputCore;
   private readonly container: HTMLElement;
   private readonly overlay: TouchOverlay;
+  private readonly quick: QuickMenuView;
+  private readonly quickState: () => QuickPlayerState;
+  private quickPage: QuickPage = 'main';
+  private quickOpen = false;
   private readonly lock: PointerLock;
   private readonly settings: Settings;
   private readonly state: InputState;
@@ -62,6 +70,8 @@ export class InputManager {
     this.bus = options.bus;
     this.core = new InputCore(this.settings);
     this.overlay = new TouchOverlay(options.touchLayer);
+    this.quick = new QuickMenuView(this.overlay.root);
+    this.quickState = options.quickState ?? (() => ({ dead: false, photo: false, emote: null }));
     this.lock = new PointerLock(this.container, {
       locked: () => this.onLockChange(true, false),
       unlocked: (byPlayer) => this.onLockChange(false, byPlayer),
@@ -124,11 +134,13 @@ export class InputManager {
       this.overlay.clearPressed();
     }
     this.wasBlocked = blocked;
+    if (blocked) this.closeQuick();
     const intent = this.core.frame(dtSeconds, performance.now(), blocked);
     this.state.pointerLocked = this.isLocked();
     this.overlay.setVisible(this.touchEnabled && !blocked);
     this.overlay.setPlaceArmed(this.core.placeArmed);
     this.overlay.render(this.core.touch);
+    this.syncQuick();
     return intent;
   }
 
@@ -138,6 +150,11 @@ export class InputManager {
    */
   requestPointerCapture(): Promise<boolean> {
     return this.disposed ? Promise.resolve(false) : this.lock.request();
+  }
+
+  /** Toggles photo mode as the P key / quick menu does (the photo bar's Done button). */
+  requestPhoto(): void {
+    this.core.requestPhoto();
   }
 
   /** Lets the mouse go (a screen opened). Does not count as a pause request. */
@@ -151,6 +168,7 @@ export class InputManager {
     this.lock.dispose();
     for (const off of this.cleanups) off();
     this.cleanups.length = 0;
+    this.quick.dispose();
     this.overlay.dispose();
     this.container.classList.remove('hw-touch-surface');
     this.state.touch = false;
@@ -193,16 +211,95 @@ export class InputManager {
   }
 
   private refreshTouchVisibility(): void {
-    this.overlay.setLarge(this.settings.uiScale === 'large');
+    this.overlay.setLarge(this.settings.uiScale === 'large' || this.settings.hudScale >= 1.2);
+    this.overlay.setHanded(this.settings.oneHanded);
+    this.core.touch.handed = this.settings.oneHanded;
     this.state.touch = this.touchEnabled;
     if (!this.state.touch) this.overlay.setVisible(false);
   }
 
   private releaseEverything(): void {
     this.core.releaseAll();
+    this.closeQuick();
     this.touchPointers.clear();
     this.pressedCount.clear();
     this.overlay.clearPressed();
+  }
+
+  // ---- radial quick menu --------------------------------------------------------------------------
+
+  private quickContext(): QuickContext {
+    return { ...this.quickState(), page: this.quickPage, sneak: this.core.sneakLocked, sprint: this.core.sprintLocked };
+  }
+
+  /** Keeps the entry button and, while open, the ring in step with the game (a dead player's menu closes, lit states follow). */
+  private syncQuick(): void {
+    const ctx = this.quickContext();
+    this.overlay.setMenuState(quickMenuOpenable(ctx), quickMenuLit(ctx));
+    if (!this.quickOpen) return;
+    if (!quickMenuOpenable(ctx) || !this.state.touch) this.closeQuick();
+    else this.quick.update(quickMenuItems(ctx));
+  }
+
+  /** The entry button: opens the ring; on the emote wheel it goes back to the ring; otherwise it closes the ring. */
+  private toggleQuick(): void {
+    if (!this.quickOpen) {
+      this.openQuick();
+      return;
+    }
+    if (this.quickPage === 'emotes') {
+      this.quickPage = 'main';
+      this.syncQuick();
+      return;
+    }
+    this.closeQuick();
+  }
+
+  private openQuick(): void {
+    const ctx = this.quickContext();
+    const centre = this.overlay.centreOf('menu');
+    if (!quickMenuOpenable(ctx) || !centre || !this.state.touch) return;
+    this.quickPage = 'main';
+    this.quickOpen = true;
+    // The entry button sits in the left corner (the ring opens right), or in the right corner when the cluster is mirrored for the left hand.
+    const side = this.settings.oneHanded === 'left' ? -1 : 1;
+    this.quick.show(centre, side, !this.settings.reduceMotion, quickMenuItems(ctx));
+  }
+
+  private closeQuick(): void {
+    if (!this.quickOpen) return;
+    this.quickOpen = false;
+    this.quickPage = 'main';
+    this.quick.hide();
+  }
+
+  /** Applies a picked item: a page change keeps the ring open, anything else closes it. */
+  private pickQuick(id: string): void {
+    const item = quickMenuItems(this.quickContext()).find((i) => i.id === id);
+    if (!item || !item.enabled) return;
+    const effect = item.effect;
+    switch (effect.type) {
+      case 'page':
+        this.quickPage = effect.page;
+        this.syncQuick();
+        return;
+      case 'photo':
+        this.core.requestPhoto();
+        break;
+      case 'sneak':
+        this.core.setSneakLock(effect.on);
+        break;
+      case 'sprint':
+        this.core.setSprintLock(effect.on);
+        break;
+      case 'emote':
+        this.core.requestEmoteSet(effect.kind);
+        break;
+      case 'stopEmote':
+        this.core.requestEmoteSet('stop');
+        break;
+    }
+    this.closeQuick();
   }
 
   // ---- pointer events ---------------------------------------------------------------------------
@@ -220,7 +317,14 @@ export class InputManager {
     if (this.blocked()) return;
     e.preventDefault();
     const button = this.overlay.buttonAt(e.target);
-    if (button === 'bag' || button === 'pause' || button === 'place') {
+    if (this.quickOpen && button !== 'menu') {
+      // The ring is open: a tap on an item picks it; anywhere else closes the ring and does nothing more.
+      const id = this.quick.idOf(e.target);
+      if (id) this.touchPointers.set(e.pointerId, { kind: 'radial', id });
+      else this.closeQuick();
+      return;
+    }
+    if (button === 'bag' || button === 'pause' || button === 'place' || button === 'menu') {
       this.touchPointers.set(e.pointerId, { kind: 'tap', button });
       this.press(button, true);
       return;
@@ -253,11 +357,16 @@ export class InputManager {
     const role = this.touchPointers.get(e.pointerId);
     if (!role) return;
     this.touchPointers.delete(e.pointerId);
+    if (role.kind === 'radial') {
+      if (!cancelled && this.quick.idAt(e.clientX, e.clientY) === role.id) this.pickQuick(role.id);
+      return;
+    }
     if (role.button) this.press(role.button, false);
     if (role.kind === 'tap') {
       if (!cancelled && this.overlay.hit(role.button, e.clientX, e.clientY)) {
         if (role.button === 'bag') this.core.requestInventory();
         else if (role.button === 'place') this.core.togglePlace();
+        else if (role.button === 'menu') this.toggleQuick();
         else this.core.requestPause();
       }
       return;

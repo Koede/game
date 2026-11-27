@@ -8,17 +8,23 @@ import { mulberry32 } from '../core/math';
 import { BLOCKS, blockId } from '../core/registry';
 import {
   AIR, CHUNK_SIZE, WORLD_HEIGHT, makeVoxel, voxelId, voxelIndex,
-  type BiomeKey, type BlockDef, type BlockEntity, type ChangeSource, type IWorld, type Voxel,
+  type BiomeKey, type BlockDef, type BlockEntity, type ChangeSource, type IWorld, type Slot, type Voxel,
 } from '../core/types';
 import { chunkCoord, chunkKey, localCoord, type Chunk } from './chunk';
 import { EditLog, type EditsSnapshot } from './edits';
 import { EntityStore } from './entities';
 import { WaterFlow, checkWaterSnapshot, type WaterSnapshot } from './flow';
 import { LeafDecay, checkLeafSnapshot, rollLeafDrops, type LeafSnapshot } from './leafDecay';
-import { CRATE_VOXEL, ruinCrateEntity } from './ruinCrates';
+import { CRATE_VOXEL, ruinCrateEntity, structureCrateEntity, tableCrateEntity } from './ruinCrates';
+import { LegendaryClaims, registerLegendaryClaims } from './legendaryClaims';
+import { structureCrateCells } from './structures';
+import { caveBandAt, caveCampTable, findCaveCamp } from './caveRooms';
 import { ruinCrateCells } from './ruins';
 import { ChunkStreamer, type StreamHost, type StreamStats } from './streamer';
+import { OAK_BROAD, type TreeSite } from './flora';
+import { growChunk, createGrowthScratch, TreeAges, type GrowthScratch } from './treeGrowth';
 import { WorkerPool, type PoolMode } from './workerPool';
+import { terrainFor } from './terrain';
 import { biomeAt, findSpawn } from './worldgen';
 
 export interface WorldOptions {
@@ -76,6 +82,17 @@ export class World implements IWorld {
   private readonly host: StreamHost;
   private readonly ownsPool: boolean;
   private readonly offChunkLoaded: () => void;
+  /** Planting day of every tree seen standing (saved under 'treeAges'); growth is worked out from it. */
+  private readonly trees = new TreeAges();
+  private readonly legendary = new LegendaryClaims(() => this.currentSeed);
+  private readonly growScratch: GrowthScratch = createGrowthScratch();
+  /** Voxels the current growth of each loaded chunk wrote (see growChunk); dropped when the chunk unloads. */
+  private readonly growthRecords = new Map<number, number[]>();
+  private readonly offChunkUnloaded: () => void;
+  /** Clock day (1-based) of the world; the tree growth follows it. Default: day 1 forever. */
+  private dayOf: () => number = () => 1;
+  /** The day the loaded chunks were last grown to. */
+  private grownDay = 1;
 
   constructor(seed: number, readonly bus: GameBus, options: WorldOptions = {}) {
     this.currentSeed = seed >>> 0;
@@ -107,7 +124,19 @@ export class World implements IWorld {
     this.offChunkLoaded = bus.on('chunk:loaded', ({ cx, cz }) => {
       this.placeRuinCrates(cx, cz);
       this.water.chunkLoaded(cx, cz);
+      this.growChunkAt(cx, cz);
     });
+    this.offChunkUnloaded = bus.on('chunk:unloaded', ({ cx, cz }) => this.growthRecords.delete(chunkKey(cx, cz)));
+    this.persist('treeAges', () => this.trees.toJSON());
+    registerLegendaryClaims(this, this.legendary);
+    this.legendary.load(this.extra('legendary'));
+    this.persist('legendary', () => this.legendary.toJSON());
+  }
+
+  /** Tells the world what clock day it is (trees grow a day at a time). The game calls this once it has its clock. */
+  setDayProvider(day: () => number): void {
+    this.dayOf = day;
+    this.grownDay = day();
   }
 
   /** Restores a world from a snapshot (see load). */
@@ -196,6 +225,11 @@ export class World implements IWorld {
    * jobs nearest first, and in main-thread mode runs jobs for what is left of `budgetMs`.
    */
   update(playerX: number, playerZ: number, renderDistance: number, budgetMs: number): void {
+    const day = this.dayOf();
+    if (day !== this.grownDay) {
+      this.grownDay = day;
+      for (const chunk of this.chunks.values()) this.growChunkAt(chunk.cx, chunk.cz);
+    }
     this.streamer.update(playerX, playerZ, renderDistance, budgetMs);
   }
 
@@ -334,7 +368,47 @@ export class World implements IWorld {
     this.water.load(water);
     this.leaves.load(leaves);
     this.loadedExtras = snapshot.extras && typeof snapshot.extras === 'object' ? JSON.parse(JSON.stringify(snapshot.extras)) : {};
+    // Older saves have no tree ages: their trees count as planted on the day they are first seen (age 0).
+    this.trees.clear();
+    this.growthRecords.clear();
+    this.loadExtra('treeAges', (raw) => this.trees.load(raw));
     this.streamer = new ChunkStreamer(this.host);
+    this.grownDay = this.dayOf();
+  }
+
+  /** Grows the trees reaching chunk (cx, cz) to the current day; the grown voxels are not edits and are not saved. */
+  private growChunkAt(cx: number, cz: number): void {
+    const chunk = this.chunks.get(chunkKey(cx, cz));
+    if (!chunk) return;
+    const key = chunkKey(cx, cz);
+    const record = this.growthRecords.get(key) ?? [];
+    growChunk(terrainFor(this.currentSeed), cx, cz, chunk.voxels, this.dayOf(), this.trees, {
+      standing: (s, top) => this.treeStanding(s, top),
+      blocked: (index) => this.edits.has(cx, cz, index),
+      changed: (index, from, to) => this.streamer.onEdit(chunk, index & (CHUNK_SIZE - 1), (index >> 4) & (CHUNK_SIZE - 1), from, to, 'load'),
+    }, this.growScratch, record);
+    if (record.length > 0) this.growthRecords.set(key, record);
+    else this.growthRecords.delete(key);
+  }
+
+  /** True when the voxel at (x, y, z) was ever changed (edits.ts): the town builder leaves such cells alone. */
+  wasEdited(x: number, y: number, z: number): boolean {
+    return this.edits.has(chunkCoord(x), chunkCoord(z), voxelIndex(localCoord(x), y, localCoord(z)));
+  }
+
+  /** A tree stands while no voxel from its ground up to `top` was ever edited (felled, chopped or decayed). */
+  private treeStanding(s: TreeSite, top: number): boolean {
+    const columns = s.kind === OAK_BROAD ? 4 : 1;
+    for (let k = 0; k < columns; k++) {
+      const x = s.x + (k & 1);
+      const z = s.z + (k >> 1);
+      const cx = chunkCoord(x);
+      const cz = chunkCoord(z);
+      for (let y = s.base + 1; y <= top; y++) {
+        if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z)))) return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -345,14 +419,35 @@ export class World implements IWorld {
     for (const { x, y, z } of ruinCrateCells(this.currentSeed, cx, cz)) {
       if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z))) || this.entityStore.get(x, y, z)) continue;
       if (this.getVoxel(x, y, z) !== AIR) continue;
-      this.setEntity(ruinCrateEntity(this.currentSeed, x, y, z, this.spawnPoint()));
+      const crate = ruinCrateEntity(this.currentSeed, x, y, z, this.spawnPoint());
+      // A ruin crate may hold one of the legendary weapons, once per world (src/world/legendaryClaims.ts); its own hash, so the ordinary roll is unchanged.
+      const found = this.legendary.roll('ruin', x, y, z);
+      if (found) {
+        const slots = crate.slots as Slot[];
+        const at = slots.indexOf(null);
+        if (at >= 0) slots[at] = LegendaryClaims.stackOf(found);
+      }
+      this.setEntity(crate);
       this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
+    }
+    for (const { x, y, z, key } of structureCrateCells(this.currentSeed, cx, cz)) {
+      if (this.edits.has(cx, cz, voxelIndex(localCoord(x), y, localCoord(z))) || this.entityStore.get(x, y, z)) continue;
+      if (this.getVoxel(x, y, z) !== AIR) continue;
+      this.setEntity(structureCrateEntity(this.currentSeed, x, y, z, key));
+      this.setVoxel(x, y, z, CRATE_VOXEL, 'load');
+    }
+    // A cave camp's crate is a generated voxel with no entity yet (the first load gives it its loot, by the camp's depth band).
+    const camp = findCaveCamp(this.currentSeed, cx, cz, (x, y, z) => voxelId(this.getVoxel(x, y, z)));
+    if (camp && !this.edits.has(cx, cz, voxelIndex(localCoord(camp.x), camp.y, localCoord(camp.z))) && !this.entityStore.get(camp.x, camp.y, camp.z)) {
+      this.setEntity(tableCrateEntity(this.currentSeed, camp.x, camp.y, camp.z, caveCampTable(caveBandAt(camp.y))));
+      this.setVoxel(camp.x, camp.y, camp.z, CRATE_VOXEL, 'load');
     }
   }
 
   /** Stops streaming; disposes the pool if the world created it. */
   dispose(): void {
     this.offChunkLoaded();
+    this.offChunkUnloaded();
     this.streamer.dispose();
     if (this.ownsPool) this.pool.dispose();
   }

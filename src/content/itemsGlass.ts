@@ -55,12 +55,12 @@ export const GLASS_TOP_BLOCK_KEYS: readonly string[] = ON_TOP.flatMap(([, cold, 
 export const GLASS_BLOCKS: BlockSpec[] = ON_TOP.flatMap(([item, cold, boiling, name, doneName]): BlockSpec[] => [
   {
     key: cold, name, desc: `${name}: it heats while the furnace under it is hot. Take it back with Use, or wait.`,
-    shape: 'bucket', solid: false, opaque: false, translucent: true, hardness: 0.2, item: false, machine: 'boil_bucket', placeOn: FURNACE_TOPS,
+    shape: 'glass', solid: false, opaque: false, translucent: true, hardness: 0.2, item: false, machine: 'boil_bucket', placeOn: FURNACE_TOPS,
     drops: [{ item, count: 1 }], textures: { all: cold },
   },
   {
     key: boiling, name: doneName, desc: item === 'pine_sap' ? 'The sap has cooked down to resin. Take it: you get the resin and the beaker.' : 'Boiling water in glass. Take it and pour it over a loaded cone.',
-    shape: 'bucket', solid: false, opaque: false, translucent: true, hardness: 0.2, item: false, machine: 'boil_bucket', placeOn: FURNACE_TOPS,
+    shape: 'glass', solid: false, opaque: false, translucent: true, hardness: 0.2, item: false, machine: 'boil_bucket', placeOn: FURNACE_TOPS,
     drops: [{ item, count: 1 }], textures: { all: boiling },
   },
 ]);

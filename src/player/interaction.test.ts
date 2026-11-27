@@ -73,7 +73,7 @@ describe('mining', () => {
     expect(t).toBeGreaterThan(11.9);
     expect(t).toBeLessThan(12.1);
     expect(player.inventory.count('rubble')).toBe(0);
-    expect(toasts[0].e.text).toMatch(/flint pickaxe/i);
+    expect(toasts[0].e.text).toMatch(/wooden pickaxe/i);
   });
 
   it('a matching tool is faster, harvests, and wears by one', () => {
@@ -256,5 +256,26 @@ describe('use: pail', () => {
     expect(interaction.use(aim(0.5, 10.5, -1.5, true))).toBe('refused');
     expect(player.heldStack()?.item).toBe('pail');
     expect(toasts).toHaveLength(1);
+  });
+});
+
+describe('dig sound pitch', () => {
+  it('rings fuller with the right tool, light with a bare hand', async () => {
+    const { digPitch } = await import('./blockRules');
+    const { block } = await import('../core/registry');
+    const stone = block('stone');
+    const bare = digPitch(stone, null);
+    expect(bare).toBeGreaterThan(1);
+    const pick = digPitch(stone, { item: 'flint_pickaxe', count: 1, durability: 100 } as never);
+    expect(pick).toBeLessThan(bare);
+  });
+});
+
+describe('place pitch', () => {
+  it('wood is higher than earth, which is higher than stone', async () => {
+    const { placePitch } = await import('./blockRules');
+    const { block } = await import('../core/registry');
+    expect(placePitch(block('stone'))).toBeLessThan(placePitch(block('dirt')));
+    expect(placePitch(block('dirt'))).toBeLessThan(placePitch(block('oak_log')));
   });
 });

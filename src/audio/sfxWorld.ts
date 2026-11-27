@@ -55,6 +55,7 @@ export const WORLD_SFX = {
     layers: [
       tone('triangle', 300, 0.36, 0.07, { freqEnd: 190 }),
       noise('pink', bp(1100, undefined, 0.8), 0.6, 0.035),
+      tone('sine', 150, 0.22, 0.1, { freqEnd: 85 }),
     ],
   },
   step: {
@@ -63,6 +64,43 @@ export const WORLD_SFX = {
       tone('sine', 96, 0.05, 0.05, { freqEnd: 70 }),
       noise('pink', lp(520, 300), 0.12, 0.06, { a: 0.004 }),
       noise('pink', bp(1000, 600, 0.8), 0.38, 0.045, { a: 0.004 }),
+    ],
+  },
+  // Footsteps by surface (docs/api/audio.md): grass and earth keep the plain 'step'.
+  step_stone: {
+    jitter: 3,
+    layers: [
+      tone('triangle', 180, 0.05, 0.04, { freqEnd: 120 }),
+      noise('white', bp(2200, 1200, 1.2), 0.1, 0.05, { a: 0.002 }),
+    ],
+  },
+  step_wood: {
+    jitter: 3,
+    layers: [
+      tone('triangle', 240, 0.12, 0.06, { freqEnd: 150 }),
+      noise('white', bp(900, 700, 3), 0.2, 0.04, { a: 0.003 }),
+    ],
+  },
+  step_sand: {
+    jitter: 3,
+    layers: [
+      noise('pink', bp(1800, 1200, 0.6), 0.2, 0.05, { a: 0.012 }),
+      noise('white', hp(3000), 0.1, 0.03, { a: 0.01 }),
+    ],
+  },
+  step_snow: {
+    jitter: 3,
+    layers: [
+      noise('pink', bp(1400, 900, 0.7), 0.28, 0.05, { a: 0.015 }),
+      noise('white', hp(4200), 0.1, 0.035, { at: 0.03, a: 0.01 }),
+    ],
+  },
+  step_metal: {
+    jitter: 3,
+    layers: [
+      tone('sine', 620, 0.1, 0.06, { freqEnd: 480 }),
+      tone('triangle', 1250, 0.2, 0.035, { freqEnd: 900 }),
+      noise('white', bp(3600, undefined, 1.5), 0.08, 0.04),
     ],
   },
   jump: {

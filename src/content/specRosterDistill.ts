@@ -8,13 +8,13 @@ import type { BlockDef, MachineRole } from '../core/types';
 
 type Numbers = Record<string, number>;
 const glassCase = (machine: string, props: Partial<BlockDef> = {}): Partial<BlockDef> => ({
-  machine, shape: 'cube', solid: true, opaque: false, translucent: true, tool: 'pickaxe', minTier: 0, power: null, ...props,
+  machine, shape: 'glass', solid: true, opaque: false, translucent: true, tool: 'pickaxe', minTier: 0, power: null, ...props,
 });
 
 export const DISTILL_SPEC = {
   // New faces this module adds on top of the distillery textures already inside the base budget:
   // reflux / vacuum (idle+lit), filter (idle+lit+done+blocked), asphalt, 5 containers, 12 potion vials.
-  textures: 25,
+  textures: 29,
   blocks: [
     'still_base', 'boiling_flask', 'boiling_flask_done', 'reaction_vessel', 'reaction_vessel_done', 'column_segment', 'condenser_coil',
     'cooling_jacket', 'receiver', 'receiver_done', 'glass_tube', 'airlock_cap', 'chem_port',
@@ -41,12 +41,14 @@ export const DISTILL_SPEC = {
     condenser_coil: glassCase('condenser_coil'),
     cooling_jacket: glassCase('cooling_jacket'),
     glass_tube: glassCase('glass_tube'),
-    airlock_cap: glassCase('airlock_cap', { shape: 'slab' }),
+    airlock_cap: glassCase('airlock_cap'),
     chem_port: glassCase('chem_port'),
     reflux_head: glassCase('reflux_head'),
     filter_bed: glassCase('filter_bed', { itemKey: 'filter_bed', lightActive: 2 }),
     filter_bed_done: glassCase('filter_bed', { itemKey: null, drops: [{ item: 'filter_bed', count: 1 }], lightActive: 0 }),
-    vacuum_cap: glassCase('vacuum_cap', { shape: 'slab' }),
+    vacuum_cap: glassCase('vacuum_cap'),
+    separatory_funnel: glassCase('separatory_funnel', { itemKey: 'separatory_funnel' }),
+    separatory_funnel_done: glassCase('separatory_funnel', { itemKey: null, drops: [{ item: 'separatory_funnel', count: 1 }] }),
   } as Record<string, Partial<BlockDef>>,
 
   machines: {

@@ -87,7 +87,7 @@ async function runDevice(device) {
       await d.selectItem('field_notebook');
       for (const dx of [-1, 0, 1]) {
         assert(await d.approach({ x: P.x0 + dx, y: P.gy, z: P.z0 }), `aims at block ${dx}`);
-        await d.use();
+        await d.holdUse(2800);
         await d.settle(400);
       }
       const r = await magic(() => window.__hw.app.game.magic.research);
@@ -110,24 +110,40 @@ async function runDevice(device) {
       assert(!res.ok && /Research/.test(res.reason ?? ''), `refused: ${JSON.stringify(res)}`);
     });
 
-    await step('Use at the sky opens the notebook', async () => {
-      await d.hw((p) => window.__hw.lookAt(p.x0 + 0.5, p.gy + 40, p.z0 + 3.6), P);
-      await d.settle(300);
-      await d.use();
+    await step('the Bag\'s Notebook chip opens the notebook', async () => {
+      await d.openInventory();
+      await d.press(page.locator('.hw-bag-chips button', { hasText: 'Notebook' }));
       await page.waitForSelector('.hw-nb', { timeout: 5000 });
       await d.settle(300);
       await d.shot('2-notebook');
     });
 
-    await step('the board is solved by tapping cells and aspect chips', async () => {
+    await step('research is begun from the map, then written at a research table', async () => {
       // Lore is set-up: three scans do not always give enough of every aspect the solution wants.
       await d.hw(() => {
         const r = window.__hw.app.game.magic.research;
-        for (const a of ['clarity', 'rune', 'craft', 'cinder', 'brook']) r.lore[a] = (r.lore[a] ?? 0) + 4;
-        if (!r.known.includes('cinder')) r.known.push('cinder');
+        for (const a of ['clarity', 'rune', 'craft', 'cinder', 'brook', 'loam', 'gale']) r.lore[a] = (r.lore[a] ?? 0) + 6;
+        for (const a of ['cinder', 'loam', 'gale']) if (!r.known.includes(a)) r.known.push(a);
       });
-      await d.press(page.locator('.hw-nb__entry[data-entry="glassware"]'));
-      for (let i = 0; i < 10; i++) {
+      await d.press(page.locator('.hw-nb__node[data-entry="glassware"]'));
+      await d.settle(200);
+      await d.shot('3a-research-map');
+      await d.press(page.locator('[data-begin="glassware"]'));
+      await d.settle(200);
+      assert(await d.hw(() => window.__hw.app.game.magic.research.entries.glassware?.begun === true), 'glassware begun');
+      await page.keyboard.press('Escape');
+      await d.settle(300);
+      const table = { x: P.x0 + 2, y: P.gy, z: P.z0 };
+      await d.hw((p) => {
+        window.__hw.setVoxel(p.x, p.y, p.z, 'research_table');
+        window.__hw.give('scribing_tools', 1);
+      }, table);
+      await d.selectEmptyHand();
+      assert(await d.approach(table), 'aims at the research table');
+      await d.use();
+      await page.waitForSelector('.hw-nb__node', { timeout: 5000 });
+      await d.press(page.locator('.hw-nb__node[data-entry="glassware"]'));
+      for (let i = 0; i < 16; i++) {
         const hint = await d.hw(() => window.__hw.app.game.magic.notebook().hint('glassware'));
         if (!hint) break;
         await d.press(page.locator(`.hw-nb__cell[data-cell="${hint.cell}"]`));
@@ -136,6 +152,7 @@ async function runDevice(device) {
         if (await d.hw(() => window.__hw.app.game.magic.research.entries.glassware?.done === true)) break;
       }
       assert(await d.hw(() => window.__hw.app.game.magic.research.entries.glassware?.done === true), 'glassware done');
+      assert(await d.hw(() => window.__hw.app.game.magic.notebook().ink() < 64), 'writing spent ink');
       const fits = await page.evaluate(() => [...document.querySelectorAll('.hw-nb__cell')].every((el) => el.getBoundingClientRect().right <= innerWidth + 1));
       assert(fits, 'the board fits the screen');
       await d.shot('3-board-solved');
@@ -149,7 +166,7 @@ async function runDevice(device) {
       assert(await d.hw(() => window.__hw.state().inventory?.some?.((s) => s?.item === 'glass_vial') ?? window.__hw.app.game.state.player.inventory.count('glass_vial') > 0), 'vials in the pack');
     });
 
-    await step('the gathering rod fills a vial from the land', async () => {
+    await step('the gathering rod draws vis; a crucible over lava melts ore into essentia and bottles a vial', async () => {
       await d.hw(() => {
         const hw = window.__hw;
         hw.give('vis_rod', 1);
@@ -159,10 +176,34 @@ async function runDevice(device) {
         await d.use();
         await d.settle(300);
       }
-      const filled = await d.hw(() => window.__hw.app.game.state.player.inventory.toJSON().filter((s) => s && s.item.startsWith('vial_')).map((s) => s.item));
-      assert(filled.length > 0, `filled vials ${JSON.stringify(filled)}`);
-      P.vial = filled[0];
+      const vis = await d.hw(() => window.__hw.app.game.magic.visTotal());
+      assert(vis > 0, `vis drawn ${vis}`);
       await d.shot('4-rod');
+      const pot = { x: P.x0 + 4, y: P.gy, z: P.z0 + 2 };
+      await d.hw((p) => {
+        const hw = window.__hw;
+        const m = hw.app.game.magic;
+        m.research.entries.crucible = { done: true, tokens: {} };
+        hw.setVoxel(p.x, p.y - 1, p.z, 'lava');
+        hw.setVoxel(p.x, p.y, p.z, 'crucible');
+        hw.give('water_vial', 1);
+        hw.give('copper_ore', 4);
+        hw.give('glass_vial', 1);
+      }, pot);
+      await d.settle(300);
+      for (const item of ['water_vial', 'copper_ore', 'copper_ore', 'copper_ore', 'glass_vial']) {
+        await d.selectItem(item);
+        // The tavern's jukebox stands near the yard and would take a real Use: go through Magic.use on the pot.
+        await d.hw((p) => {
+          const g = window.__hw.app.game;
+          g.magic.use({ x: p.x, y: p.y, z: p.z, block: g.state.world.getBlock(p.x, p.y, p.z) });
+        }, pot);
+        await d.settle(200);
+      }
+      const filled = await d.hw(() => window.__hw.app.game.state.player.inventory.toJSON().filter((s) => s && s.item.startsWith('vial_')).map((s) => s.item));
+      assert(filled.length > 0, `bottled vials ${JSON.stringify(filled)}`);
+      P.vial = filled[0];
+      await d.shot('4b-crucible');
     });
 
     await step('a filled vial pours into an essentia jar', async () => {
@@ -224,7 +265,8 @@ async function runDevice(device) {
       await M((p) => {
         const hw = window.__hw;
         hw.setVoxel(p.x, p.y, p.z, 'rune_desk');
-        for (const [k, n] of [['vis_rod', 1], ['bronze_ingot', 2], ['vial_gale', 1], ['vial_loam', 1], ['vial_rune', 1]]) hw.give(k, n);
+        for (const [k, n] of [['vis_rod', 1], ['bronze_ingot', 2]]) hw.give(k, n);
+        window.__hw.app.game.magic.vis = { cinder: 0, loam: 8, brook: 0, gale: 8, rune: 8, rift: 0 };
       }, desk);
       await d.selectEmptyHand();
       assert(await d.approach(desk), 'aims at the desk');
@@ -276,15 +318,21 @@ async function runDevice(device) {
       await M(() => window.__hw.tick(600));
       const text = await M((a) => window.__hw.app.game.magic.altarText(a.x, a.y, a.z), A);
       assert(/Scrying Lens/.test(text ?? ''), `altar says ${text}`);
-      await useWith(null, A);
+      // Stand right at the altar: a tavern regular wandering through the yard must not take the Use.
+      await d.selectEmptyHand();
+      await d.hw((a) => window.__hw.teleport(a.x + 0.5, a.y, a.z + 2.2), A);
+      await d.hw((a) => window.__hw.lookAt(a.x, a.y, a.z), A);
+      await d.settle(250);
+      await d.use();
+      await d.settle(350);
       assert(await M(() => window.__hw.app.game.state.player.inventory.count('vein_lens') === 1), 'the lens in the pack');
     });
 
-    await step('a charged rod and the Light Focus set a floating light', async () => {
+    await step('a rod with vis and the Light Focus set a floating light', async () => {
       await M(() => {
         const hw = window.__hw;
         hw.give('focus_light', 1);
-        hw.app.game.magic.charge = 16;
+        hw.app.game.magic.vis = { cinder: 16, loam: 16, brook: 16, gale: 16, rune: 16, rift: 16 };
       });
       await d.selectItem('focus_light');
       const floor = { x: P.yard.x + 3, y: P.gy - 1, z: P.yard.z + 4 };

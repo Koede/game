@@ -27,10 +27,12 @@
  * Age - are bonus finds the tech tree never relies on, like ruin loot. On Peaceful (`solve(..., { peaceful: true })`) there are
  * no automatons and no drops; the objectives that need one complete through the flag FLAG_PEACEFUL.
  */
+import { ANIMAL_YIELDS } from './animalYields';
 import { areaNaturalBlocks } from './area';
+import { FISHING_ROD, FISH_ITEMS } from './fishing';
 import { ASPECTS } from '../magic/aspects';
 import { vialKey } from './itemsMagic';
-import { ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
+import { ALCHEMY, ARCANE_RECIPES, INFUSIONS } from './recipesMagic';
 import {
   AMBIENT_TEMP_C, DRAFT_FLAME_BONUS_C, FLAG_AUTOMATON_SALVAGED, FLAG_BOILED_WATER, FLAG_BREWED, FLAG_DROVE_TRACTOR, FLAG_FELLED_TREE, FLAG_FIRST_POUR, FLAG_PEACEFUL, FLAG_SIX_CUPS,
   FURNACE_BUFF_C,
@@ -38,6 +40,7 @@ import {
 import { CONE_ITEM, CUP_ITEM } from '../core/brewing';
 import { smallestShell } from '../core/hearth';
 import { PROCESS_BY_ID, rigBlocks } from './recipesDistill';
+import { BUILD_RECIPE_SPECS } from './toolParts';
 import {
   AUTOMATONS, BLOCKS, CREATURES, DRINKS, FURNACE_TIERS, ITEMS, MACHINES, MAX_FURNACE_TIER, MOULDS, ORE_VEINS, RECIPES,
   block, castMetalOfIngot, furnaceTier, isHandStation, item, machine, recipe, recipesFor,
@@ -52,7 +55,7 @@ export const NATURAL_BLOCKS: readonly string[] = [
   'oak_log', 'oak_leaves', 'pine_log', 'pine_leaves', 'tall_grass', 'dry_shrub',
   'wild_wheat', 'wild_potato', 'wild_carrot',
   'ember_poppy', 'skybell', 'frost_lily', 'fern', 'reeds', 'berry_bush', 'glowcap', 'cactus', 'packed_ice', 'ice_spike',
-  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'oil',
+  'basalt_column', 'steam_vent', 'peat', 'cracked_stone_brick', 'mossy_stone_brick', 'crystal_cluster', 'foul_air', 'oil',
   'tea_bush', 'coffee_shrub',
   ...areaNaturalBlocks(),
 ];
@@ -296,7 +299,10 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     // Animals live in the world from the start and can be hunted by hand.
     for (const c of CREATURES) {
       for (const drop of c.drops) if ((drop.chance ?? 1) > 0 && gain(drop.item, `animal:${c.key}`)) changed = true;
+      for (const key of ANIMAL_YIELDS[c.key] ?? []) if (gain(key, `animal:${c.key}`)) changed = true;
     }
+    // Fishing (optional): a rod at any water brings in every fish. Source 'fish'.
+    if (items.has(FISHING_ROD)) for (const key of FISH_ITEMS) if (gain(key, 'fish')) changed = true;
     // So do the automatons (not on Peaceful). Only what one always carries counts: chance drops and relics are luck.
     for (const c of hostiles ? AUTOMATONS : []) {
       for (const drop of c.drops) if ((drop.chance ?? 1) >= 1 && !isRelic(drop) && gain(drop.item, `automaton:${c.key}`)) changed = true;
@@ -317,6 +323,8 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
     if (items.has('vis_rod') && items.has('rune_desk')) {
       for (const r of ARCANE_RECIPES) if (r.inputs.every((i) => items.has(i.item)) && gain(r.output.item, `arcane:${r.id}`)) changed = true;
     }
+    // The crucible turns a catalyst into its output once the pot holds the essentia (the metal rows are not counted: ore has its own route).
+    if (items.has('crucible')) for (const r of ALCHEMY) if (r.id.startsWith('brew_') && items.has(r.catalyst) && gain(r.output.item, `alchemy:${r.id}`)) changed = true;
     if (items.has('vis_rod') && items.has('infusion_altar') && items.has('arcane_pedestal')) {
       for (const r of INFUSIONS) if (items.has(r.center) && r.around.every((i) => items.has(i)) && gain(r.output.item, `infusion:${r.id}`)) changed = true;
     }
@@ -345,6 +353,12 @@ export function solve(maxTier: number, missing: readonly string[] = [], options:
       gain(r.output.item, r.id);
       for (const extra of r.byproducts) gain(extra.item, r.id);
       changed = true;
+    }
+    // Modular tool assemblies (toolParts.ts) list at the workbench but sit outside the recipe tree.
+    if (items.has('workbench')) {
+      for (const r of BUILD_RECIPE_SPECS) {
+        if (r.inputs.every((i) => items.has(i.item)) && gain(r.output.item, `build:${r.id}`)) changed = true;
+      }
     }
     // Ember casting: metal smelted without a mould cools into a bloom (a lump to smelt again); a fired mould turns molten
     // metal into its cast item. Ingots themselves come from the gated recipes above (their source stays a recipe).

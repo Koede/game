@@ -6,10 +6,10 @@
  * bottom-left corner of a face seen from outside and v points up (on top and bottom faces u points
  * east); partial shapes (slab, torch, cable, lowered liquid) sample the matching part of the texture.
  */
-import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelFacing, type ChunkMeshData } from '../core/types';
+import { CHUNK_SIZE, Face, LIGHT_FLAG_EMISSIVE, LIGHT_FLAG_LIQUID, LIGHT_FLAG_SWAY, VOXEL_ID_MASK, WORLD_HEIGHT, voxelActive, voxelFacing, type ChunkMeshData } from '../core/types';
 import {
   BATCH, BATCH_CUTOUT, FACE_GLOW, FACE_LAYER, GLOWS, LIQUID, MERGES, OPAQUE, POWERED, SHAPE, SHAPE_CABLE, SHAPE_CROSS,
-  SHAPE_BUCKET, SHAPE_CUBE, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
+  GLASS_MODEL, SHAPE_BUCKET, SHAPE_CUBE, SHAPE_DOOR, SHAPE_FENCE, SHAPE_GLASS, SHAPE_SLOPE, SHAPE_STAIRS, STATION, SHAPE_CUP, SHAPE_LIQUID, SHAPE_PIPE, SHAPE_SLAB, SHAPE_TORCH, faceSlot,
 } from './blockTables';
 import type { ChunkNeighborhood } from './chunk';
 import { ID } from './ids';
@@ -20,7 +20,12 @@ import {
 } from './meshQuads';
 import { LIQ, liquidShape } from './meshLiquid';
 import { bucket, cup } from './meshCup';
+import { fence } from './meshFence';
+import { door } from './meshDoor';
+import { glass } from './meshGlass';
+import { slope, stairs } from './meshStairs';
 import { pipe } from './meshPipe';
+import { isHiddenShellCell } from './shellHide';
 import { stationShape } from './meshStation';
 
 export { LIGHT_COOL_MAX, LIGHT_COOL_SHIFT, LIGHT_FLAG_VIOLET } from './meshQuads';
@@ -34,6 +39,8 @@ export interface MeshInput {
   light?: Uint8Array;
   /** The light colour computeLight wrote alongside `light` (its hueOut); all firelight when missing. */
   hue?: Uint8Array;
+  /** Hidden multiblock shells touching this chunk (shellHide.ts flat boxes): their shell cells emit no faces. */
+  hidden?: number[];
 }
 
 export { LIQUID_SURFACE } from './meshLiquid';
@@ -235,16 +242,20 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
   if (lit.light.length !== LIGHT_VOLUME || lit.hue.length !== LIGHT_VOLUME || LIGHT_H !== WORLD_HEIGHT + 2) {
     throw new Error('meshChunk: light volume has the wrong size');
   }
+  const hidden = input.hidden && input.hidden.length > 0 ? input.hidden : null;
+  const wx = input.cx * CHUNK_SIZE;
+  const wz = input.cz * CHUNK_SIZE;
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
       let p = lightIndex(0, y, z);
       for (let x = 0; x < CHUNK_SIZE; x++, p++) {
         const v = vol[p];
         if (v === 0) continue;
+        if (hidden && isHiddenShellCell(hidden, wx + x, y, wz + z)) continue;
         const id = v & VOXEL_ID_MASK;
         switch (SHAPE[id]) {
           case SHAPE_CUBE:
-            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
+            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z, voxelActive(v));
             else cubeFaces(v, id, p, x, y, z, false);
             break;
           case SHAPE_LIQUID: cubeFaces(v, id, p, x, y, z, true); break;
@@ -252,9 +263,14 @@ export function meshChunk(input: MeshInput): ChunkMeshData {
           case SHAPE_TORCH: torch(builders[BATCH_CUTOUT], faceSlot(v), p, x, y, z); break;
           case SHAPE_CABLE: cable(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
           case SHAPE_SLAB:
-            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z);
+            if (STATION[id] !== 0) stationShape(builders[BATCH[id]], faceSlot(v), STATION[id], voxelFacing(v), p, x, y, z, voxelActive(v));
             else slab(builders[BATCH[id]], faceSlot(v), p, x, y, z);
             break;
+          case SHAPE_STAIRS: stairs(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
+          case SHAPE_SLOPE: slope(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
+          case SHAPE_FENCE: fence(builders[BATCH[id]], faceSlot(v), p, x, y, z); break;
+          case SHAPE_DOOR: door(builders[BATCH[id]], faceSlot(v), v, p, x, y, z); break;
+          case SHAPE_GLASS: glass(builders[BATCH[id]], faceSlot(v), GLASS_MODEL[id], p, x, y, z); break;
           case SHAPE_PIPE: pipe(builders[BATCH[id]], faceSlot(v), id, p, x, y, z); break;
           case SHAPE_CUP: cup(builders[BATCH_CUTOUT], faceSlot(v), id, p, x, y, z); break;
           case SHAPE_BUCKET: bucket(builders[BATCH_CUTOUT], faceSlot(v), id, v, p, x, y, z); break;

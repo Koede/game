@@ -6,6 +6,14 @@
  * objectives; at most 5 per frame) -> world streaming (after the controller so edits show this frame) -> audio -> UI
  * -> animal models (interpolated) -> render.
  */
+import { newThermalGrid } from '../game/thermal';
+import { makePostcard, saveShot, sendPostcard } from './photo';
+import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
+import { PhotoUi } from '../ui/photoUi';
+import { browserStorage } from '../save/storage';
+import { AGES } from '../core/registry';
+import { filterById, type PhotoFilter } from '../player/photoFilters';
+import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
 import { setCraftGate } from '../game/crafting';
@@ -13,13 +21,16 @@ import { Magic } from '../magic/magic';
 import { MagicRenderer } from '../render/magic/magicRenderer';
 import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
 import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
+import { createTownScreen } from '../ui/screens/town/townScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
+import { createJobsScreen } from '../ui/screens/jobs/jobsScreen';
 import { createNotebookScreen } from '../ui/screens/notebook/notebookScreen';
 import { AudioEngine } from '../audio';
-import { DT } from '../core/constants';
+import { DT, REACH } from '../core/constants';
 import { isFluidEndpoint } from '../core/registry';
 import type { Face } from '../core/types';
 import { collectLeafDrops } from '../game/leafDrops';
+import { aimGroundItem, dropLabel } from '../game/groundAim';
 import { VehicleHud } from '../ui/vehicleHud';
 import { TractorRenderer } from '../render/vehicles/tractorRenderer';
 import { VehicleManager, wrapIntentSource } from '../vehicles';
@@ -28,7 +39,15 @@ import { createInputState, type InputState, type IView, type Settings } from '..
 import { InputManager, PlayerController } from '../player';
 import { createIconProvider, Renderer, simTransportFeed } from '../render';
 import { GroundItemRenderer } from '../render/groundItems';
+import { FallingTreeRenderer } from '../render/fallingTrees';
+import { FallingTrees } from '../game/fallingTrees';
 import { MobRenderer } from '../render/mobs';
+import { NightlifeFx } from '../render/nightlifeFx';
+import { critters, darkOf, type Critter, type NightEnv } from '../sim/nightlife';
+import { NPCS } from '../npcs/data';
+import { loadNpcArt } from '../render/npcs/art';
+import { NPC_ART } from '../render/npcs/artManifest';
+import { NpcRenderer } from '../render/npcs/npcRenderer';
 import type { WorldSave } from '../save/document';
 import { GameUI } from '../ui/gameUI';
 import type { UIRoot } from '../ui/kit/root';
@@ -51,6 +70,7 @@ import {
   TRACTOR_ROAD_HEIGHT,
   walkRoadFactor,
 } from './gameWiring';
+import { gridOverlayFor, meterUse } from '../game/gridMeter';
 import { clampFrameDt, FixedStep } from './loop';
 import { GameState } from './state';
 
@@ -86,14 +106,27 @@ export function chunksInView(r: number): number {
   return n;
 }
 
+/** Fixture blocks (src/content/areas/tavern_fixtures.ts) and the NPC role each one speaks as. */
+const FIXTURE_ROLES: Readonly<Record<string, 'board' | 'clock' | 'jukebox' | 'party'>> = { quest_board: 'board', wall_clock: 'clock', jukebox: 'jukebox', party_button: 'party' };
+
+/** Blocks around the player the heat view paints (a 25 x 25 patch). */
+const HEAT_VIEW_RADIUS = 12;
+/** Rows of the 25-row heat grid computed per frame (about 2 ms each frame at most). */
+const HEAT_ROWS_PER_FRAME = 4;
+
 export class Game {
   readonly state: GameState;
   readonly input: InputState = createInputState();
   readonly renderer: Renderer;
   /** The animals' models, drawn into the renderer's scene (updated before every render). */
   readonly mobRenderer: MobRenderer;
+  /** The tavern's people as pixel sprites. */
+  readonly npcRenderer: NpcRenderer;
   /** Items lying in the world, one instanced draw per kind. */
   readonly itemRenderer: GroundItemRenderer;
+  /** Trees on their way down (game/fallingTrees.ts) and their drawing. */
+  readonly trees: FallingTrees;
+  readonly treeRenderer: FallingTreeRenderer;
   /** Jar fills, wellsprings and items on pedestals and altars (src/render/magic). */
   readonly magicRenderer: MagicRenderer;
   /** Turning cogs, links, arms and pistons of the workshop (src/render/workshop). */
@@ -130,12 +163,24 @@ export class Game {
   private dirtyFrames = DIRTY_FRAMES;
   private wasStill = false;
   private lastDraw = 0;
+  private nightlifeFx!: NightlifeFx;
+  private readonly nightList: Critter[] = [];
+  private nightEnv!: NightEnv;
   /** An opaque window covers the whole view (phone screens): the world behind it is not redrawn every frame. */
   private covered = false;
+  /** Photo mode asked for a shot: saved from the next rendered frame. */
+  private shotPending = false;
+  /** Town postcards (game/postcards.ts): when one is due, the next frame is drawn from a vantage over the town. */
+  private readonly postcardStore: PostcardStore;
+  private readonly postcards: PostcardDirector;
+  private readonly photoUi: PhotoUi;
+  private photoFilter: PhotoFilter = filterById('natural');
   private coverCheckedAt = -Infinity;
   private readonly offs: (() => void)[] = [];
   constructor(opts: GameOptions) {
     const { state, settings, root } = opts;
+    state.player.assist.magnet = settings.itemMagnet;
+    state.player.assist.lootFilter = settings.lootFilter;
     this.state = state;
     this.settings = settings;
     this.pool = opts.pool;
@@ -145,7 +190,7 @@ export class Game {
     this.vehicles = state.vehicles;
     this.magic = state.magic;
     this.workshop = state.workshop;
-    setCraftGate((id) => this.magic.craftGate(id));
+    setCraftGate(state.restoration.gate((id) => this.magic.craftGate(id)));
     this.offs.push(() => setCraftGate(null));
 
     // Throws a clear error without WebGL2; the app turns it into the friendly message.
@@ -154,11 +199,23 @@ export class Game {
     // Items and fluids in pipes (spec 16): the renderer reads the simulation's transport snapshot every frame.
     this.renderer.setTransport(simTransportFeed(sim));
     this.mobRenderer = new MobRenderer(this.renderer, world);
+    this.npcRenderer = new NpcRenderer(this.renderer);
+    void loadNpcArt(NPC_ART, Object.fromEntries(NPCS.map((n) => [n.id, n.scale])));
     this.itemRenderer = new GroundItemRenderer(this.renderer, world);
-    this.magicRenderer = new MagicRenderer(this.renderer, world);
+    this.treeRenderer = new FallingTreeRenderer(this.renderer, (p) => this.renderer.spawnParticle(p));
+    this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs, reduceMotion: () => this.settings.reduceMotion });
+    this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
     try {
-      this.inputManager = new InputManager({ container: opts.app, touchLayer: root.layers.touch, settings, state: this.input, bus });
+      this.inputManager = new InputManager({
+        container: opts.app,
+        touchLayer: root.layers.touch,
+        settings,
+        state: this.input,
+        bus,
+        // The touch quick menu reads these each frame (the controller is created just below, before any frame runs).
+        quickState: () => ({ dead: state.player.dead, photo: this.controller?.photo.active ?? false, emote: this.controller?.emotes.kind ?? null }),
+      });
       this.ui = new GameUI(root, {
         bus,
         input: this.input,
@@ -168,16 +225,28 @@ export class Game {
         clock,
         objectives,
         survival,
+        journal: state.journal,
+        achievements: state.achievements,
+        dailyGoals: state.dailyGoals,
         sim,
         weather: () => state.weather.state,
+        town: () => state.npcs.townChip(),
+        winterGoal: () => state.winter.activeGoal(),
+        tapGoal: () => (this.controller?.tapMove.active ? this.controller.tapMove : null),
         releasePointer: () => this.inputManager.releasePointerCapture(),
-        pause: { onSettingsChange: opts.onSettingsChange, onQuit: opts.onQuit },
+        pause: {
+          onSettingsChange: opts.onSettingsChange,
+          onQuit: opts.onQuit,
+          dev: { get: () => state.mode === 'dev', set: (on) => state.setMode(on ? 'dev' : 'survival') },
+        },
       });
       this.ui.setIconProvider(createIconProvider());
       registerStationScreens(this.ui, sim);
+      this.ui.registerScreen('town', (request, ctx) => createTownScreen(request as { type: 'town' }, ctx, () => state.npcs.townPage(), (id, room) => state.npcs.moveResident(id, room)));
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
-      this.ui.registerScreen('notebook', (_request, ctx) => createNotebookScreen(ctx, this.magic.notebook()));
-      this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z)));
+      this.ui.registerScreen('jobs', (request, ctx) => createJobsScreen(ctx, state.npcs, request.type === 'jobs' ? request.person : undefined));
+      this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
+      this.ui.registerScreen('rune_desk', (request, ctx) => createDeskScreen(ctx, this.magic.desk(request.x, request.y, request.z, request.type === 'rune_desk' && request.bench === true), request.type === 'rune_desk' && request.bench === true));
       registerDistillRig(this.ui);
       const renderer = this.renderer;
       const ui = this.ui;
@@ -192,39 +261,89 @@ export class Game {
         setHeldItem: (key) => renderer.setHeldItem(key),
         triggerSwing: () => renderer.triggerSwing(),
       };
-      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, transport: sim, brew: sim, hands: sim });
+      this.controller = new PlayerController({ world, bus, player, view, input: wrapIntentSource(this.inputManager, this.vehicles), settings, state: this.input, animals: state.mobs, person: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.personAt(ox, oy, oz, dx, dy, dz, maxDist), talk: (ox, oy, oz, dx, dy, dz, maxDist) => state.npcs.talk(ox, oy, oz, dx, dy, dz, maxDist), transport: sim, brew: sim, hands: sim, jukeboxOn: () => state.npcs.jukeboxOn, sunlight: () => state.clock.sunlight() });
       this.vehicles.bindPhysics(this.controller.physics);
       this.armRoadSpeed();
       this.armElixirDrink();
+      this.controller.interaction.treeChop = (hit) => this.trees.chop(hit);
+      this.controller.fallenAim = (o, d, maxDist) => this.trees.aimHit(o, d, maxDist);
       this.controller.interaction.beforeUse = (hit) => {
+        // Picking a stop for a resident's job (docs/api/jobs.md): this Use sets it.
+        if (state.npcs.pickingStop) return state.npcs.jobPick(hit) ? 'screen' : null;
         if (hit) {
           const held = player.heldStack();
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
           if (shop !== null) return shop;
         }
-        if (!hit && player.heldStack()?.item === GOGGLES) {
-          bus.emit('ui:open', { screen: { type: 'workshop' } });
-          return 'screen';
-        }
+        // The tavern's fixtures are blocks: the quest board and the wall clock talk when used.
+        const fixture = hit ? FIXTURE_ROLES[hit.block.key] : undefined;
+        if (fixture && state.npcs.useFixture(fixture) !== null) return 'worked';
+        const repaired = state.restoration.use(hit);
+        if (repaired !== null) return repaired;
+        const planned = state.oldPlans.use(player.heldStack());
+        if (planned !== null) return planned;
+        const explored = state.exploration.use(hit, player.heldStack());
+        if (explored !== null) return explored;
+        const metered = meterUse(state.sim, bus, player.heldStack()?.item ?? null, hit);
+        if (metered !== null) return metered;
         return this.magic.use(hit ? { x: hit.x, y: hit.y, z: hit.z, block: hit.block, face: hit.face } : null);
       };
+      state.exploration.teleport = (x, y, z) => this.controller.teleport(x, y, z);
+      this.nightlifeFx = new NightlifeFx((p) => renderer.spawnParticle(p));
+      this.nightEnv = { seed: world.seed, dark: 0, raining: false, timeS: 0, biomeAt: (x, z) => world.biomeAt(x, z), surfaceY: (x, z) => world.surfaceY(Math.floor(x), Math.floor(z)) };
       this.tractorRenderer = new TractorRenderer(this.renderer, world);
       this.vehicleHud = new VehicleHud(root.layers.hud, () => this.input.touch);
       this.audio = new AudioEngine(bus, settings);
       this.ambience = new AmbienceProbe(world, player, clock, state.weather.state);
     } catch (err) {
       this.itemRenderer.dispose();
+    this.trees.dispose();
+    this.treeRenderer.dispose();
       this.magicRenderer.dispose();
       this.workshopRenderer.dispose();
       this.mobRenderer.dispose();
+    this.npcRenderer.dispose();
       this.renderer.dispose();
       throw err;
     }
+    if (state.resumed) {
+      const last = [...state.journal.entries].reverse().find((e) => e.kind !== 'death');
+      bus.emit('toast', { text: resumeLine(state.clock.day, state.objectives.current?.title ?? null, last), kind: 'info' });
+    }
+    this.ui.hud.onHeatToggle = () => this.toggleHeatView();
+    this.postcardStore = new PostcardStore(browserStorage(), world.seed);
+    this.postcards = new PostcardDirector(bus, (age) => this.postcardStore.has(age));
+    // A loaded game that already passed an age without a card gets one at its next quiet daytime moment.
+    for (let age = 1; age <= state.objectives.age; age++) if (!this.postcardStore.has(age)) bus.emit('age:advanced', { age });
+    const canShare = typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && typeof navigator.share === 'function';
+    this.photoUi = new PhotoUi({
+      onFilter: (f) => this.applyPhotoFilter(f),
+      onExit: () => this.inputManager.requestPhoto(),
+      onSendCard: (card) => {
+        void sendPostcard(card, this.photoUi.shareOn).then((r) => {
+          state.bus.emit('toast', { text: r === 'shared' ? 'Postcard shared' : r === 'downloaded' ? 'Postcard saved' : 'Could not save the postcard', kind: r === 'failed' ? 'bad' : 'good' });
+        });
+      },
+      cards: () => this.postcardStore.list(),
+      canShare,
+    });
+    root.layers.windows.appendChild(this.photoUi.el);
+    this.offs.push(
+      () => this.postcards.dispose(),
+      () => this.photoUi.el.remove(),
+      bus.on('photo:snap', () => (this.shotPending = true)),
+      bus.on('photo:mode', ({ on }) => {
+        root.el.classList.toggle('hw-root--photo', on);
+        this.photoUi.setActive(on);
+        if (!on) this.applyPhotoFilter(filterById('natural'));
+      }),
+    );
     const onKey = (down: boolean) => (e: KeyboardEvent): void => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.code === 'KeyF') this.vehicles.setWorkKey(down);
       else if (e.code === 'KeyR' && down && !e.repeat) this.vehicles.pressSwapKey();
+      else if (e.code === 'KeyH' && down && !e.repeat) this.toggleHeatView();
     };
     const keyDown = onKey(true);
     const keyUp = onKey(false);
@@ -238,6 +357,8 @@ export class Game {
       bus.on('settings:changed', () => {
         // Spec 19.3: the difficulty applies to the automatons and the player's side together, at once.
         state.setDifficulty(settings.difficulty);
+        state.player.assist.magnet = settings.itemMagnet;
+        state.player.assist.lootFilter = settings.lootFilter;
         invalidate();
       }),
       bus.on('ui:opened', () => {
@@ -277,6 +398,16 @@ export class Game {
     this.state.world.ensureLoadedAround(Math.floor(x), Math.floor(z), 1);
     this.controller.teleport(x, y, z);
     this.ambience.invalidate();
+  }
+
+  /** Fireflies, bats and owls (src/sim/nightlife.ts) around the player, drawn as particles. */
+  private drawNightlife(dt: number): void {
+    if (dt <= 0) return;
+    const { world, clock, weather, player } = this.state;
+    this.nightEnv.dark = darkOf(clock.sunlight());
+    this.nightEnv.timeS = clock.worldTimeS;
+    this.nightEnv.raining = weather.state.precipitation === 'rain' && weather.state.intensity > 0.2;
+    this.nightlifeFx.update(dt, this.nightEnv.dark < 0.15 ? [] : critters(this.nightEnv, player.position.x, player.position.z, this.nightList));
   }
 
   /** A frame while the loading screen is up: stream chunks and draw behind it, nothing moves. */
@@ -333,8 +464,11 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.renderer.setGridOverlay(gridOverlayFor(state.sim, p.heldStack()?.item ?? null, p.position.x, p.eyeY, p.position.z));
+    this.updateHeatView(dt);
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
     showRodAura(this.ui.hud, this.magic.rodReading());
+    this.ui.hud.setScan(this.magic.scanProgress(), this.magic.scanResult());
     this.vehicleHud.update(this.vehicles.status());
     this.ui.frame(dt);
     const motions = this.workshop.contra.motions();
@@ -343,15 +477,56 @@ export class Game {
       // Animals are interpolated between the last two ticks; frozen in place while paused.
       this.mobRenderer.setBolts(state.mobs.projectiles(paused ? 1 : this.step.alpha)); // ember bolts in flight
       this.mobRenderer.update(paused ? 0 : dt, state.mobs.views(paused ? 1 : this.step.alpha));
+      this.npcRenderer.reduceMotion = this.settings.reduceMotion;
+      this.npcRenderer.update(paused ? 0 : dt, state.npcs.views(), state.clock.sunlight(), state.player.position);
       this.tractorRenderer.update(paused ? 0 : dt, this.vehicles.views());
       this.itemRenderer.update(paused ? 0 : dt, state.player.ground.items, state.player.collectors.running);
+      this.treeRenderer.update(this.trees.trees(), this.trees.logs());
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
+      this.drawNightlife(paused ? 0 : dt);
       this.renderer.render(paused ? 0 : dt);
+      if (this.shotPending) {
+        this.shotPending = false;
+        const canvas = this.renderer.canvas;
+        const share = this.photoUi.shareOn;
+        void saveShot(canvas, state.clock.day, state.clock.phase, this.photoFilter.css, share).then((r) => {
+          if (r !== 'failed') this.state.bus.emit('toast', { text: r === 'shared' ? 'Photo shared' : 'Photo saved', kind: 'good' });
+        });
+      }
+      this.takeDuePostcard(paused);
       this.lastDraw = now;
     }
     this.frames++;
+  }
+
+  private applyPhotoFilter(f: PhotoFilter): void {
+    this.photoFilter = f;
+    this.renderer.canvas.style.filter = f.css === 'none' ? '' : f.css;
+  }
+
+  /** When an age postcard is due and the moment is quiet, draws one frame from over the town, keeps it, and puts the view back. */
+  private takeDuePostcard(paused: boolean): void {
+    const state = this.state;
+    const age = this.postcards.poll(DT, { paused, dead: state.player.dead, busy: this.input.uiOpen || this.controller.photo.active, phase: state.clock.phase });
+    if (age === null) return;
+    const p = state.player;
+    const cam = this.renderer.camera;
+    const was = { x: cam.position.x, y: cam.position.y, z: cam.position.z, yaw: cam.rotation.y, pitch: cam.rotation.x };
+    const v = postcardVantage({ x: p.position.x, z: p.position.z, eyeY: p.eyeY }, state.npcs.townDebug().site);
+    this.renderer.setView(v.x, v.y, v.z, v.yaw, v.pitch);
+    this.renderer.hideHand = true;
+    this.renderer.render(0);
+    this.renderer.hideHand = false;
+    const card = makePostcard(this.renderer.canvas, age, AGES[age]?.name ?? `Age ${age}`, state.clock.day);
+    // Back to the player's own view before anything is shown.
+    this.renderer.setView(was.x, was.y, was.z, was.yaw, was.pitch);
+    this.renderer.render(0);
+    if (!card) return;
+    this.postcardStore.add(card);
+    this.photoUi.refresh();
+    state.bus.emit('toast', { text: `Postcard kept: ${card.ageName}. Open photo mode to save or share it.`, kind: 'good' });
   }
 
   /**
@@ -393,12 +568,28 @@ export class Game {
   /** Magic names under the crosshair: jars, pedestals and the altar, servants, a held rod's reading, the lens. */
   private magicLabel(x: number, y: number, z: number, key: string): string | null {
     const m = this.magic;
-    return m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+    return m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
   }
 
+  /** A drop lying under the aim: the crosshair names it first (the name and rarity last shown, as "text|rarity"). */
+  private namedDrop: string | null = null;
+  /** Stands in for the station name while a drop is shown, so the station's own name comes back when the drop goes. */
+  private readonly dropMark = '\u0000drop';
+  private readonly aimScratch = { x: 0, y: 0, z: 0 };
   /** The crosshair names the hand station under it with what it is doing ("Chopping Block - oak log 2/3 strokes"). */
   private namedStation: string | null = null;
   private showStationName(): void {
+    const drop = this.controller.targetAnimal === null ? this.dropUnderAim() : null;
+    if (drop !== null) {
+      const key = `${drop.text}|${drop.rarity ?? ''}`;
+      if (key !== this.namedDrop) {
+        this.namedDrop = key;
+        this.ui.setTargetName(drop.text, drop.rarity);
+      }
+      this.namedStation = this.dropMark;
+      return;
+    }
+    this.namedDrop = null;
     let label: string | null = null;
     const hit = this.controller.targetAnimal === null ? this.controller.target : null;
     if (hit && hit.block.handStation !== null) label = this.state.sim.handView(hit.x, hit.y, hit.z)?.label ?? null;
@@ -411,7 +602,54 @@ export class Game {
     this.ui.setTargetName(label);
   }
 
+  /** The drop the view is aimed at, nearer than the block behind it, as the crosshair names it; null for none. */
+  private dropUnderAim(): { text: string; rarity: string | null } | null {
+    const p = this.state.player;
+    if (p.dead || p.ground.items.length === 0) return null;
+    const d = p.viewDir(this.aimScratch);
+    const hit = this.controller.target;
+    const e = aimGroundItem(p.ground.items, p.position.x, p.eyeY, p.position.z, d.x, d.y, d.z, REACH, hit ? hit.distance : Infinity);
+    return e ? dropLabel(e.item, e.count) : null;
+  }
+
   /** The crosshair names the animal under it with its health ("Goat - 6/8"), refreshed when either changes. */
+  /** The heat view (src/render/heatView.ts): H or the temperature chip; refreshed twice a second while on. */
+  private heatOn = false;
+  private heatIn = 0;
+  private toggleHeatView(): void {
+    this.heatOn = !this.heatOn;
+    this.renderer.heatView.setVisible(this.heatOn);
+    this.ui.hud.setHeatView(this.heatOn);
+    this.heatIn = 0;
+    if (this.heatOn) this.state.bus.emit('toast', { text: 'Heat view: blue is cold, green is comfortable, orange and red are warm. Walls and insulation show.', kind: 'info' });
+  }
+
+  /** The grid being filled a few rows a frame, where it is centred, and the next row to do. */
+  private heatJob: { g: ReturnType<typeof newThermalGrid>; cx: number; y: number; cz: number; row: number } | null = null;
+
+  /** Refreshes the heat view without a hitch: HEAT_ROWS_PER_FRAME rows a frame, a new pass every half second. */
+  private updateHeatView(dt: number): void {
+    if (!this.heatOn) {
+      this.heatJob = null;
+      return;
+    }
+    const r = HEAT_VIEW_RADIUS;
+    if (!this.heatJob) {
+      this.heatIn -= dt;
+      if (this.heatIn > 0) return;
+      const p = this.state.player.position;
+      this.heatJob = { g: newThermalGrid(r), cx: Math.floor(p.x), y: Math.floor(p.y), cz: Math.floor(p.z), row: 0 };
+    }
+    const job = this.heatJob;
+    const to = Math.min(job.g.size, job.row + HEAT_ROWS_PER_FRAME);
+    this.state.thermal.gridRows(job.g, job.cx, job.y, job.cz, r, job.row, to);
+    job.row = to;
+    if (to < job.g.size) return;
+    this.renderer.heatView.set({ ...job.g, x0: job.cx - r, z0: job.cz - r });
+    this.heatJob = null;
+    this.heatIn = 0.5;
+  }
+
   private showAnimalName(): void {
     const id = this.controller.targetAnimal;
     const health = id !== null ? (this.state.mobs.get(id)?.health ?? -1) : -1;
@@ -462,14 +700,11 @@ export class Game {
   /** An elixir is not a drink item. Use that nothing else claimed drinks it through elixirGrant. */
   private armElixirDrink(): void {
     const interaction = this.controller.interaction;
-    const use = interaction.use.bind(interaction);
-    interaction.use = (hit, forcePlace) => {
-      const outcome = use(hit, forcePlace);
-      if (outcome !== 'none') return outcome;
+    interaction.lastResort = () => {
       const drank = drinkElixir(this.state.player);
       switch (drank.kind) {
         case 'no':
-          return outcome;
+          return null;
         case 'refused':
           return 'refused';
         case 'drunk':
@@ -492,6 +727,7 @@ export class Game {
   private tickOnce(): void {
     this.state.tick(DT);
     this.state.world.leaves.tick();
+    this.trees.tick(DT);
   }
 
   toSave(): WorldSave {
@@ -515,9 +751,12 @@ export class Game {
     this.inputManager.dispose();
     this.audio.dispose();
     this.itemRenderer.dispose();
+    this.trees.dispose();
+    this.treeRenderer.dispose();
     this.magicRenderer.dispose();
     this.workshopRenderer.dispose();
     this.mobRenderer.dispose();
+    this.npcRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.
     try {
       this.renderer.gl.forceContextLoss();

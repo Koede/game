@@ -11,6 +11,10 @@ const shimmer = (notes: readonly number[], at: number, step: number, gain: numbe
   notes.map((f, i) => tone('sine', f, gain, d, { at: at + i * step, a: 0.05, trem: { rate: 5 + i * 1.3, depth: 0.7 } }));
 
 export const CUE_SFX = {
+  // One note of the tavern jukebox: a warm pluck with a bell on top; the tune is played by pitching it (src/npcs/jukebox.ts).
+  jukebox_note: {
+    layers: [...warm(N.C4, 0.16, 0.5), bell(N.C5, 0.05, 0.3, 0, 0.4)],
+  },
   // Furnace upgraded: a quick climb that lands on the octave.
   upgrade: {
     priority: 1,

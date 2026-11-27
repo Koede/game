@@ -16,12 +16,12 @@ import {
 } from '../core/constants';
 import type { Difficulty, GameBus } from '../core/context';
 import { hostileCap, hostileDamage, type SkyFacts } from '../core/hostile';
-import type { CreatureSpec, HostileSpec, IWorld } from '../core/types';
+import { AIR, type CreatureSpec, type HostileSpec, type IWorld, type Slot } from '../core/types';
 import { bodyHeight, halfWidth } from './brain';
 import { knockVector, voicePitch } from './attacks';
 import { CORPSE_FADE_S, VOID_Y } from './constants';
 import { separate } from './crowd';
-import { guardRuin, sweepRuins, type GuardHost } from './guards';
+import { guardLairOfChunk, guardRuin, guardStructure, sweepRuins, type GuardHome, type GuardHost } from './guards';
 import { thinkHostile } from './hostileBrain';
 import { hitHostile, hurtHostile, type HurtEnv } from './hostileHurt';
 import type { HostileCtx } from './hostileCtx';
@@ -34,6 +34,10 @@ import { Projectiles, type BoltHost } from './projectiles';
 import { liquidAt } from './terrain';
 import type { BiomeLookup, DeathCause, HitResult, Mob, MobClock, MobDeath, MobPlayer } from './types';
 import { ruinGuardPlans, type RuinGuardPlan } from '../world/ruinGuards';
+import { structureGuardPlans } from '../world/structures';
+import { isLairKey } from '../world/caveLair';
+import { CRATE_VOXEL, tableCrateEntity } from '../world/ruinCrates';
+import { LegendaryClaims, legendaryClaimsOf } from '../world/legendaryClaims';
 
 /** Footsteps are voiced within this many blocks of the player. */
 const STEP_RANGE = 24;
@@ -107,7 +111,11 @@ export class HostileLayer {
       world: host.world, seed: host.seed, guarded: this.guarded,
       addGuard: (spec, x, y, z, yaw, role, ruin) => this.addGuard(spec, x, y, z, yaw, role, ruin),
     };
-    this.hurtEnv = { bus: host.bus, rng: host.rng, ctx: this.ctx, died: (d) => host.died(d) };
+    this.hurtEnv = { bus: host.bus, rng: host.rng, ctx: this.ctx, died: (d) => {
+        this.lairFalls(d);
+        host.died(d);
+      },
+    };
     this.off = host.bus.on('chunk:loaded', ({ cx, cz }) => {
       this.freshChunks.push(cx, cz);
     });
@@ -173,8 +181,33 @@ export class HostileLayer {
     return m;
   }
 
-  private addGuard(spec: CreatureSpec, x: number, y: number, z: number, yaw: number, role: 'guard' | 'turret', ruin: RuinGuardPlan): void {
+  private addGuard(spec: CreatureSpec, x: number, y: number, z: number, yaw: number, role: 'guard' | 'turret', ruin: GuardHome): void {
     this.add(spec, x, y, z, yaw, role, ruin.key, { x: ruin.x, y: ruin.floor + 1, z: ruin.z });
+  }
+
+  /** The boss of a cave lair broke apart: its chest appears where it fell (never twice, and only when the player did it). */
+  private lairFalls(d: MobDeath): void {
+    const m = this.host.byId.get(d.id);
+    if (!m || !m.hostile || !isLairKey(m.hostile.ruin) || d.cause !== 'player') return;
+    const world = this.host.world;
+    const x = Math.floor(d.x);
+    const z = Math.floor(d.z);
+    for (let y = Math.floor(d.y) + 2; y >= Math.floor(d.y) - 2; y--) {
+      if (world.getVoxel(x, y, z) !== AIR || !world.getBlock(x, y - 1, z).solid) continue;
+      if (world.getEntity(x, y, z)) return;
+      const crate = tableCrateEntity(this.host.seed, x, y, z, 'cave_boss');
+      // The boss's hoard may hold one legendary weapon (docs/api/legendary.md, "Boss hoard hook"): the first empty slot takes it.
+      const found = legendaryClaimsOf(world)?.roll('boss', x, y, z) ?? null;
+      if (found) {
+        const slots = crate.slots as Slot[];
+        const at = slots.indexOf(null);
+        if (at >= 0) slots[at] = LegendaryClaims.stackOf(found);
+      }
+      world.setEntity(crate);
+      world.setVoxel(x, y, z, CRATE_VOXEL, 'sim');
+      this.host.bus.emit('toast', { text: 'The Colossus falls and leaves a chest of its hoard', kind: 'info' });
+      return;
+    }
   }
 
   /** Creates the guards of a ruin now if it never had them and it is fully loaded (tests; the sweep does this). */
@@ -197,6 +230,8 @@ export class HostileLayer {
     const world = this.host.world;
     for (let i = 0; i < this.freshChunks.length; i += 2) {
       for (const p of ruinGuardPlans(this.host.seed, this.freshChunks[i], this.freshChunks[i + 1])) guardRuin(this.guardHost, p);
+      for (const p of structureGuardPlans(this.host.seed, this.freshChunks[i], this.freshChunks[i + 1])) guardStructure(this.guardHost, p);
+      guardLairOfChunk(this.guardHost, this.freshChunks[i], this.freshChunks[i + 1]);
     }
     this.freshChunks.length = 0;
     this.sweepS -= dt;
@@ -345,6 +380,11 @@ export class HostileLayer {
   /** The player hits automaton `m` (see hitHostile in hostileHurt.ts). */
   hit(m: Mob, damage: number, fromX: number, fromZ: number, stunS = 0): HitResult {
     return hitHostile(this.hurtEnv, m, damage, fromX, fromZ, stunS);
+  }
+
+  /** Hurts automaton `m` for `damage` as the player, with no hit cooldown (a legendary weapon's burst); flash, 'mob:hurt', a clang, breaks at 0. */
+  hurtByPlayer(m: Mob, damage: number): void {
+    if (m.state !== 'dying') hurtHostile(this.hurtEnv, m, damage, 'player');
   }
 
   private hurtMob(m: Mob, damage: number, cause: DeathCause): void {

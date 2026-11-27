@@ -7,7 +7,7 @@ import { ALL_BIOMES } from './types';
 import { EMBER_BOLT_GRAVITY } from './constants';
 import type { CreatureAnim, CreatureSpec, ItemDef, SpawnPlace } from './types';
 
-const PLACES: ReadonlySet<SpawnPlace> = new Set<SpawnPlace>(['cave', 'deep', 'surface', 'scar', 'scar_night', 'peak']);
+const PLACES: ReadonlySet<SpawnPlace> = new Set<SpawnPlace>(['cave', 'deep', 'surface', 'scar', 'scar_night', 'peak', 'wood_night', 'dunes_night', 'frost_night', 'marsh_night']);
 const BIOMES: ReadonlySet<string> = new Set(ALL_BIOMES);
 const LEGS: readonly CreatureAnim[] = ['legFL', 'legFR', 'legBL', 'legBR', 'legML', 'legMR'];
 const positive = (n: number | undefined): boolean => n !== undefined && n > 0;

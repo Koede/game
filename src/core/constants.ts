@@ -40,6 +40,8 @@ export const REACH = 5;
 export const WALK_SPEED = 4.3;
 export const SPRINT_SPEED = 5.8;
 export const SWIM_SPEED = 2.6;
+/** Sneaking: a fraction of walking speed. */
+export const SNEAK_SPEED_MULT = 0.3;
 export const JUMP_VELOCITY = 8.2;
 export const GRAVITY = 26;
 export const MAX_HEALTH = 20;
@@ -224,7 +226,7 @@ export const PIPE_PRIORITY_MAX = 2;
 
 // --- multiblock hearths (spec 17; per-tier rules live on FurnaceTierSpec.structure, lookups in src/core/hearth.ts) ---
 /** Blocks that may stand in a face cell (never an edge) of a hearth's shell instead of wall. */
-export const HEARTH_FACE_PARTS: readonly string[] = ['glass', 'item_hatch', 'fluid_hatch', 'power_port', 'blower'];
+export const HEARTH_FACE_PARTS: readonly string[] = ['glass', 'item_hatch', 'fluid_hatch', 'power_port', 'blower', 'blast_nozzle'];
 /** Blocks that may stand in a face cell of a hearth's ceiling (tiers whose structure asks for electrodes). */
 export const HEARTH_CEILING_PARTS: readonly string[] = ['electrode'];
 /** Shell cells of the smallest closed hearth (1x1x1 interior): heat loss scales with shell area / this. */
@@ -383,3 +385,18 @@ export const LONE_MAX_TIER = FIRST_HEARTH_TIER - 1;
 export const FIRST_ELECTRIC_TIER = 4;
 /** The Starhearth, the last furnace. */
 export const STAR_TIER = 6;
+
+// ---- Bronze Age air (BRONZE_PLAN 4.4, 5.3) ----
+/** The most pressure a compressor builds: it makes nothing at this many bar. */
+export const AIR_MAX_BAR = 6;
+/** A network's pressure is bar = airL / volumeL. The compressor wants this many rpm at least. */
+export const AIR_COMPRESSOR_MIN_RPM = 32;
+/** Litres a compressor makes per second per rpm of its shaft. */
+export const AIR_COMPRESSOR_L_PER_RPM = 2;
+/** An open tube end leaks this many litres a second at full pressure (scaled by bar / AIR_MAX_BAR). */
+export const AIR_LEAK_L_PER_S = 100;
+/** One hand-crank stroke on a compressor: litres, and the seconds before the next stroke counts (about the 64 L/s of a 32 rpm shaft). */
+export const AIR_CRANK_L = 26;
+export const AIR_CRANK_COOLDOWN_S = 0.4;
+/** The blast nozzle counts as this many tuyeres while it is fed. */
+export const AIR_NOZZLE_TUYERES = 2;

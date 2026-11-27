@@ -12,6 +12,7 @@ import type { DamageCause } from '../core/gameEvents';
 import { armouredDamage, bestArmour } from '../core/hostile';
 import { creatureOrNull, itemOrNull } from '../core/registry';
 import type { HostileAttack } from '../core/types';
+import { LegendaryState } from './legendary';
 import type { PlayerState } from './playerState';
 
 /** Horizontal knockback speed (blocks/s) of a blow whose automaton names none. */
@@ -67,6 +68,8 @@ export class PlayerCombat {
   lastAttacker: string | null = null;
   /** Seconds before the player may land another hit on a creature (not saved; counted down per frame by `coolStrike`). */
   strikeCooldownS = 0;
+  /** The legendary weapons' running state: marks, lunge cooldown and window (src/game/legendary.ts). Not saved. */
+  readonly legendary = new LegendaryState();
   private burnLeftS = 0;
   private burnPerS = 0;
   private burnAccS = 0;
@@ -102,6 +105,7 @@ export class PlayerCombat {
   /** Counts the swing cooldown down (the player controller, every frame - hits are frame-driven, not ticked). */
   coolStrike(dt: number): void {
     if (this.strikeCooldownS > 0 && dt > 0) this.strikeCooldownS = Math.max(0, this.strikeCooldownS - dt);
+    this.legendary.tick(dt);
   }
 
   /** Starts the swing cooldown after a landed hit with `item` (null = bare hands). */
@@ -214,6 +218,7 @@ export class PlayerCombat {
   reset(): void {
     this.extinguish(false);
     this.strikeCooldownS = 0;
+    this.legendary.reset();
   }
 
   private knockBack(fromX: number, fromZ: number, speed: number): void {

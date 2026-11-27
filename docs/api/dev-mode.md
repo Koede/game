@@ -18,7 +18,7 @@ GameState.mode: GameMode                           // readonly; sets player.dev
 ```
 - Survival worlds never write `mode` (the save stays byte-identical to before); dev worlds write `mode: 'dev'`.
 - `normalizeDocument` drops any `mode` other than `'dev'`, so a damaged value reads as survival.
-- Nothing converts a world between modes: there is no switch in the pause menu or the settings.
+- A world can be switched at any time: Pause > Settings > Game > **Dev Mode** (a switch; same switch turns it off). `GameState.setMode(mode)` flips `player.dev`, ends flight, resets free placing, toasts, and the next save writes or drops `mode`. The HUD's DEV chip follows `player.dev`. The title screen's Settings has no switch (no world is open).
 - `window.__hw.newWorld(seed, mode)` and `__hw.state().gameMode` exist for tests.
 
 ## Title screen

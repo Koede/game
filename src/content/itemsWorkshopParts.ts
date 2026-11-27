@@ -8,8 +8,9 @@ import type { BlockSpec, ItemSpec } from '../core/types';
 import { ageIndexOf } from '../magic/ageMap';
 
 const BRONZE = ageIndexOf('bronze');
+const FORGE = ageIndexOf('forge');
 
-export interface PartDef { key: string; name: string; desc: string; /** has a running front */ anim: boolean; /** a flat slab: the face is its top */ flat?: boolean }
+export interface PartDef { key: string; name: string; desc: string; /** has a running front */ anim: boolean; /** a flat slab: the face is its top */ flat?: boolean; /** age it is made in; Bronze unless given */ age?: number }
 
 export const PART_DEFS: readonly PartDef[] = [
   { key: 'reverse_box', name: 'Reverse Box', anim: true, desc: 'Two meshed cogs: what leaves it turns the other way. Use it to read its direction under goggles.' },
@@ -33,10 +34,18 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'deployer', name: 'Deployer', anim: true, desc: 'A mechanical hand holding a stack. Every two seconds it uses it on the block in front: places, breaks with a tool, tills, strikes a hand station.' },
   { key: 'mech_arm', name: 'Mechanical Arm', anim: true, desc: 'Use a wrench on it, then on a source and up to four targets within 3 blocks, then on it again. It carries items from the source to the targets in turn.' },
   { key: 'mech_drill', name: 'Mechanical Drill', anim: true, desc: 'A turning bit that breaks the block in front of it, one after another; the drops fall where the block was.' },
-  { key: 'shear_pin', name: 'Shear Pin', anim: false, desc: 'A soft pin in the shaft line. When the load tops what the sources carry, the pin snaps instead of the whole line seizing, and drops a scrap of metal.' },
-  { key: 'flywheel', name: 'Flywheel', anim: true, desc: 'A heavy wheel on the shaft. It stores the turning: when the sources stop it keeps the line moving for four more seconds.' },
+  { key: 'shear_pin', name: 'Shear Pin', anim: false, desc: 'The weak link. Use to pick its metal: plain, copper 6, bronze 12, iron 24 su. It snaps when the torque through it tops its rating, so the engine upstream lives.' },
+  { key: 'flywheel', name: 'Flywheel', anim: true, desc: 'A heavy wheel with real momentum: slow to spin up, slow to stop. It rides pulsing loads (press, hammer) through their peaks and keeps the line coasting when power stops.' },
+  { key: 'brake', name: 'Brake', anim: true, desc: 'Use to engage: takes 24 su and stops a coasting flywheel fast. A lit signal cell beside it flips it. Held hard it heats and fades.' },
+  { key: 'pillow_block', name: 'Pillow Block', anim: false, desc: 'A bearing in a shaft line. A long unsupported run whips near 160 / length rpm; a pillow block in the run splits it.' },
+  { key: 'cam_drum', name: 'Cam Drum', anim: true, desc: 'A pegged drum, a music box for machines. Turning, it lights signal wire on its four sides in a pattern. Use it to pick one of six programs.' },
+  { key: 'logic_gate', name: 'Logic Gate', anim: true, desc: 'Reads the signal cells on its left and right and drives the cell in front: AND, OR, XOR, NOT, latch, counters, compare, delay. Use it to cycle modes.' },
   { key: 'differential', name: 'Differential', anim: true, desc: 'Two shafts meet here and it turns at their mean speed, even when they turn opposite ways. It hands that on to the sides they did not come from.' },
   { key: 'treadwheel', name: 'Treadwheel', anim: true, desc: 'A big wheel to walk in. It turns at 12 rpm and carries 24 stress units while you or a tame animal stand on top of it.' },
+  { key: 'steam_rotor', name: 'Steam Rotor', anim: true, desc: 'Two bent jets on a hub. Stand it on a boiling steam kettle or a boiler wall, a shaft beside it: 16 rpm, 4 stress units.' },
+  { key: 'beam_engine', name: 'Beam Engine', anim: true, desc: 'A rocking beam and flywheel on a boiler steam line. From 2 bar it turns the shaft beside it, 16 rpm per bar up to 96, and carries 3 to 8 stress units.' },
+  { key: 'mill_wheel', name: 'Mill Wheel', anim: true, desc: 'A paddle wheel for a river. Moving water on its sides turns a shaft beside it: 16 rpm, 6 stress units a side. A dam adds head; ice stops it.' },
+  { key: 'windmill', name: 'Windmill', anim: true, desc: 'Four sails on a wooden axle, in open sky and 5 blocks from any other windmill. 8 to 24 rpm with the wind, about 5 stress units.' },
   { key: 'saw_arm', name: 'Saw Arm', anim: true, desc: 'A deployer with a blade. Every three seconds it fells the whole tree in front of it, log by log, and the logs fall as items. It needs no fuel.' },
   { key: 'item_vault', name: 'Item Vault', anim: false, desc: 'Holds 108 stacks of anything. Funnels, arms and belts fill and empty it. Use it with an item to store, empty-handed to take the biggest stack.' },
   { key: 'vacuum_collector', name: 'Vacuum Collector', anim: true, desc: 'A turning fan that sucks loose items from four blocks around and sends them out of its front into whatever is there.' },
@@ -44,6 +53,9 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'crank_lever', name: 'Crank Lever', anim: true, desc: 'Use it to throw it on or off. Touching machines (arms, deployers, drills, clutches) read the signal.' },
   { key: 'pressure_plate', name: 'Pressure Plate', anim: true, flat: true, desc: 'Signals while an item lies on it or you stand on it.' },
   { key: 'metronome', name: 'Metronome', anim: true, desc: 'Signals for one second in every four. Set an arm or a clutch beside it to pace a line.' },
+  { key: 'signal_relay', name: 'Signal Relay', anim: true, desc: 'Reads the cell behind it and drives the one in front at full strength, renewing a fading line. Tap it to pick repeater, delay, hold or one pulse.' },
+  { key: 'signal_timer', name: 'Signal Timer', anim: true, desc: 'A clock you set by tapping. It signals for a few seconds every 2, 4, 8, 15, 30 or 60 seconds. Tap it to pick the beat.' },
+  { key: 'push_button', name: 'Push Button', anim: true, desc: 'Tap it and it signals for two seconds. Wire it to a machine for a single run.' },
   { key: 'signal_lamp', name: 'Signal Lamp', anim: true, desc: 'Lights while a powered signal cell touches it.' },
   { key: 'bell', name: 'Bell', anim: false, desc: 'Rings when a signal reaches it, and whenever a machine within 12 blocks seizes, jams or is overloaded.' },
   { key: 'tally_board', name: 'Tally Board', anim: false, desc: 'Passes items on out of its front like a funnel and counts them. Use it to reset the count.' },
@@ -53,21 +65,25 @@ export const PART_DEFS: readonly PartDef[] = [
   { key: 'piston', name: 'Piston', anim: true, desc: 'While turning it pushes the structure in front of it out one block at a time (up to 4), leaving a rod; stopped, it pulls it back. A lever makes it a lift.' },
   { key: 'bearing', name: 'Bearing', anim: true, desc: 'Turns the structure on top of it a quarter turn every 1.5 s, with the shaft: left or right. Machines on it stay powered through the bearing.' },
   { key: 'rail', name: 'Rail', anim: false, flat: true, desc: 'A track of slats. A skiff above a line of rails rolls along it, waits at the end and turns round.' },
+  { key: 'rolling_mill', name: 'Rolling Mill', anim: true, age: FORGE, desc: 'Two heavy rollers over a basin, 64 rpm or more. Ingots in the basin come out as plate, one plate for every ingot where a press needs two. Heavy: it asks 32 stress units.' },
+  { key: 'drop_forge', name: 'Drop Forge', anim: true, age: FORGE, desc: 'A cam-lifted drop hammer over a basin, 32 rpm or more. It forms plates and ingots into chassis and coils with no fire at all. Heavy: it asks 24 stress units.' },
   { key: 'skiff', name: 'Skiff', anim: false, desc: 'A little ore cart on rails. It holds a stack that arms and funnels load and unload. Use it empty-handed to board. A signal cell it touches brakes it while off.' },
 ];
 
 /** Parts that never carry rotation: logistics, signals and decor (kinetic ones join shaft networks). */
-export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'contraption_frame', 'rail', 'skiff']);
+export const NON_KINETIC: ReadonlySet<string> = new Set(['funnel', 'chute', 'depot', 'basin', 'spout', 'item_drain', 'item_vault', 'tally_board', 'signal_wire', 'crank_lever', 'pressure_plate', 'metronome', 'signal_relay', 'signal_timer', 'push_button', 'signal_lamp', 'bell', 'clockface', 'wind_vane', 'logic_gate', 'contraption_frame', 'rail', 'skiff']);
 
 export const PART_ITEMS: ItemSpec[] = [
+  { key: 'iron_axle', name: 'Iron Axle', category: 'component', age: FORGE, stack: 64, desc: 'A turned iron shaft that takes up to 128 rpm. Dynamos and rolling mills are built on them.' },
+  { key: 'steel_axle', name: 'Steel Axle', category: 'component', age: FORGE, stack: 64, desc: 'A hardened steel shaft rated for 256 rpm. The drop forge hangs its hammer on one.' },
   { key: 'bronze_cog', name: 'Bronze Cog', category: 'material', age: BRONZE, stack: 64, desc: 'A toothed bronze wheel. Gearboxes, dials and motors are built from them.' },
   { key: 'punched_card', name: 'Punched Card', category: 'material', age: BRONZE, stack: 16, desc: 'A stiff card of eight steps for a sequenced gearshift. Each step sets a speed ratio, a direction and how many seconds it runs.' },
 ];
 
-const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, ...(anim ? { frontActive: `ws_${key}_front_on` } : {}) });
+const front = (key: string, anim: boolean) => ({ side: 'ws_machine_side', top: 'ws_hopper_top', bottom: 'ws_machine_side', front: `ws_${key}_front`, ...(anim ? { frontActive: `ws_${key}_front_on` } : {}), status: true });
 
 export const PART_BLOCKS: BlockSpec[] = PART_DEFS.map((d): BlockSpec => ({
-  key: d.key, name: d.name, desc: d.desc, category: 'machine', age: BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
+  key: d.key, name: d.name, desc: d.desc, category: 'machine', age: d.age ?? BRONZE, hardness: 1.2, tool: 'pickaxe', minTier: 0, stack: 16,
   oriented: !d.flat, textures: d.flat
     ? { top: `ws_${d.key}_front`, ...(d.anim ? { topActive: `ws_${d.key}_front_on` } : {}), side: 'ws_belt_side', bottom: 'ws_machine_side' }
     : front(d.key, d.anim),

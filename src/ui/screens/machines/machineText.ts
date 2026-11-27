@@ -33,6 +33,14 @@ export function alertText(net: NetworkStats): string | null {
   return null;
 }
 
+/** What the grid loses, in words: batteries' round trip and demand the weakest cable holds back. Null when nothing is lost. */
+export function lossText(net: NetworkStats): string | null {
+  const parts: string[] = [];
+  if (net.lossW >= 0.5) parts.push(`${formatWatts(net.lossW)} lost charging batteries`);
+  if (net.chokedW >= 0.5) parts.push(`${formatWatts(net.chokedW)} held back by the cable`);
+  return parts.length === 0 ? null : `Losses: ${parts.join(', ')}.`;
+}
+
 export function cableText(net: NetworkStats): string {
   if (!Number.isFinite(net.ratingW)) return 'No cable - no limit';
   return `Cable limit (${net.cables} cable${net.cables === 1 ? '' : 's'})`;
@@ -45,7 +53,7 @@ export const memberWatts = (watts: number): string =>
 /** What the GRID tab says when the furnace is wired to nothing. */
 export function lonelyFurnaceText(tier: number): string {
   if (tier < FIRST_HEARTH_TIER) {
-    return 'No power yet. Forge a Thermopile (700 °C) and set it against the furnace: its heat becomes electricity. A Lamp touching it lights up.';
+    return 'No power yet. Electricity is the work of the Forge Age: build a Blast hearth, then a Dynamo on a shaft line turning 64 rpm or more, and run cable from it.';
   }
   const base = 'This furnace is not wired to anything. Lay copper cable from it to generators, batteries and machines.';
   return tier >= FIRST_ELECTRIC_TIER ? `${base} Once it is on a network with power, it heats itself electrically.` : base;
@@ -69,6 +77,7 @@ export function headline(view: MachineView, layout: MachineLayout): { caption: s
     case 'part':
       return { caption: 'Hearth part', reading: '' };
     default:
+      if (view.kind === 'grid_monitor') return { caption: 'Supplied', reading: view.network === null ? '--' : formatPercent(view.satisfaction) };
       return { caption: 'Drawing', reading: formatWatts(view.demandW * view.satisfaction) };
   }
 }
@@ -96,6 +105,7 @@ export function subline(view: MachineView, layout: MachineLayout): string {
     case 'part':
       return '';
     default: {
+      if (view.kind === 'grid_monitor') return view.network === null ? 'Not connected to a network' : 'of what this network is asked for';
       const draw = machine(view.kind).drawW ?? 0;
       if (view.demandW <= 0) return `Needs ${formatWatts(draw)} while working`;
       return `${formatPercent(view.satisfaction)} of ${formatWatts(view.demandW)}`;

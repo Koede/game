@@ -298,6 +298,10 @@ Put the model in `src/content/timeModel.ts` (pure, imports `RECIPES`, `ORE_VEINS
 | T14 | **Spawn fairness** | for 20 seeds, distance to nearest tin, copper, coal, clay, water, pine | tin <= 48 blocks, coal <= 64, clay <= 32, pine log <= 40 |
 | T15 | **Solver-time regression** | extend `playthrough.test.ts` to log the cost-model minutes at each objective | assert monotone, no objective > 12 minutes after its predecessor |
 
+**Status (2026-11-26):** the model lives in `src/content/timeModel.ts` (`TIME_PARAMS`, `costModel`, `bill`, `ageCurve`, `AGE_KITS`) with T1 and T1b in
+`src/content/timeModel.test.ts`. Today: Ember 10.2, Bronze 15.0, Forge 31.4, Current 66.3, Atomic 232.2 expert minutes. Bronze (steam kit not in code),
+Current and Atomic are listed in the test's `KNOWN_OUT_OF_BAND` and flip to failing once fixed, so the entry gets removed.
+
 Process: add T1-T4 and T8 first (cheap, pure, cover the two loops that matter most: L1, L3); the rest follow the code they test (T5 after the boiler exists, T9 after the distillery rebalance).
 **After the first real playthrough, replace the `x2.0` expert-to-player factor with the measured ratio** and rerun T1; that one number decides every band.
 

@@ -3,7 +3,7 @@ import type { BiomeKey, CreatureSpec, HostileAttack, ItemAmount } from '../core/
 import type { HostileState, HostilesSnapshot } from './hostileTypes';
 
 /** What an animal is doing. 'breed' covers walking to a partner and the 3 s together; 'dying' is the tip-over. */
-export type MobState = 'idle' | 'wander' | 'graze' | 'flee' | 'follow' | 'breed' | 'swim' | 'dying';
+export type MobState = 'idle' | 'wander' | 'graze' | 'flee' | 'follow' | 'breed' | 'swim' | 'dying' | 'sleep' | 'shelter';
 
 /** One live animal. Mutable, owned by the MobManager; read it, never write it from outside. */
 export interface Mob {
@@ -38,6 +38,9 @@ export interface Mob {
   eagerS: number;
   /** Seconds before it can breed again. */
   cooldownS: number;
+  /** Seconds before it gives milk again, and wool again (0 = ready; see yields.ts). */
+  milkS: number;
+  woolS: number;
   /** Fed or born to fed parents: the player's animal, never retired to make room. */
   tame: boolean;
   /** Natural healing clock: negative right after a hurt, +1 health each time it reaches HEAL_EVERY_S. */
@@ -79,6 +82,11 @@ export interface Mob {
   phead: number;
   /** Seconds the current walk target has been pursued without progress. */
   stuckS: number;
+  /** Home point (routine.ts): where it sleeps and keeps near by day. Born where it spawned; feeding moves it to the yard. */
+  homeX: number;
+  homeZ: number;
+  /** Seconds before the routine looks again (a roof, a herd mate). */
+  routineS: number;
   /** An automaton's behaviour (spec 19.2); null for animals. */
   hostile: HostileState | null;
 }
@@ -180,6 +188,12 @@ export interface SavedMob {
   ageS: number;
   eagerS: number;
   cooldownS: number;
+  /** Seconds left until it gives again; absent in old saves (ready). */
+  milkS?: number;
+  woolS?: number;
+  /** Home point; absent in old saves (then where it stands). */
+  hx?: number;
+  hz?: number;
   /** Absent in old saves (then guessed from eagerS / cooldownS). */
   tame?: boolean;
   /**

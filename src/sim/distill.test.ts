@@ -324,3 +324,27 @@ describe('distill modules', () => {
     expect(player.inventory.get(1)!.count).toBe(1);
   });
 });
+
+describe('the separatory funnel', () => {
+  it('settles oil on water, lets the water out below and keeps the oil', () => {
+    const r = buildRig('S/R');
+    const funnel = r.first('S');
+    funnel.mix.water = 400;
+    funnel.mix.kerosene = 200;
+    runUntil(r, 20, () => funnel.state === 'done', 120);
+    const rec = r.first('R');
+    expect(funnel.state).toBe('done');
+    expect(rec.mix.water ?? 0).toBeCloseTo(400, 0);
+    expect(rec.mix.kerosene ?? 0).toBe(0);
+    expect(funnel.mix.kerosene ?? 0).toBeCloseTo(200, 0);
+  });
+
+  it('holds a single layer: nothing to separate, nothing runs out', () => {
+    const r = buildRig('S/R');
+    const funnel = r.first('S');
+    funnel.mix.water = 300;
+    runUntil(r, 20, () => false, 30);
+    expect(r.first('R').mix.water ?? 0).toBe(0);
+    expect(funnel.mix.water).toBeCloseTo(300);
+  });
+});

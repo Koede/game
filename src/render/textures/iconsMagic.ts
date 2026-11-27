@@ -1,4 +1,5 @@
 /** Icons and jar faces of Essentia & Research (src/content/itemsMagic.ts), 16x16, light from the top left. */
+import { WAND_CAPS, WAND_CORES, wandKey } from '../../content/itemsMagic';
 import { ASPECTS } from '../../magic/aspects';
 import type { Canvas, PainterSet } from './canvas';
 import * as P from './palette';
@@ -46,6 +47,21 @@ function notebook(c: Canvas): void {
   c.set(6, 6, PAGE[2]);
 }
 
+function scribing(c: Canvas): void {
+  // An ink pot (dark glass, ink at the lip) with a quill leaning out of it to the top right.
+  c.rect(2, 9, 7, 5, GLASS[0]);
+  c.rect(3, 8, 5, 1, GLASS[1]);
+  c.rect(3, 10, 1, 3, GLASS[2]);
+  c.rect(4, 7, 3, 1, P.rgb(0x1a1424));
+  c.rect(3, 13, 5, 1, P.rgb(0x2a3a44));
+  for (let i = 0; i < 8; i++) {
+    c.set(6 + i, 9 - i, PAGE[1]);
+    if (i > 1) c.set(7 + i, 9 - i, PAGE[2]);
+    if (i > 2) c.set(6 + i, 8 - i, PAGE[0]);
+  }
+  c.set(5, 10, P.rgb(0x1a1424));
+}
+
 function rod(c: Canvas): void {
   for (let i = 0; i < 9; i++) {
     c.set(3 + i, 13 - i, WOOD[1]);
@@ -83,8 +99,125 @@ function jarTop(c: Canvas): void {
 
 const vials: PainterSet = Object.fromEntries(ASPECTS.map((a) => [`item_vial_${a.key}`, icon((c) => vial(c, hex(a.color)))]));
 
+/** A wand: the core's rod with a metal cap at the grip and at the tip. */
+const REED_R = [WOOD[0], WOOD[1], WOOD[2], P.rgb(0xc4a064)];
+const wands: PainterSet = Object.fromEntries(WAND_CORES.flatMap((core) => WAND_CAPS.map((cap) => [`item_${wandKey(core.key, cap.key)}`, icon((c) => {
+  rodOf(c, core.key === 'reed' ? REED_R : core.key === 'bronze' ? BRONZE_R : IRON_R, P.rgb(cap.color));
+  const m = P.rgb(cap.color);
+  c.rect(2, 12, 3, 3, m);
+  c.set(2, 12, shade(m, 1.4));
+  c.rect(10, 5, 4, 1, m);
+  c.rect(10, 5, 1, 4, m);
+})])));
+
+/** Golem bodies: the servant's four faces in wood, stone and iron. */
+const BODY_PAL: Record<string, readonly P.RGB[]> = {
+  wood_golem: [P.rgb(0x4e3418), P.rgb(0x74502a), P.rgb(0x9a7040), P.rgb(0xb88a50)],
+  stone_golem: [P.rgb(0x4a4a4e), P.rgb(0x6a6a70), P.rgb(0x8a8a90), P.rgb(0xaaaab0)],
+  iron_golem: [P.rgb(0x555c66), P.rgb(0x7a828e), P.rgb(0xa0a8b4), P.rgb(0xc8d0dc)],
+};
+const golems: PainterSet = Object.fromEntries(Object.entries(BODY_PAL).flatMap(([key, pal]) => [
+  [`magic_${key}_side`, (c: Canvas) => clay(c, 41, pal)],
+  [`magic_${key}_top`, (c: Canvas) => { clay(c, 43, pal); c.rect(5, 5, 6, 6, pal[3]); }],
+  [`magic_${key}_front`, (c: Canvas) => servantFace(c, false, pal)],
+  [`magic_${key}_front_on`, (c: Canvas) => servantFace(c, true, pal)],
+]));
+const marker = (arrow: P.RGB, out: boolean) => (c: Canvas): void => {
+  c.each((x, y) => (x < 1 || x > 14 || y < 1 || y > 14 ? WOOD[0] : WOOD[noise(x, y, 81) < 0.4 ? 1 : 2]));
+  c.rect(7, 4, 2, 8, arrow);
+  c.rect(5, out ? 5 : 10, 6, 1, arrow);
+  c.rect(6, out ? 4 : 11, 4, 1, arrow);
+  c.set(7, out ? 4 : 11, P.rgb(0xffffff));
+};
+
+/** A round charm: a leather cord, a disc, one rune glyph in the colour of its power. */
+const charm = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((c) => {
+  c.rect(7, 1, 2, 3, LEATHER[1]);
+  c.each((x, y) => {
+    const d = Math.hypot(x + 0.5 - 8, y + 0.5 - 9);
+    if (d < 5.5) return d > 4.3 ? COPPER[0] : d > 3.4 ? COPPER[1] : STONE[3];
+    return null;
+  });
+  shape(c, glyph);
+});
+
+/** A rune stone: a small slab with a glyph in the colour of what it upgrades. */
+const runeStone = (glyph: P.RGB, shape: (c: Canvas, g: P.RGB) => void) => icon((c) => {
+  c.rect(3, 3, 10, 10, STONE[1]);
+  c.rect(3, 3, 10, 1, STONE[3]);
+  c.rect(3, 12, 10, 1, STONE[0]);
+  c.rect(4, 4, 8, 8, STONE[2]);
+  shape(c, glyph);
+});
+
+/** A potion: a round flask in the colour of its draught (the vial's shape, a wider belly). */
+const potion = (fill: number) => icon((c) => {
+  vial(c, hex('#' + fill.toString(16).padStart(6, '0')));
+  c.rect(6, 0, 4, 1, P.rgb(0xc03030));
+  c.set(7, 0, P.rgb(0xe86060));
+  c.rect(4, 13, 9, 1, P.rgb(0xc03030));
+});
+
+/** A rolled scroll: a sheet curled at both ends with a seal in the colour of its secret. */
+const scroll = (seal: number) => icon((c) => {
+  c.rect(3, 5, 10, 7, PAGE[1]);
+  c.rect(3, 5, 10, 1, PAGE[2]);
+  c.rect(3, 11, 10, 1, PAGE[0]);
+  c.rect(2, 4, 2, 9, PAGE[0]);
+  c.rect(12, 4, 2, 9, PAGE[0]);
+  for (const y of [7, 9]) c.rect(5, y, 6, 1, PAGE[0]);
+  c.rect(7, 7, 2, 3, hex('#' + seal.toString(16).padStart(6, '0')));
+});
+
 export const MAGIC_TEXTURES: PainterSet = {
+  item_focus_cleanse: icon((c) => focus(c, P.rgb(0x6fd8a8), P.rgb(0xe8fff0))),
+  magic_taint: (c) => {
+    c.each((x, y) => {
+      const n = noise(x, y, 91);
+      return n < 0.25 ? P.rgb(0x2a1840) : n < 0.6 ? P.rgb(0x3e2a5c) : n < 0.9 ? P.rgb(0x54397a) : P.rgb(0x8a63c8);
+    });
+    c.set(4, 5, P.rgb(0xd8b8ff));
+    c.set(10, 9, P.rgb(0xd8b8ff));
+    c.set(7, 12, P.rgb(0xb88aff));
+  },
+  item_scroll_ledger: scroll(0x8a63c8),
+  item_scroll_verses: scroll(0x3fa0d8),
+  item_scroll_margin: scroll(0xe8622a),
+  item_potion_haste: potion(0xffe060),
+  item_potion_stoneskin: potion(0x9a9a9a),
+  item_potion_mending: potion(0xe8507a),
+  item_potion_clarity: potion(0xbff2f0),
+  item_focus_mod_reach: runeStone(P.rgb(0xaee8ff), (c, g) => { c.rect(5, 7, 6, 1, g); c.set(10, 6, g); c.set(10, 8, g); c.set(9, 5, g); c.set(9, 9, g); }),
+  item_focus_mod_power: runeStone(P.rgb(0xffa040), (c, g) => { c.rect(7, 5, 2, 6, g); c.rect(5, 7, 6, 2, g); }),
+  item_focus_mod_cost: runeStone(P.rgb(0xa0f0a0), (c, g) => { c.rect(6, 5, 4, 1, g); c.rect(6, 5, 1, 3, g); c.rect(6, 7, 4, 1, g); c.rect(9, 7, 1, 3, g); c.rect(6, 10, 4, 1, g); }),
+  item_charm_ward: charm(P.rgb(0x6fb0ff), (c, g) => { c.rect(6, 7, 4, 1, g); c.rect(7, 8, 2, 3, g); c.set(7, 11, g); c.set(8, 11, g); }),
+  item_charm_speed: charm(P.rgb(0xffe060), (c, g) => { c.rect(6, 7, 3, 1, g); c.rect(7, 8, 3, 1, g); c.rect(6, 9, 3, 1, g); c.rect(7, 10, 3, 1, g); }),
+  item_charm_hunger: charm(P.rgb(0xe8622a), (c, g) => { c.rect(6, 8, 4, 3, g); c.rect(7, 7, 2, 1, g); c.set(7, 6, g); }),
+  magic_mirror: (c) => {
+    c.rect(0, 0, 16, 16, WOOD[0]);
+    c.rect(1, 1, 14, 14, WOOD[2]);
+    c.rect(2, 2, 12, 12, GLASS[2]);
+    c.rect(3, 3, 10, 10, GLASS[3]);
+    c.rect(4, 4, 3, 1, GLASS[4]);
+    c.rect(4, 5, 1, 3, GLASS[4]);
+    c.rect(9, 9, 3, 3, P.rgb(0xa77fe0), 140);
+    c.set(10, 10, P.rgb(0xe8d8ff));
+  },
+  ...golems,
+  magic_marker_pull: marker(P.rgb(0x3fa0d8), false),
+  magic_marker_drop: marker(P.rgb(0xe8a020), true),
+  ...wands,
   item_field_notebook: icon(notebook),
+  item_scribing_tools: icon(scribing),
+  item_sanity_soap: icon((c) => {
+    c.rect(3, 6, 10, 6, P.rgb(0xd8e6ea));
+    c.rect(3, 6, 10, 1, P.rgb(0xf4fbfc));
+    c.rect(3, 11, 10, 1, P.rgb(0x9db7bf));
+    c.rect(5, 8, 6, 2, P.rgb(0xbff2f0));
+    c.set(4, 3, P.rgb(0xf4fbfc));
+    c.set(7, 2, P.rgb(0xbff2f0));
+    c.set(10, 4, P.rgb(0xf4fbfc));
+  }),
   item_glass_vial: icon((c) => vial(c, null)),
   item_vis_rod: icon(rod),
   ...vials,
@@ -110,6 +243,25 @@ export const MAGIC_TEXTURES: PainterSet = {
   },
   magic_tube: tube,
   magic_desk_top: deskTop,
+  magic_crucible_side: (c) => {
+    c.rect(0, 0, 16, 16, P.rgb(0x3a3438));
+    c.rect(0, 0, 16, 2, P.rgb(0x6a6066));
+    c.rect(0, 14, 16, 2, P.rgb(0x241f22));
+    c.rect(0, 0, 1, 16, P.rgb(0x4a4246));
+    c.rect(3, 5, 10, 6, P.rgb(0x5e5058));
+    c.rect(3, 5, 10, 1, P.rgb(0x7a6a72));
+    // Iron rivets at the corners of the rim.
+    for (const [x, y] of [[2, 3], [13, 3], [2, 12], [13, 12]]) c.set(x, y, P.rgb(0x9a9098));
+    c.rect(5, 6, 6, 1, P.rgb(0x8a63c8));
+    c.set(7, 7, P.rgb(0xc8a8f0));
+  },
+  magic_crucible_top: (c) => {
+    c.rect(0, 0, 16, 16, P.rgb(0x5a5258));
+    c.rect(2, 2, 12, 12, P.rgb(0x241f22));
+    c.rect(3, 3, 10, 10, P.rgb(0x3f8fd8));
+    c.rect(5, 5, 4, 3, P.rgb(0x86b8e8));
+    c.set(10, 9, P.rgb(0xbff2f0));
+  },
   magic_desk_side: deskSide,
   magic_altar_top: (c) => altarTop(c, false),
   magic_altar_top_on: (c) => altarTop(c, true),
@@ -231,19 +383,19 @@ function pedestalSide(c: Canvas): void {
   c.rect(4, 7, 8, 1, RUNE);
 }
 
-function clay(c: Canvas, seed: number): void {
-  c.each((x, y) => CLAY[noise(x >> 1, y >> 1, seed) < 0.2 ? 0 : noise(x, y, seed + 1) < 0.45 ? 1 : noise(x, y, seed + 2) < 0.8 ? 2 : 3]);
+function clay(c: Canvas, seed: number, pal: readonly P.RGB[] = CLAY): void {
+  c.each((x, y) => pal[noise(x >> 1, y >> 1, seed) < 0.2 ? 0 : noise(x, y, seed + 1) < 0.45 ? 1 : noise(x, y, seed + 2) < 0.8 ? 2 : 3]);
   c.set(3, 12, P.rgb(0x5a3422));
   c.set(11, 4, P.rgb(0xe8b088));
 }
 
-function servantFace(c: Canvas, on: boolean): void {
-  clay(c, 47);
+function servantFace(c: Canvas, on: boolean, pal: readonly P.RGB[] = CLAY): void {
+  clay(c, 47, pal);
   const eye = on ? P.rgb(0xffd95a) : P.rgb(0x3a2212);
   c.rect(4, 5, 2, 2, eye);
   c.rect(10, 5, 2, 2, eye);
-  c.rect(6, 10, 4, 1, CLAY[0]);
-  c.rect(3, 2, 10, 1, CLAY[3]);
+  c.rect(6, 10, 4, 1, pal[0]);
+  c.rect(3, 2, 10, 1, pal[3]);
 }
 
 function lightMote(c: Canvas): void {

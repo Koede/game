@@ -108,9 +108,15 @@ export class TouchGestures {
   private lookX = 0;
   private lookY = 0;
   private usePulses = 0;
+  private worldTaps = 0;
   private jumpCount = 0;
   private mineCount = 0;
   private useCount = 0;
+  /** Settings.tapToMove (set each frame): a still tap on the world is reported by takeTap() instead of pressing Use. */
+  tapToMove = false;
+  private tapPending = false;
+  private tapX = 0;
+  private tapY = 0;
   /** Time of the previous update() (frame clock); -Infinity before the first. */
   private lastUpdateT = -Infinity;
 
@@ -129,8 +135,15 @@ export class TouchGestures {
     this.stick.radius = clamp(Math.min(width, height) * 0.16, 48, 66);
   }
 
+  /** One-handed: the joystick starts in the lower part of that side's half (buttons win first), looking uses the rest. */
+  handed: 'off' | 'left' | 'right' = 'off';
+
   /** The joystick may start anywhere in the lower-left region: left half, below the HUD band. */
   inStickRegion(x: number, y: number): boolean {
+    if (this.handed !== 'off') {
+      const onSide = this.handed === 'left' ? x < this.width * 0.5 : x >= this.width * 0.5;
+      return onSide && y > this.height * 0.55;
+    }
     const top = this.width > this.height ? 0.22 : 0.4;
     return x < this.width * 0.5 && y > this.height * top;
   }
@@ -224,7 +237,10 @@ export class TouchGestures {
           p.holding = false;
           this.mineCount--;
         }
-        this.usePulses++;
+        // A world tap waits as `tapPending`; it becomes Use or a tap-to-move depending on the setting when the frame takes it.
+        this.tapPending = true;
+        this.tapX = p.lastX;
+        this.tapY = p.lastY;
       } else {
         this.promoteHold(p, t);
       }
@@ -273,8 +289,35 @@ export class TouchGestures {
     this.lookY = 0;
   }
 
+  /** A world tap waiting (with tap-to-move on): writes where into `out` as -1..1 from the left / bottom plus the aspect, and clears it. */
+  takeTap(out: { x: number; y: number; aspect: number }): boolean {
+    if (!this.tapPending || !this.tapToMove) return false;
+    this.tapPending = false;
+    out.x = clamp((this.tapX / this.width) * 2 - 1, -1, 1);
+    out.y = clamp(1 - (this.tapY / this.height) * 2, -1, 1);
+    out.aspect = this.width / this.height;
+    return true;
+  }
+
+  /** A world tap that waited for the tap-to-move check and found the option off is a Use press (and a world tap) after all. */
+  private settleTap(): void {
+    if (!this.tapPending || this.tapToMove) return;
+    this.tapPending = false;
+    this.usePulses++;
+    this.worldTaps++;
+  }
+
+  /** Number of taps on the bare world (not the Use button) since the last call: a stray tap must not do what only the button should. */
+  takeWorldTaps(): number {
+    this.settleTap();
+    const n = this.worldTaps;
+    this.worldTaps = 0;
+    return n;
+  }
+
   /** Number of use presses (world taps + Use button presses) since the last call. */
   takeUsePulses(): number {
+    this.settleTap();
     const n = this.usePulses;
     this.usePulses = 0;
     return n;
@@ -286,6 +329,8 @@ export class TouchGestures {
     this.lookX = 0;
     this.lookY = 0;
     this.usePulses = 0;
+    this.tapPending = false;
+    this.worldTaps = 0;
     this.holdPhase = HOLD_NONE;
   }
 

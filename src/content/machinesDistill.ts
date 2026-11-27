@@ -19,6 +19,7 @@ const DESC: Record<string, string> = {
   airlock_cap: 'Seals the vessel below it.',
   chem_port: 'Fluid pipes in and out of the glassware.',
   reflux_head: 'Wrench cycles the return: 0, 50 or 75 percent. Plates count (1 + 2 r) times.',
+  separatory_funnel: 'Holds 1000 L. Liquid enters from above or from a tube. Layers that do not mix settle for a few seconds, then the tap lets the bottom one out below.',
   filter_bed: 'Holds 500 L. Liquid enters from above and leaves below. Charcoal, sand or clay is used up; clay turns lube base into lubricant.',
   vacuum_cap: 'On the stack, boiling points are 0.7 times. No shaft is required.',
 };

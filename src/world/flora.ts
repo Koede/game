@@ -17,7 +17,7 @@ import {
 
 export const TREE_CELL = 5;
 /** Widest reach of a crown from its root column: how far outside a chunk a tree can be and still reach into it. */
-const CANOPY = 6;
+export const CANOPY = 6;
 const MAX_DENSITY = 0.6;
 
 export const OAK = 0;

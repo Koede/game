@@ -276,6 +276,23 @@ function iceSpike(c: Canvas): void {
   for (let x = 3; x <= 12; x++) c.set(x, 15, (x & 1) === 0 ? P.SNOW[3] : P.SNOW[2]);
 }
 
+const GAS = ramp(0x2a4a1c, 0x4a7a26, 0x7aaa38, 0xa8d04e, 0xd4ee8a);
+
+/** Foul air: curling sour-green wisps rising in a loose column, thinner towards the top. */
+function foulAir(c: Canvas): void {
+  for (const [x0, ph] of [[4, 0], [8, 2], [12, 1]] as const) {
+    for (let y = 15; y >= 1; y--) {
+      const x = x0 + Math.round(1.6 * Math.sin((y + ph * 3) * 0.55));
+      c.set(x, y, y > 11 ? GAS[2] : y > 6 ? GAS[3] : GAS[4]);
+      if (y % 3 !== 0 && y > 5) c.set(x + 1, y, GAS[1]);
+    }
+  }
+  c.set(6, 3, GAS[4]);
+  c.set(11, 2, GAS[3]);
+  // A few dark motes in the haze, so it reads as foul, not as steam.
+  for (const [x, y] of [[3, 9], [10, 6], [13, 12], [7, 13]] as const) c.set(x, y, GAS[0]);
+}
+
 export const WORLD_PLANTS: PainterSet = {
   ember_poppy: emberPoppy,
   skybell,
@@ -287,4 +304,5 @@ export const WORLD_PLANTS: PainterSet = {
   glowcap,
   crystal_cluster: crystalCluster,
   ice_spike: iceSpike,
+  foul_air: foulAir,
 };

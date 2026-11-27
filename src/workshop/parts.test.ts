@@ -56,17 +56,66 @@ describe('differential, flywheel, shear pin, sources', () => {
     expect(t.rpm(2, 0, 1)).toBe(8);
   });
 
-  it('a flywheel keeps the line turning for a few seconds after the crank stops', () => {
+  it('a flywheel has real momentum: it spins up, coasts slower and slower after the crank stops, then rests', () => {
     const t = setup();
     t.put(0, 0, 0, 'hand_crank');
     t.put(1, 0, 0, 'flywheel');
     t.put(2, 0, 0, 'drive_shaft');
     t.run(0.5, [[0, 0, 0]]);
+    expect(t.rpm(2)).toBeLessThan(16); // heavy: it takes a moment to get up to speed
+    t.run(6, [[0, 0, 0]]);
     expect(t.rpm(2)).toBe(16);
-    t.run(2.8); // the crank's own 2.5 s run out, the wheel carries on
-    expect(t.rpm(2)).toBe(16);
-    t.run(5);
+    t.run(2.6); // the crank's own 2.5 s run out, the wheel carries on
+    const slowed = t.rpm(2) as number;
+    expect(slowed).toBeGreaterThan(0);
+    expect(slowed).toBeLessThan(16);
+    t.run(6);
+    expect(t.rpm(2) === null || (t.rpm(2) as number) < slowed).toBe(true);
+    t.run(30);
     expect(t.rpm(2)).toBeNull();
+  });
+
+  it('a brake on a coasting flywheel stops it quickly, and a lit signal engages it', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'flywheel');
+    t.put(2, 0, 0, 'brake');
+    t.run(7, [[0, 0, 0]]);
+    expect(t.rpm(1)).toBe(16);
+    t.run(2.6);
+    expect(t.rpm(1)).toBeGreaterThan(0);
+    t.shop.use(2, 0, 0, null, () => undefined); // engage
+    t.run(2);
+    expect(t.rpm(1)).toBeNull();
+  });
+
+  it('a rated fuse snaps on the torque through it, and spares an upstream part when the load downstream is heavy', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'shear_pin');
+    t.shop.use(1, 0, 0, null, () => undefined); // copper: 6 su
+    t.put(2, 0, 0, 'mech_saw'); // 4 su: under the rating
+    t.run(1, [[0, 0, 0]]);
+    expect(t.world.getBlock(1, 0, 0).key).toBe('shear_pin');
+    t.put(2, 0, 1, 'mech_loom'); // +2 = 6 su: at the rating, still holds
+    t.put(3, 0, 0, 'mech_mortar'); // +4 over: 10 su through the pin
+    t.run(1, [[0, 0, 0]]);
+    expect(t.world.getBlock(1, 0, 0).key).toBe('air');
+    expect(t.toasts.some((x) => /copper shear pin/.test(x))).toBe(true);
+  });
+
+  it('a long unsupported shaft whips near its critical speed and a pillow block cures it', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    for (let x = 1; x <= 10; x++) t.put(x, 0, 0, 'drive_shaft'); // critical 16 rpm for a run of ten = the crank's own speed
+    t.put(1, 1, 0, 'mech_saw');
+    t.run(1, [[0, 0, 0]]);
+    expect(t.shop.netAt(1, 0, 0)?.whip).toBe(true);
+    expect(t.shop.netAt(1, 0, 0)?.findings?.some((f) => f.code === 'whip')).toBe(true);
+    t.put(5, 0, 0, 'pillow_block');
+    t.put(6, 0, 0, 'pillow_block');
+    t.run(1, [[0, 0, 0]]);
+    expect(t.shop.netAt(1, 0, 0)?.whip).toBe(false);
   });
 
   it('a shear pin snaps when the load tops the sources and the rest of the line survives', () => {
@@ -164,5 +213,36 @@ describe('vault, vacuum, saw arm, tanks', () => {
     u.put(0, 1, 0, 'item_drain', Facing.East);
     expect(u.shop.offer(0, 1, 0, 'gasoline_canister', 1)).toBe(1);
     expect(u.shop.logi.peek(0, 1, 0).find((e) => e.item === 'empty_canister')?.count).toBe(1);
+  });
+});
+
+describe('mechanics saves', () => {
+  it('an old save without a mech key loads, a brake keeps its heat and its engaged setting, and bad mech data is ignored', () => {
+    const t = setup();
+    t.put(0, 0, 0, 'hand_crank');
+    t.put(1, 0, 0, 'flywheel');
+    t.put(2, 0, 0, 'brake');
+    t.put(3, 0, 0, 'shear_pin');
+    t.put(4, 0, 0, 'cam_drum');
+    t.run(7, [[0, 0, 0]]);
+    t.shop.use(2, 0, 0, null, () => undefined); // engage the brake
+    t.shop.use(3, 0, 0, null, () => undefined); // copper fuse
+    t.shop.use(4, 0, 0, null, () => undefined); // drum program 2
+    t.run(0.3);
+    const saved = JSON.parse(JSON.stringify(t.shop.toJSON()));
+    expect(saved.mech?.v).toBe(1);
+    const u = setup();
+    for (const [x, , , k] of saved.parts as [number, number, number, string][]) u.put(x, 0, 0, k);
+    u.shop.load(saved);
+    expect(u.shop.describe(2, 0, 0)).toMatch(/Brake engaged/);
+    expect(u.shop.describe(3, 0, 0)).toMatch(/Copper pin/);
+    expect(u.shop.describe(4, 0, 0)).toMatch(/Drum program 2: Sweep/);
+    const old = { ...saved };
+    delete old.mech;
+    const v = setup();
+    v.shop.load(old);
+    v.shop.load({ ...saved, mech: { v: 1, heat: { x: 'hot', '2,0,0': -4 } } });
+    v.shop.load({ ...saved, mech: 'junk' });
+    expect(() => v.run(1)).not.toThrow();
   });
 });

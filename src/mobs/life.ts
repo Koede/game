@@ -29,6 +29,8 @@ export function advanceTimers(m: Mob, dt: number, player: { x: number; z: number
   m.ageS += dt;
   if (m.eagerS > 0) m.eagerS = Math.max(0, m.eagerS - dt);
   if (m.cooldownS > 0) m.cooldownS = Math.max(0, m.cooldownS - dt);
+  if (m.milkS > 0) m.milkS = Math.max(0, m.milkS - dt);
+  if (m.woolS > 0) m.woolS = Math.max(0, m.woolS - dt);
   // Slow natural healing (healS starts negative after a hurt), so the odd scrape does not add up to a death.
   if (m.health < m.spec.health) {
     m.healS += dt;

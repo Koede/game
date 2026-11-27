@@ -1,0 +1,175 @@
+// End-to-end check of the starting tavern (docs/api/npcs.md) in the built game (headless Chromium), desktop and phone portrait:
+//
+//   node scripts/e2e-tavern.mjs                    build to a scratch dir, run both devices
+//   node scripts/e2e-tavern.mjs --no-build         use the existing build (--dist=<dir>, default dist/)
+//   node scripts/e2e-tavern.mjs --shots=<dir>      screenshots (default test-results/e2e-tavern)
+//
+// New World (survival) -> the player stands inside the tavern, the welcome toast shows, the people stand where the layout says ->
+// aim at Rosa and Use: her gift (a hearth stew) arrives and her line shows as a toast -> the same for Gruk's wooden tools and Mara's
+// notebook -> Continue after Save and quit still has the tavern. Real input for the Use; window.__hw only reads state and aims.
+import { mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { e2eDist, ensureBuilt } from './lib/e2eArgs.mjs';
+import { createReporter, openGame, waitFor } from './lib/browser.mjs';
+import { Driver } from './lib/e2eDriver.mjs';
+
+const root = resolve(fileURLToPath(import.meta.url), '../..');
+const argv = process.argv.slice(2);
+const flag = (name) => argv.filter((a) => a.startsWith(`--${name}=`)).map((a) => a.slice(name.length + 3));
+const devices = flag('device').length ? flag('device') : ['desktop', 'phonePortrait'];
+const shots = resolve(flag('shots')[0] ?? join(root, 'test-results/e2e-tavern'));
+const dist = e2eDist(root, argv);
+
+mkdirSync(shots, { recursive: true });
+for (const file of readdirSync(shots)) if (file.endsWith('.png')) rmSync(join(shots, file));
+await ensureBuilt(argv, dist);
+
+const report = createReporter();
+for (const device of devices) {
+  console.log(`\n${device} (tavern)`);
+  await runDevice(device);
+}
+console.log(report.failures ? `\n${report.failures} step(s) failed` : '\nall steps passed');
+process.exit(report.failures ? 1 : 0);
+
+async function runDevice(device) {
+  const session = await openGame({ dir: dist, device });
+  const { page, errors } = session;
+  const d = new Driver(page, device, (name) => page.screenshot({ path: join(shots, `${device}-${name}.png`) }));
+  const { assert } = report;
+  let ok = true;
+  const step = async (name, run) => {
+    if (!ok) return console.log(`  skip ${name}`);
+    const before = report.failures;
+    await report.step(name, run);
+    if (report.failures !== before) {
+      ok = false;
+      await d.shot(`FAILED-${name.replace(/\W+/g, '-')}`).catch(() => undefined);
+    }
+  };
+  const npcs = () => d.hw(() => {
+    const st = window.__hw.app.game.state;
+    return { at: st.npcs.at, views: st.npcs.views(), pos: st.player.position, pack: Object.fromEntries(st.player.inventory.toJSON().filter(Boolean).map((s) => [s.item, s.count])) };
+  });
+
+  try {
+    await step('a new world opens inside the tavern with the welcome', async () => {
+      await page.waitForSelector('.hw-title', { timeout: 30_000 });
+      await page.fill('.hw-title input', 'tavern-e2e');
+      await d.press(page.locator('.hw-title button', { hasText: 'New World' }));
+      await waitFor(page, () => window.__hw.state().phase === 'playing', 'play', { timeout: 120_000 });
+      // A new world starts at the camp; the tavern tests build the full tavern first (window.__hw.settle).
+      if (!(await d.hw(() => window.__hw.settle()))) throw new Error('could not settle the camp into the tavern');
+      await d.settle(2500);
+      const s = await npcs();
+      assert(s.at, 'no tavern was built');
+      assert(s.views.length === 6, `${s.views.length} people and props`);
+      const inside = s.pos.x > s.at[0] && s.pos.x < s.at[0] + 12 && s.pos.z > s.at[2] && s.pos.z < s.at[2] + 8;
+      assert(inside, `the player is at ${s.pos.x},${s.pos.z}, outside the hall at ${s.at}`);
+      assert(errors.length === 0, `console errors: ${errors.join(' | ')}`);
+      await d.shot('1-start');
+    });
+
+    for (const [id, gift, word] of [['rosa', 'hearth_stew', 'On the house'], ['gruk', 'wooden_pickaxe', 'Wooden tools'], ['mara', 'field_notebook', 'notebook'], ['veyra', 'glass_vial', 'Glass. Clean']]) {
+      await step(`using ${id} gives the welcome gift and a line`, async () => {
+        // People walk about (Gruk is off building the camp, others wander): stand by them, aim, Use, and try again when they moved on.
+        let got = false;
+        for (let attempt = 0; attempt < 5 && !got; attempt++) {
+          const s = await npcs();
+          const v = s.views.find((x) => x.id === id);
+          // Stand north of the person (the customers' side; Rosa is behind the bar, so three blocks off), then aim at their chest.
+          await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z - p.back), { x: v.x, y: v.y, z: v.z, back: id === 'rosa' ? 3 : id === 'veyra' ? -2 : 2 });
+          await d.settle(300);
+          const aim = async () => {
+            const fresh = (await npcs()).views.find((x) => x.id === id);
+            // lookAt aims at the centre of a cell (+0.5 on every axis): take that off to hit the person's own coordinates.
+            await d.hw((p) => window.__hw.lookAt(p.x - 0.5, p.y + p.h - 0.5, p.z - 0.5), { x: fresh.x, y: fresh.y, z: fresh.z, h: id === 'rosa' ? 1.6 : 1.2 });
+            await d.settle(150);
+          };
+          await aim();
+          // A torch stands on the bar in front of Rosa and catches the aim: take it away for this check.
+          const cover = (await d.state()).target;
+          if (cover && cover.block === 'torch') {
+            await d.hw((c) => window.__hw.setVoxel(c.x, c.y, c.z, 'air'), cover);
+            await aim();
+          }
+          if (attempt === 0) await d.shot(`2-${id}`);
+          await d.holdUse(250);
+          got = await waitFor(page, (item) => window.__hw.app.game.state.player.inventory.count(item) >= 1, `${gift} in the pack`, { timeout: 2500, interval: 100, arg: gift }).then(() => true, () => false);
+        }
+        assert(got, `${id} never gave ${gift}`);
+        await waitFor(page, () => document.querySelector('.hw-npcsay:not([hidden])') !== null, 'the dialogue box', { timeout: 4000, interval: 100 });
+        await d.settle(1800);
+        const said = await page.locator('.hw-npcsay__text').textContent();
+        const nm = await page.locator('.hw-npcsay__name').textContent();
+        assert(said.includes(word), `${nm} said "${said}", not "${word}"`);
+        await d.shot(`2b-${id}-said`);
+      });
+    }
+
+    // The quest board and the wall clock are blocks in the north wall: stand two blocks south of each, face its centre.
+    const FIXTURE = { board: { lx: 3, ly: 2, lz: 0 }, clock: { lx: 5, ly: 3, lz: 0 } };
+    for (const [id, word] of [['board', 'Quest board|Favour|bounty'], ['clock', 'It is'], ['orrin', 'wrench'], ['bram', 'Hold|hold|show|Show|Pick|What are you|Welcome|customer|Mind|sign|Come|goat|buy|Take|coin']]) {
+      await step(`using ${id} answers`, async () => {
+        const s = await npcs();
+        const fx = FIXTURE[id];
+        const v = fx ? { x: s.at[0] + fx.lx + 0.5, y: s.at[1] + 1, z: s.at[2] + fx.lz + 0.5 } : s.views.find((x) => x.id === id);
+        const prop = !!fx || s.views.find((x) => x.id === id).kind === 'prop';
+        if (fx) {
+          // A block in the wall: the same aim as any block (approach finds a stand that sees it).
+          assert(await d.approach({ x: s.at[0] + fx.lx, y: s.at[1] + fx.ly, z: s.at[2] + fx.lz }), `aims at the ${id} block`);
+          await d.settle(200);
+        } else {
+          await d.hw((p) => window.__hw.teleport(p.x, p.y, p.z + p.back), { x: v.x, y: v.y, z: v.z, back: prop ? 2.2 : -2 });
+          await d.settle(300);
+          await d.hw((p) => window.__hw.lookAt(p.x, p.y + p.h, p.z), { x: v.x, y: v.y, z: v.z, h: prop ? 0.7 : 1.2 });
+          await d.settle(200);
+        }
+        await d.shot(`3-${id}`);
+        // The last person's dialogue box can sit over the touch Use button: let it close by itself first.
+        await page.waitForFunction(() => { const b = document.querySelector('.hw-npcsay'); return !b || b.hidden || getComputedStyle(b).display === 'none' || getComputedStyle(b).visibility === 'hidden' || b.offsetParent === null; }, null, { timeout: 15000 }).catch(() => undefined);
+        await d.holdUse(250);
+        await d.settle(d.touch ? 1500 : 400);
+        const toasts = (await page.locator('.hw-toasts .hw-toast').allTextContents()).concat(await page.locator('.hw-npcsay__text').allTextContents());
+        const re = new RegExp(word, 'i');
+        assert(toasts.some((t) => re.test(t)) || (await npcs()).pack.wrench >= 1, `${id}: nothing matching ${word}: ${toasts.slice(-3).join(' | ')} ui ${JSON.stringify((await d.state()).ui)} target ${JSON.stringify((await d.state()).target)}`);
+      });
+    }
+    await step('the jukebox makes everyone but Gruk dance', async () => {
+      const s = await npcs();
+      // The jukebox is a block against the north wall now: aim at it like any block.
+      assert(await d.approach({ x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 }), `aims at the jukebox block ${JSON.stringify({ at: s.at, crosshair: (await d.state()).target, here: (await d.hw((c) => window.__hw.getBlock(c.x, c.y, c.z).block, { x: s.at[0] + 8, y: s.at[1] + 1, z: s.at[2] + 1 })) })}`);
+      await d.settle(200);
+      // A dialogue box can sit over the touch Use button: let it close by itself first.
+      await page.waitForFunction(() => { const b = document.querySelector('.hw-npcsay'); return !b || b.hidden || getComputedStyle(b).display === 'none' || getComputedStyle(b).visibility === 'hidden' || b.offsetParent === null; }, null, { timeout: 15000 }).catch(() => undefined);
+      await d.holdUse(100); // short: a Use held 250 ms repeats, and the jukebox toggles off again
+      await d.settle(600);
+      const after = await npcs();
+      const dancing = after.views.filter((x) => x.dancing).map((x) => x.id).sort().join(',');
+      assert(dancing === 'bram,mara,orrin,rosa,veyra', `dancers: ${dancing}`);
+      await d.settle(15000); // they walk over to the dance floor, round the bar and through the doors
+      const mara = (await npcs()).views.find((x) => x.id === 'mara');
+      await d.hw((p) => window.__hw.teleport(p.x - 1.5, p.y, p.z + 3.5), { x: mara.x, y: mara.y, z: mara.z });
+      await d.settle(200);
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1.2, p.z), { x: mara.x, y: mara.y, z: mara.z });
+      await d.settle(250);
+      await d.shot('4-dance');
+      for (const i of [1, 2, 3]) {
+        await d.settle(4300);
+        await d.shot(`4-dance-${i}`);
+      }
+      const ds = (await npcs()).views.filter((x) => x.dancing);
+      const c = { x: ds.reduce((t, x) => t + x.x, 0) / ds.length, y: ds[0].y, z: ds.reduce((t, x) => t + x.z, 0) / ds.length };
+      await d.hw((p) => window.__hw.teleport(p.x - 0.5, p.y, p.z + 4.2), c);
+      await d.settle(200);
+      await d.hw((p) => window.__hw.lookAt(p.x, p.y + 1, p.z), c);
+      for (const i of [1, 2]) {
+        await d.settle(1100);
+        await d.shot(`4-dance-wide-${i}`);
+      }
+    });
+  } finally {
+    await session.close();
+  }
+}

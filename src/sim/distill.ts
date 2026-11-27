@@ -13,7 +13,7 @@
  *      when a run completes.
  */
 import {
-  COMPONENTS, add, bubblePoint, colourOf, drawIndex, leakShare, nameOf, pour, share, stagesOf, take, total, trayTemps, vapourShares,
+  COMPONENTS, add, bubblePoint, colourOf, drawIndex, layersOf, leakShare, nameOf, pour, share, stagesOf, take, total, trayTemps, vapourShares,
   viscosityOf, type Component, type Mix,
 } from '../core/chem';
 import { AMBIENT_TEMP_C } from '../core/constants';
@@ -22,7 +22,7 @@ import {
   ASPHALT_C, ASPHALT_COUNT, BOIL_J_PER_L, BOIL_LPS, CANISTER_L, CHEM, CHEM_CAPACITY_L, CHEM_KINDS, CHEM_STEP_HZ,
   CONDENSE_LPS, DONE_SUFFIX, ELIXIR_BATCH_L, ELIXIR_VIALS, ESSENCE_COUNT, ESSENCE_RUIN_C, ESSENCE_SET_C, FERMENT_LPS, FERMENT_MAX_C,
   FERMENT_MAX_ETHANOL, FERMENT_MAX_SUGARS, FERMENT_MIN_C, FLOW_LPS, GLASS_MAX_C, HEAD_C, HEAD_JACKET_C, JACKET_MULT,
-  CHEM_CONTAINERS, RECEIVE_HOLD_S, STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, TINCTURE_C, VACUUM_BP, burnerTemp, chemKindOf, drinkOfEssence, essenceDrink, fuelGrade,
+  CHEM_CONTAINERS, RECEIVE_HOLD_S, SETTLE_S, STATEFUL, STILL_DEFAULT_C, STILL_SETPOINTS, TINCTURE_C, VACUUM_BP, burnerTemp, chemKindOf, drinkOfEssence, essenceDrink, fuelGrade,
   isBotanical, isFilterMedium, isRefluxRatio, stateLook, type ChemKind, type ChemState,
 } from '../core/distill';
 import { blockId, blockOf, fluidOrNull } from '../core/registry';
@@ -42,6 +42,8 @@ export interface ChemEntity extends BlockEntity {
   ran?: boolean;
   /** Seconds since liquid last arrived (receivers, condensers). */
   recvS?: number;
+  /** Separatory funnel: seconds its layers have been settling (SETTLE_S lets the bottom one out). */
+  settleS?: number;
   // Render hints (written every step, harmless in a save):
   /** Litres per second through it last step. */
   flow?: number;
@@ -125,6 +127,8 @@ export class Distillery {
   private acc = 0;
   /** Steps run (a diagnostic and a test hook). */
   steps = 0;
+  /** Seconds until each module's next bubble or trickle sound (not saved: sounds only). */
+  private readonly cueLeft = new Map<string, number>();
 
   constructor(readonly world: IWorld, readonly bus: GameBus, readonly host: DistillHost) {}
 
@@ -274,6 +278,7 @@ export class Distillery {
       const e = this.mod(k);
       if (e?.kind === CHEM.vessel) this.stepVessel(e, rig.sealed.has(k), dt);
       else if (e?.kind === CHEM.filter) this.stepFilter(e);
+      else if (e?.kind === CHEM.funnel) this.stepFunnel(e, dt);
     }
     this.flow(rig, dt, arrived);
     this.show(rig, arrived, was, dt);
@@ -427,6 +432,45 @@ export class Distillery {
     bed.ran = true;
   }
 
+  /** A separatory funnel: liquids that do not mix settle into layers (chem.ts `layersOf`); once settled the tap lets the bottom one out. */
+  private stepFunnel(f: ChemEntity, dt: number): void {
+    const layers = layersOf(f.mix);
+    if (layers.length === 0) {
+      f.state = 'idle';
+      f.settleS = 0;
+      f.ran = false;
+      return;
+    }
+    if (layers.length === 1) {
+      f.state = f.ran ? 'done' : 'idle';
+      f.settleS = 0;
+      return;
+    }
+    f.settleS = Math.min(SETTLE_S, finite(f.settleS, 0) + dt);
+    f.state = 'working';
+    f.ran = true;
+  }
+
+  /** Lets the bottom layer of a settled funnel run into `to`, and nothing of the layers above it. */
+  private drainFunnel(f: ChemEntity, to: ChemEntity, toKey: string, dt: number, arrived: Set<string>): void {
+    const layers = layersOf(f.mix);
+    if (layers.length < 2 || finite(f.settleS, 0) < SETTLE_S) return;
+    const bottom = layers[0];
+    const l = Math.min(bottom.litres, (FLOW_LPS / Math.sqrt(viscosityOf(bottom.mix))) * dt, roomOf(to));
+    if (l <= 1e-9) return;
+    let moved = 0;
+    for (const k in bottom.mix) {
+      const c = k as Component;
+      const got = take(f.mix, c, l * ((bottom.mix[c] ?? 0) / bottom.litres));
+      add(to.mix, c, got);
+      moved += got;
+    }
+    if (moved > 0) {
+      arrived.add(toKey);
+      f.flow = (f.flow ?? 0) + moved / dt;
+    }
+  }
+
   private stepVessel(v: ChemEntity, sealed: boolean, dt: number): void {
     if (this.stepAsphalt(v) || this.stepElixir(v) || this.stepTincture(v)) return;
     const t = total(v.mix);
@@ -503,6 +547,10 @@ export class Distillery {
       if (!a || !b) continue;
       const send = (from: ChemEntity, to: ChemEntity, litres: number, toKey: string): void => {
         if (from.kind === CHEM.vessel && from.state !== 'done') return;
+        if (from.kind === CHEM.funnel) {
+          this.drainFunnel(from, to, toKey, dt, arrived);
+          return;
+        }
         const l = Math.min(litres, (FLOW_LPS / Math.sqrt(viscosityOf(from.mix))) * dt, roomOf(to));
         const moved = l > 1e-9 ? pour(from.mix, to.mix, l) : 0;
         if (moved > 0) {
@@ -526,6 +574,31 @@ export class Distillery {
   }
 
   /** Sets every module's state on its block, and tells the player when a run completes. */
+  /**
+   * The sounds of a running rig, now and then: a boiling flask bubbles, and a tube or condenser with liquid running through
+   * it trickles. Each module counts down on its own, staggered by its position so a rig does not pop or trickle in step.
+   */
+  private cue(key: string, e: ChemEntity, dt: number): void {
+    const boiling = e.kind === CHEM.flask && e.state === 'working';
+    const running = (e.kind === CHEM.tube || e.kind === CHEM.condenser) && finite(e.flow, 0) > 0;
+    if (!boiling && !running) {
+      this.cueLeft.delete(key);
+      return;
+    }
+    const left = this.cueLeft.get(key);
+    const stagger = (((e.x * 73 + e.y * 151 + e.z * 37) % 97) + 97) % 97 / 97;
+    if (left === undefined) {
+      this.cueLeft.set(key, stagger * (boiling ? 1.6 : 0.5));
+      return;
+    }
+    if (left - dt > 0) {
+      this.cueLeft.set(key, left - dt);
+      return;
+    }
+    this.bus.emit('sfx', { name: boiling ? 'distill_bubble' : 'distill_trickle', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
+    this.cueLeft.set(key, boiling ? 1.2 + 1.2 * stagger : 0.5 + 0.4 * stagger);
+  }
+
   private show(rig: Rig, arrived: Set<string>, was: Map<string, ChemState>, dt: number): void {
     const flaskOf = new Map<string, ChemEntity | null>();
     for (const still of rig.stills) {
@@ -542,11 +615,13 @@ export class Distillery {
       if (got && quiet && (e.kind === CHEM.receiver || e.kind === CHEM.condenser)) {
         this.bus.emit('sfx', { name: 'distill_drip', x: e.x + 0.5, y: e.y + 0.5, z: e.z + 0.5 });
       }
+      this.cue(key, e, dt);
       const before = was.get(key) ?? e.state;
       switch (e.kind) {
         case CHEM.flask:
         case CHEM.vessel:
         case CHEM.filter:
+        case CHEM.funnel:
           break;
         case CHEM.receiver: {
           const t = total(e.mix);

@@ -1,0 +1,441 @@
+import { describe, expect, it } from 'vitest';
+import { DAY_LENGTH_S, SUNSET_AT, TWILIGHT } from '../core/constants';
+import { blockOrNull } from '../core/registry';
+import { phaseAt } from '../game/clock';
+import { Inventory } from '../game/inventory';
+import { SEASON_DAYS } from './festival';
+import { BUILDER_ID, DAY_BUDGET, MOVABLE, TownBuilder, movable, type TownHost, workDay } from './townBuilder';
+import { planTown } from './townPlan';
+import { footprintOf, townTemplate } from './townTemplates';
+
+const SEED = 7;
+const ORIGIN: [number, number] = [100, -40];
+const DAY_FRAC = SUNSET_AT - 2 * TWILIGHT;
+const ITEMS = ['dirt', 'stone_brick', 'oak_log', 'plank', 'glass', 'torch', 'crate', 'workbench', 'furnace_clay', 'gravel'];
+
+interface Placed {
+  x: number;
+  y: number;
+  z: number;
+  block: string;
+  prev: string;
+}
+
+/** A small world: natural ground under `groundY`, placed blocks on top, and chunks that may be unloaded. */
+class Ground implements TownHost {
+  tod = 0.4;
+  dayNo = 1;
+  unloadedAt: (x: number, z: number) => boolean = () => false;
+  readonly over = new Map<string, { block: string; facing: number }>();
+  readonly edited = new Set<string>();
+  readonly log: Placed[] = [];
+
+  constructor(readonly groundY: (x: number, z: number) => number = () => 10) {}
+
+  private key(x: number, y: number, z: number): string {
+    return `${x},${y},${z}`;
+  }
+  day(): number {
+    return this.dayNo;
+  }
+  timeOfDay(): number {
+    return this.tod;
+  }
+  private loaded(x: number, z: number): boolean {
+    return !this.unloadedAt(x, z);
+  }
+  natural(x: number, y: number, z: number): string {
+    const g = this.groundY(x, z);
+    return y < g ? 'dirt' : y === g ? 'grass' : 'air';
+  }
+  block(x: number, y: number, z: number): string {
+    return this.over.get(this.key(x, y, z))?.block ?? this.natural(x, y, z);
+  }
+  townSurface(x: number, z: number) {
+    if (!this.loaded(x, z)) return null;
+    for (let y = 60; y > -3; y--) {
+      const b = this.block(x, y, z);
+      if (b !== 'air') return { y, key: b };
+    }
+    return null;
+  }
+  townBlock(x: number, y: number, z: number): string | null {
+    return this.loaded(x, z) ? this.block(x, y, z) : null;
+  }
+  townEdited(x: number, y: number, z: number): boolean {
+    return this.edited.has(this.key(x, y, z));
+  }
+  townPlace(x: number, y: number, z: number, block: string, facing: number): boolean {
+    if (!this.loaded(x, z)) return false;
+    this.log.push({ x, y, z, block, prev: this.block(x, y, z) });
+    this.over.set(this.key(x, y, z), { block, facing });
+    this.edited.add(this.key(x, y, z));
+    return true;
+  }
+  /** Player-made: a block the builder must leave alone. */
+  playerBlock(x: number, y: number, z: number, block: string): void {
+    this.over.set(this.key(x, y, z), { block, facing: 0 });
+    this.edited.add(this.key(x, y, z));
+  }
+  placedNonAir(): Placed[] {
+    return this.log.filter((p) => p.block !== 'air');
+  }
+}
+
+function stockUp(b: TownBuilder, n = 1000): void {
+  for (const item of ITEMS) b.deliver(item, n);
+}
+
+/** Plays `days` days: the day phase ticks the budget through, then one night tick. */
+function runDays(b: TownBuilder, g: Ground, days: number, dt = 2): void {
+  for (let d = 0; d < days; d++) {
+    g.dayNo += d === 0 ? 0 : 1;
+    g.tod = 0.4;
+    for (let t = 0; t < DAY_LENGTH_S * DAY_FRAC - 1e-9; t += dt) b.tick(dt, g, SEED, ORIGIN);
+    g.tod = 0.99;
+    b.tick(0, g, SEED, ORIGIN);
+  }
+}
+
+describe('town builder', () => {
+  it('uses the day and night phases it assumes', () => {
+    expect(phaseAt(0.4)).toBe('day');
+    expect(phaseAt(0.99)).toBe('night');
+  });
+
+  it('lays one day budget of cells in a day, and no more', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    stockUp(b);
+    runDays(b, g, 1);
+    const s = b.toJSON()!;
+    expect(s.cell).toBeGreaterThanOrEqual(DAY_BUDGET - 1);
+    expect(s.cell).toBeLessThanOrEqual(DAY_BUDGET);
+    expect(s.laid).toBe(s.cell);
+  });
+
+  it('runs the stages in order, clearing first, and the storage bay comes first', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    stockUp(b);
+    let last = -1;
+    let building = 0;
+    for (let d = 0; d < 6; d++) {
+      runDays(b, g, 1);
+      if (b.toJSON()!.building !== building) {
+        building = b.toJSON()!.building;
+        last = -1;
+      }
+      const st = b.stage();
+      if (st >= 0) {
+        expect(st).toBeGreaterThanOrEqual(last);
+        last = st;
+      }
+    }
+    expect(b.toJSON()!.building).toBeGreaterThanOrEqual(1);
+    expect(b.planned!.buildings[0].template).toBe('storage_bay');
+  });
+
+  it('builds from the bay only: nothing is placed from nowhere, and missing() names what is short', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    runDays(b, g, 3);
+    expect(g.placedNonAir()).toHaveLength(0);
+    expect(b.missing()).toEqual([{ item: 'dirt', count: 1 }]);
+    b.deliver('dirt', 1);
+    runDays(b, g, 1);
+    expect(g.placedNonAir().length).toBeGreaterThan(0);
+    const miss = b.missing();
+    expect(miss.some((m) => m.item === 'oak_log' || m.item === 'stone_brick')).toBe(true);
+    // Every placed block was taken from the bay: stock left plus placements equals what was delivered.
+    const left = b.stock();
+    const placedDirt = g.placedNonAir().filter((p) => p.block === 'dirt').length;
+    expect(placedDirt).toBe(1);
+    // The doorstep was grass: digging it may return a drop to the bay before the dirt is laid, so the bay never goes negative.
+    expect(left.dirt ?? 0).toBeGreaterThanOrEqual(0);
+  });
+
+  it('digs movable blocks out of the way into the bay, and conserves material', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    // Plan first (pure), then raise two stone bumps inside the bay's footprint.
+    const plan = planTown(SEED, ORIGIN, (x, z) => g.townSurface(x, z))!;
+    const bay = plan.buildings[0];
+    g.over.set(`${bay.x + 1},11,${bay.z + 1}`, { block: 'stone', facing: 0 });
+    g.over.set(`${bay.x + 2},11,${bay.z + 1}`, { block: 'stone', facing: 0 });
+    stockUp(b, 100);
+    const before = b.stock();
+    runDays(b, g, 2);
+    const stone = blockOrNull('stone')!;
+    for (const d of stone.drops) {
+      const n = typeof d.count === 'number' ? d.count : d.count[0];
+      expect((b.stock()[d.item] ?? 0) - (before[d.item] ?? 0) + (g.placedNonAir().filter((p) => p.block === d.item).length)).toBe(2 * n);
+    }
+    expect(g.block(bay.x + 1, 11, bay.z + 1)).toBe('air');
+    expect(MOVABLE.has('stone')).toBe(true);
+  });
+
+  it('never overwrites a player-edited cell', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    const plan = planTown(SEED, ORIGIN, (x, z) => g.townSurface(x, z))!;
+    const bay = plan.buildings[0];
+    g.playerBlock(bay.x + 2, 11, bay.z, 'torch'); // a player's torch where the bay's footing goes
+    stockUp(b);
+    runDays(b, g, 4);
+    expect(g.block(bay.x + 2, 11, bay.z)).toBe('torch');
+    expect(g.log.some((p) => p.x === bay.x + 2 && p.y === 11 && p.z === bay.z)).toBe(false);
+    expect(b.toJSON()!.blocked).toBeGreaterThanOrEqual(1);
+  });
+
+  it('drops a plot with too many player blocks in the way and moves to the next', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    const plan = planTown(SEED, ORIGIN, (x, z) => g.townSurface(x, z))!;
+    const bay = plan.buildings[0];
+    const f = footprintOf(townTemplate('storage_bay')!, bay.rot);
+    for (let x = bay.x; x < bay.x + f.w; x++) for (let z = bay.z; z < bay.z + f.d; z++) g.playerBlock(x, 11, z, 'plank');
+    stockUp(b);
+    runDays(b, g, 1);
+    // The storage bay is never dropped: it moves to the next plot that can hold it and is built there.
+    expect(b.currentTemplate).toBe('storage_bay');
+    const moved = b.toJSON()!.plan!.buildings[b.toJSON()!.building];
+    expect([moved.x, moved.z]).not.toEqual([bay.x, bay.z]);
+    expect(g.placedNonAir().length).toBeGreaterThan(0);
+    for (const p of g.placedNonAir()) expect(p.prev).not.toBe('plank');
+  });
+
+  it('drops any other building whose plot is blocked, and moves on', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    const plan = planTown(SEED, ORIGIN, (x, z) => g.townSurface(x, z))!;
+    const next = plan.buildings[1];
+    const f = footprintOf(townTemplate(next.template)!, next.rot);
+    for (let x = next.x; x < next.x + f.w; x++) for (let z = next.z; z < next.z + f.d; z++) g.playerBlock(x, 11, z, 'plank');
+    stockUp(b);
+    runDays(b, g, 12);
+    const state = b.toJSON()!;
+    expect(state.building).toBeGreaterThan(1);
+    for (const p of g.placedNonAir()) expect(p.prev).not.toBe('plank');
+  });
+
+  it('moves wild crops, flowers, loose growth and overhanging leaves out of the way, but never a trunk', () => {
+    expect(movable('wild_potato')).toBe(true);
+    expect(movable('wild_wheat')).toBe(true);
+    expect(movable('skybell')).toBe(true);
+    for (const bush of ['berry_bush', 'berry_bush_bare', 'tea_bush', 'tea_bush_bare']) expect(movable(bush)).toBe(true);
+    expect(movable('tall_grass')).toBe(true);
+    expect(movable('oak_log')).toBe(false);
+    expect(movable('oak_leaves')).toBe(true);
+    expect(movable('pine_log')).toBe(false);
+    expect(movable('water')).toBe(false);
+    expect(movable('air')).toBe(false);
+  });
+
+  it('catches up on cells in unloaded chunks when they load, and never places one twice', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    stockUp(b);
+    b.tick(0, g, SEED, ORIGIN); // plans and starts the bay while its chunks are loaded
+    g.unloadedAt = () => true;
+    runDays(b, g, 1);
+    const away = b.toJSON()!;
+    expect(away.cell).toBeGreaterThan(0);
+    expect(away.laid).toBe(0);
+    expect(g.log).toHaveLength(0);
+    g.unloadedAt = () => false;
+    b.tick(0, g, SEED, ORIGIN);
+    const back = b.toJSON()!;
+    expect(back.laid).toBe(back.cell);
+    // Each cell gets its block once (a movable block dug first is not a second placement of the same block).
+    const keys = g.placedNonAir().map((p) => `${p.x},${p.y},${p.z}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(keys.length).toBeGreaterThan(0);
+  });
+
+  it('reaches tall footings down to the ground on a slope, with no floating corners', () => {
+    const slope = (x: number) => 10 + Math.floor((x - 90) / 4);
+    const g = new Ground(slope);
+    const b = new TownBuilder();
+    stockUp(b);
+    runDays(b, g, 8);
+    expect(b.toJSON()!.building).toBeGreaterThanOrEqual(1);
+    const plan = planTown(SEED, ORIGIN, (x, z) => new Ground(slope).townSurface(x, z))!;
+    const bay = plan.buildings[0];
+    const t = townTemplate('storage_bay')!;
+    const f = footprintOf(t, bay.rot);
+    let lo = Infinity;
+    const grounds: number[] = [];
+    for (let i = 0; i < f.w; i++) for (let j = 0; j < f.d; j++) {
+      grounds.push(slope(bay.x + i));
+      lo = Math.min(lo, slope(bay.x + i));
+    }
+    const base = lo + 1;
+    let k = 0;
+    for (let i = 0; i < f.w; i++) for (let j = 0; j < f.d; j++, k++) {
+      const gy = grounds[k];
+      for (let y = gy + 1; y < base; y++) expect(g.block(bay.x + i, y, bay.z + j), `stilt ${i},${j},${y}`).toBe('stone_brick');
+    }
+    expect(g.block(bay.x, base, bay.z)).toBe('oak_log');
+  });
+
+  it('keeps its progress through a save and a load, and an old save starts a town', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    stockUp(b);
+    runDays(b, g, 2);
+    const json = JSON.parse(JSON.stringify(b.toJSON()));
+    const b2 = new TownBuilder();
+    b2.load(json);
+    expect(b2.toJSON()).toEqual(json);
+    expect(b2.missing()).toEqual(b.missing());
+    const fresh = new TownBuilder();
+    fresh.load(undefined);
+    expect(fresh.toJSON()).toBeUndefined();
+    fresh.tick(0, new Ground(), SEED, ORIGIN);
+    expect(fresh.planned).not.toBeNull();
+  });
+});
+
+/** Moves the clock to `day`: its day phase runs through the budget when `full`, then one night tick turns the day. */
+function dayAt(b: TownBuilder, g: Ground, day: number, full = true): void {
+  g.dayNo = day;
+  if (full) {
+    g.tod = 0.4;
+    for (let t = 0; t < DAY_LENGTH_S * DAY_FRAC - 1e-9; t += 2) b.tick(2, g, SEED, ORIGIN);
+  }
+  g.tod = 0.99;
+  b.tick(0, g, SEED, ORIGIN);
+}
+
+describe('town builder: rest days, unlocks, chance drops and the bay crate', () => {
+  it('rests on a festival day: no budget is earned, and the next working day earns its own', () => {
+    expect(workDay(SEASON_DAYS)).toBe(false);
+    expect(workDay(SEASON_DAYS - 1)).toBe(true);
+    const g = new Ground();
+    const b = new TownBuilder();
+    stockUp(b);
+    dayAt(b, g, SEASON_DAYS);
+    expect(b.toJSON()!.cell).toBe(0);
+    expect(g.placedNonAir()).toHaveLength(0);
+    dayAt(b, g, SEASON_DAYS + 1);
+    expect(b.toJSON()!.cell).toBeGreaterThanOrEqual(DAY_BUDGET - 1);
+  });
+
+  it('skipped days: working days count in full, a skipped festival day counts for nothing', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    stockUp(b);
+    // The budget a turned day or a skipped day earns is spent into cells at once, so the owed budget and the cells count together.
+    dayAt(b, g, 5, false);
+    dayAt(b, g, 7, false);
+    expect(b.toJSON()!.cell + b.toJSON()!.owed).toBe(2 * DAY_BUDGET);
+    const g2 = new Ground();
+    const b2 = new TownBuilder();
+    stockUp(b2);
+    dayAt(b2, g2, SEASON_DAYS - 1, false);
+    dayAt(b2, g2, SEASON_DAYS + 1, false);
+    expect(b2.toJSON()!.cell + b2.toJSON()!.owed).toBe(DAY_BUDGET);
+  });
+
+  it('rolls chance drops from the seed: a dig repeats exactly, gravel is conserved and flint comes about one in four', () => {
+    const run = (): { gravel: number; flint: number } => {
+      const g = new Ground();
+      const plan = planTown(SEED, ORIGIN, (x, z) => g.townSurface(x, z))!;
+      const bay = plan.buildings[0];
+      const fp = footprintOf(townTemplate('storage_bay')!, bay.rot);
+      // Gravel on every other column of the footprint: the rest stay at ground level, so each gravel cell is a dig above the base.
+      for (let i = 0; i < fp.w; i++) for (let j = 0; j < fp.d; j++) if ((i + j) % 2 === 0) g.over.set(`${bay.x + i},11,${bay.z + j}`, { block: 'gravel', facing: 0 });
+      const b = new TownBuilder();
+      b.deliver('dirt', 2); // the bay's floor cell is dirt: Gruk waits on it before the digs
+      runDays(b, g, 3);
+      const st = b.stock();
+      return { gravel: st.gravel ?? 0, flint: st.flint ?? 0 };
+    };
+    const a = run();
+    const fp = footprintOf(townTemplate('storage_bay')!, 0);
+    expect(a.gravel).toBe(Math.ceil((fp.w * fp.d) / 2));
+    expect(a.flint).toBeGreaterThan(1);
+    expect(a.flint).toBeLessThan(18);
+    expect(run()).toEqual(a);
+  });
+
+  it('passes a locked building over: the next unlocked one is raised first, and the plan keeps the rest in order', () => {
+    const g = new Ground();
+    const b = new TownBuilder((t) => t !== 'storage_bay');
+    stockUp(b);
+    runDays(b, g, 1);
+    // The lodge is the next building after the bay in the order, so it is the first one unlocked.
+    expect(b.planned!.buildings[0].template).toBe('lodge');
+    expect(b.planned!.buildings.some((x) => x.template === 'storage_bay')).toBe(true);
+    expect(b.waitingOn()).toBeNull();
+    expect(g.placedNonAir().length).toBeGreaterThan(0);
+  });
+
+  it('waits and names the template it waits on when nothing planned is unlocked, then goes on when one unlocks', () => {
+    const g = new Ground();
+    const gate = { open: false };
+    const b = new TownBuilder(() => gate.open);
+    stockUp(b);
+    runDays(b, g, 2);
+    expect(b.waitingOn()).toBe('storage_bay');
+    expect(g.placedNonAir()).toHaveLength(0);
+    gate.open = true;
+    runDays(b, g, 1);
+    expect(b.waitingOn()).toBeNull();
+    expect(g.placedNonAir().length).toBeGreaterThan(0);
+  });
+
+  it('the storage bay crate mirrors the stock both ways, and a save keeps it without double counting', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    b.tick(0, g, SEED, ORIGIN);
+    const crate = new Inventory(27);
+    b.deliver('oak_log', 5);
+    b.syncCrate(crate);
+    expect(crate.count('oak_log')).toBe(5);
+    // The player puts planks in and takes two logs out: both count, and the crate and the stock agree.
+    crate.add('plank', 3);
+    crate.remove('oak_log', 2);
+    b.syncCrate(crate);
+    expect(b.stock().plank).toBe(3);
+    expect(b.stock().oak_log).toBe(3);
+    expect(crate.count('oak_log')).toBe(3);
+    // A delivery shows in the crate; the next look adds nothing twice.
+    b.deliver('glass', 4);
+    b.syncCrate(crate);
+    expect(crate.count('glass')).toBe(4);
+    b.syncCrate(crate);
+    expect(b.stock().plank).toBe(3);
+    expect(b.stock().glass).toBe(4);
+    // Saved and loaded: the first look after the load changes nothing.
+    const b2 = new TownBuilder();
+    b2.load(JSON.parse(JSON.stringify(b.toJSON())));
+    b2.syncCrate(crate);
+    expect(b2.stock()).toEqual(b.stock());
+    // No crate (not built, or broken): the stock stays.
+    b2.syncCrate(null);
+    expect(b2.stock()).toEqual(b.stock());
+  });
+
+  it('the builder takes from the crate: after building, the crate holds what the stock holds', () => {
+    const g = new Ground();
+    const b = new TownBuilder();
+    const crate = new Inventory(27);
+    b.deliver('oak_log', 20);
+    b.deliver('stone_brick', 20);
+    b.deliver('dirt', 4);
+    b.syncCrate(crate);
+    runDays(b, g, 2);
+    b.syncCrate(crate);
+    expect(g.placedNonAir().length).toBeGreaterThan(0);
+    for (const item of ['oak_log', 'stone_brick']) expect(crate.count(item)).toBe(b.stock()[item] ?? 0);
+    expect(b.stock().oak_log ?? 0).toBeLessThan(20);
+  });
+});
+
+describe('town builder: the builder', () => {
+  it('is Gruk (BUILDER_ID), and the build board pays trust to that id', () => {
+    expect(BUILDER_ID).toBe('gruk');
+  });
+});

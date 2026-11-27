@@ -7,9 +7,13 @@
  * wellsprings, the rune desk, tubes, the altar and the first foci; Forge the iron rod, warding and blinking, the clay
  * servant, the void jar, alchemical steel and drawing compound aspects. The tech spine never needs any of it.
  */
-import type { Aspect } from './aspects';
-import { cellAt, type BoardSpec } from './board';
+import type { Aspect, Aspects } from './aspects';
+import { corner, hexCell, type BoardSpec } from './board';
 import type { AgeName } from './ageMap';
+import { WAND_CAPS, WAND_CORES, wandKey } from '../content/itemsMagic';
+import { ENCHANTS, enchantEntryKey } from '../core/enchant';
+
+const WAND_RECIPES = WAND_CORES.flatMap((c) => WAND_CAPS.map((p) => wandKey(c.key, p.key)));
 
 export interface ResearchEntry {
   key: string;
@@ -19,31 +23,92 @@ export interface ResearchEntry {
   requires: readonly string[];
   /** null = done on the first scan (the opening note). */
   board: BoardSpec | null;
+  /** Lore spent to start the research notes, Thaumcraft style: one of each anchor's aspect. */
+  cost: Aspects;
   unlocks: { recipes?: readonly string[]; flags?: readonly string[] };
+  /**
+   * An enchant note (docs/plans/enchantments.md): no board and never opened by a scan. The Infusion Altar writes it the
+   * first time it teaches `enchant` (src/magic/research.ts `learnEnchant`); until then its text says nothing of the aspect.
+   */
+  learn?: { enchant?: string; practice?: Practice };
 }
 
-/** Two anchors across the middle row, optional blocked cells. */
-const pair = (a: Aspect, b: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 2), aspect: a }, { cell: cellAt(4, 2), aspect: b }],
-  blocked,
-});
-/** Two anchors in opposite corners. */
-const corners = (a: Aspect, b: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 0), aspect: a }, { cell: cellAt(4, 4), aspect: b }],
-  blocked,
-});
-const triple = (a: Aspect, b: Aspect, c: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 0), aspect: a }, { cell: cellAt(4, 0), aspect: b }, { cell: cellAt(2, 4), aspect: c }],
-  blocked,
-});
-const quad = (a: Aspect, b: Aspect, c: Aspect, d: Aspect, blocked: number[] = []): BoardSpec => ({
-  anchors: [{ cell: cellAt(0, 0), aspect: a }, { cell: cellAt(4, 0), aspect: b }, { cell: cellAt(0, 4), aspect: c }, { cell: cellAt(4, 4), aspect: d }],
-  blocked,
-});
-/** A wall down the middle column with one gap at row `gap`. */
-const wall = (gap: number): number[] => [0, 1, 2, 3, 4].filter((y) => y !== gap).map((y) => cellAt(2, y));
+/**
+ * Research by doing: an insight note with no board. It is written when the player has used something `need` times
+ * (`notePractice` in research.ts counts each use under `key`), and only once its `requires` are done, so the order of the
+ * tree still holds. `unlocks` works as for any entry. The counter keeps running in old saves from the day this shipped.
+ */
+export interface Practice { key: string; need: number; /** What the counter counts, in the notebook: "draws with a rod". */ what: string }
 
-export const RESEARCH: readonly ResearchEntry[] = [
+/**
+ * A board drawn for a radius: research complexity grows with the age (Ember 2, Bronze 3, Forge 4), so the same layout is
+ * a bigger hexagon later on. Anchors sit on the hexagon's corners; `blots` are ink blots placed on a 5 x 5 sketch of the
+ * board (x, y in 0..4, centre 2, 2) and scaled onto the hexagon.
+ */
+type Draft = (radius: number) => BoardSpec;
+type Blot = (radius: number) => number[];
+
+/** A blot at sketch position (x, y). */
+const cellAt = (x: number, y: number): Blot => (R) => {
+  const r = Math.round(((y - 2) * R) / 2);
+  const q = Math.round(((x - 2) * R) / 2 - r / 2);
+  const c = hexCell(R, q, r);
+  return c >= 0 ? [c] : [];
+};
+/** A wall of ink down the middle with one gap at sketch row `gap`. */
+const wall = (gap: number): Blot => (R) => {
+  const gr = Math.round(((gap - 2) * R) / 2);
+  const out: number[] = [];
+  for (let r = -R; r <= R; r++) if (r !== gr) { const c = hexCell(R, Math.round(-r / 2), r); if (c >= 0) out.push(c); }
+  return out;
+};
+const draft = (corners: number[], aspects: Aspect[], blots: Blot[]): Draft => (R) => {
+  const anchors = corners.map((i, k) => ({ cell: corner(R, i), aspect: aspects[k] }));
+  const taken = new Set(anchors.map((a) => a.cell));
+  const blocked = [...new Set(blots.flatMap((b) => b(R)))].filter((c) => !taken.has(c));
+  return { radius: R, anchors, blocked };
+};
+/** Two anchors at the left and right corners. */
+const pair = (a: Aspect, b: Aspect, blots: Blot[] = []): Draft => draft([0, 3], [a, b], blots);
+/** Two anchors at opposite corners (top left, bottom right). */
+const corners = (a: Aspect, b: Aspect, blots: Blot[] = []): Draft => draft([1, 4], [a, b], blots);
+const triple = (a: Aspect, b: Aspect, c: Aspect, blots: Blot[] = []): Draft => draft([1, 3, 5], [a, b, c], blots);
+const quad = (a: Aspect, b: Aspect, c: Aspect, d: Aspect, blots: Blot[] = []): Draft => draft([1, 2, 5, 4], [a, b, c, d], blots);
+
+/** Research complexity: the board's radius by age. */
+export const BOARD_RADIUS: Record<string, number> = { ember: 2, bronze: 3, forge: 4 };
+
+/** Recipe ids of the attuned tools (src/content/recipesMagic.ts), by the metal of the plain tool. */
+const ATTUNE_RECIPES: Record<'bronze' | 'iron', string[]> = { bronze: [], iron: [] };
+for (const metal of ['bronze', 'iron'] as const) {
+  for (const kind of ['pickaxe', 'axe', 'shovel']) for (const aspect of ['rune', 'gale']) ATTUNE_RECIPES[metal].push(`${aspect}_${metal}_${kind}`);
+}
+
+/** Insight notes (research by doing): earned by using a thing, not by scanning or solving a board. Each wants its tree entry first. */
+const PRACTICE_NOTES: Omit<ResearchEntry, 'board' | 'cost'>[] = [
+  {
+    key: 'steady_hand', title: 'A Steady Hand', age: 'ember', requires: ['gathering_rod'], unlocks: { flags: ['steady_rod'] },
+    text: 'A rod is learned by drawing with it. After enough draws your hand stops fighting it, and the rod drinks a fifth faster.',
+    learn: { practice: { key: 'rod_draw', need: 400, what: 'draws with a rod' } },
+  },
+  {
+    key: 'crucible_sense', title: 'A Feel for the Pot', age: 'ember', requires: ['crucible'], unlocks: { flags: ['crucible_sense'] },
+    text: 'Melt enough things down and you learn which of them keep their nature: a crucible you work spills a little less as flux.',
+    learn: { practice: { key: 'crucible_melt', need: 12, what: 'things melted in a crucible' } },
+  },
+  {
+    key: 'patient_altar', title: 'A Patient Altar', age: 'bronze', requires: ['infusion'], unlocks: { flags: ['patient_altar'] },
+    text: 'Having watched a few infusions through, you know when to feed the altar: its work takes a sixth less time.',
+    learn: { practice: { key: 'infuse', need: 3, what: 'infusions finished' } },
+  },
+  {
+    key: 'thrifty_caster', title: 'A Thrifty Caster', age: 'bronze', requires: ['focus_kindle'], unlocks: { flags: ['thrifty_caster'] },
+    text: 'Every cast teaches you what to leave out. Each focus costs a tenth less vis (never below one).',
+    learn: { practice: { key: 'cast', need: 20, what: 'casts of a focus' } },
+  },
+];
+
+const DRAFTS: readonly (Omit<ResearchEntry, 'board' | 'cost'> & { board: Draft | null })[] = [
   // ---- Ember -------------------------------------------------------------------------------------------------------
   {
     key: 'field_notes', title: 'Field Notes', age: 'ember', requires: [], board: null, unlocks: {},
@@ -55,9 +120,14 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Clear glass holds what it is shown. Link Clarity to Craft and you will know how to blow a vial that keeps essentia.',
   },
   {
+    key: 'crucible', title: 'The Crucible', age: 'ember', requires: ['glassware'], board: pair('steam', 'craft'),
+    unlocks: { recipes: ['crucible', 'alch_copper', 'alch_tin', 'alch_glass', 'alch_coal', 'alch_clay'] },
+    text: 'Water over fire unmakes what falls into it. Things dropped in a hot crucible melt into essentia; a vial dipped in takes some out; the right catalyst comes out as something new. Link Steam to Craft.',
+  },
+  {
     key: 'gathering_rod', title: 'The Gathering Rod', age: 'ember', requires: ['glassware'], board: pair('mind', 'spring', [cellAt(2, 2)]),
     unlocks: { recipes: ['vis_rod'] },
-    text: 'The land breathes out its nature. A rod with a vial at its tip, held still, drinks it in. Link Mind to Spring.',
+    text: 'The land breathes out raw vis. A rod held still drinks it in, one pool for each primal; compounds split into their parts. Arcane work and foci spend it. Link Mind to Spring.',
   },
   {
     key: 'essence_jar', title: 'A Jar to Keep It', age: 'ember', requires: ['glassware'], board: pair('clarity', 'ward'),
@@ -70,12 +140,12 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Essentia read slowly teaches as much as the thing it came from. In the notebook, study a filled vial: it gives lore of its aspect and the vial back.',
   },
   {
-    key: 'warm_hearth', title: 'Cinder for the Hearth', age: 'ember', requires: ['gathering_rod'], board: pair('cinder', 'craft', [cellAt(1, 2), cellAt(3, 2)]),
-    unlocks: { flags: ['hearth_cinder'] },
+    key: 'warm_hearth', title: 'Cinder for the Hearth', age: 'ember', requires: ['crucible'], board: pair('cinder', 'craft', [cellAt(1, 2), cellAt(3, 2)]),
+    unlocks: { recipes: ['brew_haste', 'brew_stoneskin', 'brew_mending', 'brew_clarity'], flags: ['hearth_cinder'] },
     text: 'A vial of Cinder tipped into a furnace fire makes the fuel last longer. Link Cinder to Craft around the stones.',
   },
   {
-    key: 'still_trace', title: 'Essence in the Still', age: 'ember', requires: ['gathering_rod'], board: triple('steam', 'mind', 'clarity'),
+    key: 'still_trace', title: 'Essence in the Still', age: 'ember', requires: ['crucible'], board: triple('steam', 'mind', 'clarity'),
     unlocks: { flags: ['still_clarity'] },
     text: 'A vial poured into a still bends the brew. Clarity draws the water out of what sits in a flask. Link Steam, Mind and Clarity.',
   },
@@ -88,11 +158,16 @@ export const RESEARCH: readonly ResearchEntry[] = [
   {
     key: 'rune_desk', title: 'The Rune Desk', age: 'bronze', requires: ['essence_jar'], board: corners('rune', 'craft', [cellAt(1, 1), cellAt(3, 3)]),
     unlocks: { recipes: ['rune_desk'] },
-    text: 'A desk scored with signs pays for its work in essentia from the jars around it and the vials you carry. Link Rune to Craft.',
+    text: 'A desk scored with signs pays for its work in vis from the rods you carry. Link Rune to Craft.',
   },
   {
-    key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', wall(1)),
-    unlocks: { recipes: ['bronze_rod'] },
+    key: 'arcane_bench', title: 'The Arcane Workbench', age: 'bronze', requires: ['rune_desk'], board: pair('rune', 'vein'),
+    unlocks: { recipes: ['arcane_workbench', 'sanity_soap'] },
+    text: 'Small work does not need a whole desk. A bench scored with the same signs makes ordinary things for a little vis, such as the soap that scrubs warp away. Link Rune to Vein.',
+  },
+  {
+    key: 'bronze_rod', title: 'A Bronze Rod', age: 'bronze', requires: ['rune_desk'], board: pair('vein', 'gale', [wall(1)]),
+    unlocks: { recipes: ['bronze_rod', ...WAND_RECIPES.filter((r) => !r.startsWith('wand_iron')), ] },
     text: 'Bronze holds more and drinks faster. Made at the Rune Desk from the wooden rod. Link Vein to Gale past the wall.',
   },
   {
@@ -101,12 +176,12 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Here and there the land wells up as a floating crystal. A rod held near one draws its aspect twice as fast, and it fills again.',
   },
   {
-    key: 'essentia_tubes', title: 'Glass Tubes', age: 'bronze', requires: ['essence_jar', 'rune_desk'], board: pair('clarity', 'brook', wall(3)),
-    unlocks: { recipes: ['essentia_tube'] },
+    key: 'essentia_tubes', title: 'Glass Tubes', age: 'bronze', requires: ['essence_jar', 'rune_desk'], board: pair('clarity', 'brook', [wall(3)]),
+    unlocks: { recipes: ['essentia_tube', 'linked_mirror'] },
     text: 'Tubes join jars to the desk, the altar and the furnace: anything that needs essentia draws it through them from any jar on the line.',
   },
   {
-    key: 'hearth_siphon', title: 'The Hearth Siphon', age: 'bronze', requires: ['warm_hearth', 'essentia_tubes'], board: corners('cinder', 'brook', wall(2)),
+    key: 'hearth_siphon', title: 'The Hearth Siphon', age: 'bronze', requires: ['warm_hearth', 'essentia_tubes'], board: corners('cinder', 'brook', [wall(2)]),
     unlocks: { flags: ['hearth_siphon'] },
     text: 'A jar of Cinder touching a burning furnace, or tubed to it, feeds the fire by itself whenever it runs low.',
   },
@@ -117,7 +192,7 @@ export const RESEARCH: readonly ResearchEntry[] = [
   },
   {
     key: 'focus_kindle', title: 'Kindling Focus', age: 'bronze', requires: ['bronze_rod'], board: pair('cinder', 'mind', [cellAt(1, 1), cellAt(1, 3), cellAt(3, 1), cellAt(3, 3)]),
-    unlocks: { recipes: ['focus_kindle'] },
+    unlocks: { recipes: ['focus_kindle', 'focus_mod_reach', 'focus_mod_power', 'focus_mod_cost'] },
     text: 'A focus shapes the rod\'s charge. Kindling lights a furnace from a distance and sets fires going.',
   },
   {
@@ -126,19 +201,24 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Gale and Cinder together make a light that stays where you point. Each costs the rod a little charge.',
   },
   {
-    key: 'scrying_lens', title: 'The Scrying Lens', age: 'bronze', requires: ['infusion'], board: triple('vein', 'mind', 'clarity', wall(4)),
+    key: 'scrying_lens', title: 'The Scrying Lens', age: 'bronze', requires: ['infusion'], board: triple('vein', 'mind', 'clarity', [wall(4)]),
     unlocks: { recipes: ['vein_lens'] },
     text: 'A lens infused with Vein and Mind: carried, every new thing you note teaches half again as much lore.',
   },
+  {
+    key: 'attunement', title: 'Attunement', age: 'bronze', requires: ['infusion'], board: triple('rune', 'gale', 'craft'),
+    unlocks: { recipes: [...ATTUNE_RECIPES.bronze, 'charm_ward', 'charm_speed', 'charm_hunger'] },
+    text: 'The first lesson in tempering: set a plain bronze tool at the heart of the altar with two vials of Rune or of Gale around it. Rune keeps the edge, Gale sharpens it.',
+  },
   // ---- Forge -------------------------------------------------------------------------------------------------------
   {
-    key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', wall(0)),
-    unlocks: { recipes: ['iron_rod'] },
+    key: 'iron_rod', title: 'An Iron Rod', age: 'forge', requires: ['bronze_rod'], board: corners('vein', 'ward', [wall(0)]),
+    unlocks: { recipes: ['iron_rod', ...WAND_RECIPES.filter((r) => r.startsWith('wand_iron'))] },
     text: 'Iron is patient: the iron rod holds twice the bronze one and draws three units at a time.',
   },
   {
-    key: 'focus_ward', title: 'Warding Focus', age: 'forge', requires: ['focus_kindle'], board: pair('ward', 'rune', wall(2).concat([cellAt(1, 0)])),
-    unlocks: { recipes: ['focus_ward'] },
+    key: 'focus_ward', title: 'Warding Focus', age: 'forge', requires: ['focus_kindle'], board: pair('ward', 'rune', [wall(2), cellAt(1, 0)]),
+    unlocks: { recipes: ['focus_ward', 'focus_cleanse'] },
     text: 'Loam and Rift held in balance: for a short while every blow you take is softened.',
   },
   {
@@ -147,8 +227,8 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Drive the body through the air in an eye-blink: a short step to where you look.',
   },
   {
-    key: 'clay_servant', title: 'The Clay Servant', age: 'forge', requires: ['infusion', 'wellsprings'], board: triple('spring', 'mind', 'craft', wall(2)),
-    unlocks: { recipes: ['clay_servant'] },
+    key: 'clay_servant', title: 'The Clay Servant', age: 'forge', requires: ['infusion', 'wellsprings'], board: triple('spring', 'mind', 'craft', [wall(2)]),
+    unlocks: { recipes: ['clay_servant', 'wood_golem', 'stone_golem', 'iron_golem', 'golem_pull_marker', 'golem_drop_marker'] },
     text: 'A clay figure given Spring and Mind turns a crank beside it for as long as a jar it touches feeds it.',
   },
   {
@@ -162,11 +242,35 @@ export const RESEARCH: readonly ResearchEntry[] = [
     text: 'Iron and coal on the altar, fed Cinder and Vein, come out as steel without a blast furnace. Slow and costly, but it works.',
   },
   {
+    key: 'master_attunement', title: 'Master Attunement', age: 'forge', requires: ['attunement', 'alchemical_steel'], board: triple('rune', 'vein', 'gale', [wall(2)]),
+    unlocks: { recipes: ATTUNE_RECIPES.iron },
+    text: 'What the altar did for bronze it does for iron, deeper: tempered iron tools outlast and outcut every plain one until steel.',
+  },
+  {
     key: 'compound_draw', title: 'Drawing the Compounds', age: 'forge', requires: ['wellsprings', 'iron_rod'], board: quad('steam', 'vein', 'glow', 'spring'),
     unlocks: { flags: ['compound_draw'] },
     text: 'A practised hand draws Vein, Glow or Steam straight from the land, not only the six primal aspects.',
   },
 ];
+
+/** One enchant note per enchant in the registry: learned by testing at the altar, so each waits for `infusion`. */
+const ENCHANT_NOTES: Omit<ResearchEntry, 'board' | 'cost'>[] = ENCHANTS.map((e) => ({
+  key: enchantEntryKey(e.key),
+  title: e.name,
+  text: 'An enchantment the altar can write onto a tool. Put a tool on the altar with no recipe and essentia nearby: when the altar hums, Use it with a rod until it takes. The note is written then.',
+  age: e.key === 'veinseeker' || e.key === 'magnet' ? 'bronze' : 'forge',
+  requires: ['infusion'],
+  unlocks: {},
+  learn: { enchant: e.key },
+}));
+
+/** Every entry with its board drawn at its age's complexity, and what starting its notes costs. */
+export const RESEARCH: readonly ResearchEntry[] = [...DRAFTS.map((d) => {
+  const board = d.board ? d.board(BOARD_RADIUS[d.age] ?? 3) : null;
+  const cost: Aspects = {};
+  for (const a of board?.anchors ?? []) cost[a.aspect] = 1;
+  return { ...d, board, cost };
+}), ...[...PRACTICE_NOTES, ...ENCHANT_NOTES].map((n) => ({ ...n, board: null, cost: {} as Aspects }))];
 
 const BY_KEY = new Map(RESEARCH.map((e) => [e.key, e]));
 export const researchEntry = (key: string): ResearchEntry | null => BY_KEY.get(key) ?? null;

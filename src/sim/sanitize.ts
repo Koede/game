@@ -5,6 +5,7 @@
  * coerced to its type (slot lists to valid stacks, numbers to finite numbers, the tier into range), in place; what
  * cannot be repaired is reported so the caller drops it.
  */
+import { sanitizeEnchants } from '../core/enchant';
 import { MACHINES, MAX_FURNACE_TIER, canonicalItemKey, fluidOrNull, fuelOf, itemOrNull, recipe } from '../core/registry';
 import { PIPE_FILTER_SLOTS, PIPE_PRIORITY_MAX, PIPE_PRIORITY_MIN } from '../core/constants';
 import type { BlockEntity, Slot } from '../core/types';
@@ -25,6 +26,9 @@ function cleanSlot(v: unknown): Slot {
   if (key === null) return null;
   const s: Exclude<Slot, null> = { item: key, count: Math.floor(v.count) };
   if (finite(v.durability)) s.durability = v.durability;
+  if (v.quality === 1 || v.quality === 2) s.quality = v.quality;
+  const enchants = sanitizeEnchants(v.enchants);
+  if (enchants) s.enchants = enchants;
   return s;
 }
 
@@ -103,6 +107,9 @@ export function sanitizeEntity(e: BlockEntity, blockTier: number | null = null):
     if (effTier < 1 || effTier > (f.tier as number) || !Number.isInteger(effTier)) set('effTier', 1);
     if (f.hearth !== null && !validSummary(f.hearth)) set('hearth', null);
   } else {
+    // Wear arrived later: absent is fine (as new), a bad value is reset.
+    if ('wear' in f && !(finite(f.wear) && f.wear >= 0 && f.wear <= 1)) set('wear', 0);
+    if ('kept' in f && typeof f.kept !== 'boolean') set('kept', false);
     if (f.recipe !== null && !(typeof f.recipe === 'string' && recipe(f.recipe))) set('recipe', null);
     for (const key of ['fluidIn', 'fluidOut']) if (f[key] !== null && !cleanFluid(f[key])) set(key, null);
     for (const key of ['drawnL', 'rateL']) if (key in f && !finite(f[key])) set(key, 0);

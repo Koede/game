@@ -118,6 +118,8 @@ export interface CropContext {
   sunUp: boolean;
   /** Rain or snow soaks an exposed crop at this position this tick (spec 15); null when nothing soaks anywhere. */
   wetAt: ((x: number, y: number, z: number) => boolean) | null;
+  /** Seasonal growth multiplier of a crop at a position (src/sim/seasons.ts); absent = 1. */
+  scale?: ((crop: string, x: number, y: number, z: number, exposed: boolean) => number) | null;
 }
 
 /** Daylight under open sky, or a powered lamp in reach (any hour, underground too). */
@@ -133,7 +135,8 @@ export function growthRate(c: CropNode, ctx: CropContext): number {
   if (c.info === null || c.info.next < 0) return 0;
   if (c.info.wild) return 1;
   if (!c.soil || !isLit(c, ctx)) return 0;
-  return isHydrated(c, ctx) ? 1 : DRY_RATE;
+  const base = isHydrated(c, ctx) ? 1 : DRY_RATE;
+  return ctx.scale ? base * ctx.scale(c.info.crop, c.e.x, c.e.y, c.e.z, c.rain) : base;
 }
 
 /** What a crop is doing, for whoever wants to show it (crops have no screen; spec 12.4). */

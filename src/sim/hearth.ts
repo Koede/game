@@ -8,7 +8,7 @@
  * HEARTH_RESCAN_RANGE or its screen is open; a formed one re-reads one cell of its box every HEARTH_VERIFY_TICKS
  * ticks as a safety net.
  */
-import { FIRST_HEARTH_TIER, HEARTH_RESCAN_RANGE, HEARTH_RESCAN_S, HEARTH_VERIFY_TICKS, PLAYER_HEIGHT } from '../core/constants';
+import { AIR_NOZZLE_TUYERES, FIRST_HEARTH_TIER, HEARTH_RESCAN_RANGE, HEARTH_RESCAN_S, HEARTH_VERIFY_TICKS, PLAYER_HEIGHT } from '../core/constants';
 import type { GameBus } from '../core/context';
 import { machine } from '../core/registry';
 import { CHUNK_SIZE, voxelActive, voxelFacing, voxelId, withActive, type Facing, type IWorld } from '../core/types';
@@ -32,6 +32,8 @@ export interface HearthHost {
   readonly player: PlayerState;
   /** Tracked machine nodes by position key. */
   readonly byKey: ReadonlyMap<string, SimNode>;
+  /** The air network: a Blast Nozzle takes its air from here. */
+  readonly air: { feed(x: number, y: number, z: number, dt: number): boolean };
   /** Sets a machine node's active flag (and its voxel) when it differs. */
   setActive(node: SimNode, active: boolean): void;
   /** A formed shell changed: power links (ports) and what touches it (heat engines, blowers) must be refreshed. */
@@ -52,6 +54,9 @@ export class Hearth implements ExtraFuel {
   scans = 0;
   /** Nodes of the formed hearth's parts, resolved when it formed. */
   blowers: SimNode[] = [];
+  /** Blast Nozzles of the formed hearth, and how many of them were fed air this tick. */
+  nozzles: Pos[] = [];
+  nozzlesFed = 0;
   fluidHatches: SimNode[] = [];
   itemHatches: SimNode[] = [];
   ports: SimNode[] = [];
@@ -133,6 +138,7 @@ export class Hearth implements ExtraFuel {
     const e = this.e;
     let tuyeres = 0;
     for (const b of this.blowers) if (b.active) tuyeres++;
+    tuyeres += this.nozzlesFed * AIR_NOZZLE_TUYERES;
     if (this.node.fs && this.statsTier === e.tier && this.statsHearth === e.hearth && this.statsTuyeres === tuyeres) return;
     this.statsTier = e.tier;
     this.statsHearth = e.hearth;
@@ -261,7 +267,13 @@ export class HearthSet {
       h.schedule(world, dt, near);
     }
     this.validate();
-    for (const h of this.list) h.refreshStats();
+    for (const h of this.list) {
+      // A burning hearth blows its nozzles: each takes its air from the network and counts as tuyeres while it is fed.
+      let fed = 0;
+      if (h.formed && h.e.lit) for (const [x, y, z] of h.nozzles) if (this.host.air.feed(x, y, z, dt)) fed++;
+      h.nozzlesFed = fed;
+      h.refreshStats();
+    }
   }
 
   /** Runs every due scan whose chunks are loaded (views and actions call it too, so they see edits at once). */
@@ -276,7 +288,7 @@ export class HearthSet {
       const facing = voxelFacing(world.getVoxel(e.x, e.y, e.z));
       const prev = h.lastBox ?? (e.hearth ? boxOfSummary(e, facing, e.hearth) : null);
       const want = structureOf(defaultTargetTier(e)).maxInner;
-      const scan = scanHearth(world, e.x, e.y, e.z, facing, { prev, maxAcross: Math.max(want[0], want[1]) });
+      const scan = scanHearth(world, e.x, e.y, e.z, facing, { prev, maxAcross: Math.max(want[0], want[1]), legacyHearth: e.legacyHearth === true });
       h.scan = scan;
       const next = summaryOf(scan);
       this.apply(h, next, next ? scan : null, true);
@@ -298,6 +310,7 @@ export class HearthSet {
     if (next && scan) {
       h.lastBox = scan.box;
       h.blowers = this.nodesAt(scan.blowers);
+      h.nozzles = scan.nozzles;
       h.fluidHatches = this.nodesAt(scan.fluidHatches);
       h.itemHatches = this.nodesAt(scan.itemHatches);
       h.ports = this.nodesAt(scan.ports);
@@ -310,6 +323,8 @@ export class HearthSet {
       this.link(h);
     } else {
       h.blowers = [];
+      h.nozzles = [];
+      h.nozzlesFed = 0;
       h.fluidHatches = [];
       h.itemHatches = [];
       h.ports = [];

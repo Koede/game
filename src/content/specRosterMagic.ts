@@ -10,27 +10,39 @@ const ASPECT_NAMES = [
 ];
 
 export const MAGIC_SPEC = {
-  blocks: ['essentia_jar', 'void_jar', 'essentia_tube', 'rune_desk', 'infusion_altar', 'arcane_pedestal', 'clay_servant', 'magic_light'],
+  blocks: ['research_table', 'arcane_workbench', 'crucible', 'essentia_jar', 'void_jar', 'essentia_tube', 'rune_desk', 'infusion_altar', 'arcane_pedestal', 'clay_servant', 'magic_light', 'wood_golem', 'stone_golem', 'iron_golem', 'golem_pull_marker', 'golem_drop_marker', 'linked_mirror', 'tainted_soil'],
   items: [
-    'field_notebook', 'glass_vial', 'vis_rod', 'bronze_rod', 'iron_rod',
+    'field_notebook', 'scribing_tools', 'sanity_soap', 'glass_vial', 'vis_rod', 'bronze_rod', 'iron_rod',
     'focus_kindle', 'focus_light', 'focus_ward', 'focus_blink', 'vein_lens',
     ...ASPECT_NAMES.map((a) => `vial_${a}`),
+    'charm_ward', 'charm_speed', 'charm_hunger', 'focus_mod_reach', 'focus_mod_power', 'focus_mod_cost',
+    'potion_haste', 'potion_stoneskin', 'potion_mending', 'potion_clarity',
+    'scroll_ledger', 'scroll_verses', 'scroll_margin', 'focus_cleanse',
+    ...['reed', 'bronze', 'iron'].flatMap((c) => ['copper', 'tin', 'bronze'].map((p) => `wand_${c}_${p}`)),
   ],
   recipes: {
-    hand: ['field_notebook: 1 field_notebook <- 1 plank, 3 fiber, 1 charcoal'],
+    hand: [
+      'field_notebook: 1 field_notebook <- 1 plank, 3 fiber, 1 charcoal',
+      'scribing_tools: 1 scribing_tools <- 1 stick, 1 charcoal, 1 fiber',
+    ],
     workbench: [
+      'research_table: 1 research_table <- 4 plank, 2 stick',
+      'crucible: 1 crucible <- 4 stone_brick, 1 pail',
       'vis_rod: 1 vis_rod <- 2 stick, 1 glass_vial, 1 copper_ingot',
       'essentia_jar: 1 essentia_jar <- 3 glass, 1 plank',
     ],
     furnace: [
       'glass_vial: 2 glass_vial <- 1 glass @650 T1',
       'rune_desk: 1 rune_desk <- 4 plank, 2 copper_ingot, 1 glass @500 T2',
+      'arcane_workbench: 1 arcane_workbench <- 4 plank, 1 copper_ingot, 1 glass @500 T2',
       'essentia_tube: 4 essentia_tube <- 2 glass, 1 copper_ingot @650 T2',
       'arcane_pedestal: 1 arcane_pedestal <- 3 stone_brick, 1 copper_ingot @500 T2',
     ],
   } as Record<string, string[]>,
+  /** Found only in the deep ruins' crates, never made. */
+  worldOnly: ['scroll_ledger', 'scroll_verses', 'scroll_margin', 'orrins_spare_pick'],
   /** Texture layers: 24 + 7 item icons, the jar faces and 15 faces of the second slice (the atlas splits past the device limit). */
-  textures: 48,
+  textures: 91,
 };
 
 export const MAGIC_RECIPE_COUNT = Object.values(MAGIC_SPEC.recipes).reduce((n, l) => n + l.length, 0);

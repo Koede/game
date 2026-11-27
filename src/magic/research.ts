@@ -1,20 +1,26 @@
 /**
- * Per-player research state (docs/OVERHAUL_PLAN.md B.6): what was scanned, which aspects are known, spendable lore per
- * aspect, and each entry's board. Pure functions over plain JSON so it saves as is.
+ * Per-player research state, Thaumcraft style (docs/api/magic.md): what was scanned, which aspects are known, spendable
+ * lore per aspect, and each research's notes. A research opens when what it requires is done; starting its notes costs
+ * one lore of each anchor aspect; at a research table every aspect written onto the notes costs one lore (and ink, see
+ * magic.ts) and erasing gives nothing back; two aspects combine into their compound. Pure functions over plain JSON.
  */
-import { ASPECT_LIST, isAspect, type Aspect, type Aspects } from './aspects';
+import { ASPECT_LIST, ASPECTS, aspectInfo, isAspect, type Aspect, type Aspects } from './aspects';
 import { boardHint, boardSolved, cellFree, type BoardTokens } from './board';
+import { enchantEntryKey } from '../core/enchant';
 import { RESEARCH, researchEntry, type ResearchEntry } from './entries';
 
 /** Lore gained per aspect from one first scan, at most. */
 export const SCAN_LORE_CAP = 4;
 /** Aspects every player knows from the start (what a stick and a stone teach). */
+/** No count goes past this. */
+const PRACTICE_CAP = 99999;
 export const STARTING_ASPECTS: readonly Aspect[] = ['loam', 'spring', 'craft'];
 
-export interface EntryState { done: boolean; tokens: BoardTokens }
+/** begun: the notes exist (their cost is paid); done: the board was solved and the research learned. */
+export interface EntryState { done: boolean; begun?: boolean; tokens: BoardTokens }
 
 export interface ResearchState {
-  v: 1;
+  v: 2;
   scanned: string[];
   known: Aspect[];
   lore: Aspects;
@@ -24,9 +30,11 @@ export interface ResearchState {
    * here or on a finished entry. Omitted when empty; not a research entry of its own.
    */
   flags?: string[];
+  /** Research by doing: how many times each practice (see `Practice` in entries.ts) has been done. Omitted when empty. */
+  practice?: Record<string, number>;
 }
 
-export const freshResearch = (): ResearchState => ({ v: 1, scanned: [], known: [...STARTING_ASPECTS], lore: {}, entries: {} });
+export const freshResearch = (): ResearchState => ({ v: 2, scanned: [], known: [...STARTING_ASPECTS], lore: {}, entries: {} });
 
 export interface ScanResult {
   first: boolean;
@@ -52,7 +60,7 @@ export function scanObject(s: ResearchState, key: string, fingerprint: Aspects, 
   }
   const finished: string[] = [];
   for (const e of RESEARCH) {
-    if (e.board === null && isOpen(s, e) && !isDone(s, e.key)) { entryState(s, e.key).done = true; finished.push(e.key); }
+    if (e.board === null && !e.learn && isOpen(s, e) && !isDone(s, e.key)) { entryState(s, e.key).done = true; finished.push(e.key); }
   }
   return { first: true, gained, learned, finished };
 }
@@ -64,23 +72,98 @@ function entryState(s: ResearchState, key: string): EntryState {
   return (s.entries[key] ??= { done: false, tokens: {} });
 }
 
-export type EntryStatus = 'locked' | 'open' | 'done';
-export const entryStatus = (s: ResearchState, e: ResearchEntry): EntryStatus => (isDone(s, e.key) ? 'done' : isOpen(s, e) ? 'open' : 'locked');
+/** locked: an earlier research is missing; open: can be started; begun: the notes exist; done: learned. */
+export type EntryStatus = 'locked' | 'open' | 'begun' | 'done';
+export const entryStatus = (s: ResearchState, e: ResearchEntry): EntryStatus =>
+  isDone(s, e.key) ? 'done' : !isOpen(s, e) ? 'locked' : s.entries[e.key]?.begun ? 'begun' : 'open';
+
+/** What starting the notes still needs: aspects you lack the lore (or the knowledge) for. */
+export function beginShortfall(s: ResearchState, e: ResearchEntry): Aspect[] {
+  return (Object.keys(e.cost) as Aspect[]).filter((a) => !s.known.includes(a) || (s.lore[a] ?? 0) < (e.cost[a] ?? 0));
+}
+
+/** Starts a research's notes: pays one lore of each anchor aspect. */
+export function beginResearch(s: ResearchState, key: string): PlaceResult {
+  const e = researchEntry(key);
+  if (!e || !e.board) return { ok: false, reason: 'Nothing to research' };
+  if (isDone(s, key)) return { ok: false, reason: 'Already learned' };
+  if (!isOpen(s, e)) return { ok: false, reason: 'Finish the earlier research first' };
+  if (s.entries[key]?.begun) return { ok: true };
+  const short = beginShortfall(s, e);
+  if (short.length) return { ok: false, reason: `You need lore of ${short.map((a) => aspectInfo(a).name).join(', ')}: scan more things` };
+  for (const [a, n] of Object.entries(e.cost) as [Aspect, number][]) s.lore[a] = (s.lore[a] ?? 0) - n;
+  entryState(s, key).begun = true;
+  return { ok: true };
+}
+
+/**
+ * The Infusion Altar taught an enchant (its first successful write): its enchant note is written. True when this was new,
+ * so the caller tells the player once.
+ */
+export function learnEnchant(s: ResearchState, enchant: string): boolean {
+  const key = enchantEntryKey(enchant);
+  if (!researchEntry(key) || isDone(s, key)) return false;
+  entryState(s, key).done = true;
+  return true;
+}
+
+/**
+ * Research by doing: one more use of `key` (a rod draw, a cast...). Every insight note that counts it and is open writes
+ * itself once its count is reached; returns those notes so the caller can tell the player. A note whose earlier research
+ * is not done yet waits: `settlePractice` writes it when that research finishes.
+ */
+export function notePractice(s: ResearchState, key: string, n = 1): ResearchEntry[] {
+  const p = (s.practice ??= {});
+  p[key] = Math.min(PRACTICE_CAP, (p[key] ?? 0) + n);
+  return settlePractice(s);
+}
+
+/** Writes every open insight note whose count is reached. */
+export function settlePractice(s: ResearchState): ResearchEntry[] {
+  const out: ResearchEntry[] = [];
+  for (const e of RESEARCH) {
+    const pr = e.learn?.practice;
+    if (!pr || isDone(s, e.key) || !isOpen(s, e) || (s.practice?.[pr.key] ?? 0) < pr.need) continue;
+    entryState(s, e.key).done = true;
+    out.push(e);
+  }
+  return out;
+}
+
+/** How far an insight note has come: the count so far and what it needs. */
+export const practiceProgress = (s: ResearchState, e: ResearchEntry): { n: number; need: number } | null =>
+  e.learn?.practice ? { n: Math.min(e.learn.practice.need, s.practice?.[e.learn.practice.key] ?? 0), need: e.learn.practice.need } : null;
+
+/** The compound two aspects make, or null. */
+export function compoundOf(a: Aspect, b: Aspect): Aspect | null {
+  return ASPECTS.find((x) => x.parts && ((x.parts[0] === a && x.parts[1] === b) || (x.parts[0] === b && x.parts[1] === a)))?.key ?? null;
+}
+
+/** Combines one lore each of two aspects into one of their compound (learning it if new). */
+export function combineAspects(s: ResearchState, a: Aspect, b: Aspect): PlaceResult & { made?: Aspect } {
+  const c = compoundOf(a, b);
+  if (!c) return { ok: false, reason: `${aspectInfo(a).name} and ${aspectInfo(b).name} make nothing together` };
+  if ((s.lore[a] ?? 0) < 1 || (s.lore[b] ?? 0) < 1) return { ok: false, reason: 'You need one lore of each' };
+  s.lore[a] = (s.lore[a] ?? 0) - 1;
+  s.lore[b] = (s.lore[b] ?? 0) - 1;
+  s.lore[c] = (s.lore[c] ?? 0) + 1;
+  if (!s.known.includes(c)) s.known.push(c);
+  return { ok: true, made: c };
+}
 
 export interface PlaceResult { ok: boolean; reason?: string; solved?: boolean }
 
-/** Places (or replaces) a token: spends 1 lore of the aspect (a replaced token's lore comes back). */
+/** Writes (or overwrites) an aspect on the notes: spends 1 lore of it. An overwritten aspect is lost, as with erasing. */
 export function placeToken(s: ResearchState, key: string, cell: number, aspect: Aspect): PlaceResult {
   const e = researchEntry(key);
   if (!e || !e.board) return { ok: false, reason: 'Nothing to place on' };
   if (!isOpen(s, e)) return { ok: false, reason: 'Finish the earlier research first' };
   if (isDone(s, key)) return { ok: false, reason: 'Already done' };
+  if (!s.entries[key]?.begun) return { ok: false, reason: 'Start the research notes first' };
   if (!cellFree(e.board, cell)) return { ok: false, reason: 'That spot is fixed' };
   if (!s.known.includes(aspect)) return { ok: false, reason: 'You do not know that aspect yet' };
   if ((s.lore[aspect] ?? 0) < 1) return { ok: false, reason: `No ${aspect} lore left: scan new things` };
   const st = entryState(s, key);
-  const old = st.tokens[cell];
-  if (old) s.lore[old] = (s.lore[old] ?? 0) + 1;
   s.lore[aspect] = (s.lore[aspect] ?? 0) - 1;
   st.tokens[cell] = aspect;
   if (boardSolved(e.board, st.tokens)) {
@@ -90,13 +173,12 @@ export function placeToken(s: ResearchState, key: string, cell: number, aspect: 
   return { ok: true, solved: false };
 }
 
-/** Takes a token back and refunds its lore. */
+/** Erases an aspect from the notes. Its lore is spent: nothing comes back. */
 export function removeToken(s: ResearchState, key: string, cell: number): boolean {
   const st = s.entries[key];
   const a = st?.tokens[cell];
   if (!st || !a || st.done) return false;
   delete st.tokens[cell];
-  s.lore[a] = (s.lore[a] ?? 0) + 1;
   return true;
 }
 
@@ -133,8 +215,15 @@ export function sanitizeResearch(raw: unknown): ResearchState {
       if (ev.tokens && typeof ev.tokens === 'object')
         for (const [c, a] of Object.entries(ev.tokens as Record<string, unknown>))
           if (typeof a === 'string' && isAspect(a) && Number.isInteger(Number(c))) tokens[Number(c)] = a;
-      s.entries[k] = { done: ev.done === true, tokens };
+      const v1 = r.v !== 2;
+      const done = ev.done === true;
+      // A v1 save's half-written boards were on the old 5 x 5 grid: their cells mean nothing on the hexagon.
+      s.entries[k] = { done, tokens: v1 && !done ? {} : tokens };
+      if (!v1 && ev.begun === true && !done) s.entries[k].begun = true;
     }
+  if (r.practice && typeof r.practice === 'object')
+    for (const [k, n] of Object.entries(r.practice as Record<string, unknown>))
+      if (typeof n === 'number' && n > 0 && k.length <= 40) (s.practice ??= {})[k] = Math.min(PRACTICE_CAP, Math.floor(n));
   if (Array.isArray(r.flags)) {
     const flags = r.flags.filter((f): f is string => typeof f === 'string').slice(0, 32);
     if (flags.length) s.flags = [...new Set(flags)];

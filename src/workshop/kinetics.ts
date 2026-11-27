@@ -103,9 +103,9 @@ export const WORM_RATIO = 1 / 8;
 /** Stress units each kind adds per rpm-neutral part. Shafts, gearboxes and links cost almost nothing. */
 export const BASE_STRESS: Record<string, number> = {
   conveyor_belt: 0.25, mech_saw: 4, mech_millstone: 4, mech_mortar: 4, mech_loom: 2,
-  mech_hammer: 8, mech_rack: 2, mech_press: 8, mixer: 6, deployer: 6, mech_arm: 3, mech_drill: 6, mech_pump: 4,
+  mech_hammer: 8, mech_rack: 2, mech_press: 8, rolling_mill: 32, drop_forge: 24, dynamo: 16, mixer: 6, deployer: 6, mech_arm: 3, mech_drill: 6, mech_pump: 4,
   reverse_box: 0.5, ratio_dial: 0.5, clutch: 0.25, split_box: 0.5, sequence_gearshift: 1, governor: 0.5, worm_gear: 1,
-  chain_sprocket: 0.5, belt_pulley: 1, differential: 1, flywheel: 0.5, shear_pin: 0, saw_arm: 5, vacuum_collector: 3, treadwheel: 0, bearing: 6, piston: 6
+  chain_sprocket: 0.5, belt_pulley: 1, differential: 1, flywheel: 0.5, shear_pin: 0, saw_arm: 5, vacuum_collector: 3, treadwheel: 0, steam_rotor: 0, beam_engine: 0, mill_wheel: 0, windmill: 0, air_compressor: 3, bearing: 6, piston: 6, cam_drum: 1.5, brake: 0.25
 };
 
 /** The factor the sequenced gearshift applies at `t` seconds. A punched card replaces the preset program. */
@@ -155,6 +155,10 @@ export interface Solved {
   /** Stress units the turning parts put on the sources, and what the sources carry. */
   stress: number;
   capacity: number;
+  /** Solve tree for the drive layer: the part each part got its speed from, keys parents-first, and the stress each part adds. */
+  parent: Map<string, string | null>;
+  order: string[];
+  partStress: Map<string, number>;
 }
 
 export interface SolveInput {
@@ -238,11 +242,14 @@ export function solveNetwork(input: SolveInput): Solved {
   }
   capacity *= input.capacityFactor ?? 1;
   let stress = 0;
+  const partStress = new Map<string, number>();
   for (const [k, r] of rpm) {
     const p = input.part(k);
     const base = BASE_STRESS[p.kind] ?? 0;
     if (base === 0 || r === 0) continue;
-    stress += base * Math.max(0.25, Math.min(4, 16 / Math.abs(r)));
+    const st = base * Math.max(0.25, Math.min(4, 16 / Math.abs(r)));
+    partStress.set(k, st);
+    stress += st;
   }
-  return { rpm: jam ? new Map() : rpm, jam, stress, capacity };
+  return { rpm: jam ? new Map() : rpm, jam, stress, capacity, parent: from, order: queue, partStress };
 }

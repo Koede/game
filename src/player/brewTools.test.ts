@@ -16,15 +16,17 @@ function setup() {
   const world = flatWorld(bus);
   const player = makePlayer(bus);
   const calls: string[] = [];
-  const answers: { use: BrewResult; place: BrewResult; furnaceTop: boolean } = {
+  const answers: { use: BrewResult; place: BrewResult; furnaceTop: boolean; chem: BrewResult | null } = {
     use: { ok: true, consume: false },
     place: { ok: true, consume: true },
     furnaceTop: true,
+    chem: { ok: true, consume: false, toast: 'Still Base set to 130 C' },
   };
   const brew: BrewHands = {
     brewUse: (x, y, z, held) => (calls.push(`use ${x},${y},${z} ${held}`), answers.use),
     placeContainer: (x, y, z, held) => (calls.push(`place ${x},${y},${z} ${held}`), answers.place),
     isFurnaceTop: () => answers.furnaceTop,
+    chemUse: (x, y, z, held) => (calls.push(`chem ${x},${y},${z} ${held}`), answers.chem),
   };
   let swings = 0;
   const interaction = new Interaction(world, bus, player, new PlayerPhysics(world, player), { triggerSwing: () => swings++ }, () => 0, null, brew);
@@ -40,6 +42,17 @@ function setup() {
 }
 
 describe('brewing blocks take the tap first', () => {
+  it('a still base takes a tap right after another module step: the placement cooldown does not drop it', () => {
+    const { world, player, interaction, aim, calls } = setup();
+    world.put(0, 10, -2, 'still_base');
+    player.inventory.set(player.selectedSlot, null);
+    expect(interaction.use(aim(0.5, 10.2, -1.5))).toBe('brewed');
+    // The first step has just set the placement cooldown (0.15 s of game time). A slow frame rate counts that down slowly,
+    // so the next tap comes in well inside it on a phone: it must still reach the base.
+    expect(interaction.use(aim(0.5, 10.2, -1.5))).toBe('brewed');
+    expect(calls).toEqual(['chem 0,10,-2 null', 'chem 0,10,-2 null']);
+  });
+
   it('a drip cone on a cup is the step: brewUse is asked, one cone is taken, and nothing is placed', () => {
     const { world, player, interaction, aim, hold, calls, answers } = setup();
     world.put(0, 10, -2, 'clay_cup');
@@ -100,7 +113,7 @@ describe('brewing blocks take the tap first', () => {
 });
 
 describe('the kettle', () => {
-  it('an empty bucket asks the simulation (a boiling kettle fills it); a water bucket is left to the pipes', () => {
+  it('an empty bucket asks the simulation (a boiling kettle fills it); a water bucket asks it too, to be poured in', () => {
     const { world, interaction, aim, hold, calls, answers } = setup();
     world.put(0, 10, -2, 'kettle_pot');
     hold({ item: 'pail', count: 1 });
@@ -109,8 +122,9 @@ describe('the kettle', () => {
     expect(calls).toEqual(['use 0,10,-2 pail']);
     interaction.updateMining(0.2, false, null);
     hold({ item: 'water_pail', count: 1 });
+    answers.use = { ok: false, reason: 'The kettle is full' };
     interaction.use(aim(0.5, 10.2, -1.5));
-    expect(calls).toHaveLength(1);
+    expect(calls).toEqual(['use 0,10,-2 pail', 'use 0,10,-2 water_pail']);
   });
 });
 

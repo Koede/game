@@ -91,11 +91,19 @@ describe('brew emitters', () => {
   });
 });
 
-describe('cup liquid', () => {
-  const positions = (l: BrewLiquid): Float32Array => (l.mesh.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array;
-  const colours = (l: BrewLiquid): Float32Array => (l.mesh.geometry.getAttribute('color') as THREE.BufferAttribute).array as Float32Array;
+describe('brew liquids', () => {
+  const colour = (l: BrewLiquid, i: number): THREE.Color => {
+    const c = new THREE.Color();
+    l.mesh.getColorAt(i, c);
+    return c;
+  };
+  const matrix = (l: BrewLiquid, i: number): THREE.Vector3 => {
+    const m = new THREE.Matrix4();
+    l.mesh.getMatrixAt(i, m);
+    return new THREE.Vector3().setFromMatrixPosition(m);
+  };
 
-  it('draws one quad per brewing or finished cup, at the rim, tinted by the drink item', () => {
+  it('draws a finished cup\'s drink inside the cup, in the drink item\'s colour; a brewing cup adds its stream', () => {
     const world = new FakeWorld(10);
     const liquid = new BrewLiquid(world, (_x, _y, _z, out) => out.fill(1));
     world.setEntity(cup(3, 'loaded'));
@@ -104,37 +112,48 @@ describe('cup liquid', () => {
     world.setEntity(cup(3, 'done'));
     liquid.update(1, 0, 0);
     expect(liquid.count).toBe(1);
-    const y = positions(liquid)[1];
-    expect(y).toBeGreaterThan(11 + 5 / 16);
-    expect(y).toBeLessThan(11 + 6 / 16);
+    expect(liquid.mesh.count).toBe(1);
+    const p = matrix(liquid, 0);
+    expect(p.x).toBeCloseTo(3.5);
+    expect(p.y).toBeGreaterThan(11);
+    expect(p.y).toBeLessThan(11 + 5 / 16);
     // light roast is 0x6b4423
-    expect(colours(liquid)[0]).toBeCloseTo(0x6b / 255);
-    expect(colours(liquid)[2]).toBeCloseTo(0x23 / 255);
+    expect(colour(liquid, 0).r).toBeCloseTo(0x6b / 255);
     world.setEntity(cup(3, 'done', { drink: 'dark_roast' }));
     liquid.update(1, 0, 0);
-    expect(colours(liquid)[0]).toBeCloseTo(0x2c / 255);
+    expect(colour(liquid, 0).r).toBeCloseTo(0x2c / 255);
+    world.setEntity(cup(3, 'brewing', { brewS: 1 }));
+    liquid.update(1, 0, 0);
+    expect(liquid.count).toBe(2);
   });
 
-  it('starts as clear water while brewing and darkens as the drink comes through', () => {
+  it('draws water in buckets and glass on the furnace top, and the kettle only while it boils', () => {
     const world = new FakeWorld(10);
     const liquid = new BrewLiquid(world, (_x, _y, _z, out) => out.fill(1));
-    world.setEntity(cup(3, 'brewing', { brewS: 0 }));
+    world.setEntity(bucket(2, true));
+    world.setEntity({ ...bucket(4, false), container: 'water_beaker' });
+    world.put(6, 11, 2, 'kettle_pot', 0, false);
+    world.setEntity({ kind: 'kettle', x: 6, y: 11, z: 2, waterL: 1, boiling: false });
     liquid.update(1, 0, 0);
-    const start = colours(liquid)[0];
-    world.setEntity(cup(3, 'brewing', { brewS: 3.9 }));
+    expect(liquid.count).toBe(2);
+    world.put(6, 11, 2, 'kettle_pot', 0, true);
     liquid.update(1, 0, 0);
-    expect(colours(liquid)[0]).toBeLessThan(start - 0.15);
+    expect(liquid.count).toBe(3);
   });
 
-  it('is lit like its surroundings and never overflows its buffer', () => {
+  it('is lit like its surroundings, rebuilds only a few times a second and never overflows', () => {
     const world = new FakeWorld(10);
     const dark = new BrewLiquid(world, (_x, _y, _z, out) => out.fill(0.25));
     world.setEntity(cup(3, 'done'));
     dark.update(1, 0, 0);
-    expect(colours(dark)[0]).toBeCloseTo((0x6b / 255) * 0.25);
+    expect(colour(dark, 0).r).toBeCloseTo((0x6b / 255) * 0.4);
+    world.setEntity(cup(5, 'done'));
+    dark.update(0.05, 0, 0);
+    expect(dark.count).toBe(1);
     for (let i = 0; i < LIQUID_CAPACITY + 20; i++) world.setEntity({ ...cup(0, 'done'), x: i % 10, z: 6 + Math.floor(i / 10) });
     dark.update(1, 0, 0);
-    expect(dark.count).toBe(LIQUID_CAPACITY);
+    expect(dark.count).toBeLessThanOrEqual(LIQUID_CAPACITY);
+    expect(dark.count).toBeGreaterThan(LIQUID_CAPACITY - 2);
     expect(blockId('cup_full')).toBeGreaterThan(0);
   });
 });
