@@ -217,6 +217,9 @@ describe('clock tower x signal timers (real clock)', () => {
     for (let i = 0; i < 20; i++) copy.tick();
     expect(copy.workshop.describe(x + 1, y, z)).toContain('on');
     copy.dispose();
+    s.clock.timeOfDay = 0.3; // dawn has come
+    for (let i = 0; i < 20; i++) s.tick();
+    expect(s.workshop.describe(x + 1, y, z)).toContain('off');
     s.dispose();
   });
 });
