@@ -83,6 +83,22 @@ describe('PlayerState', () => {
     expect(player.wearHeld(block('stone'))).toBe(false);
   });
 
+  it('warns once when the held tool is down to a tenth of its wear, naming how to mend it', () => {
+    const bus = createBus();
+    const player = new PlayerState(bus);
+    const toasts: string[] = [];
+    bus.on('toast', (e) => toasts.push(e.text));
+    player.give('iron_pickaxe', 1, 40); // max 384: a tenth is 38.4
+    expect(player.wearHeldTool(1)).toBe(false); // 39 left, still above
+    expect(toasts).toEqual([]);
+    player.wearHeldTool(1); // 38 left: crossed
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toContain('nearly worn out');
+    expect(toasts[0]).toContain('Iron Ingot');
+    player.wearHeldTool(1);
+    expect(toasts).toHaveLength(1);
+  });
+
   it('records lifetime counters from bus events', () => {
     const bus = createBus();
     const player = new PlayerState(bus);

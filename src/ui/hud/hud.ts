@@ -25,6 +25,7 @@ import { Hotbar } from './hotbar';
 import { BuildChip } from './buildChip';
 import { TownChip, type TownChipInfo } from './townChip';
 import { HumChip } from './humChip';
+import { CAMP_SLOTS, type GuideStep } from '../../game/firstHour';
 import { NudgeBar } from './nudge';
 import { QuickCraft } from './quickCraft';
 import hudCss from './hud.css';
@@ -36,6 +37,9 @@ import type { UISimQuery } from './query';
 import { DayDial, PowerStrip } from './status';
 import { Vitals } from './vitals';
 import { NpcDialogue } from './npcDialogue';
+
+/** Camp goals the guided first hour shows on the goal plate (the camp chip leaves them to it). warm_up is the main goal Warm yourself. */
+const GUIDED_CAMP_GOALS: ReadonlySet<string> = new Set([...CAMP_SLOTS.map((s) => s.camp), 'warm_up']);
 
 export interface HudDeps {
   bus: GameBus;
@@ -54,6 +58,10 @@ export interface HudDeps {
   weather?: () => WeatherState | null;
   /** The town chip under the goal tracker: the camp goal or the building going up; null hides it. */
   town?: () => TownChipInfo | null;
+  /** The guided first hour's current step (firstHour.ts); it takes the goal plate and the camp chip steps aside. Null = no guide. */
+  guide?: () => GuideStep | null;
+  /** Where the camp is, for the "What next?" arrow on a camp step; null or missing = no arrow. */
+  campSpot?: () => { x: number; y: number; z: number } | null;
   /** Where tap to move is walking to, or null (the controller's TapMove; the HUD draws a ring there). */
   tapGoal?: () => TapGoalView | null;
 }
@@ -146,7 +154,7 @@ export class Hud {
     this.quick = new QuickCraft(deps.player, bus);
     this.build = new BuildChip(deps.world, deps.player, bus);
     this.hum = new HumChip(bus);
-    this.nudge = new NudgeBar(deps.world, deps.player, deps.objectives);
+    this.nudge = new NudgeBar(deps.world, deps.player, deps.objectives, () => deps.guide?.() ?? null, () => deps.campSpot?.() ?? null);
     this.fpsEl = h('div', { class: 'hw-fps hw-num' });
     this.fpsEl.hidden = true;
     this.auraEl = h('div', { class: 'hw-aura hw-hud-plate', attrs: { role: 'status' } });
@@ -382,8 +390,12 @@ export class Hud {
     this.devBtn.hidden = !d.player.dev;
     setFlag(this.el, 'touch', d.input.touch);
     this.vitals.update(d.player, d.survival);
-    this.goal.update(d.objectives, d.winterGoal?.() ?? null);
-    this.townChip.update(d.town?.() ?? null);
+    const winter = d.winterGoal?.() ?? null;
+    const guide = d.guide?.() ?? null;
+    this.goal.update(d.objectives, winter, guide);
+    // On the guided path the goal plate carries the camp steps it covers, so the chip would only repeat or contradict it (unless a winter goal has taken the plate).
+    const chip = d.town?.() ?? null;
+    this.townChip.update(guide && !winter && chip?.goal && GUIDED_CAMP_GOALS.has(chip.goal) ? null : chip);
     this.quick.update();
     this.build.update();
     const home = d.player.home;
@@ -425,7 +437,10 @@ export class Hud {
 
   private toast(text: string, kind: 'info' | 'good' | 'warn' | 'bad' | undefined, item?: string): void {
     if (this.echo && performance.now() < this.echo.until && text.startsWith(this.echo.text)) return;
-    this.root.toasts.show({ text, kind, item });
+    if (!this.root.toasts.show({ text, kind, item })) return;
+    // Toasts used to arrive silently: good news chimes, warnings thud (repeats only bump the counter, so they stay quiet).
+    if (kind === 'good') this.deps.bus.emit('sfx', { name: 'toast_good', volume: 0.7 });
+    else if (kind === 'warn' || kind === 'bad') this.deps.bus.emit('sfx', { name: 'toast_warn', volume: 0.8 });
   }
 
   private objectiveBanner(id: string): void {

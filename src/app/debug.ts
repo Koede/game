@@ -3,7 +3,6 @@
  * helpers that SET UP states quickly (give items, teleport, set the time, place a voxel, open a screen, run ticks,
  * save, reset). Tests use it to get somewhere fast, never to fake the thing they are testing.
  */
-import { DT } from '../core/constants';
 import type { Difficulty, Settings } from '../core/context';
 import type { DamageCause, ScreenRequest } from '../core/gameEvents';
 import { blockId, blockOf, creature, itemOrNull } from '../core/registry';
@@ -111,6 +110,10 @@ export interface DebugHandle {
   /** Puts an animal of `species` with its feet at (x, y, z); returns its id. */
   /** Air temperature in C at a cell (src/game/thermal.ts). */
   temperatureAt(x: number, y: number, z: number): number;
+  /** Makes the world a hard-winter one or not (docs/api/winter.md), for checks of frozen fields and greenhouses. */
+  setHardWinter(on: boolean): void;
+  /** What the crop at a cell is doing: shelter, air temperature, rate (docs/api/greenhouse.md); null when there is none. */
+  cropView(x: number, y: number, z: number): { shelter?: string; tempC?: number; rate: number; exposed: boolean; status: string } | null;
   /** Turns the heat view on or off (same as the H key). */
   setHeatView(on: boolean): void;
   spawnMob(species: string, x: number, y: number, z: number, baby?: boolean): number;
@@ -122,7 +125,13 @@ export interface DebugHandle {
   isSafe(x: number, y: number, z: number): boolean;
   /** Sets the wear (0..1) of the machine at a cell (set-up for the wear checks). */
   setMachineWear(x: number, y: number, z: number, wear: number): boolean;
+  /** Pneumatic tube checks: a crate's stacks (null when there is no crate), filling one, and setting a network's pressure. */
+  crate(x: number, y: number, z: number): Array<{ item: string; count: number }> | null;
+  fillCrate(x: number, y: number, z: number, item: string, count: number): boolean;
+  setAirBar(x: number, y: number, z: number, bar: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
+  /** The plumbing reading of a cell (docs/api/plumbing.md) and the crop there, for the plumbing checks. */
+  plumbing(x: number, y: number, z: number): { status: string | null; waterL: number; hydrated: boolean | null };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
   /** Nearest loaded blocks of a kind around the player (Chebyshev radius), nearest first. */
@@ -323,6 +332,15 @@ export function createDebugHandle(app: App): DebugHandle {
     temperatureAt(x, y, z) {
       return game().state.thermal.temperatureAt(x, y, z);
     },
+    setHardWinter(on) {
+      const s = game().state;
+      s.winter.hard = on;
+      s.sim.hardWinter = on;
+    },
+    cropView(x, y, z) {
+      const v = game().state.sim.cropView(x, y, z);
+      return v && { shelter: v.shelter, tempC: v.tempC, rate: v.rate, exposed: v.exposed, status: v.status };
+    },
     setHeatView(on) {
       const g = game() as unknown as { heatOn: boolean; toggleHeatView(): void };
       if (g.heatOn !== on) g.toggleHeatView();
@@ -345,6 +363,31 @@ export function createDebugHandle(app: App): DebugHandle {
       const e = game().state.sim.machineAt(x, y, z);
       if (!e) return false;
       e.wear = Math.max(0, Math.min(1, wear));
+      return true;
+    },
+    plumbing(x, y, z) {
+      const sim = game().state.sim;
+      const v = sim.waterView(x, y, z);
+      return { status: v?.status ?? null, waterL: v?.waterL ?? 0, hydrated: sim.cropView(x, y, z)?.hydrated ?? null };
+    },
+    crate(x, y, z) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e || e.kind !== 'crate') return null;
+      return e.slots.filter((s) => s !== null).map((s) => ({ item: s!.item, count: s!.count }));
+    },
+    fillCrate(x, y, z, item, count) {
+      const e = game().state.sim.machineAt(x, y, z);
+      if (!e || e.kind !== 'crate') return false;
+      const i = e.slots.indexOf(null);
+      if (i < 0) return false;
+      e.slots[i] = { item, count };
+      game().state.sim.touch(e);
+      return true;
+    },
+    setAirBar(x, y, z, bar) {
+      const net = game().state.sim.air.netAt(x, y, z);
+      if (!net) return false;
+      net.airL = net.volumeL * bar;
       return true;
     },
     getBlock(x, y, z) {
@@ -374,7 +417,6 @@ export function createDebugHandle(app: App): DebugHandle {
       const { world, player } = game().state;
       const id = blockId(block);
       const px = Math.floor(player.position.x);
-      const py = Math.floor(player.position.y);
       const pz = Math.floor(player.position.z);
       const found: { x: number; y: number; z: number; d: number }[] = [];
       for (let x = px - radius; x <= px + radius; x++) {

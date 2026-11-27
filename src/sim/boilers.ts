@@ -98,6 +98,8 @@ interface Vessel {
 
 export interface BoilerHost {
   furnaceUnder(x: number, y: number, z: number): FurnaceEntity | null;
+  /** Takes up to `litres` from a water line (docs/api/plumbing.md) the Water Port at x, y, z joins; returns what it took. */
+  pipedWater?(x: number, y: number, z: number, litres: number): number;
 }
 
 const finite = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
@@ -371,13 +373,18 @@ export class Boilers {
     const volume = steamRoom(v);
     // A water port takes water from water touching it.
     for (const [x, y, z] of v.waters) {
-      if (e.waterL >= WATER_L_PER_CELL * v.cells) break;
+      const room = WATER_L_PER_CELL * v.cells - e.waterL;
+      if (room <= 0) break;
+      let wet = false;
       for (const [dx, dy, dz] of DIRS) {
         if (this.world.getBlock(x + dx, y + dy, z + dz).liquid === 'water') {
           e.waterL = Math.min(WATER_L_PER_CELL * v.cells, e.waterL + PORT_WATER_L_S * dt);
+          wet = true;
           break;
         }
       }
+      // Or a water pipe on the outside fills it from the line.
+      if (!wet && this.host.pipedWater) e.waterL += this.host.pipedWater(x, y, z, Math.min(room, PORT_WATER_L_S * dt));
     }
     // Heat in, steam made, water spent.
     let heatW = 0;

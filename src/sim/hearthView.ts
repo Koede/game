@@ -3,7 +3,6 @@
  * and for a chosen target tier and interior size the materials list and the exact cells of a ghost preview - which
  * position needs which block, and which hold the wrong one. Built on demand from the last scan; never per tick.
  */
-import type { Interior } from '../core/hearth';
 import { BLOCKS, FURNACE_TIERS, block } from '../core/registry';
 import { voxelFacing, voxelId, type Facing, type IWorld } from '../core/types';
 import { tally } from '../game/crafting';

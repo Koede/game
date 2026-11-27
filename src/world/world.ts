@@ -3,6 +3,7 @@
  * player's edits (remembered forever, edits.ts) and the block entities (entities.ts), and saves/loads all
  * of it. Voxel data lives on the main thread; generation and meshing run on the worker pool.
  */
+import { compactEntity, expandEntity } from './entityCompact';
 import type { GameBus } from '../core/context';
 import { mulberry32 } from '../core/math';
 import { BLOCKS, blockId } from '../core/registry';
@@ -326,7 +327,7 @@ export class World implements IWorld {
       version: WORLD_SNAPSHOT_VERSION,
       seed: this.currentSeed,
       edits: this.edits.toJSON(),
-      entities: options?.shared === true ? live : (JSON.parse(JSON.stringify(live)) as BlockEntity[]),
+      entities: (options?.shared === true ? live : (JSON.parse(JSON.stringify(live)) as BlockEntity[])).map(compactEntity),
       water: this.water.toJSON(),
       leaves: this.leaves.toJSON(),
       extras,
@@ -364,7 +365,7 @@ export class World implements IWorld {
     this.streamer.dispose();
     this.currentSeed = snapshot.seed >>> 0;
     this.entityStore.clear();
-    for (const e of snapshot.entities) this.entityStore.set(JSON.parse(JSON.stringify(e)) as BlockEntity);
+    for (const e of snapshot.entities) this.entityStore.set(expandEntity(JSON.parse(JSON.stringify(e)) as BlockEntity));
     this.water.load(water);
     this.leaves.load(leaves);
     this.loadedExtras = snapshot.extras && typeof snapshot.extras === 'object' ? JSON.parse(JSON.stringify(snapshot.extras)) : {};
