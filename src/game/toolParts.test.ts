@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BINDINGS, HANDLES, KIND_HEADS, MODULAR_KINDS, sparesWear, TOOL_PART_ITEMS, TOOL_PART_RECIPES, buildItemKey, buildStats, partsOfItem } from '../content/toolParts';
+import { BINDINGS, HANDLES, KIND_HEADS, MODULAR_KINDS, isWeaponKind, sparesWear, TOOL_PART_ITEMS, TOOL_PART_RECIPES, buildItemKey, buildStats, partsOfItem } from '../content/toolParts';
 import { item, itemOrNull } from '../core/registry';
 import { Inventory, makeStack } from './inventory';
 import { BUILD_RECIPES, craft } from './crafting';
@@ -11,12 +11,12 @@ import { block } from '../core/registry';
 describe('modular tools: parity with the old tools', () => {
   it('every legacy pickaxe, axe and shovel is its default build, number for number', () => {
     for (const kind of MODULAR_KINDS) {
-      for (const head of [...KIND_HEADS[kind], ...(kind === 'maul' ? [] : ['wooden'])]) {
+      for (const head of [...KIND_HEADS[kind], ...(isWeaponKind(kind) ? [] : ['wooden'])]) {
         const legacy = item(`${head}_${kind}`).tool!;
         const build = { kind, head, handle: 'oak', binding: 'cord' };
         const { damage, ...numbers } = buildStats(build);
         expect(numbers, `${head}_${kind}`).toEqual({ tier: legacy.tier, speed: legacy.speed, durability: legacy.durability });
-        if (kind === 'maul') expect(damage, `${head}_${kind}`).toBe(item(`${head}_${kind}`).weapon!.damage);
+        if (isWeaponKind(kind)) expect(damage, `${head}_${kind}`).toBe(item(`${head}_${kind}`).weapon!.damage);
         expect(partsOfItem(`${head}_${kind}`)).toEqual(build);
         expect(buildItemKey(build)).toBe(`${head}_${kind}`);
       }
@@ -24,13 +24,15 @@ describe('modular tools: parity with the old tools', () => {
   });
   it('every built tool item carries the stats its parts give', () => {
     const built = TOOL_PART_ITEMS.filter((i) => i.tool);
-    expect(built.length).toBe(MODULAR_KINDS.reduce((n, k) => n + KIND_HEADS[k].length, 0) * (Object.keys(HANDLES).length * Object.keys(BINDINGS).length - 1));
+    // Every non-default build, plus the plain sword and spear (nothing else makes those legacy keys).
+    const perKind = Object.keys(HANDLES).length * Object.keys(BINDINGS).length;
+    expect(built.length).toBe(MODULAR_KINDS.reduce((n, k) => n + KIND_HEADS[k].length * (perKind - 1 + (['sword', 'spear'].includes(k) ? 1 : 0)), 0));
     for (const spec of built) {
       const b = partsOfItem(spec.key)!;
       expect(b, spec.key).not.toBeNull();
       const { damage, ...numbers } = buildStats(b);
       expect(item(spec.key).tool).toMatchObject(numbers);
-      if (b.kind === 'maul') expect(item(spec.key).weapon!.damage).toBe(damage);
+      if (isWeaponKind(b.kind)) expect(item(spec.key).weapon!.damage).toBe(damage);
     }
   });
   it('a fine handle never adds tier: a bronze head cannot mine a tier-3 block however it is built', () => {
@@ -121,5 +123,24 @@ describe('modular tools: building at the workbench', () => {
     const copy = new Inventory(36);
     copy.load(JSON.parse(JSON.stringify(inv.slots)));
     expect(copy.slots[0]).toEqual({ item: 'bronze_pickaxe', count: 1, durability: 100 });
+  });
+});
+
+describe('modular tools: swords and spears', () => {
+  it('a sword is quicker and a little lighter than a maul of the same metal; a spear lighter still', () => {
+    const maul = item('iron_maul').weapon!, sword = item('iron_sword').weapon!, spear = item('iron_spear').weapon!;
+    expect(sword.damage).toBeLessThan(maul.damage);
+    expect(spear.damage).toBeLessThan(sword.damage);
+    expect(sword.cooldownS!).toBeLessThan(0.5);
+    expect(item('iron_pine_resin_sword').weapon!.damage).toBe(sword.damage);
+    expect(item('iron_pine_resin_sword').weapon!.cooldownS!).toBeLessThan(sword.cooldownS!); // pine swings faster
+  });
+  it('they are craftable from a head, a handle and a binding, and mend with their metal', () => {
+    for (const key of ['bronze_sword', 'flint_spear', 'steel_oak_resin_spear']) {
+      expect(itemOrNull(key), key).not.toBeNull();
+      expect(BUILD_RECIPES.some((r) => r.output.item === key), key).toBe(true);
+    }
+    expect(repairMaterial('iron_pine_cord_sword')).toBe('iron_ingot');
+    expect(repairMaterial('flint_spear')).toBe('flint');
   });
 });

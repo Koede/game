@@ -3,7 +3,7 @@ import { createBus } from '../core/context';
 import { DAYS_PER_SEASON } from '../sim/seasons';
 import { DAILY_COUNT, DAILY_KEEPSAKES, DAILY_POOL, DailyGoals, KEEPSAKES, SEASONAL_GOALS, dailyFor, isDailyGoalsSnapshot, keepsakeOf, seasonKeyOf, type GoalFacts } from './dailyGoals';
 
-const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
+const zero: GoalFacts = { made: 0, placed: 0, broken: 0, drunk: 0, explored: 0, festival: 0, crowns: 0, brewed: 0, cast: 0, jobs: 0, meals: 0 };
 
 function rig(opts: { room?: number } = {}) {
   const bus = createBus();
@@ -153,5 +153,41 @@ describe('DailyGoals', () => {
     g.sync();
     expect(g.toJSON().base.brewed).toBe(9);
     expect(g.toJSON().seasonBase.brewed).toBe(9);
+  });
+});
+
+describe('festival goals', () => {
+  it('pays the festival keepsake for entering and the trophy for a crown, in that season only', () => {
+    const { goals, s } = rig();
+    s.day = DAYS_PER_SEASON * 3; // the Harvest Fair
+    goals.sync();
+    expect(goals.seasonal().goals.map((g) => g.id)).toEqual(expect.arrayContaining(['f_autumn_enter', 'f_autumn_crown']));
+    s.facts = { ...s.facts, festival: 1 };
+    goals.sync();
+    expect(goals.keepsakes).toContain('k_corn_dolly');
+    expect(goals.keepsakes).not.toContain('k_harvest_crown');
+    s.facts = { ...s.facts, festival: 2, crowns: 1 };
+    goals.sync();
+    expect(goals.keepsakes).toContain('k_harvest_crown');
+  });
+
+  it('an older save without the festival metrics starts them from now, so past medals pay nothing', () => {
+    const { goals, s } = rig();
+    goals.sync();
+    const snap = JSON.parse(JSON.stringify(goals.toJSON()));
+    for (const k of ['base', 'seasonBase']) {
+      delete snap[k].festival;
+      delete snap[k].crowns;
+    }
+    expect(isDailyGoalsSnapshot(snap)).toBe(true);
+    const b = rig();
+    b.s.facts = { ...zero, festival: 9, crowns: 3 };
+    b.goals.load(snap);
+    b.goals.sync();
+    expect(b.goals.keepsakes).not.toContain('k_sowing_ribbon');
+    b.s.facts = { ...b.s.facts, festival: 10 };
+    b.goals.sync();
+    expect(b.goals.keepsakes).toContain('k_sowing_ribbon');
+    void s;
   });
 });

@@ -34,7 +34,7 @@ export interface TractorDrawView {
   occupied: boolean;
 }
 
-type RGB = [number, number, number];
+export type RGB = [number, number, number];
 const hex = (c: number): RGB => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 const GREEN = hex(0x3f7a3a);
 const GREEN_DARK = hex(0x2a5428);
@@ -82,7 +82,7 @@ void main() {
 `;
 
 /** Accumulates boxes and cylinders into one indexed geometry (position, normal, colour, emissive flag). */
-class Builder {
+export class Builder {
   private readonly pos: number[] = [];
   private readonly nor: number[] = [];
   private readonly col: number[] = [];

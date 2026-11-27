@@ -16,7 +16,7 @@ import { FOOD_SPEC } from './specRosterFood';
 import { HAND_SPEC } from './specRosterHand';
 import { TECH_SPEC } from './specRosterTech';
 import { WORLD_SPEC } from './specRosterWorld';
-import { FARM_EGGS_SPEC, FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
+import { FARM_EGGS_SPEC, FARM_ICE_SPEC, FENCE_SPEC, SYNERGY_ANIMALS_SPEC, SYNERGY_TOOLS_SPEC } from './specRosterSynergyTools';
 import { SYNERGY_ARTIFICER_SPEC } from './specRosterSynergyArtificer';
 import { EXPLORE_SPEC } from './specRosterExplore';
 import { OLD_PLANS_SPEC } from './specRosterOldPlans';
@@ -461,6 +461,8 @@ SPEC.items.push(...SYNERGY_ANIMALS_SPEC.items);
 SPEC.maxTextures += SYNERGY_ANIMALS_SPEC.textures;
 SPEC.items.push(...FARM_EGGS_SPEC.items);
 SPEC.maxTextures += FARM_EGGS_SPEC.textures;
+SPEC.items.push(...FARM_ICE_SPEC.items);
+SPEC.maxTextures += FARM_ICE_SPEC.textures;
 
 // The artificer's attuned tools (docs/SYNERGY_PLAN.md section 2) come last.
 SPEC.items.push(...SYNERGY_ARTIFICER_SPEC.items);
@@ -482,8 +484,14 @@ SPEC.blocks.push(...EXPLORE_SPEC.blocks);
 SPEC.maxTextures += 1;
 // Forge heavy industry (rolling mill, drop forge, dynamo; iron and steel axles): two fronts each for the dynamo, mill and forge, two item icons.
 SPEC.maxTextures += 8;
+// The telegraph and radio network (src/render/textures/areas/telegraph.ts): telegraph_pole, telegraph_office_front (+on), radio_mast (+on).
+SPEC.maxTextures += 5;
 // Old plans found in ruin crates (src/content/oldPlans.ts): one icon each, loot only.
 SPEC.maxTextures += OLD_PLANS_SPEC.textures;
 SPEC.worldOnlyItems.push(...OLD_PLANS_SPEC.worldOnly);
 // Modular tools (src/content/toolParts.ts): one icon per new head, and a composed icon for each non-default pick, axe, shovel and hoe build.
 SPEC.maxTextures += TOOL_HEAD_ICON_COUNT + COMPOSED_ICON_BUILDS.length;
+// Bridges, lifts and elevators (src/render/textures/areas/lifts.ts): two faces each for the lift winch, elevator and drawbridge, the deck top.
+SPEC.maxTextures += 7;
+// Bronze Age plumbing (content/areas/plumbing.ts): pipe_water, sprinkler + sprinkler_on, hand_pump side/top/bottom, cistern side/top/bottom.
+SPEC.maxTextures += 9;

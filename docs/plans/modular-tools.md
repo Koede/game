@@ -7,14 +7,16 @@ item (`iron_pine_resin_pickaxe`), not an `ItemStack.parts` field, so stacks, sav
 `src/content/toolParts.ts` has the materials, formulas, generated items and assembly list; `src/game/toolParts.ts` the swap rule;
 `src/game/toolBuilder.ts` the builder and rework rules; `src/ui/screens/workbench/toolBuilderPanel.ts` the screen.
 
-- Kinds: pickaxe, axe, shovel, hoe, maul. Heads: flint, bronze, iron, steel (hoes: no steel; mauls: no flint). Handles: oak, pine. Bindings: cord, resin.
+- Kinds: pickaxe, axe, shovel, hoe, maul, sword, spear. Heads: flint, bronze, iron, steel (hoes: no steel; mauls and swords: no flint). Swords and spears are
+  weapons: damage is a share of the head's (sword 0.8, spear 0.75, maul 1) and they swing quicker (`weapon.cooldownS`: sword 0.4 s, spear 0.45 s, maul 0.5 s).
+  Their bronze/iron/steel heads are forged at a furnace (bronze at tier 1, 800 C); a flint spear head is knapped by hand. Handles: oak, pine. Bindings: cord, resin.
 - The default build (any head, oak handle = two sticks, cord) is the legacy tool, number for number (parity test); legacy keys stay valid.
 - Tool Builder (workbench screen): pick tool, head, handle, binding; stats with deltas against the tool in hand; trait lines; Build.
 - Rework (same panel): replace one part of a tool in the pack with one from the pack; the old part comes back; enchants, quality and share of wear kept.
   The anvil keeps its repair-by-use; part swapping lives at the workbench, where the parts are.
 - Traits: each part has a trait line; resin spares a use of wear 15% of the time (`sparesWear`, one wear path in PlayerState.wearHeldTool).
 - Composed icons (and so the held model, which draws the icon): head metal on the build's handle wood, resin bead at the joint. Mauls borrow their metal's icon.
-- Not done: weapons beyond mauls (no swords or spears exist yet), extras slot, wire binding, glass shard.
+- Not done: extras slot, wire binding, glass shard.
 
 ## Goal
 

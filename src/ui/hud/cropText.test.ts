@@ -21,6 +21,12 @@ describe('crop crosshair label', () => {
     expect(cropLabel({ ...base, shelter: 'open' })).toBe('Wheat - growing, ripe in 4 m');
   });
 
+  it('says when the season suits the crop or not', () => {
+    expect(cropLabel({ ...base, seasonPace: 1.25 })).toBe('Wheat - growing, in season, ripe in 4 m');
+    expect(cropLabel({ ...base, seasonPace: 0.3 })).toBe('Wheat - growing, out of season, ripe in 4 m');
+    expect(cropLabel({ ...base, seasonPace: 1, hydrated: false, ripeInS: 480 })).toBe('Wheat - dry, ripe in 8 m: water within 4 blocks doubles it');
+  });
+
   it('reads a real crop from the simulation (planted on dry farmland by day)', () => {
     const kit = makeKit();
     kit.clock.timeOfDay = 0.3;

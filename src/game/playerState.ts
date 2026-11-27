@@ -17,7 +17,8 @@ import { Buffs, type BuffsSnapshot } from './buffs';
 import { Collectors } from './collectors';
 import { GroundItems, THROWN_DELAY_S, type GroundItemSnapshot } from './groundItems';
 import { PlayerCombat, type CombatSnapshot } from './combat';
-import { Inventory } from './inventory';
+import { Inventory, maxDurabilityOf } from './inventory';
+import { repairMaterial } from './toolQuality';
 import { PlayAssist, type AssistSnapshot } from './assist';
 import { BlueprintBook, type BlueprintBookSnapshot } from './blueprintBook';
 import { takesItem } from './lootFilter';
@@ -107,6 +108,9 @@ export const RESPAWN_MIN_FOOD = Math.min(MAX_FOOD, REGEN_MIN_FOOD + 2);
 const bump = (counters: Record<string, number>, key: string, by: number): void => {
   counters[key] = (counters[key] ?? 0) + by;
 };
+
+/** Fraction of a tool's wear left at which the player is warned it is nearly gone. */
+export const LOW_WEAR_FRACTION = 0.1;
 
 export class PlayerState {
   readonly position: Vec3;
@@ -287,8 +291,16 @@ export class PlayerState {
     const held = this.heldStack();
     if (!held || held.durability === undefined || !(uses > 0) || this.dev) return false;
     if (sparesWear(held.item, Math.random())) return false; // a resin binding sometimes spares the use (content/toolParts.ts)
+    const before = held.durability;
     held.durability -= uses;
     if (held.durability > 0) {
+      // One warning as the tool drops to a tenth of what it holds, so the pick is not a surprise deep in a cave.
+      const max = maxDurabilityOf(held.item, held.quality);
+      if (max !== undefined && before > max * LOW_WEAR_FRACTION && held.durability <= max * LOW_WEAR_FRACTION) {
+        const name = itemOrNull(held.item)?.name ?? held.item;
+        const mend = repairMaterial(held.item);
+        this.bus.emit('toast', { text: `Your ${name} is nearly worn out${mend ? `: mend it at an anvil with ${itemOrNull(mend)?.name ?? mend}` : ''}`, kind: 'warn', item: held.item });
+      }
       this.inventory.notifyChanged();
       return false;
     }
