@@ -33,3 +33,6 @@ export const SYNERGY_ANIMALS_SPEC = {
   /** Eight icons and the bedding tile. */
   textures: 9,
 };
+
+/** Hen eggs (src/content/areas/farm_eggs.ts). */
+export const FARM_EGGS_SPEC = { items: ['egg', 'fried_egg'], textures: 2 };
