@@ -333,6 +333,10 @@ export interface GameEvents {
    */
   /** A Use on an air block (BRONZE_PLAN 5.3): the sim reads its pressure and, on a compressor, works the hand crank. */
   'air:use': { x: number; y: number; z: number };
+  /** A Use on a plumbing block (docs/api/plumbing.md): the sim reads its line and, on a hand pump, takes a stroke. */
+  'water:use': { x: number; y: number; z: number };
+  /** A sprinkler at x,y,z sprays (sim, twice a second while it has water): the renderer throws droplets. */
+  'water:spray': { x: number; y: number; z: number };
   'hearth:formed': { x: number; y: number; z: number; tier: number; min: [number, number, number]; max: [number, number, number] };
   /** The hearth of the furnace at x,y,z stopped being formed (a block was broken or changed). Nothing is destroyed. */
   'hearth:unformed': { x: number; y: number; z: number };

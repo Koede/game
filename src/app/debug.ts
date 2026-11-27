@@ -123,6 +123,8 @@ export interface DebugHandle {
   /** Sets the wear (0..1) of the machine at a cell (set-up for the wear checks). */
   setMachineWear(x: number, y: number, z: number, wear: number): boolean;
   getBlock(x: number, y: number, z: number): { block: string; facing: number; active: boolean; solid: boolean; replaceable: boolean };
+  /** The plumbing reading of a cell (docs/api/plumbing.md) and the crop there, for the plumbing checks. */
+  plumbing(x: number, y: number, z: number): { status: string | null; waterL: number; hydrated: boolean | null };
   /** Draws a frame and reads it back from the GPU: how many distinct colours and how bright (0..255) it is. */
   sampleFrame(): { width: number; height: number; distinctColors: number; brightness: number };
   /** Nearest loaded blocks of a kind around the player (Chebyshev radius), nearest first. */
@@ -346,6 +348,11 @@ export function createDebugHandle(app: App): DebugHandle {
       if (!e) return false;
       e.wear = Math.max(0, Math.min(1, wear));
       return true;
+    },
+    plumbing(x, y, z) {
+      const sim = game().state.sim;
+      const v = sim.waterView(x, y, z);
+      return { status: v?.status ?? null, waterL: v?.waterL ?? 0, hydrated: sim.cropView(x, y, z)?.hydrated ?? null };
     },
     getBlock(x, y, z) {
       const v = game().state.world.getVoxel(x, y, z);

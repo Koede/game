@@ -398,5 +398,21 @@ export const AIR_LEAK_L_PER_S = 100;
 /** One hand-crank stroke on a compressor: litres, and the seconds before the next stroke counts (about the 64 L/s of a 32 rpm shaft). */
 export const AIR_CRANK_L = 26;
 export const AIR_CRANK_COOLDOWN_S = 0.4;
+// ---- Bronze Age plumbing (docs/api/plumbing.md) ----
+/** One stroke of a hand pump's handle: litres lifted, and the seconds before the next stroke counts. */
+export const PLUMB_STROKE_L = 40;
+export const PLUMB_STROKE_COOLDOWN_S = 0.35;
+/** Litres a hand pump lifts per second per rpm of a workshop shaft turning it (a 16 rpm steam rotor: 8 L/s). */
+export const PLUMB_PUMP_L_PER_RPM = 0.5;
+/** Water a sprinkler sprays a second while its line holds any. */
+export const SPRINKLER_L_PER_S = 0.5;
+/** A sprinkler waters crops within this many blocks across (|dx|, |dz|), like a water block, from up to 3 blocks above. */
+export const SPRINKLER_RADIUS = 4;
+export const SPRINKLER_REACH_DOWN = 3;
+/** A cistern open to the sky catches this much rain a second while it rains on it. */
+export const CISTERN_RAIN_L_PER_S = 2;
+/** A boiler's Water Port fills from a water line at most this fast (the same as from water touching it). */
+export const PLUMB_PORT_L_PER_S = 20;
+
 /** The blast nozzle counts as this many tuyeres while it is fed. */
 export const AIR_NOZZLE_TUYERES = 2;

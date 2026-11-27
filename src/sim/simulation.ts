@@ -42,6 +42,7 @@ import { gridCells, gridSummary, machineView, networkStats, type GridCell, type 
 import { isPipeEntity, type PortChange } from './pipeState';
 import { tankColumn, tankView } from './tanks';
 import { AirNets, isAirEntity, type AirView } from './airNet';
+import { isWaterEntity, WaterNets, type WaterView } from './waterNet';
 import { Transport } from './transport';
 import * as pipes from './transportActions';
 import type { BucketResult, WrenchResult } from './transportActions';
@@ -111,6 +112,8 @@ export class Simulation implements ActionHost, SafeZoneQuery {
   readonly transport: Transport;
   /** The Bronze Age air network (BRONZE_PLAN 5.3): tubes, tanks, compressors and the Blast Nozzle. */
   readonly air: AirNets;
+  /** The Bronze Age water network (docs/api/plumbing.md): pipes, cisterns, hand pumps, sprinklers, boiler Water Ports. */
+  readonly water: WaterNets;
   /** Speed of the workshop shaft that turns a compressor at a cell (rpm); set by the app from the workshop, null = no shafts. */
   airShaftRpm: ((x: number, y: number, z: number) => number) | null = null;
   private readonly transportRender: TransportRenderer;
@@ -151,12 +154,19 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       flagOnce: (flag) => this.flagOnce(flag),
       returnItem: (x, y, z, item, durability) => this.returnItem(x, y, z, item, durability),
     });
-    this.boilers = new Boilers(world, bus, { furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z) });
+    this.boilers = new Boilers(world, bus, {
+      furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z),
+      pipedWater: (x, y, z, litres) => this.water.draw(x, y, z, litres),
+    });
     this.distill = new Distillery(world, bus, {
       furnaceUnder: (x, y, z) => this.furnaceUnder(x, y, z),
       flagOnce: (flag) => this.flagOnce(flag),
     });
     this.air = new AirNets({ world, bus, shaftRpm: (x, y, z) => this.airShaftRpm?.(x, y, z) ?? 0 });
+    this.water = new WaterNets({
+      world, bus, shaftRpm: (x, y, z) => this.airShaftRpm?.(x, y, z) ?? 0, rainAt: (x, y, z) => this.weather.soaks && this.rainAt(x, y, z),
+    });
+    this.crops.irrigatedAt = (x, y, z) => this.water.irrigated(x, y, z);
     const nodes = this.nodes;
     this.hearths = new HearthSet({
       world, bus, player, byKey: nodes.byKey, air: this.air,
@@ -194,8 +204,10 @@ export class Simulation implements ActionHost, SafeZoneQuery {
         chunkChanged(ev);
         this.transport.chunkLoaded(ev.cx, ev.cz);
         this.air.chunkLoaded(ev.cx, ev.cz);
+        this.water.chunkLoaded(ev.cx, ev.cz);
       }),
       bus.on('air:use', ({ x, y, z }) => this.useAir(x, y, z)),
+      bus.on('water:use', ({ x, y, z }) => this.useWater(x, y, z)),
       bus.on('chunk:unloaded', chunkChanged),
       bus.on('ui:opened', ({ screen }) => {
         const furnace = screen.type === 'furnace' && this.furnaceAt(screen.x, screen.y, screen.z);
@@ -251,6 +263,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
       else if (e.kind === BOILER_MACHINE) this.boilers.track(e);
       else if (isChemKind(e.kind)) this.distill.track(e);
       else if (isAirEntity(e)) continue; // the air network follows its own saved entities (airNet.ts)
+      else if (isWaterEntity(e)) continue; // so does the water network (waterNet.ts)
       else if (!isPipeEntity(e)) {
         const r = sanitizeEntity(e, furnaceTierOfBlock(blockOf(this.world.getVoxel(e.x, e.y, e.z)).key)?.tier ?? null);
         if (r !== 'ok') repaired++;
@@ -261,6 +274,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     }
     repaired += this.transport.resync();
     this.air.resync();
+    this.water.resync();
     const text = repairToast(repaired);
     if (text) this.bus.emit('toast', { text, kind: 'warn' });
   }
@@ -331,6 +345,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     for (const n of nodes.furnaces) if (n.loaded) applyFurnace(n, this, dt, weather.furnaceLoss(n));
     this.transport.tick(dt);
     this.air.tick(dt);
+    this.water.tick(dt);
     this.crops.tick(dt, this.sunlight, this.wetAt, this.cropScaleAt);
     this.hand.tick(dt, this.sunlight >= MIN_SUNLIGHT, this.wetAt);
 
@@ -385,6 +400,7 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     const key = posKey(x, y, z);
     this.transport.blockChanged(x, y, z, from, to);
     this.air.blockChanged(x, y, z, from, to);
+    this.water.blockChanged(x, y, z, from, to);
     this.hearths.blockChanged(x, y, z);
     this.crops.blockChanged(x, y, z, from, to);
     const station = this.hand.blockChanged(x, y, z, from, to);
@@ -937,6 +953,24 @@ export class Simulation implements ActionHost, SafeZoneQuery {
     if (!v) return;
     if (v.role === 'source' && this.air.crank(x, y, z)) this.bus.emit('sfx', { name: 'dig_metal', x: x + 0.5, y: y + 0.5, z: z + 0.5 });
     const after = this.air.view(x, y, z) ?? v;
+    this.bus.emit('toast', { text: `${after.name}: ${after.status}`, kind: 'info' });
+  }
+
+  // ---- plumbing (docs/api/plumbing.md) ------------------------------------------------------------------------------
+
+  /** What a reader sees of the plumbing block at this cell, or null. */
+  waterView(x: number, y: number, z: number): WaterView | null {
+    return this.water.view(x, y, z);
+  }
+
+  /** A Use on a plumbing block: a hand pump takes a stroke; every one says what its line holds. */
+  private useWater(x: number, y: number, z: number): void {
+    const v = this.water.view(x, y, z);
+    if (!v) return;
+    if (v.role === 'pump' && this.water.stroke(x, y, z)) {
+      this.bus.emit('sfx', { name: 'splash', x: x + 0.5, y: y + 0.5, z: z + 0.5, volume: 0.5 });
+    }
+    const after = this.water.view(x, y, z) ?? v;
     this.bus.emit('toast', { text: `${after.name}: ${after.status}`, kind: 'info' });
   }
 
