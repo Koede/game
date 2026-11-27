@@ -108,17 +108,17 @@ function advanceCrop(c: Ctx): boolean {
 export const TOOL_USES: readonly ToolUseRow[] = [
   // ---- woodwork: axes and the chainsaw ----
   {
-    id: 'axe_strip_oak', system: 'woodwork', summary: 'An axe strips an oak log into a Stripped Oak Log and a handful of bark fibre',
+    id: 'axe_strip_oak', system: 'woodwork', summary: 'An axe strips an oak log into a Stripped Oak Log and a handful of bark fiber',
     applies: (c) => kindOf(c) === 'axe' && is(c, 'oak_log'),
     run: (c) => (replace(c, 'stripped_oak_log') ? (drop(c, [{ item: 'fiber', count: 2 }]), wearTool(c), sfx(c, 'dig_wood'), true) : false),
   },
   {
-    id: 'axe_strip_pine', system: 'woodwork', summary: 'An axe strips a pine log; the bark gives fibre and sometimes a lump of resin',
+    id: 'axe_strip_pine', system: 'woodwork', summary: 'An axe strips a pine log; the bark gives fiber and sometimes a lump of resin',
     applies: (c) => kindOf(c) === 'axe' && is(c, 'pine_log'),
     run: (c) => (replace(c, 'stripped_pine_log') ? (drop(c, [{ item: 'fiber', count: 1 }, { item: 'pine_resin', count: 1, chance: 0.5 }]), wearTool(c), sfx(c, 'dig_wood'), true) : false),
   },
   {
-    id: 'axe_trim_leaves', system: 'woodwork', summary: 'An axe trims a leaf block for sticks and fibre without felling it',
+    id: 'axe_trim_leaves', system: 'woodwork', summary: 'An axe trims a leaf block for sticks and fiber without felling it',
     applies: (c) => kindOf(c) === 'axe' && is(c, ...LEAVES),
     run: (c) => (drop(c, [{ item: 'stick', count: 1, chance: 0.6 }, { item: 'fiber', count: 1, chance: 0.5 }]), wearTool(c), sfx(c, 'harvest'), true),
   },
@@ -173,12 +173,12 @@ export const TOOL_USES: readonly ToolUseRow[] = [
     run: (c) => c.world.getVoxel(c.hit.x, c.hit.y + 1, c.hit.z) === AIR && replace(c, 'dirt') && (wearTool(c), sfx(c, 'till'), true),
   },
   {
-    id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass, ferns, reeds and dry shrub down to fibre (shrub gives a stick too)',
+    id: 'hoe_scythe', system: 'farming', summary: 'A hoe cuts tall grass, ferns, reeds and dry shrub down to fiber (shrub gives a stick too)',
     applies: (c) => (kindOf(c) === 'hoe' || heldIs(c, 'starcleaver')) && is(c, ...CHEAP_FOLIAGE),
     run: (c) => (remove(c) ? (drop(c, [{ item: 'fiber', count: 2 }, { item: 'stick', count: 1, chance: c.def.key === 'dry_shrub' ? 0.7 : 0 }]), wearTool(c), sfx(c, 'harvest'), true) : false),
   },
   {
-    id: 'shovel_cut_sod', system: 'farming', summary: 'A shovel cuts the sod off grass: dirt underneath, roots for fibre',
+    id: 'shovel_cut_sod', system: 'farming', summary: 'A shovel cuts the sod off grass: dirt underneath, roots for fiber',
     applies: (c) => kindOf(c) === 'shovel' && is(c, 'grass') && c.hit.face === Face.PY,
     run: (c) => (replace(c, 'dirt') ? (drop(c, [{ item: 'fiber', count: 1 }], { x: c.hit.x + 0.5, y: c.hit.y + 1.2, z: c.hit.z + 0.5 }), wearTool(c), sfx(c, 'dig_sand'), true) : false),
   },
