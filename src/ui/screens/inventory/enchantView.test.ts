@@ -22,3 +22,15 @@ describe('enchant display', () => {
     expect(css).toMatch(/\[data-reduce-motion\] \.hw-slot\[data-enchanted\]::before \{\s*animation: none;\s*background: none;/);
   });
 });
+
+describe('tool and armour cards', () => {
+  it('a fine tool shows its quality, the true maximum and how to mend it', () => {
+    const card = itemCard({ item: 'iron_pickaxe', count: 1, durability: 130, quality: 1 });
+    expect(card.title).toBe('Fine Iron Pickaxe');
+    expect(card.rows).toContainEqual(['Uses left', '130 / 480']);
+    expect(card.rows).toContainEqual(['Repairs with', 'Iron Ingot, at an anvil']);
+  });
+  it('armour says how much it blocks', () => {
+    expect(itemCard({ item: 'plated_coat', count: 1 }).rows?.some(([k]) => k === 'Protection')).toBe(true);
+  });
+});

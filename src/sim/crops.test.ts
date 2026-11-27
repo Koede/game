@@ -127,6 +127,19 @@ describe('crop growth', () => {
     expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
   });
 
+  it('a pond that froze over (winter) still keeps the crop hydrated, and stays so when it freezes under it', () => {
+    const kit = morning();
+    plant(kit, 0, 11, 0, { water: true });
+    live(kit, 1);
+    expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
+    kit.world.put(3, 10, 0, 'ice'); // the winter module froze the water
+    live(kit, DT);
+    expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(true);
+    kit.world.put(3, 10, 0, 'air'); // the ice is mined out: now it is dry
+    live(kit, DT);
+    expect(kit.sim.cropView(0, 11, 0)?.hydrated).toBe(false);
+  });
+
   it('a plant left on nothing pops on the next tick, dropping what it would (UNIT-03 rule 1)', () => {
     const kit = morning();
     plant(kit, 0, 11, 0, { soil: 'dirt', water: true });

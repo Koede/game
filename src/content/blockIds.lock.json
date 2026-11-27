@@ -317,4 +317,8 @@
   "cistern": 315,
   "sprinkler": 316,
   "clock_tower": 317
+  "lift_winch": 317,
+  "elevator_winch": 318,
+  "drawbridge": 319,
+  "bridge_deck": 320
 }
