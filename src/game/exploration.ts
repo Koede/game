@@ -35,6 +35,8 @@ export const CAST_LEASH = 8;
 /** The chest is buried when the player comes this close (its chunk is loaded by then). */
 export const CHEST_LOAD_R = 24;
 const LANDMARK_NAMES = ['the Old Works', 'the Broken Hall', 'the Grey Foundry', 'the Sunken Yard', 'the Cold Forge', 'the Ash Court', 'the Quiet Mill'];
+/** The name treasure maps (and the airship's chart) give the ruin whose middle is at (x, z). */
+export const ruinName = (seed: number, x: number, z: number): string => LANDMARK_NAMES[hash32(seed, x, z, 77) % LANDMARK_NAMES.length];
 
 export interface ExplorationHost {
   readonly world: IWorld;
@@ -161,7 +163,7 @@ export class Exploration {
       if (!r) return;
       const x = r.x0 + (r.w >> 1);
       const z = r.z0 + (r.d >> 1);
-      out.push({ id: `${x},${z}`, name: LANDMARK_NAMES[hash32(seed, x, z, 77) % LANDMARK_NAMES.length], x, z });
+      out.push({ id: `${x},${z}`, name: ruinName(seed, x, z), x, z });
     };
     add(spawnRuin(seed));
     const SQ = RUIN_GRID_CHUNKS * CHUNK_SIZE;
