@@ -169,6 +169,7 @@ function resolveBlock(spec: BlockSpec, id: number): BlockDef {
     harvestLeaves: spec.harvestLeaves ?? null,
     pipe: spec.pipe ?? null,
     air: spec.air ?? null,
+    plumb: spec.plumb ?? null,
     handStation: spec.handStation ?? null,
     itemKey: hasItem ? spec.key : null,
     layers,
@@ -592,8 +593,14 @@ export const isFluidEndpoint = (def: BlockDef): boolean => machineOfBlock(def)?.
  * Whether a pipe grows an arm towards a neighbour: a pipe of the same family, or an endpoint of that family. Item and
  * fluid pipes never join each other. (A wrench may still switch a joint off; that is per-pipe state in src/sim.)
  */
+/** Blocks a water pipe reaches besides plumbing members: the boiler's Water Port (it fills from the line). */
+export const PLUMB_PORTS: readonly string[] = ['water_port'];
+/** Whether a water pipe grows an arm towards this block (and the water network counts it). */
+export const joinsPlumbing = (def: BlockDef): boolean => def.plumb !== null || PLUMB_PORTS.includes(def.key);
+
 export function pipeJoins(pipe: BlockDef, other: BlockDef): boolean {
   if (pipe.air?.role === 'tube') return other.air !== null;
+  if (pipe.plumb?.role === 'pipe' || pipe.plumb?.role === 'sprinkler') return joinsPlumbing(other);
   const family = pipe.pipe?.family;
   if (!family) return false;
   if (other.pipe) return other.pipe.family === family;

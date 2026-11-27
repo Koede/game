@@ -312,6 +312,14 @@
   "steam_tank": 310,
   "tube_sender": 311,
   "tube_receiver": 312,
-  "oak_sapling": 313,
-  "pine_sapling": 314
+  "water_pipe": 313,
+  "hand_pump": 314,
+  "cistern": 315,
+  "sprinkler": 316,
+  "lift_winch": 317,
+  "elevator_winch": 318,
+  "drawbridge": 319,
+  "bridge_deck": 320,
+  "oak_sapling": 321,
+  "pine_sapling": 322
 }

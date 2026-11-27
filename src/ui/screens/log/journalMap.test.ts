@@ -18,15 +18,36 @@ describe('paintMap', () => {
     expect(dark).toBeGreaterThan(seen);
     expect(out.every((_, i) => i % 4 !== 3 || out[i] === 255)).toBe(true);
   });
+});
 
-  it('draws a cyan dot for a marker', () => {
+describe('map marks', () => {
+  it('paints a blue mark for a waypoint and a red one for a treasure landmark', () => {
     const j = new Journal(() => 1);
     j.explore(0, 0);
-    const size = 32;
+    const size = 64;
     const out = new Uint8ClampedArray(size * size * 4);
-    paintMap(j, 0, 0, size, () => 64, out, [{ x: 8, z: 0 }]);
-    let cyan = 0;
-    for (let i = 0; i < out.length; i += 4) if (out[i] === 90 && out[i + 1] === 220 && out[i + 2] === 235) cyan++;
-    expect(cyan).toBeGreaterThan(4);
+    paintMap(j, 0, 0, size, () => 64, out, [{ kind: 'waypoint', x: 10, z: 0 }, { kind: 'treasure', x: -10, z: 0 }]);
+    let blue = 0;
+    let red = 0;
+    for (let i = 0; i < out.length; i += 4) {
+      if (out[i] === 90 && out[i + 1] === 200 && out[i + 2] === 255) blue++;
+      if (out[i] === 255 && out[i + 1] === 90 && out[i + 2] === 70) red++;
+    }
+    expect(blue).toBeGreaterThan(0);
+    expect(red).toBeGreaterThan(0);
+  });
+});
+
+describe('map marks far away', () => {
+  it('zooms out so a mark past the explored ground still lands on the map', () => {
+    const j = new Journal(() => 1);
+    j.explore(0, 0);
+    const size = 64;
+    const out = new Uint8ClampedArray(size * size * 4);
+    const { blocksPerPx } = paintMap(j, 0, 0, size, () => 64, out, [{ kind: 'treasure', x: 400, z: -300 }]);
+    expect(blocksPerPx * size / 2).toBeGreaterThan(400);
+    let red = 0;
+    for (let i = 0; i < out.length; i += 4) if (out[i] === 255 && out[i + 1] === 90 && out[i + 2] === 70) red++;
+    expect(red).toBeGreaterThan(0);
   });
 });

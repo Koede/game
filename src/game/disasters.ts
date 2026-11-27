@@ -264,9 +264,9 @@ export class Disasters {
     const seen = new Set<string>();
     let loudest = 0;
     for (const boiler of this.host.boilers()) {
-      if (!boiler.loaded) continue;
       const k = key(boiler.x, boiler.y, boiler.z);
-      seen.add(k);
+      seen.add(k); // an unloaded boiler is frozen with its chunk: its pressure waits, it does not reset
+      if (!boiler.loaded) continue;
       let p = this.pressure.get(k) ?? 0;
       const valve = this.host.valveNear ? this.host.valveNear(boiler.x, boiler.y, boiler.z) : valveNear(world, boiler.x, boiler.y, boiler.z);
       const hot = boiler.tempC >= 200;
@@ -338,9 +338,9 @@ export class Disasters {
     const { world } = this.host;
     const seen = new Set<string>();
     for (const f of this.host.furnaces()) {
-      if (!f.loaded) continue;
       const k = key(f.x, f.y, f.z);
-      seen.add(k);
+      seen.add(k); // soot waits with the chunk too
+      if (!f.loaded) continue;
       let s = this.soot.get(k) ?? 0;
       if (f.lit) {
         if (f.tempC >= c.burnOffC) s -= c.burnOffPerS * dt;

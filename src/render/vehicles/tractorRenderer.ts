@@ -34,7 +34,7 @@ export interface TractorDrawView {
   occupied: boolean;
 }
 
-type RGB = [number, number, number];
+export type RGB = [number, number, number];
 const hex = (c: number): RGB => [((c >> 16) & 255) / 255, ((c >> 8) & 255) / 255, (c & 255) / 255];
 const GREEN = hex(0x3f7a3a);
 const GREEN_DARK = hex(0x2a5428);
@@ -49,7 +49,7 @@ const GLASS = hex(0x9ec9d6);
 const SEAT = hex(0x4a3226);
 const LAMP = hex(0xfff0b0);
 
-const VERTEX = /* glsl */ `
+export const VEHICLE_VERTEX = /* glsl */ `
 precision highp float;
 in vec3 aColor;
 in float aEmit;
@@ -71,7 +71,7 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;
-const FRAGMENT = /* glsl */ `
+export const VEHICLE_FRAGMENT = /* glsl */ `
 precision mediump float;
 in vec3 vColor;
 in vec4 vFog;
@@ -82,7 +82,7 @@ void main() {
 `;
 
 /** Accumulates boxes and cylinders into one indexed geometry (position, normal, colour, emissive flag). */
-class Builder {
+export class Builder {
   private readonly pos: number[] = [];
   private readonly nor: number[] = [];
   private readonly col: number[] = [];
@@ -269,8 +269,8 @@ export class TractorRenderer {
       name: 'tractor',
       glslVersion: THREE.GLSL3,
       uniforms: { ...this.view.uniforms, uSky: { value: 1 }, uBlock: { value: 0 } },
-      vertexShader: VERTEX,
-      fragmentShader: FRAGMENT,
+      vertexShader: VEHICLE_VERTEX,
+      fragmentShader: VEHICLE_FRAGMENT,
     });
     const group = new THREE.Group();
     const mesh = (g: THREE.BufferGeometry): THREE.Mesh => {

@@ -381,6 +381,8 @@ export interface BlockSpec {
   pipe?: PipeSpec;
   /** Compressed air (BRONZE_PLAN 5.3): a member of an air network. Never set together with `pipe`; src/sim/airNet.ts owns it. */
   air?: AirSpec;
+  /** Plumbing (docs/api/plumbing.md): a member of a water network (src/sim/waterNet.ts). Never set with `pipe` or `air`. */
+  plumb?: PlumbSpec;
   /** Ember handwork: the block is worked by the player's strokes (its machine has role 'hand'). */
   handStation?: HandStationSpec;
 }
@@ -397,6 +399,16 @@ export interface AirSpec {
   /** Users: the least pressure it works at, in bar, and the air it uses while it works, in litres a second. */
   minBar?: number;
   useLPerS?: number;
+}
+
+/**
+ * A block of the Bronze Age water network (docs/api/plumbing.md). Every touching member joins one network that keeps
+ * one amount of water: pipes carry, cisterns store (and catch rain), a hand pump lifts water it touches, a sprinkler
+ * waters the crops round it. A boiler's Water Port joins too and fills from the line. `volumeL` is what it holds.
+ */
+export interface PlumbSpec {
+  role: 'pipe' | 'cistern' | 'pump' | 'sprinkler';
+  volumeL: number;
 }
 
 /**
@@ -456,6 +468,8 @@ export interface BlockDef {
   pipe: PipeSpec | null;
   /** Air network membership (BRONZE_PLAN 5.3), or null. */
   air: AirSpec | null;
+  /** Water network membership (docs/api/plumbing.md), or null. */
+  plumb: PlumbSpec | null;
   handStation: HandStationSpec | null;
   /** Key of the item that places this block, or null. */
   itemKey: string | null;

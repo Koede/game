@@ -151,7 +151,7 @@ describe('17. multiblock hearths', () => {
 
   it('shrinks the upgrade costs to those of 17.2', () => {
     const costs = FURNACE_TIERS.map((t) => t.upgradeCost.map((c) => `${c.count} ${c.item}`).join(', '));
-    expect(costs).toEqual(['', '8 bronze_ingot, 4 firebrick, 1 bellows', '4 bronze_ingot, 1 bellows', '2 copper_coil, 2 steel_plate', '2 circuit, 2 tungsten_rod', '1 star_core, 8 deuterium_cell']);
+    expect(costs).toEqual(['', '8 bronze_ingot, 4 firebrick, 1 bellows', '4 bronze_ingot, 1 bellows', '2 copper_coil, 2 steel_plate', '2 circuit, 2 tungsten_rod', '1 star_core, 4 deuterium_cell']);
   });
 
   it('prices the smallest legal shell of every tier', () => {

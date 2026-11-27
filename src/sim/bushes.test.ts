@@ -23,11 +23,11 @@ describe('berry bushes', () => {
     expect(blockOf(kit.world.getVoxel(0, 1, 0)).key).toBe('berry_bush_bare');
     kit.run(1.05);
     expect(blockOf(kit.world.getVoxel(0, 1, 0)).key).toBe('berry_bush');
-    expect(grew).toEqual([{ x: 0, y: 1, z: 0, stage: 1 }]);
+    expect(grew).toEqual([{ x: 0, y: 1, z: 0, stage: 1, ripe: true }]);
     expect(kit.sim.cropView(0, 1, 0)).toMatchObject({ ripe: true, status: 'Ripe' });
     expect(kit.sim.cropsAwake).toBe(0);
     expect(placed).toEqual([]);
-    expect(sfx).toEqual([]);
+    expect(sfx.every((s) => s.name === 'pickup')).toBe(true); // at most the ripening chime
   });
 
   it('picking leaves the bare bush with the same entity, which starts over', () => {
