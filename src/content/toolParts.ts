@@ -191,6 +191,14 @@ export function partReturn(b: ToolBuild, role: PartRole): string {
 
 // ---- content ------------------------------------------------------------------------------------
 
+/** Seconds between blows of a build: its kind's base over the handle's swing speed (pine swings faster). Undefined = the shared weapon cooldown. */
+export function weaponCooldown(b: ToolBuild): number | undefined {
+  const base = WEAPON_COOLDOWN_S[b.kind];
+  const speed = HANDLES[b.handle].speed;
+  if (base === undefined) return undefined; // mauls keep the shared cooldown (their items predate this)
+  return Math.round((base / speed) * 100) / 100;
+}
+
 /** Heads of this kind made here (the hand-cast bronze ones of the older kinds excluded). */
 /** Age a head item first appears (its metal's; bronze is within reach of the first furnace). */
 const headAge = (m: string, kind: ModularKind): number => HEADS[m].age;
@@ -223,7 +231,8 @@ export const TOOL_PART_ITEMS: ItemSpec[] = [
     // Pickaxes, axes, shovels and hoes paint their own composed icon (render/textures/iconsTools.ts); a maul borrows its metal's.
     if (b.kind === 'maul') spec.icon = `item_${b.head}_maul`;
     if (isWeaponKind(b.kind)) {
-      spec.weapon = { damage: s.damage!, ...(WEAPON_COOLDOWN_S[b.kind] ? { cooldownS: WEAPON_COOLDOWN_S[b.kind] } : {}) };
+      const cd = weaponCooldown(b);
+      spec.weapon = { damage: s.damage!, ...(cd !== undefined ? { cooldownS: cd } : {}) };
     }
     return spec;
   }),

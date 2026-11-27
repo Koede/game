@@ -133,6 +133,7 @@ describe('modular tools: swords and spears', () => {
     expect(spear.damage).toBeLessThan(sword.damage);
     expect(sword.cooldownS!).toBeLessThan(0.5);
     expect(item('iron_pine_resin_sword').weapon!.damage).toBe(sword.damage);
+    expect(item('iron_pine_resin_sword').weapon!.cooldownS!).toBeLessThan(sword.cooldownS!); // pine swings faster
   });
   it('they are craftable from a head, a handle and a binding, and mend with their metal', () => {
     for (const key of ['bronze_sword', 'flint_spear', 'steel_oak_resin_spear']) {
