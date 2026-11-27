@@ -73,9 +73,9 @@ describe('winter x water', () => {
     r.s.dispose();
   });
 
-  it('water that a pump or a boiler water port draws from stays open through winter', () => {
+  it('water that a pump, hand pump or boiler water port draws from stays open through winter', () => {
     const r = pondRig();
-    const cells = [[0, 'pump'], [4, 'water_port']] as const;
+    const cells = [[0, 'pump'], [4, 'water_port'], [12, 'hand_pump']] as const;
     const spots = cells.map(([dx]) => r.at(dx, 0));
     const pond = r.at(8, 0); // a pond nobody draws from
     for (const w of [...spots, pond]) r.s.world.setVoxel(...w, makeVoxel(WATER), 'player');
@@ -84,7 +84,7 @@ describe('winter x water', () => {
       r.s.world.setVoxel(x, y + 1, z, makeVoxel(blockId(key)), 'player');
     });
     r.run(WINTER);
-    expect(spots.map((c) => r.id(c))).toEqual([WATER, WATER]);
+    expect(spots.map((c) => r.id(c))).toEqual([WATER, WATER, WATER]);
     expect(r.id(pond)).toBe(ICE);
     r.s.dispose();
   });

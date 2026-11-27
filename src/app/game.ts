@@ -11,8 +11,10 @@ import { makePostcard, saveShot, sendPostcard } from './photo';
 import { PostcardDirector, PostcardStore, postcardVantage } from '../game/postcards';
 import { PhotoUi } from '../ui/photoUi';
 import { browserStorage } from '../save/storage';
-import { AGES } from '../core/registry';
+import { AGES, itemOrNull } from '../core/registry';
 import { filterById, type PhotoFilter } from '../player/photoFilters';
+import { useVerb } from '../player/useVerb';
+import { WakeLockKeeper } from '../player/wakeLock';
 import { resumeLine } from '../game/journal';
 import { GOGGLES, inspect, type InspectProbe } from '../workshop/inspector';
 import { isKinetic, Workshop } from '../workshop/workshop';
@@ -20,6 +22,8 @@ import { setCraftGate } from '../game/crafting';
 import { Magic } from '../magic/magic';
 import { MagicRenderer } from '../render/magic/magicRenderer';
 import { WorkshopRenderer } from '../render/workshop/workshopRenderer';
+import { createTelegraphScreen } from '../ui/screens/telegraph/telegraphScreen';
+import { TelegraphWires } from '../render/telegraphWires';
 import { createDeskScreen } from '../ui/screens/notebook/deskScreen';
 import { createTownScreen } from '../ui/screens/town/townScreen';
 import { createWorkshopScreen } from '../ui/screens/workshop/workshopScreen';
@@ -139,7 +143,9 @@ export class Game {
   readonly magicRenderer: MagicRenderer;
   /** Turning cogs, links, arms and pistons of the workshop (src/render/workshop). */
   readonly workshopRenderer: WorkshopRenderer;
+  readonly telegraphWires: TelegraphWires;
   readonly inputManager: InputManager;
+  private readonly wake = new WakeLockKeeper();
   readonly ui: GameUI;
   readonly controller: PlayerController;
   /** Tractors (docs/api/tractor.md): their state, the driving controls, model and HUD. */
@@ -222,6 +228,7 @@ export class Game {
     this.trees = new FallingTrees(world, player, bus, { persist: world, autoBuck: () => this.settings.autoBuck, treeDamage: () => this.settings.treeDamage, victims: state.mobs, reduceMotion: () => this.settings.reduceMotion });
     this.magicRenderer = new MagicRenderer(this.renderer, world, this.magic);
     this.workshopRenderer = new WorkshopRenderer(this.renderer);
+    this.telegraphWires = new TelegraphWires(this.renderer);
     try {
       this.inputManager = new InputManager({
         container: opts.app,
@@ -263,6 +270,7 @@ export class Game {
       registerStationScreens(this.ui, sim);
       this.ui.registerScreen('town', (request, ctx) => createTownScreen(request as { type: 'town' }, ctx, () => state.npcs.townPage(), (id, room) => state.npcs.moveResident(id, room)));
       this.ui.registerScreen('workshop', (_request, ctx) => createWorkshopScreen(ctx));
+      this.ui.registerScreen('telegraph', (request, ctx) => (request.type === 'telegraph' ? createTelegraphScreen(request, ctx, state.telegraph) : null));
       this.ui.registerScreen('jobs', (request, ctx) => createJobsScreen(ctx, state.npcs, request.type === 'jobs' ? request.person : undefined));
       this.ui.registerScreen('waypoints', (request, ctx) => (request.type === 'waypoints' ? createWaypointScreen(ctx, state.exploration, request.stone) : null));
       this.ui.registerScreen('notebook', (request, ctx) => createNotebookScreen(ctx, this.magic.notebook(), request.type === 'notebook' && request.table === true));
@@ -292,6 +300,11 @@ export class Game {
       this.controller.interaction.beforeUse = (hit) => {
         // Picking a stop for a resident's job (docs/api/jobs.md): this Use sets it.
         if (state.npcs.pickingStop) return state.npcs.jobPick(hit) ? 'screen' : null;
+        // Telegraph offices and radio masts open the wire's screen (docs/api/telegraph.md).
+        if (hit && (hit.block.key === 'telegraph_office' || hit.block.key === 'radio_mast') && state.telegraph.node(hit.x, hit.y, hit.z)) {
+          bus.emit('ui:open', { screen: { type: 'telegraph', x: hit.x, y: hit.y, z: hit.z } });
+          return 'screen';
+        }
         if (hit) {
           const held = player.heldStack();
           const shop = this.workshop.use(hit.x, hit.y, hit.z, held, (n) => player.consumeHeld(n));
@@ -328,6 +341,7 @@ export class Game {
     this.treeRenderer.dispose();
       this.magicRenderer.dispose();
       this.workshopRenderer.dispose();
+    this.telegraphWires.dispose();
       this.mobRenderer.dispose();
     this.npcRenderer.dispose();
       this.renderer.dispose();
@@ -491,6 +505,7 @@ export class Game {
       const ticks = this.step.advance(dt);
       for (let i = 0; i < ticks; i++) this.tickOnce();
     }
+    this.wake.update(this.settings.keepAwake && this.input.touch && !paused);
     const p = state.player;
     // Nothing moves while paused: chunks stream again on resume.
     if (!paused) state.world.update(p.position.x, p.position.z, this.settings.renderDistance, STREAM_BUDGET_MS);
@@ -498,6 +513,7 @@ export class Game {
     this.audio.setAmbience(this.ambience.update(dt));
     this.showAnimalName();
     this.showStationName();
+    this.showUseVerb();
     this.renderer.setGridOverlay(gridOverlayFor(state.sim, p.heldStack()?.item ?? null, p.position.x, p.eyeY, p.position.z));
     this.updateHeatView(dt);
     // The aura line is separate from the crosshair name, including when that name is a block and when the rod reads null.
@@ -523,6 +539,7 @@ export class Game {
       const pp = state.player.position;
       this.magicRenderer.update(paused ? 0 : dt, this.magic.jarFills(), this.magic.nodesAround(pp.x, pp.z, 3), this.magic.displays(), pp);
       this.workshopRenderer.update(paused ? 0 : dt, this.workshop.view(pp.x, pp.z), motions);
+      this.telegraphWires.update(this.state.telegraph);
       this.drawNightlife(paused ? 0 : dt);
       this.renderer.render(paused ? 0 : dt);
       if (this.shotPending) {
@@ -607,6 +624,17 @@ export class Game {
   private magicLabel(x: number, y: number, z: number, key: string): string | null {
     const m = this.magic;
     return m.mirrorText(x, y, z) ?? m.jarText(x, y, z) ?? m.altarText(x, y, z) ?? m.servantText(x, y, z) ?? m.lensLabel(key) ?? m.rodReading();
+  }
+
+  /** The touch Use button says what a press does (Open, Eat, Place...); cheap, and a no-op without touch. */
+  private showUseVerb(): void {
+    if (!this.input.touch) return;
+    const p = this.state.player;
+    const held = p.heldStack();
+    const animal = this.controller.targetAnimal !== null;
+    this.inputManager.setUseLabel(
+      useVerb({ person: !animal && this.controller.personAimed() !== null, block: animal ? null : (this.controller.target?.block ?? null), animal, held: held ? itemOrNull(held.item) : null, placeArmed: this.inputManager.placeArmed }),
+    );
   }
 
   /** A drop lying under the aim: the crosshair names it first (the name and rarity last shown, as "text|rarity"). */
@@ -780,6 +808,7 @@ export class Game {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.wake.dispose();
     for (const off of this.offs) off();
     this.offs.length = 0;
     this.vehicleHud.dispose();
@@ -797,6 +826,7 @@ export class Game {
     this.treeRenderer.dispose();
     this.magicRenderer.dispose();
     this.workshopRenderer.dispose();
+    this.telegraphWires.dispose();
     this.mobRenderer.dispose();
     this.npcRenderer.dispose();
     // Release the GPU context now rather than whenever the browser collects it: a phone allows only a few.

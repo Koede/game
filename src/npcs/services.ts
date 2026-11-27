@@ -63,6 +63,12 @@ export class ServiceMenu {
     return s ? s.accept(p) : null;
   }
 
+  /** The next pitch starts from offer `id` (the festival puts its own contest first). */
+  focus(id: string): void {
+    const i = this.offers.findIndex((o) => o.id === id);
+    if (i >= 0) this.idx = i;
+  }
+
   /** Pitches the next open offer. Null when none is open. */
   pitch(p: TavernPort): string | null {
     for (let i = 0; i < this.offers.length; i++) {

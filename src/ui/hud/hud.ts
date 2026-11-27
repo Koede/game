@@ -243,6 +243,7 @@ export class Hud {
     this.tapMark.update(d.tapGoal?.() ?? null, { x: d.player.position.x, y: d.player.eyeY, z: d.player.position.z }, d.player.yaw, d.player.pitch, d.settings.fov, window.innerWidth / Math.max(1, window.innerHeight));
     this.nudge.frame(dt);
     this.coach.look(d.player.yaw, d.player.pitch, d.input.touch);
+    this.coach.walk(d.player.position.x, d.player.position.z, d.player.sprinting, d.input.touch);
     if (this.hotbarDirty) {
       this.hotbarDirty = false;
       this.hotbar.refresh();
@@ -287,7 +288,9 @@ export class Hud {
     this.workFraction = hand && hand.fraction > 0 ? hand.fraction : -1;
     if (hand) return hand.label;
     const block = this.deps.world.getBlock(t.x, t.y, t.z);
-    return block.id === 0 ? null : block.name;
+    if (block.id === 0) return null;
+    const machine = this.deps.sim().machineView(t.x, t.y, t.z);
+    return machine && machine.status ? `${block.name} - ${machine.status}` : block.name;
   }
 
   /**

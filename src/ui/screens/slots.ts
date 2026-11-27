@@ -621,9 +621,24 @@ export class SlotController {
       this.after(this.logic.quickMove(group, index));
       return;
     }
+    const b = this.bindings.get(group);
+    const stack = b?.spec.inventory.slots[index] ?? null;
     const outcome = this.logic.primary(group, index);
-    if (outcome === 'picked') this.lastTap = { group, index, at: now };
+    if (outcome === 'picked') {
+      this.lastTap = { group, index, at: now };
+      // Touch has no hover and long-press is "take half", so a tap that picks a stack shows its card for a moment.
+      if (stack && b && ev instanceof PointerEvent && ev.pointerType !== 'mouse') this.cardOnTouch(b.spec.views[index - b.start]?.el, stack);
+    }
     this.after(outcome);
+  }
+
+  private cardTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Shows the item card by a slot after a touch pick, and hides it again after a short while. */
+  private cardOnTouch(el: HTMLElement | undefined, stack: NonNullable<Parameters<typeof itemCard>[0]>): void {
+    if (!this.tooltip || !el) return;
+    this.tooltip.show(el, itemCard(stack));
+    if (this.cardTimer !== null) clearTimeout(this.cardTimer);
+    this.cardTimer = setTimeout(() => this.tooltip?.hide(), 2600);
   }
 
   /**

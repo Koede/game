@@ -58,6 +58,7 @@ export class TouchOverlay {
   private holdKey = '';
   private diameter = 0;
   private placeArmed = false;
+  private useLabel: string = LABELS.use;
   private menuOpenable = true;
   private menuLit = false;
   private large = false;
@@ -136,6 +137,16 @@ export class TouchOverlay {
 
   setPressed(name: TouchButton, pressed: boolean): void {
     this.buttons.get(name)?.classList.toggle('hw-touch-btn--pressed', pressed);
+  }
+
+  /** The caption on Use ("Use", "Open", "Eat", "Place"): what a press would do now. Only writes the DOM when it changes. */
+  setUseLabel(label: string): void {
+    if (label === this.useLabel) return;
+    this.useLabel = label;
+    const el = this.buttons.get('use');
+    const caption = el?.querySelector('.hw-touch-label');
+    if (caption) caption.textContent = label;
+    el?.setAttribute('aria-label', label === LABELS.use ? label : `Use: ${label}`);
   }
 
   /** Shows the Place toggle armed (the next Use places the held block). */

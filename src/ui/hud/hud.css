@@ -1056,11 +1056,21 @@
 }
 .hw-coach[data-mark='mine'] {
   right: calc(70px + var(--hw-safe-r));
-  bottom: calc(224px + var(--hw-safe-b));
+  /* Above the whole thumb cluster (the Place toggle tops out at 268 px), never over a button. */
+  bottom: calc(284px + var(--hw-safe-b));
 }
 .hw-coach[data-mark='mine']::after {
   right: 36px;
   bottom: -5px;
+}
+/* The sprint tip hangs above the quick-menu button at the left edge, over the stick. */
+.hw-coach[data-mark='sprint'] {
+  left: calc(14px + var(--hw-safe-l, 0px));
+  bottom: calc(300px + var(--hw-safe-b));
+}
+.hw-coach[data-mark='sprint']::after {
+  bottom: -5px;
+  left: 30px;
 }
 .hw-coach[data-mark='goal'] {
   animation: none;
@@ -1070,9 +1080,12 @@
   left: 18px;
 }
 @media (orientation: landscape) {
+  .hw-coach[data-mark='sprint'] {
+    bottom: calc(226px + var(--hw-safe-b));
+  }
   .hw-coach[data-mark='mine'] {
     right: calc(90px + var(--hw-safe-r));
-    bottom: calc(158px + var(--hw-safe-b));
+    bottom: calc(216px + var(--hw-safe-b));
   }
 }
 @keyframes hw-coach-bob {
@@ -1137,6 +1150,23 @@
 }
 .hw-npcsay[hidden] {
   display: none;
+}
+/* On a touch screen the box must not sit on the thumb controls (it would eat every tap meant for Use, Mine, Jump and the stick):
+   portrait lifts it above the cluster and the quick-menu button; landscape narrows it to the gap between the stick and the cluster. */
+.hw-hud[data-touch] .hw-npcsay {
+  bottom: calc(var(--hw-safe-b, 0px) + 300px);
+  width: calc(100% - 24px);
+}
+.hw-hud[data-touch] .hw-npcsay__frame {
+  width: 84px;
+  height: 84px;
+}
+@media (orientation: landscape) {
+  .hw-hud[data-touch] .hw-npcsay {
+    /* Above the stick whichever side it rests on (one-handed layouts move it inward), beside the right-hand cluster. */
+    bottom: calc(var(--hw-safe-b, 0px) + 156px);
+    width: min(720px, calc(100% - 420px));
+  }
 }
 .hw-npcsay__frame {
   flex: none;
@@ -1463,6 +1493,18 @@
   gap: 4px;
   padding: 6px 8px;
   border-top: 1px solid var(--hw-plate-edge);
+}
+
+/* Touch: small chips keep their look but get a 44 px hit area (an invisible 8 px halo; a thumb is not precise). */
+.hw-hud[data-touch] .hw-nudge__ask,
+.hw-hud[data-touch] .hw-vitals__heat {
+  position: relative;
+}
+.hw-hud[data-touch] .hw-nudge__ask::after,
+.hw-hud[data-touch] .hw-vitals__heat::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 
 /* The day text takes the colour of the season (the tooltip and the label say which). */
