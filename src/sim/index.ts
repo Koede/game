@@ -19,6 +19,7 @@ export { smeltRecipeFor } from './furnace';
 export type { PourOption } from './casting';
 export { ALLOY_POT, POT_COPPER_MAX, POT_TIN_MAX, pourOptions } from './casting';
 export { machineRecipeFor, windAt } from './machines';
+export { BITS, bitUses, isDrillBit } from './drillRig';
 export { SimWeather, type SimBiomeLookup } from './weather';
 export type { FluidStack } from './entities';
 export { isPlant } from './cropRules';

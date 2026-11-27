@@ -112,6 +112,30 @@ function boreRig(c: Canvas, lit: boolean): void {
   }
 }
 
+function drillRig(c: Canvas, lit: boolean): void {
+  // A square tower frame over a wide three-flute auger; running, the flutes shift and chips fly off the cutting edge.
+  c.rect(2, 1, 12, 1, M[3]);
+  c.rect(2, 1, 1, 12, M[2]);
+  c.rect(13, 1, 1, 12, M[2]);
+  c.line(3, 2, 12, 11, M[1]);
+  c.line(12, 2, 3, 11, M[1]);
+  c.rect(6, 2, 4, 2, P.HAZARD);
+  c.rect(7, 4, 2, 2, M[4]);
+  const shift = lit ? 1 : 0;
+  for (let y = 6; y <= 11; y++) {
+    const w = y > 9 ? 2 : 3;
+    for (let x = 8 - w; x < 8 + w; x++) c.set(x, y, (x - y + shift + 30) % 3 === 0 ? P.IRON_METAL[4] : P.IRON_METAL[2]);
+  }
+  c.rect(7, 12, 2, 1, P.IRON_METAL[3]);
+  c.rect(2, 13, 12, 1, I[0]);
+  if (lit) {
+    c.set(5, 12, P.EMBER[4]);
+    c.set(10, 12, P.EMBER[3]);
+    c.set(4, 11, P.AMBER[4]);
+    c.set(11, 13, P.EMBER[4]);
+  }
+}
+
 function centrifuge(c: Canvas, lit: boolean): void {
   // A drum with four sample tubes; spinning, the tubes smear into a glowing yellow ring.
   c.disc(7.5, 7, 5.5, M[3]);
@@ -147,6 +171,7 @@ export const CONSUMERS: PainterSet = {
   ...front('crusher', crusher),
   ...front('still', still),
   ...front('bore_rig', boreRig),
+  ...front('drill_rig', drillRig),
   ...front('centrifuge', centrifuge),
   ...front('electrolyzer', electrolyzer),
 };

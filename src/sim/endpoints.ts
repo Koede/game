@@ -6,6 +6,7 @@
  * - processors (crusher, still, centrifuge, electrolyzer): their recipe inputs go in, products come out;
  * - fuel generators and the fission pile: their fuels go in, nothing comes out;
  * - bore rig: nothing goes in, its buffer comes out;
+ * - drill rig: drill bits go in (slot 0), its buffer comes out;
  * - FURNACE (smart sides): fuel goes to the firebox and smeltables to a working crucible holding the same item or an
  *   empty one (an item that is both - logs, coal - goes to a crucible only when one is already loaded with it);
  *   forge ingredients are refused; out come finished crucible products (locked crucibles too) and containers burned
@@ -164,7 +165,7 @@ function machineItemEndpoint(e: MachineEntity, host: EndpointHost): ItemEndpoint
   if (size === 0) return null;
   const inv = host.machineSlots(e);
   if (e.kind === 'crate') return slotEndpoint(e, inv, 0, size, 0, size);
-  if (isProcessor(e.kind)) return slotEndpoint(e, inv, 0, 1, 1, size);
+  if (isProcessor(e.kind) || e.kind === 'drill_rig') return slotEndpoint(e, inv, 0, 1, 1, size);
   if (spec.fuels && spec.fuels.length > 0) return slotEndpoint(e, inv, 0, size, 0, 0);
   return slotEndpoint(e, inv, 0, 0, 0, size);
 }

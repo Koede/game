@@ -64,7 +64,7 @@ function place(world: FakeWorld, kind: string, x: number, y: number, z: number, 
 
 describe('machine part models', () => {
   it('build consistent geometry for every animated machine', () => {
-    expect(MACHINE_ANIMS.map((a) => a.kind).sort()).toEqual(['bore_rig', 'pump', 'steam_engine', 'steam_turbine', 'water_wheel', 'wind_turbine']);
+    expect(MACHINE_ANIMS.map((a) => a.kind).sort()).toEqual(['bore_rig', 'drill_rig', 'pump', 'steam_engine', 'steam_turbine', 'water_wheel', 'wind_turbine']);
     for (const a of MACHINE_ANIMS) {
       const m = a.build();
       const g = m.geometry;

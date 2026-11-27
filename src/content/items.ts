@@ -152,6 +152,9 @@ const PARTS: ItemSpec[] = [
   { key: 'steel_plate', name: 'Steel Plate', desc: 'Rolled steel sheet for anything that must hold pressure or heat.', category: 'component', age: 2 },
   { key: 'copper_wire', name: 'Copper Wire', desc: 'Drawn copper. The start of every cable, coil and circuit.', category: 'component', age: 0 },
   { key: 'copper_coil', name: 'Copper Coil', desc: 'Wire wound on an iron core. With a coil, motion becomes current and current becomes motion.', category: 'component', age: 2 },
+  // Drill rig bits (src/sim/drillRig.ts): stack 1, `wear` = blocks a bit cuts before it is blunt and used up.
+  { key: 'drill_bit', name: 'Iron Drill Bit', desc: 'A hardened iron auger for the drill rig. It cuts what an iron pickaxe can, 64 blocks before it is blunt.', category: 'component', age: 2, stack: 1, wear: 64 },
+  { key: 'steel_drill_bit', name: 'Steel Drill Bit', desc: 'A steel auger for the drill rig: it cuts what a steel pickaxe can, faster, and lasts 200 blocks.', category: 'component', age: 2, stack: 1, wear: 200 },
   { key: 'chassis', name: 'Chassis', desc: 'An iron frame braced with bronze. Most machines are built around one.', category: 'component', age: 2 },
   { key: 'graphite_electrode', name: 'Graphite Electrode', desc: 'A baked carbon rod that carries an electric arc. Three of them make the Arc Electrode set in the ceiling of an Arc hearth.', category: 'component', age: 2 },
   { key: 'silica', name: 'Silica', desc: 'Crushed quartz, white and gritty. The raw stuff of wafers and fused quartz.', category: 'material', age: 2 },

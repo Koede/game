@@ -14,6 +14,7 @@ import { ItemSlot, SlotGrid } from '../../kit/slot';
 import type { QuickTarget, SlotBinding, SlotController } from '../slots';
 import { pretty } from '../furnace/simApi';
 import { FluidTanks } from './fluidTanks';
+import { bitUses } from '../../../sim';
 import { usesWaterBeside } from './fluidText';
 import { fuelText, headline, machineTone, subline, type MachineLayout } from './machineText';
 
@@ -113,6 +114,12 @@ export class MachinePanel {
         break;
       case 'bore':
         if (this.recipeLine) setText(this.recipeLine, `Depth: y ${view.depthY}`);
+        if (this.second && view.kind === 'drill_rig') {
+          const bit = view.slots[0];
+          const full = bit ? bitUses(bit.item) : 0;
+          const left = bit ? bit.durability ?? full : 0;
+          this.second.set(left, Math.max(1, full), bit ? `${left} of ${full} blocks` : 'No bit');
+        }
         this.meter?.set(view.progress, 1, view.demandW > 0 ? `${Math.round(view.progress * 100)}%` : '');
         break;
       case 'fission':
@@ -198,10 +205,21 @@ export class MachinePanel {
       case 'bore': {
         this.recipeLine = h('span', { class: 'hw-mach__recipe' });
         this.meter = new Meter({ label: 'Current block', tone: 'power' });
-        const grid = new SlotGrid({ count: view.slots.length, columns: 9, label: 'Buffer', minSlotPx: 36 });
+        // The drill rig keeps its bit in slot 0 (src/sim/drillRig.ts); its buffer is the rest.
+        const drill = view.kind === 'drill_rig';
+        const first = drill ? 1 : 0;
+        if (drill) {
+          const bit = this.slot('Bit', 'Drill bit');
+          this.second = new Meter({ label: 'Bit sharpness', tone: 'power' });
+          this.extra.append(
+            h('div', { class: 'hw-mach__row hw-mach__bit' }, bit.el, h('div', { class: 'hw-mach__grow' }, this.second.el, h('p', { class: 'hw-mach__note', text: 'A blunt bit is used up. Keep spares in a crate touching the rig and it fits a fresh one itself.' }))),
+          );
+          if (inv) this.bindings.push(slots.bind({ id: 'machine-in', label: 'Drill bit', inventory: inv, views: [bit], start: 0, quickTo: toBag }));
+        }
+        const grid = new SlotGrid({ count: view.slots.length - first, columns: 9, label: 'Buffer', minSlotPx: 36 });
         this.grids.push(grid);
         this.extra.append(this.recipeLine, this.meter.el, h('h3', { class: 'hw-heading', text: 'Buffer' }), grid.el);
-        if (inv) this.bindings.push(slots.bind({ id: 'machine', label: 'Buffer', inventory: inv, views: grid.slots, quickTo: toBag }));
+        if (inv) this.bindings.push(slots.bind({ id: drill ? 'machine-out' : 'machine', label: 'Buffer', inventory: inv, views: grid.slots, start: first, quickTo: toBag }));
         break;
       }
       case 'fission': {

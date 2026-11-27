@@ -310,7 +310,8 @@
     "steam_pipe": {"age":1,"category":"block","hardness":1.5,"key":"steam_pipe","minTier":0,"tool":"pickaxe"},
     "mill_wheel": {"age":1,"category":"machine","hardness":1.2,"key":"mill_wheel","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
     "windmill": {"age":1,"category":"machine","hardness":1.2,"key":"windmill","minTier":0,"oriented":true,"stack":16,"tool":"pickaxe"},
-    "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"}
+    "steam_tank": {"age":1,"category":"block","hardness":2,"key":"steam_tank","minTier":0,"tool":"pickaxe"},
+    "drill_rig": {"age":2,"hardness":2,"key":"drill_rig","machine":"drill_rig","oriented":true,"power":"device","stack":16,"tool":"pickaxe"}
   },
   "items": {
     "oak_log": {"age":0,"category":"block","fuel":{"burnS":50,"energyJ":200000,"flameTempC":650},"key":"oak_log"},
@@ -430,6 +431,8 @@
     "steel_plate": {"age":2,"category":"component","key":"steel_plate"},
     "copper_wire": {"age":0,"category":"component","key":"copper_wire"},
     "copper_coil": {"age":2,"category":"component","key":"copper_coil"},
+    "drill_bit": {"age":2,"category":"component","key":"drill_bit","stack":1,"wear":64},
+    "steel_drill_bit": {"age":2,"category":"component","key":"steel_drill_bit","stack":1,"wear":200},
     "chassis": {"age":2,"category":"component","key":"chassis"},
     "graphite_electrode": {"age":2,"category":"component","key":"graphite_electrode"},
     "silica": {"age":2,"category":"material","key":"silica"},
@@ -777,6 +780,9 @@
     "blower": {"age":2,"id":"blower","inputs":[{"count":2,"item":"iron_plate"},{"count":1,"item":"copper_coil"},{"count":1,"item":"bellows"}],"kind":"forge","minTempC":900,"minTier":3,"output":{"count":1,"item":"blower"},"station":"furnace"},
     "space_heater": {"age":2,"id":"space_heater","inputs":[{"count":2,"item":"iron_plate"},{"count":1,"item":"copper_coil"}],"kind":"forge","minTempC":900,"minTier":3,"output":{"count":1,"item":"space_heater"},"station":"furnace"},
     "crusher": {"age":2,"id":"crusher","inputs":[{"count":1,"item":"chassis"},{"count":2,"item":"iron_plate"},{"count":1,"item":"copper_coil"},{"count":4,"item":"flint"}],"kind":"forge","minTempC":1000,"minTier":3,"output":{"count":1,"item":"crusher"},"station":"furnace"},
+    "drill_rig": {"age":2,"id":"drill_rig","inputs":[{"count":1,"item":"chassis"},{"count":2,"item":"iron_plate"},{"count":1,"item":"copper_coil"},{"count":2,"item":"iron_axle"}],"kind":"forge","minTempC":1000,"minTier":3,"output":{"count":1,"item":"drill_rig"},"station":"furnace"},
+    "drill_bit": {"age":2,"id":"drill_bit","inputs":[{"count":3,"item":"iron_ingot"},{"count":1,"item":"flint"}],"kind":"forge","minTempC":1000,"minTier":3,"output":{"count":2,"item":"drill_bit"},"station":"furnace"},
+    "steel_drill_bit": {"age":2,"id":"steel_drill_bit","inputs":[{"count":2,"item":"steel_ingot"},{"count":1,"item":"iron_ingot"}],"kind":"forge","minTempC":1300,"minTier":3,"output":{"count":1,"item":"steel_drill_bit"},"station":"furnace"},
     "battery": {"age":2,"id":"battery","inputs":[{"count":2,"item":"iron_plate"},{"count":2,"item":"copper_ingot"},{"count":3,"item":"sulfur"}],"kind":"forge","minTempC":900,"minTier":3,"output":{"count":1,"item":"battery"},"station":"furnace"},
     "steel_ingot": {"age":2,"id":"steel_ingot","inputs":[{"count":2,"item":"iron_ingot"},{"count":1,"item":"coke"},{"count":1,"item":"limestone"}],"kind":"forge","minTempC":1400,"minTier":3,"output":{"count":2,"item":"steel_ingot"},"station":"furnace"},
     "steel_plate": {"age":2,"id":"steel_plate","inputs":[{"count":2,"item":"steel_ingot"}],"kind":"forge","minTempC":1300,"minTier":3,"output":{"count":1,"item":"steel_plate"},"station":"furnace"},
@@ -1132,6 +1138,7 @@
     "space_heater": {"blocks":["space_heater"],"drawW":300,"kind":"space_heater","params":{"warmRadius":6},"role":"consumer"},
     "crusher": {"blocks":["crusher"],"drawW":1000,"kind":"crusher","role":"consumer","slots":2},
     "still": {"blocks":["still"],"drawW":2000,"fluids":{"accepts":["crude_oil"],"capacityL":4000,"gives":["fuel"]},"kind":"still","params":{"fuelPerRunL":400,"oilPerRunL":500,"oilRunS":20},"role":"consumer","slots":2},
+    "drill_rig": {"blocks":["drill_rig"],"drawW":1500,"kind":"drill_rig","params":{"radius":1,"secondsPerBlock":3},"role":"consumer","slots":10},
     "bore_rig": {"blocks":["bore_rig"],"drawW":4000,"kind":"bore_rig","params":{"secondsPerBlock":2,"toolTier":4},"role":"consumer","slots":9},
     "centrifuge": {"blocks":["centrifuge"],"drawW":8000,"kind":"centrifuge","role":"consumer","slots":2},
     "electrolyzer": {"blocks":["electrolyzer"],"drawW":20000,"fluids":{"accepts":["water"],"capacityL":1000},"kind":"electrolyzer","params":{"minWater":1,"pipedWaterLPerS":100},"placementHint":"Must touch water.","role":"consumer","slots":2},

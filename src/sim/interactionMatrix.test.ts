@@ -264,10 +264,18 @@ describe('storage and buffers', () => {
     for (let slot = 0; slot < slots.size; slot++) expect(acceptedBy(slots, slot)).toEqual([]);
   });
 
+  it('the drill rig takes only drill bits, in its bit slot, and gives its buffer out', () => {
+    const kit = makeKit();
+    kit.machine('drill_rig', 0, 5, 0);
+    const slots = kit.sim.machineSlots(0, 5, 0)!;
+    expect(acceptedBy(slots, 0)).toEqual(['drill_bit', 'steel_drill_bit']);
+    for (let slot = 1; slot < slots.size; slot++) expect(acceptedBy(slots, slot)).toEqual([]);
+  });
+
   it('every machine with slots has an inventory rule that matches its role', () => {
     for (const m of MACHINES.values()) {
       if (!m.slots) continue;
-      const rule = m.kind === 'crate' ? 'crate' : (m.fuels?.length ?? 0) > 0 ? 'fuel' : isProcessor(m.kind) ? 'processor' : m.kind === 'bore_rig' || m.kind === 'casting_bench' ? 'out' : 'unknown';
+      const rule = m.kind === 'crate' ? 'crate' : (m.fuels?.length ?? 0) > 0 ? 'fuel' : isProcessor(m.kind) ? 'processor' : m.kind === 'bore_rig' || m.kind === 'casting_bench' ? 'out' : m.kind === 'drill_rig' ? 'bit'  : 'unknown';
       expect(rule, `${m.kind} has slots but no accept rule in the matrix`).not.toBe('unknown');
     }
   });

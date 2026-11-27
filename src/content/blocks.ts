@@ -238,6 +238,7 @@ const LEGACY_BLOCKS: BlockSpec[] = [
   machine('space_heater', 'Space Heater', 'A glowing coil that keeps a room warm for as long as it has power.', 2, { warmthActive: 6, lightActive: 6 }),
   machine('crusher', 'Crusher', 'Grinds ore to powder: two portions from every block, and the only way to work quartz, bauxite and the deep ores.', 2),
   machine('still', 'Still', 'Cooks oil shale down into canisters of fuel.', 3),
+  machine('drill_rig', 'Drill Rig', 'An electric rig that drills out a 3 by 3 shaft beneath it, layer by layer. It needs a drill bit, which blunts as it cuts.', 2),
   machine('bore_rig', 'Bore Rig', 'Drills straight down, block after block, and keeps whatever it finds.', 3),
   machine('centrifuge', 'Centrifuge', 'Spins yellowcake until only the potent fraction is left.', 4),
   machine('electrolyzer', 'Electrolyzer', 'Splits water with a great deal of power and bottles the heavy hydrogen. It must touch water.', 4),

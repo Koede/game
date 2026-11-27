@@ -6,6 +6,7 @@ import type { MachineRole, RecipeDef, Slot } from '../core/types';
 import { formatWatts } from '../game/objectives';
 import type { FluidStack, FurnaceEntity, MachineEntity, SimNode } from './entities';
 import { pileCooled } from './fission';
+import { bitUses, bitUsesLeft } from './drillRig';
 import { fluidStatus, oilProgress } from './fluidMachines';
 import { fuelEnergyJ, holdsFuel, isProcessor, itemName, placementProblem } from './machines';
 import { hearthName } from './hearthScan';
@@ -117,7 +118,7 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
     }
     return `${formatWatts(e.outW)} of ${formatWatts(e.availW)} in use`;
   }
-  if (e.kind === 'bore_rig') {
+  if (e.kind === 'bore_rig' || e.kind === 'drill_rig') {
     if (e.halted !== '') return e.halted;
     if (e.demandW <= 0) return 'Buffer full';
   } else if (isProcessor(e.kind)) {
@@ -131,6 +132,7 @@ function machineStatus(node: SimNode, v: MachineView, around: MachineSurrounding
   }
   if (e.demandW > 0 && v.satisfaction < BROWNOUT_STALL) return v.satisfaction > 0 ? 'Not enough power' : 'No power';
   if (e.kind === 'bore_rig') return `Boring at depth ${e.depthY}`;
+  if (e.kind === 'drill_rig') return `Drilling at depth ${e.depthY} - bit ${bitUsesLeft(e)} of ${bitUses(e.slots[0]?.item ?? '')} left`;
   if (v.recipe) return `Making ${itemName(v.recipe.output.item)} - ${Math.round(v.progress * 100)}%`;
   return v.satisfaction < 1 ? `Running at ${Math.round(v.satisfaction * 100)}% power` : 'Running';
 }
@@ -140,7 +142,7 @@ export function machineView(node: SimNode, around: MachineSurroundings = {}): Ma
   const spec = node.spec;
   const consumer = spec.role === 'consumer';
   const r = e.recipe ? recipe(e.recipe) : null;
-  const span = e.kind === 'bore_rig' ? spec.params?.secondsPerBlock ?? 1 : r ? r.timeS : 1;
+  const span = e.kind === 'bore_rig' || e.kind === 'drill_rig' ? spec.params?.secondsPerBlock ?? 1 : r ? r.timeS : 1;
   const slot = e.slots[0];
   const fuelJ = spec.fuels && spec.fuels.length > 0 ? e.fuelJ + (slot ? slot.count * fuelEnergyJ(spec, slot.item) : 0) : 0;
   const wears = wearsOut(e.kind);

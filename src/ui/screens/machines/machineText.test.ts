@@ -22,6 +22,7 @@ describe('machine layouts', () => {
     expect(machineLayout('crusher', 'consumer')).toBe('processor');
     expect(machineLayout('electrolyzer', 'consumer')).toBe('processor');
     expect(machineLayout('bore_rig', 'consumer')).toBe('bore');
+    expect(machineLayout('drill_rig', 'consumer')).toBe('bore');
     expect(machineLayout('lamp', 'consumer')).toBe('consumer');
     expect(machineLayout('blower', 'consumer')).toBe('consumer');
   });

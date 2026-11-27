@@ -22,7 +22,7 @@ export type Condition = 'kept' | 'good' | 'worn' | 'failing' | 'broken';
 
 /** Machine kinds that wear while they run: the ones with moving parts. Lamps, batteries, crates, tanks and the like do not. */
 const WEARING = new Set([
-  'crusher', 'still', 'centrifuge', 'electrolyzer', 'bore_rig', 'blower', 'burner_generator', 'combustion_engine',
+  'crusher', 'still', 'centrifuge', 'electrolyzer', 'bore_rig', 'drill_rig', 'blower', 'burner_generator', 'combustion_engine',
   'steam_engine', 'wind_turbine', 'water_wheel',
 ]);
 

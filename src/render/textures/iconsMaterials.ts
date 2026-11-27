@@ -149,6 +149,20 @@ function copperWire(c: Canvas): void {
   c.line(12, 10, 14, 14, P.COPPER[3]);
 }
 
+/** A drill bit: a fluted auger with a shank; the steel one is bluer and has a brass collar. */
+function drillBitOf(metal: Ramp, collar: RGB): Painter {
+  return (c: Canvas) => {
+    c.rect(7, 1, 2, 4, metal[1]);
+    c.rect(7, 1, 1, 4, metal[3]);
+    c.rect(6, 5, 4, 1, collar);
+    for (let y = 6; y <= 13; y++) {
+      const w = y > 11 ? 1 : 2;
+      for (let x = 8 - w; x < 8 + w; x++) c.set(x, y, (x + y) % 3 === 0 ? metal[4] : (x + y) % 3 === 1 ? metal[2] : metal[1]);
+    }
+    c.set(8, 14, metal[4]);
+  };
+}
+
 function copperCoil(c: Canvas): void {
   // Windings on a drum between two iron cheeks.
   for (let x = 3; x <= 12; x++) {
@@ -205,6 +219,8 @@ export const MATERIAL_ICONS: PainterSet = {
   item_fused_quartz: icon(fusedQuartz),
   item_copper_wire: icon(copperWire),
   item_copper_coil: icon(copperCoil),
+  item_drill_bit: icon(drillBitOf(P.IRON_METAL, P.IRON_METAL[0])),
+  item_steel_drill_bit: icon(drillBitOf(P.STEEL, P.AMBER[3])),
   item_graphite_electrode: icon(graphiteElectrode),
   item_tungsten_rod: icon(tungstenRod),
 };

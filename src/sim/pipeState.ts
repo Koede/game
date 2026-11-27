@@ -95,7 +95,7 @@ export function defaultMode(family: Family, def: BlockDef, pipe: BlockDef | null
     const hot = (key: string): boolean => fluidOrNull(key)?.hot ?? false;
     return pipe?.pipe?.hot && gives.some(hot) && !accepts.some(hot) ? 'pull' : 'push';
   }
-  return spec.kind === 'bore_rig' ? 'pull' : 'push';
+  return spec.kind === 'bore_rig' || spec.kind === 'drill_rig' ? 'pull' : 'push';
 }
 
 export const defaultConfig = (mode: PortMode): PortConfig => ({ mode, distribution: 'nearest', filter: [], filterMode: 'deny', priority: 0 });

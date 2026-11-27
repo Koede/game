@@ -14,6 +14,7 @@ import { addToSlots, roomInSlots, type FurnaceEntity, type MachineEntity, type S
 import { heldL, pipedWater, useFluid } from './fluidUse';
 import { powered } from './power';
 import { addWear, isBroken, speedOf, wearsOut } from './wear';
+import { drillRig } from './drillRig';
 
 export interface Behaviour {
   prepare(node: SimNode, ctx: SimContext): void;
@@ -441,6 +442,7 @@ const BEHAVIOURS: Record<string, Behaviour> = {
   grid_monitor: simpleConsumer,
   blower,
   bore_rig: boreRig,
+  drill_rig: drillRig,
 };
 
 /** The behaviour of a machine kind (the fission pile has its own file). Unknown kinds do nothing. */

@@ -170,6 +170,32 @@ function boreRig(): PartModel {
   return b.build();
 }
 
+/**
+ * The drill rig: a squat four-post tower with a turning gear on top, and the drill string down the middle of the
+ * 3 by 3 shaft it cuts, ending in a wide three-armed reamer that sweeps the layer it is working.
+ */
+function drillRig(): PartModel {
+  const b = new ModelBuilder();
+  const s = b.assembly([0, 0, 0], IDENTITY, Motion.Static);
+  for (const [x, z] of [[0.4, 0.4], [-0.4, 0.4], [0.4, -0.4], [-0.4, -0.4]]) s.box([x, 1.24, z], [0.08, 0.48, 0.08], DARK);
+  s.box([0, 1.5, 0], [0.9, 0.06, 0.9], DARK).box([0, 1.56, 0], [0.3, 0.06, 0.3], STEEL);
+  const down = rotX(HALF_PI);
+  b.assembly([0, 0, 0], down, Motion.Spin)
+    .box([0, 0, -1.3], [0.14, 0.14, 0.5], STEEL)
+    .box([0, 0, -1.66], [0.5, 0.5, 0.06], BRASS)
+    .box([0, 0, -1.66], [0.62, 0.08, 0.05], BRASS);
+  b.assembly([0, 0, 0], down, Motion.Stretch)
+    .box([0, 0, 0.5], [0.12, 0.12, 1], STEEL)
+    .box([0.08, 0, 0.5], [0.04, 0.03, 1], DARK);
+  b.assembly([0, 0, 0], down, Motion.Follow)
+    .box([0, 0, 1.04], [0.2, 0.2, 0.08], BRASS)
+    .box([0, 0, 1.2], [0.26, 0.26, 0.28], DARK)
+    .box([0, 0, 1.3], [2.4, 0.12, 0.12], STEEL)
+    .box([0, 0, 1.3], [0.12, 2.4, 0.12], STEEL)
+    .box([0, 0, 1.42], [0.16, 0.16, 0.14], BRASS);
+  return b.build();
+}
+
 /** A cylinder on the pump's top and a rod that bobs gently in it. */
 function pump(): PartModel {
   const b = new ModelBuilder();
@@ -206,6 +232,12 @@ export const MACHINE_ANIMS: readonly MachineAnim[] = [
     kind: 'bore_rig', build: boreRig, centerY: 0.9, radius: 1.2, probeY: 1.5, shake: 0.012,
     speed: (e, active) => 6 * workShare(e, active),
     // From the block's bottom to just inside the last block mined (a bit's length shorter: the bit follows it).
+    extent: (e) => Math.max(0.05, e.y - (typeof e.depthY === 'number' ? e.depthY : e.y) - 0.55),
+  },
+  {
+    kind: 'drill_rig', build: drillRig, centerY: 0.9, radius: 1.6, probeY: 1.4, shake: 0.01,
+    speed: (e, active) => 4 * workShare(e, active),
+    // Down the centre column to the layer it works (the reamer follows the string's end).
     extent: (e) => Math.max(0.05, e.y - (typeof e.depthY === 'number' ? e.depthY : e.y) - 0.55),
   },
   {

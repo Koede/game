@@ -287,6 +287,15 @@ export const MACHINE_SPECS: MachineSpec[] = [
     fluids: { accepts: ['crude_oil'], gives: ['fuel'], capacityL: 4000 },
     desc: 'Draws 2 kW. Every 20 seconds it cooks two oil shale into a fuel canister, or 500 litres of piped crude oil into 400 of fuel.',
   },
+  // drill_rig - slots: 10. Slot 0 holds the drill bit (src/sim/drillRig.ts), 1-9 are the buffer its finds go to; it
+  // pauses while that is full and stops without a bit. params:
+  //   secondsPerBlock  time to cut one block with an iron bit (a steel bit is faster, see BITS)
+  //   radius           half-width of the shaft: 1 = 3 by 3 blocks under the rig
+  {
+    kind: 'drill_rig', name: 'Drill Rig', role: 'consumer', blocks: ['drill_rig'], drawW: 1500, slots: 10,
+    params: { secondsPerBlock: 3, radius: 1 },
+    desc: 'Draws 1.5 kW. It drills out the 3 by 3 shaft beneath it, a block every 3 seconds, into its 9 slots. It needs a drill bit, which blunts and is used up; it takes a fresh one from a touching crate.',
+  },
   // bore_rig - slots: 9, the buffer its finds go to; it pauses while that is full. params:
   //   secondsPerBlock  time to mine one block of the column below it
   //   toolTier         tool tier it mines with. A block that needs more (pitchblende, corium) stops it the way

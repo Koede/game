@@ -11,7 +11,7 @@ export type MachineLayout = 'generator' | 'burner' | 'processor' | 'consumer' | 
 export function machineLayout(kind: string, role: MachineRole): MachineLayout {
   if (role === 'crate' || kind === 'crate') return 'crate';
   if (kind === 'fission_pile') return 'fission';
-  if (kind === 'bore_rig') return 'bore';
+  if (kind === 'bore_rig' || kind === 'drill_rig') return 'bore';
   if (role === 'storage') return 'storage';
   if (role === 'tank') return 'tank';
   if (role === 'boiler') return 'boiler';

@@ -9,6 +9,7 @@ import { ALLOY_POT } from './casting';
 import { crucibleRecipe } from './furnace';
 import type { FurnaceStats } from './hearthStats';
 import { fuelEnergyJ, isProcessor, machineRecipeFor } from './machines';
+import { BIT_SLOT, isDrillBit } from './drillRig';
 
 export interface FurnaceSlots {
   /** Firebox: accepts only fuels. */
@@ -47,7 +48,7 @@ export class SlotAccess {
 
   /**
    * A machine's slots. Crates accept anything; fuel generators only their fuels; processors only their recipe
-   * inputs in slot 0 (slot 1 is the output); the bore rig's buffer is take-only.
+   * inputs in slot 0 (slot 1 is the output); the bore rig's buffer is take-only; the drill rig takes only drill bits, in slot 0.
    */
   machine(e: MachineEntity): Inventory {
     let inv = this.machines.get(e);
@@ -55,6 +56,7 @@ export class SlotAccess {
       const spec = machine(e.kind);
       if (e.kind === 'crate') inv = Inventory.over(e.slots);
       else if (spec.fuels && spec.fuels.length > 0) inv = Inventory.over(e.slots, { accept: (item) => fuelEnergyJ(spec, item) > 0 });
+      else if (e.kind === 'drill_rig') inv = Inventory.over(e.slots, { accept: (item, slot) => slot === BIT_SLOT && isDrillBit(item) });
       else if (isProcessor(e.kind)) inv = Inventory.over(e.slots, { accept: (item, slot) => slot === 0 && machineRecipeFor(e.kind, item) !== null });
       else inv = Inventory.over(e.slots, { takeOnly: true });
       this.machines.set(e, inv);
